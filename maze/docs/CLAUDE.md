@@ -156,15 +156,21 @@ silence at `sfxRangeTiles`, measured in tiles walked rather than line of sight.
 Only `AUDIO.swing()` uses it — every other sound is triggered by the player and
 so is always at their feet. Give any new autonomous sound its tile.
 
-**The Turns debug menu (v0.37.0)** — Auto / Fewer / Least — is an experiment
+**The Turns debug menu (v0.37.0, Sparse added in v0.38.0)** — Auto / Fewer / Sparse / Least — is an experiment
 in whether longer halls with fewer forks make players reach for chalk. Two new
 `CONFIG` knobs drive it, both off in Auto so generation there is bit-identical
 to v0.36.0: `hallStraightness` biases the carver to carry on in the direction it
 arrived from instead of turning, and `hallFill` carves the whole grid and then
 prunes dead-end leaves back until only that share is corridor, leaving the rest
-solid wall. `turnsPresets` holds the two menu presets (Fewer 0.85 / 1.0, Least
-0.95 / 0.55); each also sets a branchiness used when Branching is Auto, so
-Least no longer needs Long halls to be picked alongside it. Pruning never
+solid wall. `turnsPresets` holds the menu presets (Fewer 0.85 / 1.0, Sparse
+0.65 / 0.65, Least 0.95 / 0.55); each also sets a branchiness used when
+Branching is Auto, so Least no longer needs Long halls to be picked alongside
+it. **Sparse is the one to reach for.** Least made the halls long enough to
+want chalk but too long to enjoy walking; Sparse keeps its dead space and
+halves the run length, so the corridors bend about twice as often. It also
+leaves 40 dead ends per X-Large map against Least's 12, which matters because
+dead ends are where chalk spawns — Least quietly starves the map of the very
+thing it makes you want. Pruning never
 touches the start block and its ring or the three exit corners, and rooms are
 re-rolled until they touch corridor, so the invariants hold — the harness runs
 with `--turns least` to prove it. The chosen mode is part of the run signature,
@@ -173,9 +179,73 @@ result: on X-Large, Least uses about 59% of the grid, cuts turns-plus-junctions
 from ~700 to ~180 and dead ends from ~170 to ~12, and the mean straight run
 goes from 3 cells to about 7.
 
-**Known open bug:** roughly 1.4% of mazes with locked doors are unfinishable —
-a door's key can land in a sealed pocket behind that same door. Reproduce with
+## Districts (v0.38.0)
+
+Patches of maze with a character of their own, so a map does not feel the same
+all the way through. They are stamped after the halls and the rooms are carved,
+over the patches that already twist the most, and the **Districts** debug menu
+picks between Auto, Off, and forcing every district to one heart.
+
+A district is filled in first — dead space inside it comes back as floor — then
+its interior links are re-cut to its heart. Six hearts, in
+`CONFIG.clusterHearts`:
+
+| Heart | What it is |
+| --- | --- |
+| `rings` | Nested rectangular loops, joined to each other in one place only. You keep coming round to where you were. |
+| `thicket` | A knot of short branching paths and junctions, with no long sight lines. |
+| `comb` | A spine with long dead-end teeth off alternating sides. |
+| `lattice` | Every link open — a field of single-tile pillars with no landmarks at all. |
+| `squeeze` | Sparse halls where most of the walls between them are crawl gaps. Child phase only, since only the Child fits through. |
+| `shifting` | A dense double comb where nearly every stub is a moving block. Needs a phase with pockets or swings. |
+
+`squeeze` and `shifting` do not carve their furniture themselves. They mark
+their ground, and the crawl-gap and slider steps further down `generate()`
+serve those districts first and are allowed `clusterCrawlGaps` /
+`clusterSliders` extra each, so a district does not eat the map's usual quota.
+
+**Why they cannot break a maze.** Only links with both ends inside the patch
+are ever cut, so every way in and out survives untouched; afterwards the whole
+patch is spanned by a random tree, so nothing inside is stranded. A district
+can add floor and add connections; it can never take a connection away. That
+argument is now enforced by a new invariant, `no corridor is cut off`, which
+asserts every floor tile in the maze is walkable from the mat.
+
+Districts keep clear of the start room and its ring, all three candidate exit
+corners, each other, and the rooms — a district overlapping a room would wall
+the room back up.
+
+**They are on by default**, one per medium maze and scaling with area, so
+X-Large gets four and Small gets one. `Districts → Off` in the debug menu turns
+them off, and with them off generation is bit-identical to v0.37.0 — the sweep
+finds the same 10 soft-locked seeds. Turning them on consumes from the random
+stream, so every seed produces a different maze.
+
+**Known open bug, and districts made it four times more likely.** A door's key
+can land in a sealed pocket behind that same door, and the maze is then
+unfinishable. Districts raise the count from **10 unfinishable mazes in 1920 to
+40**. Forcing one heart everywhere, per 1920: rings 14, comb 23, lattice 23,
+shifting 30. Comb adds neither loops nor pockets and still doubles it, so this
+is not a mechanism belonging to any one heart — it is that re-carving near the
+route leaves the door placer fewer gaps that truly sever it, so doors crowd
+into choke points and the section behind a door more often holds nothing but
+its own pocket.
+
+The fix still belongs in the key scorer in `generate()`, which does not check
+which side of the door a pocket lies on. Deferred at Joe's request, and not
+touched here. Two things make it liveable in the meantime: **The Child has no
+locked doors at all**, so the level Joe is testing chalk on cannot soft-lock;
+and `Districts → Off`, or `CONFIG.clusters: 0`, returns the rate to 10 in 1920
+exactly. Reproduce the original with
 `node maze/tools/diagnose.mjs --phase 1 --seed 301922 --stones 7`.
+
+**A bug the new invariant caught on the way in.** `braid` opened a gap from any
+cell with exactly one open neighbour toward any in-bounds cell, checking
+neither end was actually floor. On a full grid both always are, so Auto was
+never affected — but Sparse and Least prune cells away, and braid would join
+two pruned cells and leave a floor tile walled in on both sides that nobody can
+ever stand on. Five mazes in 576 under Sparse. Fixed in v0.38.0 by requiring
+both ends open, which changes no Auto seed and reshuffles Sparse and Least.
 
 ## Repo facts that bite
 

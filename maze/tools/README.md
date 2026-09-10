@@ -33,11 +33,16 @@ node maze/tools/harness.mjs --seeds 40             # bigger sweep
 node maze/tools/harness.mjs --phase 2 --seed 1000  # reproduce one maze
 node maze/tools/harness.mjs --pool                 # pool levels only
 node maze/tools/harness.mjs --turns least          # with a Turns debug preset
+node maze/tools/harness.mjs --clusters lattice    # every district forced to one heart
+node maze/tools/harness.mjs --clusters off        # districts off: the v0.37.0 baseline
 ```
 
-`--turns fewer|least` sets `SAVE.ui.turns` before generating, exactly as the
-Turns menu does, so the pruned, straightened carver is swept by the same checks.
-Without it the sweep is Auto and must still find the same 10 soft-locked seeds.
+`--turns fewer|sparse|least` sets `SAVE.ui.turns` before generating, exactly as
+the Turns menu does, so the pruned, straightened carver is swept by the same
+checks. `--clusters` does the same for the Districts menu, and the sweep prints
+a tally of which hearts got stamped. With `--clusters off` the sweep must still
+find the same 10 soft-locked seeds, which is how v0.38.0 proved that districts
+are the only thing it changed about generation.
 
 Every failure prints the phase, stone count and seed, plus the exact command to
 reproduce it.
@@ -62,6 +67,15 @@ the recentering ease went missing for two versions while every frame still
 rendered. It also checks every id the script reaches for still exists, after the
 CSS range-replacement that once left the game paused on an invisible card.
 
+**`no corridor is cut off`** is the invariant that guards districts: every floor
+tile must be walkable from the mat, so a re-carve that cut a link it did not own
+would show up as orphaned corridor rather than as a maze that merely looks odd.
+It passes on the v0.37.0 baseline too, so it is a real invariant and not a
+description of the new code — and it immediately caught a latent one: `braid`
+would join two pruned cells and leave a floor tile walled in on both sides, in
+5 of 576 Sparse mazes. Auto never had it, because a full grid has no pruned
+cells to join.
+
 **`selftest.mjs`** breaks a known-good maze eleven ways and asserts the right
 check notices each one. A check that can never fail is worse than no check, so
 run this after editing `checks.mjs`.
@@ -75,10 +89,23 @@ node maze/tools/diagnose.mjs --phase 1 --seed 301922 --stones 7
 
 ## Known failure
 
-`harness.mjs` currently reports **10 unfinishable mazes in 1920** — about 1.4%
-of the mazes that have locked doors. The key for a door is sometimes placed in a
-sealed pocket that lies behind that same door, so the door can never be opened
-and the exit can never be reached.
+`harness.mjs` reports **40 unfinishable mazes in 1920** as shipped, and **10 in
+1920** with `--clusters off`. The key for a door is sometimes placed in a sealed
+pocket that lies behind that same door, so the door can never be opened and the
+exit can never be reached.
+
+Districts quadrupled it, and not by adding pockets or loops — `comb` adds
+neither and still doubles it. Re-carving near the route leaves the door placer
+fewer gaps that truly sever it, so doors crowd into choke points and the
+section behind a door more often holds nothing but its own pocket. Forcing one
+heart everywhere, over 1920 mazes each:
+
+```
+off 10    rings 14    comb 23    lattice 23    shifting 30    (auto mix) 40
+```
+
+The Child has no locked doors, so that level cannot soft-lock whatever the
+districts do.
 
 `docs/HANDOFF.md` §4 says keys are hidden by score, "sealed pockets best of
 all". The scorer appears not to check that the pocket is on the near side of the
@@ -129,13 +156,27 @@ record exactly what was moved and how it was checked.
 
 `hall-metrics.mjs` measures what the Turns presets actually do to the maze at
 cell level — share of the grid used, turns and junctions, dead ends, mean and
-longest straight run, route length — averaged over seeds, for Auto, Fewer and
-Least side by side. `--shot least out.png` also captures the game's own Full
-map view of one seed, so a number can be checked against the picture.
+longest straight run, route length — averaged over seeds, for Auto, Fewer,
+Sparse and Least side by side. `--shot sparse out.png` also captures the game's
+own Full map view of one seed, so a number can be checked against the picture.
+
+Districts are **off** in this tool by default, so the table compares the carver
+alone; `--clusters auto` or `--clusters <heart>` includes them.
 
 ```
 node maze/tools/hall-metrics.mjs --size xl --seeds 8
-node maze/tools/hall-metrics.mjs --size xl --shot least least.png
+node maze/tools/hall-metrics.mjs --size xl --clusters lattice --shot sparse out.png
+```
+
+X-Large, Child phase, districts off, mean of 8 seeds:
+
+```
+                        Auto      Fewer     Sparse    Least
+  grid used             100%      100%      68%       59%
+  turns + junctions     702       383       345       182
+  dead ends             171       73        40        12
+  mean straight run     2.9       4.8       3.9       6.7   cells
+  longest straight run  11        28        17        36    cells
 ```
 
 ## Audio tools

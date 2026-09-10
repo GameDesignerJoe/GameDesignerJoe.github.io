@@ -37,20 +37,21 @@ const ONE_SEED = arg('seed', null);
 const POOL_ONLY = flag('pool');
 const PORT = Number(arg('port', 8765));
 const VERBOSE = flag('verbose');
-const TURNS = arg('turns', null);   // 'fewer' | 'least' — the Turns debug preset
+const TURNS = arg('turns', null);        // 'fewer' | 'sparse' | 'least' — the Turns debug preset
+const CLUSTERS = arg('clusters', null);  // 'off' | a heart name — the Districts debug preset
 const URL = `http://127.0.0.1:${PORT}/maze/maze-topdown.html`;
 
 import { K, flood, openTiles, CHECKS } from './checks.mjs';
 
 // ── run ──────────────────────────────────────────────────────────
-const snapshotInPage = (phaseIdx, stones, pool, seed, turns) => {
+const snapshotInPage = (phaseIdx, stones, pool, seed, turns, clusterOpt) => {
   // Runs inside the page. Sets up SAVE the way a fresh run would, generates,
   // then hands back a plain-JSON picture of the maze.
   SAVE.phase = phaseIdx;
   SAVE.stones = stones;
   SAVE.poolPending = pool;
   SAVE.collected = {};
-  SAVE.ui = turns ? { turns } : {};
+  SAVE.ui = {}; if (turns) SAVE.ui.turns = turns; if (clusterOpt) SAVE.ui.clusters = clusterOpt;
   generate(seed);
   return {
     seed, phaseIdx, stones,
@@ -67,6 +68,7 @@ const snapshotInPage = (phaseIdx, stones, pool, seed, turns) => {
     chalkSpots: [...chalkSpots], charcoalSpots: [...charcoalSpots], scrapSpots: [...scrapSpots],
     keySpot, lampSpot, gated,
     doors: doors.map((d) => ({ x: d.x, y: d.y, shape: d.shape, onRoute: !!d.onRoute })),
+    districts: clusters.map((c) => ({ heart: c.heart, tx0: c.tx0, ty0: c.ty0, tx1: c.tx1, ty1: c.ty1 })),
     innerKeys: [...innerKeys.entries()],
     pockets: pockets.map(([x, y]) => [x, y]),
     sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, atStart: !!sl.atStart, onPath: !!sl.onPath })),
@@ -102,11 +104,12 @@ const seedList = ONE_SEED !== null
 
 const results = new Map(CHECKS.map(([name]) => [name, { pass: 0, fail: [], skip: 0 }]));
 let cases = 0, withDoors = 0, doorTotal = 0;
+const districtTally = new Map();
 
 console.log(`The Maze — generation harness`);
 console.log(`  game v${version} at ${URL}`);
 console.log(`  ${phases.length} phase(s) × ${stoneSets.length} stone set(s) × ${seedList.length} seed(s)`
-  + (POOL_ONLY ? ', pool levels only' : '') + (TURNS ? `, Turns = ${TURNS}` : ''));
+  + (POOL_ONLY ? ', pool levels only' : '') + (TURNS ? `, Turns = ${TURNS}` : '') + (CLUSTERS ? `, Districts = ${CLUSTERS}` : ''));
 console.log('');
 
 for (const phaseIdx of phases) {
@@ -116,8 +119,8 @@ for (const phaseIdx of phases) {
         let snap;
         try {
           snap = await page.evaluate(
-            ([p, st, po, sd, tu, src]) => new Function('return ' + src)()(p, st, po, sd, tu),
-            [phaseIdx, stones, pool, seed, TURNS, snapshotInPage.toString()],
+            ([p, st, po, sd, tu, cl, src]) => new Function('return ' + src)()(p, st, po, sd, tu, cl),
+            [phaseIdx, stones, pool, seed, TURNS, CLUSTERS, snapshotInPage.toString()],
           );
         } catch (e) {
           console.log(`  GENERATE THREW  phase ${phaseIdx} stones ${stones} pool ${pool} seed ${seed}`);
@@ -126,6 +129,7 @@ for (const phaseIdx of phases) {
         }
         cases++;
         if (snap.doors.length) { withDoors++; doorTotal += snap.doors.length; }
+        for (const d of snap.districts) districtTally.set(d.heart, (districtTally.get(d.heart) || 0) + 1);
         for (const [name, fn] of CHECKS) {
           const r = results.get(name);
           let verdict;
@@ -142,7 +146,10 @@ for (const phaseIdx of phases) {
 // ── report ───────────────────────────────────────────────────────
 console.log('');
 console.log(`${cases} mazes generated, ${CHECKS.length} checks each`);
-console.log(`${withDoors} of them carry locked doors (${doorTotal} doors in all)\n`);
+console.log(`${withDoors} of them carry locked doors (${doorTotal} doors in all)`);
+console.log(districtTally.size
+  ? `districts stamped: ${[...districtTally].sort((a, b) => b[1] - a[1]).map(([h, n]) => `${h} ${n}`).join(', ')}\n`
+  : 'no districts stamped\n');
 let failed = 0;
 for (const [name, r] of results) {
   const n = r.fail.length;

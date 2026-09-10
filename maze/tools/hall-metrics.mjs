@@ -3,9 +3,13 @@
 // turns and junctions there are, how long the straight runs get — so a change
 // to the carver can be judged by numbers, not by squinting at the map.
 //
-//   node maze/tools/hall-metrics.mjs                    # Auto vs Fewer vs Least
+//   node maze/tools/hall-metrics.mjs                    # Auto vs Fewer vs Sparse vs Least
 //   node maze/tools/hall-metrics.mjs --size xl --seeds 12
 //   node maze/tools/hall-metrics.mjs --shot least out.png   # also screenshot the full map
+//   node maze/tools/hall-metrics.mjs --clusters lattice --shot sparse out.png   # with districts
+//
+// Districts are off by default here, so the table compares the carver alone. Pass
+// --clusters auto (or a heart name) to see what they do to the same numbers.
 //
 // Everything is measured at cell level (every other tile), where the maze is a
 // graph: a cell with two neighbours in a line is corridor, two at right angles
@@ -19,6 +23,7 @@ const PORT = Number(arg('port', 8765));
 const SIZE = arg('size', 'xl');
 const SEEDS = Number(arg('seeds', 8));
 const SHOT = arg('shot', null);
+const CLUSTERS = arg('clusters', 'off');
 const SHOT_OUT = SHOT ? argv[argv.indexOf('--shot') + 2] : null;
 
 const browser = await chromium.launch({
@@ -28,9 +33,9 @@ const page = await browser.newPage({ viewport: { width: 430, height: 930 }, hasT
 await page.goto(`http://127.0.0.1:${PORT}/maze/maze-topdown.html?seed=1`, { waitUntil: 'load' });
 await page.waitForTimeout(900);
 
-const measure = (turns, size, seed) => {
+const measure = (turns, size, seed, clusterOpt) => {
   SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; SAVE.collected = {};
-  SAVE.ui = { size, turns: turns === 'auto' ? undefined : turns };
+  SAVE.ui = { size, turns: turns === 'auto' ? undefined : turns, clusters: clusterOpt };
   generate(seed);
   const cells = CONFIG.cols * CONFIG.rows;
   const TX = (c) => c * 2 + 1 + P;
@@ -66,12 +71,12 @@ const measure = (turns, size, seed) => {
   };
 };
 
-const modes = ['auto', 'fewer', 'least'];
+const modes = ['auto', 'fewer', 'sparse', 'least'];
 const seeds = Array.from({ length: SEEDS }, (_, i) => 5000 + i * 104729);
 const table = {};
 for (const m of modes) {
   const rows = [];
-  for (const sd of seeds) rows.push(await page.evaluate(([f, t, s, d]) => new Function('return ' + f)()(t, s, d), [measure.toString(), m, SIZE, sd]));
+  for (const sd of seeds) rows.push(await page.evaluate(([f, t, s, d, c]) => new Function('return ' + f)()(t, s, d, c), [measure.toString(), m, SIZE, sd, CLUSTERS]));
   const avg = (k) => rows.reduce((a, r) => a + r[k], 0) / rows.length;
   table[m] = { fill: avg('fill'), open: avg('open'), cells: rows[0].cells, turnsPer100: avg('turnsPer100'),
     turn: avg('turn'), junction: avg('junction'), dead: avg('dead'), meanRun: avg('meanRun'), longest: avg('longest'),
@@ -80,29 +85,30 @@ for (const m of modes) {
 
 const pct = (v) => (100 * v).toFixed(0) + '%';
 const f1 = (v) => v.toFixed(1);
-console.log(`corridor shape — size ${SIZE}, Child phase, mean of ${SEEDS} seeds  (${table.auto.cells} cells)\n`);
-console.log('                        Auto      Fewer     Least');
-console.log(`  grid used             ${pct(table.auto.fill).padEnd(9)} ${pct(table.fewer.fill).padEnd(9)} ${pct(table.least.fill)}`);
-console.log(`  turns + junctions     ${f1(table.auto.turn + table.auto.junction).padEnd(9)} ${f1(table.fewer.turn + table.fewer.junction).padEnd(9)} ${f1(table.least.turn + table.least.junction)}`);
-console.log(`    per 100 corridor    ${f1(table.auto.turnsPer100).padEnd(9)} ${f1(table.fewer.turnsPer100).padEnd(9)} ${f1(table.least.turnsPer100)}`);
-console.log(`  junctions (forks)     ${f1(table.auto.junction).padEnd(9)} ${f1(table.fewer.junction).padEnd(9)} ${f1(table.least.junction)}`);
-console.log(`  dead ends             ${f1(table.auto.dead).padEnd(9)} ${f1(table.fewer.dead).padEnd(9)} ${f1(table.least.dead)}`);
-console.log(`  mean straight run     ${f1(table.auto.meanRun).padEnd(9)} ${f1(table.fewer.meanRun).padEnd(9)} ${f1(table.least.meanRun)}   cells`);
-console.log(`  longest straight run  ${f1(table.auto.longest).padEnd(9)} ${f1(table.fewer.longest).padEnd(9)} ${f1(table.least.longest)}   cells`);
-console.log(`  route start→exit      ${f1(table.auto.route).padEnd(9)} ${f1(table.fewer.route).padEnd(9)} ${f1(table.least.route)}   tiles`);
-console.log(`  rooms / doors / pockets  ${f1(table.auto.rooms)}/${f1(table.auto.doors)}/${f1(table.auto.pockets)}   `
-  + `${f1(table.fewer.rooms)}/${f1(table.fewer.doors)}/${f1(table.fewer.pockets)}   ${f1(table.least.rooms)}/${f1(table.least.doors)}/${f1(table.least.pockets)}`);
+const col = (fn) => modes.map((m) => String(fn(table[m])).padEnd(10)).join('');
+console.log(`corridor shape — size ${SIZE}, Child phase, mean of ${SEEDS} seeds  (${table.auto.cells} cells)`);
+console.log(`districts: ${CLUSTERS}\n`);
+console.log('                        ' + modes.map((m) => (m[0].toUpperCase() + m.slice(1)).padEnd(10)).join(''));
+console.log(`  grid used             ${col((t) => pct(t.fill))}`);
+console.log(`  turns + junctions     ${col((t) => f1(t.turn + t.junction))}`);
+console.log(`    per 100 corridor    ${col((t) => f1(t.turnsPer100))}`);
+console.log(`  junctions (forks)     ${col((t) => f1(t.junction))}`);
+console.log(`  dead ends             ${col((t) => f1(t.dead))}`);
+console.log(`  mean straight run     ${col((t) => f1(t.meanRun))}cells`);
+console.log(`  longest straight run  ${col((t) => f1(t.longest))}cells`);
+console.log(`  route start→exit      ${col((t) => f1(t.route))}tiles`);
+console.log(`  rooms/doors/pockets   ${modes.map((m) => `${f1(table[m].rooms)}/${f1(table[m].doors)}/${f1(table[m].pockets)}`.padEnd(10)).join('')}`);
 
 if (SHOT && SHOT_OUT) {
   // the game's own Full map debug view, so the picture is exactly what Joe sees
-  await page.evaluate(([t, s]) => {
+  await page.evaluate(([t, s, c]) => {
     SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; SAVE.collected = {};
-    SAVE.ui = { size: s, turns: t === 'auto' ? undefined : t };
+    SAVE.ui = { size: s, turns: t === 'auto' ? undefined : t, clusters: c };
     delete SAVE.run; reset(5000); debugMap = true; $('optMap').checked = true;
     document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx; started = true;
-  }, [SHOT, SIZE]);
+  }, [SHOT, SIZE, CLUSTERS]);
   await page.waitForTimeout(700);
   await page.screenshot({ path: SHOT_OUT });
-  console.log(`\nfull-map screenshot (${SHOT}, seed 5000) → ${SHOT_OUT}`);
+  console.log(`\nfull-map screenshot (${SHOT}, districts ${CLUSTERS}, seed 5000) → ${SHOT_OUT}`);
 }
 await browser.close();

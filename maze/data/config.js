@@ -42,9 +42,25 @@ const CONFIG = {
                         // 0.55 = carve, then prune dead-end branches back until only 55% is corridor —
                         // the rest is solid wall. Fewer branches, longer runs, real dead space
   turnsPresets: {       // the Turns debug menu. Each may also set branch, used when Branching is Auto
-    fewer: { straight: 0.85, fill: 1.0,  branch: 0.05 },
-    least: { straight: 0.95, fill: 0.55, branch: 0.02 },
+    fewer:  { straight: 0.85, fill: 1.0,  branch: 0.05 },
+    sparse: { straight: 0.65, fill: 0.65, branch: 0.10 },   // Least's dead space, but the halls bend twice as often and run half as far
+    least:  { straight: 0.95, fill: 0.55, branch: 0.02 },
   },
+  // districts: patches of maze with a character of their own, stamped over the halls once
+  // they and the rooms are carved. Inside one, the links are re-cut to a "heart"; every link
+  // to the world outside is left alone, so a district can only add connections, never cut one.
+  clusters: 1,          // how many per medium maze. Scales with area: xl gets 4, lg 2, sm none. 0 = off
+  clusterCells: [4, 7], // district size range, in cells, drawn separately for width and height
+  clusterLiveShare: 0.4,// skip a patch unless this share of it is already corridor — no districts adrift in dead space
+  clusterHearts: ['rings', 'thicket', 'comb', 'lattice', 'squeeze', 'shifting'],
+                        // rings: nested loops, so you keep coming round to where you were
+                        // thicket: short branching paths, a knot of junctions
+                        // comb: a spine with long dead-end teeth off alternating sides
+                        // lattice: every link open — a field of pillars with no landmarks at all
+                        // squeeze: sparse halls, and most of the walls between them are crawl gaps
+                        // shifting: a dense double comb where nearly every stub is a moving block
+  clusterCrawlGaps: 8,  // extra crawl gaps allowed inside each squeeze district
+  clusterSliders: 8,    // extra sliders allowed inside each shifting district
   rooms: 3,             // open spaces carved into the maze
   roomCells: [2, 3],    // room size range, in cells (2 = 3×3 tiles, 3 = 5×5 tiles)
   tunnels: 4,           // roofed corridor runs that hide the floor (you show through as a ghost)

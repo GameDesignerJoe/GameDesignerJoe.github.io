@@ -24,6 +24,7 @@ let ticTacToe = null;        // {x,y,cells} a 3×3 chalk board on a room floor, 
 let figures = [];            // the father, placed like pickups: [{x,y,alpha,seen,gone}]
 let startGap = null;
 let darkTiles = new Set(), darkFringe = new Map(), lampSpot = null, sealedGaps = [];   // darkFringe: tile → 1 (dim) or 2 (dimmer), the drop-off around the dark
+let clusters = [];  // districts with a heart of their own: {heart, x0,y0,x1,y1 (cells), tx0,ty0,tx1,ty1 (tiles)}
 let sliders = [];   // {x,y,dx,dy,shifted}  x,y = home tile; slides one tile along d
 let pockets = [];   // sealed dead-end tiles reachable only via a slider   // journals: 'x,y' → page index
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
@@ -91,14 +92,17 @@ function generate(seed) {
   }
   // braid
   const braid = (SAVE.ui.braid && SAVE.ui.braid !== 'auto') ? +SAVE.ui.braid : (F.braid || 0);
+  // Both ends have to be real floor. On a full grid they always are, so this is exactly as
+  // it was; with dead space it stops braid opening a gap from one pruned cell into another,
+  // which leaves a floor tile walled in on both sides that nobody can ever stand on.
   if (braid > 0) for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) {
-    if (DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length === 1 && R() < braid) {
-      const c = DIRS.filter(([dx,dy]) => !isOpen(x+dx, y+dy) && x+dx*2 >= TX(0) && x+dx*2 < W-P && y+dy*2 >= TX(0) && y+dy*2 < H-P);
+    if (isOpen(x, y) && DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length === 1 && R() < braid) {
+      const c = DIRS.filter(([dx,dy]) => !isOpen(x+dx, y+dy) && x+dx*2 >= TX(0) && x+dx*2 < W-P && y+dy*2 >= TX(0) && y+dy*2 < H-P && isOpen(x+dx*2, y+dy*2));
       if (c.length) { const [dx,dy] = c[R()*c.length|0]; tiles[y+dy][x+dx] = 1; }
     }
   }
   // rooms: open a rectangle of tiles, away from the corners; remember centers for journals
-  const roomCenters = [];
+  const roomCenters = [], roomRects = [];   // roomRects in cells, so districts below can keep clear of them
   for (let i = 0; i < N(CONFIG.rooms * (F.rooms || 1)); i++) {
     const cells = CONFIG.roomCells[0] + (R() * (CONFIG.roomCells[1] - CONFIG.roomCells[0] + 1) | 0);
     const tw = cells * 2 - 1;
@@ -109,7 +113,124 @@ function generate(seed) {
       || !(() => { for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) if (isOpen(TX(cx0+x), TX(cy0+y))) return true; return false; })()));   // and on corridor, never an island in dead space
     for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) tiles[TX(cy0)+y][TX(cx0)+x] = 1;
     roomCenters.push([TX(cx0) + (tw>>1), TX(cy0) + (tw>>1)]);
+    roomRects.push([cx0, cy0, cx0 + cells - 1, cy0 + cells - 1]);
   }
+
+  // ── districts ────────────────────────────────────────────────────────────────
+  // Patches of maze with a character of their own, so the whole map does not feel
+  // the same. Stamped once the halls and the rooms are down, over the patches that
+  // already twist the most, because those are the parts worth making strange.
+  //
+  // A district is filled in first — dead space inside it comes back as floor — so the
+  // heart reads as a quarter of its own rather than a few surviving scraps. On a Sparse
+  // or Least map that is the whole point: dense, strange ground with emptiness around it.
+  //
+  // The safety argument, which every heart below relies on: only links with BOTH ends
+  // inside the patch are ever cut, so every way in and out survives untouched; and
+  // afterwards the whole patch is spanned, so nothing inside can be stranded either.
+  // A district can add floor and add connections. It can never take a connection away.
+  clusters = [];
+  const clusterAt = (heart, x, y) => clusters.some(c => c.heart === heart && x >= c.tx0 && x <= c.tx1 && y >= c.ty0 && y <= c.ty1);
+  if (!poolMode && SAVE.ui.clusters !== 'off' && CONFIG.clusters > 0) {
+    const forced = (SAVE.ui.clusters && SAVE.ui.clusters !== 'auto') ? SAVE.ui.clusters : null;
+    // squeeze needs crawl gaps and shifting needs sliders, so a phase without them gets neither —
+    // unless the debug menu asks for one by name, in which case you get the carve and no furniture.
+    const hearts = forced ? [forced]
+      : CONFIG.clusterHearts.filter(h => h === 'squeeze' ? !!F.crawl : h === 'shifting' ? !!(F.pockets || F.swing) : true);
+    const want = forced ? Math.max(2, N0(CONFIG.clusters)) : N0(CONFIG.clusters);
+    const rc = CONFIG.startRoomCells;
+    const live = (cx, cy) => cx >= 0 && cy >= 0 && cx < CONFIG.cols && cy < CONFIG.rows && !!tiles[TX(cy)][TX(cx)];
+    const gap = (ax, ay, bx, by) => [ax + bx + 1 + P, ay + by + 1 + P];
+    const joined = (ax, ay, bx, by) => { const [gx, gy] = gap(ax, ay, bx, by); return !!tiles[gy][gx]; };
+    const setLink = (ax, ay, bx, by, v) => { const [gx, gy] = gap(ax, ay, bx, by); tiles[gy][gx] = v; };
+    // keep off the start room and its ring, all three candidate exit corners, and the rooms
+    const barred = (cx, cy) => (cx <= rc + 1 && cy >= CONFIG.rows - 2 - rc)
+      || (cx <= 1 && cy <= 1) || (cx >= CONFIG.cols - 2 && cy <= 1) || (cx >= CONFIG.cols - 2 && cy >= CONFIG.rows - 2)
+      || roomRects.some(([rx0, ry0, rx1, ry1]) => cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1);   // rooms may be touched, never overlapped
+    // score candidate patches by how much they already twist; the twistiest go first
+    const cands = [];
+    // a district is trimmed to the grid it lands on, or a small maze — the Child's, and
+    // You — would have nowhere a 7-cell patch could sit clear of the room and the corners
+    const span = (n) => { const hi = Math.max(3, Math.min(CONFIG.clusterCells[1], n - 5)), lo = Math.min(CONFIG.clusterCells[0], hi); return lo + (R() * (hi - lo + 1) | 0); };
+    for (let i = 0; i < 160 && want > 0; i++) {
+      const w = span(CONFIG.cols), h = span(CONFIG.rows);
+      if (w >= CONFIG.cols || h >= CONFIG.rows) continue;
+      const x0 = R() * (CONFIG.cols - w + 1) | 0, y0 = R() * (CONFIG.rows - h + 1) | 0;
+      const x1 = x0 + w - 1, y1 = y0 + h - 1;
+      let n = 0, twist = 0, ways = 0, bad = false;
+      for (let cy = y0; cy <= y1 && !bad; cy++) for (let cx = x0; cx <= x1; cx++) {
+        if (barred(cx, cy)) { bad = true; break; }
+        if (!live(cx, cy)) continue;
+        n++;
+        const nb = DIRS.filter(([dx, dy]) => live(cx + dx, cy + dy) && joined(cx, cy, cx + dx, cy + dy));
+        for (const [dx, dy] of nb) if (cx + dx < x0 || cx + dx > x1 || cy + dy < y0 || cy + dy > y1) ways++;
+        if (nb.length >= 3) twist += 2;
+        else if (nb.length === 2 && !(nb[0][0] === -nb[1][0] && nb[0][1] === -nb[1][1])) twist++;
+      }
+      // `ways` is the safety condition: a patch with no link out would be stamped into an island
+      if (bad || !ways || n < w * h * CONFIG.clusterLiveShare) continue;
+      cands.push({ x0, y0, x1, y1, score: twist * 2 + n + R() * 4 });
+    }
+    cands.sort((a, b) => b.score - a.score);
+    const bag = hearts.slice(); bag.sort(() => R() - 0.5);   // deal the hearts out rather than roll, so a map gets variety
+    for (const c of cands) {
+      if (clusters.length >= want) break;
+      if (clusters.some(o => c.x0 <= o.x1 + 1 && c.x1 >= o.x0 - 1 && c.y0 <= o.y1 + 1 && c.y1 >= o.y0 - 1)) continue;
+      clusters.push({ heart: bag[clusters.length % bag.length], x0: c.x0, y0: c.y0, x1: c.x1, y1: c.y1,
+        tx0: TX(c.x0) - 1, ty0: TX(c.y0) - 1, tx1: TX(c.x1) + 1, ty1: TX(c.y1) + 1 });
+    }
+    for (const c of clusters) {
+      const cells = [];
+      for (let cy = c.y0; cy <= c.y1; cy++) for (let cx = c.x0; cx <= c.x1; cx++) { tiles[TX(cy)][TX(cx)] = 1; cells.push([cx, cy]); }
+      const at = new Map(cells.map(([x, y], i) => [x + ',' + y, i]));
+      const uf = cells.map((_, i) => i);
+      const find = (a) => { while (uf[a] !== a) { uf[a] = uf[uf[a]]; a = uf[a]; } return a; };
+      const cut = (ax, ay, bx, by) => {                        // open a link whatever it costs; may make a loop
+        if (!at.has(ax + ',' + ay) || !at.has(bx + ',' + by)) return;
+        const a = find(at.get(ax + ',' + ay)), b = find(at.get(bx + ',' + by));
+        setLink(ax, ay, bx, by, 1); if (a !== b) uf[a] = b;
+      };
+      const spanTo = (ax, ay, bx, by) => {                     // open a link only if it joins two separate pieces
+        const a = find(at.get(ax + ',' + ay)), b = find(at.get(bx + ',' + by));
+        if (a === b) return; uf[a] = b; setLink(ax, ay, bx, by, 1);
+      };
+      // wipe the inside clean — links to the outside are never touched
+      for (const [cx, cy] of cells) for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx <= c.x1 && ny <= c.y1) setLink(cx, cy, nx, ny, 0);
+      }
+      const W2 = c.x1 - c.x0 + 1, H2 = c.y1 - c.y0 + 1;
+      if (c.heart === 'lattice') {                             // every link open: a field of pillars, no landmarks
+        for (const [cx, cy] of cells) for (const [dx, dy] of [[1, 0], [0, 1]]) cut(cx, cy, cx + dx, cy + dy);
+      } else if (c.heart === 'rings') {                        // nested loops, joined to each other in one place only
+        for (let r = 0; r * 2 + 1 < Math.min(W2, H2); r += 2) {
+          const a = c.x0 + r, b = c.y0 + r, e = c.x1 - r, f = c.y1 - r;
+          for (let x = a; x < e; x++) { cut(x, b, x + 1, b); cut(x, f, x + 1, f); }
+          for (let y = b; y < f; y++) { cut(a, y, a, y + 1); cut(e, y, e, y + 1); }
+        }
+      } else if (c.heart === 'comb' || c.heart === 'shifting') {
+        const horiz = W2 >= H2;                                 // a spine down the long axis, teeth off it
+        const near = horiz ? c.y0 : c.x0, far = horiz ? c.y1 : c.x1, mid = (near + far) >> 1;
+        const lo = horiz ? c.x0 : c.y0, hi = horiz ? c.x1 : c.y1;
+        const link = (a1, b1, a2, b2) => horiz ? cut(a1, b1, a2, b2) : cut(b1, a1, b2, a2);
+        for (let a = lo; a < hi; a++) link(a, mid, a + 1, mid);
+        for (let a = lo; a <= hi; a += 2) {
+          // comb: one long tooth, alternating sides. shifting: short teeth both ways, so nearly every stub can move
+          const up = c.heart === 'shifting' || ((a - lo) % 4 === 0), down = c.heart === 'shifting' || ((a - lo) % 4 !== 0);
+          const reach = c.heart === 'shifting' ? Math.max(1, (far - near) >> 2) : far - near;
+          if (up) for (let b = mid; b > Math.max(near, mid - reach); b--) link(a, b, a, b - 1);
+          if (down) for (let b = mid; b < Math.min(far, mid + reach); b++) link(a, b, a, b + 1);
+        }
+      }
+      // whatever the heart left apart, span it: a random tree, which is also all `thicket` and
+      // `squeeze` ask for — a knot of short branching paths with no long sight lines
+      const edges = [];
+      for (const [cx, cy] of cells) for (const [dx, dy] of [[1, 0], [0, 1]]) if (at.has((cx + dx) + ',' + (cy + dy))) edges.push([cx, cy, cx + dx, cy + dy]);
+      edges.sort(() => R() - 0.5);
+      for (const [ax, ay, bx, by] of edges) spanTo(ax, ay, bx, by);
+    }
+  }
+
   // one past self per maze; spread their pages across the rooms (first page first, last page last)
   // the self of this phase; lay out their next unfound pages in order
   const uncollected = c => c.pages.map((_, i) => i).filter(i => !(SAVE.collected[c.name] || [])[i]);
@@ -127,11 +248,17 @@ function generate(seed) {
     const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
     const cornerTiles = [[TX(0),TX(0)], [TX(CONFIG.cols-1),TX(0)], [TX(CONFIG.cols-1),TX(CONFIG.rows-1)], [sx,sy]];
     const isCorner = (x,y) => cornerTiles.some(([cx,cy]) => cx===x && cy===y) || (x <= sx + CONFIG.startRoomCells*2 && y >= sy - CONFIG.startRoomCells*2);   // also the start room and its neighbours
-    const want = F.pockets ? N(CONFIG.sliders[0]) + (R() * (N(CONFIG.sliders[1]) - N(CONFIG.sliders[0]) + 1) | 0) : F.swing ? (typeof F.swing === 'number' ? F.swing : N(CONFIG.swings)) : 0;
+    let want = F.pockets ? N(CONFIG.sliders[0]) + (R() * (N(CONFIG.sliders[1]) - N(CONFIG.sliders[0]) + 1) | 0) : F.swing ? (typeof F.swing === 'number' ? F.swing : N(CONFIG.swings)) : 0;
     const used = new Set();
     const cands = [];
     for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) if (isOpen(x,y) && nOpen(x,y) === 1 && !isCorner(x,y)) cands.push([x,y]);
     cands.sort(() => R() - 0.5);
+    // a shifting district wants nearly every stub in it to move: serve its dead ends first, and allow extra
+    if ((F.pockets || F.swing) && clusters.some(c => c.heart === 'shifting')) {
+      const inShift = ([x, y]) => clusterAt('shifting', x, y);
+      const extra = Math.min(cands.filter(inShift).length, CONFIG.clusterSliders * clusters.filter(c => c.heart === 'shifting').length);
+      if (extra > 0) { want += extra; cands.sort((a, b) => (inShift(b) ? 1 : 0) - (inShift(a) ? 1 : 0)); }
+    }
     for (const [ex, ey] of cands) {
       if (sliders.length >= want) break;
       if (used.has(ex+','+ey)) continue;
@@ -197,7 +324,13 @@ function generate(seed) {
         cands2.push([gx, gy]); }
     }
     cands2.sort(() => R() - 0.5);
-    const wantGaps = F.crawl ? (typeof F.crawl === 'number' ? F.crawl : Math.max(2, N0(CONFIG.crawlGaps))) : N0(CONFIG.crawlGaps);
+    let wantGaps = F.crawl ? (typeof F.crawl === 'number' ? F.crawl : Math.max(2, N0(CONFIG.crawlGaps))) : N0(CONFIG.crawlGaps);
+    // a squeeze district is mostly crawl gaps: serve the ones inside it first, on top of the map's usual quota
+    if (clusters.some(c => c.heart === 'squeeze')) {
+      const inSq = ([x, y]) => clusterAt('squeeze', x, y);
+      const extra = Math.min(cands2.filter(inSq).length, CONFIG.clusterCrawlGaps * clusters.filter(c => c.heart === 'squeeze').length);
+      if (extra > 0) { wantGaps += extra; cands2.sort((a, b) => (inSq(b) ? 1 : 0) - (inSq(a) ? 1 : 0)); }
+    }
     const usedCells = new Set();
     for (const g of cands2) {
       if (crawlGaps.size >= wantGaps) break;

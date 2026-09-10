@@ -118,6 +118,17 @@ const CHECKS = [
     return bad.length ? bad.slice(0, 4).join(', ') + (bad.length > 4 ? ` (+${bad.length - 4})` : '') : null;
   }],
 
+  ['no corridor is cut off', (s) => {
+    // Every floor tile must be walkable from the mat. Dead space is closed tiles, and a
+    // pocket counts because its slider can be pushed and pulled back, so anything left
+    // over is a piece of maze nobody can ever stand in. This is the invariant a district
+    // would break if it cut a link it did not own.
+    const open = openTiles(s);
+    const seen = flood(open, s.W, s.H, s.start.x, s.start.y);
+    const lost = [...open].filter((k) => !seen.has(k));
+    return lost.length ? `${lost.length} floor tile(s) unreachable, e.g. ${lost.slice(0, 4).join(' ')}` : null;
+  }],
+
   ['each door severs the route', (s) => {
     // With one door shut, the exit must be unreachable — otherwise the door
     // guards nothing and can be walked around.
