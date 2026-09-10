@@ -106,6 +106,12 @@ const CONFIG = {
   swingSeconds: 2.25,   // how long a swing rests at each end
   squeezeSlow: 0.4,     // speed inside a crawl gap
   squeezeReach: 0.85,   // how far (tiles) from the gap's center the squeeze extends into each corridor
+  journalFloat: 0.05,   // how far a book lifts and settles, as a fraction of a tile. 0 = still
+  journalFloatSec: 2.6, // one rise and fall
+  figureLingerSec: 2.5, // how long the father stands there once you have seen him, before he leaves
+  figureWalkSpeed: 1.6, // tiles per second he walks away at. Straight away from you, wall or no wall —
+                        // he is a memory of someone leaving, not a thing in the maze
+  figureWalkSec: 1.6,   // and how long he takes to fade out while doing it
   figureSpots: 6,       // where the father stands in a Child maze (one is always just past the door).
                         // Only ever one of them is visible at a time — a crowd is not abandonment
   darknessChance: 0.3,  // share of mazes that have any darkness

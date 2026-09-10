@@ -174,6 +174,13 @@ const SHELF_SPOTS = (x0, y0, y1) => [ [x0, y0+1, 'v'], [x0, y0+2, 'v'], [x0, y0+
 function drawShape(c, shape, px, py, r, color, lw) { c.strokeStyle = color; c.lineWidth = lw; c.lineJoin = 'round'; c.beginPath();
   if (shape === 'circle') c.arc(px, py, r, 0, Math.PI*2); else if (shape === 'triangle') { c.moveTo(px, py - r); c.lineTo(px + r*0.95, py + r*0.7); c.lineTo(px - r*0.95, py + r*0.7); c.closePath(); } else c.rect(px - r*0.85, py - r*0.85, r*1.7, r*1.7);
   c.stroke(); }
+// the burden itself, drawn as an outline so it reads on a gate the way a lock shape does
+function drawStone(c, px, py, r, color) {
+  c.save(); c.strokeStyle = color; c.fillStyle = CONFIG.colors.bg; c.lineWidth = Math.max(1.5, r * 0.28); c.lineJoin = 'round';
+  c.beginPath(); c.ellipse(px, py + r*0.12, r, r*0.72, 0.22, 0, Math.PI*2); c.fill(); c.stroke();
+  c.beginPath(); c.ellipse(px - r*0.3, py - r*0.22, r*0.3, r*0.17, 0.22, 0, Math.PI*2); c.stroke();
+  c.restore();
+}
 // draw a chalk glyph centered at px,py with half-size a
 function drawGlyph(c, g, px, py, a, lw) {
   c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();

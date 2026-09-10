@@ -34,6 +34,14 @@ function pulse(el) { el.classList.remove('pulse'); void el.offsetWidth; el.class
 function keyGlyph(shape, color) { const c = color || '#e0c98a'; return shape === 'circle' ? `<circle cx="11" cy="11" r="6" fill="none" stroke="${c}" stroke-width="2.4"/>` : shape === 'triangle' ? `<path d="M11 4l7 13H4z" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round"/>` : `<rect x="5" y="5" width="12" height="12" fill="none" stroke="${c}" stroke-width="2.4"/>`; }
 function renderKeys() { $('keys').innerHTML = [...heldKeys].map(sh => `<svg viewBox="0 0 22 22">${keyGlyph(sh)}</svg>`).join(''); }
 function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
+// one thin bar per page this maze holds, filling in as you find them: how many there are to get,
+// and how many you have, without a number to read
+function updateBooks() {
+  const got = pagesThisRun.length, total = journals.size + got;
+  const el = $('books');
+  if (el.childElementCount !== total) { el.innerHTML = ''; for (let i = 0; i < total; i++) el.appendChild(document.createElement('i')); }
+  [...el.children].forEach((b, i) => b.classList.toggle('got', i < got));
+}
 function updateCharcoal() {
   charcoalEl.style.display = phase().f.charcoal ? '' : 'none';
   $('mapBtn').style.display = (phase().f.charcoal || phase().f.scraps) && !poolMode ? '' : 'none';
@@ -95,7 +103,7 @@ function reset(seed) {
     if (fresh.length < 2) { SAVE.narrPlayed = SAVE.narrPlayed.filter(l => !mine.includes(l)); fresh = mine.slice(); }
     narrQueue = fresh.sort(() => Math.random() - 0.5); }
   narrNext = gameNow() + CONFIG.narratorFirstSec * 1000; narrEl.classList.remove('show');
-  updateChalk();
+  updateChalk(); updateBooks();
   $('seedLbl').textContent = 'seed ' + SEED; $('stepLbl').textContent = '';
   $('msg').classList.remove('show');
 }

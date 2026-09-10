@@ -460,6 +460,54 @@ check('a run saved by another build starts a fresh maze instead of resuming',
   afterStale.seed !== stale.mine && afterStale.stones === 3 && afterStale.pages.includes('The Child'),
   `run from another build dropped (seed ${stale.mine}), now on ${afterStale.seed}; stones and pages kept`);
 
+// ── 8e. the page counter, and the father who leaves ──────────────
+const books = await page.evaluate(() => {
+  SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; SAVE.collected = {}; SAVE.ui = {};
+  delete SAVE.run; reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const el = $('books');
+  const before = { bars: el.childElementCount, got: el.querySelectorAll('.got').length, pages: journals.size };
+  const k = [...journals.keys()][0];
+  if (!k) return { skip: true };
+  const [x, y] = k.split(',').map(Number);
+  journals.delete(k); pagesThisRun.push(0); updateBooks();
+  return { before, after: { bars: el.childElementCount, got: el.querySelectorAll('.got').length }, took: k };
+});
+check('the page counter shows one bar per page and fills as you find them',
+  !books.skip && books.before.bars === books.before.pages && books.before.bars > 0
+    && books.before.got === 0 && books.after.bars === books.before.bars && books.after.got === 1,
+  books.skip ? 'no pages on this maze' :
+  `${books.before.bars} bars for ${books.before.pages} pages, none filled; took ${books.took}, now ${books.after.got} filled`);
+
+// He is placed where you can see him across a wall but not walk to him. Seen, he waits, then goes.
+const dad = await page.evaluate(() => {
+  SAVE.phase = 0; SAVE.stones = 0; SAVE.ui = {}; delete SAVE.run; reset(7777);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const f = figures[0];
+  if (!f) return { skip: true };
+  const lit = B.viewRadius() * 2 + CONFIG.fogSoftness;
+  let stand = null;
+  for (let y = 0; y < H && !stand; y++) for (let x = 0; x < W; x++) {
+    if (!isOpen(x, y)) continue;
+    const d = Math.hypot(x + 0.5 - f.x, y + 0.5 - f.y);
+    if (d > lit || d < 1.2 || walkable(x, y, Math.floor(f.x), Math.floor(f.y), 4)) continue;
+    stand = [x + 0.5, y + 0.5]; break;
+  }
+  if (!stand) return { skip: true };
+  player.x = stand[0]; player.y = stand[1];
+  const t0 = performance.now();
+  updateFigures(t0, 0.016);
+  const seen = f.seen, d0 = Math.hypot(f.x - player.x, f.y - player.y);
+  let t = t0, n = 0, movedAt = 0;
+  while (!f.gone && n < 900) { t += 16; updateFigures(t, 0.016); n++; if (!movedAt && Math.hypot(f.x - player.x, f.y - player.y) > d0 + 0.05) movedAt = (t - t0) / 1000; }
+  return { seen, d0, d1: Math.hypot(f.x - player.x, f.y - player.y), gone: f.gone, movedAt, secs: (t - t0) / 1000, linger: CONFIG.figureLingerSec };
+});
+check('the father waits where he stands, then walks away and is gone',
+  !dad.skip && dad.seen && dad.gone && dad.d1 > dad.d0 + 0.8 && dad.movedAt >= dad.linger * 0.9,
+  dad.skip ? 'no vantage tile on this maze' :
+  `seen at ${dad.d0.toFixed(1)} tiles, still for ${dad.movedAt.toFixed(1)}s (linger ${dad.linger}s), `
+  + `walked out to ${dad.d1.toFixed(1)} and faded by ${dad.secs.toFixed(1)}s`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

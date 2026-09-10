@@ -137,14 +137,17 @@ function draw() {
   }
 
   // the pool level's door: a grey panel filling the doorway, unlike the hairline edge of a push block
+  // the pool level's door: the same barred gate as a locked door inside the maze, but what it
+  // wants is not a shape. It is the stone, so the stone is what is drawn on it.
   if (poolDoor) { const open = poolDoor.openAt ? Math.min(1, (nowMs - poolDoor.openAt) / 650) : 0;
-    if (open < 1) { const px = ox + poolDoor.x*S, py = oy + poolDoor.y*S, horiz = isOpen(poolDoor.x-1, poolDoor.y) && isOpen(poolDoor.x+1, poolDoor.y);
-      // a thin panel across the middle of the doorway; the wall tile behind it stays wall-coloured
-      const th = S*0.2, e = open * open, off = e * S;
-      ctx.save(); ctx.beginPath(); ctx.rect(px, py, S, S); ctx.clip();
-      ctx.fillStyle = '#4a4e52'; ctx.strokeStyle = '#5c6165'; ctx.lineWidth = 1;
-      if (horiz) { ctx.fillRect(px + off, py + S/2 - th/2, S, th); ctx.strokeRect(px + off + 0.5, py + S/2 - th/2 + 0.5, S - 1, th - 1); }
-      else { ctx.fillRect(px + S/2 - th/2, py + off, th, S); ctx.strokeRect(px + S/2 - th/2 + 0.5, py + off + 0.5, th - 1, S - 1); }
+    if (open < 1) { const [px, py] = T(poolDoor.x, poolDoor.y), horiz = isOpen(poolDoor.x-1, poolDoor.y) && isOpen(poolDoor.x+1, poolDoor.y);
+      const off = open * open * S;
+      ctx.save(); ctx.beginPath(); ctx.rect(px - S/2, py - S/2, S, S); ctx.clip();
+      ctx.translate(horiz ? off : 0, horiz ? 0 : off);
+      ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
+      for (let i = -1; i <= 1; i++) { if (horiz) { ctx.moveTo(px - S*0.06, py + i*S*0.26); ctx.lineTo(px + S*0.06, py + i*S*0.26); } else { ctx.moveTo(px + i*S*0.26, py - S*0.06); ctx.lineTo(px + i*S*0.26, py + S*0.06); } }
+      if (horiz) { ctx.moveTo(px, py - S*0.42); ctx.lineTo(px, py + S*0.42); } else { ctx.moveTo(px - S*0.42, py); ctx.lineTo(px + S*0.42, py); }
+      ctx.stroke(); drawStone(ctx, px, py, S*0.17, C.gate);
       ctx.restore(); } }
 
   // start & exit (+ gate)
@@ -183,8 +186,9 @@ function draw() {
     else { ctx.strokeStyle = C.pathPickup; ctx.lineWidth = Math.max(1.5, S*0.05); ctx.beginPath();
       for (let i=0; i<=40; i++) { const t = i/40, a = t*Math.PI*5, r = S*0.05 + t*S*0.14; const x = px + Math.cos(a)*r, y = py + Math.sin(a)*r; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); } ctx.stroke(); }
   }
-  // journals: a small open book
-  for (const k of journals.keys()) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
+  // journals: a small open book, breathing on the spot so a page reads as something waiting
+  for (const k of journals.keys()) { const [mx, my] = k.split(',').map(Number); const [px, py0] = T(mx, my);
+    const py = py0 - Math.sin(nowMs / (CONFIG.journalFloatSec * 1000) * Math.PI * 2 + (mx * 7 + my * 13)) * S * CONFIG.journalFloat;
     ctx.fillStyle = C.journal; ctx.beginPath(); ctx.moveTo(px - S*0.22, py - S*0.14); ctx.lineTo(px, py - S*0.08); ctx.lineTo(px + S*0.22, py - S*0.14); ctx.lineTo(px + S*0.22, py + S*0.14); ctx.lineTo(px, py + S*0.2); ctx.lineTo(px - S*0.22, py + S*0.14); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = C.wall; ctx.lineWidth = Math.max(1, S*0.025); ctx.beginPath(); ctx.moveTo(px, py - S*0.08); ctx.lineTo(px, py + S*0.2); ctx.stroke(); }
   // map scraps: a torn corner of paper

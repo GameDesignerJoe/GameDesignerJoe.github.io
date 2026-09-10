@@ -53,10 +53,19 @@ function updateFigures(now, dt) {
   for (const f of figures) {
     if (f.gone) continue;
     const d = Math.hypot(f.x - player.x, f.y - player.y);
-    if (!f.seen && !f.hidden && d < lit) { f.seen = true; AUDIO.farSteps(); if (character.name === 'The Child' && figureLinesSaid < 3 && Math.random() < 0.6) { figureLinesSaid++; narrate(FIGURE_LINES[Math.random() * FIGURE_LINES.length | 0]); } }
+    if (!f.seen && !f.hidden && d < lit) { f.seen = true; f.seenAt = now; AUDIO.farSteps(); if (character.name === 'The Child' && figureLinesSaid < 3 && Math.random() < 0.6) { figureLinesSaid++; narrate(FIGURE_LINES[Math.random() * FIGURE_LINES.length | 0]); } }
     // he only goes when you've actually come for him: near, and nothing but floor between you
     if (!f.hidden && d < 2.6 && walkable(Math.floor(player.x), Math.floor(player.y), Math.floor(f.x), Math.floor(f.y), 4)) f.fading = true;
-    if (f.fading) { f.alpha -= dt * 3; if (f.alpha <= 0) { f.gone = true; f.alpha = 0; } }
+    if (f.fading) { f.alpha -= dt * 3; if (f.alpha <= 0) { f.gone = true; f.alpha = 0; } continue; }
+    // stand there a moment, then walk off. Straight away from you, through whatever is in the way,
+    // fading as he goes — he is not a thing in the maze, he is the memory of someone leaving.
+    if (f.seen && !f.walking && now - f.seenAt > CONFIG.figureLingerSec * 1000) f.walking = true;
+    if (f.walking) {
+      const a = Math.atan2(f.y - player.y, f.x - player.x) || 0;
+      f.x += Math.cos(a) * CONFIG.figureWalkSpeed * dt; f.y += Math.sin(a) * CONFIG.figureWalkSpeed * dt;
+      f.alpha -= dt / CONFIG.figureWalkSec;
+      if (f.alpha <= 0) { f.gone = true; f.alpha = 0; }
+    }
   }
 }
 

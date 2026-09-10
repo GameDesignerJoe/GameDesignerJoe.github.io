@@ -11,6 +11,9 @@
 html, body { margin:0; height:100%; background:#0d0f10; overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; }
 body { font: 13px/1.4 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; color:#b9b4a8; }
 canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
+#books { display:flex; gap:3px; align-items:center; }
+#books i { display:block; width:13px; height:4px; border-radius:1px; background:rgba(185,180,168,.3); transition:background .45s ease; }
+#books i.got { background:#ece7da; }
 #hud { position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:56px; right:56px; display:flex; justify-content:space-between; pointer-events:none; letter-spacing:.02em; opacity:.7; }
 #tools { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 224px); display:none; justify-content:center; align-items:center; gap:14px; }
 #tools { display:flex; }

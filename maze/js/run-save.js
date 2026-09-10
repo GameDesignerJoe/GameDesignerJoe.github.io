@@ -53,7 +53,7 @@ function restoreRun(run) {
   (run.doorsOpen || []).forEach((o, i) => { if (doors[i]) doors[i].open = o; }); if (run.innerKeys) innerKeys = new Map(run.innerKeys); heldKeys = new Set(run.heldKeys || []); renderKeys();
   hopIdx = run.hopIdx; hopSaid = run.hopSaid; tttSaid = run.tttSaid; crawlSaid = run.crawlSaid; narrQueue = run.narrQueue || narrQueue;
   lastTileKey = Math.floor(player.x) + ',' + Math.floor(player.y);
-  updateChalk(); updateCharcoal();
+  updateChalk(); updateCharcoal(); updateBooks();
   if (hasKey) (poolMode ? $('stone') : keyEl).classList.add('show'); if (hasLamp) { $('lamp').classList.add('show'); $('lamp').classList.toggle('on', lampOn); }
   const g0 = gameNow(); t0 = g0 - run.t; pointerUntil = run.pointerLeft ? g0 + run.pointerLeft : 0; pathUntil = run.pathLeft ? g0 + run.pathLeft : 0; narrNext = leftRoom ? g0 + Math.max(4000, run.narrLeft) : Infinity;
   $('stepLbl').textContent = steps + ' tiles';
