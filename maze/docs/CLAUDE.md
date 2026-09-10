@@ -465,12 +465,22 @@ replays a particular maze. Three ways to change it:
   generation.
 - **Any debug dropdown** already rerolls as a side effect of applying itself.
 - **Update app** keeps your maze, unless the build changed.
-- **Pool room** (v0.56.0) drops you into the water level for any one of the
-  seven stones. A pool is entered carrying that stone and standing in the phase
-  it comes after, so the select sets `SAVE.stones`, `SAVE.phase` and
-  `SAVE.poolPending` together and the Phase select clears it again. The talk at
+- **The Level menu** (v0.56.0 as two menus, one since v0.59.0) lists all fifteen
+  levels in story order: the eight characters with the pool that comes after
+  each of them between them. A character entry is entered with the stones you
+  would have put down by then; a pool with the next one still in your arms —
+  both are the phase index, which is what makes the interleave work. The talk at
   the water is chosen by the stone count (`POOLS[stones]`), the level itself by
-  `poolPending`, so this is the whole pool sequence and not a piece of it.
+  `poolPending`.
+
+  It is one menu because two could disagree. Phase and Pool room each set part
+  of the state, so a character picked while `poolPending` was still set from
+  somewhere else put you at the water instead — Joe: "when I select a character
+  level now it just keeps putting me in the pool level". Every pick now sets
+  phase, stones, pool-or-not and Prototype-off together, and `syncLevel()` re-
+  reads the menu from `SAVE` each time the panel is opened, because the game
+  moves on by itself after a pool and a menu showing the wrong level makes the
+  next pick a silent no-op.
 
 That last one is new. A run stores only its seed and what you did; the maze is
 rebuilt by `generate()` on load. So a run can only be resumed by the build that

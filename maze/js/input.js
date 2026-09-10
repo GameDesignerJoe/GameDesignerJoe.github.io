@@ -27,7 +27,7 @@ $('lamp').addEventListener('pointerdown', e => { e.stopPropagation(); if (!hasLa
 
 const dbg = $('dbg'), opt = { arrow: $('optArrow'), path: $('optPath'), map: $('optMap') };
 let dbgClosedAt = 0;   // when a tap outside the panel dismissed it. That same tap must not also teleport you
-$('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); });
+$('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); if (dbg.classList.contains('show')) syncLevel(); });
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveRun(true); });
 addEventListener('pagehide', () => saveRun(true));
 setInterval(() => saveRun(true), 6000);
@@ -40,23 +40,37 @@ $('optClusters').addEventListener('change', () => { SAVE.ui.clusters = $('optClu
 $('optBranch').addEventListener('change', () => { SAVE.ui.branch = $('optBranch').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optBraid').addEventListener('change', () => { SAVE.ui.braid = $('optBraid').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optSize').addEventListener('change', () => { SAVE.ui.size = $('optSize').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
-PHASES.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = i + ' · ' + p.who; $('optPhase').appendChild(o); });
+// One Level menu: the eight characters with the pool that comes after each of them, in the order
+// you meet them. There used to be a Phase menu and a separate Pool room menu, and between them a
+// level could be selected while poolPending was still set from somewhere else — you asked for a
+// character and got the water. Every pick here sets all of it: phase, stones, pool or not, and
+// Prototype off, so nothing can be left over from the last one.
+//
+// A character level is entered with the stones you would have put down by then; a pool with the
+// next one still in your arms. Both are the phase index, which is what makes the interleave work.
+const LEVELS = [];
+PHASES.forEach((p, i) => {
+  LEVELS.push({ label: i + ' · ' + p.who, phase: i, stones: i, pool: false });
+  if (i < STONES.length) LEVELS.push({ label: '↳ pool · ' + STONES[i], phase: i, stones: i, pool: true });
+});
+LEVELS.forEach((L, i) => { const o = document.createElement('option'); o.value = i; o.textContent = L.label; $('optLevel').appendChild(o); });
 for (let i = 0; i <= STONES.length; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i + ' put down'; $('optStones').appendChild(o); }
-$('optPhase').value = SAVE.phase || 0; $('optStones').value = SAVE.stones || 0;
-$('optPhase').addEventListener('change', () => { SAVE.phase = +$('optPhase').value; SAVE.poolPending = false; $('optPool').value = -1; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
-$('optStones').addEventListener('change', () => { SAVE.stones = +$('optStones').value; persist(); });
-// Pool room: jump straight into the water level for any one of the stones. A pool is entered with
-// that stone still carried and the phase it comes after, so both are set together — the talk you
-// get at the water is chosen by the stone count, and the level itself by poolPending.
-{ const o0 = document.createElement('option'); o0.value = -1; o0.textContent = '—'; $('optPool').appendChild(o0);
-  STONES.forEach((name, i) => { const o = document.createElement('option'); o.value = i; o.textContent = i + ' · ' + name; $('optPool').appendChild(o); });
-  $('optPool').value = SAVE.poolPending ? Math.min(SAVE.stones || 0, STONES.length - 1) : -1; }
-$('optPool').addEventListener('change', () => {
-  const i = +$('optPool').value; if (i < 0) return;
-  SAVE.stones = i; SAVE.phase = Math.min(PHASES.length - 1, i); SAVE.poolPending = true;
-  $('optPhase').value = SAVE.phase; $('optStones').value = SAVE.stones;
+// the menu says where you actually are, every time it is opened: the game moves on by itself
+// after a pool, and a menu showing the wrong level would make the next pick a silent no-op
+function syncLevel() {
+  const ph = Math.min(PHASES.length - 1, SAVE.phase || 0);
+  let i = LEVELS.findIndex(L => L.phase === ph && L.pool === !!SAVE.poolPending);
+  if (i < 0) i = LEVELS.findIndex(L => L.phase === ph && !L.pool);
+  $('optLevel').value = i; $('optStones').value = Math.min(STONES.length, SAVE.stones || 0);
+}
+syncLevel();
+$('optLevel').addEventListener('change', () => {
+  const L = LEVELS[+$('optLevel').value]; if (!L) return;
+  SAVE.phase = L.phase; SAVE.stones = L.stones; SAVE.poolPending = L.pool;
+  SAVE.ui.proto = 'off'; $('optProto').value = 'off'; $('optStones').value = L.stones;
   delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze();
 });
+$('optStones').addEventListener('change', () => { SAVE.stones = +$('optStones').value; persist(); });
 function applyStick() { document.body.classList.toggle('stick-left', (SAVE.ui.stick || 'right') === 'left'); $('optStick').value = SAVE.ui.stick || 'right'; }
 $('optStick').addEventListener('change', () => { SAVE.ui.stick = $('optStick').value; persist(); applyStick(); }); applyStick();
 // texture is pure paint — no reset, no new maze, so you can flick between them and look

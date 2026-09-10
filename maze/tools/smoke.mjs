@@ -673,6 +673,44 @@ check('a stone in your arms costs you 30% of your speed',
   Math.abs(gate.stoneSpeed / gate.plainSpeed - gate.slow) < 0.001,
   `${gate.plainSpeed.toFixed(2)} tiles/s empty-handed, ${gate.stoneSpeed.toFixed(2)} carrying the stone (x${gate.slow})`);
 
+// ── 8j. the Level menu goes where it says ─────────────────────────
+// Two menus used to decide this between them — Phase, and Pool room — and a character could be
+// picked while poolPending was still set from somewhere else, which put you at the water instead.
+// One menu now sets phase, stones and pool together, so walk every entry and check all three.
+const levels = await page.evaluate(async () => {
+  const sel = $('optLevel'), rows = [];
+  for (let i = 0; i < sel.options.length; i++) {
+    sel.value = String(i); sel.dispatchEvent(new Event('change'));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    rows.push({ label: sel.options[i].textContent, pool: poolMode, who: phase().who,
+      phase: SAVE.phase, stones: SAVE.stones });
+  }
+  // and the one that bit: a pool, then the character whose pool it is
+  sel.value = '7'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const wentToWater = poolMode;
+  sel.value = '6'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const cameBackOut = !poolMode && phase().who === PHASES[3].who;
+  // and the menu re-reads where you are whenever the panel is opened
+  SAVE.phase = 5; SAVE.stones = 5; SAVE.poolPending = true;
+  $('gear').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  const shows = sel.options[+sel.value].textContent;
+  $('gear').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  return { rows, wentToWater, cameBackOut, shows, phases: PHASES.length, stones: STONES.length };
+});
+const everyLevelRight = levels.rows.length === levels.phases * 2 - 1 && levels.rows.every((r, i) => {
+  const isPool = i % 2 === 1, ph = Math.floor(i / 2);
+  return r.pool === isPool && r.phase === ph && r.stones === ph;
+});
+check('the Level menu takes you to the level it names',
+  everyLevelRight && levels.wentToWater && levels.cameBackOut,
+  `${levels.rows.length} entries — ${levels.phases} characters and the ${levels.stones} pools between them — each with the right phase, stones and water; `
+  + 'pool then character came back out of the water onto the character whose pool it is');
+check('the Level menu re-reads where you are when the panel opens',
+  levels.shows.includes('Shame'),
+  `phase 5 with a pool pending, and the menu opened showing "${levels.shows.trim()}"`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');
