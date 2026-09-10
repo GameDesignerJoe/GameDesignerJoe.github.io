@@ -187,22 +187,17 @@ const mixHex = (a, b, t) => {
   const [r1, g1, b1] = p(a), [r2, g2, b2] = p(b), k = Math.max(0, Math.min(1, t));
   return `rgb(${Math.round(r1 + (r2 - r1) * k)},${Math.round(g1 + (g2 - g1) * k)},${Math.round(b1 + (b2 - b1) * k)})`;
 };
-// The edge round a block, and a notch on every side it can still be shoved. Drawn the same
-// whatever the block can do, so it never appears to change size.
-function blockEdge(px, py, S, ways, notchColor) {
-  const C = CONFIG.colors, w = S * 0.08;
-  ctx.fillStyle = C.thick;
-  ctx.fillRect(px, py, S, w); ctx.fillRect(px, py + S - w, S, w);
-  ctx.fillRect(px, py, w, S); ctx.fillRect(px + S - w, py, w, S);
-  if (!ways.length) return;
-  ctx.fillStyle = notchColor || C.blockWay;
-  const L = S * 0.36, o = (S - L) / 2;
-  for (const [dx, dy] of ways) {
-    if (dx === 1) ctx.fillRect(px + S - w, py + o, w, L);
-    else if (dx === -1) ctx.fillRect(px, py + o, w, L);
-    else if (dy === 1) ctx.fillRect(px + o, py + S - w, L, w);
-    else ctx.fillRect(px + o, py, L, w);
-  }
+// A block is a whole tile of slab with a groove round it. The groove is stroked on the tile
+// boundary itself rather than inset, so two blocks side by side share one groove instead of
+// stacking two dark bands. It is the same slab wherever the block has got to and whatever it
+// can still do — nothing on it says which way it goes. That is for the player to find out.
+function blockSlab(px, py, S, color) {
+  const C = CONFIG.colors;
+  ctx.fillStyle = C.block;
+  ctx.fillRect(px, py, S + 0.5, S + 0.5);
+  ctx.strokeStyle = color || C.thick;
+  ctx.lineWidth = Math.max(1, S * 0.07);
+  ctx.strokeRect(px, py, S, S);
 }
 
 function drawPlayerBody(c, r) {
@@ -327,23 +322,18 @@ function draw() {
   // sliding tile in flight
   if (sliding) { let fx = player.x, fy = player.y;
     if (sliding.carry === false) { const k = Math.min(1, (nowMs - sliding.t0) / sliding.dur), e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2; fx = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; fy = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
-    ctx.fillStyle = C.floor; ctx.fillRect(ox + (fx-0.5)*S, oy + (fy-0.5)*S, S+0.5, S+0.5);
-    blockEdge(ox + (fx-0.5)*S, oy + (fy-0.5)*S, S, []); }
-  // A block is a slab: a thick edge the whole way round, so it is the same size wherever it has
-  // got to and whatever it can still do. The edge used to be drawn only on the sides it could
-  // move, which was fine while every block had exactly one — a two-way block looked like a narrow
-  // bar at home and grew into a full tile once it had gone one way and could only come back.
-  // A pale notch in that edge marks each side it can still be shoved.
+    blockSlab(ox + (fx-0.5)*S, oy + (fy-0.5)*S, S); }
   for (const sl of sliders) {
     if (sl.auto || (sliding && sliding.sl === sl)) continue;
     const [tx, ty] = blockAt(sl);
-    const px = ox + tx*S, py = oy + ty*S, ways = blockWays(sl);
-    blockEdge(px, py, S, ways);
-    // hint: the first slider glints if you've been standing still and haven't pushed it yet
+    const px = ox + tx*S, py = oy + ty*S;
+    blockSlab(px, py, S);
+    // hint: the first slider glints if you've been standing still and haven't pushed it yet.
+    // Only the first — every block after it the player has to read for himself.
     if (sl.atStart && !firstPushDone && started && !solved && nowMs - idleSince > CONFIG.hintIdleSec * 1000 && Math.hypot(tx + 0.5 - player.x, ty + 0.5 - player.y) < B.viewRadius() * 2 + 1) {
       const t = (nowMs - idleSince - CONFIG.hintIdleSec * 1000) / 1000;
-      const a = Math.min(1, t / 1.5) * (0.22 + 0.18 * Math.sin(t * 2.2));
-      ctx.save(); ctx.globalAlpha = a; blockEdge(px, py, S, ways, CONFIG.hintColor); ctx.restore();
+      const a = Math.min(1, t / 1.5) * (0.3 + 0.25 * Math.sin(t * 2.2));
+      ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = CONFIG.hintColor; ctx.lineWidth = Math.max(1, S * 0.07); ctx.strokeRect(px, py, S, S); ctx.restore();
     }
   }
 

@@ -330,14 +330,20 @@ only come back, so a wrong turn costs the walk back rather than the level.
 `blockAt()` and `blockWays()` in `js/movement.js` generalise the one-way slider;
 a slider without `ways` behaves exactly as it always did.
 
-**A block is drawn as a slab** — `blockEdge()` in `js/render.js` — a thick edge
-the whole way round with a pale notch on every side it can still be shoved. It
-used to draw that edge only on the movable sides, which was fine while every
-block had exactly one: a two-way block looked like a narrow bar at home and
-grew into a full tile once it had gone one way and could only come back. The
-slab is the same size wherever it is and whatever it can still do. Plain floor
-has no edge at all, so a block reads as an object and the ground reads as
-ground.
+**A block is drawn as a slab** — `blockSlab()` in `js/render.js` — a whole tile
+of face a shade paler than the floor (`colors.block`), with a groove round it.
+Two earlier tries failed. Drawing a thick edge only on the sides a block could
+move made it change apparent size: a two-way block was a narrow bar at home and
+a full tile once it had gone one way. Drawing that edge inset all the way round
+fixed the size but left a notch on each movable side, and two blocks side by
+side showed a doubled dark band between them. The groove is now *stroked on the
+tile boundary itself*, so neighbours share one groove instead of stacking two,
+and the block is the same tile-sized slab wherever it is.
+
+Nothing on a block says which way it goes. Joe's call: "if we didn't give the
+hint at all but in the first block, I'd be fine with that. The rest the player
+has to learn by doing." The only hint left is the glint on the first block,
+which pulses its groove in the hint colour after you have stood still a while.
 
 **What a level holds**, per prototype: about 8 blocks and 55 fixed islands.
 Of the blocks, roughly 3 one-way, 1 straight (up/down or left/right) and 4
@@ -354,8 +360,8 @@ nowhere: which of the two goes on is the whole question.
   `want` and only clears when you change tile. Facing a wall it never cleared,
   so the stick stayed dead for the whole run. It now gives up if the step is
   not possible.
-- The glint that hints at the start block redraws that block's sliver in the
-  hint colour. When the sliver became a loop over `blockWays()`, the glint was
+- The glint that hints at the start block redraws that block's outline in the
+  hint colour. When the outline became a loop over `blockWays()`, the glint was
   left referencing the loop variable — a `ReferenceError` inside `draw()`,
   every frame, and a throw there never re-queues `requestAnimationFrame`, so
   the game froze. It hit the Cartographer onward after 2.5s of standing still.

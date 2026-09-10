@@ -199,7 +199,8 @@ const CONFIG = {
     wall:  '#1b1f21',
     tunnel:'#26292b',
     thick: '#1b1f21',
-    blockWay:'#5d584f',         // the notch on each side a block can still be shoved
+    block: '#827d71',           // the face of a push block: a whole tile of slab, a shade paler
+                                // than the floor it sits on. It never says which way it goes
     shelf: '#a29d92',
     book:  '#ece7da',   // same as wall: the edge reads as a sliver of wall on the floor
     floor: '#6e6a62',
