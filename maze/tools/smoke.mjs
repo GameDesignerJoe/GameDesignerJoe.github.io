@@ -42,11 +42,14 @@ const ctx = await browser.newContext({
 // can be measured from outside the audio module.
 await ctx.addInitScript(() => {
   window.__peak = 0;
+  window.__osc = 0;          // oscillators created — the drone and every music note make one
   const Native = window.AudioContext || window.webkitAudioContext;
   if (!Native) return;
   class Probed extends Native {
     constructor(...a) {
       super(...a);
+      const osc = this.createOscillator.bind(this);
+      this.createOscillator = (...b) => { window.__osc++; return osc(...b); };
       const g = this.createGain.bind(this);
       this.createGain = (...b) => {
         const n = g(...b);
@@ -258,6 +261,42 @@ const pool = await page.evaluate(() => {
 check('a pool level lays out with its stone and door', pool.poolMode && pool.hasDoor && !!pool.stone && pool.pages === 0,
   `door=${pool.hasDoor} stone=${pool.stone} pages=${pool.pages} dark=${pool.dark}; `
   + `${pool.pools} pools, this one hosts ${pool.whoAtThisStone}`);
+
+// ── 7b. a resumed run still gets its music ──────────────────────
+// restoreRun goes straight into the maze with no title, and the title tap was
+// the only thing that ever called AUDIO.begin(). Every reload used to come
+// back permanently silent — no drone, no composer, forever. Fixed in v0.36.0
+// by starting the bed on the first gesture instead.
+const resumedAudio = await page.evaluate(async () => {
+  const before = window.__osc || 0;
+  document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 6500));
+  return { before, after: window.__osc || 0, started };
+});
+check('a resumed run starts its music on the first touch',
+  resumedAudio.after - resumedAudio.before > 4,
+  `oscillators ${resumedAudio.before} → ${resumedAudio.after} `
+  + `(+${resumedAudio.after - resumedAudio.before} after one gesture on a resumed run)`);
+
+// ── 7c. Update app parks you on the mat with your progress ──────
+// Pressing it mid-corridor used to resume you mid-corridor, so you never got
+// the title tap and so never got sound back. It now keeps everything done and
+// only drops where you were standing. pagehide and the 6s autosave both fire
+// during the reload, so parking has to freeze saving or they write it back.
+const parked = await page.evaluate(() => {
+  const was = { steps, marks: marks.size, mapped: mapped.size, px: player.x, py: player.y };
+  parkRunAtHome();
+  return { was, run: { px: SAVE.run.px, py: SAVE.run.py, atHome: !!SAVE.run.atHome, steps: SAVE.run.steps },
+    startTile: { x: start.x, y: start.y } };
+});
+// and a later save must not clobber it
+const stuck = await page.evaluate(() => { saveRun(true); return { px: SAVE.run.px, atHome: !!SAVE.run.atHome }; });
+check('Update app parks the run on the mat and keeps what you did',
+  parked.run.atHome && parked.run.px === parked.startTile.x && parked.run.py === parked.startTile.y
+    && parked.run.steps === parked.was.steps && stuck.atHome && stuck.px === parked.startTile.x,
+  `stood at (${parked.was.px.toFixed(1)}, ${parked.was.py.toFixed(1)}), `
+  + `parked at (${parked.run.px}, ${parked.run.py}), mat is (${parked.startTile.x}, ${parked.startTile.y}); `
+  + `steps ${parked.was.steps} kept; survives a later saveRun: ${stuck.atHome}`);
 
 // ── 8b. a swing you are nowhere near does not thump in your ear ──
 // Swings move on their own anywhere in the maze. Before v0.35.0 every one of

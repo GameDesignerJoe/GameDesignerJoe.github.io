@@ -89,7 +89,16 @@ running; bump it on every hand-off.
   visible. Placed at generation, six per maze, at vantage spots.
 - **Progress persists** in `SAVE` → `localStorage['maze.save.v1']`: phase,
   stones, collected pages, played narration, UI prefs. Runs resume in place;
-  reload is never a way out.
+  reload is never a way out. **"Update app" is the exception** — it calls
+  `parkRunAtHome()`, which keeps everything done and drops only your position,
+  so you come back on the mat with the title up. Parking has to freeze
+  `saveRun`, because `pagehide` and the 6s autosave both fire during the
+  reload and would write the live position straight back over it.
+- **Audio starts on the first gesture.** `AUDIO.begin()` used to be called only
+  from `wake()`, the title tap — and `restoreRun` goes straight into the maze
+  with no title, so every resumed run came back permanently silent. A one-shot
+  `pointerdown` listener in `js/input.js` now starts the bed; `begin()` is
+  idempotent so the fresh-run path is unaffected.
 - **`CONFIG`** in `data/config.js` is every tunable, commented. Its comments are
   design intent — read them before changing values. `?seed=1234` replays a maze.
 - **All player-facing text lives in `data/text.js`**: CAST, SELF_LINES,

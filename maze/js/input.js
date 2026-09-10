@@ -55,11 +55,21 @@ $('resetSave').addEventListener('click', () => {
 });
 function hardRefresh(btn) {
   btn.textContent = 'Updating…';
+  // Come back on the mat, asleep, rather than where you were standing. An
+  // update that drops you mid-corridor never gives you the title tap, and the
+  // tap is what starts the sound. Everything done is kept; only the position
+  // and the "already awake" go.
+  parkRunAtHome();
   // ask the network for a fresh copy (bounded), then reload with a cache-busting stamp that we strip again on load
   const timeout = new Promise(r => setTimeout(r, 2500));
   Promise.race([fetch(location.pathname, { cache: 'reload' }).catch(() => {}), timeout])
     .then(() => location.replace(location.pathname + '?u=' + Date.now()));
 }
 $('update').addEventListener('click', () => hardRefresh($('update')));
+// A resumed run skips the title and its tap, so nothing has unlocked the audio
+// context or started the drone — every reload used to come back silent. Take
+// the first gesture, whatever it is. begin() is idempotent, so on a fresh run
+// where wake() already did it this is a no-op.
+addEventListener('pointerdown', () => AUDIO.begin(), { once: true });
 
 

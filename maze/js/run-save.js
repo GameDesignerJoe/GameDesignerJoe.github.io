@@ -20,14 +20,27 @@ function serializeRun() {
   };
 }
 let lastRunSave = 0;
+let parked = false;   // a refresh is in flight; the stored run is deliberate now, leave it alone
 function saveRun(force) {
+  if (parked) return;
   const now = performance.now(); if (!force && now - lastRunSave < 2500) return; lastRunSave = now;
   const run = serializeRun(); if (run) { SAVE.run = run; persist(); }
+}
+// Park the run on the mat for the reload that is about to happen: keep
+// everything done, drop only where you were standing. Then freeze saving —
+// location.replace fires pagehide, and the 6s autosave is still ticking, and
+// either would write the live position straight back over this.
+function parkRunAtHome() {
+  saveRun(true);
+  if (SAVE.run && start) { SAVE.run.px = start.x; SAVE.run.py = start.y; SAVE.run.atHome = true; persist(); }
+  parked = true;
 }
 function clearRun() { if (SAVE.run) { delete SAVE.run; persist(); } }
 function restoreRun(run) {
   reset(run.seed);   // same seed, same phase and stones → same maze
-  player.x = run.px; player.y = run.py; cam.x = run.px; cam.y = run.py; facing = facingShown = run.facing;
+  // atHome: reset() has already put you on the mat facing the right way, so
+  // leave the position alone and keep everything else the run remembers.
+  if (!run.atHome) { player.x = run.px; player.y = run.py; cam.x = run.px; cam.y = run.py; facing = facingShown = run.facing; }
   steps = run.steps; deadEndsEntered = run.deadEndsEntered; leftRoom = run.leftRoom; pagesThisRun = run.pagesThisRun || [];
   marks = new Map(run.marks); mapped = new Map(run.mapped); visited = new Set(run.visited);
   chalk = run.chalk; chalkUsed = run.chalkUsed; chalkFound = run.chalkFound; charcoal = run.charcoal; charcoalLeft = run.charcoalLeft; charcoalOn = run.charcoalOn; charcoalUsed = run.charcoalUsed; charcoalFound = run.charcoalFound;
@@ -42,10 +55,11 @@ function restoreRun(run) {
   lastTileKey = Math.floor(player.x) + ',' + Math.floor(player.y);
   updateChalk(); updateCharcoal();
   if (hasKey) (poolMode ? $('stone') : keyEl).classList.add('show'); if (hasLamp) { $('lamp').classList.add('show'); $('lamp').classList.toggle('on', lampOn); }
-  // straight into the maze, no title: the fade lifts on you where you stood
-  document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx; started = true;
   const g0 = gameNow(); t0 = g0 - run.t; pointerUntil = run.pointerLeft ? g0 + run.pointerLeft : 0; pathUntil = run.pathLeft ? g0 + run.pathLeft : 0; narrNext = leftRoom ? g0 + Math.max(4000, run.narrLeft) : Infinity;
   $('stepLbl').textContent = steps + ' tiles';
+  if (run.atHome) return;   // stay asleep on the mat; tapping the sleeper begins, and starts the sound
+  // straight into the maze, no title: the fade lifts on you where you stood
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx; started = true;
   setTimeout(() => narrate(poolMode ? "…the water. I was going to the water." : "…where was I."), 2200);
 }
 
