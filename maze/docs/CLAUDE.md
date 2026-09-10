@@ -326,6 +326,28 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+**The shelves and the basin went quiet (fixed in v0.60.0).** Standing on a
+shelf or on the basin for a beat says something about it. Two separate faults
+had it barely working, and Joe caught it as "standing on top of the stones or
+next to the bookshelves and a new game does not fire off the dialogue anymore".
+
+- `shelfShown` is the latch that stops a line repeating every frame while you
+  stand there. It belongs to *that stand*, but nothing ever cleared it — not
+  stepping off, not `reset()`. So a line played once per page load and never
+  again, and since a debug level change is a `reset()` rather than a reload,
+  every maze after the first was silent. It now clears whenever you leave the
+  spot, and in `reset()` with the rest of the run's state.
+- "Standing still" was `!dir && !sliding`, and `sliding` is true for any swing
+  anywhere in the maze while it moves. Each one reset the dwell timer, so with
+  five auto-sliders on the Child level (three, plus the two the exit gauntlet
+  got in v0.57.0) you rarely accumulated the second the shelves want. It is now
+  `!(sliding && sliding.carry !== false)` — the same test the stick uses for
+  "this slide is moving *me*" — so a swing across the maze is none of your
+  business.
+
+Both are covered by **the shelves and the basin speak every time you stand at
+them** in `smoke.mjs`, which fails against either old line.
+
 **The pool room's gate (v0.58.0).** Four of Joe's notes, all about weight.
 
 - It sits on the edge of its tile nearest the room, flush with the wall the

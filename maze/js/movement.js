@@ -150,14 +150,21 @@ function update(wall) {
   const prevKey = lastTileKey;
   if (!want || dir) pushHeldSince = 0;
   if (dir || sliding || want) idleSince = now;
-  // standing on a shelf for a second brings up whose it is
-  if (startRoom && !dir && !sliding) {
+  // standing on a shelf for a second brings up whose it is. "Standing" means you are not walking
+  // and not being carried — `carry !== false` is the same test the stick uses. It used to be any
+  // `sliding` at all, so a swing on the far side of the maze reset the dwell every time it moved,
+  // and once the Child got five of them the shelves and the basin went quiet almost every time.
+  if (startRoom && !dir && !(sliding && sliding.carry !== false)) {
     const cx = Math.floor(player.x), cy = Math.floor(player.y), { x0, y0, y1 } = startRoom;
     const spots = SHELF_SPOTS(x0, y0, y1).map(([x,y]) => [x,y]);
     const idx = spots.findIndex(([x,y]) => x===cx && y===cy);
     const onBasin = cx === startRoom.x0 + 3 && cy === startRoom.y0 + 3;
     const k = idx >= 0 ? idx + '' : onBasin ? 'basin' : '';
-    if (k !== shelfStandKey) { shelfStandKey = k; shelfStandAt = now; }
+    // shelfShown is the latch that keeps a line from repeating every frame while you stand there.
+    // It belongs to *this* stand, so stepping off clears it: held past that it went quiet for the
+    // rest of the page load, and since a debug level change is a reset() and not a reload, every
+    // maze after the first was silent on the shelves and the basin.
+    if (k !== shelfStandKey) { shelfStandKey = k; shelfStandAt = now; shelfShown = ''; }
     else if (k && k !== 'basin' && now - shelfStandAt > 1000 && shelfShown !== k) { shelfShown = k;
       const c = CAST.filter(c => c.pages.length)[idx];
       if (c && !collectedCount(c.name)) narrate(EMPTY_SHELF[Math.random() * EMPTY_SHELF.length | 0]);
@@ -167,7 +174,7 @@ function update(wall) {
       if ((SAVE.basinSeen || 0) < (SAVE.stones || 0)) { SAVE.basinSeen = SAVE.stones; persist(); narrate(LIGHTER[Math.min(LIGHTER.length - 1, (SAVE.stones || 0) - 1)]); }
       else if (poolMode) narrate("One stone. I'll carry it as far as the water.");
       else { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).basin, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0]); } }
-  } else shelfStandKey = '';
+  } else { shelfStandKey = ''; shelfShown = ''; }
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   visited.add(key);
   if (introWalk && key !== lastTileKey) introWalk = null;

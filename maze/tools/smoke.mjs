@@ -711,6 +711,46 @@ check('the Level menu re-reads where you are when the panel opens',
   levels.shows.includes('Shame'),
   `phase 5 with a pool pending, and the menu opened showing "${levels.shows.trim()}"`);
 
+// ── 8k. the shelves and the basin still speak ─────────────────────
+// Two things had made them go quiet. The latch that stops a line repeating while you stand there
+// was never cleared, so it only ever fired once per page load — and a debug level change is a
+// reset(), not a reload, so every maze after the first was silent. And "standing still" was
+// `!sliding`, which any swing anywhere in the maze satisfied for half a second at a time; with
+// five of them on the Child level the dwell almost never reached a second.
+const room = await page.evaluate(async () => {
+  const said = []; const real = window.narrate; narrate = (l) => { said.push(l); real(l); };
+  const go = async (i) => { const sel = $('optLevel'); sel.value = String(i); sel.dispatchEvent(new Event('change'));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; };
+  const stand = async (x, y, ms) => { player.x = x + 0.5; player.y = y + 0.5; dir = null; held = null;
+    said.length = 0; await new Promise((r) => setTimeout(r, ms)); return said.slice(); };
+  const basinSaid = (lines) => { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).basin;
+    return lines.some((l) => L.includes(l) || LIGHTER.includes(l) || l.startsWith('One stone')); };
+  const shelfSaid2 = (lines) => { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).shelf;
+    return lines.some((l) => L.includes(l) || EMPTY_SHELF.includes(l)); };
+  const out = { swings: 0 };
+  await go(0);
+  out.swings = sliders.filter((s) => s.auto).length;
+  const b1 = [startRoom.x0 + 3, startRoom.y0 + 3];
+  out.first = basinSaid(await stand(b1[0], b1[1], 1500));
+  await stand(startRoom.x0 + 1, startRoom.y0 + 2, 400);           // step off
+  out.again = basinSaid(await stand(b1[0], b1[1], 1500));          // and back on
+  const sp = SHELF_SPOTS(startRoom.x0, startRoom.y0, startRoom.y1)[0];
+  out.shelf = shelfSaid2(await stand(sp[0], sp[1], 1800));
+  await go(2);                                                     // a whole new maze
+  const b2 = [startRoom.x0 + 3, startRoom.y0 + 3];
+  out.newLevel = basinSaid(await stand(b2[0], b2[1], 1500));
+  const sp2 = SHELF_SPOTS(startRoom.x0, startRoom.y0, startRoom.y1)[0];
+  out.shelfNewLevel = shelfSaid2(await stand(sp2[0], sp2[1], 1800));
+  narrate = real;
+  return out;
+});
+check('the shelves and the basin speak every time you stand at them',
+  room.first && room.again && room.shelf && room.newLevel && room.shelfNewLevel,
+  `basin: first stand ${room.first ? 'spoke' : 'SILENT'}, again after stepping off and back ${room.again ? 'spoke' : 'SILENT'}, `
+  + `in a new maze ${room.newLevel ? 'spoke' : 'SILENT'}; shelves: ${room.shelf ? 'spoke' : 'SILENT'} then ${room.shelfNewLevel ? 'spoke' : 'SILENT'} `
+  + `— with ${room.swings} swings moving in the level while you stood there`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');
