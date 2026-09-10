@@ -47,8 +47,18 @@ function drawWorn(S, ox, oy, x0_, x1_, y0_, y1_) {
     const w = (1 - n / reach) * (0.7 + 0.3 * tileNoise(x, y, 11));
     if (w <= 0.02) continue;
     const px = ox + x * S + S / 2, py = oy + y * S + S / 2;
-    for (const [width, k] of [[0.66, 0.1], [0.33, 0.13]]) {
-      ctx.strokeStyle = `rgba(186,181,170,${(w * CONFIG.floorWorn * k).toFixed(3)})`;
+    // How open the tile is decides how it is painted. A corridor gets a stroked track. A room
+    // gets a flat wash instead, because in an open floor everybody walks everywhere — and because
+    // stroking a plus on every tile of a room leaves the diagonals bare and prints a lattice of
+    // rings across it, which is what this used to do.
+    const openN = DIRS.reduce((n, [dx, dy]) => n + (isOpen(x + dx, y + dy) ? 1 : 0), 0);
+    const roomish = Math.max(0, Math.min(1, (openN - 2) / 2));
+    if (roomish > 0) {
+      ctx.fillStyle = `rgba(186,181,170,${(w * CONFIG.floorWorn * 0.115 * roomish).toFixed(3)})`;
+      ctx.fillRect(ox + x * S, oy + y * S, S + 0.5, S + 0.5);
+    }
+    if (roomish < 1) for (const [width, k] of [[0.66, 0.1], [0.33, 0.13]]) {
+      ctx.strokeStyle = `rgba(186,181,170,${(w * CONFIG.floorWorn * k * (1 - roomish)).toFixed(3)})`;
       ctx.lineWidth = S * width; ctx.beginPath();
       let any = false;
       for (const [dx, dy] of DIRS) { if (!isOpen(x + dx, y + dy)) continue; any = true; ctx.moveTo(px, py); ctx.lineTo(px + dx * S * 0.55, py + dy * S * 0.55); }
@@ -148,7 +158,7 @@ function drawDamp(S, ox, oy, vw, vh) {
 }
 function drawGrain(vw, vh, nowMs) {
   if (nowMs - grainAt > 90) { grainAt = nowMs; grainOff = [Math.random() * 128 | 0, Math.random() * 128 | 0]; }
-  ctx.save(); ctx.globalAlpha = CONFIG.textureAmount; ctx.translate(-grainOff[0], -grainOff[1]);
+  ctx.save(); ctx.globalAlpha = CONFIG.textureGrain; ctx.translate(-grainOff[0], -grainOff[1]);
   ctx.fillStyle = ctx.createPattern(grainPattern(), 'repeat');
   ctx.fillRect(0, 0, vw + 128, vh + 128); ctx.restore();
 }
@@ -175,7 +185,6 @@ function drawPlayerBody(c, r) {
   for (let i = 0; i < n; i++) { c.fillStyle = has(i) ? C.player : C.playerBurdened; c.fillRect(x0 + span*i/n - 0.5, -r*1.1, span/n + 1, r*2.2); }
   c.restore();
   if (CONFIG.playerOutline > 0) { c.strokeStyle = C.player; c.lineWidth = r * CONFIG.playerOutline; c.lineJoin = 'round'; c.stroke(); }
-  c.fillStyle = C.wall; c.beginPath(); c.moveTo(r, 0); c.lineTo(r*0.3, -r*0.29); c.lineTo(r*0.3, r*0.29); c.closePath(); c.fill();
 }
 
 function draw() {
@@ -472,6 +481,16 @@ function draw() {
 
   if (!debugMap && (SAVE.ui.texture || 'off') === 'damp') drawDamp(S, ox, oy, vw, vh);
 
+  // Grain and Dust go UNDER the fog, not over it. Over the top they carried on across the black
+  // surround and the empty space below the maze, which reads as dirt on the screen rather than
+  // anything in the room. Under it, the fog puts them out exactly where it puts everything else.
+  if (!debugMap) {
+    const tex = SAVE.ui.texture || 'off';
+    if (tex === 'grain') drawGrain(vw, vh, nowMs);
+    else if (tex === 'dust') drawDust(vw, vh, Math.min(0.05, (nowMs - (draw.lastMs || nowMs)) / 1000));
+  }
+  draw.lastMs = nowMs;
+
   // fog
   if (!debugMap) {
     const px = ox + player.x*S, py = oy + player.y*S;
@@ -487,13 +506,6 @@ function draw() {
   if (!debugMap && CONFIG.markGhostAlpha > 0) { ctx.strokeStyle = C.mark; ctx.globalAlpha = CONFIG.markGhostAlpha;
     for (const [k, g] of marks) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue; const [px, py] = T(mx, my); if (Math.hypot(px - (ox + player.x*S), py - (oy + player.y*S)) < B.viewRadius() * 2 * S) continue; drawGlyph(ctx, g, px, py, S*0.16, Math.max(1.5, S*0.05)); }
     ctx.globalAlpha = 1; }
-  if (!debugMap) {
-    const tex = SAVE.ui.texture || 'off';
-    if (tex === 'grain') drawGrain(vw, vh, nowMs);
-    else if (tex === 'dust') drawDust(vw, vh, Math.min(0.05, (nowMs - (draw.lastMs || nowMs)) / 1000));
-  }
-  draw.lastMs = nowMs;
-
   // pointer arrow (over fog)
   if ((opt.arrow.checked || pointerUntil > nowMs) && !solved) {
     const ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);

@@ -502,6 +502,43 @@ function generate(seed) {
     }
   }
 
+  // The way out should be the hardest part of it. The last stretch before the exit becomes a
+  // warren: nearly every passage in there is a squeeze, and holes are knocked through half the
+  // blank walls so it is a knot rather than a corridor. Only links are added and open passages
+  // relabelled, never anything closed, so nothing about reaching the exit can break — it just
+  // has to be crawled. Child phases only: for everyone after, a crawl gap is drawn shut.
+  if (F.crawl && CONFIG.exitGauntlet && !poolMode) {
+    const isCell = (x, y) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
+    const nearRoom2 = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    const offLimits = (x, y) => exitAlley.some(([ax, ay]) => ax === x && ay === y) || (x === exX && y === exY)
+      || (startGap && x === startGap[0] && y === startGap[1]) || nearRoom2(x, y)
+      || sealedGaps.some(([gx, gy]) => gx === x && gy === y)
+      || sliders.some(sl => (sl.x === x && sl.y === y) || (sl.x + sl.dx === x && sl.y + sl.dy === y))
+      || secretTiles.has(x + ',' + y);
+    // the zone: cells within reach of the exit, walking outward through the maze
+    const zone = new Set(); {
+      const q = [[exX, exY, 0]]; const seen = new Set([exX + ',' + exY]);
+      while (q.length) {
+        const [x, y, d] = q.shift();
+        if (isCell(x, y)) { zone.add(x + ',' + y); if (d >= CONFIG.exitGauntlet) continue; }
+        for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+          if (!isOpen(nx, ny) || seen.has(k)) continue; seen.add(k); q.push([nx, ny, d + (isCell(nx, ny) ? 1 : 0)]); }
+      }
+    }
+    for (const k of zone) {
+      const [cx, cy] = k.split(',').map(Number);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const gx = cx + dx, gy = cy + dy, nx = cx + dx * 2, ny = cy + dy * 2;
+        if (nx < TX(0) || nx >= W - P || ny < TX(0) || ny >= H - P) continue;
+        if (!zone.has(nx + ',' + ny) && !isOpen(nx, ny)) continue;
+        if (offLimits(gx, gy) || crawlGaps.has(gx + ',' + gy)) continue;
+        if (isOpen(gx, gy)) { if (R() < CONFIG.exitGauntletSqueeze) crawlGaps.add(gx + ',' + gy); }        // a passage becomes a squeeze
+        else if (isOpen(nx, ny) && R() < CONFIG.exitGauntletHoles) { tiles[gy][gx] = 1; crawlGaps.add(gx + ',' + gy); }   // a wall gets a hole
+      }
+    }
+  }
+
+
   // a squeeze on the way out that you cannot go round: a gap on the route whose sealing would cut
   // start from exit, turned into a crawl gap. The tile is already open, so nothing about the maze
   // changes except that getting through it means getting down. Child only — for everyone after, a
@@ -533,7 +570,6 @@ function generate(seed) {
       crawlGaps.add(g.join(',')); made++;
     }
   }
-
   if (startGap && sliders.some(sl => sl.atStart)) tiles[startGap[1]][startGap[0]] = 0;   // seal the start room again (unless the door is simply open)
 
   // walking distance from the exit, in tiles

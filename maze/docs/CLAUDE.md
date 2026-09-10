@@ -183,10 +183,20 @@ goes from 3 cells to about 7.
 
 Worked through the list at the top of `NOTES.md`. The Child phase changed most:
 
+- **The way out is the hardest part.** `CONFIG.exitGauntlet` turns the last few
+  cells before the exit into a warren: `exitGauntletSqueeze` of the passages in
+  there become squeezes and `exitGauntletHoles` of the blank walls get a hole
+  knocked through them. About 97% of the run-in is squeeze. Only links are added
+  and open passages relabelled, never anything closed, so reaching the exit
+  cannot break — it just has to be crawled. Every hole is also another way
+  round, which is why the hole rate is the number to be careful with.
 - **A squeeze you cannot go round.** `CONFIG.crawlOnPath` puts one crawl gap on
   the solution route whose sealing would cut start from exit, so getting out
   means getting down. The tile was already open, so nothing about the maze
-  changes except how you pass it.
+  changes except how you pass it. Two of them now, and it runs after the
+  gauntlet so the severing test sees the final grid. 29 Child mazes in 30 get
+  at least one, 2.5 on average; a very loopy maze can get none, and there the
+  warren carries it instead.
 - **A secret place.** `CONFIG.secretRooms` finds somewhere sealed off but for a
   single squeeze and covers it in somebody else's chalk (`secretMarks`, drawn
   fainter than yours; `SECRET_LINES` for the line you think on the way in).
@@ -225,7 +235,7 @@ his whole life, and the room should show it.
 
 | Option | What it is |
 | --- | --- |
-| **Worn paths** | The floor polishes along the ways people actually walk. Traffic is distance out from the route (`floorWearReach`), stroked along the corridor rather than dabbed per tile, so it reads as one worn track; junctions come out brighter because more feet crossed there. |
+| **Worn paths** | The floor polishes along the ways people actually walk. Traffic is distance out from the route (`floorWearReach`). A corridor gets a stroked track; an open floor gets a flat wash instead, because everybody walks everywhere in a room — and because stroking a plus on every tile of one leaves the diagonals bare and prints a lattice of rings across it. |
 | **Grime** | Dirt along the foot of every wall, twice over in a corner, with a per-tile roll so it is not uniform. |
 | **Flickering lights** | Ceiling fixtures every `floorLightSpacing` cells pooling light on the floor. `floorLightBad` of them have something wrong and stutter, always, not in response to anything. |
 | **All three** | Which is probably the answer. |
@@ -236,7 +246,11 @@ corridor somebody still mops. Worn paths carry that better than dirt does —
 they are evidence of other people, and of their absence.
 
 **Texture (v0.45.0).** Three overlays behind a **Texture** debug menu, off by
-default: **Grain** lays film-and-paper noise over the whole picture, **Damp**
+default. Grain and Dust draw **under the fog**, so they only ever show where the
+maze is lit; over the top they carried on across the black surround and the
+empty space below, which reads as dirt on the screen rather than anything in the
+room. Grain has its own amount, `textureGrain`, at half the rest, because it
+covers every pixel. The three are: **Grain** lays film-and-paper noise over the whole picture, **Damp**
 puts seeded blotches on the floor under the fog, so a stain stays where it is
 in the room, and **Dust** drifts motes across the glass. Which one the maze
 wants is a look to be chosen by eye, so all three are built and none is picked.
