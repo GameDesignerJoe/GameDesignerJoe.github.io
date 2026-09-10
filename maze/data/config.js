@@ -33,6 +33,11 @@ const CONFIG = {
   liftGlowFrom: 0.55,   // how dim that one starts, as a fraction of the light you now have
   viewRadius: 1.0,      // cells of visibility around you
   fogSoftness: 1.4,     // how many tiles the light takes to fade to black
+  // texture: an overlay to age the concrete. The Texture debug menu picks one; off by default,
+  // because which one the maze wants is a look to be chosen by eye, not a value to tune.
+  textureAmount: 0.55,  // how strongly whichever one is on is laid over the picture
+  textureDamp: 26,      // blotches per maze in Damp mode, placed from the seed so they hold still
+  textureMotes: 46,     // drifting motes in Dust mode
   markGhostAlpha: 0,    // how brightly your own chalk shows through the fog. 0 = not at all, which is
                         // the point of fog. 0.35 was the old 'a mark is a beacon you left yourself'
   speed: 2.31,          // tiles per second while the stick is held

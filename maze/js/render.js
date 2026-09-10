@@ -11,6 +11,53 @@ addEventListener('resize', resize); resize();
 // The body, drawn into an already translated and rotated context. Seven bands from tail to
 // nose, one per stone: dark while it is still carried, pale once it has been put down. He
 // starts as a shape you can barely see and ends the pale arrow he always used to be.
+// ── texture ─────────────────────────────────────────────────────
+// Three ways to age the concrete, so the look can be picked by eye rather than argued about.
+// Damp lies on the floor and goes under the fog, because a stain is a thing in the room. Grain
+// and Dust sit on the glass over everything, because they are not.
+let grainTile = null, dampBlobs = null, dampFor = -1, motes = null, grainAt = 0, grainOff = [0, 0];
+function grainPattern() {
+  if (grainTile) return grainTile;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), img = g.createImageData(128, 128);
+  for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255 | 0; img.data[i] = img.data[i+1] = img.data[i+2] = v; img.data[i+3] = 30; }
+  g.putImageData(img, 0, 0); grainTile = c; return c;
+}
+function dampPatches() {
+  if (dampFor === SEED) return dampBlobs;
+  const R2 = rng((SEED ^ 0x9e3779b9) >>> 0), out = [];
+  for (let i = 0; i < CONFIG.textureDamp; i++) out.push({ x: R2() * W, y: R2() * H, r: 1.4 + R2() * 4.2, a: 0.2 + R2() * 0.5 });
+  dampFor = SEED; dampBlobs = out; return out;
+}
+function drawDamp(S, ox, oy, vw, vh) {
+  ctx.save(); ctx.globalAlpha = CONFIG.textureAmount;
+  for (const b of dampPatches()) {
+    const px = ox + b.x * S, py = oy + b.y * S, r = b.r * S;
+    if (px + r < 0 || px - r > vw || py + r < 0 || py - r > vh) continue;
+    const g = ctx.createRadialGradient(px, py, 0, px, py, r);
+    g.addColorStop(0, `rgba(24,26,27,${(0.34 * b.a).toFixed(3)})`); g.addColorStop(1, 'rgba(24,26,27,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawGrain(vw, vh, nowMs) {
+  if (nowMs - grainAt > 90) { grainAt = nowMs; grainOff = [Math.random() * 128 | 0, Math.random() * 128 | 0]; }
+  ctx.save(); ctx.globalAlpha = CONFIG.textureAmount; ctx.translate(-grainOff[0], -grainOff[1]);
+  ctx.fillStyle = ctx.createPattern(grainPattern(), 'repeat');
+  ctx.fillRect(0, 0, vw + 128, vh + 128); ctx.restore();
+}
+function drawDust(vw, vh, dt) {
+  if (!motes) { motes = []; for (let i = 0; i < CONFIG.textureMotes; i++) motes.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.012, vy: -0.004 - Math.random() * 0.012, r: 0.6 + Math.random() * 1.7, a: 0.1 + Math.random() * 0.4 }); }
+  ctx.save(); ctx.fillStyle = '#ece7da';
+  for (const m of motes) {
+    m.x += m.vx * dt; m.y += m.vy * dt;
+    if (m.y < -0.02) { m.y = 1.02; m.x = Math.random(); } if (m.x < -0.02) m.x = 1.02; if (m.x > 1.02) m.x = -0.02;
+    ctx.globalAlpha = m.a * CONFIG.textureAmount;
+    ctx.beginPath(); ctx.arc(m.x * vw, m.y * vh, m.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawPlayerBody(c, r) {
   const C = CONFIG.colors, n = STONES.length;
   c.beginPath(); c.moveTo(r, 0); c.lineTo(-r*0.8, -r*0.75); c.lineTo(-r*0.45, 0); c.lineTo(-r*0.8, r*0.75); c.closePath();
@@ -313,6 +360,8 @@ function draw() {
     ctx.fillStyle = C.wall; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill();
     ctx.restore(); }
 
+  if (!debugMap && (SAVE.ui.texture || 'off') === 'damp') drawDamp(S, ox, oy, vw, vh);
+
   // fog
   if (!debugMap) {
     const px = ox + player.x*S, py = oy + player.y*S;
@@ -328,6 +377,13 @@ function draw() {
   if (!debugMap && CONFIG.markGhostAlpha > 0) { ctx.strokeStyle = C.mark; ctx.globalAlpha = CONFIG.markGhostAlpha;
     for (const [k, g] of marks) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue; const [px, py] = T(mx, my); if (Math.hypot(px - (ox + player.x*S), py - (oy + player.y*S)) < B.viewRadius() * 2 * S) continue; drawGlyph(ctx, g, px, py, S*0.16, Math.max(1.5, S*0.05)); }
     ctx.globalAlpha = 1; }
+  if (!debugMap) {
+    const tex = SAVE.ui.texture || 'off';
+    if (tex === 'grain') drawGrain(vw, vh, nowMs);
+    else if (tex === 'dust') drawDust(vw, vh, Math.min(0.05, (nowMs - (draw.lastMs || nowMs)) / 1000));
+  }
+  draw.lastMs = nowMs;
+
   // pointer arrow (over fog)
   if ((opt.arrow.checked || pointerUntil > nowMs) && !solved) {
     const ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);

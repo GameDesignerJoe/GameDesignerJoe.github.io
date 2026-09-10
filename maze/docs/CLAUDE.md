@@ -217,6 +217,15 @@ caught something geometry could not: a room opens its corner tiles, and one of
 those can touch a corridor running alongside, so hiddenness is settled with a
 flood rather than by counting doorways.
 
+**Texture (v0.45.0).** Three overlays behind a **Texture** debug menu, off by
+default: **Grain** lays film-and-paper noise over the whole picture, **Damp**
+puts seeded blotches on the floor under the fog, so a stain stays where it is
+in the room, and **Dust** drifts motes across the glass. Which one the maze
+wants is a look to be chosen by eye, so all three are built and none is picked.
+Texture is pure paint: changing it does not reset the maze, so you can flick
+between them on the same corridor and look. `CONFIG.textureAmount` sets how
+strong whichever is on.
+
 **The waking after a pool (v0.44.0).** Putting a burden down makes the maze
 easier — the first one doubles your light — and nothing used to say so; you
 simply played on. `poolDrop()` now records `SAVE.lifted`, and the next `wake()`
