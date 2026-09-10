@@ -150,8 +150,10 @@ function wake() {   // the zoom-out: HUD slides in, then the figure gets up
   if (intro || started) return;
   AUDIO.begin();
   const lift = SAVE.lifted != null;   // you put a burden down at the last pool; this waking says so
-  if (lift) { delete SAVE.lifted; persist(); AUDIO.lifted(); liftGlow = CONFIG.liftGlowFrom; } else AUDIO.wake();
-  const secs = lift ? CONFIG.liftIntroSeconds : CONFIG.introSeconds;
+  if (lift) { delete SAVE.lifted; persist(); AUDIO.lifted(); liftGlow = CONFIG.liftGlowFrom;
+    setTimeout(() => AUDIO.liftBurst(), CONFIG.liftBandSec * 1000); }
+  else AUDIO.wake();
+  const secs = lift ? CONFIG.liftBandSec + CONFIG.liftBurstSec : CONFIG.introSeconds;
   intro = { t0: performance.now(), from: zoomS, lift };
   $('title').classList.add('leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
   setTimeout(() => document.body.classList.remove('pre'), secs * 400);

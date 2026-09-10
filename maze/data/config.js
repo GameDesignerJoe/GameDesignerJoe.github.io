@@ -28,9 +28,12 @@ const CONFIG = {
   tilePx: 60,           // zoom: screen pixels per tile
   titleTilePx: 150,     // zoom while asleep on the title screen
   introSeconds: 2.8,    // zoom-out when you tap the sleeper
-  liftIntroSeconds: 5,  // and the one after a burden is put down: slower, and the light opens with it,
-                        // because otherwise nothing tells you the maze got easier — you just play on
-  liftGlowFrom: 0.55,   // how dim that one starts, as a fraction of the light you now have
+  // waking one burden lighter, in two beats. You are still in the old dark when you tap: first a
+  // band of him goes pale with a breath of a sound, then the light is cut out to its new size all
+  // at once and the camera goes with it. Slowly fading into it said nothing at all.
+  liftBandSec: 1.1,     // the band of him going pale, before anything else happens
+  liftBurstSec: 0.45,   // and the light opening out. Short on purpose: this is the beat that reads
+  liftGlowFrom: 0.55,   // the old light, as a fraction of the one you now have
   viewRadius: 1.0,      // cells of visibility around you
   fogSoftness: 1.4,     // how many tiles the light takes to fade to black
   // texture: an overlay to age the concrete. The Texture debug menu picks one; off by default,
@@ -133,6 +136,8 @@ const CONFIG = {
                         // step into, so some of it is just crawling, elbows and all
   secretRooms: 1,       // a room sealed off behind a squeeze, covered in someone else's chalk. Child only
   secretRoomChalk: 0.5, // how thickly that room is drawn on: chance per floor tile
+  secretRoomCells: 3,   // the kid's room, carved whole out of dead wall: 3 cells is 5x5 tiles of
+                        // open floor with nothing in the middle of it, which is what a room is
   secretMinTiles: 9,   // how small a chunk of maze will do as a hiding place, in tiles
   secretMaxTiles: 64,   // and how big before it is really just more maze
   secretDark: true,     // it stays unlit until you find the switch on its floor and stand on it

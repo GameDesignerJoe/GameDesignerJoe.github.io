@@ -9,7 +9,7 @@
 // ── phases: what the maze allows and what you carry, per self ──
 // features: which existing systems are switched on. burden lifts are applied by count of stones put down (SAVE.stones).
 const PHASES = [
-  { who: 'The Child',          size: 'sm', bodyScale: 0.68, f: { signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0, rooms: 1.4, crawl: 5, swing: 3, figure: true, hopscotch: true } },
+  { who: 'The Child',          size: 'md', bodyScale: 0.68, f: { turns: 'sparse', signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0, rooms: 1.4, crawl: 5, swing: 3, figure: true, hopscotch: true } },
   { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, doors: 1, braid: 0.06 } },
   { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, braid: 0.06 } },
   { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, braid: 0.06, rooms: 1.6 } },

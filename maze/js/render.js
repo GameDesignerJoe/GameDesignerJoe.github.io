@@ -182,12 +182,21 @@ function drawDust(vw, vh, dt, S, ox, oy, x0_, x1_, y0_, y1_) {
 // The body, drawn into an already translated and rotated context. Seven bands from tail to
 // nose, one per stone: dark while it is still carried, pale once it has been put down. He
 // starts as a shape you can barely see and ends the pale arrow he always used to be.
+const mixHex = (a, b, t) => {
+  const p = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const [r1, g1, b1] = p(a), [r2, g2, b2] = p(b), k = Math.max(0, Math.min(1, t));
+  return `rgb(${Math.round(r1 + (r2 - r1) * k)},${Math.round(g1 + (g2 - g1) * k)},${Math.round(b1 + (b2 - b1) * k)})`;
+};
 function drawPlayerBody(c, r) {
   const C = CONFIG.colors, n = STONES.length;
   c.beginPath(); c.moveTo(r, 0); c.lineTo(-r*0.8, -r*0.75); c.lineTo(-r*0.45, 0); c.lineTo(-r*0.8, r*0.75); c.closePath();
   c.save(); c.clip();
   const x0 = -r*0.8, span = r*1.8;
-  for (let i = 0; i < n; i++) { c.fillStyle = has(i) ? C.player : C.playerBurdened; c.fillRect(x0 + span*i/n - 0.5, -r*1.1, span/n + 1, r*2.2); }
+  for (let i = 0; i < n; i++) {
+    // the band for the burden just put down goes pale during the waking, not before it
+    c.fillStyle = i === liftBand ? mixHex(C.playerBurdened, C.player, liftBandAmt) : has(i) ? C.player : C.playerBurdened;
+    c.fillRect(x0 + span*i/n - 0.5, -r*1.1, span/n + 1, r*2.2);
+  }
   c.restore();
   if (CONFIG.playerOutline > 0) { c.strokeStyle = C.playerEdge || C.player; c.lineWidth = r * CONFIG.playerOutline; c.lineJoin = 'round'; c.stroke(); }
 }
@@ -408,6 +417,10 @@ function draw() {
       if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
       const [px, py] = T(mx, my); drawGlyph(ctx, g, px, py, S*0.19, Math.max(1, S*0.055)); }
     ctx.restore(); }
+
+  if (startArrow) { const [px, py] = T(startArrow.x, startArrow.y);
+    ctx.save(); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5;
+    drawGlyph(ctx, startArrow.dir, px, py, S * 0.3, Math.max(1.5, S * 0.075)); ctx.restore(); }
 
   if (secretFather) { const [mx, my] = secretFather.split(',').map(Number);
     if (mx >= x0_ && mx <= x1_ && my >= y0_ && my <= y1_) { const [px, py] = T(mx, my);

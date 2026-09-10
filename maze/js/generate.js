@@ -19,6 +19,8 @@ let heldKeys = new Set();    // shapes you carry
 const KEY_SHAPES = ['circle', 'triangle', 'square'];
 let exitTree = new Set();    // cells of the squeeze tree guarding the way out
 let exitTreeMouth = null;    // 'x,y' of its one entrance, the squeeze you go in by
+let secretReserve = null;    // {cx,cy,rc} the square of cells held back for the kid's room
+let startArrow = null;       // {x,y,dir} the arrow painted on the start-room floor, first time only
 let secretSwitch = null;     // 'x,y' the button on its floor: stand on it and the lights come on
 let secretFather = null;     // 'x,y' where somebody drew a man walking away
 let secretTiles = new Set(); // tiles of the secret place: a room walled up, or a dead-end passage, behind one squeeze
@@ -50,12 +52,34 @@ function generate(seed) {
 
   // Turns (debug menu): a preset for straighter, sparser halls. Off, everything below is exactly as before —
   // the preset path is the only one that touches the random stream, so Auto seeds are unchanged.
-  const T = (SAVE.ui.turns && SAVE.ui.turns !== 'auto') ? CONFIG.turnsPresets[SAVE.ui.turns] : null;
+  // the debug menu wins; otherwise a phase may name its own preset, which is how the Child gets
+  // a map with dead space in it — wall to carve a room out of, and room for the tree at the exit
+  const T = (SAVE.ui.turns && SAVE.ui.turns !== 'auto') ? CONFIG.turnsPresets[SAVE.ui.turns]
+    : (F.turns ? CONFIG.turnsPresets[F.turns] : null);
   const straight = T ? T.straight : CONFIG.hallStraightness;
   const fill = T ? T.fill : CONFIG.hallFill;
 
   // growing tree: pick newest cell (backtracker) or a random one (Prim-ish) per branchiness
   const visited = Array.from({ length: CONFIG.rows }, () => new Uint8Array(CONFIG.cols));
+  // Reserve a square of cells for the kid's room before anything is carved, and mark it visited
+  // so the maze grows around it. What is left at the end is a solid block of wall in the middle of
+  // the map, which is the only way to get a room that is actually a room — square, open, nothing
+  // in the middle of it — rather than a winding piece of corridor with the walls taken out.
+  secretReserve = null;
+  if (F.crawl && CONFIG.secretRooms && !poolMode) {
+    const rc = CONFIG.secretRoomCells, srr = CONFIG.startRoomCells;
+    const barred = (x, y) => (x <= srr + 1 && y >= CONFIG.rows - 2 - srr)
+      || (x <= 1 && y <= 1) || (x >= CONFIG.cols - 2 && y <= 1) || (x >= CONFIG.cols - 2 && y >= CONFIG.rows - 2);
+    for (let tries = 0; tries < 60 && !secretReserve; tries++) {
+      const cx = 1 + (R() * Math.max(1, CONFIG.cols - rc - 2) | 0), cy = 1 + (R() * Math.max(1, CONFIG.rows - rc - 2) | 0);
+      if (cx + rc > CONFIG.cols - 1 || cy + rc > CONFIG.rows - 1) continue;
+      let ok = true;
+      for (let y = cy - 1; y <= cy + rc && ok; y++) for (let x = cx - 1; x <= cx + rc; x++) if (barred(x, y)) { ok = false; break; }
+      if (ok) secretReserve = { cx, cy, rc };
+    }
+    if (secretReserve) for (let y = 0; y < secretReserve.rc; y++) for (let x = 0; x < secretReserve.rc; x++)
+      visited[secretReserve.cy + y][secretReserve.cx + x] = 1;
+  }
   const cameFrom = Array.from({ length: CONFIG.rows }, () => new Array(CONFIG.cols).fill(null));   // direction each cell was carved in
   const active = [[0, 0]]; visited[0][0] = 1; tiles[TX(0)][TX(0)] = 1;
   while (active.length) {
@@ -116,6 +140,7 @@ function generate(seed) {
     do { cx0 = 1 + (R() * (CONFIG.cols - cells - 1) | 0); cy0 = 1 + (R() * (CONFIG.rows - cells - 1) | 0); }
     while (++tries < 20 && (roomCenters.some(([rx, ry]) => Math.abs(rx - (TX(cx0)+(tw>>1))) < tw + 2 && Math.abs(ry - (TX(cy0)+(tw>>1))) < tw + 2)   // keep rooms apart
       || (cx0 <= CONFIG.startRoomCells && cy0 + cells >= CONFIG.rows - CONFIG.startRoomCells)   // and out of the start-room corner
+      || (secretReserve && cx0 <= secretReserve.cx + secretReserve.rc && cx0 + cells > secretReserve.cx && cy0 <= secretReserve.cy + secretReserve.rc && cy0 + cells > secretReserve.cy)   // and off the kid's room
       || !(() => { for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) if (isOpen(TX(cx0+x), TX(cy0+y))) return true; return false; })()));   // and on corridor, never an island in dead space
     for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) tiles[TX(cy0)+y][TX(cx0)+x] = 1;
     roomCenters.push([TX(cx0) + (tw>>1), TX(cy0) + (tw>>1)]);
@@ -154,7 +179,8 @@ function generate(seed) {
     // keep off the start room and its ring, all three candidate exit corners, and the rooms
     const barred = (cx, cy) => (cx <= rc + 1 && cy >= CONFIG.rows - 2 - rc)
       || (cx <= 1 && cy <= 1) || (cx >= CONFIG.cols - 2 && cy <= 1) || (cx >= CONFIG.cols - 2 && cy >= CONFIG.rows - 2)
-      || roomRects.some(([rx0, ry0, rx1, ry1]) => cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1);   // rooms may be touched, never overlapped
+      || roomRects.some(([rx0, ry0, rx1, ry1]) => cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1)   // rooms may be touched, never overlapped
+      || (secretReserve && cx >= secretReserve.cx - 1 && cx <= secretReserve.cx + secretReserve.rc && cy >= secretReserve.cy - 1 && cy <= secretReserve.cy + secretReserve.rc);
     // score candidate patches by how much they already twist; the twistiest go first
     const cands = [];
     // a district is trimmed to the grid it lands on, or a small maze — the Child's, and
@@ -250,7 +276,7 @@ function generate(seed) {
   const pendingPages = chosen;
 
   // shifting cells: seal a dead end E into a pocket; the cell D two tiles away (through the wall) becomes a slider aimed at E
-  sliders = []; pockets = []; startRoom = null; sealedGaps = [];
+  sliders = []; pockets = []; startRoom = null; sealedGaps = []; startArrow = null;
   const sx = TX(0), sy = TX(CONFIG.rows-1);
   {
     const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
@@ -315,7 +341,12 @@ function generate(seed) {
       }
       if (!progressed) break;
     }
-    if (openDoor) tiles[gy][gx] = 1; else sliders.push({ x: gx - ax, y: gy - ay, dx: ax, dy: ay, shifted: false, atStart: true });
+    if (openDoor) tiles[gy][gx] = 1; else {
+      sliders.push({ x: gx - ax, y: gy - ay, dx: ax, dy: ay, shifted: false, atStart: true });
+      // Somebody painted an arrow on the floor pointing at the block you have to lean on. It is
+      // the only thing in the room that tells you the wall moves, so it stays until you learn it.
+      if (!SAVE.pushLearned) startArrow = { x: gx - ax * 3, y: gy - ay * 3, dir: ax > 0 ? 'right' : ax < 0 ? 'left' : ay > 0 ? 'down' : 'up' };
+    }
     startGap = [gx, gy];
   }
 
@@ -379,10 +410,46 @@ function generate(seed) {
           if (seen.has(k) || !(isOpen(nx, ny) || sealedKeys.has(k))) continue; seen.add(k); q2.push([nx, ny]); } }
         return seen;
       };
+      // First choice: carve the room out of solid wall. A pinched-off chunk of maze is a
+      // winding passage however you dress it, and a room somebody escaped to and played in is a
+      // room — square, open, nothing in the middle of it. On a map with dead space there is wall
+      // to put one in, and carving into wall only ever adds floor, so nothing can be cut off.
+      let carved = false;
+      if (secretReserve) {
+        const { cx, cy, rc } = secretReserve, tw = rc * 2 - 1;
+        const x0 = TX(cx), y0 = TX(cy);
+        // every way it could open onto the maze; one of them becomes the squeeze
+        const ways = [];
+        for (let i = 0; i < rc; i++) {
+          for (const [ox2, oy2, dx, dy] of [[cx + i, cy - 1, 0, 1], [cx + i, cy + rc, 0, -1], [cx - 1, cy + i, 1, 0], [cx + rc, cy + i, -1, 0]]) {
+            if (ox2 < 0 || oy2 < 0 || ox2 >= CONFIG.cols || oy2 >= CONFIG.rows) continue;
+            if (!isOpen(TX(ox2), TX(oy2)) || roomZone(TX(ox2), TX(oy2))) continue;
+            const gx = TX(ox2) + dx, gy = TX(oy2) + dy;
+            if (sealedKeys.has(gx + ',' + gy) || crawlGaps.has(gx + ',' + gy)) continue;
+            ways.push([gx, gy]);
+          }
+        }
+        if (ways.length) {
+          for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) { tiles[y0 + y][x0 + x] = 1; secretTiles.add((x0 + x) + ',' + (y0 + y)); }
+          const way = ways[R() * ways.length | 0];
+          tiles[way[1]][way[0]] = 1; crawlGaps.add(way.join(','));
+          const inner = [];
+          for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) inner.push([x0 + x, y0 + y]);
+          inner.sort((a, b) => (Math.abs(a[0] - way[0]) + Math.abs(a[1] - way[1])) - (Math.abs(b[0] - way[0]) + Math.abs(b[1] - way[1])));
+          secretSwitch = inner[0].join(',');            // the light is by the way in
+          secretFather = inner[inner.length - 1].join(',');
+          const glyphs2 = ['x', '?', 'up', 'down', 'left', 'right'];
+          for (const k of secretTiles) { if (k === secretSwitch || k === secretFather) continue;
+            if (R() < CONFIG.secretRoomChalk) secretMarks.set(k, glyphs2[R() * glyphs2.length | 0]); }
+          carved = true;
+        }
+      }
+
       const best = [];
+      // no wall to carve into, so fall back to finding where the maze pinches.
       // two passes: the size we would like, then whatever will do, because a maze without a
       // hiding place in it is worse than a small one
-      for (const [lo, hi] of [[CONFIG.secretMinTiles, CONFIG.secretMaxTiles], [5, 100]]) {
+      for (const [lo, hi] of (carved ? [] : [[CONFIG.secretMinTiles, CONFIG.secretMaxTiles], [5, 100]])) {
       if (best.length) break;
       for (let y = TX(0) - 1; y < H - P; y++) for (let x = TX(0) - 1; x < W - P; x++) {
         if (!isOpen(x, y) || ((x - P) % 2 === 1) === ((y - P) % 2 === 1)) continue;   // link tiles only
@@ -424,7 +491,7 @@ function generate(seed) {
         const cells = pick.piece.filter(k => { const [x, y] = k.split(',').map(Number); return (x - P) % 2 === 1 && (y - P) % 2 === 1; })
           .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number);
             return (Math.abs(ax - mx) + Math.abs(ay - my)) - (Math.abs(bx - mx) + Math.abs(by - my)); });
-        secretSwitch = cells[Math.min(cells.length - 1, 1)] || cells[0] || null;
+        secretSwitch = cells[0] || null;   // by the way in, not deep inside: you should find it at once
         // and a man walking away, chalked on the floor as far from the switch as it gets
         secretFather = cells.length > 2 ? cells[cells.length - 1] : null;
         const glyphs = ['x', '?', 'up', 'down', 'left', 'right'];

@@ -152,6 +152,10 @@ const AUDIO = (() => {
     // waking up one burden lighter: the same low swell, with a major figure opening over it
     lifted() { tone(196, 2.2, { vol: 0.07, attack: 0.5 }); tone(294, 2.6, { vol: 0.05, attack: 0.8 });
       [392, 493.9, 587.3, 784].forEach((f, i) => setTimeout(() => tone(f, 2.6 - i * 0.3, { vol: 0.075 - i * 0.008, attack: 0.25 }), 500 + i * 420)); },
+    // the light being cut out to its new size: a soft thump you feel more than hear, with air behind it
+    liftBurst() { tone(58, 1.1, { type: 'triangle', vol: 0.16, attack: 0.01, slide: 40 });
+      noise(0.9, { vol: 0.1, freq: 900, q: 0.5, type: 'lowpass' });
+      [523.3, 784, 1046.5].forEach((f, i) => setTimeout(() => tone(f, 1.6 - i * 0.2, { vol: 0.045, attack: 0.02 }), i * 60)); },
     stone() { tone(110, 0.3, { type: 'triangle', vol: 0.15, slide: 80 }); noise(0.08, { vol: 0.12, freq: 600, q: 2 }); },
     stoneDrop() { noise(0.5, { vol: 0.25, freq: 900, q: 0.8, type: 'lowpass' }); tone(146, 1.2, { vol: 0.1, attack: 0.02, slide: 98 }); setTimeout(() => tone(392, 2.4, { vol: 0.05, attack: 0.6 }), 400); },
     poolEnter() { [261.6, 329.6, 392].forEach((f, i) => setTimeout(() => tone(f, 3.5, { vol: 0.05, attack: 0.8 }), i * 500)); },

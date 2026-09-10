@@ -207,21 +207,27 @@ Worked through the list at the top of `NOTES.md`. The Child phase changed most:
   gauntlet so the severing test sees the final grid. 29 Child mazes in 30 get
   at least one, 2.5 on average; a very loopy maze can get none, and there the
   warren carries it instead.
-- **A secret place.** Found by looking for where the maze pinches: shut one
-  passage, see what falls off the back of it, and take the biggest chunk that
-  comes away within reason. That passage becomes the squeeze you get in by.
-  Nothing is carved and nothing is sealed — the pinch was already there, it is
-  only relabelled — so this cannot go wrong. The chunk is then opened out into
-  a room, because a pinch usually comes away as a winding passage and a child's
-  room is a room; only links with both ends already inside are opened, and the
-  place is sealed but for its one squeeze, so that changes nothing about
-  getting in or out.
+- **The kid's room.** A square of cells is reserved before anything is carved
+  and marked visited, so the maze grows around it. What is left is a solid
+  block of wall in the middle of the map, and at the end it is cut open whole:
+  5×5 tiles of floor with nothing in the middle of it, and one crawl gap into
+  it. That is the only way to get a room that is actually a room rather than a
+  winding piece of corridor with the walls taken out. Every Child maze gets
+  one, 25 tiles, about 11 drawings. Rooms and districts keep off the reserve.
+  If there is somehow no way to open it onto a corridor, it falls back to
+  finding where the maze pinches instead.
 
-  Inside, it is dark. `CONFIG.secretDark` paints the floor back out until you
-  find `secretSwitch`, a light in the floor a little way in that breathes until
-  you stand on it, and then the lights stutter on over everything somebody drew
-  in here (`secretMarks`, and `secretFather` — a man, from behind, mid-stride,
-  going away). 29 Child mazes in 30 get one, about 15 tiles.
+  Inside it is dark. `CONFIG.secretDark` paints the floor out until you find
+  `secretSwitch`, a light in the floor **by the way in**, breathing until you
+  stand on it; then the lights stutter on over `secretMarks` and
+  `secretFather`, a man from behind, mid-stride, going away.
+- **The Child's map is medium and sparse** as of v0.50.0 — `f.turns` lets a
+  phase name a Turns preset, and the Child names `sparse`. Twice the area, a
+  quarter of it wall. It needs the room, and it suits the level.
+- **An arrow painted on the start-room floor** the first time you meet a block
+  you have to push (`startArrow`). It is the only thing in that room that says
+  the wall moves. `SAVE.pushLearned` retires it for good once you have leaned
+  on one.
 - **Both are Child-only**, gated on `F.crawl`. For every phase after, a crawl
   gap is drawn shut, so either would wall something away for good.
 - **No push blocks.** A shifting district used to ask for extra sliders on any
@@ -261,6 +267,30 @@ Off by default. The distinction worth keeping: grime and decay are the texture
 of an abandoned *building*, nobody here for years. The Child was left in a
 corridor somebody still mops. Worn paths carry that better than dirt does —
 they are evidence of other people, and of their absence.
+
+**Texture (v0.45.0).** Three overlays behind a **Texture** debug menu, off by
+default. Grain and Dust draw **under the fog**, so they only ever show where the
+maze is lit; over the top they carried on across the black surround and the
+empty space below, which reads as dirt on the screen rather than anything in the
+room. Grain has its own amount, `textureGrain`, at half the rest, because it
+covers every pixel. The three are: **Grain** lays film-and-paper noise over the whole picture, **Damp**
+puts seeded blotches on the floor under the fog, so a stain stays where it is
+in the room, and **Dust** drifts motes across the glass. Which one the maze
+wants is a look to be chosen by eye, so all three are built and none is picked.
+Texture is pure paint: changing it does not reset the maze, so you can flick
+between them on the same corridor and look. `CONFIG.textureAmount` sets how
+strong whichever is on.
+
+**The waking after a pool (v0.44.0, rebuilt in v0.50.0).** Putting a burden
+down makes the maze easier — the first one nearly doubles your light — and
+nothing used to say so. It now happens in two beats. You wake in the light you
+had *before*: `reset()` sets `liftGlow` to `liftGlowFrom` when `SAVE.lifted` is
+set, so the title screen is still the old dark. Tap, and first one band of him
+goes pale over `liftBandSec` with nothing else moving at all. Then the dark is
+cut back to its new size over `liftBurstSec`, fast, and the camera goes with
+it. Fading slowly into the new light said nothing; the cut is the beat that
+reads. `liftBand` and `liftBandAmt` carry the band; `liftGlow` multiplies
+`B.viewRadius()` and is 1 at every other moment.
 
 **Texture (v0.45.0).** Three overlays behind a **Texture** debug menu, off by
 default. Grain and Dust draw **under the fog**, so they only ever show where the

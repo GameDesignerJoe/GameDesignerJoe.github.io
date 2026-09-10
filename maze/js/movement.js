@@ -29,11 +29,22 @@ function update(wall) {
   const now = gameNow();
   const kd = (keys.ArrowLeft||keys.a) ? {dx:-1,dy:0} : (keys.ArrowRight||keys.d) ? {dx:1,dy:0}
            : (keys.ArrowUp||keys.w) ? {dx:0,dy:-1} : (keys.ArrowDown||keys.s) ? {dx:0,dy:1} : null;
-  if (intro) { const secs = intro.lift ? CONFIG.liftIntroSeconds : CONFIG.introSeconds;
-    const k = Math.min(1, (performance.now() - intro.t0) / (secs * 1000)); const e = 1 - Math.pow(1 - k, 3);
+  if (intro && intro.lift) {
+    // two beats. First he lets go of one of them, and nothing else moves. Then the dark is cut
+    // back to the size it is now, fast, and the camera goes with it.
+    const t = (performance.now() - intro.t0) / 1000;
+    if (t < CONFIG.liftBandSec) { liftBandAmt = Math.min(1, t / CONFIG.liftBandSec); zoomS = intro.from; liftGlow = CONFIG.liftGlowFrom; }
+    else {
+      liftBandAmt = 1;
+      const k = Math.min(1, (t - CONFIG.liftBandSec) / CONFIG.liftBurstSec), e = 1 - Math.pow(1 - k, 4);
+      zoomS = intro.from + (CONFIG.tilePx - intro.from) * e;
+      liftGlow = CONFIG.liftGlowFrom + (1 - CONFIG.liftGlowFrom) * e;
+      if (k >= 1) { intro = null; liftGlow = 1; liftBand = -1; }
+    }
+  }
+  else if (intro) { const k = Math.min(1, (performance.now() - intro.t0) / (CONFIG.introSeconds * 1000)); const e = 1 - Math.pow(1 - k, 3);
     zoomS = intro.from + (CONFIG.tilePx - intro.from) * e;
-    if (intro.lift) liftGlow = CONFIG.liftGlowFrom + (1 - CONFIG.liftGlowFrom) * e;
-    if (k >= 1) { intro = null; liftGlow = 1; } }
+    if (k >= 1) intro = null; }
   else zoomS = started ? CONFIG.tilePx : CONFIG.titleTilePx;
   const want = (solved || !started || mapOpen || paused) ? null : (introWalk || held || kd);
 
@@ -73,7 +84,7 @@ function update(wall) {
         else {
         const to = [cx + want.dx, cy + want.dy];
         tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
-        sliding = { sl, from: [cx, cy], to, t0: now, dur: CONFIG.sliderSeconds * 1000 }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) firstPushDone = true; pushHeldSince = 0; recenter = null;
+        sliding = { sl, from: [cx, cy], to, t0: now, dur: CONFIG.sliderSeconds * 1000 }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) { firstPushDone = true; startArrow = null; if (!SAVE.pushLearned) { SAVE.pushLearned = true; persist(); } } pushHeldSince = 0; recenter = null;
         }
       }
       else if (canGo(want)) dir = want;

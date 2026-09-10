@@ -304,6 +304,10 @@ check('Update app parks the run on the mat and keeps what you did',
 // a low boom every 1.6s from something 25 tiles of walking away, loud enough
 // to bury the music. Assert the falloff, not just that a sound happens.
 const falloff = await page.evaluate(async () => {
+  // stand out in the maze first. Whatever ran before may have left the player on the mat, and a
+  // sealed start room is one tile of corridor to measure a falloff along.
+  { const mid = solutionPath[Math.floor(solutionPath.length / 2)];
+    if (mid) { player.x = mid[0] + 0.5; player.y = mid[1] + 0.5; } }
   const home = { x: Math.floor(player.x), y: Math.floor(player.y) };
   const tilesAt = [[0, [home.x, home.y]]];
   const seen = new Set([home.x + ',' + home.y]);
@@ -524,24 +528,27 @@ for (let i = 0; i < 30; i++) {
 }
 const dropped = await page.evaluate(() => ({ stones: SAVE.stones, lifted: SAVE.lifted, phase: SAVE.phase }));
 const lift = await page.evaluate(async () => {
+  const before = { glow: +liftGlow.toFixed(3), band: liftBand, amt: liftBandAmt, radius: +B.viewRadius().toFixed(3) };
   wake();
-  const first = { lift: !!intro.lift, glow: +liftGlow.toFixed(3), radius: +B.viewRadius().toFixed(3) };
-  const seen = [];
-  const t0 = performance.now();
-  await new Promise((r) => { const step = () => { seen.push(+liftGlow.toFixed(4));
-    if (performance.now() - t0 > (CONFIG.liftIntroSeconds + 0.6) * 1000) return r(); requestAnimationFrame(step); }; step(); });
-  const mid = seen[Math.floor(seen.length * CONFIG.introSeconds / CONFIG.liftIntroSeconds) + 2];
-  return { first, mid, rising: seen.every((g, i) => i === 0 || g >= seen[i - 1] - 1e-6),
-    endGlow: liftGlow, endRadius: +B.viewRadius().toFixed(3), done: !intro, started,
-    secs: CONFIG.liftIntroSeconds, normal: CONFIG.introSeconds, from: CONFIG.liftGlowFrom };
+  const rows = []; const t0 = performance.now();
+  await new Promise((r) => { const step = () => { rows.push([(performance.now() - t0) / 1000, +liftGlow.toFixed(3), +liftBandAmt.toFixed(2), Math.round(zoomS)]);
+    if (performance.now() - t0 > (CONFIG.liftBandSec + CONFIG.liftBurstSec + 0.5) * 1000) return r(); requestAnimationFrame(step); }; step(); });
+  const atBand = rows.filter((r) => r[0] < CONFIG.liftBandSec * 0.9);
+  return { before, bandSec: CONFIG.liftBandSec, burstSec: CONFIG.liftBurstSec, from: CONFIG.liftGlowFrom,
+    bandEnd: atBand.length ? atBand[atBand.length - 1][2] : 0,
+    heldDark: atBand.every((r) => Math.abs(r[1] - CONFIG.liftGlowFrom) < 0.01),
+    heldZoom: atBand.every((r) => r[3] === rows[0][3]),
+    endGlow: liftGlow, endBand: liftBand, endRadius: +B.viewRadius().toFixed(3), done: !intro, started };
 });
-check('a burden put down makes the next waking slower, with the light opening',
+check('a burden put down makes the next waking say so, in two beats',
   dropped.lifted === 0 && dropped.stones === 1 && dropped.phase === 1
-    && lift.first.lift && Math.abs(lift.first.glow - lift.from) < 0.02 && lift.rising
-    && lift.mid < 1 && lift.endGlow === 1 && lift.done && lift.started,
+    && Math.abs(lift.before.glow - lift.from) < 0.01 && lift.before.band === 0 && lift.before.amt === 0
+    && lift.bandEnd > 0.7 && lift.heldDark && lift.heldZoom
+    && lift.endGlow === 1 && lift.endBand === -1 && lift.done && lift.started,
   `${poolTaps} taps through the pool, stone 0 down, phase ${dropped.phase}; `
-  + `waking opens from ${lift.first.glow} of full light to ${lift.endGlow} over ${lift.secs}s `
-  + `(an ordinary one is ${lift.normal}s at full light); radius ${lift.first.radius} → ${lift.endRadius} tiles`);
+  + `wakes in the old light (${lift.before.glow} of full, ${lift.before.radius} tiles), `
+  + `a band of him goes pale over ${lift.bandSec}s with nothing else moving, `
+  + `then the light is cut out to ${lift.endRadius} tiles in ${lift.burstSec}s`);
 
 const plainWake = await page.evaluate(async () => {
   SAVE.phase = 2; SAVE.stones = 1; SAVE.poolPending = false; delete SAVE.lifted; delete SAVE.run; persist();
