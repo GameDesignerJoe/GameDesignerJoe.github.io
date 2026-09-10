@@ -30,7 +30,9 @@ const CONFIG = {
   introSeconds: 2.8,    // zoom-out when you tap the sleeper
   viewRadius: 1.0,      // cells of visibility around you
   fogSoftness: 1.4,     // how many tiles the light takes to fade to black
-  speed: 3.08,          // tiles per second while the stick is held
+  markGhostAlpha: 0,    // how brightly your own chalk shows through the fog. 0 = not at all, which is
+                        // the point of fog. 0.35 was the old 'a mark is a beacon you left yourself'
+  speed: 2.31,          // tiles per second while the stick is held
   pushHoldMs: 260,      // lean into a slider's edge this long before it moves
   turnBufferMs: 400,    // a perpendicular push is remembered this long and taken at the next opening
   turnForgiveness: 0.5, // how far off a tile center you can still take a turn (0.5 = anywhere in the tile)
@@ -85,23 +87,27 @@ const CONFIG = {
   chalkSpawnRate: 0.055,// fraction of dead ends holding a piece of chalk
   pointerSpawnRate: 0.15,// fraction of dead ends holding a pointer (arrow to the exit). At least 1, at most pickupMax.
   pathSpawnRate: 0.15,  // fraction of dead ends holding a path reveal
-  pickupMax: 2,         // cap per type per maze
-  mapScraps: 2,         // torn pieces of map, each revealing about a quarter of the maze around where it lay
-  mapScrapShare: 0.2,
+  pickupMax: 2,         // cap per type per maze, scaled by area
+  pointerMax: 1,        // pointers are the exception: one per maze whatever the size
+  mapScraps: 2,         // torn pieces of map, each revealing a patch of the maze around where it lay
+  mapScrapShare: 0.2,   // share of the floor one scrap charts, at medium. Divided by the map's area
+                        // multiplier, so X-Large gets a patch rather than a fifth of the whole maze
+  mapScrapMinShare: 0.06,// however big the maze, a scrap is always worth at least this much of it
   pointerSeconds: 30,   // how long the pointer stays on after pickup
   pathSeconds: 15,      // how long the path stays on after pickup
   pickupExitBuffer: 6,  // dead ends within this many cells (walking) of the exit never hold pickups
   charcoalStart: 0,     // mapping pieces you begin with
-  charcoalTiles: 50,    // floor tiles each piece adds to the map
+  charcoalTiles: 60,    // floor tiles each piece adds to the map
   charcoalSpawnRate: 0.19, // fraction of dead ends holding charcoal — rare on purpose; no guaranteed spawn
   tutorials: true,      // pause and explain each kind of thing the first time you find it (remembered between visits)
   startRoomChalk: 1,
   crawlGaps: 3,         // low gaps in walls only the Child fits through (per medium-sized maze; scales with area)
   swings: 1,            // tiles that slide back and forth on their own
-  swingSeconds: 4.5,    // how long a swing rests at each end
+  swingSeconds: 2.25,   // how long a swing rests at each end
   squeezeSlow: 0.4,     // speed inside a crawl gap
   squeezeReach: 0.85,   // how far (tiles) from the gap's center the squeeze extends into each corridor
-  figureSpots: 6,       // where the father stands in a Child maze (one is always just past the door)    // pieces of chalk lying in the start room
+  figureSpots: 6,       // where the father stands in a Child maze (one is always just past the door).
+                        // Only ever one of them is visible at a time — a crowd is not abandonment
   darknessChance: 0.3,  // share of mazes that have any darkness
   darknessSizes: [0.25, 0.4, 0.6],   // when there is darkness, one of these shares of the floor, equally likely
   darkBufferTiles: 8,   // darkness never comes closer than this (walking) to the start-room door

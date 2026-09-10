@@ -118,6 +118,21 @@ const CHECKS = [
     return bad.length ? bad.slice(0, 4).join(', ') + (bad.length > 4 ? ` (+${bad.length - 4})` : '') : null;
   }],
 
+  ['a swing-only phase carries no pushable blocks', (s) => {
+    // The Child has swings — blocks that move on their own — but has not been taught to push
+    // anything yet. A phase with swings and no pockets must have every slider on a clock.
+    if (!s.flags.swing || s.flags.pockets) return null;
+    const pushable = s.sliders.filter((sl) => !sl.auto && !sl.atStart);
+    return pushable.length
+      ? `${pushable.length} pushable block(s) on a swing-only phase, e.g. ${K(pushable[0].x, pushable[0].y)}`
+      : null;
+  }],
+
+  ['at most one compass arrow', (s) => {
+    const n = s.pickups.filter(([, t]) => t === 'pointer').length;
+    return n > s.config.pointerMax ? `${n} pointers in one maze, cap is ${s.config.pointerMax}` : null;
+  }],
+
   ['no corridor is cut off', (s) => {
     // Every floor tile must be walkable from the mat. Dead space is closed tiles, and a
     // pocket counts because its slider can be pushed and pulled back, so anything left

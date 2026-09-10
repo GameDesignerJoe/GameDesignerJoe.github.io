@@ -55,7 +55,11 @@ function useCharcoal() {
 // a scrap of map: BFS out from a tile until a share of the floor is charted (walls around it too)
 function revealAround(cx, cy) {
   let openN = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) openN++;
-  const target = Math.floor(openN * CONFIG.mapScrapShare), seen = new Set([cx+','+cy]), q = [[cx, cy]];
+  // a scrap is a torn piece of paper, not a fraction of the maze: the same share of a medium map
+  // is half an X-Large one. Divide by the area multiplier so a big maze gets a patch, not a quarter.
+  const area = (CONFIG.cols * CONFIG.rows) / (14 * 20);
+  const share = Math.max(CONFIG.mapScrapMinShare, Math.min(CONFIG.mapScrapShare, CONFIG.mapScrapShare / area));
+  const target = Math.floor(openN * share), seen = new Set([cx+','+cy]), q = [[cx, cy]];
   const tag = (x, y) => mapped.set(x+','+y, !isOpen(x, y) ? 'wall' : tunnelTiles.has(x+','+y) ? 'tunnel' : 'floor');
   while (q.length && seen.size < target) { const [x, y] = q.shift(); tag(x, y);
     for (const [dx, dy] of DIRS) { const nx = x+dx, ny = y+dy, k = nx+','+ny; if (isOpen(nx, ny)) { if (!seen.has(k)) { seen.add(k); q.push([nx, ny]); } } else tag(nx, ny); }

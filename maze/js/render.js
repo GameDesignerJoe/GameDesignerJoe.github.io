@@ -282,7 +282,7 @@ function draw() {
   }
 
   // the father: the same figure as you, full-sized, facing away — under the fog like everything else
-  for (const f of figures) { if (f.gone) continue; const px = ox + f.x*S, py = oy + f.y*S, r = CONFIG.playerSize * S * 0.62 * 1.1;
+  for (const f of figures) { if (f.gone || f.hidden) continue; const px = ox + f.x*S, py = oy + f.y*S, r = CONFIG.playerSize * S * 0.62 * 1.1;
     if (px < -S || px > vw + S || py < -S || py > vh + S) continue;
     const ang = Math.atan2(f.y - player.y, f.x - player.x);
     ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.globalAlpha = f.alpha * 0.9;
@@ -300,8 +300,9 @@ function draw() {
     ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
   }
 
-  // your chalk shows through the dark a little — a mark is a beacon you left yourself
-  if (!debugMap) { ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.35;
+  // your chalk used to show through the fog — a beacon you left yourself. It gave away
+  // corridors you had not lit, so it is off by default; CONFIG.markGhostAlpha brings it back.
+  if (!debugMap && CONFIG.markGhostAlpha > 0) { ctx.strokeStyle = C.mark; ctx.globalAlpha = CONFIG.markGhostAlpha;
     for (const [k, g] of marks) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue; const [px, py] = T(mx, my); if (Math.hypot(px - (ox + player.x*S), py - (oy + player.y*S)) < B.viewRadius() * 2 * S) continue; drawGlyph(ctx, g, px, py, S*0.16, Math.max(1.5, S*0.05)); }
     ctx.globalAlpha = 1; }
   // pointer arrow (over fog)

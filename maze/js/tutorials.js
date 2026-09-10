@@ -44,12 +44,18 @@ function walkable(x0, y0, x1, y1, maxSteps) {   // can you walk from tile (x0,y0
 }
 function updateFigures(now, dt) {
   const lit = B.viewRadius() * 2 + CONFIG.fogSoftness;
+  // Only one father is ever drawn. Six are placed, but two or three in sight at once reads
+  // as a crowd rather than as the one man who keeps leaving. The nearest is the one you see;
+  // anyone already dissolving keeps showing so he can finish going.
+  { let near = null, nd = Infinity;
+    for (const f of figures) { if (f.gone) continue; const d = Math.hypot(f.x - player.x, f.y - player.y); if (d < nd) { nd = d; near = f; } }
+    for (const f of figures) f.hidden = f !== near && !f.fading; }
   for (const f of figures) {
     if (f.gone) continue;
     const d = Math.hypot(f.x - player.x, f.y - player.y);
-    if (!f.seen && d < lit) { f.seen = true; AUDIO.farSteps(); if (character.name === 'The Child' && figureLinesSaid < 3 && Math.random() < 0.6) { figureLinesSaid++; narrate(FIGURE_LINES[Math.random() * FIGURE_LINES.length | 0]); } }
+    if (!f.seen && !f.hidden && d < lit) { f.seen = true; AUDIO.farSteps(); if (character.name === 'The Child' && figureLinesSaid < 3 && Math.random() < 0.6) { figureLinesSaid++; narrate(FIGURE_LINES[Math.random() * FIGURE_LINES.length | 0]); } }
     // he only goes when you've actually come for him: near, and nothing but floor between you
-    if (d < 2.6 && walkable(Math.floor(player.x), Math.floor(player.y), Math.floor(f.x), Math.floor(f.y), 4)) f.fading = true;
+    if (!f.hidden && d < 2.6 && walkable(Math.floor(player.x), Math.floor(player.y), Math.floor(f.x), Math.floor(f.y), 4)) f.fading = true;
     if (f.fading) { f.alpha -= dt * 3; if (f.alpha <= 0) { f.gone = true; f.alpha = 0; } }
   }
 }

@@ -136,7 +136,9 @@ function generate(seed) {
     // squeeze needs crawl gaps and shifting needs sliders, so a phase without them gets neither —
     // unless the debug menu asks for one by name, in which case you get the carve and no furniture.
     const hearts = forced ? [forced]
-      : CONFIG.clusterHearts.filter(h => h === 'squeeze' ? !!F.crawl : h === 'shifting' ? !!(F.pockets || F.swing) : true);
+      : CONFIG.clusterHearts.filter(h => h === 'squeeze' ? !!F.crawl : h === 'shifting' ? !!F.pockets : true);
+    // shifting needs pockets, not swings. On a swing-only phase (the Child) the extra sliders a
+    // shifting district asks for come out as pushable blocks, and the Child has not learned those yet.
     const want = forced ? Math.max(2, N0(CONFIG.clusters)) : N0(CONFIG.clusters);
     const rc = CONFIG.startRoomCells;
     const live = (cx, cy) => cx >= 0 && cy >= 0 && cx < CONFIG.cols && cy < CONFIG.rows && !!tiles[TX(cy)][TX(cx)];
@@ -254,7 +256,7 @@ function generate(seed) {
     for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) if (isOpen(x,y) && nOpen(x,y) === 1 && !isCorner(x,y)) cands.push([x,y]);
     cands.sort(() => R() - 0.5);
     // a shifting district wants nearly every stub in it to move: serve its dead ends first, and allow extra
-    if ((F.pockets || F.swing) && clusters.some(c => c.heart === 'shifting')) {
+    if (F.pockets && clusters.some(c => c.heart === 'shifting')) {
       const inShift = ([x, y]) => clusterAt('shifting', x, y);
       const extra = Math.min(cands.filter(inShift).length, CONFIG.clusterSliders * clusters.filter(c => c.heart === 'shifting').length);
       if (extra > 0) { want += extra; cands.sort((a, b) => (inShift(b) ? 1 : 0) - (inShift(a) ? 1 : 0)); }
@@ -438,15 +440,16 @@ function generate(seed) {
   // pickups: one roll per dead end, capped
   chalkSpots = new Set(); pickups = new Map(); charcoalSpots = new Set();
   const count = kind => [...pickups.values()].filter(v => v === kind).length; const MAXP = N(CONFIG.pickupMax);
+  const capFor = kind => kind === 'pointer' ? CONFIG.pointerMax : MAXP;   // one pointer per maze; a second is a second answer
   for (const k of deadEnds) {
     if (taken.has(k)) continue;
     const r = R();
     if (r < CONFIG.chalkSpawnRate) { if (!poolMode) { chalkSpots.add(k); taken.add(k); } }
     else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate) { if (F.charcoal) { charcoalSpots.add(k); taken.add(k); } }
-    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate) { if (F.compass && count('pointer') < MAXP) { pickups.set(k, 'pointer'); taken.add(k); } }
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate) { if (F.compass && count('pointer') < capFor('pointer')) { pickups.set(k, 'pointer'); taken.add(k); } }
     else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (F.thread && count('path') < MAXP) { pickups.set(k, 'path'); taken.add(k); } }
   }
-  for (const k of pocketKeys) { const r = R(); if (r < 0.3 || (!F.charcoal && r < 0.5)) chalkSpots.add(k); else if (r < 0.5) charcoalSpots.add(k); else if (r < 0.75 && F.compass && count('pointer') < MAXP) pickups.set(k, 'pointer'); else if (F.thread && count('path') < MAXP) pickups.set(k, 'path'); else chalkSpots.add(k); }
+  for (const k of pocketKeys) { const r = R(); if (r < 0.3 || (!F.charcoal && r < 0.5)) chalkSpots.add(k); else if (r < 0.5) charcoalSpots.add(k); else if (r < 0.75 && F.compass && count('pointer') < capFor('pointer')) pickups.set(k, 'pointer'); else if (F.thread && count('path') < MAXP) pickups.set(k, 'path'); else chalkSpots.add(k); }
   for (const kind of ['pointer', 'path']) if (!count(kind) && (kind === 'pointer' ? F.compass : F.thread)) { const k = pickFree(); if (k) { pickups.set(k, kind); taken.add(k); } }
   if (!chalkSpots.size && !poolMode) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }
   // chalk in the start room, on interior tiles clear of the mat, shelves and slider

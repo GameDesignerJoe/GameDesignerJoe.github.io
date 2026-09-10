@@ -71,14 +71,14 @@ const snapshotInPage = (phaseIdx, stones, pool, seed, turns, clusterOpt) => {
     districts: clusters.map((c) => ({ heart: c.heart, tx0: c.tx0, ty0: c.ty0, tx1: c.tx1, ty1: c.ty1 })),
     innerKeys: [...innerKeys.entries()],
     pockets: pockets.map(([x, y]) => [x, y]),
-    sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, atStart: !!sl.atStart, onPath: !!sl.onPath })),
+    sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, atStart: !!sl.atStart, onPath: !!sl.onPath, auto: !!sl.auto })),
     crawlGaps: [...crawlGaps], crawlCells: [...crawlCells],
     // figures hold tile centres (x.5, y.5), like `start` does
     figures: figures.map((f) => ({ x: Math.floor(f.x), y: Math.floor(f.y) })),
     darkTiles: [...darkTiles],
     poolMode, poolDoor,
     flags: { ...phase().f, sliderAtStart: CONFIG.sliderAtStart },
-    config: { darkBufferTiles: CONFIG.darkBufferTiles, pickupExitBuffer: CONFIG.pickupExitBuffer },
+    config: { darkBufferTiles: CONFIG.darkBufferTiles, pickupExitBuffer: CONFIG.pickupExitBuffer, pointerMax: CONFIG.pointerMax },
   };
 };
 
