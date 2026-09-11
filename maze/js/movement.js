@@ -130,7 +130,8 @@ function update(wall) {
   if (dir) facing = Math.atan2(dir.dy, dir.dx);
   { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d)); facingShown += d * Math.min(1, dt * 18); }
   { const sqz = started && phase().f.crawl && [...crawlGaps, ...crawlCells].some(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
-    if (sqz !== inSqueeze) { inSqueeze = sqz; camBump = sqz ? -CONFIG.squeezeBump : CONFIG.squeezeBump; AUDIO.squeeze(sqz); } }
+    // no camera kick going in or out, and the sound is the same knock as a shoulder on a wall
+    if (sqz !== inSqueeze) { inSqueeze = sqz; AUDIO.bump(); } }
 
   // One speed budget for the frame, shared by walking forward and easing back onto the corridor's
   // centreline. The ease used to be its own movement at 1.6x walking on top of the step, so going
@@ -142,8 +143,13 @@ function update(wall) {
   { const ax = dir ? (dir.dx ? 'y' : 'x') : recenter;
     if (ax) { const c = Math.floor(player[ax]) + 0.5, diff = c - player[ax];
       if (Math.abs(diff) < 0.004) { player[ax] = c; if (!dir) recenter = null; }
-      else { const mv = Math.min(Math.abs(diff), (dir ? CONFIG.cornerEase : 1) * budget);
-        player[ax] += Math.sign(diff) * mv; perpUsed = mv; } } }
+      else { const mv = Math.min(Math.abs(diff), (dir && !inSqueeze ? CONFIG.cornerEase : 1) * budget);
+        player[ax] += Math.sign(diff) * mv; perpUsed = mv; }
+      // In a squeeze there is nowhere to drift to. The corner ease is a slide onto the centreline
+      // and in a gap a fraction of a tile wide it carried you out into the black beside it, which
+      // is the drift Joe saw. Inside one, you are held to the channel.
+      if (inSqueeze) { const c2 = Math.floor(player[ax]) + 0.5, off = player[ax] - c2, lim = CONFIG.squeezeChannel / 2;
+        if (Math.abs(off) > lim) player[ax] = c2 + Math.sign(off) * lim; } } }
   if (dir) {
     const step = Math.sqrt(Math.max(0, budget * budget - perpUsed * perpUsed));
     const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;

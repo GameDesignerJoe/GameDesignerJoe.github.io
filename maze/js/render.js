@@ -257,7 +257,7 @@ function drawTicTacToe(px, py, S, cells, won) {
 // so a squeeze on a tile open three or four ways — they turn up in the exit gauntlet — showed a
 // single strip and then let you walk out of a side with nothing drawn on it at all.
 function drawSqueeze(px, py, S, mx, my, open) {
-  const C = CONFIG.colors, w = 0.28, lo = 0.5 - w/2, hi = 0.5 + w/2, t = 1.5;
+  const C = CONFIG.colors, w = CONFIG.squeezeChannel, lo = 0.5 - w/2, hi = 0.5 + w/2, t = 1.5;
   const arm = DIRS.map(([dx, dy]) => isOpen(mx + dx, my + dy));   // DIRS order: right, left, down, up
   ctx.fillStyle = C.wall; ctx.fillRect(px, py, S+0.5, S+0.5);
   ctx.fillStyle = open ? C.floor : '#151819';
@@ -300,7 +300,12 @@ function drawPlayerBody(c, r) {
   const x0 = -r*0.8, span = r*1.8;
   for (let i = 0; i < n; i++) {
     // the band for the burden just put down goes pale during the waking, not before it
-    c.fillStyle = i === liftBand ? mixHex(C.playerBurdened, C.player, liftBandAmt) : has(i) ? C.player : C.playerBurdened;
+    // the band coming off goes black → grey → pale, and holds on the grey, so there is a change
+    // to watch rather than a flicker of white at the end
+    c.fillStyle = i === liftBand
+      ? (liftBandAmt < 0.55 ? mixHex(C.playerBurdened, C.playerLifting, liftBandAmt / 0.55)
+        : mixHex(C.playerLifting, C.player, (liftBandAmt - 0.55) / 0.45))
+      : has(i) ? C.player : C.playerBurdened;
     c.fillRect(x0 + span*i/n - 0.5, -r*1.1, span/n + 1, r*2.2);
   }
   c.restore();
@@ -483,30 +488,32 @@ function draw() {
     }
   }
 
-  // The pool level's gate: the same barred panel as a locked door inside the maze, but what it
-  // wants is not a shape. It is the stone, so the stone is what is drawn on it. It sits on the
-  // edge of its tile nearest the room, flush with the wall the doorway is cut through — in the
-  // middle of the tile it floated in the passage — and it grinds sideways into that wall.
-  if (poolDoor) { const open = poolDoor.openAt ? Math.min(1, (nowMs - poolDoor.openAt) / (CONFIG.poolDoorSeconds * 1000)) : 0;
-    if (open < 1) { const [px, py] = T(poolDoor.x, poolDoor.y), horiz = isOpen(poolDoor.x-1, poolDoor.y) && isOpen(poolDoor.x+1, poolDoor.y);
-      const inRoom = (x, y) => !!startRoom && x >= startRoom.x0 && x <= startRoom.x1 && y >= startRoom.y0 && y <= startRoom.y1;
-      const toRoom = horiz ? (inRoom(poolDoor.x - 1, poolDoor.y) ? -1 : inRoom(poolDoor.x + 1, poolDoor.y) ? 1 : 0)
-                           : (inRoom(poolDoor.x, poolDoor.y - 1) ? -1 : inRoom(poolDoor.x, poolDoor.y + 1) ? 1 : 0);
-      const off = open * S;   // a steady grind, not a spring
-      ctx.save();
-      // clipped to the tile across the passage, so the panel disappears into the wall as it goes,
-      // and a little way past it toward the room, so sitting flush does not cut the panel in half
-      const lip = S * 0.3;
+  // The pool level's gate. Two leaves that swing apart down the middle and lie back against the
+  // walls of the hall — and stay there, because a gate you shoved open does not vanish. It sits a
+  // little back from the room's wall rather than flush with it, so it reads as a thing standing in
+  // the doorway rather than as part of the wall.
+  if (poolDoor) {
+    const open = poolDoor.openAt ? Math.min(1, (nowMs - poolDoor.openAt) / (CONFIG.poolDoorSeconds * 1000)) : 0;
+    const [px, py] = T(poolDoor.x, poolDoor.y), horiz = isOpen(poolDoor.x-1, poolDoor.y) && isOpen(poolDoor.x+1, poolDoor.y);
+    const inRoom = (x, y) => !!startRoom && x >= startRoom.x0 && x <= startRoom.x1 && y >= startRoom.y0 && y <= startRoom.y1;
+    const toRoom = horiz ? (inRoom(poolDoor.x - 1, poolDoor.y) ? -1 : inRoom(poolDoor.x + 1, poolDoor.y) ? 1 : 0)
+                         : (inRoom(poolDoor.x, poolDoor.y - 1) ? -1 : inRoom(poolDoor.x, poolDoor.y + 1) ? 1 : 0);
+    const gx = horiz ? px + toRoom * S * CONFIG.poolGateInset : px, gy = horiz ? py : py + toRoom * S * CONFIG.poolGateInset;
+    const len = S / 2, th = Math.max(2, S * 0.1), ease = 1 - Math.pow(1 - open, 3);
+    const leaf = (hx, hy, shut, swing) => {
+      ctx.save(); ctx.translate(hx, hy); ctx.rotate(shut + swing * ease * Math.PI / 2);
+      ctx.fillStyle = C.poolGate;
       ctx.beginPath();
-      if (horiz) ctx.rect(px - S/2 - (toRoom < 0 ? lip : 0), py - S/2, S + lip, S);
-      else ctx.rect(px - S/2, py - S/2 - (toRoom < 0 ? lip : 0), S, S + lip);
-      ctx.clip();
-      ctx.translate(horiz ? toRoom * S/2 : off, horiz ? off : toRoom * S/2);
-      ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
-      for (let i = -1; i <= 1; i++) { if (horiz) { ctx.moveTo(px - S*0.06, py + i*S*0.26); ctx.lineTo(px + S*0.06, py + i*S*0.26); } else { ctx.moveTo(px + i*S*0.26, py - S*0.06); ctx.lineTo(px + i*S*0.26, py + S*0.06); } }
-      if (horiz) { ctx.moveTo(px, py - S*0.42); ctx.lineTo(px, py + S*0.42); } else { ctx.moveTo(px - S*0.42, py); ctx.lineTo(px + S*0.42, py); }
-      ctx.stroke(); drawStone(ctx, px, py, S*0.17, C.gate);
-      ctx.restore(); } }
+      if (ctx.roundRect) ctx.roundRect(0, -th / 2, len, th, th / 2); else ctx.rect(0, -th / 2, len, th);
+      ctx.fill();
+      ctx.restore();
+    };
+    if (horiz) { leaf(gx, py - S / 2, Math.PI / 2, toRoom); leaf(gx, py + S / 2, -Math.PI / 2, -toRoom); }
+    else { leaf(px - S / 2, gy, 0, -toRoom); leaf(px + S / 2, gy, Math.PI, toRoom); }
+    // the stone it wants, on the seam. It goes with the seam as the leaves part
+    if (open < 0.3) { ctx.save(); ctx.globalAlpha = 1 - open / 0.3;
+      drawStone(ctx, gx, gy, S * 0.17, C.poolGate); ctx.restore(); }
+  }
 
   // start & exit (+ gate)
   { const mx = ox + (start.x-0.5)*S, my = oy + (start.y-0.5)*S;   // a thin sleeping mat, with a slightly lighter fold at the head
@@ -644,9 +651,9 @@ function draw() {
   }
 
   // player: arrowhead, black nose; ghosted inside a tunnel
-  { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1);
+  { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1) * (inSqueeze ? CONFIG.squeezeShrink : 1);
     const inTunnel = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y));
-    ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = inTunnel ? 0.35 : inSqueeze ? 0.7 : 1;
+    ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = inTunnel ? 0.35 : 1;
     drawPlayerBody(ctx, r);
     ctx.restore(); }
 
@@ -686,7 +693,7 @@ function draw() {
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dk, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // in the dark you can see yourself only by your own lamp
-    if (!inDark || (hasLamp && lampOn)) { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1);
+    if (!inDark || (hasLamp && lampOn)) { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1) * (inSqueeze ? CONFIG.squeezeShrink : 1);
       ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y)) ? 0.35 : 1;
       drawPlayerBody(ctx, r); ctx.restore(); }
   }

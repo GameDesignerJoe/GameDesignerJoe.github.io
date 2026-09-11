@@ -170,7 +170,6 @@ cv.addEventListener('pointerdown', e => {
   if ($('howPanel').classList.contains('open')) { $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open'); }
 });
 $('howBtn').addEventListener('click', () => { const o = $('howPanel').classList.toggle('open'); $('howBtn').classList.toggle('open', o); AUDIO.paper(); });
-$('refreshBtn').addEventListener('click', () => hardRefresh({ set textContent(v) {} }));
 $('again').addEventListener('click', () => { if (SAVE.finished && phase().who === 'You') { SAVE.phase = 0; SAVE.stones = 0; SAVE.finished = false; SAVE.collected = {}; SAVE.wakeSaid = []; persist(); } reset((Math.random()*1e9)|0); enterMaze(); });
 
 // shelf positions: left wall (4) and bottom wall (3) — never the top row or right column, where the slider lives
@@ -183,7 +182,6 @@ function drawShape(c, shape, px, py, r, color, lw) { c.strokeStyle = color; c.li
 function drawStone(c, px, py, r, color) {
   c.save(); c.strokeStyle = color; c.fillStyle = CONFIG.colors.bg; c.lineWidth = Math.max(1.5, r * 0.28); c.lineJoin = 'round';
   c.beginPath(); c.ellipse(px, py + r*0.12, r, r*0.72, 0.22, 0, Math.PI*2); c.fill(); c.stroke();
-  c.beginPath(); c.ellipse(px - r*0.3, py - r*0.22, r*0.3, r*0.17, 0.22, 0, Math.PI*2); c.stroke();
   c.restore();
 }
 // somebody drew a man, from behind, mid-stride, going away. Chalk, a child's hand.

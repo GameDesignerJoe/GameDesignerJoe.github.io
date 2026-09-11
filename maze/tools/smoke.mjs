@@ -850,6 +850,40 @@ check('the labyrinth prototype builds, and Off puts the maze back',
   + `a sealed ${laby.room}x${laby.room} start room with one block to lean on, the maze's own fog; `
   + `the way out is ${laby.route} tiles; Off left nothing behind`);
 
+// ── 8o. getting through a squeeze ─────────────────────────────────
+// Joe: "the character leaves the squeeze space and drifts out into the black portion of the map."
+// Two things did that. The slide onto the centreline, which in a gap a third of a tile wide
+// carried you out of it; and the body itself, which is most of a tile across and hung over both
+// walls of the channel whatever you did with it. Now you are held to the channel and you turn
+// sideways to fit — and there is no camera kick and no fading out any more.
+const squeeze = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  let gap = null;
+  for (const k of crawlGaps) { const [x, y] = k.split(',').map(Number);
+    if (isOpen(x-1, y) && isOpen(x+1, y) && !isOpen(x, y-1) && !isOpen(x, y+1) && isOpen(x-2, y)) { gap = [x, y]; break; } }
+  if (!gap) return { skip: true };
+  player.x = gap[0] - 1 + 0.5; player.y = gap[1] + 0.42;      // come at it off-centre, as you do after a corner
+  dir = null; recenter = null; held = { dx: 1, dy: 0 };
+  const off = []; let kick = 0;
+  const t0b = performance.now();
+  await new Promise((r) => { const step = () => {
+    if (inSqueeze) { off.push(Math.abs(player.y - (Math.floor(player.y) + 0.5))); kick = Math.max(kick, Math.abs(camBump)); }
+    if (performance.now() - t0b > 2000) return r();
+    requestAnimationFrame(step); }; step(); });
+  held = null;
+  const lim = CONFIG.squeezeChannel / 2;
+  const bodyHalf = CONFIG.playerSize * 0.62 * (phase().bodyScale || 1) * CONFIG.squeezeShrink * 0.75;
+  return { frames: off.length, worst: off.length ? Math.max(...off) : 0, lim, bodyHalf, kick, shrink: CONFIG.squeezeShrink };
+});
+check('a squeeze holds you in its channel, and you fit through it',
+  squeeze.skip || (squeeze.frames > 10 && squeeze.worst <= squeeze.lim + 0.001 && squeeze.bodyHalf <= squeeze.lim && squeeze.kick === 0),
+  squeeze.skip ? 'no straight squeeze on this maze' :
+  `${squeeze.frames} frames inside one: never more than ${squeeze.worst.toFixed(3)} off the centreline (the channel allows ${squeeze.lim}); `
+  + `the body draws ${squeeze.bodyHalf.toFixed(3)} half-wide at ${squeeze.shrink}x, so it fits; no camera kick`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

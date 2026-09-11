@@ -31,7 +31,8 @@ const CONFIG = {
   // waking one burden lighter, in two beats. You are still in the old dark when you tap: first a
   // band of him goes pale with a breath of a sound, then the light is cut out to its new size all
   // at once and the camera goes with it. Slowly fading into it said nothing at all.
-  liftBandSec: 1.1,     // the band of him going pale, before anything else happens
+  liftBandSec: 2.4,     // the band of him going pale, before anything else happens. Long, because it
+                        // is the one beat that says a burden came off, and it was over before it read
   liftBurstSec: 0.45,   // and the light opening out. Short on purpose: this is the beat that reads
   liftGlowFrom: 0.55,   // the old light, as a fraction of the one you now have
   viewRadius: 1.0,      // cells of visibility around you
@@ -187,8 +188,11 @@ const CONFIG = {
   swingSeconds: 2.25,   // how long a swing rests at each end
   squeezeSlow: 0.4,     // speed inside a crawl gap
   squeezeReach: 0.85,   // how far (tiles) from the gap's center the squeeze extends into each corridor
-  squeezeBump: 0.09,    // the camera's kick going into and out of a squeeze, in tiles. It is a shoulder
-                        // catching a wall, not a collision — 0.18 read as being hit
+  squeezeShrink: 0.62,  // how small he draws while he is in a squeeze. The channel is a third of a
+                        // tile and he is most of one, so squared up he hangs over both walls of it.
+                        // He turns sideways to fit: that is what a squeeze is
+  squeezeChannel: 0.28, // how wide the cut through the wall is, as a fraction of a tile. The drawing
+                        // and the hold on your footing both read this, so they cannot drift apart
   journalFloat: 0.05,   // how far a book lifts and settles, as a fraction of a tile. 0 = still
   journalFloatSec: 2.6, // one rise and fall
   figureLingerSec: 2.5, // how long the father stands there once you have seen him, before he leaves
@@ -202,6 +206,8 @@ const CONFIG = {
   darkBufferTiles: 8,   // darkness never comes closer than this (walking) to the start-room door
   coneDeg: 70,          // lamp cone width
   coneTiles: 3.6,       // lamp cone reach
+  poolGateInset: 0.34,  // how far back from the room's wall the gate sits, in tiles. Flush with it
+                        // read as part of the wall rather than as a thing standing in the doorway
   poolDoorSeconds: 4.8, // how long the pool room's gate takes to grind aside once you have shoved it
                         // with the stone. It is stone and it is heavy: 0.65s read as a shutter, and
                         // 2.4s still read as a door rather than a weight
@@ -235,10 +241,13 @@ const CONFIG = {
     player:'#ece7da',
     playerEdge:'#8b867a',       // the edge that keeps him findable while he is still dark. Pale enough
                                 // to see, dull enough not to look freshly painted
+    playerLifting: '#7d786d',   // halfway. A band goes black, then grey, then pale — three stops, so
+                                // there is something to watch. Straight to pale was a flicker of white
     playerBurdened:'#2c2a26',   // what he is before a stone is put down. Each one lights another
                                 // band of him, tail to nose, until he is the pale colour above
     exit:  '#a89f8c',
     gate:  '#d8b36a',
+    poolGate: '#e8e3d6',        // the pool room's gate: white, and heavy
     start: '#4a4741',
     mark:  '#ece7da',
     path:  '#8f8a7e',

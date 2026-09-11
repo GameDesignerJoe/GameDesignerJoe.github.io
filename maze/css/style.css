@@ -92,7 +92,6 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #titleBar span:first-child { font-size:12px; color:#4f4c46; font-style:italic; }
 #howBtn { font-size:22px; font-style:italic; color:#8d887c; padding:6px 18px; }
 #howBtn.open { color:#ece7da; }
-#refreshBtn { width:22px; height:22px; }
 #howPanel { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 56px); max-height:0; overflow:hidden; background:#1b1f21; transition:max-height .55s cubic-bezier(.2,.7,.2,1); pointer-events:auto; }
 #howPanel.open { max-height:70vh; overflow-y:auto; scrollbar-width:none; }
 #howPanel::-webkit-scrollbar { display:none; }

@@ -455,6 +455,38 @@ next to the bookshelves and a new game does not fire off the dialogue anymore".
 Both are covered by **the shelves and the basin speak every time you stand at
 them** in `smoke.mjs`, which fails against either old line.
 
+**Getting through a squeeze (v0.66.0).** Joe: *"the character leaves the
+squeeze space and drifts out into the black portion of the map."* Two separate
+things did that, and only one of them was the drift.
+
+- The slide onto the centreline is gentle since v0.62.0, and in a channel a
+  third of a tile wide it carried you out of it. Inside a squeeze the ease now
+  gets the whole frame's budget and the off-axis is **clamped to
+  `CONFIG.squeezeChannel / 2`**, so there is nowhere to drift to.
+- The body is most of a tile across and the channel is `squeezeChannel` = 0.28
+  of one, so squared up he hung over both walls however centred he was. He now
+  draws at `squeezeShrink` while he is in one — he turns sideways to fit, which
+  is what a squeeze is. That is what the old 0.7 alpha was covering up, and the
+  alpha is gone, as asked.
+- No camera kick going in or out (`squeezeBump` is gone), and the sound is the
+  same knock as a shoulder on a wall rather than a scrape of its own.
+
+`CONFIG.squeezeChannel` is read by the drawing *and* by the hold on your
+footing, so the two cannot drift apart.
+
+**The pool gate swings (v0.66.0).** Joe wanted it moved back off the room's
+wall, white, with the smaller filled circle off the stone, and *"opening down
+the middle and both sides swing to the wall. I want them to stay there though,
+not disappear."* So it is two leaves hinged at the jambs: closed they meet in the
+middle with the stone on the seam, and they swing apart into the hall over
+`poolDoorSeconds` and stay lying against the walls. `poolGateInset` is how far
+back from the room it sits; flush with the wall it read as part of the wall.
+
+**The burden coming off holds longer (v0.66.0).** `liftBandSec` 1.1 → 2.4, and
+the band goes **black → grey → pale** through `colors.playerLifting` rather than
+straight to pale, holding on the grey for the first 55% of it. Joe: *"right now
+we just see a tiny bit of white and it's not that rewarding."*
+
 **The pool room's gate (v0.58.0).** Four of Joe's notes, all about weight.
 
 - It sits on the edge of its tile nearest the room, flush with the wall the
