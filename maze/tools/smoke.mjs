@@ -811,6 +811,38 @@ check('finishing a maze writes a line in the run log',
   log.rows === 1 && log.row && log.row.ms > 250000 && log.row.steps >= 161 && log.row.who && log.csv === 2,
   log.row ? `${log.row.who}, ${fmtOf(log.row.ms)}, ${log.row.steps} tiles, seed ${log.row.seed}, size ${log.row.size}; CSV is a header and ${log.csv - 1} row` : 'nothing logged');
 
+// ── 8n. the labyrinth prototype ───────────────────────────────────
+// Sections that own their edges, a hall through the dead seam between them, a landmark at the
+// heart of each. It is chosen from the Prototype menu like any other, and picking Off has to put
+// a real maze back with none of it left over.
+const laby = await page.evaluate(async () => {
+  const sel = $('optProto');
+  sel.value = 'laby'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const built = { proto: SAVE.ui.proto, protoMode, sections: sections.length, landmarks: landmarks.length,
+    W, H, route: solutionPath.length - 1, kinds: [...new Set(sections.map((s2) => s2.kind))].sort() };
+  // every landmark stands on floor, and no two that are near each other are the same thing
+  built.onFloor = landmarks.every((L) => !!tiles[L.y][L.x]);
+  built.distinct = new Set(landmarks.map((L) => L.kind)).size;
+  // the way out has to be walkable from the mat
+  const seen = new Set([Math.floor(start.x) + ',' + Math.floor(start.y)]), q = [[Math.floor(start.x), Math.floor(start.y)]];
+  for (let h = 0; h < q.length; h++) { const [x, y] = q[h];
+    for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+      if (seen.has(k) || !tiles[ny] || !tiles[ny][nx]) continue; seen.add(k); q.push([nx, ny]); } }
+  built.exitReachable = seen.has(exit.x + ',' + exit.y);
+  built.landmarksReachable = landmarks.every((L) => seen.has(L.x + ',' + L.y));
+  sel.value = 'off'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  built.offAgain = !protoMode && sections.length === 0 && landmarks.length === 0;
+  return built;
+});
+check('the labyrinth prototype builds, and Off puts the maze back',
+  laby.protoMode === true && laby.sections >= 6 && laby.landmarks === laby.sections
+  && laby.onFloor && laby.exitReachable && laby.landmarksReachable && laby.kinds.length >= 2 && laby.offAgain,
+  `${laby.sections} sections (${laby.kinds.join(', ')}) across ${laby.W}x${laby.H}, `
+  + `${laby.landmarks} landmarks of ${laby.distinct} kinds, all on floor and all reachable; `
+  + `the way out is ${laby.route} tiles; Off left nothing behind`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

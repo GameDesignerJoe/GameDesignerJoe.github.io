@@ -28,7 +28,8 @@ const SEEDS = Number(arg('seeds', 20));
 const PHASE = Number(arg('phase', 0));
 const SHARE = Number(arg('share', 0.15));
 const PORT = Number(arg('port', 8765));
-const SIZES = arg('size', null) ? [arg('size', null)] : ['sm', 'md', 'lg', 'xl'];
+const PROTO = arg('proto', null);                       // measure a prototype instead of a maze
+const SIZES = PROTO ? [PROTO] : arg('size', null) ? [arg('size', null)] : ['sm', 'md', 'lg', 'xl'];
 const URL = `http://127.0.0.1:${PORT}/maze/maze-topdown.html`;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const K = (x, y) => x + ',' + y;
@@ -100,17 +101,19 @@ const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
 await page.goto(URL + '?seed=1', { waitUntil: 'load' });
 await page.waitForTimeout(900);
 
-const snap = (size, ph, seed) => page.evaluate(([size, ph, seed]) => {
-  SAVE.phase = ph; SAVE.stones = ph; SAVE.poolPending = false; SAVE.ui = { size }; delete SAVE.run;
+const snap = (size, ph, seed) => page.evaluate(([size, ph, seed, PROTO]) => {
+  SAVE.phase = ph; SAVE.stones = ph; SAVE.poolPending = false;
+  SAVE.ui = PROTO ? { proto: PROTO } : { size };
+  delete SAVE.run;
   generate(seed);
   return { W, H, tiles: tiles.map((r) => Array.from(r, (v) => (v ? '1' : '0')).join('')),
     start: { x: Math.floor(start.x), y: Math.floor(start.y) },
     solutionPath: solutionPath.map((p) => [p[0], p[1]]) };
-}, [size, ph, seed]);
+}, [size, ph, seed, PROTO]);
 
 console.log('The Maze — the shape of it');
 console.log(`  phase ${PHASE} · ${SEEDS} seeds a size · a threshold splits off at least ${(SHARE * 100).toFixed(0)}% of the floor\n`);
-console.log('  size   floor   thresholds   longest run   biggest split        junctions   tiles between them   dead ends');
+console.log('  size   floor   thresholds   longest run   biggest split        junctions   tiles between them   dead ends    room tiles');
 console.log('  ' + '─'.repeat(104));
 
 for (const size of SIZES) {
@@ -121,19 +124,26 @@ for (const size of SIZES) {
     for (let y = 0; y < s.H; y++) for (let x = 0; x < s.W; x++) if (s.tiles[y][x] === '1') open.add(K(x, y));
     const ch = chokes(open, s.W, s.H, s.start.x, s.start.y, SHARE);
     const rs = ch.major.length ? runs(ch.major, ch.idx, ch.adj) : [];
-    let junc = 0, dead = 0;
+    // A junction is a fork in a corridor, not a tile in the middle of a room: an open room has
+    // three ways out of every tile in it and asks you nothing, because you can see all of it. So
+    // a tile in any 2x2 block of floor is room, and only the rest can be a fork.
+    const inRoom = (x, y) => [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([ox, oy]) =>
+      open.has(K(x + ox, y + oy)) && open.has(K(x + ox + 1, y + oy)) && open.has(K(x + ox, y + oy + 1)) && open.has(K(x + ox + 1, y + oy + 1)));
+    let junc = 0, dead = 0, room = 0;
     for (const k of open) { const [x, y] = k.split(',').map(Number);
       const n = DIRS.filter(([dx, dy]) => open.has(K(x + dx, y + dy))).length;
+      if (inRoom(x, y)) { room++; continue; }
       if (n >= 3) junc++; if (n === 1) dead++; }
+    acc.room = (acc.room || 0) + room;
     acc.N += ch.N; acc.th += rs.length;
     acc.runLen += rs.length ? rs[0].len : 0;
     acc.split += rs.length ? rs[0].parts[1] / ch.N : 0;
-    acc.junc += junc; acc.gap += junc ? ch.N / junc : 0; acc.dead += dead;
+    acc.junc += junc; acc.gap += junc ? (ch.N - room) / junc : 0; acc.dead += dead;
   }
   const a = (v) => v / SEEDS;
   console.log(`  ${size.padEnd(6)} ${String(Math.round(a(acc.N))).padEnd(7)} ${a(acc.th).toFixed(1).padEnd(12)} `
     + `${a(acc.runLen).toFixed(1).padEnd(13)} ${(a(acc.split) * 100).toFixed(0) + '% of the floor'} `.padEnd(21)
-    + ` ${String(Math.round(a(acc.junc))).padEnd(11)} ${a(acc.gap).toFixed(1).padEnd(20)} ${Math.round(a(acc.dead))}`);
+    + ` ${String(Math.round(a(acc.junc))).padEnd(11)} ${a(acc.gap).toFixed(1).padEnd(20)} ${String(Math.round(a(acc.dead))).padEnd(11)} ${Math.round(a(acc.room || 0))}`);
 }
 
 console.log('\n  thresholds  = places where the maze genuinely divides in two. A hallway between sections is one.');

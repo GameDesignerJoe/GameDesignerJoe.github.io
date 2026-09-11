@@ -326,6 +326,22 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The labyrinth prototype (v0.64.0)
+
+`docs/LABYRINTH.md` is the plan; `buildLabyrinth()` in `js/proto.js` is the
+first build of it, in the Prototype menu next to Two-way blocks. Ground cut into
+8–12 sections that own their edges, a hall through the dead seam between each
+pair, an open room at the heart of every section with a landmark in it, and a
+section graph that is a tree so there is exactly one way between any two of
+them. `tools/shape.mjs --proto laby` and `tools/bots.mjs --proto laby` measure
+it against the maze it is meant to replace.
+
+One thing to know before reading the numbers in that doc: **the first junction
+count in it was wrong** and is corrected there. It counted every tile of an open
+room as a junction, and a room asks you nothing — you can see all of it. The
+maze forks every 10–13 tiles of corridor, not every 3.4. The threshold finding,
+which is what the plan rests on, is unaffected.
+
 ## How long a maze takes (v0.63.0)
 
 `tools/bots.mjs` answers the three questions Joe asked — the fastest a maze can

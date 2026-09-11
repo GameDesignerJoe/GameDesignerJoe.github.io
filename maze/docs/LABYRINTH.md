@@ -18,42 +18,36 @@ graph. A **junction** is a tile with three or more ways out.
 
 | | sm 25×33 | md 33×45 | lg 45×61 | xl 61×85 |
 |---|---|---|---|---|
-| floor tiles | 227 | 455 | 896 | 1777 |
-| thresholds | 2.5 | 2.6 | 1.5 | 1.9 |
-| longest threshold run | 23 tiles | 18 | 19 | 13 |
-| biggest split | 38% of the floor | 40% | 27% | 18% |
-| junctions | 84 | 137 | 226 | 407 |
-| **tiles between junctions** | **2.7** | **3.4** | **4.0** | **4.4** |
-| dead ends | 9 | 14 | 29 | 55 |
+| floor tiles | 229 | 456 | 899 | 1789 |
+| thresholds | 2.5 | 2.5 | 1.6 | 2.6 |
+| longest threshold run | 16 tiles | 19 | 22 | 17 |
+| biggest split | 36% of the floor | 37% | 27% | 21% |
+| corridor forks | 16 | 28 | 56 | 115 |
+| corridor tiles between forks | 10.0 | 12.5 | 13.0 | 12.8 |
+| dead ends | 9 | 14 | 29 | 53 |
+| room tiles | 81 | 126 | 184 | 330 |
 
-Three things fall out of this, and they are the whole diagnosis.
+**A correction, because the first pass of this was wrong.** The junction count
+originally read 84 at sm and 137 at md — a fork every 3.4 tiles — and that was a
+bug in the measurement, not a fact about the game. It counted every tile in an
+open room as a junction, and a room has three ways out of every tile in it while
+asking you nothing, because you can see all of it. Counting only forks in
+corridor, the maze asks a question every 10–13 tiles, which is about five
+seconds of walking. **So "too many branches" is not what makes the maze
+illegible, and it is not why chalk goes unused.** Whatever is wrong with chalk
+is something else — most likely that there is nothing worth marking, which is
+the same problem as everything else here.
 
-**There are no thresholds.** Two per maze, and the biggest one only divides the
-floor 40/60 at md. A maze with two divisions has three places in it. Everything
-else is one continuous mesh, which is exactly why it all feels the same.
+What does survive the correction, and it is the important half:
 
-**It gets worse as the maze gets bigger, not better.** From sm to xl the floor
-grows eight times, the thresholds fall from 2.5 to 1.9, and the biggest split
-falls from 38% of the floor to 18%. Size today multiplies the muddle. **Making
-the maps bigger without structure would make this worse, and that is the single
-most important number here.**
+**There are no thresholds.** Two or three per maze, and the biggest one only
+divides the floor 37/63 at md. A maze with two divisions has three places in it.
+Everything else is one continuous mesh, which is why it all feels the same.
 
-**The maze asks a question every three tiles.** 137 junctions at md, one every
-3.4 tiles — a decision every 1.5 seconds of walking. Nobody can hold a map of
-that in their head, and it is why chalk does not pay: you would have to mark
-every third tile. This is the same thing Joe noticed as "excessive branches make
-it not ideal to use chalk".
-
-Two more numbers from `bots.mjs` that bear on the plan:
-
-- **Perfect play barely changes with size.** 50s at md, 1m 29s at xl — eight
-  times the area for 39 extra seconds, because the exit sits in the opposite
-  corner and the shortest route is roughly the diagonal. Even moving the exit to
-  the furthest tile in the maze only takes xl to 1m 45s.
-- **Brute force works.** Walking every reachable tile is 7m 45s at md and 27m at
-  xl. Tedious, but it is a winning strategy, and no amount of area stops it.
-  What stops it is a route that is a *tour* rather than a path — somewhere you
-  have to go and come back from. That is the offerings, not the size.
+**It gets worse as the maze gets bigger.** From sm to xl the floor grows eight
+times and the biggest split falls from 36% of the floor to 21%. Size today
+multiplies the muddle. **Making the maps bigger without structure would make
+this worse, and that is the most important number here.**
 
 ## Why the districts did not fix this
 
@@ -76,14 +70,15 @@ section that tells you which section you are in.
 
 Starting spec, to be argued with:
 
-| | today (md) | target (md) |
-|---|---|---|
-| sections | — | 6–10, of 60–150 floor tiles each |
-| thresholds | 2.6 | one per boundary: 5–12 |
-| threshold corridor | — | 6–12 tiles, nothing branching off it |
-| tiles between junctions | 3.4 | 8–15 (a question every 3–6 seconds) |
-| landmarks | — | one a section, unique in the maze |
-| section graph | — | a tree, plus at most one loop |
+| | today (lg) | target | **the prototype** |
+|---|---|---|---|
+| sections | — | 8–12 | **10** |
+| thresholds | 1.6 | 4+ | **3.8** |
+| longest threshold run | 22 tiles | 20+ | **34** |
+| biggest split | 27% | 40%+ | **43%** |
+| room tiles | 184 | more | **475** |
+| landmarks | — | one a section | **one a section, 6 kinds** |
+| section graph | — | a tree | **a tree** |
 
 **A tree at the section level, loops inside sections.** One way between any two
 places is what makes a mental map possible and chalk worth carrying; loops
@@ -91,6 +86,50 @@ inside a section are what make the section itself confusing to be in. Lost
 locally, clear globally — which is what a labyrinth is, and what the Backrooms
 feel like. It is also the one decision here that is genuinely arguable: a tree
 punishes a wrong turn with a full walk back.
+
+## Built: the Labyrinth prototype (v0.64.0)
+
+In the Prototype menu next to Two-way blocks. `buildLabyrinth()` in `js/proto.js`.
+
+- **Sections.** A BSP cuts the cell grid into 8–12 rooms-worth of ground, each
+  eating one cell as a seam so no two ever touch. Each is carved its own way —
+  a **warren** that loops back on itself, a **hall** of long straight runs, a
+  **court** built round a bigger room — so being in one does not feel like being
+  in another.
+- **A room at the heart of every one.** `labyHeart` cells of open floor, corners
+  included. A landmark standing in a corridor is decoration; a landmark standing
+  in a room is a place you can name.
+- **Thresholds.** For every branch of the section tree, a hall is carved through
+  the dead seam: out of one section, along the seam a few cells, into the next.
+  Nothing ever branches off it, because nothing else is carved out there. The
+  longest runs 34 tiles.
+- **A tree, so there is one way between any two sections.** The loops are inside
+  sections, where being lost is the point. Lost locally, clear globally.
+- **Landmarks.** Pool, statues, spiral, columns, dais, well — one a section, and
+  never the same as a neighbour's. There are more sections than kinds on
+  purpose: Joe, *"this statue looks the same as another place I've been, but the
+  floor texture is different."* Each section also carries a `tone` for that, not
+  yet used in the drawing.
+- **Chalk on the floor**, because the whole question is whether you reach for it.
+
+What it costs to walk, against an lg maze of the same 45×61 grid:
+
+| | lg today | labyrinth |
+|---|---|---|
+| floor (perfect play) | 1m 06s | 1m 09s |
+| explore, median | 6m 42s | 8m 52s |
+| explore p10 – p90 | 2m 36 – 11m 20 | 4m 28 – 12m 02 |
+| sweep | 14m 04s | 16m 53s |
+
+The median goes up by a third, and **the bottom of the range goes up by nearly
+two minutes**: the lucky run through a labyrinth is much less lucky than the
+lucky run through a mesh, because there is no cutting across. That is structure
+doing its job.
+
+**Still to do in it**, in the order of the plan below: the section tone is
+carried but not drawn; there are no offerings yet; and the sections read as
+rectangles on the map, which is honest for a prototype but wants softening if
+this becomes the real generator.
 
 ## The order
 

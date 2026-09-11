@@ -67,6 +67,21 @@ const CONFIG = {
   cameraLag: 0.14,      // 0 = locked on player, higher = floatier
 
   // prototypes: small purpose-built levels, from the Prototype dropdown in the debug menu
+  // the labyrinth prototype (docs/LABYRINTH.md): ground cut into sections that own their edges,
+  // halls through the dead seams between them, one landmark at the heart of each
+  labySize: [20, 28],   // cells across x down. Big, because the whole point is having room to be lost in
+  labySection: [5, 9],  // a section is between this many cells across and down
+  labyStopSplit: 0.3,   // chance a section small enough to stand is left alone rather than cut again
+  labyLoops: 0,         // links beyond the tree. 0 = exactly one way between any two sections
+  labyHallRun: [1, 4],  // how far a hall travels along the seam before it turns in, in cells
+  labyStraightHall: 0.85,   // a hall section keeps going straight this often
+  labyStraightWarren: 0.25, // a warren hardly ever does
+  labyBraidWarren: 0.16,    // loops inside a warren: being lost in one is the point
+  labyBraidCourt: 0.07,
+  labyBraidHall: 0.02,
+  labyHeart: 3,        // the open room at the heart of every section, in cells. A landmark in a corridor
+                        // is decoration; a landmark in a room is a place you can name
+  labyChalk: 8,         // sticks of chalk on the floor, because the point is whether you reach for it
   protoSize: [7, 9],    // the island grid, in cells
   protoPath: 9,         // how many islands the way out runs through
   protoDecoyChance: 0.8,// chance a block on that way also offers one that goes nowhere

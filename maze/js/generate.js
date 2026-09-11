@@ -32,6 +32,8 @@ let ticTacToe = null;        // {x,y,cells} a 3×3 chalk board on a room floor, 
 let figures = [];            // the father, placed like pickups: [{x,y,alpha,seen,gone}]
 let startGap = null;
 let darkTiles = new Set(), darkFringe = new Map(), lampSpot = null, sealedGaps = [];   // darkFringe: tile → 1 (dim) or 2 (dimmer), the drop-off around the dark
+let landmarks = [];  // {x,y,kind} the one thing at the heart of a section: what you navigate by
+let sections = [];   // {i,kind,x0..y1 cells, tx0..ty1 tiles} the labyrinth prototype's rooms-worth of maze
 let clusters = [];  // districts with a heart of their own: {heart, x0,y0,x1,y1 (cells), tx0,ty0,tx1,ty1 (tiles)}
 let sliders = [];   // {x,y,dx,dy,shifted}  x,y = home tile; slides one tile along d
 let pockets = [];   // sealed dead-end tiles reachable only via a slider   // journals: 'x,y' → page index
@@ -370,7 +372,7 @@ function generate(seed) {
   }
 
   // crawl gaps: closed walls between two open cells; open for the Child, drawn sealed for everyone after
-  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null; secretTiles = new Set(); secretMarks = new Map(); secretSwitch = null; secretFather = null; exitTree = new Set(); exitTreeMouth = null;
+  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null; secretTiles = new Set(); secretMarks = new Map(); secretSwitch = null; secretFather = null; exitTree = new Set(); exitTreeMouth = null; landmarks = []; sections = [];
   if (!poolMode) {
     const roomRing = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
     const cands2 = [];

@@ -391,6 +391,49 @@ function draw() {
     drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, !!phase().f.crawl); }
   if (phase().f.crawl) for (const k of crawlCells) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
     drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, true); }
+  // Landmarks: the one thing at the heart of a section, and no two the same in a maze. This is
+  // what you navigate by — "the room with the pool", "the one with the statues" — and the whole
+  // reason a labyrinth can be learned at all. Built into the floor, not chalked on it.
+  for (const L of landmarks) {
+    if (L.x < x0_ || L.x > x1_ || L.y < y0_ || L.y > y1_) continue;
+    const [px, py] = T(L.x, L.y);
+    ctx.save();
+    if (L.kind === 'pool') {
+      ctx.fillStyle = '#2a2c2e'; ctx.beginPath(); ctx.arc(px, py, S * 0.42, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#3d4a52'; ctx.beginPath(); ctx.arc(px, py, S * 0.34, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#6f8893'; ctx.lineWidth = Math.max(1, S * 0.02);
+      for (let i = 1; i <= 2; i++) { ctx.globalAlpha = 0.5 - i * 0.12; ctx.beginPath(); ctx.arc(px, py, S * (0.1 + i * 0.09), 0, Math.PI*2); ctx.stroke(); }
+    } else if (L.kind === 'statues') {
+      ctx.fillStyle = C.shelf;
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.3, rx = px + Math.cos(a) * S * 0.34, ry = py + Math.sin(a) * S * 0.34;
+        ctx.beginPath(); ctx.ellipse(rx, ry, S * 0.06, S * 0.085, 0, 0, Math.PI*2); ctx.fill(); }
+      ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.02);
+      ctx.beginPath(); ctx.arc(px, py, S * 0.34, 0, Math.PI*2); ctx.stroke();
+    } else if (L.kind === 'spiral') {
+      ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.55; ctx.lineWidth = Math.max(1, S * 0.035); ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let t = 0; t <= Math.PI * 6; t += 0.18) { const rr = S * 0.02 + (t / (Math.PI * 6)) * S * 0.42;
+        const gx = px + Math.cos(t) * rr, gy = py + Math.sin(t) * rr; t ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy); }
+      ctx.stroke();
+    } else if (L.kind === 'columns') {
+      ctx.fillStyle = C.wall;
+      for (const [ox2, oy2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        ctx.fillRect(px + ox2 * S * 0.34 - S * 0.11, py + oy2 * S * 0.34 - S * 0.11, S * 0.22, S * 0.22); }
+      ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.5;
+      for (const [ox2, oy2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        ctx.fillRect(px + ox2 * S * 0.34 - S * 0.07, py + oy2 * S * 0.34 - S * 0.07, S * 0.14, S * 0.14); }
+    } else if (L.kind === 'dais') {
+      ctx.fillStyle = C.grout; ctx.fillRect(px - S * 0.4, py - S * 0.4, S * 0.8, S * 0.8);
+      ctx.fillStyle = C.floor; ctx.fillRect(px - S * 0.3, py - S * 0.3, S * 0.6, S * 0.6);
+      ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.35; ctx.fillRect(px - S * 0.18, py - S * 0.18, S * 0.36, S * 0.36);
+    } else if (L.kind === 'well') {
+      ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(px, py, S * 0.36, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = C.bg; ctx.beginPath(); ctx.arc(px, py, S * 0.24, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1, S * 0.045); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(px - S * 0.36, py - S * 0.3); ctx.lineTo(px + S * 0.36, py - S * 0.3); ctx.stroke();
+    }
+    ctx.restore();
+  }
   // tic-tac-toe, chalked on the floor. Your own chalk X on its tile is the move that wins it
   if (ticTacToe) { const [px, py] = T(ticTacToe.x, ticTacToe.y);
     drawTicTacToe(px, py, S, ticTacToe.cells, marks.get(ticTacToe.x + ',' + ticTacToe.y) === 'x'); }

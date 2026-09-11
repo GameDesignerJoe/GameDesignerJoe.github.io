@@ -40,7 +40,8 @@ const ONE_SIZE = arg('size', null);
 const PHASE = Number(arg('phase', 0));
 const VALIDATE = flag('validate');
 const URL = `http://127.0.0.1:${PORT}/maze/maze-topdown.html`;
-const SIZES = ONE_SIZE ? [ONE_SIZE] : ['sm', 'md', 'lg', 'xl'];
+const PROTO = arg('proto', null);                       // measure a prototype instead of a maze
+const SIZES = PROTO ? [PROTO] : ONE_SIZE ? [ONE_SIZE] : ['sm', 'md', 'lg', 'xl'];
 
 // ── the cost of a step, in seconds ───────────────────────────────
 // Read from the page so this cannot drift away from the game.
@@ -253,9 +254,10 @@ const C = await page.evaluate(() => ({
 }));
 const c = costs(C);
 
-const snap = async (size, ph, seed) => page.evaluate(([size, ph, seed]) => {
+const snap = async (size, ph, seed) => page.evaluate(([size, ph, seed, PROTO]) => {
   SAVE.phase = ph; SAVE.stones = ph; SAVE.poolPending = false;
-  SAVE.ui = { size }; delete SAVE.run;
+  SAVE.ui = PROTO ? { proto: PROTO } : { size };
+  delete SAVE.run;
   generate(seed);
   return {
     W, H, size, seed, who: phase().who,
@@ -268,7 +270,7 @@ const snap = async (size, ph, seed) => page.evaluate(([size, ph, seed]) => {
     crawlGaps: [...crawlGaps], crawlCells: [...crawlCells],
     sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, auto: !!sl.auto, gauntlet: !!sl.gauntlet, atStart: !!sl.atStart })),
   };
-}, [size, ph, seed]);
+}, [size, ph, seed, PROTO]);
 
 // ── why: one maze, and what each bot made of it ─────────────────
 if (flag('why')) {
@@ -321,8 +323,8 @@ if (VALIDATE) {
     const s = await snap(size, PHASE, seed);
     const { t: predicted, path } = floorRoute(s, c);
     if (!isFinite(predicted)) { console.log(`  ${size}: no route`); continue; }
-    const actual = await page.evaluate(async ([path, size, ph, seed]) => {
-      SAVE.phase = ph; SAVE.stones = ph; SAVE.poolPending = false; SAVE.ui = { size };
+    const actual = await page.evaluate(async ([path, size, ph, seed, PROTO]) => {
+      SAVE.phase = ph; SAVE.stones = ph; SAVE.poolPending = false; SAVE.ui = PROTO ? { proto: PROTO } : { size };
       // tutorial cards pause the game until they are tapped, and a bot never taps. A person loses
       // a couple of seconds to each one the first time; that is not what we are measuring here.
       CONFIG.tutorials = false;
@@ -347,7 +349,7 @@ if (VALIDATE) {
       const ms = gameNow() - t0;
       held = null; $('msg').classList.remove('show'); solved = false;
       return { ms, at: [Math.floor(player.x), Math.floor(player.y)], exit: [exit.x, exit.y], steps: i };
-    }, [path, size, PHASE, seed]);
+    }, [path, size, PHASE, seed, PROTO]);
     const got = actual.ms / 1000;
     const arrived = actual.at[0] === actual.exit[0] && actual.at[1] === actual.exit[1];
     const diff = ((got - predicted) / predicted) * 100;
