@@ -212,3 +212,33 @@ the Child level, a low boom every 1.6s from a swing 25 tiles of walking away,
 about nine times a musicbox note, burying the music. Fixed in v0.35.0 with
 `earshot()` and the `sfxNearTiles` / `sfxRangeTiles` knobs; `smoke.mjs` now
 asserts the falloff curve.
+
+## bots.mjs — three players, and how long a maze takes them
+
+    node maze/tools/bots.mjs                      # every size, the Child's maze
+    node maze/tools/bots.mjs --phase 3 --seeds 30
+    node maze/tools/bots.mjs --size lg --trials 400
+    node maze/tools/bots.mjs --validate           # walk one for real and compare
+    node maze/tools/bots.mjs --why --phase 3      # one maze, and what stopped each bot
+
+Three bots over the real generated maze, priced in seconds from the game's own
+constants — walking speed, the crawl slowdown, the lean-and-slide of a push
+block, the wait for a gauntlet swing to bring the floor back.
+
+- **floor** — an oracle. Knows the maze, walks the shortest legal route, and is
+  key-aware, so a locked exit sends it by the key first. The fastest a maze can
+  be finished.
+- **explore** — a person. Knows nothing, prefers a corridor it has not walked,
+  backs out of dead ends, stops at the exit. Many runs per maze; quote the
+  median and read p10–p90 as how much luck is worth.
+- **sweep** — every reachable tile walked before leaving. What never guessing
+  right actually costs.
+
+`--validate` puts a real player on the oracle's route, in the real game at real
+speed through the real input path, and prints the clock against the prediction.
+It reads 4–15% slow: a real player cuts corners, so the model is a slightly slow
+clock rather than a wrong one. Tutorial cards are turned off for that run —
+they pause the game until tapped, and a bot never taps.
+
+A maze the model cannot solve is counted in the row rather than averaged into
+it. Those are the known door-key soft-lock the harness also reports.

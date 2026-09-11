@@ -326,6 +326,47 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## How long a maze takes (v0.63.0)
+
+`tools/bots.mjs` answers the three questions Joe asked — the fastest a maze can
+be finished, the longest it can honestly take, and what to assume in between —
+by running three bots over the real generated maze and pricing every step in
+seconds from the game's own constants.
+
+| | sm 25×33 | md 33×45 | lg 45×61 | xl 61×85 |
+|---|---|---|---|---|
+| floor (perfect play) | 37s | 50s | 1m 06s | 1m 29s |
+| explore (median) | 2m 09s | 3m 33s | 6m 42s | 13m 28s |
+| explore p10 – p90 | 1m 03 – 3m 11 | 1m 39 – 6m 03 | 2m 36 – 11m 20 | 4m 46 – 22m 03 |
+| sweep (every tile) | 4m 22s | 7m 45s | 14m 04s | 26m 59s |
+| floor tiles | 228 | 450 | 892 | 1772 |
+
+(The Child's maze, 24 seeds a size, 250 explorer runs a maze.)
+
+**The floor barely moves with size.** Eight times the area buys 52 extra
+seconds of perfect play, because the exit sits in the opposite corner and the
+shortest route is roughly the diagonal — the side of a maze grows like the
+square root of its area. Moving the exit to the *farthest tile in the maze* only
+takes xl from 1m 29s to 1m 45s. Size is a weak lever on the floor and a very
+strong one on being lost: the sweep grows with the area, 4m to 27m.
+
+**Locked doors are worth 8–13 seconds** of the floor, measured as the route with
+every door open subtracted from the route as generated. They add variance for
+somebody exploring, not length for somebody who knows the way.
+
+**Validated against the real game.** `--validate` puts a real player on the
+oracle's route, at real speed, through the real input path: 45.0s against 46.8s
+predicted at sm, 50.9s against 55.4s at md, 47.5s against 49.4s at lg, 58.5s
+against 1m 08s on a phase-3 md with doors and push blocks. The model reads 4–15%
+slow because a real player cuts corners. It is a slightly slow clock, not a
+wrong one, and the bias is the same for all three bots.
+
+Two things the bots taught us about the model itself, both fixed in it: a pushed
+block stays where you put it, so the sealed gap is floor from then on and you
+ride it back out to leave a pocket (the first version could shove a block in and
+never come back, which made every maze with a key in a pocket look unsolvable);
+and a tutorial card pauses the game until it is tapped, which a bot never does.
+
 **A block is a sliver again (v0.62.0).** Back to what it was before v0.54: the
 tile is floor, with a thick sliver of wall down each side it can still be
 shoved. Joe on the outlined slab: "the entire thing is outlined and it doesn't
