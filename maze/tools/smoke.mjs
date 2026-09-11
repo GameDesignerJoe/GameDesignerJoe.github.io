@@ -903,6 +903,49 @@ check('the app icon and the manifest are there and load',
   `${icon.links.join(', ')}; manifest says "${icon.name}", ${icon.display}, ${icon.icons} icons; `
   + `${icon.loaded} of 4 png files load at ${icon.sizes}`);
 
+// ── 8q. walking about a room ──────────────────────────────────────
+// Joe: "my character only walks in the middle of floors not across them. So there's this strange
+// robotic feeling." Where there is room to walk he now walks where the stick points — and a shut
+// gate is still shut, which is the thing that went wrong first: open floor underneath is not
+// permission to walk through it.
+const roam = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.ui = { proto: 'laby' }; SAVE.poolPending = false; delete SAVE.run; persist(); reset(3291);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const L = landmarks[0];
+  player.x = L.x + 0.5; player.y = L.y + 0.5; dir = null; recenter = null;
+  const from = [player.x, player.y], seen = [];
+  stickAim = { x: Math.SQRT1_2, y: -Math.SQRT1_2 }; held = { dx: 1, dy: 0 };
+  await new Promise((r) => { const t0b = performance.now(); const step = () => {
+    seen.push([player.x, player.y]);
+    if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
+  held = null; stickAim = null;
+  const out = {
+    bothAxes: Math.abs(player.x - from[0]) > 0.2 && Math.abs(player.y - from[1]) > 0.2,
+    offGrid: seen.some(([x, y]) => Math.abs(x % 1 - 0.5) > 0.12 && Math.abs(y % 1 - 0.5) > 0.12),
+    inWall: seen.some(([x, y]) => !isOpen(Math.floor(x), Math.floor(y))),
+  };
+  // and a corridor still holds you to its line
+  let hall = null;
+  for (let y = 2; y < H - 2 && !hall; y++) for (let x = 2; x < W - 2; x++)
+    if (isOpen(x, y) && isOpen(x + 1, y) && isOpen(x - 1, y) && !isOpen(x, y - 1) && !isOpen(x, y + 1) && !openFloor(x, y)) { hall = [x, y]; break; }
+  if (hall) {
+    player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
+    stickAim = { x: 0.72, y: -0.69 }; held = { dx: 1, dy: 0 };
+    const off = [];
+    await new Promise((r) => { const t0b = performance.now(); const step = () => {
+      off.push(Math.abs(player.y - (Math.floor(player.y) + 0.5)));
+      if (performance.now() - t0b > 500) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null;
+    out.corridorHeld = Math.max(...off) < 0.05;
+  }
+  return out;
+});
+check('a room lets you walk across it, a corridor still keeps you on its line',
+  roam.bothAxes && roam.offGrid && !roam.inWall && roam.corridorHeld !== false,
+  `in a room: moved on both axes at once and off the grid lines, never into a wall; `
+  + `in a corridor with the stick held at an angle: ${roam.corridorHeld === false ? 'DRIFTED' : 'held to the centreline'}`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

@@ -11,10 +11,13 @@ function setStick(clientX, clientY) {
   const c = stickCenter(); const dx = clientX - c.x, dy = clientY - c.y;
   const len = Math.hypot(dx, dy) || 1, k = Math.min(len, KNOB_MAX);
   knob.style.transform = `translate(${dx/len*k}px, ${dy/len*k}px)`;
-  if (len / KNOB_MAX < CONFIG.stickDeadzone) { held = null; return; }
+  if (len / KNOB_MAX < CONFIG.stickDeadzone) { held = null; stickAim = null; return; }
   held = Math.abs(dx) > Math.abs(dy) ? { dx: Math.sign(dx), dy: 0 } : { dx: 0, dy: Math.sign(dy) };
+  // the raw direction as well as the squared-off one: corridors want the axis, a room wants the
+  // way you are actually pointing
+  stickAim = { x: dx / len, y: dy / len };
 }
-function clearStick() { held = null; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
+function clearStick() { held = null; stickAim = null; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
 stickEl.addEventListener('pointerdown', e => { if ($('dbg').classList.contains('show')) return; stickId = e.pointerId; stickEl.classList.add('on'); stickEl.setPointerCapture(e.pointerId); setStick(e.clientX, e.clientY); e.preventDefault(); });
 stickEl.addEventListener('pointermove', e => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
 stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
@@ -71,6 +74,17 @@ $('optLevel').addEventListener('change', () => {
   delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze();
 });
 $('optStones').addEventListener('change', () => { SAVE.stones = +$('optStones').value; persist(); });
+// Zoom is pure view: no reset, no new maze, so you can drag it while you walk and watch it move.
+// All the way in is the three tiles around you; all the way out is twice the ground you normally see.
+function applyZoom(save) {
+  const v = zoomMul();
+  $('optZoom').value = v; $('zoomLbl').textContent = v.toFixed(2).replace(/0$/, '') + 'x';
+  SAVE.ui.zoom = v; if (save) persist();
+}
+$('optZoom').addEventListener('input', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(false); });
+$('optZoom').addEventListener('change', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(true); });
+applyZoom(false);
+
 function applyStick() { document.body.classList.toggle('stick-left', (SAVE.ui.stick || 'right') === 'left'); $('optStick').value = SAVE.ui.stick || 'right'; }
 $('optStick').addEventListener('change', () => { SAVE.ui.stick = $('optStick').value; persist(); applyStick(); }); applyStick();
 // texture is pure paint — no reset, no new maze, so you can flick between them and look

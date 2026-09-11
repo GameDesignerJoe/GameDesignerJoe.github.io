@@ -179,7 +179,7 @@ function protoSolvable() {
 // makes chalk worth carrying. The loops go inside sections, where being lost is
 // the point. Lost locally, clear globally.
 
-const LANDMARK_KINDS = ['pool', 'statues', 'spiral', 'columns', 'dais', 'well'];
+const LANDMARK_KINDS = ['pool', 'statues', 'spiral', 'columns', 'dais', 'well', 'balls'];
 
 function buildLabyrinth(seed) {
   const R = rng(seed);
@@ -301,7 +301,11 @@ function buildLabyrinth(seed) {
   });
   sections = leaves.map((r, i) => ({ i, kind: r.kind, tone: (R() * 5 | 0) - 2, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1,
     tx0: TXc(r.x0) - 1, ty0: TXc(r.y0) - 1, tx1: TXc(r.x1) + 1, ty1: TXc(r.y1) + 1 }));
-  leaves.forEach((r, i) => landmarks.push({ x: TXc(r.heart[0]), y: TXc(r.heart[1]), kind: chosen[i], section: i }));
+  // the room's own tile bounds go with it: a landmark is the whole floor of the room it is in,
+  // not an ornament on one tile of it
+  leaves.forEach((r, i) => { const h = r.heartCells;
+    landmarks.push({ x: TXc(r.heart[0]), y: TXc(r.heart[1]), kind: chosen[i], section: i,
+      rx0: TXc(h.x0), ry0: TXc(h.y0), rx1: TXc(h.x1), ry1: TXc(h.y1) }); });
 
   // ── 6. the way out: the section furthest from home through the tree ──
   const adj = leaves.map(() => []);
@@ -343,6 +347,7 @@ function carveSection(r, kind, R, openCell, openLink, openCorner, reserved) {
   r.heart = [cx0, cy0];
   const heart = new Set();
   for (let y = cy0 - half; y <= cy0 + half; y++) for (let x = cx0 - half; x <= cx0 + half; x++) if (inR(x, y)) heart.add(x + ',' + y);
+  r.heartCells = { x0: cx0 - half, y0: cy0 - half, x1: cx0 + half, y1: cy0 + half };
   for (const k of heart) { const [x, y] = k.split(',').map(Number); openCell(x, y); seen.add(k);
     for (const [dx, dy] of D) if (heart.has((x + dx) + ',' + (y + dy))) openLink(x, y, x + dx, y + dy);
     if (heart.has((x + 1) + ',' + y) && heart.has(x + ',' + (y + 1)) && heart.has((x + 1) + ',' + (y + 1))) openCorner(x, y); }

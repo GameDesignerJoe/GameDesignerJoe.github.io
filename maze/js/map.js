@@ -62,9 +62,10 @@ function drawMap() {
   mctx.strokeStyle = C.mark;
   for (const [k, g] of marks) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); drawGlyph(mctx, g, px, py, S*0.22, Math.max(1.5, S*0.09)); }
   // you
+  // the same man the game draws, burdens and all — it used to be a plain arrowhead here, which
+  // made the map show somebody else
   { const [px, py] = T(Math.floor(player.x), Math.floor(player.y)), r = S*0.36;
-    mctx.save(); mctx.translate(px, py); mctx.rotate(facing); mctx.fillStyle = C.player; mctx.beginPath(); mctx.moveTo(r, 0); mctx.lineTo(-r*0.8, -r*0.75); mctx.lineTo(-r*0.45, 0); mctx.lineTo(-r*0.8, r*0.75); mctx.closePath(); mctx.fill();
-    mctx.fillStyle = C.wall; mctx.beginPath(); mctx.moveTo(r, 0); mctx.lineTo(r*0.3, -r*0.29); mctx.lineTo(r*0.3, r*0.29); mctx.closePath(); mctx.fill(); mctx.restore(); }
+    mctx.save(); mctx.translate(px, py); mctx.rotate(facing); drawPlayerBody(mctx, r); mctx.restore(); }
 }
 
 

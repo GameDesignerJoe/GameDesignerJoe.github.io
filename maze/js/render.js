@@ -396,46 +396,69 @@ function draw() {
     drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, !!phase().f.crawl); }
   if (phase().f.crawl) for (const k of crawlCells) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
     drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, true); }
-  // Landmarks: the one thing at the heart of a section, and no two the same in a maze. This is
-  // what you navigate by — "the room with the pool", "the one with the statues" — and the whole
-  // reason a labyrinth can be learned at all. Built into the floor, not chalked on it.
+  // Landmarks: what is in a room, filling the room. Joe: "imagine the spiral covering the whole
+  // floor rather than just one part of it... the pool takes up the whole room. Or there's a giant
+  // ball pit in one." One to a section and never the same as a neighbour's — this is what you
+  // navigate by, and it has to be a place, not an ornament on one tile of it.
   for (const L of landmarks) {
-    if (L.x < x0_ || L.x > x1_ || L.y < y0_ || L.y > y1_) continue;
-    const [px, py] = T(L.x, L.y);
+    const rx0 = L.rx0 ?? L.x, ry0 = L.ry0 ?? L.y, rx1 = L.rx1 ?? L.x, ry1 = L.ry1 ?? L.y;
+    if (rx1 < x0_ - 1 || rx0 > x1_ + 1 || ry1 < y0_ - 1 || ry0 > y1_ + 1) continue;
+    const x = ox + rx0 * S, y = oy + ry0 * S, w = (rx1 - rx0 + 1) * S, h = (ry1 - ry0 + 1) * S;
+    const cx = x + w / 2, cy = y + h / 2, rad = Math.min(w, h) / 2;
     ctx.save();
-    if (L.kind === 'pool') {
-      ctx.fillStyle = '#2a2c2e'; ctx.beginPath(); ctx.arc(px, py, S * 0.42, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#3d4a52'; ctx.beginPath(); ctx.arc(px, py, S * 0.34, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#6f8893'; ctx.lineWidth = Math.max(1, S * 0.02);
-      for (let i = 1; i <= 2; i++) { ctx.globalAlpha = 0.5 - i * 0.12; ctx.beginPath(); ctx.arc(px, py, S * (0.1 + i * 0.09), 0, Math.PI*2); ctx.stroke(); }
-    } else if (L.kind === 'statues') {
-      ctx.fillStyle = C.shelf;
-      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.3, rx = px + Math.cos(a) * S * 0.34, ry = py + Math.sin(a) * S * 0.34;
-        ctx.beginPath(); ctx.ellipse(rx, ry, S * 0.06, S * 0.085, 0, 0, Math.PI*2); ctx.fill(); }
-      ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.02);
-      ctx.beginPath(); ctx.arc(px, py, S * 0.34, 0, Math.PI*2); ctx.stroke();
-    } else if (L.kind === 'spiral') {
-      ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.55; ctx.lineWidth = Math.max(1, S * 0.035); ctx.lineCap = 'round';
+    if (L.kind === 'pool') {                       // the room is a pool, with a rim you walk round
+      const r2 = rad * 0.80;
+      ctx.fillStyle = C.grout; ctx.beginPath(); ctx.arc(cx, cy, r2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#2a2c2e'; ctx.beginPath(); ctx.arc(cx, cy, r2 * 0.88, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#3d4a52'; ctx.beginPath(); ctx.arc(cx, cy, r2 * 0.80, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#6f8893'; ctx.lineWidth = Math.max(1, S * 0.03);
+      for (let i = 1; i <= 3; i++) { ctx.globalAlpha = 0.42 - i * 0.09;
+        ctx.beginPath(); ctx.arc(cx, cy, r2 * (0.16 + i * 0.19), 0, Math.PI*2); ctx.stroke(); }
+    } else if (L.kind === 'statues') {             // six of them, round the room, looking in
+      ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.04);
+      ctx.beginPath(); ctx.arc(cx, cy, rad * 0.62, 0, Math.PI*2); ctx.stroke();
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.26;
+        const sx = cx + Math.cos(a) * rad * 0.68, sy = cy + Math.sin(a) * rad * 0.68;
+        ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(sx, sy, S * 0.25, S * 0.3, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = C.shelf; ctx.beginPath(); ctx.ellipse(sx, sy - S * 0.04, S * 0.16, S * 0.22, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(sx, sy - S * 0.16, S * 0.07, 0, Math.PI*2); ctx.fill(); }
+    } else if (L.kind === 'spiral') {              // drawn across the whole floor
+      ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5; ctx.lineWidth = Math.max(1.5, S * 0.09); ctx.lineCap = 'round';
       ctx.beginPath();
-      for (let t = 0; t <= Math.PI * 6; t += 0.18) { const rr = S * 0.02 + (t / (Math.PI * 6)) * S * 0.42;
-        const gx = px + Math.cos(t) * rr, gy = py + Math.sin(t) * rr; t ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy); }
+      const turns = Math.PI * 9;
+      for (let t = 0; t <= turns; t += 0.1) { const rr = S * 0.12 + (t / turns) * (rad * 0.86 - S * 0.12);
+        const gx = cx + Math.cos(t) * rr, gy = cy + Math.sin(t) * rr; t ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy); }
       ctx.stroke();
-    } else if (L.kind === 'columns') {
-      ctx.fillStyle = C.wall;
-      for (const [ox2, oy2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        ctx.fillRect(px + ox2 * S * 0.34 - S * 0.11, py + oy2 * S * 0.34 - S * 0.11, S * 0.22, S * 0.22); }
-      ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.5;
-      for (const [ox2, oy2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        ctx.fillRect(px + ox2 * S * 0.34 - S * 0.07, py + oy2 * S * 0.34 - S * 0.07, S * 0.14, S * 0.14); }
-    } else if (L.kind === 'dais') {
-      ctx.fillStyle = C.grout; ctx.fillRect(px - S * 0.4, py - S * 0.4, S * 0.8, S * 0.8);
-      ctx.fillStyle = C.floor; ctx.fillRect(px - S * 0.3, py - S * 0.3, S * 0.6, S * 0.6);
-      ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.35; ctx.fillRect(px - S * 0.18, py - S * 0.18, S * 0.36, S * 0.36);
-    } else if (L.kind === 'well') {
-      ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(px, py, S * 0.36, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = C.bg; ctx.beginPath(); ctx.arc(px, py, S * 0.24, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1, S * 0.045); ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(px - S * 0.36, py - S * 0.3); ctx.lineTo(px + S * 0.36, py - S * 0.3); ctx.stroke();
+    } else if (L.kind === 'columns') {             // four of them, well in from the corners
+      const d = rad * 0.60;
+      ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.03);
+      ctx.strokeRect(cx - d, cy - d, d * 2, d * 2);
+      for (const [ox2, oy2] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
+        const sx = cx + ox2 * d, sy = cy + oy2 * d;
+        ctx.fillStyle = C.wall; ctx.fillRect(sx - S*0.3, sy - S*0.3, S*0.6, S*0.6);
+        ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.55; ctx.fillRect(sx - S*0.19, sy - S*0.19, S*0.38, S*0.38); ctx.globalAlpha = 1; }
+    } else if (L.kind === 'dais') {                // a platform, stepped, filling the middle
+      const steps = [[0.86, C.grout], [0.70, C.floor], [0.54, '#7d786d'], [0.38, C.shelf]];
+      steps.forEach(([k, col], i) => { ctx.fillStyle = col; ctx.globalAlpha = i === 3 ? 0.55 : 1;
+        ctx.fillRect(cx - rad*k, cy - rad*k, rad*k*2, rad*k*2); });
+      ctx.globalAlpha = 1;
+    } else if (L.kind === 'well') {                // a mouth in the floor, and flagstones round it
+      ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.05);
+      ctx.beginPath(); ctx.arc(cx, cy, rad * 0.82, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(cx, cy, rad * 0.54, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = C.bg; ctx.beginPath(); ctx.arc(cx, cy, rad * 0.38, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1.5, S * 0.07); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx - rad*0.6, cy - rad*0.5); ctx.lineTo(cx + rad*0.6, cy - rad*0.5); ctx.stroke();
+    } else if (L.kind === 'balls') {               // a pit of them, all over the floor
+      ctx.fillStyle = C.grout; ctx.fillRect(x + S*0.35, y + S*0.35, w - S*0.7, h - S*0.7);
+      ctx.fillStyle = C.bg; ctx.fillRect(x + S*0.5, y + S*0.5, w - S, h - S);
+      for (let i = 0; i < 46; i++) {
+        const a = tileNoise(rx0 + i, ry0, 91 + i), b2 = tileNoise(rx0, ry0 + i, 113 + i), c2 = tileNoise(rx0 + i, ry0 + i, 137);
+        const bx = x + S*0.6 + a * (w - S*1.2), by = y + S*0.6 + b2 * (h - S*1.2), br = S * (0.11 + c2 * 0.1);
+        ctx.fillStyle = c2 > 0.66 ? C.shelf : c2 > 0.33 ? '#7d786d' : C.floor;
+        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(0.6, S*0.012); ctx.stroke();
+      }
     }
     ctx.restore();
   }

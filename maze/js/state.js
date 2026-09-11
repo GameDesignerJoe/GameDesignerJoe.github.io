@@ -24,6 +24,7 @@ let secretOn = false, secretLitAt = 0;   // the switch has been stood on, and wh
 let liftBand = -1, liftBandAmt = 1;   // which band of him is going pale on this waking, and how far
 let zoomS = 150, intro = null, introWalk = null;   // intro: {t0} while zooming out; introWalk: scripted first step
 let darkAmt = 0;   // 0 lit … 1 fully in the dark; eased per frame
+let stickAim = null;   // the stick's real direction, for walking about a room rather than along a corridor
 let inSqueeze = false, camBump = 0;   // camBump: a small vertical kick, decays
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;
 let dbgView = null;   // the Full map debug view once you pan or zoom it: {cx, cy, S}. null = fitted to the screen

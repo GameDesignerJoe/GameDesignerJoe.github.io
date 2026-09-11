@@ -23,6 +23,13 @@ function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(play
 function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5; return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx); }
 let recenter = null;   // after a turn, the perpendicular offset is eased out instead of snapped
 function snapPerp(d) { recenter = d.dx ? 'y' : 'x'; }
+// Somewhere with actual room in it: a tile in any 2x2 block of floor. A corridor is one tile wide,
+// so this is only ever true in a room, a court, or an open landmark floor.
+function openFloor(x, y) {
+  for (const [ox, oy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]])
+    if (isOpen(x + ox, y + oy) && isOpen(x + ox + 1, y + oy) && isOpen(x + ox, y + oy + 1) && isOpen(x + ox + 1, y + oy + 1)) return true;
+  return false;
+}
 
 function narrate(text) { AUDIO.narrator(); narrEl.className = 'show'; narrEl.textContent = text; narrHideAt = gameNow() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
 function showJournal(pg) {
@@ -49,15 +56,15 @@ function update(wall) {
     else {
       liftBandAmt = 1;
       const k = Math.min(1, (t - CONFIG.liftBandSec) / CONFIG.liftBurstSec), e = 1 - Math.pow(1 - k, 4);
-      zoomS = intro.from + (CONFIG.tilePx - intro.from) * e;
+      zoomS = intro.from + (CONFIG.tilePx * zoomMul() - intro.from) * e;
       liftGlow = CONFIG.liftGlowFrom + (1 - CONFIG.liftGlowFrom) * e;
       if (k >= 1) { intro = null; liftGlow = 1; liftBand = -1; }
     }
   }
   else if (intro) { const k = Math.min(1, (performance.now() - intro.t0) / (CONFIG.introSeconds * 1000)); const e = 1 - Math.pow(1 - k, 3);
-    zoomS = intro.from + (CONFIG.tilePx - intro.from) * e;
+    zoomS = intro.from + (CONFIG.tilePx * zoomMul() - intro.from) * e;
     if (k >= 1) intro = null; }
-  else zoomS = started ? CONFIG.tilePx : CONFIG.titleTilePx;
+  else zoomS = started ? CONFIG.tilePx * zoomMul() : CONFIG.titleTilePx;
   // The scripted first step off the mat. If there is nothing to step into, it has to give up:
   // `want` prefers it over anything you do, and it only clears when you change tile — which you
   // cannot do — so the stick stays dead for the rest of the run. A prototype that starts you on
@@ -139,8 +146,28 @@ function update(wall) {
   // almost like race car cornering thing to them". Taking it out of the same budget means a hard
   // correction just costs you ground forward while it lasts, and your speed never changes.
   const budget = B.speed() * (inSqueeze ? CONFIG.squeezeSlow : introWalk ? 0.35 : 1) * dt;
+
+  // In a corridor you are on rails: one axis at a time, held to the centreline, which is the only
+  // thing that fits. In a room that reads as robotic — Joe: "my character only walks in the middle
+  // of floors not across them... there's this strange robotic feeling." So where there is room to
+  // walk, he walks where the stick points, and the rails pick him up again at the corridor mouth.
+  const aim = want && !sliding && !introWalk && openFloor(Math.floor(player.x), Math.floor(player.y))
+    ? (stickAim && (want === held) ? stickAim : { x: want.dx, y: want.dy }) : null;
+  if (aim) {
+    // He has width, so he cannot cut a corner of wall — and it is passable(), not isOpen(): a shut
+    // gate and a locked door are open floor underneath, and walking free is not walking through them.
+    const rr = CONFIG.playerSize * 0.5;
+    const clear = (nx, ny) => passable(Math.floor(nx - rr), Math.floor(ny - rr)) && passable(Math.floor(nx + rr), Math.floor(ny - rr))
+      && passable(Math.floor(nx + rr), Math.floor(ny + rr)) && passable(Math.floor(nx - rr), Math.floor(ny + rr));
+    const nx = player.x + aim.x * budget, ny = player.y + aim.y * budget;
+    if (clear(nx, player.y)) player.x = nx;
+    if (clear(player.x, ny)) player.y = ny;
+    facing = Math.atan2(aim.y, aim.x);
+    dir = null; recenter = null;
+  }
+
   let perpUsed = 0;
-  { const ax = dir ? (dir.dx ? 'y' : 'x') : recenter;
+  if (!aim) { const ax = dir ? (dir.dx ? 'y' : 'x') : recenter;
     if (ax) { const c = Math.floor(player[ax]) + 0.5, diff = c - player[ax];
       if (Math.abs(diff) < 0.004) { player[ax] = c; if (!dir) recenter = null; }
       else { const mv = Math.min(Math.abs(diff), (dir && !inSqueeze ? CONFIG.cornerEase : 1) * budget);
@@ -150,7 +177,7 @@ function update(wall) {
       // is the drift Joe saw. Inside one, you are held to the channel.
       if (inSqueeze) { const c2 = Math.floor(player[ax]) + 0.5, off = player[ax] - c2, lim = CONFIG.squeezeChannel / 2;
         if (Math.abs(off) > lim) player[ax] = c2 + Math.sign(off) * lim; } } }
-  if (dir) {
+  if (dir && !aim) {
     const step = Math.sqrt(Math.max(0, budget * budget - perpUsed * perpUsed));
     const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
     const axis = dir.dx ? 'x' : 'y', sgn = dir.dx || dir.dy, c = axis === 'x' ? cx : cy;

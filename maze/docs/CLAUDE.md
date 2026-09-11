@@ -326,6 +326,43 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Walking about a room (v0.68.0)
+
+Joe: *"my character only walks in the middle of floors not across them. So
+there's this strange robotic feeling to how they always have to move up/down
+right/left."* He is right, and it only showed up once the labyrinth gave rooms
+worth walking about in.
+
+A corridor is one tile wide, so one axis at a time held to the centreline is the
+only thing that fits — that stays exactly as it was. But where there is actually
+room, `openFloor()` (a tile in any 2×2 block of floor, which is only ever true in
+a room or a court) hands movement over to the stick's **real** direction:
+`stickAim`, the raw vector, alongside the squared-off `held` the corridors use.
+Per-axis collision with the body's own width, so you slide along a wall and
+cannot cut the corner off one. The rails pick you up again at the corridor mouth,
+and the centreline ease is what brings you back onto the line.
+
+The thing that went wrong first, and what the smoke check is really for: the
+clearance test has to be **`passable()`, not `isOpen()`**. A shut gate and a
+locked door are open floor underneath, and walking free is not permission to walk
+through them. The pool-gate check caught it immediately.
+
+**Landmarks fill their room** (v0.68.0). Joe: *"imagine the spiral covering the
+whole floor rather than just one part of it... the pool takes up the whole room.
+Or there's a giant ball pit in one."* Each landmark carries its heart room's tile
+bounds and is drawn across all of it — the pool is the room, the spiral is the
+floor, the statues stand round the walls — and there is a ball pit now, which
+there was not before.
+
+**The map draws the same man the game does** (v0.68.0) — `drawPlayerBody()`,
+burdens and all. It used to be a plain arrowhead, so the map showed somebody
+else.
+
+**A Zoom slider in the debug panel** (v0.68.0). `zoomMul()` scales
+`CONFIG.tilePx`: 2.5× is the three tiles around you, 1× is the game's own scale,
+0.5× is twice the ground. Pure view — no reset, so you can drag it while you
+walk.
+
 ## The app icon (v0.67.0)
 
 A **meander** — the oldest mark for a labyrinth there is — in the game's own

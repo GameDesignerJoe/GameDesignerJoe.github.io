@@ -198,3 +198,7 @@ body.pre #stick, body.pre #glyphs { opacity:0; transform:translate(-50%, 40px); 
 #statsBody .run b { font-weight:400; color:#ece7da; }
 #statsBody .run i { grid-column:1 / -1; font-style:normal; font-size:12px; color:#6f6b62; }
 #stats .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:20px; }
+
+/* the debug Zoom slider */
+#dbg input[type=range] { flex:1 1 auto; min-width:90px; accent-color:#8d887c; background:transparent; }
+#dbg #zoomLbl { color:#8d887c; font-variant-numeric:tabular-nums; min-width:42px; text-align:right; }
