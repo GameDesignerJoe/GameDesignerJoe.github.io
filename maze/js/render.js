@@ -219,6 +219,38 @@ function chalkDigit(n, px, py, h, mx_, my_, salt) {
   ctx.stroke(); ctx.restore();
 }
 
+// the eight lines of a noughts-and-crosses board
+const TTT_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+// the boards a kid leaves behind: two crosses, no noughts, the middle open
+const TTT_GAMES = [
+  ['x','','', '','','', '','','x'], ['','','x', '','','', 'x','',''],
+  ['','x','', '','','', '','x',''], ['','','', 'x','','x', '','',''],
+];
+// A game of noughts and crosses chalked on the floor — except there are never any noughts. Two
+// crosses are down and the middle is open, so your own X in the middle wins it, and when it does
+// the line is struck through. `cells` is nine of '' or 'x'.
+function drawTicTacToe(px, py, S, cells, won) {
+  const C = CONFIG.colors, g = S * 0.26;
+  ctx.save(); ctx.globalAlpha = 0.85;
+  ctx.strokeStyle = C.mark; ctx.lineWidth = Math.max(1, S * 0.03); ctx.lineCap = 'round'; ctx.beginPath();
+  ctx.moveTo(px - g/2, py - g*1.5); ctx.lineTo(px - g/2, py + g*1.5); ctx.moveTo(px + g/2, py - g*1.5); ctx.lineTo(px + g/2, py + g*1.5);
+  ctx.moveTo(px - g*1.5, py - g/2); ctx.lineTo(px + g*1.5, py - g/2); ctx.moveTo(px - g*1.5, py + g/2); ctx.lineTo(px + g*1.5, py + g/2);
+  ctx.stroke();
+  const cross = (i) => { const cx = px + ((i % 3) - 1) * g, cy = py + (Math.floor(i / 3) - 1) * g, a = g * 0.28;
+    ctx.beginPath(); ctx.moveTo(cx-a, cy-a); ctx.lineTo(cx+a, cy+a); ctx.moveTo(cx+a, cy-a); ctx.lineTo(cx-a, cy+a); ctx.stroke(); };
+  ctx.lineWidth = Math.max(1.2, S * 0.035);
+  cells.forEach((c, i) => { if (c === 'x') cross(i); });
+  if (won) {
+    cross(4);
+    const line = TTT_LINES.find(([a, b, c2]) => (cells[a] === 'x' || a === 4) && (cells[b] === 'x' || b === 4) && (cells[c2] === 'x' || c2 === 4));
+    if (line) { const at = (i) => [px + ((i % 3) - 1) * g, py + (Math.floor(i / 3) - 1) * g];
+      const [ax, ay] = at(line[0]), [bx, by] = at(line[2]);
+      ctx.lineWidth = Math.max(1.4, S * 0.04);
+      ctx.beginPath(); ctx.moveTo(ax + (ax - bx) * 0.12, ay + (ay - by) * 0.12); ctx.lineTo(bx + (bx - ax) * 0.12, by + (by - ay) * 0.12); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+
 // A squeeze is drawn on the wall it goes through: the tile stays wall-coloured and a narrow
 // strip of floor is cut through the middle of it, with one arm reaching toward each side you can
 // actually walk to and a lip along the cut. It used to assume every squeeze ran straight through,
@@ -356,14 +388,9 @@ function draw() {
     drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, !!phase().f.crawl); }
   if (phase().f.crawl) for (const k of crawlCells) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
     drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, true); }
-  // tic-tac-toe, chalked on the floor
-  if (ticTacToe) { const [px, py] = T(ticTacToe.x, ticTacToe.y), g = S*0.26; ctx.save(); ctx.globalAlpha = 0.85;
-    ctx.strokeStyle = C.mark; ctx.lineWidth = Math.max(1, S*0.03); ctx.lineCap = 'round'; ctx.beginPath();
-    ctx.moveTo(px - g/2, py - g*1.5); ctx.lineTo(px - g/2, py + g*1.5); ctx.moveTo(px + g/2, py - g*1.5); ctx.lineTo(px + g/2, py + g*1.5);
-    ctx.moveTo(px - g*1.5, py - g/2); ctx.lineTo(px + g*1.5, py - g/2); ctx.moveTo(px - g*1.5, py + g/2); ctx.lineTo(px + g*1.5, py + g/2); ctx.stroke();
-    ticTacToe.cells.forEach((c, i) => { const cx = px + ((i % 3) - 1) * g, cy = py + (Math.floor(i / 3) - 1) * g, a = g*0.28; ctx.lineWidth = Math.max(1.2, S*0.035); ctx.beginPath();
-      if (c === 'x') { ctx.moveTo(cx-a, cy-a); ctx.lineTo(cx+a, cy+a); ctx.moveTo(cx+a, cy-a); ctx.lineTo(cx-a, cy+a); } else if (c === 'o') ctx.arc(cx, cy, a, 0, Math.PI*2); ctx.stroke(); });
-    ctx.restore(); }
+  // tic-tac-toe, chalked on the floor. Your own chalk X on its tile is the move that wins it
+  if (ticTacToe) { const [px, py] = T(ticTacToe.x, ticTacToe.y);
+    drawTicTacToe(px, py, S, ticTacToe.cells, marks.get(ticTacToe.x + ',' + ticTacToe.y) === 'x'); }
   // hopscotch: one court chalked down the corridor, not a box per tile. The cells touch, the way
   // a kid draws them, so the numbers sit close together instead of one big square per tile with a
   // gap between each. Small numbers, wobbly lines, no typeface.
@@ -502,11 +529,19 @@ function draw() {
     ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(px - S*0.14, py, S*0.1, 0, Math.PI*2); ctx.moveTo(px - S*0.04, py); ctx.lineTo(px + S*0.22, py); ctx.moveTo(px + S*0.12, py); ctx.lineTo(px + S*0.12, py + S*0.09); ctx.moveTo(px + S*0.2, py); ctx.lineTo(px + S*0.2, py + S*0.07); ctx.stroke(); }
 
-  // someone else's chalk, all over the secret room's floor. Fainter than yours: it is old.
+  // Someone else's chalk, all over the kid's room floor. Fainter than yours: it is old. A game
+  // nobody finished, the word Dad?, a couple of balls, and x's — no arrows. Joe, on the arrows:
+  // "it just looks like a code they will need to know."
   if (secretMarks.size) { ctx.save(); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.42;
     for (const [k, g] of secretMarks) { const [mx, my] = k.split(',').map(Number);
       if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
-      const [px, py] = T(mx, my); drawGlyph(ctx, g, px, py, S*0.19, Math.max(1, S*0.055)); }
+      const [px, py] = T(mx, my), lw = Math.max(1, S * 0.045);
+      if (g === 'ttt') { ctx.save(); ctx.globalAlpha = 0.42;
+        drawTicTacToe(px, py, S * 0.8, TTT_GAMES[tileNoise(mx, my, 83) * TTT_GAMES.length | 0], marks.get(k) === 'x');
+        ctx.restore(); }
+      else if (g === 'dad') drawChalkWord(ctx, 'Dad?', px, py, S * 0.3, lw);
+      else if (g === 'ball') drawChalkBall(ctx, px, py, S * 0.15, lw);
+      else drawGlyph(ctx, g, px, py, S*0.19, Math.max(1, S*0.055)); }
     ctx.restore(); }
 
   if (startArrow) { const [px, py] = T(startArrow.x, startArrow.y);
@@ -515,7 +550,7 @@ function draw() {
 
   if (secretFather) { const [mx, my] = secretFather.split(',').map(Number);
     if (mx >= x0_ && mx <= x1_ && my >= y0_ && my <= y1_) { const [px, py] = T(mx, my);
-      ctx.save(); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5; drawChalkMan(ctx, px, py, S * 0.4, Math.max(1, S * 0.05)); ctx.restore(); } }
+      ctx.save(); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5; drawChalkPair(ctx, px, py, S * 0.4, Math.max(1, S * 0.05)); ctx.restore(); } }
 
   // chalk marks (a mark on a sliding tile rides with it)
   ctx.strokeStyle = C.mark;

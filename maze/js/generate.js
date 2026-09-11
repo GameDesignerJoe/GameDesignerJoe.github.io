@@ -37,6 +37,18 @@ let sliders = [];   // {x,y,dx,dy,shifted}  x,y = home tile; slides one tile alo
 let pockets = [];   // sealed dead-end tiles reachable only via a slider   // journals: 'x,y' → page index
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
 const isOpen = (x, y) => !!(tiles[y]?.[x]);
+// What a child chalks on the floor of their own room. Not arrows: Joe, on the old set — "it just
+// looks like a code they will need to know". A game of noughts and crosses, the word Dad?, a
+// couple of balls, and the rest in the x's a kid makes when there is nothing else to do.
+function secretRoomChalkOn(spots, R) {   // R is generate()'s seeded rng, so a room is the same room every time
+  const free = spots.filter(k => k !== secretSwitch && k !== secretFather);
+  const take = () => free.length ? free.splice(R() * free.length | 0, 1)[0] : null;
+  const one = (kind) => { const k = take(); if (k) secretMarks.set(k, kind); };
+  one('ttt'); one('dad');
+  for (let i = 0, n = 2 + (R() * 3 | 0); i < n; i++) one('ball');
+  for (const k of free) if (R() < CONFIG.secretRoomChalk) secretMarks.set(k, 'x');
+}
+
 function generate(seed) {
   const R = rng(seed);
   protoMode = false;
@@ -446,9 +458,7 @@ function generate(seed) {
           // a step in from the way in, never on it: the light only shows once you are inside
           secretSwitch = (inner.find(p2 => wayD(p2) >= CONFIG.secretSwitchIn) || inner[0]).join(',');
           secretFather = inner[inner.length - 1].join(',');
-          const glyphs2 = ['x', '?', 'up', 'down', 'left', 'right'];
-          for (const k of secretTiles) { if (k === secretSwitch || k === secretFather) continue;
-            if (R() < CONFIG.secretRoomChalk) secretMarks.set(k, glyphs2[R() * glyphs2.length | 0]); }
+          secretRoomChalkOn([...secretTiles], R);
           carved = true;
         }
       }
@@ -504,11 +514,7 @@ function generate(seed) {
         secretSwitch = cells.find(k => mouthD(k) >= CONFIG.secretSwitchIn) || cells[0] || null;
         // and a man walking away, chalked on the floor as far from the switch as it gets
         secretFather = cells.length > 2 ? cells[cells.length - 1] : null;
-        const glyphs = ['x', '?', 'up', 'down', 'left', 'right'];
-        for (const k of secretTiles) {
-          if (k === secretSwitch || k === secretFather) continue;
-          if (R() < CONFIG.secretRoomChalk) secretMarks.set(k, glyphs[R() * glyphs.length | 0]);
-        }
+        secretRoomChalkOn([...secretTiles], R);
       }
     }
   }
@@ -988,11 +994,17 @@ function generate(seed) {
     const run = runs.splice(R() * runs.length | 0, 1)[0];
     run.forEach(k => tunnelTiles.add(k));
   }
-  // tic-tac-toe: a board chalked on a room floor, abandoned mid-game (X was winning)
+  // tic-tac-toe: a board chalked on a room floor, waiting. Two crosses and no noughts, always with
+  // the middle open and the third of a line, so putting your own X in the middle wins it.
   if (F.hopscotch && !poolMode && roomCenters.length) {
     const spots = roomCenters.filter(([x, y]) => !journals.has(x+','+y));
     const [cx, cy] = (spots.length ? spots : roomCenters)[R() * (spots.length ? spots.length : roomCenters.length) | 0];
-    const games = [['x','o','x', '', 'x','', 'o','',''], ['o','','x', '','x','', '','','o'], ['x','x','', 'o','o','', '','','x']];
+    const games = [
+      ['x','','', '','','', '','','x'],   // the diagonal
+      ['','','x', '','','', 'x','',''],   // the other one
+      ['','x','', '','','', '','x',''],   // down the middle
+      ['','','', 'x','','x', '','',''],   // across it
+    ];
     ticTacToe = { x: journals.has(cx+','+cy) && isOpen(cx+1, cy) ? cx + 1 : cx, y: cy, cells: games[R() * games.length | 0] };
   }
   // hopscotch: chalked squares down a straight run, numbered; step them in order

@@ -326,6 +326,24 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+**The kid's room, and the game nobody finished (v0.61.0).** The secret room's
+floor used to be chalked with `x`, `?` and the four arrows. Joe: "don't draw the
+arrows in the child's secret room. It just looks like a code they will need to
+know." It is a child's room, so it now holds a child's things — one game of
+noughts and crosses, the word `Dad?`, two to four balls, and the rest x's, dealt
+by `secretRoomChalkOn()` from `generate()`'s own seeded rng so a room is the
+same room every time you come back to it. `secretFather`, the drawing as far
+from the switch as it gets, is now `drawChalkPair()`: the man from behind
+mid-stride, and the smaller figure standing beside him, not walking.
+
+**Every board is winnable, and the move is always the middle** (v0.61.0). A
+tic-tac-toe is dealt with two crosses, no noughts at all, and the middle open —
+the two crosses are always two thirds of a line through it. Chalk your own X on
+its tile and `drawTicTacToe()` fills the middle and strikes the line through;
+the narrator says so once. Boards in the kid's room work the same way. 80 in 80
+across seeds: no noughts, middle open, middle wins. Chalk is what gates it —
+the Child starts with none, so you have to find some first.
+
 **The shelves and the basin went quiet (fixed in v0.60.0).** Standing on a
 shelf or on the basin for a beat says something about it. Two separate faults
 had it barely working, and Joe caught it as "standing on top of the stones or

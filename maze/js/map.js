@@ -197,6 +197,47 @@ function drawChalkMan(c, px, py, a, lw) {
   c.lineTo(px + a * 0.26, py + a * 0.8);
   c.stroke();
 }
+// Dad, and the kid standing next to him. The man is the same figure as before — from behind,
+// mid-stride, going — and the child beside him is not walking at all.
+function drawChalkPair(c, px, py, a, lw) {
+  drawChalkMan(c, px + a * 0.3, py, a * 0.92, lw);
+  const b = a * 0.58, kx = px - a * 0.5;
+  c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
+  c.arc(kx, py + a * 0.06 - b * 0.62, b * 0.28, 0, Math.PI * 2);              // head
+  c.moveTo(kx, py + a * 0.06 - b * 0.34); c.lineTo(kx, py + a * 0.06 + b * 0.2);   // body
+  c.moveTo(kx - b * 0.34, py + a * 0.06 + b * 0.02); c.lineTo(kx, py + a * 0.06 - b * 0.22);   // one arm up, toward him
+  c.moveTo(kx + b * 0.3, py + a * 0.06 - b * 0.3); c.lineTo(kx, py + a * 0.06 - b * 0.22);
+  c.moveTo(kx - b * 0.16, py + a * 0.06 + b * 0.82); c.lineTo(kx, py + a * 0.06 + b * 0.2);    // legs, standing
+  c.lineTo(kx + b * 0.16, py + a * 0.06 + b * 0.82);
+  c.stroke();
+}
+// a ball on the floor, with the seam a kid draws round it
+function drawChalkBall(c, px, py, a, lw) {
+  c.lineWidth = lw; c.lineCap = 'round'; c.beginPath();
+  c.arc(px, py, a, 0, Math.PI * 2);
+  c.moveTo(px + a, py); c.ellipse(px, py, a, a * 0.4, 0, 0, Math.PI * 2);        // the seams round it
+  c.moveTo(px + a * 0.4, py); c.ellipse(px, py, a * 0.4, a, 0, 0, Math.PI * 2);
+  c.stroke();
+}
+// the letters of "Dad?", as strokes in a 0–1 box. A kid's hand, not a typeface
+const CHALK_LETTERS = {
+  D: [[[0.22, 0.06], [0.24, 0.95]], [[0.22, 0.06], [0.64, 0.2], [0.74, 0.5], [0.6, 0.86], [0.24, 0.95]]],
+  a: [[[0.66, 0.44], [0.42, 0.34], [0.24, 0.56], [0.34, 0.8], [0.62, 0.74]], [[0.64, 0.42], [0.68, 0.82]]],
+  d: [[[0.62, 0.44], [0.38, 0.34], [0.22, 0.56], [0.32, 0.8], [0.6, 0.74]], [[0.64, 0.05], [0.68, 0.82]]],
+  '?': [[[0.24, 0.28], [0.36, 0.05], [0.62, 0.07], [0.72, 0.28], [0.5, 0.5], [0.48, 0.66]], [[0.47, 0.86], [0.48, 0.92]]],
+};
+function drawChalkWord(c, word, px, py, h, lw) {
+  const w = h * 0.62;
+  c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round';
+  let x = px - (word.length - 1) * w * 0.55;
+  for (const ch of word) {
+    const paths = CHALK_LETTERS[ch];
+    if (paths) { c.beginPath();
+      for (const path of paths) path.forEach(([ax, ay], i) => { const gx = x + (ax - 0.5) * w, gy = py + (ay - 0.5) * h; i ? c.lineTo(gx, gy) : c.moveTo(gx, gy); });
+      c.stroke(); }
+    x += w * 1.1;
+  }
+}
 // draw a chalk glyph centered at px,py with half-size a
 function drawGlyph(c, g, px, py, a, lw) {
   c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
