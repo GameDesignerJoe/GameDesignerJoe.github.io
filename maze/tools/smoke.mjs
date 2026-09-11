@@ -824,12 +824,17 @@ const laby = await page.evaluate(async () => {
   // every landmark stands on floor, and no two that are near each other are the same thing
   built.onFloor = landmarks.every((L) => !!tiles[L.y][L.x]);
   built.distinct = new Set(landmarks.map((L) => L.kind)).size;
-  // the way out has to be walkable from the mat
+  // the way out has to be walkable from the mat. The start room is sealed behind the block you
+  // lean on, so its gap counts as floor — you can always shove it
+  built.sealed = !tiles[startGap[1]][startGap[0]] && !!sliders.find((s2) => s2.atStart);
+  const gapKey = startGap.join(',');
   const seen = new Set([Math.floor(start.x) + ',' + Math.floor(start.y)]), q = [[Math.floor(start.x), Math.floor(start.y)]];
   for (let h = 0; h < q.length; h++) { const [x, y] = q[h];
     for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
-      if (seen.has(k) || !tiles[ny] || !tiles[ny][nx]) continue; seen.add(k); q.push([nx, ny]); } }
+      if (seen.has(k) || !tiles[ny] || (!tiles[ny][nx] && k !== gapKey)) continue; seen.add(k); q.push([nx, ny]); } }
   built.exitReachable = seen.has(exit.x + ',' + exit.y);
+  built.room = startRoom && (startRoom.x1 - startRoom.x0 + 1);
+  built.fog = protoWide;
   built.landmarksReachable = landmarks.every((L) => seen.has(L.x + ',' + L.y));
   sel.value = 'off'; sel.dispatchEvent(new Event('change'));
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -838,9 +843,11 @@ const laby = await page.evaluate(async () => {
 });
 check('the labyrinth prototype builds, and Off puts the maze back',
   laby.protoMode === true && laby.sections >= 6 && laby.landmarks === laby.sections
-  && laby.onFloor && laby.exitReachable && laby.landmarksReachable && laby.kinds.length >= 2 && laby.offAgain,
+  && laby.onFloor && laby.exitReachable && laby.landmarksReachable && laby.kinds.length >= 2
+  && laby.room === 5 && laby.sealed && laby.fog === false && laby.offAgain,
   `${laby.sections} sections (${laby.kinds.join(', ')}) across ${laby.W}x${laby.H}, `
   + `${laby.landmarks} landmarks of ${laby.distinct} kinds, all on floor and all reachable; `
+  + `a sealed ${laby.room}x${laby.room} start room with one block to lean on, the maze's own fog; `
   + `the way out is ${laby.route} tiles; Off left nothing behind`);
 
 // ── 9. no page errors throughout ─────────────────────────────────

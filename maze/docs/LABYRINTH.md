@@ -73,10 +73,10 @@ Starting spec, to be argued with:
 | | today (lg) | target | **the prototype** |
 |---|---|---|---|
 | sections | — | 8–12 | **10** |
-| thresholds | 1.6 | 4+ | **3.8** |
-| longest threshold run | 22 tiles | 20+ | **34** |
-| biggest split | 27% | 40%+ | **43%** |
-| room tiles | 184 | more | **475** |
+| thresholds | 1.6 | 4+ | **4.0** |
+| longest threshold run | 22 tiles | 20+ | **46** |
+| biggest split | 27% | 40%+ | **45%** |
+| room tiles | 184 | more | **494** |
 | landmarks | — | one a section | **one a section, 6 kinds** |
 | section graph | — | a tree | **a tree** |
 
@@ -111,6 +111,16 @@ In the Prototype menu next to Two-way blocks. `buildLabyrinth()` in `js/proto.js
   floor texture is different."* Each section also carries a `tone` for that, not
   yet used in the drawing.
 - **Chalk on the floor**, because the whole question is whether you reach for it.
+- **The room you wake in** (v0.65.0). The same sealed five-by-five as every other
+  level — mat, basin, shelves — sitting in the corner of the section you start
+  in, with one wall that moves to get out of. Its cells are kept back before that
+  section is carved, so the maze grows round it and sealing it afterwards cannot
+  strand anything. It is also a threshold in its own right, and the biggest one:
+  the longest clean run went from 34 tiles to 46 when it went in.
+- **The maze's own fog** (v0.65.0). A prototype normally opens the light right up
+  so the one idea in it is all visible; `protoWide` turns that off here, because
+  not being able to see is half of what this one is. Set Stones in the debug menu
+  to play it with a later character's light.
 
 What it costs to walk, against an lg maze of the same 45×61 grid:
 

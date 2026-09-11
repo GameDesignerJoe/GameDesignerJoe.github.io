@@ -108,6 +108,8 @@ const snap = (size, ph, seed) => page.evaluate(([size, ph, seed, PROTO]) => {
   generate(seed);
   return { W, H, tiles: tiles.map((r) => Array.from(r, (v) => (v ? '1' : '0')).join('')),
     start: { x: Math.floor(start.x), y: Math.floor(start.y) },
+    // a block's sealed gap is floor as far as getting about goes: you can always shove it
+    sliderGaps: sliders.filter((sl) => !sl.auto).map((sl) => (sl.x + sl.dx) + ',' + (sl.y + sl.dy)),
     solutionPath: solutionPath.map((p) => [p[0], p[1]]) };
 }, [size, ph, seed, PROTO]);
 
@@ -122,6 +124,7 @@ for (const size of SIZES) {
     const s = await snap(size, PHASE, 4242 + i * 137);
     const open = new Set();
     for (let y = 0; y < s.H; y++) for (let x = 0; x < s.W; x++) if (s.tiles[y][x] === '1') open.add(K(x, y));
+    for (const k of s.sliderGaps || []) open.add(k);
     const ch = chokes(open, s.W, s.H, s.start.x, s.start.y, SHARE);
     const rs = ch.major.length ? runs(ch.major, ch.idx, ch.adj) : [];
     // A junction is a fork in a corridor, not a tile in the middle of a room: an open room has

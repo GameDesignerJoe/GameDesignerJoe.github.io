@@ -28,7 +28,7 @@ function protoDirs() { return [[1, 0], [-1, 0], [0, 1], [0, -1]]; }
 
 // everything empty, the grid sized and cleared: a prototype carries none of the maze's furniture
 function protoReset(cols, rows) {
-  protoMode = true; poolMode = false;
+  protoMode = true; protoWide = true; poolMode = false;
   [CONFIG.cols, CONFIG.rows] = cols;
   void rows;
   W = CONFIG.cols * 2 + 1 + 2 * P; H = CONFIG.rows * 2 + 1 + 2 * P;
@@ -184,6 +184,7 @@ const LANDMARK_KINDS = ['pool', 'statues', 'spiral', 'columns', 'dais', 'well'];
 function buildLabyrinth(seed) {
   const R = rng(seed);
   protoReset(CONFIG.labySize);
+  protoWide = false;   // you are meant to be lost in this one, so the light is the maze's own
   const TXc = (c) => c * 2 + 1 + P;
   const cols = CONFIG.cols, rows = CONFIG.rows;
   const openCell = (cx, cy) => { tiles[TXc(cy)][TXc(cx)] = 1; };
@@ -222,7 +223,18 @@ function buildLabyrinth(seed) {
   const kinds = ['warren', 'hall', 'court'];
   leaves.forEach((r, i) => { r.kind = kinds[i % kinds.length]; });
   for (let i = leaves.length - 1; i > 0; i--) { const j = R() * (i + 1) | 0; const k = leaves[i].kind; leaves[i].kind = leaves[j].kind; leaves[j].kind = k; }
-  for (const r of leaves) carveSection(r, r.kind, R, openCell, openLink, openCorner);
+
+  // The start room sits in the corner of the section you wake in: the same sealed five-by-five
+  // with the mat, the basin and the shelves as every other level has, and the same one way out
+  // to lean on. Its cells are kept back before that section is carved, so the maze grows round it
+  // and sealing it afterwards cannot strand anything.
+  let home = 0;
+  for (let i = 1; i < leaves.length; i++) if (leaves[i].y1 > leaves[home].y1 || (leaves[i].y1 === leaves[home].y1 && leaves[i].x0 < leaves[home].x0)) home = i;
+  const rc = CONFIG.startRoomCells;
+  const roomCells = new Set();
+  const bx0 = leaves[home].x0, by0 = leaves[home].y1 - rc + 1;
+  for (let y = by0; y < by0 + rc; y++) for (let x = bx0; x < bx0 + rc; x++) roomCells.add(x + ',' + y);
+  for (const r of leaves) carveSection(r, r.kind, R, openCell, openLink, openCorner, r === leaves[home] ? roomCells : null);
 
   // ── 3. a tree over the sections, and a hall for every branch of it ──
   const edges = [];
@@ -246,7 +258,33 @@ function buildLabyrinth(seed) {
   const halls = [];
   for (const e of tree) if (!carveHall(e, leaves, owner, R, openCell, openLink, halls)) return false;
 
-  // ── 4. one thing at the heart of each, and no two the same ──
+  // ── 4. the room you wake in ──
+  {
+    for (const k of roomCells) { const [x, y] = k.split(',').map(Number);
+      openCell(x, y);
+      for (const [dx, dy] of [[1, 0], [0, 1]]) if (roomCells.has((x + dx) + ',' + (y + dy))) openLink(x, y, x + dx, y + dy);
+      if (roomCells.has((x + 1) + ',' + y) && roomCells.has(x + ',' + (y + 1)) && roomCells.has((x + 1) + ',' + (y + 1))) openCorner(x, y); }
+    const rx0 = TXc(bx0), ry0 = TXc(by0), rx1 = TXc(bx0 + rc - 1), ry1 = TXc(by0 + rc - 1);
+    startRoom = { x0: rx0, y0: ry0, x1: rx1, y1: ry1 };
+    start = { x: rx0 + 2 + 0.5, y: ry0 + 2 + 0.5 };
+    // The room's cells were kept out of the carve, so it is sealed already — nothing links into
+    // it. One of its walls becomes the way out: a border gap with open section floor on the far
+    // side, still shut, with the block on the inside for you to lean on.
+    const ways = [];
+    const spot = (gx, gy, ax, ay) => { const fx = gx + ax, fy = gy + ay;
+      if (fx <= 0 || fy <= 0 || fx >= W - 1 || fy >= H - 1 || !tiles[fy][fx]) return;
+      ways.push([gx, gy, ax, ay]); };
+    for (let y = ry0; y <= ry1; y += 2) { spot(rx1 + 1, y, 1, 0); spot(rx0 - 1, y, -1, 0); }
+    for (let x = rx0; x <= rx1; x += 2) { spot(x, ry1 + 1, 0, 1); spot(x, ry0 - 1, 0, -1); }
+    if (!ways.length) return false;
+    const [gx, gy, ax, ay] = ways[R() * ways.length | 0];
+    for (const [x, y] of ways) tiles[y][x] = 0;
+    startGap = [gx, gy];
+    sliders.push({ x: gx - ax, y: gy - ay, dx: ax, dy: ay, shifted: false, atStart: true });
+    if (!SAVE.pushLearned) startArrow = { x: gx - ax, y: gy - ay, dir: ax > 0 ? 'right' : ax < 0 ? 'left' : ay > 0 ? 'down' : 'up' };
+  }
+
+  // ── 5. one thing at the heart of each, and no two the same ──
   // There are more sections than there are things to put in them, and that is fine — Joe: "this
   // statue looks the same as another place I've been, but the floor texture is different." So no
   // two that touch ever wear the same one, and every section carries a tone of its own besides.
@@ -265,18 +303,14 @@ function buildLabyrinth(seed) {
     tx0: TXc(r.x0) - 1, ty0: TXc(r.y0) - 1, tx1: TXc(r.x1) + 1, ty1: TXc(r.y1) + 1 }));
   leaves.forEach((r, i) => landmarks.push({ x: TXc(r.heart[0]), y: TXc(r.heart[1]), kind: chosen[i], section: i }));
 
-  // ── 5. where you wake, and the way out: the section furthest through the tree ──
+  // ── 6. the way out: the section furthest from home through the tree ──
   const adj = leaves.map(() => []);
   for (const e of tree) { adj[e.a].push(e.b); adj[e.b].push(e.a); }
-  let home = 0, far = 0;
-  for (let i = 0; i < leaves.length; i++) if (leaves[i].y1 > leaves[home].y1 || (leaves[i].y1 === leaves[home].y1 && leaves[i].x0 < leaves[home].x0)) home = i;
+  let far = home;
   { const d = leaves.map(() => -1); d[home] = 0; const q = [home];
     for (let h = 0; h < q.length; h++) for (const n of adj[q[h]]) if (d[n] < 0) { d[n] = d[q[h]] + 1; q.push(n); }
     for (let i = 0; i < d.length; i++) if (d[i] > d[far]) far = i; }
-  const homeCells = sectionCells(leaves[home]).filter(([x, y]) => tiles[TXc(y)][TXc(x)]);
   const farCells = sectionCells(leaves[far]).filter(([x, y]) => tiles[TXc(y)][TXc(x)]);
-  const [sx, sy] = homeCells[0] ? homeCells[R() * homeCells.length | 0] : [leaves[home].x0, leaves[home].y0];
-  start = { x: TXc(sx) + 0.5, y: TXc(sy) + 0.5 };
   const [ex, ey] = farCells[0] ? farCells[R() * farCells.length | 0] : [leaves[far].x0, leaves[far].y0];
   exit = { x: TXc(ex), y: TXc(ey) };
 
@@ -286,7 +320,8 @@ function buildLabyrinth(seed) {
   for (let i = 0; i < CONFIG.labyChalk && floor.length; i++) chalkSpots.add(floor[R() * floor.length | 0]);
 
   // the way you are meant to go, for Show path and the count at the end
-  solutionPath = protoRoute(Math.floor(start.x), Math.floor(start.y), exit.x, exit.y);
+  // the start room's one way out is a block you shove, so the gap counts as floor for the route
+  solutionPath = protoRoute(Math.floor(start.x), Math.floor(start.y), exit.x, exit.y, new Set([startGap.join(',')]));
   return solutionPath.length > 1;
 }
 
@@ -294,9 +329,9 @@ const sectionCells = (r) => { const out = []; for (let y = r.y0; y <= r.y1; y++)
 
 // A section is a maze in its own right, carved its own way. The kind is what makes one place feel
 // unlike another before you have even found what is in the middle of it.
-function carveSection(r, kind, R, openCell, openLink, openCorner) {
+function carveSection(r, kind, R, openCell, openLink, openCorner, reserved) {
   const cells = sectionCells(r);
-  const inR = (x, y) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
+  const inR = (x, y) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1 && !(reserved && reserved.has(x + ',' + y));
   const seen = new Set();
   const D = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   // the heart: an open room at the middle of every section, because a landmark standing in a
@@ -377,13 +412,14 @@ function carveHall(e, leaves, owner, R, openCell, openLink, halls) {
 }
 
 // the shortest way through, in tiles
-function protoRoute(sx, sy, ex, ey) {
+function protoRoute(sx, sy, ex, ey, extra) {
   const prev = new Map([[sx + ',' + sy, null]]), q = [[sx, sy]];
   for (let h = 0; h < q.length; h++) {
     const [x, y] = q[h];
     if (x === ex && y === ey) break;
     for (const [dx, dy] of protoDirs()) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H || !tiles[ny][nx] || prev.has(k)) continue;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || prev.has(k)) continue;
+      if (!tiles[ny][nx] && !(extra && extra.has(k))) continue;
       prev.set(k, [x, y]); q.push([nx, ny]); }
   }
   const out = [];

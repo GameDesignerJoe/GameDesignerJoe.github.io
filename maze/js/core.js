@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.64.0';
+const VERSION = '0.65.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
@@ -17,9 +17,11 @@ function collectedCount(name) { return (SAVE.collected[name] || []).filter(Boole
 function phase() { return PHASES[Math.min(SAVE.phase || 0, PHASES.length - 1)]; }
 function has(stoneIdx) { return (SAVE.stones || 0) > stoneIdx; }
 let protoMode = false;   // a prototype level is running instead of a maze
+let protoWide = true;    // and its light is opened right up, so the one idea in it is all visible.
+                         // The labyrinth turns this off: being unable to see is half of what it is
 let liftGlow = 1;   // 1 normally. On the walk-in after a burden is put down the light blooms from dim to this
 const B = {   // burden-adjusted values
-  viewRadius: () => CONFIG.viewRadius * (has(0) ? 1 : 0.6) * (poolMode ? 2.2 : 1) * (protoMode ? 4 : 1) * liftGlow,
+  viewRadius: () => CONFIG.viewRadius * (has(0) ? 1 : 0.6) * (poolMode ? 2.2 : 1) * (protoMode && protoWide ? 4 : 1) * liftGlow,
   // a stone in your arms slows you down. Only in a pool level: everywhere else hasKey is the
   // exit key, which is small enough to put in a pocket
   speed:      () => CONFIG.speed * (has(1) ? 1.08 : 1) * (poolMode && hasKey ? CONFIG.stoneSlow : 1),
