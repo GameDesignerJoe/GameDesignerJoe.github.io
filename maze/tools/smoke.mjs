@@ -884,6 +884,25 @@ check('a squeeze holds you in its channel, and you fit through it',
   `${squeeze.frames} frames inside one: never more than ${squeeze.worst.toFixed(3)} off the centreline (the channel allows ${squeeze.lim}); `
   + `the body draws ${squeeze.bodyHalf.toFixed(3)} half-wide at ${squeeze.shrink}x, so it fits; no camera kick`);
 
+// ── 8p. the app icon and the manifest ─────────────────────────────
+// Add to Home Screen used to grab a screenshot, because there was no icon at all. A missing file
+// here fails silently on the phone and looks like nothing, so check they actually resolve.
+const icon = await page.evaluate(async () => {
+  const links = [...document.querySelectorAll('link[rel*="icon"], link[rel="manifest"]')].map((l) => l.rel);
+  let m = null; try { m = await fetch('manifest.webmanifest').then((r) => r.json()); } catch (e) { m = null; }
+  const load = (src) => new Promise((r) => { const i = new Image();
+    i.onload = () => r({ src, w: i.width }); i.onerror = () => r({ src, w: 0 }); i.src = src; });
+  const files = ['icons/icon-32.png', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+  const imgs = await Promise.all(files.map(load));
+  return { links, name: m && m.name, display: m && m.display, icons: m && m.icons && m.icons.length,
+    loaded: imgs.filter((i) => i.w > 0).length, sizes: imgs.map((i) => i.w).join('/') };
+});
+check('the app icon and the manifest are there and load',
+  icon.links.includes('apple-touch-icon') && icon.links.includes('manifest')
+  && icon.name === 'The Maze' && icon.display === 'standalone' && icon.icons >= 2 && icon.loaded === 4,
+  `${icon.links.join(', ')}; manifest says "${icon.name}", ${icon.display}, ${icon.icons} icons; `
+  + `${icon.loaded} of 4 png files load at ${icon.sizes}`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

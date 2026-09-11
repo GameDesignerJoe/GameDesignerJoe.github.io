@@ -1,0 +1,16 @@
+{
+  "name": "The Maze",
+  "short_name": "The Maze",
+  "description": "A man wakes in a maze he built himself.",
+  "start_url": "maze-topdown.html",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0f10",
+  "theme_color": "#0d0f10",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-1024.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
+}

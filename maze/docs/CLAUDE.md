@@ -326,6 +326,23 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The app icon (v0.67.0)
+
+A **meander** — the oldest mark for a labyrinth there is — in the game's own
+floor grey on its own wall dark, with the player's arrowhead at the mouth of it.
+`tools/make-icon.mjs` draws every size from the one drawing, so there is nothing
+to keep in step by hand:
+
+    node maze/tools/make-icon.mjs      # writes icons/icon-32|180|192|512|1024.png
+
+The artwork is full-bleed and square: iOS masks the corners into a squircle
+itself and paints no background of its own. Everything is drawn inside a 5.5%
+margin so the mask cannot bite the arrowhead. `manifest.webmanifest` gives it a
+name, standalone display and the dark background, so Add to Home Screen installs
+it properly instead of grabbing a screenshot — which is what it did before,
+because there was no icon at all. A smoke check makes sure all of it resolves,
+since a missing icon fails silently on a phone and just looks like nothing.
+
 ## The labyrinth prototype (v0.64.0)
 
 `docs/LABYRINTH.md` is the plan; `buildLabyrinth()` in `js/proto.js` is the
