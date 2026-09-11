@@ -404,6 +404,18 @@ gradient going from black to white and seven stages."* One ramp, `playerBurdened
 body the ramp sits*. A burden coming off walks that edge forward one seventh, through the grey, so
 there is a change to watch rather than a block flicking colour.
 
+**The chapter is all caps** (v0.70.1), per Joe's *"have the text for the chapter title be in all
+caps."* The lettering rule lives in `spaced()` beside `titleScale()` — uppercase, then a space
+between every letter, because `ctx.letterSpacing` is Safari 17.4 and up. The smoke check asserts
+`spaced()` rather than trying to read the canvas.
+
+**Clearing the run log takes two taps** (v0.70.1). Joe: *"swap the clear and close buttons here, move
+the clear one down so it can[not] accidentally be hit. Add an 'are you sure' to the clear button?"*
+Copy CSV and Close sit in the first row with Close as the solid primary where Clear used to be;
+Clear is small, quiet and in its own row well below, and says *"Clear every run? Tap again"* before
+it does anything. It is the only thing in the game you cannot undo, and it is not in `SAVE`, so
+Reset save does not touch it either.
+
 **Books stand on a shelf** (v0.70.0) — `#books i` is 4x15 with varied heights and a shelf rule under
 them, per Joe's *"make these indicators for the books go vertically so they look like books on a
 shelf."*

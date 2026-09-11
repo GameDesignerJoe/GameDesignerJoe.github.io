@@ -981,6 +981,7 @@ const titleScreen = await page.evaluate(async () => {
   out.chapFullAt12 = chapterFade(1.2) > 0.7;
   out.chapGone = chapterFade(out.outBy + 0.01) === 0 && chapterFade(out.outBy - 0.3) > 0.2;
   out.outlives = out.outBy > 0.9 && out.outBy < CONFIG.introSeconds;
+  out.caps = spaced('The Child') === 'T H E   C H I L D' && spaced('Chapter I') === 'C H A P T E R   I';
   // the ? is the game's, not the title's: gone while he sleeps, in the top right once he is up
   const q = $('howBtn').getBoundingClientRect(), v = $('verTitle').getBoundingClientRect();
   $('howBtn').style.transition = 'none';      // read where it settles, not where it is mid-slide
@@ -996,8 +997,8 @@ check('the title screen: the chapter set into the floor, the ? only once you are
   titleScreen.noStepLbl && titleScreen.noBar && titleScreen.noDomChapter
   && titleScreen.qHiddenAsleep && titleScreen.qShownAwake && titleScreen.qTopRight && titleScreen.verBottomLeft
   && titleScreen.asleep > titleScreen.proto + 8 && titleScreen.asleep > titleScreen.pool + 8
-  && titleScreen.nameGoneAt12 && titleScreen.chapFullAt12 && titleScreen.chapGone && titleScreen.outlives,
-  `the band of floor below him reads ${titleScreen.asleep} with the chapter written into it and `
+  && titleScreen.nameGoneAt12 && titleScreen.chapFullAt12 && titleScreen.chapGone && titleScreen.outlives && titleScreen.caps,
+  `the chapter is lettered all caps and tracked out; the band of floor below him reads ${titleScreen.asleep} with it written in and `
   + `${titleScreen.proto}/${titleScreen.pool} on a prototype/pool, which get no heading; `
   + `1.2s into the zoom-out the name above him is gone and the chapter is still up, and it is out `
   + `at ${titleScreen.outBy.toFixed(1)}s — before the ${titleScreen.zoomSec}s zoom ends; `
@@ -1094,6 +1095,32 @@ check('the books stand up on a shelf',
   shelf.skip ? 'no pages in this maze' :
   `${shelf.n} of them, each ${shelf.w}x${shelf.h} so they stand rather than lie, at ${shelf.varied ? 'varying' : 'ONE'} `
   + `height, on a shelf line`);
+
+// ── 8v. the run log's buttons ────────────────────────────────────
+// Joe: "swap the clear and close buttons here, move the clear one down so it can[not] accidentally
+// be hit. Add an 'are you sure' to the clear button?" Clear is the one action here you cannot undo.
+const runlog = await page.evaluate(async () => {
+  showStats();
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const close = $('statsClose').getBoundingClientRect(), clear = $('statsClear').getBoundingClientRect();
+  const out = {
+    closeAbove: clear.top > close.bottom + 12,
+    ownRow: $('statsClear').parentElement !== $('statsClose').parentElement,
+    quieter: clear.height < close.height,
+  };
+  writeLog([{ at: Date.now(), who: 'The Child', ms: 1000, steps: 10, seed: 1 }]);
+  $('statsClear').click();                      // one tap only asks
+  out.asks = $('statsClear').dataset.sure === '1' && readLog().length === 1;
+  out.wording = /again|sure/i.test($('statsClear').textContent);
+  $('statsClear').click();
+  out.thenClears = readLog().length === 0;
+  $('stats').classList.remove('show');
+  return out;
+});
+check('clearing the run log takes two taps, and its button is out of the way',
+  runlog.closeAbove && runlog.ownRow && runlog.quieter && runlog.asks && runlog.wording && runlog.thenClears,
+  `Close sits above Clear in its own row, Clear smaller and set ${runlog.closeAbove ? 'well' : 'NOT'} below it; `
+  + `one tap only asks ("${runlog.wording ? 'tap again' : 'NO PROMPT'}") and leaves the log alone, a second one clears it`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

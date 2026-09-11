@@ -103,8 +103,8 @@ $('statsCopy').addEventListener('click', async () => {
 });
 $('statsClear').addEventListener('click', () => {
   const b = $('statsClear');
-  if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sure?'; setTimeout(() => { b.dataset.sure = '0'; b.textContent = 'Clear'; }, 2600); return; }
-  clearLog(); b.dataset.sure = '0'; b.textContent = 'Clear'; showStats();
+  if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Clear every run? Tap again'; setTimeout(() => { b.dataset.sure = '0'; b.textContent = 'Clear the log'; }, 3200); return; }
+  clearLog(); b.dataset.sure = '0'; b.textContent = 'Clear the log'; showStats();
 });
 $('optSound').checked = CONFIG.sound;
 $('optSound').addEventListener('change', () => AUDIO.setEnabled($('optSound').checked));

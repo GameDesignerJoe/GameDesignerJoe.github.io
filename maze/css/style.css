@@ -216,6 +216,15 @@ body.pre #stick, body.pre #glyphs { opacity:0; transform:translate(-50%, 40px); 
 #statsBody .run b { font-weight:400; color:#ece7da; }
 #statsBody .run i { grid-column:1 / -1; font-style:normal; font-size:12px; color:#6f6b62; }
 #stats .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:20px; }
+/* Clear stands well away from Close, and quietly. Joe: "swap the clear and close buttons here, move
+   the clear one down so it can[not] accidentally be hit. Add an 'are you sure' to the clear button?"
+   It asks twice, and the second ask is in the same warning colour Reset save uses. */
+#stats .row .ghost { width:auto; margin-top:0; padding:11px 24px; }
+#statsClose { padding:12px 30px; font:inherit; font-size:16px; color:#0d0f10; background:#d8d3c6; border:0; border-radius:8px; }
+#statsClose:active { background:#ece7da; }
+#stats .row.danger { margin-top:38px; }
+#statsClear { font-size:12px; opacity:.45; padding:8px 18px; border-color:rgba(185,180,168,.2); }
+#statsClear[data-sure="1"] { opacity:1; color:#b07a6a; border-color:rgba(176,122,106,.55); }
 
 /* the debug Zoom slider */
 #dbg input[type=range] { flex:1 1 auto; min-width:90px; accent-color:#8d887c; background:transparent; }

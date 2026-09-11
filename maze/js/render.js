@@ -330,6 +330,10 @@ function drawPlayerBody(c, r, pinch = 1) {
 // close now, and a tile is 150px of a 430px phone. Cap the type at the screen so a closer zoom
 // (or the title screen's closer-still one) makes more floor visible rather than bigger letters.
 const titleScale = (S) => Math.min(S, innerWidth * 0.35);
+// How the floor-set text is lettered: all caps, tracked out by putting a space between the letters
+// rather than with ctx.letterSpacing, which Safari only learned in 17.4. Joe: "have the text for the
+// chapter title be in all caps."
+const spaced = (t) => t.toUpperCase().split('').join(' ');
 const nameFade = (el) => Math.max(0, 1 - el / 0.9);
 const chapterFade = (el) => Math.max(0, 1 - Math.max(0, el - CONFIG.chapterHoldSec) / CONFIG.chapterFadeSec);
 
@@ -440,15 +444,14 @@ function draw() {
     const fadeC = intro ? chapterFade((performance.now() - intro.t0) / 1000) : 1;
     if (fadeC > 0) {
       const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
-      const sp = (t) => t.split('').join(' ');   // the name's own way of tracking letters out
       const cx = ox + (startRoom.x0 + 2)*S + S/2, cy = oy + (start.y + CONFIG.chapterDrop)*S, TS = titleScale(S);
       ctx.save(); ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.globalAlpha = fadeC * 0.55;
       ctx.font = `500 ${TS*0.08}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
-      ctx.fillText(sp('Chapter ' + (roman[SAVE.phase || 0] || (SAVE.phase + 1))), cx, cy);
+      ctx.fillText(spaced('Chapter ' + (roman[SAVE.phase || 0] || (SAVE.phase + 1))), cx, cy);
       ctx.globalAlpha = fadeC;
       ctx.font = `700 ${TS*0.18}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
-      ctx.fillText(sp(phase().who), cx, cy + TS*0.17);
+      ctx.fillText(spaced(phase().who), cx, cy + TS*0.17);
       ctx.restore();
     }
   }
