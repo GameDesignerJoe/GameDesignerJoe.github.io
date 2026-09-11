@@ -366,7 +366,12 @@ walk.
 ## The app icon (v0.67.0)
 
 A **meander** — the oldest mark for a labyrinth there is — in the game's own
-floor grey on its own wall dark, with the player's arrowhead at the mouth of it.
+floor grey on its own wall dark, with him at the very middle of it, facing the
+way out. The innermost run of the corridor is (4,5)–(6,5), so the centre of the
+icon is also a point on the path: he is not going in, he is already turned round
+and on his way back, which is the game. He is rimmed in the wall's own dark
+rather than his usual pale edge, because here he stands on the corridor rather
+than on the black and pale-on-grey disappears at forty pixels.
 `tools/make-icon.mjs` draws every size from the one drawing, so there is nothing
 to keep in step by hand:
 

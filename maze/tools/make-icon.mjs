@@ -20,7 +20,7 @@ const C = { bg: '#0d0f10', wall: '#1b1f21', floor: '#6e6a62', player: '#ece7da',
 
 // the drawing, at any size
 const DRAW = `(c, S) => {
-  const A = { wall: '${C.wall}', floor: '${C.floor}', player: '${C.player}', edge: '${C.edge}' };
+  const A = { wall: '${C.wall}', floor: '${C.floor}', player: '${C.player}' };
   c.fillStyle = A.wall; c.fillRect(0, 0, S, S);
   // iOS masks the corners into a squircle, so everything is drawn inside a margin it cannot bite
   c.translate(S * 0.055, S * 0.055); c.scale(0.89, 0.89);
@@ -31,12 +31,17 @@ const DRAW = `(c, S) => {
   c.beginPath();
   path.forEach(([x, y], i) => { const px = x*u + u/2, py = y*u + u/2; i ? c.lineTo(px, py) : c.moveTo(px, py); });
   c.stroke();
-  // and him at the mouth of it
-  const r = u * 0.42, cx = u*2.4, cy = u*1.5;   // along the mouth a little, clear of the corner
-  c.save(); c.translate(cx, cy); c.rotate(-Math.PI/2);
+  // And him at the very middle of it, facing the way out. The innermost run of the corridor is
+  // (4,5)-(6,5), so the centre of the icon is also a point on the path, and out is west from it.
+  // That is the game: not going in, already turned round and on his way back.
+  const r = u * 0.47, cx = u*5 + u/2, cy = u*5 + u/2;
+  c.save(); c.translate(cx, cy); c.rotate(Math.PI);
   c.beginPath(); c.moveTo(r, 0); c.lineTo(-r*0.8, -r*0.75); c.lineTo(-r*0.45, 0); c.lineTo(-r*0.8, r*0.75); c.closePath();
   c.fillStyle = A.player; c.fill();
-  c.lineWidth = r * 0.13; c.lineJoin = 'round'; c.strokeStyle = A.edge; c.stroke();
+  // rimmed in the wall's own dark rather than his usual pale edge: he stands on the corridor here,
+  // not on the black, and pale on grey disappears at forty pixels
+  c.lineWidth = r * 0.26; c.lineJoin = 'round'; c.strokeStyle = A.wall; c.stroke();
+  c.fillStyle = A.player; c.fill();
   c.restore();
 }`;
 
