@@ -56,7 +56,6 @@ function restoreRun(run) {
   updateChalk(); updateCharcoal(); updateBooks();
   if (hasKey) (poolMode ? $('stone') : keyEl).classList.add('show'); if (hasLamp) { $('lamp').classList.add('show'); $('lamp').classList.toggle('on', lampOn); }
   const g0 = gameNow(); t0 = g0 - run.t; pointerUntil = run.pointerLeft ? g0 + run.pointerLeft : 0; pathUntil = run.pathLeft ? g0 + run.pathLeft : 0; narrNext = leftRoom ? g0 + Math.max(4000, run.narrLeft) : Infinity;
-  $('stepLbl').textContent = steps + ' tiles';
   if (run.atHome) return;   // stay asleep on the mat; tapping the sleeper begins, and starts the sound
   // straight into the maze, no title: the fade lifts on you where you stood
   document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx * zoomMul(); started = true;

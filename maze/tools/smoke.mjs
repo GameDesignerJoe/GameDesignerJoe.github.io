@@ -946,6 +946,49 @@ check('a room lets you walk across it, a corridor still keeps you on its line',
   `in a room: moved on both axes at once and off the grid lines, never into a wall; `
   + `in a corridor with the stick held at an angle: ${roam.corridorHeld === false ? 'DRIFTED' : 'held to the centreline'}`);
 
+// ── 8r. the title screen ──────────────────────────────────────────
+// Joe: "get rid of the black section at the bottom... move the question up to the top right...
+// get rid of the tile count... a chapter heading at the bottom." The heading names the chapter you
+// are about to walk into, so it is wrong on a pool (between chapters) and on a prototype (not one).
+const titleScreen = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.phase = 0; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist(); reset(4242);
+  const css = (id) => getComputedStyle($(id));
+  const box = (id) => $(id).getBoundingClientRect();
+  const out = {
+    noStepLbl: !document.getElementById('stepLbl') && !/stepLbl/.test([...document.scripts].map((s) => s.textContent).join('')),
+    noBar: !document.getElementById('titleBar'),
+    chapNum: $('chapNum').textContent, chapWho: $('chapWho').textContent,
+    verAlpha: css('verTitle').color, verOpacity: +css('verTitle').opacity,
+  };
+  // the ? sits in the top right, above the middle of the screen and right of it
+  const q = box('howBtn');
+  out.qTopRight = q.top < innerHeight * 0.2 && q.right > innerWidth * 0.8;
+  // the chapter sits along the bottom, the version below it
+  const ch = box('chapter'), v = box('verTitle');
+  out.chapBottom = ch.top > innerHeight * 0.7 && Math.abs((ch.left + ch.right) / 2 - innerWidth / 2) < 8;
+  out.verBelow = v.top > ch.bottom - 4 && v.left < innerWidth * 0.3;
+  // both fade with the title
+  $('title').classList.add('leaving');
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  out.fades = css('verTitle').transitionDuration !== '0s' && css('chapter').transitionDuration !== '0s'
+    && css('howBtn').transitionDuration !== '0s';
+  $('title').classList.remove('leaving');
+  // a pool and a prototype get no heading
+  SAVE.poolPending = true; reset(4242); out.poolHidden = $('chapter').classList.contains('none');
+  SAVE.poolPending = false; SAVE.ui = { proto: 'laby' }; reset(4242); out.protoHidden = $('chapter').classList.contains('none');
+  SAVE.ui = {}; SAVE.phase = 2; reset(4242); out.later = $('chapNum').textContent + ': ' + $('chapWho').textContent;
+  return out;
+});
+check('the title screen: a chapter at the bottom, the ? top right, no tile count',
+  titleScreen.noStepLbl && titleScreen.noBar && titleScreen.qTopRight && titleScreen.chapBottom
+  && titleScreen.verBelow && titleScreen.fades && titleScreen.chapNum === 'Chapter I'
+  && titleScreen.chapWho === 'The Child' && titleScreen.poolHidden && titleScreen.protoHidden
+  && titleScreen.later === 'Chapter III: The Soldier',
+  `"${titleScreen.chapNum} / ${titleScreen.chapWho}" centred along the bottom, "${titleScreen.later}" at phase 3; `
+  + `the ? in the top right, no tile count and no black bar; the version reads ${titleScreen.verAlpha} below the chapter; `
+  + `version, chapter and ? all fade out on leaving; a pool and a prototype show no heading`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

@@ -221,7 +221,7 @@ function update(wall) {
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   visited.add(key);
   if (introWalk && key !== lastTileKey) introWalk = null;
-  if (key !== lastTileKey) { if (lastTileKey) { steps++; AUDIO.step(tunnelTiles.has(key)); } lastTileKey = key; saveRun(false); $('stepLbl').textContent = steps + ' tiles'; }
+  if (key !== lastTileKey) { if (lastTileKey) { steps++; AUDIO.step(tunnelTiles.has(key)); } lastTileKey = key; saveRun(false); }
   if (key !== prevKey) {
     const [tx, ty] = key.split(',').map(Number);
     // the secret room: nobody tells you it is there, so the only line is the one you think on the way in

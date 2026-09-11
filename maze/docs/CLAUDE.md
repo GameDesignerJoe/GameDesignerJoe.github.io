@@ -326,6 +326,39 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The title screen (v0.69.0)
+
+Joe, from a screenshot: *"get rid of the black section at the bottom... move the
+question up to the top right... get rid of the tile count too... change the colour
+of the version count so that it is readable with the grey background of the floor.
+Then when we fade into gameplay, you can fade out the version number... add a
+chapter heading that behaves just like the maze title, but at the bottom."*
+
+`#titleBar` is gone — that was the black strip. `#verTitle` and `#howBtn` are now
+fixed to the corners of `#title` itself: the version bottom-left in
+`rgba(236,231,218,.42)` over a dark text-shadow, which reads on the floor grey
+*and* on the black outside it; the `?` top-right where the tile count used to sit.
+The tile count is gone outright, from the DOM and from every writer
+(`grep stepLbl` returns nothing) — `#hud` is `flex-start` now and carries chalk
+alone.
+
+**The chapter** is `#chapter`, a two-line block along the bottom: `Chapter I`
+small and wide-tracked above `The Child` larger, in the same Futura stack as the
+canvas "THE / MAZE". Two choices there worth knowing are reversible: it is **DOM,
+not canvas**, because the fog closes a couple of tiles in from him and would eat
+anything drawn down there; and it is **two lines rather than the literal one-line
+"Chapter I: The Child"**, to echo the title's own two lines.
+
+`reset()` fills it from `SAVE.phase` and `phase().who`. A pool is *between*
+chapters and a prototype is not one at all, so both get `.none` and no heading —
+and `generate()` clears `protoMode` before `reset()` reads it, so the order
+matters.
+
+Version, chapter and `?` all carry `transition:opacity .7s` and go to 0 on
+`#title.leaving`, so they fade with the canvas title as he wakes rather than
+snapping out. Smoke check: *"the title screen: a chapter at the bottom, the ?
+top right, no tile count."*
+
 ## Walking about a room (v0.68.0)
 
 Joe: *"my character only walks in the middle of floors not across them. So

@@ -115,7 +115,14 @@ function reset(seed) {
     narrQueue = fresh.sort(() => Math.random() - 0.5); }
   narrNext = gameNow() + CONFIG.narratorFirstSec * 1000; narrEl.classList.remove('show');
   updateChalk(); updateBooks();
-  $('seedLbl').textContent = 'seed ' + SEED; $('stepLbl').textContent = '';
+  $('seedLbl').textContent = 'seed ' + SEED;
+  // the chapter, along the bottom of the title screen. A pool is between chapters and a prototype
+  // is not one at all, so neither gets a heading
+  { const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+    const show = !poolMode && !protoMode;
+    $('chapter').classList.toggle('none', !show);
+    if (show) { $('chapNum').textContent = 'Chapter ' + (roman[SAVE.phase || 0] || (SAVE.phase + 1));
+      $('chapWho').textContent = phase().who; } }
   $('msg').classList.remove('show');
 }
 
