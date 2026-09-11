@@ -55,7 +55,7 @@
   <label>Prototype <select id="optProto"><option value="off" selected>Off</option><option value="push2">Two-way blocks</option><option value="laby">Labyrinth</option></select></label>
   <label>Floor <select id="optFloor"><option value="wornlights" selected>Worn + lights</option><option value="off">Off</option><option value="worn">Worn paths</option><option value="grime">Grime</option><option value="lights">Flickering lights</option><option value="all">All three</option></select></label>
   <label>Texture <select id="optTexture"><option value="off" selected>Off</option><option value="grain">Grain</option><option value="damp">Damp</option><option value="dust">Dust</option></select></label>
-  <label>Zoom <input type="range" id="optZoom" min="0.5" max="2.5" step="0.05" value="1"><span id="zoomLbl">1.0x</span></label>
+  <label>Zoom <input type="range" id="optZoom" min="0.2" max="1.5" step="0.05" value="1"><span id="zoomLbl">1.0x</span></label>
   <label>Stick <select id="optStick"><option value="right">Right</option><option value="left">Left</option></select></label>
   <button class="storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button>
   <button id="statsBtn">Run log</button>
@@ -65,7 +65,9 @@
   <div class="ver"><span id="seedLbl"></span> · <span id="verDbg"></span></div>
 </div>
 <div id="stick" class="hud-el"><div id="knob"></div></div>
-<div id="title"><span id="verTitle"></span><span id="howBtn">?</span><div id="howPanel"><div class="rows">
+<div id="title"><span id="verTitle"></span></div>
+<span id="howBtn" class="hud-el">?</span>
+<div id="howPanel"><div class="rows">
 
 <div class="row">
     <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="none" stroke="#8d887c" stroke-width="1.5"/><circle cx="22" cy="22" r="9" fill="#b9b4a8"/><path d="M22 6l-4 5h8zM22 38l-4-5h8zM6 22l5-4v8zM38 22l-5-4v8z" fill="#8d887c"/></svg>
@@ -87,7 +89,7 @@
     <svg viewBox="0 0 44 44"><rect x="10" y="18" width="24" height="9" rx="1.5" fill="#3a3d3f" stroke="#a89f8c" stroke-width="1.2" transform="rotate(28 22 22)"/></svg>
     <p><b>Charcoal</b> draws a map as you walk. Tap it to begin; the stick wears down as it draws; ground you've already mapped costs nothing. Tap it again to pause. The map button beside it shows what you've drawn.</p>
   </div>
-  </div></div></div>
+  </div></div>
 <div id="tut"><div class="card"><div id="tutIcon"></div><h1 id="tutTitle"></h1><p class="why" id="tutWhy"></p><p id="tutHow"></p><button id="tutClose">Close<svg viewBox="0 0 100 12" preserveAspectRatio="none"><path d="M2 7c14-3 22 3 34 1s20-5 30-2 20 4 32 0" fill="none" stroke="#ece7da" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="26 2 18 3 30 2 40" opacity=".85"/></svg></button></div></div>
 <div id="pool"><div class="talk"><div class="who" id="poolWho"></div><div class="say" id="poolSay"></div><div class="choices" id="poolChoices"></div></div><div class="water"><div class="stone" id="poolStone"></div></div><div class="keeper" id="poolKeeper"></div></div>
 <div id="fade" class="in"></div>

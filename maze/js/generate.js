@@ -16,6 +16,7 @@ let scrapSpots = new Set();
 let doors = [];              // locked doors inside the maze: {x,y,shape,open}
 let innerKeys = new Map();   // 'x,y' → shape of the key lying there
 let heldKeys = new Set();    // shapes you carry
+let exitGateAt = 0;          // when the way out started to swing; 0 while it is still shut
 const KEY_SHAPES = ['circle', 'triangle', 'square'];
 let exitTree = new Set();    // cells of the squeeze tree guarding the way out
 let exitTreeMouth = null;    // 'x,y' of its one entrance, the squeeze you go in by

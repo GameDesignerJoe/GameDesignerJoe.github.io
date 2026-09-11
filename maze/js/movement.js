@@ -151,7 +151,12 @@ function update(wall) {
   // thing that fits. In a room that reads as robotic — Joe: "my character only walks in the middle
   // of floors not across them... there's this strange robotic feeling." So where there is room to
   // walk, he walks where the stick points, and the rails pick him up again at the corridor mouth.
-  const aim = want && !sliding && !introWalk && openFloor(Math.floor(player.x), Math.floor(player.y))
+  // Room enough to walk in is a property of where he is *going*, not only where he stands: on the
+  // last tile of a room the 2x2 under him can fail while the room is still ahead, and he snapped
+  // onto the rails mid-stride. Joe: "it is still fighting, trying to be in the middle of the cells."
+  const freeHere = want && openFloor(Math.floor(player.x), Math.floor(player.y));
+  const freeNext = want && openFloor(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy);
+  const aim = want && !sliding && !introWalk && (freeHere || freeNext)
     ? (stickAim && (want === held) ? stickAim : { x: want.dx, y: want.dy }) : null;
   if (aim) {
     // He has width, so he cannot cut a corner of wall — and it is passable(), not isOpen(): a shut
@@ -160,8 +165,22 @@ function update(wall) {
     const clear = (nx, ny) => passable(Math.floor(nx - rr), Math.floor(ny - rr)) && passable(Math.floor(nx + rr), Math.floor(ny - rr))
       && passable(Math.floor(nx + rr), Math.floor(ny + rr)) && passable(Math.floor(nx - rr), Math.floor(ny + rr));
     const nx = player.x + aim.x * budget, ny = player.y + aim.y * budget;
-    if (clear(nx, player.y)) player.x = nx;
-    if (clear(player.x, ny)) player.y = ny;
+    const wentX = clear(nx, player.y), wentY = clear(player.x, ny);
+    if (wentX) player.x = nx;
+    if (wentY) player.y = ny;
+    // A corridor mouth is one tile wide and he has width, so coming at it off-centre from a room he
+    // catches the jamb and stops dead. Joe: "when I try and push into the cell the movement fights
+    // me, and stops the character from moving. I have to like jiggle it to get him to move in." So
+    // when the way he is leaning is shut but the tile past the jamb is open, walk him onto its line.
+    const domX = Math.abs(aim.x) >= Math.abs(aim.y);
+    if (domX ? !wentX : !wentY) {
+      const sgn = Math.sign(domX ? aim.x : aim.y);
+      const gx = Math.floor(player.x) + (domX ? sgn : 0), gy = Math.floor(player.y) + (domX ? 0 : sgn);
+      if (passable(gx, gy)) {
+        const ax = domX ? 'y' : 'x', c = (domX ? gy : gx) + 0.5, diff = c - player[ax];
+        if (Math.abs(diff) > 0.002) player[ax] += Math.sign(diff) * Math.min(Math.abs(diff), budget);
+      }
+    }
     facing = Math.atan2(aim.y, aim.x);
     dir = null; recenter = null;
   }
@@ -262,9 +281,14 @@ function update(wall) {
     }
     if (scrapSpots.has(key)) { scrapSpots.delete(key); revealAround(tx, ty); pulse($('mapBtn')); AUDIO.pickup(); tutorial('scrap'); }
     if (lampSpot === key) { lampSpot = null; hasLamp = true; lampOn = true; $('lamp').classList.add('show', 'on'); pulse($('lamp')); AUDIO.lampOn(); tutorial('lamp'); }
-    { const d = doors.find(d => d.x === tx && d.y === ty && !d.open); if (d) { d.open = true; AUDIO.gate(); saveRun(true); } }
+    // a key is one use: it turns in its lock and stays there. Joe: "I'd expect these keys to be one
+    // use so they should disappear once you've used them." Each maze deals one key per door and no
+    // two doors share a shape, so spending it can never lock you out of the next one.
+    { const d = doors.find(d => d.x === tx && d.y === ty && !d.open); if (d) { d.open = true; d.openAt = now; AUDIO.gate();
+      if (heldKeys.delete(d.shape)) { renderKeys(); if (now > narrHideAt) narrate('The key turns, and stays in the lock.'); }
+      saveRun(true); } }
     if (innerKeys.has(key)) { const shape = innerKeys.get(key); innerKeys.delete(key); heldKeys.add(shape); renderKeys(); AUDIO.key(); narrate(`A key. Its head is a ${shape}.`); tutorial('door'); saveRun(true); }
-    if (keySpot === key) { keySpot = null; hasKey = true; if (poolMode) { $('stone').classList.add('show'); pulse($('stone')); AUDIO.stone(); if (poolDoor) narrate("The stone. Now the gate."); } else { keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); } }
+    if (keySpot === key) { keySpot = null; hasKey = true; exitGateAt = now; if (poolMode) { $('stone').classList.add('show'); pulse($('stone')); AUDIO.stone(); if (poolDoor) narrate("The stone. Now the gate."); } else { keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); } }
     if (journals.has(key) && character) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg); updateBooks();
       if (collectedCount(character.name) >= character.pages.length && (SAVE.phase || 0) < PHASES.length - 1 && !SAVE.poolPending) { SAVE.poolPending = true; persist(); } }
   }

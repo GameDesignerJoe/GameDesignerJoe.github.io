@@ -326,6 +326,93 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The camera comes in close (v0.70.0)
+
+Joe: *"for now, let's make the default camera the same as the all the way zoomed in debug slider. I
+really like how immersive that feels."* That was 60px a tile at the slider's old 2.5x, so
+`tilePx` is **150** now and the slider is rebased around it: `zoomMul()` clamps to 0.2–1.5 and the
+range input matches, so 0.4x is the old default and 0.2x pulls back further than the old slider ever
+could.
+
+Two things fell out of it and are worth knowing before touching either:
+
+- **The title screen has to stay ahead of play, or waking pulls back nothing.** `titleTilePx` is 210
+  — close, but not the 375 that would keep the old 2.5x ratio, because at that size the chapter
+  heading (1.55 tiles below him) falls off the bottom of a phone. So the wake is a gentler pull-back
+  than it was. That is the cost of the close camera, not a bug.
+- **Type set into the floor can no longer ride the tile size.** `titleScale(S)` caps the name and
+  the chapter at `innerWidth * 0.35`, so a closer zoom shows more floor rather than bigger letters.
+  On a 430px phone it lands on exactly the old 150, which is why the title looks untouched.
+
+**Text had to come up off the floor** (v0.70.0). Joe: *"we're gonna need to slightly change the font
+colour of these book pickups and likely any other text so that it reads over the top of the
+grayscale background now that we have the camera zoomed in."* `#narr` now sits at `#f2eee2` and the
+journal hand at `#d6cfbc` — the old journal colour `#9a968c` was within 45 of the floor's own
+`#6e6a62` and simply disappeared. The shadow is a tight dark halo rather than a wide soft one, which
+is what actually holds an edge against grey.
+
+## Gates, keys and the way out (v0.70.0)
+
+**One gate drawing, three gates.** Joe: *"all of the gates in the game should open like the pool
+level gate"*, and *"can you make the gate look more like a structure and less like a curved line?
+The fact that the edges are curved completely pulls out the fact that it's a gate."* `drawGate()`
+draws two leaves hinged at the jambs that swing apart down the middle and lie back against the
+walls — and each leaf is a framed panel with **square** ends, a recessed field and a mullion, with
+the jamb posts drawn in the wall line. The pool gate, the inner locked doors and the exit's own gate
+all call it. Doors carry an `openAt` so they swing over `gateSwingSeconds` instead of blinking out,
+and they are still drawn once open, because a gate you shoved open does not vanish.
+
+**A key is one use.** Joe: *"when you use a gold key, it doesn't disappear from the inventory... I'd
+expect these keys to be one use."* Stepping onto a door with its key now spends it. This is only
+safe because of how mazes are dealt: one key per door, shapes taken as `KEY_SHAPES[i % 3]` with at
+most three doors, so no two doors in a maze ever share a shape and no key can be the wrong one. The
+smoke check asserts that uniqueness rather than trusting it.
+
+**The way out shimmers** (v0.70.0). Joe: *"we need to make this exit more interesting. Can you add a
+shimmer or a warping to it? Something that gives it an otherworldly quality."* The ring is drawn as
+`exitArcs` short arcs whose radii breathe by `exitWarp` at `exitShimmerHz`, each on its own phase, so
+the circle never quite closes or holds still, inside a halo that pulses with it.
+
+## Movement, again (v0.70.0)
+
+**The mouth funnels you in.** Joe: *"when I try and push into the cell the movement fights me, and
+stops the character from moving. I have to like jiggle it to get him to move in."* Free movement in a
+room plus a body with width means an off-centre approach to a one-tile corridor mouth catches the
+jamb and stops dead. Now, when the axis he is leaning on is blocked but the tile past the jamb is
+passable, he walks onto that tile's centreline at walking speed. The jiggle *was* the fix; now the
+game does it.
+
+**Room-ness is about where you are going, not only where you stand.** `openFloor()` is checked at the
+tile ahead as well as the tile under him, so the last tile of a room no longer snaps him onto the
+rails mid-stride. Joe's *"it is still fighting, trying to be in the middle of the cells"* is partly
+this. He also offered *"if this means we need to make all of it free roaming we could talk about
+that"* — that conversation is still open: the glide (hold a direction, keep walking after you let go)
+is what the rails buy, and free-roam everywhere would cost it.
+
+## The body (v0.70.0)
+
+**A squeeze pinches him, it does not shrink him.** Joe: *"instead of shrinking the character so much
+when going through a squeeze, is it possible to pinch the back parts of the arrow to squeeze them
+together?"* `drawPlayerBody(c, r, pinch)` brings the two back corners in to `squeezePinch` of their
+width. The arrow is drawn along the way he is facing, so its back corners are exactly the width the
+channel has to take: pinched to 0.72 at a near-full 0.92 size he draws 0.096 half-wide against a
+0.14 channel, where the old 0.62 shrink gave 0.090. Same fit, and it reads as squeezing.
+
+**The burdens are a gradient, not seven blocks.** Joe: *"instead of doing segments... we need to do a
+gradient going from black to white and seven stages."* One ramp, `playerBurdened` → `playerLifting` →
+`player`, spanning `burdenBlend` of his length, and what the seven stages move is *where along the
+body the ramp sits*. A burden coming off walks that edge forward one seventh, through the grey, so
+there is a change to watch rather than a block flicking colour.
+
+**Books stand on a shelf** (v0.70.0) — `#books i` is 4x15 with varied heights and a shelf rule under
+them, per Joe's *"make these indicators for the books go vertically so they look like books on a
+shelf."*
+
+**The ? belongs to the game, not the title** (v0.70.0). Joe: *"the question should not be visible at
+the start of the game, but then once you touch the character to get to gameplay, then we add the ? to
+the top right."* `#howBtn` and `#howPanel` moved out of `#title` and the button is a `.hud-el`, so it
+rides in with the rest of the HUD on `body.pre` coming off instead of fading out with the name.
+
 ## The title screen (v0.69.1)
 
 Joe, from a screenshot: *"get rid of the black section at the bottom... move the

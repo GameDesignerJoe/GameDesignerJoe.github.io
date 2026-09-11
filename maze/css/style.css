@@ -11,8 +11,14 @@
 html, body { margin:0; height:100%; background:#0d0f10; overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; }
 body { font: 13px/1.4 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; color:#b9b4a8; }
 canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
-#books { display:flex; gap:3px; align-items:center; }
-#books i { display:block; width:13px; height:4px; border-radius:1px; background:rgba(185,180,168,.3); transition:background .45s ease; }
+/* Books standing on a shelf, not lying in a row. Joe: "make these indicators for the books go
+   vertically so they look like books on a shelf." The heights vary the way a real shelf does,
+   and the line they stand on is the shelf. */
+#books { display:flex; gap:2px; align-items:flex-end; padding-bottom:3px; border-bottom:1px solid rgba(185,180,168,.28); }
+#books i { display:block; width:4px; height:15px; border-radius:1px 1px 0 0; background:rgba(185,180,168,.3); transition:background .45s ease; }
+#books i:nth-child(3n)   { height:12px; }
+#books i:nth-child(4n+2) { height:18px; }
+#books i:nth-child(5n+3) { height:16px; }
 #books i.got { background:#ece7da; }
 #hud { position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:56px; right:56px; display:flex; justify-content:flex-start; pointer-events:none; letter-spacing:.02em; opacity:.7; }
 #tools { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 224px); display:none; justify-content:center; align-items:center; gap:14px; }
@@ -66,10 +72,15 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #fx { border-radius:16px; }
 #fx span { padding:3px 10px; border-radius:14px; font-size:13px; color:#0d0f10; }
 #fx .ptr { background:#c9b98a; } #fx .pth { background:#b9b4a8; }
-#narr { position:fixed; top:calc(env(safe-area-inset-top) + 92px); left:28px; right:28px; text-align:center; font-size:19px; font-style:italic; line-height:1.45; color:#ddd7c8; pointer-events:none; opacity:0; transition:opacity .9s ease; text-shadow:0 1px 8px #0d0f10, 0 0 22px #0d0f10; }
+/* The camera sits close now, so this text lands on lit floor (#6e6a62) rather than on black. Joe:
+   "we're gonna need to slightly change the font colour of these book pickups and likely any other
+   text so that it reads over the top of the grayscale background now that we have the camera
+   zoomed in." Both are lifted well clear of the floor's value, and the shadow is a tight dark halo
+   rather than a wide soft one, which is what actually holds an edge against grey. */
+#narr { position:fixed; top:calc(env(safe-area-inset-top) + 92px); left:28px; right:28px; text-align:center; font-size:19px; font-style:italic; line-height:1.45; color:#f2eee2; pointer-events:none; opacity:0; transition:opacity .9s ease; text-shadow:0 1px 3px #0d0f10, 0 2px 12px rgba(13,15,16,.95), 0 0 26px rgba(13,15,16,.85); }
 #narr.show { opacity:1; }
-#narr.journal { color:#9a968c; font-style:italic; font-size:17px; }
-#narr.journal small { display:block; margin-top:8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; opacity:.6; }
+#narr.journal { color:#d6cfbc; font-style:italic; font-size:17px; }
+#narr.journal small { display:block; margin-top:8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; opacity:.75; }
 #gear { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:10px; width:36px; height:36px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); display:grid; place-items:center; }
 #gear svg { width:20px; height:20px; }
 #dbg { position:fixed; top:calc(env(safe-area-inset-top) + 52px); left:10px; display:none; flex-direction:column; gap:10px; padding:12px 14px; background:rgba(13,15,16,.92); border:1px solid rgba(185,180,168,.25); border-radius:8px;
@@ -92,11 +103,13 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #verTitle { position:fixed; left:22px; bottom:calc(env(safe-area-inset-bottom) + 18px); font-size:12px; font-style:italic;
   color:rgba(236,231,218,.42); text-shadow:0 1px 3px rgba(13,15,16,.75); transition:opacity .7s ease; }
 #title.leaving #verTitle { opacity:0; }
+/* The ? belongs to the game, not the title. Joe: "the question should not be visible at the start
+   of the game, but then once you touch the character to get to gameplay, then we add the ? to the
+   top right" — so it rides in with the rest of the HUD rather than fading out with the name. */
 #howBtn { position:fixed; top:calc(env(safe-area-inset-top) + 12px); right:18px; font-size:22px; font-style:italic;
-  color:rgba(236,231,218,.5); text-shadow:0 1px 3px rgba(13,15,16,.75); padding:4px 10px; pointer-events:auto;
-  transition:opacity .7s ease; }
+  color:rgba(236,231,218,.5); text-shadow:0 1px 3px rgba(13,15,16,.75); padding:4px 10px; pointer-events:auto; z-index:4; }
 #howBtn.open { color:#ece7da; }
-#title.leaving #howBtn { opacity:0; }
+body.pre #howBtn { opacity:0; transform:translateY(-24px); pointer-events:none; }
 #howPanel { position:fixed; left:0; right:0; bottom:0; max-height:0; overflow:hidden; background:#1b1f21; transition:max-height .55s cubic-bezier(.2,.7,.2,1); pointer-events:auto; }
 #howPanel.open { max-height:70vh; overflow-y:auto; scrollbar-width:none; }
 #howPanel::-webkit-scrollbar { display:none; }

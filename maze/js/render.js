@@ -293,21 +293,32 @@ function blockSlivers(px, py, S, ways, color) {
   }
 }
 
-function drawPlayerBody(c, r) {
-  const C = CONFIG.colors, n = STONES.length;
-  c.beginPath(); c.moveTo(r, 0); c.lineTo(-r*0.8, -r*0.75); c.lineTo(-r*0.45, 0); c.lineTo(-r*0.8, r*0.75); c.closePath();
+// pinch is how much of the back corners' width is left: 1 walking, less in a squeeze, where the
+// arrow narrows behind the nose instead of shrinking whole
+function drawPlayerBody(c, r, pinch = 1) {
+  const C = CONFIG.colors, n = STONES.length, by = r * 0.75 * pinch;
+  c.beginPath(); c.moveTo(r, 0); c.lineTo(-r*0.8, -by); c.lineTo(-r*0.45, 0); c.lineTo(-r*0.8, by); c.closePath();
   c.save(); c.clip();
   const x0 = -r*0.8, span = r*1.8;
-  for (let i = 0; i < n; i++) {
-    // the band for the burden just put down goes pale during the waking, not before it
-    // the band coming off goes black → grey → pale, and holds on the grey, so there is a change
-    // to watch rather than a flicker of white at the end
-    c.fillStyle = i === liftBand
-      ? (liftBandAmt < 0.55 ? mixHex(C.playerBurdened, C.playerLifting, liftBandAmt / 0.55)
-        : mixHex(C.playerLifting, C.player, (liftBandAmt - 0.55) / 0.45))
-      : has(i) ? C.player : C.playerBurdened;
-    c.fillRect(x0 + span*i/n - 0.5, -r*1.1, span/n + 1, r*2.2);
+  // Not seven blocks any more. Joe: "instead of doing segments for how we show the transition of
+  // the character as they let down their burdens we need to do a gradient going from black to white
+  // and seven stages." So it is one ramp black → grey → pale, and what the seven stages move is
+  // where along the body the ramp sits: the burden coming off walks the edge forward one seventh,
+  // through the grey, so there is a change to watch rather than a block flicking colour.
+  const edge = Math.max(0, Math.min(1, liftBand >= 0 ? (liftBand + liftBandAmt) / n : (SAVE.stones || 0) / n));
+  if (edge <= 0) c.fillStyle = C.playerBurdened;
+  else if (edge >= 1) c.fillStyle = C.player;
+  else {
+    const g = c.createLinearGradient(x0, 0, x0 + span, 0), soft = CONFIG.burdenBlend / 2;
+    const at = (t) => Math.max(0, Math.min(1, t));
+    g.addColorStop(0, C.player);
+    g.addColorStop(at(edge - soft), C.player);
+    g.addColorStop(at(edge), C.playerLifting);
+    g.addColorStop(at(edge + soft), C.playerBurdened);
+    g.addColorStop(1, C.playerBurdened);
+    c.fillStyle = g;
   }
+  c.fillRect(x0 - 0.5, -r*1.1, span + 1, r*2.2);
   c.restore();
   if (CONFIG.playerOutline > 0) { c.strokeStyle = C.playerEdge || C.player; c.lineWidth = r * CONFIG.playerOutline; c.lineJoin = 'round'; c.stroke(); }
 }
@@ -315,8 +326,37 @@ function drawPlayerBody(c, r) {
 // How much of the name, and how much of the chapter, is still showing this many seconds into the
 // zoom-out. Joe: "hold the chapter title a little longer as we zoom out so it's readable and then
 // fade out" — so the chapter sits at full while the name goes, and is out well before the zoom is.
+// The name and the chapter are set into the floor, so they ride the tile size — but the camera is
+// close now, and a tile is 150px of a 430px phone. Cap the type at the screen so a closer zoom
+// (or the title screen's closer-still one) makes more floor visible rather than bigger letters.
+const titleScale = (S) => Math.min(S, innerWidth * 0.35);
 const nameFade = (el) => Math.max(0, 1 - el / 0.9);
 const chapterFade = (el) => Math.max(0, 1 - Math.max(0, el - CONFIG.chapterHoldSec) / CONFIG.chapterFadeSec);
+
+// A gate: two leaves hinged at the jambs that swing apart down the middle and lie back against the
+// walls — and stay there, because a gate you shoved open does not vanish. Joe: "all of the gates in
+// the game should open like the pool level gate", and "can you make the gate look more like a
+// structure and less like a curved line? The fact that the edges are curved completely pulls out
+// the fact that it's a gate." So each leaf is a framed panel with square ends and a mullion, and
+// the jambs it hangs off are drawn too.
+function drawGate(c, px, py, horiz, open, S, color, inset = 0, sense = 1) {
+  const len = S / 2, th = Math.max(3, S * 0.1), ease = 1 - Math.pow(1 - open, 3);
+  const gx = horiz ? px + inset : px, gy = horiz ? py : py + inset;
+  const leaf = (hx, hy, shut, swing) => {
+    c.save(); c.translate(hx, hy); c.rotate(shut + swing * ease * Math.PI / 2);
+    c.fillStyle = color; c.fillRect(0, -th / 2, len, th);                        // the panel: square ends
+    c.fillStyle = 'rgba(13,15,16,.32)'; c.fillRect(len * 0.14, -th * 0.23, len * 0.72, th * 0.46);   // the field inside its frame
+    c.fillStyle = color; c.fillRect(len * 0.5 - th * 0.07, -th * 0.4, th * 0.14, th * 0.8);          // one mullion across it
+    c.restore();
+  };
+  // the jambs: short posts standing in the wall line on either side, so it reads as set into a doorway
+  c.fillStyle = color;
+  if (horiz) { c.fillRect(gx - th * 0.75, py - S / 2 - th * 0.5, th * 1.5, th); c.fillRect(gx - th * 0.75, py + S / 2 - th * 0.5, th * 1.5, th); }
+  else { c.fillRect(px - S / 2 - th * 0.5, gy - th * 0.75, th, th * 1.5); c.fillRect(px + S / 2 - th * 0.5, gy - th * 0.75, th, th * 1.5); }
+  if (horiz) { leaf(gx, py - S / 2, Math.PI / 2, sense); leaf(gx, py + S / 2, -Math.PI / 2, -sense); }
+  else { leaf(px - S / 2, gy, 0, -sense); leaf(px + S / 2, gy, Math.PI, sense); }
+  return [gx, gy];
+}
 
 function draw() {
   const C = CONFIG.colors, vw = innerWidth, vh = innerHeight, nowMs = gameNow();
@@ -385,10 +425,10 @@ function draw() {
   // the name, set into the tile above the mat: architectural capitals in chalk white
   if (startRoom && (!started || intro)) {
     const fadeT = intro ? nameFade((performance.now() - intro.t0) / 1000) : 1;
-    const tx = startRoom.x0 + 2, ty = startRoom.y0 + 1, px = ox + tx*S + S/2, py = oy + ty*S + S/2;
+    const tx = startRoom.x0 + 2, ty = startRoom.y0 + 1, px = ox + tx*S + S/2, py = oy + ty*S + S/2, TS = titleScale(S);
     ctx.save(); ctx.globalAlpha = fadeT; ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `500 ${S*0.13}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('T H E', px, py - S*0.26);
-    ctx.font = `700 ${S*0.34}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('M A Z E', px, py + S*0.06);
+    ctx.font = `500 ${TS*0.13}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('T H E', px, py - S*0.26);
+    ctx.font = `700 ${TS*0.34}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('M A Z E', px, py + S*0.06);
     ctx.restore();
   }
 
@@ -401,14 +441,14 @@ function draw() {
     if (fadeC > 0) {
       const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
       const sp = (t) => t.split('').join(' ');   // the name's own way of tracking letters out
-      const cx = ox + (startRoom.x0 + 2)*S + S/2, cy = oy + (start.y + CONFIG.chapterDrop)*S;
+      const cx = ox + (startRoom.x0 + 2)*S + S/2, cy = oy + (start.y + CONFIG.chapterDrop)*S, TS = titleScale(S);
       ctx.save(); ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.globalAlpha = fadeC * 0.55;
-      ctx.font = `500 ${S*0.08}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
+      ctx.font = `500 ${TS*0.08}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
       ctx.fillText(sp('Chapter ' + (roman[SAVE.phase || 0] || (SAVE.phase + 1))), cx, cy);
       ctx.globalAlpha = fadeC;
-      ctx.font = `700 ${S*0.18}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
-      ctx.fillText(sp(phase().who), cx, cy + S*0.17);
+      ctx.font = `700 ${TS*0.18}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
+      ctx.fillText(sp(phase().who), cx, cy + TS*0.17);
       ctx.restore();
     }
   }
@@ -548,18 +588,7 @@ function draw() {
     const inRoom = (x, y) => !!startRoom && x >= startRoom.x0 && x <= startRoom.x1 && y >= startRoom.y0 && y <= startRoom.y1;
     const toRoom = horiz ? (inRoom(poolDoor.x - 1, poolDoor.y) ? -1 : inRoom(poolDoor.x + 1, poolDoor.y) ? 1 : 0)
                          : (inRoom(poolDoor.x, poolDoor.y - 1) ? -1 : inRoom(poolDoor.x, poolDoor.y + 1) ? 1 : 0);
-    const gx = horiz ? px + toRoom * S * CONFIG.poolGateInset : px, gy = horiz ? py : py + toRoom * S * CONFIG.poolGateInset;
-    const len = S / 2, th = Math.max(2, S * 0.1), ease = 1 - Math.pow(1 - open, 3);
-    const leaf = (hx, hy, shut, swing) => {
-      ctx.save(); ctx.translate(hx, hy); ctx.rotate(shut + swing * ease * Math.PI / 2);
-      ctx.fillStyle = C.poolGate;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(0, -th / 2, len, th, th / 2); else ctx.rect(0, -th / 2, len, th);
-      ctx.fill();
-      ctx.restore();
-    };
-    if (horiz) { leaf(gx, py - S / 2, Math.PI / 2, toRoom); leaf(gx, py + S / 2, -Math.PI / 2, -toRoom); }
-    else { leaf(px - S / 2, gy, 0, -toRoom); leaf(px + S / 2, gy, Math.PI, toRoom); }
+    const [gx, gy] = drawGate(ctx, px, py, horiz, open, S, C.poolGate, toRoom * S * CONFIG.poolGateInset, toRoom || 1);
     // the stone it wants, on the seam. It goes with the seam as the leaves part
     if (open < 0.3) { ctx.save(); ctx.globalAlpha = 1 - open / 0.3;
       drawStone(ctx, gx, gy, S * 0.17, C.poolGate); ctx.restore(); }
@@ -570,12 +599,30 @@ function draw() {
     ctx.fillStyle = C.start; ctx.fillRect(mx + S*0.24, my + S*0.10, S*0.52, S*0.80);
     ctx.fillStyle = C.grout; ctx.fillRect(mx + S*0.32, my + S*0.15, S*0.36, S*0.13); }   // pillow at the top
   { const [ex, ey] = T(exit.x, exit.y);
-    ctx.fillStyle = poolMode ? '#6f8893' : C.exit; ctx.beginPath(); ctx.arc(ex, ey, S*0.22, 0, Math.PI*2); ctx.fill();
+    // The way out should not read as another ring painted on the floor. Joe: "we need to make this
+    // exit more interesting. Can you add a shimmer or a warping to it? Something that gives it an
+    // otherworldly quality." So the ring breathes a halo, and the ring itself is drawn as a set of
+    // short arcs whose radii ripple — the circle never quite holds still.
+    { const t = nowMs / 1000, warp = S * CONFIG.exitWarp, n = CONFIG.exitArcs;
+      const halo = ctx.createRadialGradient(ex, ey, S*0.08, ex, ey, S*0.62);
+      const pulse3 = 0.5 + 0.5 * Math.sin(t * CONFIG.exitShimmerHz * Math.PI * 2);
+      halo.addColorStop(0, `rgba(236,231,218,${(0.10 + 0.08 * pulse3).toFixed(3)})`);
+      halo.addColorStop(1, 'rgba(236,231,218,0)');
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(ex, ey, S*0.62, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = poolMode ? '#6f8893' : C.exit; ctx.lineWidth = Math.max(1.5, S*0.045); ctx.lineCap = 'round';
+      for (let i = 0; i < n; i++) {
+        const a0 = i / n * Math.PI * 2, a1 = (i + 0.72) / n * Math.PI * 2;
+        const rr = S*0.22 + warp * Math.sin(t * CONFIG.exitShimmerHz * Math.PI * 2 + i * 1.7);
+        ctx.globalAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 1.6 + i * 2.1));
+        ctx.beginPath(); ctx.arc(ex, ey, rr, a0, a1); ctx.stroke();
+      }
+      ctx.globalAlpha = 1; }
     ctx.fillStyle = poolMode ? '#3d4a52' : C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
-    if (gated && !solved && !poolMode) {   // bars stay up until you reach them with the key
-      ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
-      for (let i = -1; i <= 1; i++) { ctx.moveTo(ex + i*S*0.26, ey - S*0.42); ctx.lineTo(ex + i*S*0.26, ey + S*0.42); }
-      ctx.moveTo(ex - S*0.4, ey - S*0.1); ctx.lineTo(ex + S*0.4, ey - S*0.1); ctx.stroke();
+    // the way out is gated too, and it swings like the rest: shut until the key is yours
+    if (gated && !poolMode) {
+      const horiz = isOpen(exit.x-1, exit.y) && isOpen(exit.x+1, exit.y);
+      const open = !hasKey ? 0 : exitGateAt ? Math.min(1, (nowMs - exitGateAt) / (CONFIG.gateSwingSeconds * 1000)) : 1;
+      drawGate(ctx, ex, ey, horiz, open, S, C.gate);
     }
   }
 
@@ -618,11 +665,12 @@ function draw() {
     ctx.moveTo(px - S*0.12*k, py - S*0.04*k); ctx.lineTo(px - S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.12*k, py - S*0.04*k);
     ctx.moveTo(px - S*0.06*k, py + S*0.1*k); ctx.lineTo(px - S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.06*k, py + S*0.1*k); ctx.stroke(); }
   // inner doors: bars across the passage with the lock's shape; shaped keys lying in dead ends
-  for (const d of doors) { if (d.open) continue; const [px, py] = T(d.x, d.y), horiz = isOpen(d.x-1, d.y) && isOpen(d.x+1, d.y);
-    ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
-    for (let i = -1; i <= 1; i++) { if (horiz) { ctx.moveTo(px, py + i*S*0.26); ctx.lineTo(px, py + i*S*0.26); ctx.moveTo(px - S*0.06, py + i*S*0.26); ctx.lineTo(px + S*0.06, py + i*S*0.26); } else { ctx.moveTo(px + i*S*0.26, py - S*0.06); ctx.lineTo(px + i*S*0.26, py + S*0.06); } }
-    if (horiz) { ctx.moveTo(px, py - S*0.42); ctx.lineTo(px, py + S*0.42); } else { ctx.moveTo(px - S*0.42, py); ctx.lineTo(px + S*0.42, py); }
-    ctx.stroke(); drawShape(ctx, d.shape, px, py, S*0.13, C.gate, Math.max(1.5, S*0.045)); }
+  // a locked door is the same gate: two leaves, and the lock's shape on the seam while it is shut
+  for (const d of doors) { const [px, py] = T(d.x, d.y), horiz = isOpen(d.x-1, d.y) && isOpen(d.x+1, d.y);
+    const open = !d.open ? 0 : d.openAt ? Math.min(1, (nowMs - d.openAt) / (CONFIG.gateSwingSeconds * 1000)) : 1;
+    const [gx, gy] = drawGate(ctx, px, py, horiz, open, S, C.gate);
+    if (open < 0.3) { ctx.save(); ctx.globalAlpha = 1 - open / 0.3;
+      drawShape(ctx, d.shape, gx, gy, S*0.13, C.gate, Math.max(1.5, S*0.045)); ctx.restore(); } }
   for (const [k, shape] of innerKeys) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
     ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(px - S*0.02, py); ctx.lineTo(px + S*0.22, py); ctx.moveTo(px + S*0.12, py); ctx.lineTo(px + S*0.12, py + S*0.09); ctx.moveTo(px + S*0.2, py); ctx.lineTo(px + S*0.2, py + S*0.07); ctx.stroke();
     drawShape(ctx, shape, px - S*0.13, py, S*0.1, C.key, Math.max(2, S*0.06)); }
@@ -704,7 +752,7 @@ function draw() {
   { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1) * (inSqueeze ? CONFIG.squeezeShrink : 1);
     const inTunnel = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y));
     ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = inTunnel ? 0.35 : 1;
-    drawPlayerBody(ctx, r);
+    drawPlayerBody(ctx, r, inSqueeze ? CONFIG.squeezePinch : 1);
     ctx.restore(); }
 
   // darkness: dark tiles are painted out entirely, then the lamp cuts a cone and a foot-glow back in

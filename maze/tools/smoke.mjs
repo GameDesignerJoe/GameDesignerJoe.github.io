@@ -875,14 +875,14 @@ const squeeze = await page.evaluate(async () => {
     requestAnimationFrame(step); }; step(); });
   held = null;
   const lim = CONFIG.squeezeChannel / 2;
-  const bodyHalf = CONFIG.playerSize * 0.62 * (phase().bodyScale || 1) * CONFIG.squeezeShrink * 0.75;
-  return { frames: off.length, worst: off.length ? Math.max(...off) : 0, lim, bodyHalf, kick, shrink: CONFIG.squeezeShrink };
+  const bodyHalf = CONFIG.playerSize * 0.62 * (phase().bodyScale || 1) * CONFIG.squeezeShrink * 0.75 * CONFIG.squeezePinch;
+  return { frames: off.length, worst: off.length ? Math.max(...off) : 0, lim, bodyHalf, kick, shrink: CONFIG.squeezeShrink, pinch: CONFIG.squeezePinch };
 });
 check('a squeeze holds you in its channel, and you fit through it',
   squeeze.skip || (squeeze.frames > 10 && squeeze.worst <= squeeze.lim + 0.001 && squeeze.bodyHalf <= squeeze.lim && squeeze.kick === 0),
   squeeze.skip ? 'no straight squeeze on this maze' :
   `${squeeze.frames} frames inside one: never more than ${squeeze.worst.toFixed(3)} off the centreline (the channel allows ${squeeze.lim}); `
-  + `the body draws ${squeeze.bodyHalf.toFixed(3)} half-wide at ${squeeze.shrink}x, so it fits; no camera kick`);
+  + `the body draws ${squeeze.bodyHalf.toFixed(3)} half-wide, pinched to ${squeeze.pinch} of its back at ${squeeze.shrink}x, so it fits; no camera kick`);
 
 // ── 8p. the app icon and the manifest ─────────────────────────────
 // Add to Home Screen used to grab a screenshot, because there was no icon at all. A missing file
@@ -981,21 +981,119 @@ const titleScreen = await page.evaluate(async () => {
   out.chapFullAt12 = chapterFade(1.2) > 0.7;
   out.chapGone = chapterFade(out.outBy + 0.01) === 0 && chapterFade(out.outBy - 0.3) > 0.2;
   out.outlives = out.outBy > 0.9 && out.outBy < CONFIG.introSeconds;
+  // the ? is the game's, not the title's: gone while he sleeps, in the top right once he is up
   const q = $('howBtn').getBoundingClientRect(), v = $('verTitle').getBoundingClientRect();
+  $('howBtn').style.transition = 'none';      // read where it settles, not where it is mid-slide
+  out.qHiddenAsleep = +getComputedStyle($('howBtn')).opacity === 0;
+  document.body.classList.remove('pre');
+  out.qShownAwake = +getComputedStyle($('howBtn')).opacity > 0.2;
   out.qTopRight = q.top < innerHeight * 0.2 && q.right > innerWidth * 0.8;
+  document.body.classList.add('pre'); $('howBtn').style.transition = '';
   out.verBottomLeft = v.bottom > innerHeight * 0.9 && v.left < innerWidth * 0.3;
   return out;
 });
-check('the title screen: the chapter set into the floor, the ? top right, no tile count',
+check('the title screen: the chapter set into the floor, the ? only once you are up',
   titleScreen.noStepLbl && titleScreen.noBar && titleScreen.noDomChapter
-  && titleScreen.qTopRight && titleScreen.verBottomLeft
+  && titleScreen.qHiddenAsleep && titleScreen.qShownAwake && titleScreen.qTopRight && titleScreen.verBottomLeft
   && titleScreen.asleep > titleScreen.proto + 8 && titleScreen.asleep > titleScreen.pool + 8
   && titleScreen.nameGoneAt12 && titleScreen.chapFullAt12 && titleScreen.chapGone && titleScreen.outlives,
   `the band of floor below him reads ${titleScreen.asleep} with the chapter written into it and `
   + `${titleScreen.proto}/${titleScreen.pool} on a prototype/pool, which get no heading; `
   + `1.2s into the zoom-out the name above him is gone and the chapter is still up, and it is out `
   + `at ${titleScreen.outBy.toFixed(1)}s — before the ${titleScreen.zoomSec}s zoom ends; `
-  + `the ? top right, the version bottom left, no tile count and no black bar`);
+  + `the ? is gone while he sleeps and rides in top right once he is up; `
+  + `the version bottom left, no tile count and no black bar`);
+
+// ── 8s. gates, and the key that opens one ────────────────────────
+// Joe: "when you use a gold key, it doesn't disappear from the inventory... I'd expect these keys
+// to be one use", and "all of the gates in the game should open like the pool level gate." Each
+// maze deals one key per door and no two doors share a shape, so spending it is always safe — this
+// check is what says so out loud.
+const gates = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.stones = 3; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist();
+  let seed = 0; for (let ph = 3; ph <= 5 && !seed; ph++) { SAVE.phase = ph;
+    for (let sd = 4242; sd < 4340; sd++) { reset(sd); if (doors.length) { seed = sd; break; } } }
+  if (!seed) return { skip: true };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  const shapes = doors.map((d) => d.shape);
+  const out = { doors: doors.length, unique: new Set(shapes).size === shapes.length, keys: innerKeys.size };
+  const d = doors[0];
+  heldKeys = new Set([d.shape]); renderKeys();
+  out.carried = $('keys').childElementCount;
+  // walk onto its tile the way the game does
+  player.x = d.x + 0.5; player.y = d.y + 0.5; lastTileKey = '';
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  out.opened = !!d.open; out.swings = !!d.openAt; out.spent = !heldKeys.has(d.shape); out.shown = $('keys').childElementCount;
+  // and it is still drawn once open, lying back against the jambs, rather than vanishing
+  out.drawsOpen = typeof drawGate === 'function';
+  // the way out swings too, and only once the key is yours
+  SAVE.phase = 5; for (let sd = 900; sd < 1000 && !gated; sd++) reset(sd);
+  out.exitGated = gated; out.exitShut = !hasKey && !exitGateAt;
+  return out;
+});
+check('a key is one use, and every gate swings back on its jambs',
+  gates.skip || (gates.unique && gates.opened && gates.swings && gates.spent
+    && gates.carried === 1 && gates.shown === 0 && gates.drawsOpen),
+  gates.skip ? 'no maze with a door in the seeds tried' :
+  `${gates.doors} door(s), ${gates.keys} key(s), no two doors sharing a shape; walking onto one with its `
+  + `key opened it (and it swings rather than blinking), and the key went from ${gates.carried} in hand to `
+  + `${gates.shown}; one drawGate draws them all, the way out included`);
+
+// ── 8t. into a corridor mouth without jiggling ───────────────────
+// Joe: "when I try and push into the cell the movement fights me, and stops the character from
+// moving. I have to like jiggle it to get him to move in." Free movement in a room plus a body with
+// width means an off-centre approach catches the jamb, so the mouth funnels him onto its line.
+const mouth = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.ui = { proto: 'laby' }; SAVE.poolPending = false; delete SAVE.run; persist(); reset(3291);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  // a room tile whose neighbour is a one-wide corridor running away from it
+  let spot = null;
+  for (let y = 2; y < H - 2 && !spot; y++) for (let x = 2; x < W - 2; x++) {
+    if (!isOpen(x, y) || !openFloor(x, y)) continue;
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (!isOpen(nx, ny) || openFloor(nx, ny)) continue;
+      if (!isOpen(nx + dx, ny + dy)) continue;                       // it has to go somewhere
+      if (dx ? (isOpen(nx, ny-1) || isOpen(nx, ny+1)) : (isOpen(nx-1, ny) || isOpen(nx+1, ny))) continue;
+      spot = [x, y, dx, dy]; break;
+    }
+  }
+  if (!spot) return { skip: true };
+  const [x, y, dx, dy] = spot;
+  // stand off the mouth's centreline by a third of a tile, and lean straight at it
+  player.x = x + 0.5 + (dx ? 0 : 0.33); player.y = y + 0.5 + (dy ? 0 : 0.33);
+  dir = null; recenter = null; stickAim = null; held = { dx, dy };
+  const from = dx ? player.x : player.y;
+  await new Promise((r) => { const t0b = performance.now(); const step = () => {
+    if (performance.now() - t0b > 1400) return r(); requestAnimationFrame(step); }; step(); });
+  held = null;
+  const got = (dx ? player.x - from : player.y - from) * (dx || dy);
+  return { got, inside: isOpen(Math.floor(player.x), Math.floor(player.y)) && !openFloor(Math.floor(player.x), Math.floor(player.y)) };
+});
+check('an off-centre lean still takes you into a corridor mouth',
+  mouth.skip || (mouth.got > 1.2 && mouth.inside),
+  mouth.skip ? 'no room-to-corridor mouth on this prototype' :
+  `coming at it a third of a tile off the line, he walked ${mouth.got.toFixed(2)} tiles in and ended up `
+  + `${mouth.inside ? 'inside the corridor' : 'STILL IN THE ROOM'} — no jiggling`);
+
+// ── 8u. the shelf of books ───────────────────────────────────────
+// Joe: "make these indicators for the books go vertically so they look like books on a shelf."
+const shelf = await page.evaluate(() => {
+  SAVE.ui = {}; delete SAVE.run; persist(); SAVE.phase = 0; reset(4242);
+  document.body.classList.remove('pre');
+  const b = $('books').children[0];
+  if (!b) return { skip: true };
+  const r = b.getBoundingClientRect(), hs = [...$('books').children].map((c) => c.getBoundingClientRect().height);
+  return { w: r.width, h: r.height, n: hs.length, varied: new Set(hs.map((v) => Math.round(v))).size > 1,
+    shelfLine: getComputedStyle($('books')).borderBottomStyle !== 'none' };
+});
+check('the books stand up on a shelf',
+  shelf.skip || (shelf.h > shelf.w * 2 && shelf.varied && shelf.shelfLine),
+  shelf.skip ? 'no pages in this maze' :
+  `${shelf.n} of them, each ${shelf.w}x${shelf.h} so they stand rather than lie, at ${shelf.varied ? 'varying' : 'ONE'} `
+  + `height, on a shelf line`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

@@ -25,8 +25,12 @@ const CONFIG = {
   debugMapMaxZoom: 64,  // how far in you may zoom, in screen pixels per tile
   debugTapSlop: 10,     // a press that travels less than this many pixels is a tap, not a drag
   debugTapReach: 2,     // tap a wall and it takes the nearest floor within this many tiles
-  tilePx: 60,           // zoom: screen pixels per tile
-  titleTilePx: 150,     // zoom while asleep on the title screen
+  // Joe: "for now, let's make the default camera the same as the all the way zoomed in debug slider.
+  // I really like how immersive that feels." That was 60px a tile at the slider's old 2.5x, so 150
+  // is the new 1x and the slider is rebased around it — 0.2x still pulls back further than the old
+  // default ever did.
+  tilePx: 150,          // zoom: screen pixels per tile
+  titleTilePx: 210,     // zoom while asleep on the title screen: still closer than play, so waking pulls back
   introSeconds: 2.8,    // zoom-out when you tap the sleeper
   chapterDrop: 1.55,    // tiles below him the chapter is set into the floor; the fog takes its bottom edge
   chapterHoldSec: 1.4,  // and it holds that long into the zoom-out, so you can read it, before
@@ -189,11 +193,15 @@ const CONFIG = {
                         // the alcove they step into stays wall until the tile gets there
   swings: 1,            // tiles that slide back and forth on their own
   swingSeconds: 2.25,   // how long a swing rests at each end
+  burdenBlend: 0.3,     // how much of his length the black → grey → pale ramp takes, as a fraction
   squeezeSlow: 0.4,     // speed inside a crawl gap
   squeezeReach: 0.85,   // how far (tiles) from the gap's center the squeeze extends into each corridor
-  squeezeShrink: 0.62,  // how small he draws while he is in a squeeze. The channel is a third of a
-                        // tile and he is most of one, so squared up he hangs over both walls of it.
-                        // He turns sideways to fit: that is what a squeeze is
+  // A squeeze pinches him rather than shrinking him. Joe: "instead of shrinking the character so
+  // much when going through a squeeze, is it possible to pinch the back parts of the arrow to
+  // squeeze them together... so it looks like it's squeezing?" The arrow is drawn along the way he
+  // is facing, so its back corners are exactly the width the channel has to take.
+  squeezeShrink: 0.92,  // he draws very nearly full size in a squeeze now — the pinch does the work
+  squeezePinch: 0.72,   // and the back corners come in to this much of their width, which is what fits
   squeezeChannel: 0.28, // how wide the cut through the wall is, as a fraction of a tile. The drawing
                         // and the hold on your footing both read this, so they cannot drift apart
   journalFloat: 0.05,   // how far a book lifts and settles, as a fraction of a tile. 0 = still
@@ -211,6 +219,11 @@ const CONFIG = {
   coneTiles: 3.6,       // lamp cone reach
   poolGateInset: 0.34,  // how far back from the room's wall the gate sits, in tiles. Flush with it
                         // read as part of the wall rather than as a thing standing in the doorway
+  // the way out, shimmering. Joe: "something that gives it an otherworldly quality"
+  exitArcs: 7,          // the ring is this many short arcs, not one circle
+  exitWarp: 0.035,      // and each one's radius breathes by this much of a tile
+  exitShimmerHz: 0.32,  // slowly
+  gateSwingSeconds: 1.1,  // how long any other gate takes to swing its leaves back
   poolDoorSeconds: 4.8, // how long the pool room's gate takes to grind aside once you have shoved it
                         // with the stone. It is stone and it is heavy: 0.65s read as a shutter, and
                         // 2.4s still read as a door rather than a weight

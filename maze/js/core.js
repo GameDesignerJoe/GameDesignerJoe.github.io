@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.69.1';
+const VERSION = '0.70.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
@@ -18,7 +18,7 @@ function phase() { return PHASES[Math.min(SAVE.phase || 0, PHASES.length - 1)]; 
 function has(stoneIdx) { return (SAVE.stones || 0) > stoneIdx; }
 let protoMode = false;   // a prototype level is running instead of a maze
 // the debug Zoom slider: 1 is the game's own scale, above it is closer, below it is further out
-const zoomMul = () => Math.max(0.5, Math.min(2.5, +SAVE.ui.zoom || 1));
+const zoomMul = () => Math.max(0.2, Math.min(1.5, +SAVE.ui.zoom || 1));
 let protoWide = true;    // and its light is opened right up, so the one idea in it is all visible.
                          // The labyrinth turns this off: being unable to see is half of what it is
 let liftGlow = 1;   // 1 normally. On the walk-in after a burden is put down the light blooms from dim to this
