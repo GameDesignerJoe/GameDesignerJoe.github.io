@@ -65,6 +65,7 @@ await ctx.addInitScript(() => {
 });
 const page = await ctx.newPage();
 const pageErrors = [];
+const fmtOf = (ms) => `${Math.floor(ms / 60000)}m ${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}s`;
 page.on('pageerror', (e) => pageErrors.push(String(e)));
 
 console.log('The Maze — behaviour smoke test');
@@ -750,6 +751,65 @@ check('the shelves and the basin speak every time you stand at them',
   `basin: first stand ${room.first ? 'spoke' : 'SILENT'}, again after stepping off and back ${room.again ? 'spoke' : 'SILENT'}, `
   + `in a new maze ${room.newLevel ? 'spoke' : 'SILENT'}; shelves: ${room.shelf ? 'spoke' : 'SILENT'} then ${room.shelfNewLevel ? 'spoke' : 'SILENT'} `
   + `— with ${room.swings} swings moving in the level while you stood there`);
+
+// ── 8l. cornering at walking speed ────────────────────────────────
+// The slide back onto the corridor's centreline used to be its own movement at 1.6x walking, on
+// top of the step, so turning a corner off-centre you crabbed diagonally at nearly twice speed.
+// Joe: "they have this almost like race car cornering thing to them."
+const corner = await page.evaluate(async () => {
+  SAVE.phase = 2; SAVE.stones = 2; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  let at = null;
+  for (const [x, y] of solutionPath) if (isOpen(x + 1, y) && isOpen(x, y + 1) && isOpen(x - 1, y)) { at = [x, y]; break; }
+  if (!at) return { skip: true };
+  player.x = at[0] - 1.5; player.y = at[1] + 0.5; dir = null; recenter = null;
+  // measured inside the frame loop against the game's own dt — sampling from a second rAF loop
+  // reads high, because its callback and the game's do not share a clock reading
+  const walk = B.speed(), rates = [], realUpdate = update;
+  let lastWall = null;
+  update = function (wall) {
+    const bx = player.x, by = player.y;
+    const dt = lastWall == null ? 0 : Math.min(0.05, (wall - lastWall) / 1000); lastWall = wall;
+    realUpdate(wall);
+    if (dt > 0) rates.push(Math.hypot(player.x - bx, player.y - by) / (walk * dt));
+  };
+  held = { dx: 1, dy: 0 };
+  const t0b = performance.now();
+  await new Promise((r) => { const step = () => { const el = performance.now() - t0b;
+    if (el > 260 && el < 1200) held = { dx: 0, dy: 1 };     // turn mid-tile, off the new centreline
+    if (el > 1200) return r();
+    requestAnimationFrame(step); }; step(); });
+  held = null; update = realUpdate;
+  const moving = rates.filter((r) => r > 0.2);
+  return { frames: moving.length, worst: Math.max(...moving), turned: moving.length > 20 };
+});
+check('going round a corner is walking speed, not a sprint across it',
+  corner.skip || (corner.turned && corner.worst < 1.05),
+  corner.skip ? 'no corner on this route' :
+  `${corner.frames} frames of walking through a corner, none faster than ${corner.worst.toFixed(2)}x walking speed (the crab across a corner used to hit 1.89x)`);
+
+// ── 8m. the clock, and the log of what you have finished ──────────
+const log = await page.evaluate(async () => {
+  const fmt = [0, 42300, 61000, 254000, 4569000].map(fmtTime);
+  clearLog();
+  const sel = $('optLevel'); sel.value = '0'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  t0 = gameNow() - 254000; steps = 161;
+  player.x = exit.x + 0.5; player.y = exit.y + 0.5;
+  await new Promise((r) => setTimeout(r, 300));
+  const rows = readLog();
+  const shown = $('msgStats').textContent;
+  $('msg').classList.remove('show'); solved = false;
+  return { fmt, rows: rows.length, row: rows[0], shown, csv: statsCsv().split('\n').length };
+});
+check('time reads in hours, minutes and seconds',
+  log.fmt[0] === '0.0s' && log.fmt[1] === '42.3s' && log.fmt[2] === '1m 01s' && log.fmt[3] === '4m 14s' && log.fmt[4] === '1h 16m 09s',
+  log.fmt.join(' · ') + `; the end-of-run card says "${(log.shown.match(/\d+m \d+s|\d+\.\d+s/) || [''])[0]}"`);
+check('finishing a maze writes a line in the run log',
+  log.rows === 1 && log.row && log.row.ms > 250000 && log.row.steps >= 161 && log.row.who && log.csv === 2,
+  log.row ? `${log.row.who}, ${fmtOf(log.row.ms)}, ${log.row.steps} tiles, seed ${log.row.seed}, size ${log.row.size}; CSV is a header and ${log.csv - 1} row` : 'nothing logged');
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

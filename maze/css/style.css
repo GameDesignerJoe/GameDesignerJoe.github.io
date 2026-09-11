@@ -184,3 +184,18 @@ body.pre #stick, body.pre #glyphs { opacity:0; transform:translate(-50%, 40px); 
 #msg .seed { margin-top:14px; font-size:15px; opacity:.55; }
 #again { margin-top:26px; padding:14px 34px; font: inherit; font-size:19px; color:#0d0f10; background:#d8d3c6; border:0; border-radius:8px; }
 #again:active { background:#ece7da; }
+
+/* the run log: what you have finished and how long it took. Its own overlay, like Stories */
+#stats { position:fixed; inset:0; display:none; flex-direction:column; background:#0d0f10; z-index:7;
+  padding:calc(env(safe-area-inset-top) + 22px) 20px calc(env(safe-area-inset-bottom) + 20px); overflow-y:auto; overscroll-behavior:contain; }
+#stats.show { display:flex; }
+#stats h1 { font-weight:400; font-size:26px; margin:0 0 14px; color:#e8e3d6; text-align:center; }
+#statsBody { flex:1 1 auto; max-width:520px; width:100%; margin:0 auto; }
+#statsBody .none { color:#6f6b62; text-align:center; font-style:italic; }
+#statsBody .sum { color:#8d887c; font-size:12px; letter-spacing:.14em; text-transform:uppercase; text-align:center; margin:0 0 14px; }
+#statsBody .best { display:flex; justify-content:space-between; gap:20px; margin:0 0 4px; font-size:14px; color:#b8b0a0; }
+#statsBody .best b { font-weight:400; color:#ece7da; }
+#statsBody .run { display:grid; grid-template-columns:1fr auto; gap:2px 16px; margin:14px 0 0; padding-top:10px; border-top:1px solid #1f2224; font-size:15px; color:#d8d3c6; }
+#statsBody .run b { font-weight:400; color:#ece7da; }
+#statsBody .run i { grid-column:1 / -1; font-style:normal; font-size:12px; color:#6f6b62; }
+#stats .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:20px; }

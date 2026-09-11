@@ -56,6 +56,9 @@ const CONFIG = {
   pushHoldMs: 260,      // lean into a slider's edge this long before it moves
   turnBufferMs: 400,    // a perpendicular push is remembered this long and taken at the next opening
   turnForgiveness: 0.5, // how far off a tile center you can still take a turn (0.5 = anywhere in the tile)
+  cornerEase: 0.7,      // how much of a frame's movement the slide back onto the centreline may take
+                        // while you are walking. The rest goes forward, so a corner is a rounded arc
+                        // at walking speed rather than a diagonal sprint across it
   stickDeadzone: 0.22,  // fraction of stick travel that reads as "not pushing"
   playerSize: 0.46,     // fraction of a tile
   playerOutline: 0.13,  // a pale edge round the body, as a fraction of its radius. Carrying every
@@ -210,8 +213,6 @@ const CONFIG = {
     wall:  '#1b1f21',
     tunnel:'#26292b',
     thick: '#1b1f21',
-    block: '#827d71',           // the face of a push block: a whole tile of slab, a shade paler
-                                // than the floor it sits on. It never says which way it goes
     shelf: '#a29d92',
     book:  '#ece7da',   // same as wall: the edge reads as a sliver of wall on the floor
     floor: '#6e6a62',

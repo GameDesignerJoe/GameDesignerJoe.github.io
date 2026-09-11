@@ -63,3 +63,59 @@ function restoreRun(run) {
   setTimeout(() => narrate(poolMode ? "…the water. I was going to the water." : "…where was I."), 2200);
 }
 
+// ── the run log ─────────────────────────────────────────────────
+// Every maze you finish, written down: how long it took and enough of the rest to tell one run
+// from another. It lives under its own key, not in SAVE, so Reset save does not throw away the
+// record of what you have already tested. Capped, newest last.
+const LOG_KEY = 'maze.log.v1';
+const LOG_MAX = 300;
+function readLog() { try { return JSON.parse(localStorage.getItem(LOG_KEY)) || []; } catch (e) { return []; } }
+function writeLog(rows) { try { localStorage.setItem(LOG_KEY, JSON.stringify(rows.slice(-LOG_MAX))); } catch (e) {} }
+function clearLog() { try { localStorage.removeItem(LOG_KEY); } catch (e) {} }
+function logRun(extra) {
+  const rows = readLog();
+  rows.push(Object.assign({
+    at: Date.now(), v: VERSION, seed: SEED, phase: SAVE.phase || 0, who: poolMode ? 'pool' : (character ? character.name : '?'),
+    stones: SAVE.stones || 0, size: W + 'x' + H, ms: Math.round(gameNow() - t0), steps,
+    optimal: Math.max(0, solutionPath.length - 1), deadEnds: deadEndsEntered,
+    chalkUsed, chalkFound, charcoalUsed, charcoalFound, pointerUses, pathUses,
+    pages: journalsRead, mapped: [...mapped.values()].filter(v => v !== 'wall').length,
+  }, extra || {}));
+  writeLog(rows);
+  return rows.length;
+}
+// hours, minutes and seconds — "1h 04m 09s", "4m 09s", "42.3s"
+function fmtTime(ms) {
+  const t = Math.max(0, ms) / 1000, h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+  const two = (n) => String(n).padStart(2, '0');
+  if (h) return `${h}h ${two(m)}m ${two(Math.floor(sec))}s`;
+  if (m) return `${m}m ${two(Math.floor(sec))}s`;
+  return sec.toFixed(1) + 's';
+}
+function statsCsv() {
+  const rows = readLog();
+  if (!rows.length) return '';
+  const cols = ['at', 'v', 'who', 'phase', 'stones', 'seed', 'size', 'ms', 'steps', 'optimal', 'deadEnds', 'chalkUsed', 'chalkFound', 'charcoalUsed', 'charcoalFound', 'pointerUses', 'pathUses', 'pages', 'mapped'];
+  const line = (r) => cols.map((c) => (c === 'at' ? new Date(r[c]).toISOString() : r[c] ?? '')).join(',');
+  return cols.join(',') + '\n' + rows.map(line).join('\n');
+}
+function showStats() {
+  const rows = readLog().slice().reverse();
+  const box = $('statsBody');
+  if (!rows.length) { box.innerHTML = '<p class="none">Nothing finished yet. Walk out of one and it will be here.</p>'; }
+  else {
+    const mazes = rows.filter((r) => r.who !== 'pool');
+    const total = rows.reduce((a, r) => a + r.ms, 0);
+    const best = {};
+    for (const r of mazes) if (!best[r.who] || r.ms < best[r.who]) best[r.who] = r.ms;
+    const head = `<p class="sum">${rows.length} finished · ${fmtTime(total)} in all</p>`
+      + Object.keys(best).map((w) => `<p class="best"><span>${w}</span><b>${fmtTime(best[w])}</b></p>`).join('');
+    const list = rows.slice(0, 40).map((r) => {
+      const d = new Date(r.at), when = `${d.getMonth() + 1}/${d.getDate()}`;
+      const ratio = r.optimal ? (r.steps / r.optimal).toFixed(2) + '×' : '';
+      return `<p class="run"><span>${when} · ${r.who}</span><b>${fmtTime(r.ms)}</b><i>${r.steps} tiles ${ratio} · seed ${r.seed}</i></p>`;
+    }).join('');
+    box.innerHTML = head + list;
+  }
+  $('stats').classList.add('show');
+}

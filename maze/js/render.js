@@ -277,17 +277,20 @@ function drawSqueeze(px, py, S, mx, my, open) {
   if (arm[3]) flankV(0, S*lo); else ctx.fillRect(px + S*lo - 1, py + S*lo - 1, S*w + 2, t);
 }
 
-// A block is a whole tile of slab with a groove round it. The groove is stroked on the tile
-// boundary itself rather than inset, so two blocks side by side share one groove instead of
-// stacking two dark bands. It is the same slab wherever the block has got to and whatever it
-// can still do — nothing on it says which way it goes. That is for the player to find out.
-function blockSlab(px, py, S, color) {
-  const C = CONFIG.colors;
-  ctx.fillStyle = C.block;
-  ctx.fillRect(px, py, S + 0.5, S + 0.5);
-  ctx.strokeStyle = color || C.thick;
-  ctx.lineWidth = Math.max(1, S * 0.07);
-  ctx.strokeRect(px, py, S, S);
+// A block is floor with a thick sliver of wall down the side it can still be shoved — one sliver
+// per way, so a two-way block wears two. Nothing else: the tile has to read as part of the map
+// with a hint on it, not as an object sitting on top of one. It was a whole outlined slab from
+// v0.54 to v0.60, and Joe was right about that: "the entire thing is outlined and it doesn't even
+// look like it's part of the map. It just looks like a block."
+function blockSlivers(px, py, S, ways, color) {
+  const w = S * 0.08;
+  ctx.fillStyle = color || CONFIG.colors.thick;
+  for (const [dx, dy] of ways) {
+    if (dx === 1) ctx.fillRect(px + S - w, py, w, S);
+    else if (dx === -1) ctx.fillRect(px, py, w, S);
+    else if (dy === 1) ctx.fillRect(px, py + S - w, S, w);
+    else ctx.fillRect(px, py, S, w);
+  }
 }
 
 function drawPlayerBody(c, r) {
@@ -422,18 +425,18 @@ function draw() {
   // sliding tile in flight
   if (sliding) { let fx = player.x, fy = player.y;
     if (sliding.carry === false) { const k = Math.min(1, (nowMs - sliding.t0) / sliding.dur), e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2; fx = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; fy = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
-    blockSlab(ox + (fx-0.5)*S, oy + (fy-0.5)*S, S); }
+    ctx.fillStyle = C.floor; ctx.fillRect(ox + (fx-0.5)*S, oy + (fy-0.5)*S, S+0.5, S+0.5); }
   for (const sl of sliders) {
     if (sl.auto || (sliding && sliding.sl === sl)) continue;
     const [tx, ty] = blockAt(sl);
-    const px = ox + tx*S, py = oy + ty*S;
-    blockSlab(px, py, S);
+    const px = ox + tx*S, py = oy + ty*S, ways = blockWays(sl);
+    blockSlivers(px, py, S, ways);
     // hint: the first slider glints if you've been standing still and haven't pushed it yet.
     // Only the first — every block after it the player has to read for himself.
     if (sl.atStart && !firstPushDone && started && !solved && nowMs - idleSince > CONFIG.hintIdleSec * 1000 && Math.hypot(tx + 0.5 - player.x, ty + 0.5 - player.y) < B.viewRadius() * 2 + 1) {
       const t = (nowMs - idleSince - CONFIG.hintIdleSec * 1000) / 1000;
       const a = Math.min(1, t / 1.5) * (0.3 + 0.25 * Math.sin(t * 2.2));
-      ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = CONFIG.hintColor; ctx.lineWidth = Math.max(1, S * 0.07); ctx.strokeRect(px, py, S, S); ctx.restore();
+      ctx.save(); ctx.globalAlpha = a; blockSlivers(px, py, S, ways, CONFIG.hintColor); ctx.restore();
     }
   }
 

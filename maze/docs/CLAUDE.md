@@ -326,6 +326,38 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+**A block is a sliver again (v0.62.0).** Back to what it was before v0.54: the
+tile is floor, with a thick sliver of wall down each side it can still be
+shoved. Joe on the outlined slab: "the entire thing is outlined and it doesn't
+even look like it's part of the map. It just looks like a block... there was
+just a little bit of a hint of what you were supposed to be able to push." The
+slab was solving a problem he does not have — a two-way block changing apparent
+size — and that only shows in the prototype. `blockSlivers()` in `js/render.js`.
+The arrow that teaches the first push is now painted **on the block**, not two
+tiles back on the floor: "the arrow should be on the same block that you push."
+
+**Cornering costs you ground, not speed (v0.62.0).** The slide back onto a
+corridor's centreline used to be its own movement at 1.6× walking, applied on
+top of the step, so turning a corner off-centre you crabbed diagonally at 1.89×
+walking speed — Joe: "they have this almost like race car cornering thing to
+them." Walking and centring now share one `budget` per frame: the ease takes at
+most `CONFIG.cornerEase` of it, and the forward step takes
+`sqrt(budget² − perp²)`, so the total is exactly the walking step and a hard
+correction simply costs you ground forward while it lasts. Measured inside the
+frame loop: every frame is 1.00× the budget, where it used to hit 1.887×.
+
+**The run log (v0.62.0).** Joe: "how do we go about keeping a stats log that
+showed how long it took to complete mazes and some other information?" Every
+maze you walk out of writes a line — when, build, who, phase, stones, seed,
+size, milliseconds, tiles walked, the shortest route, dead ends, chalk and
+charcoal used and found, pointers, paths, pages, tiles mapped. It lives under
+its own `maze.log.v1` key, **not** in `SAVE`, so **Reset save** does not throw
+away the record of what you have already tested. Capped at 300, newest last.
+**Run log** in the debug panel shows the total, the best time per character and
+the last 40 runs; **Copy CSV** puts the lot on the clipboard. And time reads as
+hours, minutes and seconds everywhere (`fmtTime()`): "42.3s", "4m 14s",
+"1h 16m 09s".
+
 **The kid's room, and the game nobody finished (v0.61.0).** The secret room's
 floor used to be chalked with `x`, `?` and the four arrows. Joe: "don't draw the
 arrows in the child's secret room. It just looks like a code they will need to

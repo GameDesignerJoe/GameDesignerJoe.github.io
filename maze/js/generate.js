@@ -361,9 +361,10 @@ function generate(seed) {
     }
     if (openDoor) tiles[gy][gx] = 1; else {
       sliders.push({ x: gx - ax, y: gy - ay, dx: ax, dy: ay, shifted: false, atStart: true });
-      // Somebody painted an arrow on the floor pointing at the block you have to lean on. It is
-      // the only thing in the room that tells you the wall moves, so it stays until you learn it.
-      if (!SAVE.pushLearned) startArrow = { x: gx - ax * 3, y: gy - ay * 3, dir: ax > 0 ? 'right' : ax < 0 ? 'left' : ay > 0 ? 'down' : 'up' };
+      // Somebody painted an arrow on the block itself, pointing the way it goes. It used to be on
+      // the floor two tiles back, which read as a sign about the room rather than about the block.
+      // It is the only thing in here that says the wall moves, so it stays until you learn it.
+      if (!SAVE.pushLearned) startArrow = { x: gx - ax, y: gy - ay, dir: ax > 0 ? 'right' : ax < 0 ? 'left' : ay > 0 ? 'down' : 'up' };
     }
     startGap = [gx, gy];
   }

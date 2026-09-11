@@ -78,6 +78,20 @@ $('optTexture').addEventListener('change', () => { SAVE.ui.texture = $('optTextu
 // a prototype replaces the maze entirely, so it needs a fresh one
 $('optProto').addEventListener('change', () => { SAVE.ui.proto = $('optProto').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optFloor').addEventListener('change', () => { SAVE.ui.floor = $('optFloor').value; persist(); });
+// the run log: what you have finished, how long each took, and a CSV of the lot to take away
+$('statsBtn').addEventListener('click', () => { dbg.classList.remove('show'); showStats(); });
+$('statsClose').addEventListener('click', () => $('stats').classList.remove('show'));
+$('statsCopy').addEventListener('click', async () => {
+  const csv = statsCsv(); const b = $('statsCopy');
+  try { await navigator.clipboard.writeText(csv); b.textContent = 'Copied'; }
+  catch (e) { b.textContent = 'Could not copy'; }
+  setTimeout(() => { b.textContent = 'Copy CSV'; }, 1400);
+});
+$('statsClear').addEventListener('click', () => {
+  const b = $('statsClear');
+  if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sure?'; setTimeout(() => { b.dataset.sure = '0'; b.textContent = 'Clear'; }, 2600); return; }
+  clearLog(); b.dataset.sure = '0'; b.textContent = 'Clear'; showStats();
+});
 $('optSound').checked = CONFIG.sound;
 $('optSound').addEventListener('change', () => AUDIO.setEnabled($('optSound').checked));
 $('resetSave').addEventListener('click', () => {

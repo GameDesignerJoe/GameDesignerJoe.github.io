@@ -129,13 +129,23 @@ function update(wall) {
   }
   if (dir) facing = Math.atan2(dir.dy, dir.dx);
   { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d)); facingShown += d * Math.min(1, dt * 18); }
-  // the axis you're not travelling along always eases to the corridor's centerline (rounded corners, no pop)
-  { const ax = dir ? (dir.dx ? 'y' : 'x') : recenter;
-    if (ax) { const c = Math.floor(player[ax]) + 0.5, diff = c - player[ax]; if (Math.abs(diff) < 0.004) { player[ax] = c; if (!dir) recenter = null; } else { const mv = Math.min(Math.abs(diff), Math.max(0.02, B.speed() * 1.6 * dt)); player[ax] += Math.sign(diff) * mv; } } }
   { const sqz = started && phase().f.crawl && [...crawlGaps, ...crawlCells].some(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
     if (sqz !== inSqueeze) { inSqueeze = sqz; camBump = sqz ? -CONFIG.squeezeBump : CONFIG.squeezeBump; AUDIO.squeeze(sqz); } }
+
+  // One speed budget for the frame, shared by walking forward and easing back onto the corridor's
+  // centreline. The ease used to be its own movement at 1.6x walking on top of the step, so going
+  // round a corner you crabbed diagonally at nearly twice walking speed — Joe: "they have this
+  // almost like race car cornering thing to them". Taking it out of the same budget means a hard
+  // correction just costs you ground forward while it lasts, and your speed never changes.
+  const budget = B.speed() * (inSqueeze ? CONFIG.squeezeSlow : introWalk ? 0.35 : 1) * dt;
+  let perpUsed = 0;
+  { const ax = dir ? (dir.dx ? 'y' : 'x') : recenter;
+    if (ax) { const c = Math.floor(player[ax]) + 0.5, diff = c - player[ax];
+      if (Math.abs(diff) < 0.004) { player[ax] = c; if (!dir) recenter = null; }
+      else { const mv = Math.min(Math.abs(diff), (dir ? CONFIG.cornerEase : 1) * budget);
+        player[ax] += Math.sign(diff) * mv; perpUsed = mv; } } }
   if (dir) {
-    const step = B.speed() * (inSqueeze ? CONFIG.squeezeSlow : introWalk ? 0.35 : 1) * dt;
+    const step = Math.sqrt(Math.max(0, budget * budget - perpUsed * perpUsed));
     const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
     const axis = dir.dx ? 'x' : 'y', sgn = dir.dx || dir.dy, c = axis === 'x' ? cx : cy;
     const p = player[axis], n = p + sgn * step;
@@ -249,11 +259,12 @@ function update(wall) {
   cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   if (!solved && started && (player.x|0) === exit.x && (player.y|0) === exit.y) {
     solved = true; clearRun(); clearStick(); dir = null; narrEl.classList.remove('show'); if (gated) { AUDIO.gate(); setTimeout(() => AUDIO.exit(), 350); } else AUDIO.exit();
-    const secs = ((gameNow() - t0) / 1000).toFixed(1);
+    const secs = fmtTime(gameNow() - t0);
     const optimal = solutionPath.length - 1, ratio = (steps / optimal).toFixed(2);
+    logRun();   // every maze you walk out of goes in the log, pool levels included
     const rows = [
       ['Tiles walked', steps], ['Shortest route', optimal + ' tiles'], ['Wandering', ratio + '× the shortest route'],
-      ['Time', secs + 's'], ['Dead ends entered', deadEndsEntered],
+      ['Time', secs], ['Dead ends entered', deadEndsEntered],
       ['Chalk used', chalkUsed], ['Chalk found', chalkFound],
       ['Charcoal used', charcoalUsed], ['Charcoal found', charcoalFound], ['Tiles mapped', [...mapped.values()].filter(v => v !== 'wall').length],
       ['Pointers used', pointerUses], ['Paths used', pathUses], ['Pages found', journalsRead + ' of ' + (journalsRead + journals.size)],
@@ -265,7 +276,7 @@ function update(wall) {
       ? pagesThisRun.map(pg => `<p class="page">${character.pages[pg]}</p>`).join('')
       : `<p class="page none">I found nothing of theirs this time. Their pages are still out there.</p>`;
     const whose = character ? `<div class="whose">${character.name} · ${held} of ${total} pages</div>` : '';
-    $('msgStats').innerHTML = `<li class="pages">${whose}${pagesHtml}</li><li class="stat">${steps} tiles · ${secs}s · ${ratio}× the shortest way</li>`;
+    $('msgStats').innerHTML = `<li class="pages">${whose}${pagesHtml}</li><li class="stat">${steps} tiles · ${secs} · ${ratio}× the shortest way</li>`;
     $('msgSeed').textContent = 'seed ' + SEED;
     $('msg').classList.add('show');
   }

@@ -49,6 +49,7 @@
   <label>Texture <select id="optTexture"><option value="off" selected>Off</option><option value="grain">Grain</option><option value="damp">Damp</option><option value="dust">Dust</option></select></label>
   <label>Stick <select id="optStick"><option value="right">Right</option><option value="left">Left</option></select></label>
   <button class="storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button>
+  <button id="statsBtn">Run log</button>
   <button id="newMaze">New maze</button>
   <button id="update">Update app</button>
   <button id="resetSave" style="color:#b07a6a; border-color:rgba(176,122,106,.45)">Reset save</button>
@@ -82,6 +83,7 @@
 <div id="pool"><div class="talk"><div class="who" id="poolWho"></div><div class="say" id="poolSay"></div><div class="choices" id="poolChoices"></div></div><div class="water"><div class="stone" id="poolStone"></div></div><div class="keeper" id="poolKeeper"></div></div>
 <div id="fade" class="in"></div>
 <div id="msg"><div><h1>You are still lost.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Continue on</button><button class="ghost storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button></div></div>
+<div id="stats"><h1>Run log</h1><div id="statsBody"></div><div class="row"><button id="statsCopy" class="ghost">Copy CSV</button><button id="statsClear" class="ghost">Clear</button><button id="statsClose">Close</button></div></div>
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <!-- Data, loaded before the engine: tuning, progression, text, music. -->
