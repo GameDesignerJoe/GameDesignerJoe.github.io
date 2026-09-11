@@ -312,6 +312,12 @@ function drawPlayerBody(c, r) {
   if (CONFIG.playerOutline > 0) { c.strokeStyle = C.playerEdge || C.player; c.lineWidth = r * CONFIG.playerOutline; c.lineJoin = 'round'; c.stroke(); }
 }
 
+// How much of the name, and how much of the chapter, is still showing this many seconds into the
+// zoom-out. Joe: "hold the chapter title a little longer as we zoom out so it's readable and then
+// fade out" — so the chapter sits at full while the name goes, and is out well before the zoom is.
+const nameFade = (el) => Math.max(0, 1 - el / 0.9);
+const chapterFade = (el) => Math.max(0, 1 - Math.max(0, el - CONFIG.chapterHoldSec) / CONFIG.chapterFadeSec);
+
 function draw() {
   const C = CONFIG.colors, vw = innerWidth, vh = innerHeight, nowMs = gameNow();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -378,12 +384,33 @@ function draw() {
 
   // the name, set into the tile above the mat: architectural capitals in chalk white
   if (startRoom && (!started || intro)) {
-    const fadeT = intro ? Math.max(0, 1 - (performance.now() - intro.t0) / 900) : 1;
+    const fadeT = intro ? nameFade((performance.now() - intro.t0) / 1000) : 1;
     const tx = startRoom.x0 + 2, ty = startRoom.y0 + 1, px = ox + tx*S + S/2, py = oy + ty*S + S/2;
     ctx.save(); ctx.globalAlpha = fadeT; ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = `500 ${S*0.13}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('T H E', px, py - S*0.26);
     ctx.font = `700 ${S*0.34}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('M A Z E', px, py + S*0.06);
     ctx.restore();
+  }
+
+  // the chapter, set into the floor below him like the name is set into the floor above. Joe:
+  // "I'm fine if the fog of war eats the bottom of it, that would actually look kind of cool" —
+  // so it is drawn here, under the darkness pass, and held a beat longer than the name on the way
+  // out so you can still read it while the camera pulls back.
+  if (startRoom && !poolMode && !protoMode && (!started || intro)) {
+    const fadeC = intro ? chapterFade((performance.now() - intro.t0) / 1000) : 1;
+    if (fadeC > 0) {
+      const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+      const sp = (t) => t.split('').join(' ');   // the name's own way of tracking letters out
+      const cx = ox + (startRoom.x0 + 2)*S + S/2, cy = oy + (start.y + CONFIG.chapterDrop)*S;
+      ctx.save(); ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.globalAlpha = fadeC * 0.55;
+      ctx.font = `500 ${S*0.08}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
+      ctx.fillText(sp('Chapter ' + (roman[SAVE.phase || 0] || (SAVE.phase + 1))), cx, cy);
+      ctx.globalAlpha = fadeC;
+      ctx.font = `700 ${S*0.18}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
+      ctx.fillText(sp(phase().who), cx, cy + S*0.17);
+      ctx.restore();
+    }
   }
   if (!started && !intro) {   // asleep: a slow breath of light around the mat
     const glow = 0.5 + 0.5 * Math.sin(performance.now() / 900), px = ox + player.x*S, py = oy + player.y*S;

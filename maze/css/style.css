@@ -97,17 +97,6 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
   transition:opacity .7s ease; }
 #howBtn.open { color:#ece7da; }
 #title.leaving #howBtn { opacity:0; }
-/* The chapter, along the bottom. Set the same way the name is — architectural capitals, spaced
-   wide, chalk white — and it comes and goes with the title. DOM rather than canvas because the
-   fog closes in a couple of tiles from the player and would swallow anything drawn down here. */
-#chapter { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 58px); text-align:center;
-  font-family:Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif; transition:opacity .7s ease; }
-#chapter.none { display:none; }
-#title.leaving #chapter { opacity:0; }
-#chapNum { display:block; font-size:12px; font-weight:500; letter-spacing:.42em; text-indent:.42em;
-  color:rgba(236,231,218,.55); text-shadow:0 1px 4px rgba(13,15,16,.8); }
-#chapWho { display:block; margin-top:7px; font-size:25px; font-weight:700; letter-spacing:.3em; text-indent:.3em;
-  color:#ece7da; text-shadow:0 2px 8px rgba(13,15,16,.85); }
 #howPanel { position:fixed; left:0; right:0; bottom:0; max-height:0; overflow:hidden; background:#1b1f21; transition:max-height .55s cubic-bezier(.2,.7,.2,1); pointer-events:auto; }
 #howPanel.open { max-height:70vh; overflow-y:auto; scrollbar-width:none; }
 #howPanel::-webkit-scrollbar { display:none; }

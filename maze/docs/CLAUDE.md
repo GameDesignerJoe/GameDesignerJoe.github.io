@@ -326,7 +326,7 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
-## The title screen (v0.69.0)
+## The title screen (v0.69.1)
 
 Joe, from a screenshot: *"get rid of the black section at the bottom... move the
 question up to the top right... get rid of the tile count too... change the colour
@@ -340,24 +340,36 @@ fixed to the corners of `#title` itself: the version bottom-left in
 *and* on the black outside it; the `?` top-right where the tile count used to sit.
 The tile count is gone outright, from the DOM and from every writer
 (`grep stepLbl` returns nothing) — `#hud` is `flex-start` now and carries chalk
-alone.
+alone. Both fade out on `#title.leaving` with the rest of the title.
 
-**The chapter** is `#chapter`, a two-line block along the bottom: `Chapter I`
-small and wide-tracked above `The Child` larger, in the same Futura stack as the
-canvas "THE / MAZE". Two choices there worth knowing are reversible: it is **DOM,
-not canvas**, because the fog closes a couple of tiles in from him and would eat
-anything drawn down there; and it is **two lines rather than the literal one-line
-"Chapter I: The Child"**, to echo the title's own two lines.
+**The chapter is painted into the floor**, not laid over it (v0.69.1). I built it
+in DOM first, reasoning that the fog would swallow anything drawn that far from
+him. Joe, on seeing it: *"I prefer the chapter to look like it's a part of the
+floor like we have with the maze title. Move it up a bit so it's a bit out of the
+shadow for the fog of war. But otherwise I'm fine if the fog of war eats the
+bottom of it, that would actually look kind of cool."* So the fog eating it is the
+point, not the problem — the whole heading is canvas now, drawn in the same pass
+as the name and **before** the darkness pass, so the vignette takes its lower edge
+as the camera pulls back.
 
-`reset()` fills it from `SAVE.phase` and `phase().who`. A pool is *between*
-chapters and a prototype is not one at all, so both get `.none` and no heading —
-and `generate()` clears `protoMode` before `reset()` reads it, so the order
-matters.
+It sits `CONFIG.chapterDrop` (1.55) tiles below him, mirroring the name one tile
+above: `Chapter I` at `S*0.08` over `The Child` at `S*0.18`, tracked out with the
+name's own trick of joining the letters with spaces rather than `ctx.letterSpacing`
+(which Safari only learned in 17.4). A pool is *between* chapters and a prototype
+is not one at all, so neither draws it.
 
-Version, chapter and `?` all carry `transition:opacity .7s` and go to 0 on
-`#title.leaving`, so they fade with the canvas title as he wakes rather than
-snapping out. Smoke check: *"the title screen: a chapter at the bottom, the ?
-top right, no tile count."*
+**The two fades are one pair of functions**, `nameFade()` and `chapterFade()`,
+declared together above `draw()` so the one outliving the other is visible in one
+place. Joe: *"we can just hold the chapter title a little longer as we zoom out so
+it's readable and then fade out."* The name goes over 0.9s flat; the chapter holds
+at full for `chapterHoldSec` (1.4) and then fades over `chapterFadeSec` (0.9), out
+at 2.3s — inside the 2.8s `introSeconds` zoom, so it never survives into play.
+
+Smoke check: *"the title screen: the chapter set into the floor, the ? top right,
+no tile count."* Canvas text can only be proven by its pixels, so it reads the
+brightest red in the band of floor the chapter occupies — 165 with the heading
+written into it against 82/117 on a prototype and a pool, which get none — and
+then checks the two fade functions directly rather than racing the zoom.
 
 ## Walking about a room (v0.68.0)
 

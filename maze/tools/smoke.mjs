@@ -948,46 +948,54 @@ check('a room lets you walk across it, a corridor still keeps you on its line',
 
 // ── 8r. the title screen ──────────────────────────────────────────
 // Joe: "get rid of the black section at the bottom... move the question up to the top right...
-// get rid of the tile count... a chapter heading at the bottom." The heading names the chapter you
-// are about to walk into, so it is wrong on a pool (between chapters) and on a prototype (not one).
+// get rid of the tile count." Then, on seeing it: "I prefer the chapter to look like it's a part
+// of the floor like we have with the maze title... I'm fine if the fog of war eats the bottom of
+// it... hold the chapter title a little longer as we zoom out so it's readable and then fade out."
+// So the chapter is painted into the floor under the darkness pass, not laid over the top in DOM,
+// and it outlives the name above him. The pixels are the only thing that can prove either.
 const titleScreen = await page.evaluate(async () => {
   CONFIG.tutorials = false;
-  SAVE.phase = 0; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist(); reset(4242);
-  const css = (id) => getComputedStyle($(id));
-  const box = (id) => $(id).getBoundingClientRect();
-  const out = {
-    noStepLbl: !document.getElementById('stepLbl') && !/stepLbl/.test([...document.scripts].map((s) => s.textContent).join('')),
-    noBar: !document.getElementById('titleBar'),
-    chapNum: $('chapNum').textContent, chapWho: $('chapWho').textContent,
-    verAlpha: css('verTitle').color, verOpacity: +css('verTitle').opacity,
+  const lit = () => {            // the brightest thing in the band of floor the chapter is set into
+    const b = cv.getContext('2d');
+    const x = innerWidth / 2, y = innerHeight / 2 + CONFIG.chapterDrop * zoomS;
+    const d = b.getImageData((x - 110) * dpr, (y - 0.12 * zoomS) * dpr, 220 * dpr, 0.34 * zoomS * dpr).data;
+    let m = 0; for (let i = 0; i < d.length; i += 4) m = Math.max(m, d[i]);
+    return m;
   };
-  // the ? sits in the top right, above the middle of the screen and right of it
-  const q = box('howBtn');
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  SAVE.phase = 0; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist(); reset(4242);
+  await frame();
+  const out = {
+    noStepLbl: !document.getElementById('stepLbl'),
+    noBar: !document.getElementById('titleBar'),
+    noDomChapter: !document.getElementById('chapter'),
+    asleep: lit(),
+  };
+  // the floor with nothing written on it, for comparison: a prototype is not a chapter
+  SAVE.ui = { proto: 'laby' }; reset(4242); await frame(); out.proto = lit();
+  SAVE.ui = {}; SAVE.poolPending = true; reset(4242); await frame(); out.pool = lit();
+  SAVE.poolPending = false; reset(4242); await frame();
+  // and on the way out it outlives the name: the two fades, sampled second by second
+  out.outBy = CONFIG.chapterHoldSec + CONFIG.chapterFadeSec; out.zoomSec = CONFIG.introSeconds;
+  out.nameGoneAt12 = nameFade(1.2) === 0;
+  out.chapFullAt12 = chapterFade(1.2) > 0.7;
+  out.chapGone = chapterFade(out.outBy + 0.01) === 0 && chapterFade(out.outBy - 0.3) > 0.2;
+  out.outlives = out.outBy > 0.9 && out.outBy < CONFIG.introSeconds;
+  const q = $('howBtn').getBoundingClientRect(), v = $('verTitle').getBoundingClientRect();
   out.qTopRight = q.top < innerHeight * 0.2 && q.right > innerWidth * 0.8;
-  // the chapter sits along the bottom, the version below it
-  const ch = box('chapter'), v = box('verTitle');
-  out.chapBottom = ch.top > innerHeight * 0.7 && Math.abs((ch.left + ch.right) / 2 - innerWidth / 2) < 8;
-  out.verBelow = v.top > ch.bottom - 4 && v.left < innerWidth * 0.3;
-  // both fade with the title
-  $('title').classList.add('leaving');
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-  out.fades = css('verTitle').transitionDuration !== '0s' && css('chapter').transitionDuration !== '0s'
-    && css('howBtn').transitionDuration !== '0s';
-  $('title').classList.remove('leaving');
-  // a pool and a prototype get no heading
-  SAVE.poolPending = true; reset(4242); out.poolHidden = $('chapter').classList.contains('none');
-  SAVE.poolPending = false; SAVE.ui = { proto: 'laby' }; reset(4242); out.protoHidden = $('chapter').classList.contains('none');
-  SAVE.ui = {}; SAVE.phase = 2; reset(4242); out.later = $('chapNum').textContent + ': ' + $('chapWho').textContent;
+  out.verBottomLeft = v.bottom > innerHeight * 0.9 && v.left < innerWidth * 0.3;
   return out;
 });
-check('the title screen: a chapter at the bottom, the ? top right, no tile count',
-  titleScreen.noStepLbl && titleScreen.noBar && titleScreen.qTopRight && titleScreen.chapBottom
-  && titleScreen.verBelow && titleScreen.fades && titleScreen.chapNum === 'Chapter I'
-  && titleScreen.chapWho === 'The Child' && titleScreen.poolHidden && titleScreen.protoHidden
-  && titleScreen.later === 'Chapter III: The Soldier',
-  `"${titleScreen.chapNum} / ${titleScreen.chapWho}" centred along the bottom, "${titleScreen.later}" at phase 3; `
-  + `the ? in the top right, no tile count and no black bar; the version reads ${titleScreen.verAlpha} below the chapter; `
-  + `version, chapter and ? all fade out on leaving; a pool and a prototype show no heading`);
+check('the title screen: the chapter set into the floor, the ? top right, no tile count',
+  titleScreen.noStepLbl && titleScreen.noBar && titleScreen.noDomChapter
+  && titleScreen.qTopRight && titleScreen.verBottomLeft
+  && titleScreen.asleep > titleScreen.proto + 8 && titleScreen.asleep > titleScreen.pool + 8
+  && titleScreen.nameGoneAt12 && titleScreen.chapFullAt12 && titleScreen.chapGone && titleScreen.outlives,
+  `the band of floor below him reads ${titleScreen.asleep} with the chapter written into it and `
+  + `${titleScreen.proto}/${titleScreen.pool} on a prototype/pool, which get no heading; `
+  + `1.2s into the zoom-out the name above him is gone and the chapter is still up, and it is out `
+  + `at ${titleScreen.outBy.toFixed(1)}s — before the ${titleScreen.zoomSec}s zoom ends; `
+  + `the ? top right, the version bottom left, no tile count and no black bar`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

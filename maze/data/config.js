@@ -28,6 +28,9 @@ const CONFIG = {
   tilePx: 60,           // zoom: screen pixels per tile
   titleTilePx: 150,     // zoom while asleep on the title screen
   introSeconds: 2.8,    // zoom-out when you tap the sleeper
+  chapterDrop: 1.55,    // tiles below him the chapter is set into the floor; the fog takes its bottom edge
+  chapterHoldSec: 1.4,  // and it holds that long into the zoom-out, so you can read it, before
+  chapterFadeSec: 0.9,  // fading over this — the name above him goes at 0.9s flat
   // waking one burden lighter, in two beats. You are still in the old dark when you tap: first a
   // band of him goes pale with a breath of a sound, then the light is cut out to its new size all
   // at once and the camera goes with it. Slowly fading into it said nothing at all.
