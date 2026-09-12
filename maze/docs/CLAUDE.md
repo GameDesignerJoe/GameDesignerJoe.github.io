@@ -385,7 +385,42 @@ angle, because a round hole inside a warping ring reads as a decal laid over it.
 
 See `ROOMS.md` for what each room is and a pitch list for more.
 
-## Free movement is the movement (v0.71.0)
+## Rails in the halls, free in the rooms (v0.73.0)
+
+Joe, after playing the all-free build: *"in corridors I prefer the corridor movement over the free
+movement. But in rooms I'm more interested in the free movement."* So the hybrid is the default, and
+it is a **three-way** now rather than a boolean — `SAVE.ui.move`:
+
+| `move` | corridors | rooms |
+|---|---|---|
+| `rooms` *(default)* | rails: one axis, held to the line, and the glide | the stick's own direction |
+| `rails` | rails | rails |
+| `free` | the corridor's walls are all that hold you | the stick's own direction |
+
+The glide (hold a direction, keep walking after you let go) comes back with the rails, because that
+is part of what he means by "the corridor movement". Only `free` clears `dir` when you let go.
+
+**He points the way he is actually going** (v0.73.0). Joe: *"can you make a toggle that makes it so
+whichever direction the character is moving it is pointed that way? Try and smoothly move to it as
+much as possible... right now when he's moving he only points up, down, left, right."* `SAVE.ui.face`
+(on by default) takes the angle from **the ground he covered this frame** rather than from `dir` or
+from the stick.
+
+Worth being straight about what that does and does not buy, because the first check I wrote for it
+passed with the feature deleted:
+
+- **In an open room it changes nothing.** The stick's angle *is* the angle he travels, so both
+  sources give the same number. The 360 degrees were already there.
+- **Everywhere the ground argues with the stick, it changes everything.** Lean 45 degrees into the
+  wall of a one-tile corridor: he travels straight along it, so pointed at the ground he covers he
+  faces down the corridor, and pointed at the stick he faces into a wall he is only scraping. Same
+  for the mouth funnel and the corner ease. The check measures exactly that difference — 0 degrees
+  against 45 — because that is the only place the two can be told apart.
+
+`faceMinStep` keeps the last angle when he is barely moving, so he does not spin on the last scraps
+of a stop; `faceTurnRate` is 11, down from the old 18, because there is further to turn now.
+
+
 
 Joe, three separate times, ending with *"movement is a little slide-y in general. Feels more like
 I'm in a go cart than a person walking around. How do we fix that."* and *"if this means we need to

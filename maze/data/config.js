@@ -65,6 +65,10 @@ const CONFIG = {
   markGhostAlpha: 0,    // how brightly your own chalk shows through the fog. 0 = not at all, which is
                         // the point of fog. 0.35 was the old 'a mark is a beacon you left yourself'
   speed: 2.31,          // tiles per second while the stick is held
+  faceMinStep: 0.25,    // tiles a second: move slower than this and he keeps the angle he had, rather
+                        // than spinning on the last scraps of a stop
+  faceTurnRate: 11,     // how fast he swings round to it. Lower is smoother and laggier; 18 was the
+                        // old snap-to-four-directions rate, which had less far to turn
   moveEase: 0.11,       // seconds to lean into a walk, and out of it again. A person has legs to get
                         // going; a go-kart does not, which is what Joe heard in the old instant start
   pushHoldMs: 260,      // lean into a slider's edge this long before it moves

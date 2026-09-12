@@ -957,28 +957,45 @@ const roam = await page.evaluate(async () => {
     held = null; stickAim = null;
     out.corridorWalked = player.x - fromX > 0.5;      // he got down it
     out.corridorInWall = wall.some(Boolean);          // and never through its side
-    out.corridorOff = Math.max(...off);
+    out.corridorOff = Math.max(...off);               // and on the default model, on its line
+    // free everywhere: the corridor's own walls are all that holds him, so he rides one
+    SAVE.ui.move = 'free';
+    player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
+    stickAim = { x: 0.72, y: -0.69 }; held = { dx: 1, dy: 0 };
+    const offF = [], wallF = [];
+    await new Promise((r) => { const t0b = performance.now(); const step = () => {
+      offF.push(Math.abs(player.y - (Math.floor(player.y) + 0.5)));
+      wallF.push(!isOpen(Math.floor(player.x), Math.floor(player.y)));
+      if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null;
+    out.freeRides = Math.max(...offF) > 0.1 && !wallF.some(Boolean);
+    out.freeOff = Math.max(...offF);
     // and with the rails put back, the old behaviour is still there to feel
-    SAVE.ui.rails = true;
+    SAVE.ui.move = 'rails';
     player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
     stickAim = { x: 0.72, y: -0.69 }; held = { dx: 1, dy: 0 };
     const off2 = [];
     await new Promise((r) => { const t0b = performance.now(); const step = () => {
       off2.push(Math.abs(player.y - (Math.floor(player.y) + 0.5)));
       if (performance.now() - t0b > 500) return r(); requestAnimationFrame(step); }; step(); });
-    held = null; stickAim = null; SAVE.ui.rails = false;
+    held = null; stickAim = null; SAVE.ui.move = 'rooms';
     out.railsHold = Math.max(...off2) < 0.05;
   }
   return out;
 });
-check('a room lets you walk across it, and a corridor holds you with its walls',
+check('rails in the halls, free in the rooms — and both ends still on the menu',
   roam.bothAxes && roam.offGrid && !roam.inWall
-  && roam.corridorWalked !== false && roam.corridorInWall !== true && roam.railsHold !== false,
-  `in a room: moved on both axes at once and off the grid lines, never into a wall; `
-  + `in a corridor with the stick held at an angle he rides the wall (${(roam.corridorOff || 0).toFixed(2)} off the line) `
+  && roam.corridorWalked !== false && roam.corridorInWall !== true
+  && (roam.corridorOff === undefined || roam.corridorOff < 0.05)
+  && roam.freeRides !== false && roam.railsHold !== false,
+  `on the default model — in a room: moved on both axes at once and off the grid lines, never into `
+  + `a wall; in a corridor with the stick held at an angle, held to the line `
+  + `(${(roam.corridorOff || 0).toFixed(2)} off) `
   + `${roam.corridorWalked === false ? 'but DID NOT GET DOWN IT' : 'and still gets down it'}, `
-  + `${roam.corridorInWall ? 'and ENDED UP IN A WALL' : 'never into one'}; `
-  + `with the debug rails put back, ${roam.railsHold === false ? 'they DO NOT hold' : 'the old centreline hold is still there'}`);
+  + `${roam.corridorInWall ? 'and ENDED UP IN A WALL' : 'never into one'}. `
+  + `Set to free everywhere the same corridor lets him ride the wall `
+  + `(${(roam.freeOff || 0).toFixed(2)} off, ${roam.freeRides === false ? 'NOT RIDING' : 'never into one'}); `
+  + `set to rails, ${roam.railsHold === false ? 'they DO NOT hold' : 'the centreline hold is back'}`);
 
 // ── 8r. the title screen ──────────────────────────────────────────
 // Joe: "get rid of the black section at the bottom... move the question up to the top right...
@@ -1249,6 +1266,63 @@ check('the ball pit gets out of your way, and rolls back after',
   `standing clear, nothing is moved (${pit.away}); standing in it the furthest ball gives up `
   + `${(pit.inIt / pit.tile).toFixed(2)} tiles; a moment after leaving it is back to `
   + `${(pit.after / pit.tile).toFixed(2)}`);
+
+// ── 8y. he points the way he is going ────────────────────────────
+// Joe: "can you make a toggle that makes it so whichever direction the character is moving it is
+// pointed that way? ...when he's moving he only points up, down, left, right."
+//
+// In an open room this changes nothing and the check has to say so: the stick's angle *is* the angle
+// he travels, so taking it from either gives the same number. Where the two part company is
+// wherever the ground argues with the stick — a corridor he is sliding along, a mouth he is being
+// funnelled into, a corner he is easing round. Lean at 45 degrees in a one-tile corridor and he
+// travels straight along it: pointed at the ground he covers he faces down the corridor, pointed at
+// the stick he faces into the wall he is scraping. That is the whole of what this buys.
+const facing = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.ui = { proto: 'laby', move: 'free' }; SAVE.poolPending = false; delete SAVE.run; persist(); reset(3291);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  let hall = null;
+  for (let y = 2; y < H - 2 && !hall; y++) for (let x = 2; x < W - 2; x++)
+    if (isOpen(x, y) && isOpen(x + 1, y) && isOpen(x - 1, y) && !isOpen(x, y - 1) && !isOpen(x, y + 1) && !openFloor(x, y)) { hall = [x, y]; break; }
+  if (!hall) return { skip: true };
+  const lean = async () => {
+    player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
+    facing = facingShown = 0;
+    stickAim = { x: Math.SQRT1_2, y: -Math.SQRT1_2 }; held = { dx: 1, dy: 0 };   // 45 degrees into the wall
+    const from = player.x, seen = [];
+    await new Promise((r) => { const t0b = performance.now(); const step = () => { seen.push(facingShown);
+      if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null;
+    let jump = 0; for (let i = 4; i < seen.length; i++) { let d = seen[i] - seen[i - 1]; d = Math.atan2(Math.sin(d), Math.cos(d)); jump = Math.max(jump, Math.abs(d)); }
+    return { deg: facingShown * 180 / Math.PI, went: player.x - from, jumpDeg: jump * 180 / Math.PI };
+  };
+  SAVE.ui.face = true;  const on = await lean();
+  SAVE.ui.face = false; const off = await lean();
+  SAVE.ui.face = true;
+  // and in a room, where the stick and the ground agree, both must land on the same angle
+  const L = landmarks[0];
+  const room = async (f) => { SAVE.ui.face = f;
+    player.x = L.x + 0.5; player.y = L.y + 0.5; dir = null; recenter = null; facing = facingShown = Math.PI;
+    stickAim = { x: 0.87, y: 0.5 }; held = { dx: 1, dy: 0 };
+    await new Promise((r) => { const t0b = performance.now(); const step = () => {
+      if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null; return facingShown * 180 / Math.PI; };
+  const rOn = await room(true), rOff = await room(false);
+  SAVE.ui.face = true;
+  return { on, off, rOn, rOff, want: 30 };
+});
+check('he turns to the ground he covers, not to where the stick points',
+  facing.skip || (
+    Math.abs(facing.on.deg) < 6                    // on: down the corridor, which is where he goes
+    && Math.abs(facing.off.deg) > 30               // off: at the wall he is scraping
+    && facing.on.went > 0.5 && facing.on.jumpDeg < 25 && facing.on.jumpDeg > 0.5
+    && Math.abs(facing.rOn - facing.want) < 6 && Math.abs(facing.rOff - facing.want) < 6),
+  facing.skip ? 'no one-tile corridor on this prototype' :
+  `leaning 45 degrees into the wall of a one-tile corridor he travels straight down it: pointed at `
+  + `the ground he covers he faces ${facing.on.deg.toFixed(0)} degrees, pointed at the stick he faces `
+  + `${facing.off.deg.toFixed(0)} — at a wall he is only scraping. He turns to it at most `
+  + `${facing.on.jumpDeg.toFixed(1)} degrees a frame, so it is a turn. In a room, where the stick and `
+  + `the ground agree, both settings land on the same ${facing.rOn.toFixed(0)} degrees`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

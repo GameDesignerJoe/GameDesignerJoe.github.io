@@ -137,7 +137,7 @@ function update(wall) {
     else if (canGo(want) && offCenter(want) <= CONFIG.turnForgiveness) { snapPerp(want); dir = want; }
   }
   if (dir) facing = Math.atan2(dir.dy, dir.dx);
-  { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d)); facingShown += d * Math.min(1, dt * 18); }
+  const faceFromX = player.x, faceFromY = player.y;   // where he starts the frame, to see where he went
   // Keep the gap itself, not just the fact of it: under free movement there is no `dir` to say which
   // way the channel runs, so the squeeze has to answer that from its own geometry.
   { const gap = started && phase().f.crawl && [...crawlGaps, ...crawlCells].find(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
@@ -154,10 +154,16 @@ function update(wall) {
   // A corridor is one tile wide and he is most of one, so the walls hold him to the line without
   // any rail doing it — and releasing the stick now stops him, which is the other half of Joe's
   // "movement is a little slide-y in general. Feels more like I'm in a go cart than a person."
-  const freeRoam = !SAVE.ui.rails;
+  // Three models, because Joe wants a different one in each kind of space: "in corridors I prefer the
+  // corridor movement over the free movement. But in rooms I'm more interested in the free
+  // movement." That is 'rooms', and it is the default — the rails where a corridor is one tile wide,
+  // the stick's own direction where there is floor to walk about on. 'rails' and 'free' are the two
+  // ends, kept on the debug menu so all three can be felt against each other.
+  const moveModel = SAVE.ui.move || 'rooms';
+  const freeRoam = moveModel === 'free';
   const freeHere = want && openFloor(Math.floor(player.x), Math.floor(player.y));
   const freeNext = want && openFloor(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy);
-  const aim = want && !sliding && !introWalk && (freeRoam || freeHere || freeNext)
+  const aim = want && !sliding && !introWalk && (freeRoam || (moveModel === 'rooms' && (freeHere || freeNext)))
     ? (stickAim && (want === held) ? stickAim : { x: want.dx, y: want.dy }) : null;
   // Nothing coasts on after you let go — except the scripted first step off the mat, which is the
   // one thing in the game that walks him without a stick and steers itself along `dir`. Clearing it
@@ -230,6 +236,20 @@ function update(wall) {
     else if (blocked && (p - c) * sgn >= 0) { player[axis] = c; recenter = axis === 'x' ? 'y' : 'x'; dir = null; }
     else player[axis] = n;
   }
+
+  // Which way he points. Joe: "can you make a toggle that makes it so whichever direction the
+  // character is moving it is pointed that way? ...right now he points mostly in that direction, but
+  // when he's moving he only points up, down, left, right." The four directions come of taking it
+  // from `dir` and from the stick, both of which are squared off. The ground he actually covered is
+  // not: it carries the wall slides, the corner ease and the mouth funnel, so it points at 360
+  // degrees for free. Below a crawl it keeps the last angle rather than spinning on rounding noise.
+  if (SAVE.ui.face !== false) {
+    const mx = player.x - faceFromX, my = player.y - faceFromY;
+    if (Math.hypot(mx, my) > CONFIG.faceMinStep * dt) facing = Math.atan2(my, mx);
+  }
+  // and it turns to that rather than snapping, which is the other half of what he asked for
+  { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d));
+    facingShown += d * Math.min(1, dt * CONFIG.faceTurnRate); }
 
   const prevKey = lastTileKey;
   if (!want || dir) pushHeldSince = 0;
