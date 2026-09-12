@@ -198,7 +198,11 @@ function update(wall) {
   // correction just costs you ground forward while it lasts, and your speed never changes.
   // It leans into the walk and leans out of it over CONFIG.moveEase rather than switching on and
   // off at full tilt, which is the rest of the go-kart: a kart has no legs to get going.
-  { const target = (aim || dir) ? B.speed() * (inSqueeze ? CONFIG.squeezeSlow : introWalk ? 0.35 : 1) : 0;
+  { const target = !(aim || dir) ? 0
+      // the walk off the mat is scripted, so it is pinned to the configured speed rather than
+      // B.speed() — the debug slider was dragging this beat along with the player's own pace
+      : introWalk ? CONFIG.speed * CONFIG.introWalkSpeed
+      : B.speed() * (inSqueeze ? CONFIG.squeezeSlow : 1);
     moveVel += (target - moveVel) * Math.min(1, dt / CONFIG.moveEase); }
   const budget = moveVel * dt;
   if (aim) {

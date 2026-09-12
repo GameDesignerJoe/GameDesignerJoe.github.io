@@ -21,9 +21,9 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #books i:nth-child(5n+3) { height:16px; }
 #books i.got { background:#ece7da; }
 #hud { position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:56px; right:56px; display:flex; justify-content:flex-start; pointer-events:none; letter-spacing:.02em; opacity:.7; }
-#tools { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 224px); display:none; justify-content:center; align-items:center; gap:14px; }
+#tools { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 204px); display:none; justify-content:center; align-items:center; gap:14px; }
 #tools { display:flex; }
-#glyphs { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 282px); display:none; gap:8px; padding:8px; border-radius:26px; background:rgba(13,15,16,.92); border:1px solid rgba(185,180,168,.3); }
+#glyphs { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 262px); display:none; gap:8px; padding:8px; border-radius:26px; background:rgba(13,15,16,.92); border:1px solid rgba(185,180,168,.3); }
 #glyphs.show { display:flex; }
 #glyphs div { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(185,180,168,.2); }
 #glyphs div:active { background:rgba(236,231,218,.15); }
@@ -104,7 +104,7 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #dbg .sec[open] > summary { color:#d8d3c6; border-bottom:1px solid rgba(185,180,168,.14); margin-bottom:10px; }
 #dbg .sec > label { margin-bottom:9px; }
 #dbg .sec > button { margin-top:0; width:100%; }
-#stick { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 34px); transform:translateX(-50%); width:170px; height:170px; border-radius:50%; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.22); }
+#stick { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 14px); transform:translateX(-50%); width:170px; height:170px; border-radius:50%; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.22); }
 #knob { position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%; background:rgba(185,180,168,.18); border:1px solid rgba(185,180,168,.45); transition:background .12s; }
 #stick.on #knob { background:rgba(185,180,168,.32); }
 #title { position:fixed; inset:0; z-index:5; pointer-events:none; }
@@ -120,6 +120,10 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #howBtn { position:fixed; top:calc(env(safe-area-inset-top) + 12px); right:18px; font-size:22px; font-style:italic;
   color:rgba(236,231,218,.5); text-shadow:0 1px 3px rgba(13,15,16,.75); padding:4px 10px; pointer-events:auto; z-index:4; }
 #howBtn.open { color:#ece7da; }
+/* The map is z-index 3 and its close button rides inside it; the ? is z-index 4, so it sat right
+   on top of the X. Joe: "if you open the map, you can't actually leave because it opens up the how
+   to play." Stories does not have this — its own close button is above the ? already. */
+body.map-open #howBtn { display:none; }
 body.pre #howBtn { opacity:0; transform:translateY(-24px); pointer-events:none; }
 #howPanel { position:fixed; left:0; right:0; bottom:0; max-height:0; overflow:hidden; background:#1b1f21; transition:max-height .55s cubic-bezier(.2,.7,.2,1); pointer-events:auto; }
 #howPanel.open { max-height:70vh; overflow-y:auto; scrollbar-width:none; }

@@ -10,11 +10,12 @@ const mapPtrs = new Map(); let mapPinch = null;
 function openMap() {
   $('mapBtn').classList.remove('beckon');
   mapOpen = true; mapEl.classList.add('show'); clearStick();
+  document.body.classList.add('map-open');   // the ? sits above the map and lands on its close button
   mapCv.width = innerWidth * dpr; mapCv.height = innerHeight * dpr;
   mapView.cx = player.x; mapView.cy = player.y; mapView.S = 22;
   drawMap();
 }
-function closeMap() { mapOpen = false; mapEl.classList.remove('show'); }
+function closeMap() { mapOpen = false; mapEl.classList.remove('show'); document.body.classList.remove('map-open'); }
 $('mapBtn').addEventListener('pointerdown', e => { e.stopPropagation(); if (started && !solved) openMap(); });
 $('mapClose').addEventListener('click', closeMap);
 mapEl.addEventListener('pointerdown', e => { if (e.target === $('mapClose')) return; mapPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); mapEl.setPointerCapture(e.pointerId); if (mapPtrs.size === 2) { const [a, b] = [...mapPtrs.values()]; mapPinch = { d: Math.hypot(a.x-b.x, a.y-b.y), S: mapView.S }; } });

@@ -32,7 +32,11 @@ const CONFIG = {
   tilePx: 150,          // zoom: screen pixels per tile
   titleTilePx: 210,     // zoom while asleep on the title screen: still closer than play, so waking pulls back
   introSeconds: 2.8,    // zoom-out when you tap the sleeper
-  chapterDrop: 1.42,    // tiles below him the chapter is set into the floor; the fog takes its bottom edge
+  // Joe: "with the level of zoom I'm looking at for the character right now, I'm noticing we can't
+  // see the chapter titles. I suggest we move them up to be just below the mat." At 150px a tile
+  // 1.42 tiles put it most of the way down a phone screen, where the vignette had it. The mat's
+  // own bottom edge is 0.40 tiles below him, so this sits just clear of it.
+  chapterDrop: 0.62,    // tiles below him the chapter is set into the floor; the fog takes its bottom edge
   chapterHoldSec: 1.4,  // and it holds that long into the zoom-out, so you can read it, before
   chapterFadeSec: 0.9,  // fading over this — the name above him goes at 0.9s flat
   // waking one burden lighter, in two beats. You are still in the old dark when you tap: first a
@@ -70,6 +74,16 @@ const CONFIG = {
                         // than spinning on the last scraps of a stop
   faceTurnRate: 11,     // how fast he swings round to it. Lower is smoother and laggier; 18 was the
                         // old snap-to-four-directions rate, which had less far to turn
+  // Joe: "the speed the character automatically walks off of the mat needs to be half of the
+  // players normal speed. They're currently walking off the mat too quickly." Measured, it was
+  // already 0.35 of it — so half would be *faster*, and that cannot be what he meant. What he is
+  // most likely feeling is the debug Speed slider: the walk off the mat used to be 0.35 of
+  // B.speed(), which the slider multiplies, so turning himself up turned the intro up with him.
+  // It is a scripted beat and has no business inheriting a debug knob, so it is a fraction of the
+  // configured walk now and holds still whatever the slider says. The fraction is left where it
+  // was, because changing it to the number he named would make the thing he called too quick
+  // quicker still. Waiting on him for the value.
+  introWalkSpeed: 0.35, // walking himself off the mat, as a fraction of CONFIG.speed (not B.speed())
   moveEase: 0.11,       // seconds to lean into a walk, and out of it again. A person has legs to get
                         // going; a go-kart does not, which is what Joe heard in the old instant start
   pushHoldMs: 260,      // lean into a slider's edge this long before it moves
@@ -283,8 +297,13 @@ const CONFIG = {
     floor: '#6e6a62',
     grout: '#585450',
     player:'#ece7da',
-    playerEdge:'#8b867a',       // the edge that keeps him findable while he is still dark. Pale enough
-                                // to see, dull enough not to look freshly painted
+    playerEdge:'#ece7da',       // the edge that keeps him findable, and it is white now at every
+                                // stage. It was a dull grey — pale enough to see against the floor
+                                // in theory, and in practice barely a shade off it. Joe: "I think
+                                // we're gonna have to have a white border on the character at all
+                                // times, otherwise they will blend and disappear into the
+                                // background." It reads as drawn-on rather than lit, and that is
+                                // the trade he asked for: findable beats subtle
     playerLifting: '#7d786d',   // halfway. A band goes black, then grey, then pale — three stops, so
                                 // there is something to watch. Straight to pale was a flicker of white
     playerBurdened:'#2c2a26',   // what he is before a stone is put down. Each one lights another

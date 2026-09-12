@@ -323,9 +323,13 @@ entity as the Caretaker's receding shape.
 ### The body
 
 He is nearly black carrying every stone (`playerBurdened`) and pale having put
-them all down. Each stone lights another band of him, tail to nose. A pale
-outline (`playerOutline`) exists because on a dark floor it is the only thing
-that keeps him findable while he is still dark.
+them all down. Each stone lights another band of him, tail to nose. A white
+outline (`playerOutline`, `playerEdge`) exists because on a dark floor it is the
+only thing that keeps him findable while he is still dark. It was a dull grey
+until v0.77.0 — pale enough in theory, barely a shade off the floor in practice.
+Joe: *"we're gonna have to have a white border on the character at all times,
+otherwise they will blend and disappear into the background."* It reads as
+drawn-on rather than lit, and that is the trade he asked for.
 
 Putting a stone down happens in **two beats** and neither is a fade: a band of
 him goes pale over `liftBandSec`, then the light is cut out to its new size all

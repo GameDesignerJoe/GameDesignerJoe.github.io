@@ -1458,6 +1458,99 @@ check('the spiral turns about the middle of its room',
   `of ${spiral.of} samples round its eye the one an arm swept across shifted ${spiral.shift.toFixed(0)} `
   + `levels over two and a half seconds at ${spiral.hz} turns a second`);
 
+// ── 8b. the screen, after Joe played it on his phone (v0.77.0) ───
+
+// The ? is z-index 4 and the map is 3, so the ? sat on top of the map's close
+// button: opening the map trapped you in it, because the X opened How to Play.
+const overlap = await page.evaluate(async () => {
+  const box = (el) => { const r = el.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; };
+  const hits = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+  const how = document.getElementById('howBtn'), x = document.getElementById('mapClose');
+  const stacked = hits(box(how), box(x));            // they still share the corner
+  openMap(); await new Promise((r) => setTimeout(r, 120));
+  const hiddenWithMapOpen = getComputedStyle(how).display === 'none';
+  // and the X is what a tap in that corner actually reaches now
+  const b = box(x), top = document.elementFromPoint((b.l + b.r) / 2, (b.t + b.b) / 2);
+  const reachesX = !!top && (top === x || x.contains(top));
+  closeMap(); await new Promise((r) => setTimeout(r, 120));
+  return { stacked, hiddenWithMapOpen, reachesX, backAfter: getComputedStyle(how).display !== 'none' };
+});
+check('the map\'s close button is not buried under the ?',
+  overlap.hiddenWithMapOpen && overlap.reachesX && overlap.backAfter,
+  `the two still share the corner (${overlap.stacked ? 'overlapping' : 'not overlapping'}), so the ? is hidden while the map is open `
+  + `(${overlap.hiddenWithMapOpen}); a tap in that corner reaches the X (${overlap.reachesX}); and the ? comes back on close (${overlap.backAfter})`);
+
+// Walking himself off the mat is a scripted beat. It used to be a fraction of
+// B.speed(), which the debug Speed slider multiplies — so turning the player up
+// turned the intro up with him, which is what "walking off the mat too quickly"
+// was. Same beat at both ends of the slider now.
+const matWalk = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const run = async (mul) => {
+    SAVE.ui.speed = mul; persist();
+    reset(SEED);                                      // back to the mat, asleep
+    await nap(150);
+    wake();
+    // introWalk is set a whole introSeconds after the tap, and the first cut of
+    // this check ran out before it ever arrived — then read the *previous* run's
+    // pending timer as this run's walk. Wait for the beat rather than assume when.
+    for (let i = 0; i < 200 && !introWalk; i++) await nap(50);
+    let peak = 0, last = { x: player.x, y: player.y, t: performance.now() };
+    for (let i = 0; i < 80 && introWalk; i++) {
+      const before = !!introWalk;
+      await nap(30);
+      const now = performance.now(), dt = (now - last.t) / 1000;
+      // only intervals that were the scripted walk at *both* ends. introWalk clears
+      // on the tile change, and he leans toward his own speed for a frame or two
+      // after — sampling across that boundary reads the tail as the walk, which is
+      // how this check first failed at 1.8x and passed at 1x on the same build.
+      // along the direction he is walking, not hypot: the idle axis is easing back onto
+      // the centreline at the same time, and counting that slide as travel read faster
+      // than the walk can physically be.
+      if (dt > 0 && before && introWalk) peak = Math.max(peak, Math.abs(player.y - last.y) / dt);
+      last = { x: player.x, y: player.y, t: now };
+    }
+    await nap(120);                                   // let the beat finish before the next reset
+    return { peak, normal: B.speed() };
+  };
+  const slow = await run(1), fast = await run(1.8);
+  SAVE.ui.speed = 1; persist();
+  return { slow, fast };
+});
+
+{
+  const a = matWalk.slow.peak, b = matWalk.fast.peak;
+  const drift = a > 0 ? Math.abs(b - a) / a : 1;
+  // 0.4 rather than something tight: sampling a 0.8 tiles/s ramp from outside the
+  // frame loop drifts about 20% run to run, while the regression this is here to
+  // catch — the slider multiplying the walk again — puts the two 80% apart. Wide
+  // enough not to cry wolf, far inside the thing it is watching for.
+  check('the walk off the mat ignores the debug speed slider',
+    a > 0.2 && drift < 0.4 && matWalk.fast.normal > matWalk.slow.normal * 1.5,
+    `at slider 1x he walks off at ${a.toFixed(2)} tiles/s and at 1.8x at ${b.toFixed(2)} — ${(drift * 100).toFixed(0)}% apart, `
+    + `while his own walk goes ${matWalk.slow.normal.toFixed(2)} to ${matWalk.fast.normal.toFixed(2)}`);
+}
+
+// He is nearly black under a full load of stones, on a floor that is not much
+// lighter. Joe: "we're gonna have to have a white border on the character at all
+// times, otherwise they will blend and disappear into the background."
+const edge = await page.evaluate(async () => {
+  const cv = document.querySelector('canvas'), d = window.devicePixelRatio || 1;
+  const px = cv.width / 2, py = cv.height / 2, R = Math.round(CONFIG.playerSize * zoomS * d * 1.3);
+  const g = cv.getContext('2d').getImageData(px - R, py - R, R * 2, R * 2).data;
+  let brightest = 0, darkest = 255;
+  for (let i = 0; i < g.length; i += 4) {
+    const v = (g[i] + g[i + 1] + g[i + 2]) / 3;
+    if (v > brightest) brightest = v;
+    if (v < darkest) darkest = v;
+  }
+  return { brightest, darkest, stones: SAVE.stones || 0 };
+});
+check('he is drawn with a light edge, so he cannot sink into the floor',
+  edge.brightest > 200 && edge.brightest - edge.darkest > 90,
+  `carrying ${edge.stones} stones, the box around him runs ${edge.darkest.toFixed(0)} to ${edge.brightest.toFixed(0)} `
+  + `— a body that dark needs an edge that bright to stay findable`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

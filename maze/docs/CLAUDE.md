@@ -481,6 +481,53 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The screen, after he played it on his phone (v0.77.0)
+
+Five items off the doc, none of them touching maze generation, so they could go
+in one batch.
+
+**The ? was sitting on the map's close button.** Joe: *"if you open the map, you
+can't actually leave because it opens up the how to play."* True as described and
+purely a stacking order: `#map` is `z-index:3` and its close button rides inside
+it, while `#howBtn` is `z-index:4`. A tap in that corner reached the ? every
+time. `body.map-open` now hides it, set in `openMap()`/`closeMap()`. Stories does
+not have the bug — its own close button is `z-index:7`, already above the ?.
+
+**The chapter heading had walked off the bottom of the screen.** `chapterDrop`
+was 1.42 tiles, set when a tile was 60px. At 150px that is most of the way down a
+phone, which is where the vignette had it. The mat's own bottom edge is 0.40
+tiles below him, so 0.62 puts the heading just clear of it, which is what Joe
+asked for.
+
+**A white edge on him at all times.** `playerEdge` was `#8b867a` against a
+`#6e6a62` floor — about a shade apart, and at four stones he is dark enough to
+vanish into it. It is `#ece7da` now. The old comment argued it should be *"dull
+enough not to look freshly painted"*; Joe has overruled that, and findable beats
+subtle.
+
+**The stick and the tools, 20px lower.** `#stick`, `#tools` and `#glyphs` all
+move together or the row lands on the stick.
+
+**The walk off the mat — measured, not taken at face value.** Joe asked for it at
+half the player's normal speed because it was *"too quickly"*. It was already
+**0.35x**, so his number would have made it 43% *faster*. What explains the
+report is that the beat was `B.speed() * 0.35`, and `B.speed()` includes the
+debug **Speed slider** — so turning himself up turned the intro up with him. At
+1.8x the walk ran 1.95 tiles/s. It is `CONFIG.speed * introWalkSpeed` now, a
+scripted beat with no business inheriting a debug knob, and it holds still at
+either end of the slider. **The fraction is left at 0.35 and the value is his
+call** — see the report; changing it to the number he named would make the thing
+he called too quick quicker still.
+
+Three smoke checks came with this (58 now), and each was confirmed to go red with
+its feature reverted. The mat-walk one took three passes to get honest: it first
+ran out before `introWalk` was even set, then read the *previous* run's pending
+timer as this run's walk, then counted the recentre slide as forward speed, then
+sampled across the frame where the beat ends and he leans into his own pace. It
+measures along the axis of travel, only across intervals that were the scripted
+walk at both ends, against a deliberately wide 40% band — run-to-run drift is
+about 20%, and the regression it watches for is 117%.
+
 ## Rooms that are places, in every maze (v0.72.0)
 
 Joe: *"love all these prototype rooms you've made. Please add them into the general mix of possible
