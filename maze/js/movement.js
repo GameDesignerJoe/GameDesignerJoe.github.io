@@ -17,7 +17,15 @@ const blockWays = (s) => s.ways
 const doorAt = (x, y) => doors.find(d => d.x === x && d.y === y && !d.open);
 // The pool room's gate: shut until it has been shoved with the stone and has finished grinding.
 // A restored run stores openAt as 1, which is long enough ago to count as open.
-const poolDoorShut = () => !!poolDoor && (!poolDoor.openAt || gameNow() - poolDoor.openAt < CONFIG.poolDoorSeconds * 1000);
+// Shut until the leaves have swung far enough to get past, not until the slide has finished: they
+// are most of the way open well before that, and standing at an open door that will not let you
+// through is the complaint this answers.
+const poolDoorShut = () => {
+  if (!poolDoor) return false;
+  if (!poolDoor.openAt) return true;
+  const open = Math.min(1, (gameNow() - poolDoor.openAt) / (CONFIG.poolDoorSeconds * 1000));
+  return gateEase(open) < CONFIG.poolDoorPassAt;
+};
 const passable = (x, y) => isOpen(x, y) && !(gated && !hasKey && x === exit.x && y === exit.y) && !(poolDoorShut() && x === poolDoor.x && y === poolDoor.y) && !(doorAt(x, y) && !heldKeys.has(doorAt(x, y).shape));
 function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(player.y) + d.dy); }
 function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5; return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx); }
@@ -275,6 +283,23 @@ function update(wall) {
   { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d));
     facingShown += d * Math.min(1, dt * CONFIG.faceTurnRate); }
 
+  // "I used to fit through here." Joe: "we should only give this pop-up text about not being able
+  // to get into the squeeze through when the character's directly hitting or pointing towards the
+  // squeeze through." It used to fire on walking into any tile with a crawl gap anywhere beside it,
+  // so you got it in passing, facing the other way. Now it wants him aimed at the gap — pressing
+  // into it, or turned to within crawlSayArc of it — and it is asked every frame rather than only
+  // on a tile change, because turning to face one is not a tile change.
+  if (!phase().f.crawl && !crawlSaid && started && crawlGaps.size) {
+    const tx = Math.floor(player.x), ty = Math.floor(player.y), aim = held || dir;
+    const at = DIRS.find(([dx, dy]) => {
+      if (!crawlGaps.has((tx + dx) + ',' + (ty + dy))) return false;
+      if (aim && aim.dx === dx && aim.dy === dy) return true;          // pressing into it
+      let d = facing - Math.atan2(dy, dx); d = Math.atan2(Math.sin(d), Math.cos(d));
+      return Math.abs(d) <= CONFIG.crawlSayArc;                        // or turned to it
+    });
+    if (at) { crawlSaid = true; narrate("I used to fit through here."); }
+  }
+
   const prevKey = lastTileKey;
   if (!want || dir) pushHeldSince = 0;
   if (dir || sliding || want) idleSince = now;
@@ -327,7 +352,6 @@ function update(wall) {
       }
     }
     if (ticTacToe && !tttSaid && tx === ticTacToe.x && ty === ticTacToe.y) { tttSaid = true; narrate(character.name === 'The Child' ? "its my turn. he never took his." : "Someone left a game half-played."); }
-    if (!phase().f.crawl && !crawlSaid && DIRS.some(([dx,dy]) => crawlGaps.has((tx+dx)+','+(ty+dy)))) { crawlSaid = true; narrate("I used to fit through here."); }
     // hopscotch: in order, one square at a time
     if (hopscotch.length && !hopSaid) {
       const hi = hopscotch.indexOf(key);

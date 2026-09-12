@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.79.0';
+const VERSION = '0.80.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
@@ -26,6 +26,12 @@ const speedMul = () => Math.max(0.4, Math.min(1.8, +SAVE.ui.speed || 1));
 const fogMul = () => Math.max(0.4, Math.min(2.2, +SAVE.ui.fog || 1));
 // how far he can actually see, in tiles: the lit core plus the fade past it. The fog is drawn in
 // screen terms, so anything asking "is that in view" asks this instead of measuring the gradient
+// How far a gate's leaves have actually swung, given how far through its slide it is. Cubic, so it
+// goes fast and settles slowly — which is why the collision has to read this and not the raw
+// fraction. Joe: "there's collision when the pool level gate opens that stops me from walking
+// through it until it's all the way open." At a third of the way through, the leaves are already
+// two thirds open; the old check held the tile shut for the whole slide regardless.
+const gateEase = (open) => 1 - Math.pow(1 - open, 3);
 const litTiles = () => B.viewRadius() * 2 + CONFIG.fogFadeTiles;
 let protoWide = true;    // and its light is opened right up, so the one idea in it is all visible.
                          // The labyrinth turns this off: being unable to see is half of what it is

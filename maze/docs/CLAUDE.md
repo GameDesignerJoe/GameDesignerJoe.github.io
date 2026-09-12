@@ -481,6 +481,68 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Collision, the squeeze line, and a nav view (v0.80.0)
+
+**The pool gate held you out for its whole slide.** Joe: *"there's collision when
+the pool level gate opens that stops me from walking through it until it's all
+the way open."* True, and the cause is that the leaves ease out — `1-(1-t)^3` —
+so a third of the way through the clock they are **70% across**, while
+`poolDoorShut()` was reading the raw fraction and staying shut for all 4.8s. The
+easing is `gateEase()` in `js/core.js` now, shared by the drawing and the
+collision so the two cannot drift, and the tile opens once the leaves have swung
+`poolDoorPassAt`. Geometry says he needs about 0.3 of the swing to fit; 0.62 is
+comfortable clearance.
+
+This broke an existing check — *"the pool gate waits to be shoved with the stone,
+**and grinds the whole way**"* — which had encoded the old behaviour as correct.
+It now asserts what we actually want: shut until shoved, still shut just after
+the shove, through by halfway.
+
+**The squeeze line only fires when he means it.** Joe: *"we should only give this
+pop-up text... when the character's directly hitting or pointing towards the
+squeeze through."* It used to fire on entering any tile with a crawl gap
+anywhere beside it, so you got it in passing, facing the other way. It now wants
+him pressing into the gap or turned to within `crawlSayArc` of it — and it is
+asked every frame rather than only on a tile change, because turning to face
+something is not a tile change.
+
+**A nav view, to his spec.** Joe: *"some sort of visual debug draw that shows how
+we are mapping what can or can't be walked on... I would be asking to visualize
+the nav mesh"*, and *"number each tile from 1-n and display it on the tile. This
+way I can give you the seed and the tile number in a screenshot."*
+
+`Show me → Nav mesh + tile numbers`. Green where `passable()` says he may stand,
+red where the floor is open but something holds it shut — a locked door, a gate
+mid-swing, the exit before its key. It reads `passable()` and `isOpen()` rather
+than keeping its own idea of the rules, so what it paints is what the game
+thinks, which is the whole point. Numbers run 1..n over **walkable tiles only**
+in reading order; numbering the wall would treble the count and none of those is
+ever what he is pointing at. The seed, the walkable count and the tile he is
+standing on are drawn along the bottom, so one screenshot carries everything
+needed to stand where he stood.
+
+Two things it taught: it has to be drawn **over** the fog (underneath, the
+vignette ate the far half of the grid — exactly the half you want numbered when
+something is unreachable), and `navNumberAt()` had to go to **module scope**, the
+same nesting mistake as `standOn()` last version. Two in two versions; the tell
+both times was a `ReferenceError` at a call site that looked perfectly ordinary.
+
+### The static server, finally diagnosed
+
+It had been dying mid-session for days and getting blamed on flakiness. The cause
+is mundane: `nohup python3 -m http.server &` from a tool call stays in that
+call's process group and dies with it. `(setsid nohup ... < /dev/null &)`
+survives. Recorded in HANDOFF §9.
+
+### One thing not fixed, and visible now
+
+*"The labyrinth prototype builds, and Off puts the maze back"* fails about **one
+run in ten**, and did so before this version's changes. Eleven runs while working
+on this batch produced one failure, and six deliberate reproduction runs
+afterwards produced none. Its detail line listed a dozen things that were all
+fine and never said which flag went, so it now prints every flag it tests. Not
+fixed — made diagnosable, so the next failure says what it was.
+
 ## Two rooms that answer to you (v0.79.0)
 
 **The statues stand on the floor now.** Joe: *"room two in the prototype should

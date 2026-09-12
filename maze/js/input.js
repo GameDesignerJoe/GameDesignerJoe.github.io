@@ -121,6 +121,12 @@ $('optTexture').addEventListener('change', () => { SAVE.ui.texture = $('optTextu
 // a prototype replaces the maze entirely, so it needs a fresh one
 $('optProto').addEventListener('change', () => { SAVE.ui.proto = $('optProto').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optFloor').addEventListener('change', () => { SAVE.ui.floor = $('optFloor').value; persist(); });
+// Joe: "should we consider setting up some sort of visual debug draw that shows how we are mapping
+// what can or can't be walked on? If this were a 3-D game, I would be asking to visualize the nav
+// mesh." And: "I suggest we also number each tile from 1-n and display it on the tile. This way I
+// can give you the seed and the tile number in a screenshot so you can debug it."
+$('optNav').checked = !!SAVE.ui.nav;
+$('optNav').addEventListener('change', () => { SAVE.ui.nav = $('optNav').checked; persist(); });
 // the run log: what you have finished, how long each took, and a CSV of the lot to take away
 $('statsBtn').addEventListener('click', () => { dbg.classList.remove('show'); showStats(); });
 $('statsClose').addEventListener('click', () => $('stats').classList.remove('show'));

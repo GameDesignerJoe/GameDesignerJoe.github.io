@@ -352,8 +352,20 @@ const chapterFade = (el) => Math.max(0, 1 - Math.max(0, el - CONFIG.chapterHoldS
 // structure and less like a curved line? The fact that the edges are curved completely pulls out
 // the fact that it's a gate." So each leaf is a framed panel with square ends and a mullion, and
 // the jambs it hangs off are drawn too.
+// Which number the nav view paints on a tile. Counted the same way the view counts — walkable
+// tiles in reading order — so the label under the picture and the number on the floor agree.
+function navNumberAt(tx, ty) {
+  if (!tiles || !isOpen(tx, ty)) return '—';
+  let n = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (isOpen(x, y)) n++;
+    if (x === tx && y === ty) return n;
+  }
+  return '—';
+}
+
 function drawGate(c, px, py, horiz, open, S, color, inset = 0, sense = 1) {
-  const len = S / 2, th = Math.max(3, S * 0.1), ease = 1 - Math.pow(1 - open, 3);
+  const len = S / 2, th = Math.max(3, S * 0.1), ease = gateEase(open);   // shared with the collision
   const gx = horiz ? px + inset : px, gy = horiz ? py : py + inset;
   const leaf = (hx, hy, shut, swing) => {
     c.save(); c.translate(hx, hy); c.rotate(shut + swing * ease * Math.PI / 2);
@@ -963,6 +975,45 @@ function draw() {
   if (!debugMap && CONFIG.markGhostAlpha > 0) { ctx.strokeStyle = C.mark; ctx.globalAlpha = CONFIG.markGhostAlpha;
     for (const [k, g] of marks) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue; const [px, py] = T(mx, my); if (Math.hypot(px - (ox + player.x*S), py - (oy + player.y*S)) < B.viewRadius() * 2 * S) continue; drawGlyph(ctx, g, px, py, S*0.16, Math.max(1.5, S*0.05)); }
     ctx.globalAlpha = 1; }
+  // ── the nav view (debug) ──────────────────────────────────────────────────────
+  // Joe asked for the nav mesh, and for a number on every tile so a screenshot plus the seed is
+  // enough to point at one. The numbers run 1..n in reading order over *walkable* tiles only —
+  // numbering the wall as well would treble the count and none of those are ever the thing he is
+  // pointing at. It reads passable() and isOpen() rather than keeping its own idea of the rules,
+  // so what it paints is what the game actually thinks, which is the entire point of it.
+  // Drawn over the fog on purpose. Under it the vignette ate the far half of the grid, which is
+  // the half you most want numbered when something is unreachable. Joe asked for faint but
+  // legible; the fog was making it neither.
+  if (SAVE.ui.nav) {
+    ctx.save();
+    ctx.font = `${Math.max(7, Math.round(S * 0.16))}px ui-monospace, Menlo, monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let n = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const open = isOpen(x, y);
+      if (open) n++;                                   // the number is fixed by the maze, not the view
+      const [sx, sy] = T(x, y);
+      if (sx < -S || sy < -S || sx > vw + S || sy > vh + S) continue;
+      if (!open) continue;
+      const walk = passable(x, y);
+      // green where he may stand, red where the floor is open but something is holding it shut —
+      // a locked door, a gate that has not swung far enough, the exit before its key
+      ctx.fillStyle = walk ? 'rgba(90,190,120,.16)' : 'rgba(210,90,80,.28)';
+      ctx.fillRect(sx - S / 2, sy - S / 2, S, S);
+      ctx.strokeStyle = walk ? 'rgba(90,190,120,.32)' : 'rgba(210,90,80,.5)';
+      ctx.lineWidth = 1; ctx.strokeRect(sx - S / 2 + 0.5, sy - S / 2 + 0.5, S - 1, S - 1);
+      if (S >= 26) { ctx.fillStyle = 'rgba(236,231,218,.62)'; ctx.fillText(String(n), sx, sy); }
+    }
+    // the seed, on the picture rather than in the panel, so one screenshot carries everything
+    // needed to point at a tile: "seed 4242, tile 391" and I can stand exactly where he stood
+    const tag = `seed ${SEED} · ${n} walkable · he is on ${navNumberAt(Math.floor(player.x), Math.floor(player.y))}`;
+    ctx.font = '12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    const wq = ctx.measureText(tag).width;
+    ctx.fillStyle = 'rgba(13,15,16,.78)'; ctx.fillRect(8, vh - 26, wq + 12, 18);
+    ctx.fillStyle = '#e8e3d6'; ctx.fillText(tag, 14, vh - 23);
+    ctx.restore();
+  }
+
   // pointer arrow (over fog)
   if ((opt.arrow.checked || pointerUntil > nowMs) && !solved) {
     const ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);

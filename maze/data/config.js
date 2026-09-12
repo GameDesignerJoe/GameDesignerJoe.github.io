@@ -220,6 +220,9 @@ const CONFIG = {
   swings: 1,            // tiles that slide back and forth on their own
   swingSeconds: 2.25,   // how long a swing rests at each end
   squeezeSlow: 0.4,     // speed inside a crawl gap
+  crawlSayArc: 0.9,     // how near he has to be pointed at a squeeze, in radians, before he remarks
+                        // that he used to fit through it. About 50 degrees either side: wide enough
+                        // to count as looking at it, narrow enough not to fire as he walks past
   squeezeReach: 0.85,   // how far (tiles) from the gap's center the squeeze extends into each corridor
   // A squeeze pinches him rather than shrinking him. Joe: "instead of shrinking the character so
   // much when going through a squeeze, is it possible to pinch the back parts of the arrow to
@@ -270,6 +273,9 @@ const CONFIG = {
   exitOval: 0.3,        // how far from round it is pulled, in and out
   exitSpinHz: 0.055,    // and how fast the axis it is pulled along wanders round
   gateSwingSeconds: 1.1,  // how long any other gate takes to swing its leaves back
+  poolDoorPassAt: 0.62, // how far the leaves must have swung before you can walk through, as a share
+                        // of their travel — not of the clock. Gates ease out, so this is reached in
+                        // the first third of the slide, which is when it already looks open
   poolDoorSeconds: 4.8, // how long the pool room's gate takes to grind aside once you have shoved it
                         // with the stone. It is stone and it is heavy: 0.65s read as a shutter, and
                         // 2.4s still read as a door rather than a weight

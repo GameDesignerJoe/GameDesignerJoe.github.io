@@ -691,16 +691,21 @@ const gate = await page.evaluate(async () => {
   held = { dx: 0, dy: -1 };
   await new Promise((r) => setTimeout(r, 600));
   out.shoved = !!poolDoor.openAt;
+  // A shove must not pop it open — but it no longer holds you out for the whole grind either.
+  // The leaves ease across, so you are through once they are clear: shut just after the shove,
+  // open by the time it is half done.
+  await new Promise((r) => setTimeout(r, 120));
+  out.shutJustAfter = poolDoorShut() && Math.floor(player.y) === poolDoor.y + 1;
   await new Promise((r) => setTimeout(r, CONFIG.poolDoorSeconds * 1000 * 0.5));
-  out.shutMidGrind = poolDoorShut() && Math.floor(player.y) === poolDoor.y + 1;
+  out.openMidGrind = !poolDoorShut();
   await new Promise((r) => setTimeout(r, CONFIG.poolDoorSeconds * 1000 * 0.6 + 700));
   out.openAfter = !poolDoorShut(); out.through = player.y < poolDoor.y + 1;
   held = null;
   return out;
 });
-check('the pool gate waits to be shoved with the stone, and grinds the whole way',
-  gate.shutEmptyHanded && gate.hasStone && gate.shutOnPickup && gate.shoved && gate.shutMidGrind && gate.openAfter && gate.through,
-  `empty-handed it held; picking the stone up left it shut; a ${gate.hold}ms lean started it; still shut halfway through the ${gate.secs}s grind; open and walked through after`);
+check('the pool gate waits to be shoved with the stone, and opens as its leaves clear',
+  gate.shutEmptyHanded && gate.hasStone && gate.shutOnPickup && gate.shoved && gate.shutJustAfter && gate.openMidGrind && gate.openAfter && gate.through,
+  `empty-handed it held; picking the stone up left it shut; a ${gate.hold}ms lean started it; still shut just after the shove; through by halfway into the ${gate.secs}s grind`);
 check('a stone in your arms costs you 30% of your speed',
   Math.abs(gate.stoneSpeed / gate.plainSpeed - gate.slow) < 0.001,
   `${gate.plainSpeed.toFixed(2)} tiles/s empty-handed, ${gate.stoneSpeed.toFixed(2)} carrying the stone (x${gate.slow})`);
@@ -892,7 +897,11 @@ check('the labyrinth prototype builds, and Off puts the maze back',
   + `${laby.landmarks} landmarks of ${laby.distinct} kinds, all on floor and all reachable; `
   + `a sealed ${laby.room}x${laby.room} start room with one block to lean on, the maze's own fog; `
   + `the way out is ${laby.route} tiles; Off leaves no sections behind and gives an ordinary maze `
-  + `with ${laby.plainCount} rooms that are places, every column tile actually shut`);
+  + `with ${laby.plainCount} rooms that are places, every column tile actually shut`
+  // say which flag went, or a failure here reads as a wall of things that are all fine
+  + `  [proto=${laby.protoMode} onFloor=${laby.onFloor} exitOk=${laby.exitReachable} lmOk=${laby.landmarksReachable} `
+  + `room=${laby.room} sealed=${laby.sealed} fog=${laby.fog} offAgain=${laby.offAgain} plainRooms=${laby.plainRooms} `
+  + `solidCols=${laby.solidColumns} sections=${laby.sections} lm=${laby.landmarks}]`);
 
 // ── 8o. getting through a squeeze ─────────────────────────────────
 // Joe: "the character leaves the squeeze space and drifts out into the black portion of the map."
@@ -1724,6 +1733,93 @@ check('the statues stand on the floor, and light up as you reach them',
   stat.missing ? 'the gallery has no statue bay at all, which is itself the bug'
     : `${stat.placed} of them, all ${stat.solid} shut against you, and all ${stat.open} open tiles of the bay still `
       + `reach each other. One of them reads ${stat.far.toFixed(0)} from across the room and ${stat.near.toFixed(0)} from the tile beside it`);
+
+// ── 8e. collision, the squeeze line, and the nav view (v0.80.0) ──
+
+// Joe: "there's collision when the pool level gate opens that stops me from
+// walking through it until it's all the way open." Gates ease out, so the leaves
+// are most of the way across early; the tile used to stay shut for the whole
+// slide regardless.
+const poolGate = await page.evaluate(() => {
+  SAVE.poolPending = true;
+  generate(99); sliding = null;
+  const out = { has: !!poolDoor };
+  if (poolDoor) {
+    const at = (frac) => {
+      poolDoor.openAt = gameNow() - frac * CONFIG.poolDoorSeconds * 1000;
+      return passable(poolDoor.x, poolDoor.y);
+    };
+    poolDoor.openAt = 0;
+    out.beforeShoving = passable(poolDoor.x, poolDoor.y);   // shut until you shove it
+    out.atStart = at(0.02);
+    out.third = at(1 / 3);      // the leaves are ~70% across here, comfortably wider than he is
+    out.half = at(0.5);
+    out.done = at(1);
+    out.swingAtThird = gateEase(1 / 3);
+  }
+  SAVE.poolPending = false;
+  return out;
+});
+check('the pool gate lets you through once its leaves are clear, not once the clock runs out',
+  poolGate.has && !poolGate.beforeShoving && !poolGate.atStart && poolGate.third && poolGate.half && poolGate.done,
+  `shut before you shove it (${!poolGate.beforeShoving}) and at the start of the slide (${!poolGate.atStart}); `
+  + `open a third of the way through (${poolGate.third}), by which point the leaves have swung `
+  + `${(poolGate.swingAtThird * 100).toFixed(0)}% across`);
+
+// Joe: "we should only give this pop-up text about not being able to get into the
+// squeeze through when the character's directly hitting or pointing towards the
+// squeeze through." It used to fire on entering any tile with a gap beside it.
+const said = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let t = 0; t < 60; t++) {
+    SAVE.phase = 2;                                   // the Soldier: too big for a squeeze
+    generate(500 + t); sliding = null; started = true;
+    if (!crawlGaps.size) continue;
+    const [gk] = [...crawlGaps];
+    const [gx, gy] = gk.split(',').map(Number);
+    // stand on a floor tile beside the gap, if there is one
+    const spot = [[1,0],[-1,0],[0,1],[0,-1]].find(([dx, dy]) => isOpen(gx + dx, gy + dy));
+    if (!spot) continue;
+    const [dx, dy] = spot;
+    const stand = async (face) => {
+      crawlSaid = false; held = null; dir = null;
+      player.x = gx + dx + 0.5; player.y = gy + dy + 0.5;
+      facing = face; await nap(140);
+      return crawlSaid;
+    };
+    const toward = Math.atan2(-dy, -dx);              // back along the offset: at the gap
+    const away = toward + Math.PI;
+    return { skip: false, facingIt: await stand(toward), facingAway: await stand(away) };
+  }
+  return { skip: true };
+});
+check('he only remarks on a squeeze he is actually looking at',
+  !said.skip && said.facingIt && !said.facingAway,
+  said.skip ? 'no crawl gap with a tile beside it in the seeds tried'
+    : `turned to the gap he says it (${said.facingIt}); standing in the same place turned away he does not (${!said.facingAway})`);
+
+// Joe: "number each tile from 1-n and display it on the tile... it should display
+// the seed on the screen and a number on each tile that is faint, but legible."
+const nav = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 0; reset(4242); sliding = null; started = true;   // reset, not generate: it puts him on the mat of the new maze
+  let walk = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isOpen(x, y)) walk++;
+  const hereA = navNumberAt(Math.floor(player.x), Math.floor(player.y));
+  const [ex, ey] = [exit.x, exit.y];
+  const exitNo = navNumberAt(ex, ey);
+  SAVE.ui.nav = true; await nap(160);
+  const painted = SAVE.ui.nav;
+  // the numbers must not move when the view is toggled or the camera pans
+  player.x += 3; await nap(120);
+  const hereB = navNumberAt(Math.floor(player.x) - 3, Math.floor(player.y));
+  SAVE.ui.nav = false;
+  return { walk, hereA, hereB, exitNo, painted, wallNo: navNumberAt(0, 0) };
+});
+check('the nav view numbers every walkable tile, and the numbers hold still',
+  nav.painted && nav.walk > 50 && Number.isFinite(nav.hereA) && nav.hereA === nav.hereB
+    && Number.isFinite(nav.exitNo) && nav.exitNo <= nav.walk && nav.wallNo === '\u2014',
+  `${nav.walk} walkable tiles; he starts on ${nav.hereA} and it is still ${nav.hereB} after the camera moves; `
+  + `the way out is ${nav.exitNo}; a wall tile has no number`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

@@ -491,9 +491,12 @@ The full account is in `CLAUDE.md` (§ Working rules, § Verifying a change,
   punch a hole in it.
 - **Determinism.** Everything in generation uses the seeded `R()`. No
   `Math.random()` in `generate()`.
-- **The static server goes down in long sessions.** A run that errors because
-  nothing is serving looks nothing like a failing run. Check the verdict, not
-  the exit code.
+- **Start the static server with `setsid`.** It kept dying mid-session and the
+  cause turned out to be mundane: a plain `nohup ... &` from a tool call stays in
+  that call's process group and is killed with it.
+  `(setsid nohup python3 -m http.server 8765 >/dev/null 2>&1 < /dev/null &)`
+  survives. A run that errors because nothing is serving looks nothing like a
+  failing run, so check the verdict, not the exit code.
 
 ## 10. Where the text lives (for rewriting)
 
