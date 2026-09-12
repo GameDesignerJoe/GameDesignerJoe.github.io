@@ -102,19 +102,23 @@ function update(wall) {
     const carry = Math.floor(player.x) === cx && Math.floor(player.y) === cy;
     if (!carry && Math.floor(player.x) === to[0] && Math.floor(player.y) === to[1]) { sl.nextAt = now + 800; continue; }   // never slide into you
     tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
-    sliding = { sl, from: [cx, cy], to, px: player.x, py: player.y, t0: now, carry, dur: CONFIG.sliderSeconds * 500 }; if (carry) { dir = null; clearStick(); }
+    sliding = { sl, from: [cx, cy], to, ox: player.x - (cx + 0.5), oy: player.y - (cy + 0.5), t0: now, carry, dur: CONFIG.sliderSeconds * 500 }; if (carry) { dir = null; clearStick(); }
     AUDIO.swing(cx, cy); sl.nextAt = now + CONFIG.sliderSeconds * 500 + CONFIG.swingSeconds * 1000;
     break;
   }
   if (sliding) {
-    const k = Math.min(1, (now - sliding.t0) / sliding.dur);
-    const e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
-    // From where he actually stands, not from the tile's centre. Joe: "in the starting room, when we
-    // transition from free movement to pushing the block, there's a definite snap and pop of the
-    // character to get into position." That pop was this line: it started the ride at from+0.5, so
-    // anyone who had walked up off-centre — which is everyone, in a room — was teleported onto the
-    // centreline on the first frame of the push.
-    if (sliding.carry !== false) { player.x = sliding.px + (sliding.to[0] + 0.5 - sliding.px) * e; player.y = sliding.py + (sliding.to[1] + 0.5 - sliding.py) * e; }
+    const [fx, fy, k] = slidePos(sliding, now);
+    // He rides the tile rather than being lerped at it. Two complaints, one line: starting the ride
+    // at from+0.5 teleported anyone who walked up off-centre onto the centreline ("a definite snap
+    // and pop"), and lerping him straight at the destination instead made the *tile* follow him, so
+    // it set off at whatever angle he happened to be standing at. So: the tile goes where the tile
+    // goes, and he keeps the offset he pushed from and is eased out of it — square and on the line
+    // by slideAlign of the way across, well before it lands.
+    if (sliding.carry !== false) {
+      const drift = 1 - Math.min(1, k / CONFIG.slideAlign);
+      player.x = fx + sliding.ox * drift;
+      player.y = fy + sliding.oy * drift;
+    }
     if (k >= 1) {
       const [tx, ty] = sliding.to;
       // A slide can outlive the world it started in — a debug generate(), a new Size mid-flight —
@@ -141,7 +145,7 @@ function update(wall) {
         else {
         const to = [cx + want.dx, cy + want.dy];
         tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
-        sliding = { sl, from: [cx, cy], to, px: player.x, py: player.y, t0: now, dur: CONFIG.sliderSeconds * 1000, toAt: sl.ways ? (sl.at ? 0 : 1 + sl.ways.findIndex(([dx, dy]) => dx === want.dx && dy === want.dy)) : undefined }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) { firstPushDone = true; startArrow = null; if (!SAVE.pushLearned && !protoMode) { SAVE.pushLearned = true; persist(); } } pushHeldSince = 0; recenter = null;
+        sliding = { sl, from: [cx, cy], to, ox: player.x - (cx + 0.5), oy: player.y - (cy + 0.5), t0: now, dur: CONFIG.sliderSeconds * 1000, toAt: sl.ways ? (sl.at ? 0 : 1 + sl.ways.findIndex(([dx, dy]) => dx === want.dx && dy === want.dy)) : undefined }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) { firstPushDone = true; startArrow = null; if (!SAVE.pushLearned && !protoMode) { SAVE.pushLearned = true; persist(); } } pushHeldSince = 0; recenter = null;
         }
       }
       else if (canGo(want)) dir = want;

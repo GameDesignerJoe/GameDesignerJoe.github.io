@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.80.0';
+const VERSION = '0.81.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
@@ -26,6 +26,19 @@ const speedMul = () => Math.max(0.4, Math.min(1.8, +SAVE.ui.speed || 1));
 const fogMul = () => Math.max(0.4, Math.min(2.2, +SAVE.ui.fog || 1));
 // how far he can actually see, in tiles: the lit core plus the fade past it. The fog is drawn in
 // screen terms, so anything asking "is that in view" asks this instead of measuring the gradient
+// Where a sliding tile is, this far into its travel, and how far through it is. Straight along its
+// own line, centre to centre: it never takes the player's position and never takes his angle.
+// Joe, on the start-room block: "since you can approach it from any angle it carries that angle to
+// the tile, snaps it to the player and then moves to where it needs to go. Instead the tile should
+// stay fixed in the line that it has and the player should get gently pulled into alignment as the
+// tile moves." The drawing and the ride both read this, so they cannot disagree about where it is.
+function slidePos(s, nowMs) {
+  const k = Math.min(1, (nowMs - s.t0) / s.dur);
+  const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  return [s.from[0] + 0.5 + (s.to[0] - s.from[0]) * e,
+          s.from[1] + 0.5 + (s.to[1] - s.from[1]) * e, k];
+}
+
 // How far a gate's leaves have actually swung, given how far through its slide it is. Cubic, so it
 // goes fast and settles slowly — which is why the collision has to read this and not the raw
 // fraction. Joe: "there's collision when the pool level gate opens that stops me from walking

@@ -1,6 +1,6 @@
 # Rooms
 
-<!-- reviewed: v0.79.0 — the room table checked against LANDMARK_KINDS and the render -->
+<!-- reviewed: v0.81.0 — the room table checked against LANDMARK_KINDS and the render -->
 
 The seven that exist, and a pitch list for more. Joe: *"I'd love to have you pitch to me a list of
 other possible odd, interesting, thematically on point room pitches."*
@@ -19,11 +19,11 @@ could describe it to someone else in six words, and on what it costs.
 | **spiral** | one spiral chalked across the whole floor | **yes** — walking round it drags it your way |
 | **columns** | four pillars you cannot walk through; they take light as you pass | **yes** — real geometry, and the flames |
 | **dais** | a stepped platform filling the middle | no |
-| **well** | a mouth in the floor, flagstones round it | no |
+| **well** | a mouth in the floor, flagstones round it | **yes** — it is a hole, and you cannot stand in it |
 | **balls** | a pit of them, and they get out of your way | **yes** — they part as you wade |
 | **vault** | nested rings, one gap each, a key at the heart | **yes** — this is where keys hide now |
 
-Three of the eight are still *pictures* — pool, dais and well. The pitches worth most are the ones that give a room
+Two of the eight are still *pictures* — the pool and the dais. The pitches worth most are the ones that give a room
 something to **do**, because that is what makes you remember where it was.
 
 ## The pitches

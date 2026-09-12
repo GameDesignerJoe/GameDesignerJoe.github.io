@@ -195,12 +195,18 @@ landmark you can touch is remembered better than one you look at:
 - **The spiral** turns, slowly, about the middle of its room (`spiralSpinHz`) —
   slow enough to doubt, fast enough to see.
 
-**Columns and statues are solid.** Both were walk-through decoration; they stand
-on the floor now. They are placed only on **link/link crossings** — tiles that
+**Columns, statues and the well are solid.** All three were walk-through
+decoration; they stand on the floor now (the well is a hole you cannot stand in). They are placed only on **link/link crossings** — tiles that
 were wall before the room was opened — so closing them takes away no way through
 at all, which is what lets a room gain real geometry without any risk to
 solvability. `standOn()` in `js/generate.js` is that rule, shared by both and by
-the gallery. The statues light as you reach them, at the columns' reach, but
+the gallery. **The well is the exception and the awkward one:** it sits on the
+room's middle cell rather than a crossing, so it has to be shut *with the rooms*
+and again right after the districts and the vault (which re-open about one in a
+hundred) — but **never later than that**. Shutting it at the end instead severs
+paths that were planned while it was open: the harness went from 4 violations to
+31. Anything that closes a tile belongs before the route, the door chain and the
+placements, not after. The statues light as you reach them, at the columns' reach, but
 without the flame: stone comes up out of the dark, it does not burn.
 
 **The spiral is dragged, not clocked.** Walking round its eye hands it the angle

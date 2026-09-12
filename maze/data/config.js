@@ -159,6 +159,9 @@ const CONFIG = {
   tunnelMinTiles: 5,    // shortest straight run that can become a tunnel
   sliders: [3, 4],      // shifting cells per maze (min, max). Push against the thick wall to slide the cell into a sealed pocket.
   sliderSeconds: 0.8,   // how long the slide takes
+  slideAlign: 0.6,      // and how far into it he is square on the tile's line again, as a share of
+                        // the travel. He keeps the offset he pushed from and is eased out of it over
+                        // this, so there is no snap at the start and no crabbing at the end
   sliderKeyChance: 0.5, // chance the key hides in a pocket instead of a dead end
   sliderOnPath: true,   // one slider sits on the solution route; the maze can't be finished without it
   exitPushTail: 0.4,    // the share of the route counted as "the end of it", where they go first

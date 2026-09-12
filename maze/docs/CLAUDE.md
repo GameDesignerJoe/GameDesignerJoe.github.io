@@ -481,6 +481,73 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The tile that carried his angle, the well, and the charcoal (v0.81.0)
+
+**The push, settled properly.** Joe sent a screenshot of the start-room block set
+off at an angle and diagnosed it himself: *"since you can approach it from any
+angle it carries that angle to the tile, snaps it to the player and then moves to
+where it needs to go. Instead the tile should stay fixed in the line that it has
+and the player should get gently pulled into alignment as the tile moves."*
+
+Exactly right, and it was **the previous fix's fault**. v0.73.0 stopped the slide
+snapping him to the centreline by lerping him from where he stood — but the tile
+was drawn at `player.x/y`, so the tile then inherited his off-axis position and
+set off crabbed. Two complaints, one line, opposite directions.
+
+The settlement is `slidePos()` in `js/core.js`: the tile goes centre to centre
+along its own line, and *nothing* reads the player to decide where it is. He
+keeps the offset he pushed from and is eased out of it over `slideAlign` of the
+travel — square well before it lands. Measured: the tile never leaves its line
+(0.0000), he starts 0.34 off and is at 0.000 by two thirds across.
+
+**The check for it was wrong first.** It recomputed the tile's position from
+`slidePos()` and passed happily with the drawing still reverted — the same
+model-the-fix trap as the music. `render.js` publishes `slideDrawnAt` now, so the
+check reads the picture. Reverted, it fails at 0.2455 off the line.
+
+**The well is shut, and the book was never the well's fault.** Joe: *"I think the
+dark well should have collision on it so you can't actually walk over it."* True,
+but the book floating over it was a **general** bug: journals go to a room's
+middle and so does its landmark, so in every landmark room the page sat *on* the
+landmark — in the well's mouth, on the dais, in the pool. Shutting the well made
+that page unreachable. Pages are now repaired to the nearest floor tile as the
+last thing generation does, because districts, the vault and the well itself all
+take tiles away after the rooms are cut.
+
+**Where a tile is closed matters more than that it is closed.** Three attempts:
+- shut with the rooms → **6** violations
+- shut after the districts and the vault as well → **6**, and all 112 wells shut
+- shut at the end, after the route → **31**. It severed paths planned while it
+  was open, stranded a secret room and a key, and broke 20 stored solution paths.
+
+So: with the rooms, and again immediately after the vault — both before the
+route, the door chain and every placement, all of which then plan around a wall
+for free.
+
+**The cost, and it is his call.** Shutting the well takes the harness from 4
+violations to **6** — one more maze in 576 where a key ends up behind the door it
+opens. That is the deferred door-key soft lock, now 3 mazes rather than 2. The
+collision is what he asked for; reversing it is one line if he would rather have
+the two back.
+
+**Charcoal is metered to the maze.** Joe: *"we should always have enough charcoal
+to map the whole maze. We don't need more than that."* It was on a spawn rate, and
+measuring the old behaviour showed how badly that failed: **19 of 20 mazes short,
+by up to 18 pieces at X-Large** — you could not finish a map however hard you
+looked. The rate now decides only *where* it lies; how much comes from the floor
+count divided by `B.charcoal()`, so the Memory stone making pieces go further
+means fewer of them rather than a surplus.
+
+### The "one run in ten" flake was not a flake
+
+The labyrinth check had been failing about one run in ten since v0.80.0 and I had
+written it up as timing. The flag diagnostics added last version caught it:
+`plainRooms=false`. It asserts every landmark's heart is floor — which the solid
+well breaks, and only when the Off maze happens to roll a well. Not timing at
+all. Five clean runs since. Worth remembering that "intermittent" and "timing" are
+not the same word, and that the cheapest way to tell them apart is to make the
+failure say what it was.
+
 ## Collision, the squeeze line, and a nav view (v0.80.0)
 
 **The pool gate held you out for its whole slide.** Joe: *"there's collision when

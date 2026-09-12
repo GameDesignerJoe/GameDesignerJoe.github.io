@@ -673,8 +673,12 @@ function draw() {
     ctx.restore();
   }
   // sliding tile in flight
-  if (sliding) { let fx = player.x, fy = player.y;
-    if (sliding.carry === false) { const k = Math.min(1, (nowMs - sliding.t0) / sliding.dur), e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2; fx = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; fy = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
+  // The tile is drawn where the tile is, never where the player is — carried or not. Drawing it at
+  // player.x/y is what made it set off at the angle he walked up at.
+  if (sliding) { const [fx, fy] = slidePos(sliding, nowMs);
+    // where it was actually drawn, so tools/smoke.mjs can check the picture rather than re-deriving
+    // it — a check that recomputes the answer passes with the drawing still wrong
+    slideDrawnAt = [fx, fy];
     ctx.fillStyle = C.floor; ctx.fillRect(ox + (fx-0.5)*S, oy + (fy-0.5)*S, S+0.5, S+0.5); }
   for (const sl of sliders) {
     if (sl.auto || (sliding && sliding.sl === sl)) continue;
@@ -832,7 +836,8 @@ function draw() {
   ctx.strokeStyle = C.mark;
   for (const [k, g] of marks) {
     let [mx, my] = k.split(',').map(Number); let px, py;
-    if (sliding && k === sliding.from.join(',')) { px = ox + player.x*S; py = oy + player.y*S; } else { [px, py] = T(mx, my); }
+    // a mark on a sliding tile rides with the tile, not with him
+    if (sliding && k === sliding.from.join(',')) { const [sx2, sy2] = slidePos(sliding, nowMs); px = ox + sx2*S; py = oy + sy2*S; } else { [px, py] = T(mx, my); }
     drawGlyph(ctx, g, px, py, S*0.16, Math.max(1.5, S*0.05));
   }
 

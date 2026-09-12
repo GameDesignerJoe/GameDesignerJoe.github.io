@@ -248,6 +248,14 @@ function generate(seed) {
       }
       landmarks.push(L);
     });
+
+    // The well is a hole, so you should not be able to stand in it. Joe: "I think the dark well
+    // should have collision on it so you can't actually walk over it." Shut here, with the rooms,
+    // and not later: everything that matters is laid out after this point — the route, the door
+    // chain, the secret room, every pickup — and all of it plans around a wall for free. Shutting it
+    // at the end instead looked tidier and was much worse: it severed paths that had been planned
+    // while it was open and took the harness from 4 violations to 31.
+    for (const L of landmarks) if (L.kind === 'well') { tiles[L.y][L.x] = 0; L.solid = true; }
   }
 
   // ── districts ────────────────────────────────────────────────────────────────
@@ -417,6 +425,13 @@ function generate(seed) {
       keyVault = { x0: tx0, y0: ty0, x1: tx1, y1: ty1, cx: (tx0 + tx1) >> 1, cy: (ty0 + ty1) >> 1 };
     }
   }
+
+  // The districts and the vault are stamped over the rooms, and about one well in a hundred gets
+  // opened back up by one of them. Re-shut here rather than at the end: this is still before the
+  // route, the door chain, the secret room and every pickup, so they all plan around a wall for
+  // free. Doing it at the end instead severs paths that were planned while it was open — that cost
+  // 31 harness violations, against 6 here.
+  for (const L of landmarks) if (L.kind === 'well') { tiles[L.y][L.x] = 0; L.solid = true; }
 
   // one past self per maze; spread their pages across the rooms (first page first, last page last)
   // the self of this phase; lay out their next unfound pages in order
@@ -999,6 +1014,25 @@ function generate(seed) {
     else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (F.thread && count('path') < MAXP) { pickups.set(k, 'path'); taken.add(k); } }
   }
   for (const k of pocketKeys) { const r = R(); if (r < 0.3 || (!F.charcoal && r < 0.5)) chalkSpots.add(k); else if (r < 0.5) charcoalSpots.add(k); else if (r < 0.75 && F.compass && count('pointer') < capFor('pointer')) pickups.set(k, 'pointer'); else if (F.thread && count('path') < MAXP) pickups.set(k, 'path'); else chalkSpots.add(k); }
+  // Joe: "we should always have enough charcoal to map the whole maze. We don't need more than
+  // that." So the spawn rate above only decides *where* it lies; how much there is comes from the
+  // size of the place, divided by how far a piece goes now (B.charcoal(), so the Memory stone
+  // making pieces go further means fewer of them rather than a surplus). Top up if the rolls were
+  // stingy, trim if they were generous. An X-Large maze used to depend on the dice for something
+  // the player cannot finish the map without.
+  if (F.charcoal && !poolMode) {
+    let floorTiles = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) floorTiles++;
+
+    const want = Math.max(1, Math.ceil(floorTiles / Math.max(1, B.charcoal())));
+    const have = [...charcoalSpots];
+    for (let i = want; i < have.length; i++) { charcoalSpots.delete(have[i]); taken.delete(have[i]); }
+    while (charcoalSpots.size < want) {
+      const k = pickFree();
+      if (!k) break;                                  // nowhere left to put one; better short than stuck
+      charcoalSpots.add(k); taken.add(k);
+    }
+  }
   for (const kind of ['pointer', 'path']) if (!count(kind) && (kind === 'pointer' ? F.compass : F.thread)) { const k = pickFree(); if (k) { pickups.set(k, kind); taken.add(k); } }
   if (!chalkSpots.size && !poolMode) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }
   // chalk in the start room, on interior tiles clear of the mat, shelves and slider
@@ -1203,6 +1237,30 @@ function generate(seed) {
     ];
     ticTacToe = { x: journals.has(cx+','+cy) && isOpen(cx+1, cy) ? cx + 1 : cx, y: cy, cells: games[R() * games.length | 0] };
   }
+  // Last chance to be sure every page is on floor he can stand on, and deliberately the last thing:
+  // journals are chosen at the rooms' middles, but districts, the vault and the well's own collision
+  // are all stamped over the rooms *after* they are cut, so a page's tile can be taken away long
+  // after it was picked. Joe: "having a book floating over this made me wanna make it so you
+  // actually couldn't pick up the book because it was over the dark well." A page that has lost its
+  // tile steps to the nearest one it can be reached on rather than hanging over the hole.
+  if (journals.size) {
+    const fixed = new Map();
+    for (const [k, pg] of journals) {
+      const [jx, jy] = k.split(',').map(Number);
+      if (tiles[jy] && tiles[jy][jx]) { fixed.set(k, pg); continue; }
+      let spot = null;
+      for (let r = 1; r <= 4 && !spot; r++)
+        for (let dy = -r; dy <= r && !spot; dy++)
+          for (let dx = -r; dx <= r && !spot; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            const nx = jx + dx, ny = jy + dy;
+            if (tiles[ny] && tiles[ny][nx]) spot = [nx, ny];
+          }
+      fixed.set(spot ? spot.join(',') : k, pg);
+    }
+    journals = fixed;
+  }
+
   // hopscotch: chalked squares down a straight run, numbered; step them in order
   if (F.hopscotch && !poolMode) {
     const ok = runs.filter(r => r.length >= 5 && !r.some(k => crawlGaps.has(k) || crawlCells.has(k) || journals.has(k) || chalkSpots.has(k)));

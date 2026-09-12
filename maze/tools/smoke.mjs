@@ -883,7 +883,10 @@ const laby = await page.evaluate(async () => {
   // Joe asked for the prototype's rooms in the general mix, so an ordinary maze deals them too, and
   // each of those belongs to a room rather than a section.
   built.offAgain = !protoMode && sections.length === 0;
-  built.plainRooms = landmarks.length > 0 && landmarks.every((L) => L.room !== undefined && tiles[L.y][L.x]);
+  // a landmark's heart is floor unless the landmark *is* the hole — the well is shut on purpose
+  // since v0.81.0. This is what the 'one run in ten' flake turned out to be: not timing at all,
+  // just the Off maze happening to roll a well.
+  built.plainRooms = landmarks.length > 0 && landmarks.every((L) => L.room !== undefined && (tiles[L.y][L.x] || L.solid));
   built.plainCount = landmarks.length;
   built.solidColumns = landmarks.filter((L) => L.kind === 'columns')
     .every((L) => L.cols && L.cols.length === 4 && L.cols.every(([x, y]) => !tiles[y][x]));
@@ -1253,7 +1256,9 @@ const places = await page.evaluate(() => {
       if (landmarks.length) out.withLandmarks++;
       for (const L of landmarks) {
         out.kinds.add(L.kind);
-        if (!tiles[L.y][L.x]) out.landmarkInWall++;          // its heart must still be floor
+        // its heart must still be floor — unless the landmark *is* the hole. The well is shut
+        // on purpose since v0.81.0, so a solid one is right rather than a room lost in the wall.
+        if (!tiles[L.y][L.x] && !L.solid) out.landmarkInWall++;
         if (L.kind === 'columns') { out.colRooms++;
           if (L.cols.length === 4 && L.cols.every(([x, y]) => !tiles[y][x])) out.colsShut++; }
       }
@@ -1274,7 +1279,9 @@ check('rooms are places, columns are walls, and a buried key can still be got to
   + `${places.kinds.length} kinds across them (${places.kinds.join(', ')}); `
   + `${places.colsShut}/${places.colRooms} column rooms have all four actually shut; `
   + `${places.vaults} vaults, ${places.buried} with a key at the heart, `
-  + `${places.keyLost} unreachable; the way out is reachable in all ${places.mazes}`);
+  + `${places.keyLost} unreachable; the way out is reachable in all ${places.mazes}`
+  // name the flag that went, or a failure here is a paragraph of things that are all fine
+  + `  [inWall=${places.landmarkInWall} colsShut=${places.colsShut}/${places.colRooms} vaults=${places.vaults} unreachable=${places.unreachable}]`);
 
 // ── 8x. the ball pit gets out of your way ────────────────────────
 // Joe: "can we make the ball pit reactive to the player's movement? Don't crash the server." So the
@@ -1820,6 +1827,108 @@ check('the nav view numbers every walkable tile, and the numbers hold still',
     && Number.isFinite(nav.exitNo) && nav.exitNo <= nav.walk && nav.wallNo === '\u2014',
   `${nav.walk} walkable tiles; he starts on ${nav.hereA} and it is still ${nav.hereB} after the camera moves; `
   + `the way out is ${nav.exitNo}; a wall tile has no number`);
+
+// Joe, with a screenshot of the start-room block set off at an angle: "since you
+// can approach it from any angle it carries that angle to the tile, snaps it to
+// the player and then moves to where it needs to go. Instead the tile should stay
+// fixed in the line that it has and the player should get gently pulled into
+// alignment as the tile moves." Both halves are checked: the tile's own path, and
+// his offset closing.
+const ride = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; delete SAVE.pushLearned; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const sl = sliders.find((s2) => s2.atStart) || sliders[0];
+  if (!sl) return { skip: true };
+  const ways = blockWays(sl);
+  if (!ways.length) return { skip: true };
+  const [dx, dy] = ways[0], off = 0.34;               // walk onto it well off its centreline
+  player.x = sl.x + 0.5 + (dx ? 0 : off);
+  player.y = sl.y + 0.5 + (dy ? 0 : off);
+  held = { dx, dy }; dir = null;
+  await nap(CONFIG.pushHoldMs + 150);
+  if (!sliding) { held = null; return { skip: true }; }
+  const ax = sliding.to[0] - sliding.from[0];
+  let worstTile = 0, early = null, late = 0;
+  for (let i = 0; i < 40 && sliding; i++) {
+    const [tx, ty, k] = slidePos(sliding, gameNow());
+    // the painted position, not the computed one: this is the thing Joe saw go wrong
+    const [px2, py2] = slideDrawnAt || [tx, ty];
+    worstTile = Math.max(worstTile, ax ? Math.abs(py2 - (sliding.from[1] + 0.5)) : Math.abs(px2 - (sliding.from[0] + 0.5)));
+    const po = ax ? Math.abs(player.y - ty) : Math.abs(player.x - tx);
+    if (early === null && k > 0.05) early = po;       // he still carries his offset at the start
+    if (k > 0.85) late = Math.max(late, po);          // and none of it by the end
+    await nap(25);
+  }
+  held = null;
+  return { skip: false, off, worstTile, early, late, alignBy: CONFIG.slideAlign };
+});
+check('a pushed tile keeps its own line, and he is eased onto it',
+  !ride.skip && ride.worstTile < 0.002 && ride.early > ride.off * 0.4 && ride.late < 0.02,
+  ride.skip ? 'no start block to push on this phase'
+    : `walked on ${ride.off} tiles off the line: the tile never leaves its own straight line `
+      + `(worst ${ride.worstTile.toFixed(4)}), he still carries ${ride.early.toFixed(2)} of the offset early on, `
+      + `and is within ${ride.late.toFixed(3)} of square by the end — no snap at the start, no angle on the tile`);
+
+// ── 8f. the well, the book, and how much charcoal (v0.81.0) ──────
+
+// Joe: "I think the dark well should have collision on it so you can't actually
+// walk over it", and the book over it "made me wanna make it so you actually
+// couldn't pick up the book". Journals go to a room's middle and so does its
+// landmark, so in a landmark room the page was *always* on it — in the well's
+// mouth, on the dais, in the pool. Shutting the well made that unreachable.
+const wellBook = await page.evaluate(() => {
+  let wells = 0, shut = 0, pagesOnSolid = 0, pagesOffFloor = 0, roomsWithPages = 0, seeds = 0;
+  for (let s2 = 1; s2 <= 60; s2++) {
+    SAVE.phase = 3; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 7); seeds++;
+    const solid = new Set();
+    for (const L of landmarks) {
+      if (L.kind === 'well') { wells++; if (!tiles[L.y][L.x]) shut++; }
+      if (L.solid) solid.add(L.x + ',' + L.y);
+      for (const [x, y] of (L.cols || [])) solid.add(x + ',' + y);
+    }
+    for (const k of journals.keys()) {
+      const [jx, jy] = k.split(',').map(Number);
+      if (!tiles[jy] || !tiles[jy][jx]) pagesOffFloor++;
+      if (solid.has(k)) pagesOnSolid++;
+      roomsWithPages++;
+    }
+  }
+  return { wells, shut, pagesOnSolid, pagesOffFloor, roomsWithPages, seeds };
+});
+check('the well is shut, and no page is left standing on something solid',
+  wellBook.wells > 0 && wellBook.shut === wellBook.wells
+    && wellBook.pagesOnSolid === 0 && wellBook.pagesOffFloor === 0,
+  `${wellBook.wells} wells across ${wellBook.seeds} mazes, all ${wellBook.shut} shut against you; `
+  + `of ${wellBook.roomsWithPages} pages laid out, ${wellBook.pagesOnSolid} sit on something solid and `
+  + `${wellBook.pagesOffFloor} are off the floor`);
+
+// Joe: "we should always have enough charcoal to map the whole maze. We don't
+// need more than that." The spawn rate decides where it lies; the size of the
+// place decides how much.
+const coal = await page.evaluate(() => {
+  const rows = [];
+  for (const ph of [1, 3, 6]) {
+    let short = 0, over = 0, worstShort = 0, n = 20, pieces = 0, floorSum = 0;
+    for (let s2 = 1; s2 <= n; s2++) {
+      SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 13);
+      let floor = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) floor++;
+      const need = Math.ceil(floor / B.charcoal()), got = charcoalSpots.size;
+      pieces += got; floorSum += floor;
+      if (got < need) { short++; worstShort = Math.max(worstShort, need - got); }
+      if (got > need) over++;
+    }
+    rows.push({ who: PHASES[ph].who, floor: Math.round(floorSum / n), pieces: +(pieces / n).toFixed(1), short, over, worstShort, n });
+  }
+  return rows;
+});
+check('there is enough charcoal to map the maze, and no more',
+  coal.every((r) => r.over === 0) && coal.every((r) => r.short <= r.n * 0.1),
+  coal.map((r) => `${r.who}: ${r.floor} floor tiles, ${r.pieces} pieces on average, `
+    + `${r.over} mazes with a surplus, ${r.short}/${r.n} short`
+    + (r.worstShort ? ` (by at most ${r.worstShort})` : '')).join('; '));
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
