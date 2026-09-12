@@ -1,35 +1,35 @@
-# Maze Game — Joe's working notes
+# Maze Game — Joe's standing notes
 
-*Snapshot of Joe's live notes doc, taken 2026-09-09. The Drive doc is where
-these are actually kept and edited; this copy exists so a session without
-Drive access can read them. The to-do list at the top is the real backlog.*
+> **The backlog is not in this file, and must not be copied into it.**
+>
+> Joe keeps his live to-do list at the top of his Google Doc (`Rules for
+> Claude`, then the list). Read it there, with the Drive tools, every time. This
+> file used to hold a snapshot of that list and it went stale in three days —
+> several of its items shipped in v0.69–v0.76 while the copy still showed them
+> as open, which is exactly the failure this file now exists to prevent.
+>
+> **Order of authority: the game, then Drive, then this.**
+>
+> How to work the list is in `/maze-task` and in `CLAUDE.md` § How Joe and I
+> work. In short: read Joe's rules at the top of the doc first; take the list
+> off the top, not the Thoughts or Ideas sections; skip items already done
+> unless Joe has added a note to them.
 
-## Maze Game
+*Last reviewed 2026-09-12, at v0.76.0.*
 
-- The Dad spawns should walk into the fog of war after being there for awhile. Even if they aren't in a path.
-- We should have o let one compass arrow per map.
-- Make charcoal last 10 more tiles.
-- We should scale the map fragments to the size of the map. 20% isn't bad for medium but for x-large it's way too big. It should be like 5-10%.
-- Do we scale up the drops based off the size of the map?
-- When we introduce new mechanics, we need to make a better performance out of it.
-- I don't understand the puddle and the caretaker and the rock but visually in the pools. I think you should tap the rock and maybe drag it onto the pool then it creates a ripple effect.
-- We should show the transition in the lighting at the start of the next level when you finish the child part. Show it slowly get brighter and pull out and play some cheerful music when we do it.
-- I find I don't use chalk. Maybe others will. We should have something that requires it. Maybe.
-- Make the kid smaller
-- We should block the path final path at the main room until the player picks up the stone. "I haven't brought my burden"
-- More squeeze throughs, those are fun, can even make a multi section that goes in Different directions.
-- More moving pieces like we have.
-- Don't need to shrink the character more when going through a squeeze.
-- The chalk is huge now because of the character size. Maybe make the character a bit bigger like 10 percent.
+## What is kept here
 
-## DONE?
+What follows is the durable half of Joe's notes — the story thinking, the themes
+and the design canon. It is not a task list and nothing in it is approved to
+build. It is here because it is the answer to "what are we trying to make," and
+because it is worth re-reading before proposing anything.
 
-## To Consider
-
-- I want to know how many books I've collected this run.
-- Kind of want to let you map the whole place and give you something for it.
-- Would be nice to have little pets in the room that you can collect.
-- The controls when doing a screen share are jittery.
+Two of these sections have since become systems rather than notes: most of
+**Kid stuff** is built (crawl gaps, swings, hopscotch, a smaller body, and the
+density that let the Child's maze grow to medium — the ladder and slide are
+still deferred), and **the father** from **Abandonment** ships in every Child
+maze. `HANDOFF.md` §4 has how each of them actually landed, which is not always
+how the note imagined it.
 
 ## THOUGHTS
 

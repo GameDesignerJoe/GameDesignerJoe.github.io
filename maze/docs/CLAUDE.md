@@ -9,20 +9,29 @@ doc.
 touch, what ships with a change, and the method mistakes worth not repeating.
 Read it before taking a task from the doc.
 
-Read in this order: `HANDOFF.md`, then `PROGRESSION.md`, then `NOTES.md`.
-`labyrinth/` is a different project — reference only.
+Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
+different project — reference only.
 
 ## The docs
 
 | File | What it is |
 | --- | --- |
-| **`HANDOFF.md`** | **Start here.** Written for whoever picks up the file next, against v0.31.2 — the current build. Why things are the way they are, what was tried and rejected, engineering habits that keep it from breaking. §6 is a list of settled decisions: don't re-propose them without new reasons. |
-| **`PROGRESSION.md`** | The arc: eight phases, seven stones, the pool levels, and why each stone maps to the knob it does. Written against v0.20, so parts are behind; the file ends with a list of exactly where. |
-| **`NOTES.md`** | Joe's running notes. The list at the top is the live backlog. |
+| **`HANDOFF.md`** | **Start here.** Why things are the way they are, what was tried and rejected, and what the close camera cost. Current as of v0.76.0. §6 is a list of settled decisions — don't re-propose them without new reasons — and it ends with the three that have *changed*, so the old rejections can't be cited against them. |
+| **`PROGRESSION.md`** | The arc: eight selves, seven stones, the pools, and why each stone maps to the knob it does. §1–§7 are the design and still stand; §8 is what is actually built, current as of v0.76.0. |
+| **`ROOMS.md`** | The rooms that are places — what each of the seven landmark kinds is, and ten pitches for more. |
+| **`NOTES.md`** | Joe's *standing* notes: story thinking, themes, canon. **Not the backlog** — see below. |
+| **`LABYRINTH.md`** | The labyrinth prototype's shape, from the debug Prototype menu. |
 | `labyrinth/01`–`06` | The **other** project: first-person, hex-grid, Three.js, React/Vite/TypeScript on Vercel. Reference and inspiration. |
 
-All three Maze docs are snapshots of live Google Docs that Joe edits from his
-phone. Drive is newer than these copies; the game is newer than Drive.
+**The backlog is not in this repo.** It is the list at the top of Joe's Google
+Doc, under his "Rules for Claude", and it is read fresh with the Drive tools
+every time. `NOTES.md` used to carry a snapshot of it and went stale in three
+days, showing shipped work as open. It no longer does, and nothing should copy
+it back in.
+
+**Order of authority: the game, then Drive, then these docs.** All of the docs
+here are maintained by hand and drift; when one disagrees with the code, the
+code is right and the doc is the thing to fix.
 
 ## Layout
 
@@ -65,8 +74,8 @@ browser's parsed CSSOM and a pixel-identical render, not just by eye.
 
 **The markup stays in the shell**, and should. Moving it out would need `fetch`
 (which breaks `file://`) or JS string injection (worse to edit, and the DOM
-would no longer exist when the early scripts run). 102 lines of markup *is* the
-thin shell.
+would no longer exist when the early scripts run). 144 lines of shell *is*
+thin.
 
 ## What the game is — read from the source
 

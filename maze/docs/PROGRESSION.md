@@ -1,12 +1,17 @@
 # The Maze — Progression, Burdens & Arc
 
-*Design note, September 2026, rev. 2. Companion to the Maze notes doc and to Labyrinth 01 · Vision & Narrative. Describes how the existing prototype's features are released across the story, and what the story is. Uses only systems that exist in the prototype as of v0.20.*
+*Design note, September 2026. Companion to Joe's notes doc and to Labyrinth 01 ·
+Vision & Narrative. Describes what the story is and how the prototype's features
+are released across it.*
 
-> **Staleness warning.** This doc is written against **v0.20**; the game is at
-> **v0.31.2**. It is still the best account of the arc and of why each stone maps
-> to the knob it does, and its phase table matches the shipped `PHASES` array.
-> But §6 and §8 are out of date — see the note at the bottom of this file.
-> The game is the source of truth.
+> **This is the arc, and the arc still stands.** §1–§7 are the design: the
+> theme, the eight selves, the seven stones, the pools. They have not changed
+> and are not stale.
+>
+> **§8 is a snapshot of what was built, and it is kept current.** It was written
+> against v0.20, drifted badly, and was rewritten at v0.76.0. If it has drifted
+> again, **the game is the source of truth** — read `data/phases.js`,
+> `data/config.js` and `HANDOFF.md`, and fix this file rather than the game.
 
 ## 1. Theme
 
@@ -22,7 +27,7 @@ The characters are ordered as one life. The order happens to run from easiest to
 
 | Phase | Self | The wound | What the player gains | What the maze gains | Pages |
 | --- | --- | --- | --- | --- | --- |
-| 0 | The Child | Abandoned. "The man said wait here." | Move, push cells, chalk (X only) | Small maze. Start room with shelves, mat, basin, one chalk. Rooms for pages. No darkness, no gate, no tunnels, no pocket sliders. | 3–4, short |
+| 0 | The Child | Abandoned. "The man said wait here." | Move, push cells, chalk (X only) | Medium maze, dense rather than large. Start room with shelves, mat, basin, one chalk. No darkness, gate, tunnels or pocket sliders — but crawl gaps, swings, hopscotch, the father, the exit gauntlet and a secret room. | 3–4, short |
 | 1 | The Cartographer | Tried to control the uncontrollable. Her map is beautiful and wrong. | Charcoal, the map screen | Medium. Pocket sliders (sealed pockets with loot). Light braiding so the map can be "wrong." | 5 |
 | 2 | The Soldier | Hardened. Method against a place that won't be soldiered. | Full chalk sign set (↑→↓← X ?), compass needle | Tunnels. The required path slider — the route is no longer honest. | 5 |
 | 3 | The Archivist | Filed everything instead of feeling it. | Map scraps. The Stories reader's "read everything together" view is now understood as his. | Large. More rooms per maze. His notes reveal he built the shelves the player has seen since the first run. | 3–4, clinical until the last |
@@ -74,9 +79,12 @@ Deltas start small, 5–8% each, and stack. The Child phase is heavy but not mis
 
 The shelves show what has been gathered; the basin shows what has been put down. Same room, two ledgers.
 
-## 6. The pool exchange (parked)
+## 6. The pool exchange (built — this section is the brief it was built from)
 
-Not to be built until the rest lands. A short scene: still water, a person who loves him, the Caretaker at the edge. Tap a text button to ask a question or answer one — three exchanges at most. The climax of reconnecting is meant to be brief. Technically it slots between the gate opening and the fade-out, using the narrator element for speech and the chalk-glyph picker pattern for answers.
+*Written as a plan; shipped since. `POOLS` in `data/text.js` holds all seven.
+Kept because it is still the statement of what the scene is for.*
+
+A short scene: still water, a person who loves him, the Caretaker at the edge. Tap a text button to ask a question or answer one — three exchanges at most. The climax of reconnecting is meant to be brief. Technically it slots between the gate opening and the fade-out, using the narrator element for speech and the chalk-glyph picker pattern for answers.
 
 ## 7. The last phase — "You"
 
@@ -88,35 +96,56 @@ Each pool mends a relationship damaged by a wound. The one relationship they can
 
 Alternative if a separate phase proves unwanted: the seventh pool is a mirror; the person seen is himself; the same exchange as the others. Cheaper, and arguably truer to "the veil lifts."
 
-## 8. What exists today (v0.20)
+## 8. What exists today (v0.76.0)
 
-**Player:** move (glide, buffered turns), push cells, chalk with six signs, charcoal (50 tiles, pause/resume), map screen, map scraps (20%), compass (30s), thread (15s fade), key, lamp (occluded cone), read pages, Stories screen, shelves.
+Everything in §2–§7 is gating and drawing on top of these. **No new mechanics
+are assumed by the arc** — the pool level reuses the gate/key pair, and the
+stone in the HUD reuses the key slot.
 
-**Maze:** start room (5×5, mat, shelves, chalk, slider door), corridors with branchiness, dead ends as loot slots, rooms, tunnels, pocket sliders, path slider, exit alley and ring, gate (50%), darkness (30%; 25/40/60%; two-ring fringe), narrator, pages, four sizes with area-scaled feature counts, braiding (off).
+**The player:** move (three models — rails in corridors, free in rooms, or
+either everywhere; facing follows the ground he covers), push cells, chalk with
+six signs, charcoal, the map screen, map scraps, compass, thread, one-use keys,
+lamp (occluded cone), squeeze through crawl gaps, read pages, the Stories
+screen, shelves.
 
-Everything in §2–§7 is gating and drawing on top of these. No new mechanics are assumed. The pool level reuses the gate/key pair; the stone in the HUD reuses the key slot.
+**The maze:** a sealed start room you push your way out of; corridors with
+branchiness, straightness and fill dials; **districts** (six hearts: rings,
+thicket, comb, lattice, squeeze, shifting); **five rooms, and they are places**
+— seven landmark kinds (pool, statues, spiral, columns, dais, well, balls), two
+of them interactive; **a key vault** in every level; dead ends as loot slots;
+tunnels; pockets and sliders; swings; the exit alley and its shimmering oval;
+**a chain of locked doors with hidden keys**, placed under distance rules;
+darkness with a two-ring fringe; the narrator; pages; five sizes with
+area-scaled feature counts; braiding.
 
----
+**The Child's maze additionally:** crawl gaps on and off the route, swings,
+hopscotch, the father, the **exit gauntlet** (a tree of squeezes before the way
+out, two of its cells swinging on a clock), and a **secret room** sealed behind
+a squeeze and dark until you find its floor switch.
 
-## Where this doc is behind the game (v0.31.2)
+**Presentation:** a close camera (`tilePx` 150) with the title screen closer
+still; fog as a screen-space vignette; the chapter heading set into the floor;
+the body darkening under its burdens, band by band, with a two-beat lift at each
+pool; a floor that wears where people walk, gathers grime at its edges and is lit
+by fixtures, some of them faulty.
 
-Read the game, not this list, when they conflict. Recorded here so nobody
-rebuilds something that already ships.
+**Beyond the arc:** three prototype levels (island, labyrinth, gallery) from the
+debug menu, for trying a shape without disturbing the game.
 
-- **§6 says the pool exchange is "parked."** It is built. `POOLS` in the game
-  holds seven fully written exchanges — Father (Sight), Wife (Pace), Brother
-  (Memory), Daughter (Fear), Father again (Direction), Oldest friend (Shame),
-  Wife again (Scale) — each with approach lines, an opening, two exchanges with
-  branching choices and replies, and a close.
-- **§8's feature list predates three systems.** The game now has the **locked-door
-  chain with hidden keys** (v0.31, described in the Handoff §4 — a real system,
-  not the single 50% gate this doc describes), and the Child-phase additions:
-  **crawl gaps, swings, hopscotch, the father figure**. `PHASES` also carries a
-  per-phase `doors` count (1–3) that this doc has no equivalent for.
-- **§8 says "four sizes."** There are five: xs, sm, md, lg, xl.
-- **§2 row 0 describes the Child's maze as bare.** The shipped Child phase has
-  `crawl: 5`, `swing: 3`, `hopscotch: true`, `figure: true`, `rooms: 1.4` and
-  `bodyScale: 0.85` — the density Joe's notes asked for.
-- **The stones' knobs all landed as written.** `B` in the game maps them exactly
-  as §5 does: viewRadius, speed, charcoal, darkChance/fringe, pointerSec/pathSec,
-  keyChance. Only "Scale" has no multiplier — it is the phase's size instead.
+### Where §2 and §5 are ahead of or behind the build
+
+- **§2 row 0 describes the Child's maze as bare.** It is not, and the Child is
+  **`md`**, not small — `crawl: 5`, `swing: 3`, `hopscotch`, `figure`,
+  `rooms: 1.4`, `bodyScale: 0.68`, plus the gauntlet and the secret room. Joe's
+  rule is that size is fine if there's enough going on.
+- **`PHASES` carries a per-phase `doors` count (1–3)** that §2 has no column for.
+- **§6's pool exchange is built**, not parked. `POOLS` in `data/text.js` holds
+  seven written exchanges — Father (Sight), Wife (Pace), Brother (Memory),
+  Daughter (Fear), Father again (Direction), Oldest friend (Shame), Wife again
+  (Scale) — each with approach lines, an opening, two branching exchanges and a
+  close. The pool level was made *trivially short* on purpose after Joe found an
+  early version hard.
+- **The stones' knobs all landed as §5 writes them.** `B` maps them exactly:
+  viewRadius, speed, charcoal, darkChance/fringe, pointerSec/pathSec, keyChance.
+  Only **Scale** has no multiplier — it is the phase's size instead.
+- **Sizes: five, not four** — xs, sm, md, lg, xl.
