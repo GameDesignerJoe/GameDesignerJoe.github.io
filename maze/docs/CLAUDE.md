@@ -5,6 +5,10 @@ document here, including this one. When a doc and the game disagree, the game
 is right and the doc is history. Fix the doc; never change the game to match a
 doc.
 
+**How Joe and I work** is below — where the backlog lives, which parts of it to
+touch, what ships with a change, and the method mistakes worth not repeating.
+Read it before taking a task from the doc.
+
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`, then `NOTES.md`.
 `labyrinth/` is a different project — reference only.
 
@@ -106,6 +110,97 @@ running; bump it on every hand-off.
   ROOM_LINES, SHELF_LINES, EMPTY_SHELF, LIGHTER, NARRATOR, FIGURE_LINES, POOLS,
   TUTORIALS. Engine code holds no prose. Joe rewrites text without touching
   logic — keep it that way, and put new text in `data/text.js`, never inline.
+
+## How Joe and I work
+
+These are the standing agreements. They lived only in the chat until v0.75.1, which
+meant switching sessions lost them — everything else here survives because it is
+written down, and so should this.
+
+### Where the work comes from
+
+Joe keeps a running Google Doc and says "new tasks in the doc" when he has added
+some. Read it with the Drive tool: file id
+`14pOj9HLuiGyPlaTVYo7sLt7xNAokqSFCk1d7hOKDqrs` (a snapshot lives in `NOTES.md`,
+but Drive is always newer).
+
+- **The live backlog is the list at the very top**, above the first `DONE?`. Work
+  that, in order.
+- **Skip anything already shipped** unless he has added something under it. His
+  rule: *"refer to the list and skip the ones you've already done until I add a
+  note to them."* Re-listing an item **is** a note — it means it is still wrong.
+- **Leave `THOUGHTS`, `IDEAS`, `NOTES TO REMEMBER`, `Kid stuff` and
+  `Abandonment` alone** unless he asks. *"Don't do the thoughts or ideas section.
+  Just the list off the top."*
+- He dictates from his phone, so expect transcription slips — *"the Wesson
+  number"* is the version number, *"keep some of them clothes"* is closed. Read
+  for intent, and say which reading you took.
+- A bare `-` bullet under an item is **a screenshot you cannot see**. Say so
+  rather than guessing what is in it: twice now an item has been ambiguous and
+  the honest thing was to name the ambiguity and fix the most likely reading.
+
+### The repo
+
+- **His personal repo only**: `GameDesignerJoe/GameDesignerJoe.github.io`. Never
+  the Believer repo.
+- **Commits go straight to `main`.** GitHub Pages serves it. No Vercel, no Vite,
+  no build step — see *Running it* below.
+- End every commit message with:
+
+  ```
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+  Claude-Session: <the session URL>
+  ```
+
+### Standing decisions
+
+- **The game is the source of truth** — the rule at the top of this file.
+- **The door-key soft lock is deferred.** Joe: *"don't worry about the soft lock
+  for right now. I'll come back to it later."* Do not go after it. Report the
+  harness count when it moves — it has fallen from 15 mazes to 2 as a side effect
+  of hiding keys better, and that is worth saying, but it is still not the job.
+
+### Shipping a change
+
+On top of *Verifying a change* below:
+
+- **Look at it before claiming it works.** A Playwright shot at 430×900,
+  `deviceScaleFactor: 2` — the size he plays at. Landscape too if the change
+  touches layout; the version number collided with the title there and nowhere
+  else.
+- **Every new behaviour gets a smoke check**, and **verify the check fails when
+  the feature is reverted.** A check that cannot fail is worse than no check: it
+  reads as reassurance. Two checks in this file passed with their feature
+  deleted before that rule was applied to them.
+- Run smoke, selftest and harness; bump `VERSION`; write the change up here;
+  commit; push. Report what the harness actually says, including the deferred
+  failures.
+
+### Method — what goes wrong when it goes wrong
+
+Hard-won, mostly in v0.75.0, which took far more thrash than it should have.
+
+- **Two or three related items a batch, not seven.** The seven-item batch was
+  five interlocking generation changes, where each one shifts the geometry and
+  quietly invalidates the measurement you took a minute ago. That is where the
+  mistakes came from — not from the size of the conversation.
+- **Check that the edit landed.** A scripted edit whose `assert` throws writes
+  nothing, and the command after it may still run: numbers then get read as if
+  they reflect a change that was never made. That happened, and it sent several
+  rounds down a wrong path.
+- **Name the metric before measuring.** Key-to-door distance was measured twice
+  with the wrong one — straight-line first, then walking *through* the very door
+  being measured from — and both times the conclusion was wrong.
+- **Instrument by the second hypothesis, not the sixth.** A stuck swing took six
+  guesses and one probe; the probe took two minutes and answered it outright.
+- **One background job at a time**, and never one that edits files a foreground
+  job is editing. Two runs of the same breakage test raced and left two files in
+  their deliberately-broken state.
+- **When a check goes red after an unrelated change, suspect the check.** Four
+  did in v0.75.0 and all four were brittle, not broken code: a frame count that
+  the speed ramp invalidated, a five-seed search, an averaged pixel sample that
+  buried its own signal, and a probe that parked the player in the path of the
+  swing it was watching. Fix the probe to measure the thing it is named for.
 
 ## Working rules
 
