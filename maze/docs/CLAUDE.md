@@ -113,19 +113,23 @@ running; bump it on every hand-off.
 
 ## How Joe and I work
 
-These are the standing agreements. They lived only in the chat until v0.75.1, which
-meant switching sessions lost them — everything else here survives because it is
-written down, and so should this.
+### Joe's rules live in his doc, not here
+
+The top of the Google Doc has a **Rules for Claude** block: how to prioritise,
+how much to take on, what to report. **That is the authority — read it every time
+you open the doc, and follow it over anything in this file.** It is not copied
+here on purpose: two copies drift, and his is the one he edits.
+
+What is here instead is the mechanical stuff his rules assume, and the mistakes
+worth not repeating.
 
 ### Where the work comes from
 
-Joe keeps a running Google Doc and says "new tasks in the doc" when he has added
-some. Read it with the Drive tool: file id
-`14pOj9HLuiGyPlaTVYo7sLt7xNAokqSFCk1d7hOKDqrs` (a snapshot lives in `NOTES.md`,
-but Drive is always newer).
+He says "new tasks in the doc" when he has added some. Read it with the Drive
+tool: file id `14pOj9HLuiGyPlaTVYo7sLt7xNAokqSFCk1d7hOKDqrs` (a snapshot lives in
+`NOTES.md`, but Drive is always newer).
 
-- **The live backlog is the list at the very top**, above the first `DONE?`. Work
-  that, in order.
+- **The live backlog is the list at the very top**, above the first `DONE?`.
 - **Skip anything already shipped** unless he has added something under it. His
   rule: *"refer to the list and skip the ones you've already done until I add a
   note to them."* Re-listing an item **is** a note — it means it is still wrong.
@@ -136,8 +140,7 @@ but Drive is always newer).
   number"* is the version number, *"keep some of them clothes"* is closed. Read
   for intent, and say which reading you took.
 - A bare `-` bullet under an item is **a screenshot you cannot see**. Say so
-  rather than guessing what is in it: twice now an item has been ambiguous and
-  the honest thing was to name the ambiguity and fix the most likely reading.
+  rather than guessing what is in it.
 
 ### The repo
 
@@ -173,17 +176,20 @@ On top of *Verifying a change* below:
   reads as reassurance. Two checks in this file passed with their feature
   deleted before that rule was applied to them.
 - Run smoke, selftest and harness; bump `VERSION`; write the change up here;
-  commit; push. Report what the harness actually says, including the deferred
-  failures.
+  commit; push. **Confirm the suites passed before writing the commit message** —
+  a run that errors because the static server stopped looks nothing like a run
+  that fails, and "Smoke 55" went into a commit message once on the strength of
+  a run that had done neither.
 
 ### Method — what goes wrong when it goes wrong
 
 Hard-won, mostly in v0.75.0, which took far more thrash than it should have.
 
-- **Two or three related items a batch, not seven.** The seven-item batch was
-  five interlocking generation changes, where each one shifts the geometry and
-  quietly invalidates the measurement you took a minute ago. That is where the
-  mistakes came from — not from the size of the conversation.
+- **Group by what the items touch, not by how many there are.** v0.74.0 was five
+  items and went cleanly because they barely met each other. v0.75.0 was seven
+  where **five changed maze generation**, and each change shifts the geometry and
+  quietly invalidates the measurement you took a minute ago. Three interlocking
+  generation changes is a bad batch; five unrelated ones is a fine one.
 - **Check that the edit landed.** A scripted edit whose `assert` throws writes
   nothing, and the command after it may still run: numbers then get read as if
   they reflect a change that was never made. That happened, and it sent several
@@ -201,6 +207,9 @@ Hard-won, mostly in v0.75.0, which took far more thrash than it should have.
   the speed ramp invalidated, a five-seed search, an averaged pixel sample that
   buried its own signal, and a probe that parked the player in the path of the
   swing it was watching. Fix the probe to measure the thing it is named for.
+- **A trade-off between two things he has asked for is his call, not yours.**
+  Hiding keys better cost doors per maze. That should have gone to him as a
+  choice with the numbers attached, not been settled quietly and reported after.
 
 ## Working rules
 
