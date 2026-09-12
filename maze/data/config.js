@@ -74,13 +74,14 @@ const CONFIG = {
                         // than spinning on the last scraps of a stop
   faceTurnRate: 11,     // how fast he swings round to it. Lower is smoother and laggier; 18 was the
                         // old snap-to-four-directions rate, which had less far to turn
-  // Joe: "the speed the character automatically walks off of the mat needs to be half of the
-  // players normal speed. They're currently walking off the mat too quickly." Half of the *walk
-  // off the mat*, he clarified, not half of the player's walk — "so if it's .35 or something you
-  // can make it .17." Hence 0.175. It is also a fraction of the configured walk rather than of
-  // B.speed(), which the debug Speed slider multiplies: this is a scripted beat and has no
-  // business inheriting a debug knob, and at 1.8x the slider used to run it at 1.95 tiles/s.
-  introWalkSpeed: 0.175, // walking himself off the mat, as a fraction of CONFIG.speed (not B.speed())
+  // He asked for half, got 0.175, and played it: "yeah, I don't like the slowness they walk off the
+  // mat now. Take it back to what it was, like .35 or something." So it is back to 0.35 — half of
+  // his walk rather than half of *that*, which is what the halving was applied to last time. The
+  // earlier reading is not wrong, it just reads as a limp on a phone; this one is the one he felt.
+  // It stays a fraction of the configured walk rather than of B.speed(), which the debug Speed
+  // slider multiplies: this is a scripted beat and has no business inheriting a debug knob, and at
+  // 1.8x the slider used to run it at 1.95 tiles/s.
+  introWalkSpeed: 0.35,  // walking himself off the mat, as a fraction of CONFIG.speed (not B.speed())
   moveEase: 0.11,       // seconds to lean into a walk, and out of it again. A person has legs to get
                         // going; a go-kart does not, which is what Joe heard in the old instant start
   pushHoldMs: 260,      // lean into a slider's edge this long before it moves
@@ -193,6 +194,24 @@ const CONFIG = {
   charcoalSpawnRate: 0.19, // fraction of dead ends holding charcoal — rare on purpose; no guaranteed spawn
   tutorials: true,      // pause and explain each kind of thing the first time you find it (remembered between visits)
   startRoomChalk: 1,
+  // Joe: "we should add a starting piece of charcoal into the home room. Just make sure it's not
+  // going to be on any text and don't give it out until it's unlocked." One piece lying beside the
+  // mat, on his own row a tile to his right: the name is set into the tile above him and the
+  // chapter into the one below, and those are the text. "Unlocked" reads as the phase feature —
+  // phases without charcoal get none. It is counted *against* the maze's budget, not added to it,
+  // so "enough to map the whole maze and no more" still holds.
+  startRoomCharcoal: 1, // pieces waiting in the home room. 0 = none
+  // Joe: "the charcoal icon should have a little pulse to it every time a tile is logged. Like a
+  // little heart beat." Two knocks rather than one throb — it fires every couple of steps while
+  // you walk, so it has to register without nagging. Much smaller than the pickup flash.
+  charcoalBeatMs: 440,  // one heartbeat of the charcoal icon as a tile goes onto the map. 0 = off
+  // Joe: "when your charcoal runs out we should do a big pulse of the icon to get the attention of
+  // the player. This way they can turn on the next one if they want."
+  charcoalSpentMs: 1500,// the big pulse when a piece is used up. 0 = off
+  // Joe: "if you press and hold on charcoal it should put it into a 'locked on' state where it
+  // will continue to use the next piece of coal if you have it." A tap still pauses and resumes
+  // the piece in hand; only a hold arms the hand-off. "Honestly, if I have it, I turn it on."
+  charcoalHoldMs: 400,  // how long a press on the charcoal has to last to arm (or disarm) lock-on
   crawlGaps: 3,         // low gaps in walls only the Child fits through (per medium-sized maze; scales with area)
   crawlOnPath: 2,       // squeezes on the way out that cannot be walked round. Child phases only
   // the last stretch before the way out: a tree of squeezes, sealed off but for one mouth, where

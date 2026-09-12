@@ -1025,13 +1025,22 @@ function generate(seed) {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) floorTiles++;
 
     const want = Math.max(1, Math.ceil(floorTiles / Math.max(1, B.charcoal())));
+    // Joe: "we should add a starting piece of charcoal into the home room." His own row, one tile
+    // to his right — the name is set into the tile above him and the chapter into the one below,
+    // and he asked that it not land on either. The start room is five tiles square and wholly
+    // floor, and neither the slider (an edge tile) nor the start-room chalk (the far corner) can
+    // be here. It comes out of the budget rather than on top of it, so the maze still holds just
+    // enough charcoal to map itself and no more.
+    const home = startRoom && CONFIG.startRoomCharcoal > 0 ? (startRoom.x0 + 3) + ',' + (startRoom.y0 + 2) : null;
+    const loose = home ? Math.max(0, want - 1) : want;   // how many are left to scatter through the maze
     const have = [...charcoalSpots];
-    for (let i = want; i < have.length; i++) { charcoalSpots.delete(have[i]); taken.delete(have[i]); }
-    while (charcoalSpots.size < want) {
+    for (let i = loose; i < have.length; i++) { charcoalSpots.delete(have[i]); taken.delete(have[i]); }
+    while (charcoalSpots.size < loose) {
       const k = pickFree();
       if (!k) break;                                  // nowhere left to put one; better short than stuck
       charcoalSpots.add(k); taken.add(k);
     }
+    if (home) { charcoalSpots.add(home); taken.add(home); }
   }
   for (const kind of ['pointer', 'path']) if (!count(kind) && (kind === 'pointer' ? F.compass : F.thread)) { const k = pickFree(); if (k) { pickups.set(k, kind); taken.add(k); } }
   if (!chalkSpots.size && !poolMode) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }

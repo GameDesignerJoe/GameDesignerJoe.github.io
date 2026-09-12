@@ -363,7 +363,13 @@ function update(wall) {
       else if (hi === -1 && hopIdx > 0 && !hopscotch.includes(prevKey)) hopIdx = 0;
       else if (hi >= 0 && hi !== hopIdx && hi !== hopIdx - 1) hopIdx = hi === 0 ? 1 : 0;
     }
-    if (charcoalOn && charcoalLeft > 0) { const added = mapHere(); if (added) { charcoalLeft = Math.max(0, charcoalLeft - added); updateCharcoal(); if (charcoalLeft === 0) { charcoalOn = false; AUDIO.charcoalEnd(); } } }
+    // a tile goes onto the map: one heartbeat of the icon, so you can see it working without
+    // opening the map. When the piece runs out it pulses hard instead — and if you held the icon
+    // down at some point, the next piece picks up where this one stopped, no tap needed.
+    if (charcoalOn && charcoalLeft > 0) { const added = mapHere(); if (added) { charcoalLeft = Math.max(0, charcoalLeft - added); updateCharcoal(); beat(charcoalEl);
+      if (charcoalLeft === 0) { charcoalOn = false; AUDIO.charcoalEnd(); spentPulse(charcoalEl);
+        if (charcoalLock && charcoal > 0) { charcoal--; charcoalUsed++; charcoalLeft = B.charcoal(); charcoalOn = true; charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); }
+        updateCharcoal(); } } }
     if (charcoalSpots.has(key)) { charcoalSpots.delete(key); charcoal++; charcoalFound++; updateCharcoal(); pulse(charcoalEl); AUDIO.pickupChalk(); tutorial('charcoal'); }
     if (DIRS.filter(([dx,dy]) => isOpen(tx+dx, ty+dy)).length === 1 && key !== exit.x+','+exit.y) deadEndsEntered++;
     if (chalkSpots.has(key)) { chalkSpots.delete(key); chalk += CONFIG.chalkPerPickup; chalkFound++; updateChalk(); pulse(chalkEl); AUDIO.pickupChalk(); tutorial('chalk'); }

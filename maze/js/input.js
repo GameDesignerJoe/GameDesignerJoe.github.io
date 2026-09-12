@@ -25,7 +25,14 @@ stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('poi
 chalkEl.addEventListener('pointerdown', e => { e.stopPropagation(); useChalk(); });
 $('glyphs').addEventListener('pointerdown', e => { e.stopPropagation(); const g = e.target.closest('[data-g]'); if (g) useChalk(g.dataset.g); });
 cv.addEventListener('pointerdown', () => $('glyphs').classList.remove('show'));
-charcoalEl.addEventListener('pointerdown', e => { e.stopPropagation(); useCharcoal(); });
+// Tap toggles the piece in hand; press and hold arms lock-on. The hold fires on its own clock
+// rather than on release, so you feel it lock while your thumb is still down — and the release
+// that follows must not then also count as a tap.
+let charcoalHold = 0, charcoalHeld = false;
+charcoalEl.addEventListener('pointerdown', e => { e.stopPropagation(); charcoalHeld = false;
+  clearTimeout(charcoalHold); charcoalHold = setTimeout(() => { charcoalHeld = true; lockCharcoal(); }, CONFIG.charcoalHoldMs); });
+charcoalEl.addEventListener('pointerup', e => { e.stopPropagation(); clearTimeout(charcoalHold); if (!charcoalHeld) useCharcoal(); });
+charcoalEl.addEventListener('pointercancel', () => { clearTimeout(charcoalHold); charcoalHeld = false; });
 $('lamp').addEventListener('pointerdown', e => { e.stopPropagation(); if (!hasLamp || paused || solved) return; lampOn = !lampOn; $('lamp').classList.toggle('on', lampOn); lampOn ? AUDIO.lampOn() : AUDIO.lampOff(); });
 
 const dbg = $('dbg'), opt = { arrow: $('optArrow'), path: $('optPath'), map: $('optMap') };

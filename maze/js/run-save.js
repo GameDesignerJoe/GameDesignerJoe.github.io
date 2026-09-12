@@ -11,7 +11,7 @@ function serializeRun() {
     seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones || 0, pool: poolMode, size: SAVE.ui.size || 'auto', branch: SAVE.ui.branch || 'auto', braid: SAVE.ui.braid || 'auto', turns: SAVE.ui.turns || 'auto', clusters: SAVE.ui.clusters || 'auto', v: VERSION,
     px: player.x, py: player.y, facing, t: gameNow() - t0, steps, deadEndsEntered, leftRoom, pagesThisRun,
     marks: [...marks.entries()], mapped: [...mapped.entries()], visited: [...visited],
-    chalk, chalkUsed, chalkFound, charcoal, charcoalLeft, charcoalOn, charcoalUsed, charcoalFound,
+    chalk, chalkUsed, chalkFound, charcoal, charcoalLeft, charcoalOn, charcoalLock, charcoalUsed, charcoalFound,
     hasKey, keySpot, hasLamp, lampOn, lampSpot, gated, doorOpen: !!(poolDoor && poolDoor.openAt),
     chalkSpots: [...chalkSpots], charcoalSpots: [...charcoalSpots], scrapSpots: [...scrapSpots], pickups: [...pickups.entries()], journals: [...journals.entries()],
     pointerLeft: Math.max(0, pointerUntil - gameNow()), pathLeft: Math.max(0, pathUntil - gameNow()), pointerUses, pathUses, journalsRead,
@@ -43,7 +43,7 @@ function restoreRun(run) {
   if (!run.atHome) { player.x = run.px; player.y = run.py; cam.x = run.px; cam.y = run.py; facing = facingShown = run.facing; }
   steps = run.steps; deadEndsEntered = run.deadEndsEntered; leftRoom = run.leftRoom; pagesThisRun = run.pagesThisRun || [];
   marks = new Map(run.marks); mapped = new Map(run.mapped); visited = new Set(run.visited);
-  chalk = run.chalk; chalkUsed = run.chalkUsed; chalkFound = run.chalkFound; charcoal = run.charcoal; charcoalLeft = run.charcoalLeft; charcoalOn = run.charcoalOn; charcoalUsed = run.charcoalUsed; charcoalFound = run.charcoalFound;
+  chalk = run.chalk; chalkUsed = run.chalkUsed; chalkFound = run.chalkFound; charcoal = run.charcoal; charcoalLeft = run.charcoalLeft; charcoalOn = run.charcoalOn; charcoalLock = !!run.charcoalLock; charcoalUsed = run.charcoalUsed; charcoalFound = run.charcoalFound;
   hasKey = run.hasKey; keySpot = run.keySpot; hasLamp = run.hasLamp; lampOn = run.lampOn; lampSpot = run.lampSpot; gated = run.gated;
   if (poolDoor && run.doorOpen) poolDoor.openAt = 1;
   chalkSpots = new Set(run.chalkSpots); charcoalSpots = new Set(run.charcoalSpots); scrapSpots = new Set(run.scrapSpots); pickups = new Map(run.pickups); journals = new Map(run.journals);

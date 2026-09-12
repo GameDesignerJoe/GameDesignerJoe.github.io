@@ -53,6 +53,20 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #charcoal.active { border-color:#c9b98a; color:#c9b98a; } #charcoal.active i { border-color:#c9b98a; }
 #charcoal.empty { color:#7d786d; } #charcoal.empty i { border-color:#3c3b38; } #charcoal.empty i::after { background:#2a2c2e; }
 #charcoal.shake { animation:shakeL .3s; }
+/* a tile logged: two knocks, the second smaller — a heartbeat, not a throb */
+#charcoal.beat { animation:charbeat var(--beat, 440ms) ease-out; }
+@keyframes charbeat { 0%{ transform:scale(1); } 14%{ transform:scale(1.085); } 30%{ transform:scale(1); } 44%{ transform:scale(1.045); } 100%{ transform:scale(1); } }
+/* and the piece running out: loud, twice, so you look up and light the next one */
+#charcoal.spent { animation:charspent var(--spent, 1500ms) ease-out; }
+@keyframes charspent {
+  0%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); }
+  12%{ box-shadow:0 0 0 12px rgba(201,185,138,.34); transform:scale(1.14); }
+  40%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); }
+  56%{ box-shadow:0 0 0 12px rgba(201,185,138,.28); transform:scale(1.12); }
+  100%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); } }
+/* locked on: a standing ring round the pill, so the armed state reads at a glance */
+#charcoal.locked { border-color:#c9b98a; box-shadow:0 0 0 2px rgba(201,185,138,.3); }
+#charcoal.locked i { border-color:#c9b98a; }
 @keyframes shakeL { 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
 #mapBtn { width:48px; height:48px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.6); display:grid; place-items:center; }
 #mapBtn svg { width:24px; height:24px; }

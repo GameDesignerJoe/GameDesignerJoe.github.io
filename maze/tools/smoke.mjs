@@ -1930,6 +1930,123 @@ check('there is enough charcoal to map the maze, and no more',
     + `${r.over} mazes with a surplus, ${r.short}/${r.n} short`
     + (r.worstShort ? ` (by at most ${r.worstShort})` : '')).join('; '));
 
+// ── 8z. the charcoal: a piece at home, a heartbeat, and the hold ──
+// Joe: "we should add a starting piece of charcoal into the home room. Just make
+// sure it's not going to be on any text and don't give it out until it's
+// unlocked." The text is the name, set into the tile above the mat, and the
+// chapter, set into the one below it — both centred on the middle column of the
+// room — so the piece has to be clear of that column, and he wakes in it. And it
+// comes out of the maze's charcoal budget, not on top of it: the check above
+// this one ("enough to map the maze, and no more") is what holds that.
+const homeCoal = await page.evaluate(() => {
+  const rows = [];
+  for (const ph of [0, 1, 3, 6]) {
+    let rooms = 0, inRoom = 0, onTextCol = 0, offFloor = 0, sharedWithChalk = 0, onSlider = 0;
+    const n = 12;
+    for (let s2 = 1; s2 <= n; s2++) {
+      SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 29);
+      if (!startRoom) continue;
+      rooms++;
+      const { x0, y0, x1, y1 } = startRoom;
+      const here = [...charcoalSpots].filter((k) => { const [x, y] = k.split(',').map(Number);
+        return x >= x0 && x <= x1 && y >= y0 && y <= y1; });
+      inRoom += here.length;
+      for (const k of here) {
+        const [x, y] = k.split(',').map(Number);
+        if (x === x0 + 2) onTextCol++;            // the name, him, and the chapter all live in this column
+        if (!tiles[y][x]) offFloor++;
+        if (chalkSpots.has(k)) sharedWithChalk++;
+        if (sliders.some((sl) => sl.x === x && sl.y === y)) onSlider++;
+      }
+    }
+    rows.push({ who: PHASES[ph].who, coal: !!PHASES[ph].f.charcoal, rooms, inRoom, onTextCol, offFloor, sharedWithChalk, onSlider });
+  }
+  return rows;
+});
+{
+  const withCoal = homeCoal.filter((r) => r.coal), without = homeCoal.filter((r) => !r.coal);
+  check('a piece of charcoal waits in the home room, clear of the text — and only where charcoal exists',
+    withCoal.length > 0 && withCoal.every((r) => r.rooms > 0 && r.inRoom === r.rooms)
+      && withCoal.every((r) => r.onTextCol === 0 && r.offFloor === 0 && r.sharedWithChalk === 0 && r.onSlider === 0)
+      && without.every((r) => r.inRoom === 0),
+    homeCoal.map((r) => `${r.who}: ${r.inRoom}/${r.rooms} rooms hold one`
+      + (r.inRoom ? `, ${r.onTextCol} on the text column, ${r.offFloor} off the floor, ${r.sharedWithChalk} under the chalk, ${r.onSlider} on the block` : '')).join('; '));
+}
+
+// The icon itself: a knock per tile logged, a loud one when the piece is spent,
+// and press-and-hold arming the hand-off to the next piece. Driven through the
+// game's own walk and real pointer events, not by calling the handlers.
+const coalUI = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 1; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run;
+  SAVE.tutorials = Object.keys(TUTORIALS); persist();   // no card is allowed to pause the walk
+  reset(4242); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(300);
+  introWalk = null;
+  // Walk a long straight corridor, not the home room: lighting a piece maps where you stand and
+  // everything round it, which is the whole of a five-tile room — nothing in there would ever log
+  // a second time, and the first cut of this check sat in the room counting zero.
+  let best = null;
+  for (let y = 0; y < H; y++) { let run = 0;
+    for (let x = 0; x < W; x++) { if (tiles[y][x]) { run++; if (!best || run > best.n) best = { x: x - run + 1, y, n: run }; } else run = 0; } }
+  player = { x: best.x + 0.5, y: best.y + 0.5 }; dir = null; recenter = null; stickAim = null;
+  const anim = {};
+  charcoalEl.addEventListener('animationstart', (e) => { anim[e.animationName] = (anim[e.animationName] || 0) + 1; });
+  const walk = async (ms) => { dir = null; recenter = null; held = { dx: 1, dy: 0 }; await nap(ms); held = null; await nap(150); };
+
+  charcoal = 3; charcoalLeft = 0; charcoalOn = false; charcoalLock = false; updateCharcoal();
+  // a short tap lights the first piece — the action used to fire on pointerdown and now waits for
+  // the release, so a plain tap still has to work
+  charcoalEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  await nap(60);
+  charcoalEl.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  await nap(80);
+  const tapLit = charcoalOn, tapLocked = charcoalLock, afterTap = charcoal;
+
+  const mapped0 = mapped.size;
+  await walk(1600);                                 // and watch the icon knock as tiles go on
+  const beats = anim.charbeat || 0, logged = mapped.size - mapped0;
+
+  charcoalLeft = 2;                                 // nearly spent: the next tile finishes it
+  await walk(900);
+  const spent = { anim: anim.charspent || 0, on: charcoalOn, left: charcoalLeft, carry: charcoal };
+
+  // press and hold: arms lock-on, and lights a piece now because nothing is lit
+  charcoalEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  await nap(CONFIG.charcoalHoldMs + 200);
+  charcoalEl.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  await nap(120);
+  const held1 = { lock: charcoalLock, cls: charcoalEl.classList.contains('locked'), on: charcoalOn, carry: charcoal };
+
+  // and now the hand-off: spend the lit piece and the last one should light itself
+  charcoalLeft = 2;
+  await walk(900);
+  const handoff = { on: charcoalOn, carry: charcoal, left: charcoalLeft, spentAnim: anim.charspent || 0 };
+  charcoalEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));   // a second hold disarms it
+  await nap(CONFIG.charcoalHoldMs + 200);
+  charcoalEl.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  await nap(120);
+  const unlock = { lock: charcoalLock, cls: charcoalEl.classList.contains('locked') };
+  held = null;
+  return { tapLit, tapLocked, afterTap, beats, logged, spent, held1, handoff, unlock, hold: CONFIG.charcoalHoldMs, run: best.n };
+});
+check('a tap lights the charcoal, walking makes it beat, and spending a piece pulses it hard',
+  coalUI.tapLit && !coalUI.tapLocked && coalUI.afterTap === 2
+    && coalUI.beats >= 2 && coalUI.logged > 0 && coalUI.spent.anim >= 1 && !coalUI.spent.on && coalUI.spent.left === 0,
+  `tap lit it (${coalUI.tapLit}) without locking it (${!coalUI.tapLocked}), leaving ${coalUI.afterTap} in the pocket; `
+  + `walking a ${coalUI.run}-tile corridor put ${coalUI.logged} tiles on the map and knocked the icon ${coalUI.beats} times; `
+  + `the piece then ran out, the icon pulsed hard ${coalUI.spent.anim} time(s) and nothing lit itself `
+  + `(${!coalUI.spent.on}, ${coalUI.spent.carry} still carried)`);
+check('press and hold locks the charcoal on, and the next piece lights itself',
+  coalUI.held1.lock && coalUI.held1.cls && coalUI.held1.on && coalUI.held1.carry === 1
+    && coalUI.handoff.on && coalUI.handoff.carry === 0 && coalUI.handoff.left > 2
+    && coalUI.handoff.spentAnim > coalUI.spent.anim
+    && !coalUI.unlock.lock && !coalUI.unlock.cls,
+  `a ${coalUI.hold}ms hold armed it (${coalUI.held1.lock}), lit a piece on the spot and left ${coalUI.held1.carry} carried; `
+  + `that piece ran out and the last one lit itself — ${coalUI.handoff.left} tiles on it, ${coalUI.handoff.carry} left in the pocket; `
+  + `a second hold disarmed it (${!coalUI.unlock.lock})`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

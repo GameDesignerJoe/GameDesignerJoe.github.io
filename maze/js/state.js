@@ -9,6 +9,7 @@ let player, cam, steps = 0, t0 = 0, solved = false, debugMap = false, started = 
 let marks = new Map();   // 'x,y' → glyph: 'x' | '?' | 'up' | 'right' | 'down' | 'left'
 let chalk = 0, chalkUsed = 0, chalkFound = 0, deadEndsEntered = 0;
 let charcoal = 0, charcoalLeft = 0, charcoalUsed = 0, charcoalFound = 0, charcoalOn = false;   // charcoalLeft: tiles of mapping remaining on the active piece
+let charcoalLock = false;   // held down once: when the piece in hand runs out, take the next one without asking
 let visited = new Set();   // every tile you've stood on this run
 let mapped = new Map();   // 'x,y' → 'floor' | 'wall' | 'tunnel' — everything the map knows
 let pointerUntil = 0, pathUntil = 0, pointerUses = 0, pathUses = 0;
@@ -34,8 +35,19 @@ let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0, pagesThisRun
 const $ = id => document.getElementById(id);
 const chalkEl = $('chalk'), charcoalEl = $('charcoal'), fxEl = $('fx'), keyEl = $('key'), narrEl = $('narr');
 $('verDbg').textContent = 'v' + VERSION; $('verTitle').textContent = 'v' + VERSION;
+// the two charcoal animations run on CONFIG's clock, not the stylesheet's, so both stay tunable
+// from data/config.js like everything else he retunes by feel
+charcoalEl.style.setProperty('--beat', CONFIG.charcoalBeatMs + 'ms');
+charcoalEl.style.setProperty('--spent', CONFIG.charcoalSpentMs + 'ms');
 
 function pulse(el) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+// Two smaller knocks rather than the pickup flash. Joe: "the charcoal icon should have a little
+// pulse to it every time a tile is logged. Like a little heart beat." This fires every couple of
+// steps while you are walking with it lit, so it is deliberately quiet.
+function beat(el) { if (!CONFIG.charcoalBeatMs) return; el.classList.remove('beat'); void el.offsetWidth; el.classList.add('beat'); }
+// And the loud one, for the moment a piece is spent. Joe: "we should do a big pulse of the icon to
+// get the attention of the player. This way they can turn on the next one if they want."
+function spentPulse(el) { if (!CONFIG.charcoalSpentMs) return; el.classList.remove('spent'); void el.offsetWidth; el.classList.add('spent'); }
 function keyGlyph(shape, color) { const c = color || '#e0c98a'; return shape === 'circle' ? `<circle cx="11" cy="11" r="6" fill="none" stroke="${c}" stroke-width="2.4"/>` : shape === 'triangle' ? `<path d="M11 4l7 13H4z" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round"/>` : `<rect x="5" y="5" width="12" height="12" fill="none" stroke="${c}" stroke-width="2.4"/>`; }
 function renderKeys() { $('keys').innerHTML = [...heldKeys].map(sh => `<svg viewBox="0 0 22 22">${keyGlyph(sh)}</svg>`).join(''); }
 function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
@@ -56,6 +68,17 @@ function updateCharcoal() {
   charcoalEl.classList.toggle('active', charcoalOn && charcoalLeft > 0);
   charcoalEl.classList.toggle('paused', !charcoalOn && charcoalLeft > 0);
   charcoalEl.classList.toggle('empty', charcoalLeft <= 0 && charcoal === 0);
+  charcoalEl.classList.toggle('locked', charcoalLock);
+}
+// The hold. A tap pauses and resumes the piece in hand; holding arms the hand-off, so the next
+// piece lights itself the moment this one is gone. Arming it with nothing lit lights one now —
+// Joe: "honestly, if I have it, I turn it on."
+function lockCharcoal() {
+  if (solved || !started || sliding || paused) return;
+  charcoalLock = !charcoalLock;
+  if (charcoalLock) { AUDIO.charcoalStart(); if (!charcoalOn && (charcoalLeft > 0 || charcoal > 0)) useCharcoal(); }
+  else AUDIO.charcoalEnd();
+  pulse(charcoalEl); updateCharcoal();
 }
 function useCharcoal() {
   if (solved || !started || sliding || paused) return;
@@ -108,7 +131,7 @@ function reset(seed) {
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; moveVel = 0; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
   pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; shelfStandKey = ''; shelfStandAt = 0; shelfShown = ''; pagesThisRun = []; heldKeys = new Set(); renderKeys(); crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; tttWon = false; secretSaid = false; secretOn = false; secretLitAt = 0; figureLinesSaid = 0; hasKey = false; exitGateAt = 0; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
-  charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal();
+  charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalLock = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal();
   if (startRoom) { const { x0, y0, x1, y1 } = startRoom; for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mapped.set(x+','+y, isOpen(x, y) ? 'floor' : 'wall'); }   // home is always on the map keyEl.classList.remove('show');
   { const mine = SELF_LINES[character.name] || SELF_LINES['You'];
     let fresh = mine.filter(l => !SAVE.narrPlayed.includes(l));

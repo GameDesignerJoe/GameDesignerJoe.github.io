@@ -481,6 +481,69 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The charcoal, in the hand and on the icon (v0.82.0)
+
+Four asks about one widget, plus a speed he wanted back. Nothing here touches
+generation except where the first piece lies, and that was made to cost the maze
+a piece rather than add one.
+
+**A piece waiting in the home room.** Joe: *"we should add a starting piece of
+charcoal into the home room. Just make sure it's not going to be on any text and
+don't give it out until it's unlocked."* It lies on his own row, one tile to his
+right. The text is the two things set into the floor around him — the name in the
+tile above, the chapter in the tile below — so the middle column of the room is
+the part that had to stay clear, and that is what the check asserts rather than
+the coordinate. *"Unlocked"* is read as the phase feature: the Child's maze has no
+charcoal and gets none.
+
+It is subtracted from the maze's budget, not added to it. **"Enough to map the
+whole maze and no more" is a standing agreement** (v0.79.0) with a check behind
+it, and a free extra piece would have quietly broken it — the budget block now
+scatters one fewer and places the home piece itself.
+
+**A heartbeat per tile logged.** Joe: *"the charcoal icon should have a little
+pulse to it every time a tile is logged. Like a little heart beat."* Two knocks,
+the second smaller, deliberately far quieter than the pickup flash — it fires
+every couple of steps for as long as you walk with it lit, so it has to register
+without nagging. `charcoalBeatMs`.
+
+**And a loud one when a piece is spent**, which is the moment you can do
+something about: *"we should do a big pulse of the icon to get the attention of
+the player. This way they can turn on the next one if they want."*
+`charcoalSpentMs`.
+
+**Press and hold to lock it on.** *"It will continue to use the next piece of
+coal if you have it."* A tap still pauses and resumes the piece in hand; the hold
+arms the hand-off, and arming it with nothing lit lights one on the spot, because
+*"honestly, if I have it, I turn it on."* A second hold disarms it. `charcoalLock`
+rides in the run save, so it survives a reload like everything else.
+
+The tap **moved from `pointerdown` to `pointerup`** to make room for the hold —
+the hold fires on its own clock while your thumb is still down, and the release
+after it must not also count as a tap. That is the only regression risk in the
+batch, so the check taps as well as holds.
+
+**The walk off the mat, back to 0.35.** *"Yeah, I don't like the slowness they
+walk off the mat now. Take it back to what it was, like .35 or something."* And
+0.35 is literally what it was: v0.77.0 left it there on purpose (see that
+section — the real bug was the debug Speed slider multiplying a scripted beat),
+then a later reading of *"half"* took it to 0.175. He has now played both. The
+0.175 reading was not wrong on the words; it reads as a limp on a phone. The
+existing check only asserts the beat ignores the slider, which is still true at
+either speed, so nothing there had to move.
+
+**Three checks, all three proven to fail reverted** — separately, one run each,
+because two of them share the spent pulse and would otherwise have covered for
+each other: `startRoomCharcoal: 0` reddens the home-room check alone; deleting
+`beat()` and `spentPulse()` reddens both icon checks; gutting the hold and the
+hand-off reddens the lock check alone. 72 behaviour checks now.
+
+The first cut of the icon check **sat in the home room counting zero beats**.
+Lighting a piece maps where you stand *and everything around it*, which is the
+whole of a five-tile room — nothing in there can ever be logged a second time. It
+walks the maze's longest straight corridor now. Ten minutes of probe beat an hour
+of staring at the animation code.
+
 ## The tile that carried his angle, the well, and the charcoal (v0.81.0)
 
 **The push, settled properly.** Joe sent a screenshot of the start-room block set
