@@ -481,6 +481,52 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The music nobody could hear (v0.78.0)
+
+Joe: *"the music for the soldier is not really firing as much as expected. Just
+picking up the ambient noise, not the actual soldier melody. Check and confirm
+all characters have their music tracks playing correctly."*
+
+**The report was true and the reason was not the one given.** The Soldier's
+melody fires exactly as written — measured, twelve notes in eleven seconds. It
+plays at a median of **110Hz with a floor of 55Hz**, and a phone speaker has
+nothing to reproduce that with. He was hearing the bed because the tune was
+below his speaker, not because it wasn't playing.
+
+The audit he asked for found three more of the same: **the Criminal** with every
+note under 150Hz (median 82, floor 41), **the Priest's organ** bottoming at
+123Hz, and **the pad** for The One Who Stayed at 175Hz. Four of nine selves,
+worst at the phases he has not reached yet.
+
+**The fix is a rule, not a special case.** Any note written below
+`bassCarrierHz` has its pitch doubled up in octaves until it clears the band,
+at `bassLift` of the note's volume. The fundamental is left where it is, so on
+anything with a woofer the bottom is still down there — this is how a bass is
+mixed for small speakers, and octave doubling is what an organ's stops are, so
+it sits honestly on those voices too. Soldier median 110 → 220, Criminal 82 →
+330.
+
+**The sound toggle now restarts the audio** rather than muting it, which is what
+Joe asked for. It used to ride the master gain to 0 and back while the bed and
+the composer ran on in silence, so switching back on dropped you in mid-bar.
+`stopDrone()` tears it down; the next switch-on builds it again from nothing.
+
+Three checks (61 now), each confirmed red with its fix removed. Two things
+learned building them:
+
+- **A test that models the fix passes with the fix deleted.** The first coverage
+  check carried its own table of which instrument stacks which partials, got the
+  organ wrong, and would have gone on passing if the carrier were deleted. It
+  asks `AUDIO.carrierFor()` now — the engine's own rule — which is also why that
+  function is exposed.
+- **Tearing the drone down broke a check three sections earlier.** The debug
+  panel walk toggles every control, `optSound` included. That used to be
+  harmless because the composer kept running through the mute; now it stops, so
+  the music checks were measuring a silent game about one run in four. They set
+  their own preconditions now, and they **wait for a motif bar** rather than
+  assume a window — a motif bar ignores density and rests, so it always plays,
+  which turns the sparsest selves in the game from a coin flip into a certainty.
+
 ## The screen, after he played it on his phone (v0.77.0)
 
 Five items off the doc, none of them touching maze generation, so they could go

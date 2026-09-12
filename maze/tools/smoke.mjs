@@ -43,13 +43,16 @@ const ctx = await browser.newContext({
 await ctx.addInitScript(() => {
   window.__peak = 0;
   window.__osc = 0;          // oscillators created — the drone and every music note make one
+  window.__voices = [];      // {t, oscillator} per voice, so a note's voices can be grouped
   const Native = window.AudioContext || window.webkitAudioContext;
   if (!Native) return;
   class Probed extends Native {
     constructor(...a) {
       super(...a);
       const osc = this.createOscillator.bind(this);
-      this.createOscillator = (...b) => { window.__osc++; return osc(...b); };
+      this.createOscillator = (...b) => { window.__osc++; const n = osc(...b);
+        // every voice of one note is made in the same tick, so the tick groups them
+        window.__voices.push({ t: performance.now(), n }); return n; };
       const g = this.createGain.bind(this);
       this.createGain = (...b) => {
         const n = g(...b);
@@ -1550,6 +1553,111 @@ check('he is drawn with a light edge, so he cannot sink into the floor',
   edge.brightest > 200 && edge.brightest - edge.darkest > 90,
   `carrying ${edge.stones} stones, the box around him runs ${edge.darkest.toFixed(0)} to ${edge.brightest.toFixed(0)} `
   + `— a body that dark needs an edge that bright to stay findable`);
+
+// ── 8c. every self's melody lands where a phone can sound it (v0.77.0) ──
+//
+// Joe: "the music for the soldier is not really firing as much as expected. Just
+// picking up the ambient noise, not the actual soldier melody." It was firing —
+// at a median of 110Hz with a floor of 55Hz, which a phone speaker cannot
+// reproduce. The Criminal was worse: every note under 150Hz. Two checks, because
+// one alone would not have caught it: play the two bass selves for real, and work
+// out the lowest note every preset can reach.
+const AUDIBLE = 180;   // Hz a phone can be relied on to sound
+
+const heard = await page.evaluate(async (floorHz) => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const out = {};
+  // Establish the precondition rather than inherit it: the debug-panel check earlier in this
+  // suite walks every control, optSound included, and since v0.78.0 switching sound off really
+  // does tear the composer down instead of muting it. Left to chance, this check measured a
+  // silent game and blamed the music.
+  AUDIO.setEnabled(true); AUDIO.begin();
+  await nap(2800);                                   // the first bar is scheduled 2.5s in
+  for (const name of ['The Soldier', 'The Criminal']) {
+    AUDIO.setMusic(name);
+    await nap(400);
+    window.__voices.length = 0;
+    // Wait for notes rather than assume a window. These two are the sparsest selves in the game
+    // and a fixed nine seconds caught nothing about one run in four — a check that cries wolf gets
+    // ignored, which is worse than not having it. A motif bar ignores density and rests and always
+    // plays, so one is guaranteed inside motifEvery bars: the Soldier's every 2 (~7s), the
+    // Criminal's every 3 (~12s). 18s is past both with room to spare.
+    const byTick = new Map();
+    for (let waited = 0; waited < 18000; waited += 250) {
+      await nap(250);
+      for (const v of window.__voices) {
+        const k = Math.round(v.t / 40);               // voices of one note are made in the same tick
+        byTick.set(k, Math.max(byTick.get(k) || 0, v.n.frequency.value || 0));
+      }
+      window.__voices.length = 0;
+      if (byTick.size >= 4) break;                    // a motif bar's worth: enough to judge
+    }
+    const tops = [...byTick.values()].filter((f) => f > 0);
+    out[name] = { notes: tops.length, mute: tops.filter((f) => f < floorHz).length, lowestTop: tops.length ? Math.min(...tops) : 0 };
+  }
+  return out;
+}, AUDIBLE);
+{
+  const rows = Object.entries(heard);
+  // One note each is the bar, not two: these two selves are the sparsest in the game (the Criminal
+  // rests 40% of bars at density 0.35) and a nine-second window does not reliably hold more. The
+  // count is only here so that a silent game cannot pass "none of them were inaudible" vacuously —
+  // the coverage across all nine presets is the check below.
+  const played = rows.every(([, r]) => r.notes >= 1);
+  const allHeard = rows.every(([, r]) => r.mute === 0);
+  check('the bass selves are pitched where a phone can sound them',
+    played && allHeard,
+    rows.map(([n, r]) => `${n}: ${r.notes} notes, ${r.mute} of them with nothing above ${AUDIBLE}Hz, `
+      + `quietest note topping out at ${r.lowestTop.toFixed(0)}Hz`).join('; '));
+}
+
+// And the same property for every self, from the presets rather than the clock —
+// a real-time pass over all nine would add a minute to this suite to catch a
+// character Joe has not reached yet.
+const reach = await page.evaluate((floorHz) => {
+  const bad = [];
+  for (const [name, p] of Object.entries(MUSIC)) {
+    const n = p.scale.length;
+    const degrees = [...(p.motif || []), -1, 0];           // -1 is the lowest a random beat can pick
+    for (const deg of degrees) {
+      const oct = Math.floor(deg / n), st = p.scale[((deg % n) + n) % n] + 12 * oct;
+      const f = p.root * Math.pow(2, st / 12);
+      // the rule, asked of the game rather than modelled here: a note either clears the
+      // floor on its own, or the engine carries its pitch up until it does
+      const carrier = AUDIO.carrierFor(f);
+      const top = Math.max(f, carrier * 2);
+      if (top < floorHz) bad.push(`${name}: a ${f.toFixed(0)}Hz note reaches only ${top.toFixed(0)}Hz`);
+    }
+  }
+  return { bad, count: Object.keys(MUSIC).length };
+}, AUDIBLE);
+check(`no self's melody sits below what a phone can play (${reach.count} presets)`,
+  reach.bad.length === 0,
+  reach.bad.length ? reach.bad.join('; ')
+    : `every preset's lowest reachable note is either above ${AUDIBLE}Hz already or carried up to it`);
+
+// Joe: "turning the debug sound on and off should restart the audio." It used to
+// ride the master gain to 0 and back, leaving the bed and the composer running on
+// in silence, so switching back on rejoined them mid-bar.
+const restart = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  AUDIO.setEnabled(true); await nap(300);
+  const before = window.__osc;
+  await nap(400);
+  const ranOn = window.__osc > before;                 // the bed is alive and making voices
+  AUDIO.setEnabled(false); await nap(700);             // past the 350ms teardown
+  const atOff = window.__osc;
+  await nap(1200);
+  const quiet = window.__osc === atOff;                // nothing still playing behind the silence
+  AUDIO.setEnabled(true); await nap(900);
+  const rebuilt = window.__osc > atOff;                // and switching on builds a new bed
+  AUDIO.setEnabled(true);
+  return { ranOn, quiet, rebuilt, made: window.__osc - atOff };
+});
+check('the sound toggle restarts the audio rather than muting it',
+  restart.quiet && restart.rebuilt,
+  `with it off nothing new is voiced for over a second (${restart.quiet}); switching it back on builds the bed again `
+  + `(${restart.made} new voices). Muting alone would have kept the composer running through the silence`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

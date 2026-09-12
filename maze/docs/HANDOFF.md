@@ -95,6 +95,14 @@ go back. The game is the process of becoming ready.
 - **Sound is synthesized**, no files: a drone/wind bed and a generative composer
   with one preset per self. Real tracks via ElevenLabs are the intended upgrade
   once a preset lands — the preset then becomes the brief.
+  **A preset has to clear what a phone can sound.** Four of the nine were written
+  partly or wholly below it — the Soldier at a median of 110Hz, the Criminal with
+  every note under 150Hz — so their melodies simply did not exist on Joe's
+  device while the bed did, which reads exactly like "the music isn't firing".
+  Any note under `bassCarrierHz` now has its pitch carried up in octaves until it
+  clears; the fundamental stays, so the weight is still there on real speakers.
+  Write a new preset as low as the character wants, but check
+  `AUDIO.carrierFor()` covers it.
 
 ## 3. The close camera, and what it cost (v0.70.0 →)
 

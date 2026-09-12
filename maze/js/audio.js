@@ -16,6 +16,18 @@ const AUDIO = (() => {
     return true;
   }
   function noiseBuffer(sec) { const b = ac.createBuffer(1, ac.sampleRate * sec, ac.sampleRate), d = b.getChannelData(0); for (let i=0;i<d.length;i++) d[i] = Math.random()*2-1; return b; }
+  // Joe: "turning the debug sound on and off should restart the audio." It used to ride the master
+  // gain down to 0 and back up, so the bed and the composer ran on silently and you rejoined them
+  // mid-bar. Tearing the drone down means the next switch-on builds it again from nothing: the bed
+  // fades up from zero and the composer starts at bar 0. `beat` already bails when there is no
+  // drone, so the note timers still in flight expire harmlessly.
+  function stopDrone() {
+    if (!drone) return;
+    clearTimeout(drone.noteTimer);
+    for (const n of drone.nodes) { try { n.stop(); } catch (e) {} }
+    drone = null;
+  }
+
   function startDrone() {
     if (drone || !ensure()) return;
     drone = { nodes: [] };
@@ -41,12 +53,33 @@ const AUDIO = (() => {
     const play = (freq, dur, preset, vol) => {
       const t = ac.currentTime, g = ac.createGain(); g.connect(out); g.connect(echo);
       const mk = (type, f, det, gain, a, d, lpf) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = det || 0; const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lpf; const gg = ac.createGain(); gg.gain.setValueAtTime(0, t); gg.gain.linearRampToValueAtTime(gain, t + a); gg.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(lp); lp.connect(gg); gg.connect(g); o.start(t); o.stop(t + d + 0.1); };
+      // Any note written below what a small speaker can sound gets its pitch carried up into the
+      // band, whatever the instrument. It began as a fix for the two bass selves and then the audit
+      // Joe asked for found the same thing under the Priest's organ (123Hz) and the pad (175Hz), so
+      // it is a rule rather than a special case. Octave doubling is what an organ's stops are, so
+      // it sits well on those voices too. The fundamental is left alone: on a speaker with a woofer
+      // the bottom is still down there.
+      const carrier = carrierFor(freq);
+      if (carrier) {
+        mk('triangle', carrier, preset.detune || 0, vol * CONFIG.bassLift, 0.02, dur, carrier * 4);
+        mk('sine', carrier * 2, 0, vol * CONFIG.bassLift * 0.4, 0.02, dur * 0.7, carrier * 8);
+      }
       switch (preset.inst) {
         case 'musicbox': mk('sine', freq, 0, vol, 0.005, dur * 0.9, 6000); mk('sine', freq * 3, 0, vol * 0.18, 0.005, dur * 0.35, 8000); mk('triangle', freq * 2, 0, vol * 0.12, 0.005, dur * 0.5, 6000); break;
         case 'pluck':    mk('triangle', freq, 0, vol, 0.004, dur * 0.7, 2600); mk('sine', freq * 2, 0, vol * 0.25, 0.004, dur * 0.3, 4000); break;
         case 'organ':    mk('sine', freq, 0, vol * 0.7, dur * 0.35, dur * 1.6, 1800); mk('sine', freq * 1.5, 0, vol * 0.45, dur * 0.4, dur * 1.5, 1800); mk('sine', freq * 2, 0, vol * 0.3, dur * 0.45, dur * 1.4, 1800); break;
         case 'pad':      mk('sine', freq, -4, vol * 0.7, dur * 0.5, dur * 2.2, preset.bright ? 3000 : 1200); mk('triangle', freq, 5, vol * 0.35, dur * 0.6, dur * 2, 1000); break;
-        case 'bass':     mk(preset.grit ? 'sawtooth' : 'triangle', freq, preset.detune || 0, vol * 0.9, 0.02, dur * 1.1, preset.grit ? 380 : 500); if (preset.grit) mk('sawtooth', freq, -(preset.detune || 0), vol * 0.5, 0.02, dur, 300); break;
+        case 'bass':
+          // Joe: "the music for the soldier is not really firing as much as expected. Just picking
+          // up the ambient noise, not the actual soldier melody." It was firing — measured, twelve
+          // notes in eleven seconds — at a median of 110Hz with a floor of 55Hz, and a phone
+          // speaker has nothing to reproduce that with. The Criminal was worse: every note under
+          // 150Hz. Rather than raise the roots and lose the weight, the fundamental stays where it
+          // is and the pitch is carried up into the band a phone can actually sound, the way a bass
+          // is mixed for small speakers. On anything with a woofer the bottom is still there.
+          mk(preset.grit ? 'sawtooth' : 'triangle', freq, preset.detune || 0, vol * 0.9, 0.02, dur * 1.1, preset.grit ? 380 : 500);
+          if (preset.grit) mk('sawtooth', freq, -(preset.detune || 0), vol * 0.5, 0.02, dur, 300);
+          break;
         case 'tick':     mk('square', freq, 0, vol * 0.5, 0.002, 0.09, 2200); mk('sine', freq, 0, vol * 0.35, 0.002, dur * 0.45, 3000); break;
       }
     };
@@ -78,6 +111,16 @@ const AUDIO = (() => {
     const ng = ac.createGain(); ng.gain.value = 0.05; const wl = ac.createOscillator(); wl.frequency.value = 0.09; const wg = ac.createGain(); wg.gain.value = 0.03;
     wl.connect(wg); wg.connect(ng.gain); n.connect(bp); bp.connect(ng); ng.connect(out); n.start(); wl.start(); drone.nodes.push(n, wl);
   }
+  // How high a note has to be doubled to clear what a phone can reproduce, or 0 if it already
+  // does. Exposed on AUDIO so tools/smoke.mjs can assert the rule instead of keeping its own copy
+  // of which instrument stacks which partials — that copy would drift, and a test that models the
+  // fix rather than reading it passes with the fix deleted.
+  function carrierFor(freq) {
+    if (!(freq > 0) || freq >= CONFIG.bassCarrierHz) return 0;
+    let c = freq; while (c < CONFIG.bassCarrierHz) c *= 2;
+    return c;
+  }
+
   function tone(freq, dur, { type = 'sine', vol = 0.3, attack = 0.005, slide = null, bus = null } = {}) {
     if (!ensure()) return; const t = ac.currentTime;
     const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
@@ -122,7 +165,21 @@ const AUDIO = (() => {
     unlock() { if (ensure() && ac.state === 'suspended') ac.resume(); },
     begin() { this.unlock(); startDrone(); },
     setMusic(name) { currentMusic = name; },
-    setEnabled(on) { enabled = on; if (ensure()) master.gain.linearRampToValueAtTime(on ? 1 : 0, ac.currentTime + 0.3); },
+    carrierFor,
+    setEnabled(on) {
+      enabled = on;
+      if (!ensure()) return;
+      master.gain.cancelScheduledValues(ac.currentTime);
+      if (on) {
+        master.gain.setValueAtTime(0, ac.currentTime);
+        master.gain.linearRampToValueAtTime(1, ac.currentTime + 0.3);
+        this.unlock(); startDrone();                       // built again from nothing, not unmuted
+      } else {
+        master.gain.setValueAtTime(master.gain.value, ac.currentTime);
+        master.gain.linearRampToValueAtTime(0, ac.currentTime + 0.3);
+        setTimeout(stopDrone, 350);                        // after the fade, so it does not clip off
+      }
+    },
     step(inTunnel) { noise(0.06, { vol: inTunnel ? 0.05 : 0.09, freq: inTunnel ? 400 : 900 + Math.random()*300, q: 2 }); },
     bump() { tone(70, 0.12, { type: 'triangle', vol: 0.25, slide: 40 }); },
     chalkDown() { noise(0.18, { vol: 0.22, freq: 3200, q: 0.8, type: 'highpass' }); },

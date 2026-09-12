@@ -75,15 +75,12 @@ const CONFIG = {
   faceTurnRate: 11,     // how fast he swings round to it. Lower is smoother and laggier; 18 was the
                         // old snap-to-four-directions rate, which had less far to turn
   // Joe: "the speed the character automatically walks off of the mat needs to be half of the
-  // players normal speed. They're currently walking off the mat too quickly." Measured, it was
-  // already 0.35 of it — so half would be *faster*, and that cannot be what he meant. What he is
-  // most likely feeling is the debug Speed slider: the walk off the mat used to be 0.35 of
-  // B.speed(), which the slider multiplies, so turning himself up turned the intro up with him.
-  // It is a scripted beat and has no business inheriting a debug knob, so it is a fraction of the
-  // configured walk now and holds still whatever the slider says. The fraction is left where it
-  // was, because changing it to the number he named would make the thing he called too quick
-  // quicker still. Waiting on him for the value.
-  introWalkSpeed: 0.35, // walking himself off the mat, as a fraction of CONFIG.speed (not B.speed())
+  // players normal speed. They're currently walking off the mat too quickly." Half of the *walk
+  // off the mat*, he clarified, not half of the player's walk — "so if it's .35 or something you
+  // can make it .17." Hence 0.175. It is also a fraction of the configured walk rather than of
+  // B.speed(), which the debug Speed slider multiplies: this is a scripted beat and has no
+  // business inheriting a debug knob, and at 1.8x the slider used to run it at 1.95 tiles/s.
+  introWalkSpeed: 0.175, // walking himself off the mat, as a fraction of CONFIG.speed (not B.speed())
   moveEase: 0.11,       // seconds to lean into a walk, and out of it again. A person has legs to get
                         // going; a go-kart does not, which is what Joe heard in the old instant start
   pushHoldMs: 260,      // lean into a slider's edge this long before it moves
@@ -280,6 +277,15 @@ const CONFIG = {
   narratorFirstSec: 2.5,// first line arrives just after the fade
   narratorHoldSec: 6,   // how long a line stays readable (plus fades)
 
+  // The Soldier and the Criminal are written on a bass, low enough that a phone speaker cannot
+  // sound their fundamental at all — so their melodies were inaudible while everyone else's came
+  // through. Each bass note is doubled an octave and two octaves up at this share of its volume,
+  // which puts the tune in the band a phone can reproduce without turning the bass into a lead.
+  // 0 = back to fundamental only, and back to being unhearable on a phone.
+  bassLift: 0.5,        // how loud the octave-up voices under a bass note are, relative to it
+  bassCarrierHz: 200,   // and how high they climb: the note is doubled up in octaves until it
+                        // clears this, so the tune lands in the band a phone can sound however low
+                        // the fundamental goes. The Criminal's floor is 41Hz, which needs three
   sound: true,          // ambient drone + effects (toggle in the gear panel)
   musicVolume: 0.35,
   sfxVolume: 0.8,
