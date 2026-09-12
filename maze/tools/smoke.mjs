@@ -767,12 +767,14 @@ const corner = await page.evaluate(async () => {
   // measured inside the frame loop against the game's own dt — sampling from a second rAF loop
   // reads high, because its callback and the game's do not share a clock reading
   const walk = B.speed(), rates = [], realUpdate = update;
-  let lastWall = null;
+  let lastWall = null, gone = 0, movedX = 0, movedY = 0;
   update = function (wall) {
     const bx = player.x, by = player.y;
     const dt = lastWall == null ? 0 : Math.min(0.05, (wall - lastWall) / 1000); lastWall = wall;
     realUpdate(wall);
-    if (dt > 0) rates.push(Math.hypot(player.x - bx, player.y - by) / (walk * dt));
+    const d = Math.hypot(player.x - bx, player.y - by);
+    gone += d; movedX += Math.abs(player.x - bx); movedY += Math.abs(player.y - by);
+    if (dt > 0) rates.push(d / (walk * dt));
   };
   held = { dx: 1, dy: 0 };
   const t0b = performance.now();
@@ -782,12 +784,15 @@ const corner = await page.evaluate(async () => {
     requestAnimationFrame(step); }; step(); });
   held = null; update = realUpdate;
   const moving = rates.filter((r) => r > 0.2);
-  return { frames: moving.length, worst: Math.max(...moving), turned: moving.length > 20 };
+  // Distance, not frame count: the speed now eases in over CONFIG.moveEase, so how many frames clear
+  // a rate threshold depends on where the ramp happens to fall. Ground covered does not.
+  return { frames: moving.length, gone, worst: Math.max(...moving),
+    turned: gone > 0.8 && movedX > 0.2 && movedY > 0.2 };
 });
 check('going round a corner is walking speed, not a sprint across it',
   corner.skip || (corner.turned && corner.worst < 1.05),
   corner.skip ? 'no corner on this route' :
-  `${corner.frames} frames of walking through a corner, none faster than ${corner.worst.toFixed(2)}x walking speed (the crab across a corner used to hit 1.89x)`);
+  `${(corner.gone || 0).toFixed(2)} tiles walked through a corner over ${corner.frames} frames, none faster than ${corner.worst.toFixed(2)}x walking speed (the crab across a corner used to hit 1.89x)`);
 
 // ── 8m. the clock, and the log of what you have finished ──────────
 const log = await page.evaluate(async () => {
@@ -1026,12 +1031,14 @@ const titleScreen = await page.evaluate(async () => {
   out.qShownAwake = +getComputedStyle($('howBtn')).opacity > 0.2;
   out.qTopRight = q.top < innerHeight * 0.2 && q.right > innerWidth * 0.8;
   document.body.classList.add('pre'); $('howBtn').style.transition = '';
-  out.verBottomLeft = v.bottom > innerHeight * 0.9 && v.left < innerWidth * 0.3;
+  // it sits along the very bottom now, centred, out of the way of the title. Joe: "need to move the
+  // version number down. Might as well center it too"
+  out.verBottom = v.bottom > innerHeight * 0.95 && Math.abs((v.left + v.right) / 2 - innerWidth / 2) < 4;
   return out;
 });
 check('the title screen: the chapter set into the floor, the ? only once you are up',
   titleScreen.noStepLbl && titleScreen.noBar && titleScreen.noDomChapter
-  && titleScreen.qHiddenAsleep && titleScreen.qShownAwake && titleScreen.qTopRight && titleScreen.verBottomLeft
+  && titleScreen.qHiddenAsleep && titleScreen.qShownAwake && titleScreen.qTopRight && titleScreen.verBottom
   && titleScreen.asleep > titleScreen.proto + 8 && titleScreen.asleep > titleScreen.pool + 8
   && titleScreen.nameGoneAt12 && titleScreen.chapFullAt12 && titleScreen.chapGone && titleScreen.outlives && titleScreen.caps && titleScreen.overflow.length === 0,
   `the chapter is lettered all caps and tracked out, and shrinks to fit — the longest, "${titleScreen.longest[0]}", `
@@ -1042,7 +1049,7 @@ check('the title screen: the chapter set into the floor, the ? only once you are
   + `1.2s into the zoom-out the name above him is gone and the chapter is still up, and it is out `
   + `at ${titleScreen.outBy.toFixed(1)}s — before the ${titleScreen.zoomSec}s zoom ends; `
   + `the ? is gone while he sleeps and rides in top right once he is up; `
-  + `the version bottom left, no tile count and no black bar`);
+  + `the version centred along the very bottom, no tile count and no black bar`);
 
 // ── 8s. gates, and the key that opens one ────────────────────────
 // Joe: "when you use a gold key, it doesn't disappear from the inventory... I'd expect these keys

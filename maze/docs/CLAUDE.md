@@ -526,6 +526,17 @@ gradient going from black to white and seven stages."* One ramp, `playerBurdened
 body the ramp sits*. A burden coming off walks that edge forward one seventh, through the grey, so
 there is a change to watch rather than a block flicking colour.
 
+**The version sits centred along the very bottom** (v0.72.1). Joe: *"need to move the version number
+down. Might as well center it too."* It was bottom-left at +18px, which in landscape put it straight
+over the canvas title. Now `left:0; right:0; text-align:center` at +6px, clear of everything in both
+orientations.
+
+**The corner check measures ground, not frames** (v0.72.1). It asserted "more than 20 frames moved
+faster than 0.2x walking speed", which was a fine proxy until `moveEase` (v0.71.0) made the speed
+ramp in: how many frames clear a rate threshold now depends on where the ramp happens to fall, so it
+went red on a run where nothing had changed. Distance covered does not care. **A frame count is
+almost always the wrong assertion.**
+
 **Floor-set text shrinks to fit** (v0.70.2). Joe: *"text is bleeding out of the frame. We can just
 shrink the text a bit."* All caps plus a space between every letter makes a long name wide — "T H E
 O N E   W H O   S T A Y E D" wanted 439px of a 430px phone, and "The Cartographer" 406px. `fitFont()`

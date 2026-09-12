@@ -100,7 +100,7 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #title.hide { display:none; }
 /* No bar along the bottom any more: the floor runs to the edge of the screen and the two things
    that were on it stand on their own. The version fades out as you wake, the way the title does. */
-#verTitle { position:fixed; left:22px; bottom:calc(env(safe-area-inset-bottom) + 18px); font-size:12px; font-style:italic;
+#verTitle { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 6px); text-align:center; font-size:12px; font-style:italic;
   color:rgba(236,231,218,.42); text-shadow:0 1px 3px rgba(13,15,16,.75); transition:opacity .7s ease; }
 #title.leaving #verTitle { opacity:0; }
 /* The ? belongs to the game, not the title. Joe: "the question should not be visible at the start
