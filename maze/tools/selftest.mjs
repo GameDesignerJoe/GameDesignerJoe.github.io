@@ -105,6 +105,16 @@ const MUTATIONS = [
     void rows;
   }],
 
+  ['a door standing at a T intersection', 'every door stands in a doorway, not a junction', (s) => {
+    // Joe's report: a gate at a T, with a jamb in open floor and a leaf swinging across an arm
+    // that stays open. Open a third side of the first door's tile and it is a T.
+    const d = s.doors[0];
+    const rows = s.tiles.map((r) => r.split(''));
+    const lr = rows[d.y][d.x - 1] === '1' && rows[d.y][d.x + 1] === '1';
+    if (lr) rows[d.y - 1][d.x] = '1'; else rows[d.y][d.x - 1] = '1';
+    s.tiles = rows.map((r) => r.join(''));
+  }],
+
   ['darkness pushed up against the start-room door', 'darkness keeps clear of the start-room door', (s) => {
     const from = s.startGap ? K(s.startGap[0], s.startGap[1]) : K(s.start.x, s.start.y);
     s.darkTiles = [from, K(s.start.x, s.start.y)];

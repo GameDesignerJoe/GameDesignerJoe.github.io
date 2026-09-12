@@ -309,10 +309,17 @@ its lock and stays there. All gates swing their leaves back on the same timing
 (`gateSwingSeconds`); the pool room's is slower and heavier on purpose
 (`poolDoorSeconds`) because it is stone.
 
-> **The door-key soft lock is deferred.** About 2 mazes in 576 place a door's
-> key in a sealed pocket behind that same door. The harness reports it. Joe:
-> *"don't worry about the soft lock for right now. I'll come back to it later."*
-> **Do not fix it** — and do not report the harness as clean, either.
+> **The door-key soft lock is fixed (v0.85.0).** It was about 2 mazes in 576,
+> deferred since v0.75.0 on Joe's *"don't worry about the soft lock for right
+> now. I'll come back to it later."* He came back to it: *"found one of those
+> soft locks where the key was on the wrong side of the gate."*
+>
+> The cause was one line. Planning treats what you can slide through as open, and
+> it used to treat **every** sealed gap that way — but most sealed gaps are not
+> blocks you can shove, they are wall. So the planner would walk into a sealed
+> pocket through a gap that never opens, decide the cell sat *before* the door,
+> and drop the key there. Only the gaps a block can come to rest in are reopened
+> now. **The harness is clean at 576, and reporting it clean is correct.**
 
 ### The Child's maze
 

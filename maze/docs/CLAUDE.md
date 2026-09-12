@@ -209,10 +209,11 @@ tool: file id `14pOj9HLuiGyPlaTVYo7sLt7xNAokqSFCk1d7hOKDqrs` (a snapshot lives i
 ### Standing decisions
 
 - **The game is the source of truth** — the rule at the top of this file.
-- **The door-key soft lock is deferred.** Joe: *"don't worry about the soft lock
-  for right now. I'll come back to it later."* Do not go after it. Report the
-  harness count when it moves — it has fallen from 15 mazes to 2 as a side effect
-  of hiding keys better, and that is worth saying, but it is still not the job.
+- **The door-key soft lock is fixed (v0.85.0), and the harness is clean.** It was
+  deferred from v0.75.0 to v0.84.0 on Joe's *"don't worry about the soft lock for
+  right now"*; he came back to it and it turned out to be one line in the planning
+  model. **A harness that is not clean is now a real failure, not the known one** —
+  read what it says rather than assuming it is this.
 
 ### Shipping a change
 
@@ -480,6 +481,71 @@ wants is a look to be chosen by eye, so all three are built and none is picked.
 Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
+
+## The gate in a doorway, and the soft lock, finally (v0.85.0)
+
+Two items about gates and keys, and the second one has been sitting in this file
+as *deferred* since v0.75.0.
+
+**A gate belongs in a doorway, not at a junction.** Joe: *"found another hot gate
+that was at a T intersection and didn't make any sense."* He is right, and it is
+worth being precise about what was wrong: **nothing was ever unwinnable.** A door
+seals its own tile, so a door at a T still cuts the route. It just looks like
+nonsense — a gate is two jambs and two leaves, and on a tile with three open
+sides one jamb stands in open floor while a leaf swings across an arm that stays
+open. **39 of 287 doors were landing on a T or a crossroads.**
+
+`okGap` only ever asked for a *link* tile, which is a passage but not necessarily
+a doorway. It also asks `doorway()` now: exactly two open sides, opposite each
+other. **282 of 282 doors stand in a doorway**, and it cost 5 doors in 280 mazes.
+
+**And the soft lock, which was one line.** Joe: *"found one of those soft locks
+where the key was on the wrong side of the gate. I think with the key fixes I
+mention below, we should be able to fix this."* His instinct was that it was
+bound up with hiding keys, and it was — but not in the way either of us expected.
+
+Planning treats what you can slide through as open. It used to treat **every
+sealed gap** that way, and most sealed gaps are not blocks you can shove: they
+are wall, and no amount of pushing opens them. So the planner would walk into a
+sealed pocket through a gap that never opens, conclude the cell sat *before* the
+door, and hide the key there. In play it sat behind it.
+
+Only the gaps a block can actually come to rest in are reopened now — the slider
+tiles and the squares those blocks move into. **The harness is clean at 576 for
+the first time since v0.75.0.** It costs 4 more doors, because some tiles stop
+severing the route once the ground behind them is honestly unreachable: 287
+doors before this version, 278 after, across 280 mazes. 3% for a maze that cannot
+be made unwinnable.
+
+### How it was found
+
+Reading, then one probe, then one experiment — and the first probe was wrong.
+
+Counting doors by the shape of the tile they stand on gave the T number
+immediately, and `horiz = isOpen(x-1,y) && isOpen(x+1,y)` in the renderer
+explains the rest: at a T both are open, so it draws horizontal regardless.
+
+The soft lock took a wrong turn first. A hand-rolled reachability probe said
+**246 of ~300 keys were unreachable** against a known two bad mazes — because it
+modelled a player who never pushes a block, and the whole maze is built on
+pushing. Throwing it away and reading the harness's own `openTiles` (which treats
+every slider tile *and its destination* as open) is what showed the real gap:
+generation and the harness disagreed about which sealed gaps ever open.
+
+**Two docs were saying the opposite of the truth** and both are fixed here, not
+later: this file's Standing Decisions said *do not go after it*, and
+`HANDOFF.md` §Doors and keys said *do not report the harness as clean, either*.
+A rejection that has been reversed will stop work Joe has since asked for, which
+is exactly the failure mode those two sections exist to prevent. The dated
+per-version sections below still say "deferred" and stay as written — they are a
+log of what was true then.
+
+The doorway invariant is a **harness** check, not a smoke one — it is a property
+of every generated maze, not of a frame. It has a deliberate breakage in
+`selftest.mjs` (13 now), which opens a third side of a door's tile and confirms
+the right check catches it. The soft-lock fix needs no new check: `maze is
+finishable` and `doors chain` have been reporting it for ten versions, and they
+go green.
 
 ## The basin you can count, and water that moves (v0.84.0)
 

@@ -262,6 +262,24 @@ const CHECKS = [
     }
   }],
 
+  // Joe: "found another hot gate that was at a T intersection and didn't make any sense." A gate is
+  // two jambs and two leaves; on a tile with three or four open sides a jamb stands in open floor
+  // and a leaf swings across an arm that stays open. It still sealed the tile, so nothing was ever
+  // unwinnable — it just looked like nonsense. 39 of 287 doors used to land on one.
+  ['every door stands in a doorway, not a junction', (s) => {
+    const open = openTiles(s, { slidersShifted: false });
+    for (const d of s.doors) {
+      const n = DIRS.filter(([dx, dy]) => open.has(K(d.x + dx, d.y + dy)));
+      const lr = open.has(K(d.x - 1, d.y)) && open.has(K(d.x + 1, d.y));
+      const ud = open.has(K(d.x, d.y - 1)) && open.has(K(d.x, d.y + 1));
+      if (n.length !== 2 || !(lr || ud)) {
+        return `the ${d.shape} door at ${K(d.x, d.y)} stands on a tile with ${n.length} open sides`
+          + `${n.length === 2 ? ' that turn a corner' : ''} — a gate needs a passage straight through it`;
+      }
+    }
+    return null;
+  }],
+
   ['start room is sealed when it should be', (s) => {
     if (!s.startRoom || !s.flags.sliderAtStart) return null;
     if (s.poolMode) return null;

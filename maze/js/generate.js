@@ -1059,9 +1059,33 @@ function generate(seed) {
   if (F.doors && !poolMode && solutionPath.length > 20) {
     const roomRing3 = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
     const isGap = (x, y) => isOpen(x, y) && ((x - P) % 2 === 0) !== ((y - P) % 2 === 0);
-    const okGap = (x, y) => isGap(x, y) && !roomRing3(x, y) && !crawlGaps.has(x+','+y) && !sliders.some(sl => (sl.x+sl.dx===x&&sl.y+sl.dy===y) || (sl.x===x&&sl.y===y)) && !exitAlley.some(([ax,ay])=>ax===x&&ay===y) && !(startGap && x===startGap[0] && y===startGap[1]) && !sealedGaps.some(([gx,gy]) => gx===x&&gy===y);
+    // A gate is two jambs and two leaves: it only makes sense in a passage that runs straight
+    // through. Joe: "found another hot gate that was at a T intersection and didn't make any sense."
+    // At a T the jamb stands in open floor and one leaf swings across an arm that stays open — it
+    // still seals the tile, so nothing was ever unwinnable, it just looks like nonsense. 39 of 287
+    // doors were landing on a T or a crossroads. A door tile has to be a doorway, not a junction.
+    const doorway = (x, y) => {
+      const lr = isOpen(x - 1, y) && isOpen(x + 1, y), ud = isOpen(x, y - 1) && isOpen(x, y + 1);
+      return DIRS.filter(([dx, dy]) => isOpen(x + dx, y + dy)).length === 2 && (lr || ud);
+    };
+    const okGap = (x, y) => isGap(x, y) && doorway(x, y) && !roomRing3(x, y) && !crawlGaps.has(x+','+y) && !sliders.some(sl => (sl.x+sl.dx===x&&sl.y+sl.dy===y) || (sl.x===x&&sl.y===y)) && !exitAlley.some(([ax,ay])=>ax===x&&ay===y) && !(startGap && x===startGap[0] && y===startGap[1]) && !sealedGaps.some(([gx,gy]) => gx===x&&gy===y);
     // treat everything you can slide through as open while planning
-    const reopened = [...sealedGaps, ...(startGap ? [startGap] : [])].filter(([x, y]) => !isOpen(x, y)); for (const [x, y] of reopened) tiles[y][x] = 1;
+    // Planning treats what you can slide through as open — but it used to treat *every* sealed gap
+    // that way, and most of them are not doors you can shove: they are simply wall. A gap only
+    // opens if a block can come to rest in it, so the ones that count are the slider tiles and the
+    // squares those blocks move into. Nothing else ever opens, however hard you push.
+    //
+    // This is the door-key soft lock, and it is the whole of it. Joe: "found one of those soft
+    // locks where the key was on the wrong side of the gate." The planner picked a key cell inside
+    // a sealed pocket, having walked into that pocket through a gap that does not open — so the
+    // cell looked like it sat *before* the door when in play it sat behind it. Two mazes in 576,
+    // every time, and deferred since v0.75.0. Matching the planning model to what a player can
+    // actually shove is one line and takes the harness to clean.
+    //
+    // It costs 4 doors in 280 mazes: some tiles that used to sever the route no longer do once the
+    // ground behind them is honestly unreachable. Cheap, for a maze that cannot be made unwinnable.
+    const slideOpens = new Set(sliders.flatMap(sl => [sl.x + ',' + sl.y, (sl.x + sl.dx) + ',' + (sl.y + sl.dy)]));
+    const reopened = [...sealedGaps, ...(startGap ? [startGap] : [])].filter(([x, y]) => !isOpen(x, y) && slideOpens.has(x + ',' + y)); for (const [x, y] of reopened) tiles[y][x] = 1;
     const reach = (sx0, sy0, sealed) => { const seen = new Set([sx0+','+sy0]), q = [[sx0, sy0]]; while (q.length) { const [x,y] = q.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k) && !sealed.has(k)) { seen.add(k); q.push([nx,ny]); } } } return seen; };
     const sx3 = Math.floor(start.x), sy3 = Math.floor(start.y);
     const n = F.doors, L = solutionPath.length;
