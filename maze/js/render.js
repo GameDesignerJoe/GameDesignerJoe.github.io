@@ -371,8 +371,11 @@ function drawGate(c, px, py, horiz, open, S, color, inset = 0, sense = 1) {
   return [gx, gy];
 }
 
+let lastDraw = 0;   // wall-clock of the previous frame, for the few things that ease rather than tick
 function draw() {
   const C = CONFIG.colors, vw = innerWidth, vh = innerHeight, nowMs = gameNow();
+  const tNow = performance.now();
+  const dtDraw = lastDraw ? Math.min(0.05, (tNow - lastDraw) / 1000) : 0.016; lastDraw = tNow;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, vw, vh);
 
@@ -480,7 +483,9 @@ function draw() {
   // navigate by, and it has to be a place, not an ornament on one tile of it.
   for (const L of landmarks) {
     const rx0 = L.rx0 ?? L.x, ry0 = L.ry0 ?? L.y, rx1 = L.rx1 ?? L.x, ry1 = L.ry1 ?? L.y;
-    if (rx1 < x0_ - 1 || rx0 > x1_ + 1 || ry1 < y0_ - 1 || ry0 > y1_ + 1) continue;
+    // off screen it is not drawn, so nothing eases either: a ball pit you walked out of would keep
+    // the hole you left in it until you came back and watched it close. Forget it instead.
+    if (rx1 < x0_ - 1 || rx0 > x1_ + 1 || ry1 < y0_ - 1 || ry0 > y1_ + 1) { if (L.shove) L.shove.fill(0); continue; }
     const x = ox + rx0 * S, y = oy + ry0 * S, w = (rx1 - rx0 + 1) * S, h = (ry1 - ry0 + 1) * S;
     const cx = x + w / 2, cy = y + h / 2, rad = Math.min(w, h) / 2;
     ctx.save();
@@ -507,14 +512,42 @@ function draw() {
       for (let t = 0; t <= turns; t += 0.1) { const rr = S * 0.12 + (t / turns) * (rad * 0.86 - S * 0.12);
         const gx = cx + Math.cos(t) * rr, gy = cy + Math.sin(t) * rr; t ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy); }
       ctx.stroke();
-    } else if (L.kind === 'columns') {             // four of them, well in from the corners
-      const d = rad * 0.60;
+    } else if (L.kind === 'columns') {
+      // Joe: "make these more like columns that you can't walk over. When the player walks next to
+      // them they light up with a flickering flame on the top of them." They stand on the link/link
+      // crossings, which were wall before the room was opened, so closing them costs no way through
+      // — the cell lattice underneath is untouched. L.cols is where generate() actually shut them.
+      const cols = L.cols || [];
       ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.03);
-      ctx.strokeRect(cx - d, cy - d, d * 2, d * 2);
-      for (const [ox2, oy2] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
-        const sx = cx + ox2 * d, sy = cy + oy2 * d;
-        ctx.fillStyle = C.wall; ctx.fillRect(sx - S*0.3, sy - S*0.3, S*0.6, S*0.6);
-        ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.55; ctx.fillRect(sx - S*0.19, sy - S*0.19, S*0.38, S*0.38); ctx.globalAlpha = 1; }
+      if (cols.length === 4) { const a = T(cols[0][0], cols[0][1]), b2 = T(cols[3][0], cols[3][1]);
+        ctx.strokeRect(a[0], a[1], b2[0] - a[0], b2[1] - a[1]); }
+      for (const [mx, my] of cols) {
+        const [sx, sy] = T(mx, my);
+        const near = Math.hypot(player.x - (mx + 0.5), player.y - (my + 0.5));
+        const lit = Math.max(0, 1 - near / CONFIG.columnLightTiles);
+        ctx.fillStyle = C.wall; ctx.fillRect(sx - S*0.42, sy - S*0.42, S*0.84, S*0.84);
+        ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.4 + 0.3 * lit; ctx.fillRect(sx - S*0.28, sy - S*0.28, S*0.56, S*0.56); ctx.globalAlpha = 1;
+        if (lit > 0.01) {
+          // the flame: three tongues on their own clocks, so it never pulses in step with itself
+          const t2 = nowMs / 1000 + mx * 1.7 + my * 2.3;
+          const flick = 0.72 + 0.28 * Math.sin(t2 * 9.1) * Math.sin(t2 * 5.3 + 1.1);
+          const h2 = S * 0.46 * lit * flick;
+          const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, S * 1.15);
+          glow.addColorStop(0, `rgba(201,185,138,${(0.30 * lit).toFixed(3)})`);
+          glow.addColorStop(1, 'rgba(201,185,138,0)');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sx, sy, S * 1.15, 0, Math.PI*2); ctx.fill();
+          for (let f = 0; f < 3; f++) {
+            const w2 = S * (0.13 - f * 0.035), hh = h2 * (1 - f * 0.22);
+            ctx.fillStyle = ['#c9b98a', '#e6d8a8', '#fdf4d6'][f];
+            ctx.globalAlpha = lit * (0.75 + 0.25 * flick);
+            ctx.beginPath(); ctx.moveTo(sx - w2, sy + S*0.06);
+            ctx.quadraticCurveTo(sx - w2 * 0.5, sy - hh * 0.6, sx, sy - hh);
+            ctx.quadraticCurveTo(sx + w2 * 0.5, sy - hh * 0.6, sx + w2, sy + S*0.06);
+            ctx.closePath(); ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
     } else if (L.kind === 'dais') {                // a platform, stepped, filling the middle
       const steps = [[0.86, C.grout], [0.70, C.floor], [0.54, '#7d786d'], [0.38, C.shelf]];
       steps.forEach(([k, col], i) => { ctx.fillStyle = col; ctx.globalAlpha = i === 3 ? 0.55 : 1;
@@ -528,11 +561,30 @@ function draw() {
       ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1.5, S * 0.07); ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(cx - rad*0.6, cy - rad*0.5); ctx.lineTo(cx + rad*0.6, cy - rad*0.5); ctx.stroke();
     } else if (L.kind === 'balls') {               // a pit of them, all over the floor
+      // Joe: "can we make the ball pit reactive to the player's movement? Don't crash the server."
+      // So: no physics and no per-ball collisions. Each ball carries one shove vector that eases
+      // back to nothing, and the shove is only computed at all while he is inside the pit's tiles.
+      // That is 46 lerps on the frames it matters and zero on every other.
+      if (!L.shove) L.shove = new Float32Array(92);
+      const inPit = player.x > rx0 - 1 && player.x < rx1 + 2 && player.y > ry0 - 1 && player.y < ry1 + 2;
+      const px2 = ox + player.x * S, py2 = oy + player.y * S, reach = S * CONFIG.ballPitReach;
+      const ease = Math.min(1, (dtDraw || 0.016) / CONFIG.ballPitSettle);
       ctx.fillStyle = C.grout; ctx.fillRect(x + S*0.35, y + S*0.35, w - S*0.7, h - S*0.7);
       ctx.fillStyle = C.bg; ctx.fillRect(x + S*0.5, y + S*0.5, w - S, h - S);
       for (let i = 0; i < 46; i++) {
         const a = tileNoise(rx0 + i, ry0, 91 + i), b2 = tileNoise(rx0, ry0 + i, 113 + i), c2 = tileNoise(rx0 + i, ry0 + i, 137);
-        const bx = x + S*0.6 + a * (w - S*1.2), by = y + S*0.6 + b2 * (h - S*1.2), br = S * (0.11 + c2 * 0.1);
+        let bx = x + S*0.6 + a * (w - S*1.2), by = y + S*0.6 + b2 * (h - S*1.2);
+        const br = S * (0.11 + c2 * 0.1);
+        let sx2 = L.shove[i*2], sy2 = L.shove[i*2+1];
+        if (inPit) {
+          const dx2 = bx + sx2 - px2, dy2 = by + sy2 - py2, d2 = Math.hypot(dx2, dy2) || 1;
+          if (d2 < reach) { const push = (reach - d2) * CONFIG.ballPitPush;   // nearest get nudged furthest
+            sx2 += (dx2 / d2 * push - sx2) * ease * 2.2; sy2 += (dy2 / d2 * push - sy2) * ease * 2.2; }
+          else { sx2 -= sx2 * ease; sy2 -= sy2 * ease; }
+        } else if (sx2 || sy2) { sx2 -= sx2 * ease; sy2 -= sy2 * ease;          // and roll back once he leaves
+          if (Math.abs(sx2) < 0.05 && Math.abs(sy2) < 0.05) sx2 = sy2 = 0; }
+        L.shove[i*2] = sx2; L.shove[i*2+1] = sy2;
+        bx += sx2; by += sy2;
         ctx.fillStyle = c2 > 0.66 ? C.shelf : c2 > 0.33 ? '#7d786d' : C.floor;
         ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(0.6, S*0.012); ctx.stroke();
@@ -637,8 +689,11 @@ function draw() {
         ctx.globalAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 1.6 + i * 2.1));
         ctx.beginPath(); ctx.ellipse(ex, ey, Math.max(1, rx + w), Math.max(1, ry + w), rot, a0, a1); ctx.stroke();
       }
+      // the dark at the middle of it goes with the ring. Joe: "I meant the oval of the center circle
+      // black dot as well" — a round hole inside a warping ring reads as a decal laid over it
+      ctx.fillStyle = poolMode ? '#3d4a52' : C.wall; ctx.beginPath();
+      ctx.ellipse(ex, ey, S*0.1 * (1 + ecc), S*0.1 * (1 - ecc), rot, 0, Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1; }
-    ctx.fillStyle = poolMode ? '#3d4a52' : C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
     // the way out is gated too, and it swings like the rest: shut until the key is yours
     if (gated && !poolMode) {
       const horiz = isOpen(exit.x-1, exit.y) && isOpen(exit.x+1, exit.y);

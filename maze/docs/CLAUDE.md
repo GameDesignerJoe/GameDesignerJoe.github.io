@@ -326,6 +326,65 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Rooms that are places, in every maze (v0.72.0)
+
+Joe: *"love all these prototype rooms you've made. Please add them into the general mix of possible
+rooms in the mazes."* They were the labyrinth prototype's; an ordinary maze deals them out too now,
+one to a room at `roomLandmarkChance`, never the same kind twice running.
+
+**They draw from their own RNG stream** (`rng(seed + 104729)`), and that is not fussiness. Drawing
+from `generate()`'s own `R` shifts every decision downstream of it and silently redeals every seed in
+the game — three unrelated smoke checks went red within a minute of the first attempt. Same rule
+applies to the vault (`rng(seed + 7757)`). **Any new generation feature needs its own stream.**
+
+**Columns are really there** (v0.72.0). Joe: *"make these more like columns that you can't walk over.
+When the player walks next to them they light up with a flickering flame on the top of them."* They
+stand on the **link/link crossings** — the tiles that were wall before the room was opened — so
+shutting them provably takes away no way through: every cell and every link lane is untouched. They
+are shut before the route is planned, so the route plans around them for free. `L.cols` is where
+`generate()` actually shut them, and the renderer reads that rather than guessing.
+
+**The ball pit parts as you wade** (v0.72.0). Joe: *"can we make the ball pit reactive to the
+player's movement? Don't crash the server."* No physics and no ball-to-ball collisions: each ball
+carries one shove vector that eases back to nothing, and the shove is only computed while he is
+inside the pit's tiles. Two things worth keeping: the push is `(reach - d) * ballPitPush` and it is
+**easy to make too strong** — at the first value he ploughed a perfect empty circle through the pit
+instead of wading; and a culled landmark is not drawn, so nothing eases, so the pit has to
+`shove.fill(0)` when it goes off screen or it keeps the hole you left in it.
+
+## The vault (v0.72.0)
+
+Joe: *"we need to really hide the keys. This is a case where I'd say break out of the sizing
+constraints and just go make an area that buries a key inside it somewhere."*
+
+One per maze where the phase has doors or a gate: `vaultCells` (7) square, bigger than any room,
+carved as **nested rings with a single gap each**, never two gaps on the same side, and the key at
+the heart. The exit key always takes it. A door key takes it only when the vault's heart is in
+`cellsIn` — that is the section the previous door opened, and the doors chain only works if each key
+lies in ground you can already reach, so a key dropped into a vault behind its own door is a soft
+lock. Asking `cellsIn` *is* the whole check.
+
+**Two ways it was broken before it worked, both found by flooding the maze rather than by looking:**
+
+1. It was carved **with the rooms**, and the districts step runs after that. Districts keep clear of
+   `roomRects` and knew nothing about the vault, so they re-cut the whole nest and walled the key in
+   where nothing could reach it. It is carved after the districts now.
+2. Opening a 13×13 block **paves over every corridor that used to run through that ground**, so the
+   vault became an island: the nest inside walked perfectly, and nothing outside could reach its rim.
+   16 of 20 gated mazes were unsolvable. Every entrance the block covered is punched back through
+   afterwards; they all land on the rim, which runs the whole way round, so the maze stays as
+   connected as it was and the key is still three gapped rings deeper in.
+
+Harness went from 30 violations to **18** — the same two checks, 9 mazes instead of 15. The vault
+halved the known door-key soft lock as a side effect. That is not a fix and was not aimed at; the
+soft lock is still deferred.
+
+**The way out is never a circle, including its middle** (v0.72.0). Joe: *"I meant the oval of the
+center circle black dot as well."* The dark at the centre takes the ring's own eccentricity and
+angle, because a round hole inside a warping ring reads as a decal laid over it.
+
+See `ROOMS.md` for what each room is and a pitch list for more.
+
 ## Free movement is the movement (v0.71.0)
 
 Joe, three separate times, ending with *"movement is a little slide-y in general. Feels more like

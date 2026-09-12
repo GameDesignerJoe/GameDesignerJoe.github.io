@@ -228,6 +228,14 @@ const CONFIG = {
   exitArcs: 7,          // the ring is this many short arcs, not one circle
   exitWarp: 0.035,      // and each one's radius breathes by this much of a tile
   exitShimmerHz: 0.32,  // slowly
+  // the rooms that are a place rather than an ornament
+  vaultCells: 7,        // the key vault is this many cells square — bigger than any room on purpose
+  roomLandmarkChance: 0.72,  // how often an ordinary maze's room is a place rather than an empty box
+  columnLightTiles: 2.6,// how near you have to be for a column to catch light, in tiles
+  ballPitReach: 0.9,    // how near a ball has to be before you move it at all, in tiles
+  ballPitPush: 0.45,    // and how much of that gap it gives up. High enough and you plough a circle
+                        // through the pit instead of wading through it
+  ballPitSettle: 0.28,  // and how long it takes to roll back once you are past, in seconds
   exitOval: 0.3,        // how far from round it is pulled, in and out
   exitSpinHz: 0.055,    // and how fast the axis it is pulled along wanders round
   gateSwingSeconds: 1.1,  // how long any other gate takes to swing its leaves back

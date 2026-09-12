@@ -838,17 +838,25 @@ const laby = await page.evaluate(async () => {
   built.landmarksReachable = landmarks.every((L) => seen.has(L.x + ',' + L.y));
   sel.value = 'off'; sel.dispatchEvent(new Event('change'));
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-  built.offAgain = !protoMode && sections.length === 0 && landmarks.length === 0;
+  // Off leaves no *sections* — those are still the prototype's. Landmarks are no longer its alone:
+  // Joe asked for the prototype's rooms in the general mix, so an ordinary maze deals them too, and
+  // each of those belongs to a room rather than a section.
+  built.offAgain = !protoMode && sections.length === 0;
+  built.plainRooms = landmarks.length > 0 && landmarks.every((L) => L.room !== undefined && tiles[L.y][L.x]);
+  built.plainCount = landmarks.length;
+  built.solidColumns = landmarks.filter((L) => L.kind === 'columns')
+    .every((L) => L.cols && L.cols.length === 4 && L.cols.every(([x, y]) => !tiles[y][x]));
   return built;
 });
 check('the labyrinth prototype builds, and Off puts the maze back',
   laby.protoMode === true && laby.sections >= 6 && laby.landmarks === laby.sections
   && laby.onFloor && laby.exitReachable && laby.landmarksReachable && laby.kinds.length >= 2
-  && laby.room === 5 && laby.sealed && laby.fog === false && laby.offAgain,
+  && laby.room === 5 && laby.sealed && laby.fog === false && laby.offAgain && laby.plainRooms && laby.solidColumns,
   `${laby.sections} sections (${laby.kinds.join(', ')}) across ${laby.W}x${laby.H}, `
   + `${laby.landmarks} landmarks of ${laby.distinct} kinds, all on floor and all reachable; `
   + `a sealed ${laby.room}x${laby.room} start room with one block to lean on, the maze's own fog; `
-  + `the way out is ${laby.route} tiles; Off left nothing behind`);
+  + `the way out is ${laby.route} tiles; Off leaves no sections behind and gives an ordinary maze `
+  + `with ${laby.plainCount} rooms that are places, every column tile actually shut`);
 
 // ── 8o. getting through a squeeze ─────────────────────────────────
 // Joe: "the character leaves the squeeze space and drifts out into the black portion of the map."
@@ -1152,6 +1160,88 @@ check('clearing the run log takes two taps, and its button is out of the way',
   runlog.closeAbove && runlog.ownRow && runlog.quieter && runlog.asks && runlog.wording && runlog.thenClears,
   `Close sits above Clear in its own row, Clear smaller and set ${runlog.closeAbove ? 'well' : 'NOT'} below it; `
   + `one tap only asks ("${runlog.wording ? 'tap again' : 'NO PROMPT'}") and leaves the log alone, a second one clears it`);
+
+// ── 8w. rooms that are places, and the vault ─────────────────────
+// Joe: "love all these prototype rooms you've made. Please add them into the general mix of possible
+// rooms in the mazes", "make these more like columns that you can't walk over", and "we need to
+// really hide the keys... go make an area that buries a key inside it somewhere." All three change
+// the shape of the maze itself, so what this really checks is that none of them broke it.
+const places = await page.evaluate(() => {
+  CONFIG.tutorials = false;
+  SAVE.stones = 3; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist();
+  // the harness's own rule: a block's sealed gap counts as floor, because you can always shove it
+  const flood = () => {
+    const soft = new Set([...(sealedGaps || []).map((g) => g.join(',')), startGap ? startGap.join(',') : '']);
+    const seen = new Set(), sx = Math.floor(start.x), sy = Math.floor(start.y), q = [[sx, sy]];
+    seen.add(sx + ',' + sy);
+    for (let h = 0; h < q.length; h++) { const [x, y] = q[h];
+      for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        if (seen.has(k) || !tiles[ny] || (!tiles[ny][nx] && !soft.has(k))) continue; seen.add(k); q.push([nx, ny]); } }
+    return seen;
+  };
+  const out = { mazes: 0, withLandmarks: 0, kinds: new Set(), colRooms: 0, colsShut: 0,
+    vaults: 0, buried: 0, keyLost: 0, exitLost: 0, landmarkInWall: 0 };
+  for (let ph = 1; ph <= 6; ph++) { SAVE.phase = ph;
+    for (let sd = 1; sd <= 12; sd++) {
+      generate(sd); out.mazes++;
+      const seen = flood();
+      if (!seen.has(exit.x + ',' + exit.y)) out.exitLost++;
+      if (landmarks.length) out.withLandmarks++;
+      for (const L of landmarks) {
+        out.kinds.add(L.kind);
+        if (!tiles[L.y][L.x]) out.landmarkInWall++;          // its heart must still be floor
+        if (L.kind === 'columns') { out.colRooms++;
+          if (L.cols.length === 4 && L.cols.every(([x, y]) => !tiles[y][x])) out.colsShut++; }
+      }
+      if (keyVault) { out.vaults++;
+        const heart = keyVault.cx + ',' + keyVault.cy;
+        const buried = keySpot === heart || [...innerKeys.keys()].includes(heart);
+        if (buried) { out.buried++; if (!seen.has(heart)) out.keyLost++; }
+      }
+    } }
+  out.kinds = [...out.kinds];
+  return out;
+});
+check('rooms are places, columns are walls, and a buried key can still be got to',
+  places.exitLost === 0 && places.landmarkInWall === 0 && places.withLandmarks > places.mazes * 0.5
+  && places.kinds.length >= 5 && places.colRooms > 0 && places.colsShut === places.colRooms
+  && places.vaults > 0 && places.buried > 0 && places.keyLost === 0,
+  `${places.withLandmarks} of ${places.mazes} ordinary mazes have rooms that are places, `
+  + `${places.kinds.length} kinds across them (${places.kinds.join(', ')}); `
+  + `${places.colsShut}/${places.colRooms} column rooms have all four actually shut; `
+  + `${places.vaults} vaults, ${places.buried} with a key at the heart, `
+  + `${places.keyLost} unreachable; the way out is reachable in all ${places.mazes}`);
+
+// ── 8x. the ball pit gets out of your way ────────────────────────
+// Joe: "can we make the ball pit reactive to the player's movement? Don't crash the server." So the
+// shove has to happen, and it has to stop happening the moment he is not in the pit.
+const pit = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.phase = 4; SAVE.stones = 4; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist();
+  let L = null;
+  for (let sd = 1; sd < 200 && !L; sd++) { reset(sd); L = landmarks.find((l) => l.kind === 'balls'); }
+  if (!L) return { skip: true };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // far away: nothing should be shoved
+  player.x = 1.5; player.y = 1.5; await frame(); await frame();
+  const away = L.shove ? Math.max(...L.shove) : 0;
+  // standing in it: the balls near him give way
+  player.x = (L.rx0 + L.rx1) / 2 + 0.5; player.y = (L.ry0 + L.ry1) / 2 + 0.5;
+  for (let i = 0; i < 25; i++) await frame();
+  const inIt = Math.max(...L.shove.map(Math.abs));
+  // and they roll back once he leaves
+  player.x = 1.5; player.y = 1.5;
+  for (let i = 0; i < 45; i++) await frame();
+  const after = Math.max(...L.shove.map(Math.abs));
+  return { away, inIt, after, tile: zoomS };
+});
+check('the ball pit gets out of your way, and rolls back after',
+  pit.skip || (pit.away === 0 && pit.inIt > pit.tile * 0.15 && pit.after < pit.inIt * 0.5),
+  pit.skip ? 'no ball pit in the seeds tried' :
+  `standing clear, nothing is moved (${pit.away}); standing in it the furthest ball gives up `
+  + `${(pit.inIt / pit.tile).toFixed(2)} tiles; a moment after leaving it is back to `
+  + `${(pit.after / pit.tile).toFixed(2)}`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

@@ -28,7 +28,7 @@ function protoDirs() { return [[1, 0], [-1, 0], [0, 1], [0, -1]]; }
 
 // everything empty, the grid sized and cleared: a prototype carries none of the maze's furniture
 function protoReset(cols, rows) {
-  protoMode = true; protoWide = true; poolMode = false;
+  protoMode = true; protoWide = true; poolMode = false; keyVault = null;
   [CONFIG.cols, CONFIG.rows] = cols;
   void rows;
   W = CONFIG.cols * 2 + 1 + 2 * P; H = CONFIG.rows * 2 + 1 + 2 * P;

@@ -33,6 +33,7 @@ let ticTacToe = null;        // {x,y,cells} a 3×3 chalk board on a room floor, 
 let figures = [];            // the father, placed like pickups: [{x,y,alpha,seen,gone}]
 let startGap = null;
 let darkTiles = new Set(), darkFringe = new Map(), lampSpot = null, sealedGaps = [];   // darkFringe: tile → 1 (dim) or 2 (dimmer), the drop-off around the dark
+let keyVault = null; // {x0,y0,x1,y1,cx,cy} the nest of rings a key is buried in, or null
 let landmarks = [];  // {x,y,kind} the one thing at the heart of a section: what you navigate by
 let sections = [];   // {i,kind,x0..y1 cells, tx0..ty1 tiles} the labyrinth prototype's rooms-worth of maze
 let clusters = [];  // districts with a heart of their own: {heart, x0,y0,x1,y1 (cells), tx0,ty0,tx1,ty1 (tiles)}
@@ -54,7 +55,7 @@ function secretRoomChalkOn(spots, R) {   // R is generate()'s seeded rng, so a r
 
 function generate(seed) {
   const R = rng(seed);
-  protoMode = false;
+  protoMode = false; landmarks = []; sections = []; keyVault = null;
   // a prototype replaces the maze outright: it sets everything this would have set, and returns
   if (!SAVE.poolPending && SAVE.ui.proto && SAVE.ui.proto !== 'off') {
     for (let i = 0; i < CONFIG.protoTries; i++) if (buildProto(seed + i * 7919, SAVE.ui.proto)) return;
@@ -153,7 +154,7 @@ function generate(seed) {
     }
   }
   // rooms: open a rectangle of tiles, away from the corners; remember centers for journals
-  const roomCenters = [], roomRects = [];   // roomRects in cells, so districts below can keep clear of them
+  const roomCenters = [], roomRects = [], roomTiles = [];   // roomRects in cells, so districts below can keep clear of them; roomTiles in tiles, for the landmarks
   for (let i = 0; i < N(CONFIG.rooms * (F.rooms || 1)); i++) {
     const cells = CONFIG.roomCells[0] + (R() * (CONFIG.roomCells[1] - CONFIG.roomCells[0] + 1) | 0);
     const tw = cells * 2 - 1;
@@ -166,6 +167,41 @@ function generate(seed) {
     for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) tiles[TX(cy0)+y][TX(cx0)+x] = 1;
     roomCenters.push([TX(cx0) + (tw>>1), TX(cy0) + (tw>>1)]);
     roomRects.push([cx0, cy0, cx0 + cells - 1, cy0 + cells - 1]);
+    roomTiles.push([TX(cx0), TX(cy0), TX(cx0) + tw - 1, TX(cy0) + tw - 1]);
+  }
+
+  // Each room is a place, not an empty box. Joe: "love all these prototype rooms you've made. Please
+  // add them into the general mix of possible rooms in the mazes." These were the labyrinth
+  // prototype's; now an ordinary maze deals them out too, one to a room, never the same twice
+  // running, and never on the room holding the kid's chalk.
+  landmarks = [];
+  if (!poolMode && CONFIG.roomLandmarkChance > 0) {
+    // Its own stream, not generate()'s R. Drawing from R here would shift every decision downstream
+    // of it and silently redeal every seed in the game — the smoke checks noticed within a minute,
+    // which is the only reason this comment exists rather than a week of "why is that maze different
+    // now". Seeded off the same seed, so a maze's rooms are still the same rooms every time.
+    const LR = rng(seed + 104729);
+    let last = null;
+    roomTiles.forEach(([tx0, ty0, tx1, ty1], i) => {
+      if (LR() > CONFIG.roomLandmarkChance) return;
+      const free = LANDMARK_KINDS.filter((k) => k !== last);
+      const kind = free[LR() * free.length | 0]; last = kind;
+      const L = { x: (tx0 + tx1) >> 1, y: (ty0 + ty1) >> 1, kind, room: i, rx0: tx0, ry0: ty0, rx1: tx1, ry1: ty1 };
+      // Columns are the one landmark that is really there. They stand on the link/link crossings —
+      // the tiles that were wall before this room was opened — so shutting them takes away no way
+      // through at all: every cell and every link lane is still open, and the route below plans
+      // around them for free because it is planned after this.
+      if (kind === 'columns') {
+        L.cols = [];
+        for (const [dx, dy] of [[1,1],[3,1],[1,3],[3,3]]) {
+          const mx = tx0 + dx, my = ty0 + dy;
+          if (mx >= tx1 || my >= ty1) continue;
+          tiles[my][mx] = 0; L.cols.push([mx, my]);
+        }
+        if (L.cols.length < 4) { for (const [mx, my] of L.cols) tiles[my][mx] = 1; return; }   // too small a room for them
+      }
+      landmarks.push(L);
+    });
   }
 
   // ── districts ────────────────────────────────────────────────────────────────
@@ -286,6 +322,62 @@ function generate(seed) {
     }
   }
 
+  // ── the vault ────────────────────────────────────────────────────────────────
+  // Carved *after* the districts, not with the rooms: districts keep clear of roomRects and knew
+  // nothing about this, so stamping them afterwards re-cut the whole nest and walled the key in
+  // where nothing could reach it. Every one of 18 gated mazes was unsolvable before this moved.
+  // Joe: "we need to really hide the keys. This is a case where I'd say break out of the sizing
+  // constraints and just go make an area that buries a key inside it somewhere." So: one structure
+  // per maze, bigger than any room, of nested rings with a single gap each — and no two gaps on the
+  // same side, so you walk the whole way round every ring to reach the middle. The key goes in the
+  // middle. It is carved here, with the rooms, so the route out is planned knowing about it.
+  keyVault = null;
+  if (!poolMode && (F.gate || F.doors) && CONFIG.vaultCells > 0) {
+    const VR = rng(seed + 7757);           // its own stream, like the landmarks': adding it redeals nothing
+    const vc = CONFIG.vaultCells, vt = vc * 2 - 1;
+    for (let tries = 0; tries < 40 && !keyVault; tries++) {
+      const cx0 = 1 + (VR() * Math.max(1, CONFIG.cols - vc - 1) | 0);
+      const cy0 = 1 + (VR() * Math.max(1, CONFIG.rows - vc - 1) | 0);
+      if (cx0 + vc >= CONFIG.cols || cy0 + vc >= CONFIG.rows) continue;
+      if (cx0 <= CONFIG.startRoomCells + 1 && cy0 + vc >= CONFIG.rows - CONFIG.startRoomCells - 1) continue;   // not on home
+      if (secretReserve && cx0 <= secretReserve.cx + secretReserve.rc && cx0 + vc > secretReserve.cx
+        && cy0 <= secretReserve.cy + secretReserve.rc && cy0 + vc > secretReserve.cy) continue;                // nor the kid's room
+      if (roomRects.some(([rx0, ry0, rx1, ry1]) => cx0 <= rx1 && cx0 + vc - 1 >= rx0 && cy0 <= ry1 && cy0 + vc - 1 >= ry0)) continue;
+      const tx0 = TX(cx0), ty0 = TX(cy0), tx1 = tx0 + vt - 1, ty1 = ty0 + vt - 1;
+      let touches = false;                 // it has to open off the maze, not sit as an island in dead space
+      for (let y = ty0; y <= ty1 && !touches; y++) for (let x = tx0; x <= tx1; x++) if (isOpen(x, y)) { touches = true; break; }
+      if (!touches) continue;
+      for (let y = ty0; y <= ty1; y++) for (let x = tx0; x <= tx1; x++) tiles[y][x] = 1;
+      // the rings, from the outside in, each shut but for one gap, and never on the side the last one used
+      let lastSide = -1;
+      for (let d = 1; d + 1 < vt / 2; d += 2) {
+        const a = tx0 + d, b = ty0 + d, c = tx1 - d, e = ty1 - d;
+        for (let x = a; x <= c; x++) { tiles[b][x] = 0; tiles[e][x] = 0; }
+        for (let y = b; y <= e; y++) { tiles[y][a] = 0; tiles[y][c] = 0; }
+        let side = VR() * 4 | 0; if (side === lastSide) side = (side + 1) % 4; lastSide = side;
+        const mid = (lo, hi) => lo + 1 + (VR() * Math.max(1, hi - lo - 1) | 0);
+        if (side === 0) tiles[b][mid(a, c)] = 1;
+        else if (side === 1) tiles[e][mid(a, c)] = 1;
+        else if (side === 2) tiles[mid(b, e)][a] = 1;
+        else tiles[mid(b, e)][c] = 1;
+      }
+      // Put back every way in that the block just paved over. Without this the vault is an island:
+      // the rim is open and the nest inside it is walked perfectly well, but nothing outside can
+      // reach the rim — 16 of 20 gated mazes were unsolvable. They all land on the rim, which runs
+      // the whole way round, so the maze stays as connected as it was; the key is still three
+      // gapped rings deeper in, which is the part that is meant to be hard.
+      for (let x = tx0 + 1; x < tx1; x += 2) {
+        if (tiles[ty0 - 2] && tiles[ty0 - 2][x]) tiles[ty0 - 1][x] = 1;
+        if (tiles[ty1 + 2] && tiles[ty1 + 2][x]) tiles[ty1 + 1][x] = 1;
+      }
+      for (let y = ty0 + 1; y < ty1; y += 2) {
+        if (tiles[y][tx0 - 2]) tiles[y][tx0 - 1] = 1;
+        if (tiles[y][tx1 + 2]) tiles[y][tx1 + 1] = 1;
+      }
+      keyVault = { x0: tx0, y0: ty0, x1: tx1, y1: ty1, cx: (tx0 + tx1) >> 1, cy: (ty0 + ty1) >> 1 };
+    }
+  }
+
   // one past self per maze; spread their pages across the rooms (first page first, last page last)
   // the self of this phase; lay out their next unfound pages in order
   const uncollected = c => c.pages.map((_, i) => i).filter(i => !(SAVE.collected[c.name] || [])[i]);
@@ -373,7 +465,7 @@ function generate(seed) {
   }
 
   // crawl gaps: closed walls between two open cells; open for the Child, drawn sealed for everyone after
-  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null; secretTiles = new Set(); secretMarks = new Map(); secretSwitch = null; secretFather = null; exitTree = new Set(); exitTreeMouth = null; landmarks = []; sections = [];
+  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null; secretTiles = new Set(); secretMarks = new Map(); secretSwitch = null; secretFather = null; exitTree = new Set(); exitTreeMouth = null;
   if (!poolMode) {
     const roomRing = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
     const cands2 = [];
@@ -838,7 +930,9 @@ function generate(seed) {
   const pocketKeys = pockets.map(([x,y]) => x+','+y);
   if (poolMode) keySpot = (startRoom.x0 + 3) + ',' + (startRoom.y0 + 3);
   else if (gated) {
-    if (pocketKeys.length && R() < CONFIG.sliderKeyChance) keySpot = pocketKeys.shift();
+    // the heart of the vault first, if this maze got one: that is the whole point of building it
+    if (keyVault) { keySpot = keyVault.cx + ',' + keyVault.cy; taken.add(keySpot); }
+    else if (pocketKeys.length && R() < CONFIG.sliderKeyChance) keySpot = pocketKeys.shift();
     else { keySpot = pickFree(); if (keySpot) taken.add(keySpot); }
   }
 
@@ -893,7 +987,12 @@ function generate(seed) {
       const dDoor = new Map(); { const q = [picks[i]]; dDoor.set(picks[i].join(','), 0); while (q.length) { const [x,y] = q.shift(); const d = dDoor.get(x+','+y); for (const [dx,dy] of DIRS) { const k = (x+dx)+','+(y+dy); if (isOpen(x+dx,y+dy) && !dDoor.has(k) && (side.has(k) || k === picks[i].join(','))) { dDoor.set(k, d+1); q.push([x+dx,y+dy]); } } } }
       const scored = cellsIn.map(k => [k, (dRoute.get(k) ?? 30) * 2 + Math.min(30, dDoor.get(k) ?? 30) + (pocketSet.has(k) ? 40 : 0) + (deadEnds.includes(k) ? 8 : 0) + R() * 6]).sort((a, b) => b[1] - a[1]);
       const pool = scored.slice(0, Math.max(1, Math.ceil(scored.length * 0.2))).map(([k]) => k);   // the best fifth, then chance
-      const kk = pool[R() * pool.length | 0], shape = KEY_SHAPES[i % KEY_SHAPES.length];
+      // The vault takes precedence when it is legal — and legal means *in this section*: the chain
+      // only works if each key lies in the ground the previous door opened, so a key dropped into a
+      // vault on the far side of its own door is a soft lock. cellsIn is already that section, so
+      // asking it is the whole check.
+      const vk = keyVault && (keyVault.cx + ',' + keyVault.cy);
+      const kk = (vk && cellsIn.includes(vk)) ? vk : pool[R() * pool.length | 0], shape = KEY_SHAPES[i % KEY_SHAPES.length];
       innerKeys.set(kk, shape); taken.add(kk); chalkSpots.delete(kk); charcoalSpots.delete(kk); pickups.delete(kk); scrapSpots.delete(kk);   // the key replaces whatever loot lay there
       doors.push({ x: picks[i][0], y: picks[i][1], shape, open: false, onRoute: true });
       prevSide = side;
