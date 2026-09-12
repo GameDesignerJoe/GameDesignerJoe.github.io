@@ -2154,6 +2154,168 @@ check('the compass is an instrument, carries no number, and dies like a bulb',
   + `so nothing here is measuring it simply expiring — it stutters between ${compass.dyingLo.toFixed(2)} and ${compass.dyingHi.toFixed(2)} of it `
   + `(the dim is ${compass.dim}), and once spent it sits at ${compass.goneShare.toFixed(2)} — back to the floor`);
 
+// ── 8x. the basin, the water, and room to get round a landmark ──
+// Joe: "the rocks in the basin, in the pool level always have the same count
+// until you pick up a rock." The count *was* changing — 7 down to 0 across the
+// seven pools — but it could not be read: seven ellipses overlapping inside a
+// 45px circle, where six and three are the same pale clump. So this counts what
+// is actually PAINTED, slot by slot, and it counts it against this basin's own
+// water: the fog vignette dims the whole thing by how far down the screen it
+// sits, and a fixed brightness threshold read zero everywhere.
+const basin = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const painted = () => {
+    const r = viewS * CONFIG.basinTiles;
+    const px = viewOx + (startRoom.x0 + 3 + 0.5) * viewS, py = viewOy + (startRoom.y0 + 3 + 0.5) * viewS;
+    const dpr = cv.width / cv.clientWidth;
+    const at = (ux, uy) => ctx.getImageData(Math.round(px + ux * r) * dpr, Math.round(py + uy * r) * dpr, 1, 1).data[0];
+    const mid = (0.5 - 1) / 6 * Math.PI * 2 - Math.PI / 2;    // between two ring slots: never a stone
+    const water = at(Math.cos(mid) * CONFIG.basinRing, Math.sin(mid) * CONFIG.basinRing);
+    let n = 0;
+    for (let i = 0; i < 7; i++) {
+      const a = (i - 1) / 6 * Math.PI * 2 - Math.PI / 2;
+      const ux = i === 0 ? 0 : Math.cos(a) * CONFIG.basinRing, uy = i === 0 ? 0 : Math.sin(a) * CONFIG.basinRing;
+      if (at(ux, uy) > water + 12) n++;
+    }
+    return n;
+  };
+  const rows = [];
+  for (const st of [0, 3, 6]) {
+    SAVE.stones = st; SAVE.phase = st + 1; SAVE.poolPending = true; delete SAVE.run;
+    SAVE.tutorials = Object.keys(TUTORIALS); persist();
+    reset(1234 + st); wake();
+    for (let i = 0; i < 200 && !started; i++) await nap(50);
+    await nap(500); introWalk = null; held = null;
+    const bx = startRoom.x0 + 3, by = startRoom.y0 + 3;
+    lastTileKey = ''; player = { x: bx + 0.5, y: by - 2.5 }; dir = null; recenter = null;
+    await nap(350);
+    const before = painted(), keyBefore = hasKey;
+    lastTileKey = ''; player = { x: bx + 0.5, y: by + 0.5 }; dir = null; recenter = null; await nap(350);
+    lastTileKey = ''; player = { x: bx + 0.5, y: by - 2.5 }; dir = null; recenter = null; await nap(350);
+    rows.push({ st, want: STONES.length - st, before, after: painted(), keyBefore, keyAfter: hasKey });
+  }
+  held = null;
+  return rows;
+});
+check('the basin heaps one stone per burden you still carry, and taking one takes one',
+  basin.every((r) => r.before === r.want) && basin.every((r) => r.after === r.want - 1)
+    && basin.every((r) => !r.keyBefore && r.keyAfter),
+  basin.map((r) => `${r.st} put down: ${r.before} in the basin (want ${r.want}), ${r.after} after taking one`).join('; ')
+  + ' — counted off the canvas slot by slot, against the basin\'s own water');
+
+// Joe: "the pool room should change shades of blue as the player walks over it
+// going light to darker from the out in... when you step into it it begins to
+// shift in tone in small rings from out to in."
+const water = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 4; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run;
+  SAVE.tutorials = Object.keys(TUTORIALS); SAVE.ui.zoom = 0.7; persist();
+  let L = null, seed = 0;
+  for (let s2 = 1; s2 < 120 && !L; s2++) { reset(s2 * 11); seed = s2 * 11; L = landmarks.find((l) => l.kind === 'pool' && (l.rx1 - l.rx0) >= 3) || null; }
+  if (!L) return null;
+  const px = (L.rx0 + L.rx1) / 2 + 0.5, py = (L.ry0 + L.ry1) / 2 + 0.5;
+  reset(seed); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(600); introWalk = null; held = null;
+  const stand = async (dy, ms) => { lastTileKey = ''; player = { x: px, y: py + dy }; cam = { x: px, y: py + dy }; dir = null; recenter = null; await nap(ms); };
+  const N = 22;
+  // brightness from the middle out to the rim, sampled NORTH of the middle — index 0 is the middle,
+  // the last is the rim, so index rises with radius. That matters for the direction test below.
+  const profile = () => {
+    const S2 = viewS, cx = viewOx + px * S2, cy = viewOy + py * S2;
+    const rad = Math.min(L.rx1 - L.rx0 + 1, L.ry1 - L.ry0 + 1) / 2 * S2, r2 = rad * 0.80 * 0.88;
+    const dpr = cv.width / cv.clientWidth, o = [];
+    for (let i = 1; i <= N; i++) { const rr = r2 * (i / (N + 1));
+      o.push(ctx.getImageData(Math.round(cx) * dpr, Math.round(cy - rr) * dpr, 1, 1).data[2]); }   // the blue channel: the water's own axis
+    return o;
+  };
+  await stand(-3.2, 500); await nap(CONFIG.poolSettleSec * 1000 + 900);   // outside it, fully settled
+  const still = profile();
+  // Inside the water but off to the SOUTH, so he is not standing on the ray being sampled. Parking
+  // him in the middle put the player's own pale arrow over the inner samples, and the "ripple" that
+  // came back was mostly him — a residual bigger than the whole light-to-dark ramp gave it away.
+  await stand(1.2, 450);
+  const frames = [];
+  for (let i = 0; i < 20; i++) { await nap(60); frames.push(profile()); }
+  // Strip the standing light-to-dark ramp and correlate what is left. Without this the ramp is 83
+  // units against a ripple of 40 and every correlation pins itself at no shift at all, which is
+  // exactly what the first cut of this reported while the water was visibly moving.
+  const resid = (f) => f.map((v, i2) => v - still[i2]);
+  const corr = (A, B) => { let best = 0, bestErr = Infinity;
+    for (let sh = -8; sh <= 8; sh++) { let e = 0, n = 0;
+      for (let i2 = 0; i2 < A.length; i2++) { const j2 = i2 + sh; if (j2 < 0 || j2 >= A.length) continue; e += Math.abs(A[i2] - B[j2]); n++; }
+      if (n >= 10 && e / n < bestErr) { bestErr = e / n; best = sh; } }
+    return best; };
+  // A ring that has moved inward now sits at a SMALLER index than it did, so the later frame
+  // matches the earlier one shifted UP: a positive number here means inward. Three gaps rather
+  // than one — still water gives 0,0,0 and outward rings give -1,-2,-3, so the slope is the claim.
+  // The shift is a whole number of samples, so adjacent gaps can legitimately tie (1,2,2 as often
+  // as 1,2,3). Demanding a strict rise every time failed a pool that was visibly working, so what
+  // is asserted is: inward at every gap, never backwards, and further by the last one.
+  const shifts = [8, 12, 16].map((g) => corr(resid(frames[g]), resid(frames[0])));
+  const atMid = frames.map((f) => f[Math.floor(f.length / 2)]);
+  return { stillMid: still[0], stillRim: still[still.length - 1], shifts,
+    ripple: Math.max(...resid(frames[0]).map(Math.abs)),
+    swing: Math.max(...atMid) - Math.min(...atMid), bands: CONFIG.poolBands };
+});
+check('the pool is light at its rim and deep in the middle, and the rings travel inward as he walks it',
+  water && water.stillRim > water.stillMid + 25
+    && water.swing > 6
+    && water.shifts.every((v) => v >= 1)                      // inward at every gap
+    && water.shifts[1] >= water.shifts[0] && water.shifts[2] >= water.shifts[1]   // and never backwards
+    && water.shifts[2] > water.shifts[0],                    // having gone further over the longer wait
+  water ? `still, the middle reads ${water.stillMid} on the blue channel and the rim ${water.stillRim} — `
+    + `${water.stillRim - water.stillMid} lighter at the edge, across ${water.bands} bands. Standing in it, a fixed radius `
+    + `swings ${water.swing} and the ripple stands ${water.ripple} clear of that ramp; matched against the first frame at `
+    + `0.48s, 0.72s and 0.96s the pattern has moved ${water.shifts.join(', ')} bands — positive and rising, so the rings close inward`
+    : 'no pool room found in 120 seeds');
+
+// Joe: "there should be enough space around the pool room, or any room that we
+// have points of interest in for players to get around them. We should never
+// make it big enough or add too much collision so that players can't get around
+// it." Measured first: this already holds — so this check is here to keep it
+// holding when the mazes get bigger, not because anything was broken.
+const around = await page.evaluate(() => {
+  const K = (x, y) => x + ',' + y;
+  const kinds = {};
+  let rooms = 0;
+  for (const ph of [2, 3, 4, 5, 6]) {
+    for (let s2 = 1; s2 <= 12; s2++) {
+      SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+      generate(s2 * 37 + ph);
+      for (const L of landmarks) {
+        const rx0 = L.rx0 ?? L.x, ry0 = L.ry0 ?? L.y, rx1 = L.rx1 ?? L.x, ry1 = L.ry1 ?? L.y;
+        if (rx1 - rx0 < 2 || ry1 - ry0 < 2) continue;       // a tile, not a room
+        rooms++;
+        kinds[L.kind] = kinds[L.kind] || { n: 0, stuck: 0 };
+        kinds[L.kind].n++;
+        const open = (x, y) => x >= rx0 && x <= rx1 && y >= ry0 && y <= ry1 && tiles[y] && tiles[y][x];
+        const cx = (rx0 + rx1) >> 1, cy = (ry0 + ry1) >> 1;
+        // the four ways round it, and whether you can get between them without crossing the middle
+        const sides = [[cx, ry0], [cx, ry1], [rx0, cy], [rx1, cy]].filter(([x, y]) => open(x, y));
+        if (sides.length < 2) { kinds[L.kind].stuck++; continue; }
+        const seen = new Set([K(sides[0][0], sides[0][1])]), q = [sides[0]];
+        while (q.length) { const [x, y] = q.shift();
+          for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, kk = K(nx, ny);
+            if (seen.has(kk) || kk === K(cx, cy) || !open(nx, ny)) continue; seen.add(kk); q.push([nx, ny]); } }
+        if (sides.some(([x, y]) => !seen.has(K(x, y)))) kinds[L.kind].stuck++;
+      }
+    }
+  }
+  return { rooms, kinds };
+});
+{
+  // The ball pit is the one kind that is allowed to fail this: its balls roll out of your way and
+  // settle back, so a still frame of one is not a wall. Everything else is measured as it stands.
+  const solid = Object.entries(around.kinds).filter(([k]) => k !== 'balls');
+  const bad = solid.filter(([, v]) => v.stuck > 0);
+  check('you can always get round a point of interest, staying inside its room',
+    around.rooms > 200 && bad.length === 0,
+    `${around.rooms} landmark rooms over five selves: `
+    + solid.map(([k, v]) => `${k} ${v.n - v.stuck}/${v.n}`).join(', ')
+    + (around.kinds.balls ? `; ball pits ${around.kinds.balls.n - around.kinds.balls.stuck}/${around.kinds.balls.n}, not counted — the balls move out of your way` : ''));
+}
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

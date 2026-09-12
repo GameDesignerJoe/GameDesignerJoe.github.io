@@ -187,13 +187,16 @@ The design intent: **you should be able to say where you are.** "The room with
 the spinning spiral" is a landmark; "third left after the long corridor" is a
 memory test you will fail at this zoom. Rooms are the maze's vocabulary.
 
-Four of them answer to you rather than sitting there, and that is deliberate — a
+Five of them answer to you rather than sitting there, and that is deliberate — a
 landmark you can touch is remembered better than one you look at:
 
 - **The ball pit** gets out of your way and rolls back after (`ballPitReach`,
   `ballPitPush`, `ballPitSettle`).
 - **The spiral** turns, slowly, about the middle of its room (`spiralSpinHz`) —
   slow enough to doubt, fast enough to see.
+- **The pool** (v0.84.0) is banded light-at-the-rim to deep-in-the-middle, and
+  standing in it sends rings of tone travelling inward (`poolRingSpeed`,
+  `poolRippleAmt`); it keeps moving for `poolSettleSec` after you step out.
 
 **Columns, statues and the well are solid.** All three were walk-through
 decoration; they stand on the floor now (the well is a hole you cannot stand in). They are placed only on **link/link crossings** — tiles that

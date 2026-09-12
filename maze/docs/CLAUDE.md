@@ -481,6 +481,83 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The basin you can count, and water that moves (v0.84.0)
+
+Three items about the pool, and only two of them were bugs. The third was
+already true, and the useful thing to do with it was write it down as a check.
+
+**The basin: his report was right, his reason was not.** Joe: *"the rocks in the
+basin, in the pool level always have the same count until you pick up a rock."*
+The count **was** changing — seven down to zero across the seven pools, straight
+off `SAVE.stones`. What was wrong is that you could not *read* it: seven ellipses
+at 0.22 of a 45px circle, at offsets that overlapped, merge into one pale clump,
+and **six of them look exactly like three**. Screenshotting stones=6 beside
+stones=3 is what settled it; they are near enough identical.
+
+So they are laid out to be counted: one in the middle, a ring of six around it,
+none of them touching (`basinTiles`, `basinStoneR`, `basinRing`).
+
+**And the other half was real.** In a pool level the stone you carry to the water
+sits on the basin's own tile, and was drawn *again* on top of the heap — while
+the heap itself was pre-decremented, so taking the pebble changed nothing about
+the pile underneath it. The basin draws that stone now, as the pale one at the
+middle, and the pile is full until you take it and one fewer after. Seven to six,
+four to three, one to none — counted off the canvas, not off the variables.
+
+**A bug I put in on the way.** Skipping the old separate draw by failing its
+`if` fell through to the `else if (keySpot)` below it and painted a **door key**
+on the basin — in a level that has no doors. Caught by looking at the screenshot,
+which is the entire argument for looking at the screenshot. The `poolMode` test
+belongs on the outer branch.
+
+**The pool room is water now.** *"It should change shades of blue as the player
+walks over it going light to darker from the out in... when you step into it it
+begins to shift in tone in small rings from out to in."* It was three flat discs
+and three static scratches. It is `poolBands` concentric bands drawn rim inward,
+shallow blue at the edge to deep in the middle, and while he is standing in it
+the tone travels **inward** through them (`poolRingFreq`, `poolRingSpeed`,
+`poolRippleAmt`). It keeps moving for `poolSettleSec` after he steps out, because
+water does not stop when you do. `wetAt` lives on the landmark, so two pools in a
+maze each keep their own.
+
+**Getting round a landmark: already true, so it is a check, not a change.**
+*"There should be enough space around the pool room, or any room that we have
+points of interest in for players to get around them."* Measured before building
+anything: **1075 landmark rooms across five selves, and the pool never blocks the
+way round — 187 of 187 clear.** One room in 1075 failed, a ball pit, and ball pits
+roll out of your way. Nothing needed fixing. What the item is really asking for is
+that this keeps being true when the mazes get bigger, which he has said he wants
+— so it is an invariant now, with ball pits excluded and the reason written down.
+
+### Two probes that were measuring the wrong thing
+
+Both found by the numbers looking wrong, not by the check going red.
+
+- **The basin counter read zero everywhere** on its first run while the
+  screenshots plainly showed stones. A fixed brightness threshold: the basin sits
+  low on the screen, deep in the fog vignette, and everything in it is dimmed by
+  how far down it is. Stone reads ~56 and water ~21 there. It calibrates against
+  **this basin's own water**, sampled between two ring slots.
+- **The ripple probe was standing on the thing it watched.** Parked in the middle
+  of the pool, the player's own pale arrow covered the inner samples and the
+  "ripple" came back bigger than the entire light-to-dark ramp — 157 against 83,
+  which is what gave it away. He stands off to one side now and the ray is
+  sampled away from him.
+
+And the correlation needed the ramp removed before it meant anything: 83 units of
+standing gradient against 40 units of ripple pins every correlation at no shift
+at all, which is exactly what it reported while the water was visibly moving.
+
+One more, this time in the assertion rather than the probe: the first cut
+demanded the inward shift rise strictly across three gaps. It is a whole number
+of samples, so adjacent gaps tie as often as not — 1,2,2 as readily as 1,2,3 —
+and a working pool failed. It asserts inward at every gap, never backwards, and
+further by the last one.
+
+Three new checks, each reddened by its own reversion in its own run: the basin
+pre-decremented again, the water stilled (`poolRippleAmt: 0`), and the rim set to
+the same blue as the middle. 77 behaviour checks.
+
 ## The thread you have to reach, and a compass that is a compass (v0.83.0)
 
 Both of these are the same complaint in two places: a timer that starts before

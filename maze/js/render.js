@@ -438,16 +438,27 @@ function draw() {
     });
   }
 
-  // the basin: the stones you carry, heaped where the water should be. One fewer each time you put one down.
+  // The basin: the burdens you are still carrying, heaped where the water should be. Joe reported
+  // the count never changing in a pool level. It was changing — 7 down to 0 across the seven pools —
+  // but it could not be *read*: the old layout put seven ellipses inside a 45px circle at offsets
+  // that overlapped, so six of them and three of them are the same pale clump. They are laid out to
+  // be counted now: one in the middle, then a ring of six, none of them touching.
   if (startRoom) {
-    const bx = ox + (startRoom.x0 + 3) * S + S/2, by = oy + (startRoom.y0 + 3) * S + S/2, r = S*0.3;
-    const left = STONES.length - (SAVE.stones || 0) - (poolMode ? 1 : 0);
+    const r = S * CONFIG.basinTiles;
+    const bx = ox + (startRoom.x0 + 3) * S + S/2, by = oy + (startRoom.y0 + 3) * S + S/2;
+    // And the stone you carry to the water is one OF these rather than a pebble lying on top of
+    // them, which was the other half of it: the pile is full until you pick it up, one fewer after.
+    const left = STONES.length - (SAVE.stones || 0) - (poolMode && hasKey ? 1 : 0);
+    const loose = poolMode && !!keySpot;   // the one at the middle is the one you can take
     ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = (left > 0 || (poolMode && keySpot)) ? '#2a2c2e' : '#3d4a52'; ctx.beginPath(); ctx.arc(bx, by, r*0.82, 0, Math.PI*2); ctx.fill();   // water shows once the stones are gone
+    ctx.fillStyle = left > 0 ? '#2a2c2e' : C.poolRim; ctx.beginPath(); ctx.arc(bx, by, r*0.82, 0, Math.PI*2); ctx.fill();   // water shows once the stones are gone
     if (!left) { ctx.strokeStyle = '#6f8893'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(bx, by, r*0.45, 0, Math.PI*2); ctx.stroke(); }
-    const pos = [[0,0],[-.3,-.22],[.3,-.2],[-.28,.24],[.3,.25],[0,-.42],[0,.42]];
-    ctx.fillStyle = '#8a857a';
-    for (let i = 0; i < left; i++) { const [px, py] = pos[i]; ctx.beginPath(); ctx.ellipse(bx + px*r, by + py*r, r*0.22, r*0.17, i*0.7, 0, Math.PI*2); ctx.fill(); }
+    for (let i = 0; i < left; i++) {
+      const a = (i - 1) / 6 * Math.PI*2 - Math.PI/2, R2 = CONFIG.basinRing;
+      const ux = i === 0 ? 0 : Math.cos(a) * R2, uy = i === 0 ? 0 : Math.sin(a) * R2;
+      ctx.fillStyle = (loose && i === 0) ? '#a29d92' : '#8a857a';
+      ctx.beginPath(); ctx.ellipse(bx + ux*r, by + uy*r, r*CONFIG.basinStoneR, r*CONFIG.basinStoneR*0.78, i*0.7, 0, Math.PI*2); ctx.fill();
+    }
   }
 
   // the name, set into the tile above the mat: architectural capitals in chalk white
@@ -502,13 +513,30 @@ function draw() {
     const cx = x + w / 2, cy = y + h / 2, rad = Math.min(w, h) / 2;
     ctx.save();
     if (L.kind === 'pool') {                       // the room is a pool, with a rim you walk round
+      // Joe: "the pool room should change shades of blue as the player walks over it going light to
+      // darker from the out in... when you step into it it begins to shift in tone in small rings
+      // from out to in." It was three flat discs and three static scratches. It is bands now, drawn
+      // rim inward so each one covers the last: shallow blue at the edge, deep blue in the middle.
       const r2 = rad * 0.80;
       ctx.fillStyle = C.grout; ctx.beginPath(); ctx.arc(cx, cy, r2, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#2a2c2e'; ctx.beginPath(); ctx.arc(cx, cy, r2 * 0.88, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#3d4a52'; ctx.beginPath(); ctx.arc(cx, cy, r2 * 0.80, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#6f8893'; ctx.lineWidth = Math.max(1, S * 0.03);
-      for (let i = 1; i <= 3; i++) { ctx.globalAlpha = 0.42 - i * 0.09;
-        ctx.beginPath(); ctx.arc(cx, cy, r2 * (0.16 + i * 0.19), 0, Math.PI*2); ctx.stroke(); }
+      // He disturbs it by standing in it, and it keeps moving for a beat after he steps back out —
+      // water does not stop when you do. wetAt lives on the landmark, so two pools in one maze each
+      // remember their own, and a pool off screen is not drawn and so does not ripple to nobody.
+      const pd = Math.hypot((ox + player.x*S) - cx, (oy + player.y*S) - cy) / Math.max(1, r2 * 0.88);
+      if (pd < 1 && !solved) L.wetAt = nowMs;
+      const settle = L.wetAt ? 1 - (nowMs - L.wetAt) / (CONFIG.poolSettleSec * 1000) : 0;
+      const wet = Math.max(0, Math.min(1, settle));
+      const N = Math.max(2, CONFIG.poolBands);
+      for (let i = N; i >= 1; i--) {
+        const t = i / N;                           // 1 at the rim, towards 0 at the middle
+        // light out, dark in — and while it is disturbed, the tone travels *inward* through the
+        // bands. The phase advances with t as well as with time, so constant tone moves to smaller
+        // radii as the clock runs: rings closing on the middle rather than spreading from it.
+        let m = 1 - t;                             // 0 at the rim, 1 in the middle
+        if (wet > 0) m += wet * CONFIG.poolRippleAmt * Math.sin(t * CONFIG.poolRingFreq + nowMs / 1000 * CONFIG.poolRingSpeed * Math.PI * 2);
+        ctx.fillStyle = mixHex(C.poolRim, C.poolDeep, Math.max(0, Math.min(1, m)));
+        ctx.beginPath(); ctx.arc(cx, cy, r2 * 0.88 * t, 0, Math.PI*2); ctx.fill();
+      }
     } else if (L.kind === 'statues') {             // standing on the floor now, round the room, looking in
       // Joe: "they should be off until the player's right next to them and then they light up."
       // The same proximity the columns answer to, and the same reach — but no flame: a statue is
@@ -811,7 +839,21 @@ function draw() {
     ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(px - S*0.02, py); ctx.lineTo(px + S*0.22, py); ctx.moveTo(px + S*0.12, py); ctx.lineTo(px + S*0.12, py + S*0.09); ctx.moveTo(px + S*0.2, py); ctx.lineTo(px + S*0.2, py + S*0.07); ctx.stroke();
     drawShape(ctx, shape, px - S*0.13, py, S*0.1, C.key, Math.max(2, S*0.06)); }
   // key (or, at a pool level, the stone)
-  if (keySpot && poolMode) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my); ctx.fillStyle = '#8a857a'; ctx.beginPath(); ctx.ellipse(px, py + S*0.03, S*0.2, S*0.14, 0.3, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#a29d92'; ctx.beginPath(); ctx.ellipse(px - S*0.06, py - S*0.04, S*0.07, S*0.04, 0.3, 0, Math.PI*2); ctx.fill(); }
+  // The pool level's stone sits on the basin's own tile, so the basin draws it — as the pale one at
+  // the middle of the heap. Drawing it again here put a second pebble on top of the pile, which is
+  // why taking it appeared to change nothing. Anywhere else (it never is, today) it draws as before.
+  // The poolMode test has to stay on the OUTER branch. Skipping the draw by failing this condition
+  // fell through to the `else if (keySpot)` below it and painted a door key on the basin — the pool
+  // level has no doors and no keys, and it looked exactly as wrong as it sounds.
+  if (keySpot && poolMode) {
+    // On the basin's own tile the basin draws it, as the pale stone at the middle of the heap;
+    // drawing it again here is the second pebble that made taking one appear to change nothing.
+    if (!(startRoom && keySpot === (startRoom.x0 + 3) + ',' + (startRoom.y0 + 3))) {
+      const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
+      ctx.fillStyle = '#8a857a'; ctx.beginPath(); ctx.ellipse(px, py + S*0.03, S*0.2, S*0.14, 0.3, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#a29d92'; ctx.beginPath(); ctx.ellipse(px - S*0.06, py - S*0.04, S*0.07, S*0.04, 0.3, 0, Math.PI*2); ctx.fill();
+    }
+  }
   else if (keySpot) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
     ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(px - S*0.14, py, S*0.1, 0, Math.PI*2); ctx.moveTo(px - S*0.04, py); ctx.lineTo(px + S*0.22, py); ctx.moveTo(px + S*0.12, py); ctx.lineTo(px + S*0.12, py + S*0.09); ctx.moveTo(px + S*0.2, py); ctx.lineTo(px + S*0.2, py + S*0.07); ctx.stroke(); }

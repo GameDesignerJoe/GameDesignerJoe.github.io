@@ -291,12 +291,34 @@ const CONFIG = {
   darkBufferTiles: 8,   // darkness never comes closer than this (walking) to the start-room door
   coneDeg: 70,          // lamp cone width
   coneTiles: 3.6,       // lamp cone reach
+  // The basin in the home room: the burdens you are still carrying, heaped where the water should
+  // be. Joe: "the rocks in the basin, in the pool level always have the same count until you pick
+  // up a rock." The count was in fact changing — it is 7 down to 0 across the seven pools — but you
+  // could not read it: seven ellipses at 0.22 of a 45px circle, at offsets that overlapped, merge
+  // into one pale clump, and six of them look exactly like three. So they are laid out to be
+  // counted: one in the middle, then a ring of six around it, none of them touching.
+  basinTiles: 0.34,     // the basin's radius, in tiles
+  basinStoneR: 0.17,    // one stone's long radius, as a share of the basin's
+  basinRing: 0.58,      // how far out the ring of six sits, as a share of the basin's radius
+  // And in a pool level the stone you carry to the water is one OF these, not a separate pebble
+  // lying on top of them — which is the other half of why nothing seemed to change. The pile is
+  // full until you pick it up and one fewer afterwards, and the loose one reads lighter.
   poolGateInset: 0.34,  // how far back from the room's wall the gate sits, in tiles. Flush with it
                         // read as part of the wall rather than as a thing standing in the doorway
   // the way out, shimmering. Joe: "something that gives it an otherworldly quality"
   exitArcs: 7,          // the ring is this many short arcs, not one circle
   exitWarp: 0.035,      // and each one's radius breathes by this much of a tile
   exitShimmerHz: 0.32,  // slowly
+  // The pool room. Joe: "the pool room should change shades of blue as the player walks over it
+  // going light to darker from the out in. Trying to get a feel for someone walking on it with
+  // water shifting and rippling. When you step into it it begins to shift in tone in small rings
+  // from out to in." So it is bands rather than the three flat discs it was: light at the rim,
+  // deep in the middle, and while he is standing in it the tone travels inward through them.
+  poolBands: 9,         // concentric bands the water is drawn in. More is smoother and slower
+  poolRippleAmt: 0.22,  // how far the travelling rings swing each band's tone, 0 = still water
+  poolRingFreq: 9,      // how many rings are in the water at once, across its radius
+  poolRingSpeed: 0.33,  // turns a second they travel inward at
+  poolSettleSec: 2.6,   // how long the water keeps moving after he steps back out of it
   // the rooms that are a place rather than an ornament
   keyDoorMinTiles: 24,  // a key is never nearer its own door than this many tiles of walking...
   keyDoorMinApart: 9,   // ...nor this many tiles as the crow flies, so the two are never in one view
@@ -375,6 +397,8 @@ const CONFIG = {
                                 // band of him, tail to nose, until he is the pale colour above
     exit:  '#a89f8c',
     gate:  '#d8b36a',
+    poolRim: '#5d7486',         // the water at its edge, where it is shallow
+    poolDeep: '#232e38',        // and in the middle, where it is not
     poolGate: '#e8e3d6',        // the pool room's gate: white, and heavy
     start: '#4a4741',
     mark:  '#ece7da',
