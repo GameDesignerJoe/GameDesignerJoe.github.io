@@ -334,6 +334,17 @@ const titleScale = (S) => Math.min(S, innerWidth * 0.35);
 // rather than with ctx.letterSpacing, which Safari only learned in 17.4. Joe: "have the text for the
 // chapter title be in all caps."
 const spaced = (t) => t.toUpperCase().split('').join(' ');
+// Set it at this size, or smaller if that would run off the screen. Joe: "text is bleeding out of
+// the frame. We can just shrink the text a bit." All caps and a space between every letter makes a
+// long name wide — "T H E   O N E   W H O   S T A Y E D" wants 439px of a 430px phone — so the two
+// lines of the chapter and the name above them all measure themselves first.
+const TITLE_FACE = 'Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif';
+function fitFont(c, text, weight, px) {
+  const max = innerWidth - 32;
+  c.font = `${weight} ${px}px ${TITLE_FACE}`;
+  const w = c.measureText(text).width;
+  if (w > max) c.font = `${weight} ${Math.max(7, px * max / w)}px ${TITLE_FACE}`;
+}
 const nameFade = (el) => Math.max(0, 1 - el / 0.9);
 const chapterFade = (el) => Math.max(0, 1 - Math.max(0, el - CONFIG.chapterHoldSec) / CONFIG.chapterFadeSec);
 
@@ -431,8 +442,8 @@ function draw() {
     const fadeT = intro ? nameFade((performance.now() - intro.t0) / 1000) : 1;
     const tx = startRoom.x0 + 2, ty = startRoom.y0 + 1, px = ox + tx*S + S/2, py = oy + ty*S + S/2, TS = titleScale(S);
     ctx.save(); ctx.globalAlpha = fadeT; ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `500 ${TS*0.13}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('T H E', px, py - S*0.26);
-    ctx.font = `700 ${TS*0.34}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('M A Z E', px, py + S*0.06);
+    fitFont(ctx, 'T H E', 500, TS*0.13); ctx.fillText('T H E', px, py - S*0.26);
+    fitFont(ctx, 'M A Z E', 700, TS*0.34); ctx.fillText('M A Z E', px, py + S*0.06);
     ctx.restore();
   }
 
@@ -447,11 +458,10 @@ function draw() {
       const cx = ox + (startRoom.x0 + 2)*S + S/2, cy = oy + (start.y + CONFIG.chapterDrop)*S, TS = titleScale(S);
       ctx.save(); ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.globalAlpha = fadeC * 0.55;
-      ctx.font = `500 ${TS*0.08}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
-      ctx.fillText(spaced('Chapter ' + (roman[SAVE.phase || 0] || (SAVE.phase + 1))), cx, cy);
+      const num = spaced('Chapter ' + (roman[SAVE.phase || 0] || (SAVE.phase + 1))), who = spaced(phase().who);
+      fitFont(ctx, num, 500, TS*0.08); ctx.fillText(num, cx, cy);
       ctx.globalAlpha = fadeC;
-      ctx.font = `700 ${TS*0.18}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`;
-      ctx.fillText(spaced(phase().who), cx, cy + TS*0.17);
+      fitFont(ctx, who, 700, TS*0.18); ctx.fillText(who, cx, cy + TS*0.17);
       ctx.restore();
     }
   }

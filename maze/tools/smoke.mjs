@@ -982,6 +982,13 @@ const titleScreen = await page.evaluate(async () => {
   out.chapGone = chapterFade(out.outBy + 0.01) === 0 && chapterFade(out.outBy - 0.3) > 0.2;
   out.outlives = out.outBy > 0.9 && out.outBy < CONFIG.introSeconds;
   out.caps = spaced('The Child') === 'T H E   C H I L D' && spaced('Chapter I') === 'C H A P T E R   I';
+  // and none of the seven names runs off the screen, however long it is
+  { const c = cv.getContext('2d'), TS = titleScale(CONFIG.titleTilePx), max = innerWidth - 32;
+    const wide = PHASES.map((ph) => { const t = spaced(ph.who); fitFont(c, t, 700, TS * 0.18);
+      return [ph.who, c.measureText(t).width]; });
+    const m = 'M A Z E'; fitFont(c, m, 700, TS * 0.34); wide.push(['THE MAZE', c.measureText(m).width]);
+    out.overflow = wide.filter(([, w]) => w > max + 0.5).map(([n]) => n);
+    out.longest = wide.sort((a, b) => b[1] - a[1])[0]; out.max = max; }
   // the ? is the game's, not the title's: gone while he sleeps, in the top right once he is up
   const q = $('howBtn').getBoundingClientRect(), v = $('verTitle').getBoundingClientRect();
   $('howBtn').style.transition = 'none';      // read where it settles, not where it is mid-slide
@@ -997,8 +1004,11 @@ check('the title screen: the chapter set into the floor, the ? only once you are
   titleScreen.noStepLbl && titleScreen.noBar && titleScreen.noDomChapter
   && titleScreen.qHiddenAsleep && titleScreen.qShownAwake && titleScreen.qTopRight && titleScreen.verBottomLeft
   && titleScreen.asleep > titleScreen.proto + 8 && titleScreen.asleep > titleScreen.pool + 8
-  && titleScreen.nameGoneAt12 && titleScreen.chapFullAt12 && titleScreen.chapGone && titleScreen.outlives && titleScreen.caps,
-  `the chapter is lettered all caps and tracked out; the band of floor below him reads ${titleScreen.asleep} with it written in and `
+  && titleScreen.nameGoneAt12 && titleScreen.chapFullAt12 && titleScreen.chapGone && titleScreen.outlives && titleScreen.caps && titleScreen.overflow.length === 0,
+  `the chapter is lettered all caps and tracked out, and shrinks to fit — the longest, "${titleScreen.longest[0]}", `
+  + `sets ${titleScreen.longest[1].toFixed(0)}px into ${titleScreen.max}px and `
+  + `${titleScreen.overflow.length ? titleScreen.overflow.join(', ') + ' RUN OFF' : 'none of the eight runs off'}; `
+  + `the band of floor below him reads ${titleScreen.asleep} with it written in and `
   + `${titleScreen.proto}/${titleScreen.pool} on a prototype/pool, which get no heading; `
   + `1.2s into the zoom-out the name above him is gone and the chapter is still up, and it is out `
   + `at ${titleScreen.outBy.toFixed(1)}s — before the ${titleScreen.zoomSec}s zoom ends; `

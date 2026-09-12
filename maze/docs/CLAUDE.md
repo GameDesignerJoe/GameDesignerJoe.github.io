@@ -404,6 +404,20 @@ gradient going from black to white and seven stages."* One ramp, `playerBurdened
 body the ramp sits*. A burden coming off walks that edge forward one seventh, through the grey, so
 there is a change to watch rather than a block flicking colour.
 
+**Floor-set text shrinks to fit** (v0.70.2). Joe: *"text is bleeding out of the frame. We can just
+shrink the text a bit."* All caps plus a space between every letter makes a long name wide — "T H E
+O N E   W H O   S T A Y E D" wanted 439px of a 430px phone, and "The Cartographer" 406px. `fitFont()`
+measures first and scales down only when it would overrun `innerWidth - 32`, so the short names keep
+their size and the long ones land exactly in the gutter. Both lines of the chapter and the name above
+them go through it. The smoke check measures all eight strings at the drawn size, so a new character
+with a long name cannot quietly reintroduce it.
+
+**On the camera being "off"**: Joe reported it zoomed in far too much after v0.70.0. That was a
+**stale `SAVE.ui.zoom`** — his slider was still saved at the old scale's maximum, which the new
+`zoomMul()` clamps to 1.5 and multiplies against the new 150px base, so he was at 225px a tile. Not
+the default, and he asked for it to be left alone. `tilePx` stays 150. Worth remembering if anyone
+else reports the same thing: reset the Zoom slider before touching `tilePx`.
+
 **The chapter is all caps** (v0.70.1), per Joe's *"have the text for the chapter title be in all
 caps."* The lettering rule lives in `spaced()` beside `titleScale()` — uppercase, then a space
 between every letter, because `ctx.letterSpacing` is Safari 17.4 and up. The smoke check asserts
