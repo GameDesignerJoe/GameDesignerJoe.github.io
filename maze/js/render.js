@@ -293,6 +293,15 @@ function blockSlivers(px, py, S, ways, color) {
   }
 }
 
+// Where he sits on the scale from burdened to free: 0 is full black, 1 is the pale he ends at, and
+// it passes through the halfway grey so the middle of the run is a grey man rather than a black one
+// going suddenly white. Seven stones means eight rungs, 0/7 to 7/7.
+function burdenTone(lit) {
+  const C = CONFIG.colors;
+  return lit <= 0.5 ? mixHex(C.playerBurdened, C.playerLifting, lit / 0.5)
+                    : mixHex(C.playerLifting, C.player, (lit - 0.5) / 0.5);
+}
+
 // pinch is how much of the back corners' width is left: 1 walking, less in a squeeze, where the
 // arrow narrows behind the nose instead of shrinking whole
 function drawPlayerBody(c, r, pinch = 1) {
@@ -300,24 +309,13 @@ function drawPlayerBody(c, r, pinch = 1) {
   c.beginPath(); c.moveTo(r, 0); c.lineTo(-r*0.8, -by); c.lineTo(-r*0.45, 0); c.lineTo(-r*0.8, by); c.closePath();
   c.save(); c.clip();
   const x0 = -r*0.8, span = r*1.8;
-  // Not seven blocks any more. Joe: "instead of doing segments for how we show the transition of
-  // the character as they let down their burdens we need to do a gradient going from black to white
-  // and seven stages." So it is one ramp black → grey → pale, and what the seven stages move is
-  // where along the body the ramp sits: the burden coming off walks the edge forward one seventh,
-  // through the grey, so there is a change to watch rather than a block flicking colour.
-  const edge = Math.max(0, Math.min(1, liftBand >= 0 ? (liftBand + liftBandAmt) / n : (SAVE.stones || 0) / n));
-  if (edge <= 0) c.fillStyle = C.playerBurdened;
-  else if (edge >= 1) c.fillStyle = C.player;
-  else {
-    const g = c.createLinearGradient(x0, 0, x0 + span, 0), soft = CONFIG.burdenBlend / 2;
-    const at = (t) => Math.max(0, Math.min(1, t));
-    g.addColorStop(0, C.player);
-    g.addColorStop(at(edge - soft), C.player);
-    g.addColorStop(at(edge), C.playerLifting);
-    g.addColorStop(at(edge + soft), C.playerBurdened);
-    g.addColorStop(1, C.playerBurdened);
-    c.fillStyle = g;
-  }
+  // The whole man is one value, and the stages lighten all of him. Joe, correcting me: "what I meant
+  // by gradient was that we would take the whole character from dark to light. So stage one is full
+  // black, stage two is near black, stage three is dark gray and so on." I had built it as a ramp
+  // running along his body with the stages moving the ramp's edge — which is a gradient, but not
+  // this one. Here the gradient is the *scale of values he is drawn in* across the run of the game.
+  const lit = Math.max(0, Math.min(1, liftBand >= 0 ? (liftBand + liftBandAmt) / n : (SAVE.stones || 0) / n));
+  c.fillStyle = burdenTone(lit);
   c.fillRect(x0 - 0.5, -r*1.1, span + 1, r*2.2);
   c.restore();
   if (CONFIG.playerOutline > 0) { c.strokeStyle = C.playerEdge || C.player; c.lineWidth = r * CONFIG.playerOutline; c.lineJoin = 'round'; c.stroke(); }
@@ -616,18 +614,28 @@ function draw() {
     // exit more interesting. Can you add a shimmer or a warping to it? Something that gives it an
     // otherworldly quality." So the ring breathes a halo, and the ring itself is drawn as a set of
     // short arcs whose radii ripple — the circle never quite holds still.
+    // Joe: "now make the circle go oval, in and out from different angles over time as well." So it
+    // is never a circle: the ring is squeezed along an axis that itself wanders round, and the two
+    // do not share a period, so the shape never repeats anywhere you would notice.
     { const t = nowMs / 1000, warp = S * CONFIG.exitWarp, n = CONFIG.exitArcs;
-      const halo = ctx.createRadialGradient(ex, ey, S*0.08, ex, ey, S*0.62);
-      const pulse3 = 0.5 + 0.5 * Math.sin(t * CONFIG.exitShimmerHz * Math.PI * 2);
+      const hz = CONFIG.exitShimmerHz * Math.PI * 2;
+      const rot = t * CONFIG.exitSpinHz * Math.PI * 2;                    // which way it is pulled
+      const ecc = CONFIG.exitOval * Math.sin(t * hz * 0.63);              // and how far, in and out
+      const rx = S*0.22 * (1 + ecc), ry = S*0.22 * (1 - ecc);
+      const pulse3 = 0.5 + 0.5 * Math.sin(t * hz);
+      ctx.save(); ctx.translate(ex, ey); ctx.rotate(rot);                 // the halo leans with it
+      ctx.scale(1 + ecc * 0.7, 1 - ecc * 0.7);
+      const halo = ctx.createRadialGradient(0, 0, S*0.08, 0, 0, S*0.62);
       halo.addColorStop(0, `rgba(236,231,218,${(0.10 + 0.08 * pulse3).toFixed(3)})`);
       halo.addColorStop(1, 'rgba(236,231,218,0)');
-      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(ex, ey, S*0.62, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0, 0, S*0.62, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
       ctx.strokeStyle = poolMode ? '#6f8893' : C.exit; ctx.lineWidth = Math.max(1.5, S*0.045); ctx.lineCap = 'round';
       for (let i = 0; i < n; i++) {
         const a0 = i / n * Math.PI * 2, a1 = (i + 0.72) / n * Math.PI * 2;
-        const rr = S*0.22 + warp * Math.sin(t * CONFIG.exitShimmerHz * Math.PI * 2 + i * 1.7);
+        const w = warp * Math.sin(t * hz + i * 1.7);
         ctx.globalAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 1.6 + i * 2.1));
-        ctx.beginPath(); ctx.arc(ex, ey, rr, a0, a1); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(ex, ey, Math.max(1, rx + w), Math.max(1, ry + w), rot, a0, a1); ctx.stroke();
       }
       ctx.globalAlpha = 1; }
     ctx.fillStyle = poolMode ? '#3d4a52' : C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
@@ -840,7 +848,19 @@ function draw() {
   if (!debugMap) {
     const px = ox + player.x*S, py = oy + player.y*S;
     const shrink = 1 - 0.55 * darkAmt;
-    const inner = B.viewRadius() * 2 * S * shrink, outer = inner + CONFIG.fogSoftness * S * shrink;
+    let inner = B.viewRadius() * 2 * S * shrink, outer = inner + CONFIG.fogSoftness * S * shrink;
+    // The light is measured in tiles, and a tile is 150px now, so at this camera it ran clean off
+    // the screen — and a burden coming off pushed it further. Joe: "looks like we lost the fog of
+    // war... yeah looks like it's the zoom and now with the upgrade for this character it goes
+    // away. Let's bring it back to still hit the edges." So however many tiles it is worth, it may
+    // never reach past the nearest edge: the dark always closes before the screen does. This only
+    // ever pulls the light in — zoomed out, the tile count still rules.
+    // ...but not while he is still asleep, and not mid-wake: that picture is the title screen, with
+    // the name above him and the chapter written into the floor below, and it wants the room lit.
+    // The cap closes in as the camera settles, so the maze shutting around you is the waking.
+    { const settle = !started ? 0 : intro ? Math.min(1, (performance.now() - intro.t0) / (CONFIG.introSeconds * 1000)) : 1;
+      const cap = Math.min(vw, vh) * 0.5 * CONFIG.fogScreenMax * (1 + (CONFIG.fogTitleOpen - 1) * (1 - settle));
+      if (outer > cap) { const k = cap / outer; inner *= k; outer *= k; } }
     const g = ctx.createRadialGradient(px, py, inner, px, py, outer);
     g.addColorStop(0, 'rgba(13,15,16,0)'); g.addColorStop(1, 'rgba(13,15,16,1)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);

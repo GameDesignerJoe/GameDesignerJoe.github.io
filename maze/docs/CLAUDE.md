@@ -326,6 +326,69 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Free movement is the movement (v0.71.0)
+
+Joe, three separate times, ending with *"movement is a little slide-y in general. Feels more like
+I'm in a go cart than a person walking around. How do we fix that."* and *"if this means we need to
+make all of it free roaming we could talk about that."*
+
+So it is all free roaming now, and **the rails are behind the debug `Corridor rails` toggle** rather
+than deleted — this is a feel question, and the only way to have the conversation is with both in
+his thumbs. `SAVE.ui.rails` picks; the smoke check exercises both.
+
+What actually made it a go-kart was two things, and free roam fixes one of them outright:
+
+- **Nothing coasts.** On the rails, `dir` survived letting go of the stick and he kept walking until
+  a wall. That is a kart with no brakes. Under free movement, releasing stops him.
+- **He leans into it.** `moveVel` eases toward the stick's speed over `CONFIG.moveEase` (0.11s)
+  instead of switching between 0 and full tilt. A person has legs to get going.
+
+A corridor is one tile wide and he is most of one, so **the walls hold him to the line without any
+rail doing it** — lean at an angle and he rides the wall instead of being yanked to the centre. The
+check now asserts what actually matters (he gets down the corridor, and never ends up inside a wall)
+rather than the old "held to the centreline", which was the rails talking.
+
+**Two things nearly went wrong here, both worth knowing:**
+
+1. `if (freeRoam && !aim) dir = null` also killed **`introWalk`**, the scripted first step off the
+   mat — the one thing in the game that walks him with no stick, steering along `dir`. It could then
+   never change tile, and `introWalk` only clears when he does, so the stick stayed dead for the rest
+   of the run. That is the exact failure its own comment warns about. The guard now spares it.
+2. The **squeeze channel clamp** lived inside the rails' corner ease, so free movement had nothing to
+   hang it off and he would have drifted out of a gap into the black. It is lifted out and keyed off
+   `squeezeAxis`, which the squeeze scan now derives from the gap's own geometry rather than from
+   `dir`.
+
+**The squeeze pinches harder** (v0.71.0) — `squeezeShrink` is 1 and `squeezePinch` 0.55, so he draws
+full size and the narrowing is the whole of the effect, which is what Joe asked for twice.
+
+## The fog has to close before the screen does (v0.71.0)
+
+Joe: *"looks like we lost the fog of war... yeah looks like it's the zoom and now with the upgrade
+for this character it goes away. Let's bring it back to still hit the edges."*
+
+The light is measured in **tiles**, and v0.70.0 made a tile 150px. `viewRadius` 1.0 became a 300px
+lit core with a 210px fade — past the edge of a 430px phone, and a burden coming off pushed it
+further. So the fog is now capped in **screen** terms: `fogScreenMax` (0.92) of the way to the
+nearest edge, and only ever pulled *in*, so zoomed out the tile count still rules.
+
+The catch: the title screen is a composed picture — the name above him, the chapter written into the
+floor below — and the cap swallowed all of it. So the cap ramps in as the camera settles
+(`fogTitleOpen` 4 while asleep, down to 1 by the end of the intro). The maze closing around you *is*
+the waking.
+
+**The burdens are a scale of values, not a ramp along his body** (v0.71.0). Joe, correcting my first
+reading: *"what I meant by gradient was that we would take the whole character from dark to light. So
+stage one is full black, stage two is near black, stage three is dark gray and so on."* `burdenTone()`
+puts the whole man at one value per stage, eight rungs from `playerBurdened` through `playerLifting`
+to `player`. Worth watching: the middle rungs sit close to the floor's own `#6e6a62`, and it is the
+outline that keeps him readable there.
+
+**The exit is never a circle** (v0.71.0). Joe: *"now make the circle go oval, in and out from
+different angles over time as well."* The ring is squeezed along an axis that itself wanders round
+(`exitOval`, `exitSpinHz`), and the two do not share a period with the arc warp, so the shape never
+repeats anywhere you would notice. The halo leans with it.
+
 ## The camera comes in close (v0.70.0)
 
 Joe: *"for now, let's make the default camera the same as the all the way zoomed in debug slider. I

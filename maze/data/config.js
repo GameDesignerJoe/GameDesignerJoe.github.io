@@ -44,6 +44,10 @@ const CONFIG = {
   liftGlowFrom: 0.55,   // the old light, as a fraction of the one you now have
   viewRadius: 1.0,      // cells of visibility around you
   fogSoftness: 1.4,     // how many tiles the light takes to fade to black
+  fogScreenMax: 0.92,   // and it may never reach further than this much of the way to the nearest
+                        // screen edge, whatever the zoom or the burdens say. The dark has to close
+  fogTitleOpen: 4,      // except asleep on the title screen, where the light is this much wider so
+                        // the room, the name and the chapter all read. It closes in as you wake
   // texture: an overlay to age the concrete. The Texture debug menu picks one; off by default,
   // because which one the maze wants is a look to be chosen by eye, not a value to tune.
   // the floor itself: the room the Child grew up in. Not a screen effect — these are marks in
@@ -61,6 +65,8 @@ const CONFIG = {
   markGhostAlpha: 0,    // how brightly your own chalk shows through the fog. 0 = not at all, which is
                         // the point of fog. 0.35 was the old 'a mark is a beacon you left yourself'
   speed: 2.31,          // tiles per second while the stick is held
+  moveEase: 0.11,       // seconds to lean into a walk, and out of it again. A person has legs to get
+                        // going; a go-kart does not, which is what Joe heard in the old instant start
   pushHoldMs: 260,      // lean into a slider's edge this long before it moves
   turnBufferMs: 400,    // a perpendicular push is remembered this long and taken at the next opening
   turnForgiveness: 0.5, // how far off a tile center you can still take a turn (0.5 = anywhere in the tile)
@@ -193,15 +199,14 @@ const CONFIG = {
                         // the alcove they step into stays wall until the tile gets there
   swings: 1,            // tiles that slide back and forth on their own
   swingSeconds: 2.25,   // how long a swing rests at each end
-  burdenBlend: 0.3,     // how much of his length the black → grey → pale ramp takes, as a fraction
   squeezeSlow: 0.4,     // speed inside a crawl gap
   squeezeReach: 0.85,   // how far (tiles) from the gap's center the squeeze extends into each corridor
   // A squeeze pinches him rather than shrinking him. Joe: "instead of shrinking the character so
   // much when going through a squeeze, is it possible to pinch the back parts of the arrow to
   // squeeze them together... so it looks like it's squeezing?" The arrow is drawn along the way he
   // is facing, so its back corners are exactly the width the channel has to take.
-  squeezeShrink: 0.92,  // he draws very nearly full size in a squeeze now — the pinch does the work
-  squeezePinch: 0.72,   // and the back corners come in to this much of their width, which is what fits
+  squeezeShrink: 1,     // he draws full size in a squeeze now — the pinch does all of the work
+  squeezePinch: 0.55,   // and the back corners come right in, so the squeezing is the thing you see
   squeezeChannel: 0.28, // how wide the cut through the wall is, as a fraction of a tile. The drawing
                         // and the hold on your footing both read this, so they cannot drift apart
   journalFloat: 0.05,   // how far a book lifts and settles, as a fraction of a tile. 0 = still
@@ -223,6 +228,8 @@ const CONFIG = {
   exitArcs: 7,          // the ring is this many short arcs, not one circle
   exitWarp: 0.035,      // and each one's radius breathes by this much of a tile
   exitShimmerHz: 0.32,  // slowly
+  exitOval: 0.3,        // how far from round it is pulled, in and out
+  exitSpinHz: 0.055,    // and how fast the axis it is pulled along wanders round
   gateSwingSeconds: 1.1,  // how long any other gate takes to swing its leaves back
   poolDoorSeconds: 4.8, // how long the pool room's gate takes to grind aside once you have shoved it
                         // with the stone. It is stone and it is heavy: 0.65s read as a shutter, and

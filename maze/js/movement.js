@@ -22,6 +22,8 @@ const passable = (x, y) => isOpen(x, y) && !(gated && !hasKey && x === exit.x &&
 function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(player.y) + d.dy); }
 function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5; return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx); }
 let recenter = null;   // after a turn, the perpendicular offset is eased out instead of snapped
+let moveVel = 0;       // tiles a second he is actually going, eased toward what the stick asks for
+let squeezeAxis = null;// which way the squeeze he is in holds him, 'x' or 'y'
 function snapPerp(d) { recenter = d.dx ? 'y' : 'x'; }
 // Somewhere with actual room in it: a tile in any 2x2 block of floor. A corridor is one tile wide,
 // so this is only ever true in a room, a court, or an open landmark floor.
@@ -136,28 +138,43 @@ function update(wall) {
   }
   if (dir) facing = Math.atan2(dir.dy, dir.dx);
   { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d)); facingShown += d * Math.min(1, dt * 18); }
-  { const sqz = started && phase().f.crawl && [...crawlGaps, ...crawlCells].some(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
+  // Keep the gap itself, not just the fact of it: under free movement there is no `dir` to say which
+  // way the channel runs, so the squeeze has to answer that from its own geometry.
+  { const gap = started && phase().f.crawl && [...crawlGaps, ...crawlCells].find(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
+    squeezeAxis = null;
+    if (gap) { const [gx, gy] = gap.split(',').map(Number);
+      squeezeAxis = (isOpen(gx - 1, gy) && isOpen(gx + 1, gy)) ? 'y' : 'x'; }   // runs across, so held on y
     // no camera kick going in or out, and the sound is the same knock as a shoulder on a wall
-    if (sqz !== inSqueeze) { inSqueeze = sqz; AUDIO.bump(); } }
+    if (!!gap !== inSqueeze) { inSqueeze = !!gap; AUDIO.bump(); } }
+
+  // He walks where the stick points, everywhere. Joe asked three times: "it is still fighting, trying
+  // to be in the middle of the cells as opposed to just free-roaming movement. If this means we need
+  // to make all of it free roaming we could talk about that." So this is the talk, in the hands: the
+  // rails are still here behind the debug Movement toggle, and they are what `freeRoam` is off.
+  // A corridor is one tile wide and he is most of one, so the walls hold him to the line without
+  // any rail doing it — and releasing the stick now stops him, which is the other half of Joe's
+  // "movement is a little slide-y in general. Feels more like I'm in a go cart than a person."
+  const freeRoam = !SAVE.ui.rails;
+  const freeHere = want && openFloor(Math.floor(player.x), Math.floor(player.y));
+  const freeNext = want && openFloor(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy);
+  const aim = want && !sliding && !introWalk && (freeRoam || freeHere || freeNext)
+    ? (stickAim && (want === held) ? stickAim : { x: want.dx, y: want.dy }) : null;
+  // Nothing coasts on after you let go — except the scripted first step off the mat, which is the
+  // one thing in the game that walks him without a stick and steers itself along `dir`. Clearing it
+  // here left introWalk unable to change tile, and it only ends when he does: the stick stayed dead
+  // for the whole run, which is the failure its own comment above warns about.
+  if (freeRoam && !aim && !introWalk) { dir = null; recenter = null; }
 
   // One speed budget for the frame, shared by walking forward and easing back onto the corridor's
   // centreline. The ease used to be its own movement at 1.6x walking on top of the step, so going
   // round a corner you crabbed diagonally at nearly twice walking speed — Joe: "they have this
   // almost like race car cornering thing to them". Taking it out of the same budget means a hard
   // correction just costs you ground forward while it lasts, and your speed never changes.
-  const budget = B.speed() * (inSqueeze ? CONFIG.squeezeSlow : introWalk ? 0.35 : 1) * dt;
-
-  // In a corridor you are on rails: one axis at a time, held to the centreline, which is the only
-  // thing that fits. In a room that reads as robotic — Joe: "my character only walks in the middle
-  // of floors not across them... there's this strange robotic feeling." So where there is room to
-  // walk, he walks where the stick points, and the rails pick him up again at the corridor mouth.
-  // Room enough to walk in is a property of where he is *going*, not only where he stands: on the
-  // last tile of a room the 2x2 under him can fail while the room is still ahead, and he snapped
-  // onto the rails mid-stride. Joe: "it is still fighting, trying to be in the middle of the cells."
-  const freeHere = want && openFloor(Math.floor(player.x), Math.floor(player.y));
-  const freeNext = want && openFloor(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy);
-  const aim = want && !sliding && !introWalk && (freeHere || freeNext)
-    ? (stickAim && (want === held) ? stickAim : { x: want.dx, y: want.dy }) : null;
+  // It leans into the walk and leans out of it over CONFIG.moveEase rather than switching on and
+  // off at full tilt, which is the rest of the go-kart: a kart has no legs to get going.
+  { const target = (aim || dir) ? B.speed() * (inSqueeze ? CONFIG.squeezeSlow : introWalk ? 0.35 : 1) : 0;
+    moveVel += (target - moveVel) * Math.min(1, dt / CONFIG.moveEase); }
+  const budget = moveVel * dt;
   if (aim) {
     // He has width, so he cannot cut a corner of wall — and it is passable(), not isOpen(): a shut
     // gate and a locked door are open floor underneath, and walking free is not walking through them.
@@ -185,15 +202,20 @@ function update(wall) {
     dir = null; recenter = null;
   }
 
+  // In a squeeze there is nowhere to drift to, whichever way he is being moved — on the rails that
+  // used to live inside the corner ease, but free movement has no ease to hang it off.
+  if (inSqueeze && squeezeAxis) {
+    const c2 = Math.floor(player[squeezeAxis]) + 0.5, off = player[squeezeAxis] - c2, lim = CONFIG.squeezeChannel / 2;
+    if (Math.abs(off) > lim) player[squeezeAxis] = c2 + Math.sign(off) * lim;
+  }
+
   let perpUsed = 0;
   if (!aim) { const ax = dir ? (dir.dx ? 'y' : 'x') : recenter;
     if (ax) { const c = Math.floor(player[ax]) + 0.5, diff = c - player[ax];
       if (Math.abs(diff) < 0.004) { player[ax] = c; if (!dir) recenter = null; }
       else { const mv = Math.min(Math.abs(diff), (dir && !inSqueeze ? CONFIG.cornerEase : 1) * budget);
         player[ax] += Math.sign(diff) * mv; perpUsed = mv; }
-      // In a squeeze there is nowhere to drift to. The corner ease is a slide onto the centreline
-      // and in a gap a fraction of a tile wide it carried you out into the black beside it, which
-      // is the drift Joe saw. Inside one, you are held to the channel.
+      // the channel clamp above has already held him; the ease only has to not fight it
       if (inSqueeze) { const c2 = Math.floor(player[ax]) + 0.5, off = player[ax] - c2, lim = CONFIG.squeezeChannel / 2;
         if (Math.abs(off) > lim) player[ax] = c2 + Math.sign(off) * lim; } } }
   if (dir && !aim) {

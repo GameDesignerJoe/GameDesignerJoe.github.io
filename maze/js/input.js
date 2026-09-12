@@ -81,6 +81,11 @@ function applyZoom(save) {
   $('optZoom').value = v; $('zoomLbl').textContent = v.toFixed(2).replace(/0$/, '') + 'x';
   SAVE.ui.zoom = v; if (save) persist();
 }
+// free movement is the game now; this puts the old one-axis rails back so the two can be felt
+// against each other. Joe: "if this means we need to make all of it free roaming we could talk
+// about that" — this is that conversation, with a thumb on it.
+$('optRails').checked = !!SAVE.ui.rails;
+$('optRails').addEventListener('change', () => { SAVE.ui.rails = $('optRails').checked; persist(); dir = null; recenter = null; clearStick(); });
 $('optZoom').addEventListener('input', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(false); });
 $('optZoom').addEventListener('change', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(true); });
 applyZoom(false);

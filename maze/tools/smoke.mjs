@@ -930,21 +930,42 @@ const roam = await page.evaluate(async () => {
   for (let y = 2; y < H - 2 && !hall; y++) for (let x = 2; x < W - 2; x++)
     if (isOpen(x, y) && isOpen(x + 1, y) && isOpen(x - 1, y) && !isOpen(x, y - 1) && !isOpen(x, y + 1) && !openFloor(x, y)) { hall = [x, y]; break; }
   if (hall) {
+    // Free movement has no rail to hold him, so the corridor's own walls are the test: lean at an
+    // angle and he rides the wall, but he must never end up inside one, and he must still get down
+    // the corridor rather than jamming on it.
     player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
+    const fromX = player.x;
     stickAim = { x: 0.72, y: -0.69 }; held = { dx: 1, dy: 0 };
-    const off = [];
+    const off = [], wall = [];
     await new Promise((r) => { const t0b = performance.now(); const step = () => {
       off.push(Math.abs(player.y - (Math.floor(player.y) + 0.5)));
-      if (performance.now() - t0b > 500) return r(); requestAnimationFrame(step); }; step(); });
+      wall.push(!isOpen(Math.floor(player.x), Math.floor(player.y)));
+      if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
     held = null; stickAim = null;
-    out.corridorHeld = Math.max(...off) < 0.05;
+    out.corridorWalked = player.x - fromX > 0.5;      // he got down it
+    out.corridorInWall = wall.some(Boolean);          // and never through its side
+    out.corridorOff = Math.max(...off);
+    // and with the rails put back, the old behaviour is still there to feel
+    SAVE.ui.rails = true;
+    player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
+    stickAim = { x: 0.72, y: -0.69 }; held = { dx: 1, dy: 0 };
+    const off2 = [];
+    await new Promise((r) => { const t0b = performance.now(); const step = () => {
+      off2.push(Math.abs(player.y - (Math.floor(player.y) + 0.5)));
+      if (performance.now() - t0b > 500) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null; SAVE.ui.rails = false;
+    out.railsHold = Math.max(...off2) < 0.05;
   }
   return out;
 });
-check('a room lets you walk across it, a corridor still keeps you on its line',
-  roam.bothAxes && roam.offGrid && !roam.inWall && roam.corridorHeld !== false,
+check('a room lets you walk across it, and a corridor holds you with its walls',
+  roam.bothAxes && roam.offGrid && !roam.inWall
+  && roam.corridorWalked !== false && roam.corridorInWall !== true && roam.railsHold !== false,
   `in a room: moved on both axes at once and off the grid lines, never into a wall; `
-  + `in a corridor with the stick held at an angle: ${roam.corridorHeld === false ? 'DRIFTED' : 'held to the centreline'}`);
+  + `in a corridor with the stick held at an angle he rides the wall (${(roam.corridorOff || 0).toFixed(2)} off the line) `
+  + `${roam.corridorWalked === false ? 'but DID NOT GET DOWN IT' : 'and still gets down it'}, `
+  + `${roam.corridorInWall ? 'and ENDED UP IN A WALL' : 'never into one'}; `
+  + `with the debug rails put back, ${roam.railsHold === false ? 'they DO NOT hold' : 'the old centreline hold is still there'}`);
 
 // ── 8r. the title screen ──────────────────────────────────────────
 // Joe: "get rid of the black section at the bottom... move the question up to the top right...
