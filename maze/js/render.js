@@ -505,13 +505,17 @@ function draw() {
         ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(sx, sy, S * 0.25, S * 0.3, 0, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = C.shelf; ctx.beginPath(); ctx.ellipse(sx, sy - S * 0.04, S * 0.16, S * 0.22, 0, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(sx, sy - S * 0.16, S * 0.07, 0, Math.PI*2); ctx.fill(); }
-    } else if (L.kind === 'spiral') {              // drawn across the whole floor
+    } else if (L.kind === 'spiral') {
+      // Joe: "the spiral room needs to move so the spiral is spinning in the center." It turns about
+      // the middle of the room rather than being redrawn, so the arms sweep past you and the eye of
+      // it stays put. gameNow() drives it, so it stops with the game rather than with the clock.
       ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5; ctx.lineWidth = Math.max(1.5, S * 0.09); ctx.lineCap = 'round';
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(nowMs / 1000 * CONFIG.spiralSpinHz * Math.PI * 2);
       ctx.beginPath();
       const turns = Math.PI * 9;
       for (let t = 0; t <= turns; t += 0.1) { const rr = S * 0.12 + (t / turns) * (rad * 0.86 - S * 0.12);
-        const gx = cx + Math.cos(t) * rr, gy = cy + Math.sin(t) * rr; t ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy); }
-      ctx.stroke();
+        const gx = Math.cos(t) * rr, gy = Math.sin(t) * rr; t ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy); }
+      ctx.stroke(); ctx.restore();
     } else if (L.kind === 'columns') {
       // Joe: "make these more like columns that you can't walk over. When the player walks next to
       // them they light up with a flickering flame on the top of them." They stand on the link/link
@@ -902,20 +906,20 @@ function draw() {
   // fog
   if (!debugMap) {
     const px = ox + player.x*S, py = oy + player.y*S;
+    // A vignette, not a spotlight. Joe: "it's not there at the start of the game. Then you hit the
+    // character and it pops in after a second. Feels jank. At this point I'd like just a 'light
+    // dusting' around the edges to give it a vignette style feel to it."
+    //
+    // The pop was mine: the old cap was four times looser while he slept and tightened over the
+    // intro, so the dark rushed in a second after the tap. There is no ramp now and no title-screen
+    // special case — the same fog the whole time is what takes the jank out. The lit core reaches
+    // most of the way to the nearest edge and the fade runs past the corner, so the dark only ever
+    // gathers at the edges. `fogMul` is the slider; the burdens and the darkness still shrink it.
     const shrink = 1 - 0.55 * darkAmt;
-    let inner = B.viewRadius() * 2 * S * shrink, outer = inner + CONFIG.fogSoftness * S * shrink;
-    // The light is measured in tiles, and a tile is 150px now, so at this camera it ran clean off
-    // the screen — and a burden coming off pushed it further. Joe: "looks like we lost the fog of
-    // war... yeah looks like it's the zoom and now with the upgrade for this character it goes
-    // away. Let's bring it back to still hit the edges." So however many tiles it is worth, it may
-    // never reach past the nearest edge: the dark always closes before the screen does. This only
-    // ever pulls the light in — zoomed out, the tile count still rules.
-    // ...but not while he is still asleep, and not mid-wake: that picture is the title screen, with
-    // the name above him and the chapter written into the floor below, and it wants the room lit.
-    // The cap closes in as the camera settles, so the maze shutting around you is the waking.
-    { const settle = !started ? 0 : intro ? Math.min(1, (performance.now() - intro.t0) / (CONFIG.introSeconds * 1000)) : 1;
-      const cap = Math.min(vw, vh) * 0.5 * CONFIG.fogScreenMax * (1 + (CONFIG.fogTitleOpen - 1) * (1 - settle));
-      if (outer > cap) { const k = cap / outer; inner *= k; outer *= k; } }
+    const half = Math.min(vw, vh) * 0.5, corner = Math.hypot(vw, vh) * 0.5, fm = fogMul();
+    const light = B.viewRadius() * 2 * S * shrink;
+    const inner = Math.min(light, half * CONFIG.fogCore) * fm * shrink;
+    const outer = Math.max(inner * 1.3, corner * CONFIG.fogEdge * fm * shrink);
     const g = ctx.createRadialGradient(px, py, inner, px, py, outer);
     g.addColorStop(0, 'rgba(13,15,16,0)'); g.addColorStop(1, 'rgba(13,15,16,1)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);

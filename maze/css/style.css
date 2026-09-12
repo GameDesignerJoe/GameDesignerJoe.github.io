@@ -93,6 +93,17 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #dbg select { font:inherit; color:#d8d3c6; background:#141618; border:1px solid rgba(185,180,168,.3); border-radius:6px; padding:4px 6px; }
 #dbg button { margin-top:4px; padding:8px 12px; font:inherit; color:#d8d3c6; background:transparent; border:1px solid rgba(185,180,168,.35); border-radius:6px; }
 #dbg .ver { font-size:12px; opacity:.5; text-align:right; }
+/* the collapsible sections */
+#dbg .sec { border:1px solid rgba(185,180,168,.16); border-radius:8px; padding:0 10px; }
+#dbg .sec[open] { padding-bottom:10px; }
+#dbg .sec > summary { list-style:none; cursor:pointer; padding:9px 0; font-size:12px; letter-spacing:.16em;
+  text-transform:uppercase; color:#8d887c; }
+#dbg .sec > summary::-webkit-details-marker { display:none; }
+#dbg .sec > summary::after { content:'+'; float:right; font-size:14px; letter-spacing:0; opacity:.7; }
+#dbg .sec[open] > summary::after { content:'–'; }
+#dbg .sec[open] > summary { color:#d8d3c6; border-bottom:1px solid rgba(185,180,168,.14); margin-bottom:10px; }
+#dbg .sec > label { margin-bottom:9px; }
+#dbg .sec > button { margin-top:0; width:100%; }
 #stick { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 34px); transform:translateX(-50%); width:170px; height:170px; border-radius:50%; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.22); }
 #knob { position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%; background:rgba(185,180,168,.18); border:1px solid rgba(185,180,168,.45); transition:background .12s; }
 #stick.on #knob { background:rgba(185,180,168,.32); }

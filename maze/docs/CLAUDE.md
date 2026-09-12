@@ -385,6 +385,39 @@ angle, because a round hole inside a warping ring reads as a decal laid over it.
 
 See `ROOMS.md` for what each room is and a pitch list for more.
 
+## The fog is a vignette now (v0.74.0)
+
+Joe: *"it's not there at the start of the game. Then you hit the character and it pops in after a
+second. Feels jank. At this point I'd like just a 'light dusting' around the edges to give it a
+vignette style feel to it."*
+
+**The pop was mine.** v0.71's cap was four times looser while he slept and tightened over the intro,
+so the dark rushed in a second after the tap. There is no ramp now and no title-screen special case —
+**the same fog the whole time is what takes the jank out**, and the smoke check measures exactly
+that: the corner reads 50 asleep and 61 in play, where a pop would be fifty levels.
+
+The fog is drawn in **screen** terms rather than tiles: `fogCore` (0.86) of the way to the nearest
+edge stays lit, and the fade runs to `fogEdge` (1.12) of the far corner. The burdens and the darkness
+still shrink it, and `Fog` on the debug panel scales the lot.
+
+`CONFIG.fogSoftness` is gone with the old drawing. Anything that needs to ask *"can he see that?"*
+calls **`litTiles()`** now — the lit core plus the fade, in tiles. Two places did (`tutorials.js` and
+a smoke check) and both would have silently read a stale knob.
+
+**Speed and Fog sliders** (v0.74.0), per Joe's *"please give me a slider that lets me set the speed of
+the character"* and *"this fog of war is too tight. Can you give me another slider."* Both are plain
+multipliers (`speedMul()`, `fogMul()`) on what the game would otherwise do, so neither can turn into
+a different game by accident.
+
+**The debug panel folds up** (v0.74.0). Joe: *"we have a lot of things in the debug menu perhaps we
+want to put them into collapsible sections."* Five `<details>` — Play, Feel, Maze, Look, Show me —
+and which ones you left open is remembered under `SAVE.ui['sec:*']`. The check asserts every control
+still lives inside one of them, so a new knob added outside a section fails rather than hiding.
+
+**The spiral turns** (v0.74.0) — Joe: *"the spiral room needs to move so the spiral is spinning in the
+center."* It rotates about the middle of its room at `spiralSpinHz` (0.022, a turn in three quarters
+of a minute), driven by `gameNow()` so it stops with the game rather than with the clock.
+
 ## Rails in the halls, free in the rooms (v0.73.0)
 
 Joe, after playing the all-free build: *"in corridors I prefer the corridor movement over the free

@@ -43,11 +43,12 @@ const CONFIG = {
   liftBurstSec: 0.45,   // and the light opening out. Short on purpose: this is the beat that reads
   liftGlowFrom: 0.55,   // the old light, as a fraction of the one you now have
   viewRadius: 1.0,      // cells of visibility around you
-  fogSoftness: 1.4,     // how many tiles the light takes to fade to black
-  fogScreenMax: 0.92,   // and it may never reach further than this much of the way to the nearest
-                        // screen edge, whatever the zoom or the burdens say. The dark has to close
-  fogTitleOpen: 4,      // except asleep on the title screen, where the light is this much wider so
-                        // the room, the name and the chapter all read. It closes in as you wake
+  fogFadeTiles: 1.4,    // how many tiles past the lit core still counts as seen, for anything that
+                        // has to ask whether a thing is in view. The fog itself is drawn in screen
+                        // terms now, so this is about placement and tutorials, not about the drawing
+  fogCore: 0.86,        // how much of the way to the nearest screen edge stays fully lit, at most
+  fogEdge: 1.12,        // and how far past the far corner the fade runs. Together: a vignette, dark
+                        // only where the screen ends, rather than a spotlight with an edge you see
   // texture: an overlay to age the concrete. The Texture debug menu picks one; off by default,
   // because which one the maze wants is a look to be chosen by eye, not a value to tune.
   // the floor itself: the room the Child grew up in. Not a screen effect — these are marks in
@@ -235,6 +236,7 @@ const CONFIG = {
   // the rooms that are a place rather than an ornament
   vaultCells: 7,        // the key vault is this many cells square — bigger than any room on purpose
   roomLandmarkChance: 0.72,  // how often an ordinary maze's room is a place rather than an empty box
+  spiralSpinHz: 0.022,  // turns a second for the spiral room. Slow enough to doubt, fast enough to see
   columnLightTiles: 2.6,// how near you have to be for a column to catch light, in tiles
   ballPitReach: 0.9,    // how near a ball has to be before you move it at all, in tiles
   ballPitPush: 0.45,    // and how much of that gap it gives up. High enough and you plough a circle

@@ -43,7 +43,7 @@ function walkable(x0, y0, x1, y1, maxSteps) {   // can you walk from tile (x0,y0
   return false;
 }
 function updateFigures(now, dt) {
-  const lit = B.viewRadius() * 2 + CONFIG.fogSoftness;
+  const lit = litTiles();
   // Only one father is ever drawn. Six are placed, but two or three in sight at once reads
   // as a crowd rather than as the one man who keeps leaving. The nearest is the one you see;
   // anyone already dissolving keeps showing so he can finish going.

@@ -41,27 +41,47 @@
 <div id="keys" class="hud-el"></div>
 <div id="narr"></div>
 <div id="dbg">
-  <label><input type="checkbox" id="optArrow"> Point to end</label>
-  <label><input type="checkbox" id="optPath"> Show path</label>
-  <label><input type="checkbox" id="optMap"> Full map</label>
-  <label><input type="checkbox" id="optSound" checked> Sound</label>
-  <label>Level <select id="optLevel"></select></label>
-  <label>Stones <select id="optStones"></select></label>
-  <label>Branching <select id="optBranch"><option value="auto" selected>Auto</option><option value="0.05">Long halls</option><option value="0.15">Few forks</option><option value="0.35">Default</option><option value="0.6">Busy</option><option value="0.9">Shrub</option></select></label>
-  <label>Turns <select id="optTurns"><option value="auto" selected>Auto</option><option value="fewer">Fewer</option><option value="sparse">Sparse</option><option value="least">Least</option></select></label>
-  <label>Districts <select id="optClusters"><option value="auto" selected>Auto</option><option value="off">Off</option><option value="rings">All rings</option><option value="thicket">All thicket</option><option value="comb">All comb</option><option value="lattice">All lattice</option><option value="squeeze">All squeeze</option><option value="shifting">All shifting</option></select></label>
-  <label>Loops <select id="optBraid"><option value="auto" selected>Auto</option><option value="0">None</option><option value="0.1">Few</option><option value="0.2">Some</option><option value="0.35">Many</option></select></label>
-  <label>Size <select id="optSize"><option value="auto" selected>Auto</option><option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option><option value="xl">X-Large</option></select></label>
-  <label>Prototype <select id="optProto"><option value="off" selected>Off</option><option value="push2">Two-way blocks</option><option value="laby">Labyrinth</option></select></label>
-  <label>Floor <select id="optFloor"><option value="wornlights" selected>Worn + lights</option><option value="off">Off</option><option value="worn">Worn paths</option><option value="grime">Grime</option><option value="lights">Flickering lights</option><option value="all">All three</option></select></label>
-  <label>Texture <select id="optTexture"><option value="off" selected>Off</option><option value="grain">Grain</option><option value="damp">Damp</option><option value="dust">Dust</option></select></label>
-  <label>Zoom <input type="range" id="optZoom" min="0.2" max="1.5" step="0.05" value="1"><span id="zoomLbl">1.0x</span></label>
-  <label>Movement <select id="optMove"><option value="rooms">Rails in halls, free in rooms</option><option value="rails">Rails everywhere</option><option value="free">Free everywhere</option></select></label>
-  <label><input type="checkbox" id="optFace">Point the way he is moving</label>
-  <label>Stick <select id="optStick"><option value="right">Right</option><option value="left">Left</option></select></label>
+  <!-- Collapsible, because there is a lot in here now. Joe: "we have a lot of things in the debug
+       menu perhaps we want to put them into collapsible sections so that we can keep some of them
+       closed that we aren't using." Which ones are open is remembered. -->
+  <details class="sec" data-sec="play" open>
+    <summary>Play</summary>
+    <label>Level <select id="optLevel"></select></label>
+    <label>Stones <select id="optStones"></select></label>
+    <label>Prototype <select id="optProto"><option value="off" selected>Off</option><option value="push2">Two-way blocks</option><option value="laby">Labyrinth</option></select></label>
+    <button id="newMaze">New maze</button>
+  </details>
+  <details class="sec" data-sec="feel">
+    <summary>Feel</summary>
+    <label>Zoom <input type="range" id="optZoom" min="0.2" max="1.5" step="0.05" value="1"><span id="zoomLbl">1.0x</span></label>
+    <label>Speed <input type="range" id="optSpeed" min="0.4" max="1.8" step="0.05" value="1"><span id="speedLbl">1.0x</span></label>
+    <label>Fog <input type="range" id="optFog" min="0.4" max="2.2" step="0.05" value="1"><span id="fogLbl">1.0x</span></label>
+    <label>Movement <select id="optMove"><option value="rooms">Rails in halls, free in rooms</option><option value="rails">Rails everywhere</option><option value="free">Free everywhere</option></select></label>
+    <label><input type="checkbox" id="optFace">Point the way he is moving</label>
+    <label>Stick <select id="optStick"><option value="right">Right</option><option value="left">Left</option></select></label>
+    <label><input type="checkbox" id="optSound" checked> Sound</label>
+  </details>
+  <details class="sec" data-sec="maze">
+    <summary>Maze</summary>
+    <label>Size <select id="optSize"><option value="auto" selected>Auto</option><option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option><option value="xl">X-Large</option></select></label>
+    <label>Branching <select id="optBranch"><option value="auto" selected>Auto</option><option value="0.05">Long halls</option><option value="0.15">Few forks</option><option value="0.35">Default</option><option value="0.6">Busy</option><option value="0.9">Shrub</option></select></label>
+    <label>Turns <select id="optTurns"><option value="auto" selected>Auto</option><option value="fewer">Fewer</option><option value="sparse">Sparse</option><option value="least">Least</option></select></label>
+    <label>Districts <select id="optClusters"><option value="auto" selected>Auto</option><option value="off">Off</option><option value="rings">All rings</option><option value="thicket">All thicket</option><option value="comb">All comb</option><option value="lattice">All lattice</option><option value="squeeze">All squeeze</option><option value="shifting">All shifting</option></select></label>
+    <label>Loops <select id="optBraid"><option value="auto" selected>Auto</option><option value="0">None</option><option value="0.1">Few</option><option value="0.2">Some</option><option value="0.35">Many</option></select></label>
+  </details>
+  <details class="sec" data-sec="look">
+    <summary>Look</summary>
+    <label>Floor <select id="optFloor"><option value="wornlights" selected>Worn + lights</option><option value="off">Off</option><option value="worn">Worn paths</option><option value="grime">Grime</option><option value="lights">Flickering lights</option><option value="all">All three</option></select></label>
+    <label>Texture <select id="optTexture"><option value="off" selected>Off</option><option value="grain">Grain</option><option value="damp">Damp</option><option value="dust">Dust</option></select></label>
+  </details>
+  <details class="sec" data-sec="cheat">
+    <summary>Show me</summary>
+    <label><input type="checkbox" id="optArrow"> Point to end</label>
+    <label><input type="checkbox" id="optPath"> Show path</label>
+    <label><input type="checkbox" id="optMap"> Full map</label>
+  </details>
   <button class="storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button>
   <button id="statsBtn">Run log</button>
-  <button id="newMaze">New maze</button>
   <button id="update">Update app</button>
   <button id="resetSave" style="color:#b07a6a; border-color:rgba(176,122,106,.45)">Reset save</button>
   <div class="ver"><span id="seedLbl"></span> · <span id="verDbg"></span></div>

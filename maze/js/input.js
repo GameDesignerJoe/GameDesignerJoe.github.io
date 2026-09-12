@@ -84,11 +84,29 @@ function applyZoom(save) {
 // Which movement model, and whether he points the way he is actually going. Joe: "in corridors I
 // prefer the corridor movement over the free movement. But in rooms I'm more interested in the free
 // movement" — that is the default; the other two are here to be felt against it.
+// which sections you left open, remembered. The panel is long enough now that reopening it all
+// every time was its own small tax.
+for (const d of document.querySelectorAll('#dbg .sec')) {
+  const key = 'sec:' + d.dataset.sec;
+  if (SAVE.ui[key] !== undefined) d.open = !!SAVE.ui[key];
+  d.addEventListener('toggle', () => { SAVE.ui[key] = d.open; persist(); });
+}
+// speed and fog, both plain multipliers on what the game would otherwise do
+function applySpeed(save) { const v = speedMul();
+  $('optSpeed').value = v; $('speedLbl').textContent = v.toFixed(2).replace(/0$/, '') + 'x';
+  SAVE.ui.speed = v; if (save) persist(); }
+$('optSpeed').addEventListener('input', () => { SAVE.ui.speed = +$('optSpeed').value; applySpeed(false); });
+$('optSpeed').addEventListener('change', () => { SAVE.ui.speed = +$('optSpeed').value; applySpeed(true); });
+function applyFog(save) { const v = fogMul();
+  $('optFog').value = v; $('fogLbl').textContent = v.toFixed(2).replace(/0$/, '') + 'x';
+  SAVE.ui.fog = v; if (save) persist(); }
+$('optFog').addEventListener('input', () => { SAVE.ui.fog = +$('optFog').value; applyFog(false); });
+$('optFog').addEventListener('change', () => { SAVE.ui.fog = +$('optFog').value; applyFog(true); });
 $('optMove').value = SAVE.ui.move || 'rooms';
 $('optMove').addEventListener('change', () => { SAVE.ui.move = $('optMove').value; persist(); dir = null; recenter = null; clearStick(); });
 $('optFace').checked = SAVE.ui.face !== false;
 $('optFace').addEventListener('change', () => { SAVE.ui.face = $('optFace').checked; persist(); });
-$('optZoom').addEventListener('input', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(false); });
+$('optZoom').addEventListener('input', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(false); applySpeed(false); applyFog(false); });
 $('optZoom').addEventListener('change', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(true); });
 applyZoom(false);
 

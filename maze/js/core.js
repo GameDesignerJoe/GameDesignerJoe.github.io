@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.73.0';
+const VERSION = '0.74.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
@@ -19,6 +19,14 @@ function has(stoneIdx) { return (SAVE.stones || 0) > stoneIdx; }
 let protoMode = false;   // a prototype level is running instead of a maze
 // the debug Zoom slider: 1 is the game's own scale, above it is closer, below it is further out
 const zoomMul = () => Math.max(0.2, Math.min(1.5, +SAVE.ui.zoom || 1));
+// Joe: "please give me a slider that lets me set the speed of the character", and "this fog of war
+// is too tight. Can you give me another slider that lets me adjust that?" Plain multipliers on what
+// the game would otherwise do, so neither can be turned into a different game by accident.
+const speedMul = () => Math.max(0.4, Math.min(1.8, +SAVE.ui.speed || 1));
+const fogMul = () => Math.max(0.4, Math.min(2.2, +SAVE.ui.fog || 1));
+// how far he can actually see, in tiles: the lit core plus the fade past it. The fog is drawn in
+// screen terms, so anything asking "is that in view" asks this instead of measuring the gradient
+const litTiles = () => B.viewRadius() * 2 + CONFIG.fogFadeTiles;
 let protoWide = true;    // and its light is opened right up, so the one idea in it is all visible.
                          // The labyrinth turns this off: being unable to see is half of what it is
 let liftGlow = 1;   // 1 normally. On the walk-in after a burden is put down the light blooms from dim to this
@@ -26,7 +34,7 @@ const B = {   // burden-adjusted values
   viewRadius: () => CONFIG.viewRadius * (has(0) ? 1 : 0.6) * (poolMode ? 2.2 : 1) * (protoMode && protoWide ? 4 : 1) * liftGlow,
   // a stone in your arms slows you down. Only in a pool level: everywhere else hasKey is the
   // exit key, which is small enough to put in a pocket
-  speed:      () => CONFIG.speed * (has(1) ? 1.08 : 1) * (poolMode && hasKey ? CONFIG.stoneSlow : 1),
+  speed:      () => CONFIG.speed * speedMul() * (has(1) ? 1.08 : 1) * (poolMode && hasKey ? CONFIG.stoneSlow : 1),
   charcoal:   () => Math.round(CONFIG.charcoalTiles * (has(2) ? 1.25 : 1)),
   darkChance: () => CONFIG.darknessChance * (has(3) ? 0.6 : 1),
   fringe:     () => has(3) ? 0.7 : 1,

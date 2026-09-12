@@ -490,7 +490,7 @@ const dad = await page.evaluate(() => {
   document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
   const f = figures[0];
   if (!f) return { skip: true };
-  const lit = B.viewRadius() * 2 + CONFIG.fogSoftness;
+  const lit = litTiles();
   let stand = null;
   for (let y = 0; y < H && !stand; y++) for (let x = 0; x < W; x++) {
     if (!isOpen(x, y)) continue;
@@ -1323,6 +1323,108 @@ check('he turns to the ground he covers, not to where the stick points',
   + `${facing.off.deg.toFixed(0)} — at a wall he is only scraping. He turns to it at most `
   + `${facing.on.jumpDeg.toFixed(1)} degrees a frame, so it is a turn. In a room, where the stick and `
   + `the ground agree, both settings land on the same ${facing.rOn.toFixed(0)} degrees`);
+
+// ── 8z. the fog is a vignette, and it does not pop ───────────────
+// Joe: "it's not there at the start of the game. Then you hit the character and it pops in after a
+// second. Feels jank. At this point I'd like just a 'light dusting' around the edges to give it a
+// vignette style feel to it." The pop was a cap four times looser while he slept that tightened over
+// the intro; there is no ramp now and no title-screen case, which is the whole fix. So what this
+// measures is that the dark at the corner is the *same* asleep as it is in play.
+const fog = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.phase = 0; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist(); reset(4242);
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const b2 = cv.getContext('2d');
+  const at = (fx, fy) => { const d = b2.getImageData(innerWidth * fx * dpr, innerHeight * fy * dpr, 2, 2).data; return d[0]; };
+  await frame();
+  const asleep = { corner: at(0.04, 0.06), middle: at(0.5, 0.5) };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  await frame();
+  const awake = { corner: at(0.04, 0.06), middle: at(0.5, 0.5) };
+  // a vignette: lit in the middle, dark at the corner, and no jump between the two moments
+  // a pop would be enormous — the old cap was four times looser asleep — so the bar is "nothing
+  // like a pop", not "identical to the level": the start room's own light differs a little
+  const out = { asleep, awake, popped: Math.abs(asleep.corner - awake.corner) > 25,
+    vignette: awake.middle - awake.corner > 25 };
+  // and the slider moves it both ways
+  SAVE.ui.fog = 0.4; await frame(); out.tight = at(0.5, 0.22);
+  SAVE.ui.fog = 2.2; await frame(); out.wide = at(0.5, 0.22);
+  SAVE.ui.fog = 1;   await frame();
+  out.sliderWorks = out.wide - out.tight > 15;
+  return out;
+});
+check('the fog is a vignette, the same asleep as awake, and the slider moves it',
+  !fog.popped && fog.vignette && fog.sliderWorks,
+  `the corner reads ${fog.asleep.corner} asleep and ${fog.awake.corner} once he is up — no pop; `
+  + `the middle reads ${fog.awake.middle} against the corner's ${fog.awake.corner}, so it gathers at `
+  + `the edges rather than cutting a hole; the slider takes a point up the screen from `
+  + `${fog.tight} at 0.4x to ${fog.wide} at 2.2x`);
+
+// ── 8aa. the debug panel folds up, and the two new sliders ───────
+// Joe: "we have a lot of things in the debug menu perhaps we want to put them into collapsible
+// sections so that we can keep some of them closed that we aren't using", plus "please give me a
+// slider that lets me set the speed of the character".
+const panel = await page.evaluate(async () => {
+  const secs = [...document.querySelectorAll('#dbg .sec')];
+  const out = { sections: secs.map((d) => d.dataset.sec), open: secs.filter((d) => d.open).length };
+  // every control still has a home
+  const ids = ['optLevel', 'optStones', 'optProto', 'optZoom', 'optSpeed', 'optFog', 'optMove', 'optFace',
+    'optStick', 'optSound', 'optSize', 'optBranch', 'optTurns', 'optClusters', 'optBraid', 'optFloor',
+    'optTexture', 'optArrow', 'optPath', 'optMap'];
+  out.homeless = ids.filter((id) => !$(id) || !$(id).closest('#dbg .sec'));
+  // shutting one is remembered
+  const first = secs[0]; const was = first.open;
+  first.open = !was; first.dispatchEvent(new Event('toggle'));
+  out.remembered = SAVE.ui['sec:' + first.dataset.sec] === !was;
+  first.open = was; first.dispatchEvent(new Event('toggle'));
+  // and the speed slider is a plain multiplier on what he walks
+  const base = CONFIG.speed;
+  SAVE.ui.speed = 0.5; const slow = B.speed();
+  SAVE.ui.speed = 1.5; const fast = B.speed();
+  SAVE.ui.speed = 1;   const norm = B.speed();
+  out.speedScales = Math.abs(slow / norm - 0.5) < 0.01 && Math.abs(fast / norm - 1.5) < 0.01;
+  out.range = [(slow / base).toFixed(2), (fast / base).toFixed(2)];
+  return out;
+});
+check('the debug panel folds into sections, and Speed is a plain multiplier',
+  panel.sections.length >= 4 && panel.open >= 1 && panel.open < panel.sections.length
+  && panel.homeless.length === 0 && panel.remembered && panel.speedScales,
+  `${panel.sections.length} sections (${panel.sections.join(', ')}) with ${panel.open} open to start; `
+  + `every control lives in one of them; shutting one is remembered; `
+  + `Speed runs ${panel.range[0]}x to ${panel.range[1]}x of the configured walk`);
+
+// ── 8ab. the spiral turns ────────────────────────────────────────
+// Joe: "the spiral room needs to move so the spiral is spinning in the center."
+const spiral = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.phase = 4; SAVE.stones = 4; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist();
+  let L = null;
+  for (let sd = 1; sd < 200 && !L; sd++) { reset(sd); L = landmarks.find((l) => l.kind === 'spiral'); }
+  if (!L) return { skip: true };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null; darkTiles = new Set();
+  player.x = (L.rx0 + L.rx1) / 2 + 0.5; player.y = (L.ry0 + L.ry1) / 2 + 0.5; cam = { ...player };
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const b2 = cv.getContext('2d');
+  // a ring of samples round the eye of it: the arms sweeping past change them, a still picture does not
+  const ring = () => { const out = [];
+    for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2;
+      const x = (innerWidth / 2 + Math.cos(a) * zoomS * 0.62) * dpr, y = (innerHeight / 2 + Math.sin(a) * zoomS * 0.62) * dpr;
+      out.push(b2.getImageData(x, y, 1, 1).data[0]); }
+    return out; };
+  await frame(); const a1 = ring();
+  const t0b = performance.now();
+  await new Promise((r) => { const step = () => { if (performance.now() - t0b > 2500) return r(); requestAnimationFrame(step); }; step(); });
+  await frame(); const a2 = ring();
+  // total change round the ring, not a count over a threshold: a count sits on a knife edge at this
+  // speed, where two and a half seconds is twenty degrees of turn
+  let sum = 0; for (let i = 0; i < a1.length; i++) sum += Math.abs(a1[i] - a2[i]);
+  return { shift: sum / a1.length, of: a1.length, hz: CONFIG.spiralSpinHz };
+});
+check('the spiral turns about the middle of its room',
+  spiral.skip || (spiral.shift > 3 && spiral.hz > 0),
+  spiral.skip ? 'no spiral room in the seeds tried' :
+  `${spiral.of} samples round its eye shifted ${spiral.shift.toFixed(1)} levels on average over two `
+  + `and a half seconds at ${spiral.hz} turns a second, so the arms are sweeping past`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
