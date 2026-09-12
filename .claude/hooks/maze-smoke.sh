@@ -7,6 +7,9 @@
 # that errors looks nothing like a run that fails, and neither looks like a pass
 # if you only read the last two lines. This reads the verdict, not the tail.
 #
+# It also runs tools/docs-check.mjs on the green path and passes on what it says.
+# That one is advice, never a block: staleness is a judgement, not a failure.
+#
 # It never blocks on its own failure to run — if node or python is missing it says
 # so and lets the commit through, because a gate that misfires gets switched off.
 
@@ -54,7 +57,18 @@ code=$?
 # a verdict, and reporting that as "it did not run" sends you looking for the wrong thing.
 verdict=$(printf '%s\n' "$out" | grep -E '^(PASS|FAIL) —' | tail -1)
 case "$verdict" in
-  PASS*) exit 0 ;;
+  PASS*)
+    # Advisory only, and only on the green path: whether the docs have been read
+    # lately is worth saying and never worth blocking a commit over. Newlines are
+    # collapsed because the JSON string below is built with sed, not a real encoder.
+    if [ -f maze/tools/docs-check.mjs ]; then
+      docs=$(node maze/tools/docs-check.mjs --brief 2>/dev/null | tr '\n' ' ')
+      case "$docs" in
+        *[![:space:]]*) skip "Smoke is green (55). $docs" ;;
+      esac
+    fi
+    exit 0
+    ;;
   FAIL*) block "Smoke is red, so the commit is blocked. $verdict" ;;
 esac
 block "The smoke suite never reached a verdict (exit $code), so this commit is not verified — this is what an errored run looks like, not a failing one. Last lines: $(printf '%s' "$out" | tail -3 | tr '\n' ' ')"

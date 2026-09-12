@@ -1,5 +1,7 @@
 # The labyrinth
 
+<!-- reviewed: v0.65.0 — NOT re-read since: its measurements are of the Child’s maze before the five rooms, the vault and the exit gauntlet, so the tables are behind the game -->
+
 Joe, planning: *"the maze has to be learnable, and for that to happen there
 needs to be unique things they come across that tell them where they are. The
 maze also has to demand the players circle back or return to different locations

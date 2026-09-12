@@ -1,5 +1,7 @@
 # The Maze — Progression, Burdens & Arc
 
+<!-- reviewed: v0.76.0 — §1–§7 are the arc and need no version; §8 re-read against the game -->
+
 *Design note, September 2026. Companion to Joe's notes doc and to Labyrinth 01 ·
 Vision & Narrative. Describes what the story is and how the prototype's features
 are released across it.*

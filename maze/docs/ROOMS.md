@@ -1,5 +1,7 @@
 # Rooms
 
+<!-- reviewed: v0.76.0 — the room table checked against LANDMARK_KINDS -->
+
 The seven that exist, and a pitch list for more. Joe: *"I'd love to have you pitch to me a list of
 other possible odd, interesting, thematically on point room pitches."*
 

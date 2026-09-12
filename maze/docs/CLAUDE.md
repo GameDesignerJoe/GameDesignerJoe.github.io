@@ -1,5 +1,7 @@
 # The Maze — read this first
 
+<!-- reviewed: v0.76.0 — the routing, the layout facts and the working rules re-read against the game; the per-version sections below are a dated log and stay as written -->
+
 **The game is the source of truth.** `../maze-topdown.html` outranks every
 document here, including this one. When a doc and the game disagree, the game
 is right and the doc is history. Fix the doc; never change the game to match a
@@ -32,6 +34,32 @@ it back in.
 **Order of authority: the game, then Drive, then these docs.** All of the docs
 here are maintained by hand and drift; when one disagrees with the code, the
 code is right and the doc is the thing to fix.
+
+### Keeping them honest
+
+Each doc carries a stamp near the top meaning *last read against the game*:
+
+```
+<!-- reviewed: v0.76.0 — and a note on what was and wasn't checked -->
+```
+
+`node maze/tools/docs-check.mjs` prints how far behind each one is and warns past
+ten minor versions. The pre-commit hook passes on its verdict when the suite is
+green — **as advice, never as a block**, because staleness is a judgement and a
+gate that misfires gets switched off. **Bump a stamp only when you have actually
+re-read that doc**; bumping it because you edited a line makes the whole thing
+theatre.
+
+Two rules that stop the rot starting, both learned the hard way:
+
+- **Never copy a source of truth into a doc.** `NOTES.md` mirrored Joe's Drive
+  backlog and was wrong within three days. Point at the original instead.
+- **Name a knob; do not quote its value.** `squeezePinch`, not
+  `squeezePinch: 0.55`. Joe retunes by feel on his phone, and a number copied
+  into a doc is wrong by the next evening.
+
+What to check before a commit is in the `maze-task` skill, § Ship: it is one
+question about two sections, not a pass over everything.
 
 ## Layout
 

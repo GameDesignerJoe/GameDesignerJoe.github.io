@@ -101,6 +101,21 @@ whether it is finishable at all. For investigating a harness failure.
 node maze/tools/diagnose.mjs --phase 1 --seed 301922 --stones 7
 ```
 
+### `docs-check.mjs` — has anyone read the docs lately?
+
+Not a content check; it cannot tell whether a doc is true. It reads each doc's
+`<!-- reviewed: vX.Y.Z -->` stamp, compares it to `VERSION`, and warns past ten
+minor versions. `--brief` gives the one line the pre-commit hook quotes,
+`--quiet` prints only when something is stale, `--max N` moves the threshold.
+
+Exit 0 when docs are merely stale — that is advice. Exit 2 only when a stamp is
+missing, malformed, or ahead of the game, which are errors rather than
+judgements.
+
+It exists because `HANDOFF.md` sat at v0.31.2 and `PROGRESSION.md` at v0.20
+while the game reached v0.76.0, and nothing ever said so out loud. Being behind
+was not the problem; being behind *silently* was.
+
 ## Known failure
 
 `harness.mjs` reports **40 unfinishable mazes in 1920** as shipped, and **11 in

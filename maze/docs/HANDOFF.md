@@ -1,5 +1,7 @@
 # The Maze — Handoff: Decisions, Rejections, and Where This Is Going
 
+<!-- reviewed: v0.76.0 — rewritten against the game -->
+
 *Rewritten 2026-09-12 against **v0.76.0**. Written for whoever picks this up
 next — a Claude Code session, most likely. The code is self-documenting for
 **what** exists. This doc is for **why**, for what we deliberately did not do,
@@ -52,6 +54,9 @@ go back. The game is the process of becoming ready.
 - **Everything tunable is a `CONFIG` knob**, commented, in `data/config.js`. Its
   comments are design intent, not description — read them before changing a
   value. When adding a feature, add its knobs. Joe tunes by feel on the phone.
+  **Name knobs here; do not quote their values.** Joe retunes them on his phone,
+  and a number copied into a doc is wrong by the next evening. The name stays
+  true and `data/config.js` is one file away.
 - **Any new generation feature needs its own RNG stream** (`rng(seed + <prime>)`).
   Drawing from the shared `R()` redeals every maze in the game, and the harness
   will tell you so in a way that looks like your feature broke something else.
@@ -165,7 +170,7 @@ close camera survivable.
 
 Joe: *"I haven't seen any of the special rooms inside the soldier's mazes."*
 They were there — two to a medium maze, which you can walk a whole run without
-meeting. So: **`rooms: 5`**, and `roomLandmarkChance: 0.85` — a room is a
+meeting. So: **more rooms** (`rooms`), and `roomLandmarkChance` set high — a room is a
 **place** rather than an empty box almost always. Seven kinds
 (`LANDMARK_KINDS` in `js/proto.js`): pool, statues, spiral, columns, dais, well,
 balls. See `ROOMS.md` for what each one is and ten pitches for more.
@@ -265,8 +270,8 @@ phase (`doors`, 1–3), not scaled by size — a scaled version gave the One Who
 Stayed twelve. Doors and tunnels exclude each other.
 
 Since v0.75.0 the placement has **distance rules**, because a key in sight of
-its own door is not a search: never nearer than `keyDoorMinTiles` (24) of
-walking, nor `keyDoorMinApart` (9) as the crow flies, so the two are never in
+its own door is not a search: never nearer than `keyDoorMinTiles` of
+walking, nor `keyDoorMinApart` as the crow flies, so the two are never in
 one view. Below `keyDoorFloor` the door is dropped rather than shipped with its
 key beside it. Measuring this went wrong twice — first straight-line only, then
 walking *through* the door being measured from. Measure the walk, with that door
@@ -293,7 +298,7 @@ there is:
   later phases the same gaps are drawn but sealed.
 - **A squeeze pinches him; it does not shrink him.** Joe: *"instead of shrinking
   the character so much... is it possible to pinch the back parts of the arrow."*
-  `squeezeShrink: 1` (full size), `squeezePinch: 0.55`. The arrow is drawn along
+  `squeezeShrink` leaves him full size and `squeezePinch` does the work. The arrow is drawn along
   his facing, so its back corners are exactly the width the channel has to take.
 - **The exit gauntlet** — the last stretch before the way out is a tree of
   squeezes, sealed but for one mouth, where the only question is which branch

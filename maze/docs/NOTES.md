@@ -1,5 +1,7 @@
 # Maze Game — Joe's standing notes
 
+<!-- reviewed: v0.76.0 — the backlog copy removed; what is left is canon, not current state -->
+
 > **The backlog is not in this file, and must not be copied into it.**
 >
 > Joe keeps his live to-do list at the top of his Google Doc (`Rules for

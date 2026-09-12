@@ -86,6 +86,35 @@ commit if it is red — if it blocks you, the suite is telling you something tru
 
 Commit messages end with the attribution footer (see `maze/docs/CLAUDE.md`).
 
+### Before you commit, one question about the docs
+
+Not "update the docs" — most of what is in them is *why*, and why does not rot.
+The parts that rot are the ones that claim what is true **right now**, and there
+are only two that do real harm when wrong:
+
+- **`HANDOFF.md` §6**, the list of things not to re-propose. A rejection that has
+  since been reversed will stop work that Joe already asked for.
+- **`PROGRESSION.md` §8**, what exists today. Anything shipped and missing from it
+  reads as not built.
+
+So: **does what I just built contradict either of those?** Usually no, and then
+there is nothing to do. When it does, fix those lines in the same commit — not
+later, because later is how they ended up 45 versions behind.
+
+Two habits that keep the rot from starting again:
+
+- **Do not copy a source of truth into a doc.** `NOTES.md` was a copy of Joe's
+  Drive backlog and was wrong within three days. Point at the original.
+- **Name a knob, do not quote its value.** Write `squeezePinch`, not
+  `squeezePinch: 0.55` — the name stays true when Joe retunes it on his phone,
+  and the number is one `data/config.js` away for anyone who wants it.
+
+Every doc carries a `<!-- reviewed: vX.Y.Z -->` stamp meaning *last read against
+the game*. `node maze/tools/docs-check.mjs` reports how far behind each one is,
+and the hook passes on its verdict when the suite is green. **Bump a stamp only
+when you have actually re-read that doc** — bumping it because you edited one
+line is how the whole thing becomes theatre.
+
 ## 7. Report
 
 What shipped, **the version number**, and what the suites say — including anything
