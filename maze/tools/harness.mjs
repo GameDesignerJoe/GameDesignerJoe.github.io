@@ -79,7 +79,8 @@ const snapshotInPage = (phaseIdx, stones, pool, seed, turns, clusterOpt) => {
     darkTiles: [...darkTiles],
     poolMode, poolDoor,
     flags: { ...phase().f, sliderAtStart: CONFIG.sliderAtStart },
-    config: { darkBufferTiles: CONFIG.darkBufferTiles, pickupExitBuffer: CONFIG.pickupExitBuffer, pointerMax: CONFIG.pointerMax },
+    config: { darkBufferTiles: CONFIG.darkBufferTiles, pickupExitBuffer: CONFIG.pickupExitBuffer, pointerMax: CONFIG.pointerMax,
+      cols: CONFIG.cols, rows: CONFIG.rows, mapScrapShare: CONFIG.mapScrapShare, mapScrapMinShare: CONFIG.mapScrapMinShare, mapScrapApart: CONFIG.mapScrapApart },
   };
 };
 

@@ -482,6 +482,77 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Fragments worth finding, and charcoal that knows about them (v0.86.0)
+
+Both items are the pickup allocator, which is why they are one batch.
+
+**Fragments were landing on top of each other.** Joe: *"I had three map fragments
+all right next to each other, which means that the last two were basically
+useless."* True, and measurable: a fragment charts a patch about **eleven tiles
+across**, and the closest pairs were landing **four to ten tiles apart** — the
+second one sitting inside the first one's patch, charting ground already charted.
+Scraps were placed with a bare `pickFree()`, which is a uniform pick over dead
+ends and knows nothing about the others.
+
+They are held apart by their own reach now (`mapScrapApart`, in patch-radii), and
+by **walking** distance rather than a straight line, because walking is how you
+get to the second one. Each new one goes as far from those already down as the
+dead ends allow, and settles for the farthest available only when nothing clears
+the bar — short of the rule beats none placed at all.
+
+Closest pair, before and after: **4–10 tiles → 22–24**, with **zero** pairs under
+twenty on any of the four selves that have fragments.
+
+**And the charcoal knows about them.** *"If there are map fragments on the map we
+can spawn less charcoal since the fragments supersede the charcoal."* The budget
+covers the floor the fragments will not chart. Both numbers are known at the
+point the budget is worked out even though the scraps are placed later, so
+`scrapPatch()` is shared between the two.
+
+**38–39% less charcoal** on the selves that carry fragments; **0% on the ones
+that do not** (the Cartographer and the Soldier have no scraps, and their budget
+is untouched).
+
+### The assumption this makes, which is Joe's to keep or drop
+
+"Enough charcoal to map the whole maze" — a standing agreement since v0.79.0 with
+a check behind it — now means **enough together with the fragments**. A run that
+never finds a fragment is short.
+
+That is capped rather than open-ended: `mapScrapCharcoalFloor` holds the budget at
+**60% of what it would be with no fragments at all**, so the worst case is mapping
+three fifths of the floor rather than falling off a cliff. At the current numbers
+the cap is what is binding — the fragments chart about 40% of the floor and the
+drop lands at 38–39%, right against it. **Raising the cap is one number if he
+wants more margin; lowering it takes the credit further.** The check's name
+changed to say what it now checks, rather than quietly meaning something else
+under the old words.
+
+The spacing rule is a **harness** invariant, not a smoke check — it is a property
+of every maze generated, not of a frame.
+
+### Two checks that read the knob they were policing
+
+Both written, both green, and **both unable to fail** — found by reverting, not by
+running.
+
+The spacing check computed its bar as `radius * mapScrapApart * 0.5`. Setting
+`mapScrapApart: 0` to test it therefore set the **bar** to zero too, and it sailed
+through with the spacing rule switched off. The charcoal check had the same shape:
+it worked out what it expected from `mapScrapCharcoalFloor`, so moving that knob
+moved the expectation with it.
+
+The bar is **one patch radius** now, and reads no knob at all: *a fragment must not
+sit inside another fragment's patch*, whatever the tuning says. generate() aims for
+twice that and settles for less only where the ground offers nothing better, so
+there is room between the aim and the bar for an awkward maze. And the charcoal
+check is reverted against **the code** — the budget ignoring the fragments — rather
+than against its own knob.
+
+The general form is worth keeping in mind: **a check whose expected value is
+derived from the thing under test cannot fail.** Both of these looked like
+perfectly ordinary checks until something tried to break them.
+
 ## The gate in a doorway, and the soft lock, finally (v0.85.0)
 
 Two items about gates and keys, and the second one has been sitting in this file

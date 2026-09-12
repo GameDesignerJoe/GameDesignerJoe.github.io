@@ -280,6 +280,41 @@ const CHECKS = [
     return null;
   }],
 
+  // Joe: "I had three map fragments all right next to each other, which means that the last two
+  // were basically useless." A fragment charts a patch around where it lay, so two within a patch
+  // radius of each other chart the same ground twice. Measured before the rule went in: the closest
+  // pairs were four to ten tiles apart against a patch about eleven tiles across.
+  ['map fragments are far enough apart to each be worth finding', (s) => {
+    if (s.scrapSpots.length < 2) return null;
+    const open = openTiles(s);
+    // the same patch size revealAround() charts, and the same one generate() spaces them by
+    let floor = 0;
+    for (let y = 0; y < s.H; y++) for (let x = 0; x < s.W; x++) if (s.tiles[y][x] === '1') floor++;
+    const area = (s.config.cols * s.config.rows) / (14 * 20);
+    const share = Math.max(s.config.mapScrapMinShare, Math.min(s.config.mapScrapShare, s.config.mapScrapShare / area));
+    const radius = Math.sqrt(Math.floor(floor * share));
+    // The bar is one patch radius, and it deliberately does NOT read mapScrapApart. The first cut
+    // computed it as `radius * mapScrapApart * 0.5` — so setting that knob to 0 to test this check
+    // set the bar to 0 as well, and the check sailed through with the spacing rule switched off.
+    // A check that reads the knob it is policing cannot fail. What is asserted is the property Joe
+    // actually described: a fragment must not sit inside another fragment's patch, whatever the
+    // knob is set to. generate() aims for twice this and settles for less only where the ground
+    // gives it nothing better, so there is room between the aim and the bar for awkward mazes.
+    const bar = radius;
+    for (let i = 0; i < s.scrapSpots.length; i++) {
+      const [ax, ay] = s.scrapSpots[i].split(',').map(Number);
+      const d = dists(open, s.W, s.H, ax, ay);
+      for (let j = i + 1; j < s.scrapSpots.length; j++) {
+        const gap = d.get(s.scrapSpots[j]);
+        if (gap != null && gap < bar) {
+          return `fragments at ${s.scrapSpots[i]} and ${s.scrapSpots[j]} are ${gap} tiles apart walking, `
+            + `inside a patch ${radius.toFixed(0)} tiles across — the second charts ground the first already did`;
+        }
+      }
+    }
+    return null;
+  }],
+
   ['start room is sealed when it should be', (s) => {
     if (!s.startRoom || !s.flags.sliderAtStart) return null;
     if (s.poolMode) return null;

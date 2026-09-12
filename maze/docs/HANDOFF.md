@@ -274,6 +274,14 @@ they lay, scaled down for big mazes so X-Large gets a patch rather than a fifth
 of the whole maze — Joe explicitly did *not* want scraps to also chart where
 you'd already walked.
 
+Since v0.86.0 scraps are also **held apart by their own reach** (`mapScrapApart`,
+measured by walking), because three of them in a huddle meant the last two
+charted ground the first already had. And the **charcoal budget credits them**:
+it covers the floor the scraps will not, floored at `mapScrapCharcoalFloor` of
+the uncredited number. So "enough charcoal to map the whole maze" now means
+*together with the fragments* — a run that finds none of them is short, by
+design, and the floor is what stops that being ruinous.
+
 ### Shifting cells — sliders, pockets, swings
 
 A dead end is sealed into a pocket; the cell across its wall pushes into it. One

@@ -186,6 +186,19 @@ const CONFIG = {
   mapScrapShare: 0.2,   // share of the floor one scrap charts, at medium. Divided by the map's area
                         // multiplier, so X-Large gets a patch rather than a fifth of the whole maze
   mapScrapMinShare: 0.06,// however big the maze, a scrap is always worth at least this much of it
+  // Joe: "I had three map fragments all right next to each other, which means that the last two
+  // were basically useless. We need to make sure they are given far enough away for them to be
+  // useful." Measured: a scrap charts a patch about eleven tiles across, and the closest pairs were
+  // landing four to ten tiles apart — the second one sitting inside the first one's patch, charting
+  // ground already charted. So they are held apart by their own reach: this many patch-radii of
+  // *walking*, not straight line, because walking is how you get to the second one.
+  mapScrapApart: 2,     // 0 = no spacing rule. 2 means two patches barely touch
+  // "Also, if there are map fragments on the map we can spawn less charcoal since the fragments
+  // supersede the charcoal." The charcoal budget covers the floor the scraps will not. This assumes
+  // you pick the fragments up — see docs/CLAUDE.md v0.86.0, it is a real assumption — so it is
+  // capped: charcoal never falls below this share of what it would be with no fragments at all.
+  mapScrapCharcoalFloor: 0.6,
+
   pointerSeconds: 30,   // how long the compass stays on after pickup
   pathSeconds: 15,      // how long the thread stays on after you first set foot on it — not after
                         // you pick it up. Joe: "the bigger the maze the less likely you are to see

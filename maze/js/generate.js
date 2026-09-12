@@ -994,6 +994,15 @@ function generate(seed) {
   const taken = new Set();
   const free = () => deadEnds.filter(k => !taken.has(k));
   const pickFree = () => { const f = free(); return f.length ? f[R()*f.length|0] : null; };
+  // How much floor one map fragment charts. The same sum revealAround() does in js/state.js: a
+  // share of the floor, divided down for big mazes so X-Large gets a patch rather than a quarter
+  // of the whole place. Both the spacing rule and the charcoal budget need it.
+  const scrapPatch = () => {
+    let openN = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) openN++;
+    const area = (CONFIG.cols * CONFIG.rows) / (14 * 20);
+    const share = Math.max(CONFIG.mapScrapMinShare, Math.min(CONFIG.mapScrapShare, CONFIG.mapScrapShare / area));
+    return Math.floor(openN * share);
+  };
 
   // key first, so it always exists
   keySpot = null; gated = !poolMode && CONFIG.keyGate && F.gate && R() < B.keyChance();
@@ -1030,7 +1039,14 @@ function generate(seed) {
     let floorTiles = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) floorTiles++;
 
-    const want = Math.max(1, Math.ceil(floorTiles / Math.max(1, B.charcoal())));
+    // Joe: "if there are map fragments on the map we can spawn less charcoal since the fragments
+    // supersede the charcoal." They chart floor, so that floor is not the charcoal's job. The scraps
+    // are placed further down, but how many there will be and how much each charts are both known
+    // here. Capped by mapScrapCharcoalFloor, because this assumes you actually find them.
+    const charted = F.scraps ? N(CONFIG.mapScraps) * scrapPatch() : 0;
+    const bare = Math.ceil(floorTiles / Math.max(1, B.charcoal()));
+    const want = Math.max(1, Math.ceil(bare * CONFIG.mapScrapCharcoalFloor),
+      Math.ceil(Math.max(0, floorTiles - charted) / Math.max(1, B.charcoal())));
     // Joe: "we should add a starting piece of charcoal into the home room." His own row, one tile
     // to his right — the name is set into the tile above him and the chapter into the one below,
     // and he asked that it not land on either. The start room is five tiles square and wholly
@@ -1167,8 +1183,34 @@ function generate(seed) {
   }
 
   // map scraps in free dead ends
+  // Map fragments, held apart by their own reach. Joe: "I had three map fragments all right next to
+  // each other, which means that the last two were basically useless." A scrap charts a patch of
+  // scrapPatch() tiles, so two of them within about a patch-radius of each other chart the same
+  // ground twice. Each new one is placed as far from those already down as the dead ends allow,
+  // and only settles for less when nothing clears the bar — short of the rule beats none placed.
   scrapSpots = new Set();
-  if (F.scraps) for (let i = 0; i < N(CONFIG.mapScraps); i++) { const k = pickFree(); if (k) { scrapSpots.add(k); taken.add(k); } }
+  if (F.scraps) {
+    const want = Math.sqrt(scrapPatch()) * CONFIG.mapScrapApart;   // patch radius, in tiles of walking
+    for (let i = 0; i < N(CONFIG.mapScraps); i++) {
+      const cands = free();
+      if (!cands.length) break;
+      let pick = null;
+      if (!scrapSpots.size || !CONFIG.mapScrapApart) pick = cands[R() * cands.length | 0];
+      else {
+        // walking distance out from the scraps already down, so "far enough away" is the walk you
+        // actually make rather than a line through the walls
+        const d = new Map(); const q = [];
+        for (const k of scrapSpots) { d.set(k, 0); q.push(k.split(',').map(Number)); }
+        for (let h = 0; h < q.length; h++) { const [x, y] = q[h], dd = d.get(x + ',' + y);
+          for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+            if (isOpen(nx, ny) && !d.has(k)) { d.set(k, dd + 1); q.push([nx, ny]); } } }
+        const ok = cands.filter(k => (d.get(k) ?? Infinity) >= want);
+        pick = ok.length ? ok[R() * ok.length | 0]
+                         : cands.slice().sort((a, b) => (d.get(b) ?? 0) - (d.get(a) ?? 0))[0];
+      }
+      if (pick) { scrapSpots.add(pick); taken.add(pick); }
+    }
+  }
 
   // darkness: one region grown from a far tile until it holds the configured share of the floor; never the start room or its ring
   darkTiles = new Set(); darkFringe = new Map(); lampSpot = null;

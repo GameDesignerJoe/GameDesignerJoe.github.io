@@ -1911,23 +1911,34 @@ check('the well is shut, and no page is left standing on something solid',
 const coal = await page.evaluate(() => {
   const rows = [];
   for (const ph of [1, 3, 6]) {
-    let short = 0, over = 0, worstShort = 0, n = 20, pieces = 0, floorSum = 0;
+    let short = 0, over = 0, worstShort = 0, n = 20, pieces = 0, floorSum = 0, chartSum = 0, scrapSum = 0;
     for (let s2 = 1; s2 <= n; s2++) {
       SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 13);
       let floor = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) floor++;
-      const need = Math.ceil(floor / B.charcoal()), got = charcoalSpots.size;
-      pieces += got; floorSum += floor;
+      // Joe: "if there are map fragments on the map we can spawn less charcoal since the fragments
+      // supersede the charcoal." So the floor the charcoal has to cover is the floor the fragments
+      // will not chart — and the budget is floored, so it can never fall off a cliff if a run
+      // misses them. "Enough to map the whole maze" now means enough *together with the fragments*.
+      const area = (CONFIG.cols * CONFIG.rows) / (14 * 20);
+      const share = Math.max(CONFIG.mapScrapMinShare, Math.min(CONFIG.mapScrapShare, CONFIG.mapScrapShare / area));
+      const charted = phase().f.scraps ? scrapSpots.size * Math.floor(floor * share) : 0;
+      const bare = Math.ceil(floor / B.charcoal());
+      const need = Math.max(1, Math.ceil(bare * CONFIG.mapScrapCharcoalFloor),
+        Math.ceil(Math.max(0, floor - charted) / B.charcoal()));
+      const got = charcoalSpots.size;
+      pieces += got; floorSum += floor; chartSum += charted; scrapSum += scrapSpots.size;
       if (got < need) { short++; worstShort = Math.max(worstShort, need - got); }
       if (got > need) over++;
     }
-    rows.push({ who: PHASES[ph].who, floor: Math.round(floorSum / n), pieces: +(pieces / n).toFixed(1), short, over, worstShort, n });
+    rows.push({ who: PHASES[ph].who, floor: Math.round(floorSum / n), pieces: +(pieces / n).toFixed(1),
+      scraps: +(scrapSum / n).toFixed(1), charted: Math.round(chartSum / n), short, over, worstShort, n });
   }
   return rows;
 });
-check('there is enough charcoal to map the maze, and no more',
+check('there is enough charcoal to map what the fragments do not, and no more',
   coal.every((r) => r.over === 0) && coal.every((r) => r.short <= r.n * 0.1),
-  coal.map((r) => `${r.who}: ${r.floor} floor tiles, ${r.pieces} pieces on average, `
-    + `${r.over} mazes with a surplus, ${r.short}/${r.n} short`
+  coal.map((r) => `${r.who}: ${r.floor} floor tiles, ${r.scraps} fragments charting ~${r.charted} of them, `
+    + `${r.pieces} pieces of charcoal on average, ${r.over} mazes with a surplus, ${r.short}/${r.n} short`
     + (r.worstShort ? ` (by at most ${r.worstShort})` : '')).join('; '));
 
 // ── 8z. the charcoal: a piece at home, a heartbeat, and the hold ──
