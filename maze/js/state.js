@@ -104,7 +104,7 @@ function reset(seed) {
   // a burden came off at the last pool: you wake in the light you had before, not the one you have now
   liftBand = (SAVE.lifted != null) ? SAVE.lifted : -1; liftBandAmt = liftBand >= 0 ? 0 : 1; liftGlow = liftBand >= 0 ? CONFIG.liftGlowFrom : 1; document.body.classList.add('pre'); $('title').classList.remove('hide', 'leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
   player = { ...start }; cam = { ...start };
-  steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
+  steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; moveVel = 0; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
   pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; shelfStandKey = ''; shelfStandAt = 0; shelfShown = ''; pagesThisRun = []; heldKeys = new Set(); renderKeys(); crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; tttWon = false; secretSaid = false; secretOn = false; secretLitAt = 0; figureLinesSaid = 0; hasKey = false; exitGateAt = 0; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal();

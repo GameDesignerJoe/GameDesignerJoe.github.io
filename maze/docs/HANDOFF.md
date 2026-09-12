@@ -187,7 +187,7 @@ The design intent: **you should be able to say where you are.** "The room with
 the spinning spiral" is a landmark; "third left after the long corridor" is a
 memory test you will fail at this zoom. Rooms are the maze's vocabulary.
 
-Two of them are interactive rather than decorative, and that is deliberate — a
+Four of them answer to you rather than sitting there, and that is deliberate — a
 landmark you can touch is remembered better than one you look at:
 
 - **The ball pit** gets out of your way and rolls back after (`ballPitReach`,
@@ -195,8 +195,18 @@ landmark you can touch is remembered better than one you look at:
 - **The spiral** turns, slowly, about the middle of its room (`spiralSpinHz`) —
   slow enough to doubt, fast enough to see.
 
-**Columns are solid.** They were walk-through decoration; they are walls now,
-and the harness checks all four sides of every column room are actually shut.
+**Columns and statues are solid.** Both were walk-through decoration; they stand
+on the floor now. They are placed only on **link/link crossings** — tiles that
+were wall before the room was opened — so closing them takes away no way through
+at all, which is what lets a room gain real geometry without any risk to
+solvability. `standOn()` in `js/generate.js` is that rule, shared by both and by
+the gallery. The statues light as you reach them, at the columns' reach, but
+without the flame: stone comes up out of the dark, it does not burn.
+
+**The spiral is dragged, not clocked.** Walking round its eye hands it the angle
+you sweep, so it turns the way you walk; the old slow drift is still underneath.
+The pull fades near the middle, where a step of nothing is most of a turn, and
+the per-frame turn is capped so crossing the centre at a run does not whip it.
 
 ### The vault (v0.72.0)
 

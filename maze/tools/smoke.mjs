@@ -1498,21 +1498,15 @@ const matWalk = await page.evaluate(async () => {
     // this check ran out before it ever arrived — then read the *previous* run's
     // pending timer as this run's walk. Wait for the beat rather than assume when.
     for (let i = 0; i < 200 && !introWalk; i++) await nap(50);
-    let peak = 0, last = { x: player.x, y: player.y, t: performance.now() };
-    for (let i = 0; i < 80 && introWalk; i++) {
-      const before = !!introWalk;
-      await nap(30);
-      const now = performance.now(), dt = (now - last.t) / 1000;
-      // only intervals that were the scripted walk at *both* ends. introWalk clears
-      // on the tile change, and he leans toward his own speed for a frame or two
-      // after — sampling across that boundary reads the tail as the walk, which is
-      // how this check first failed at 1.8x and passed at 1x on the same build.
-      // along the direction he is walking, not hypot: the idle axis is easing back onto
-      // the centreline at the same time, and counting that slide as travel read faster
-      // than the walk can physically be.
-      if (dt > 0 && before && introWalk) peak = Math.max(peak, Math.abs(player.y - last.y) / dt);
-      last = { x: player.x, y: player.y, t: now };
-    }
+    // The average over the whole beat, not the peak of it. Peak reads the noise: the walk is short,
+    // the ease ramp is a good fraction of it, and sampling from outside the frame loop lands
+    // wherever it lands — at 0.4 tiles/s that drifted far enough to fail about one run in three.
+    // Both runs include the same ramp, so the averages compare honestly.
+    const y0 = player.y, t0 = performance.now();
+    let y1 = y0, t1 = t0;
+    for (let i = 0; i < 120 && introWalk; i++) { await nap(20); y1 = player.y; t1 = performance.now(); }
+    const secs = (t1 - t0) / 1000;
+    const peak = secs > 0.15 ? Math.abs(y1 - y0) / secs : 0;
     await nap(120);                                   // let the beat finish before the next reset
     return { peak, normal: B.speed() };
   };
@@ -1658,6 +1652,78 @@ check('the sound toggle restarts the audio rather than muting it',
   restart.quiet && restart.rebuilt,
   `with it off nothing new is voiced for over a second (${restart.quiet}); switching it back on builds the bed again `
   + `(${restart.made} new voices). Muting alone would have kept the composer running through the silence`);
+
+// ── 8d. the rooms answer to you (v0.79.0) ───────────────────────
+
+// Joe: "the spiral in the spiral room should move and rotate whatever direction
+// the player is moving." Walk him a quarter-turn round the eye one way, then the
+// other, and the spiral should follow each time.
+const drag = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let tries = 0; tries < 40; tries++) {
+    const L = (landmarks || []).find((l) => l.kind === 'spiral');
+    if (L) {
+      const px = L.x + 0.5, py = L.y + 0.5, rr = 1.6;
+      const put = (ang) => { player.x = px + Math.cos(ang) * rr; player.y = py + Math.sin(ang) * rr; };
+      const sweep = async (dir) => {
+        put(0); await nap(60);
+        const from = L.spin;
+        for (let i = 1; i <= 12; i++) { put(dir * i * Math.PI / 24); await nap(28); }
+        return L.spin - from;
+      };
+      const cw = await sweep(1), ccw = await sweep(-1);
+      return { skip: false, cw, ccw };
+    }
+    reset(SEED + tries + 1);                           // another maze until one has a spiral
+    await nap(40);
+  }
+  return { skip: true };
+});
+check('the spiral turns the way you walk round it',
+  drag.skip || (drag.cw > 0.15 && drag.ccw < -0.15),
+  drag.skip ? 'no spiral room in the seeds tried'
+    : `walking a quarter-turn one way moved it ${drag.cw.toFixed(2)} radians and the other way ${drag.ccw.toFixed(2)} — `
+      + `it follows the direction rather than running on its own clock`);
+
+// Joe: "room two in the prototype should also be columns that light up." Room two
+// of the gallery is the statues, so they stand on the floor now like the columns
+// and take the light at the same reach.
+const stat = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  buildGallery(SEED); await nap(200);                 // the gallery lays out one bay per kind
+  const L = (landmarks || []).find((l) => l.kind === 'statues');
+  if (!L) return { missing: true };                   // never a skip: the gallery always has one
+  const solid = (L.cols || []).filter(([mx, my]) => tiles[my][mx] === 0).length;
+  // the room is still walkable: every open tile in it reachable from its doorway
+  const seen = new Set(), q = [[L.rx0, L.ry0 + ((L.ry1 - L.ry0) >> 1)]];
+  let open = 0;
+  for (let y = L.ry0; y <= L.ry1; y++) for (let x = L.rx0; x <= L.rx1; x++) if (tiles[y][x]) open++;
+  while (q.length) { const [x, y] = q.pop(), k = x + ',' + y;
+    if (seen.has(k) || x < L.rx0 || x > L.rx1 || y < L.ry0 || y > L.ry1 || !tiles[y][x]) continue;
+    seen.add(k); q.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]); }
+  // and they should be dark until he is on top of them. Sample one statue's own tile
+  // from across the room, then from the tile beside it.
+  const cv = document.querySelector('canvas'), d = window.devicePixelRatio || 1;
+  const [mx, my] = L.cols[0];
+  const lookAt = async (px, py) => {
+    player.x = px; player.y = py; cam.x = px; cam.y = py;
+    await nap(260);
+    const sx = Math.round((cv.width / 2 + (mx + 0.5 - player.x) * zoomS * d));
+    const sy = Math.round((cv.height / 2 + (my + 0.5 - player.y) * zoomS * d));
+    const g = cv.getContext('2d').getImageData(sx - 6, sy - 6, 12, 12).data;
+    let sum = 0; for (let i = 0; i < g.length; i += 4) sum += (g[i] + g[i + 1] + g[i + 2]) / 3;
+    return sum / (g.length / 4);
+  };
+  const near = await lookAt(mx + 1.5, my + 0.5);
+  const far = await lookAt(L.x + 0.5, L.y + 0.5 + (L.ry1 - L.ry0));
+  return { skip: false, placed: (L.cols || []).length, solid, open, reached: seen.size, near, far };
+});
+check('the statues stand on the floor, and light up as you reach them',
+  !stat.missing && stat.placed >= 4 && stat.solid === stat.placed && stat.reached === stat.open
+    && stat.near > stat.far + 6,
+  stat.missing ? 'the gallery has no statue bay at all, which is itself the bug'
+    : `${stat.placed} of them, all ${stat.solid} shut against you, and all ${stat.open} open tiles of the bay still `
+      + `reach each other. One of them reads ${stat.far.toFixed(0)} from across the room and ${stat.near.toFixed(0)} from the tile beside it`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

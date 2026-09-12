@@ -255,6 +255,13 @@ const CONFIG = {
   vaultCells: 7,        // the key vault is this many cells square — bigger than any room on purpose
   roomLandmarkChance: 0.85,  // how often an ordinary maze's room is a place rather than an empty box
   spiralSpinHz: 0.022,  // turns a second for the spiral room. Slow enough to doubt, fast enough to see
+  spiralFollow: 1.6,    // and how hard walking round it drags it: 1 is exactly the angle you sweep
+                        // about the middle of the room, above that it over-answers and reads as
+                        // something you are turning rather than something you are walking past
+  spiralFollowFade: 1.5,// but the pull fades to nothing within this many tiles of the eye, where a
+                        // step of nothing is most of a turn and it would spin on the spot
+  spiralFollowMax: 0.22,// and no single frame may turn it more than this many radians, or crossing
+                        // the middle at a run whips the whole thing round
   columnLightTiles: 2.6,// how near you have to be for a column to catch light, in tiles
   ballPitReach: 0.9,    // how near a ball has to be before you move it at all, in tiles
   ballPitPush: 0.45,    // and how much of that gap it gives up. High enough and you plough a circle

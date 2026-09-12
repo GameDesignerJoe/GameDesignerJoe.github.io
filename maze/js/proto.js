@@ -75,10 +75,9 @@ function buildGallery(seed) {
     landmarks.push({ x: TXc(cx0 + (bay >> 1)), y: TXc(cy0 + (bay >> 1)), kind, room: i,
       rx0: TXc(cx0), ry0: TXc(cy0), rx1: TXc(cx0 + bay - 1), ry1: TXc(cy0 + bay - 1) });
     // columns are the one that is really there, so shut them here too
-    if (kind === 'columns') { const L = landmarks[landmarks.length - 1]; L.cols = [];
-      for (const [dx, dy] of [[1,1],[3,1],[1,3],[3,3]]) { const mx = L.rx0 + dx, my = L.ry0 + dy;
-        if (mx < L.rx1 && my < L.ry1) { tiles[my][mx] = 0; L.cols.push([mx, my]); } }
-    }
+    // columns and statues are the ones that are really there, so shut them here too
+    if (kind === 'columns' || kind === 'statues') { const L = landmarks[landmarks.length - 1];
+      L.cols = standOn(L.rx0, L.ry0, L.rx1, L.ry1, kind === 'statues' ? 6 : 4); }
   });
   start = { x: TXc(0) + 0.5, y: TXc(spineY) + 0.5 };
   exit = { x: TXc(cols - 1), y: TXc(spineY) };

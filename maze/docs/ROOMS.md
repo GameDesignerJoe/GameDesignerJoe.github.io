@@ -1,6 +1,6 @@
 # Rooms
 
-<!-- reviewed: v0.76.0 — the room table checked against LANDMARK_KINDS -->
+<!-- reviewed: v0.79.0 — the room table checked against LANDMARK_KINDS and the render -->
 
 The seven that exist, and a pitch list for more. Joe: *"I'd love to have you pitch to me a list of
 other possible odd, interesting, thematically on point room pitches."*
@@ -15,15 +15,15 @@ could describe it to someone else in six words, and on what it costs.
 | Room | What it is | Does anything? |
 |---|---|---|
 | **pool** | the floor is water, with a rim you walk round | no — pure landmark |
-| **statues** | six of them round the walls, facing in | no |
-| **spiral** | one spiral chalked across the whole floor | no |
+| **statues** | six of them standing on the floor, in a ring, looking in | **yes** — real geometry, and they come up out of the dark as you reach them |
+| **spiral** | one spiral chalked across the whole floor | **yes** — walking round it drags it your way |
 | **columns** | four pillars you cannot walk through; they take light as you pass | **yes** — real geometry, and the flames |
 | **dais** | a stepped platform filling the middle | no |
 | **well** | a mouth in the floor, flagstones round it | no |
 | **balls** | a pit of them, and they get out of your way | **yes** — they part as you wade |
 | **vault** | nested rings, one gap each, a key at the heart | **yes** — this is where keys hide now |
 
-Five of the eight are still *pictures*. The pitches worth most are the ones that give a room
+Three of the eight are still *pictures* — pool, dais and well. The pitches worth most are the ones that give a room
 something to **do**, because that is what makes you remember where it was.
 
 ## The pitches

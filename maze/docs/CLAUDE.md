@@ -481,6 +481,62 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Two rooms that answer to you (v0.79.0)
+
+**The statues stand on the floor now.** Joe: *"room two in the prototype should
+also be columns that light up. They should be off until the player's right next
+to them and then they light up."* Room two of the gallery is the **statues**, and
+his earlier note about them said the same thing — *"make these more like columns
+that you can't walk over"* — so the reading taken is that the statues get the
+columns' treatment, not that bay two becomes a second columns room. Two identical
+bays in a gallery whose whole job is showing one of each would be pointless.
+
+They stand on **link/link crossings** — the tiles that were wall before the room
+was opened — which is the trick the columns already used: closing them takes away
+no way through at all. That rule is `standOn()` now, shared by the columns, the
+statues and the gallery, and it picks positions round the outside of the room
+spread by angle so they read as a ring you walk between. Harness unchanged at 4,
+so nothing got cut off.
+
+They light at the columns' reach but **without the flame** — stone comes up out
+of the dark, it does not burn.
+
+**The spiral is dragged rather than clocked.** Joe: *"the spiral in the spiral
+room should move and rotate whatever direction the player is moving."* Walking
+round its eye hands it the angle you sweep. The old slow drift is still
+underneath, so it is never quite still. Two guards, both found by watching it:
+the pull fades within `spiralFollowFade` of the middle, where a step of nothing
+is most of a turn and it would spin on the spot, and `spiralFollowMax` caps the
+per-frame turn so crossing the centre at a run does not whip it round.
+
+### A bug he did not report: `reset()` never cleared `moveVel`
+
+A new maze inherited the last one's momentum and eased down from it, so the
+scripted walk off the mat began too fast — which is the very beat he had called
+*"too quickly"*. One word in `js/state.js`. Found because the mat-walk check went
+red for no reason after the speed dropped to 0.175.
+
+### Three self-inflicted wounds worth remembering
+
+- **A parse check does not prove structure.** Moving `standOn()` out of
+  `generate()` with a script whose brace-matching stopped at the first `}` ate
+  its `return out; }`, which left `generate` *nested inside it*. The file still
+  parsed — `node -e "new Function(src)"` was perfectly happy — and the game died
+  at load with `generate is not defined`. Boot the page after a structural move,
+  do not just parse it.
+- **Scope is not location.** The first cut put `standOn()` inside `generate()`,
+  where `js/proto.js` could not see it. Module scope on purpose now, and the
+  comment says why.
+- **A check that skips is a check that passes.** The statues check called
+  `buildProto('gallery')` — wrong signature, silently no gallery — and reported
+  *"no statue bay in the gallery"* as an **ok**. It calls `buildGallery()` and
+  treats a missing bay as the failure it would be.
+
+The mat-walk check also moved from **peak speed to average**. Peak was reading
+the noise: the walk is short, the ease ramp is a good fraction of it, and at 0.4
+tiles/s it drifted far enough to fail about one run in three. Averaged over the
+whole beat it now runs 2–8% apart across four runs against a 40% band.
+
 ## The music nobody could hear (v0.78.0)
 
 Joe: *"the music for the soldier is not really firing as much as expected. Just

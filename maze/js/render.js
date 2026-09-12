@@ -497,20 +497,53 @@ function draw() {
       ctx.strokeStyle = '#6f8893'; ctx.lineWidth = Math.max(1, S * 0.03);
       for (let i = 1; i <= 3; i++) { ctx.globalAlpha = 0.42 - i * 0.09;
         ctx.beginPath(); ctx.arc(cx, cy, r2 * (0.16 + i * 0.19), 0, Math.PI*2); ctx.stroke(); }
-    } else if (L.kind === 'statues') {             // six of them, round the room, looking in
+    } else if (L.kind === 'statues') {             // standing on the floor now, round the room, looking in
+      // Joe: "they should be off until the player's right next to them and then they light up."
+      // The same proximity the columns answer to, and the same reach — but no flame: a statue is
+      // stone, so what it does is come up out of the dark and take an edge of light, and the ring
+      // scribed round them lights with them.
       ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.04);
       ctx.beginPath(); ctx.arc(cx, cy, rad * 0.62, 0, Math.PI*2); ctx.stroke();
-      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.26;
-        const sx = cx + Math.cos(a) * rad * 0.68, sy = cy + Math.sin(a) * rad * 0.68;
+      for (const [mx, my] of (L.cols || [])) {
+        const [sx, sy] = T(mx, my);
+        const near = Math.hypot(player.x - (mx + 0.5), player.y - (my + 0.5));
+        const lit = Math.max(0, 1 - near / CONFIG.columnLightTiles);
+        if (lit > 0.01) {
+          const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, S * 0.95);
+          glow.addColorStop(0, `rgba(201,185,138,${(0.22 * lit).toFixed(3)})`);
+          glow.addColorStop(1, 'rgba(201,185,138,0)');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sx, sy, S * 0.95, 0, Math.PI*2); ctx.fill();
+        }
         ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(sx, sy, S * 0.25, S * 0.3, 0, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = C.shelf; ctx.beginPath(); ctx.ellipse(sx, sy - S * 0.04, S * 0.16, S * 0.22, 0, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(sx, sy - S * 0.16, S * 0.07, 0, Math.PI*2); ctx.fill(); }
+        ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.42 + 0.48 * lit;
+        ctx.beginPath(); ctx.ellipse(sx, sy - S * 0.04, S * 0.16, S * 0.22, 0, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(sx, sy - S * 0.16, S * 0.07, 0, Math.PI*2); ctx.fill();
+      }
     } else if (L.kind === 'spiral') {
       // Joe: "the spiral room needs to move so the spiral is spinning in the center." It turns about
       // the middle of the room rather than being redrawn, so the arms sweep past you and the eye of
       // it stays put. gameNow() drives it, so it stops with the game rather than with the clock.
+      // Joe: "the spiral in the spiral room should move and rotate whatever direction the player is
+      // moving." So it is dragged: the angle he sweeps round the middle of the room is handed to
+      // the spiral, and walking round it one way or the other turns it that way. The slow drift it
+      // had is still underneath, so it is never quite still. Two guards, both learned by watching
+      // it: near the eye a step of nothing is a huge change of angle, so the pull fades out as he
+      // approaches the middle; and the per-frame turn is capped, or crossing the centre fast
+      // whips it round. It only answers to him while he is in the room it is drawn in.
+      { const px = L.x + 0.5, py = L.y + 0.5, gap = Math.hypot(player.x - px, player.y - py);
+        const pa = Math.atan2(player.y - py, player.x - px);
+        if (L.spin === undefined) { L.spin = 0; L.lastA = pa; L.lastT = nowMs; }
+        L.spin += (nowMs - L.lastT) / 1000 * CONFIG.spiralSpinHz * Math.PI * 2;   // the old drift
+        const inRoom = player.x >= L.rx0 - 1 && player.x <= L.rx1 + 1 && player.y >= L.ry0 - 1 && player.y <= L.ry1 + 1;
+        if (inRoom) {
+          let d = pa - L.lastA; d = Math.atan2(Math.sin(d), Math.cos(d));
+          const damp = Math.min(1, gap / CONFIG.spiralFollowFade);
+          L.spin += Math.max(-CONFIG.spiralFollowMax, Math.min(CONFIG.spiralFollowMax, d * CONFIG.spiralFollow * damp));
+        }
+        L.lastA = pa; L.lastT = nowMs; }
       ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5; ctx.lineWidth = Math.max(1.5, S * 0.09); ctx.lineCap = 'round';
-      ctx.save(); ctx.translate(cx, cy); ctx.rotate(nowMs / 1000 * CONFIG.spiralSpinHz * Math.PI * 2);
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(L.spin);
       ctx.beginPath();
       const turns = Math.PI * 9;
       for (let t = 0; t <= turns; t += 0.1) { const rr = S * 0.12 + (t / turns) * (rad * 0.86 - S * 0.12);

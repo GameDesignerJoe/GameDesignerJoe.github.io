@@ -54,6 +54,29 @@ function secretRoomChalkOn(spots, R) {   // R is generate()'s seeded rng, so a r
   for (const k of free) if (R() < CONFIG.secretRoomChalk) secretMarks.set(k, 'x');
 }
 
+// Where a landmark that is really there may stand. Only link/link crossings: those tiles were wall
+// before the room was opened, so closing them again takes away no way through at all — every cell
+// and every link lane is still open, and the route is planned after this, so it plans around them
+// for free. Picked round the outside of the room and spread by angle, so they read as a ring you
+// walk between rather than a clump in the middle. Shared by the columns and the statues.
+// Module scope on purpose: js/proto.js builds the gallery's bays with it too.
+function standOn(tx0, ty0, tx1, ty1, want) {
+  const cx = (tx0 + tx1) / 2, cy = (ty0 + ty1) / 2, all = [];
+  for (let my = ty0 + 1; my < ty1; my += 2)
+    for (let mx = tx0 + 1; mx < tx1; mx += 2) all.push([mx, my, Math.hypot(mx - cx, my - cy), Math.atan2(my - cy, mx - cx)]);
+  if (!all.length) return [];
+  const far = Math.max(...all.map((c) => c[2]));
+  let ring = all.filter((c) => c[2] >= far * 0.6);
+  if (ring.length < want) ring = all;
+  ring.sort((a, b) => a[3] - b[3]);
+  const take = Math.min(want, ring.length), out = [];
+  for (let i = 0; i < take; i++) {
+    const [mx, my] = ring[Math.round(i * ring.length / take) % ring.length];
+    if (!out.some(([ox, oy]) => ox === mx && oy === my)) { tiles[my][mx] = 0; out.push([mx, my]); }
+  }
+  return out;
+}
+
 function generate(seed) {
   const R = rng(seed);
   protoMode = false; landmarks = []; sections = []; keyVault = null; vaultRect = null;
@@ -214,13 +237,13 @@ function generate(seed) {
       // the tiles that were wall before this room was opened — so shutting them takes away no way
       // through at all: every cell and every link lane is still open, and the route below plans
       // around them for free because it is planned after this.
-      if (kind === 'columns') {
-        L.cols = [];
-        for (const [dx, dy] of [[1,1],[3,1],[1,3],[3,3]]) {
-          const mx = tx0 + dx, my = ty0 + dy;
-          if (mx >= tx1 || my >= ty1) continue;
-          tiles[my][mx] = 0; L.cols.push([mx, my]);
-        }
+      // Joe: "room two in the prototype should also be columns that light up. They should be off
+      // until the player's right next to them and then they light up." Room two of the gallery is
+      // the statues, and his earlier note about them said the same — "make these more like columns
+      // that you can't walk over". So the statues stand on the floor too now, six in a ring, on the
+      // same crossings and by the same rule.
+      if (kind === 'columns' || kind === 'statues') {
+        L.cols = standOn(tx0, ty0, tx1, ty1, kind === 'statues' ? 6 : 4);
         if (L.cols.length < 4) { for (const [mx, my] of L.cols) tiles[my][mx] = 1; return; }   // too small a room for them
       }
       landmarks.push(L);
