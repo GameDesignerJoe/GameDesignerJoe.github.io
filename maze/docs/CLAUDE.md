@@ -123,6 +123,20 @@ here on purpose: two copies drift, and his is the one he edits.
 What is here instead is the mechanical stuff his rules assume, and the mistakes
 worth not repeating.
 
+### There is a skill for this
+
+`.claude/skills/maze-task/SKILL.md` is the procedure — read the doc, group, build,
+verify, ship, report. Joe can type `/maze-task`. This file stays the reference: what
+the game is, why it is that way, and what has already been decided.
+
+And a **pre-commit hook** (`.claude/hooks/maze-smoke.sh`) runs the smoke suite on any
+commit touching `maze/` and blocks it if the suite is red — or if it never reaches a
+verdict, which is what an errored run looks like and is exactly how "Smoke 55" once
+got written into a commit message on the strength of a run that had done neither. It
+starts the static server itself if it is down, and it lets the commit through with a
+warning rather than blocking when node or python is missing: a gate that misfires
+gets switched off.
+
 ### Where the work comes from
 
 He says "new tasks in the doc" when he has added some. Read it with the Drive

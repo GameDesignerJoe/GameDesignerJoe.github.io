@@ -28,5 +28,20 @@
       "Bash(node C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/drive.mjs http://localhost:8765/tidy-adventures/index.html C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/reveal.js C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/shot-reveal.png)",
       "Bash(node C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/drive.mjs http://localhost:8765/tidy-adventures/index.html C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/keys.js)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/maze-smoke.sh",
+            "timeout": 240,
+            "statusMessage": "Running the maze smoke suite before committing"
+          }
+        ]
+      }
+    ]
   }
 }
