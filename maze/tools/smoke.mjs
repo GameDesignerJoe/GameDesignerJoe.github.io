@@ -615,24 +615,52 @@ const gswing = await page.evaluate(async () => {
   }
   if (!sl) return { skip: true };
   document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
-  const side = DIRS.find(([dx, dy]) => isOpen(sl.x + dx, sl.y + dy));
+  // Never park him in the swing's path: the swing refuses to slide into you, so standing on the tile
+  // it wants pins it at home forever and the check reads "floor 135 frames, hole 0". That was an
+  // intermittent failure for as long as this check has existed — DIRS order decides which side he
+  // waits on, and sometimes that side is the one it travels to.
+  // Never park him on either tile the swing travels between: it refuses to slide into you, so
+  // standing on the one it wants pins it at home forever and the check reads "hole 0". Both ways —
+  // a swing that starts shifted travels *back*, which is how this kept failing after I excluded
+  // only the forward one.
+  const side = DIRS.find(([dx, dy]) => isOpen(sl.x + dx, sl.y + dy)
+    && !(dx === sl.dx && dy === sl.dy) && !(dx === -sl.dx && dy === -sl.dy));
+  if (!side) return { skip: true };
   player.x = sl.x + side[0] + 0.5; player.y = sl.y + side[1] + 0.5;   // waiting at the squeeze beside it
-  const wasSec = CONFIG.swingSeconds; CONFIG.swingSeconds = 0.35; sl.nextAt = 0;
-  const seen = { home: 0, away: 0 };
+  // Deterministic, twice over. `nextAt = 0` reads as "unset" to the swing loop, which then schedules
+  // the first move a *random* fraction of swingSeconds away — and the loop runs on gameNow(), which
+  // a card left up by an earlier check freezes, so the move could simply never come due. Setting a
+  // real time makes it fire on the first frame, and clearing `paused` keeps the clock running.
+  // `nextAt = 0` reads as "unset" to the swing loop, which schedules the first move a random fraction
+  // of swingSeconds away — fine, as long as the window is long enough to see several whole cycles.
+  // Forcing it to fire on frame one instead was worse: the sampling then started mid-slide and only
+  // ever caught one state. Clearing `paused` is the part that matters: the loop runs on gameNow(),
+  // which a card left up by an earlier check freezes, so the move never came due at all.
+  const wasSec = CONFIG.swingSeconds; CONFIG.swingSeconds = 0.35;
+  CONFIG.tutorials = false; paused = false; sl.nextAt = 0;
+  const seen = { home: 0, away: 0, moves: 0 };
+  let wasHome = null;
   const t0 = performance.now();
   await new Promise((r) => { const step = () => {
     if (tiles[sl.y][sl.x]) seen.home++;
     if (tiles[sl.y + sl.dy][sl.x + sl.dx]) seen.away++;
-    if (performance.now() - t0 > 2200) return r();
+    // Count the *changes*, not the frames in each state. Which end it rests at, and for how long,
+    // depends on the maze the seed search happens to land on — and that moved the moment generation
+    // changed. A gauntlet floor that slides out of the way and comes back is two changes; that is
+    // the thing the check is named for, and it is the thing that does not depend on the seed.
+    { const home = !!tiles[sl.y][sl.x];
+      if (wasHome !== null && home !== wasHome) seen.moves++;
+      wasHome = home; }
+    if (performance.now() - t0 > 4000) return r();
     requestAnimationFrame(step); }; step(); });
   CONFIG.swingSeconds = wasSec;
   return { at: [sl.x, sl.y], into: [sl.dx, sl.dy], seen,
     onRoute: solutionPath.some(([x, y]) => x === sl.x && y === sl.y) };
 });
 check('the gauntlet floor slides out of the way and comes back',
-  gswing.skip || (gswing.seen.home > 5 && gswing.seen.away > 5 && gswing.onRoute),
+  gswing.skip || (gswing.seen.moves >= 2 && gswing.onRoute),
   gswing.skip ? 'no gauntlet swing in 40 Child mazes' :
-  `the cell at ${gswing.at} is on the route out; it left toward ${gswing.into} and came back — floor ${gswing.seen.home} frames, hole ${gswing.seen.away}`);
+  `the cell at ${gswing.at} is on the route out; it left toward ${gswing.into} and came back ${gswing.seen.moves} times over four seconds (floor ${gswing.seen.home} frames, hole ${gswing.seen.away})`);
 
 // ── 8i. the pool room's gate ──────────────────────────────────────
 // It used to slide aside the moment you picked the stone up. Now you have to carry the stone to
@@ -1406,25 +1434,29 @@ const spiral = await page.evaluate(async () => {
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const b2 = cv.getContext('2d');
   // a ring of samples round the eye of it: the arms sweeping past change them, a still picture does not
+  // Sample several rings, not one: which radius the arms fall on depends on how big the room is, and
+  // that changed the moment rooms did. Any ring that moves is the spiral moving.
   const ring = () => { const out = [];
-    for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2;
-      const x = (innerWidth / 2 + Math.cos(a) * zoomS * 0.62) * dpr, y = (innerHeight / 2 + Math.sin(a) * zoomS * 0.62) * dpr;
+    for (const rad of [0.38, 0.62, 0.9, 1.2]) for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2;
+      const x = (innerWidth / 2 + Math.cos(a) * zoomS * rad) * dpr, y = (innerHeight / 2 + Math.sin(a) * zoomS * rad) * dpr;
+      if (x < 0 || y < 0 || x >= cv.width || y >= cv.height) { out.push(0); continue; }
       out.push(b2.getImageData(x, y, 1, 1).data[0]); }
     return out; };
   await frame(); const a1 = ring();
   const t0b = performance.now();
   await new Promise((r) => { const step = () => { if (performance.now() - t0b > 2500) return r(); requestAnimationFrame(step); }; step(); });
   await frame(); const a2 = ring();
-  // total change round the ring, not a count over a threshold: a count sits on a knife edge at this
-  // speed, where two and a half seconds is twenty degrees of turn
-  let sum = 0; for (let i = 0; i < a1.length; i++) sum += Math.abs(a1[i] - a2[i]);
-  return { shift: sum / a1.length, of: a1.length, hz: CONFIG.spiralSpinHz };
+  // The biggest single change, not the average over all of them. Most samples sit on flat floor
+  // between the arms and never move whatever happens, so averaging buries the signal in them — an
+  // arm sweeping across one sample is the whole evidence, and it is worth eighty levels.
+  let worst = 0; for (let i = 0; i < a1.length; i++) worst = Math.max(worst, Math.abs(a1[i] - a2[i]));
+  return { shift: worst, of: a1.length, hz: CONFIG.spiralSpinHz };
 });
 check('the spiral turns about the middle of its room',
-  spiral.skip || (spiral.shift > 3 && spiral.hz > 0),
+  spiral.skip || (spiral.shift > 12 && spiral.hz > 0),
   spiral.skip ? 'no spiral room in the seeds tried' :
-  `${spiral.of} samples round its eye shifted ${spiral.shift.toFixed(1)} levels on average over two `
-  + `and a half seconds at ${spiral.hz} turns a second, so the arms are sweeping past`);
+  `of ${spiral.of} samples round its eye the one an arm swept across shifted ${spiral.shift.toFixed(0)} `
+  + `levels over two and a half seconds at ${spiral.hz} turns a second`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

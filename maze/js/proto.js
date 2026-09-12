@@ -45,8 +45,51 @@ function protoReset(cols, rows) {
   character = CAST[0]; journalIdx = 0;
 }
 
+// ── the gallery ──────────────────────────────────────────────────────────────
+// Joe: "I think you should make a prototype room with each of the major rooms we have connected to
+// each other. This way, we can easily test and debug and look at them." One room per landmark kind,
+// in a row of bays off a spine you walk down, so every one of them is a few seconds apart and none
+// of them is behind a maze.
+function buildGallery(seed) {
+  const kinds = LANDMARK_KINDS;
+  const bay = CONFIG.galleryBay;                       // cells square, per room
+  const cols = kinds.length * (bay + 1) + 1, rows = bay + 5;
+  protoReset([cols, rows]);
+  protoWide = true;
+  const TXc = (c) => c * 2 + 1 + P;
+  const openCell = (cx, cy) => { tiles[TXc(cy)][TXc(cx)] = 1; };
+  const openLink = (cx, cy, dx, dy) => { tiles[TXc(cy) + dy][TXc(cx) + dx] = 1; };
+  const openBlock = (cx0, cy0, w, h) => {             // a solid rectangle of floor, links and all
+    for (let y = TXc(cy0); y <= TXc(cy0 + h - 1); y++)
+      for (let x = TXc(cx0); x <= TXc(cx0 + w - 1); x++) tiles[y][x] = 1;
+  };
+  // the spine, along the bottom
+  const spineY = rows - 2;
+  for (let cx = 0; cx < cols; cx++) { openCell(cx, spineY); if (cx) openLink(cx, spineY, -1, 0); }
+  // a bay per kind, opening off it
+  kinds.forEach((kind, i) => {
+    const cx0 = 1 + i * (bay + 1), cy0 = spineY - bay - 1;
+    openBlock(cx0, cy0, bay, bay);
+    const doorX = cx0 + (bay >> 1);
+    openCell(doorX, spineY - 1); openLink(doorX, spineY - 1, 0, 1); openLink(doorX, cy0 + bay - 1, 0, 1);
+    landmarks.push({ x: TXc(cx0 + (bay >> 1)), y: TXc(cy0 + (bay >> 1)), kind, room: i,
+      rx0: TXc(cx0), ry0: TXc(cy0), rx1: TXc(cx0 + bay - 1), ry1: TXc(cy0 + bay - 1) });
+    // columns are the one that is really there, so shut them here too
+    if (kind === 'columns') { const L = landmarks[landmarks.length - 1]; L.cols = [];
+      for (const [dx, dy] of [[1,1],[3,1],[1,3],[3,3]]) { const mx = L.rx0 + dx, my = L.ry0 + dy;
+        if (mx < L.rx1 && my < L.ry1) { tiles[my][mx] = 0; L.cols.push([mx, my]); } }
+    }
+  });
+  start = { x: TXc(0) + 0.5, y: TXc(spineY) + 0.5 };
+  exit = { x: TXc(cols - 1), y: TXc(spineY) };
+  solutionPath = [];
+  for (let cx = 0; cx < cols; cx++) { solutionPath.push([TXc(cx), TXc(spineY)]); if (cx < cols - 1) solutionPath.push([TXc(cx) + 1, TXc(spineY)]); }
+  return true;
+}
+
 function buildProto(seed, kind) {
   if (kind === 'laby') return buildLabyrinth(seed);
+  if (kind === 'gallery') return buildGallery(seed);
   const R = rng(seed);
   protoReset(CONFIG.protoSize);
   const TXc = (c) => c * 2 + 1 + P;

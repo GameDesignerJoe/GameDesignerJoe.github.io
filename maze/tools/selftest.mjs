@@ -57,12 +57,16 @@ const grab = (phaseIdx, seed) => page.evaluate(([p, sd]) => {
 
 // The Criminal has every feature on: doors, darkness, lamp, pockets.
 let base = null;
-for (const seed of [1000, 8919, 16838, 24757, 32676]) {
+// Scan, do not guess. This used to try five hard-coded seeds, which worked right up until doors
+// became rarer — and then failed with "could not find a clean maze", which reads like the generator
+// is broken rather than like the search is too narrow.
+const seeds = []; for (let i = 0; i < 120; i++) seeds.push(1000 + i * 619);
+for (const seed of seeds) {
   const s = await grab(5, seed);
   const clean = CHECKS.every(([, fn]) => fn(s) === null);
   if (clean && s.doors.length && s.darkTiles.length && s.lampSpot && s.innerKeys.length) { base = s; break; }
 }
-if (!base) { console.log('could not find a clean maze with doors + darkness to mutate'); await browser.close(); process.exit(1); }
+if (!base) { console.log(`could not find a clean maze with doors + darkness in ${seeds.length} seeds`); await browser.close(); process.exit(1); }
 await browser.close();
 
 const clone = () => JSON.parse(JSON.stringify(base));

@@ -32,7 +32,7 @@ const CONFIG = {
   tilePx: 150,          // zoom: screen pixels per tile
   titleTilePx: 210,     // zoom while asleep on the title screen: still closer than play, so waking pulls back
   introSeconds: 2.8,    // zoom-out when you tap the sleeper
-  chapterDrop: 1.55,    // tiles below him the chapter is set into the floor; the fog takes its bottom edge
+  chapterDrop: 1.42,    // tiles below him the chapter is set into the floor; the fog takes its bottom edge
   chapterHoldSec: 1.4,  // and it holds that long into the zoom-out, so you can read it, before
   chapterFadeSec: 0.9,  // fading over this — the name above him goes at 0.9s flat
   // waking one burden lighter, in two beats. You are still in the old dark when you tap: first a
@@ -102,6 +102,7 @@ const CONFIG = {
                         // is decoration; a landmark in a room is a place you can name
   labyChalk: 8,         // sticks of chalk on the floor, because the point is whether you reach for it
   protoSize: [7, 9],    // the island grid, in cells
+  galleryBay: 5,        // cells square, for each room in the gallery prototype
   protoPath: 9,         // how many islands the way out runs through
   protoDecoyChance: 0.8,// chance a block on that way also offers one that goes nowhere
   protoStraightBias: 1, // of those, how often it goes straight through (up/down, left/right)
@@ -138,7 +139,10 @@ const CONFIG = {
                         // shifting: a dense double comb where nearly every stub is a moving block
   clusterCrawlGaps: 8,  // extra crawl gaps allowed inside each squeeze district
   clusterSliders: 8,    // extra sliders allowed inside each shifting district
-  rooms: 3,             // open spaces carved into the maze
+  // Joe: "I haven't seen any of the special rooms inside the soldier's mazes." They were there — two
+  // to a medium maze, which you can walk a whole run without meeting. Rooms are what the maze is
+  // navigated by now, so there are more of them.
+  rooms: 5,             // open spaces carved into the maze
   roomCells: [2, 3],    // room size range, in cells (2 = 3×3 tiles, 3 = 5×5 tiles)
   tunnels: 4,           // roofed corridor runs that hide the floor (you show through as a ghost)
   tunnelMinTiles: 5,    // shortest straight run that can become a tunnel
@@ -234,8 +238,11 @@ const CONFIG = {
   exitWarp: 0.035,      // and each one's radius breathes by this much of a tile
   exitShimmerHz: 0.32,  // slowly
   // the rooms that are a place rather than an ornament
+  keyDoorMinTiles: 24,  // a key is never nearer its own door than this many tiles of walking...
+  keyDoorMinApart: 9,   // ...nor this many tiles as the crow flies, so the two are never in one view
+  keyDoorFloor: 4,      // and below this, the door is dropped rather than shipped with its key beside it
   vaultCells: 7,        // the key vault is this many cells square — bigger than any room on purpose
-  roomLandmarkChance: 0.72,  // how often an ordinary maze's room is a place rather than an empty box
+  roomLandmarkChance: 0.85,  // how often an ordinary maze's room is a place rather than an empty box
   spiralSpinHz: 0.022,  // turns a second for the spiral room. Slow enough to doubt, fast enough to see
   columnLightTiles: 2.6,// how near you have to be for a column to catch light, in tiles
   ballPitReach: 0.9,    // how near a ball has to be before you move it at all, in tiles

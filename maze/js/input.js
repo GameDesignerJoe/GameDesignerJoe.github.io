@@ -104,6 +104,10 @@ $('optFog').addEventListener('input', () => { SAVE.ui.fog = +$('optFog').value; 
 $('optFog').addEventListener('change', () => { SAVE.ui.fog = +$('optFog').value; applyFog(true); });
 $('optMove').value = SAVE.ui.move || 'rooms';
 $('optMove').addEventListener('change', () => { SAVE.ui.move = $('optMove').value; persist(); dir = null; recenter = null; clearStick(); });
+// Joe: "give me the debug option of infinite chalk." It tops the stick up rather than skipping the
+// spend, so everything downstream — the counter, the pulse, the sound — still happens as it does.
+$('optChalk').checked = !!SAVE.ui.chalkInf;
+$('optChalk').addEventListener('change', () => { SAVE.ui.chalkInf = $('optChalk').checked; persist(); updateChalk(); });
 $('optFace').checked = SAVE.ui.face !== false;
 $('optFace').addEventListener('change', () => { SAVE.ui.face = $('optFace').checked; persist(); });
 $('optZoom').addEventListener('input', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(false); applySpeed(false); applyFog(false); });

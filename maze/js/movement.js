@@ -24,6 +24,13 @@ function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(p
 let recenter = null;   // after a turn, the perpendicular offset is eased out instead of snapped
 let moveVel = 0;       // tiles a second he is actually going, eased toward what the stick asks for
 let squeezeAxis = null;// which way the squeeze he is in holds him, 'x' or 'y'
+// the auto swings, the one waiting longest first. Cached on the array so a maze's worth of swings is
+// sorted once rather than every frame
+function autoSliders(list) {
+  if (list._autos !== undefined && list._autoLen === list.length) { list._autos.sort((a, b) => (a.nextAt || 0) - (b.nextAt || 0)); return list._autos; }
+  list._autos = list.filter((s) => s.auto); list._autoLen = list.length;
+  return list._autos;
+}
 function snapPerp(d) { recenter = d.dx ? 'y' : 'x'; }
 // Somewhere with actual room in it: a tile in any 2x2 block of floor. A corridor is one tile wide,
 // so this is only ever true in a room, a court, or an open landmark floor.
@@ -74,8 +81,11 @@ function update(wall) {
   if (introWalk && !sliding && !canGo(introWalk)) introWalk = null;
   const want = (solved || !started || mapOpen || paused) ? null : (introWalk || held || kd);
 
-  // swings move on their own; you ride if you're standing on one
-  if (!sliding && started && !paused) for (const sl of sliders) {
+  // Swings move on their own; you ride if you're standing on one. Only one thing slides at a time,
+  // and this used to take the first eligible slider in the array every frame — so on a maze with
+  // four swings the ones later in the list never moved at all. The gauntlet swing was last on one
+  // seed and simply never budged in four seconds. Most overdue first, so they take turns.
+  if (!sliding && started && !paused) for (const sl of autoSliders(sliders)) {
     if (!sl.auto) continue;
     if (!sl.nextAt) sl.nextAt = now + CONFIG.swingSeconds * 1000 * (0.5 + Math.random());
     if (now < sl.nextAt) continue;
@@ -84,14 +94,19 @@ function update(wall) {
     const carry = Math.floor(player.x) === cx && Math.floor(player.y) === cy;
     if (!carry && Math.floor(player.x) === to[0] && Math.floor(player.y) === to[1]) { sl.nextAt = now + 800; continue; }   // never slide into you
     tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
-    sliding = { sl, from: [cx, cy], to, t0: now, carry, dur: CONFIG.sliderSeconds * 500 }; if (carry) { dir = null; clearStick(); }
+    sliding = { sl, from: [cx, cy], to, px: player.x, py: player.y, t0: now, carry, dur: CONFIG.sliderSeconds * 500 }; if (carry) { dir = null; clearStick(); }
     AUDIO.swing(cx, cy); sl.nextAt = now + CONFIG.sliderSeconds * 500 + CONFIG.swingSeconds * 1000;
     break;
   }
   if (sliding) {
     const k = Math.min(1, (now - sliding.t0) / sliding.dur);
     const e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
-    if (sliding.carry !== false) { player.x = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; player.y = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
+    // From where he actually stands, not from the tile's centre. Joe: "in the starting room, when we
+    // transition from free movement to pushing the block, there's a definite snap and pop of the
+    // character to get into position." That pop was this line: it started the ride at from+0.5, so
+    // anyone who had walked up off-centre — which is everyone, in a room — was teleported onto the
+    // centreline on the first frame of the push.
+    if (sliding.carry !== false) { player.x = sliding.px + (sliding.to[0] + 0.5 - sliding.px) * e; player.y = sliding.py + (sliding.to[1] + 0.5 - sliding.py) * e; }
     if (k >= 1) {
       const [tx, ty] = sliding.to;
       // A slide can outlive the world it started in — a debug generate(), a new Size mid-flight —
@@ -118,7 +133,7 @@ function update(wall) {
         else {
         const to = [cx + want.dx, cy + want.dy];
         tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
-        sliding = { sl, from: [cx, cy], to, t0: now, dur: CONFIG.sliderSeconds * 1000, toAt: sl.ways ? (sl.at ? 0 : 1 + sl.ways.findIndex(([dx, dy]) => dx === want.dx && dy === want.dy)) : undefined }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) { firstPushDone = true; startArrow = null; if (!SAVE.pushLearned && !protoMode) { SAVE.pushLearned = true; persist(); } } pushHeldSince = 0; recenter = null;
+        sliding = { sl, from: [cx, cy], to, px: player.x, py: player.y, t0: now, dur: CONFIG.sliderSeconds * 1000, toAt: sl.ways ? (sl.at ? 0 : 1 + sl.ways.findIndex(([dx, dy]) => dx === want.dx && dy === want.dy)) : undefined }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) { firstPushDone = true; startArrow = null; if (!SAVE.pushLearned && !protoMode) { SAVE.pushLearned = true; persist(); } } pushHeldSince = 0; recenter = null;
         }
       }
       else if (canGo(want)) dir = want;
@@ -161,9 +176,14 @@ function update(wall) {
   // ends, kept on the debug menu so all three can be felt against each other.
   const moveModel = SAVE.ui.move || 'rooms';
   const freeRoam = moveModel === 'free';
+  // Only where he is standing, never the tile ahead. I added the look-ahead in v0.70 to stop him
+  // snapping onto the rails on the last tile of a room — but it hands free movement the *corridor*
+  // tile outside a room's mouth, which is one tile wide, so he wanders off the line and catches the
+  // jamb. Joe: "the tile right before rooms lets your character move freely and it ends up getting
+  // stuck on things and moves oddly. We should not do that. The character should stay on rails until
+  // they're in the room." He is right, and the mouth funnel below is what the look-ahead was for.
   const freeHere = want && openFloor(Math.floor(player.x), Math.floor(player.y));
-  const freeNext = want && openFloor(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy);
-  const aim = want && !sliding && !introWalk && (freeRoam || (moveModel === 'rooms' && (freeHere || freeNext)))
+  const aim = want && !sliding && !introWalk && (freeRoam || (moveModel === 'rooms' && freeHere))
     ? (stickAim && (want === held) ? stickAim : { x: want.dx, y: want.dy }) : null;
   // Nothing coasts on after you let go — except the scripted first step off the mat, which is the
   // one thing in the game that walks him without a stick and steers itself along `dir`. Clearing it

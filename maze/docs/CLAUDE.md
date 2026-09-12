@@ -385,6 +385,67 @@ angle, because a round hole inside a warping ring reads as a decal laid over it.
 
 See `ROOMS.md` for what each room is and a pitch list for more.
 
+## Rails until you are actually in the room (v0.75.0)
+
+Joe: *"the tile right before rooms lets your character move freely and it ends up getting stuck on
+things and moves oddly. We should not do that. The character should stay on rails until they're in
+the room."* He is describing the look-ahead I added in v0.70 (`freeNext`) to stop him snapping onto
+the rails on a room's last tile. It hands free movement the **corridor** tile outside a room's mouth,
+which is one tile wide, so he wanders off the line and catches the jamb. Gone; `openFloor()` is asked
+about where he is standing and nothing else. The mouth funnel is what the look-ahead was reaching for
+and it is still there.
+
+**No more snap into a push** (v0.75.0). Joe: *"in the starting room, when we transition from free
+movement to pushing the block, there's a definite snap and pop of the character to get into
+position."* The ride started at `from + 0.5` — the tile's centre — so anyone who had walked up to the
+block off-centre, which is everyone in a room, was teleported onto the centreline on the push's first
+frame. It starts from where he actually stands now (`sliding.px/py`).
+
+**Swings take turns** (v0.75.0). Only one thing slides at a time, and the loop took the first
+eligible slider in the array every frame, so on a maze with four swings the ones later in the list
+**never moved at all** — the gauntlet swing was last on one seed and did not budge in four seconds.
+Most overdue first now. This is pre-existing and was found by the smoke check failing after
+generation changed which maze it landed on, which is the entire argument for having it.
+
+## Rooms, vaults and keys (v0.75.0)
+
+- **More rooms.** Joe: *"I haven't seen any of the special rooms inside the soldier's mazes."* They
+  were there — **two** to a medium maze, which you can walk a whole run without meeting. `rooms` is 5
+  now and `roomLandmarkChance` 0.85, so the Soldier gets about four.
+- **A vault in every level.** Joe: *"I thought we had set up a whole vault hiding area for the keys.
+  Is that not in every level? I think it should be."* It was gated on the phase having doors or a
+  gate, and then it lost every fight for space with the rooms — the Child got one in **0 of 25**
+  seeds. Its ground is claimed **before** the rooms now (`vaultRect`), rooms and districts keep clear
+  of it, and it comes down a size rather than not existing on a small maze. 100% of levels, measured.
+- **A key is never within reach of its own door**, per Joe's *"perhaps we should set up a rule for
+  how many tiles away from the door the key has to be."* Two rules, because they catch different
+  things: `keyDoorMinTiles` of **walking inside that section** (you cannot go through the door to
+  fetch its own key, so that is the honest distance), and `keyDoorMinApart` as the crow flies, so the
+  two are never in one eyeful. Measured worst case went from 2 tiles apart to 5, and 3 tiles of
+  walking to 7.
+
+**The cost, stated plainly:** doors per maze fell from about 1–1.8 to about 0.4–1.7. The first door's
+section — the only ground its key may lie in — is often a dozen cells all beside it, and no rule can
+hide a key in ground that small, so `keyDoorFloor` drops that door rather than shipping it with its
+key in view. Things I tried that were worse: pushing doors later along the route (bigger sections,
+but a door must sever the route and there are far fewer places late on that do — it cost half the
+doors); and softer fallbacks, which all still placed keys three tiles from their lock because the
+pick is random within whatever is left.
+
+**The start room's ring is shut after everything else** (v0.75.0). Rooms, districts and crawl gaps
+are all placed before the seal and none of them knows it is coming, so any of them can leave a hole
+in its wall. With five rooms to a maze instead of three, one finally did — `start room is sealed when
+it should be` went red on one maze in 576. The ring is now closed explicitly after all of them, save
+the one gap the block sits in.
+
+Harness: **4** violations across 576, from 18 at the start of this work and 30 before that. The only
+ones left are the deferred door-key soft lock, now 2 mazes rather than 15. Still deferred, still not
+aimed at — it keeps falling out of hiding keys better.
+
+**Infinite chalk** on the debug panel, and a **Room gallery** prototype — one bay per landmark kind
+off a single spine, per Joe's *"a prototype room with each of the major rooms we have connected to
+each other... so we can easily test and debug and look at them."*
+
 ## The fog is a vignette now (v0.74.0)
 
 Joe: *"it's not there at the start of the game. Then you hit the character and it pops in after a

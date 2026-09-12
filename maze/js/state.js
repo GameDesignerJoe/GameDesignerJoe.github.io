@@ -91,7 +91,7 @@ function useChalk(glyph) {
   if (marks.has(key)) return;   // already marked
   if (chalk <= 0) { AUDIO.chalkEmpty(); chalkEl.classList.remove('shake'); void chalkEl.offsetWidth; chalkEl.classList.add('shake'); return; }
   if (!glyph) { if (!phase().f.signs) glyph = 'x'; else { $('glyphs').classList.toggle('show'); return; } }   // early on, chalk only makes an X
-  marks.set(key, glyph); chalk--; chalkUsed++; AUDIO.chalkDown(); $('glyphs').classList.remove('show'); saveRun(true);
+  marks.set(key, glyph); chalk--; chalkUsed++; if (SAVE.ui.chalkInf) chalk = CONFIG.chalkStart; AUDIO.chalkDown(); $('glyphs').classList.remove('show'); saveRun(true);
   updateChalk();
   // a cross in the middle of a board somebody left half-played: that is three in a row. The boards
   // are dealt with two crosses, no noughts and the middle open, so the middle is always the move
