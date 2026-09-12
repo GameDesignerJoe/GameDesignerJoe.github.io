@@ -6,7 +6,12 @@
 // ── maze generation ─────────────────────────────────────────────
 // tiles[y][x]: 0 = wall, 1 = floor. Cells live at odd coordinates.
 const P = 2;   // wall margin around the cell grid; the exit alley is carved into it
-let W, H, tiles, tunnelTiles, start, exit, exitAlley = [], solutionPath = [], chalkSpots = new Set(), charcoalSpots = new Set(), pickups = new Map(), keySpot = null;
+// The thread asks "am I standing on it" on every tile change, and a linear scan of a few hundred
+// tiles per step is a scan we do not need to do — so the route is kept as a set beside the array.
+// Every place that assigns solutionPath calls this, prototypes included, or the set goes stale and
+// answers for the previous maze.
+function syncSolution() { solutionKeys = new Set(solutionPath.map(([x, y]) => x + ',' + y)); }
+let W, H, tiles, tunnelTiles, start, exit, exitAlley = [], solutionPath = [], solutionKeys = new Set(), chalkSpots = new Set(), charcoalSpots = new Set(), pickups = new Map(), keySpot = null;
 let journals = new Map(), character = null, journalIdx = 0;
 let gated = false;   // this maze's exit is locked
 let poolMode = false;   // this run is a pool level: small, lit, one stone, a door
@@ -705,6 +710,7 @@ function generate(seed) {
   solutionPath = []; let cur = [exX, exY];
   while (cur) { solutionPath.push(cur); cur = prev.get(cur[0]+','+cur[1]); }
   solutionPath.reverse();
+  syncSolution();
 
   // the first unfound page goes in the room closest to the route; the rest in the others
   if (pendingPages.length && roomCenters.length) {

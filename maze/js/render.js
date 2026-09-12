@@ -755,10 +755,17 @@ function draw() {
     }
   }
 
-  // debug/timed path (under fog)
-  if ((opt.path.checked || pathUntil > nowMs) && solutionPath.length) {
-    const fade = opt.path.checked ? 1 : Math.min(1, (pathUntil - nowMs) / (B.pathSec() * 1000));   // bright when found, gone when spent
-    ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(2, S*0.12); ctx.lineJoin = 'round'; ctx.globalAlpha = 0.9 * fade; ctx.beginPath();
+  // the thread (under fog). Three states: armed and burning steady until he reaches it, flaring at
+  // the moment he does, then fading over its 15 seconds. Joe: "the bigger the maze the less likely
+  // you are to see it before it goes away" — so the clock does not start until it has been found.
+  if ((opt.path.checked || pathArmed || pathUntil > nowMs) && solutionPath.length) {
+    const held = opt.path.checked || pathArmed;                                   // bright and steady
+    const fade = held ? 1 : Math.min(1, (pathUntil - nowMs) / (B.pathSec() * 1000));
+    // "then it gives a pulse" — one flare as he sets foot on it, brighter and thicker, easing out
+    const since = pathFoundAt ? (nowMs - pathFoundAt) / 1000 : 1e9;
+    const flare = since < CONFIG.pathPulseSec ? 1 + CONFIG.pathPulseGain * (1 - since / CONFIG.pathPulseSec) : 1;
+    ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(2, S*0.12) * flare; ctx.lineJoin = 'round';
+    ctx.globalAlpha = Math.min(1, 0.9 * fade * flare); ctx.beginPath();
     solutionPath.forEach(([x,y], i) => { const [px, py] = T(x, y); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
     ctx.stroke(); ctx.globalAlpha = 1;
   }
@@ -1019,13 +1026,32 @@ function draw() {
     ctx.restore();
   }
 
-  // pointer arrow (over fog)
+  // the compass (over fog). It was a second arrowhead riding beside him, drawn with his own shape.
+  // Joe: "the compass pointer looks too much like the character. Perhaps we make it look more like
+  // an actual compass." So: a case that stays upright, and a needle inside it that turns. Only the
+  // needle moves, which is what makes it read as an instrument rather than as another player.
   if ((opt.arrow.checked || pointerUntil > nowMs) && !solved) {
     const ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);
-    const px = ox + player.x*S, py = oy + player.y*S, d = S*0.75;
-    ctx.save(); ctx.translate(px + Math.cos(ang)*d, py + Math.sin(ang)*d); ctx.rotate(ang);
-    ctx.fillStyle = C.arrow; ctx.beginPath(); ctx.moveTo(S*0.22, 0); ctx.lineTo(-S*0.12, -S*0.14); ctx.lineTo(-S*0.05, 0); ctx.lineTo(-S*0.12, S*0.14); ctx.closePath(); ctx.fill();
-    ctx.restore();
+    const px = ox + player.x*S, py = oy + player.y*S, d = S*CONFIG.compassOut, R0 = S*CONFIG.compassTiles;
+    const left = (pointerUntil - nowMs) / 1000;
+    // "It should just do a fade like the thread" — and near the end, "it starts to blink in and out
+    // like a light bulb about to die." Two beats that do not share a period, so the stutter never
+    // falls into a rhythm; a clean sine would read as a pulse, which is a different thing entirely.
+    const F0 = CONFIG.compassFadeFloor;
+    let a = opt.arrow.checked ? 1 : F0 + (1 - F0) * Math.max(0, Math.min(1, left / B.pointerSec()));
+    if (!opt.arrow.checked && left < CONFIG.compassDyingSec) {
+      const t = nowMs / 1000;
+      const lit = Math.sin(t * CONFIG.compassFlickA) + Math.sin(t * CONFIG.compassFlickB) > -0.2;
+      a *= lit ? 1 : CONFIG.compassDyingDim;   // a dying bulb is still bright when it is on
+    }
+    ctx.save(); ctx.translate(px + Math.cos(ang)*d, py + Math.sin(ang)*d); ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(13,15,16,.74)'; ctx.beginPath(); ctx.arc(0, 0, R0, 0, Math.PI*2); ctx.fill();   // the case
+    ctx.strokeStyle = C.arrow; ctx.lineWidth = Math.max(1, R0*0.17); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -R0); ctx.lineTo(0, -R0*0.62); ctx.stroke();                           // north, scribed on the case
+    ctx.rotate(ang);                                                                                      // and the needle, alone
+    ctx.fillStyle = C.arrow; ctx.beginPath(); ctx.moveTo(R0*0.74, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(232,227,214,.30)'; ctx.beginPath(); ctx.moveTo(-R0*0.62, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+    ctx.restore(); ctx.globalAlpha = 1;
   }
 }
 

@@ -2047,6 +2047,113 @@ check('press and hold locks the charcoal on, and the next piece lights itself',
   + `that piece ran out and the last one lit itself — ${coalUI.handoff.left} tiles on it, ${coalUI.handoff.carry} left in the pocket; `
   + `a second hold disarmed it (${!coalUI.unlock.lock})`);
 
+// ── 8y. the thread waits to be found, and the compass is a compass ──
+// Joe: "it stays up bright and strong until you find it, then it gives a pulse
+// and starts a 15 second timer... the bigger the maze the less likely you are to
+// see it before it goes away. So, just leave it visible until the player walks on
+// a tile that has the thread." Picking it up must NOT start the clock; standing
+// on the route must.
+const thread = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 4; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run;   // The Priest: thread exists
+  SAVE.tutorials = Object.keys(TUTORIALS); persist();
+  reset(4242); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(300);
+  introWalk = null; held = null;
+  // stand him somewhere off the route and drop a thread under his feet, so picking it up is a
+  // real pickup on a real tile rather than a poke at the variables
+  const off = (() => { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++)
+    if (tiles[y][x] && !solutionKeys.has(x + ',' + y)) return [x, y]; return null; })();
+  pickups.set(off[0] + ',' + off[1], 'path');
+  pathArmed = false; pathUntil = 0; pathFoundAt = 0;
+  lastTileKey = ''; player = { x: off[0] + 0.5, y: off[1] + 0.5 }; dir = null; recenter = null;
+  await nap(260);                                   // one tile-change: he picks it up
+  const onPickup = { armed: pathArmed, until: pathUntil, found: pathFoundAt, uses: pathUses };
+  await nap(1400);                                  // well past nothing — an old build would be counting down
+  const waited = { armed: pathArmed, until: pathUntil };
+  // now put him on the route. The thread is the way out drawn on the floor: that is finding it.
+  const on = solutionPath[Math.floor(solutionPath.length / 2)];
+  lastTileKey = ''; player = { x: on[0] + 0.5, y: on[1] + 0.5 }; dir = null; recenter = null;
+  await nap(260);
+  const onReach = { armed: pathArmed, until: pathUntil, found: pathFoundAt, sec: (pathUntil - gameNow()) / 1000 };
+  held = null;
+  return { onPickup, waited, onReach, want: B.pathSec(), offRoute: off, onRoute: on };
+});
+check('the thread stays lit until you reach it, then flares and starts its clock',
+  thread.onPickup.armed && thread.onPickup.until === 0 && thread.onPickup.uses > 0
+    && thread.waited.armed && thread.waited.until === 0
+    && !thread.onReach.armed && thread.onReach.found > 0
+    && Math.abs(thread.onReach.sec - thread.want) < 1.5,
+  `picked up off the route at ${thread.offRoute}: lit and held (armed ${thread.onPickup.armed}, no clock), `
+  + `still held 1.4s later (${thread.waited.armed}, clock ${thread.waited.until}); `
+  + `stepping onto the route at ${thread.onRoute} flared it and started ${thread.onReach.sec.toFixed(1)}s `
+  + `of a ${thread.want}s timer`);
+
+// The compass: no number anywhere, a case that holds still with a needle that
+// turns, half the old size, fading out and stuttering at the end.
+const compass = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  // The first cut of this counted pixels over a fixed brightness threshold, and at the alphas the
+  // dying blink actually uses almost nothing cleared it — so it read 0 against 16 and its
+  // "hi > lo * 2.5" passed on noise, with lo pinned at zero. It measures the brightest pixel in the
+  // compass's box against the same box with the compass switched off instead: one number, monotone
+  // in alpha, and every claim below is stated as a share of the distance from bare floor to full.
+  const peak = () => {
+    const S2 = viewS, ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);
+    const px = viewOx + player.x * S2, py = viewOy + player.y * S2, d = S2 * CONFIG.compassOut;
+    const cx = Math.round(px + Math.cos(ang) * d), cy = Math.round(py + Math.sin(ang) * d);
+    const box = Math.ceil(S2 * CONFIG.compassTiles) + 3, dpr = cv.width / cv.clientWidth;
+    const img = ctx.getImageData((cx - box) * dpr, (cy - box) * dpr, box * 2 * dpr, box * 2 * dpr).data;
+    let hi = 0;
+    for (let k = 0; k < img.length; k += 4) if (img[k] > hi) hi = img[k];
+    return hi;
+  };
+  SAVE.phase = 4; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run;
+  SAVE.tutorials = Object.keys(TUTORIALS); persist();
+  reset(4242); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(400); introWalk = null; held = null;
+  opt.arrow.checked = false;
+  pointerUntil = 0; await nap(140);
+  const floor = peak();                               // the same patch of ground, with no compass on it
+  pointerUntil = gameNow() + B.pointerSec() * 1000;   // freshly picked up
+  await nap(140);
+  const fresh = peak();
+  const chip = $('fx').textContent.trim();            // "it shouldn't have a number"
+  const half = CONFIG.compassTiles / 0.22;            // the old arrow reached S*0.22 from its middle
+  // Sit inside the dying window for the whole sample and never fall out the far side of it. The
+  // first cut gave the compass 900ms of life and then sampled for 1200 — so the last third of every
+  // sample set was the compass *expired*, which pinned the low reading at bare floor whether it
+  // blinked or not. Deleting the blink left this check green. It starts at half a second inside the
+  // window and samples 1.2s, so every sample is alive and dying, and `aliveAtEnd` says so.
+  pointerUntil = gameNow() + (CONFIG.compassDyingSec - 0.5) * 1000;
+  const dying = [];
+  for (let i = 0; i < 30; i++) { await nap(40); dying.push(peak()); }
+  const aliveAtEnd = pointerUntil - gameNow(), windowSec = CONFIG.compassDyingSec;
+  pointerUntil = 0; await nap(140);
+  const gone = peak();
+  const span = Math.max(1, fresh - floor);            // floor → full compass, as one unit
+  const lo = Math.min(...dying), hi = Math.max(...dying);
+  return { floor, fresh, chip, half, gone, span, aliveAtEnd, windowSec,
+    dyingLo: (lo - floor) / span, dyingHi: (hi - floor) / span,
+    goneShare: (gone - floor) / span, dyingSec: CONFIG.compassDyingSec, dim: CONFIG.compassDyingDim };
+});
+check('the compass is an instrument, carries no number, and dies like a bulb',
+  compass.chip === '' && Math.abs(compass.half - 0.5) < 0.03
+    && compass.span > 40                                   // it is actually drawing something
+    && compass.aliveAtEnd > 0                              // and it never expired mid-sample — see above
+    && compass.aliveAtEnd < compass.windowSec * 1000       // while staying inside the dying window throughout
+    && compass.dyingHi > 0.3                               // when the bulb is on it is still bright
+    && compass.dyingLo < 0.12                              // and when it is out it is nearly gone
+    && compass.dyingHi - compass.dyingLo > 0.25            // so the stutter is a real swing, not noise
+    && compass.goneShare < 0.1,                            // spent, the patch is bare floor again
+  `nothing written on the HUD ("${compass.chip}"); the case is ${(compass.half * 100).toFixed(0)}% of the old arrow's reach; `
+  + `bare floor peaks at ${compass.floor} and the fresh compass at ${compass.fresh} — call that span 1. `
+  + `Inside the last ${compass.dyingSec}s — still ${(compass.aliveAtEnd / 1000).toFixed(1)}s of life left at the last sample, `
+  + `so nothing here is measuring it simply expiring — it stutters between ${compass.dyingLo.toFixed(2)} and ${compass.dyingHi.toFixed(2)} of it `
+  + `(the dim is ${compass.dim}), and once spent it sits at ${compass.goneShare.toFixed(2)} — back to the floor`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

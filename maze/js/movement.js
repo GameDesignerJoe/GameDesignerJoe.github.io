@@ -376,9 +376,18 @@ function update(wall) {
     if (pickups.has(key)) {
       const kind = pickups.get(key); pickups.delete(key);
       if (kind === 'pointer') { pointerUntil = now + B.pointerSec() * 1000; pointerUses++; }
-      else { pathUntil = now + B.pathSec() * 1000; pathUses++; }
-      AUDIO.pickup(); pulse(fxEl); tutorial(kind);
+      // Joe: "it stays up bright and strong until you find it, then it gives a pulse and starts a
+      // 15 second timer." Picking it up only arms it — the clock starts when he is standing on it.
+      else { pathArmed = true; pathUntil = 0; pathFoundAt = 0; pathUses++; }
+      // No flash on the HUD any more: there is no longer a chip up there to flash. What tells you
+      // it worked is the thing itself — the compass appears beside him, the thread lights the whole
+      // way out — plus the sound.
+      AUDIO.pickup(); tutorial(kind);
     }
+    // and this is finding it: the thread is the way out drawn on the floor, so you have found it
+    // when you are standing on it. "Just leave it visible until the player walks on a tile that
+    // has the thread." Only then does it flare and begin to go.
+    if (pathArmed && solutionKeys.has(key)) { pathArmed = false; pathFoundAt = now; pathUntil = now + B.pathSec() * 1000; AUDIO.pickup(); }
     if (scrapSpots.has(key)) { scrapSpots.delete(key); revealAround(tx, ty); pulse($('mapBtn')); AUDIO.pickup(); tutorial('scrap'); }
     if (lampSpot === key) { lampSpot = null; hasLamp = true; lampOn = true; $('lamp').classList.add('show', 'on'); pulse($('lamp')); AUDIO.lampOn(); tutorial('lamp'); }
     // a key is one use: it turns in its lock and stays there. Joe: "I'd expect these keys to be one
@@ -393,9 +402,11 @@ function update(wall) {
       if (collectedCount(character.name) >= character.pages.length && (SAVE.phase || 0) < PHASES.length - 1 && !SAVE.poolPending) { SAVE.poolPending = true; persist(); } }
   }
 
-  const fx = [];
-  if (pointerUntil > now) fx.push(`<span class="ptr">pointer ${Math.ceil((pointerUntil-now)/1000)}s</span>`);
-  const fxHtml = fx.join(''); if (fxEl.innerHTML !== fxHtml) fxEl.innerHTML = fxHtml;
+  // Joe: "the compass pointer shouldn't have a number. It should just do a fade like the thread."
+  // So nothing is written here any more — the compass itself says how long it has left, by going
+  // out. The clear is kept rather than dropped because a run saved by an older build can still
+  // restore with the old chip's markup sitting in the element.
+  if (fxEl.innerHTML) fxEl.innerHTML = '';
 
   // narrator
   if (started && !solved) {

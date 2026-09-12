@@ -84,8 +84,9 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #key.show { display:block; }
 #fx { position:fixed; top:calc(env(safe-area-inset-top) + 50px); left:50%; transform:translateX(-50%); display:flex; gap:8px; pointer-events:none; }
 #fx { border-radius:16px; }
-#fx span { padding:3px 10px; border-radius:14px; font-size:13px; color:#0d0f10; }
-#fx .ptr { background:#c9b98a; } #fx .pth { background:#b9b4a8; }
+/* #fx held the "pointer 12s" chip. Joe: "it shouldn't have a number" — the compass says how long
+   it has left by going out instead, so nothing is written here now. The container stays: it is
+   still positioned and still in the pre-title fade-in below. */
 /* The camera sits close now, so this text lands on lit floor (#6e6a62) rather than on black. Joe:
    "we're gonna need to slightly change the font colour of these book pickups and likely any other
    text so that it reads over the top of the grayscale background now that we have the camera

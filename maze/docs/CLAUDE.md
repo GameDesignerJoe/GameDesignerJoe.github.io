@@ -481,6 +481,77 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The thread you have to reach, and a compass that is a compass (v0.83.0)
+
+Both of these are the same complaint in two places: a timer that starts before
+you can use what it is timing.
+
+**The thread waits to be found.** Joe: *"the thread pickup should last longer
+until you find the thread. I'd go so far as to say it stays up bright and strong
+until you find it, then it gives a pulse and starts a 15 second timer. The issue
+we have right now is the bigger the maze the less likely you are to see it before
+it goes away."*
+
+The thread is the way out, drawn on the floor. Picking it up in a dead end used
+to start its fifteen seconds immediately — and at the close camera you can be
+twenty tiles from the route, so on a large maze the whole thing could burn down
+before a single lit tile came on screen. So there are **two beats now**:
+`pathArmed` after the pickup, held bright and steady with no clock at all, and
+`pathUntil` once he is *standing on the route*, which is his own definition of
+finding it: *"just leave it visible until the player walks on a tile that has the
+thread."* The moment he reaches it, it flares (`pathPulseSec`, `pathPulseGain`)
+and then the fifteen seconds run as before.
+
+`solutionKeys` is the route as a Set beside `solutionPath`, because this asks
+"am I on it" on every tile change. **Every place that assigns `solutionPath`
+calls `syncSolution()`** — the three in `js/proto.js` included, or a prototype
+would answer with the previous maze's route.
+
+**The compass is an instrument now.** *"The compass pointer looks too much like
+the character. Perhaps we make it look more like an actual compass."* It was
+literally his shape — the same arrowhead, riding a tile away from him. It is a
+case with a needle in it now: **the case holds still and only the needle turns**,
+which is the whole of what makes it read as a thing he is carrying rather than a
+second player. Half the size, as asked (`compassTiles`, against the old 0.22).
+
+*"It shouldn't have a number. It should just do a fade like the thread. When it
+gets down to five seconds it starts to blink in and out like a light bulb about
+to die."* The countdown chip is gone from the HUD — `#fx` keeps its box but
+nothing is written in it — and the compass says how long it has by going out. The
+stutter is **two sine beats that do not share a period** (`compassFlickA`,
+`compassFlickB`), because a single clean sine reads as a pulse, which is a
+different thing from a bulb failing.
+
+The fade **bottoms out at `compassFadeFloor` rather than at nothing.** The first
+cut faded to zero and then applied the blink on top, which left the last five
+seconds too faint for the blink to be visible at all; raising it only inside the
+window fixed that but made the compass get *brighter* as it started dying. Easing
+down to a floor does both, with no pop.
+
+### The check that passed with the feature deleted
+
+Worth writing down, because it is the fourth time this shape has come up.
+
+The compass check gave the compass **900ms of life and then sampled it for
+1200ms**. The last third of every sample set was therefore the compass *expired*,
+which pinned the low reading at bare floor — so `dyingLo` was measuring the timer
+running out, not the bulb blinking. Deleting the blink entirely left the check
+**green**. Reverting the feature is the only thing that found it.
+
+It now starts half a second inside the dying window, samples 1.2s, and **returns
+`aliveAtEnd` so the check can assert it never expired mid-sample** and the detail
+line says so out loud. Reverted, the compass reads a flat 0.66–0.69 instead of
+stuttering 0.00–0.59, and it fails.
+
+The first cut also counted pixels over a fixed brightness threshold, which almost
+nothing cleared at the alphas the blink actually uses. It measures the brightest
+pixel in the compass's box against **the same box with the compass switched off**,
+and every claim is stated as a share of that floor-to-full span.
+
+Five reversion runs for this version, one at a time: the thread's clock, the HUD
+number, and the blink each redden their own check, and the blink took two goes.
+74 behaviour checks.
+
 ## The charcoal, in the hand and on the icon (v0.82.0)
 
 Four asks about one widget, plus a speed he wanted back. Nothing here touches

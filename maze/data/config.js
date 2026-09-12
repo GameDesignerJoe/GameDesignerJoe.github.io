@@ -186,8 +186,32 @@ const CONFIG = {
   mapScrapShare: 0.2,   // share of the floor one scrap charts, at medium. Divided by the map's area
                         // multiplier, so X-Large gets a patch rather than a fifth of the whole maze
   mapScrapMinShare: 0.06,// however big the maze, a scrap is always worth at least this much of it
-  pointerSeconds: 30,   // how long the pointer stays on after pickup
-  pathSeconds: 15,      // how long the path stays on after pickup
+  pointerSeconds: 30,   // how long the compass stays on after pickup
+  pathSeconds: 15,      // how long the thread stays on after you first set foot on it — not after
+                        // you pick it up. Joe: "the bigger the maze the less likely you are to see
+                        // it before it goes away. So, just leave it visible until the player walks
+                        // on a tile that has the thread." Found and reached are two different beats
+  pathPulseSec: 0.9,    // the flare when you do reach it — "it gives a pulse and starts a 15 second
+                        // timer". 0 = no flare
+  pathPulseGain: 0.9,   // how much brighter and thicker that flare is at its peak
+  // The compass used to be a second arrowhead riding beside him, which is his own shape. Joe: "the
+  // compass pointer looks too much like the character. Perhaps we make it look more like an actual
+  // compass." So it is a case with a needle in it: the case stays upright and only the needle
+  // turns, which is the thing that reads as a compass rather than as a second player.
+  compassTiles: 0.11,   // the compass's radius, in tiles. Half the old arrow's reach — "we should
+                        // also shrink the size by half"
+  compassOut: 0.75,     // how far from him it rides, in tiles, along the way out
+  // "It shouldn't have a number. It should just do a fade like the thread. When it gets down to
+  // five seconds it starts to blink in and out like a light bulb about to die."
+  compassDyingSec: 5,   // when the bulb starts to go
+  compassDyingDim: 0.12,// and how far down each stutter takes it
+  // The fade bottoms out here rather than at nothing. A bulb about to die is still bright when it
+  // is on — that is what makes the stutter read as a stutter — and fading to zero first left the
+  // last five seconds too faint for the blink to be visible at all. Easing down to a floor also
+  // avoids the pop the first cut had, where entering the dying window made it brighter again.
+  compassFadeFloor: 0.35,
+  compassFlickA: 13.1,  // the two beats of that stutter, in radians a second. Deliberately not
+  compassFlickB: 5.7,   // multiples of one another, so it never settles into a rhythm you can read
   pickupExitBuffer: 6,  // dead ends within this many cells (walking) of the exit never hold pickups
   charcoalStart: 0,     // mapping pieces you begin with
   charcoalTiles: 60,    // floor tiles each piece adds to the map

@@ -14,7 +14,7 @@ function serializeRun() {
     chalk, chalkUsed, chalkFound, charcoal, charcoalLeft, charcoalOn, charcoalLock, charcoalUsed, charcoalFound,
     hasKey, keySpot, hasLamp, lampOn, lampSpot, gated, doorOpen: !!(poolDoor && poolDoor.openAt),
     chalkSpots: [...chalkSpots], charcoalSpots: [...charcoalSpots], scrapSpots: [...scrapSpots], pickups: [...pickups.entries()], journals: [...journals.entries()],
-    pointerLeft: Math.max(0, pointerUntil - gameNow()), pathLeft: Math.max(0, pathUntil - gameNow()), pointerUses, pathUses, journalsRead,
+    pointerLeft: Math.max(0, pointerUntil - gameNow()), pathLeft: Math.max(0, pathUntil - gameNow()), pathArmed, pointerUses, pathUses, journalsRead,
     sliders: sliders.map(sl => sl.shifted), figures: figures.map(f => f.gone), doorsOpen: doors.map(d => d.open), innerKeys: [...innerKeys.entries()], heldKeys: [...heldKeys],
     hopIdx, hopSaid, tttSaid, crawlSaid, secretOn, narrQueue, narrLeft: Math.max(0, narrNext - gameNow()), wakeDone: true,
   };
@@ -57,7 +57,7 @@ function restoreRun(run) {
   lastTileKey = Math.floor(player.x) + ',' + Math.floor(player.y);
   updateChalk(); updateCharcoal(); updateBooks();
   if (hasKey) (poolMode ? $('stone') : keyEl).classList.add('show'); if (hasLamp) { $('lamp').classList.add('show'); $('lamp').classList.toggle('on', lampOn); }
-  const g0 = gameNow(); t0 = g0 - run.t; pointerUntil = run.pointerLeft ? g0 + run.pointerLeft : 0; pathUntil = run.pathLeft ? g0 + run.pathLeft : 0; narrNext = leftRoom ? g0 + Math.max(4000, run.narrLeft) : Infinity;
+  const g0 = gameNow(); t0 = g0 - run.t; pointerUntil = run.pointerLeft ? g0 + run.pointerLeft : 0; pathUntil = run.pathLeft ? g0 + run.pathLeft : 0; pathArmed = !!run.pathArmed; pathFoundAt = 0; narrNext = leftRoom ? g0 + Math.max(4000, run.narrLeft) : Infinity;
   if (run.atHome) return;   // stay asleep on the mat; tapping the sleeper begins, and starts the sound
   // straight into the maze, no title: the fade lifts on you where you stood
   document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx * zoomMul(); started = true;

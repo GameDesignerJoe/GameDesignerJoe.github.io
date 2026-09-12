@@ -83,6 +83,7 @@ function buildGallery(seed) {
   exit = { x: TXc(cols - 1), y: TXc(spineY) };
   solutionPath = [];
   for (let cx = 0; cx < cols; cx++) { solutionPath.push([TXc(cx), TXc(spineY)]); if (cx < cols - 1) solutionPath.push([TXc(cx) + 1, TXc(spineY)]); }
+  syncSolution();
   return true;
 }
 
@@ -152,6 +153,7 @@ function buildProto(seed, kind) {
     solutionPath.push([TXc(cx), TXc(cy)]);
     if (i < path.length - 1) { const [nx, ny] = path[i + 1]; solutionPath.push([TXc(cx) + (nx - cx), TXc(cy) + (ny - cy)]); }
   }
+  syncSolution();
   return protoSolvable();
 }
 
@@ -368,6 +370,7 @@ function buildLabyrinth(seed) {
   // the way you are meant to go, for Show path and the count at the end
   // the start room's one way out is a block you shove, so the gap counts as floor for the route
   solutionPath = protoRoute(Math.floor(start.x), Math.floor(start.y), exit.x, exit.y, new Set([startGap.join(',')]));
+  syncSolution();
   return solutionPath.length > 1;
 }
 

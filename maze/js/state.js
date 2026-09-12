@@ -13,6 +13,9 @@ let charcoalLock = false;   // held down once: when the piece in hand runs out, 
 let visited = new Set();   // every tile you've stood on this run
 let mapped = new Map();   // 'x,y' → 'floor' | 'wall' | 'tunnel' — everything the map knows
 let pointerUntil = 0, pathUntil = 0, pointerUses = 0, pathUses = 0;
+// The thread has two beats now, not one. pathArmed: picked up and burning bright, waiting for you
+// to actually reach it. pathUntil: reached, and now counting down. pathFoundAt: when it flared.
+let pathArmed = false, pathFoundAt = 0;
 let hasKey = false, hasLamp = false, lampOn = false;
 let dir = null, held = null;
 let facing = -Math.PI/2, facingShown = -Math.PI/2;
@@ -130,7 +133,7 @@ function reset(seed) {
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; moveVel = 0; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
-  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; shelfStandKey = ''; shelfStandAt = 0; shelfShown = ''; pagesThisRun = []; heldKeys = new Set(); renderKeys(); crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; tttWon = false; secretSaid = false; secretOn = false; secretLitAt = 0; figureLinesSaid = 0; hasKey = false; exitGateAt = 0; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
+  pointerUntil = pathUntil = 0; pathArmed = false; pathFoundAt = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; shelfStandKey = ''; shelfStandAt = 0; shelfShown = ''; pagesThisRun = []; heldKeys = new Set(); renderKeys(); crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; tttWon = false; secretSaid = false; secretOn = false; secretLitAt = 0; figureLinesSaid = 0; hasKey = false; exitGateAt = 0; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalLock = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal();
   if (startRoom) { const { x0, y0, x1, y1 } = startRoom; for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mapped.set(x+','+y, isOpen(x, y) ? 'floor' : 'wall'); }   // home is always on the map keyEl.classList.remove('show');
   { const mine = SELF_LINES[character.name] || SELF_LINES['You'];
