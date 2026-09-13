@@ -410,8 +410,11 @@ function update(wall) {
       if (sh) {
         if (carried === sh.who) { sh.done = true; sh.doneAt = now; carried = null; renderCarried(); AUDIO.stone();
           shrinePath = pathToNearestPage(tx, ty); shrineUntil = shrinePath.length ? now + CONFIG.shrineThreadSec * 1000 : 0;
-          narrate(shrinePath.length ? SHRINE_LINES.deliver : SHRINE_LINES.noPage); saveRun(true); }
-        else if (carried !== null && !shrineWrongSaid) { shrineWrongSaid = true; narrate(SHRINE_LINES.wrong); } } }
+          saveRun(true); showExchange(sh); }
+        else if (carried !== null && !shrineWrongSaid) { shrineWrongSaid = true; narrate(SHRINE_LINES.wrong); } }
+      // and a statue you have already satisfied, stepped up to again: its finished line if it is
+      // spent, otherwise the note that it has said its piece — once per visit, not every frame
+      else { const dn = shrines.find(s => s.done && s.sx === tx && s.sy === ty); if (dn && prevKey !== key) narrate(exchangeStep(dn.who) ? SHRINE_LINES.again : (EXCHANGES[dn.who]?.done || SHRINE_LINES.again)); } }
     if (scrapSpots.has(key)) { scrapSpots.delete(key); revealAround(tx, ty); pulse($('mapBtn')); AUDIO.pickup(); tutorial('scrap'); }
     if (lampSpot === key) { lampSpot = null; hasLamp = true; lampOn = true; $('lamp').classList.add('show', 'on'); pulse($('lamp')); AUDIO.lampOn(); tutorial('lamp'); }
     // a key is one use: it turns in its lock and stays there. Joe: "I'd expect these keys to be one

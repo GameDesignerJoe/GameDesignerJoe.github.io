@@ -58,7 +58,34 @@ let carried = null, carryFullSaid = false, shrineWrongSaid = false;
 let shrinePath = [], shrineUntil = 0;   // a satisfied statue's thread to the nearest page you had not found
 // the four people's marks, as SVG. None of them a key's shape, so a stone never reads as a key.
 function markGlyph(mark, color) { const c = color || '#e0c98a', a = `fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"`;
-  return mark === 'bar' ? `<path d="M11 6v11" ${a}/>` : mark === 'arc' ? `<path d="M5 9a6 6 0 0 0 12 0" ${a}/>` : mark === 'cross' ? `<path d="M6 6l10 10M16 6L6 16" ${a}/>` : `<path d="M4 12c2-5 4 5 7 0s5 5 7 0" ${a}/>`; }
+  return mark === 'bar' ? `<path d="M11 6v11" ${a}/>` : mark === 'arc' ? `<path d="M5 9a6 6 0 0 0 12 0" ${a}/>` : mark === 'cross' ? `<path d="M6 6l10 10M16 6L6 16" ${a}/>` : mark === 'chevron' ? `<path d="M5 15l6-9 6 9" ${a}/>` : `<path d="M4 12c2-5 4 5 7 0s5 5 7 0" ${a}/>`; }
+// The exchange. Set the right stone in the bowl and the statue offers two questions; you ask one
+// and get its answer, and the other stays on the card unasked. Progress is per person and per
+// game, not per maze — SAVE.asked[who] is how far down their steps you have come — so a statue you
+// have spent says its one finished line and nothing else, in this maze and every maze after.
+function exchangeStep(who) { SAVE.asked = SAVE.asked || {}; const ex = EXCHANGES[who]; if (!ex) return null; const i = SAVE.asked[who] || 0; return i < ex.steps.length ? ex.steps[i] : null; }
+function showExchange(sh) {
+  const person = PEOPLE.find(p => p.id === sh.who), step = exchangeStep(sh.who);
+  if (!person || !step) { narrate(EXCHANGES[sh.who]?.done || SHRINE_LINES.again); return; }
+  $('talkWho').textContent = person.name; $('talkAnswer').textContent = ''; $('talkAnswer').classList.remove('show');
+  const box = $('talkChoices'); box.innerHTML = '';
+  step.q.forEach((q, i) => { const b = document.createElement('button'); b.textContent = q; b.addEventListener('click', () => {
+    if (box.classList.contains('asked')) return; box.classList.add('asked');
+    [...box.children].forEach((o, j) => { if (j !== i) { o.classList.add('unasked'); o.textContent = o.textContent + ' ' + SHRINE_LINES.unasked; } else o.classList.add('chosen'); });
+    $('talkAnswer').textContent = step.a[i]; $('talkAnswer').classList.add('show');
+    SAVE.asked[sh.who] = (SAVE.asked[sh.who] || 0) + 1; persist(); AUDIO.paper();
+    $('talkClose').classList.add('show');
+  }); box.appendChild(b); });
+  box.classList.remove('asked'); $('talkClose').classList.remove('show');
+  paused = true; pauseStart = performance.now(); clearStick(); dir = null; AUDIO.paper();
+  setTimeout(() => { $('talk').classList.remove('fold'); $('talk').classList.add('show'); AUDIO.unfold(); }, 450);
+}
+$('talkClose').addEventListener('click', () => {
+  const t = $('talk'); if (t.classList.contains('fold') || !t.classList.contains('show')) return;
+  t.classList.add('fold'); AUDIO.unfold();
+  setTimeout(() => { t.classList.remove('show', 'fold'); }, 560);
+  pausedTotal += performance.now() - pauseStart; paused = false;
+});
 function renderCarried() { const el = $('carried'); if (!el) return; const p = PEOPLE.find(p => p.id === carried);
   el.innerHTML = p ? `<svg viewBox="0 0 22 22"><ellipse cx="11" cy="12" rx="8.5" ry="6.5" fill="#3a3a3a" stroke="#e0c98a" stroke-width="1.2"/>${markGlyph(p.mark)}</svg>` : ''; }
 function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }

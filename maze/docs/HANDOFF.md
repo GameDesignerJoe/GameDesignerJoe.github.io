@@ -307,10 +307,14 @@ the sort is cached on the array.
 Rails were drawn under swings and removed — they read as a tunnel. No helper
 card for sliders: Joe wants this discovered.
 
-### Statues and stones (v0.89.0)
+### Statues and stones (v0.89.0, the exchange v0.90.0)
 
-Two a maze from the Cartographer on, each one of four people (`PEOPLE`: father,
-child, wife, friend) with a mark on a small stone. The statue takes a dead end —
+Two a maze, every chapter including the Child's, each one of five people (`PEOPLE`:
+father, mother, wife, friend, child) with a mark on a small stone. The right stone
+in the bowl opens a card with two questions; ask one, get its answer, the other
+stays unasked. Progress is per person per *game* (`SAVE.asked`), four steps each;
+spent, the statue says one finished line and opens nothing. The words are a first
+pass and Joe rewrites them. The statue takes a dead end —
 its tile turns to stone, the tile before it is the step with the bowl — and its
 stone lies as far away as the dead ends allow. **You carry one stone at a time**;
 the second is remembered and come back for. They gate nothing: the right stone in

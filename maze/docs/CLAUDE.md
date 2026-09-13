@@ -482,6 +482,62 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The exchange (v0.90.0)
+
+Joe: *"You drop the thing in. You are then allowed to ask a question, maybe two are
+offered. These questions are about the burden/trauma/person who hurt you or you
+hurt, etc. you then get an answer."* And, after the first batch: *"There are five
+right now, not four."* And: *"Not sure why we don't have one in the first child
+chapter. Seems like it would be a good idea."*
+
+**Five people now** (`PEOPLE`), from his CHARACTERS notes: the father who left and
+is dead; the **mother** he carried as a boy and walked away from as a man, who
+resents him still; the wife who sees past the shell; the friend he was too rigid
+with, or pulled down; his child, fifteen, who does not understand why he will not
+just get help. The mother's mark is a chevron. **The Child's chapter has statues
+too** — I had kept them out to protect that chapter's theme; Joe's read is that
+the abandoned boy has as much to ask as anyone, and he is right.
+
+**The exchange.** Set the right stone in the bowl and a folded card opens — the
+same fold as a tutorial — with the person's name and two questions. Ask one and
+its answer appears beneath; the other stays on the card greyed, *"— I didn't
+ask."* For a man who spent his life not asking, the unasked question is a
+character note, not a penalty. Close is not offered until a question is.
+
+**Progress is per person and per game**, not per maze: `SAVE.asked[who]` is how
+far down their steps you have come, and every statue of theirs anywhere in the
+game continues from there. Each person has four steps — eight questions and eight
+answers — and when they are spent the statue has **one line left and says it
+every time**, on the floor, with no card. That is the goal state Joe described,
+not a fallback: a statue with nothing left to say to you. Step up to a statue you
+have already satisfied and it says so, once per visit.
+
+**The writing, first pass.** The maze is written vague; these are the only voices
+in the game that belong to real people, so they are written the other way —
+small, specific, and each with an arc across their four steps. The father moves
+from *I meant to* to *I'm just what happened.* The mother from present-tense anger
+to *You were right to go. I'll never say so to your face.* The wife from *I've seen
+you the whole time* to *Come out. Not all the way. A hand.* The friend from *Yes, I
+was already going, you made it lonelier* to *The hand's still out.* The child from
+*Are you going to do anything about it or is this another one of the talks* to
+Joe's own line, *Stop being stubborn and love me.* Joe rewrites; the shape is
+what this pass is for.
+
+**One bug from v0.89.0 fixed.** `tutorial('offering')` referenced an icon that did
+not exist. Smoke never fired it because the probe pre-seeds every tutorial as
+seen; a player's first stone would have thrown. Icon added.
+
+**Tests.** Harness PASS 576 (the Child's mazes now carry statues, under every
+existing invariant). Selftest 15 of 15. Smoke 83, two new checks — one walks the
+whole exchange (card, two questions, one asked and answered, the other unasked,
+progress advanced once, a second tap ignored, close and unpause) and one spends a
+person entirely and confirms the statue takes the stone, opens no card and says
+its finished line.
+
+**Not in this batch.** The pool level is the same exchange at a larger scale and
+should draw on the same CHARACTERS notes; Joe flagged it, and it is its own
+batch. Real objects instead of stones remain the version after.
+
 ## The statues, and the stones they wait for (v0.89.0)
 
 Joe, from THOUGHTS: *"a sort of mini quest where you find something in the maze

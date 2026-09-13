@@ -166,21 +166,106 @@ const TUTORIALS = {
 
 // ── the people he lost sight of ────────────────────────────────
 // Joe: "a man surrounded by loved ones, too lost in his own maze to see it. He's hurt those around
-// him, been hurt as well. We need the full picture." Four of them. Each statue in a maze is one of
-// these; each wants the stone carved with their mark. The father is dead, so what there is to make
-// is peace. The child is nearly grown, so what there is to make is time. What they say is the next
-// pass — for now they are marks on stone, and the lines below are placeholders that say so.
+// him, been hurt as well. We need the full picture." Five of them, from his CHARACTERS notes. Each
+// statue in a maze is one of these; each wants the stone carved with their mark.
+//
+// The father left, and is dead: what there is to make is peace. The mother he carried as a child
+// and walked away from as a man: she resents him still, and what there is to make is being all
+// right with that. The wife who sees past the shell he will not come out of. The friend he was too
+// rigid with, or pulled down, who may be offering a hand he does not think he deserves. The child,
+// smart and still a teenager, who does not understand why he will not just get help.
 const PEOPLE = [
-  { id: 'father', mark: 'bar',   name: 'my father' },
-  { id: 'child',  mark: 'arc',   name: 'my child' },
-  { id: 'spouse', mark: 'cross', name: 'my wife' },
-  { id: 'friend', mark: 'wave',  name: 'my friend' },
+  { id: 'father', mark: 'bar',     name: 'my father' },
+  { id: 'mother', mark: 'chevron', name: 'my mother' },
+  { id: 'spouse', mark: 'cross',   name: 'my wife' },
+  { id: 'friend', mark: 'wave',    name: 'my friend' },
+  { id: 'child',  mark: 'arc',     name: 'my child' },
 ];
+
+// ── the exchange ────────────────────────────────────────────────
+// Joe: "You drop the thing in. You are then allowed to ask a question, maybe two are offered...
+// you then get an answer." Set the stone in the bowl and two questions are offered; you ask one.
+// The other stays on the card, unasked — for a man who spent his life not asking, that is a
+// character note, not a penalty. Each person has a run of these, walked through in order across
+// the whole game, and when it is spent the statue has one line left and says it every time. That
+// is the goal state, not a fallback: a statue with nothing left to say to you.
+//
+// The maze is written vague. These are the only voices in the game that belong to real people, so
+// they are written the other way — small and specific. First pass; Joe rewrites.
+const EXCHANGES = {
+  father: {
+    steps: [
+      { q: ["Did you mean to come back?", "Did you think about me?"],
+        a: ["I meant to. Meaning to was the thing I was good at.", "Every day for a while. Then on your birthday. Then when I saw a boy your age. You got older than the boy I was looking for."] },
+      { q: ["Why did you go?", "Was it her?"],
+        a: ["Because staying looked like the rest of my life, and I was a coward about my life.", "No. It was never anyone. It was that I could."] },
+      { q: ["Did you know I waited?", "Would it have mattered if I'd been better?"],
+        a: ["I knew. I told myself you'd stop. I don't know when you did.", "You were a child. There was no better. Put that one down."] },
+      { q: ["Are you sorry?", "What am I supposed to do with this?"],
+        a: ["Yes. It doesn't reach you. I know that. It's still yes.", "Nothing. I'm not a thing to do. I'm just what happened."] },
+    ],
+    done: "There's nothing else. I left. You didn't. That's the whole of it.",
+  },
+  mother: {
+    steps: [
+      { q: ["Were you angry when I left?", "Do you remember us against the world?"],
+        a: ["I am angry. Present tense. You were the one person who stayed and then you didn't.", "I remember it as the best years. You remember them as carrying me. We're both right."] },
+      { q: ["Did you know I was carrying it?", "Was that love?"],
+        a: ["I knew you were quiet. I thought quiet was your nature. I didn't look under it.", "It was what we had. I don't know what else to call it. You've decided it wasn't. Fine."] },
+      { q: ["Do you want me back?", "Will you ever forgive me?"],
+        a: ["I want the boy back. You're not him. That's not your fault and I hold it against you anyway.", "No. And you keep asking as if a yes would fix you. It wouldn't."] },
+      { q: ["Was I wrong to go?", "Can I be all right with this?"],
+        a: ["You were right to go. I'll never say so to your face. This isn't my face.", "You're going to have to be. I'm not going to help you with it. That's the one thing I can give you."] },
+    ],
+    done: "You went. You were right. I'm not over it. All three are true and none of them is your job.",
+  },
+  spouse: {
+    steps: [
+      { q: ["Can you see me in there?", "Why do you stay?"],
+        a: ["I've seen you the whole time. That's what you can't stand.", "Ask me on a different day and you'd get a different answer. Today: because I said I would, and because I remember who's in there."] },
+      { q: ["Do you remember what you said that night?", "Do I remember it right?"],
+        a: ["I remember. I was cruel and I meant it while I said it. I've said sorry. You've kept the first one and thrown out the sorry.", "You remember the words. You don't remember that I was frightened too. Nobody remembers that part."] },
+      { q: ["What are you afraid you'll see?", "What if I come out and it's nothing?"],
+        a: ["That's my question to you, not yours to me.", "Then it's nothing, and I'll have seen it, and I'll still be standing here. That's the part you don't believe."] },
+      { q: ["Is it too late?", "What do you need from me?"],
+        a: ["It's late. Late isn't too late. You keep confusing the two because too late would let you off.", "Come out. Not all the way. A hand. Stop making me guess whether you're in there."] },
+    ],
+    done: "I'm still here. I don't know how long. Neither do you. That's what a marriage is.",
+  },
+  friend: {
+    steps: [
+      { q: ["Did I pull you down?", "Why didn't you follow the rules?"],
+        a: ["Yes. I was already going. You made it faster and then you made it lonelier.", "Because they were yours. You never asked if they fit anyone else. You just went quiet when they didn't."] },
+      { q: ["Are you all right now?", "Do you blame me?"],
+        a: ["I got out. It cost me things you don't know about. I'm not telling you so you'll feel it. I'm telling you because it's true.", "I did. For a long time. Blame got heavy. I put it down before you did."] },
+      { q: ["Why would you help me?", "Don't you think I deserve this?"],
+        a: ["Because someone did it for me and I didn't deserve it either. That's how it works. It isn't earned.", "I think deserve is a word you use to stay where you are."] },
+      { q: ["What do I say to you?", "Can it go back?"],
+        a: ["You already said it. You're here.", "No. It goes forward or it doesn't go. I'd take forward."] },
+    ],
+    done: "The hand's still out. It's not going anywhere. You know where I am.",
+  },
+  child: {
+    steps: [
+      { q: ["Are you angry at me?", "Do you know I love you?"],
+        a: ["Yeah. Obviously. Are you going to do anything about it or is this another one of the talks.", "I know you say it. I know you think it. I don't know what it's for if you won't let me near you."] },
+      { q: ["Why won't you just talk to me?", "What do you want from me?"],
+        a: ["I'm literally talking to you right now. You're the one in the maze.", "Get help. Like an actual person. I looked them up for you. I'm fifteen and I looked them up for you."] },
+      { q: ["Was I a bad father?", "Did I do to you what he did to me?"],
+        a: ["No. You were there. You were just… behind glass. It's not the same as gone. It's not fine either.", "You stayed and you weren't there. He left and he wasn't there. I don't know which is worse and I'm sick of it being about him."] },
+      { q: ["Is there still time?", "What would it look like?"],
+        a: ["I'm still here, aren't I. That's your answer. Stop asking it and do something with it.", "You come home. You sit down. You don't fix anything. You just don't leave the room."] },
+    ],
+    done: "Stop being stubborn and love me. That's it. That's the whole message.",
+  },
+};
 // what happens at the stones and the statues, before anyone has a voice. First pass; Joe rewrites.
 const SHRINE_LINES = {
   pickup:   "A stone. Small, and carved. Somebody's mark.",
   full:     "I can only hold one of these at a time.",
   deliver:  "It settles into the bowl. The stone knows where the next page is, even if I don't.",
+  unasked:  "— I didn't ask.",
+  again:    "It has said what it had to say to me.",
   noPage:   "It settles into the bowl. There is nothing left in here for it to point to.",
   wrong:    "This isn't the one it's waiting for.",
 };

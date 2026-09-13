@@ -2421,18 +2421,20 @@ check('a maze gets the locked doors its phase asked for',
 // four people, each waiting for the stone carved with their mark. First: they are placed. Then the
 // walk — pick a stone up, fail to pick up the second (one at a time is the backtrack), set it in
 // the right bowl, and watch the statue point its thread at the nearest page not yet found.
+// Every chapter, the Child's included — v0.89.0 kept her out to protect the theme, and Joe's read
+// was that the abandoned boy has as much to ask as anyone: "Not sure why we don't have one in the
+// first child chapter. Seems like it would be a good idea."
 const shrineGen = await page.evaluate(() => {
-  let mazes = 0, statues = 0, stones = 0, childHas = 0;
-  for (const ph of [1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
+  let mazes = 0, statues = 0, stones = 0;
+  for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
     SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
     mazes++; statues += shrines.length; stones += offerings.size;
   }
-  SAVE.phase = 0; generate(77); childHas += shrines.length;
-  return { mazes, statues, stones, childHas };
+  return { mazes, statues, stones };
 });
-check('every maze from the Cartographer on carries two statues and their two stones',
-  shrineGen.statues === shrineGen.mazes * 2 && shrineGen.stones === shrineGen.mazes * 2 && shrineGen.childHas === 0,
-  `${shrineGen.statues} statues and ${shrineGen.stones} stones across ${shrineGen.mazes} mazes (wanted ${shrineGen.mazes * 2} each); the Child's maze has ${shrineGen.childHas}`);
+check('every maze, the Child\'s included, carries two statues and their two stones',
+  shrineGen.statues === shrineGen.mazes * 2 && shrineGen.stones === shrineGen.mazes * 2,
+  `${shrineGen.statues} statues and ${shrineGen.stones} stones across ${shrineGen.mazes} mazes over all eight selves (wanted ${shrineGen.mazes * 2} each)`);
 
 const shrineWalk = await page.evaluate(async () => {
   const nap = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -2462,6 +2464,53 @@ check('a stone is carried one at a time, and settling it in the right bowl point
   shrineWalk.missing ? `nothing to walk: this maze has ${shrineWalk.missing}` :
   `picked up ${shrineWalk.who}'s stone (${shrineWalk.got}); a second stone stayed on the floor (${shrineWalk.otherStays}); the wrong bowl took nothing (${shrineWalk.wrongBowl}); `
   + `the right bowl took it (${shrineWalk.done}, hands free ${shrineWalk.handsFree}) and lit a ${shrineWalk.thread}-tile thread that ends on a page (${shrineWalk.endsOnPage}), with ${shrineWalk.pages} pages still out`);
+
+// ── 8e. the exchange ──────────────────────────────────────────────
+// Joe: "You drop the thing in. You are then allowed to ask a question, maybe two are offered...
+// you then get an answer." Two questions on a folded card; ask one, get its answer, and the other
+// stays there unasked. Progress is per person and per game: when their steps are spent the statue
+// has one line left and says it every time, on the floor, with no card. Both halves here.
+const talk = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run; SAVE.asked = {};
+  SAVE.tutorials = Object.keys(TUTORIALS); persist();
+  reset(4242); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(300); introWalk = null; held = null;
+  if (shrines.length < 2) return { missing: `${shrines.length} statues` };
+  const sh = shrines[0], mine = [...offerings.entries()].find(([, who]) => who === sh.who);
+  const at = async (k) => { const [x, y] = k.split(',').map(Number); player.x = x + 0.5; player.y = y + 0.5; lastTileKey = ''; for (let i = 0; i < 6; i++) await nap(40); };
+  await at(mine[0]); await at(sh.sx + ',' + sh.sy);
+  await nap(700);                                            // the card takes a beat to unfold
+  const card = $('talk'), btns = [...$('talkChoices').children];
+  const opened = card.classList.contains('show'), two = btns.length === 2, pausedNow = paused, who = $('talkWho').textContent;
+  // fail, never throw: with the words removed no card opens and there are no buttons to press
+  if (!opened || btns.length < 2) return { who, personName: PEOPLE.find((p) => p.id === sh.who).name, opened, two, pausedNow, noCardWhy: `${btns.length} questions offered`, oDone: false, noCard: true, finished: false, other: shrines[1].who };
+  const before = SAVE.asked[sh.who] || 0, q0 = btns[0].textContent;
+  btns[1].click(); await nap(100);
+  const answer = $('talkAnswer').textContent, answerShown = $('talkAnswer').classList.contains('show');
+  const unasked = btns[0].classList.contains('unasked') && btns[0].textContent.endsWith(SHRINE_LINES.unasked), chosen = btns[1].classList.contains('chosen');
+  const advanced = (SAVE.asked[sh.who] || 0) === before + 1, expected = EXCHANGES[sh.who]?.steps?.[before]?.a?.[1] ?? null;
+  btns[1].click(); await nap(60);                            // a second tap does nothing
+  const stillOne = (SAVE.asked[sh.who] || 0) === before + 1;
+  $('talkClose').click(); await nap(700);
+  const closed = !card.classList.contains('show'), unpaused = !paused;
+  // spend the other statue's person entirely, then deliver: no card, the finished line on the floor
+  const o = shrines[1], theirs = [...offerings.entries()].find(([, who]) => who === o.who);
+  SAVE.asked[o.who] = EXCHANGES[o.who].steps.length; persist();
+  await at(theirs[0]); await at(o.sx + ',' + o.sy); await nap(700);
+  const noCard = !card.classList.contains('show'), finished = narrEl.textContent === EXCHANGES[o.who].done, oDone = o.done;
+  return { who, personName: PEOPLE.find((p) => p.id === sh.who).name, opened, two, pausedNow, q0, answer, expected, answerShown, unasked, chosen, advanced, stillOne, closed, unpaused, noCard, finished, oDone, other: o.who };
+});
+check('a stone in the bowl opens two questions; one asked gets its answer, the other stays unasked',
+  !talk.missing && talk.opened && talk.two && talk.pausedNow && talk.who === talk.personName && talk.answerShown && talk.answer === talk.expected
+    && talk.unasked && talk.chosen && talk.advanced && talk.stillOne && talk.closed && talk.unpaused,
+  talk.missing ? `nothing to ask: ${talk.missing}` : talk.noCardWhy ? `no exchange: card opened ${talk.opened}, ${talk.noCardWhy}` :
+  `card for ${talk.who} opened (${talk.opened}) with ${talk.two ? 'two' : 'not two'} questions and paused the walk (${talk.pausedNow}); asking the second answered "${(talk.answer || '').slice(0, 40)}…" (${talk.answer === talk.expected}), `
+  + `left the first unasked (${talk.unasked}), advanced their step once (${talk.advanced}, second tap ignored ${talk.stillOne}); close folded it (${talk.closed}) and unpaused (${talk.unpaused})`);
+check('a statue whose person has nothing left to say takes the stone and says its one line, with no card',
+  !talk.missing && talk.oDone && talk.noCard && talk.finished,
+  talk.missing ? `nothing to ask: ${talk.missing}` : `${talk.other}'s statue took the stone (${talk.oDone}), opened no card (${talk.noCard}) and said its finished line (${talk.finished})`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

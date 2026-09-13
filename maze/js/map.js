@@ -186,6 +186,7 @@ function drawMark(c, mark, px, py, r) { c.lineCap = 'round'; c.beginPath();
   if (mark === 'bar') { c.moveTo(px, py - r); c.lineTo(px, py + r); }
   else if (mark === 'arc') { c.arc(px, py - r*0.25, r, 0.1*Math.PI, 0.9*Math.PI); }
   else if (mark === 'cross') { c.moveTo(px - r, py - r); c.lineTo(px + r, py + r); c.moveTo(px + r, py - r); c.lineTo(px - r, py + r); }
+  else if (mark === 'chevron') { c.moveTo(px - r, py + r*0.7); c.lineTo(px, py - r*0.8); c.lineTo(px + r, py + r*0.7); }
   else { c.moveTo(px - r, py); c.quadraticCurveTo(px - r*0.5, py - r*1.2, px, py); c.quadraticCurveTo(px + r*0.5, py + r*1.2, px + r, py); }
   c.stroke(); }
 function drawShape(c, shape, px, py, r, color, lw) { c.strokeStyle = color; c.lineWidth = lw; c.lineJoin = 'round'; c.beginPath();

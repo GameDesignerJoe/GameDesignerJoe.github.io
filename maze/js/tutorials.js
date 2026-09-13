@@ -5,6 +5,7 @@
 
 // ── first-find tutorials ────────────────────────────────────────
 const ICONS = {
+  offering: '<svg viewBox="0 0 44 44"><ellipse cx="22" cy="25" rx="14" ry="10" fill="#3a3d3f" stroke="#a89f8c" stroke-width="1.2"/><path d="M22 15v14" stroke="#e0c98a" stroke-width="2.4" stroke-linecap="round"/></svg>',
   chalk:    '<svg viewBox="0 0 44 44"><rect x="14" y="19" width="22" height="7" rx="2" fill="#ece7da" transform="rotate(-35 22 22)"/></svg>',
   charcoal: '<svg viewBox="0 0 44 44"><rect x="10" y="18" width="24" height="9" rx="1.5" fill="#3a3d3f" stroke="#a89f8c" stroke-width="1.2" transform="rotate(28 22 22)"/></svg>',
   pointer:  '<svg viewBox="0 0 44 44"><path d="M22 8l6 20-6-4-6 4z" fill="#c9b98a"/></svg>',

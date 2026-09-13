@@ -1121,7 +1121,7 @@ function buildMaze(seed) {
   // ── the statues, and the stones they wait for ─────────────────
   // Joe: "a sort of mini quest where you find something in the maze that needs to go someplace
   // else... This means that you'll have to backtrack around the maze and therefore mapping and
-  // chalk might be more useful. This is the statue idea." Each statue is one of the four people he
+  // chalk might be more useful. This is the statue idea." Each statue is one of the five people he
   // lost sight of, and wants the small stone carved with their mark. They gate nothing — the
   // journals are the game's only gate — so a satisfied one points its thread at the nearest page
   // you have not found, which is the one thing you are still looking for by then.

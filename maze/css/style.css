@@ -195,6 +195,23 @@ body.pre #stick, body.pre #glyphs { opacity:0; transform:translate(-50%, 40px); 
 #tutClose { display:block; margin:22px auto 0; padding:6px 10px 2px; font:inherit; font-size:20px; font-style:italic; letter-spacing:.06em; color:#ece7da; background:none; border:0; position:relative; }
 #tutClose svg { position:absolute; left:0; right:0; bottom:-6px; width:100%; height:12px; }
 #tutClose:active { opacity:.6; }
+/* the exchange at a statue: the same folded card as a tutorial, two questions, one answer */
+#talk { position:fixed; inset:0; z-index:6; display:none; place-items:center; background:rgba(13,15,16,.7); padding:28px; perspective:900px; }
+#talk.show { display:grid; }
+#talk .card { position:relative; max-width:360px; width:100%; padding:26px 26px 22px; background:#141618; border:1px solid rgba(185,180,168,.18); box-shadow:0 30px 60px rgba(0,0,0,.6); transform-origin:50% 50%; }
+#talk.show .card { animation:unfold .9s cubic-bezier(.2,.7,.2,1) both; }
+#talk.fold .card { animation:refold .55s cubic-bezier(.6,0,.8,.4) both; }
+#talk .who { font-size:14px; letter-spacing:.14em; text-transform:uppercase; color:#9a968c; margin:0 0 18px; }
+#talk .choices button { display:block; width:100%; text-align:left; font:inherit; font-size:18px; line-height:1.5; color:#e8e3d6; background:none; border:0; border-left:2px solid rgba(185,180,168,.25); padding:8px 0 8px 14px; margin:0 0 10px; }
+#talk .choices button:active { opacity:.6; }
+#talk .choices.asked button.unasked { color:#5e5b54; border-left-color:transparent; }
+#talk .choices.asked button.chosen { border-left-color:#e0c98a; }
+#talk .answer { display:none; margin:18px 0 0; padding-top:16px; border-top:1px solid rgba(185,180,168,.18); font-size:17px; line-height:1.6; color:#c9c3b6; font-style:italic; }
+#talk .answer.show { display:block; }
+#talkClose { display:none; margin:22px auto 0; padding:6px 10px 2px; font:inherit; font-size:20px; font-style:italic; letter-spacing:.06em; color:#ece7da; background:none; border:0; position:relative; }
+#talkClose.show { display:block; }
+#talkClose svg { position:absolute; left:0; right:0; bottom:-6px; width:100%; height:12px; }
+#talkClose:active { opacity:.6; }
 #pool { position:fixed; inset:0; z-index:6; display:none; background:#141a1d; padding:0 26px; }
 #pool.show { display:grid; grid-template-rows:1fr auto 1fr; }
 #pool .water { align-self:end; justify-self:center; width:min(78vw, 360px); height:min(22vh, 150px); border-radius:50%; background:#1f2a30; border:1px solid rgba(111,136,147,.35); position:relative; overflow:hidden; transition:background 1.6s; }
