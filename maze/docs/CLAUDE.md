@@ -482,6 +482,75 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The maze gets what the phase asked for (v0.88.0)
+
+From Joe's THOUGHTS list, and the first step of it: *"I think we're gonna have to
+rethink how we generate our mazes... Ideally working backwards. Deciding how many
+things we want in the maze to requirements and then building the maze around those
+things. This gets away from a maze that is x by x size and instead focuses on the
+content of the maze."*
+
+**Measured before touching anything**, across 1400 mazes:
+
+| | asked for | placed |
+|---|---|---|
+| vaults | 2400 | **100%** |
+| map fragments | 4200 | **100%** |
+| **locked doors** | 3000 | **46%** |
+
+343 mazes — near a quarter — had **no locked door at all** in phases that call for
+one to three. The two rows at 100% are the two that **claim their ground before
+anything is carved**. Doors had to find a legal spot in finished geometry, and
+usually could not. That is Joe's whole point, in one table.
+
+**Where the doors actually died was not placement.** Instrumented on the three-door
+phases: 2.59 door *positions* were found per maze and only **1.21 survived**. The
+rest were thrown away because there was nowhere in their section to hide the key —
+72% of the losses report *no free cell in section* — and one failure breaks the
+chain for every door behind it. The failing sections hold **6.3 tiles, 2.4 cells,
+0.8 of them off the route**. There is nothing there.
+
+**Two fixes that did not work, recorded so nobody tries them twice.** Giving each
+door a minimum stretch of route for its section: byte-identical up to 0.15 of
+`keyDoorMinTiles` and worse above it, so door *spacing* is not the constraint.
+Raising `vaultMax` once the doors were guaranteed: no effect at all, 2 through 4.
+
+**What does work is refusing to ship short.** `generate()` is now a wrapper that
+builds, counts, and re-rolls the seed when the phase's manifest is not met —
+exactly what `buildProto` has always done for prototypes. It scores a build by its
+doors first and then by how many keys lie in a nest, because the loop is running
+either way and taking the first adequate maze throws away the better one two seeds
+later. `manifestSettle` only applies once the doors are in, which matters: the
+first cut let it stop hunting while a door was still missing and sat at 94%.
+
+| over 1400 mazes | before | after |
+|---|---|---|
+| locked doors placed | 46% | **99%** |
+| mazes with no door at all | 343 | **0** |
+| doors per maze | 0.98 | **1.70** |
+| keys in a nest | 59% | 55%, on 73% more keys |
+
+A seed still maps to one maze — the variant is derived from the seed — so run
+signatures are unchanged. Generation costs about **300ms** now against 40ms for a
+single build, paid behind the title screen.
+
+**The three-door phases now ask for two.** Every seed measured reaches two doors;
+almost none reaches three, however many re-rolls it is given. That is the
+architecture, not the dice. Three is what the rewrite buys.
+
+**Four smoke checks went red and none of them was a regression** — re-rolling gives
+every seed different geometry, and four checks were leaning on the old one. A probe
+that walked into a locked door and reported "never turned" (there are nearly twice
+as many doors now, and every junction on that route had one on an arm); a charcoal
+count quietly topped back up by pickups the probe walked over; and two that passed
+on `--seed 777`. Each is fixed to ask the maze for what it needs rather than take
+the first thing that looks close. **Run it again, and on another seed, before
+believing a red check unrelated to your change.**
+
+**Tests.** Harness PASS 576 with a new invariant — *a phase that wants locked doors
+gets at least one* — and a new selftest breakage for it, 14 of 14. Smoke 79, with
+*a maze gets the locked doors its phase asked for* at 99% against a 90% bar.
+
 ## Keys in nests, because the doors went to them (v0.87.0)
 
 Joe: *"Getting keys should be an adventure! We may even add additional story to

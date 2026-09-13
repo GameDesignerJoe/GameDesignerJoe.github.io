@@ -336,6 +336,15 @@ const CONFIG = {
   keyDoorMinTiles: 24,  // a key is never nearer its own door than this many tiles of walking...
   keyDoorMinApart: 9,   // ...nor this many tiles as the crow flies, so the two are never in one view
   keyDoorFloor: 4,      // and below this, the door is dropped rather than shipped with its key beside it
+  manifestTries: 12,    // builds allowed to get the doors the phase asked for before settling for
+                        // the fullest maze seen. Twelve meets them 99% of the time. A phase asking
+                        // for three never gets there however many are allowed — which is why none
+                        // asks for three any more. See generate()
+  manifestSettle: 4,    // once the doors are in, how many more builds may fail to better the keys
+                        // before it stops looking. It never applies while a door is still missing.
+                        // Measured over 280 mazes, doors stay at 99% throughout and the keys buy
+                        // in: 0 gives 38% of them a nest, 2 gives 49%, 4 gives 55% — for 126ms,
+                        // 229ms and 306ms a maze. Higher trades generation time for hall keys
   // Joe: "getting keys should be an adventure! ... All keys should be in vaults kind of like this.
   // ... If you can't think of one then just mirror the one you have. We need to get away from just
   // finding keys in the hall." So one vault per key rather than one per maze, each a mirror of the

@@ -217,6 +217,23 @@ const CHECKS = [
     return bad.length ? bad.join('; ') : null;
   }],
 
+  // Joe: "Deciding how many things we want in the maze to requirements and then building the maze
+  // around those things." Measured before v0.88.0: 343 of 1400 mazes had no locked door at all in
+  // phases that call for one to three. The door had to find a legal spot in geometry carved without
+  // knowing doors existed, and a quarter of the time there was none. generate() re-rolls the seed
+  // until the phase's doors fit, so a maze with none is now a generator failure, not bad luck.
+  //
+  // The bar is one, not the full count, and that is deliberate: the generator settles for the
+  // fullest maze it saw after manifestTries, so demanding the whole manifest here would fail on the
+  // handful where settling is correct. The full rate is a statistic, and smoke.mjs holds it.
+  ['a phase that wants locked doors gets at least one', (s) => {
+    if (s.poolMode) return null;
+    const want = s.flags.doors || 0;
+    if (!want) return null;
+    return s.doors.length ? null
+      : `phase asks for ${want} locked door${want > 1 ? 's' : ''} and the maze has none`;
+  }],
+
   ['doors chain: each key is winnable before its door', (s) => {
     // Door i's key must be reachable while doors i..n are still shut.
     const open = openTiles(s);

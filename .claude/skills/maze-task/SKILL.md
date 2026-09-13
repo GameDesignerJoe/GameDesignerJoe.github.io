@@ -91,10 +91,13 @@ node maze/tools/selftest.mjs         # proves the invariants can fail, ~90s
 node maze/tools/harness.mjs          # generation invariants across 576 mazes, ~90s
 ```
 
-**Run the three at once.** They are separate read-only processes over the same
-files and the same server, so they do not conflict; serially they are about seven
-minutes and together about four. Wait on all three and read all three — a suite
-that errored looks nothing like one that failed.
+**Run harness and selftest together; run smoke on its own.** They are read-only
+processes over the same files and server, so nothing conflicts — but a dozen of
+smoke's checks measure real time (walking speed, animation counts, ripple
+travel), and the harness is heavy enough to starve them of frames. Three suites
+at once produced three red timing checks in v0.88.0 that all passed the moment
+smoke ran alone. Wait on each and read each: a suite that errored looks nothing
+like one that failed.
 
 **How much to run depends on what you touched**, and Joe set this dial:
 
@@ -114,7 +117,14 @@ has that property.
   repo passed with their feature deleted.
 - **When a check goes red after an unrelated change, suspect the check.** Four did
   in v0.75.0 and all four were brittle: a frame count, a five-seed search, an
-  averaged pixel sample, and a probe parked in the path of the swing it watched.
+  averaged pixel sample, and a probe parked in the path of the swing it watched. Four
+  more did in v0.88.0, when re-rolling the seed gave every maze different
+  geometry: a probe that walked into a locked door and reported "never turned", a
+  charcoal count topped back up by pickups it walked over, and two that passed on
+  a different `--seed`. **Run it again, and run it on another seed, before you
+  believe a red check that has nothing to do with what you changed** — and when a
+  probe needs a feature of the maze, have it search for one that qualifies rather
+  than taking the first thing that looks close.
 - **The harness is clean and has been since v0.85.0.** Older notes said it carried
   a deferred door-key soft lock; that was fixed. PASS 576 is the expected result,
   so treat *any* red as this batch's until proven otherwise — and check whether

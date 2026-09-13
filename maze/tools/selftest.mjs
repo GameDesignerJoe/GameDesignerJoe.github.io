@@ -115,6 +115,13 @@ const MUTATIONS = [
     s.tiles = rows.map((r) => r.join(''));
   }],
 
+  ['a maze shipped with none of the doors its phase wanted', 'a phase that wants locked doors gets at least one', (s) => {
+    // What 343 of 1400 mazes looked like before v0.88.0: the phase calls for locked doors, the
+    // carve left nowhere legal to stand one, and the maze shipped without any.
+    s.doors = [];
+    s.innerKeys = [];
+  }],
+
   ['darkness pushed up against the start-room door', 'darkness keeps clear of the start-room door', (s) => {
     const from = s.startGap ? K(s.startGap[0], s.startGap[1]) : K(s.start.x, s.start.y);
     s.darkTiles = [from, K(s.start.x, s.start.y)];

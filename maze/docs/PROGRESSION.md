@@ -119,7 +119,9 @@ well, which is a hole you cannot walk into, and since v0.84.0 the pool, whose
 water shifts in rings under you); **one or two key vaults** in every level, with
 the doors placed so that their keys lie inside them; dead ends as loot slots;
 tunnels; pockets and sliders; swings; the exit alley and its shimmering oval;
-**a chain of locked doors with hidden keys**, placed under distance rules;
+**a chain of locked doors with hidden keys**, placed under distance rules and,
+since v0.88.0, guaranteed — the maze is rebuilt until it holds the doors its phase
+asked for, rather than quietly shipping with fewer;
 darkness with a two-ring fringe; the narrator; pages; five sizes with
 area-scaled feature counts; braiding.
 

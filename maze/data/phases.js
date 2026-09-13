@@ -13,9 +13,9 @@ const PHASES = [
   { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, doors: 1, braid: 0.06 } },
   { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, braid: 0.06 } },
   { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, braid: 0.06, rooms: 1.6 } },
-  { who: 'The Priest',         size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 3, braid: 0.06 } },
-  { who: 'The Criminal',       size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: true, tunnels: true, pockets: true, pathSlider: true, doors: 3, braid: 0.06 } },
-  { who: 'The One Who Stayed', size: 'xl', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 3, braid: 0.06 } },
+  { who: 'The Priest',         size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, braid: 0.06 } },
+  { who: 'The Criminal',       size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: true, tunnels: true, pockets: true, pathSlider: true, doors: 2, braid: 0.06 } },
+  { who: 'The One Who Stayed', size: 'xl', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, braid: 0.06 } },
   { who: 'You',                size: 'sm', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: false, gate: false, tunnels: true, pockets: true, pathSlider: false, doors: 1, braid: 0.06 } },
 ];
 

@@ -83,7 +83,58 @@ function standOn(tx0, ty0, tx1, ty1, want) {
   return out;
 }
 
+// Joe, on the backlog: "Deciding how many things we want in the maze to requirements and then
+// building the maze around those things. This gets away from a maze that is x by x size and instead
+// focuses on the content of the maze."
+//
+// This is the first step of that, and the cheapest one: the maze is still carved first, but it no
+// longer gets to quietly ship with less in it than the phase asked for. Measured before building:
+// of 3000 locked doors the phases called for across 1400 mazes, 1386 were placed — 46% — and 343
+// mazes had no locked door at all. Vaults and map fragments were at 100% in the same run, because
+// both claim their ground before anything else is carved. Doors had to find a legal spot in
+// finished geometry, and usually could not.
+//
+// So: build it, count what it got, and if it is short, build it again from a different seed —
+// exactly what buildProto has always done for prototypes. A seed still maps to one maze and the run
+// signature is unchanged, because the variant is derived from the seed.
+//
+// It scores the doors first and then how many keys lie in a nest, because the loop is running
+// either way and taking the first build that merely meets the doors throws away the better one two
+// seeds later for nothing. Measured over 280 mazes: doors 46% -> 99%, mazes with no door at all
+// 343 in 1400 -> none, and keys in a nest holding at 55% against 59% before, on nearly twice as
+// many doors. It costs about 300ms a maze against 40ms for a single build, which is the price of
+// the whole batch and is paid behind the title screen.
+//
+// What it cannot do is conjure a third door: every seed measured reaches two, almost none reaches
+// three, and no number of re-rolls changes that. That is the architecture, not the dice, and it is
+// why the three-door phases now ask for two. The rest of that answer is the rewrite Joe is pointing
+// at in THOUGHTS — building the maze around the content instead of sifting the content into it.
 function generate(seed) {
+  buildMaze(seed);
+  if (protoMode || poolMode) return;
+  const want = phase().f.doors || 0;
+  if (!want) return;
+  // Score a build by what it holds: the doors first, because a missing door is a missing lock, then
+  // how many of its keys lie in a nest rather than a hall. Both are things Joe asked for, and the
+  // loop is already running — taking the first build that meets the doors throws away the better
+  // one two seeds later for nothing.
+  const score = () => doors.length * 1000 + [...innerKeys.keys()].filter(k => keyVaults.some(v => v.cx + ',' + v.cy === k)).length;
+  let best = { s: score(), seed }, lastSeed = seed, since = 0;
+  const full = () => doors.length >= want && score() % 1000 >= Math.min(want, keyVaults.length);
+  const met = () => Math.floor(best.s / 1000) >= want;   // the best so far has all its doors
+  if (full()) return;
+  for (let i = 1; i < CONFIG.manifestTries; i++) {
+    if (met() && since >= CONFIG.manifestSettle) break;   // only stop early once the doors are in
+    lastSeed = seed + i * 7919;
+    buildMaze(lastSeed);
+    const sc = score();
+    if (sc > best.s) { best = { s: sc, seed: lastSeed }; since = 0; } else since++;
+    if (full()) return;
+  }
+  if (best.seed !== lastSeed) buildMaze(best.seed);   // settle for the fullest one we saw
+}
+
+function buildMaze(seed) {
   const R = rng(seed);
   protoMode = false; landmarks = []; sections = []; keyVaults = []; vaultRects = [];
   // a prototype replaces the maze outright: it sets everything this would have set, and returns

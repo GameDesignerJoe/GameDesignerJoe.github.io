@@ -797,7 +797,28 @@ const corner = await page.evaluate(async () => {
   delete SAVE.run; persist(); reset(4242);
   document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
   let at = null;
-  for (const [x, y] of solutionPath) if (isOpen(x + 1, y) && isOpen(x, y + 1) && isOpen(x - 1, y)) { at = [x, y]; break; }
+  // A corner worth measuring needs a run-up and somewhere to turn into, not just three open sides.
+  // Taking the first junction that matched meant the walk could reach the turn late, or turn into a
+  // one-tile stub, and cover 2.97 tiles in a straight line — which reads as "never turned" and fails
+  // a check whose actual subject (speed through the turn) was fine. Ask for two tiles each way.
+  // ...and arms he can actually walk. A closed door reads as open floor to isOpen(), so the probe
+  // would set him at a junction, ask for the turn, and watch him walk straight on into the corridor
+  // because the way down was locked. Harmless until v0.88.0 put nearly twice as many doors in every
+  // maze, at which point the first matching junction had one below it.
+  const blocked = (x, y) => doors.some((d) => d.x === x && d.y === y)
+    || sliders.some((sl) => (sl.x === x && sl.y === y) || (sl.x + sl.dx === x && sl.y + sl.dy === y))
+    || crawlGaps.has(x + ',' + y);
+  // A corner worth measuring: two tiles of run-up and two to turn into, clear of the border, and
+  // every arm actually walkable. It also no longer insists the corner be on the solution path —
+  // walking speed through a turn is a property of movement, not of the route, and on this maze
+  // every three-way junction the route passes now has a locked door on one of its arms.
+  const ok = (x, y) => x > 5 && y > 3 && x < W - 4 && y < H - 4
+    && isOpen(x, y) && isOpen(x + 1, y) && isOpen(x, y + 1) && isOpen(x, y + 2)
+    && isOpen(x - 1, y) && isOpen(x - 2, y) && !darkTiles.has(x + ',' + y)
+    && !blocked(x, y + 1) && !blocked(x + 1, y) && !blocked(x - 1, y)
+    && !blocked(x, y + 2) && !blocked(x - 2, y);
+  for (const [x, y] of solutionPath) if (ok(x, y)) { at = [x, y]; break; }
+  if (!at) for (let y = 4; y < H - 4 && !at; y++) for (let x = 6; x < W - 4; x++) if (ok(x, y)) { at = [x, y]; break; }
   if (!at) return { skip: true };
   player.x = at[0] - 1.5; player.y = at[1] + 0.5; dir = null; recenter = null;
   // measured inside the frame loop against the game's own dt — sampling from a second rAF loop
@@ -815,7 +836,11 @@ const corner = await page.evaluate(async () => {
   held = { dx: 1, dy: 0 };
   const t0b = performance.now();
   await new Promise((r) => { const step = () => { const el = performance.now() - t0b;
-    if (el > 260 && el < 1200) held = { dx: 0, dy: 1 };     // turn mid-tile, off the new centreline
+    // Turn when he actually reaches the junction, not at a fixed 260ms. Speed eases in over
+    // CONFIG.moveEase, so a clock says nothing about where he is: on some mazes the turn was asked
+    // for a tile short of the corner, hit wall, and the buffer expired before he got there — he
+    // walked the whole window in a straight line and the check read it as "never turned".
+    if (player.x >= at[0] - 0.05 && el < 1200) held = { dx: 0, dy: 1 };
     if (el > 1200) return r();
     requestAnimationFrame(step); }; step(); });
   held = null; update = realUpdate;
@@ -2002,6 +2027,12 @@ const coalUI = await page.evaluate(async () => {
   for (let y = 0; y < H; y++) { let run = 0;
     for (let x = 0; x < W; x++) { if (tiles[y][x]) { run++; if (!best || run > best.n) best = { x: x - run + 1, y, n: run }; } else run = 0; } }
   player = { x: best.x + 0.5, y: best.y + 0.5 }; dir = null; recenter = null; stickAim = null;
+  // Clear the charcoal lying about first. This check is about what the icon does — lights, beats,
+  // pulses when a piece runs out, hands over to the next — and every count below is a count the
+  // probe sets itself. Leave the floor stocked and walking the corridor quietly tops the pocket
+  // back up, so the numbers become a fact about this maze's loot instead of about the mechanic.
+  // That is what broke it in v0.88.0: re-rolling the seed gave every maze a different scatter.
+  charcoalSpots.clear();
   const anim = {};
   charcoalEl.addEventListener('animationstart', (e) => { anim[e.animationName] = (anim[e.animationName] || 0) + 1; });
   const walk = async (ms) => { dir = null; recenter = null; held = { dx: 1, dy: 0 }; await nap(ms); held = null; await nap(150); };
@@ -2355,6 +2386,34 @@ check('most door keys are found in a nest, not loose in a dead end',
   vaulted.keys > 300 && vaulted.inNest / vaulted.keys >= 0.45,
   `${vaulted.inNest} of ${vaulted.keys} keys in a nest (${(100 * vaulted.inNest / vaulted.keys).toFixed(0)}%, bar 45%) `
   + `over ${vaulted.mazes} mazes carrying ${(vaulted.doorN / vaulted.mazes).toFixed(2)} doors each`);
+
+// ── 8c. the maze contains what the phase asked for ───────────────
+// Joe: "Deciding how many things we want in the maze to requirements and then building the maze
+// around those things. This gets away from a maze that is x by x size and instead focuses on the
+// content of the maze."
+//
+// Measured before v0.88.0: of 3000 locked doors the phases called for, 1386 were placed — 46% —
+// and 343 of 1400 mazes had none at all. Vaults and fragments were at 100% in the same run, because
+// they claim ground before the carve; doors had to find a spot in finished geometry. generate() now
+// re-rolls the seed until the manifest fits, and the three-door phases ask for two, because no
+// number of re-rolls ever found a third.
+//
+// The bar is 90% and reads no knob. It shipped at 99%; without the re-roll it is 46%.
+const manifest = await page.evaluate(() => {
+  let want = 0, got = 0, none = 0, mazes = 0;
+  for (const ph of [1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 19 + ph); mazes++;
+    const n = PHASES[ph].f.doors || 0;
+    want += n; got += doors.length;
+    if (n && !doors.length) none++;
+  }
+  return { want, got, none, mazes };
+});
+check('a maze gets the locked doors its phase asked for',
+  manifest.want > 200 && manifest.got / manifest.want >= 0.9 && manifest.none === 0,
+  `${manifest.got} of ${manifest.want} doors placed (${Math.round(100 * manifest.got / manifest.want)}%, bar 90%), `
+  + `${manifest.none} of ${manifest.mazes} mazes with none at all`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
