@@ -2327,6 +2327,35 @@ const around = await page.evaluate(() => {
     + (around.kinds.balls ? `; ball pits ${around.kinds.balls.n - around.kinds.balls.stuck}/${around.kinds.balls.n}, not counted — the balls move out of your way` : ''));
 }
 
+// ── 8b. keys are found in the nests, not lying in the halls ──────
+// Joe: "Getting keys should be an adventure! ... All keys should be in vaults kind of like this.
+// ... We need to get away from just finding keys in the hall." Measured before anything was built:
+// 58 of 270 door keys lay in a nest — one in five. The rest were loose in a dead end.
+//
+// What moved it was not more nests. It was letting a door take any tile on the route that severs
+// it, instead of only one near its even-spread mark, and taking the first of those that leaves an
+// unclaimed nest in the section it closes. Over 2100 mazes that is 57% of keys in a nest against
+// 23% before, for 3% fewer doors — while a second nest with the old narrow window managed 39%.
+//
+// The bar is fixed at 45% and reads no knob, deliberately: a check that computes its expectation
+// from the thing it is testing cannot fail, which this suite has learned twice. 45% sits above
+// every way of reverting this — one nest and the wide search reach 41%, two nests and the narrow
+// search 39%, the game as it stood 23% — and well under what ships.
+const vaulted = await page.evaluate(() => {
+  let keys = 0, inNest = 0, doorN = 0, mazes = 0;
+  for (const ph of [1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 60; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 19 + ph); mazes++; doorN += doors.length;
+    const nests = new Set(keyVaults.map((v) => v.cx + ',' + v.cy));
+    for (const [k] of innerKeys) { keys++; if (nests.has(k)) inNest++; }
+  }
+  return { keys, inNest, doorN, mazes };
+});
+check('most door keys are found in a nest, not loose in a dead end',
+  vaulted.keys > 300 && vaulted.inNest / vaulted.keys >= 0.45,
+  `${vaulted.inNest} of ${vaulted.keys} keys in a nest (${(100 * vaulted.inNest / vaulted.keys).toFixed(0)}%, bar 45%) `
+  + `over ${vaulted.mazes} mazes carrying ${(vaulted.doorN / vaulted.mazes).toFixed(2)} doors each`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

@@ -39,7 +39,8 @@ let figures = [];            // the father, placed like pickups: [{x,y,alpha,see
 let startGap = null;
 let darkTiles = new Set(), darkFringe = new Map(), lampSpot = null, sealedGaps = [];   // darkFringe: tile → 1 (dim) or 2 (dimmer), the drop-off around the dark
 let keyVault = null; // {x0,y0,x1,y1,cx,cy} the nest of rings a key is buried in, or null
-let vaultRect = null;// where it will go, claimed before the rooms so it never loses the fight for space
+let vaultRects = [];  // where they will go, claimed before the rooms so they never lose the fight for space
+let keyVaults = [];  // {x0,y0,x1,y1,cx,cy} one nest of rings per key, in the order they were claimed
 let landmarks = [];  // {x,y,kind} the one thing at the heart of a section: what you navigate by
 let sections = [];   // {i,kind,x0..y1 cells, tx0..ty1 tiles} the labyrinth prototype's rooms-worth of maze
 let clusters = [];  // districts with a heart of their own: {heart, x0,y0,x1,y1 (cells), tx0,ty0,tx1,ty1 (tiles)}
@@ -84,7 +85,7 @@ function standOn(tx0, ty0, tx1, ty1, want) {
 
 function generate(seed) {
   const R = rng(seed);
-  protoMode = false; landmarks = []; sections = []; keyVault = null; vaultRect = null;
+  protoMode = false; landmarks = []; sections = []; keyVaults = []; vaultRects = [];
   // a prototype replaces the maze outright: it sets everything this would have set, and returns
   if (!SAVE.poolPending && SAVE.ui.proto && SAVE.ui.proto !== 'off') {
     for (let i = 0; i < CONFIG.protoTries; i++) if (buildProto(seed + i * 7919, SAVE.ui.proto)) return;
@@ -94,6 +95,25 @@ function generate(seed) {
   const F = poolMode ? { signs: phase().f.signs, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: true, tunnels: false, pockets: false, pathSlider: false, braid: 0 } : phase().f;
   const sizeKey = poolMode ? 'sm' : (SAVE.ui.size && SAVE.ui.size !== 'auto') ? SAVE.ui.size : (has(6) && phase().who !== 'You' ? 'lg' : phase().size);
   [CONFIG.cols, CONFIG.rows] = SIZES[sizeKey] || SIZES.md;
+  // Joe's standing rule, from the list: "in any instance where the maze is too small for what
+  // you're trying to do make it bigger... that is a good rule to then make the maze larger." The
+  // nests looked like exactly that instance — squeezing several into a medium maze cost a third of
+  // the doors. It turned out not to be the maze that was too small: it was the window the doors
+  // were picked from. Once a door may take any tile on the route that severs it, two nests cost 3%
+  // of the doors, not a third, and growing the maze buys back only half of even that — for 15%
+  // more ground to walk, which Joe did not ask for. So the lever stays, off, for the day a maze
+  // really is too small for what it holds; it is not what got the keys into the nests.
+  if (!poolMode && CONFIG.vaultCells > 0 && CONFIG.vaultGrow) {
+    const keys = (F.doors || 0) + (CONFIG.keyGate && F.gate ? 1 : 0);
+    const nests = Math.max(1, Math.min(CONFIG.vaultMax, keys));
+    if (nests > 1) {
+      // what the nests take, plus the share of the maze they must not eat into
+      const wantCells = nests * (CONFIG.vaultCells + CONFIG.vaultApart) ** 2 / CONFIG.vaultShare;
+      const grow = Math.sqrt(Math.max(1, wantCells / (CONFIG.cols * CONFIG.rows)));
+      CONFIG.cols = Math.min(CONFIG.maxCols, Math.round(CONFIG.cols * grow));
+      CONFIG.rows = Math.min(CONFIG.maxRows, Math.round(CONFIG.rows * grow));
+    }
+  }
   const AREA = (CONFIG.cols * CONFIG.rows) / (14 * 20);   // 1 at medium; feature counts scale with it
   const N = base => Math.max(1, Math.round(base * AREA));
   const N0 = base => Math.round(base * AREA);   // may be zero
@@ -188,18 +208,53 @@ function generate(seed) {
   // medium maze could not find a spot at all once there were five of them — the Child never got a
   // vault in twenty-five seeds. It is *carved* much further down, after the districts, which would
   // otherwise re-cut the whole nest.
-  vaultRect = null;
+  // Joe: "getting keys should be an adventure! ... All keys should be in vaults kind of like this.
+  // Some sort of cool challenge to get to them. If you can't think of one then just mirror the one
+  // you have. We need to get away from just finding keys in the hall." Measured before building it:
+  // every maze already had a vault, but only 58 of 270 door keys were in one — 212 were lying in a
+  // dead end. One vault holds one key, and a phase can have three doors plus an exit gate.
+  //
+  // So it is one vault per key now, mirroring the one that was here. They are claimed together,
+  // before the rooms, because whoever claims last loses the fight for space. A vault shrinks when
+  // several are wanted rather than failing to fit: vaultCellsMin is still bigger than a room.
+  vaultRects = [];
   if (!poolMode && CONFIG.vaultCells > 0) {
     const VR0 = rng(seed + 7757);
-    const vc = Math.max(3, Math.min(CONFIG.vaultCells, Math.min(CONFIG.cols, CONFIG.rows) - 5));
-    for (let tries = 0; tries < 400 && !vaultRect; tries++) {
-      const cx0 = 1 + (VR0() * Math.max(1, CONFIG.cols - vc - 1) | 0);
-      const cy0 = 1 + (VR0() * Math.max(1, CONFIG.rows - vc - 1) | 0);
-      if (cx0 + vc >= CONFIG.cols || cy0 + vc >= CONFIG.rows) continue;
-      if (cx0 <= CONFIG.startRoomCells + 1 && cy0 + vc >= CONFIG.rows - CONFIG.startRoomCells - 1) continue;
-      if (secretReserve && cx0 <= secretReserve.cx + secretReserve.rc && cx0 + vc > secretReserve.cx
-        && cy0 <= secretReserve.cy + secretReserve.rc && cy0 + vc > secretReserve.cy) continue;
-      vaultRect = { cx0, cy0, vc };
+    const wantKeys = (F.doors || 0) + (CONFIG.keyGate && F.gate ? 1 : 0);
+    const want = Math.max(1, Math.min(CONFIG.vaultMax, wantKeys));
+    const big = Math.max(3, Math.min(CONFIG.vaultCells, Math.min(CONFIG.cols, CONFIG.rows) - 5));
+    // Try the full size first and step down only if that many will not fit. A single vault is the
+    // size it always was, so a one-door maze is unchanged from v0.85.0.
+    for (let vc = big; vc >= CONFIG.vaultCellsMin && vaultRects.length < want; vc--) {
+      const got = [];
+      const legal = (cx0, cy0) => {
+        if (cx0 + vc >= CONFIG.cols || cy0 + vc >= CONFIG.rows) return false;
+        if (cx0 <= CONFIG.startRoomCells + 1 && cy0 + vc >= CONFIG.rows - CONFIG.startRoomCells - 1) return false;
+        if (secretReserve && cx0 <= secretReserve.cx + secretReserve.rc && cx0 + vc > secretReserve.cx
+          && cy0 <= secretReserve.cy + secretReserve.rc && cy0 + vc > secretReserve.cy) return false;
+        // a clear cell between two nests, so their outer rings never share a wall
+        const gap = CONFIG.vaultApart;
+        return !got.some(v => cx0 < v.cx0 + v.vc + gap && cx0 + vc + gap > v.cx0
+                           && cy0 < v.cy0 + v.vc + gap && cy0 + vc + gap > v.cy0);
+      };
+      // Spread them. Dropped at random they clump, and a key can only use a nest that falls in the
+      // section its own door opens — so a huddle of vaults in one corner leaves most keys loose,
+      // which is what the first cut of this measured: 41% of keys vaulted instead of 21%, but no
+      // better. Each new nest takes the legal spot furthest from the ones already down.
+      for (let n = 0; n < want; n++) {
+        let best = null, bestD = -1;
+        for (let tries = 0; tries < 400; tries++) {
+          const cx0 = 1 + (VR0() * Math.max(1, CONFIG.cols - vc - 1) | 0);
+          const cy0 = 1 + (VR0() * Math.max(1, CONFIG.rows - vc - 1) | 0);
+          if (!legal(cx0, cy0)) continue;
+          const d = got.length ? Math.min(...got.map(v => Math.hypot(cx0 - v.cx0, cy0 - v.cy0))) : 1;
+          if (d > bestD) { bestD = d; best = { cx0, cy0, vc }; }
+          if (got.length && bestD >= vc * 2) break;          // far enough; no need to keep looking
+        }
+        if (!best) break;
+        got.push(best);
+      }
+      if (got.length > vaultRects.length) vaultRects = got;   // keep the best try as the size steps down
     }
   }
 
@@ -213,8 +268,19 @@ function generate(seed) {
     while (++tries < 20 && (roomCenters.some(([rx, ry]) => Math.abs(rx - (TX(cx0)+(tw>>1))) < tw + 2 && Math.abs(ry - (TX(cy0)+(tw>>1))) < tw + 2)   // keep rooms apart
       || (cx0 <= CONFIG.startRoomCells && cy0 + cells >= CONFIG.rows - CONFIG.startRoomCells)   // and out of the start-room corner
       || (secretReserve && cx0 <= secretReserve.cx + secretReserve.rc && cx0 + cells > secretReserve.cx && cy0 <= secretReserve.cy + secretReserve.rc && cy0 + cells > secretReserve.cy)   // and off the kid's room
-      || (vaultRect && cx0 <= vaultRect.cx0 + vaultRect.vc && cx0 + cells > vaultRect.cx0 && cy0 <= vaultRect.cy0 + vaultRect.vc && cy0 + cells > vaultRect.cy0)   // and off the vault's ground
+      || vaultRects.some(v => cx0 <= v.cx0 + v.vc && cx0 + cells > v.cx0 && cy0 <= v.cy0 + v.vc && cy0 + cells > v.cy0)   // and off every vault's ground
       || !(() => { for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) if (isOpen(TX(cx0+x), TX(cy0+y))) return true; return false; })()));   // and on corridor, never an island in dead space
+    // Twenty tries, then it settles for wherever it landed. That is fine for keeping rooms apart —
+    // near enough is near enough — but two of the rules above are not preferences: they are ground
+    // that gets written over later, whatever is standing on it. A vault's rings are cut long after
+    // this, and the start room's ring is shut after everything. A room that loses either draw ends
+    // up with walls across its middle and a landmark you cannot walk around: six rooms in 547 on
+    // the nests once there were two to lose to, and one well on the start room, which could always
+    // have happened and finally did. Neither is a room, so the maze goes without rather than ship
+    // a broken one.
+    if (vaultRects.some(v => cx0 <= v.cx0 + v.vc && cx0 + cells > v.cx0 && cy0 <= v.cy0 + v.vc && cy0 + cells > v.cy0)) continue;
+    if (cx0 <= CONFIG.startRoomCells && cy0 + cells >= CONFIG.rows - CONFIG.startRoomCells) continue;
+    if (secretReserve && cx0 <= secretReserve.cx + secretReserve.rc && cx0 + cells > secretReserve.cx && cy0 <= secretReserve.cy + secretReserve.rc && cy0 + cells > secretReserve.cy) continue;
     for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) tiles[TX(cy0)+y][TX(cx0)+x] = 1;
     roomCenters.push([TX(cx0) + (tw>>1), TX(cy0) + (tw>>1)]);
     roomRects.push([cx0, cy0, cx0 + cells - 1, cy0 + cells - 1]);
@@ -296,7 +362,7 @@ function generate(seed) {
     const barred = (cx, cy) => (cx <= rc + 1 && cy >= CONFIG.rows - 2 - rc)
       || (cx <= 1 && cy <= 1) || (cx >= CONFIG.cols - 2 && cy <= 1) || (cx >= CONFIG.cols - 2 && cy >= CONFIG.rows - 2)
       || roomRects.some(([rx0, ry0, rx1, ry1]) => cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1)   // rooms may be touched, never overlapped
-      || (vaultRect && cx >= vaultRect.cx0 && cx < vaultRect.cx0 + vaultRect.vc && cy >= vaultRect.cy0 && cy < vaultRect.cy0 + vaultRect.vc)   // nor the vault's
+      || vaultRects.some(v => cx >= v.cx0 && cx < v.cx0 + v.vc && cy >= v.cy0 && cy < v.cy0 + v.vc)   // nor any vault's
       || (secretReserve && cx >= secretReserve.cx - 1 && cx <= secretReserve.cx + secretReserve.rc && cy >= secretReserve.cy - 1 && cy <= secretReserve.cy + secretReserve.rc);
     // score candidate patches by how much they already twist; the twistiest go first
     const cands = [];
@@ -392,10 +458,13 @@ function generate(seed) {
   // same side, so you walk the whole way round every ring to reach the middle. The key goes in the
   // middle. Carved here rather than with the rooms: the districts run between the two and would
   // re-cut the whole nest, walling the key in where nothing could reach it.
-  keyVault = null;
-  if (vaultRect) {
-    const VR = rng(seed + 31337);
-    const { cx0, cy0, vc } = vaultRect, vt = vc * 2 - 1;
+  keyVault = null; keyVaults = [];
+  vaultRects.forEach((rect, vi) => {
+    // Each nest gets its own stream. At vi 0 that is exactly the stream the single vault always
+    // used, so a maze with one vault comes out bit-identical to v0.85.0 — and a second vault can
+    // never redeal the first one's rings.
+    const VR = rng(seed + 31337 + vi * 101);
+    const { cx0, cy0, vc } = rect, vt = vc * 2 - 1;
     {
       const tx0 = TX(cx0), ty0 = TX(cy0), tx1 = tx0 + vt - 1, ty1 = ty0 + vt - 1;
       // No "is it on corridor?" test any more: its ground was claimed before the rooms and the
@@ -427,9 +496,10 @@ function generate(seed) {
         if (tiles[y][tx0 - 2]) tiles[y][tx0 - 1] = 1;
         if (tiles[y][tx1 + 2]) tiles[y][tx1 + 1] = 1;
       }
-      keyVault = { x0: tx0, y0: ty0, x1: tx1, y1: ty1, cx: (tx0 + tx1) >> 1, cy: (ty0 + ty1) >> 1 };
+      keyVaults.push({ x0: tx0, y0: ty0, x1: tx1, y1: ty1, cx: (tx0 + tx1) >> 1, cy: (ty0 + ty1) >> 1 });
     }
-  }
+  });
+  keyVault = keyVaults[0] || null;   // the first is still "the vault" for everything that wants one
 
   // The districts and the vault are stamped over the rooms, and about one well in a hundred gets
   // opened back up by one of them. Re-shut here rather than at the end: this is still before the
@@ -1008,10 +1078,15 @@ function generate(seed) {
   keySpot = null; gated = !poolMode && CONFIG.keyGate && F.gate && R() < B.keyChance();
   poolDoor = poolMode && startGap ? { x: startGap[0], y: startGap[1], openAt: 0 } : null;
   const pocketKeys = pockets.map(([x,y]) => x+','+y);
+  // One nest per key, so each key that takes one takes it out of the pool. The exit gate goes
+  // first because it is assigned first; the doors below draw from what is left.
+  const vaultPool = keyVaults.slice();
+  const takeVault = (ok) => { const i = vaultPool.findIndex(ok); return i < 0 ? null : vaultPool.splice(i, 1)[0]; };
   if (poolMode) keySpot = (startRoom.x0 + 3) + ',' + (startRoom.y0 + 3);
   else if (gated) {
-    // the heart of the vault first, if this maze got one: that is the whole point of building it
-    if (keyVault) { keySpot = keyVault.cx + ',' + keyVault.cy; taken.add(keySpot); }
+    // the heart of a vault first, if this maze got one: that is the whole point of building them
+    const v = takeVault(v2 => !taken.has(v2.cx + ',' + v2.cy));
+    if (v) { keySpot = v.cx + ',' + v.cy; taken.add(keySpot); }
     else if (pocketKeys.length && R() < CONFIG.sliderKeyChance) keySpot = pocketKeys.shift();
     else { keySpot = pickFree(); if (keySpot) taken.add(keySpot); }
   }
@@ -1112,9 +1187,44 @@ function generate(seed) {
     // its key may lie in — would be bigger: it worked, and it cost half the doors in the game,
     // because a door has to sever the route and there are far fewer places late on that do. The key
     // distance is solved below instead, where it costs nothing.
-    for (let i = 1; i <= n; i++) { const target = Math.floor(L * i / (n + 1)); let best = null;
-      for (let off = 0; off < L / (2 * (n + 1)) && !best; off++) for (const idx of [target + off, target - off]) { const t = solutionPath[idx]; if (t && idx > 6 && idx < L - 4 && okGap(t[0], t[1]) && !picks.some(([px,py]) => px===t[0]&&py===t[1]) && severs(t[0], t[1])) { best = t; break; } }
-      if (best) picks.push(best); }
+    //
+    // Spread, but no longer blindly. A key may only lie in the ground its own door opens, and the
+    // nests are staked out long before this route exists — so for most doors the nearest nest sat in
+    // the wrong section and the key fell back to a dead end. Four keys in five, however many nests
+    // the maze had: more of them only ate ground the doors needed. Joe: "We need to get away from
+    // just finding keys in the hall." The fix is to stop treating the door as fixed and the nest as
+    // the thing that has to fit, and turn it round. Every tile within reach of the even-spread
+    // target severs the route just as well; among those, take the first that leaves an unclaimed
+    // nest in the section it closes. Candidates come in order of distance from the target, so the
+    // doors stay as evenly spread as the ground allows and suiting the nest costs no doors at all.
+    // When nothing in the window suits one, the nearest tile wins exactly as it did before.
+    const vaultKeys = keyVaults.map(v => [v.cx + ',' + v.cy, v.cx, v.cy]);
+    const claimedV = new Set();
+    let beforePrev = new Set();   // ground open before the previous door — this door's section starts where that ends
+    let prevIdx = 6;
+    for (let i = 1; i <= n; i++) { const target = Math.floor(L * i / (n + 1));
+      // Every tile in this list severs the route, so any of them is a door. They come in order of
+      // distance from the even spacing, so taking the first that also suits a nest keeps the doors
+      // as evenly spread as the ground allows — and when none suits one, cands[0] is the tile the
+      // old code would have picked anyway.
+      const cands = [];
+      for (let off = 0; off < L && cands.length < CONFIG.doorVaultTries; off++) for (const idx of [target + off, target - off]) { const t = solutionPath[idx]; if (t && idx > prevIdx && idx < L - 4 && okGap(t[0], t[1]) && !picks.some(([px,py]) => px===t[0]&&py===t[1]) && severs(t[0], t[1])) cands.push([t, idx]); }
+      // Sealing this one tile over-counts the section slightly, because the doors after it are not
+      // placed yet, so a nest it seems to offer may not be in that section once they are. Placing
+      // them twice — provisionally, then again knowing the rest — fixes the model exactly and
+      // changed not one maze in 840, so it is not here. The key loop below tests the real sections
+      // and falls back on its own: the worst an over-count costs is a key back in a dead end.
+      let best = null, bestV = null, bestIdx = 0, bestSide = null;
+      for (const [t, idx] of cands) {
+        const side = reach(sx3, sy3, new Set([t[0] + ',' + t[1]]));
+        const v = vaultKeys.find(([k, vx, vy]) => side.has(k) && !beforePrev.has(k) && !claimedV.has(k) && !taken.has(k) && Math.hypot(vx - t[0], vy - t[1]) >= CONFIG.keyDoorMinApart);
+        if (v) { best = t; bestV = v[0]; bestIdx = idx; bestSide = side; break; }
+      }
+      if (!best && cands.length) { best = cands[0][0]; bestIdx = cands[0][1]; }
+      if (!best) break;
+      picks.push(best); prevIdx = bestIdx; if (bestV) claimedV.add(bestV);
+      beforePrev = bestSide || reach(sx3, sy3, new Set([best[0] + ',' + best[1]]));
+    }
     // keys: each in the section opened by the previous door and closed by this one
     let prevSide = new Set();
     for (let i = 0; i < picks.length; i++) {
@@ -1162,9 +1272,14 @@ function generate(seed) {
       // for a key. All that actually matters is that it is in *this* section, or the chain soft
       // locks. Asking that directly is what keeps the doors: without it the rule below had to drop
       // two thirds of them for want of anywhere to put their keys.
-      const vk0 = keyVault && (keyVault.cx + ',' + keyVault.cy);
-      const vaultLegal = vk0 && side.has(vk0) && !prevSide.has(vk0) && !taken.has(vk0)
-        && Math.hypot(keyVault.cx - dx0, keyVault.cy - dy0) >= CONFIG.keyDoorMinApart;
+      // Each door draws its own nest from what is left, so two keys never share one and a maze
+      // with three doors buries three keys. The test is per-vault and unchanged in substance: it
+      // must be in *this* section, unclaimed, and out of sight of the door it opens.
+      const vaultFor = vaultPool.find(v2 => { const k2 = v2.cx + ',' + v2.cy;
+        return side.has(k2) && !prevSide.has(k2) && !taken.has(k2)
+          && Math.hypot(v2.cx - dx0, v2.cy - dy0) >= CONFIG.keyDoorMinApart; });
+      const vk0 = vaultFor && (vaultFor.cx + ',' + vaultFor.cy);
+      const vaultLegal = !!vk0;
       if (!vaultLegal) { const [bx, by] = best1.split(',').map(Number);
         if (!farEnough.length && Math.hypot(bx - dx0, by - dy0) < CONFIG.keyDoorFloor) break; }
       const usable = vaultLegal ? [vk0] : farEnough.length ? farEnough : [best1];
@@ -1175,6 +1290,8 @@ function generate(seed) {
       // vault on the far side of its own door is a soft lock. cellsIn is already that section, so
       // asking it is the whole check.
       const kk = vaultLegal ? vk0 : pool[R() * pool.length | 0], shape = KEY_SHAPES[i % KEY_SHAPES.length];
+      // and it is spent: taken out of the pool so the next door cannot bury its key in the same nest
+      if (vaultLegal) vaultPool.splice(vaultPool.indexOf(vaultFor), 1);
       innerKeys.set(kk, shape); taken.add(kk); chalkSpots.delete(kk); charcoalSpots.delete(kk); pickups.delete(kk); scrapSpots.delete(kk);   // the key replaces whatever loot lay there
       doors.push({ x: picks[i][0], y: picks[i][1], shape, open: false, onRoute: true });
       prevSide = side;
@@ -1198,15 +1315,31 @@ function generate(seed) {
       if (!scrapSpots.size || !CONFIG.mapScrapApart) pick = cands[R() * cands.length | 0];
       else {
         // walking distance out from the scraps already down, so "far enough away" is the walk you
-        // actually make rather than a line through the walls
+        // actually make rather than a line through the walls.
+        // And the walk a *player* makes: a block you can shove is a way through, so this counts the
+        // slider tiles and the squares those blocks move into as floor. Without that, two fragments
+        // either side of a pushable block measured two dozen tiles apart and stood four apart in
+        // play — the same mismatch between the planner's model and the player's that put a door key
+        // on the wrong side of its own gate. Two mazes in 576.
+        const slideOpens = new Set(sliders.flatMap(sl => [sl.x + ',' + sl.y, (sl.x + sl.dx) + ',' + (sl.y + sl.dy)]));
+        const walk = (x, y) => isOpen(x, y) || slideOpens.has(x + ',' + y);
         const d = new Map(); const q = [];
         for (const k of scrapSpots) { d.set(k, 0); q.push(k.split(',').map(Number)); }
         for (let h = 0; h < q.length; h++) { const [x, y] = q[h], dd = d.get(x + ',' + y);
           for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
-            if (isOpen(nx, ny) && !d.has(k)) { d.set(k, dd + 1); q.push([nx, ny]); } } }
+            if (walk(nx, ny) && !d.has(k)) { d.set(k, dd + 1); q.push([nx, ny]); } } }
         const ok = cands.filter(k => (d.get(k) ?? Infinity) >= want);
-        pick = ok.length ? ok[R() * ok.length | 0]
-                         : cands.slice().sort((a, b) => (d.get(b) ?? 0) - (d.get(a) ?? 0))[0];
+        if (ok.length) pick = ok[R() * ok.length | 0];
+        else {
+          // Nothing clears the full bar. Take the farthest the dead ends offer — but settling has a
+          // floor of its own: a fragment inside one patch radius of another charts ground that is
+          // already charted, which is precisely the useless one Joe reported. Rather than ship it,
+          // this maze goes without. Two mazes in 576 were landing a second fragment four tiles from
+          // the first, in a patch twelve across.
+          const far = cands.slice().sort((a, b) => (d.get(b) ?? 0) - (d.get(a) ?? 0))[0];
+          if ((d.get(far) ?? 0) < Math.sqrt(scrapPatch())) break;
+          pick = far;
+        }
       }
       if (pick) { scrapSpots.add(pick); taken.add(pick); }
     }

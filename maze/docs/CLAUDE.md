@@ -482,6 +482,101 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Keys in nests, because the doors went to them (v0.87.0)
+
+Joe: *"Getting keys should be an adventure! We may even add additional story to
+them. All keys should be in vaults kind of like this. Some sort of cool challenge
+to get to them. If you can't think of one then just mirror the one you have. We
+need to get away from just finding keys in the hall."*
+
+**Measured first.** Every maze already had a vault, and it was barely used: **58
+of 270 door keys lay in it, 212 were loose in a dead end** — one key in five.
+
+**The obvious build was the wrong one.** Mirroring the nest, one per key, is what
+he suggested and it is what I did first: `vaultRect` became `vaultRects[]`,
+`keyVault` became `keyVaults[]`, each nest drawing its own RNG stream so a second
+can never redeal the first one's rings (`rng(seed + 31337 + vi * 101)`), sized
+down through `vaultCellsMin` when several must fit, spread by taking the legal
+spot furthest from those already claimed. Behaviour-preserving: `vaultMax: 1`
+reproduced v0.85.0 exactly, which is how I know every number below is the nests
+and nothing else.
+
+It went from 21% to about 39% and stopped dead there, and it cost a quarter of
+the doors per maze. More nests did not help; they only ate ground a door needs.
+That was the point to stop, and it went to Joe with the numbers, because his own
+rule says so: *"if it's a trade-off I should be making instead of you."* He chose
+the third option — **place the doors to suit the nests** rather than hope a nest
+lands where a door needs one.
+
+**Why it was stuck at 39%.** A key may only lie in the ground its own door opens.
+The nests are staked out before the rooms, long before there is a route or a
+door, so a nest usually sits in the wrong section for the key that needs it and
+the key falls back to a dead end. No number of nests fixes an ordering problem.
+
+**What actually fixed it was one bound.** Doors were picked from a window of the
+route `L / (2 * (n + 1))` either side of their even-spread mark. Instrumented,
+that window held **4.6 candidate tiles on average, and none at all a third of the
+time** — so a door had almost no choice about where to stand, and no room at all
+to be steered. Searching the **whole route** instead, still in order of distance
+from the even mark, and taking the first tile that both severs the route and
+leaves an unclaimed nest in the section it closes:
+
+| over 2100 mazes | doors per maze | keys in a nest |
+|---|---|---|
+| v0.86.0 as it stood | 1.023 | 23% |
+| one nest, whole-route search | 1.077 | 41% |
+| **two nests, whole-route search (shipped)** | **0.995** | **57%** |
+| three nests | 0.942 | 61% |
+| four nests | 0.933 | 62% |
+
+The widened search *gains* doors — it finds severing tiles the window could not
+reach. Nests spend them. Two is where the curve turns: 57% for 3% of the doors,
+which is inside the run-to-run noise. Three and four buy four more points for
+five times the price, so `vaultMax` ships at 2.
+
+**What I did not do.** `vaultGrow` grew the maze to fit the nests, on Joe's
+standing rule that a maze too small for what it holds should get bigger. Once the
+doors could move, the maze was not too small: growing it bought back half of a 3%
+door dip for **15% more ground to walk**, which he did not ask for. The lever
+stays, off, for a day it is really needed.
+
+Two passes over the door positions — placing them provisionally, then again
+knowing where the rest landed, so each section is modelled exactly — is correct
+and changed **not one maze in 840**. It is not in the code; the comment says why.
+
+**Three bugs found while verifying, none of them reported.**
+
+*Fragments that a shove puts side by side.* The v0.86.0 spacing rule walked the
+maze as it stands. A player can shove a block: two fragments either side of one
+measured two dozen tiles apart and stood **four** apart in play. The same
+mismatch between the planner's model and the player's that put a door key on the
+wrong side of its own gate in v0.85.0, and the same one-line shape of fix — the
+walk now counts slider tiles and the squares those blocks move into. Two mazes in
+576. Settling also has a floor now: rather than place a fragment inside another's
+patch, that maze goes without.
+
+*Rooms carved through by a vault.* Room placement tries twenty spots and then
+settles for wherever it landed. Fine for keeping rooms apart, but a vault's rings
+are cut long afterwards, straight through whatever is standing there — **six
+rooms in 547** ended up with walls across the middle and a landmark you cannot
+walk around, once there were two nests to lose to.
+
+*One well the start room walled in.* Same fallback, older bug: a room that
+settles on the start-room corner gets its floor taken by the seal that shuts that
+ring at the very end. This could always have happened and finally did.
+
+Both are now refusals rather than fallbacks — a room the vault or the start room
+would carve through is not a room, so the maze goes without. It costs four rooms
+in 538 and takes the landmark check to a clean 534 of 534.
+
+**Tests.** Harness PASS 576. Selftest 13 of 13. Smoke 78 checks, one new: *most
+door keys are found in a nest, not loose in a dead end* — bar fixed at 45%, which
+reads no knob, because this suite has twice shipped a check that computed its
+expectation from the thing it was testing and therefore could not fail. 45% sits
+above every way of reverting this (one nest reaches 41%, the narrow window with
+two nests 37%, the game as it stood 23%) and well under the 59% it ships at.
+Proved by reverting the search bound and watching it go red at 37%.
+
 ## Fragments worth finding, and charcoal that knows about them (v0.86.0)
 
 Both items are the pickup allocator, which is why they are one batch.

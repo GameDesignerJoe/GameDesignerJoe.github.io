@@ -336,7 +336,29 @@ const CONFIG = {
   keyDoorMinTiles: 24,  // a key is never nearer its own door than this many tiles of walking...
   keyDoorMinApart: 9,   // ...nor this many tiles as the crow flies, so the two are never in one view
   keyDoorFloor: 4,      // and below this, the door is dropped rather than shipped with its key beside it
+  // Joe: "getting keys should be an adventure! ... All keys should be in vaults kind of like this.
+  // ... If you can't think of one then just mirror the one you have. We need to get away from just
+  // finding keys in the hall." So one vault per key rather than one per maze, each a mirror of the
+  // nest that was already here. Measured first: only 58 of 270 door keys were in the vault.
   vaultCells: 7,        // the key vault is this many cells square — bigger than any room on purpose
+  vaultCellsMin: 5,     // and how far it will shrink to fit several in. Still bigger than a room
+  vaultMax: 2,          // most nests in one maze. Measured over 2100: one nest puts 41% of the door
+                        // keys in a nest, two 57%, three 61%, four 62% — and every one past the
+                        // second costs doors, because a nest is ground no door can sever. Two is
+                        // where the curve turns: 57% for 3% of the doors, which is inside the noise
+  vaultApart: 1,        // clear cells between two nests, so their outer rings never share a wall
+  vaultGrow: false,     // grow the maze to fit the nests rather than squeeze them in. Off: it cost
+                        // 15% more ground to walk and bought back only half of a 3% door dip. Kept
+                        // as the lever for a maze that really is too small for what it must hold
+  vaultShare: 0.3,      // the biggest share of a maze the nests may take. Below this they crowd out
+                        // the route, and a door needs route left to sever
+  maxCols: 40, maxRows: 56,   // and however the sum comes out, a maze stops here
+  doorVaultTries: 40,   // how many route tiles a door will look at before it settles. Every one of
+                        // them severs the route; it takes the first that also leaves a nest in the
+                        // section it closes, nearest the even spacing first. This is what actually
+                        // gets the keys into the nests — the nests alone only got a third of them,
+                        // because a nest staked out before the route usually lands in the wrong
+                        // section. Higher searches further from the even spread for a nest to suit
   roomLandmarkChance: 0.85,  // how often an ordinary maze's room is a place rather than an empty box
   spiralSpinHz: 0.022,  // turns a second for the spiral room. Slow enough to doubt, fast enough to see
   spiralFollow: 1.6,    // and how hard walking round it drags it: 1 is exactly the angle you sweep

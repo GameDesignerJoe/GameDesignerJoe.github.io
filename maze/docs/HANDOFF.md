@@ -217,11 +217,16 @@ you sweep, so it turns the way you walk; the old slow drift is still underneath.
 The pull fades near the middle, where a step of nothing is most of a turn, and
 the per-frame turn is capped so crossing the centre at a run does not whip it.
 
-### The vault (v0.72.0)
+### The vaults (v0.72.0, plural since v0.87.0)
 
-Every level has one: a room `vaultCells` square — bigger than any ordinary room
-on purpose — which is often where the key is. Three things went wrong building
-it and are worth not repeating:
+Every level has one, and most have two: a nest `vaultCells` square — bigger than
+any ordinary room on purpose — of concentric rings, each shut but for one gap,
+with a key in the middle. `vaultMax` caps how many; each draws its own RNG stream
+so a second can never redeal the first one's rings, and they shrink to
+`vaultCellsMin` rather than fail to fit. More than two is not free: a nest is
+ground no door can sever, and past two the doors per maze fall faster than the
+keys move indoors. Three things went wrong building the first one and are worth
+not repeating:
 
 - Opening the block **paved over every corridor into it**, making 16 of 20 gated
   mazes unsolvable. Entrances have to be punched back through the rim.
@@ -229,6 +234,12 @@ it and are worth not repeating:
   after districts.
 - It **lost every placement fight** against five rooms — 0 of 25 seeds got one.
   Its rectangle is claimed *before* rooms now.
+
+A fourth, from v0.87.0: because the rings are cut long after the rooms are, a
+room that lost the placement draw and settled on vault ground **had walls carved
+through its middle** — six in 547. Room placement refuses those spots now rather
+than settling; same for the start-room corner, whose ring is shut at the very
+end.
 
 ### Districts (v0.38.0)
 
@@ -303,6 +314,17 @@ your starting section; door 2 further on, its key between 1 and 2; exit behind
 the last. Only placed where sealing truly cuts the exit off. Count is fixed per
 phase (`doors`, 1–3), not scaled by size — a scaled version gave the One Who
 Stayed twelve. Doors and tunnels exclude each other.
+
+Since v0.87.0 a door is picked from **the whole route**, not a window either side
+of its even-spread mark, in order of distance from that mark. The window held 4.6
+candidate tiles on average and none at all a third of the time, so a door had
+almost no choice of where to stand. Every candidate severs the route; the one
+taken is the first that also leaves an unclaimed nest in the section it closes.
+That is what put the keys in the nests — **23% → 57% of door keys**, over 2100
+mazes, with *more* doors found than the window could reach, not fewer. Nests
+alone had managed 39% and cost a quarter of the doors: a key may only lie in the
+ground its own door opens, and a nest staked out before the route usually lands
+in the wrong section. No number of nests fixes an ordering problem.
 
 Since v0.75.0 the placement has **distance rules**, because a key in sight of
 its own door is not a search: never nearer than `keyDoorMinTiles` of
@@ -492,8 +514,8 @@ against them:
 The full account is in `CLAUDE.md` (§ Working rules, § Verifying a change,
 § Method) and `tools/README.md`. The short version:
 
-- **Verify behaviour, not rendering.** `tools/harness.mjs` (21 invariants ×576
-  mazes), `tools/smoke.mjs` (55 behaviour checks), `tools/selftest.mjs` (12
+- **Verify behaviour, not rendering.** `tools/harness.mjs` (23 invariants ×576
+  mazes), `tools/smoke.mjs` (78 behaviour checks), `tools/selftest.mjs` (13
   deliberate breakages that must each be caught). A **pre-commit hook**
   (`.claude/hooks/maze-smoke.sh`) runs smoke on any commit touching `maze/` and
   blocks a red one — or one that never reaches a verdict, which is what an
@@ -503,8 +525,8 @@ The full account is in `CLAUDE.md` (§ Working rules, § Verifying a change,
   goes red.
 - **Generation order matters**, and it is not the order the old doc gave. As it
   actually runs in `generate()`: grid → dead-space prune → braid → **the
-  vault's ground claimed** → rooms and their landmarks → **districts** → **the
-  vault carved** → past self and pages → pockets and sliders → the start room
+  vaults' ground claimed** → rooms and their landmarks → **districts** → **the
+  vaults carved** → past self and pages → pockets and sliders → the start room
   (seal, bridge orphans) → crawl gaps, swings, the secret room → exit alley →
   first page nearest the route → path slider → exit push blocks → **the exit
   gauntlet** → a crawl gap on the route → distances → dead ends → key → pickups

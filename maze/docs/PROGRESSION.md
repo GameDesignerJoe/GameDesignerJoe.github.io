@@ -116,7 +116,8 @@ thicket, comb, lattice, squeeze, shifting); **five rooms, and they are places**
 — seven landmark kinds (pool, statues, spiral, columns, dais, well, balls), six
 of them answering to you (the ball pit, the spiral, the columns, the statues, the
 well, which is a hole you cannot walk into, and since v0.84.0 the pool, whose
-water shifts in rings under you); **a key vault** in every level; dead ends as loot slots;
+water shifts in rings under you); **one or two key vaults** in every level, with
+the doors placed so that their keys lie inside them; dead ends as loot slots;
 tunnels; pockets and sliders; swings; the exit alley and its shimmering oval;
 **a chain of locked doors with hidden keys**, placed under distance rules;
 darkness with a two-ring fringe; the narrator; pages; five sizes with
