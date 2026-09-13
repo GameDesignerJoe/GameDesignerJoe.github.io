@@ -482,6 +482,17 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Reset save restarts the game (v0.91.0)
+
+Joe: *"When I reset my save it should just restart the game as well."* It erased
+the save and left you standing in the old maze with the old HUD — the one control
+in the debug panel that did not restart. Every other option there already ends
+with the same three calls: a fresh maze at phase 0, asleep on the mat, panel
+closed. Reset save now does the same. UI only, so by the verification dial: smoke
+and a look, no harness. Smoke 84, one new check that resets from a run at phase 3
+and finds the save gone, the panel closed, and him asleep on the mat over a new
+maze; it goes red with the restart line removed.
+
 ## The exchange (v0.90.0)
 
 Joe: *"You drop the thing in. You are then allowed to ask a question, maybe two are

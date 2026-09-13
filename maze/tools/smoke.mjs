@@ -2512,6 +2512,29 @@ check('a statue whose person has nothing left to say takes the stone and says it
   !talk.missing && talk.oDone && talk.noCard && talk.finished,
   talk.missing ? `nothing to ask: ${talk.missing}` : `${talk.other}'s statue took the stone (${talk.oDone}), opened no card (${talk.noCard}) and said its finished line (${talk.finished})`);
 
+// ── 8f. Reset save restarts the game ──────────────────────────────
+// Joe: "When I reset my save it should just restart the game as well." It erased the save and left
+// you in the old maze. Now it does what every other control in the panel does: a fresh maze at
+// phase 0, asleep on the mat, panel closed.
+const resetGame = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 3; SAVE.stones = 2; SAVE.poolPending = false; SAVE.collected = { 'The Child': [true, true] }; persist();
+  reset(4242); wake(); for (let i = 0; i < 200 && !started; i++) await nap(50); await nap(300); introWalk = null; held = null;
+  const seedBefore = SEED, wasStarted = started;
+  dbg.classList.add('show');
+  $('resetSave').click(); await nap(50);                     // arms
+  const armed = $('resetSave').dataset.armed === '1';
+  $('resetSave').click(); await nap(400);                    // erases, and now restarts
+  let stored = null; try { stored = localStorage.getItem(SAVE_KEY); } catch (e) {}
+  return { wasStarted, armed, stored, phase: SAVE.phase, stones: SAVE.stones, collected: Object.keys(SAVE.collected).length, run: 'run' in SAVE,
+    panelClosed: !dbg.classList.contains('show'), started, pre: document.body.classList.contains('pre'), newSeed: SEED !== seedBefore, hasMaze: W > 0 && tiles.length === H };
+});
+check('Reset save erases the save and restarts the game, asleep at the beginning',
+  resetGame.wasStarted && resetGame.armed && resetGame.stored === null && resetGame.phase === 0 && resetGame.stones === 0 && resetGame.collected === 0 && !resetGame.run
+    && resetGame.panelClosed && !resetGame.started && resetGame.pre && resetGame.newSeed && resetGame.hasMaze,
+  `from a run at phase 3: save cleared (${resetGame.stored === null}), phase ${resetGame.phase}, ${resetGame.stones} stones, ${resetGame.collected} selves collected; `
+  + `panel closed (${resetGame.panelClosed}), asleep at the title (${!resetGame.started && resetGame.pre}), a new maze under him (${resetGame.newSeed && resetGame.hasMaze})`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

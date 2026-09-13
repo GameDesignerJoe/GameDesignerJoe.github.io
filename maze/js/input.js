@@ -156,6 +156,11 @@ $('resetSave').addEventListener('click', () => {
   SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [], ui: SAVE.ui, phase: 0, stones: 0, poolPending: false, finished: false }; delete SAVE.run; try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
   b.dataset.armed = ''; b.textContent = 'Save erased';
   setTimeout(() => b.textContent = 'Reset save', 1500);
+  // Joe: "When I reset my save it should just restart the game as well." Every other control in
+  // this panel already does exactly that; this one erased the save and left you standing in the
+  // old maze with the old HUD. Same three calls as its neighbours: a fresh maze at phase 0, asleep
+  // on the mat, the panel closed.
+  reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze();
 });
 function hardRefresh(btn) {
   btn.textContent = 'Updating…';
