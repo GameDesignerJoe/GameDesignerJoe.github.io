@@ -172,26 +172,17 @@ his call: give him the numbers rather than settling it yourself.
   a probe — can run together freely; two jobs editing the same file cannot, and a
   `sed` on `config.js` while a measurement is loading it is exactly that.
 
-### Working in parallel, and when agents are worth it
-
-Most of what looks parallelisable here is not, because it shares one working tree
-and one `config.js`. Before reaching for an agent, ask whether the work needs a
-*different copy of the files*. If it does not, a background job or a loop inside
-one script is simpler and safer.
-
-- **Fan out, no agent needed:** the three suites; several independent probes; any
-  set of read-only measurements.
-- **Worth an agent, with `isolation: "worktree"`:** measuring the **baseline**.
-  Comparing `HEAD` against your change means two different versions of the same
-  files, so doing it in the main tree means stashing, running, and restoring —
-  serial, and one interrupted run from losing work. An agent with its own worktree
-  measures `HEAD` while you keep building. Give it the exact probe to run and ask
-  for the numbers back, nothing else.
-- **Never:** two agents sweeping knobs in the same tree. They will overwrite each
-  other's `config.js` and both report numbers for a config neither one set. The
-  fix for a sweep is a loop in one script, not more agents.
-- An agent starts with none of this context, so anything needing judgement about
-  Joe's intent, a trade-off, or whether a check is brittle stays with you. Send out
-  work whose answer is a number.
 - Confirm a suite passed **before** writing it into a commit message. An errored run
   looks nothing like a failing one.
+
+### Working in parallel
+
+Joe's call, and it is settled: **no subagents on this project.** Most of what looks
+parallelisable here is not, because it shares one working tree and one
+`config.js` — two jobs sweeping knobs will overwrite each other and both report
+numbers for a config neither of them set. And an agent starts with none of the
+context in these docs, so anything touching Joe's intent, a trade-off, or whether
+a check is brittle was never safe to hand off anyway.
+
+What does run at once, with plain background jobs: the three suites, and any set
+of read-only probes. That is where the wall-clock actually is.
