@@ -15,6 +15,16 @@ const blockWays = (s) => s.ways
   ? (s.at ? [[-s.ways[s.at - 1][0], -s.ways[s.at - 1][1]]] : s.ways)
   : [[s.shifted ? -s.dx : s.dx, s.shifted ? -s.dy : s.dy]];
 const doorAt = (x, y) => doors.find(d => d.x === x && d.y === y && !d.open);
+// the shortest walk from a tile to the nearest page still lying in the maze, as a list of tiles;
+// empty when there is none left. Walks what is open now, doors included — a thread is a hint, not a promise
+function pathToNearestPage(x0, y0) {
+  if (!journals.size) return [];
+  const prev = new Map([[x0 + ',' + y0, null]]); const q = [[x0, y0]];
+  for (let h = 0; h < q.length; h++) { const [x, y] = q[h]; const k = x + ',' + y;
+    if (journals.has(k)) { const path = []; let cur = k; while (cur) { path.push(cur.split(',').map(Number)); cur = prev.get(cur); } return path.reverse(); }
+    for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, kk = nx + ',' + ny; if (isOpen(nx, ny) && !prev.has(kk)) { prev.set(kk, k); q.push([nx, ny]); } } }
+  return [];
+}
 // The pool room's gate: shut until it has been shoved with the stone and has finished grinding.
 // A restored run stores openAt as 1, which is long enough ago to count as open.
 // Shut until the leaves have swung far enough to get past, not until the slide has finished: they
@@ -388,6 +398,20 @@ function update(wall) {
     // when you are standing on it. "Just leave it visible until the player walks on a tile that
     // has the thread." Only then does it flare and begin to go.
     if (pathArmed && solutionKeys.has(key)) { pathArmed = false; pathFoundAt = now; pathUntil = now + B.pathSec() * 1000; AUDIO.pickup(); }
+    // a carved stone, one at a time. Joe: the point is to "backtrack around the maze" — so the
+    // second one you find is not picked up, it is remembered.
+    if (offerings.has(key)) {
+      if (carried === null) { carried = offerings.get(key); offerings.delete(key); renderCarried(); AUDIO.stone(); narrate(SHRINE_LINES.pickup); tutorial('offering'); saveRun(true); }
+      else if (!carryFullSaid) { carryFullSaid = true; narrate(SHRINE_LINES.full); }
+    }
+    // the step before a statue: the right stone settles into the bowl, and the statue points its
+    // thread at the nearest page you have not found — the one thing you are still looking for
+    { const sh = shrines.find(s => !s.done && s.sx === tx && s.sy === ty);
+      if (sh) {
+        if (carried === sh.who) { sh.done = true; sh.doneAt = now; carried = null; renderCarried(); AUDIO.stone();
+          shrinePath = pathToNearestPage(tx, ty); shrineUntil = shrinePath.length ? now + CONFIG.shrineThreadSec * 1000 : 0;
+          narrate(shrinePath.length ? SHRINE_LINES.deliver : SHRINE_LINES.noPage); saveRun(true); }
+        else if (carried !== null && !shrineWrongSaid) { shrineWrongSaid = true; narrate(SHRINE_LINES.wrong); } } }
     if (scrapSpots.has(key)) { scrapSpots.delete(key); revealAround(tx, ty); pulse($('mapBtn')); AUDIO.pickup(); tutorial('scrap'); }
     if (lampSpot === key) { lampSpot = null; hasLamp = true; lampOn = true; $('lamp').classList.add('show', 'on'); pulse($('lamp')); AUDIO.lampOn(); tutorial('lamp'); }
     // a key is one use: it turns in its lock and stays there. Joe: "I'd expect these keys to be one

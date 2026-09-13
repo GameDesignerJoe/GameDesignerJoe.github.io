@@ -160,7 +160,29 @@ const TUTORIALS = {
   scrap:    { title: 'A scrap of map', why: "Torn from something larger. The hand that drew it was steady.", how: "It shows the halls around where it lay — a fifth of this place, near enough — and I've laid it into my own map. The rest is still mine to walk." },
   lamp:     { title: 'A lamp', why: "There are places here the walls have swallowed the light entirely.", how: "Lit, it throws a cone ahead of me, the way I'm facing, and a little warmth at my feet. I can douse it and light it again from the lamp beside my tools. In the dark, without it, I would see only myself." },
   door:     { title: 'A key', why: "Somewhere in here is a door with this shape on it. I've passed it, or I will.", how: "Doors like that don't open for anyone without the matching key. When I find one I can't open, I should leave a mark — I'll be coming back to it." },
+  offering: { title: 'A carved stone', why: "This belongs to somebody. The mark says who.", how: "Somewhere in here is a statue with a bowl at its feet, waiting for this. I can carry one stone at a time, so the rest I have to remember the way back to." },
   page:     { title: 'A page', why: "I am not the first here. I won't be the last.", how: "Someone wrote this down before they moved on. I'll keep what I find. The pages gather in Stories, where I can read them together." },
+};
+
+// ── the people he lost sight of ────────────────────────────────
+// Joe: "a man surrounded by loved ones, too lost in his own maze to see it. He's hurt those around
+// him, been hurt as well. We need the full picture." Four of them. Each statue in a maze is one of
+// these; each wants the stone carved with their mark. The father is dead, so what there is to make
+// is peace. The child is nearly grown, so what there is to make is time. What they say is the next
+// pass — for now they are marks on stone, and the lines below are placeholders that say so.
+const PEOPLE = [
+  { id: 'father', mark: 'bar',   name: 'my father' },
+  { id: 'child',  mark: 'arc',   name: 'my child' },
+  { id: 'spouse', mark: 'cross', name: 'my wife' },
+  { id: 'friend', mark: 'wave',  name: 'my friend' },
+];
+// what happens at the stones and the statues, before anyone has a voice. First pass; Joe rewrites.
+const SHRINE_LINES = {
+  pickup:   "A stone. Small, and carved. Somebody's mark.",
+  full:     "I can only hold one of these at a time.",
+  deliver:  "It settles into the bowl. The stone knows where the next page is, even if I don't.",
+  noPage:   "It settles into the bowl. There is nothing left in here for it to point to.",
+  wrong:    "This isn't the one it's waiting for.",
 };
 
 // ── the father, placed ──────────────────────────────────────────

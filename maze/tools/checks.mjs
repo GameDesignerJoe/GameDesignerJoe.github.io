@@ -102,6 +102,8 @@ const CHECKS = [
     for (const k of s.charcoalSpots) if (!onFloor(k)) bad.push(`charcoal ${k}`);
     if (s.keySpot && !onFloor(s.keySpot)) bad.push(`key ${s.keySpot}`);
     if (s.lampSpot && !onFloor(s.lampSpot)) bad.push(`lamp ${s.lampSpot}`);
+    for (const [k] of (s.offerings || [])) if (!onFloor(k)) bad.push(`stone ${k}`);
+    for (const sh of (s.shrines || [])) { if (!onFloor(K(sh.sx, sh.sy))) bad.push(`statue step ${K(sh.sx, sh.sy)}`); if (s.tiles[sh.y]?.[sh.x] !== '0') bad.push(`statue ${K(sh.x, sh.y)} stands on floor, not in stone`); }
     return bad.length ? bad.slice(0, 4).join(', ') + (bad.length > 4 ? ` (+${bad.length - 4})` : '') : null;
   }],
 
@@ -115,6 +117,8 @@ const CHECKS = [
     if (s.keySpot && !seen.has(s.keySpot)) bad.push(`exit key ${s.keySpot}`);
     if (s.lampSpot && !seen.has(s.lampSpot)) bad.push(`lamp ${s.lampSpot}`);
     for (const [x, y] of s.pockets) if (!seen.has(K(x, y))) bad.push(`pocket ${K(x, y)}`);
+    for (const [k, who] of (s.offerings || [])) if (!seen.has(k)) bad.push(`${who}'s stone ${k}`);
+    for (const sh of (s.shrines || [])) if (!seen.has(K(sh.sx, sh.sy))) bad.push(`${sh.who}'s statue step ${K(sh.sx, sh.sy)}`);
     return bad.length ? bad.slice(0, 4).join(', ') + (bad.length > 4 ? ` (+${bad.length - 4})` : '') : null;
   }],
 
@@ -232,6 +236,24 @@ const CHECKS = [
     if (!want) return null;
     return s.doors.length ? null
       : `phase asks for ${want} locked door${want > 1 ? 's' : ''} and the maze has none`;
+  }],
+
+  // Joe: "you find something in the maze that needs to go someplace else... This means that
+  // you'll have to backtrack." A statue with its stone lying at its feet is not a quest, it is a
+  // step. The generator aims for offeringMinTiles of walking and settles for the farthest dead end
+  // there is; the bar here is eight tiles and reads no knob, which is "not beside it" — the
+  // property Joe described, whatever the knob is set to.
+  ['each statue has its stone, and the stone lies well away from it', (s) => {
+    if (s.poolMode || !(s.shrines || []).length) return null;
+    const open = openTiles(s), bad = [];
+    for (const sh of s.shrines) {
+      const mine = (s.offerings || []).filter(([, who]) => who === sh.who);
+      if (mine.length !== 1) { bad.push(`${sh.who}'s statue has ${mine.length} stones`); continue; }
+      const d = dists(open, s.W, s.H, sh.sx, sh.sy).get(mine[0][0]);
+      if (d == null) bad.push(`${sh.who}'s stone at ${mine[0][0]} cannot be walked to from its statue`);
+      else if (d < 8) bad.push(`${sh.who}'s stone lies ${d} tiles from its statue at ${K(sh.sx, sh.sy)}`);
+    }
+    return bad.length ? bad.join('; ') : null;
   }],
 
   ['doors chain: each key is winnable before its door', (s) => {

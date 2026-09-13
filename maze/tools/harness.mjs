@@ -70,6 +70,7 @@ const snapshotInPage = (phaseIdx, stones, pool, seed, turns, clusterOpt) => {
     doors: doors.map((d) => ({ x: d.x, y: d.y, shape: d.shape, onRoute: !!d.onRoute })),
     districts: clusters.map((c) => ({ heart: c.heart, tx0: c.tx0, ty0: c.ty0, tx1: c.tx1, ty1: c.ty1 })),
     innerKeys: [...innerKeys.entries()],
+    shrines: shrines.map((s) => ({ x: s.x, y: s.y, sx: s.sx, sy: s.sy, who: s.who })), offerings: [...offerings.entries()],
     pockets: pockets.map(([x, y]) => [x, y]),
     sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, atStart: !!sl.atStart, onPath: !!sl.onPath, auto: !!sl.auto, gauntlet: !!sl.gauntlet })),
     crawlGaps: [...crawlGaps], crawlCells: [...crawlCells], secretTiles: [...secretTiles],

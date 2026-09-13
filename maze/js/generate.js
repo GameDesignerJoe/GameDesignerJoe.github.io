@@ -21,6 +21,8 @@ let scrapSpots = new Set();
 let doors = [];              // locked doors inside the maze: {x,y,shape,open}
 let innerKeys = new Map();   // 'x,y' → shape of the key lying there
 let heldKeys = new Set();    // shapes you carry
+let shrines = [];            // the statues: {x,y} where it stands (now wall), {sx,sy} the step with the bowl, who, mark, done
+let offerings = new Map();   // 'x,y' → PEOPLE id of the carved stone lying there
 let exitGateAt = 0;          // when the way out started to swing; 0 while it is still shut
 const KEY_SHAPES = ['circle', 'triangle', 'square'];
 let exitTree = new Set();    // cells of the squeeze tree guarding the way out
@@ -136,7 +138,7 @@ function generate(seed) {
 
 function buildMaze(seed) {
   const R = rng(seed);
-  protoMode = false; landmarks = []; sections = []; keyVaults = []; vaultRects = [];
+  protoMode = false; landmarks = []; sections = []; keyVaults = []; vaultRects = []; shrines = []; offerings = new Map();
   // a prototype replaces the maze outright: it sets everything this would have set, and returns
   if (!SAVE.poolPending && SAVE.ui.proto && SAVE.ui.proto !== 'off') {
     for (let i = 0; i < CONFIG.protoTries; i++) if (buildProto(seed + i * 7919, SAVE.ui.proto)) return;
@@ -1115,6 +1117,55 @@ function buildMaze(seed) {
   const taken = new Set();
   const free = () => deadEnds.filter(k => !taken.has(k));
   const pickFree = () => { const f = free(); return f.length ? f[R()*f.length|0] : null; };
+
+  // ── the statues, and the stones they wait for ─────────────────
+  // Joe: "a sort of mini quest where you find something in the maze that needs to go someplace
+  // else... This means that you'll have to backtrack around the maze and therefore mapping and
+  // chalk might be more useful. This is the statue idea." Each statue is one of the four people he
+  // lost sight of, and wants the small stone carved with their mark. They gate nothing — the
+  // journals are the game's only gate — so a satisfied one points its thread at the nearest page
+  // you have not found, which is the one thing you are still looking for by then.
+  //
+  // Claimed here, before the loot rolls, for the reason v0.88.0 measured: what claims its ground
+  // first gets placed, what sifts for a spot in what is left does not. A statue stands in a dead
+  // end — the tile itself becomes stone you can see and not cross, and the one tile before it is
+  // the step with the bowl. Its stone lies as far from it as the dead ends allow, by walking, so
+  // finding one means remembering the other. Own stream, so nothing downstream is redealt.
+  if (F.shrines && !poolMode && CONFIG.shrines > 0) {
+    const SR = rng(seed + 4001);
+    const who = PEOPLE.slice(); for (let i = who.length - 1; i > 0; i--) { const j = SR() * (i + 1) | 0; [who[i], who[j]] = [who[j], who[i]]; }
+    const okEnd = k => { const [x, y] = k.split(',').map(Number); return !crawlCells.has(k) && !crawlGaps.has(k) && !journals.has(k)
+      && !(startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1); };
+    // A statue turns its tile to stone, so the tile has to be a dead end in the *player's* model,
+    // not just isOpen()'s. A cell beside a pushable block reads as a dead end here — the block is
+    // wall until it is shoved — but it is a through-passage in play, and walling it off cut 26
+    // tiles adrift and the exit with them, three mazes in 576. Nothing that touches a slider, the
+    // route, or the exit alley gets a statue.
+    const slideTiles = new Set(sliders.flatMap(sl => [sl.x + ',' + sl.y, (sl.x + sl.dx) + ',' + (sl.y + sl.dy)]));
+    const alleySet = new Set(exitAlley.map(([x, y]) => x + ',' + y));
+    const standable = k => { const [x, y] = k.split(',').map(Number);
+      return !solutionKeys.has(k) && !alleySet.has(k) && !DIRS.some(([dx, dy]) => slideTiles.has((x + dx) + ',' + (y + dy))); };
+    for (let i = 0; i < CONFIG.shrines && i < who.length; i++) {
+      const cands = free().filter(okEnd).filter(standable).filter(k => { const [x, y] = k.split(',').map(Number); return !shrines.some(s => Math.abs(s.sx - x) + Math.abs(s.sy - y) < 4); });
+      if (!cands.length) break;
+      const k = cands[SR() * cands.length | 0]; const [x, y] = k.split(',').map(Number);
+      const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(x + ddx, y + ddy));
+      tiles[y][x] = 0; taken.add(k);   // the statue stands here now; the corridor ends one tile sooner
+      shrines.push({ x, y, sx: x + dx, sy: y + dy, who: who[i].id, mark: who[i].mark, done: false });
+    }
+    for (const sh of shrines) {
+      // walking distance out from the step, so "far from its statue" is the walk you make to bring it back
+      const d = new Map([[sh.sx + ',' + sh.sy, 0]]); const q = [[sh.sx, sh.sy]];
+      for (let h = 0; h < q.length; h++) { const [x, y] = q[h], dd = d.get(x + ',' + y); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, kk = nx + ',' + ny; if (isOpen(nx, ny) && !d.has(kk)) { d.set(kk, dd + 1); q.push([nx, ny]); } } }
+      const cands = free().filter(okEnd);
+      if (!cands.length) break;
+      const far = cands.filter(k => (d.get(k) ?? 0) >= CONFIG.offeringMinTiles);
+      const pool = (far.length ? far : cands).slice().sort((a, b) => (d.get(b) ?? 0) - (d.get(a) ?? 0));
+      const top = pool.slice(0, Math.max(1, Math.ceil(pool.length * 0.2)));   // the farthest fifth, then chance
+      const k = top[SR() * top.length | 0];
+      offerings.set(k, sh.who); taken.add(k);
+    }
+  }
   // How much floor one map fragment charts. The same sum revealAround() does in js/state.js: a
   // share of the floor, divided down for big mazes so X-Large gets a patch rather than a quarter
   // of the whole place. Both the spacing rule and the charcoal budget need it.

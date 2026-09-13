@@ -44,6 +44,7 @@ const grab = (phaseIdx, seed) => page.evaluate(([p, sd]) => {
     keySpot, lampSpot, gated,
     doors: doors.map((d) => ({ x: d.x, y: d.y, shape: d.shape, onRoute: !!d.onRoute })),
     innerKeys: [...innerKeys.entries()],
+    shrines: shrines.map((s) => ({ x: s.x, y: s.y, sx: s.sx, sy: s.sy, who: s.who })), offerings: [...offerings.entries()],
     pockets: pockets.map(([x, y]) => [x, y]),
     sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, atStart: !!sl.atStart, onPath: !!sl.onPath })),
     crawlGaps: [...crawlGaps], crawlCells: [...crawlCells],
@@ -120,6 +121,13 @@ const MUTATIONS = [
     // carve left nowhere legal to stand one, and the maze shipped without any.
     s.doors = [];
     s.innerKeys = [];
+  }],
+
+  ['a statue with its stone dropped at its own feet', 'each statue has its stone, and the stone lies well away from it', (s) => {
+    // no walk at all: the stone lies on the step in front of the statue it belongs to
+    const sh = s.shrines[0];
+    s.offerings = s.offerings.filter(([, who]) => who !== sh.who);
+    s.offerings.push([K(sh.sx, sh.sy), sh.who]);
   }],
 
   ['darkness pushed up against the start-room door', 'darkness keeps clear of the start-room door', (s) => {

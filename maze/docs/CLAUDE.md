@@ -482,6 +482,81 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The statues, and the stones they wait for (v0.89.0)
+
+Joe, from THOUGHTS: *"a sort of mini quest where you find something in the maze
+that needs to go someplace else in order for you to deal with some part of the
+burden or trauma of that character. This means that you'll have to backtrack
+around the maze and therefore mapping and chalk might be more useful. This is the
+statue idea."* And, deciding it: *"a man surrounded by loved ones, too lost in his
+own maze to see it. He's hurt those around him, been hurt as well. We need the
+full picture of it."*
+
+**What this batch is.** Deliveries exist. A carried thing with an identity, and a
+place that accepts it — statues are the first client, and the rose to the
+restaurant table is the second, for free. No words yet; that is the next pass.
+
+**The four people** (`PEOPLE`, `data/text.js`): the father, the child, the wife,
+the friend. Each has a mark — a bar, an arc, a cross, a wave — and none of the
+marks is a key's shape, so a stone never reads as a key. Two statues a maze from
+the Cartographer on, never the Child's: her chapter is already about waiting for
+a man who does not come, and statues would dilute it.
+
+**Where they stand.** A statue takes a dead end: the tile itself becomes stone you
+can see and not cross, and the one tile before it is the step with the bowl.
+Claimed *before* the loot rolls, for the reason v0.88.0 measured — what claims
+its ground first gets placed. Its stone lies as far away as the dead ends allow,
+by walking (`offeringMinTiles`, the same bar as a key from its door), so finding
+one means remembering the other. Own RNG stream (`seed + 4001`).
+
+**You carry one.** Find the second stone while holding the first and you cannot
+take it — you have to remember where it was and come back. That single rule
+manufactures the backtracking Joe wants, and it is the first thing in the game
+that makes the map matter for something other than the exit. `carryMax` is the
+number to test.
+
+**What a statue does.** Nothing gates on them — the journals are the game's only
+gate. Set the right stone in the bowl and the statue goes white and points its
+thread at the **nearest page you have not found**, for `shrineThreadSec`. Not the
+exit: by the time you have done an errand you have usually found the exit. The
+last page is the thing you are still hunting, so that is what the reward points
+at. If no page is left, it says so and points at nothing.
+
+**Two things measured wrong and fixed before shipping.**
+
+*A statue cut the maze in half.* Three small "You" mazes in 576: the statue took a
+cell beside a pushable block. To `isOpen()` that cell is a dead end — the block is
+wall until it is shoved — but in play it is a through-passage, and turning it to
+stone cut 26 tiles adrift and the exit with them. The same planner-versus-player
+mismatch as the v0.85.0 soft lock and the v0.87.0 fragments. Nothing that touches
+a slider, the route or the exit alley gets a statue now.
+
+*The statue was invisible two tiles away.* Sampled: `27,31,33`, which is wall. The
+ring of six goes dark until you are beside it and reads fine because it stands in
+a lit room; a lone figure at the end of a corridor did not. `shrineRestLight`
+keeps the figure lit and leaves only the glow to proximity. (The first screenshot
+that "proved" this actually had the statue one tile out of frame — check the
+framing before believing a rendering bug.)
+
+**Placement measured** over 320 mazes: 2.00 statues and 2.00 stones in every phase
+from the Cartographer on, 0 for the Child. Mean walk from statue to stone 53–116
+tiles by phase; the few under `offeringMinTiles` are stones behind a pushable
+block, which the plain walk cannot see and the player can shove.
+
+**Tests.** Harness PASS 576 with a new invariant — *each statue has its stone, and
+the stone lies well away from it* (bar eight tiles, reads no knob) — and the
+floor and reachability invariants extended to stones and steps. Selftest 15 of
+15, with a stone dropped at its statue's feet as the new breakage. Smoke 81, two
+new checks: one for placement across 210 mazes and one that walks it — picks a stone
+up, fails to take the second, is refused by the wrong bowl, is taken by the
+right one and lights a thread that ends on a page.
+
+**Not in this batch, on purpose.** The exchange — the question you are allowed to
+ask, the answer, the finished state that says its one line — and every word the
+four of them say. Real objects instead of stones (his watch, their drawing) are
+the version after that; Joe: *"that's the right answer. Let's do that for the
+second version."*
+
 ## The maze gets what the phase asked for (v0.88.0)
 
 From Joe's THOUGHTS list, and the first step of it: *"I think we're gonna have to

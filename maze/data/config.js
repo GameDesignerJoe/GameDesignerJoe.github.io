@@ -362,6 +362,23 @@ const CONFIG = {
   vaultShare: 0.3,      // the biggest share of a maze the nests may take. Below this they crowd out
                         // the route, and a door needs route left to sever
   maxCols: 40, maxRows: 56,   // and however the sum comes out, a maze stops here
+  // Joe: "a sort of mini quest where you find something in the maze that needs to go someplace
+  // else... This means that you'll have to backtrack around the maze and therefore mapping and
+  // chalk might be more useful. This is the statue idea." Two statues a maze, each one of the people
+  // he lost sight of; each wants a small carved stone that lies somewhere far from it. They gate
+  // nothing — the journals are the game's only gate — so a satisfied statue points its thread at
+  // the nearest page you have not found yet, which is the one thing you are still looking for.
+  shrines: 2,           // statues a maze, from the Cartographer on. One is a fetch quest, four a chore
+  offeringMinTiles: 24, // a stone lies at least this far from its statue, walking — same bar as a key
+                        // from its door — and as far as the dead ends allow beyond it
+  carryMax: 1,          // stones carried at once. One, so the second has to be remembered and come
+                        // back for: that is the backtrack, and the first reason the map matters
+                        // for something other than the exit. A number to test, not a law
+  shrineThreadSec: 20,  // how long a satisfied statue's thread to the nearest unfound page stays lit
+  shrineRestLight: 0.45,// how lit a statue stays when nobody is near. The ring of six goes dark and reads
+                        // fine in a lit room; alone at the end of a corridor it vanished. This is the floor
+  offeringR: 0.17,      // a stone's radius in tiles. Smaller than the basin's stones on purpose, so
+                        // the two never read as the same thing; if they still do, the basin grows
   doorVaultTries: 40,   // how many route tiles a door will look at before it settles. Every one of
                         // them severs the route; it takes the first that also leaves a nest in the
                         // section it closes, nearest the even spacing first. This is what actually

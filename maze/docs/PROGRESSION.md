@@ -119,6 +119,9 @@ well, which is a hole you cannot walk into, and since v0.84.0 the pool, whose
 water shifts in rings under you); **one or two key vaults** in every level, with
 the doors placed so that their keys lie inside them; dead ends as loot slots;
 tunnels; pockets and sliders; swings; the exit alley and its shimmering oval;
+**two statues a maze**, each one of the four people he lost sight of, each waiting for
+the stone with their mark that lies far across the maze — carried one at a time, gating
+nothing, pointing a thread at the nearest unfound page when satisfied (v0.89.0);
 **a chain of locked doors with hidden keys**, placed under distance rules and,
 since v0.88.0, guaranteed — the maze is rebuilt until it holds the doors its phase
 asked for, rather than quietly shipping with fewer;

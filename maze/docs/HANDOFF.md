@@ -307,6 +307,18 @@ the sort is cached on the array.
 Rails were drawn under swings and removed — they read as a tunnel. No helper
 card for sliders: Joe wants this discovered.
 
+### Statues and stones (v0.89.0)
+
+Two a maze from the Cartographer on, each one of four people (`PEOPLE`: father,
+child, wife, friend) with a mark on a small stone. The statue takes a dead end —
+its tile turns to stone, the tile before it is the step with the bowl — and its
+stone lies as far away as the dead ends allow. **You carry one stone at a time**;
+the second is remembered and come back for. They gate nothing: the right stone in
+the bowl turns the statue white and points its thread at the **nearest unfound
+page**, not the exit. Claimed before the loot, like the vaults, and never on a cell
+beside a slider — that cut three mazes in half before it shipped. The words are
+the next pass; real objects instead of stones the one after.
+
 ### Doors and keys
 
 Locked doors are a **chain along the route**: door 1 splits the maze, its key in

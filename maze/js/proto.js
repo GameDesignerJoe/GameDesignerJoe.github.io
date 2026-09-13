@@ -34,7 +34,7 @@ function protoReset(cols, rows) {
   W = CONFIG.cols * 2 + 1 + 2 * P; H = CONFIG.rows * 2 + 1 + 2 * P;
   tiles = Array.from({ length: H }, () => new Uint8Array(W));
   journals = new Map(); pickups = new Map(); chalkSpots = new Set(); charcoalSpots = new Set();
-  scrapSpots = new Set(); doors = []; innerKeys = new Map(); heldKeys = new Set();
+  scrapSpots = new Set(); doors = []; innerKeys = new Map(); heldKeys = new Set(); shrines = []; offerings = new Map();
   crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null;
   figures = []; darkTiles = new Set(); darkFringe = new Map(); lampSpot = null; keySpot = null;
   sealedGaps = []; pockets = []; tunnelTiles = new Set(); clusters = []; sliders = [];

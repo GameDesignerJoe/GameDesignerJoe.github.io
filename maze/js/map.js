@@ -59,6 +59,9 @@ function drawMap() {
   for (const k of scrapSpots) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.mapFloor; mctx.strokeStyle = C.wall; mctx.lineWidth = 1; mctx.fillRect(px - S*0.18, py - S*0.14, S*0.36, S*0.28); mctx.strokeRect(px - S*0.18, py - S*0.14, S*0.36, S*0.28); }
   for (const k of charcoalSpots) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.charcoal; mctx.strokeStyle = C.exit; mctx.lineWidth = 1; mctx.fillRect(px - S*0.16, py - S*0.08, S*0.32, S*0.16); mctx.strokeRect(px - S*0.16, py - S*0.08, S*0.32, S*0.16); }
   for (const [k, kind] of pickups) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = kind === 'pointer' ? C.pointerPickup : C.pathPickup; mctx.beginPath(); mctx.arc(px, py, S*0.18, 0, Math.PI*2); mctx.fill(); }
+  // carved stones still lying where you saw them, and the statues waiting for them
+  for (const [k, who] of offerings) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.wall; mctx.beginPath(); mctx.ellipse(px, py, S*0.2, S*0.15, 0, 0, Math.PI*2); mctx.fill(); mctx.strokeStyle = C.key; mctx.lineWidth = Math.max(1, S*0.06); drawMark(mctx, (PEOPLE.find(p => p.id === who) || {}).mark, px, py, S*0.1); }
+  for (const sh of shrines) if (seen(sh.sx + ',' + sh.sy)) { const [px, py] = T(sh.x, sh.y); mctx.fillStyle = sh.done ? '#e9e2d0' : C.shelf; mctx.beginPath(); mctx.ellipse(px, py, S*0.16, S*0.24, 0, 0, Math.PI*2); mctx.fill(); mctx.strokeStyle = C.key; mctx.lineWidth = Math.max(1, S*0.06); drawMark(mctx, sh.mark, px, py + S*0.44, S*0.1); }
   // chalk marks
   mctx.strokeStyle = C.mark;
   for (const [k, g] of marks) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); drawGlyph(mctx, g, px, py, S*0.22, Math.max(1.5, S*0.09)); }
@@ -177,6 +180,14 @@ $('again').addEventListener('click', () => { if (SAVE.finished && phase().who ==
 // shelf positions: left wall (4) and bottom wall (3) — never the top row or right column, where the slider lives
 const SHELF_SPOTS = (x0, y0, y1) => [ [x0, y0+1, 'v'], [x0, y0+2, 'v'], [x0, y0+3, 'v'], [x0, y1, 'v'], [x0+1, y1, 'h'], [x0+2, y1, 'h'], [x0+3, y1, 'h'] ];
 // a lock/key shape
+// the marks the four people carve on their stones. None is a key's shape, so a stone never reads as a
+// key. Caller sets strokeStyle and lineWidth; this only draws.
+function drawMark(c, mark, px, py, r) { c.lineCap = 'round'; c.beginPath();
+  if (mark === 'bar') { c.moveTo(px, py - r); c.lineTo(px, py + r); }
+  else if (mark === 'arc') { c.arc(px, py - r*0.25, r, 0.1*Math.PI, 0.9*Math.PI); }
+  else if (mark === 'cross') { c.moveTo(px - r, py - r); c.lineTo(px + r, py + r); c.moveTo(px + r, py - r); c.lineTo(px - r, py + r); }
+  else { c.moveTo(px - r, py); c.quadraticCurveTo(px - r*0.5, py - r*1.2, px, py); c.quadraticCurveTo(px + r*0.5, py + r*1.2, px + r, py); }
+  c.stroke(); }
 function drawShape(c, shape, px, py, r, color, lw) { c.strokeStyle = color; c.lineWidth = lw; c.lineJoin = 'round'; c.beginPath();
   if (shape === 'circle') c.arc(px, py, r, 0, Math.PI*2); else if (shape === 'triangle') { c.moveTo(px, py - r); c.lineTo(px + r*0.95, py + r*0.7); c.lineTo(px - r*0.95, py + r*0.7); c.closePath(); } else c.rect(px - r*0.85, py - r*0.85, r*1.7, r*1.7);
   c.stroke(); }

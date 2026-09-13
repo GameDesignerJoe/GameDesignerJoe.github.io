@@ -16,6 +16,7 @@ function serializeRun() {
     chalkSpots: [...chalkSpots], charcoalSpots: [...charcoalSpots], scrapSpots: [...scrapSpots], pickups: [...pickups.entries()], journals: [...journals.entries()],
     pointerLeft: Math.max(0, pointerUntil - gameNow()), pathLeft: Math.max(0, pathUntil - gameNow()), pathArmed, pointerUses, pathUses, journalsRead,
     sliders: sliders.map(sl => sl.shifted), figures: figures.map(f => f.gone), doorsOpen: doors.map(d => d.open), innerKeys: [...innerKeys.entries()], heldKeys: [...heldKeys],
+    shrinesDone: shrines.map(s => s.done), offerings: [...offerings.entries()], carried, shrinePath, shrineLeft: Math.max(0, shrineUntil - gameNow()),
     hopIdx, hopSaid, tttSaid, crawlSaid, secretOn, narrQueue, narrLeft: Math.max(0, narrNext - gameNow()), wakeDone: true,
   };
 }
@@ -53,11 +54,12 @@ function restoreRun(run) {
   (run.doorsOpen || []).forEach((o, i) => { if (doors[i]) { doors[i].open = o; doors[i].openAt = 0; } });   // openAt 0 means it finished swinging before the reload
   exitGateAt = 0;   // and a gate that opened before the reload is drawn already open, not swinging
   if (run.innerKeys) innerKeys = new Map(run.innerKeys); heldKeys = new Set(run.heldKeys || []); renderKeys();
+  (run.shrinesDone || []).forEach((d, i) => { if (shrines[i]) shrines[i].done = !!d; }); if (run.offerings) offerings = new Map(run.offerings); carried = run.carried ?? null; renderCarried(); shrinePath = run.shrinePath || [];
   hopIdx = run.hopIdx; hopSaid = run.hopSaid; tttSaid = run.tttSaid; crawlSaid = run.crawlSaid; secretOn = !!run.secretOn; secretLitAt = secretOn ? -1e9 : 0; narrQueue = run.narrQueue || narrQueue;
   lastTileKey = Math.floor(player.x) + ',' + Math.floor(player.y);
   updateChalk(); updateCharcoal(); updateBooks();
   if (hasKey) (poolMode ? $('stone') : keyEl).classList.add('show'); if (hasLamp) { $('lamp').classList.add('show'); $('lamp').classList.toggle('on', lampOn); }
-  const g0 = gameNow(); t0 = g0 - run.t; pointerUntil = run.pointerLeft ? g0 + run.pointerLeft : 0; pathUntil = run.pathLeft ? g0 + run.pathLeft : 0; pathArmed = !!run.pathArmed; pathFoundAt = 0; narrNext = leftRoom ? g0 + Math.max(4000, run.narrLeft) : Infinity;
+  const g0 = gameNow(); t0 = g0 - run.t; pointerUntil = run.pointerLeft ? g0 + run.pointerLeft : 0; pathUntil = run.pathLeft ? g0 + run.pathLeft : 0; shrineUntil = run.shrineLeft ? g0 + run.shrineLeft : 0; pathArmed = !!run.pathArmed; pathFoundAt = 0; narrNext = leftRoom ? g0 + Math.max(4000, run.narrLeft) : Infinity;
   if (run.atHome) return;   // stay asleep on the mat; tapping the sleeper begins, and starts the sound
   // straight into the maze, no title: the fade lifts on you where you stood
   document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx * zoomMul(); started = true;

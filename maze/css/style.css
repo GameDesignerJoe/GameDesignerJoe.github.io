@@ -80,6 +80,9 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #stone.show { display:block; }
 #keys { position:fixed; top:calc(env(safe-area-inset-top) + 50px); right:14px; display:flex; gap:6px; }
 #keys svg { width:22px; height:22px; }
+/* the carved stone you carry, under the keys */
+#carried { position:fixed; top:calc(env(safe-area-inset-top) + 80px); right:14px; display:flex; gap:6px; }
+#carried svg { width:22px; height:22px; }
 #key { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:14px; width:32px; height:32px; display:none; }
 #key.show { display:block; }
 #fx { position:fixed; top:calc(env(safe-area-inset-top) + 50px); left:50%; transform:translateX(-50%); display:flex; gap:8px; pointer-events:none; }

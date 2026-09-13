@@ -53,6 +53,14 @@ function beat(el) { if (!CONFIG.charcoalBeatMs) return; el.classList.remove('bea
 function spentPulse(el) { if (!CONFIG.charcoalSpentMs) return; el.classList.remove('spent'); void el.offsetWidth; el.classList.add('spent'); }
 function keyGlyph(shape, color) { const c = color || '#e0c98a'; return shape === 'circle' ? `<circle cx="11" cy="11" r="6" fill="none" stroke="${c}" stroke-width="2.4"/>` : shape === 'triangle' ? `<path d="M11 4l7 13H4z" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round"/>` : `<rect x="5" y="5" width="12" height="12" fill="none" stroke="${c}" stroke-width="2.4"/>`; }
 function renderKeys() { $('keys').innerHTML = [...heldKeys].map(sh => `<svg viewBox="0 0 22 22">${keyGlyph(sh)}</svg>`).join(''); }
+// the carved stone you hold, if any — one at a time, so the second is a thing to remember the way back to
+let carried = null, carryFullSaid = false, shrineWrongSaid = false;
+let shrinePath = [], shrineUntil = 0;   // a satisfied statue's thread to the nearest page you had not found
+// the four people's marks, as SVG. None of them a key's shape, so a stone never reads as a key.
+function markGlyph(mark, color) { const c = color || '#e0c98a', a = `fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"`;
+  return mark === 'bar' ? `<path d="M11 6v11" ${a}/>` : mark === 'arc' ? `<path d="M5 9a6 6 0 0 0 12 0" ${a}/>` : mark === 'cross' ? `<path d="M6 6l10 10M16 6L6 16" ${a}/>` : `<path d="M4 12c2-5 4 5 7 0s5 5 7 0" ${a}/>`; }
+function renderCarried() { const el = $('carried'); if (!el) return; const p = PEOPLE.find(p => p.id === carried);
+  el.innerHTML = p ? `<svg viewBox="0 0 22 22"><ellipse cx="11" cy="12" rx="8.5" ry="6.5" fill="#3a3a3a" stroke="#e0c98a" stroke-width="1.2"/>${markGlyph(p.mark)}</svg>` : ''; }
 function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
 // one thin bar per page this maze holds, filling in as you find them: how many there are to get,
 // and how many you have, without a number to read
@@ -133,7 +141,7 @@ function reset(seed) {
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; moveVel = 0; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
-  pointerUntil = pathUntil = 0; pathArmed = false; pathFoundAt = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; shelfStandKey = ''; shelfStandAt = 0; shelfShown = ''; pagesThisRun = []; heldKeys = new Set(); renderKeys(); crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; tttWon = false; secretSaid = false; secretOn = false; secretLitAt = 0; figureLinesSaid = 0; hasKey = false; exitGateAt = 0; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
+  pointerUntil = pathUntil = 0; pathArmed = false; pathFoundAt = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; shelfStandKey = ''; shelfStandAt = 0; shelfShown = ''; pagesThisRun = []; heldKeys = new Set(); renderKeys(); carried = null; carryFullSaid = false; shrineWrongSaid = false; renderCarried(); shrinePath = []; shrineUntil = 0; crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; tttWon = false; secretSaid = false; secretOn = false; secretLitAt = 0; figureLinesSaid = 0; hasKey = false; exitGateAt = 0; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalLock = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal();
   if (startRoom) { const { x0, y0, x1, y1 } = startRoom; for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mapped.set(x+','+y, isOpen(x, y) ? 'floor' : 'wall'); }   // home is always on the map keyEl.classList.remove('show');
   { const mine = SELF_LINES[character.name] || SELF_LINES['You'];

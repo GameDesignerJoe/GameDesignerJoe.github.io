@@ -798,6 +798,16 @@ function draw() {
     ctx.stroke(); ctx.globalAlpha = 1;
   }
 
+  // a satisfied statue's thread: from its step to the nearest page you had not found, lit for
+  // shrineThreadSec and fading. The same stitch as the thread to the exit, a different destination.
+  if (shrineUntil > nowMs && shrinePath.length) {
+    const fade = Math.min(1, (shrineUntil - nowMs) / (CONFIG.shrineThreadSec * 1000));
+    ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(2, S*0.12); ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.9 * fade; ctx.beginPath();
+    shrinePath.forEach(([x,y], i) => { const [px, py] = T(x, y); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
   // chalk pickups
   ctx.fillStyle = C.chalk;
   for (const k of chalkSpots) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
@@ -817,6 +827,30 @@ function draw() {
     const py = py0 - Math.sin(nowMs / (CONFIG.journalFloatSec * 1000) * Math.PI * 2 + (mx * 7 + my * 13)) * S * CONFIG.journalFloat;
     ctx.fillStyle = C.journal; ctx.beginPath(); ctx.moveTo(px - S*0.22, py - S*0.14); ctx.lineTo(px, py - S*0.08); ctx.lineTo(px + S*0.22, py - S*0.14); ctx.lineTo(px + S*0.22, py + S*0.14); ctx.lineTo(px, py + S*0.2); ctx.lineTo(px - S*0.22, py + S*0.14); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = C.wall; ctx.lineWidth = Math.max(1, S*0.025); ctx.beginPath(); ctx.moveTo(px, py - S*0.08); ctx.lineTo(px, py + S*0.2); ctx.stroke(); }
+  // carved stones: small and dark, the mark cut into the top in light. Smaller than the basin's
+  // stones on purpose, so the two never read as one thing.
+  for (const [k, who] of offerings) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my); const r = S * CONFIG.offeringR;
+    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(px, py + r*0.15, r, r*0.78, 0.3, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1, S*0.03); drawMark(ctx, (PEOPLE.find(p => p.id === who) || {}).mark, px, py, r*0.5); }
+  // the statues: one figure on its tile, the bowl on the step before it, the mark it waits for cut
+  // above the bowl. Dark until you are near, like the ring of six; white and steady once its stone
+  // is in — the dead at rest, or someone finally answered.
+  for (const sh of shrines) { const [px, py] = T(sh.x, sh.y); const [bx, by] = T(sh.sx, sh.sy);
+    const near = Math.hypot(player.x - (sh.x + 0.5), player.y - (sh.y + 0.5));
+    // The ring of six goes fully dark until you are beside it, and reads fine because it stands in
+    // a lit room. A lone statue at the end of a dark corridor does not: sampled two tiles out it
+    // painted 27,31,33 — wall — and the thing Joe wants "present on the map" was not there to see.
+    // So the figure keeps a resting light and only the glow is proximity's.
+    const nearLit = Math.max(0, 1 - near / CONFIG.columnLightTiles);
+    const lit = sh.done ? 1 : Math.max(CONFIG.shrineRestLight, nearLit);
+    if (nearLit > 0.01) { const glow = ctx.createRadialGradient(px, py, 0, px, py, S*0.95); glow.addColorStop(0, `rgba(201,185,138,${(0.22*nearLit).toFixed(3)})`); glow.addColorStop(1, 'rgba(201,185,138,0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(px, py, S*0.95, 0, Math.PI*2); ctx.fill(); }
+    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(px, py, S*0.28, S*0.33, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = sh.done ? '#e9e2d0' : C.shelf; ctx.globalAlpha = sh.done ? 1 : 0.42 + 0.48*lit;
+    ctx.beginPath(); ctx.ellipse(px, py - S*0.04, S*0.18, S*0.25, 0, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = sh.done ? '#e9e2d0' : C.wall; ctx.beginPath(); ctx.arc(px, py - S*0.18, S*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S*0.04); ctx.beginPath(); ctx.ellipse(bx, by, S*0.22, S*0.14, 0, 0, Math.PI*2); ctx.stroke();
+    if (sh.done) { ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(bx, by, S*0.1, S*0.07, 0.3, 0, Math.PI*2); ctx.fill(); }
+    ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1, S*0.03); drawMark(ctx, sh.mark, bx, by - S*0.3, S*0.1); }
   // map scraps: a torn corner of paper
   for (const k of scrapSpots) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
     ctx.fillStyle = C.mapFloor; ctx.beginPath(); ctx.moveTo(px - S*0.2, py - S*0.16); ctx.lineTo(px + S*0.16, py - S*0.2); ctx.lineTo(px + S*0.2, py + S*0.12); ctx.lineTo(px + S*0.02, py + S*0.2); ctx.lineTo(px - S*0.18, py + S*0.14); ctx.closePath(); ctx.fill();
