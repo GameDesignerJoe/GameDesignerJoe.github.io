@@ -48,6 +48,30 @@ real numbers per phase is worth an hour of guessing.
 Name the metric before you measure it. Key-to-door distance got measured twice with
 the wrong one — straight-line, then walking *through* the door being measured from.
 
+### Measuring without burning an hour
+
+Generation is the slow thing in this project, and nothing changes that: **about
+40ms a maze**, so 840 mazes is ~35s and 2100 is ~90s. It is the same in a headless
+browser and in bare Node — the browser is *not* the overhead, so do not go looking
+for a faster runtime. Going wide costs what it costs; the savings are all in going
+wide fewer times.
+
+- **Sweep inside one run. Never `sed` a knob and re-run.** The probe already runs
+  in the page: set `CONFIG.<knob>` between passes and loop the values in a single
+  script. Eight `sed`-and-re-run cycles for one `vaultMax` sweep cost about five
+  minutes and should have been one 35-second run. It also removes the risk of a
+  run measuring a config you already edited back.
+- **Explore at 120 seeds per self, confirm the winner at 300.** 840 mazes ranks
+  options perfectly well; only the final two candidates are worth 2100. Differences
+  under about 5% are noise at the smaller size — say so rather than reading them.
+- **Measure in the page, with `SAVE` stated.** A bare Node bundle of the data and
+  `generate.js` loads and runs, but gives *different numbers on the same seeds*,
+  because generation reads `SAVE.ui` and `SAVE.collected` that other scripts set.
+  Set every `SAVE` field your metric depends on explicitly, in the probe.
+- **Stop when the data has answered.** One cycle this batch built a two-pass door
+  placer to fix an over-counting model the instrumentation had already shown was
+  not the dominant failure. It changed nothing in 840 mazes and was deleted.
+
 ## 4. Build one group
 
 - New tuning goes in a `CONFIG` knob in `maze/data/config.js`, commented.
@@ -62,10 +86,26 @@ the wrong one — straight-line, then walking *through* the door being measured 
 
 ```
 python3 -m http.server 8765          # must be up, or every run errors
-node maze/tools/smoke.mjs            # behaviour
-node maze/tools/selftest.mjs         # proves the invariants can fail
-node maze/tools/harness.mjs          # generation invariants, ~90s
+node maze/tools/smoke.mjs            # behaviour, ~4 min
+node maze/tools/selftest.mjs         # proves the invariants can fail, ~90s
+node maze/tools/harness.mjs          # generation invariants across 576 mazes, ~90s
 ```
+
+**Run the three at once.** They are separate read-only processes over the same
+files and the same server, so they do not conflict; serially they are about seven
+minutes and together about four. Wait on all three and read all three — a suite
+that errored looks nothing like one that failed.
+
+**How much to run depends on what you touched**, and Joe set this dial:
+
+| the change touches | run |
+|---|---|
+| generation (`generate.js`, `proto.js`, any `CONFIG` knob they read) | all three, every time |
+| render, UI, text, audio, movement | smoke, plus look at it |
+
+Generation is the one where a change 200 lines away silently invalidates an
+invariant, which is the whole reason the harness exists. Nothing else in the game
+has that property.
 
 - **Look at it.** A Playwright shot at 430×900, `deviceScaleFactor: 2`. Landscape
   too if it touches layout.
@@ -75,8 +115,10 @@ node maze/tools/harness.mjs          # generation invariants, ~90s
 - **When a check goes red after an unrelated change, suspect the check.** Four did
   in v0.75.0 and all four were brittle: a frame count, a five-seed search, an
   averaged pixel sample, and a probe parked in the path of the swing it watched.
-- The harness has **known deferred failures** (the door-key soft lock). Report the
-  count; do not fix it.
+- **The harness is clean and has been since v0.85.0.** Older notes said it carried
+  a deferred door-key soft lock; that was fixed. PASS 576 is the expected result,
+  so treat *any* red as this batch's until proven otherwise — and check whether
+  `HEAD` is red too before you believe it is yours.
 
 ## 6. Ship
 
@@ -126,6 +168,30 @@ his call: give him the numbers rather than settling it yourself.
 - Check the edit landed. A scripted edit whose `assert` throws writes nothing, and
   the next command may still run against stale numbers.
 - Instrument by the second hypothesis, not the sixth.
-- One background job at a time, never one editing files a foreground job is editing.
+- One background job at a time **that writes**. Read-only jobs — the three suites,
+  a probe — can run together freely; two jobs editing the same file cannot, and a
+  `sed` on `config.js` while a measurement is loading it is exactly that.
+
+### Working in parallel, and when agents are worth it
+
+Most of what looks parallelisable here is not, because it shares one working tree
+and one `config.js`. Before reaching for an agent, ask whether the work needs a
+*different copy of the files*. If it does not, a background job or a loop inside
+one script is simpler and safer.
+
+- **Fan out, no agent needed:** the three suites; several independent probes; any
+  set of read-only measurements.
+- **Worth an agent, with `isolation: "worktree"`:** measuring the **baseline**.
+  Comparing `HEAD` against your change means two different versions of the same
+  files, so doing it in the main tree means stashing, running, and restoring —
+  serial, and one interrupted run from losing work. An agent with its own worktree
+  measures `HEAD` while you keep building. Give it the exact probe to run and ask
+  for the numbers back, nothing else.
+- **Never:** two agents sweeping knobs in the same tree. They will overwrite each
+  other's `config.js` and both report numbers for a config neither one set. The
+  fix for a sweep is a loop in one script, not more agents.
+- An agent starts with none of this context, so anything needing judgement about
+  Joe's intent, a trade-off, or whether a check is brittle stays with you. Send out
+  work whose answer is a number.
 - Confirm a suite passed **before** writing it into a commit message. An errored run
   looks nothing like a failing one.

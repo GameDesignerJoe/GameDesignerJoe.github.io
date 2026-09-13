@@ -300,7 +300,7 @@ in `../tools/` (it was missing from the repo; rebuilt 2026-09-09):
 
 ```
 python3 -m http.server 8765          # in another terminal
-node maze/tools/harness.mjs          # generation invariants across ~1900 mazes
+node maze/tools/harness.mjs          # generation invariants across 576 mazes
 node maze/tools/smoke.mjs            # boot, walk, mark, save/reload, pool
 node maze/tools/selftest.mjs         # proves the invariants can fail
 ```
