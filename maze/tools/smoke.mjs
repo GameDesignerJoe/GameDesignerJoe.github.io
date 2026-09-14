@@ -2683,6 +2683,23 @@ check('every shelf and basin line can be reached, however many there are',
   `with 3 lines all 3 come up, with 4 all 4, with 7 all 7; carrying every page you get the last of `
   + `the ${spread.have} there are. A fourth line used to be unreachable, so the page could not offer one`);
 
+// maze/writer.html is generated from data/text.js, so it can go stale the moment anyone edits a
+// line — and a writer editing a stale page is writing into a copy of the game that no longer
+// exists. Builds are reproducible (the page carries a fingerprint of the text, not a timestamp),
+// so this is a byte comparison.
+{
+  const { buildPage } = await import('./writer-page.mjs');
+  const onDisk = readFileSync(new URL('../writer.html', import.meta.url), 'utf8');
+  const fresh = buildPage();
+  const stamp = (t) => (t.match(/"stamp":"([a-f0-9]+)"/) || [])[1] || '?';
+  check('the writer page matches the text it is meant to show',
+    onDisk === fresh,
+    onDisk === fresh
+      ? `built from text ${stamp(fresh)}, ${(onDisk.length / 1024).toFixed(0)}KB`
+      : `the committed page was built from text ${stamp(onDisk)} and the text is now ${stamp(fresh)}. `
+        + 'Run: node maze/tools/writer-page.mjs > maze/writer.html   (and republish the artifact)');
+}
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

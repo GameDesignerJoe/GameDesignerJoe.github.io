@@ -138,6 +138,17 @@ commit if it is red — if it blocks you, the suite is telling you something tru
 
 Commit messages end with the attribution footer (see `maze/docs/CLAUDE.md`).
 
+### If you touched `data/text.js`, rebuild the writer's page
+
+Joe writes in `maze/writer.html`, which is **generated** from `data/text.js`. Change a
+line in the game and his page is showing a version that no longer exists.
+
+    node maze/tools/writer-page.mjs > maze/writer.html
+
+Then republish the artifact so the copy he opens from claude.ai matches too — that one
+is the one that saves. A smoke check fails if the committed page and the text disagree,
+so this is hard to forget, but the republish is not checked and is yours to remember.
+
 ### Before you commit, one question about the docs
 
 Not "update the docs" — most of what is in them is *why*, and why does not rot.

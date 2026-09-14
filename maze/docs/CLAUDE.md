@@ -54,6 +54,31 @@ Three things worth not relearning:
   against a pairwise reference over 88 mazes. Rooms are closer together than that
   doc first said. Two of them can even land on the same tile — 1 maze in 30 for
   The Archivist — which is a placement bug still open.
+## The writer's page, in the repo (v0.98.0)
+
+Joe: *"My expectations that you would make this writer.HTML page in the GitHub. I don't
+see it there."* Fair — the generator was committed and the artifact published, but the
+page itself never landed in the repo, which is where he went looking.
+
+`maze/writer.html` is committed now, so it opens from
+`gamedesignerjoe.github.io/maze/writer.html` like the game does. Three things had to be
+true first, and the third was a real bug:
+
+- **It had to save somewhere.** There is no `window.claude` on GitHub Pages, so that copy
+  keeps the work in `localStorage` and offers **Copy changes**, which puts every edit on
+  the clipboard to paste into the chat. The claude.ai copy still saves to the store I can
+  read directly. Both now say which one you are in, rather than one silently doing nothing.
+- **It had to be reproducible.** The page carried `built: new Date()`, so every build
+  differed from the last and *"is the committed page stale?"* was unanswerable. It carries
+  a fingerprint of the text instead. Two builds are byte-identical.
+- **Mojibake.** No `<meta charset>`: the artifact wrapper supplies one, GitHub Pages does
+  not, so every em-dash came through as `â€"` and the page laid out at desktop width on a
+  phone. Both metas are in the generated file now; the wrapper ignores them.
+
+**A generated file in the repo rots**, which is this session's recurring lesson, so smoke
+fails when `writer.html` and `data/text.js` disagree and names the command to fix it. The
+republish is not checked and stays a human step — it is in the skill's ship section.
+
 ## Adding a line, per event rather than per block (v0.96.0)
 
 Joe, on the first cut of the writer's page: *"I might want to write a new line for the
