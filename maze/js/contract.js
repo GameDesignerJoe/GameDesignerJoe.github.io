@@ -132,6 +132,10 @@ const CONTRACT = (() => {
     const floor = dS.size;
     const direct = dS.get(K(ex, ey)) ?? -1;
     const far = Math.max(...dS.values());
+    // how much of the maze lies further from the start than the exit does. A maze you
+    // can only finish by passing everything reads 0%; one where the exit is the first
+    // far thing you meet reads high.
+    const beyond = floor ? [...dS.values()].filter((v) => v > direct).length / floor : 0;
 
     const vaultAt = new Set(keyVaults.map((v) => K(v.cx, v.cy)));
     const keyList = [...innerKeys.keys()];
@@ -163,15 +167,42 @@ const CONTRACT = (() => {
       }
     }
 
-    // how far a room is from the nearest other room, walking
+    // How far a room is from the nearest other room, walking. One flood from every
+    // room at once, each tile keeping which room reached it and how far: where two
+    // rooms' territories meet, the two distances plus the step between them is a
+    // route from one to the other, and the smallest such meeting is the closest
+    // pair. A flood per room gave the same answer and cost fifteen of them in an
+    // xl maze, which was most of what made this too slow to run per build.
     let roomGap = 0;
     if (landmarks.length > 1) {
-      let worst = Infinity;
-      for (let a = 0; a < landmarks.length; a++) {
-        const dA = dists(open, landmarks[a].x, landmarks[a].y);
-        for (let b = a + 1; b < landmarks.length; b++) {
-          const v = dA.get(K(landmarks[b].x, landmarks[b].y));
-          if (v != null && v < worst) worst = v;
+      // Seed every room, whether or not its own tile is floor — a statue stands in
+      // the wall, and dropping those from the flood was worth up to 46 tiles of
+      // overstatement before the naive version caught it. Two rooms on one tile is
+      // a gap of nothing.
+      const src = new Map(), dist = new Map(), q = [];
+      let same = false;
+      landmarks.forEach((l, i) => {
+        const k = K(l.x, l.y);
+        if (src.has(k)) { same = true; return; }
+        src.set(k, i); dist.set(k, 0); q.push([l.x, l.y]);
+      });
+      for (let h = 0; h < q.length; h++) {
+        const [x, y] = q[h], k = K(x, y);
+        for (const [dx, dy] of DIRS) {
+          const nk = K(x + dx, y + dy);
+          if (!open.has(nk) || src.has(nk)) continue;
+          src.set(nk, src.get(k)); dist.set(nk, dist.get(k) + 1); q.push([x + dx, y + dy]);
+        }
+      }
+      let worst = same ? 0 : Infinity;
+      for (const [k, si] of src) {
+        const [x, y] = k.split(',').map(Number);
+        for (const [dx, dy] of DIRS) {
+          const nk = K(x + dx, y + dy);
+          const sj = src.get(nk);
+          if (sj == null || sj === si) continue;
+          if (!open.has(k) && !open.has(nk)) continue;   // no walk joins two wall tiles
+          worst = Math.min(worst, dist.get(k) + dist.get(nk) + 1);
         }
       }
       roomGap = isFinite(worst) ? worst : 0;
@@ -181,6 +212,9 @@ const CONTRACT = (() => {
 
     return {
       floor,
+      doors: doors.length,
+      doorsOnRoute: doors.filter((d) => solutionPath.some(([x, y]) => x === d.x && y === d.y)).length,
+      beyond,
       keys: keyList.length, vaulted,
       allVaulted: keyList.length > 0 && vaulted === keyList.length,
       exitGuard: exitTree.size, gated: !!gated,
@@ -198,17 +232,22 @@ const CONTRACT = (() => {
   // closer than 18 tiles. `keysVaulted: 'all'` means no key left in a hall. A
   // clause a phase does not name is not checked — a chapter with no doors is
   // not failing to vault its keys.
+  // `weight` is only ever used to rank one build against another when generate()
+  // is choosing which maze to ship. It is a priority order, not a score anyone
+  // reads: keys buried is Joe's first complaint and outranks the rest together,
+  // because a build that gains a threshold by leaving a key in a hall is not a
+  // better maze. Whether a clause is MET is never weighted — a miss is a miss.
   const CLAUSES = {
-    keysVaulted: { label: 'keys buried', got: (m) => (m.keys ? m.vaulted : null),
+    keysVaulted: { weight: 32, label: 'keys buried', got: (m) => (m.keys ? m.vaulted : null),
       ok: (m, want) => !m.keys || (want === 'all' ? m.allVaulted : m.vaulted >= want),
       show: (m) => (m.keys ? `${m.vaulted}/${m.keys}` : '—') },
-    exitGuard: { label: 'exit guarded', got: (m) => m.exitGuard, ok: (m, want) => m.exitGuard >= want,
+    exitGuard: { weight: 8, label: 'exit guarded', got: (m) => m.exitGuard, ok: (m, want) => m.exitGuard >= want,
       show: (m) => `${m.exitGuard} tiles` },
-    keyDetour: { label: 'key is a walk', got: (m) => m.keyDetour, ok: (m, want) => !m.keys || m.keyDetour >= want,
+    keyDetour: { weight: 2, label: 'key is a walk', got: (m) => m.keyDetour, ok: (m, want) => !m.keys || m.keyDetour >= want,
       show: (m) => (m.keys ? `${Math.round(m.keyDetour)} tiles` : '—') },
-    roomGap: { label: 'rooms apart', got: (m) => m.roomGap, ok: (m, want) => m.rooms < 2 || m.roomGap >= want,
+    roomGap: { weight: 4, label: 'rooms apart', got: (m) => m.roomGap, ok: (m, want) => m.rooms < 2 || m.roomGap >= want,
       show: (m) => (m.rooms < 2 ? '—' : `${m.roomGap} tiles`) },
-    thresholds: { label: 'maze divides', got: (m) => m.thresholds, ok: (m, want) => m.thresholds >= want,
+    thresholds: { weight: 1, label: 'maze divides', got: (m) => m.thresholds, ok: (m, want) => m.thresholds >= want,
       show: (m) => `${m.thresholds}` },
   };
 
@@ -223,5 +262,20 @@ const CONTRACT = (() => {
 
   const met = (m, must) => grade(m, must).every((g) => g.ok);
 
-  return { measure, grade, met, CLAUSES, thresholds, openTiles, dists };
+  // Ranking one build against another, weights above. Separate from grade() on
+  // purpose: grade says what the maze is, this says which of two to keep.
+  const weigh = (g) => g.reduce((a, c) => a + (c.ok ? (CLAUSES[c.key].weight || 1) : 0), 0);
+
+  // The part of the contract that costs nothing: how many keys lie in a nest is a
+  // set lookup, while everything else needs floods and a Tarjan over the whole
+  // floor. generate() ranks on this first and only pays for the rest when a build
+  // is already at least as good here — which is what keeps a level load from
+  // measuring a dozen mazes it was never going to ship.
+  function cheap() {
+    const vaultAt = new Set(keyVaults.map((v) => K(v.cx, v.cy)));
+    const keyList = [...innerKeys.keys()];
+    return { doors: doors.length, keys: keyList.length, vaulted: keyList.filter((k) => vaultAt.has(k)).length };
+  }
+
+  return { measure, grade, met, weigh, cheap, CLAUSES, thresholds, openTiles, dists };
 })();

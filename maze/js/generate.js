@@ -111,29 +111,73 @@ function standOn(tx0, ty0, tx1, ty1, want) {
 // three, and no number of re-rolls changes that. That is the architecture, not the dice, and it is
 // why the three-door phases now ask for two. The rest of that answer is the rewrite Joe is pointing
 // at in THOUGHTS — building the maze around the content instead of sifting the content into it.
+// Clauses the maze that actually shipped could not meet, from the chapter's MUST row. Empty when it
+// met everything, which is the normal case for a chapter whose contract is reachable. This is the
+// half that was missing before: the loop always did settle for the best it could find, and never
+// said so, which is how "keys should be in vaults" could read as met while 97% of mazes had one
+// lying in a hall. Read by the debug panel and by tools/quality.mjs.
+let contractMiss = [];
+
 function generate(seed) {
   buildMaze(seed);
+  contractMiss = [];
   if (protoMode || poolMode) return;
-  const want = phase().f.doors || 0;
-  if (!want) return;
-  // Score a build by what it holds: the doors first, because a missing door is a missing lock, then
-  // how many of its keys lie in a nest rather than a hall. Both are things Joe asked for, and the
-  // loop is already running — taking the first build that meets the doors throws away the better
-  // one two seeds later for nothing.
-  const score = () => doors.length * 1000 + [...innerKeys.keys()].filter(k => keyVaults.some(v => v.cx + ',' + v.cy === k)).length;
-  let best = { s: score(), seed }, lastSeed = seed, since = 0;
-  const full = () => doors.length >= want && score() % 1000 >= Math.min(want, keyVaults.length);
-  const met = () => Math.floor(best.s / 1000) >= want;   // the best so far has all its doors
-  if (full()) return;
+  const F = phase();
+  const must = (typeof MUST !== 'undefined' && MUST[F.who]) || null;
+  const want = F.f.doors || 0;
+  if (!want && !must) return;
+
+  // Rank a build in two tiers, because the second one is expensive. Tier one is free — the doors,
+  // because a missing door is a missing lock and no clause makes up for one, then how many keys lie
+  // in a nest, which is a set lookup and is Joe's first complaint. Tier two is the rest of the
+  // contract, which costs floods and a Tarjan over the whole floor, and is only paid for by a build
+  // that is already at least as good on tier one. That gate is most of what keeps an xl level load
+  // from measuring a dozen mazes it was never going to ship.
+  //
+  // Weighting matters here and the first cut of it was wrong. With every clause worth the same, a
+  // build could win by picking up a threshold while dropping a key into a hall, and 20 of 20 Soldier
+  // mazes shipped with a loose key — exactly the bug this was written to fix. keysVaulted outranks
+  // the rest together now; see the weights in contract.js.
+  //
+  // CONTRACT is defined in a script that loads after this one. Only this function body reads it, and
+  // by then everything is up.
+  const rank = (c, w) => c.doors * 100000 + c.vaulted * 1000 + w;
+  const look = (bestCheap) => {
+    const c = CONTRACT.cheap();
+    // strictly worse where it is free to tell: not worth measuring
+    if (bestCheap && (c.doors < bestCheap.doors || (c.doors === bestCheap.doors && c.vaulted < bestCheap.vaulted))) {
+      return { cheap: c, s: rank(c, 0), g: null, full: false };
+    }
+    const g = must ? CONTRACT.grade(CONTRACT.measure(), must) : [];
+    return { cheap: c, g, s: rank(c, CONTRACT.weigh(g)),
+             full: c.doors >= want && g.every((x) => x.ok) };
+  };
+
+  let cur = look(null);
+  if (cur.full) return;
+  let best = { s: cur.s, seed, cheap: cur.cheap, miss: cur.g.filter((c) => !c.ok) };
+  let lastSeed = seed, since = 0;
   for (let i = 1; i < CONFIG.manifestTries; i++) {
-    if (met() && since >= CONFIG.manifestSettle) break;   // only stop early once the doors are in
+    // Settle once the doors are in and more builds stop buying clauses. Without this a chapter
+    // holding a clause the generator cannot reach — `thresholds` is one, deliberately — would run
+    // every try on every level load and pay for it in load time, forever, for nothing.
+    if (best.cheap.doors >= want && since >= CONFIG.manifestSettle) break;
     lastSeed = seed + i * 7919;
     buildMaze(lastSeed);
-    const sc = score();
-    if (sc > best.s) { best = { s: sc, seed: lastSeed }; since = 0; } else since++;
-    if (full()) return;
+    cur = look(best.cheap);
+    const better = cur.s > best.s && cur.g;
+    // Patience is spent on tier one only. A build that buys a threshold or a few tiles of room gap
+    // is worth keeping, but it is not a reason to keep looking — and letting those reset the counter
+    // ran 9.6 builds a maze at xl, 800ms of level load, for clauses that mostly cannot be met anyway.
+    // Keys are what more tries can actually buy, so keys are what the loop waits on.
+    const gained = cur.cheap.doors > best.cheap.doors
+      || (cur.cheap.doors === best.cheap.doors && cur.cheap.vaulted > best.cheap.vaulted);
+    if (better) best = { s: cur.s, seed: lastSeed, cheap: cur.cheap, miss: cur.g.filter((c) => !c.ok) };
+    if (gained) since = 0; else since++;
+    if (cur.full) return;
   }
   if (best.seed !== lastSeed) buildMaze(best.seed);   // settle for the fullest one we saw
+  contractMiss = best.miss;                           // and this time, say what it cost
 }
 
 function buildMaze(seed) {

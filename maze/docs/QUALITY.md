@@ -1,6 +1,6 @@
 # Is it worth walking? — the baseline
 
-<!-- reviewed: v0.93.0 — measured against the game at v0.93.0, which is what this doc is -->
+<!-- reviewed: v0.94.0 — re-measured against the game at v0.94.0, which is what this doc is -->
 
 Joe, on the maze editor thread: *"I can say these words to you, but I don't see
 you bringing the imagination to pull it off. I still find keys not in vaults
@@ -35,22 +35,38 @@ one phase at a time, and default to the Child's size rather than the phase's, so
 pass `--size` to match `PHASES`. 30 seeds a self throughout; differences under
 about 5% at that count are noise.
 
-## What a maze holds (v0.93.0, 30 seeds)
+## What a maze holds (v0.94.0, 30 seeds)
 
-| self | size | floor | keys vaulted | **every key** | doors on route | exit at | beyond | locked | gauntlet | rooms | districts | room gap min/med |
+| self | size | floor | keys vaulted | **every key** | exit at | beyond | locked | gauntlet | rooms | room gap min/med | divides | **fell short** |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| The Child | md | 502 | — | — | 0 | 0.72 | 22% | 0% | **16** | 4.6 | 0.4 | 14 / 21 |
-| The Cartographer | md | 625 | 93% | **93%** | 1 | 0.76 | 22% | 0% | 0 | 3.4 | 0.9 | 20 / 24 |
-| The Soldier | md | 641 | 43% | **3%** | 2 | 0.75 | 24% | 0% | 0 | 3.7 | 0.5 | 13 / 19 |
-| The Archivist | lg | 1270 | 48% | **0%** | 2 | 0.81 | 14% | 0% | 0 | 11.1 | 1.1 | 6 / 13 |
-| The Priest | lg | 1245 | 40% | **3%** | 2 | 0.79 | 16% | 0% | 0 | 7.2 | 1.9 | 12 / 20 |
-| The Criminal | lg | 1242 | 33% | **0%** | 2 | 0.78 | 18% | 53% | 0 | 7.4 | 2.0 | 12 / 18 |
-| The One Who Stayed | xl | 2456 | 50% | **0%** | 2 | 0.84 | 10% | 0% | 0 | 14.9 | 4.0 | 9 / 20 |
-| You | sm | 315 | 77% | **77%** | 1 | 0.83 | 14% | 0% | 0 | 1.7 | 0.1 | 9 / 9 |
+| The Child | md | 503 | — | — | 0.69 | 23% | 0% | **17** | 4.0 | 6 / 18 | 1.57 | 13% |
+| The Cartographer | md | 624 | 93% | **93%** | 0.79 | 18% | 0% | 0 | 3.2 | 10 / 16 | 0.27 | 100% |
+| The Soldier | md | 640 | 43% | **3%** | 0.76 | 24% | 0% | 0 | 3.5 | 2 / 12 | 0.10 | 100% |
+| The Archivist | lg | 1269 | 48% | **0%** | 0.82 | 15% | 0% | 0 | 11.0 | **0** / 8 | 0.20 | 100% |
+| The Priest | lg | 1246 | 40% | **3%** | 0.80 | 16% | 0% | 0 | 7.2 | 8 / 12 | 0.07 | 100% |
+| The Criminal | lg | 1241 | 33% | **0%** | 0.79 | 16% | 50% | 0 | 7.2 | 6 / 10 | 0.10 | 100% |
+| The One Who Stayed | xl | 2459 | 50% | **0%** | 0.85 | 10% | 0% | 0 | 15.0 | 6 / 10 | 0.03 | 100% |
+| You | sm | 316 | 77% | **77%** | 0.85 | 12% | 0% | 0 | 1.7 | **0** / 14 | 0.87 | 100% |
 
 *every key* is the share of mazes where no key is loose. *exit at* is walking
 distance to the exit over the maze's far point. *beyond* is how much floor lies
 further out than the exit. *gauntlet* is squeeze-tree tiles guarding the way out.
+*fell short* is the share of mazes `generate()` could not build to the chapter's
+`MUST` row — new in v0.94.0, and the number that was missing all along.
+
+**The room gap column is lower than the v0.93.0 printing of this doc, and the
+old numbers were wrong.** `quality.mjs` carried its own copy of the measurement
+and it took a room's distance to another room from a flood that could *start* at
+a well but never *finish* at one — and 17% of landmarks are wells, which stand
+in the wall. So a well was invisible as a destination and the gap read high, by
+up to 46 tiles on one Child maze. There is one measurement now, `js/contract.js`,
+checked against a pairwise reference over 88 mazes with no mismatch. Rooms are
+closer together than this doc first said, not further apart.
+
+**Two rooms can land on the same tile.** 1 maze in 30 for The Archivist and 1 in
+16 for You, with 7 of 30 Archivist mazes putting two rooms within 4 tiles. That
+is a placement bug rather than a tuning one, and it is the sharp end of *"rooms
+are not landing."*
 
 ## How long it takes (`bots.mjs`, 30 seeds, 200 explorer runs a maze)
 
@@ -184,6 +200,56 @@ The other two — districts, and a maze that takes 10–20 minutes — **cannot 
 reached from the current config at all.** The best knob in the game tops out at
 0.96 thresholds and costs a third of the maze. A tuning tool would find that
 ceiling faster; it would not move it.
+
+## What enforcing the contract did, and did not, do (v0.94.0)
+
+`generate()` now builds against the chapter's `MUST` row and records what it
+could not meet in `contractMiss`. The prediction when this was proposed was that
+making the requirement hard would collect three of the five. **It did not. The
+keys did not move at all:**
+
+| self | every key, before | every key, after |
+|---|---|---|
+| The Cartographer | 93% | 93% |
+| The Soldier | 3% | 3% |
+| The Archivist | 0% | 0% |
+| The Priest | 3% | 3% |
+| The Criminal | 0% | 0% |
+| The One Who Stayed | 0% | 0% |
+| You | 77% | 77% |
+
+The reason, in hindsight, is in the old code: the retry loop was *already*
+ranking builds by keys-in-nests as a tiebreaker. It was doing its best the whole
+time. Writing the same preference down as a requirement does not give the loop
+anything new to find — a maze with both keys buried turns up in about 3% of
+builds, and five or six tries cannot reliably find one. **A requirement the
+generator cannot satisfy is not made satisfiable by insisting.**
+
+So the lesson is the opposite of the one this doc started with. The three
+"contract failures" are not fixed by a contract. What the contract bought is
+narrower and still worth having:
+
+- **The shortfall is now visible.** Every chapter but The Child fails its row in
+  100% of mazes, and says which clauses. That number did not exist before, and
+  its absence is exactly how "keys should be in vaults" stayed shipped-and-broken.
+- **It holds a line.** A later change that makes any of this worse now has
+  somewhere to go red.
+- **It costs about what it did before.** Same number of builds a maze as
+  v0.93.0 — 9.3 at md, 8.4 at lg, 9.2 at xl — plus 8ms (md), 17ms (lg) and 38ms
+  (xl) of measuring. Worth knowing: an xl level load was *already* ~760ms of
+  building before any of this, because the loop already ran nine builds.
+
+One thing did move, and it moved because of a mistake worth recording. The first
+cut weighted every clause equally, and 20 of 20 Soldier mazes then shipped with a
+loose key, because a build could win by gaining a threshold while dropping a key
+into a hall. Weighting `keysVaulted` above the rest together put it back. Equal
+weights are not neutral; they are a claim that Joe's first complaint matters as
+much as his last.
+
+**What would actually fix the keys** is placement, not selection: put the key in
+a nest rather than build mazes until one lands there. That is a change to how
+keys are assigned, it is a generation change of its own, and it belongs in its
+own batch.
 
 ## Where the targets live now
 

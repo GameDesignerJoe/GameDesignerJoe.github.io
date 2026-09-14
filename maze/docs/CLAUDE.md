@@ -492,6 +492,47 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The maze is built to a contract now, and says when it cannot be (v0.94.0)
+
+`data/phases.js` grew a `MUST` row per chapter — keys buried, exit guarded, key
+detour, rooms apart, thresholds — and `generate()` builds against it.
+`js/contract.js` measures and grades; `tuner.html` draws a block of mazes with
+every miss called out. The full account is `docs/QUALITY.md`.
+
+**The headline is a negative result, and it is the useful part.** Enforcing the
+contract did not improve the keys at all: every-key-buried stayed at 3% for The
+Soldier, 0% for The Archivist and The Criminal. The old retry loop was already
+ranking builds by keys-in-nests as a tiebreaker, so writing that preference down
+as a requirement gave it nothing new to find. A maze with both keys buried turns
+up in about 3% of builds and five tries cannot reliably find one. **Insisting on
+a requirement does not make it reachable.** What would fix it is placement — put
+the key in a nest instead of building mazes until one lands there — and that is
+its own batch.
+
+What the contract did buy: the shortfall is visible for the first time
+(`contractMiss`, and a "fell short" column in `tools/quality.mjs`), every chapter
+but The Child misses its row in 100% of mazes, and a later change that makes any
+of it worse now has somewhere to go red.
+
+Three things worth not relearning:
+
+- **Equal clause weights are not neutral.** The first cut scored every clause the
+  same and 20 of 20 Soldier mazes shipped with a loose key, because a build could
+  win by gaining a threshold while dropping a key into a hall. `keysVaulted`
+  outweighs the rest together now.
+- **Patience is spent on tier one only.** Letting a gained threshold reset the
+  retry counter ran 9.6 builds a maze at xl. It waits on keys, which is what more
+  tries can actually buy. Build counts now match v0.93.0 exactly; the only added
+  cost is 8/17/38ms of measuring at md/lg/xl. An xl level load was already ~760ms
+  before any of this.
+- **The room-gap numbers in the first printing of QUALITY.md were wrong**, and so
+  was the copy of the measurement in `tools/quality.mjs` that produced them: its
+  flood could start at a well but never finish at one, and 17% of landmarks are
+  wells standing in the wall. One measurement now, in `contract.js`, checked
+  against a pairwise reference over 88 mazes. Rooms are closer together than that
+  doc first said. Two of them can even land on the same tile — 1 maze in 30 for
+  The Archivist — which is a placement bug still open.
+
 ## The seed on the picture, and the T he could not pass (v0.93.0)
 
 Joe, with two screenshots of a T junction: *"I've seen this issue a couple times

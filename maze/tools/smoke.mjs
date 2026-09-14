@@ -654,7 +654,16 @@ const gswing = await page.evaluate(async () => {
     { const home = !!tiles[sl.y][sl.x];
       if (wasHome !== null && home !== wasHome) seen.moves++;
       wasHome = home; }
-    if (performance.now() - t0 > 4000) return r();
+    // Eight seconds, not four, and the reason is measured. The swing's dwells are
+    // asymmetric — about 2.07s at one end and 1.28s at the other, a full cycle of
+    // ~3.35s — and `nextAt = 0` starts it at a random phase. A four-second window
+    // therefore held two transitions on a lucky phase and only ONE on an unlucky
+    // one, so this check was passing on the phase the seed happened to land on
+    // rather than on the behaviour. v0.94.0 moved which maze ships and the phase
+    // went the other way. Eight seconds spans two whole cycles from any start, so
+    // a working swing always shows at least four changes and a pinned one still
+    // shows none.
+    if (performance.now() - t0 > 8000) return r();
     requestAnimationFrame(step); }; step(); });
   CONFIG.swingSeconds = wasSec;
   return { at: [sl.x, sl.y], into: [sl.dx, sl.dy], seen,
@@ -663,7 +672,7 @@ const gswing = await page.evaluate(async () => {
 check('the gauntlet floor slides out of the way and comes back',
   gswing.skip || (gswing.seen.moves >= 2 && gswing.onRoute),
   gswing.skip ? 'no gauntlet swing in 40 Child mazes' :
-  `the cell at ${gswing.at} is on the route out; it left toward ${gswing.into} and came back ${gswing.seen.moves} times over four seconds (floor ${gswing.seen.home} frames, hole ${gswing.seen.away})`);
+  `the cell at ${gswing.at} is on the route out; it left toward ${gswing.into} and came back ${gswing.seen.moves} times over eight seconds (floor ${gswing.seen.home} frames, hole ${gswing.seen.away})`);
 
 // ── 8i. the pool room's gate ──────────────────────────────────────
 // It used to slide aside the moment you picked the stone up. Now you have to carry the stone to

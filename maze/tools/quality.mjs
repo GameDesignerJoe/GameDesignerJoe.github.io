@@ -49,8 +49,11 @@ await page.goto(`http://127.0.0.1:${PORT}/maze/maze-topdown.html?seed=1`, { wait
 await page.waitForTimeout(900);
 
 const rows = await page.evaluate(([SEEDS, ONE_PHASE, ONE_SIZE]) => {
-  const K = (x, y) => x + ',' + y;
-  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  // The measurement itself is js/contract.js, which the game loads and the tuner
+  // loads. This tool used to carry its own copy and the copy was wrong: it took a
+  // room's distance to another room from a flood that could start at a well but
+  // never finish at one, so 17% of landmarks were invisible as destinations and
+  // the gap read high. One definition now, in one place.
   const phases = ONE_PHASE == null ? PHASES.map((_, i) => i) : [Number(ONE_PHASE)];
   const out = [];
 
@@ -58,83 +61,22 @@ const rows = await page.evaluate(([SEEDS, ONE_PHASE, ONE_SIZE]) => {
     // the phase's own size unless one was named, so this table cannot drift
     // away from PHASES when Joe moves a self up a size
     const size = ONE_SIZE || PHASES[ph].size;
-    const recs = [];
+    const recs = [], missed = {};
+    let shortfall = 0;
 
     for (let i = 0; i < SEEDS; i++) {
       // every SAVE field generate() reads, set explicitly: a maze measured
       // against a save another script left behind is a maze nobody played
       SAVE.phase = ph; SAVE.stones = ph; SAVE.poolPending = false;
-      SAVE.collected = []; SAVE.pushLearned = true;
+      SAVE.collected = {}; SAVE.pushLearned = true;
       SAVE.ui = { size };
       delete SAVE.run;
       generate(4242 + i * 137);
 
-      // Open floor the way checks.mjs counts it for reachability: a slider's
-      // home tile and the tile it shoves into are both passable, because the
-      // player can shift it and shift it back. Without this the flood never
-      // leaves the sealed start room, which is 25 tiles and looks like a maze
-      // with no exit in it.
-      const openSet = new Set();
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) openSet.add(K(x, y));
-      for (const sl of sliders) { openSet.add(K(sl.x, sl.y)); openSet.add(K(sl.x + sl.dx, sl.y + sl.dy)); }
-      if (startGap) openSet.add(K(startGap[0], startGap[1]));
-
-      // walking distance over that floor. Doors are ignored on purpose: this
-      // measures the shape of the place, and bots.mjs prices the locks.
-      const dist = (sx, sy) => {
-        const d = new Map([[K(sx, sy), 0]]);
-        const q = [[sx, sy]];
-        for (let h = 0; h < q.length; h++) {
-          const [x, y] = q[h], dv = d.get(K(x, y));
-          for (const [dx, dy] of DIRS) {
-            const nx = x + dx, ny = y + dy;
-            if (!openSet.has(K(nx, ny)) || d.has(K(nx, ny))) continue;
-            d.set(K(nx, ny), dv + 1); q.push([nx, ny]);
-          }
-        }
-        return d;
-      };
-
-      const dS = dist(Math.floor(start.x), Math.floor(start.y));
-      const floorN = dS.size;
-      const toExit = dS.get(K(Math.floor(exit.x), Math.floor(exit.y))) ?? -1;
-      const far = Math.max(...dS.values());
-      // how much of the maze lies further from the start than the exit does. A
-      // maze you can only finish by passing everything reads 0%; one where the
-      // exit is the first far thing you meet reads high.
-      const beyond = floorN ? [...dS.values()].filter((v) => v > toExit).length / floorN : 0;
-
-      const vaultAt = new Set(keyVaults.map((v) => K(v.cx, v.cy)));
-      const keys = [...innerKeys.keys()];
-
-      // how far a landmark is from the nearest other landmark, walking
-      const gaps = [];
-      for (let a = 0; a < landmarks.length; a++) {
-        const dA = dist(landmarks[a].x, landmarks[a].y);
-        let near = Infinity;
-        for (let b = 0; b < landmarks.length; b++) {
-          if (a === b) continue;
-          const v = dA.get(K(landmarks[b].x, landmarks[b].y));
-          if (v != null && v < near) near = v;
-        }
-        if (isFinite(near)) gaps.push(near);
-      }
-      gaps.sort((p, q2) => p - q2);
-
-      recs.push({
-        floorN, toExit, far, beyond,
-        keys: keys.length,
-        vaulted: keys.filter((k) => vaultAt.has(k)).length,
-        allVaulted: keys.length > 0 && keys.every((k) => vaultAt.has(k)) ? 1 : 0,
-        doors: doors.length,
-        onRoute: doors.filter((d) => solutionPath.some(([x, y]) => x === d.x && y === d.y)).length,
-        gated: gated ? 1 : 0,
-        gauntlet: exitTree.size,
-        landmarks: landmarks.length,
-        districts: clusters.length,
-        gapMin: gaps.length ? gaps[0] : 0,
-        gapMed: gaps.length ? gaps[gaps.length >> 1] : 0,
-      });
+      const m = CONTRACT.measure();
+      recs.push(m);
+      if (contractMiss.length) shortfall++;
+      for (const c of contractMiss) missed[c.key] = (missed[c.key] || 0) + 1;
     }
 
     const avg = (f) => recs.reduce((a, r) => a + f(r), 0) / recs.length;
@@ -142,22 +84,26 @@ const rows = await page.evaluate(([SEEDS, ONE_PHASE, ONE_SIZE]) => {
     const keysTot = sum((r) => r.keys);
     // mazes that have keys at all — a phase with no doors is not failing to vault them
     const withKeys = recs.filter((r) => r.keys > 0).length;
+    const gapped = recs.filter((r) => r.rooms > 1).map((r) => r.roomGap).sort((a, b) => a - b);
     out.push({
       phase: ph, who: PHASES[ph].who, size,
-      floor: Math.round(avg((r) => r.floorN)),
+      floor: Math.round(avg((r) => r.floor)),
       doors: +avg((r) => r.doors).toFixed(1),
-      onRoute: +avg((r) => r.onRoute).toFixed(1),
-      vaultPct: keysTot ? Math.round(100 * sum((r) => r.vaulted) / keysTot) : null,
-      allVaultPct: withKeys ? Math.round(100 * sum((r) => r.allVaulted) / withKeys) : null,
-      toExit: Math.round(avg((r) => r.toExit)),
-      depth: +(avg((r) => r.toExit) / avg((r) => r.far)).toFixed(2),
+      onRoute: +avg((r) => r.doorsOnRoute).toFixed(1),
       beyondPct: Math.round(100 * avg((r) => r.beyond)),
-      gatedPct: Math.round(100 * avg((r) => r.gated)),
-      gauntlet: Math.round(avg((r) => r.gauntlet)),
-      landmarks: +avg((r) => r.landmarks).toFixed(1),
+      vaultPct: keysTot ? Math.round(100 * sum((r) => r.vaulted) / keysTot) : null,
+      allVaultPct: withKeys ? Math.round(100 * recs.filter((r) => r.allVaulted).length / withKeys) : null,
+      detour: withKeys ? Math.round(avg((r) => r.keyDetour)) : null,
+      depth: +avg((r) => r.exitDepth).toFixed(2),
+      gatedPct: Math.round(100 * avg((r) => (r.gated ? 1 : 0))),
+      gauntlet: Math.round(avg((r) => r.exitGuard)),
+      landmarks: +avg((r) => r.rooms).toFixed(1),
+      gapMin: gapped.length ? gapped[0] : null,
+      gapMed: gapped.length ? gapped[gapped.length >> 1] : null,
+      thresholds: +avg((r) => r.thresholds).toFixed(2),
       districts: +avg((r) => r.districts).toFixed(1),
-      gapMin: Math.round(avg((r) => r.gapMin)),
-      gapMed: Math.round(avg((r) => r.gapMed)),
+      shortPct: Math.round(100 * shortfall / SEEDS),
+      missed,
     });
   }
   return out;
@@ -169,8 +115,8 @@ if (flag('json')) {
   const pct = (v) => (v == null ? '—' : v + '%');
   console.log('\nThe Maze — is it worth walking?');
   console.log(`  ${SEEDS} seeds a self · each at its own size unless --size said otherwise\n`);
-  console.log('  self                 size  floor   keys vaulted  every key  doors  on route  exit at  beyond  locked  gauntlet  rooms  districts  gap (min/med)');
-  console.log('  ' + '─'.repeat(134));
+  console.log('  self                 size  floor   keys vaulted  every key  doors  on route  exit at  beyond  locked  gauntlet  rooms  gap min/med  divides  fell short');
+  console.log('  ' + '─'.repeat(140));
   for (const r of rows) {
     console.log(
       '  ' + `${r.phase} ${r.who}`.padEnd(21)
@@ -185,8 +131,11 @@ if (flag('json')) {
       + `${(r.gatedPct + '%').padEnd(8)}`
       + `${String(r.gauntlet).padEnd(10)}`
       + `${String(r.landmarks).padEnd(7)}`
-      + `${String(r.districts).padEnd(11)}`
-      + `${r.gapMin} / ${r.gapMed}`);
+      + `${(r.gapMin == null ? '—' : r.gapMin + ' / ' + r.gapMed).padEnd(13)}`
+      + `${String(r.thresholds).padEnd(9)}`
+      + `${r.shortPct}%` + (Object.keys(r.missed).length
+          ? '  ' + Object.entries(r.missed).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ')
+          : ''));
   }
   console.log(`
   keys vaulted  share of all keys lying in a nest rather than a hall.
@@ -196,7 +145,11 @@ if (flag('json')) {
   exit at       walking distance to the exit as a share of the maze's far point.
   beyond        how much of the floor lies further out than the exit does.
   gauntlet      tiles of the squeeze tree guarding the way out. 0 = nothing guards it.
-  gap           walking distance from a room to its nearest neighbour, min and median.
+  gap           walking distance between the two closest rooms, min and median over the sweep.
+  divides       thresholds: places the maze splits in two. See docs/QUALITY.md.
+  fell short    share of mazes generate() could not build to the chapter's MUST row, and
+                which clauses it could not meet. This is the number that was missing:
+                the loop always did settle for the best it could find, and never said so.
 
   Time to finish is bots.mjs; thresholds and districts you can feel are shape.mjs.`);
 }
