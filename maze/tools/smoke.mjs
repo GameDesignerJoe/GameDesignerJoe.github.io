@@ -1877,6 +1877,40 @@ const tag = await page.evaluate(async () => {
   SAVE.ui.nav = false; narrEl.className = '';
   return { text, here, nb, top: CONFIG.navTagTop, vh: innerHeight, who: phase().who };
 });
+// Joe, seed 5855848, tiles 123 and 124: "anytime there's a 'plus' shape for a squeeze it
+// doesn't let you cross through one of the sides. This one won't let me go up or down.
+// Only left to right." A crawl gap or crawl cell open on both axes held him on the axis
+// its shape suggested, and the clamp pulled every step on the other axis straight back.
+// Every open arm of every such tile must let him through, in every seed that has one.
+const plus = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const prevMove = SAVE.ui.move; SAVE.ui.move = 'rooms';
+  const tried = [], stuck = []; let tiles3 = 0;
+  for (const seed of [5855848, 4242, 77, 9001, 31337, 2024]) {
+    SAVE.phase = 0; reset(seed); sliding = null; started = true; await nap(60);
+    if (!phase().f.crawl) continue;
+    const arms = (x, y) => DIRS.map(([dx, dy]) => isOpen(x + dx, y + dy));
+    for (const k of [...crawlGaps, ...crawlCells]) {
+      const [x, y] = k.split(',').map(Number); const a = arms(x, y);
+      if (!isOpen(x, y) || a.filter(Boolean).length < 3) continue;
+      tiles3++;
+      for (let i = 0; i < 4; i++) { if (!a[i]) continue; const [dx, dy] = DIRS[i];
+        player.x = x + 0.5; player.y = y + 0.5; dir = null; recenter = null; moveVel = 0;
+        held = { dx, dy }; stickAim = { x: dx, y: dy }; await nap(900); held = null; stickAim = null;
+        const went = dx ? (player.x - x - 0.5) * dx : (player.y - y - 0.5) * dy;
+        tried.push(went); if (went < 0.3) stuck.push(`seed ${seed} tile ${navNumberAt(x, y)} ${['right', 'left', 'down', 'up'][i]} (${went.toFixed(2)})`); }
+    }
+    if (tiles3 >= 8) break;
+  }
+  SAVE.ui.move = prevMove; dir = null; held = null;
+  return { tiles3, arms: tried.length, stuck };
+});
+check('a squeeze open on both axes lets him through every one of its arms',
+  plus.tiles3 > 0 && plus.stuck.length === 0,
+  plus.tiles3 ? `${plus.tiles3} three- and four-armed squeeze tiles, ${plus.arms} arms walked; stuck on ${plus.stuck.length}`
+    + (plus.stuck.length ? `: ${plus.stuck.slice(0, 4).join('; ')}` : '')
+    : 'no squeeze tile with three or more open arms in the seeds tried');
+
 check('the nav view tag names chapter, seed and tile, and sits below the narrator line',
   tag.text.includes(`seed 4242`) && tag.text.includes(tag.who) && tag.text.includes(`tile ${tag.here} of`)
     && tag.top - 4 >= tag.nb && tag.top < tag.vh * 0.25,
@@ -2579,6 +2613,75 @@ check('Reset save erases the save and restarts the game, asleep at the beginning
     && resetGame.panelClosed && !resetGame.started && resetGame.pre && resetGame.newSeed && resetGame.hasMaze,
   `from a run at phase 3: save cleared (${resetGame.stored === null}), phase ${resetGame.phase}, ${resetGame.stones} stones, ${resetGame.collected} selves collected; `
   + `panel closed (${resetGame.panelClosed}), asleep at the title (${!resetGame.started && resetGame.pre}), a new maze under him (${resetGame.newSeed && resetGame.hasMaze})`);
+
+// ── 8g. every line the player reads lives in data/text.js (v0.82.0) ──
+
+// Joe, planning the rewrite: "it'll be good to have a single file that contains all the lines to
+// everything visible to the players." It wasn't one file — 21 lines were literals scattered through
+// five engine files, invisible to anyone doing a writing pass. They are MOMENTS now, keyed by self.
+const voice = await page.evaluate(() => {
+  const was = character;
+  const pick = (who, slug, vars) => { character = { name: who, pages: [] }; return moment(slug, vars); };
+  const out = {
+    childTtt:  pick('The Child', 'tttWon'),
+    adultTtt:  pick('The Soldier', 'tttWon'),
+    childHop:  pick('The Child', 'hopscotchDone'),
+    adultHop:  pick('The Soldier', 'hopscotchDone'),
+    shared:    pick('The Soldier', 'exitLocked'),
+    sharedKid: pick('The Child', 'exitLocked'),     // no per-self entry: everyone gets `_`
+    filled:    pick('The Soldier', 'keyFound', { shape: 'circle' }),
+    missing:   pick('The Soldier', 'nosuchslug'),
+  };
+  character = was;
+  return out;
+});
+check('a moment speaks in the voice of whoever is walking',
+  voice.childTtt !== voice.adultTtt && voice.childHop !== voice.adultHop
+    && voice.shared === voice.sharedKid && voice.shared.length > 0
+    && voice.filled.includes('circle') && voice.missing === '',
+  `the Child wins at noughts and crosses with "${voice.childTtt}" and the Soldier with "${voice.adultTtt}"; `
+  + `a moment with no per-self line gives everyone the same words; {shape} fills to "${voice.filled}"; `
+  + `an unknown slug is empty rather than undefined`);
+
+// And it has to stay one file. This is the guard: a narrate() with a literal in it is prose that
+// the writer's pass would never see.
+const strays = await page.evaluate(async () => {
+  const files = ['core', 'generate', 'proto', 'audio', 'state', 'input', 'stories', 'run-save',
+                 'tutorials', 'pool', 'map', 'movement', 'render', 'boot'];
+  const found = [];
+  for (const f of files) {
+    const src = await (await fetch('js/' + f + '.js')).text();
+    for (const line of src.split('\n')) {
+      if (line.trim().startsWith('//')) continue;
+      // narrate("…") or narrate('…') or narrate(`…`) — a literal, not a lookup
+      const m = line.match(/narrate\(\s*(["'`])/);
+      if (m) found.push(f + '.js: ' + line.trim().slice(0, 60));
+    }
+  }
+  return found;
+});
+check('no player-facing line is left hardcoded in the engine',
+  strays.length === 0,
+  strays.length ? strays.slice(0, 4).join(' | ')
+    : 'every narrate() takes its words from data/text.js, so a writing pass sees all of them');
+
+// Joe, on the writer's page: "I might want to write a new line for the basin, or for
+// when he is walking through the maze, or standing at a bookshelf." The shelf and
+// basin lines used to be picked with `t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0` — hard-wired to
+// exactly three, so a fourth line could never fire and "add a line" would have been a
+// lie. They spread across however many there are now.
+const spread = await page.evaluate(() => {
+  const pick = (n, t) => Math.min(n - 1, Math.floor(t * n));       // the rule the engine uses
+  const reach = (n) => { const seen = new Set();
+    for (let t = 0; t <= 1.0001; t += 0.01) seen.add(pick(n, t));
+    return seen.size; };
+  const shelf = (ROOM_LINES['The Child'] || {}).shelf || [];
+  return { three: reach(3), four: reach(4), seven: reach(7), atFull: pick(shelf.length, 1), have: shelf.length };
+});
+check('every shelf and basin line can be reached, however many there are',
+  spread.three === 3 && spread.four === 4 && spread.seven === 7 && spread.atFull === spread.have - 1,
+  `with 3 lines all 3 come up, with 4 all 4, with 7 all 7; carrying every page you get the last of `
+  + `the ${spread.have} there are. A fourth line used to be unreachable, so the page could not offer one`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

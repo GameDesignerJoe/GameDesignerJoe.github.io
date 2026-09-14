@@ -159,17 +159,17 @@ function update(wall) {
         }
       }
       else if (canGo(want)) dir = want;
-      else if (doorAt(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy)) { const d = doorAt(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy); if (now > narrHideAt) { narrate(`Locked. The lock is a ${d.shape}.`); AUDIO.locked(); } }
+      else if (doorAt(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy)) { const d = doorAt(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy); if (now > narrHideAt) { narrate(moment('doorLocked', { shape: d.shape })); AUDIO.locked(); } }
       else if (poolDoor && poolDoorShut() && Math.floor(player.x) + want.dx === poolDoor.x && Math.floor(player.y) + want.dy === poolDoor.y) {
         // the gate does not open because you are holding the stone; it opens because you shove it
         // with the stone. Lean on it as long as you would lean on a block, and it starts to give.
-        if (!hasKey) { if (now > narrHideAt) { narrate("It won't move. Not without a stone."); AUDIO.locked(); } }
+        if (!hasKey) { if (now > narrHideAt) { narrate(moment('poolDoorNoStone')); AUDIO.locked(); } }
         else if (!poolDoor.openAt) {
           if (!pushHeldSince) pushHeldSince = now;
-          else if (now - pushHeldSince >= CONFIG.pushHoldMs) { poolDoor.openAt = now; AUDIO.doorSlide(); pushHeldSince = 0; saveRun(true); if (now > narrHideAt) narrate("…it gives."); }
+          else if (now - pushHeldSince >= CONFIG.pushHoldMs) { poolDoor.openAt = now; AUDIO.doorSlide(); pushHeldSince = 0; saveRun(true); if (now > narrHideAt) narrate(moment('poolDoorGives')); }
         }
       }
-      else if (gated && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
+      else if (gated && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate(moment('exitLocked')); AUDIO.locked(); } }
     else if ((want.dx !== 0) === (dir.dx !== 0)) dir = want;
     else if (canGo(want) && offCenter(want) <= CONFIG.turnForgiveness) { snapPerp(want); dir = want; }
   }
@@ -178,9 +178,18 @@ function update(wall) {
   // Keep the gap itself, not just the fact of it: under free movement there is no `dir` to say which
   // way the channel runs, so the squeeze has to answer that from its own geometry.
   { const gap = started && phase().f.crawl && [...crawlGaps, ...crawlCells].find(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
-    squeezeAxis = null;
     if (gap) { const [gx, gy] = gap.split(',').map(Number);
-      squeezeAxis = (isOpen(gx - 1, gy) && isOpen(gx + 1, gy)) ? 'y' : 'x'; }   // runs across, so held on y
+      // Which way the channel runs. A gap between two cells has arms on one axis only, and he is
+      // held on the other. But a gap or crawl cell can end up open on both axes — a room carved
+      // beside it later, an L of two gaps — and Joe found what that did: "anytime there's a 'plus'
+      // shape for a squeeze it doesn't let you cross through one of the sides. This one won't let
+      // me go up or down. Only left to right." The clamp held him on y because left and right were
+      // open, so every step up was pulled straight back. Where both axes have an arm, the channel
+      // is whichever way he is walking; with the stick idle it keeps the last answer.
+      const armX = isOpen(gx - 1, gy) || isOpen(gx + 1, gy), armY = isOpen(gx, gy - 1) || isOpen(gx, gy + 1);
+      const mv = dir || want;
+      squeezeAxis = (armX && armY) ? (mv ? (mv.dx ? 'y' : 'x') : squeezeAxis) : (armX ? 'y' : 'x'); }
+    else squeezeAxis = null;
     // no camera kick going in or out, and the sound is the same knock as a shoulder on a wall
     if (!!gap !== inSqueeze) { inSqueeze = !!gap; AUDIO.bump(); } }
 
@@ -311,7 +320,7 @@ function update(wall) {
       let d = facing - Math.atan2(dy, dx); d = Math.atan2(Math.sin(d), Math.cos(d));
       return Math.abs(d) <= CONFIG.crawlSayArc;                        // or turned to it
     });
-    if (at) { crawlSaid = true; narrate("I used to fit through here."); }
+    if (at) { crawlSaid = true; narrate(moment('crawlTooBig')); }
   }
 
   const prevKey = lastTileKey;
@@ -335,12 +344,17 @@ function update(wall) {
     else if (k && k !== 'basin' && now - shelfStandAt > 1000 && shelfShown !== k) { shelfShown = k;
       const c = CAST.filter(c => c.pages.length)[idx];
       if (c && !collectedCount(c.name)) narrate(EMPTY_SHELF[Math.random() * EMPTY_SHELF.length | 0]);
-      else if (c) { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).shelf, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0]); } }
+      // The shelf and basin lines spread across however many there are, rather than the three this
+      // used to hard-wire with t >= 0.8 / 0.4. Joe, on the writer's page: "I might want to write a
+      // new line for the basin, or for when he is walking through the maze, or standing at a
+      // bookshelf." A fourth line here used to be unreachable; now it makes the run through the
+      // chapter finer instead. `t` is how much of this self's pages you are carrying.
+      else if (c) { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).shelf, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[Math.min(L.length - 1, Math.floor(t * L.length))]); } }
     // the basin: first visit after putting a stone down says so; otherwise the self speaks of the stones
     if (onBasin && now - shelfStandAt > 700 && shelfShown !== 'basin') { shelfShown = 'basin';
       if ((SAVE.basinSeen || 0) < (SAVE.stones || 0)) { SAVE.basinSeen = SAVE.stones; persist(); narrate(LIGHTER[Math.min(LIGHTER.length - 1, (SAVE.stones || 0) - 1)]); }
-      else if (poolMode) narrate("One stone. I'll carry it as far as the water.");
-      else { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).basin, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0]); } }
+      else if (poolMode) narrate(moment('stoneTaken'));
+      else { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).basin, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[Math.min(L.length - 1, Math.floor(t * L.length))]); } }
   } else { shelfStandKey = ''; shelfShown = ''; }
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   visited.add(key);
@@ -365,11 +379,11 @@ function update(wall) {
         const line = fresh[Math.random() * fresh.length | 0]; SAVE.shelfPlayed.push(line); persist(); narrate(line);
       }
     }
-    if (ticTacToe && !tttSaid && tx === ticTacToe.x && ty === ticTacToe.y) { tttSaid = true; narrate(character.name === 'The Child' ? "its my turn. he never took his." : "Someone left a game half-played."); }
+    if (ticTacToe && !tttSaid && tx === ticTacToe.x && ty === ticTacToe.y) { tttSaid = true; narrate(moment('ticTacToe')); }
     // hopscotch: in order, one square at a time
     if (hopscotch.length && !hopSaid) {
       const hi = hopscotch.indexOf(key);
-      if (hi === hopIdx) { hopIdx++; AUDIO.hop(hopIdx); if (hopIdx === hopscotch.length) { hopSaid = true; narrate(character.name === 'The Child' ? "…ready or not." : "I remember this game."); } }
+      if (hi === hopIdx) { hopIdx++; AUDIO.hop(hopIdx); if (hopIdx === hopscotch.length) { hopSaid = true; narrate(moment('hopscotchDone')); } }
       else if (hi === -1 && hopIdx > 0 && !hopscotch.includes(prevKey)) hopIdx = 0;
       else if (hi >= 0 && hi !== hopIdx && hi !== hopIdx - 1) hopIdx = hi === 0 ? 1 : 0;
     }
@@ -421,10 +435,10 @@ function update(wall) {
     // use so they should disappear once you've used them." Each maze deals one key per door and no
     // two doors share a shape, so spending it can never lock you out of the next one.
     { const d = doors.find(d => d.x === tx && d.y === ty && !d.open); if (d) { d.open = true; d.openAt = now; AUDIO.gate();
-      if (heldKeys.delete(d.shape)) { renderKeys(); if (now > narrHideAt) narrate('The key turns, and stays in the lock.'); }
+      if (heldKeys.delete(d.shape)) { renderKeys(); if (now > narrHideAt) narrate(moment('doorUnlocked')); }
       saveRun(true); } }
-    if (innerKeys.has(key)) { const shape = innerKeys.get(key); innerKeys.delete(key); heldKeys.add(shape); renderKeys(); AUDIO.key(); narrate(`A key. Its head is a ${shape}.`); tutorial('door'); saveRun(true); }
-    if (keySpot === key) { keySpot = null; hasKey = true; exitGateAt = now; if (poolMode) { $('stone').classList.add('show'); pulse($('stone')); AUDIO.stone(); if (poolDoor) narrate("The stone. Now the gate."); } else { keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); } }
+    if (innerKeys.has(key)) { const shape = innerKeys.get(key); innerKeys.delete(key); heldKeys.add(shape); renderKeys(); AUDIO.key(); narrate(moment('keyFound', { shape })); tutorial('door'); saveRun(true); }
+    if (keySpot === key) { keySpot = null; hasKey = true; exitGateAt = now; if (poolMode) { $('stone').classList.add('show'); pulse($('stone')); AUDIO.stone(); if (poolDoor) narrate(moment('stoneForGate')); } else { keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); } }
     if (journals.has(key) && character) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg); updateBooks();
       if (collectedCount(character.name) >= character.pages.length && (SAVE.phase || 0) < PHASES.length - 1 && !SAVE.poolPending) { SAVE.poolPending = true; persist(); } }
   }

@@ -1,6 +1,6 @@
 # Is it worth walking? — the baseline
 
-<!-- reviewed: v0.94.0 — re-measured against the game at v0.94.0, which is what this doc is -->
+<!-- reviewed: v0.97.0 — re-measured against the game at v0.97.0, which is what this doc is -->
 
 Joe, on the maze editor thread: *"I can say these words to you, but I don't see
 you bringing the imagination to pull it off. I still find keys not in vaults
@@ -35,7 +35,7 @@ one phase at a time, and default to the Child's size rather than the phase's, so
 pass `--size` to match `PHASES`. 30 seeds a self throughout; differences under
 about 5% at that count are noise.
 
-## What a maze holds (v0.94.0, 30 seeds)
+## What a maze holds (v0.97.0, 30 seeds)
 
 | self | size | floor | keys vaulted | **every key** | exit at | beyond | locked | gauntlet | rooms | room gap min/med | divides | **fell short** |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -52,7 +52,7 @@ about 5% at that count are noise.
 distance to the exit over the maze's far point. *beyond* is how much floor lies
 further out than the exit. *gauntlet* is squeeze-tree tiles guarding the way out.
 *fell short* is the share of mazes `generate()` could not build to the chapter's
-`MUST` row — new in v0.94.0, and the number that was missing all along.
+`MUST` row — new in v0.97.0, and the number that was missing all along.
 
 **The room gap column is lower than the v0.93.0 printing of this doc, and the
 old numbers were wrong.** `quality.mjs` carried its own copy of the measurement
@@ -201,7 +201,7 @@ reached from the current config at all.** The best knob in the game tops out at
 0.96 thresholds and costs a third of the maze. A tuning tool would find that
 ceiling faster; it would not move it.
 
-## What enforcing the contract did, and did not, do (v0.94.0)
+## What enforcing the contract did, and did not, do (v0.97.0)
 
 `generate()` now builds against the chapter's `MUST` row and records what it
 could not meet in `contractMiss`. The prediction when this was proposed was that
