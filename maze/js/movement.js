@@ -178,9 +178,18 @@ function update(wall) {
   // Keep the gap itself, not just the fact of it: under free movement there is no `dir` to say which
   // way the channel runs, so the squeeze has to answer that from its own geometry.
   { const gap = started && phase().f.crawl && [...crawlGaps, ...crawlCells].find(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
-    squeezeAxis = null;
     if (gap) { const [gx, gy] = gap.split(',').map(Number);
-      squeezeAxis = (isOpen(gx - 1, gy) && isOpen(gx + 1, gy)) ? 'y' : 'x'; }   // runs across, so held on y
+      // Which way the channel runs. A gap between two cells has arms on one axis only, and he is
+      // held on the other. But a gap or crawl cell can end up open on both axes — a room carved
+      // beside it later, an L of two gaps — and Joe found what that did: "anytime there's a 'plus'
+      // shape for a squeeze it doesn't let you cross through one of the sides. This one won't let
+      // me go up or down. Only left to right." The clamp held him on y because left and right were
+      // open, so every step up was pulled straight back. Where both axes have an arm, the channel
+      // is whichever way he is walking; with the stick idle it keeps the last answer.
+      const armX = isOpen(gx - 1, gy) || isOpen(gx + 1, gy), armY = isOpen(gx, gy - 1) || isOpen(gx, gy + 1);
+      const mv = dir || want;
+      squeezeAxis = (armX && armY) ? (mv ? (mv.dx ? 'y' : 'x') : squeezeAxis) : (armX ? 'y' : 'x'); }
+    else squeezeAxis = null;
     // no camera kick going in or out, and the sound is the same knock as a shoulder on a wall
     if (!!gap !== inSqueeze) { inSqueeze = !!gap; AUDIO.bump(); } }
 

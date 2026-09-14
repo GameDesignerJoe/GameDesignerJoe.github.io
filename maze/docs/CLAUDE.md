@@ -482,6 +482,41 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The plus-shaped squeeze (v0.94.0)
+
+Joe, with the seed the new tag gave him — 5855848, The Child, tiles 123 and 124:
+*"anytime there's a 'plus' shape for a squeeze it doesn't let you cross through one
+of the sides. This one won't let me go up or down. Only left to right. Also, the tile
+next to it blocks my path to the rest of the maze."*
+
+**Reproduced on the first try, once there was a seed.** Tile 123 is a crawl gap and
+124 the crawl cell beside it, and both are open on all four sides — a room carved
+next to them after the gaps were laid. Pushing up or down from either moved him 0.14
+of a tile and held him there. A T-shaped gap elsewhere in the same maze blocked its
+one sideways arm the same way. So the v0.93.0 "could not reproduce" was true of
+the T shape I built by hand, and wrong about the game: the shape that fails is a
+squeeze with arms on both axes, which the probe never made.
+
+**The cause is the squeeze clamp choosing its axis from the tile's shape.** It held
+him on y if the tiles left and right were open, else on x — right for a gap between
+two cells, which has arms on one axis only. In a plus or a T the clamp picked one
+axis and pulled every step along the other straight back to centre. Now, where a
+gap has an arm on both axes, the channel is whichever way he is walking, and with
+the stick idle it keeps its last answer; a one-axis gap behaves as before. Movement
+only; nothing about the maze changed. Whether a crawl gap should ever *be* a plus
+is a generation question left for Joe — the drawing reads oddly but he crosses it.
+
+**Why the tile numbers moved between his two screenshots (523 → 524).** A sliding
+tile is floor that moves. While it is in flight, its old spot and its new spot both
+read as wall, so the count of open tiles drops by one and every number past it
+shifts down until it lands. Not the maze changing under him: a tile mid-slide.
+
+**Tests.** Movement change, so smoke alone: 87 checks, one new — *a squeeze open on
+both axes lets him through every one of its arms* — which scans seeds for every gap
+or crawl cell with three or more open arms and walks each arm from the tile's
+centre, failing on any that moves less than 0.3 of a tile (the clamp held at 0.14).
+Proven red with the old axis rule.
+
 ## The seed on the picture, and the T he could not pass (v0.93.0)
 
 Joe, with two screenshots of a T junction: *"I've seen this issue a couple times

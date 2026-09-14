@@ -1868,6 +1868,40 @@ const tag = await page.evaluate(async () => {
   SAVE.ui.nav = false; narrEl.className = '';
   return { text, here, nb, top: CONFIG.navTagTop, vh: innerHeight, who: phase().who };
 });
+// Joe, seed 5855848, tiles 123 and 124: "anytime there's a 'plus' shape for a squeeze it
+// doesn't let you cross through one of the sides. This one won't let me go up or down.
+// Only left to right." A crawl gap or crawl cell open on both axes held him on the axis
+// its shape suggested, and the clamp pulled every step on the other axis straight back.
+// Every open arm of every such tile must let him through, in every seed that has one.
+const plus = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const prevMove = SAVE.ui.move; SAVE.ui.move = 'rooms';
+  const tried = [], stuck = []; let tiles3 = 0;
+  for (const seed of [5855848, 4242, 77, 9001, 31337, 2024]) {
+    SAVE.phase = 0; reset(seed); sliding = null; started = true; await nap(60);
+    if (!phase().f.crawl) continue;
+    const arms = (x, y) => DIRS.map(([dx, dy]) => isOpen(x + dx, y + dy));
+    for (const k of [...crawlGaps, ...crawlCells]) {
+      const [x, y] = k.split(',').map(Number); const a = arms(x, y);
+      if (!isOpen(x, y) || a.filter(Boolean).length < 3) continue;
+      tiles3++;
+      for (let i = 0; i < 4; i++) { if (!a[i]) continue; const [dx, dy] = DIRS[i];
+        player.x = x + 0.5; player.y = y + 0.5; dir = null; recenter = null; moveVel = 0;
+        held = { dx, dy }; stickAim = { x: dx, y: dy }; await nap(900); held = null; stickAim = null;
+        const went = dx ? (player.x - x - 0.5) * dx : (player.y - y - 0.5) * dy;
+        tried.push(went); if (went < 0.3) stuck.push(`seed ${seed} tile ${navNumberAt(x, y)} ${['right', 'left', 'down', 'up'][i]} (${went.toFixed(2)})`); }
+    }
+    if (tiles3 >= 8) break;
+  }
+  SAVE.ui.move = prevMove; dir = null; held = null;
+  return { tiles3, arms: tried.length, stuck };
+});
+check('a squeeze open on both axes lets him through every one of its arms',
+  plus.tiles3 > 0 && plus.stuck.length === 0,
+  plus.tiles3 ? `${plus.tiles3} three- and four-armed squeeze tiles, ${plus.arms} arms walked; stuck on ${plus.stuck.length}`
+    + (plus.stuck.length ? `: ${plus.stuck.slice(0, 4).join('; ')}` : '')
+    : 'no squeeze tile with three or more open arms in the seeds tried');
+
 check('the nav view tag names chapter, seed and tile, and sits below the narrator line',
   tag.text.includes(`seed 4242`) && tag.text.includes(tag.who) && tag.text.includes(`tile ${tag.here} of`)
     && tag.top - 4 >= tag.nb && tag.top < tag.vh * 0.25,
