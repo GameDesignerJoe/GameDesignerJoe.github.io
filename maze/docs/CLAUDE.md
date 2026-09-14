@@ -482,6 +482,56 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The book in the water (v0.92.0)
+
+Joe, with the first screenshot I have ever been able to see: *"Floating book in
+blackness. Something happened with the placement of one of the books in the first
+level for the child. It's floating out in an open space."* Two other items came in
+with it — Reset save leaving charcoal, the map and his colour grade behind, and
+charcoal appearing in the Child's mazes.
+
+**Measured, four ways, and the first three were wrong.** The harness had every
+page on floor and reachable, the Child included. A count of floor round each page
+said three-quarters of Child rooms were "damaged" — until `roomCells: [2, 3]`
+showed 3×3 rooms exist and the metric was reading room *size*. Switching off the
+Child's `sparse` prune changed nothing; switching off districts made it slightly
+worse. A paint probe found black on three sides of 25 pages — and every one turned
+out to be a landmark's own dark furniture on the floor. All four are recorded so
+nobody walks them again.
+
+**The fifth found it: 69 of 598 Child pages lay in a pool room, and 68 of those
+under the water.** A page goes at its room's centre, and a pool room's centre is
+the deepest, near-black water; the book is painted after the pool. A pale book on
+black water with the rings round it, at the top of a screen whose lit floor is the
+rim — that is the screenshot. Not a placement bug in the model's terms: the tile
+is open and walkable. A render collision.
+
+**The fix is one pass at the source.** Every consumer of a room's page spot — both
+page assignments, the route-nearest reorder, the hopscotch — reads `roomCenters`
+*after* the landmarks are built. So once they are, **any** room centre that falls
+inside a pool's water moves to that pool's nearest rim tile, and all of them
+follow. The rim is the floor you walk round; the disc covers everything inside it.
+
+"Any room's", not "the pool room's" — the first cut only moved the pool's own
+centre, and smoke found one page still wet in 200 mazes: room spacing is a soft
+rule that settles after twenty tries, so a second room had overlapped the pool
+and dropped its own centre in the water. The general rule catches both.
+
+**Reset save and the Child's charcoal did not reproduce.** End to end on v0.91.0 —
+a run at phase 3 with charcoal in hand and 249 tiles charted, Reset, wait past the
+six-second autosave, reload the page — comes back at phase 0, The Child, charcoal
+0, map at the 49 home-room tiles, no run, nothing collected; the same from inside
+a Child run. And the Child's mazes place no charcoal at all: none on the floor and
+none in the home room, over 80 mazes. Both reports match v0.90.0 exactly, where
+Reset left you in the old maze and the autosave wrote the old run straight back.
+The likeliest reading is a phone that had not yet picked up v0.91.0. Joe is asked
+to confirm the version in the panel's corner before either is chased further.
+
+**Tests.** Harness PASS 576 with a new invariant — *no page lies in a pool's water*,
+which reads no knob: a page in a pool room must be on the room's border ring.
+Selftest 16 of 16, a page dropped at a pool's centre as the new breakage. Smoke 85:
+one new statistic over 200 mazes across all eight selves, zero pages in the water.
+
 ## Reset save restarts the game (v0.91.0)
 
 Joe: *"When I reset my save it should just restart the game as well."* It erased

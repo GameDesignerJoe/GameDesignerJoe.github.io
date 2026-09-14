@@ -44,6 +44,7 @@ const grab = (phaseIdx, seed) => page.evaluate(([p, sd]) => {
     keySpot, lampSpot, gated,
     doors: doors.map((d) => ({ x: d.x, y: d.y, shape: d.shape, onRoute: !!d.onRoute })),
     innerKeys: [...innerKeys.entries()],
+    landmarks: landmarks.map((L) => ({ kind: L.kind, rx0: L.rx0 ?? L.x, ry0: L.ry0 ?? L.y, rx1: L.rx1 ?? L.x, ry1: L.ry1 ?? L.y })),
     shrines: shrines.map((s) => ({ x: s.x, y: s.y, sx: s.sx, sy: s.sy, who: s.who })), offerings: [...offerings.entries()],
     pockets: pockets.map(([x, y]) => [x, y]),
     sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, atStart: !!sl.atStart, onPath: !!sl.onPath })),
@@ -128,6 +129,14 @@ const MUTATIONS = [
     const sh = s.shrines[0];
     s.offerings = s.offerings.filter(([, who]) => who !== sh.who);
     s.offerings.push([K(sh.sx, sh.sy), sh.who]);
+  }],
+
+  ['a page dropped in the middle of a pool', 'no page lies in a pool\'s water', (s) => {
+    // what every pool room used to do: the page at the room's centre, under the water
+    const L = s.landmarks.find((l) => l.kind === 'pool');
+    if (!L) { s.landmarks.push({ kind: 'pool', rx0: 3, ry0: 3, rx1: 7, ry1: 7 }); s.journals.push(['5,5', 0]); return; }
+    s.journals = s.journals.filter(([k]) => { const [x, y] = k.split(',').map(Number); return !(L.rx0 <= x && x <= L.rx1 && L.ry0 <= y && y <= L.ry1); });
+    s.journals.push([K((L.rx0 + L.rx1) >> 1, (L.ry0 + L.ry1) >> 1), 0]);
   }],
 
   ['darkness pushed up against the start-room door', 'darkness keeps clear of the start-room door', (s) => {

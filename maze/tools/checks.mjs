@@ -256,6 +256,19 @@ const CHECKS = [
     return bad.length ? bad.join('; ') : null;
   }],
 
+  // Joe: "Floating book in blackness... floating out in an open space." A page at a pool room's
+  // centre sits under the water, drawn over the darkest part of it. The pool's disc covers all but
+  // the room's outer ring, so a page in a pool room has to be on that ring. Reads no knob.
+  ['no page lies in a pool\'s water', (s) => {
+    const bad = [];
+    for (const [k] of s.journals) { const [x, y] = k.split(',').map(Number);
+      const L = (s.landmarks || []).find((l) => l.kind === 'pool' && l.rx0 <= x && x <= l.rx1 && l.ry0 <= y && y <= l.ry1);
+      if (!L) continue;
+      const onRim = x === L.rx0 || x === L.rx1 || y === L.ry0 || y === L.ry1;
+      if (!onRim) bad.push(`page ${k} lies in the water of the pool at ${K(L.rx0, L.ry0)}–${K(L.rx1, L.ry1)}`); }
+    return bad.length ? bad.join('; ') : null;
+  }],
+
   ['doors chain: each key is winnable before its door', (s) => {
     // Door i's key must be reachable while doors i..n are still shut.
     const open = openTiles(s);

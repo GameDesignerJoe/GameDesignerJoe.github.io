@@ -2415,6 +2415,22 @@ check('a maze gets the locked doors its phase asked for',
   `${manifest.got} of ${manifest.want} doors placed (${Math.round(100 * manifest.got / manifest.want)}%, bar 90%), `
   + `${manifest.none} of ${manifest.mazes} mazes with none at all`);
 
+// ── 8c2. no page under the water ──────────────────────────────────
+// Joe: "Floating book in blackness." 68 of 69 Child pages in a pool room sat under the disc.
+const wetPages = await page.evaluate(() => {
+  let pages = 0, inPool = 0, wet = 0;
+  for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 25; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
+    for (const k of journals.keys()) { pages++; const [x, y] = k.split(',').map(Number);
+      const L = landmarks.find((l) => l.kind === 'pool' && l.rx0 <= x && x <= l.rx1 && l.ry0 <= y && y <= l.ry1);
+      if (!L) continue; inPool++;
+      if (!(x === L.rx0 || x === L.rx1 || y === L.ry0 || y === L.ry1)) wet++; } }
+  return { pages, inPool, wet };
+});
+check('a page in a pool room lies on the rim you walk round, never in the water',
+  wetPages.inPool > 20 && wetPages.wet === 0,
+  `${wetPages.pages} pages over 200 mazes, ${wetPages.inPool} in a pool room, ${wetPages.wet} of them in the water`);
+
 // ── 8d. a stone to somebody's statue ──────────────────────────────
 // Joe: "a sort of mini quest where you find something in the maze that needs to go someplace
 // else... This is the statue idea." Two statues a maze from the Cartographer on, each one of the

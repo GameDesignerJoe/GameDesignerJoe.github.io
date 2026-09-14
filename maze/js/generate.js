@@ -372,6 +372,25 @@ function buildMaze(seed) {
       }
       landmarks.push(L);
     });
+    // A page goes at its room's centre — and a pool room's centre is the deepest water. Joe:
+    // "Floating book in blackness... It's floating out in an open space." Measured: 69 of 598
+    // Child pages lay in a pool room and 68 of those under the disc, drawn over near-black water
+    // with the rings round them. So any room's spot for pages (and for the hopscotch, and for the
+    // route-nearest ordering) that falls in a pool's water moves to that pool's nearest rim tile —
+    // the border ring is the floor you walk round, and the disc covers everything inside it.
+    // "Any room's", not "the pool room's": room spacing is a soft rule that settles after twenty
+    // tries, so a second room can overlap the pool and drop its own centre in the water. One did,
+    // in 200 mazes. Every consumer reads roomCenters after this, so all of them follow.
+    for (const L of landmarks) if (L.kind === 'pool') roomCenters.forEach((c, j) => {
+      const [cx, cy] = c;
+      if (cx < L.rx0 || cx > L.rx1 || cy < L.ry0 || cy > L.ry1) return;                       // not in this pool's room
+      if (cx === L.rx0 || cx === L.rx1 || cy === L.ry0 || cy === L.ry1) return;             // already on the rim
+      const rim = [];
+      for (let x = L.rx0; x <= L.rx1; x++) rim.push([x, L.ry0], [x, L.ry1]);
+      for (let y = L.ry0 + 1; y < L.ry1; y++) rim.push([L.rx0, y], [L.rx1, y]);
+      rim.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy) || a[1] - b[1] || a[0] - b[0]);
+      roomCenters[j] = rim.find(([x, y]) => !roomCenters.some((o, k) => k !== j && o[0] === x && o[1] === y)) || rim[0];   // and never on another room's spot
+    });
 
     // The well is a hole, so you should not be able to stand in it. Joe: "I think the dark well
     // should have collision on it so you can't actually walk over it." Shut here, with the rooms,
