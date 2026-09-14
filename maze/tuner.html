@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Maze — tuner</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<!--
+  The Maze — the tuner
+
+  Joe: "a page that shows the rules I give for say the Criminal and what a block
+  of mazes would look like."
+
+  Pick a chapter, see its contract from data/phases.js down the left, and a block
+  of mazes built to it with every clause it missed called out. Change a number
+  and the block redraws. A maze is about 40ms, so nine of them is under half a
+  second and the numbers move while you are still holding the slider.
+
+  It loads the game's own engine — the same data/ and js/ files, in the same
+  order, no build step — and calls generate() directly. There is no second copy
+  of the generator here and there must never be one: the whole point is that
+  what you see is what the game makes.
+
+  It never writes to the save. It resets SAVE to a known state before every
+  build instead, because the game's save carries debug sliders (turns, braid,
+  size) that would otherwise quietly change what this page shows — the same trap
+  as "the camera is pushed too far" turning out to be a slider left where the
+  last session put it.
+
+  Time to finish is tools/bots.mjs; the standing table is tools/quality.mjs and
+  docs/QUALITY.md. This page is for looking.
+-->
+<style>
+  :root {
+    --bg: #0d0f10; --panel: #14171a; --line: #23282b;
+    --ink: #ece7da; --dim: #8d887e; --faint: #5d5952;
+    --floor: #6e6a62; --wall: #1b1f21;
+    --gold: #d8b36a; --exit: #a89f8c;
+    --ok: #7d9b6a; --bad: #b4614f; --split: #5e8f96;
+    --serif: "Iowan Old Style", Palatino, Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--serif); }
+  a { color: var(--exit); }
+
+  header {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end;
+  }
+  h1 { margin: 0; font-size: 19px; font-weight: normal; letter-spacing: .14em; text-transform: uppercase; }
+  h1 small { display: block; font-size: 11px; letter-spacing: .08em; color: var(--faint); text-transform: none; margin-top: 3px; }
+  .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .ctl label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+  select, input[type=number], button {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+    font: 14px var(--serif); padding: 6px 9px; border-radius: 3px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--dim); }
+
+  main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; padding: 20px; }
+  aside { flex: 0 0 290px; min-width: 260px; }
+  .grid-wrap { flex: 1 1 420px; min-width: 0; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 14px 15px; }
+  .card h2 { margin: 0 0 3px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); font-weight: normal; }
+  .card p.note { margin: 0 0 12px; font-size: 12px; color: var(--faint); font-style: italic; }
+
+  .clause { display: grid; grid-template-columns: 1fr 68px; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
+  .clause:first-of-type { border-top: 0; }
+  .clause .name { font-size: 13px; }
+  .clause .today { display: block; font-size: 11px; color: var(--faint); }
+  .clause input { width: 100%; text-align: right; }
+  .clause.off .name { color: var(--faint); }
+
+  .verdict { margin: 0 0 14px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font-size: 14px; }
+  .verdict b { font-weight: normal; color: var(--ink); }
+  .verdict .miss { color: var(--bad); }
+  .verdict .all-ok { color: var(--ok); }
+
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 9px; }
+  figure.fail { border-color: #3a2b28; }
+  figure canvas { width: 100%; height: auto; display: block; background: var(--bg); border-radius: 2px; cursor: zoom-in; }
+  figcaption { margin-top: 8px; font-size: 11px; color: var(--faint); display: flex; justify-content: space-between; gap: 8px; }
+  .chips { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { font-size: 10.5px; letter-spacing: .04em; padding: 2px 6px; border-radius: 2px; border: 1px solid transparent; white-space: nowrap; }
+  .chip.ok { color: var(--ok); border-color: #2a3527; }
+  .chip.bad { color: var(--bad); border-color: #3f2b26; background: #1c1513; }
+
+  .legend { margin-top: 14px; font-size: 11px; color: var(--faint); line-height: 1.9; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: baseline; }
+
+  dialog { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 5px; padding: 0; max-width: 96vw; }
+  dialog::backdrop { background: rgba(5,6,7,.8); }
+  dialog .body { padding: 16px; }
+  dialog canvas { display: block; max-width: 100%; height: auto; background: var(--bg); }
+  dialog table { border-collapse: collapse; margin-top: 12px; font-size: 12px; width: 100%; }
+  dialog td { padding: 3px 10px 3px 0; color: var(--dim); }
+  dialog td:last-child { color: var(--ink); text-align: right; }
+
+  @media (max-width: 720px) {
+    main { padding: 14px; gap: 14px; }
+    aside { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The Maze — tuner<small>the contract in data/phases.js, and a block of mazes built to it</small></h1>
+  <div class="ctl">
+    <label for="who">Chapter</label>
+    <select id="who"></select>
+  </div>
+  <div class="ctl">
+    <label for="count">Mazes</label>
+    <select id="count"><option>4</option><option selected>9</option><option>16</option><option>25</option></select>
+  </div>
+  <div class="ctl">
+    <label for="size">Size</label>
+    <select id="size"><option value="">the chapter's own</option><option>sm</option><option>md</option><option>lg</option><option>xl</option></select>
+  </div>
+  <div class="ctl">
+    <label for="base">First seed</label>
+    <input type="number" id="base" value="4242" step="1" style="width:96px">
+  </div>
+  <div class="ctl">
+    <label>&nbsp;</label>
+    <button id="reroll">Re-roll</button>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="card">
+      <h2 id="contractFor">The contract</h2>
+      <p class="note">A floor, not a target. Blank means the clause is not checked for this chapter.</p>
+      <div id="clauses"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </aside>
+
+  <div class="grid-wrap">
+    <div class="verdict" id="verdict">building…</div>
+    <div class="grid" id="grid"></div>
+  </div>
+</main>
+
+<dialog id="big"><div class="body">
+  <canvas id="bigCv"></canvas>
+  <table id="bigTable"></table>
+</div></dialog>
+
+<script src="data/config.js"></script>
+<script src="data/phases.js"></script>
+<script src="data/text.js"></script>
+<script src="js/core.js"></script>
+<script src="js/generate.js"></script>
+<script src="js/proto.js"></script>
+<script src="js/contract.js"></script>
+<script>
+// ── state ────────────────────────────────────────────────────────────────────
+// `must` is a working copy of the chapter's MUST row: edits here change the page
+// and nothing else. What is in data/phases.js is what the game will build to,
+// so a number that earns its keep has to be typed back into that file.
+let phaseIdx = 0, must = {}, built = [];
+const $ = (id) => document.getElementById(id);
+const K = (x, y) => x + ',' + y;
+
+const C = CONFIG.colors;
+// `guard` tints floor tiles and `loose` is a dot, so they never sit on the same
+// mark — but they are the two reds and the eye should not have to work it out
+const COL = { wall: C.wall, floor: C.floor, exit: C.exit, gate: C.gate, ink: '#ece7da',
+              split: '#5e8f96', vault: '#d8b36a', room: '#7f96a6', guard: '#6f3d34', loose: '#c96a52' };
+
+// ── building ─────────────────────────────────────────────────────────────────
+// Every SAVE field generate() reads, set explicitly. The game's own save is left
+// alone: nothing here calls persist().
+function buildOne(seed, size) {
+  SAVE.phase = phaseIdx; SAVE.stones = phaseIdx; SAVE.poolPending = false;
+  SAVE.collected = {}; SAVE.pushLearned = true;
+  SAVE.ui = { size };
+  delete SAVE.run;
+  generate(seed);
+
+  const m = CONTRACT.measure();
+  // snapshot everything the drawing needs, because the next generate() will
+  // overwrite all of it
+  return {
+    seed, W, H, m,
+    tiles: tiles.map((row) => Uint8Array.from(row)),
+    start: [Math.floor(start.x), Math.floor(start.y)],
+    exit: [Math.floor(exit.x), Math.floor(exit.y)],
+    keys: [...innerKeys.keys()],
+    vaults: keyVaults.map((v) => ({ x0: v.x0, y0: v.y0, x1: v.x1, y1: v.y1, cx: v.cx, cy: v.cy })),
+    doors: doors.map((d) => [d.x, d.y]),
+    rooms: landmarks.map((l) => [l.x, l.y]),
+    guard: [...exitTree],
+    splits: [...(m.thresholdTiles || [])],
+    grade: CONTRACT.grade(m, must),
+  };
+}
+
+// ── drawing ──────────────────────────────────────────────────────────────────
+function draw(cv, s, px) {
+  const w = s.W * px, h = s.H * px;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = w * dpr; cv.height = h * dpr;
+  cv.style.aspectRatio = `${s.W} / ${s.H}`;
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  g.fillStyle = COL.wall; g.fillRect(0, 0, w, h);
+  g.fillStyle = COL.floor;
+  for (let y = 0; y < s.H; y++) for (let x = 0; x < s.W; x++) if (s.tiles[y][x]) g.fillRect(x * px, y * px, px + .5, px + .5);
+
+  // the squeeze gauntlet at the way out, and the thresholds — the two things
+  // that are absent rather than wrong, so they get the floor tint rather than a
+  // dot you have to hunt for
+  g.fillStyle = COL.guard;
+  for (const k of s.guard) { const [x, y] = k.split(',').map(Number); g.fillRect(x * px, y * px, px + .5, px + .5); }
+  g.fillStyle = COL.split;
+  for (const k of s.splits) { const [x, y] = k.split(',').map(Number); g.fillRect(x * px, y * px, px + .5, px + .5); }
+
+  const dot = (x, y, col, r) => { g.fillStyle = col; g.beginPath(); g.arc(x * px + px / 2, y * px + px / 2, Math.max(1.6, px * r), 0, 7); g.fill(); };
+
+  // vault footprints, so a key inside one reads as buried at a glance
+  g.strokeStyle = COL.vault; g.lineWidth = Math.max(1, px * 0.35); g.globalAlpha = .55;
+  for (const v of s.vaults) g.strokeRect(v.x0 * px, v.y0 * px, (v.x1 - v.x0 + 1) * px, (v.y1 - v.y0 + 1) * px);
+  g.globalAlpha = 1;
+
+  for (const [x, y] of s.rooms) { g.fillStyle = COL.room; g.fillRect(x * px - px, y * px - px, px * 3, px * 3); }
+  for (const [x, y] of s.doors) dot(x, y, COL.gate, 0.9);
+  const inVault = (k) => s.vaults.some((v) => K(v.cx, v.cy) === k);
+  for (const k of s.keys) { const [x, y] = k.split(',').map(Number); dot(x, y, inVault(k) ? COL.vault : COL.loose, 1.1); }
+  dot(s.exit[0], s.exit[1], COL.exit, 1.4);
+  g.fillStyle = COL.ink;
+  g.fillRect(s.start[0] * px - px * .6, s.start[1] * px - px * .6, px * 2.2, px * 2.2);
+}
+
+// ── the page ─────────────────────────────────────────────────────────────────
+function sizeFor() { return $('size').value || PHASES[phaseIdx].size; }
+
+function render() {
+  const n = +$('count').value, base = +$('base').value || 4242, size = sizeFor();
+  built = [];
+  for (let i = 0; i < n; i++) built.push(buildOne(base + i * 137, size));
+
+  // thumbnails big enough that an xl maze still reads: 2px a tile at worst
+  const px = built[0].W > 100 ? 2 : built[0].W > 70 ? 3 : 4;
+  const grid = $('grid'); grid.textContent = '';
+  for (const s of built) {
+    const ok = s.grade.every((c) => c.ok);
+    const fig = document.createElement('figure');
+    if (!ok) fig.className = 'fail';
+    const cv = document.createElement('canvas');
+    cv.title = 'click to enlarge';
+    cv.addEventListener('click', () => enlarge(s));
+    fig.appendChild(cv);
+    const cap = document.createElement('figcaption');
+    cap.innerHTML = `<span>seed ${s.seed}</span><span>${s.m.floor} tiles</span>`;
+    fig.appendChild(cap);
+    const chips = document.createElement('div'); chips.className = 'chips';
+    for (const c of s.grade) {
+      const el = document.createElement('span');
+      el.className = 'chip ' + (c.ok ? 'ok' : 'bad');
+      el.textContent = `${c.label} ${c.show}`;
+      el.title = `wants ${c.want}`;
+      chips.appendChild(el);
+    }
+    fig.appendChild(chips);
+    grid.appendChild(fig);
+    draw(cv, s, px);
+  }
+
+  // the verdict: which clause is failing, and how often. The count is the thing
+  // to read — one maze missing is luck, nine missing is the generator.
+  const full = built.filter((s) => s.grade.every((c) => c.ok)).length;
+  const misses = {};
+  for (const s of built) for (const c of s.grade) if (!c.ok) misses[c.label] = (misses[c.label] || 0) + 1;
+  const worst = Object.entries(misses).sort((a, b) => b[1] - a[1]);
+  $('verdict').innerHTML = `<b>${full} of ${built.length}</b> met every clause`
+    + (worst.length
+      ? ' · ' + worst.map(([k, v]) => `<span class="miss">${k} failed ${v}</span>`).join(' · ')
+      : ' <span class="all-ok">— nothing missed</span>');
+}
+
+function enlarge(s) {
+  const px = Math.max(3, Math.min(9, Math.floor((Math.min(window.innerWidth, 1100) - 60) / s.W)));
+  draw($('bigCv'), s, px);
+  const m = s.m;
+  const rows = [
+    ['seed', s.seed], ['floor', m.floor + ' tiles'],
+    ['keys buried', m.keys ? `${m.vaulted} of ${m.keys}` : '—'],
+    ['exit guarded', `${m.exitGuard} tiles` + (m.gated ? ', locked' : '')],
+    ['key is a walk', m.keys ? `${Math.round(m.keyDetour)} tiles over going straight out` : '—'],
+    ['rooms', `${m.rooms}, closest two ${m.roomGap} tiles apart`],
+    ['maze divides', `${m.thresholds}` + (m.thresholds ? `, biggest ${Math.round(m.biggestSplit * 100)}% of the floor` : '')],
+    ['districts', m.districts],
+    ['exit at', `${m.toExit} of ${m.far} tiles out`],
+  ];
+  $('bigTable').innerHTML = rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('');
+  $('big').showModal();
+}
+$('big').addEventListener('click', (e) => { if (e.target.id === 'big') $('big').close(); });
+
+// ── the contract panel ───────────────────────────────────────────────────────
+// Reads MUST for the chapter, and lets a number be tried without editing the
+// file. Clearing a box turns the clause off for this session.
+function loadContract() {
+  const who = PHASES[phaseIdx].who;
+  must = Object.assign({}, MUST[who] || {});
+  $('contractFor').textContent = who;
+  const box = $('clauses'); box.textContent = '';
+  for (const key of Object.keys(CONTRACT.CLAUSES)) {
+    const c = CONTRACT.CLAUSES[key];
+    const row = document.createElement('div');
+    row.className = 'clause' + (must[key] == null ? ' off' : '');
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.innerHTML = `${c.label}<span class="today">${key}</span>`;
+    const inp = document.createElement('input');
+    if (must[key] === 'all') { inp.type = 'text'; inp.value = 'all'; }
+    else { inp.type = 'number'; inp.value = must[key] ?? ''; }
+    inp.addEventListener('change', () => {
+      const v = inp.value.trim();
+      if (v === '') delete must[key];
+      else must[key] = (v === 'all') ? 'all' : Number(v);
+      row.classList.toggle('off', must[key] == null);
+      render();
+    });
+    row.append(name, inp);
+    box.appendChild(row);
+  }
+}
+
+$('legend').innerHTML = [
+  [COL.ink, 'where you wake'], [COL.exit, 'the way out'],
+  [COL.loose, 'a key lying loose in a hall'], [COL.vault, 'a vault, and a key buried in one'],
+  [COL.guard, 'the gauntlet guarding the way out'],
+  [COL.gate, 'a locked door'], [COL.room, 'a room'],
+  [COL.split, 'a threshold — where the maze divides'],
+].map(([c, t]) => `<i style="background:${c}"></i>${t}`).join('<br>');
+
+for (const [i, p] of PHASES.entries()) {
+  const o = document.createElement('option');
+  o.value = i; o.textContent = `${i} · ${p.who}`;
+  $('who').appendChild(o);
+}
+$('who').addEventListener('change', () => { phaseIdx = +$('who').value; loadContract(); render(); });
+for (const id of ['count', 'size', 'base']) $(id).addEventListener('change', render);
+$('reroll').addEventListener('click', () => { $('base').value = (Math.random() * 1e6 | 0); render(); });
+
+loadContract();
+render();
+</script>
+</body>
+</html>

@@ -67,16 +67,18 @@ question about two sections, not a pass over everything.
 ```
 maze/
 ├── maze-topdown.html   the shell — markup and tags only
+├── tuner.html          the contract, and a block of mazes built to it
 ├── css/style.css       the whole look, 170 rules
 ├── data/               tuning and text; see data/README.md
 │   ├── config.js         SIZES, CONFIG
-│   ├── phases.js         PHASES, STONES
+│   ├── phases.js         PHASES, STONES, MUST
 │   ├── text.js           every line the player reads
 │   └── music.js          MUSIC
 ├── js/                 the engine, in run order; see js/README.md
 │   ├── core.js           version, save file, seed
 │   ├── generate.js       the maze itself (the big one)
 │   ├── proto.js          prototype levels, from the Prototype debug menu
+│   ├── contract.js       what a maze must hold, measured and graded
 │   ├── audio.js  state.js  input.js  stories.js  run-save.js
 │   ├── tutorials.js  pool.js  map.js
 │   ├── movement.js       the glide, turns, sliders, pickups
@@ -100,6 +102,13 @@ Data came out in v0.32.0, the engine in v0.33.0, the stylesheet in v0.34.0.
 Generation is bit-identical across all three — the harness finds the same 10
 soft-locked seeds each time — and the CSS move was verified against the
 browser's parsed CSSOM and a pixel-identical render, not just by eye.
+
+**`tuner.html` is a second page on the same engine**, not a second engine. It
+loads `data/` and `js/` exactly as the shell does and calls `generate()`; there
+is no copy of the generator in it and there must never be one, or it stops
+showing what the game makes. Both pages load `js/contract.js`; nothing in the
+running game calls it yet and nothing reads `MUST`, so the contract is inert to
+play for now. See `docs/QUALITY.md`.
 
 **The markup stays in the shell**, and should. Moving it out would need `fetch`
 (which breaks `file://`) or JS string injection (worse to edit, and the DOM

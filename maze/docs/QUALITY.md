@@ -24,6 +24,7 @@ why they regress without anything going red.
 ```
 python3 -m http.server 8765       # from the repo root, in another terminal
 
+open http://localhost:8765/maze/tuner.html    # look at it
 node maze/tools/quality.mjs       # the table below
 node maze/tools/bots.mjs --phase N --size S    # time to finish
 node maze/tools/shape.mjs --phase N --size S   # thresholds
@@ -147,15 +148,59 @@ its own reach the target.
 
 ## What follows from this
 
-Three of the five — keys, exit, key detour — are **contract failures, not tuning
-failures**. The vault code, the gauntlet code and the door code all exist; the
-generator does not insist on them and never reports a miss. That is a small
-change, and no knob panel is needed for it.
+Three of the five — keys not buried, the exit unguarded, rooms on top of each
+other — are **contract failures, not tuning failures**. The vault code, the
+gauntlet code and the room placer all exist; the generator does not insist on
+them and never reports a miss. That is a small change, and no knob panel is
+needed for it.
+
+**A correction, because the first reading of this doc got it backwards.** The
+key detour was listed here as a fourth failure, on the strength of its 12–31
+seconds looking small. Measured against the route it is added to, it is the
+opposite — at 2.31 tiles a second, those seconds are 54–90 tiles, and the key
+**adds 36–93% to the optimal route**:
+
+| self | unlocked | locked | the key adds |
+|---|---|---|---|
+| The Cartographer | 29.6s | 57.0s | 93% |
+| The Soldier | 27.1s | 40.4s | 49% |
+| The Archivist | 42.8s | 62.0s | 45% |
+| The Priest | 43.8s | 59.9s | 37% |
+| The Criminal | 41.8s | 73.0s | 75% |
+| The One Who Stayed | 64.7s | 88.0s | 36% |
+| You | 22.9s | 35.1s | 53% |
+
+Keys are the single most effective thing in the game at lengthening a route, and
+"a twenty-second errand" was the wrong way to read that column. So `keyDetour`
+stays a clause in the contract, but as **a floor to defend rather than a gap to
+close** — it is already good and should not be allowed to drift back.
+
+What is wrong with keys is the other half of Joe's sentence. *"Getting a key
+should be an adventure"* is not a complaint that the walk is short; it is that
+the walk ends at a key lying in a corridor. That is `keysVaulted`, and that one
+really is 0–3%.
 
 The other two — districts, and a maze that takes 10–20 minutes — **cannot be
 reached from the current config at all.** The best knob in the game tops out at
 0.96 thresholds and costs a third of the maze. A tuning tool would find that
 ceiling faster; it would not move it.
+
+## Where the targets live now
+
+`data/phases.js` carries a `MUST` row per chapter — the contract: keys buried,
+exit guarded, key detour, rooms apart, thresholds. `js/contract.js` measures a
+maze against it and says which clauses it met; `tuner.html` shows a block of
+mazes with every miss called out, and lets a number be tried before it is typed
+back into the file. Nothing in the running game reads `MUST` yet, so a maze the
+player walks is still built exactly as this doc measured it.
+
+The first numbers in `MUST` were picked by a stated rule rather than by feel,
+and the rule is written above the table there: hold a line where the game is
+already good, reject roughly the worst quarter where it can improve, and leave
+the clause red where the feature does not exist yet. `exitGuard` and
+`thresholds` are red on purpose for almost every chapter — that is the missing
+gauntlet and the missing structure, made visible in the place where the work
+would happen.
 
 **No targets are set here on purpose.** What a good number is for any row above
 is a design decision and Joe's to make. The point of this doc is that the
