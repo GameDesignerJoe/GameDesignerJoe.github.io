@@ -2605,6 +2605,57 @@ check('Reset save erases the save and restarts the game, asleep at the beginning
   `from a run at phase 3: save cleared (${resetGame.stored === null}), phase ${resetGame.phase}, ${resetGame.stones} stones, ${resetGame.collected} selves collected; `
   + `panel closed (${resetGame.panelClosed}), asleep at the title (${!resetGame.started && resetGame.pre}), a new maze under him (${resetGame.newSeed && resetGame.hasMaze})`);
 
+// ── 8g. every line the player reads lives in data/text.js (v0.82.0) ──
+
+// Joe, planning the rewrite: "it'll be good to have a single file that contains all the lines to
+// everything visible to the players." It wasn't one file — 21 lines were literals scattered through
+// five engine files, invisible to anyone doing a writing pass. They are MOMENTS now, keyed by self.
+const voice = await page.evaluate(() => {
+  const was = character;
+  const pick = (who, slug, vars) => { character = { name: who, pages: [] }; return moment(slug, vars); };
+  const out = {
+    childTtt:  pick('The Child', 'tttWon'),
+    adultTtt:  pick('The Soldier', 'tttWon'),
+    childHop:  pick('The Child', 'hopscotchDone'),
+    adultHop:  pick('The Soldier', 'hopscotchDone'),
+    shared:    pick('The Soldier', 'exitLocked'),
+    sharedKid: pick('The Child', 'exitLocked'),     // no per-self entry: everyone gets `_`
+    filled:    pick('The Soldier', 'keyFound', { shape: 'circle' }),
+    missing:   pick('The Soldier', 'nosuchslug'),
+  };
+  character = was;
+  return out;
+});
+check('a moment speaks in the voice of whoever is walking',
+  voice.childTtt !== voice.adultTtt && voice.childHop !== voice.adultHop
+    && voice.shared === voice.sharedKid && voice.shared.length > 0
+    && voice.filled.includes('circle') && voice.missing === '',
+  `the Child wins at noughts and crosses with "${voice.childTtt}" and the Soldier with "${voice.adultTtt}"; `
+  + `a moment with no per-self line gives everyone the same words; {shape} fills to "${voice.filled}"; `
+  + `an unknown slug is empty rather than undefined`);
+
+// And it has to stay one file. This is the guard: a narrate() with a literal in it is prose that
+// the writer's pass would never see.
+const strays = await page.evaluate(async () => {
+  const files = ['core', 'generate', 'proto', 'audio', 'state', 'input', 'stories', 'run-save',
+                 'tutorials', 'pool', 'map', 'movement', 'render', 'boot'];
+  const found = [];
+  for (const f of files) {
+    const src = await (await fetch('js/' + f + '.js')).text();
+    for (const line of src.split('\n')) {
+      if (line.trim().startsWith('//')) continue;
+      // narrate("…") or narrate('…') or narrate(`…`) — a literal, not a lookup
+      const m = line.match(/narrate\(\s*(["'`])/);
+      if (m) found.push(f + '.js: ' + line.trim().slice(0, 60));
+    }
+  }
+  return found;
+});
+check('no player-facing line is left hardcoded in the engine',
+  strays.length === 0,
+  strays.length ? strays.slice(0, 4).join(' | ')
+    : 'every narrate() takes its words from data/text.js, so a writing pass sees all of them');
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

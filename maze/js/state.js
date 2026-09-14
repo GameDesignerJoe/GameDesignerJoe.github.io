@@ -159,7 +159,7 @@ function useChalk(glyph) {
   // a cross in the middle of a board somebody left half-played: that is three in a row. The boards
   // are dealt with two crosses, no noughts and the middle open, so the middle is always the move
   if (glyph === 'x' && !tttWon && ((ticTacToe && key === ticTacToe.x + ',' + ticTacToe.y) || secretMarks.get(key) === 'ttt')) {
-    tttWon = true; narrate(character.name === 'The Child' ? "i win. i win i win i win." : "Three in a row. Nobody here to tell.");
+    tttWon = true; narrate(moment('tttWon'));
   }
 }
 function reset(seed) {

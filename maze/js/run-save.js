@@ -63,7 +63,7 @@ function restoreRun(run) {
   if (run.atHome) return;   // stay asleep on the mat; tapping the sleeper begins, and starts the sound
   // straight into the maze, no title: the fade lifts on you where you stood
   document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx * zoomMul(); started = true;
-  setTimeout(() => narrate(poolMode ? "…the water. I was going to the water." : "…where was I."), 2200);
+  setTimeout(() => narrate(moment(poolMode ? 'resumePool' : 'resumeMaze')), 2200);
 }
 
 // ── the run log ─────────────────────────────────────────────────

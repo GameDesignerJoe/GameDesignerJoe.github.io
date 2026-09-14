@@ -11,20 +11,20 @@ function poolSet(say, choices, onPick) {
 }
 function startPool() {
   const idx = Math.min(SAVE.stones || 0, POOLS.length - 1); poolScript = POOLS[idx]; poolStep = 0;
-  $('pool').classList.remove('clear'); $('poolWho').textContent = poolScript.who; $('poolKeeper').textContent = 'The Caretaker sits at the edge and says nothing.';
+  $('pool').classList.remove('clear'); $('poolWho').textContent = poolScript.who; $('poolKeeper').textContent = POOL_UI.keeperWaiting;
   $('pool').classList.add('show'); AUDIO.poolEnter();
   poolSet(poolScript.open, [['…', 'chalk']], () => poolExchange(0));
 }
 function poolExchange(i) {
   const ex = poolScript.ex[i];
-  if (!ex) return poolSet('Put the stone down.', [['I put it down.', 'chalk']], poolDrop);
+  if (!ex) return poolSet(POOL_UI.putDown, [[POOL_UI.putDownChoice, 'chalk']], poolDrop);
   poolSet(ex.say, ex.choices.map(c => [c]), pick => poolSet(ex.reply[pick], [['…', 'chalk']], () => poolExchange(i + 1)));
 }
 function poolDrop() {
   $('pool').classList.add('clear'); AUDIO.stoneDrop();
   const stoneName = STONES[Math.min(SAVE.stones || 0, STONES.length - 1)];
   setTimeout(() => {
-    $('poolKeeper').textContent = 'The Caretaker nods once.';
+    $('poolKeeper').textContent = POOL_UI.keeperNods;
     poolSet(poolScript.close, [['Wake', 'chalk']], () => {
       // remember that one just came off, so the next waking can show it: the light opens and
       // the pull-out takes its time. Without that the upgrade never reads — you simply play on.
