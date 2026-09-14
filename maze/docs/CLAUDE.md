@@ -14,6 +14,47 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## The writer's page (v0.95.0)
+
+Joe writes here, not in `data/text.js`: *"I don't see myself being able to do this on
+my phone... I don't want to try and edit a GitHub file through the git editor, that
+doesn't sound enjoyable."*
+
+**The page:** https://claude.ai/code/artifact/5fbf4ae2-7bad-4f14-aa23-10fd5eed1ee2
+
+**The loop.** He edits → the page saves to its own store → he says there is new text (or
+check at the start of a session) → read it, apply to `data/text.js`, run the suites,
+commit. The push stays here: a page holding a GitHub token would hand that token to
+anyone who opened it, and text changes should go through the suites anyway.
+
+    Artifact  action:read_db  db_op:get  collection:writer  doc_id:edits
+
+Comes back as `{ edits: { "<line id>": {text, note, deleted} }, added: [...] }`. The id
+is the path into `data/text.js` — `SELF_LINES["The Child"][3]` — so applying an edit is
+writing to that path. **Verify before writing:** the page also keeps what the line said
+when he started. If that no longer matches the file, the line moved under him; flag it
+rather than clobber.
+
+**Two tools, both generated, never hand-kept:**
+
+- `tools/text-index.mjs` — every line with the context a writer needs: who speaks it,
+  where it appears, when it fires, how often, how much room, and whether anything fires
+  it at all. Walks `data/text.js` generically, so a block added tomorrow is indexed
+  without anyone remembering to teach it. `--json`, `--dead`, or a readable report.
+  Tutorial chapters are derived from `PHASES`, because a hand-written chapter number is
+  wrong the moment a feature moves phase.
+- `tools/writer-page.mjs` — builds the page with the index baked in. **Regenerate and
+  republish whenever the text changes**, or Joe is editing against a stale copy.
+
+**Why no line IDs in the data.** The tempting move was `{id, text}` per line, but that
+touches 32 call sites and the nested shapes in `CAST` and `POOLS`, in a working game.
+Path IDs plus that original-text check give the same safety at apply time for none of
+the risk. The restructure stays available if the page proves it needs it.
+
+**What the page cannot do:** wire a genuinely new moment. Adding a line to an existing
+pool is text; a line that fires when something new happens is code. The page marks those
+"new — I will wire this in" rather than pretending.
+
 ## The docs
 
 | File | What it is |
