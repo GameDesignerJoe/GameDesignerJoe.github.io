@@ -478,6 +478,12 @@ up.
 - Doors scaled by maze size.
 - Ladder/slide onto wall tops — proposed, deferred until cheaper Child mechanics
   prove the phase.
+- **A pool-level pass, and hardening the pool-ripple smoke check** — deferred
+  (v0.92.0). Joe: *"Don't worry about the pool for now. We are eventually going
+  to change all these to be more metaphors of what the main chapter is about."*
+  The pool and the other landmark rooms are placeholders for per-chapter
+  metaphors, so nothing is worth building into the current pool. When the ripple
+  check flakes, re-run it; do not spend a batch on it.
 
 **These were on the old list and have since changed** — don't cite the old doc
 against them:
