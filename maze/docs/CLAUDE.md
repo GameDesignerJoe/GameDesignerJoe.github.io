@@ -482,6 +482,43 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The seed on the picture, and the T he could not pass (v0.93.0)
+
+Joe, with two screenshots of a T junction: *"I've seen this issue a couple times
+where we have these t intersections where I can't move through them. Here's the
+navmesh. For some reason the tiles are changing up and down in numbers. Is that
+because of moving tiles? Also, the nav mesh isn't showing the seed for it to be
+easy for you to reproduce."*
+
+**The seed was there — where no phone screenshot reaches.** Bottom left, under the
+joystick and the home bar. It now sits at the top of the picture, under the HUD
+row and below the narrator's line, and reads *The Child · seed 57 · tile 89 of
+494*: which self, which maze, which tile he stands on. Its height is `navTagTop`;
+the first cut at 96px sat exactly on the narrator's line, seen in the screenshot
+before believed. Canvas text is not in the DOM, so the string drawn is kept in
+`navTagText` for the smoke suite.
+
+**The numbers are not moving tiles.** The nav view numbers every open tile in
+reading order, left to right then top to bottom, once, when the maze is built.
+Walking down a column the number jumps by however many open tiles lie in the rows
+between, so 60 → 78 → 89 is a maze with about a dozen open tiles per row, not a
+maze changing under him. Sliders are open tiles like any other and get a number.
+
+**The T itself did not reproduce.** Eighty runs through his exact shape — a 1-wide
+stem meeting a 1-wide bar, approached from every arm, at stick angles across the
+full quarter — and every one crossed. Two false positives on the way: a "stop" at
+0.56 tiles that was `squeezeSlow` (0.4) through a crawl gap, honest slowness that
+reads as stuck on a phone; and one true stop that was a pushable block sitting at
+the corridor's end. The squeeze does not bleed: 0 of 14,281 tiles outside a gap's
+reach reported it. The tag exists so his next screenshot carries the seed and the
+tile, and I can stand exactly where he stood.
+
+**Tests.** Render/UI change, so smoke alone: 86 checks, one new — *the nav view tag
+names chapter, seed and tile, and sits below the narrator line*. The bar for
+"below" is the narrator element's own bottom edge, read from the DOM with a line
+showing, not the knob. Proven red with `navTagTop` back at 96: tag top 96px,
+narrator bottom 120px.
+
 ## The book in the water (v0.92.0)
 
 Joe, with the first screenshot I have ever been able to see: *"Floating book in

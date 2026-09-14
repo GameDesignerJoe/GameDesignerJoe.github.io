@@ -1094,11 +1094,16 @@ function draw() {
     }
     // the seed, on the picture rather than in the panel, so one screenshot carries everything
     // needed to point at a tile: "seed 4242, tile 391" and I can stand exactly where he stood
-    const tag = `seed ${SEED} · ${n} walkable · he is on ${navNumberAt(Math.floor(player.x), Math.floor(player.y))}`;
-    ctx.font = '12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    const wq = ctx.measureText(tag).width;
-    ctx.fillStyle = 'rgba(13,15,16,.78)'; ctx.fillRect(8, vh - 26, wq + 12, 18);
-    ctx.fillStyle = '#e8e3d6'; ctx.fillText(tag, 14, vh - 23);
+    // Joe: "the nav mesh isn't showing the seed for it to be easy for you to reproduce." It was —
+    // bottom-left, under the joystick and the phone's home bar, where no screenshot of his ever
+    // reached. Top of the picture now, under the HUD row, with the chapter, so one screenshot says
+    // everything: which maze, which self, and the tile he is standing on.
+    const tag = `${phase().who} · seed ${SEED} · tile ${navNumberAt(Math.floor(player.x), Math.floor(player.y))} of ${n}`;
+    ctx.font = '13px ui-monospace, Menlo, monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    const wq = ctx.measureText(tag).width, tx = vw - 14, ty = CONFIG.navTagTop;
+    ctx.fillStyle = 'rgba(13,15,16,.82)'; ctx.fillRect(tx - wq - 8, ty - 4, wq + 16, 21);
+    ctx.fillStyle = '#e8e3d6'; ctx.fillText(tag, tx, ty);
+    navTagText = tag;   // for the smoke suite: canvas text is not in the DOM, so the string it drew is kept
     ctx.restore();
   }
 

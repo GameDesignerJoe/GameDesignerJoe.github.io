@@ -56,6 +56,7 @@ function renderKeys() { $('keys').innerHTML = [...heldKeys].map(sh => `<svg view
 // the carved stone you hold, if any — one at a time, so the second is a thing to remember the way back to
 let carried = null, carryFullSaid = false, shrineWrongSaid = false;
 let shrinePath = [], shrineUntil = 0;   // a satisfied statue's thread to the nearest page you had not found
+let navTagText = '';                     // what the nav view last wrote at the top of the picture, for the smoke suite
 // the four people's marks, as SVG. None of them a key's shape, so a stone never reads as a key.
 function markGlyph(mark, color) { const c = color || '#e0c98a', a = `fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"`;
   return mark === 'bar' ? `<path d="M11 6v11" ${a}/>` : mark === 'arc' ? `<path d="M5 9a6 6 0 0 0 12 0" ${a}/>` : mark === 'cross' ? `<path d="M6 6l10 10M16 6L6 16" ${a}/>` : mark === 'chevron' ? `<path d="M5 15l6-9 6 9" ${a}/>` : `<path d="M4 12c2-5 4 5 7 0s5 5 7 0" ${a}/>`; }

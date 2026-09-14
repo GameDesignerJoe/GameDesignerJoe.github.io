@@ -1853,6 +1853,26 @@ check('the nav view numbers every walkable tile, and the numbers hold still',
   `${nav.walk} walkable tiles; he starts on ${nav.hereA} and it is still ${nav.hereB} after the camera moves; `
   + `the way out is ${nav.exitNo}; a wall tile has no number`);
 
+// Joe, with two screenshots of a T he could not get through: "the nav mesh isn't
+// showing the seed for it to be easy for you to reproduce." It was there — bottom
+// left, under the joystick and the phone's home bar, where his screenshots never
+// reach. The tag now sits at the top of the picture, under the HUD row and below
+// the narrator's line, and names the chapter, the seed and the tile he stands on.
+const tag = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 0; reset(4242); sliding = null; started = true;
+  narrEl.innerHTML = 'the man said wait here.'; narrEl.className = 'show';
+  SAVE.ui.nav = true; await nap(160);
+  const text = navTagText, here = navNumberAt(Math.floor(player.x), Math.floor(player.y));
+  const nb = narrEl.getBoundingClientRect().bottom;      // the picture is the whole window, so page px = canvas px
+  SAVE.ui.nav = false; narrEl.className = '';
+  return { text, here, nb, top: CONFIG.navTagTop, vh: innerHeight, who: phase().who };
+});
+check('the nav view tag names chapter, seed and tile, and sits below the narrator line',
+  tag.text.includes(`seed 4242`) && tag.text.includes(tag.who) && tag.text.includes(`tile ${tag.here} of`)
+    && tag.top - 4 >= tag.nb && tag.top < tag.vh * 0.25,
+  `"${tag.text}"; tag top ${tag.top}px, narrator bottom ${Math.round(tag.nb)}px, screen ${tag.vh}px tall`);
+
 // Joe, with a screenshot of the start-room block set off at an angle: "since you
 // can approach it from any angle it carries that angle to the tile, snaps it to
 // the player and then moves to where it needs to go. Instead the tile should stay

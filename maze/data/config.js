@@ -92,6 +92,8 @@ const CONFIG = {
                         // at walking speed rather than a diagonal sprint across it
   stickDeadzone: 0.22,  // fraction of stick travel that reads as "not pushing"
   playerSize: 0.46,     // fraction of a tile
+  navTagTop: 134,       // where the nav view's seed tag sits, in px from the top of the picture: under
+                        // the HUD row and below the narrator's line, where a phone screenshot cannot miss it
   playerOutline: 0.13,  // a pale edge round the body, as a fraction of its radius. Carrying every
                         // stone he is nearly black, and on a dark floor the outline is the only
                         // thing that keeps him findable. 0 = none, and he starts truly invisible
