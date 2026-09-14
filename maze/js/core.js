@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.95.0';
+const VERSION = '0.99.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
@@ -37,6 +37,16 @@ function slidePos(s, nowMs) {
   const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
   return [s.from[0] + 0.5 + (s.to[0] - s.from[0]) * e,
           s.from[1] + 0.5 + (s.to[1] - s.from[1]) * e, k];
+}
+
+// The line for this beat, in the voice of whoever is walking. Falls back to `_`, the line every
+// self shares, so a moment only needs a per-self entry once somebody writes one. {braces} are
+// filled from vars.
+function moment(slug, vars) {
+  const m = MOMENTS[slug] || {};
+  let s = m[(typeof character !== 'undefined' && character) ? character.name : ''] || m._ || '';
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
 }
 
 // How far a gate's leaves have actually swung, given how far through its slide it is. Cubic, so it

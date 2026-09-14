@@ -14,6 +14,156 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## The maze is built to a contract now, and says when it cannot be (v0.97.0)
+
+`data/phases.js` grew a `MUST` row per chapter — keys buried, exit guarded, key
+detour, rooms apart, thresholds — and `generate()` builds against it.
+`js/contract.js` measures and grades; `tuner.html` draws a block of mazes with
+every miss called out. The full account is `docs/QUALITY.md`.
+
+**The headline is a negative result, and it is the useful part.** Enforcing the
+contract did not improve the keys at all: every-key-buried stayed at 3% for The
+Soldier, 0% for The Archivist and The Criminal. The old retry loop was already
+ranking builds by keys-in-nests as a tiebreaker, so writing that preference down
+as a requirement gave it nothing new to find. A maze with both keys buried turns
+up in about 3% of builds and five tries cannot reliably find one. **Insisting on
+a requirement does not make it reachable.** What would fix it is placement — put
+the key in a nest instead of building mazes until one lands there — and that is
+its own batch.
+
+What the contract did buy: the shortfall is visible for the first time
+(`contractMiss`, and a "fell short" column in `tools/quality.mjs`), every chapter
+but The Child misses its row in 100% of mazes, and a later change that makes any
+of it worse now has somewhere to go red.
+
+Three things worth not relearning:
+
+- **Equal clause weights are not neutral.** The first cut scored every clause the
+  same and 20 of 20 Soldier mazes shipped with a loose key, because a build could
+  win by gaining a threshold while dropping a key into a hall. `keysVaulted`
+  outweighs the rest together now.
+- **Patience is spent on tier one only.** Letting a gained threshold reset the
+  retry counter ran 9.6 builds a maze at xl. It waits on keys, which is what more
+  tries can actually buy. Build counts now match v0.93.0 exactly; the only added
+  cost is 8/17/38ms of measuring at md/lg/xl. An xl level load was already ~760ms
+  before any of this.
+- **The room-gap numbers in the first printing of QUALITY.md were wrong**, and so
+  was the copy of the measurement in `tools/quality.mjs` that produced them: its
+  flood could start at a well but never finish at one, and 17% of landmarks are
+  wells standing in the wall. One measurement now, in `contract.js`, checked
+  against a pairwise reference over 88 mazes. Rooms are closer together than that
+  doc first said. Two of them can even land on the same tile — 1 maze in 30 for
+  The Archivist — which is a placement bug still open.
+## The writer's page, in the repo (v0.98.0)
+
+Joe: *"My expectations that you would make this writer.HTML page in the GitHub. I don't
+see it there."* Fair — the generator was committed and the artifact published, but the
+page itself never landed in the repo, which is where he went looking.
+
+`maze/writer.html` is committed now, so it opens from
+`gamedesignerjoe.github.io/maze/writer.html` like the game does. Three things had to be
+true first, and the third was a real bug:
+
+- **It had to save somewhere.** There is no `window.claude` on GitHub Pages, so that copy
+  keeps the work in `localStorage` and offers **Copy changes**, which puts every edit on
+  the clipboard to paste into the chat. The claude.ai copy still saves to the store I can
+  read directly. Both now say which one you are in, rather than one silently doing nothing.
+- **It had to be reproducible.** The page carried `built: new Date()`, so every build
+  differed from the last and *"is the committed page stale?"* was unanswerable. It carries
+  a fingerprint of the text instead. Two builds are byte-identical.
+- **Mojibake.** No `<meta charset>`: the artifact wrapper supplies one, GitHub Pages does
+  not, so every em-dash came through as `â€"` and the page laid out at desktop width on a
+  phone. Both metas are in the generated file now; the wrapper ignores them.
+
+**A generated file in the repo rots**, which is this session's recurring lesson, so smoke
+fails when `writer.html` and `data/text.js` disagree and names the command to fix it. The
+republish is not checked and stays a human step — it is in the skill's ship section.
+
+## Adding a line, per event rather than per block (v0.96.0)
+
+Joe, on the first cut of the writer's page: *"I might want to write a new line for the
+basin, or for when he is walking through the maze, or standing at a bookshelf. These
+don't have add lines. It's only the whole section for all SELF LINES."*
+
+Right, and the page was worse than he thought. It grouped by **block**, so the basin and
+the shelf — two different moments — were one group, and the single add button attached a
+line to a block rather than to the list the game actually picks from. The page groups by
+**the list** now: 192 groups where there were 17.
+
+**The interesting part is that "add a line" is not always possible**, and it depends on
+how the engine picks, not on the shape of the data. Read off the pick sites:
+
+- **Takes a new line** (42 lists): `SELF_LINES` (shuffled and played through), `EMPTY_SHELF`
+  / `FIGURE_LINES` / `SECRET_LINES` (random), `SHELF_LINES` (each once), `CAST[i].pages`,
+  `POOLS[i].approach`.
+- **Cannot** (70): `LIGHTER` is one line per stone and there are seven, so an eighth could
+  never fire. `POOLS[i].ex[j].choices`/`.reply` and `EXCHANGES[who].steps[i].q`/`.a` are
+  paired by position — adding one needs the other, which is a code change.
+- **Single slots** (137 lines): a tutorial card, a moment, a page's wake line. Rewritable,
+  not extendable.
+
+**The basin was the interesting case, and it needed a code change.** It was picked with
+`L[t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0]` — hard-wired to exactly three, keyed to how far
+through the chapter's pages you are. A fourth line could never have fired, so offering
+"add a line" would have been a lie. It spreads across however many lines there are now
+(`L[Math.min(L.length - 1, Math.floor(t * L.length))]`), so a fourth just makes the run
+through the chapter finer. Shelf and basin both.
+
+**The rule table defaults to "no".** `POOL_RULES` in `tools/text-index.mjs` is
+hand-maintained because it encodes engine behaviour, which is exactly the kind of thing
+that rots — so an unrecognised list is *not* addable and says "I have not checked how the
+game picks from it". That default earned itself immediately: it caught four lists I had
+missed (`SELF_LINES.You` and `ROOM_LINES.You.*`, whose keys are dot-notation rather than
+bracketed, and the paired `EXCHANGES` question/answer arrays).
+
+### A 220KB pipe, truncated at 145KB
+
+`writer-page.mjs` shelled out to `text-index.mjs --json` and parsed the result. The index
+grew past what the pipe delivered and `JSON.parse` failed on an unterminated string 4,700
+lines from the cause. It imports the module now. Worth remembering: a syntax error in
+data you generated yourself usually means the data was cut, not malformed.
+
+## The writer's page (v0.95.0)
+
+Joe writes here, not in `data/text.js`: *"I don't see myself being able to do this on
+my phone... I don't want to try and edit a GitHub file through the git editor, that
+doesn't sound enjoyable."*
+
+**The page:** https://claude.ai/code/artifact/5fbf4ae2-7bad-4f14-aa23-10fd5eed1ee2
+
+**The loop.** He edits → the page saves to its own store → he says there is new text (or
+check at the start of a session) → read it, apply to `data/text.js`, run the suites,
+commit. The push stays here: a page holding a GitHub token would hand that token to
+anyone who opened it, and text changes should go through the suites anyway.
+
+    Artifact  action:read_db  db_op:get  collection:writer  doc_id:edits
+
+Comes back as `{ edits: { "<line id>": {text, note, deleted} }, added: [...] }`. The id
+is the path into `data/text.js` — `SELF_LINES["The Child"][3]` — so applying an edit is
+writing to that path. **Verify before writing:** the page also keeps what the line said
+when he started. If that no longer matches the file, the line moved under him; flag it
+rather than clobber.
+
+**Two tools, both generated, never hand-kept:**
+
+- `tools/text-index.mjs` — every line with the context a writer needs: who speaks it,
+  where it appears, when it fires, how often, how much room, and whether anything fires
+  it at all. Walks `data/text.js` generically, so a block added tomorrow is indexed
+  without anyone remembering to teach it. `--json`, `--dead`, or a readable report.
+  Tutorial chapters are derived from `PHASES`, because a hand-written chapter number is
+  wrong the moment a feature moves phase.
+- `tools/writer-page.mjs` — builds the page with the index baked in. **Regenerate and
+  republish whenever the text changes**, or Joe is editing against a stale copy.
+
+**Why no line IDs in the data.** The tempting move was `{id, text}` per line, but that
+touches 32 call sites and the nested shapes in `CAST` and `POOLS`, in a working game.
+Path IDs plus that original-text check give the same safety at apply time for none of
+the risk. The restructure stays available if the page proves it needs it.
+
+**What the page cannot do:** wire a genuinely new moment. Adding a line to an existing
+pool is text; a line that fires when something new happens is code. The page marks those
+"new — I will wire this in" rather than pretending.
+
 ## The docs
 
 | File | What it is |
@@ -22,6 +172,7 @@ different project — reference only.
 | **`PROGRESSION.md`** | The arc: eight selves, seven stones, the pools, and why each stone maps to the knob it does. §1–§7 are the design and still stand; §8 is what is actually built, current as of v0.76.0. |
 | **`ROOMS.md`** | The rooms that are places — what each of the seven landmark kinds is, and ten pitches for more. |
 | **`NOTES.md`** | Joe's *standing* notes: story thinking, themes, canon. **Not the backlog** — see below. |
+| **`QUALITY.md`** | **What the mazes are actually like**, measured: keys in nests, what guards the exit, time to finish, thresholds, how far apart the rooms are. The baseline for Joe's five standing complaints, and the note that the harness only ever proved a maze *playable*, never good. Current as of v0.93.0. |
 | **`LABYRINTH.md`** | The labyrinth prototype's shape, from the debug Prototype menu. |
 | `labyrinth/01`–`06` | The **other** project: first-person, hex-grid, Three.js, React/Vite/TypeScript on Vercel. Reference and inspiration. |
 
@@ -66,16 +217,18 @@ question about two sections, not a pass over everything.
 ```
 maze/
 ├── maze-topdown.html   the shell — markup and tags only
+├── tuner.html          the contract, and a block of mazes built to it
 ├── css/style.css       the whole look, 170 rules
 ├── data/               tuning and text; see data/README.md
 │   ├── config.js         SIZES, CONFIG
-│   ├── phases.js         PHASES, STONES
+│   ├── phases.js         PHASES, STONES, MUST
 │   ├── text.js           every line the player reads
 │   └── music.js          MUSIC
 ├── js/                 the engine, in run order; see js/README.md
 │   ├── core.js           version, save file, seed
 │   ├── generate.js       the maze itself (the big one)
 │   ├── proto.js          prototype levels, from the Prototype debug menu
+│   ├── contract.js       what a maze must hold, measured and graded
 │   ├── audio.js  state.js  input.js  stories.js  run-save.js
 │   ├── tutorials.js  pool.js  map.js
 │   ├── movement.js       the glide, turns, sliders, pickups
@@ -99,6 +252,13 @@ Data came out in v0.32.0, the engine in v0.33.0, the stylesheet in v0.34.0.
 Generation is bit-identical across all three — the harness finds the same 10
 soft-locked seeds each time — and the CSS move was verified against the
 browser's parsed CSSOM and a pixel-identical render, not just by eye.
+
+**`tuner.html` is a second page on the same engine**, not a second engine. It
+loads `data/` and `js/` exactly as the shell does and calls `generate()`; there
+is no copy of the generator in it and there must never be one, or it stops
+showing what the game makes. Both pages load `js/contract.js`; nothing in the
+running game calls it yet and nothing reads `MUST`, so the contract is inert to
+play for now. See `docs/QUALITY.md`.
 
 **The markup stays in the shell**, and should. Moving it out would need `fetch`
 (which breaks `file://`) or JS string injection (worse to edit, and the DOM
@@ -482,7 +642,7 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
-## One person to a chapter, and the Teen (v0.95.0)
+## One person to a chapter, and the Teen (v0.99.0)
 
 Four items from the doc, all statues. Joe, with screenshots I could not see: *"I don't
 think this is how it's supposed to look for the statues. The grey oval is out in

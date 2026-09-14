@@ -65,7 +65,7 @@ function markGlyph(mark, color) { const c = color || '#e0c98a', a = `fill="none"
 // game, not per maze — SAVE.asked[who] is how far down their steps you have come — so a statue you
 // have spent says its one finished line and nothing else, in this maze and every maze after.
 function exchangeStep(who) { SAVE.asked = SAVE.asked || {};
-  // the person was `child` before v0.95.0; a save from then carries its count over
+  // the person was `child` before v0.99.0; a save from then carries its count over
   if (SAVE.asked.child) { SAVE.asked.teen = (SAVE.asked.teen || 0) + SAVE.asked.child; delete SAVE.asked.child; persist(); }
   const ex = EXCHANGES[who]; if (!ex) return null; const i = SAVE.asked[who] || 0; return i < ex.steps.length ? ex.steps[i] : null; }
 function showExchange(sh) {
@@ -162,7 +162,7 @@ function useChalk(glyph) {
   // a cross in the middle of a board somebody left half-played: that is three in a row. The boards
   // are dealt with two crosses, no noughts and the middle open, so the middle is always the move
   if (glyph === 'x' && !tttWon && ((ticTacToe && key === ticTacToe.x + ',' + ticTacToe.y) || secretMarks.get(key) === 'ttt')) {
-    tttWon = true; narrate(character.name === 'The Child' ? "i win. i win i win i win." : "Three in a row. Nobody here to tell.");
+    tttWon = true; narrate(moment('tttWon'));
   }
 }
 function reset(seed) {

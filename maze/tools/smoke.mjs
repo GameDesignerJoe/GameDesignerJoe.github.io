@@ -113,14 +113,14 @@ console.log(`          (${idReport.length - unstyled.length} of ${idReport.lengt
   + `no rule for: ${unstyled.map((u) => u.id).join(', ') || 'none'})`);
 
 // ── 2b. the script tags load in the order the engine expects ────
-// 18 plain scripts sharing one global scope: order is load-bearing. Reordering
+// 19 plain scripts sharing one global scope: order is load-bearing. Reordering
 // them, or dropping one, breaks the game in ways a glance at the page will not
 // show. Assert the sequence.
 const shell = readFileSync(new URL('../maze-topdown.html', import.meta.url), 'utf8');
 const tagOrder = [...shell.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
 const EXPECTED = [
   'data/config.js', 'data/phases.js', 'data/text.js', 'data/music.js',
-  'js/core.js', 'js/generate.js', 'js/proto.js', 'js/audio.js', 'js/state.js', 'js/input.js',
+  'js/core.js', 'js/generate.js', 'js/proto.js', 'js/contract.js', 'js/audio.js', 'js/state.js', 'js/input.js',
   'js/stories.js', 'js/run-save.js', 'js/tutorials.js', 'js/pool.js', 'js/map.js',
   'js/movement.js', 'js/render.js', 'js/boot.js',
 ];
@@ -654,7 +654,16 @@ const gswing = await page.evaluate(async () => {
     { const home = !!tiles[sl.y][sl.x];
       if (wasHome !== null && home !== wasHome) seen.moves++;
       wasHome = home; }
-    if (performance.now() - t0 > 4000) return r();
+    // Eight seconds, not four, and the reason is measured. The swing's dwells are
+    // asymmetric — about 2.07s at one end and 1.28s at the other, a full cycle of
+    // ~3.35s — and `nextAt = 0` starts it at a random phase. A four-second window
+    // therefore held two transitions on a lucky phase and only ONE on an unlucky
+    // one, so this check was passing on the phase the seed happened to land on
+    // rather than on the behaviour. v0.94.0 moved which maze ships and the phase
+    // went the other way. Eight seconds spans two whole cycles from any start, so
+    // a working swing always shows at least four changes and a pinned one still
+    // shows none.
+    if (performance.now() - t0 > 8000) return r();
     requestAnimationFrame(step); }; step(); });
   CONFIG.swingSeconds = wasSec;
   return { at: [sl.x, sl.y], into: [sl.dx, sl.dy], seen,
@@ -663,7 +672,7 @@ const gswing = await page.evaluate(async () => {
 check('the gauntlet floor slides out of the way and comes back',
   gswing.skip || (gswing.seen.moves >= 2 && gswing.onRoute),
   gswing.skip ? 'no gauntlet swing in 40 Child mazes' :
-  `the cell at ${gswing.at} is on the route out; it left toward ${gswing.into} and came back ${gswing.seen.moves} times over four seconds (floor ${gswing.seen.home} frames, hole ${gswing.seen.away})`);
+  `the cell at ${gswing.at} is on the route out; it left toward ${gswing.into} and came back ${gswing.seen.moves} times over eight seconds (floor ${gswing.seen.home} frames, hole ${gswing.seen.away})`);
 
 // ── 8i. the pool room's gate ──────────────────────────────────────
 // It used to slide aside the moment you picked the stone up. Now you have to carry the stone to
@@ -2615,6 +2624,92 @@ check('Reset save erases the save and restarts the game, asleep at the beginning
     && resetGame.panelClosed && !resetGame.started && resetGame.pre && resetGame.newSeed && resetGame.hasMaze,
   `from a run at phase 3: save cleared (${resetGame.stored === null}), phase ${resetGame.phase}, ${resetGame.stones} stones, ${resetGame.collected} selves collected; `
   + `panel closed (${resetGame.panelClosed}), asleep at the title (${!resetGame.started && resetGame.pre}), a new maze under him (${resetGame.newSeed && resetGame.hasMaze})`);
+
+// ── 8g. every line the player reads lives in data/text.js (v0.82.0) ──
+
+// Joe, planning the rewrite: "it'll be good to have a single file that contains all the lines to
+// everything visible to the players." It wasn't one file — 21 lines were literals scattered through
+// five engine files, invisible to anyone doing a writing pass. They are MOMENTS now, keyed by self.
+const voice = await page.evaluate(() => {
+  const was = character;
+  const pick = (who, slug, vars) => { character = { name: who, pages: [] }; return moment(slug, vars); };
+  const out = {
+    childTtt:  pick('The Child', 'tttWon'),
+    adultTtt:  pick('The Soldier', 'tttWon'),
+    childHop:  pick('The Child', 'hopscotchDone'),
+    adultHop:  pick('The Soldier', 'hopscotchDone'),
+    shared:    pick('The Soldier', 'exitLocked'),
+    sharedKid: pick('The Child', 'exitLocked'),     // no per-self entry: everyone gets `_`
+    filled:    pick('The Soldier', 'keyFound', { shape: 'circle' }),
+    missing:   pick('The Soldier', 'nosuchslug'),
+  };
+  character = was;
+  return out;
+});
+check('a moment speaks in the voice of whoever is walking',
+  voice.childTtt !== voice.adultTtt && voice.childHop !== voice.adultHop
+    && voice.shared === voice.sharedKid && voice.shared.length > 0
+    && voice.filled.includes('circle') && voice.missing === '',
+  `the Child wins at noughts and crosses with "${voice.childTtt}" and the Soldier with "${voice.adultTtt}"; `
+  + `a moment with no per-self line gives everyone the same words; {shape} fills to "${voice.filled}"; `
+  + `an unknown slug is empty rather than undefined`);
+
+// And it has to stay one file. This is the guard: a narrate() with a literal in it is prose that
+// the writer's pass would never see.
+const strays = await page.evaluate(async () => {
+  const files = ['core', 'generate', 'proto', 'audio', 'state', 'input', 'stories', 'run-save',
+                 'tutorials', 'pool', 'map', 'movement', 'render', 'boot'];
+  const found = [];
+  for (const f of files) {
+    const src = await (await fetch('js/' + f + '.js')).text();
+    for (const line of src.split('\n')) {
+      if (line.trim().startsWith('//')) continue;
+      // narrate("…") or narrate('…') or narrate(`…`) — a literal, not a lookup
+      const m = line.match(/narrate\(\s*(["'`])/);
+      if (m) found.push(f + '.js: ' + line.trim().slice(0, 60));
+    }
+  }
+  return found;
+});
+check('no player-facing line is left hardcoded in the engine',
+  strays.length === 0,
+  strays.length ? strays.slice(0, 4).join(' | ')
+    : 'every narrate() takes its words from data/text.js, so a writing pass sees all of them');
+
+// Joe, on the writer's page: "I might want to write a new line for the basin, or for
+// when he is walking through the maze, or standing at a bookshelf." The shelf and
+// basin lines used to be picked with `t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0` — hard-wired to
+// exactly three, so a fourth line could never fire and "add a line" would have been a
+// lie. They spread across however many there are now.
+const spread = await page.evaluate(() => {
+  const pick = (n, t) => Math.min(n - 1, Math.floor(t * n));       // the rule the engine uses
+  const reach = (n) => { const seen = new Set();
+    for (let t = 0; t <= 1.0001; t += 0.01) seen.add(pick(n, t));
+    return seen.size; };
+  const shelf = (ROOM_LINES['The Child'] || {}).shelf || [];
+  return { three: reach(3), four: reach(4), seven: reach(7), atFull: pick(shelf.length, 1), have: shelf.length };
+});
+check('every shelf and basin line can be reached, however many there are',
+  spread.three === 3 && spread.four === 4 && spread.seven === 7 && spread.atFull === spread.have - 1,
+  `with 3 lines all 3 come up, with 4 all 4, with 7 all 7; carrying every page you get the last of `
+  + `the ${spread.have} there are. A fourth line used to be unreachable, so the page could not offer one`);
+
+// maze/writer.html is generated from data/text.js, so it can go stale the moment anyone edits a
+// line — and a writer editing a stale page is writing into a copy of the game that no longer
+// exists. Builds are reproducible (the page carries a fingerprint of the text, not a timestamp),
+// so this is a byte comparison.
+{
+  const { buildPage } = await import('./writer-page.mjs');
+  const onDisk = readFileSync(new URL('../writer.html', import.meta.url), 'utf8');
+  const fresh = buildPage();
+  const stamp = (t) => (t.match(/"stamp":"([a-f0-9]+)"/) || [])[1] || '?';
+  check('the writer page matches the text it is meant to show',
+    onDisk === fresh,
+    onDisk === fresh
+      ? `built from text ${stamp(fresh)}, ${(onDisk.length / 1024).toFixed(0)}KB`
+      : `the committed page was built from text ${stamp(onDisk)} and the text is now ${stamp(fresh)}. `
+        + 'Run: node maze/tools/writer-page.mjs > maze/writer.html   (and republish the artifact)');
+}
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

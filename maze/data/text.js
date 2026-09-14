@@ -294,3 +294,40 @@ const FIGURE_LINES = ["was that him?", "wait—", "dad?", "he didnt see me.", "h
 // the secret room: someone small was in here a long time, and left it covered in chalk
 const SECRET_LINES = ["where am i without you?", "somebody was in here. for a long time.",
   "all this chalk. all these arrows. none of them go out.", "i think i drew these.", "he waited in here too."];
+
+// ── moments: one line at one beat ───────────────────────────────────────────
+// These lived as literals scattered through seven engine files until v0.82.0, which meant a fifth
+// of what the player reads was invisible to anyone doing a writing pass. Keyed by self, with `_`
+// as the line for any self that has no entry of its own — two of them (the noughts-and-crosses
+// and the hopscotch) already had a child/adult split hand-rolled as a ternary in the engine, so
+// the shape was already wanted. The rest can have their own voices as they get written.
+const MOMENTS = {
+  poolDoorNoStone: { _: "It won't move. Not without a stone." },
+  poolDoorGives:   { _: "\u2026it gives." },
+  exitLocked:      { _: "Locked. It wants a key." },
+  crawlTooBig:     { _: "I used to fit through here." },
+  stoneTaken:      { _: "One stone. I'll carry it as far as the water." },
+  ticTacToe:       { 'The Child': "its my turn. he never took his.", _: "Someone left a game half-played." },
+  tttWon:          { 'The Child': "i win. i win i win i win.", _: "Three in a row. Nobody here to tell." },
+  hopscotchDone:   { 'The Child': "\u2026ready or not.", _: "I remember this game." },
+  doorUnlocked:    { _: 'The key turns, and stays in the lock.' },
+  keyFound:        { _: "A key. Its head is a {shape}." },
+  doorLocked:      { _: "Locked. The lock is a {shape}." },
+  stoneForGate:    { _: "The stone. Now the gate." },
+  resumePool:      { _: "\u2026the water. I was going to the water." },
+  resumeMaze:      { _: "\u2026where was I." },
+};
+
+// ── the map screen, before you have charted anything ────────────────────────
+const MAP_EMPTY = {
+  head: 'A blank canvas, waiting for charcoal.',
+  sub:  'Tap the charcoal to begin mapping as you walk.',
+};
+
+// ── the pool room's own furniture, around the written exchange ──────────────
+const POOL_UI = {
+  keeperWaiting:  'The Caretaker sits at the edge and says nothing.',
+  keeperNods:     'The Caretaker nods once.',
+  putDown:        'Put the stone down.',
+  putDownChoice:  'I put it down.',
+};

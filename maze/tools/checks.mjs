@@ -243,7 +243,7 @@ const CHECKS = [
   // step. The generator aims for offeringMinTiles of walking and settles for the farthest dead end
   // there is; the bar here is eight tiles and reads no knob, which is "not beside it" — the
   // property Joe described, whatever the knob is set to.
-  // Since v0.95.0 both statues in a maze wait for the same person and either bowl takes the stone,
+  // Since v0.99.0 both statues in a maze wait for the same person and either bowl takes the stone,
   // so the walk that matters is to the *nearest* statue: a stone at the other one's feet is a step.
   ['each statue has its stone, and the stone lies well away from it', (s) => {
     if (s.poolMode || !(s.shrines || []).length) return null;

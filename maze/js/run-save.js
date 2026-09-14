@@ -55,7 +55,7 @@ function restoreRun(run) {
   exitGateAt = 0;   // and a gate that opened before the reload is drawn already open, not swinging
   if (run.innerKeys) innerKeys = new Map(run.innerKeys); heldKeys = new Set(run.heldKeys || []); renderKeys();
   (run.shrinesDone || []).forEach((d, i) => { if (shrines[i]) shrines[i].done = !!d; }); if (run.offerings) offerings = new Map(run.offerings); carried = run.carried ?? null;
-  // a run saved before one person was locked to a chapter (v0.95.0) can hold a stone no statue here
+  // a run saved before one person was locked to a chapter (v0.99.0) can hold a stone no statue here
   // wants, and the old `child` id. Both become this maze's person rather than a stone that fits nothing.
   { const here = shrines[0]?.who; if (here) { const fix = w => shrines.some(s => s.who === w) ? w : here;
     offerings = new Map([...offerings].map(([k, w]) => [k, fix(w)])); if (carried !== null) carried = fix(carried); } }
@@ -68,7 +68,7 @@ function restoreRun(run) {
   if (run.atHome) return;   // stay asleep on the mat; tapping the sleeper begins, and starts the sound
   // straight into the maze, no title: the fade lifts on you where you stood
   document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx * zoomMul(); started = true;
-  setTimeout(() => narrate(poolMode ? "…the water. I was going to the water." : "…where was I."), 2200);
+  setTimeout(() => narrate(moment(poolMode ? 'resumePool' : 'resumeMaze')), 2200);
 }
 
 // ── the run log ─────────────────────────────────────────────────

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Maze — tuner</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<!--
+  The Maze — the tuner
+
+  Joe: "a page that shows the rules I give for say the Criminal and what a block
+  of mazes would look like."
+
+  Pick a chapter, see its contract from data/phases.js down the left, and a block
+  of mazes built to it with every clause it missed called out. Change a number
+  and the block redraws. A maze is about 40ms, so nine of them is under half a
+  second and the numbers move while you are still holding the slider.
+
+  It loads the game's own engine — the same data/ and js/ files, in the same
+  order, no build step — and calls generate() directly. There is no second copy
+  of the generator here and there must never be one: the whole point is that
+  what you see is what the game makes.
+
+  It never writes to the save. It resets SAVE to a known state before every
+  build instead, because the game's save carries debug sliders (turns, braid,
+  size) that would otherwise quietly change what this page shows — the same trap
+  as "the camera is pushed too far" turning out to be a slider left where the
+  last session put it.
+
+  Time to finish is tools/bots.mjs; the standing table is tools/quality.mjs and
+  docs/QUALITY.md. This page is for looking.
+-->
+<style>
+  :root {
+    --bg: #0d0f10; --panel: #14171a; --line: #23282b;
+    --ink: #ece7da; --dim: #8d887e; --faint: #5d5952;
+    --floor: #6e6a62; --wall: #1b1f21;
+    --gold: #d8b36a; --exit: #a89f8c;
+    --ok: #7d9b6a; --bad: #b4614f; --split: #5e8f96;
+    --serif: "Iowan Old Style", Palatino, Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--serif); }
+  a { color: var(--exit); }
+
+  header {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end;
+  }
+  h1 { margin: 0; font-size: 19px; font-weight: normal; letter-spacing: .14em; text-transform: uppercase; }
+  h1 small { display: block; font-size: 11px; letter-spacing: .08em; color: var(--faint); text-transform: none; margin-top: 3px; }
+  .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .ctl label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+  select, input[type=number], button {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+    font: 14px var(--serif); padding: 6px 9px; border-radius: 3px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--dim); }
+
+  main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; padding: 20px; }
+  aside { flex: 0 0 290px; min-width: 260px; }
+  .grid-wrap { flex: 1 1 420px; min-width: 0; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 14px 15px; }
+  .card h2 { margin: 0 0 3px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); font-weight: normal; }
+  .card p.note { margin: 0 0 12px; font-size: 12px; color: var(--faint); font-style: italic; }
+
+  .clause { display: grid; grid-template-columns: 1fr 68px; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
+  .clause:first-of-type { border-top: 0; }
+  .clause .name { font-size: 13px; }
+  .clause .today { display: block; font-size: 11px; color: var(--faint); }
+  .clause input { width: 100%; text-align: right; }
+  .clause.off .name { color: var(--faint); }
+
+  .verdict { margin: 0 0 14px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font-size: 14px; }
+  .verdict b { font-weight: normal; color: var(--ink); }
+  .verdict .miss { color: var(--bad); }
+  .verdict .all-ok { color: var(--ok); }
+
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 9px; }
+  figure.fail { border-color: #3a2b28; }
+  figure canvas { width: 100%; height: auto; display: block; background: var(--bg); border-radius: 2px; cursor: zoom-in; }
+  figcaption { margin-top: 8px; font-size: 11px; color: var(--faint); display: flex; justify-content: space-between; gap: 8px; }
+  .chips { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { font-size: 10.5px; letter-spacing: .04em; padding: 2px 6px; border-radius: 2px; border: 1px solid transparent; white-space: nowrap; }
+  .chip.ok { color: var(--ok); border-color: #2a3527; }
+  .chip.bad { color: var(--bad); border-color: #3f2b26; background: #1c1513; }
+
+  .legend { margin-top: 14px; font-size: 11px; color: var(--faint); line-height: 1.9; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: baseline; }
+
+  dialog { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 5px; padding: 0; max-width: 96vw; max-height: 94vh; overflow: auto; }
+  dialog::backdrop { background: rgba(5,6,7,.8); }
+  dialog .body { padding: 16px; }
+  dialog canvas { display: block; max-width: 100%; height: auto; background: var(--bg); }
+  dialog .detail { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  dialog .detail table { flex: 1 1 300px; }
+  dialog .detail .legend { flex: 0 0 210px; margin-top: 12px; }
+  dialog table { border-collapse: collapse; margin-top: 12px; font-size: 12px; width: 100%; }
+  dialog td { padding: 3px 10px 3px 0; color: var(--dim); }
+  dialog td:last-child { color: var(--ink); text-align: right; }
+
+  @media (max-width: 720px) {
+    main { padding: 14px; gap: 14px; }
+    aside { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The Maze — tuner<small>the contract in data/phases.js, and a block of mazes built to it</small></h1>
+  <div class="ctl">
+    <label for="who">Chapter</label>
+    <select id="who"></select>
+  </div>
+  <div class="ctl">
+    <label for="count">Mazes</label>
+    <select id="count"><option>4</option><option selected>9</option><option>16</option><option>25</option></select>
+  </div>
+  <div class="ctl">
+    <label for="size">Size</label>
+    <select id="size"><option value="">the chapter's own</option><option>sm</option><option>md</option><option>lg</option><option>xl</option></select>
+  </div>
+  <div class="ctl">
+    <label for="base">First seed</label>
+    <input type="number" id="base" value="4242" step="1" style="width:96px">
+  </div>
+  <div class="ctl">
+    <label>&nbsp;</label>
+    <button id="reroll">Re-roll</button>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="card">
+      <h2 id="contractFor">The contract</h2>
+      <p class="note">A floor, not a target. Blank means the clause is not checked for this chapter.</p>
+      <div id="clauses"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </aside>
+
+  <div class="grid-wrap">
+    <div class="verdict" id="verdict">building…</div>
+    <div class="grid" id="grid"></div>
+  </div>
+</main>
+
+<dialog id="big"><div class="body">
+  <canvas id="bigCv"></canvas>
+  <div class="detail">
+    <table id="bigTable"></table>
+    <div class="legend" id="bigLegend"></div>
+  </div>
+</div></dialog>
+
+<script src="data/config.js"></script>
+<script src="data/phases.js"></script>
+<script src="data/text.js"></script>
+<script src="js/core.js"></script>
+<script src="js/generate.js"></script>
+<script src="js/proto.js"></script>
+<script src="js/contract.js"></script>
+<script>
+// ── state ────────────────────────────────────────────────────────────────────
+// `must` is a working copy of the chapter's MUST row: edits here change the page
+// and nothing else. What is in data/phases.js is what the game will build to,
+// so a number that earns its keep has to be typed back into that file.
+let phaseIdx = 0, must = {}, built = [];
+const $ = (id) => document.getElementById(id);
+const K = (x, y) => x + ',' + y;
+
+const C = CONFIG.colors;
+// `guard` tints floor tiles and `loose` is a dot, so they never sit on the same
+// mark — but they are the two reds and the eye should not have to work it out
+const COL = {
+  wall: C.wall, floor: C.floor, exit: C.exit, ink: '#ece7da',
+  // floor tints, painted under everything
+  tunnel: '#2b3033', dark: '#15171a', secret: '#2b3140', district: '#242a2e',
+  guard: '#6f3d34', split: '#42707a',
+  // the seven kinds of room, so a block of mazes shows WHICH rooms it got
+  kind: { pool: '#3f7b8a', statues: '#9184ad', spiral: '#b0854f',
+          columns: '#869a74', dais: '#a8775f', well: '#63789a', balls: '#b06a4f' },
+  // things you pick up or unlock
+  vault: '#d8b36a', keyIn: '#d8b36a', keyLoose: '#c96a52', door: '#d8b36a',
+  exitKey: '#e8c87a', journal: '#ece7da', chalk: '#d6d0c2', charcoal: '#8f897d',
+  scrap: '#c2b27a', pickup: '#7fa8c9', lamp: '#f0d67a',
+  // the people, and the things you carry to them
+  shrine: '#9184ad', bowl: '#c3b7dc', offering: '#c98f6a',
+  // ways through
+  crawl: '#6fa38a', slider: '#c9a227', pocket: '#7a6f5a',
+  // the kid's things, and the father
+  hop: '#cfc7b4', tic: '#cfc7b4', figure: '#ffffff', switch: '#6fa38a',
+};
+
+// ── building ─────────────────────────────────────────────────────────────────
+// Every SAVE field generate() reads, set explicitly. The game's own save is left
+// alone: nothing here calls persist().
+function buildOne(seed, size) {
+  SAVE.phase = phaseIdx; SAVE.stones = phaseIdx; SAVE.poolPending = false;
+  SAVE.collected = {}; SAVE.pushLearned = true;
+  SAVE.ui = { size };
+  delete SAVE.run;
+  generate(seed);
+
+  const m = CONTRACT.measure();
+  const L = (set) => [...set];
+  // Snapshot EVERYTHING the generator placed, because the next generate() will
+  // overwrite all of it — and because the first cut of this page drew only what
+  // the contract measures, which made a maze holding five journals, two shrines,
+  // nine chalk, twelve push blocks and forty-five tunnel tiles look empty. Joe:
+  // "the images of the maze are so simplistic. I don't see where any keys or
+  // anything would be placed."
+  return {
+    seed, W, H, m,
+    tiles: tiles.map((row) => Uint8Array.from(row)),
+    start: [Math.floor(start.x), Math.floor(start.y)],
+    exit: [Math.floor(exit.x), Math.floor(exit.y)],
+    exitAlley: exitAlley.map(([x, y]) => [x, y]),
+    rooms: landmarks.map((l) => ({ x: l.x, y: l.y, kind: l.kind, r: [l.rx0, l.ry0, l.rx1, l.ry1] })),
+    vaults: keyVaults.map((v) => ({ x0: v.x0, y0: v.y0, x1: v.x1, y1: v.y1, cx: v.cx, cy: v.cy })),
+    keys: [...innerKeys.entries()], doors: doors.map((d) => ({ x: d.x, y: d.y, shape: d.shape })),
+    keySpot, gated,
+    journals: [...journals.keys()], pickups: [...pickups.entries()],
+    chalk: L(chalkSpots), charcoal: L(charcoalSpots), scraps: L(scrapSpots),
+    shrines: shrines.map((sh) => ({ x: sh.x, y: sh.y, sx: sh.sx, sy: sh.sy, who: sh.who })),
+    offerings: [...offerings.entries()],
+    crawl: L(crawlGaps), crawlCells: L(crawlCells),
+    sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, gauntlet: !!sl.gauntlet, atStart: !!sl.atStart })),
+    pockets: pockets.map(([x, y]) => [x, y]),
+    tunnels: typeof tunnelTiles !== 'undefined' ? L(tunnelTiles) : [],
+    dark: L(darkTiles), lamp: lampSpot,
+    hopscotch: hopscotch.slice(), tic: ticTacToe, figures: figures.map((f) => [f.x, f.y]),
+    secret: typeof secretTiles !== 'undefined' ? L(secretTiles) : [],
+    secretSwitch, secretFather, startArrow,
+    districts: clusters.map((c) => [c.tx0, c.ty0, c.tx1, c.ty1]),
+    guard: L(exitTree),
+    splits: [...(m.thresholdTiles || [])],
+    grade: CONTRACT.grade(m, must),
+  };
+}
+
+// ── drawing ──────────────────────────────────────────────────────────────────
+// Two densities. A thumbnail gets structure and the things the contract is about,
+// because twenty marker types at two pixels a tile is mush. The enlarged view
+// gets everything the maze actually holds — that is what it is for.
+function draw(cv, s, px, detail) {
+  const w = s.W * px, h = s.H * px;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = w * dpr; cv.height = h * dpr;
+  cv.style.aspectRatio = `${s.W} / ${s.H}`;
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const K = (x, y) => x + ',' + y;
+  const at = (k) => k.split(',').map(Number);
+  const cell = (x, y, col) => { g.fillStyle = col; g.fillRect(x * px, y * px, px + 0.5, px + 0.5); };
+  const tint = (list, col) => { for (const k of list) { const [x, y] = at(k); cell(x, y, col); } };
+  const dot = (x, y, col, r) => { g.fillStyle = col; g.beginPath(); g.arc(x * px + px / 2, y * px + px / 2, Math.max(1.5, px * r), 0, 7); g.fill(); };
+  const ring = (x, y, col, r) => { g.strokeStyle = col; g.lineWidth = Math.max(1, px * 0.22); g.beginPath(); g.arc(x * px + px / 2, y * px + px / 2, Math.max(1.6, px * r), 0, 7); g.stroke(); };
+  const box = (x, y, col, r) => { g.fillStyle = col; const d = Math.max(2, px * r * 2); g.fillRect(x * px + px / 2 - d / 2, y * px + px / 2 - d / 2, d, d); };
+
+  // 1. ground
+  g.fillStyle = COL.wall; g.fillRect(0, 0, w, h);
+  g.fillStyle = COL.floor;
+  for (let y = 0; y < s.H; y++) for (let x = 0; x < s.W; x++) if (s.tiles[y][x]) g.fillRect(x * px, y * px, px + 0.5, px + 0.5);
+
+  // 2. floor tints, under everything: where the maze is a different PLACE
+  for (const [x0, y0, x1, y1] of s.districts) {
+    g.fillStyle = COL.district;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (s.tiles[y] && s.tiles[y][x]) g.fillRect(x * px, y * px, px + 0.5, px + 0.5);
+  }
+  tint(s.tunnels, COL.tunnel);
+  tint(s.secret, COL.secret);
+  tint(s.dark, COL.dark);
+  tint(s.guard, COL.guard);
+  tint(s.splits, COL.split);
+
+  // 3. the rooms, as their real footprints and coloured by what they are
+  for (const r of s.rooms) {
+    const [x0, y0, x1, y1] = r.r;
+    const col = COL.kind[r.kind] || '#7f96a6';
+    if (x0 != null) { g.globalAlpha = 0.55; g.fillStyle = col; g.fillRect(x0 * px, y0 * px, (x1 - x0 + 1) * px, (y1 - y0 + 1) * px); g.globalAlpha = 1; }
+    else box(r.x, r.y, col, 0.9);
+  }
+  // vault footprints, so a key inside one reads as buried at a glance
+  g.strokeStyle = COL.vault; g.lineWidth = Math.max(1, px * 0.3); g.globalAlpha = 0.6;
+  for (const v of s.vaults) g.strokeRect(v.x0 * px, v.y0 * px, (v.x1 - v.x0 + 1) * px, (v.y1 - v.y0 + 1) * px);
+  g.globalAlpha = 1;
+
+  // 4. the detail layer: everything else the generator put down
+  if (detail) {
+    tint(s.crawlCells, '#4a5b52');
+    for (const k of s.crawl) { const [x, y] = at(k); cell(x, y, COL.crawl); }
+    for (const k of s.chalk) { const [x, y] = at(k); box(x, y, COL.chalk, 0.3); }
+    for (const k of s.charcoal) { const [x, y] = at(k); box(x, y, COL.charcoal, 0.3); }
+    for (const k of s.scraps) { const [x, y] = at(k); box(x, y, COL.scrap, 0.42); }
+    for (const [k] of s.pickups) { const [x, y] = at(k); dot(x, y, COL.pickup, 0.42); }
+    for (const [x, y] of s.hopscotch.map(at)) box(x, y, COL.hop, 0.34);
+    if (s.tic) box(s.tic.x, s.tic.y, COL.tic, 0.6);
+    for (const [x, y] of s.figures) dot(Math.floor(x), Math.floor(y), COL.figure, 0.34);
+    if (s.secretSwitch) { const [x, y] = at(s.secretSwitch); ring(x, y, COL.switch, 0.5); }
+    if (s.secretFather) { const [x, y] = at(s.secretFather); dot(x, y, COL.figure, 0.3); }
+    for (const sl of s.sliders) {
+      g.strokeStyle = COL.slider; g.lineWidth = Math.max(1, px * 0.22);
+      g.strokeRect(sl.x * px + px * 0.18, sl.y * px + px * 0.18, px * 0.64, px * 0.64);
+      g.beginPath(); g.moveTo((sl.x + 0.5) * px, (sl.y + 0.5) * px);
+      g.lineTo((sl.x + sl.dx + 0.5) * px, (sl.y + sl.dy + 0.5) * px); g.stroke();
+    }
+    for (const [x, y] of s.pockets) ring(x, y, COL.pocket, 0.36);
+    if (s.lamp) { const [x, y] = at(s.lamp); dot(x, y, COL.lamp, 0.55); }
+    for (const [k] of s.offerings) { const [x, y] = at(k); box(x, y, COL.offering, 0.42); }
+  }
+
+  // 5. the things the contract is about, always, and on top
+  for (const k of s.journals) { const [x, y] = at(k); g.fillStyle = COL.journal; g.fillRect(x * px + px * 0.2, y * px + px * 0.3, px * 0.6, px * 0.4); }
+  for (const sh of s.shrines) { box(sh.x, sh.y, COL.shrine, 0.55); ring(sh.sx, sh.sy, COL.bowl, 0.4); }
+  for (const d of s.doors) dot(d.x, d.y, COL.door, 0.85);
+  const inVault = (k) => s.vaults.some((v) => K(v.cx, v.cy) === k);
+  for (const [k] of s.keys) { const [x, y] = at(k); dot(x, y, inVault(k) ? COL.keyIn : COL.keyLoose, 1.05); }
+  if (s.keySpot) { const [x, y] = at(s.keySpot); ring(x, y, COL.exitKey, 0.75); }
+  dot(s.exit[0], s.exit[1], COL.exit, 1.3);
+  g.fillStyle = COL.ink;
+  g.fillRect(s.start[0] * px - px * 0.6, s.start[1] * px - px * 0.6, px * 2.2, px * 2.2);
+}
+
+// ── the page ─────────────────────────────────────────────────────────────────
+function sizeFor() { return $('size').value || PHASES[phaseIdx].size; }
+
+function render() {
+  const n = +$('count').value, base = +$('base').value || 4242, size = sizeFor();
+  built = [];
+  for (let i = 0; i < n; i++) built.push(buildOne(base + i * 137, size));
+
+  // thumbnails big enough that an xl maze still reads: 2px a tile at worst
+  const px = built[0].W > 100 ? 2 : built[0].W > 70 ? 3 : 4;
+  const grid = $('grid'); grid.textContent = '';
+  for (const s of built) {
+    const ok = s.grade.every((c) => c.ok);
+    const fig = document.createElement('figure');
+    if (!ok) fig.className = 'fail';
+    const cv = document.createElement('canvas');
+    cv.title = 'click to enlarge';
+    cv.addEventListener('click', () => enlarge(s));
+    fig.appendChild(cv);
+    const cap = document.createElement('figcaption');
+    cap.innerHTML = `<span>seed ${s.seed}</span><span>${s.m.floor} tiles</span>`;
+    fig.appendChild(cap);
+    const chips = document.createElement('div'); chips.className = 'chips';
+    for (const c of s.grade) {
+      const el = document.createElement('span');
+      el.className = 'chip ' + (c.ok ? 'ok' : 'bad');
+      el.textContent = `${c.label} ${c.show}`;
+      el.title = `wants ${c.want}`;
+      chips.appendChild(el);
+    }
+    fig.appendChild(chips);
+    grid.appendChild(fig);
+    draw(cv, s, px, false);
+  }
+
+  // the verdict: which clause is failing, and how often. The count is the thing
+  // to read — one maze missing is luck, nine missing is the generator.
+  const full = built.filter((s) => s.grade.every((c) => c.ok)).length;
+  const misses = {};
+  for (const s of built) for (const c of s.grade) if (!c.ok) misses[c.label] = (misses[c.label] || 0) + 1;
+  const worst = Object.entries(misses).sort((a, b) => b[1] - a[1]);
+  $('verdict').innerHTML = `<b>${full} of ${built.length}</b> met every clause`
+    + (worst.length
+      ? ' · ' + worst.map(([k, v]) => `<span class="miss">${k} failed ${v}</span>`).join(' · ')
+      : ' <span class="all-ok">— nothing missed</span>');
+}
+
+function enlarge(s) {
+  // Fit the whole maze on screen, not just across: an lg maze is 127 tiles tall, and
+  // sizing by width alone pushed the numbers and the legend below the fold.
+  const px = Math.max(3, Math.min(14,
+    Math.floor(Math.min((Math.min(window.innerWidth, 1200) - 80) / s.W, (window.innerHeight * 0.66) / s.H))));
+  draw($('bigCv'), s, px, true);
+  const m = s.m;
+  const kinds = {};
+  for (const r of s.rooms) kinds[r.kind] = (kinds[r.kind] || 0) + 1;
+  const n = (v) => v.length;
+  // A dash means the chapter does not have the thing at all — The Child has no
+  // doors, so no keys and no key detour. It does not mean the maze is missing it.
+  const rows = [
+    ['seed', s.seed], ['floor', m.floor + ' tiles'],
+    ['keys buried', m.keys ? `${m.vaulted} of ${m.keys}` : 'no doors this chapter'],
+    ['exit guarded', `${m.exitGuard} tiles` + (m.gated ? ', and locked' : '')],
+    ['key is a walk', m.keys ? `${Math.round(m.keyDetour)} tiles over going straight out` : 'no doors this chapter'],
+    ['rooms', `${m.rooms} — ` + (Object.entries(kinds).map(([k, v]) => v > 1 ? `${v}× ${k}` : k).join(', ') || 'none') + `, closest two ${m.roomGap} apart`],
+    ['maze divides', `${m.thresholds}` + (m.thresholds ? `, biggest ${Math.round(m.biggestSplit * 100)}% of the floor` : '')],
+    ['districts', m.districts], ['exit at', `${m.toExit} of ${m.far} tiles out`],
+    ['journals', n(s.journals)],
+    ['chalk / charcoal / scraps', `${n(s.chalk)} / ${n(s.charcoal)} / ${n(s.scraps)}`],
+    ['shrines, with offerings to carry', `${n(s.shrines)}, ${n(s.offerings)}`],
+    ['push blocks / pockets behind them', `${n(s.sliders)} / ${n(s.pockets)}`],
+    ['crawl gaps', n(s.crawl)],
+    ['tunnel tiles', n(s.tunnels)],
+    ['darkness / lamp', `${n(s.dark)} tiles / ${s.lamp ? 'yes' : 'none'}`],
+    ['pointer and path pickups', n(s.pickups)],
+    ['hopscotch / tic-tac-toe', `${n(s.hopscotch)} / ${s.tic ? 'yes' : 'none'}`],
+    ['the father, standing about', n(s.figures)],
+    ['secret room', n(s.secret) ? `${n(s.secret)} tiles` + (s.secretSwitch ? ', with its switch' : '') : 'none'],
+  ];
+  $('bigTable').innerHTML = rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('');
+  $('bigLegend').innerHTML = legendHTML(true);
+  $('big').showModal();
+}
+$('big').addEventListener('click', (e) => { if (e.target.id === 'big') $('big').close(); });
+
+// ── the contract panel ───────────────────────────────────────────────────────
+// Reads MUST for the chapter, and lets a number be tried without editing the
+// file. Clearing a box turns the clause off for this session.
+function loadContract() {
+  const who = PHASES[phaseIdx].who;
+  must = Object.assign({}, MUST[who] || {});
+  $('contractFor').textContent = who;
+  const box = $('clauses'); box.textContent = '';
+  for (const key of Object.keys(CONTRACT.CLAUSES)) {
+    const c = CONTRACT.CLAUSES[key];
+    const row = document.createElement('div');
+    row.className = 'clause' + (must[key] == null ? ' off' : '');
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.innerHTML = `${c.label}<span class="today">${key}</span>`;
+    const inp = document.createElement('input');
+    if (must[key] === 'all') { inp.type = 'text'; inp.value = 'all'; }
+    else { inp.type = 'number'; inp.value = must[key] ?? ''; }
+    inp.addEventListener('change', () => {
+      const v = inp.value.trim();
+      if (v === '') delete must[key];
+      else must[key] = (v === 'all') ? 'all' : Number(v);
+      row.classList.toggle('off', must[key] == null);
+      render();
+    });
+    row.append(name, inp);
+    box.appendChild(row);
+  }
+}
+
+function legendHTML(full) {
+  const swatch = ([c, t]) => `<i style="background:${c}"></i>${t}`;
+  const structure = [
+    [COL.ink, 'where you wake'], [COL.exit, 'the way out'],
+    [COL.keyLoose, 'a key lying loose in a hall'], [COL.vault, 'a vault, and a key buried in one'],
+    [COL.door, 'a locked door'], [COL.exitKey, 'the key to the way out (ring)'],
+    [COL.journal, 'a journal'], [COL.shrine, 'a statue, with its bowl'],
+    [COL.guard, 'the gauntlet guarding the way out'],
+    [COL.split, 'a threshold — where the maze divides'],
+    [COL.district, 'a district'],
+  ];
+  const rooms = Object.entries(COL.kind).map(([k, c]) => [c, 'room: ' + k]);
+  const stuff = [
+    [COL.chalk, 'chalk'], [COL.charcoal, 'charcoal'], [COL.scrap, 'a map fragment'],
+    [COL.pickup, 'a pointer or path pickup'], [COL.offering, 'a carved stone to carry'],
+    [COL.slider, 'a push block, and the way it slides'], [COL.pocket, 'a pocket behind one'],
+    [COL.crawl, 'a crawl gap'], [COL.tunnel, 'a tunnel'], [COL.dark, 'darkness'],
+    [COL.lamp, 'the lamp'], [COL.hop, 'hopscotch, and the tic-tac-toe board'],
+    [COL.figure, 'the father'], [COL.secret, 'the secret room, and its switch'],
+  ];
+  const sect = (t, list) => `<b style="color:var(--dim)">${t}</b><br>` + list.map(swatch).join('<br>');
+  return full
+    ? sect('the maze', structure) + '<br><br>' + sect('rooms', rooms) + '<br><br>' + sect('what is in it', stuff)
+    : sect('the maze', structure) + '<br><br>' + sect('rooms', rooms)
+      + '<br><br><i style="background:transparent"></i><em>click a maze to see everything in it</em>';
+}
+$('legend').innerHTML = legendHTML(false);
+
+for (const [i, p] of PHASES.entries()) {
+  const o = document.createElement('option');
+  o.value = i; o.textContent = `${i} · ${p.who}`;
+  $('who').appendChild(o);
+}
+$('who').addEventListener('change', () => { phaseIdx = +$('who').value; loadContract(); render(); });
+for (const id of ['count', 'size', 'base']) $(id).addEventListener('change', render);
+$('reroll').addEventListener('click', () => { $('base').value = (Math.random() * 1e6 | 0); render(); });
+
+loadContract();
+render();
+</script>
+</body>
+</html>
