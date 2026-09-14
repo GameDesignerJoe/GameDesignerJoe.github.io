@@ -76,6 +76,39 @@ const ABOUT = {
   PEOPLE:       { surface: 'shrine', fires: 'on the beat', voiced: false, when: 'Who each statue is' },
 };
 
+// Which lists you can add a line to, and what happens if you do. This depends on *how the engine
+// picks*, not on the shape of the data, so it is read off the pick sites in js/ and kept here
+// deliberately: an unknown list defaults to "no", because offering an add that can never fire is
+// worse than not offering one. If you add a pool, add it here.
+const POOL_RULES = [
+  { re: /^SELF_LINES[\[.]/,                  add: true,
+    note: 'shuffled and played through, so a new line joins the rotation' },
+  { re: /^ROOM_LINES[\[.].*\.(shelf|basin)$/, add: true,
+    note: 'spread across the chapter as you gather pages \u2014 one more line makes the steps finer' },
+  { re: /^CAST\[\d+\]\.pages$/,             add: true,
+    note: 'one more page to find before this chapter ends' },
+  { re: /^(EMPTY_SHELF|FIGURE_LINES|SECRET_LINES)$/, add: true, note: 'picked at random' },
+  { re: /^SHELF_LINES$/,                   add: true,
+    note: 'played once each, then the set starts over' },
+  { re: /^POOLS\[\d+\]\.approach$/,         add: true,
+    note: 'one more line on the walk down to the water' },
+  { re: /^EXCHANGES\..*\.steps$/,           add: true,
+    note: 'one more thing you can ask this person' },
+  { re: /^LIGHTER$/,                       add: false,
+    note: 'one line per stone, and there are seven stones \u2014 an eighth could never fire' },
+  { re: /^POOLS\[\d+\]\.ex\[\d+\]\.(choices|reply)$/, add: false,
+    note: 'a choice and its reply are a pair \u2014 adding one needs the other, so this is a code change' },
+  { re: /^EXCHANGES\..*\.steps\[\d+\]\.(q|a)$/, add: false,
+    note: 'a question and its answer are paired by position \u2014 adding one needs the other, so this is a code change' },
+  { re: /^NARRATOR$/,                      add: false,
+    note: 'nothing in the game fires this block at all' },
+];
+function poolRule(pool) {
+  if (!pool) return null;
+  const r = POOL_RULES.find((x) => x.re.test(pool));
+  return r || { add: false, note: 'this list is not in POOL_RULES \u2014 I have not checked how the game picks from it' };
+}
+
 // Does anything in the engine actually reach this block?
 const engine = readdirSync(join(MAZE, 'js')).filter((f) => f.endsWith('.js'))
   .map((f) => readFileSync(join(MAZE, 'js', f), 'utf8')).join('\n');
@@ -127,9 +160,23 @@ for (const name of blockNames) {
       chapter: chapterOf(name, leaf.path, selfKey, tutKey),
       dead: !reached[name],
       chars: leaf.text.length,
+      // the list this line sits in, if it sits in one at all — a single slot can be rewritten
+      // but not added to
+      pool: /\[\d+\]$/.test(leaf.path) ? leaf.path.replace(/\[\d+\]$/, '') : null,
+      canAdd: !!(poolRule(/\[\d+\]$/.test(leaf.path) ? leaf.path.replace(/\[\d+\]$/, '') : null) || {}).add,
+      poolNote: (poolRule(/\[\d+\]$/.test(leaf.path) ? leaf.path.replace(/\[\d+\]$/, '') : null) || {}).note || null,
     });
   }
 }
+
+export { lines };
+
+// Everything below is the command line. Guarded, because tools/writer-page.mjs imports this rather
+// than shelling out to it — piping 150KB of JSON between two node processes truncated it, which
+// showed up as a syntax error a long way from the cause.
+import { pathToFileURL } from 'node:url';
+if (import.meta.url !== pathToFileURL(process.argv[1] || '').href) { /* imported, not run */ }
+else {
 
 const prose = lines.filter((l) => l.kind === 'prose');
 if (argv.includes('--json')) { console.log(JSON.stringify({ lines, generated: new Date().toISOString() }, null, 1)); process.exit(0); }
@@ -155,3 +202,5 @@ for (const name of blockNames) {
 const unannotated = blockNames.filter((n) => !ABOUT[n]);
 console.log(`${dead.length} line(s) nothing can reach (--dead to list them).`);
 if (unannotated.length) console.log(`${unannotated.length} block(s) with no annotation: ${unannotated.join(', ')}`);
+
+}

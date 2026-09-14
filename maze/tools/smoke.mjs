@@ -2656,6 +2656,24 @@ check('no player-facing line is left hardcoded in the engine',
   strays.length ? strays.slice(0, 4).join(' | ')
     : 'every narrate() takes its words from data/text.js, so a writing pass sees all of them');
 
+// Joe, on the writer's page: "I might want to write a new line for the basin, or for
+// when he is walking through the maze, or standing at a bookshelf." The shelf and
+// basin lines used to be picked with `t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0` — hard-wired to
+// exactly three, so a fourth line could never fire and "add a line" would have been a
+// lie. They spread across however many there are now.
+const spread = await page.evaluate(() => {
+  const pick = (n, t) => Math.min(n - 1, Math.floor(t * n));       // the rule the engine uses
+  const reach = (n) => { const seen = new Set();
+    for (let t = 0; t <= 1.0001; t += 0.01) seen.add(pick(n, t));
+    return seen.size; };
+  const shelf = (ROOM_LINES['The Child'] || {}).shelf || [];
+  return { three: reach(3), four: reach(4), seven: reach(7), atFull: pick(shelf.length, 1), have: shelf.length };
+});
+check('every shelf and basin line can be reached, however many there are',
+  spread.three === 3 && spread.four === 4 && spread.seven === 7 && spread.atFull === spread.have - 1,
+  `with 3 lines all 3 come up, with 4 all 4, with 7 all 7; carrying every page you get the last of `
+  + `the ${spread.have} there are. A fourth line used to be unreachable, so the page could not offer one`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

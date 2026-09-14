@@ -14,6 +14,50 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## Adding a line, per event rather than per block (v0.96.0)
+
+Joe, on the first cut of the writer's page: *"I might want to write a new line for the
+basin, or for when he is walking through the maze, or standing at a bookshelf. These
+don't have add lines. It's only the whole section for all SELF LINES."*
+
+Right, and the page was worse than he thought. It grouped by **block**, so the basin and
+the shelf — two different moments — were one group, and the single add button attached a
+line to a block rather than to the list the game actually picks from. The page groups by
+**the list** now: 192 groups where there were 17.
+
+**The interesting part is that "add a line" is not always possible**, and it depends on
+how the engine picks, not on the shape of the data. Read off the pick sites:
+
+- **Takes a new line** (42 lists): `SELF_LINES` (shuffled and played through), `EMPTY_SHELF`
+  / `FIGURE_LINES` / `SECRET_LINES` (random), `SHELF_LINES` (each once), `CAST[i].pages`,
+  `POOLS[i].approach`.
+- **Cannot** (70): `LIGHTER` is one line per stone and there are seven, so an eighth could
+  never fire. `POOLS[i].ex[j].choices`/`.reply` and `EXCHANGES[who].steps[i].q`/`.a` are
+  paired by position — adding one needs the other, which is a code change.
+- **Single slots** (137 lines): a tutorial card, a moment, a page's wake line. Rewritable,
+  not extendable.
+
+**The basin was the interesting case, and it needed a code change.** It was picked with
+`L[t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0]` — hard-wired to exactly three, keyed to how far
+through the chapter's pages you are. A fourth line could never have fired, so offering
+"add a line" would have been a lie. It spreads across however many lines there are now
+(`L[Math.min(L.length - 1, Math.floor(t * L.length))]`), so a fourth just makes the run
+through the chapter finer. Shelf and basin both.
+
+**The rule table defaults to "no".** `POOL_RULES` in `tools/text-index.mjs` is
+hand-maintained because it encodes engine behaviour, which is exactly the kind of thing
+that rots — so an unrecognised list is *not* addable and says "I have not checked how the
+game picks from it". That default earned itself immediately: it caught four lists I had
+missed (`SELF_LINES.You` and `ROOM_LINES.You.*`, whose keys are dot-notation rather than
+bracketed, and the paired `EXCHANGES` question/answer arrays).
+
+### A 220KB pipe, truncated at 145KB
+
+`writer-page.mjs` shelled out to `text-index.mjs --json` and parsed the result. The index
+grew past what the pipe delivered and `JSON.parse` failed on an unterminated string 4,700
+lines from the cause. It imports the module now. Worth remembering: a syntax error in
+data you generated yourself usually means the data was cut, not malformed.
+
 ## The writer's page (v0.95.0)
 
 Joe writes here, not in `data/text.js`: *"I don't see myself being able to do this on

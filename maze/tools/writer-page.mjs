@@ -13,13 +13,9 @@
 // Everything the page knows about a line is derived, never hand-kept. A second copy of the text
 // would be wrong within a week and the annotation with it.
 
-import { execFileSync } from 'node:child_process';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { lines as allLines } from './text-index.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const index = JSON.parse(execFileSync('node', [join(HERE, 'text-index.mjs'), '--json'], { encoding: 'utf8', maxBuffer: 64e6 }));
-const lines = index.lines.filter((l) => l.kind === 'prose');
+const lines = allLines.filter((l) => l.kind === 'prose');
 
 // How much room a line has where it appears. Reading room, not a rule — a narrator line holds for
 // six seconds; a card waits to be dismissed.
@@ -37,7 +33,7 @@ const chapters = [...new Set(lines.map((l) => l.chapter))]
   .sort((a, b) => order(a) - order(b))
   .map((c) => ({ name: c || 'Any chapter', lines: lines.filter((l) => l.chapter === c) }));
 
-const DATA = JSON.stringify({ chapters, room: ROOM, built: index.generated, total: lines.length })
+const DATA = JSON.stringify({ chapters, room: ROOM, built: new Date().toISOString(), total: lines.length })
   .replace(/</g, '\\u003c');
 
 process.stdout.write(`<title>The Maze Script</title>
@@ -86,6 +82,7 @@ h2 { font-size:13px; font-weight:400; letter-spacing:.2em; text-transform:upperc
 .group { display:flex; flex-wrap:wrap; gap:4px 11px; align-items:baseline; margin:20px 0 2px;
   font-size:12px; color:var(--quiet); letter-spacing:.04em; }
 .group .id { color:var(--stone); }
+.group .chip.add { padding:3px 9px; font-size:11px; margin-left:auto; }
 .row { border-bottom:1px solid var(--edge); padding:15px 0 13px 13px; border-left:2px solid transparent; }
 .row.edited { border-left-color:var(--gold); }
 .row.dead { opacity:.72; }
@@ -160,6 +157,35 @@ function queueSave() {
 }
 
 function grow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+// The event a line belongs to: the list it is picked from, or — for a line that stands alone —
+// whatever holds it (the chalk card, one moment, one page).
+function groupKey(l) { return l.pool || l.id.replace(/[.\[][^.\[]*$/, ''); }
+
+function groupHead(l, key) {
+  const g = document.createElement('p'); g.className = 'group';
+  const add = (cls, txt) => { const s = document.createElement('span'); if (cls) s.className = cls; s.textContent = txt; g.appendChild(s); return s; };
+  add('', l.when);
+  add('tag', l.fires);
+  add('id mono', key);
+  if (l.dead) add('tag dead', 'nothing fires this');
+
+  if (l.pool && l.canAdd) {
+    const b = document.createElement('button'); b.className = 'chip add';
+    b.textContent = '+ line';
+    b.title = l.poolNote || '';
+    b.addEventListener('click', () => {
+      added.push({ id: 'added.' + key + '.' + (added.length + 1), pool: l.pool, block: l.block,
+                   chapter: l.chapter || 'Any chapter', text: '', why: l.poolNote });
+      queueSave(); render();
+    });
+    g.appendChild(b);
+  } else if (l.pool) {
+    add('tag dead', 'cannot take another line');
+    if (l.poolNote) add('', l.poolNote);
+  }
+  return g;
+}
 
 function rowFor(l) {
   const row = document.createElement('div');
@@ -242,18 +268,12 @@ function render() {
     host.appendChild(h);
     // One context line per group, not per row. Repeating "Standing at the shelves…" down eight
     // consecutive rows buries the words the writer came to read.
-    let lastBlock = null;
+    // Grouped by the event, not by the block: the basin and the shelf are both ROOM_LINES but they
+    // are two different moments, and Joe wants to add a line to each of them on its own.
+    let lastKey = null;
     for (const l of mine) {
-      if (l.block !== lastBlock) {
-        lastBlock = l.block;
-        const g = document.createElement('p'); g.className = 'group';
-        const w = document.createElement('span'); w.textContent = l.when;
-        const f = document.createElement('span'); f.className = 'tag'; f.textContent = l.fires;
-        const b = document.createElement('span'); b.className = 'id mono'; b.textContent = l.block;
-        g.appendChild(w); g.appendChild(f); g.appendChild(b);
-        if (l.dead) { const d = document.createElement('span'); d.className = 'tag dead'; d.textContent = 'nothing fires this'; g.appendChild(d); }
-        host.appendChild(g);
-      }
+      const key = groupKey(l);
+      if (key !== lastKey) { lastKey = key; host.appendChild(groupHead(l, key)); }
       host.appendChild(rowFor(l)); shown++;
     }
 
@@ -275,19 +295,6 @@ function render() {
       requestAnimationFrame(() => grow(ta));
     }
 
-    // add a line to whichever pool this chapter's lines mostly come from
-    const pool = mine.find((l) => l.fires === 'rotation') || mine[0];
-    if (pool && !q && !onlyEdited && !onlyDead && !onlyLong) {
-      const wrap = document.createElement('div'); wrap.className = 'addline';
-      const btn = document.createElement('button'); btn.className = 'chip';
-      btn.textContent = '+ line in ' + pool.block;
-      btn.addEventListener('click', () => {
-        added.push({ id: 'added.' + pool.block + '.' + (added.length + 1), block: pool.block,
-                     chapter: ch.name, after: pool.id, text: '' });
-        queueSave(); render();
-      });
-      wrap.appendChild(btn); host.appendChild(wrap);
-    }
   }
   if (!shown) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = 'No lines match that.'; host.appendChild(p); }
   const n = Object.values(edits).filter((e) => e && (e.text !== undefined || e.deleted)).length;

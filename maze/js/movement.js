@@ -344,12 +344,17 @@ function update(wall) {
     else if (k && k !== 'basin' && now - shelfStandAt > 1000 && shelfShown !== k) { shelfShown = k;
       const c = CAST.filter(c => c.pages.length)[idx];
       if (c && !collectedCount(c.name)) narrate(EMPTY_SHELF[Math.random() * EMPTY_SHELF.length | 0]);
-      else if (c) { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).shelf, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0]); } }
+      // The shelf and basin lines spread across however many there are, rather than the three this
+      // used to hard-wire with t >= 0.8 / 0.4. Joe, on the writer's page: "I might want to write a
+      // new line for the basin, or for when he is walking through the maze, or standing at a
+      // bookshelf." A fourth line here used to be unreachable; now it makes the run through the
+      // chapter finer instead. `t` is how much of this self's pages you are carrying.
+      else if (c) { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).shelf, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[Math.min(L.length - 1, Math.floor(t * L.length))]); } }
     // the basin: first visit after putting a stone down says so; otherwise the self speaks of the stones
     if (onBasin && now - shelfStandAt > 700 && shelfShown !== 'basin') { shelfShown = 'basin';
       if ((SAVE.basinSeen || 0) < (SAVE.stones || 0)) { SAVE.basinSeen = SAVE.stones; persist(); narrate(LIGHTER[Math.min(LIGHTER.length - 1, (SAVE.stones || 0) - 1)]); }
       else if (poolMode) narrate(moment('stoneTaken'));
-      else { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).basin, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0]); } }
+      else { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).basin, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[Math.min(L.length - 1, Math.floor(t * L.length))]); } }
   } else { shelfStandKey = ''; shelfShown = ''; }
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   visited.add(key);
