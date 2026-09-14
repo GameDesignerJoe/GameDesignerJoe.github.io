@@ -11,6 +11,12 @@ and for players to be a little desperate to use the tools we give them."*
 This is the plan for that, the measurements it is based on, and the order to do
 it in. Measured with `tools/shape.mjs` and `tools/bots.mjs`.
 
+> **The tables below are the v0.65.0 measurement. For current numbers see
+> `QUALITY.md`.** The reading held up: it warned that size multiplies the muddle,
+> and at v0.93.0 the xl maze has zero thresholds. The figures themselves have
+> moved — the Child's md maze is 1.4 thresholds now, not 2.5 — so cite
+> `QUALITY.md` for what is true today and this doc for why it matters.
+
 ## What the maze is today, measured
 
 The Child's maze, 12 seeds a size. A **threshold** is a run of tiles whose

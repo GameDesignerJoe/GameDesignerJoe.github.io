@@ -22,6 +22,7 @@ different project — reference only.
 | **`PROGRESSION.md`** | The arc: eight selves, seven stones, the pools, and why each stone maps to the knob it does. §1–§7 are the design and still stand; §8 is what is actually built, current as of v0.76.0. |
 | **`ROOMS.md`** | The rooms that are places — what each of the seven landmark kinds is, and ten pitches for more. |
 | **`NOTES.md`** | Joe's *standing* notes: story thinking, themes, canon. **Not the backlog** — see below. |
+| **`QUALITY.md`** | **What the mazes are actually like**, measured: keys in nests, what guards the exit, time to finish, thresholds, how far apart the rooms are. The baseline for Joe's five standing complaints, and the note that the harness only ever proved a maze *playable*, never good. Current as of v0.93.0. |
 | **`LABYRINTH.md`** | The labyrinth prototype's shape, from the debug Prototype menu. |
 | `labyrinth/01`–`06` | The **other** project: first-person, hex-grid, Three.js, React/Vite/TypeScript on Vercel. Reference and inspiration. |
 

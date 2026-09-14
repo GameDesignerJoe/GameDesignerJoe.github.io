@@ -257,3 +257,26 @@ they pause the game until tapped, and a bot never taps.
 
 A maze the model cannot solve is counted in the row rather than averaged into
 it. Those are the known door-key soft-lock the harness also reports.
+
+## quality.mjs — is it worth walking?
+
+    node maze/tools/quality.mjs                   # every self, at its own size
+    node maze/tools/quality.mjs --seeds 120       # a firmer read
+    node maze/tools/quality.mjs --phase 2         # one self
+    node maze/tools/quality.mjs --size lg         # override the phase's own size
+    node maze/tools/quality.mjs --json            # the rows, unformatted
+
+`harness.mjs` proves a maze is **playable**. Nothing proved it was any **good**,
+which is why the same five complaints kept coming back from Joe without
+anything ever going red. This is the other half: how many keys lie in a nest
+rather than a hall (and the share of mazes where *none* is loose, which is the
+number the average hides), what guards the exit, how deep the exit sits, how
+many rooms there are and how far it is from one to the next.
+
+Unlike the others it sweeps every self at its phase's own size, read from
+`PHASES` so the table cannot drift when a self moves up a size. It **reports and
+never fails** — a target is a design decision and Joe's to make.
+
+Time to finish is `bots.mjs`; thresholds and districts you can feel are
+`shape.mjs`. The three together are the baseline written up in
+`docs/QUALITY.md`.
