@@ -309,8 +309,10 @@ card for sliders: Joe wants this discovered.
 
 ### Statues and stones (v0.89.0, the exchange v0.90.0)
 
-Two a maze, every chapter including the Child's, each one of five people (`PEOPLE`:
-father, mother, wife, friend, child) with a mark on a small stone. The right stone
+Two a maze, every chapter including the Child's, both of **one person per chapter**
+(`shrines` in `data/phases.js`; the five are `PEOPLE`: father, mother, wife, friend,
+the Teen — the man's own kid, never to be confused with the Child, who is the man
+himself), with a mark on a small stone. Either bowl takes the stone; the stone
 in the bowl opens a card with two questions; ask one, get its answer, the other
 stays unasked. Progress is per person per *game* (`SAVE.asked`), four steps each;
 spent, the statue says one finished line and opens nothing. The words are a first

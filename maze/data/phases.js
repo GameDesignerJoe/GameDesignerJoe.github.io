@@ -8,15 +8,21 @@
 
 // ── phases: what the maze allows and what you carry, per self ──
 // features: which existing systems are switched on. burden lifts are applied by count of stones put down (SAVE.stones).
+// shrines: whose statues stand in this chapter's maze — one person to a chapter, both statues theirs.
+// Joe: "child chapter has statues of the father. The mom gets another one, and the friend and so on
+// to the Teen getting the last one." Each person has four exchanges and a maze holds two statues,
+// so a person needs two chapters to be heard out: father, mother, spouse get both; friend and the
+// Teen get one each, the Teen last, in the chapter where the make-believe is stripped away. Change
+// a word here to move them. The ids are PEOPLE's in data/text.js.
 const PHASES = [
-  { who: 'The Child',          size: 'md', bodyScale: 0.68, f: { turns: 'sparse', shrines: true, signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0, rooms: 1.4, crawl: 5, swing: 3, figure: true, hopscotch: true } },
-  { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, doors: 1, shrines: true, braid: 0.06 } },
-  { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, shrines: true, braid: 0.06 } },
-  { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, shrines: true, braid: 0.06, rooms: 1.6 } },
-  { who: 'The Priest',         size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: true, braid: 0.06 } },
-  { who: 'The Criminal',       size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: true, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: true, braid: 0.06 } },
-  { who: 'The One Who Stayed', size: 'xl', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: true, braid: 0.06 } },
-  { who: 'You',                size: 'sm', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: false, gate: false, tunnels: true, pockets: true, pathSlider: false, doors: 1, shrines: true, braid: 0.06 } },
+  { who: 'The Child',          size: 'md', bodyScale: 0.68, f: { turns: 'sparse', shrines: 'father', signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0, rooms: 1.4, crawl: 5, swing: 3, figure: true, hopscotch: true } },
+  { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, doors: 1, shrines: 'mother', braid: 0.06 } },
+  { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, shrines: 'friend', braid: 0.06 } },
+  { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, shrines: 'spouse', braid: 0.06, rooms: 1.6 } },
+  { who: 'The Priest',         size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: 'father', braid: 0.06 } },
+  { who: 'The Criminal',       size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: true, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: 'mother', braid: 0.06 } },
+  { who: 'The One Who Stayed', size: 'xl', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: 'spouse', braid: 0.06 } },
+  { who: 'You',                size: 'sm', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: false, gate: false, tunnels: true, pockets: true, pathSlider: false, doors: 1, shrines: 'teen', braid: 0.06 } },
 ];
 
 // the seven stones, in the order they are put down; each lifts one restriction a little, for good

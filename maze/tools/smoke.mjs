@@ -2495,16 +2495,25 @@ check('a page in a pool room lies on the rim you walk round, never in the water'
 // was that the abandoned boy has as much to ask as anyone: "Not sure why we don't have one in the
 // first child chapter. Seems like it would be a good idea."
 const shrineGen = await page.evaluate(() => {
-  let mazes = 0, statues = 0, stones = 0;
+  let mazes = 0, statues = 0, stones = 0, theirs = 0, strays = [];
   for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
     SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
     mazes++; statues += shrines.length; stones += offerings.size;
+    // one person to a chapter: every statue and every stone here is theirs
+    const want = phase().f.shrines;
+    for (const sh of shrines) if (sh.who === want) theirs++; else strays.push(`${phase().who} statue ${sh.who}`);
+    for (const who of offerings.values()) if (who === want) theirs++; else strays.push(`${phase().who} stone ${who}`);
   }
-  return { mazes, statues, stones };
+  return { mazes, statues, stones, theirs, strays: strays.slice(0, 4), strayN: strays.length };
 });
 check('every maze, the Child\'s included, carries two statues and their two stones',
   shrineGen.statues === shrineGen.mazes * 2 && shrineGen.stones === shrineGen.mazes * 2,
   `${shrineGen.statues} statues and ${shrineGen.stones} stones across ${shrineGen.mazes} mazes over all eight selves (wanted ${shrineGen.mazes * 2} each)`);
+// Joe: "We need to lock in each person to each chapter. So child chapter has statues of the father."
+check('both statues in a maze, and both stones, belong to the chapter\'s person',
+  shrineGen.theirs === shrineGen.statues + shrineGen.stones && shrineGen.strayN === 0,
+  `${shrineGen.theirs} of ${shrineGen.statues + shrineGen.stones} statues and stones are the chapter's person`
+  + (shrineGen.strayN ? `; strays: ${shrineGen.strays.join(', ')}` : ''));
 
 const shrineWalk = await page.evaluate(async () => {
   const nap = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -2517,23 +2526,25 @@ const shrineWalk = await page.evaluate(async () => {
   // suite looks nothing like a failed one
   if (shrines.length < 2 || offerings.size < 2) return { who: 'none', got: null, stoneGone: false, stillOne: false, otherStays: false, wrongBowl: false, done: false, handsFree: false, thread: 0, lit: false, endsOnPage: false, pages: journals.size, missing: `${shrines.length} statues, ${offerings.size} stones` };
   const sh = shrines[0], other = shrines[1];
-  const mine = [...offerings.entries()].find(([, who]) => who === sh.who), theirs = [...offerings.entries()].find(([, who]) => who === other.who);
+  const [mine, theirs] = [...offerings.entries()];
   const at = (k) => { const [x, y] = k.split(',').map(Number); player.x = x + 0.5; player.y = y + 0.5; lastTileKey = ''; };
   const step = async (k) => { at(k); for (let i = 0; i < 6; i++) { await nap(40); } };
+  // Joe: "When you don't have a stone but you collide with the statue, it should say something."
+  narrEl.textContent = ''; await step(sh.sx + ',' + sh.sy); const emptySaid = narrEl.textContent === SHRINE_LINES.noStone, tookNothing = !sh.done;
   await step(mine[0]);      const got = carried, stoneGone = !offerings.has(mine[0]);
   await step(theirs[0]);    const stillOne = carried === sh.who, otherStays = offerings.has(theirs[0]);
-  await step(other.sx + ',' + other.sy); const wrongBowl = !other.done && carried === sh.who;
   const pages = journals.size;
-  await step(sh.sx + ',' + sh.sy);   const done = sh.done, handsFree = carried === null, thread = shrinePath.length, lit = shrineUntil > gameNow();
+  // one person to a chapter, so either bowl is the right bowl
+  await step(other.sx + ',' + other.sy); const done = other.done, handsFree = carried === null, thread = shrinePath.length, lit = shrineUntil > gameNow();
   const endsOnPage = thread ? journals.has(shrinePath[thread - 1].join(',')) : false;
-  return { who: sh.who, got, stoneGone, stillOne, otherStays, wrongBowl, done, handsFree, thread, lit, endsOnPage, pages };
+  return { who: sh.who, emptySaid, tookNothing, got, stoneGone, stillOne, otherStays, done, handsFree, thread, lit, endsOnPage, pages };
 });
-check('a stone is carried one at a time, and settling it in the right bowl points the statue at a page',
-  shrineWalk.got === shrineWalk.who && shrineWalk.stoneGone && shrineWalk.stillOne && shrineWalk.otherStays && shrineWalk.wrongBowl
+check('a stone is carried one at a time, and settling it in a bowl points the statue at a page',
+  shrineWalk.emptySaid && shrineWalk.tookNothing && shrineWalk.got === shrineWalk.who && shrineWalk.stoneGone && shrineWalk.stillOne && shrineWalk.otherStays
     && shrineWalk.done && shrineWalk.handsFree && (shrineWalk.pages === 0 || (shrineWalk.thread > 1 && shrineWalk.lit && shrineWalk.endsOnPage)),
   shrineWalk.missing ? `nothing to walk: this maze has ${shrineWalk.missing}` :
-  `picked up ${shrineWalk.who}'s stone (${shrineWalk.got}); a second stone stayed on the floor (${shrineWalk.otherStays}); the wrong bowl took nothing (${shrineWalk.wrongBowl}); `
-  + `the right bowl took it (${shrineWalk.done}, hands free ${shrineWalk.handsFree}) and lit a ${shrineWalk.thread}-tile thread that ends on a page (${shrineWalk.endsOnPage}), with ${shrineWalk.pages} pages still out`);
+  `empty-handed at the step he said so (${shrineWalk.emptySaid}) and the bowl took nothing (${shrineWalk.tookNothing}); picked up ${shrineWalk.who}'s stone (${shrineWalk.got}); a second stone stayed on the floor (${shrineWalk.otherStays}); `
+  + `the other bowl took it (${shrineWalk.done}, hands free ${shrineWalk.handsFree}) and lit a ${shrineWalk.thread}-tile thread that ends on a page (${shrineWalk.endsOnPage}), with ${shrineWalk.pages} pages still out`);
 
 // ── 8e. the exchange ──────────────────────────────────────────────
 // Joe: "You drop the thing in. You are then allowed to ask a question, maybe two are offered...

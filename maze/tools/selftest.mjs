@@ -45,7 +45,7 @@ const grab = (phaseIdx, seed) => page.evaluate(([p, sd]) => {
     doors: doors.map((d) => ({ x: d.x, y: d.y, shape: d.shape, onRoute: !!d.onRoute })),
     innerKeys: [...innerKeys.entries()],
     landmarks: landmarks.map((L) => ({ kind: L.kind, rx0: L.rx0 ?? L.x, ry0: L.ry0 ?? L.y, rx1: L.rx1 ?? L.x, ry1: L.ry1 ?? L.y })),
-    shrines: shrines.map((s) => ({ x: s.x, y: s.y, sx: s.sx, sy: s.sy, who: s.who })), offerings: [...offerings.entries()],
+    shrines: shrines.map((s) => ({ x: s.x, y: s.y, sx: s.sx, sy: s.sy, who: s.who })), offerings: [...offerings.entries()], shrineWho: typeof phase().f.shrines === 'string' ? phase().f.shrines : null,
     pockets: pockets.map(([x, y]) => [x, y]),
     sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, atStart: !!sl.atStart, onPath: !!sl.onPath })),
     crawlGaps: [...crawlGaps], crawlCells: [...crawlCells],
@@ -129,6 +129,11 @@ const MUTATIONS = [
     const sh = s.shrines[0];
     s.offerings = s.offerings.filter(([, who]) => who !== sh.who);
     s.offerings.push([K(sh.sx, sh.sy), sh.who]);
+  }],
+
+  ['a statue of someone else\'s in the chapter', 'every statue and every stone in a maze is the chapter\'s person', (s) => {
+    // the five dealt at random again: the second statue is anyone but the chapter's person
+    s.shrines[1].who = s.shrineWho === 'father' ? 'mother' : 'father';
   }],
 
   ['a page dropped in the middle of a pool', 'no page lies in a pool\'s water', (s) => {

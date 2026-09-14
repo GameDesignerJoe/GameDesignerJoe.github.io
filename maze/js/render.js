@@ -843,11 +843,21 @@ function draw() {
     // So the figure keeps a resting light and only the glow is proximity's.
     const nearLit = Math.max(0, 1 - near / CONFIG.columnLightTiles);
     const lit = sh.done ? 1 : Math.max(CONFIG.shrineRestLight, nearLit);
+    // The statue's tile is wall, so it used to be a grey egg floating in black. Joe: "I don't think
+    // this is how it's supposed to look for the statues. The grey oval is out in darkness." So the
+    // tile is a niche cut into the wall — a recess of dim floor with the wall's lip round it — and
+    // the figure stands on a plinth in it, head and shoulders, in the stone's own pale colour. The
+    // niche is dimmer than the corridor so it reads as set back; the glow is still proximity's.
+    const inset = S*0.1, dim = 0.55 + 0.25*lit;
+    ctx.save(); ctx.globalAlpha = dim; ctx.fillStyle = C.floor; ctx.fillRect(px - S/2 + inset, py - S/2 + inset, S - inset*2, S - inset*2); ctx.restore();
+    ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S*0.03); ctx.strokeRect(px - S/2 + inset, py - S/2 + inset, S - inset*2, S - inset*2);
     if (nearLit > 0.01) { const glow = ctx.createRadialGradient(px, py, 0, px, py, S*0.95); glow.addColorStop(0, `rgba(201,185,138,${(0.22*nearLit).toFixed(3)})`); glow.addColorStop(1, 'rgba(201,185,138,0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(px, py, S*0.95, 0, Math.PI*2); ctx.fill(); }
-    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(px, py, S*0.28, S*0.33, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = sh.done ? '#e9e2d0' : C.shelf; ctx.globalAlpha = sh.done ? 1 : 0.42 + 0.48*lit;
-    ctx.beginPath(); ctx.ellipse(px, py - S*0.04, S*0.18, S*0.25, 0, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
-    ctx.fillStyle = sh.done ? '#e9e2d0' : C.wall; ctx.beginPath(); ctx.arc(px, py - S*0.18, S*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = C.wall; ctx.fillRect(px - S*0.26, py + S*0.2, S*0.52, S*0.14);                       // the plinth
+    ctx.fillStyle = C.grout; ctx.fillRect(px - S*0.26, py + S*0.2, S*0.52, S*0.025);                    // its lit top edge
+    const stone = sh.done ? '#e9e2d0' : C.shelf; ctx.fillStyle = stone; ctx.globalAlpha = sh.done ? 1 : 0.5 + 0.5*lit;
+    ctx.beginPath(); ctx.moveTo(px - S*0.2, py + S*0.2); ctx.lineTo(px - S*0.17, py - S*0.06); ctx.quadraticCurveTo(px - S*0.16, py - S*0.16, px - S*0.07, py - S*0.17);   // the body: shoulders to plinth
+    ctx.lineTo(px + S*0.07, py - S*0.17); ctx.quadraticCurveTo(px + S*0.16, py - S*0.16, px + S*0.17, py - S*0.06); ctx.lineTo(px + S*0.2, py + S*0.2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py - S*0.27, S*0.09, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;   // the head
     ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S*0.04); ctx.beginPath(); ctx.ellipse(bx, by, S*0.22, S*0.14, 0, 0, Math.PI*2); ctx.stroke();
     if (sh.done) { ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(bx, by, S*0.1, S*0.07, 0.3, 0, Math.PI*2); ctx.fill(); }
     ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1, S*0.03); drawMark(ctx, sh.mark, bx, by - S*0.3, S*0.1); }

@@ -54,7 +54,12 @@ function restoreRun(run) {
   (run.doorsOpen || []).forEach((o, i) => { if (doors[i]) { doors[i].open = o; doors[i].openAt = 0; } });   // openAt 0 means it finished swinging before the reload
   exitGateAt = 0;   // and a gate that opened before the reload is drawn already open, not swinging
   if (run.innerKeys) innerKeys = new Map(run.innerKeys); heldKeys = new Set(run.heldKeys || []); renderKeys();
-  (run.shrinesDone || []).forEach((d, i) => { if (shrines[i]) shrines[i].done = !!d; }); if (run.offerings) offerings = new Map(run.offerings); carried = run.carried ?? null; renderCarried(); shrinePath = run.shrinePath || [];
+  (run.shrinesDone || []).forEach((d, i) => { if (shrines[i]) shrines[i].done = !!d; }); if (run.offerings) offerings = new Map(run.offerings); carried = run.carried ?? null;
+  // a run saved before one person was locked to a chapter (v0.95.0) can hold a stone no statue here
+  // wants, and the old `child` id. Both become this maze's person rather than a stone that fits nothing.
+  { const here = shrines[0]?.who; if (here) { const fix = w => shrines.some(s => s.who === w) ? w : here;
+    offerings = new Map([...offerings].map(([k, w]) => [k, fix(w)])); if (carried !== null) carried = fix(carried); } }
+  renderCarried(); shrinePath = run.shrinePath || [];
   hopIdx = run.hopIdx; hopSaid = run.hopSaid; tttSaid = run.tttSaid; crawlSaid = run.crawlSaid; secretOn = !!run.secretOn; secretLitAt = secretOn ? -1e9 : 0; narrQueue = run.narrQueue || narrQueue;
   lastTileKey = Math.floor(player.x) + ',' + Math.floor(player.y);
   updateChalk(); updateCharcoal(); updateBooks();

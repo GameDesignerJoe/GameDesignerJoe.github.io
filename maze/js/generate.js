@@ -1152,7 +1152,13 @@ function buildMaze(seed) {
   // finding one means remembering the other. Own stream, so nothing downstream is redealt.
   if (F.shrines && !poolMode && CONFIG.shrines > 0) {
     const SR = rng(seed + 4001);
-    const who = PEOPLE.slice(); for (let i = who.length - 1; i > 0; i--) { const j = SR() * (i + 1) | 0; [who[i], who[j]] = [who[j], who[i]]; }
+    // One person to a chapter (data/phases.js), so both statues wait for the same mark and any
+    // stone you find here fits either. Joe: "The symbol above the bowl doesn't match the one I was
+    // carrying" — it could not, when the two were dealt from five. A phase that only says `true`
+    // still gets a shuffle, so nothing about a proto or an old save falls over.
+    const chapter = PEOPLE.find(p => p.id === F.shrines);
+    const who = chapter ? [chapter, chapter] : PEOPLE.slice();
+    if (!chapter) for (let i = who.length - 1; i > 0; i--) { const j = SR() * (i + 1) | 0; [who[i], who[j]] = [who[j], who[i]]; }
     const okEnd = k => { const [x, y] = k.split(',').map(Number); return !crawlCells.has(k) && !crawlGaps.has(k) && !journals.has(k)
       && !(startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1); };
     // A statue turns its tile to stone, so the tile has to be a dead end in the *player's* model,
@@ -1172,10 +1178,12 @@ function buildMaze(seed) {
       tiles[y][x] = 0; taken.add(k);   // the statue stands here now; the corridor ends one tile sooner
       shrines.push({ x, y, sx: x + dx, sy: y + dy, who: who[i].id, mark: who[i].mark, done: false });
     }
+    // walking distance out from every step at once, so "far from its statue" is the walk you make to
+    // bring it back — to *any* statue, since both wait for the same person and either bowl takes it.
+    // Measured from one step only, a stone could lie at the other statue's feet.
+    const d = new Map(shrines.map(sh => [sh.sx + ',' + sh.sy, 0])); const q = shrines.map(sh => [sh.sx, sh.sy]);
+    for (let h = 0; h < q.length; h++) { const [x, y] = q[h], dd = d.get(x + ',' + y); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, kk = nx + ',' + ny; if (isOpen(nx, ny) && !d.has(kk)) { d.set(kk, dd + 1); q.push([nx, ny]); } } }
     for (const sh of shrines) {
-      // walking distance out from the step, so "far from its statue" is the walk you make to bring it back
-      const d = new Map([[sh.sx + ',' + sh.sy, 0]]); const q = [[sh.sx, sh.sy]];
-      for (let h = 0; h < q.length; h++) { const [x, y] = q[h], dd = d.get(x + ',' + y); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, kk = nx + ',' + ny; if (isOpen(nx, ny) && !d.has(kk)) { d.set(kk, dd + 1); q.push([nx, ny]); } } }
       const cands = free().filter(okEnd);
       if (!cands.length) break;
       const far = cands.filter(k => (d.get(k) ?? 0) >= CONFIG.offeringMinTiles);

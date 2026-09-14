@@ -482,6 +482,54 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## One person to a chapter, and the Teen (v0.95.0)
+
+Four items from the doc, all statues. Joe, with screenshots I could not see: *"I don't
+think this is how it's supposed to look for the statues. The grey oval is out in
+darkness. The symbol above the bowl doesn't match the one I was carrying."* — *"When
+you don't have a stone but you collide with the statue, it should say something."* —
+*"The Child section at the start of the game is the main character as a child, not
+their child. We might call their child The Teen. Please correct the questions in these
+two sections."* — *"We need to lock in each person to each chapter. So child chapter
+has statues of the father. The mom gets another one, and the friend and so on to the
+Teen getting the last one."*
+
+**Two children, not one.** The Child is the chapter: the man himself, small. The Teen
+is the man's own kid. The person's id is `teen` everywhere now (`child` was the id
+before, and a save's `asked.child` count carries over), and their card says *my kid*,
+which is what a father calls them. The father's four exchanges are read in two
+chapters, so the first two are asked in the Child's maze and are written in the boy's
+voice — lowercase, *are you coming back?* — and the last two in the Priest's, a man
+asking a dead one. That is the reading I took of "correct the questions in these two
+sections": the Child's chapter speaks as a child, and the Teen is named as the Teen.
+
+**One person to a chapter.** `shrines` in `data/phases.js` names them: father in the
+Child's, mother in the Cartographer's, friend, spouse, then father and mother again
+for their last two questions, spouse's last two in The One Who Stayed, and the Teen in
+*You*, where the make-believe is stripped away. Both statues in a maze are theirs, so
+both stones carry their mark, and the bowl's symbol always matches the stone in your
+hand — that was Joe's mismatch: two of five people dealt at random. Either bowl takes
+the stone now, so a stone is placed far from *every* step, not just its own; measured
+from one step it could lie at the other statue's feet. Five people, four questions,
+two statues a maze, eight chapters: friend and Teen get one chapter each. Joe's to
+reassign by changing a word per line.
+
+**The niche.** The statue's tile is wall, so it was a grey egg with a dot floating in
+black. Now the tile is a recess of dim floor with the wall's lip round it, a plinth,
+and a figure with head and shoulders in the stone's pale colour. Seen before believed,
+at the step and two tiles out.
+
+**Empty-handed.** Step up to a statue with nothing in your hands and he says the bowl
+is waiting for something he has not found. Once per visit, like a spent statue's line.
+
+**Tests.** Generation changed, so all three. Harness PASS 576 with a rewritten
+invariant (*each statue has its stone, and the stone lies well away from it* now
+counts a person's stones against their statues and walks to the nearest) and a new
+one, *every statue and every stone in a maze is the chapter's person*, with
+`shrineWho` in the snapshot. Selftest 17 of 17 with a new breakage. Smoke 88: a new
+statistic over 240 mazes (every statue and stone the chapter's), and the stone walk
+rewritten for either bowl and the empty-handed line.
+
 ## The plus-shaped squeeze (v0.94.0)
 
 Joe, with the seed the new tag gave him — 5855848, The Child, tiles 123 and 124:

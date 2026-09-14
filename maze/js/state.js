@@ -64,7 +64,10 @@ function markGlyph(mark, color) { const c = color || '#e0c98a', a = `fill="none"
 // and get its answer, and the other stays on the card unasked. Progress is per person and per
 // game, not per maze — SAVE.asked[who] is how far down their steps you have come — so a statue you
 // have spent says its one finished line and nothing else, in this maze and every maze after.
-function exchangeStep(who) { SAVE.asked = SAVE.asked || {}; const ex = EXCHANGES[who]; if (!ex) return null; const i = SAVE.asked[who] || 0; return i < ex.steps.length ? ex.steps[i] : null; }
+function exchangeStep(who) { SAVE.asked = SAVE.asked || {};
+  // the person was `child` before v0.95.0; a save from then carries its count over
+  if (SAVE.asked.child) { SAVE.asked.teen = (SAVE.asked.teen || 0) + SAVE.asked.child; delete SAVE.asked.child; persist(); }
+  const ex = EXCHANGES[who]; if (!ex) return null; const i = SAVE.asked[who] || 0; return i < ex.steps.length ? ex.steps[i] : null; }
 function showExchange(sh) {
   const person = PEOPLE.find(p => p.id === sh.who), step = exchangeStep(sh.who);
   if (!person || !step) { narrate(EXCHANGES[sh.who]?.done || SHRINE_LINES.again); return; }
