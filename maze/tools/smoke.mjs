@@ -2828,6 +2828,76 @@ check('every shelf and basin line can be reached, however many there are',
         + 'Run: node maze/tools/writer-page.mjs > maze/writer.html   (and republish the artifact)');
 }
 
+// ── 8h. the path into data/text.js, under the line (v0.103.0) ────
+
+// Joe: "a debug element that would show the ID of every string when I played." The id is only
+// useful if it is the *same* id the writer's page is keyed by, and if it points at the line that
+// is actually on screen — an id that is subtly wrong is worse than none, because the writer edits
+// the wrong slot and the words don't change.
+
+// The lookup walks TEXT_BLOCKS, which is written by hand because these are consts in a shared
+// script scope with no way to enumerate them. So: it has to be complete, or a whole block of
+// writing quietly has no ids.
+{
+  const textSrc = readFileSync(new URL('../data/text.js', import.meta.url), 'utf8');
+  const declared = [...textSrc.matchAll(/^const ([A-Z_]+)\s*=/gm)].map((m) => m[1]).filter((n) => n !== 'TEXT_BLOCKS');
+  const listed = await page.evaluate(() => Object.keys(TEXT_BLOCKS));
+  const gap = declared.filter((n) => !listed.includes(n));
+  check('every block of writing is reachable by the line-ID lookup',
+    gap.length === 0 && listed.length === declared.length,
+    gap.length ? 'declared in data/text.js but missing from TEXT_BLOCKS: ' + gap.join(', ')
+      : listed.length + ' blocks declared, all ' + listed.length + ' listed');
+}
+
+// Round-trip: every line in the file, looked up by its words, must give a path that leads back to
+// those same words. This is the check that would catch a walker that numbers arrays wrong or
+// mangles a quoted key — the failure mode that sends a writer to the wrong line.
+const round = await page.evaluate(() => {
+  const leaves = [];
+  const walk = (n, p) => {
+    if (typeof n === 'string') return leaves.push([p, n]);
+    if (Array.isArray(n)) n.forEach((v, i) => walk(v, p + '[' + i + ']'));
+    else if (n && typeof n === 'object') for (const k of Object.keys(n))
+      walk(n[k], p + (/^[A-Za-z_$][\w$]*$/.test(k) ? '.' + k : '[' + JSON.stringify(k) + ']'));
+  };
+  for (const name of Object.keys(TEXT_BLOCKS)) walk(TEXT_BLOCKS[name], name);
+  const bad = [];
+  let blank = 0;
+  for (const [, text] of leaves) {
+    // CAST[7].summary is '' — You has no blurb on the Stories screen. An empty slot is not a line
+    // anyone reads, and tagging it would put an id under nothing.
+    if (text === '') { blank++; continue; }
+    const id = lineId(text);
+    if (!id) { bad.push('no id for ' + JSON.stringify(text.slice(0, 40))); continue; }
+    let got; try { got = eval(id.replace(/ ×\d+$/, '')); } catch (e) { got = '<' + e.message + '>'; }
+    if (got !== text) bad.push(id + ' leads to ' + JSON.stringify(String(got).slice(0, 40)));
+  }
+  // a {braces} line still resolves after the vars are filled in, which is how the player sees it
+  const filled = lineId(moment('keyFound', { shape: 'circle' }));
+  return { total: leaves.length, blank, bad: bad.slice(0, 4), filled, junk: lineId('words the game never says'), empty: lineId('') };
+});
+check('every line in data/text.js can be found again from the words on screen',
+  round.bad.length === 0 && round.filled === 'MOMENTS.keyFound._' && round.junk === null && round.empty === null,
+  round.bad.length ? round.bad.join(' | ')
+    : (round.total - round.blank) + ' lines round-trip (' + round.blank + ' empty slot skipped); a filled-in '
+      + '"A key. Its head is a circle." still resolves to ' + round.filled
+      + ', and words from nowhere — or no words at all — give no id');
+
+// And the toggle has to actually put it under the line, and actually stop when it is off.
+const shown = await page.evaluate(() => {
+  const line = SELF_LINES['The Child'][3], was = SAVE.ui.ids;
+  const read = () => { const t = document.querySelector('#narr .lid'); return t ? t.textContent : null; };
+  SAVE.ui.ids = true;  narrate(line); const on = read();
+  SAVE.ui.ids = false; narrate(line); const off = read();
+  SAVE.ui.ids = was;
+  return { on, off, words: line, narr: document.getElementById('narr').textContent };
+});
+check('the Line IDs view names the line, and shows nothing when it is off',
+  shown.on === 'SELF_LINES["The Child"][3]' && shown.off === null && shown.narr.startsWith(shown.words),
+  shown.on === null ? 'the toggle was on and no id appeared'
+    : 'the Child’s fourth walking line shows as ' + shown.on + ', and the words themselves are untouched'
+      + (shown.off === null ? '; off, nothing is drawn' : '; but it did not clear: ' + shown.off));
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

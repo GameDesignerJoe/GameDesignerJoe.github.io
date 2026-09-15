@@ -24,6 +24,7 @@ function tutorial(kind, delayMs = 450) {
   SAVE.tutorials.push(kind); persist();
   const t = TUTORIALS[kind];
   $('tutIcon').innerHTML = ICONS[kind].replace('<svg ', '<svg class="icon" '); $('tutTitle').textContent = t.title; $('tutWhy').textContent = t.why; $('tutHow').textContent = t.how;
+  tagId($('tutTitle'), t.title); tagId($('tutWhy'), t.why); tagId($('tutHow'), t.how);
   paused = true; pauseStart = performance.now(); clearStick(); dir = null;
   AUDIO.paper();
   setTimeout(() => { $('tut').classList.remove('fold'); $('tut').classList.add('show'); AUDIO.unfold(); }, delayMs);   // a beat of stillness, then it opens

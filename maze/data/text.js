@@ -331,3 +331,14 @@ const POOL_UI = {
   putDown:        'Put the stone down.',
   putDownChoice:  'I put it down.',
 };
+
+// ── every block above, by name ──────────────────────────────────────────────
+// The engine hands each surface a finished string, never an id, so the debug "Line IDs" view has
+// to look the id up backwards: words → path. That walk needs the blocks as data. A plain object
+// literal rather than anything clever, because these are `const` in the shared script scope and
+// there is no way to enumerate them — and smoke.mjs asserts this list is complete, so a block
+// added tomorrow can't quietly stop being findable.
+const TEXT_BLOCKS = {
+  ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI,
+};
