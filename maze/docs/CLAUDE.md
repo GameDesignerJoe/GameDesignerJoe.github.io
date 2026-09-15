@@ -642,6 +642,65 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Rooms spread out (v0.102.0)
+
+Joe, with a screenshot I could not see: *"All the rooms are pushed into the same
+space. These should be more spread out."* QUALITY.md had already measured the sharp
+end of it — two rooms on one tile in 1 Archivist maze of 30, seven of 30 with two
+rooms within four tiles — and left the note *"fewer rooms or a spread rule, not a
+retry."*
+
+**Why they clumped.** The placer took the *first* spot not too close to another room,
+and after twenty misses settled for wherever it happened to be. So spread was what
+it settled for when the dice were kind, and where there were most rooms the dice
+were least kind.
+
+**The spread rule.** Each room now draws `roomSpreadTries` legal spots and takes the
+one farthest (in tiles, by the larger axis) from every room already placed. Spread is
+chosen, not settled for. A best spot that would still touch another room means the
+maze has no ground for this room and it goes without: a room on a room is not two
+rooms. Measured on the same 60 seeds per chapter, before → after:
+
+| chapter | rooms | closest pair | median gap |
+|---|---|---|---|
+| The Child | 4.3 → 4.6 | 6 → 10 | 14 → 14 |
+| The Cartographer | 3.4 → 3.5 | 6 → 8 | 18 → 20 |
+| The Soldier | 3.3 → 3.0 | 2 → 8 | 12 → 18 |
+| The Archivist | 11.2 → 10.3 | **0 → 8** | 8 → 10 |
+| The Priest | 7.2 → 7.6 | 6 → 10 | 12 → 16 |
+| The Criminal | 7.3 → 7.5 | 6 → 10 | 12 → 16 |
+| The One Who Stayed | 14.7 → 14.2 | 6 → 10 | 10 → 14 |
+| You | 1.6 → 1.6 | **0 → 8** | 18 → 22 |
+
+Gaps are the contract's own measurement (`contract.js`, walking distance between the
+closest two rooms). No maze puts two rooms on one tile any more, and the closest pair
+is eight tiles or better everywhere. The Archivist's median of ten is still a few
+seconds' walk: eleven rooms in a lg maze is the cause, and fewer rooms is the lever
+left, which is Joe's to pull (`rooms: 1.6` on its phase).
+
+**A bug the spread rule shook out, in the exit gauntlet.** The first harness run went
+red on one seed, 32676 in The Child, twice over: a route tile at 22,5 had become wall,
+and the exit could be reached without going through the squeeze tree. Toggling features
+on that seed pinned it: the gauntlet. It shuts the tree's side links to the rest of the
+maze, one at a time, keeping any that would strand floor — but the trunk is read off the
+*cell lattice*, and where the way out crosses a room it leaves the lattice, so a link the
+lattice reads as "off the tree" can be the route's own next step. Nothing was stranded
+because there was another way round, which is the bypass the second invariant caught.
+Two fixes, both small: the gauntlet never shuts a tile of the route, and a tree that is
+not the only way to the exit is not built at all rather than kept as a decoration with a
+bypass. The Child's gauntlet is the same size on average (17 tiles over 60 seeds) and
+the maze at 32676 gets a shorter tree that is the only way. Latent since v0.4x; the
+rooms moving is what made the route cross one beside the tree.
+
+**Tests.** Generation, so all three. Harness PASS 576 with a new invariant, *no two
+rooms share ground*, which reads the rooms' rects and no knob. Selftest 18 of 18 with
+its breakage. Smoke 97 with a new statistic over 60 Child and Archivist mazes: no two
+rooms within four tiles, proven red against the committed generator (one pair 0 apart).
+Two probes went red on the new geometry and both were the probe: the spiral read its
+turn before the spiral had ever been drawn (`spin` undefined), and the ball pit stood on
+the exact middle of the first pit it found, which now had no ball within reach. The
+spiral waits a frame; the pit probe walks about the pit as a player would.
+
 ## Hopscotch stops at four (v0.101.0)
 
 Joe: *"Hopscotch should stop at four. It's too long otherwise."* The court took up to

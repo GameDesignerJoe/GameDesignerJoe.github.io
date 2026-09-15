@@ -86,7 +86,9 @@ const MUST = {
   'The Archivist':      { keysVaulted: 'all', exitGuard: 10, keyDetour: 65, roomGap: 8,  thresholds: 1 },
   //                    today: 0%            ·  0         ·  88 (60–136)    ·  6 (2–8)   ·  0 (0–2)
   //                    Its rooms knob is the highest in the game, and 11 rooms in a lg maze is why
-  //                    its gap is the worst in the game. Fewer rooms or a spread rule, not a retry.
+  //                    its gap is the worst in the game. v0.102.0 added the spread rule
+  //                    (roomSpreadTries): min 0→8, median 8→10 over 60 seeds. Fewer rooms is
+  //                    the lever left, and it is Joe's.
   'The Priest':         { keysVaulted: 'all', exitGuard: 10, keyDetour: 45, roomGap: 10, thresholds: 1 },
   //                    today: 3%            ·  0         ·  60 (40–154)    ·  10 (8–20) ·  0 (0–1)
   'The Criminal':       { keysVaulted: 'all', exitGuard: 12, keyDetour: 55, roomGap: 10, thresholds: 1 },

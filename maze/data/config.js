@@ -157,6 +157,10 @@ const CONFIG = {
   // to a medium maze, which you can walk a whole run without meeting. Rooms are what the maze is
   // navigated by now, so there are more of them.
   rooms: 5,             // open spaces carved into the maze
+  roomSpreadTries: 24,  // spots drawn for each room; the one farthest from every room already placed
+                        // wins. Joe: "All the rooms are pushed into the same space. These should be
+                        // more spread out." 1 would be the old first-fit; more spreads harder and
+                        // costs a few microseconds a room
   roomCells: [2, 3],    // room size range, in cells (2 = 3×3 tiles, 3 = 5×5 tiles)
   tunnels: 4,           // roofed corridor runs that hide the floor (you show through as a ghost)
   tunnelMinTiles: 5,    // shortest straight run that can become a tunnel

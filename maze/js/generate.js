@@ -360,13 +360,27 @@ function buildMaze(seed) {
   for (let i = 0; i < N(CONFIG.rooms * (F.rooms || 1)); i++) {
     const cells = CONFIG.roomCells[0] + (R() * (CONFIG.roomCells[1] - CONFIG.roomCells[0] + 1) | 0);
     const tw = cells * 2 - 1;
-    let cx0, cy0, tries = 0;
-    do { cx0 = 1 + (R() * (CONFIG.cols - cells - 1) | 0); cy0 = 1 + (R() * (CONFIG.rows - cells - 1) | 0); }
-    while (++tries < 20 && (roomCenters.some(([rx, ry]) => Math.abs(rx - (TX(cx0)+(tw>>1))) < tw + 2 && Math.abs(ry - (TX(cy0)+(tw>>1))) < tw + 2)   // keep rooms apart
-      || (cx0 <= CONFIG.startRoomCells && cy0 + cells >= CONFIG.rows - CONFIG.startRoomCells)   // and out of the start-room corner
-      || (secretReserve && cx0 <= secretReserve.cx + secretReserve.rc && cx0 + cells > secretReserve.cx && cy0 <= secretReserve.cy + secretReserve.rc && cy0 + cells > secretReserve.cy)   // and off the kid's room
-      || vaultRects.some(v => cx0 <= v.cx0 + v.vc && cx0 + cells > v.cx0 && cy0 <= v.cy0 + v.vc && cy0 + cells > v.cy0)   // and off every vault's ground
-      || !(() => { for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) if (isOpen(TX(cx0+x), TX(cy0+y))) return true; return false; })()));   // and on corridor, never an island in dead space
+    // Where it goes. Joe: "All the rooms are pushed into the same space. These should be more spread
+    // out." The old loop took the FIRST spot that was not too close to another room, and after twenty
+    // misses settled for wherever it was — which is how two rooms landed on one tile (1 Archivist maze
+    // in 30, QUALITY.md) and how eleven rooms in a lg maze ended up a few seconds' walk apart. Now it
+    // draws roomSpreadTries spots that pass the hard rules, and takes the one FARTHEST from every
+    // room already placed. Spread is what is chosen, not what is settled for. A best spot that would
+    // still touch another room means the maze has no room for this room, and it goes without: a room
+    // on top of a room is not two rooms.
+    let cx0, cy0, best = -1;
+    for (let t = 0; t < CONFIG.roomSpreadTries; t++) {
+      const ax0 = 1 + (R() * (CONFIG.cols - cells - 1) | 0), ay0 = 1 + (R() * (CONFIG.rows - cells - 1) | 0);
+      if (ax0 <= CONFIG.startRoomCells && ay0 + cells >= CONFIG.rows - CONFIG.startRoomCells) continue;   // out of the start-room corner
+      if (secretReserve && ax0 <= secretReserve.cx + secretReserve.rc && ax0 + cells > secretReserve.cx && ay0 <= secretReserve.cy + secretReserve.rc && ay0 + cells > secretReserve.cy) continue;   // off the kid's room
+      if (vaultRects.some(v => ax0 <= v.cx0 + v.vc && ax0 + cells > v.cx0 && ay0 <= v.cy0 + v.vc && ay0 + cells > v.cy0)) continue;   // off every vault's ground
+      if (!(() => { for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) if (isOpen(TX(ax0+x), TX(ay0+y))) return true; return false; })()) continue;   // on corridor, never an island
+      const tcx = TX(ax0) + (tw>>1), tcy = TX(ay0) + (tw>>1);
+      const gap = roomCenters.reduce((m, [rx, ry]) => Math.min(m, Math.max(Math.abs(rx - tcx), Math.abs(ry - tcy))), Infinity);
+      if (gap > best) { best = gap; cx0 = ax0; cy0 = ay0; }
+      if (gap === Infinity) break;   // the first room: anywhere legal is as far as it gets
+    }
+    if (best < tw + 2) continue;   // nowhere it can stand apart from the others: no room here
     // Twenty tries, then it settles for wherever it landed. That is fine for keeping rooms apart —
     // near enough is near enough — but two of the rules above are not preferences: they are ground
     // that gets written over later, whatever is standing on it. A vault's rings are cut long after
@@ -1058,6 +1072,12 @@ function buildMaze(seed) {
           if (!isOpen(gx, gy) || gx + ',' + gy === entrance) continue;
           if (!inGrid(nx, ny)) continue;                       // the exit alley: that is the way out
           if (G.has(nx + ',' + ny) || busy(gx, gy)) continue;
+          // Never the route itself. The trunk is the last cells of the way out, but where the way
+          // out crosses a room it leaves the cell lattice, and a link the lattice reads as "off the
+          // tree" can be the route's own next step. Seed 32676 (v0.102.0): the rooms moved, the
+          // route crossed one beside the tree, and this shut a tile of it — nothing was stranded,
+          // because there was another way round, which is the other half of the same failure.
+          if (solutionKeys.has(gx + ',' + gy)) continue;
           tiles[gy][gx] = 0;
           if (nothingStranded()) shut.push([gx, gy]); else tiles[gy][gx] = 1;
         }
@@ -1083,7 +1103,9 @@ function buildMaze(seed) {
       if (!best || (r.only && !best.only) || (r.only === best.only && r.forks > best.forks)) { unbuild(r); best = { want, only: r.only, forks: r.forks }; }
       else unbuild(r);
     }
-    if (best) {
+    // A tree that is not the only way to the exit is a decoration with a bypass, and the maze is
+    // better off with no tree than with that. It used to be kept anyway; seed 32676 is the case.
+    if (best && best.only) {
       const r = build(best.want);
       const G = r.G;
       // Auto-moving floor on the way out. A few cells of the trunk slide sideways into the dead

@@ -1331,10 +1331,17 @@ const pit = await page.evaluate(async () => {
   // far away: nothing should be shoved
   player.x = 1.5; player.y = 1.5; await frame(); await frame();
   const away = L.shove ? Math.max(...L.shove) : 0;
-  // standing in it: the balls near him give way
-  player.x = (L.rx0 + L.rx1) / 2 + 0.5; player.y = (L.ry0 + L.ry1) / 2 + 0.5;
-  for (let i = 0; i < 25; i++) await frame();
-  const inIt = Math.max(...L.shove.map(Math.abs));
+  // standing in it: the balls near him give way. Not one spot but a short walk about the pit —
+  // where the balls lie is the room's own noise, and the exact middle of one pit (the first with
+  // a pit once the rooms spread out, v0.102.0) happened to have no ball within reach, which read
+  // as 0.12 tiles of give against a bar of 0.15. A player is not stood on one tile either.
+  const cx = (L.rx0 + L.rx1) / 2 + 0.5, cy = (L.ry0 + L.ry1) / 2 + 0.5;
+  let inIt = 0;
+  for (const [ox2, oy2] of [[0, 0], [0.8, 0], [-0.8, 0], [0, 0.8], [0, -0.8], [0.8, 0.8], [-0.8, -0.8]]) {
+    player.x = cx + ox2; player.y = cy + oy2;
+    for (let i = 0; i < 10; i++) await frame();
+    inIt = Math.max(inIt, ...L.shove.map(Math.abs));
+  }
   // and they roll back once he leaves
   player.x = 1.5; player.y = 1.5;
   for (let i = 0; i < 45; i++) await frame();
@@ -1716,8 +1723,9 @@ const drag = await page.evaluate(async () => {
       const px = L.x + 0.5, py = L.y + 0.5, rr = 1.6;
       const put = (ang) => { player.x = px + Math.cos(ang) * rr; player.y = py + Math.sin(ang) * rr; };
       const sweep = async (dir) => {
-        put(0); await nap(60);
-        const from = L.spin;
+        // a spiral that has never been on screen has no `spin` yet: stand by it a frame first
+        put(0); await nap(60); if (L.spin === undefined) { await nap(120); }
+        const from = L.spin ?? 0;
         for (let i = 1; i <= 12; i++) { put(dir * i * Math.PI / 24); await nap(28); }
         return L.spin - from;
       };
@@ -1861,6 +1869,24 @@ check('the nav view numbers every walkable tile, and the numbers hold still',
     && Number.isFinite(nav.exitNo) && nav.exitNo <= nav.walk && nav.wallNo === '\u2014',
   `${nav.walk} walkable tiles; he starts on ${nav.hereA} and it is still ${nav.hereB} after the camera moves; `
   + `the way out is ${nav.exitNo}; a wall tile has no number`);
+
+// Joe: "All the rooms are pushed into the same space. These should be more spread out." The worst
+// of it was The Archivist: eleven rooms in a lg maze, two of them on one tile in 1 maze of 30 and
+// within four tiles of each other in 7 of 30 (QUALITY.md). The bar is the property, not the knob:
+// no two rooms' middles within four tiles, in the chapter that clumped hardest and in the Child's.
+const roomSpread = await page.evaluate(() => {
+  let pairs = 0, close = 0, mazes = 0, minGap = Infinity;
+  for (const ph of [0, 3]) for (let s2 = 1; s2 <= 30; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 53 + ph); mazes++;
+    const rooms = landmarks.filter((l) => l.rx1 > l.rx0).map((l) => [(l.rx0 + l.rx1) / 2, (l.ry0 + l.ry1) / 2]);
+    for (let i = 0; i < rooms.length; i++) for (let j = i + 1; j < rooms.length; j++) {
+      const g = Math.max(Math.abs(rooms[i][0] - rooms[j][0]), Math.abs(rooms[i][1] - rooms[j][1])); pairs++; minGap = Math.min(minGap, g); if (g < 4) close++; }
+  }
+  return { mazes, pairs, close, minGap };
+});
+check('no two rooms are placed within four tiles of each other',
+  roomSpread.pairs > 0 && roomSpread.close === 0,
+  `${roomSpread.pairs} room pairs over ${roomSpread.mazes} Child and Archivist mazes; ${roomSpread.close} within four tiles, the closest ${roomSpread.minGap} apart`);
 
 // Joe: "Hopscotch should stop at four. It's too long otherwise." The bar is his number, not the
 // knob: every court in every Child maze is four squares, and every maze that has a straight run

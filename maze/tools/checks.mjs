@@ -261,6 +261,20 @@ const CHECKS = [
     return bad.length ? bad.join('; ') : null;
   }],
 
+  // Joe: "All the rooms are pushed into the same space. These should be more spread out." The
+  // sharp end of that was two rooms on one tile (QUALITY.md: 1 Archivist maze in 30). A room is a
+  // place; two places on the same ground is one place. Reads no knob: two rooms' floors never share
+  // a tile. (Landmarks carry each room's rect, and a room without a landmark is the rare exception.)
+  ['no two rooms share ground', (s) => {
+    if (s.poolMode) return null;
+    const rooms = (s.landmarks || []).filter((l) => l.rx1 > l.rx0 || l.ry1 > l.ry0), bad = [];
+    for (let i = 0; i < rooms.length; i++) for (let j = i + 1; j < rooms.length; j++) {
+      const a = rooms[i], b = rooms[j];
+      if (a.rx0 <= b.rx1 && b.rx0 <= a.rx1 && a.ry0 <= b.ry1 && b.ry0 <= a.ry1) bad.push(`${a.kind} at ${a.rx0},${a.ry0} and ${b.kind} at ${b.rx0},${b.ry0} overlap`);
+    }
+    return bad.length ? bad.join('; ') : null;
+  }],
+
   // Joe: "We need to lock in each person to each chapter. So child chapter has statues of the
   // father." The chapter names its person in data/phases.js; every statue and stone is theirs.
   ['every statue and every stone in a maze is the chapter\'s person', (s) => {

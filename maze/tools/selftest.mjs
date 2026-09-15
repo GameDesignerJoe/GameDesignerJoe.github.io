@@ -131,6 +131,13 @@ const MUTATIONS = [
     s.offerings.push([K(sh.sx, sh.sy), sh.who]);
   }],
 
+  ['two rooms carved on the same ground', 'no two rooms share ground', (s) => {
+    // the old placer, after twenty misses, settled for wherever it was: the second room lands on the first
+    const rooms = s.landmarks.filter((l) => l.rx1 > l.rx0);
+    if (rooms.length < 2) { s.landmarks.push({ kind: 'dais', rx0: 3, ry0: 3, rx1: 5, ry1: 5 }, { kind: 'well', rx0: 4, ry0: 4, rx1: 6, ry1: 6 }); return; }
+    Object.assign(rooms[1], { rx0: rooms[0].rx0, ry0: rooms[0].ry0, rx1: rooms[0].rx1, ry1: rooms[0].ry1 });
+  }],
+
   ['a statue of someone else\'s in the chapter', 'every statue and every stone in a maze is the chapter\'s person', (s) => {
     // the five dealt at random again: the second statue is anyone but the chapter's person
     s.shrines[1].who = s.shrineWho === 'father' ? 'mother' : 'father';
