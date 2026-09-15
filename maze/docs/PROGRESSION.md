@@ -119,10 +119,11 @@ well, which is a hole you cannot walk into, and since v0.84.0 the pool, whose
 water shifts in rings under you); **one or two key vaults** in every level, with
 the doors placed so that their keys lie inside them; dead ends as loot slots;
 tunnels; pockets and sliders; swings; the exit alley and its shimmering oval;
-**two statues a maze**, each one of the five people he lost sight of, each waiting for
-the stone with their mark that lies far across the maze — carried one at a time, gating
-nothing; the stone in the bowl opens two questions, you ask one, and when a person's
-questions are spent their statue has one line left (v0.89.0–v0.90.0);
+**two statues a maze**, both of one person he lost sight of — one person to a chapter
+(`shrines` in `data/phases.js`; the father in the Child's, the Teen in the last), each
+waiting for a stone with their mark that lies far from every statue — carried one at a
+time, gating nothing; the stone in the bowl opens two questions, you ask one, and when a
+person's questions are spent their statue has one line left (v0.89.0–v0.90.0, v0.99.0);
 **a chain of locked doors with hidden keys**, placed under distance rules and,
 since v0.88.0, guaranteed — the maze is rebuilt until it holds the doors its phase
 asked for, rather than quietly shipping with fewer;

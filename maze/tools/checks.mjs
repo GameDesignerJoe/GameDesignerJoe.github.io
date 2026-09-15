@@ -243,16 +243,45 @@ const CHECKS = [
   // step. The generator aims for offeringMinTiles of walking and settles for the farthest dead end
   // there is; the bar here is eight tiles and reads no knob, which is "not beside it" — the
   // property Joe described, whatever the knob is set to.
+  // Since v0.99.0 both statues in a maze wait for the same person and either bowl takes the stone,
+  // so the walk that matters is to the *nearest* statue: a stone at the other one's feet is a step.
   ['each statue has its stone, and the stone lies well away from it', (s) => {
     if (s.poolMode || !(s.shrines || []).length) return null;
     const open = openTiles(s), bad = [];
-    for (const sh of s.shrines) {
-      const mine = (s.offerings || []).filter(([, who]) => who === sh.who);
-      if (mine.length !== 1) { bad.push(`${sh.who}'s statue has ${mine.length} stones`); continue; }
-      const d = dists(open, s.W, s.H, sh.sx, sh.sy).get(mine[0][0]);
-      if (d == null) bad.push(`${sh.who}'s stone at ${mine[0][0]} cannot be walked to from its statue`);
-      else if (d < 8) bad.push(`${sh.who}'s stone lies ${d} tiles from its statue at ${K(sh.sx, sh.sy)}`);
+    for (const who of new Set(s.shrines.map((sh) => sh.who))) {
+      const mine = (s.offerings || []).filter(([, w]) => w === who), theirs = s.shrines.filter((sh) => sh.who === who);
+      if (mine.length !== theirs.length) { bad.push(`${who} has ${theirs.length} statues and ${mine.length} stones`); continue; }
+      const ds = theirs.map((sh) => dists(open, s.W, s.H, sh.sx, sh.sy));
+      for (const [k] of mine) {
+        const d = Math.min(...ds.map((m) => m.get(k) ?? Infinity));
+        if (d === Infinity) bad.push(`${who}'s stone at ${k} cannot be walked to from a statue`);
+        else if (d < 8) bad.push(`${who}'s stone at ${k} lies ${d} tiles from a statue`);
+      }
     }
+    return bad.length ? bad.join('; ') : null;
+  }],
+
+  // Joe: "All the rooms are pushed into the same space. These should be more spread out." The
+  // sharp end of that was two rooms on one tile (QUALITY.md: 1 Archivist maze in 30). A room is a
+  // place; two places on the same ground is one place. Reads no knob: two rooms' floors never share
+  // a tile. (Landmarks carry each room's rect, and a room without a landmark is the rare exception.)
+  ['no two rooms share ground', (s) => {
+    if (s.poolMode) return null;
+    const rooms = (s.landmarks || []).filter((l) => l.rx1 > l.rx0 || l.ry1 > l.ry0), bad = [];
+    for (let i = 0; i < rooms.length; i++) for (let j = i + 1; j < rooms.length; j++) {
+      const a = rooms[i], b = rooms[j];
+      if (a.rx0 <= b.rx1 && b.rx0 <= a.rx1 && a.ry0 <= b.ry1 && b.ry0 <= a.ry1) bad.push(`${a.kind} at ${a.rx0},${a.ry0} and ${b.kind} at ${b.rx0},${b.ry0} overlap`);
+    }
+    return bad.length ? bad.join('; ') : null;
+  }],
+
+  // Joe: "We need to lock in each person to each chapter. So child chapter has statues of the
+  // father." The chapter names its person in data/phases.js; every statue and stone is theirs.
+  ['every statue and every stone in a maze is the chapter\'s person', (s) => {
+    if (s.poolMode || !(s.shrines || []).length || !s.shrineWho) return null;
+    const bad = [];
+    for (const sh of s.shrines) if (sh.who !== s.shrineWho) bad.push(`statue of ${sh.who} in ${s.shrineWho}'s chapter`);
+    for (const [k, who] of (s.offerings || [])) if (who !== s.shrineWho) bad.push(`${who}'s stone at ${k} in ${s.shrineWho}'s chapter`);
     return bad.length ? bad.join('; ') : null;
   }],
 

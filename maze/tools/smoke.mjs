@@ -1331,10 +1331,17 @@ const pit = await page.evaluate(async () => {
   // far away: nothing should be shoved
   player.x = 1.5; player.y = 1.5; await frame(); await frame();
   const away = L.shove ? Math.max(...L.shove) : 0;
-  // standing in it: the balls near him give way
-  player.x = (L.rx0 + L.rx1) / 2 + 0.5; player.y = (L.ry0 + L.ry1) / 2 + 0.5;
-  for (let i = 0; i < 25; i++) await frame();
-  const inIt = Math.max(...L.shove.map(Math.abs));
+  // standing in it: the balls near him give way. Not one spot but a short walk about the pit —
+  // where the balls lie is the room's own noise, and the exact middle of one pit (the first with
+  // a pit once the rooms spread out, v0.102.0) happened to have no ball within reach, which read
+  // as 0.12 tiles of give against a bar of 0.15. A player is not stood on one tile either.
+  const cx = (L.rx0 + L.rx1) / 2 + 0.5, cy = (L.ry0 + L.ry1) / 2 + 0.5;
+  let inIt = 0;
+  for (const [ox2, oy2] of [[0, 0], [0.8, 0], [-0.8, 0], [0, 0.8], [0, -0.8], [0.8, 0.8], [-0.8, -0.8]]) {
+    player.x = cx + ox2; player.y = cy + oy2;
+    for (let i = 0; i < 10; i++) await frame();
+    inIt = Math.max(inIt, ...L.shove.map(Math.abs));
+  }
   // and they roll back once he leaves
   player.x = 1.5; player.y = 1.5;
   for (let i = 0; i < 45; i++) await frame();
@@ -1716,8 +1723,9 @@ const drag = await page.evaluate(async () => {
       const px = L.x + 0.5, py = L.y + 0.5, rr = 1.6;
       const put = (ang) => { player.x = px + Math.cos(ang) * rr; player.y = py + Math.sin(ang) * rr; };
       const sweep = async (dir) => {
-        put(0); await nap(60);
-        const from = L.spin;
+        // a spiral that has never been on screen has no `spin` yet: stand by it a frame first
+        put(0); await nap(60); if (L.spin === undefined) { await nap(120); }
+        const from = L.spin ?? 0;
         for (let i = 1; i <= 12; i++) { put(dir * i * Math.PI / 24); await nap(28); }
         return L.spin - from;
       };
@@ -1861,6 +1869,99 @@ check('the nav view numbers every walkable tile, and the numbers hold still',
     && Number.isFinite(nav.exitNo) && nav.exitNo <= nav.walk && nav.wallNo === '\u2014',
   `${nav.walk} walkable tiles; he starts on ${nav.hereA} and it is still ${nav.hereB} after the camera moves; `
   + `the way out is ${nav.exitNo}; a wall tile has no number`);
+
+// Joe: "All the rooms are pushed into the same space. These should be more spread out." The worst
+// of it was The Archivist: eleven rooms in a lg maze, two of them on one tile in 1 maze of 30 and
+// within four tiles of each other in 7 of 30 (QUALITY.md). The bar is the property, not the knob:
+// no two rooms' middles within four tiles, in the chapter that clumped hardest and in the Child's.
+const roomSpread = await page.evaluate(() => {
+  let pairs = 0, close = 0, mazes = 0, minGap = Infinity;
+  for (const ph of [0, 3]) for (let s2 = 1; s2 <= 30; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 53 + ph); mazes++;
+    const rooms = landmarks.filter((l) => l.rx1 > l.rx0).map((l) => [(l.rx0 + l.rx1) / 2, (l.ry0 + l.ry1) / 2]);
+    for (let i = 0; i < rooms.length; i++) for (let j = i + 1; j < rooms.length; j++) {
+      const g = Math.max(Math.abs(rooms[i][0] - rooms[j][0]), Math.abs(rooms[i][1] - rooms[j][1])); pairs++; minGap = Math.min(minGap, g); if (g < 4) close++; }
+  }
+  return { mazes, pairs, close, minGap };
+});
+check('no two rooms are placed within four tiles of each other',
+  roomSpread.pairs > 0 && roomSpread.close === 0,
+  `${roomSpread.pairs} room pairs over ${roomSpread.mazes} Child and Archivist mazes; ${roomSpread.close} within four tiles, the closest ${roomSpread.minGap} apart`);
+
+// Joe: "Hopscotch should stop at four. It's too long otherwise." The bar is his number, not the
+// knob: every court in every Child maze is four squares, and every maze that has a straight run
+// of four gets one.
+const hop = await page.evaluate(() => {
+  const lens = [], missing = [];
+  for (let s2 = 1; s2 <= 60; s2++) { SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 31);
+    if (hopscotch.length) lens.push(hopscotch.length); else missing.push(s2 * 31); }
+  return { n: lens.length, max: Math.max(...lens), min: Math.min(...lens), missing: missing.length };
+});
+check('the hopscotch court is four squares, no more',
+  hop.n > 0 && hop.max === 4 && hop.min === 4,
+  `${hop.n} courts over 60 Child mazes, ${hop.min}–${hop.max} squares each; ${hop.missing} mazes without one`);
+
+// ── the charcoal HUD and the compass pickup (v0.100.0) ──
+// Joe, twice: "The charcoal icon on the hud/screen should have a little pulse to it every time a
+// tile is logged. Like a little heart beat." The first cut swelled 8% and never came to rest between
+// tiles. The bar here is the stylesheet's own keyframe: its peak must be a real swell, and the beat
+// must be shorter than a tile at walking pace so it can rest. And: "The press and hold for the
+// charcoal lock needs a stronger visual to show it's locked, maybe a bolder outline."
+const hud = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  let peak = 0;
+  for (const sh of document.styleSheets) for (const r of sh.cssRules) if (r.name === 'charbeat')
+    for (const k of r.cssRules) { const m = /scale\(([\d.]+)\)/.exec(k.style.transform); if (m) peak = Math.max(peak, Number(m[1])); }
+  const beatMs = CONFIG.charcoalBeatMs, tileMs = 1000 / B.speed();
+  // the beat actually fires as a tile is logged
+  SAVE.phase = 1; reset(4242); sliding = null; started = true; await nap(60);
+  charcoal = 2; charcoalLeft = B.charcoal(); charcoalOn = true; updateCharcoal(); charcoalEl.classList.remove('beat');
+  // walk him onto a fresh tile: mapHere() adds it and beat() fires
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)];
+  const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [0, 0];
+  mapped = new Map(); visited = new Set(); player.x = sx + dx + 0.5; player.y = sy + dy + 0.5; lastTileKey = ''; await nap(120);
+  const beatFired = charcoalEl.classList.contains('beat');
+  // and the lock reads
+  const plain = getComputedStyle(charcoalEl); const plainBorder = parseFloat(plain.borderTopWidth), plainShadow = plain.boxShadow;
+  charcoalLock = true; updateCharcoal(); await nap(30);
+  const lk = getComputedStyle(charcoalEl); const lockBorder = parseFloat(lk.borderTopWidth), lockShadow = lk.boxShadow;
+  charcoalLock = false; charcoalOn = false; updateCharcoal();
+  return { peak, beatMs, tileMs, beatFired, plainBorder, lockBorder, plainShadow, lockShadow };
+});
+check('a tile logged beats the charcoal icon: a real swell, quicker than a step',
+  hud.beatFired && hud.peak >= 1.15 && hud.beatMs > 0 && hud.beatMs < hud.tileMs,
+  `beat fired on a new tile (${hud.beatFired}); keyframe peaks at scale ${hud.peak} (bar 1.15) over ${hud.beatMs}ms, a tile takes ${hud.tileMs.toFixed(0)}ms`);
+check('lock-on gives the charcoal pill a bolder outline than resting',
+  hud.lockBorder >= 2 && hud.lockBorder > hud.plainBorder && hud.lockShadow !== 'none' && hud.lockShadow !== hud.plainShadow,
+  `border ${hud.plainBorder}px resting, ${hud.lockBorder}px locked; halo ${hud.lockShadow !== 'none' ? 'on' : 'off'} when locked`);
+
+// Joe: "The pickup for the compass should look different than the main character as well. Make it
+// look like the icon that shows up when you collect it." A compass has a case: a ring of the pickup's
+// colour with the dark inside it, where the old arrowhead had floor beside it. Sampled on the ring
+// at right angles to the needle, so the needle itself is never what is being read.
+const cpick = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 2; reset(4242); sliding = null; started = true; SAVE.ui.nav = false; await nap(60);
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)];
+  const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [1, 0];
+  const k = (sx + dx) + ',' + (sy + dy); pickups.set(k, 'pointer'); charcoalSpots.delete(k); chalkSpots.delete(k);
+  // keep him where he is so the pickup is not picked up while we look
+  lastTileKey = sx + ',' + sy; await nap(400);
+  const cv = document.querySelector('canvas'), g = cv.getContext('2d'), dpr = cv.width / innerWidth;
+  // the renderer's own camera: anchored at 0.5 across and 0.42 down in portrait
+  const S = zoomS, ay = innerWidth > innerHeight ? 0.5 : 0.42;
+  const ox = innerWidth * 0.5 - cam.x * S, oy = innerHeight * ay - (cam.y + camBump) * S;
+  const cx = ox + (sx + dx + 0.5) * S, cy = oy + (sy + dy + 0.5) * S;
+  const ang = Math.atan2(exit.y + 0.5 - (sy + dy + 0.5), exit.x + 0.5 - (sx + dx + 0.5)) + Math.PI / 2;
+  const at = (r) => { const d = g.getImageData(Math.round((cx + Math.cos(ang) * r) * dpr), Math.round((cy + Math.sin(ang) * r) * dpr), 1, 1).data; return [d[0], d[1], d[2]]; };
+  const ring = at(S * 0.2), inside = at(S * 0.1), floor = at(S * 0.34);
+  pickups.delete(k);
+  const lum = (c) => (c[0] + c[1] + c[2]) / 3;
+  return { ring, inside, floor, ringLum: lum(ring), insideLum: lum(inside), floorLum: lum(floor), S };
+});
+check('the compass pickup is a compass: a bright case round a dark face, not an arrowhead on the floor',
+  cpick.ringLum > cpick.insideLum + 40 && cpick.ringLum > cpick.floorLum + 30,
+  `on the ring ${cpick.ringLum.toFixed(0)}, inside the case ${cpick.insideLum.toFixed(0)}, floor beside it ${cpick.floorLum.toFixed(0)} (tile ${cpick.S}px)`);
 
 // Joe, with two screenshots of a T he could not get through: "the nav mesh isn't
 // showing the seed for it to be easy for you to reproduce." It was there — bottom
@@ -2504,16 +2605,25 @@ check('a page in a pool room lies on the rim you walk round, never in the water'
 // was that the abandoned boy has as much to ask as anyone: "Not sure why we don't have one in the
 // first child chapter. Seems like it would be a good idea."
 const shrineGen = await page.evaluate(() => {
-  let mazes = 0, statues = 0, stones = 0;
+  let mazes = 0, statues = 0, stones = 0, theirs = 0, strays = [];
   for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
     SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
     mazes++; statues += shrines.length; stones += offerings.size;
+    // one person to a chapter: every statue and every stone here is theirs
+    const want = phase().f.shrines;
+    for (const sh of shrines) if (sh.who === want) theirs++; else strays.push(`${phase().who} statue ${sh.who}`);
+    for (const who of offerings.values()) if (who === want) theirs++; else strays.push(`${phase().who} stone ${who}`);
   }
-  return { mazes, statues, stones };
+  return { mazes, statues, stones, theirs, strays: strays.slice(0, 4), strayN: strays.length };
 });
 check('every maze, the Child\'s included, carries two statues and their two stones',
   shrineGen.statues === shrineGen.mazes * 2 && shrineGen.stones === shrineGen.mazes * 2,
   `${shrineGen.statues} statues and ${shrineGen.stones} stones across ${shrineGen.mazes} mazes over all eight selves (wanted ${shrineGen.mazes * 2} each)`);
+// Joe: "We need to lock in each person to each chapter. So child chapter has statues of the father."
+check('both statues in a maze, and both stones, belong to the chapter\'s person',
+  shrineGen.theirs === shrineGen.statues + shrineGen.stones && shrineGen.strayN === 0,
+  `${shrineGen.theirs} of ${shrineGen.statues + shrineGen.stones} statues and stones are the chapter's person`
+  + (shrineGen.strayN ? `; strays: ${shrineGen.strays.join(', ')}` : ''));
 
 const shrineWalk = await page.evaluate(async () => {
   const nap = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -2526,23 +2636,25 @@ const shrineWalk = await page.evaluate(async () => {
   // suite looks nothing like a failed one
   if (shrines.length < 2 || offerings.size < 2) return { who: 'none', got: null, stoneGone: false, stillOne: false, otherStays: false, wrongBowl: false, done: false, handsFree: false, thread: 0, lit: false, endsOnPage: false, pages: journals.size, missing: `${shrines.length} statues, ${offerings.size} stones` };
   const sh = shrines[0], other = shrines[1];
-  const mine = [...offerings.entries()].find(([, who]) => who === sh.who), theirs = [...offerings.entries()].find(([, who]) => who === other.who);
+  const [mine, theirs] = [...offerings.entries()];
   const at = (k) => { const [x, y] = k.split(',').map(Number); player.x = x + 0.5; player.y = y + 0.5; lastTileKey = ''; };
   const step = async (k) => { at(k); for (let i = 0; i < 6; i++) { await nap(40); } };
+  // Joe: "When you don't have a stone but you collide with the statue, it should say something."
+  narrEl.textContent = ''; await step(sh.sx + ',' + sh.sy); const emptySaid = narrEl.textContent === SHRINE_LINES.noStone, tookNothing = !sh.done;
   await step(mine[0]);      const got = carried, stoneGone = !offerings.has(mine[0]);
   await step(theirs[0]);    const stillOne = carried === sh.who, otherStays = offerings.has(theirs[0]);
-  await step(other.sx + ',' + other.sy); const wrongBowl = !other.done && carried === sh.who;
   const pages = journals.size;
-  await step(sh.sx + ',' + sh.sy);   const done = sh.done, handsFree = carried === null, thread = shrinePath.length, lit = shrineUntil > gameNow();
+  // one person to a chapter, so either bowl is the right bowl
+  await step(other.sx + ',' + other.sy); const done = other.done, handsFree = carried === null, thread = shrinePath.length, lit = shrineUntil > gameNow();
   const endsOnPage = thread ? journals.has(shrinePath[thread - 1].join(',')) : false;
-  return { who: sh.who, got, stoneGone, stillOne, otherStays, wrongBowl, done, handsFree, thread, lit, endsOnPage, pages };
+  return { who: sh.who, emptySaid, tookNothing, got, stoneGone, stillOne, otherStays, done, handsFree, thread, lit, endsOnPage, pages };
 });
-check('a stone is carried one at a time, and settling it in the right bowl points the statue at a page',
-  shrineWalk.got === shrineWalk.who && shrineWalk.stoneGone && shrineWalk.stillOne && shrineWalk.otherStays && shrineWalk.wrongBowl
+check('a stone is carried one at a time, and settling it in a bowl points the statue at a page',
+  shrineWalk.emptySaid && shrineWalk.tookNothing && shrineWalk.got === shrineWalk.who && shrineWalk.stoneGone && shrineWalk.stillOne && shrineWalk.otherStays
     && shrineWalk.done && shrineWalk.handsFree && (shrineWalk.pages === 0 || (shrineWalk.thread > 1 && shrineWalk.lit && shrineWalk.endsOnPage)),
   shrineWalk.missing ? `nothing to walk: this maze has ${shrineWalk.missing}` :
-  `picked up ${shrineWalk.who}'s stone (${shrineWalk.got}); a second stone stayed on the floor (${shrineWalk.otherStays}); the wrong bowl took nothing (${shrineWalk.wrongBowl}); `
-  + `the right bowl took it (${shrineWalk.done}, hands free ${shrineWalk.handsFree}) and lit a ${shrineWalk.thread}-tile thread that ends on a page (${shrineWalk.endsOnPage}), with ${shrineWalk.pages} pages still out`);
+  `empty-handed at the step he said so (${shrineWalk.emptySaid}) and the bowl took nothing (${shrineWalk.tookNothing}); picked up ${shrineWalk.who}'s stone (${shrineWalk.got}); a second stone stayed on the floor (${shrineWalk.otherStays}); `
+  + `the other bowl took it (${shrineWalk.done}, hands free ${shrineWalk.handsFree}) and lit a ${shrineWalk.thread}-tile thread that ends on a page (${shrineWalk.endsOnPage}), with ${shrineWalk.pages} pages still out`);
 
 // ── 8e. the exchange ──────────────────────────────────────────────
 // Joe: "You drop the thing in. You are then allowed to ask a question, maybe two are offered...
@@ -2700,7 +2812,7 @@ check('every shelf and basin line can be reached, however many there are',
         + 'Run: node maze/tools/writer-page.mjs > maze/writer.html   (and republish the artifact)');
 }
 
-// ── 8h. the path into data/text.js, under the line (v0.99.0) ─────
+// ── 8h. the path into data/text.js, under the line (v0.103.0) ────
 
 // Joe: "a debug element that would show the ID of every string when I played." The id is only
 // useful if it is the *same* id the writer's page is keyed by, and if it points at the line that

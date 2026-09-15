@@ -425,7 +425,10 @@ function update(wall) {
         if (carried === sh.who) { sh.done = true; sh.doneAt = now; carried = null; renderCarried(); AUDIO.stone();
           shrinePath = pathToNearestPage(tx, ty); shrineUntil = shrinePath.length ? now + CONFIG.shrineThreadSec * 1000 : 0;
           saveRun(true); showExchange(sh); }
-        else if (carried !== null && !shrineWrongSaid) { shrineWrongSaid = true; narrate(SHRINE_LINES.wrong); } }
+        else if (carried !== null && !shrineWrongSaid) { shrineWrongSaid = true; narrate(SHRINE_LINES.wrong); }
+        // Joe: "When you don't have a stone but you collide with the statue, it should say
+        // something." Once per visit, like the finished statue below, not every frame you stand there.
+        else if (carried === null && prevKey !== key) narrate(SHRINE_LINES.noStone); }
       // and a statue you have already satisfied, stepped up to again: its finished line if it is
       // spent, otherwise the note that it has said its piece — once per visit, not every frame
       else { const dn = shrines.find(s => s.done && s.sx === tx && s.sy === ty); if (dn && prevKey !== key) narrate(exchangeStep(dn.who) ? SHRINE_LINES.again : (EXCHANGES[dn.who]?.done || SHRINE_LINES.again)); } }

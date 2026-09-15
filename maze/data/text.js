@@ -172,14 +172,25 @@ const TUTORIALS = {
 // The father left, and is dead: what there is to make is peace. The mother he carried as a child
 // and walked away from as a man: she resents him still, and what there is to make is being all
 // right with that. The wife who sees past the shell he will not come out of. The friend he was too
-// rigid with, or pulled down, who may be offering a hand he does not think he deserves. The child,
-// smart and still a teenager, who does not understand why he will not just get help.
+// rigid with, or pulled down, who may be offering a hand he does not think he deserves. The Teen —
+// his own kid, smart and still a teenager, who does not understand why he will not just get help.
+//
+// Two children in this game and they are not the same person. The Child, the first chapter, is the
+// man himself, small, waiting where his father told him to. The Teen is the man's own child. Joe:
+// "The Child section at the start of the game is the main character as a child, not their child.
+// We might call their child The Teen." So the person is `teen` here and everywhere, and `child`
+// is only ever the chapter.
+//
+// One person to a chapter. Joe: "We need to lock in each person to each chapter. So child chapter
+// has statues of the father. The mom gets another one, and the friend and so on to the Teen
+// getting the last one." Which person is which chapter's is `shrines` in data/phases.js; both
+// statues in a maze wait for that person, and so both stones carry their mark.
 const PEOPLE = [
   { id: 'father', mark: 'bar',     name: 'my father' },
   { id: 'mother', mark: 'chevron', name: 'my mother' },
   { id: 'spouse', mark: 'cross',   name: 'my wife' },
   { id: 'friend', mark: 'wave',    name: 'my friend' },
-  { id: 'child',  mark: 'arc',     name: 'my child' },
+  { id: 'teen',   mark: 'arc',     name: 'my kid' },     // the Teen; on the card, what a father calls them
 ];
 
 // ── the exchange ────────────────────────────────────────────────
@@ -192,15 +203,20 @@ const PEOPLE = [
 //
 // The maze is written vague. These are the only voices in the game that belong to real people, so
 // they are written the other way — small and specific. First pass; Joe rewrites.
+//
+// A person's steps run across the game, and where the chapter puts them decides whose mouth the
+// question is in. The father's first two are asked in the Child's maze, so they are the boy's —
+// lowercase, small, the voice of "the man said wait here." — and the father answers a child. The
+// last two come in the Priest's maze, a grown man asking a dead one.
 const EXCHANGES = {
   father: {
     steps: [
-      { q: ["Did you mean to come back?", "Did you think about me?"],
-        a: ["I meant to. Meaning to was the thing I was good at.", "Every day for a while. Then on your birthday. Then when I saw a boy your age. You got older than the boy I was looking for."] },
-      { q: ["Why did you go?", "Was it her?"],
-        a: ["Because staying looked like the rest of my life, and I was a coward about my life.", "No. It was never anyone. It was that I could."] },
-      { q: ["Did you know I waited?", "Would it have mattered if I'd been better?"],
-        a: ["I knew. I told myself you'd stop. I don't know when you did.", "You were a child. There was no better. Put that one down."] },
+      { q: ["are you coming back?", "did i do something?"],
+        a: ["I meant to. Meaning to was the thing I was good at.", "No. You were a child. There was nothing you did or didn't do. Put that one down."] },
+      { q: ["where did you go?", "can i come with you?"],
+        a: ["Somewhere that looked less like the rest of my life. It wasn't. I was a coward about my life.", "No. It was the one thing I got right, and I got it right for the wrong reasons."] },
+      { q: ["Did you know I waited?", "Did you think about me?"],
+        a: ["I knew. I told myself you'd stop. I don't know when you did.", "Every day for a while. Then on your birthday. Then when I saw a boy your age. You got older than the boy I was looking for."] },
       { q: ["Are you sorry?", "What am I supposed to do with this?"],
         a: ["Yes. It doesn't reach you. I know that. It's still yes.", "Nothing. I'm not a thing to do. I'm just what happened."] },
     ],
@@ -245,7 +261,7 @@ const EXCHANGES = {
     ],
     done: "The hand's still out. It's not going anywhere. You know where I am.",
   },
-  child: {
+  teen: {
     steps: [
       { q: ["Are you angry at me?", "Do you know I love you?"],
         a: ["Yeah. Obviously. Are you going to do anything about it or is this another one of the talks.", "I know you say it. I know you think it. I don't know what it's for if you won't let me near you."] },
@@ -268,6 +284,8 @@ const SHRINE_LINES = {
   again:    "It has said what it had to say to me.",
   noPage:   "It settles into the bowl. There is nothing left in here for it to point to.",
   wrong:    "This isn't the one it's waiting for.",
+  // Joe: "When you don't have a stone but you collide with the statue, it should say something."
+  noStone:  "The bowl is empty. It is waiting for something I haven't found yet.",
 };
 
 // ── the father, placed ──────────────────────────────────────────

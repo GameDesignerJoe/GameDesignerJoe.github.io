@@ -63,10 +63,13 @@ up to 46 tiles on one Child maze. There is one measurement now, `js/contract.js`
 checked against a pairwise reference over 88 mazes with no mismatch. Rooms are
 closer together than this doc first said, not further apart.
 
-**Two rooms can land on the same tile.** 1 maze in 30 for The Archivist and 1 in
+**Two rooms could land on the same tile.** 1 maze in 30 for The Archivist and 1 in
 16 for You, with 7 of 30 Archivist mazes putting two rooms within 4 tiles. That
-is a placement bug rather than a tuning one, and it is the sharp end of *"rooms
-are not landing."*
+was a placement bug rather than a tuning one, and it is the sharp end of *"rooms
+are not landing."* Fixed in v0.102.0: the placer draws `roomSpreadTries` spots and
+takes the one farthest from every room already placed, and goes without a room
+rather than overlap one. Over the same 60 seeds the closest pair went from 0–6
+tiles to 8–10 in every chapter, medians up 2–6, room counts held.
 
 ## How long it takes (`bots.mjs`, 30 seeds, 200 explorer runs a maze)
 

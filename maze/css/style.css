@@ -53,9 +53,18 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #charcoal.active { border-color:#c9b98a; color:#c9b98a; } #charcoal.active i { border-color:#c9b98a; }
 #charcoal.empty { color:#7d786d; } #charcoal.empty i { border-color:#3c3b38; } #charcoal.empty i::after { background:#2a2c2e; }
 #charcoal.shake { animation:shakeL .3s; }
-/* a tile logged: two knocks, the second smaller — a heartbeat, not a throb */
+/* a tile logged: two knocks, the second smaller — a heartbeat, not a throb. Joe, twice: "The charcoal
+   icon on the hud/screen should have a little pulse to it every time a tile is logged. Like a little
+   heart beat as the player is walking." The first cut was an 8% swell over 440ms, and at walking pace a
+   tile lands every 430ms, so it never came back to rest and read as nothing. Bigger, quicker, and the
+   ring flashes with it. */
 #charcoal.beat { animation:charbeat var(--beat, 440ms) ease-out; }
-@keyframes charbeat { 0%{ transform:scale(1); } 14%{ transform:scale(1.085); } 30%{ transform:scale(1); } 44%{ transform:scale(1.045); } 100%{ transform:scale(1); } }
+@keyframes charbeat {
+  0%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); }
+  16%{ transform:scale(1.2); box-shadow:0 0 0 5px rgba(201,185,138,.32); }
+  36%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); }
+  52%{ transform:scale(1.09); box-shadow:0 0 0 3px rgba(201,185,138,.18); }
+  100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); } }
 /* and the piece running out: loud, twice, so you look up and light the next one */
 #charcoal.spent { animation:charspent var(--spent, 1500ms) ease-out; }
 @keyframes charspent {
@@ -64,9 +73,12 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
   40%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); }
   56%{ box-shadow:0 0 0 12px rgba(201,185,138,.28); transform:scale(1.12); }
   100%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); } }
-/* locked on: a standing ring round the pill, so the armed state reads at a glance */
-#charcoal.locked { border-color:#c9b98a; box-shadow:0 0 0 2px rgba(201,185,138,.3); }
-#charcoal.locked i { border-color:#c9b98a; }
+/* locked on: a standing ring round the pill, so the armed state reads at a glance. Joe: "The press and
+   hold for the charcoal lock needs a stronger visual to show it's locked, maybe a bolder outline." So a
+   2px gold border on the pill itself, a wider halo, and the stick inside goes solid gold. */
+#charcoal.locked { border:2px solid #c9b98a; padding:7px 13px 7px 11px; box-shadow:0 0 0 3px rgba(201,185,138,.35), 0 0 14px rgba(201,185,138,.35); }
+#charcoal.locked i { border-color:#c9b98a; border-width:2px; }
+#charcoal.locked i::after { background:#c9b98a; }
 @keyframes shakeL { 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
 #mapBtn { width:48px; height:48px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.6); display:grid; place-items:center; }
 #mapBtn svg { width:24px; height:24px; }

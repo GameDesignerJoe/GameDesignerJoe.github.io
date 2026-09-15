@@ -14,7 +14,7 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
-## The path into the text, under the line (v0.99.0)
+## The path into the text, under the line (v0.103.0)
 
 Joe approved this back at the writer's-page discussion — *"Love the line ids
 idea. Let's do that."* — and it did not get built. Two versions of writer
@@ -690,6 +690,170 @@ wants is a look to be chosen by eye, so all three are built and none is picked.
 Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
+
+## Rooms spread out (v0.102.0)
+
+Joe, with a screenshot I could not see: *"All the rooms are pushed into the same
+space. These should be more spread out."* QUALITY.md had already measured the sharp
+end of it — two rooms on one tile in 1 Archivist maze of 30, seven of 30 with two
+rooms within four tiles — and left the note *"fewer rooms or a spread rule, not a
+retry."*
+
+**Why they clumped.** The placer took the *first* spot not too close to another room,
+and after twenty misses settled for wherever it happened to be. So spread was what
+it settled for when the dice were kind, and where there were most rooms the dice
+were least kind.
+
+**The spread rule.** Each room now draws `roomSpreadTries` legal spots and takes the
+one farthest (in tiles, by the larger axis) from every room already placed. Spread is
+chosen, not settled for. A best spot that would still touch another room means the
+maze has no ground for this room and it goes without: a room on a room is not two
+rooms. Measured on the same 60 seeds per chapter, before → after:
+
+| chapter | rooms | closest pair | median gap |
+|---|---|---|---|
+| The Child | 4.3 → 4.6 | 6 → 10 | 14 → 14 |
+| The Cartographer | 3.4 → 3.5 | 6 → 8 | 18 → 20 |
+| The Soldier | 3.3 → 3.0 | 2 → 8 | 12 → 18 |
+| The Archivist | 11.2 → 10.3 | **0 → 8** | 8 → 10 |
+| The Priest | 7.2 → 7.6 | 6 → 10 | 12 → 16 |
+| The Criminal | 7.3 → 7.5 | 6 → 10 | 12 → 16 |
+| The One Who Stayed | 14.7 → 14.2 | 6 → 10 | 10 → 14 |
+| You | 1.6 → 1.6 | **0 → 8** | 18 → 22 |
+
+Gaps are the contract's own measurement (`contract.js`, walking distance between the
+closest two rooms). No maze puts two rooms on one tile any more, and the closest pair
+is eight tiles or better everywhere. The Archivist's median of ten is still a few
+seconds' walk: eleven rooms in a lg maze is the cause, and fewer rooms is the lever
+left, which is Joe's to pull (`rooms: 1.6` on its phase).
+
+**A bug the spread rule shook out, in the exit gauntlet.** The first harness run went
+red on one seed, 32676 in The Child, twice over: a route tile at 22,5 had become wall,
+and the exit could be reached without going through the squeeze tree. Toggling features
+on that seed pinned it: the gauntlet. It shuts the tree's side links to the rest of the
+maze, one at a time, keeping any that would strand floor — but the trunk is read off the
+*cell lattice*, and where the way out crosses a room it leaves the lattice, so a link the
+lattice reads as "off the tree" can be the route's own next step. Nothing was stranded
+because there was another way round, which is the bypass the second invariant caught.
+Two fixes, both small: the gauntlet never shuts a tile of the route, and a tree that is
+not the only way to the exit is not built at all rather than kept as a decoration with a
+bypass. The Child's gauntlet is the same size on average (17 tiles over 60 seeds) and
+the maze at 32676 gets a shorter tree that is the only way. Latent since v0.4x; the
+rooms moving is what made the route cross one beside the tree.
+
+**Tests.** Generation, so all three. Harness PASS 576 with a new invariant, *no two
+rooms share ground*, which reads the rooms' rects and no knob. Selftest 18 of 18 with
+its breakage. Smoke 97 with a new statistic over 60 Child and Archivist mazes: no two
+rooms within four tiles, proven red against the committed generator (one pair 0 apart).
+Two probes went red on the new geometry and both were the probe: the spiral read its
+turn before the spiral had ever been drawn (`spin` undefined), and the ball pit stood on
+the exact middle of the first pit it found, which now had no ball within reach. The
+spiral waits a frame; the pit probe walks about the pit as a player would.
+
+## Hopscotch stops at four (v0.101.0)
+
+Joe: *"Hopscotch should stop at four. It's too long otherwise."* The court took up to
+eight squares of any straight run of five or more. `hopscotchSquares` is the knob, four,
+and a run has to be at least that long to take a court, so no court comes up short.
+Own batch, on purpose: it is a generation change, and the room-spacing work behind it
+needs a clean measurement that a hopscotch change would not disturb but might be
+blamed for.
+
+**Tests.** Generation, so all three. Harness PASS 576, selftest 17 of 17, smoke 96 with
+one new statistic: every court over 60 Child mazes is exactly four squares. The bar is
+Joe's number written into the check, not read from the knob, and it was red at eight.
+
+## The charcoal heartbeat, the lock, and the compass on the floor (v0.100.0)
+
+Three HUD items from the doc. Joe: *"The charcoal icon on the hud/screen should have a
+little pulse to it every time a tile is logged. Like a little heart beat as the player
+is walking."* — *"The press and hold for the charcoal lock needs a stronger visual to
+show it's locked, maybe a bolder outline."* — *"The pickup for the compass should look
+different than the main character as well. Make it look like the icon that shows up
+when you collect it."*
+
+**The heartbeat was there and could not be seen.** `beat()` fired on every tile logged,
+as it has since it was added, and swelled the pill 8% over 440ms. At walking pace a tile
+lands every ~430ms, so the animation never came back to rest between tiles and read as
+a faint continuous wobble, which is to say nothing. A re-listed item is a still-wrong
+item. Now: a 20% swell with the ring flashing, 360ms (`charcoalBeatMs`), so it beats and
+rests, beats and rests, as he walks.
+
+**Lock-on** is a 2px gold border on the pill itself, a wider halo, and the stick inside
+goes solid gold. The resting pill's border is 1px and dim.
+
+**The compass pickup was his own arrowhead lying on the floor** — the very confusion
+that had the compass beside him redrawn as an instrument in v0.7x. It is the same
+compass now, small: the case, the north tick, and the needle already turned toward the
+way out. The tutorial card's icon matches.
+
+**The version.** Main was at v0.98.0 from the other session when the statue batch
+merged as v0.99.0, so this is v0.100.0. Not v1.0.0: that number says something about
+the game that is Joe's to say.
+
+**Tests.** HUD and render, so smoke alone: 95 checks, three new. The heartbeat check
+reads the stylesheet's own keyframe for its peak (bar 1.15) and the beat's length
+against a walking step, and watches the class land on a fresh tile. The lock check
+compares computed border and shadow, locked against resting. The compass check samples
+the canvas on the case's ring at right angles to the needle: brighter than the face
+inside it and than the floor beside it. All three proven red with the old CSS and the
+arrowhead back.
+
+**Still red, and not this batch's:** *the pool is light at its rim and deep in the middle,
+and the rings travel inward* failed three of seven smoke runs today, passing the other
+four with nothing changed between them. It matches frames by index at 60ms naps and
+asks the last shift to exceed the first; under load the frames land unevenly and the
+shifts come back 2, 2, 2 or 2, 1, 1. Main's change to `pool.js` since v0.94.0 is text
+only, so this is the check's timing, not the water. Raised with Joe rather than
+loosened here.
+
+## One person to a chapter, and the Teen (v0.99.0)
+
+Four items from the doc, all statues. Joe, with screenshots I could not see: *"I don't
+think this is how it's supposed to look for the statues. The grey oval is out in
+darkness. The symbol above the bowl doesn't match the one I was carrying."* — *"When
+you don't have a stone but you collide with the statue, it should say something."* —
+*"The Child section at the start of the game is the main character as a child, not
+their child. We might call their child The Teen. Please correct the questions in these
+two sections."* — *"We need to lock in each person to each chapter. So child chapter
+has statues of the father. The mom gets another one, and the friend and so on to the
+Teen getting the last one."*
+
+**Two children, not one.** The Child is the chapter: the man himself, small. The Teen
+is the man's own kid. The person's id is `teen` everywhere now (`child` was the id
+before, and a save's `asked.child` count carries over), and their card says *my kid*,
+which is what a father calls them. The father's four exchanges are read in two
+chapters, so the first two are asked in the Child's maze and are written in the boy's
+voice — lowercase, *are you coming back?* — and the last two in the Priest's, a man
+asking a dead one. That is the reading I took of "correct the questions in these two
+sections": the Child's chapter speaks as a child, and the Teen is named as the Teen.
+
+**One person to a chapter.** `shrines` in `data/phases.js` names them: father in the
+Child's, mother in the Cartographer's, friend, spouse, then father and mother again
+for their last two questions, spouse's last two in The One Who Stayed, and the Teen in
+*You*, where the make-believe is stripped away. Both statues in a maze are theirs, so
+both stones carry their mark, and the bowl's symbol always matches the stone in your
+hand — that was Joe's mismatch: two of five people dealt at random. Either bowl takes
+the stone now, so a stone is placed far from *every* step, not just its own; measured
+from one step it could lie at the other statue's feet. Five people, four questions,
+two statues a maze, eight chapters: friend and Teen get one chapter each. Joe's to
+reassign by changing a word per line.
+
+**The niche.** The statue's tile is wall, so it was a grey egg with a dot floating in
+black. Now the tile is a recess of dim floor with the wall's lip round it, a plinth,
+and a figure with head and shoulders in the stone's pale colour. Seen before believed,
+at the step and two tiles out.
+
+**Empty-handed.** Step up to a statue with nothing in your hands and he says the bowl
+is waiting for something he has not found. Once per visit, like a spent statue's line.
+
+**Tests.** Generation changed, so all three. Harness PASS 576 with a rewritten
+invariant (*each statue has its stone, and the stone lies well away from it* now
+counts a person's stones against their statues and walks to the nearest) and a new
+one, *every statue and every stone in a maze is the chapter's person*, with
+`shrineWho` in the snapshot. Selftest 17 of 17 with a new breakage. Smoke 88: a new
+statistic over 240 mazes (every statue and stone the chapter's), and the stone walk
+rewritten for either bowl and the empty-handed line.
 
 ## The plus-shaped squeeze (v0.94.0)
 
