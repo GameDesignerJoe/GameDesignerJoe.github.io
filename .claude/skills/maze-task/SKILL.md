@@ -132,6 +132,14 @@ has that property.
 
 ## 6. Ship
 
+**Fetch `origin/main` before you pick a version number.** Joe runs more than one
+session. On 2026-09-14 another session shipped v0.95.0–v0.98.0 to `main` from the
+same fork point while this one was numbering its statue batch v0.95.0; the merge
+was clean (one conflict, the version line) but three doc sections, three code
+comments and a commit message had to be renumbered. `git fetch origin main &&
+git log --oneline HEAD..origin/main` costs two seconds. If main has moved, merge it
+in first, then number, then build the docs against what is actually there.
+
 Bump `VERSION` in `maze/js/core.js`, write the change up in `maze/docs/CLAUDE.md`,
 commit, push to `main`. A pre-commit hook runs the smoke suite and blocks the
 commit if it is red — if it blocks you, the suite is telling you something true.
@@ -191,7 +199,11 @@ his call: give him the numbers rather than settling it yourself.
 - Instrument by the second hypothesis, not the sixth.
 - One background job at a time **that writes**. Read-only jobs — the three suites,
   a probe — can run together freely; two jobs editing the same file cannot, and a
-  `sed` on `config.js` while a measurement is loading it is exactly that.
+  `sed` on `config.js` while a measurement is loading it is exactly that. **A
+  red-proof run is a writing job**: it flips a knob, runs smoke, flips it back. On
+  2026-09-15 v0.101.0 was committed and pushed with `hopscotchSquares: 8` because
+  the commit ran while a background red-proof still held the knob. Never commit
+  while one is running; `git status` and the knob's line first.
 
 - Confirm a suite passed **before** writing it into a commit message. An errored run
   looks nothing like a failing one.
