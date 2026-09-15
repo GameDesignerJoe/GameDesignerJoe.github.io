@@ -35,6 +35,7 @@ let secretTiles = new Set(); // tiles of the secret place: a room walled up, or 
 let secretMarks = new Map(); // 'x,y' → glyph: somebody else's chalk, in that room
 let crawlGaps = new Set();   // 'x,y' wall gaps a child can crawl through (open only when the phase allows)
 let crawlCells = new Set();  // open cells that sit between two gaps of one squeeze — drawn narrow too
+let gapFits = () => true, plusSwept = 0;   // set per build: is a tile shaped like a crawl gap; how many the end-of-build sweep removed
 let hopscotch = [];          // ordered tiles of a hopscotch court
 let ticTacToe = null;        // {x,y,cells} a 3×3 chalk board on a room floor, mid-game
 let figures = [];            // the father, placed like pickups: [{x,y,alpha,seen,gone}]
@@ -736,12 +737,22 @@ function buildMaze(seed) {
 
   // crawl gaps: closed walls between two open cells; open for the Child, drawn sealed for everyone after
   crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null; secretTiles = new Set(); secretMarks = new Map(); secretSwitch = null; secretFather = null; exitTree = new Set(); exitTreeMouth = null;
+  // A crawl gap is a low hole in a wall between two cells: floor on one axis, wall on the other.
+  // Joe, shown one open on all four sides: "a crawl gap should never be also a plus gap." So every
+  // place that makes one asks this first, and a sweep at the end of the build catches any that a
+  // later carve (a vault ring, the start room's ring, a statue) opened a side of. `gapFits` reads the
+  // tile as it stands; a gap is only ever made where the tile itself is already open floor or is
+  // about to be, so only the four neighbours are judged.
+  gapFits = (gx, gy) => { const r = isOpen(gx + 1, gy), l = isOpen(gx - 1, gy), d = isOpen(gx, gy + 1), u = isOpen(gx, gy - 1);
+    return (r && l && !d && !u) || (d && u && !r && !l); };
+  plusSwept = 0;
   if (!poolMode) {
     const roomRing = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
     const cands2 = [];
     for (let y = TX(0); y < H - P; y += 2) for (let x = TX(0); x < W - P; x += 2) {
       for (const [dx, dy] of [[1,0],[0,1]]) { const gx = x + dx, gy = y + dy, fx = x + dx*2, fy = y + dy*2;
         if (fx >= W - P || fy >= H - P || isOpen(gx, gy) || !isOpen(x, y) || !isOpen(fx, fy) || roomRing(gx, gy)) continue;
+        if (!gapFits(gx, gy)) continue;   // a room or a court beside it would give the hole a third side
         if (pockets.some(([px,py]) => (px===x&&py===y) || (px===fx&&py===fy))) continue;
         if (sliders.some(sl => (sl.x===x&&sl.y===y) || (sl.x===fx&&sl.y===fy))) continue;
         cands2.push([gx, gy]); }
@@ -765,7 +776,12 @@ function buildMaze(seed) {
       crawlGaps.add(g.join(',')); if (F.crawl) tiles[gy][gx] = 1; usedCells.add(A.join(',')); usedCells.add(Bc.join(','));
       // sometimes it keeps going: from the far cell, a second gap in another direction makes an L (or a straight run)
       if (F.crawl && R() < 0.45) {
-        const opts = DIRS.map(([dx,dy]) => [Bc[0]+dx, Bc[1]+dy, Bc[0]+dx*2, Bc[1]+dy*2]).filter(([hx,hy,cx,cy]) => !(hx===gx&&hy===gy) && !isOpen(hx,hy) && isOpen(cx,cy) && cx>=TX(0) && cx<W-P && cy>=TX(0) && cy<H-P && !roomRing(hx,hy) && !usedCells.has(cx+','+cy) && !pockets.some(([px,py])=>px===cx&&py===cy) && !sliders.some(sl=>sl.x===cx&&sl.y===cy) && !sliders.some(sl=>sl.x===Bc[0]&&sl.y===Bc[1]));
+        // The far cell becomes a crawl cell, drawn narrow: it can have the two holes and nothing else,
+        // or the tunnel has a side passage — which is Joe's plus by another name. Its own corridor link
+        // counts, so this only happens where the cell was a dead end that the first hole opened.
+        const BcArms = DIRS.filter(([dx, dy]) => isOpen(Bc[0] + dx, Bc[1] + dy)).length;
+        const opts = BcArms > 1 ? [] : DIRS.map(([dx,dy]) => [Bc[0]+dx, Bc[1]+dy, Bc[0]+dx*2, Bc[1]+dy*2]).filter(([hx,hy,cx,cy]) => !(hx===gx&&hy===gy) && !isOpen(hx,hy) && isOpen(cx,cy) && cx>=TX(0) && cx<W-P && cy>=TX(0) && cy<H-P && !roomRing(hx,hy) && !usedCells.has(cx+','+cy) && !pockets.some(([px,py])=>px===cx&&py===cy) && !sliders.some(sl=>sl.x===cx&&sl.y===cy) && !sliders.some(sl=>sl.x===Bc[0]&&sl.y===Bc[1]))
+          .filter(([hx, hy, cx, cy]) => { tiles[hy][hx] = 1; const ok = gapFits(hx, hy); tiles[hy][hx] = 0; return ok; });
         if (opts.length) { const [hx, hy, cx, cy] = opts[R() * opts.length | 0]; crawlGaps.add(hx+','+hy); tiles[hy][hx] = 1; crawlCells.add(Bc.join(',')); usedCells.add(cx+','+cy); }
       }
     }
@@ -815,7 +831,10 @@ function buildMaze(seed) {
         }
         if (ways.length) {
           for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) { tiles[y0 + y][x0 + x] = 1; secretTiles.add((x0 + x) + ',' + (y0 + y)); }
-          const way = ways[R() * ways.length | 0];
+          // the way in is a hole through the room's wall ring, so its sides are that ring: wall. But
+          // choose among the ones that read so once the room is floor, not before.
+          const fitting = ways.filter(([gx, gy]) => { tiles[gy][gx] = 1; const ok = gapFits(gx, gy); tiles[gy][gx] = 0; return ok; });
+          const way = (fitting.length ? fitting : ways)[R() * (fitting.length ? fitting.length : ways.length) | 0];
           tiles[way[1]][way[0]] = 1; crawlGaps.add(way.join(','));
           const inner = [];
           for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) inner.push([x0 + x, y0 + y]);
@@ -1141,7 +1160,7 @@ function buildMaze(seed) {
         const [cx, cy] = k.split(',').map(Number);
         for (const [dx, dy] of [[1, 0], [0, 1]]) {
           const gx = cx + dx, gy = cy + dy, nx = cx + dx * 2, ny = cy + dy * 2;
-          if (G.has(nx + ',' + ny) && isOpen(gx, gy) && !busy(gx, gy)) crawlGaps.add(gx + ',' + gy);
+          if (G.has(nx + ',' + ny) && isOpen(gx, gy) && !busy(gx, gy) && gapFits(gx, gy)) crawlGaps.add(gx + ',' + gy);
         }
       }
       { const [ex2, ey2] = r.entrance.split(',').map(Number); if (isOpen(ex2, ey2) && !busy(ex2, ey2)) crawlGaps.add(r.entrance); }
@@ -1169,7 +1188,7 @@ function buildMaze(seed) {
     const idxs = [];
     for (let i = 4; i < solutionPath.length - 4; i++) {
       const g = solutionPath[i];
-      if (isCell(g) || crawlGaps.has(g.join(',')) || nearRoom(g[0], g[1])) continue;
+      if (isCell(g) || crawlGaps.has(g.join(',')) || nearRoom(g[0], g[1]) || !gapFits(g[0], g[1])) continue;
       if (exitAlley.some(([ax, ay]) => ax === g[0] && ay === g[1])) continue;
       if (startGap && g[0] === startGap[0] && g[1] === startGap[1]) continue;
       if (sealedGaps.some(([gx, gy]) => gx === g[0] && gy === g[1])) continue;
@@ -1677,6 +1696,18 @@ function buildMaze(seed) {
     const ok = runs.filter(r => r.length >= CONFIG.hopscotchSquares && !r.some(k => crawlGaps.has(k) || crawlCells.has(k) || journals.has(k) || chalkSpots.has(k)));
     if (ok.length) { const run = ok[R() * ok.length | 0]; hopscotch = run.slice(0, Math.min(CONFIG.hopscotchSquares, run.length)); if (R() < 0.5) hopscotch.reverse(); }
   }
+
+  // The last word on crawl gaps: anything carved after they were laid — a vault's rings, the start
+  // room's ring, a statue turning its tile to stone, the secret room — can have opened or shut a
+  // side of one. A hole that is not floor on one axis and wall on the other is not a hole; it is a
+  // corridor tile, and it stops being drawn or walked as a squeeze. Same for a crawl cell that has
+  // grown a third way out. Only open gaps are judged: for the selves after the Child a gap is drawn
+  // shut and is wall, and what stands beside a wall is nobody's business. `plusSwept` is for the
+  // probes, so the sources can be seen to be doing their part and this stays the exception.
+  for (const k of [...crawlGaps]) { const [gx, gy] = k.split(',').map(Number);
+    if (isOpen(gx, gy) && !gapFits(gx, gy)) { crawlGaps.delete(k); plusSwept++; } }
+  for (const k of [...crawlCells]) { const [cx, cy] = k.split(',').map(Number);
+    if (DIRS.filter(([dx, dy]) => isOpen(cx + dx, cy + dy)).length > 2) { crawlCells.delete(k); plusSwept++; } }
 }
 
 

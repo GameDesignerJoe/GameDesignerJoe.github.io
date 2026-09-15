@@ -261,6 +261,22 @@ const CHECKS = [
     return bad.length ? bad.join('; ') : null;
   }],
 
+  // Joe, shown a crawl gap open on all four sides: "a crawl gap should never be also a plus gap."
+  // A gap is a hole through a wall between two cells: open floor on one axis, wall on the other.
+  // A crawl cell is drawn narrow and can have two ways out, no more. Open gaps only — for the
+  // selves after the Child a gap is drawn shut and is wall. Reads no knob.
+  ['a crawl gap has two sides and they face each other; a crawl cell has at most two ways out', (s) => {
+    if (s.poolMode) return null;
+    const open = openTiles(s), bad = [];
+    const o = (x, y) => open.has(K(x, y));
+    for (const k of (s.crawlGaps || [])) { const [x, y] = k.split(',').map(Number); if (!o(x, y)) continue;
+      const r = o(x + 1, y), l = o(x - 1, y), d = o(x, y + 1), u = o(x, y - 1);
+      if (!((r && l && !d && !u) || (d && u && !r && !l))) bad.push(`gap ${k} has ${[r, l, d, u].filter(Boolean).length} open sides`); }
+    for (const k of (s.crawlCells || [])) { const [x, y] = k.split(',').map(Number);
+      const n = [o(x + 1, y), o(x - 1, y), o(x, y + 1), o(x, y - 1)].filter(Boolean).length; if (n > 2) bad.push(`crawl cell ${k} has ${n} ways out`); }
+    return bad.length ? bad.slice(0, 4).join('; ') + (bad.length > 4 ? ` … ${bad.length} in all` : '') : null;
+  }],
+
   // Joe: "All the rooms are pushed into the same space. These should be more spread out." The
   // sharp end of that was two rooms on one tile (QUALITY.md: 1 Archivist maze in 30). A room is a
   // place; two places on the same ground is one place. Reads no knob: two rooms' floors never share

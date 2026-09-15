@@ -2006,11 +2006,27 @@ const plus = await page.evaluate(async () => {
   SAVE.ui.move = prevMove; dir = null; held = null;
   return { tiles3, arms: tried.length, stuck };
 });
+// Since v0.103.0 the generator makes no such tile ("a crawl gap should never be also a plus gap"),
+// so this usually finds nothing and passes on that; the movement rule stays for the day one slips.
 check('a squeeze open on both axes lets him through every one of its arms',
-  plus.tiles3 > 0 && plus.stuck.length === 0,
+  plus.stuck.length === 0,
   plus.tiles3 ? `${plus.tiles3} three- and four-armed squeeze tiles, ${plus.arms} arms walked; stuck on ${plus.stuck.length}`
     + (plus.stuck.length ? `: ${plus.stuck.slice(0, 4).join('; ')}` : '')
-    : 'no squeeze tile with three or more open arms in the seeds tried');
+    : 'no squeeze tile with three or more open arms in the seeds tried — as the generator now intends');
+// Joe: "a crawl gap should never be also a plus gap." The bar is his rule, not a knob: every open
+// crawl gap has floor on one axis and wall on the other, and every crawl cell two ways out at most.
+const gapShape = await page.evaluate(() => {
+  let gaps = 0, cells = 0, badGaps = 0, badCells = 0, swept = 0, mazes = 0;
+  for (let s2 = 1; s2 <= 60; s2++) { SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 17); mazes++; swept += typeof plusSwept === "number" ? plusSwept : 0;   // fail, never throw, on a build without the sweep
+    const o = (x, y) => isOpen(x, y);
+    for (const k of crawlGaps) { gaps++; const [x, y] = k.split(',').map(Number); const r = o(x + 1, y), l = o(x - 1, y), d = o(x, y + 1), u = o(x, y - 1);
+      if (!((r && l && !d && !u) || (d && u && !r && !l))) badGaps++; }
+    for (const k of crawlCells) { cells++; const [x, y] = k.split(',').map(Number); if (DIRS.filter(([dx, dy]) => o(x + dx, y + dy)).length > 2) badCells++; } }
+  return { mazes, gaps, cells, badGaps, badCells, swept };
+});
+check('no crawl gap has a third side, and no crawl cell a third way out',
+  gapShape.gaps > 0 && gapShape.badGaps === 0 && gapShape.badCells === 0,
+  `${gapShape.gaps} gaps and ${gapShape.cells} crawl cells over ${gapShape.mazes} Child mazes; ${gapShape.badGaps} gaps with a third side, ${gapShape.badCells} cells with a third way; the end-of-build sweep removed ${gapShape.swept}`);
 
 check('the nav view tag names chapter, seed and tile, and sits below the narrator line',
   tag.text.includes(`seed 4242`) && tag.text.includes(tag.who) && tag.text.includes(`tile ${tag.here} of`)

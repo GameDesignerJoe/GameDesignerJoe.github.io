@@ -131,6 +131,15 @@ const MUTATIONS = [
     s.offerings.push([K(sh.sx, sh.sy), sh.who]);
   }],
 
+  ['a crawl gap given a third side', 'a crawl gap has two sides and they face each other; a crawl cell has at most two ways out', (s) => {
+    // a room carved beside the hole: the tile on one flank becomes floor
+    const gaps = (s.crawlGaps || []).map((k) => k.split(',').map(Number)).filter(([x, y]) => s.tiles[y]?.[x] === '1');
+    if (!gaps.length) { s.crawlGaps = ['3,3']; s.tiles[3] = s.tiles[3].slice(0, 2) + '111' + s.tiles[3].slice(5); s.tiles[2] = s.tiles[2].slice(0, 3) + '1' + s.tiles[2].slice(4); return; }
+    const [x, y] = gaps[0], horiz = s.tiles[y][x + 1] === '1';
+    const [fx, fy] = horiz ? [x, y + 1] : [x + 1, y];
+    s.tiles[fy] = s.tiles[fy].slice(0, fx) + '1' + s.tiles[fy].slice(fx + 1);
+  }],
+
   ['two rooms carved on the same ground', 'no two rooms share ground', (s) => {
     // the old placer, after twenty misses, settled for wherever it was: the second room lands on the first
     const rooms = s.landmarks.filter((l) => l.rx1 > l.rx0);

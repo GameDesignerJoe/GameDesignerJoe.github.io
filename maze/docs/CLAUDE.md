@@ -642,6 +642,35 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## A crawl gap is never a plus (v0.103.0)
+
+Joe, asked whether a crawl gap should ever be open on both axes: *"No a crawl gap should
+never be also a push gap."* Read as *plus* gap, the shape in his screenshot — dictated
+from a phone. v0.94.0 made the plus walkable; this makes it not exist.
+
+**How common it was.** Over 120 Child mazes, 506 of 3,215 crawl gaps had a third open
+side and 418 of 834 crawl cells a third way out. The extra sides were rooms and courts
+carved before the gaps were laid (the gap placer never looked sideways), the exit tree's
+holes beside room floor, and L-shaped squeezes whose far cell kept its own corridor link
+— a T by construction, every time.
+
+**One question, asked everywhere.** `gapFits(x, y)`: floor on one axis, wall on the other.
+The gap placer asks it of every candidate; the L continuation asks it of the new hole and
+only makes the L where the far cell would end up with its two holes and nothing else; the
+secret room's way in prefers a hole that reads so once the room is floor; the exit tree
+asks it of every hole it makes; the hole on the route asks it too. And a sweep at the end
+of the build removes any gap or crawl cell that a later carve — a vault's rings, the start
+room's ring, a statue — has given a third side, counted in `plusSwept` so the probes can
+see the sources doing their part. After: 0 of 2,703 gaps and 0 of 787 cells over the same
+120 mazes, with the sweep removing 24 across 21 of them. The Child's mazes carry about
+four fewer gaps each — the plus-shaped ones were never good holes.
+
+**Tests.** Generation, so all three. Harness PASS 576 with a new invariant that reads the
+shape and no knob; `crawlGaps` and `crawlCells` join the snapshot. Selftest 19 of 19 with a
+flank opened beside a gap. Smoke 98: a new statistic over 60 Child mazes, and the v0.94.0
+movement check now passes on finding nothing plus-shaped, keeping its rule for the day one
+slips.
+
 ## Rooms spread out (v0.102.0)
 
 Joe, with a screenshot I could not see: *"All the rooms are pushed into the same
