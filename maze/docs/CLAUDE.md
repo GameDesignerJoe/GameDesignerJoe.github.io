@@ -691,7 +691,7 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
-## A crawl gap is never a plus (v0.103.0)
+## A crawl gap is never a plus (v0.104.0)
 
 Joe, asked whether a crawl gap should ever be open on both axes: *"No a crawl gap should
 never be also a push gap."* Read as *plus* gap, the shape in his screenshot — dictated

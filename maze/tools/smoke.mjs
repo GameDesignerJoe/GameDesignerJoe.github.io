@@ -2006,7 +2006,7 @@ const plus = await page.evaluate(async () => {
   SAVE.ui.move = prevMove; dir = null; held = null;
   return { tiles3, arms: tried.length, stuck };
 });
-// Since v0.103.0 the generator makes no such tile ("a crawl gap should never be also a plus gap"),
+// Since v0.104.0 the generator makes no such tile ("a crawl gap should never be also a plus gap"),
 // so this usually finds nothing and passes on that; the movement rule stays for the day one slips.
 check('a squeeze open on both axes lets him through every one of its arms',
   plus.stuck.length === 0,
