@@ -716,7 +716,7 @@ four fewer gaps each — the plus-shaped ones were never good holes.
 
 **Tests.** Generation, so all three. Harness PASS 576 with a new invariant that reads the
 shape and no knob; `crawlGaps` and `crawlCells` join the snapshot. Selftest 19 of 19 with a
-flank opened beside a gap. Smoke 98: a new statistic over 60 Child mazes, and the v0.94.0
+flank opened beside a gap. Smoke 101 after the merge with main: a new statistic over 60 Child mazes, and the v0.94.0
 movement check now passes on finding nothing plus-shaped, keeping its rule for the day one
 slips.
 
