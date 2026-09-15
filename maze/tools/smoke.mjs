@@ -1862,6 +1862,68 @@ check('the nav view numbers every walkable tile, and the numbers hold still',
   `${nav.walk} walkable tiles; he starts on ${nav.hereA} and it is still ${nav.hereB} after the camera moves; `
   + `the way out is ${nav.exitNo}; a wall tile has no number`);
 
+// ── the charcoal HUD and the compass pickup (v0.100.0) ──
+// Joe, twice: "The charcoal icon on the hud/screen should have a little pulse to it every time a
+// tile is logged. Like a little heart beat." The first cut swelled 8% and never came to rest between
+// tiles. The bar here is the stylesheet's own keyframe: its peak must be a real swell, and the beat
+// must be shorter than a tile at walking pace so it can rest. And: "The press and hold for the
+// charcoal lock needs a stronger visual to show it's locked, maybe a bolder outline."
+const hud = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  let peak = 0;
+  for (const sh of document.styleSheets) for (const r of sh.cssRules) if (r.name === 'charbeat')
+    for (const k of r.cssRules) { const m = /scale\(([\d.]+)\)/.exec(k.style.transform); if (m) peak = Math.max(peak, Number(m[1])); }
+  const beatMs = CONFIG.charcoalBeatMs, tileMs = 1000 / B.speed();
+  // the beat actually fires as a tile is logged
+  SAVE.phase = 1; reset(4242); sliding = null; started = true; await nap(60);
+  charcoal = 2; charcoalLeft = B.charcoal(); charcoalOn = true; updateCharcoal(); charcoalEl.classList.remove('beat');
+  // walk him onto a fresh tile: mapHere() adds it and beat() fires
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)];
+  const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [0, 0];
+  mapped = new Map(); visited = new Set(); player.x = sx + dx + 0.5; player.y = sy + dy + 0.5; lastTileKey = ''; await nap(120);
+  const beatFired = charcoalEl.classList.contains('beat');
+  // and the lock reads
+  const plain = getComputedStyle(charcoalEl); const plainBorder = parseFloat(plain.borderTopWidth), plainShadow = plain.boxShadow;
+  charcoalLock = true; updateCharcoal(); await nap(30);
+  const lk = getComputedStyle(charcoalEl); const lockBorder = parseFloat(lk.borderTopWidth), lockShadow = lk.boxShadow;
+  charcoalLock = false; charcoalOn = false; updateCharcoal();
+  return { peak, beatMs, tileMs, beatFired, plainBorder, lockBorder, plainShadow, lockShadow };
+});
+check('a tile logged beats the charcoal icon: a real swell, quicker than a step',
+  hud.beatFired && hud.peak >= 1.15 && hud.beatMs > 0 && hud.beatMs < hud.tileMs,
+  `beat fired on a new tile (${hud.beatFired}); keyframe peaks at scale ${hud.peak} (bar 1.15) over ${hud.beatMs}ms, a tile takes ${hud.tileMs.toFixed(0)}ms`);
+check('lock-on gives the charcoal pill a bolder outline than resting',
+  hud.lockBorder >= 2 && hud.lockBorder > hud.plainBorder && hud.lockShadow !== 'none' && hud.lockShadow !== hud.plainShadow,
+  `border ${hud.plainBorder}px resting, ${hud.lockBorder}px locked; halo ${hud.lockShadow !== 'none' ? 'on' : 'off'} when locked`);
+
+// Joe: "The pickup for the compass should look different than the main character as well. Make it
+// look like the icon that shows up when you collect it." A compass has a case: a ring of the pickup's
+// colour with the dark inside it, where the old arrowhead had floor beside it. Sampled on the ring
+// at right angles to the needle, so the needle itself is never what is being read.
+const cpick = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 2; reset(4242); sliding = null; started = true; SAVE.ui.nav = false; await nap(60);
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)];
+  const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [1, 0];
+  const k = (sx + dx) + ',' + (sy + dy); pickups.set(k, 'pointer'); charcoalSpots.delete(k); chalkSpots.delete(k);
+  // keep him where he is so the pickup is not picked up while we look
+  lastTileKey = sx + ',' + sy; await nap(400);
+  const cv = document.querySelector('canvas'), g = cv.getContext('2d'), dpr = cv.width / innerWidth;
+  // the renderer's own camera: anchored at 0.5 across and 0.42 down in portrait
+  const S = zoomS, ay = innerWidth > innerHeight ? 0.5 : 0.42;
+  const ox = innerWidth * 0.5 - cam.x * S, oy = innerHeight * ay - (cam.y + camBump) * S;
+  const cx = ox + (sx + dx + 0.5) * S, cy = oy + (sy + dy + 0.5) * S;
+  const ang = Math.atan2(exit.y + 0.5 - (sy + dy + 0.5), exit.x + 0.5 - (sx + dx + 0.5)) + Math.PI / 2;
+  const at = (r) => { const d = g.getImageData(Math.round((cx + Math.cos(ang) * r) * dpr), Math.round((cy + Math.sin(ang) * r) * dpr), 1, 1).data; return [d[0], d[1], d[2]]; };
+  const ring = at(S * 0.2), inside = at(S * 0.1), floor = at(S * 0.34);
+  pickups.delete(k);
+  const lum = (c) => (c[0] + c[1] + c[2]) / 3;
+  return { ring, inside, floor, ringLum: lum(ring), insideLum: lum(inside), floorLum: lum(floor), S };
+});
+check('the compass pickup is a compass: a bright case round a dark face, not an arrowhead on the floor',
+  cpick.ringLum > cpick.insideLum + 40 && cpick.ringLum > cpick.floorLum + 30,
+  `on the ring ${cpick.ringLum.toFixed(0)}, inside the case ${cpick.insideLum.toFixed(0)}, floor beside it ${cpick.floorLum.toFixed(0)} (tile ${cpick.S}px)`);
+
 // Joe, with two screenshots of a T he could not get through: "the nav mesh isn't
 // showing the seed for it to be easy for you to reproduce." It was there — bottom
 // left, under the joystick and the phone's home bar, where his screenshots never

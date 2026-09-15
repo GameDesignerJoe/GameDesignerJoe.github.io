@@ -642,6 +642,50 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The charcoal heartbeat, the lock, and the compass on the floor (v0.100.0)
+
+Three HUD items from the doc. Joe: *"The charcoal icon on the hud/screen should have a
+little pulse to it every time a tile is logged. Like a little heart beat as the player
+is walking."* — *"The press and hold for the charcoal lock needs a stronger visual to
+show it's locked, maybe a bolder outline."* — *"The pickup for the compass should look
+different than the main character as well. Make it look like the icon that shows up
+when you collect it."*
+
+**The heartbeat was there and could not be seen.** `beat()` fired on every tile logged,
+as it has since it was added, and swelled the pill 8% over 440ms. At walking pace a tile
+lands every ~430ms, so the animation never came back to rest between tiles and read as
+a faint continuous wobble, which is to say nothing. A re-listed item is a still-wrong
+item. Now: a 20% swell with the ring flashing, 360ms (`charcoalBeatMs`), so it beats and
+rests, beats and rests, as he walks.
+
+**Lock-on** is a 2px gold border on the pill itself, a wider halo, and the stick inside
+goes solid gold. The resting pill's border is 1px and dim.
+
+**The compass pickup was his own arrowhead lying on the floor** — the very confusion
+that had the compass beside him redrawn as an instrument in v0.7x. It is the same
+compass now, small: the case, the north tick, and the needle already turned toward the
+way out. The tutorial card's icon matches.
+
+**The version.** Main was at v0.98.0 from the other session when the statue batch
+merged as v0.99.0, so this is v0.100.0. Not v1.0.0: that number says something about
+the game that is Joe's to say.
+
+**Tests.** HUD and render, so smoke alone: 95 checks, three new. The heartbeat check
+reads the stylesheet's own keyframe for its peak (bar 1.15) and the beat's length
+against a walking step, and watches the class land on a fresh tile. The lock check
+compares computed border and shadow, locked against resting. The compass check samples
+the canvas on the case's ring at right angles to the needle: brighter than the face
+inside it and than the floor beside it. All three proven red with the old CSS and the
+arrowhead back.
+
+**Still red, and not this batch's:** *the pool is light at its rim and deep in the middle,
+and the rings travel inward* failed three of seven smoke runs today, passing the other
+four with nothing changed between them. It matches frames by index at 60ms naps and
+asks the last shift to exceed the first; under load the frames land unevenly and the
+shifts come back 2, 2, 2 or 2, 1, 1. Main's change to `pool.js` since v0.94.0 is text
+only, so this is the check's timing, not the water. Raised with Joe rather than
+loosened here.
+
 ## One person to a chapter, and the Teen (v0.99.0)
 
 Four items from the doc, all statues. Joe, with screenshots I could not see: *"I don't

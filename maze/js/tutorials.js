@@ -8,7 +8,7 @@ const ICONS = {
   offering: '<svg viewBox="0 0 44 44"><ellipse cx="22" cy="25" rx="14" ry="10" fill="#3a3d3f" stroke="#a89f8c" stroke-width="1.2"/><path d="M22 15v14" stroke="#e0c98a" stroke-width="2.4" stroke-linecap="round"/></svg>',
   chalk:    '<svg viewBox="0 0 44 44"><rect x="14" y="19" width="22" height="7" rx="2" fill="#ece7da" transform="rotate(-35 22 22)"/></svg>',
   charcoal: '<svg viewBox="0 0 44 44"><rect x="10" y="18" width="24" height="9" rx="1.5" fill="#3a3d3f" stroke="#a89f8c" stroke-width="1.2" transform="rotate(28 22 22)"/></svg>',
-  pointer:  '<svg viewBox="0 0 44 44"><path d="M22 8l6 20-6-4-6 4z" fill="#c9b98a"/></svg>',
+  pointer:  '<svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="15" fill="#0d0f10" stroke="#c9b98a" stroke-width="2.5"/><path d="M22 7v6" stroke="#c9b98a" stroke-width="2.5"/><path d="M33 22l-13-4.5v9z" fill="#c9b98a"/><path d="M13 22l7-4.5v9z" fill="rgba(232,227,214,.3)"/></svg>',   // the compass, as it rides beside him
   path:     '<svg viewBox="0 0 44 44" fill="none" stroke="#b9b4a8" stroke-width="2"><path d="M22 22m-2 0a2 2 0 1 0 4 0a4 4 0 1 0-8 0a6 6 0 1 0 12 0a8 8 0 1 0-16 0a10 10 0 1 0 20 0a12 12 0 1 0-24 0"/></svg>',
   key:      '<svg viewBox="0 0 44 44" fill="none" stroke="#e0c98a" stroke-width="3" stroke-linecap="round"><circle cx="15" cy="22" r="7"/><path d="M22 22h14M31 22v6M36 22v5"/></svg>',
   page:     '<svg viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>',

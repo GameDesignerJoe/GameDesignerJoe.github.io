@@ -818,7 +818,18 @@ function draw() {
   // pointer / path pickups
   for (const [k, kind] of pickups) {
     const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
-    if (kind === 'pointer') { ctx.fillStyle = C.pointerPickup; ctx.beginPath(); ctx.moveTo(px, py - S*0.2); ctx.lineTo(px + S*0.1, py + S*0.14); ctx.lineTo(px, py + S*0.06); ctx.lineTo(px - S*0.1, py + S*0.14); ctx.closePath(); ctx.fill(); }
+    // Joe: "The pickup for the compass should look different than the main character as well. Make
+    // it look like the icon that shows up when you collect it." It was his own arrowhead lying on the
+    // floor. So it is the compass now — the same case, north tick and needle as the one that rides
+    // beside him once he has it, small, the needle already pointing at the way out.
+    if (kind === 'pointer') { const R0 = S*0.2, ang = Math.atan2(exit.y + 0.5 - (my + 0.5), exit.x + 0.5 - (mx + 0.5));
+      ctx.save(); ctx.translate(px, py);
+      ctx.fillStyle = 'rgba(13,15,16,.74)'; ctx.beginPath(); ctx.arc(0, 0, R0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = C.pointerPickup; ctx.lineWidth = Math.max(1, R0*0.17); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -R0); ctx.lineTo(0, -R0*0.62); ctx.stroke();
+      ctx.rotate(ang); ctx.fillStyle = C.pointerPickup; ctx.beginPath(); ctx.moveTo(R0*0.74, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(232,227,214,.30)'; ctx.beginPath(); ctx.moveTo(-R0*0.62, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+      ctx.restore(); }
     else { ctx.strokeStyle = C.pathPickup; ctx.lineWidth = Math.max(1.5, S*0.05); ctx.beginPath();
       for (let i=0; i<=40; i++) { const t = i/40, a = t*Math.PI*5, r = S*0.05 + t*S*0.14; const x = px + Math.cos(a)*r, y = py + Math.sin(a)*r; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); } ctx.stroke(); }
   }
