@@ -134,6 +134,9 @@ $('optFloor').addEventListener('change', () => { SAVE.ui.floor = $('optFloor').v
 // can give you the seed and the tile number in a screenshot so you can debug it."
 $('optNav').checked = !!SAVE.ui.nav;
 $('optNav').addEventListener('change', () => { SAVE.ui.nav = $('optNav').checked; persist(); });
+// the path into data/text.js under every line the game shows, for writing against a screenshot
+$('optIds').checked = !!SAVE.ui.ids;
+$('optIds').addEventListener('change', () => { SAVE.ui.ids = $('optIds').checked; persist(); });
 // the run log: what you have finished, how long each took, and a CSV of the lot to take away
 $('statsBtn').addEventListener('click', () => { dbg.classList.remove('show'); showStats(); });
 $('statsClose').addEventListener('click', () => $('stats').classList.remove('show'));

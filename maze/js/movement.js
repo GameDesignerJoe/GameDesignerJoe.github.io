@@ -58,13 +58,13 @@ function openFloor(x, y) {
   return false;
 }
 
-function narrate(text) { AUDIO.narrator(); narrEl.className = 'show'; narrEl.textContent = text; narrHideAt = gameNow() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
+function narrate(text) { AUDIO.narrator(); narrEl.className = 'show'; narrEl.textContent = text; tagId(narrEl, text); narrHideAt = gameNow() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
 function showJournal(pg) {
   const text = character.pages[pg];
   const arr = SAVE.collected[character.name] || (SAVE.collected[character.name] = []); arr[pg] = true; persist();
   pagesThisRun.push(pg);
   AUDIO.journal(); narrEl.className = 'show journal'; narrEl.textContent = text;
-  const who = document.createElement('small'); who.textContent = character.name; narrEl.appendChild(who);
+  const who = document.createElement('small'); who.textContent = character.name; narrEl.appendChild(who); tagId(narrEl, text);
   narrHideAt = gameNow() + (CONFIG.journalHoldSec + text.length / 30) * 1000;
   narrNext = Math.max(narrNext, narrHideAt + 20000);   // give the narrator a breather after a page
 }

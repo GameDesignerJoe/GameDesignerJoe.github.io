@@ -70,10 +70,10 @@ function showExchange(sh) {
   if (!person || !step) { narrate(EXCHANGES[sh.who]?.done || SHRINE_LINES.again); return; }
   $('talkWho').textContent = person.name; $('talkAnswer').textContent = ''; $('talkAnswer').classList.remove('show');
   const box = $('talkChoices'); box.innerHTML = '';
-  step.q.forEach((q, i) => { const b = document.createElement('button'); b.textContent = q; b.addEventListener('click', () => {
+  step.q.forEach((q, i) => { const b = document.createElement('button'); b.textContent = q; tagId(b, q); b.addEventListener('click', () => {
     if (box.classList.contains('asked')) return; box.classList.add('asked');
-    [...box.children].forEach((o, j) => { if (j !== i) { o.classList.add('unasked'); o.textContent = o.textContent + ' ' + SHRINE_LINES.unasked; } else o.classList.add('chosen'); });
-    $('talkAnswer').textContent = step.a[i]; $('talkAnswer').classList.add('show');
+    [...box.children].forEach((o, j) => { if (j !== i) { o.classList.add('unasked'); o.insertBefore(document.createTextNode(' ' + SHRINE_LINES.unasked), o.querySelector('.lid')); } else o.classList.add('chosen'); });
+    $('talkAnswer').textContent = step.a[i]; tagId($('talkAnswer'), step.a[i]); $('talkAnswer').classList.add('show');
     SAVE.asked[sh.who] = (SAVE.asked[sh.who] || 0) + 1; persist(); AUDIO.paper();
     $('talkClose').classList.add('show');
   }); box.appendChild(b); });

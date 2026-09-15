@@ -26,7 +26,8 @@ const argv = process.argv.slice(2);
 const src = readFileSync(join(MAZE, 'data/text.js'), 'utf8');
 const ctx = vm.createContext({});
 vm.runInContext(src, ctx);
-const blockNames = [...src.matchAll(/^const ([A-Z_]+)\s*=/gm)].map((m) => m[1]);
+const blockNames = [...src.matchAll(/^const ([A-Z_]+)\s*=/gm)].map((m) => m[1])
+  .filter((n) => n !== 'TEXT_BLOCKS');   // the index of the blocks, not a block of writing
 
 const phasesSrc = readFileSync(join(MAZE, 'data/phases.js'), 'utf8');
 const pctx = vm.createContext({});

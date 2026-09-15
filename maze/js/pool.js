@@ -6,12 +6,12 @@
 // ── pool scene ──────────────────────────────────────────────────
 let poolStep = 0, poolScript = null;
 function poolSet(say, choices, onPick) {
-  $('poolSay').textContent = say; const box = $('poolChoices'); box.innerHTML = '';
-  choices.forEach(([label, cls], i) => { const b = document.createElement('button'); if (cls) b.className = cls; b.textContent = label; b.addEventListener('click', () => onPick(i)); box.appendChild(b); });
+  $('poolSay').textContent = say; tagId($('poolSay'), say); const box = $('poolChoices'); box.innerHTML = '';
+  choices.forEach(([label, cls], i) => { const b = document.createElement('button'); if (cls) b.className = cls; b.textContent = label; tagId(b, label); b.addEventListener('click', () => onPick(i)); box.appendChild(b); });
 }
 function startPool() {
   const idx = Math.min(SAVE.stones || 0, POOLS.length - 1); poolScript = POOLS[idx]; poolStep = 0;
-  $('pool').classList.remove('clear'); $('poolWho').textContent = poolScript.who; $('poolKeeper').textContent = POOL_UI.keeperWaiting;
+  $('pool').classList.remove('clear'); $('poolWho').textContent = poolScript.who; $('poolKeeper').textContent = POOL_UI.keeperWaiting; tagId($('poolKeeper'), POOL_UI.keeperWaiting);
   $('pool').classList.add('show'); AUDIO.poolEnter();
   poolSet(poolScript.open, [['…', 'chalk']], () => poolExchange(0));
 }
@@ -24,7 +24,7 @@ function poolDrop() {
   $('pool').classList.add('clear'); AUDIO.stoneDrop();
   const stoneName = STONES[Math.min(SAVE.stones || 0, STONES.length - 1)];
   setTimeout(() => {
-    $('poolKeeper').textContent = POOL_UI.keeperNods;
+    $('poolKeeper').textContent = POOL_UI.keeperNods; tagId($('poolKeeper'), POOL_UI.keeperNods);
     poolSet(poolScript.close, [['Wake', 'chalk']], () => {
       // remember that one just came off, so the next waking can show it: the light opens and
       // the pull-out takes its time. Without that the upgrade never reads — you simply play on.

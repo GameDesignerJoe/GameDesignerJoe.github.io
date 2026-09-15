@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.98.0';
+const VERSION = '0.99.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
@@ -83,3 +83,57 @@ try {
 if (!SEED) SEED = (Math.random() * 1e9 | 0);
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
+
+// ── line IDs on screen (the "Line IDs" debug toggle) ─────────────────────────
+// Joe: "a debug element that would show the ID of every string when I played". The id shown is the
+// same path tools/text-index.mjs prints and the writer's page is keyed by — SELF_LINES["The
+// Child"][3], MOMENTS.exitLocked._ — so a screenshot off the phone maps straight onto the line to
+// rewrite, with no hunting.
+//
+// The lookup runs backwards, words → path, rather than threading an id through narrate() and the
+// five other surfaces: every one of them is handed a finished string, and a second parameter on
+// each call site is a lot of places to forget. Built once, on first use.
+const idsOn = () => !!SAVE.ui.ids;
+let TEXT_IDS = null;        // the words → every path that holds them
+let TEXT_ID_TPL = null;     // lines with {braces}, matched after the vars are filled in
+function buildTextIds() {
+  TEXT_IDS = new Map(); TEXT_ID_TPL = [];
+  const walk = (node, path) => {
+    if (typeof node === 'string') {
+      const at = TEXT_IDS.get(node); if (at) at.push(path); else TEXT_IDS.set(node, [path]);
+      if (node.includes('{')) TEXT_ID_TPL.push([new RegExp('^' + node.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{\w+\\\}/g, '[\\s\\S]+?') + '$'), path]);
+      return;
+    }
+    if (Array.isArray(node)) node.forEach((v, i) => walk(v, path + '[' + i + ']'));
+    else if (node && typeof node === 'object')
+      for (const k of Object.keys(node))
+        walk(node[k], path + (/^[A-Za-z_$][\w$]*$/.test(k) ? '.' + k : '[' + JSON.stringify(k) + ']'));
+  };
+  for (const name of Object.keys(TEXT_BLOCKS)) walk(TEXT_BLOCKS[name], name);
+}
+// The path for a line the game just showed, or null. Where the same words sit in more than one
+// slot — 'You' says "I wrote these." three times over — it names the first and says how many,
+// because rewriting one of three and leaving the others is the mistake worth warning about.
+function lineId(text) {
+  if (typeof text !== 'string' || !text) return null;
+  if (!TEXT_IDS) buildTextIds();
+  const hit = TEXT_IDS.get(text);
+  if (hit) return hit[0] + (hit.length > 1 ? ' ×' + hit.length : '');
+  for (const [re, path] of TEXT_ID_TPL) if (re.test(text)) return path;
+  return null;
+}
+// Hang the id under whatever showed the line. Silent unless the toggle is on; a line that isn't in
+// data/text.js says so rather than going quiet, because text the game shows from somewhere else is
+// exactly what this view is for finding.
+function tagId(el, text) {
+  if (!el || !idsOn()) return;
+  const tag = document.createElement('i'); tag.className = 'lid';
+  tag.textContent = lineId(text) || 'not in text.js';
+  el.appendChild(tag);
+}
+// The same, for the two surfaces built as HTML strings rather than nodes.
+function idHtml(text) {
+  if (!idsOn()) return '';
+  return '<i class="lid">' + (lineId(text) || 'not in text.js')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') + '</i>';
+}

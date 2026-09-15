@@ -36,7 +36,9 @@ function drawMap() {
   mctx.fillStyle = C.bg; mctx.fillRect(0, 0, vw, vh);
   const ox = vw/2 - mapView.cx*S, oy = vh/2 - mapView.cy*S;
   const T = (x, y) => [ox + x*S + S/2, oy + y*S + S/2];
-  if (!mapped.size && !marks.size) { mctx.fillStyle = '#6f6b62'; mctx.font = 'italic 17px "Iowan Old Style", Palatino, Georgia, serif'; mctx.textAlign = 'center'; mctx.fillText(MAP_EMPTY.head, vw/2, vh/2 - 12); mctx.font = '14px "Iowan Old Style", Palatino, Georgia, serif'; mctx.fillText(MAP_EMPTY.sub, vw/2, vh/2 + 16); return; }
+  if (!mapped.size && !marks.size) { mctx.fillStyle = '#6f6b62'; mctx.font = 'italic 17px "Iowan Old Style", Palatino, Georgia, serif'; mctx.textAlign = 'center'; mctx.fillText(MAP_EMPTY.head, vw/2, vh/2 - 12); mctx.font = '14px "Iowan Old Style", Palatino, Georgia, serif'; mctx.fillText(MAP_EMPTY.sub, vw/2, vh/2 + 16);
+    if (idsOn()) { mctx.font = '10px ui-monospace, Menlo, monospace'; mctx.fillStyle = '#8b8378'; mctx.fillText(lineId(MAP_EMPTY.head) + '  ·  ' + lineId(MAP_EMPTY.sub), vw/2, vh/2 + 44); }
+    return; }
   // tiles
   for (const [k, kind] of mapped) { const [x, y] = k.split(',').map(Number);
     mctx.fillStyle = kind === 'wall' ? C.mapWall : kind === 'tunnel' ? C.tunnel : darkTiles.has(k) ? '#3a3834' : C.mapFloor; mctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5); }

@@ -14,6 +14,55 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## The path into the text, under the line (v0.99.0)
+
+Joe approved this back at the writer's-page discussion — *"Love the line ids
+idea. Let's do that."* — and it did not get built. Two versions of writer
+tooling shipped around it. He caught it: *"Weren't you supposed to add in a debug
+element that would show the ID of every string when I played? I don't see the
+feature in the debug option to turn it on."* He was right.
+
+`Show me → Line IDs on text`. Under every line the game shows, in small dim
+monospace, the path that line lives at in `data/text.js`:
+`SELF_LINES["The Child"][3]`, `MOMENTS.exitLocked._`,
+`ROOM_LINES["The Cartographer"].basin[2]`. The same id
+`tools/text-index.mjs` prints and `writer.html` is keyed by, so a screenshot
+off the phone maps straight onto the line to rewrite.
+
+**The lookup runs backwards, words → path.** Every surface —
+`narrate()`, the journal page, the helper card, the water, the statues, the
+blank map, the pages you have found — is handed a *finished string*, never an
+id. Threading an id through all of them means a second argument at every call
+site, and one forgotten call site is a line with no id and no sign that it is
+missing. So the map is built once from `TEXT_BLOCKS` and searched by text. Two
+consequences worth knowing:
+
+- **Duplicates are named, not hidden.** `You` says *"I wrote these."* in all
+  three shelf slots. The tag reads `ROOM_LINES["You"].shelf[0] ×3` — rewriting
+  one of three and leaving the other two is the mistake that would otherwise be
+  invisible.
+- **`{braces}` still resolve.** A `MOMENTS` line is substituted before it
+  reaches the screen, so the exact-text map misses it; those lines also go in as
+  regexes, and *"A key. Its head is a circle."* finds `MOMENTS.keyFound._`.
+
+A line the game shows that is **not** in `data/text.js` tags itself
+`not in text.js` rather than going quiet. That is the other half of what the
+view is for.
+
+`TEXT_BLOCKS` at the foot of `data/text.js` exists because these are
+`const` in the shared script scope and there is no way to enumerate them.
+Hand-written, therefore guarded: smoke asserts it lists every `^const [A-Z_]+`
+in the file, and `text-index.mjs` skips it so the writer's page does not index
+the index. A second guard round-trips **every** line in the file — look it up by
+its words, evaluate the path that comes back, and the words must match. That is
+the check that catches a walker that numbers arrays wrong or mangles a quoted
+key, which is the failure that sends a writer to the wrong slot.
+
+One real edit fell out of it. The statue's unasked question used to do
+`o.textContent = o.textContent + ' ' + SHRINE_LINES.unasked`, which would have
+swallowed the id badge along with everything else in the button. It inserts a
+text node before the badge now.
+
 ## The maze is built to a contract now, and says when it cannot be (v0.97.0)
 
 `data/phases.js` grew a `MUST` row per chapter — keys buried, exit guarded, key
