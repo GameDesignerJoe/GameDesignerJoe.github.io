@@ -263,6 +263,8 @@ const CONFIG = {
   exitGauntletMaxCells: 44,   // and the whole tree stops here, trunk included
   exitGauntletTunnel: 0.6,    // share of the pass-through cells drawn as tunnel rather than a room you
                         // step into, so some of it is just crawling, elbows and all
+  hopscotchSquares: 8,  // squares in the hopscotch court chalked down a straight run. Joe: "Hopscotch
+                        // should stop at four. It's too long otherwise." It ran to eight
   secretRooms: 1,       // a room sealed off behind a squeeze, covered in someone else's chalk. Child only
   secretRoomChalk: 0.5, // how thickly that room is drawn on: chance per floor tile
   secretRoomCells: 3,   // the kid's room, carved whole out of dead wall: 3 cells is 5x5 tiles of

@@ -1650,8 +1650,10 @@ function buildMaze(seed) {
 
   // hopscotch: chalked squares down a straight run, numbered; step them in order
   if (F.hopscotch && !poolMode) {
-    const ok = runs.filter(r => r.length >= 5 && !r.some(k => crawlGaps.has(k) || crawlCells.has(k) || journals.has(k) || chalkSpots.has(k)));
-    if (ok.length) { const run = ok[R() * ok.length | 0]; hopscotch = run.slice(0, Math.min(8, run.length)); if (R() < 0.5) hopscotch.reverse(); }
+    // Joe: "Hopscotch should stop at four. It's too long otherwise." It ran to eight squares when the
+    // corridor allowed. A run has to be at least as long as the court, so the court never comes up short.
+    const ok = runs.filter(r => r.length >= CONFIG.hopscotchSquares && !r.some(k => crawlGaps.has(k) || crawlCells.has(k) || journals.has(k) || chalkSpots.has(k)));
+    if (ok.length) { const run = ok[R() * ok.length | 0]; hopscotch = run.slice(0, Math.min(CONFIG.hopscotchSquares, run.length)); if (R() < 0.5) hopscotch.reverse(); }
   }
 }
 

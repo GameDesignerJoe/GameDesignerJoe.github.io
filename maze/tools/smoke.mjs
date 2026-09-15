@@ -1862,6 +1862,19 @@ check('the nav view numbers every walkable tile, and the numbers hold still',
   `${nav.walk} walkable tiles; he starts on ${nav.hereA} and it is still ${nav.hereB} after the camera moves; `
   + `the way out is ${nav.exitNo}; a wall tile has no number`);
 
+// Joe: "Hopscotch should stop at four. It's too long otherwise." The bar is his number, not the
+// knob: every court in every Child maze is four squares, and every maze that has a straight run
+// of four gets one.
+const hop = await page.evaluate(() => {
+  const lens = [], missing = [];
+  for (let s2 = 1; s2 <= 60; s2++) { SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 31);
+    if (hopscotch.length) lens.push(hopscotch.length); else missing.push(s2 * 31); }
+  return { n: lens.length, max: Math.max(...lens), min: Math.min(...lens), missing: missing.length };
+});
+check('the hopscotch court is four squares, no more',
+  hop.n > 0 && hop.max === 4 && hop.min === 4,
+  `${hop.n} courts over 60 Child mazes, ${hop.min}–${hop.max} squares each; ${hop.missing} mazes without one`);
+
 // ── the charcoal HUD and the compass pickup (v0.100.0) ──
 // Joe, twice: "The charcoal icon on the hud/screen should have a little pulse to it every time a
 // tile is logged. Like a little heart beat." The first cut swelled 8% and never came to rest between

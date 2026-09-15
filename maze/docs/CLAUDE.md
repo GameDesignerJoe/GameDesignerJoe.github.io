@@ -642,6 +642,19 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Hopscotch stops at four (v0.101.0)
+
+Joe: *"Hopscotch should stop at four. It's too long otherwise."* The court took up to
+eight squares of any straight run of five or more. `hopscotchSquares` is the knob, four,
+and a run has to be at least that long to take a court, so no court comes up short.
+Own batch, on purpose: it is a generation change, and the room-spacing work behind it
+needs a clean measurement that a hopscotch change would not disturb but might be
+blamed for.
+
+**Tests.** Generation, so all three. Harness PASS 576, selftest 17 of 17, smoke 96 with
+one new statistic: every court over 60 Child mazes is exactly four squares. The bar is
+Joe's number written into the check, not read from the knob, and it was red at eight.
+
 ## The charcoal heartbeat, the lock, and the compass on the floor (v0.100.0)
 
 Three HUD items from the doc. Joe: *"The charcoal icon on the hud/screen should have a
