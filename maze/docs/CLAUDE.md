@@ -691,6 +691,41 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The HUD after a night's play, and a map that keeps its secrets (v0.106.0)
+
+Four items from Joe's doc, all HUD or map. *"Locked, charcoal states gold, even after all
+of the charcoal is gone."* — *"Please slow down the pulsing of the charcoal icon. It's too
+crazy. Make it pulse like half as much."* — *"The map icon only has to flash the first
+time it appears, not every time."* — *"Need to stop drawing the important locations on
+the map so that players can put chalk down for them instead. If we don't draw the statue
+or the gates, then they have a reason to use chalk."*
+
+**The gold ring** now reads only while there is charcoal to be locked on to. The lock
+itself stays armed — the next piece he finds lights on its own, which is what lock-on is
+for — but a gold ring round an empty pill said something was on when nothing was.
+
+**The heartbeat, half as much**, both ways: every other tile logged (`charcoalBeatEvery`)
+and half the swell (1.11, was 1.2). v0.100.0 made it visible; this makes it company
+rather than a metronome. The smoke bar is now a band, over 1.05 and under 1.15, so
+neither the invisible beat nor the crazy one passes.
+
+**The map button beckons once per save** (`SAVE.mapBeckoned`), set the first time the map
+is opened. It used to beckon every time a maze started.
+
+**The map draws no gates, statues or stones.** Keys, pages and charcoal still show: those
+are things you pick up and are gone. A gate, a statue, a stone are places to come back to,
+and the chalk is for that. `mapDrawsPlaces` puts them back for looking. Reading taken:
+"the statue or the gates" as the item names them, plus the stones, which are the
+statues' other half. Pages stay because the writer's page and the Stories screen already
+make them the one thing the map has always been for; that is a judgement, and Joe can
+overturn it with the knob or a word.
+
+**Tests.** HUD and map, so smoke alone: 103 checks. The heartbeat check now wants one beat
+over two fresh tiles and none after the first; a new check wants the gold gone on an empty
+locked pill with the lock still armed; a new check runs a save twice and wants the beckon
+on the first run only, then charts a gate, a statue and a stone and counts what the map
+draws of them: nothing. Proven red against the committed code.
+
 ## A crawl gap is never a plus (v0.104.0)
 
 Joe, asked whether a crawl gap should ever be open on both axes: *"No a crawl gap should

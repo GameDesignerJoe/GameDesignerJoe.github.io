@@ -57,13 +57,14 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
    icon on the hud/screen should have a little pulse to it every time a tile is logged. Like a little
    heart beat as the player is walking." The first cut was an 8% swell over 440ms, and at walking pace a
    tile lands every 430ms, so it never came back to rest and read as nothing. Bigger, quicker, and the
-   ring flashes with it. */
+   ring flashes with it. Then, at 20% every tile: "It's too crazy. Make it pulse like half as
+   much" — so half the swell, and (movement.js) every other tile. */
 #charcoal.beat { animation:charbeat var(--beat, 440ms) ease-out; }
 @keyframes charbeat {
   0%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); }
-  16%{ transform:scale(1.2); box-shadow:0 0 0 5px rgba(201,185,138,.32); }
+  16%{ transform:scale(1.11); box-shadow:0 0 0 3px rgba(201,185,138,.26); }
   36%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); }
-  52%{ transform:scale(1.09); box-shadow:0 0 0 3px rgba(201,185,138,.18); }
+  52%{ transform:scale(1.05); box-shadow:0 0 0 2px rgba(201,185,138,.14); }
   100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); } }
 /* and the piece running out: loud, twice, so you look up and light the next one */
 #charcoal.spent { animation:charspent var(--spent, 1500ms) ease-out; }

@@ -10,6 +10,7 @@ let marks = new Map();   // 'x,y' → glyph: 'x' | '?' | 'up' | 'right' | 'down'
 let chalk = 0, chalkUsed = 0, chalkFound = 0, deadEndsEntered = 0;
 let charcoal = 0, charcoalLeft = 0, charcoalUsed = 0, charcoalFound = 0, charcoalOn = false;   // charcoalLeft: tiles of mapping remaining on the active piece
 let charcoalLock = false;   // held down once: when the piece in hand runs out, take the next one without asking
+let charcoalTiles = 0;      // tiles logged this run, for pacing the icon's heartbeat
 let visited = new Set();   // every tile you've stood on this run
 let mapped = new Map();   // 'x,y' → 'floor' | 'wall' | 'tunnel' — everything the map knows
 let pointerUntil = 0, pathUntil = 0, pointerUses = 0, pathUses = 0;
@@ -110,7 +111,10 @@ function updateCharcoal() {
   charcoalEl.classList.toggle('active', charcoalOn && charcoalLeft > 0);
   charcoalEl.classList.toggle('paused', !charcoalOn && charcoalLeft > 0);
   charcoalEl.classList.toggle('empty', charcoalLeft <= 0 && charcoal === 0);
-  charcoalEl.classList.toggle('locked', charcoalLock);
+  // Joe: "Locked, charcoal states gold, even after all of the charcoal is gone." The lock stays
+  // armed — the next piece he finds lights on its own — but a gold ring round an empty pill says
+  // something is on when nothing is. The ring reads only while there is charcoal to be locked on to.
+  charcoalEl.classList.toggle('locked', charcoalLock && (charcoalLeft > 0 || charcoal > 0));
 }
 // The hold. A tap pauses and resumes the piece in hand; holding arms the hand-off, so the next
 // piece lights itself the moment this one is gone. Arming it with nothing lit lights one now —

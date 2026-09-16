@@ -1916,24 +1916,63 @@ const hud = await page.evaluate(async () => {
   // the beat actually fires as a tile is logged
   SAVE.phase = 1; reset(4242); sliding = null; started = true; await nap(60);
   charcoal = 2; charcoalLeft = B.charcoal(); charcoalOn = true; updateCharcoal(); charcoalEl.classList.remove('beat');
-  // walk him onto a fresh tile: mapHere() adds it and beat() fires
+  // walk him onto fresh tiles: mapHere() adds each, and beat() fires on every second one — Joe,
+  // on once a tile: "It's too crazy. Make it pulse like half as much." So two tiles: one beat.
   const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)];
   const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [0, 0];
-  mapped = new Map(); visited = new Set(); player.x = sx + dx + 0.5; player.y = sy + dy + 0.5; lastTileKey = ''; await nap(120);
-  const beatFired = charcoalEl.classList.contains('beat');
+  mapped = new Map(); visited = new Set(); charcoalTiles = 0; let beats = 0;
+  const seenBeat = () => { if (charcoalEl.classList.contains('beat')) { beats++; charcoalEl.classList.remove('beat'); } };
+  player.x = sx + dx + 0.5; player.y = sy + dy + 0.5; lastTileKey = ''; await nap(120); seenBeat();
+  const afterOne = beats;
+  player.x = sx + 0.5; player.y = sy + 0.5; mapped = new Map(); lastTileKey = ''; await nap(120); seenBeat();
+  const beatFired = beats === 1 && afterOne === 0;
   // and the lock reads
   const plain = getComputedStyle(charcoalEl); const plainBorder = parseFloat(plain.borderTopWidth), plainShadow = plain.boxShadow;
   charcoalLock = true; updateCharcoal(); await nap(30);
   const lk = getComputedStyle(charcoalEl); const lockBorder = parseFloat(lk.borderTopWidth), lockShadow = lk.boxShadow;
+  // and locked with nothing left: Joe, "Locked, charcoal states gold, even after all of the charcoal is gone"
+  charcoal = 0; charcoalLeft = 0; updateCharcoal(); await nap(30);
+  const em = getComputedStyle(charcoalEl); const emptyBorder = parseFloat(em.borderTopWidth), emptyLocked = charcoalEl.classList.contains('locked'), stillArmed = charcoalLock;
   charcoalLock = false; charcoalOn = false; updateCharcoal();
-  return { peak, beatMs, tileMs, beatFired, plainBorder, lockBorder, plainShadow, lockShadow };
+  return { peak, beatMs, tileMs, beatFired, plainBorder, lockBorder, plainShadow, lockShadow, emptyBorder, emptyLocked, stillArmed };
 });
-check('a tile logged beats the charcoal icon: a real swell, quicker than a step',
-  hud.beatFired && hud.peak >= 1.15 && hud.beatMs > 0 && hud.beatMs < hud.tileMs,
-  `beat fired on a new tile (${hud.beatFired}); keyframe peaks at scale ${hud.peak} (bar 1.15) over ${hud.beatMs}ms, a tile takes ${hud.tileMs.toFixed(0)}ms`);
+// v0.100.0 asked for a swell of at least 1.15; Joe then asked for half as much, so the bar is a
+// band — visible (over 1.05) and not the old size (under 1.15) — and one beat per two tiles.
+check('the charcoal icon beats once per two tiles logged, a swell you can see and not too much',
+  hud.beatFired && hud.peak > 1.05 && hud.peak < 1.15 && hud.beatMs > 0 && hud.beatMs < hud.tileMs,
+  `one beat over two fresh tiles, none after the first (${hud.beatFired}); keyframe peaks at scale ${hud.peak} (band 1.05–1.15) over ${hud.beatMs}ms, a tile takes ${hud.tileMs.toFixed(0)}ms`);
 check('lock-on gives the charcoal pill a bolder outline than resting',
   hud.lockBorder >= 2 && hud.lockBorder > hud.plainBorder && hud.lockShadow !== 'none' && hud.lockShadow !== hud.plainShadow,
   `border ${hud.plainBorder}px resting, ${hud.lockBorder}px locked; halo ${hud.lockShadow !== 'none' ? 'on' : 'off'} when locked`);
+check('a locked pill with no charcoal left drops its gold, and stays armed for the next piece',
+  !hud.emptyLocked && hud.emptyBorder === hud.plainBorder && hud.stillArmed,
+  `empty and locked: ring shown ${hud.emptyLocked}, border ${hud.emptyBorder}px (resting ${hud.plainBorder}px); lock still armed ${hud.stillArmed}`);
+
+// Joe: "The map icon only has to flash the first time it appears, not every time." And: "stop
+// drawing the important locations on the map so that players can put chalk down for them
+// instead. If we don't draw the statue or the gates, then they have a reason to use chalk."
+const mapOnce = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  delete SAVE.mapBeckoned; SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run; persist();
+  reset(4242); wake(); for (let i = 0; i < 200 && !started; i++) await nap(50); await nap(200); introWalk = null; held = null;
+  const first = $('mapBtn').classList.contains('beckon');
+  openMap(); await nap(50); const afterOpen = $('mapBtn').classList.contains('beckon'), remembered = !!SAVE.mapBeckoned;
+  // the map, with a gate, a statue and a stone all on charted floor: none of them drawn
+  const d = doors[0], sh = shrines[0], st = [...offerings.keys()][0];
+  for (const k of [d && d.x + ',' + d.y, sh && sh.sx + ',' + sh.sy, st].filter(Boolean)) mapped.set(k, 'floor');
+  const realMark = window.drawMark, realShape = window.drawShape; let marks = 0, gates = 0, keys = 0;
+  drawMark = (...a) => { if (a[0] === mctx) marks++; return realMark(...a); };
+  drawShape = (...a) => { if (a[0] === mctx) { if (a[5] === CONFIG.colors.gate) gates++; else keys++; } return realShape(...a); };
+  drawMap(); drawMark = realMark; drawShape = realShape;
+  closeMap(); await nap(50);
+  reset(4242); wake(); for (let i = 0; i < 200 && !started; i++) await nap(50); await nap(200); introWalk = null; held = null;
+  const second = $('mapBtn').classList.contains('beckon');
+  return { first, afterOpen, remembered, second, marks, gates, keys, hadDoor: !!d, hadShrine: !!sh, hadStone: !!st };
+});
+check('the map button beckons the first time only, and the map draws no gates, statues or stones',
+  mapOnce.first && !mapOnce.afterOpen && mapOnce.remembered && !mapOnce.second && mapOnce.marks === 0 && mapOnce.gates === 0 && mapOnce.hadDoor && mapOnce.hadShrine,
+  `beckons on the first run (${mapOnce.first}), stops when opened (${!mapOnce.afterOpen}), remembered (${mapOnce.remembered}), quiet on the next run (${!mapOnce.second}); `
+  + `with a gate, a statue and a stone charted the map drew ${mapOnce.gates} gates and ${mapOnce.marks} marks (keys drawn: ${mapOnce.keys})`);
 
 // Joe: "The pickup for the compass should look different than the main character as well. Make it
 // look like the icon that shows up when you collect it." A compass has a case: a ring of the pickup's
@@ -2485,7 +2524,11 @@ check('the pool is light at its rim and deep in the middle, and the rings travel
     && water.swing > 6
     && water.shifts.every((v) => v >= 1)                      // inward at every gap
     && water.shifts[1] >= water.shifts[0] && water.shifts[2] >= water.shifts[1]   // and never backwards
-    && water.shifts[2] > water.shifts[0],                    // having gone further over the longer wait
+    // "further by the last one" used to be strict, and failed 6 of 15 runs on 2026-09-15/16 with
+    // 2,2,2 and 2,1,1 — rings visibly closing, read through frames that land unevenly under
+    // load, at a shift quantised to whole bands. Still water is 0,0,0 and outward -1,-2,-3; both
+    // still fail. What is asked now: at least two bands of travel by the end.
+    && water.shifts[2] >= 2,
   water ? `still, the middle reads ${water.stillMid} on the blue channel and the rim ${water.stillRim} — `
     + `${water.stillRim - water.stillMid} lighter at the edge, across ${water.bands} bands. Standing in it, a fixed radius `
     + `swings ${water.swing} and the ripple stands ${water.ripple} clear of that ramp; matched against the first frame at `

@@ -8,7 +8,7 @@ const mapEl = $('map'), mapCv = $('mapCv'), mctx = mapCv.getContext('2d');
 let mapOpen = false, mapView = { cx: 0, cy: 0, S: 22 };   // world tile at screen center, px per tile
 const mapPtrs = new Map(); let mapPinch = null;
 function openMap() {
-  $('mapBtn').classList.remove('beckon');
+  $('mapBtn').classList.remove('beckon'); if (!SAVE.mapBeckoned) { SAVE.mapBeckoned = true; persist(); }
   mapOpen = true; mapEl.classList.add('show'); clearStick();
   document.body.classList.add('map-open');   // the ? sits above the map and lands on its close button
   mapCv.width = innerWidth * dpr; mapCv.height = innerHeight * dpr;
@@ -54,7 +54,12 @@ function drawMap() {
   // key, pages, chalk & charcoal pickups still lying where you saw them
   mctx.lineCap = 'round';
   if (keySpot && seen(keySpot)) { const [x, y] = keySpot.split(',').map(Number); const [px, py] = T(x, y); mctx.strokeStyle = C.key; mctx.lineWidth = Math.max(1.5, S*0.09); mctx.beginPath(); mctx.arc(px - S*0.12, py, S*0.12, 0, Math.PI*2); mctx.moveTo(px, py); mctx.lineTo(px + S*0.28, py); mctx.stroke(); }
-  for (const d of doors) if (!d.open && seen(d.x+','+d.y)) { const [px, py] = T(d.x, d.y); drawShape(mctx, d.shape, px, py, S*0.22, C.gate, Math.max(1.5, S*0.08)); }
+  // Joe: "Need to stop drawing the important locations on the map so that players can put chalk
+  // down for them instead. If we don't draw the statue or the gates, then they have a reason to
+  // use chalk." So no gates, no statues, no stones here — the floor is charted, what stands on it
+  // is yours to mark. Keys, pages and charcoal still show: they are things you pick up and are
+  // gone, not places to come back to. (`mapDrawsPlaces` puts them back, for looking.)
+  if (CONFIG.mapDrawsPlaces) for (const d of doors) if (!d.open && seen(d.x+','+d.y)) { const [px, py] = T(d.x, d.y); drawShape(mctx, d.shape, px, py, S*0.22, C.gate, Math.max(1.5, S*0.08)); }
   for (const [k, shape] of innerKeys) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); drawShape(mctx, shape, px, py, S*0.18, C.key, Math.max(1.5, S*0.08)); }
   for (const k of journals.keys()) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.journal; mctx.fillRect(px - S*0.22, py - S*0.16, S*0.44, S*0.32); }
   for (const k of chalkSpots) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.chalk; mctx.fillRect(px - S*0.18, py - S*0.06, S*0.36, S*0.12); }
@@ -62,8 +67,8 @@ function drawMap() {
   for (const k of charcoalSpots) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.charcoal; mctx.strokeStyle = C.exit; mctx.lineWidth = 1; mctx.fillRect(px - S*0.16, py - S*0.08, S*0.32, S*0.16); mctx.strokeRect(px - S*0.16, py - S*0.08, S*0.32, S*0.16); }
   for (const [k, kind] of pickups) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = kind === 'pointer' ? C.pointerPickup : C.pathPickup; mctx.beginPath(); mctx.arc(px, py, S*0.18, 0, Math.PI*2); mctx.fill(); }
   // carved stones still lying where you saw them, and the statues waiting for them
-  for (const [k, who] of offerings) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.wall; mctx.beginPath(); mctx.ellipse(px, py, S*0.2, S*0.15, 0, 0, Math.PI*2); mctx.fill(); mctx.strokeStyle = C.key; mctx.lineWidth = Math.max(1, S*0.06); drawMark(mctx, (PEOPLE.find(p => p.id === who) || {}).mark, px, py, S*0.1); }
-  for (const sh of shrines) if (seen(sh.sx + ',' + sh.sy)) { const [px, py] = T(sh.x, sh.y); mctx.fillStyle = sh.done ? '#e9e2d0' : C.shelf; mctx.beginPath(); mctx.ellipse(px, py, S*0.16, S*0.24, 0, 0, Math.PI*2); mctx.fill(); mctx.strokeStyle = C.key; mctx.lineWidth = Math.max(1, S*0.06); drawMark(mctx, sh.mark, px, py + S*0.44, S*0.1); }
+  if (CONFIG.mapDrawsPlaces) for (const [k, who] of offerings) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.wall; mctx.beginPath(); mctx.ellipse(px, py, S*0.2, S*0.15, 0, 0, Math.PI*2); mctx.fill(); mctx.strokeStyle = C.key; mctx.lineWidth = Math.max(1, S*0.06); drawMark(mctx, (PEOPLE.find(p => p.id === who) || {}).mark, px, py, S*0.1); }
+  if (CONFIG.mapDrawsPlaces) for (const sh of shrines) if (seen(sh.sx + ',' + sh.sy)) { const [px, py] = T(sh.x, sh.y); mctx.fillStyle = sh.done ? '#e9e2d0' : C.shelf; mctx.beginPath(); mctx.ellipse(px, py, S*0.16, S*0.24, 0, 0, Math.PI*2); mctx.fill(); mctx.strokeStyle = C.key; mctx.lineWidth = Math.max(1, S*0.06); drawMark(mctx, sh.mark, px, py + S*0.44, S*0.1); }
   // chalk marks
   mctx.strokeStyle = C.mark;
   for (const [k, g] of marks) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); drawGlyph(mctx, g, px, py, S*0.22, Math.max(1.5, S*0.09)); }
@@ -165,7 +170,10 @@ function wake() {   // the zoom-out: HUD slides in, then the figure gets up
   $('title').classList.add('leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
   setTimeout(() => document.body.classList.remove('pre'), secs * 400);
   setTimeout(() => {
-    $('title').classList.add('hide'); started = true; t0 = gameNow(); narrNext = Infinity; $('mapBtn').classList.add('beckon');
+    $('title').classList.add('hide'); started = true; t0 = gameNow(); narrNext = Infinity;
+    // Joe: "The map icon only has to flash the first time it appears, not every time." Once per
+    // save: after that he knows where it is.
+    if (!SAVE.mapBeckoned) $('mapBtn').classList.add('beckon');
     introWalk = { dx: 0, dy: -1 };   // and stands up off the mat
     if (character.leave && !(SAVE.wakeSaid || []).includes(character.name) && !poolMode) setTimeout(() => narrate(character.wake), 900);
   }, secs * 1000);

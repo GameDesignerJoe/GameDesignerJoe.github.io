@@ -390,7 +390,10 @@ function update(wall) {
     // a tile goes onto the map: one heartbeat of the icon, so you can see it working without
     // opening the map. When the piece runs out it pulses hard instead — and if you held the icon
     // down at some point, the next piece picks up where this one stopped, no tap needed.
-    if (charcoalOn && charcoalLeft > 0) { const added = mapHere(); if (added) { charcoalLeft = Math.max(0, charcoalLeft - added); updateCharcoal(); beat(charcoalEl);
+    if (charcoalOn && charcoalLeft > 0) { const added = mapHere(); if (added) { charcoalLeft = Math.max(0, charcoalLeft - added); updateCharcoal();
+      // Joe, on v0.100.0's beat: "slow down the pulsing of the charcoal icon. It's too crazy. Make it
+      // pulse like half as much." So every charcoalBeatEvery-th tile logged, not every one
+      if (++charcoalTiles % CONFIG.charcoalBeatEvery === 0) beat(charcoalEl);
       if (charcoalLeft === 0) { charcoalOn = false; AUDIO.charcoalEnd(); spentPulse(charcoalEl);
         if (charcoalLock && charcoal > 0) { charcoal--; charcoalUsed++; charcoalLeft = B.charcoal(); charcoalOn = true; charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); }
         updateCharcoal(); } } }

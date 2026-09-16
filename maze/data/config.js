@@ -247,6 +247,11 @@ const CONFIG = {
   // Joe: "the charcoal icon should have a little pulse to it every time a tile is logged. Like a
   // little heart beat." Two knocks rather than one throb — it fires every couple of steps while
   // you walk, so it has to register without nagging. Much smaller than the pickup flash.
+  mapDrawsPlaces: false,// whether the map marks gates, statues and stones. Joe: "stop drawing the
+                        // important locations on the map so that players can put chalk down for them
+                        // instead" — so off; the floor is charted and the places are yours to mark
+  charcoalBeatEvery: 2, // the icon beats once per this many tiles logged. Joe, on once-a-tile: "It's
+                        // too crazy. Make it pulse like half as much"
   charcoalBeatMs: 360,  // one heartbeat of the charcoal icon as a tile goes onto the map. 0 = off.
                         // Shorter than the ~430ms between tiles at walking pace, so it comes to rest
                         // between beats — the first cut at 440 never did, and read as no beat at all
