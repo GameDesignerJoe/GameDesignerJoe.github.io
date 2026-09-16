@@ -85,6 +85,8 @@ const AUDIO = (() => {
     };
     const beat = () => {
       if (!drone) return;
+      // a stopped clock: try the bar again later rather than schedule notes into it
+      if (ac.state !== 'running') { try { ac.resume(); } catch (e) {} drone.noteTimer = setTimeout(beat, 1000); return; }
       const preset = MUSIC[currentMusic] || MUSIC['You'];
       const spb = 60 / preset.bpm, bars = 4;
       drone.padGain.gain.setTargetAtTime(preset.drone, ac.currentTime, 2); drone.echoGain.gain.setTargetAtTime(preset.echo, ac.currentTime, 2);
@@ -121,14 +123,23 @@ const AUDIO = (() => {
     return c;
   }
 
+  // Joe, on his phone after a long session: "It doesn't appear to be a sound effect when you
+  // picked up a key. Or it might've just been very delayed. Yeah, really delayed. I restarted to
+  // see if that fixed it." Chrome shows no leak — 3.7 minutes of heavy effects, audio thread at 4%,
+  // heap flat. What Safari does is interrupt the context: a lock screen, a notification, a switch
+  // of apps, and it comes back 'suspended' or 'interrupted' and stays so. Sounds scheduled into a
+  // stopped clock queue up; when a gesture finally resumes it they all fire at once, late. So:
+  // a sound that cannot play now is dropped, not queued (`live`), the context is nudged awake on
+  // every touch rather than the first (input.js), and the composer skips a bar it cannot sound.
+  function live() { if (!ensure()) return false; if (ac.state === 'running') return true; try { ac.resume(); } catch (e) {} return false; }
   function tone(freq, dur, { type = 'sine', vol = 0.3, attack = 0.005, slide = null, bus = null } = {}) {
-    if (!ensure()) return; const t = ac.currentTime;
+    if (!live()) return; const t = ac.currentTime;
     const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
     const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(bus || sfxBus); o.start(t); o.stop(t + dur + 0.05);
   }
   function noise(dur, { vol = 0.3, freq = 1500, q = 1, type = 'bandpass' } = {}) {
-    if (!ensure()) return; const t = ac.currentTime;
+    if (!live()) return; const t = ac.currentTime;
     const n = ac.createBufferSource(); n.buffer = noiseBuffer(dur + 0.1);
     const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
     const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -162,7 +173,8 @@ const AUDIO = (() => {
   }
 
   return {
-    unlock() { if (ensure() && ac.state === 'suspended') ac.resume(); },
+    unlock() { if (ensure() && ac.state !== 'running') { try { ac.resume(); } catch (e) {} } },
+    running() { return !!ac && ac.state === 'running'; },   // for the smoke suite
     begin() { this.unlock(); startDrone(); },
     setMusic(name) { currentMusic = name; },
     carrierFor,
@@ -188,9 +200,18 @@ const AUDIO = (() => {
     pickup() { tone(523, 0.18, { vol: 0.14 }); setTimeout(() => tone(784, 0.3, { vol: 0.14 }), 90); },
     pickupChalk() { tone(440, 0.12, { vol: 0.1 }); noise(0.08, { vol: 0.1, freq: 2600 }); },
     key() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.35, { vol: 0.12 }), i * 110)); },
-    gate() { noise(0.3, { vol: 0.25, freq: 600, q: 2 }); tone(90, 0.5, { type: 'triangle', vol: 0.2, slide: 60 }); },
-    slideStart() { noise(CONFIG.sliderSeconds, { vol: 0.35, freq: 220, q: 1.2, type: 'lowpass' }); tone(48, CONFIG.sliderSeconds, { type: 'triangle', vol: 0.25, attack: 0.1, slide: 42 }); },
-    slideEnd() { tone(60, 0.25, { type: 'triangle', vol: 0.3, slide: 30 }); noise(0.1, { vol: 0.2, freq: 500, q: 2 }); },
+    // Joe: "There's no sound for when the gates open." There was: a 90Hz triangle, which a phone
+    // speaker cannot reproduce (bassCarrierHz is where the music learned the same lesson), under a
+    // short hiss. Now a grind you can hear, a tone up where the phone lives, and the leaves knocking
+    // home at the end.
+    // Every slide ends above the floor too: a tone that starts audible and sinks under it is half a sound.
+    gate() { noise(0.55, { vol: 0.32, freq: 480, q: 1.4, type: 'lowpass' }); tone(277, 0.55, { type: 'triangle', vol: 0.16, attack: 0.03, slide: 208 });
+      setTimeout(() => { noise(0.09, { vol: 0.3, freq: 1400, q: 1.6 }); tone(330, 0.14, { type: 'triangle', vol: 0.12, slide: 262 }); }, 480); },
+    // Joe: "The sound for the push block needs to be a little bit louder." Its weight was a 48Hz
+    // triangle, which is a phone's silence; the hiss carried it alone. Louder hiss, and the weight
+    // moved up to where it can be heard.
+    slideStart() { noise(CONFIG.sliderSeconds, { vol: 0.5, freq: 260, q: 1.2, type: 'lowpass' }); tone(247, CONFIG.sliderSeconds, { type: 'triangle', vol: 0.14, attack: 0.1, slide: 208 }); },
+    slideEnd() { tone(262, 0.25, { type: 'triangle', vol: 0.22, slide: 208 }); noise(0.12, { vol: 0.3, freq: 500, q: 2 }); },
     charcoalStart() { noise(0.3, { vol: 0.2, freq: 1200, q: 0.7, type: 'highpass' }); tone(330, 0.25, { vol: 0.06 }); },
     charcoalEnd() { noise(0.12, { vol: 0.12, freq: 700, q: 1 }); tone(220, 0.3, { vol: 0.06, slide: 160 }); },
     paper() { noise(0.12, { vol: 0.1, freq: 2600, q: 0.7, type: 'highpass' }); },

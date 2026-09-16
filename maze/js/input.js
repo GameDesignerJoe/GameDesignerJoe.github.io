@@ -187,5 +187,10 @@ $('update').addEventListener('click', () => hardRefresh($('update')));
 // the first gesture, whatever it is. begin() is idempotent, so on a fresh run
 // where wake() already did it this is a no-op.
 addEventListener('pointerdown', () => AUDIO.begin(), { once: true });
+// And every touch after: Safari interrupts the context — lock screen, notification, a switch of
+// apps — and it does not come back on its own. Joe: "really delayed"; that was the queue of sounds
+// scheduled into a stopped clock, played the moment it finally woke. begin() is cheap and idempotent.
+addEventListener('pointerdown', () => AUDIO.unlock());
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') AUDIO.unlock(); });
 
 

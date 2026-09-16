@@ -1901,6 +1901,54 @@ check('the hopscotch court is four squares, no more',
   hop.n > 0 && hop.max === 4 && hop.min === 4,
   `${hop.n} courts over 60 Child mazes, ${hop.min}–${hop.max} squares each; ${hop.missing} mazes without one`);
 
+// ── sounds a phone can play, and a clock that stops (v0.107.0) ──
+// Joe: "There's no sound for when the gates open" and "the push block needs to be a little bit
+// louder." Both had their weight in a tone under 100Hz, which a phone speaker cannot reproduce —
+// the music learned this in v0.7x (bassCarrierHz). Every oscillator a gate or a push makes must sit
+// at or above that floor, read off the voices the audio probe records.
+const sfxPitch = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const floor = CONFIG.bassCarrierHz, out = {};
+  for (const name of ['gate', 'slideStart', 'slideEnd']) {
+    window.__voices.length = 0; AUDIO[name](); await nap(700);
+    const freqs = window.__voices.map((v) => v.n.frequency.value).filter((f) => f > 0);
+    out[name] = { voices: freqs.length, low: freqs.filter((f) => f < floor).length, lowest: freqs.length ? Math.round(Math.min(...freqs)) : 0 };
+  }
+  return { floor, out };
+});
+check('the gate and the push block sound where a phone can play them',
+  Object.values(sfxPitch.out).every((r) => r.voices >= 1 && r.low === 0),
+  Object.entries(sfxPitch.out).map(([n, r]) => `${n}: ${r.voices} voices, lowest ${r.lowest}Hz, ${r.low} under the ${sfxPitch.floor}Hz floor`).join('; '));
+
+// Joe: "it might've just been very delayed. Yeah, really delayed. I restarted to see if that fixed
+// it." Safari interrupts the audio context and it stays suspended; sounds scheduled into the stopped
+// clock used to queue and fire together, late, when a gesture finally woke it. Now a sound that
+// cannot play is dropped, and the next touch wakes the clock.
+const stopped = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  AUDIO.pickup(); await nap(150);
+  const ac = window.__voices.length ? window.__voices[window.__voices.length - 1].n.context : null;
+  if (!ac) return { noContext: true };
+  // Chrome resumes a suspended context the moment it is asked; Safari, interrupted, does not until
+  // a gesture. Hold the resume shut the way Safari does, so the probe reads the game, not Chrome.
+  const realResume = ac.resume.bind(ac); ac.resume = () => Promise.resolve();
+  await ac.suspend(); await nap(50);
+  window.__voices.length = 0; AUDIO.pickup(); AUDIO.key(); await nap(500);
+  const isRunning = () => (typeof AUDIO.running === 'function' ? AUDIO.running() : ac.state === 'running');   // fail, never throw, on a build without it
+  const whileStopped = window.__voices.length, running = isRunning();
+  // a touch wakes it
+  ac.resume = realResume;
+  document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); dispatchEvent(new PointerEvent('pointerdown')); await nap(300);
+  const wokeUp = isRunning();
+  window.__voices.length = 0; AUDIO.pickup(); await nap(300);
+  const afterWake = window.__voices.length;
+  return { whileStopped, running, wokeUp, afterWake };
+});
+check('a sound with the audio clock stopped is dropped, not queued, and a touch restarts the clock',
+  !stopped.noContext && stopped.whileStopped === 0 && !stopped.running && stopped.wokeUp && stopped.afterWake >= 1,
+  stopped.noContext ? 'no audio context to stop' :
+  `with the context suspended a pickup and a key made ${stopped.whileStopped} voices (running ${stopped.running}); a touch resumed it (${stopped.wokeUp}) and the next pickup made ${stopped.afterWake}`);
+
 // ── the charcoal HUD and the compass pickup (v0.100.0) ──
 // Joe, twice: "The charcoal icon on the hud/screen should have a little pulse to it every time a
 // tile is logged. Like a little heart beat." The first cut swelled 8% and never came to rest between
@@ -2294,7 +2342,9 @@ const coalUI = await page.evaluate(async () => {
 });
 check('a tap lights the charcoal, walking makes it beat, and spending a piece pulses it hard',
   coalUI.tapLit && !coalUI.tapLocked && coalUI.afterTap === 2
-    && coalUI.beats >= 2 && coalUI.logged > 0 && coalUI.spent.anim >= 1 && !coalUI.spent.on && coalUI.spent.left === 0,
+    // v0.106.0 halved the beat to every other step that logs tiles (Joe: "make it pulse like half
+    // as much"), so a 1.6s walk is three or four steps and one or two beats: the bar is one
+    && coalUI.beats >= 1 && coalUI.logged > 0 && coalUI.spent.anim >= 1 && !coalUI.spent.on && coalUI.spent.left === 0,
   `tap lit it (${coalUI.tapLit}) without locking it (${!coalUI.tapLocked}), leaving ${coalUI.afterTap} in the pocket; `
   + `walking a ${coalUI.run}-tile corridor put ${coalUI.logged} tiles on the map and knocked the icon ${coalUI.beats} times; `
   + `the piece then ran out, the icon pulsed hard ${coalUI.spent.anim} time(s) and nothing lit itself `
@@ -2513,27 +2563,28 @@ const water = await page.evaluate(async () => {
   // The shift is a whole number of samples, so adjacent gaps can legitimately tie (1,2,2 as often
   // as 1,2,3). Demanding a strict rise every time failed a pool that was visibly working, so what
   // is asserted is: inward at every gap, never backwards, and further by the last one.
-  const shifts = [8, 12, 16].map((g) => corr(resid(frames[g]), resid(frames[0])));
+  // Against frame 0 the reading aliases: the ring pattern repeats every few bands, so once the
+  // rings have travelled half a period a later frame matches an earlier shift as well as the true
+  // one, and 2,2,2 or 1,2,1 came back for water that was visibly closing (7 of 17 runs, 2026-09-16).
+  // A quarter-second apart the travel is about one band — enough to register, and under half the
+  // period, so the sign cannot alias. (Frame to frame it is under a band and rounds to nothing.)
+  const steps = []; for (let g = 4; g < frames.length; g += 4) steps.push(corr(resid(frames[g]), resid(frames[g - 4])));
+  const travel = steps.reduce((a, b) => a + b, 0), back = steps.filter((v) => v < 0).length;
   const atMid = frames.map((f) => f[Math.floor(f.length / 2)]);
-  return { stillMid: still[0], stillRim: still[still.length - 1], shifts,
+  return { stillMid: still[0], stillRim: still[still.length - 1], travel, back, steps: steps.length,
     ripple: Math.max(...resid(frames[0]).map(Math.abs)),
     swing: Math.max(...atMid) - Math.min(...atMid), bands: CONFIG.poolBands };
 });
 check('the pool is light at its rim and deep in the middle, and the rings travel inward as he walks it',
   water && water.stillRim > water.stillMid + 25
     && water.swing > 6
-    && water.shifts.every((v) => v >= 1)                      // inward at every gap
-    && water.shifts[1] >= water.shifts[0] && water.shifts[2] >= water.shifts[1]   // and never backwards
-    // "further by the last one" used to be strict, and failed 6 of 15 runs on 2026-09-15/16 with
-    // 2,2,2 and 2,1,1 — rings visibly closing, read through frames that land unevenly under
-    // load, at a shift quantised to whole bands. Still water is 0,0,0 and outward -1,-2,-3; both
-    // still fail. What is asked now: at least two bands of travel by the end.
-    && water.shifts[2] >= 2,
+    && water.travel >= 2                                      // inward: two bands of travel over the watch
+    && water.back <= 1,                                       // and never (bar one noisy frame) outward
   water ? `still, the middle reads ${water.stillMid} on the blue channel and the rim ${water.stillRim} — `
     + `${water.stillRim - water.stillMid} lighter at the edge, across ${water.bands} bands. Standing in it, a fixed radius `
-    + `swings ${water.swing} and the ripple stands ${water.ripple} clear of that ramp; matched against the first frame at `
-    + `0.48s, 0.72s and 0.96s the pattern has moved ${water.shifts.join(', ')} bands — positive and rising, so the rings close inward`
-    : 'no pool room found in 120 seeds');
+    + `swings ${water.swing} and the ripple stands ${water.ripple} clear of that ramp; a quarter-second apart, over ${water.steps} steps, `
+    + `the pattern moved ${water.travel} bands inward with ${water.back} step(s) outward`
+    : 'no pool room found in the seeds tried');
 
 // Joe: "there should be enough space around the pool room, or any room that we
 // have points of interest in for players to get around them. We should never

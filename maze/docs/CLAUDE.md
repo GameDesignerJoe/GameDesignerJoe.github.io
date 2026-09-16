@@ -691,6 +691,54 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Sounds a phone can play, and a clock that stops (v0.107.0)
+
+Three items from Joe's doc, all sound. *"It doesn't appear to be a sound effect when you
+picked up a key. Or it might've just been very delayed. Yeah, really delayed. I restarted to
+see if that fixed it. Makes me think there's a memory leak because I was playing for
+awhile."* — *"The sound for the push block needs to be a little bit louder."* — *"There's
+no sound for when the gates open."* Seed 51406072.
+
+**Measured for a leak first, and there isn't one — in Chrome.** Headless Chrome ran the
+game for 3.7 minutes with a footstep every 400ms, a pickup and a key every 3s, a push every
+6s and a gate every 10s, sampling the audio thread through the DevTools protocol: render
+capacity 3–7% and flat, callback interval steady, JS heap 5–8MB and flat. The audio graph
+stops and drops every node it makes, and the composer runs one timer chain. Nothing grows.
+
+**What Safari does is stop the clock.** A lock screen, a notification, a switch of apps, and
+the AudioContext comes back `suspended` or `interrupted` and stays so — the game only woke it
+on the *first* touch. Every sound after that was scheduled into a clock that was not running;
+they queued, and when a later gesture finally resumed it they all fired together, late. That
+is "really delayed", and a restart clears the queue, which is what he saw. Three changes: a
+sound that cannot play now is dropped, not queued (`live()` in `tone` and `noise`); every
+touch and every return to the foreground nudges the context awake, not just the first; and
+the composer skips a bar it cannot sound rather than piling notes into the stopped clock. I
+cannot reproduce Safari's interruption here, so this is the fix for the mechanism the
+symptoms describe, and the report stays open until Joe plays a long session on it.
+
+**The gate had a sound and the push block had a weight, both under 100Hz.** A 90Hz triangle
+and a 48Hz one: a phone speaker cannot reproduce either, which is the lesson the music
+learned as `bassCarrierHz`. The gate is a grind you can hear, a tone up where the phone
+lives, and the leaves knocking home at the end; the push block's hiss is louder and its
+weight moved up to 220Hz. No sound effect in the game now has a voice under the floor.
+
+**Tests.** Sound, so smoke alone: 105 checks, two new. One plays the gate and the push and
+reads every oscillator's pitch off the audio probe, wanting none under `bassCarrierHz`. The
+other suspends the context, asks for a pickup and a key, wants no voices made, then sends a
+touch and wants the context running and the next pickup heard. Both proven red against the
+old code. Joe's ear is the third test, and the one that counts.
+
+**And the pool ripple probe, finally.** Red in 7 of 17 runs over two days with the water
+visibly working. It read each later frame's shift against frame zero — and the ring pattern
+repeats every few bands, so once the rings had travelled half a period a later frame matched
+an earlier shift as well as the true one, and 2,2,2 or 1,2,1 came back for real inward
+motion. Frame to frame the travel is under a band and rounds to nothing (0 in 19 steps, on
+the first try at this). A quarter-second apart it is about one band, enough to register and
+under half the period, so the sign cannot alias: the probe sums those steps and wants two
+bands of travel with at most one step outward. Two lessons for the file: a correlation
+against a fixed reference aliases on anything periodic, and a check that fails half the
+time with nothing changed is measuring its own timing, not the game.
+
 ## The HUD after a night's play, and a map that keeps its secrets (v0.106.0)
 
 Four items from Joe's doc, all HUD or map. *"Locked, charcoal states gold, even after all
