@@ -14,7 +14,11 @@
 // Refresh = new maze. Add ?seed=1234 to the URL to replay a specific one.
 // Gear (top-left) = debug options + "Update app" (hard refresh).
 // ───────────────────────────────────────────────────────────────
-const SIZES = { xs: [7, 10], sm: [10, 14], md: [14, 20], lg: [20, 28], xl: [28, 40] };   // cells across × down; each step doubles the area
+const SIZES = { xs: [7, 10], sm: [10, 14], md: [14, 20], lg: [20, 28], xl: [28, 40],   // cells across × down; each step doubles the area
+  // Joe: "I want to make a prototype of the biggest map we could possibly make. 10 times the size
+  // of our biggest map." Ten X-Larges: 11,214 cells to XL's 1,120. Reached from the Prototype menu,
+  // never dealt by a phase.
+  giant: [89, 126] };
 
 const CONFIG = {
   size: 'md',           // sm | md | lg | xl  (debug menu)

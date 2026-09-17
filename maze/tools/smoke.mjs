@@ -1901,6 +1901,31 @@ check('the hopscotch court is four squares, no more',
   hop.n > 0 && hop.max === 4 && hop.min === 4,
   `${hop.n} courts over 60 Child mazes, ${hop.min}–${hop.max} squares each; ${hop.missing} mazes without one`);
 
+// Joe: "I want to make a prototype of the biggest map we could possibly make. 10 times the size of
+// our biggest map... with all the features we have to put in it." The Prototype menu's Giant: ten
+// X-Larges of cells, the ordinary generator, every feature on. Built once, so it has to come in
+// under a time a phone will wait for, and hold everything the game has.
+const giant = await page.evaluate(async () => {
+  if (!$('optProto').querySelector('option[value="giant"]')) return { missing: true };
+  SAVE.phase = 4; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui.proto = 'giant';
+  const t0 = performance.now(); generate(4242); const ms = Math.round(performance.now() - t0);
+  // the exit, by walking, counting a pushable block's tiles as floor: he starts sealed behind one
+  const slideOpens = new Set(sliders.flatMap((sl) => [sl.x + ',' + sl.y, (sl.x + sl.dx) + ',' + (sl.y + sl.dy)]));
+  const walk = (x, y) => isOpen(x, y) || slideOpens.has(x + ',' + y);
+  const s0 = Math.floor(start.x) + ',' + Math.floor(start.y), seen = new Set([s0]), q = [[Math.floor(start.x), Math.floor(start.y)]];
+  for (let h = 0; h < q.length; h++) { const [x, y] = q[h]; for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny; if (walk(nx, ny) && !seen.has(k)) { seen.add(k); q.push([nx, ny]); } } }
+  const r = { ms, cells: CONFIG.cols * CONFIG.rows, xl: SIZES.xl[0] * SIZES.xl[1], exit: seen.has(exit.x + ',' + exit.y), reached: seen.size,
+    has: { doors: doors.length, keys: innerKeys.size, vaults: keyVaults.length, statues: shrines.length, stones: offerings.size, gaps: crawlGaps.size, sliders: sliders.length, swings: sliders.filter((s2) => s2.auto).length,
+      dark: darkTiles.size, lamp: lampSpot ? 1 : 0, scraps: scrapSpots.size, pages: journals.size, compass: [...pickups.values()].filter((v) => v === 'pointer').length, thread: [...pickups.values()].filter((v) => v === 'path').length,
+      hopscotch: hopscotch.length, figures: figures.length, rooms: landmarks.length, kinds: new Set(landmarks.map((l) => l.kind)).size, secret: secretTiles.size, tree: exitTree.size, districts: clusters.length } };
+  SAVE.ui.proto = 'off'; generate(4242); return r;
+});
+check('the Giant prototype is ten X-Larges, holds every feature the game has, and builds in the time a phone will wait',
+  !giant.missing && giant.cells >= giant.xl * 10 && giant.exit && Object.values(giant.has).every((v) => v > 0) && giant.has.kinds === 7 && giant.ms < 8000,
+  giant.missing ? 'no Giant on the Prototype menu' :
+  `${giant.cells} cells (${(giant.cells / giant.xl).toFixed(1)}× XL) built in ${giant.ms}ms; the exit is reachable (${giant.exit}, ${giant.reached} tiles); `
+  + Object.entries(giant.has).map(([k, v]) => `${k} ${v}`).join(', '));
+
 // Joe: "add an infinite charcoal to the debug window." Lit, it never wears down; empty, a tap
 // still lights a piece; and the pill says so.
 const infCoal = await page.evaluate(async () => {

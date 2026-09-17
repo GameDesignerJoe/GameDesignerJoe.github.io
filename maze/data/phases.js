@@ -99,5 +99,16 @@ const MUST = {
   //                    today: 77%           ·  0         ·  24 (4–56)      ·  under two rooms · 1 (0–1)
 };
 
+// ── the giant: every feature the game has, in one maze ten X-Larges big ──
+// Joe: "I want to make a prototype of the biggest map we could possibly make. 10 times the size of
+// our biggest map... with all the features we have to put in it." This is the feature row for it,
+// used in place of the phase's own when the Prototype menu says `giant`. Everything on, and the
+// numbers that are counts sit at the top of their range: three doors, the Child's squeezes and
+// swings, the full ladder of darkness with a lamp to find, statues, a figure, hopscotch.
+// It is a prototype: no contract row and no rebuild for a better deal — one maze, however it comes.
+const GIANT_F = { signs: true, charcoal: true, compass: true, thread: true, scraps: true, lamp: true, darkness: [0.25, 0.4, 0.6],
+  gate: true, tunnels: true, pockets: true, pathSlider: true, doors: 3, shrines: 'father', braid: 0.06, rooms: 1.6,
+  crawl: 12, swing: 4, figure: true, hopscotch: true };
+
 // the seven stones, in the order they are put down; each lifts one restriction a little, for good
 const STONES = ['Sight', 'Pace', 'Memory', 'Fear', 'Direction', 'Shame', 'Scale'];

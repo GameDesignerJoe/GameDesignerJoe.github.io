@@ -691,6 +691,48 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## The Giant (v0.110.0)
+
+Joe, from his Thoughts: *"I want to make a prototype of the biggest map we could possibly
+make. 10 times the size of our biggest map"* — *"with all the features we have to put in
+it."* It is on the Prototype menu as **Giant**: 89×126 cells, 11,214 to X-Large's 1,120, the
+ordinary generator, and `GIANT_F` in `data/phases.js` in place of the chapter's feature row
+— everything on, the counts at the top of their range: three doors asked for, the Child's
+squeezes and swings, the full ladder of darkness with a lamp, statues, a figure, hopscotch.
+No contract row and no rebuild for a better deal: one maze, however it comes, because a
+rebuild costs ten X-Larges. Darkness is forced on, where a chapter rolls for it.
+
+**Twenty seconds to build, then four.** The first giant took 20.3s in headless Chrome.
+The profiler put 12.5s of it in one line: the page order sorts rooms by walking distance to
+the route, and the distance was a flood from each room, *inside the sort's comparator*, with
+a queue that shifted — thousands of floods of 45,000 tiles. One flood out from the route,
+read back per room, and a stone room centre reading one more than its nearest open
+neighbour as the old flood did from its first step: same order, one pass. Then the rest:
+four floods that shifted their queues (O(n) a pop) now index them; the route floods stop the
+moment the exit is in hand; the door placer's severs() stops its flood at the exit; and the
+scrap spacing, which flooded the whole maze from every scrap for every scrap placed, keeps
+one nearest-scrap distance map and relaxes it from each new scrap. **Every one of these was
+checked against a fingerprint of twelve ordinary mazes** — tiles, pages, doors, keys,
+sliders, statues, stones, darkness, gaps, pickups — identical before and after, which
+caught the room-centre case the first time. 3.9s now, and an X-Large is quicker too.
+
+**It plays at 60fps.** Frame time walking the giant is 16.8ms median against 16.7ms in a
+medium maze; the map with 15,700 tiles charted draws at 16.6ms. The renderer culls to the
+screen and always did.
+
+**What one giant holds** (seed 4242, the Priest's self): 236 rooms of all seven kinds, 129
+sliders, 4 swings, 38 squeezes, 2 statues, 80 map scraps, 5 pages, a secret room, an exit
+tree, 9,800 tiles of darkness and a lamp, 81 thread pickups, and 1 door of the 3 asked for.
+Pickups scale with area, so the giant is generous with them; the doors do not, because a
+door has to sever the route and one build finds what it finds. Both are the prototype
+showing what the generator does at this size, which is what Joe wanted to see.
+
+**Tests.** Generation, so all three. Harness PASS 576 and selftest 19 — the harness does
+not build giants, so the smoke check does: ten X-Larges of cells, the exit reachable by
+walking (a pushable block's tiles as floor, since he starts sealed behind one), every
+feature present, all seven room kinds, and built under eight seconds. Proven red against a
+build with no Giant on the menu.
+
 ## Infinite charcoal, for the debug window (v0.109.0)
 
 Joe: *"add an infinite charcoal to the debug window."* A checkbox beside Infinite chalk,
