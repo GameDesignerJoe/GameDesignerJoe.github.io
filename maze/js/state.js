@@ -107,7 +107,7 @@ function updateCharcoal() {
   $('mapBtn').style.display = (phase().f.charcoal || phase().f.scraps) && !poolMode ? '' : 'none';
   // while a piece is in hand the stick itself drains; otherwise show how many whole pieces you carry
   charcoalEl.querySelector('i').style.setProperty('--fill', (charcoalLeft > 0 ? charcoalLeft / B.charcoal() * 100 : 100) + '%');
-  $('charcoalN').textContent = charcoalLeft > 0 ? (charcoal > 0 ? '+' + charcoal : '') : String(charcoal);
+  $('charcoalN').textContent = SAVE.ui.charcoalInf ? '∞' : charcoalLeft > 0 ? (charcoal > 0 ? '+' + charcoal : '') : String(charcoal);
   charcoalEl.classList.toggle('active', charcoalOn && charcoalLeft > 0);
   charcoalEl.classList.toggle('paused', !charcoalOn && charcoalLeft > 0);
   charcoalEl.classList.toggle('empty', charcoalLeft <= 0 && charcoal === 0);
@@ -127,6 +127,7 @@ function lockCharcoal() {
   pulse(charcoalEl); updateCharcoal();
 }
 function useCharcoal() {
+  if (SAVE.ui.charcoalInf && charcoalLeft <= 0 && charcoal === 0) charcoal = 1;   // the debug tap: the pocket is never empty
   if (solved || !started || sliding || paused) return;
   if (charcoalLeft > 0) { charcoalOn = !charcoalOn; if (charcoalOn) { charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); } else AUDIO.charcoalEnd(); }   // pause / resume the piece in hand
   else if (charcoal > 0) { charcoal--; charcoalUsed++; charcoalLeft = B.charcoal(); charcoalOn = true; charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); }

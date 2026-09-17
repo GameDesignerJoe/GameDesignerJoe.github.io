@@ -691,6 +691,26 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+## Infinite charcoal, for the debug window (v0.109.0)
+
+Joe: *"add an infinite charcoal to the debug window."* A checkbox beside Infinite chalk,
+`SAVE.ui.charcoalInf`. Lit, the piece never wears down; with an empty pocket a tap still
+lights one; the pill reads ∞. The counter of tiles logged still runs, so the heartbeat
+still beats. Asked for ahead of the big-map prototype, which is what it is for: charting a
+maze ten times the size without stopping to find charcoal.
+
+**Two probe repairs rode along.** The composer's notes now check the clock too: a bar's
+notes are scheduled by timer before the bar plays, and with the context stopped they were
+still made — three voices in the stopped-clock check, from the music, not the effect under
+test. And the pool ripple probe reads direction as a *time* lag between two neighbouring
+radii (the inner band lags the outer when the rings close), which cannot alias the way a
+spatial shift against frame zero did; the quarter-second version I tried first rounded to
+nothing. Lesson kept: for a periodic pattern, read time at fixed places, not place at
+fixed times.
+
+**Tests.** UI, so smoke alone: 106 checks, one new, proven red with the toggle's wiring
+removed (no toggle: the probe fails and says so, rather than throwing).
+
 ## Sounds a phone can play, and a clock that stops (v0.107.0)
 
 Three items from Joe's doc, all sound. *"It doesn't appear to be a sound effect when you

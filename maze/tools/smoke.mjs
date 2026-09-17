@@ -1901,6 +1901,28 @@ check('the hopscotch court is four squares, no more',
   hop.n > 0 && hop.max === 4 && hop.min === 4,
   `${hop.n} courts over 60 Child mazes, ${hop.min}–${hop.max} squares each; ${hop.missing} mazes without one`);
 
+// Joe: "add an infinite charcoal to the debug window." Lit, it never wears down; empty, a tap
+// still lights a piece; and the pill says so.
+const infCoal = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 1; SAVE.ui.charcoalInf = false; reset(4242); sliding = null; started = true; await nap(60);
+  if (!$('optCharcoal')) return { label: 'no toggle', litFromNothing: false, stillFull: false, logged: 0, off: true, full: 0 };   // fail, never throw, on a build without it
+  $('optCharcoal').checked = true; $('optCharcoal').dispatchEvent(new Event('change'));
+  const label = $('charcoalN').textContent;
+  charcoal = 0; charcoalLeft = 0; charcoalOn = false; updateCharcoal(); useCharcoal(); await nap(30);
+  const litFromNothing = charcoalOn && charcoalLeft > 0; const full = charcoalLeft;
+  // walk onto fresh tiles: the piece stays whole
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)]; const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [0, 0];
+  mapped = new Map(); visited = new Set(); let logged = 0;
+  for (const [x, y] of [[sx + dx, sy + dy], [sx, sy], [sx + dx, sy + dy]]) { player.x = x + 0.5; player.y = y + 0.5; lastTileKey = ''; await nap(100); }
+  logged = mapped.size; const stillFull = charcoalLeft === full;
+  $('optCharcoal').checked = false; $('optCharcoal').dispatchEvent(new Event('change')); charcoalOn = false; updateCharcoal();
+  return { label, litFromNothing, full, stillFull, logged, off: !SAVE.ui.charcoalInf };
+});
+check('the debug window\'s infinite charcoal never wears down and never runs out',
+  infCoal.label === '∞' && infCoal.litFromNothing && infCoal.stillFull && infCoal.logged > 0 && infCoal.off,
+  `pill reads "${infCoal.label}"; from an empty pocket a tap lit a piece (${infCoal.litFromNothing}); ${infCoal.logged} tiles charted and the piece is still ${infCoal.stillFull ? 'whole' : 'worn'} at ${infCoal.full}; switched back off (${infCoal.off})`);
+
 // ── sounds a phone can play, and a clock that stops (v0.107.0) ──
 // Joe: "There's no sound for when the gates open" and "the push block needs to be a little bit
 // louder." Both had their weight in a tone under 100Hz, which a phone speaker cannot reproduce —
@@ -2563,27 +2585,33 @@ const water = await page.evaluate(async () => {
   // The shift is a whole number of samples, so adjacent gaps can legitimately tie (1,2,2 as often
   // as 1,2,3). Demanding a strict rise every time failed a pool that was visibly working, so what
   // is asserted is: inward at every gap, never backwards, and further by the last one.
-  // Against frame 0 the reading aliases: the ring pattern repeats every few bands, so once the
-  // rings have travelled half a period a later frame matches an earlier shift as well as the true
-  // one, and 2,2,2 or 1,2,1 came back for water that was visibly closing (7 of 17 runs, 2026-09-16).
-  // A quarter-second apart the travel is about one band — enough to register, and under half the
-  // period, so the sign cannot alias. (Frame to frame it is under a band and rounds to nothing.)
-  const steps = []; for (let g = 4; g < frames.length; g += 4) steps.push(corr(resid(frames[g]), resid(frames[g - 4])));
-  const travel = steps.reduce((a, b) => a + b, 0), back = steps.filter((v) => v < 0).length;
+  // Direction, without aliasing. Reading a later frame's spatial shift against an earlier one
+  // aliases on a pattern that repeats every few bands (2,2,2 and 1,2,1 for water visibly closing,
+  // 7 of 17 runs), and frame to frame the travel is under a band and rounds to nothing. So read
+  // TIME at two neighbouring radii instead: a ring passes the outer band first and the inner band
+  // about a quarter-second later, so the inner series lags the outer. Find the lag that lines them
+  // up; inward is a positive lag, still water none, outward a negative one.
+  const mid = Math.floor(frames[0].length / 2);
+  const outer = frames.map((f) => f[mid + 1] - still[mid + 1]), inner = frames.map((f) => f[mid] - still[mid]);
+  let lag = 0, lagErr = Infinity;
+  for (let L = -12; L <= 12; L++) { let e = 0, n = 0;
+    for (let t = 0; t < frames.length; t++) { const u = t + L; if (u < 0 || u >= frames.length) continue; e += Math.abs(outer[t] - inner[u]); n++; }
+    if (n >= 10 && e / n < lagErr) { lagErr = e / n; lag = L; } }
+  const travel = lag, back = lag < 0 ? 1 : 0, steps = frames.length;
   const atMid = frames.map((f) => f[Math.floor(f.length / 2)]);
-  return { stillMid: still[0], stillRim: still[still.length - 1], travel, back, steps: steps.length,
+  return { stillMid: still[0], stillRim: still[still.length - 1], travel, back, steps,
     ripple: Math.max(...resid(frames[0]).map(Math.abs)),
     swing: Math.max(...atMid) - Math.min(...atMid), bands: CONFIG.poolBands };
 });
 check('the pool is light at its rim and deep in the middle, and the rings travel inward as he walks it',
   water && water.stillRim > water.stillMid + 25
     && water.swing > 6
-    && water.travel >= 2                                      // inward: two bands of travel over the watch
-    && water.back <= 1,                                       // and never (bar one noisy frame) outward
+    && water.travel >= 1,                                     // inward: the inner band lags the outer by a positive lag
+
   water ? `still, the middle reads ${water.stillMid} on the blue channel and the rim ${water.stillRim} — `
     + `${water.stillRim - water.stillMid} lighter at the edge, across ${water.bands} bands. Standing in it, a fixed radius `
-    + `swings ${water.swing} and the ripple stands ${water.ripple} clear of that ramp; a quarter-second apart, over ${water.steps} steps, `
-    + `the pattern moved ${water.travel} bands inward with ${water.back} step(s) outward`
+    + `swings ${water.swing} and the ripple stands ${water.ripple} clear of that ramp; over ${water.steps} frames `
+    + `the inner band lags the outer by ${water.travel} frame(s) — ${water.travel > 0 ? 'the rings close inward' : water.travel < 0 ? 'the rings run outward' : 'the water stands still'}`
     : 'no pool room found in the seeds tried');
 
 // Joe: "there should be enough space around the pool room, or any room that we

@@ -51,6 +51,7 @@ const AUDIO = (() => {
     drone.padGain = padG; drone.echoGain = eg;
     let bar = 0;
     const play = (freq, dur, preset, vol) => {
+      if (ac.state !== 'running') return;   // a note into a stopped clock would sound late; the bar is lost, not queued
       const t = ac.currentTime, g = ac.createGain(); g.connect(out); g.connect(echo);
       const mk = (type, f, det, gain, a, d, lpf) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = det || 0; const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lpf; const gg = ac.createGain(); gg.gain.setValueAtTime(0, t); gg.gain.linearRampToValueAtTime(gain, t + a); gg.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(lp); lp.connect(gg); gg.connect(g); o.start(t); o.stop(t + d + 0.1); };
       // Any note written below what a small speaker can sound gets its pitch carried up into the

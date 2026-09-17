@@ -115,6 +115,10 @@ $('optMove').addEventListener('change', () => { SAVE.ui.move = $('optMove').valu
 // spend, so everything downstream — the counter, the pulse, the sound — still happens as it does.
 $('optChalk').checked = !!SAVE.ui.chalkInf;
 $('optChalk').addEventListener('change', () => { SAVE.ui.chalkInf = $('optChalk').checked; persist(); updateChalk(); });
+// Joe: "add an infinite charcoal to the debug window." The piece in hand never wears down and the
+// pocket never runs out, so the map can be charted end to end while looking at something else.
+$('optCharcoal').checked = !!SAVE.ui.charcoalInf;
+$('optCharcoal').addEventListener('change', () => { SAVE.ui.charcoalInf = $('optCharcoal').checked; persist(); if (SAVE.ui.charcoalInf && charcoal === 0 && charcoalLeft <= 0) charcoal = 1; updateCharcoal(); });
 $('optFace').checked = SAVE.ui.face !== false;
 $('optFace').addEventListener('change', () => { SAVE.ui.face = $('optFace').checked; persist(); });
 $('optZoom').addEventListener('input', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(false); applySpeed(false); applyFog(false); });
