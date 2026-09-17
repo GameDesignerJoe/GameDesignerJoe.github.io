@@ -110,7 +110,10 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
    rather than a wide soft one, which is what actually holds an edge against grey. */
 #narr { position:fixed; top:calc(env(safe-area-inset-top) + 92px); left:28px; right:28px; text-align:center; font-size:19px; font-style:italic; line-height:1.45; color:#f2eee2; pointer-events:none; opacity:0; transition:opacity .9s ease; text-shadow:0 1px 3px #0d0f10, 0 2px 12px rgba(13,15,16,.95), 0 0 26px rgba(13,15,16,.85); }
 #narr.show { opacity:1; }
-#narr.journal { color:#d6cfbc; font-style:italic; font-size:17px; }
+/* A journal page is the one surface Joe writes line breaks into — CAST[0].pages[3] ends on a
+   repeated line, a beat apart. Default white-space collapses that newline to a space and the
+   beat is silently lost, so pages honour the breaks he types. Narrator lines are unaffected. */
+#narr.journal { color:#d6cfbc; font-style:italic; font-size:17px; white-space:pre-line; }
 #narr.journal small { display:block; margin-top:8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; opacity:.75; }
 #gear { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:10px; width:36px; height:36px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); display:grid; place-items:center; }
 #gear svg { width:20px; height:20px; }

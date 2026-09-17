@@ -2922,6 +2922,30 @@ check('every shelf and basin line can be reached, however many there are',
         + 'Run: node maze/tools/writer-page.mjs > maze/writer.html   (and republish the artifact)');
 }
 
+// ── 8i. a line break Joe types is a line break he gets (v0.108.0) ──
+
+// He wrote CAST[0].pages[3] to land twice — "I wasn't." then, a beat later, "I wasn't." — with a
+// newline between. Default white-space collapses a newline to a space, so the beat would have
+// vanished between the writer's page and the screen with nothing to show it had. The journal
+// honours the break; the narrator, which is one line by design, is left alone.
+const wrapped = await page.evaluate(async () => {
+  const el = document.getElementById('narr');
+  const two = "one line.\nand another.", one = two.replace('\n', ' ');
+  const measure = (t, journal) => { el.className = journal ? 'show journal' : 'show'; el.textContent = t;
+    return el.getBoundingClientRect().height; };
+  const out = { pageTwo: measure(two, true), pageOne: measure(one, true),
+                narrTwo: measure(two, false), narrOne: measure(one, false),
+                typed: (CAST[0].pages[3] || '').includes('\n') };
+  el.className = ''; el.textContent = '';
+  return out;
+});
+check('a line break in a journal page is a line break on the page',
+  wrapped.pageTwo > wrapped.pageOne + 4 && Math.abs(wrapped.narrTwo - wrapped.narrOne) < 2 && wrapped.typed,
+  'a page written across two lines stands ' + Math.round(wrapped.pageTwo) + 'px against '
+  + Math.round(wrapped.pageOne) + 'px for the same words run together, and the narrator ignores the '
+  + 'break as it always has (' + Math.round(wrapped.narrTwo) + 'px vs ' + Math.round(wrapped.narrOne) + 'px). '
+  + (wrapped.typed ? "The Child's fourth page is the one that carries one" : 'NOTHING IN text.js CARRIES A BREAK')); 
+
 // ── 8h. the path into data/text.js, under the line (v0.103.0) ────
 
 // Joe: "a debug element that would show the ID of every string when I played." The id is only
