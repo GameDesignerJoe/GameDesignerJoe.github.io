@@ -14,7 +14,11 @@
 // Refresh = new maze. Add ?seed=1234 to the URL to replay a specific one.
 // Gear (top-left) = debug options + "Update app" (hard refresh).
 // ───────────────────────────────────────────────────────────────
-const SIZES = { xs: [7, 10], sm: [10, 14], md: [14, 20], lg: [20, 28], xl: [28, 40] };   // cells across × down; each step doubles the area
+const SIZES = { xs: [7, 10], sm: [10, 14], md: [14, 20], lg: [20, 28], xl: [28, 40],   // cells across × down; each step doubles the area
+  // Joe: "I want to make a prototype of the biggest map we could possibly make. 10 times the size
+  // of our biggest map." Ten X-Larges: 11,214 cells to XL's 1,120. Reached from the Prototype menu,
+  // never dealt by a phase.
+  giant: [89, 126] };
 
 const CONFIG = {
   size: 'md',           // sm | md | lg | xl  (debug menu)
@@ -157,6 +161,10 @@ const CONFIG = {
   // to a medium maze, which you can walk a whole run without meeting. Rooms are what the maze is
   // navigated by now, so there are more of them.
   rooms: 5,             // open spaces carved into the maze
+  roomSpreadTries: 24,  // spots drawn for each room; the one farthest from every room already placed
+                        // wins. Joe: "All the rooms are pushed into the same space. These should be
+                        // more spread out." 1 would be the old first-fit; more spreads harder and
+                        // costs a few microseconds a room
   roomCells: [2, 3],    // room size range, in cells (2 = 3×3 tiles, 3 = 5×5 tiles)
   tunnels: 4,           // roofed corridor runs that hide the floor (you show through as a ghost)
   tunnelMinTiles: 5,    // shortest straight run that can become a tunnel
@@ -243,7 +251,14 @@ const CONFIG = {
   // Joe: "the charcoal icon should have a little pulse to it every time a tile is logged. Like a
   // little heart beat." Two knocks rather than one throb — it fires every couple of steps while
   // you walk, so it has to register without nagging. Much smaller than the pickup flash.
-  charcoalBeatMs: 440,  // one heartbeat of the charcoal icon as a tile goes onto the map. 0 = off
+  mapDrawsPlaces: false,// whether the map marks gates, statues and stones. Joe: "stop drawing the
+                        // important locations on the map so that players can put chalk down for them
+                        // instead" — so off; the floor is charted and the places are yours to mark
+  charcoalBeatEvery: 2, // the icon beats once per this many tiles logged. Joe, on once-a-tile: "It's
+                        // too crazy. Make it pulse like half as much"
+  charcoalBeatMs: 360,  // one heartbeat of the charcoal icon as a tile goes onto the map. 0 = off.
+                        // Shorter than the ~430ms between tiles at walking pace, so it comes to rest
+                        // between beats — the first cut at 440 never did, and read as no beat at all
   // Joe: "when your charcoal runs out we should do a big pulse of the icon to get the attention of
   // the player. This way they can turn on the next one if they want."
   charcoalSpentMs: 1500,// the big pulse when a piece is used up. 0 = off
@@ -261,6 +276,8 @@ const CONFIG = {
   exitGauntletMaxCells: 44,   // and the whole tree stops here, trunk included
   exitGauntletTunnel: 0.6,    // share of the pass-through cells drawn as tunnel rather than a room you
                         // step into, so some of it is just crawling, elbows and all
+  hopscotchSquares: 4,  // squares in the hopscotch court chalked down a straight run. Joe: "Hopscotch
+                        // should stop at four. It's too long otherwise." It ran to eight
   secretRooms: 1,       // a room sealed off behind a squeeze, covered in someone else's chalk. Child only
   secretRoomChalk: 0.5, // how thickly that room is drawn on: chance per floor tile
   secretRoomCells: 3,   // the kid's room, carved whole out of dead wall: 3 cells is 5x5 tiles of

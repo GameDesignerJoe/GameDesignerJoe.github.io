@@ -10,7 +10,7 @@
 // what the shelves and the basin say, in the voice of the self whose pages you're finding.
 // index climbs with how many of their pages you hold: little truth, some, most.
 const ROOM_LINES = {
-  'The Child':          { shelf: ["books. i cant reach the top ones.", "somebody put these here for me maybe.", "i think i know who wrote these. i dont want to say."], basin: ["rocks in a bowl. heavy ones.", "i tried to pick one up. its stuck to me.", "the man gave me these to hold. i think i can put them down now."] },
+  'The Child':          { shelf: ["empty shelves.", "Is it still a book shelf if no books are in it?", "I should write a book, “The boy and his maze.”"], basin: ["rocks in a bowl. heavy ones.", "I’ve carried this around for so long. I got used to the weight of it.", "Dad gave me these to hold. i think i can put them down now."] },
   'The Cartographer':   { shelf: ["Shelving. Someone indexed this place before me.", "The spines are ordered. Not by author — by need.", "These are surveys of the same territory. Mine included. All of them wrong in the same way."], basin: ["Seven stones. Weight, catalogued.", "A stone for each survey that failed. That is a reading, not a fact.", "I have been carrying the map's mistakes as if they were mine."] },
   'The Soldier':        { shelf: ["Inventory: shelves, five. Contents, unknown.", "Field notes from other units. Same terrain.", "Every one of them was me on a different rotation. I would follow any of them."], basin: ["Ballast. Something to steady a hand.", "You don't put down what keeps you upright. That's what I was taught.", "What I was taught was wrong. These aren't ballast. They're what I couldn't set down in front of anyone."] },
   'The Archivist':      { shelf: ["The shelving is sound. I know because I built it.", "Filed by hand. Not my hand. Nearly.", "I have read every page in this room. I know whose they are. I am not ready to file that."], basin: ["Seven items, stone, unlabelled. Unusual for me.", "I have never catalogued these. I think I refused to.", "Entry: each stone is a thing I recorded instead of felt."] },
@@ -39,7 +39,7 @@ const SHELF_LINES = [
 
 // what each self says to themselves while walking (the timed narrator). No repeats until all have played.
 const SELF_LINES = {
-  'The Child':          ["is anybody there?", "i counted to a hundred. then i counted again.", "the walls are warm if you put your face on them.", "im not scared. im not.", "if i keep walking the man will see me walking and be sad.", "i left a mark so i can find me later."],
+  'The Child':          ["is anybody there?", "i counted to a hundred. then i counted again.", "the walls are warm if you put your face on them.", "im not scared. im not.", "if i keep walking he’ll see me walking and be sad.", "i left a mark so i can find me later."],
   'The Cartographer':   ["Grid holds. For now.", "This corridor was not here yesterday. I am confident in the instruments.", "A map is a promise the ground doesn't have to keep.", "I have indexed this junction twice. It has two different numbers.", "If I cannot map it, I can at least describe how it refuses."],
   'The Soldier':        ["Water, half. Light, failing. Discipline, holding.", "Mark the junction. Move. Don't think about the count.", "Rooms make you feel found. Keep moving.", "The place isn't the enemy. That's harder.", "Things I will see again: nothing yet. Keep walking."],
   'The Archivist':      ["Entry: corridor, unremarkable. Cross-reference pending.", "I have not read them for meaning. I keep telling myself that.", "Procedure is a way of not standing still long enough to notice.", "Note to file: I stood here longer than the entry required.", "Everything is catalogued. Nothing is understood."],
@@ -68,12 +68,12 @@ const NARRATOR = [
 
 // Five past selves. Each maze picks one; its pages are scattered through the rooms, in order.
 const CAST = [
-  { name: 'The Child', summary: 'Hope someone came back for them.', wake: "the man said wait here.", leave: "but i didnt.", pages: [
-    "i dont no this place. the man said wait here and he wud come back. i am waiting.",
-    "i made a X on the floor so the man can find me. i made lots of X. now i am out of chalk.",
-    "the walls are warm if you put your face on them. i think the maze is sleeping.",
-    "i am not scared any more. i think the man is not coming. thats ok. i am ok.",
-    "if you find this you are doing good. keep going. i left the light on for you.",
+  { name: 'The Child', summary: 'Hope someone came back for them.', wake: "Dad said wait here.", leave: "but i didnt wait.", pages: [
+    "I tried to wait… or I did wait, didn’t I? But I got lost in waiting.",
+    "I drew a map to me. He’ll find me. Dad will come back. He just busy. I called the other day. I’ll see him soon. I’m out of chalk.",
+    "I thought I heard him. I told mom. She didn’t like that. I looked for him, but I got lost. I’m gonna look some more.",
+    "I found him. I dreamed. He blamed mom. He blamed the war. His war. He said I shouldn’t cry. Men don’t cry. I wasn’t.\nI wasn’t.",
+    "I don’t think im going to right anymore. I’m gonna go help mom. But if you find this you are doing good. Keep going. I’ll leave the light on for you.",
   ]},
   { name: 'The Cartographer', summary: 'Hope she found the map she was looking for.', wake: "This is a solvable place.", pages: [
     "Day 1. Grid established from the entrance. Every corridor can be indexed. Every index can be walked. This is a solvable place.",
@@ -152,7 +152,7 @@ const POOLS = [
 ];
 
 const TUTORIALS = {
-  chalk:    { title: 'Chalk', why: "I've held this before. I know the weight of it.", how: "I press it and choose what to leave on the floor — an arrow, a cross, a question — so that when I come back this way, and I will, I'll know what I thought then. One piece, one mark. The marks stay. It's there now, at the bottom of my sight, waiting." },
+  chalk:    { title: 'Chalk', why: "he used to make fun of my drawings. So I stopped", how: "I can use it to mark the floor, help find my way around." },
   charcoal: { title: 'Charcoal', why: "Someone drew with this. Perhaps it was me.", how: "When I take it up it draws what my light touches — the floor, the walls, the turns — until it wears down to nothing. I can set it down and pick it up again. The map I'm making is beside it, when I want to look." },
   pointer:  { title: 'A compass needle', why: "It knows where the way out is. It doesn't know the way.", how: "It will point for a while, straight as a bird flies, and then it will stop. The corridors don't care where it points." },
   path:     { title: 'A spool of thread', why: "Somebody measured this place once and left the measure on the floor.", how: "I can see it now, laid along the stones wherever my light falls — the shortest way out. It won't stay visible long. It never does." },
@@ -160,7 +160,7 @@ const TUTORIALS = {
   scrap:    { title: 'A scrap of map', why: "Torn from something larger. The hand that drew it was steady.", how: "It shows the halls around where it lay — a fifth of this place, near enough — and I've laid it into my own map. The rest is still mine to walk." },
   lamp:     { title: 'A lamp', why: "There are places here the walls have swallowed the light entirely.", how: "Lit, it throws a cone ahead of me, the way I'm facing, and a little warmth at my feet. I can douse it and light it again from the lamp beside my tools. In the dark, without it, I would see only myself." },
   door:     { title: 'A key', why: "Somewhere in here is a door with this shape on it. I've passed it, or I will.", how: "Doors like that don't open for anyone without the matching key. When I find one I can't open, I should leave a mark — I'll be coming back to it." },
-  offering: { title: 'A carved stone', why: "This belongs to somebody. The mark says who.", how: "Somewhere in here is a statue with a bowl at its feet, waiting for this. I can carry one stone at a time, so the rest I have to remember the way back to." },
+  offering: { title: 'A carved stone', why: "Reminds me of my father and something else, I don’t want to think about it.", how: "This doesn’t belong here… it belongs with him. Is he in here?" },
   page:     { title: 'A page', why: "I am not the first here. I won't be the last.", how: "Someone wrote this down before they moved on. I'll keep what I find. The pages gather in Stories, where I can read them together." },
 };
 
@@ -172,14 +172,25 @@ const TUTORIALS = {
 // The father left, and is dead: what there is to make is peace. The mother he carried as a child
 // and walked away from as a man: she resents him still, and what there is to make is being all
 // right with that. The wife who sees past the shell he will not come out of. The friend he was too
-// rigid with, or pulled down, who may be offering a hand he does not think he deserves. The child,
-// smart and still a teenager, who does not understand why he will not just get help.
+// rigid with, or pulled down, who may be offering a hand he does not think he deserves. The Teen —
+// his own kid, smart and still a teenager, who does not understand why he will not just get help.
+//
+// Two children in this game and they are not the same person. The Child, the first chapter, is the
+// man himself, small, waiting where his father told him to. The Teen is the man's own child. Joe:
+// "The Child section at the start of the game is the main character as a child, not their child.
+// We might call their child The Teen." So the person is `teen` here and everywhere, and `child`
+// is only ever the chapter.
+//
+// One person to a chapter. Joe: "We need to lock in each person to each chapter. So child chapter
+// has statues of the father. The mom gets another one, and the friend and so on to the Teen
+// getting the last one." Which person is which chapter's is `shrines` in data/phases.js; both
+// statues in a maze wait for that person, and so both stones carry their mark.
 const PEOPLE = [
   { id: 'father', mark: 'bar',     name: 'my father' },
   { id: 'mother', mark: 'chevron', name: 'my mother' },
   { id: 'spouse', mark: 'cross',   name: 'my wife' },
   { id: 'friend', mark: 'wave',    name: 'my friend' },
-  { id: 'child',  mark: 'arc',     name: 'my child' },
+  { id: 'teen',   mark: 'arc',     name: 'my kid' },     // the Teen; on the card, what a father calls them
 ];
 
 // ── the exchange ────────────────────────────────────────────────
@@ -192,15 +203,20 @@ const PEOPLE = [
 //
 // The maze is written vague. These are the only voices in the game that belong to real people, so
 // they are written the other way — small and specific. First pass; Joe rewrites.
+//
+// A person's steps run across the game, and where the chapter puts them decides whose mouth the
+// question is in. The father's first two are asked in the Child's maze, so they are the boy's —
+// lowercase, small, the voice of the boy still waiting — and the father answers a child. The
+// last two come in the Priest's maze, a grown man asking a dead one.
 const EXCHANGES = {
   father: {
     steps: [
-      { q: ["Did you mean to come back?", "Did you think about me?"],
-        a: ["I meant to. Meaning to was the thing I was good at.", "Every day for a while. Then on your birthday. Then when I saw a boy your age. You got older than the boy I was looking for."] },
-      { q: ["Why did you go?", "Was it her?"],
-        a: ["Because staying looked like the rest of my life, and I was a coward about my life.", "No. It was never anyone. It was that I could."] },
-      { q: ["Did you know I waited?", "Would it have mattered if I'd been better?"],
-        a: ["I knew. I told myself you'd stop. I don't know when you did.", "You were a child. There was no better. Put that one down."] },
+      { q: ["are you coming back?", "did i do something?"],
+        a: ["I meant to. Meaning to was the thing I was good at.", "No. You were a child. There was nothing you did or didn't do. Put that one down."] },
+      { q: ["where did you go?", "can i come with you?"],
+        a: ["Somewhere that looked less like the rest of my life. It wasn't. I was a coward about my life.", "No. It was the one thing I got right, and I got it right for the wrong reasons."] },
+      { q: ["Did you know I waited?", "Did you think about me?"],
+        a: ["I knew. I told myself you'd stop. I don't know when you did.", "Every day for a while. Then on your birthday. Then when I saw a boy your age. You got older than the boy I was looking for."] },
       { q: ["Are you sorry?", "What am I supposed to do with this?"],
         a: ["Yes. It doesn't reach you. I know that. It's still yes.", "Nothing. I'm not a thing to do. I'm just what happened."] },
     ],
@@ -245,7 +261,7 @@ const EXCHANGES = {
     ],
     done: "The hand's still out. It's not going anywhere. You know where I am.",
   },
-  child: {
+  teen: {
     steps: [
       { q: ["Are you angry at me?", "Do you know I love you?"],
         a: ["Yeah. Obviously. Are you going to do anything about it or is this another one of the talks.", "I know you say it. I know you think it. I don't know what it's for if you won't let me near you."] },
@@ -268,6 +284,8 @@ const SHRINE_LINES = {
   again:    "It has said what it had to say to me.",
   noPage:   "It settles into the bowl. There is nothing left in here for it to point to.",
   wrong:    "This isn't the one it's waiting for.",
+  // Joe: "When you don't have a stone but you collide with the statue, it should say something."
+  noStone:  "The bowl is empty. It is waiting for something I haven't found yet.",
 };
 
 // ── the father, placed ──────────────────────────────────────────
@@ -312,4 +330,15 @@ const POOL_UI = {
   keeperNods:     'The Caretaker nods once.',
   putDown:        'Put the stone down.',
   putDownChoice:  'I put it down.',
+};
+
+// ── every block above, by name ──────────────────────────────────────────────
+// The engine hands each surface a finished string, never an id, so the debug "Line IDs" view has
+// to look the id up backwards: words → path. That walk needs the blocks as data. A plain object
+// literal rather than anything clever, because these are `const` in the shared script scope and
+// there is no way to enumerate them — and smoke.mjs asserts this list is complete, so a block
+// added tomorrow can't quietly stop being findable.
+const TEXT_BLOCKS = {
+  ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI,
 };

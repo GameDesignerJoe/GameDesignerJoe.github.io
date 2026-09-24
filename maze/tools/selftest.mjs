@@ -45,7 +45,7 @@ const grab = (phaseIdx, seed) => page.evaluate(([p, sd]) => {
     doors: doors.map((d) => ({ x: d.x, y: d.y, shape: d.shape, onRoute: !!d.onRoute })),
     innerKeys: [...innerKeys.entries()],
     landmarks: landmarks.map((L) => ({ kind: L.kind, rx0: L.rx0 ?? L.x, ry0: L.ry0 ?? L.y, rx1: L.rx1 ?? L.x, ry1: L.ry1 ?? L.y })),
-    shrines: shrines.map((s) => ({ x: s.x, y: s.y, sx: s.sx, sy: s.sy, who: s.who })), offerings: [...offerings.entries()],
+    shrines: shrines.map((s) => ({ x: s.x, y: s.y, sx: s.sx, sy: s.sy, who: s.who })), offerings: [...offerings.entries()], shrineWho: typeof phase().f.shrines === 'string' ? phase().f.shrines : null,
     pockets: pockets.map(([x, y]) => [x, y]),
     sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, atStart: !!sl.atStart, onPath: !!sl.onPath })),
     crawlGaps: [...crawlGaps], crawlCells: [...crawlCells],
@@ -129,6 +129,27 @@ const MUTATIONS = [
     const sh = s.shrines[0];
     s.offerings = s.offerings.filter(([, who]) => who !== sh.who);
     s.offerings.push([K(sh.sx, sh.sy), sh.who]);
+  }],
+
+  ['a crawl gap given a third side', 'a crawl gap has two sides and they face each other; a crawl cell has at most two ways out', (s) => {
+    // a room carved beside the hole: the tile on one flank becomes floor
+    const gaps = (s.crawlGaps || []).map((k) => k.split(',').map(Number)).filter(([x, y]) => s.tiles[y]?.[x] === '1');
+    if (!gaps.length) { s.crawlGaps = ['3,3']; s.tiles[3] = s.tiles[3].slice(0, 2) + '111' + s.tiles[3].slice(5); s.tiles[2] = s.tiles[2].slice(0, 3) + '1' + s.tiles[2].slice(4); return; }
+    const [x, y] = gaps[0], horiz = s.tiles[y][x + 1] === '1';
+    const [fx, fy] = horiz ? [x, y + 1] : [x + 1, y];
+    s.tiles[fy] = s.tiles[fy].slice(0, fx) + '1' + s.tiles[fy].slice(fx + 1);
+  }],
+
+  ['two rooms carved on the same ground', 'no two rooms share ground', (s) => {
+    // the old placer, after twenty misses, settled for wherever it was: the second room lands on the first
+    const rooms = s.landmarks.filter((l) => l.rx1 > l.rx0);
+    if (rooms.length < 2) { s.landmarks.push({ kind: 'dais', rx0: 3, ry0: 3, rx1: 5, ry1: 5 }, { kind: 'well', rx0: 4, ry0: 4, rx1: 6, ry1: 6 }); return; }
+    Object.assign(rooms[1], { rx0: rooms[0].rx0, ry0: rooms[0].ry0, rx1: rooms[0].rx1, ry1: rooms[0].ry1 });
+  }],
+
+  ['a statue of someone else\'s in the chapter', 'every statue and every stone in a maze is the chapter\'s person', (s) => {
+    // the five dealt at random again: the second statue is anyone but the chapter's person
+    s.shrines[1].who = s.shrineWho === 'father' ? 'mother' : 'father';
   }],
 
   ['a page dropped in the middle of a pool', 'no page lies in a pool\'s water', (s) => {

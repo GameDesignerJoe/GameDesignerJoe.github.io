@@ -8,15 +8,21 @@
 
 // ── phases: what the maze allows and what you carry, per self ──
 // features: which existing systems are switched on. burden lifts are applied by count of stones put down (SAVE.stones).
+// shrines: whose statues stand in this chapter's maze — one person to a chapter, both statues theirs.
+// Joe: "child chapter has statues of the father. The mom gets another one, and the friend and so on
+// to the Teen getting the last one." Each person has four exchanges and a maze holds two statues,
+// so a person needs two chapters to be heard out: father, mother, spouse get both; friend and the
+// Teen get one each, the Teen last, in the chapter where the make-believe is stripped away. Change
+// a word here to move them. The ids are PEOPLE's in data/text.js.
 const PHASES = [
-  { who: 'The Child',          size: 'md', bodyScale: 0.68, f: { turns: 'sparse', shrines: true, signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0, rooms: 1.4, crawl: 5, swing: 3, figure: true, hopscotch: true } },
-  { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, doors: 1, shrines: true, braid: 0.06 } },
-  { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, shrines: true, braid: 0.06 } },
-  { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, shrines: true, braid: 0.06, rooms: 1.6 } },
-  { who: 'The Priest',         size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: true, braid: 0.06 } },
-  { who: 'The Criminal',       size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: true, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: true, braid: 0.06 } },
-  { who: 'The One Who Stayed', size: 'xl', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: true, braid: 0.06 } },
-  { who: 'You',                size: 'sm', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: false, gate: false, tunnels: true, pockets: true, pathSlider: false, doors: 1, shrines: true, braid: 0.06 } },
+  { who: 'The Child',          size: 'md', bodyScale: 0.68, f: { turns: 'sparse', shrines: 'father', signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0, rooms: 1.4, crawl: 5, swing: 3, figure: true, hopscotch: true } },
+  { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, doors: 1, shrines: 'mother', braid: 0.06 } },
+  { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, shrines: 'friend', braid: 0.06 } },
+  { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, shrines: 'spouse', braid: 0.06, rooms: 1.6 } },
+  { who: 'The Priest',         size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: 'father', braid: 0.06 } },
+  { who: 'The Criminal',       size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: true, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: 'mother', braid: 0.06 } },
+  { who: 'The One Who Stayed', size: 'xl', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 2, shrines: 'spouse', braid: 0.06 } },
+  { who: 'You',                size: 'sm', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: false, gate: false, tunnels: true, pockets: true, pathSlider: false, doors: 1, shrines: 'teen', braid: 0.06 } },
 ];
 
 // ── the contract: what each chapter's maze must HOLD ──
@@ -80,7 +86,9 @@ const MUST = {
   'The Archivist':      { keysVaulted: 'all', exitGuard: 10, keyDetour: 65, roomGap: 8,  thresholds: 1 },
   //                    today: 0%            ·  0         ·  88 (60–136)    ·  6 (2–8)   ·  0 (0–2)
   //                    Its rooms knob is the highest in the game, and 11 rooms in a lg maze is why
-  //                    its gap is the worst in the game. Fewer rooms or a spread rule, not a retry.
+  //                    its gap is the worst in the game. v0.102.0 added the spread rule
+  //                    (roomSpreadTries): min 0→8, median 8→10 over 60 seeds. Fewer rooms is
+  //                    the lever left, and it is Joe's.
   'The Priest':         { keysVaulted: 'all', exitGuard: 10, keyDetour: 45, roomGap: 10, thresholds: 1 },
   //                    today: 3%            ·  0         ·  60 (40–154)    ·  10 (8–20) ·  0 (0–1)
   'The Criminal':       { keysVaulted: 'all', exitGuard: 12, keyDetour: 55, roomGap: 10, thresholds: 1 },
@@ -90,6 +98,17 @@ const MUST = {
   'You':                { keysVaulted: 'all', exitGuard: 8,  keyDetour: 15, roomGap: 10, thresholds: 1 },
   //                    today: 77%           ·  0         ·  24 (4–56)      ·  under two rooms · 1 (0–1)
 };
+
+// ── the giant: every feature the game has, in one maze ten X-Larges big ──
+// Joe: "I want to make a prototype of the biggest map we could possibly make. 10 times the size of
+// our biggest map... with all the features we have to put in it." This is the feature row for it,
+// used in place of the phase's own when the Prototype menu says `giant`. Everything on, and the
+// numbers that are counts sit at the top of their range: three doors, the Child's squeezes and
+// swings, the full ladder of darkness with a lamp to find, statues, a figure, hopscotch.
+// It is a prototype: no contract row and no rebuild for a better deal — one maze, however it comes.
+const GIANT_F = { signs: true, charcoal: true, compass: true, thread: true, scraps: true, lamp: true, darkness: [0.25, 0.4, 0.6],
+  gate: true, tunnels: true, pockets: true, pathSlider: true, doors: 3, shrines: 'father', braid: 0.06, rooms: 1.6,
+  crawl: 12, swing: 4, figure: true, hopscotch: true };
 
 // the seven stones, in the order they are put down; each lifts one restriction a little, for good
 const STONES = ['Sight', 'Pace', 'Memory', 'Fear', 'Direction', 'Shame', 'Scale'];

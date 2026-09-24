@@ -14,7 +14,7 @@ function renderStories() {
 }
 function readPage(ci, pi) {
   const c = CAST[ci];
-  $('reader').innerHTML = `<div class="who">${c.name} · page ${pi+1} of ${c.pages.length}</div><p>${c.pages[pi]}</p>`;
+  $('reader').innerHTML = `<div class="who">${c.name} · page ${pi+1} of ${c.pages.length}</div><p>${c.pages[pi]}${idHtml(c.pages[pi])}</p>`;
   storiesEl.querySelectorAll('.box.sel').forEach(b => b.classList.remove('sel'));
   storiesEl.querySelector(`.box[data-c="${ci}"][data-p="${pi}"]`)?.classList.add('sel');
   storiesEl.scrollTo({ top: 0, behavior: 'smooth' });
@@ -23,7 +23,7 @@ function readAll(ci) {
   const c = CAST[ci], got = SAVE.collected[c.name] || [];
   if (!collectedCount(c.name)) { $('reader').innerHTML = `<div class="who">${c.name}</div><p class="missing">You haven't found any of these pages yet.</p>`; }
   else $('reader').innerHTML = `<div class="who">${c.name} · ${collectedCount(c.name)} of ${c.pages.length} pages</div>` +
-    c.pages.map((t, i) => got[i] ? `<p>${t}</p>` : `<p class="missing">— page ${i+1} not yet found —</p>`).join('');
+    c.pages.map((t, i) => got[i] ? `<p>${t}${idHtml(t)}</p>` : `<p class="missing">— page ${i+1} not yet found —</p>`).join('');
   storiesEl.querySelectorAll('.box.sel').forEach(b => b.classList.remove('sel'));
   storiesEl.scrollTo({ top: 0, behavior: 'smooth' });
 }

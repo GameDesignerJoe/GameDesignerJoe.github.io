@@ -1331,10 +1331,17 @@ const pit = await page.evaluate(async () => {
   // far away: nothing should be shoved
   player.x = 1.5; player.y = 1.5; await frame(); await frame();
   const away = L.shove ? Math.max(...L.shove) : 0;
-  // standing in it: the balls near him give way
-  player.x = (L.rx0 + L.rx1) / 2 + 0.5; player.y = (L.ry0 + L.ry1) / 2 + 0.5;
-  for (let i = 0; i < 25; i++) await frame();
-  const inIt = Math.max(...L.shove.map(Math.abs));
+  // standing in it: the balls near him give way. Not one spot but a short walk about the pit —
+  // where the balls lie is the room's own noise, and the exact middle of one pit (the first with
+  // a pit once the rooms spread out, v0.102.0) happened to have no ball within reach, which read
+  // as 0.12 tiles of give against a bar of 0.15. A player is not stood on one tile either.
+  const cx = (L.rx0 + L.rx1) / 2 + 0.5, cy = (L.ry0 + L.ry1) / 2 + 0.5;
+  let inIt = 0;
+  for (const [ox2, oy2] of [[0, 0], [0.8, 0], [-0.8, 0], [0, 0.8], [0, -0.8], [0.8, 0.8], [-0.8, -0.8]]) {
+    player.x = cx + ox2; player.y = cy + oy2;
+    for (let i = 0; i < 10; i++) await frame();
+    inIt = Math.max(inIt, ...L.shove.map(Math.abs));
+  }
   // and they roll back once he leaves
   player.x = 1.5; player.y = 1.5;
   for (let i = 0; i < 45; i++) await frame();
@@ -1716,8 +1723,9 @@ const drag = await page.evaluate(async () => {
       const px = L.x + 0.5, py = L.y + 0.5, rr = 1.6;
       const put = (ang) => { player.x = px + Math.cos(ang) * rr; player.y = py + Math.sin(ang) * rr; };
       const sweep = async (dir) => {
-        put(0); await nap(60);
-        const from = L.spin;
+        // a spiral that has never been on screen has no `spin` yet: stand by it a frame first
+        put(0); await nap(60); if (L.spin === undefined) { await nap(120); }
+        const from = L.spin ?? 0;
         for (let i = 1; i <= 12; i++) { put(dir * i * Math.PI / 24); await nap(28); }
         return L.spin - from;
       };
@@ -1862,6 +1870,233 @@ check('the nav view numbers every walkable tile, and the numbers hold still',
   `${nav.walk} walkable tiles; he starts on ${nav.hereA} and it is still ${nav.hereB} after the camera moves; `
   + `the way out is ${nav.exitNo}; a wall tile has no number`);
 
+// Joe: "All the rooms are pushed into the same space. These should be more spread out." The worst
+// of it was The Archivist: eleven rooms in a lg maze, two of them on one tile in 1 maze of 30 and
+// within four tiles of each other in 7 of 30 (QUALITY.md). The bar is the property, not the knob:
+// no two rooms' middles within four tiles, in the chapter that clumped hardest and in the Child's.
+const roomSpread = await page.evaluate(() => {
+  let pairs = 0, close = 0, mazes = 0, minGap = Infinity;
+  for (const ph of [0, 3]) for (let s2 = 1; s2 <= 30; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 53 + ph); mazes++;
+    const rooms = landmarks.filter((l) => l.rx1 > l.rx0).map((l) => [(l.rx0 + l.rx1) / 2, (l.ry0 + l.ry1) / 2]);
+    for (let i = 0; i < rooms.length; i++) for (let j = i + 1; j < rooms.length; j++) {
+      const g = Math.max(Math.abs(rooms[i][0] - rooms[j][0]), Math.abs(rooms[i][1] - rooms[j][1])); pairs++; minGap = Math.min(minGap, g); if (g < 4) close++; }
+  }
+  return { mazes, pairs, close, minGap };
+});
+check('no two rooms are placed within four tiles of each other',
+  roomSpread.pairs > 0 && roomSpread.close === 0,
+  `${roomSpread.pairs} room pairs over ${roomSpread.mazes} Child and Archivist mazes; ${roomSpread.close} within four tiles, the closest ${roomSpread.minGap} apart`);
+
+// Joe: "Hopscotch should stop at four. It's too long otherwise." The bar is his number, not the
+// knob: every court in every Child maze is four squares, and every maze that has a straight run
+// of four gets one.
+const hop = await page.evaluate(() => {
+  const lens = [], missing = [];
+  for (let s2 = 1; s2 <= 60; s2++) { SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 31);
+    if (hopscotch.length) lens.push(hopscotch.length); else missing.push(s2 * 31); }
+  return { n: lens.length, max: Math.max(...lens), min: Math.min(...lens), missing: missing.length };
+});
+check('the hopscotch court is four squares, no more',
+  hop.n > 0 && hop.max === 4 && hop.min === 4,
+  `${hop.n} courts over 60 Child mazes, ${hop.min}–${hop.max} squares each; ${hop.missing} mazes without one`);
+
+// Joe: "I want to make a prototype of the biggest map we could possibly make. 10 times the size of
+// our biggest map... with all the features we have to put in it." The Prototype menu's Giant: ten
+// X-Larges of cells, the ordinary generator, every feature on. Built once, so it has to come in
+// under a time a phone will wait for, and hold everything the game has.
+const giant = await page.evaluate(async () => {
+  if (!$('optProto').querySelector('option[value="giant"]')) return { missing: true };
+  SAVE.phase = 4; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui.proto = 'giant';
+  const t0 = performance.now(); generate(4242); const ms = Math.round(performance.now() - t0);
+  // the exit, by walking, counting a pushable block's tiles as floor: he starts sealed behind one
+  const slideOpens = new Set(sliders.flatMap((sl) => [sl.x + ',' + sl.y, (sl.x + sl.dx) + ',' + (sl.y + sl.dy)]));
+  const walk = (x, y) => isOpen(x, y) || slideOpens.has(x + ',' + y);
+  const s0 = Math.floor(start.x) + ',' + Math.floor(start.y), seen = new Set([s0]), q = [[Math.floor(start.x), Math.floor(start.y)]];
+  for (let h = 0; h < q.length; h++) { const [x, y] = q[h]; for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny; if (walk(nx, ny) && !seen.has(k)) { seen.add(k); q.push([nx, ny]); } } }
+  const r = { ms, cells: CONFIG.cols * CONFIG.rows, xl: SIZES.xl[0] * SIZES.xl[1], exit: seen.has(exit.x + ',' + exit.y), reached: seen.size,
+    has: { doors: doors.length, keys: innerKeys.size, vaults: keyVaults.length, statues: shrines.length, stones: offerings.size, gaps: crawlGaps.size, sliders: sliders.length, swings: sliders.filter((s2) => s2.auto).length,
+      dark: darkTiles.size, lamp: lampSpot ? 1 : 0, scraps: scrapSpots.size, pages: journals.size, compass: [...pickups.values()].filter((v) => v === 'pointer').length, thread: [...pickups.values()].filter((v) => v === 'path').length,
+      hopscotch: hopscotch.length, figures: figures.length, rooms: landmarks.length, kinds: new Set(landmarks.map((l) => l.kind)).size, secret: secretTiles.size, tree: exitTree.size, districts: clusters.length } };
+  SAVE.ui.proto = 'off'; generate(4242); return r;
+});
+check('the Giant prototype is ten X-Larges, holds every feature the game has, and builds in the time a phone will wait',
+  !giant.missing && giant.cells >= giant.xl * 10 && giant.exit && Object.values(giant.has).every((v) => v > 0) && giant.has.kinds === 7 && giant.ms < 8000,
+  giant.missing ? 'no Giant on the Prototype menu' :
+  `${giant.cells} cells (${(giant.cells / giant.xl).toFixed(1)}× XL) built in ${giant.ms}ms; the exit is reachable (${giant.exit}, ${giant.reached} tiles); `
+  + Object.entries(giant.has).map(([k, v]) => `${k} ${v}`).join(', '));
+
+// Joe: "add an infinite charcoal to the debug window." Lit, it never wears down; empty, a tap
+// still lights a piece; and the pill says so.
+const infCoal = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 1; SAVE.ui.charcoalInf = false; reset(4242); sliding = null; started = true; await nap(60);
+  if (!$('optCharcoal')) return { label: 'no toggle', litFromNothing: false, stillFull: false, logged: 0, off: true, full: 0 };   // fail, never throw, on a build without it
+  $('optCharcoal').checked = true; $('optCharcoal').dispatchEvent(new Event('change'));
+  const label = $('charcoalN').textContent;
+  charcoal = 0; charcoalLeft = 0; charcoalOn = false; updateCharcoal(); useCharcoal(); await nap(30);
+  const litFromNothing = charcoalOn && charcoalLeft > 0; const full = charcoalLeft;
+  // walk onto fresh tiles: the piece stays whole
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)]; const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [0, 0];
+  mapped = new Map(); visited = new Set(); let logged = 0;
+  for (const [x, y] of [[sx + dx, sy + dy], [sx, sy], [sx + dx, sy + dy]]) { player.x = x + 0.5; player.y = y + 0.5; lastTileKey = ''; await nap(100); }
+  logged = mapped.size; const stillFull = charcoalLeft === full;
+  $('optCharcoal').checked = false; $('optCharcoal').dispatchEvent(new Event('change')); charcoalOn = false; updateCharcoal();
+  return { label, litFromNothing, full, stillFull, logged, off: !SAVE.ui.charcoalInf };
+});
+check('the debug window\'s infinite charcoal never wears down and never runs out',
+  infCoal.label === '∞' && infCoal.litFromNothing && infCoal.stillFull && infCoal.logged > 0 && infCoal.off,
+  `pill reads "${infCoal.label}"; from an empty pocket a tap lit a piece (${infCoal.litFromNothing}); ${infCoal.logged} tiles charted and the piece is still ${infCoal.stillFull ? 'whole' : 'worn'} at ${infCoal.full}; switched back off (${infCoal.off})`);
+
+// ── sounds a phone can play, and a clock that stops (v0.107.0) ──
+// Joe: "There's no sound for when the gates open" and "the push block needs to be a little bit
+// louder." Both had their weight in a tone under 100Hz, which a phone speaker cannot reproduce —
+// the music learned this in v0.7x (bassCarrierHz). Every oscillator a gate or a push makes must sit
+// at or above that floor, read off the voices the audio probe records.
+const sfxPitch = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const floor = CONFIG.bassCarrierHz, out = {};
+  for (const name of ['gate', 'slideStart', 'slideEnd']) {
+    window.__voices.length = 0; AUDIO[name](); await nap(700);
+    const freqs = window.__voices.map((v) => v.n.frequency.value).filter((f) => f > 0);
+    out[name] = { voices: freqs.length, low: freqs.filter((f) => f < floor).length, lowest: freqs.length ? Math.round(Math.min(...freqs)) : 0 };
+  }
+  return { floor, out };
+});
+check('the gate and the push block sound where a phone can play them',
+  Object.values(sfxPitch.out).every((r) => r.voices >= 1 && r.low === 0),
+  Object.entries(sfxPitch.out).map(([n, r]) => `${n}: ${r.voices} voices, lowest ${r.lowest}Hz, ${r.low} under the ${sfxPitch.floor}Hz floor`).join('; '));
+
+// Joe: "it might've just been very delayed. Yeah, really delayed. I restarted to see if that fixed
+// it." Safari interrupts the audio context and it stays suspended; sounds scheduled into the stopped
+// clock used to queue and fire together, late, when a gesture finally woke it. Now a sound that
+// cannot play is dropped, and the next touch wakes the clock.
+const stopped = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  AUDIO.pickup(); await nap(150);
+  const ac = window.__voices.length ? window.__voices[window.__voices.length - 1].n.context : null;
+  if (!ac) return { noContext: true };
+  // Chrome resumes a suspended context the moment it is asked; Safari, interrupted, does not until
+  // a gesture. Hold the resume shut the way Safari does, so the probe reads the game, not Chrome.
+  const realResume = ac.resume.bind(ac); ac.resume = () => Promise.resolve();
+  await ac.suspend(); await nap(50);
+  window.__voices.length = 0; AUDIO.pickup(); AUDIO.key(); await nap(500);
+  const isRunning = () => (typeof AUDIO.running === 'function' ? AUDIO.running() : ac.state === 'running');   // fail, never throw, on a build without it
+  const whileStopped = window.__voices.length, running = isRunning();
+  // a touch wakes it
+  ac.resume = realResume;
+  document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); dispatchEvent(new PointerEvent('pointerdown')); await nap(300);
+  const wokeUp = isRunning();
+  window.__voices.length = 0; AUDIO.pickup(); await nap(300);
+  const afterWake = window.__voices.length;
+  return { whileStopped, running, wokeUp, afterWake };
+});
+check('a sound with the audio clock stopped is dropped, not queued, and a touch restarts the clock',
+  !stopped.noContext && stopped.whileStopped === 0 && !stopped.running && stopped.wokeUp && stopped.afterWake >= 1,
+  stopped.noContext ? 'no audio context to stop' :
+  `with the context suspended a pickup and a key made ${stopped.whileStopped} voices (running ${stopped.running}); a touch resumed it (${stopped.wokeUp}) and the next pickup made ${stopped.afterWake}`);
+
+// ── the charcoal HUD and the compass pickup (v0.100.0) ──
+// Joe, twice: "The charcoal icon on the hud/screen should have a little pulse to it every time a
+// tile is logged. Like a little heart beat." The first cut swelled 8% and never came to rest between
+// tiles. The bar here is the stylesheet's own keyframe: its peak must be a real swell, and the beat
+// must be shorter than a tile at walking pace so it can rest. And: "The press and hold for the
+// charcoal lock needs a stronger visual to show it's locked, maybe a bolder outline."
+const hud = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  let peak = 0;
+  for (const sh of document.styleSheets) for (const r of sh.cssRules) if (r.name === 'charbeat')
+    for (const k of r.cssRules) { const m = /scale\(([\d.]+)\)/.exec(k.style.transform); if (m) peak = Math.max(peak, Number(m[1])); }
+  const beatMs = CONFIG.charcoalBeatMs, tileMs = 1000 / B.speed();
+  // the beat actually fires as a tile is logged
+  SAVE.phase = 1; reset(4242); sliding = null; started = true; await nap(60);
+  charcoal = 2; charcoalLeft = B.charcoal(); charcoalOn = true; updateCharcoal(); charcoalEl.classList.remove('beat');
+  // walk him onto fresh tiles: mapHere() adds each, and beat() fires on every second one — Joe,
+  // on once a tile: "It's too crazy. Make it pulse like half as much." So two tiles: one beat.
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)];
+  const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [0, 0];
+  mapped = new Map(); visited = new Set(); charcoalTiles = 0; let beats = 0;
+  const seenBeat = () => { if (charcoalEl.classList.contains('beat')) { beats++; charcoalEl.classList.remove('beat'); } };
+  player.x = sx + dx + 0.5; player.y = sy + dy + 0.5; lastTileKey = ''; await nap(120); seenBeat();
+  const afterOne = beats;
+  player.x = sx + 0.5; player.y = sy + 0.5; mapped = new Map(); lastTileKey = ''; await nap(120); seenBeat();
+  const beatFired = beats === 1 && afterOne === 0;
+  // and the lock reads
+  const plain = getComputedStyle(charcoalEl); const plainBorder = parseFloat(plain.borderTopWidth), plainShadow = plain.boxShadow;
+  charcoalLock = true; updateCharcoal(); await nap(30);
+  const lk = getComputedStyle(charcoalEl); const lockBorder = parseFloat(lk.borderTopWidth), lockShadow = lk.boxShadow;
+  // and locked with nothing left: Joe, "Locked, charcoal states gold, even after all of the charcoal is gone"
+  charcoal = 0; charcoalLeft = 0; updateCharcoal(); await nap(30);
+  const em = getComputedStyle(charcoalEl); const emptyBorder = parseFloat(em.borderTopWidth), emptyLocked = charcoalEl.classList.contains('locked'), stillArmed = charcoalLock;
+  charcoalLock = false; charcoalOn = false; updateCharcoal();
+  return { peak, beatMs, tileMs, beatFired, plainBorder, lockBorder, plainShadow, lockShadow, emptyBorder, emptyLocked, stillArmed };
+});
+// v0.100.0 asked for a swell of at least 1.15; Joe then asked for half as much, so the bar is a
+// band — visible (over 1.05) and not the old size (under 1.15) — and one beat per two tiles.
+check('the charcoal icon beats once per two tiles logged, a swell you can see and not too much',
+  hud.beatFired && hud.peak > 1.05 && hud.peak < 1.15 && hud.beatMs > 0 && hud.beatMs < hud.tileMs,
+  `one beat over two fresh tiles, none after the first (${hud.beatFired}); keyframe peaks at scale ${hud.peak} (band 1.05–1.15) over ${hud.beatMs}ms, a tile takes ${hud.tileMs.toFixed(0)}ms`);
+check('lock-on gives the charcoal pill a bolder outline than resting',
+  hud.lockBorder >= 2 && hud.lockBorder > hud.plainBorder && hud.lockShadow !== 'none' && hud.lockShadow !== hud.plainShadow,
+  `border ${hud.plainBorder}px resting, ${hud.lockBorder}px locked; halo ${hud.lockShadow !== 'none' ? 'on' : 'off'} when locked`);
+check('a locked pill with no charcoal left drops its gold, and stays armed for the next piece',
+  !hud.emptyLocked && hud.emptyBorder === hud.plainBorder && hud.stillArmed,
+  `empty and locked: ring shown ${hud.emptyLocked}, border ${hud.emptyBorder}px (resting ${hud.plainBorder}px); lock still armed ${hud.stillArmed}`);
+
+// Joe: "The map icon only has to flash the first time it appears, not every time." And: "stop
+// drawing the important locations on the map so that players can put chalk down for them
+// instead. If we don't draw the statue or the gates, then they have a reason to use chalk."
+const mapOnce = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  delete SAVE.mapBeckoned; SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run; persist();
+  reset(4242); wake(); for (let i = 0; i < 200 && !started; i++) await nap(50); await nap(200); introWalk = null; held = null;
+  const first = $('mapBtn').classList.contains('beckon');
+  openMap(); await nap(50); const afterOpen = $('mapBtn').classList.contains('beckon'), remembered = !!SAVE.mapBeckoned;
+  // the map, with a gate, a statue and a stone all on charted floor: none of them drawn
+  const d = doors[0], sh = shrines[0], st = [...offerings.keys()][0];
+  for (const k of [d && d.x + ',' + d.y, sh && sh.sx + ',' + sh.sy, st].filter(Boolean)) mapped.set(k, 'floor');
+  const realMark = window.drawMark, realShape = window.drawShape; let marks = 0, gates = 0, keys = 0;
+  drawMark = (...a) => { if (a[0] === mctx) marks++; return realMark(...a); };
+  drawShape = (...a) => { if (a[0] === mctx) { if (a[5] === CONFIG.colors.gate) gates++; else keys++; } return realShape(...a); };
+  drawMap(); drawMark = realMark; drawShape = realShape;
+  closeMap(); await nap(50);
+  reset(4242); wake(); for (let i = 0; i < 200 && !started; i++) await nap(50); await nap(200); introWalk = null; held = null;
+  const second = $('mapBtn').classList.contains('beckon');
+  return { first, afterOpen, remembered, second, marks, gates, keys, hadDoor: !!d, hadShrine: !!sh, hadStone: !!st };
+});
+check('the map button beckons the first time only, and the map draws no gates, statues or stones',
+  mapOnce.first && !mapOnce.afterOpen && mapOnce.remembered && !mapOnce.second && mapOnce.marks === 0 && mapOnce.gates === 0 && mapOnce.hadDoor && mapOnce.hadShrine,
+  `beckons on the first run (${mapOnce.first}), stops when opened (${!mapOnce.afterOpen}), remembered (${mapOnce.remembered}), quiet on the next run (${!mapOnce.second}); `
+  + `with a gate, a statue and a stone charted the map drew ${mapOnce.gates} gates and ${mapOnce.marks} marks (keys drawn: ${mapOnce.keys})`);
+
+// Joe: "The pickup for the compass should look different than the main character as well. Make it
+// look like the icon that shows up when you collect it." A compass has a case: a ring of the pickup's
+// colour with the dark inside it, where the old arrowhead had floor beside it. Sampled on the ring
+// at right angles to the needle, so the needle itself is never what is being read.
+const cpick = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 2; reset(4242); sliding = null; started = true; SAVE.ui.nav = false; await nap(60);
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)];
+  const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [1, 0];
+  const k = (sx + dx) + ',' + (sy + dy); pickups.set(k, 'pointer'); charcoalSpots.delete(k); chalkSpots.delete(k);
+  // keep him where he is so the pickup is not picked up while we look
+  lastTileKey = sx + ',' + sy; await nap(400);
+  const cv = document.querySelector('canvas'), g = cv.getContext('2d'), dpr = cv.width / innerWidth;
+  // the renderer's own camera: anchored at 0.5 across and 0.42 down in portrait
+  const S = zoomS, ay = innerWidth > innerHeight ? 0.5 : 0.42;
+  const ox = innerWidth * 0.5 - cam.x * S, oy = innerHeight * ay - (cam.y + camBump) * S;
+  const cx = ox + (sx + dx + 0.5) * S, cy = oy + (sy + dy + 0.5) * S;
+  const ang = Math.atan2(exit.y + 0.5 - (sy + dy + 0.5), exit.x + 0.5 - (sx + dx + 0.5)) + Math.PI / 2;
+  const at = (r) => { const d = g.getImageData(Math.round((cx + Math.cos(ang) * r) * dpr), Math.round((cy + Math.sin(ang) * r) * dpr), 1, 1).data; return [d[0], d[1], d[2]]; };
+  const ring = at(S * 0.2), inside = at(S * 0.1), floor = at(S * 0.34);
+  pickups.delete(k);
+  const lum = (c) => (c[0] + c[1] + c[2]) / 3;
+  return { ring, inside, floor, ringLum: lum(ring), insideLum: lum(inside), floorLum: lum(floor), S };
+});
+check('the compass pickup is a compass: a bright case round a dark face, not an arrowhead on the floor',
+  cpick.ringLum > cpick.insideLum + 40 && cpick.ringLum > cpick.floorLum + 30,
+  `on the ring ${cpick.ringLum.toFixed(0)}, inside the case ${cpick.insideLum.toFixed(0)}, floor beside it ${cpick.floorLum.toFixed(0)} (tile ${cpick.S}px)`);
+
 // Joe, with two screenshots of a T he could not get through: "the nav mesh isn't
 // showing the seed for it to be easy for you to reproduce." It was there — bottom
 // left, under the joystick and the phone's home bar, where his screenshots never
@@ -1905,11 +2140,27 @@ const plus = await page.evaluate(async () => {
   SAVE.ui.move = prevMove; dir = null; held = null;
   return { tiles3, arms: tried.length, stuck };
 });
+// Since v0.104.0 the generator makes no such tile ("a crawl gap should never be also a plus gap"),
+// so this usually finds nothing and passes on that; the movement rule stays for the day one slips.
 check('a squeeze open on both axes lets him through every one of its arms',
-  plus.tiles3 > 0 && plus.stuck.length === 0,
+  plus.stuck.length === 0,
   plus.tiles3 ? `${plus.tiles3} three- and four-armed squeeze tiles, ${plus.arms} arms walked; stuck on ${plus.stuck.length}`
     + (plus.stuck.length ? `: ${plus.stuck.slice(0, 4).join('; ')}` : '')
-    : 'no squeeze tile with three or more open arms in the seeds tried');
+    : 'no squeeze tile with three or more open arms in the seeds tried — as the generator now intends');
+// Joe: "a crawl gap should never be also a plus gap." The bar is his rule, not a knob: every open
+// crawl gap has floor on one axis and wall on the other, and every crawl cell two ways out at most.
+const gapShape = await page.evaluate(() => {
+  let gaps = 0, cells = 0, badGaps = 0, badCells = 0, swept = 0, mazes = 0;
+  for (let s2 = 1; s2 <= 60; s2++) { SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 17); mazes++; swept += typeof plusSwept === "number" ? plusSwept : 0;   // fail, never throw, on a build without the sweep
+    const o = (x, y) => isOpen(x, y);
+    for (const k of crawlGaps) { gaps++; const [x, y] = k.split(',').map(Number); const r = o(x + 1, y), l = o(x - 1, y), d = o(x, y + 1), u = o(x, y - 1);
+      if (!((r && l && !d && !u) || (d && u && !r && !l))) badGaps++; }
+    for (const k of crawlCells) { cells++; const [x, y] = k.split(',').map(Number); if (DIRS.filter(([dx, dy]) => o(x + dx, y + dy)).length > 2) badCells++; } }
+  return { mazes, gaps, cells, badGaps, badCells, swept };
+});
+check('no crawl gap has a third side, and no crawl cell a third way out',
+  gapShape.gaps > 0 && gapShape.badGaps === 0 && gapShape.badCells === 0,
+  `${gapShape.gaps} gaps and ${gapShape.cells} crawl cells over ${gapShape.mazes} Child mazes; ${gapShape.badGaps} gaps with a third side, ${gapShape.badCells} cells with a third way; the end-of-build sweep removed ${gapShape.swept}`);
 
 check('the nav view tag names chapter, seed and tile, and sits below the narrator line',
   tag.text.includes(`seed 4242`) && tag.text.includes(tag.who) && tag.text.includes(`tile ${tag.here} of`)
@@ -2138,7 +2389,9 @@ const coalUI = await page.evaluate(async () => {
 });
 check('a tap lights the charcoal, walking makes it beat, and spending a piece pulses it hard',
   coalUI.tapLit && !coalUI.tapLocked && coalUI.afterTap === 2
-    && coalUI.beats >= 2 && coalUI.logged > 0 && coalUI.spent.anim >= 1 && !coalUI.spent.on && coalUI.spent.left === 0,
+    // v0.106.0 halved the beat to every other step that logs tiles (Joe: "make it pulse like half
+    // as much"), so a 1.6s walk is three or four steps and one or two beats: the bar is one
+    && coalUI.beats >= 1 && coalUI.logged > 0 && coalUI.spent.anim >= 1 && !coalUI.spent.on && coalUI.spent.left === 0,
   `tap lit it (${coalUI.tapLit}) without locking it (${!coalUI.tapLocked}), leaving ${coalUI.afterTap} in the pocket; `
   + `walking a ${coalUI.run}-tile corridor put ${coalUI.logged} tiles on the map and knocked the icon ${coalUI.beats} times; `
   + `the piece then ran out, the icon pulsed hard ${coalUI.spent.anim} time(s) and nothing lit itself `
@@ -2357,23 +2610,34 @@ const water = await page.evaluate(async () => {
   // The shift is a whole number of samples, so adjacent gaps can legitimately tie (1,2,2 as often
   // as 1,2,3). Demanding a strict rise every time failed a pool that was visibly working, so what
   // is asserted is: inward at every gap, never backwards, and further by the last one.
-  const shifts = [8, 12, 16].map((g) => corr(resid(frames[g]), resid(frames[0])));
+  // Direction, without aliasing. Reading a later frame's spatial shift against an earlier one
+  // aliases on a pattern that repeats every few bands (2,2,2 and 1,2,1 for water visibly closing,
+  // 7 of 17 runs), and frame to frame the travel is under a band and rounds to nothing. So read
+  // TIME at two neighbouring radii instead: a ring passes the outer band first and the inner band
+  // about a quarter-second later, so the inner series lags the outer. Find the lag that lines them
+  // up; inward is a positive lag, still water none, outward a negative one.
+  const mid = Math.floor(frames[0].length / 2);
+  const outer = frames.map((f) => f[mid + 1] - still[mid + 1]), inner = frames.map((f) => f[mid] - still[mid]);
+  let lag = 0, lagErr = Infinity;
+  for (let L = -12; L <= 12; L++) { let e = 0, n = 0;
+    for (let t = 0; t < frames.length; t++) { const u = t + L; if (u < 0 || u >= frames.length) continue; e += Math.abs(outer[t] - inner[u]); n++; }
+    if (n >= 10 && e / n < lagErr) { lagErr = e / n; lag = L; } }
+  const travel = lag, back = lag < 0 ? 1 : 0, steps = frames.length;
   const atMid = frames.map((f) => f[Math.floor(f.length / 2)]);
-  return { stillMid: still[0], stillRim: still[still.length - 1], shifts,
+  return { stillMid: still[0], stillRim: still[still.length - 1], travel, back, steps,
     ripple: Math.max(...resid(frames[0]).map(Math.abs)),
     swing: Math.max(...atMid) - Math.min(...atMid), bands: CONFIG.poolBands };
 });
 check('the pool is light at its rim and deep in the middle, and the rings travel inward as he walks it',
   water && water.stillRim > water.stillMid + 25
     && water.swing > 6
-    && water.shifts.every((v) => v >= 1)                      // inward at every gap
-    && water.shifts[1] >= water.shifts[0] && water.shifts[2] >= water.shifts[1]   // and never backwards
-    && water.shifts[2] > water.shifts[0],                    // having gone further over the longer wait
+    && water.travel >= 1,                                     // inward: the inner band lags the outer by a positive lag
+
   water ? `still, the middle reads ${water.stillMid} on the blue channel and the rim ${water.stillRim} — `
     + `${water.stillRim - water.stillMid} lighter at the edge, across ${water.bands} bands. Standing in it, a fixed radius `
-    + `swings ${water.swing} and the ripple stands ${water.ripple} clear of that ramp; matched against the first frame at `
-    + `0.48s, 0.72s and 0.96s the pattern has moved ${water.shifts.join(', ')} bands — positive and rising, so the rings close inward`
-    : 'no pool room found in 120 seeds');
+    + `swings ${water.swing} and the ripple stands ${water.ripple} clear of that ramp; over ${water.steps} frames `
+    + `the inner band lags the outer by ${water.travel} frame(s) — ${water.travel > 0 ? 'the rings close inward' : water.travel < 0 ? 'the rings run outward' : 'the water stands still'}`
+    : 'no pool room found in the seeds tried');
 
 // Joe: "there should be enough space around the pool room, or any room that we
 // have points of interest in for players to get around them. We should never
@@ -2504,16 +2768,25 @@ check('a page in a pool room lies on the rim you walk round, never in the water'
 // was that the abandoned boy has as much to ask as anyone: "Not sure why we don't have one in the
 // first child chapter. Seems like it would be a good idea."
 const shrineGen = await page.evaluate(() => {
-  let mazes = 0, statues = 0, stones = 0;
+  let mazes = 0, statues = 0, stones = 0, theirs = 0, strays = [];
   for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
     SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
     mazes++; statues += shrines.length; stones += offerings.size;
+    // one person to a chapter: every statue and every stone here is theirs
+    const want = phase().f.shrines;
+    for (const sh of shrines) if (sh.who === want) theirs++; else strays.push(`${phase().who} statue ${sh.who}`);
+    for (const who of offerings.values()) if (who === want) theirs++; else strays.push(`${phase().who} stone ${who}`);
   }
-  return { mazes, statues, stones };
+  return { mazes, statues, stones, theirs, strays: strays.slice(0, 4), strayN: strays.length };
 });
 check('every maze, the Child\'s included, carries two statues and their two stones',
   shrineGen.statues === shrineGen.mazes * 2 && shrineGen.stones === shrineGen.mazes * 2,
   `${shrineGen.statues} statues and ${shrineGen.stones} stones across ${shrineGen.mazes} mazes over all eight selves (wanted ${shrineGen.mazes * 2} each)`);
+// Joe: "We need to lock in each person to each chapter. So child chapter has statues of the father."
+check('both statues in a maze, and both stones, belong to the chapter\'s person',
+  shrineGen.theirs === shrineGen.statues + shrineGen.stones && shrineGen.strayN === 0,
+  `${shrineGen.theirs} of ${shrineGen.statues + shrineGen.stones} statues and stones are the chapter's person`
+  + (shrineGen.strayN ? `; strays: ${shrineGen.strays.join(', ')}` : ''));
 
 const shrineWalk = await page.evaluate(async () => {
   const nap = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -2526,23 +2799,25 @@ const shrineWalk = await page.evaluate(async () => {
   // suite looks nothing like a failed one
   if (shrines.length < 2 || offerings.size < 2) return { who: 'none', got: null, stoneGone: false, stillOne: false, otherStays: false, wrongBowl: false, done: false, handsFree: false, thread: 0, lit: false, endsOnPage: false, pages: journals.size, missing: `${shrines.length} statues, ${offerings.size} stones` };
   const sh = shrines[0], other = shrines[1];
-  const mine = [...offerings.entries()].find(([, who]) => who === sh.who), theirs = [...offerings.entries()].find(([, who]) => who === other.who);
+  const [mine, theirs] = [...offerings.entries()];
   const at = (k) => { const [x, y] = k.split(',').map(Number); player.x = x + 0.5; player.y = y + 0.5; lastTileKey = ''; };
   const step = async (k) => { at(k); for (let i = 0; i < 6; i++) { await nap(40); } };
+  // Joe: "When you don't have a stone but you collide with the statue, it should say something."
+  narrEl.textContent = ''; await step(sh.sx + ',' + sh.sy); const emptySaid = narrEl.textContent === SHRINE_LINES.noStone, tookNothing = !sh.done;
   await step(mine[0]);      const got = carried, stoneGone = !offerings.has(mine[0]);
   await step(theirs[0]);    const stillOne = carried === sh.who, otherStays = offerings.has(theirs[0]);
-  await step(other.sx + ',' + other.sy); const wrongBowl = !other.done && carried === sh.who;
   const pages = journals.size;
-  await step(sh.sx + ',' + sh.sy);   const done = sh.done, handsFree = carried === null, thread = shrinePath.length, lit = shrineUntil > gameNow();
+  // one person to a chapter, so either bowl is the right bowl
+  await step(other.sx + ',' + other.sy); const done = other.done, handsFree = carried === null, thread = shrinePath.length, lit = shrineUntil > gameNow();
   const endsOnPage = thread ? journals.has(shrinePath[thread - 1].join(',')) : false;
-  return { who: sh.who, got, stoneGone, stillOne, otherStays, wrongBowl, done, handsFree, thread, lit, endsOnPage, pages };
+  return { who: sh.who, emptySaid, tookNothing, got, stoneGone, stillOne, otherStays, done, handsFree, thread, lit, endsOnPage, pages };
 });
-check('a stone is carried one at a time, and settling it in the right bowl points the statue at a page',
-  shrineWalk.got === shrineWalk.who && shrineWalk.stoneGone && shrineWalk.stillOne && shrineWalk.otherStays && shrineWalk.wrongBowl
+check('a stone is carried one at a time, and settling it in a bowl points the statue at a page',
+  shrineWalk.emptySaid && shrineWalk.tookNothing && shrineWalk.got === shrineWalk.who && shrineWalk.stoneGone && shrineWalk.stillOne && shrineWalk.otherStays
     && shrineWalk.done && shrineWalk.handsFree && (shrineWalk.pages === 0 || (shrineWalk.thread > 1 && shrineWalk.lit && shrineWalk.endsOnPage)),
   shrineWalk.missing ? `nothing to walk: this maze has ${shrineWalk.missing}` :
-  `picked up ${shrineWalk.who}'s stone (${shrineWalk.got}); a second stone stayed on the floor (${shrineWalk.otherStays}); the wrong bowl took nothing (${shrineWalk.wrongBowl}); `
-  + `the right bowl took it (${shrineWalk.done}, hands free ${shrineWalk.handsFree}) and lit a ${shrineWalk.thread}-tile thread that ends on a page (${shrineWalk.endsOnPage}), with ${shrineWalk.pages} pages still out`);
+  `empty-handed at the step he said so (${shrineWalk.emptySaid}) and the bowl took nothing (${shrineWalk.tookNothing}); picked up ${shrineWalk.who}'s stone (${shrineWalk.got}); a second stone stayed on the floor (${shrineWalk.otherStays}); `
+  + `the other bowl took it (${shrineWalk.done}, hands free ${shrineWalk.handsFree}) and lit a ${shrineWalk.thread}-tile thread that ends on a page (${shrineWalk.endsOnPage}), with ${shrineWalk.pages} pages still out`);
 
 // ── 8e. the exchange ──────────────────────────────────────────────
 // Joe: "You drop the thing in. You are then allowed to ask a question, maybe two are offered...
@@ -2682,6 +2957,117 @@ check('every shelf and basin line can be reached, however many there are',
   spread.three === 3 && spread.four === 4 && spread.seven === 7 && spread.atFull === spread.have - 1,
   `with 3 lines all 3 come up, with 4 all 4, with 7 all 7; carrying every page you get the last of `
   + `the ${spread.have} there are. A fourth line used to be unreachable, so the page could not offer one`);
+
+// maze/writer.html is generated from data/text.js, so it can go stale the moment anyone edits a
+// line — and a writer editing a stale page is writing into a copy of the game that no longer
+// exists. Builds are reproducible (the page carries a fingerprint of the text, not a timestamp),
+// so this is a byte comparison.
+{
+  const { buildPage } = await import('./writer-page.mjs');
+  const onDisk = readFileSync(new URL('../writer.html', import.meta.url), 'utf8');
+  const fresh = buildPage();
+  const stamp = (t) => (t.match(/"stamp":"([a-f0-9]+)"/) || [])[1] || '?';
+  check('the writer page matches the text it is meant to show',
+    onDisk === fresh,
+    onDisk === fresh
+      ? `built from text ${stamp(fresh)}, ${(onDisk.length / 1024).toFixed(0)}KB`
+      : `the committed page was built from text ${stamp(onDisk)} and the text is now ${stamp(fresh)}. `
+        + 'Run: node maze/tools/writer-page.mjs > maze/writer.html   (and republish the artifact)');
+}
+
+// ── 8i. a line break Joe types is a line break he gets (v0.108.0) ──
+
+// He wrote CAST[0].pages[3] to land twice — "I wasn't." then, a beat later, "I wasn't." — with a
+// newline between. Default white-space collapses a newline to a space, so the beat would have
+// vanished between the writer's page and the screen with nothing to show it had. The journal
+// honours the break; the narrator, which is one line by design, is left alone.
+const wrapped = await page.evaluate(async () => {
+  const el = document.getElementById('narr');
+  const two = "one line.\nand another.", one = two.replace('\n', ' ');
+  const measure = (t, journal) => { el.className = journal ? 'show journal' : 'show'; el.textContent = t;
+    return el.getBoundingClientRect().height; };
+  const out = { pageTwo: measure(two, true), pageOne: measure(one, true),
+                narrTwo: measure(two, false), narrOne: measure(one, false),
+                typed: (CAST[0].pages[3] || '').includes('\n') };
+  el.className = ''; el.textContent = '';
+  return out;
+});
+check('a line break in a journal page is a line break on the page',
+  wrapped.pageTwo > wrapped.pageOne + 4 && Math.abs(wrapped.narrTwo - wrapped.narrOne) < 2 && wrapped.typed,
+  'a page written across two lines stands ' + Math.round(wrapped.pageTwo) + 'px against '
+  + Math.round(wrapped.pageOne) + 'px for the same words run together, and the narrator ignores the '
+  + 'break as it always has (' + Math.round(wrapped.narrTwo) + 'px vs ' + Math.round(wrapped.narrOne) + 'px). '
+  + (wrapped.typed ? "The Child's fourth page is the one that carries one" : 'NOTHING IN text.js CARRIES A BREAK')); 
+
+// ── 8h. the path into data/text.js, under the line (v0.103.0) ────
+
+// Joe: "a debug element that would show the ID of every string when I played." The id is only
+// useful if it is the *same* id the writer's page is keyed by, and if it points at the line that
+// is actually on screen — an id that is subtly wrong is worse than none, because the writer edits
+// the wrong slot and the words don't change.
+
+// The lookup walks TEXT_BLOCKS, which is written by hand because these are consts in a shared
+// script scope with no way to enumerate them. So: it has to be complete, or a whole block of
+// writing quietly has no ids.
+{
+  const textSrc = readFileSync(new URL('../data/text.js', import.meta.url), 'utf8');
+  const declared = [...textSrc.matchAll(/^const ([A-Z_]+)\s*=/gm)].map((m) => m[1]).filter((n) => n !== 'TEXT_BLOCKS');
+  const listed = await page.evaluate(() => Object.keys(TEXT_BLOCKS));
+  const gap = declared.filter((n) => !listed.includes(n));
+  check('every block of writing is reachable by the line-ID lookup',
+    gap.length === 0 && listed.length === declared.length,
+    gap.length ? 'declared in data/text.js but missing from TEXT_BLOCKS: ' + gap.join(', ')
+      : listed.length + ' blocks declared, all ' + listed.length + ' listed');
+}
+
+// Round-trip: every line in the file, looked up by its words, must give a path that leads back to
+// those same words. This is the check that would catch a walker that numbers arrays wrong or
+// mangles a quoted key — the failure mode that sends a writer to the wrong line.
+const round = await page.evaluate(() => {
+  const leaves = [];
+  const walk = (n, p) => {
+    if (typeof n === 'string') return leaves.push([p, n]);
+    if (Array.isArray(n)) n.forEach((v, i) => walk(v, p + '[' + i + ']'));
+    else if (n && typeof n === 'object') for (const k of Object.keys(n))
+      walk(n[k], p + (/^[A-Za-z_$][\w$]*$/.test(k) ? '.' + k : '[' + JSON.stringify(k) + ']'));
+  };
+  for (const name of Object.keys(TEXT_BLOCKS)) walk(TEXT_BLOCKS[name], name);
+  const bad = [];
+  let blank = 0;
+  for (const [, text] of leaves) {
+    // CAST[7].summary is '' — You has no blurb on the Stories screen. An empty slot is not a line
+    // anyone reads, and tagging it would put an id under nothing.
+    if (text === '') { blank++; continue; }
+    const id = lineId(text);
+    if (!id) { bad.push('no id for ' + JSON.stringify(text.slice(0, 40))); continue; }
+    let got; try { got = eval(id.replace(/ ×\d+$/, '')); } catch (e) { got = '<' + e.message + '>'; }
+    if (got !== text) bad.push(id + ' leads to ' + JSON.stringify(String(got).slice(0, 40)));
+  }
+  // a {braces} line still resolves after the vars are filled in, which is how the player sees it
+  const filled = lineId(moment('keyFound', { shape: 'circle' }));
+  return { total: leaves.length, blank, bad: bad.slice(0, 4), filled, junk: lineId('words the game never says'), empty: lineId('') };
+});
+check('every line in data/text.js can be found again from the words on screen',
+  round.bad.length === 0 && round.filled === 'MOMENTS.keyFound._' && round.junk === null && round.empty === null,
+  round.bad.length ? round.bad.join(' | ')
+    : (round.total - round.blank) + ' lines round-trip (' + round.blank + ' empty slot skipped); a filled-in '
+      + '"A key. Its head is a circle." still resolves to ' + round.filled
+      + ', and words from nowhere — or no words at all — give no id');
+
+// And the toggle has to actually put it under the line, and actually stop when it is off.
+const shown = await page.evaluate(() => {
+  const line = SELF_LINES['The Child'][3], was = SAVE.ui.ids;
+  const read = () => { const t = document.querySelector('#narr .lid'); return t ? t.textContent : null; };
+  SAVE.ui.ids = true;  narrate(line); const on = read();
+  SAVE.ui.ids = false; narrate(line); const off = read();
+  SAVE.ui.ids = was;
+  return { on, off, words: line, narr: document.getElementById('narr').textContent };
+});
+check('the Line IDs view names the line, and shows nothing when it is off',
+  shown.on === 'SELF_LINES["The Child"][3]' && shown.off === null && shown.narr.startsWith(shown.words),
+  shown.on === null ? 'the toggle was on and no id appeared'
+    : 'the Child’s fourth walking line shows as ' + shown.on + ', and the words themselves are untouched'
+      + (shown.off === null ? '; off, nothing is drawn' : '; but it did not clear: ' + shown.off));
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

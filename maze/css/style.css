@@ -53,9 +53,19 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
 #charcoal.active { border-color:#c9b98a; color:#c9b98a; } #charcoal.active i { border-color:#c9b98a; }
 #charcoal.empty { color:#7d786d; } #charcoal.empty i { border-color:#3c3b38; } #charcoal.empty i::after { background:#2a2c2e; }
 #charcoal.shake { animation:shakeL .3s; }
-/* a tile logged: two knocks, the second smaller — a heartbeat, not a throb */
+/* a tile logged: two knocks, the second smaller — a heartbeat, not a throb. Joe, twice: "The charcoal
+   icon on the hud/screen should have a little pulse to it every time a tile is logged. Like a little
+   heart beat as the player is walking." The first cut was an 8% swell over 440ms, and at walking pace a
+   tile lands every 430ms, so it never came back to rest and read as nothing. Bigger, quicker, and the
+   ring flashes with it. Then, at 20% every tile: "It's too crazy. Make it pulse like half as
+   much" — so half the swell, and (movement.js) every other tile. */
 #charcoal.beat { animation:charbeat var(--beat, 440ms) ease-out; }
-@keyframes charbeat { 0%{ transform:scale(1); } 14%{ transform:scale(1.085); } 30%{ transform:scale(1); } 44%{ transform:scale(1.045); } 100%{ transform:scale(1); } }
+@keyframes charbeat {
+  0%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); }
+  16%{ transform:scale(1.11); box-shadow:0 0 0 3px rgba(201,185,138,.26); }
+  36%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); }
+  52%{ transform:scale(1.05); box-shadow:0 0 0 2px rgba(201,185,138,.14); }
+  100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); } }
 /* and the piece running out: loud, twice, so you look up and light the next one */
 #charcoal.spent { animation:charspent var(--spent, 1500ms) ease-out; }
 @keyframes charspent {
@@ -64,9 +74,12 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
   40%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); }
   56%{ box-shadow:0 0 0 12px rgba(201,185,138,.28); transform:scale(1.12); }
   100%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); } }
-/* locked on: a standing ring round the pill, so the armed state reads at a glance */
-#charcoal.locked { border-color:#c9b98a; box-shadow:0 0 0 2px rgba(201,185,138,.3); }
-#charcoal.locked i { border-color:#c9b98a; }
+/* locked on: a standing ring round the pill, so the armed state reads at a glance. Joe: "The press and
+   hold for the charcoal lock needs a stronger visual to show it's locked, maybe a bolder outline." So a
+   2px gold border on the pill itself, a wider halo, and the stick inside goes solid gold. */
+#charcoal.locked { border:2px solid #c9b98a; padding:7px 13px 7px 11px; box-shadow:0 0 0 3px rgba(201,185,138,.35), 0 0 14px rgba(201,185,138,.35); }
+#charcoal.locked i { border-color:#c9b98a; border-width:2px; }
+#charcoal.locked i::after { background:#c9b98a; }
 @keyframes shakeL { 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
 #mapBtn { width:48px; height:48px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.6); display:grid; place-items:center; }
 #mapBtn svg { width:24px; height:24px; }
@@ -97,7 +110,10 @@ canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
    rather than a wide soft one, which is what actually holds an edge against grey. */
 #narr { position:fixed; top:calc(env(safe-area-inset-top) + 92px); left:28px; right:28px; text-align:center; font-size:19px; font-style:italic; line-height:1.45; color:#f2eee2; pointer-events:none; opacity:0; transition:opacity .9s ease; text-shadow:0 1px 3px #0d0f10, 0 2px 12px rgba(13,15,16,.95), 0 0 26px rgba(13,15,16,.85); }
 #narr.show { opacity:1; }
-#narr.journal { color:#d6cfbc; font-style:italic; font-size:17px; }
+/* A journal page is the one surface Joe writes line breaks into — CAST[0].pages[3] ends on a
+   repeated line, a beat apart. Default white-space collapses that newline to a space and the
+   beat is silently lost, so pages honour the breaks he types. Narrator lines are unaffected. */
+#narr.journal { color:#d6cfbc; font-style:italic; font-size:17px; white-space:pre-line; }
 #narr.journal small { display:block; margin-top:8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; opacity:.75; }
 #gear { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:10px; width:36px; height:36px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); display:grid; place-items:center; }
 #gear svg { width:20px; height:20px; }
@@ -279,3 +295,11 @@ body.pre #stick, body.pre #glyphs { opacity:0; transform:translate(-50%, 40px); 
 /* the debug Zoom slider */
 #dbg input[type=range] { flex:1 1 auto; min-width:90px; accent-color:#8d887c; background:transparent; }
 #dbg #zoomLbl { color:#8d887c; font-variant-numeric:tabular-nums; min-width:42px; text-align:right; }
+
+/* The "Line IDs" debug view: the path into data/text.js under whatever line just showed. Small,
+   dim and monospaced so it never reads as part of the writing, and breakable because some paths
+   are long — ROOM_LINES["The Cartographer"].basin[2] does not fit a phone in one piece. */
+.lid { display: block; margin-top: 6px; font: 10px/1.35 ui-monospace, "IBM Plex Mono", Menlo, monospace;
+       color: #9a9182; opacity: .75; letter-spacing: 0; text-transform: none; font-style: normal;
+       word-break: break-all; }
+#poolChoices .lid, #talkChoices .lid { margin-top: 3px; opacity: .6; }

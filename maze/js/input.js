@@ -115,6 +115,10 @@ $('optMove').addEventListener('change', () => { SAVE.ui.move = $('optMove').valu
 // spend, so everything downstream — the counter, the pulse, the sound — still happens as it does.
 $('optChalk').checked = !!SAVE.ui.chalkInf;
 $('optChalk').addEventListener('change', () => { SAVE.ui.chalkInf = $('optChalk').checked; persist(); updateChalk(); });
+// Joe: "add an infinite charcoal to the debug window." The piece in hand never wears down and the
+// pocket never runs out, so the map can be charted end to end while looking at something else.
+$('optCharcoal').checked = !!SAVE.ui.charcoalInf;
+$('optCharcoal').addEventListener('change', () => { SAVE.ui.charcoalInf = $('optCharcoal').checked; persist(); if (SAVE.ui.charcoalInf && charcoal === 0 && charcoalLeft <= 0) charcoal = 1; updateCharcoal(); });
 $('optFace').checked = SAVE.ui.face !== false;
 $('optFace').addEventListener('change', () => { SAVE.ui.face = $('optFace').checked; persist(); });
 $('optZoom').addEventListener('input', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(false); applySpeed(false); applyFog(false); });
@@ -134,6 +138,9 @@ $('optFloor').addEventListener('change', () => { SAVE.ui.floor = $('optFloor').v
 // can give you the seed and the tile number in a screenshot so you can debug it."
 $('optNav').checked = !!SAVE.ui.nav;
 $('optNav').addEventListener('change', () => { SAVE.ui.nav = $('optNav').checked; persist(); });
+// the path into data/text.js under every line the game shows, for writing against a screenshot
+$('optIds').checked = !!SAVE.ui.ids;
+$('optIds').addEventListener('change', () => { SAVE.ui.ids = $('optIds').checked; persist(); });
 // the run log: what you have finished, how long each took, and a CSV of the lot to take away
 $('statsBtn').addEventListener('click', () => { dbg.classList.remove('show'); showStats(); });
 $('statsClose').addEventListener('click', () => $('stats').classList.remove('show'));
@@ -184,5 +191,10 @@ $('update').addEventListener('click', () => hardRefresh($('update')));
 // the first gesture, whatever it is. begin() is idempotent, so on a fresh run
 // where wake() already did it this is a no-op.
 addEventListener('pointerdown', () => AUDIO.begin(), { once: true });
+// And every touch after: Safari interrupts the context — lock screen, notification, a switch of
+// apps — and it does not come back on its own. Joe: "really delayed"; that was the queue of sounds
+// scheduled into a stopped clock, played the moment it finally woke. begin() is cheap and idempotent.
+addEventListener('pointerdown', () => AUDIO.unlock());
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') AUDIO.unlock(); });
 
 

@@ -58,13 +58,13 @@ function openFloor(x, y) {
   return false;
 }
 
-function narrate(text) { AUDIO.narrator(); narrEl.className = 'show'; narrEl.textContent = text; narrHideAt = gameNow() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
+function narrate(text) { AUDIO.narrator(); narrEl.className = 'show'; narrEl.textContent = text; tagId(narrEl, text); narrHideAt = gameNow() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
 function showJournal(pg) {
   const text = character.pages[pg];
   const arr = SAVE.collected[character.name] || (SAVE.collected[character.name] = []); arr[pg] = true; persist();
   pagesThisRun.push(pg);
   AUDIO.journal(); narrEl.className = 'show journal'; narrEl.textContent = text;
-  const who = document.createElement('small'); who.textContent = character.name; narrEl.appendChild(who);
+  const who = document.createElement('small'); who.textContent = character.name; narrEl.appendChild(who); tagId(narrEl, text);
   narrHideAt = gameNow() + (CONFIG.journalHoldSec + text.length / 30) * 1000;
   narrNext = Math.max(narrNext, narrHideAt + 20000);   // give the narrator a breather after a page
 }
@@ -390,7 +390,10 @@ function update(wall) {
     // a tile goes onto the map: one heartbeat of the icon, so you can see it working without
     // opening the map. When the piece runs out it pulses hard instead — and if you held the icon
     // down at some point, the next piece picks up where this one stopped, no tap needed.
-    if (charcoalOn && charcoalLeft > 0) { const added = mapHere(); if (added) { charcoalLeft = Math.max(0, charcoalLeft - added); updateCharcoal(); beat(charcoalEl);
+    if (charcoalOn && charcoalLeft > 0) { const added = mapHere(); if (added) { if (!SAVE.ui.charcoalInf) charcoalLeft = Math.max(0, charcoalLeft - added); updateCharcoal();   // the debug tap: it never wears down
+      // Joe, on v0.100.0's beat: "slow down the pulsing of the charcoal icon. It's too crazy. Make it
+      // pulse like half as much." So every charcoalBeatEvery-th tile logged, not every one
+      if (++charcoalTiles % CONFIG.charcoalBeatEvery === 0) beat(charcoalEl);
       if (charcoalLeft === 0) { charcoalOn = false; AUDIO.charcoalEnd(); spentPulse(charcoalEl);
         if (charcoalLock && charcoal > 0) { charcoal--; charcoalUsed++; charcoalLeft = B.charcoal(); charcoalOn = true; charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); }
         updateCharcoal(); } } }
@@ -425,7 +428,10 @@ function update(wall) {
         if (carried === sh.who) { sh.done = true; sh.doneAt = now; carried = null; renderCarried(); AUDIO.stone();
           shrinePath = pathToNearestPage(tx, ty); shrineUntil = shrinePath.length ? now + CONFIG.shrineThreadSec * 1000 : 0;
           saveRun(true); showExchange(sh); }
-        else if (carried !== null && !shrineWrongSaid) { shrineWrongSaid = true; narrate(SHRINE_LINES.wrong); } }
+        else if (carried !== null && !shrineWrongSaid) { shrineWrongSaid = true; narrate(SHRINE_LINES.wrong); }
+        // Joe: "When you don't have a stone but you collide with the statue, it should say
+        // something." Once per visit, like the finished statue below, not every frame you stand there.
+        else if (carried === null && prevKey !== key) narrate(SHRINE_LINES.noStone); }
       // and a statue you have already satisfied, stepped up to again: its finished line if it is
       // spent, otherwise the note that it has said its piece — once per visit, not every frame
       else { const dn = shrines.find(s => s.done && s.sx === tx && s.sy === ty); if (dn && prevKey !== key) narrate(exchangeStep(dn.who) ? SHRINE_LINES.again : (EXCHANGES[dn.who]?.done || SHRINE_LINES.again)); } }

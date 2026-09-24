@@ -49,7 +49,7 @@
     <summary>Play</summary>
     <label>Level <select id="optLevel"></select></label>
     <label>Stones <select id="optStones"></select></label>
-    <label>Prototype <select id="optProto"><option value="off" selected>Off</option><option value="push2">Two-way blocks</option><option value="laby">Labyrinth</option><option value="gallery">Room gallery</option></select></label>
+    <label>Prototype <select id="optProto"><option value="off" selected>Off</option><option value="push2">Two-way blocks</option><option value="laby">Labyrinth</option><option value="gallery">Room gallery</option><option value="giant">Giant: ten X-Larges, everything on</option></select></label>
     <button id="newMaze">New maze</button>
   </details>
   <details class="sec" data-sec="feel">
@@ -62,6 +62,7 @@
     <label>Stick <select id="optStick"><option value="right">Right</option><option value="left">Left</option></select></label>
     <label><input type="checkbox" id="optSound" checked> Sound</label>
     <label><input type="checkbox" id="optChalk"> Infinite chalk</label>
+    <label><input type="checkbox" id="optCharcoal"> Infinite charcoal</label>
   </details>
   <details class="sec" data-sec="maze">
     <summary>Maze</summary>
@@ -82,6 +83,7 @@
     <label><input type="checkbox" id="optPath"> Show path</label>
     <label><input type="checkbox" id="optMap"> Full map</label>
     <label><input type="checkbox" id="optNav"> Nav mesh + tile numbers</label>
+    <label><input type="checkbox" id="optIds"> Line IDs on text</label>
   </details>
   <button class="storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button>
   <button id="statsBtn">Run log</button>

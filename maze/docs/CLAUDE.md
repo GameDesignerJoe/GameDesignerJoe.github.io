@@ -14,6 +14,55 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## The path into the text, under the line (v0.103.0)
+
+Joe approved this back at the writer's-page discussion — *"Love the line ids
+idea. Let's do that."* — and it did not get built. Two versions of writer
+tooling shipped around it. He caught it: *"Weren't you supposed to add in a debug
+element that would show the ID of every string when I played? I don't see the
+feature in the debug option to turn it on."* He was right.
+
+`Show me → Line IDs on text`. Under every line the game shows, in small dim
+monospace, the path that line lives at in `data/text.js`:
+`SELF_LINES["The Child"][3]`, `MOMENTS.exitLocked._`,
+`ROOM_LINES["The Cartographer"].basin[2]`. The same id
+`tools/text-index.mjs` prints and `writer.html` is keyed by, so a screenshot
+off the phone maps straight onto the line to rewrite.
+
+**The lookup runs backwards, words → path.** Every surface —
+`narrate()`, the journal page, the helper card, the water, the statues, the
+blank map, the pages you have found — is handed a *finished string*, never an
+id. Threading an id through all of them means a second argument at every call
+site, and one forgotten call site is a line with no id and no sign that it is
+missing. So the map is built once from `TEXT_BLOCKS` and searched by text. Two
+consequences worth knowing:
+
+- **Duplicates are named, not hidden.** `You` says *"I wrote these."* in all
+  three shelf slots. The tag reads `ROOM_LINES["You"].shelf[0] ×3` — rewriting
+  one of three and leaving the other two is the mistake that would otherwise be
+  invisible.
+- **`{braces}` still resolve.** A `MOMENTS` line is substituted before it
+  reaches the screen, so the exact-text map misses it; those lines also go in as
+  regexes, and *"A key. Its head is a circle."* finds `MOMENTS.keyFound._`.
+
+A line the game shows that is **not** in `data/text.js` tags itself
+`not in text.js` rather than going quiet. That is the other half of what the
+view is for.
+
+`TEXT_BLOCKS` at the foot of `data/text.js` exists because these are
+`const` in the shared script scope and there is no way to enumerate them.
+Hand-written, therefore guarded: smoke asserts it lists every `^const [A-Z_]+`
+in the file, and `text-index.mjs` skips it so the writer's page does not index
+the index. A second guard round-trips **every** line in the file — look it up by
+its words, evaluate the path that comes back, and the words must match. That is
+the check that catches a walker that numbers arrays wrong or mangles a quoted
+key, which is the failure that sends a writer to the wrong slot.
+
+One real edit fell out of it. The statue's unasked question used to do
+`o.textContent = o.textContent + ' ' + SHRINE_LINES.unasked`, which would have
+swallowed the id badge along with everything else in the button. It inserts a
+text node before the badge now.
+
 ## The maze is built to a contract now, and says when it cannot be (v0.97.0)
 
 `data/phases.js` grew a `MUST` row per chapter — keys buried, exit guarded, key
@@ -54,6 +103,31 @@ Three things worth not relearning:
   against a pairwise reference over 88 mazes. Rooms are closer together than that
   doc first said. Two of them can even land on the same tile — 1 maze in 30 for
   The Archivist — which is a placement bug still open.
+## The writer's page, in the repo (v0.98.0)
+
+Joe: *"My expectations that you would make this writer.HTML page in the GitHub. I don't
+see it there."* Fair — the generator was committed and the artifact published, but the
+page itself never landed in the repo, which is where he went looking.
+
+`maze/writer.html` is committed now, so it opens from
+`gamedesignerjoe.github.io/maze/writer.html` like the game does. Three things had to be
+true first, and the third was a real bug:
+
+- **It had to save somewhere.** There is no `window.claude` on GitHub Pages, so that copy
+  keeps the work in `localStorage` and offers **Copy changes**, which puts every edit on
+  the clipboard to paste into the chat. The claude.ai copy still saves to the store I can
+  read directly. Both now say which one you are in, rather than one silently doing nothing.
+- **It had to be reproducible.** The page carried `built: new Date()`, so every build
+  differed from the last and *"is the committed page stale?"* was unanswerable. It carries
+  a fingerprint of the text instead. Two builds are byte-identical.
+- **Mojibake.** No `<meta charset>`: the artifact wrapper supplies one, GitHub Pages does
+  not, so every em-dash came through as `â€"` and the page laid out at desktop width on a
+  phone. Both metas are in the generated file now; the wrapper ignores them.
+
+**A generated file in the repo rots**, which is this session's recurring lesson, so smoke
+fails when `writer.html` and `data/text.js` disagree and names the command to fix it. The
+republish is not checked and stays a human step — it is in the skill's ship section.
+
 ## Adding a line, per event rather than per block (v0.96.0)
 
 Joe, on the first cut of the writer's page: *"I might want to write a new line for the
@@ -616,6 +690,344 @@ wants is a look to be chosen by eye, so all three are built and none is picked.
 Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
+
+## The Giant (v0.110.0)
+
+Joe, from his Thoughts: *"I want to make a prototype of the biggest map we could possibly
+make. 10 times the size of our biggest map"* — *"with all the features we have to put in
+it."* It is on the Prototype menu as **Giant**: 89×126 cells, 11,214 to X-Large's 1,120, the
+ordinary generator, and `GIANT_F` in `data/phases.js` in place of the chapter's feature row
+— everything on, the counts at the top of their range: three doors asked for, the Child's
+squeezes and swings, the full ladder of darkness with a lamp, statues, a figure, hopscotch.
+No contract row and no rebuild for a better deal: one maze, however it comes, because a
+rebuild costs ten X-Larges. Darkness is forced on, where a chapter rolls for it.
+
+**Twenty seconds to build, then four.** The first giant took 20.3s in headless Chrome.
+The profiler put 12.5s of it in one line: the page order sorts rooms by walking distance to
+the route, and the distance was a flood from each room, *inside the sort's comparator*, with
+a queue that shifted — thousands of floods of 45,000 tiles. One flood out from the route,
+read back per room, and a stone room centre reading one more than its nearest open
+neighbour as the old flood did from its first step: same order, one pass. Then the rest:
+four floods that shifted their queues (O(n) a pop) now index them; the route floods stop the
+moment the exit is in hand; the door placer's severs() stops its flood at the exit; and the
+scrap spacing, which flooded the whole maze from every scrap for every scrap placed, keeps
+one nearest-scrap distance map and relaxes it from each new scrap. **Every one of these was
+checked against a fingerprint of twelve ordinary mazes** — tiles, pages, doors, keys,
+sliders, statues, stones, darkness, gaps, pickups — identical before and after, which
+caught the room-centre case the first time. 3.9s now, and an X-Large is quicker too.
+
+**It plays at 60fps.** Frame time walking the giant is 16.8ms median against 16.7ms in a
+medium maze; the map with 15,700 tiles charted draws at 16.6ms. The renderer culls to the
+screen and always did.
+
+**What one giant holds** (seed 4242, the Priest's self): 236 rooms of all seven kinds, 129
+sliders, 4 swings, 38 squeezes, 2 statues, 80 map scraps, 5 pages, a secret room, an exit
+tree, 9,800 tiles of darkness and a lamp, 81 thread pickups, and 1 door of the 3 asked for.
+Pickups scale with area, so the giant is generous with them; the doors do not, because a
+door has to sever the route and one build finds what it finds. Both are the prototype
+showing what the generator does at this size, which is what Joe wanted to see.
+
+**Tests.** Generation, so all three. Harness PASS 576 and selftest 19 — the harness does
+not build giants, so the smoke check does: ten X-Larges of cells, the exit reachable by
+walking (a pushable block's tiles as floor, since he starts sealed behind one), every
+feature present, all seven room kinds, and built under eight seconds. Proven red against a
+build with no Giant on the menu.
+
+## Infinite charcoal, for the debug window (v0.109.0)
+
+Joe: *"add an infinite charcoal to the debug window."* A checkbox beside Infinite chalk,
+`SAVE.ui.charcoalInf`. Lit, the piece never wears down; with an empty pocket a tap still
+lights one; the pill reads ∞. The counter of tiles logged still runs, so the heartbeat
+still beats. Asked for ahead of the big-map prototype, which is what it is for: charting a
+maze ten times the size without stopping to find charcoal.
+
+**Two probe repairs rode along.** The composer's notes now check the clock too: a bar's
+notes are scheduled by timer before the bar plays, and with the context stopped they were
+still made — three voices in the stopped-clock check, from the music, not the effect under
+test. And the pool ripple probe reads direction as a *time* lag between two neighbouring
+radii (the inner band lags the outer when the rings close), which cannot alias the way a
+spatial shift against frame zero did; the quarter-second version I tried first rounded to
+nothing. Lesson kept: for a periodic pattern, read time at fixed places, not place at
+fixed times.
+
+**Tests.** UI, so smoke alone: 106 checks, one new, proven red with the toggle's wiring
+removed (no toggle: the probe fails and says so, rather than throwing).
+
+## Sounds a phone can play, and a clock that stops (v0.107.0)
+
+Three items from Joe's doc, all sound. *"It doesn't appear to be a sound effect when you
+picked up a key. Or it might've just been very delayed. Yeah, really delayed. I restarted to
+see if that fixed it. Makes me think there's a memory leak because I was playing for
+awhile."* — *"The sound for the push block needs to be a little bit louder."* — *"There's
+no sound for when the gates open."* Seed 51406072.
+
+**Measured for a leak first, and there isn't one — in Chrome.** Headless Chrome ran the
+game for 3.7 minutes with a footstep every 400ms, a pickup and a key every 3s, a push every
+6s and a gate every 10s, sampling the audio thread through the DevTools protocol: render
+capacity 3–7% and flat, callback interval steady, JS heap 5–8MB and flat. The audio graph
+stops and drops every node it makes, and the composer runs one timer chain. Nothing grows.
+
+**What Safari does is stop the clock.** A lock screen, a notification, a switch of apps, and
+the AudioContext comes back `suspended` or `interrupted` and stays so — the game only woke it
+on the *first* touch. Every sound after that was scheduled into a clock that was not running;
+they queued, and when a later gesture finally resumed it they all fired together, late. That
+is "really delayed", and a restart clears the queue, which is what he saw. Three changes: a
+sound that cannot play now is dropped, not queued (`live()` in `tone` and `noise`); every
+touch and every return to the foreground nudges the context awake, not just the first; and
+the composer skips a bar it cannot sound rather than piling notes into the stopped clock. I
+cannot reproduce Safari's interruption here, so this is the fix for the mechanism the
+symptoms describe, and the report stays open until Joe plays a long session on it.
+
+**The gate had a sound and the push block had a weight, both under 100Hz.** A 90Hz triangle
+and a 48Hz one: a phone speaker cannot reproduce either, which is the lesson the music
+learned as `bassCarrierHz`. The gate is a grind you can hear, a tone up where the phone
+lives, and the leaves knocking home at the end; the push block's hiss is louder and its
+weight moved up to 220Hz. No sound effect in the game now has a voice under the floor.
+
+**Tests.** Sound, so smoke alone: 105 checks, two new. One plays the gate and the push and
+reads every oscillator's pitch off the audio probe, wanting none under `bassCarrierHz`. The
+other suspends the context, asks for a pickup and a key, wants no voices made, then sends a
+touch and wants the context running and the next pickup heard. Both proven red against the
+old code. Joe's ear is the third test, and the one that counts.
+
+**And the pool ripple probe, finally.** Red in 7 of 17 runs over two days with the water
+visibly working. It read each later frame's shift against frame zero — and the ring pattern
+repeats every few bands, so once the rings had travelled half a period a later frame matched
+an earlier shift as well as the true one, and 2,2,2 or 1,2,1 came back for real inward
+motion. Frame to frame the travel is under a band and rounds to nothing (0 in 19 steps, on
+the first try at this). A quarter-second apart it is about one band, enough to register and
+under half the period, so the sign cannot alias: the probe sums those steps and wants two
+bands of travel with at most one step outward. Two lessons for the file: a correlation
+against a fixed reference aliases on anything periodic, and a check that fails half the
+time with nothing changed is measuring its own timing, not the game.
+
+## The HUD after a night's play, and a map that keeps its secrets (v0.106.0)
+
+Four items from Joe's doc, all HUD or map. *"Locked, charcoal states gold, even after all
+of the charcoal is gone."* — *"Please slow down the pulsing of the charcoal icon. It's too
+crazy. Make it pulse like half as much."* — *"The map icon only has to flash the first
+time it appears, not every time."* — *"Need to stop drawing the important locations on
+the map so that players can put chalk down for them instead. If we don't draw the statue
+or the gates, then they have a reason to use chalk."*
+
+**The gold ring** now reads only while there is charcoal to be locked on to. The lock
+itself stays armed — the next piece he finds lights on its own, which is what lock-on is
+for — but a gold ring round an empty pill said something was on when nothing was.
+
+**The heartbeat, half as much**, both ways: every other tile logged (`charcoalBeatEvery`)
+and half the swell (1.11, was 1.2). v0.100.0 made it visible; this makes it company
+rather than a metronome. The smoke bar is now a band, over 1.05 and under 1.15, so
+neither the invisible beat nor the crazy one passes.
+
+**The map button beckons once per save** (`SAVE.mapBeckoned`), set the first time the map
+is opened. It used to beckon every time a maze started.
+
+**The map draws no gates, statues or stones.** Keys, pages and charcoal still show: those
+are things you pick up and are gone. A gate, a statue, a stone are places to come back to,
+and the chalk is for that. `mapDrawsPlaces` puts them back for looking. Reading taken:
+"the statue or the gates" as the item names them, plus the stones, which are the
+statues' other half. Pages stay because the writer's page and the Stories screen already
+make them the one thing the map has always been for; that is a judgement, and Joe can
+overturn it with the knob or a word.
+
+**Tests.** HUD and map, so smoke alone: 103 checks. The heartbeat check now wants one beat
+over two fresh tiles and none after the first; a new check wants the gold gone on an empty
+locked pill with the lock still armed; a new check runs a save twice and wants the beckon
+on the first run only, then charts a gate, a statue and a stone and counts what the map
+draws of them: nothing. Proven red against the committed code.
+
+## A crawl gap is never a plus (v0.104.0)
+
+Joe, asked whether a crawl gap should ever be open on both axes: *"No a crawl gap should
+never be also a push gap."* Read as *plus* gap, the shape in his screenshot — dictated
+from a phone. v0.94.0 made the plus walkable; this makes it not exist.
+
+**How common it was.** Over 120 Child mazes, 506 of 3,215 crawl gaps had a third open
+side and 418 of 834 crawl cells a third way out. The extra sides were rooms and courts
+carved before the gaps were laid (the gap placer never looked sideways), the exit tree's
+holes beside room floor, and L-shaped squeezes whose far cell kept its own corridor link
+— a T by construction, every time.
+
+**One question, asked everywhere.** `gapFits(x, y)`: floor on one axis, wall on the other.
+The gap placer asks it of every candidate; the L continuation asks it of the new hole and
+only makes the L where the far cell would end up with its two holes and nothing else; the
+secret room's way in prefers a hole that reads so once the room is floor; the exit tree
+asks it of every hole it makes; the hole on the route asks it too. And a sweep at the end
+of the build removes any gap or crawl cell that a later carve — a vault's rings, the start
+room's ring, a statue — has given a third side, counted in `plusSwept` so the probes can
+see the sources doing their part. After: 0 of 2,703 gaps and 0 of 787 cells over the same
+120 mazes, with the sweep removing 24 across 21 of them. The Child's mazes carry about
+four fewer gaps each — the plus-shaped ones were never good holes.
+
+**Tests.** Generation, so all three. Harness PASS 576 with a new invariant that reads the
+shape and no knob; `crawlGaps` and `crawlCells` join the snapshot. Selftest 19 of 19 with a
+flank opened beside a gap. Smoke 101 after the merge with main: a new statistic over 60 Child mazes, and the v0.94.0
+movement check now passes on finding nothing plus-shaped, keeping its rule for the day one
+slips.
+
+## Rooms spread out (v0.102.0)
+
+Joe, with a screenshot I could not see: *"All the rooms are pushed into the same
+space. These should be more spread out."* QUALITY.md had already measured the sharp
+end of it — two rooms on one tile in 1 Archivist maze of 30, seven of 30 with two
+rooms within four tiles — and left the note *"fewer rooms or a spread rule, not a
+retry."*
+
+**Why they clumped.** The placer took the *first* spot not too close to another room,
+and after twenty misses settled for wherever it happened to be. So spread was what
+it settled for when the dice were kind, and where there were most rooms the dice
+were least kind.
+
+**The spread rule.** Each room now draws `roomSpreadTries` legal spots and takes the
+one farthest (in tiles, by the larger axis) from every room already placed. Spread is
+chosen, not settled for. A best spot that would still touch another room means the
+maze has no ground for this room and it goes without: a room on a room is not two
+rooms. Measured on the same 60 seeds per chapter, before → after:
+
+| chapter | rooms | closest pair | median gap |
+|---|---|---|---|
+| The Child | 4.3 → 4.6 | 6 → 10 | 14 → 14 |
+| The Cartographer | 3.4 → 3.5 | 6 → 8 | 18 → 20 |
+| The Soldier | 3.3 → 3.0 | 2 → 8 | 12 → 18 |
+| The Archivist | 11.2 → 10.3 | **0 → 8** | 8 → 10 |
+| The Priest | 7.2 → 7.6 | 6 → 10 | 12 → 16 |
+| The Criminal | 7.3 → 7.5 | 6 → 10 | 12 → 16 |
+| The One Who Stayed | 14.7 → 14.2 | 6 → 10 | 10 → 14 |
+| You | 1.6 → 1.6 | **0 → 8** | 18 → 22 |
+
+Gaps are the contract's own measurement (`contract.js`, walking distance between the
+closest two rooms). No maze puts two rooms on one tile any more, and the closest pair
+is eight tiles or better everywhere. The Archivist's median of ten is still a few
+seconds' walk: eleven rooms in a lg maze is the cause, and fewer rooms is the lever
+left, which is Joe's to pull (`rooms: 1.6` on its phase).
+
+**A bug the spread rule shook out, in the exit gauntlet.** The first harness run went
+red on one seed, 32676 in The Child, twice over: a route tile at 22,5 had become wall,
+and the exit could be reached without going through the squeeze tree. Toggling features
+on that seed pinned it: the gauntlet. It shuts the tree's side links to the rest of the
+maze, one at a time, keeping any that would strand floor — but the trunk is read off the
+*cell lattice*, and where the way out crosses a room it leaves the lattice, so a link the
+lattice reads as "off the tree" can be the route's own next step. Nothing was stranded
+because there was another way round, which is the bypass the second invariant caught.
+Two fixes, both small: the gauntlet never shuts a tile of the route, and a tree that is
+not the only way to the exit is not built at all rather than kept as a decoration with a
+bypass. The Child's gauntlet is the same size on average (17 tiles over 60 seeds) and
+the maze at 32676 gets a shorter tree that is the only way. Latent since v0.4x; the
+rooms moving is what made the route cross one beside the tree.
+
+**Tests.** Generation, so all three. Harness PASS 576 with a new invariant, *no two
+rooms share ground*, which reads the rooms' rects and no knob. Selftest 18 of 18 with
+its breakage. Smoke 97 with a new statistic over 60 Child and Archivist mazes: no two
+rooms within four tiles, proven red against the committed generator (one pair 0 apart).
+Two probes went red on the new geometry and both were the probe: the spiral read its
+turn before the spiral had ever been drawn (`spin` undefined), and the ball pit stood on
+the exact middle of the first pit it found, which now had no ball within reach. The
+spiral waits a frame; the pit probe walks about the pit as a player would.
+
+## Hopscotch stops at four (v0.101.0)
+
+Joe: *"Hopscotch should stop at four. It's too long otherwise."* The court took up to
+eight squares of any straight run of five or more. `hopscotchSquares` is the knob, four,
+and a run has to be at least that long to take a court, so no court comes up short.
+Own batch, on purpose: it is a generation change, and the room-spacing work behind it
+needs a clean measurement that a hopscotch change would not disturb but might be
+blamed for.
+
+**Tests.** Generation, so all three. Harness PASS 576, selftest 17 of 17, smoke 96 with
+one new statistic: every court over 60 Child mazes is exactly four squares. The bar is
+Joe's number written into the check, not read from the knob, and it was red at eight.
+
+## The charcoal heartbeat, the lock, and the compass on the floor (v0.100.0)
+
+Three HUD items from the doc. Joe: *"The charcoal icon on the hud/screen should have a
+little pulse to it every time a tile is logged. Like a little heart beat as the player
+is walking."* — *"The press and hold for the charcoal lock needs a stronger visual to
+show it's locked, maybe a bolder outline."* — *"The pickup for the compass should look
+different than the main character as well. Make it look like the icon that shows up
+when you collect it."*
+
+**The heartbeat was there and could not be seen.** `beat()` fired on every tile logged,
+as it has since it was added, and swelled the pill 8% over 440ms. At walking pace a tile
+lands every ~430ms, so the animation never came back to rest between tiles and read as
+a faint continuous wobble, which is to say nothing. A re-listed item is a still-wrong
+item. Now: a 20% swell with the ring flashing, 360ms (`charcoalBeatMs`), so it beats and
+rests, beats and rests, as he walks.
+
+**Lock-on** is a 2px gold border on the pill itself, a wider halo, and the stick inside
+goes solid gold. The resting pill's border is 1px and dim.
+
+**The compass pickup was his own arrowhead lying on the floor** — the very confusion
+that had the compass beside him redrawn as an instrument in v0.7x. It is the same
+compass now, small: the case, the north tick, and the needle already turned toward the
+way out. The tutorial card's icon matches.
+
+**The version.** Main was at v0.98.0 from the other session when the statue batch
+merged as v0.99.0, so this is v0.100.0. Not v1.0.0: that number says something about
+the game that is Joe's to say.
+
+**Tests.** HUD and render, so smoke alone: 95 checks, three new. The heartbeat check
+reads the stylesheet's own keyframe for its peak (bar 1.15) and the beat's length
+against a walking step, and watches the class land on a fresh tile. The lock check
+compares computed border and shadow, locked against resting. The compass check samples
+the canvas on the case's ring at right angles to the needle: brighter than the face
+inside it and than the floor beside it. All three proven red with the old CSS and the
+arrowhead back.
+
+**Still red, and not this batch's:** *the pool is light at its rim and deep in the middle,
+and the rings travel inward* failed three of seven smoke runs today, passing the other
+four with nothing changed between them. It matches frames by index at 60ms naps and
+asks the last shift to exceed the first; under load the frames land unevenly and the
+shifts come back 2, 2, 2 or 2, 1, 1. Main's change to `pool.js` since v0.94.0 is text
+only, so this is the check's timing, not the water. Raised with Joe rather than
+loosened here.
+
+## One person to a chapter, and the Teen (v0.99.0)
+
+Four items from the doc, all statues. Joe, with screenshots I could not see: *"I don't
+think this is how it's supposed to look for the statues. The grey oval is out in
+darkness. The symbol above the bowl doesn't match the one I was carrying."* — *"When
+you don't have a stone but you collide with the statue, it should say something."* —
+*"The Child section at the start of the game is the main character as a child, not
+their child. We might call their child The Teen. Please correct the questions in these
+two sections."* — *"We need to lock in each person to each chapter. So child chapter
+has statues of the father. The mom gets another one, and the friend and so on to the
+Teen getting the last one."*
+
+**Two children, not one.** The Child is the chapter: the man himself, small. The Teen
+is the man's own kid. The person's id is `teen` everywhere now (`child` was the id
+before, and a save's `asked.child` count carries over), and their card says *my kid*,
+which is what a father calls them. The father's four exchanges are read in two
+chapters, so the first two are asked in the Child's maze and are written in the boy's
+voice — lowercase, *are you coming back?* — and the last two in the Priest's, a man
+asking a dead one. That is the reading I took of "correct the questions in these two
+sections": the Child's chapter speaks as a child, and the Teen is named as the Teen.
+
+**One person to a chapter.** `shrines` in `data/phases.js` names them: father in the
+Child's, mother in the Cartographer's, friend, spouse, then father and mother again
+for their last two questions, spouse's last two in The One Who Stayed, and the Teen in
+*You*, where the make-believe is stripped away. Both statues in a maze are theirs, so
+both stones carry their mark, and the bowl's symbol always matches the stone in your
+hand — that was Joe's mismatch: two of five people dealt at random. Either bowl takes
+the stone now, so a stone is placed far from *every* step, not just its own; measured
+from one step it could lie at the other statue's feet. Five people, four questions,
+two statues a maze, eight chapters: friend and Teen get one chapter each. Joe's to
+reassign by changing a word per line.
+
+**The niche.** The statue's tile is wall, so it was a grey egg with a dot floating in
+black. Now the tile is a recess of dim floor with the wall's lip round it, a plinth,
+and a figure with head and shoulders in the stone's pale colour. Seen before believed,
+at the step and two tiles out.
+
+**Empty-handed.** Step up to a statue with nothing in your hands and he says the bowl
+is waiting for something he has not found. Once per visit, like a spent statue's line.
+
+**Tests.** Generation changed, so all three. Harness PASS 576 with a rewritten
+invariant (*each statue has its stone, and the stone lies well away from it* now
+counts a person's stones against their statues and walks to the nearest) and a new
+one, *every statue and every stone in a maze is the chapter's person*, with
+`shrineWho` in the snapshot. Selftest 17 of 17 with a new breakage. Smoke 88: a new
+statistic over 240 mazes (every statue and stone the chapter's), and the stone walk
+rewritten for either bowl and the empty-handed line.
 
 ## The plus-shaped squeeze (v0.94.0)
 

@@ -10,6 +10,7 @@ let marks = new Map();   // 'x,y' → glyph: 'x' | '?' | 'up' | 'right' | 'down'
 let chalk = 0, chalkUsed = 0, chalkFound = 0, deadEndsEntered = 0;
 let charcoal = 0, charcoalLeft = 0, charcoalUsed = 0, charcoalFound = 0, charcoalOn = false;   // charcoalLeft: tiles of mapping remaining on the active piece
 let charcoalLock = false;   // held down once: when the piece in hand runs out, take the next one without asking
+let charcoalTiles = 0;      // tiles logged this run, for pacing the icon's heartbeat
 let visited = new Set();   // every tile you've stood on this run
 let mapped = new Map();   // 'x,y' → 'floor' | 'wall' | 'tunnel' — everything the map knows
 let pointerUntil = 0, pathUntil = 0, pointerUses = 0, pathUses = 0;
@@ -64,16 +65,19 @@ function markGlyph(mark, color) { const c = color || '#e0c98a', a = `fill="none"
 // and get its answer, and the other stays on the card unasked. Progress is per person and per
 // game, not per maze — SAVE.asked[who] is how far down their steps you have come — so a statue you
 // have spent says its one finished line and nothing else, in this maze and every maze after.
-function exchangeStep(who) { SAVE.asked = SAVE.asked || {}; const ex = EXCHANGES[who]; if (!ex) return null; const i = SAVE.asked[who] || 0; return i < ex.steps.length ? ex.steps[i] : null; }
+function exchangeStep(who) { SAVE.asked = SAVE.asked || {};
+  // the person was `child` before v0.99.0; a save from then carries its count over
+  if (SAVE.asked.child) { SAVE.asked.teen = (SAVE.asked.teen || 0) + SAVE.asked.child; delete SAVE.asked.child; persist(); }
+  const ex = EXCHANGES[who]; if (!ex) return null; const i = SAVE.asked[who] || 0; return i < ex.steps.length ? ex.steps[i] : null; }
 function showExchange(sh) {
   const person = PEOPLE.find(p => p.id === sh.who), step = exchangeStep(sh.who);
   if (!person || !step) { narrate(EXCHANGES[sh.who]?.done || SHRINE_LINES.again); return; }
   $('talkWho').textContent = person.name; $('talkAnswer').textContent = ''; $('talkAnswer').classList.remove('show');
   const box = $('talkChoices'); box.innerHTML = '';
-  step.q.forEach((q, i) => { const b = document.createElement('button'); b.textContent = q; b.addEventListener('click', () => {
+  step.q.forEach((q, i) => { const b = document.createElement('button'); b.textContent = q; tagId(b, q); b.addEventListener('click', () => {
     if (box.classList.contains('asked')) return; box.classList.add('asked');
-    [...box.children].forEach((o, j) => { if (j !== i) { o.classList.add('unasked'); o.textContent = o.textContent + ' ' + SHRINE_LINES.unasked; } else o.classList.add('chosen'); });
-    $('talkAnswer').textContent = step.a[i]; $('talkAnswer').classList.add('show');
+    [...box.children].forEach((o, j) => { if (j !== i) { o.classList.add('unasked'); o.insertBefore(document.createTextNode(' ' + SHRINE_LINES.unasked), o.querySelector('.lid')); } else o.classList.add('chosen'); });
+    $('talkAnswer').textContent = step.a[i]; tagId($('talkAnswer'), step.a[i]); $('talkAnswer').classList.add('show');
     SAVE.asked[sh.who] = (SAVE.asked[sh.who] || 0) + 1; persist(); AUDIO.paper();
     $('talkClose').classList.add('show');
   }); box.appendChild(b); });
@@ -103,11 +107,14 @@ function updateCharcoal() {
   $('mapBtn').style.display = (phase().f.charcoal || phase().f.scraps) && !poolMode ? '' : 'none';
   // while a piece is in hand the stick itself drains; otherwise show how many whole pieces you carry
   charcoalEl.querySelector('i').style.setProperty('--fill', (charcoalLeft > 0 ? charcoalLeft / B.charcoal() * 100 : 100) + '%');
-  $('charcoalN').textContent = charcoalLeft > 0 ? (charcoal > 0 ? '+' + charcoal : '') : String(charcoal);
+  $('charcoalN').textContent = SAVE.ui.charcoalInf ? '∞' : charcoalLeft > 0 ? (charcoal > 0 ? '+' + charcoal : '') : String(charcoal);
   charcoalEl.classList.toggle('active', charcoalOn && charcoalLeft > 0);
   charcoalEl.classList.toggle('paused', !charcoalOn && charcoalLeft > 0);
   charcoalEl.classList.toggle('empty', charcoalLeft <= 0 && charcoal === 0);
-  charcoalEl.classList.toggle('locked', charcoalLock);
+  // Joe: "Locked, charcoal states gold, even after all of the charcoal is gone." The lock stays
+  // armed — the next piece he finds lights on its own — but a gold ring round an empty pill says
+  // something is on when nothing is. The ring reads only while there is charcoal to be locked on to.
+  charcoalEl.classList.toggle('locked', charcoalLock && (charcoalLeft > 0 || charcoal > 0));
 }
 // The hold. A tap pauses and resumes the piece in hand; holding arms the hand-off, so the next
 // piece lights itself the moment this one is gone. Arming it with nothing lit lights one now —
@@ -120,6 +127,7 @@ function lockCharcoal() {
   pulse(charcoalEl); updateCharcoal();
 }
 function useCharcoal() {
+  if (SAVE.ui.charcoalInf && charcoalLeft <= 0 && charcoal === 0) charcoal = 1;   // the debug tap: the pocket is never empty
   if (solved || !started || sliding || paused) return;
   if (charcoalLeft > 0) { charcoalOn = !charcoalOn; if (charcoalOn) { charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); } else AUDIO.charcoalEnd(); }   // pause / resume the piece in hand
   else if (charcoal > 0) { charcoal--; charcoalUsed++; charcoalLeft = B.charcoal(); charcoalOn = true; charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); }

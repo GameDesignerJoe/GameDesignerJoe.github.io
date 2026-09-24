@@ -818,7 +818,18 @@ function draw() {
   // pointer / path pickups
   for (const [k, kind] of pickups) {
     const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
-    if (kind === 'pointer') { ctx.fillStyle = C.pointerPickup; ctx.beginPath(); ctx.moveTo(px, py - S*0.2); ctx.lineTo(px + S*0.1, py + S*0.14); ctx.lineTo(px, py + S*0.06); ctx.lineTo(px - S*0.1, py + S*0.14); ctx.closePath(); ctx.fill(); }
+    // Joe: "The pickup for the compass should look different than the main character as well. Make
+    // it look like the icon that shows up when you collect it." It was his own arrowhead lying on the
+    // floor. So it is the compass now — the same case, north tick and needle as the one that rides
+    // beside him once he has it, small, the needle already pointing at the way out.
+    if (kind === 'pointer') { const R0 = S*0.2, ang = Math.atan2(exit.y + 0.5 - (my + 0.5), exit.x + 0.5 - (mx + 0.5));
+      ctx.save(); ctx.translate(px, py);
+      ctx.fillStyle = 'rgba(13,15,16,.74)'; ctx.beginPath(); ctx.arc(0, 0, R0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = C.pointerPickup; ctx.lineWidth = Math.max(1, R0*0.17); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -R0); ctx.lineTo(0, -R0*0.62); ctx.stroke();
+      ctx.rotate(ang); ctx.fillStyle = C.pointerPickup; ctx.beginPath(); ctx.moveTo(R0*0.74, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(232,227,214,.30)'; ctx.beginPath(); ctx.moveTo(-R0*0.62, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+      ctx.restore(); }
     else { ctx.strokeStyle = C.pathPickup; ctx.lineWidth = Math.max(1.5, S*0.05); ctx.beginPath();
       for (let i=0; i<=40; i++) { const t = i/40, a = t*Math.PI*5, r = S*0.05 + t*S*0.14; const x = px + Math.cos(a)*r, y = py + Math.sin(a)*r; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); } ctx.stroke(); }
   }
@@ -843,11 +854,21 @@ function draw() {
     // So the figure keeps a resting light and only the glow is proximity's.
     const nearLit = Math.max(0, 1 - near / CONFIG.columnLightTiles);
     const lit = sh.done ? 1 : Math.max(CONFIG.shrineRestLight, nearLit);
+    // The statue's tile is wall, so it used to be a grey egg floating in black. Joe: "I don't think
+    // this is how it's supposed to look for the statues. The grey oval is out in darkness." So the
+    // tile is a niche cut into the wall — a recess of dim floor with the wall's lip round it — and
+    // the figure stands on a plinth in it, head and shoulders, in the stone's own pale colour. The
+    // niche is dimmer than the corridor so it reads as set back; the glow is still proximity's.
+    const inset = S*0.1, dim = 0.55 + 0.25*lit;
+    ctx.save(); ctx.globalAlpha = dim; ctx.fillStyle = C.floor; ctx.fillRect(px - S/2 + inset, py - S/2 + inset, S - inset*2, S - inset*2); ctx.restore();
+    ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S*0.03); ctx.strokeRect(px - S/2 + inset, py - S/2 + inset, S - inset*2, S - inset*2);
     if (nearLit > 0.01) { const glow = ctx.createRadialGradient(px, py, 0, px, py, S*0.95); glow.addColorStop(0, `rgba(201,185,138,${(0.22*nearLit).toFixed(3)})`); glow.addColorStop(1, 'rgba(201,185,138,0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(px, py, S*0.95, 0, Math.PI*2); ctx.fill(); }
-    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(px, py, S*0.28, S*0.33, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = sh.done ? '#e9e2d0' : C.shelf; ctx.globalAlpha = sh.done ? 1 : 0.42 + 0.48*lit;
-    ctx.beginPath(); ctx.ellipse(px, py - S*0.04, S*0.18, S*0.25, 0, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
-    ctx.fillStyle = sh.done ? '#e9e2d0' : C.wall; ctx.beginPath(); ctx.arc(px, py - S*0.18, S*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = C.wall; ctx.fillRect(px - S*0.26, py + S*0.2, S*0.52, S*0.14);                       // the plinth
+    ctx.fillStyle = C.grout; ctx.fillRect(px - S*0.26, py + S*0.2, S*0.52, S*0.025);                    // its lit top edge
+    const stone = sh.done ? '#e9e2d0' : C.shelf; ctx.fillStyle = stone; ctx.globalAlpha = sh.done ? 1 : 0.5 + 0.5*lit;
+    ctx.beginPath(); ctx.moveTo(px - S*0.2, py + S*0.2); ctx.lineTo(px - S*0.17, py - S*0.06); ctx.quadraticCurveTo(px - S*0.16, py - S*0.16, px - S*0.07, py - S*0.17);   // the body: shoulders to plinth
+    ctx.lineTo(px + S*0.07, py - S*0.17); ctx.quadraticCurveTo(px + S*0.16, py - S*0.16, px + S*0.17, py - S*0.06); ctx.lineTo(px + S*0.2, py + S*0.2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py - S*0.27, S*0.09, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;   // the head
     ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S*0.04); ctx.beginPath(); ctx.ellipse(bx, by, S*0.22, S*0.14, 0, 0, Math.PI*2); ctx.stroke();
     if (sh.done) { ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(bx, by, S*0.1, S*0.07, 0.3, 0, Math.PI*2); ctx.fill(); }
     ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1, S*0.03); drawMark(ctx, sh.mark, bx, by - S*0.3, S*0.1); }

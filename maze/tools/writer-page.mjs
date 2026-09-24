@@ -33,10 +33,26 @@ const chapters = [...new Set(lines.map((l) => l.chapter))]
   .sort((a, b) => order(a) - order(b))
   .map((c) => ({ name: c || 'Any chapter', lines: lines.filter((l) => l.chapter === c) }));
 
-const DATA = JSON.stringify({ chapters, room: ROOM, built: new Date().toISOString(), total: lines.length })
+// A fingerprint of the text this page was built from, not a timestamp. A clock makes every build
+// differ from the last, which would make "is the committed page stale?" unanswerable — and that is
+// the one question worth being able to ask about a generated file.
+const stamp = (() => {
+  let h = 0x811c9dc5;
+  for (const l of lines) for (const ch of (l.id + l.text)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16);
+})();
+
+const DATA = JSON.stringify({ chapters, room: ROOM, stamp, total: lines.length })
   .replace(/</g, '\\u003c');
 
-process.stdout.write(`<title>The Maze Script</title>
+// The charset and viewport are here for the copy served from gamedesignerjoe.github.io, which gets
+// no wrapper: without them the em-dashes come through as mojibake and the page lays out at desktop
+// width on a phone. The published artifact supplies its own and ignores these.
+// The page, as a string. Exported so tools and the suite can build it without shelling out.
+export function buildPage() {
+  return `<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Maze Script</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=Spectral:ital,wght@0,300;0,400;1,300;1,400&family=IBM+Plex+Mono:wght@400&display=swap">
 <style>
 :root {
@@ -124,6 +140,7 @@ h2 { font-size:13px; font-weight:400; letter-spacing:.2em; text-transform:upperc
     <button class="chip" id="fEdited" aria-pressed="false">Edited</button>
     <button class="chip" id="fDead" aria-pressed="false">Never fires</button>
     <button class="chip" id="fLong" aria-pressed="false">Long</button>
+    <button class="chip" id="copyOut" title="Put every change on the clipboard, to paste into the chat">Copy changes</button>
     <span class="saved" id="saved"></span>
   </div>
 
@@ -143,17 +160,45 @@ const isEdited = (l) => { const e = edits[l.id]; return !!e && (e.deleted || (ty
 
 function setSaved(msg) { $('saved').textContent = msg; }
 
+const LOCAL = 'maze.writer.v1';
+function saveLocal() { try { localStorage.setItem(LOCAL, JSON.stringify({ edits, added, updatedAt: new Date().toISOString() })); return true; } catch (e) { return false; } }
+function loadLocal() { try { return JSON.parse(localStorage.getItem(LOCAL) || 'null'); } catch (e) { return null; } }
+
+// Two homes. Opened from claude.ai the page has a store I can read from my end, which is the whole
+// loop. Opened from gamedesignerjoe.github.io it has no such thing — so rather than pretend, it
+// keeps your work in this browser and gives you a button to hand it over.
 function queueSave() {
   dirty = true; setSaved('saving…');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    if (!db) { setSaved('offline — copy your work out before closing'); return; }
+    if (!db) {
+      const ok = saveLocal();
+      dirty = !ok;
+      setSaved(ok ? 'kept on this device — press Copy changes when you want them in the game'
+                  : 'this browser will not let me save — copy your changes out now');
+      return;
+    }
     try {
       await db.doc('writer/edits').set({ edits, added, updatedAt: new Date().toISOString() });
+      saveLocal();                         // a spare copy, in case the network was lying
       dirty = false;
       setSaved('saved ' + new Date().toLocaleTimeString());
-    } catch (e) { setSaved('could not save — ' + (e && e.code ? e.code : 'try again')); }
+    } catch (e) { saveLocal(); setSaved('could not reach the store — kept on this device'); }
   }, 700);
+}
+
+async function copyChanges() {
+  const n = Object.keys(edits).length + added.length;
+  if (!n) { setSaved('nothing changed yet'); return; }
+  const out = JSON.stringify({ edits, added, from: 'The Maze Script', at: new Date().toISOString() }, null, 1);
+  try { await navigator.clipboard.writeText(out); setSaved('copied ' + n + ' change' + (n === 1 ? '' : 's') + ' — paste them to me'); }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = out;
+    ta.style.cssText = 'position:fixed;inset:10% 5%;z-index:99;width:90%;height:70%';
+    document.body.appendChild(ta); ta.select();
+    setSaved('select all and copy, then tap outside');
+    ta.addEventListener('blur', () => ta.remove());
+  }
 }
 
 function grow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
@@ -307,20 +352,35 @@ for (const id of ['fEdited', 'fDead', 'fLong']) {
     render();
   });
 }
+$('copyOut').addEventListener('click', copyChanges);
 $('find').addEventListener('input', render);
 render();
 setSaved('connecting…');
 
 (async () => {
+  const local = loadLocal();
+  if (local && local.edits) { edits = local.edits; added = local.added || []; render(); }
   db = await (window.claude && window.claude.use ? window.claude.use('db') : Promise.resolve(null));
-  if (!db) { setSaved('not saving here — open the published page'); return; }
+  if (!db) {
+    setSaved(local && local.updatedAt
+      ? 'on this device, last kept ' + new Date(local.updatedAt).toLocaleString()
+      : 'writing here is kept on this device — Copy changes hands them over');
+    return;
+  }
   try {
     const doc = await db.doc('writer/edits').get();
-    if (doc && doc.edits) { edits = doc.edits; added = doc.added || []; render(); }
+    // the store wins if it is newer; otherwise whatever this device was holding stands
+    if (doc && doc.edits && (!local || !local.updatedAt || (doc.updatedAt || '') >= local.updatedAt)) {
+      edits = doc.edits; added = doc.added || []; render();
+    } else if (local && local.edits) { queueSave(); }
     setSaved(doc && doc.updatedAt ? 'last saved ' + new Date(doc.updatedAt).toLocaleString() : 'ready');
   } catch (e) { setSaved('ready'); }
 })();
 
 addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 </script>
-`);
+`;
+}
+
+import { pathToFileURL } from 'node:url';
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) process.stdout.write(buildPage());
