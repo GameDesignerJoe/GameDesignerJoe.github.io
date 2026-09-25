@@ -190,7 +190,6 @@
     for (let k = 0; k < N; k++) {
       let L = 1 - S.shadow * (1 - Math.min(1, tileL[k]));
       if (dark[k]) L = Math.min(L, S.darkLevel);
-      if (low[k]) L *= S.squeezeDim;
       tileL[k] = L;
     }
     // a corner is the average of the open tiles around it
@@ -896,7 +895,7 @@
           const t = ceils[inB ? ceilVar[k] : 0], fx = wx - cx, fy = wy - cy, ti = ((fy * 32) | 0) * 32 + ((fx * 32) | 0);
           if (t.glow && t.glow[ti] && !(inB && dark[k])) { buf[o] = shade(t.px[ti], fl, inB ? lampLvl[k] : 1); continue; }   // a lamp is its own light
           let L = 1;
-          if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; }
+          if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; if (low[k]) L *= S.squeezeDim; }
           buf[o] = shade(t.px[ti], f, inB ? aoAt(nbm[k], fx, fy) : 1, L);
         }
       }
@@ -921,7 +920,7 @@
         const cx = Math.floor(wx), cy = Math.floor(wy), inB = cx >= 0 && cy >= 0 && cx < W && cy < H;
         const t = inB ? floors[floorVar[cy * W + cx]] : floors[0], fx = wx - cx, fy = wy - cy;
         let L = 1;
-        if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; }
+        if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; if (low[cy * W + cx]) L *= S.squeezeDim; }
         buf[o] = shade(t.px[((fy * 32) | 0) * 32 + ((fx * 32) | 0)], f, inB ? aoAt(nbm[cy * W + cx], fx, fy) : 1, L);
       }
     }
@@ -958,7 +957,13 @@
         let u = slot ? su : sd === 0 ? py + perp * ry : px + perp * rx; u -= Math.floor(u);
         // the light along this face: blended between the two tile corners at its ends
         let L0 = 1, L1 = 1;
-        if (slot) L0 = L1 = tileL[my * W + mx];
+        // a squeeze's jamb: lit like the wall beside it on the outside, and dimmed only inside the gap.
+        // Joe: "the wall of the squeeze through is much darker than the walls next to it; we don't
+        // want that." The point a hair before the hit says which side of the jamb the eye is on
+        if (slot) {
+          const qx = px + rx * (perp - 0.02), qy = py + ry * (perp - 0.02);
+          L0 = L1 = lightAtPoint(qx, qy) * (low[Math.floor(qy) * W + Math.floor(qx)] ? S.squeezeDim : 1);
+        }
         else if (mx >= 0 && my >= 0 && mx < W && my < H) {
           const w = W + 1;
           if (sd === 0) { const xf = stX > 0 ? mx : mx + 1; L0 = cornerL[my * w + xf]; L1 = cornerL[(my + 1) * w + xf]; }
