@@ -56,6 +56,25 @@
   body[data-theme=bleached] #stick.on #knob { background: rgba(60,56,48,.3); }
   @media (orientation: landscape) { #stick { left: auto; right: 22px; bottom: calc(env(safe-area-inset-bottom) + 10px); transform: none; width: 150px; height: 150px; } }
   @media (orientation: landscape) { #hint { bottom: calc(env(safe-area-inset-bottom) + 18px); } }
+  #hud { position: fixed; top: calc(env(safe-area-inset-top) + 12px); right: 12px; display: flex; gap: 6px; z-index: 2; pointer-events: none; }
+  #hud span { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 9px; background: #0d0f10aa; color: var(--ink); font-size: 13px; }
+  #hud b { font-weight: normal; font-variant-numeric: tabular-nums; }
+  #hud i { display: inline-block; }
+  .ic-page { width: 9px; height: 12px; background: #7a5232; border-right: 2px solid #efe6cf; border-radius: 1px; }
+  .ic-chalk { width: 13px; height: 5px; background: #ece7da; border-radius: 2px; }
+  .ic-charcoal { width: 13px; height: 5px; background: #2a2724; border: 1px solid #6a655c; border-radius: 2px; }
+  #hud span.pulse { animation: hudPulse .6s ease-out; }
+  @keyframes hudPulse { 0% { transform: scale(1.35); background: #e0c98a55; } 100% { transform: none; } }
+  #mini { top: calc(env(safe-area-inset-top) + 48px); }
+  #glyphs { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 200px); transform: translateX(-50%); display: none; gap: 6px; padding: 6px; border-radius: 12px; background: #0d0f10dd; z-index: 3; }
+  #glyphs.show { display: flex; }
+  #glyphs button { width: 42px; height: 42px; border-radius: 9px; border: 1px solid #3a3833; background: #1b1a18; color: #ece7da; font-size: 20px; cursor: pointer; }
+  @media (orientation: landscape) { #glyphs { bottom: calc(env(safe-area-inset-bottom) + 20px); } }
+  #page { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 5; background: #0d0f1066; }
+  #page.show { opacity: 1; pointer-events: auto; }
+  #page > div { max-width: 340px; padding: 22px 22px 16px; border-radius: 6px; background: #efe6cf; color: #2a2622; box-shadow: 0 10px 40px #0008; }
+  #page p { margin: 0 0 12px; font-size: 17px; line-height: 1.5; white-space: pre-line; }
+  #page small { display: block; text-align: right; color: #7a6a52; font-style: italic; }
   #win { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(#f3e6c055, #0d0f10ee 70%); opacity: 0; pointer-events: none; transition: opacity 1.4s; z-index: 5; text-align: center; }
   #win.show { opacity: 1; pointer-events: auto; }
   #win h2 { font-weight: normal; font-size: 34px; margin: 0 0 6px; letter-spacing: .04em; }
@@ -68,7 +87,7 @@
 <canvas id="mini"></canvas>
 <div id="gear"><svg viewBox="0 0 24 24" fill="none" stroke="#b9b4a8" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></div>
 <div id="stick"><div id="knob"></div></div>
-<div id="hint"><b>Stick</b> to walk and turn<br>or <b>tap</b> and <b>swipe</b> the view to step tile by tile</div>
+<div id="hint"><b>Stick</b> to walk and turn<br><b>Tap</b> what is close to take it · <b>tap</b> a wall to chalk it</div>
 <div id="panel">
   <button id="close">✕</button>
   <h1>First person · tuning</h1>
@@ -77,7 +96,6 @@
     <div data-knobs="look"></div>
   </details>
   <details data-sec="stick"><summary>Stick</summary>
-  <label><span>Stick</span><select id="optStick"><option value="on">On</option><option value="off">Off — taps and swipes only</option></select></label>
   <label><span>Movement</span><select id="optMove"><option value="glide">Glide — free, with help</option><option value="rails">Rails in halls, free in rooms</option><option value="free">Free, no help</option></select></label>
   <label><span>Rails bends</span><select id="optBends"><option value="true">Follow the hall round</option><option value="false">Stop, lean to turn</option></select></label>
     <div data-knobs="stick"></div>
@@ -89,11 +107,9 @@
   <details data-sec="light"><summary>Lighting</summary>
     <div data-knobs="light"></div>
   </details>
-  <details data-sec="steps"><summary>Taps, swipes and keys</summary>
-  <label><span>Swipe turns</span><select id="optSwipe"><option value="drag">Drag the view</option><option value="point">Point the way</option></select></label>
-    <div data-knobs="steps"></div>
-  </details>
   <details data-sec="debug"><summary>Debug</summary>
+  <label><span>Chalk</span><select id="optChalkInf"><option value="false">Counted</option><option value="true">Infinite</option></select></label>
+    <div data-knobs="debug"></div>
   <label><span>Debug map</span><select id="optMap"><option value="off">Off</option><option value="walked">Where I've walked</option><option value="full">Whole maze</option></select></label>
     <div class="btns">
       <button id="hardRefresh">Hard refresh</button>
@@ -102,9 +118,12 @@
       <a class="btn" id="topdown" href="maze-topdown.html">Top-down view</a>
       <button id="resetKnobs">Reset knobs</button>
     </div>
-    <div class="meta">Top-down opens this seed unless it has a run in progress to resume.<br>Seed <span id="seed"></span> · <span id="who"></span><br><span id="ver"></span> · <span id="fps"></span><br>Keys: W/↑ walk · S/↓ back · A D / ← → turn · Shift+A/D or Q E sidestep</div>
+    <div class="meta">Top-down opens this seed unless it has a run in progress to resume.<br>Seed <span id="seed"></span> · <span id="who"></span><br><span id="ver"></span> · <span id="fps"></span><br>Keys: W/↑ walk · S/↓ back · A D / ← → turn · Shift+A/D or Q E sidestep · click to tap</div>
   </details>
 </div>
+<div id="hud"><span id="hudPagesBox"><i class="ic-page"></i><b id="hudPages">0</b></span><span id="hudChalkBox"><i class="ic-chalk"></i><b id="hudChalk">0</b></span><span id="hudCharcoalBox"><i class="ic-charcoal"></i><b id="hudCharcoal">0</b></span></div>
+<div id="glyphs"><button data-g="x">✕</button><button data-g="?">?</button><button data-g="left">←</button><button data-g="up">↑</button><button data-g="down">↓</button><button data-g="right">→</button></div>
+<div id="page"><div><p id="pageText"></p><small id="pageWho"></small></div></div>
 <div id="win"><div><h2>Out.</h2><p id="winSteps"></p><button id="again">Another maze</button></div></div>
 
 <!-- The top-down's own tuning and generator, unchanged: a seed is the same maze in both views -->

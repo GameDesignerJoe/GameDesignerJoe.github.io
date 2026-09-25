@@ -333,6 +333,15 @@ const POOL_UI = {
 };
 
 // ── every block above, by name ──────────────────────────────────────────────
+// first person: words somebody wrote on the walls, at the far end of dead ends. Joe: "Want to be
+// able to put words on the walls. This might be how I tell the story of the world." A few a maze,
+// in the hand of whoever walked here before — keyed like MOMENTS, by the self, `_` for anyone.
+// Short: a wall holds about four lines of eight letters. These are placeholders, to be rewritten.
+const WALL_WORDS = {
+  _: ["who wrote this", "you were here before", "it goes on", "not this way", "turn back", "keep the light on your left"],
+  'The Child': ["wait here", "he said five minutes", "count to a hundred", "i was good", "dont cry", "hes coming back"],
+};
+
 // The engine hands each surface a finished string, never an id, so the debug "Line IDs" view has
 // to look the id up backwards: words → path. That walk needs the blocks as data. A plain object
 // literal rather than anything clever, because these are `const` in the shared script scope and
@@ -340,5 +349,5 @@ const POOL_UI = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS,
 };

@@ -9,7 +9,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 | --- | --- |
 | `config.js` | the defaults for every knob on the gear panel |
 | `textures.js` | all the pixel art, drawn in code, as three looks: **office** (the default — yellow wallpaper, damp carpet, a drop ceiling with fluorescent panels, an EXIT sign), **bleached** (lime plaster with a meander frieze, marble, pilasters, travertine, white haze, a doorway onto the sea) and **dusk** (brick, flagstones, stars) |
-| `fp.js` | the raycaster, the walk (a stick like the top-down's, plus tap/swipe/key steps), the debug map, the panel |
+| `fp.js` | the raycaster, the walk (the stick, or WASD), things in the world and tapping them, chalk and words on walls, the debug map, the panel |
 
 - **A seed is the same maze in both views.** `?seed=1234` works here as it does top-down.
 - **Nothing here writes to the top-down's save.** Knobs live under `maze.fp.v1`. The ☰ panel is in
@@ -18,8 +18,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   steering with quiet help, each with its own knob under Glide help on the panel, never a snap: it settles you square to
   an open way when you ease off the turn, drifts you to the middle of a one-wide hall, and two
   "whiskers" slip you sideways past a corner one of them touches. **Rails** is the top-down's model
-  (buffered quarter turns, centred in halls). **Free** is no help at all. Taps, swipes and keys
-  glide you to the next tile centre or quarter turn from wherever you are.
+  (buffered quarter turns, centred in halls). **Free** is no help at all. Keys are a stick too.
+  A tap on the view no longer moves you: it touches what is within reach.
+- **Things in the world and tapping them.** The maze's pages, chalk and charcoal are drawn as flat
+  pictures facing you, depth-tested against the walls. Walk over one or tap it to take it; a page
+  shows its text. Tap a wall within reach to chalk it (an X early on, the sign picker once signs
+  open). Dead ends carry words from `WALL_WORDS` in `data/text.js`. Found things are kept for the run
+  only — nothing is written to the top-down's save yet.
 - **A look can have a ceiling instead of a sky** (`ceils`/`ceilPick` in its theme). Corner shadows
   (`ao`) are laid on from the maze by the renderer, on floors, ceilings and walls, so they need no art.
 - **Light.** Every tile has a brightness: ceiling lamps flood out through open floor (`reach`), flickering
@@ -29,5 +34,5 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 - **Replacing the art:** each texture is `{ w, h, px: Uint32Array }` (0xAABBGGRR). Decode a
   32×32 PNG into that shape and drop it into a theme in `TEX.themes` — the renderer doesn't care where it came from.
 - **What it draws of the maze so far:** walls, floor, sky, squeezes (a narrow full-height slot
-  cut through the tile, `gapW` wide, that the collision uses too), the exit, which glows through the fog, and a ceiling where the look has one. Not yet: sliders, doors and keys, pages,
-  chalk, light switches, the charcoal map.
+  cut through the tile, `gapW` wide, that the collision uses too), the exit, which glows through the fog, and a ceiling where the look has one. Not yet: sliders, doors and keys,
+  light switches, the thread and pointer, the charcoal map.

@@ -19,7 +19,6 @@ const FP_CONFIG = {
   walk: 1.2,        // tiles a second at full stick (the top-down's CONFIG.speed is 2.31; Joe set 1.2 for this view)
   stickTurn: 150,   // degrees a second at full stick, sideways
   theme: 'office',  // a key of TEX.themes: 'office' | 'bleached' | 'dusk'
-  stick: 'on',      // 'on' shows the stick; 'off' leaves taps and swipes only
   bends: true,      // rails only: holding forward at a bend with only one way on takes you round it
   move: 'glide',    // the stick: 'glide' (free, with quiet help), 'rails' in halls (buffered quarter turns, like the top-down), or 'free'
   // glide's three helps, each 0 (off) to 1 (strong)
@@ -31,7 +30,8 @@ const FP_CONFIG = {
   deadzone: 0.22,   // fraction of the stick's travel that reads as not pushing — the top-down's CONFIG.stickDeadzone
   accel: 10,        // how quickly walking speed catches up with the stick. Higher is snappier
   turnEase: 14,     // how quickly turning catches up with the stick. Higher is snappier, lower is floatier
-  swipe: 'drag',    // 'drag': swipe left turns right, the way a finger drags the view. 'point': the other way
+  words: 3,         // dead ends a maze with words written on their far wall (WALL_WORDS in data/text.js)
+  chalkInf: false,  // debug: chalk never runs out
   // lighting
   shadow: 0.75,     // how much the lighting shows: 0 is flat, 1 is full-strength pools and shadow
   reach: 4.5,       // how far a ceiling lamp's light carries, in tiles, through open floor
@@ -66,6 +66,6 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   darkLevel: [0, 0.6, 0.02, 'Dark level', 'light'],
   squeezeDim:[0.05, 1, 0.05, 'Squeeze dim', 'light'],
   squeezeSlow:[0.2, 1, 0.05, 'Squeeze slow', 'light'],
-  stepMs:    [100, 700, 10, 'Step ms', 'steps'],
-  turnMs:    [80, 600, 10, 'Turn ms', 'steps'],
+  turnMs:    [80, 600, 10, 'Rails turn ms', 'stick'],
+  words:     [0, 8, 1, 'Wall words', 'debug'],
 };

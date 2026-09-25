@@ -59,6 +59,7 @@
     if (a >= 1) { RH = n; RW = Math.max(1, Math.round(n * a)); } else { RW = n; RH = Math.max(1, Math.round(n / a)); }
     cv.width = RW; cv.height = RH;
     img = ctx.createImageData(RW, RH); buf = new Uint32Array(img.data.buffer);
+    zbuf = new Float32Array(RW); colFace = new Int32Array(RW).fill(-1); colU = new Float32Array(RW); colTop = new Float32Array(RW); colBot = new Float32Array(RW);
   }
   addEventListener('resize', resize);
 
@@ -236,6 +237,7 @@
   function reset() {
     seen = new Uint8Array(W * H);
     index();
+    placeThings();
     const tx = Math.floor(start.x), ty = Math.floor(start.y);
     // face the longest open run from where you wake, so the first thing you see is a way to go
     let best = 0, bestH = 0;
@@ -248,6 +250,128 @@
     $('who').textContent = (typeof phase === 'function' ? phase().who : '') + (protoMode ? ' · prototype' : '');
     $('topdown').href = 'maze-topdown.html?seed=' + SEED;
   }
+  // ── things in the world ───────────────────────────────────
+  // Joe: "Need to be able to tap on things on the screen", "need to be able to mark the walls", and
+  // "want to be able to put words on the walls. This might be how I tell the story of the world."
+  //
+  // objs    — what lies about: the maze's own pages (journals), chalk and charcoal. Walk over one or
+  //           tap it to take it; a page shows what it says. Nothing is written to the top-down's save
+  //           yet: what you find is kept for this run.
+  // decals  — what is written on a wall face: your chalk, and the words someone left at the far end
+  //           of a dead end. One 64×64 sheet per face, drawn over the wall's own texture.
+  const DEC = 64;
+  let objs = [], decals = new Map(), wordSpots = [], chalk = 0, charcoalN = 0, pagesFound = 0, pagesTotal = 0;
+  const faceKey = (k, face) => k * 4 + face;   // face: 0 west, 1 east, 2 north, 3 south — the side of the wall tile you see
+  function decalFor(k, face) {
+    let d = decals.get(faceKey(k, face));
+    if (!d) { d = new Uint32Array(DEC * DEC); decals.set(faceKey(k, face), d); }
+    return d;
+  }
+  function placeThings() {
+    objs = []; decals = new Map(); chalk = CONFIG.chalkStart; charcoalN = 0; pagesFound = 0;
+    const at = (key) => key.split(',').map(Number);
+    for (const [key, pg] of journals) { const [x, y] = at(key); objs.push({ x: x + 0.5, y: y + 0.5, kind: 'page', pg, tex: TEX.sprites.book, h: 0.3, glow: 0.35 }); }
+    for (const key of chalkSpots) { const [x, y] = at(key); objs.push({ x: x + 0.5, y: y + 0.5, kind: 'chalk', tex: TEX.sprites.chalk, h: 0.1, glow: 0.2 }); }
+    for (const key of charcoalSpots) { const [x, y] = at(key); objs.push({ x: x + 0.5, y: y + 0.5, kind: 'charcoal', tex: TEX.sprites.charcoal, h: 0.1, glow: 0 }); }
+    pagesTotal = journals.size;
+    // words at the far end of dead ends: the wall you face as you walk in. Their own random stream,
+    // so where they fall never moves anything else
+    const R = rng(SEED + 130003), words = WALL_WORDS[character ? character.name : ''] || WALL_WORDS._;
+    const sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), ends = [];
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      if (solid(x, y) || low[y * W + x] || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
+      const open = HD.filter(([dx, dy]) => !solid(x + dx, y + dy));
+      if (open.length !== 1) continue;
+      const [ox, oy] = open[0], dx = -ox, dy = -oy;   // walking in, you face away from the one way out
+      const face = dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3;
+      ends.push({ k: (y + dy) * W + x + dx, face });
+    }
+    // choose every spot and line first, then draw: the hand's wobble draws from the stream too, and
+    // must not move where the next line goes
+    const pool = words.slice(), picks = [];
+    for (let n = 0; n < S.words && ends.length && pool.length; n++)
+      picks.push([ends.splice(Math.floor(R() * ends.length), 1)[0], pool.splice(Math.floor(R() * pool.length), 1)[0]]);
+    wordSpots = picks.map(([e, text]) => ({ k: e.k, face: e.face, text }));
+    for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
+    hud();
+  }
+
+  // a 3×5 hand for the walls: enough letters for a sentence, drawn doubled so a wall holds four
+  // lines of eight
+  const FONT = (() => {
+    const G = {
+      a: ['.#.', '#.#', '###', '#.#', '#.#'], b: ['##.', '#.#', '##.', '#.#', '##.'], c: ['.##', '#..', '#..', '#..', '.##'],
+      d: ['##.', '#.#', '#.#', '#.#', '##.'], e: ['###', '#..', '##.', '#..', '###'], f: ['###', '#..', '##.', '#..', '#..'],
+      g: ['.##', '#..', '#.#', '#.#', '.##'], h: ['#.#', '#.#', '###', '#.#', '#.#'], i: ['###', '.#.', '.#.', '.#.', '###'],
+      j: ['..#', '..#', '..#', '#.#', '.#.'], k: ['#.#', '#.#', '##.', '#.#', '#.#'], l: ['#..', '#..', '#..', '#..', '###'],
+      m: ['#.#', '###', '###', '#.#', '#.#'], n: ['##.', '#.#', '#.#', '#.#', '#.#'], o: ['.#.', '#.#', '#.#', '#.#', '.#.'],
+      p: ['##.', '#.#', '##.', '#..', '#..'], q: ['.#.', '#.#', '#.#', '.#.', '..#'], r: ['##.', '#.#', '##.', '#.#', '#.#'],
+      s: ['.##', '#..', '.#.', '..#', '##.'], t: ['###', '.#.', '.#.', '.#.', '.#.'], u: ['#.#', '#.#', '#.#', '#.#', '.#.'],
+      v: ['#.#', '#.#', '#.#', '.#.', '.#.'], w: ['#.#', '#.#', '###', '###', '#.#'], x: ['#.#', '#.#', '.#.', '#.#', '#.#'],
+      y: ['#.#', '#.#', '.#.', '.#.', '.#.'], z: ['###', '..#', '.#.', '#..', '###'], "'": ['.#.', '.#.', '...', '...', '...'],
+      '.': ['...', '...', '...', '...', '.#.'], ',': ['...', '...', '...', '.#.', '#..'], '?': ['##.', '..#', '.#.', '...', '.#.'],
+      '-': ['...', '...', '###', '...', '...'], '—': ['...', '...', '###', '...', '...'], '!': ['.#.', '.#.', '.#.', '...', '.#.'],
+    };
+    const out = {}; for (const k in G) out[k] = G[k].join(''); return out;
+  })();
+  const INK = TEX.hex('#2a2622'), CHALK = TEX.hex('#ece7da');
+  function writeWords(d, text, R) {
+    const lines = [];
+    for (const w of text.toLowerCase().split(' ')) {
+      if (lines.length && (lines[lines.length - 1] + ' ' + w).length <= 8) lines[lines.length - 1] += ' ' + w; else lines.push(w);
+    }
+    const sc = 2, lh = 6 * sc + 2, y0 = Math.round(DEC * 0.42 - lines.length * lh / 2);
+    lines.forEach((ln, li) => {
+      const x0 = Math.round((DEC - ln.length * 4 * sc) / 2) + Math.round((R() - 0.5) * 4);
+      for (let c = 0; c < ln.length; c++) {
+        const g = FONT[ln[c]]; if (!g) continue;
+        for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) if (g[r * 3 + q] === '#')
+          for (let yy = 0; yy < sc; yy++) for (let xx = 0; xx < sc; xx++) {
+            const X = x0 + (c * 4 + q) * sc + xx, Y = y0 + li * lh + r * sc + yy + (c % 3 === 1 ? 1 : 0);   // a hand, not a printer
+            if (X >= 0 && X < DEC && Y >= 0 && Y < DEC && R() < 0.97) d[Y * DEC + X] = INK;
+          }
+      }
+    });
+  }
+  // a chalk sign on a wall, centred where it was tapped: an X, a ?, or an arrow
+  function chalkSign(d, glyph, cu, cv) {
+    const cx = cu * DEC, cy = cv * DEC, r = 7;
+    const dot = (x, y) => { for (let yy = 0; yy < 2; yy++) for (let xx = 0; xx < 2; xx++) { const X = Math.round(x) + xx, Y = Math.round(y) + yy; if (X >= 0 && X < DEC && Y >= 0 && Y < DEC && Math.random() < 0.85) d[Y * DEC + X] = CHALK; } };
+    const line = (x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0)); for (let i = 0; i <= n; i++) dot(x0 + (x1 - x0) * i / n + (Math.random() - 0.5) * 0.8, y0 + (y1 - y0) * i / n + (Math.random() - 0.5) * 0.8); };
+    if (glyph === 'x') { line(cx - r, cy - r, cx + r, cy + r); line(cx + r, cy - r, cx - r, cy + r); }
+    else if (glyph === '?') { line(cx - 4, cy - 5, cx, cy - 8); line(cx, cy - 8, cx + 4, cy - 5); line(cx + 4, cy - 5, cx, cy); line(cx, cy, cx, cy + 3); dot(cx, cy + 7); }
+    else {
+      const [ax, ay] = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[glyph];
+      const tx = cx + ax * r, ty = cy + ay * r;
+      line(cx - ax * r, cy - ay * r, tx, ty);
+      line(tx, ty, tx - ax * 5 + ay * 5, ty - ay * 5 + ax * 5); line(tx, ty, tx - ax * 5 - ay * 5, ty - ay * 5 - ax * 5);
+    }
+  }
+  function hud() {
+    $('hudChalk').textContent = S.chalkInf ? '∞' : chalk;
+    $('hudCharcoal').textContent = charcoalN;
+    $('hudPages').textContent = pagesFound + ' / ' + pagesTotal;
+    $('hudCharcoalBox').style.display = charcoalN ? '' : 'none';
+  }
+  function take(o) {
+    objs.splice(objs.indexOf(o), 1);
+    if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); }
+    else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); }
+    else if (o.kind === 'page') { pagesFound++; flash('hudPagesBox'); showPage(o.pg); }
+    hud();
+  }
+  function flash(id) { const el = $(id); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+  let pageHideAt = 0;
+  function showPage(pg) {
+    const text = character && character.pages ? character.pages[pg] : '';
+    $('pageText').textContent = text || '…';
+    $('pageWho').textContent = character ? character.name : '';
+    $('page').classList.add('show');
+    pageHideAt = performance.now() + (CONFIG.journalHoldSec + (text || '').length / 30) * 1000;
+  }
+  function hidePage() { $('page').classList.remove('show'); pageHideAt = 0; }
+  $('page').addEventListener('pointerdown', (e) => { e.stopPropagation(); hidePage(); });
+
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
@@ -264,6 +388,7 @@
       const x = tx + dx, y = ty + dy;
       if (x >= 0 && y >= 0 && x < W && y < H) seen[y * W + x] = 1;
     }
+    for (const o of objs.slice()) if (Math.floor(o.x) === tx && Math.floor(o.y) === ty) take(o);
     if (tx === exit.x && ty === exit.y) win();
   }
 
@@ -664,6 +789,7 @@
       let sdx = rx < 0 ? (px - mx) * ddx : (mx + 1 - px) * ddx;
       let sdy = ry < 0 ? (py - my) * ddy : (my + 1 - py) * ddy;
       let sd = 0, perp = 64, slot = false, su = 0;
+      colFace[x] = -1;
       // standing in a squeeze: its jambs first
       if (low[my * W + mx] && raySlot(my * W + mx, px, py, rx, ry)) { perp = slotHit[0]; sd = slotHit[1]; su = slotHit[2]; slot = true; }
       else for (let i = 0; i < 128; i++) {
@@ -697,6 +823,11 @@
         const t = inB && exitFace[my * W + mx] ? exitT : walls[inB ? wallVar[my * W + mx] : 0];
         const tu = Math.min(31, (u * 32) | 0);
         const lh = D / perp, top = hor - (1 - eye) * lh, bot = hor + eye * lh;
+        // what this column sees, for the objects' depth test and for a tap to find
+        zbuf[x] = perp;
+        const dk = inB && !slot ? faceKey(my * W + mx, sd === 0 ? (stX > 0 ? 0 : 1) : (stY > 0 ? 2 : 3)) : -1;
+        const dec = dk >= 0 ? decals.get(dk) : null, du = Math.min(DEC - 1, (u * DEC) | 0);
+        colFace[x] = dk; colU[x] = u; colTop[x] = top; colBot[x] = bot;
         const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
         const f = Math.exp(-fog * perp), lit = sd ? side : 1;
         for (let y = y0; y < y1; y++) {
@@ -704,11 +835,48 @@
           if (t.glow && t.glow[ti]) { buf[y * RW + x] = bright(t.px[ti]); continue; }
           let a = aoS ? aoEdge(colAO, 1 - v) : 1;   // down where it meets the floor
           if (hasCeil && aoS) a = aoEdge(a, v);      // and up where it meets the ceiling
-          buf[y * RW + x] = shade(t.px[ti], f, lit * a, Lw);
+          let c = t.px[ti];
+          if (dec) { const dc = dec[Math.min(DEC - 1, (v * DEC) | 0) * DEC + du]; if (dc) c = dc; }
+          buf[y * RW + x] = shade(c, f, lit * a, Lw);
         }
       }
     }
+    drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog);
     ctx.putImageData(img, 0, 0);
+  }
+
+  // ── the objects, as flat pictures facing you ──────────────
+  let zbuf = new Float32Array(1), colFace = new Int32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
+  const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
+  function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
+    drawn.length = 0;
+    const det = dX * plY - dY * plX, list = [];
+    for (const o of objs) {
+      const rx = o.x - px, ry = o.y - py;
+      const depth = (rx * plY - ry * plX) / det, cam = (dX * ry - dY * rx) / det / depth;   // along the view, and across it
+      if (depth < 0.15 || Math.abs(cam) > 1.6) continue;
+      list.push({ o, depth, cam });
+    }
+    list.sort((a, b) => b.depth - a.depth);   // far first, so near ones cover
+    for (const { o, depth, cam } of list) {
+      const t = o.tex, sc = D / depth, hPx = o.h * sc, wPx = hPx * t.w / t.h;
+      const floorY = hor + eye * sc, y0 = floorY - hPx, xc = (cam + 1) / 2 * RW;
+      const x0 = Math.round(xc - wPx / 2), x1 = Math.round(xc + wPx / 2);
+      const f = Math.exp(-fog * depth), tx0 = Math.floor(o.x), ty0 = Math.floor(o.y);
+      const L = Math.max(o.glow, tileL[ty0 * W + tx0]);   // a page catches what light there is; it is meant to be found
+      let any = false;
+      for (let x = Math.max(0, x0); x < Math.min(RW, x1); x++) {
+        if (zbuf[x] < depth) continue;
+        any = true;
+        const tu = Math.min(t.w - 1, ((x - x0) / (x1 - x0) * t.w) | 0);
+        for (let y = Math.max(0, Math.ceil(y0)); y < Math.min(RH, Math.ceil(floorY)); y++) {
+          const c = t.px[Math.min(t.h - 1, ((y - y0) / hPx * t.h) | 0) * t.w + tu];
+          if (c) buf[y * RW + x] = shade(c, f, 1, L);
+        }
+      }
+      // a generous target, well past the picture on every side: fingers are wide and things are small
+      if (any) drawn.push({ o, x0: x0 - wPx * 0.6, x1: x1 + wPx * 0.6, y0: y0 - hPx - 10, y1: floorY + hPx + 14, depth });
+    }
   }
 
   // ── the debug map ─────────────────────────────────────────
@@ -768,38 +936,50 @@
   stickEl.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); hideHint(); stickId = e.pointerId; stickEl.classList.add('on'); try { stickEl.setPointerCapture(e.pointerId); } catch (err) {} setStick(e.clientX, e.clientY); });
   stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
   stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
-  const showStick = () => { stickEl.style.display = S.stick === 'on' ? '' : 'none'; if (S.stick !== 'on') clearStick(); };
 
-  // ── touch on the view ─────────────────────────────────────
-  // Tap: left third turns left, right third turns right, the middle steps forward.
-  // Hold: keep walking. Swipe up: step (and keep walking if you hold). Swipe down: turn round.
-  // Swipe sideways: turn — by default the way a finger drags the view, like every map app.
-  let touch = null;
+  // ── tapping the view ──────────────────────────────────────
+  // Joe: "we are good to get rid of the tap to move and just use the joystick, or WASD on PC" — a tap
+  // on the view is for touching what is in it. Near a thing: take it. Near a wall: chalk it. Only
+  // what is within arm's reach answers; the rest of the view does nothing.
+  const REACH_THING = 2.2, REACH_WALL = 1.6;
+  let touch = null, pendingMark = null;
   cv.addEventListener('pointerdown', (e) => {
     e.preventDefault(); hideHint();
-    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
-    touch = { id: e.pointerId, x: e.clientX, y: e.clientY, done: false };
-    touch.timer = setTimeout(() => { if (touch && !touch.done) { touch.done = true; holdFwd = true; act('fwd'); } }, 200);
+    if ($('page').classList.contains('show')) { hidePage(); return; }
+    touch = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
   });
-  cv.addEventListener('pointermove', (e) => {
-    if (!touch || touch.id !== e.pointerId || touch.done) return;
-    const dx = e.clientX - touch.x, dy = e.clientY - touch.y;
-    if (Math.hypot(dx, dy) < 28) return;
-    touch.done = true; clearTimeout(touch.timer);
-    if (Math.abs(dx) > Math.abs(dy)) act((S.swipe === 'drag') === (dx < 0) ? 'right' : 'left');
-    else if (dy < 0) { holdFwd = true; act('fwd'); }
-    else act('around');
-  });
-  const lift = (e) => {
+  cv.addEventListener('pointerup', (e) => {
     if (!touch || touch.id !== e.pointerId) return;
-    clearTimeout(touch.timer);
-    if (!touch.done && e.type === 'pointerup') {
-      const third = e.clientX / innerWidth;
-      act(third < 1 / 3 ? 'left' : third > 2 / 3 ? 'right' : 'fwd');
-    }
-    touch = null; holdFwd = false;
-  };
-  cv.addEventListener('pointerup', lift); cv.addEventListener('pointercancel', lift);
+    const moved = Math.hypot(e.clientX - touch.x, e.clientY - touch.y), held = performance.now() - touch.t;
+    touch = null;
+    if (moved < 14 && held < 450) tapAt(e.clientX / innerWidth * RW, e.clientY / innerHeight * RH);
+  });
+  cv.addEventListener('pointercancel', () => { touch = null; });
+  function tapAt(bx, by) {
+    glyphsOff();
+    // a thing first: the nearest one under the finger
+    let hit = null;
+    for (const d of drawn) if (bx >= d.x0 - 6 && bx <= d.x1 + 6 && by >= d.y0 && by <= d.y1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
+    if (hit) { take(hit.o); return; }
+    // then the wall under the finger, if it is close enough to touch
+    const x = Math.max(0, Math.min(RW - 1, bx | 0));
+    if (colFace[x] < 0 || zbuf[x] > REACH_WALL || by < colTop[x] || by > colBot[x]) return;
+    const cu = colU[x], cv2 = (by - colTop[x]) / (colBot[x] - colTop[x]);
+    if (!S.chalkInf && chalk <= 0) { flash('hudChalkBox'); return; }
+    pendingMark = { fk: colFace[x], u: Math.max(0.15, Math.min(0.85, cu)), v: Math.max(0.15, Math.min(0.85, cv2)) };
+    // early on chalk only makes an X, as in the top-down; once signs are open, you choose
+    if (typeof phase === 'function' && phase().f.signs) { $('glyphs').classList.add('show'); } else placeMark('x');
+  }
+  function placeMark(glyph) {
+    if (!pendingMark) return;
+    const k = Math.floor(pendingMark.fk / 4), face = pendingMark.fk % 4;
+    chalkSign(decalFor(k, face), glyph, pendingMark.u, pendingMark.v);
+    if (!S.chalkInf) chalk--;
+    pendingMark = null; glyphsOff(); hud();
+  }
+  function glyphsOff() { $('glyphs').classList.remove('show'); }
+  for (const b of document.querySelectorAll('#glyphs [data-g]')) b.addEventListener('pointerdown', (e) => { e.stopPropagation(); placeMark(b.dataset.g); });
+
   let hintHidden = false;
   function hideHint() { if (hintHidden) return; hintHidden = true; $('hint').classList.add('gone'); }
 
@@ -833,11 +1013,10 @@
   for (const [k, th] of Object.entries(TEX.themes)) { const o = document.createElement('option'); o.value = k; o.textContent = th.label; themeSel.appendChild(o); }
   const bindSel = (id, key, after) => { const el = $(id); el.value = String(S[key]); el.onchange = () => { S[key] = el.value === 'true' ? true : el.value === 'false' ? false : el.value; saveS(); if (after) after(); }; };
   bindSel('optTheme', 'theme', applyTheme);
-  bindSel('optStick', 'stick', showStick);
   bindSel('optMove', 'move');
   bindSel('optBends', 'bends');
   bindSel('optMap', 'map');
-  bindSel('optSwipe', 'swipe');
+  bindSel('optChalkInf', 'chalkInf', hud);
   $('gear').onclick = () => { hideHint(); $('panel').classList.toggle('open'); };
   $('close').onclick = () => $('panel').classList.remove('open');
   $('newMaze').onclick = () => { newMaze(); $('panel').classList.remove('open'); };
@@ -859,6 +1038,7 @@
   let frames = 0, fpsAt = performance.now(), prev = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, Math.max(0, (now - prev) / 1000)); prev = now;
+    if (pageHideAt && now > pageHideAt) hidePage();
     update(now, dt);
     render(now);
     drawMini(now);
@@ -866,11 +1046,10 @@
     requestAnimationFrame(frame);
   }
   applyTheme();
-  showStick();
   resize();
   generate(SEED); reset(); lastX = P.x; lastY = P.y;
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
 })();

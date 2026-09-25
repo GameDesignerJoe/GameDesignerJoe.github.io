@@ -475,5 +475,24 @@ const TEX = (() => {
       fog: '#15141d', side: 0.78, underLit: 0.55, ao: 0.4,
     },
   };
-  return { themes, hex, buildMs: performance.now() - t0 };
+  // ── things in the world ─────────────────────────────────────
+  // Drawn as flat pictures that always face you. A transparent pixel is 0. Shared by every look.
+  function sprite(rows, pal) {
+    const h = rows.length, w = rows[0].length, T = blank(w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = rows[y][x]; T.px[y * w + x] = c === '.' ? 0 : pal[c]; }
+    return T;
+  }
+  const P = { k: hex('#1e1812'), b: hex('#5a3a22'), B: hex('#7a5232'), g: hex('#c9a45a'), p: hex('#efe6cf'), P: hex('#d8ceb2'),
+              w: hex('#f4f0e4'), W: hex('#cfc9b8'), c: hex('#2a2724'), C: hex('#43403b') };
+  const sprites = {
+    // a journal, standing: a cloth cover, a gilt line, the page edges showing
+    book: sprite([
+      '....kkkkkkkk....', '...kbbbbbbbBk...', '...kbBBBBBBBkp..', '...kbBggggBBkp..', '...kbBBBBBBBkp..',
+      '...kbBBBBBBBkp..', '...kbBggggBBkp..', '...kbBBBBBBBkp..', '...kbBBBBBBBkp..', '...kbBBBBBBBkP..',
+      '...kbBBBBBBBkP..', '...kbBggggBBkP..', '...kbBBBBBBBkp..', '...kbbbbbbbbkp..', '....kkkkkkkkPp..', '.....kkkkkkkk...'], P),
+    // a stub of chalk, and one of charcoal, lying on the floor
+    chalk: sprite(['................', '................', '.....wwwwwww....', '....wwwwwwwwW...', '....WwwwwwwWW...', '.....WWWWWWW....'], P),
+    charcoal: sprite(['................', '................', '.....ccccccc....', '....cCcccccccc..', '....cccccccCcc..', '.....ccccccc....'], P),
+  };
+  return { themes, sprites, hex, buildMs: performance.now() - t0 };
 })();
