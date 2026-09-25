@@ -22,7 +22,13 @@
   // ── settings ──────────────────────────────────────────────
   const SKEY = 'maze.fp.v1';
   let S = Object.assign({}, FP_CONFIG);
-  try { Object.assign(S, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch (e) {}
+  try {
+    const saved = JSON.parse(localStorage.getItem(SKEY) || '{}');
+    // saved before the office look and the rails existed: the look was only ever the default then,
+    // never a choice, so let the new default through. The old free-with-assist setting has no heir.
+    if (!('move' in saved)) { delete saved.theme; delete saved.assist; }
+    Object.assign(S, saved);
+  } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
   const saveS = () => { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} };
 
@@ -47,7 +53,7 @@
   addEventListener('resize', resize);
 
   // ── the maze, as the renderer wants it ────────────────────
-  let wallVar = null, floorVar, low, exitFace, seen;
+  let wallVar = null, floorVar, ceilVar, low, exitFace, seen, nbm, room, flickers = [], lampLvl;
   const HD = [[1, 0], [0, 1], [-1, 0], [0, -1]];   // heading 0 east, 1 south, 2 west, 3 north (y runs down)
   const solid = (x, y) => x < 0 || y < 0 || x >= W || y >= H || !tiles[y][x];
   const hash = (x, y) => { let h = (x * 73856093) ^ (y * 19349663) ^ SEED; h = Math.imul(h ^ (h >>> 13), 0x5bd1e995); return (h ^ (h >>> 15)) >>> 0; };
@@ -55,11 +61,25 @@
   function index() {
     wallVar = new Uint8Array(W * H); floorVar = new Uint8Array(W * H);
     low = new Uint8Array(W * H); exitFace = new Uint8Array(W * H);
+    ceilVar = new Uint8Array(W * H); nbm = new Uint8Array(W * H); room = new Uint8Array(W * H);
+    lampLvl = new Float32Array(W * H).fill(1); flickers = [];
     if (!seen || seen.length !== W * H) seen = new Uint8Array(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const h = hash(x, y);
       wallVar[y * W + x] = T.pick[h % T.pick.length];   // mostly plain, the odd variant — weighted, not uniform
       floorVar[y * W + x] = (h >>> 8) % T.floors.length;
+      if (T.ceils) {
+        const c = ceilVar[y * W + x] = T.ceilPick[(h >>> 16) % T.ceilPick.length];
+        if (T.ceils[c].glow && (h >>> 5) % 6 === 0) flickers.push(y * W + x);   // one lamp in six is on its way out
+      }
+      if (solid(x, y)) continue;
+      // which of the eight neighbours are wall: what the corner shadows are laid from
+      nbm[y * W + x] = (solid(x - 1, y) ? 1 : 0) | (solid(x + 1, y) ? 2 : 0) | (solid(x, y - 1) ? 4 : 0) | (solid(x, y + 1) ? 8 : 0)
+        | (solid(x - 1, y - 1) ? 16 : 0) | (solid(x + 1, y - 1) ? 32 : 0) | (solid(x - 1, y + 1) ? 64 : 0) | (solid(x + 1, y + 1) ? 128 : 0);
+      // a room tile: part of some 2x2 of open floor. A corridor is one tile wide, so it never is —
+      // the same test the top-down's openFloor() makes
+      for (const [ax, ay] of [[0, 0], [-1, 0], [0, -1], [-1, -1]])
+        if (!solid(x + ax, y + ay) && !solid(x + ax + 1, y + ay) && !solid(x + ax, y + ay + 1) && !solid(x + ax + 1, y + ay + 1)) { room[y * W + x] = 1; break; }
     }
     // a crawl gap, or the open cell between two gaps of one squeeze: low overhead, you go through bent
     for (const set of [crawlGaps, crawlCells]) for (const k of set) {
@@ -177,52 +197,130 @@
   }
 
   // ── the stick ─────────────────────────────────────────────
-  // Up walks forward, down backs off, sideways turns — diagonals do both, so you can take a corner
-  // in one sweep of the thumb. Like the top-down's "rails in halls, free in rooms": in a corridor it
-  // quietly pulls you to the middle and squares you up to the hall while you aren't turning, so a
-  // one-tile hall never feels like scraping along a wall. In a room it leaves you alone.
+  // Joe: "whether it's assist in the hallway or not, I always feel like I'm walking around drunk,
+  // bumping into corners." Both were free movement with a pull added — so the fix is not a stronger
+  // pull, it's the top-down's own model: rails in halls, free in rooms.
+  //
+  // In a hall you face one of the four ways and slide along it, centred. Up walks, down backs off.
+  // Lean the stick sideways and the turn is *buffered*, the way the top-down's are: nothing happens
+  // until you reach the middle of a tile with an opening that way, then you swing into it without
+  // stopping. Standing still, a lean turns you on the spot. A wall ahead stops you in the middle of
+  // the tile, not with your nose on the brick. In a room, you walk free — with a round body that
+  // slides off corners instead of catching on them.
   const stick = { on: false, x: 0, y: 0 };
   const RAD = 0.2;   // how wide you are, in tiles
-  const blocked = (x, y) => solid(Math.floor(x - RAD), Math.floor(y - RAD)) || solid(Math.floor(x + RAD), Math.floor(y - RAD))
-    || solid(Math.floor(x - RAD), Math.floor(y + RAD)) || solid(Math.floor(x + RAD), Math.floor(y + RAD));
-  function stickMove(dt) {
+  let railTurn = null, pendTurn = 0, pendUntil = 0, pendArmed = true, turnEnd = 0, wasRail = false;
+
+  // push a round body out of any wall it has sunk into; it slides round corners by construction
+  function collide() {
+    const tx = Math.floor(P.x), ty = Math.floor(P.y);
+    for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
+      if (!solid(xx, yy)) continue;
+      const cx = Math.max(xx, Math.min(P.x, xx + 1)), cy = Math.max(yy, Math.min(P.y, yy + 1));
+      const dx = P.x - cx, dy = P.y - cy, d = Math.hypot(dx, dy);
+      if (d < RAD && d > 1e-6) { P.x = cx + dx / d * RAD; P.y = cy + dy / d * RAD; }
+    }
+  }
+
+  function stickMove(now, dt) {
     const mag = Math.hypot(stick.x, stick.y), dz = CONFIG.stickDeadzone;
     const live = stick.on && mag > dz;
-    let want = 0, turn = 0;
+    let fwd = 0, sx = 0;
     if (live) {
       anim = null; queued = null; holdFwd = false;
       const k = Math.min(1, (mag - dz) / (1 - dz)) / mag;   // deadzone taken out, so the edge of it is zero, not a jump
-      const sx = stick.x * k, sy = stick.y * k;
-      want = -sy * S.walk;
-      turn = Math.sign(sx) * Math.abs(sx) ** 1.6;   // gentle near the middle, quick at the rim
-    }
-    vel += (want - vel) * Math.min(1, dt * 10);
-    if (Math.abs(vel) < 0.001 && !live) { vel = 0; return; }
-    P.a += turn * S.stickTurn * Math.PI / 180 * dt;
-
+      sx = stick.x * k; fwd = -stick.y * k;
+    } else if (anim) { vel = 0; railTurn = null; return; }   // a tap or a key is driving
     const tx = Math.floor(P.x), ty = Math.floor(P.y);
-    const ew = !solid(tx - 1, ty) || !solid(tx + 1, ty), ns = !solid(tx, ty - 1) || !solid(tx, ty + 1);
-    const hall = S.assist && ew !== ns;   // open along one axis only: a corridor
-    if (hall && Math.abs(turn) < 0.05 && Math.abs(vel) > 0.05) {
-      // square up to the hall: whichever way along it you're more nearly facing
-      const axis = ew ? (Math.cos(P.a) >= 0 ? 0 : Math.PI) : (Math.sin(P.a) >= 0 ? QUARTER : -QUARTER);
-      let d = axis - P.a; d = Math.atan2(Math.sin(d), Math.cos(d));
-      if (Math.abs(d) < 0.7) P.a += d * Math.min(1, dt * 5);
+    const rail = S.move === 'rails' && !room[ty * W + tx];
+    if (rail) railMove(now, dt, live, fwd, sx, tx, ty); else freeMove(dt, live, fwd, sx);
+    wasRail = rail;
+  }
+
+  function freeMove(dt, live, fwd, sx) {
+    railTurn = null;
+    vel += (fwd * S.walk - vel) * Math.min(1, dt * 10);
+    if (!live && Math.abs(vel) < 0.001) { vel = 0; return; }
+    P.a += Math.sign(sx) * Math.abs(sx) ** 1.6 * S.stickTurn * Math.PI / 180 * dt;   // gentle near the middle, quick at the rim
+    // in small pieces, so a fast walk can never step clean through a corner
+    const dist = vel * dt, n = Math.max(1, Math.ceil(Math.abs(dist) / 0.08));
+    for (let i = 0; i < n; i++) { P.x += Math.cos(P.a) * dist / n; P.y += Math.sin(P.a) * dist / n; collide(); }
+  }
+
+  function railMove(now, dt, live, fwd, sx, tx, ty) {
+    const cx = tx + 0.5, cy = ty + 0.5;
+    // coming into a hall from a room: face down it, whichever way along it is nearest where you look
+    if (!wasRail && !railTurn) {
+      let best = -9, ta = P.a;
+      HD.forEach(([dx, dy], h) => {
+        const t = h * QUARTER + Math.round((P.a - h * QUARTER) / (2 * Math.PI)) * 2 * Math.PI;
+        const sc = Math.cos(t - P.a) + (solid(tx + dx, ty + dy) ? 0 : 0.35);
+        if (sc > best) { best = sc; ta = t; }
+      });
+      if (Math.abs(ta - P.a) > 0.01) { railTurn = { t0: now, dur: 160, fa: P.a, ta }; pendTurn = 0; }
     }
-    const mx = Math.cos(P.a) * vel * dt, my = Math.sin(P.a) * vel * dt;
-    if (!blocked(P.x + mx, P.y)) P.x += mx;
-    if (!blocked(P.x, P.y + my)) P.y += my;
-    if (hall) {   // and to the middle of it
-      const pull = Math.min(1, dt * 6 * Math.abs(vel));
-      if (ew) P.y += (ty + 0.5 - P.y) * pull; else P.x += (tx + 0.5 - P.x) * pull;
+    // the stick's lean, held as a wish: -1 left, 1 right. It outlives the lean by the top-down's own
+    // turnBufferMs, so letting go a moment before the opening still takes it. Come back to the
+    // middle to re-arm, so one lean is one turn — except standing still, where holding keeps turning
+    const leaning = live && Math.abs(sx) > 0.45;
+    if (!live || Math.abs(sx) < 0.25) { pendArmed = true; if (pendTurn && now > pendUntil) pendTurn = 0; }
+    else if (leaning && (pendArmed || (Math.abs(vel) < 0.05 && now - turnEnd > 280))) { pendTurn = sx > 0 ? 1 : -1; pendArmed = false; }
+    if (leaning && pendTurn) pendUntil = now + CONFIG.turnBufferMs;
+
+    const centre = () => { const k = Math.min(1, dt * 12); if (Math.abs(Math.cos(P.a)) > 0.5) P.y += (cy - P.y) * k; else P.x += (cx - P.x) * k; };
+    if (railTurn) {
+      const k = Math.min(1, (now - railTurn.t0) / railTurn.dur);
+      P.a = railTurn.fa + (railTurn.ta - railTurn.fa) * EASE.io(k);
+      if (k >= 1) { P.a = railTurn.ta; railTurn = null; turnEnd = now; }
+      // keep a little way on through the turn, so taking a corner doesn't feel like a stop
+      vel *= 1 - Math.min(1, dt * 6);
+      return;
     }
+    const base = Math.round(P.a / QUARTER) * QUARTER, h = headingOf(P.a);
+    P.a = base;
+    const [dx, dy] = HD[h];
+    centre();
+    const horiz = dx !== 0, sgn = dx || dy, mid = horiz ? cx : cy;
+    let before = (horiz ? P.x : P.y) - mid;
+    // stopped at a wall and still pushing into it: you are standing still, not about to move. Snap
+    // the last hair to the exact middle, or "reached the middle" never quite comes true
+    const wallAhead = Math.abs(before) < 0.02 && solid(tx + dx, ty + dy);
+    if (wallAhead) { before = 0; if (horiz) P.x = mid; else P.y = mid; }
+    vel = wallAhead && fwd > 0 && vel >= 0 ? 0 : vel + (fwd * S.walk - vel) * Math.min(1, dt * 10);
+    let after = before + vel * dt * sgn;
+    // standing still — or stopped at a wall — and leaning: turn on the spot
+    if (pendTurn && leaning && Math.abs(vel) < 0.05 && (fwd < 0.2 || wallAhead)) {
+      railTurn = { t0: now, dur: S.turnMs, fa: P.a, ta: base + pendTurn * QUARTER }; pendTurn = 0; return;
+    }
+    const reached = Math.abs(before) < 1e-4 || Math.sign(before) !== Math.sign(after) || Math.abs(after) < 1e-4;
+    if (reached && pendTurn) {
+      const [ox, oy] = HD[(h + pendTurn + 4) % 4];
+      if (!solid(tx + ox, ty + oy)) {   // the buffered turn takes the first opening it's offered
+        if (horiz) P.x = cx; else P.y = cy;
+        railTurn = { t0: now, dur: S.turnMs * 0.85, fa: P.a, ta: base + pendTurn * QUARTER }; pendTurn = 0; return;
+      }
+    }
+    // a bend with only one way on: the hall carries you round it. A junction still waits for you
+    if (reached && S.bends && vel > 0.05 && solid(tx + dx, ty + dy)) {
+      const r = HD[(h + 1) % 4], l = HD[(h + 3) % 4];
+      const ro = !solid(tx + r[0], ty + r[1]), lo = !solid(tx + l[0], ty + l[1]);
+      if (ro !== lo) {
+        if (horiz) P.x = cx; else P.y = cy;
+        // and it spends any lean you had buffered: the hall already took you the only way there is
+        railTurn = { t0: now, dur: S.turnMs * 0.85, fa: P.a, ta: base + (ro ? 1 : -1) * QUARTER }; pendTurn = 0; return;
+      }
+    }
+    // a wall the way you're going: stop in the middle of the tile
+    const going = Math.sign(vel * sgn);
+    if (going && Math.sign(after) === going && solid(tx + (horiz ? going : 0), ty + (horiz ? 0 : going))) { after = 0; vel = 0; }
+    if (horiz) P.x = mid + after; else P.y = mid + after;
   }
 
   // ── the frame's view ──────────────────────────────────────
   let lastX = 0, lastY = 0;
   function update(now, dt) {
     if (won) return;
-    stickMove(dt);
+    stickMove(now, dt);
     stepAnim(now);
     // one dip of the head per tile walked, however you walked it; standing still, it settles
     const moved = Math.hypot(P.x - lastX, P.y - lastY); lastX = P.x; lastY = P.y;
@@ -250,6 +348,25 @@
     return 0xff000000 | (b << 16) | (g << 8) | r;
   }
 
+  // Ambient occlusion: the dark that collects where two surfaces meet. Laid on from the maze, not
+  // painted into textures, so every inside corner gets it whatever tile is there. Two walls meeting
+  // multiply, which is what makes the corners themselves the deepest.
+  const AOR = 0.45;   // how far out from a wall it reaches, in tiles
+  let aoS = 0;
+  const aoEdge = (a, d) => { if (d >= AOR) return a; const k = 1 - d / AOR; return a * (1 - aoS * k * k); };
+  function aoAt(m, fx, fy) {
+    if (!m) return 1;
+    let a = 1;
+    if (m & 1) a = aoEdge(a, fx); if (m & 2) a = aoEdge(a, 1 - fx);
+    if (m & 4) a = aoEdge(a, fy); if (m & 8) a = aoEdge(a, 1 - fy);
+    // a lone wall corner poking in diagonally, with open floor on both sides of it
+    if ((m & 16) && !(m & 5)) a = aoEdge(a, Math.hypot(fx, fy));
+    if ((m & 32) && !(m & 6)) a = aoEdge(a, Math.hypot(1 - fx, fy));
+    if ((m & 64) && !(m & 9)) a = aoEdge(a, Math.hypot(fx, 1 - fy));
+    if ((m & 128) && !(m & 10)) a = aoEdge(a, Math.hypot(1 - fx, 1 - fy));
+    return a;
+  }
+
   // reused per column, so a frame allocates nothing
   const MAXP = 32, pE = new Float32Array(MAXP), pX = new Float32Array(MAXP), pU = new Float32Array(MAXP), pS = new Uint8Array(MAXP), pT = new Int32Array(MAXP);
 
@@ -258,21 +375,44 @@
     const tanH = Math.tan(S.fov * Math.PI / 360), D = (RW / 2) / tanH;
     const hor = RH / 2 + bob, eye = S.eye, gapH = S.gapH, fog = S.fog;
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
-    const sky = T.sky, SW = sky.w, SH = sky.h, SP = sky.px;
+    const sky = T.sky, SW = sky ? sky.w : 0, SH = sky ? sky.h : 0, SP = sky ? sky.px : null;
     const walls = T.walls, floors = T.floors, beam = T.lintel.px, under = T.under.px, exitT = T.exit;
     const side = T.side, underLit = T.underLit;
 
-    // sky: a wrapped panorama, turning with you
     const horI = Math.max(0, Math.min(RH, Math.ceil(hor)));
-    const baseU = ang / (2 * Math.PI) * SW;
-    for (let x = 0; x < RW; x++) {
-      const cam = 2 * (x + 0.5) / RW - 1;
-      let u = Math.floor(baseU + Math.atan(cam * tanH) / (2 * Math.PI) * SW) % SW; if (u < 0) u += SW;
-      for (let y = 0; y < horI; y++) buf[y * RW + x] = SP[Math.min(SH - 1, (y / hor * SH) | 0) * SW + u];
+    const r0x = dX - plX, r0y = dY - plY, r1x = dX + plX, r1y = dY + plY;
+    const ceils = T.ceils, hasCeil = !!ceils;
+    aoS = T.ao || 0;
+    if (hasCeil) {
+      // a lamp on its way out: mostly on, now and then a stutter, now and then out for a moment
+      for (const k of flickers) {
+        const n = Math.sin(now * 0.0023 + k) + Math.sin(now * 0.0171 + k * 3.1) * 0.6 + Math.sin(now * 0.061 + k * 7.7) * 0.25;
+        lampLvl[k] = n > 1.3 ? 0.3 : n > 1.15 ? 0.65 : 1;
+      }
+      // ceiling: the floor pass mirrored, at the top of the wall
+      for (let y = 0; y < horI; y++) {
+        const rowD = (1 - eye) * D / (hor - (y + 0.5));
+        const f = Math.exp(-fog * rowD), fl = Math.sqrt(f);   // lamps carry further through the haze than paint does
+        const sx = rowD * (r1x - r0x) / RW, sy = rowD * (r1y - r0y) / RW;
+        let wx = px + rowD * r0x + sx * 0.5, wy = py + rowD * r0y + sy * 0.5, o = y * RW;
+        for (let x = 0; x < RW; x++, wx += sx, wy += sy, o++) {
+          const cx = Math.floor(wx), cy = Math.floor(wy), inB = cx >= 0 && cy >= 0 && cx < W && cy < H, k = cy * W + cx;
+          const t = ceils[inB ? ceilVar[k] : 0], fx = wx - cx, fy = wy - cy, ti = ((fy * 32) | 0) * 32 + ((fx * 32) | 0);
+          buf[o] = t.glow && t.glow[ti] ? shade(t.px[ti], fl, inB ? lampLvl[k] : 1)
+            : shade(t.px[ti], f, inB ? aoAt(nbm[k], fx, fy) : 1);
+        }
+      }
+    } else {
+      // sky: a wrapped panorama, turning with you
+      const baseU = ang / (2 * Math.PI) * SW;
+      for (let x = 0; x < RW; x++) {
+        const cam = 2 * (x + 0.5) / RW - 1;
+        let u = Math.floor(baseU + Math.atan(cam * tanH) / (2 * Math.PI) * SW) % SW; if (u < 0) u += SW;
+        for (let y = 0; y < horI; y++) buf[y * RW + x] = SP[Math.min(SH - 1, (y / hor * SH) | 0) * SW + u];
+      }
     }
 
     // floor: one row at a time, stepping across the ground in a straight line
-    const r0x = dX - plX, r0y = dY - plY, r1x = dX + plX, r1y = dY + plY;
     for (let y = horI; y < RH; y++) {
       const rowD = eye * D / (y + 0.5 - hor);
       const f = Math.exp(-fog * rowD);
@@ -280,9 +420,9 @@
       let wx = px + rowD * r0x + sx * 0.5, wy = py + rowD * r0y + sy * 0.5;
       let o = y * RW;
       for (let x = 0; x < RW; x++, wx += sx, wy += sy, o++) {
-        const cx = Math.floor(wx), cy = Math.floor(wy);
-        const t = (cx >= 0 && cy >= 0 && cx < W && cy < H) ? floors[floorVar[cy * W + cx]] : floors[0];
-        buf[o] = shade(t.px[(((wy - cy) * 32) | 0) * 32 + (((wx - cx) * 32) | 0)], f, 1);
+        const cx = Math.floor(wx), cy = Math.floor(wy), inB = cx >= 0 && cy >= 0 && cx < W && cy < H;
+        const t = inB ? floors[floorVar[cy * W + cx]] : floors[0], fx = wx - cx, fy = wy - cy;
+        buf[o] = shade(t.px[((fy * 32) | 0) * 32 + ((fx * 32) | 0)], f, inB ? aoAt(nbm[cy * W + cx], fx, fy) : 1);
       }
     }
 
@@ -304,14 +444,21 @@
         const k = my * W + mx;
         if (low[k] && n < MAXP) {
           let u = sd === 0 ? py + entry * ry : px + entry * rx; u -= Math.floor(u);
-          if ((sd === 0 && rx > 0) || (sd === 1 && ry < 0)) u = 1 - u;
+          if ((sd === 0 && rx < 0) || (sd === 1 && ry > 0)) u = 1 - u;   // y runs down, so this way round reads left to right
           pE[n] = entry; pX[n] = Math.min(sdx, sdy); pT[n] = k; pS[n] = sd; pU[n] = u; n++;
         }
       }
       // the far wall
       {
         let u = sd === 0 ? py + perp * ry : px + perp * rx; u -= Math.floor(u);
-        if ((sd === 0 && rx > 0) || (sd === 1 && ry < 0)) u = 1 - u;
+        // an inside corner at either edge of this face: the open tile in front of it has wall beside it
+        let colAO = 1;
+        if (aoS) {
+          const fx = sd === 0 ? mx - stX : mx, fy = sd === 0 ? my : my - stY;
+          if (sd === 0 ? solid(fx, fy - 1) : solid(fx - 1, fy)) colAO = aoEdge(colAO, u);
+          if (sd === 0 ? solid(fx, fy + 1) : solid(fx + 1, fy)) colAO = aoEdge(colAO, 1 - u);
+        }
+        if ((sd === 0 && rx < 0) || (sd === 1 && ry > 0)) u = 1 - u;   // y runs down, so this way round reads left to right
         const inB = mx >= 0 && my >= 0 && mx < W && my < H;
         const t = inB && exitFace[my * W + mx] ? exitT : walls[inB ? wallVar[my * W + mx] : 0];
         const tu = Math.min(31, (u * 32) | 0);
@@ -319,8 +466,11 @@
         const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
         const f = Math.exp(-fog * perp), lit = sd ? side : 1;
         for (let y = y0; y < y1; y++) {
-          const tv = Math.min(31, ((y + 0.5 - top) / (bot - top) * 32) | 0), ti = tv * 32 + tu;
-          buf[y * RW + x] = t.glow && t.glow[ti] ? t.px[ti] : shade(t.px[ti], f, lit);
+          const v = (y + 0.5 - top) / (bot - top), ti = Math.min(31, (v * 32) | 0) * 32 + tu;
+          if (t.glow && t.glow[ti]) { buf[y * RW + x] = t.px[ti]; continue; }
+          let a = aoS ? aoEdge(colAO, 1 - v) : 1;   // down where it meets the floor
+          if (hasCeil && aoS) a = aoEdge(a, v);      // and up where it meets the ceiling
+          buf[y * RW + x] = shade(t.px[ti], f, lit * a);
         }
       }
       // the lintels over any crawl gaps on the way, farthest first so the near ones cover
@@ -466,7 +616,8 @@
   const bindSel = (id, key, after) => { const el = $(id); el.value = String(S[key]); el.onchange = () => { S[key] = el.value === 'true' ? true : el.value === 'false' ? false : el.value; saveS(); if (after) after(); }; };
   bindSel('optTheme', 'theme', applyTheme);
   bindSel('optStick', 'stick', showStick);
-  bindSel('optAssist', 'assist');
+  bindSel('optMove', 'move');
+  bindSel('optBends', 'bends');
   bindSel('optMap', 'map');
   bindSel('optSwipe', 'swipe');
   $('gear').onclick = () => $('panel').classList.toggle('open');

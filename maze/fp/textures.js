@@ -327,16 +327,125 @@ const TEX = (() => {
     return T;
   }
 
+  // ══ office: the back rooms proper ═════════════════════════
+  // Joe: "modern office building yellow walls, deep ambient occlusion in the corners. I want a
+  // ceiling on it … that white paneling that you see in old office buildings." Mono-yellow
+  // wallpaper with its faint repeat, a rubber cove base, damp mustard carpet, and a drop ceiling:
+  // acoustic tiles on a T-bar grid, the odd water-stained one, and fluorescent panels. The corner
+  // shadows aren't in these textures — the renderer lays them on from the maze, so every inside
+  // corner gets one whatever tile is there.
+  const YELLOW = ramp(['#5f5222', '#766631', '#8c7b3b', '#a08e46', '#b19e50', '#c0ad5b', '#cdba66', '#d9c775']);
+  const CARPET = ramp(['#4c4326', '#5b512e', '#6a5f36', '#786c3e', '#857846', '#91844e', '#9d9057']);
+  const CEIL = ramp(['#7f7c70', '#9a9689', '#afab9c', '#c1bdad', '#cfcbbb', '#dbd7c7', '#e5e1d2']);
+  const LAMP = ramp(['#c9cfc6', '#dfe5dc', '#eef2ea', '#f8faf4', '#ffffff']);
+  const BASE = ramp(['#3c342a', '#4a4134', '#5a5040']);
+  const DOOR = ramp(['#4e3b26', '#5f4a30', '#71593a', '#826846']);
+  function wallpaper(seed, o = {}) {
+    const R = rng(seed), T = blank(32, 32), F = field(seed);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      let f = 5 + F(x, y) * 0.35 + (R() - 0.5) * 0.35;
+      const sx = x & 7;
+      if (sx === 0) f -= 0.45;                                   // the faint stripe
+      if (sx === 4 && ((y + ((x >> 3) & 1) * 4) & 7) === 2) f -= 0.7;   // and the little mark between, staggered
+      T.px[y * 32 + x] = dith(YELLOW, f, x, y);
+    }
+    if (o.stain) {   // a leak from the ceiling, running down
+      const cx = 6 + R() * 20;
+      for (let y = 0; y < 26; y++) for (let x = 0; x < 32; x++) {
+        const w = 5 - y * 0.12 + Math.sin(y * 0.7 + cx) * 1.2, d = Math.abs(x - cx) / Math.max(1, w);
+        if (d < 1 && R() < 0.95 - d * 0.4 - y * 0.012) T.px[y * 32 + x] = dith(YELLOW, 2.6 - (1 - d) * 1.4 + y * 0.03, x, y);
+      }
+    }
+    if (o.door) {    // a door that isn't a way anywhere
+      for (let y = 6; y < 29; y++) for (let x = 9; x < 23; x++) {
+        const frame = x === 9 || x === 22 || y === 6;
+        const panel = (x === 12 || x === 19) && y > 9 && y < 27;
+        T.px[y * 32 + x] = frame ? YELLOW[2] : dith(DOOR, panel ? 1.2 : 2.2 + ((x * 3 + y) % 5 === 0 ? 0.6 : 0) + (R() - 0.5) * 0.5, x, y);
+      }
+      T.px[18 * 32 + 20] = hex('#c9c3a8'); T.px[18 * 32 + 19] = hex('#8f8a72');
+    }
+    if (o.outlet) {
+      for (let y = 22; y < 26; y++) for (let x = 14; x < 17; x++) T.px[y * 32 + x] = hex('#e8e3cf');
+      T.px[23 * 32 + 15] = BASE[0]; T.px[24 * 32 + 15] = BASE[0];
+    }
+    for (let x = 0; x < 32; x++) { T.px[28 * 32 + x] = BASE[2]; T.px[29 * 32 + x] = BASE[1]; T.px[30 * 32 + x] = BASE[1]; T.px[31 * 32 + x] = BASE[0]; }
+    return T;
+  }
+  function carpet(seed, o = {}) {
+    const R = rng(seed), T = blank(32, 32), F = field(seed + 1), tone = [0, 1, 2, 3].map(() => 3.3 + R() * 0.7);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      let f = tone[(x >> 4) + (y >> 4) * 2] + F(x, y) * 0.3 + (R() - 0.5) * 1.6;   // carpet is all noise
+      if (o.stain) { const d = Math.hypot(x - 16, y - 16) / 13 + F(y, x) * 0.15; if (d < 1) f -= 1.8 * (1 - d * d); }
+      T.px[y * 32 + x] = dith(CARPET, f, x, y);
+    }
+    return T;
+  }
+  // the drop ceiling: four acoustic tiles to a maze tile, pinholed, in a T-bar grid
+  function acoustic(seed, o = {}) {
+    const R = rng(seed), T = blank(32, 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      const gx = x & 15, gy = y & 15;
+      if (gx === 15 || gy === 15) { T.px[y * 32 + x] = CEIL[3]; continue; }
+      let f = 4.6 + (gx === 0 || gy === 0 ? -0.8 : 0) + (gx === 14 || gy === 14 ? -0.5 : 0) + (R() - 0.5) * 0.4;
+      if (R() < 0.09) f -= 1.4;   // pinholes
+      if (o.stain) { const d = Math.hypot(x - 8, y - 22) / 7; if (d < 1) f -= d > 0.8 ? 2.4 : 1.1; }   // a ring where it dripped
+      T.px[y * 32 + x] = o.stain && Math.hypot(x - 8, y - 22) < 7 ? dith(STAIN, f - 1.8, x, y) : dith(CEIL, f, x, y);
+    }
+    return T;
+  }
+  function fluorescent(seed) {
+    const T = acoustic(seed); T.glow = new Uint8Array(32 * 32);
+    for (let y = 3; y < 29; y++) for (let x = 7; x < 25; x++) {
+      const i = y * 32 + x, frame = x === 7 || x === 24 || y === 3 || y === 28;
+      if (frame) { T.px[i] = CEIL[2]; continue; }
+      const tube = x === 11 || x === 16 || x === 20;
+      T.px[i] = dith(LAMP, (tube ? 3.9 : 2.8) + ((x + y) & 1 ? 0.3 : -0.3) + (y === 4 || y === 27 ? -1 : 0), x, y);
+      T.glow[i] = 1;
+    }
+    return T;
+  }
+  function vent(seed) {
+    const T = acoustic(seed);
+    for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) T.px[y * 32 + x] = (y & 1) ? CEIL[1] : CEIL[4];
+    return T;
+  }
+  // the way out: a steel fire door under a green EXIT sign, light through its wired-glass window
+  function exitSign() {
+    const T = wallpaper(911); T.glow = new Uint8Array(32 * 32);
+    const G = ['111.1.1.1.111', '1...1.1.1..1.', '11...1..1..1.', '1...1.1.1..1.', '111.1.1.1..1.'];
+    for (let y = 1; y < 8; y++) for (let x = 8; x < 24; x++) { const i = y * 32 + x; T.px[i] = hex('#16562c'); T.glow[i] = 1; }
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 13; c++) if (G[r][c] === '1') T.px[(r + 2) * 32 + c + 10] = hex('#c8ffd2');
+    for (let y = 10; y < 28; y++) for (let x = 9; x < 23; x++) {
+      const i = y * 32 + x, frame = x === 9 || x === 22 || y === 10;
+      const win = x >= 13 && x <= 18 && y >= 13 && y <= 19;
+      if (win) { T.px[i] = ((x + y) & 3) ? hex('#fff4d6') : hex('#d8cfae'); T.glow[i] = 1; }
+      else T.px[i] = frame ? hex('#5d6158') : y === 21 ? hex('#b9bcb2') : hex(((x + y * 3) % 7) ? '#8b8f84' : '#80847a');
+    }
+    return T;
+  }
+
   const t0 = performance.now();
   const wood = planks(211);
   const themes = {
+    office: {
+      label: 'Office (the back rooms)',
+      walls: [wallpaper(11), wallpaper(23), wallpaper(31, { stain: 1 }), wallpaper(47, { door: 1 }), wallpaper(59, { outlet: 1 })],
+      pick: [0, 1, 0, 1, 0, 1, 2, 0, 1, 3, 4, 2],
+      floors: [carpet(101), carpet(103), carpet(107), carpet(109, { stain: 1 })],
+      // a ceiling instead of a sky: `ceils` are picked per tile like the walls; `ceilPick` is the
+      // weighting, and the fluorescent one (index 1) is the only one that glows
+      ceils: [acoustic(301), fluorescent(303), acoustic(307, { stain: 1 }), vent(309), acoustic(311)],
+      ceilPick: [0, 4, 1, 4, 0, 0, 4, 2, 1, 3, 4, 0],
+      exit: exitSign(), lintel: wallpaper(401), under: acoustic(403), sky: null,
+      fog: '#8f8762', side: 0.84, underLit: 0.8, ao: 0.78,
+    },
     bleached: {
       label: 'Bleached (Greek back rooms)',
       walls: [plaster(11), plaster(23), plaster(31, { stain: 1 }), ashlar(47), pilaster(59), plaster(61, { stain: 0.6, crack: 1 })],
       pick: [0, 1, 0, 1, 0, 1, 2, 3, 4, 4, 5, 3],
       floors: [travertine(101), travertine(103, { checker: 1 }), travertine(107), travertine(109, { stain: 1 })],
       exit: seaDoor(), lintel: beam(211), under: underPlaster(223), sky: haze(),
-      fog: '#e6e1d3', side: 0.86, underLit: 0.8,
+      fog: '#e6e1d3', side: 0.86, underLit: 0.8, ao: 0.32,
     },
     dusk: {
       label: 'Dusk stone',
@@ -344,7 +453,7 @@ const TEX = (() => {
       pick: [0, 0, 1, 1, 4, 4, 0, 1, 2, 3, 5, 4],
       floors: [flags(101), flags(103), flagsWorn(107), flags(109)],
       exit: exitDoor(), lintel: wood, under: wood, sky: sky(),
-      fog: '#15141d', side: 0.78, underLit: 0.55,
+      fog: '#15141d', side: 0.78, underLit: 0.55, ao: 0.4,
     },
   };
   return { themes, hex, buildMs: performance.now() - t0 };

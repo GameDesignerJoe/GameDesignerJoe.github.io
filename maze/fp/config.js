@@ -17,9 +17,10 @@ const FP_CONFIG = {
   gapH: 0.62,       // how high a crawl gap's opening is, as a fraction of a wall
   walk: 2.31,       // tiles a second at full stick — the top-down's own CONFIG.speed
   stickTurn: 150,   // degrees a second at full stick, sideways
-  theme: 'bleached',// a key of TEX.themes: 'bleached' | 'dusk'
+  theme: 'office',  // a key of TEX.themes: 'office' | 'bleached' | 'dusk'
   stick: 'on',      // 'on' shows the stick; 'off' leaves taps and swipes only
-  assist: true,     // in a corridor, the stick centres you and squares you up to the hall
+  bends: true,      // on rails, holding forward at a bend with only one way on takes you round it
+  move: 'rails',    // the stick: 'rails' in halls (buffered turns, like the top-down) and free in rooms; or 'free' everywhere
   swipe: 'drag',    // 'drag': swipe left turns right, the way a finger drags the view. 'point': the other way
   map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
 };
