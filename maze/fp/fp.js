@@ -721,6 +721,17 @@
   $('gear').onclick = () => { hideHint(); $('panel').classList.toggle('open'); };
   $('close').onclick = () => $('panel').classList.remove('open');
   $('newMaze').onclick = () => { newMaze(); $('panel').classList.remove('open'); };
+  // Restart: the same maze, back where you woke. Hard refresh: the latest build from the server and a
+  // new maze — the top-down's hardRefresh(), and like it bounded so a dead connection still reloads.
+  // Every script is fetched fresh as well as the page, since the scripts are what change.
+  $('restart').onclick = () => { reset(); $('panel').classList.remove('open'); };
+  $('hardRefresh').onclick = () => {
+    $('hardRefresh').textContent = 'Updating…';
+    const urls = [location.pathname, ...[...document.scripts].map((sc) => sc.src).filter(Boolean)];
+    const timeout = new Promise((r) => setTimeout(r, 2500));
+    Promise.race([Promise.all(urls.map((u) => fetch(u, { cache: 'reload' }).catch(() => {}))), timeout])
+      .then(() => location.replace(location.pathname + '?u=' + Date.now()));   // core.js strips the stamp again on load
+  };
   $('resetKnobs').onclick = () => { try { localStorage.removeItem(SKEY); } catch (e) {} location.reload(); };
   $('ver').textContent = 'v' + VERSION + ' · first person';
 
