@@ -36,7 +36,9 @@
     delete saved.help;
     // the squeeze was halved as a default; a width saved before that was only ever the old default
     if ((saved.cfg || 0) < 2) delete saved.gapW;
-    saved.cfg = 2;
+    // the squeeze's veil went from near-black to see-through-with-effort; a saved one was only the old default
+    if ((saved.cfg || 0) < 3) delete saved.squeezeVeil;
+    saved.cfg = 3;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -1059,8 +1061,11 @@
   // ── the far side of a squeeze, hidden ─────────────────────
   // Joe: "it just makes the wall a darker color, it doesn't make the gap darker. Ideally, I would like
   // to not be able to see what's on the other side of the squeeze." Every pixel a column sees past
-  // the far side of a squeeze's gap is taken down by `squeezeVeil`, fading in over a few inches so
-  // the dark has an edge you walk into rather than a line. Standing in one, both ways are dark.
+  // the far side of a squeeze's gap is taken down by `squeezeVeil`. Joe, after the first go: "it's
+  // completely black until you come out the other side, which doesn't make a lot of sense. I just
+  // want it to be much more difficult to see into it, but not completely black." So it deepens over
+  // VEIL_DEPTH tiles past the gap: just beyond it you can make things out, further on less.
+  const VEIL_DEPTH = 2.5;
   function veilSqueezes(D, hor, eye) {
     const sv = S.squeezeVeil;
     if (sv <= 0) return;
@@ -1070,7 +1075,7 @@
       for (let y = 0; y < RH; y++) {
         const dep = (y >= top && y < bot) ? wt : y < hor ? (1 - eye) * D / Math.max(1e-3, hor - y - 0.5) : eye * D / Math.max(1e-3, y + 0.5 - hor);
         if (dep <= vt) continue;
-        const k = 1 - sv * Math.min(1, (dep - vt) / 0.3), o = y * RW + x, c = buf[o];
+        const k = 1 - sv * Math.min(1, 0.35 + (dep - vt) / VEIL_DEPTH), o = y * RW + x, c = buf[o];
         buf[o] = 0xff000000 | ((((c >>> 16) & 0xff) * k) << 16) | ((((c >>> 8) & 0xff) * k) << 8) | ((c & 0xff) * k);
       }
     }

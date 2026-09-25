@@ -44,7 +44,7 @@ const FP_CONFIG = {
   darkLevel: 0.1,   // how dark a dark hall is: Joe asked for very dim, not black
   squeezeDim: 0.45, // a squeeze is this bright, times the light around it
   squeezeSlow: 0.35, // and you walk through it at this fraction of your speed
-  squeezeVeil: 0.92, // how much of what is past a squeeze is hidden: 1 is black, 0 lets you see through
+  squeezeVeil: 0.72, // how hard it is to see past a squeeze: 1 is black, 0 is clear. Joe: "much more difficult to see into it, but not completely black"
   sound: true,      // music and sound
   sfxVol: 0.9,      // how loud the room is: steps, hum, doors, the squeeze. The music keeps the top-down's own level
   map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
