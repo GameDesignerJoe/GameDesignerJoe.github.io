@@ -264,6 +264,7 @@
   // decals  — what is written on a wall face: your chalk, and the words someone left at the far end
   //           of a dead end. One 64×64 sheet per face, drawn over the wall's own texture.
   const DEC = 64;
+  let pathMask = null;   // debug: the way out, marked on the floor
   let objs = [], decals = new Map(), wordSpots = [], chalk = 0, charcoalN = 0, pagesFound = 0, pagesTotal = 0;
   const faceKey = (k, face) => k * 4 + face;   // face: 0 west, 1 east, 2 north, 3 south — the side of the wall tile you see
   function decalFor(k, face) {
@@ -278,6 +279,8 @@
     for (const key of chalkSpots) { const [x, y] = at(key); objs.push({ x: x + 0.5, y: y + 0.5, kind: 'chalk', tex: TEX.sprites.chalk, h: 0.1, glow: 0.2 }); }
     for (const key of charcoalSpots) { const [x, y] = at(key); objs.push({ x: x + 0.5, y: y + 0.5, kind: 'charcoal', tex: TEX.sprites.charcoal, h: 0.1, glow: 0 }); }
     pagesTotal = journals.size;
+    pathMask = new Uint8Array(W * H);
+    for (const [x, y] of solutionPath) if (x >= 0 && y >= 0 && x < W && y < H) pathMask[y * W + x] = 1;
     // words at the far end of dead ends: the wall you face as you walk in. Their own random stream,
     // so where they fall never moves anything else
     const R = rng(SEED + 130003), words = WALL_WORDS[character ? character.name : ''] || WALL_WORDS._;
@@ -485,9 +488,30 @@
   function hidePage() { $('page').classList.remove('show'); pageHideAt = 0; }
   $('page').addEventListener('pointerdown', (e) => { e.stopPropagation(); hidePage(); });
 
+  // ── the top-down's debug, for this view ───────────────────
+  // Joe: "can we bring over some of the debug functions now that we have on the top down version that
+  // would be useful here?" Level, stones, the prototypes and the maze's own shape knobs, as the
+  // top-down has them. They are written into SAVE in memory just before each build and never
+  // persisted: testing a chapter in here must not move the top-down's progress. Level "save" means
+  // whatever the top-down save says.
+  const LEVELS = [];
+  PHASES.forEach((ph, i) => {
+    LEVELS.push({ label: i + ' · ' + ph.who, phase: i, stones: i, pool: false });
+    if (i < STONES.length) LEVELS.push({ label: '↳ pool · ' + STONES[i], phase: i, stones: i, pool: true });
+  });
+  const MAZE_KEYS = ['proto', 'size', 'branch', 'turns', 'clusters', 'braid'];
+  // what the top-down save itself says, kept so "From my save" can put it back
+  const SAVE0 = { phase: SAVE.phase, stones: SAVE.stones, poolPending: SAVE.poolPending, ui: Object.fromEntries(MAZE_KEYS.map((k) => [k, SAVE.ui[k]])) };
+  function applyMazeDebug() {
+    const L = S.dbgLevel === 'save' ? null : LEVELS[+S.dbgLevel];
+    SAVE.phase = L ? L.phase : SAVE0.phase; SAVE.poolPending = L ? L.pool : SAVE0.poolPending; SAVE.stones = L ? L.stones : SAVE0.stones;
+    if (S.dbgStones !== 'level') SAVE.stones = +S.dbgStones;
+    for (const k of MAZE_KEYS) SAVE.ui[k] = S['dbg_' + k] === 'auto' && k !== 'proto' ? SAVE0.ui[k] || 'auto' : S['dbg_' + k];
+  }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
+    applyMazeDebug();
     generate(SEED); reset();
     FP_SOUND.setMusic(character && character.name);
   }
@@ -860,6 +884,9 @@
     return a;
   }
 
+  // the debug path: the floor pushed toward gold, so it reads under any light
+  const PATH_TINT = (c) => 0xff000000 | (Math.min(255, ((c >>> 16) & 0xff) * 0.4 + 40) << 16) | (Math.min(255, ((c >>> 8) & 0xff) * 0.5 + 150) << 8) | Math.min(255, (c & 0xff) * 0.5 + 200);
+
   // reused per column, so a frame allocates nothing
 
   function render(now) {
@@ -869,7 +896,7 @@
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
     BRv = S.bright; FRb = FR * BRv; FGb = FG * BRv; FBb = FB * BRv;
     const sky = T.sky, SW = sky ? sky.w : 0, SH = sky ? sky.h : 0, SP = sky ? sky.px : null;
-    const walls = T.walls, floors = T.floors, exitT = T.exit, side = T.side;
+    const walls = T.walls, floors = T.floors, exitT = T.exit, side = T.side, showPath = S.showPath;
 
     const horI = Math.max(0, Math.min(RH, Math.ceil(hor)));
     const r0x = dX - plX, r0y = dY - plY, r1x = dX + plX, r1y = dY + plY;
@@ -923,7 +950,8 @@
         const t = inB ? floors[floorVar[cy * W + cx]] : floors[0], fx = wx - cx, fy = wy - cy;
         let L = 1;
         if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; if (low[cy * W + cx]) L *= S.squeezeDim; }
-        buf[o] = shade(t.px[((fy * 32) | 0) * 32 + ((fx * 32) | 0)], f, inB ? aoAt(nbm[cy * W + cx], fx, fy) : 1, L);
+        const fc = t.px[((fy * 32) | 0) * 32 + ((fx * 32) | 0)];
+        buf[o] = shade(showPath && inB && pathMask[cy * W + cx] ? PATH_TINT(fc) : fc, f, inB ? aoAt(nbm[cy * W + cx], fx, fy) : 1, L);
       }
     }
 
@@ -1202,9 +1230,12 @@
     if (hidden) return;   // from inside a closet you can only step out
     // a door under the finger: open it, or shut it
     if (colDoor[x] >= 0 && colDoorT[x] < REACH_WALL + 0.4 && by >= colDoorTop[x] - 8 && by <= colDoorBot[x]) { toggleDoor(doors[colDoor[x]]); return; }
-    // a closet: step in
+    // a closet: step in. Joe: "light switches or any other thing you interact with on a wall [should]
+    // not allow you to put an X on the wall as well" — a face that does something is never chalked,
+    // anywhere on it, whether or not the tap landed on the thing itself
     const cl = closets.find((c) => faceKey(c.k, c.face) === colFace[x]);
-    if (cl && zbuf[x] < REACH_WALL && colU[x] > 0.32 && colU[x] < 0.68) { enterCloset(cl); return; }
+    if (cl) { if (zbuf[x] < REACH_WALL && colU[x] > 0.32 && colU[x] < 0.68) enterCloset(cl); return; }
+    if (colFace[x] >= 0 && usedFace(colFace[x])) return;
     // then the wall under the finger, if it is close enough to touch
     if (colFace[x] < 0 || zbuf[x] > REACH_WALL || by < colTop[x] || by > colBot[x]) return;
     const cu = colU[x], cv2 = (by - colTop[x]) / (colBot[x] - colTop[x]);
@@ -1221,6 +1252,8 @@
     FP_SOUND.chalkMark();
     pendingMark = null; glyphsOff(); hud();
   }
+  // a wall face that is for something: the way out, a closet (above). Light switches join this list
+  function usedFace(fk) { return !!exitFace[Math.floor(fk / 4)]; }
   function glyphsOff() { $('glyphs').classList.remove('show'); }
   for (const b of document.querySelectorAll('#glyphs [data-g]')) b.addEventListener('pointerdown', (e) => { e.stopPropagation(); placeMark(b.dataset.g); });
 
@@ -1261,6 +1294,18 @@
   bindSel('optBends', 'bends');
   bindSel('optMap', 'map');
   bindSel('optChalkInf', 'chalkInf', hud);
+  bindSel('optShowPath', 'showPath');
+  bindSel('optShowArrow', 'showArrow');
+  {
+    const lv = $('optLevel');
+    for (const [i, L] of LEVELS.entries()) { const o = document.createElement('option'); o.value = String(i); o.textContent = L.label; lv.appendChild(o); }
+    const st = $('optStones');
+    for (let i = 0; i <= STONES.length; i++) { const o = document.createElement('option'); o.value = String(i); o.textContent = i + ' put down'; st.appendChild(o); }
+    const rebuild = () => { newMaze(); $('panel').classList.remove('open'); };
+    bindSel('optLevel', 'dbgLevel', rebuild);
+    bindSel('optStones', 'dbgStones', rebuild);
+    for (const k of MAZE_KEYS) bindSel('optM_' + k, 'dbg_' + k, rebuild);
+  }
   $('gear').onclick = () => { hideHint(); $('panel').classList.toggle('open'); };
   $('close').onclick = () => $('panel').classList.remove('open');
   $('newMaze').onclick = () => { newMaze(); $('panel').classList.remove('open'); };
@@ -1289,6 +1334,10 @@
   function frame(now) {
     const dt = Math.min(0.05, Math.max(0, (now - prev) / 1000)); prev = now;
     if (pageHideAt && now > pageHideAt) hidePage();
+    // debug: the arrow, pointing at the way out as the crow flies
+    const arrowEl = $('dbgArrow');
+    if (S.showArrow) { arrowEl.style.display = ''; arrowEl.style.transform = `rotate(${(Math.atan2(exit.y + 0.5 - P.y, exit.x + 0.5 - P.x) - P.a) * 180 / Math.PI}deg)`; }
+    else arrowEl.style.display = 'none';
     update(now, dt);
     render(now);
     drawMini(now);
@@ -1297,9 +1346,10 @@
   }
   applyTheme();
   resize();
+  applyMazeDebug();
   generate(SEED); reset(); lastX = P.x; lastY = P.y;
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
 })();

@@ -33,6 +33,11 @@ const FP_CONFIG = {
   turnEase: 14,     // how quickly turning catches up with the stick. Higher is snappier, lower is floatier
   words: 3,         // dead ends a maze with words written on their far wall (WALL_WORDS in data/text.js)
   chalkInf: false,  // debug: chalk never runs out
+  showPath: false,  // debug: the way out, marked on the floor in gold
+  showArrow: false, // debug: an arrow that points at the way out
+  // debug: the top-down's own maze knobs, applied in memory only (never to the top-down's save)
+  dbgLevel: 'save', dbgStones: 'level',
+  dbg_proto: 'off', dbg_size: 'auto', dbg_branch: 'auto', dbg_turns: 'auto', dbg_clusters: 'auto', dbg_braid: 'auto',
   doorRoom: 0.75,   // the chance a room's mouth has a door in it
   doorHall: 0.07,   // and any other one-wide passage between two cells
   doorsOpen: 0.2,   // how many of them are standing open when you arrive. Joe: "about 20%"

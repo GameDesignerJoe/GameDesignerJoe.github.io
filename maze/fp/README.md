@@ -14,7 +14,10 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 
 - **A seed is the same maze in both views.** `?seed=1234` works here as it does top-down.
 - **Nothing here writes to the top-down's save.** Knobs live under `maze.fp.v1`. The ☰ panel is in
-  sections — Look, Stick, Glide help, Taps/swipes/keys, Debug — each slider's range and section in `FP_RANGES`.
+  sections — Look, Stick, Glide help, Lighting, Sound, Maze, Debug — each slider's range and section in `FP_RANGES`.
+  The Maze section is the top-down's own debug (level, stones, prototype, size, branching, turns, districts,
+  loops), written into `SAVE` in memory before each build and never persisted. Debug adds infinite chalk,
+  the way out marked on the floor, and an arrow to it.
 - **Two ways to move, one position.** The stick has three modes. **Glide** (the default) is free
   steering with quiet help, each with its own knob under Glide help on the panel, never a snap: it settles you square to
   an open way when you ease off the turn, drifts you to the middle of a one-wide hall, and two
