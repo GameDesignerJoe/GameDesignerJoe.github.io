@@ -294,23 +294,40 @@
 
   function stickMove(now, dt) {
     const mag = Math.hypot(stick.x, stick.y), dz = Math.min(0.9, S.deadzone);
-    const live = stick.on && mag > dz;
-    let fwd = 0, sx = 0;
+    // held keys are a stick too: W/S or ↑/↓ walk while held, A/D or ←/→ turn, and with Shift held
+    // (or Q/E) A/D sidestep instead. Joe: "holding the back arrow key on the PC should keep me moving
+    // backwards", and "on PC we should allow Shift and WASD to allow strafe"
+    const kFwd = (keys.fwd ? 1 : 0) - (keys.back ? 1 : 0);
+    const kSide = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    const kStrafe = (keys.sright ? 1 : 0) - (keys.sleft ? 1 : 0) + (keys.shift ? kSide : 0);
+    const kTurn = keys.shift ? 0 : kSide;
+    const keyed = kFwd || kTurn || kStrafe;
+    const live = (stick.on && mag > dz) || !!keyed;
+    let fwd = 0, sx = 0, st = 0;
     if (live) {
       anim = null; queued = null; holdFwd = false;
-      const k = Math.min(1, (mag - dz) / (1 - dz)) / mag;   // deadzone taken out, so the edge of it is zero, not a jump
-      sx = stick.x * k; fwd = -stick.y * k;
-    } else if (anim) { vel = 0; railTurn = null; return; }   // a tap or a key is driving
+      if (stick.on && mag > dz) {
+        const k = Math.min(1, (mag - dz) / (1 - dz)) / mag;   // deadzone taken out, so the edge of it is zero, not a jump
+        sx = stick.x * k; fwd = -stick.y * k;
+      }
+      fwd = Math.max(-1, Math.min(1, fwd + kFwd)); sx = Math.max(-1, Math.min(1, sx + kTurn)); st = Math.max(-1, Math.min(1, kStrafe));
+    } else if (anim) { vel = 0; railTurn = null; return; }   // a tap or a swipe is driving
     const tx = Math.floor(P.x), ty = Math.floor(P.y);
     const rail = S.move === 'rails' && !room[ty * W + tx];
-    if (rail) railMove(now, dt, live, fwd, sx, tx, ty); else freeMove(dt, live, fwd, sx);
+    if (rail) railMove(now, dt, live, fwd, sx, tx, ty); else freeMove(dt, live, fwd, sx, st);
     wasRail = rail;
   }
 
   let turnVel = 0;   // how fast the view is actually turning, eased, so a flick of the thumb is never a jerk
-  function freeMove(dt, live, fwd, sx) {
+  let sideVel = 0;   // sidestepping, eased the same way as walking
+  function freeMove(dt, live, fwd, sx, st = 0) {
     railTurn = null;
     vel += (fwd * S.walk - vel) * Math.min(1, dt * S.accel);
+    sideVel += (st * S.walk * 0.85 - sideVel) * Math.min(1, dt * S.accel);
+    if (Math.abs(sideVel) > 0.001) {
+      const d = sideVel * dt, n = Math.max(1, Math.ceil(Math.abs(d) / 0.08));
+      for (let i = 0; i < n; i++) { P.x += -Math.sin(P.a) * d / n; P.y += Math.cos(P.a) * d / n; collide(); }
+    }
     const want = Math.sign(sx) * Math.abs(sx) ** 1.6 * S.stickTurn * Math.PI / 180;   // gentle near the middle, quick at the rim
     turnVel += (want - turnVel) * Math.min(1, dt * S.turnEase);
     if (!live && Math.abs(vel) < 0.001 && Math.abs(turnVel) < 0.001) { vel = 0; turnVel = 0; return; }
@@ -466,13 +483,18 @@
   // ── drawing ───────────────────────────────────────────────
   // a colour, dimmed by `lit` (the side walls a little darker, the undersides more), then faded
   // toward the fog by `f` (1 near, 0 lost)
+  // Brightness (Joe: "give me a light slider to control how bright it is") scales all of it, fog
+  // included, so turning it down darkens the world rather than only the near walls.
+  let BRv = 1, FRb = 0, FGb = 0, FBb = 0;
   function shade(c, f, lit) {
-    const k = f * lit;
-    const r = FR + ((c & 0xff) * k - FR * f) | 0;
-    const g = FG + (((c >>> 8) & 0xff) * k - FG * f) | 0;
-    const b = FB + (((c >>> 16) & 0xff) * k - FB * f) | 0;
+    const k = f * lit * BRv;
+    const r = Math.min(255, FRb + ((c & 0xff) * k - FRb * f)) | 0;
+    const g = Math.min(255, FGb + (((c >>> 8) & 0xff) * k - FGb * f)) | 0;
+    const b = Math.min(255, FBb + (((c >>> 16) & 0xff) * k - FBb * f)) | 0;
     return 0xff000000 | (b << 16) | (g << 8) | r;
   }
+  // for what is drawn straight from a texture, unshaded: the sky, and what glows
+  const bright = (c) => BRv === 1 ? c : shade(c, 1, 1);
 
   // Ambient occlusion: the dark that collects where two surfaces meet. Laid on from the maze, not
   // painted into textures, so every inside corner gets it whatever tile is there. Two walls meeting
@@ -500,6 +522,7 @@
     const tanH = Math.tan(S.fov * Math.PI / 360), D = (RW / 2) / tanH;
     const hor = RH / 2 + bob, eye = S.eye, fog = S.fog;
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
+    BRv = S.bright; FRb = FR * BRv; FGb = FG * BRv; FBb = FB * BRv;
     const sky = T.sky, SW = sky ? sky.w : 0, SH = sky ? sky.h : 0, SP = sky ? sky.px : null;
     const walls = T.walls, floors = T.floors, exitT = T.exit, side = T.side;
 
@@ -532,7 +555,7 @@
       for (let x = 0; x < RW; x++) {
         const cam = 2 * (x + 0.5) / RW - 1;
         let u = Math.floor(baseU + Math.atan(cam * tanH) / (2 * Math.PI) * SW) % SW; if (u < 0) u += SW;
-        for (let y = 0; y < horI; y++) buf[y * RW + x] = SP[Math.min(SH - 1, (y / hor * SH) | 0) * SW + u];
+        for (let y = 0; y < horI; y++) buf[y * RW + x] = bright(SP[Math.min(SH - 1, (y / hor * SH) | 0) * SW + u]);
       }
     }
 
@@ -588,7 +611,7 @@
         const f = Math.exp(-fog * perp), lit = (sd ? side : 1) * (slot ? 0.82 : 1);   // a squeeze is close, and a little darker for it
         for (let y = y0; y < y1; y++) {
           const v = (y + 0.5 - top) / (bot - top), ti = Math.min(31, (v * 32) | 0) * 32 + tu;
-          if (t.glow && t.glow[ti]) { buf[y * RW + x] = t.px[ti]; continue; }
+          if (t.glow && t.glow[ti]) { buf[y * RW + x] = bright(t.px[ti]); continue; }
           let a = aoS ? aoEdge(colAO, 1 - v) : 1;   // down where it meets the floor
           if (hasCeil && aoS) a = aoEdge(a, v);      // and up where it meets the ceiling
           buf[y * RW + x] = shade(t.px[ti], f, lit * a);
@@ -629,16 +652,16 @@
   $('again').onclick = () => newMaze();
 
   // ── keys ──────────────────────────────────────────────────
-  const KEYS = { ArrowUp: 'fwd', KeyW: 'fwd', ArrowDown: 'back', KeyS: 'back', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', KeyQ: 'sleft', KeyE: 'sright' };
+  const KEYS = { ArrowUp: 'fwd', KeyW: 'fwd', ArrowDown: 'back', KeyS: 'back', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', KeyQ: 'sleft', KeyE: 'sright', ShiftLeft: 'shift', ShiftRight: 'shift' };
+  const keys = {};
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     const a = KEYS[e.code]; if (!a) return;
     e.preventDefault(); hideHint();
-    if (a === 'fwd') { if (!holdFwd) { holdFwd = true; act('fwd'); } return; }
-    if (!e.repeat) act(a);
+    keys[a] = true;
   });
-  addEventListener('keyup', (e) => { if (KEYS[e.code] === 'fwd') holdFwd = false; });
-  addEventListener('blur', () => { holdFwd = false; clearStick(); });
+  addEventListener('keyup', (e) => { const a = KEYS[e.code]; if (a) keys[a] = false; });
+  addEventListener('blur', () => { for (const k in keys) keys[k] = false; holdFwd = false; clearStick(); });
 
   // ── the stick, on screen ──────────────────────────────────
   // Same size, place and feel as the top-down's: bottom centre upright, bottom right on its side.

@@ -10,6 +10,7 @@ const FP_CONFIG = {
   fov: 75,          // degrees, left edge to right edge
   res: 360,         // pixels across the screen's short side the world is drawn at, before it is scaled up
   fog: 0.11,        // how fast things fade with distance, per tile. 0 = no fog at all
+  bright: 1,        // overall brightness: 1 is as drawn, lower is darker, fog included
   eye: 0.5,         // eye height as a fraction of a wall. The walls are one tile tall
   stepMs: 270,      // one tile forward
   turnMs: 210,      // a quarter turn
@@ -39,6 +40,7 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   fov:       [45, 110, 1, 'FOV', 'look'],
   res:       [90, 360, 10, 'Resolution', 'look'],
   fog:       [0, 0.5, 0.01, 'Fog', 'look'],
+  bright:    [0.2, 1.8, 0.05, 'Brightness', 'look'],
   eye:       [0.25, 0.75, 0.01, 'Eye height', 'look'],
   bob:       [0, 6, 0.5, 'Head bob', 'look'],
   gapW:      [0.12, 0.9, 0.01, 'Squeeze width', 'look'],

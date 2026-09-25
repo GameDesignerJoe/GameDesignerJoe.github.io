@@ -210,7 +210,7 @@ const TEX = (() => {
     const R = rng(seed), T = blank(32, 32), F = field(seed);
     for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
       let f = 5.3 + F(x, y) * 0.55 + (R() - 0.5) * 0.5;
-      if (y < 11) f += 0.3;   // the band the frieze sits in is kept cleaner
+      if (o.frieze && y < 11) f += 0.3;   // the band the frieze sits in is kept cleaner
       T.px[y * 32 + x] = dith(PLASTER, f, x, y);
     }
     if (o.stain) {   // damp coming down from somewhere above: a tide line, and a few runs
@@ -225,8 +225,10 @@ const TEX = (() => {
       let x = Math.floor(8 + R() * 16), y = 11;
       for (let n = 0; n < 16 && y < 27; n++) { T.px[y * 32 + x] = PLASTER[1]; if (x + 1 < 32) T.px[y * 32 + x + 1] = PLASTER[6]; y++; x = (x + (R() < 0.35 ? -1 : R() < 0.6 ? 1 : 0) + 32) & 31; }
     }
-    // frieze: a rule, the key, a rule
-    for (let x = 0; x < 32; x++) {
+    // frieze: a rule, the key, a rule. Off by default now — Joe: "remove the swirls at the top of the
+    // walls and the columns. I want it reminiscent of Greek, not totally Greek … 'sterile' and
+    // 'pristine' that has shown some wear through the centuries."
+    if (o.frieze) for (let x = 0; x < 32; x++) {
       T.px[1 * 32 + x] = PLASTER[3]; T.px[2 * 32 + x] = PLASTER[7];
       T.px[9 * 32 + x] = PLASTER[7]; T.px[10 * 32 + x] = PLASTER[3];
       for (let r = 0; r < 5; r++) if (KEY[r][x & 7] === '#') { T.px[(r + 3) * 32 + x] = PLASTER[2]; if (r + 4 < 9 && KEY[r + 1] && KEY[r + 1][x & 7] !== '#') T.px[(r + 4) * 32 + x] = PLASTER[6]; }
@@ -236,6 +238,20 @@ const TEX = (() => {
       T.px[26 * 32 + x] = PLASTER[2];
       T.px[27 * 32 + x] = MARBLE[6];
       for (let y = 28; y < 32; y++) T.px[y * 32 + x] = dith(MARBLE, 4.2 - (y - 28) * 0.45 + (R() - 0.5) * 0.6, x, y);
+    }
+    // centuries: the skirting's top edge chipped, a scuff or two where things brushed past, and the
+    // faintest hairline. Wear, not ruin — it should still read as clean
+    if (o.wear) {
+      for (let c = 0; c < 2 + o.wear * 2; c++) {
+        const x = Math.floor(R() * 29), w = 1 + Math.floor(R() * 3);
+        for (let i = 0; i < w; i++) { T.px[27 * 32 + x + i] = PLASTER[3]; if (R() < 0.6) T.px[28 * 32 + x + i] = MARBLE[2]; }
+      }
+      for (let c = 0; c < o.wear * 2; c++) {
+        const x0 = Math.floor(R() * 26), y0 = 18 + Math.floor(R() * 7);
+        for (let i = 0; i < 5; i++) if (R() < 0.7) T.px[(y0 + (i >> 2)) * 32 + x0 + i] = PLASTER[4];
+      }
+      let x = Math.floor(R() * 32), y = Math.floor(R() * 8);
+      for (let n = 0; n < 7 + o.wear * 5 && y < 26; n++) { T.px[y * 32 + x] = PLASTER[4]; y++; x = (x + (R() < 0.3 ? -1 : R() < 0.55 ? 1 : 0) + 32) & 31; }
     }
     return T;
   }
@@ -255,7 +271,8 @@ const TEX = (() => {
     }
     return T;
   }
-  // a fluted pilaster standing out of the plaster, capital and base — the Greek half, plainly
+  // a fluted pilaster standing out of the plaster, capital and base. Out of the bleached look since
+  // Joe asked for Greek-reminiscent rather than Greek; kept for a room that wants one
   function pilaster(seed) {
     const T = plaster(seed), R = rng(seed + 9);
     for (let y = 3; y < 30; y++) for (let x = 0; x < 32; x++) {
@@ -441,8 +458,8 @@ const TEX = (() => {
       fog: '#8f8762', side: 0.84, underLit: 0.8, ao: 0.78,
     },
     bleached: {
-      label: 'Bleached (Greek back rooms)',
-      walls: [plaster(11), plaster(23), plaster(31, { stain: 1 }), ashlar(47), pilaster(59), plaster(61, { stain: 0.6, crack: 1 })],
+      label: 'Bleached (worn stone)',
+      walls: [plaster(11), plaster(23, { wear: 1 }), plaster(31, { stain: 0.5, wear: 1 }), ashlar(47), plaster(59, { wear: 2 }), plaster(61, { stain: 0.3, crack: 1, wear: 1 })],
       pick: [0, 1, 0, 1, 0, 1, 2, 3, 4, 4, 5, 3],
       floors: [travertine(101), travertine(103, { checker: 1 }), travertine(107), travertine(109, { stain: 1 })],
       exit: seaDoor(), lintel: beam(211), under: underPlaster(223), sky: haze(),
