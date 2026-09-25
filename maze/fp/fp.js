@@ -27,6 +27,9 @@
     // saved before the office look and the rails existed: the look was only ever the default then,
     // never a choice, so let the new default through. The old free-with-assist setting has no heir.
     if (!('move' in saved)) { delete saved.theme; delete saved.assist; }
+    // rails was the default for one version and Joe found it twitchy; glide replaced it as the
+    // default, so a rails that was never chosen (no `help` saved alongside it) moves on too
+    if (saved.move === 'rails' && !('help' in saved)) delete saved.move;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -237,14 +240,71 @@
     wasRail = rail;
   }
 
+  let turnVel = 0;   // how fast the view is actually turning, eased, so a flick of the thumb is never a jerk
   function freeMove(dt, live, fwd, sx) {
     railTurn = null;
     vel += (fwd * S.walk - vel) * Math.min(1, dt * 10);
-    if (!live && Math.abs(vel) < 0.001) { vel = 0; return; }
-    P.a += Math.sign(sx) * Math.abs(sx) ** 1.6 * S.stickTurn * Math.PI / 180 * dt;   // gentle near the middle, quick at the rim
+    const want = Math.sign(sx) * Math.abs(sx) ** 1.6 * S.stickTurn * Math.PI / 180;   // gentle near the middle, quick at the rim
+    turnVel += (want - turnVel) * Math.min(1, dt * 14);
+    if (!live && Math.abs(vel) < 0.001 && Math.abs(turnVel) < 0.001) { vel = 0; turnVel = 0; return; }
+    P.a += turnVel * dt;
+    if (S.move === 'glide' && S.help > 0) glideHelp(dt, Math.abs(sx));
     // in small pieces, so a fast walk can never step clean through a corner
     const dist = vel * dt, n = Math.max(1, Math.ceil(Math.abs(dist) / 0.08));
     for (let i = 0; i < n; i++) { P.x += Math.cos(P.a) * dist / n; P.y += Math.sin(P.a) * dist / n; collide(); }
+    if (S.move === 'glide' && S.help > 0) whiskers(dt);
+  }
+
+  // ── glide: free, with help that never takes the wheel ─────
+  // Joe, on rails: "now I have to be very specific when I turn into a hallway and it's kind of
+  // jittery on how it jumps me to another angle." And on free: "walking around drunk, bumping into
+  // corners." Glide is the difference split. You steer, always, smoothly. Three quiet things help,
+  // all scaled by the Help knob and none of them ever a snap:
+  //   settle   — ease off the turn while roughly facing an open way (a side hall counts), and the
+  //              view drifts the last few degrees square to it
+  //   centre   — in a one-wide hall, walking drifts you toward the middle of it
+  //   whiskers — two feelers ahead; one on a wall corner and the other clear slides you sideways
+  //              past it, so you pass into a doorway instead of clipping its edge
+  const SETTLE_WINDOW = 0.62;   // radians either side of a way that it will settle you into (~35°)
+  function glideHelp(dt, steer) {
+    const A = S.help, tx = Math.floor(P.x), ty = Math.floor(P.y);
+    if (room[ty * W + tx] || Math.abs(vel) < 0.05) return;   // a room is yours to wander; standing still needs no help
+    // steering hard switches it off; it fades back in as the thumb comes to the middle
+    const hands = Math.max(0, 1 - steer * 2.2);
+    if (hands > 0) {
+      let best = 9, target = 0;
+      HD.forEach(([dx, dy], h) => {
+        if (solid(tx + dx, ty + dy)) return;
+        let d = h * QUARTER - P.a; d = Math.atan2(Math.sin(d), Math.cos(d));
+        if (Math.abs(d) < Math.abs(best)) { best = d; target = d; }
+      });
+      if (Math.abs(best) < SETTLE_WINDOW) {
+        // strongest in the middle of the window, fading to nothing at its edge, so there is no
+        // line you cross where it suddenly starts pulling
+        const edge = 1 - Math.abs(target) / SETTLE_WINDOW;
+        P.a += target * Math.min(1, dt * 4.2 * A * hands * (0.35 + edge));
+      }
+    }
+    // a hall: open along one axis only. Drift to its middle, as fast as you're walking
+    const ew = !solid(tx - 1, ty) || !solid(tx + 1, ty), ns = !solid(tx, ty - 1) || !solid(tx, ty + 1);
+    if (ew !== ns) {
+      const along = ew ? Math.abs(Math.cos(P.a)) : Math.abs(Math.sin(P.a));
+      if (along > 0.8) {
+        const k = Math.min(1, dt * 3.2 * A * Math.abs(vel) * (along - 0.8) * 5);
+        if (ew) P.y += (ty + 0.5 - P.y) * k; else P.x += (tx + 0.5 - P.x) * k;
+      }
+    }
+  }
+  function whiskers(dt) {
+    if (vel < 0.05) return;
+    const A = S.help, L = 0.55, spread = 0.5;
+    const feel = (o) => solid(Math.floor(P.x + Math.cos(P.a + o) * L), Math.floor(P.y + Math.sin(P.a + o) * L));
+    const hitL = feel(-spread), hitR = feel(spread);
+    if (hitL === hitR) return;   // both clear, or a wall square ahead: nothing to slip past
+    const side = hitL ? 1 : -1;  // touch on the left: slide right
+    const k = vel * dt * 0.9 * A;
+    P.x += -Math.sin(P.a) * side * k; P.y += Math.cos(P.a) * side * k;
+    collide();
   }
 
   function railMove(now, dt, live, fwd, sx, tx, ty) {
@@ -601,7 +661,7 @@
 
   // ── the gear panel ────────────────────────────────────────
   const rows = $('knobs');
-  const fmt = (k, v) => k === 'fog' || k === 'eye' || k === 'gapH' || k === 'walk' ? (+v).toFixed(2) : String(v);
+  const fmt = (k, v) => k === 'fog' || k === 'eye' || k === 'gapH' || k === 'walk' || k === 'help' ? (+v).toFixed(2) : String(v);
   for (const k of Object.keys(FP_RANGES)) {
     const [lo, hi, st, label] = FP_RANGES[k];
     const row = document.createElement('label');

@@ -19,8 +19,9 @@ const FP_CONFIG = {
   stickTurn: 150,   // degrees a second at full stick, sideways
   theme: 'office',  // a key of TEX.themes: 'office' | 'bleached' | 'dusk'
   stick: 'on',      // 'on' shows the stick; 'off' leaves taps and swipes only
-  bends: true,      // on rails, holding forward at a bend with only one way on takes you round it
-  move: 'rails',    // the stick: 'rails' in halls (buffered turns, like the top-down) and free in rooms; or 'free' everywhere
+  bends: true,      // rails only: holding forward at a bend with only one way on takes you round it
+  move: 'glide',    // the stick: 'glide' (free, with quiet help), 'rails' in halls (buffered quarter turns, like the top-down), or 'free'
+  help: 0.6,        // how much glide helps: settling you square to a hall, centring you, slipping you past corners. 0 = none
   swipe: 'drag',    // 'drag': swipe left turns right, the way a finger drags the view. 'point': the other way
   map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
 };
@@ -36,4 +37,5 @@ const FP_RANGES = {   // [min, max, step, label]
   gapH:   [0.4, 0.95, 0.01, 'Crawl gap'],
   walk:   [0.8, 4.5, 0.05, 'Stick walk'],
   stickTurn: [50, 320, 5, 'Stick turn'],
+  help:   [0, 1, 0.05, 'Glide help'],
 };

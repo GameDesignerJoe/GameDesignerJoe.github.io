@@ -13,10 +13,12 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 
 - **A seed is the same maze in both views.** `?seed=1234` works here as it does top-down.
 - **Nothing here writes to the top-down's save.** Knobs live under `maze.fp.v1`.
-- **Two ways to move, one position.** The stick, by default, is the top-down's model: *rails in halls*
-  (centred, facing one of four ways; a lean is a buffered turn taken at the next opening; bends with one
-  way on are followed; walls stop you mid-tile) and *free in rooms* (a round body that slides off corners).
-  Taps, swipes and keys glide you to the next tile centre or quarter turn from wherever you are.
+- **Two ways to move, one position.** The stick has three modes. **Glide** (the default) is free
+  steering with quiet help, scaled by the Glide help knob and never a snap: it settles you square to
+  an open way when you ease off the turn, drifts you to the middle of a one-wide hall, and two
+  "whiskers" slip you sideways past a corner one of them touches. **Rails** is the top-down's model
+  (buffered quarter turns, centred in halls). **Free** is no help at all. Taps, swipes and keys
+  glide you to the next tile centre or quarter turn from wherever you are.
 - **A look can have a ceiling instead of a sky** (`ceils`/`ceilPick` in its theme). Corner shadows
   (`ao`) are laid on from the maze by the renderer, on floors, ceilings and walls, so they need no art.
 - **Replacing the art:** each texture is `{ w, h, px: Uint32Array }` (0xAABBGGRR). Decode a
