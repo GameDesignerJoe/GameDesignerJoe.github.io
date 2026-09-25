@@ -62,7 +62,7 @@
     if (a >= 1) { RH = n; RW = Math.max(1, Math.round(n * a)); } else { RW = n; RH = Math.max(1, Math.round(n / a)); }
     cv.width = RW; cv.height = RH;
     img = ctx.createImageData(RW, RH); buf = new Uint32Array(img.data.buffer);
-    zbuf = new Float32Array(RW); colFace = new Int32Array(RW).fill(-1); colDoor = new Int32Array(RW).fill(-1); colDoorTop = new Float32Array(RW); colDoorBot = new Float32Array(RW); colDoorT = new Float32Array(RW); colVeil = new Float32Array(RW); colWallT = new Float32Array(RW); colU = new Float32Array(RW); colTop = new Float32Array(RW); colBot = new Float32Array(RW);
+    ovDep = new Float32Array(RW * RH); colOv = new Uint8Array(RW); zbuf = new Float32Array(RW); colFace = new Int32Array(RW).fill(-1); colDoor = new Int32Array(RW).fill(-1); colDoorTop = new Float32Array(RW); colDoorBot = new Float32Array(RW); colDoorT = new Float32Array(RW); colVeil = new Float32Array(RW); colWallT = new Float32Array(RW); colU = new Float32Array(RW); colTop = new Float32Array(RW); colBot = new Float32Array(RW);
   }
   addEventListener('resize', resize);
 
@@ -342,7 +342,7 @@
       const sw = roomSide >= 0 ? (roomSide === 0 ? -1 : 1) : (R() < 0.5 ? -1 : 1);
       const hinge = R() < 0.5 ? 0 : 1;
       const open = R() < S.doorsOpen ? 1 : 0;
-      const d = { x, y, k, axis: ew ? 'x' : 'y', sw, hinge, open, t: open };
+      const d = { x, y, k, axis: ew ? 'x' : 'y', sw, swing: sw, hinge, open, t: open };
       // the plate: on the edge toward the side it swings to, PLATE deep, the opening centred in it
       const oa = 0.5 - DOOR_W / 2, ob = 0.5 + DOOR_W / 2, p0 = sw > 0 ? 1 - PLATE : 0, p1 = p0 + PLATE;
       d.plane = (ew ? x : y) + (p0 + p1) / 2;
@@ -355,14 +355,25 @@
     for (const d of doors) { frameBoxes.set(d.k, new Float32Array(d.boxes)); frameAt[d.k] = 1; }
   }
   // the leaf as a segment [ax, ay, bx, by], at how far open it is (0 shut … 1 open): hinged at one
-  // jamb in the plate, shut across the opening, open standing out into the room at a right angle
+  // jamb in the plate, shut across the opening, open standing out at a right angle to the `swing` side.
+  // Joe: "I can see light through the edges of the door." So shut, the leaf runs a little way into
+  // both jambs (LAP), and there is no seam at either end for the room behind to show through; the
+  // jambs hide the overlap, since the leaf is only drawn where it is nearer than the wall.
+  const LAP = 0.012;
   function doorSeg(d) {
-    const th = EASE.io(d.t) * QUARTER, L = DOOR_W - 0.02;
-    const h = d.hinge ? d.open1 - 0.01 : d.open0 + 0.01, dir = d.hinge ? -1 : 1;
-    if (d.axis === 'x') return [d.plane, h, d.plane + d.sw * L * Math.sin(th), h + dir * L * Math.cos(th)];
-    return [h, d.plane, h + dir * L * Math.cos(th), d.plane + d.sw * L * Math.sin(th)];
+    const th = EASE.io(d.t) * QUARTER, L = DOOR_W + 2 * LAP;
+    const h = d.hinge ? d.open1 + LAP : d.open0 - LAP, dir = d.hinge ? -1 : 1;
+    if (d.axis === 'x') return [d.plane, h, d.plane + d.swing * L * Math.sin(th), h + dir * L * Math.cos(th)];
+    return [h, d.plane, h + dir * L * Math.cos(th), d.plane + d.swing * L * Math.sin(th)];
   }
-  function toggleDoor(d) { d.open = d.open ? 0 : 1; FP_SOUND.door(!!d.open); }
+  // Joe: "Door should always open away from me. This will later help me tell which direction I went
+  // through a door by which way it was opened." So opening, it swings to whichever side of the plate
+  // you aren't on, and stays that way until someone opens it again. Doors that start open swing out
+  // into the room, as they always have: somebody else opened those.
+  function toggleDoor(d) {
+    if (!d.open) d.swing = (d.axis === 'x' ? P.x : P.y) < d.plane ? 1 : -1;
+    d.open = d.open ? 0 : 1; FP_SOUND.door(!!d.open);
+  }
   function doorsFrame(dt) {
     for (const d of doors) if (d.t !== d.open) d.t = d.open ? Math.min(1, d.t + dt * 1000 / DOOR_MS) : Math.max(0, d.t - dt * 1000 / DOOR_MS);
     for (const d of doors) d.seg = doorSeg(d);
@@ -1041,6 +1052,7 @@
   // Drawn after the walls, each column's pieces farthest first, only where nearer than the wall.
   const ov = [];
   function drawDoors(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
+    colOv.fill(0);
     if (!doors.length) return;
     const dp = TEX.door.px, walls = T.walls, side = T.side;
     for (let x = 0; x < RW; x++) {
@@ -1059,18 +1071,19 @@
       }
       if (!ov.length) continue;
       ov.sort((p, q) => q.t - p.t);
+      colOv[x] = 1; for (let y = 0; y < RH; y++) ovDep[y * RW + x] = 1e9;
       for (const o of ov) {
         const d = doors[o.i], lh = D / o.t, top = hor - (1 - eye) * lh, bot = hor + eye * lh, doorTop = hor - (DOOR_H - eye) * lh;
         // lit by the light where it actually is: an open leaf stands in the room it swung into
         const f = Math.exp(-fog * o.t), L = lightAtPoint(px + rx * o.t, py + ry * o.t), tu = Math.min(31, (o.u * 32) | 0);
         if (o.head) {   // the wall over the door, in the wall's own paper, lined up with the wall beside it
           const wt = walls[wallVar[d.k]].px, y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(doorTop - 0.5));
-          for (let y = y0; y < y1; y++) buf[y * RW + x] = shade(wt[Math.min(31, (((y + 0.5 - top) / (bot - top)) * 32) | 0) * 32 + tu], f, side, L);
+          for (let y = y0; y < y1; y++) { buf[y * RW + x] = shade(wt[Math.min(31, (((y + 0.5 - top) / (bot - top)) * 32) | 0) * 32 + tu], f, side, L); ovDep[y * RW + x] = o.t; }
         } else {        // the leaf, floor to the top of the opening
           const [ax, ay, bx, by] = d.seg, nx = -(by - ay), ny = bx - ax, nl = Math.hypot(nx, ny) || 1;
           const lit = 0.72 + 0.28 * Math.abs((nx * rx + ny * ry) / nl / Math.hypot(rx, ry));   // darker edge-on, so a leaf standing open reads
           const y0 = Math.max(0, Math.ceil(doorTop - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
-          for (let y = y0; y < y1; y++) buf[y * RW + x] = shade(dp[Math.min(31, (((y + 0.5 - doorTop) / (bot - doorTop)) * 32) | 0) * 32 + tu], f, lit, L);
+          for (let y = y0; y < y1; y++) { buf[y * RW + x] = shade(dp[Math.min(31, (((y + 0.5 - doorTop) / (bot - doorTop)) * 32) | 0) * 32 + tu], f, lit, L); ovDep[y * RW + x] = o.t; }
           if (o.t < zbuf[x]) zbuf[x] = o.t;
           colDoor[x] = o.i; colDoorTop[x] = doorTop; colDoorBot[x] = bot; colDoorT[x] = o.t;
         }
@@ -1101,7 +1114,10 @@
       const vt = colVeil[x]; if (vt >= 1e9) continue;
       const wt = colWallT[x], top = colTop[x], bot = colBot[x];
       for (let y = 0; y < RH; y++) {
-        const dep = (y >= top && y < bot) ? wt : y < hor ? (1 - eye) * D / Math.max(1e-3, hor - y - 0.5) : eye * D / Math.max(1e-3, y + 0.5 - hor);
+        // a door drawn over the wall stands where it stands: Joe, "the shadow from the squeeze is
+        // visible through doors that are closed" — the veil was reading the wall behind it
+        const dov = colOv[x] ? ovDep[y * RW + x] : 1e9;
+        const dep = dov < 1e9 ? dov : (y >= top && y < bot) ? wt : y < hor ? (1 - eye) * D / Math.max(1e-3, hor - y - 0.5) : eye * D / Math.max(1e-3, y + 0.5 - hor);
         if (dep <= vt) continue;
         const k = 1 - sv * Math.min(1, 0.35 + (dep - vt) / VEIL_DEPTH), o = y * RW + x, c = buf[o];
         buf[o] = 0xff000000 | ((((c >>> 16) & 0xff) * k) << 16) | ((((c >>> 8) & 0xff) * k) << 8) | ((c & 0xff) * k);
@@ -1110,7 +1126,7 @@
   }
 
   // ── the objects, as flat pictures facing you ──────────────
-  let zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colDoorTop = new Float32Array(1), colDoorBot = new Float32Array(1), colDoorT = new Float32Array(1), colVeil = new Float32Array(1), colWallT = new Float32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
+  let ovDep = new Float32Array(1), colOv = new Uint8Array(1), zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colDoorTop = new Float32Array(1), colDoorBot = new Float32Array(1), colDoorT = new Float32Array(1), colVeil = new Float32Array(1), colWallT = new Float32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
   const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
   function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
     drawn.length = 0;
@@ -1367,5 +1383,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
 })();

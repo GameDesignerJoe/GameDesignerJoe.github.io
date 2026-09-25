@@ -33,8 +33,9 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 - **Doors and closets.** Doors go where the maze is already open — one-wide passages between two cells,
   mostly room mouths (`doorRoom`, `doorHall`) — so every door is a real way through and the maze under
   them is unchanged. A door sits in a thin plate (`PLATE`) on the tile's edge toward the room: jambs
-  either side of a `DOOR_W` opening, a header over it from `DOOR_H`. Tap one within reach to open or shut it; it swings out into the room and stays;
-  `doorsOpen` start open. A leaf is a segment each column is tested against, and the collision pushes off.
+  either side of a `DOOR_W` opening, a header over it from `DOOR_H`. Tap one within reach to open or shut it; it swings away from you and stays that way,
+  so an open door says which way someone went. `doorsOpen` start open, swung out into the room. Shut, the leaf laps
+  into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
 - **A look can have a ceiling instead of a sky** (`ceils`/`ceilPick` in its theme). Corner shadows
