@@ -97,6 +97,7 @@
       if (!solid(x, y)) low[y * W + x] = 1;
     }
     buildSlots();
+    buildLight();
     // the wall at the far end of the exit alley gets the doorway: the neighbour of the exit tile
     // that is wall, with open floor straight behind you as you face it
     for (const [dx, dy] of HD) {
@@ -127,6 +128,76 @@
       slots.set(k, new Float32Array(bx));
     }
   }
+  // ── light ─────────────────────────────────────────────────
+  // Joe: "Need short passages that are completely dark and you can only see the light from the other
+  // side of it. Should we look at a more serious lighting plan?" — and then, of how dark: "very dim."
+  //
+  // Every tile has a brightness. A look with a ceiling lights it from its lamps: each fluorescent
+  // panel floods out through open floor (never through a wall) to `reach` tiles, fading as it goes,
+  // on top of the look's own `ambient`. A look with a sky is lit by the sky, evenly. On top of that:
+  //   dark     — the generator's own darkness, plus short straight halls this view darkens itself
+  //              (`darkHalls` of them, on their own random stream so the maze is untouched). Their
+  //              lamps are out, and they sit at `darkLevel`: very dim, the far end's light showing
+  //   squeeze  — a squeeze is dimmed by `squeezeDim`, and slows you by `squeezeSlow`
+  // The brightness is kept at tile corners and blended across each tile, so light pools and fades
+  // rather than stepping in squares. `shadow` is how much any of it shows: 0 is the old flat look.
+  let dark = null, tileL = null, cornerL = null, lightBase = null, flickLamps = [];
+  function buildLight() {
+    const N = W * H;
+    dark = new Uint8Array(N); tileL = new Float32Array(N); cornerL = new Float32Array((W + 1) * (H + 1));
+    for (const key of darkTiles) { const [x, y] = key.split(',').map(Number); if (!solid(x, y)) dark[y * W + x] = 1; }
+    // this view's own dark halls: maximal straight one-wide runs, three tiles or more, clear of the
+    // start room and the way out, each taken with chance `darkHalls`
+    const R = rng(SEED + 104729), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y);
+    const inHall = (x, y, horiz) => !solid(x, y) && !room[y * W + x] && !low[y * W + x]
+      && (horiz ? solid(x, y - 1) && solid(x, y + 1) : solid(x - 1, y) && solid(x + 1, y));
+    const takeRun = (run) => {
+      if (run.length < 3 || R() >= S.darkHalls) return;
+      if (run.some(([x, y]) => (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3) || (x === exit.x && y === exit.y))) return;
+      for (const [x, y] of run) dark[y * W + x] = 1;
+    };
+    for (let y = 0; y < H; y++) { let run = []; for (let x = 0; x <= W; x++) { if (x < W && inHall(x, y, true)) run.push([x, y]); else { takeRun(run); run = []; } } }
+    for (let x = 0; x < W; x++) { let run = []; for (let y = 0; y <= H; y++) { if (y < H && inHall(x, y, false)) run.push([x, y]); else { takeRun(run); run = []; } } }
+
+    lightBase = new Float32Array(N).fill(T.ceils ? T.ambient : 1);
+    flickLamps = [];
+    if (!T.ceils) return;
+    const flick = new Set(flickers), reach = S.reach;
+    for (let k = 0; k < N; k++) {
+      if (solid(k % W, (k / W) | 0) || dark[k] || !T.ceils[ceilVar[k]].glow) continue;
+      // flood from the lamp through open floor, so light turns corners but never comes through a wall
+      const seen = new Map([[k, 0]]), q = [k], list = [];
+      while (q.length) {
+        const c = q.shift(), d = seen.get(c);
+        const w = T.lampPower * Math.pow(Math.max(0, 1 - d / reach), 1.6);
+        if (w <= 0.005) continue;
+        list.push(c, w);
+        const x = c % W, y = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && !seen.has(n)) { seen.set(n, d + 1); q.push(n); } }
+      }
+      if (flick.has(k)) flickLamps.push({ k, list });
+      else for (let i = 0; i < list.length; i += 2) lightBase[list[i]] += list[i + 1];
+    }
+  }
+  // this frame's brightness, at tiles and at their corners
+  function lightFrame() {
+    const N = W * H;
+    tileL.set(lightBase);
+    for (const lm of flickLamps) { const lv = lampLvl[lm.k]; for (let i = 0; i < lm.list.length; i += 2) tileL[lm.list[i]] += lm.list[i + 1] * lv; }
+    for (let k = 0; k < N; k++) {
+      let L = 1 - S.shadow * (1 - Math.min(1, tileL[k]));
+      if (dark[k]) L = Math.min(L, S.darkLevel);
+      if (low[k]) L *= S.squeezeDim;
+      tileL[k] = L;
+    }
+    // a corner is the average of the open tiles around it
+    for (let y = 0; y <= H; y++) for (let x = 0; x <= W; x++) {
+      let sum = 0, n = 0;
+      for (let j = y - 1; j <= y; j++) for (let i = x - 1; i <= x; i++) if (!solid(i, j)) { sum += tileL[j * W + i]; n++; }
+      cornerL[y * (W + 1) + x] = n ? sum / n : 1;
+    }
+  }
+
   // is this point inside wall — a whole wall tile, or a squeeze's jamb
   function solidAt(x, y) {
     const tx = Math.floor(x), ty = Math.floor(y);
@@ -322,7 +393,8 @@
   let sideVel = 0;   // sidestepping, eased the same way as walking
   function freeMove(dt, live, fwd, sx, st = 0) {
     railTurn = null;
-    vel += (fwd * S.walk - vel) * Math.min(1, dt * S.accel);
+    const slow = low[Math.floor(P.y) * W + Math.floor(P.x)] ? S.squeezeSlow : 1;   // a squeeze is a squeeze: slower through it
+    vel += (fwd * S.walk * slow - vel) * Math.min(1, dt * S.accel);
     sideVel += (st * S.walk * 0.85 - sideVel) * Math.min(1, dt * S.accel);
     if (Math.abs(sideVel) > 0.001) {
       const d = sideVel * dt, n = Math.max(1, Math.ceil(Math.abs(d) / 0.08));
@@ -429,7 +501,7 @@
     // the last hair to the exact middle, or "reached the middle" never quite comes true
     const wallAhead = Math.abs(before) < 0.02 && solid(tx + dx, ty + dy);
     if (wallAhead) { before = 0; if (horiz) P.x = mid; else P.y = mid; }
-    vel = wallAhead && fwd > 0 && vel >= 0 ? 0 : vel + (fwd * S.walk - vel) * Math.min(1, dt * S.accel);
+    vel = wallAhead && fwd > 0 && vel >= 0 ? 0 : vel + (fwd * S.walk * (low[ty * W + tx] ? S.squeezeSlow : 1) - vel) * Math.min(1, dt * S.accel);
     let after = before + vel * dt * sgn;
     // standing still — or stopped at a wall — and leaning: turn on the spot
     if (pendTurn && leaning && Math.abs(vel) < 0.05 && (fwd < 0.2 || wallAhead)) {
@@ -486,11 +558,13 @@
   // Brightness (Joe: "give me a light slider to control how bright it is") scales all of it, fog
   // included, so turning it down darkens the world rather than only the near walls.
   let BRv = 1, FRb = 0, FGb = 0, FBb = 0;
-  function shade(c, f, lit) {
-    const k = f * lit * BRv;
-    const r = Math.min(255, FRb + ((c & 0xff) * k - FRb * f)) | 0;
-    const g = Math.min(255, FGb + (((c >>> 8) & 0xff) * k - FGb * f)) | 0;
-    const b = Math.min(255, FBb + (((c >>> 16) & 0xff) * k - FBb * f)) | 0;
+  // L is the light where the pixel is. It scales the haze as well as the colour, so a dark hall reads
+  // dark at any distance and the lit room past it still shines through
+  function shade(c, f, lit, L = 1) {
+    const k = f * lit * BRv * L, fr = FRb * L, fg = FGb * L, fb = FBb * L;
+    const r = Math.min(255, fr + ((c & 0xff) * k - fr * f)) | 0;
+    const g = Math.min(255, fg + (((c >>> 8) & 0xff) * k - fg * f)) | 0;
+    const b = Math.min(255, fb + (((c >>> 16) & 0xff) * k - fb * f)) | 0;
     return 0xff000000 | (b << 16) | (g << 8) | r;
   }
   // for what is drawn straight from a texture, unshaded: the sky, and what glows
@@ -530,12 +604,15 @@
     const r0x = dX - plX, r0y = dY - plY, r1x = dX + plX, r1y = dY + plY;
     const ceils = T.ceils, hasCeil = !!ceils;
     aoS = T.ao || 0;
+    // a lamp on its way out: mostly on, now and then a stutter, now and then out for a moment — and
+    // now the room around it goes with it, not only the panel
+    for (const k of flickers) {
+      const n = Math.sin(now * 0.0023 + k) + Math.sin(now * 0.0171 + k * 3.1) * 0.6 + Math.sin(now * 0.061 + k * 7.7) * 0.25;
+      lampLvl[k] = n > 1.3 ? 0.15 : n > 1.15 ? 0.55 : 1;
+    }
+    lightFrame();
+    const cw = W + 1;   // corner rows, for blending the light across each tile inline
     if (hasCeil) {
-      // a lamp on its way out: mostly on, now and then a stutter, now and then out for a moment
-      for (const k of flickers) {
-        const n = Math.sin(now * 0.0023 + k) + Math.sin(now * 0.0171 + k * 3.1) * 0.6 + Math.sin(now * 0.061 + k * 7.7) * 0.25;
-        lampLvl[k] = n > 1.3 ? 0.3 : n > 1.15 ? 0.65 : 1;
-      }
       // ceiling: the floor pass mirrored, at the top of the wall
       for (let y = 0; y < horI; y++) {
         const rowD = (1 - eye) * D / (hor - (y + 0.5));
@@ -545,8 +622,10 @@
         for (let x = 0; x < RW; x++, wx += sx, wy += sy, o++) {
           const cx = Math.floor(wx), cy = Math.floor(wy), inB = cx >= 0 && cy >= 0 && cx < W && cy < H, k = cy * W + cx;
           const t = ceils[inB ? ceilVar[k] : 0], fx = wx - cx, fy = wy - cy, ti = ((fy * 32) | 0) * 32 + ((fx * 32) | 0);
-          buf[o] = t.glow && t.glow[ti] ? shade(t.px[ti], fl, inB ? lampLvl[k] : 1)
-            : shade(t.px[ti], f, inB ? aoAt(nbm[k], fx, fy) : 1);
+          if (t.glow && t.glow[ti] && !(inB && dark[k])) { buf[o] = shade(t.px[ti], fl, inB ? lampLvl[k] : 1); continue; }   // a lamp is its own light
+          let L = 1;
+          if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; }
+          buf[o] = shade(t.px[ti], f, inB ? aoAt(nbm[k], fx, fy) : 1, L);
         }
       }
     } else {
@@ -569,7 +648,9 @@
       for (let x = 0; x < RW; x++, wx += sx, wy += sy, o++) {
         const cx = Math.floor(wx), cy = Math.floor(wy), inB = cx >= 0 && cy >= 0 && cx < W && cy < H;
         const t = inB ? floors[floorVar[cy * W + cx]] : floors[0], fx = wx - cx, fy = wy - cy;
-        buf[o] = shade(t.px[((fy * 32) | 0) * 32 + ((fx * 32) | 0)], f, inB ? aoAt(nbm[cy * W + cx], fx, fy) : 1);
+        let L = 1;
+        if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; }
+        buf[o] = shade(t.px[((fy * 32) | 0) * 32 + ((fx * 32) | 0)], f, inB ? aoAt(nbm[cy * W + cx], fx, fy) : 1, L);
       }
     }
 
@@ -595,6 +676,15 @@
       // the far wall
       {
         let u = slot ? su : sd === 0 ? py + perp * ry : px + perp * rx; u -= Math.floor(u);
+        // the light along this face: blended between the two tile corners at its ends
+        let L0 = 1, L1 = 1;
+        if (slot) L0 = L1 = tileL[my * W + mx];
+        else if (mx >= 0 && my >= 0 && mx < W && my < H) {
+          const w = W + 1;
+          if (sd === 0) { const xf = stX > 0 ? mx : mx + 1; L0 = cornerL[my * w + xf]; L1 = cornerL[(my + 1) * w + xf]; }
+          else { const yf = stY > 0 ? my : my + 1; L0 = cornerL[yf * w + mx]; L1 = cornerL[yf * w + mx + 1]; }
+        }
+        const Lw = L0 + (L1 - L0) * u;
         // an inside corner at either edge of this face: the open tile in front of it has wall beside it
         let colAO = 1;
         if (aoS && !slot) {
@@ -608,13 +698,13 @@
         const tu = Math.min(31, (u * 32) | 0);
         const lh = D / perp, top = hor - (1 - eye) * lh, bot = hor + eye * lh;
         const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
-        const f = Math.exp(-fog * perp), lit = (sd ? side : 1) * (slot ? 0.82 : 1);   // a squeeze is close, and a little darker for it
+        const f = Math.exp(-fog * perp), lit = sd ? side : 1;
         for (let y = y0; y < y1; y++) {
           const v = (y + 0.5 - top) / (bot - top), ti = Math.min(31, (v * 32) | 0) * 32 + tu;
           if (t.glow && t.glow[ti]) { buf[y * RW + x] = bright(t.px[ti]); continue; }
           let a = aoS ? aoEdge(colAO, 1 - v) : 1;   // down where it meets the floor
           if (hasCeil && aoS) a = aoEdge(a, v);      // and up where it meets the ceiling
-          buf[y * RW + x] = shade(t.px[ti], f, lit * a);
+          buf[y * RW + x] = shade(t.px[ti], f, lit * a, Lw);
         }
       }
     }
@@ -633,7 +723,7 @@
     const full = S.map === 'full';
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (!full && !seen[y * W + x]) continue;
-      mctx.fillStyle = solid(x, y) ? '#5c5850' : low[y * W + x] ? '#53402a' : '#1e1c1a';
+      mctx.fillStyle = solid(x, y) ? '#5c5850' : low[y * W + x] ? '#53402a' : dark[y * W + x] ? '#050506' : '#1e1c1a';
       mctx.fillRect(x * s, y * s, s, s);
     }
     if (full || seen[exit.y * W + exit.x]) { mctx.fillStyle = '#e0c98a'; mctx.fillRect(exit.x * s, exit.y * s, s, s); }
@@ -722,7 +812,7 @@
     row.innerHTML = `<span>${label}</span><input type="range" min="${lo}" max="${hi}" step="${st}"><b></b>`;
     const inp = row.querySelector('input'), out = row.querySelector('b');
     inp.value = S[k]; out.textContent = fmt(k, S[k]);
-    inp.addEventListener('input', () => { S[k] = +inp.value; out.textContent = fmt(k, S[k]); saveS(); if (k === 'res') resize(); if (k === 'gapW') buildSlots(); });
+    inp.addEventListener('input', () => { S[k] = +inp.value; out.textContent = fmt(k, S[k]); saveS(); if (k === 'res') resize(); if (k === 'gapW') buildSlots(); if (k === 'reach' || k === 'darkHalls') buildLight(); });
     document.querySelector(`[data-knobs="${sec}"]`).appendChild(row);
     // while a slider is held, the panel steps out of the way: only this row stays, so the change
     // is what you are looking at
@@ -782,5 +872,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
 })();

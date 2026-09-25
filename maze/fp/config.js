@@ -32,6 +32,13 @@ const FP_CONFIG = {
   accel: 10,        // how quickly walking speed catches up with the stick. Higher is snappier
   turnEase: 14,     // how quickly turning catches up with the stick. Higher is snappier, lower is floatier
   swipe: 'drag',    // 'drag': swipe left turns right, the way a finger drags the view. 'point': the other way
+  // lighting
+  shadow: 0.75,     // how much the lighting shows: 0 is flat, 1 is full-strength pools and shadow
+  reach: 4.5,       // how far a ceiling lamp's light carries, in tiles, through open floor
+  darkHalls: 0.25,  // the chance any straight hall of three or more tiles is one of this view's dark ones
+  darkLevel: 0.14,  // how dark a dark hall is: Joe asked for very dim, not black
+  squeezeDim: 0.45, // a squeeze is this bright, times the light around it
+  squeezeSlow: 0.6, // and you walk through it at this fraction of your speed
   map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
   sec: 'stick',     // which section of the ☰ panel is open
 };
@@ -53,6 +60,12 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   settleDeg: [5, 60, 1, 'Settle angle', 'glide'],
   centre:    [0, 1, 0.05, 'Centre', 'glide'],
   slip:      [0, 1, 0.05, 'Corner slip', 'glide'],
+  shadow:    [0, 1, 0.05, 'Shadow', 'light'],
+  reach:     [1.5, 10, 0.5, 'Lamp reach', 'light'],
+  darkHalls: [0, 1, 0.05, 'Dark halls', 'light'],
+  darkLevel: [0, 0.6, 0.02, 'Dark level', 'light'],
+  squeezeDim:[0.05, 1, 0.05, 'Squeeze dim', 'light'],
+  squeezeSlow:[0.2, 1, 0.05, 'Squeeze slow', 'light'],
   stepMs:    [100, 700, 10, 'Step ms', 'steps'],
   turnMs:    [80, 600, 10, 'Turn ms', 'steps'],
 };

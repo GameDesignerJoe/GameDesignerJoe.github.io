@@ -456,6 +456,7 @@ const TEX = (() => {
       ceilPick: [0, 4, 1, 4, 0, 0, 4, 2, 1, 3, 4, 0],
       exit: exitSign(), lintel: wallpaper(401), under: acoustic(403), sky: null,
       fog: '#8f8762', side: 0.84, underLit: 0.8, ao: 0.78,
+      ambient: 0.3, lampPower: 1.1,   // lit by its own lamps: this much light with none nearby, and each lamp's strength
     },
     bleached: {
       label: 'Bleached (worn stone)',
