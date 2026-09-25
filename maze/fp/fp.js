@@ -8,7 +8,8 @@
 // has none. A wall is wherever the grid says a wall is, by construction.
 //
 // Draw order, per frame: the sky over the top half and the floor over the bottom, then one wall
-// column per screen column, then any crawl-gap lintels that column passed through, farthest first.
+// column per screen column. A squeeze is a narrow slot cut through its tile: the ray tests its jambs
+// as boxes, so it is drawn and walked exactly as wide as it is.
 //
 // Movement is one continuous position and heading. The stick drives it directly, the way the
 // top-down's stick does; taps, swipes and keys glide it to the next tile centre or the next quarter
@@ -92,12 +93,63 @@
       const [x, y] = k.split(',').map(Number);
       if (!solid(x, y)) low[y * W + x] = 1;
     }
+    buildSlots();
     // the wall at the far end of the exit alley gets the doorway: the neighbour of the exit tile
     // that is wall, with open floor straight behind you as you face it
     for (const [dx, dy] of HD) {
       const fx = exit.x + dx, fy = exit.y + dy, bx = exit.x - dx, by = exit.y - dy;
       if (solid(fx, fy) && !solid(bx, by) && fx >= 0 && fy >= 0 && fx < W && fy < H) exitFace[fy * W + fx] = 1;
     }
+  }
+
+  // ── squeezes ──────────────────────────────────────────────
+  // Joe: "these squeeze throughs are meant to be vertical not horizontal. Think of it like a small
+  // space you have to walk through, not crouch." So a squeeze tile is wall with a slot cut through
+  // it, full height, `gapW` wide: a square in the middle, and an arm of the same width out to each
+  // open neighbour — straight through for a gap in a wall line, an L where a squeeze bends. What is
+  // left is up to eight solid boxes, which the renderer and the collision both read.
+  let slots = new Map();   // tile index → Float32Array of boxes, [x0, y0, x1, y1] each, in world units
+  function buildSlots() {
+    slots = new Map();
+    const a = 0.5 - S.gapW / 2, b = 0.5 + S.gapW / 2;
+    for (let k = 0; k < W * H; k++) {
+      if (!low[k]) continue;
+      const x = k % W, y = (k / W) | 0, bx = [];
+      const add = (x0, y0, x1, y1) => bx.push(x + x0, y + y0, x + x1, y + y1);
+      add(0, 0, a, a); add(b, 0, 1, a); add(0, b, a, 1); add(b, b, 1, 1);   // the four corners are always wall
+      if (solid(x, y - 1)) add(a, 0, b, a);   // and each side with nothing open beyond it
+      if (solid(x, y + 1)) add(a, b, b, 1);
+      if (solid(x - 1, y)) add(0, a, a, b);
+      if (solid(x + 1, y)) add(b, a, 1, b);
+      slots.set(k, new Float32Array(bx));
+    }
+  }
+  // is this point inside wall — a whole wall tile, or a squeeze's jamb
+  function solidAt(x, y) {
+    const tx = Math.floor(x), ty = Math.floor(y);
+    if (solid(tx, ty)) return true;
+    const bx = slots.get(ty * W + tx); if (!bx) return false;
+    for (let i = 0; i < bx.length; i += 4) if (x > bx[i] && x < bx[i + 2] && y > bx[i + 1] && y < bx[i + 3]) return true;
+    return false;
+  }
+  // the nearest jamb a ray meets inside one squeeze tile: [t, side, u] or null. Slab test per box
+  const slotHit = [0, 0, 0];
+  function raySlot(k, px, py, rx, ry) {
+    const bx = slots.get(k); if (!bx) return null;
+    let best = 1e9, bs = 0, bu = 0;
+    const ix = rx === 0 ? 1e30 : 1 / rx, iy = ry === 0 ? 1e30 : 1 / ry;
+    for (let i = 0; i < bx.length; i += 4) {
+      const ax = (bx[i] - px) * ix, cx = (bx[i + 2] - px) * ix, ay = (bx[i + 1] - py) * iy, cy = (bx[i + 3] - py) * iy;
+      const nx = Math.min(ax, cx), fx = Math.max(ax, cx), ny = Math.min(ay, cy), fy = Math.max(ay, cy);
+      const tn = Math.max(nx, ny), tf = Math.min(fx, fy);
+      if (tn > 1e-4 && tn <= tf && tn < best) {
+        best = tn; bs = nx > ny ? 0 : 1;
+        bu = bs === 0 ? py + tn * ry : px + tn * rx;
+      }
+    }
+    if (best === 1e9) return null;
+    slotHit[0] = best; slotHit[1] = bs; slotHit[2] = bu - Math.floor(bu);
+    return slotHit;
   }
 
   // ── the player ────────────────────────────────────────────
@@ -220,11 +272,16 @@
   // push a round body out of any wall it has sunk into; it slides round corners by construction
   function collide() {
     const tx = Math.floor(P.x), ty = Math.floor(P.y);
-    for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
-      if (!solid(xx, yy)) continue;
-      const cx = Math.max(xx, Math.min(P.x, xx + 1)), cy = Math.max(yy, Math.min(P.y, yy + 1));
+    const r = Math.min(RAD, S.gapW / 2 - 0.03);   // a squeeze is a squeeze: you fit it, just
+    const push = (x0, y0, x1, y1) => {
+      const cx = Math.max(x0, Math.min(P.x, x1)), cy = Math.max(y0, Math.min(P.y, y1));
       const dx = P.x - cx, dy = P.y - cy, d = Math.hypot(dx, dy);
-      if (d < RAD && d > 1e-6) { P.x = cx + dx / d * RAD; P.y = cy + dy / d * RAD; }
+      if (d < r && d > 1e-6) { P.x = cx + dx / d * r; P.y = cy + dy / d * r; }
+    };
+    for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
+      if (solid(xx, yy)) { push(xx, yy, xx + 1, yy + 1); continue; }
+      const bx = slots.get(yy * W + xx);
+      if (bx) for (let i = 0; i < bx.length; i += 4) push(bx[i], bx[i + 1], bx[i + 2], bx[i + 3]);
     }
   }
 
@@ -300,7 +357,7 @@
   function whiskers(dt) {
     if (vel < 0.05) return;
     const L = 0.55, spread = 0.5;
-    const feel = (o) => solid(Math.floor(P.x + Math.cos(P.a + o) * L), Math.floor(P.y + Math.sin(P.a + o) * L));
+    const feel = (o) => solidAt(P.x + Math.cos(P.a + o) * L, P.y + Math.sin(P.a + o) * L);   // jambs count: it steers you into a squeeze
     const hitL = feel(-spread), hitR = feel(spread);
     if (hitL === hitR) return;   // both clear, or a wall square ahead: nothing to slip past
     const side = hitL ? 1 : -1;  // touch on the left: slide right
@@ -430,16 +487,14 @@
   }
 
   // reused per column, so a frame allocates nothing
-  const MAXP = 32, pE = new Float32Array(MAXP), pX = new Float32Array(MAXP), pU = new Float32Array(MAXP), pS = new Uint8Array(MAXP), pT = new Int32Array(MAXP);
 
   function render(now) {
     const [px, py, ang, bob] = camera(now);
     const tanH = Math.tan(S.fov * Math.PI / 360), D = (RW / 2) / tanH;
-    const hor = RH / 2 + bob, eye = S.eye, gapH = S.gapH, fog = S.fog;
+    const hor = RH / 2 + bob, eye = S.eye, fog = S.fog;
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
     const sky = T.sky, SW = sky ? sky.w : 0, SH = sky ? sky.h : 0, SP = sky ? sky.px : null;
-    const walls = T.walls, floors = T.floors, beam = T.lintel.px, under = T.under.px, exitT = T.exit;
-    const side = T.side, underLit = T.underLit;
+    const walls = T.walls, floors = T.floors, exitT = T.exit, side = T.side;
 
     const horI = Math.max(0, Math.min(RH, Math.ceil(hor)));
     const r0x = dX - plX, r0y = dY - plY, r1x = dX + plX, r1y = dY + plY;
@@ -497,25 +552,22 @@
       const stX = rx < 0 ? -1 : 1, stY = ry < 0 ? -1 : 1;
       let sdx = rx < 0 ? (px - mx) * ddx : (mx + 1 - px) * ddx;
       let sdy = ry < 0 ? (py - my) * ddy : (my + 1 - py) * ddy;
-      let n = 0, sd = 0, perp = 64;
-      if (!solid(mx, my) && low[my * W + mx]) { pE[0] = 0; pX[0] = Math.min(sdx, sdy); pT[0] = my * W + mx; pS[0] = 0; pU[0] = 0; n = 1; }
-      for (let i = 0; i < 128; i++) {
+      let sd = 0, perp = 64, slot = false, su = 0;
+      // standing in a squeeze: its jambs first
+      if (low[my * W + mx] && raySlot(my * W + mx, px, py, rx, ry)) { perp = slotHit[0]; sd = slotHit[1]; su = slotHit[2]; slot = true; }
+      else for (let i = 0; i < 128; i++) {
         if (sdx < sdy) { sdx += ddx; mx += stX; sd = 0; } else { sdy += ddy; my += stY; sd = 1; }
         const entry = sd === 0 ? sdx - ddx : sdy - ddy;
         if (solid(mx, my)) { perp = entry; break; }
         const k = my * W + mx;
-        if (low[k] && n < MAXP) {
-          let u = sd === 0 ? py + entry * ry : px + entry * rx; u -= Math.floor(u);
-          if ((sd === 0 && rx < 0) || (sd === 1 && ry > 0)) u = 1 - u;   // y runs down, so this way round reads left to right
-          pE[n] = entry; pX[n] = Math.min(sdx, sdy); pT[n] = k; pS[n] = sd; pU[n] = u; n++;
-        }
+        if (low[k] && raySlot(k, px, py, rx, ry)) { perp = slotHit[0]; sd = slotHit[1]; su = slotHit[2]; slot = true; break; }
       }
       // the far wall
       {
-        let u = sd === 0 ? py + perp * ry : px + perp * rx; u -= Math.floor(u);
+        let u = slot ? su : sd === 0 ? py + perp * ry : px + perp * rx; u -= Math.floor(u);
         // an inside corner at either edge of this face: the open tile in front of it has wall beside it
         let colAO = 1;
-        if (aoS) {
+        if (aoS && !slot) {
           const fx = sd === 0 ? mx - stX : mx, fy = sd === 0 ? my : my - stY;
           if (sd === 0 ? solid(fx, fy - 1) : solid(fx - 1, fy)) colAO = aoEdge(colAO, u);
           if (sd === 0 ? solid(fx, fy + 1) : solid(fx + 1, fy)) colAO = aoEdge(colAO, 1 - u);
@@ -526,43 +578,13 @@
         const tu = Math.min(31, (u * 32) | 0);
         const lh = D / perp, top = hor - (1 - eye) * lh, bot = hor + eye * lh;
         const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
-        const f = Math.exp(-fog * perp), lit = sd ? side : 1;
+        const f = Math.exp(-fog * perp), lit = (sd ? side : 1) * (slot ? 0.82 : 1);   // a squeeze is close, and a little darker for it
         for (let y = y0; y < y1; y++) {
           const v = (y + 0.5 - top) / (bot - top), ti = Math.min(31, (v * 32) | 0) * 32 + tu;
           if (t.glow && t.glow[ti]) { buf[y * RW + x] = t.px[ti]; continue; }
           let a = aoS ? aoEdge(colAO, 1 - v) : 1;   // down where it meets the floor
           if (hasCeil && aoS) a = aoEdge(a, v);      // and up where it meets the ceiling
           buf[y * RW + x] = shade(t.px[ti], f, lit * a);
-        }
-      }
-      // the lintels over any crawl gaps on the way, farthest first so the near ones cover
-      for (let j = n - 1; j >= 0; j--) {
-        const e = pE[j], xd = pX[j];
-        const wt = walls[wallVar[pT[j]]].px;
-        let underTop = 0;
-        if (e > 0.02) {
-          const lh = D / e, top = hor - (1 - eye) * lh, bot = hor + eye * lh, gy = hor - (gapH - eye) * lh;
-          const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(gy - 0.5));
-          const f = Math.exp(-fog * e), lit = pS[j] ? side : 1, tu = Math.min(31, (pU[j] * 32) | 0);
-          for (let y = y0; y < y1; y++) {
-            const v = (y + 0.5 - top) / (bot - top), hgt = 1 - v;   // how high up the wall this pixel is
-            const c = hgt < gapH + 0.07
-              ? beam[(Math.max(0, Math.min(7, ((hgt - gapH) / 0.07 * 8) | 0)) + 12) * 32 + tu]   // the beam along the bottom
-              : wt[Math.min(31, (v * 32) | 0) * 32 + tu];
-            buf[y * RW + x] = shade(c, f, lit);
-          }
-          underTop = y1;
-        }
-        // the underside of the lintel, seen from below, until the gap's far edge
-        if (gapH > eye) {
-          const yEnd = Math.min(horI, Math.ceil(hor - (gapH - eye) * D / xd - 0.5));
-          for (let y = underTop; y < yEnd; y++) {
-            const d = (gapH - eye) * D / (hor - (y + 0.5));
-            if (d <= 0) continue;
-            const wx = px + d * rx, wy = py + d * ry;
-            const c = under[(((wy - Math.floor(wy)) * 32) | 0) * 32 + (((wx - Math.floor(wx)) * 32) | 0)];
-            buf[y * RW + x] = shade(c, Math.exp(-fog * d), underLit);
-          }
         }
       }
     }
@@ -670,7 +692,7 @@
     row.innerHTML = `<span>${label}</span><input type="range" min="${lo}" max="${hi}" step="${st}"><b></b>`;
     const inp = row.querySelector('input'), out = row.querySelector('b');
     inp.value = S[k]; out.textContent = fmt(k, S[k]);
-    inp.addEventListener('input', () => { S[k] = +inp.value; out.textContent = fmt(k, S[k]); saveS(); if (k === 'res') resize(); });
+    inp.addEventListener('input', () => { S[k] = +inp.value; out.textContent = fmt(k, S[k]); saveS(); if (k === 'res') resize(); if (k === 'gapW') buildSlots(); });
     document.querySelector(`[data-knobs="${sec}"]`).appendChild(row);
     // while a slider is held, the panel steps out of the way: only this row stays, so the change
     // is what you are looking at

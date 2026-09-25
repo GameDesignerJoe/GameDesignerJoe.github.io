@@ -14,7 +14,7 @@ const FP_CONFIG = {
   stepMs: 270,      // one tile forward
   turnMs: 210,      // a quarter turn
   bob: 1.5,         // head bob, in drawn pixels, over one step
-  gapH: 0.62,       // how high a crawl gap's opening is, as a fraction of a wall
+  gapW: 0.46,       // how wide a squeeze's slot is, as a fraction of a tile. You are 0.4 across; it narrows you to fit
   walk: 2.31,       // tiles a second at full stick — the top-down's own CONFIG.speed
   stickTurn: 150,   // degrees a second at full stick, sideways
   theme: 'office',  // a key of TEX.themes: 'office' | 'bleached' | 'dusk'
@@ -41,7 +41,7 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   fog:       [0, 0.5, 0.01, 'Fog', 'look'],
   eye:       [0.25, 0.75, 0.01, 'Eye height', 'look'],
   bob:       [0, 6, 0.5, 'Head bob', 'look'],
-  gapH:      [0.4, 0.95, 0.01, 'Crawl gap', 'look'],
+  gapW:      [0.3, 0.9, 0.01, 'Squeeze width', 'look'],
   walk:      [0.8, 4.5, 0.05, 'Walk speed', 'stick'],
   stickTurn: [50, 320, 5, 'Turn speed', 'stick'],
   accel:     [2, 30, 1, 'Walk snap', 'stick'],

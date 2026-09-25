@@ -285,7 +285,8 @@ const TEX = (() => {
     if (o.stain) { const cx = R() * 32, cy = R() * 32; for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) { const d = Math.hypot(((x - cx + 48) % 32) - 16, ((y - cy + 48) % 32) - 16) / 11; if (d < 1 && R() < 1 - d * 0.6) T.px[y * 32 + x] = dith(STAIN, 3 - d * 1.5, x, y); } }
     return T;
   }
-  // the lintel over a gap: a marble beam (rows 12–19 are the ones the renderer reads) and plaster under it
+  // the lintel over a gap: a marble beam and plaster under it. Unused since squeezes became slots rather
+  // than low openings; kept in the themes in case a low opening comes back
   function beam(seed) {
     const R = rng(seed), T = blank(32, 32);
     for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) T.px[y * 32 + x] = dith(MARBLE, (y === 12 ? 5.8 : y === 19 ? 1.6 : y === 15 ? 2.4 : 3.8) + (R() - 0.5) * 0.5, x, y);

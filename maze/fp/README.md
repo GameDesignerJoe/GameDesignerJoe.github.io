@@ -24,6 +24,6 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   (`ao`) are laid on from the maze by the renderer, on floors, ceilings and walls, so they need no art.
 - **Replacing the art:** each texture is `{ w, h, px: Uint32Array }` (0xAABBGGRR). Decode a
   32×32 PNG into that shape and drop it into a theme in `TEX.themes` — the renderer doesn't care where it came from.
-- **What it draws of the maze so far:** walls, floor, sky, crawl gaps (a low timber lintel you walk
-  under), the exit, which glows through the fog, and a ceiling where the look has one. Not yet: sliders, doors and keys, pages,
+- **What it draws of the maze so far:** walls, floor, sky, squeezes (a narrow full-height slot
+  cut through the tile, `gapW` wide, that the collision uses too), the exit, which glows through the fog, and a ceiling where the look has one. Not yet: sliders, doors and keys, pages,
   chalk, darkness, the charcoal map.
