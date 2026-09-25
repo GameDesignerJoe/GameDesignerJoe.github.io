@@ -187,13 +187,67 @@ that would let you feel them — because a district re-cuts links inside itself 
 connections without taking any is the definition of adding loops.
 
 **Neither accounts for most of them.** With both off there are still 61–91 loops.
-The rest is structural: an open room of w×h cells contributes (w−1)(h−1)
-independent cycles, and a vault is literally concentric rings. That part is not
-isolated yet and it is the larger half.
+The rest is structural, and it is isolated below.
 
 Read it with the caveats: 16 seeds, and 0.44 thresholds is still *less than one
 per maze*. Turning districts off takes a terrible number to a bad one. It is a
 direction, not a fix.
+
+### The rooms and the vaults are the other half — and the vault is the expensive one
+
+Sweeping each structure that can add a connection, 40 seeds a chapter, every
+other knob left alone:
+
+| The Criminal (lg) | loops | of shipped | thresholds |
+|---|---|---|---|
+| as shipped | 78 | — | 0.13 |
+| **vaults off** | 67 | **−14%** | **0.82** |
+| rooms off | 54 | −31% | 0.38 |
+| districts off | 61 | −22% | 0.50 |
+| rooms + vaults off | 38 | −51% | **1.60** |
+
+| The One Who Stayed (xl) | loops | of shipped | thresholds |
+|---|---|---|---|
+| as shipped | 141 | — | 0.07 |
+| **vaults off** | 130 | **−8%** | **0.75** |
+| rooms off | 83 | −41% | 0.42 |
+| districts off | 104 | −26% | 0.38 |
+| rooms + vaults off | 69 | −51% | **1.32** |
+
+**Rooms and vaults together are half the loops**, which answers the question this
+section originally left open. Tunnels, the secret room and braid are all within
+noise of zero. Crawl gaps contribute nothing outside The Child, and for a good
+reason: `generate.js` records the gap but only opens the tile when `F.crawl`, so
+in every other chapter it is a wall with a name.
+
+**But loops are not fungible, and that is the more useful finding.** Look at what
+each removal buys per loop it takes away:
+
+| removed | loops it costs | thresholds it buys | per loop |
+|---|---|---|---|
+| a chapter's vaults | 11 | +0.69 | **0.063** |
+| its districts | 17 | +0.37 | 0.022 |
+| its rooms | 24 | +0.25 | 0.010 |
+
+**One vault destroys about as much structure as six to ten rooms' worth of
+loops.** It is 8–14% of the loop count and 6–11× the thresholds. A room is small
+and there are seven of them scattered about; a vault is a single 15×15 blob of
+concentric rings dropped in the middle of the maze, and it short-circuits a whole
+region rather than a corner of one.
+
+That points somewhere specific, and it is a hypothesis rather than a measurement:
+**the vault's problem is likely where it sits and how it joins on, not that it
+exists.** A nest hung off the maze by one corridor would bury its key *and* put a
+threshold at its own mouth — it would buy both of the things this doc says we are
+missing. Today it is embedded with its ground rejoining the corridor network on
+every side. Nobody has checked the vault's connectivity, and that is the next
+thing to measure.
+
+Two honest limits. Even the best row here is **1.3–1.6 thresholds**, still under
+two per maze, so none of this reaches "a maze with places you can feel" — it
+moves a hopeless number to a poor one. And the tension is real rather than
+accidental: the vault is what makes *"getting a key should be an adventure"*
+true, so removing vaults is not a proposal. Moving them might be.
 
 ### The other thing worth taking
 
