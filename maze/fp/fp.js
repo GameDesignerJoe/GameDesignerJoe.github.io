@@ -513,7 +513,7 @@
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); reset();
-    FP_SOUND.setMusic(character && character.name);
+    FP_SOUND.setMusic(track());
   }
 
   // every time the tile underfoot changes: count it, chart it for the debug map, check the door
@@ -1324,7 +1324,23 @@
   $('ver').textContent = 'v' + VERSION + ' · first person';
 
   // ── sound ─────────────────────────────────────────────────
-  const wake = () => { FP_SOUND.start(S.theme, character && character.name); FP_SOUND.setEnabled(S.sound); };
+  // Joe: "pick what music is playing in the debug menu based off of the tracks we've created for the
+  // different chapters". Follow the chapter is the top-down's own rule (a pool level plays 'pool');
+  // anything else holds that track across new mazes until it's set back
+  function track() {
+    if (S.music !== 'auto' && MUSIC[S.music]) return S.music;
+    return poolMode ? 'pool' : character && character.name;
+  }
+  {
+    const ms = $('optMusic'), chapter = Object.fromEntries(PHASES.map((ph, i) => [ph.who, i]));
+    for (const k of Object.keys(MUSIC)) {
+      const o = document.createElement('option'); o.value = k;
+      o.textContent = k in chapter ? chapter[k] + ' · ' + k : k === 'pool' ? 'The pool' : k;
+      ms.appendChild(o);
+    }
+  }
+  bindSel('optMusic', 'music', () => FP_SOUND.setMusic(track()));
+  const wake = () => { FP_SOUND.start(S.theme, track()); FP_SOUND.setEnabled(S.sound); };
   addEventListener('pointerdown', wake, { capture: true, once: true });
   addEventListener('keydown', wake, { capture: true, once: true });
   bindSel('optSound', 'sound', () => FP_SOUND.setEnabled(S.sound));

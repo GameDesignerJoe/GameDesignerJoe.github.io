@@ -51,6 +51,7 @@ const FP_CONFIG = {
   squeezeSlow: 0.35, // and you walk through it at this fraction of your speed
   squeezeVeil: 0.72, // how hard it is to see past a squeeze: 1 is black, 0 is clear. Joe: "much more difficult to see into it, but not completely black"
   sound: true,      // music and sound
+  music: 'auto',    // which self's track plays: 'auto' follows the maze (as the top-down does), or a key of MUSIC in data/music.js
   sfxVol: 0.9,      // how loud the room is: steps, hum, doors, the squeeze. The music keeps the top-down's own level
   map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
   sec: 'stick',     // which section of the ☰ panel is open
