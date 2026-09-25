@@ -239,7 +239,8 @@ function bootGame() {
 
 // Build one maze IN THE GAME and copy its Full map view out.
 function buildOne(seed, size) {
-  return G.TUNER.build(phaseIdx, size, seed, must);
+  const c = CHAPTERS[phaseIdx];
+  return G.TUNER.build(c.proto ? 0 : phaseIdx, size, seed, must, c.proto);
 }
 
 // copy the frame's canvas into ours, cropped to exactly the maze
@@ -351,7 +352,7 @@ function countOf(w) {
 
 // ── the page ─────────────────────────────────────────────────────────────────
 let CHAPTERS = [];
-function sizeFor() { return $('size').value || CHAPTERS[phaseIdx].size; }
+function sizeFor() { return $('size').value || CHAPTERS[phaseIdx].size || 'md'; }
 
 function render() {
   if (!G) return;
@@ -462,7 +463,7 @@ $('big').addEventListener('click', (e) => { if (e.target.id === 'big') { $('big'
 // file. Clearing a box turns the clause off for this session.
 function loadContract() {
   const who = CHAPTERS[phaseIdx].who;
-  must = G.TUNER.mustFor(who);
+  must = G.TUNER.mustFor(who);   // a prototype has no MUST row: every clause reads unset
   $('contractFor').textContent = who;
   const box = $('clauses'); box.textContent = '';
   for (const { key, label } of G.TUNER.clauses()) {
@@ -487,10 +488,10 @@ function loadContract() {
 }
 
 function fillChapters() {
-  CHAPTERS = G.TUNER.phases();
+  CHAPTERS = G.TUNER.phases().concat(G.TUNER.protos ? G.TUNER.protos() : []);
   for (const [i, p] of CHAPTERS.entries()) {
     const o = document.createElement('option');
-    o.value = i; o.textContent = `${i} · ${p.who}`;
+    o.value = i; o.textContent = p.proto ? `· ${p.who}` : `${i} · ${p.who}`;
     $('who').appendChild(o);
   }
 }

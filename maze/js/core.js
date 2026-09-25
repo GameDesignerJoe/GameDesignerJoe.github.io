@@ -56,6 +56,7 @@ function moment(slug, vars) {
 // two thirds open; the old check held the tile shut for the whole slide regardless.
 const gateEase = (open) => 1 - Math.pow(1 - open, 3);
 const litTiles = () => B.viewRadius() * 2 + CONFIG.fogFadeTiles;
+let protoCellGrid = false;   // a prototype built on the cell lattice (js/districts.js is): loops mean something there
 let protoWide = true;    // and its light is opened right up, so the one idea in it is all visible.
                          // The labyrinth turns this off: being unable to see is half of what it is
 let liftGlow = 1;   // 1 normally. On the walk-in after a burden is put down the light blooms from dim to this

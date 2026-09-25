@@ -88,6 +88,7 @@ function buildGallery(seed) {
 }
 
 function buildProto(seed, kind) {
+  if (kind === 'districts') return buildDistricts(seed);   // js/districts.js
   if (kind === 'laby') return buildLabyrinth(seed);
   if (kind === 'gallery') return buildGallery(seed);
   const R = rng(seed);

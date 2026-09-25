@@ -227,7 +227,7 @@ const CONTRACT = (() => {
     // out of every tile in it and asks you nothing — without which it reads 1 on
     // every maze in the game, because you wake in a room.
     let loops = null, firstFork = null;
-    if (!protoMode) {
+    if (!protoMode || protoCellGrid) {
       const TXc = (c) => c * 2 + 1 + P;
       const cellOpen = (cx, cy) => cx >= 0 && cy >= 0 && cx < CONFIG.cols && cy < CONFIG.rows
         && open.has(K(TXc(cx), TXc(cy)));

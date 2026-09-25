@@ -45,15 +45,19 @@ window.TUNER = (() => {
 
   // ── what the tuner needs to read out of the engine ─────────────────────────
   const phases = () => PHASES.map((p) => ({ who: p.who, size: p.size }));
+  // prototypes the tuner can show a block of, alongside the chapters
+  const protos = () => [{ who: 'Districts (prototype)', proto: 'districts' }];
   const mustFor = (who) => Object.assign({}, MUST[who] || {});
   const clauses = () => Object.keys(CONTRACT.CLAUSES).map((k) => ({ key: k, label: CONTRACT.CLAUSES[k].label }));
   const canvas = () => cv;
 
   // ── build one maze and draw it, full map, once ─────────────────────────────
-  function build(ph, size, seed, must) {
+  // `proto` selects a prototype instead of a chapter's ordinary maze — the
+  // district prototype is the reason this argument exists.
+  function build(ph, size, seed, must, proto) {
     SAVE.phase = ph; SAVE.stones = ph; SAVE.poolPending = false;
     SAVE.collected = {}; SAVE.pushLearned = true;
-    SAVE.ui = { size };
+    SAVE.ui = proto ? { proto } : { size };
     delete SAVE.run;
     reset(seed);
 
@@ -168,5 +172,5 @@ window.TUNER = (() => {
     };
   }
 
-  return { park, phases, mustFor, clauses, canvas, build };
+  return { park, phases, protos, mustFor, clauses, canvas, build };
 })();

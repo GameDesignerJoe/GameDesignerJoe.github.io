@@ -454,6 +454,45 @@ const CONFIG = {
   sfxRangeTiles: 9,     // and fades to nothing by here — measured in tiles walked, not line of sight,
                         // so a swing on the far side of a wall is as distant as the walk around it
 
+  // ── the district prototype ────────────────────────────────────────────────
+  // Joe: "we should decide what we want to have in the maze before we build the
+  // maze... then we place those districts... at this point we haven't built any
+  // halls at all... and then we come in and we draw the maze."
+  //
+  // Everything the prototype uses is here, in one block, because the point of it
+  // is to be tuned. The ordinary generator carves halls first and drops content
+  // into the leftovers; this one does the opposite, and docs/QUALITY.md is the
+  // argument for why. Selected from the debug Prototype menu.
+  districtProto: {
+    slot: [16, 16],       // cells per district, width by height. The whole map is
+    grid: [3, 2],         // this many districts across and down: 48x32 cells, bigger than an xl
+    reserveMargin: 1,     // cells kept clear inside a district's edge, so a room never
+                          // sits against a boundary and swallow its gate
+    roomCells: 3,         // a district's room, in cells square (3 = 5x5 tiles)
+    vaultCells: 5,        // the nest that holds the key, in cells square
+    gauntletTiles: 14,    // squeezes guarding the exit at the end of the last district
+
+    // Each district in the order you walk them. `gates` is how many ways in from
+    // the district before it — ONE is a chokepoint, and a chokepoint is the thing
+    // docs/QUALITY.md says the real generator cannot produce at any setting.
+    // `braid` is how loopy the district is inside itself, `fill` how much of its
+    // ground stays corridor after dead ends are pruned back, `straight` how far a
+    // hall runs before it turns. Get lost inside a district; make progress between.
+    districts: [
+      { key: 'waking',  name: 'Waking',      mech: 'none',   gates: 1, braid: 0.04, fill: 0.95, straight: 0.55, rooms: 1 },
+      { key: 'squeeze', name: 'The Squeezes', mech: 'crawl',  gates: 1, braid: 0.12, fill: 1.00, straight: 0.30, rooms: 1 },
+      { key: 'dark',    name: 'The Dark',    mech: 'dark',   gates: 1, braid: 0.16, fill: 1.00, straight: 0.45, rooms: 1 },
+      { key: 'blocks',  name: 'The Blocks',  mech: 'push',   gates: 1, braid: 0.02, fill: 0.80, straight: 0.75, rooms: 1 },
+      { key: 'locked',  name: 'The Locked Quarter', mech: 'lock', gates: 1, braid: 0.06, fill: 0.90, straight: 0.5, rooms: 2 },
+    ],
+
+    crawlPerDistrict: 7,  // squeezes carved into The Squeezes
+    pushPerDistrict: 6,   // push blocks, each with a pocket behind it
+    darkShare: 0.62,      // how much of The Dark is unlit
+    statues: 2,           // statues in the last district, each wanting a carried stone
+    journalsPer: 1,       // one journal a district, so every district is worth entering
+  },
+
   colors: {
     bg:    '#0d0f10',
     wall:  '#1b1f21',
