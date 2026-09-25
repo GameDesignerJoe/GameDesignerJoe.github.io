@@ -3,19 +3,19 @@
 // Defaults for every slider in the gear panel. What you set on the panel is remembered on the
 // device (maze.fp.v1) and wins over these; "Reset" puts these back.
 //
-// fov, stepMs and eye come from the Labyrinth slider session (docs/labyrinth/03-technical-design.md):
-// FOV 68 and a ~270ms glide were the values that session locked, so they are where this starts.
+// stepMs and eye come from the Labyrinth slider session (docs/labyrinth/03-technical-design.md).
+// fov 75, res 360, fog 0.11, walk 1.2 and the half-width squeeze are Joe's, from playing this on his phone.
 
 const FP_CONFIG = {
-  fov: 68,          // degrees, left edge to right edge
-  res: 180,         // pixels across the screen's short side the world is drawn at, before it is scaled up
-  fog: 0.16,        // how fast things fade with distance, per tile. 0 = no fog at all
+  fov: 75,          // degrees, left edge to right edge
+  res: 360,         // pixels across the screen's short side the world is drawn at, before it is scaled up
+  fog: 0.11,        // how fast things fade with distance, per tile. 0 = no fog at all
   eye: 0.5,         // eye height as a fraction of a wall. The walls are one tile tall
   stepMs: 270,      // one tile forward
   turnMs: 210,      // a quarter turn
   bob: 1.5,         // head bob, in drawn pixels, over one step
-  gapW: 0.46,       // how wide a squeeze's slot is, as a fraction of a tile. You are 0.4 across; it narrows you to fit
-  walk: 2.31,       // tiles a second at full stick — the top-down's own CONFIG.speed
+  gapW: 0.23,       // how wide a squeeze's slot is, as a fraction of a tile. You are 0.4 across; at a squeeze you narrow to fit
+  walk: 1.2,        // tiles a second at full stick (the top-down's CONFIG.speed is 2.31; Joe set 1.2 for this view)
   stickTurn: 150,   // degrees a second at full stick, sideways
   theme: 'office',  // a key of TEX.themes: 'office' | 'bleached' | 'dusk'
   stick: 'on',      // 'on' shows the stick; 'off' leaves taps and swipes only
@@ -41,7 +41,7 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   fog:       [0, 0.5, 0.01, 'Fog', 'look'],
   eye:       [0.25, 0.75, 0.01, 'Eye height', 'look'],
   bob:       [0, 6, 0.5, 'Head bob', 'look'],
-  gapW:      [0.3, 0.9, 0.01, 'Squeeze width', 'look'],
+  gapW:      [0.12, 0.9, 0.01, 'Squeeze width', 'look'],
   walk:      [0.8, 4.5, 0.05, 'Walk speed', 'stick'],
   stickTurn: [50, 320, 5, 'Turn speed', 'stick'],
   accel:     [2, 30, 1, 'Walk snap', 'stick'],

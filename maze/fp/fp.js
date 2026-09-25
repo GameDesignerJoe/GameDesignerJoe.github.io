@@ -34,6 +34,9 @@
     // one Glide help knob became three: carry the one over to each
     if ('help' in saved && !('settle' in saved)) saved.settle = saved.centre = saved.slip = saved.help;
     delete saved.help;
+    // the squeeze was halved as a default; a width saved before that was only ever the old default
+    if ((saved.cfg || 0) < 2) delete saved.gapW;
+    saved.cfg = 2;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -272,7 +275,11 @@
   // push a round body out of any wall it has sunk into; it slides round corners by construction
   function collide() {
     const tx = Math.floor(P.x), ty = Math.floor(P.y);
-    const r = Math.min(RAD, S.gapW / 2 - 0.03);   // a squeeze is a squeeze: you fit it, just
+    // at a squeeze — in one, or beside one — you turn sideways and fit it, just. Everywhere else you
+    // are your full width, so an ordinary hall never lets you press your face to the wallpaper
+    let nearSlot = false;
+    for (let yy = ty - 1; yy <= ty + 1 && !nearSlot; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) if (slots.has(yy * W + xx)) { nearSlot = true; break; }
+    const r = nearSlot ? Math.max(0.03, Math.min(RAD, S.gapW / 2 - 0.02)) : RAD;
     const push = (x0, y0, x1, y1) => {
       const cx = Math.max(x0, Math.min(P.x, x1)), cy = Math.max(y0, Math.min(P.y, y1));
       const dx = P.x - cx, dy = P.y - cy, d = Math.hypot(dx, dy);
