@@ -12,9 +12,10 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 | `fp.js` | the raycaster, the walk (a stick like the top-down's, plus tap/swipe/key steps), the debug map, the panel |
 
 - **A seed is the same maze in both views.** `?seed=1234` works here as it does top-down.
-- **Nothing here writes to the top-down's save.** Knobs live under `maze.fp.v1`.
+- **Nothing here writes to the top-down's save.** Knobs live under `maze.fp.v1`. The ☰ panel is in
+  sections — Look, Stick, Glide help, Taps/swipes/keys, Debug — each slider's range and section in `FP_RANGES`.
 - **Two ways to move, one position.** The stick has three modes. **Glide** (the default) is free
-  steering with quiet help, scaled by the Glide help knob and never a snap: it settles you square to
+  steering with quiet help, each with its own knob under Glide help on the panel, never a snap: it settles you square to
   an open way when you ease off the turn, drifts you to the middle of a one-wide hall, and two
   "whiskers" slip you sideways past a corner one of them touches. **Rails** is the top-down's model
   (buffered quarter turns, centred in halls). **Free** is no help at all. Taps, swipes and keys
