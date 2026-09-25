@@ -101,6 +101,9 @@ const rows = await page.evaluate(([SEEDS, ONE_PHASE, ONE_SIZE]) => {
       gapMin: gapped.length ? gapped[0] : null,
       gapMed: gapped.length ? gapped[gapped.length >> 1] : null,
       thresholds: +avg((r) => r.thresholds).toFixed(2),
+      loops: Math.round(avg((r) => r.loops)),
+      firstFork: (() => { const g = recs.filter((r) => r.firstFork != null);
+        return g.length ? Math.round(g.reduce((a, r) => a + r.firstFork, 0) / g.length) : null; })(),
       districts: +avg((r) => r.districts).toFixed(1),
       shortPct: Math.round(100 * shortfall / SEEDS),
       missed,
@@ -115,7 +118,7 @@ if (flag('json')) {
   const pct = (v) => (v == null ? '—' : v + '%');
   console.log('\nThe Maze — is it worth walking?');
   console.log(`  ${SEEDS} seeds a self · each at its own size unless --size said otherwise\n`);
-  console.log('  self                 size  floor   keys vaulted  every key  doors  on route  exit at  beyond  locked  gauntlet  rooms  gap min/med  divides  fell short');
+  console.log('  self                 size  floor   keys vaulted  every key  doors  on route  exit at  beyond  locked  gauntlet  rooms  gap min/med  divides  loops  1st fork  fell short');
   console.log('  ' + '─'.repeat(140));
   for (const r of rows) {
     console.log(
@@ -133,6 +136,8 @@ if (flag('json')) {
       + `${String(r.landmarks).padEnd(7)}`
       + `${(r.gapMin == null ? '—' : r.gapMin + ' / ' + r.gapMed).padEnd(13)}`
       + `${String(r.thresholds).padEnd(9)}`
+      + `${String(r.loops).padEnd(7)}`
+      + `${(r.firstFork == null ? '—' : r.firstFork + 't').padEnd(10)}`
       + `${r.shortPct}%` + (Object.keys(r.missed).length
           ? '  ' + Object.entries(r.missed).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ')
           : ''));
@@ -147,6 +152,9 @@ if (flag('json')) {
   gauntlet      tiles of the squeeze tree guarding the way out. 0 = nothing guards it.
   gap           walking distance between the two closest rooms, min and median over the sweep.
   divides       thresholds: places the maze splits in two. See docs/QUALITY.md.
+  loops         independent cycles in the cell graph. Every loop costs a chokepoint, so this
+                is the mechanism behind divides: divides is near zero BECAUSE this is not.
+  1st fork      tiles walked before the maze first asks a question. Room tiles do not count.
   fell short    share of mazes generate() could not build to the chapter's MUST row, and
                 which clauses it could not meet. This is the number that was missing:
                 the loop always did settle for the best it could find, and never said so.

@@ -210,6 +210,49 @@ const CONTRACT = (() => {
 
     const th = thresholds(open, sx, sy, share);
 
+    // ── loops, and the walk to the first real decision ─────────────────────
+    // Both come from a maze-quality rubric Joe brought in (maze-metrics.ts), and
+    // both were the parts of it we had no equivalent for. See docs/QUALITY.md.
+    //
+    // loops is the cycle rank of the maze graph — edges minus nodes plus one —
+    // measured at CELL level, every other tile, because that is the graph a maze
+    // actually is. At tile level an open room is a dense lattice and the number
+    // says more about how big the rooms are than about the shape of the place.
+    // It matters because a loop destroys an articulation point by definition, so
+    // this is the mechanism behind `thresholds`: we have none because we have
+    // dozens of these.
+    //
+    // firstFork is how far you walk before the maze first asks you anything. It
+    // skips room tiles, for the reason LABYRINTH.md gives — a room has three ways
+    // out of every tile in it and asks you nothing — without which it reads 1 on
+    // every maze in the game, because you wake in a room.
+    let loops = null, firstFork = null;
+    if (!protoMode) {
+      const TXc = (c) => c * 2 + 1 + P;
+      const cellOpen = (cx, cy) => cx >= 0 && cy >= 0 && cx < CONFIG.cols && cy < CONFIG.rows
+        && open.has(K(TXc(cx), TXc(cy)));
+      const linked = (ax, ay, bx, by) => open.has(K(ax + bx + 1 + P, ay + by + 1 + P));
+      let nodes = 0, edges = 0;
+      for (let cy = 0; cy < CONFIG.rows; cy++) for (let cx = 0; cx < CONFIG.cols; cx++) {
+        if (!cellOpen(cx, cy)) continue;
+        nodes++;
+        if (cellOpen(cx + 1, cy) && linked(cx, cy, cx + 1, cy)) edges++;   // each edge once
+        if (cellOpen(cx, cy + 1) && linked(cx, cy, cx, cy + 1)) edges++;
+      }
+      loops = nodes ? Math.max(0, edges - nodes + 1) : 0;
+
+      // a tile inside any 2x2 block of floor is room, not corridor
+      const inRoom = (x, y) => [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([ox, oy]) =>
+        open.has(K(x + ox, y + oy)) && open.has(K(x + ox + 1, y + oy))
+        && open.has(K(x + ox, y + oy + 1)) && open.has(K(x + ox + 1, y + oy + 1)));
+      for (const [k, dv] of dS) {
+        if (dv === 0 || (firstFork != null && dv >= firstFork)) continue;
+        const [x, y] = k.split(',').map(Number);
+        if (inRoom(x, y)) continue;
+        if (DIRS.filter(([dx, dy]) => open.has(K(x + dx, y + dy))).length >= 3) firstFork = dv;
+      }
+    }
+
     return {
       floor,
       doors: doors.length,
@@ -222,16 +265,22 @@ const CONTRACT = (() => {
       toExit: direct, far, exitDepth: far ? direct / far : 0,
       rooms: landmarks.length, roomGap,
       thresholds: th.count, biggestSplit: th.biggest, longestRun: th.longest,
+      loops, firstFork,
       thresholdTiles: th.tiles,
       districts: clusters.length,
     };
   }
 
   // ── the judgement ──────────────────────────────────────────────────────────
-  // Each clause is a floor, not a target: `roomGap: 18` means no two rooms
+  // Most clauses are a floor, not a target: `roomGap: 18` means no two rooms
   // closer than 18 tiles. `keysVaulted: 'all'` means no key left in a hall. A
   // clause a phase does not name is not checked — a chapter with no doors is
   // not failing to vault its keys.
+  //
+  // Two are CEILINGS, because for them less is the good direction: `loops` (every
+  // loop costs a chokepoint) and `firstFork` (a long walk before the maze asks
+  // you anything is dead air). Each clause carries its own test, so the shape is
+  // per-clause rather than a rule about all of them.
   // `weight` is only ever used to rank one build against another when generate()
   // is choosing which maze to ship. It is a priority order, not a score anyone
   // reads: keys buried is Joe's first complaint and outranks the rest together,
@@ -249,6 +298,11 @@ const CONTRACT = (() => {
       show: (m) => (m.rooms < 2 ? '—' : `${m.roomGap} tiles`) },
     thresholds: { weight: 1, label: 'maze divides', got: (m) => m.thresholds, ok: (m, want) => m.thresholds >= want,
       show: (m) => `${m.thresholds}` },
+    // ceilings, both of them
+    loops: { weight: 2, label: 'loops', got: (m) => m.loops, ok: (m, want) => m.loops == null || m.loops <= want,
+      show: (m) => (m.loops == null ? '—' : `${m.loops}`) },
+    firstFork: { weight: 1, label: 'first fork', got: (m) => m.firstFork, ok: (m, want) => m.firstFork == null || m.firstFork <= want,
+      show: (m) => (m.firstFork == null ? '—' : `${m.firstFork} tiles`) },
   };
 
   // → [{ key, label, want, show, ok }], in the order the clauses are declared

@@ -45,6 +45,21 @@ const PHASES = [
 //   roomGap      tiles between the two closest rooms
 //   thresholds   places the maze divides in two (a 15% split, see contract.js)
 //
+// Two more clauses exist and are deliberately left UNSET here, so nothing about
+// generation changes until Joe puts a number on them. Both are CEILINGS, unlike
+// every clause above — for these, less is the good direction:
+//
+//   loops        independent cycles in the maze. A loop destroys a chokepoint by
+//                definition, so this is what `thresholds` is made of: today we
+//                run 18 (You) to 139 (The One Who Stayed), and no maze in the
+//                game is a perfect maze. See docs/QUALITY.md.
+//   firstFork    tiles walked before the maze first asks a question. 7–10 today,
+//                which is fine — it is here so it cannot quietly get worse.
+//
+// Setting either WILL change generation: generate() ranks builds on the clauses
+// a chapter names, so a number here re-deals every maze. Try it in tuner.html
+// first, where it costs nothing.
+//
 // These numbers are Joe's, and meant to be argued with — `tuner.html` shows
 // what a block of mazes does against them and redraws as they change. The value
 // the game manages today is in the comment beside each, from QUALITY.md at

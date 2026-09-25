@@ -140,9 +140,103 @@ places that are supposed to be different places. Compare the Cartographer, 3.4
 rooms at 20/24. This is Joe's *"all the rooms are pushed into the same space"*,
 and it is worst where there are most rooms.
 
+## Loops, and why the districts are eating the thresholds (v0.110.0)
+
+Joe brought in a maze-quality rubric from another conversation — a
+`maze-metrics.ts` and a `maze-expert` agent that reads it. Most of its twelve
+metrics we already had, two of ours are better than its versions (see the end of
+this section), but one had no equivalent here and it turned out to be the
+mechanism behind the biggest finding in this doc.
+
+**loops** — the cycle rank of the maze graph, edges minus nodes plus one, at cell
+level. A loop destroys an articulation point *by definition*, and a threshold is
+a run of articulation tiles. So thresholds and loops are two ends of the same
+fact, and we had only been counting one end.
+
+Measured at v0.110.0, 24 seeds a chapter: **18 loops (You) to 139 (The One Who
+Stayed)**, and **not one maze in the game is a perfect maze**. That is why
+thresholds sit near zero. Not a coincidence, not a tuning miss — arithmetic.
+
+### Where the loops come from, and the uncomfortable part
+
+16 seeds a chapter, sweeping the two features that add connections:
+
+| | loops | thresholds |
+|---|---|---|
+| The Criminal, as shipped | 76.5 | 0.06 |
+| braid off | 75.9 | 0.19 |
+| **districts off** | **61.5** | **0.44** |
+| The One Who Stayed, as shipped | 122.2 | 0.06 |
+| braid off | 122.8 | 0.31 |
+| districts off | 96.0 | 0.31 |
+| **both off** | **91.3** | **0.88** |
+
+Three things fall out of that table:
+
+**Braid changes the loop count by less than 1%.** 76.5 → 75.9. This doc already
+recorded that braid does not bring thresholds back; now we know why, and the
+earlier entry should be read as settled rather than merely observed. Braid at
+0.06 is not where the loops come from, so turning it off cannot recover a
+chokepoint.
+
+**Districts are the biggest single lever, and they were built to make places.**
+Switching them off multiplies The Criminal's thresholds by seven. The feature
+added to give the maze districts you can feel is helping to erase the boundaries
+that would let you feel them — because a district re-cuts links inside itself and
+`generate.js` says plainly that it "can never take a connection away". Adding
+connections without taking any is the definition of adding loops.
+
+**Neither accounts for most of them.** With both off there are still 61–91 loops.
+The rest is structural: an open room of w×h cells contributes (w−1)(h−1)
+independent cycles, and a vault is literally concentric rings. That part is not
+isolated yet and it is the larger half.
+
+Read it with the caveats: 16 seeds, and 0.44 thresholds is still *less than one
+per maze*. Turning districts off takes a terrible number to a bad one. It is a
+direction, not a fix.
+
+### The other thing worth taking
+
+**firstFork** — how far you walk before the maze first asks you anything. Ours is
+**7–10 tiles**, which is fine. It is in the contract now mostly so it cannot
+quietly get worse.
+
+It comes with a lesson about measuring, though. Taken the rubric's way it reads
+**1 on every maze in the game**, because you wake in a room and a room has three
+ways out of every tile in it. `LABYRINTH.md` records us making exactly that
+mistake in the junction count and correcting it. `contract.js` skips room tiles,
+which is the difference between 1 and 8.
+
+### What the rubric would have got wrong
+
+Kept here because the next person to bring in an outside rubric should know what
+to check.
+
+- **Its reachability does not know about push blocks.** Flooding from the start
+  the way it does stops at **9 cells** — the sealed start room — and its
+  `explorablePercentage` then reads 2–6%. Its own guidance says to flag that as a
+  generation bug. It would condemn every maze in the game.
+- **`explorablePercentage` divides by the whole rectangle**, so deliberate dead
+  space reads as a bug. The Child prunes to 65% fill on purpose, and that is the
+  one lever in this doc that creates thresholds at all.
+- **`longestDeadEndCorridorLength` measures nothing.** It counts consecutive
+  iterations of a `Set` in BFS visit order as though they were adjacent cells.
+- **`solutionToAreaRatio` is backwards for this game.** Ours is 6–15%, and the
+  rubric scores a low ratio as "space to actually get lost in, which is usually
+  more fun". That number is the thing the top of this doc identifies as the
+  problem: the route is 45–90 seconds and the rest is undifferentiated mesh. It
+  is a rubric for a maze you solve, not a place you are meant to spend twenty
+  minutes in and build a memory of.
+
+What its agent got right, and worth keeping: cite the metric that supports the
+judgement, propose the smallest change that addresses the cause, and re-run
+before declaring it fixed.
+
 ## Two sweeps, one dead end and one real lever
 
-**Braid is not what removed the thresholds.** The Child is the only self with
+**Braid is not what removed the thresholds.** (Why, see the loops section above:
+braid changes the loop count by under 1%, and loops are what thresholds are made
+of.) The Child is the only self with
 thresholds and the only one with braid off, which made it the obvious suspect.
 It is not: with braid forced to zero, the Soldier's md maze goes 0.08 → 0.21
 thresholds and the xl maze 0.00 → 0.04. Nothing. **No braid setting brings
