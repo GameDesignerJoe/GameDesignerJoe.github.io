@@ -508,7 +508,10 @@ const TEX = (() => {
       f += ((x * 7 + y) % 9 === 0 ? 0.35 : 0) + (R() - 0.5) * 0.35;
       T.px[y * 32 + x] = dith(DOOR, f, x, y);
     }
-    for (const hx of [4, 27]) for (let y = 15; y < 18; y++) T.px[y * 32 + hx] = hex('#c9c3a8');   // the handle, both sides
+    // the handle, on the edge away from the hinge only. The renderer runs a leaf's texture from its
+    // hinge (u 0) to its free edge (u 1), from whichever side you see it, so one handle at the far
+    // edge is right on both faces. Joe: "we should only have a handle on the side opposite the hinges"
+    for (let y = 15; y < 18; y++) { T.px[y * 32 + 27] = hex('#c9c3a8'); T.px[y * 32 + 26] = hex('#8f8a72'); }
     return T;
   }
   function closetFace() {   // drawn into a wall decal, 64×64, so it sits on whatever wall it's on
