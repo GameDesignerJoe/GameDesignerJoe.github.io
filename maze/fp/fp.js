@@ -672,14 +672,21 @@
     inp.value = S[k]; out.textContent = fmt(k, S[k]);
     inp.addEventListener('input', () => { S[k] = +inp.value; out.textContent = fmt(k, S[k]); saveS(); if (k === 'res') resize(); });
     document.querySelector(`[data-knobs="${sec}"]`).appendChild(row);
+    // while a slider is held, the panel steps out of the way: only this row stays, so the change
+    // is what you are looking at
+    inp.addEventListener('pointerdown', () => { $('panel').classList.add('drag'); row.classList.add('live'); });
     sliders[k] = { inp, out };
   }
-  // which sections were left open, remembered, as the top-down's debug panel does
-  for (const d of document.querySelectorAll('#panel details')) {
-    const key = 'sec_' + d.dataset.sec;
-    if (S[key] !== undefined) d.open = !!S[key];
-    d.addEventListener('toggle', () => { S[key] = d.open; saveS(); });
-  }
+  const endDrag = () => { $('panel').classList.remove('drag'); for (const r of document.querySelectorAll('#panel label.live')) r.classList.remove('live'); };
+  addEventListener('pointerup', endDrag); addEventListener('pointercancel', endDrag);
+  // one section open at a time, so the card stays small; which one is remembered
+  const secs = [...document.querySelectorAll('#panel details')];
+  for (const d of secs) d.open = S.sec === d.dataset.sec;
+  for (const d of secs) d.addEventListener('toggle', () => {
+    if (d.open) { S.sec = d.dataset.sec; for (const o of secs) if (o !== d) o.open = false; }
+    else if (S.sec === d.dataset.sec) S.sec = '';
+    saveS();
+  });
   const themeSel = $('optTheme');
   for (const [k, th] of Object.entries(TEX.themes)) { const o = document.createElement('option'); o.value = k; o.textContent = th.label; themeSel.appendChild(o); }
   const bindSel = (id, key, after) => { const el = $(id); el.value = String(S[key]); el.onchange = () => { S[key] = el.value === 'true' ? true : el.value === 'false' ? false : el.value; saveS(); if (after) after(); }; };
@@ -689,7 +696,7 @@
   bindSel('optBends', 'bends');
   bindSel('optMap', 'map');
   bindSel('optSwipe', 'swipe');
-  $('gear').onclick = () => $('panel').classList.toggle('open');
+  $('gear').onclick = () => { hideHint(); $('panel').classList.toggle('open'); };
   $('close').onclick = () => $('panel').classList.remove('open');
   $('newMaze').onclick = () => { newMaze(); $('panel').classList.remove('open'); };
   $('resetKnobs').onclick = () => { try { localStorage.removeItem(SKEY); } catch (e) {} location.reload(); };

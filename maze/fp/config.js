@@ -32,6 +32,7 @@ const FP_CONFIG = {
   turnEase: 14,     // how quickly turning catches up with the stick. Higher is snappier, lower is floatier
   swipe: 'drag',    // 'drag': swipe left turns right, the way a finger drags the view. 'point': the other way
   map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
+  sec: 'stick',     // which section of the ☰ panel is open
 };
 
 const FP_RANGES = {   // [min, max, step, label, panel section]
