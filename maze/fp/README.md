@@ -25,6 +25,12 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   shows its text. Tap a wall within reach to chalk it (an X early on, the sign picker once signs
   open). Dead ends carry words from `WALL_WORDS` in `data/text.js`. Found things are kept for the run
   only — nothing is written to the top-down's save yet.
+- **Doors and closets.** Doors go where the maze is already open — one-wide passages between two cells,
+  mostly room mouths (`doorRoom`, `doorHall`) — so every door is a real way through and the maze under
+  them is unchanged. Tap one within reach to open or shut it; it swings out into the room and stays;
+  `doorsOpen` start open. A leaf is a segment each column is tested against, and the collision pushes off.
+  Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
+  **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
 - **A look can have a ceiling instead of a sky** (`ceils`/`ceilPick` in its theme). Corner shadows
   (`ao`) are laid on from the maze by the renderer, on floors, ceilings and walls, so they need no art.
 - **Light.** Every tile has a brightness: ceiling lamps flood out through open floor (`reach`), flickering
@@ -34,5 +40,5 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 - **Replacing the art:** each texture is `{ w, h, px: Uint32Array }` (0xAABBGGRR). Decode a
   32×32 PNG into that shape and drop it into a theme in `TEX.themes` — the renderer doesn't care where it came from.
 - **What it draws of the maze so far:** walls, floor, sky, squeezes (a narrow full-height slot
-  cut through the tile, `gapW` wide, that the collision uses too), the exit, which glows through the fog, and a ceiling where the look has one. Not yet: sliders, doors and keys,
+  cut through the tile, `gapW` wide, that the collision uses too), the exit, which glows through the fog, and a ceiling where the look has one. Not yet: sliders, keys on doors,
   light switches, the thread and pointer, the charcoal map.

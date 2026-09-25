@@ -32,6 +32,10 @@ const FP_CONFIG = {
   turnEase: 14,     // how quickly turning catches up with the stick. Higher is snappier, lower is floatier
   words: 3,         // dead ends a maze with words written on their far wall (WALL_WORDS in data/text.js)
   chalkInf: false,  // debug: chalk never runs out
+  doorRoom: 0.75,   // the chance a room's mouth has a door in it
+  doorHall: 0.07,   // and any other one-wide passage between two cells
+  doorsOpen: 0.2,   // how many of them are standing open when you arrive. Joe: "about 20%"
+  closets: 3,       // closets a maze: narrow doors you can step into and look out of
   // lighting
   shadow: 0.75,     // how much the lighting shows: 0 is flat, 1 is full-strength pools and shadow
   reach: 4.5,       // how far a ceiling lamp's light carries, in tiles, through open floor
@@ -68,4 +72,8 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   squeezeSlow:[0.2, 1, 0.05, 'Squeeze slow', 'light'],
   turnMs:    [80, 600, 10, 'Rails turn ms', 'stick'],
   words:     [0, 8, 1, 'Wall words', 'debug'],
+  doorRoom:  [0, 1, 0.05, 'Room doors', 'debug'],
+  doorHall:  [0, 0.5, 0.01, 'Hall doors', 'debug'],
+  doorsOpen: [0, 1, 0.05, 'Doors open', 'debug'],
+  closets:   [0, 10, 1, 'Closets', 'debug'],
 };

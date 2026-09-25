@@ -75,6 +75,14 @@
   #page > div { max-width: 340px; padding: 22px 22px 16px; border-radius: 6px; background: #efe6cf; color: #2a2622; box-shadow: 0 10px 40px #0008; }
   #page p { margin: 0 0 12px; font-size: 17px; line-height: 1.5; white-space: pre-line; }
   #page small { display: block; text-align: right; color: #7a6a52; font-style: italic; }
+  /* inside a closet: the hall through the vent's slats, and a way out */
+  #slats, #stepOut { display: none; }
+  body.hiding #slats { display: block; position: fixed; inset: 0; pointer-events: none; z-index: 2;
+    background: repeating-linear-gradient(to bottom, #0b0a08f0 0 3.4vh, #0b0a0866 3.4vh 3.9vh, transparent 3.9vh 7.2vh, #0b0a0855 7.2vh 7.6vh),
+                radial-gradient(ellipse at center, transparent 50%, #0b0a08cc 100%); }
+  body.hiding #stepOut { display: block; position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 34px); transform: translateX(-50%); z-index: 3;
+    padding: 12px 26px; border-radius: 12px; border: 1px solid #6b5436; background: #1b1a18ee; color: #ece7da; font: inherit; font-size: 16px; }
+  body.hiding #stick, body.hiding #hud { display: none; }
   #win { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(#f3e6c055, #0d0f10ee 70%); opacity: 0; pointer-events: none; transition: opacity 1.4s; z-index: 5; text-align: center; }
   #win.show { opacity: 1; pointer-events: auto; }
   #win h2 { font-weight: normal; font-size: 34px; margin: 0 0 6px; letter-spacing: .04em; }
@@ -123,6 +131,8 @@
 </div>
 <div id="hud"><span id="hudPagesBox"><i class="ic-page"></i><b id="hudPages">0</b></span><span id="hudChalkBox"><i class="ic-chalk"></i><b id="hudChalk">0</b></span><span id="hudCharcoalBox"><i class="ic-charcoal"></i><b id="hudCharcoal">0</b></span></div>
 <div id="glyphs"><button data-g="x">✕</button><button data-g="?">?</button><button data-g="left">←</button><button data-g="up">↑</button><button data-g="down">↓</button><button data-g="right">→</button></div>
+<div id="slats"></div>
+<button id="stepOut">Step out</button>
 <div id="page"><div><p id="pageText"></p><small id="pageWho"></small></div></div>
 <div id="win"><div><h2>Out.</h2><p id="winSteps"></p><button id="again">Another maze</button></div></div>
 

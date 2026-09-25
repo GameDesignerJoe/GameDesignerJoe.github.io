@@ -448,7 +448,7 @@ const TEX = (() => {
     office: {
       label: 'Office (the back rooms)',
       walls: [wallpaper(11), wallpaper(23), wallpaper(31, { stain: 1 }), wallpaper(47, { door: 1 }), wallpaper(59, { outlet: 1 })],
-      pick: [0, 1, 0, 1, 0, 1, 2, 0, 1, 3, 4, 2],
+      pick: [0, 1, 0, 1, 0, 1, 2, 0, 1, 0, 4, 2],   // no 3: the door that went nowhere is out (Joe: "just remove dead doors")
       floors: [carpet(101), carpet(103), carpet(107), carpet(109, { stain: 1 })],
       // a ceiling instead of a sky: `ceils` are picked per tile like the walls; `ceilPick` is the
       // weighting, and the fluorescent one (index 1) is the only one that glows
@@ -494,5 +494,34 @@ const TEX = (() => {
     chalk: sprite(['................', '................', '.....wwwwwww....', '....wwwwwwwwW...', '....WwwwwwwWW...', '.....WWWWWWW....'], P),
     charcoal: sprite(['................', '................', '.....ccccccc....', '....cCcccccccc..', '....cccccccCcc..', '.....ccccccc....'], P),
   };
-  return { themes, sprites, hex, buildMs: performance.now() - t0 };
+  // ── doors ─────────────────────────────────────────────────
+  // A door you walk through: a full leaf, stained wood, panels, a handle both sides — it is drawn
+  // from either face. And a closet's: narrow, painted lighter than the wall, a vent of slats at eye
+  // height, because the vent is what you look out through once you're inside.
+  function doorLeaf() {
+    const R = rng(501), T = blank(32, 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      const edge = x < 2 || x > 29 || y < 2;
+      const panel = (x > 6 && x < 25) && ((y > 5 && y < 14) || (y > 17 && y < 29));
+      const bevel = panel && (x === 7 || y === 6 || y === 18);
+      let f = edge ? 1 : panel ? (bevel ? 3.2 : 2.3) : 2.8;
+      f += ((x * 7 + y) % 9 === 0 ? 0.35 : 0) + (R() - 0.5) * 0.35;
+      T.px[y * 32 + x] = dith(DOOR, f, x, y);
+    }
+    for (const hx of [4, 27]) for (let y = 15; y < 18; y++) T.px[y * 32 + hx] = hex('#c9c3a8');   // the handle, both sides
+    return T;
+  }
+  function closetFace() {   // drawn into a wall decal, 64×64, so it sits on whatever wall it's on
+    const T = blank(64, 64), R = rng(503);
+    const PAINT = ramp(['#8d8672', '#b5ae98', '#cfc9b4', '#dfd9c6', '#ebe6d6']);
+    for (let y = 8; y < 64; y++) for (let x = 22; x < 42; x++) {
+      const frame = x === 22 || x === 41 || y === 8;
+      const slat = y >= 16 && y <= 30 && x > 25 && x < 38;
+      let f = frame ? 1 : slat ? ((y - 16) % 3 === 0 ? 3.9 : 0.6) : 3 + (R() - 0.5) * 0.4;
+      T.px[y * 64 + x] = dith(PAINT, f, x, y);
+    }
+    T.px[40 * 64 + 38] = hex('#6b6552'); T.px[40 * 64 + 37] = hex('#8d8672');
+    return T;
+  }
+  return { themes, sprites, door: doorLeaf(), closet: closetFace(), hex, buildMs: performance.now() - t0 };
 })();

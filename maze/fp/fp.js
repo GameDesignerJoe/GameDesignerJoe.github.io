@@ -59,7 +59,7 @@
     if (a >= 1) { RH = n; RW = Math.max(1, Math.round(n * a)); } else { RW = n; RH = Math.max(1, Math.round(n / a)); }
     cv.width = RW; cv.height = RH;
     img = ctx.createImageData(RW, RH); buf = new Uint32Array(img.data.buffer);
-    zbuf = new Float32Array(RW); colFace = new Int32Array(RW).fill(-1); colU = new Float32Array(RW); colTop = new Float32Array(RW); colBot = new Float32Array(RW);
+    zbuf = new Float32Array(RW); colFace = new Int32Array(RW).fill(-1); colDoor = new Int32Array(RW).fill(-1); colU = new Float32Array(RW); colTop = new Float32Array(RW); colBot = new Float32Array(RW);
   }
   addEventListener('resize', resize);
 
@@ -293,8 +293,109 @@
       picks.push([ends.splice(Math.floor(R() * ends.length), 1)[0], pool.splice(Math.floor(R() * pool.length), 1)[0]]);
     wordSpots = picks.map(([e, text]) => ({ k: e.k, face: e.face, text }));
     for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
+    placeDoors();
+    placeClosets(new Set(picks.map(([e]) => faceKey(e.k, e.face))));
     hud();
   }
+
+  // ── doors ─────────────────────────────────────────────────
+  // Joe: "think about doors as a variation of the squeeze through, but instead of a squeeze there's a
+  // door you can click on and it'll open." They go where the maze is already open — a one-wide
+  // passage between two cells, most often the mouth of a room — so the maze underneath never
+  // changes and every door is a real way through. Tap one within reach: it swings open, out into the
+  // room, and stays open; tap it again to shut it. `doorsOpen` of them start the level open.
+  //
+  // A door is a leaf one tile wide, hinged at one jamb: a line segment the renderer tests every
+  // column against, and the collision pushes you off. Open, it lies back against the wall of the
+  // tile it swung into.
+  let doors = [];
+  const DOOR_MS = 380;
+  function placeDoors() {
+    doors = [];
+    const R = rng(SEED + 150001), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y);
+    const near = (x, y, n) => Math.abs(x - sx0) <= n && Math.abs(y - sy0) <= n;
+    const taken = new Set(objs.map((o) => Math.floor(o.y) * W + Math.floor(o.x)));
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const k = y * W + x;
+      if (solid(x, y) || low[k] || room[k] || taken.has(k) || near(x, y, 3) || (x === exit.x && y === exit.y)) continue;
+      // a wall-line tile: between two cells, which sit on odd coordinates
+      if ((x & 1) === (y & 1)) continue;
+      const ew = !solid(x - 1, y) && !solid(x + 1, y) && solid(x, y - 1) && solid(x, y + 1);
+      const ns = !solid(x, y - 1) && !solid(x, y + 1) && solid(x - 1, y) && solid(x + 1, y);
+      if (!ew && !ns) continue;
+      const a = ew ? [[-1, 0], [1, 0]] : [[0, -1], [0, 1]];
+      const roomSide = a.findIndex(([dx, dy]) => room[(y + dy) * W + x + dx]);
+      if (R() >= (roomSide >= 0 ? S.doorRoom : S.doorHall)) continue;
+      // it swings out into the room if there is one, otherwise whichever way
+      const sw = roomSide >= 0 ? (roomSide === 0 ? -1 : 1) : (R() < 0.5 ? -1 : 1);
+      const hinge = R() < 0.5 ? 0 : 1;
+      const open = R() < S.doorsOpen ? 1 : 0;
+      const d = { x, y, k, axis: ew ? 'x' : 'y', sw, hinge, open, t: open };
+      d.seg = doorSeg(d); doors.push(d);
+    }
+  }
+  // the leaf as a segment [ax, ay, bx, by], at how far open it is (0 shut … 1 open)
+  function doorSeg(d) {
+    const e = EASE.io(d.t), th = e * QUARTER;
+    // the hinge sits a hair in from the jamb, so a leaf standing open lies just off the wall rather
+    // than in it, and the two never fight over which is nearer
+    const IN = 0.06, L = 1 - IN;
+    if (d.axis === 'x') {   // the passage runs east–west, so the leaf stands north–south across it
+      const ax = d.x + 0.5, ay = d.y + (d.hinge ? 1 - IN : IN), dir = d.hinge ? -1 : 1;
+      return [ax, ay, ax + d.sw * L * Math.sin(th), ay + dir * L * Math.cos(th)];
+    }
+    const ax = d.x + (d.hinge ? 1 - IN : IN), ay = d.y + 0.5, dir = d.hinge ? -1 : 1;
+    return [ax, ay, ax + dir * L * Math.cos(th), ay + d.sw * L * Math.sin(th)];
+  }
+  function toggleDoor(d) { d.open = d.open ? 0 : 1; }
+  function doorsFrame(dt) {
+    for (const d of doors) if (d.t !== d.open) d.t = d.open ? Math.min(1, d.t + dt * 1000 / DOOR_MS) : Math.max(0, d.t - dt * 1000 / DOOR_MS);
+    for (const d of doors) d.seg = doorSeg(d);
+  }
+
+  // ── closets ───────────────────────────────────────────────
+  // Joe: "some of the doors you can step into and then we change the camera view to just be looking
+  // through a slotted vent in the door into the main hall you were just in. We have a button that you
+  // could press to exit the door, which is the same you would press to get into it." A closet is a
+  // narrow, lighter door on a solid wall — never a way anywhere. Tap it to step in; Step out, out.
+  let closets = [], hidden = null;
+  function placeClosets(usedFaces) {
+    closets = [];
+    const R = rng(SEED + 160001), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), cand = [];
+    const doorTiles = new Set(doors.map((d) => d.k));
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      // not in a dark hall: the point of a closet is what you can see from it
+      if (solid(x, y) || low[y * W + x] || dark[y * W + x] || doorTiles.has(y * W + x) || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
+      HD.forEach(([dx, dy]) => {
+        const wx = x + dx, wy = y + dy;
+        if (!solid(wx, wy) || wx <= 0 || wy <= 0 || wx >= W - 1 || wy >= H - 1 || exitFace[wy * W + wx]) return;
+        const face = dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3, k = wy * W + wx;
+        if (usedFaces.has(faceKey(k, face))) return;
+        cand.push({ k, face, x, y, dx: -dx, dy: -dy });   // dx, dy: out of the closet, into the room
+      });
+    }
+    for (let n = 0; n < S.closets && cand.length; n++) {
+      const c = cand.splice(Math.floor(R() * cand.length), 1)[0];
+      if (closets.some((o) => Math.abs(o.x - c.x) + Math.abs(o.y - c.y) < 4)) { n--; continue; }
+      closets.push(c);
+      const d = decalFor(c.k, c.face), art = TEX.closet.px;
+      for (let i = 0; i < DEC * DEC; i++) if (art[i]) d[i] = art[i];
+    }
+  }
+  function enterCloset(c) {
+    // stand in the doorway, in the wall's own face, looking out through the vent
+    const fx = c.dx === 1 ? c.x : c.dx === -1 ? c.x + 1 : c.x + 0.5, fy = c.dy === 1 ? c.y : c.dy === -1 ? c.y + 1 : c.y + 0.5;
+    hidden = { c, back: { x: P.x, y: P.y, a: P.a }, a0: Math.atan2(c.dy, c.dx) };
+    P.x = fx + c.dx * 0.04; P.y = fy + c.dy * 0.04; P.a = hidden.a0; vel = 0; clearStick();
+    document.body.classList.add('hiding');
+  }
+  function leaveCloset() {
+    if (!hidden) return;
+    const c = hidden.c;
+    P.x = c.x + 0.5; P.y = c.y + 0.5; P.a = hidden.a0; hidden = null;
+    document.body.classList.remove('hiding');
+  }
+  $('stepOut').addEventListener('pointerdown', (e) => { e.stopPropagation(); leaveCloset(); });
 
   // a 3×5 hand for the walls: enough letters for a sentence, drawn doubled so a wall holds four
   // lines of eight
@@ -380,6 +481,7 @@
 
   // every time the tile underfoot changes: count it, chart it for the debug map, check the door
   function arrive() {
+    if (hidden) return;
     const tx = Math.floor(P.x), ty = Math.floor(P.y), k = tx + ',' + ty;
     if (k === lastTile) return;
     if (lastTile) steps++;
@@ -481,6 +583,14 @@
       const dx = P.x - cx, dy = P.y - cy, d = Math.hypot(dx, dy);
       if (d < r && d > 1e-6) { P.x = cx + dx / d * r; P.y = cy + dy / d * r; }
     };
+    // a door's leaf is a wall too, open or shut
+    for (const d of doors) {
+      if (!d.seg || Math.abs(d.x + 0.5 - P.x) > 2 || Math.abs(d.y + 0.5 - P.y) > 2) continue;
+      const [ax, ay, bx, by] = d.seg, vx = bx - ax, vy = by - ay;
+      const s2 = Math.max(0, Math.min(1, ((P.x - ax) * vx + (P.y - ay) * vy) / (vx * vx + vy * vy)));
+      const cx = ax + vx * s2, cy = ay + vy * s2, ex = P.x - cx, ey = P.y - cy, dd = Math.hypot(ex, ey);
+      if (dd < RAD && dd > 1e-6) { P.x = cx + ex / dd * RAD; P.y = cy + ey / dd * RAD; }
+    }
     for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
       if (solid(xx, yy)) { push(xx, yy, xx + 1, yy + 1); continue; }
       const bx = slots.get(yy * W + xx);
@@ -489,6 +599,11 @@
   }
 
   function stickMove(now, dt) {
+    if (hidden) {   // in a closet you don't move; the stick looks about, a little, through the slats
+      const want = hidden.a0 + stick.x * 0.45 + ((keys.right ? 1 : 0) - (keys.left ? 1 : 0)) * 0.45;
+      P.a += (want - P.a) * Math.min(1, dt * 6);
+      return;
+    }
     const mag = Math.hypot(stick.x, stick.y), dz = Math.min(0.9, S.deadzone);
     // held keys are a stick too: W/S or ↑/↓ walk while held, A/D or ←/→ turn, and with Shift held
     // (or Q/E) A/D sidestep instead. Joe: "holding the back arrow key on the PC should keep me moving
@@ -660,6 +775,7 @@
   let lastX = 0, lastY = 0;
   function update(now, dt) {
     if (won) return;
+    doorsFrame(dt);
     stickMove(now, dt);
     stepAnim(now);
     // one dip of the head per tile walked, however you walked it; standing still, it settles
@@ -799,6 +915,28 @@
         const k = my * W + mx;
         if (low[k] && raySlot(k, px, py, rx, ry)) { perp = slotHit[0]; sd = slotHit[1]; su = slotHit[2]; slot = true; break; }
       }
+      // a door leaf nearer than the wall takes the column
+      colDoor[x] = -1;
+      {
+        let bt = perp, bi = -1, bs = 0;
+        for (let i = 0; i < doors.length; i++) {
+          const [ax, ay, bx, by] = doors[i].seg, ex = bx - ax, ey = by - ay;
+          const den = rx * ey - ry * ex; if (Math.abs(den) < 1e-9) continue;
+          const t = ((ax - px) * ey - (ay - py) * ex) / den, sg = ((ax - px) * ry - (ay - py) * rx) / den;
+          if (t > 0.01 && t < bt && sg >= 0 && sg <= 1) { bt = t; bi = i; bs = sg; }
+        }
+        if (bi >= 0) {
+          const d = doors[bi], lh = D / bt, top = hor - (1 - eye) * lh, bot = hor + eye * lh;
+          const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
+          const f = Math.exp(-fog * bt), L = tileL[d.k], tu = Math.min(31, (bs * 32) | 0), dp = TEX.door.px;
+          // a little darker edge-on, so a leaf standing open reads as a thing, not a wall
+          const [ax, ay, bx, by] = d.seg, nx = -(by - ay), ny = bx - ax, nl = Math.hypot(nx, ny) || 1;
+          const lit = 0.72 + 0.28 * Math.abs((nx * rx + ny * ry) / nl / Math.hypot(rx, ry));
+          for (let y = y0; y < y1; y++) buf[y * RW + x] = shade(dp[Math.min(31, (((y + 0.5 - top) / (bot - top)) * 32) | 0) * 32 + tu], f, lit, L);
+          zbuf[x] = bt; colDoor[x] = bi; colFace[x] = -1; colTop[x] = top; colBot[x] = bot;
+          continue;
+        }
+      }
       // the far wall
       {
         let u = slot ? su : sd === 0 ? py + perp * ry : px + perp * rx; u -= Math.floor(u);
@@ -846,7 +984,7 @@
   }
 
   // ── the objects, as flat pictures facing you ──────────────
-  let zbuf = new Float32Array(1), colFace = new Int32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
+  let zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
   const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
   function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
     drawn.length = 0;
@@ -888,10 +1026,10 @@
     if (mini.width !== W * s * dpr) { mini.width = W * s * dpr; mini.height = H * s * dpr; mini.style.width = W * s + 'px'; mini.style.height = H * s + 'px'; }
     mctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     mctx.clearRect(0, 0, W * s, H * s);
-    const full = S.map === 'full';
+    const full = S.map === 'full', doorAt = new Set(doors.map((d) => d.k));
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (!full && !seen[y * W + x]) continue;
-      mctx.fillStyle = solid(x, y) ? '#5c5850' : low[y * W + x] ? '#53402a' : dark[y * W + x] ? '#050506' : '#1e1c1a';
+      mctx.fillStyle = solid(x, y) ? '#5c5850' : low[y * W + x] ? '#53402a' : doorAt.has(y * W + x) ? '#826846' : dark[y * W + x] ? '#050506' : '#1e1c1a';
       mctx.fillRect(x * s, y * s, s, s);
     }
     if (full || seen[exit.y * W + exit.x]) { mctx.fillStyle = '#e0c98a'; mctx.fillRect(exit.x * s, exit.y * s, s, s); }
@@ -961,8 +1099,14 @@
     let hit = null;
     for (const d of drawn) if (bx >= d.x0 - 6 && bx <= d.x1 + 6 && by >= d.y0 && by <= d.y1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
     if (hit) { take(hit.o); return; }
-    // then the wall under the finger, if it is close enough to touch
     const x = Math.max(0, Math.min(RW - 1, bx | 0));
+    if (hidden) return;   // from inside a closet you can only step out
+    // a door under the finger: open it, or shut it
+    if (colDoor[x] >= 0 && zbuf[x] < REACH_WALL + 0.4 && by >= colTop[x] && by <= colBot[x]) { toggleDoor(doors[colDoor[x]]); return; }
+    // a closet: step in
+    const cl = closets.find((c) => faceKey(c.k, c.face) === colFace[x]);
+    if (cl && zbuf[x] < REACH_WALL && colU[x] > 0.32 && colU[x] < 0.68) { enterCloset(cl); return; }
+    // then the wall under the finger, if it is close enough to touch
     if (colFace[x] < 0 || zbuf[x] > REACH_WALL || by < colTop[x] || by > colBot[x]) return;
     const cu = colU[x], cv2 = (by - colTop[x]) / (colBot[x] - colTop[x]);
     if (!S.chalkInf && chalk <= 0) { flash('hudChalkBox'); return; }
@@ -1051,5 +1195,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
 })();
