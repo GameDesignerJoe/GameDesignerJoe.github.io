@@ -48,6 +48,7 @@
     T = TEX.themes[S.theme];
     const f = TEX.hex(T.fog); FR = f & 0xff; FG = (f >>> 8) & 0xff; FB = (f >>> 16) & 0xff;
     document.body.dataset.theme = S.theme;
+    FP_SOUND.setLook(S.theme);
     if (typeof W !== 'undefined' && wallVar) index();
   }
 
@@ -59,7 +60,7 @@
     if (a >= 1) { RH = n; RW = Math.max(1, Math.round(n * a)); } else { RW = n; RH = Math.max(1, Math.round(n / a)); }
     cv.width = RW; cv.height = RH;
     img = ctx.createImageData(RW, RH); buf = new Uint32Array(img.data.buffer);
-    zbuf = new Float32Array(RW); colFace = new Int32Array(RW).fill(-1); colDoor = new Int32Array(RW).fill(-1); colU = new Float32Array(RW); colTop = new Float32Array(RW); colBot = new Float32Array(RW);
+    zbuf = new Float32Array(RW); colFace = new Int32Array(RW).fill(-1); colDoor = new Int32Array(RW).fill(-1); colDoorTop = new Float32Array(RW); colDoorBot = new Float32Array(RW); colDoorT = new Float32Array(RW); colVeil = new Float32Array(RW); colWallT = new Float32Array(RW); colU = new Float32Array(RW); colTop = new Float32Array(RW); colBot = new Float32Array(RW);
   }
   addEventListener('resize', resize);
 
@@ -142,7 +143,7 @@
   //   squeeze  — a squeeze is dimmed by `squeezeDim`, and slows you by `squeezeSlow`
   // The brightness is kept at tile corners and blended across each tile, so light pools and fades
   // rather than stepping in squares. `shadow` is how much any of it shows: 0 is the old flat look.
-  let dark = null, tileL = null, cornerL = null, lightBase = null, flickLamps = [];
+  let dark = null, tileL = null, cornerL = null, lightBase = null, flickLamps = [], lampTiles = [];
   function buildLight() {
     const N = W * H;
     dark = new Uint8Array(N); tileL = new Float32Array(N); cornerL = new Float32Array((W + 1) * (H + 1));
@@ -161,11 +162,12 @@
     for (let x = 0; x < W; x++) { let run = []; for (let y = 0; y <= H; y++) { if (y < H && inHall(x, y, false)) run.push([x, y]); else { takeRun(run); run = []; } } }
 
     lightBase = new Float32Array(N).fill(T.ceils ? T.ambient : 1);
-    flickLamps = [];
+    flickLamps = []; lampTiles = [];
     if (!T.ceils) return;
     const flick = new Set(flickers), reach = S.reach;
     for (let k = 0; k < N; k++) {
       if (solid(k % W, (k / W) | 0) || dark[k] || !T.ceils[ceilVar[k]].glow) continue;
+      lampTiles.push(k);
       // flood from the lamp through open floor, so light turns corners but never comes through a wall
       const seen = new Map([[k, 0]]), q = [k], list = [];
       while (q.length) {
@@ -199,18 +201,19 @@
     }
   }
 
+  const boxesAt = (k) => slots.get(k) || (frameAt && frameAt[k] ? frameBoxes.get(k) : null);
   // is this point inside wall — a whole wall tile, or a squeeze's jamb
   function solidAt(x, y) {
     const tx = Math.floor(x), ty = Math.floor(y);
     if (solid(tx, ty)) return true;
-    const bx = slots.get(ty * W + tx); if (!bx) return false;
+    const bx = boxesAt(ty * W + tx); if (!bx) return false;
     for (let i = 0; i < bx.length; i += 4) if (x > bx[i] && x < bx[i + 2] && y > bx[i + 1] && y < bx[i + 3]) return true;
     return false;
   }
   // the nearest jamb a ray meets inside one squeeze tile: [t, side, u] or null. Slab test per box
   const slotHit = [0, 0, 0];
   function raySlot(k, px, py, rx, ry) {
-    const bx = slots.get(k); if (!bx) return null;
+    const bx = boxesAt(k); if (!bx) return null;
     let best = 1e9, bs = 0, bu = 0;
     const ix = rx === 0 ? 1e30 : 1 / rx, iy = ry === 0 ? 1e30 : 1 / ry;
     for (let i = 0; i < bx.length; i += 4) {
@@ -308,8 +311,13 @@
   // A door is a leaf one tile wide, hinged at one jamb: a line segment the renderer tests every
   // column against, and the collision pushes you off. Open, it lies back against the wall of the
   // tile it swung into.
-  let doors = [];
-  const DOOR_MS = 380;
+  // Joe: "we need to bring the walls in on either side of a door … doors should be on the edges of a
+  // tile, not in the middle. The part of the wall that comes in should only be a couple inches deep.
+  // This way we can have a normal shaped door with a wall around it." So a door tile carries a thin
+  // plate (PLATE deep) on its edge toward the room: two jambs either side of a DOOR_W opening, full
+  // height, and a header over it from DOOR_H up. The leaf fills the opening and swings into the room.
+  let doors = [], frameBoxes = new Map(), frameAt = null;
+  const DOOR_MS = 380, DOOR_W = 0.56, DOOR_H = 0.8, PLATE = 0.06;
   function placeDoors() {
     doors = [];
     const R = rng(SEED + 150001), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y);
@@ -331,23 +339,26 @@
       const hinge = R() < 0.5 ? 0 : 1;
       const open = R() < S.doorsOpen ? 1 : 0;
       const d = { x, y, k, axis: ew ? 'x' : 'y', sw, hinge, open, t: open };
+      // the plate: on the edge toward the side it swings to, PLATE deep, the opening centred in it
+      const oa = 0.5 - DOOR_W / 2, ob = 0.5 + DOOR_W / 2, p0 = sw > 0 ? 1 - PLATE : 0, p1 = p0 + PLATE;
+      d.plane = (ew ? x : y) + (p0 + p1) / 2;
+      d.open0 = (ew ? y : x) + oa; d.open1 = (ew ? y : x) + ob;
+      d.boxes = ew ? [x + p0, y, x + p1, y + oa, x + p0, y + ob, x + p1, y + 1]
+                   : [x, y + p0, x + oa, y + p1, x + ob, y + p0, x + 1, y + p1];
       d.seg = doorSeg(d); doors.push(d);
     }
+    frameBoxes = new Map(); frameAt = new Uint8Array(W * H);
+    for (const d of doors) { frameBoxes.set(d.k, new Float32Array(d.boxes)); frameAt[d.k] = 1; }
   }
-  // the leaf as a segment [ax, ay, bx, by], at how far open it is (0 shut … 1 open)
+  // the leaf as a segment [ax, ay, bx, by], at how far open it is (0 shut … 1 open): hinged at one
+  // jamb in the plate, shut across the opening, open standing out into the room at a right angle
   function doorSeg(d) {
-    const e = EASE.io(d.t), th = e * QUARTER;
-    // the hinge sits a hair in from the jamb, so a leaf standing open lies just off the wall rather
-    // than in it, and the two never fight over which is nearer
-    const IN = 0.06, L = 1 - IN;
-    if (d.axis === 'x') {   // the passage runs east–west, so the leaf stands north–south across it
-      const ax = d.x + 0.5, ay = d.y + (d.hinge ? 1 - IN : IN), dir = d.hinge ? -1 : 1;
-      return [ax, ay, ax + d.sw * L * Math.sin(th), ay + dir * L * Math.cos(th)];
-    }
-    const ax = d.x + (d.hinge ? 1 - IN : IN), ay = d.y + 0.5, dir = d.hinge ? -1 : 1;
-    return [ax, ay, ax + dir * L * Math.cos(th), ay + d.sw * L * Math.sin(th)];
+    const th = EASE.io(d.t) * QUARTER, L = DOOR_W - 0.02;
+    const h = d.hinge ? d.open1 - 0.01 : d.open0 + 0.01, dir = d.hinge ? -1 : 1;
+    if (d.axis === 'x') return [d.plane, h, d.plane + d.sw * L * Math.sin(th), h + dir * L * Math.cos(th)];
+    return [h, d.plane, h + dir * L * Math.cos(th), d.plane + d.sw * L * Math.sin(th)];
   }
-  function toggleDoor(d) { d.open = d.open ? 0 : 1; }
+  function toggleDoor(d) { d.open = d.open ? 0 : 1; FP_SOUND.door(!!d.open); }
   function doorsFrame(dt) {
     for (const d of doors) if (d.t !== d.open) d.t = d.open ? Math.min(1, d.t + dt * 1000 / DOOR_MS) : Math.max(0, d.t - dt * 1000 / DOOR_MS);
     for (const d of doors) d.seg = doorSeg(d);
@@ -387,13 +398,13 @@
     const fx = c.dx === 1 ? c.x : c.dx === -1 ? c.x + 1 : c.x + 0.5, fy = c.dy === 1 ? c.y : c.dy === -1 ? c.y + 1 : c.y + 0.5;
     hidden = { c, back: { x: P.x, y: P.y, a: P.a }, a0: Math.atan2(c.dy, c.dx) };
     P.x = fx + c.dx * 0.04; P.y = fy + c.dy * 0.04; P.a = hidden.a0; vel = 0; clearStick();
-    document.body.classList.add('hiding');
+    document.body.classList.add('hiding'); FP_SOUND.hide(true);
   }
   function leaveCloset() {
     if (!hidden) return;
     const c = hidden.c;
     P.x = c.x + 0.5; P.y = c.y + 0.5; P.a = hidden.a0; hidden = null;
-    document.body.classList.remove('hiding');
+    document.body.classList.remove('hiding'); FP_SOUND.hide(false);
   }
   $('stepOut').addEventListener('pointerdown', (e) => { e.stopPropagation(); leaveCloset(); });
 
@@ -456,9 +467,9 @@
   }
   function take(o) {
     objs.splice(objs.indexOf(o), 1);
-    if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); }
-    else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); }
-    else if (o.kind === 'page') { pagesFound++; flash('hudPagesBox'); showPage(o.pg); }
+    if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
+    else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.chalkUp(); }
+    else if (o.kind === 'page') { pagesFound++; flash('hudPagesBox'); showPage(o.pg); FP_SOUND.page(); }
     hud();
   }
   function flash(id) { const el = $(id); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
@@ -477,6 +488,7 @@
     SEED = seed || (Math.random() * 1e9 | 0);
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     generate(SEED); reset();
+    FP_SOUND.setMusic(character && character.name);
   }
 
   // every time the tile underfoot changes: count it, chart it for the debug map, check the door
@@ -576,7 +588,7 @@
     // at a squeeze — in one, or beside one — you turn sideways and fit it, just. Everywhere else you
     // are your full width, so an ordinary hall never lets you press your face to the wallpaper
     let nearSlot = false;
-    for (let yy = ty - 1; yy <= ty + 1 && !nearSlot; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) if (slots.has(yy * W + xx)) { nearSlot = true; break; }
+    for (let yy = ty - 1; yy <= ty + 1 && !nearSlot; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) if (slots.has(yy * W + xx)) { nearSlot = true; break; }   // squeezes only, not door frames
     const r = nearSlot ? Math.max(0.03, Math.min(RAD, S.gapW / 2 - 0.02)) : RAD;
     const push = (x0, y0, x1, y1) => {
       const cx = Math.max(x0, Math.min(P.x, x1)), cy = Math.max(y0, Math.min(P.y, y1));
@@ -593,7 +605,7 @@
     }
     for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
       if (solid(xx, yy)) { push(xx, yy, xx + 1, yy + 1); continue; }
-      const bx = slots.get(yy * W + xx);
+      const bx = boxesAt(yy * W + xx);
       if (bx) for (let i = 0; i < bx.length; i += 4) push(bx[i], bx[i + 1], bx[i + 2], bx[i + 3]);
     }
   }
@@ -780,8 +792,25 @@
     stepAnim(now);
     // one dip of the head per tile walked, however you walked it; standing still, it settles
     const moved = Math.hypot(P.x - lastX, P.y - lastY); lastX = P.x; lastY = P.y;
+    sounds(moved, dt);
     if (moved > 0.0005) walkPhase += moved; else walkPhase += (Math.round(walkPhase) - walkPhase) * Math.min(1, dt * 8);
     arrive();
+  }
+  // what walking sounds like: a foot down every STRIDE of ground covered, the hum of whichever lamp
+  // is nearest (as bright as it is right now), and the rub of a squeeze while you're moving in one
+  const STRIDE = 0.62;
+  let strideLeft = STRIDE * 0.5;
+  function sounds(moved, dt) {
+    const tx = Math.floor(P.x), ty = Math.floor(P.y), inSqueeze = !!low[ty * W + tx];
+    if (moved > 0.0005 && !hidden) {
+      strideLeft -= moved;
+      if (moved > 0.5) strideLeft = STRIDE;   // a jump (a restart, a closet) is not a stride
+      else if (strideLeft <= 0) { strideLeft = Math.max(strideLeft + STRIDE, STRIDE * 0.5); FP_SOUND.step(moved / Math.max(dt, 1e-3) / S.walk, inSqueeze); }
+    }
+    let humL = 0;
+    for (const k of lampTiles) { const d = Math.hypot(k % W + 0.5 - P.x, ((k / W) | 0) + 0.5 - P.y); if (d < 3) humL = Math.max(humL, (1 - d / 3) * lampLvl[k]); }
+    const speed = moved / Math.max(dt, 1e-3);
+    FP_SOUND.frame(humL, inSqueeze ? Math.min(1, speed / Math.max(0.05, S.walk * S.squeezeSlow)) : 0);
   }
   function camera(now) {
     let x = P.x, y = P.y, bob = Math.sin(Math.PI * walkPhase) * S.bob;
@@ -849,7 +878,9 @@
     // now the room around it goes with it, not only the panel
     for (const k of flickers) {
       const n = Math.sin(now * 0.0023 + k) + Math.sin(now * 0.0171 + k * 3.1) * 0.6 + Math.sin(now * 0.061 + k * 7.7) * 0.25;
-      lampLvl[k] = n > 1.3 ? 0.15 : n > 1.15 ? 0.55 : 1;
+      const lv = n > 1.3 ? 0.15 : n > 1.15 ? 0.55 : 1;
+      if (lv < lampLvl[k] && !dark[k]) { const dd = Math.hypot(k % W + 0.5 - px, ((k / W) | 0) + 0.5 - py); if (dd < 4.5) FP_SOUND.flicker(1 - dd / 4.5); }
+      lampLvl[k] = lv;
     }
     lightFrame();
     const cw = W + 1;   // corner rows, for blending the light across each tile inline
@@ -907,36 +938,21 @@
       let sd = 0, perp = 64, slot = false, su = 0;
       colFace[x] = -1;
       // standing in a squeeze: its jambs first
-      if (low[my * W + mx] && raySlot(my * W + mx, px, py, rx, ry)) { perp = slotHit[0]; sd = slotHit[1]; su = slotHit[2]; slot = true; }
+      let veil = 1e9;   // how far along this column the other side of a squeeze begins
+      const k0 = my * W + mx;
+      if (low[k0]) veil = Math.min(sdx, sdy);
+      if ((low[k0] || frameAt[k0]) && raySlot(k0, px, py, rx, ry)) { perp = slotHit[0]; sd = slotHit[1]; su = slotHit[2]; slot = true; }
       else for (let i = 0; i < 128; i++) {
         if (sdx < sdy) { sdx += ddx; mx += stX; sd = 0; } else { sdy += ddy; my += stY; sd = 1; }
         const entry = sd === 0 ? sdx - ddx : sdy - ddy;
         if (solid(mx, my)) { perp = entry; break; }
         const k = my * W + mx;
-        if (low[k] && raySlot(k, px, py, rx, ry)) { perp = slotHit[0]; sd = slotHit[1]; su = slotHit[2]; slot = true; break; }
+        if ((low[k] || frameAt[k]) && raySlot(k, px, py, rx, ry)) { perp = slotHit[0]; sd = slotHit[1]; su = slotHit[2]; slot = true; break; }
+        // through a squeeze's gap: whatever is past its far side is hidden
+        if (low[k] && veil === 1e9) veil = Math.min(sdx, sdy);
       }
-      // a door leaf nearer than the wall takes the column
+      colVeil[x] = veil;
       colDoor[x] = -1;
-      {
-        let bt = perp, bi = -1, bs = 0;
-        for (let i = 0; i < doors.length; i++) {
-          const [ax, ay, bx, by] = doors[i].seg, ex = bx - ax, ey = by - ay;
-          const den = rx * ey - ry * ex; if (Math.abs(den) < 1e-9) continue;
-          const t = ((ax - px) * ey - (ay - py) * ex) / den, sg = ((ax - px) * ry - (ay - py) * rx) / den;
-          if (t > 0.01 && t < bt && sg >= 0 && sg <= 1) { bt = t; bi = i; bs = sg; }
-        }
-        if (bi >= 0) {
-          const d = doors[bi], lh = D / bt, top = hor - (1 - eye) * lh, bot = hor + eye * lh;
-          const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
-          const f = Math.exp(-fog * bt), L = tileL[d.k], tu = Math.min(31, (bs * 32) | 0), dp = TEX.door.px;
-          // a little darker edge-on, so a leaf standing open reads as a thing, not a wall
-          const [ax, ay, bx, by] = d.seg, nx = -(by - ay), ny = bx - ax, nl = Math.hypot(nx, ny) || 1;
-          const lit = 0.72 + 0.28 * Math.abs((nx * rx + ny * ry) / nl / Math.hypot(rx, ry));
-          for (let y = y0; y < y1; y++) buf[y * RW + x] = shade(dp[Math.min(31, (((y + 0.5 - top) / (bot - top)) * 32) | 0) * 32 + tu], f, lit, L);
-          zbuf[x] = bt; colDoor[x] = bi; colFace[x] = -1; colTop[x] = top; colBot[x] = bot;
-          continue;
-        }
-      }
       // the far wall
       {
         let u = slot ? su : sd === 0 ? py + perp * ry : px + perp * rx; u -= Math.floor(u);
@@ -968,6 +984,7 @@
         colFace[x] = dk; colU[x] = u; colTop[x] = top; colBot[x] = bot;
         const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
         const f = Math.exp(-fog * perp), lit = sd ? side : 1;
+        colWallT[x] = perp;
         for (let y = y0; y < y1; y++) {
           const v = (y + 0.5 - top) / (bot - top), ti = Math.min(31, (v * 32) | 0) * 32 + tu;
           if (t.glow && t.glow[ti]) { buf[y * RW + x] = bright(t.px[ti]); continue; }
@@ -979,12 +996,83 @@
         }
       }
     }
+    drawDoors(px, py, dX, dY, plX, plY, D, hor, eye, fog);
     drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog);
+    veilSqueezes(D, hor, eye);
     ctx.putImageData(img, 0, 0);
   }
 
+  // ── doors: the header over each opening, and the leaves ──
+  // Drawn after the walls, each column's pieces farthest first, only where nearer than the wall.
+  const ov = [];
+  function drawDoors(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
+    if (!doors.length) return;
+    const dp = TEX.door.px, walls = T.walls, side = T.side;
+    for (let x = 0; x < RW; x++) {
+      const cam = 2 * (x + 0.5) / RW - 1, rx = dX + plX * cam, ry = dY + plY * cam, wallT = colWallT[x];
+      ov.length = 0;
+      for (let i = 0; i < doors.length; i++) {
+        const d = doors[i];
+        // the header: where the ray crosses the plate's plane inside the opening
+        const t = d.axis === 'x' ? (rx ? (d.plane - px) / rx : -1) : (ry ? (d.plane - py) / ry : -1);
+        if (t > 0.02 && t < wallT) { const c = d.axis === 'x' ? py + t * ry : px + t * rx; if (c > d.open0 && c < d.open1) ov.push({ t, i, head: true, u: (c - d.open0) / (d.open1 - d.open0) }); }
+        // the leaf
+        const [ax, ay, bx, by] = d.seg, ex = bx - ax, ey = by - ay, den = rx * ey - ry * ex;
+        if (Math.abs(den) < 1e-9) continue;
+        const tl = ((ax - px) * ey - (ay - py) * ex) / den, sg = ((ax - px) * ry - (ay - py) * rx) / den;
+        if (tl > 0.02 && tl < wallT && sg >= 0 && sg <= 1) ov.push({ t: tl, i, head: false, u: sg });
+      }
+      if (!ov.length) continue;
+      ov.sort((p, q) => q.t - p.t);
+      for (const o of ov) {
+        const d = doors[o.i], lh = D / o.t, top = hor - (1 - eye) * lh, bot = hor + eye * lh, doorTop = hor - (DOOR_H - eye) * lh;
+        // lit by the light where it actually is: an open leaf stands in the room it swung into
+        const f = Math.exp(-fog * o.t), L = lightAtPoint(px + rx * o.t, py + ry * o.t), tu = Math.min(31, (o.u * 32) | 0);
+        if (o.head) {   // the wall over the door, in the wall's own paper, lined up with the wall beside it
+          const wt = walls[wallVar[d.k]].px, y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(doorTop - 0.5));
+          for (let y = y0; y < y1; y++) buf[y * RW + x] = shade(wt[Math.min(31, (((y + 0.5 - top) / (bot - top)) * 32) | 0) * 32 + tu], f, side, L);
+        } else {        // the leaf, floor to the top of the opening
+          const [ax, ay, bx, by] = d.seg, nx = -(by - ay), ny = bx - ax, nl = Math.hypot(nx, ny) || 1;
+          const lit = 0.72 + 0.28 * Math.abs((nx * rx + ny * ry) / nl / Math.hypot(rx, ry));   // darker edge-on, so a leaf standing open reads
+          const y0 = Math.max(0, Math.ceil(doorTop - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
+          for (let y = y0; y < y1; y++) buf[y * RW + x] = shade(dp[Math.min(31, (((y + 0.5 - doorTop) / (bot - doorTop)) * 32) | 0) * 32 + tu], f, lit, L);
+          if (o.t < zbuf[x]) zbuf[x] = o.t;
+          colDoor[x] = o.i; colDoorTop[x] = doorTop; colDoorBot[x] = bot; colDoorT[x] = o.t;
+        }
+      }
+    }
+  }
+
+  function lightAtPoint(x, y) {   // the light blended across the tile corners, at any point
+    const cx = Math.floor(x), cy = Math.floor(y);
+    if (cx < 0 || cy < 0 || cx >= W || cy >= H) return 1;
+    const fx = x - cx, fy = y - cy, w = W + 1, i = cy * w + cx;
+    const a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b = cornerL[i + w] + (cornerL[i + w + 1] - cornerL[i + w]) * fx;
+    return a + (b - a) * fy;
+  }
+
+  // ── the far side of a squeeze, hidden ─────────────────────
+  // Joe: "it just makes the wall a darker color, it doesn't make the gap darker. Ideally, I would like
+  // to not be able to see what's on the other side of the squeeze." Every pixel a column sees past
+  // the far side of a squeeze's gap is taken down by `squeezeVeil`, fading in over a few inches so
+  // the dark has an edge you walk into rather than a line. Standing in one, both ways are dark.
+  function veilSqueezes(D, hor, eye) {
+    const sv = S.squeezeVeil;
+    if (sv <= 0) return;
+    for (let x = 0; x < RW; x++) {
+      const vt = colVeil[x]; if (vt >= 1e9) continue;
+      const wt = colWallT[x], top = colTop[x], bot = colBot[x];
+      for (let y = 0; y < RH; y++) {
+        const dep = (y >= top && y < bot) ? wt : y < hor ? (1 - eye) * D / Math.max(1e-3, hor - y - 0.5) : eye * D / Math.max(1e-3, y + 0.5 - hor);
+        if (dep <= vt) continue;
+        const k = 1 - sv * Math.min(1, (dep - vt) / 0.3), o = y * RW + x, c = buf[o];
+        buf[o] = 0xff000000 | ((((c >>> 16) & 0xff) * k) << 16) | ((((c >>> 8) & 0xff) * k) << 8) | ((c & 0xff) * k);
+      }
+    }
+  }
+
   // ── the objects, as flat pictures facing you ──────────────
-  let zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
+  let zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colDoorTop = new Float32Array(1), colDoorBot = new Float32Array(1), colDoorT = new Float32Array(1), colVeil = new Float32Array(1), colWallT = new Float32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
   const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
   function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
     drawn.length = 0;
@@ -1042,6 +1130,7 @@
   // ── winning ───────────────────────────────────────────────
   function win() {
     won = true; holdFwd = false; queued = null; anim = null; vel = 0;
+    FP_SOUND.out();
     $('winSteps').textContent = steps + ' steps';
     $('win').classList.add('show');
   }
@@ -1102,14 +1191,14 @@
     const x = Math.max(0, Math.min(RW - 1, bx | 0));
     if (hidden) return;   // from inside a closet you can only step out
     // a door under the finger: open it, or shut it
-    if (colDoor[x] >= 0 && zbuf[x] < REACH_WALL + 0.4 && by >= colTop[x] && by <= colBot[x]) { toggleDoor(doors[colDoor[x]]); return; }
+    if (colDoor[x] >= 0 && colDoorT[x] < REACH_WALL + 0.4 && by >= colDoorTop[x] - 8 && by <= colDoorBot[x]) { toggleDoor(doors[colDoor[x]]); return; }
     // a closet: step in
     const cl = closets.find((c) => faceKey(c.k, c.face) === colFace[x]);
     if (cl && zbuf[x] < REACH_WALL && colU[x] > 0.32 && colU[x] < 0.68) { enterCloset(cl); return; }
     // then the wall under the finger, if it is close enough to touch
     if (colFace[x] < 0 || zbuf[x] > REACH_WALL || by < colTop[x] || by > colBot[x]) return;
     const cu = colU[x], cv2 = (by - colTop[x]) / (colBot[x] - colTop[x]);
-    if (!S.chalkInf && chalk <= 0) { flash('hudChalkBox'); return; }
+    if (!S.chalkInf && chalk <= 0) { flash('hudChalkBox'); FP_SOUND.empty(); return; }
     pendingMark = { fk: colFace[x], u: Math.max(0.15, Math.min(0.85, cu)), v: Math.max(0.15, Math.min(0.85, cv2)) };
     // early on chalk only makes an X, as in the top-down; once signs are open, you choose
     if (typeof phase === 'function' && phase().f.signs) { $('glyphs').classList.add('show'); } else placeMark('x');
@@ -1119,6 +1208,7 @@
     const k = Math.floor(pendingMark.fk / 4), face = pendingMark.fk % 4;
     chalkSign(decalFor(k, face), glyph, pendingMark.u, pendingMark.v);
     if (!S.chalkInf) chalk--;
+    FP_SOUND.chalkMark();
     pendingMark = null; glyphsOff(); hud();
   }
   function glyphsOff() { $('glyphs').classList.remove('show'); }
@@ -1136,7 +1226,7 @@
     row.innerHTML = `<span>${label}</span><input type="range" min="${lo}" max="${hi}" step="${st}"><b></b>`;
     const inp = row.querySelector('input'), out = row.querySelector('b');
     inp.value = S[k]; out.textContent = fmt(k, S[k]);
-    inp.addEventListener('input', () => { S[k] = +inp.value; out.textContent = fmt(k, S[k]); saveS(); if (k === 'res') resize(); if (k === 'gapW') buildSlots(); if (k === 'reach' || k === 'darkHalls') buildLight(); });
+    inp.addEventListener('input', () => { S[k] = +inp.value; out.textContent = fmt(k, S[k]); saveS(); if (k === 'sfxVol') FP_SOUND.setVolume(S.sfxVol); if (k === 'res') resize(); if (k === 'gapW') buildSlots(); if (k === 'reach' || k === 'darkHalls') buildLight(); });
     document.querySelector(`[data-knobs="${sec}"]`).appendChild(row);
     // while a slider is held, the panel steps out of the way: only this row stays, so the change
     // is what you are looking at
@@ -1177,6 +1267,12 @@
   };
   $('resetKnobs').onclick = () => { try { localStorage.removeItem(SKEY); } catch (e) {} location.reload(); };
   $('ver').textContent = 'v' + VERSION + ' · first person';
+
+  // ── sound ─────────────────────────────────────────────────
+  const wake = () => { FP_SOUND.start(S.theme, character && character.name); FP_SOUND.setEnabled(S.sound); };
+  addEventListener('pointerdown', wake, { capture: true, once: true });
+  addEventListener('keydown', wake, { capture: true, once: true });
+  bindSel('optSound', 'sound', () => FP_SOUND.setEnabled(S.sound));
 
   // ── go ────────────────────────────────────────────────────
   let frames = 0, fpsAt = performance.now(), prev = performance.now();

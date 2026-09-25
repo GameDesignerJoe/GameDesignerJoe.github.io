@@ -3,12 +3,13 @@
 `maze/maze-fp.html`. A prototype: walk the top-down's own mazes from inside them.
 
 It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`, `proto.js`,
-`contract.js`) unchanged, then these three:
+`contract.js`, and `audio.js` for the music) unchanged, then these:
 
 | File | What's in it |
 | --- | --- |
 | `config.js` | the defaults for every knob on the gear panel |
 | `textures.js` | all the pixel art, drawn in code, as three looks: **office** (the default — yellow wallpaper, damp carpet, a drop ceiling with fluorescent panels, an EXIT sign), **bleached** (lime plaster with a meander frieze, marble, pilasters, travertine, white haze, a doorway onto the sea) and **dusk** (brick, flagstones, stars) |
+| `sound.js` | what a body in a room makes: footsteps per look (carpet, stone), room tone, lamp hum and flicker crackle, the squeeze's rub, doors, a closet's muffle. The music is the top-down's own `AUDIO`, loaded unchanged |
 | `fp.js` | the raycaster, the walk (the stick, or WASD), things in the world and tapping them, chalk and words on walls, the debug map, the panel |
 
 - **A seed is the same maze in both views.** `?seed=1234` works here as it does top-down.
@@ -27,7 +28,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   only — nothing is written to the top-down's save yet.
 - **Doors and closets.** Doors go where the maze is already open — one-wide passages between two cells,
   mostly room mouths (`doorRoom`, `doorHall`) — so every door is a real way through and the maze under
-  them is unchanged. Tap one within reach to open or shut it; it swings out into the room and stays;
+  them is unchanged. A door sits in a thin plate (`PLATE`) on the tile's edge toward the room: jambs
+  either side of a `DOOR_W` opening, a header over it from `DOOR_H`. Tap one within reach to open or shut it; it swings out into the room and stays;
   `doorsOpen` start open. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
@@ -36,7 +38,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 - **Light.** Every tile has a brightness: ceiling lamps flood out through open floor (`reach`), flickering
   ones take their pools with them, and a look with a sky is lit evenly. Dark halls (the generator's
   darkness plus this view's own, `darkHalls`) sit at `darkLevel`, very dim, the far end showing. Squeezes
-  are dimmed and slow you. All of it blended at tile corners; knobs in the Lighting section.
+  are dimmed, slow you, and hide what is past them (`squeezeVeil`). All of it blended at tile corners; knobs in the Lighting section.
 - **Replacing the art:** each texture is `{ w, h, px: Uint32Array }` (0xAABBGGRR). Decode a
   32×32 PNG into that shape and drop it into a theme in `TEX.themes` — the renderer doesn't care where it came from.
 - **What it draws of the maze so far:** walls, floor, sky, squeezes (a narrow full-height slot

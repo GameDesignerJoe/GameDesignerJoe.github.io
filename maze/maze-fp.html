@@ -115,6 +115,10 @@
   <details data-sec="light"><summary>Lighting</summary>
     <div data-knobs="light"></div>
   </details>
+  <details data-sec="sound"><summary>Sound</summary>
+  <label><span>Sound</span><select id="optSound"><option value="true">On</option><option value="false">Off</option></select></label>
+    <div data-knobs="sound"></div>
+  </details>
   <details data-sec="debug"><summary>Debug</summary>
   <label><span>Chalk</span><select id="optChalkInf"><option value="false">Counted</option><option value="true">Infinite</option></select></label>
     <div data-knobs="debug"></div>
@@ -140,13 +144,16 @@
 <script src="data/config.js"></script>
 <script src="data/phases.js"></script>
 <script src="data/text.js"></script>
+<script src="data/music.js"></script>
 <script src="js/core.js"></script>
 <script src="js/generate.js"></script>
 <script src="js/proto.js"></script>
 <script src="js/contract.js"></script>
+<script src="js/audio.js"></script>
 <!-- First person: its knobs, its pixel art, its renderer -->
 <script src="fp/config.js"></script>
 <script src="fp/textures.js"></script>
+<script src="fp/sound.js"></script>
 <script src="fp/fp.js"></script>
 </body>
 </html>

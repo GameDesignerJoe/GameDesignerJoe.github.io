@@ -4,7 +4,8 @@
 // device (maze.fp.v1) and wins over these; "Reset" puts these back.
 //
 // stepMs and eye come from the Labyrinth slider session (docs/labyrinth/03-technical-design.md).
-// fov 75, res 360, fog 0.11, walk 1.2 and the half-width squeeze are Joe's, from playing this on his phone.
+// fov 75, res 360, fog 0.11, walk 1.2, the half-width squeeze and the lighting (shadow 1, reach 2, darkHalls
+// 0.8, darkLevel 0.1, squeezeSlow 0.35) are Joe's, from playing this on his phone.
 
 const FP_CONFIG = {
   fov: 75,          // degrees, left edge to right edge
@@ -37,12 +38,15 @@ const FP_CONFIG = {
   doorsOpen: 0.2,   // how many of them are standing open when you arrive. Joe: "about 20%"
   closets: 3,       // closets a maze: narrow doors you can step into and look out of
   // lighting
-  shadow: 0.75,     // how much the lighting shows: 0 is flat, 1 is full-strength pools and shadow
-  reach: 4.5,       // how far a ceiling lamp's light carries, in tiles, through open floor
-  darkHalls: 0.25,  // the chance any straight hall of three or more tiles is one of this view's dark ones
-  darkLevel: 0.14,  // how dark a dark hall is: Joe asked for very dim, not black
+  shadow: 1,        // how much the lighting shows: 0 is flat, 1 is full-strength pools and shadow
+  reach: 2,         // how far a ceiling lamp's light carries, in tiles, through open floor
+  darkHalls: 0.8,   // the chance any straight hall of three or more tiles is one of this view's dark ones
+  darkLevel: 0.1,   // how dark a dark hall is: Joe asked for very dim, not black
   squeezeDim: 0.45, // a squeeze is this bright, times the light around it
-  squeezeSlow: 0.6, // and you walk through it at this fraction of your speed
+  squeezeSlow: 0.35, // and you walk through it at this fraction of your speed
+  squeezeVeil: 0.92, // how much of what is past a squeeze is hidden: 1 is black, 0 lets you see through
+  sound: true,      // music and sound
+  sfxVol: 0.9,      // how loud the room is: steps, hum, doors, the squeeze. The music keeps the top-down's own level
   map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
   sec: 'stick',     // which section of the ☰ panel is open
 };
@@ -70,7 +74,9 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   darkLevel: [0, 0.6, 0.02, 'Dark level', 'light'],
   squeezeDim:[0.05, 1, 0.05, 'Squeeze dim', 'light'],
   squeezeSlow:[0.2, 1, 0.05, 'Squeeze slow', 'light'],
+  squeezeVeil:[0, 1, 0.02, 'Squeeze veil', 'light'],
   turnMs:    [80, 600, 10, 'Rails turn ms', 'stick'],
+  sfxVol:    [0, 1.6, 0.05, 'Room volume', 'sound'],
   words:     [0, 8, 1, 'Wall words', 'debug'],
   doorRoom:  [0, 1, 0.05, 'Room doors', 'debug'],
   doorHall:  [0, 0.5, 0.01, 'Hall doors', 'debug'],
