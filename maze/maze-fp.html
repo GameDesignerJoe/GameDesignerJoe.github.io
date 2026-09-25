@@ -20,7 +20,7 @@
   #mini { position: fixed; top: calc(env(safe-area-inset-top) + 12px); right: 12px; display: none; opacity: .85; pointer-events: none; border: 1px solid var(--line); background: #0d0f10aa; }
   #gear { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 10px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: #0d0f1088; cursor: pointer; z-index: 3; }
   #gear svg { width: 24px; height: 24px; }
-  #hint { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 22px); transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: #0d0f10cc; color: var(--dim); text-align: center; max-width: calc(100vw - 32px); box-sizing: border-box; pointer-events: none; transition: opacity 1.2s; }
+  #hint { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 200px); transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: #0d0f10cc; color: var(--dim); text-align: center; max-width: calc(100vw - 32px); box-sizing: border-box; pointer-events: none; transition: opacity 1.2s; }
   #hint b { color: var(--ink); font-weight: normal; }
   #hint.gone { opacity: 0; }
   #panel { position: fixed; top: 0; left: 0; bottom: 0; width: min(340px, 100vw); box-sizing: border-box; padding: calc(env(safe-area-inset-top) + 14px) 16px 20px; background: #0d0f10ee; border-right: 1px solid var(--line); transform: translateX(-102%); transition: transform .22s; z-index: 4; overflow-y: auto; }
@@ -35,6 +35,15 @@
   #panel button, #panel a.btn { background: #1b1a18; color: var(--ink); border: 1px solid #3a3833; border-radius: 8px; padding: 8px 12px; font: inherit; text-decoration: none; cursor: pointer; }
   #panel .meta { color: #7a756b; font-size: 12px; margin-top: 12px; line-height: 1.6; }
   #close { position: absolute; top: calc(env(safe-area-inset-top) + 10px); right: 10px; background: none !important; border: 0 !important; font-size: 18px !important; color: var(--dim) !important; }
+  #stick { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 14px); transform: translateX(-50%); width: 170px; height: 170px; border-radius: 50%; background: rgba(185,180,168,.06); border: 1px solid rgba(185,180,168,.22); touch-action: none; z-index: 2; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: rgba(185,180,168,.18); border: 1px solid rgba(185,180,168,.45); transition: background .12s; pointer-events: none; }
+  #stick.on #knob { background: rgba(185,180,168,.32); }
+  /* on the white theme the stick is drawn dark, or it vanishes into the haze */
+  body[data-theme=bleached] #stick { background: rgba(60,56,48,.07); border-color: rgba(60,56,48,.28); }
+  body[data-theme=bleached] #knob { background: rgba(60,56,48,.16); border-color: rgba(60,56,48,.45); }
+  body[data-theme=bleached] #stick.on #knob { background: rgba(60,56,48,.3); }
+  @media (orientation: landscape) { #stick { left: auto; right: 22px; bottom: calc(env(safe-area-inset-bottom) + 10px); transform: none; width: 150px; height: 150px; } }
+  @media (orientation: landscape) { #hint { bottom: calc(env(safe-area-inset-bottom) + 18px); } }
   #win { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(#f3e6c055, #0d0f10ee 70%); opacity: 0; pointer-events: none; transition: opacity 1.4s; z-index: 5; text-align: center; }
   #win.show { opacity: 1; pointer-events: auto; }
   #win h2 { font-weight: normal; font-size: 34px; margin: 0 0 6px; letter-spacing: .04em; }
@@ -46,12 +55,16 @@
 <canvas id="view"></canvas>
 <canvas id="mini"></canvas>
 <div id="gear"><svg viewBox="0 0 24 24" fill="none" stroke="#b9b4a8" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></div>
-<div id="hint"><b>Tap</b> the middle to step · <b>hold</b> to walk<br><b>Tap</b> a side or <b>swipe</b> to turn · <b>swipe down</b> to turn round</div>
+<div id="stick"><div id="knob"></div></div>
+<div id="hint"><b>Stick</b> to walk and turn<br>or <b>tap</b>, <b>hold</b> and <b>swipe</b> the view to step tile by tile</div>
 <div id="panel">
   <button id="close">✕</button>
   <h1>First person</h1>
   <div class="sub">A prototype. Same seed, same maze as the top-down.</div>
   <div id="knobs"></div>
+  <label><span>Look</span><select id="optTheme"></select></label>
+  <label><span>Stick</span><select id="optStick"><option value="on">On</option><option value="off">Off — taps and swipes only</option></select></label>
+  <label><span>Hall assist</span><select id="optAssist"><option value="true">On — centres you in corridors</option><option value="false">Off — fully free</option></select></label>
   <label><span>Debug map</span><select id="optMap"><option value="off">Off</option><option value="walked">Where I've walked</option><option value="full">Whole maze</option></select></label>
   <label><span>Swipe turns</span><select id="optSwipe"><option value="drag">Drag the view</option><option value="point">Point the way</option></select></label>
   <div class="btns">

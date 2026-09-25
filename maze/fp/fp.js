@@ -9,6 +9,10 @@
 //
 // Draw order, per frame: the sky over the top half and the floor over the bottom, then one wall
 // column per screen column, then any crawl-gap lintels that column passed through, farthest first.
+//
+// Movement is one continuous position and heading. The stick drives it directly, the way the
+// top-down's stick does; taps, swipes and keys glide it to the next tile centre or the next quarter
+// turn. Either can take over from the other at any moment.
 
 (() => {
   const cv = document.getElementById('view'), ctx = cv.getContext('2d', { alpha: false });
@@ -17,9 +21,19 @@
 
   // ── settings ──────────────────────────────────────────────
   const SKEY = 'maze.fp.v1';
-  let S = Object.assign({}, FP_CONFIG, { swipe: 'drag' });
+  let S = Object.assign({}, FP_CONFIG);
   try { Object.assign(S, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch (e) {}
+  if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
   const saveS = () => { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} };
+
+  // ── the look ──────────────────────────────────────────────
+  let T, FR, FG, FB;
+  function applyTheme() {
+    T = TEX.themes[S.theme];
+    const f = TEX.hex(T.fog); FR = f & 0xff; FG = (f >>> 8) & 0xff; FB = (f >>> 16) & 0xff;
+    document.body.dataset.theme = S.theme;
+    if (typeof W !== 'undefined' && wallVar) index();
+  }
 
   // ── the buffer ────────────────────────────────────────────
   let RW = 1, RH = 1, img, buf;
@@ -33,28 +47,27 @@
   addEventListener('resize', resize);
 
   // ── the maze, as the renderer wants it ────────────────────
-  let wallVar, floorVar, low, exitFace, seen;
+  let wallVar = null, floorVar, low, exitFace, seen;
   const HD = [[1, 0], [0, 1], [-1, 0], [0, -1]];   // heading 0 east, 1 south, 2 west, 3 north (y runs down)
   const solid = (x, y) => x < 0 || y < 0 || x >= W || y >= H || !tiles[y][x];
   const hash = (x, y) => { let h = (x * 73856093) ^ (y * 19349663) ^ SEED; h = Math.imul(h ^ (h >>> 13), 0x5bd1e995); return (h ^ (h >>> 15)) >>> 0; };
-  // mostly plain brick, some cracked, some mossy — weighted, not uniform
-  const WALL_PICK = [0, 0, 1, 1, 4, 4, 0, 1, 2, 3, 5, 4];
 
   function index() {
     wallVar = new Uint8Array(W * H); floorVar = new Uint8Array(W * H);
-    low = new Uint8Array(W * H); exitFace = new Uint8Array(W * H); seen = new Uint8Array(W * H);
+    low = new Uint8Array(W * H); exitFace = new Uint8Array(W * H);
+    if (!seen || seen.length !== W * H) seen = new Uint8Array(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const h = hash(x, y);
-      wallVar[y * W + x] = WALL_PICK[h % WALL_PICK.length];
-      floorVar[y * W + x] = (h >>> 8) % TEX.floors.length;
+      wallVar[y * W + x] = T.pick[h % T.pick.length];   // mostly plain, the odd variant — weighted, not uniform
+      floorVar[y * W + x] = (h >>> 8) % T.floors.length;
     }
     // a crawl gap, or the open cell between two gaps of one squeeze: low overhead, you go through bent
     for (const set of [crawlGaps, crawlCells]) for (const k of set) {
       const [x, y] = k.split(',').map(Number);
       if (!solid(x, y)) low[y * W + x] = 1;
     }
-    // the wall at the far end of the exit alley gets the lit doorway: the neighbour of the exit
-    // tile that is wall, with open floor straight behind you as you face it
+    // the wall at the far end of the exit alley gets the doorway: the neighbour of the exit tile
+    // that is wall, with open floor straight behind you as you face it
     for (const [dx, dy] of HD) {
       const fx = exit.x + dx, fy = exit.y + dy, bx = exit.x - dx, by = exit.y - dy;
       if (solid(fx, fy) && !solid(bx, by) && fx >= 0 && fy >= 0 && fx < W && fy < H) exitFace[fy * W + fx] = 1;
@@ -62,19 +75,23 @@
   }
 
   // ── the player ────────────────────────────────────────────
-  const P = { tx: 0, ty: 0, h: 0, ang: 0 };
+  const P = { x: 0, y: 0, a: 0 };
+  const QUARTER = Math.PI / 2;
+  const headingOf = (a) => ((Math.round(a / QUARTER) % 4) + 4) % 4;
   let anim = null, queued = null, holdFwd = false, steps = 0, won = false, lastMoveEnd = -1e9;
+  let vel = 0, walkPhase = 0, bump = null, lastTile = '';
 
   function reset() {
+    seen = new Uint8Array(W * H);
     index();
-    P.tx = Math.floor(start.x); P.ty = Math.floor(start.y);
+    const tx = Math.floor(start.x), ty = Math.floor(start.y);
     // face the longest open run from where you wake, so the first thing you see is a way to go
     let best = 0, bestH = 0;
-    HD.forEach(([dx, dy], h) => { let n = 0; while (!solid(P.tx + dx * (n + 1), P.ty + dy * (n + 1)) && n < 40) n++; if (n > best) { best = n; bestH = h; } });
-    P.h = bestH; P.ang = bestH * Math.PI / 2;
-    anim = null; queued = null; steps = 0; won = false;
+    HD.forEach(([dx, dy], h) => { let n = 0; while (!solid(tx + dx * (n + 1), ty + dy * (n + 1)) && n < 40) n++; if (n > best) { best = n; bestH = h; } });
+    P.x = tx + 0.5; P.y = ty + 0.5; P.a = bestH * QUARTER;
+    anim = null; queued = null; steps = 0; won = false; vel = 0; lastTile = '';
     $('win').classList.remove('show');
-    markSeen();
+    arrive();
     $('seed').textContent = SEED;
     $('who').textContent = (typeof phase === 'function' ? phase().who : '') + (protoMode ? ' · prototype' : '');
     $('topdown').href = 'maze-topdown.html?seed=' + SEED;
@@ -85,12 +102,17 @@
     generate(SEED); reset();
   }
 
-  // what the debug map shows as walked: the tile, and the walls straight round it
-  function markSeen() {
+  // every time the tile underfoot changes: count it, chart it for the debug map, check the door
+  function arrive() {
+    const tx = Math.floor(P.x), ty = Math.floor(P.y), k = tx + ',' + ty;
+    if (k === lastTile) return;
+    if (lastTile) steps++;
+    lastTile = k;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      const x = P.tx + dx, y = P.ty + dy;
+      const x = tx + dx, y = ty + dy;
       if (x >= 0 && y >= 0 && x < W && y < H) seen[y * W + x] = 1;
     }
+    if (tx === exit.x && ty === exit.y) win();
   }
 
   // ── easing ────────────────────────────────────────────────
@@ -103,76 +125,122 @@
     lin: (k) => k,
   };
 
+  // ── stepping: taps, swipes, keys ──────────────────────────
   function act(a) {
     if (won) return;
     if (anim) { queued = a; return; }
     begin(a, performance.now());
   }
   function begin(a, now) {
+    const base = Math.round(P.a / QUARTER) * QUARTER, h = headingOf(P.a);
     if (a === 'left' || a === 'right' || a === 'around') {
       const dh = a === 'left' ? -1 : a === 'right' ? 1 : 2;
-      anim = { kind: 'turn', t0: now, dur: S.turnMs * (a === 'around' ? 1.5 : 1), fa: P.ang, ta: P.ang + dh * Math.PI / 2 };
-      P.h = (P.h + dh + 4) % 4;
+      anim = { kind: 'turn', t0: now, dur: S.turnMs * (a === 'around' ? 1.5 : 1), fa: P.a, ta: base + dh * QUARTER };
       return;
     }
-    const off = { fwd: 0, sright: 1, back: 2, sleft: 3 }[a];
-    const [dx, dy] = HD[(P.h + off) % 4];
-    const nx = P.tx + dx, ny = P.ty + dy;
-    if (solid(nx, ny)) { anim = { kind: 'bump', t0: now, dur: 190, dx, dy }; return; }
+    const [dx, dy] = HD[(h + { fwd: 0, sright: 1, back: 2, sleft: 3 }[a]) % 4];
+    const tx = Math.floor(P.x), ty = Math.floor(P.y), nx = tx + dx, ny = ty + dy;
+    if (solid(nx, ny)) {
+      // left facing a wall at a slant by the stick: square up first, so the next tap means something
+      if (Math.abs(P.a - base) > 0.05) anim = { kind: 'turn', t0: now, dur: S.turnMs * 0.7, fa: P.a, ta: base };
+      else bump = { t0: now, dur: 190, dx, dy };
+      return;
+    }
     const chained = now - lastMoveEnd < 60;
     const keepGoing = a === 'fwd' && holdFwd;
     const ease = chained ? (keepGoing ? 'lin' : 'out') : (keepGoing ? 'in' : 'io');
-    anim = { kind: 'move', t0: now, dur: S.stepMs, fx: P.tx, fy: P.ty, tx: nx, ty: ny, ease, a };
-    P.tx = nx; P.ty = ny;
+    // from wherever you actually are — the stick may have left you off-centre and off-square — to
+    // the middle of the next tile, straightening up on the way
+    anim = { kind: 'move', t0: now, dur: S.stepMs * Math.max(0.5, Math.hypot(nx + 0.5 - P.x, ny + 0.5 - P.y)), fx: P.x, fy: P.y, tx: nx + 0.5, ty: ny + 0.5, fa: P.a, ta: base, ease };
   }
 
-  function update(now) {
-    if (anim) {
+  function stepAnim(now) {
+    if (anim && anim.kind === 'move' && (anim.ease === 'lin' || anim.ease === 'in') && !holdFwd && queued !== 'fwd') {
       // let go of a held walk mid-glide: turn the rest of this tile into a settle rather than a stop
-      if (anim.kind === 'move' && (anim.ease === 'lin' || anim.ease === 'in') && !holdFwd && queued !== 'fwd') {
-        const k = Math.min(1, (now - anim.t0) / anim.dur), e = EASE[anim.ease](k);
-        const cx = anim.fx + (anim.tx - anim.fx) * e, cy = anim.fy + (anim.ty - anim.fy) * e;
-        const rest = Math.hypot(anim.tx - cx, anim.ty - cy);
-        if (rest > 0.02) anim = Object.assign({}, anim, { fx: cx, fy: cy, t0: now, dur: Math.max(60, rest * S.stepMs), ease: 'out', settle: 1 });
-      }
-      if (now - anim.t0 >= anim.dur) {
-        const done = anim; anim = null;
-        if (done.kind === 'turn') P.ang = done.ta;
-        if (done.kind === 'move') {
-          steps++; lastMoveEnd = now; markSeen();
-          if (P.tx === exit.x && P.ty === exit.y) { win(); return; }
-        }
-      }
+      const rest = Math.hypot(anim.tx - P.x, anim.ty - P.y);
+      if (rest > 0.02) anim = Object.assign({}, anim, { fx: P.x, fy: P.y, fa: P.a, t0: now, dur: Math.max(60, rest * S.stepMs), ease: 'out' });
     }
-    if (!anim) {
+    if (anim) {
+      const k = Math.min(1, (now - anim.t0) / anim.dur);
+      if (anim.kind === 'turn') P.a = anim.fa + (anim.ta - anim.fa) * EASE.io(k);
+      else {
+        const e = EASE[anim.ease](k);
+        P.x = anim.fx + (anim.tx - anim.fx) * e; P.y = anim.fy + (anim.ty - anim.fy) * e;
+        P.a = anim.fa + (anim.ta - anim.fa) * Math.min(1, e * 1.6);
+      }
+      if (k >= 1) { if (anim.kind === 'move') lastMoveEnd = now; anim = null; }
+    }
+    if (!anim && !won) {
       if (queued) { const q = queued; queued = null; begin(q, now); }
       else if (holdFwd) begin('fwd', now);
     }
   }
 
-  // where the eye is this frame: [x, y, angle, bob px]
-  function camera(now) {
-    let x = P.tx + 0.5, y = P.ty + 0.5, a = P.ang, bob = 0;
-    if (anim) {
-      const k = Math.min(1, (now - anim.t0) / anim.dur);
-      if (anim.kind === 'turn') a = anim.fa + (anim.ta - anim.fa) * EASE.io(k);
-      else if (anim.kind === 'move') {
-        const e = EASE[anim.ease](k);
-        x = anim.fx + 0.5 + (anim.tx - anim.fx) * e; y = anim.fy + 0.5 + (anim.ty - anim.fy) * e;
-        // one dip per tile walked. A settle is the tail of a step already dipped, so it doesn't
-        bob = anim.settle ? 0 : Math.sin(Math.PI * e) * S.bob;
-      } else if (anim.kind === 'bump') {
-        const b = Math.sin(Math.PI * k) * 0.14;
-        x += anim.dx * b; y += anim.dy * b; bob = -Math.sin(Math.PI * k) * S.bob * 0.6;
-      }
+  // ── the stick ─────────────────────────────────────────────
+  // Up walks forward, down backs off, sideways turns — diagonals do both, so you can take a corner
+  // in one sweep of the thumb. Like the top-down's "rails in halls, free in rooms": in a corridor it
+  // quietly pulls you to the middle and squares you up to the hall while you aren't turning, so a
+  // one-tile hall never feels like scraping along a wall. In a room it leaves you alone.
+  const stick = { on: false, x: 0, y: 0 };
+  const RAD = 0.2;   // how wide you are, in tiles
+  const blocked = (x, y) => solid(Math.floor(x - RAD), Math.floor(y - RAD)) || solid(Math.floor(x + RAD), Math.floor(y - RAD))
+    || solid(Math.floor(x - RAD), Math.floor(y + RAD)) || solid(Math.floor(x + RAD), Math.floor(y + RAD));
+  function stickMove(dt) {
+    const mag = Math.hypot(stick.x, stick.y), dz = CONFIG.stickDeadzone;
+    const live = stick.on && mag > dz;
+    let want = 0, turn = 0;
+    if (live) {
+      anim = null; queued = null; holdFwd = false;
+      const k = Math.min(1, (mag - dz) / (1 - dz)) / mag;   // deadzone taken out, so the edge of it is zero, not a jump
+      const sx = stick.x * k, sy = stick.y * k;
+      want = -sy * S.walk;
+      turn = Math.sign(sx) * Math.abs(sx) ** 1.6;   // gentle near the middle, quick at the rim
     }
-    return [x, y, a, bob];
+    vel += (want - vel) * Math.min(1, dt * 10);
+    if (Math.abs(vel) < 0.001 && !live) { vel = 0; return; }
+    P.a += turn * S.stickTurn * Math.PI / 180 * dt;
+
+    const tx = Math.floor(P.x), ty = Math.floor(P.y);
+    const ew = !solid(tx - 1, ty) || !solid(tx + 1, ty), ns = !solid(tx, ty - 1) || !solid(tx, ty + 1);
+    const hall = S.assist && ew !== ns;   // open along one axis only: a corridor
+    if (hall && Math.abs(turn) < 0.05 && Math.abs(vel) > 0.05) {
+      // square up to the hall: whichever way along it you're more nearly facing
+      const axis = ew ? (Math.cos(P.a) >= 0 ? 0 : Math.PI) : (Math.sin(P.a) >= 0 ? QUARTER : -QUARTER);
+      let d = axis - P.a; d = Math.atan2(Math.sin(d), Math.cos(d));
+      if (Math.abs(d) < 0.7) P.a += d * Math.min(1, dt * 5);
+    }
+    const mx = Math.cos(P.a) * vel * dt, my = Math.sin(P.a) * vel * dt;
+    if (!blocked(P.x + mx, P.y)) P.x += mx;
+    if (!blocked(P.x, P.y + my)) P.y += my;
+    if (hall) {   // and to the middle of it
+      const pull = Math.min(1, dt * 6 * Math.abs(vel));
+      if (ew) P.y += (ty + 0.5 - P.y) * pull; else P.x += (tx + 0.5 - P.x) * pull;
+    }
+  }
+
+  // ── the frame's view ──────────────────────────────────────
+  let lastX = 0, lastY = 0;
+  function update(now, dt) {
+    if (won) return;
+    stickMove(dt);
+    stepAnim(now);
+    // one dip of the head per tile walked, however you walked it; standing still, it settles
+    const moved = Math.hypot(P.x - lastX, P.y - lastY); lastX = P.x; lastY = P.y;
+    if (moved > 0.0005) walkPhase += moved; else walkPhase += (Math.round(walkPhase) - walkPhase) * Math.min(1, dt * 8);
+    arrive();
+  }
+  function camera(now) {
+    let x = P.x, y = P.y, bob = Math.sin(Math.PI * walkPhase) * S.bob;
+    if (bump) {
+      const k = (now - bump.t0) / bump.dur;
+      if (k >= 1) bump = null;
+      else { const b = Math.sin(Math.PI * k) * 0.14; x += bump.dx * b; y += bump.dy * b; bob -= Math.sin(Math.PI * k) * S.bob * 0.6; }
+    }
+    return [x, y, P.a, Math.abs(bob)];
   }
 
   // ── drawing ───────────────────────────────────────────────
-  const FOG = TEX.palette.hex('#15141d');
-  const FR = FOG & 0xff, FG = (FOG >>> 8) & 0xff, FB = (FOG >>> 16) & 0xff;
-  // a colour, dimmed by `lit` (the side walls are a little darker, the undersides more), then faded
+  // a colour, dimmed by `lit` (the side walls a little darker, the undersides more), then faded
   // toward the fog by `f` (1 near, 0 lost)
   function shade(c, f, lit) {
     const k = f * lit;
@@ -190,8 +258,9 @@
     const tanH = Math.tan(S.fov * Math.PI / 360), D = (RW / 2) / tanH;
     const hor = RH / 2 + bob, eye = S.eye, gapH = S.gapH, fog = S.fog;
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
-    const sky = TEX.sky, SW = sky.w, SH = sky.h, SP = sky.px;
-    const walls = TEX.walls, floors = TEX.floors, wood = TEX.wood.px, exitT = TEX.exit;
+    const sky = T.sky, SW = sky.w, SH = sky.h, SP = sky.px;
+    const walls = T.walls, floors = T.floors, beam = T.lintel.px, under = T.under.px, exitT = T.exit;
+    const side = T.side, underLit = T.underLit;
 
     // sky: a wrapped panorama, turning with you
     const horI = Math.max(0, Math.min(RH, Math.ceil(hor)));
@@ -226,29 +295,29 @@
       const stX = rx < 0 ? -1 : 1, stY = ry < 0 ? -1 : 1;
       let sdx = rx < 0 ? (px - mx) * ddx : (mx + 1 - px) * ddx;
       let sdy = ry < 0 ? (py - my) * ddy : (my + 1 - py) * ddy;
-      let n = 0, side = 0, perp = 64;
+      let n = 0, sd = 0, perp = 64;
       if (!solid(mx, my) && low[my * W + mx]) { pE[0] = 0; pX[0] = Math.min(sdx, sdy); pT[0] = my * W + mx; pS[0] = 0; pU[0] = 0; n = 1; }
       for (let i = 0; i < 128; i++) {
-        if (sdx < sdy) { sdx += ddx; mx += stX; side = 0; } else { sdy += ddy; my += stY; side = 1; }
-        const entry = side === 0 ? sdx - ddx : sdy - ddy;
+        if (sdx < sdy) { sdx += ddx; mx += stX; sd = 0; } else { sdy += ddy; my += stY; sd = 1; }
+        const entry = sd === 0 ? sdx - ddx : sdy - ddy;
         if (solid(mx, my)) { perp = entry; break; }
         const k = my * W + mx;
         if (low[k] && n < MAXP) {
-          let u = side === 0 ? py + entry * ry : px + entry * rx; u -= Math.floor(u);
-          if ((side === 0 && rx > 0) || (side === 1 && ry < 0)) u = 1 - u;
-          pE[n] = entry; pX[n] = Math.min(sdx, sdy); pT[n] = k; pS[n] = side; pU[n] = u; n++;
+          let u = sd === 0 ? py + entry * ry : px + entry * rx; u -= Math.floor(u);
+          if ((sd === 0 && rx > 0) || (sd === 1 && ry < 0)) u = 1 - u;
+          pE[n] = entry; pX[n] = Math.min(sdx, sdy); pT[n] = k; pS[n] = sd; pU[n] = u; n++;
         }
       }
       // the far wall
       {
-        let u = side === 0 ? py + perp * ry : px + perp * rx; u -= Math.floor(u);
-        if ((side === 0 && rx > 0) || (side === 1 && ry < 0)) u = 1 - u;
+        let u = sd === 0 ? py + perp * ry : px + perp * rx; u -= Math.floor(u);
+        if ((sd === 0 && rx > 0) || (sd === 1 && ry < 0)) u = 1 - u;
         const inB = mx >= 0 && my >= 0 && mx < W && my < H;
         const t = inB && exitFace[my * W + mx] ? exitT : walls[inB ? wallVar[my * W + mx] : 0];
         const tu = Math.min(31, (u * 32) | 0);
         const lh = D / perp, top = hor - (1 - eye) * lh, bot = hor + eye * lh;
         const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
-        const f = Math.exp(-fog * perp), lit = side ? 0.78 : 1;
+        const f = Math.exp(-fog * perp), lit = sd ? side : 1;
         for (let y = y0; y < y1; y++) {
           const tv = Math.min(31, ((y + 0.5 - top) / (bot - top) * 32) | 0), ti = tv * 32 + tu;
           buf[y * RW + x] = t.glow && t.glow[ti] ? t.px[ti] : shade(t.px[ti], f, lit);
@@ -262,25 +331,25 @@
         if (e > 0.02) {
           const lh = D / e, top = hor - (1 - eye) * lh, bot = hor + eye * lh, gy = hor - (gapH - eye) * lh;
           const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(gy - 0.5));
-          const f = Math.exp(-fog * e), lit = pS[j] ? 0.78 : 1, tu = Math.min(31, (pU[j] * 32) | 0);
+          const f = Math.exp(-fog * e), lit = pS[j] ? side : 1, tu = Math.min(31, (pU[j] * 32) | 0);
           for (let y = y0; y < y1; y++) {
             const v = (y + 0.5 - top) / (bot - top), hgt = 1 - v;   // how high up the wall this pixel is
             const c = hgt < gapH + 0.07
-              ? wood[(Math.max(0, Math.min(7, ((hgt - gapH) / 0.07 * 8) | 0)) + 12) * 32 + tu]   // the beam along the bottom
+              ? beam[(Math.max(0, Math.min(7, ((hgt - gapH) / 0.07 * 8) | 0)) + 12) * 32 + tu]   // the beam along the bottom
               : wt[Math.min(31, (v * 32) | 0) * 32 + tu];
             buf[y * RW + x] = shade(c, f, lit);
           }
           underTop = y1;
         }
-        // the underside of the timber, seen from below, until the gap's far edge
+        // the underside of the lintel, seen from below, until the gap's far edge
         if (gapH > eye) {
           const yEnd = Math.min(horI, Math.ceil(hor - (gapH - eye) * D / xd - 0.5));
           for (let y = underTop; y < yEnd; y++) {
             const d = (gapH - eye) * D / (hor - (y + 0.5));
             if (d <= 0) continue;
             const wx = px + d * rx, wy = py + d * ry;
-            const c = wood[(((wy - Math.floor(wy)) * 32) | 0) * 32 + (((wx - Math.floor(wx)) * 32) | 0)];
-            buf[y * RW + x] = shade(c, Math.exp(-fog * d), 0.55);
+            const c = under[(((wy - Math.floor(wy)) * 32) | 0) * 32 + (((wx - Math.floor(wx)) * 32) | 0)];
+            buf[y * RW + x] = shade(c, Math.exp(-fog * d), underLit);
           }
         }
       }
@@ -312,7 +381,7 @@
 
   // ── winning ───────────────────────────────────────────────
   function win() {
-    won = true; holdFwd = false; queued = null;
+    won = true; holdFwd = false; queued = null; anim = null; vel = 0;
     $('winSteps').textContent = steps + ' steps';
     $('win').classList.add('show');
   }
@@ -328,12 +397,29 @@
     if (!e.repeat) act(a);
   });
   addEventListener('keyup', (e) => { if (KEYS[e.code] === 'fwd') holdFwd = false; });
-  addEventListener('blur', () => { holdFwd = false; });
+  addEventListener('blur', () => { holdFwd = false; clearStick(); });
 
-  // ── touch ─────────────────────────────────────────────────
+  // ── the stick, on screen ──────────────────────────────────
+  // Same size, place and feel as the top-down's: bottom centre upright, bottom right on its side.
+  const stickEl = $('stick'), knob = $('knob');
+  const KNOB_MAX = 54; let stickId = null;
+  function setStick(cx, cy) {
+    const b = stickEl.getBoundingClientRect();
+    const dx = cx - (b.left + b.width / 2), dy = cy - (b.top + b.height / 2);
+    const len = Math.hypot(dx, dy) || 1, k = Math.min(len, KNOB_MAX);
+    knob.style.transform = `translate(${dx / len * k}px, ${dy / len * k}px)`;
+    stick.x = dx / len * k / KNOB_MAX; stick.y = dy / len * k / KNOB_MAX; stick.on = true;
+  }
+  function clearStick() { stick.on = false; stick.x = stick.y = 0; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
+  stickEl.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); hideHint(); stickId = e.pointerId; stickEl.classList.add('on'); try { stickEl.setPointerCapture(e.pointerId); } catch (err) {} setStick(e.clientX, e.clientY); });
+  stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
+  stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
+  const showStick = () => { stickEl.style.display = S.stick === 'on' ? '' : 'none'; if (S.stick !== 'on') clearStick(); };
+
+  // ── touch on the view ─────────────────────────────────────
   // Tap: left third turns left, right third turns right, the middle steps forward.
-  // Hold anywhere: keep walking. Swipe up: step (and keep walking if you hold). Swipe down: turn
-  // round. Swipe sideways: turn — by default the way a finger drags the view, like every map app.
+  // Hold: keep walking. Swipe up: step (and keep walking if you hold). Swipe down: turn round.
+  // Swipe sideways: turn — by default the way a finger drags the view, like every map app.
   let touch = null;
   cv.addEventListener('pointerdown', (e) => {
     e.preventDefault(); hideHint();
@@ -346,10 +432,8 @@
     const dx = e.clientX - touch.x, dy = e.clientY - touch.y;
     if (Math.hypot(dx, dy) < 28) return;
     touch.done = true; clearTimeout(touch.timer);
-    if (Math.abs(dx) > Math.abs(dy)) {
-      const leftward = dx < 0;
-      act((S.swipe === 'drag') === leftward ? 'right' : 'left');
-    } else if (dy < 0) { holdFwd = true; act('fwd'); }
+    if (Math.abs(dx) > Math.abs(dy)) act((S.swipe === 'drag') === (dx < 0) ? 'right' : 'left');
+    else if (dy < 0) { holdFwd = true; act('fwd'); }
     else act('around');
   });
   const lift = (e) => {
@@ -367,7 +451,7 @@
 
   // ── the gear panel ────────────────────────────────────────
   const rows = $('knobs');
-  const fmt = (k, v) => k === 'fog' || k === 'eye' || k === 'gapH' ? (+v).toFixed(2) : String(v);
+  const fmt = (k, v) => k === 'fog' || k === 'eye' || k === 'gapH' || k === 'walk' ? (+v).toFixed(2) : String(v);
   for (const k of Object.keys(FP_RANGES)) {
     const [lo, hi, st, label] = FP_RANGES[k];
     const row = document.createElement('label');
@@ -377,8 +461,14 @@
     inp.addEventListener('input', () => { S[k] = +inp.value; out.textContent = fmt(k, S[k]); saveS(); if (k === 'res') resize(); });
     rows.appendChild(row);
   }
-  $('optMap').value = S.map; $('optMap').onchange = (e) => { S.map = e.target.value; saveS(); };
-  $('optSwipe').value = S.swipe; $('optSwipe').onchange = (e) => { S.swipe = e.target.value; saveS(); };
+  const themeSel = $('optTheme');
+  for (const [k, th] of Object.entries(TEX.themes)) { const o = document.createElement('option'); o.value = k; o.textContent = th.label; themeSel.appendChild(o); }
+  const bindSel = (id, key, after) => { const el = $(id); el.value = String(S[key]); el.onchange = () => { S[key] = el.value === 'true' ? true : el.value === 'false' ? false : el.value; saveS(); if (after) after(); }; };
+  bindSel('optTheme', 'theme', applyTheme);
+  bindSel('optStick', 'stick', showStick);
+  bindSel('optAssist', 'assist');
+  bindSel('optMap', 'map');
+  bindSel('optSwipe', 'swipe');
   $('gear').onclick = () => $('panel').classList.toggle('open');
   $('close').onclick = () => $('panel').classList.remove('open');
   $('newMaze').onclick = () => { newMaze(); $('panel').classList.remove('open'); };
@@ -386,18 +476,21 @@
   $('ver').textContent = 'v' + VERSION + ' · first person';
 
   // ── go ────────────────────────────────────────────────────
-  let frames = 0, fpsAt = performance.now();
+  let frames = 0, fpsAt = performance.now(), prev = performance.now();
   function frame(now) {
-    update(now);
+    const dt = Math.min(0.05, Math.max(0, (now - prev) / 1000)); prev = now;
+    update(now, dt);
     render(now);
     drawMini(now);
     if (++frames >= 30) { $('fps').textContent = Math.round(frames * 1000 / (now - fpsAt)) + ' fps · ' + RW + '×' + RH; frames = 0; fpsAt = now; }
     requestAnimationFrame(frame);
   }
+  applyTheme();
+  showStick();
   resize();
-  generate(SEED); reset();
+  generate(SEED); reset(); lastX = P.x; lastY = P.y;
   requestAnimationFrame(frame);
 
-  // for the smoke check in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
+  // for the checks in tools/, and for poking at from the console
+  window.FP = { P, S, act, newMaze, stick, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
 })();

@@ -185,15 +185,167 @@ const TEX = (() => {
     return T;
   }
 
+  // ══ bleached: Greek meets the back rooms ═══════════════════
+  // Joe: "a more bleached tile … a liminal space like something from a back rooms style. Think
+  // Greek meets liminal back room space." Lime plaster gone the colour of old paper, a meander
+  // frieze running round every wall at the top, marble skirting, a water stain here and there,
+  // pale travertine underfoot, and a sky that is only haze. The fog is white, not dark: far halls
+  // don't fall into shadow, they wash out — which is most of what makes a place feel liminal.
+  const PLASTER = ramp(['#8f8873', '#a59e88', '#b8b19b', '#c9c2ad', '#d7d1be', '#e2ddcc', '#ebe7da', '#f3f0e6']);
+  const STAIN = ramp(['#a99a68', '#bcae7d', '#cbbf93', '#d6cca5']);
+  const MARBLE = ramp(['#9f9b91', '#b7b3a9', '#cbc8bf', '#dcd9d1', '#e8e6df', '#f2f0ea', '#faf9f5']);
+  const TRAV = ramp(['#978e79', '#ada48e', '#bfb7a1', '#cfc8b3', '#dbd5c3', '#e5e0d0', '#eeeadd']);
+  const AEGEAN = ramp(['#0b2544', '#123a63', '#1a5283', '#2b6d9f', '#4f8dbb', '#86b3d3', '#c4dbe9', '#f4f6f2']);
+  const HAZE = ramp(['#b9c0c2', '#c3c9c9', '#cdd1ce', '#d6d8d2', '#dedfd8', '#e5e3da', '#ebe8dd', '#f0ece0', '#f4f0e4']);
+
+  // soft blotches: a few seeded sine fields summed, for plaster that isn't flat and isn't noisy
+  function field(seed) {
+    const R = rng(seed), waves = [0, 1, 2, 3].map(() => [R() * 6.28, R() * 6.28, 0.15 + R() * 0.35, 0.15 + R() * 0.35]);
+    // integer multiples of 2π/32 so every field tiles seamlessly across wall faces
+    return (x, y) => waves.reduce((a, [p, q, fx, fy], i) => a + Math.sin(x * Math.round(fx * 5) * Math.PI / 16 + p) * Math.cos(y * Math.round(fy * 5) * Math.PI / 16 + q) / (i + 1), 0);
+  }
+  // The meander: one 8×5 unit, repeated. Each spiral hands its baseline to the next.
+  const KEY = ['######..', '#....#..', '#.##.#..', '#..#.#..', '####.###'];
+  function plaster(seed, o = {}) {
+    const R = rng(seed), T = blank(32, 32), F = field(seed);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      let f = 5.3 + F(x, y) * 0.55 + (R() - 0.5) * 0.5;
+      if (y < 11) f += 0.3;   // the band the frieze sits in is kept cleaner
+      T.px[y * 32 + x] = dith(PLASTER, f, x, y);
+    }
+    if (o.stain) {   // damp coming down from somewhere above: a tide line, and a few runs
+      const cx = 4 + R() * 24, top = 13 + R() * 5;
+      for (let y = Math.floor(top); y < 27; y++) for (let x = 0; x < 32; x++) {
+        const d = Math.abs(x - cx) / (6 + (y - top) * 0.9 * o.stain);
+        if (d < 1 && R() < 0.9 - d * 0.5) T.px[y * 32 + x] = dith(STAIN, 2.6 - d * 1.2 + (y - top) * 0.04, x, y);
+      }
+      for (let r = 0; r < 3; r++) { const x = Math.floor(cx + (R() - 0.5) * 10) & 31; for (let y = Math.floor(top) + 4; y < 27; y++) if (R() < 0.85) T.px[y * 32 + x] = STAIN[1]; }
+    }
+    if (o.crack) {
+      let x = Math.floor(8 + R() * 16), y = 11;
+      for (let n = 0; n < 16 && y < 27; n++) { T.px[y * 32 + x] = PLASTER[1]; if (x + 1 < 32) T.px[y * 32 + x + 1] = PLASTER[6]; y++; x = (x + (R() < 0.35 ? -1 : R() < 0.6 ? 1 : 0) + 32) & 31; }
+    }
+    // frieze: a rule, the key, a rule
+    for (let x = 0; x < 32; x++) {
+      T.px[1 * 32 + x] = PLASTER[3]; T.px[2 * 32 + x] = PLASTER[7];
+      T.px[9 * 32 + x] = PLASTER[7]; T.px[10 * 32 + x] = PLASTER[3];
+      for (let r = 0; r < 5; r++) if (KEY[r][x & 7] === '#') { T.px[(r + 3) * 32 + x] = PLASTER[2]; if (r + 4 < 9 && KEY[r + 1] && KEY[r + 1][x & 7] !== '#') T.px[(r + 4) * 32 + x] = PLASTER[6]; }
+    }
+    // skirting: marble, with a lit top edge and a shadow line where it meets the plaster
+    for (let x = 0; x < 32; x++) {
+      T.px[26 * 32 + x] = PLASTER[2];
+      T.px[27 * 32 + x] = MARBLE[6];
+      for (let y = 28; y < 32; y++) T.px[y * 32 + x] = dith(MARBLE, 4.2 - (y - 28) * 0.45 + (R() - 0.5) * 0.6, x, y);
+    }
+    return T;
+  }
+  // ashlar: big pale blocks, veined, set with hairline joints
+  function ashlar(seed) {
+    const R = rng(seed), T = blank(32, 32), tone = {};
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      const row = y >> 4, off = (row & 1) * 16, bx = ((x + off) & 31) >> 4, lx = (x + off) & 15, ly = y & 15;
+      if (ly === 15 || lx === 15) { T.px[y * 32 + x] = MARBLE[1]; continue; }
+      const k = row * 2 + bx; if (tone[k] === undefined) tone[k] = 3.6 + R() * 1.4;
+      let f = tone[k] + (ly === 0 || lx === 0 ? 0.8 : 0) + (ly === 14 || lx === 14 ? -0.7 : 0) + (R() - 0.5) * 0.4;
+      T.px[y * 32 + x] = dith(MARBLE, f, x, y);
+    }
+    for (let v = 0; v < 4; v++) {   // veins: slow diagonal walks
+      let x = R() * 32, y = R() * 32; const dx = (R() - 0.5) * 1.4, dy = 0.6 + R() * 0.5;
+      for (let n = 0; n < 26; n++) { const i = (Math.floor(y) & 31) * 32 + (Math.floor(x) & 31); if (T.px[i] !== MARBLE[1]) T.px[i] = MARBLE[R() < 0.5 ? 1 : 2]; x += dx + (R() - 0.5); y += dy; }
+    }
+    return T;
+  }
+  // a fluted pilaster standing out of the plaster, capital and base — the Greek half, plainly
+  function pilaster(seed) {
+    const T = plaster(seed), R = rng(seed + 9);
+    for (let y = 3; y < 30; y++) for (let x = 0; x < 32; x++) {
+      const cap = y < 8, base = y > 25, half = cap ? 11 : base ? 10 : 8;
+      const d = x - 15.5;
+      if (Math.abs(d) > half) continue;
+      let f;
+      if (cap) f = y === 3 ? 6 : y === 7 ? 1.8 : (y === 5 && Math.abs(Math.abs(d) - 9) < 1.2 ? 1.5 : 4.6);   // abacus, echinus, a volute each side
+      else if (base) f = y === 26 ? 6 : y === 29 ? 2 : 4.2;
+      else { const fl = (Math.floor(d + 16) & 3); f = fl === 0 ? 2.2 : fl === 1 ? 5.4 : 4.4; if (Math.abs(d) > half - 1) f = d > 0 ? 2.4 : 5.6; }
+      T.px[y * 32 + x] = dith(MARBLE, f + (R() - 0.5) * 0.3, x, y);
+    }
+    return T;
+  }
+  // travertine: four pale squares, pitted, with the faint banding the stone is laid down in
+  function travertine(seed, o = {}) {
+    const R = rng(seed), T = blank(32, 32), tone = [0, 1, 2, 3].map(() => 3.4 + R() * 1.5);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      if ((x & 15) === 15 || (y & 15) === 15) { T.px[y * 32 + x] = TRAV[2]; continue; }
+      const q = (x >> 4) + (y >> 4) * 2;
+      let f = (o.checker && (q === 1 || q === 2)) ? tone[q] - 1.3 : tone[q];
+      f += Math.sin((y + q * 5) * 0.9) * 0.25 + (R() - 0.5) * 0.45;
+      if ((x & 15) === 0 || (y & 15) === 0) f += 0.6;
+      T.px[y * 32 + x] = dith(TRAV, f, x, y);
+      if (R() < 0.025) T.px[y * 32 + x] = TRAV[1];   // pits
+    }
+    if (o.stain) { const cx = R() * 32, cy = R() * 32; for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) { const d = Math.hypot(((x - cx + 48) % 32) - 16, ((y - cy + 48) % 32) - 16) / 11; if (d < 1 && R() < 1 - d * 0.6) T.px[y * 32 + x] = dith(STAIN, 3 - d * 1.5, x, y); } }
+    return T;
+  }
+  // the lintel over a gap: a marble beam (rows 12–19 are the ones the renderer reads) and plaster under it
+  function beam(seed) {
+    const R = rng(seed), T = blank(32, 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) T.px[y * 32 + x] = dith(MARBLE, (y === 12 ? 5.8 : y === 19 ? 1.6 : y === 15 ? 2.4 : 3.8) + (R() - 0.5) * 0.5, x, y);
+    return T;
+  }
+  function underPlaster(seed) {
+    const R = rng(seed), T = blank(32, 32), F = field(seed);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) T.px[y * 32 + x] = dith(PLASTER, 4.4 + F(x, y) * 0.4 + (R() - 0.5) * 0.4, x, y);
+    return T;
+  }
+  // The way out, here: a marble doorway onto the sea. Glowing, so the haze never takes it — a hard
+  // blue hole in a white world is the one thing in it that doesn't look like everywhere else.
+  function seaDoor() {
+    const T = plaster(313); T.glow = new Uint8Array(32 * 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      const i = y * 32 + x, d = Math.abs(x - 15.5);
+      if (d < 10.5 && y >= 5 && y < 29) {
+        if (d > 8.5 || y < 7) { T.px[i] = MARBLE[y < 7 ? 6 : d > 9.5 ? 3 : 5]; continue; }
+        const hz = 19;
+        const f = y < hz ? 5.8 - (hz - y) * 0.11 : y === hz ? 7 : 3.2 - (y - hz) * 0.25;
+        T.px[i] = dith(AEGEAN, f, x, y); T.glow[i] = 1;
+      }
+    }
+    return T;
+  }
+  function haze() {
+    const W = 1536, H = 96, T = blank(W, H), R = rng(5151);
+    const cloud = field(77);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let f = (y / (H - 1)) ** 0.9 * (HAZE.length - 1.2);
+      f += cloud(x * 0.25, y * 0.8) * 0.45 * (1 - y / H);
+      T.px[y * W + x] = dith(HAZE, f, x, y);
+    }
+    const sx = 980, sy = 30;   // a sun you can look straight at, which is wrong in the right way
+    for (let y = sy - 14; y <= sy + 14; y++) for (let x = sx - 14; x <= sx + 14; x++) {
+      const d = Math.hypot(x - sx, y - sy);
+      if (d < 5) T.px[y * W + x] = hex('#fbf9f1'); else if (d < 14) T.px[y * W + x] = dith(HAZE, 8.4 - (d - 5) * 0.12, x, y);
+    }
+    return T;
+  }
+
   const t0 = performance.now();
-  const out = {
-    walls: [bricks(11), bricks(23), cracked(31), mossy(47), bricks(59), mossy(61)],
-    floors: [flags(101), flags(103), flagsWorn(107), flags(109)],
-    exit: exitDoor(),
-    wood: planks(211),
-    sky: sky(),
-    palette: { STONE, FLOOR, SKY, LIGHT, hex },
+  const wood = planks(211);
+  const themes = {
+    bleached: {
+      label: 'Bleached (Greek back rooms)',
+      walls: [plaster(11), plaster(23), plaster(31, { stain: 1 }), ashlar(47), pilaster(59), plaster(61, { stain: 0.6, crack: 1 })],
+      pick: [0, 1, 0, 1, 0, 1, 2, 3, 4, 4, 5, 3],
+      floors: [travertine(101), travertine(103, { checker: 1 }), travertine(107), travertine(109, { stain: 1 })],
+      exit: seaDoor(), lintel: beam(211), under: underPlaster(223), sky: haze(),
+      fog: '#e6e1d3', side: 0.86, underLit: 0.8,
+    },
+    dusk: {
+      label: 'Dusk stone',
+      walls: [bricks(11), bricks(23), cracked(31), mossy(47), bricks(59), mossy(61)],
+      pick: [0, 0, 1, 1, 4, 4, 0, 1, 2, 3, 5, 4],
+      floors: [flags(101), flags(103), flagsWorn(107), flags(109)],
+      exit: exitDoor(), lintel: wood, under: wood, sky: sky(),
+      fog: '#15141d', side: 0.78, underLit: 0.55,
+    },
   };
-  out.buildMs = performance.now() - t0;
-  return out;
+  return { themes, hex, buildMs: performance.now() - t0 };
 })();

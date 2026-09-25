@@ -15,6 +15,12 @@ const FP_CONFIG = {
   turnMs: 210,      // a quarter turn
   bob: 1.5,         // head bob, in drawn pixels, over one step
   gapH: 0.62,       // how high a crawl gap's opening is, as a fraction of a wall
+  walk: 2.31,       // tiles a second at full stick — the top-down's own CONFIG.speed
+  stickTurn: 150,   // degrees a second at full stick, sideways
+  theme: 'bleached',// a key of TEX.themes: 'bleached' | 'dusk'
+  stick: 'on',      // 'on' shows the stick; 'off' leaves taps and swipes only
+  assist: true,     // in a corridor, the stick centres you and squares you up to the hall
+  swipe: 'drag',    // 'drag': swipe left turns right, the way a finger drags the view. 'point': the other way
   map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
 };
 
@@ -27,4 +33,6 @@ const FP_RANGES = {   // [min, max, step, label]
   turnMs: [80, 600, 10, 'Turn ms'],
   bob:    [0, 6, 0.5, 'Head bob'],
   gapH:   [0.4, 0.95, 0.01, 'Crawl gap'],
+  walk:   [0.8, 4.5, 0.05, 'Stick walk'],
+  stickTurn: [50, 320, 5, 'Stick turn'],
 };
