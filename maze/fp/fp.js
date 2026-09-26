@@ -199,7 +199,7 @@
       let L = 1 - S.shadow * (1 - Math.min(1, tileL[k]));
       if (dark[k]) L = Math.min(L, S.darkLevel);
       // a room with its lights off is as dim as a dark hall, whatever spills in at the door
-      if (grouped && groupAt[k] >= 0) { const lv = lightGroups[groupAt[k]].lvl; if (lv < 1 && L > S.darkLevel) L = S.darkLevel + (L - S.darkLevel) * lv; }
+      if (grouped && groupAt[k] >= 0) { const g = lightGroups[groupAt[k]], lo = g.pitch ? PITCH : S.darkLevel; if (g.lvl < 1 && L > lo) L = lo + (L - lo) * g.lvl; }
       tileL[k] = L;
     }
     // a corner is the average of the open tiles around it
@@ -353,6 +353,7 @@
     for (let n = 0; n < S.words && ends.length && pool.length; n++)
       picks.push([ends.splice(Math.floor(R() * ends.length), 1)[0], pool.splice(Math.floor(R() * pool.length), 1)[0]]);
     for (const w of startWords) picks.push([w, w.text]);
+    placeChalkPile();
     wordSpots = picks.map(([e, text]) => ({ k: e.k, face: e.face, text }));
     for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
     placeDoors();
@@ -480,7 +481,9 @@
   let lightGroups = [], groupAt = null, switchFace = new Map();
   function placeSwitches(usedFaces) {
     lightGroups = []; switchFace = new Map(); groupAt = new Int16Array(W * H).fill(-1);
+    placeSecret(usedFaces);
     if (!T.ceils) return;
+    const secret = secretSet();
     const R = rng(SEED + 170003), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), comp = new Int32Array(W * H).fill(-1), rooms = [];
     for (let k0 = 0; k0 < W * H; k0++) {
       if (!room[k0] || comp[k0] >= 0) continue;
@@ -492,6 +495,7 @@
     const cands = [];
     rooms.forEach((tiles, ri) => {
       if (!tiles.some((k) => T.ceils[ceilVar[k]].glow && !dark[k])) return;           // nothing to switch
+      if (secret && tiles.some((k) => secret.has(k))) return;                            // the kid's room has its own
       if (tiles.some((k) => Math.abs(k % W - sx0) < 2 && Math.abs(((k / W) | 0) - sy0) < 2)) return;   // not the room you wake in
       // the plate: a mouth tile m next to room tile r; the wall w beside m, seen from the room tile beside r
       const spots = [];
@@ -552,8 +556,9 @@
       while (q.length) { const c = q.pop(), x = c % W, y = (c / W) | 0; for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (inR.has(n) && !blocked.has(n) && !seenT.has(n)) { seenT.add(n); q.push(n); } } }
       return mouths.every((m) => seenT.has(m)) && free.every((t) => seenT.has(t));
     };
+    const secret = secretSet();
     for (const tiles of rooms) {
-      if (tiles.length < 6) continue;
+      if (tiles.length < 6 || (secret && tiles.some((k) => secret.has(k)))) continue;
       const inR = new Set(tiles), gi = groupAt ? groupAt[tiles[0]] : -1;
       const nearMouth = (t) => { const x = t % W, y = (t / W) | 0;
         for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) { const n = yy * W + xx; if (!solid(xx, yy) && !inR.has(n)) return true; } return false; };
@@ -602,6 +607,117 @@
   function drawSwitch(g) {
     const d = decalFor(g.k, g.face), art = TEX.lightSwitch[g.on ? 1 : 0].px;
     for (let i = 0; i < DEC * DEC; i++) if (art[i]) d[i] = art[i];
+  }
+  // ── the kid's room ────────────────────────────────────────
+  // Joe: "I want us to bring over the hidden room and the child's level, the one that is pitch black
+  // until you turn on the light. The one that has all the drawings all over it. Put a pile of chalk
+  // in one corner." The generator already makes it in a Child maze (secretTiles: a room carved out of
+  // dead wall behind one squeeze, the way in a crawl gap), so here it only has to be dressed: it is a
+  // light group of its own, starting off and pitch black rather than dim (PITCH), with its switch
+  // beside the squeeze on the inside — the amber pilot is the only thing you can see in there — and
+  // every wall inside is drawn on in a kid's chalk: noughts and crosses, "dad?", balls, suns, a house,
+  // tallies, stick figures, and on the far wall a man walking away. The top-down draws those on the
+  // floor; up close, they belong on the walls. A look with a sky has no lamps to switch, so there it's
+  // only drawn on.
+  const PITCH = 0.015;
+  const secretSet = () => typeof secretTiles !== 'undefined' && secretTiles.size ? new Set([...secretTiles].map((s) => { const [x, y] = s.split(',').map(Number); return y * W + x; })) : null;
+  function secretWay(set) {   // the squeeze in: a crawl gap beside the room
+    for (const g of crawlGaps) { const [x, y] = g.split(',').map(Number);
+      for (const [dx, dy] of HD) if (set.has((y + dy) * W + x + dx)) return { x, y, rx: x + dx, ry: y + dy }; }
+    return null;
+  }
+  function placeChalkPile() {
+    const set = secretSet(); if (!set) return;
+    const way = secretWay(set); if (!way) return;
+    let best = null, bd = -1;
+    for (const k of set) { const x = k % W, y = (k / W) | 0, walls = HD.filter(([dx, dy]) => solid(x + dx, y + dy)).length, d = Math.abs(x - way.x) + Math.abs(y - way.y);
+      if (walls >= 2 && d > bd && !objs.some((o) => Math.floor(o.x) === x && Math.floor(o.y) === y)) { best = [x, y, HD.filter(([dx, dy]) => solid(x + dx, y + dy))]; bd = d; } }
+    if (!best) return;
+    const [x, y, ws] = best, ox = ws.reduce((a, [dx]) => a + dx, 0) * 0.28, oy = ws.reduce((a, [, dy]) => a + dy, 0) * 0.28;
+    objs.push({ x: x + 0.5 + ox, y: y + 0.5 + oy, kind: 'chalkPile', tex: TEX.sprites.chalkPile, h: 0.1, glow: 0.2 });
+  }
+  function placeSecret(usedFaces) {
+    const set = secretSet(); if (!set) return;
+    const way = secretWay(set), R = rng(SEED + 190001);
+    if (T.ceils && way) {
+      // lamps of its own — one in the middle and one toward each corner — so switching on shows every wall
+      const glowVar = T.ceils.findIndex((c) => c.glow), plain = T.ceils.findIndex((c) => !c.glow);
+      const xs = [...set].map((k) => k % W), ys = [...set].map((k) => (k / W) | 0);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), mx = (x0 + x1) >> 1, my = (y0 + y1) >> 1;
+      const lampAt = new Set([[mx, my], [x0 + 1, y0 + 1], [x1 - 1, y0 + 1], [x0 + 1, y1 - 1], [x1 - 1, y1 - 1]].map(([x, y]) => y * W + x));
+      for (const k of set) if (glowVar >= 0 && plain >= 0) ceilVar[k] = lampAt.has(k) ? glowVar : plain;
+      // the plate: on a wall beside the squeeze, seen from inside
+      const dx = way.x - way.rx, dy = way.y - way.ry;   // from the room tile out to the gap
+      let spot = null;
+      for (const [px, py] of [[-dy, dx], [dy, -dx]]) {
+        const wx = way.x + px, wy = way.y + py, vk = (way.ry + py) * W + way.rx + px;
+        if (solid(wx, wy) && set.has(vk) && !usedFaces.has(faceKey(wy * W + wx, faceTo(dx, dy)))) { spot = { k: wy * W + wx, face: faceTo(dx, dy) }; break; }
+      }
+      if (!spot) {   // no wall beside the gap from inside: the wall you face as you come in
+        let n = 1; while (set.has((way.ry - dy * n) * W + way.rx - dx * n)) n++;
+        const wx = way.rx - dx * n, wy = way.ry - dy * n; if (solid(wx, wy)) spot = { k: wy * W + wx, face: faceTo(-dx, -dy) };
+      }
+      if (spot) {
+        const g = { tiles: [...set], k: spot.k, face: spot.face, on: false, at: -1e9, lvl: 0, pitch: true };
+        const gi = lightGroups.push(g) - 1;
+        for (const k of set) groupAt[k] = gi;
+        switchFace.set(faceKey(g.k, g.face), g); drawSwitch(g);
+      }
+    }
+    // the walls, drawn on
+    const faces = [];
+    for (const k of set) { const x = k % W, y = (k / W) | 0;
+      for (const [dx, dy] of HD) { const wx = x + dx, wy = y + dy, fk = faceKey(wy * W + wx, faceTo(dx, dy));
+        if (solid(wx, wy) && !(way && wx === way.x && wy === way.y) && !switchFace.has(fk) && !usedFaces.has(fk)) faces.push({ k: wy * W + wx, face: faceTo(dx, dy), d: way ? Math.abs(x - way.x) + Math.abs(y - way.y) : 0 }); } }
+    if (!faces.length) return;
+    faces.sort((a, b) => b.d - a.d);
+    const must = ['away', 'ttt', 'dad', 'dad', 'pair'], any = ['x', 'x', 'x', 'figure', 'figure', 'ball', 'ball', 'sun', 'house', 'tally'];
+    faces.forEach((f, i) => {
+      const n = 1 + (R() < 0.55 ? 1 : 0);
+      for (let j = 0; j < n; j++) {
+        const kind = i === 0 && j === 0 ? 'away' : (i < must.length && j === 0 ? must[i] : any[Math.floor(R() * any.length)]);
+        const cu = (j + 0.5) / n + (R() - 0.5) * 0.08, cv = 0.5 + R() * 0.18;   // at a kid's height
+        kidChalk(decalFor(f.k, f.face), kind, cu * DEC, cv * DEC, R);
+      }
+    });
+  }
+  // a child's chalk on a wall: wobbly lines in white and the coloured sticks
+  const KID_CHALK = ['#ece7da', '#ece7da', '#e8a4b6', '#9cc2e4', '#eedf8c'].map((c) => TEX.hex(c));
+  // drawn about the origin and scaled up by KZ onto the wall, in strokes two pixels wide, so a drawing
+  // is big enough to read from across the room
+  const KZ = 1.9;
+  function kidChalk(d, kind, CX, CY, R) {
+    const col = KID_CHALK[Math.floor(R() * KID_CHALK.length)], cx = 0, cy = 0;
+    const dot = (x, y) => { const X = Math.round(CX + x * KZ), Y = Math.round(CY + y * KZ);
+      for (let yy = 0; yy < 2; yy++) for (let xx = 0; xx < 2; xx++) if (X + xx >= 0 && X + xx < DEC && Y + yy >= 0 && Y + yy < DEC && R() < 0.85) d[(Y + yy) * DEC + X + xx] = col; };
+    const line = (x0, y0, x1, y1) => { const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 1.2)); for (let i = 0; i <= n; i++) dot(x0 + (x1 - x0) * i / n + (R() - 0.5) * 0.5, y0 + (y1 - y0) * i / n + (R() - 0.5) * 0.5); };
+    const ring = (x, y, r) => { const n = Math.ceil(r * 6); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; dot(x + Math.cos(a) * r, y + Math.sin(a) * r); } };
+    const stick = (x, y, s, stride) => {   // a stick figure standing at (x, y) = its feet
+      ring(x, y - s * 1.75, s * 0.28); line(x, y - s * 1.45, x, y - s * 0.6);
+      line(x, y - s * 1.2, x - s * 0.45, y - s * 0.85); line(x, y - s * 1.2, x + s * 0.45, y - s * 0.85);
+      line(x, y - s * 0.6, x - s * (stride || 0.35), y); line(x, y - s * 0.6, x + s * (stride || 0.35), y);
+    };
+    if (kind === 'x') { const r = 3 + R() * 2; line(cx - r, cy - r, cx + r, cy + r); line(cx + r, cy - r, cx - r, cy + r); }
+    else if (kind === 'ball') { ring(cx, cy, 3.5 + R() * 2); line(cx - 3, cy + 1, cx + 3, cy - 1); }
+    else if (kind === 'sun') { ring(cx, cy - 4, 3.5); for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; line(cx + Math.cos(a) * 5, cy - 4 + Math.sin(a) * 5, cx + Math.cos(a) * 8, cy - 4 + Math.sin(a) * 8); } }
+    else if (kind === 'house') { line(cx - 6, cy + 5, cx + 6, cy + 5); line(cx - 6, cy + 5, cx - 6, cy - 2); line(cx + 6, cy + 5, cx + 6, cy - 2); line(cx - 7, cy - 2, cx, cy - 8); line(cx, cy - 8, cx + 7, cy - 2); line(cx - 1, cy + 5, cx - 1, cy + 1); line(cx + 2, cy + 5, cx + 2, cy + 1); line(cx - 1, cy + 1, cx + 2, cy + 1); }
+    else if (kind === 'tally') { for (let t = 0; t < 2; t++) { const bx = cx - 7 + t * 9; for (let i = 0; i < 4; i++) line(bx + i * 2, cy - 4, bx + i * 2, cy + 4); line(bx - 1, cy + 3, bx + 7, cy - 3); } }
+    else if (kind === 'figure') stick(cx, cy + 6, 6);
+    else if (kind === 'pair') { stick(cx - 5, cy + 7, 7); stick(cx + 5, cy + 7, 4); line(cx - 1, cy + 1, cx + 3, cy + 3); }   // a big one and a small one, holding hands
+    else if (kind === 'away') {   // the man walking away, mid-stride, and the little one left behind
+      stick(cx + 6, cy + 7, 7, 0.7); stick(cx - 9, cy + 7, 3.5);
+      for (let i = 0; i < 3; i++) dot(cx - 3 + i * 3, cy + 8);
+    }
+    else if (kind === 'ttt') {
+      line(cx - 2, cy - 7, cx - 2, cy + 7); line(cx + 3, cy - 7, cx + 3, cy + 7); line(cx - 7, cy - 2, cx + 8, cy - 2); line(cx - 7, cy + 3, cx + 8, cy + 3);
+      const cells = [[-5, -5], [0, -5], [5, -5], [-5, 0], [0, 0], [5, 0], [-5, 5], [0, 5], [5, 5]];
+      for (let i = 0; i < 6; i++) { const [ex, ey] = cells.splice(Math.floor(R() * cells.length), 1)[0]; if (i & 1) ring(cx + ex + 0.5, cy + ey + 0.5, 1.6); else { line(cx + ex - 1.5, cy + ey - 1.5, cx + ex + 1.5, cy + ey + 1.5); line(cx + ex + 1.5, cy + ey - 1.5, cx + ex - 1.5, cy + ey + 1.5); } }
+    }
+    else if (kind === 'dad') {
+      const word = 'dad?', x0 = Math.round(cx - word.length * 4 / 2 * 1.5);
+      for (let c = 0; c < word.length; c++) { const g = FONT[word[c]]; if (!g) continue;
+        for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) if (g[r * 3 + q] === '#') { dot(x0 + (c * 4 + q) * 1.5, cy - 4 + r * 1.5); dot(x0 + (c * 4 + q) * 1.5 + 0.8, cy - 4 + r * 1.5 + 0.8); } }
+    }
   }
   // on: a tube taking a moment to catch, as they do. Off: at once
   function groupLevel(g, now) {
@@ -689,6 +805,7 @@
   function take(o) {
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now();
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
+    else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
     else if (o.kind === 'page') { pagesFound++; flash('hudPagesBox'); showPage(o.pg); FP_SOUND.page(); }
     hud();

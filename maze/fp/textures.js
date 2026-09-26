@@ -494,6 +494,10 @@ const TEX = (() => {
     // a stub of chalk, and one of charcoal, lying on the floor
     chalk: sprite(['................', '................', '.....wwwwwww....', '....wwwwwwwwW...', '....WwwwwwwWW...', '.....WWWWWWW....'], P),
     charcoal: sprite(['................', '................', '.....ccccccc....', '....cCcccccccc..', '....cccccccCcc..', '.....ccccccc....'], P),
+    // a kid's heap of chalk in a corner, the colours as well as the white: Joe, "Put a pile of chalk in one corner"
+    chalkPile: sprite([
+      '................', '......rr........', '...wwwwwWbb.....', '..yyyywwwWbbbb..', '.wwwwrrrrWwwwww.', 'WWwwwwwWyyyyyWW.'],
+      Object.assign({}, P, { r: hex('#e8a4b6'), b: hex('#9cc2e4'), y: hex('#eedf8c') })),
   };
   // the father, seen from the side, walking right (the renderer mirrors him walking left): a man in a
   // dark coat, two frames of a stride. He is only ever glimpsed, a way off and in passing, so he is a
