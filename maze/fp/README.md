@@ -9,12 +9,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 | --- | --- |
 | `config.js` | the defaults for every knob on the gear panel |
 | `textures.js` | all the pixel art, drawn in code, as three looks: **office** (the default — yellow wallpaper, damp carpet, a drop ceiling with fluorescent panels, an EXIT sign), **bleached** (lime plaster with a meander frieze, marble, pilasters, travertine, white haze, a doorway onto the sea) and **dusk** (brick, flagstones, stars) |
-| `sound.js` | what a body in a room makes: footsteps per look (carpet, stone), room tone, lamp hum and flicker crackle, the squeeze's rub, doors, a closet's muffle. The music is the top-down's own `AUDIO`, loaded unchanged |
+| `sound.js` | what a body in a room makes: picking things up (its own, louder than the top-down's cues), footsteps per look (carpet, stone), room tone, lamp hum and flicker crackle, the squeeze's rub, doors, a closet's muffle. The music is the top-down's own `AUDIO`, loaded unchanged |
 | `fp.js` | the raycaster, the walk (the stick, or WASD), things in the world and tapping them, chalk and words on walls, the debug map, the panel |
 
 - **A seed is the same maze in both views.** `?seed=1234` works here as it does top-down.
 - **Nothing here writes to the top-down's save.** Knobs live under `maze.fp.v1`. The ☰ panel is in
   sections — Look, Stick, Glide help, Lighting, Sound, Maze, Debug — each slider's range and section in `FP_RANGES`.
+  A tap outside the open panel closes it, and does nothing else.
   The Maze section is the top-down's own debug (level, stones, prototype, size, branching, turns, districts,
   loops), written into `SAVE` in memory before each build and never persisted. Sound can pin the music to any self's track (or the pool's) instead of following the chapter.
   Debug adds infinite chalk,
@@ -54,6 +55,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   ones take their pools with them, and a look with a sky is lit evenly. Dark halls (the generator's
   darkness plus this view's own, `darkHalls`) sit at `darkLevel`, very dim, the far end showing. Squeezes
   are dimmed, slow you, and hide what is past them (`squeezeVeil`). All of it blended at tile corners; knobs in the Lighting section.
+- **The way out** ends the maze when you're up against its door (`EXIT_REACH` from the face), not on first
+  setting foot on the exit tile, which was a tile short.
 - **Replacing the art:** each texture is `{ w, h, px: Uint32Array }` (0xAABBGGRR). Decode a
   32×32 PNG into that shape and drop it into a theme in `TEX.themes` — the renderer doesn't care where it came from.
 - **What it draws of the maze so far:** walls, floor, sky, squeezes (a narrow full-height slot

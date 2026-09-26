@@ -67,6 +67,7 @@
   addEventListener('resize', resize);
 
   // ── the maze, as the renderer wants it ────────────────────
+  let exitDir = null;   // which way the exit's doorway faces out of the exit tile
   let wallVar = null, floorVar, ceilVar, low, exitFace, seen, nbm, room, flickers = [], lampLvl;
   const HD = [[1, 0], [0, 1], [-1, 0], [0, -1]];   // heading 0 east, 1 south, 2 west, 3 north (y runs down)
   const solid = (x, y) => x < 0 || y < 0 || x >= W || y >= H || !tiles[y][x];
@@ -74,7 +75,7 @@
 
   function index() {
     wallVar = new Uint8Array(W * H); floorVar = new Uint8Array(W * H);
-    low = new Uint8Array(W * H); exitFace = new Uint8Array(W * H);
+    low = new Uint8Array(W * H); exitFace = new Uint8Array(W * H); exitDir = null;
     ceilVar = new Uint8Array(W * H); nbm = new Uint8Array(W * H); room = new Uint8Array(W * H);
     lampLvl = new Float32Array(W * H).fill(1); flickers = [];
     if (!seen || seen.length !== W * H) seen = new Uint8Array(W * H);
@@ -106,7 +107,7 @@
     // that is wall, with open floor straight behind you as you face it
     for (const [dx, dy] of HD) {
       const fx = exit.x + dx, fy = exit.y + dy, bx = exit.x - dx, by = exit.y - dy;
-      if (solid(fx, fy) && !solid(bx, by) && fx >= 0 && fy >= 0 && fx < W && fy < H) exitFace[fy * W + fx] = 1;
+      if (solid(fx, fy) && !solid(bx, by) && fx >= 0 && fy >= 0 && fx < W && fy < H) { exitFace[fy * W + fx] = 1; exitDir = [dx, dy]; }
     }
   }
 
@@ -557,7 +558,7 @@
   function take(o) {
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now();
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
-    else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.chalkUp(); }
+    else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
     else if (o.kind === 'page') { pagesFound++; flash('hudPagesBox'); showPage(o.pg); FP_SOUND.page(); }
     hud();
   }
@@ -613,7 +614,18 @@
       if (x >= 0 && y >= 0 && x < W && y < H) seen[y * W + x] = 1;
     }
     for (const o of objs.slice()) if (Math.floor(o.x) === tx && Math.floor(o.y) === ty) take(o);
-    if (tx === exit.x && ty === exit.y) win();
+  }
+  // Joe: "I want to get closer to the exit before it stops me. Right now it feels like I'm over a tile
+  // away from it. I wanna get right up to the door." It used to end the moment you set foot on the
+  // exit tile, a tile short of the doorway at its far side. Now it's when you're up against the door:
+  // within EXIT_REACH of its face, which is as near as your body lets you stand, give or take.
+  const EXIT_REACH = 0.3;
+  function checkExit() {
+    if (hidden || Math.floor(P.x) !== exit.x || Math.floor(P.y) !== exit.y) return;
+    if (!exitDir) { win(); return; }
+    const [dx, dy] = exitDir;
+    const gap = dx ? (dx > 0 ? exit.x + 1 - P.x : P.x - exit.x) : (dy > 0 ? exit.y + 1 - P.y : P.y - exit.y);
+    if (gap < EXIT_REACH) win();
   }
 
   // ── easing ────────────────────────────────────────────────
@@ -986,6 +998,7 @@
     sounds(moved, dt);
     if (moved > 0.0005) walkPhase += moved; else walkPhase += (Math.round(walkPhase) - walkPhase) * Math.min(1, dt * 8);
     arrive();
+    checkExit();
   }
   // what walking sounds like: a foot down every STRIDE of ground covered, the hum of whichever lamp
   // is nearest (as bright as it is right now), and the rub of a squeeze while you're moving in one
@@ -1489,6 +1502,13 @@
     for (const k of MAZE_KEYS) bindSel('optM_' + k, 'dbg_' + k, rebuild);
   }
   $('gear').onclick = () => { hideHint(); $('panel').classList.toggle('open'); };
+  // Joe: "When I have a debug window open and I tap outside of it, I want the debug window to close."
+  // That tap only closes it: it doesn't also walk, chalk a wall or open a door behind the panel
+  addEventListener('pointerdown', (e) => {
+    const panel = $('panel');
+    if (!panel.classList.contains('open') || panel.contains(e.target) || $('gear').contains(e.target)) return;
+    panel.classList.remove('open'); e.stopPropagation(); e.preventDefault();
+  }, { capture: true });
   $('close').onclick = () => $('panel').classList.remove('open');
   $('newMaze').onclick = () => { newMaze(); $('panel').classList.remove('open'); };
   // Restart: the same maze, back where you woke. Hard refresh: the latest build from the server and a
@@ -1550,5 +1570,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get father() { return father; }, get lightGroups() { return lightGroups; }, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get lightGroups() { return lightGroups; }, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

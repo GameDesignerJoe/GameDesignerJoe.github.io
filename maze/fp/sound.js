@@ -134,9 +134,25 @@ const FP_SOUND = (() => {
       muffle.frequency.setTargetAtTime(inside ? 650 : 18000, now(), 0.12);
       if (live()) { burst(0.25, { vol: 0.18, freq: 420, q: 1.2, type: 'lowpass' }); burst(0.06, { vol: 0.2, freq: 1600, q: 2, at: inside ? 0.18 : 0.02 }); }
     },
-    // the small things, borrowed from the top-down so they sound the same in both
-    page() { if (live() && typeof AUDIO !== 'undefined') AUDIO.journal(); },
-    chalkUp() { if (live() && typeof AUDIO !== 'undefined') AUDIO.pickupChalk(); },
+    // picking things up. Joe: "I'm not hearing anything when I pick up items." They were the top-down's
+    // own cues, soft enough to vanish under the music and the room here, so this view has its own, on
+    // the room's channel: the thing in your hand first, then a small tone that says you have it
+    page() {
+      if (!live()) return;
+      for (let i = 0; i < 4; i++) burst(0.06 + Math.random() * 0.05, { vol: 0.22 - i * 0.03, freq: 3200 + Math.random() * 2400, q: 0.8, type: 'highpass', at: i * 0.07 });   // the paper
+      tone(523, 0.7, { vol: 0.09, attack: 0.04, at: 0.12 }); tone(784, 0.9, { vol: 0.06, attack: 0.05, at: 0.26 });
+    },
+    chalkUp() {
+      if (!live()) return;
+      burst(0.03, { vol: 0.4, freq: 2600, q: 3 }); burst(0.05, { vol: 0.2, freq: 1300, q: 2, at: 0.03 });   // a stick of chalk off the floor
+      tone(660, 0.2, { type: 'triangle', vol: 0.12, at: 0.05 }); tone(990, 0.3, { type: 'triangle', vol: 0.07, at: 0.11 });
+    },
+    charcoalUp() {
+      if (!live()) return;
+      burst(0.05, { vol: 0.35, freq: 700, q: 1.2, type: 'lowpass' }); burst(0.04, { vol: 0.12, freq: 1800, q: 2, at: 0.02 });   // duller, softer
+      tone(392, 0.25, { type: 'triangle', vol: 0.11, at: 0.05 }); tone(523, 0.3, { type: 'triangle', vol: 0.06, at: 0.12 });
+    },
+    // the rest borrowed from the top-down so they sound the same in both
     chalkMark() { if (live() && typeof AUDIO !== 'undefined') AUDIO.chalkDown(); },
     empty() { if (live() && typeof AUDIO !== 'undefined') AUDIO.chalkEmpty(); },
     // a light switch: the snap of the toggle; on, the starter's tick and the tube catching after it
