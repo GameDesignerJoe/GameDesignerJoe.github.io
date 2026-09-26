@@ -42,6 +42,7 @@ const FP_CONFIG = {
   doorHall: 0.07,   // and any other one-wide passage between two cells
   doorsOpen: 0.2,   // how many of them are standing open when you arrive. Joe: "about 20%"
   closets: 3,       // closets a maze: narrow doors you can step into and look out of
+  furniture: 1,     // how furnished the rooms are: 0 bare, 1 as drawn, 2 cluttered (the office look only)
   switches: 3,      // rooms a maze with a light switch by the way in
   switchOff: 0.65,  // how many of those are dark when you arrive
   father: 2,        // times a maze the father is glimpsed crossing ahead of you. Joe: "once or twice a maze"
@@ -93,5 +94,6 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   closets:   [0, 10, 1, 'Closets', 'debug'],
   father:    [0, 6, 1, 'Father', 'debug'],
   switches:  [0, 8, 1, 'Switches', 'debug'],
+  furniture: [0, 2, 0.1, 'Furniture', 'debug'],
   switchOff: [0, 1, 0.05, 'Rooms dark', 'debug'],
 };

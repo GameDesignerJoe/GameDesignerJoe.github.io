@@ -39,6 +39,12 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
+- **Furniture** (the office look, `furnish` in its theme). Desks with a dead beige CRT and a chair pulled out,
+  couches, filing cabinets, water coolers, plants, boxes, bins, and floor lamps that give a small warm pool (only in
+  rooms whose lights are always on). Flat pictures like Wolfenstein's tables; desk, couch and cabinet have a side
+  view picked by where you stand. Rooms only, against their walls, never beside a way in or out, never on a page, never
+  in front of a switch, closet or words, and each piece is checked to leave every way into its room reaching every
+  other. You bump into them; a tap on one does nothing (and doesn't chalk the wall behind). `furniture` scales it.
 - **Light switches.** `switches` rooms a maze (office look: rooms with lamps) get a plate beside the way in, on the
   inside wall. Tap it: the room's lamps go out, or come back with a fluorescent stutter. `switchOff` of them are dark
   when you arrive, at `darkLevel`; off, the toggle's amber pilot glows so you can find it. In a dark room a page

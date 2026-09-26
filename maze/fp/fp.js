@@ -186,6 +186,7 @@
       else if (flick.has(k)) flickLamps.push({ k, list });
       else for (let i = 0; i < list.length; i += 2) lightBase[list[i]] += list[i + 1];
     }
+    if (furn.length) furnLight(lightBase);
   }
   // this frame's brightness, at tiles and at their corners
   function lightFrame() {
@@ -311,6 +312,7 @@
     placeDoors();
     placeClosets(new Set(picks.map(([e]) => faceKey(e.k, e.face))));
     placeSwitches(new Set(picks.map(([e]) => faceKey(e.k, e.face)).concat(closets.map((c) => faceKey(c.k, c.face)))));
+    placeFurniture();
     buildLight();
     hud();
   }
@@ -466,6 +468,89 @@
       for (const k of c.tiles) groupAt[k] = gi;
       switchFace.set(faceKey(g.k, g.face), g);
       drawSwitch(g);
+    }
+  }
+  // ── furniture ─────────────────────────────────────────────
+  // Joe: "Need furniture in the space as well. Desks, couches, office lamps, water cooler, different
+  // for each theme, but let's start with back rooms theme." Rooms only — a hall is one wide and
+  // anything in it would be a wall — and only against their walls: a piece with a long side (desk,
+  // couch, cabinet) backs onto one wall, the rest go in corners. Never next to a way in or out, never
+  // on a page or a chalk, never in front of a switch, a closet or words, and every piece is checked:
+  // with it in, every way into the room still reaches every other, or it doesn't go in. A floor lamp
+  // gives a pool of light, and only goes in rooms whose lights are always on. `furniture` scales how
+  // much; a look without `furnish` has none. Its own random stream.
+  let furn = [], furnAt = null;
+  const SETS = [['desk', 5], ['couch', 3], ['cabinet', 3], ['cooler', 2], ['plant', 3], ['boxes', 1], ['bin', 1], ['lamp', 2]];
+  function placeFurniture() {
+    furn = []; furnAt = new Uint8Array(W * H);
+    if (!T.furnish || S.furniture <= 0) return;
+    const R = rng(SEED + 180001), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y);
+    const busy = new Set(objs.map((o) => Math.floor(o.y) * W + Math.floor(o.x)));
+    const faceUsed = (k, face) => decals.has(faceKey(k, face)) || switchFace.has(faceKey(k, face));
+    const faceOf = (dx, dy) => dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3;   // the wall at (x+dx, y+dy), seen from (x, y)
+    const comp = new Int32Array(W * H).fill(-1), rooms = [];
+    for (let k0 = 0; k0 < W * H; k0++) {
+      if (!room[k0] || comp[k0] >= 0) continue;
+      const tiles = [k0]; comp[k0] = rooms.length;
+      for (let i = 0; i < tiles.length; i++) { const c = tiles[i], x = c % W, y = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (room[n] && comp[n] < 0 && !solid(x + dx, y + dy)) { comp[n] = rooms.length; tiles.push(n); } } }
+      rooms.push(tiles);
+    }
+    // with these tiles taken, does every way into the room still reach every other?
+    const connected = (tiles, blocked) => {
+      const inR = new Set(tiles), mouths = [];
+      for (const t of tiles) { const x = t % W, y = (t / W) | 0; for (const [dx, dy] of HD) { const n = t + dy * W + dx; if (!solid(x + dx, y + dy) && !inR.has(n)) mouths.push(t); } }
+      const free = tiles.filter((t) => !blocked.has(t));
+      if (!mouths.length || mouths.some((m) => blocked.has(m))) return !mouths.length;
+      const seenT = new Set([mouths[0]]), q = [mouths[0]];
+      while (q.length) { const c = q.pop(), x = c % W, y = (c / W) | 0; for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (inR.has(n) && !blocked.has(n) && !seenT.has(n)) { seenT.add(n); q.push(n); } } }
+      return mouths.every((m) => seenT.has(m)) && free.every((t) => seenT.has(t));
+    };
+    for (const tiles of rooms) {
+      if (tiles.length < 6) continue;
+      const inR = new Set(tiles), gi = groupAt ? groupAt[tiles[0]] : -1;
+      const nearMouth = (t) => { const x = t % W, y = (t / W) | 0;
+        for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) { const n = yy * W + xx; if (!solid(xx, yy) && !inR.has(n)) return true; } return false; };
+      const spots = [];   // { t, walls: [[dx, dy], …] } — tiles on the room's edge, and which sides are wall
+      for (const t of tiles) {
+        const x = t % W, y = (t / W) | 0;
+        if (busy.has(t) || nearMouth(t) || (Math.abs(x - sx0) < 2 && Math.abs(y - sy0) < 2) || (x === exit.x && y === exit.y)) continue;
+        const walls = HD.filter(([dx, dy]) => solid(x + dx, y + dy) && !faceUsed((y + dy) * W + x + dx, faceOf(dx, dy)));
+        if (walls.length) spots.push({ t, x, y, walls });
+      }
+      let n = Math.min(4, Math.round(tiles.length * S.furniture / 8)), blocked = new Set(), tries = 0;
+      while (n > 0 && spots.length && tries++ < 30) {
+        const sp = spots.splice(Math.floor(R() * spots.length), 1)[0];
+        if (blocked.has(sp.t)) continue;
+        const pool = SETS.filter(([name]) => (name !== 'lamp' || gi < 0) && (TEX.furniture[name].wall || sp.walls.length >= 2 || name === 'bin' || name === 'boxes'));
+        let tot = 0; for (const [, w] of pool) tot += w;
+        let r = R() * tot, name = pool[0][0]; for (const [nm, w] of pool) { if ((r -= w) < 0) { name = nm; break; } }
+        const def = TEX.furniture[name], nb = new Set(blocked); nb.add(sp.t);
+        if (!connected(tiles, nb)) continue;
+        blocked = nb; n--;
+        // backed onto a wall: the first wall side; in a corner, tucked into it
+        const [wx, wy] = sp.walls[Math.floor(R() * sp.walls.length)], fx = -wx, fy = -wy;   // it faces out, into the room
+        const [along, depth] = def.box;
+        let x = sp.x + 0.5 + wx * (0.5 - depth - 0.03), y = sp.y + 0.5 + wy * (0.5 - depth - 0.03);
+        const other = sp.walls.find(([ax, ay]) => ax !== wx || ay !== wy);
+        if (other && !def.wall) { x += other[0] * (0.5 - along - 0.05); y += other[1] * (0.5 - along - 0.05); }
+        const hx = wx ? depth : along, hy = wx ? along : depth;
+        furn.push({ x, y, fx, fy, def, name, h: def.h, glow: 0, furn: true, box: [x - hx, y - hy, x + hx, y + hy], tex: def.f });
+        furnAt[sp.t] = 1;
+        if (name === 'desk') {   // and its chair, pulled out a little
+          const cx = x + fx * 0.42, cy = y + fy * 0.42, cd = TEX.furniture.chair, c = cd.box[0];
+          furn.push({ x: cx, y: cy, fx, fy, def: cd, name: 'chair', h: cd.h, glow: 0, furn: true, box: [cx - c, cy - c, cx + c, cy + c], tex: cd.f });
+        }
+      }
+    }
+  }
+  // a floor lamp's pool: small and warm, through open floor like the ceiling's
+  function furnLight(base) {
+    for (const f of furn) {
+      if (!f.def.light) continue;
+      const k = Math.floor(f.y) * W + Math.floor(f.x), seenL = new Map([[k, 0]]), q = [k];
+      while (q.length) { const c = q.shift(), d = seenL.get(c), w = 0.55 * Math.pow(Math.max(0, 1 - d / 2.2), 1.4); if (w <= 0.005) continue; base[c] += w;
+        const x = c % W, y = (c / W) | 0; for (const [dx, dy] of HD) { const nn = c + dy * W + dx; if (!solid(x + dx, y + dy) && !seenL.has(nn)) { seenL.set(nn, d + 1); q.push(nn); } } }
     }
   }
   function drawSwitch(g) {
@@ -725,6 +810,8 @@
       const cx = ax + vx * s2, cy = ay + vy * s2, ex = P.x - cx, ey = P.y - cy, dd = Math.hypot(ex, ey);
       if (dd < RAD && dd > 1e-6) { P.x = cx + ex / dd * RAD; P.y = cy + ey / dd * RAD; }
     }
+    // furniture: a box on the floor, with the same round-body push as a wall
+    for (const f of furn) if (Math.abs(f.x - P.x) < 1.2 && Math.abs(f.y - P.y) < 1.2) push(f.box[0], f.box[1], f.box[2], f.box[3]);
     for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
       if (solid(xx, yy)) { push(xx, yy, xx + 1, yy + 1); continue; }
       const bx = boxesAt(yy * W + xx);
@@ -1302,7 +1389,8 @@
   function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
     drawn.length = 0;
     const det = dX * plY - dY * plX, list = [];
-    for (const o of father ? objs.concat(father) : objs) {
+    const all = furn.length || father ? objs.concat(furn, father ? [father] : []) : objs;
+    for (const o of all) {
       const rx = o.x - px, ry = o.y - py;
       const depth = (rx * plY - ry * plX) / det, cam = (dX * ry - dY * rx) / det / depth;   // along the view, and across it
       if (depth < 0.15 || Math.abs(cam) > 1.6) continue;
@@ -1310,6 +1398,8 @@
     }
     list.sort((a, b) => b.depth - a.depth);   // far first, so near ones cover
     for (const { o, depth, cam } of list) {
+      // a piece with a side view shows it when you're more beside it than in front
+      if (o.furn && o.def.s) { const vx = px - o.x, vy = py - o.y, vl = Math.hypot(vx, vy) || 1; o.tex = (vx * o.fx + vy * o.fy) / vl > 0.55 ? o.def.f : o.def.s; }
       const t = o.tex, sc = D / depth, hPx = o.h * sc, wPx = hPx * t.w / t.h;
       const floorY = hor + eye * sc, y0 = floorY - hPx, xc = (cam + 1) / 2 * RW;
       const x0 = Math.round(xc - wPx / 2), x1 = Math.round(xc + wPx / 2);
@@ -1318,7 +1408,7 @@
       const glow = gi >= 0 ? o.glow * lightGroups[gi].lvl : o.glow;   // but not in a room with its lights off
       const L = Math.max(glow, tileL[ty0 * W + tx0]);   // a page catches what light there is; it is meant to be found
       // the father walks: drawn facing the way he's going across the screen, and he goes by thinning out
-      const ghost = !!o.ghost, flip = ghost && !o.back && o.vx * plX + o.vy * plY < 0;
+      const ghost = !!o.ghost, flip = ghost ? !o.back && o.vx * plX + o.vy * plY < 0 : o.furn && o.tex === o.def.s && o.fx * plX + o.fy * plY < 0;
       let any = false;
       for (let x = Math.max(0, x0); x < Math.min(RW, x1); x++) {
         if (zbuf[x] < depth) continue;
@@ -1327,12 +1417,13 @@
         if (flip) tu = t.w - 1 - tu;
         for (let y = Math.max(0, Math.ceil(y0)); y < Math.min(RH, Math.ceil(floorY)); y++) {
           const c = t.px[Math.min(t.h - 1, ((y - y0) / hPx * t.h) | 0) * t.w + tu];
-          if (c && (!ghost || DITH[(y & 3) * 4 + (x & 3)] < o.alpha)) buf[y * RW + x] = shade(c, f, 1, L);
+          if (c && (!ghost || DITH[(y & 3) * 4 + (x & 3)] < o.alpha)) buf[y * RW + x] = c >>> 24 === 0xfe ? shade(c | 0xff000000, Math.sqrt(f), 1, 1) : shade(c, f, 1, L);
         }
       }
       if (ghost) continue;   // the father is seen, never touched
       // a generous target, well past the picture on every side: fingers are wide and things are small
-      if (any) drawn.push({ o, x0: x0 - wPx * 0.6, x1: x1 + wPx * 0.6, y0: y0 - hPx - 10, y1: floorY + hPx + 14, depth });
+      if (any && o.furn) drawn.push({ o, x0, x1, y0, y1: floorY, depth });
+      else if (any) drawn.push({ o, x0: x0 - wPx * 0.6, x1: x1 + wPx * 0.6, y0: y0 - hPx - 10, y1: floorY + hPx + 14, depth });
     }
   }
 
@@ -1418,7 +1509,7 @@
     // a thing first: the nearest one under the finger
     let hit = null;
     for (const d of drawn) if (bx >= d.x0 - 6 && bx <= d.x1 + 6 && by >= d.y0 && by <= d.y1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
-    if (hit) { take(hit.o); return; }
+    if (hit) { if (!hit.o.furn) take(hit.o); return; }   // furniture: nothing, but not the wall behind it either
     const x = Math.max(0, Math.min(RW - 1, bx | 0));
     if (hidden) return;   // from inside a closet you can only step out
     // a door under the finger: open it, or shut it
@@ -1570,5 +1661,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get lightGroups() { return lightGroups; }, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

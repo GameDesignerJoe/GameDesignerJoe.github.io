@@ -456,6 +456,7 @@ const TEX = (() => {
       ceilPick: [0, 4, 1, 4, 0, 0, 4, 2, 1, 3, 4, 0],
       exit: exitSign(), lintel: wallpaper(401), under: acoustic(403), sky: null,
       fog: '#8f8762', side: 0.84, underLit: 0.8, ao: 0.78,
+      furnish: true,   // gets the furniture below
       ambient: 0.3, lampPower: 1.1,   // lit by its own lamps: this much light with none nearby, and each lamp's strength
     },
     bleached: {
@@ -572,5 +573,102 @@ const TEX = (() => {
     if (!on) { const pilot = (hex('#f0a040') & 0x00ffffff) | 0xfe000000; T.px[29 * 64 + 32] = pilot; T.px[30 * 64 + 32] = pilot; }
     return T;
   }
-  return { themes, sprites, door: doorLeaf(), closet: closetFace(), lightSwitch: [switchPlate(false), switchPlate(true)], hex, buildMs: performance.now() - t0 };
+  // ── furniture, for the back rooms ───────────────────────────
+  // Joe: "Need furniture in the space as well. Desks, couches, office lamps, water cooler, different
+  // for each theme, but let's start with back rooms theme." Flat pictures like the pages, the way
+  // Wolfenstein did its tables and lamps; the ones with a long side (desk, couch, cabinet) have a
+  // front and a side, and the renderer picks by where you stand. Tired office stock: laminate gone
+  // yellow, grey steel, a couch in a green nobody chose. A pixel with alpha 0xfe is its own light
+  // (the lamp's shade), as on the walls.
+  const furniture = (() => {
+    const E = (c) => (hex(c) & 0x00ffffff) | 0xfe000000;
+    const paint = (w, h, fn) => {
+      const T = blank(w, h), R = rng(w * 131 + h * 7);
+      const set = (x, y, c) => { if (x >= 0 && y >= 0 && x < w && y < h) T.px[y * w + x] = typeof c === 'string' ? hex(c) : c; };
+      const rect = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, c); };
+      fn({ set, rect, R }); return T;
+    };
+    const LAM = ['#c4b99c', '#a99f84', '#8a816a', '#655e4d'], STEEL = ['#9a9b95', '#7b7c77', '#5d5e5a', '#3f403d'];
+    const FAB = ['#7a9484', '#5f7a6c', '#4b6356', '#374a40'], BEIGE = ['#d3ccb6', '#b7af98', '#958d77'];
+    const monitor = (p, x0, side) => {   // a beige CRT on the desk, its screen dead
+      if (side) { p.rect(x0, 1, x0 + 8, 8, BEIGE[1]); p.rect(x0, 1, x0 + 2, 8, BEIGE[0]); p.rect(x0 + 3, 9, x0 + 5, 9, BEIGE[2]); return; }
+      p.rect(x0, 0, x0 + 11, 8, BEIGE[0]); p.rect(x0 + 2, 1, x0 + 9, 6, '#1f2624'); p.rect(x0 + 3, 2, x0 + 4, 3, '#33403c');
+      p.rect(x0, 8, x0 + 11, 8, BEIGE[2]); p.rect(x0 + 4, 9, x0 + 7, 9, BEIGE[1]);
+    };
+    const deskF = paint(32, 22, (p) => {
+      monitor(p, 10, false);
+      p.rect(0, 10, 31, 10, LAM[0]); p.rect(0, 11, 31, 11, LAM[2]);
+      p.rect(1, 12, 2, 21, STEEL[2]); p.rect(3, 12, 19, 17, LAM[1]); p.rect(3, 17, 19, 17, LAM[2]);
+      p.rect(20, 12, 30, 21, LAM[1]); p.rect(20, 12, 20, 21, LAM[2]); p.rect(30, 12, 30, 21, LAM[3]);
+      for (const y of [15, 18]) p.rect(21, y, 29, y, LAM[3]);
+      for (const y of [13, 16, 19]) p.rect(24, y, 26, y, STEEL[0]);
+    });
+    const deskS = paint(14, 22, (p) => {
+      monitor(p, 3, true);
+      p.rect(0, 10, 13, 10, LAM[0]); p.rect(0, 11, 13, 11, LAM[2]);
+      p.rect(0, 12, 1, 21, STEEL[2]); p.rect(2, 12, 11, 21, LAM[2]); p.rect(12, 12, 13, 21, STEEL[3]);
+    });
+    const chair = paint(12, 16, (p) => {
+      p.rect(2, 0, 9, 6, '#3d4247'); p.rect(3, 1, 8, 5, '#4a5056'); p.rect(1, 7, 10, 9, '#353a3f'); p.rect(1, 7, 10, 7, '#4a5056');
+      p.rect(5, 10, 6, 13, STEEL[1]); p.rect(1, 14, 10, 14, STEEL[3]); for (const x of [1, 5, 6, 10]) p.set(x, 15, '#1c1d1c');
+    });
+    const couchF = paint(32, 14, (p) => {
+      p.rect(3, 0, 28, 6, FAB[1]); p.rect(3, 0, 28, 0, FAB[0]); p.rect(15, 1, 16, 6, FAB[3]);
+      p.rect(0, 2, 3, 11, FAB[2]); p.rect(28, 2, 31, 11, FAB[2]); p.rect(0, 2, 3, 2, FAB[1]); p.rect(28, 2, 31, 2, FAB[1]);
+      p.rect(4, 7, 27, 10, FAB[1]); p.rect(4, 7, 27, 7, FAB[0]); p.rect(15, 7, 16, 10, FAB[3]);
+      p.rect(0, 11, 31, 12, FAB[3]); for (const x of [1, 2, 29, 30]) p.set(x, 13, '#3a2c20');
+      for (let i = 0; i < 40; i++) p.set(4 + (p.R() * 24 | 0), 1 + (p.R() * 9 | 0), FAB[2]);   // wear
+    });
+    const couchS = paint(14, 14, (p) => {
+      p.rect(0, 0, 4, 10, FAB[1]); p.rect(0, 0, 4, 0, FAB[0]); p.rect(5, 6, 13, 10, FAB[1]); p.rect(5, 6, 13, 6, FAB[0]);
+      p.rect(8, 3, 13, 10, FAB[2]); p.rect(8, 3, 13, 3, FAB[1]); p.rect(0, 11, 13, 12, FAB[3]); for (const x of [1, 12]) p.set(x, 13, '#3a2c20');
+    });
+    const lamp = paint(10, 32, (p) => {
+      for (let y = 0; y <= 8; y++) { const a = 2 - (y >> 2), b = 7 + (y >> 2); for (let x = a; x <= b; x++) p.set(x, y, y === 8 ? hex('#b8975c') : E(y < 2 ? '#fbe7b8' : '#f3d596')); }
+      p.rect(4, 9, 5, 29, '#3d3a35'); p.rect(2, 30, 7, 31, '#2d2a26'); p.rect(3, 30, 6, 30, '#4a4640');
+    });
+    const cooler = paint(10, 24, (p) => {
+      p.rect(2, 1, 7, 8, '#6a9fb6'); p.rect(3, 1, 3, 8, '#9cc6d6'); p.rect(2, 0, 7, 0, '#4d7f96'); p.rect(4, 9, 5, 9, '#4d7f96');
+      p.rect(1, 10, 8, 23, '#dedad0'); p.rect(8, 10, 8, 23, '#b8b4a8'); p.rect(1, 10, 8, 10, '#eeebe3');
+      p.set(3, 13, '#2f5f96'); p.set(6, 13, '#a33a32'); p.rect(2, 16, 7, 16, '#8a8a86'); p.rect(1, 23, 8, 23, '#9d998e');
+    });
+    const cabF = paint(12, 24, (p) => {
+      p.rect(0, 0, 11, 23, STEEL[1]); p.rect(0, 0, 11, 0, STEEL[0]); p.rect(11, 0, 11, 23, STEEL[2]);
+      for (const y of [5, 11, 17]) p.rect(0, y, 11, y, STEEL[3]);
+      for (const y of [2, 8, 14, 20]) { p.rect(4, y, 7, y, STEEL[3]); p.rect(4, y - 1, 7, y - 1, '#c9c7bb'); }
+    });
+    const cabS = paint(9, 24, (p) => {   // its flank: the drawer fronts showing edge-on down the front, a lip on top
+      p.rect(0, 0, 8, 23, STEEL[2]); p.rect(0, 0, 8, 0, STEEL[1]); p.rect(7, 0, 8, 23, STEEL[1]);
+      for (const y of [5, 11, 17]) p.rect(6, y, 8, y, STEEL[3]);
+      for (const y of [2, 8, 14, 20]) p.set(8, y, STEEL[0]);
+      p.rect(0, 23, 8, 23, STEEL[3]);
+    });
+    const plant = paint(14, 20, (p) => {
+      p.rect(2, 12, 11, 13, '#7a4c30'); p.rect(3, 14, 10, 19, '#8a5a3c'); p.rect(9, 14, 10, 19, '#6e4630');
+      const G = ['#6d8a45', '#4f6b33', '#3a5226'];
+      for (let i = 0; i < 9; i++) {   // blades from the soil, out and up
+        const a = -Math.PI / 2 + (i - 4) * 0.33 + (p.R() - 0.5) * 0.2, len = 7 + p.R() * 5;
+        for (let t = 0; t < len; t += 0.5) { const x = Math.round(6.5 + Math.cos(a) * t + (t * t * 0.02) * Math.sign(Math.cos(a))), y = Math.round(12 + Math.sin(a) * t + t * t * 0.03); p.set(x, y, G[(i + (t > len * 0.6 ? 1 : 0)) % 3]); }
+      }
+    });
+    const boxes = paint(16, 12, (p) => {
+      p.rect(0, 5, 15, 11, '#a88252'); p.rect(0, 5, 15, 5, '#c29b66'); p.rect(15, 5, 15, 11, '#86663e'); p.rect(7, 5, 8, 11, '#d6bd88');
+      p.rect(3, 0, 12, 4, '#b58d5a'); p.rect(3, 0, 12, 0, '#caa36e'); p.rect(12, 0, 12, 4, '#8f6c42'); p.rect(7, 0, 8, 4, '#dcc592');
+    });
+    const bin = paint(8, 10, (p) => { p.rect(0, 0, 7, 1, '#454845'); p.rect(1, 2, 6, 9, '#5d605c'); p.rect(6, 2, 6, 9, '#474a46'); p.rect(2, 3, 2, 8, '#6e716c'); });
+    // h: height in walls; front/side widths come from each picture's own proportions. box: half the
+    // footprint along the wall and out from it, for the collision
+    return {
+      desk:    { f: deskF, s: deskS, h: 0.5, box: [0.37, 0.2], wall: true },
+      chair:   { f: chair, h: 0.36, box: [0.14, 0.14] },
+      couch:   { f: couchF, s: couchS, h: 0.34, box: [0.39, 0.18], wall: true },
+      lamp:    { f: lamp, h: 0.68, box: [0.09, 0.09], light: true },
+      cooler:  { f: cooler, h: 0.5, box: [0.11, 0.11] },
+      cabinet: { f: cabF, s: cabS, h: 0.55, box: [0.14, 0.12], wall: true },
+      plant:   { f: plant, h: 0.42, box: [0.13, 0.13] },
+      boxes:   { f: boxes, h: 0.26, box: [0.2, 0.15] },
+      bin:     { f: bin, h: 0.18, box: [0.07, 0.07] },
+    };
+  })();
+  return { themes, sprites, furniture, door: doorLeaf(), closet: closetFace(), lightSwitch: [switchPlate(false), switchPlate(true)], hex, buildMs: performance.now() - t0 };
 })();
