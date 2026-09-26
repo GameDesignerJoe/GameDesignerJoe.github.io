@@ -414,6 +414,21 @@ const TURN_LINES = {
   },
 };
 
+// first person, the school look: what's on the chalkboards. Keyed by self (`_` for any other). A board gets
+// one of `lines` written over and over down it, the way a kid writes out lines as a punishment, or one of
+// `prompts` at the top as if the class were about to start. Claude's drafts, to be rewritten.
+const CHALKBOARD = {
+  'The Child': {
+    lines: ["i will not ask when he is coming back", "i will not wait by the window", "i will stop talking about my dad",
+      "i will not cry in class", "i will sit where they put me", "i will pay attention"],
+    prompts: ["my family", "what i did this summer", "draw your house", "who picks you up?", "show your work", "fathers day cards due friday"],
+  },
+  _: {
+    lines: ["i will not wander off", "i will stay where i am put"],
+    prompts: ["today", "remember"],
+  },
+};
+
 // The engine hands each surface a finished string, never an id, so the debug "Line IDs" view has
 // to look the id up backwards: words → path. That walk needs the blocks as data. A plain object
 // literal rather than anything clever, because these are `const` in the shared script scope and
@@ -421,5 +436,5 @@ const TURN_LINES = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD,
 };

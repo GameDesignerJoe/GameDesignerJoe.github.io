@@ -100,6 +100,16 @@
       for (const [ax, ay] of [[0, 0], [-1, 0], [0, -1], [-1, -1]])
         if (!solid(x + ax, y + ay) && !solid(x + ax + 1, y + ay) && !solid(x + ax, y + ay + 1) && !solid(x + ax + 1, y + ay + 1)) { room[y * W + x] = 1; break; }
     }
+    // a look can pick one set of walls for those facing a room and another for those facing a hall (the school:
+    // lockers and doors along the halls, boards in the rooms)
+    if (T.pickHall) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (!solid(x, y)) continue;
+      let toRoom = false, toHall = false;
+      for (const [dx, dy] of HD) { const nx = x + dx, ny = y + dy; if (solid(nx, ny)) continue; if (room[ny * W + nx]) toRoom = true; else toHall = true; }
+      if (!toRoom && !toHall) continue;
+      const list = toRoom ? T.pickRoom : T.pickHall, h = hash(x, y);
+      wallVar[y * W + x] = list[(h >>> 4) % list.length];
+    }
     // a crawl gap, or the open cell between two gaps of one squeeze: low overhead, you go through bent
     for (const set of [crawlGaps, crawlCells]) for (const k of set) {
       const [x, y] = k.split(',').map(Number);
@@ -478,6 +488,7 @@
     for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
     placeDoors();
     const reservedSet = new Set(picks.map(([e]) => faceKey(e.k, e.face)).concat(stairSpots.map((s) => faceKey(s.k, s.face))));
+    for (const fk of writeBoards()) reservedSet.add(fk);
     placeStory(reservedSet);
     const reserved = [...reservedSet];
     placeClosets(new Set(reserved));
@@ -691,6 +702,22 @@
       { a: [-0.07, 0.07], d: [0.08, 0.22], z: [0, 0.02], m: 'dark' },
       { a: [-0.012, 0.012], d: [0.138, 0.162], z: [0.02, 0.56], m: 'dark' },
       { a: [-0.085, 0.085], d: [0.065, 0.235], z: [0.56, 0.69], m: 'shade' } ] },
+    // the school look's: a kid's desk with its chair fixed to it, the teacher's desk (an apple on it), a low bookcase
+    kidDesk: { wall: true, half: 0.2, boxes: [
+      { a: [-0.2, 0.2], d: [0.04, 0.3], z: [0.22, 0.24], m: 'wood' },
+      { a: [-0.19, 0.19], d: [0.05, 0.29], z: [0.16, 0.18], m: 'steel' },            // the book box under the lid
+      { a: [-0.19, -0.17], d: [0.06, 0.08], z: [0, 0.22], m: 'steel' }, { a: [0.17, 0.19], d: [0.06, 0.08], z: [0, 0.22], m: 'steel' },
+      { a: [-0.19, -0.17], d: [0.26, 0.28], z: [0, 0.22], m: 'steel' }, { a: [0.17, 0.19], d: [0.26, 0.28], z: [0, 0.22], m: 'steel' },
+      { a: [-0.13, 0.13], d: [0.36, 0.54], z: [0.13, 0.15], m: 'plastic' },           // the seat
+      { a: [-0.13, 0.13], d: [0.54, 0.56], z: [0.15, 0.32], m: 'plastic' },           // its back
+      { a: [-0.012, 0.012], d: [0.3, 0.46], z: [0.1, 0.12], m: 'steel' } ] },         // the bar that holds it to the desk
+    teacherDesk: { wall: true, half: 0.4, boxes: [
+      { a: [-0.4, 0.4], d: [0.02, 0.38], z: [0.3, 0.33], m: 'wood' },
+      { a: [-0.39, -0.1], d: [0.04, 0.36], z: [0, 0.3], m: 'wood', front: 'pedestal' },
+      { a: [0.25, 0.39], d: [0.04, 0.36], z: [0, 0.3], m: 'wood' },
+      { a: [0.18, 0.24], d: [0.2, 0.26], z: [0.33, 0.39], m: 'apple' },
+      { a: [-0.3, -0.12], d: [0.1, 0.24], z: [0.33, 0.36], m: 'white' } ] },          // a stack of papers
+    shelf: { wall: true, half: 0.3, boxes: [ { a: [-0.3, 0.3], d: [0.02, 0.2], z: [0, 0.34], m: 'wood', front: 'books' } ] },
     plant: { half: 0.14, boxes: [
       { a: [-0.1, 0.1], d: [0.05, 0.25], z: [0, 0.16], m: 'pot', top: 'dark' },
       { a: [-0.15, 0.15], d: [0.0, 0.3], z: [0.16, 0.44], m: 'leaves' },
@@ -753,7 +780,7 @@
       while (n > 0 && spots.length && tries++ < 30) {
         const sp = spots.splice(Math.floor(R() * spots.length), 1)[0];
         if (blocked.has(sp.t)) continue;
-        const pool = SETS.filter(([name]) => (name !== 'lamp' || gi < 0) && (FURN[name].wall || sp.walls.length >= 2 || name === 'bin' || name === 'boxes'));
+        const pool = (T.sets || SETS).filter(([name]) => (name !== 'lamp' || gi < 0) && (FURN[name].wall || sp.walls.length >= 2 || name === 'bin' || name === 'boxes'));
         let tot = 0; for (const [, w] of pool) tot += w;
         let r = R() * tot, name = pool[0][0]; for (const [nm, w] of pool) { if ((r -= w) < 0) { name = nm; break; } }
         const def = FURN[name], nb = new Set(blocked); nb.add(sp.t);
@@ -2719,6 +2746,9 @@
     if (sw) { if (zbuf[x] < REACH_WALL + 0.3) flipSwitch(sw); return; }
     const cl = closets.find((c) => faceKey(c.k, c.face) === colFace[x]);
     if (cl) { if (zbuf[x] < REACH_WALL && colU[x] > 0.32 && colU[x] < 0.68) enterCloset(cl); return; }
+    // a classroom door that isn't a way anywhere: it's tried, and it rattles
+    { const wk = colFace[x] >= 0 ? Math.floor(colFace[x] / 4) : -1;
+      if (wk >= 0 && solid(wk % W, (wk / W) | 0) && T.walls[wallVar[wk]].locked && !exitFace[wk]) { if (zbuf[x] < REACH_WALL + 0.3) FP_SOUND.locked(); return; } }
     if (colFace[x] >= 0 && usedFace(colFace[x])) return;
     // then the wall under the finger, if it is close enough to touch
     if (colFace[x] < 0 || zbuf[x] > REACH_WALL || by < colTop[x] || by > colBot[x]) return;
@@ -2736,6 +2766,28 @@
     if (!S.chalkInf) chalk--;
     FP_SOUND.chalkMark();
     pendingMark = null; glyphsOff(); hud();
+  }
+  // the school look's boards, written on (CHALKBOARD in data/text.js), and its locked doors: faces nothing else goes
+  // on. Each board gets lines written out over and over, or a lesson at the top. Its own stream
+  function writeBoards() {
+    const out = [];
+    if (!T.walls.some((t) => t.board || t.locked)) return out;
+    const R = rng(SEED + 230003), B = (typeof CHALKBOARD !== 'undefined' && (CHALKBOARD[character ? character.name : ''] || CHALKBOARD._)) || null;
+    const CH = TEX.hex('#e9e6dc');
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      if (!solid(x, y)) continue;
+      const t = T.walls[wallVar[y * W + x]]; if (!t.board && !t.locked) continue;
+      for (const [dx, dy] of HD) {
+        if (solid(x - dx, y - dy)) continue;   // the face seen from the open tile at (x-dx, y-dy)
+        const fk = faceKey(y * W + x, faceTo(dx, dy)); out.push(fk);
+        if (t.board && decals.has(fk)) { const d = decals.get(fk); for (let i = 0; i < d.length; i++) if (d[i]) d[i] = CH; }   // words already here: in chalk, on a board
+        if (!t.board || !B || decals.has(fk)) continue;
+        const d = decalFor(y * W + x, faceTo(dx, dy));
+        if (R() < 0.55) { const line = B.lines[Math.floor(R() * B.lines.length)]; let yy = 8; while (yy < 38) yy = hand(d, line, 3 + (R() * 2 | 0), yy, 58, 1, CH, R).y; }
+        else hand(d, B.prompts[Math.floor(R() * B.prompts.length)], 7, 9, 52, 2, CH, R);
+      }
+    }
+    return out;
   }
   // a wall face that is for something: the way out, a light switch, a closet (above)
   function usedFace(fk) { return !!exitFace[Math.floor(fk / 4)] || switchFace.has(fk); }
@@ -2888,5 +2940,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

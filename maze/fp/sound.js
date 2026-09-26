@@ -213,6 +213,12 @@ const FP_SOUND = (() => {
       burst(0.16, { vol: (lub ? 0.55 : 0.4) * near, freq: 170, q: 1.2, type: 'lowpass' });
       tone(lub ? 150 : 130, 0.2, { type: 'sine', vol: (lub ? 0.1 : 0.07) * near, slide: 90, attack: 0.01 });
     },
+    // a classroom door that won't open: the handle tried, the latch knocking in its keeper, twice
+    locked() {
+      if (!live()) return;
+      for (let i = 0; i < 4; i++) burst(0.05, { vol: 0.3, freq: 1400 + Math.random() * 500, q: 3, at: i * 0.07 + (i > 1 ? 0.12 : 0) });
+      burst(0.12, { vol: 0.25, freq: 240, q: 1, type: 'lowpass', at: 0.02 });
+    },
     // a light going out: the tube's tick and its hum dropping away, quieter the further off it is
     lightOut(near) {
       if (!live()) return;

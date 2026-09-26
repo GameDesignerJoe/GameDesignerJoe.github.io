@@ -444,6 +444,98 @@ const TEX = (() => {
 
   const t0 = performance.now();
   const wood = planks(211);
+  // ══ school: after hours ═══════════════════════════════════
+  // Joe: "Consider a new theme that is like Elementary School. Classrooms, hallways with doors to other
+  // classrooms most you can't open … Kid desks, teacher desks, chalkboards with our writing on it … these
+  // spaces are like a dream space. They don't make sense and the more they don't make sense the better." And:
+  // "we should try and make it a theme like we have for the other themes. These themes may eventually become
+  // how we display the different chapters of the story." Painted cinderblock, cream over a green band with a
+  // red stripe between; lockers and classroom doors in the halls (a door here is locked: tap it and it rattles);
+  // cork boards and chalkboards in the rooms; vinyl tile underfoot; the office's drop ceiling overhead.
+  const PAINT = ramp(['#9f9a84', '#b4af98', '#c7c2ab', '#d6d1bb', '#e2ddc8', '#ebe7d4']);
+  const GREEN = ramp(['#4f6d5a', '#5e7e69', '#6e8f78', '#7f9f88', '#90af98']);
+  const LOCKER = ramp(['#2f4c5a', '#3a5c6c', '#476d7e', '#557e8f', '#6690a0']);
+  const CORK = ramp(['#7a5634', '#8d653e', '#a07549', '#b18555', '#c09663']);
+  const BOARD = ramp(['#1c2621', '#232f29', '#2a3831', '#32423a', '#3b4c43']);
+  const VCT = ramp(['#9c9784', '#b2ad99', '#c5c0ac', '#d4cfbc', '#e0dcca', '#e9e6d6']);
+  const RUBBER = ramp(['#262522', '#31302c', '#3c3a35']);
+  // the wall itself: blocks 16 wide and 8 high, a stripe at 19, the green band under it, a rubber base
+  function block(seed, o = {}) {
+    const R = rng(seed), T = blank(32, 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      const low = y >= 20, row = y >> 3, bx = (x + (row & 1) * 8) & 15;
+      const mortar = (y & 7) === 7 || bx === 15;
+      let f = (low ? 3.2 : 4.4) + (R() - 0.5) * 0.45 + (mortar ? -1.3 : 0) + ((bx === 0 || (y & 7) === 0) ? 0.3 : 0);
+      if (o.scuff && low && R() < 0.05) f -= 1.2;
+      T.px[y * 32 + x] = dith(low ? GREEN : PAINT, f, x, y);
+    }
+    for (let x = 0; x < 32; x++) { T.px[19 * 32 + x] = hex('#9b3b2f'); T.px[18 * 32 + x] = hex('#b0483a'); }
+    for (let x = 0; x < 32; x++) for (let y = 29; y < 32; y++) T.px[y * 32 + x] = RUBBER[y === 29 ? 2 : y === 30 ? 1 : 0];
+    return T;
+  }
+  function lockers(seed) {
+    const R = rng(seed), T = block(seed);
+    for (let y = 2; y < 29; y++) for (let x = 0; x < 32; x++) {
+      const lx = x & 7, edge = lx === 0 || lx === 7 || y === 2 || y === 28;
+      let f = 2.4 + (R() - 0.5) * 0.4 + (edge ? -1.4 : 0);
+      if (y >= 5 && y <= 9 && lx >= 2 && lx <= 5 && (y & 1)) f = 0.2;   // the vents
+      if (y === 17 && lx === 5) f = 4.4;                                   // the latch
+      if (y > 14 && y < 18 && lx === 5 && R() < 0.3) f -= 0.8;
+      T.px[y * 32 + x] = dith(LOCKER, f, x, y);
+    }
+    return T;
+  }
+  // a classroom door that doesn't open: wood, a narrow wired window onto dark, a number over it
+  function classDoor(seed, num) {
+    const R = rng(seed), T = block(seed + 1);
+    for (let y = 5; y < 29; y++) for (let x = 9; x < 23; x++) {
+      const frame = x === 9 || x === 22 || y === 5;
+      const win = x >= 16 && x <= 19 && y >= 8 && y <= 16;
+      T.px[y * 32 + x] = frame ? hex('#5d5f5a') : win ? (((x + y) & 3) === 0 ? hex('#4a4d4a') : hex('#101314')) : dith(DOOR, 2.6 + ((x * 3 + y) % 7 === 0 ? 0.6 : 0) + (R() - 0.5) * 0.5, x, y);
+    }
+    T.px[18 * 32 + 12] = hex('#c9c3a8'); T.px[18 * 32 + 11] = hex('#8f8a72'); T.px[19 * 32 + 12] = hex('#8f8a72');
+    // the number plate over it: three little digits
+    const DIG = { 0: '###,#.#,#.#,#.#,###', 1: '.#.,##.,.#.,.#.,###', 2: '###,..#,###,#..,###', 3: '###,..#,.##,..#,###', 4: '#.#,#.#,###,..#,..#', 5: '###,#..,###,..#,###', 6: '###,#..,###,#.#,###', 7: '###,..#,..#,..#,..#', 8: '###,#.#,###,#.#,###', 9: '###,#.#,###,..#,###' };
+    for (let y = 0; y < 5; y++) for (let x = 10; x < 23; x++) T.px[y * 32 + x] = hex('#2d2f2c');
+    String(num).split('').forEach((d, i) => DIG[d].split(',').forEach((row, ry) => { for (let rx = 0; rx < 3; rx++) if (row[rx] === '#') T.px[ry * 32 + 11 + i * 4 + rx] = hex('#e8e1c6'); }));
+    T.locked = true;
+    return T;
+  }
+  function corkboard(seed) {
+    const R = rng(seed), T = block(seed + 2);
+    for (let y = 4; y < 18; y++) for (let x = 3; x < 29; x++) {
+      const frame = x === 3 || x === 28 || y === 4 || y === 17;
+      T.px[y * 32 + x] = frame ? hex('#8e8a80') : dith(CORK, 2.2 + (R() - 0.5) * 1.6, x, y);
+    }
+    const papers = ['#efe9d8', '#f2e27a', '#e9a6b4', '#9fc6e6', '#efe9d8'];
+    for (let i = 0; i < 5; i++) {   // things pinned up: drawings, a notice, a star chart
+      const w = 4 + (R() * 3 | 0), h = 5 + (R() * 3 | 0), x0 = 5 + (R() * (22 - w) | 0), y0 = 6 + (R() * (10 - h) | 0), c = hex(papers[i]);
+      for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) T.px[y * 32 + x] = c;
+      T.px[y0 * 32 + x0 + (w >> 1)] = hex('#b0302a');
+    }
+    return T;
+  }
+  function chalkboard(seed) {
+    const R = rng(seed), T = block(seed + 3);
+    for (let y = 3; y < 21; y++) for (let x = 1; x < 31; x++) {
+      const frame = x === 1 || x === 30 || y === 3;
+      T.px[y * 32 + x] = frame ? hex('#7d6a4c') : dith(BOARD, 2 + (R() - 0.5) * 0.6 + (R() < 0.03 ? 1.4 : 0), x, y);   // dust where it's been wiped
+    }
+    for (let x = 1; x < 31; x++) { T.px[21 * 32 + x] = hex('#a9aaa3'); T.px[22 * 32 + x] = hex('#6a6b66'); }   // the tray
+    T.px[21 * 32 + 8] = T.px[21 * 32 + 9] = hex('#f1eee4');   // a stub of chalk on it
+    T.board = true;   // it gets written on (fp.js)
+    return T;
+  }
+  function vct(seed) {
+    const R = rng(seed), T = blank(32, 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      const tile = ((x >> 4) + (y >> 4)) & 1, seam = (x & 15) === 15 || (y & 15) === 15;
+      let f = (tile ? 3.6 : 4.3) + (R() - 0.5) * 0.7 + (R() < 0.06 ? -1.3 : 0) + (seam ? -1 : 0);
+      T.px[y * 32 + x] = dith(VCT, f, x, y);
+    }
+    return T;
+  }
+
   const themes = {
     office: {
       label: 'Office (the back rooms)',
@@ -461,6 +553,22 @@ const TEX = (() => {
       fog: '#8f8762', side: 0.84, underLit: 0.8, ao: 0.78,
       furnish: true,   // gets the furniture below
       ambient: 0.3, lampPower: 1.1,   // lit by its own lamps: this much light with none nearby, and each lamp's strength
+    },
+    school: {
+      label: 'School (after hours)',
+      walls: [block(11), block(23, { scuff: 1 }), lockers(31), classDoor(47, 107), classDoor(53, 112), corkboard(59), chalkboard(61)],
+      pick: [0, 1, 0, 0, 1, 0],
+      // a wall facing into a hall, or into a room, picks from its own list (fp.js index()): lockers and doors
+      // line the halls; the rooms have their boards
+      pickHall: [2, 2, 2, 0, 3, 2, 2, 4, 0, 2, 1, 2],
+      pickRoom: [0, 1, 0, 6, 0, 5, 1, 0, 6, 0, 1, 0],
+      floors: [vct(101), vct(103), vct(107), vct(109)],
+      ceils: [acoustic(301), fluorescent(303), acoustic(307, { stain: 1 }), vent(309), acoustic(311)],
+      ceilPick: [0, 4, 1, 4, 0, 1, 4, 2, 1, 3, 4, 0],
+      exit: exitSign(), lintel: block(401), under: acoustic(403), sky: null,
+      fog: '#8b8a7c', side: 0.84, underLit: 0.8, ao: 0.72,
+      furnish: true, sets: [['kidDesk', 8], ['teacherDesk', 1], ['shelf', 3], ['bin', 1], ['boxes', 1]],
+      ambient: 0.32, lampPower: 1.15,
     },
     bleached: {
       label: 'Bleached (worn stone)',
@@ -633,6 +741,9 @@ const TEX = (() => {
       bin:      tex(16, 16, (x, y, R) => dith(ramp4(['#3c3f3c', '#4d504c', '#5d605c', '#6e716c']), 1.6 + (x % 4 === 0 ? 0.5 : 0) + (R() - 0.5) * 0.3, x, y)),
       shade:    tex(16, 16, (x, y) => E(y % 5 === 0 ? '#e9c98a' : '#f6dca6')),
       bag:      tex(16, 16, (x, y, R) => dith(ramp4(['#3e2620', '#56332a', '#6e4335', '#855443']), 1.9 + (y === 5 || x === 8 ? -0.9 : 0) + (R() - 0.5) * 0.4, x, y)),
+      wood:     tex(16, 16, (x, y, R) => dith(ramp4(['#7a5530', '#8f6739', '#a57944', '#b98b52']), 2 + ((y * 3 + (x >> 3)) % 5 === 0 ? -0.7 : 0) + (R() - 0.5) * 0.5, x, y)),
+      plastic:  tex(16, 16, (x, y, R) => dith(ramp4(['#233f6b', '#2d4f83', '#39609a', '#4973b0']), 2.1 + (R() - 0.5) * 0.3, x, y)),
+      apple:    tex(16, 16, (x, y, R) => dith(ramp4(['#6d1512', '#8f1f1a', '#b02a22', '#c9463a']), 2.2 + (x < 5 && y < 5 ? 1 : 0) + (R() - 0.5) * 0.4, x, y)),
       stair:    tex(16, 16, (x, y, R) => dith(ramp4(['#4b4943', '#5f5c55', '#74716a', '#8a877f']), 1.9 + (R() - 0.5) * 0.7 + ((x * 3 + y * 5) % 13 === 0 ? -0.7 : 0), x, y)),
     };
     // fronts: one picture stretched over the face that looks into the room
@@ -643,6 +754,8 @@ const TEX = (() => {
       crt:      front(16, 12, mats.beige, (T, set) => { for (let y = 2; y < 9; y++) for (let x = 2; x < 14; x++) set(x, y, y < 4 && x < 5 ? '#34423e' : '#1c2321'); for (let x = 0; x < 16; x++) set(x, 11, '#8d8672'); }),
       cooler:   front(10, 20, mats.white, (T, set) => { set(3, 5, '#2f5f96'); set(6, 5, '#a33a32'); for (let x = 2; x < 8; x++) { set(x, 9, '#7d7d78'); set(x, 10, '#5d5d58'); } for (let x = 0; x < 10; x++) set(x, 19, '#8d897e'); }),
       nosing:   front(16, 8, mats.stair, (T, set) => { for (let x = 0; x < 16; x++) { set(x, 0, '#a9a69d'); set(x, 1, '#8e8b83'); set(x, 7, '#34322e'); } }),
+      books:    front(24, 16, mats.wood, (T, set) => { const cs = ['#8f2a24', '#2f5f96', '#3f7a45', '#c29a2a', '#6d4a8a', '#b8b2a0'];
+        for (const sy of [1, 9]) { let x = 1; for (let i = 0; x < 23; i++) { const w = 1 + (i * 7 % 3), c = cs[(i * 5 + sy) % cs.length], h = 5 + (i % 2); for (let xx = x; xx < Math.min(23, x + w); xx++) for (let y = sy + 6 - h; y < sy + 6; y++) set(xx, y, c); x += w + (i % 4 === 3 ? 1 : 0); } for (let x2 = 0; x2 < 24; x2++) set(x2, sy + 6, '#5a3d20'); } }),
       boxTop:   front(16, 16, mats.card, (T, set) => { for (let y = 0; y < 16; y++) { set(7, y, '#d8c08c'); set(8, y, '#cdb47e'); } }),
     };
     return { mats, fronts };

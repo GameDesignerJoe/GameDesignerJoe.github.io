@@ -8,7 +8,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 | File | What's in it |
 | --- | --- |
 | `config.js` | the defaults for every knob on the gear panel |
-| `textures.js` | all the pixel art, drawn in code, as three looks: **office** (the default — yellow wallpaper, damp carpet, a drop ceiling with fluorescent panels, an EXIT sign), **bleached** (lime plaster with a meander frieze, marble, pilasters, travertine, white haze, a doorway onto the sea) and **dusk** (brick, flagstones, stars) |
+| `textures.js` | all the pixel art, drawn in code, as four looks: **office** (the default — yellow wallpaper, damp carpet, a drop ceiling with fluorescent panels, an EXIT sign), **school** (after hours: painted cinderblock, cream over a green band and a red stripe; lockers and locked classroom doors — tap one and it rattles — along the halls, cork boards and chalkboards in the rooms, chalked with `CHALKBOARD` from data/text.js; vinyl tile, the drop ceiling; kids' desks with their chairs, the teacher's desk with an apple, bookcases), **bleached** (lime plaster with a meander frieze, marble, pilasters, travertine, white haze, a doorway onto the sea) and **dusk** (brick, flagstones, stars) |
 | `sound.js` | what a body in a room makes: picking things up (its own, louder than the top-down's cues), footsteps per look (carpet, stone), room tone, lamp hum and flicker crackle, the squeeze's rub, doors, a closet's muffle. The music is the top-down's own `AUDIO`, loaded unchanged |
 | `fp.js` | the raycaster, the walk (the stick, or WASD), things in the world and tapping them, chalk and words on walls, the debug map, the panel |
 
