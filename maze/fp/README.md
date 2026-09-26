@@ -34,7 +34,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   open). Dead ends carry words from `WALL_WORDS` in `data/text.js`. A chapter can open with two walls (`WALL_START`): the first across the
   start room, and you wake facing it; the second ahead of you as you step out of that room. The Child's are Joe's:
   "stay here." and "but I didn't." A page opens as a torn sheet of ruled notebook paper in a hand
-  (Caveat, SIL OFL, kept in `fp/caveat-latin.woff2` so it reads the same offline). Found things are kept for the run
+  (Caveat, SIL OFL, kept in `fp/caveat-latin.woff2` so it reads the same offline). A door's jambs and the sides of a squeeze take chalk like any wall (each a face of its own,
+  keyed to its open tile). Found things are kept for the run
   only — nothing is written to the top-down's save yet.
 - **The maze is not empty.** Pushing through a squeeze toward its far end, now and then (`squeezeScare`, once a
   squeeze at most, 90s apart) a black figure whips across the opening and is gone, with a scuffle of feet — drawn
@@ -87,7 +88,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   dead end (the painted flight read wrong, so it's gone). Walk into it or tap it: black, feet on stairs, "floor 2",
   and you're standing out from a door marked down in the dead end nearest where that floor begins; it takes you back
   to the door marked up. Each floor remembers itself while you're away (what you took, your chalk, open doors,
-  lights, what you've seen). The way out is only on floor 1; chalk and charcoal go with you; pages count per floor.
+  lights, what you've seen), and is rebuilt as it was first built, calm or turned, so its closets stay behind their
+  doors (after the turn they used to move, and a tap on one chalked it). The way out is only on floor 1; chalk and charcoal go with you; pages count per floor.
   **To the stairs** on the panel puts you in front of them; Restart goes back to floor 1.
 - **The kid's room** (the Child's secret room, which the generator already carves behind a squeeze). Pitch black
   (`PITCH`, darker than a dark hall) until you flip its switch, just inside the squeeze; the amber pilot is all you see.

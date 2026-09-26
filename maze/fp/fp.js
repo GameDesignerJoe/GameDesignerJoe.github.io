@@ -159,7 +159,7 @@
     const inHall = (x, y, horiz) => !solid(x, y) && !room[y * W + x] && !low[y * W + x]
       && (horiz ? solid(x, y - 1) && solid(x, y + 1) : solid(x - 1, y) && solid(x + 1, y));
     const takeRun = (run) => {
-      if (run.length < 3 || R() >= (S.calm && !turned ? 0 : S.darkHalls)) return;   // calm until the turn
+      if (run.length < 3 || R() >= (S.calm && !builtTurned ? 0 : S.darkHalls)) return;   // calm until the turn
       if (run.some(([x, y]) => (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3) || (x === exit.x && y === exit.y))) return;
       for (const [x, y] of run) dark[y * W + x] = 1;
     };
@@ -298,6 +298,11 @@
   // remembers itself while you're away: what you took, what you chalked, which doors stand open,
   // which lights are on, what you've seen. The way out is only on floor 1. Chalk and charcoal go with
   // you; pages are counted per floor.
+  // a floor is always built as it was the first time: calm, or turned. Everything placed on it (the closets
+  // keep out of dark halls, and the turn brings dark halls) hangs off that, and a floor you come back to gets
+  // its walls back as you left them — so building it the other way moved the closets out from under their
+  // doors. Joe: "I can't get into the closet anymore. It just puts exes on them."
+  let builtTurned = false;
   let floor = 1, BASE = 0, floorStates = new Map(), taken = new Set(), stairs = { up: null, down: null }, stairBusy = false;
   const floorSeed = (n) => n === 1 ? BASE : ((Math.imul(BASE, 2654435761) ^ Math.imul(n, 40503)) >>> 0) || n;
   const objKey = (o) => o.kind + ':' + o.x.toFixed(2) + ',' + o.y.toFixed(2);
@@ -357,7 +362,7 @@
   }
   function saveFloor() {
     floorStates.set(floor, { taken: new Set(taken), decals: new Map([...decals].map(([k, v]) => [k, v.slice()])), doors: doors.map((d) => [d.open, d.swing]),
-      lights: lightGroups.map((g) => g.on), seen: seen.slice(), pagesFound });
+      lights: lightGroups.map((g) => g.on), seen: seen.slice(), pagesFound, builtTurned });
   }
   function goFloor(n, now) {
     if (stairBusy || n < 1 || n > Math.max(1, Math.round(S.floors))) return;
@@ -369,6 +374,7 @@
       saveFloor();
       const keepChalk = chalk, keepCharcoal = charcoalN;
       floor = n; SEED = floorSeed(n);
+      builtTurned = floorStates.has(n) ? floorStates.get(n).builtTurned : turned;
       applyMazeDebug(); generate(SEED); carveHeart(); reset();
       chalk = keepChalk; charcoalN = keepCharcoal;
       const st = floorStates.get(floor);
@@ -629,7 +635,7 @@
     });
     for (let n = 0; n < S.switches && cands.length; n++) {
       const c = cands.splice(Math.floor(R() * cands.length), 1)[0];
-      const g = { tiles: c.tiles, k: c.spot.k, face: c.spot.face, on: R() >= (S.calm && !turned ? 0 : S.switchOff), at: -1e9, lvl: 1 };
+      const g = { tiles: c.tiles, k: c.spot.k, face: c.spot.face, on: R() >= (S.calm && !builtTurned ? 0 : S.switchOff), at: -1e9, lvl: 1 };
       g.lvl = g.on ? 1 : 0;
       const gi = lightGroups.push(g) - 1;
       for (const k of c.tiles) groupAt[k] = gi;
@@ -1638,7 +1644,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); turned = false; finds = 0; turnAt = -1e9;
+    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); carveHeart(); reset();
@@ -2288,7 +2294,9 @@
         const lh = D / perp, top = hor - (1 - eye) * lh, bot = hor + eye * lh;
         // what this column sees, for the objects' depth test and for a tap to find
         zbuf[x] = perp;
-        const dk = inB && !slot ? faceKey(my * W + mx, sd === 0 ? (stX > 0 ? 0 : 1) : (stY > 0 ? 2 : 3)) : -1;
+        // a squeeze's jamb, or a door's, is a face too, keyed by its own (open) tile so it never meets a wall's.
+        // Joe: "I can't put chalk on the wall right next to the door … This is also true with squeeze through."
+        const dk = inB ? faceKey(my * W + mx, sd === 0 ? (stX > 0 ? 0 : 1) : (stY > 0 ? 2 : 3)) : -1;
         const dec = dk >= 0 ? decals.get(dk) : null, du = Math.min(DEC - 1, (u * DEC) | 0);
         colFace[x] = dk; colU[x] = u; colTop[x] = top; colBot[x] = bot;
         const y0 = Math.max(0, Math.ceil(top - 0.5)), y1 = Math.min(RH, Math.ceil(bot - 0.5));
@@ -2645,7 +2653,8 @@
     if (colFace[x] < 0 || zbuf[x] > REACH_WALL || by < colTop[x] || by > colBot[x]) return;
     const cu = colU[x], cv2 = (by - colTop[x]) / (colBot[x] - colTop[x]);
     if (!S.chalkInf && chalk <= 0) { flash('hudChalkBox'); FP_SOUND.empty(); return; }
-    pendingMark = { fk: colFace[x], u: Math.max(0.15, Math.min(0.85, cu)), v: Math.max(0.15, Math.min(0.85, cv2)) };
+    const jamb = !solid(Math.floor(colFace[x] / 4) % W, (Math.floor(colFace[x] / 4) / W) | 0), ue = jamb ? 0.06 : 0.15;   // a jamb is narrow: let the mark go nearer its edge
+    pendingMark = { fk: colFace[x], u: Math.max(ue, Math.min(1 - ue, cu)), v: Math.max(0.15, Math.min(0.85, cv2)) };
     // early on chalk only makes an X, as in the top-down; once signs are open, you choose
     if (typeof phase === 'function' && phase().f.signs) { $('glyphs').classList.add('show'); } else placeMark('x');
   }
