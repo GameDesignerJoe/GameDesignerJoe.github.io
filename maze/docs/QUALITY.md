@@ -402,6 +402,76 @@ a nest rather than build mazes until one lands there. That is a change to how
 keys are assigned, it is a generation change of its own, and it belongs in its
 own batch.
 
+## The threshold rule, and forks that are free (v0.110.0)
+
+Joe, having played the district prototype: *"I noticed a lot more long hallways.
+Rather than twists and turns."* He was right, and it was not the first area — it
+was every district, and it was two mistakes made at once.
+
+The shipping generator carves at **branchiness 0.35** and **hallStraightness 0** —
+`config.js` in its own words: *"0 = long winding corridors (backtracker), 1 = many
+short branches and junctions (Prim-like)"* and *"0 = today's snaking"*. The first
+cut of the prototype had **no branch knob at all** (so: 0, the corridor end) and
+**straightness of 0.30–0.75**. Measured against the real Criminal:
+
+| | straight | forks | mean run | longest run |
+|---|---|---|---|---|
+| prototype, first cut | 39–55% | 11–19% | 1.8–3.1 | 6.4–10.9 |
+| **prototype, now** | **20–31%** | **20–29%** | **1.3–1.7** | **3.4–5.1** |
+| The Criminal, shipping | 24% | 32% | 1.4 | 4.3 |
+
+The two causes separate cleanly in the data: straightness drives run length (0.30
+→ 39% straight, 0.75 → 55%), while forks track the carver type almost regardless
+of it — The Squeezes at 0.30 and The Blocks at 0.75 had near-identical fork rates.
+
+### Then Joe's rule, which is the part worth keeping
+
+*"I could see Forks being allowed, but it knows it can't break a threshold. It
+sees those as barriers and just stops if it's going to pierce a path that will
+break a threshold."*
+
+Right — and **building content-first makes it nearly free, because we do not have
+to detect a threshold, we declared it.** A district boundary is a threshold by
+construction: one link between two large regions is an articulation point. Five
+districts in a chain give four gates, and the measured threshold count is 4.19.
+The gates *are* the thresholds.
+
+So the rule is a lookup, not a graph search: *may this fork join these two cells?
+→ are they in the same district?* `js/districts.js` states it once, in `mayLink`,
+and every carve — tree, braid, gate — goes through it.
+
+**Which corrects something this doc implied.** Earlier it read as though forks and
+thresholds pull against each other and the hallway feel was the price of the
+structure. For the district architecture that is wrong. The thresholds come from
+the gates, not from suppressing forks. Turning `branch` up and `straight` down
+cost nothing structurally — it **gained**:
+
+| | first cut | with forks freed |
+|---|---|---|
+| forks | 11–19% | 20–29% |
+| thresholds | median 4 | **median 6** |
+| loops | 56–66 | 62–83 |
+| mazes broken, of 24 | 0 | 0 |
+
+More forks *and* more thresholds, because the extra branching makes narrow waists
+inside a district that were not there before. The cost is a shorter optimal route
+— 3m 45s to 3m 08s — since a bushier district offers more shortcuts. Explorer
+median went the other way, 28m to 35m.
+
+What the rule must NOT mean, and this is the whole difficulty of the general
+version: *"preserve every articulation point"*. Every dead-end stub is one, so
+that reading forbids nearly every fork and lands back on a perfect maze with no
+loops at all. It has to be a **protected** threshold — either declared, as here,
+or discovered as a cut that splits off at least the 15% share this doc measures
+by. Declared is far cheaper, and content-first hands it to you for nothing.
+
+**Where the rule is worth more than it is here:** in the shipping generator. Its
+own comment says a district *"can add floor and add connections. It can never take
+a connection away."* Joe's rule changes that to *may add a connection unless it
+pierces a threshold* — which, given that districts are the second-largest source
+of loops and removing them multiplies thresholds sevenfold, is probably the single
+most valuable change available to the real generator without rewriting it.
+
 ## Where the targets live now
 
 `data/phases.js` carries a `MUST` row per chapter — the contract: keys buried,

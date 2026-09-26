@@ -124,6 +124,31 @@ function buildDistricts(seed) {
     for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) reservedAt.add(K(x, y));
 
   const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+  // ── THE THRESHOLD RULE ────────────────────────────────────────────────────
+  // Joe: "I could see Forks being allowed, but it knows it can't break a
+  // threshold. It sees those as barriers and just stops if it's going to pierce
+  // a path that will break a threshold."
+  //
+  // Right, and building content-first makes it nearly free — we do not have to
+  // DETECT a threshold, because we DECLARED it. A district boundary is a
+  // threshold by construction: one link between two large regions is an
+  // articulation point, and 5 districts in a chain give 4 gates, which is what
+  // the measured threshold count comes to (4.19 over 16 mazes).
+  //
+  // So every link a carver wants goes through here, and the answer is a lookup
+  // rather than a graph search. Forks may be as free as they like INSIDE a
+  // district; only the gate step is allowed to cross, and it crosses a counted
+  // number of times.
+  //
+  // What this rule must NOT mean: "preserve every articulation point". Every
+  // dead-end stub is one, so that reading forbids nearly every fork and lands
+  // straight back on a perfect maze with no loops at all — the opposite of what
+  // is wanted inside a district.
+  const mayLink = (d, ax, ay, bx, by) =>
+    inD(d, ax, ay) && inD(d, bx, by)            // never pierce a declared boundary
+    && !reservedAt.has(K(ax, ay)) && !reservedAt.has(K(bx, by));
+
   for (const d of districts) {
     const seen = new Set();
     const free = (cx, cy) => inD(d, cx, cy) && !reservedAt.has(K(cx, cy));
@@ -138,10 +163,18 @@ function buildDistricts(seed) {
     const stack = [seedCell];
     let last = null;
     while (stack.length) {
-      // newest cell biased by `straight`: carry on the way we were going when we can
-      const idx = stack.length - 1;
+      // Growing tree, exactly as the real carver does it: take the NEWEST cell
+      // (backtracker: long winding corridors) or a RANDOM one (Prim-ish: many
+      // short branches and junctions), per `branch`. The first cut of this had
+      // no branch knob at all — always newest — which is CONFIG's own
+      // "0 = long winding corridors" end of that dial, and it is why the
+      // prototype measured 11-19% forks against the shipping game's 32%.
+      const idx = (d.branch > 0 && Rcarve() < d.branch)
+        ? (Rcarve() * stack.length) | 0
+        : stack.length - 1;
       const [cx, cy] = stack[idx];
-      let opts = DIRS4.filter(([dx, dy]) => free(cx + dx, cy + dy) && !seen.has(K(cx + dx, cy + dy)));
+      let opts = DIRS4.filter(([dx, dy]) => free(cx + dx, cy + dy) && !seen.has(K(cx + dx, cy + dy))
+        && mayLink(d, cx, cy, cx + dx, cy + dy));
       if (!opts.length) { stack.splice(idx, 1); continue; }
       let pick = opts[(Rcarve() * opts.length) | 0];
       if (last && Rcarve() < d.straight) {
@@ -182,7 +215,8 @@ function buildDistricts(seed) {
         const open = DIRS4.filter(([dx, dy]) => tiles[TXc(y) + dy][TXc(x) + dx]);
         if (open.length !== 1 || Rcarve() >= d.braid) continue;
         const shut = DIRS4.filter(([dx, dy]) => !tiles[TXc(y) + dy][TXc(x) + dx]
-          && liveSet.has(K(x + dx, y + dy)));
+          && liveSet.has(K(x + dx, y + dy))
+          && mayLink(d, x, y, x + dx, y + dy));   // a loop may not pierce a boundary either
         if (shut.length) { const [dx, dy] = shut[(Rcarve() * shut.length) | 0]; tiles[TXc(y) + dy][TXc(x) + dx] = 1; }
       }
     }

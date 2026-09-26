@@ -476,14 +476,30 @@ const CONFIG = {
     // the district before it — ONE is a chokepoint, and a chokepoint is the thing
     // docs/QUALITY.md says the real generator cannot produce at any setting.
     // `braid` is how loopy the district is inside itself, `fill` how much of its
-    // ground stays corridor after dead ends are pruned back, `straight` how far a
-    // hall runs before it turns. Get lost inside a district; make progress between.
+    // ground stays corridor after dead ends are pruned back. Get lost inside a
+    // district; make progress between.
+    //
+    // `branch` and `straight` are the two that decide whether a place reads as
+    // twisting halls or as long corridors, and the first cut of this got both
+    // wrong at once. The shipping game carves at branchiness 0.35 and
+    // hallStraightness 0 — CONFIG's own words: "0 = long winding corridors
+    // (backtracker), 1 = many short branches and junctions (Prim-like)" and
+    // "0 = today's snaking". The prototype had NO branch knob (so, 0) and
+    // straightness of 0.3-0.75, and measured 39-55% straight hallway against the
+    // game's 24%, with a third of its forks. Joe, playing it: "a lot more long
+    // hallways. Rather than twists and turns."
+    //
+    // Forks are free here. They cannot cost a threshold, because a threshold is a
+    // district BOUNDARY and no fork is allowed to cross one — see the threshold
+    // rule in js/districts.js. Turn `branch` up without looking over your shoulder.
     districts: [
-      { key: 'waking',  name: 'Waking',      mech: 'none',   gates: 1, braid: 0.04, fill: 0.95, straight: 0.55, rooms: 1 },
-      { key: 'squeeze', name: 'The Squeezes', mech: 'crawl',  gates: 1, braid: 0.12, fill: 1.00, straight: 0.30, rooms: 1 },
-      { key: 'dark',    name: 'The Dark',    mech: 'dark',   gates: 1, braid: 0.16, fill: 1.00, straight: 0.45, rooms: 1 },
-      { key: 'blocks',  name: 'The Blocks',  mech: 'push',   gates: 1, braid: 0.02, fill: 0.80, straight: 0.75, rooms: 1 },
-      { key: 'locked',  name: 'The Locked Quarter', mech: 'lock', gates: 1, braid: 0.06, fill: 0.90, straight: 0.5, rooms: 2 },
+      { key: 'waking',  name: 'Waking',      mech: 'none',   gates: 1, branch: 0.35, braid: 0.06, fill: 0.95, straight: 0.05, rooms: 1 },
+      { key: 'squeeze', name: 'The Squeezes', mech: 'crawl',  gates: 1, branch: 0.55, braid: 0.14, fill: 1.00, straight: 0.00, rooms: 1 },
+      { key: 'dark',    name: 'The Dark',    mech: 'dark',   gates: 1, branch: 0.30, braid: 0.16, fill: 1.00, straight: 0.10, rooms: 1 },
+      // the blocks want some run to them, so the islands and bridges read as a
+      // shape rather than as noise — the one place a longer hall is the point
+      { key: 'blocks',  name: 'The Blocks',  mech: 'push',   gates: 1, branch: 0.20, braid: 0.04, fill: 0.85, straight: 0.35, rooms: 1 },
+      { key: 'locked',  name: 'The Locked Quarter', mech: 'lock', gates: 1, branch: 0.35, braid: 0.08, fill: 0.90, straight: 0.10, rooms: 2 },
     ],
 
     crawlPerDistrict: 7,  // squeezes carved into The Squeezes
