@@ -348,7 +348,7 @@ const WALL_WORDS = {
 // from you. And then as soon as you leave … there's text on the wall that says 'but I didn't.'"
 // Keyed by the self, like WALL_WORDS; a self with no entry gets neither. [on waking, on leaving]
 const WALL_START = {
-  'The Child': ["dad said to stay here.", "but I didn't."],
+  'The Child': ["stay here.", "but I didn't."],   // Joe: "Change 'Dad said stay here' to just 'Stay here'"
 };
 
 // first person: story rooms. Joe: "This is a story about a person who when they were a child their

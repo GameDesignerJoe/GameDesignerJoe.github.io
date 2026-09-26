@@ -31,11 +31,11 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   shows its text. Tap a wall within reach to chalk it (an X early on, the sign picker once signs
   open). Dead ends carry words from `WALL_WORDS` in `data/text.js`. A chapter can open with two walls (`WALL_START`): the first across the
   start room, and you wake facing it; the second ahead of you as you step out of that room. The Child's are Joe's:
-  "dad said to stay here." and "but I didn't." A page opens as a torn sheet of ruled notebook paper in a hand
+  "stay here." and "but I didn't." A page opens as a torn sheet of ruled notebook paper in a hand
   (Caveat, SIL OFL, kept in `fp/caveat-latin.woff2` so it reads the same offline). Found things are kept for the run
   only — nothing is written to the top-down's save yet.
 - **The maze is not empty.** Pushing through a squeeze toward its far end, now and then (`squeezeScare`, once a
-  squeeze at most, 90s apart) a pale grey figure whips across the opening and is gone, with a scuffle of feet — drawn
+  squeeze at most, 90s apart) a black figure whips across the opening and is gone, with a scuffle of feet — drawn
   over the squeeze's veil, since it's the one thing past it you're meant to see. And somewhere else in the building,
   about once a minute (`ambience`, on the Sound panel), something happens: a door slams, feet run, three knocks, a
   ball bouncing to rest, a chair scraping, something metal. Muffled and off to one side, never anywhere near you.
@@ -45,12 +45,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   either side of a `DOOR_W` opening, a header over it from `DOOR_H`. Tap one within reach to open or shut it; it swings away from you and stays that way,
   so an open door says which way someone went. `doorsOpen` start open, swung out into the room. Shut, the leaf laps
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
-  Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
+  Closets (`closets`, 6 a maze: "closets everywhere") are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
 - **The being** (`being`; floor 1). The old notes' Caretaker, and Joe's twist: it helps. Past `beingOff` steps off the
   way out for `beingWait` seconds, the signs — tubes round you stutter, a low swell — and if you turn back to the way
   out it never comes. Otherwise it's there eight steps off, somewhere you're not looking: tall as the ceiling, thin,
-  arms past its knees, two pale eyes (all you see of it in the dark). It comes at twice your walk, through doors. If it
+  arms past its knees, two pale eyes (all you see of it in the dark). It comes at 1.25× your walk (time to run for a closet), through doors but never through a squeeze; if
+  you're somewhere it can't get to, it waits a while and goes. If it
   reaches you: static, and you're on the way out a few steps further along than you left it, facing on. Back on the
   way out yourself, it lets you be. In a closet: it runs up and past the door, back and forth, stops once square in
   front of the slats to look in, and is gone. **Being now** on the panel calls it.

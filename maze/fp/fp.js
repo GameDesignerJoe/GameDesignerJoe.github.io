@@ -38,7 +38,9 @@
     if ((saved.cfg || 0) < 2) delete saved.gapW;
     // the squeeze's veil went from near-black to see-through-with-effort; a saved one was only the old default
     if ((saved.cfg || 0) < 3) delete saved.squeezeVeil;
-    saved.cfg = 3;
+    // closets were tripled when the being came in; a count saved before that triples with them
+    if ((saved.cfg || 0) < 4 && typeof saved.closets === 'number') saved.closets = Math.min(20, saved.closets * 3);
+    saved.cfg = 4;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -461,6 +463,9 @@
       if (open.length !== 1) continue;
       const [ox, oy] = open[0], dx = -ox, dy = -oy;   // walking in, you face away from the one way out
       const face = dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3;
+      // never the exit's own wall. Joe: "There is drawn text over the exit from the kid. It looks like a bug."
+      // The exit's alley is a dead end, so its doorway was a place for words like any other
+      if (exitFace[(y + dy) * W + x + dx]) continue;
       if (!startFaces.has(faceKey((y + dy) * W + x + dx, face)) && !stairTiles.has(y * W + x)) ends.push({ k: (y + dy) * W + x + dx, face });
     }
     // choose every spot and line first, then draw: the hand's wobble draws from the stream too, and
@@ -797,7 +802,10 @@
   // and you're standing on the way out, a few steps further along it than where you left it, facing on.
   // Get back to the way out yourself and it gives up. Get in a closet and it runs up to the door and
   // past it, and back, BEING_PASSES times where you can see it through the slats, and is gone.
-  const BEING_SPEED = 2.5, BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_FAR = 8, BEING_PASSES = 3;
+  // Joe: "make move speed 1.25 the player's. Gives them time to run and find a closet." And "the being
+  // shouldn't use squeeze throughs": it goes round by the halls, and where it can't get to you, it gives up
+  const beingSpeed = () => S.walk * 1.25;
+  const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_FAR = 8, BEING_PASSES = 3;
   let pathDist = null, pathNear = null, pathIdx = null, being = null, beingState = 'dormant', beingT = 0, offSince = 0, beingNext = 0, beingForce = false, fieldAt = 0, field = null, stepT = 0;
   function beingIndex() {   // how far every tile is from the way out, and which tile of it is nearest
     pathDist = new Int32Array(W * H).fill(-1); pathNear = new Int32Array(W * H).fill(-1); pathIdx = new Map();
@@ -808,10 +816,10 @@
     for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
       for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && pathDist[n] < 0) { pathDist[n] = pathDist[c] + 1; pathNear[n] = pathNear[c]; q.push(n); } } }
   }
-  function distField(from) {   // steps from `from` to everywhere, through doors
+  function distField(from) {   // steps from `from` to everywhere it can go: through doors, never a squeeze
     const d = new Int32Array(W * H).fill(-1), q = [from]; d[from] = 0;
     for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
-      for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && d[n] < 0) { d[n] = d[c] + 1; q.push(n); } } }
+      for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && !low[n] && d[n] < 0) { d[n] = d[c] + 1; q.push(n); } } }
     return d;
   }
   const beingObj = (x, y) => ({ x, y, vx: 0, vy: 0, h: 0.97, glow: 0, ghost: true, back: true, alpha: 1, tex: TEX.sprites.being[0], walked: 0 });
@@ -852,11 +860,13 @@
       if (pathDist[pk] <= 1) { beingGone(); return; }   // back on the way out by yourself: it lets you be
       if (now > fieldAt) { field = distField(pk); fieldAt = now + 250; }
       const bk = Math.floor(being.y) * W + Math.floor(being.x);
-      if (bk === pk || Math.hypot(P.x - being.x, P.y - being.y) < 1.1) moveToward(P.x, P.y, dt, BEING_SPEED);
+      if (field[bk] < 0) { if (!being.stuck) being.stuck = now; if (now - being.stuck > 6000) { beingGone(); return; } return; }   // you're past a squeeze: it waits, then goes
+      being.stuck = 0;
+      if (bk === pk || Math.hypot(P.x - being.x, P.y - being.y) < 1.1) moveToward(P.x, P.y, dt, beingSpeed());
       else {
         const bx = bk % W, by = (bk / W) | 0; let nb = bk;
         for (const [dx, dy] of HD) { const n = bk + dy * W + dx; if (!solid(bx + dx, by + dy) && field[n] >= 0 && field[n] < field[nb]) nb = n; }
-        moveToward(nb % W + 0.5, ((nb / W) | 0) + 0.5, dt, BEING_SPEED);
+        moveToward(nb % W + 0.5, ((nb / W) | 0) + 0.5, dt, beingSpeed());
       }
       if (Math.hypot(P.x - being.x, P.y - being.y) < 0.45) beingTakes(pk);
       return;
@@ -875,14 +885,14 @@
         if (Math.hypot(being.x - (c.x + 0.5), being.y - (c.y + 0.5)) < 1.6) { being.leg = 1; return; }
         const bx = bk % W, by = (bk / W) | 0; let nb = bk;
         for (const [dx, dy] of HD) { const n = bk + dy * W + dx; if (!solid(bx + dx, by + dy) && field[n] >= 0 && field[n] < field[nb]) nb = n; }
-        moveToward(nb % W + 0.5, ((nb / W) | 0) + 0.5, dt, BEING_SPEED);
+        moveToward(nb % W + 0.5, ((nb / W) | 0) + 0.5, dt, beingSpeed());
         return;
       }
       // on its second pass it stops, square in front of the slats, and looks in; then goes on
       if (being.stare) { if (now < being.stare) return; being.stare = 0; being.stared = true; }
       if (being.passes === 2 && !being.stared && Math.hypot(being.x - ox, being.y - oy) < 0.12) { being.stare = now + 1400; FP_SOUND.beingSees(); return; }
       const [tx, ty] = pts[being.leg & 1];
-      if (moveToward(tx, ty, dt, BEING_SPEED * 1.2)) { being.leg++; being.passes++; if (being.passes > BEING_PASSES) beingGone(); }
+      if (moveToward(tx, ty, dt, beingSpeed() * 1.2)) { being.leg++; being.passes++; if (being.passes > BEING_PASSES) beingGone(); }
     }
   }
   // it has you: static, and you're on the way out, a little further along than you left it, facing on
@@ -1389,7 +1399,7 @@
   function showPage(pg) {
     const text = character && character.pages ? character.pages[pg] : '';
     $('pageText').textContent = text || '…';
-    $('pageWho').textContent = character ? character.name : '';
+    $('pageWho').textContent = '';   // Joe: "The note from the kid wouldn't be signed … at all"
     $('page').classList.add('show');
     pageHideAt = performance.now() + (CONFIG.journalHoldSec + (text || '').length / 30) * 1000;
   }
@@ -1787,9 +1797,9 @@
   // point very quickly and then disappear. This of course would scare the player good." Pushing
   // through a squeeze toward its far end, now and then (`squeezeScare` a squeeze, at most once each,
   // DART_GAP apart) a shape whips across the opening you're heading for and is gone. It is the
-  // father's own figure, pale and grey, at DART_SPEED — a blink, through a slit. Pale, because the far
-  // side of a squeeze is dark (the veil) and a black shape there was invisible; and drawn over the
-  // veil for the same reason: it is the one thing past the squeeze you are meant to see.
+  // father's own figure at DART_SPEED — a blink, through a slit. Joe: "the one that moves right in front
+  // of the squeeze [should be] tinted all black." It was pale for a version, because the veil made a
+  // black shape hard to see; it is drawn over the veil so the black reads against what light is there.
   const DART_SPEED = 4.5, DART_GAP = 90000;
   let darter = null, dartNext = 0, dartSeen = new Set(), dartForce = false;
   function dartFrame(now, dt) {
@@ -2268,7 +2278,7 @@
         for (let y = Math.max(0, Math.ceil(y0)); y < Math.min(RH, Math.ceil(floorY)); y++) {
           const c = t.px[Math.min(t.h - 1, ((y - y0) / hPx * t.h) | 0) * t.w + tu];
           if (c && colOv[x] && ovDep[y * RW + x] < depth) continue;   // behind a door or a piece of furniture
-          if (c && (!ghost || DITH[(y & 3) * 4 + (x & 3)] < o.alpha)) buf[y * RW + x] = o.pale ? paleOf(c, f) : c >>> 24 === 0xfe ? shade(c | 0xff000000, Math.sqrt(f), 1, 1) : shade(c, f, 1, L);
+          if (c && (!ghost || DITH[(y & 3) * 4 + (x & 3)] < o.alpha)) buf[y * RW + x] = o.pale ? shade(0xff060506, f, 1, 1) : c >>> 24 === 0xfe ? shade(c | 0xff000000, Math.sqrt(f), 1, 1) : shade(c, f, 1, L);
         }
       }
       if (ghost) continue;   // the father is seen, never touched
@@ -2501,9 +2511,18 @@
     }
   }
   bindSel('optMusic', 'music', () => FP_SOUND.setMusic(track()));
-  const wake = () => { FP_SOUND.start(S.theme, track()); FP_SOUND.setEnabled(S.sound); };
-  addEventListener('pointerdown', wake, { capture: true, once: true });
-  addEventListener('keydown', wake, { capture: true, once: true });
+  // Joe: "I lose audio a lot when I switch back and forth from apps. Can I make it so tapping the move
+  // stick triggers the audio?" A phone suspends a page's sound when it goes to the background, and only
+  // a touch may start it again. So every touch (the stick's included) and every key checks, and wakes
+  // both — the room's and the music's — if either has stopped
+  const wake = () => {
+    if (!S.sound) return;
+    if (!FP_SOUND.running()) { FP_SOUND.start(S.theme, track()); FP_SOUND.setEnabled(S.sound); }
+    else if (typeof AUDIO !== 'undefined') AUDIO.unlock();
+  };
+  addEventListener('pointerdown', wake, { capture: true });
+  addEventListener('touchstart', wake, { capture: true, passive: true });
+  addEventListener('keydown', wake, { capture: true });
   bindSel('optSound', 'sound', () => FP_SOUND.setEnabled(S.sound));
 
   // ── go ────────────────────────────────────────────────────

@@ -587,18 +587,18 @@ const TEX = (() => {
   // wall decal; only its own pixels are drawn, so the wall shows round it
   function switchPlate(on) {
     const T = blank(64, 64);
-    const edge = hex('#7e7663'), plate = hex('#e3dcc6'), lit = hex('#f1ecdc'), slot = hex('#4d473b'), nub = hex('#f7f4ea'), nubS = hex('#a59d88');
-    for (let y = 22; y <= 40; y++) for (let x = 27; x <= 37; x++) {
-      const e = x === 27 || x === 37 || y === 22 || y === 40;
-      T.px[y * 64 + x] = e ? edge : (x === 28 || y === 23) ? lit : plate;
+    // Joe: "The light switches are massive. Reduce by 75%." A quarter of the size it was: half as wide, half as tall
+    const edge = hex('#7e7663'), plate = hex('#e3dcc6'), lit = hex('#f1ecdc'), slot = hex('#4d473b'), nub = hex('#f7f4ea');
+    for (let y = 27; y <= 36; y++) for (let x = 30; x <= 35; x++) {
+      const e = x === 30 || x === 35 || y === 27 || y === 36;
+      T.px[y * 64 + x] = e ? edge : (x === 31 || y === 28) ? lit : plate;
     }
-    T.px[25 * 64 + 32] = edge; T.px[37 * 64 + 32] = edge;   // the two screws
-    for (let y = 28; y <= 34; y++) for (let x = 31; x <= 33; x++) T.px[y * 64 + x] = slot;
-    const y0 = on ? 27 : 32;
-    for (let y = y0; y < y0 + 3; y++) for (let x = 31; x <= 33; x++) T.px[y * 64 + x] = y === y0 + 2 ? nubS : nub;
+    for (let y = 30; y <= 33; y++) for (let x = 32; x <= 33; x++) T.px[y * 64 + x] = slot;
+    const y0 = on ? 29 : 32;
+    for (let y = y0; y < y0 + 2; y++) for (let x = 32; x <= 33; x++) T.px[y * 64 + x] = nub;
     // off, a pilot light in the toggle glows amber, so the switch can be found in the dark room it
     // works. Alpha 0xfe marks a pixel the renderer draws as its own light
-    if (!on) { const pilot = (hex('#f0a040') & 0x00ffffff) | 0xfe000000; T.px[29 * 64 + 32] = pilot; T.px[30 * 64 + 32] = pilot; }
+    if (!on) { const pilot = (hex('#f0a040') & 0x00ffffff) | 0xfe000000; T.px[30 * 64 + 32] = pilot; T.px[30 * 64 + 33] = pilot; }
     return T;
   }
   // ── furniture, for the back rooms ───────────────────────────
