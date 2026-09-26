@@ -835,7 +835,7 @@
     return d <= st;
   }
   function beingFrame(now, dt) {
-    if (!S.being || !pathDist || floor > 1 || won || stairBusy) return;
+    if (!S.being || !pathDist || floor > 1 || won || stairBusy || reading) return;
     const pk = Math.floor(P.y) * W + Math.floor(P.x), off = hidden ? 99 : pathDist[pk];
     if (beingState === 'dormant') {
       if (off >= S.beingOff) { if (!offSince) offSince = now; } else offSince = 0;
@@ -1191,8 +1191,7 @@
   }
   function showNote(text) {
     $('pageText').textContent = text; $('pageWho').textContent = '';
-    $('page').classList.add('show');
-    pageHideAt = performance.now() + (CONFIG.journalHoldSec + text.length / 30) * 1000;
+    openPage();
     FP_SOUND.page();
   }
 
@@ -1611,16 +1610,28 @@
     hud();
   }
   function flash(id) { const el = $(id); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
-  let pageHideAt = 0;
+  // a page, or a note, stays up until you tap off it, and while it's up you're reading: you don't move,
+  // the HUD steps away, and nothing in the building comes for you. Joe: "For all the popup journal text
+  // don't have it go away until the user taps off of the journal page. Disable movement and other hud
+  // features while it's active." A tap on the paper itself does nothing.
+  let reading = false;
+  function openPage() {
+    reading = true; clearStick(); vel = 0; anim = null; queued = null;
+    for (const k of Object.keys(keys)) keys[k] = false;
+    $('page').classList.add('show'); document.body.classList.add('reading');
+  }
   function showPage(pg) {
     const text = character && character.pages ? character.pages[pg] : '';
     $('pageText').textContent = text || '…';
     $('pageWho').textContent = '';   // Joe: "The note from the kid wouldn't be signed … at all"
-    $('page').classList.add('show');
-    pageHideAt = performance.now() + (CONFIG.journalHoldSec + (text || '').length / 30) * 1000;
+    openPage();
   }
-  function hidePage() { $('page').classList.remove('show'); pageHideAt = 0; }
-  $('page').addEventListener('pointerdown', (e) => { e.stopPropagation(); hidePage(); });
+  function hidePage() { reading = false; $('page').classList.remove('show'); document.body.classList.remove('reading'); }
+  $('page').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); e.preventDefault();
+    if (e.target.closest('#page > div')) return;   // on the paper: keep reading
+    hidePage();
+  });
 
   // ── the top-down's debug, for this view ───────────────────
   // Joe: "can we bring over some of the debug functions now that we have on the top down version that
@@ -1695,7 +1706,7 @@
 
   // ── stepping: taps, swipes, keys ──────────────────────────
   function act(a) {
-    if (won) return;
+    if (won || reading) return;
     if (anim) { queued = a; return; }
     begin(a, performance.now());
   }
@@ -1790,6 +1801,7 @@
   }
 
   function stickMove(now, dt) {
+    if (reading) { vel = 0; return; }
     if (hidden) {   // in a closet you don't move; the stick looks about, a little, through the slats
       const want = hidden.a0 + stick.x * 0.45 + ((keys.right ? 1 : 0) - (keys.left ? 1 : 0)) * 0.45;
       P.a += (want - P.a) * Math.min(1, dt * 6);
@@ -2586,6 +2598,7 @@
   const keys = {};
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (reading) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); hidePage(); } return; }   // on a PC, a key puts the page down
     const a = KEYS[e.code]; if (!a) return;
     e.preventDefault(); hideHint();
     keys[a] = true;
@@ -2798,7 +2811,6 @@
   let frames = 0, fpsAt = performance.now(), prev = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, Math.max(0, (now - prev) / 1000)); prev = now;
-    if (pageHideAt && now > pageHideAt) hidePage();
     // debug: the arrow, pointing at the way out as the crow flies
     const arrowEl = $('dbgArrow');
     // up a floor, the way out is the door marked down

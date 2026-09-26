@@ -105,6 +105,8 @@
   body.hiding #stepOut { display: block; position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 34px); transform: translateX(-50%); z-index: 3;
     padding: 12px 26px; border-radius: 12px; border: 1px solid #6b5436; background: #1b1a18ee; color: #ece7da; font: inherit; font-size: 16px; }
   body.hiding #stick, body.hiding #hud { display: none; }
+  /* reading a page: the page is all there is */
+  body.reading #stick, body.reading #hud, body.reading #gear, body.reading #mini, body.reading #mapBtn, body.reading #dbgArrow, body.reading #hint, body.reading #glyphs { visibility: hidden; }
   /* between floors: black, the floor's number, and back */
   #fade { position: fixed; inset: 0; display: grid; place-items: center; background: #050506; opacity: 0; pointer-events: none; transition: opacity .45s; z-index: 6; }
   #fade.show { opacity: 1; pointer-events: auto; }
