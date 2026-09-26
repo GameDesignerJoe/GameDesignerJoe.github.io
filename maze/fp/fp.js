@@ -281,7 +281,7 @@
   //           of a dead end. One 64×64 sheet per face, drawn over the wall's own texture.
   const DEC = 64;
   let pathMask = null;   // debug: the way out, marked on the floor
-  let objs = [], decals = new Map(), wordSpots = [], chalk = 0, charcoalN = 0, pagesFound = 0, pagesTotal = 0;
+  let objs = [], decals = new Map(), wordSpots = [], chalk = 0, charcoalN = 0, pagesFound = 0, pagesTotal = 0, pagesAll = 0;
   const faceKey = (k, face) => k * 4 + face;   // face: 0 west, 1 east, 2 north, 3 south — the side of the wall tile you see
   function decalFor(k, face) {
     let d = decals.get(faceKey(k, face));
@@ -364,7 +364,7 @@
   }
   function saveFloor() {
     floorStates.set(floor, { taken: new Set(taken), decals: new Map([...decals].map(([k, v]) => [k, v.slice()])), doors: doors.map((d) => [d.open, d.swing]),
-      lights: lightGroups.map((g) => g.on), seen: seen.slice(), pagesFound, builtTurned });
+      lights: lightGroups.map((g) => g.on), seen: seen.slice(), builtTurned });
   }
   function goFloor(n, now) {
     if (stairBusy || n < 1 || n > Math.max(1, Math.round(S.floors))) return;
@@ -374,16 +374,16 @@
     FP_SOUND.stairs(up);
     setTimeout(() => {
       saveFloor();
-      const keepChalk = chalk, keepCharcoal = charcoalN;
+      const keepChalk = chalk, keepCharcoal = charcoalN, keepPages = pagesFound;
       floor = n; SEED = floorSeed(n);
       builtTurned = floorStates.has(n) ? floorStates.get(n).builtTurned : turned;
-      applyMazeDebug(); generate(SEED); carveHeart(); reset();
-      chalk = keepChalk; charcoalN = keepCharcoal;
+      applyMazeDebug(); generate(SEED); carveHeart(); spreadPages(); reset();
+      chalk = keepChalk; charcoalN = keepCharcoal; pagesFound = keepPages;
       const st = floorStates.get(floor);
       taken = st ? new Set(st.taken) : new Set();
       if (st) {
         objs = objs.filter((o) => !taken.has(objKey(o)));
-        decals = st.decals; seen = st.seen; pagesFound = st.pagesFound;
+        decals = st.decals; seen = st.seen;
         doors.forEach((d, i) => { if (st.doors[i]) { d.open = d.t = st.doors[i][0]; d.swing = st.doors[i][1]; d.seg = doorSeg(d); } });
         lightGroups.forEach((g, i) => { g.on = !!st.lights[i]; g.lvl = g.on ? 1 : 0; g.at = -1e9; });
       }
@@ -446,7 +446,7 @@
     for (const [key, pg] of journals) { const [x, y] = at(key); objs.push({ x: x + 0.5, y: y + 0.5, kind: 'page', pg, tex: TEX.sprites.book, h: 0.3, glow: 0.35 }); }
     for (const key of chalkSpots) { const [x, y] = at(key); objs.push({ x: x + 0.5, y: y + 0.5, kind: 'chalk', tex: TEX.sprites.chalk, h: 0.1, glow: 0.2 }); }
     for (const key of charcoalSpots) { const [x, y] = at(key); objs.push({ x: x + 0.5, y: y + 0.5, kind: 'charcoal', tex: TEX.sprites.charcoal, h: 0.1, glow: 0 }); }
-    pagesTotal = journals.size;
+    pagesTotal = pagesAll || journals.size;
     pathMask = new Uint8Array(W * H);
     if (floor === 1) for (const [x, y] of solutionPath) if (x >= 0 && y >= 0 && x < W && y < H) pathMask[y * W + x] = 1;
     // words at the far end of dead ends: the wall you face as you walk in. Their own random stream,
@@ -1673,6 +1673,17 @@
     $('pageWho').textContent = '';   // Joe: "The note from the kid wouldn't be signed … at all"
     openPage();
   }
+  // the chapter's pages are spread across its floors, not a set on each. Joe: "Spread journals across all floors."
+  // Every floor's generator lays out the whole set; each keeps only its share, dealt round like cards — page 1 on
+  // floor 1, page 2 on floor 2, and so on — so the count, which goes with you up and down, is out of the chapter's
+  // pages, and going up is part of finding them
+  function spreadPages() {
+    pagesAll = journals.size;
+    const F = Math.max(1, Math.round(S.floors));
+    if (F <= 1) return;
+    const order = [...new Set(journals.values())].sort((a, b) => a - b);
+    for (const [key, pg] of [...journals]) if (order.indexOf(pg) % F !== floor - 1) journals.delete(key);
+  }
   function hidePage() { reading = false; $('page').classList.remove('show'); document.body.classList.remove('reading'); }
   $('page').addEventListener('pointerdown', (e) => {
     e.stopPropagation(); e.preventDefault();
@@ -1705,7 +1716,7 @@
     BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
-    generate(SEED); carveHeart(); reset();
+    generate(SEED); carveHeart(); spreadPages(); reset();
     FP_SOUND.setMusic(track());
   }
 
@@ -2794,7 +2805,7 @@
   // new maze — the top-down's hardRefresh(), and like it bounded so a dead connection still reloads.
   // Every script is fetched fresh as well as the page, since the scripts are what change.
   $('fatherNow').onclick = () => { fatherForce = true; fatherCheck = 0; $('panel').classList.remove('open'); };
-  $('restart').onclick = () => { if (floor > 1) newMaze(BASE); else reset(); $('panel').classList.remove('open'); };
+  $('restart').onclick = () => { newMaze(BASE); $('panel').classList.remove('open'); };   // the same maze from the start: every floor, every page, the turn
   $('beingNow').onclick = () => { beingForce = true; beingNext = 0; $('panel').classList.remove('open'); };
   $('toHeart').onclick = () => {   // outside its way in, facing it
     $('panel').classList.remove('open'); if (!heart) return;
@@ -2873,7 +2884,7 @@
   applyTheme();
   resize();
   applyMazeDebug();
-  BASE = SEED; generate(SEED); carveHeart(); reset(); lastX = P.x; lastY = P.y;
+  BASE = SEED; generate(SEED); carveHeart(); spreadPages(); reset(); lastX = P.x; lastY = P.y;
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console

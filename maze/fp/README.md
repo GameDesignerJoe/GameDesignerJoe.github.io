@@ -93,8 +93,10 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   and you're standing out from a door marked down in the dead end nearest where that floor begins; it takes you back
   to the door marked up. Each floor remembers itself while you're away (what you took, your chalk, open doors,
   lights, what you've seen), and is rebuilt as it was first built, calm or turned, so its closets stay behind their
-  doors (after the turn they used to move, and a tap on one chalked it). The way out is only on floor 1; chalk and charcoal go with you; pages count per floor.
-  **To the stairs** on the panel puts you in front of them; Restart goes back to floor 1.
+  doors (after the turn they used to move, and a tap on one chalked it). The way out is only on floor 1; chalk and charcoal go with you, and so does the page count:
+  the chapter's pages are spread across its floors (dealt round: page 1 on floor 1, page 2 on floor 2, …), so the count is out of
+  all of them.
+  **To the stairs** on the panel puts you in front of them; Restart starts the same maze over: floor 1, every page back, before the turn.
 - **The kid's room** (the Child's secret room, which the generator already carves behind a squeeze). Pitch black
   (`PITCH`, darker than a dark hall) until you flip its switch, just inside the squeeze; the amber pilot is all you see.
   Lit (five lamps of its own), every wall is covered in a kid's chalk — noughts and crosses, "dad?", balls, suns, a
