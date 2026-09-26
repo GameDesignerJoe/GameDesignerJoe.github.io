@@ -49,12 +49,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`, 30 a maze: "closets everywhere") are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
-- **The being** (`being`; floor 1). The old notes' Caretaker, and Joe's twist: it helps. Past `beingOff` steps off the
+- **The being** (`being`; floor 1; only after the turn). The old notes' Caretaker, and Joe's twist: it helps. Past `beingOff` steps off the
   way out for `beingWait` seconds, the signs — tubes round you stutter, a low swell — and if you turn back to the way
   out it never comes. Otherwise it's there eight steps off, somewhere you're not looking: tall as the ceiling, thin,
   arms past its knees, two pale eyes (all you see of it in the dark). It comes at 1.25× your walk (time to run for a closet), through doors but never through a squeeze; if
   you're somewhere it can't get to, it waits a while and goes. If it
-  reaches you: static, and you're on the way out a few steps further along than you left it, facing on. Back on the
+  reaches you, and only once you've seen it (enough of it on your screen; unseen, it holds just behind you, its feet
+  close, until you turn round, or gives up): static, and you're on the way out a few steps further along than you left it, facing on. Back on the
   way out yourself, it lets you be. In a closet: it runs up and past the door, back and forth, stops once square in
   front of the slats to look in, and is gone. **Being now** on the panel calls it.
 - **The turn.** A maze starts calm (`calm`: no dark halls of this view's own, switched rooms lit). Each page read and

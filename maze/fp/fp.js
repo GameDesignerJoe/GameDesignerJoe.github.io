@@ -795,7 +795,11 @@
   // Joe: "make move speed 1.25 the player's. Gives them time to run and find a closet." And "the being
   // shouldn't use squeeze throughs": it goes round by the halls, and where it can't get to you, it gives up
   const beingSpeed = () => S.walk * 1.25;
-  const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_FAR = 8, BEING_PASSES = 3;
+  // Joe: "The being should only appear after the turn. The player should have to see the being at least once
+  // before it resets you." So it stays dormant until `turned`, and each time it comes it can't take you until
+  // enough of it has been on your screen (BEING_SEEN_PX drawn pixels, walls and doors hiding it); unseen, it
+  // holds a little behind you, feet close, until you turn round, or gives up after BEING_HOLD.
+  const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_FAR = 8, BEING_PASSES = 3, BEING_SEEN_PX = 60, BEING_HOLD = 12000;
   let pathDist = null, pathNear = null, pathIdx = null, being = null, beingState = 'dormant', beingT = 0, offSince = 0, beingNext = 0, beingForce = false, fieldAt = 0, field = null, stepT = 0;
   function beingIndex() {   // how far every tile is from the way out, and which tile of it is nearest
     pathDist = new Int32Array(W * H).fill(-1); pathNear = new Int32Array(W * H).fill(-1); pathIdx = new Map();
@@ -829,7 +833,7 @@
     const pk = Math.floor(P.y) * W + Math.floor(P.x), off = hidden ? 99 : pathDist[pk];
     if (beingState === 'dormant') {
       if (off >= S.beingOff) { if (!offSince) offSince = now; } else offSince = 0;
-      if (beingForce || (offSince && now - offSince > S.beingWait * 1000 && now > beingNext && !hidden)) {
+      if (beingForce || (turned && offSince && now - offSince > S.beingWait * 1000 && now > beingNext && !hidden)) {
         beingForce = false; beingState = 'signs'; beingT = now; FP_SOUND.beingSigns();
       }
       return;
@@ -852,6 +856,9 @@
       const bk = Math.floor(being.y) * W + Math.floor(being.x);
       if (field[bk] < 0) { if (!being.stuck) being.stuck = now; if (now - being.stuck > 6000) { beingGone(); return; } return; }   // you're past a squeeze: it waits, then goes
       being.stuck = 0;
+      const gap = Math.hypot(P.x - being.x, P.y - being.y);
+      if (!being.seen && gap < 1.6) { if (!being.hold) being.hold = now; if (now - being.hold > BEING_HOLD) beingGone(); return; }   // not until you've seen it
+      being.hold = 0;
       if (bk === pk || Math.hypot(P.x - being.x, P.y - being.y) < 1.1) moveToward(P.x, P.y, dt, beingSpeed());
       else {
         const bx = bk % W, by = (bk / W) | 0; let nb = bk;
@@ -2254,6 +2261,7 @@
       list.push({ o, depth, cam });
     }
     list.sort((a, b) => b.depth - a.depth);   // far first, so near ones cover
+    let seenPx = 0;
     for (const { o, depth, cam } of list) {
       // a piece with a side view shows it when you're more beside it than in front
       const t = o.tex, sc = D / depth, hPx = o.h * sc, wPx = hPx * t.w / t.h;
@@ -2274,6 +2282,7 @@
         for (let y = Math.max(0, Math.ceil(y0)); y < Math.min(RH, Math.ceil(floorY)); y++) {
           const c = t.px[Math.min(t.h - 1, ((y - y0) / hPx * t.h) | 0) * t.w + tu];
           if (c && colOv[x] && ovDep[y * RW + x] < depth) continue;   // behind a door or a piece of furniture
+          if (c && o === being) seenPx++;
           if (c && (!ghost || DITH[(y & 3) * 4 + (x & 3)] < o.alpha)) buf[y * RW + x] = o.pale ? shade(0xff060506, f, 1, 1) : c >>> 24 === 0xfe ? shade(c | 0xff000000, Math.sqrt(f), 1, 1) : shade(c, f, 1, L);
         }
       }
@@ -2281,6 +2290,8 @@
       // a generous target, well past the picture on every side: fingers are wide and things are small
       if (any) drawn.push({ o, x0: x0 - wPx * 0.6, x1: x1 + wPx * 0.6, y0: y0 - hPx - 10, y1: floorY + hPx + 14, depth });
     }
+    // enough of it on screen, not behind a wall or a door, to have been seen: then (and only then) it may take you
+    if (being && !only && seenPx > BEING_SEEN_PX) being.seen = true;
   }
 
   // ── the debug map ─────────────────────────────────────────
