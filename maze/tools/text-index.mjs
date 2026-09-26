@@ -50,6 +50,12 @@ function tutorialChapter(kind) {
 // What each block is, for a writer. Anything not named here still appears — it just says so, which
 // is the point: a new block must not be able to slip into the game unannotated.
 const ABOUT = {
+  WALL_WORDS:   { surface: 'wall', fires: 'every maze', voiced: true,
+                  when: 'First person: written on the far wall of a few dead ends' },
+  WALL_START:   { surface: 'wall', fires: 'every maze', voiced: true,
+                  when: 'First person: across the start room as you wake, and ahead of you as you step out of it' },
+  STORY_ROOMS:  { surface: 'wall', fires: 'every maze', voiced: true,
+                  when: 'First person: the story rooms, written all over their walls — and the note each keeps' },
   SELF_LINES:   { surface: 'narrator', fires: 'rotation', voiced: true,
                   when: 'While wandering, every couple of minutes, in this self’s chapter' },
   ROOM_LINES:   { surface: 'narrator', fires: 'once a run', voiced: true,

@@ -351,6 +351,41 @@ const WALL_START = {
   'The Child': ["dad said to stay here.", "but I didn't."],
 };
 
+// first person: story rooms. Joe: "This is a story about a person who when they were a child their
+// father abandoned them. [They] didn't believe their father actually left them, and made excuses.
+// But as the child grew, their maze grew as well. The questions they asked, the lies they told
+// themselves … will all manifest in these various story rooms … an excessive amount of writing on
+// the walls. Written by the child, he is not processing the trauma. He is ignoring it. He's building
+// a wall around his heart." Two rooms for the Child, two ages of the same not-looking:
+//   waiting — the young one, sure he's coming. `walls` are written all over, low, in pencil and crayon,
+//             some crossed out and written again; `big` goes up large; `note` is on the chair's seat
+//   wall    — older, and it's working. `bricks` are laid in tight even rows like brickwork, floor to
+//             ceiling; `crack` is the one place the paint has come away and the old hand shows; `note`
+//             is what's kept inside the boxes, out of reach but not out of sight
+// The walls are written in a 3×5 hand: lowercase, digits, ' . , ? ! - |. Placeholders, Claude's
+// drafts in the child's voice, to be rewritten.
+const STORY_ROOMS = {
+  'The Child': {
+    waiting: {
+      walls: ["he said five minutes", "five minutes is longer for grown ups", "his car broke down probly", "there was trafic",
+        "he got lost so i have to stay where he left me", "dont move or he wont find you", "i was good. i was so good",
+        "i didnt cry", "hes coming back", "hes coming back", "he is coming back", "hes getting me a present thats why its taking so long",
+        "maybe he went to the wrong door", "counting to 100 again", "it wasnt his fault", "mom doesnt know",
+        "he didnt leave he is just late", "i saved him the good chair", "tomorrow", "tomorrow for sure",
+        "busy people are important people", "hes going to be so proud of me", "i made him a drawing",
+        "when he gets here im not going to be mad", "i can wait longer than anybody", "he told me to wait here so this is where i wait"],
+      big: ["wait here", "he said he would come back"],
+      note: "saved your seat dad. dont worry. i didnt let anybody sit in it.",
+    },
+    wall: {
+      bricks: ["im fine", "it doesnt matter", "i dont care", "i dont need him", "i never think about it", "its not a big deal",
+        "whatever", "people leave", "im over it", "stop asking", "i dont miss him", "better off", "never needed him", "doesnt bother me"],
+      crack: "come back",
+      note: "the watch he gave me stopped at five past. i dont wear it. i just keep it.",
+    },
+  },
+};
+
 // The engine hands each surface a finished string, never an id, so the debug "Line IDs" view has
 // to look the id up backwards: words → path. That walk needs the blocks as data. A plain object
 // literal rather than anything clever, because these are `const` in the shared script scope and
@@ -358,5 +393,5 @@ const WALL_START = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS,
 };

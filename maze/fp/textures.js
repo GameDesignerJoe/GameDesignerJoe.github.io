@@ -497,6 +497,11 @@ const TEX = (() => {
     // a stub of chalk, and one of charcoal, lying on the floor
     chalk: sprite(['................', '................', '.....wwwwwww....', '....wwwwwwwwW...', '....WwwwwwwWW...', '.....WWWWWWW....'], P),
     charcoal: sprite(['................', '................', '.....ccccccc....', '....cCcccccccc..', '....cccccccCcc..', '.....ccccccc....'], P),
+    // a folded note, and a wristwatch with a cracked face — the story rooms' keepsakes
+    note: sprite(['................', '...pppppppppp...', '..pPPPPPPPPPPp..', '..pPppPpppPPPp..', '..pPPPPPPPPPPp..', '...pppppppppp...'],
+      Object.assign({}, P, { p: hex('#e9e1c8'), P: hex('#c9bf9f') })),
+    watch: sprite(['.....bb.....', '....kkkk....', '...kwwwwk...', '..kwwkwwwk..', '..kwwkkwwk..', '..kwwwwwwk..', '...kwwwwk...', '....kkkk....', '.....bb.....'],
+      Object.assign({}, P, { b: hex('#4a3325'), w: hex('#ddd6c0') })),
     // a kid's heap of chalk in a corner, the colours as well as the white: Joe, "Put a pile of chalk in one corner"
     chalkPile: sprite([
       '................', '......rr........', '...wwwwwWbb.....', '..yyyywwwWbbbb..', '.wwwwrrrrWwwwww.', 'WWwwwwwWyyyyyWW.'],
@@ -611,6 +616,7 @@ const TEX = (() => {
       dark:     tex(16, 16, (x, y, R) => dith(ramp4(['#1f1d1a', '#2d2a26', '#3b3833', '#4a4640']), 1.5 + (R() - 0.5) * 0.4, x, y)),
       bin:      tex(16, 16, (x, y, R) => dith(ramp4(['#3c3f3c', '#4d504c', '#5d605c', '#6e716c']), 1.6 + (x % 4 === 0 ? 0.5 : 0) + (R() - 0.5) * 0.3, x, y)),
       shade:    tex(16, 16, (x, y) => E(y % 5 === 0 ? '#e9c98a' : '#f6dca6')),
+      bag:      tex(16, 16, (x, y, R) => dith(ramp4(['#3e2620', '#56332a', '#6e4335', '#855443']), 1.9 + (y === 5 || x === 8 ? -0.9 : 0) + (R() - 0.5) * 0.4, x, y)),
       stair:    tex(16, 16, (x, y, R) => dith(ramp4(['#4b4943', '#5f5c55', '#74716a', '#8a877f']), 1.9 + (R() - 0.5) * 0.7 + ((x * 3 + y * 5) % 13 === 0 ? -0.7 : 0), x, y)),
     };
     // fronts: one picture stretched over the face that looks into the room

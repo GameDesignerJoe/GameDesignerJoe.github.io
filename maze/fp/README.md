@@ -47,6 +47,15 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
+- **Story rooms** (`storyRooms`; the Child, floor 1; words in `STORY_ROOMS` in data/text.js). Two ages of not looking:
+  **the waiting room** — every wall written over low in pencil and crayon, lines crossed out and written again, tallies,
+  a clock drawn stopped at five past, WAIT HERE; ceiling dead, one floor lamp by a single chair turned to face the way in,
+  a packed bag, a note on the seat; the Child's tune winding down (`The Waiting Room` in data/music.js). **The wall** —
+  painted over white and written floor to ceiling in one tight hand, "im fine | it doesnt matter", staggered like
+  brickwork, with one chipped patch where the wallpaper and the old pencil show ("come back"); every panel lit, steady;
+  almost no music (`The Wall`); a ring of stacked boxes round a shoebox with the watch on it, out of reach but not out of
+  sight or tap. Notes are read where they lie (a tap, or the first time you walk to them), never taken. **To a story
+  room** on the panel. Sprites can stand off the floor now (`z`), for the note on the seat.
 - **Stairs** (`floors`, 2 by default; 1 is none). Floor 1 is the chapter's maze; each floor above is a maze of its own
   from its own seed off the first, so it's always the same floor. Going up is a real flight — five steps as boxes,
   rising the length of a far dead end to a door marked up. Walk into it or tap it: black, feet on stairs, "floor 2",

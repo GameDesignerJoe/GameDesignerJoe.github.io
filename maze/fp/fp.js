@@ -473,11 +473,14 @@
     wordSpots = picks.map(([e, text]) => ({ k: e.k, face: e.face, text }));
     for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
     placeDoors();
-    const reserved = picks.map(([e]) => faceKey(e.k, e.face)).concat(stairSpots.map((s) => faceKey(s.k, s.face)));
+    const reservedSet = new Set(picks.map(([e]) => faceKey(e.k, e.face)).concat(stairSpots.map((s) => faceKey(s.k, s.face))));
+    placeStory(reservedSet);
+    const reserved = [...reservedSet];
     placeClosets(new Set(reserved));
     placeSwitches(new Set(reserved.concat(closets.map((c) => faceKey(c.k, c.face)))));
     placeFurniture();
     stairBoxes();
+    storyProps();
     buildLight();
     hud();
   }
@@ -614,6 +617,7 @@
     rooms.forEach((tiles, ri) => {
       if (!tiles.some((k) => T.ceils[ceilVar[k]].glow && !dark[k])) return;           // nothing to switch
       if (secret && tiles.some((k) => secret.has(k))) return;                            // the kid's room has its own
+      if (storyAt && tiles.some((k) => storyAt[k] >= 0)) return;                         // and a story room is set as it is
       if (tiles.some((k) => Math.abs(k % W - sx0) < 2 && Math.abs(((k / W) | 0) - sy0) < 2)) return;   // not the room you wake in
       // the plate: a mouth tile m next to room tile r; the wall w beside m, seen from the room tile beside r
       const spots = [];
@@ -731,7 +735,7 @@
     };
     const secret = secretSet();
     for (const tiles of rooms) {
-      if (tiles.length < 6 || (secret && tiles.some((k) => secret.has(k)))) continue;
+      if (tiles.length < 6 || (secret && tiles.some((k) => secret.has(k))) || (storyAt && tiles.some((k) => storyAt[k] >= 0))) continue;
       const inR = new Set(tiles), gi = groupAt ? groupAt[tiles[0]] : -1;
       const nearMouth = (t) => { const x = t % W, y = (t / W) | 0;
         for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) { const n = yy * W + xx; if (!solid(xx, yy) && !inR.has(n)) return true; } return false; };
@@ -778,6 +782,188 @@
     const d = decalFor(g.k, g.face), art = TEX.lightSwitch[g.on ? 1 : 0].px;
     for (let i = 0; i < DEC * DEC; i++) if (art[i]) d[i] = art[i];
   }
+  // ── story rooms ───────────────────────────────────────────
+  // Joe: "I think we need to start bringing in story rooms … these rooms should have an excessive
+  // amount of writing on the walls. Written by the child, he is not processing the trauma. He is
+  // ignoring it. He's building a wall around his heart in order to deal with the pain. You need to
+  // imagine what that would look like … what these rooms would have in them, the lighting, the
+  // texturing, the music when you enter them." The words are STORY_ROOMS in data/text.js. Two rooms
+  // of a Child maze's floor 1, `storyRooms` of them, on their own random stream:
+  //   the waiting room — the young one, sure he's coming. Every wall written over, low, in pencil and
+  //     crayon, sizes all over, lines crossed out and written again underneath, tallies from counting
+  //     to a hundred again, a clock drawn stopped at five past, WAIT HERE up high. The ceiling lights
+  //     are dead; one floor lamp by a single chair in the middle of the room, turned to face the way
+  //     in, a packed bag beside it and a note on the seat. The music is his own tune, winding down.
+  //   the wall — older, and it's working. The walls painted over a cold white and written floor to
+  //     ceiling in one tight even hand, "im fine | it doesnt matter | i dont care", in staggered rows
+  //     that lay like brickwork. One place the paint has come away and the old wallpaper shows, and
+  //     under it, the kid's pencil: come back. Every light on, steady, the hum loud; almost no music.
+  //     In the middle, a ring of stacked boxes built around a shoebox, and on it the watch he left —
+  //     you can't get in, but you can see it over the top and reach it.
+  // Nothing else goes in them: no furniture, no random switch.
+  let story = [], storyAt = null, storyMusic = null, storyHere = -1;
+  const PENCIL = TEX.hex('#3b3a36'), INK_BLUE = TEX.hex('#262a36'), CRAYON = ['#b5473b', '#3f6aa6', '#3f8a4e', '#c28a2a', '#7a4a93'].map((c) => TEX.hex(c));
+  // a hand: `text` flowed into a box from (x0, y0), `sc` pixels to a stroke, wobbling as a child's
+  // does unless `neat`. Returns where it stopped: { y: the next line, x1: the far end of the last }
+  function hand(d, text, x0, y0, maxW, sc, col, R, neat) {
+    const lh = 6 * sc + 1, adv = 4 * sc, slope = neat ? 0 : (R() - 0.5) * 0.12;
+    let x = x0, y = y0, x1 = x0;
+    for (const w of text.toLowerCase().split(' ')) {
+      if (x + w.length * adv > x0 + maxW && x > x0) { x = x0; y += lh; }
+      for (let c = 0; c < w.length; c++) {
+        const g = FONT[w[c]]; if (!g) continue;
+        const jy = neat ? 0 : Math.round((R() - 0.5) * 1.2 + slope * (x - x0));
+        for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) if (g[r * 3 + q] === '#')
+          for (let yy = 0; yy < sc; yy++) for (let xx = 0; xx < sc; xx++) {
+            const X = x + c * adv + q * sc + xx, Y = y + jy + r * sc + yy;
+            if (X >= 0 && X < DEC && Y >= 0 && Y < DEC && R() > (neat ? 0.02 : 0.07)) d[Y * DEC + X] = col;
+          }
+      }
+      x += (w.length + 1) * adv; x1 = Math.max(x1, x - adv);
+    }
+    return { y: y + lh, x1 };
+  }
+  const strike = (d, x0, x1, y, col, R) => { for (let x = x0; x < x1; x++) { const Y = Math.round(y + (R() - 0.5) * 1.4); if (Y >= 0 && Y < DEC && x >= 0 && x < DEC) d[Y * DEC + x] = col; } };
+  function fillWaiting(d, R, W8, big, clock) {
+    let y = 3;
+    if (big) { for (const b of W8.big) { const r = hand(d, b, 3, y, 58, 2, PENCIL, R); y = r.y + 1; } }
+    if (clock) {   // stopped at five past
+      const cx = 32, cy = 11, rr = 7; for (let i = 0; i < 44; i++) { const a = i / 44 * Math.PI * 2, X = Math.round(cx + Math.cos(a) * rr), Y = Math.round(cy + Math.sin(a) * rr); d[Y * DEC + X] = PENCIL; }
+      for (let t = 0; t < 5; t++) d[(cy - t) * DEC + cx] = PENCIL;                 // the long hand, on the twelve
+      for (let t = 0; t < 4; t++) d[(cy - Math.round(t * 0.85)) * DEC + cx + Math.round(t * 0.5)] = PENCIL;   // the short, just past it
+      y = Math.max(y, 21);
+    }
+    while (y < 58) {
+      if (y < 20 && R() < 0.45) { y += 4; continue; }   // up high is sparser: a small child can't reach
+      if (R() < 0.09) {   // tallies: counting, and counting again
+        let x = 2 + (R() * 8 | 0); const n = 2 + (R() * 4 | 0);
+        for (let gI = 0; gI < n && x < 56; gI++, x += 7) { for (let i = 0; i < 4; i++) for (let t = 0; t < 5; t++) if (y + t < DEC) d[(y + t) * DEC + x + i] = PENCIL; for (let t = 0; t < 5; t++) { const X = x - 1 + Math.round(t * 1.3); if (y + 4 - t >= 0 && X < DEC) d[(y + 4 - t) * DEC + X] = PENCIL; } }
+        y += 7; continue;
+      }
+      const text = W8.walls[Math.floor(R() * W8.walls.length)], sc = R() < 0.14 ? 2 : 1;
+      const col = R() < 0.72 ? PENCIL : CRAYON[Math.floor(R() * CRAYON.length)], x0 = 1 + (R() * 9 | 0);
+      const r = hand(d, text, x0, y, 62 - x0, sc, col, R);
+      if (R() < 0.13 && r.y - y <= 6 * sc + 1) {   // crossed out, and written again underneath: the same thing, told again
+        strike(d, x0 - 1, r.x1 + 1, y + 2.5 * sc, col, R);
+        const r2 = hand(d, text, x0 + 2, r.y, 60 - x0, sc, col, R); y = r2.y + (R() * 2 | 0);
+      } else y = r.y + (R() * 2 | 0);
+    }
+  }
+  function fillWall(d, R, B, crack) {
+    const paint = [TEX.hex('#cfcbc0'), TEX.hex('#c7c3b8'), TEX.hex('#d6d2c7')];
+    for (let y = 0; y < DEC; y++) for (let x = 0; x < DEC; x++) d[y * DEC + x] = paint[((x * 7 + (y >> 3) * 3) % 11 === 0) ? 1 : (R() < 0.04 ? 2 : 0)];
+    const mortar = TEX.hex('#b9b5aa');
+    for (let r = 0; r < 10; r++) {
+      const y = 1 + r * 6; let row = '';
+      while (row.length < 24) row += (row ? ' | ' : '') + B.bricks[Math.floor(R() * B.bricks.length)];
+      hand(d, row, (r & 1 ? -8 : -1) - (R() * 3 | 0), y, 200, 1, INK_BLUE, R, true);
+      if (y + 5 < DEC) for (let x = 0; x < DEC; x++) if (d[(y + 5) * DEC + x] === paint[0]) d[(y + 5) * DEC + x] = mortar;
+    }
+    if (!crack) return;
+    // where the paint has come away: the wallpaper under it, and the old pencil
+    const cx = 30 + (R() * 6 | 0), cy = 38, rad = 11;
+    for (let y = cy - rad - 2; y <= cy + rad + 2; y++) for (let x = cx - rad - 2; x <= cx + rad + 2; x++) {
+      const a = Math.atan2(y - cy, x - cx), rr = rad * (0.75 + 0.25 * Math.sin(a * 5 + 1.3) + 0.1 * Math.sin(a * 11));
+      if (Math.hypot(x - cx, (y - cy) * 1.1) < rr && x >= 0 && x < DEC && y >= 0 && y < DEC) d[y * DEC + x] = 0;
+    }
+    let x = cx, cr = TEX.hex('#5a564c'); for (let y = cy - rad; y > 0; y--) { x += R() < 0.3 ? (R() < 0.5 ? -1 : 1) : 0; d[y * DEC + x] = cr; }
+    x = cx + 2; for (let y = cy + rad; y < DEC; y++) { x += R() < 0.3 ? (R() < 0.5 ? -1 : 1) : 0; d[y * DEC + x] = cr; }
+    const [w1, w2] = B.crack.split(' ');
+    hand(d, w1, cx - w1.length * 2, cy - 6, 30, 1, PENCIL, R);
+    if (w2) hand(d, w2, cx - w2.length * 2, cy + 1, 30, 1, PENCIL, R);
+  }
+  function placeStory(reserved) {
+    story = []; storyAt = new Int8Array(W * H).fill(-1); storyMusic = null; storyHere = -1;
+    const S8 = floor === 1 && typeof STORY_ROOMS !== 'undefined' && character ? STORY_ROOMS[character.name] : null;
+    if (!S8 || S.storyRooms <= 0) return;
+    const R = rng(SEED + 210011), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), secret = secretSet();
+    const comp = new Int32Array(W * H).fill(-1), rooms = [];
+    for (let k0 = 0; k0 < W * H; k0++) {
+      if (!room[k0] || comp[k0] >= 0) continue;
+      const tiles = [k0]; comp[k0] = rooms.length;
+      for (let i = 0; i < tiles.length; i++) { const c = tiles[i], x = c % W, y = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (room[n] && comp[n] < 0 && !solid(x + dx, y + dy)) { comp[n] = rooms.length; tiles.push(n); } } }
+      rooms.push(tiles);
+    }
+    const cands = rooms.filter((t) => t.length >= 9 && !t.some((k) => (Math.abs(k % W - sx0) < 3 && Math.abs(((k / W) | 0) - sy0) < 3) || (secret && secret.has(k)) || (k % W === exit.x && ((k / W) | 0) === exit.y)));
+    const kinds = ['waiting', 'wall'].filter((k) => S8[k]).slice(0, Math.round(S.storyRooms));
+    for (const kind of kinds) {
+      if (!cands.length) break;
+      const tiles = cands.splice(Math.floor(R() * cands.length), 1)[0], set = new Set(tiles), si = story.length;
+      const mouths = [], faces = [];
+      for (const r of tiles) { const x = r % W, y = (r / W) | 0;
+        for (const [dx, dy] of HD) { const nx = x + dx, ny = y + dy, n = ny * W + nx;
+          if (!solid(nx, ny) && !set.has(n)) mouths.push({ mx: nx, my: ny, rx: x, ry: y, dx, dy });
+          else if (solid(nx, ny) && !exitFace[n] && !reserved.has(faceKey(n, faceTo(dx, dy)))) faces.push({ k: n, face: faceTo(dx, dy), vx: x, vy: y, dx, dy }); } }
+      if (!mouths.length) continue;
+      for (const k of tiles) storyAt[k] = si;
+      const m = mouths[0];
+      // the wall you face coming in, and the ones beside the way in
+      let n = 0; while (set.has((m.ry - m.dy * n) * W + m.rx - m.dx * n)) n++;
+      const facingK = (m.ry - m.dy * n) * W + m.rx - m.dx * n, facingF = faceTo(-m.dx, -m.dy);
+      const beside = faces.filter((f) => f.face === faceTo(m.dx, m.dy) && Math.abs(f.vx - m.rx) + Math.abs(f.vy - m.ry) === 1);   // the wall the way in is in, either side of it
+      const W8 = S8[kind];
+      faces.forEach((f, i) => {
+        const d = decalFor(f.k, f.face); d.fill(0);
+        if (kind === 'waiting') fillWaiting(d, R, W8, f.k === facingK && f.face === facingF, !beside.length ? false : f === beside[0]);
+        else fillWall(d, R, W8, f.k === facingK && f.face === facingF);
+        reserved.add(faceKey(f.k, f.face));
+      });
+      // the light: dead ceiling for the waiting room, every panel on for the wall
+      if (T.ceils) {
+        const glowVar = T.ceils.findIndex((c) => c.glow), plain = T.ceils.findIndex((c) => !c.glow);
+        for (const k of tiles) ceilVar[k] = kind === 'wall' ? glowVar : plain;
+        if (kind === 'wall') flickers = flickers.filter((k) => !set.has(k));
+      }
+      story.push({ kind, tiles, set, m, music: kind === 'waiting' ? 'The Waiting Room' : 'The Wall', text: W8 });
+    }
+  }
+  // what's in them: made after the furniture, which clears its boxes each maze
+  function storyProps() {
+    for (const st of story) {
+      const m = st.m, ix = m.rx - m.mx, iy = m.ry - m.my;   // into the room
+      if (st.kind === 'waiting') {
+        let cx = m.rx + 0.5 + ix * 1.5, cy = m.ry + 0.5 + iy * 1.5;
+        if (!st.set.has(Math.floor(cy) * W + Math.floor(cx))) { const c = st.tiles[st.tiles.length >> 1]; cx = c % W + 0.5; cy = ((c / W) | 0) + 0.5; }
+        const fx = -ix, fy = -iy, ux = -fy, uy = fx;   // it faces the way in
+        const chair = { boxes: [
+          { a: [-0.11, 0.11], d: [-0.1, 0.1], z: [0.16, 0.19], m: 'fabricDk' }, { a: [-0.1, 0.1], d: [-0.13, -0.1], z: [0.19, 0.38], m: 'fabricDk' },
+          { a: [-0.015, 0.015], d: [-0.01, 0.01], z: [0.03, 0.16], m: 'steel' }, { a: [-0.11, 0.11], d: [-0.11, 0.11], z: [0, 0.025], m: 'dark' },
+          { a: [0.16, 0.3], d: [-0.07, 0.06], z: [0, 0.14], m: 'bag', top: 'bag' } ] };   // and the bag, packed, beside it
+        for (const b of buildFurn(chair, cx, cy, ux, uy, fx, fy, 0)) fboxes.push(b);
+        const lx = cx - ux * 0.36, ly = cy - uy * 0.36, lb = buildFurn(FURN.lamp, lx - fx * 0.15, ly - fy * 0.15, ux, uy, fx, fy, 0);
+        for (const b of lb) fboxes.push(b);
+        furn.push({ x: lx, y: ly, fx, fy, name: 'lamp', def: FURN.lamp, boxes: lb });
+        objs.push({ x: cx, y: cy, z: 0.19, kind: 'note', text: st.text.note, tex: TEX.sprites.note, h: 0.05, glow: 0.2 });
+      } else {
+        // a ring of stacked boxes round a shoebox, in the middle of the room
+        const tl = st.tiles.map((k) => [k % W, (k / W) | 0]), mx = tl.reduce((a, t) => a + t[0], 0) / tl.length, my = tl.reduce((a, t) => a + t[1], 0) / tl.length;
+        const c = tl.reduce((b, t) => Math.hypot(t[0] - mx, t[1] - my) < Math.hypot(b[0] - mx, b[1] - my) ? t : b, tl[0]);
+        const cx = c[0] + 0.5, cy = c[1] + 0.5, card = TEX.furn.mats.card, top = TEX.furn.fronts.boxTop, R = rng(SEED + 210013);
+        const box = (x0, y0, x1, y1, z0, z1, t) => fboxes.push({ x0, x1, y0, y1, z0, z1, m: card, top: t || top, topFit: !t, front: null, fcode: 'n', glow: false });
+        const o = 0.34, i = 0.2;
+        for (const [x0, y0, x1, y1] of [[cx - o, cy - o, cx, cy - i], [cx, cy - o, cx + o, cy - i], [cx - o, cy + i, cx, cy + o], [cx, cy + i, cx + o, cy + o],
+                                        [cx - o, cy - i, cx - i, cy], [cx - o, cy, cx - i, cy + i], [cx + i, cy - i, cx + o, cy], [cx + i, cy, cx + o, cy + i]]) {
+          const h = 0.18 + R() * 0.05; box(x0, y0, x1, y1, 0, h); if (R() < 0.7) box(x0 + 0.02, y0 + 0.02, x1 - 0.02, y1 - 0.02, h, h + 0.08 + R() * 0.05);
+        }
+        box(cx - 0.1, cy - 0.07, cx + 0.1, cy + 0.07, 0, 0.23, TEX.furn.mats.dark);
+        objs.push({ x: cx, y: cy, z: 0.23, kind: 'note', text: st.text.note, tex: TEX.sprites.watch, h: 0.06, glow: 0.3 });
+      }
+    }
+  }
+  function storyFrame() {
+    const si = storyAt ? storyAt[Math.floor(P.y) * W + Math.floor(P.x)] : -1;
+    if (si === storyHere) return;
+    storyHere = si; storyMusic = si >= 0 ? story[si].music : null;
+    FP_SOUND.setMusic(track());
+  }
+  function showNote(text) {
+    $('pageText').textContent = text; $('pageWho').textContent = '';
+    $('page').classList.add('show');
+    pageHideAt = performance.now() + (CONFIG.journalHoldSec + text.length / 30) * 1000;
+    FP_SOUND.page();
+  }
+
   // ── the kid's room ────────────────────────────────────────
   // Joe: "I want us to bring over the hidden room and the child's level, the one that is pitch black
   // until you turn on the light. The one that has all the drawings all over it. Put a pile of chalk
@@ -929,6 +1115,10 @@
       v: ['#.#', '#.#', '#.#', '.#.', '.#.'], w: ['#.#', '#.#', '###', '###', '#.#'], x: ['#.#', '#.#', '.#.', '#.#', '#.#'],
       y: ['#.#', '#.#', '.#.', '.#.', '.#.'], z: ['###', '..#', '.#.', '#..', '###'], "'": ['.#.', '.#.', '...', '...', '...'],
       '.': ['...', '...', '...', '...', '.#.'], ',': ['...', '...', '...', '.#.', '#..'], '?': ['##.', '..#', '.#.', '...', '.#.'],
+      '0': ['###', '#.#', '#.#', '#.#', '###'], '1': ['.#.', '##.', '.#.', '.#.', '###'], '2': ['##.', '..#', '.#.', '#..', '###'],
+      '3': ['##.', '..#', '.#.', '..#', '##.'], '4': ['#.#', '#.#', '###', '..#', '..#'], '5': ['###', '#..', '##.', '..#', '##.'],
+      '6': ['.##', '#..', '###', '#.#', '###'], '7': ['###', '..#', '.#.', '.#.', '.#.'], '8': ['###', '#.#', '###', '#.#', '###'],
+      '9': ['###', '#.#', '###', '..#', '##.'], '|': ['.#.', '.#.', '.#.', '.#.', '.#.'],
       '-': ['...', '...', '###', '...', '...'], '—': ['...', '...', '###', '...', '...'], '!': ['.#.', '.#.', '.#.', '...', '.#.'],
     };
     const out = {}; for (const k in G) out[k] = G[k].join(''); return out;
@@ -972,7 +1162,8 @@
     $('hudPages').textContent = pagesFound + ' / ' + pagesTotal;
     $('hudCharcoalBox').style.display = charcoalN ? '' : 'none';
   }
-  function take(o) {
+  function take(o, walked) {
+    if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
@@ -1032,7 +1223,7 @@
       const x = tx + dx, y = ty + dy;
       if (x >= 0 && y >= 0 && x < W && y < H) seen[y * W + x] = 1;
     }
-    for (const o of objs.slice()) if (Math.floor(o.x) === tx && Math.floor(o.y) === ty) take(o);
+    for (const o of objs.slice()) if (Math.floor(o.x) === tx && Math.floor(o.y) === ty) take(o, true);
   }
   // Joe: "I want to get closer to the exit before it stops me. Right now it feels like I'm over a tile
   // away from it. I wanna get right up to the door." It used to end the moment you set foot on the
@@ -1456,6 +1647,7 @@
     arrive();
     checkExit();
     stairFrame();
+    storyFrame();
   }
   // what walking sounds like: a foot down every STRIDE of ground covered, the hum of whichever lamp
   // is nearest (as bright as it is right now), and the rub of a squeeze while you're moving in one
@@ -1843,7 +2035,7 @@
     for (const { o, depth, cam } of list) {
       // a piece with a side view shows it when you're more beside it than in front
       const t = o.tex, sc = D / depth, hPx = o.h * sc, wPx = hPx * t.w / t.h;
-      const floorY = hor + eye * sc, y0 = floorY - hPx, xc = (cam + 1) / 2 * RW;
+      const floorY = hor + (eye - (o.z || 0)) * sc, y0 = floorY - hPx, xc = (cam + 1) / 2 * RW;
       const x0 = Math.round(xc - wPx / 2), x1 = Math.round(xc + wPx / 2);
       const f = Math.exp(-fog * depth), tx0 = Math.floor(o.x), ty0 = Math.floor(o.y);
       const gi = !o.ghost && groupAt && groupAt.length === W * H ? groupAt[ty0 * W + tx0] : -1;
@@ -2053,6 +2245,12 @@
   // Every script is fetched fresh as well as the page, since the scripts are what change.
   $('fatherNow').onclick = () => { fatherForce = true; fatherCheck = 0; $('panel').classList.remove('open'); };
   $('restart').onclick = () => { if (floor > 1) newMaze(BASE); else reset(); $('panel').classList.remove('open'); };
+  let storyVisit = 0;
+  $('toStory').onclick = () => {
+    $('panel').classList.remove('open'); if (!story.length) return;
+    const st = story[storyVisit++ % story.length], m = st.m;
+    P.x = m.mx + 0.5 - (m.rx - m.mx) * 0.3; P.y = m.my + 0.5 - (m.ry - m.my) * 0.3; P.a = Math.atan2(m.ry - m.my, m.rx - m.mx); lastX = P.x; lastY = P.y;
+  };
   $('toStairs').onclick = () => {
     const s = stairs.up || stairs.down; $('panel').classList.remove('open'); if (!s) return;
     const [dx, dy] = s.dir; P.x = s.ox + 0.5 - dx * 0.4; P.y = s.oy + 0.5 - dy * 0.4; P.a = Math.atan2(dy, dx); lastX = P.x; lastY = P.y;
@@ -2073,6 +2271,7 @@
   // anything else holds that track across new mazes until it's set back
   function track() {
     if (S.music !== 'auto' && MUSIC[S.music]) return S.music;
+    if (storyMusic && MUSIC[storyMusic]) return storyMusic;   // a story room has its own
     return poolMode ? 'pool' : character && character.name;
   }
   {
@@ -2111,5 +2310,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get story() { return story; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();
