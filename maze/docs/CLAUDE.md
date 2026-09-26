@@ -14,6 +14,20 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## First person, and the version number again (v0.111.0)
+
+Joe has moved to the first-person view (`maze-fp.html`, `fp/`), and the backlog doc
+now says to work on it unless told otherwise. Its own README, `fp/README.md`, is
+where it is written up — doors, closets, light, the squeeze veil, sound and the
+music picker, the father. It loads the top-down's `data/` and generator unchanged
+and never writes the top-down's save.
+
+It shows the top-down's `VERSION`, and for a long run of first-person commits that
+number did not move. Joe: *"Yes, I want you to pump the version number."* So a
+first-person hand-off bumps `VERSION` in `js/core.js` like any other. Note what
+that costs: a bump drops a top-down run in progress (`boot.js` only resumes a run
+saved under the same version).
+
 ## The path into the text, under the line (v0.103.0)
 
 Joe approved this back at the writer's-page discussion — *"Love the line ids
