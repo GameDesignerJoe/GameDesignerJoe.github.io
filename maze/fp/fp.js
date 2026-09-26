@@ -40,7 +40,9 @@
     if ((saved.cfg || 0) < 3) delete saved.squeezeVeil;
     // closets were tripled when the being came in (from 10 to 30); a count saved before that goes to the new default
     if ((saved.cfg || 0) < 5) delete saved.closets;
-    saved.cfg = 5;
+    // the being was reworked (v0.131.0): it notices you further off the way out, and only sometimes
+    if ((saved.cfg || 0) < 6) { delete saved.beingOff; delete saved.beingWait; }
+    saved.cfg = 6;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -790,14 +792,22 @@
   // use the closets. If you hide in a closet the being will run by a couple times then disappear." It is
   // the Caretaker of the old notes (docs/labyrinth): "Not a monster. A psychopomp … he redirects."
   //
-  // Dormant while you're within `beingOff` steps of the way out. Past it for `beingWait` seconds (and
-  // not in the first BEING_GRACE of a maze, and BEING_GAP after the last time): the signs — the tubes
-  // round you stutter, a low swell — BEING_SIGNS long, so there's time to turn back, and if you do it
-  // never comes. Then it's there, BEING_FAR steps off, and it comes for you at BEING_SPEED, twice your
-  // walk, straight down the halls and through doors as if they weren't there. If it reaches you: static,
-  // and you're standing on the way out, a few steps further along it than where you left it, facing on.
-  // Get back to the way out yourself and it gives up. Get in a closet and it runs up to the door and
-  // past it, and back, BEING_PASSES times where you can see it through the slats, and is gone.
+  // Joe, after meeting it: "I think it spawned behind me and took me out. I never saw it. … Going off path
+  // shouldn't be this negative. … It should not chase you at first, just spawn in front of you as far away as
+  // it can so you can still see it. If you get within like three tiles it'll chase you. … There's a 10% chance
+  // it'll spawn when you are more than 10 tiles away from the main path. … Doors should block it."
+  //
+  // So: dormant until the turn, and while you're within `beingOff` steps of the way out. Each time you go past
+  // that (an excursion; it's rolled once, and again only after you've come back within it), `beingChance` that
+  // it comes — not in the first BEING_GRACE of a maze, nor within BEING_GAP of the last time. First the signs:
+  // the tubes round you stutter, a low swell, BEING_SIGNS long; get back to the way out and it never comes.
+  // Then it's there at the far end of what you can see — the farthest tile down your line of sight, BEING_VIEW at most, or it'd be too small to make out — standing,
+  // looking at you. It doesn't move. Come within BEING_NEAR of it and it comes for you, at 1.25× your walk,
+  // round by the halls, never through a squeeze or a shut door. Out of your sight for BEING_LOST, it's gone.
+  // It takes you only once you've seen it. If it reaches you: static, and you're standing on the way out, a
+  // few steps further along it than where you left it, facing on. Get back to the way out yourself and it gives
+  // up. Get in a closet and it runs up to the door and past it, and back, BEING_PASSES times where you can see
+  // it through the slats, stops once to look in, and is gone.
   // Joe: "make move speed 1.25 the player's. Gives them time to run and find a closet." And "the being
   // shouldn't use squeeze throughs": it goes round by the halls, and where it can't get to you, it gives up
   const beingSpeed = () => S.walk * 1.25;
@@ -805,8 +815,8 @@
   // before it resets you." So it stays dormant until `turned`, and each time it comes it can't take you until
   // enough of it has been on your screen (BEING_SEEN_PX drawn pixels, walls and doors hiding it); unseen, it
   // holds a little behind you, feet close, until you turn round, or gives up after BEING_HOLD.
-  const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_FAR = 8, BEING_PASSES = 3, BEING_SEEN_PX = 60, BEING_HOLD = 12000;
-  let pathDist = null, pathNear = null, pathIdx = null, being = null, beingState = 'dormant', beingT = 0, offSince = 0, beingNext = 0, beingForce = false, fieldAt = 0, field = null, stepT = 0;
+  const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_PASSES = 3, BEING_SEEN_PX = 60, BEING_HOLD = 12000, BEING_NEAR = 3, BEING_LOST = 15000, BEING_VIEW = 9;
+  let pathDist = null, pathNear = null, pathIdx = null, being = null, beingState = 'dormant', beingT = 0, offSince = 0, rolled = false, beingNext = 0, beingForce = false, fieldAt = 0, field = null, stepT = 0;
   function beingIndex() {   // how far every tile is from the way out, and which tile of it is nearest
     pathDist = new Int32Array(W * H).fill(-1); pathNear = new Int32Array(W * H).fill(-1); pathIdx = new Map();
     being = null; beingState = 'dormant'; offSince = 0; beingNext = performance.now() + BEING_GRACE;
@@ -816,10 +826,11 @@
     for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
       for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && pathDist[n] < 0) { pathDist[n] = pathDist[c] + 1; pathNear[n] = pathNear[c]; q.push(n); } } }
   }
-  function distField(from) {   // steps from `from` to everywhere it can go: through doors, never a squeeze
-    const d = new Int32Array(W * H).fill(-1), q = [from]; d[from] = 0;
+  function distField(from) {   // steps from `from` to everywhere it can go: through an open door, never a shut one or a squeeze
+    const d = new Int32Array(W * H).fill(-1), q = [from], shut = new Set(); d[from] = 0;
+    for (const dr of doors) if (!dr.open || dr.t < 0.5) shut.add(dr.k);
     for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
-      for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && !low[n] && d[n] < 0) { d[n] = d[c] + 1; q.push(n); } } }
+      for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && !low[n] && !shut.has(n) && d[n] < 0) { d[n] = d[c] + 1; q.push(n); } } }
     return d;
   }
   const beingObj = (x, y) => ({ x, y, vx: 0, vy: 0, h: 0.97, glow: 0, ghost: true, back: true, alpha: 1, tex: TEX.sprites.being[0], walked: 0 });
@@ -838,26 +849,44 @@
     if (!S.being || !pathDist || floor > 1 || won || stairBusy || reading) return;
     const pk = Math.floor(P.y) * W + Math.floor(P.x), off = hidden ? 99 : pathDist[pk];
     if (beingState === 'dormant') {
-      if (off >= S.beingOff) { if (!offSince) offSince = now; } else offSince = 0;
-      if (beingForce || (turned && offSince && now - offSince > S.beingWait * 1000 && now > beingNext && !hidden)) {
-        beingForce = false; beingState = 'signs'; beingT = now; FP_SOUND.beingSigns();
-      }
+      if (off <= S.beingOff) rolled = false;   // back near the way out: the next time you go off is a new roll
+      else if (!rolled && !hidden) { rolled = true; if (turned && now > beingNext && Math.random() < S.beingChance) beingForce = true; }
+      if (beingForce && !hidden) { beingForce = false; beingState = 'signs'; beingT = now; FP_SOUND.beingSigns(); }
       return;
     }
     if (beingState === 'signs') {
       if (!hidden && pathDist[pk] <= 2) { beingGone(); return; }   // you turned back in time
       if (now - beingT < BEING_SIGNS) return;
-      // there: BEING_FAR steps off, somewhere you aren't looking
-      const d = distField(pk); let best = -1, bs = -1e9;
-      for (let k = 0; k < d.length; k++) if (d[k] >= BEING_FAR - 2 && d[k] <= BEING_FAR + 3) { const x = k % W + 0.5, y = ((k / W) | 0) + 0.5, look = Math.cos(P.a) * (x - P.x) + Math.sin(P.a) * (y - P.y);
-        const sc = -look + Math.random() * 3; if (sc > bs) { bs = sc; best = k; } }
-      if (best < 0) { beingGone(); return; }
-      being = beingObj(best % W + 0.5, ((best / W) | 0) + 0.5); beingState = 'chase'; fieldAt = 0; FP_SOUND.beingSees();
+      // there: the farthest tile down your line of sight that it could walk to you from
+      const d = distField(pk), fov = S.fov * Math.PI / 360 * 0.8;
+      let best = -1, bd = 0;
+      for (let i = -10; i <= 10; i++) {
+        const a = P.a + fov * i / 10, cx = Math.cos(a), cy = Math.sin(a);
+        let last = -1, ld = 0;
+        for (let t = 0.3; t < BEING_VIEW; t += 0.12) {   // no further than it can be made out
+          const x = P.x + cx * t, y = P.y + cy * t, k = Math.floor(y) * W + Math.floor(x);
+          if (solid(Math.floor(x), Math.floor(y)) || low[k] || doors.some((dr) => dr.k === k && (!dr.open || dr.t < 0.5))) break;
+          if (d[k] >= 0) { last = k; ld = t; }
+        }
+        if (last >= 0 && ld > bd + (Math.abs(i) < 3 ? -0.3 : 0.3)) { bd = ld; best = last; }   // straight ahead wins a near tie
+      }
+      if (best < 0 || bd < 1.5) { beingGone(); return; }
+      being = beingObj(best % W + 0.5, ((best / W) | 0) + 0.5); being.lastSeen = now; beingState = 'watch'; fieldAt = 0; FP_SOUND.beingSees();
+      return;
+    }
+    if (beingState === 'watch') {   // standing where you'll see it, looking at you
+      if (hidden) { beingState = 'closet'; being.passes = 0; being.leg = 0; return; }
+      if (pathDist[pk] <= 1) { beingGone(); return; }
+      if (now - being.lastSeen > BEING_LOST) { beingGone(); return; }
+      const bk = Math.floor(being.y) * W + Math.floor(being.x);
+      if (now > fieldAt) { field = distField(pk); fieldAt = now + 250; }
+      if (Math.hypot(P.x - being.x, P.y - being.y) < BEING_NEAR && field[bk] >= 0) { beingState = 'chase'; FP_SOUND.beingSees(); }
       return;
     }
     if (beingState === 'chase') {
       if (hidden) { beingState = 'closet'; being.passes = 0; being.leg = 0; return; }
       if (pathDist[pk] <= 1) { beingGone(); return; }   // back on the way out by yourself: it lets you be
+      if (now - being.lastSeen > BEING_LOST) { beingGone(); return; }   // and if you got away from it, out of sight long enough
       if (now > fieldAt) { field = distField(pk); fieldAt = now + 250; }
       const bk = Math.floor(being.y) * W + Math.floor(being.x);
       if (field[bk] < 0) { if (!being.stuck) being.stuck = now; if (now - being.stuck > 6000) { beingGone(); return; } return; }   // you're past a squeeze: it waits, then goes
@@ -2529,7 +2558,7 @@
       if (any) drawn.push({ o, x0: x0 - wPx * 0.6, x1: x1 + wPx * 0.6, y0: y0 - hPx - 10, y1: floorY + hPx + 14, depth });
     }
     // enough of it on screen, not behind a wall or a door, to have been seen: then (and only then) it may take you
-    if (being && !only && seenPx > BEING_SEEN_PX) being.seen = true;
+    if (being && !only && seenPx > BEING_SEEN_PX) { being.seen = true; being.lastSeen = performance.now(); }
   }
 
   // ── the debug map ─────────────────────────────────────────
@@ -2834,5 +2863,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();
