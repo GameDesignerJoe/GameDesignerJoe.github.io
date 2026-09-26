@@ -47,6 +47,12 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
+- **The turn.** A maze starts calm (`calm`: no dark halls of this view's own, switched rooms lit). Each page read and
+  story room walked into is a find; at `turnAfter` (3) the building turns — every tube stutters, something big goes
+  off far away, the music drops to `The Turn`. After it, a room you walk into stutters out and goes dark, and on its
+  walls, in paint that shows only in the dark, `TURN_LINES` ("you shouldnt be here!", "leave", "he left. do the
+  same."); and now and then (`turnHalls`) a hall's lamps go out one after another from its far end toward you, a word
+  glowing on the wall at the end. Every lamp is live now (`flickLamps`), so any can go out. The kid's room is spared.
 - **Story rooms** (`storyRooms`; the Child, floor 1; words in `STORY_ROOMS` in data/text.js). Two ages of not looking:
   **the waiting room** — every wall written over low in pencil and crayon, lines crossed out and written again, tallies,
   a clock drawn stopped at five past, WAIT HERE; ceiling dead, one floor lamp by a single chair turned to face the way in,

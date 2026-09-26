@@ -157,7 +157,7 @@
     const inHall = (x, y, horiz) => !solid(x, y) && !room[y * W + x] && !low[y * W + x]
       && (horiz ? solid(x, y - 1) && solid(x, y + 1) : solid(x - 1, y) && solid(x + 1, y));
     const takeRun = (run) => {
-      if (run.length < 3 || R() >= S.darkHalls) return;
+      if (run.length < 3 || R() >= (S.calm && !turned ? 0 : S.darkHalls)) return;   // calm until the turn
       if (run.some(([x, y]) => (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3) || (x === exit.x && y === exit.y))) return;
       for (const [x, y] of run) dark[y * W + x] = 1;
     };
@@ -183,8 +183,7 @@
         for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && !seen.has(n)) { seen.set(n, d + 1); q.push(n); } }
       }
       if (grouped && groupAt[k] >= 0) groupLamps.push({ k, list, g: groupAt[k], flick: flick.has(k) });
-      else if (flick.has(k)) flickLamps.push({ k, list });
-      else for (let i = 0; i < list.length; i += 2) lightBase[list[i]] += list[i + 1];
+      else flickLamps.push({ k, list });   // every lamp is live: it can flicker, and after the turn it can go out
     }
     if (furn.length) furnLight(lightBase);
   }
@@ -250,6 +249,7 @@
     seen = new Uint8Array(W * H);
     index();
     if (floor > 1) { exitFace.fill(0); exitDir = null; }   // the way out is only on floor 1
+    turnIndex();
     placeThings();
     const tx = Math.floor(start.x), ty = Math.floor(start.y);
     // face the longest open run from where you wake, so the first thing you see is a way to go
@@ -634,7 +634,7 @@
     });
     for (let n = 0; n < S.switches && cands.length; n++) {
       const c = cands.splice(Math.floor(R() * cands.length), 1)[0];
-      const g = { tiles: c.tiles, k: c.spot.k, face: c.spot.face, on: R() >= S.switchOff, at: -1e9, lvl: 1 };
+      const g = { tiles: c.tiles, k: c.spot.k, face: c.spot.face, on: R() >= (S.calm && !turned ? 0 : S.switchOff), at: -1e9, lvl: 1 };
       g.lvl = g.on ? 1 : 0;
       const gi = lightGroups.push(g) - 1;
       for (const k of c.tiles) groupAt[k] = gi;
@@ -782,6 +782,97 @@
     const d = decalFor(g.k, g.face), art = TEX.lightSwitch[g.on ? 1 : 0].px;
     for (let i = 0; i < DEC * DEC; i++) if (art[i]) d[i] = art[i];
   }
+  // ── the turn ──────────────────────────────────────────────
+  // Joe: "We would need to establish a base first of what it feels like to go through. Maybe the lights
+  // more on, not really any dark places. But then you find a few of the special rooms or collect some of
+  // the journals. Then we switch the experience. You walk into rooms and the lights go out. In the dark
+  // you can now see the text of 'You shouldn't be here!' … You go into a hallway and see all the lights
+  // go out in front of you."
+  //
+  // So a maze starts calm (`calm`: none of this view's dark halls, switched rooms lit). Every page read
+  // and every story room walked into is a find; at `turnAfter` finds the building turns — every tube
+  // stutters at once, something big goes off far away, and the music drops to 'The Turn'. From then on
+  // a room you walk into goes out around you, a stutter and then dark, and on its walls, in paint that
+  // shows only in the dark, TURN_LINES. And now and then (`turnHalls`) the lamps of a hall you step into
+  // go out one after another from the far end toward you, with a word glowing on the wall at its end.
+  // The kid's room is left alone; everything else is fair. It lasts the run, stairs included.
+  let turned = false, finds = 0, turnAt = -1e9, roomsOut = null, killQ = [], lampsOut = new Set(), hallNext = 0, lastRoomComp = -1, roomOf = null, roomList = [];
+  const GLOW = [(TEX.hex('#bfe8b4') & 0xffffff) | 0xfe000000, (TEX.hex('#9fd49a') & 0xffffff) | 0xfe000000];
+  function turnIndex() {   // the rooms of this maze, for the lights to go out in
+    roomOf = new Int32Array(W * H).fill(-1); roomList = []; roomsOut = new Set(); killQ = []; lampsOut = new Set(); lastRoomComp = -1;
+    for (let k0 = 0; k0 < W * H; k0++) {
+      if (!room[k0] || roomOf[k0] >= 0) continue;
+      const tiles = [k0]; roomOf[k0] = roomList.length;
+      for (let i = 0; i < tiles.length; i++) { const c = tiles[i], x = c % W, y = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (room[n] && roomOf[n] < 0 && !solid(x + dx, y + dy)) { roomOf[n] = roomList.length; tiles.push(n); } } }
+      roomList.push(tiles);
+    }
+  }
+  function addFind() {
+    finds++;
+    if (!turned && S.turnAfter > 0 && finds >= S.turnAfter) {
+      turned = true; turnAt = performance.now(); FP_SOUND.turn(); FP_SOUND.setMusic(track());
+    }
+  }
+  // glowing words on a wall face, big and scrawled, where it can find room
+  function glowWrite(k, face, text, R) {
+    const d = decalFor(k, face), col = GLOW[Math.floor(R() * GLOW.length)];
+    // short words big, longer lines a size down and wrapped, the whole thing centred-ish on the wall
+    const sc = text.length <= 6 ? 3 : 2, w = Math.min(64, text.length * 4 * sc);
+    const lines = Math.ceil(text.length * 4 * sc / 62), y0 = Math.max(4, Math.round(28 - lines * (6 * sc + 1) / 2) + (R() * 8 | 0) - 4);
+    const tmp = new Uint32Array(DEC * DEC); hand(tmp, text, Math.max(1, Math.round((64 - w) / 2)), y0, 62, sc, col, R);
+    for (let i = 0; i < DEC * DEC; i++) if (tmp[i]) { d[i] = tmp[i]; if (sc === 2 && i + 1 < DEC * DEC && (i + 1) % DEC && !tmp[i + 1]) d[i + 1] = col; }   // a thick hand
+  }
+  function killLamp(k, at) { killQ.push({ at, k }); }
+  function roomOut(ri, now) {
+    roomsOut.add(ri);
+    const tiles = roomList[ri], set = new Set(tiles), R = rng(SEED + 220001 + ri * 31);
+    for (const k of tiles) { if (lampTiles.includes(k)) killLamp(k, now + 220 + R() * 260); }
+    killQ.push({ at: now + 520, tiles });
+    // the words: on a few of its walls
+    const faces = [];
+    for (const k of tiles) { const x = k % W, y = (k / W) | 0;
+      for (const [dx, dy] of HD) { const nx = x + dx, ny = y + dy, n = ny * W + nx; if (solid(nx, ny) && !exitFace[n] && !switchFace.has(faceKey(n, faceTo(dx, dy)))) faces.push([n, faceTo(dx, dy)]); } }
+    const lines = TURN_LINES[character.name].rooms, n = Math.min(faces.length, 3 + Math.floor(tiles.length / 3));
+    for (let i = 0; i < n; i++) { const [fk, f] = faces.splice(Math.floor(R() * faces.length), 1)[0]; glowWrite(fk, f, lines[Math.floor(R() * lines.length)], R); }
+    FP_SOUND.flicker(1);
+  }
+  function hallOut(now) {
+    // straight ahead from here, the lamps of this hall, farthest first
+    const h = headingOf(P.a), [dx, dy] = HD[h], tx = Math.floor(P.x), ty = Math.floor(P.y), run = [];
+    let n = 1; while (n < 8 && !solid(tx + dx * n, ty + dy * n) && !room[(ty + dy * n) * W + tx + dx * n]) { run.push((ty + dy * n) * W + tx + dx * n); n++; }
+    const lamps = run.filter((k) => lampTiles.includes(k) && !lampsOut.has(k));
+    if (lamps.length < 2) return false;
+    lamps.reverse().forEach((k, i) => { killLamp(k, now + i * 380); killQ.push({ at: now + i * 380 + 60, tiles: run.filter((t) => Math.abs(t % W - k % W) + Math.abs(((t / W) | 0) - ((k / W) | 0)) <= 1) }); });
+    const ex = tx + dx * n, ey = ty + dy * n;
+    if (solid(ex, ey) && character && TURN_LINES[character.name]) { const R = rng(SEED + now | 0), L = TURN_LINES[character.name].hall; glowWrite(ey * W + ex, faceTo(dx, dy), L[Math.floor(R() * L.length)], R); }
+    return true;
+  }
+  function turnFrame(now, px, py) {
+    // the moment of the turn: every tube in the place stutters for a second and a bit
+    if (now - turnAt < 1300) for (const k of lampTiles) lampLvl[k] *= Math.random() < 0.35 ? 0.1 : 1;
+    for (let i = killQ.length - 1; i >= 0; i--) {
+      const q = killQ[i]; if (now < q.at) { if (q.k !== undefined && now > q.at - 200) lampLvl[q.k] *= Math.random() < 0.5 ? 0.2 : 1; continue; }
+      if (q.k !== undefined) { lampsOut.add(q.k); const d = Math.hypot(q.k % W + 0.5 - px, ((q.k / W) | 0) + 0.5 - py); FP_SOUND.lightOut(Math.max(0.15, 1 - d / 8)); }
+      if (q.tiles) for (const t of q.tiles) dark[t] = 1;
+      killQ.splice(i, 1);
+    }
+    for (const k of lampsOut) lampLvl[k] = 0;
+  }
+  // every frame, after the turn: a room you've just walked into, a hall you've just stepped into
+  function turnWatch(now) {
+    if (!turned || !roomOf || hidden || !character || !TURN_LINES[character.name]) return;
+    const k = Math.floor(P.y) * W + Math.floor(P.x), ri = roomOf[k], secret = secretSet();
+    if (ri !== lastRoomComp) {
+      lastRoomComp = ri;
+      if (ri >= 0 && !roomsOut.has(ri) && !(secret && secret.has(k)) && now - turnAt > 1500) roomOut(ri, now);
+    }
+    if (ri < 0 && now > hallNext && vel > 0.05 && Math.random() < 0.02) {   // checked now and then while walking a hall
+      hallNext = now + 4000;
+      if (Math.random() < S.turnHalls && hallOut(now)) hallNext = now + 25000;
+    }
+  }
+
   // ── story rooms ───────────────────────────────────────────
   // Joe: "I think we need to start bringing in story rooms … these rooms should have an excessive
   // amount of writing on the walls. Written by the child, he is not processing the trauma. He is
@@ -954,6 +1045,7 @@
   function storyFrame() {
     const si = storyAt ? storyAt[Math.floor(P.y) * W + Math.floor(P.x)] : -1;
     if (si === storyHere) return;
+    if (si >= 0 && !story[si].found) { story[si].found = true; addFind(); }
     storyHere = si; storyMusic = si >= 0 ? story[si].music : null;
     FP_SOUND.setMusic(track());
   }
@@ -1168,7 +1260,7 @@
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
-    else if (o.kind === 'page') { pagesFound++; flash('hudPagesBox'); showPage(o.pg); FP_SOUND.page(); }
+    else if (o.kind === 'page') { addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg); FP_SOUND.page(); }
     hud();
   }
   function flash(id) { const el = $(id); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
@@ -1205,7 +1297,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set();
+    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); turned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); reset();
@@ -1648,6 +1740,7 @@
     checkExit();
     stairFrame();
     storyFrame();
+    turnWatch(now);
   }
   // what walking sounds like: a foot down every STRIDE of ground covered, the hum of whichever lamp
   // is nearest (as bright as it is right now), and the rub of a squeeze while you're moving in one
@@ -1741,6 +1834,7 @@
     }
     for (const g of lightGroups) g.lvl = groupLevel(g, now);
     for (const lm of groupLamps) lampLvl[lm.k] = (lm.flick ? lampLvl[lm.k] : 1) * lightGroups[lm.g].lvl;
+    turnFrame(now, px, py);
     lightFrame();
     const cw = W + 1;   // corner rows, for blending the light across each tile inline
     if (hasCeil) {
@@ -2272,6 +2366,7 @@
   function track() {
     if (S.music !== 'auto' && MUSIC[S.music]) return S.music;
     if (storyMusic && MUSIC[storyMusic]) return storyMusic;   // a story room has its own
+    if (turned && MUSIC['The Turn']) return 'The Turn';
     return poolMode ? 'pool' : character && character.name;
   }
   {
@@ -2310,5 +2405,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get story() { return story; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, hallOut, get story() { return story; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

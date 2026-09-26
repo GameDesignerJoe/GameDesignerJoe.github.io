@@ -386,6 +386,20 @@ const STORY_ROOMS = {
   },
 };
 
+// first person: after the turn. Joe: "a room that you find after other rooms that's reacting to you
+// being there. 'You shouldn't be here!' 'Leave' 'He left. Do the same.' … You walk into rooms and the
+// lights go out. In the dark you can now see the text." Once enough has been found, a room you walk
+// into goes dark and these show on its walls in paint that only shows in the dark (`rooms`), and a
+// hall can go dark ahead of you with one of `hall` at its end. Keyed by self. Joe's three first; the
+// rest are Claude's drafts, to be rewritten.
+const TURN_LINES = {
+  'The Child': {
+    rooms: ["you shouldnt be here!", "leave", "he left. do the same.", "get out", "stop looking", "this is not for you",
+      "go back to being fine", "nobody asked you to come in here", "leave it alone", "you were fine before"],
+    hall: ["leave", "go", "get out", "not this way"],
+  },
+};
+
 // The engine hands each surface a finished string, never an id, so the debug "Line IDs" view has
 // to look the id up backwards: words → path. That walk needs the blocks as data. A plain object
 // literal rather than anything clever, because these are `const` in the shared script scope and
@@ -393,5 +407,5 @@ const STORY_ROOMS = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES,
 };

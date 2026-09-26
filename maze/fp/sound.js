@@ -201,6 +201,18 @@ const FP_SOUND = (() => {
       for (let i = 0; i < 10; i++) burst(0.08, { vol: 0.28, freq: (up ? 170 + i * 9 : 260 - i * 9) + Math.random() * 20, q: 1, type: 'lowpass', at: 0.35 + i * 0.13 + (i > 4 ? 0.12 : 0) });
       setTimeout(() => this.door(false), 1100);
     },
+    // a light going out: the tube's tick and its hum dropping away, quieter the further off it is
+    lightOut(near) {
+      if (!live()) return;
+      burst(0.03, { vol: 0.25 * near, freq: 2600, q: 3 }); tone(120, 0.4, { type: 'sawtooth', vol: 0.03 * near, slide: 60 });
+    },
+    // the turn: something big in the building, far off, and every tube catching its breath
+    turn() {
+      if (!live()) return;
+      tone(55 * 4, 2.2, { type: 'triangle', vol: 0.12, slide: 41 * 4, attack: 0.05 }); burst(1.6, { vol: 0.35, freq: 140, q: 0.7, type: 'lowpass' });
+      for (let i = 0; i < 6; i++) burst(0.04, { vol: 0.12, freq: 3000 + Math.random() * 1500, q: 4, at: 0.1 + Math.random() * 1.1 });
+      DISTANT.slam(elsewhere());
+    },
     // something crossing the far end of a squeeze, fast: a scuffle of feet and a breath of air
     dart() {
       if (!live()) return;
