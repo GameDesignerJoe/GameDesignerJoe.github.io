@@ -55,6 +55,7 @@ const FP_CONFIG = {
   turnRooms: 0.5,   // after the turn, the chance a room you walk into goes dark (each room decided once)
   turnHalls: 0.5,   // after the turn, the chance a hall you walk into goes dark ahead of you
   heart: true,      // the heart: a hidden story room, furthest from the start and the exit, through a maze of squeezes (Child, floor 1)
+  wakeScene: true,  // each maze starts with you getting up off a mat on the floor (a few seconds, no control)
   storyRooms: 2,    // story rooms a Child maze has (STORY_ROOMS in data/text.js): the waiting room, the wall
   floors: 2,        // floors a maze has, joined by stairs: 1 is none. Takes effect on the next maze
   father: 2,        // times a maze the father is glimpsed crossing ahead of you. Joe: "once or twice a maze"

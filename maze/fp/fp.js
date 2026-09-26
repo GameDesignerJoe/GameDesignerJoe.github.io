@@ -275,6 +275,15 @@
     // a chapter that opens with words on the wall wakes you facing them
     const wake = startWords.find((w) => w.h !== undefined); if (wake) P.a = wake.h * QUARTER;
     anim = null; queued = null; steps = 0; won = false; vel = 0; lastTile = '';
+    // the mat you wake on, and its pillow behind your head: flat, so you walk over the mat; it stays there after
+    if (floor === 1) {
+      const fx = Math.cos(P.a), fy = Math.sin(P.a), ux = -fy, uy = fx;
+      const flat = (a0, a1, d0, d1, z0, z1, m) => { const xs = [], ys = [];
+        for (const a of [a0, a1]) for (const d of [d0, d1]) { xs.push(P.x + ux * a + fx * d); ys.push(P.y + uy * a + fy * d); }
+        fboxes.push({ x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z0, z1, m: TEX.furn.mats[m], top: TEX.furn.mats[m], topFit: false, front: null, fcode: 'n', glow: false, flat: true }); };
+      flat(-0.2, 0.2, -0.16, 0.62, 0, 0.025, 'fabricDk');   // the mat, reaching out ahead of you
+      flat(-0.14, 0.14, -0.3, -0.12, 0.025, 0.07, 'white'); // the pillow
+    }
     fatherReset();
     $('win').classList.remove('show');
     arrive();
@@ -1788,7 +1797,7 @@
     BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
-    generate(SEED); carveHeart(); spreadPages(); reset();
+    generate(SEED); carveHeart(); spreadPages(); reset(); startWake();
     FP_SOUND.setMusic(track());
   }
 
@@ -1836,7 +1845,7 @@
 
   // ── stepping: taps, swipes, keys ──────────────────────────
   function act(a) {
-    if (won || reading) return;
+    if (won || reading || rising) return;
     if (anim) { queued = a; return; }
     begin(a, performance.now());
   }
@@ -1922,7 +1931,7 @@
       if (dd < RAD && dd > 1e-6) { P.x = cx + ex / dd * RAD; P.y = cy + ey / dd * RAD; }
     }
     // furniture: a box on the floor, with the same round-body push as a wall
-    for (const b of fboxes) if (b.z0 < S.eye && b.x1 > P.x - 1 && b.x0 < P.x + 1 && b.y1 > P.y - 1 && b.y0 < P.y + 1) push(b.x0, b.y0, b.x1, b.y1);
+    for (const b of fboxes) if (!b.flat && b.z0 < S.eye && b.x1 > P.x - 1 && b.x0 < P.x + 1 && b.y1 > P.y - 1 && b.y0 < P.y + 1) push(b.x0, b.y0, b.x1, b.y1);
     for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
       if (solid(xx, yy)) { push(xx, yy, xx + 1, yy + 1); continue; }
       const bx = boxesAt(yy * W + xx);
@@ -1931,7 +1940,7 @@
   }
 
   function stickMove(now, dt) {
-    if (reading) { vel = 0; return; }
+    if (reading || rising) { vel = 0; return; }
     if (hidden) {   // in a closet you don't move; the stick looks about, a little, through the slats
       const want = hidden.a0 + stick.x * 0.45 + ((keys.right ? 1 : 0) - (keys.left ? 1 : 0)) * 0.45;
       P.a += (want - P.a) * Math.min(1, dt * 6);
@@ -2264,14 +2273,39 @@
     const speed = moved / Math.max(dt, 1e-3);
     FP_SOUND.frame(humL, inSqueeze ? rubEnv * Math.min(1, speed / Math.max(0.05, S.walk * S.squeezeSlow)) : 0);
   }
+  // ── waking ────────────────────────────────────────────────
+  // Joe: "I want us to start the game with a little scene … start in the room, but I wanna be on a mat, that's
+  // lying on the ground with a little pillow. I want the camera to be lower close to the floor. Then I want to
+  // move up swaying side to side as if the character is standing up … During this little scene, the player can't
+  // do anything." WAKE_LIE lying there, eye at WAKE_EYE; then WAKE_RISE getting up, easing to standing height,
+  // swaying less as you find your feet. The start of every maze (not the stairs). `wakeScene` turns it off.
+  const WAKE_LIE = 1100, WAKE_RISE = 2500, WAKE_EYE = 0.1;
+  let rising = null;
+  function startWake() {
+    if (!S.wakeScene || floor !== 1) { rising = null; document.body.classList.remove('waking'); return; }
+    rising = { t0: performance.now() }; clearStick(); document.body.classList.add('waking');
+  }
+  const wakeK = (now) => rising ? Math.max(0, Math.min(1, (now - rising.t0 - WAKE_LIE) / WAKE_RISE)) : 1;
+  function eyeNow(now) {
+    if (!rising) return S.eye;
+    const k = wakeK(now), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    if (now - rising.t0 > WAKE_LIE + WAKE_RISE + 250) { rising = null; document.body.classList.remove('waking'); }
+    return WAKE_EYE + (S.eye - WAKE_EYE) * e;
+  }
   function camera(now) {
     let x = P.x, y = P.y, bob = Math.sin(Math.PI * walkPhase) * S.bob;
+    let a = P.a;
+    if (rising) {   // swaying as you get up: side to side, less and less, and a little turn of the head with it
+      const t = (now - rising.t0) / 1000, k = wakeK(now), amp = k > 0 && k < 1 ? Math.sin(Math.PI * k) : 0;
+      const sway = Math.sin(t * 4.2) * 0.07 * amp;
+      x += -Math.sin(P.a) * sway; y += Math.cos(P.a) * sway; a += Math.sin(t * 4.2 + 0.6) * 0.05 * amp;
+    }
     if (bump) {
       const k = (now - bump.t0) / bump.dur;
       if (k >= 1) bump = null;
       else { const b = Math.sin(Math.PI * k) * 0.14; x += bump.dx * b; y += bump.dy * b; bob -= Math.sin(Math.PI * k) * S.bob * 0.6; }
     }
-    return [x, y, P.a, Math.abs(bob)];
+    return [x, y, a, Math.abs(bob)];
   }
 
   // ── drawing ───────────────────────────────────────────────
@@ -2319,7 +2353,7 @@
   function render(now) {
     const [px, py, ang, bob] = camera(now);
     const tanH = Math.tan(S.fov * Math.PI / 360), D = (RW / 2) / tanH;
-    const hor = RH / 2 + bob, eye = S.eye, fog = S.fog;
+    const hor = RH / 2 + bob, eye = eyeNow(now), fog = S.fog;
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
     BRv = S.bright; FRb = FR * BRv; FGb = FG * BRv; FBb = FB * BRv;
     const sky = T.sky, SW = sky ? sky.w : 0, SH = sky ? sky.h : 0, SP = sky ? sky.px : null;
@@ -2780,6 +2814,7 @@
   });
   cv.addEventListener('pointercancel', () => { touch = null; });
   function tapAt(bx, by) {
+    if (rising) return;   // still getting up
     glyphsOff();
     // a thing first: the nearest one under the finger
     let hit = null;
@@ -2992,7 +3027,7 @@
   applyTheme();
   resize();
   applyMazeDebug();
-  BASE = SEED; generate(SEED); carveHeart(); spreadPages(); reset(); lastX = P.x; lastY = P.y;
+  BASE = SEED; generate(SEED); carveHeart(); spreadPages(); reset(); startWake(); lastX = P.x; lastY = P.y;
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console

@@ -12,6 +12,9 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 | `sound.js` | what a body in a room makes: picking things up (its own, louder than the top-down's cues), footsteps per look (carpet, stone), room tone, lamp hum and flicker crackle, the squeeze's rub (the first couple of seconds of each one), doors, a closet's muffle. The music is the top-down's own `AUDIO`, loaded unchanged |
 | `fp.js` | the raycaster, the walk (the stick, or WASD), things in the world and tapping them, chalk and words on walls, the debug map, the panel |
 
+- **Waking.** A maze starts with you lying on a mat on the floor of the start room, a pillow under your head, the camera
+  down at the floor; then you get up, swaying, to standing height (`WAKE_LIE`, `WAKE_RISE`). No control until you're up; the
+  mat stays where it was. `wakeScene` turns it off.
 - **A seed is the same maze in both views.** `?seed=1234` works here as it does top-down.
 - **Nothing here writes to the top-down's save.** Knobs live under `maze.fp.v1`. The ☰ panel is in
   sections — Look, Stick, Glide help, Lighting, Sound, Maze, Debug — each slider's range and section in `FP_RANGES`.
