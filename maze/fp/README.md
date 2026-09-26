@@ -79,8 +79,9 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   where its way in is furthest from both the start and the exit, clear of the big rooms the other two are made from. You
   reach it through a little maze made only of squeezes — nine cells, a dead end or two, tight and dark — and come in at
   its point. Deep red walls written over in crayon ("i miss you", "was it me", "come home", "i wear the watch when nobody
-  can see"), on the far wall "i miss you dad" over the two of them holding hands, a letter on the floor he never sent.
-  One lamp, beating (`HEART_BPM`); its own music (`The Heart`: a tune he knew, slowed); and a heartbeat you can hear
+  can see"), on the far wall "i miss you dad" over the two of them holding hands, a letter he never sent lying on the floor
+  (drawn as a journal; read where it lies). Deep red plush underfoot, padded and buttoned overhead (`TEX.heart`).
+  One warm pink lamp, beating (`HEART_BPM`); its own music (`The Heart`: a tune he knew, slowed); and a heartbeat you can hear
   through the walls from `HEART_HEAR` steps off, the only sign it's there. The turn leaves it alone, nothing else is
   placed in it, and the being can't follow you in. **To the heart** on the panel stands you outside its way in.
 - **Stairs** (`floors`, 2 by default; 1 is none). Floor 1 is the chapter's maze; each floor above is a maze of its own

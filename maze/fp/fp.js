@@ -1150,7 +1150,7 @@
     for (const st of story) {
       const m = st.m, ix = m.rx - m.mx, iy = m.ry - m.my;   // into the room
       if (st.kind === 'heart') {   // the letter he never sent, on the floor in the middle
-        objs.push({ x: heart.mid % W + 0.5, y: ((heart.mid / W) | 0) + 0.5, kind: 'note', text: st.text.letter, tex: TEX.sprites.note, h: 0.05, glow: 0.3 });
+        objs.push({ x: heart.mid % W + 0.5, y: ((heart.mid / W) | 0) + 0.5, kind: 'note', text: st.text.letter, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });   // Joe: "It should look like a regular journal"
         continue;
       }
       if (st.kind === 'waiting') {
@@ -1393,7 +1393,11 @@
     // one lamp, in the middle of the upper room; the rest of its ceiling plain
     if (T.ceils) {
       const glowVar = T.ceils.findIndex((c) => c.glow), plain = T.ceils.findIndex((c) => !c.glow);
-      if (glowVar >= 0 && plain >= 0) { for (const k of heart.room.concat(heart.maze)) ceilVar[k] = plain; ceilVar[heart.lamp] = glowVar; }
+      // its own ceiling and lamp, added past the look's own (tiles pick theirs by index, so nothing else moves)
+      let hc = T.ceils.indexOf(TEX.heart.ceil); if (hc < 0) hc = T.ceils.push(TEX.heart.ceil) - 1;
+      let hl = T.ceils.indexOf(TEX.heart.lamp); if (hl < 0) hl = T.ceils.push(TEX.heart.lamp) - 1;
+      if (glowVar >= 0 && plain >= 0) { for (const k of heart.maze) ceilVar[k] = plain; for (const k of heart.room) ceilVar[k] = hc; ceilVar[heart.lamp] = hl; }
+      for (const k of heart.room) floorVar[k] = 250;   // no look has that many floors: the heart's own
       flickers = flickers.filter((k) => !inHeart(k));
     }
     const si = story.length;
@@ -2239,7 +2243,7 @@
       let o = y * RW;
       for (let x = 0; x < RW; x++, wx += sx, wy += sy, o++) {
         const cx = Math.floor(wx), cy = Math.floor(wy), inB = cx >= 0 && cy >= 0 && cx < W && cy < H;
-        const t = inB ? floors[floorVar[cy * W + cx]] : floors[0], fx = wx - cx, fy = wy - cy;
+        const t = inB ? floors[floorVar[cy * W + cx]] || TEX.heart.floors[(cx + cy) & 1] : floors[0], fx = wx - cx, fy = wy - cy;   // past the look's own floors: the heart's
         let L = 1;
         if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; if (low[cy * W + cx]) L *= S.squeezeDim; }
         const fc = t.px[((fy * 32) | 0) * 32 + ((fx * 32) | 0)];

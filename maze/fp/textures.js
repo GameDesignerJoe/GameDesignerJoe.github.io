@@ -647,5 +647,38 @@ const TEX = (() => {
     };
     return { mats, fronts };
   })();
-  return { themes, sprites, furn, door: doorLeaf(), closet: closetFace(), lightSwitch: [switchPlate(false), switchPlate(true)], hex, buildMs: performance.now() - t0 };
+  // ══ the heart ═════════════════════════════════════════════
+  // Joe: "In the kids heart room make the floors and ceilings read as well." Deep red plush underfoot; overhead,
+  // padded like the inside of something, buttoned in diamonds; its one lamp a warm pink, not the building's white.
+  const PLUSH = ramp(['#240709', '#300a0d', '#3c0e12', '#481217', '#55171c', '#621c22', '#6f2228']);
+  const PAD = ramp(['#2a080b', '#380c10', '#471116', '#57161c', '#671c22', '#772329', '#862b31']);
+  const WARM = ramp(['#e7a9a3', '#f1c1b8', '#f8d6cc', '#fde7dd', '#fff4ee']);
+  function plush(seed) {
+    const R = rng(seed), T = blank(32, 32), F = field(seed + 1);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) T.px[y * 32 + x] = dith(PLUSH, 3.4 + F(x, y) * 0.5 + (R() - 0.5) * 1.5, x, y);
+    return T;
+  }
+  function padded(seed) {
+    const R = rng(seed), T = blank(32, 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      // a diamond of padding to every 16×16, lit from its middle, a button where four meet
+      const u = ((x + y) & 15) - 7.5, v = ((x - y + 32) & 15) - 7.5, d = Math.max(Math.abs(u), Math.abs(v)) / 7.5;
+      let f = 5 - d * d * 3.2 + (R() - 0.5) * 0.5;
+      if (d > 0.93) f = 0.6;   // the seam
+      if (Math.abs(u) > 6.5 && Math.abs(v) > 6.5) f = 0;   // the button
+      T.px[y * 32 + x] = dith(PAD, f, x, y);
+    }
+    return T;
+  }
+  function warmLamp(seed) {
+    const T = padded(seed); T.glow = new Uint8Array(32 * 32);
+    for (let y = 8; y < 24; y++) for (let x = 8; x < 24; x++) {
+      const d = Math.hypot(x - 15.5, y - 15.5); if (d > 7.5) continue;
+      const i = y * 32 + x; T.px[i] = dith(WARM, 4.2 - d * 0.35, x, y); T.glow[i] = 1;
+    }
+    return T;
+  }
+  const heart = { floors: [plush(901), plush(907)], ceil: padded(911), lamp: warmLamp(913) };
+
+  return { themes, heart, sprites, furn, door: doorLeaf(), closet: closetFace(), lightSwitch: [switchPlate(false), switchPlate(true)], hex, buildMs: performance.now() - t0 };
 })();
