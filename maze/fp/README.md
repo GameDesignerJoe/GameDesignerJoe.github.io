@@ -9,7 +9,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 | --- | --- |
 | `config.js` | the defaults for every knob on the gear panel |
 | `textures.js` | all the pixel art, drawn in code, as four looks: **office** (the default — yellow wallpaper, damp carpet, a drop ceiling with fluorescent panels, an EXIT sign), **school** (after hours: painted cinderblock, cream over a green band and a red stripe; lockers and locked classroom doors — tap one and it rattles — along the halls, cork boards and chalkboards in the rooms, chalked with `CHALKBOARD` from data/text.js; vinyl tile, the drop ceiling; kids' desks with their chairs, the teacher's desk with an apple, bookcases), **bleached** (lime plaster with a meander frieze, marble, pilasters, travertine, white haze, a doorway onto the sea) and **dusk** (brick, flagstones, stars) |
-| `sound.js` | what a body in a room makes: picking things up (its own, louder than the top-down's cues), footsteps per look (carpet, stone), room tone, lamp hum and flicker crackle, the squeeze's rub, doors, a closet's muffle. The music is the top-down's own `AUDIO`, loaded unchanged |
+| `sound.js` | what a body in a room makes: picking things up (its own, louder than the top-down's cues), footsteps per look (carpet, stone), room tone, lamp hum and flicker crackle, the squeeze's rub (the first couple of seconds of each one), doors, a closet's muffle. The music is the top-down's own `AUDIO`, loaded unchanged |
 | `fp.js` | the raycaster, the walk (the stick, or WASD), things in the world and tapping them, chalk and words on walls, the debug map, the panel |
 
 - **A seed is the same maze in both views.** `?seed=1234` works here as it does top-down.
@@ -56,11 +56,12 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   back up the way you came, waiting for you to turn round. The signs first — tubes round you stutter, a low swell — and if you turn back to the way
   out it never comes. Then it's standing at the far end of what you can see (`BEING_VIEW` tiles at most), looking at you:
   tall as the ceiling, thin, arms past its knees, two pale eyes (all you see of it in the dark). It waits. Come within
-  `BEING_NEAR` and it comes for you at 1.25× your walk, round by the halls — never through a squeeze or a shut door; if
+  `BEING_NEAR` and it comes for you at your own walking pace, round by the halls — never through a squeeze or a shut door; if
   you're somewhere it can't get to, or out of its sight long enough, it goes. It takes you only once you've seen it. If
   it reaches you: static, and you're on the way out a few steps further along than you left it, facing on. Back on the
   way out yourself, it lets you be. In a closet: it runs up and past the door, back and forth, stops once square in
-  front of the slats to look in, and is gone. **Being now** on the panel calls it (after the turn or not).
+  front of the slats to look in, and is gone. In a squeeze: it comes to the mouth of it (the one you're facing, if it
+  can), looks in at you for `BEING_PEER`, and goes. **Being now** on the panel calls it (after the turn or not).
 - **The turn.** A maze starts calm (`calm`: no dark halls of this view's own, switched rooms lit). Each page read and
   story room walked into is a find; at `turnAfter` (3) the building turns — every tube stutters, something big goes
   off far away, the music drops to `The Turn`. After it, a room you walk into may stutter out and go dark (`turnRooms` of them, each room decided the first time you

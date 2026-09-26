@@ -839,12 +839,12 @@
   // it through the slats, stops once to look in, and is gone.
   // Joe: "make move speed 1.25 the player's. Gives them time to run and find a closet." And "the being
   // shouldn't use squeeze throughs": it goes round by the halls, and where it can't get to you, it gives up
-  const beingSpeed = () => S.walk * 1.25;
+  const beingSpeed = () => S.walk;   // Joe: "let's get his speed to be the same as the players and see what that does" (it was 1.25×)
   // Joe: "The being should only appear after the turn. The player should have to see the being at least once
   // before it resets you." So it stays dormant until `turned`, and each time it comes it can't take you until
   // enough of it has been on your screen (BEING_SEEN_PX drawn pixels, walls and doors hiding it); unseen, it
   // holds a little behind you, feet close, until you turn round, or gives up after BEING_HOLD.
-  const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_PASSES = 3, BEING_SEEN_PX = 60, BEING_HOLD = 12000, BEING_NEAR = 3, BEING_LOST = 15000, BEING_VIEW = 9;
+  const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_PASSES = 3, BEING_SEEN_PX = 60, BEING_HOLD = 12000, BEING_NEAR = 3, BEING_LOST = 15000, BEING_VIEW = 9, BEING_PEER = 1800;
   let pathDist = null, pathNear = null, pathIdx = null, being = null, beingState = 'dormant', beingT = 0, offSince = 0, rolled = false, deadAt = -1, beingAim = null, beingNext = 0, beingForce = false, fieldAt = 0, field = null, stepT = 0;
   function beingIndex() {   // how far every tile is from the way out, and which tile of it is nearest
     pathDist = new Int32Array(W * H).fill(-1); pathNear = new Int32Array(W * H).fill(-1); pathIdx = new Map();
@@ -863,6 +863,25 @@
     return d;
   }
   const beingObj = (x, y) => ({ x, y, vx: 0, vy: 0, h: 0.97, glow: 0, ghost: true, back: true, alpha: 1, tex: TEX.sprites.being[0], walked: 0 });
+  // the squeeze's mouths: open tiles it can stand on, next to the run of squeeze you're in. Arriving from (fx, fy),
+  // or placed there outright (null) — at the mouth you're facing, if one's in view
+  function startPeer(pk, fx, fy) {
+    const seenQ = new Set([pk]), q = [pk], mouths = [];
+    for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
+      for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (solid(x + dx, y + dy) || seenQ.has(n)) continue; seenQ.add(n);
+        if (low[n]) q.push(n); else mouths.push(n); } }
+    if (!mouths.length) return false;
+    const look = (k) => Math.cos(P.a) * (k % W + 0.5 - P.x) + Math.sin(P.a) * (((k / W) | 0) + 0.5 - P.y);
+    let mouth = mouths[0];
+    if (fx === null) { for (const m of mouths) if (look(m) > look(mouth)) mouth = m; }
+    else { const f = distField(Math.floor(fy) * W + Math.floor(fx)); const ok = mouths.filter((m) => f[m] >= 0); if (!ok.length) return false;
+      const score = (m) => (look(m) > 0 ? 0 : 1000) + f[m];   // one in front of you first, then the nearest to it
+      mouth = ok.reduce((b, m) => score(m) < score(b) ? m : b, ok[0]); }
+    if (fx === null) being = beingObj(mouth % W + 0.5, ((mouth / W) | 0) + 0.5);
+    being.mouth = mouth; being.peerUntil = fx === null ? performance.now() + BEING_PEER : 0; being.lastSeen = performance.now();
+    beingState = 'peer'; fieldAt = 0; if (fx === null) FP_SOUND.beingSees();
+    return true;
+  }
   function beingGone() { being = null; beingState = 'dormant'; offSince = 0; beingAim = null; beingNext = performance.now() + BEING_GAP; }
   function moveToward(tx, ty, dt, speed) {
     const ex = tx - being.x, ey = ty - being.y, d = Math.hypot(ex, ey), st = speed * dt;
@@ -895,6 +914,7 @@
     if (beingState === 'signs') {
       if (!hidden && beingAim === null && pathDist[pk] <= 2) { beingGone(); return; }   // you turned back in time
       if (now - beingT < BEING_SIGNS) return;
+      if (low[pk] && startPeer(pk, null, null)) return;   // it came while you were in a squeeze
       // there: the farthest tile down your line of sight that it could walk to you from — or, at a dead end, down
       // the only way out of it, behind you
       const d = distField(pk), fov = S.fov * Math.PI / 360 * 0.8, aim = beingAim === null ? P.a : beingAim; beingAim = null;
@@ -913,6 +933,22 @@
       being = beingObj(best % W + 0.5, ((best / W) | 0) + 0.5); being.lastSeen = now; beingState = 'watch'; fieldAt = 0; FP_SOUND.beingSees();
       return;
     }
+    // you're in a squeeze: it comes to the mouth of it, the side you're facing if it can, looks in at you for
+    // BEING_PEER, and goes. Joe: "If you're in a squeeze and the being spawns, it should look in the squeeze space
+    // at you for a second or two and then go away."
+    if (beingState === 'peer') {
+      if (being.peerUntil) { if (now > being.peerUntil) beingGone(); return; }
+      const mk = being.mouth, mx = mk % W + 0.5, my = ((mk / W) | 0) + 0.5;
+      if (Math.hypot(being.x - mx, being.y - my) < 0.08) { being.peerUntil = now + BEING_PEER; FP_SOUND.beingSees(); return; }
+      if (now > fieldAt) { field = distField(mk); fieldAt = now + 400; }
+      const bk = Math.floor(being.y) * W + Math.floor(being.x);
+      if (field[bk] < 0) { beingGone(); return; }
+      const bx = bk % W, by = (bk / W) | 0; let nb = bk;
+      for (const [dx, dy] of HD) { const n = bk + dy * W + dx; if (!solid(bx + dx, by + dy) && field[n] >= 0 && field[n] < field[nb]) nb = n; }
+      moveToward(nb === bk ? mx : nb % W + 0.5, nb === bk ? my : ((nb / W) | 0) + 0.5, dt, beingSpeed());
+      return;
+    }
+    if ((beingState === 'watch' || beingState === 'chase') && low[pk] && !hidden && startPeer(pk, being.x, being.y)) return;
     if (beingState === 'watch') {   // standing where you'll see it, looking at you
       if (hidden) { beingState = 'closet'; being.passes = 0; being.leg = 0; return; }
       if (pathDist[pk] <= 1) { beingGone(); return; }
@@ -2198,11 +2234,19 @@
   }
   // what walking sounds like: a foot down every STRIDE of ground covered, the hum of whichever lamp
   // is nearest (as bright as it is right now), and the rub of a squeeze while you're moving in one
-  const STRIDE = 0.62;
-  let strideLeft = STRIDE * 0.5;
+  // The rub is the first few seconds of a squeeze, not all of it. Joe: "The sound for the squeeze should only
+  // happen for about 2 to 3 seconds." Full for RUB_MS after you go in, gone RUB_FADE after that; out of a squeeze
+  // for more than a moment and the next one starts it again.
+  const STRIDE = 0.62, RUB_MS = 2200, RUB_FADE = 800;
+  let strideLeft = STRIDE * 0.5, rubAt = -1e9, outAt = 0, wasIn = false;
   function sounds(moved, dt) {
-    FP_SOUND.distant(performance.now(), S.ambience);
+    const tnow = performance.now();
+    FP_SOUND.distant(tnow, S.ambience);
     const tx = Math.floor(P.x), ty = Math.floor(P.y), inSqueeze = !!low[ty * W + tx];
+    if (inSqueeze && !wasIn && tnow - outAt > 600) rubAt = tnow;
+    if (!inSqueeze) outAt = tnow;
+    wasIn = inSqueeze;
+    const rubEnv = Math.max(0, Math.min(1, 1 - (tnow - rubAt - RUB_MS) / RUB_FADE));
     if (moved > 0.0005 && !hidden) {
       strideLeft -= moved;
       if (moved > 0.5) strideLeft = STRIDE;   // a jump (a restart, a closet) is not a stride
@@ -2211,7 +2255,7 @@
     let humL = 0;
     for (const k of lampTiles) { const d = Math.hypot(k % W + 0.5 - P.x, ((k / W) | 0) + 0.5 - P.y); if (d < 3) humL = Math.max(humL, (1 - d / 3) * lampLvl[k]); }
     const speed = moved / Math.max(dt, 1e-3);
-    FP_SOUND.frame(humL, inSqueeze ? Math.min(1, speed / Math.max(0.05, S.walk * S.squeezeSlow)) : 0);
+    FP_SOUND.frame(humL, inSqueeze ? rubEnv * Math.min(1, speed / Math.max(0.05, S.walk * S.squeezeSlow)) : 0);
   }
   function camera(now) {
     let x = P.x, y = P.y, bob = Math.sin(Math.PI * walkPhase) * S.bob;
