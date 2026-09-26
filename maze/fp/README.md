@@ -47,6 +47,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
+- **The being** (`being`; floor 1). The old notes' Caretaker, and Joe's twist: it helps. Past `beingOff` steps off the
+  way out for `beingWait` seconds, the signs — tubes round you stutter, a low swell — and if you turn back to the way
+  out it never comes. Otherwise it's there eight steps off, somewhere you're not looking: tall as the ceiling, thin,
+  arms past its knees, two pale eyes (all you see of it in the dark). It comes at twice your walk, through doors. If it
+  reaches you: static, and you're on the way out a few steps further along than you left it, facing on. Back on the
+  way out yourself, it lets you be. In a closet: it runs up and past the door, back and forth, stops once square in
+  front of the slats to look in, and is gone. **Being now** on the panel calls it.
 - **The turn.** A maze starts calm (`calm`: no dark halls of this view's own, switched rooms lit). Each page read and
   story room walked into is a find; at `turnAfter` (3) the building turns — every tube stutters, something big goes
   off far away, the music drops to `The Turn`. After it, a room you walk into stutters out and goes dark, and on its

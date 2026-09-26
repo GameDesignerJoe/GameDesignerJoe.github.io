@@ -249,7 +249,7 @@
     seen = new Uint8Array(W * H);
     index();
     if (floor > 1) { exitFace.fill(0); exitDir = null; }   // the way out is only on floor 1
-    turnIndex();
+    turnIndex(); beingIndex();
     placeThings();
     const tx = Math.floor(start.x), ty = Math.floor(start.y);
     // face the longest open run from where you wake, so the first thing you see is a way to go
@@ -782,6 +782,122 @@
     const d = decalFor(g.k, g.face), art = TEX.lightSwitch[g.on ? 1 : 0].px;
     for (let i = 0; i < DEC * DEC; i++) if (art[i]) d[i] = art[i];
   }
+  // ── the being ─────────────────────────────────────────────
+  // Joe: "We have a 'being' that comes at you and if it hits you it teleports [you] to a place in the
+  // maze. It looks scary, but it actually teleports you onto the path out. It's helping you to get out.
+  // So this being only shows up when you are off the path by a significant amount. This is where we can
+  // use the closets. If you hide in a closet the being will run by a couple times then disappear." It is
+  // the Caretaker of the old notes (docs/labyrinth): "Not a monster. A psychopomp … he redirects."
+  //
+  // Dormant while you're within `beingOff` steps of the way out. Past it for `beingWait` seconds (and
+  // not in the first BEING_GRACE of a maze, and BEING_GAP after the last time): the signs — the tubes
+  // round you stutter, a low swell — BEING_SIGNS long, so there's time to turn back, and if you do it
+  // never comes. Then it's there, BEING_FAR steps off, and it comes for you at BEING_SPEED, twice your
+  // walk, straight down the halls and through doors as if they weren't there. If it reaches you: static,
+  // and you're standing on the way out, a few steps further along it than where you left it, facing on.
+  // Get back to the way out yourself and it gives up. Get in a closet and it runs up to the door and
+  // past it, and back, BEING_PASSES times where you can see it through the slats, and is gone.
+  const BEING_SPEED = 2.5, BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_FAR = 8, BEING_PASSES = 3;
+  let pathDist = null, pathNear = null, pathIdx = null, being = null, beingState = 'dormant', beingT = 0, offSince = 0, beingNext = 0, beingForce = false, fieldAt = 0, field = null, stepT = 0;
+  function beingIndex() {   // how far every tile is from the way out, and which tile of it is nearest
+    pathDist = new Int32Array(W * H).fill(-1); pathNear = new Int32Array(W * H).fill(-1); pathIdx = new Map();
+    being = null; beingState = 'dormant'; offSince = 0; beingNext = performance.now() + BEING_GRACE;
+    if (floor > 1 || !solutionPath || !solutionPath.length) return;
+    const q = [];
+    solutionPath.forEach(([x, y], i) => { const k = y * W + x; if (pathDist[k] < 0) { pathDist[k] = 0; pathNear[k] = k; pathIdx.set(k, i); q.push(k); } });
+    for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
+      for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && pathDist[n] < 0) { pathDist[n] = pathDist[c] + 1; pathNear[n] = pathNear[c]; q.push(n); } } }
+  }
+  function distField(from) {   // steps from `from` to everywhere, through doors
+    const d = new Int32Array(W * H).fill(-1), q = [from]; d[from] = 0;
+    for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
+      for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && d[n] < 0) { d[n] = d[c] + 1; q.push(n); } } }
+    return d;
+  }
+  const beingObj = (x, y) => ({ x, y, vx: 0, vy: 0, h: 0.97, glow: 0, ghost: true, back: true, alpha: 1, tex: TEX.sprites.being[0], walked: 0 });
+  function beingGone() { being = null; beingState = 'dormant'; offSince = 0; beingNext = performance.now() + BEING_GAP; }
+  function moveToward(tx, ty, dt, speed) {
+    const ex = tx - being.x, ey = ty - being.y, d = Math.hypot(ex, ey), st = speed * dt;
+    if (d < 1e-4) return true;
+    being.vx = ex / d; being.vy = ey / d;
+    if (d <= st) { being.x = tx; being.y = ty; } else { being.x += being.vx * st; being.y += being.vy * st; }
+    being.walked += Math.min(d, st); being.tex = TEX.sprites.being[Math.floor(being.walked / 0.45) & 1];
+    stepT -= Math.min(d, st);
+    if (stepT <= 0) { stepT = 0.55; FP_SOUND.beingStep(Math.max(0.1, 1 - Math.hypot(being.x - P.x, being.y - P.y) / 9)); }
+    return d <= st;
+  }
+  function beingFrame(now, dt) {
+    if (!S.being || !pathDist || floor > 1 || won || stairBusy) return;
+    const pk = Math.floor(P.y) * W + Math.floor(P.x), off = hidden ? 99 : pathDist[pk];
+    if (beingState === 'dormant') {
+      if (off >= S.beingOff) { if (!offSince) offSince = now; } else offSince = 0;
+      if (beingForce || (offSince && now - offSince > S.beingWait * 1000 && now > beingNext && !hidden)) {
+        beingForce = false; beingState = 'signs'; beingT = now; FP_SOUND.beingSigns();
+      }
+      return;
+    }
+    if (beingState === 'signs') {
+      if (!hidden && pathDist[pk] <= 2) { beingGone(); return; }   // you turned back in time
+      if (now - beingT < BEING_SIGNS) return;
+      // there: BEING_FAR steps off, somewhere you aren't looking
+      const d = distField(pk); let best = -1, bs = -1e9;
+      for (let k = 0; k < d.length; k++) if (d[k] >= BEING_FAR - 2 && d[k] <= BEING_FAR + 3) { const x = k % W + 0.5, y = ((k / W) | 0) + 0.5, look = Math.cos(P.a) * (x - P.x) + Math.sin(P.a) * (y - P.y);
+        const sc = -look + Math.random() * 3; if (sc > bs) { bs = sc; best = k; } }
+      if (best < 0) { beingGone(); return; }
+      being = beingObj(best % W + 0.5, ((best / W) | 0) + 0.5); beingState = 'chase'; fieldAt = 0; FP_SOUND.beingSees();
+      return;
+    }
+    if (beingState === 'chase') {
+      if (hidden) { beingState = 'closet'; being.passes = 0; being.leg = 0; return; }
+      if (pathDist[pk] <= 1) { beingGone(); return; }   // back on the way out by yourself: it lets you be
+      if (now > fieldAt) { field = distField(pk); fieldAt = now + 250; }
+      const bk = Math.floor(being.y) * W + Math.floor(being.x);
+      if (bk === pk || Math.hypot(P.x - being.x, P.y - being.y) < 1.1) moveToward(P.x, P.y, dt, BEING_SPEED);
+      else {
+        const bx = bk % W, by = (bk / W) | 0; let nb = bk;
+        for (const [dx, dy] of HD) { const n = bk + dy * W + dx; if (!solid(bx + dx, by + dy) && field[n] >= 0 && field[n] < field[nb]) nb = n; }
+        moveToward(nb % W + 0.5, ((nb / W) | 0) + 0.5, dt, BEING_SPEED);
+      }
+      if (Math.hypot(P.x - being.x, P.y - being.y) < 0.45) beingTakes(pk);
+      return;
+    }
+    if (beingState === 'closet') {
+      if (!hidden) { beingState = 'chase'; return; }
+      // up to the door of the closet you're in, and past it, and back
+      // its run is across the hall a little out from the door, far enough that the slats show all of it
+      const c = hidden.c, qx = -c.dy, qy = c.dx, ox = c.x + 0.5 + c.dx * 0.3, oy = c.y + 0.5 + c.dy * 0.3;
+      let pts = [[ox + qx * 1.2, oy + qy * 1.2], [ox - qx * 1.2, oy - qy * 1.2]].filter(([x, y]) => !solid(Math.floor(x), Math.floor(y)));
+      if (pts.length < 2) pts = [[c.x + 0.5 + c.dx * 1.4, c.y + 0.5 + c.dy * 1.4], [ox, oy]];
+      if (being.leg === 0) {   // getting there: by the halls, to the nearer end of its run
+        const ck = c.y * W + c.x;
+        if (now > fieldAt) { field = distField(ck); fieldAt = now + 250; }
+        const bk = Math.floor(being.y) * W + Math.floor(being.x);
+        if (Math.hypot(being.x - (c.x + 0.5), being.y - (c.y + 0.5)) < 1.6) { being.leg = 1; return; }
+        const bx = bk % W, by = (bk / W) | 0; let nb = bk;
+        for (const [dx, dy] of HD) { const n = bk + dy * W + dx; if (!solid(bx + dx, by + dy) && field[n] >= 0 && field[n] < field[nb]) nb = n; }
+        moveToward(nb % W + 0.5, ((nb / W) | 0) + 0.5, dt, BEING_SPEED);
+        return;
+      }
+      // on its second pass it stops, square in front of the slats, and looks in; then goes on
+      if (being.stare) { if (now < being.stare) return; being.stare = 0; being.stared = true; }
+      if (being.passes === 2 && !being.stared && Math.hypot(being.x - ox, being.y - oy) < 0.12) { being.stare = now + 1400; FP_SOUND.beingSees(); return; }
+      const [tx, ty] = pts[being.leg & 1];
+      if (moveToward(tx, ty, dt, BEING_SPEED * 1.2)) { being.leg++; being.passes++; if (being.passes > BEING_PASSES) beingGone(); }
+    }
+  }
+  // it has you: static, and you're on the way out, a little further along than you left it, facing on
+  function beingTakes(pk) {
+    FP_SOUND.beingTakes(); stairBusy = true; clearStick();
+    const fade = $('fade'); $('fadeText').textContent = ''; fade.classList.add('white', 'show');
+    setTimeout(() => {
+      const near = pathNear[pk], i0 = near >= 0 ? pathIdx.get(near) : 0, i = Math.min(solutionPath.length - 2, (i0 || 0) + 3);
+      const [x, y] = solutionPath[Math.max(0, i)], [nx, ny] = solutionPath[Math.min(solutionPath.length - 1, i + 1)];
+      P.x = x + 0.5; P.y = y + 0.5; P.a = Math.atan2(ny - y, nx - x); lastX = P.x; lastY = P.y; vel = 0; lastTile = ''; arrive();
+      beingGone();
+      setTimeout(() => { fade.classList.remove('show'); setTimeout(() => fade.classList.remove('white'), 300); stairBusy = false; }, 350);
+    }, 420);
+  }
+
   // ── the turn ──────────────────────────────────────────────
   // Joe: "We would need to establish a base first of what it feels like to go through. Maybe the lights
   // more on, not really any dark places. But then you find a few of the special rooms or collect some of
@@ -849,6 +965,11 @@
     return true;
   }
   function turnFrame(now, px, py) {
+    // a steady lamp starts each frame at full; only what follows takes it down, for this frame
+    const flickSet = new Set(flickers);
+    for (const k of lampTiles) if (!flickSet.has(k)) lampLvl[k] = (groupAt && groupAt.length === W * H && groupAt[k] >= 0) ? lampLvl[k] : 1;
+    // the being's signs: the tubes round you stutter
+    if (beingState === 'signs') for (const k of lampTiles) { const d = Math.hypot(k % W + 0.5 - px, ((k / W) | 0) + 0.5 - py); if (d < 5 && Math.random() < 0.3) lampLvl[k] *= 0.15; }
     // the moment of the turn: every tube in the place stutters for a second and a bit
     if (now - turnAt < 1300) for (const k of lampTiles) lampLvl[k] *= Math.random() < 0.35 ? 0.1 : 1;
     for (let i = killQ.length - 1; i >= 0; i--) {
@@ -1730,6 +1851,7 @@
     doorsFrame(dt);
     fatherFrame(now, dt);
     dartFrame(now, dt);
+    beingFrame(now, dt);
     stickMove(now, dt);
     stepAnim(now);
     // one dip of the head per tile walked, however you walked it; standing still, it settles
@@ -2118,7 +2240,7 @@
   function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog, only) {
     if (!only) drawn.length = 0;
     const det = dX * plY - dY * plX, list = [];
-    const all = only || (father ? objs.concat([father]) : objs);
+    const all = only || (father || being ? objs.concat(father ? [father] : [], being ? [being] : []) : objs);
     for (const o of all) {
       const rx = o.x - px, ry = o.y - py;
       const depth = (rx * plY - ry * plX) / det, cam = (dX * ry - dY * rx) / det / depth;   // along the view, and across it
@@ -2339,6 +2461,7 @@
   // Every script is fetched fresh as well as the page, since the scripts are what change.
   $('fatherNow').onclick = () => { fatherForce = true; fatherCheck = 0; $('panel').classList.remove('open'); };
   $('restart').onclick = () => { if (floor > 1) newMaze(BASE); else reset(); $('panel').classList.remove('open'); };
+  $('beingNow').onclick = () => { beingForce = true; beingNext = 0; $('panel').classList.remove('open'); };
   let storyVisit = 0;
   $('toStory').onclick = () => {
     $('panel').classList.remove('open'); if (!story.length) return;
@@ -2405,5 +2528,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, hallOut, get story() { return story; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, hallOut, get story() { return story; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

@@ -201,6 +201,12 @@ const FP_SOUND = (() => {
       for (let i = 0; i < 10; i++) burst(0.08, { vol: 0.28, freq: (up ? 170 + i * 9 : 260 - i * 9) + Math.random() * 20, q: 1, type: 'lowpass', at: 0.35 + i * 0.13 + (i > 4 ? 0.12 : 0) });
       setTimeout(() => this.door(false), 1100);
     },
+    // the being. Its feet: heavy, quick, nearer each one; the signs before it: a low swell and the air
+    // going tight; and when it has you, static, and something closing
+    beingStep(near) { if (live()) { burst(0.09, { vol: 0.5 * near, freq: 120, q: 1, type: 'lowpass' }); burst(0.03, { vol: 0.15 * near, freq: 900, q: 2 }); } },
+    beingSigns() { if (live()) { tone(49 * 4, 2.6, { type: 'sawtooth', vol: 0.045, slide: 58 * 4, attack: 0.8 }); burst(2.4, { vol: 0.14, freq: 90, q: 0.6, type: 'lowpass' }); } },
+    beingSees() { if (live()) { burst(0.9, { vol: 0.22, freq: 600, q: 0.8, slide: 1800 }); tone(220, 0.8, { type: 'sawtooth', vol: 0.04, slide: 330, attack: 0.3 }); } },
+    beingTakes() { if (live()) { burst(0.8, { vol: 0.5, freq: 3000, q: 0.3, type: 'highpass' }); tone(80 * 3, 1.2, { type: 'triangle', vol: 0.15, slide: 40 * 3 }); } },
     // a light going out: the tube's tick and its hum dropping away, quieter the further off it is
     lightOut(near) {
       if (!live()) return;

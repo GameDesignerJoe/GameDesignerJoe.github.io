@@ -502,6 +502,22 @@ const TEX = (() => {
       Object.assign({}, P, { p: hex('#e9e1c8'), P: hex('#c9bf9f') })),
     watch: sprite(['.....bb.....', '....kkkk....', '...kwwwwk...', '..kwwkwwwk..', '..kwwkkwwk..', '..kwwwwwwk..', '...kwwwwk...', '....kkkk....', '.....bb.....'],
       Object.assign({}, P, { b: hex('#4a3325'), w: hex('#ddd6c0') })),
+    // the being: tall as the ceiling nearly, thin, arms hanging past its knees, two pale eyes that are
+    // their own light (alpha 0xfe) — in the dark, the eyes are all of it you see. Two frames of its stride
+    being: [0, 1].map((f) => {
+      const T = blank(16, 40), k = hex('#0c0b0d'), e = hex('#1c1a1f'), eye = (hex('#e9e4cf') & 0x00ffffff) | 0xfe000000;
+      const r = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) T.px[y * 16 + x] = c; };
+      r(5, 0, 10, 7, k); r(6, 0, 9, 0, e); r(4, 2, 4, 6, k); r(11, 2, 11, 6, k);            // the head, long
+      T.px[3 * 16 + 6] = eye; T.px[3 * 16 + 9] = eye; T.px[4 * 16 + 6] = eye; T.px[4 * 16 + 9] = eye;
+      r(7, 8, 8, 9, k);                                                                         // the neck
+      r(2, 10, 13, 11, k); r(3, 12, 12, 17, k); r(4, 18, 11, 23, k); r(5, 24, 10, 25, k);      // shoulders, the body narrowing
+      const sway = f ? 1 : 0;
+      r(1, 11, 2, 29 + sway, k); r(13, 11, 14, 29 - sway, k);                                  // the arms, to the knee
+      r(0, 30 + sway, 1, 33 + sway, k); r(14, 30 - sway, 15, 33 - sway, k);                    // and the long hands
+      if (f) { r(5, 26, 6, 38, k); r(9, 26, 10, 35, k); r(10, 36, 11, 38, k); } else { r(5, 26, 6, 35, k); r(4, 36, 5, 38, k); r(9, 26, 10, 38, k); }
+      r(4, 39, 6, 39, k); r(9, 39, 11, 39, k);
+      return T;
+    }),
     // a kid's heap of chalk in a corner, the colours as well as the white: Joe, "Put a pile of chalk in one corner"
     chalkPile: sprite([
       '................', '......rr........', '...wwwwwWbb.....', '..yyyywwwWbbbb..', '.wwwwrrrrWwwwww.', 'WWwwwwwWyyyyyWW.'],

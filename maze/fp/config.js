@@ -45,6 +45,9 @@ const FP_CONFIG = {
   furniture: 1,     // how furnished the rooms are: 0 bare, 1 as drawn, 2 cluttered (the office look only)
   switches: 3,      // rooms a maze with a light switch by the way in
   switchOff: 0.65,  // how many of those are dark when you arrive
+  being: true,      // the being: when you're well off the way out, it comes for you, and puts you back on it
+  beingOff: 6,      // how far off the way out (in steps) before it notices
+  beingWait: 6,     // and for how many seconds
   calm: true,       // a maze starts calm, before the turn: no dark halls of this view's own, switched rooms lit
   turnAfter: 3,     // finds (pages read, story rooms walked into) before the building turns on you. 0 never
   turnHalls: 0.5,   // after the turn, the chance a hall you walk into goes dark ahead of you
@@ -105,6 +108,8 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   floors:    [1, 4, 1, 'Floors', 'debug'],
   storyRooms:[0, 2, 1, 'Story rooms', 'debug'],
   turnAfter: [0, 12, 1, 'Turn after', 'debug'],
+  beingOff:  [2, 20, 1, 'Being: off path', 'debug'],
+  beingWait: [0, 30, 1, 'Being: wait s', 'debug'],
   turnHalls: [0, 1, 0.05, 'Halls go dark', 'debug'],
   switches:  [0, 8, 1, 'Switches', 'debug'],
   furniture: [0, 2, 0.1, 'Furniture', 'debug'],
