@@ -38,6 +38,12 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
+- **The father.** Not placed; he happens (`father` a maze, a minute apart at least). Looking straight down a hall
+  at a lit opening 3–7 tiles off, nothing shut or squeezed between, he walks through it at your pace: across a
+  crossing from one side hall to the other, or out of a side opening and away from you down the hall, seen from
+  behind, off at the next junction. He always walks in from out of sight, and the walls hide him again. Come near and
+  he thins out and is gone. Likelier just after you take something. **Father next** on the panel calls him at the
+  next good view. Every chapter, for now.
 - **A look can have a ceiling instead of a sky** (`ceils`/`ceilPick` in its theme). Corner shadows
   (`ao`) are laid on from the maze by the renderer, on floors, ceilings and walls, so they need no art.
 - **Light.** Every tile has a brightness: ceiling lamps flood out through open floor (`reach`), flickering

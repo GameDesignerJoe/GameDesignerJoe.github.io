@@ -42,6 +42,7 @@ const FP_CONFIG = {
   doorHall: 0.07,   // and any other one-wide passage between two cells
   doorsOpen: 0.2,   // how many of them are standing open when you arrive. Joe: "about 20%"
   closets: 3,       // closets a maze: narrow doors you can step into and look out of
+  father: 2,        // times a maze the father is glimpsed crossing ahead of you. Joe: "once or twice a maze"
   // lighting
   shadow: 1,        // how much the lighting shows: 0 is flat, 1 is full-strength pools and shadow
   reach: 2,         // how far a ceiling lamp's light carries, in tiles, through open floor
@@ -88,4 +89,5 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   doorHall:  [0, 0.5, 0.01, 'Hall doors', 'debug'],
   doorsOpen: [0, 1, 0.05, 'Doors open', 'debug'],
   closets:   [0, 10, 1, 'Closets', 'debug'],
+  father:    [0, 6, 1, 'Father', 'debug'],
 };

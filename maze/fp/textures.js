@@ -494,6 +494,34 @@ const TEX = (() => {
     chalk: sprite(['................', '................', '.....wwwwwww....', '....wwwwwwwwW...', '....WwwwwwwWW...', '.....WWWWWWW....'], P),
     charcoal: sprite(['................', '................', '.....ccccccc....', '....cCcccccccc..', '....cccccccCcc..', '.....ccccccc....'], P),
   };
+  // the father, seen from the side, walking right (the renderer mirrors him walking left): a man in a
+  // dark coat, two frames of a stride. He is only ever glimpsed, a way off and in passing, so he is a
+  // shape first — the head, the coat, the legs going — and a face never
+  {
+    const F = { k: hex('#16130f'), h: hex('#2e2620'), s: hex('#a88a70'), S: hex('#7d6452'), c: hex('#3b3a40'), C: hex('#2a2a2f'),
+                t: hex('#2d2a27'), T: hex('#1f1d1b'), o: hex('#0f0d0b') };
+    const top = [
+      '......kkkk......', '.....khhhhk.....', '....khhhhhhk....', '....khhhhhsk....', '....khhhhssk....', '....kkhhsssk....',
+      '.....khsssSk....', '......kSsssk....', '.......kSSk.....', '.....kkccckk....', '....kCcccccck...', '....kCcccccck...',
+      '...kCCcccccccck.', '...kCCcCccccck..', '...kCCcCccccck..', '...kCCcCccccck..', '...kCCcCccccck..', '...kCCcsccccck..',
+      '...kCCcccccccck.', '....kCcccccccck.', '....kCccccccck..', '....kkttttttk...'];
+    const stride = [
+      '....kttttTTtk...', '...kttk..kTtk...', '...kttk...kTtk..', '..kttk....kTtk..', '..kttk.....kTtk.', '.kttk......kTtk.',
+      '.kttk.......kTk.', '.ktk........kTk.', 'kook.......koook', 'kkkk.......kkkkk'];
+    const pass = [
+      '....kttttTTtk...', '....kttttTTk....', '....ktttTTtk....', '....kttTTttk....', '.....ktTTtk.....', '.....ktTTtk.....',
+      '.....ktTTtk.....', '.....koTTok.....', '....koooookok...', '....kkkkkkkkk...'];
+    sprites.father = [sprite(top.concat(stride), F), sprite(top.concat(pass), F)];
+    // and from behind, for when he is walking away down the hall you're looking along — which is how
+    // the top-down draws him too, facing away
+    const back = [
+      '......kkkk......', '.....khhhhk.....', '....khhhhhhk....', '....khhhhhhk....', '....khhhhhhk....', '....khhhhhhk....', '.....khhhhk.....', '......kSSk......', '......kSSk......', '...kkkcccckkk...', '..kCccccccccCk..', '.kCCccccccccCCk.', '.kCCccccccccCCk.', '.kCCcccCCcccCCk.', '.kCCcccCCcccCCk.', '.kCCcccCCcccCCk.', '.kCCcccCCcccCCk.', '.kskcccCCcccksk.', '..kCcccCCcccCk..', '..kCcccCCcccCk..', '..kCcccCCcccCk..', '...kkttttttkk...'];
+    const backA = [
+      '....kttkkTTk....', '....kttkkTTk....', '....kttk.kTTk...', '....kttk.kTTk...', '....kttk.kTTk...', '....kttk.kTTk...', '....kttk..kTk...', '....kttk..kTk...', '...kootk..kok...', '...kkkkk..kkk...'];
+    const backB = [
+      '....kttkkTTk....', '....kttkkTTk....', '...kttk.kTTk....', '...kttk.kTTk....', '...kttk.kTTk....', '...kttk.kTTk....', '...ktk..kTTk....', '...ktk..kTTk....', '...kok..kTok....', '...kkk..kkkkk...'];
+    sprites.fatherBack = [sprite(back.concat(backA), F), sprite(back.concat(backB), F)];
+  }
   // ── doors ─────────────────────────────────────────────────
   // A door you walk through: a full leaf, stained wood, panels, a handle both sides — it is drawn
   // from either face. And a closet's: narrow, painted lighter than the wall, a vent of slats at eye

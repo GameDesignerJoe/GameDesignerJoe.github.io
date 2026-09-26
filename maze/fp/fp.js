@@ -248,6 +248,7 @@
     HD.forEach(([dx, dy], h) => { let n = 0; while (!solid(tx + dx * (n + 1), ty + dy * (n + 1)) && n < 40) n++; if (n > best) { best = n; bestH = h; } });
     P.x = tx + 0.5; P.y = ty + 0.5; P.a = bestH * QUARTER;
     anim = null; queued = null; steps = 0; won = false; vel = 0; lastTile = '';
+    fatherReset();
     $('win').classList.remove('show');
     arrive();
     $('seed').textContent = SEED;
@@ -481,7 +482,7 @@
     $('hudCharcoalBox').style.display = charcoalN ? '' : 'none';
   }
   function take(o) {
-    objs.splice(objs.indexOf(o), 1);
+    objs.splice(objs.indexOf(o), 1); foundAt = performance.now();
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'page') { pagesFound++; flash('hudPagesBox'); showPage(o.pg); FP_SOUND.page(); }
@@ -819,11 +820,92 @@
     if (horiz) P.x = mid + after; else P.y = mid + after;
   }
 
+  // ── the father ────────────────────────────────────────────
+  // From Joe's notes: "A figure appears at the far edge of your light, in a corridor ahead, already
+  // walking away from you at about your speed; he turns a corner and is gone. If you chase, he's gone
+  // before you get there, every time. Never nearer, never reachable, never acknowledges you. Once or
+  // twice a maze. He should show up disproportionately when you've just found something." And the
+  // first-person version we settled on: glimpsed crossing a T-intersection ahead of you.
+  //
+  // So he is not placed in the maze; he happens. Now and then, looking straight down a hall, the game
+  // looks for a lit opening 3–7 tiles ahead with nothing shut or squeezed between you, and walks him
+  // through it at your walking pace, on one of two paths:
+  //   across — a crossing with a way off both sides: out of one side hall, over, into the other;
+  //   away   — out of a side opening into your hall, turning away from you, down it, and off at the
+  //            next junction on. "Already walking away from you … he turns a corner and is gone."
+  // He always walks in from somewhere you can't see, so he never appears out of nothing, and the walls
+  // hide him again once he has turned. Come within FATHER_NEAR of him and he thins out and is gone.
+  // `father` a maze, at least FATHER_GAP apart. A good view is rare, so once he's due he takes most
+  // of them; and for a while after you take something, he is almost sure to be there when you look up.
+  const FATHER_H = 0.92, FATHER_NEAR = 2.2, FATHER_GAP = 60000;
+  const FS = { near: 3, far: 7, lit: 0.22, off: 0.35 };
+  let father = null, fatherLeft = 0, fatherNext = 0, fatherCheck = 0, foundAt = -1e9, fatherForce = false;
+  function fatherReset() { father = null; fatherLeft = S.father; fatherNext = performance.now() + 20000; foundAt = -1e9; }
+  const shutDoorAt = (k) => frameAt && frameAt[k] && doors.some((d) => d.k === k && d.t < 0.95);
+  const clearAt = (x, y) => !solid(x, y) && !low[y * W + x] && !shutDoorAt(y * W + x);
+  // the paths he could take from here, as tile-centre waypoints; [] if none
+  function fatherSpot() {
+    const h = headingOf(P.a); let off = P.a - h * QUARTER; off = Math.atan2(Math.sin(off), Math.cos(off));
+    if (Math.abs(off) > FS.off) return null;   // looking down the hall, not at a wall of it
+    const [dx, dy] = HD[h], qx = -dy, qy = dx, tx = Math.floor(P.x), ty = Math.floor(P.y), out = [];
+    const c = (x, y) => [x + 0.5, y + 0.5];
+    for (let n = 1; n <= FS.far; n++) {
+      const x = tx + dx * n, y = ty + dy * n, k = y * W + x;
+      if (!clearAt(x, y)) break;
+      if (n < FS.near || room[k] || tileL[k] < FS.lit) continue;   // not on top of you, not in a room, not in the dark
+      const sides = [1, -1].filter((sd) => clearAt(x + sd * qx, y + sd * qy));
+      if (sides.length === 2) {   // across
+        const sd = Math.random() < 0.5 ? 1 : -1;
+        out.push([[x + 0.5 + sd * qx * 1.4, y + 0.5 + sd * qy * 1.4], c(x, y), [x + 0.5 - sd * qx * 1.5, y + 0.5 - sd * qy * 1.5]]);
+      }
+      for (const sd of sides) {   // away: out of this opening, down the hall, off at the next junction
+        for (let m = 1; m <= 8; m++) {
+          const ax = x + dx * m, ay = y + dy * m;
+          if (!clearAt(ax, ay)) break;
+          const turn = [1, -1].filter((t) => clearAt(ax + t * qx, ay + t * qy));
+          if (!turn.length) continue;
+          const t = turn[Math.floor(Math.random() * turn.length)];
+          out.push([[x + 0.5 + sd * qx * 1.4, y + 0.5 + sd * qy * 1.4], c(x, y), c(ax, ay), [ax + 0.5 + t * qx * 1.5, ay + 0.5 + t * qy * 1.5]]);
+          break;
+        }
+      }
+    }
+    return out.length ? out[Math.floor(Math.random() * out.length)] : null;
+  }
+  function fatherFrame(now, dt) {
+    if (father) {
+      const f = father;
+      let step = S.walk * dt;
+      while (step > 0 && f.i < f.path.length) {
+        const [wx, wy] = f.path[f.i], ex = wx - f.x, ey = wy - f.y, d = Math.hypot(ex, ey);
+        if (d <= step) { f.x = wx; f.y = wy; step -= d; f.walked += d; f.i++; continue; }
+        f.vx = ex / d; f.vy = ey / d; f.x += f.vx * step; f.y += f.vy * step; f.walked += step; step = 0;
+      }
+      // side-on crossing your view; from behind once he's heading away from you
+      f.back = f.vx * Math.cos(P.a) + f.vy * Math.sin(P.a) > 0.7;
+      f.tex = TEX.sprites[f.back ? 'fatherBack' : 'father'][Math.floor(f.walked / 0.33) & 1];
+      if (Math.hypot(f.x - P.x, f.y - P.y) < FATHER_NEAR) f.going = true;   // you came for him
+      if (f.going) f.alpha -= dt * 3;
+      if (f.alpha <= 0 || f.i >= f.path.length) father = null;
+      return;
+    }
+    if ((!fatherLeft && !fatherForce) || now < fatherCheck) return;
+    fatherCheck = now + 400;
+    const recent = now - foundAt < 9000;
+    if (!fatherForce && (now < fatherNext || Math.random() > (recent ? 0.6 : 0.1))) return;
+    const path = fatherSpot(); if (!path) return;
+    const [x, y] = path[0];
+    father = { x, y, path, i: 1, vx: 0, vy: 0, walked: 0, alpha: 1, going: false, h: FATHER_H, glow: 0, ghost: true, tex: TEX.sprites.father[0] };
+    fatherForce = false; fatherLeft = Math.max(0, fatherLeft - 1); fatherNext = now + FATHER_GAP;
+    FP_SOUND.far();
+  }
+
   // ── the frame's view ──────────────────────────────────────
   let lastX = 0, lastY = 0;
   function update(now, dt) {
     if (won) return;
     doorsFrame(dt);
+    fatherFrame(now, dt);
     stickMove(now, dt);
     stepAnim(now);
     // one dip of the head per tile walked, however you walked it; standing still, it settles
@@ -1127,11 +1209,12 @@
 
   // ── the objects, as flat pictures facing you ──────────────
   let ovDep = new Float32Array(1), colOv = new Uint8Array(1), zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colDoorTop = new Float32Array(1), colDoorBot = new Float32Array(1), colDoorT = new Float32Array(1), colVeil = new Float32Array(1), colWallT = new Float32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
+  const DITH = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
   const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
   function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
     drawn.length = 0;
     const det = dX * plY - dY * plX, list = [];
-    for (const o of objs) {
+    for (const o of father ? objs.concat(father) : objs) {
       const rx = o.x - px, ry = o.y - py;
       const depth = (rx * plY - ry * plX) / det, cam = (dX * ry - dY * rx) / det / depth;   // along the view, and across it
       if (depth < 0.15 || Math.abs(cam) > 1.6) continue;
@@ -1144,16 +1227,20 @@
       const x0 = Math.round(xc - wPx / 2), x1 = Math.round(xc + wPx / 2);
       const f = Math.exp(-fog * depth), tx0 = Math.floor(o.x), ty0 = Math.floor(o.y);
       const L = Math.max(o.glow, tileL[ty0 * W + tx0]);   // a page catches what light there is; it is meant to be found
+      // the father walks: drawn facing the way he's going across the screen, and he goes by thinning out
+      const ghost = !!o.ghost, flip = ghost && !o.back && o.vx * plX + o.vy * plY < 0;
       let any = false;
       for (let x = Math.max(0, x0); x < Math.min(RW, x1); x++) {
         if (zbuf[x] < depth) continue;
         any = true;
-        const tu = Math.min(t.w - 1, ((x - x0) / (x1 - x0) * t.w) | 0);
+        let tu = Math.min(t.w - 1, ((x - x0) / (x1 - x0) * t.w) | 0);
+        if (flip) tu = t.w - 1 - tu;
         for (let y = Math.max(0, Math.ceil(y0)); y < Math.min(RH, Math.ceil(floorY)); y++) {
           const c = t.px[Math.min(t.h - 1, ((y - y0) / hPx * t.h) | 0) * t.w + tu];
-          if (c) buf[y * RW + x] = shade(c, f, 1, L);
+          if (c && (!ghost || DITH[(y & 3) * 4 + (x & 3)] < o.alpha)) buf[y * RW + x] = shade(c, f, 1, L);
         }
       }
+      if (ghost) continue;   // the father is seen, never touched
       // a generous target, well past the picture on every side: fingers are wide and things are small
       if (any) drawn.push({ o, x0: x0 - wPx * 0.6, x1: x1 + wPx * 0.6, y0: y0 - hPx - 10, y1: floorY + hPx + 14, depth });
     }
@@ -1328,6 +1415,7 @@
   // Restart: the same maze, back where you woke. Hard refresh: the latest build from the server and a
   // new maze — the top-down's hardRefresh(), and like it bounded so a dead connection still reloads.
   // Every script is fetched fresh as well as the page, since the scripts are what change.
+  $('fatherNow').onclick = () => { fatherForce = true; fatherCheck = 0; $('panel').classList.remove('open'); };
   $('restart').onclick = () => { reset(); $('panel').classList.remove('open'); };
   $('hardRefresh').onclick = () => {
     $('hardRefresh').textContent = 'Updating…';
@@ -1383,5 +1471,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get father() { return father; }, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

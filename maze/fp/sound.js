@@ -139,6 +139,8 @@ const FP_SOUND = (() => {
     chalkUp() { if (live() && typeof AUDIO !== 'undefined') AUDIO.pickupChalk(); },
     chalkMark() { if (live() && typeof AUDIO !== 'undefined') AUDIO.chalkDown(); },
     empty() { if (live() && typeof AUDIO !== 'undefined') AUDIO.chalkEmpty(); },
+    // the father, somewhere ahead: the top-down's own footsteps going away
+    far() { if (live() && typeof AUDIO !== 'undefined') AUDIO.farSteps(); },
     out() { if (live() && typeof AUDIO !== 'undefined') AUDIO.exit(); },
     running: () => !!ac && ac.state === 'running' && started,
   };
