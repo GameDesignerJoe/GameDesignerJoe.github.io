@@ -290,10 +290,11 @@
   // Joe: "Can we make a ramp or a staircase that goes up to another level?" — and the way we settled:
   // "fake the stairs: a door at the top or bottom loads a new sub-maze, tracking collected and mapped
   // state." A maze has `floors` of them. Floor 1 is the chapter's own maze; the ones above are mazes
-  // of their own, each from its own seed off the first, so a floor is always the same floor. Going up:
-  // a flight of real steps in a dead end, rising to a door at the top — walk into them, or tap them,
-  // and you climb. You arrive on the next floor at a door marked down, in the dead end nearest where
-  // that floor's maze begins; it takes you back to the foot of the stairs you came up. Every floor
+  // of their own, each from its own seed off the first, so a floor is always the same floor. Going up: a
+  // door marked up at the end of a far dead end — walk into it, or tap it. (It was a flight of steps for
+  // a version; Joe: "Let's cut the visual stairs. It doesn't look right.") You arrive on the next floor
+  // at a door marked down, in the dead end nearest where that floor's maze begins; it takes you back
+  // out of the door marked up you went through. Every floor
   // remembers itself while you're away: what you took, what you chalked, which doors stand open,
   // which lights are on, what you've seen. The way out is only on floor 1. Chalk and charcoal go with
   // you; pages are counted per floor.
@@ -324,44 +325,34 @@
     for (const [s, up] of [[stairs.up, true], [stairs.down, false]]) if (s) drawStairDoor(decalFor(s.k, s.face), up);
     return [stairs.up, stairs.down].filter(Boolean);
   }
-  // a stairwell door on the end wall: at the top of the flight going up, on the floor going down, and
-  // a plaque saying which
+  // a stairwell door on the end wall, at floor level, and a plaque over it saying which way.
+  // Joe: "Let's cut the visual stairs. It doesn't look right. Just have a door that says 'Up'."
   function drawStairDoor(d, up) {
-    const dp = TEX.door.px, r0 = up ? 5 : 14, r1 = up ? 38 : 64, c0 = 15, c1 = 49;
+    const dp = TEX.door.px, r0 = 14, r1 = 64, c0 = 15, c1 = 49;
     for (let y = r0; y < r1; y++) for (let x = c0; x < c1; x++) {
       const tu = Math.min(31, ((x - c0) / (c1 - c0) * 32) | 0), tv = Math.min(31, ((y - r0) / (r1 - r0) * 32) | 0);
       d[y * DEC + x] = dp[tv * 32 + tu];
     }
-    const word = up ? 'up' : 'down', pw = word.length * 4 + 3, px0 = up ? 52 : Math.round(32 - pw / 2), py0 = up ? 16 : 5;
-    for (let y = py0; y < py0 + 8; y++) for (let x = px0; x < px0 + pw; x++) if (x < DEC) d[y * DEC + x] = TEX.hex('#2c3a2e');
-    for (let c = 0; c < word.length; c++) { const g = FONT[word[c]]; for (let r = 0; r < 5; r++) for (let q2 = 0; q2 < 3; q2++) if (g[r * 3 + q2] === '#') { const X = px0 + 2 + c * 4 + q2; if (X < DEC) d[(py0 + 2 + r) * DEC + X] = TEX.hex('#d9e6cf'); } }
-  }
-  // the flight: five steps rising the length of the dead end to the door, as boxes like the furniture
-  function stairBoxes() {
-    const s = stairs.up; if (!s) return;
-    const [dx, dy] = s.dir, fx = -dx, fy = -dy, ux = -fy, uy = fx, bx = s.x + 0.5 + dx * 0.5, by = s.y + 0.5 + dy * 0.5;
-    const def = { boxes: [0, 1, 2, 3, 4].map((i) => ({ a: [-0.5, 0.5], d: [0, 1 - i * 0.2], z: [i * 0.08, (i + 1) * 0.08], m: 'stair', front: 'nosing' })) };
-    for (const b of buildFurn(def, bx, by, ux, uy, fx, fy, 0)) fboxes.push(b);
+    const word = up ? 'up' : 'down', pw = word.length * 4 + 3, px0 = Math.round(32 - pw / 2), py0 = 5;
+    for (let y = py0; y < py0 + 8; y++) for (let x = px0; x < px0 + pw; x++) d[y * DEC + x] = TEX.hex('#2c3a2e');
+    for (let c = 0; c < word.length; c++) { const g = FONT[word[c]]; for (let r = 0; r < 5; r++) for (let q2 = 0; q2 < 3; q2++) if (g[r * 3 + q2] === '#') d[(py0 + 2 + r) * DEC + px0 + 2 + c * 4 + q2] = TEX.hex('#d9e6cf'); }
   }
   const facing = (dx, dy) => Math.cos(P.a) * dx + Math.sin(P.a) * dy;
-  // every frame: pushing into the foot of the flight, or into the door at the end going down
+  // every frame: pushing into a stairwell door, up or down
   function stairFrame() {
     if (stairBusy || hidden || vel < 0.05) return;
-    const u = stairs.up, d = stairs.down, tx = Math.floor(P.x), ty = Math.floor(P.y);
-    if (u && tx === u.ox && ty === u.oy && facing(u.dir[0], u.dir[1]) > 0.6) {
-      const gap = u.dir[0] ? (u.dir[0] > 0 ? u.x - P.x : P.x - (u.x + 1)) : (u.dir[1] > 0 ? u.y - P.y : P.y - (u.y + 1));
-      if (gap < RAD + 0.06) goFloor(floor + 1);
-    }
-    if (d && tx === d.x && ty === d.y && facing(d.dir[0], d.dir[1]) > 0.6) {
-      const gap = d.dir[0] ? (d.dir[0] > 0 ? d.x + 1 - P.x : P.x - d.x) : (d.dir[1] > 0 ? d.y + 1 - P.y : P.y - d.y);
-      if (gap < RAD + 0.06) goFloor(floor - 1);
+    const tx = Math.floor(P.x), ty = Math.floor(P.y);
+    for (const [s, to] of [[stairs.up, floor + 1], [stairs.down, floor - 1]]) {
+      if (!s || tx !== s.x || ty !== s.y || facing(s.dir[0], s.dir[1]) <= 0.6) continue;
+      const gap = s.dir[0] ? (s.dir[0] > 0 ? s.x + 1 - P.x : P.x - s.x) : (s.dir[1] > 0 ? s.y + 1 - P.y : P.y - s.y);
+      if (gap < RAD + 0.06) goFloor(to);
     }
   }
-  // a tap: on the flight or its door from near enough, or on the door going down
+  // a tap on either door, from near enough
   function stairTap(fk) {
-    const u = stairs.up, d = stairs.down;
-    if (u && Math.hypot(u.x + 0.5 - P.x, u.y + 0.5 - P.y) < 1.9 && facing(u.dir[0], u.dir[1]) > 0.5) { goFloor(floor + 1); return true; }
-    if (d && (fk === faceKey(d.k, d.face) || (Math.hypot(d.x + 0.5 - P.x, d.y + 0.5 - P.y) < 1.2 && facing(d.dir[0], d.dir[1]) > 0.6))) { goFloor(floor - 1); return true; }
+    for (const [s, to] of [[stairs.up, floor + 1], [stairs.down, floor - 1]]) {
+      if (s && (fk === faceKey(s.k, s.face) || facing(s.dir[0], s.dir[1]) > 0.6) && Math.hypot(s.x + 0.5 - P.x, s.y + 0.5 - P.y) < 1.4) { goFloor(to); return true; }
+    }
     return false;
   }
   function saveFloor() {
@@ -388,11 +379,11 @@
         doors.forEach((d, i) => { if (st.doors[i]) { d.open = d.t = st.doors[i][0]; d.swing = st.doors[i][1]; d.seg = doorSeg(d); } });
         lightGroups.forEach((g, i) => { g.on = !!st.lights[i]; g.lvl = g.on ? 1 : 0; g.at = -1e9; });
       }
-      // arrive: going up, just out from the door marked down; going down, at the foot of the flight
+      // arrive just out from the door you came through: marked down going up, up going down
       const s = up ? stairs.down : stairs.up;
       if (s) {
         const [dx, dy] = s.dir;
-        if (up) { P.x = s.x + 0.5 - dx * 0.1; P.y = s.y + 0.5 - dy * 0.1; } else { P.x = s.ox + 0.5; P.y = s.oy + 0.5; }
+        P.x = s.x + 0.5 - dx * 0.1; P.y = s.y + 0.5 - dy * 0.1;
         P.a = Math.atan2(-dy, -dx); lastTile = ''; lastX = P.x; lastY = P.y; arrive();
       }
       hud();
@@ -449,7 +440,7 @@
     for (const key of charcoalSpots) { const [x, y] = at(key); objs.push({ x: x + 0.5, y: y + 0.5, kind: 'charcoal', tex: TEX.sprites.charcoal, h: 0.1, glow: 0 }); }
     pagesTotal = journals.size;
     pathMask = new Uint8Array(W * H);
-    for (const [x, y] of solutionPath) if (x >= 0 && y >= 0 && x < W && y < H) pathMask[y * W + x] = 1;
+    if (floor === 1) for (const [x, y] of solutionPath) if (x >= 0 && y >= 0 && x < W && y < H) pathMask[y * W + x] = 1;
     // words at the far end of dead ends: the wall you face as you walk in. Their own random stream,
     // so where they fall never moves anything else
     const R = rng(SEED + 130003), words = WALL_WORDS[character ? character.name : ''] || WALL_WORDS._;
@@ -484,7 +475,6 @@
     placeClosets(new Set(reserved));
     placeSwitches(new Set(reserved.concat(closets.map((c) => faceKey(c.k, c.face)))));
     placeFurniture();
-    stairBoxes();
     storyProps();
     buildLight();
     hud();
@@ -1447,6 +1437,12 @@
       if (x >= 0 && y >= 0 && x < W && y < H) seen[y * W + x] = 1;
     }
     for (const o of objs.slice()) if (Math.floor(o.x) === tx && Math.floor(o.y) === ty) take(o, true);
+    // debug: up a floor, the way out drawn on the floor is from here to the door marked down
+    if (floor > 1 && S.showPath && stairs.down && pathMask) {
+      const from = ty * W + tx, to = stairs.down.y * W + stairs.down.x, prev = new Int32Array(W * H).fill(-1), q = [from]; prev[from] = from;
+      for (let i = 0; i < q.length && prev[to] < 0; i++) { const c = q[i], x = c % W, y = (c / W) | 0; for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && prev[n] < 0) { prev[n] = c; q.push(n); } } }
+      pathMask.fill(0); if (prev[to] >= 0) for (let c = to; ; c = prev[c]) { pathMask[c] = 1; if (c === from) break; }
+    }
   }
   // Joe: "I want to get closer to the exit before it stops me. Right now it feels like I'm over a tile
   // away from it. I wanna get right up to the door." It used to end the moment you set foot on the
@@ -2288,26 +2284,60 @@
   }
 
   // ── the debug map ─────────────────────────────────────────
+  // The corner map, and the full-screen one. Joe: "We need the view full map in the debug options
+  // that brings up the full screen map. Then carry over the ability to tap on a location and be
+  // teleported there." And: "I don't think our debug map handles multiple floors well" — so both mark
+  // the doors up (blue) and down (red), show the exit only on the floor that has it, and say which floor.
+  function mapPaint(c, s, ox, oy, full, now) {
+    const doorAt = new Set(doors.map((d) => d.k));
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (!full && !seen[y * W + x]) continue;
+      c.fillStyle = solid(x, y) ? '#5c5850' : low[y * W + x] ? '#53402a' : doorAt.has(y * W + x) ? '#826846' : dark[y * W + x] ? '#050506' : '#1e1c1a';
+      c.fillRect(ox + x * s, oy + y * s, s, s);
+    }
+    if (floor === 1 && (full || seen[exit.y * W + exit.x])) { c.fillStyle = '#e0c98a'; c.fillRect(ox + exit.x * s, oy + exit.y * s, s, s); }
+    for (const [st, col] of [[stairs.up, '#8fb8e0'], [stairs.down, '#e09a8f']]) if (st && (full || seen[st.y * W + st.x])) { c.fillStyle = col; c.fillRect(ox + st.x * s, oy + st.y * s, s, s); }
+    const [x, y, a] = camera(now);
+    c.save(); c.translate(ox + x * s, oy + y * s); c.rotate(a);
+    c.fillStyle = '#ece7da'; c.beginPath(); c.moveTo(s * 1.1, 0); c.lineTo(-s * 0.6, -s * 0.7); c.lineTo(-s * 0.6, s * 0.7); c.fill();
+    c.restore();
+  }
+  let bigOpen = false, bigGeom = null;
+  const big = document.getElementById('bigmap'), bctx = big.getContext('2d');
   function drawMini(now) {
-    if (S.map === 'off') { mini.style.display = 'none'; return; }
+    const screen = S.map === 'screen';
+    $('mapBtn').style.display = screen ? 'block' : 'none';
+    if (!screen) bigOpen = false;
+    big.style.display = bigOpen ? 'block' : 'none';
+    if (bigOpen) {
+      const dpr = Math.min(2, devicePixelRatio || 1), top = 96;
+      const s = Math.max(2, Math.floor(Math.min((innerWidth - 16) / W, (innerHeight - top - 16) / H))), ox = Math.round((innerWidth - W * s) / 2), oy = top;
+      if (big.width !== Math.round(innerWidth * dpr) || big.height !== Math.round(innerHeight * dpr)) { big.width = Math.round(innerWidth * dpr); big.height = Math.round(innerHeight * dpr); }
+      bctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.fillStyle = '#0d0f10'; bctx.fillRect(0, 0, innerWidth, innerHeight);
+      mapPaint(bctx, s, ox, oy, true, now);
+      bctx.fillStyle = '#cfc6b0'; bctx.font = '15px Georgia, serif'; bctx.textAlign = 'center';
+      bctx.fillText('floor ' + floor + ' · tap somewhere to go there', innerWidth / 2, 82);
+      bigGeom = { s, ox, oy };
+    }
+    if (S.map === 'off' || screen) { mini.style.display = 'none'; return; }
     mini.style.display = 'block';
     const s = Math.max(2, Math.floor(Math.min(innerWidth * 0.34 / W, innerHeight * 0.34 / H)));
     const dpr = Math.min(2, devicePixelRatio || 1);
     if (mini.width !== W * s * dpr) { mini.width = W * s * dpr; mini.height = H * s * dpr; mini.style.width = W * s + 'px'; mini.style.height = H * s + 'px'; }
     mctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     mctx.clearRect(0, 0, W * s, H * s);
-    const full = S.map === 'full', doorAt = new Set(doors.map((d) => d.k));
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      if (!full && !seen[y * W + x]) continue;
-      mctx.fillStyle = solid(x, y) ? '#5c5850' : low[y * W + x] ? '#53402a' : doorAt.has(y * W + x) ? '#826846' : dark[y * W + x] ? '#050506' : '#1e1c1a';
-      mctx.fillRect(x * s, y * s, s, s);
-    }
-    if (full || seen[exit.y * W + exit.x]) { mctx.fillStyle = '#e0c98a'; mctx.fillRect(exit.x * s, exit.y * s, s, s); }
-    const [x, y, a] = camera(now);
-    mctx.save(); mctx.translate(x * s, y * s); mctx.rotate(a);
-    mctx.fillStyle = '#ece7da'; mctx.beginPath(); mctx.moveTo(s * 1.1, 0); mctx.lineTo(-s * 0.6, -s * 0.7); mctx.lineTo(-s * 0.6, s * 0.7); mctx.fill();
-    mctx.restore();
+    mapPaint(mctx, s, 0, 0, S.map === 'full', now);
+    if (floor > 1) { mctx.fillStyle = '#cfc6b0'; mctx.font = '10px Georgia, serif'; mctx.textAlign = 'left'; mctx.fillText('floor ' + floor, 3, 11); }
   }
+  $('mapBtn').addEventListener('pointerdown', (e) => { e.stopPropagation(); bigOpen = !bigOpen; });
+  big.addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); e.preventDefault(); if (!bigGeom) return;
+    const tx = Math.floor((e.clientX - bigGeom.ox) / bigGeom.s), ty = Math.floor((e.clientY - bigGeom.oy) / bigGeom.s);
+    if (tx < 0 || ty < 0 || tx >= W || ty >= H || solid(tx, ty)) { bigOpen = false; return; }   // off the maze: just close
+    if (hidden) leaveCloset();
+    P.x = tx + 0.5; P.y = ty + 0.5; lastX = P.x; lastY = P.y; vel = 0; lastTile = ''; arrive();
+    bigOpen = false;
+  });
 
   // ── winning ───────────────────────────────────────────────
   function win() {
@@ -2480,7 +2510,7 @@
   };
   $('toStairs').onclick = () => {
     const s = stairs.up || stairs.down; $('panel').classList.remove('open'); if (!s) return;
-    const [dx, dy] = s.dir; P.x = s.ox + 0.5 - dx * 0.4; P.y = s.oy + 0.5 - dy * 0.4; P.a = Math.atan2(dy, dx); lastX = P.x; lastY = P.y;
+    const [dx, dy] = s.dir; P.x = s.ox + 0.5; P.y = s.oy + 0.5; P.a = Math.atan2(dy, dx); lastX = P.x; lastY = P.y;
   };
   $('hardRefresh').onclick = () => {
     $('hardRefresh').textContent = 'Updating…';
@@ -2532,7 +2562,9 @@
     if (pageHideAt && now > pageHideAt) hidePage();
     // debug: the arrow, pointing at the way out as the crow flies
     const arrowEl = $('dbgArrow');
-    if (S.showArrow) { arrowEl.style.display = ''; arrowEl.style.transform = `rotate(${(Math.atan2(exit.y + 0.5 - P.y, exit.x + 0.5 - P.x) - P.a) * 180 / Math.PI}deg)`; }
+    // up a floor, the way out is the door marked down
+    const tg = floor > 1 && stairs.down ? stairs.down : exit;
+    if (S.showArrow) { arrowEl.style.display = ''; arrowEl.style.transform = `rotate(${(Math.atan2(tg.y + 0.5 - P.y, tg.x + 0.5 - P.x) - P.a) * 180 / Math.PI}deg)`; }
     else arrowEl.style.display = 'none';
     update(now, dt);
     render(now);

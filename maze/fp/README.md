@@ -19,7 +19,9 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   The Maze section is the top-down's own debug (level, stones, prototype, size, branching, turns, districts,
   loops), written into `SAVE` in memory before each build and never persisted. Sound can pin the music to any self's track (or the pool's) instead of following the chapter.
   Debug adds infinite chalk,
-  the way out marked on the floor, and an arrow to it.
+  the way out marked on the floor, and an arrow to it (on a floor above the first, both point to the door marked down).
+  The map can be a corner mini map, or **Full screen: tap to go**: a map button opens the whole floor, tap an open
+  tile and you're there, tap a wall to close it. Both say which floor, and show the up door in blue and the down in red.
 - **Two ways to move, one position.** The stick has three modes. **Glide** (the default) is free
   steering with quiet help, each with its own knob under Glide help on the panel, never a snap: it settles you square to
   an open way when you ease off the turn, drifts you to the middle of a one-wide hall, and two
@@ -71,10 +73,10 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   sight or tap. Notes are read where they lie (a tap, or the first time you walk to them), never taken. **To a story
   room** on the panel. Sprites can stand off the floor now (`z`), for the note on the seat.
 - **Stairs** (`floors`, 2 by default; 1 is none). Floor 1 is the chapter's maze; each floor above is a maze of its own
-  from its own seed off the first, so it's always the same floor. Going up is a real flight — five steps as boxes,
-  rising the length of a far dead end to a door marked up. Walk into it or tap it: black, feet on stairs, "floor 2",
+  from its own seed off the first, so it's always the same floor. Going up is a door marked up at the end of a far
+  dead end (the painted flight read wrong, so it's gone). Walk into it or tap it: black, feet on stairs, "floor 2",
   and you're standing out from a door marked down in the dead end nearest where that floor begins; it takes you back
-  to the foot of the flight. Each floor remembers itself while you're away (what you took, your chalk, open doors,
+  to the door marked up. Each floor remembers itself while you're away (what you took, your chalk, open doors,
   lights, what you've seen). The way out is only on floor 1; chalk and charcoal go with you; pages count per floor.
   **To the stairs** on the panel puts you in front of them; Restart goes back to floor 1.
 - **The kid's room** (the Child's secret room, which the generator already carves behind a squeeze). Pitch black
