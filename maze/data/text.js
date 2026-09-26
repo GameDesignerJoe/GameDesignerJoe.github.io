@@ -342,6 +342,15 @@ const WALL_WORDS = {
   'The Child': ["wait here", "he said five minutes", "count to a hundred", "i was good", "dont cry", "hes coming back"],
 };
 
+// first person: the two walls that open the chapter. The first is across from you when you wake —
+// the first thing you see; the second faces you as you step out of that room. Joe: "the text 'dad
+// said to stay here.' should be the first thing you see at the start of the game on the wall across
+// from you. And then as soon as you leave … there's text on the wall that says 'but I didn't.'"
+// Keyed by the self, like WALL_WORDS; a self with no entry gets neither. [on waking, on leaving]
+const WALL_START = {
+  'The Child': ["dad said to stay here.", "but I didn't."],
+};
+
 // The engine hands each surface a finished string, never an id, so the debug "Line IDs" view has
 // to look the id up backwards: words → path. That walk needs the blocks as data. A plain object
 // literal rather than anything clever, because these are `const` in the shared script scope and
@@ -349,5 +358,5 @@ const WALL_WORDS = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START,
 };

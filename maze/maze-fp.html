@@ -74,9 +74,26 @@
   @media (orientation: landscape) { #glyphs { bottom: calc(env(safe-area-inset-bottom) + 20px); } }
   #page { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 5; background: #0d0f1066; }
   #page.show { opacity: 1; pointer-events: auto; }
-  #page > div { max-width: 340px; padding: 22px 22px 16px; border-radius: 6px; background: #efe6cf; color: #2a2622; box-shadow: 0 10px 40px #0008; }
-  #page p { margin: 0 0 12px; font-size: 17px; line-height: 1.5; white-space: pre-line; }
-  #page small { display: block; text-align: right; color: #7a6a52; font-style: italic; }
+  /* Caveat (SIL Open Font License), the latin set, kept here so a page reads the same offline */
+  @font-face { font-family: 'Caveat'; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fp/caveat-latin.woff2) format('woff2'); }
+  /* a journal page. Joe: "The Journal text doesn't look right anymore. It looks like web app art. I need
+     something more real." So: a sheet torn out of a ruled notebook — aged paper with grain and a darker
+     edge, a red margin, blue rules the handwriting sits on, a coffee ring, a slight tilt — in ink */
+  #page > div { position: relative; width: min(330px, calc(100vw - 40px)); box-sizing: border-box; padding: 34px 22px 20px 50px; color: #1f2c44;
+    background:
+      radial-gradient(circle at 97% 3%, transparent 26px, #7b5327aa 27px, #7b532744 29px, #7b532710 33px, transparent 36px),
+      linear-gradient(90deg, transparent 36px, #c0655a88 36px, #c0655a88 37px, transparent 37px, transparent 39px, #c0655a44 39px, #c0655a44 40px, transparent 40px),
+      repeating-linear-gradient(180deg, transparent 0 27px, #5c7fa644 27px 28px),
+      radial-gradient(ellipse at 50% 45%, transparent 55%, #6b4a1c38 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .24 0 0 0 0 .12 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      #e6dbc0;
+    background-position: 0 0, 0 0, 0 6px, 0 0, 0 0;
+    transform: rotate(-1.4deg) translateY(8px) scale(.98); transition: transform .5s;
+    box-shadow: 0 22px 40px #000b, 0 3px 8px #0007;
+    clip-path: polygon(0 1.6%, 3% .4%, 7% 1.4%, 11% .2%, 16% 1.2%, 21% .5%, 26% 1.7%, 31% .3%, 37% 1.1%, 42% .2%, 48% 1.5%, 53% .6%, 59% 1.3%, 64% .1%, 70% 1.2%, 75% .5%, 81% 1.6%, 86% .4%, 92% 1.3%, 96% .3%, 100% 1.1%, 100% 100%, 0 100%); }
+  #page.show > div { transform: rotate(-1.4deg); }
+  #page p { margin: 0 0 14px; font-family: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive; font-weight: 500; font-size: 24px; line-height: 28px; white-space: pre-line; text-shadow: 0 0 .4px #1f2c44aa; }
+  #page small { display: block; text-align: right; font-family: 'Caveat', 'Bradley Hand', cursive; font-size: 19px; color: #54607a; }
   /* inside a closet: the hall through the vent's slats, and a way out */
   #slats, #stepOut { display: none; }
   body.hiding #slats { display: block; position: fixed; inset: 0; pointer-events: none; z-index: 2;

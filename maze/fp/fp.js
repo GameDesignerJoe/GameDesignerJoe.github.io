@@ -255,6 +255,8 @@
     let best = 0, bestH = 0;
     HD.forEach(([dx, dy], h) => { let n = 0; while (!solid(tx + dx * (n + 1), ty + dy * (n + 1)) && n < 40) n++; if (n > best) { best = n; bestH = h; } });
     P.x = tx + 0.5; P.y = ty + 0.5; P.a = bestH * QUARTER;
+    // a chapter that opens with words on the wall wakes you facing them
+    const wake = startWords.find((w) => w.h !== undefined); if (wake) P.a = wake.h * QUARTER;
     anim = null; queued = null; steps = 0; won = false; vel = 0; lastTile = '';
     fatherReset();
     $('win').classList.remove('show');
@@ -281,6 +283,48 @@
     if (!d) { d = new Uint32Array(DEC * DEC); decals.set(faceKey(k, face), d); }
     return d;
   }
+  // the chapter's two opening walls (WALL_START): one across from where you wake, which you are then
+  // turned to face; one straight ahead as you step out of the start room through its gap. [] if the
+  // self has none, or the walls aren't there to write on
+  let startWords = [];
+  const faceTo = (dx, dy) => dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3;
+  function startSpots() {
+    const lines = typeof WALL_START !== 'undefined' && character ? WALL_START[character.name] : null;
+    if (!lines) return [];
+    const out = [], sx = Math.floor(start.x), sy = Math.floor(start.y);
+    const usable = (k) => !exitFace[k] && (k % W) > 0 && (k % W) < W - 1 && ((k / W) | 0) > 0 && ((k / W) | 0) < H - 1;
+    const inRoom = (x, y) => !startRoom || (x >= startRoom.x0 && x <= startRoom.x1 && y >= startRoom.y0 && y <= startRoom.y1);
+    // waking: a wall of the start room 2–5 tiles off in a straight line from the bed, the farthest
+    // such, so it reads across the room rather than pressed to your face — and never out through the
+    // gap, which would put it on the wall the second line wants
+    if (lines[0]) {
+      let best = null;
+      HD.forEach(([dx, dy], h) => {
+        let n = 1; while (!solid(sx + dx * n, sy + dy * n) && inRoom(sx + dx * n, sy + dy * n) && n < 8) n++;
+        const x = sx + dx * n, y = sy + dy * n, k = y * W + x;
+        if (n >= 2 && n <= 5 && solid(x, y) && usable(k) && (!best || n > best.n)) best = { k, face: faceTo(dx, dy), h, n, text: lines[0] };
+      });
+      if (best) out.push(best);
+    }
+    // leaving: out through the start room's gap, the wall straight ahead if the hall ends within six
+    // tiles; if it runs on, the first side wall just outside, which you see as you step out
+    if (lines[1] && startGap && startRoom) {
+      const [gx, gy] = startGap;
+      const dir = HD.find(([dx, dy]) => inRoom(gx - dx, gy - dy) && !solid(gx + dx, gy + dy));
+      if (dir) {
+        const [dx, dy] = dir, taken = (k, f) => out.some((o) => o.k === k && o.face === f);
+        let n = 1; while (!solid(gx + dx * n, gy + dy * n) && n < 7) n++;
+        let spot = null, k = (gy + dy * n) * W + gx + dx * n;
+        if (solid(gx + dx * n, gy + dy * n) && usable(k) && !taken(k, faceTo(dx, dy))) spot = { k, face: faceTo(dx, dy) };
+        for (let m = 1; m <= 3 && !spot; m++) for (const [qx, qy] of [[-dy, dx], [dy, -dx]]) {
+          const x = gx + dx * m + qx, y = gy + dy * m + qy; k = y * W + x;
+          if (!spot && solid(x, y) && !solid(gx + dx * m, gy + dy * m) && usable(k) && !taken(k, faceTo(qx, qy))) spot = { k, face: faceTo(qx, qy) };
+        }
+        if (spot) out.push({ ...spot, text: lines[1] });
+      }
+    }
+    return out;
+  }
   function placeThings() {
     objs = []; decals = new Map(); chalk = CONFIG.chalkStart; charcoalN = 0; pagesFound = 0;
     const at = (key) => key.split(',').map(Number);
@@ -294,19 +338,21 @@
     // so where they fall never moves anything else
     const R = rng(SEED + 130003), words = WALL_WORDS[character ? character.name : ''] || WALL_WORDS._;
     const sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), ends = [];
+    startWords = startSpots(); const startFaces = new Set(startWords.map((w) => faceKey(w.k, w.face)));
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
       if (solid(x, y) || low[y * W + x] || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
       const open = HD.filter(([dx, dy]) => !solid(x + dx, y + dy));
       if (open.length !== 1) continue;
       const [ox, oy] = open[0], dx = -ox, dy = -oy;   // walking in, you face away from the one way out
       const face = dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3;
-      ends.push({ k: (y + dy) * W + x + dx, face });
+      if (!startFaces.has(faceKey((y + dy) * W + x + dx, face))) ends.push({ k: (y + dy) * W + x + dx, face });
     }
     // choose every spot and line first, then draw: the hand's wobble draws from the stream too, and
     // must not move where the next line goes
     const pool = words.slice(), picks = [];
     for (let n = 0; n < S.words && ends.length && pool.length; n++)
       picks.push([ends.splice(Math.floor(R() * ends.length), 1)[0], pool.splice(Math.floor(R() * pool.length), 1)[0]]);
+    for (const w of startWords) picks.push([w, w.text]);
     wordSpots = picks.map(([e, text]) => ({ k: e.k, face: e.face, text }));
     for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
     placeDoors();
@@ -1661,5 +1707,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get startWords() { return startWords; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

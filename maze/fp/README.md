@@ -29,7 +29,10 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 - **Things in the world and tapping them.** The maze's pages, chalk and charcoal are drawn as flat
   pictures facing you, depth-tested against the walls. Walk over one or tap it to take it; a page
   shows its text. Tap a wall within reach to chalk it (an X early on, the sign picker once signs
-  open). Dead ends carry words from `WALL_WORDS` in `data/text.js`. Found things are kept for the run
+  open). Dead ends carry words from `WALL_WORDS` in `data/text.js`. A chapter can open with two walls (`WALL_START`): the first across the
+  start room, and you wake facing it; the second ahead of you as you step out of that room. The Child's are Joe's:
+  "dad said to stay here." and "but I didn't." A page opens as a torn sheet of ruled notebook paper in a hand
+  (Caveat, SIL OFL, kept in `fp/caveat-latin.woff2` so it reads the same offline). Found things are kept for the run
   only — nothing is written to the top-down's save yet.
 - **Doors and closets.** Doors go where the maze is already open — one-wide passages between two cells,
   mostly room mouths (`doorRoom`, `doorHall`) — so every door is a real way through and the maze under
