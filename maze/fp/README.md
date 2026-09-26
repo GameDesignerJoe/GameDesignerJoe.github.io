@@ -52,7 +52,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
 - **The being** (`being`; floor 1; only after the turn). The old notes' Caretaker, and Joe's twist: it helps. Each time you
   go more than `beingOff` steps off the way out, `beingChance` that it comes (rolled once a trip; come back within it and
-  the next trip is a new roll). The signs first — tubes round you stutter, a low swell — and if you turn back to the way
+  the next trip is a new roll); and `beingDead` that it comes when you walk into the end of a dead end, when it's
+  back up the way you came, waiting for you to turn round. The signs first — tubes round you stutter, a low swell — and if you turn back to the way
   out it never comes. Then it's standing at the far end of what you can see (`BEING_VIEW` tiles at most), looking at you:
   tall as the ceiling, thin, arms past its knees, two pale eyes (all you see of it in the dark). It waits. Come within
   `BEING_NEAR` and it comes for you at 1.25× your walk, round by the halls — never through a squeeze or a shut door; if
@@ -62,7 +63,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   front of the slats to look in, and is gone. **Being now** on the panel calls it (after the turn or not).
 - **The turn.** A maze starts calm (`calm`: no dark halls of this view's own, switched rooms lit). Each page read and
   story room walked into is a find; at `turnAfter` (3) the building turns — every tube stutters, something big goes
-  off far away, the music drops to `The Turn`. After it, a room you walk into stutters out and goes dark, and on its
+  off far away, the music drops to `The Turn`. After it, a room you walk into may stutter out and go dark (`turnRooms` of them, each room decided the first time you
+  walk in), and on its
   walls, in paint that shows only in the dark, `TURN_LINES` ("you shouldnt be here!", "leave", "he left. do the
   same."); and now and then (`turnHalls`) a hall's lamps go out one after another from its far end toward you, a word
   glowing on the wall at the end. Every lamp is live now (`flickLamps`), so any can go out. The kid's room is spared.

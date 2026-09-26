@@ -816,7 +816,7 @@
   // enough of it has been on your screen (BEING_SEEN_PX drawn pixels, walls and doors hiding it); unseen, it
   // holds a little behind you, feet close, until you turn round, or gives up after BEING_HOLD.
   const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_PASSES = 3, BEING_SEEN_PX = 60, BEING_HOLD = 12000, BEING_NEAR = 3, BEING_LOST = 15000, BEING_VIEW = 9;
-  let pathDist = null, pathNear = null, pathIdx = null, being = null, beingState = 'dormant', beingT = 0, offSince = 0, rolled = false, beingNext = 0, beingForce = false, fieldAt = 0, field = null, stepT = 0;
+  let pathDist = null, pathNear = null, pathIdx = null, being = null, beingState = 'dormant', beingT = 0, offSince = 0, rolled = false, deadAt = -1, beingAim = null, beingNext = 0, beingForce = false, fieldAt = 0, field = null, stepT = 0;
   function beingIndex() {   // how far every tile is from the way out, and which tile of it is nearest
     pathDist = new Int32Array(W * H).fill(-1); pathNear = new Int32Array(W * H).fill(-1); pathIdx = new Map();
     being = null; beingState = 'dormant'; offSince = 0; beingNext = performance.now() + BEING_GRACE;
@@ -834,7 +834,7 @@
     return d;
   }
   const beingObj = (x, y) => ({ x, y, vx: 0, vy: 0, h: 0.97, glow: 0, ghost: true, back: true, alpha: 1, tex: TEX.sprites.being[0], walked: 0 });
-  function beingGone() { being = null; beingState = 'dormant'; offSince = 0; beingNext = performance.now() + BEING_GAP; }
+  function beingGone() { being = null; beingState = 'dormant'; offSince = 0; beingAim = null; beingNext = performance.now() + BEING_GAP; }
   function moveToward(tx, ty, dt, speed) {
     const ex = tx - being.x, ey = ty - being.y, d = Math.hypot(ex, ey), st = speed * dt;
     if (d < 1e-4) return true;
@@ -851,17 +851,27 @@
     if (beingState === 'dormant') {
       if (off <= S.beingOff) rolled = false;   // back near the way out: the next time you go off is a new roll
       else if (!rolled && !hidden) { rolled = true; if (turned && now > beingNext && Math.random() < S.beingChance) beingForce = true; }
+      // Joe: "Let's have a 25% chance that the being will spawn at dead ends after you've hit the turn." Walk into
+      // the end of a dead end and, `beingDead` of the time, it's back up the way you came when you turn round
+      const x0 = Math.floor(P.x), y0 = Math.floor(P.y), open = HD.filter(([dx, dy]) => !solid(x0 + dx, y0 + dy));
+      const isDead = open.length === 1 && !low[pk] && !inHeart(pk) && !(x0 === exit.x && y0 === exit.y) && pathDist[pk] > 0;
+      if (!isDead) deadAt = -1;
+      else if (deadAt !== pk && !hidden) {
+        deadAt = pk;
+        if (turned && now > beingNext && Math.random() < S.beingDead) { beingForce = true; beingAim = Math.atan2(open[0][1], open[0][0]); }
+      }
       if (beingForce && !hidden) { beingForce = false; beingState = 'signs'; beingT = now; FP_SOUND.beingSigns(); }
       return;
     }
     if (beingState === 'signs') {
-      if (!hidden && pathDist[pk] <= 2) { beingGone(); return; }   // you turned back in time
+      if (!hidden && beingAim === null && pathDist[pk] <= 2) { beingGone(); return; }   // you turned back in time
       if (now - beingT < BEING_SIGNS) return;
-      // there: the farthest tile down your line of sight that it could walk to you from
-      const d = distField(pk), fov = S.fov * Math.PI / 360 * 0.8;
+      // there: the farthest tile down your line of sight that it could walk to you from — or, at a dead end, down
+      // the only way out of it, behind you
+      const d = distField(pk), fov = S.fov * Math.PI / 360 * 0.8, aim = beingAim === null ? P.a : beingAim; beingAim = null;
       let best = -1, bd = 0;
       for (let i = -10; i <= 10; i++) {
-        const a = P.a + fov * i / 10, cx = Math.cos(a), cy = Math.sin(a);
+        const a = aim + fov * i / 10, cx = Math.cos(a), cy = Math.sin(a);
         let last = -1, ld = 0;
         for (let t = 0.3; t < BEING_VIEW; t += 0.12) {   // no further than it can be made out
           const x = P.x + cx * t, y = P.y + cy * t, k = Math.floor(y) * W + Math.floor(x);
@@ -954,10 +964,10 @@
   // shows only in the dark, TURN_LINES. And now and then (`turnHalls`) the lamps of a hall you step into
   // go out one after another from the far end toward you, with a word glowing on the wall at its end.
   // The kid's room is left alone; everything else is fair. It lasts the run, stairs included.
-  let turned = false, finds = 0, turnAt = -1e9, roomsOut = null, killQ = [], lampsOut = new Set(), hallNext = 0, lastRoomComp = -1, roomOf = null, roomList = [];
+  let turned = false, finds = 0, turnAt = -1e9, roomsOut = null, killQ = [], lampsOut = new Set(), hallNext = 0, lastRoomComp = -1, roomOf = null, roomList = [], roomsSpared = new Set();
   const GLOW = [(TEX.hex('#bfe8b4') & 0xffffff) | 0xfe000000, (TEX.hex('#9fd49a') & 0xffffff) | 0xfe000000];
   function turnIndex() {   // the rooms of this maze, for the lights to go out in
-    roomOf = new Int32Array(W * H).fill(-1); roomList = []; roomsOut = new Set(); killQ = []; lampsOut = new Set(); lastRoomComp = -1;
+    roomOf = new Int32Array(W * H).fill(-1); roomList = []; roomsOut = new Set(); roomsSpared = new Set(); killQ = []; lampsOut = new Set(); lastRoomComp = -1;
     for (let k0 = 0; k0 < W * H; k0++) {
       if (!room[k0] || roomOf[k0] >= 0) continue;
       const tiles = [k0]; roomOf[k0] = roomList.length;
@@ -1029,7 +1039,11 @@
     const k = Math.floor(P.y) * W + Math.floor(P.x), ri = roomOf[k], secret = secretSet();
     if (ri !== lastRoomComp) {
       lastRoomComp = ri;
-      if (ri >= 0 && !roomsOut.has(ri) && !(secret && secret.has(k)) && !inHeart(k) && now - turnAt > 1500) roomOut(ri, now);
+      // each room is decided once, the first time you walk in after the turn: `turnRooms` of them go dark.
+      // Joe: "there should be 50% chance that rooms go dark. Right now it's 100% and that feels a little much."
+      if (ri >= 0 && !roomsOut.has(ri) && !roomsSpared.has(ri) && !(secret && secret.has(k)) && !inHeart(k) && now - turnAt > 1500) {
+        if (Math.random() < S.turnRooms) roomOut(ri, now); else roomsSpared.add(ri);
+      }
     }
     if (ri < 0 && now > hallNext && vel > 0.05 && Math.random() < 0.02) {   // checked now and then while walking a hall
       hallNext = now + 4000;
@@ -2863,5 +2877,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();
