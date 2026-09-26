@@ -57,18 +57,42 @@ const FP_SOUND = (() => {
     return true;
   }
   const now = () => ac.currentTime;
-  function burst(dur, { vol = 0.3, freq = 1000, q = 1, type = 'bandpass', at = 0 } = {}) {
+  function burst(dur, { vol = 0.3, freq = 1000, q = 1, type = 'bandpass', at = 0, dest = null, slide = 0 } = {}) {
     const t = now() + at, n = ac.createBufferSource(); n.buffer = noiseBuf(dur + 0.05);
-    const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const f = ac.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    if (slide) f.frequency.exponentialRampToValueAtTime(slide, t + dur);
     const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    n.connect(f); f.connect(g); g.connect(muffle); n.start(t); n.stop(t + dur + 0.05);
+    n.connect(f); f.connect(g); g.connect(dest || muffle); n.start(t); n.stop(t + dur + 0.05);
   }
-  function tone(freq, dur, { vol = 0.1, type = 'sine', slide = 0, at = 0, attack = 0.005 } = {}) {
+  function tone(freq, dur, { vol = 0.1, type = 'sine', slide = 0, at = 0, attack = 0.005, dest = null } = {}) {
     const t = now() + at, o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(muffle); o.start(t); o.stop(t + dur + 0.05);
+    o.connect(g); g.connect(dest || muffle); o.start(t); o.stop(t + dur + 0.05);
   }
+  // somewhere else in the building: off to one side, through walls. A chain of its own per event —
+  // a pan, a lowpass for the distance, a little of it again later for the size of the place
+  function elsewhere() {
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500 + Math.random() * 700;
+    const g = ac.createGain(); g.gain.value = 0.5 + Math.random() * 0.4;
+    let head = lp;
+    if (ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = (Math.random() < 0.5 ? -1 : 1) * (0.4 + Math.random() * 0.6); lp.connect(p); p.connect(g); }
+    else lp.connect(g);
+    const d = ac.createDelay(1); d.delayTime.value = 0.18 + Math.random() * 0.2; const fb = ac.createGain(); fb.gain.value = 0.28;
+    g.connect(muffle); g.connect(d); d.connect(fb); fb.connect(d); fb.connect(muffle);
+    return head;
+  }
+  // the things that happen out there. Joe: "we really need to do a better pass of sound effects heard
+  // in the maze that represent other things happening." None of them is ever anywhere you can go
+  const DISTANT = {
+    slam(o) { burst(0.35, { vol: 0.9, freq: 160, q: 0.9, type: 'lowpass', dest: o }); burst(0.08, { vol: 0.4, freq: 900, q: 1.2, dest: o }); },
+    run(o) { for (let i = 0; i < 9; i++) burst(0.07, { vol: 0.45 * (1 - i / 11), freq: 220 + Math.random() * 60, q: 1, type: 'lowpass', at: i * (0.15 + Math.random() * 0.02), dest: o }); },
+    knock(o) { for (let i = 0; i < 3; i++) { burst(0.09, { vol: 0.7, freq: 320, q: 2.5, at: i * 0.28, dest: o }); tone(95, 0.12, { vol: 0.15, at: i * 0.28, dest: o }); } },
+    ball(o) { let t = 0, gap = 0.55; for (let i = 0; i < 7; i++) { tone(150 - i * 4, 0.1, { vol: 0.3 * (1 - i / 9), at: t, dest: o }); burst(0.04, { vol: 0.2 * (1 - i / 9), freq: 700, q: 1.5, at: t, dest: o }); t += gap; gap *= 0.72; } },
+    scrape(o) { burst(0.7, { vol: 0.5, freq: 520, q: 3, slide: 240, dest: o }); },
+    clank(o) { tone(610, 0.5, { type: 'triangle', vol: 0.12, dest: o }); tone(947, 0.35, { type: 'triangle', vol: 0.07, dest: o }); burst(0.05, { vol: 0.4, freq: 2600, q: 2, dest: o }); },
+  };
+  let nextDistant = 0;
   const live = () => ac && started && on && ac.state === 'running';
 
   return {
@@ -160,6 +184,21 @@ const FP_SOUND = (() => {
       if (!live()) return;
       burst(0.018, { vol: 0.32, freq: 3200, q: 2.5 }); burst(0.05, { vol: 0.18, freq: 700, q: 1.5, at: 0.006 });
       if (on) { burst(0.012, { vol: 0.08, freq: 5200, q: 4, at: 0.08 }); burst(0.012, { vol: 0.06, freq: 5200, q: 4, at: 0.23 }); tone(120, 0.35, { type: 'sawtooth', vol: 0.025, at: 0.25, attack: 0.03 }); }
+    },
+    // called every frame: now and then something happens somewhere else. `rate` 0 is never, 1 is about
+    // once a minute, 2 twice. The first waits a while, so a maze starts quiet
+    distant(nowMs, rate) {
+      if (!live() || rate <= 0) { nextDistant = 0; return; }
+      if (!nextDistant) { nextDistant = nowMs + (25 + Math.random() * 30) * 1000 / rate; return; }
+      if (nowMs < nextDistant) return;
+      nextDistant = nowMs + (35 + Math.random() * 50) * 1000 / rate;
+      const names = Object.keys(DISTANT); DISTANT[names[Math.floor(Math.random() * names.length)]](elsewhere());
+    },
+    // something crossing the far end of a squeeze, fast: a scuffle of feet and a breath of air
+    dart() {
+      if (!live()) return;
+      burst(0.3, { vol: 0.25, freq: 700, q: 0.7, slide: 2400 });
+      for (let i = 0; i < 4; i++) burst(0.04, { vol: 0.3 - i * 0.05, freq: 260, q: 1.2, type: 'lowpass', at: 0.02 + i * 0.07 });
     },
     // the father, somewhere ahead: the top-down's own footsteps going away
     far() { if (live() && typeof AUDIO !== 'undefined') AUDIO.farSteps(); },

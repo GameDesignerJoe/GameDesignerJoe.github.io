@@ -34,6 +34,11 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   "dad said to stay here." and "but I didn't." A page opens as a torn sheet of ruled notebook paper in a hand
   (Caveat, SIL OFL, kept in `fp/caveat-latin.woff2` so it reads the same offline). Found things are kept for the run
   only — nothing is written to the top-down's save yet.
+- **The maze is not empty.** Pushing through a squeeze toward its far end, now and then (`squeezeScare`, once a
+  squeeze at most, 90s apart) a pale grey figure whips across the opening and is gone, with a scuffle of feet — drawn
+  over the squeeze's veil, since it's the one thing past it you're meant to see. And somewhere else in the building,
+  about once a minute (`ambience`, on the Sound panel), something happens: a door slams, feet run, three knocks, a
+  ball bouncing to rest, a chair scraping, something metal. Muffled and off to one side, never anywhere near you.
 - **Doors and closets.** Doors go where the maze is already open — one-wide passages between two cells,
   mostly room mouths (`doorRoom`, `doorHall`) — so every door is a real way through and the maze under
   them is unchanged. A door sits in a thin plate (`PLATE`) on the tile's edge toward the room: jambs

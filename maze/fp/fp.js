@@ -1175,7 +1175,7 @@
   const FATHER_H = 0.92, FATHER_NEAR = 2.2, FATHER_GAP = 60000;
   const FS = { near: 3, far: 7, lit: 0.22, off: 0.35 };
   let father = null, fatherLeft = 0, fatherNext = 0, fatherCheck = 0, foundAt = -1e9, fatherForce = false;
-  function fatherReset() { father = null; fatherLeft = S.father; fatherNext = performance.now() + 20000; foundAt = -1e9; }
+  function fatherReset() { darter = null; dartSeen = new Set(); dartNext = performance.now() + 15000; father = null; fatherLeft = S.father; fatherNext = performance.now() + 20000; foundAt = -1e9; }
   const shutDoorAt = (k) => frameAt && frameAt[k] && doors.some((d) => d.k === k && d.t < 0.95);
   const clearAt = (x, y) => !solid(x, y) && !low[y * W + x] && !shutDoorAt(y * W + x);
   // the paths he could take from here, as tile-centre waypoints; [] if none
@@ -1206,6 +1206,40 @@
       }
     }
     return out.length ? out[Math.floor(Math.random() * out.length)] : null;
+  }
+  // ── the squeeze scare ─────────────────────────────────────
+  // Joe: "When you're in a squeeze and slow down, we could easily have something move across the exit
+  // point very quickly and then disappear. This of course would scare the player good." Pushing
+  // through a squeeze toward its far end, now and then (`squeezeScare` a squeeze, at most once each,
+  // DART_GAP apart) a shape whips across the opening you're heading for and is gone. It is the
+  // father's own figure, pale and grey, at DART_SPEED — a blink, through a slit. Pale, because the far
+  // side of a squeeze is dark (the veil) and a black shape there was invisible; and drawn over the
+  // veil for the same reason: it is the one thing past the squeeze you are meant to see.
+  const DART_SPEED = 4.5, DART_GAP = 90000;
+  let darter = null, dartNext = 0, dartSeen = new Set(), dartForce = false;
+  function dartFrame(now, dt) {
+    if (darter) {
+      const d = darter; d.x += d.vx * dt; d.y += d.vy * dt; d.walked += DART_SPEED * dt;
+      d.tex = TEX.sprites.father[Math.floor(d.walked / 0.25) & 1];
+      if (d.walked >= d.len) darter = null;
+      return;
+    }
+    const tx = Math.floor(P.x), ty = Math.floor(P.y), k = ty * W + tx;
+    if (!low[k] || hidden || (!dartForce && (now < dartNext || dartSeen.has(k)))) return;
+    const h = headingOf(P.a); let off = P.a - h * QUARTER; off = Math.atan2(Math.sin(off), Math.cos(off));
+    if (Math.abs(off) > 0.4 || vel < 0.05) return;
+    // the far end: the first open tile ahead past the squeeze
+    const [dx, dy] = HD[h]; let n = 1;
+    while (n < 4 && low[(ty + dy * n) * W + tx + dx * n]) n++;
+    const fx = tx + dx * n, fy = ty + dy * n;
+    if (solid(fx, fy) || low[fy * W + fx]) return;
+    dartSeen.add(k);
+    if (!dartForce && Math.random() >= S.squeezeScare) return;
+    const qx = -dy, qy = dx, sd = Math.random() < 0.5 ? 1 : -1, span = 0.75;
+    darter = { x: fx + 0.5 + qx * sd * span, y: fy + 0.5 + qy * sd * span, vx: -qx * sd * DART_SPEED, vy: -qy * sd * DART_SPEED,
+               walked: 0, len: span * 2, h: FATHER_H, glow: 0, ghost: true, pale: true, alpha: 1, tex: TEX.sprites.father[0] };
+    dartNext = now + DART_GAP; dartForce = false;
+    FP_SOUND.dart();
   }
   function fatherFrame(now, dt) {
     if (father) {
@@ -1241,6 +1275,7 @@
     if (won) return;
     doorsFrame(dt);
     fatherFrame(now, dt);
+    dartFrame(now, dt);
     stickMove(now, dt);
     stepAnim(now);
     // one dip of the head per tile walked, however you walked it; standing still, it settles
@@ -1255,6 +1290,7 @@
   const STRIDE = 0.62;
   let strideLeft = STRIDE * 0.5;
   function sounds(moved, dt) {
+    FP_SOUND.distant(performance.now(), S.ambience);
     const tx = Math.floor(P.x), ty = Math.floor(P.y), inSqueeze = !!low[ty * W + tx];
     if (moved > 0.0005 && !hidden) {
       strideLeft -= moved;
@@ -1465,6 +1501,7 @@
     drawDoors(px, py, dX, dY, plX, plY, D, hor, eye, fog);
     drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog);
     veilSqueezes(D, hor, eye);
+    if (darter) drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog, [darter]);
     ctx.putImageData(img, 0, 0);
   }
 
@@ -1549,10 +1586,12 @@
   let ovDep = new Float32Array(1), colOv = new Uint8Array(1), zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colDoorTop = new Float32Array(1), colDoorBot = new Float32Array(1), colDoorT = new Float32Array(1), colVeil = new Float32Array(1), colWallT = new Float32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
   const DITH = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
   const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
-  function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
-    drawn.length = 0;
+  // a pixel of the darter: its own shading kept as a grey, lifted toward white, lit by nothing
+  const paleOf = (c, f) => { const l = Math.min(200, 38 + (((c & 0xff) + ((c >>> 8) & 0xff) + ((c >>> 16) & 0xff)) / 3) * 1.5) | 0; return shade(0xff000000 | (l << 16) | (l << 8) | l, Math.sqrt(f), 1, 1); };
+  function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog, only) {
+    if (!only) drawn.length = 0;
     const det = dX * plY - dY * plX, list = [];
-    const all = furn.length || father ? objs.concat(furn, father ? [father] : []) : objs;
+    const all = only || (furn.length || father ? objs.concat(furn, father ? [father] : []) : objs);
     for (const o of all) {
       const rx = o.x - px, ry = o.y - py;
       const depth = (rx * plY - ry * plX) / det, cam = (dX * ry - dY * rx) / det / depth;   // along the view, and across it
@@ -1580,7 +1619,7 @@
         if (flip) tu = t.w - 1 - tu;
         for (let y = Math.max(0, Math.ceil(y0)); y < Math.min(RH, Math.ceil(floorY)); y++) {
           const c = t.px[Math.min(t.h - 1, ((y - y0) / hPx * t.h) | 0) * t.w + tu];
-          if (c && (!ghost || DITH[(y & 3) * 4 + (x & 3)] < o.alpha)) buf[y * RW + x] = c >>> 24 === 0xfe ? shade(c | 0xff000000, Math.sqrt(f), 1, 1) : shade(c, f, 1, L);
+          if (c && (!ghost || DITH[(y & 3) * 4 + (x & 3)] < o.alpha)) buf[y * RW + x] = o.pale ? paleOf(c, f) : c >>> 24 === 0xfe ? shade(c | 0xff000000, Math.sqrt(f), 1, 1) : shade(c, f, 1, L);
         }
       }
       if (ghost) continue;   // the father is seen, never touched
@@ -1824,5 +1863,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get startWords() { return startWords; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get startWords() { return startWords; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

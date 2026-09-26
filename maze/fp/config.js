@@ -53,9 +53,11 @@ const FP_CONFIG = {
   darkLevel: 0.1,   // how dark a dark hall is: Joe asked for very dim, not black
   squeezeDim: 0.45, // a squeeze is this bright, times the light around it
   squeezeSlow: 0.35, // and you walk through it at this fraction of your speed
+  squeezeScare: 0.3, // the chance, each squeeze you push through, that something darts across its far end
   squeezeVeil: 0.72, // how hard it is to see past a squeeze: 1 is black, 0 is clear. Joe: "much more difficult to see into it, but not completely black"
   sound: true,      // music and sound
   music: 'auto',    // which self's track plays: 'auto' follows the maze (as the top-down does), or a key of MUSIC in data/music.js
+  ambience: 1,      // how often something happens somewhere else in the building: 0 never, 1 about once a minute
   sfxVol: 0.9,      // how loud the room is: steps, hum, doors, the squeeze. The music keeps the top-down's own level
   map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
   sec: 'stick',     // which section of the ☰ panel is open
@@ -85,8 +87,10 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   squeezeDim:[0.05, 1, 0.05, 'Squeeze dim', 'light'],
   squeezeSlow:[0.2, 1, 0.05, 'Squeeze slow', 'light'],
   squeezeVeil:[0, 1, 0.02, 'Squeeze veil', 'light'],
+  squeezeScare:[0, 1, 0.05, 'Squeeze scare', 'light'],
   turnMs:    [80, 600, 10, 'Rails turn ms', 'stick'],
   sfxVol:    [0, 1.6, 0.05, 'Room volume', 'sound'],
+  ambience:  [0, 3, 0.1, 'Distant sounds', 'sound'],
   words:     [0, 8, 1, 'Wall words', 'debug'],
   doorRoom:  [0, 1, 0.05, 'Room doors', 'debug'],
   doorHall:  [0, 0.5, 0.01, 'Hall doors', 'debug'],
