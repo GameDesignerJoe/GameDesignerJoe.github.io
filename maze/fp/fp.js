@@ -38,9 +38,9 @@
     if ((saved.cfg || 0) < 2) delete saved.gapW;
     // the squeeze's veil went from near-black to see-through-with-effort; a saved one was only the old default
     if ((saved.cfg || 0) < 3) delete saved.squeezeVeil;
-    // closets were tripled when the being came in; a count saved before that triples with them
-    if ((saved.cfg || 0) < 4 && typeof saved.closets === 'number') saved.closets = Math.min(20, saved.closets * 3);
-    saved.cfg = 4;
+    // closets were tripled when the being came in (from 10 to 30); a count saved before that goes to the new default
+    if ((saved.cfg || 0) < 5) delete saved.closets;
+    saved.cfg = 5;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;

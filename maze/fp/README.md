@@ -47,7 +47,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   either side of a `DOOR_W` opening, a header over it from `DOOR_H`. Tap one within reach to open or shut it; it swings away from you and stays that way,
   so an open door says which way someone went. `doorsOpen` start open, swung out into the room. Shut, the leaf laps
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
-  Closets (`closets`, 6 a maze: "closets everywhere") are narrow pale doors on solid walls: tap to step in and look out through the slats,
+  Closets (`closets`, 30 a maze: "closets everywhere") are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
 - **The being** (`being`; floor 1). The old notes' Caretaker, and Joe's twist: it helps. Past `beingOff` steps off the
   way out for `beingWait` seconds, the signs — tubes round you stutter, a low swell — and if you turn back to the way
