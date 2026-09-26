@@ -58,6 +58,7 @@
   body[data-theme=bleached] #knob { background: rgba(60,56,48,.16); border-color: rgba(60,56,48,.45); }
   body[data-theme=bleached] #stick.on #knob { background: rgba(60,56,48,.3); }
   @media (orientation: landscape) { #stick { left: auto; right: 22px; bottom: calc(env(safe-area-inset-bottom) + 10px); transform: none; width: 150px; height: 150px; } }
+  @media (orientation: landscape) { body[data-stick=left] #stick { right: auto; left: calc(env(safe-area-inset-left) + 22px); } }
   @media (orientation: landscape) { #hint { bottom: calc(env(safe-area-inset-bottom) + 18px); } }
   #hud { position: fixed; top: calc(env(safe-area-inset-top) + 12px); right: 12px; display: flex; gap: 6px; z-index: 2; pointer-events: none; }
   #hud span { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 9px; background: #0d0f10aa; color: var(--ink); font-size: 13px; }
@@ -168,6 +169,7 @@
   <label><span>Chalk</span><select id="optChalkInf"><option value="false">Counted</option><option value="true">Infinite</option></select></label>
     <div data-knobs="debug"></div>
   <label><span>Debug map</span><select id="optMap"><option value="off">Off</option><option value="walked">Where I've walked</option><option value="full">Whole maze</option><option value="screen">Full screen: tap to go</option></select></label>
+  <label><span>Stick in landscape</span><select id="optStick"><option value="left">Left</option><option value="right">Right</option></select></label>
     <div class="btns">
       <button id="hardRefresh">Hard refresh</button>
       <button id="restart">Restart</button>

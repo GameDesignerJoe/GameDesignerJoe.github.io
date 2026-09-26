@@ -42,7 +42,9 @@
     if ((saved.cfg || 0) < 5) delete saved.closets;
     // the being was reworked (v0.131.0): it notices you further off the way out, and only sometimes
     if ((saved.cfg || 0) < 6) { delete saved.beingOff; delete saved.beingWait; }
-    saved.cfg = 6;
+    // the way out, infinite chalk and the arrow went on by default (v0.135.0)
+    if ((saved.cfg || 0) < 7) { delete saved.chalkInf; delete saved.showPath; delete saved.showArrow; }
+    saved.cfg = 7;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -2622,14 +2624,15 @@
     const doorAt = new Set(doors.map((d) => d.k));
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (!full && !seen[y * W + x]) continue;
-      c.fillStyle = solid(x, y) ? '#5c5850' : low[y * W + x] ? '#53402a' : doorAt.has(y * W + x) ? '#826846' : dark[y * W + x] ? '#050506' : '#1e1c1a';
+      // floor light, walls dark (Joe: "make the lighter shade and the walls, the darker shade")
+      c.fillStyle = solid(x, y) ? '#1a1917' : low[y * W + x] ? '#9c7747' : doorAt.has(y * W + x) ? '#c9a46c' : dark[y * W + x] ? '#55524a' : '#8d887c';
       c.fillRect(ox + x * s, oy + y * s, s, s);
     }
     if (floor === 1 && (full || seen[exit.y * W + exit.x])) { c.fillStyle = '#e0c98a'; c.fillRect(ox + exit.x * s, oy + exit.y * s, s, s); }
     for (const [st, col] of [[stairs.up, '#8fb8e0'], [stairs.down, '#e09a8f']]) if (st && (full || seen[st.y * W + st.x])) { c.fillStyle = col; c.fillRect(ox + st.x * s, oy + st.y * s, s, s); }
     const [x, y, a] = camera(now);
     c.save(); c.translate(ox + x * s, oy + y * s); c.rotate(a);
-    c.fillStyle = '#ece7da'; c.beginPath(); c.moveTo(s * 1.1, 0); c.lineTo(-s * 0.6, -s * 0.7); c.lineTo(-s * 0.6, s * 0.7); c.fill();
+    c.fillStyle = '#c0392b'; c.beginPath(); c.moveTo(s * 1.1, 0); c.lineTo(-s * 0.6, -s * 0.7); c.lineTo(-s * 0.6, s * 0.7); c.fill();
     c.restore();
   }
   let bigOpen = false, bigGeom = null;
@@ -2830,6 +2833,8 @@
   bindSel('optMove', 'move');
   bindSel('optBends', 'bends');
   bindSel('optMap', 'map');
+  const applyStick = () => { document.body.dataset.stick = S.stickSide; };
+  bindSel('optStick', 'stickSide', applyStick); applyStick();
   bindSel('optChalkInf', 'chalkInf', hud);
   bindSel('optShowPath', 'showPath');
   bindSel('optShowArrow', 'showArrow');

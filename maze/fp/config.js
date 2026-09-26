@@ -32,9 +32,10 @@ const FP_CONFIG = {
   accel: 10,        // how quickly walking speed catches up with the stick. Higher is snappier
   turnEase: 14,     // how quickly turning catches up with the stick. Higher is snappier, lower is floatier
   words: 3,         // dead ends a maze with words written on their far wall (WALL_WORDS in data/text.js)
-  chalkInf: false,  // debug: chalk never runs out
-  showPath: false,  // debug: the way out, marked on the floor in gold
-  showArrow: false, // debug: an arrow that points at the way out
+  chalkInf: true,   // debug: chalk never runs out. On by default for now (Joe: "just turn on the path and infinite chalk by default")
+  showPath: true,   // debug: the way out, marked on the floor in gold
+  showArrow: true,  // debug: an arrow that points at the way out
+  stickSide: 'left', // debug: in landscape, which side the stick sits (Joe: "I would default it to left")
   // debug: the top-down's own maze knobs, applied in memory only (never to the top-down's save)
   dbgLevel: 'save', dbgStones: 'level',
   dbg_proto: 'off', dbg_size: 'auto', dbg_branch: 'auto', dbg_turns: 'auto', dbg_clusters: 'auto', dbg_braid: 'auto',

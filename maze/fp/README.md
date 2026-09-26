@@ -19,9 +19,9 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   The Maze section is the top-down's own debug (level, stones, prototype, size, branching, turns, districts,
   loops), written into `SAVE` in memory before each build and never persisted. Sound can pin the music to any self's track (or the pool's) instead of following the chapter.
   Debug adds infinite chalk,
-  the way out marked on the floor, and an arrow to it (on a floor above the first, both point to the door marked down).
+  the way out marked on the floor, and an arrow to it — all three on by default for now — (on a floor above the first, both point to the door marked down).
   The map can be a corner mini map, or **Full screen: tap to go**: a map button opens the whole floor, tap an open
-  tile and you're there, tap a wall to close it. Both say which floor, and show the up door in blue and the down in red.
+  tile and you're there, tap a wall to close it. Both say which floor, and show the up door in blue and the down in red. Floors are drawn light and walls dark. **Stick in landscape** puts the stick on the left (the default) or the right.
 - **Two ways to move, one position.** The stick has three modes. **Glide** (the default) is free
   steering with quiet help, each with its own knob under Glide help on the panel, never a snap: it settles you square to
   an open way when you ease off the turn, drifts you to the middle of a one-wide hall, and two
