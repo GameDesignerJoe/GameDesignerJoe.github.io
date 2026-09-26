@@ -14,6 +14,14 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## First person is the game now (v0.126.0)
+
+Joe: *"This first person mode is now the new default. I don't see myself going back to the top down again."*
+The portfolio tile and the home-screen app (`manifest.webmanifest`'s `start_url`, now linked from
+`maze-fp.html` too) open `maze-fp.html`. The top-down stays where it is — the first person loads its
+data and generator, the suites run against it, and the ☰ panel still links to it — it just isn't the
+front door. A home-screen icon saved before this keeps its old start page until it's added again.
+
 ## First person, and the version number again (v0.111.0)
 
 Joe has moved to the first-person view (`maze-fp.html`, `fp/`), and the backlog doc

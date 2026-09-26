@@ -2,7 +2,7 @@
   "name": "The Maze",
   "short_name": "The Maze",
   "description": "A man wakes in a maze he built himself.",
-  "start_url": "maze-topdown.html",
+  "start_url": "maze-fp.html",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
