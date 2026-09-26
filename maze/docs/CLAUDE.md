@@ -14,6 +14,17 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## The heart: first person carves the maze now (v0.127.0)
+
+Joe: *"I'm fine with this effecting the generation of the maze."* The heart (`fp/README.md`) is the first
+thing that changes the maze's shape, and it does it in `fp/fp.js` (`carveHeart`), after `generate()`,
+on its own stream — never in `js/generate.js`, so the top-down, the harness and every seed there are
+unchanged. In a first-person Child maze on floor 1 it walls up a 7×13 frame and cuts it again; it
+moves pages/chalk/charcoal out from under it, drops squeezes under it, fills what it cuts off, and
+recomputes `solutionPath` if it went over the way out. Anything in `fp.js` that reads the generator's
+globals after that is reading the carved maze. Measured: placed in 40/40 seeds, no floor left
+unreachable, pages unchanged, both other story rooms kept.
+
 ## First person is the game now (v0.126.0)
 
 Joe: *"This first person mode is now the new default. I don't see myself going back to the top down again."*

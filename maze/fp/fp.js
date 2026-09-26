@@ -249,7 +249,7 @@
 
   function reset() {
     seen = new Uint8Array(W * H);
-    index();
+    index(); heartIndex();
     if (floor > 1) { exitFace.fill(0); exitDir = null; }   // the way out is only on floor 1
     turnIndex(); beingIndex();
     placeThings();
@@ -312,7 +312,7 @@
     const ends = [];
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
       const k = y * W + x;
-      if (solid(x, y) || low[k] || room[k] || dist[k] < 0 || (x === exit.x && y === exit.y) || (Math.abs(x - sx) < 3 && Math.abs(y - sy) < 3)) continue;
+      if (solid(x, y) || low[k] || room[k] || inHeart(k) || dist[k] < 0 || (x === exit.x && y === exit.y) || (Math.abs(x - sx) < 3 && Math.abs(y - sy) < 3)) continue;
       const open = HD.filter(([dx, dy]) => !solid(x + dx, y + dy)); if (open.length !== 1) continue;
       const [ox, oy] = open[0], dx = -ox, dy = -oy, wx = x + dx, wy = y + dy;
       if (low[(y + oy) * W + x + ox] || wx <= 0 || wy <= 0 || wx >= W - 1 || wy >= H - 1 || exitFace[wy * W + wx]) continue;
@@ -369,7 +369,7 @@
       saveFloor();
       const keepChalk = chalk, keepCharcoal = charcoalN;
       floor = n; SEED = floorSeed(n);
-      applyMazeDebug(); generate(SEED); reset();
+      applyMazeDebug(); generate(SEED); carveHeart(); reset();
       chalk = keepChalk; charcoalN = keepCharcoal;
       const st = floorStates.get(floor);
       taken = st ? new Set(st.taken) : new Set();
@@ -449,7 +449,7 @@
     const stairSpots = placeStairs(); for (const s of stairSpots) startFaces.add(faceKey(s.k, s.face));
     const stairTiles = new Set(stairSpots.map((s) => s.y * W + s.x));
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
-      if (solid(x, y) || low[y * W + x] || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
+      if (solid(x, y) || low[y * W + x] || inHeart(y * W + x) || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
       const open = HD.filter(([dx, dy]) => !solid(x + dx, y + dy));
       if (open.length !== 1) continue;
       const [ox, oy] = open[0], dx = -ox, dy = -oy;   // walking in, you face away from the one way out
@@ -504,7 +504,7 @@
     const taken = new Set(objs.map((o) => Math.floor(o.y) * W + Math.floor(o.x)));
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
       const k = y * W + x;
-      if (solid(x, y) || low[k] || room[k] || taken.has(k) || near(x, y, 3) || (x === exit.x && y === exit.y)) continue;
+      if (solid(x, y) || low[k] || room[k] || inHeart(k) || taken.has(k) || near(x, y, 3) || (x === exit.x && y === exit.y)) continue;
       // a wall-line tile: between two cells, which sit on odd coordinates
       if ((x & 1) === (y & 1)) continue;
       const ew = !solid(x - 1, y) && !solid(x + 1, y) && solid(x, y - 1) && solid(x, y + 1);
@@ -566,7 +566,7 @@
     const doorTiles = new Set(doors.map((d) => d.k));
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
       // not in a dark hall: the point of a closet is what you can see from it
-      if (solid(x, y) || low[y * W + x] || dark[y * W + x] || doorTiles.has(y * W + x) || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
+      if (solid(x, y) || low[y * W + x] || dark[y * W + x] || inHeart(y * W + x) || doorTiles.has(y * W + x) || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
       HD.forEach(([dx, dy]) => {
         const wx = x + dx, wy = y + dy;
         if (!solid(wx, wy) || wx <= 0 || wy <= 0 || wx >= W - 1 || wy >= H - 1 || exitFace[wy * W + wx]) return;
@@ -986,6 +986,7 @@
       killQ.splice(i, 1);
     }
     for (const k of lampsOut) lampLvl[k] = 0;
+    if (heart && heart.lamp >= 0) lampLvl[heart.lamp] = 0.35 + 0.65 * heartPulse(now);   // its one lamp beats, whatever the building is doing
   }
   // every frame, after the turn: a room you've just walked into, a hall you've just stepped into
   function turnWatch(now) {
@@ -993,7 +994,7 @@
     const k = Math.floor(P.y) * W + Math.floor(P.x), ri = roomOf[k], secret = secretSet();
     if (ri !== lastRoomComp) {
       lastRoomComp = ri;
-      if (ri >= 0 && !roomsOut.has(ri) && !(secret && secret.has(k)) && now - turnAt > 1500) roomOut(ri, now);
+      if (ri >= 0 && !roomsOut.has(ri) && !(secret && secret.has(k)) && !inHeart(k) && now - turnAt > 1500) roomOut(ri, now);
     }
     if (ri < 0 && now > hallNext && vel > 0.05 && Math.random() < 0.02) {   // checked now and then while walking a hall
       hallNext = now + 4000;
@@ -1093,6 +1094,7 @@
   }
   function placeStory(reserved) {
     story = []; storyAt = new Int8Array(W * H).fill(-1); storyMusic = null; storyHere = -1;
+    dressHeart(reserved);
     const S8 = floor === 1 && typeof STORY_ROOMS !== 'undefined' && character ? STORY_ROOMS[character.name] : null;
     if (!S8 || S.storyRooms <= 0) return;
     const R = rng(SEED + 210011), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), secret = secretSet();
@@ -1104,7 +1106,7 @@
         for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (room[n] && comp[n] < 0 && !solid(x + dx, y + dy)) { comp[n] = rooms.length; tiles.push(n); } } }
       rooms.push(tiles);
     }
-    const cands = rooms.filter((t) => t.length >= 9 && !t.some((k) => (Math.abs(k % W - sx0) < 3 && Math.abs(((k / W) | 0) - sy0) < 3) || (secret && secret.has(k)) || (k % W === exit.x && ((k / W) | 0) === exit.y)));
+    const cands = rooms.filter((t) => t.length >= 9 && !t.some((k) => (Math.abs(k % W - sx0) < 3 && Math.abs(((k / W) | 0) - sy0) < 3) || (secret && secret.has(k)) || inHeart(k) || (k % W === exit.x && ((k / W) | 0) === exit.y)));
     const kinds = ['waiting', 'wall'].filter((k) => S8[k]).slice(0, Math.round(S.storyRooms));
     for (const kind of kinds) {
       if (!cands.length) break;
@@ -1141,6 +1143,10 @@
   function storyProps() {
     for (const st of story) {
       const m = st.m, ix = m.rx - m.mx, iy = m.ry - m.my;   // into the room
+      if (st.kind === 'heart') {   // the letter he never sent, on the floor in the middle
+        objs.push({ x: heart.mid % W + 0.5, y: ((heart.mid / W) | 0) + 0.5, kind: 'note', text: st.text.letter, tex: TEX.sprites.note, h: 0.05, glow: 0.3 });
+        continue;
+      }
       if (st.kind === 'waiting') {
         let cx = m.rx + 0.5 + ix * 1.5, cy = m.ry + 0.5 + iy * 1.5;
         if (!st.set.has(Math.floor(cy) * W + Math.floor(cx))) { const c = st.tiles[st.tiles.length >> 1]; cx = c % W + 0.5; cy = ((c / W) | 0) + 0.5; }
@@ -1182,6 +1188,213 @@
     $('page').classList.add('show');
     pageHideAt = performance.now() + (CONFIG.journalHoldSec + text.length / 30) * 1000;
     FP_SOUND.page();
+  }
+
+  // ── the heart ─────────────────────────────────────────────
+  // Joe: "I want a hidden story room that is a representation of inside the heart of the kid. He misses
+  // his dad and feels abandoned. This room should be hidden somehow. Put it furthest away from the exit
+  // and the start and make a squeeze through maze to get to it. I'm fine with this affecting the
+  // generation of the maze."
+  //
+  // The waiting room is what he tells himself, the wall is what he tells everyone else; this is what is
+  // under both, and the one place in the building that isn't lying. So it is carved here, after the
+  // generator, on its own stream, and only in this view: a frame of HEART_W × HEART_H tiles (turned to
+  // any of four ways) is walled up and cut again as a room the shape of a heart, with its point toward a
+  // little maze of squeezes — every passage of it a squeeze, a dead end or two — that opens onto the
+  // maze by one more. Of every place the frame fits, the one whose way in is furthest from both the
+  // start and the exit (the nearer of the two, in steps). A place fits if it's clear of the start, the
+  // exit, the kid's room and the maze's big rooms (the story rooms are made from those: keeping them costs
+  // the heart about a tenth of its distance), and walling it up leaves the exit reachable. Whatever it
+  // cuts off (the end of some dead end) is filled in, so there's no floor you can't reach; a page, chalk
+  // or charcoal under it is moved to the nearest floor left, a squeeze under it goes, and if it went over
+  // the way out, the way out is worked out again (the being and the debug path read it). Nothing in it is on any other feature's list: no door, closet, switch, furniture, words,
+  // stairs, father or darter, and the turn leaves it alone, as it does the kid's room. The being can't
+  // follow you in: it never takes a squeeze.
+  //
+  // Inside: one lamp, beating (HEART_BPM); the walls painted a deep red and written over in crayon
+  // (STORY_ROOMS.heart in data/text.js); a letter on the floor; its own music (`The Heart`). And the
+  // heartbeat carries: from HEART_HEAR steps off you can hear it through the walls, the only sign that
+  // it's there at all.
+  const HEART = ['.#.#.', '#####', '#####', '.###.', '..#..'], HEART_W = 7, HEART_BPM = 54, HEART_HEAR = 14;
+  let heart = null, heartAt = null;
+  const inHeart = (k) => !!(heartAt && heartAt.length === W * H && heartAt[k]);
+  function carveHeart() {
+    heart = null; heartAt = new Uint8Array(W * H);
+    if (!S.heart || floor !== 1 || !character || typeof STORY_ROOMS === 'undefined' || !STORY_ROOMS[character.name] || !STORY_ROOMS[character.name].heart) return;
+    // three rows of squeeze cells under the heart if they fit anywhere; two where they don't
+    const R = rng(SEED + 220009);
+    for (const rows of [3, 2]) if (fitHeart(rows, R)) return;
+  }
+  function fitHeart(rows, R) {
+    // the frame, in its own terms: u across, v from the heart's top (0) down to the maze's foot (HEART_H-1)
+    const HEART_H = 7 + 2 * rows, foot = 5 + 2 * rows, open0 = [], cellsL = [];
+    for (let j = 0; j < rows; j++) for (const u of [1, 3, 5]) cellsL.push([u, 7 + 2 * j]);
+    HEART.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] === '#') open0.push([1 + i, 1 + j, 1]); });
+    // the little maze: a spanning tree over its nine cells, grown from the one under the heart's point
+    const cid = (u, v) => cellsL.findIndex(([a, b]) => a === u && b === v), tree = [[3, 6, 2]], depth = new Map([[cid(3, 7), 0]]), stack = [[3, 7]];
+    tree.push([3, 7, 2]);
+    while (stack.length) {
+      const [u, v] = stack[stack.length - 1], nb = HD.map(([dx, dy]) => [u + dx * 2, v + dy * 2, u + dx, v + dy]).filter(([a, b]) => cid(a, b) >= 0 && !depth.has(cid(a, b)));
+      if (!nb.length) { stack.pop(); continue; }
+      const [a, b, wu, wv] = nb[Math.floor(R() * nb.length)];
+      depth.set(cid(a, b), depth.get(cid(u, v)) + 1); tree.push([wu, wv, 2], [a, b, 2]); stack.push([a, b]);
+    }
+    // ways out of it, through the frame's own wall: from a cell on its edge, deepest first
+    const ways = [];
+    for (const [u, v] of cellsL) {
+      const d = depth.get(cid(u, v));
+      if (u === 1) ways.push({ d, ring: [0, v], out: [-1, v] });
+      if (u === 5) ways.push({ d, ring: [6, v], out: [7, v] });
+      if (v === foot) ways.push({ d, ring: [u, foot + 1], out: [u, foot + 2] });
+    }
+    ways.sort((a, b) => b.d - a.d);
+    const deepest = ways[0].d, wayPool = ways.filter((w) => w.d >= deepest - 1);
+    // the maze as it stands: what matters in it, and how far everything is from the start and the exit
+    const key = (x, y) => y * W + x, keep = new Uint8Array(W * H), sx = Math.floor(start.x), sy = Math.floor(start.y);
+    const mark = (x, y) => { if (x >= 0 && y >= 0 && x < W && y < H) keep[key(x, y)] = 1; };
+    // (pages, chalk and charcoal aren't kept: one under the frame is moved out to the nearest floor that's left;
+    // and a squeeze under it, other than the kid's room's, is walled up with it)
+    if (typeof secretTiles !== 'undefined') for (const s2 of secretTiles) { const [x, y] = s2.split(',').map(Number); for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) mark(x + dx, y + dy); }
+    for (const [x, y] of exitAlley || []) mark(x, y);
+    mark(exit.x, exit.y);
+    // and the maze's big rooms, which the story rooms are made from
+    { const isRoom = (x, y) => [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([ax, ay]) => !solid(x + ax, y + ay) && !solid(x + ax + 1, y + ay) && !solid(x + ax, y + ay + 1) && !solid(x + ax + 1, y + ay + 1));
+      const comp = new Int32Array(W * H).fill(-1);
+      for (let k0 = 0; k0 < W * H; k0++) { const x0 = k0 % W, y0 = (k0 / W) | 0; if (comp[k0] >= 0 || solid(x0, y0) || !isRoom(x0, y0)) continue;
+        const t = [k0]; comp[k0] = k0;
+        for (let i = 0; i < t.length; i++) { const c = t[i], x = c % W, y = (c / W) | 0;
+          for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (comp[n] < 0 && !solid(x + dx, y + dy) && isRoom(x + dx, y + dy)) { comp[n] = k0; t.push(n); } } }
+        if (t.length >= 9) for (const c of t) keep[c] = 1; } }
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) mark(sx + dx, sy + dy);
+    const bfs = (from, block) => { const d = new Int32Array(W * H).fill(-1), q = [from]; d[from] = 0;
+      for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && d[n] < 0 && !(block && block[n])) { d[n] = d[c] + 1; q.push(n); } } }
+      return d; };
+    const dS = bfs(key(sx, sy)), dE = bfs(key(exit.x, exit.y));
+    const place = (r, ox, oy, u, v) => { const [a, b] = r === 0 ? [u, v] : r === 1 ? [HEART_H - 1 - v, u] : r === 2 ? [HEART_W - 1 - u, HEART_H - 1 - v] : [v, HEART_W - 1 - u]; return [ox + a, oy + b]; };
+    let best = null;
+    const frame = new Uint8Array(W * H);
+    // the deepest ways in first, for the longest crawl; any way at all if none of those fits
+    for (const pool of [wayPool, ways]) for (let r = 0; r < 4 && !(best && pool === ways && best.pass === 0); r++) {
+      const fw = r & 1 ? HEART_H : HEART_W, fh = r & 1 ? HEART_W : HEART_H;
+      for (let oy = 1; oy + fh <= H - 1; oy++) for (let ox = 1; ox + fw <= W - 1; ox++) {
+        let bad = false;
+        for (let y = oy; y < oy + fh && !bad; y++) for (let x = ox; x < ox + fw; x++) if (keep[key(x, y)]) { bad = true; break; }
+        if (bad) continue;
+        // the best way in this frame could have: an open tile of the maze, just outside it
+        let way = null, score = -1;
+        if (pool === ways && best && best.pass === 0) break;
+        for (const w of pool) { const [x, y] = place(r, ox, oy, ...w.out), k = key(x, y);
+          if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || solid(x, y) || dS[k] < 0 || dE[k] < 0) continue;
+          const sc = Math.min(dS[k], dE[k]) + R() * 0.5; if (sc > score) { score = sc; way = w; } }
+        if (!way || (best && score <= best.score)) continue;
+        // and what walling it up would cut off
+        frame.fill(0); for (let y = oy; y < oy + fh; y++) for (let x = ox; x < ox + fw; x++) frame[key(x, y)] = 1;
+        const reach = bfs(key(sx, sy), frame), [wx, wy] = place(r, ox, oy, ...way.out);
+        if (reach[key(wx, wy)] < 0 || reach[key(exit.x, exit.y)] < 0) continue;
+        const lost = [];
+        for (let k = 0; k < W * H && !bad; k++) if (!frame[k] && reach[k] < 0 && dS[k] >= 0) {   // only what walling it up cuts off, not what was never reachable
+           if (keep[k]) bad = true; else lost.push(k); }
+        if (bad) continue;
+        best = { score, r, ox, oy, fw, fh, way, lost, pass: pool === wayPool ? 0 : 1 };
+      }
+    }
+    if (!best) return false;
+    const { r, ox, oy, fw, fh, way, lost } = best;
+    const setT = (x, y, v) => { tiles[y][x] = v; };
+    for (let y = oy; y < oy + fh; y++) for (let x = ox; x < ox + fw; x++) setT(x, y, 0);
+    for (const k of lost) setT(k % W, (k / W) | 0, 0);
+    // the way out, if the frame went over it: the shortest way now, which the being and the debug path both read
+    if (solutionPath.some(([x, y]) => solid(x, y))) {
+      const from = key(sx, sy), to = key(exit.x, exit.y), prev = new Int32Array(W * H).fill(-1), q = [from]; prev[from] = from;
+      for (let i = 0; i < q.length && prev[to] < 0; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && prev[n] < 0) { prev[n] = c; q.push(n); } } }
+      const path = []; for (let c = to; ; c = prev[c]) { path.unshift([c % W, (c / W) | 0]); if (c === from) break; }
+      solutionPath = path;
+    }
+    // squeezes that went under it are gone; what lay there is moved out to the nearest floor left
+    for (const set of [crawlGaps, crawlCells]) for (const s2 of [...set]) { const [x, y] = s2.split(',').map(Number); if (solid(x, y)) set.delete(s2); }
+    const reach = bfs(key(sx, sy)), held = new Set([...journals.keys(), ...chalkSpots, ...charcoalSpots]);
+    const moveOut = (s2) => { const [x0, y0] = s2.split(',').map(Number); let bk = -1, bd = 1e9;
+      for (let k = 0; k < W * H; k++) { const x = k % W, y = (k / W) | 0; if (reach[k] < 0 || crawlCells.has(x + ',' + y) || crawlGaps.has(x + ',' + y) || held.has(x + ',' + y)) continue;
+        const dd = Math.hypot(x - x0, y - y0); if (dd < bd) { bd = dd; bk = k; } }
+      const n2 = (bk % W) + ',' + ((bk / W) | 0); held.add(n2); return n2; };
+    for (const [s2, pg] of [...journals]) if (solid(...s2.split(',').map(Number))) { journals.delete(s2); journals.set(moveOut(s2), pg); }
+    for (const set of [chalkSpots, charcoalSpots]) for (const s2 of [...set]) if (solid(...s2.split(',').map(Number))) { set.delete(s2); set.add(moveOut(s2)); }
+    const roomK = [], mazeK = [];
+    for (const [u, v, kind] of open0.concat(tree, [[...way.ring, 2]])) {
+      const [x, y] = place(r, ox, oy, u, v), k = key(x, y);
+      setT(x, y, 1); heartAt[k] = kind;
+      if (kind === 1) roomK.push(k); else { mazeK.push(k); crawlCells.add(x + ',' + y); }
+    }
+    const P0 = (u, v) => { const [x, y] = place(r, ox, oy, u, v); return key(x, y); };
+    const [ex, ey] = place(r, ox, oy, ...way.out);
+    const [ax, ay] = place(r, ox, oy, 3, 5), [bx, by] = place(r, ox, oy, 3, 4);
+    heart = { ux: bx - ax, uy: by - ay, room: roomK, maze: mazeK, set: new Set(roomK), tip: P0(3, 5), throat: P0(3, 6), lamp: P0(3, 3), far: P0(3, 2), mid: P0(3, 3),
+      lobes: [P0(2, 1), P0(4, 1)], out: key(ex, ey), ring: P0(...way.ring), score: Math.floor(best.score), filled: lost.length, rows, dist: null, beat: -1 };
+    return true;
+  }
+  // how far every tile is from the heart, for how loud it beats; made once the maze is final
+  function heartIndex() {
+    if (!heart) return;
+    const d = new Int32Array(W * H).fill(-1), q = [heart.mid]; d[heart.mid] = 0;
+    for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
+      for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && d[n] < 0) { d[n] = d[c] + 1; q.push(n); } } }
+    heart.dist = d;
+  }
+  const heartPulse = (now) => {   // lub-dub: 0..1, a quick rise and fall twice a beat
+    const t = (now / 60000 * HEART_BPM) % 1;
+    return Math.max(Math.exp(-Math.pow((t - 0.04) / 0.05, 2)), 0.7 * Math.exp(-Math.pow((t - 0.3) / 0.05, 2)));
+  };
+  function heartFrame(now) {
+    if (!heart || !heart.dist || won) return;
+    const t = (now / 60000 * HEART_BPM) % 1, b = Math.floor(now / 60000 * HEART_BPM) * 2 + (t >= 0.26 ? 1 : 0);
+    if (b === heart.beat) return;
+    heart.beat = b;
+    const d = heart.dist[Math.floor(P.y) * W + Math.floor(P.x)], near = d < 0 ? 0 : Math.pow(Math.max(0, 1 - d / HEART_HEAR), 1.5);
+    if (near > 0.02 && (t < 0.1 || (t >= 0.26 && t < 0.36))) FP_SOUND.heartbeat(near, !(b & 1));
+  }
+  // its walls: deep red, written over in crayon — "i miss you" most of all — and on the far wall, big,
+  // the one thing he never says anywhere else, and the two of them holding hands
+  const HEART_INK = [TEX.hex('#efd7cf'), TEX.hex('#e6a9ad'), TEX.hex('#f3e6c8')];
+  function fillHeart(d, R, H8, which) {
+    const red = [TEX.hex('#4a1216'), TEX.hex('#55161b'), TEX.hex('#3f0f13'), TEX.hex('#5e1d21')];
+    for (let y = 0; y < DEC; y++) for (let x = 0; x < DEC; x++) {
+      const v = Math.sin(x * 0.45 + Math.sin(y * 0.11) * 2) + Math.sin(y * 0.07 + x * 0.05) * 0.6;   // soft folds, like cloth or something alive
+      d[y * DEC + x] = red[v > 1 ? 3 : v > 0.2 ? 1 : v < -0.9 ? 2 : 0];
+    }
+    let y = 3;
+    if (which === 'far') {
+      for (const b of H8.big) { const r2 = hand(d, b, 4, y, 56, 2, HEART_INK[0], R); y = r2.y + 2; }
+      kidChalk(d, 'pair', DEC * 0.5, DEC * 0.72, R);
+      return;
+    }
+    if (which === 'lobe') { const b = H8.lobes[Math.floor(R() * H8.lobes.length)]; const r2 = hand(d, b, 3, 8, 58, 2, HEART_INK[1], R); y = r2.y + 3; }
+    while (y < DEC - 6) {
+      const line = H8.walls[Math.floor(R() * H8.walls.length)], x0 = 1 + (R() * 6 | 0);
+      const r2 = hand(d, line, x0, y, 60 - x0, 1, HEART_INK[Math.floor(R() * HEART_INK.length)], R);
+      y = r2.y + (R() < 0.3 ? 2 : 0);
+    }
+  }
+  function dressHeart(reserved) {
+    if (!heart) return;
+    const H8 = STORY_ROOMS[character.name].heart, R = rng(SEED + 220013), set = heart.set;
+    for (const k of heart.room) { const x = k % W, y = (k / W) | 0;
+      for (const [dx, dy] of HD) { const wx = x + dx, wy = y + dy; if (!solid(wx, wy)) continue;
+        const n = wy * W + wx, face = faceTo(dx, dy), fk = faceKey(n, face), dd = decalFor(n, face); dd.fill(0);
+        const up = dx === heart.ux && dy === heart.uy;   // the wall ahead as you come in at the point
+        fillHeart(dd, R, H8, up && k === heart.far ? 'far' : up && heart.lobes.includes(k) ? 'lobe' : 'wall');
+        reserved.add(fk); } }
+    // one lamp, in the middle of the upper room; the rest of its ceiling plain
+    if (T.ceils) {
+      const glowVar = T.ceils.findIndex((c) => c.glow), plain = T.ceils.findIndex((c) => !c.glow);
+      if (glowVar >= 0 && plain >= 0) { for (const k of heart.room.concat(heart.maze)) ceilVar[k] = plain; ceilVar[heart.lamp] = glowVar; }
+      flickers = flickers.filter((k) => !inHeart(k));
+    }
+    const si = story.length;
+    for (const k of heart.room) storyAt[k] = si;
+    const tx = heart.tip % W, ty = (heart.tip / W) | 0, mx = heart.throat % W, my = (heart.throat / W) | 0;
+    story.push({ kind: 'heart', tiles: heart.room, set, m: { mx, my, rx: tx, ry: ty, dx: tx - mx, dy: ty - my }, music: 'The Heart', text: H8 });
   }
 
   // ── the kid's room ────────────────────────────────────────
@@ -1428,7 +1641,7 @@
     BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); turned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
-    generate(SEED); reset();
+    generate(SEED); carveHeart(); reset();
     FP_SOUND.setMusic(track());
   }
 
@@ -1775,7 +1988,7 @@
     for (let n = 1; n <= FS.far; n++) {
       const x = tx + dx * n, y = ty + dy * n, k = y * W + x;
       if (!clearAt(x, y)) break;
-      if (n < FS.near || room[k] || tileL[k] < FS.lit) continue;   // not on top of you, not in a room, not in the dark
+      if (n < FS.near || room[k] || inHeart(k) || tileL[k] < FS.lit) continue;   // not on top of you, not in a room, not in the dark
       const sides = [1, -1].filter((sd) => clearAt(x + sd * qx, y + sd * qy));
       if (sides.length === 2) {   // across
         const sd = Math.random() < 0.5 ? 1 : -1;
@@ -1813,7 +2026,7 @@
       return;
     }
     const tx = Math.floor(P.x), ty = Math.floor(P.y), k = ty * W + tx;
-    if (!low[k] || hidden || (!dartForce && (now < dartNext || dartSeen.has(k)))) return;
+    if (!low[k] || inHeart(k) || hidden || (!dartForce && (now < dartNext || dartSeen.has(k)))) return;
     const h = headingOf(P.a); let off = P.a - h * QUARTER; off = Math.atan2(Math.sin(off), Math.cos(off));
     if (Math.abs(off) > 0.4 || vel < 0.05) return;
     // the far end: the first open tile ahead past the squeeze
@@ -1865,6 +2078,7 @@
     fatherFrame(now, dt);
     dartFrame(now, dt);
     beingFrame(now, dt);
+    heartFrame(now);
     stickMove(now, dt);
     stepAnim(now);
     // one dip of the head per tile walked, however you walked it; standing still, it settles
@@ -2513,6 +2727,11 @@
   $('fatherNow').onclick = () => { fatherForce = true; fatherCheck = 0; $('panel').classList.remove('open'); };
   $('restart').onclick = () => { if (floor > 1) newMaze(BASE); else reset(); $('panel').classList.remove('open'); };
   $('beingNow').onclick = () => { beingForce = true; beingNext = 0; $('panel').classList.remove('open'); };
+  $('toHeart').onclick = () => {   // outside its way in, facing it
+    $('panel').classList.remove('open'); if (!heart) return;
+    const ox = heart.out % W, oy = (heart.out / W) | 0, rx = heart.ring % W, ry = (heart.ring / W) | 0;
+    P.x = ox + 0.5; P.y = oy + 0.5; P.a = Math.atan2(ry - oy, rx - ox); lastX = P.x; lastY = P.y;
+  };
   let storyVisit = 0;
   $('toStory').onclick = () => {
     $('panel').classList.remove('open'); if (!story.length) return;
@@ -2586,9 +2805,9 @@
   applyTheme();
   resize();
   applyMazeDebug();
-  BASE = SEED; generate(SEED); reset(); lastX = P.x; lastY = P.y;
+  BASE = SEED; generate(SEED); carveHeart(); reset(); lastX = P.x; lastY = P.y;
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, hallOut, get story() { return story; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

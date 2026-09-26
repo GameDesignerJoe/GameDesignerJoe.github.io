@@ -207,6 +207,12 @@ const FP_SOUND = (() => {
     beingSigns() { if (live()) { tone(49 * 4, 2.6, { type: 'sawtooth', vol: 0.045, slide: 58 * 4, attack: 0.8 }); burst(2.4, { vol: 0.14, freq: 90, q: 0.6, type: 'lowpass' }); } },
     beingSees() { if (live()) { burst(0.9, { vol: 0.22, freq: 600, q: 0.8, slide: 1800 }); tone(220, 0.8, { type: 'sawtooth', vol: 0.04, slide: 330, attack: 0.3 }); } },
     beingTakes() { if (live()) { burst(0.8, { vol: 0.5, freq: 3000, q: 0.3, type: 'highpass' }); tone(80 * 3, 1.2, { type: 'triangle', vol: 0.15, slide: 40 * 3 }); } },
+    // the heart: lub, then dub. A padded thump with a little body under it, pitched where a phone can play it
+    heartbeat(near, lub) {
+      if (!live()) return;
+      burst(0.16, { vol: (lub ? 0.55 : 0.4) * near, freq: 170, q: 1.2, type: 'lowpass' });
+      tone(lub ? 150 : 130, 0.2, { type: 'sine', vol: (lub ? 0.1 : 0.07) * near, slide: 90, attack: 0.01 });
+    },
     // a light going out: the tube's tick and its hum dropping away, quieter the further off it is
     lightOut(near) {
       if (!live()) return;

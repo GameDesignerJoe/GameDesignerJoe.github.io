@@ -22,6 +22,8 @@ const MUSIC = {
   // almost nothing at all
   'The Waiting Room': { root: 523.3, scale: [0,2,4,7,9],   bpm: 34, density: 0.12, motif: [0,2,4,2,0,-3],       motifEvery: 2, inst: 'musicbox', rests: 0.5,  drone: 0.08, echo: 0.85 },
   'The Wall':         { root: 349.2, scale: [0,1,5,7],     bpm: 30, density: 0.04, motif: null,                  motifEvery: 0, inst: 'pad',      rests: 0.8,  drone: 0.03, echo: 0.15 },
+  // the heart: a tune he knew before, slowed and far apart, the one warm thing (the heartbeat is the room's own, in fp/sound.js)
+  'The Heart':        { root: 392.0, scale: [0,2,4,7,9],   bpm: 26, density: 0.07, motif: [2,1,0,1,2,2,2],     motifEvery: 2, inst: 'musicbox', rests: 0.55, drone: 0.06, echo: 0.9 },
   // after the turn: the building has noticed you
   'The Turn':         { root: 293.7, scale: [0,1,3,6,7],   bpm: 38, density: 0.2,  motif: [0,1,0,-2],            motifEvery: 3, inst: 'pad',      rests: 0.45, drone: 0.45, echo: 0.6, detune: 12 },
   pool:                 { root: 261.6, scale: [0,4,7,11,14],     bpm: 44, density: 0.55, motif: [0,2,4,2],             motifEvery: 2, inst: 'pad',      rests: 0.05, drone: 0.15, echo: 0.8, bright: true },

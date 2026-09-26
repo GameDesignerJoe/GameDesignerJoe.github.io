@@ -383,6 +383,20 @@ const STORY_ROOMS = {
       crack: "come back",
       note: "the watch he gave me stopped at five past. i dont wear it. i just keep it.",
     },
+    // the heart: the hidden room, through the squeezes. Joe: "a representation of inside the heart of the
+    // kid. He misses his dad and feels abandoned." What's under the waiting and under the wall; the one
+    // place nothing is denied. Claude's drafts, to be rewritten. `walls` in crayon, over and over;
+    // `big` on the far wall as you come in at the point, over a drawing of the two of them holding hands;
+    // `lobes` one each on the walls at the ends of its two lobes; `letter` on the floor in the middle.
+    heart: {
+      walls: ["i miss you", "i miss you", "i miss you", "i miss you dad", "was it me", "what did i do", "i would of been better",
+        "why didnt you take me with you", "do you think about me", "i wear the watch when nobody can see", "come home",
+        "please come home", "i wont be bad", "i left the porch light on", "i cant remember your voice", "it hurts right here",
+        "i miss you so much", "i didnt mean to make you go", "dad", "daddy", "did you forget me", "i still say goodnight to you"],
+      big: ["i miss you dad"],
+      lobes: ["come home", "was it me"],
+      letter: "dear dad. i wrote this so i dont forget. you smelled like coffee and cut grass. you called me buddy. you said five minutes. im not mad. i just want to know if it was me. if you come back i will be so good you wont ever want to go again. love you. please write back.",
+    },
   },
 };
 
