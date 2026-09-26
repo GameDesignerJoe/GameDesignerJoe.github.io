@@ -66,6 +66,8 @@
   #hud i { display: inline-block; }
   .ic-page { width: 9px; height: 12px; background: #7a5232; border-right: 2px solid #efe6cf; border-radius: 1px; }
   .ic-chalk { width: 13px; height: 5px; background: #ece7da; border-radius: 2px; }
+  .ic-watch { width: 12px; height: 12px; border-radius: 50%; background: #efe6cf; border: 2px solid #c9a45a; box-sizing: border-box; position: relative; }
+  .ic-watch::after { content: ''; position: absolute; left: 3px; top: 1px; width: 1px; height: 4px; background: #1e1812; }
   .ic-charcoal { width: 13px; height: 5px; background: #2a2724; border: 1px solid #6a655c; border-radius: 2px; }
   #hud span.pulse { animation: hudPulse .6s ease-out; }
   @keyframes hudPulse { 0% { transform: scale(1.35); background: #e0c98a55; } 100% { transform: none; } }
@@ -186,7 +188,7 @@
   </details>
 </div>
 <div id="dbgArrow" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 12h14m-5-5 5 5-5 5" fill="none" stroke="#e0c98a" stroke-width="2.4" stroke-linecap="round"/></svg></div>
-<div id="hud"><span id="hudPagesBox"><i class="ic-page"></i><b id="hudPages">0</b></span><span id="hudChalkBox"><i class="ic-chalk"></i><b id="hudChalk">0</b></span><span id="hudCharcoalBox"><i class="ic-charcoal"></i><b id="hudCharcoal">0</b></span></div>
+<div id="hud"><span id="hudPagesBox"><i class="ic-page"></i><b id="hudPages">0</b></span><span id="hudChalkBox"><i class="ic-chalk"></i><b id="hudChalk">0</b></span><span id="hudCharcoalBox"><i class="ic-charcoal"></i><b id="hudCharcoal">0</b></span><span id="hudWatchBox" style="display:none"><i class="ic-watch"></i></span></div>
 <div id="glyphs"><button data-g="x">✕</button><button data-g="?">?</button><button data-g="left">←</button><button data-g="up">↑</button><button data-g="down">↓</button><button data-g="right">→</button></div>
 <div id="slats"></div>
 <button id="stepOut">Step out</button>

@@ -75,8 +75,9 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   a packed bag, a note on the seat; the Child's tune winding down (`The Waiting Room` in data/music.js). **The wall** —
   painted over white and written floor to ceiling in one tight hand, "im fine | it doesnt matter", staggered like
   brickwork, with one chipped patch where the wallpaper and the old pencil show ("come back"); every panel lit, steady;
-  almost no music (`The Wall`); a ring of stacked boxes round a shoebox with the watch on it, out of reach but not out of
-  sight or tap. Notes are read where they lie (a tap, or the first time you walk to them), never taken. **To a story
+  almost no music (`The Wall`); in the middle, a shoebox on a couple of boxes with the watch on it — the one thing here you
+  take: tap it and you carry it (`carried`, shown on the HUD, up and down the stairs; perhaps an offering, once the statues
+  come back). Notes are read where they lie (a tap, or the first time you walk to them), never taken. **To a story
   room** on the panel. Sprites can stand off the floor now (`z`), for the note on the seat.
 - **The heart** (`heart`; the Child, floor 1; words in `STORY_ROOMS` → `heart`). The third story room, and the hidden one:
   what's under the waiting and under the wall. A room the shape of a heart, carved after the generator (on its own stream)

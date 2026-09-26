@@ -1275,18 +1275,19 @@
         furn.push({ x: lx, y: ly, fx, fy, name: 'lamp', def: FURN.lamp, boxes: lb });
         objs.push({ x: cx, y: cy, z: 0.19, kind: 'note', text: st.text.note, tex: TEX.sprites.note, h: 0.05, glow: 0.2 });
       } else {
-        // a ring of stacked boxes round a shoebox, in the middle of the room
+        // the watch, on a shoebox on a couple of boxes in the middle of the room: up off the floor, in plain sight, easy
+        // to get to. Joe: "It's difficult for me to get to the watch … it is surrounded by a bunch of like cardboard
+        // boxes … I like the idea that it's resting on top of something like that, but it should be clear that it's a
+        // pick up and that it's easier to get to." It was a ring of stacked boxes round it; now there's nothing in the way
         const tl = st.tiles.map((k) => [k % W, (k / W) | 0]), mx = tl.reduce((a, t) => a + t[0], 0) / tl.length, my = tl.reduce((a, t) => a + t[1], 0) / tl.length;
-        const c = tl.reduce((b, t) => Math.hypot(t[0] - mx, t[1] - my) < Math.hypot(b[0] - mx, b[1] - my) ? t : b, tl[0]);
+        // the tile nearest the middle with nothing else on it (a page there would be buried in the boxes)
+        const held = new Set(objs.map((o) => Math.floor(o.y) * W + Math.floor(o.x))), free = tl.filter((t) => !held.has(t[1] * W + t[0]));
+        const c = (free.length ? free : tl).reduce((b, t) => Math.hypot(t[0] - mx, t[1] - my) < Math.hypot(b[0] - mx, b[1] - my) ? t : b, (free.length ? free : tl)[0]);
         const cx = c[0] + 0.5, cy = c[1] + 0.5, card = TEX.furn.mats.card, top = TEX.furn.fronts.boxTop, R = rng(SEED + 210013);
         const box = (x0, y0, x1, y1, z0, z1, t) => fboxes.push({ x0, x1, y0, y1, z0, z1, m: card, top: t || top, topFit: !t, front: null, fcode: 'n', glow: false });
-        const o = 0.34, i = 0.2;
-        for (const [x0, y0, x1, y1] of [[cx - o, cy - o, cx, cy - i], [cx, cy - o, cx + o, cy - i], [cx - o, cy + i, cx, cy + o], [cx, cy + i, cx + o, cy + o],
-                                        [cx - o, cy - i, cx - i, cy], [cx - o, cy, cx - i, cy + i], [cx + i, cy - i, cx + o, cy], [cx + i, cy, cx + o, cy + i]]) {
-          const h = 0.18 + R() * 0.05; box(x0, y0, x1, y1, 0, h); if (R() < 0.7) box(x0 + 0.02, y0 + 0.02, x1 - 0.02, y1 - 0.02, h, h + 0.08 + R() * 0.05);
-        }
-        box(cx - 0.1, cy - 0.07, cx + 0.1, cy + 0.07, 0, 0.23, TEX.furn.mats.dark);
-        objs.push({ x: cx, y: cy, z: 0.23, kind: 'note', text: st.text.note, tex: TEX.sprites.watch, h: 0.06, glow: 0.3 });
+        box(cx - 0.17, cy - 0.15, cx + 0.17, cy + 0.15, 0, 0.19); box(cx - 0.13, cy - 0.12, cx + 0.12, cy + 0.11, 0.19, 0.31);
+        box(cx - 0.1, cy - 0.07, cx + 0.1, cy + 0.07, 0.31, 0.38, TEX.furn.mats.dark);
+        objs.push({ x: cx, y: cy, z: 0.38, kind: 'watch', text: st.text.note, tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // a pickup: you carry it (`carried`)
       }
     }
   }
@@ -1711,13 +1712,19 @@
     $('hudCharcoal').textContent = charcoalN;
     $('hudPages').textContent = pagesFound + ' / ' + pagesTotal;
     $('hudCharcoalBox').style.display = charcoalN ? '' : 'none';
+    $('hudWatchBox').style.display = carried.has('watch') ? '' : 'none';
   }
+  // what you carry: things you pick up that aren't used up — the watch, for now. Joe: "We should make the watch
+  // collectible that you pick up and then hold in your inventory. You can see on your hud. When we bring back in the
+  // statues and the offerings, perhaps we offer the watch." It goes with you up and down the stairs; a new maze empties it
+  let carried = new Set();
   function take(o, walked) {
     if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
+    else if (o.kind === 'watch') { carried.add('watch'); flash('hudWatchBox'); showNote(o.text); FP_SOUND.chalkUp(); }
     else if (o.kind === 'page') { addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg); FP_SOUND.page(); }
     hud();
   }
@@ -1778,7 +1785,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
+    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); carveHeart(); spreadPages(); reset();
@@ -2989,5 +2996,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();
