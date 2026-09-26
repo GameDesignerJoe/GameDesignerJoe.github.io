@@ -38,6 +38,10 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
+- **Light switches.** `switches` rooms a maze (office look: rooms with lamps) get a plate beside the way in, on the
+  inside wall. Tap it: the room's lamps go out, or come back with a fluorescent stutter. `switchOff` of them are dark
+  when you arrive, at `darkLevel`; off, the toggle's amber pilot glows so you can find it. In a dark room a page
+  doesn't catch the light, so what's in there is found by switching it on. A switch's face never takes chalk.
 - **The father.** Not placed; he happens (`father` a maze, a minute apart at least). Looking straight down a hall
   at a lit opening 3–7 tiles off, nothing shut or squeezed between, he walks through it at your pace: across a
   crossing from one side hall to the other, or out of a side opening and away from you down the hall, seen from
@@ -54,4 +58,4 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   32×32 PNG into that shape and drop it into a theme in `TEX.themes` — the renderer doesn't care where it came from.
 - **What it draws of the maze so far:** walls, floor, sky, squeezes (a narrow full-height slot
   cut through the tile, `gapW` wide, that the collision uses too), the exit, which glows through the fog, and a ceiling where the look has one. Not yet: sliders, keys on doors,
-  light switches, the thread and pointer, the charcoal map.
+  the thread and pointer, the charcoal map.

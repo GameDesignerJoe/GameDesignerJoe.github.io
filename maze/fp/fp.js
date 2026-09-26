@@ -145,7 +145,7 @@
   //   squeeze  — a squeeze is dimmed by `squeezeDim`, and slows you by `squeezeSlow`
   // The brightness is kept at tile corners and blended across each tile, so light pools and fades
   // rather than stepping in squares. `shadow` is how much any of it shows: 0 is the old flat look.
-  let dark = null, tileL = null, cornerL = null, lightBase = null, flickLamps = [], lampTiles = [];
+  let dark = null, tileL = null, cornerL = null, lightBase = null, flickLamps = [], lampTiles = [], groupLamps = [];
   function buildLight() {
     const N = W * H;
     dark = new Uint8Array(N); tileL = new Float32Array(N); cornerL = new Float32Array((W + 1) * (H + 1));
@@ -164,7 +164,8 @@
     for (let x = 0; x < W; x++) { let run = []; for (let y = 0; y <= H; y++) { if (y < H && inHall(x, y, false)) run.push([x, y]); else { takeRun(run); run = []; } } }
 
     lightBase = new Float32Array(N).fill(T.ceils ? T.ambient : 1);
-    flickLamps = []; lampTiles = [];
+    flickLamps = []; lampTiles = []; groupLamps = [];
+    const grouped = groupAt && groupAt.length === N;
     if (!T.ceils) return;
     const flick = new Set(flickers), reach = S.reach;
     for (let k = 0; k < N; k++) {
@@ -180,7 +181,8 @@
         const x = c % W, y = (c / W) | 0;
         for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && !seen.has(n)) { seen.set(n, d + 1); q.push(n); } }
       }
-      if (flick.has(k)) flickLamps.push({ k, list });
+      if (grouped && groupAt[k] >= 0) groupLamps.push({ k, list, g: groupAt[k], flick: flick.has(k) });
+      else if (flick.has(k)) flickLamps.push({ k, list });
       else for (let i = 0; i < list.length; i += 2) lightBase[list[i]] += list[i + 1];
     }
   }
@@ -189,9 +191,13 @@
     const N = W * H;
     tileL.set(lightBase);
     for (const lm of flickLamps) { const lv = lampLvl[lm.k]; for (let i = 0; i < lm.list.length; i += 2) tileL[lm.list[i]] += lm.list[i + 1] * lv; }
+    for (const lm of groupLamps) { const lv = lampLvl[lm.k]; for (let i = 0; i < lm.list.length; i += 2) tileL[lm.list[i]] += lm.list[i + 1] * lv; }
+    const grouped = groupAt && groupAt.length === N;
     for (let k = 0; k < N; k++) {
       let L = 1 - S.shadow * (1 - Math.min(1, tileL[k]));
       if (dark[k]) L = Math.min(L, S.darkLevel);
+      // a room with its lights off is as dim as a dark hall, whatever spills in at the door
+      if (grouped && groupAt[k] >= 0) { const lv = lightGroups[groupAt[k]].lvl; if (lv < 1 && L > S.darkLevel) L = S.darkLevel + (L - S.darkLevel) * lv; }
       tileL[k] = L;
     }
     // a corner is the average of the open tiles around it
@@ -303,6 +309,8 @@
     for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
     placeDoors();
     placeClosets(new Set(picks.map(([e]) => faceKey(e.k, e.face))));
+    placeSwitches(new Set(picks.map(([e]) => faceKey(e.k, e.face)).concat(closets.map((c) => faceKey(c.k, c.face)))));
+    buildLight();
     hud();
   }
 
@@ -409,6 +417,71 @@
       for (let i = 0; i < DEC * DEC; i++) if (art[i]) d[i] = art[i];
     }
   }
+  // ── light switches ────────────────────────────────────────
+  // Joe: "Getting lights to turn on and off in a space with the switch can become an interesting tool
+  // to see hidden things." And: "light switches or any other thing you interact with on a wall [should]
+  // not allow you to put an X on the wall."
+  //
+  // `switches` rooms a maze get one: a plate on the wall beside the way in, on the inside, at hand
+  // height. Tap it and every lamp in that room goes out, or comes back with a fluorescent stutter.
+  // `switchOff` of them are dark when you arrive, as dim as a dark hall. What lies in a dark room
+  // doesn't catch the light the way it does elsewhere: a page there is found by switching it on.
+  // A room is one run of the renderer's room tiles; only rooms with a lamp in them are candidates,
+  // so a look with a sky has none.
+  let lightGroups = [], groupAt = null, switchFace = new Map();
+  function placeSwitches(usedFaces) {
+    lightGroups = []; switchFace = new Map(); groupAt = new Int16Array(W * H).fill(-1);
+    if (!T.ceils) return;
+    const R = rng(SEED + 170003), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), comp = new Int32Array(W * H).fill(-1), rooms = [];
+    for (let k0 = 0; k0 < W * H; k0++) {
+      if (!room[k0] || comp[k0] >= 0) continue;
+      const tiles = [k0]; comp[k0] = rooms.length;
+      for (let i = 0; i < tiles.length; i++) { const c = tiles[i], x = c % W, y = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (room[n] && comp[n] < 0 && !solid(x + dx, y + dy)) { comp[n] = rooms.length; tiles.push(n); } } }
+      rooms.push(tiles);
+    }
+    const cands = [];
+    rooms.forEach((tiles, ri) => {
+      if (!tiles.some((k) => T.ceils[ceilVar[k]].glow && !dark[k])) return;           // nothing to switch
+      if (tiles.some((k) => Math.abs(k % W - sx0) < 2 && Math.abs(((k / W) | 0) - sy0) < 2)) return;   // not the room you wake in
+      // the plate: a mouth tile m next to room tile r; the wall w beside m, seen from the room tile beside r
+      const spots = [];
+      for (const r of tiles) { const rx = r % W, ry = (r / W) | 0;
+        for (const [dx, dy] of HD) { const mx = rx + dx, my = ry + dy, mk = my * W + mx;
+          if (solid(mx, my) || comp[mk] === ri) continue;
+          for (const [px, py] of [[-dy, dx], [dy, -dx]]) {
+            const wx = mx + px, wy = my + py, vx = rx + px, vy = ry + py, wk = wy * W + wx;
+            if (!solid(wx, wy) || comp[vy * W + vx] !== ri || exitFace[wk] || wx <= 0 || wy <= 0 || wx >= W - 1 || wy >= H - 1) continue;
+            const face = dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3;
+            if (!usedFaces.has(faceKey(wk, face))) spots.push({ k: wk, face });
+          } } }
+      if (spots.length) cands.push({ tiles, spot: spots[Math.floor(R() * spots.length)] });
+    });
+    for (let n = 0; n < S.switches && cands.length; n++) {
+      const c = cands.splice(Math.floor(R() * cands.length), 1)[0];
+      const g = { tiles: c.tiles, k: c.spot.k, face: c.spot.face, on: R() >= S.switchOff, at: -1e9, lvl: 1 };
+      g.lvl = g.on ? 1 : 0;
+      const gi = lightGroups.push(g) - 1;
+      for (const k of c.tiles) groupAt[k] = gi;
+      switchFace.set(faceKey(g.k, g.face), g);
+      drawSwitch(g);
+    }
+  }
+  function drawSwitch(g) {
+    const d = decalFor(g.k, g.face), art = TEX.lightSwitch[g.on ? 1 : 0].px;
+    for (let i = 0; i < DEC * DEC; i++) if (art[i]) d[i] = art[i];
+  }
+  // on: a tube taking a moment to catch, as they do. Off: at once
+  function groupLevel(g, now) {
+    if (!g.on) return 0;
+    const t = now - g.at;
+    return t > 520 ? 1 : t < 60 ? 0.7 : t < 190 ? 0 : t < 250 ? 0.9 : t < 420 ? 0.12 : 1;
+  }
+  function flipSwitch(g) {
+    g.on = !g.on; g.at = performance.now(); drawSwitch(g);
+    FP_SOUND.flip(g.on);
+  }
+
   function enterCloset(c) {
     // stand in the doorway, in the wall's own face, looking out through the vent
     const fx = c.dx === 1 ? c.x : c.dx === -1 ? c.x + 1 : c.x + 0.5, fy = c.dy === 1 ? c.y : c.dy === -1 ? c.y + 1 : c.y + 0.5;
@@ -1003,6 +1076,8 @@
       if (lv < lampLvl[k] && !dark[k]) { const dd = Math.hypot(k % W + 0.5 - px, ((k / W) | 0) + 0.5 - py); if (dd < 4.5) FP_SOUND.flicker(1 - dd / 4.5); }
       lampLvl[k] = lv;
     }
+    for (const g of lightGroups) g.lvl = groupLevel(g, now);
+    for (const lm of groupLamps) lampLvl[lm.k] = (lm.flick ? lampLvl[lm.k] : 1) * lightGroups[lm.g].lvl;
     lightFrame();
     const cw = W + 1;   // corner rows, for blending the light across each tile inline
     if (hasCeil) {
@@ -1015,7 +1090,7 @@
         for (let x = 0; x < RW; x++, wx += sx, wy += sy, o++) {
           const cx = Math.floor(wx), cy = Math.floor(wy), inB = cx >= 0 && cy >= 0 && cx < W && cy < H, k = cy * W + cx;
           const t = ceils[inB ? ceilVar[k] : 0], fx = wx - cx, fy = wy - cy, ti = ((fy * 32) | 0) * 32 + ((fx * 32) | 0);
-          if (t.glow && t.glow[ti] && !(inB && dark[k])) { buf[o] = shade(t.px[ti], fl, inB ? lampLvl[k] : 1); continue; }   // a lamp is its own light
+          if (t.glow && t.glow[ti] && !(inB && (dark[k] || lampLvl[k] < 0.1))) { buf[o] = shade(t.px[ti], fl, inB ? lampLvl[k] : 1); continue; }   // a lamp is its own light
           let L = 1;
           if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; if (low[k]) L *= S.squeezeDim; }
           buf[o] = shade(t.px[ti], f, inB ? aoAt(nbm[k], fx, fy) : 1, L);
@@ -1119,7 +1194,7 @@
           let a = aoS ? aoEdge(colAO, 1 - v) : 1;   // down where it meets the floor
           if (hasCeil && aoS) a = aoEdge(a, v);      // and up where it meets the ceiling
           let c = t.px[ti];
-          if (dec) { const dc = dec[Math.min(DEC - 1, (v * DEC) | 0) * DEC + du]; if (dc) c = dc; }
+          if (dec) { const dc = dec[Math.min(DEC - 1, (v * DEC) | 0) * DEC + du]; if (dc) { if (dc >>> 24 === 0xfe) { buf[y * RW + x] = shade(dc | 0xff000000, Math.sqrt(f), 1, 1); continue; } c = dc; } }   // 0xfe: a pixel that is its own light
           buf[y * RW + x] = shade(c, f, lit * a, Lw);
         }
       }
@@ -1226,7 +1301,9 @@
       const floorY = hor + eye * sc, y0 = floorY - hPx, xc = (cam + 1) / 2 * RW;
       const x0 = Math.round(xc - wPx / 2), x1 = Math.round(xc + wPx / 2);
       const f = Math.exp(-fog * depth), tx0 = Math.floor(o.x), ty0 = Math.floor(o.y);
-      const L = Math.max(o.glow, tileL[ty0 * W + tx0]);   // a page catches what light there is; it is meant to be found
+      const gi = !o.ghost && groupAt && groupAt.length === W * H ? groupAt[ty0 * W + tx0] : -1;
+      const glow = gi >= 0 ? o.glow * lightGroups[gi].lvl : o.glow;   // but not in a room with its lights off
+      const L = Math.max(glow, tileL[ty0 * W + tx0]);   // a page catches what light there is; it is meant to be found
       // the father walks: drawn facing the way he's going across the screen, and he goes by thinning out
       const ghost = !!o.ghost, flip = ghost && !o.back && o.vx * plX + o.vy * plY < 0;
       let any = false;
@@ -1336,6 +1413,8 @@
     // a closet: step in. Joe: "light switches or any other thing you interact with on a wall [should]
     // not allow you to put an X on the wall as well" — a face that does something is never chalked,
     // anywhere on it, whether or not the tap landed on the thing itself
+    const sw = switchFace.get(colFace[x]);
+    if (sw) { if (zbuf[x] < REACH_WALL + 0.3) flipSwitch(sw); return; }
     const cl = closets.find((c) => faceKey(c.k, c.face) === colFace[x]);
     if (cl) { if (zbuf[x] < REACH_WALL && colU[x] > 0.32 && colU[x] < 0.68) enterCloset(cl); return; }
     if (colFace[x] >= 0 && usedFace(colFace[x])) return;
@@ -1355,8 +1434,8 @@
     FP_SOUND.chalkMark();
     pendingMark = null; glyphsOff(); hud();
   }
-  // a wall face that is for something: the way out, a closet (above). Light switches join this list
-  function usedFace(fk) { return !!exitFace[Math.floor(fk / 4)]; }
+  // a wall face that is for something: the way out, a light switch, a closet (above)
+  function usedFace(fk) { return !!exitFace[Math.floor(fk / 4)] || switchFace.has(fk); }
   function glyphsOff() { $('glyphs').classList.remove('show'); }
   for (const b of document.querySelectorAll('#glyphs [data-g]')) b.addEventListener('pointerdown', (e) => { e.stopPropagation(); placeMark(b.dataset.g); });
 
@@ -1471,5 +1550,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get father() { return father; }, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get father() { return father; }, get lightGroups() { return lightGroups; }, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

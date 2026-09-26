@@ -139,6 +139,12 @@ const FP_SOUND = (() => {
     chalkUp() { if (live() && typeof AUDIO !== 'undefined') AUDIO.pickupChalk(); },
     chalkMark() { if (live() && typeof AUDIO !== 'undefined') AUDIO.chalkDown(); },
     empty() { if (live() && typeof AUDIO !== 'undefined') AUDIO.chalkEmpty(); },
+    // a light switch: the snap of the toggle; on, the starter's tick and the tube catching after it
+    flip(on) {
+      if (!live()) return;
+      burst(0.018, { vol: 0.32, freq: 3200, q: 2.5 }); burst(0.05, { vol: 0.18, freq: 700, q: 1.5, at: 0.006 });
+      if (on) { burst(0.012, { vol: 0.08, freq: 5200, q: 4, at: 0.08 }); burst(0.012, { vol: 0.06, freq: 5200, q: 4, at: 0.23 }); tone(120, 0.35, { type: 'sawtooth', vol: 0.025, at: 0.25, attack: 0.03 }); }
+    },
     // the father, somewhere ahead: the top-down's own footsteps going away
     far() { if (live() && typeof AUDIO !== 'undefined') AUDIO.farSteps(); },
     out() { if (live() && typeof AUDIO !== 'undefined') AUDIO.exit(); },

@@ -554,5 +554,23 @@ const TEX = (() => {
     T.px[40 * 64 + 38] = hex('#6b6552'); T.px[40 * 64 + 37] = hex('#8d8672');
     return T;
   }
-  return { themes, sprites, door: doorLeaf(), closet: closetFace(), hex, buildMs: performance.now() - t0 };
+  // a light switch: an old cream plate at hand height, the toggle up for on and down for off. Also a
+  // wall decal; only its own pixels are drawn, so the wall shows round it
+  function switchPlate(on) {
+    const T = blank(64, 64);
+    const edge = hex('#7e7663'), plate = hex('#e3dcc6'), lit = hex('#f1ecdc'), slot = hex('#4d473b'), nub = hex('#f7f4ea'), nubS = hex('#a59d88');
+    for (let y = 22; y <= 40; y++) for (let x = 27; x <= 37; x++) {
+      const e = x === 27 || x === 37 || y === 22 || y === 40;
+      T.px[y * 64 + x] = e ? edge : (x === 28 || y === 23) ? lit : plate;
+    }
+    T.px[25 * 64 + 32] = edge; T.px[37 * 64 + 32] = edge;   // the two screws
+    for (let y = 28; y <= 34; y++) for (let x = 31; x <= 33; x++) T.px[y * 64 + x] = slot;
+    const y0 = on ? 27 : 32;
+    for (let y = y0; y < y0 + 3; y++) for (let x = 31; x <= 33; x++) T.px[y * 64 + x] = y === y0 + 2 ? nubS : nub;
+    // off, a pilot light in the toggle glows amber, so the switch can be found in the dark room it
+    // works. Alpha 0xfe marks a pixel the renderer draws as its own light
+    if (!on) { const pilot = (hex('#f0a040') & 0x00ffffff) | 0xfe000000; T.px[29 * 64 + 32] = pilot; T.px[30 * 64 + 32] = pilot; }
+    return T;
+  }
+  return { themes, sprites, door: doorLeaf(), closet: closetFace(), lightSwitch: [switchPlate(false), switchPlate(true)], hex, buildMs: performance.now() - t0 };
 })();
