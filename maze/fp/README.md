@@ -54,10 +54,14 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   pile of chalk (worth four finds) in the corner farthest from the way in. No furniture, no random switch.
 - **Furniture** (the office look, `furnish` in its theme). Desks with a dead beige CRT and a chair pulled out,
   couches, filing cabinets, water coolers, plants, boxes, bins, and floor lamps that give a small warm pool (only in
-  rooms whose lights are always on). Flat pictures like Wolfenstein's tables; desk, couch and cabinet have a side
-  view picked by where you stand. Rooms only, against their walls, never beside a way in or out, never on a page, never
-  in front of a switch, closet or words, and each piece is checked to leave every way into its room reaching every
-  other. You bump into them; a tap on one does nothing (and doesn't chalk the wall behind). `furniture` scales it.
+  rooms whose lights are always on). Each piece is a few real boxes (`FURN` in fp.js: a couch is a base, a seat, a
+  back and two arms), drawn per column like short walls with a top you look down on, textured from `TEX.furn`
+  (materials that tile, and `fronts` stretched over the face that looks into the room — drawers, the CRT, the taps),
+  lit by the light where each face is, with the walls' fog and a shadow where it meets the floor. Anything behind a
+  piece is hidden by it pixel by pixel (`ovDep`). Rooms only, against their walls, never beside a way in or out, never
+  on a page, never in front of a switch, closet or words, and each piece is checked to leave every way into its room
+  reaching every other. You bump into them; a tap on one does nothing (and doesn't chalk the wall behind). `furniture`
+  scales it.
 - **Light switches.** `switches` rooms a maze (office look: rooms with lamps) get a plate beside the way in, on the
   inside wall. Tap it: the room's lamps go out, or come back with a fluorescent stutter. `switchOff` of them are dark
   when you arrive, at `darkLevel`; off, the toggle's amber pilot glows so you can find it. In a dark room a page
