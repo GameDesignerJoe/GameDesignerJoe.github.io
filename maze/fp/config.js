@@ -45,6 +45,7 @@ const FP_CONFIG = {
   furniture: 1,     // how furnished the rooms are: 0 bare, 1 as drawn, 2 cluttered (the office look only)
   switches: 3,      // rooms a maze with a light switch by the way in
   switchOff: 0.65,  // how many of those are dark when you arrive
+  floors: 2,        // floors a maze has, joined by stairs: 1 is none. Takes effect on the next maze
   father: 2,        // times a maze the father is glimpsed crossing ahead of you. Joe: "once or twice a maze"
   // lighting
   shadow: 1,        // how much the lighting shows: 0 is flat, 1 is full-strength pools and shadow
@@ -97,6 +98,7 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   doorsOpen: [0, 1, 0.05, 'Doors open', 'debug'],
   closets:   [0, 10, 1, 'Closets', 'debug'],
   father:    [0, 6, 1, 'Father', 'debug'],
+  floors:    [1, 4, 1, 'Floors', 'debug'],
   switches:  [0, 8, 1, 'Switches', 'debug'],
   furniture: [0, 2, 0.1, 'Furniture', 'debug'],
   switchOff: [0, 1, 0.05, 'Rooms dark', 'debug'],

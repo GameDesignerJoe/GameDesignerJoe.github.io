@@ -194,6 +194,13 @@ const FP_SOUND = (() => {
       nextDistant = nowMs + (35 + Math.random() * 50) * 1000 / rate;
       const names = Object.keys(DISTANT); DISTANT[names[Math.floor(Math.random() * names.length)]](elsewhere());
     },
+    // the stairs: a door, a flight of feet going up (each step a little higher) or down, a door
+    stairs(up) {
+      if (!live()) return;
+      this.door(true);
+      for (let i = 0; i < 10; i++) burst(0.08, { vol: 0.28, freq: (up ? 170 + i * 9 : 260 - i * 9) + Math.random() * 20, q: 1, type: 'lowpass', at: 0.35 + i * 0.13 + (i > 4 ? 0.12 : 0) });
+      setTimeout(() => this.door(false), 1100);
+    },
     // something crossing the far end of a squeeze, fast: a scuffle of feet and a breath of air
     dart() {
       if (!live()) return;

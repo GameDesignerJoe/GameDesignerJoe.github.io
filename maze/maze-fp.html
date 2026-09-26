@@ -102,6 +102,10 @@
   body.hiding #stepOut { display: block; position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 34px); transform: translateX(-50%); z-index: 3;
     padding: 12px 26px; border-radius: 12px; border: 1px solid #6b5436; background: #1b1a18ee; color: #ece7da; font: inherit; font-size: 16px; }
   body.hiding #stick, body.hiding #hud { display: none; }
+  /* between floors: black, the floor's number, and back */
+  #fade { position: fixed; inset: 0; display: grid; place-items: center; background: #050506; opacity: 0; pointer-events: none; transition: opacity .45s; z-index: 6; }
+  #fade.show { opacity: 1; pointer-events: auto; }
+  #fade span { font-family: Georgia, serif; font-size: 22px; letter-spacing: .25em; color: #cfc6b0; text-transform: uppercase; }
   #win { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(#f3e6c055, #0d0f10ee 70%); opacity: 0; pointer-events: none; transition: opacity 1.4s; z-index: 5; text-align: center; }
   #win.show { opacity: 1; pointer-events: auto; }
   #win h2 { font-weight: normal; font-size: 34px; margin: 0 0 6px; letter-spacing: .04em; }
@@ -160,6 +164,7 @@
       <button id="hardRefresh">Hard refresh</button>
       <button id="restart">Restart</button>
       <button id="fatherNow">Father next</button>
+      <button id="toStairs">To the stairs</button>
       <button id="newMaze">New maze</button>
       <a class="btn" id="topdown" href="maze-topdown.html">Top-down view</a>
       <button id="resetKnobs">Reset knobs</button>
@@ -173,6 +178,7 @@
 <div id="slats"></div>
 <button id="stepOut">Step out</button>
 <div id="page"><div><p id="pageText"></p><small id="pageWho"></small></div></div>
+<div id="fade"><span id="fadeText"></span></div>
 <div id="win"><div><h2>Exit</h2><p id="winSteps"></p><button id="again">Another maze</button></div></div>
 
 <!-- The top-down's own tuning and generator, unchanged: a seed is the same maze in both views -->

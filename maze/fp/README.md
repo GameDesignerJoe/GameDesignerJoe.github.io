@@ -47,6 +47,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
   Closets (`closets`) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
+- **Stairs** (`floors`, 2 by default; 1 is none). Floor 1 is the chapter's maze; each floor above is a maze of its own
+  from its own seed off the first, so it's always the same floor. Going up is a real flight — five steps as boxes,
+  rising the length of a far dead end to a door marked up. Walk into it or tap it: black, feet on stairs, "floor 2",
+  and you're standing out from a door marked down in the dead end nearest where that floor begins; it takes you back
+  to the foot of the flight. Each floor remembers itself while you're away (what you took, your chalk, open doors,
+  lights, what you've seen). The way out is only on floor 1; chalk and charcoal go with you; pages count per floor.
+  **To the stairs** on the panel puts you in front of them; Restart goes back to floor 1.
 - **The kid's room** (the Child's secret room, which the generator already carves behind a squeeze). Pitch black
   (`PITCH`, darker than a dark hall) until you flip its switch, just inside the squeeze; the amber pilot is all you see.
   Lit (five lamps of its own), every wall is covered in a kid's chalk — noughts and crosses, "dad?", balls, suns, a

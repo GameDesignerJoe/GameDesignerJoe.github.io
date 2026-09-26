@@ -611,6 +611,7 @@ const TEX = (() => {
       dark:     tex(16, 16, (x, y, R) => dith(ramp4(['#1f1d1a', '#2d2a26', '#3b3833', '#4a4640']), 1.5 + (R() - 0.5) * 0.4, x, y)),
       bin:      tex(16, 16, (x, y, R) => dith(ramp4(['#3c3f3c', '#4d504c', '#5d605c', '#6e716c']), 1.6 + (x % 4 === 0 ? 0.5 : 0) + (R() - 0.5) * 0.3, x, y)),
       shade:    tex(16, 16, (x, y) => E(y % 5 === 0 ? '#e9c98a' : '#f6dca6')),
+      stair:    tex(16, 16, (x, y, R) => dith(ramp4(['#4b4943', '#5f5c55', '#74716a', '#8a877f']), 1.9 + (R() - 0.5) * 0.7 + ((x * 3 + y * 5) % 13 === 0 ? -0.7 : 0), x, y)),
     };
     // fronts: one picture stretched over the face that looks into the room
     const front = (w, h, base, fn) => { const T = blank(w, h); for (let i = 0; i < w * h; i++) T.px[i] = base.px[(((i / w) | 0) & 15) * 16 + ((i % w) & 15)]; fn(T, (x, y, c) => { if (x >= 0 && y >= 0 && x < w && y < h) T.px[y * w + x] = typeof c === 'string' ? hex(c) : c; }); return T; };
@@ -619,6 +620,7 @@ const TEX = (() => {
       cabinet:  front(12, 24, mats.steel, (T, set) => { for (const y of [6, 12, 18]) for (let x = 0; x < 12; x++) set(x, y, '#2f302d'); for (const y of [2, 8, 14, 20]) for (let x = 4; x < 8; x++) { set(x, y, '#c9c7bb'); set(x, y + 1, '#3f403d'); } }),
       crt:      front(16, 12, mats.beige, (T, set) => { for (let y = 2; y < 9; y++) for (let x = 2; x < 14; x++) set(x, y, y < 4 && x < 5 ? '#34423e' : '#1c2321'); for (let x = 0; x < 16; x++) set(x, 11, '#8d8672'); }),
       cooler:   front(10, 20, mats.white, (T, set) => { set(3, 5, '#2f5f96'); set(6, 5, '#a33a32'); for (let x = 2; x < 8; x++) { set(x, 9, '#7d7d78'); set(x, 10, '#5d5d58'); } for (let x = 0; x < 10; x++) set(x, 19, '#8d897e'); }),
+      nosing:   front(16, 8, mats.stair, (T, set) => { for (let x = 0; x < 16; x++) { set(x, 0, '#a9a69d'); set(x, 1, '#8e8b83'); set(x, 7, '#34322e'); } }),
       boxTop:   front(16, 16, mats.card, (T, set) => { for (let y = 0; y < 16; y++) { set(7, y, '#d8c08c'); set(8, y, '#cdb47e'); } }),
     };
     return { mats, fronts };

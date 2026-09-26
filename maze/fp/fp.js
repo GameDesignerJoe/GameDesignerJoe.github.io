@@ -249,6 +249,7 @@
   function reset() {
     seen = new Uint8Array(W * H);
     index();
+    if (floor > 1) { exitFace.fill(0); exitDir = null; }   // the way out is only on floor 1
     placeThings();
     const tx = Math.floor(start.x), ty = Math.floor(start.y);
     // face the longest open run from where you wake, so the first thing you see is a way to go
@@ -261,7 +262,7 @@
     fatherReset();
     $('win').classList.remove('show');
     arrive();
-    $('seed').textContent = SEED;
+    $('seed').textContent = BASE + (floor > 1 ? ' · floor ' + floor : '');
     $('who').textContent = (typeof phase === 'function' ? phase().who : '') + (protoMode ? ' · prototype' : '');
     $('topdown').href = 'maze-topdown.html?seed=' + SEED;
   }
@@ -283,13 +284,126 @@
     if (!d) { d = new Uint32Array(DEC * DEC); decals.set(faceKey(k, face), d); }
     return d;
   }
+  // ── stairs ────────────────────────────────────────────────
+  // Joe: "Can we make a ramp or a staircase that goes up to another level?" — and the way we settled:
+  // "fake the stairs: a door at the top or bottom loads a new sub-maze, tracking collected and mapped
+  // state." A maze has `floors` of them. Floor 1 is the chapter's own maze; the ones above are mazes
+  // of their own, each from its own seed off the first, so a floor is always the same floor. Going up:
+  // a flight of real steps in a dead end, rising to a door at the top — walk into them, or tap them,
+  // and you climb. You arrive on the next floor at a door marked down, in the dead end nearest where
+  // that floor's maze begins; it takes you back to the foot of the stairs you came up. Every floor
+  // remembers itself while you're away: what you took, what you chalked, which doors stand open,
+  // which lights are on, what you've seen. The way out is only on floor 1. Chalk and charcoal go with
+  // you; pages are counted per floor.
+  let floor = 1, BASE = 0, floorStates = new Map(), taken = new Set(), stairs = { up: null, down: null }, stairBusy = false;
+  const floorSeed = (n) => n === 1 ? BASE : ((Math.imul(BASE, 2654435761) ^ Math.imul(n, 40503)) >>> 0) || n;
+  const objKey = (o) => o.kind + ':' + o.x.toFixed(2) + ',' + o.y.toFixed(2);
+  function placeStairs() {
+    stairs = { up: null, down: null };
+    const N = Math.max(1, Math.round(S.floors));
+    if (N <= 1 && floor === 1) return [];
+    const sx = Math.floor(start.x), sy = Math.floor(start.y), dist = new Int32Array(W * H).fill(-1), q = [sy * W + sx];
+    dist[q[0]] = 0;
+    for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0;
+      for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && dist[n] < 0) { dist[n] = dist[c] + 1; q.push(n); } } }
+    const ends = [];
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const k = y * W + x;
+      if (solid(x, y) || low[k] || room[k] || dist[k] < 0 || (x === exit.x && y === exit.y) || (Math.abs(x - sx) < 3 && Math.abs(y - sy) < 3)) continue;
+      const open = HD.filter(([dx, dy]) => !solid(x + dx, y + dy)); if (open.length !== 1) continue;
+      const [ox, oy] = open[0], dx = -ox, dy = -oy, wx = x + dx, wy = y + dy;
+      if (low[(y + oy) * W + x + ox] || wx <= 0 || wy <= 0 || wx >= W - 1 || wy >= H - 1 || exitFace[wy * W + wx]) continue;
+      ends.push({ x, y, ox: x + ox, oy: y + oy, dir: [dx, dy], k: wy * W + wx, face: faceTo(dx, dy), d: dist[k] });
+    }
+    if (!ends.length) return [];
+    const R = rng(SEED + 200003), far = Math.max(...ends.map((e) => e.d));
+    if (floor < N) { const pool = ends.filter((e) => e.d >= far * 0.6); stairs.up = pool[Math.floor(R() * pool.length)]; }
+    if (floor > 1) { const pool = ends.filter((e) => e !== stairs.up && e.d >= 3).sort((a, b) => a.d - b.d); stairs.down = pool[0] || null; }
+    for (const [s, up] of [[stairs.up, true], [stairs.down, false]]) if (s) drawStairDoor(decalFor(s.k, s.face), up);
+    return [stairs.up, stairs.down].filter(Boolean);
+  }
+  // a stairwell door on the end wall: at the top of the flight going up, on the floor going down, and
+  // a plaque saying which
+  function drawStairDoor(d, up) {
+    const dp = TEX.door.px, r0 = up ? 5 : 14, r1 = up ? 38 : 64, c0 = 15, c1 = 49;
+    for (let y = r0; y < r1; y++) for (let x = c0; x < c1; x++) {
+      const tu = Math.min(31, ((x - c0) / (c1 - c0) * 32) | 0), tv = Math.min(31, ((y - r0) / (r1 - r0) * 32) | 0);
+      d[y * DEC + x] = dp[tv * 32 + tu];
+    }
+    const word = up ? 'up' : 'down', pw = word.length * 4 + 3, px0 = up ? 52 : Math.round(32 - pw / 2), py0 = up ? 16 : 5;
+    for (let y = py0; y < py0 + 8; y++) for (let x = px0; x < px0 + pw; x++) if (x < DEC) d[y * DEC + x] = TEX.hex('#2c3a2e');
+    for (let c = 0; c < word.length; c++) { const g = FONT[word[c]]; for (let r = 0; r < 5; r++) for (let q2 = 0; q2 < 3; q2++) if (g[r * 3 + q2] === '#') { const X = px0 + 2 + c * 4 + q2; if (X < DEC) d[(py0 + 2 + r) * DEC + X] = TEX.hex('#d9e6cf'); } }
+  }
+  // the flight: five steps rising the length of the dead end to the door, as boxes like the furniture
+  function stairBoxes() {
+    const s = stairs.up; if (!s) return;
+    const [dx, dy] = s.dir, fx = -dx, fy = -dy, ux = -fy, uy = fx, bx = s.x + 0.5 + dx * 0.5, by = s.y + 0.5 + dy * 0.5;
+    const def = { boxes: [0, 1, 2, 3, 4].map((i) => ({ a: [-0.5, 0.5], d: [0, 1 - i * 0.2], z: [i * 0.08, (i + 1) * 0.08], m: 'stair', front: 'nosing' })) };
+    for (const b of buildFurn(def, bx, by, ux, uy, fx, fy, 0)) fboxes.push(b);
+  }
+  const facing = (dx, dy) => Math.cos(P.a) * dx + Math.sin(P.a) * dy;
+  // every frame: pushing into the foot of the flight, or into the door at the end going down
+  function stairFrame() {
+    if (stairBusy || hidden || vel < 0.05) return;
+    const u = stairs.up, d = stairs.down, tx = Math.floor(P.x), ty = Math.floor(P.y);
+    if (u && tx === u.ox && ty === u.oy && facing(u.dir[0], u.dir[1]) > 0.6) {
+      const gap = u.dir[0] ? (u.dir[0] > 0 ? u.x - P.x : P.x - (u.x + 1)) : (u.dir[1] > 0 ? u.y - P.y : P.y - (u.y + 1));
+      if (gap < RAD + 0.06) goFloor(floor + 1);
+    }
+    if (d && tx === d.x && ty === d.y && facing(d.dir[0], d.dir[1]) > 0.6) {
+      const gap = d.dir[0] ? (d.dir[0] > 0 ? d.x + 1 - P.x : P.x - d.x) : (d.dir[1] > 0 ? d.y + 1 - P.y : P.y - d.y);
+      if (gap < RAD + 0.06) goFloor(floor - 1);
+    }
+  }
+  // a tap: on the flight or its door from near enough, or on the door going down
+  function stairTap(fk) {
+    const u = stairs.up, d = stairs.down;
+    if (u && Math.hypot(u.x + 0.5 - P.x, u.y + 0.5 - P.y) < 1.9 && facing(u.dir[0], u.dir[1]) > 0.5) { goFloor(floor + 1); return true; }
+    if (d && (fk === faceKey(d.k, d.face) || (Math.hypot(d.x + 0.5 - P.x, d.y + 0.5 - P.y) < 1.2 && facing(d.dir[0], d.dir[1]) > 0.6))) { goFloor(floor - 1); return true; }
+    return false;
+  }
+  function saveFloor() {
+    floorStates.set(floor, { taken: new Set(taken), decals: new Map([...decals].map(([k, v]) => [k, v.slice()])), doors: doors.map((d) => [d.open, d.swing]),
+      lights: lightGroups.map((g) => g.on), seen: seen.slice(), pagesFound });
+  }
+  function goFloor(n, now) {
+    if (stairBusy || n < 1 || n > Math.max(1, Math.round(S.floors))) return;
+    const up = n > floor;
+    stairBusy = true; clearStick();
+    $('fadeText').textContent = 'floor ' + n; $('fade').classList.add('show');
+    FP_SOUND.stairs(up);
+    setTimeout(() => {
+      saveFloor();
+      const keepChalk = chalk, keepCharcoal = charcoalN;
+      floor = n; SEED = floorSeed(n);
+      applyMazeDebug(); generate(SEED); reset();
+      chalk = keepChalk; charcoalN = keepCharcoal;
+      const st = floorStates.get(floor);
+      taken = st ? new Set(st.taken) : new Set();
+      if (st) {
+        objs = objs.filter((o) => !taken.has(objKey(o)));
+        decals = st.decals; seen = st.seen; pagesFound = st.pagesFound;
+        doors.forEach((d, i) => { if (st.doors[i]) { d.open = d.t = st.doors[i][0]; d.swing = st.doors[i][1]; d.seg = doorSeg(d); } });
+        lightGroups.forEach((g, i) => { g.on = !!st.lights[i]; g.lvl = g.on ? 1 : 0; g.at = -1e9; });
+      }
+      // arrive: going up, just out from the door marked down; going down, at the foot of the flight
+      const s = up ? stairs.down : stairs.up;
+      if (s) {
+        const [dx, dy] = s.dir;
+        if (up) { P.x = s.x + 0.5 - dx * 0.1; P.y = s.y + 0.5 - dy * 0.1; } else { P.x = s.ox + 0.5; P.y = s.oy + 0.5; }
+        P.a = Math.atan2(-dy, -dx); lastTile = ''; lastX = P.x; lastY = P.y; arrive();
+      }
+      hud();
+      setTimeout(() => { $('fade').classList.remove('show'); stairBusy = false; }, 450);
+    }, 1200);
+  }
   // the chapter's two opening walls (WALL_START): one across from where you wake, which you are then
   // turned to face; one straight ahead as you step out of the start room through its gap. [] if the
   // self has none, or the walls aren't there to write on
   let startWords = [];
   const faceTo = (dx, dy) => dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3;
   function startSpots() {
-    const lines = typeof WALL_START !== 'undefined' && character ? WALL_START[character.name] : null;
+    const lines = floor === 1 && typeof WALL_START !== 'undefined' && character ? WALL_START[character.name] : null;
     if (!lines) return [];
     const out = [], sx = Math.floor(start.x), sy = Math.floor(start.y);
     const usable = (k) => !exitFace[k] && (k % W) > 0 && (k % W) < W - 1 && ((k / W) | 0) > 0 && ((k / W) | 0) < H - 1;
@@ -339,13 +453,15 @@
     const R = rng(SEED + 130003), words = WALL_WORDS[character ? character.name : ''] || WALL_WORDS._;
     const sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), ends = [];
     startWords = startSpots(); const startFaces = new Set(startWords.map((w) => faceKey(w.k, w.face)));
+    const stairSpots = placeStairs(); for (const s of stairSpots) startFaces.add(faceKey(s.k, s.face));
+    const stairTiles = new Set(stairSpots.map((s) => s.y * W + s.x));
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
       if (solid(x, y) || low[y * W + x] || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
       const open = HD.filter(([dx, dy]) => !solid(x + dx, y + dy));
       if (open.length !== 1) continue;
       const [ox, oy] = open[0], dx = -ox, dy = -oy;   // walking in, you face away from the one way out
       const face = dx === 1 ? 0 : dx === -1 ? 1 : dy === 1 ? 2 : 3;
-      if (!startFaces.has(faceKey((y + dy) * W + x + dx, face))) ends.push({ k: (y + dy) * W + x + dx, face });
+      if (!startFaces.has(faceKey((y + dy) * W + x + dx, face)) && !stairTiles.has(y * W + x)) ends.push({ k: (y + dy) * W + x + dx, face });
     }
     // choose every spot and line first, then draw: the hand's wobble draws from the stream too, and
     // must not move where the next line goes
@@ -357,9 +473,11 @@
     wordSpots = picks.map(([e, text]) => ({ k: e.k, face: e.face, text }));
     for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
     placeDoors();
-    placeClosets(new Set(picks.map(([e]) => faceKey(e.k, e.face))));
-    placeSwitches(new Set(picks.map(([e]) => faceKey(e.k, e.face)).concat(closets.map((c) => faceKey(c.k, c.face)))));
+    const reserved = picks.map(([e]) => faceKey(e.k, e.face)).concat(stairSpots.map((s) => faceKey(s.k, s.face)));
+    placeClosets(new Set(reserved));
+    placeSwitches(new Set(reserved.concat(closets.map((c) => faceKey(c.k, c.face)))));
     placeFurniture();
+    stairBoxes();
     buildLight();
     hud();
   }
@@ -855,7 +973,7 @@
     $('hudCharcoalBox').style.display = charcoalN ? '' : 'none';
   }
   function take(o) {
-    objs.splice(objs.indexOf(o), 1); foundAt = performance.now();
+    objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
@@ -896,6 +1014,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
+    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set();
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); reset();
@@ -921,7 +1040,7 @@
   // within EXIT_REACH of its face, which is as near as your body lets you stand, give or take.
   const EXIT_REACH = 0.3;
   function checkExit() {
-    if (hidden || Math.floor(P.x) !== exit.x || Math.floor(P.y) !== exit.y) return;
+    if (floor > 1 || hidden || Math.floor(P.x) !== exit.x || Math.floor(P.y) !== exit.y) return;
     if (!exitDir) { win(); return; }
     const [dx, dy] = exitDir;
     const gap = dx ? (dx > 0 ? exit.x + 1 - P.x : P.x - exit.x) : (dy > 0 ? exit.y + 1 - P.y : P.y - exit.y);
@@ -1324,7 +1443,7 @@
   // ── the frame's view ──────────────────────────────────────
   let lastX = 0, lastY = 0;
   function update(now, dt) {
-    if (won) return;
+    if (won || stairBusy) return;
     doorsFrame(dt);
     fatherFrame(now, dt);
     dartFrame(now, dt);
@@ -1336,6 +1455,7 @@
     if (moved > 0.0005) walkPhase += moved; else walkPhase += (Math.round(walkPhase) - walkPhase) * Math.min(1, dt * 8);
     arrive();
     checkExit();
+    stairFrame();
   }
   // what walking sounds like: a foot down every STRIDE of ground covered, the hum of whichever lamp
   // is nearest (as bright as it is right now), and the rub of a squeeze while you're moving in one
@@ -1839,6 +1959,7 @@
     // a closet: step in. Joe: "light switches or any other thing you interact with on a wall [should]
     // not allow you to put an X on the wall as well" — a face that does something is never chalked,
     // anywhere on it, whether or not the tap landed on the thing itself
+    if (stairTap(colFace[x])) return;
     // a piece of furniture under the finger: nothing, and not the wall behind it either
     const byI = Math.max(0, Math.min(RH - 1, by | 0));
     if (colOv[x] && ovDep[byI * RW + x] < zbuf[x] - 0.01) return;
@@ -1931,7 +2052,11 @@
   // new maze — the top-down's hardRefresh(), and like it bounded so a dead connection still reloads.
   // Every script is fetched fresh as well as the page, since the scripts are what change.
   $('fatherNow').onclick = () => { fatherForce = true; fatherCheck = 0; $('panel').classList.remove('open'); };
-  $('restart').onclick = () => { reset(); $('panel').classList.remove('open'); };
+  $('restart').onclick = () => { if (floor > 1) newMaze(BASE); else reset(); $('panel').classList.remove('open'); };
+  $('toStairs').onclick = () => {
+    const s = stairs.up || stairs.down; $('panel').classList.remove('open'); if (!s) return;
+    const [dx, dy] = s.dir; P.x = s.ox + 0.5 - dx * 0.4; P.y = s.oy + 0.5 - dy * 0.4; P.a = Math.atan2(dy, dx); lastX = P.x; lastY = P.y;
+  };
   $('hardRefresh').onclick = () => {
     $('hardRefresh').textContent = 'Updating…';
     const urls = [location.pathname, ...[...document.scripts].map((sc) => sc.src).filter(Boolean)];
@@ -1982,9 +2107,9 @@
   applyTheme();
   resize();
   applyMazeDebug();
-  generate(SEED); reset(); lastX = P.x; lastY = P.y;
+  BASE = SEED; generate(SEED); reset(); lastX = P.x; lastY = P.y;
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();
