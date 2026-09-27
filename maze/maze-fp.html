@@ -23,9 +23,12 @@
   #mini { position: fixed; top: calc(env(safe-area-inset-top) + 12px); right: 12px; display: none; opacity: .85; pointer-events: none; border: 1px solid var(--line); background: #0d0f10aa; }
   #gear { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 10px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: #0d0f1088; cursor: pointer; z-index: 3; }
   #gear svg { width: 24px; height: 24px; }
-  #hint { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 200px); transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: #0d0f10cc; color: var(--dim); text-align: center; max-width: calc(100vw - 32px); box-sizing: border-box; pointer-events: none; transition: opacity 1.2s; }
+  #hint { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 200px); transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: #0d0f1099; font-size: 15px; color: var(--dim); text-align: center; max-width: calc(100vw - 32px); box-sizing: border-box; pointer-events: none; transition: opacity 1.2s; }
   #hint b { color: var(--ink); font-weight: normal; }
-  #hint.gone { opacity: 0; }
+  #hint.gone { opacity: 0; transition: opacity .5s; }
+  /* the stick, glowing, when you've stood a while and never touched it (training) */
+  #stick.glow { animation: stickGlow 1.6s ease-in-out infinite; }
+  @keyframes stickGlow { 50% { border-color: rgba(224,201,138,.8); box-shadow: 0 0 22px rgba(224,201,138,.45); } }
   /* A small card, top left, only as tall as what's open in it — so the maze stays in view while
      you tune it, and you can keep walking with it up. Drag a slider and everything but that row
      fades out, the card's own background included, so you are looking at the change, not the panel. */
@@ -135,7 +138,7 @@
 <div id="mapBtn">map</div>
 <div id="gear"><svg viewBox="0 0 24 24" fill="none" stroke="#b9b4a8" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></div>
 <div id="stick"><div id="knob"></div></div>
-<div id="hint"><b>Stick</b> to walk and turn<br><b>Tap</b> what is close to take it · <b>tap</b> a wall to chalk it</div>
+<div id="hint" class="gone"></div>
 <div id="panel">
   <button id="close">✕</button>
   <h1>First person · tuning</h1>
@@ -191,6 +194,7 @@
       <button id="beingNow">Being now</button>
       <button id="newMaze">New maze</button>
       <a class="btn" id="topdown" href="maze-topdown.html">Top-down view</a>
+      <button id="resetTraining">Reset training</button>
       <button id="resetKnobs">Reset knobs</button>
     </div>
     <div class="meta">Top-down opens this seed unless it has a run in progress to resume.<br>Seed <span id="seed"></span> · <span id="who"></span><br><span id="ver"></span> · <span id="fps"></span><br>Keys: W/↑ walk · S/↓ back · A D / ← → turn · Shift+A/D or Q E sidestep · Space or X: whatever's ahead (take, open, chalk, step out) · click to tap</div>

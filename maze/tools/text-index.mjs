@@ -60,6 +60,8 @@ const ABOUT = {
                   when: 'First person: chalked on the shut exit; the line when you leave the watch on the chair; under the Exit as you go' },
   FP_OPENING:   { surface: 'card', fires: 'each time the game opens', voiced: true,
                   when: 'First person: on black before you wake, then fades into the wake-up' },
+  FP_TRAINING:  { surface: 'prompt', fires: 'once ever, each', voiced: false,
+                  when: 'First person: a quiet prompt low on the screen, after a few seconds stuck at a thing you have not used yet' },
   WALL_TEACH:   { surface: 'wall', fires: 'every maze', voiced: true,
                   when: 'First person: over an X already chalked on a wall of the start room' },
   FP_PAGES:     { surface: 'page', fires: 'every maze', voiced: true,
@@ -129,8 +131,8 @@ function poolRule(pool) {
 }
 
 // Does anything in the engine actually reach this block?
-const engine = readdirSync(join(MAZE, 'js')).filter((f) => f.endsWith('.js'))
-  .map((f) => readFileSync(join(MAZE, 'js', f), 'utf8')).join('\n');
+const engine = ['js', 'fp'].flatMap((d) => readdirSync(join(MAZE, d)).filter((f) => f.endsWith('.js'))   // the top-down's and the first person's
+  .map((f) => readFileSync(join(MAZE, d, f), 'utf8'))).join('\n');
 const reached = Object.fromEntries(blockNames.map((n) => [n, new RegExp('\\b' + n + '\\b').test(engine)]));
 
 // Every string leaf, with the path that reaches it. Generic on purpose: a block added tomorrow is

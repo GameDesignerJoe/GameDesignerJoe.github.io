@@ -295,6 +295,29 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── training: nothing said until you've had time, then once ever ─────
+{
+  const tctx = await browser.newContext({ viewport: { width: 430, height: 900 } });   // its own store: nothing learnt yet
+  const p = await tctx.newPage(); p.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
+  await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(700); await awake(p);
+  const hint = () => p.evaluate(() => ({ on: !document.getElementById('hint').classList.contains('gone'), text: document.getElementById('hint').textContent, glow: document.getElementById('stick').classList.contains('glow'), shown: FP.trainShown }));
+  const early = await hint();
+  await p.waitForTimeout(5600); const idle = await hint();
+  await p.keyboard.down('KeyW'); await p.waitForTimeout(200); await p.keyboard.up('KeyW'); await p.waitForTimeout(100); const walked = await hint();
+  await p.evaluate(() => { const c = FP.closets[0]; FP.P.x = c.x + 0.5 + c.dx * 0.3; FP.P.y = c.y + 0.5 + c.dy * 0.3; FP.P.a = Math.atan2(-c.dy, -c.dx); });
+  await p.waitForTimeout(800); const soon = await hint();
+  await p.waitForTimeout(2400); const closet = await hint();
+  await p.reload({ waitUntil: 'load' }); await p.waitForTimeout(700);
+  const kept = await p.evaluate(() => ({ ...FP.learnt }));
+  await p.evaluate(() => document.getElementById('resetTraining').click());
+  const reset = await p.evaluate(() => Object.keys(FP.learnt).length);
+  check('training: the stick glows and WASD shows after 5s still, a closet says hide after a few seconds, each once ever, and Reset training forgets',
+    !early.on && idle.on && idle.glow && /W A S D/.test(idle.text) && !walked.on && !walked.glow && !soon.on && closet.on && closet.shown === 'closet' && /space to hide/.test(closet.text)
+      && kept.move && kept.closet && reset === 0,
+    `at once ${early.on}; after 5.6s still: "${idle.text}" glow ${idle.glow}; after walking ${walked.on}; at a closet 0.8s ${soon.on}, 3.2s "${closet.text}"; after a reload learnt ${Object.keys(kept).join(',')}; after reset ${reset}`);
+  await tctx.close();
+}
+
 await browser.close();
 stopServer();
 const failed = results.filter((r) => !r.pass);

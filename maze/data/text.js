@@ -347,6 +347,18 @@ const WALL_WORDS = {
     "i win", "home base", "count to ten and come find me", "hes hiding too", "i can hide longer than anybody"],
 };
 
+// first person: the quiet prompts that teach the controls, each only once ever, and only after you've had time to
+// find it yourself. Joe: "basic diegetic training. This happens only after a player has been given time to figure it
+// out themselves." Each is [on a touch screen, on a keyboard]; the key or gesture is between *stars*, drawn brighter.
+const FP_TRAINING = {
+  move:    ["*hold the circle* to walk", "*W A S D* to walk"],
+  x:       ["*tap* the wall to draw an x", "*space* to draw an x"],
+  door:    ["*tap* the door to open it", "*space* to open"],
+  closet:  ["*tap* to hide", "*space* to hide"],
+  light:   ["*tap* the switch", "*space* for the light"],
+  squeeze: ["*keep walking*, you will fit", "*hold W*, you will fit"],
+};
+
 // first person: on black, before you wake, once each time the game is opened. Joe: "a quote about being lost in our
 // own minds, or how we build walls within ourselves. It shows up at the top of the game on black. Then we fade into the
 // actual game wake scene." An unattributed line for now (Claude's draft) — a real quote, with its source checked, can
@@ -491,5 +503,5 @@ const CHALKBOARD = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES, FP_ENDING, FP_OPENING, WALL_TEACH,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES, FP_ENDING, FP_OPENING, WALL_TEACH, FP_TRAINING,
 };

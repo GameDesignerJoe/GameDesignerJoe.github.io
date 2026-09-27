@@ -1779,7 +1779,7 @@
     const fx = c.dx === 1 ? c.x : c.dx === -1 ? c.x + 1 : c.x + 0.5, fy = c.dy === 1 ? c.y : c.dy === -1 ? c.y + 1 : c.y + 0.5;
     hidden = { c, back: { x: P.x, y: P.y, a: P.a }, a0: Math.atan2(c.dy, c.dx) };
     P.x = fx + c.dx * 0.04; P.y = fy + c.dy * 0.04; P.a = hidden.a0; vel = 0; clearStick();
-    document.body.classList.add('hiding'); FP_SOUND.hide(true);
+    document.body.classList.add('hiding'); FP_SOUND.hide(true); learn('closet');
   }
   function leaveCloset() {
     if (!hidden) return;
@@ -2964,10 +2964,10 @@
     if (reading) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) hidePage(); } return; }   // on a PC, a key puts the page down
     // Space (or X) is the hand on a PC: whatever is straight ahead. Joe: "On PC, let's get spacebar to leave and X as
     // well as be the interact button on things."
-    if (e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) { hideHint(); interact(); } return; }
+    if (e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) interact(); return; }
     const a = KEYS[e.code]; if (!a) return;
-    e.preventDefault(); hideHint();
-    keys[a] = true;
+    e.preventDefault();
+    keys[a] = true; if (a !== 'shift') learn('move');
   });
   addEventListener('keyup', (e) => { const a = KEYS[e.code]; if (a) keys[a] = false; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; holdFwd = false; clearStick(); });
@@ -2984,7 +2984,7 @@
     stick.x = dx / len * k / KNOB_MAX; stick.y = dy / len * k / KNOB_MAX; stick.on = true;
   }
   function clearStick() { stick.on = false; stick.x = stick.y = 0; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
-  stickEl.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); hideHint(); stickId = e.pointerId; stickEl.classList.add('on'); try { stickEl.setPointerCapture(e.pointerId); } catch (err) {} setStick(e.clientX, e.clientY); });
+  stickEl.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); learn('move'); stickId = e.pointerId; stickEl.classList.add('on'); try { stickEl.setPointerCapture(e.pointerId); } catch (err) {} setStick(e.clientX, e.clientY); });
   stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
   stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
 
@@ -2995,7 +2995,7 @@
   const REACH_THING = 2.2, REACH_WALL = 1.6;
   let touch = null, pendingMark = null;
   cv.addEventListener('pointerdown', (e) => {
-    e.preventDefault(); hideHint();
+    e.preventDefault();
     if ($('page').classList.contains('show')) { hidePage(); return; }
     touch = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
   });
@@ -3026,7 +3026,7 @@
     const x = Math.max(0, Math.min(RW - 1, bx | 0));
     if (hidden) return;   // from inside a closet you can only step out
     // a door under the finger: open it, or shut it
-    if (colDoor[x] >= 0 && colDoorT[x] < REACH_WALL + 0.4 && by >= colDoorTop[x] - 8 && by <= colDoorBot[x]) { toggleDoor(doors[colDoor[x]]); return; }
+    if (colDoor[x] >= 0 && colDoorT[x] < REACH_WALL + 0.4 && by >= colDoorTop[x] - 8 && by <= colDoorBot[x]) { toggleDoor(doors[colDoor[x]]); learn('door'); return; }
     // a closet: step in. Joe: "light switches or any other thing you interact with on a wall [should]
     // not allow you to put an X on the wall as well" — a face that does something is never chalked,
     // anywhere on it, whether or not the tap landed on the thing itself
@@ -3035,7 +3035,7 @@
     const byI = Math.max(0, Math.min(RH - 1, by | 0));
     if (colOv[x] && ovDep[byI * RW + x] < zbuf[x] - 0.01) return;
     const sw = switchFace.get(colFace[x]);
-    if (sw) { if (zbuf[x] < REACH_WALL + 0.3) flipSwitch(sw); return; }
+    if (sw) { if (zbuf[x] < REACH_WALL + 0.3) { flipSwitch(sw); learn('light'); } return; }
     const cl = closets.find((c) => faceKey(c.k, c.face) === colFace[x]);
     if (cl) { if (zbuf[x] < REACH_WALL && colU[x] > 0.32 && colU[x] < 0.68) enterCloset(cl); return; }
     // a classroom door that isn't a way anywhere: it's tried, and it rattles
@@ -3057,7 +3057,7 @@
     chalkSign(decalFor(k, face), glyph, pendingMark.u, pendingMark.v);
     if (!S.chalkInf) chalk--;
     FP_SOUND.chalkMark();
-    crossOut(pendingMark.fk);
+    crossOut(pendingMark.fk); learn('x');
     pendingMark = null; glyphsOff(); hud();
   }
   // ── the way out ───────────────────────────────────────────
@@ -3198,8 +3198,70 @@
   function glyphsOff() { $('glyphs').classList.remove('show'); }
   for (const b of document.querySelectorAll('#glyphs [data-g]')) b.addEventListener('pointerdown', (e) => { e.stopPropagation(); placeMark(b.dataset.g); });
 
-  let hintHidden = false;
-  function hideHint() { if (hintHidden) return; hintHidden = true; $('hint').classList.add('gone'); }
+  // ── training ──────────────────────────────────────────────
+  // Joe: "basic diegetic training. This happens only after a player has been given time to figure it out
+  // themselves." Nothing is said up front. Stand five seconds without touching the stick (or WASD) and the stick
+  // glows; stand a few seconds at a wall, a shut door, a closet, a switch or a squeeze's mouth and a quiet line
+  // under the view says what to press (FP_TRAINING). Each is taught once ever — shown, or done before it had to be
+  // shown — and remembered in its own store, apart from the knobs. Debug › Reset training forgets them all.
+  const TKEY = 'maze.fp.training';
+  const TRAIN_WAIT = { move: 5000, x: 3000, door: 2500, closet: 2500, light: 2500, squeeze: 2500 };
+  const TRAIN_SHOW = 7000;   // how long a line stays up if you just stand there
+  let learnt = {};
+  try { learnt = JSON.parse(localStorage.getItem(TKEY) || '{}') || {}; } catch (e) {}
+  // which words to use: a touch screen's or a keyboard's, by whichever was used last (a mouse counts as a keyboard)
+  let touchy = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  addEventListener('pointerdown', (e) => { touchy = e.pointerType !== 'mouse'; }, { capture: true });
+  addEventListener('keydown', () => { touchy = false; }, { capture: true });
+  let trainShown = null, trainAt = 0, atHand = null, atHandSince = 0, stillSince = performance.now();
+  function remember(what) { if (learnt[what]) return; learnt[what] = 1; try { localStorage.setItem(TKEY, JSON.stringify(learnt)); } catch (e) {} }
+  function learn(what) {   // you did it: its line goes, and never comes
+    if (what === 'move') stillSince = performance.now();
+    if (trainShown === what) trainOff();
+    remember(what);
+  }
+  function trainOff() { trainShown = null; $('hint').classList.add('gone'); stickEl.classList.remove('glow'); }
+  function trainOn(what, now) {
+    const line = (typeof FP_TRAINING !== 'undefined' && FP_TRAINING[what]) || null; if (!line) return;
+    const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    $('hint').innerHTML = esc(line[touchy ? 0 : 1]).replace(/\*([^*]+)\*/g, '<b>$1</b>');
+    $('hint').classList.remove('gone');
+    if (what === 'move') stickEl.classList.add('glow');
+    remember(what); trainShown = what; trainAt = now;   // shown is taught: it won't come again
+  }
+  // what is in front of you that there's a line for: the middle of the view, within reach
+  function handAt() {
+    const cx = RW >> 1, fk = colFace[cx];
+    if (colDoor[cx] >= 0 && colDoorT[cx] < REACH_WALL + 0.4 && !doors[colDoor[cx]].open) return 'door';
+    if (fk >= 0 && zbuf[cx] < REACH_WALL && closets.some((c) => faceKey(c.k, c.face) === fk)) return 'closet';
+    if (fk >= 0 && zbuf[cx] < REACH_WALL + 0.3 && switchFace.has(fk)) return 'light';
+    const tx = Math.floor(P.x), ty = Math.floor(P.y);
+    if (!low[ty * W + tx]) for (const r of [0.7, 1.2]) {
+      const ax = Math.floor(P.x + Math.cos(P.a) * r), ay = Math.floor(P.y + Math.sin(P.a) * r);
+      if ((ax !== tx || ay !== ty) && slots.has(ay * W + ax)) return 'squeeze';
+    }
+    if (low[ty * W + tx] && slots.has(ty * W + tx)) learn('squeeze');   // in one: that's it learnt
+    if (fk < 0 || zbuf[cx] > REACH_WALL || usedFace(fk) || colOv[cx]) return null;
+    const wk = Math.floor(fk / 4);
+    if (solid(wk % W, (wk / W) | 0) && T.walls[wallVar[wk]].locked) return null;   // a classroom door only rattles
+    if (!S.chalkInf && chalk <= 0) return null;
+    return 'x';
+  }
+  function trainFrame(now) {
+    const busy = reading || rising || hidden || won || stairBusy || $('opening').classList.contains('show') || $('panel').classList.contains('open');
+    if (busy) { stillSince = now; atHandSince = now; if (trainShown) trainOff(); return; }
+    if (stick.on || keys.fwd || keys.back || keys.left || keys.right || keys.sleft || keys.sright) stillSince = now;
+    const h = handAt();
+    if (h !== atHand) { atHand = h; atHandSince = now; }
+    if (trainShown) {
+      const gone = trainShown === 'move' ? now - stillSince < 50 : atHand !== trainShown;
+      if (gone || (trainShown !== 'move' && now - trainAt > TRAIN_SHOW)) trainOff();   // walking's stays till you walk
+      return;
+    }
+    if (!learnt.move) { if (now - stillSince > TRAIN_WAIT.move) trainOn('move', now); return; }   // walking first
+    if (atHand && !learnt[atHand] && now - atHandSince > TRAIN_WAIT[atHand]) trainOn(atHand, now);
+  }
+  function resetTraining() { learnt = {}; try { localStorage.removeItem(TKEY); } catch (e) {} trainOff(); stillSince = atHandSince = performance.now(); }
 
   // ── the gear panel ────────────────────────────────────────
   const fmt = (k, v) => { const st = FP_RANGES[k][2]; return st < 1 ? (+v).toFixed(st < 0.05 ? 2 : st < 0.5 ? 2 : 1) : String(v); };
@@ -3249,7 +3311,7 @@
     bindSel('optStones', 'dbgStones', rebuild);
     for (const k of MAZE_KEYS) bindSel('optM_' + k, 'dbg_' + k, rebuild);
   }
-  $('gear').onclick = () => { hideHint(); $('panel').classList.toggle('open'); };
+  $('gear').onclick = () => { $('panel').classList.toggle('open'); };
   // Joe: "When I have a debug window open and I tap outside of it, I want the debug window to close."
   // That tap only closes it: it doesn't also walk, chalk a wall or open a door behind the panel
   addEventListener('pointerdown', (e) => {
@@ -3303,6 +3365,7 @@
     Promise.race([Promise.all(urls.map((u) => fetch(u, { cache: 'reload' }).catch(() => {}))), timeout])
       .then(() => location.replace(location.pathname + '?u=' + Date.now()));   // core.js strips the stamp again on load
   };
+  $('resetTraining').onclick = () => { $('panel').classList.remove('open'); resetTraining(); };
   $('resetKnobs').onclick = () => { try { localStorage.removeItem(SKEY); } catch (e) {} location.reload(); };
   $('ver').textContent = 'v' + VERSION + ' · first person';
 
@@ -3351,6 +3414,7 @@
     else arrowEl.style.display = 'none';
     update(now, dt);
     render(now);
+    trainFrame(now);
     drawMini(now);
     if (++frames >= 30) { $('fps').textContent = Math.round(frames * 1000 / (now - fpsAt)) + ' fps · ' + RW + '×' + RH; frames = 0; fpsAt = now; }
     requestAnimationFrame(frame);
@@ -3362,5 +3426,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

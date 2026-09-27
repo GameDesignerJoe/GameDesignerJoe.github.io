@@ -19,7 +19,7 @@ const lines = allLines.filter((l) => l.kind === 'prose');
 
 // How much room a line has where it appears. Reading room, not a rule — a narrator line holds for
 // six seconds; a card waits to be dismissed.
-const ROOM = { narrator: 100, card: 280, page: 400, pool: 200, shrine: 90, map: 80, unknown: 200 };
+const ROOM = { narrator: 100, card: 280, page: 400, pool: 200, shrine: 90, map: 80, prompt: 40, unknown: 200 };
 
 // Play order: the chapters as the game runs them, the pool after each, then everything that can
 // happen in any of them.

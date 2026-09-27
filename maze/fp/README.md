@@ -34,6 +34,12 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   (buffered quarter turns, centred in halls). **Free** is no help at all. Keys are a stick too; Space (or X) is the hand — whatever is straight ahead: take it, open it,
   chalk it, step into or out of the closet, put the page down. **Full screen** on the panel, for a PC.
   A tap on the view no longer moves you: it touches what is within reach.
+- **Training** (`FP_TRAINING` in `data/text.js`). Nothing is said up front. Stand 5 seconds without touching the stick or
+  WASD and the stick glows, with a quiet line under the view; stand a few seconds facing a wall you could chalk, a shut
+  door, a closet, a light switch or a squeeze's mouth and the line says what to press — "tap" on a touch screen, Space or W
+  on a keyboard, by whichever you used last. Each is taught once ever: shown, or done before it had to be. What's learnt is
+  kept in its own store (`maze.fp.training`), apart from the knobs; **Reset training** on the Debug panel forgets it.
+  The old always-on hint line is gone.
 - **Things in the world and tapping them.** The maze's pages, chalk and charcoal are drawn as flat
   pictures facing you, depth-tested against the walls. Walk over one or tap it to take it; a page
   shows its text. Tap a wall within reach to chalk it (an X early on, the sign picker once signs
