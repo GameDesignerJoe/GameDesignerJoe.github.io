@@ -414,6 +414,27 @@ const TURN_LINES = {
   },
 };
 
+// first person: the chapter's journal pages, each in its own place rather than dropped anywhere. Joe: "each
+// journal has a specific place/room now rather than being random. Maybe we start with one in the start room and
+// other rooms each have one. They can get twice as long too." And: "We would need to say something about the room
+// being lies when you collect the journal there." Built out from Joe's five Child pages (his lines kept, in order),
+// to about twice the length, and each now says what its room is. Keyed by place:
+//   start   — beside the mat you wake on
+//   waiting — the waiting room, on the floor by the saved chair: its walls are what he told himself
+//   wall    — the wall, against the far wall: everything painted over is a lie as well; cross it out
+//   kid     — the kid's chalk room, behind its squeeze, in the dark
+//   heart   — the heart, in the middle: the letter he never sent
+// The words past Joe's are Claude's drafts, to be rewritten.
+const FP_PAGES = {
+  'The Child': {
+    start: "I tried to wait… or I did wait, didn’t I? But I got lost in waiting. Dad said stay here, so I stayed, and the room got bigger around me every time I didn’t look. I wrote on the walls to pass the time. I wrote a lot. Not all of it is true. If you find the rooms where I wrote the most, don’t believe them. Believe this.",
+    waiting: "I drew a map to me. He’ll find me. Dad will come back. He just busy. I called the other day. I’ll see him soon. I’m out of chalk. Every word on these walls is something I told myself so I could keep sitting here. He isn’t coming. I knew. I kept writing anyway. Cross them out for me. I can’t do it.",
+    wall: "I thought I heard him. I told mom. She didn’t like that. I looked for him, but I got lost. I’m gonna look some more. Then I painted over all of it and wrote I’m fine until the paint ran out. I’m fine. It doesn’t matter. I wrote it so many times I almost believed it. It’s a lie too. Put a line through it.",
+    kid: "I found him. I dreamed. He blamed mom. He blamed the war. His war. He said I shouldn’t cry. Men don’t cry. I wasn’t.\nI wasn’t.\nThis is where I came when the house got loud. It’s dark until you find the switch. I drew everything I wanted on the walls. Us. The house. Him, walking away. I drew that one the most.",
+    heart: "Dear dad. I wrote this so I don’t forget. You smelled like coffee and cut grass. You called me buddy. You said five minutes. I’m not mad. I just want to know if it was me. I don’t think im going to right anymore. I’m gonna go help mom. But if you find this you are doing good. Keep going. I’ll leave the light on for you.",
+  },
+};
+
 // first person, the school look: what's on the chalkboards. Keyed by self (`_` for any other). A board gets
 // one of `lines` written over and over down it, the way a kid writes out lines as a punishment, or one of
 // `prompts` at the top as if the class were about to start. Claude's drafts, to be rewritten.
@@ -436,5 +457,5 @@ const CHALKBOARD = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES,
 };

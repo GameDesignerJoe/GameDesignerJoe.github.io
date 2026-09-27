@@ -275,6 +275,10 @@
     // a chapter that opens with words on the wall wakes you facing them
     const wake = startWords.find((w) => w.h !== undefined); if (wake) P.a = wake.h * QUARTER;
     anim = null; queued = null; steps = 0; won = false; vel = 0; lastTile = '';
+    // the first page, just past the end of the mat: the first thing you find
+    { const sp = objs.find((o) => o.place === 'start');
+      if (sp) { const fx = Math.cos(P.a), fy = Math.sin(P.a), x = Math.floor(P.x + fx * 1.1), y = Math.floor(P.y + fy * 1.1);
+        if (!solid(x, y) && !low[y * W + x]) { sp.x = P.x + fx * 1.0; sp.y = P.y + fy * 1.0; } else { sp.x = P.x + fx * 0.75; sp.y = P.y + fy * 0.75; } } }
     // the mat you wake on, and its pillow behind your head: flat, so you walk over the mat; it stays there after
     if (floor === 1) {
       const fx = Math.cos(P.a), fy = Math.sin(P.a), ux = -fy, uy = fx;
@@ -506,6 +510,7 @@
     placeSwitches(new Set(reserved.concat(closets.map((c) => faceKey(c.k, c.face)))));
     placeFurniture();
     storyProps();
+    placePages();
     buildLight();
     hud();
   }
@@ -1266,8 +1271,8 @@
   function storyProps() {
     for (const st of story) {
       const m = st.m, ix = m.rx - m.mx, iy = m.ry - m.my;   // into the room
-      if (st.kind === 'heart') {   // the letter he never sent, on the floor in the middle
-        objs.push({ x: heart.mid % W + 0.5, y: ((heart.mid / W) | 0) + 0.5, kind: 'note', text: st.text.letter, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });   // Joe: "It should look like a regular journal"
+      if (st.kind === 'heart') {   // the letter he never sent, on the floor in the middle (a page now, if the chapter has placed ones)
+        if (!placedPages()) objs.push({ x: heart.mid % W + 0.5, y: ((heart.mid / W) | 0) + 0.5, kind: 'note', text: st.text.letter, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });   // Joe: "It should look like a regular journal"
         continue;
       }
       if (st.kind === 'waiting') {
@@ -1734,7 +1739,7 @@
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
     else if (o.kind === 'watch') { carried.add('watch'); flash('hudWatchBox'); showNote(o.text); FP_SOUND.chalkUp(); }
-    else if (o.kind === 'page') { addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg); FP_SOUND.page(); }
+    else if (o.kind === 'page') { addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg, o.text); FP_SOUND.page(); }
     hud();
   }
   function flash(id) { const el = $(id); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
@@ -1748,11 +1753,42 @@
     for (const k of Object.keys(keys)) keys[k] = false;
     $('page').classList.add('show'); document.body.classList.add('reading');
   }
-  function showPage(pg) {
-    const text = character && character.pages ? character.pages[pg] : '';
+  function showPage(pg, own) {
+    const text = own || (character && character.pages ? character.pages[pg] : '');
     $('pageText').textContent = text || '…';
     $('pageWho').textContent = '';   // Joe: "The note from the kid wouldn't be signed … at all"
     openPage();
+  }
+  // A chapter with FP_PAGES (data/text.js) has its pages in places: the start room, each story room, the kid's
+  // room. They replace the generator's own, which lie wherever; the floors above have none. A place the maze didn't
+  // make keeps one of the generator's spots instead, so the count is always the chapter's.
+  const placedPages = () => typeof FP_PAGES !== 'undefined' && character && FP_PAGES[character.name] ? FP_PAGES[character.name] : null;
+  function placePages() {
+    const PG = placedPages(); if (!PG) return;
+    const spare = objs.filter((o) => o.kind === 'page');
+    objs = objs.filter((o) => o.kind !== 'page');
+    if (floor !== 1) { pagesTotal = Object.keys(PG).length; return; }
+    const blocked = (x, y) => fboxes.some((b) => b.x0 < x + 0.2 && b.x1 > x - 0.2 && b.y0 < y + 0.2 && b.y1 > y - 0.2);
+    const free = (k) => { const x = k % W + 0.5, y = ((k / W) | 0) + 0.5; return !solid(k % W, (k / W) | 0) && !low[k] && !blocked(x, y) && !objs.some((o) => Math.floor(o.x) === k % W && Math.floor(o.y) === ((k / W) | 0)); };
+    const farthest = (tiles, fromK) => { let best = -1, bd = -1; for (const k of tiles) if (free(k)) { const d = Math.hypot(k % W - fromK % W, ((k / W) | 0) - ((fromK / W) | 0)); if (d > bd) { bd = d; best = k; } } return best; };
+    const at = {};
+    const sk = Math.floor(start.y) * W + Math.floor(start.x);
+    at.start = sk;   // moved in front of you once you're lying on the mat (reset)
+    for (const st of story) {
+      const mk = st.m.my * W + st.m.mx;
+      if (st.kind === 'waiting' || st.kind === 'wall') at[st.kind] = farthest(st.tiles, mk);
+      if (st.kind === 'heart') at.heart = heart.mid;
+    }
+    const sec = secretSet();
+    if (sec) { const [fx, fy] = typeof secretFather === 'string' && secretFather ? secretFather.split(',').map(Number) : [-1, -1]; at.kid = fy >= 0 && free(fy * W + fx) ? fy * W + fx : farthest([...sec], sk); }
+    let n = 0;
+    for (const [place, text] of Object.entries(PG)) {
+      let k = at[place], x, y;
+      if (k === undefined || k < 0) { const o = spare[n % Math.max(1, spare.length)]; if (!o) continue; x = o.x; y = o.y; }
+      else { x = k % W + 0.5; y = ((k / W) | 0) + 0.5; }
+      objs.push({ x, y, kind: 'page', pg: n++, place, text, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+    }
+    pagesTotal = Object.keys(PG).length;
   }
   // the chapter's pages are spread across its floors, not a set on each. Joe: "Spread journals across all floors."
   // Every floor's generator lays out the whole set; each keeps only its share, dealt round like cards — page 1 on

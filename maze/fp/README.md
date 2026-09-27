@@ -40,6 +40,10 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   (Caveat, SIL OFL, kept in `fp/caveat-latin.woff2` so it reads the same offline). A door's jambs and the sides of a squeeze take chalk like any wall (each a face of its own,
   keyed to its open tile). Found things are kept for the run
   only — nothing is written to the top-down's save yet.
+- **Pages have places** (`FP_PAGES` in data/text.js, per chapter). The Child's five: beside the mat you wake on, in the
+  waiting room, in the wall, in the kid's chalk room, and in the heart (the letter he never sent). Each is twice the length
+  of the old ones and says what its room is. They replace the generator's pages; the floors above have none. A place a maze
+  didn't make keeps one of the generator's spots, so the count is always the chapter's.
 - **The maze is not empty.** Pushing through a squeeze toward its far end, now and then (`squeezeScare`, once a
   squeeze at most, 90s apart) a black figure whips across the opening and is gone, with a scuffle of feet — drawn
   over the squeeze's veil, since it's the one thing past it you're meant to see. And somewhere else in the building,
