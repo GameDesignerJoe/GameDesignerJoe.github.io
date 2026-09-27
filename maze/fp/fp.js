@@ -406,7 +406,7 @@
       const keepChalk = chalk, keepCharcoal = charcoalN, keepPages = pagesFound;
       floor = n; SEED = floorSeed(n);
       builtTurned = floorStates.has(n) ? floorStates.get(n).builtTurned : turned;
-      applyMazeDebug(); generate(SEED); carveHeart(); spreadPages(); reset();
+      applyMazeDebug(); generate(SEED); thinSqueezes(); carveHeart(); spreadPages(); reset();
       chalk = keepChalk; charcoalN = keepCharcoal; pagesFound = keepPages;
       const st = floorStates.get(floor);
       taken = st ? new Set(st.taken) : new Set();
@@ -905,7 +905,7 @@
   // before it resets you." So it stays dormant until `turned`, and each time it comes it can't take you until
   // enough of it has been on your screen (BEING_SEEN_PX drawn pixels, walls and doors hiding it); unseen, it
   // holds a little behind you, feet close, until you turn round, or gives up after BEING_HOLD.
-  const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_PASSES = 3, BEING_SEEN_PX = 60, BEING_HOLD = 12000, BEING_NEAR = 3, BEING_LOST = 15000, BEING_VIEW = 9, BEING_PEER = 1800;
+  const BEING_GRACE = 40000, BEING_GAP = 90000, BEING_SIGNS = 2600, BEING_PASSES = 3, BEING_SEEN_PX = 60, BEING_HOLD = 12000, BEING_NEAR = 3, BEING_LOST = 15000, BEING_VIEW = 9, BEING_PEER = 1800, BEING_PEER_REACH = 12;
   let pathDist = null, pathNear = null, pathIdx = null, being = null, beingState = 'dormant', beingT = 0, offSince = 0, rolled = false, deadAt = -1, beingAim = null, beingNext = 0, beingForce = false, fieldAt = 0, field = null, stepT = 0;
   function beingIndex() {   // how far every tile is from the way out, and which tile of it is nearest
     pathDist = new Int32Array(W * H).fill(-1); pathNear = new Int32Array(W * H).fill(-1); pathIdx = new Map();
@@ -937,7 +937,8 @@
     if (fx === null) { for (const m of mouths) if (look(m) > look(mouth)) mouth = m; }
     else { const f = distField(Math.floor(fy) * W + Math.floor(fx)); const ok = mouths.filter((m) => f[m] >= 0); if (!ok.length) return false;
       const score = (m) => (look(m) > 0 ? 0 : 1000) + f[m];   // one in front of you first, then the nearest to it
-      mouth = ok.reduce((b, m) => score(m) < score(b) ? m : b, ok[0]); }
+      mouth = ok.reduce((b, m) => score(m) < score(b) ? m : b, ok[0]);
+      if (Math.min(...ok.map((m) => f[m])) > BEING_PEER_REACH) { beingGone(); return true; } }   // a long way round to look in: it just goes
     if (fx === null) being = beingObj(mouth % W + 0.5, ((mouth / W) | 0) + 0.5);
     being.mouth = mouth; being.peerUntil = fx === null ? performance.now() + BEING_PEER : 0; being.lastSeen = performance.now();
     beingState = 'peer'; fieldAt = 0; if (fx === null) FP_SOUND.beingSees();
@@ -1383,6 +1384,28 @@
     FP_SOUND.page();
   }
 
+  // ── fewer squeezes ────────────────────────────────────────
+  // Joe: "We need less chains of squeezes on the map. There are just too many of them." Measured: about 17 a maze, 3 of
+  // them chains of three to seven tiles. So, before anything else is placed: `squeezeChains` chains are kept (the
+  // longest — the one "thick batch"), `squeezeSingles` of the single ones, and the rest are opened to plain floor — which
+  // only ever adds a way through, so nothing is cut off. The kid's room keeps its squeeze. Its own stream
+  function thinSqueezes() {
+    const R = rng(SEED + 270001), gaps = [...crawlGaps, ...crawlCells], isLow = new Set(gaps);
+    if (!isLow.size) return;
+    const secret = typeof secretTiles !== 'undefined' ? secretTiles : new Set();
+    const nearSecret = (x, y) => HD.some(([dx, dy]) => secret.has((x + dx) + ',' + (y + dy)));
+    const seen = new Set(), runs = [];
+    for (const g of gaps) { if (seen.has(g)) continue; const run = [g]; seen.add(g);
+      for (let i = 0; i < run.length; i++) { const [x, y] = run[i].split(',').map(Number);
+        for (const [dx, dy] of HD) { const n = (x + dx) + ',' + (y + dy); if (isLow.has(n) && !seen.has(n)) { seen.add(n); run.push(n); } } }
+      runs.push(run); }
+    const keep = (run) => run.some((g) => { const [x, y] = g.split(',').map(Number); return nearSecret(x, y); });
+    const chains = runs.filter((r) => r.length >= 2 && !keep(r)).sort((a, b) => b.length - a.length);
+    const singles = runs.filter((r) => r.length < 2 && !keep(r));
+    const open = [...chains.slice(Math.max(0, Math.round(S.squeezeChains)))];
+    for (const r of singles) if (R() >= S.squeezeSingles) open.push(r);
+    for (const r of open) for (const g of r) { crawlGaps.delete(g); crawlCells.delete(g); }
+  }
   // ── the heart ─────────────────────────────────────────────
   // Joe: "I want a hidden story room that is a representation of inside the heart of the kid. He misses
   // his dad and feels abandoned. This room should be hidden somehow. Put it furthest away from the exit
@@ -1951,7 +1974,7 @@
     BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
-    generate(SEED); carveHeart(); spreadPages(); reset(); startWake();
+    generate(SEED); thinSqueezes(); carveHeart(); spreadPages(); reset(); startWake();
     FP_SOUND.setMusic(track());
   }
 
@@ -3335,7 +3358,7 @@
   applyTheme();
   resize();
   applyMazeDebug();
-  BASE = SEED; generate(SEED); carveHeart(); spreadPages(); reset(); opening(); lastX = P.x; lastY = P.y;
+  BASE = SEED; generate(SEED); thinSqueezes(); carveHeart(); spreadPages(); reset(); opening(); lastX = P.x; lastY = P.y;
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console

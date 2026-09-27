@@ -204,9 +204,9 @@ console.log('The Maze — first person checks');
   await p.evaluate(() => { const W = FP.W, L = FP.low; for (let k = 0; k < L.length; k++) if (L[k] && !FP.heartAt[k] && FP.pathDist[k] > 3) { const x = k % W, y = (k / W) | 0;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (tiles[y + dy][x + dx] && !L[(y + dy) * W + x + dx]) { FP.P.x = x + 0.5; FP.P.y = y + 0.5; FP.P.a = Math.atan2(dy, dx); return; } } });
   const states = [];
-  for (let i = 0; i < 24; i++) { await p.waitForTimeout(400); states.push(await p.evaluate(() => FP.beingState)); if (states[states.length - 1] === 'dormant' && states.includes('peer')) break; }
+  for (let i = 0; i < 44; i++) { await p.waitForTimeout(400); states.push(await p.evaluate(() => FP.beingState)); if (states[states.length - 1] === 'dormant' && states.includes('peer')) break; }   // it walks round to the mouth at your pace first
   check('in a squeeze, the being looks in at you and goes', states.includes('peer') && states[states.length - 1] === 'dormant' && !states.includes('closet'),
-    `states: ${[...new Set(states)].join(' → ')}`);
+    `states: ${[...new Set(states)].join(' → ')}` + (states.includes('dormant') ? '' : ` (${await p.evaluate(() => JSON.stringify({ now: performance.now() | 0, won: FP.won, hidden: !!FP.hidden, heartAt: FP.heartAt[Math.floor(FP.P.y) * FP.W + Math.floor(FP.P.x)], reading: document.body.classList.contains('reading'), b: FP.being && [+FP.being.x.toFixed(2), +FP.being.y.toFixed(2), FP.being.mouth, FP.being.peerUntil], P: [FP.P.x, FP.P.y] }))})`));
   await p.close();
 }
 

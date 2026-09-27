@@ -150,6 +150,11 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   next good view. Every chapter, for now.
 - **A look can have a ceiling instead of a sky** (`ceils`/`ceilPick` in its theme). Corner shadows
   (`ao`) are laid on from the maze by the renderer, on floors, ceilings and walls, so they need no art.
+- **Fewer squeezes** (`squeezeChains`, `squeezeSingles`). Of the generator's squeezes (about 17 a maze, three of them
+  chains), the first person keeps the longest chain and half the single ones, and opens the rest to plain floor — which only
+  adds ways through. The kid's room keeps its squeeze. About 9 a maze now.
+- **The district prototype** (Maze → Prototype → Districts on the panel) now loads here too: content first, halls last, a
+  much bigger map. The Child's story rooms don't fit it yet — only the heart is placed on it.
 - **Light.** Every tile has a brightness: ceiling lamps flood out through open floor (`reach`), flickering
   ones take their pools with them, and a look with a sky is lit evenly. Dark halls (the generator's
   darkness plus this view's own, `darkHalls`) sit at `darkLevel`, very dim, the far end showing. Squeezes
