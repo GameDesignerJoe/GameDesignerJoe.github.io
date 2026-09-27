@@ -1316,11 +1316,14 @@
   function storyFrame() {
     const si = storyAt ? storyAt[Math.floor(P.y) * W + Math.floor(P.x)] : -1;
     if (si === storyHere) return;
-    if (si >= 0 && !story[si].found) { story[si].found = true; addFind(); }
+    // walking into a story room is noted, but it isn't a find: the turn is pages only. Joe: "We should really make
+    // sure the turn happens at 3 journals, not 2" — a room walked into used to count as one
+    if (si >= 0 && !story[si].found) story[si].found = true;
     storyHere = si; storyMusic = si >= 0 ? story[si].music : null;
     FP_SOUND.setMusic(track());
   }
   function showNote(text) {
+    if (reading) { pageQueue.push(text); return; }
     $('pageText').textContent = text; $('pageWho').textContent = '';
     openPage();
     FP_SOUND.page();
@@ -1761,6 +1764,9 @@
   // don't have it go away until the user taps off of the journal page. Disable movement and other hud
   // features while it's active." A tap on the paper itself does nothing.
   let reading = false;
+  // something picked up while a page is already up waits its turn, rather than replacing it: Joe saw "the text of one
+  // journal for a second then switches to another journal text" — two things read in the same moment
+  let pageQueue = [];
   function openPage() {
     reading = true; clearStick(); vel = 0; anim = null; queued = null;
     for (const k of Object.keys(keys)) keys[k] = false;
@@ -1768,6 +1774,7 @@
   }
   function showPage(pg, own) {
     const text = own || (character && character.pages ? character.pages[pg] : '');
+    if (reading) { pageQueue.push(text || '…'); return; }
     $('pageText').textContent = text || '…';
     $('pageWho').textContent = '';   // Joe: "The note from the kid wouldn't be signed … at all"
     openPage();
@@ -1794,9 +1801,11 @@
     }
     const sec = secretSet();
     if (sec) { const [fx, fy] = typeof secretFather === 'string' && secretFather ? secretFather.split(',').map(Number) : [-1, -1]; at.kid = fy >= 0 && free(fy * W + fx) ? fy * W + fx : farthest([...sec], sk); }
-    let n = 0;
+    let n = 0; const used = new Set();
     for (const [place, text] of Object.entries(PG)) {
       let k = at[place], x, y;
+      if (k !== undefined && k >= 0 && used.has(k)) k = -1;   // two places never share a tile
+      if (k >= 0) used.add(k);
       if (k === undefined || k < 0) { const o = spare[n % Math.max(1, spare.length)]; if (!o) continue; x = o.x; y = o.y; }
       else { x = k % W + 0.5; y = ((k / W) | 0) + 0.5; }
       objs.push({ x, y, kind: 'page', pg: n++, place, text, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
@@ -1814,7 +1823,10 @@
     const order = [...new Set(journals.values())].sort((a, b) => a - b);
     for (const [key, pg] of [...journals]) if (order.indexOf(pg) % F !== floor - 1) journals.delete(key);
   }
-  function hidePage() { reading = false; $('page').classList.remove('show'); document.body.classList.remove('reading'); }
+  function hidePage() {
+    reading = false; $('page').classList.remove('show'); document.body.classList.remove('reading');
+    if (pageQueue.length) { const t = pageQueue.shift(); setTimeout(() => { $('pageText').textContent = t; $('pageWho').textContent = ''; openPage(); FP_SOUND.page(); }, 350); }
+  }
   $('page').addEventListener('pointerdown', (e) => {
     e.stopPropagation(); e.preventDefault();
     if (e.target.closest('#page > div')) return;   // on the paper: keep reading
@@ -1843,7 +1855,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
+    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); carveHeart(); spreadPages(); reset(); startWake();

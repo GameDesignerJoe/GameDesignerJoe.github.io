@@ -182,6 +182,33 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the turn: three pages, and nothing else counts ───────────────
+{
+  const p = await open(4242); await p.waitForTimeout(3500);
+  const walkOnto = (place) => p.evaluate((place) => { const o = FP.objs.find((o) => o.kind === 'page' && o.place === place); FP.P.x = o.x; FP.P.y = o.y; }, place);
+  // into every story room first: that's no find
+  for (const kind of ['waiting', 'wall']) { await p.evaluate((kind) => { const st = FP.story.find((s) => s.kind === kind); const k = st.tiles[st.tiles.length >> 1]; FP.P.x = k % FP.W + 0.5; FP.P.y = ((k / FP.W) | 0) + 0.5; }, kind); await p.waitForTimeout(250); await closePage(p); }
+  const afterRooms = await p.evaluate(() => [FP.finds, FP.turned]);
+  await walkOnto('start'); await p.waitForTimeout(250); await closePage(p);
+  await walkOnto('waiting'); await p.waitForTimeout(250); await closePage(p);
+  const afterTwo = await p.evaluate(() => FP.turned);
+  await walkOnto('wall'); await p.waitForTimeout(250); await closePage(p);
+  const afterThree = await p.evaluate(() => [FP.turned, document.getElementById('hudPages').textContent]);
+  check('the building turns at the third page, and walking into rooms doesn\'t count', afterRooms[0] === 0 && !afterRooms[1] && !afterTwo && afterThree[0],
+    `finds after both story rooms: ${afterRooms[0]}; turned after two pages: ${afterTwo}; after three: ${afterThree[0]} (HUD ${afterThree[1]})`);
+  // two things picked up together: the second waits for the first to be put down
+  await p.evaluate(() => { const a = FP.objs.find((o) => o.kind === 'page' && o.place === 'kid'), b = FP.objs.find((o) => o.kind === 'page' && o.place === 'heart'); b.x = a.x; b.y = a.y; FP.P.x = a.x; FP.P.y = a.y; });
+  await p.waitForTimeout(300);
+  const first = await p.evaluate(() => document.getElementById('pageText').textContent.slice(0, 20));
+  await p.waitForTimeout(600);
+  const still = await p.evaluate(() => document.getElementById('pageText').textContent.slice(0, 20));
+  await closePage(p); await p.waitForTimeout(500);
+  const second = await p.evaluate(() => [document.getElementById('page').classList.contains('show'), document.getElementById('pageText').textContent.slice(0, 20)]);
+  check('two pages picked up at once are read one after the other, never one over the other', first === still && second[0] && second[1] !== first,
+    `first "${first}…" held while up (${first === still}); after closing it: ${second[0] ? `"${second[1]}…"` : 'nothing'}`);
+  await p.close();
+}
+
 // ── reading ──────────────────────────────────────────────────────
 {
   const p = await open(4242); await p.waitForTimeout(3500);

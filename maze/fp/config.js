@@ -51,7 +51,7 @@ const FP_CONFIG = {
   beingChance: 0.1, // the chance it comes, each time you go that far off (Joe: "a 10% chance")
   beingDead: 0.25,  // after the turn, the chance it comes when you walk into the end of a dead end
   calm: true,       // a maze starts calm, before the turn: no dark halls of this view's own, switched rooms lit
-  turnAfter: 3,     // finds (pages read, story rooms walked into) before the building turns on you. 0 never
+  turnAfter: 3,     // pages read before the building turns on you (rooms walked into no longer count). 0 never
   turnRooms: 0.5,   // after the turn, the chance a room you walk into goes dark (each room decided once)
   turnHalls: 0.5,   // after the turn, the chance a hall you walk into goes dark ahead of you
   heart: true,      // the heart: a hidden story room, furthest from the start and the exit, through a maze of squeezes (Child, floor 1)

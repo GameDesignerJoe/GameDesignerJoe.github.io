@@ -36,7 +36,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   shows its text. Tap a wall within reach to chalk it (an X early on, the sign picker once signs
   open). Dead ends carry words from `WALL_WORDS` in `data/text.js`. A chapter can open with two walls (`WALL_START`): the first across the
   start room, and you wake facing it; the second ahead of you as you step out of that room. The Child's are Joe's:
-  "stay here." and "but I didn't." A page (or a note) stays up until you tap off it — or Esc/Enter/Space — and while it's up you're reading: you don't move, the HUD steps away, the being holds still. It opens as a torn sheet of ruled notebook paper in a hand
+  "stay here." and "but I didn't." A page (or a note) stays up until you tap off it (two picked up at once are read one after the other) — or Esc/Enter/Space — and while it's up you're reading: you don't move, the HUD steps away, the being holds still. It opens as a torn sheet of ruled notebook paper in a hand
   (Caveat, SIL OFL, kept in `fp/caveat-latin.woff2` so it reads the same offline). A door's jambs and the sides of a squeeze take chalk like any wall (each a face of its own,
   keyed to its open tile). Found things are kept for the run
   only — nothing is written to the top-down's save yet.
@@ -69,8 +69,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   way out yourself, it lets you be. In a closet: it runs up and past the door, back and forth, stops once square in
   front of the slats to look in, and is gone. In a squeeze: it comes to the mouth of it (the one you're facing, if it
   can), looks in at you for `BEING_PEER`, and goes. **Being now** on the panel calls it (after the turn or not).
-- **The turn.** A maze starts calm (`calm`: no dark halls of this view's own, switched rooms lit). Each page read and
-  story room walked into is a find; at `turnAfter` (3) the building turns — every tube stutters, something big goes
+- **The turn.** A maze starts calm (`calm`: no dark halls of this view's own, switched rooms lit). Each page read is a
+  find (a room walked into no longer is); at `turnAfter` (3) the building turns — every tube stutters, something big goes
   off far away, the music drops to `The Turn`. After it, a room you walk into may stutter out and go dark (`turnRooms` of them, each room decided the first time you
   walk in), and on its
   walls, in paint that shows only in the dark, `TURN_LINES` ("you shouldnt be here!", "leave", "he left. do the

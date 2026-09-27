@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.142.0';
+const VERSION = '0.143.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
