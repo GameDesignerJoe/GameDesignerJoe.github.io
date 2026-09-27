@@ -219,6 +219,20 @@ const FP_SOUND = (() => {
       for (let i = 0; i < 4; i++) burst(0.05, { vol: 0.3, freq: 1400 + Math.random() * 500, q: 3, at: i * 0.07 + (i > 1 ? 0.12 : 0) });
       burst(0.12, { vol: 0.25, freq: 240, q: 1, type: 'lowpass', at: 0.02 });
     },
+    // a lie crossed out: the chalk dragged hard through it, and a low note under it; the last one of a room, lower
+    crossOut(last) {
+      if (!live()) return;
+      burst(0.35, { vol: 0.35, freq: 2200, q: 0.8, slide: 900 });
+      tone(last ? 196 : 262, last ? 1.6 : 0.8, { type: 'sine', vol: 0.08, attack: 0.05 });
+      if (last) tone(294, 1.4, { type: 'sine', vol: 0.05, attack: 0.2, at: 0.3 });
+    },
+    // somewhere far off, a wall giving way: a long low settle and grit falling
+    wallGives() {
+      if (!live()) return;
+      tone(55 * 4, 2.4, { type: 'triangle', vol: 0.1, slide: 45 * 4, attack: 0.08 });
+      burst(2.0, { vol: 0.3, freq: 180, q: 0.6, type: 'lowpass' });
+      for (let i = 0; i < 8; i++) burst(0.05, { vol: 0.1, freq: 2500 + Math.random() * 2000, q: 3, at: 0.4 + Math.random() * 1.6 });
+    },
     // a light going out: the tube's tick and its hum dropping away, quieter the further off it is
     lightOut(near) {
       if (!live()) return;

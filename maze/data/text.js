@@ -376,12 +376,15 @@ const STORY_ROOMS = {
         "when he gets here im not going to be mad", "i can wait longer than anybody", "he told me to wait here so this is where i wait"],
       big: ["wait here", "he said he would come back"],
       note: "saved your seat dad. dont worry. i didnt let anybody sit in it.",
+      // written over the lines when you cross a face out (first person): what's true under them. Claude's drafts
+      truths: ["he isnt coming back", "it was more than five minutes", "i waited and he didnt come", "nobody is coming", "i can get up now", "it wasnt my job to wait"],
     },
     wall: {
       bricks: ["im fine", "it doesnt matter", "i dont care", "i dont need him", "i never think about it", "its not a big deal",
         "whatever", "people leave", "im over it", "stop asking", "i dont miss him", "better off", "never needed him", "doesnt bother me"],
       crack: "come back",
       note: "the watch he gave me stopped at five past. i dont wear it. i just keep it.",
+      truths: ["i miss him", "it matters", "i think about it every day", "i needed him", "it hurts", "i do care"],
     },
     // the heart: the hidden room, through the squeezes. Joe: "a representation of inside the heart of the
     // kid. He misses his dad and feels abandoned." What's under the waiting and under the wall; the one

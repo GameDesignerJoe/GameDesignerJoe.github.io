@@ -86,6 +86,11 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   take: tap it and you carry it (`carried`, shown on the HUD, up and down the stairs; perhaps an offering, once the statues
   come back). Notes are read where they lie (a tap, or the first time you walk to them), never taken. **To a story
   room** on the panel. Sprites can stand off the floor now (`z`), for the note on the seat.
+- **Crossing out the lies.** The waiting room and the wall are what he told himself. Chalk a face of either and every
+  line on it is struck through, and what's true is written clear over them in red (`truths` in `STORY_ROOMS`). `liesToUndo`
+  faces and the room is undone — its music stops. Both undone and somewhere a wall gives: the heart's way in, walled up
+  until then, opens, and its heartbeat carries twice as far so you can follow it. Kept for the run, stairs and all. The
+  turn leaves both rooms alone now (its words would cover theirs). **Cross out the lies** on the panel does it for you.
 - **The heart** (`heart`; the Child, floor 1; words in `STORY_ROOMS` → `heart`). The third story room, and the hidden one:
   what's under the waiting and under the wall. A room the shape of a heart, carved after the generator (on its own stream)
   where its way in is furthest from both the start and the exit, clear of the big rooms the other two are made from. You
@@ -93,8 +98,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   its point. Deep red walls written over in crayon ("i miss you", "was it me", "come home", "i wear the watch when nobody
   can see"), on the far wall "i miss you dad" over the two of them holding hands, a letter he never sent lying on the floor
   (drawn as a journal; read where it lies). Deep red plush underfoot, padded and buttoned overhead (`TEX.heart`).
-  One warm pink lamp, beating (`HEART_BPM`); its own music (`The Heart`: a tune he knew, slowed); and a heartbeat you can hear
-  through the walls from `HEART_HEAR` steps off, the only sign it's there. The turn leaves it alone, nothing else is
+  One warm pink lamp, beating (`HEART_BPM`); its own music (`The Heart`: a tune he knew, slowed); and, once it's open, a heartbeat you
+  can hear through the walls from `HEART_HEAR_OPEN` steps off. Until the lies are crossed out its way in is wall. The turn leaves it alone, nothing else is
   placed in it, and the being can't follow you in. **To the heart** on the panel stands you outside its way in.
 - **Stairs** (`floors`, 2 by default; 1 is none). Floor 1 is the chapter's maze; each floor above is a maze of its own
   from its own seed off the first, so it's always the same floor. Going up is a door marked up at the end of a far

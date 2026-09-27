@@ -1120,7 +1120,7 @@
       lastRoomComp = ri;
       // each room is decided once, the first time you walk in after the turn: `turnRooms` of them go dark.
       // Joe: "there should be 50% chance that rooms go dark. Right now it's 100% and that feels a little much."
-      if (ri >= 0 && !roomsOut.has(ri) && !roomsSpared.has(ri) && !(secret && secret.has(k)) && !inHeart(k) && now - turnAt > 1500) {
+      if (ri >= 0 && !roomsOut.has(ri) && !roomsSpared.has(ri) && !(secret && secret.has(k)) && !inHeart(k) && !(storyAt && storyAt[k] >= 0) && now - turnAt > 1500) {
         if (Math.random() < S.turnRooms) roomOut(ri, now); else roomsSpared.add(ri);
       }
     }
@@ -1264,7 +1264,10 @@
         for (const k of tiles) ceilVar[k] = kind === 'wall' ? glowVar : plain;
         if (kind === 'wall') flickers = flickers.filter((k) => !set.has(k));
       }
-      story.push({ kind, tiles, set, m, music: kind === 'waiting' ? 'The Waiting Room' : 'The Wall', text: W8 });
+      const lieFaces = new Set(faces.map((f) => faceKey(f.k, f.face))), struck = new Set([...liesStruck].filter((fk) => lieFaces.has(fk)));
+      const st = { kind, tiles, set, m, music: kind === 'waiting' ? 'The Waiting Room' : 'The Wall', text: W8, lieFaces, struck, need: Math.min(lieFaces.size, Math.max(1, Math.round(S.liesToUndo))) };
+      st.undone = st.struck.size >= st.need; if (st.undone) st.music = null;
+      story.push(st);
     }
   }
   // what's in them: made after the furniture, which clears its boxes each maze
@@ -1343,7 +1346,7 @@
   // (STORY_ROOMS.heart in data/text.js); a letter on the floor; its own music (`The Heart`). And the
   // heartbeat carries: from HEART_HEAR steps off you can hear it through the walls, the only sign that
   // it's there at all.
-  const HEART = ['.#.#.', '#####', '#####', '.###.', '..#..'], HEART_W = 7, HEART_BPM = 54, HEART_HEAR = 14;
+  const HEART = ['.#.#.', '#####', '#####', '.###.', '..#..'], HEART_W = 7, HEART_BPM = 54, HEART_HEAR = 14, HEART_HEAR_OPEN = 28;
   let heart = null, heartAt = null;
   const inHeart = (k) => !!(heartAt && heartAt.length === W * H && heartAt[k]);
   function carveHeart() {
@@ -1459,7 +1462,10 @@
     const [ex, ey] = place(r, ox, oy, ...way.out);
     const [ax, ay] = place(r, ox, oy, 3, 5), [bx, by] = place(r, ox, oy, 3, 4);
     heart = { ux: bx - ax, uy: by - ay, room: roomK, maze: mazeK, set: new Set(roomK), tip: P0(3, 5), throat: P0(3, 6), lamp: P0(3, 3), far: P0(3, 2), mid: P0(3, 3),
-      lobes: [P0(2, 1), P0(4, 1)], out: key(ex, ey), ring: P0(...way.ring), score: Math.floor(best.score), filled: lost.length, rows, dist: null, beat: -1 };
+      lobes: [P0(2, 1), P0(4, 1)], out: key(ex, ey), ring: P0(...way.ring), score: Math.floor(best.score), filled: lost.length, rows, dist: null, beat: -1, sealed: false };
+    // walled up until the lies are crossed out (Joe: "the heart should stay hidden, perhaps it's hidden until you
+    // cross out the lies"): its way in is wall, and it's silent, until openHeart()
+    if (!heartOpened) { const [rx, ry] = place(r, ox, oy, ...way.ring); setT(rx, ry, 0); crawlCells.delete(rx + ',' + ry); heart.sealed = true; }
     return true;
   }
   // how far every tile is from the heart, for how loud it beats; made once the maze is final
@@ -1479,7 +1485,7 @@
     const t = (now / 60000 * HEART_BPM) % 1, b = Math.floor(now / 60000 * HEART_BPM) * 2 + (t >= 0.26 ? 1 : 0);
     if (b === heart.beat) return;
     heart.beat = b;
-    const d = heart.dist[Math.floor(P.y) * W + Math.floor(P.x)], near = d < 0 ? 0 : Math.pow(Math.max(0, 1 - d / HEART_HEAR), 1.5);
+    const d = heart.dist[Math.floor(P.y) * W + Math.floor(P.x)], near = d < 0 ? 0 : Math.pow(Math.max(0, 1 - d / HEART_HEAR_OPEN), 1.5);   // open, it carries: it's what you follow to find it
     if (near > 0.02 && (t < 0.1 || (t >= 0.26 && t < 0.36))) FP_SOUND.heartbeat(near, !(b & 1));
   }
   // its walls: deep red, written over in crayon — "i miss you" most of all — and on the far wall, big,
@@ -1830,7 +1836,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
+    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); carveHeart(); spreadPages(); reset(); startWake();
@@ -2890,7 +2896,65 @@
     chalkSign(decalFor(k, face), glyph, pendingMark.u, pendingMark.v);
     if (!S.chalkInf) chalk--;
     FP_SOUND.chalkMark();
+    crossOut(pendingMark.fk);
     pendingMark = null; glyphsOff(); hud();
+  }
+  // ── crossing out the lies ─────────────────────────────────
+  // Joe: "I love the X out the lies on the walls reveals the truth … It should be required and the heart should stay
+  // hidden, perhaps it's hidden until you cross out the lies." The waiting room and the wall are written over with
+  // what he told himself. Chalk a face of one and every line on it is struck through, and what's true is written over
+  // them in red (`truths`, STORY_ROOMS in data/text.js). `liesToUndo` faces of a room and it's undone: its music stops.
+  // Both undone and somewhere a wall gives — the heart's way in opens, and its heartbeat carries (HEART_HEAR_OPEN).
+  // What's struck is kept for the run (`liesStruck`), stairs and all.
+  let liesStruck = new Set(), heartOpened = false;
+  const STRIKE = TEX.hex('#6e1a16'), TRUTH = TEX.hex('#b3302a');
+  function crossOut(fk) {
+    const st = story.find((q) => q.lieFaces && q.lieFaces.has(fk));
+    if (!st || st.struck.has(fk)) return;
+    st.struck.add(fk); liesStruck.add(fk);
+    const d = decalFor(Math.floor(fk / 4), fk % 4), R = rng(SEED + fk);
+    strikeLines(d, R);
+    const truths = st.text.truths || [];
+    if (truths.length) {
+      // a band cleared for it, in whatever the face is under the writing (the wall's paint, or nothing: the paper)
+      const line = truths[(st.struck.size - 1) % truths.length], words = line.split(' ');
+      let n = 1, x = 0; for (const w of words) { if (x + w.length * 8 > 56 && x > 0) { n++; x = 0; } x += (w.length + 1) * 8; }
+      const y0 = Math.max(2, Math.min(DEC - n * 11 - 2, 20 + (R() * 10 | 0))), ink = new Set([PENCIL, INK_BLUE, ...CRAYON, STRIKE].map((c) => c >>> 0)), tally = new Map();
+      for (let i = 0; i < d.length; i++) if (!ink.has(d[i])) tally.set(d[i], (tally.get(d[i]) || 0) + 1);
+      const under = [...tally].sort((a, b) => b[1] - a[1])[0]?.[0] || 0;
+      for (let y = y0 - 2; y < y0 + n * 11; y++) for (let x2 = 1; x2 < DEC - 1; x2++) d[y * DEC + x2] = under;
+      hand(d, line, 4, y0, 56, 2, TRUTH, R);
+    }
+    FP_SOUND.crossOut(st.struck.size >= st.need);
+    if (!st.undone && st.struck.size >= st.need) { st.undone = true; st.music = null; storyHere = -1; }
+    if (story.filter((q) => q.lieFaces).every((q) => q.undone)) openHeart();
+  }
+  // a line through every line of writing on a face: the ink is found by its colours, grouped into rows, and each row
+  // gets a chalk stroke through its middle from its first letter to its last
+  function strikeLines(d, R) {
+    const ink = new Set([PENCIL, INK_BLUE, ...CRAYON].map((c) => c >>> 0));   // the decal holds them unsigned
+    const rows = [];
+    for (let y = 0; y < DEC; y++) { let x0 = DEC, x1 = -1; for (let x = 0; x < DEC; x++) if (ink.has(d[y * DEC + x])) { if (x < x0) x0 = x; x1 = x; } rows.push(x1 >= 0 ? [x0, x1] : null); }
+    for (let y = 0; y < DEC; ) {
+      if (!rows[y]) { y++; continue; }
+      let y1 = y, a = DEC, b = -1; while (y1 < DEC && rows[y1]) { a = Math.min(a, rows[y1][0]); b = Math.max(b, rows[y1][1]); y1++; }
+      if (y1 - y >= 3) { let yy = (y + y1) >> 1; for (let x = Math.max(0, a - 1); x <= Math.min(DEC - 1, b + 1); x++) { if (R() < 0.12) yy += R() < 0.5 ? -1 : 1; yy = Math.max(y, Math.min(y1 - 1, yy)); d[yy * DEC + x] = STRIKE; if (R() < 0.6) d[Math.min(DEC - 1, yy + 1) * DEC + x] = STRIKE; } }
+      y = y1;
+    }
+  }
+  function openHeart() {
+    if (heartOpened) return;
+    heartOpened = true;
+    if (!heart || !heart.sealed || floor !== 1) return;
+    const rk = heart.ring, rx = rk % W, ry = (rk / W) | 0;
+    tiles[ry][rx] = 1; crawlCells.add(rx + ',' + ry); low[rk] = 1; heart.sealed = false;
+    for (let y = ry - 1; y <= ry + 1; y++) for (let x = rx - 1; x <= rx + 1; x++) {   // the corner shadows round the new gap
+      if (solid(x, y)) { nbm[y * W + x] = 0; continue; }
+      nbm[y * W + x] = (solid(x - 1, y) ? 1 : 0) | (solid(x + 1, y) ? 2 : 0) | (solid(x, y - 1) ? 4 : 0) | (solid(x, y + 1) ? 8 : 0)
+        | (solid(x - 1, y - 1) ? 16 : 0) | (solid(x + 1, y - 1) ? 32 : 0) | (solid(x - 1, y + 1) ? 64 : 0) | (solid(x + 1, y + 1) ? 128 : 0);
+    }
+    buildSlots(); buildLight(); heartIndex();
+    FP_SOUND.wallGives();
   }
   // the school look's boards, written on (CHALKBOARD in data/text.js), and its locked doors: faces nothing else goes
   // on. Each board gets lines written out over and over, or a lesson at the top. Its own stream
@@ -2991,6 +3055,10 @@
     const ox = heart.out % W, oy = (heart.out / W) | 0, rx = heart.ring % W, ry = (heart.ring / W) | 0;
     P.x = ox + 0.5; P.y = oy + 0.5; P.a = Math.atan2(ry - oy, rx - ox); lastX = P.x; lastY = P.y;
   };
+  $('undoLies').onclick = () => {   // debug: cross out every room's lies, enough to undo it
+    $('panel').classList.remove('open');
+    for (const st of story) if (st.lieFaces) for (const fk of [...st.lieFaces].slice(0, st.need)) crossOut(fk);
+  };
   let storyVisit = 0;
   $('toStory').onclick = () => {
     $('panel').classList.remove('open'); if (!story.length) return;
@@ -3067,5 +3135,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();
