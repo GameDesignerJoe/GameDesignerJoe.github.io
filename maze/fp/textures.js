@@ -626,6 +626,13 @@ const TEX = (() => {
       r(4, 39, 6, 39, k); r(9, 39, 11, 39, k);
       return T;
     }),
+    // the kid's room: a picture book, a baseball, one glove (only one); and the ring in the dust where the watch sat
+    kidBook: sprite(['.kkkkkkkkkk.', 'kyyyyyyyyyyk', 'kyrrryybbyyk', 'kyrrryybbyyk', 'kyyyyggyyyyk', 'kyyyggggyyyk', 'kyyyyyyyyyyk', '.kkkkkkkkkk.'],
+      Object.assign({}, P, { y: hex('#e6c34a'), r: hex('#c0452f'), b: hex('#3f6aa6'), g: hex('#4f8a3e') })),
+    baseball: sprite(['..wwww..', '.wrwwrw.', 'wwrwwrww', 'wwrwwrww', '.wrwwrw.', '..wwww..'], Object.assign({}, P, { w: hex('#eee9dc'), r: hex('#b8322a') })),
+    glove: sprite(['..bb.bb.bb.', '.bBbbBbbBb.', '.bBBBBBBBbb', 'bbBBBBBBBBb', 'bBBBllBBBBb', 'bBBBBBBBBb.', '.bBBBBBBbb.', '..bbbbbbb..'],
+      Object.assign({}, P, { b: hex('#5a3419'), B: hex('#8a5328'), l: hex('#c29060') })),
+    watchRing: sprite(['..kkkk..', '.k....k.', 'k......k', 'k......k', '.k....k.', '..kkkk..'], Object.assign({}, P, { k: hex('#8f8a7c') })),
     // the being as it turns out to be: the kid. The same black, the same pale eyes, half the height, a round head
     kid: (() => {
       const T = blank(12, 24), k = hex('#0c0b0d'), eye = (hex('#e9e4cf') & 0x00ffffff) | 0xfe000000;

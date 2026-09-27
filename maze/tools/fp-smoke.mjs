@@ -167,7 +167,8 @@ console.log('The Maze — first person checks');
   await p.evaluate(() => { const o = FP.objs.find((o) => o.kind === 'watch'); for (const r of [1.6, 1.3, 1.0]) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = o.x + dx * r, y = o.y + dy * r; if (tiles[Math.floor(y)][Math.floor(x)] && !FP.objs.some((q) => q !== o && Math.hypot(q.x - x, q.y - y) < 1.5)) { FP.P.x = x; FP.P.y = y; FP.P.a = Math.atan2(-dy, -dx); return; } } });
   await p.waitForTimeout(300); await closePage(p); await p.mouse.click(215, 470); await p.waitForTimeout(300); await closePage(p);
   const carrying = await p.evaluate(() => FP.carried.has('watch'));
-  await p.evaluate(() => { const c = FP.story.find((s) => s.chair).chair; FP.P.x = c.x + c.fx * 1.3; FP.P.y = c.y + c.fy * 1.3; FP.P.a = Math.atan2(-c.fy, -c.fx); });
+  // the slot by his chair: stand in front of it, looking at it
+  await p.evaluate(() => { const st = FP.story.find((s) => s.chair), c = st.chair, t = st.slot || c; FP.P.x = t.x + c.fx * 1.2; FP.P.y = t.y + c.fy * 1.2; FP.P.a = Math.atan2(t.y - FP.P.y, t.x - FP.P.x); });
   await p.waitForTimeout(300); await closePage(p);
   for (const y of [480, 500, 460, 520]) { await p.mouse.click(215, y); await p.waitForTimeout(250); if (await p.evaluate(() => FP.watchLeft)) break; await closePage(p); }
   const left = await p.evaluate(() => [FP.watchLeft, FP.beingStateNow]);
@@ -206,6 +207,23 @@ console.log('The Maze — first person checks');
   for (let i = 0; i < 24; i++) { await p.waitForTimeout(400); states.push(await p.evaluate(() => FP.beingState)); if (states[states.length - 1] === 'dormant' && states.includes('peer')) break; }
   check('in a squeeze, the being looks in at you and goes', states.includes('peer') && states[states.length - 1] === 'dormant' && !states.includes('closet'),
     `states: ${[...new Set(states)].join(' → ')}`);
+  await p.close();
+}
+
+// ── the slot by his chair, and the kid's room ───────────────────
+{
+  const p = await open(4242); await awake(p);
+  await p.evaluate(() => { const st = FP.story.find((s) => s.chair), c = st.chair, t = st.slot; FP.P.x = t.x + c.fx * 1.2; FP.P.y = t.y + c.fy * 1.2; FP.P.a = Math.atan2(t.y - FP.P.y, t.x - FP.P.x); });
+  await p.waitForTimeout(250); await closePage(p); await p.mouse.click(215, 480); await p.waitForTimeout(300);
+  const said = await p.evaluate(() => document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '');
+  await closePage(p);
+  const furnished = await p.evaluate(() => { let rooms = 0, withBed = 0, withGlove = 0;
+    for (let s = 1; s <= 10; s++) { FP.newMaze(s * 577 + 9); const set = new Set([...secretTiles]); if (set.size < 9) continue; rooms++;
+      if (FP.fboxes.some((b) => set.has(Math.floor((b.x0 + b.x1) / 2) + ',' + Math.floor((b.y0 + b.y1) / 2)) && b.z1 > 0.3)) withBed++;
+      if (FP.objs.some((o) => o.tex === TEX.sprites.glove)) withGlove++; } return [rooms, withBed, withGlove]; });
+  check('the slot by his chair says something goes there, and the kid\'s room has its bed and its one glove',
+    /something goes here/.test(said) && furnished[0] > 5 && furnished[1] === furnished[0] && furnished[2] === furnished[0],
+    `tapped with nothing in hand: "${said}"; of ${furnished[0]} kid's rooms, ${furnished[1]} with the bed, ${furnished[2]} with the glove`);
   await p.close();
 }
 

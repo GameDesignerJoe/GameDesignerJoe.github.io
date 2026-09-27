@@ -531,6 +531,7 @@
     placeSwitches(new Set(reserved.concat(closets.map((c) => faceKey(c.k, c.face)))));
     placeFurniture();
     storyProps();
+    furnishKidRoom();
     placePages();
     lockExit();
     buildLight();
@@ -765,6 +766,20 @@
       { a: [0.25, 0.39], d: [0.04, 0.36], z: [0, 0.3], m: 'wood' },
       { a: [0.18, 0.24], d: [0.2, 0.26], z: [0.33, 0.39], m: 'apple' },
       { a: [-0.3, -0.12], d: [0.1, 0.24], z: [0.33, 0.36], m: 'white' } ] },          // a stack of papers
+    // the kid's room: a small bed along a wall, a kid's chair; and the side table by the saved chair in the waiting room
+    kidBed: { wall: true, half: 0.26, boxes: [
+      { a: [-0.26, 0.26], d: [0.02, 0.9], z: [0, 0.1], m: 'wood' },                   // the frame
+      { a: [-0.24, 0.24], d: [0.04, 0.88], z: [0.1, 0.17], m: 'white' },              // the mattress
+      { a: [-0.2, 0.2], d: [0.05, 0.2], z: [0.17, 0.22], m: 'white' },                // the pillow, at the wall end
+      { a: [-0.25, 0.25], d: [0.3, 0.88], z: [0.17, 0.19], m: 'plastic' },            // the blanket, pulled up
+      { a: [-0.26, 0.26], d: [0.02, 0.05], z: [0.1, 0.34], m: 'wood' } ] },           // the headboard
+    kidChair: { half: 0.1, boxes: [
+      { a: [-0.1, 0.1], d: [0.05, 0.23], z: [0.12, 0.14], m: 'wood' }, { a: [-0.1, 0.1], d: [0.05, 0.07], z: [0.14, 0.3], m: 'wood' },
+      { a: [-0.09, -0.07], d: [0.06, 0.08], z: [0, 0.12], m: 'wood' }, { a: [0.07, 0.09], d: [0.06, 0.08], z: [0, 0.12], m: 'wood' },
+      { a: [-0.09, -0.07], d: [0.2, 0.22], z: [0, 0.12], m: 'wood' }, { a: [0.07, 0.09], d: [0.2, 0.22], z: [0, 0.12], m: 'wood' } ] },
+    sideTable: { half: 0.1, boxes: [
+      { a: [-0.1, 0.1], d: [-0.09, 0.09], z: [0.22, 0.24], m: 'wood' }, { a: [-0.015, 0.015], d: [-0.015, 0.015], z: [0, 0.22], m: 'steel' },
+      { a: [-0.07, 0.07], d: [-0.07, 0.07], z: [0, 0.015], m: 'dark' } ] },
     shelf: { wall: true, half: 0.3, boxes: [ { a: [-0.3, 0.3], d: [0.02, 0.2], z: [0, 0.34], m: 'wood', front: 'books' } ] },
     plant: { half: 0.14, boxes: [
       { a: [-0.1, 0.1], d: [0.05, 0.25], z: [0, 0.16], m: 'pot', top: 'dark' },
@@ -1326,6 +1341,15 @@
         furn.push({ x: lx, y: ly, fx, fy, name: 'lamp', def: FURN.lamp, boxes: lb });
         objs.push({ x: cx, y: cy, z: 0.19, kind: 'note', seat: true, text: st.text.note, tex: TEX.sprites.note, h: 0.05, glow: 0.2 });
         st.chair = { x: cx, y: cy, fx, fy };
+        // the little table on the other side of the chair from the lamp, and on it the ring in the dust where his watch
+        // sat — the slot. Joe: "a 'slot' where the watch is supposed to go that you can interact with before you have
+        // the watch." It's where the watch goes back
+        const tx = cx + ux * 0.34, ty = cy + uy * 0.34;
+        if (!solid(Math.floor(tx), Math.floor(ty))) {
+          for (const b of buildFurn(FURN.sideTable, tx, ty, ux, uy, fx, fy, 0)) fboxes.push(b);
+          objs.push({ x: tx, y: ty, z: 0.24, kind: 'slot', tex: TEX.sprites.watchRing, h: 0.05, glow: 0.3 });
+          st.slot = { x: tx, y: ty };
+        }
       } else {
         // the watch, on a shoebox on a couple of boxes in the middle of the room: up off the floor, in plain sight, easy
         // to get to. Joe: "It's difficult for me to get to the watch … it is surrounded by a bunch of like cardboard
@@ -1591,6 +1615,38 @@
       for (const [dx, dy] of HD) if (set.has((y + dy) * W + x + dx)) return { x, y, rx: x + dx, ry: y + dy }; }
     return null;
   }
+  // Joe: "We need to do more with the chalk drawing room. Maybe it's got furniture that looks like a bed and a chair and a
+  // childrens book next to the bed … There's a glove and a baseball, but only one glove in another corner. The kid is
+  // trying to LARP having a father in this space." A bed along the wall across from the way in, a kid's chair beside
+  // it, a picture book on the floor by the bed; in the corner nearest the way in, a ball and one glove. Only when the
+  // room was carved whole (a real room, not a winding pinch); its own stream
+  function furnishKidRoom() {
+    const set = secretSet(); if (!set || floor !== 1) return;
+    const way = secretWay(set); if (!way) return;
+    const roomT = [...set].filter((k) => room[k]); if (roomT.length < 9) return;
+    const R = rng(SEED + 260003), wd = (k) => Math.abs(k % W - way.rx) + Math.abs(((k / W) | 0) - way.ry);
+    // the bed: on the wall farthest from the way in, reaching into the room
+    let bed = null, bd = -1;
+    const held = new Set(objs.map((o) => Math.floor(o.y) * W + Math.floor(o.x)));   // not over the chalk pile
+    for (const k of roomT) { const x = k % W, y = (k / W) | 0; if (held.has(k)) continue;
+      for (const [dx, dy] of HD) { if (!solid(x + dx, y + dy)) continue; const bx = x - dx, by = y - dy;   // needs a tile in front for its length
+        if (!set.has(by * W + bx)) continue; const d = wd(k) + R() * 0.5; if (d > bd) { bd = d; bed = { x, y, dx, dy }; } } }
+    if (!bed) return;
+    const fx = -bed.dx, fy = -bed.dy, ux = -fy, uy = fx, wx = bed.x + 0.5 + bed.dx * 0.5, wy = bed.y + 0.5 + bed.dy * 0.5;   // the wall line behind it
+    for (const b of buildFurn(FURN.kidBed, wx, wy, ux, uy, fx, fy, 0)) fboxes.push(b);
+    // the chair, beside the bed's head, and the book on the floor between
+    const side = set.has((bed.y + uy) * W + bed.x + ux) ? 1 : -1;
+    const chx = wx + ux * side * 0.62, chy = wy + uy * side * 0.62;
+    for (const b of buildFurn(FURN.kidChair, chx, chy, ux, uy, fx, fy, 0)) fboxes.push(b);
+    objs.push({ x: wx + ux * side * 0.38 + fx * 0.45, y: wy + uy * side * 0.38 + fy * 0.45, kind: 'deco', tex: TEX.sprites.kidBook, h: 0.05, glow: 0.2 });
+    // the ball and the one glove, in the corner of the room nearest the way in (the chalk pile has the far one)
+    let cor = null, cd = 1e9;
+    for (const k of roomT) { const x = k % W, y = (k / W) | 0, walls = HD.filter(([dx, dy]) => solid(x + dx, y + dy));
+      if (walls.length < 2 || Math.hypot(x - bed.x, y - bed.y) < 2) continue; const d = wd(k); if (d > 0 && d < cd) { cd = d; cor = { x, y, walls }; } }
+    if (cor) { const ox = cor.walls.reduce((a, [dx]) => a + dx, 0) * 0.26, oy = cor.walls.reduce((a, [, dy]) => a + dy, 0) * 0.26;
+      objs.push({ x: cor.x + 0.5 + ox, y: cor.y + 0.5 + oy, kind: 'deco', tex: TEX.sprites.glove, h: 0.08, glow: 0.2 });
+      objs.push({ x: cor.x + 0.5 + ox * 0.3, y: cor.y + 0.5 + oy * 0.3, kind: 'deco', tex: TEX.sprites.baseball, h: 0.04, glow: 0.2 }); }
+  }
   function placeChalkPile() {
     const set = secretSet(); if (!set || floor !== 1) return;   // the kid's room is floor 1's: Joe, "each room [should] be unique"
     const way = secretWay(set); if (!way) return;
@@ -1778,7 +1834,14 @@
   let carried = new Set();
   function take(o, walked) {
     if (o.kind === 'deco') return;
-    if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen()) { leaveWatch(o); return; }
+    if (o.kind === 'slot') {
+      if (walked) return;
+      const E = endingText();
+      if (carried.has('watch') && heartSeen()) leaveWatch(o);
+      else if (E) showNote(carried.has('watch') ? E.slotHolding : E.slotEmpty);
+      return;
+    }
+    if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen() && !story.some((q) => q.slot)) { leaveWatch(o); return; }
     if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
@@ -2994,9 +3057,10 @@
     const d = decalFor(Math.floor(fk / 4), fk % 4), R = rng(SEED + 240007);
     hand(d, endingText().notYet, 14, 38, 38, 2, TEX.hex('#1d1c19'), R);   // across the door, under its window, in the kid's pencil
   }
-  function leaveWatch(seatNote) {
+  function leaveWatch(where) {
     carried.delete('watch'); watchLeft = true; hud();
-    objs.push({ x: seatNote.x, y: seatNote.y, z: 0.19, kind: 'deco', tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // on the seat now
+    if (where.kind === 'slot') objs.splice(objs.indexOf(where), 1);
+    objs.push({ x: where.x, y: where.y, z: where.kind === 'slot' ? 0.24 : 0.19, kind: 'deco', tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // back where he kept it
     showNote(endingText().leave);
     const fk = exitFaceKey(); if (fk >= 0) decals.delete(fk);
     FP_SOUND.exitOpens();
@@ -3024,7 +3088,7 @@
     const lie = story.find((q) => q.lieFaces && !q.undone); if (lie) return { x: lie.m.rx, y: lie.m.ry };
     if (heart && !heartSeen()) return { x: heart.mid % W, y: (heart.mid / W) | 0 };
     if (!carried.has('watch')) { const w = objs.find((o) => o.kind === 'watch'); if (w) return { x: Math.floor(w.x), y: Math.floor(w.y) }; }
-    const ch = story.find((q) => q.chair); if (ch) return { x: Math.floor(ch.chair.x), y: Math.floor(ch.chair.y) };
+    const ch = story.find((q) => q.chair); if (ch) { const t = ch.slot || ch.chair; return { x: Math.floor(t.x), y: Math.floor(t.y) }; }
     return exit;
   }
   // ── crossing out the lies ─────────────────────────────────
@@ -3197,7 +3261,7 @@
     $('panel').classList.remove('open');
     const hs = story.find((q) => q.kind === 'heart'); if (hs) hs.found = true;
     const w = objs.find((o) => o.kind === 'watch'); if (w) objs.splice(objs.indexOf(w), 1);
-    const seat = objs.find((o) => o.seat); if (seat && !watchLeft) leaveWatch(seat);
+    const seat = objs.find((o) => o.kind === 'slot') || objs.find((o) => o.seat); if (seat && !watchLeft) leaveWatch(seat);
   };
   let storyVisit = 0;
   $('toStory').onclick = () => {

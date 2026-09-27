@@ -97,7 +97,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   turn leaves both rooms alone now (its words would cover theirs). **Cross out the lies** on the panel does it for you.
 - **The way out has to be earned** (a chapter with placed pages; lines in `FP_ENDING`). The exit is shut and chalked
   "not yet" — walk up to it and the handle rattles. It opens once you've been to the heart and then left the watch on the
-  chair he saved in the waiting room (tap the seat while you carry it): he says goodbye to it, and somewhere a door
+  chair he saved in the waiting room — on the little table beside it, where a ring in the dust shows where the watch used to
+  sit (tap it: "something goes here."; with the watch: "he always had this right next to him …"): he says goodbye to it, and somewhere a door
   unlatches. The being is standing in front of the exit then, waiting; come close and it comes down to the kid's size,
   and fades, and goes. Out, under the Exit: "it's time to come home now." After the watch is left the being doesn't hunt
   any more. The debug arrow points at the next thing to do. **Leave the watch** on the panel skips to it.
@@ -121,7 +122,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   the chapter's pages are spread across its floors (dealt round: page 1 on floor 1, page 2 on floor 2, …), so the count is out of
   all of them.
   **To the stairs** on the panel puts you in front of them; Restart starts the same maze over: floor 1, every page back, before the turn.
-- **The kid's room** (floor 1 only; the Child's secret room, which the generator already carves behind a squeeze). Pitch black
+- **The kid's room** — a kid's bed along a wall, a little chair, a picture book on the floor by the bed, and in the corner
+  nearest the way in a baseball and one glove, only one: him playing at having a father (`furnishKidRoom`). (Floor 1 only; the Child's secret room, which the generator already carves behind a squeeze). Pitch black
   (`PITCH`, darker than a dark hall) until you flip its switch, just inside the squeeze; the amber pilot is all you see.
   Lit (five lamps of its own), every wall is covered in a kid's chalk — noughts and crosses, "dad?", balls, suns, a
   house, tallies, stick figures, a big one and a small one holding hands, and on the far wall a man walking away. A

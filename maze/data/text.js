@@ -461,7 +461,10 @@ const FP_PAGES = {
 const FP_ENDING = {
   'The Child': {
     notYet: "not yet",
-    leave: "i left your watch on your chair. i dont have to save it anymore. its yours. im going now.",
+    leave: "i left your watch where you always kept it. i dont have to save your chair anymore. its yours. im going now.",
+    // the slot on the little table by his chair, where the watch sat. Joe's two lines: before you have it, and with it
+    slotEmpty: "something goes here.",
+    slotHolding: "he always had this right next to him. but ive been holding onto it this whole time.",
     out: "it's time to come home now.",
   },
 };
