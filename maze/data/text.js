@@ -339,7 +339,21 @@ const POOL_UI = {
 // Short: a wall holds about four lines of eight letters. These are placeholders, to be rewritten.
 const WALL_WORDS = {
   _: ["who wrote this", "you were here before", "it goes on", "not this way", "turn back", "keep the light on your left"],
-  'The Child': ["wait here", "he said five minutes", "count to a hundred", "i was good", "dont cry", "hes coming back"],
+  // Joe: "text on the walls at almost every dead end … At least triple the amount we have now … 'Dead End' 'Lost?'
+  // 'Fooled you' 'Remember when we played hide and seek?'" — his four, then Claude's drafts in the same game
+  'The Child': ["wait here", "he said five minutes", "count to a hundred", "i was good", "dont cry", "hes coming back",
+    "dead end", "lost?", "fooled you", "remember when we played hide and seek?",
+    "ready or not", "no peeking", "you found me", "not here", "try again", "its my turn to hide", "olly olly oxen free",
+    "i win", "home base", "count to ten and come find me", "hes hiding too", "i can hide longer than anybody"],
+};
+
+// first person: on black, before you wake, once each time the game is opened. Joe: "a quote about being lost in our
+// own minds, or how we build walls within ourselves. It shows up at the top of the game on black. Then we fade into the
+// actual game wake scene." An unattributed line for now (Claude's draft) — a real quote, with its source checked, can
+// replace it: set `by` to its author.
+const FP_OPENING = {
+  quote: "The walls we build to keep the hurt out are the same walls that keep us in.",
+  by: "",
 };
 
 // first person: the two walls that open the chapter. The first is across from you when you wake —
@@ -350,6 +364,9 @@ const WALL_WORDS = {
 const WALL_START = {
   'The Child': ["stay here.", "but I didn't."],   // Joe: "Change 'Dad said stay here' to just 'Stay here'"
 };
+// and the one that teaches the chalk: an X already on a wall of the start room, this over it. Joe: "We should have an X
+// on the wall in the first room. With text above it like 'Draw and X'"
+const WALL_TEACH = { 'The Child': "draw an x" };
 
 // first person: story rooms. Joe: "This is a story about a person who when they were a child their
 // father abandoned them. [They] didn't believe their father actually left them, and made excuses.
@@ -471,5 +488,5 @@ const CHALKBOARD = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES, FP_ENDING,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES, FP_ENDING, FP_OPENING, WALL_TEACH,
 };

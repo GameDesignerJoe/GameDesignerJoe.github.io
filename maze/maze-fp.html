@@ -79,6 +79,10 @@
   #glyphs button { width: 42px; height: 42px; border-radius: 9px; border: 1px solid #3a3833; background: #1b1a18; color: #ece7da; font-size: 20px; cursor: pointer; }
   @media (orientation: landscape) { #glyphs { bottom: calc(env(safe-area-inset-bottom) + 20px); } }
   #winSteps { white-space: pre-line; }
+  #opening { position: fixed; inset: 0; z-index: 9; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .9s; }
+  #opening.show { opacity: 1; pointer-events: auto; }
+  #opening p { max-width: 520px; margin: 0; color: #d9d3c4; font: italic 22px/1.45 Georgia, 'Times New Roman', serif; text-align: center; }
+  #opening small { margin-top: 18px; color: #8a857a; font: 15px Georgia, serif; }
   #page { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 5; background: #0d0f1066; }
   #page.show { opacity: 1; pointer-events: auto; }
   /* Caveat (SIL Open Font License), the latin set, kept here so a page reads the same offline */
@@ -198,6 +202,7 @@
 <button id="stepOut">Step out</button>
 <div id="page"><div><p id="pageText"></p><small id="pageWho"></small></div></div>
 <div id="fade"><span id="fadeText"></span></div>
+<div id="opening"><p id="openingText"></p><small id="openingBy"></small></div>
 <div id="win"><div><h2>Exit</h2><p id="winSteps"></p><button id="again">Another maze</button></div></div>
 
 <!-- The top-down's own tuning and generator, unchanged: a seed is the same maze in both views -->

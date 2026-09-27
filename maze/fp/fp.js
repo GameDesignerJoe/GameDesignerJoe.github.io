@@ -44,7 +44,9 @@
     if ((saved.cfg || 0) < 6) { delete saved.beingOff; delete saved.beingWait; }
     // the way out, infinite chalk and the arrow went on by default (v0.135.0)
     if ((saved.cfg || 0) < 7) { delete saved.chalkInf; delete saved.showPath; delete saved.showArrow; }
-    saved.cfg = 7;
+    // more words at dead ends, and the arrow off again (v0.144.0)
+    if ((saved.cfg || 0) < 8) { delete saved.words; delete saved.showArrow; }
+    saved.cfg = 8;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -424,6 +426,21 @@
       setTimeout(() => { $('fade').classList.remove('show'); stairBusy = false; }, 450);
     }, 1200);
   }
+  // an X already on a wall of the start room, with WALL_TEACH over it: the side wall nearest where you wake
+  function placeTeachX(usedFaces) {
+    if (floor !== 1 || typeof WALL_TEACH === 'undefined' || !character || !WALL_TEACH[character.name]) return -1;
+    const sx = Math.floor(start.x), sy = Math.floor(start.y); let best = null, bd = 1e9;
+    for (let y = sy - 3; y <= sy + 3; y++) for (let x = sx - 3; x <= sx + 3; x++) {
+      if (solid(x, y) || !room[y * W + x] || low[y * W + x]) continue;
+      for (const [dx, dy] of HD) { const wx = x + dx, wy = y + dy; if (!solid(wx, wy) || exitFace[wy * W + wx]) continue;
+        const fk = faceKey(wy * W + wx, faceTo(dx, dy)); if (usedFaces.has(fk)) continue;
+        const d = Math.hypot(x - sx, y - sy) + (x === sx && y === sy ? 0.5 : 0); if (d < bd) { bd = d; best = { k: wy * W + wx, face: faceTo(dx, dy), fk }; } } }
+    if (!best) return -1;
+    const d = decalFor(best.k, best.face);
+    hand(d, WALL_TEACH[character.name], 12, 5, 44, 2, TEX.hex('#ece7da'), rng(SEED + 250001));   // two lines, "draw / an x"
+    chalkSign(d, 'x', 0.5, 0.74);
+    return best.fk;
+  }
   // the chapter's two opening walls (WALL_START): one across from where you wake, which you are then
   // turned to face; one straight ahead as you step out of the start room through its gap. [] if the
   // self has none, or the walls aren't there to write on
@@ -500,6 +517,8 @@
       picks.push([ends.splice(Math.floor(R() * ends.length), 1)[0], pool.splice(Math.floor(R() * pool.length), 1)[0]]);
     for (const w of startWords) picks.push([w, w.text]);
     placeChalkPile();
+    const teachFace = placeTeachX(startFaces);
+    if (teachFace >= 0) startFaces.add(teachFace);
     wordSpots = picks.map(([e, text]) => ({ k: e.k, face: e.face, text }));
     for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
     placeDoors();
@@ -2343,6 +2362,17 @@
   // swaying less as you find your feet. The start of every maze (not the stairs). `wakeScene` turns it off.
   const WAKE_LIE = 1100, WAKE_RISE = 2500, WAKE_EYE = 0.1;
   let rising = null;
+  // the quote on black before the first waking of a session (FP_OPENING); a tap or a key skips it
+  function opening() {
+    const el = $('opening');
+    if (!S.wakeScene || typeof FP_OPENING === 'undefined' || !el) { startWake(); return; }
+    $('openingText').textContent = FP_OPENING.quote; $('openingBy').textContent = FP_OPENING.by ? '— ' + FP_OPENING.by : '';
+    el.classList.add('show'); document.body.classList.add('waking');
+    let done = false;
+    const go = () => { if (done) return; done = true; el.classList.remove('show'); removeEventListener('pointerdown', go, true); removeEventListener('keydown', go, true); setTimeout(startWake, 900); };
+    setTimeout(() => { addEventListener('pointerdown', go, true); addEventListener('keydown', go, true); }, 400);
+    setTimeout(go, 5200);
+  }
   function startWake() {
     if (!S.wakeScene || floor !== 1) { rising = null; document.body.classList.remove('waking'); return; }
     rising = { t0: performance.now() }; clearStick(); document.body.classList.add('waking');
@@ -3211,7 +3241,7 @@
   applyTheme();
   resize();
   applyMazeDebug();
-  BASE = SEED; generate(SEED); carveHeart(); spreadPages(); reset(); startWake(); lastX = P.x; lastY = P.y;
+  BASE = SEED; generate(SEED); carveHeart(); spreadPages(); reset(); opening(); lastX = P.x; lastY = P.y;
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console

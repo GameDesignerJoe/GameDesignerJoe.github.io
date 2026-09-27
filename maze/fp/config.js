@@ -31,10 +31,10 @@ const FP_CONFIG = {
   deadzone: 0.22,   // fraction of the stick's travel that reads as not pushing — the top-down's CONFIG.stickDeadzone
   accel: 10,        // how quickly walking speed catches up with the stick. Higher is snappier
   turnEase: 14,     // how quickly turning catches up with the stick. Higher is snappier, lower is floatier
-  words: 3,         // dead ends a maze with words written on their far wall (WALL_WORDS in data/text.js)
+  words: 10,        // dead ends a maze with words written on their far wall (WALL_WORDS in data/text.js). Joe: "at least triple"
   chalkInf: true,   // debug: chalk never runs out. On by default for now (Joe: "just turn on the path and infinite chalk by default")
   showPath: true,   // debug: the way out, marked on the floor in gold
-  showArrow: true,  // debug: an arrow that points at the way out
+  showArrow: false, // debug: an arrow that points at the next thing to do (Joe: "Turn off the arrow debug and just leave the rug")
   stickSide: 'left', // debug: in landscape, which side the stick sits (Joe: "I would default it to left")
   // debug: the top-down's own maze knobs, applied in memory only (never to the top-down's save)
   dbgLevel: 'save', dbgStones: 'level',
@@ -105,7 +105,7 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   turnMs:    [80, 600, 10, 'Rails turn ms', 'stick'],
   sfxVol:    [0, 1.6, 0.05, 'Room volume', 'sound'],
   ambience:  [0, 3, 0.1, 'Distant sounds', 'sound'],
-  words:     [0, 8, 1, 'Wall words', 'debug'],
+  words:     [0, 30, 1, 'Wall words', 'debug'],
   doorRoom:  [0, 1, 0.05, 'Room doors', 'debug'],
   doorHall:  [0, 0.5, 0.01, 'Hall doors', 'debug'],
   doorsOpen: [0, 1, 0.05, 'Doors open', 'debug'],

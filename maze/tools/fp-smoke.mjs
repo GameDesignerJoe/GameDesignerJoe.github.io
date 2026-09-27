@@ -32,6 +32,8 @@ const open = async (seed) => {
   await p.goto(URL(seed), { waitUntil: 'load' }); await p.waitForTimeout(700);
   return p;
 };
+// past the quote on black (a key skips it) and the getting up
+const awake = async (p) => { await p.keyboard.press('Escape'); await p.waitForTimeout(900 + 3700); };
 const pageShown = (p) => p.evaluate(() => document.getElementById('page').classList.contains('show'));
 const closePage = async (p) => { if (await pageShown(p)) { await p.mouse.click(215, 40); await p.waitForTimeout(250); } };
 console.log('The Maze — first person checks');
@@ -55,7 +57,12 @@ console.log('The Maze — first person checks');
 // ── waking: no control until you're up ───────────────────────────
 {
   const p = await ctx.newPage(); p.on('pageerror', (e) => errors.push(String(e)));
-  await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(400);
+  await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(600);
+  const quote = await p.evaluate(() => [document.getElementById('opening').classList.contains('show'), document.getElementById('openingText').textContent]);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(1300);
+  const quoteGone = await p.evaluate(() => !document.getElementById('opening').classList.contains('show'));
+  check('the game opens on the quote, on black, and a key goes on to the waking', quote[0] && quote[1].length > 20 && quoteGone,
+    `shown at load: ${quote[0]} ("${quote[1].slice(0, 40)}…"); gone after a key: ${quoteGone}`);
   const lying = await p.evaluate(() => [document.body.classList.contains('waking'), FP.P.x, FP.P.y]);
   await p.keyboard.down('KeyW'); await p.waitForTimeout(500); await p.keyboard.up('KeyW');
   const during = await p.evaluate(() => [FP.P.x, FP.P.y]);
@@ -66,6 +73,18 @@ console.log('The Maze — first person checks');
   const movedDuring = Math.hypot(during[0] - lying[1], during[1] - lying[2]), movedAfter = Math.hypot(after[0] - up[1], after[1] - up[2]);
   check('you wake on the mat and can\'t move until you\'re up, then can', lying[0] && movedDuring < 0.01 && !up[0] && movedAfter > 0.2,
     `waking at load: ${lying[0]}; moved ${movedDuring.toFixed(2)} while getting up, ${movedAfter.toFixed(2)} after`);
+  await p.close();
+}
+
+// ── words on the walls ───────────────────────────────────────────
+{
+  const p = await open(4242);
+  const r = await p.evaluate(() => { const out = []; for (let s = 1; s <= 8; s++) { FP.newMaze(s * 131 + 7); out.push(FP.wordSpots.length); } return out; });
+  const teach = await p.evaluate(() => { FP.newMaze(4242); const sx = Math.floor(start.x), sy = Math.floor(start.y), W = FP.W;
+    for (const [fk, d] of FP.decals) { const k = Math.floor(fk / 4), x = k % W, y = (k / W) | 0; if (Math.abs(x - sx) > 4 || Math.abs(y - sy) > 4) continue;
+      const white = d.reduce((a, v) => a + (v === (TEX.hex('#ece7da') >>> 0) ? 1 : 0), 0); if (white > 60) return white; } return 0; });
+  check('dead ends carry words (ten a maze), and the start room has an X to copy', r.every((n) => n >= 10) && teach > 60,
+    `words per maze over 8 mazes: ${r.join(', ')} (start words included); the X and "draw an x": ${teach} chalk pixels on a start-room wall`);
   await p.close();
 }
 
@@ -93,7 +112,7 @@ console.log('The Maze — first person checks');
 
 // ── closets stay put, and you can get in ─────────────────────────
 {
-  const p = await open(4242); await p.waitForTimeout(3500);
+  const p = await open(4242); await awake(p);
   const keys = () => p.evaluate(() => FP.closets.map((c) => c.k * 4 + c.face).sort((a, b) => a - b).join(','));
   const a = await keys();
   await p.evaluate(() => { for (let i = 0; i < 3; i++) FP.addFind(); });
@@ -113,7 +132,7 @@ console.log('The Maze — first person checks');
 
 // ── the lies, the heart, the watch, the way out ──────────────────
 {
-  const p = await open(4242); await p.waitForTimeout(3500);
+  const p = await open(4242); await awake(p);
   const sealed = await p.evaluate(() => { const h = FP.heart, W = FP.W; return [!!h, h && h.sealed, h && !!tiles[(h.ring / W) | 0][h.ring % W], FP.exitLocked]; });
   check('the heart is carved and walled up, and the exit shut, until the lies are crossed out',
     sealed[0] && sealed[1] && !sealed[2] && sealed[3], `heart ${sealed[0] ? 'placed' : 'missing'}, sealed ${sealed[1]}, its way in open ${sealed[2]}; exit locked ${sealed[3]}`);
@@ -159,7 +178,7 @@ console.log('The Maze — first person checks');
 
 // ── the being ────────────────────────────────────────────────────
 {
-  const p = await open(4242); await p.waitForTimeout(3500);
+  const p = await open(4242); await awake(p);
   await p.evaluate(() => { const W = FP.W, d = FP.pathDist; let best = null, bl = 0;
     for (let k = 0; k < d.length; k++) if (d[k] >= 10) { const x = k % W, y = (k / W) | 0; for (const [dx, dy, h] of [[1, 0, 0], [0, 1, 1], [-1, 0, 2], [0, -1, 3]]) { let n = 0; while (tiles[y + dy * (n + 1)] && tiles[y + dy * (n + 1)][x + dx * (n + 1)] && !FP.low[(y + dy * (n + 1)) * W + x + dx * (n + 1)] && n < 30) n++; if (n > bl) { bl = n; best = [x, y, h]; } } }
     FP.P.x = best[0] + 0.5; FP.P.y = best[1] + 0.5; FP.P.a = best[2] * Math.PI / 2; for (let i = 0; i < 3; i++) FP.addFind(); FP.forceBeing(); });
@@ -184,7 +203,7 @@ console.log('The Maze — first person checks');
 
 // ── the turn: three pages, and nothing else counts ───────────────
 {
-  const p = await open(4242); await p.waitForTimeout(3500);
+  const p = await open(4242); await awake(p);
   const walkOnto = (place) => p.evaluate((place) => { const o = FP.objs.find((o) => o.kind === 'page' && o.place === place); FP.P.x = o.x; FP.P.y = o.y; }, place);
   // into every story room first: that's no find
   for (const kind of ['waiting', 'wall']) { await p.evaluate((kind) => { const st = FP.story.find((s) => s.kind === kind); const k = st.tiles[st.tiles.length >> 1]; FP.P.x = k % FP.W + 0.5; FP.P.y = ((k / FP.W) | 0) + 0.5; }, kind); await p.waitForTimeout(250); await closePage(p); }
@@ -211,7 +230,7 @@ console.log('The Maze — first person checks');
 
 // ── reading ──────────────────────────────────────────────────────
 {
-  const p = await open(4242); await p.waitForTimeout(3500);
+  const p = await open(4242); await awake(p);
   await p.evaluate(() => { const o = FP.objs.find((o) => o.kind === 'page' && o.place !== 'start'); FP.P.x = o.x; FP.P.y = o.y; });
   await p.waitForTimeout(400);
   const x0 = await p.evaluate(() => [FP.P.x, FP.P.y]);
