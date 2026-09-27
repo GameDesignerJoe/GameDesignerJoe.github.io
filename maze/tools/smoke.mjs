@@ -16,6 +16,7 @@
 
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import { readFileSync, readdirSync } from 'node:fs';
+import { ensureServer } from './serve.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (n, d) => { const i = argv.indexOf('--' + n); return i === -1 ? d : argv[i + 1]; };
@@ -23,6 +24,7 @@ const PORT = Number(arg('port', 8765));
 const SEED = Number(arg('seed', 4242));
 const PAGE_URL = `http://127.0.0.1:${PORT}/maze/maze-topdown.html?seed=${SEED}`;
 
+const stopServer = await ensureServer(PORT);
 const results = [];
 const check = (name, pass, detail = '') => {
   results.push({ name, pass, detail });
@@ -77,6 +79,84 @@ await page.waitForTimeout(1400);
 
 const version = await page.evaluate(() => VERSION);
 console.log(`  game v${version} at ${PAGE_URL}\n`);
+
+// ── the generation sweeps, run first and side by side ─────────────
+// Four of the checks below are pure sweeps of generate() over hundreds of seeds — no clock, no input, nothing but
+// the generator — and together they were three minutes of a seven-minute run, one after another in the one page.
+// They run here instead, before anything else, in pages of their own (a context of their own, so no storage is
+// shared), all at once: the machine has the cores. Nothing timing-sensitive runs until they're done, so they can't
+// starve a frame-counting check (v0.88.0). Each check still reads its numbers where it always did, and the main page
+// is then put back as its sweep would have left it (`settle`: the sweep's last maze), so what follows is unchanged.
+const SWEEP_FNS = {
+  vaultedA: [(phs) => {
+  let keys = 0, inNest = 0, doorN = 0, mazes = 0;
+  for (const ph of phs) for (let s2 = 1; s2 <= 60; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 19 + ph); mazes++; doorN += doors.length;
+    const nests = new Set(keyVaults.map((v) => v.cx + ',' + v.cy));
+    for (const [k] of innerKeys) { keys++; if (nests.has(k)) inNest++; }
+  }
+  return { keys, inNest, doorN, mazes };
+}, [1, 2, 3, 4]],
+  vaultedB: [(phs) => {
+  let keys = 0, inNest = 0, doorN = 0, mazes = 0;
+  for (const ph of phs) for (let s2 = 1; s2 <= 60; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 19 + ph); mazes++; doorN += doors.length;
+    const nests = new Set(keyVaults.map((v) => v.cx + ',' + v.cy));
+    for (const [k] of innerKeys) { keys++; if (nests.has(k)) inNest++; }
+  }
+  return { keys, inNest, doorN, mazes };
+}, [5, 6, 7]],
+  manifest: [() => {
+  let want = 0, got = 0, none = 0, mazes = 0;
+  for (const ph of [1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 19 + ph); mazes++;
+    const n = PHASES[ph].f.doors || 0;
+    want += n; got += doors.length;
+    if (n && !doors.length) none++;
+  }
+  return { want, got, none, mazes };
+}],
+  wetPages: [() => {
+  let pages = 0, inPool = 0, wet = 0;
+  for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 25; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
+    for (const k of journals.keys()) { pages++; const [x, y] = k.split(',').map(Number);
+      const L = landmarks.find((l) => l.kind === 'pool' && l.rx0 <= x && x <= l.rx1 && l.ry0 <= y && y <= l.ry1);
+      if (!L) continue; inPool++;
+      if (!(x === L.rx0 || x === L.rx1 || y === L.ry0 || y === L.ry1)) wet++; } }
+  return { pages, inPool, wet };
+}],
+  shrineGen: [() => {
+  let mazes = 0, statues = 0, stones = 0, theirs = 0, strays = [];
+  for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
+    mazes++; statues += shrines.length; stones += offerings.size;
+    // one person to a chapter: every statue and every stone here is theirs
+    const want = phase().f.shrines;
+    for (const sh of shrines) if (sh.who === want) theirs++; else strays.push(`${phase().who} statue ${sh.who}`);
+    for (const who of offerings.values()) if (who === want) theirs++; else strays.push(`${phase().who} stone ${who}`);
+  }
+  return { mazes, statues, stones, theirs, strays: strays.slice(0, 4), strayN: strays.length };
+}],
+};
+const SWEPT = {};
+{
+  const t0 = Date.now(), sweepCtx = await browser.newContext();
+  const lanes = [['vaultedA'], ['vaultedB'], ['manifest', 'wetPages'], ['shrineGen']];
+  await Promise.all(lanes.map(async (lane) => {
+    const p = await sweepCtx.newPage();
+    p.on('pageerror', (e) => pageErrors.push('sweep: ' + String(e)));
+    await p.goto(PAGE_URL, { waitUntil: 'load' }); await p.waitForTimeout(1400);
+    for (const name of lane) { const [fn, a] = SWEEP_FNS[name]; SWEPT[name] = await p.evaluate(fn, a); }
+    await p.close();
+  }));
+  await sweepCtx.close();
+  console.log(`  (generation sweeps: ${Math.round((Date.now() - t0) / 1000)}s, side by side)\n`);
+}
+const settle = (ph, seed) => page.evaluate(([ph, s]) => { SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s); }, [ph, seed]);
 
 // ── 1. boots to the title screen, asleep ─────────────────────────
 const boot = await page.evaluate(() => ({
@@ -1633,17 +1713,23 @@ const heard = await page.evaluate(async (floorHz) => {
     // ignored, which is worse than not having it. A motif bar ignores density and rests and always
     // plays, so one is guaranteed inside motifEvery bars: the Soldier's every 2 (~7s), the
     // Criminal's every 3 (~12s). 18s is past both with room to spare.
-    const byTick = new Map();
+    // The shared bed (audio.js startDrone: 55, 82.4, 110, 164.8Hz and its slow LFOs) is not a note; if it happens
+    // to be built inside the window its tick used to count as one "topping out at 82Hz", and this check failed now
+    // and then with the music fine. A tick made of nothing but the bed's oscillators is left out.
+    const BED = new Set([55, 82.4, 110, 164.8]);
+    const byTick = new Map(), bedTick = new Map();
     for (let waited = 0; waited < 18000; waited += 250) {
       await nap(250);
       for (const v of window.__voices) {
         const k = Math.round(v.t / 40);               // voices of one note are made in the same tick
-        byTick.set(k, Math.max(byTick.get(k) || 0, v.n.frequency.value || 0));
+        const f = v.n.frequency.value || 0;
+        byTick.set(k, Math.max(byTick.get(k) || 0, f));
+        bedTick.set(k, (bedTick.get(k) ?? true) && (f < 1 || BED.has(Math.round(f * 10) / 10)));
       }
       window.__voices.length = 0;
-      if (byTick.size >= 4) break;                    // a motif bar's worth: enough to judge
+      if ([...byTick.keys()].filter((k) => !bedTick.get(k)).length >= 4) break;   // a motif bar's worth: enough to judge
     }
-    const tops = [...byTick.values()].filter((f) => f > 0);
+    const tops = [...byTick].filter(([k, f]) => f > 0 && !bedTick.get(k)).map(([, f]) => f);
     out[name] = { notes: tops.length, mute: tops.filter((f) => f < floorHz).length, lowestTop: tops.length ? Math.min(...tops) : 0 };
   }
   return out;
@@ -2023,7 +2109,9 @@ const hud = await page.evaluate(async () => {
   const beatFired = beats === 1 && afterOne === 0;
   // and the lock reads
   const plain = getComputedStyle(charcoalEl); const plainBorder = parseFloat(plain.borderTopWidth), plainShadow = plain.boxShadow;
-  charcoalLock = true; updateCharcoal(); await nap(30);
+  // read it once the pill has finished changing: 30ms caught the halo mid-transition now and then, and the check
+  // failed with nothing wrong (v0.142.0)
+  charcoalLock = true; updateCharcoal(); await nap(400);
   const lk = getComputedStyle(charcoalEl); const lockBorder = parseFloat(lk.borderTopWidth), lockShadow = lk.boxShadow;
   // and locked with nothing left: Joe, "Locked, charcoal states gold, even after all of the charcoal is gone"
   charcoal = 0; charcoalLeft = 0; updateCharcoal(); await nap(30);
@@ -2699,16 +2787,8 @@ const around = await page.evaluate(() => {
 // from the thing it is testing cannot fail, which this suite has learned twice. 45% sits above
 // every way of reverting this — one nest and the wide search reach 41%, two nests and the narrow
 // search 39%, the game as it stood 23% — and well under what ships.
-const vaulted = await page.evaluate(() => {
-  let keys = 0, inNest = 0, doorN = 0, mazes = 0;
-  for (const ph of [1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 60; s2++) {
-    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
-    generate(s2 * 19 + ph); mazes++; doorN += doors.length;
-    const nests = new Set(keyVaults.map((v) => v.cx + ',' + v.cy));
-    for (const [k] of innerKeys) { keys++; if (nests.has(k)) inNest++; }
-  }
-  return { keys, inNest, doorN, mazes };
-});
+const vaulted = (({ vaultedA: a, vaultedB: b }) => ({ keys: a.keys + b.keys, inNest: a.inNest + b.inNest, doorN: a.doorN + b.doorN, mazes: a.mazes + b.mazes }))(SWEPT);
+await settle(7, 60 * 19 + 7);   // the page as the sweep left it: its last maze
 check('most door keys are found in a nest, not loose in a dead end',
   vaulted.keys > 300 && vaulted.inNest / vaulted.keys >= 0.45,
   `${vaulted.inNest} of ${vaulted.keys} keys in a nest (${(100 * vaulted.inNest / vaulted.keys).toFixed(0)}%, bar 45%) `
@@ -2726,17 +2806,8 @@ check('most door keys are found in a nest, not loose in a dead end',
 // number of re-rolls ever found a third.
 //
 // The bar is 90% and reads no knob. It shipped at 99%; without the re-roll it is 46%.
-const manifest = await page.evaluate(() => {
-  let want = 0, got = 0, none = 0, mazes = 0;
-  for (const ph of [1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
-    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
-    generate(s2 * 19 + ph); mazes++;
-    const n = PHASES[ph].f.doors || 0;
-    want += n; got += doors.length;
-    if (n && !doors.length) none++;
-  }
-  return { want, got, none, mazes };
-});
+const manifest = SWEPT.manifest;
+await settle(7, 30 * 19 + 7);
 check('a maze gets the locked doors its phase asked for',
   manifest.want > 200 && manifest.got / manifest.want >= 0.9 && manifest.none === 0,
   `${manifest.got} of ${manifest.want} doors placed (${Math.round(100 * manifest.got / manifest.want)}%, bar 90%), `
@@ -2744,16 +2815,8 @@ check('a maze gets the locked doors its phase asked for',
 
 // ── 8c2. no page under the water ──────────────────────────────────
 // Joe: "Floating book in blackness." 68 of 69 Child pages in a pool room sat under the disc.
-const wetPages = await page.evaluate(() => {
-  let pages = 0, inPool = 0, wet = 0;
-  for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 25; s2++) {
-    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
-    for (const k of journals.keys()) { pages++; const [x, y] = k.split(',').map(Number);
-      const L = landmarks.find((l) => l.kind === 'pool' && l.rx0 <= x && x <= l.rx1 && l.ry0 <= y && y <= l.ry1);
-      if (!L) continue; inPool++;
-      if (!(x === L.rx0 || x === L.rx1 || y === L.ry0 || y === L.ry1)) wet++; } }
-  return { pages, inPool, wet };
-});
+const wetPages = SWEPT.wetPages;
+await settle(7, 25 * 19 + 7);
 check('a page in a pool room lies on the rim you walk round, never in the water',
   wetPages.inPool > 20 && wetPages.wet === 0,
   `${wetPages.pages} pages over 200 mazes, ${wetPages.inPool} in a pool room, ${wetPages.wet} of them in the water`);
@@ -2767,18 +2830,8 @@ check('a page in a pool room lies on the rim you walk round, never in the water'
 // Every chapter, the Child's included — v0.89.0 kept her out to protect the theme, and Joe's read
 // was that the abandoned boy has as much to ask as anyone: "Not sure why we don't have one in the
 // first child chapter. Seems like it would be a good idea."
-const shrineGen = await page.evaluate(() => {
-  let mazes = 0, statues = 0, stones = 0, theirs = 0, strays = [];
-  for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
-    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
-    mazes++; statues += shrines.length; stones += offerings.size;
-    // one person to a chapter: every statue and every stone here is theirs
-    const want = phase().f.shrines;
-    for (const sh of shrines) if (sh.who === want) theirs++; else strays.push(`${phase().who} statue ${sh.who}`);
-    for (const who of offerings.values()) if (who === want) theirs++; else strays.push(`${phase().who} stone ${who}`);
-  }
-  return { mazes, statues, stones, theirs, strays: strays.slice(0, 4), strayN: strays.length };
-});
+const shrineGen = SWEPT.shrineGen;
+await settle(7, 30 * 19 + 7);
 check('every maze, the Child\'s included, carries two statues and their two stones',
   shrineGen.statues === shrineGen.mazes * 2 && shrineGen.stones === shrineGen.mazes * 2,
   `${shrineGen.statues} statues and ${shrineGen.stones} stones across ${shrineGen.mazes} mazes over all eight selves (wanted ${shrineGen.mazes * 2} each)`);
@@ -3081,4 +3134,5 @@ console.log(failed.length === 0
   : `FAIL — ${failed.length} of ${results.length} behaviour checks: ${failed.map((f) => f.name).join('; ')}`);
 
 await browser.close();
+stopServer();
 process.exit(failed.length ? 1 : 0);

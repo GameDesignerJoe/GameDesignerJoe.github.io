@@ -14,6 +14,22 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## The loop, made quicker (v0.142.0)
+
+Joe: *"investigate the smoke test and see if you can optimize our overall loop. It does feel like things are taking
+longer."* Measured: smoke was 458s on a quiet machine (the 10-minute runs overlapped other work), and generation is no
+slower than at v0.110.0. Three changes:
+
+- **smoke's four biggest generation sweeps** (door keys in nests, locked doors per phase, pages in pools, statues and
+  stones — 190s one after another) now run first, side by side in pages of their own, before any timing check; each
+  check reads its numbers where it always did, and the main page is put back to the sweep's last maze (`settle`). Same
+  numbers to the digit; 355s a run.
+- **Two checks that failed with nothing wrong**, fixed at the check: the charcoal pill read 30ms after locking, mid-
+  transition (now 400ms); the bass selves counted the shared bed's 82Hz drone as a note when it was built inside the
+  window (a tick of nothing but the bed is left out — red-proofed: with the carrier disabled it still fails, 4 of 4 mute).
+- **fp-smoke.mjs**, the first person's own suite (12 checks, ~1 min), and the rule in the maze-task skill: an fp-only
+  change runs it, not smoke, which never loads maze-fp.html. Both start a server if none is up.
+
 ## The heart: first person carves the maze now (v0.127.0)
 
 Joe: *"I'm fine with this effecting the generation of the maze."* The heart (`fp/README.md`) is the first

@@ -13,12 +13,16 @@ test hooks and carries no test code.
 Serve the repo, then run from the repo root:
 
 ```
-python3 -m http.server 8765          # in another terminal
+python3 -m http.server 8765          # in another terminal (fp-smoke and smoke start one if it isn't)
 
 node maze/tools/harness.mjs          # generation invariants, ~1900 mazes
 node maze/tools/smoke.mjs            # behaviour: boot, walk, mark, save, pool
 node maze/tools/selftest.mjs         # proves the invariants can actually fail
+node maze/tools/fp-smoke.mjs         # the first person: pages, closets, the lies, the heart, the way out
 ```
+
+`fp-smoke.mjs` (v0.142.0) is the first person's suite — `maze-fp.html`, which smoke never loads. It drives the page
+through `window.FP` at machine speed, about a minute. `serve.mjs` is the shared "start a server if none is up".
 
 Each exits non-zero on failure. `--port` overrides 8765 everywhere.
 

@@ -85,11 +85,15 @@ wide fewer times.
 ## 5. Verify — this is the part that gets skipped
 
 ```
-python3 -m http.server 8765          # must be up, or every run errors
-node maze/tools/smoke.mjs            # behaviour, ~4 min
+node maze/tools/fp-smoke.mjs         # the first person (maze-fp.html), ~1 min
+node maze/tools/smoke.mjs            # the top-down's behaviour, ~6 min
 node maze/tools/selftest.mjs         # proves the invariants can fail, ~90s
 node maze/tools/harness.mjs          # generation invariants across 576 mazes, ~90s
 ```
+
+fp-smoke and smoke start a server on 8765 themselves if none is answering (a fresh container has none); the other
+two still want `python3 -m http.server 8765` up. smoke runs its four big generation sweeps first, side by side in pages
+of their own, and only then the timing checks — so nothing else should be running while it does.
 
 **Run harness and selftest together; run smoke on its own.** They are read-only
 processes over the same files and server, so nothing conflicts — but a dozen of
@@ -105,13 +109,19 @@ like one that failed.
 |---|---|
 | generation (`generate.js`, `proto.js`, any `CONFIG` knob they read) | all three, every time |
 | render, UI, text, audio, movement | smoke, plus look at it |
+| only the first person (`fp/`, `maze-fp.html`; a `VERSION` bump doesn't count) | fp-smoke, plus look at it |
+| the first person and anything shared (`data/`, `js/`, `tools/`) | fp-smoke, then smoke |
+
+smoke never loads `maze-fp.html`, so an fp-only change can't turn it red and six minutes of it verifies nothing
+there; fp-smoke is what does. Add an fp-smoke check for new first-person behaviour, and red-proof it the same way.
 
 Generation is the one where a change 200 lines away silently invalidates an
 invariant, which is the whole reason the harness exists. Nothing else in the game
 has that property.
 
 - **Look at it.** A Playwright shot at 430×900, `deviceScaleFactor: 2`. Landscape
-  too if it touches layout.
+  too if it touches layout. **Save shots to an absolute path in the scratchpad**, never a bare filename: a probe run
+  from `maze/` writes into the repo, and one of those (`bw-watch.png`) was committed and shipped for nine versions.
 - **Add a smoke check for the new behaviour, then verify the check fails when you
   revert the feature.** A check that cannot fail is worse than none — two in this
   repo passed with their feature deleted.
