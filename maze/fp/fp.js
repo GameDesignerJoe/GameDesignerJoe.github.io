@@ -3392,14 +3392,28 @@
   // stick triggers the audio?" A phone suspends a page's sound when it goes to the background, and only
   // a touch may start it again. So every touch (the stick's included) and every key checks, and wakes
   // both — the room's and the music's — if either has stopped
+  //
+  // Joe, later: "I've lost sound now … I can get it to come in for a second, then it quits." A phone can stop a
+  // context at any time — a call, another app taking the sound, the screen dimming — and on an iPhone a touch that
+  // starts (pointerdown, touchstart) isn't always allowed to start it again; the end of one (touchend, click) is.
+  // So every part of a touch wakes both, not only the start of it, and so does coming back to the page. Holding the
+  // stick is one touch however long you walk, so the sound is checked every couple of seconds too, and a context
+  // that has stopped is flagged for the next touch (`wake` is cheap when both are running). And on an iPhone the
+  // page asks to be treated as something playing (`audioSession`), so the ringer switch doesn't silence it.
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   const wake = () => {
     if (!S.sound) return;
-    if (!FP_SOUND.running()) { FP_SOUND.start(S.theme, track()); FP_SOUND.setEnabled(S.sound); }
-    else if (typeof AUDIO !== 'undefined') AUDIO.unlock();
+    if (!FP_SOUND.running()) { FP_SOUND.start(S.theme, track()); FP_SOUND.setEnabled(S.sound); FP_SOUND.unlock(); }
+    if (typeof AUDIO !== 'undefined' && !AUDIO.running()) AUDIO.unlock();
   };
-  addEventListener('pointerdown', wake, { capture: true });
-  addEventListener('touchstart', wake, { capture: true, passive: true });
-  addEventListener('keydown', wake, { capture: true });
+  for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click', 'keydown'])
+    addEventListener(ev, wake, { capture: true, passive: true });
+  const soundBack = () => { if (document.visibilityState === 'visible') wake(); };
+  addEventListener('visibilitychange', soundBack); addEventListener('pageshow', soundBack); addEventListener('focus', soundBack);
+  setInterval(() => {   // a nudge only, never the full start (that fades the music in again)
+    if (!S.sound || document.visibilityState !== 'visible' || FP_SOUND.state() === 'none') return;
+    FP_SOUND.unlock(); if (typeof AUDIO !== 'undefined' && !AUDIO.running()) AUDIO.unlock();
+  }, 2000);
   bindSel('optSound', 'sound', () => FP_SOUND.setEnabled(S.sound));
 
   // ── go ────────────────────────────────────────────────────
@@ -3416,7 +3430,7 @@
     render(now);
     trainFrame(now);
     drawMini(now);
-    if (++frames >= 30) { $('fps').textContent = Math.round(frames * 1000 / (now - fpsAt)) + ' fps · ' + RW + '×' + RH; frames = 0; fpsAt = now; }
+    if (++frames >= 30) { $('fps').textContent = Math.round(frames * 1000 / (now - fpsAt)) + ' fps · ' + RW + '×' + RH + ' · sound ' + FP_SOUND.state() + (typeof AUDIO !== 'undefined' ? ', music ' + (AUDIO.running() ? 'running' : 'stopped') : ''); frames = 0; fpsAt = now; }
     requestAnimationFrame(frame);
   }
   applyTheme();

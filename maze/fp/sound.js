@@ -263,5 +263,13 @@ const FP_SOUND = (() => {
     far() { if (live() && typeof AUDIO !== 'undefined') AUDIO.farSteps(); },
     out() { if (live() && typeof AUDIO !== 'undefined') AUDIO.exit(); },
     running: () => !!ac && ac.state === 'running' && started,
+    state: () => (ac ? ac.state : 'none'),   // for the debug readout
+    // a nudge from a touch or a key: resume a stopped clock, and play one silent sample in the same gesture —
+    // what an iPhone wants before it lets a context that was interrupted make sound again
+    unlock() {
+      if (!ac || ac.state === 'running') return;
+      try { ac.resume(); } catch (e) {}
+      try { const b = ac.createBufferSource(); b.buffer = ac.createBuffer(1, 1, ac.sampleRate); b.connect(ac.destination); b.start(0); } catch (e) {}
+    },
   };
 })();

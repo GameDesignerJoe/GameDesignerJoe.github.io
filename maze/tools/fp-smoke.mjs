@@ -295,6 +295,29 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── sound: a stopped context comes back ──────────────────────────
+// Joe: "I've lost sound now … I can get it to come in for a second, then it quits." A phone stops a context behind
+// the page's back; walking is one long touch, so nothing but the page's own check would wake it
+{
+  const p = await ctx.newPage(); p.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
+  await p.addInitScript(() => {   // keep hold of every context the page makes, to stop them from outside
+    const A = window.AudioContext; window.__acs = [];
+    window.AudioContext = class extends A { constructor(...a) { super(...a); window.__acs.push(this); } };
+  });
+  await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(700); await awake(p);
+  await p.mouse.click(215, 450); await p.waitForTimeout(500);   // a touch: sound starts
+  const before = await p.evaluate(() => window.__acs.map((a) => a.state));
+  await p.evaluate(() => Promise.all(window.__acs.map((a) => a.suspend())));
+  const stopped = await p.evaluate(() => window.__acs.map((a) => a.state));
+  await p.waitForTimeout(2600);   // as if still on the stick from before: no new touch or key
+  const after = await p.evaluate(() => window.__acs.map((a) => a.state));
+  const readout = await p.evaluate(() => document.getElementById('fps').textContent);
+  check('sound stopped behind the page comes back with no new touch or key, and the panel says so',
+    before.length === 2 && before.every((x) => x === 'running') && stopped.every((x) => x === 'suspended') && after.every((x) => x === 'running') && /sound running, music running/.test(readout),
+    `contexts ${before.join(',')} → stopped ${stopped.join(',')} → after 2.6s ${after.join(',')}; panel "${readout}"`);
+  await p.close();
+}
+
 // ── training: nothing said until you've had time, then once ever ─────
 {
   const tctx = await browser.newContext({ viewport: { width: 430, height: 900 } });   // its own store: nothing learnt yet
