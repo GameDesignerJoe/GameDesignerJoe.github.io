@@ -59,7 +59,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   either side of a `DOOR_W` opening, a header over it from `DOOR_H`. Tap one within reach to open or shut it; it swings away from you and stays that way,
   so an open door says which way someone went. `doorsOpen` start open, swung out into the room. Shut, the leaf laps
   into both jambs so no light shows round it, and the squeeze veil stops at it. A leaf is a segment each column is tested against, and the collision pushes off.
-  Closets (`closets`, 30 a maze: "closets everywhere") are narrow pale doors on solid walls: tap to step in and look out through the slats,
+  Closets (`closets`, 30 a maze: "closets everywhere"; never in a pocket that squeezes shut off from the rest) are narrow pale doors on solid walls: tap to step in and look out through the slats,
   **Step out** to leave. The office's old wallpapered door, which went nowhere, is out of its walls.
 - **The being** (`being`; floor 1; only after the turn). The old notes' Caretaker, and Joe's twist: it helps. Each time you
   go more than `beingOff` steps off the way out, `beingChance` that it comes (rolled once a trip; come back within it and
@@ -111,7 +111,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   One warm pink lamp, beating (`HEART_BPM`); its own music (`The Heart`: a tune he knew, slowed); and, once it's open, a heartbeat you
   can hear through the walls from `HEART_HEAR_OPEN` steps off. Until the lies are crossed out its way in is wall. The turn leaves it alone, nothing else is
   placed in it, and the being can't follow you in. **To the heart** on the panel stands you outside its way in.
-- **Stairs** (`floors`, 2 by default; 1 is none). Floor 1 is the chapter's maze; each floor above is a maze of its own
+- **Stairs** (`floors`, 1 by default for now — one floor, every room on it; set it higher on the panel to have them). Floor 1 is the chapter's maze; each floor above is a maze of its own
   from its own seed off the first, so it's always the same floor. Going up is a door marked up at the end of a far
   dead end (the painted flight read wrong, so it's gone). Walk into it or tap it: black, feet on stairs, "floor 2",
   and you're standing out from a door marked down in the dead end nearest where that floor begins; it takes you back
@@ -121,7 +121,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   the chapter's pages are spread across its floors (dealt round: page 1 on floor 1, page 2 on floor 2, …), so the count is out of
   all of them.
   **To the stairs** on the panel puts you in front of them; Restart starts the same maze over: floor 1, every page back, before the turn.
-- **The kid's room** (the Child's secret room, which the generator already carves behind a squeeze). Pitch black
+- **The kid's room** (floor 1 only; the Child's secret room, which the generator already carves behind a squeeze). Pitch black
   (`PITCH`, darker than a dark hall) until you flip its switch, just inside the squeeze; the amber pilot is all you see.
   Lit (five lamps of its own), every wall is covered in a kid's chalk — noughts and crosses, "dad?", balls, suns, a
   house, tallies, stick figures, a big one and a small one holding hands, and on the far wall a man walking away. A

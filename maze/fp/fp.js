@@ -46,7 +46,8 @@
     if ((saved.cfg || 0) < 7) { delete saved.chalkInf; delete saved.showPath; delete saved.showArrow; }
     // more words at dead ends, and the arrow off again (v0.144.0)
     if ((saved.cfg || 0) < 8) { delete saved.words; delete saved.showArrow; }
-    saved.cfg = 8;
+    if ((saved.cfg || 0) < 9) delete saved.floors;   // one floor for now (v0.146.0)
+    saved.cfg = 9;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -620,9 +621,19 @@
     closets = [];
     const R = rng(SEED + 160001), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), cand = [];
     const doorTiles = new Set(doors.map((d) => d.k));
+    // not in a pocket that squeezes shut off from the rest: "Closets in one room squeeze spaces doesn't make sense" (Joe).
+    // The floor split at every squeeze; a closet only in a piece of it at least POCKET tiles big — the maze proper,
+    // not the room behind a squeeze (the start room can open by one, so it isn't reachability from the start)
+    const POCKET = 40, piece = new Int32Array(W * H).fill(-1), size = [];
+    for (let k0 = 0; k0 < W * H; k0++) { if (piece[k0] >= 0 || solid(k0 % W, (k0 / W) | 0) || low[k0]) continue;
+      const q = [k0]; piece[k0] = size.length;
+      for (let i = 0; i < q.length; i++) { const c = q[i], cx = c % W, cy = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (piece[n] < 0 && !solid(cx + dx, cy + dy) && !low[n]) { piece[n] = size.length; q.push(n); } } }
+      size.push(q.length); }
+    const inMaze = (k) => piece[k] >= 0 && size[piece[k]] >= POCKET;
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
       // not in a dark hall: the point of a closet is what you can see from it
-      if (solid(x, y) || low[y * W + x] || dark[y * W + x] || inHeart(y * W + x) || doorTiles.has(y * W + x) || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
+      if (solid(x, y) || !inMaze(y * W + x) || low[y * W + x] || dark[y * W + x] || inHeart(y * W + x) || doorTiles.has(y * W + x) || (Math.abs(x - sx0) < 3 && Math.abs(y - sy0) < 3)) continue;
       HD.forEach(([dx, dy]) => {
         const wx = x + dx, wy = y + dy;
         if (!solid(wx, wy) || wx <= 0 || wy <= 0 || wx >= W - 1 || wy >= H - 1 || exitFace[wy * W + wx]) return;
@@ -1581,7 +1592,7 @@
     return null;
   }
   function placeChalkPile() {
-    const set = secretSet(); if (!set) return;
+    const set = secretSet(); if (!set || floor !== 1) return;   // the kid's room is floor 1's: Joe, "each room [should] be unique"
     const way = secretWay(set); if (!way) return;
     let best = null, bd = -1;
     for (const k of set) { const x = k % W, y = (k / W) | 0, walls = HD.filter(([dx, dy]) => solid(x + dx, y + dy)).length, d = Math.abs(x - way.x) + Math.abs(y - way.y);
@@ -1591,7 +1602,7 @@
     objs.push({ x: x + 0.5 + ox, y: y + 0.5 + oy, kind: 'chalkPile', tex: TEX.sprites.chalkPile, h: 0.1, glow: 0.2 });
   }
   function placeSecret(usedFaces) {
-    const set = secretSet(); if (!set) return;
+    const set = secretSet(); if (!set || floor !== 1) return;
     const way = secretWay(set), R = rng(SEED + 190001);
     if (T.ceils && way) {
       // lamps of its own — one in the middle and one toward each corner — so switching on shows every wall

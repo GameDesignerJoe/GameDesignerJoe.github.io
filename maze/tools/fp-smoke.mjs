@@ -102,7 +102,7 @@ console.log('The Maze — first person checks');
         if (!ok) bad[o.place] = (bad[o.place] || 0) + 1; } }
     return { bad, seen };
   });
-  await p.evaluate(() => FP.goFloor(2)); await p.waitForTimeout(2300);
+  await p.evaluate(() => { FP.S.floors = 2; FP.goFloor(2); }); await p.waitForTimeout(2300);
   const up = await p.evaluate(() => [FP.objs.filter((o) => o.kind === 'page').length, document.getElementById('hudPages').textContent]);
   check('the Child\'s five pages lie in their places, and the floor above has none',
     Object.keys(r.bad).length === 0 && ['start', 'waiting', 'wall', 'kid', 'heart'].every((k) => r.seen[k] === 12) && up[0] === 0 && up[1].endsWith('/ 5'),
@@ -116,7 +116,7 @@ console.log('The Maze — first person checks');
   const keys = () => p.evaluate(() => FP.closets.map((c) => c.k * 4 + c.face).sort((a, b) => a - b).join(','));
   const a = await keys();
   await p.evaluate(() => { for (let i = 0; i < 3; i++) FP.addFind(); });
-  await p.evaluate(() => FP.goFloor(2)); await p.waitForTimeout(2300);
+  await p.evaluate(() => { FP.S.floors = 2; FP.goFloor(2); }); await p.waitForTimeout(2300);
   await p.evaluate(() => FP.goFloor(1)); await p.waitForTimeout(2300);
   const b = await keys(), A = new Set(a.split(',')), moved = b.split(',').filter((k) => !A.has(k)).length;
   let inN = 0;
@@ -127,6 +127,14 @@ console.log('The Maze — first person checks');
   }
   check('closets stay behind their doors after the turn and the stairs, and a tap steps you in', moved === 0 && inN >= 4,
     `${moved} of ${A.size} closets moved after the turn and a floor round trip; stepped into ${inN} of 5 from in front`);
+  const behind = await p.evaluate(() => { let bad = 0, all = 0;
+    for (let s = 1; s <= 10; s++) { FP.newMaze(s * 313 + 5); const W = FP.W;
+      for (const c of FP.closets) { all++;   // the squeeze-free piece of floor it stands in
+        const seen = new Set([c.y * W + c.x]), q = [c.y * W + c.x];
+        for (let i = 0; i < q.length && seen.size < 40; i++) { const k = q[i]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = k + dy * W + dx, x = n % W, y = (n / W) | 0; if (!seen.has(n) && tiles[y][x] && !FP.low[n]) { seen.add(n); q.push(n); } } }
+        if (seen.size < 40) bad++; } } return [bad, all]; });
+  check('no closet in a pocket that squeezes shut off from the rest', behind[0] === 0 && behind[1] > 150,
+    `${behind[0]} of ${behind[1]} closets over 10 mazes in a piece of floor under 40 tiles between squeezes`);
   await p.close();
 }
 
