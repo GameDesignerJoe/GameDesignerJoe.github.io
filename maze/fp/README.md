@@ -91,6 +91,12 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   faces and the room is undone — its music stops. Both undone and somewhere a wall gives: the heart's way in, walled up
   until then, opens, and its heartbeat carries twice as far so you can follow it. Kept for the run, stairs and all. The
   turn leaves both rooms alone now (its words would cover theirs). **Cross out the lies** on the panel does it for you.
+- **The way out has to be earned** (a chapter with placed pages; lines in `FP_ENDING`). The exit is shut and chalked
+  "not yet" — walk up to it and the handle rattles. It opens once you've been to the heart and then left the watch on the
+  chair he saved in the waiting room (tap the seat while you carry it): he says goodbye to it, and somewhere a door
+  unlatches. The being is standing in front of the exit then, waiting; come close and it comes down to the kid's size,
+  and fades, and goes. Out, under the Exit: "it's time to come home now." After the watch is left the being doesn't hunt
+  any more. The debug arrow points at the next thing to do. **Leave the watch** on the panel skips to it.
 - **The heart** (`heart`; the Child, floor 1; words in `STORY_ROOMS` → `heart`). The third story room, and the hidden one:
   what's under the waiting and under the wall. A room the shape of a heart, carved after the generator (on its own stream)
   where its way in is furthest from both the start and the exit, clear of the big rooms the other two are made from. You

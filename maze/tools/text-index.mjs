@@ -56,6 +56,8 @@ const ABOUT = {
                   when: 'First person: across the start room as you wake, and ahead of you as you step out of it' },
   TURN_LINES:   { surface: 'wall', fires: 'after the turn', voiced: true,
                   when: 'First person: once enough is found, glowing on the walls of rooms that go dark as you walk in, and at the end of halls that go dark ahead of you' },
+  FP_ENDING:    { surface: 'wall', fires: 'once a run', voiced: true,
+                  when: 'First person: chalked on the shut exit; the line when you leave the watch on the chair; under the Exit as you go' },
   FP_PAGES:     { surface: 'page', fires: 'every maze', voiced: true,
                   when: 'First person: the journal pages, one in each place — the start room, the waiting room, the wall, the kid’s room, the heart' },
   CHALKBOARD:   { surface: 'wall', fires: 'every maze', voiced: true,

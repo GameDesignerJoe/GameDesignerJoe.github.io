@@ -233,6 +233,14 @@ const FP_SOUND = (() => {
       burst(2.0, { vol: 0.3, freq: 180, q: 0.6, type: 'lowpass' });
       for (let i = 0; i < 8; i++) burst(0.05, { vol: 0.1, freq: 2500 + Math.random() * 2000, q: 3, at: 0.4 + Math.random() * 1.6 });
     },
+    // the way out, unlatching somewhere off in the building: a latch, a door swinging, air
+    exitOpens() {
+      if (!live()) return;
+      DISTANT.slam && DISTANT.slam(elsewhere());
+      tone(392, 1.8, { type: 'sine', vol: 0.06, attack: 0.3 }); tone(523, 2.2, { type: 'sine', vol: 0.045, attack: 0.6, at: 0.4 });
+    },
+    // the kid, going: a breath and a high soft note
+    kidGoes() { if (live()) { burst(1.2, { vol: 0.12, freq: 900, q: 0.5, slide: 400 }); tone(659, 1.6, { type: 'sine', vol: 0.05, attack: 0.3 }); } },
     // a light going out: the tube's tick and its hum dropping away, quieter the further off it is
     lightOut(near) {
       if (!live()) return;

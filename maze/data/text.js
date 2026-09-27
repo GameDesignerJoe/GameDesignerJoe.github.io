@@ -438,6 +438,17 @@ const FP_PAGES = {
   },
 };
 
+// first person: the way out of a chapter with placed pages. The exit is chalked `notYet` and won't open until you've
+// been to the heart and left the watch on the chair he saved in the waiting room; `leave` is what he says when you
+// do; `out` is under the Exit when you go. Claude's drafts, to be rewritten.
+const FP_ENDING = {
+  'The Child': {
+    notYet: "not yet",
+    leave: "i left your watch on your chair. i dont have to save it anymore. its yours. im going now.",
+    out: "it's time to come home now.",
+  },
+};
+
 // first person, the school look: what's on the chalkboards. Keyed by self (`_` for any other). A board gets
 // one of `lines` written over and over down it, the way a kid writes out lines as a punishment, or one of
 // `prompts` at the top as if the class were about to start. Claude's drafts, to be rewritten.
@@ -460,5 +471,5 @@ const CHALKBOARD = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES, FP_ENDING,
 };

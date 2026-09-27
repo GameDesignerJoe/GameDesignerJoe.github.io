@@ -266,6 +266,7 @@
     index(); heartIndex();
     if (floor > 1) { exitFace.fill(0); exitDir = null; }   // the way out is only on floor 1
     turnIndex(); beingIndex();
+    if (watchLeft && !kidMet && floor === 1) setTimeout(spawnKid, 0);
     placeThings();
     const tx = Math.floor(start.x), ty = Math.floor(start.y);
     // face the longest open run from where you wake, so the first thing you see is a way to go
@@ -511,6 +512,7 @@
     placeFurniture();
     storyProps();
     placePages();
+    lockExit();
     buildLight();
     hud();
   }
@@ -908,6 +910,8 @@
     return d <= st;
   }
   function beingFrame(now, dt) {
+    if (beingState === 'guide') { guideFrame(now); return; }
+    if (beingState === 'done' || watchLeft) return;
     if (!S.being || !pathDist || floor > 1 || won || stairBusy || reading) return;
     const pk = Math.floor(P.y) * W + Math.floor(P.x), off = hidden ? 99 : pathDist[pk];
     if (beingState === 'dormant') {
@@ -1290,7 +1294,8 @@
         const lx = cx - ux * 0.36, ly = cy - uy * 0.36, lb = buildFurn(FURN.lamp, lx - fx * 0.15, ly - fy * 0.15, ux, uy, fx, fy, 0);
         for (const b of lb) fboxes.push(b);
         furn.push({ x: lx, y: ly, fx, fy, name: 'lamp', def: FURN.lamp, boxes: lb });
-        objs.push({ x: cx, y: cy, z: 0.19, kind: 'note', text: st.text.note, tex: TEX.sprites.note, h: 0.05, glow: 0.2 });
+        objs.push({ x: cx, y: cy, z: 0.19, kind: 'note', seat: true, text: st.text.note, tex: TEX.sprites.note, h: 0.05, glow: 0.2 });
+        st.chair = { x: cx, y: cy, fx, fy };
       } else {
         // the watch, on a shoebox on a couple of boxes in the middle of the room: up off the floor, in plain sight, easy
         // to get to. Joe: "It's difficult for me to get to the watch … it is surrounded by a bunch of like cardboard
@@ -1739,6 +1744,8 @@
   // statues and the offerings, perhaps we offer the watch." It goes with you up and down the stairs; a new maze empties it
   let carried = new Set();
   function take(o, walked) {
+    if (o.kind === 'deco') return;
+    if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen()) { leaveWatch(o); return; }
     if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
@@ -1836,7 +1843,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
+    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); carveHeart(); spreadPages(); reset(); startWake();
@@ -1869,6 +1876,7 @@
   const EXIT_REACH = 0.3;
   function checkExit() {
     if (floor > 1 || hidden || Math.floor(P.x) !== exit.x || Math.floor(P.y) !== exit.y) return;
+    if (exitLocked && !watchLeft) { const t = performance.now(); if (t - rattleAt > 1800) { rattleAt = t; FP_SOUND.locked(); } return; }   // not yet
     if (!exitDir) { win(); return; }
     const [dx, dy] = exitDir;
     const gap = dx ? (dx > 0 ? exit.x + 1 - P.x : P.x - exit.x) : (dy > 0 ? exit.y + 1 - P.y : P.y - exit.y);
@@ -2803,7 +2811,8 @@
   function win() {
     won = true; holdFwd = false; queued = null; anim = null; vel = 0;
     FP_SOUND.out();
-    $('winSteps').textContent = steps + ' steps';
+    const E = endingText();
+    $('winSteps').textContent = (watchLeft && E ? E.out + '\n' : '') + steps + ' steps';
     $('win').classList.add('show');
   }
   $('again').onclick = () => newMaze();
@@ -2898,6 +2907,59 @@
     FP_SOUND.chalkMark();
     crossOut(pendingMark.fk);
     pendingMark = null; glyphsOff(); hud();
+  }
+  // ── the way out ───────────────────────────────────────────
+  // A chapter with placed pages is one you have to face to leave. The exit is shut, chalked "not yet", until you've
+  // been to the heart and then left the watch on the chair he saved in the waiting room (tap the seat with it) —
+  // he stops keeping it, stops saving the seat. Then the exit opens, and the being is standing in front of it; come
+  // close and it's the kid, and he goes. Joe: "It should be required and the heart should stay hidden." Lines are
+  // FP_ENDING in data/text.js. `exitLocked` only when the maze has all of it (the waiting room, the wall, the heart).
+  let exitLocked = false, watchLeft = false, rattleAt = 0, kidMet = false;
+  const endingText = () => typeof FP_ENDING !== 'undefined' && character ? FP_ENDING[character.name] : null;
+  const heartSeen = () => !heart || story.some((q) => q.kind === 'heart' && q.found);
+  function exitFaceKey() {
+    if (!exitDir) return -1;
+    const [dx, dy] = exitDir; return faceKey((exit.y + dy) * W + exit.x + dx, faceTo(dx, dy));
+  }
+  function lockExit() {
+    exitLocked = floor === 1 && !!placedPages() && story.some((q) => q.kind === 'waiting' && q.chair) && story.some((q) => q.kind === 'wall') && !!endingText();
+    const fk = exitFaceKey();
+    if (!exitLocked || watchLeft || fk < 0) return;
+    const d = decalFor(Math.floor(fk / 4), fk % 4), R = rng(SEED + 240007);
+    hand(d, endingText().notYet, 14, 38, 38, 2, TEX.hex('#1d1c19'), R);   // across the door, under its window, in the kid's pencil
+  }
+  function leaveWatch(seatNote) {
+    carried.delete('watch'); watchLeft = true; hud();
+    objs.push({ x: seatNote.x, y: seatNote.y, z: 0.19, kind: 'deco', tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // on the seat now
+    showNote(endingText().leave);
+    const fk = exitFaceKey(); if (fk >= 0) decals.delete(fk);
+    FP_SOUND.exitOpens();
+    spawnKid();
+  }
+  function spawnKid() {
+    if (kidMet || floor !== 1 || !exitDir) return;
+    const [dx, dy] = exitDir;
+    being = beingObj(exit.x + 0.5 - dx * 0.35, exit.y + 0.5 - dy * 0.35); being.lastSeen = performance.now(); beingState = 'guide';
+  }
+  function guideFrame(now) {
+    if (beingState !== 'guide' || !being) return;
+    const d = Math.hypot(P.x - being.x, P.y - being.y);
+    if (!being.turnAt && d < 2.6) { being.turnAt = now; FP_SOUND.kidGoes(); }
+    if (!being.turnAt) return;
+    const k = Math.min(1, (now - being.turnAt) / 900);
+    being.tex = TEX.sprites.kid; being.h = 0.97 - 0.42 * k;   // the shape comes down to the kid's size
+    if (now - being.turnAt > 1600) being.alpha = Math.max(0, 1 - (now - being.turnAt - 1600) / 1400);
+    if (being.alpha <= 0) { being = null; beingState = 'done'; kidMet = true; }
+  }
+  // the next thing to do, for the debug arrow: a room still lying, then the heart, the watch, the chair, the door
+  function nextGoal() {
+    if (floor > 1) return stairs.down || exit;
+    if (!exitLocked || watchLeft) return exit;
+    const lie = story.find((q) => q.lieFaces && !q.undone); if (lie) return { x: lie.m.rx, y: lie.m.ry };
+    if (heart && !heartSeen()) return { x: heart.mid % W, y: (heart.mid / W) | 0 };
+    if (!carried.has('watch')) { const w = objs.find((o) => o.kind === 'watch'); if (w) return { x: Math.floor(w.x), y: Math.floor(w.y) }; }
+    const ch = story.find((q) => q.chair); if (ch) return { x: Math.floor(ch.chair.x), y: Math.floor(ch.chair.y) };
+    return exit;
   }
   // ── crossing out the lies ─────────────────────────────────
   // Joe: "I love the X out the lies on the walls reveals the truth … It should be required and the heart should stay
@@ -3059,6 +3121,12 @@
     $('panel').classList.remove('open');
     for (const st of story) if (st.lieFaces) for (const fk of [...st.lieFaces].slice(0, st.need)) crossOut(fk);
   };
+  $('leaveWatch').onclick = () => {   // debug: as if you'd been to the heart and brought the watch to the chair
+    $('panel').classList.remove('open');
+    const hs = story.find((q) => q.kind === 'heart'); if (hs) hs.found = true;
+    const w = objs.find((o) => o.kind === 'watch'); if (w) objs.splice(objs.indexOf(w), 1);
+    const seat = objs.find((o) => o.seat); if (seat && !watchLeft) leaveWatch(seat);
+  };
   let storyVisit = 0;
   $('toStory').onclick = () => {
     $('panel').classList.remove('open'); if (!story.length) return;
@@ -3119,7 +3187,7 @@
     // debug: the arrow, pointing at the way out as the crow flies
     const arrowEl = $('dbgArrow');
     // up a floor, the way out is the door marked down
-    const tg = floor > 1 && stairs.down ? stairs.down : exit;
+    const tg = nextGoal();
     if (S.showArrow) { arrowEl.style.display = ''; arrowEl.style.transform = `rotate(${(Math.atan2(tg.y + 0.5 - P.y, tg.x + 0.5 - P.x) - P.a) * 180 / Math.PI}deg)`; }
     else arrowEl.style.display = 'none';
     update(now, dt);
@@ -3135,5 +3203,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

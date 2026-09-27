@@ -626,6 +626,16 @@ const TEX = (() => {
       r(4, 39, 6, 39, k); r(9, 39, 11, 39, k);
       return T;
     }),
+    // the being as it turns out to be: the kid. The same black, the same pale eyes, half the height, a round head
+    kid: (() => {
+      const T = blank(12, 24), k = hex('#0c0b0d'), eye = (hex('#e9e4cf') & 0x00ffffff) | 0xfe000000;
+      const r = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) T.px[y * 12 + x] = c; };
+      r(3, 0, 8, 5, k); r(2, 1, 9, 4, k); T.px[2 * 12 + 4] = eye; T.px[2 * 12 + 7] = eye; T.px[3 * 12 + 4] = eye; T.px[3 * 12 + 7] = eye;
+      r(5, 6, 6, 6, k); r(2, 7, 9, 8, k); r(3, 9, 8, 14, k);        // the neck, the shoulders, the body
+      r(1, 8, 1, 14, k); r(10, 8, 10, 14, k);                        // arms, only to the hips
+      r(3, 15, 4, 22, k); r(7, 15, 8, 22, k); r(2, 23, 4, 23, k); r(7, 23, 9, 23, k);
+      return T;
+    })(),
     // a kid's heap of chalk in a corner, the colours as well as the white: Joe, "Put a pile of chalk in one corner"
     chalkPile: sprite([
       '................', '......rr........', '...wwwwwWbb.....', '..yyyywwwWbbbb..', '.wwwwrrrrWwwwww.', 'WWwwwwwWyyyyyWW.'],
