@@ -31,7 +31,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   steering with quiet help, each with its own knob under Glide help on the panel, never a snap: it settles you square to
   an open way when you ease off the turn, drifts you to the middle of a one-wide hall, and two
   "whiskers" slip you sideways past a corner one of them touches. **Rails** is the top-down's model
-  (buffered quarter turns, centred in halls). **Free** is no help at all. Keys are a stick too.
+  (buffered quarter turns, centred in halls). **Free** is no help at all. Keys are a stick too; Space (or X) is the hand — whatever is straight ahead: take it, open it,
+  chalk it, step into or out of the closet, put the page down. **Full screen** on the panel, for a PC.
   A tap on the view no longer moves you: it touches what is within reach.
 - **Things in the world and tapping them.** The maze's pages, chalk and charcoal are drawn as flat
   pictures facing you, depth-tested against the walls. Walk over one or tap it to take it; a page

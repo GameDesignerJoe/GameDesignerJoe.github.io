@@ -228,6 +228,32 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── Space is the hand ────────────────────────────────────────────
+{
+  const p = await open(4242); await awake(p);
+  await p.evaluate(() => { const c = FP.closets[0]; FP.P.x = c.x + 0.5 + c.dx * 0.3; FP.P.y = c.y + 0.5 + c.dy * 0.3; FP.P.a = Math.atan2(-c.dy, -c.dx); });
+  await p.waitForTimeout(150); await closePage(p);
+  await p.keyboard.press('Space'); await p.waitForTimeout(150); const inCloset = await p.evaluate(() => !!FP.hidden);
+  await p.keyboard.press('Space'); await p.waitForTimeout(150); const outAgain = await p.evaluate(() => !FP.hidden);
+  // a plain wall a step ahead: Space chalks it
+  const marks = () => p.evaluate(() => [...FP.decals.values()].reduce((a, d) => a + d.reduce((s, v) => s + (v ? 1 : 0), 0), 0));
+  await p.evaluate(() => { const W = FP.W; for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) { if (!tiles[y][x] || FP.low[y * W + x] || FP.heartAt[y * W + x]) continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const wx = x + dx, wy = y + dy; if (tiles[wy][wx] || FP.decals.has((wy * W + wx) * 4 + [0, 1, 2, 3][[[1, 0], [-1, 0], [0, 1], [0, -1]].findIndex(([a, b]) => a === dx && b === dy)])) continue;
+      if (FP.objs.some((o) => Math.hypot(o.x - x - 0.5, o.y - y - 0.5) < 2.5) || FP.doors.some((d) => Math.abs(d.k % W - x) + Math.abs(((d.k / W) | 0) - y) < 2)) continue;
+      FP.P.x = x + 0.5; FP.P.y = y + 0.5; FP.P.a = Math.atan2(dy, dx); return; } } });
+  await p.waitForTimeout(200); await closePage(p);
+  const m0 = await marks(); await p.keyboard.press('Space'); await p.waitForTimeout(200); const m1 = await marks();
+  // a page on the floor ahead: Space takes it
+  await p.evaluate(() => { const o = FP.objs.find((o) => o.kind === 'page' && o.place === 'waiting'); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = o.x + dx * 1.3, y = o.y + dy * 1.3; if (tiles[Math.floor(y)][Math.floor(x)]) { FP.P.x = x; FP.P.y = y; FP.P.a = Math.atan2(-dy, -dx); return; } } });
+  await p.waitForTimeout(250); await closePage(p);
+  const before = await p.evaluate(() => FP.objs.some((o) => o.place === 'waiting'));
+  await p.keyboard.press('Space'); await p.waitForTimeout(250);
+  const took = await p.evaluate(() => !FP.objs.some((o) => o.place === 'waiting'));
+  check('on a PC, Space is the hand: into a closet and out, chalk on the wall ahead, the page on the floor ahead',
+    inCloset && outAgain && m1 > m0 && before && took, `closet in ${inCloset}, out ${outAgain}; wall marks ${m0} → ${m1}; page ahead taken ${took}`);
+  await p.close();
+}
+
 // ── reading ──────────────────────────────────────────────────────
 {
   const p = await open(4242); await awake(p);

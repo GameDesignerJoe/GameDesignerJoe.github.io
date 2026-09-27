@@ -2864,7 +2864,10 @@
   const keys = {};
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-    if (reading) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); hidePage(); } return; }   // on a PC, a key puts the page down
+    if (reading) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) hidePage(); } return; }   // on a PC, a key puts the page down
+    // Space (or X) is the hand on a PC: whatever is straight ahead. Joe: "On PC, let's get spacebar to leave and X as
+    // well as be the interact button on things."
+    if (e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) { hideHint(); interact(); } return; }
     const a = KEYS[e.code]; if (!a) return;
     e.preventDefault(); hideHint();
     keys[a] = true;
@@ -2906,6 +2909,16 @@
     if (moved < 14 && held < 450) tapAt(e.clientX / innerWidth * RW, e.clientY / innerHeight * RH);
   });
   cv.addEventListener('pointercancel', () => { touch = null; });
+  function interact() {
+    if (hidden) { leaveCloset(); return; }
+    if (rising || won) return;
+    // a thing in the middle of the view within reach, however low it lies (a page on the floor ahead); then whatever
+    // the middle of the view is — a door, a switch, a closet, the wall to chalk
+    const cx = RW / 2; let hit = null;
+    for (const d of drawn) if (d.x0 <= cx && cx <= d.x1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
+    if (hit) { glyphsOff(); take(hit.o); return; }
+    tapAt(cx, RH * 0.55);
+  }
   function tapAt(bx, by) {
     if (rising) return;   // still getting up
     glyphsOff();
@@ -3154,6 +3167,12 @@
   $('fatherNow').onclick = () => { fatherForce = true; fatherCheck = 0; $('panel').classList.remove('open'); };
   $('restart').onclick = () => { newMaze(BASE); $('panel').classList.remove('open'); };   // the same maze from the start: every floor, every page, the turn
   $('beingNow').onclick = () => { beingForce = true; beingNext = 0; $('panel').classList.remove('open'); };
+  // full screen, for a PC (a phone's browser mostly has its own)
+  $('fullscreen').onclick = () => {
+    const d = document; try { if (d.fullscreenElement) d.exitFullscreen(); else d.documentElement.requestFullscreen(); } catch (e) {}
+    $('panel').classList.remove('open');
+  };
+  document.addEventListener('fullscreenchange', () => { $('fullscreen').textContent = document.fullscreenElement ? 'Leave full screen' : 'Full screen'; });
   $('toHeart').onclick = () => {   // outside its way in, facing it
     $('panel').classList.remove('open'); if (!heart) return;
     const ox = heart.out % W, oy = (heart.out / W) | 0, rx = heart.ring % W, ry = (heart.ring / W) | 0;

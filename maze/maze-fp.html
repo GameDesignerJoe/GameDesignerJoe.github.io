@@ -179,6 +179,7 @@
   <label><span>Debug map</span><select id="optMap"><option value="off">Off</option><option value="walked">Where I've walked</option><option value="full">Whole maze</option><option value="screen">Full screen: tap to go</option></select></label>
   <label><span>Stick in landscape</span><select id="optStick"><option value="left">Left</option><option value="right">Right</option></select></label>
     <div class="btns">
+      <button id="fullscreen">Full screen</button>
       <button id="hardRefresh">Hard refresh</button>
       <button id="restart">Restart</button>
       <button id="fatherNow">Father next</button>
@@ -192,7 +193,7 @@
       <a class="btn" id="topdown" href="maze-topdown.html">Top-down view</a>
       <button id="resetKnobs">Reset knobs</button>
     </div>
-    <div class="meta">Top-down opens this seed unless it has a run in progress to resume.<br>Seed <span id="seed"></span> · <span id="who"></span><br><span id="ver"></span> · <span id="fps"></span><br>Keys: W/↑ walk · S/↓ back · A D / ← → turn · Shift+A/D or Q E sidestep · click to tap</div>
+    <div class="meta">Top-down opens this seed unless it has a run in progress to resume.<br>Seed <span id="seed"></span> · <span id="who"></span><br><span id="ver"></span> · <span id="fps"></span><br>Keys: W/↑ walk · S/↓ back · A D / ← → turn · Shift+A/D or Q E sidestep · Space or X: whatever's ahead (take, open, chalk, step out) · click to tap</div>
   </details>
 </div>
 <div id="dbgArrow" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 12h14m-5-5 5 5-5 5" fill="none" stroke="#e0c98a" stroke-width="2.4" stroke-linecap="round"/></svg></div>
