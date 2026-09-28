@@ -16,7 +16,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   skips it), then the waking.
 - **Waking.** A maze starts with you lying on a mat on the floor of the start room, a pillow under your head, the camera
   down at the floor; then you get up, swaying, to standing height (`WAKE_LIE`, `WAKE_RISE`). No control until you're up; the
-  mat stays where it was. `wakeScene` turns it off.
+  mat stays where it was. `wakeScene` turns it off. Before it, the quote on black (`FP_OPENING`) is black from the page's
+  first paint, and you are already lying down as it fades, so no frame of the game standing ever shows first.
 - **A seed is the same maze in both views.** `?seed=1234` works here as it does top-down.
 - **Nothing here writes to the top-down's save.** Knobs live under `maze.fp.v1`. The ☰ panel is in
   sections — Look, Stick, Glide help, Lighting, Sound, Maze, Debug — each slider's range and section in `FP_RANGES`.
@@ -46,7 +47,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   open). Dead ends carry words from `WALL_WORDS` in `data/text.js` (`words`, ten a maze). A wall of the start room has an X on it
   already, with `WALL_TEACH` ("draw an x") over it. A chapter can open with two walls (`WALL_START`): the first across the
   start room, and you wake facing it; the second ahead of you as you step out of that room. The Child's are Joe's:
-  "stay here." and "but I didn't." A page (or a note) stays up until you tap off it (two picked up at once are read one after the other) — or Esc/Enter/Space — and while it's up you're reading: you don't move, the HUD steps away, the being holds still. It opens as a torn sheet of ruled notebook paper in a hand
+  "He said stay here." and "but I didn't." A page (or a note) stays up until you tap off it (two picked up at once are read one after the other) — or Esc/Enter/Space — and while it's up you're reading: you don't move, the HUD steps away, the being holds still. It opens as a torn sheet of ruled notebook paper in a hand
   (Caveat, SIL OFL, kept in `fp/caveat-latin.woff2` so it reads the same offline). A door's jambs and the sides of a squeeze take chalk like any wall (each a face of its own,
   keyed to its open tile). Found things are kept for the run
   only — nothing is written to the top-down's save yet.

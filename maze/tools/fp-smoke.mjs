@@ -295,6 +295,24 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── from the quote straight into lying down ──────────────────────
+// Joe: "there is a couple frames of the camera already in the upright position. Then it cuts to the scene where they are
+// waking up." Every frame the game shows through the card, before the wake has lain you down, is one of those frames
+{
+  const p = await ctx.newPage(); p.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
+  await p.addInitScript(() => {
+    window.__log = [];
+    const tick = () => { const o = document.getElementById('opening'); if (o && window.FP) window.__log.push([+getComputedStyle(o).opacity, FP.eyeAt(), FP.S.eye]); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+  await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(900); await p.keyboard.press('Escape'); await p.waitForTimeout(1600);
+  const log = await p.evaluate(() => window.__log);
+  let lay = false; const upright = log.filter(([op, eye, stand]) => { if (eye < stand - 0.01) lay = true; return op < 0.97 && !lay; }).length;
+  check('from the quote on black straight into lying on the mat: no frame of the game standing shows first',
+    log.length > 30 && lay && upright === 0, `${upright} of ${log.length} frames showed the game standing before the wake lay you down; lay down: ${lay}`);
+  await p.close();
+}
+
 // ── sound: a stopped context comes back ──────────────────────────
 // Joe: "I've lost sound now … I can get it to come in for a second, then it quits." A phone stops a context behind
 // the page's back; walking is one long touch, so nothing but the page's own check would wake it

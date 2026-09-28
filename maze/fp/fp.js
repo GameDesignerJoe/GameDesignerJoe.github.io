@@ -2462,17 +2462,22 @@
   // the quote on black before the first waking of a session (FP_OPENING); a tap or a key skips it
   function opening() {
     const el = $('opening');
-    if (!S.wakeScene || typeof FP_OPENING === 'undefined' || !el) { startWake(); return; }
+    // Joe: "there is a couple frames of the camera already in the upright position. Then it cuts to the scene where they
+    // are waking up … we go from the black screen with the quote to fade into the waking scene." The card is black from the
+    // page's first paint (it starts with `show` in the page, not faded in over a running game), and the moment it starts to
+    // fade you are already lying on the mat: the wake begins now, its lying still counted from when the fade is done
+    if (!S.wakeScene || typeof FP_OPENING === 'undefined' || !el) { if (el) el.classList.remove('show'); startWake(); return; }
     $('openingText').textContent = FP_OPENING.quote; $('openingBy').textContent = FP_OPENING.by ? '— ' + FP_OPENING.by : '';
     el.classList.add('show'); document.body.classList.add('waking');
     let done = false;
-    const go = () => { if (done) return; done = true; el.classList.remove('show'); removeEventListener('pointerdown', go, true); removeEventListener('keydown', go, true); setTimeout(startWake, 900); };
+    const go = () => { if (done) return; done = true; startWake(OPENING_FADE); el.classList.remove('show'); removeEventListener('pointerdown', go, true); removeEventListener('keydown', go, true); };
     setTimeout(() => { addEventListener('pointerdown', go, true); addEventListener('keydown', go, true); }, 400);
     setTimeout(go, 5200);
   }
-  function startWake() {
+  const OPENING_FADE = 900;   // the card's fade, in the page's CSS
+  function startWake(after = 0) {
     if (!S.wakeScene || floor !== 1) { rising = null; document.body.classList.remove('waking'); return; }
-    rising = { t0: performance.now() }; clearStick(); document.body.classList.add('waking');
+    rising = { t0: performance.now() + after }; clearStick(); document.body.classList.add('waking');
   }
   const wakeK = (now) => rising ? Math.max(0, Math.min(1, (now - rising.t0 - WAKE_LIE) / WAKE_RISE)) : 1;
   function eyeNow(now) {
@@ -3440,5 +3445,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

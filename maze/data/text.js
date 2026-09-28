@@ -374,7 +374,8 @@ const FP_OPENING = {
 // from you. And then as soon as you leave … there's text on the wall that says 'but I didn't.'"
 // Keyed by the self, like WALL_WORDS; a self with no entry gets neither. [on waking, on leaving]
 const WALL_START = {
-  'The Child': ["stay here.", "but I didn't."],   // Joe: "Change 'Dad said stay here' to just 'Stay here'"
+  // Joe: "Change 'Dad said stay here' to just 'Stay here'", and later: "The Stay Here should go back to 'He said stay here.'"
+  'The Child': ["He said stay here.", "but I didn't."],
 };
 // and the one that teaches the chalk: an X already on a wall of the start room, this over it. Joe: "We should have an X
 // on the wall in the first room. With text above it like 'Draw and X'"
