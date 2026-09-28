@@ -102,6 +102,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   faces and the room is undone — its music stops. Both undone and somewhere a wall gives: the heart's way in, walled up
   until then, opens, and its heartbeat carries twice as far so you can follow it. Kept for the run, stairs and all. The
   turn leaves both rooms alone now (its words would cover theirs). **Cross out the lies** on the panel does it for you.
+- **Memory rooms** (`FP_MEMORIES` in `data/text.js`, `memoryRooms`). Joe: "little activities you can do as the kid that
+  trigger a core memory … play don't show." An ordinary furnished room with its middle kept clear, a thing to do in it,
+  and a journal on the floor beside it (read where it lies: not one of the five pages, and nothing waits on it yet). Play
+  it through and the memory comes (`after`). So far: **the phone** — on the wall you face coming in, "call dad to go
+  visit" over it in crayon; tap it and it rings five times and nobody picks up (walk off and you've hung up) — and
+  **catch**, in the kid's room: dad drawn on the wall with his glove up; pick up the ball, tap to throw, and it never
+  goes where you threw it; three at him and the memory comes. Cards, the fire and hiding from him are still to come.
 - **The way out has to be earned** (a chapter with placed pages; lines in `FP_ENDING`). The exit is shut and chalked
   "not yet" — walk up to it and the handle rattles. It opens once you've been to the heart and then left the watch on the
   chair he saved in the waiting room — on the little table beside it, where a ring in the dust shows where the watch used to

@@ -300,6 +300,52 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── memory rooms: the phone that only rings, and catch you never throw straight ──
+// Joe: "little activities you can do as the kid that trigger a core memory … A phone you can call that says 'call dad to
+// go visit' above it and it just rings … Trying to throw a ball to play catch but never throwing it straight at the target"
+{
+  const p = await open(4242); await awake(p);
+  const text = () => p.evaluate(() => document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '');
+  const esc = async () => { if (await text()) { await p.keyboard.press('Escape'); await p.waitForTimeout(250); } };
+  // where they go, over twenty mazes: a room of its own, clear in front, never a closet on the phone
+  const placed = await p.evaluate(() => { let rooms = 0, bad = 0, n = 0;
+    for (let s = 1; s <= 20; s++) { FP.newMaze(s * 7717 + 3); n++;
+      const st = FP.story.find((q) => q.kind === 'memory'); if (!st) continue; rooms++;
+      const fk = st.wall.k * 4 + st.wall.face, front = st.wall.vy * FP.W + st.wall.vx;
+      if (FP.closets.some((c) => c.k * 4 + c.face === fk) || FP.fboxes.some((b) => Math.floor((b.x0 + b.x1) / 2) + Math.floor((b.y0 + b.y1) / 2) * FP.W === front) || !FP.memFace.has(fk)) bad++; }
+    FP.newMaze(4242); return { rooms, bad, n }; });
+  await p.waitForTimeout(4700); await esc();   // a new maze is woken into again
+  // the phone: stand at it, and let it ring
+  await p.evaluate(() => { const f = FP.story.find((q) => q.kind === 'memory').wall; FP.P.x = f.vx + 0.5 - f.dx * 0.6; FP.P.y = f.vy + 0.5 - f.dy * 0.6; FP.P.a = Math.atan2(f.dy, f.dx); });
+  await p.waitForTimeout(300); await esc();
+  await p.keyboard.press('Space'); await p.waitForTimeout(500);
+  const ringing = await p.evaluate(() => !!FP.story.find((q) => q.kind === 'memory').ringing);
+  await p.waitForTimeout(3000); const midway = await text();
+  await p.waitForTimeout(12500); const after = await text(); await esc();
+  // catch: the light on, pick up the ball, throw it at dad three times
+  await p.evaluate(() => { const g = FP.lightGroups.find((q) => q.pitch); if (g && !g.on) FP.flipSwitch(g); });
+  const throws = [];
+  for (let i = 0; i < 3; i++) {
+    await p.evaluate(() => { const ball = FP.objs.find((o) => o.kind === 'ball');
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]]) { const x = ball.x + dx * 0.9, y = ball.y + dy * 0.9; if (tiles[Math.floor(y)] && tiles[Math.floor(y)][Math.floor(x)]) { FP.P.x = x; FP.P.y = y; break; } }
+      FP.P.a = Math.atan2(ball.y - FP.P.y, ball.x - FP.P.x); });
+    await p.waitForTimeout(200); await esc();
+    await p.keyboard.press('Space'); await p.waitForTimeout(200);
+    const held = await p.evaluate(() => FP.carried.has('ball'));
+    await p.evaluate(() => { FP.P.a = Math.atan2(FP.catchT.y - FP.P.y, FP.catchT.x - FP.P.x); });
+    await p.keyboard.press('Space'); await p.waitForTimeout(100);
+    const miss = await p.evaluate(() => { const b = FP.objs.find((o) => o.kind === 'ball'), f = b.fly, t = FP.catchT;
+      const aim = Math.atan2(f.hy - FP.P.y, f.hx - FP.P.x), to = Math.atan2(t.y - FP.P.y, t.x - FP.P.x); return Math.abs(Math.atan2(Math.sin(aim - to), Math.cos(aim - to))); });
+    await p.waitForTimeout(2300);
+    throws.push({ held, miss });
+  }
+  const caught = await text(); await esc();
+  check('memory rooms: the phone rings and nobody answers, then the memory; catch never goes where you throw it, then the memory',
+    placed.rooms >= 16 && placed.bad === 0 && ringing && !midway && /let it ring/.test(after) && throws.every((t) => t.held && t.miss > 0.25) && /never went where i threw it/.test(caught),
+    `a memory room in ${placed.rooms} of ${placed.n} mazes, ${placed.bad} with a closet, furniture in front, or no phone; rang ${ringing}, up 3.5s in: "${midway}", rung out: "${after.slice(0, 40)}…"; throws ${throws.map((t) => (t.held ? '' : 'not held ') + t.miss.toFixed(2) + ' rad off').join(', ')}; after three: "${caught.slice(0, 40)}…"`);
+  await p.close();
+}
+
 // ── from the quote straight into lying down ──────────────────────
 // Joe: "there is a couple frames of the camera already in the upright position. Then it cuts to the scene where they are
 // waking up." Every frame the game shows through the card, before the wake has lain you down, is one of those frames

@@ -347,6 +347,28 @@ const WALL_WORDS = {
     "i win", "home base", "count to ten and come find me", "hes hiding too", "i can hide longer than anybody"],
 };
 
+// first person: memory rooms. Joe: "Maybe there are little activities you can do as the kid that trigger a core memory …
+// These would all be new rooms … normal rooms with general stuff in them but in the center there is this interactive
+// space, kind of like what you do with the watch … I'd make new journals for these that are written to explain what's
+// going on from the kid's point of view. One of these can be in the chalk room." Per self; each memory has `page`, the
+// journal left by the thing (read where it lies, it isn't one of the pages you collect), and `after`, what comes back
+// once you've played it through. All of it Claude's drafts, to be rewritten.
+const FP_MEMORIES = {
+  'The Child': {
+    // a phone on the wall of an ordinary room, and over it in crayon what it's for. Tap it: it rings, and rings
+    phone: {
+      sign: "call dad to go visit",
+      page: "mom wrote dads number on the wall by the fone so i can call him when i want to go visit. i can call any time. she said so. he works a lot so sometimes he dosnt hear it.",
+      after: "i let it ring till i lost count. then i told mom he said next weekend. she didnt ask what else he said. i was glad.",
+    },
+    // the chalk room: the ball and the one glove, and dad drawn on the wall with his glove up. It never goes to him
+    catch: {
+      page: "dad said keep your eye on the glove and throw it right to me. i practise on the wall so next time i get it right. next time he wont have to go get it.",
+      after: "it never went where i threw it. he'd go and get it and not say anything. then one time he didnt go get it. he just went inside.",
+    },
+  },
+};
+
 // first person: the quiet prompts that teach the controls, each only once ever, and only after you've had time to
 // find it yourself. Joe: "basic diegetic training. This happens only after a player has been given time to figure it
 // out themselves." Each is [on a touch screen, on a keyboard]; the key or gesture is between *stars*, drawn brighter.
@@ -357,6 +379,7 @@ const FP_TRAINING = {
   closet:  ["*tap* to hide", "*space* to hide"],
   light:   ["*tap* the switch", "*space* for the light"],
   squeeze: ["*keep walking*, you will fit", "*hold W*, you will fit"],
+  throw:   ["*tap* to throw", "*space* to throw"],   // holding the ball in the kid's room
 };
 
 // first person: on black, before you wake, once each time the game is opened. Joe: "a quote about being lost in our
@@ -507,5 +530,5 @@ const CHALKBOARD = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES, FP_ENDING, FP_OPENING, WALL_TEACH, FP_TRAINING,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES, FP_ENDING, FP_OPENING, WALL_TEACH, FP_TRAINING, FP_MEMORIES,
 };

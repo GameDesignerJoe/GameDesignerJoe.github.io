@@ -59,6 +59,7 @@ const FP_CONFIG = {
   squeezeChains: 1,  // chains of squeezes (two tiles or more) a maze keeps, the longest first; the rest open to plain floor
   squeezeSingles: 0.5, // the share of single squeezes kept
   liesToUndo: 3,    // faces of a story room's lies you chalk through to undo it; both undone and the heart opens
+  memoryRooms: 1,   // memory rooms a Child maze has (FP_MEMORIES in data/text.js): the phone, so far. Catch is the kid's room's
   storyRooms: 2,    // story rooms a Child maze has (STORY_ROOMS in data/text.js): the waiting room, the wall
   floors: 1,        // floors a maze has (1: no stairs). Joe: "for now, we should disable the other floors. Let's get all of the rooms on the one floor"
   father: 2,        // times a maze the father is glimpsed crossing ahead of you. Joe: "once or twice a maze"
@@ -114,6 +115,7 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   closets:   [0, 60, 1, 'Closets', 'debug'],
   father:    [0, 6, 1, 'Father', 'debug'],
   floors:    [1, 4, 1, 'Floors', 'debug'],
+  memoryRooms:[0, 1, 1, 'Memory rooms', 'debug'],
   storyRooms:[0, 2, 1, 'Story rooms', 'debug'],
   squeezeChains: [0, 6, 1, 'Squeeze chains', 'debug'],
   squeezeSingles: [0, 1, 0.05, 'Single squeezes', 'debug'],

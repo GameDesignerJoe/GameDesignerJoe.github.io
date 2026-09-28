@@ -526,12 +526,14 @@
     const reservedSet = new Set(picks.map(([e]) => faceKey(e.k, e.face)).concat(stairSpots.map((s) => faceKey(s.k, s.face))));
     for (const fk of writeBoards()) reservedSet.add(fk);
     placeStory(reservedSet);
+    placeMemories(reservedSet);
     const reserved = [...reservedSet];
     placeClosets(new Set(reserved));
     placeSwitches(new Set(reserved.concat(closets.map((c) => faceKey(c.k, c.face)))));
     placeFurniture();
     storyProps();
     furnishKidRoom();
+    memoryProps();
     placePages();
     lockExit();
     buildLight();
@@ -828,14 +830,14 @@
     };
     const secret = secretSet();
     for (const tiles of rooms) {
-      if (tiles.length < 6 || (secret && tiles.some((k) => secret.has(k))) || (storyAt && tiles.some((k) => storyAt[k] >= 0))) continue;
+      if (tiles.length < 6 || (secret && tiles.some((k) => secret.has(k))) || (storyAt && tiles.some((k) => storyAt[k] >= 0 && story[storyAt[k]].kind !== 'memory'))) continue;   // a memory room is furnished like any other
       const inR = new Set(tiles), gi = groupAt ? groupAt[tiles[0]] : -1;
       const nearMouth = (t) => { const x = t % W, y = (t / W) | 0;
         for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) { const n = yy * W + xx; if (!solid(xx, yy) && !inR.has(n)) return true; } return false; };
       const spots = [];   // { t, walls: [[dx, dy], …] } — tiles on the room's edge, and which sides are wall
       for (const t of tiles) {
         const x = t % W, y = (t / W) | 0;
-        if (busy.has(t) || nearMouth(t) || (Math.abs(x - sx0) < 2 && Math.abs(y - sy0) < 2) || (x === exit.x && y === exit.y)) continue;
+        if (busy.has(t) || memClear.has(t) || nearMouth(t) || (Math.abs(x - sx0) < 2 && Math.abs(y - sy0) < 2) || (x === exit.x && y === exit.y)) continue;
         const walls = HD.filter(([dx, dy]) => solid(x + dx, y + dy) && !faceUsed((y + dy) * W + x + dx, faceOf(dx, dy)));
         if (walls.length) spots.push({ t, x, y, walls });
       }
@@ -1384,6 +1386,159 @@
     FP_SOUND.page();
   }
 
+  // ── memory rooms ──────────────────────────────────────────
+  // Joe: "Maybe there needs to be more of a narrative and less just 'you left and I'm sad' … 'show don't tell' and even
+  // better 'play don't show' since it's a game. Maybe there are little activities you can do as the kid that trigger a
+  // core memory … These would all be new rooms. I'd make them the normal rooms we have with general stuff in them but in
+  // the center there is this interactive space, kind of like what you do with the watch … new journals for these … One of
+  // these can be in the chalk room." A memory room is one of the maze's own rooms (the story rooms' leftovers), furnished as
+  // any other, with its middle kept clear (`memClear`) for the thing you do there and its journal (FP_MEMORIES, read where
+  // it lies: it isn't one of the pages you collect, and nothing waits on it yet). Floor 1, `memoryRooms` of them, its own
+  // stream; where a maze hasn't rooms enough, the later ones go without. Catch has no room of its own: it is the kid's
+  // room's, with the ball and the one glove already there. In `story` as kind 'memory', so the turn leaves it alone.
+  //   phone — on the wall you face coming in, "call dad to go visit" over it in crayon. Tap it and it rings, RINGS times,
+  //           and nobody picks up; walk away and you've hung up. Let it ring out and the memory comes (`after`).
+  //   catch — dad on the kid room's wall, glove up. Pick up the ball, then tap (or Space) to throw: it never goes where
+  //           you threw it. CATCH_THROWS at him and the memory comes.
+  const MEMORY_ROOMS = ['phone'];   // the ones with a room of their own, in the order a maze gives them one
+  const RINGS = 5, RING_EVERY = 2800, CATCH_THROWS = 3;
+  let memFace = new Map(), memClear = new Set(), catchT = null, catchN = 0, catchDone = false, ballHeld = null;
+  const memText = () => floor === 1 && typeof FP_MEMORIES !== 'undefined' && character ? FP_MEMORIES[character.name] : null;
+  function placeMemories(reserved) {
+    memFace = new Map(); memClear = new Set(); catchT = null; catchN = 0; catchDone = false; ballHeld = null;
+    const M8 = memText(); if (!M8 || S.memoryRooms <= 0) return;
+    const R = rng(SEED + 290011), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), secret = secretSet();
+    const comp = new Int32Array(W * H).fill(-1), rooms = [];
+    for (let k0 = 0; k0 < W * H; k0++) {
+      if (!room[k0] || comp[k0] >= 0) continue;
+      const tiles = [k0]; comp[k0] = rooms.length;
+      for (let i = 0; i < tiles.length; i++) { const c = tiles[i], x = c % W, y = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (room[n] && comp[n] < 0 && !solid(x + dx, y + dy)) { comp[n] = rooms.length; tiles.push(n); } } }
+      rooms.push(tiles);
+    }
+    const cands = rooms.filter((t) => t.length >= 9 && !t.some((k) => storyAt[k] >= 0 || (Math.abs(k % W - sx0) < 3 && Math.abs(((k / W) | 0) - sy0) < 3) || (secret && secret.has(k)) || inHeart(k) || (k % W === exit.x && ((k / W) | 0) === exit.y)));
+    for (const mem of MEMORY_ROOMS.filter((k) => M8[k]).slice(0, Math.round(S.memoryRooms))) {
+      if (!cands.length) break;
+      const tiles = cands.splice(Math.floor(R() * cands.length), 1)[0], set = new Set(tiles);
+      const mouths = [], faces = [];
+      for (const r of tiles) { const x = r % W, y = (r / W) | 0;
+        for (const [dx, dy] of HD) { const nx = x + dx, ny = y + dy, n = ny * W + nx;
+          if (!solid(nx, ny) && !set.has(n)) mouths.push({ mx: nx, my: ny, rx: x, ry: y, dx, dy });
+          else if (solid(nx, ny) && !exitFace[n] && !reserved.has(faceKey(n, faceTo(dx, dy)))) faces.push({ k: n, face: faceTo(dx, dy), vx: x, vy: y, dx, dy }); } }
+      if (!mouths.length || !faces.length) continue;
+      const m = mouths[0];
+      // the wall you face coming in, if it's free; any free wall of the room if not
+      let n = 0; while (set.has((m.ry - m.dy * n) * W + m.rx - m.dx * n)) n++;
+      const fk0 = (m.ry - m.dy * n) * W + m.rx - m.dx * n, ff0 = faceTo(-m.dx, -m.dy);
+      const f = faces.find((q) => q.k === fk0 && q.face === ff0) || faces[Math.floor(R() * faces.length)];
+      const st = { kind: 'memory', mem, tiles, set, m, text: M8[mem], wall: f, done: false };
+      const si = story.length; story.push(st); for (const k of tiles) storyAt[k] = si;
+      const fk = faceKey(f.k, f.face); reserved.add(fk); memFace.set(fk, st);
+      if (mem === 'phone') drawPhone(decalFor(f.k, f.face), st.text.sign, R);
+      // the floor in front of it, and beside that, stays clear of furniture
+      for (let yy = f.vy - 1; yy <= f.vy + 1; yy++) for (let xx = f.vx - 1; xx <= f.vx + 1; xx++) if (set.has(yy * W + xx)) memClear.add(yy * W + xx);
+    }
+  }
+  // a wall phone, beige, at a kid's height, and what it's for in crayon over it
+  function drawPhone(d, sign, R) {
+    d.fill(0);
+    const px = (x, y, c) => { if (x >= 0 && x < DEC && y >= 0 && y < DEC) d[y * DEC + x] = c; };
+    const rect = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) px(x, y, c); };
+    const BODY = TEX.hex('#d6cdb0'), EDGE = TEX.hex('#6b6453'), HAND = TEX.hex('#c9bf9f'), DARK = TEX.hex('#3d3a33');
+    rect(27, 29, 39, 46, EDGE); rect(28, 30, 38, 45, BODY);                    // the body
+    for (let i = 0; i < 20; i++) { const a = i / 20 * Math.PI * 2; px(Math.round(33 + Math.cos(a) * 3.6), Math.round(38 + Math.sin(a) * 3.6), EDGE); }   // the dial
+    px(33, 38, DARK);
+    rect(22, 27, 26, 47, EDGE); rect(23, 28, 25, 46, HAND); rect(21, 27, 26, 30, EDGE); rect(21, 44, 26, 47, EDGE);   // the handset in its cradle
+    for (let y = 48, x = 24; y < 58; y++) { px(x + ((y & 1) ? 1 : -1), y, DARK); if (y > 54) x += 2; }   // the cord, curling down and back
+    const r = hand(d, sign, 7, 6, 52, 1, CRAYON[0], R); void r;
+  }
+  // what's in a memory room, once the furniture is down: its journal on the floor in front of the thing
+  function memoryProps() {
+    for (const st of story) {
+      if (st.kind !== 'memory') continue;
+      // beside it, not in front of it: in front, it'd be what Space reaches for every time instead of the phone
+      const f = st.wall, side = [[-f.dy, f.dx], [f.dy, -f.dx]].find(([sx, sy]) => st.set.has((f.vy + sy) * W + f.vx + sx)) || [0, 0];
+      objs.push({ x: f.vx + side[0] + 0.5 + f.dx * 0.25, y: f.vy + side[1] + 0.5 + f.dy * 0.25, kind: 'note', text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+    }
+  }
+  function useMemory(st) {
+    if (st.mem === 'phone') {
+      if (st.ringing) return;
+      st.ringing = { t0: performance.now(), n: 0, at: st.wall }; FP_SOUND.phoneUp();
+    }
+  }
+  function memoryFrame(now) {
+    for (const st of story) {
+      if (st.kind !== 'memory' || !st.ringing) continue;
+      const r = st.ringing, f = st.wall;
+      // walked off: you've put it down
+      if (Math.hypot(P.x - (f.vx + 0.5), P.y - (f.vy + 0.5)) > 2.2) { st.ringing = null; FP_SOUND.phoneDown(); continue; }
+      if (r.n < RINGS && now - r.t0 > 600 + r.n * RING_EVERY) { r.n++; FP_SOUND.ring(); }
+      else if (r.n >= RINGS && now - r.t0 > 600 + RINGS * RING_EVERY + 800) {
+        st.ringing = null; FP_SOUND.phoneDown();
+        if (!st.done) { st.done = true; showNote(st.text.after); }
+      }
+    }
+    ballFrame(now);
+  }
+  // ── catch ──
+  // dad drawn on the wall of the kid's room farthest from the corner the ball is in (not the bed's, not the way in)
+  function catchSetup(set, roomT, cor, bed, way, R, text) {
+    let best = null, bd = -1;
+    for (const k of roomT) { const x = k % W, y = (k / W) | 0;
+      for (const [dx, dy] of HD) { const wx = x + dx, wy = y + dy, fk = faceKey(wy * W + wx, faceTo(dx, dy));
+        if (!solid(wx, wy) || (wx === way.x && wy === way.y) || switchFace.has(fk) || (x === bed.x && y === bed.y && dx === bed.dx && dy === bed.dy)) continue;
+        const d = Math.hypot(x - cor.x, y - cor.y) + R() * 0.3; if (d > bd) { bd = d; best = { k: wy * W + wx, face: faceTo(dx, dy), x, y, dx, dy }; } } }
+    if (!best) return;
+    const d = decalFor(best.k, best.face);
+    for (let y = 8; y < 60; y++) for (let x = 12; x < 52; x++) d[y * DEC + x] = 0;   // his wall is left for him
+    kidChalk(d, 'catcher', 30, 38, R);
+    catchT = { x: best.x + 0.5 + best.dx * 0.5, y: best.y + 0.5 + best.dy * 0.5, z: 0.5, face: faceKey(best.k, best.face) };
+    // the journal, on the floor next to the glove's corner (not on it: the ball is what you reach for there)
+    const nb = HD.map(([dx, dy]) => [cor.x + dx, cor.y + dy]).find(([x, y]) => set.has(y * W + x) && !objs.some((o) => Math.floor(o.x) === x && Math.floor(o.y) === y));
+    if (nb) objs.push({ x: nb[0] + 0.5, y: nb[1] + 0.5, kind: 'note', text: text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+  }
+  function pickBall(o) {
+    objs.splice(objs.indexOf(o), 1); ballHeld = o; carried.add('ball'); FP_SOUND.chalkUp();
+    if (!learnt.throw) trainOn('throw', performance.now());   // what to do with it, the first time ever
+  }
+  function throwBall() {
+    const o = ballHeld; if (!o) { carried.delete('ball'); return; }
+    carried.delete('ball'); ballHeld = null;
+    // at dad if he's anywhere near where you're looking — and then never quite at him
+    let a = P.a, atDad = false;
+    if (catchT) { const to = Math.atan2(catchT.y - P.y, catchT.x - P.x), off = Math.atan2(Math.sin(to - P.a), Math.cos(to - P.a));
+      if (Math.abs(off) < 0.6) { atDad = true; a = to + (Math.random() < 0.5 ? -1 : 1) * (0.28 + Math.random() * 0.3); } }
+    if (!atDad) a += (Math.random() - 0.5) * 0.3;
+    const cx = Math.cos(a), cy = Math.sin(a);
+    let t = 0.3; while (t < 7 && !solidAt(P.x + cx * t, P.y + cy * t)) t += 0.05;
+    const hx = P.x + cx * (t - 0.12), hy = P.y + cy * (t - 0.12);
+    // off the wall: a drop back toward you, then a roll, stopping short of anything
+    let rx = hx - cx * 0.5, ry = hy - cy * 0.5, roll = 0.5 + Math.random() * 0.7;
+    const side = (Math.random() - 0.5) * 0.8, bx = -cx + -cy * side, by = -cy + cx * side, bl = Math.hypot(bx, by);
+    let ex = rx, ey = ry;
+    for (let s2 = 0; s2 < roll; s2 += 0.05) { const nx = rx + bx / bl * s2, ny = ry + by / bl * s2; if (solidAt(nx, ny) || solidAt(nx + bx / bl * 0.1, ny + by / bl * 0.1)) break; ex = nx; ey = ny; }
+    if (solidAt(rx, ry)) { rx = ex = hx; ry = ey = hy; }
+    o.x = P.x + cx * 0.2; o.y = P.y + cy * 0.2; o.z = 0.4;
+    o.fly = { t0: performance.now(), sx: o.x, sy: o.y, hx, hy, rx, ry, ex, ey, tf: Math.max(0.15, t / 6), atDad, hit: false, bounced: false };
+    objs.push(o); FP_SOUND.throwBall();
+  }
+  function ballFrame(now) {
+    // carried out of the kid's room: put down where you are
+    if (ballHeld && typeof secretTiles !== 'undefined' && secretTiles.size && !secretTiles.has(Math.floor(P.x) + ',' + Math.floor(P.y))) { const o = ballHeld; ballHeld = null; carried.delete('ball'); o.x = P.x; o.y = P.y; o.z = 0; objs.push(o); }
+    for (const o of objs) {
+      const f = o.fly; if (!f) continue;
+      const t = (now - f.t0) / 1000, t1 = f.tf, t2 = t1 + 0.3, t3 = t2 + 0.8;
+      if (t < t1) { const k = t / t1; o.x = f.sx + (f.hx - f.sx) * k; o.y = f.sy + (f.hy - f.sy) * k; o.z = 0.4 + Math.sin(Math.PI * k) * 0.18 - k * 0.05; }
+      else if (t < t2) { if (!f.hit) { f.hit = true; FP_SOUND.ballWall(); } const k = (t - t1) / 0.3; o.x = f.hx + (f.rx - f.hx) * k; o.y = f.hy + (f.ry - f.hy) * k; o.z = 0.35 * (1 - k * k); }
+      else if (t < t3) { if (!f.bounced) { f.bounced = true; FP_SOUND.ballBounce(); } const k = 1 - Math.pow(1 - (t - t2) / 0.8, 2); o.x = f.rx + (f.ex - f.rx) * k; o.y = f.ry + (f.ey - f.ry) * k; o.z = 0; }
+      else {
+        o.x = f.ex; o.y = f.ey; o.z = 0; o.fly = null;
+        if (f.atDad && !catchDone && ++catchN >= CATCH_THROWS) { catchDone = true; const M8 = memText(); if (M8 && M8.catch) showNote(M8.catch.after); }
+      }
+    }
+  }
+
   // ── fewer squeezes ────────────────────────────────────────
   // Joe: "We need less chains of squeezes on the map. There are just too many of them." Measured: about 17 a maze, 3 of
   // them chains of three to seven tiles. So, before anything else is placed: `squeezeChains` chains are kept (the
@@ -1668,7 +1823,9 @@
       if (walls.length < 2 || Math.hypot(x - bed.x, y - bed.y) < 2) continue; const d = wd(k); if (d > 0 && d < cd) { cd = d; cor = { x, y, walls }; } }
     if (cor) { const ox = cor.walls.reduce((a, [dx]) => a + dx, 0) * 0.26, oy = cor.walls.reduce((a, [, dy]) => a + dy, 0) * 0.26;
       objs.push({ x: cor.x + 0.5 + ox, y: cor.y + 0.5 + oy, kind: 'deco', tex: TEX.sprites.glove, h: 0.08, glow: 0.2 });
-      objs.push({ x: cor.x + 0.5 + ox * 0.3, y: cor.y + 0.5 + oy * 0.3, kind: 'deco', tex: TEX.sprites.baseball, h: 0.04, glow: 0.2 }); }
+      const M8 = memText();
+      objs.push({ x: cor.x + 0.5 + ox * 0.3, y: cor.y + 0.5 + oy * 0.3, kind: M8 && M8.catch ? 'ball' : 'deco', tex: TEX.sprites.baseball, h: 0.04, glow: 0.2 });
+      if (M8 && M8.catch) catchSetup(set, roomT, cor, bed, way, R, M8.catch); }
   }
   function placeChalkPile() {
     const set = secretSet(); if (!set || floor !== 1) return;   // the kid's room is floor 1's: Joe, "each room [should] be unique"
@@ -1756,6 +1913,12 @@
       line(cx - 2, cy - 7, cx - 2, cy + 7); line(cx + 3, cy - 7, cx + 3, cy + 7); line(cx - 7, cy - 2, cx + 8, cy - 2); line(cx - 7, cy + 3, cx + 8, cy + 3);
       const cells = [[-5, -5], [0, -5], [5, -5], [-5, 0], [0, 0], [5, 0], [-5, 5], [0, 5], [5, 5]];
       for (let i = 0; i < 6; i++) { const [ex, ey] = cells.splice(Math.floor(R() * cells.length), 1)[0]; if (i & 1) ring(cx + ex + 0.5, cy + ey + 0.5, 1.6); else { line(cx + ex - 1.5, cy + ey - 1.5, cx + ex + 1.5, cy + ey + 1.5); line(cx + ex + 1.5, cy + ey - 1.5, cx + ex - 1.5, cy + ey + 1.5); } }
+    }
+    else if (kind === 'catcher') {   // dad with his glove up: the one to throw to
+      const q = 8; ring(cx, cy - q * 1.75, q * 0.28); line(cx, cy - q * 1.45, cx, cy - q * 0.6);
+      line(cx, cy - q * 1.2, cx - q * 0.45, cy - q * 0.85); line(cx, cy - q * 1.2, cx + q * 0.55, cy - q * 1.6);
+      ring(cx + q * 0.7, cy - q * 1.8, q * 0.32); ring(cx + q * 0.7, cy - q * 1.8, q * 0.16);
+      line(cx, cy - q * 0.6, cx - q * 0.35, cy); line(cx, cy - q * 0.6, cx + q * 0.35, cy);
     }
     else if (kind === 'dad') {
       const word = 'dad?', x0 = Math.round(cx - word.length * 4 / 2 * 1.5);
@@ -1870,6 +2033,7 @@
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && !heartSeen() && !story.some((q) => q.slot) && endingText()) { showNote(notYetHere(endingText())); return; }
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen() && !story.some((q) => q.slot)) { leaveWatch(o); return; }
     if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
+    if (o.kind === 'ball') { if (!walked && !o.fly) pickBall(o); return; }   // picked up to throw, never kept
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
@@ -2418,6 +2582,7 @@
     dartFrame(now, dt);
     beingFrame(now, dt);
     heartFrame(now);
+    memoryFrame(now);
     stickMove(now, dt);
     stepAnim(now);
     // one dip of the head per tile walked, however you walked it; standing still, it settles
@@ -3022,6 +3187,7 @@
     // the middle of the view is — a door, a switch, a closet, the wall to chalk
     const cx = RW / 2; let hit = null;
     for (const d of drawn) if (d.x0 <= cx && cx <= d.x1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
+    if (carried.has('ball')) { throwBall(); return; }
     if (hit) { glyphsOff(); take(hit.o); return; }
     tapAt(cx, RH * 0.55);
   }
@@ -3031,6 +3197,7 @@
     // a thing first: the nearest one under the finger
     let hit = null;
     for (const d of drawn) if (bx >= d.x0 - 6 && bx <= d.x1 + 6 && by >= d.y0 && by <= d.y1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
+    if (carried.has('ball')) { throwBall(); return; }   // holding the ball, a tap anywhere throws it
     if (hit) { take(hit.o); return; }
     const x = Math.max(0, Math.min(RW - 1, bx | 0));
     if (hidden) return;   // from inside a closet you can only step out
@@ -3045,6 +3212,8 @@
     if (colOv[x] && ovDep[byI * RW + x] < zbuf[x] - 0.01) return;
     const sw = switchFace.get(colFace[x]);
     if (sw) { if (zbuf[x] < REACH_WALL + 0.3) { flipSwitch(sw); learn('light'); } return; }
+    const mem = memFace.get(colFace[x]);
+    if (mem) { if (zbuf[x] < REACH_WALL + 0.3) useMemory(mem); return; }
     const cl = closets.find((c) => faceKey(c.k, c.face) === colFace[x]);
     if (cl) { if (zbuf[x] < REACH_WALL && colU[x] > 0.32 && colU[x] < 0.68) enterCloset(cl); return; }
     // a classroom door that isn't a way anywhere: it's tried, and it rattles
@@ -3203,7 +3372,7 @@
     return out;
   }
   // a wall face that is for something: the way out, a light switch, a closet (above)
-  function usedFace(fk) { return !!exitFace[Math.floor(fk / 4)] || switchFace.has(fk); }
+  function usedFace(fk) { return !!exitFace[Math.floor(fk / 4)] || switchFace.has(fk) || memFace.has(fk); }
   function glyphsOff() { $('glyphs').classList.remove('show'); }
   for (const b of document.querySelectorAll('#glyphs [data-g]')) b.addEventListener('pointerdown', (e) => { e.stopPropagation(); placeMark(b.dataset.g); });
 
@@ -3263,8 +3432,8 @@
     const h = handAt();
     if (h !== atHand) { atHand = h; atHandSince = now; }
     if (trainShown) {
-      const gone = trainShown === 'move' ? now - stillSince < 50 : atHand !== trainShown;
-      if (gone || (trainShown !== 'move' && now - trainAt > TRAIN_SHOW)) trainOff();   // walking's stays till you walk
+      const gone = trainShown === 'move' ? now - stillSince < 50 : trainShown === 'throw' ? !carried.has('ball') : atHand !== trainShown;
+      if (gone || (trainShown !== 'move' && trainShown !== 'throw' && now - trainAt > TRAIN_SHOW)) trainOff();   // walking's stays till you walk
       return;
     }
     if (!learnt.move) { if (now - stillSince > TRAIN_WAIT.move) trainOn('move', now); return; }   // walking first
@@ -3449,5 +3618,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

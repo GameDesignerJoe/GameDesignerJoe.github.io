@@ -262,6 +262,15 @@ const FP_SOUND = (() => {
     // the father, somewhere ahead: the top-down's own footsteps going away
     far() { if (live() && typeof AUDIO !== 'undefined') AUDIO.farSteps(); },
     out() { if (live() && typeof AUDIO !== 'undefined') AUDIO.exit(); },
+    // the phone in a memory room: the handset lifted, the ringing heard down the line (two tones together, the way a
+    // line rings), and the handset put back
+    phoneUp() { if (live()) { burst(0.04, { vol: 0.35, freq: 1200, q: 2 }); burst(0.08, { vol: 0.2, freq: 300, q: 1, type: 'lowpass', at: 0.03 }); } },
+    ring() { if (live()) { tone(440, 1.6, { vol: 0.045, attack: 0.03 }); tone(480, 1.6, { vol: 0.045, attack: 0.03 }); } },
+    phoneDown() { if (live()) { burst(0.05, { vol: 0.4, freq: 900, q: 2 }); burst(0.1, { vol: 0.3, freq: 180, q: 1, type: 'lowpass', at: 0.02 }); } },
+    // catch in the kid's room: a throw, the ball off the wall, and its bounce on the floor
+    throwBall() { if (live()) burst(0.12, { vol: 0.12, freq: 700, q: 0.8, slide: 1400 }); },
+    ballWall() { if (live()) { burst(0.06, { vol: 0.45, freq: 260, q: 1.2, type: 'lowpass' }); burst(0.03, { vol: 0.15, freq: 1500, q: 2 }); } },
+    ballBounce() { if (live()) { for (let i = 0; i < 3; i++) burst(0.04, { vol: 0.25 * (1 - i / 3), freq: 320, q: 1.2, type: 'lowpass', at: i * 0.18 * (1 - i * 0.25) }); } },
     running: () => !!ac && ac.state === 'running' && started,
     state: () => (ac ? ac.state : 'none'),   // for the debug readout
     // a nudge from a touch or a key: resume a stopped clock, and play one silent sample in the same gesture —

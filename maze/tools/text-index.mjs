@@ -60,6 +60,8 @@ const ABOUT = {
                   when: 'First person: chalked on the shut exit; the line when you leave the watch on the chair; under the Exit as you go' },
   FP_OPENING:   { surface: 'card', fires: 'each time the game opens', voiced: true,
                   when: 'First person: on black before you wake, then fades into the wake-up' },
+  FP_MEMORIES:  { surface: 'page', fires: 'every maze', voiced: true,
+                  when: 'First person: memory rooms. `page` is the journal by the thing; `after` comes once you have played it through; `sign` is written over the phone' },
   FP_TRAINING:  { surface: 'prompt', fires: 'once ever, each', voiced: false,
                   when: 'First person: a quiet prompt low on the screen, after a few seconds stuck at a thing you have not used yet' },
   WALL_TEACH:   { surface: 'wall', fires: 'every maze', voiced: true,
