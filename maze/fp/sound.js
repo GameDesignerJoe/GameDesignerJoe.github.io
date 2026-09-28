@@ -14,7 +14,7 @@
 // replace any of these later without the game noticing: each is one function.
 
 const FP_SOUND = (() => {
-  let ac = null, out, muffle, room, hum, humGain, rub, rubGain, started = false, on = true, flickQuiet = 0;
+  let ran = false, ac = null, out, muffle, room, hum, humGain, rub, rubGain, started = false, on = true, flickQuiet = 0;
   const looks = {
     // the back rooms: soft thumps on damp carpet, a wide low room tone, fluorescent hum
     office:   { step: 'carpet', tone: 0.05, toneHz: 240, hum: 1 },
@@ -33,6 +33,7 @@ const FP_SOUND = (() => {
   function ensure() {
     if (ac) return true;
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; }
+    ac.onstatechange = () => { if (ac.state === 'running') ran = true; }; if (ac.state === 'running') ran = true;
     out = ac.createGain(); out.gain.value = on ? FP_CONFIG.sfxVol : 0; out.connect(ac.destination);
     muffle = ac.createBiquadFilter(); muffle.type = 'lowpass'; muffle.frequency.value = 18000; muffle.connect(out);
     // the room: brown noise, low, always there — the sound of a big building with nobody in it
@@ -271,8 +272,16 @@ const FP_SOUND = (() => {
     throwBall() { if (live()) burst(0.12, { vol: 0.12, freq: 700, q: 0.8, slide: 1400 }); },
     ballWall() { if (live()) { burst(0.06, { vol: 0.45, freq: 260, q: 1.2, type: 'lowpass' }); burst(0.03, { vol: 0.15, freq: 1500, q: 2 }); } },
     ballBounce() { if (live()) { for (let i = 0; i < 3; i++) burst(0.04, { vol: 0.25 * (1 - i / 3), freq: 320, q: 1.2, type: 'lowpass', at: i * 0.18 * (1 - i * 0.25) }); } },
+    // the cards: one turned onto the table; and losing again, a small low note
+    cardFlip() { if (live()) { burst(0.03, { vol: 0.25, freq: 2600, q: 1.5 }); burst(0.05, { vol: 0.12, freq: 900, q: 1, at: 0.015 }); } },
+    cardLose() { if (live()) tone(196, 0.6, { type: 'triangle', vol: 0.06, slide: 165, attack: 0.02 }); },
+    // the fire: a match struck, the crackle as it takes (louder as it grows), and then him — the door, hard, and it's out
+    strike() { if (live()) { burst(0.12, { vol: 0.3, freq: 3800, q: 1.2, slide: 1800 }); burst(0.4, { vol: 0.1, freq: 600, q: 0.7, type: 'lowpass', at: 0.08 }); } },
+    crackle(k) { if (live()) for (let i = 0; i < 3; i++) burst(0.015 + Math.random() * 0.02, { vol: (0.08 + 0.2 * k) * Math.random(), freq: 1800 + Math.random() * 2500, q: 3, at: Math.random() * 0.2 }); },
+    fireOut() { if (live()) { burst(0.4, { vol: 1.0, freq: 140, q: 0.8, type: 'lowpass' }); burst(0.1, { vol: 0.5, freq: 900, q: 1.2 }); burst(0.9, { vol: 0.3, freq: 1200, q: 0.4, at: 0.25, slide: 400 }); } },
     running: () => !!ac && ac.state === 'running' && started,
     state: () => (ac ? ac.state : 'none'),   // for the debug readout
+    ran: () => ran,   // has it ever played: until a touch has let it, there's nothing to wake
     // a nudge from a touch or a key: resume a stopped clock, and play one silent sample in the same gesture —
     // what an iPhone wants before it lets a context that was interrupted make sound again
     unlock() {

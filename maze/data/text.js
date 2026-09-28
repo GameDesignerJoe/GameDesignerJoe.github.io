@@ -361,6 +361,17 @@ const FP_MEMORIES = {
       page: "mom wrote dads number on the wall by the fone so i can call him when i want to go visit. i can call any time. she said so. he works a lot so sometimes he dosnt hear it.",
       after: "i let it ring till i lost count. then i told mom he said next weekend. she didnt ask what else he said. i was glad.",
     },
+    // a card table in the middle of a room, the kid's chair and his, empty. Turn a card; his turns too, and it's higher
+    cards: {
+      page: "dad taught me war. you both turn a card over and the big one wins. he always wins. he says thats how you get tuff. im going to practise till i beat him.",
+      after: "i never won. not once. i think he knew what was coming. i didnt care. it was the only time he sat down with me that long.",
+    },
+    // crumpled drawings on the floor and a box of matches. It catches; then him, on the walls (`shout`), and it's out
+    fire: {
+      page: "dad makes fires in the fireplace and lets me poke it with the stick. i want to make one by myself so he sees i can do it. i know where the matches are.",
+      shout: ["what did you do", "you could of burned the house down", "get to your room", "what is wrong with you"],
+      after: "i only wanted him to see i could do it. he yelled so loud the windows shook. then he didnt talk to me for two days. that was worse than the yelling.",
+    },
     // the chalk room: the ball and the one glove, and dad drawn on the wall with his glove up. It never goes to him
     catch: {
       page: "dad said keep your eye on the glove and throw it right to me. i practise on the wall so next time i get it right. next time he wont have to go get it.",

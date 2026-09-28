@@ -47,7 +47,8 @@
     // more words at dead ends, and the arrow off again (v0.144.0)
     if ((saved.cfg || 0) < 8) { delete saved.words; delete saved.showArrow; }
     if ((saved.cfg || 0) < 9) delete saved.floors;   // one floor for now (v0.146.0)
-    saved.cfg = 9;
+    if ((saved.cfg || 0) < 10) delete saved.memoryRooms;   // the cards and the fire joined the phone (v0.154.0)
+    saved.cfg = 10;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -782,6 +783,15 @@
     sideTable: { half: 0.1, boxes: [
       { a: [-0.1, 0.1], d: [-0.09, 0.09], z: [0.22, 0.24], m: 'wood' }, { a: [-0.015, 0.015], d: [-0.015, 0.015], z: [0, 0.22], m: 'steel' },
       { a: [-0.07, 0.07], d: [-0.07, 0.07], z: [0, 0.015], m: 'dark' } ] },
+    // the memory rooms' card table, square in the middle of the floor, and his chair across it
+    cardTable: { half: 0.2, boxes: [
+      { a: [-0.2, 0.2], d: [-0.18, 0.18], z: [0.22, 0.245], m: 'wood' },
+      { a: [-0.18, -0.16], d: [-0.16, -0.14], z: [0, 0.22], m: 'wood' }, { a: [0.16, 0.18], d: [-0.16, -0.14], z: [0, 0.22], m: 'wood' },
+      { a: [-0.18, -0.16], d: [0.14, 0.16], z: [0, 0.22], m: 'wood' }, { a: [0.16, 0.18], d: [0.14, 0.16], z: [0, 0.22], m: 'wood' } ] },
+    dadChair: { half: 0.12, boxes: [
+      { a: [-0.12, 0.12], d: [0.02, 0.24], z: [0.17, 0.2], m: 'fabricDk' }, { a: [-0.12, 0.12], d: [0.0, 0.03], z: [0.2, 0.42], m: 'fabricDk' },
+      { a: [-0.11, -0.09], d: [0.02, 0.04], z: [0, 0.17], m: 'steel' }, { a: [0.09, 0.11], d: [0.02, 0.04], z: [0, 0.17], m: 'steel' },
+      { a: [-0.11, -0.09], d: [0.21, 0.23], z: [0, 0.17], m: 'steel' }, { a: [0.09, 0.11], d: [0.21, 0.23], z: [0, 0.17], m: 'steel' } ] },
     shelf: { wall: true, half: 0.3, boxes: [ { a: [-0.3, 0.3], d: [0.02, 0.2], z: [0, 0.34], m: 'wood', front: 'books' } ] },
     plant: { half: 0.14, boxes: [
       { a: [-0.1, 0.1], d: [0.05, 0.25], z: [0, 0.16], m: 'pot', top: 'dark' },
@@ -1325,6 +1335,7 @@
   // what's in them: made after the furniture, which clears its boxes each maze
   function storyProps() {
     for (const st of story) {
+      if (st.kind === 'memory') continue;   // dressed by memoryProps (it'd fall through to the wall's boxes and watch here)
       const m = st.m, ix = m.rx - m.mx, iy = m.ry - m.my;   // into the room
       if (st.kind === 'heart') {   // the letter he never sent, on the floor in the middle (a page now, if the chapter has placed ones)
         if (!placedPages()) objs.push({ x: heart.mid % W + 0.5, y: ((heart.mid / W) | 0) + 0.5, kind: 'note', text: st.text.letter, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });   // Joe: "It should look like a regular journal"
@@ -1400,8 +1411,8 @@
   //           and nobody picks up; walk away and you've hung up. Let it ring out and the memory comes (`after`).
   //   catch — dad on the kid room's wall, glove up. Pick up the ball, then tap (or Space) to throw: it never goes where
   //           you threw it. CATCH_THROWS at him and the memory comes.
-  const MEMORY_ROOMS = ['phone'];   // the ones with a room of their own, in the order a maze gives them one
-  const RINGS = 5, RING_EVERY = 2800, CATCH_THROWS = 3;
+  const MEMORY_ROOMS = ['phone', 'cards', 'fire'];   // the ones with a room of their own, in the order a maze gives them one
+  const RINGS = 5, RING_EVERY = 2800, CATCH_THROWS = 3, CARD_LOSSES = 3, FIRE_BURNS = 4000;
   let memFace = new Map(), memClear = new Set(), catchT = null, catchN = 0, catchDone = false, ballHeld = null;
   const memText = () => floor === 1 && typeof FP_MEMORIES !== 'undefined' && character ? FP_MEMORIES[character.name] : null;
   function placeMemories(reserved) {
@@ -1427,6 +1438,19 @@
           else if (solid(nx, ny) && !exitFace[n] && !reserved.has(faceKey(n, faceTo(dx, dy)))) faces.push({ k: n, face: faceTo(dx, dy), vx: x, vy: y, dx, dy }); } }
       if (!mouths.length || !faces.length) continue;
       const m = mouths[0];
+      if (mem !== 'phone') {   // a thing in the middle of the floor: the tile nearest the middle with floor all round it
+        const tl = tiles.filter((k) => HD.every(([dx, dy]) => set.has(k + dy * W + dx)));
+        if (!tl.length) continue;
+        const mx = tiles.reduce((a, k) => a + k % W, 0) / tiles.length, my = tiles.reduce((a, k) => a + ((k / W) | 0), 0) / tiles.length;
+        const c = tl.reduce((b, k) => Math.hypot(k % W - mx, ((k / W) | 0) - my) < Math.hypot(b % W - mx, ((b / W) | 0) - my) ? k : b, tl[0]);
+        const cx = c % W, cy = (c / W) | 0, tx = m.rx - cx, ty = m.ry - cy;
+        const ix = Math.abs(tx) >= Math.abs(ty) ? Math.sign(tx) || 1 : 0, iy = ix ? 0 : Math.sign(ty) || 1;   // toward the way in: your side
+        const st = { kind: 'memory', mem, tiles, set, m, text: M8[mem], at: { x: cx, y: cy, ix, iy }, done: false,
+          walls: faces.filter((q) => !reserved.has(faceKey(q.k, q.face))).sort(() => R() - 0.5).slice(0, 4) };
+        const si = story.length; story.push(st); for (const k of tiles) storyAt[k] = si;
+        for (let yy = cy - 1; yy <= cy + 1; yy++) for (let xx = cx - 1; xx <= cx + 1; xx++) if (set.has(yy * W + xx)) memClear.add(yy * W + xx);
+        continue;
+      }
       // the wall you face coming in, if it's free; any free wall of the room if not
       let n = 0; while (set.has((m.ry - m.dy * n) * W + m.rx - m.dx * n)) n++;
       const fk0 = (m.ry - m.dy * n) * W + m.rx - m.dx * n, ff0 = faceTo(-m.dx, -m.dy);
@@ -1456,20 +1480,85 @@
   function memoryProps() {
     for (const st of story) {
       if (st.kind !== 'memory') continue;
+      if (st.at) { middleProps(st); continue; }
       // beside it, not in front of it: in front, it'd be what Space reaches for every time instead of the phone
       const f = st.wall, side = [[-f.dy, f.dx], [f.dy, -f.dx]].find(([sx, sy]) => st.set.has((f.vy + sy) * W + f.vx + sx)) || [0, 0];
       objs.push({ x: f.vx + side[0] + 0.5 + f.dx * 0.25, y: f.vy + side[1] + 0.5 + f.dy * 0.25, kind: 'note', text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
     }
   }
+  // the cards' table and chairs, or the paper and the matches, in the middle; the journal on the floor at a corner of it
+  function middleProps(st) {
+    const { x, y, ix, iy } = st.at, cx = x + 0.5, cy = y + 0.5, ux = -iy, uy = ix;
+    if (st.mem === 'cards') {
+      for (const b of buildFurn(FURN.cardTable, cx, cy, ux, uy, ix, iy, 0)) fboxes.push(b);
+      for (const b of buildFurn(FURN.kidChair, cx + ix * 0.5, cy + iy * 0.5, ux, uy, -ix, -iy, 0)) fboxes.push(b);   // yours, on the side you come in
+      for (const b of buildFurn(FURN.dadChair, cx - ix * 0.46, cy - iy * 0.46, ux, uy, ix, iy, 0)) fboxes.push(b);   // his, across, empty
+      objs.push({ x: cx, y: cy, z: 0.245, kind: 'cards', mem: st, tex: TEX.sprites.deck, h: 0.035, glow: 0.3 });
+    } else if (st.mem === 'fire') {
+      st.paper = { x: cx, y: cy, z: 0, kind: 'deco', tex: TEX.sprites.paper, h: 0.07, glow: 0.2 }; objs.push(st.paper);
+      objs.push({ x: cx + ix * 0.35, y: cy + iy * 0.35, z: 0, kind: 'matches', mem: st, tex: TEX.sprites.matches, h: 0.03, glow: 0.3 });
+    }
+    // at the far corner, past the thing: near your side it'd be what Space reaches for instead
+    const jx = x - ix + ux, jy = y - iy + uy, ok = st.set.has(jy * W + jx), kx = ok ? jx : x - ix - ux, ky = ok ? jy : y - iy - uy;
+    objs.push({ x: kx + 0.5 - (kx - x) * 0.2, y: ky + 0.5 - (ky - y) * 0.2, kind: 'note', text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+  }
+  // a playing card, stood on the table: white, its rank in red or black
+  const RANKS = '23456789jqka', cardTexes = new Map();
+  function cardTex(r, red) {
+    const key = r * 2 + (red ? 1 : 0); if (cardTexes.has(key)) return cardTexes.get(key);
+    const w = 7, h = 9, T = { w, h, px: new Uint32Array(w * h) }, edge = TEX.hex('#b9b2a0'), face = TEX.hex('#f3efe4'), ink = TEX.hex(red ? '#b8322a' : '#1e1c1a');
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) T.px[yy * w + xx] = xx === 0 || yy === 0 || xx === w - 1 || yy === h - 1 ? edge : face;
+    const g = FONT[RANKS[r]]; for (let rr = 0; rr < 5; rr++) for (let q = 0; q < 3; q++) if (g[rr * 3 + q] === '#') T.px[(rr + 2) * w + q + 2] = ink;
+    cardTexes.set(key, T); return T;
+  }
   function useMemory(st) {
+    const now = performance.now();
     if (st.mem === 'phone') {
       if (st.ringing) return;
-      st.ringing = { t0: performance.now(), n: 0, at: st.wall }; FP_SOUND.phoneUp();
+      st.ringing = { t0: now, n: 0, at: st.wall }; FP_SOUND.phoneUp();
+    } else if (st.mem === 'cards') {
+      if (st.round) return;
+      // his is always the higher card
+      const kr = Math.floor(Math.random() * (RANKS.length - 1)), dr = kr + 1 + Math.floor(Math.random() * (RANKS.length - 1 - kr));
+      for (const o of st.shown || []) { const i = objs.indexOf(o); if (i >= 0) objs.splice(i, 1); }
+      st.shown = []; st.round = { t0: now, kr, dr, step: 0 }; (st.hands = st.hands || []).push([kr, dr]);
+    } else if (st.mem === 'fire') {
+      if (st.fire || st.done) return;
+      const mt = objs.find((o) => o.kind === 'matches' && o.mem === st); if (mt) objs.splice(objs.indexOf(mt), 1);
+      st.fire = { t0: now, frame: 0, crackle: 0, obj: { x: st.paper.x, y: st.paper.y + 0.001, z: 0.02, kind: 'deco', tex: TEX.sprites.fire[0], h: 0.04, glow: 1 } };
+      objs.push(st.fire.obj); FP_SOUND.strike();
     }
+  }
+  function cardsFrame(st, now) {
+    const r = st.round, t = now - r.t0, { x, y, ix, iy } = st.at, cx = x + 0.5, cy = y + 0.5, ux = -iy, uy = ix;
+    const card = (rank, side) => { const o = { x: cx + ix * 0.1 * side - ux * 0.08 * side, y: cy + iy * 0.1 * side - uy * 0.08 * side, z: 0.245, kind: 'deco', tex: cardTex(rank, Math.random() < 0.5), h: 0.075, glow: 0.3 }; objs.push(o); st.shown.push(o); FP_SOUND.cardFlip(); };
+    if (r.step === 0 && t > 100) { r.step = 1; card(r.kr, 1); }            // yours
+    else if (r.step === 1 && t > 900) { r.step = 2; card(r.dr, -1); }      // his, turned by nobody
+    else if (r.step === 2 && t > 1500) { r.step = 3; FP_SOUND.cardLose(); st.losses = (st.losses || 0) + 1; }
+    else if (r.step === 3 && t > 2100) { st.round = null; if (st.losses >= CARD_LOSSES && !st.done) { st.done = true; showNote(st.text.after); } }
+  }
+  const SHOUT = TEX.hex('#1a1614');
+  function fireFrame(st, now) {
+    const f = st.fire, t = now - f.t0;
+    if (!f.out) {
+      f.obj.h = 0.04 + Math.min(1, t / 2500) * 0.24;
+      if (now - f.frame > 130) { f.frame = now; f.obj.tex = TEX.sprites.fire[(Math.random() * 2) | 0]; }
+      if (now > f.crackle) { f.crackle = now + 250 + Math.random() * 400; FP_SOUND.crackle(Math.min(1, t / 2500)); }
+      if (t > FIRE_BURNS) {   // and then him: the door, and it's out, and what he said is all over the walls
+        f.out = true; objs.splice(objs.indexOf(f.obj), 1); st.paper.tex = TEX.sprites.ash; st.paper.h = 0.03;
+        FP_SOUND.fireOut();
+        const lines = st.text.shout || [];
+        st.walls.forEach((q, i) => { const fk = faceKey(q.k, q.face); if (!lines.length || switchFace.has(fk) || closets.some((c) => faceKey(c.k, c.face) === fk)) return;
+          const d = decalFor(q.k, q.face); hand(d, lines[i % lines.length], 4, 8, 56, 2, SHOUT, Math.random); });
+      }
+    } else if (t > FIRE_BURNS + 1600) { st.fire = null; st.done = true; showNote(st.text.after); }
   }
   function memoryFrame(now) {
     for (const st of story) {
-      if (st.kind !== 'memory' || !st.ringing) continue;
+      if (st.kind !== 'memory') continue;
+      if (st.round) cardsFrame(st, now);
+      if (st.fire) fireFrame(st, now);
+      if (!st.ringing) continue;
       const r = st.ringing, f = st.wall;
       // walked off: you've put it down
       if (Math.hypot(P.x - (f.vx + 0.5), P.y - (f.vy + 0.5)) > 2.2) { st.ringing = null; FP_SOUND.phoneDown(); continue; }
@@ -2034,6 +2123,7 @@
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen() && !story.some((q) => q.slot)) { leaveWatch(o); return; }
     if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
     if (o.kind === 'ball') { if (!walked && !o.fly) pickBall(o); return; }   // picked up to throw, never kept
+    if (o.kind === 'cards' || o.kind === 'matches') { if (!walked) useMemory(o.mem); return; }   // a memory room's thing: played, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
@@ -3016,6 +3106,7 @@
   // ── the objects, as flat pictures facing you ──────────────
   let ovDep = new Float32Array(1), colOv = new Uint8Array(1), zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colDoorTop = new Float32Array(1), colDoorBot = new Float32Array(1), colDoorT = new Float32Array(1), colVeil = new Float32Array(1), colWallT = new Float32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
   const DITH = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
+  const PLAYED = new Set(['cards', 'matches', 'ball']);
   const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
   // a pixel of the darter: its own shading kept as a grey, lifted toward white, lit by nothing
   const paleOf = (c, f) => { const l = Math.min(200, 38 + (((c & 0xff) + ((c >>> 8) & 0xff) + ((c >>> 16) & 0xff)) / 3) * 1.5) | 0; return shade(0xff000000 | (l << 16) | (l << 8) | l, Math.sqrt(f), 1, 1); };
@@ -3057,7 +3148,8 @@
       }
       if (ghost) continue;   // the father is seen, never touched
       // a generous target, well past the picture on every side: fingers are wide and things are small
-      if (any) drawn.push({ o, x0: x0 - wPx * 0.6, x1: x1 + wPx * 0.6, y0: y0 - hPx - 10, y1: floorY + hPx + 14, depth });
+      const pad = PLAYED.has(o.kind) ? Math.max(wPx * 0.6, RW * 0.06) : wPx * 0.6;   // a small thing to play with: a wider mark
+      if (any) drawn.push({ o, x0: x0 - pad, x1: x1 + pad, y0: y0 - hPx - 10, y1: floorY + hPx + 14, depth });
     }
     // enough of it on screen, not behind a wall or a door, to have been seen: then (and only then) it may take you
     if (being && !only && seenPx > BEING_SEEN_PX) { being.seen = true; being.lastSeen = performance.now(); }
@@ -3186,7 +3278,7 @@
     // a thing in the middle of the view within reach, however low it lies (a page on the floor ahead); then whatever
     // the middle of the view is — a door, a switch, a closet, the wall to chalk
     const cx = RW / 2; let hit = null;
-    for (const d of drawn) if (d.x0 <= cx && cx <= d.x1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
+    for (const d of drawn) if (d.o.kind !== 'deco' && d.x0 <= cx && cx <= d.x1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;   // a thing only looked at is never what you reach for
     if (carried.has('ball')) { throwBall(); return; }
     if (hit) { glyphsOff(); take(hit.o); return; }
     tapAt(cx, RH * 0.55);
@@ -3196,7 +3288,7 @@
     glyphsOff();
     // a thing first: the nearest one under the finger
     let hit = null;
-    for (const d of drawn) if (bx >= d.x0 - 6 && bx <= d.x1 + 6 && by >= d.y0 && by <= d.y1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
+    for (const d of drawn) if (d.o.kind !== 'deco' && bx >= d.x0 - 6 && bx <= d.x1 + 6 && by >= d.y0 && by <= d.y1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
     if (carried.has('ball')) { throwBall(); return; }   // holding the ball, a tap anywhere throws it
     if (hit) { take(hit.o); return; }
     const x = Math.max(0, Math.min(RW - 1, bx | 0));
@@ -3589,7 +3681,7 @@
   const soundBack = () => { if (document.visibilityState === 'visible') wake(); };
   addEventListener('visibilitychange', soundBack); addEventListener('pageshow', soundBack); addEventListener('focus', soundBack);
   setInterval(() => {   // a nudge only, never the full start (that fades the music in again)
-    if (!S.sound || document.visibilityState !== 'visible' || FP_SOUND.state() === 'none') return;
+    if (!S.sound || document.visibilityState !== 'visible' || !FP_SOUND.ran()) return;
     FP_SOUND.unlock(); if (typeof AUDIO !== 'undefined' && !AUDIO.running()) AUDIO.unlock();
   }, 2000);
   bindSel('optSound', 'sound', () => FP_SOUND.setEnabled(S.sound));

@@ -346,6 +346,38 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── memory rooms: cards you always lose, and the fire ──────────────
+// Joe: "Playing cards and always losing … Lighting a fire in the house and getting in trouble"
+{
+  const p = await open(4242); await awake(p);
+  const text = () => p.evaluate(() => document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '');
+  const esc = async () => { if (await text()) { await p.keyboard.press('Escape'); await p.waitForTimeout(250); } };
+  // none of them gets the wall's boxes and watch (they did, for a version: storyProps took them for the wall)
+  const watches = await p.evaluate(() => { let extra = 0, rooms = 0;
+    for (let s = 1; s <= 12; s++) { FP.newMaze(s * 7717 + 3);
+      for (const st of FP.story.filter((q) => q.kind === 'memory')) { rooms++; if (FP.objs.some((o) => o.kind === 'watch' && st.set.has(Math.floor(o.y) * FP.W + Math.floor(o.x)))) extra++; } }
+    FP.newMaze(4242); return { extra, rooms }; });
+  await p.waitForTimeout(4700); await esc();
+  const stand = (mem) => p.evaluate((mem) => { const st = FP.story.find((q) => q.mem === mem); const { x, y, ix, iy } = st.at; FP.P.x = x + 0.5 + ix * 1.1; FP.P.y = y + 0.5 + iy * 1.1; FP.P.a = Math.atan2(-iy, -ix); }, mem);
+  await stand('cards'); await p.waitForTimeout(300); await esc();
+  for (let i = 0; i < 3; i++) { await p.keyboard.press('Space'); await p.waitForTimeout(2400); }
+  const cards = await p.evaluate(() => FP.story.find((q) => q.mem === 'cards').hands || []);
+  const lost = await text(); await esc();
+  await stand('fire'); await p.waitForTimeout(300); await esc();
+  const ink = () => p.evaluate(() => { const st = FP.story.find((q) => q.mem === 'fire'); let n = 0; for (const q of st.walls) { const d = FP.decals.get(q.k * 4 + q.face); if (d) for (const c of d) if ((c >>> 0) === (TEX.hex('#1a1614') >>> 0)) n++; } return n; });
+  const before = await ink();
+  await p.keyboard.press('Space'); await p.waitForTimeout(2000);
+  const burning = await p.evaluate(() => { const st = FP.story.find((q) => q.mem === 'fire'); return !!(st.fire && !st.fire.out && FP.objs.includes(st.fire.obj)); });
+  await p.waitForTimeout(4000);
+  const after = await ink(), trouble = await text(), ash = await p.evaluate(() => FP.story.find((q) => q.mem === 'fire').paper.tex === TEX.sprites.ash);
+  await esc();
+  check('memory rooms: his card is always higher, three and the memory; the fire takes, then him on the walls, it\'s out, and the memory',
+    watches.rooms > 20 && watches.extra === 0 && cards.length === 3 && cards.every(([k, d]) => d > k) && /never won/.test(lost)
+      && before === 0 && burning && after > 200 && ash && /see i could do it/.test(trouble),
+    `${watches.extra} of ${watches.rooms} memory rooms with a watch; hands ${cards.map(([k, d]) => k + '<' + d).join(', ')}, then "${lost.slice(0, 30)}…"; fire burning ${burning}, his words ${before} → ${after} px, ash ${ash}, then "${trouble.slice(0, 30)}…"`);
+  await p.close();
+}
+
 // ── from the quote straight into lying down ──────────────────────
 // Joe: "there is a couple frames of the camera already in the upright position. Then it cuts to the scene where they are
 // waking up." Every frame the game shows through the card, before the wake has lain you down, is one of those frames

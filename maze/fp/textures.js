@@ -643,6 +643,18 @@ const TEX = (() => {
       r(3, 15, 4, 22, k); r(7, 15, 8, 22, k); r(2, 23, 4, 23, k); r(7, 23, 9, 23, k);
       return T;
     })(),
+    // the memory rooms: a deck face down, and the card table's cards (made in fp.js, one per rank); crumpled paper and a
+    // box of matches, the fire on it in two frames, and what's left after
+    deck: sprite(['.bbbbbbb.', 'bBwBwBwBb', 'bwBwBwBwb', 'bBwBwBwBb', 'kkkkkkkkk', '.kkkkkkk.'], Object.assign({}, P, { b: hex('#2f4d8a'), B: hex('#3f63a8'), w: hex('#c9d4ea'), k: hex('#d9d3c2') })),
+    paper: sprite(['....wW..w...', '..wWWwwwWw..', '.WwwpWwWwwW.', 'wWpwwWWwpwwW', 'WwwWwwpwWwWw'], Object.assign({}, P, { w: hex('#ece8dc'), W: hex('#c8c2b0'), p: hex('#9cc2e4') })),
+    matches: sprite(['rrrrrrrrr', 'ryyyyyyyr', 'rrrrrrrrr', 'kkkkkkkkk'], Object.assign({}, P, { r: hex('#b33a26'), y: hex('#e6c34a'), k: hex('#6b4a2a') })),
+    fire: [
+      sprite(['.....y......', '....yo...y..', '...yoo..yo..', '..yooro.yoo.', '..yorrooorr.', '.yorrRrorrRo', '.orrRRrrRRro', 'orRRRRRRRRro', 'orRRRRRRRRRo', '.oRRRRRRRRo.'],
+        Object.assign({}, P, { y: (hex('#f6e27a') & 0xffffff) | 0xfe000000, o: (hex('#f0a33a') & 0xffffff) | 0xfe000000, r: (hex('#e2622a') & 0xffffff) | 0xfe000000, R: (hex('#b8321e') & 0xffffff) | 0xfe000000 })),
+      sprite(['..y.........', '..yo....y...', '..yoo..yoo..', '.yooro.yoro.', '.yorrooorro.', 'yorrRrorrRro', 'orrRRrrRRrro', 'orRRRRRRRRro', 'orRRRRRRRRRo', '.oRRRRRRRRo.'],
+        Object.assign({}, P, { y: (hex('#f6e27a') & 0xffffff) | 0xfe000000, o: (hex('#f0a33a') & 0xffffff) | 0xfe000000, r: (hex('#e2622a') & 0xffffff) | 0xfe000000, R: (hex('#b8321e') & 0xffffff) | 0xfe000000 })),
+    ],
+    ash: sprite(['...kk.k.....', '.kKkkKkkK.k.', 'kKkKKkKkkKkk'], Object.assign({}, P, { k: hex('#2a2724'), K: hex('#4a4640') })),
     // a kid's heap of chalk in a corner, the colours as well as the white: Joe, "Put a pile of chalk in one corner"
     chalkPile: sprite([
       '................', '......rr........', '...wwwwwWbb.....', '..yyyywwwWbbbb..', '.wwwwrrrrWwwwww.', 'WWwwwwwWyyyyyWW.'],
