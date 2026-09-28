@@ -300,6 +300,30 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the keys still walk after the panel ──────────────────────────
+// Joe: "You broke WASD on PC." Touch a slider on the panel, shut it, and the slider kept the keyboard: W did nothing
+{
+  const p = await open(4242); await awake(p);
+  // somewhere with floor ahead and nothing on it to stop and read
+  await p.evaluate(() => { const W = FP.W, held = new Set(FP.objs.map((o) => Math.floor(o.y) * W + Math.floor(o.x)));
+    for (let y = 2; y < tiles.length - 2; y++) for (let x = 2; x < W - 5; x++) { let ok = true;
+      for (let i = -1; i <= 3; i++) if (!tiles[y][x + i] || FP.low[y * W + x + i] || held.has(y * W + x + i)) ok = false;
+      if (ok) { FP.P.x = x + 0.5; FP.P.y = y + 0.5; FP.P.a = 0; return; } } });
+  await p.waitForTimeout(200);
+  const walk = async () => { await p.evaluate(() => { FP.P.a = 0; }); const a = await p.evaluate(() => [FP.P.x, FP.P.y]); await p.keyboard.down('KeyW'); await p.waitForTimeout(600); await p.keyboard.up('KeyW');
+    const c = await p.evaluate(() => [FP.P.x, FP.P.y]); await p.keyboard.down('KeyS'); await p.waitForTimeout(600); await p.keyboard.up('KeyS'); return Math.hypot(c[0] - a[0], c[1] - a[1]); };
+  const before = await walk();
+  await p.evaluate(() => { document.getElementById('gear').click(); for (const d of document.querySelectorAll('#panel details')) d.open = true; document.querySelector('#panel input[type=range]').focus(); });
+  await p.waitForTimeout(200);
+  const at = await p.evaluate(() => { const r = document.getElementById('panel').getBoundingClientRect(); return [Math.min(420, r.right + 10), Math.min(880, r.bottom + 10)]; });
+  await p.mouse.click(at[0] < 420 ? at[0] : 215, at[0] < 420 ? 450 : at[1]); await p.waitForTimeout(300);   // the view, not the panel
+  const shut = await p.evaluate(() => !document.getElementById('panel').classList.contains('open'));
+  const after = await walk();
+  check('the keys still walk once the panel is shut, whatever was touched on it', before > 0.3 && shut && after > 0.3,
+    `walked ${before.toFixed(2)} before; panel shut ${shut}; walked ${after.toFixed(2)} after touching a slider`);
+  await p.close();
+}
+
 // ── memory rooms: the phone that only rings, and catch you never throw straight ──
 // Joe: "little activities you can do as the kid that trigger a core memory … A phone you can call that says 'call dad to
 // go visit' above it and it just rings … Trying to throw a ball to play catch but never throwing it straight at the target"

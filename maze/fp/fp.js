@@ -3286,7 +3286,11 @@
   const KEYS = { ArrowUp: 'fwd', KeyW: 'fwd', ArrowDown: 'back', KeyS: 'back', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', KeyQ: 'sleft', KeyE: 'sright', ShiftLeft: 'shift', ShiftRight: 'shift' };
   const keys = {};
   addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    // a slider or a list in the panel keeps the keys only while the panel is open. Joe: "You broke WASD on PC" — touch a
+    // slider, shut the panel, and it still had the keyboard (a tap on the view doesn't take focus), so W did nothing
+    const panelOpen = $('panel').classList.contains('open');
+    if (panelOpen && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+    if (!panelOpen && document.activeElement && $('panel').contains(document.activeElement)) document.activeElement.blur();
     if (reading) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) hidePage(); } return; }   // on a PC, a key puts the page down
     // Space (or X) is the hand on a PC: whatever is straight ahead. Joe: "On PC, let's get spacebar to leave and X as
     // well as be the interact button on things."
