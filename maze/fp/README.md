@@ -113,7 +113,11 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   memory. **The fire** — crumpled drawings and a box of matches in the middle of a room; tap the matches and it takes and
   grows, and then the door, hard: it's out, ash, and what he said is on the walls in big dark letters (`shout`); then the
   memory. The middle things are given a wider mark to tap, and nothing only looked at (`deco`) is ever what Space or a tap
-  reaches for. Hiding from him is still to come.
+  reaches for. **Hiding** — a room with a closet of its own on the far wall, and the journal just inside the way in:
+  walk in and it's read ("when dad drinks he gets loud"), and then he's coming — HE_COMES of heavy uneven steps and the
+  bottle, nearer and nearer, and he's in the doorway (the father's own figure). In a closet by then: he walks to it and
+  stands there, and goes; the memory (`after`). Not: he walks straight past you, and the other one (`seen`). Each maze deals
+  the four in its own order and gets as many as it has rooms for (about three in four mazes have any given one).
 - **The way out has to be earned** (a chapter with placed pages; lines in `FP_ENDING`). The exit is shut and chalked
   "not yet" — walk up to it and the handle rattles. It opens once you've been to the heart and then left the watch on the
   chair he saved in the waiting room — on the little table beside it, where a ring in the dust shows where the watch used to

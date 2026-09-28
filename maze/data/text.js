@@ -372,6 +372,13 @@ const FP_MEMORIES = {
       shout: ["what did you do", "you could of burned the house down", "get to your room", "what is wrong with you"],
       after: "i only wanted him to see i could do it. he yelled so loud the windows shook. then he didnt talk to me for two days. that was worse than the yelling.",
     },
+    // a room with a closet in it. Read the journal and he's coming: his steps, the bottle. In the closet when he gets
+    // there, and he stands outside it and goes (`after`); not, and he walks right past you (`seen`)
+    hide: {
+      page: "when dad drinks he gets loud and the house gets small. i know the best hiding spot. if im really quiet he forgets im here. thats good. thats the whole point.",
+      after: "i held my breath till my ears hurt. he stood right there. he said my name like a question and then he went back out. i stayed in there a long time after.",
+      seen: "i didnt hide in time. he walked right past me like i wasnt even there. i dont know if that was better or worse.",
+    },
     // the chalk room: the ball and the one glove, and dad drawn on the wall with his glove up. It never goes to him
     catch: {
       page: "dad said keep your eye on the glove and throw it right to me. i practise on the wall so next time i get it right. next time he wont have to go get it.",

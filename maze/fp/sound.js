@@ -279,6 +279,9 @@ const FP_SOUND = (() => {
     strike() { if (live()) { burst(0.12, { vol: 0.3, freq: 3800, q: 1.2, slide: 1800 }); burst(0.4, { vol: 0.1, freq: 600, q: 0.7, type: 'lowpass', at: 0.08 }); } },
     crackle(k) { if (live()) for (let i = 0; i < 3; i++) burst(0.015 + Math.random() * 0.02, { vol: (0.08 + 0.2 * k) * Math.random(), freq: 1800 + Math.random() * 2500, q: 3, at: Math.random() * 0.2 }); },
     fireOut() { if (live()) { burst(0.4, { vol: 1.0, freq: 140, q: 0.8, type: 'lowpass' }); burst(0.1, { vol: 0.5, freq: 900, q: 1.2 }); burst(0.9, { vol: 0.3, freq: 1200, q: 0.4, at: 0.25, slide: 400 }); } },
+    // him coming, in the hiding room: heavy uneven feet, nearer each one, a scuff; and the bottle, knocking
+    drunkStep(near) { if (live()) { burst(0.12, { vol: 0.6 * near, freq: 110, q: 0.9, type: 'lowpass' }); burst(0.18, { vol: 0.12 * near, freq: 700, q: 1, at: 0.05 }); } },
+    bottle(near) { if (live()) { tone(1760, 0.25, { type: 'triangle', vol: 0.05 * near }); tone(2350, 0.18, { type: 'triangle', vol: 0.03 * near, at: 0.02 }); } },
     running: () => !!ac && ac.state === 'running' && started,
     state: () => (ac ? ac.state : 'none'),   // for the debug readout
     ran: () => ran,   // has it ever played: until a touch has let it, there's nothing to wake

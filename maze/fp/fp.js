@@ -47,8 +47,8 @@
     // more words at dead ends, and the arrow off again (v0.144.0)
     if ((saved.cfg || 0) < 8) { delete saved.words; delete saved.showArrow; }
     if ((saved.cfg || 0) < 9) delete saved.floors;   // one floor for now (v0.146.0)
-    if ((saved.cfg || 0) < 10) delete saved.memoryRooms;   // the cards and the fire joined the phone (v0.154.0)
-    saved.cfg = 10;
+    if ((saved.cfg || 0) < 11) delete saved.memoryRooms;   // the cards and the fire joined the phone (v0.154.0), then hiding (v0.155.0)
+    saved.cfg = 11;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -623,6 +623,10 @@
   let closets = [], hidden = null;
   function placeClosets(usedFaces) {
     closets = [];
+    for (const st of story) if (st.closet) {   // the hiding room's own, before any other
+      closets.push(st.closet); const d = decalFor(st.closet.k, st.closet.face), art = TEX.closet.px;
+      for (let i = 0; i < DEC * DEC; i++) if (art[i]) d[i] = art[i];
+    }
     const R = rng(SEED + 160001), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), cand = [];
     const doorTiles = new Set(doors.map((d) => d.k));
     // not in a pocket that squeezes shut off from the rest: "Closets in one room squeeze spaces doesn't make sense" (Joe).
@@ -1411,8 +1415,8 @@
   //           and nobody picks up; walk away and you've hung up. Let it ring out and the memory comes (`after`).
   //   catch — dad on the kid room's wall, glove up. Pick up the ball, then tap (or Space) to throw: it never goes where
   //           you threw it. CATCH_THROWS at him and the memory comes.
-  const MEMORY_ROOMS = ['phone', 'cards', 'fire'];   // the ones with a room of their own, in the order a maze gives them one
-  const RINGS = 5, RING_EVERY = 2800, CATCH_THROWS = 3, CARD_LOSSES = 3, FIRE_BURNS = 4000;
+  const MEMORY_ROOMS = ['phone', 'cards', 'fire', 'hide'];   // the ones with a room of their own; each maze deals them in its own order, so a short one has a different few
+  const RINGS = 5, RING_EVERY = 2800, CATCH_THROWS = 3, CARD_LOSSES = 3, FIRE_BURNS = 4000, HE_COMES = 9000, HE_STANDS = 3200;
   let memFace = new Map(), memClear = new Set(), catchT = null, catchN = 0, catchDone = false, ballHeld = null;
   const memText = () => floor === 1 && typeof FP_MEMORIES !== 'undefined' && character ? FP_MEMORIES[character.name] : null;
   function placeMemories(reserved) {
@@ -1428,7 +1432,9 @@
       rooms.push(tiles);
     }
     const cands = rooms.filter((t) => t.length >= 9 && !t.some((k) => storyAt[k] >= 0 || (Math.abs(k % W - sx0) < 3 && Math.abs(((k / W) | 0) - sy0) < 3) || (secret && secret.has(k)) || inHeart(k) || (k % W === exit.x && ((k / W) | 0) === exit.y)));
-    for (const mem of MEMORY_ROOMS.filter((k) => M8[k]).slice(0, Math.round(S.memoryRooms))) {
+    const deal = MEMORY_ROOMS.filter((k) => M8[k]);
+    for (let i = deal.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [deal[i], deal[j]] = [deal[j], deal[i]]; }
+    for (const mem of deal.slice(0, Math.round(S.memoryRooms))) {
       if (!cands.length) break;
       const tiles = cands.splice(Math.floor(R() * cands.length), 1)[0], set = new Set(tiles);
       const mouths = [], faces = [];
@@ -1438,6 +1444,17 @@
           else if (solid(nx, ny) && !exitFace[n] && !reserved.has(faceKey(n, faceTo(dx, dy)))) faces.push({ k: n, face: faceTo(dx, dy), vx: x, vy: y, dx, dy }); } }
       if (!mouths.length || !faces.length) continue;
       const m = mouths[0];
+      if (mem === 'hide') {   // a closet of its own, on the wall farthest from the way in; the journal just inside the way in
+        const far = faces.filter((q) => !(q.vx === m.rx && q.vy === m.ry)).sort((a, b) => Math.hypot(b.vx - m.rx, b.vy - m.ry) - Math.hypot(a.vx - m.rx, a.vy - m.ry) || R() - 0.5)[0];
+        if (!far) continue;
+        const st = { kind: 'memory', mem, tiles, set, m, text: M8[mem], done: false,
+          closet: { k: far.k, face: far.face, x: far.vx, y: far.vy, dx: -far.dx, dy: -far.dy } };
+        const si = story.length; story.push(st); for (const k of tiles) storyAt[k] = si;
+        reserved.add(faceKey(far.k, far.face));
+        for (let yy = far.vy - 1; yy <= far.vy + 1; yy++) for (let xx = far.vx - 1; xx <= far.vx + 1; xx++) if (set.has(yy * W + xx)) memClear.add(yy * W + xx);
+        memClear.add(m.ry * W + m.rx);
+        continue;
+      }
       if (mem !== 'phone') {   // a thing in the middle of the floor: the tile nearest the middle with floor all round it
         const tl = tiles.filter((k) => HD.every(([dx, dy]) => set.has(k + dy * W + dx)));
         if (!tl.length) continue;
@@ -1481,6 +1498,10 @@
     for (const st of story) {
       if (st.kind !== 'memory') continue;
       if (st.at) { middleProps(st); continue; }
+      if (st.closet) {   // the journal on the floor just inside the way in: reading it is what brings him
+        const m = st.m; objs.push({ x: m.rx + 0.5 + (m.rx - m.mx) * 0.25, y: m.ry + 0.5 + (m.ry - m.my) * 0.25, kind: 'note', mem: st, text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+        continue;
+      }
       // beside it, not in front of it: in front, it'd be what Space reaches for every time instead of the phone
       const f = st.wall, side = [[-f.dy, f.dx], [f.dy, -f.dx]].find(([sx, sy]) => st.set.has((f.vy + sy) * W + f.vx + sx)) || [0, 0];
       objs.push({ x: f.vx + side[0] + 0.5 + f.dx * 0.25, y: f.vy + side[1] + 0.5 + f.dy * 0.25, kind: 'note', text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
@@ -1537,6 +1558,44 @@
     else if (r.step === 2 && t > 1500) { r.step = 3; FP_SOUND.cardLose(); st.losses = (st.losses || 0) + 1; }
     else if (r.step === 3 && t > 2100) { st.round = null; if (st.losses >= CARD_LOSSES && !st.done) { st.done = true; showNote(st.text.after); } }
   }
+  // him, coming: from when the journal is put down, HE_COMES of his steps (and the bottle) getting nearer; then he's in
+  // the doorway. In a closet, and he walks to it and stands (HE_STANDS), and goes; not, and he walks straight past you
+  function hideFrame(st, now) {
+    const c = st.coming, m = st.m;
+    if (!c.t0) { if (reading) return; c.t0 = now; c.next = now + 900; }   // the page put down first
+    const t = now - c.t0;
+    if (!c.him) {
+      if (now > c.next) {
+        const near = Math.min(1, 0.15 + t / HE_COMES);
+        FP_SOUND.drunkStep(near); if (Math.random() < 0.25) FP_SOUND.bottle(near);
+        c.next = now + (Math.random() < 0.3 ? 250 : 650 + Math.random() * 500);   // uneven: a stumble, then a long one
+      }
+      if (t < HE_COMES) return;
+      c.hid = !!hidden;
+      const sx = m.mx + 0.5, sy = m.my + 0.5, cl = st.closet;
+      let tx, ty;
+      if (c.hid) { tx = cl.x + 0.5 + cl.dx * 0.9; ty = cl.y + 0.5 + cl.dy * 0.9; if (!st.set.has(Math.floor(ty) * W + Math.floor(tx))) { tx = cl.x + 0.5; ty = cl.y + 0.5; } }
+      else { const vx = P.x - sx, vy = P.y - sy, l = Math.hypot(vx, vy) || 1; tx = P.x + vx / l * 1.3 - vy / l * 0.45; ty = P.y + vy / l * 1.3 + vx / l * 0.45;   // by you, and on
+        if (!st.set.has(Math.floor(ty) * W + Math.floor(tx))) { tx = P.x - vy / l * 0.5; ty = P.y + vx / l * 0.5; } }
+      c.him = { x: sx, y: sy, z: 0, kind: 'deco', ghost: true, alpha: 1, h: FATHER_H, glow: 0, vx: 0, vy: 0, back: false, walked: 0, tex: TEX.sprites.father[0] };
+      c.path = [[tx, ty], [sx, sy]]; c.leg = 0; c.wait = 0; objs.push(c.him); FP_SOUND.drunkStep(1);
+      return;
+    }
+    const h = c.him, dt = Math.min(0.05, (now - (c.last || now)) / 1000); c.last = now;
+    if (c.leg === 0 || c.leg === 2) {
+      const [wx, wy] = c.path[c.leg === 0 ? 0 : 1], ex = wx - h.x, ey = wy - h.y, d = Math.hypot(ex, ey), step = S.walk * 0.7 * dt;
+      if (d <= step) { h.x = wx; h.y = wy; c.leg++; c.wait = now; }
+      else { h.vx = ex / d; h.vy = ey / d; h.x += h.vx * step; h.y += h.vy * step; h.walked += step; }
+      h.back = h.vx * Math.cos(P.a) + h.vy * Math.sin(P.a) > 0.7;
+      h.tex = TEX.sprites[h.back ? 'fatherBack' : 'father'][Math.floor(h.walked / 0.33) & 1];
+      if (c.leg === 2 && Math.hypot(h.x - c.path[1][0], h.y - c.path[1][1]) < 0.6) h.alpha -= dt * 2.5;
+      if (now > (c.next || 0)) { c.next = now + 700 + Math.random() * 300; FP_SOUND.drunkStep(0.9); }
+    } else if (c.leg === 1) { if (now - c.wait > (c.hid ? HE_STANDS : 300)) c.leg = 2; }   // at the closet door, standing there
+    if (c.leg >= 3 || h.alpha <= 0) {
+      const i = objs.indexOf(h); if (i >= 0) objs.splice(i, 1);
+      st.coming = null; st.done = true; showNote(c.hid ? st.text.after : (st.text.seen || st.text.after));
+    }
+  }
   const SHOUT = TEX.hex('#1a1614');
   function fireFrame(st, now) {
     const f = st.fire, t = now - f.t0;
@@ -1558,6 +1617,7 @@
       if (st.kind !== 'memory') continue;
       if (st.round) cardsFrame(st, now);
       if (st.fire) fireFrame(st, now);
+      if (st.coming) hideFrame(st, now);
       if (!st.ringing) continue;
       const r = st.ringing, f = st.wall;
       // walked off: you've put it down
@@ -2121,7 +2181,7 @@
     // his chair with no slot beside it takes the watch itself, and says the same
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && !heartSeen() && !story.some((q) => q.slot) && endingText()) { showNote(notYetHere(endingText())); return; }
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen() && !story.some((q) => q.slot)) { leaveWatch(o); return; }
-    if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
+    if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); if (o.mem && o.mem.closet && !o.mem.done && !o.mem.coming) o.mem.coming = { t0: 0 }; } return; }   // read where it lies, never taken
     if (o.kind === 'ball') { if (!walked && !o.fly) pickBall(o); return; }   // picked up to throw, never kept
     if (o.kind === 'cards' || o.kind === 'matches') { if (!walked) useMemory(o.mem); return; }   // a memory room's thing: played, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
