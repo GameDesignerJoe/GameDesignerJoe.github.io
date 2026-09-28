@@ -478,6 +478,9 @@ const FP_ENDING = {
     // the slot on the little table by his chair, where the watch sat. Joe's two lines: before you have it, and with it
     slotEmpty: "something goes here.",
     slotHolding: "he always had this right next to him. but ive been holding onto it this whole time.",
+    // holding it, but not yet been to the heart. Joe: "someone gets the watch first and can't put it in the slot and don't
+    // understand why … let you know when you have the watch and try and put it there but haven't been to the heart room"
+    slotNotYet: "this goes here, but there's a truth i have yet to learn that will let me place it.",
     out: "it's time to come home now.",
   },
 };

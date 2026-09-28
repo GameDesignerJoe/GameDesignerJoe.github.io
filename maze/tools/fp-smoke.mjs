@@ -217,13 +217,18 @@ console.log('The Maze — first person checks');
   await p.waitForTimeout(250); await closePage(p); await p.mouse.click(215, 480); await p.waitForTimeout(300);
   const said = await p.evaluate(() => document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '');
   await closePage(p);
+  // with the watch in hand, before the heart: it says why it won't go down yet, and keeps the watch
+  await p.evaluate(() => { const w = FP.objs.find((o) => o.kind === 'watch'); FP.carried.add('watch'); if (w) FP.objs.splice(FP.objs.indexOf(w), 1); });
+  await p.mouse.click(215, 480); await p.waitForTimeout(300);
+  const holding = await p.evaluate(() => ({ text: document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '', kept: FP.carried.has('watch'), left: FP.watchLeft }));
+  await closePage(p);
   const furnished = await p.evaluate(() => { let rooms = 0, withBed = 0, withGlove = 0;
     for (let s = 1; s <= 10; s++) { FP.newMaze(s * 577 + 9); const set = new Set([...secretTiles]); if (set.size < 9) continue; rooms++;
       if (FP.fboxes.some((b) => set.has(Math.floor((b.x0 + b.x1) / 2) + ',' + Math.floor((b.y0 + b.y1) / 2)) && b.z1 > 0.3)) withBed++;
       if (FP.objs.some((o) => o.tex === TEX.sprites.glove)) withGlove++; } return [rooms, withBed, withGlove]; });
-  check('the slot by his chair says something goes there, and the kid\'s room has its bed and its one glove',
-    /something goes here/.test(said) && furnished[0] > 5 && furnished[1] === furnished[0] && furnished[2] === furnished[0],
-    `tapped with nothing in hand: "${said}"; of ${furnished[0]} kid's rooms, ${furnished[1]} with the bed, ${furnished[2]} with the glove`);
+  check('the slot by his chair says something goes there, and with the watch before the heart, not yet; the kid\'s room has its bed and its one glove',
+    /something goes here/.test(said) && /truth i have yet to learn/.test(holding.text) && holding.kept && !holding.left && furnished[0] > 5 && furnished[1] === furnished[0] && furnished[2] === furnished[0],
+    `tapped with nothing in hand: "${said}"; with the watch: "${holding.text}", kept ${holding.kept}; of ${furnished[0]} kid's rooms, ${furnished[1]} with the bed, ${furnished[2]} with the glove`);
   await p.close();
 }
 

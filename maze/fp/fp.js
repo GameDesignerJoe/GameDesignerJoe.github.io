@@ -1855,15 +1855,19 @@
   // collectible that you pick up and then hold in your inventory. You can see on your hud. When we bring back in the
   // statues and the offerings, perhaps we offer the watch." It goes with you up and down the stairs; a new maze empties it
   let carried = new Set();
+  // the watch in hand at his chair before the heart: why it won't go down yet
+  const notYetHere = (E) => [E.slotHolding, E.slotNotYet].filter(Boolean).join(' ');
   function take(o, walked) {
     if (o.kind === 'deco') return;
     if (o.kind === 'slot') {
       if (walked) return;
       const E = endingText();
       if (carried.has('watch') && heartSeen()) leaveWatch(o);
-      else if (E) showNote(carried.has('watch') ? E.slotHolding : E.slotEmpty);
+      else if (E) showNote(carried.has('watch') ? notYetHere(E) : E.slotEmpty);
       return;
     }
+    // his chair with no slot beside it takes the watch itself, and says the same
+    if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && !heartSeen() && !story.some((q) => q.slot) && endingText()) { showNote(notYetHere(endingText())); return; }
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen() && !story.some((q) => q.slot)) { leaveWatch(o); return; }
     if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));

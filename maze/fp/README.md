@@ -105,7 +105,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 - **The way out has to be earned** (a chapter with placed pages; lines in `FP_ENDING`). The exit is shut and chalked
   "not yet" — walk up to it and the handle rattles. It opens once you've been to the heart and then left the watch on the
   chair he saved in the waiting room — on the little table beside it, where a ring in the dust shows where the watch used to
-  sit (tap it: "something goes here."; with the watch: "he always had this right next to him …"): he says goodbye to it, and somewhere a door
+  sit (tap it: "something goes here."; with the watch before you've been to the heart: "he always had this right next to him …", then `slotNotYet`, that a truth is still to learn; with it after: he says goodbye to it, and somewhere a door
   unlatches. The being is standing in front of the exit then, waiting; come close and it comes down to the kid's size,
   and fades, and goes. Out, under the Exit: "it's time to come home now." After the watch is left the being doesn't hunt
   any more. The debug arrow points at the next thing to do. **Leave the watch** on the panel skips to it.
