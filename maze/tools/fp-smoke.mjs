@@ -324,6 +324,23 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── a memory room's journal is a page like the others ──────────────
+// Joe: "The journal for the phone doesn't get collected. I get the popup, [but] the count doesn't go up and it doesn't go away"
+{
+  const p = await open(4242); await awake(p);
+  const r0 = await p.evaluate(() => ({ hud: document.getElementById('hudPages').textContent, mem: FP.objs.filter((o) => o.memPage).length }));
+  await p.evaluate(() => { const st = FP.story.find((q) => q.mem === 'phone'), o = FP.objs.find((q) => q.memPage && st.set.has(Math.floor(q.y) * FP.W + Math.floor(q.x))); FP.P.x = o.x; FP.P.y = o.y; });
+  await p.waitForTimeout(500);
+  const shown = await p.evaluate(() => document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+  await p.keyboard.press('Space'); await p.waitForTimeout(300);   // and it doesn't come up again
+  const r1 = await p.evaluate(() => ({ hud: document.getElementById('hudPages').textContent, mem: FP.objs.filter((o) => o.memPage).length, again: document.getElementById('page').classList.contains('show') }));
+  check('a memory room\'s journal is picked up like any page: counted, in the total, gone from the floor',
+    r0.mem >= 3 && r0.hud === '0 / ' + (5 + r0.mem) && /fone/.test(shown) && r1.hud === '1 / ' + (5 + r0.mem) && r1.mem === r0.mem - 1 && !r1.again,
+    `HUD "${r0.hud}" with ${r0.mem} memory journals; read "${shown.slice(0, 30)}…"; then HUD "${r1.hud}", ${r1.mem} left, up again ${r1.again}`);
+  await p.close();
+}
+
 // ── memory rooms: the phone that only rings, and catch you never throw straight ──
 // Joe: "little activities you can do as the kid that trigger a core memory … A phone you can call that says 'call dad to
 // go visit' above it and it just rings … Trying to throw a ball to play catch but never throwing it straight at the target"

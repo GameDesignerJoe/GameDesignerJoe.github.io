@@ -351,7 +351,7 @@ const WALL_WORDS = {
 // These would all be new rooms … normal rooms with general stuff in them but in the center there is this interactive
 // space, kind of like what you do with the watch … I'd make new journals for these that are written to explain what's
 // going on from the kid's point of view. One of these can be in the chalk room." Per self; each memory has `page`, the
-// journal left by the thing (read where it lies, it isn't one of the pages you collect), and `after`, what comes back
+// journal left by the thing (a page like the others: picked up, and counted with them), and `after`, what comes back
 // once you've played it through. All of it Claude's drafts, to be rewritten.
 const FP_MEMORIES = {
   'The Child': {

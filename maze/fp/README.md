@@ -105,7 +105,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   turn leaves both rooms alone now (its words would cover theirs). **Cross out the lies** on the panel does it for you.
 - **Memory rooms** (`FP_MEMORIES` in `data/text.js`, `memoryRooms`). Joe: "little activities you can do as the kid that
   trigger a core memory … play don't show." An ordinary furnished room with its middle kept clear, a thing to do in it,
-  and a journal on the floor beside it (read where it lies: not one of the five pages, and nothing waits on it yet). Play
+  and a journal on the floor beside it (a page like the others: picked up, and counted in the HUD's total; nothing waits on the memories yet). Play
   it through and the memory comes (`after`). So far: **the phone** — on the wall you face coming in, "call dad to go
   visit" over it in crayon; tap it and it rings five times and nobody picks up (walk off and you've hung up) — and
   **catch**, in the kid's room: dad drawn on the wall with his glove up; pick up the ball, tap to throw, and it never

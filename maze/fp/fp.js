@@ -1407,8 +1407,8 @@
   // core memory … These would all be new rooms. I'd make them the normal rooms we have with general stuff in them but in
   // the center there is this interactive space, kind of like what you do with the watch … new journals for these … One of
   // these can be in the chalk room." A memory room is one of the maze's own rooms (the story rooms' leftovers), furnished as
-  // any other, with its middle kept clear (`memClear`) for the thing you do there and its journal (FP_MEMORIES, read where
-  // it lies: it isn't one of the pages you collect, and nothing waits on it yet). Floor 1, `memoryRooms` of them, its own
+  // any other, with its middle kept clear (`memClear`) for the thing you do there and its journal (FP_MEMORIES: a page like the
+  // others, picked up and counted with them; nothing waits on the memories yet). Floor 1, `memoryRooms` of them, its own
   // stream; where a maze hasn't rooms enough, the later ones go without. Catch has no room of its own: it is the kid's
   // room's, with the ball and the one glove already there. In `story` as kind 'memory', so the turn leaves it alone.
   //   phone — on the wall you face coming in, "call dad to go visit" over it in crayon. Tap it and it rings, RINGS times,
@@ -1499,12 +1499,12 @@
       if (st.kind !== 'memory') continue;
       if (st.at) { middleProps(st); continue; }
       if (st.closet) {   // the journal on the floor just inside the way in: reading it is what brings him
-        const m = st.m; objs.push({ x: m.rx + 0.5 + (m.rx - m.mx) * 0.25, y: m.ry + 0.5 + (m.ry - m.my) * 0.25, kind: 'note', mem: st, text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+        const m = st.m; objs.push({ x: m.rx + 0.5 + (m.rx - m.mx) * 0.25, y: m.ry + 0.5 + (m.ry - m.my) * 0.25, kind: 'page', memPage: true, mem: st, text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
         continue;
       }
       // beside it, not in front of it: in front, it'd be what Space reaches for every time instead of the phone
       const f = st.wall, side = [[-f.dy, f.dx], [f.dy, -f.dx]].find(([sx, sy]) => st.set.has((f.vy + sy) * W + f.vx + sx)) || [0, 0];
-      objs.push({ x: f.vx + side[0] + 0.5 + f.dx * 0.25, y: f.vy + side[1] + 0.5 + f.dy * 0.25, kind: 'note', text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+      objs.push({ x: f.vx + side[0] + 0.5 + f.dx * 0.25, y: f.vy + side[1] + 0.5 + f.dy * 0.25, kind: 'page', memPage: true, text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
     }
   }
   // the cards' table and chairs, or the paper and the matches, in the middle; the journal on the floor at a corner of it
@@ -1521,7 +1521,7 @@
     }
     // at the far corner, past the thing: near your side it'd be what Space reaches for instead
     const jx = x - ix + ux, jy = y - iy + uy, ok = st.set.has(jy * W + jx), kx = ok ? jx : x - ix - ux, ky = ok ? jy : y - iy - uy;
-    objs.push({ x: kx + 0.5 - (kx - x) * 0.2, y: ky + 0.5 - (ky - y) * 0.2, kind: 'note', text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+    objs.push({ x: kx + 0.5 - (kx - x) * 0.2, y: ky + 0.5 - (ky - y) * 0.2, kind: 'page', memPage: true, text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
   }
   // a playing card, stood on the table: white, its rank in red or black
   const RANKS = '23456789jqka', cardTexes = new Map();
@@ -1691,7 +1691,7 @@
     catchT = { x: best.x + 0.5 + best.dx * 0.5, y: best.y + 0.5 + best.dy * 0.5, z: 0.5, face: faceKey(best.k, best.face) };
     // the journal, on the floor next to the glove's corner (not on it: the ball is what you reach for there)
     const nb = HD.map(([dx, dy]) => [cor.x + dx, cor.y + dy]).find(([x, y]) => set.has(y * W + x) && !objs.some((o) => Math.floor(o.x) === x && Math.floor(o.y) === y));
-    if (nb) objs.push({ x: nb[0] + 0.5, y: nb[1] + 0.5, kind: 'note', text: text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+    if (nb) objs.push({ x: nb[0] + 0.5, y: nb[1] + 0.5, kind: 'page', memPage: true, text: text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
   }
   function pickBall(o) {
     objs.splice(objs.indexOf(o), 1); ballHeld = o; carried.add('ball'); FP_SOUND.chalkUp();
@@ -2228,7 +2228,7 @@
     // his chair with no slot beside it takes the watch itself, and says the same
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && !heartSeen() && !story.some((q) => q.slot) && endingText()) { showNote(notYetHere(endingText())); return; }
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen() && !story.some((q) => q.slot)) { leaveWatch(o); return; }
-    if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); if (o.mem && o.mem.closet && !o.mem.done && !o.mem.coming) o.mem.coming = { t0: 0 }; } return; }   // read where it lies, never taken
+    if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
     if (o.kind === 'ball') { if (!walked && !o.fly) pickBall(o); return; }   // picked up to throw, never kept
     if (o.kind === 'cards' || o.kind === 'matches') { if (!walked) useMemory(o.mem); return; }   // a memory room's thing: played, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
@@ -2236,7 +2236,8 @@
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
     else if (o.kind === 'watch') { carried.add('watch'); flash('hudWatchBox'); showNote(o.text); FP_SOUND.chalkUp(); }
-    else if (o.kind === 'page') { addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg, o.text); FP_SOUND.page(); }
+    else if (o.kind === 'page') { addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg, o.text); FP_SOUND.page();
+      if (o.mem && o.mem.closet && !o.mem.done && !o.mem.coming) o.mem.coming = { t0: 0 }; }   // the hiding room's: and now he's coming
     hud();
   }
   function flash(id) { const el = $(id); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
@@ -2266,8 +2267,8 @@
   const placedPages = () => typeof FP_PAGES !== 'undefined' && character && FP_PAGES[character.name] ? FP_PAGES[character.name] : null;
   function placePages() {
     const PG = placedPages(); if (!PG) return;
-    const spare = objs.filter((o) => o.kind === 'page');
-    objs = objs.filter((o) => o.kind !== 'page');
+    const spare = objs.filter((o) => o.kind === 'page' && !o.memPage);
+    objs = objs.filter((o) => o.kind !== 'page' || o.memPage);   // a memory room's journal stays where it was put
     if (floor !== 1) { pagesTotal = Object.keys(PG).length; return; }
     const blocked = (x, y) => fboxes.some((b) => b.x0 < x + 0.2 && b.x1 > x - 0.2 && b.y0 < y + 0.2 && b.y1 > y - 0.2);
     const free = (k) => { const x = k % W + 0.5, y = ((k / W) | 0) + 0.5; return !solid(k % W, (k / W) | 0) && !low[k] && !blocked(x, y) && !objs.some((o) => Math.floor(o.x) === k % W && Math.floor(o.y) === ((k / W) | 0)); };
@@ -2291,7 +2292,9 @@
       else { x = k % W + 0.5; y = ((k / W) | 0) + 0.5; }
       objs.push({ x, y, kind: 'page', pg: n++, place, text, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
     }
-    pagesTotal = Object.keys(PG).length;
+    // the memory rooms' journals are pages like the rest: picked up, counted, and in the total. Joe: "The journal for the
+    // phone doesn't get collected … I think you need to update your count for the new journals you made"
+    pagesTotal = Object.keys(PG).length + objs.filter((o) => o.memPage).length;
   }
   // the chapter's pages are spread across its floors, not a set on each. Joe: "Spread journals across all floors."
   // Every floor's generator lays out the whole set; each keeps only its share, dealt round like cards — page 1 on
