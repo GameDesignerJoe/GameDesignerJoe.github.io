@@ -385,9 +385,17 @@ console.log('The Maze — first person checks');
   await p.waitForTimeout(4700); await esc();
   const stand = (mem) => p.evaluate((mem) => { const st = FP.story.find((q) => q.mem === mem); const { x, y, ix, iy } = st.at; FP.P.x = x + 0.5 + ix * 1.1; FP.P.y = y + 0.5 + iy * 1.1; FP.P.a = Math.atan2(-iy, -ix); }, mem);
   await stand('cards'); await p.waitForTimeout(300); await esc();
+  // Joe: "before you play you sit down in the chair and have the camera kind of tilt down to frame the table … There'd be a
+  // button to press to get up." Space sits you down; then each Space is a hand, the cards flat on the table
+  const stood = await p.evaluate(() => [FP.P.x, FP.P.y]);
+  await p.keyboard.press('Space'); await p.waitForTimeout(900);
+  const sat = await p.evaluate(() => !!FP.seated && FP.seated.k > 0.95 && getComputedStyle(document.getElementById('getUp')).display !== 'none');
   for (let i = 0; i < 3; i++) { await p.keyboard.press('Space'); await p.waitForTimeout(2400); }
   const cards = await p.evaluate(() => FP.story.find((q) => q.mem === 'cards').hands || []);
+  const flat = await p.evaluate(() => { const st = FP.story.find((q) => q.mem === 'cards'); return st.shown.length === 2 && st.shown.every((b) => FP.fboxes.includes(b) && b.topFit && b.z1 - b.z0 < 0.01); });
   const lost = await text(); await esc();
+  await p.evaluate(() => document.getElementById('getUp').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))); await p.waitForTimeout(900);
+  const up = await p.evaluate((s0) => !FP.seated && Math.hypot(FP.P.x - s0[0], FP.P.y - s0[1]) < 0.01, stood);
   await stand('fire'); await p.waitForTimeout(300); await esc();
   const ink = () => p.evaluate(() => { const st = FP.story.find((q) => q.mem === 'fire'); let n = 0; for (const q of st.walls) { const d = FP.decals.get(q.k * 4 + q.face); if (d) for (const c of d) if ((c >>> 0) === (TEX.hex('#1a1614') >>> 0)) n++; } return n; });
   const before = await ink();
@@ -396,10 +404,10 @@ console.log('The Maze — first person checks');
   await p.waitForTimeout(4000);
   const after = await ink(), trouble = await text(), ash = await p.evaluate(() => FP.story.find((q) => q.mem === 'fire').paper.tex === TEX.sprites.ash);
   await esc();
-  check('memory rooms: his card is always higher, three and the memory; the fire takes, then him on the walls, it\'s out, and the memory',
-    watches.rooms > 20 && watches.extra === 0 && cards.length === 3 && cards.every(([k, d]) => d > k) && /never won/.test(lost)
+  check('memory rooms: sit down at the cards, his is always higher, three and the memory, then get up; the fire takes, then him on the walls, it\'s out, and the memory',
+    watches.rooms > 20 && watches.extra === 0 && sat && flat && up && cards.length === 3 && cards.every(([k, d]) => d > k) && /never won/.test(lost)
       && before === 0 && burning && after > 200 && ash && /see i could do it/.test(trouble),
-    `${watches.extra} of ${watches.rooms} memory rooms with a watch; hands ${cards.map(([k, d]) => k + '<' + d).join(', ')}, then "${lost.slice(0, 30)}…"; fire burning ${burning}, his words ${before} → ${after} px, ash ${ash}, then "${trouble.slice(0, 30)}…"`);
+    `${watches.extra} of ${watches.rooms} memory rooms with a watch; sat down ${sat}, cards flat on the table ${flat}, got up where you stood ${up}; hands ${cards.map(([k, d]) => k + '<' + d).join(', ')}, then "${lost.slice(0, 30)}…"; fire burning ${burning}, his words ${before} → ${after} px, ash ${ash}, then "${trouble.slice(0, 30)}…"`);
   await p.close();
 }
 

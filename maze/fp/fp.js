@@ -1514,7 +1514,7 @@
       for (const b of buildFurn(FURN.cardTable, cx, cy, ux, uy, ix, iy, 0)) fboxes.push(b);
       for (const b of buildFurn(FURN.kidChair, cx + ix * 0.5, cy + iy * 0.5, ux, uy, -ix, -iy, 0)) fboxes.push(b);   // yours, on the side you come in
       for (const b of buildFurn(FURN.dadChair, cx - ix * 0.46, cy - iy * 0.46, ux, uy, ix, iy, 0)) fboxes.push(b);   // his, across, empty
-      objs.push({ x: cx, y: cy, z: 0.245, kind: 'cards', mem: st, tex: TEX.sprites.deck, h: 0.035, glow: 0.3 });
+      objs.push({ x: cx + ux * 0.13, y: cy + uy * 0.13, z: 0.245, kind: 'cards', mem: st, tex: TEX.sprites.deck, h: 0.035, glow: 0.3 });
     } else if (st.mem === 'fire') {
       st.paper = { x: cx, y: cy, z: 0, kind: 'deco', tex: TEX.sprites.paper, h: 0.07, glow: 0.2 }; objs.push(st.paper);
       objs.push({ x: cx + ix * 0.35, y: cy + iy * 0.35, z: 0, kind: 'matches', mem: st, tex: TEX.sprites.matches, h: 0.03, glow: 0.3 });
@@ -1532,16 +1532,58 @@
     const g = FONT[RANKS[r]]; for (let rr = 0; rr < 5; rr++) for (let q = 0; q < 3; q++) if (g[rr * 3 + q] === '#') T.px[(rr + 2) * w + q + 2] = ink;
     cardTexes.set(key, T); return T;
   }
+  // the same card lying on the table, bigger, and turned so it reads the right way up from your chair: (fx, fy) is the
+  // way you face across the table. World-aligned, for a box's top (topFit): x along the box's x, y along its y
+  function flatCard(r, red, fx, fy) {
+    const key = 'f' + r + (red ? 1 : 0) + fx + ',' + fy; if (cardTexes.has(key)) return cardTexes.get(key);
+    const cw = 15, ch = 21, C = new Uint32Array(cw * ch), edge = TEX.hex('#b9b2a0'), face = TEX.hex('#f3efe4'), ink = TEX.hex(red ? '#b8322a' : '#1e1c1a');
+    for (let yy = 0; yy < ch; yy++) for (let xx = 0; xx < cw; xx++) C[yy * cw + xx] = xx === 0 || yy === 0 || xx === cw - 1 || yy === ch - 1 ? edge : face;
+    const g = FONT[RANKS[r]]; for (let rr = 0; rr < 5; rr++) for (let q = 0; q < 3; q++) if (g[rr * 3 + q] === '#')
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) C[(rr * 3 + 3 + a) * cw + q * 3 + 3 + b] = ink;
+    for (const [px2, py2] of [[1, 1], [2, 1], [1, 2], [cw - 2, ch - 2], [cw - 3, ch - 2], [cw - 2, ch - 3]]) C[py2 * cw + px2] = ink;   // a pip in two corners
+    const along = fx !== 0, w = along ? ch : cw, h = along ? cw : ch, T = { w, h, px: new Uint32Array(w * h) };
+    const rx = -fy, ry = fx;   // your right, looking the way you face
+    for (let oy = 0; oy < h; oy++) for (let ox = 0; ox < w; ox++) {
+      const px = (ox + 0.5) / w - 0.5, py = (oy + 0.5) / h - 0.5, u = px * rx + py * ry, v = -(px * fx + py * fy);
+      T.px[oy * w + ox] = C[Math.min(ch - 1, ((v + 0.5) * ch) | 0) * cw + Math.min(cw - 1, ((u + 0.5) * cw) | 0)];
+    }
+    cardTexes.set(key, T); return T;
+  }
+  // ── sitting down to play ──
+  // Joe: "When we play war, can we have a scene where before you play you sit down in the chair and have the camera kind
+  // of tilt down to frame the table? This way we can play it with the cards on the table so it's easier to read. This
+  // would be almost like the closet on leaving. There'd be a button to press to get up." Tap the deck (or Space) and you
+  // sit: into your chair over SEAT_MS, down to SEAT_EYE, looking down SEAT_LOOK. Sat there, a tap or Space turns a card;
+  // Get up (or Esc, or a step of the stick or the keys) and you're back where you stood
+  const SEAT_EYE = 0.42, SEAT_LOOK = 0.55, SEAT_MS = 700, SEAT_AT = 0.26;
+  let seated = null;
+  function sitDown(st) {
+    const { x, y, ix, iy } = st.at, now = performance.now();
+    seated = { st, back: { x: P.x, y: P.y, a: P.a }, to: { x: x + 0.5 + ix * SEAT_AT, y: y + 0.5 + iy * SEAT_AT, a: Math.atan2(-iy, -ix) }, t0: now, up: 0, k: 0 };
+    vel = 0; clearStick(); for (const k of Object.keys(keys)) keys[k] = false;
+    document.body.classList.add('seated'); FP_SOUND.sit();
+  }
+  function getUp() { if (seated && !seated.up) { seated.up = performance.now(); FP_SOUND.sit(); } }
+  function seatFrame(now) {
+    const s = seated; if (!s) return;
+    const ease = (k) => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    const k = s.up ? 1 - Math.min(1, (now - s.up) / SEAT_MS) : Math.min(1, (now - s.t0) / SEAT_MS), e = ease(k);
+    let da = s.to.a - s.back.a; da = Math.atan2(Math.sin(da), Math.cos(da));
+    P.x = s.back.x + (s.to.x - s.back.x) * e; P.y = s.back.y + (s.to.y - s.back.y) * e; P.a = s.back.a + da * e; s.k = e;
+    if (s.up && k <= 0) { P.x = s.back.x; P.y = s.back.y; P.a = s.back.a; lastX = P.x; lastY = P.y; seated = null; document.body.classList.remove('seated'); }
+  }
+  const seatedPlay = () => { if (seated && !seated.up && seated.k > 0.95) useMemory(seated.st); };
   function useMemory(st) {
     const now = performance.now();
     if (st.mem === 'phone') {
       if (st.ringing) return;
       st.ringing = { t0: now, n: 0, at: st.wall }; FP_SOUND.phoneUp();
     } else if (st.mem === 'cards') {
+      if (!seated) { sitDown(st); return; }   // you sit down to play
       if (st.round) return;
       // his is always the higher card
       const kr = Math.floor(Math.random() * (RANKS.length - 1)), dr = kr + 1 + Math.floor(Math.random() * (RANKS.length - 1 - kr));
-      for (const o of st.shown || []) { const i = objs.indexOf(o); if (i >= 0) objs.splice(i, 1); }
+      for (const o of st.shown || []) { const i = fboxes.indexOf(o); if (i >= 0) fboxes.splice(i, 1); }
       st.shown = []; st.round = { t0: now, kr, dr, step: 0 }; (st.hands = st.hands || []).push([kr, dr]);
     } else if (st.mem === 'fire') {
       if (st.fire || st.done) return;
@@ -1552,7 +1594,11 @@
   }
   function cardsFrame(st, now) {
     const r = st.round, t = now - r.t0, { x, y, ix, iy } = st.at, cx = x + 0.5, cy = y + 0.5, ux = -iy, uy = ix;
-    const card = (rank, side) => { const o = { x: cx + ix * 0.1 * side - ux * 0.08 * side, y: cy + iy * 0.1 * side - uy * 0.08 * side, z: 0.245, kind: 'deco', tex: cardTex(rank, Math.random() < 0.5), h: 0.075, glow: 0.3 }; objs.push(o); st.shown.push(o); FP_SOUND.cardFlip(); };
+    // face up, flat on the table, yours on your side and his on his, both reading the right way up from your chair
+    const card = (rank, side) => { const mx = cx + ix * 0.085 * side - ux * 0.03 * side, my = cy + iy * 0.085 * side - uy * 0.03 * side;
+      const hx = ix ? 0.075 : 0.054, hy = ix ? 0.054 : 0.075, t = flatCard(rank, Math.random() < 0.5, -ix, -iy);
+      const o = { x0: mx - hx, x1: mx + hx, y0: my - hy, y1: my + hy, z0: 0.245, z1: 0.249, m: TEX.furn.mats.white, top: t, topFit: true, front: null, fcode: 'n', glow: false, flat: true };
+      fboxes.push(o); st.shown.push(o); FP_SOUND.cardFlip(); };
     if (r.step === 0 && t > 100) { r.step = 1; card(r.kr, 1); }            // yours
     else if (r.step === 1 && t > 900) { r.step = 2; card(r.dr, -1); }      // his, turned by nobody
     else if (r.step === 2 && t > 1500) { r.step = 3; FP_SOUND.cardLose(); st.losses = (st.losses || 0) + 1; }
@@ -2100,6 +2146,7 @@
     document.body.classList.remove('hiding'); FP_SOUND.hide(false);
   }
   $('stepOut').addEventListener('pointerdown', (e) => { e.stopPropagation(); leaveCloset(); });
+  $('getUp').addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); getUp(); });
 
   // a 3×5 hand for the walls: enough letters for a sentence, drawn doubled so a wall holds four
   // lines of eight
@@ -2289,7 +2336,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
+    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; seated = null; document.body.classList.remove('seated'); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); thinSqueezes(); carveHeart(); spreadPages(); reset(); startWake();
@@ -2436,7 +2483,7 @@
   }
 
   function stickMove(now, dt) {
-    if (reading || rising) { vel = 0; return; }
+    if (reading || rising || seated) { vel = 0; return; }
     if (hidden) {   // in a closet you don't move; the stick looks about, a little, through the slats
       const want = hidden.a0 + stick.x * 0.45 + ((keys.right ? 1 : 0) - (keys.left ? 1 : 0)) * 0.45;
       P.a += (want - P.a) * Math.min(1, dt * 6);
@@ -2733,6 +2780,7 @@
     beingFrame(now, dt);
     heartFrame(now);
     memoryFrame(now);
+    seatFrame(now);
     stickMove(now, dt);
     stepAnim(now);
     // one dip of the head per tile walked, however you walked it; standing still, it settles
@@ -2866,7 +2914,8 @@
   function render(now) {
     const [px, py, ang, bob] = camera(now);
     const tanH = Math.tan(S.fov * Math.PI / 360), D = (RW / 2) / tanH;
-    const hor = RH / 2 + bob, eye = eyeNow(now), fog = S.fog;
+    const sk = seated ? seated.k : 0;   // sat at the card table: lower, and looking down at it
+    const hor = RH / 2 + bob - sk * D * Math.tan(SEAT_LOOK), eye = eyeNow(now) + (SEAT_EYE - S.eye) * sk, fog = S.fog;
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
     BRv = S.bright; FRb = FR * BRv; FGb = FG * BRv; FBb = FB * BRv;
     const sky = T.sky, SW = sky ? sky.w : 0, SH = sky ? sky.h : 0, SP = sky ? sky.px : null;
@@ -3208,7 +3257,7 @@
       }
       if (ghost) continue;   // the father is seen, never touched
       // a generous target, well past the picture on every side: fingers are wide and things are small
-      const pad = PLAYED.has(o.kind) ? Math.max(wPx * 0.6, RW * 0.06) : wPx * 0.6;   // a small thing to play with: a wider mark
+      const pad = PLAYED.has(o.kind) ? Math.max(wPx * 0.6, RW * (o.kind === 'cards' ? 0.12 : 0.06)) : wPx * 0.6;   // a small thing to play with: a wider mark
       if (any) drawn.push({ o, x0: x0 - pad, x1: x1 + pad, y0: y0 - hPx - 10, y1: floorY + hPx + 14, depth });
     }
     // enough of it on screen, not behind a wall or a door, to have been seen: then (and only then) it may take you
@@ -3294,6 +3343,7 @@
     if (reading) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) hidePage(); } return; }   // on a PC, a key puts the page down
     // Space (or X) is the hand on a PC: whatever is straight ahead. Joe: "On PC, let's get spacebar to leave and X as
     // well as be the interact button on things."
+    if (seated && (e.code === 'Escape' || (KEYS[e.code] && KEYS[e.code] !== 'shift'))) { e.preventDefault(); getUp(); return; }   // at the card table: a step is getting up
     if (e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) interact(); return; }
     const a = KEYS[e.code]; if (!a) return;
     e.preventDefault();
@@ -3314,7 +3364,7 @@
     stick.x = dx / len * k / KNOB_MAX; stick.y = dy / len * k / KNOB_MAX; stick.on = true;
   }
   function clearStick() { stick.on = false; stick.x = stick.y = 0; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
-  stickEl.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); learn('move'); stickId = e.pointerId; stickEl.classList.add('on'); try { stickEl.setPointerCapture(e.pointerId); } catch (err) {} setStick(e.clientX, e.clientY); });
+  stickEl.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (seated) { getUp(); return; } learn('move'); stickId = e.pointerId; stickEl.classList.add('on'); try { stickEl.setPointerCapture(e.pointerId); } catch (err) {} setStick(e.clientX, e.clientY); });
   stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
   stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
 
@@ -3343,6 +3393,7 @@
     // the middle of the view is — a door, a switch, a closet, the wall to chalk
     const cx = RW / 2; let hit = null;
     for (const d of drawn) if (d.o.kind !== 'deco' && d.x0 <= cx && cx <= d.x1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;   // a thing only looked at is never what you reach for
+    if (seated) { seatedPlay(); return; }
     if (carried.has('ball')) { throwBall(); return; }
     if (hit) { glyphsOff(); take(hit.o); return; }
     tapAt(cx, RH * 0.55);
@@ -3353,6 +3404,7 @@
     // a thing first: the nearest one under the finger
     let hit = null;
     for (const d of drawn) if (d.o.kind !== 'deco' && bx >= d.x0 - 6 && bx <= d.x1 + 6 && by >= d.y0 && by <= d.y1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
+    if (seated) { seatedPlay(); return; }   // at the card table, a tap anywhere turns a card
     if (carried.has('ball')) { throwBall(); return; }   // holding the ball, a tap anywhere throws it
     if (hit) { take(hit.o); return; }
     const x = Math.max(0, Math.min(RW - 1, bx | 0));
@@ -3582,7 +3634,7 @@
     return 'x';
   }
   function trainFrame(now) {
-    const busy = reading || rising || hidden || won || stairBusy || $('opening').classList.contains('show') || $('panel').classList.contains('open');
+    const busy = reading || rising || hidden || seated || won || stairBusy || $('opening').classList.contains('show') || $('panel').classList.contains('open');
     if (busy) { stillSince = now; atHandSince = now; if (trainShown) trainOff(); return; }
     if (stick.on || keys.fwd || keys.back || keys.left || keys.right || keys.sleft || keys.sright) stillSince = now;
     const h = handAt();
@@ -3774,5 +3826,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

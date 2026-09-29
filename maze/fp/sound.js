@@ -273,6 +273,7 @@ const FP_SOUND = (() => {
     ballWall() { if (live()) { burst(0.06, { vol: 0.45, freq: 260, q: 1.2, type: 'lowpass' }); burst(0.03, { vol: 0.15, freq: 1500, q: 2 }); } },
     ballBounce() { if (live()) { for (let i = 0; i < 3; i++) burst(0.04, { vol: 0.25 * (1 - i / 3), freq: 320, q: 1.2, type: 'lowpass', at: i * 0.18 * (1 - i * 0.25) }); } },
     // the cards: one turned onto the table; and losing again, a small low note
+    sit() { if (live()) { burst(0.08, { vol: 0.2, freq: 420, q: 1, type: 'lowpass' }); burst(0.05, { vol: 0.12, freq: 1300, q: 3, at: 0.04 }); } },   // a wooden chair taking your weight, or letting it go
     cardFlip() { if (live()) { burst(0.03, { vol: 0.25, freq: 2600, q: 1.5 }); burst(0.05, { vol: 0.12, freq: 900, q: 1, at: 0.015 }); } },
     cardLose() { if (live()) tone(196, 0.6, { type: 'triangle', vol: 0.06, slide: 165, attack: 0.02 }); },
     // the fire: a match struck, the crackle as it takes (louder as it grows), and then him — the door, hard, and it's out
