@@ -1553,13 +1553,21 @@
   // Joe: "When we play war, can we have a scene where before you play you sit down in the chair and have the camera kind
   // of tilt down to frame the table? This way we can play it with the cards on the table so it's easier to read. This
   // would be almost like the closet on leaving. There'd be a button to press to get up." Tap the deck (or Space) and you
-  // sit: into your chair over SEAT_MS, down to SEAT_EYE, looking down SEAT_LOOK. Sat there, a tap or Space turns a card;
+  // sit: into your chair over SEAT_MS, down to SEAT_EYE, looking down at the cards. Sat there, a tap or Space turns a card;
   // Get up (or Esc, or a step of the stick or the keys) and you're back where you stood
-  const SEAT_EYE = 0.42, SEAT_LOOK = 0.55, SEAT_MS = 700, SEAT_AT = 0.26;
+  const SEAT_EYE = 0.46, SEAT_MS = 700, CARD_OFF = 0.085, CARD_HALF = 0.075, TABLE_Z = 0.249;
+  // how far back from the table you sit, and how far down to look. Joe, on a PC: "We need to pull the camera out more for
+  // the game of War because I can't read the bottom card" — a wide screen is short, and the view set on a phone put your
+  // own card off the bottom of it. So a wide screen sits you further back (SEAT_WIDE) than a tall one (SEAT_TALL), and the
+  // tilt is worked out from where you sit: the middle of the two cards, from the near edge of yours to the far edge of
+  // his, in the middle of the view
+  const SEAT_TALL = 0.3, SEAT_WIDE = 0.42, SEAT_WIDEST = 0.5;   // a phone held up; a PC; a phone on its side (Get up sits over the table)
+  const seatAt = () => (RW > RH * 1.8 ? SEAT_WIDEST : RW > RH ? SEAT_WIDE : SEAT_TALL);
+  const seatShift = (at) => ((SEAT_EYE - TABLE_Z) / (at - CARD_OFF - CARD_HALF) + (SEAT_EYE - TABLE_Z) / (at + CARD_OFF + CARD_HALF)) / 2;
   let seated = null;
   function sitDown(st) {
     const { x, y, ix, iy } = st.at, now = performance.now();
-    seated = { st, back: { x: P.x, y: P.y, a: P.a }, to: { x: x + 0.5 + ix * SEAT_AT, y: y + 0.5 + iy * SEAT_AT, a: Math.atan2(-iy, -ix) }, t0: now, up: 0, k: 0 };
+    seated = { st, back: { x: P.x, y: P.y, a: P.a }, to: { x: x + 0.5 + ix * seatAt(), y: y + 0.5 + iy * seatAt(), a: Math.atan2(-iy, -ix) }, t0: now, up: 0, k: 0, shift: seatShift(seatAt()) };
     vel = 0; clearStick(); for (const k of Object.keys(keys)) keys[k] = false;
     document.body.classList.add('seated'); FP_SOUND.sit();
   }
@@ -1595,8 +1603,8 @@
   function cardsFrame(st, now) {
     const r = st.round, t = now - r.t0, { x, y, ix, iy } = st.at, cx = x + 0.5, cy = y + 0.5, ux = -iy, uy = ix;
     // face up, flat on the table, yours on your side and his on his, both reading the right way up from your chair
-    const card = (rank, side) => { const mx = cx + ix * 0.085 * side - ux * 0.03 * side, my = cy + iy * 0.085 * side - uy * 0.03 * side;
-      const hx = ix ? 0.075 : 0.054, hy = ix ? 0.054 : 0.075, t = flatCard(rank, Math.random() < 0.5, -ix, -iy);
+    const card = (rank, side) => { const mx = cx + ix * CARD_OFF * side - ux * 0.03 * side, my = cy + iy * CARD_OFF * side - uy * 0.03 * side;
+      const hx = ix ? CARD_HALF : 0.054, hy = ix ? 0.054 : CARD_HALF, t = flatCard(rank, Math.random() < 0.5, -ix, -iy);
       const o = { x0: mx - hx, x1: mx + hx, y0: my - hy, y1: my + hy, z0: 0.245, z1: 0.249, m: TEX.furn.mats.white, top: t, topFit: true, front: null, fcode: 'n', glow: false, flat: true };
       fboxes.push(o); st.shown.push(o); FP_SOUND.cardFlip(); };
     if (r.step === 0 && t > 100) { r.step = 1; card(r.kr, 1); }            // yours
@@ -2918,7 +2926,7 @@
     const [px, py, ang, bob] = camera(now);
     const tanH = Math.tan(S.fov * Math.PI / 360), D = (RW / 2) / tanH;
     const sk = seated ? seated.k : 0;   // sat at the card table: lower, and looking down at it
-    const hor = RH / 2 + bob - sk * D * Math.tan(SEAT_LOOK), eye = eyeNow(now) + (SEAT_EYE - S.eye) * sk, fog = S.fog;
+    const hor = RH / 2 + bob - sk * D * (seated ? seated.shift : 0), eye = eyeNow(now) + (SEAT_EYE - S.eye) * sk, fog = S.fog;
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
     BRv = S.bright; FRb = FR * BRv; FGb = FG * BRv; FBb = FB * BRv;
     const sky = T.sky, SW = sky ? sky.w : 0, SH = sky ? sky.h : 0, SP = sky ? sky.px : null;

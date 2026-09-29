@@ -111,7 +111,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   **catch**, in the kid's room: dad drawn on the wall with his glove up; pick up the ball, tap to throw, and it never
   goes where you threw it; three at him and the memory comes. **Cards** — a card table in the middle of a room, your
   chair and his, empty; tap the deck and you sit down — into your chair, lower, the view tilting down to frame the table
-  (`SEAT_EYE`, `SEAT_LOOK`) — then each tap or Space turns your card, then his, by itself, flat on the table and the right
+  (`SEAT_EYE`; further back on a wide screen than a tall one, `SEAT_WIDE`/`SEAT_TALL`, so both cards fit) — then each tap or Space turns your card, then his, by itself, flat on the table and the right
   way up to you, and his is always higher; three and the memory. **Get up** (or Esc, or a step) and you're back where you stood. **The fire** — crumpled drawings and a box of matches in the middle of a room; tap the matches and it takes and
   grows, and then the door, hard: it's out, ash, and what he said is on the walls in big dark letters (`shout`); then the
   memory. The middle things are given a wider mark to tap, and nothing only looked at (`deco`) is ever what Space or a tap

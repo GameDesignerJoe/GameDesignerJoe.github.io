@@ -428,6 +428,25 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── at the card table on a PC, your card is on the screen ─────────
+// Joe: "We need to pull the camera out more for the game of War because I can't read the bottom card on PC"
+{
+  const wctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const p = await wctx.newPage(); p.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
+  await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(700); await awake(p);
+  await p.evaluate(() => { const st = FP.story.find((q) => q.mem === 'cards'); const { x, y, ix, iy } = st.at; FP.P.x = x + 0.5 + ix * 1.1; FP.P.y = y + 0.5 + iy * 1.1; FP.P.a = Math.atan2(-iy, -ix); });
+  await p.waitForTimeout(300);
+  if (await p.evaluate(() => document.getElementById('page').classList.contains('show'))) { await p.keyboard.press('Escape'); await p.waitForTimeout(250); }
+  await p.keyboard.press('Space'); await p.waitForTimeout(900); await p.keyboard.press('Space'); await p.waitForTimeout(1300);
+  // the rows of the view with a card's face in them (pale, and hardly any colour): the lowest must be above the bottom
+  const rows = await p.evaluate(() => { const c = document.getElementById('view'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let lo = -1, n = 0;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) { const i = (y * c.width + x) * 4, r = d[i], g = d[i + 1], b = d[i + 2];
+      if (r > 150 && Math.max(r, g, b) - Math.min(r, g, b) < 28) { n++; lo = y; } } return { lo, n, h: c.height }; });
+  check('at the card table on a wide screen, your card is all there, above the bottom of the view',
+    rows.n > 200 && rows.lo >= 0 && rows.lo < rows.h * 0.9, `card face down to row ${rows.lo} of ${rows.h} (${rows.n} px)`);
+  await wctx.close();
+}
+
 // ── memory rooms: hiding from him ──────────────────────────────────
 // Joe: "Running and hiding from the drunk father." Walk in and the journal's read; then he's coming. In the closet when he
 // gets there: he stands at it, and goes, and the memory. Not: he walks straight past you, and the other one
