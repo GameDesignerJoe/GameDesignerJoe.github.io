@@ -2184,14 +2184,17 @@
     for (const w of text.toLowerCase().split(' ')) {
       if (lines.length && (lines[lines.length - 1] + ' ' + w).length <= 8) lines[lines.length - 1] += ' ' + w; else lines.push(w);
     }
-    const sc = 2, lh = 6 * sc + 2, y0 = Math.round(DEC * 0.42 - lines.length * lh / 2);
+    // three-quarter size: 1.5 pixels to a stroke, not 2. Joe: "we need a tighter font on the wall writing. It almost always
+    // bleeds off of the wall … reduce by [about] 25%". A full line of eight was the whole wall wide, edge to edge
+    const sc = 1.5, lh = Math.round(6 * sc + 2), y0 = Math.round(DEC * 0.42 - lines.length * lh / 2);
+    const px = (i) => Math.round(i * sc);   // stroke i's first pixel: 1 or 2 wide by turns
     lines.forEach((ln, li) => {
       const x0 = Math.round((DEC - ln.length * 4 * sc) / 2) + Math.round((R() - 0.5) * 4);
       for (let c = 0; c < ln.length; c++) {
         const g = FONT[ln[c]]; if (!g) continue;
         for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) if (g[r * 3 + q] === '#')
-          for (let yy = 0; yy < sc; yy++) for (let xx = 0; xx < sc; xx++) {
-            const X = x0 + (c * 4 + q) * sc + xx, Y = y0 + li * lh + r * sc + yy + (c % 3 === 1 ? 1 : 0);   // a hand, not a printer
+          for (let yy = px(r); yy < px(r + 1); yy++) for (let xx = px(c * 4 + q); xx < px(c * 4 + q + 1); xx++) {
+            const X = x0 + xx, Y = y0 + li * lh + yy + (c % 3 === 1 ? 1 : 0);   // a hand, not a printer
             if (X >= 0 && X < DEC && Y >= 0 && Y < DEC && R() < 0.97) d[Y * DEC + X] = INK;
           }
       }

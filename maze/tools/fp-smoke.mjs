@@ -76,6 +76,29 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── chalk shows on the pale walls, and the words stay on theirs ──────
+// Joe: "make the white walls a bit more dingy so that the white chalk mark shows up better", and "a tighter font on the
+// wall writing. It almost always bleeds off of the wall"
+{
+  const p = await open(4242);
+  const r = await p.evaluate(() => {
+    const lum = (c) => ((c & 0xff) + ((c >>> 8) & 0xff) + ((c >>> 16) & 0xff)) / 3, chalk = lum(TEX.hex('#ece7da'));
+    const gap = {};
+    for (const th of ['school', 'bleached']) { const walls = TEX.themes[th].walls.slice(0, 3); let sum = 0, n = 0;
+      for (const w of walls) for (let y = 0; y < 18; y++) for (let x = 0; x < w.w; x++) { sum += lum(w.px[y * w.w + x]); n++; }   // the upper wall, where chalk goes
+      gap[th] = Math.round(chalk - sum / n); }
+    let edge = 0, words = 0; const INK = TEX.hex('#2a2622') >>> 0;
+    for (let s = 1; s <= 8; s++) { FP.newMaze(s * 7717 + 3);
+      for (const w of FP.wordSpots) { const d = FP.decals.get(w.k * 4 + w.face); if (!d) continue; words++;
+        for (let y = 0; y < 64; y++) for (const x of [0, 1, 62, 63]) if ((d[y * 64 + x] >>> 0) === INK) { edge++; y = 64; break; } } }
+    return { gap, edge, words };
+  });
+  check('chalk shows on the pale walls (school, bleached), and no word at a dead end runs to the wall\'s edge',
+    r.gap.school >= 55 && r.gap.bleached >= 30 && r.edge === 0 && r.words > 40,
+    `chalk brighter than the upper wall by ${r.gap.school} (school), ${r.gap.bleached} (bleached); ${r.edge} of ${r.words} words touching an edge`);
+  await p.close();
+}
+
 // ── a real quote each time, and the numpad ─────────────────────────
 // Joe: "Pull the quotes from here and have them play randomly at the start of the game", and "a control scheme on the
 // keyboard that uses the numberpad for movement (4,8,6,2) with 0 as the enter/interact key"

@@ -191,7 +191,7 @@ const TEX = (() => {
   // frieze running round every wall at the top, marble skirting, a water stain here and there,
   // pale travertine underfoot, and a sky that is only haze. The fog is white, not dark: far halls
   // don't fall into shadow, they wash out — which is most of what makes a place feel liminal.
-  const PLASTER = ramp(['#8f8873', '#a59e88', '#b8b19b', '#c9c2ad', '#d7d1be', '#e2ddcc', '#ebe7da', '#f3f0e6']);
+  const PLASTER = ramp(['#89826d', '#9c9580', '#aca591', '#bab39f', '#c5bfab', '#cec8b5', '#d6d0be', '#ddd8c7']);   // dingier, as the school's paint: chalk shows
   const STAIN = ramp(['#a99a68', '#bcae7d', '#cbbf93', '#d6cca5']);
   const MARBLE = ramp(['#9f9b91', '#b7b3a9', '#cbc8bf', '#dcd9d1', '#e8e6df', '#f2f0ea', '#faf9f5']);
   const TRAV = ramp(['#978e79', '#ada48e', '#bfb7a1', '#cfc8b3', '#dbd5c3', '#e5e0d0', '#eeeadd']);
@@ -209,7 +209,7 @@ const TEX = (() => {
   function plaster(seed, o = {}) {
     const R = rng(seed), T = blank(32, 32), F = field(seed);
     for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
-      let f = 5.3 + F(x, y) * 0.55 + (R() - 0.5) * 0.5;
+      let f = 4.6 + F(x, y) * 0.55 + (R() - 0.5) * 0.5;   // a step down the ramp (was 5.3): old paper, not new, so chalk shows
       if (o.frieze && y < 11) f += 0.3;   // the band the frieze sits in is kept cleaner
       T.px[y * 32 + x] = dith(PLASTER, f, x, y);
     }
@@ -452,7 +452,9 @@ const TEX = (() => {
   // how we display the different chapters of the story." Painted cinderblock, cream over a green band with a
   // red stripe between; lockers and classroom doors in the halls (a door here is locked: tap it and it rattles);
   // cork boards and chalkboards in the rooms; vinyl tile underfoot; the office's drop ceiling overhead.
-  const PAINT = ramp(['#9f9a84', '#b4af98', '#c7c2ab', '#d6d1bb', '#e2ddc8', '#ebe7d4']);
+  // dingier than it was: Joe, "make the white walls a bit more dingy so that the white chalk mark shows up better". A step
+  // greyer and darker at the top, so chalk (#ece7da) is the brightest thing on a wall, never the same as it
+  const PAINT = ramp(['#8c8775', '#9e9985', '#aea995', '#bbb6a1', '#c5c0aa', '#ccc7b1']);
   const GREEN = ramp(['#4f6d5a', '#5e7e69', '#6e8f78', '#7f9f88', '#90af98']);
   const LOCKER = ramp(['#2f4c5a', '#3a5c6c', '#476d7e', '#557e8f', '#6690a0']);
   const CORK = ramp(['#7a5634', '#8d653e', '#a07549', '#b18555', '#c09663']);
@@ -467,6 +469,7 @@ const TEX = (() => {
       const mortar = (y & 7) === 7 || bx === 15;
       let f = (low ? 3.2 : 4.4) + (R() - 0.5) * 0.45 + (mortar ? -1.3 : 0) + ((bx === 0 || (y & 7) === 0) ? 0.3 : 0);
       if (o.scuff && low && R() < 0.05) f -= 1.2;
+      if (!low && R() < 0.06) f -= 0.8;   // grime in the paint
       T.px[y * 32 + x] = dith(low ? GREEN : PAINT, f, x, y);
     }
     for (let x = 0; x < 32; x++) { T.px[19 * 32 + x] = hex('#9b3b2f'); T.px[18 * 32 + x] = hex('#b0483a'); }

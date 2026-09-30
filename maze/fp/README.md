@@ -45,7 +45,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 - **Things in the world and tapping them.** The maze's pages, chalk and charcoal are drawn as flat
   pictures facing you, depth-tested against the walls. Walk over one or tap it to take it; a page
   shows its text. Tap a wall within reach to chalk it (an X early on, the sign picker once signs
-  open). Dead ends carry words from `WALL_WORDS` in `data/text.js` (`words`, ten a maze). A wall of the start room has an X on it
+  open). Dead ends carry words from `WALL_WORDS` in `data/text.js` (`words`, ten a maze), at three-quarter size so a long word stays on its wall. A wall of the start room has an X on it
   already, with `WALL_TEACH` ("draw an x") over it. A chapter can open with two walls (`WALL_START`): the first across the
   start room, and you wake facing it; the second ahead of you as you step out of that room. The Child's are Joe's:
   "He said stay here." and "but I didn't." A page (or a note) stays up until you tap off it (two picked up at once are read one after the other) — or Esc/Enter/Space — and while it's up you're reading: you don't move, the HUD steps away, the being holds still. It opens as a torn sheet of ruled notebook paper in a hand
