@@ -76,6 +76,33 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the heart: heard from further, and one more wrong turn on the way in ─────
+// Joe: "The heartbeat is great. However, we need to double the range it can be heard by. Also, we need one more
+// branching dead end in the squeeze maze leading to it"
+{
+  const p = await open(4242); await awake(p);
+  const dead = await p.evaluate(() => { const out = []; const W = FP.W;
+    for (let s = 1; s <= 20; s++) { FP.newMaze(s * 7717 + 3); const h = FP.heart; if (!h) continue;
+      // the squeeze maze's cells: its squeeze tiles; a dead end has one way out of it, and isn't the way in
+      let n = 0; for (const k of h.maze) { const x = k % W, y = (k / W) | 0; if (!FP.low[k] || k === h.ring) continue;
+        const open = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => tiles[y + dy] && tiles[y + dy][x + dx]).length; if (open === 1) n++; }
+      out.push(n); }
+    FP.newMaze(4242); return out; });
+  await p.waitForTimeout(4700);
+  if (await p.evaluate(() => document.getElementById('page').classList.contains('show'))) { await p.keyboard.press('Escape'); await p.waitForTimeout(250); }
+  const heard = await p.evaluate(async () => { document.getElementById('undoLies').click();
+    const h = FP.heart, W = FP.W; let at = -1; for (let k = 0; k < h.dist.length; k++) if (h.dist[k] === 40) { at = k; break; }
+    if (at < 0) return { at: -1 };
+    FP.P.x = at % W + 0.5; FP.P.y = ((at / W) | 0) + 0.5;
+    let beats = 0; const was = FP_SOUND.heartbeat; FP_SOUND.heartbeat = (near, lub) => { beats++; was(near, lub); };
+    await new Promise((r) => setTimeout(r, 2500)); FP_SOUND.heartbeat = was; return { at, beats }; });
+  const two = dead.filter((n) => n >= 3).length;   // counted tile by tile it was 2 in every maze; now one more
+  check('the heart: its beat carries 40 steps once it\'s open, and its squeeze maze has one more dead end (three, not two)',
+    heard.beats > 0 && dead.length >= 15 && two >= dead.length * 0.8,
+    `beats heard 40 steps off, in 2.5s: ${heard.beats}; dead ends in the squeeze maze over ${dead.length} mazes: ${dead.join(' ')}`);
+  await p.close();
+}
+
 // ── chalk shows on the pale walls, and the words stay on theirs ──────
 // Joe: "make the white walls a bit more dingy so that the white chalk mark shows up better", and "a tighter font on the
 // wall writing. It almost always bleeds off of the wall"

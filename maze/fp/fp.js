@@ -1789,7 +1789,9 @@
   // (STORY_ROOMS.heart in data/text.js); a letter on the floor; its own music (`The Heart`). And the
   // heartbeat carries: from HEART_HEAR steps off you can hear it through the walls, the only sign that
   // it's there at all.
-  const HEART = ['.#.#.', '#####', '#####', '.###.', '..#..'], HEART_W = 7, HEART_BPM = 54, HEART_HEAR = 14, HEART_HEAR_OPEN = 28;
+  // Joe: "The heartbeat is great. However, we need to double the range it can be heard by" — 14 and 28 steps, now 28 and 56
+  const HEART = ['.#.#.', '#####', '#####', '.###.', '..#..'], HEART_W = 7, HEART_BPM = 54, HEART_HEAR = 28, HEART_HEAR_OPEN = 56;
+  const HEART_TRIES = 40, HEART_DEAD = { 3: 2, 2: 1 };   // the squeeze maze: trees tried, and the dead ends wanted (three rows of cells, or two)
   let heart = null, heartAt = null;
   const inHeart = (k) => !!(heartAt && heartAt.length === W * H && heartAt[k]);
   function carveHeart() {
@@ -1804,14 +1806,34 @@
     const HEART_H = 7 + 2 * rows, foot = 5 + 2 * rows, open0 = [], cellsL = [];
     for (let j = 0; j < rows; j++) for (const u of [1, 3, 5]) cellsL.push([u, 7 + 2 * j]);
     HEART.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] === '#') open0.push([1 + i, 1 + j, 1]); });
-    // the little maze: a spanning tree over its nine cells, grown from the one under the heart's point
-    const cid = (u, v) => cellsL.findIndex(([a, b]) => a === u && b === v), tree = [[3, 6, 2]], depth = new Map([[cid(3, 7), 0]]), stack = [[3, 7]];
-    tree.push([3, 7, 2]);
-    while (stack.length) {
-      const [u, v] = stack[stack.length - 1], nb = HD.map(([dx, dy]) => [u + dx * 2, v + dy * 2, u + dx, v + dy]).filter(([a, b]) => cid(a, b) >= 0 && !depth.has(cid(a, b)));
-      if (!nb.length) { stack.pop(); continue; }
-      const [a, b, wu, wv] = nb[Math.floor(R() * nb.length)];
-      depth.set(cid(a, b), depth.get(cid(u, v)) + 1); tree.push([wu, wv, 2], [a, b, 2]); stack.push([a, b]);
+    // the little maze: a spanning tree over its nine cells, grown from the one under the heart's point. Joe: "we need one
+    // more branching dead end in the squeeze maze leading to it". Grown by always carrying on from the newest cell it was
+    // one long crawl with a single dead end off it (every time, at three rows); so it's grown from any cell reached so
+    // far, HEART_TRIES times, and the tree kept is the one with HEART_DEAD dead ends (one more than it had) whose way in is
+    // deepest — a crawl of six cells, not seven, for the extra wrong turn
+    const cid = (u, v) => cellsL.findIndex(([a, b]) => a === u && b === v), onEdge = ([u, v]) => u === 1 || u === 5 || v === foot;
+    let tree = null, depth = null, bestD = -1;
+    for (let t = 0; t < HEART_TRIES; t++) {
+      const tr = [[3, 6, 2], [3, 7, 2]], dp = new Map([[cid(3, 7), 0]]), deg = new Map([[cid(3, 7), 1]]), live = [[3, 7]];
+      while (live.length) {
+        const i = Math.floor(R() * live.length), [u, v] = live[i], nb = HD.map(([dx, dy]) => [u + dx * 2, v + dy * 2, u + dx, v + dy]).filter(([a, b]) => cid(a, b) >= 0 && !dp.has(cid(a, b)));
+        if (!nb.length) { live.splice(i, 1); continue; }
+        const [a, b, wu, wv] = nb[Math.floor(R() * nb.length)];
+        dp.set(cid(a, b), dp.get(cid(u, v)) + 1); deg.set(cid(u, v), (deg.get(cid(u, v)) || 0) + 1); deg.set(cid(a, b), 1);
+        tr.push([wu, wv, 2], [a, b, 2]); live.push([a, b]);
+      }
+      const way = cellsL.map((c, i) => i).filter((i) => onEdge(cellsL[i])).sort((a, b) => dp.get(b) - dp.get(a))[0];
+      const dead = cellsL.filter((c, i) => i !== way && deg.get(i) === 1).length;
+      if (dead === HEART_DEAD[rows] && dp.get(way) > bestD) { bestD = dp.get(way); tree = tr; depth = dp; }
+    }
+    if (!tree) {   // none came out that way (it hardly happens): the long crawl, as it was
+      tree = [[3, 6, 2], [3, 7, 2]]; depth = new Map([[cid(3, 7), 0]]); const stack = [[3, 7]];
+      while (stack.length) {
+        const [u, v] = stack[stack.length - 1], nb = HD.map(([dx, dy]) => [u + dx * 2, v + dy * 2, u + dx, v + dy]).filter(([a, b]) => cid(a, b) >= 0 && !depth.has(cid(a, b)));
+        if (!nb.length) { stack.pop(); continue; }
+        const [a, b, wu, wv] = nb[Math.floor(R() * nb.length)];
+        depth.set(cid(a, b), depth.get(cid(u, v)) + 1); tree.push([wu, wv, 2], [a, b, 2]); stack.push([a, b]);
+      }
     }
     // ways out of it, through the frame's own wall: from a cell on its edge, deepest first
     const ways = [];
