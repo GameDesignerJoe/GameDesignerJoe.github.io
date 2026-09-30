@@ -61,7 +61,7 @@ const ABOUT = {
   FP_OPENING:   { surface: 'card', fires: 'each time the game opens', voiced: true,
                   when: 'First person: on black before you wake, then fades into the wake-up' },
   FP_MEMORIES:  { surface: 'page', fires: 'every maze', voiced: true,
-                  when: 'First person: memory rooms. `page` is the journal by the thing; `after` comes once you have played it through; `sign` is written over the phone; the fire\'s `shout` goes up on the walls when it\'s put out; hiding has `seen` for when you didn\'t hide in time' },
+                  when: 'First person: memory rooms. `page` is the journal by the thing; `after` comes once you have played it through; `sign` is written over the phone; the fire\'s `shout` goes up on the walls when it\'s put out; hiding has `seen` for when you didn\'t hide in time; the book\'s `pages` are read on the bed, a line at a time, under the view' },
   FP_TRAINING:  { surface: 'prompt', fires: 'once ever, each', voiced: false,
                   when: 'First person: a quiet prompt low on the screen, after a few seconds stuck at a thing you have not used yet' },
   WALL_TEACH:   { surface: 'wall', fires: 'every maze', voiced: true,

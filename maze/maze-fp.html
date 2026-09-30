@@ -70,6 +70,7 @@
   .ic-page { width: 9px; height: 12px; background: #7a5232; border-right: 2px solid #efe6cf; border-radius: 1px; }
   .ic-chalk { width: 13px; height: 5px; background: #ece7da; border-radius: 2px; }
   .ic-watch { width: 12px; height: 12px; border-radius: 50%; background: #efe6cf; border: 2px solid #c9a45a; box-sizing: border-box; position: relative; }
+  .ic-book { width: 10px; height: 13px; border-radius: 1px; background: #e6c34a; border-left: 3px solid #b8412f; box-sizing: border-box; }
   .ic-watch::after { content: ''; position: absolute; left: 3px; top: 1px; width: 1px; height: 4px; background: #1e1812; }
   .ic-charcoal { width: 13px; height: 5px; background: #2a2724; border: 1px solid #6a655c; border-radius: 2px; }
   #hud span.pulse { animation: hudPulse .6s ease-out; }
@@ -120,6 +121,11 @@
   body.seated #getUp { display: block; position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 34px); transform: translateX(-50%); z-index: 3;
     padding: 12px 26px; border-radius: 12px; border: 1px solid #6b5436; background: #1b1a18ee; color: #ece7da; font: inherit; font-size: 16px; }
   body.seated #stick, body.seated #hud { display: none; }
+  /* reading the picture book on the bed: its words, under the view */
+  #bookLine { display: none; }
+  body.seated.book #bookLine { display: block; position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 100px); transform: translateX(-50%); z-index: 3;
+    width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 10px 16px; border-radius: 12px; background: #0d0f10cc; color: #ece7da;
+    font: italic 18px/1.4 Georgia, serif; text-align: center; pointer-events: none; }
   /* reading a page: the page is all there is */
   body.waking #stick, body.waking #hud, body.waking #gear, body.waking #mini, body.waking #mapBtn, body.waking #dbgArrow, body.waking #hint, body.waking #glyphs { visibility: hidden; }
   body.reading #stick, body.reading #hud, body.reading #gear, body.reading #mini, body.reading #mapBtn, body.reading #dbgArrow, body.reading #hint, body.reading #glyphs { visibility: hidden; }
@@ -195,6 +201,7 @@
       <button id="toHeart">To the heart</button>
       <button id="undoLies">Cross out the lies</button>
       <button id="leaveWatch">Leave the watch</button>
+      <button id="shelveBook">Put the book away</button>
       <button id="beingNow">Being now</button>
       <button id="newMaze">New maze</button>
       <a class="btn" id="topdown" href="maze-topdown.html">Top-down view</a>
@@ -205,11 +212,12 @@
   </details>
 </div>
 <div id="dbgArrow" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 12h14m-5-5 5 5-5 5" fill="none" stroke="#e0c98a" stroke-width="2.4" stroke-linecap="round"/></svg></div>
-<div id="hud"><span id="hudPagesBox"><i class="ic-page"></i><b id="hudPages">0</b></span><span id="hudChalkBox"><i class="ic-chalk"></i><b id="hudChalk">0</b></span><span id="hudCharcoalBox"><i class="ic-charcoal"></i><b id="hudCharcoal">0</b></span><span id="hudWatchBox" style="display:none"><i class="ic-watch"></i></span></div>
+<div id="hud"><span id="hudPagesBox"><i class="ic-page"></i><b id="hudPages">0</b></span><span id="hudChalkBox"><i class="ic-chalk"></i><b id="hudChalk">0</b></span><span id="hudCharcoalBox"><i class="ic-charcoal"></i><b id="hudCharcoal">0</b></span><span id="hudWatchBox" style="display:none"><i class="ic-watch"></i></span><span id="hudBookBox" style="display:none"><i class="ic-book"></i></span></div>
 <div id="glyphs"><button data-g="x">✕</button><button data-g="?">?</button><button data-g="left">←</button><button data-g="up">↑</button><button data-g="down">↓</button><button data-g="right">→</button></div>
 <div id="slats"></div>
 <button id="stepOut">Step out</button>
 <button id="getUp">Get up</button>
+<div id="bookLine"></div>
 <div id="page"><div><p id="pageText"></p><small id="pageWho"></small></div></div>
 <div id="fade"><span id="fadeText"></span></div>
 <div id="opening" class="show"><p id="openingText"></p><small id="openingBy"></small></div>

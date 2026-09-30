@@ -270,7 +270,7 @@
     index(); heartIndex();
     if (floor > 1) { exitFace.fill(0); exitDir = null; }   // the way out is only on floor 1
     turnIndex(); beingIndex();
-    if (watchLeft && !kidMet && floor === 1) setTimeout(spawnKid, 0);
+    if (exitOpen() && !kidMet && floor === 1) setTimeout(spawnKid, 0);
     placeThings();
     const tx = Math.floor(start.x), ty = Math.floor(start.y);
     // face the longest open run from where you wake, so the first thing you see is a way to go
@@ -1567,11 +1567,11 @@
   let seated = null;
   function sitDown(st) {
     const { x, y, ix, iy } = st.at, now = performance.now();
-    seated = { st, back: { x: P.x, y: P.y, a: P.a }, to: { x: x + 0.5 + ix * seatAt(), y: y + 0.5 + iy * seatAt(), a: Math.atan2(-iy, -ix) }, t0: now, up: 0, k: 0, shift: seatShift(seatAt()) };
+    seated = { st, back: { x: P.x, y: P.y, a: P.a }, to: { x: x + 0.5 + ix * seatAt(), y: y + 0.5 + iy * seatAt(), a: Math.atan2(-iy, -ix) }, t0: now, up: 0, k: 0, shift: seatShift(seatAt()), eye: SEAT_EYE };
     vel = 0; clearStick(); for (const k of Object.keys(keys)) keys[k] = false;
     document.body.classList.add('seated'); FP_SOUND.sit();
   }
-  function getUp() { if (seated && !seated.up) { seated.up = performance.now(); FP_SOUND.sit(); } }
+  function getUp() { if (seated && !seated.up) { seated.up = performance.now(); FP_SOUND.sit(); if (seated.mode === 'book') bookUp(); } }
   function seatFrame(now) {
     const s = seated; if (!s) return;
     const ease = (k) => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
@@ -1580,7 +1580,79 @@
     P.x = s.back.x + (s.to.x - s.back.x) * e; P.y = s.back.y + (s.to.y - s.back.y) * e; P.a = s.back.a + da * e; s.k = e;
     if (s.up && k <= 0) { P.x = s.back.x; P.y = s.back.y; P.a = s.back.a; lastX = P.x; lastY = P.y; seated = null; document.body.classList.remove('seated'); }
   }
-  const seatedPlay = () => { if (seated && !seated.up && seated.k > 0.95) useMemory(seated.st); };
+  const seatedPlay = () => { if (seated && !seated.up && seated.k > 0.95) { if (seated.mode === 'book') bookTurn(); else useMemory(seated.st); } };
+  // ── the picture book ──
+  // Joe: "Maybe the children's book needs to be read. You sit in the bed and flip through the book. Then it has to be put
+  // away on a shelf in the room. It's another collectible that needs to be dealt with in order to move on." Tap it: you sit
+  // at the head of the bed, BED_EYE up, and it lies open on the blanket in front of you; each tap (or Space) turns a page,
+  // its words under the view. Past the last, you get up holding it (the HUD shows it), and the way out won't open until
+  // it's back in the gap on the shelf — as well as his watch left (`exitOpen`). Get up before the end and it's put down
+  // where it was, to start again
+  const BED_EYE = 0.36, BED_AT = 0.24, BOOK_AT = 0.56, BOOK_Z = 0.195;
+  let kidBook = null;
+  const exitOpen = () => !!(watchLeft && (!kidBook || kidBook.shelved || kidBook.noShelf));
+  // a picture turned so it reads the right way up to someone looking (fx, fy), laid on a box's top (world-aligned)
+  function laidFlat(C, cw, ch, fx, fy) {
+    const along = fx !== 0, w = along ? ch : cw, h = along ? cw : ch, T = { w, h, px: new Uint32Array(w * h) }, rx = -fy, ry = fx;
+    for (let oy = 0; oy < h; oy++) for (let ox = 0; ox < w; ox++) {
+      const px = (ox + 0.5) / w - 0.5, py = (oy + 0.5) / h - 0.5, u = px * rx + py * ry, v = -(px * fx + py * fy);
+      T.px[oy * w + ox] = C[Math.min(ch - 1, ((v + 0.5) * ch) | 0) * cw + Math.min(cw - 1, ((u + 0.5) * cw) | 0)];
+    }
+    return T;
+  }
+  // the book open at page n: a red cover round two cream pages, a picture on the left, lines of words on the right
+  function bookSpread(n, fx, fy) {
+    const cw = 26, ch = 16, C = new Uint32Array(cw * ch), px = (x, y, c) => { if (x >= 0 && y >= 0 && x < cw && y < ch) C[y * cw + x] = c; };
+    const cover = TEX.hex('#b8412f'), page = TEX.hex('#f1ead6'), ink = TEX.hex('#8a8272'), bear = TEX.hex('#7a4f2e'), moon = TEX.hex('#e8d27a'), night = TEX.hex('#2d3a5e'), sun = TEX.hex('#e6a94a');
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) px(x, y, x === 0 || y === 0 || x === cw - 1 || y === ch - 1 ? cover : x === 13 ? TEX.hex('#d6ceb8') : page);
+    const last = n >= 4;
+    if (!last) {   // the picture: the little bear, and what the page is about
+      const sky = n === 1 || n === 2 ? night : page;
+      for (let y = 2; y < 14; y++) for (let x = 2; x < 12; x++) px(x, y, sky);
+      if (n === 0) { for (let y = 3; y < 9; y++) { px(3, y, ink); px(10, y, ink); } for (let x = 3; x < 11; x++) { px(x, 3, ink); px(x, 8, ink); } }   // the window
+      if (n === 1) for (let y = 3; y < 7; y++) for (let x = 7; x < 11; x++) if (Math.hypot(x - 8.5, y - 4.5) < 1.9) px(x, y, moon);
+      if (n === 2) { px(5, 6, moon); px(8, 6, moon); }   // eyes open in the dark
+      if (n === 3) { for (let y = 3; y < 6; y++) for (let x = 8; x < 11; x++) px(x, y, sun); for (let y = 7; y < 13; y++) for (let x = 6; x < 11; x++) px(x, y, bear); }   // the big bear
+      for (let y = 9; y < 13; y++) for (let x = 3; x < 6; x++) px(x, y, bear); px(3, 8, bear); px(5, 8, bear);   // the little one
+    }
+    for (let l = 0; l < (last ? 1 : 4); l++) for (let x = 15; x < (last ? 22 : 24 - (l === 3 ? 4 : 0)); x++) px(x, last ? 7 : 3 + l * 3, ink);   // the words
+    return laidFlat(C, cw, ch, fx, fy);
+  }
+  function openBook() {
+    const b = kidBook; if (!b || b.read || seated) return;
+    const { x: wx, y: wy, fx, fy, ux, uy } = b.bed, now = performance.now();
+    const i = objs.indexOf(b.o); if (i >= 0) objs.splice(i, 1);
+    const mx = wx + fx * BOOK_AT, my = wy + fy * BOOK_AT, hx = fx ? 0.1 : 0.15, hy = fx ? 0.15 : 0.1;
+    b.page = 0; const t = bookSpread(0, fx, fy);
+    b.flat = { x0: mx - hx, x1: mx + hx, y0: my - hy, y1: my + hy, z0: 0.19, z1: BOOK_Z, m: TEX.furn.mats.white, top: t, topFit: true, front: null, fcode: 'n', glow: false, flat: true };
+    fboxes.push(b.flat); void ux; void uy;
+    seated = { st: null, mode: 'book', back: { x: P.x, y: P.y, a: P.a }, to: { x: wx + fx * BED_AT, y: wy + fy * BED_AT, a: Math.atan2(fy, fx) }, t0: now, up: 0, k: 0,
+      eye: BED_EYE, shift: (BED_EYE - BOOK_Z) / (BOOK_AT - BED_AT) };
+    vel = 0; clearStick(); for (const k of Object.keys(keys)) keys[k] = false;
+    document.body.classList.add('seated', 'book'); $('bookLine').textContent = b.text.pages[0]; FP_SOUND.sit();
+  }
+  function bookTurn() {
+    const b = kidBook; if (!b || !b.flat) return;
+    b.page++; FP_SOUND.cardFlip();
+    if (b.page < b.text.pages.length) { b.flat.top = b.flat.m = bookSpread(b.page, b.bed.fx, b.bed.fy); b.flat.m = TEX.furn.mats.white; $('bookLine').textContent = b.text.pages[b.page]; return; }
+    // shut, and you're holding it: up, and it's to go back on the shelf
+    const i = fboxes.indexOf(b.flat); if (i >= 0) fboxes.splice(i, 1); b.flat = null;
+    b.read = true; carried.add('book'); hud(); flash('hudBookBox'); getUp(); showNote(b.text.after);
+  }
+  function bookUp() {   // getting up before the end: it's put down where it was
+    const b = kidBook; document.body.classList.remove('book');
+    if (!b || b.read || !b.flat) return;
+    const i = fboxes.indexOf(b.flat); if (i >= 0) fboxes.splice(i, 1); b.flat = null; b.page = -1;
+    if (!objs.includes(b.o)) objs.push(b.o);
+  }
+  function shelveBook() {
+    const b = kidBook; if (!b || b.shelved) return;
+    if (!carried.has('book')) { showNote(b.text.gap); return; }
+    carried.delete('book'); b.shelved = true; hud();
+    if (b.gap) { b.gap.kind = 'deco'; b.gap.tex = TEX.sprites.bookSpine; }
+    FP_SOUND.chalkUp(); showNote(b.text.shelved);
+    if (exitOpen()) openExit();
+  }
   function useMemory(st) {
     const now = performance.now();
     if (st.mem === 'phone') {
@@ -2024,6 +2096,7 @@
   // it, a picture book on the floor by the bed; in the corner nearest the way in, a ball and one glove. Only when the
   // room was carved whole (a real room, not a winding pinch); its own stream
   function furnishKidRoom() {
+    kidBook = null;
     const set = secretSet(); if (!set || floor !== 1) return;
     const way = secretWay(set); if (!way) return;
     const roomT = [...set].filter((k) => room[k]); if (roomT.length < 9) return;
@@ -2041,7 +2114,9 @@
     const side = set.has((bed.y + uy) * W + bed.x + ux) ? 1 : -1;
     const chx = wx + ux * side * 0.62, chy = wy + uy * side * 0.62;
     for (const b of buildFurn(FURN.kidChair, chx, chy, ux, uy, fx, fy, 0)) fboxes.push(b);
-    objs.push({ x: wx + ux * side * 0.38 + fx * 0.45, y: wy + uy * side * 0.38 + fy * 0.45, kind: 'deco', tex: TEX.sprites.kidBook, h: 0.05, glow: 0.2 });
+    const M8b = memText(), bookO = { x: wx + ux * side * 0.38 + fx * 0.45, y: wy + uy * side * 0.38 + fy * 0.45, kind: M8b && M8b.book ? 'kidBook' : 'deco', tex: TEX.sprites.kidBook, h: 0.05, glow: 0.2 };
+    objs.push(bookO);
+    if (M8b && M8b.book) kidBook = { o: bookO, text: M8b.book, bed: { x: wx, y: wy, fx, fy, ux, uy, tx: bed.x, ty: bed.y }, page: -1, read: false, shelved: false, flat: null, gap: null };
     // the ball and the one glove, in the corner of the room nearest the way in (the chalk pile has the far one)
     let cor = null, cd = 1e9;
     for (const k of roomT) { const x = k % W, y = (k / W) | 0, walls = HD.filter(([dx, dy]) => solid(x + dx, y + dy));
@@ -2051,6 +2126,25 @@
       const M8 = memText();
       objs.push({ x: cor.x + 0.5 + ox * 0.3, y: cor.y + 0.5 + oy * 0.3, kind: M8 && M8.catch ? 'ball' : 'deco', tex: TEX.sprites.baseball, h: 0.04, glow: 0.2 });
       if (M8 && M8.catch) catchSetup(set, roomT, cor, bed, way, R, M8.catch); }
+    if (kidBook) placeShelf(set, roomT, bed, way, cor, R);
+  }
+  // the book's shelf: against a straight run of the kid's room's wall, clear of the bed, the ball's corner, the way in,
+  // dad's catch wall and the switch; a gap in its row of books where the picture book goes back
+  function placeShelf(set, roomT, bed, way, cor, R) {
+    const spots = [];
+    for (const k of roomT) { const x = k % W, y = (k / W) | 0, walls = HD.filter(([dx, dy]) => solid(x + dx, y + dy));
+      if (walls.length !== 1) continue;
+      const [dx, dy] = walls[0], fk = faceKey((y + dy) * W + x + dx, faceTo(dx, dy));
+      if (!set.has((y - dy) * W + x - dx) || Math.hypot(x - bed.x, y - bed.y) < 2 || (cor && x === cor.x && y === cor.y) || Math.abs(x - way.rx) + Math.abs(y - way.ry) < 2) continue;
+      if (switchFace.has(fk) || (catchT && catchT.face === fk) || objs.some((o) => Math.floor(o.x) === x && Math.floor(o.y) === y)) continue;
+      spots.push({ x, y, dx, dy, d: Math.hypot(x - bed.x, y - bed.y) + R() });
+    }
+    if (!spots.length) { kidBook.noShelf = true; return; }
+    const sp = spots.sort((a, b) => a.d - b.d)[0], fx = -sp.dx, fy = -sp.dy, ux = -fy, uy = fx;   // the nearest to the bed that's clear
+    const bx = sp.x + 0.5 + sp.dx * 0.5, by = sp.y + 0.5 + sp.dy * 0.5;
+    for (const b of buildFurn(FURN.shelf, bx, by, ux, uy, fx, fy, 0)) fboxes.push(b);
+    kidBook.gap = { x: bx + fx * 0.215 + ux * 0.12, y: by + fy * 0.215 + uy * 0.12, z: 0.1, kind: 'shelfGap', tex: TEX.sprites.bookGap, h: 0.12, glow: 0.3 };
+    objs.push(kidBook.gap);
   }
   function placeChalkPile() {
     const set = secretSet(); if (!set || floor !== 1) return;   // the kid's room is floor 1's: Joe, "each room [should] be unique"
@@ -2242,6 +2336,7 @@
     $('hudPages').textContent = pagesFound + ' / ' + pagesTotal;
     $('hudCharcoalBox').style.display = charcoalN ? '' : 'none';
     $('hudWatchBox').style.display = carried.has('watch') ? '' : 'none';
+    $('hudBookBox').style.display = carried.has('book') ? '' : 'none';
   }
   // what you carry: things you pick up that aren't used up — the watch, for now. Joe: "We should make the watch
   // collectible that you pick up and then hold in your inventory. You can see on your hud. When we bring back in the
@@ -2263,7 +2358,9 @@
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen() && !story.some((q) => q.slot)) { leaveWatch(o); return; }
     if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
     if (o.kind === 'ball') { if (!walked && !o.fly) pickBall(o); return; }   // picked up to throw, never kept
-    if (o.kind === 'cards' || o.kind === 'matches') { if (!walked) useMemory(o.mem); return; }   // a memory room's thing: played, never taken
+    if (o.kind === 'cards' || o.kind === 'matches') { if (!walked) useMemory(o.mem); return; }
+    if (o.kind === 'kidBook') { if (!walked) openBook(); return; }   // read on the bed
+    if (o.kind === 'shelfGap') { if (!walked) shelveBook(); return; }   // a memory room's thing: played, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
@@ -2372,7 +2469,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; seated = null; document.body.classList.remove('seated'); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
+    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; seated = null; document.body.classList.remove('seated', 'book'); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
     applyMazeDebug();
     generate(SEED); thinSqueezes(); carveHeart(); spreadPages(); reset(); startWake();
@@ -2405,7 +2502,7 @@
   const EXIT_REACH = 0.3;
   function checkExit() {
     if (floor > 1 || hidden || Math.floor(P.x) !== exit.x || Math.floor(P.y) !== exit.y) return;
-    if (exitLocked && !watchLeft) { const t = performance.now(); if (t - rattleAt > 1800) { rattleAt = t; FP_SOUND.locked(); } return; }   // not yet
+    if (exitLocked && !exitOpen()) { const t = performance.now(); if (t - rattleAt > 1800) { rattleAt = t; FP_SOUND.locked(); } return; }   // not yet
     if (!exitDir) { win(); return; }
     const [dx, dy] = exitDir;
     const gap = dx ? (dx > 0 ? exit.x + 1 - P.x : P.x - exit.x) : (dy > 0 ? exit.y + 1 - P.y : P.y - exit.y);
@@ -2954,7 +3051,7 @@
     const [px, py, ang, bob] = camera(now);
     const tanH = Math.tan(S.fov * Math.PI / 360), D = (RW / 2) / tanH;
     const sk = seated ? seated.k : 0;   // sat at the card table: lower, and looking down at it
-    const hor = RH / 2 + bob - sk * D * (seated ? seated.shift : 0), eye = eyeNow(now) + (SEAT_EYE - S.eye) * sk, fog = S.fog;
+    const hor = RH / 2 + bob - sk * D * (seated ? seated.shift : 0), eye = eyeNow(now) + ((seated ? seated.eye : S.eye) - S.eye) * sk, fog = S.fog;
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
     BRv = S.bright; FRb = FR * BRv; FGb = FG * BRv; FBb = FB * BRv;
     const sky = T.sky, SW = sky ? sky.w : 0, SH = sky ? sky.h : 0, SP = sky ? sky.px : null;
@@ -3254,7 +3351,7 @@
   // ── the objects, as flat pictures facing you ──────────────
   let ovDep = new Float32Array(1), colOv = new Uint8Array(1), zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colDoorTop = new Float32Array(1), colDoorBot = new Float32Array(1), colDoorT = new Float32Array(1), colVeil = new Float32Array(1), colWallT = new Float32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
   const DITH = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
-  const PLAYED = new Set(['cards', 'matches', 'ball']);
+  const PLAYED = new Set(['cards', 'matches', 'ball', 'kidBook', 'shelfGap']);
   const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
   // a pixel of the darter: its own shading kept as a grey, lifted toward white, lit by nothing
   const paleOf = (c, f) => { const l = Math.min(200, 38 + (((c & 0xff) + ((c >>> 8) & 0xff) + ((c >>> 16) & 0xff)) / 3) * 1.5) | 0; return shade(0xff000000 | (l << 16) | (l << 8) | l, Math.sqrt(f), 1, 1); };
@@ -3365,7 +3462,7 @@
     won = true; holdFwd = false; queued = null; anim = null; vel = 0;
     FP_SOUND.out();
     const E = endingText();
-    $('winSteps').textContent = (watchLeft && E ? E.out + '\n' : '') + steps + ' steps';
+    $('winSteps').textContent = (exitOpen() && E ? E.out + '\n' : '') + steps + ' steps';
     $('win').classList.add('show');
   }
   $('again').onclick = () => newMaze();
@@ -3504,7 +3601,7 @@
   function lockExit() {
     exitLocked = floor === 1 && !!placedPages() && story.some((q) => q.kind === 'waiting' && q.chair) && story.some((q) => q.kind === 'wall') && !!endingText();
     const fk = exitFaceKey();
-    if (!exitLocked || watchLeft || fk < 0) return;
+    if (!exitLocked || exitOpen() || fk < 0) return;
     const d = decalFor(Math.floor(fk / 4), fk % 4), R = rng(SEED + 240007);
     hand(d, endingText().notYet, 14, 38, 38, 2, TEX.hex('#1d1c19'), R);   // across the door, under its window, in the kid's pencil
   }
@@ -3513,6 +3610,9 @@
     if (where.kind === 'slot') objs.splice(objs.indexOf(where), 1);
     objs.push({ x: where.x, y: where.y, z: where.kind === 'slot' ? 0.24 : 0.19, kind: 'deco', tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // back where he kept it
     showNote(endingText().leave);
+    if (exitOpen()) openExit(); else if (kidBook && kidBook.text.notYet) showNote(kidBook.text.notYet);   // his book, still out
+  }
+  function openExit() {
     const fk = exitFaceKey(); if (fk >= 0) decals.delete(fk);
     FP_SOUND.exitOpens();
     spawnKid();
@@ -3535,7 +3635,8 @@
   // the next thing to do, for the debug arrow: a room still lying, then the heart, the watch, the chair, the door
   function nextGoal() {
     if (floor > 1) return stairs.down || exit;
-    if (!exitLocked || watchLeft) return exit;
+    if (!exitLocked || exitOpen()) return exit;
+    if (watchLeft && kidBook && !kidBook.shelved) { const t = carried.has('book') ? kidBook.gap : objs.includes(kidBook.o) ? kidBook.o : null; if (t) return { x: Math.floor(t.x), y: Math.floor(t.y) }; }
     const lie = story.find((q) => q.lieFaces && !q.undone); if (lie) return { x: lie.m.rx, y: lie.m.ry };
     if (heart && !heartSeen()) return { x: heart.mid % W, y: (heart.mid / W) | 0 };
     if (!carried.has('watch')) { const w = objs.find((o) => o.kind === 'watch'); if (w) return { x: Math.floor(w.x), y: Math.floor(w.y) }; }
@@ -3776,6 +3877,10 @@
     const w = objs.find((o) => o.kind === 'watch'); if (w) objs.splice(objs.indexOf(w), 1);
     const seat = objs.find((o) => o.kind === 'slot') || objs.find((o) => o.seat); if (seat && !watchLeft) leaveWatch(seat);
   };
+  $('shelveBook').onclick = () => {   // debug: as if you'd read the picture book and put it back on its shelf
+    $('panel').classList.remove('open'); if (!kidBook || kidBook.shelved) return;
+    const i = objs.indexOf(kidBook.o); if (i >= 0) objs.splice(i, 1); kidBook.read = true; carried.add('book'); shelveBook();
+  };
   let storyVisit = 0;
   $('toStory').onclick = () => {
     $('panel').classList.remove('open'); if (!story.length) return;
@@ -3868,5 +3973,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

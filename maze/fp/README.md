@@ -115,7 +115,12 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   way up to you, and his is always higher; three and the memory. **Get up** (or Esc, or a step) and you're back where you stood. **The fire** — crumpled drawings and a box of matches in the middle of a room; tap the matches and it takes and
   grows, and then the door, hard: it's out, ash, and what he said is on the walls in big dark letters (`shout`); then the
   memory. The middle things are given a wider mark to tap, and nothing only looked at (`deco`) is ever what Space or a tap
-  reaches for. **Hiding** — a room with a closet of its own on the far wall, and the journal just inside the way in:
+  reaches for. **The picture book** — in the kid's room, by the bed: tap it and you sit at the head of the bed (`BED_EYE`),
+  the view tilted down to it lying open on the blanket; each tap or Space turns a page, its words under the view (`book.pages`).
+  Past the last you get up holding it (a book in the HUD), and it goes back in the gap on the shelf in the room (`placeShelf`);
+  the way out won't open until it has, as well as the watch (`exitOpen`: leave the watch first and the kid says his book's
+  still out). Get up before the end and it's put back where it lay. **Put the book away** on the Debug panel does it for you.
+  **Hiding** — a room with a closet of its own on the far wall, and the journal just inside the way in:
   walk in and it's read ("when dad drinks he gets loud"), and then he's coming — HE_COMES of heavy uneven steps and the
   bottle, nearer and nearer, and he's in the doorway (the father's own figure). In a closet by then: he walks to it and
   stands there, and goes; the memory (`after`). Not: he walks straight past you, and the other one (`seen`). Each maze deals
@@ -124,7 +129,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   "not yet" — walk up to it and the handle rattles. It opens once you've been to the heart and then left the watch on the
   chair he saved in the waiting room — on the little table beside it, where a ring in the dust shows where the watch used to
   sit (tap it: "something goes here."; with the watch before you've been to the heart: "he always had this right next to him …", then `slotNotYet`, that a truth is still to learn; with it after: he says goodbye to it, and somewhere a door
-  unlatches. The being is standing in front of the exit then, waiting; come close and it comes down to the kid's size,
+  unlatches — once the kid's picture book is back on its shelf too (below). The being is standing in front of the exit then, waiting; come close and it comes down to the kid's size,
   and fades, and goes. Out, under the Exit: "it's time to come home now." After the watch is left the being doesn't hunt
   any more. The debug arrow points at the next thing to do. **Leave the watch** on the panel skips to it.
 - **The heart** (`heart`; the Child, floor 1; words in `STORY_ROOMS` → `heart`). The third story room, and the hidden one:

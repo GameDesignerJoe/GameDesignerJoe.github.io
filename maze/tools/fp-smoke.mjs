@@ -76,6 +76,36 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the picture book: read on the bed, put back on its shelf ────────
+// Joe: "Maybe the children's book needs to be read. You sit in the bed and flip through the book. Then it has to be put
+// away on a shelf in the room"
+{
+  const p = await open(4242); await awake(p);
+  const text = () => p.evaluate(() => document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '');
+  const esc = async () => { for (let i = 0; i < 3 && await text(); i++) { await p.keyboard.press('Escape'); await p.waitForTimeout(350); } };
+  await esc();
+  await p.evaluate(() => { const g = FP.lightGroups.find((q) => q.pitch); if (g && !g.on) FP.flipSwitch(g); });
+  const gapFirst = await p.evaluate(() => { FP.shelveBook(); return document.getElementById('pageText').textContent; });   // the gap, tapped with nothing in hand
+  await esc();
+  await p.evaluate(() => { const o = FP.kidBook.o; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]]) { const x = o.x + dx * 0.9, y = o.y + dy * 0.9;
+    if (tiles[Math.floor(y)] && tiles[Math.floor(y)][Math.floor(x)] && !FP.fboxes.some((b) => !b.flat && b.x0 < x && b.x1 > x && b.y0 < y && b.y1 > y)) { FP.P.x = x; FP.P.y = y; FP.P.a = Math.atan2(o.y - y, o.x - x); return; } } });
+  await p.waitForTimeout(600); await esc();
+  await p.keyboard.press('Space'); await p.waitForTimeout(900);
+  const onBed = await p.evaluate(() => [FP.seated && FP.seated.mode, document.getElementById('bookLine').textContent, getComputedStyle(document.getElementById('bookLine')).display]);
+  const lines = [onBed[1]];
+  for (let i = 0; i < 5; i++) { await p.keyboard.press('Space'); await p.waitForTimeout(350); lines.push(await p.evaluate(() => document.getElementById('bookLine').textContent)); }
+  await p.waitForTimeout(800);
+  const after = await text(), holding = await p.evaluate(() => [FP.carried.has('book'), !!FP.seated, getComputedStyle(document.getElementById('hudBookBox')).display !== 'none']);
+  await esc();
+  const put = await p.evaluate(() => { FP.shelveBook(); return [FP.kidBook.shelved, FP.carried.has('book'), FP.kidBook.gap.tex === TEX.sprites.bookSpine, document.getElementById('pageText').textContent]; });
+  const pages = new Set(lines.slice(0, 5)).size;
+  check('the picture book: sit on the bed, turn its five pages, get up holding it, and put it back in the gap on the shelf',
+    /gap on the shelf/.test(gapFirst) && onBed[0] === 'book' && onBed[2] !== 'none' && pages === 5 && /did all the voices/.test(after) && holding[0] && !holding[1] && holding[2]
+      && put[0] && !put[1] && put[2] && /back where it goes/.test(put[3]),
+    `gap first: "${gapFirst.slice(0, 22)}…"; on the bed ${onBed[0]}, ${pages} pages read; then "${after.slice(0, 24)}…", holding ${holding[0]}, still sat ${holding[1]}, HUD ${holding[2]}; shelved ${put[0]}, spine in the gap ${put[2]}`);
+  await p.close();
+}
+
 // ── the heart: heard from further, and one more wrong turn on the way in ─────
 // Joe: "The heartbeat is great. However, we need to double the range it can be heard by. Also, we need one more
 // branching dead end in the squeeze maze leading to it"
@@ -250,10 +280,14 @@ console.log('The Maze — first person checks');
   await p.evaluate(() => { const st = FP.story.find((s) => s.chair), c = st.chair, t = st.slot || c; FP.P.x = t.x + c.fx * 1.2; FP.P.y = t.y + c.fy * 1.2; FP.P.a = Math.atan2(t.y - FP.P.y, t.x - FP.P.x); });
   await p.waitForTimeout(300); await closePage(p);
   for (const y of [480, 500, 460, 520]) { await p.mouse.click(215, y); await p.waitForTimeout(250); if (await p.evaluate(() => FP.watchLeft)) break; await closePage(p); }
-  const left = await p.evaluate(() => [FP.watchLeft, FP.beingStateNow]);
-  await closePage(p);
-  check('the exit won\'t open until the watch is left on his chair; then the being waits there',
-    !shutWon && carrying && left[0] && left[1] === 'guide', `won at the shut exit: ${shutWon}; carried the watch: ${carrying}; left it: ${left[0]}; being: ${left[1]}`);
+  const left = await p.evaluate(() => [FP.watchLeft, FP.beingStateNow, FP.exitOpen]);
+  await closePage(p); await closePage(p);
+  // and his book put away (Joe: "another collectible that needs to be dealt with in order to move on")
+  await p.evaluate(() => document.getElementById('shelveBook').click()); await p.waitForTimeout(300); await closePage(p);
+  const shelved = await p.evaluate(() => [FP.exitOpen, FP.beingStateNow]);
+  check('the exit won\'t open until the watch is left on his chair and his book is back on its shelf; then the being waits there',
+    !shutWon && carrying && left[0] && !left[2] && left[1] !== 'guide' && shelved[0] && shelved[1] === 'guide',
+    `won at the shut exit: ${shutWon}; carried the watch: ${carrying}; left it: ${left[0]}, open then: ${left[2]}; book shelved: open ${shelved[0]}, being ${shelved[1]}`);
   await p.evaluate(() => { const [dx, dy] = FP.exitDir; FP.P.x = exit.x + 0.5 - dx * 2.2; FP.P.y = exit.y + 0.5 - dy * 2.2; FP.P.a = Math.atan2(dy, dx); });
   await p.waitForTimeout(3400);
   const kid = await p.evaluate(() => FP.beingStateNow);

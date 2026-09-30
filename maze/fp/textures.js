@@ -657,6 +657,9 @@ const TEX = (() => {
       sprite(['..y.........', '..yo....y...', '..yoo..yoo..', '.yooro.yoro.', '.yorrooorro.', 'yorrRrorrRro', 'orrRRrrRRrro', 'orRRRRRRRRro', 'orRRRRRRRRRo', '.oRRRRRRRRo.'],
         Object.assign({}, P, { y: (hex('#f6e27a') & 0xffffff) | 0xfe000000, o: (hex('#f0a33a') & 0xffffff) | 0xfe000000, r: (hex('#e2622a') & 0xffffff) | 0xfe000000, R: (hex('#b8321e') & 0xffffff) | 0xfe000000 })),
     ],
+    // the kid's room's shelf: the gap the picture book goes back in, and its spine once it's there
+    bookGap: sprite(['kkk', 'kkk', 'kkk', 'kkk', 'kkk', 'kkk', 'kkk', 'kkk'], Object.assign({}, P, { k: hex('#1a1612') })),
+    bookSpine: sprite(['yyy', 'yry', 'yry', 'yyy', 'ygy', 'ygy', 'yyy', 'yyy'], Object.assign({}, P, { y: hex('#e6c34a'), r: hex('#c0452f'), g: hex('#4f8a3e') })),
     ash: sprite(['...kk.k.....', '.kKkkKkkK.k.', 'kKkKKkKkkKkk'], Object.assign({}, P, { k: hex('#2a2724'), K: hex('#4a4640') })),
     // a kid's heap of chalk in a corner, the colours as well as the white: Joe, "Put a pile of chalk in one corner"
     chalkPile: sprite([

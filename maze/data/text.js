@@ -379,6 +379,19 @@ const FP_MEMORIES = {
       after: "i held my breath till my ears hurt. he stood right there. he said my name like a question and then he went back out. i stayed in there a long time after.",
       seen: "i didnt hide in time. he walked right past me like i wasnt even there. i dont know if that was better or worse.",
     },
+    // the chalk room's picture book. Joe: "Maybe the children's book needs to be read. You sit in the bed and flip through
+    // the book. Then it has to be put away on a shelf in the room. It's another collectible that needs to be dealt with in
+    // order to move on." Tap it: you sit on the bed and turn its `pages`; then `after`, and you're holding it. The shelf in
+    // the room has a gap its size (`gap`, tapped without it); put back, `shelved`. `notYet` if you leave his watch while
+    // the book's still out: the way out waits for both
+    book: {
+      pages: ["the little bear waited by the window for the big bear to come home.", "the moon said, he is coming, little bear. close your eyes.",
+        "but the little bear kept his eyes open all night so he would not miss him.", "in the morning the big bear was there, and he picked the little bear up.", "the end."],
+      after: "he read me this one every night. he did all the voices. i read it to myself now but i cant do the big bear voice.",
+      gap: "a gap on the shelf, the size of a book.",
+      shelved: "i put it back where it goes. i dont need it read to me anymore.",
+      notYet: "not yet. his book is still out. i have to put it away first.",
+    },
     // the chalk room: the ball and the one glove, and dad drawn on the wall with his glove up. It never goes to him
     catch: {
       page: "dad said keep your eye on the glove and throw it right to me. i practise on the wall so next time i get it right. next time he wont have to go get it.",
