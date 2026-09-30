@@ -12,7 +12,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 | `sound.js` | what a body in a room makes: picking things up (its own, louder than the top-down's cues), footsteps per look (carpet, stone), room tone, lamp hum and flicker crackle, the squeeze's rub (the first couple of seconds of each one), doors, a closet's muffle. The music is the top-down's own `AUDIO`, loaded unchanged. A phone that stops either context gets it woken again by any part of a touch, by coming back to the page, and by a check every 2s (walking is one long touch); on an iPhone the page asks to count as playback, so the ringer switch doesn't mute it. The panel's readout line says whether sound and music are running |
 | `fp.js` | the raycaster, the walk (the stick, or WASD), things in the world and tapping them, chalk and words on walls, the debug map, the panel |
 
-- **The opening.** Each time the game is opened, a line on black first (`FP_OPENING` in data/text.js; a tap or a key
+- **The opening.** Each time the game is opened, a quote on black first — one at random from Joe's source-checked list, with who said it (`FP_OPENING.quotes` in data/text.js; the long ones stay up longer; a tap or a key
   skips it), then the waking.
 - **Waking.** A maze starts with you lying on a mat on the floor of the start room, a pillow under your head, the camera
   down at the floor; then you get up, swaying, to standing height (`WAKE_LIE`, `WAKE_RISE`). No control until you're up; the
@@ -32,7 +32,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   steering with quiet help, each with its own knob under Glide help on the panel, never a snap: it settles you square to
   an open way when you ease off the turn, drifts you to the middle of a one-wide hall, and two
   "whiskers" slip you sideways past a corner one of them touches. **Rails** is the top-down's model
-  (buffered quarter turns, centred in halls). **Free** is no help at all. Keys are a stick too; Space (or X) is the hand — whatever is straight ahead: take it, open it,
+  (buffered quarter turns, centred in halls). **Free** is no help at all. Keys are a stick too (the numpad as well: 8 4 6 2 to walk and turn); Space (or X, or 0) is the hand — whatever is straight ahead: take it, open it,
   chalk it, step into or out of the closet, put the page down. **Full screen** on the panel, for a PC.
   A tap on the view no longer moves you: it touches what is within reach.
   Once the panel is shut, nothing on it keeps the keyboard: a slider touched there used to swallow WASD until you went back.

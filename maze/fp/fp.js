@@ -2838,6 +2838,7 @@
   const WAKE_LIE = 1100, WAKE_RISE = 2500, WAKE_EYE = 0.1;
   let rising = null;
   // the quote on black before the first waking of a session (FP_OPENING); a tap or a key skips it
+  let openingQuote = null;
   function opening() {
     const el = $('opening');
     // Joe: "there is a couple frames of the camera already in the upright position. Then it cuts to the scene where they
@@ -2845,12 +2846,14 @@
     // page's first paint (it starts with `show` in the page, not faded in over a running game), and the moment it starts to
     // fade you are already lying on the mat: the wake begins now, its lying still counted from when the fade is done
     if (!S.wakeScene || typeof FP_OPENING === 'undefined' || !el) { if (el) el.classList.remove('show'); startWake(); return; }
-    $('openingText').textContent = FP_OPENING.quote; $('openingBy').textContent = FP_OPENING.by ? '— ' + FP_OPENING.by : '';
+    const Q = FP_OPENING.quotes && FP_OPENING.quotes.length ? FP_OPENING.quotes[Math.floor(Math.random() * FP_OPENING.quotes.length)] : [FP_OPENING.quote || '', FP_OPENING.by || ''];
+    $('openingText').textContent = Q[0]; $('openingBy').textContent = Q[1] ? '— ' + Q[1] + (Q[2] ? ', ' + Q[2] : '') : '';
+    openingQuote = Q;
     el.classList.add('show'); document.body.classList.add('waking');
     let done = false;
     const go = () => { if (done) return; done = true; startWake(OPENING_FADE); el.classList.remove('show'); removeEventListener('pointerdown', go, true); removeEventListener('keydown', go, true); };
     setTimeout(() => { addEventListener('pointerdown', go, true); addEventListener('keydown', go, true); }, 400);
-    setTimeout(go, 5200);
+    setTimeout(go, Math.max(5200, 2600 + Q[0].length * 55));   // the long ones stay up long enough to read
   }
   const OPENING_FADE = 900;   // the card's fade, in the page's CSS
   function startWake(after = 0) {
@@ -3343,7 +3346,10 @@
   $('again').onclick = () => newMaze();
 
   // ── keys ──────────────────────────────────────────────────
-  const KEYS = { ArrowUp: 'fwd', KeyW: 'fwd', ArrowDown: 'back', KeyS: 'back', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', KeyQ: 'sleft', KeyE: 'sright', ShiftLeft: 'shift', ShiftRight: 'shift' };
+  // Joe: "a control scheme on the keyboard that uses the numberpad for movement (4,8,6,2) with 0 as the enter/interact key"
+  const KEYS = { ArrowUp: 'fwd', KeyW: 'fwd', ArrowDown: 'back', KeyS: 'back', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', KeyQ: 'sleft', KeyE: 'sright', ShiftLeft: 'shift', ShiftRight: 'shift',
+    Numpad8: 'fwd', Numpad2: 'back', Numpad4: 'left', Numpad6: 'right' };
+  const HAND = new Set(['Space', 'KeyX', 'Numpad0']);   // the hand: whatever is straight ahead
   const keys = {};
   addEventListener('keydown', (e) => {
     // a slider or a list in the panel keeps the keys only while the panel is open. Joe: "You broke WASD on PC" — touch a
@@ -3351,11 +3357,11 @@
     const panelOpen = $('panel').classList.contains('open');
     if (panelOpen && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
     if (!panelOpen && document.activeElement && $('panel').contains(document.activeElement)) document.activeElement.blur();
-    if (reading) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) hidePage(); } return; }   // on a PC, a key puts the page down
+    if (reading) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'NumpadEnter' || HAND.has(e.code)) { e.preventDefault(); if (!e.repeat) hidePage(); } return; }   // on a PC, a key puts the page down
     // Space (or X) is the hand on a PC: whatever is straight ahead. Joe: "On PC, let's get spacebar to leave and X as
     // well as be the interact button on things."
     if (seated && (e.code === 'Escape' || (KEYS[e.code] && KEYS[e.code] !== 'shift'))) { e.preventDefault(); getUp(); return; }   // at the card table: a step is getting up
-    if (e.code === 'Space' || e.code === 'KeyX') { e.preventDefault(); if (!e.repeat) interact(); return; }
+    if (HAND.has(e.code)) { e.preventDefault(); if (!e.repeat) interact(); return; }
     const a = KEYS[e.code]; if (!a) return;
     e.preventDefault();
     keys[a] = true; if (a !== 'shift') learn('move');
@@ -3837,5 +3843,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

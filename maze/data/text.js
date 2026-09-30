@@ -402,11 +402,34 @@ const FP_TRAINING = {
 
 // first person: on black, before you wake, once each time the game is opened. Joe: "a quote about being lost in our
 // own minds, or how we build walls within ourselves. It shows up at the top of the game on black. Then we fade into the
-// actual game wake scene." An unattributed line for now (Claude's draft) — a real quote, with its source checked, can
-// replace it: set `by` to its author.
+// actual game wake scene." And later: "Pull the quotes from here and have them play randomly at the start of the game"
+// — his source-checked list (the doc's Quotes tab), word for word, with its credits; one at random each time. Each is
+// [the quote, who, where]. The misattributed ones on that list's watchlist are left out.
 const FP_OPENING = {
-  quote: "The walls we build to keep the hurt out are the same walls that keep us in.",
-  by: "",
+  quotes: [
+    ["The mind is its own place, and in itself can make a Heav'n of Hell, a Hell of Heav'n.", "John Milton", "Paradise Lost"],
+    ["Which way I fly is Hell; myself am Hell.", "John Milton", "Paradise Lost"],
+    ["Denmark's a prison… for there is nothing either good or bad but thinking makes it so. To me it is a prison.", "William Shakespeare", "Hamlet"],
+    ["O God, I could be bounded in a nutshell and count myself a king of infinite space, were it not that I have bad dreams.", "William Shakespeare", "Hamlet"],
+    ["In every cry of every Man, in every Infants cry of fear, in every voice: in every ban, the mind-forg'd manacles I hear.", "William Blake", "London"],
+    ["One need not be a Chamber — to be Haunted — One need not be a House — The Brain has Corridors — surpassing Material Place —", "Emily Dickinson", ""],
+    ["Stone walls do not a prison make, nor iron bars a cage.", "Richard Lovelace", "To Althea, from Prison"],
+    ["A man will be imprisoned in a room with a door that's unlocked and opens inwards; as long as it does not occur to him to pull rather than push it.", "Ludwig Wittgenstein", "Culture and Value"],
+    ["This delusion is a kind of prison for us, restricting us to our personal desires and to affection for a few persons nearest to us. Our task must be to free ourselves from this prison by widening our circle of compassion.", "Albert Einstein", "letter, 1950"],
+    ["Everything can be taken from a man but one thing: the last of the human freedoms — to choose one's attitude in any given set of circumstances, to choose one's own way.", "Viktor E. Frankl", "Man's Search for Meaning"],
+    ["A cage went in search of a bird.", "Franz Kafka", "The Zürau Aphorisms"],
+    ["Whilst others might free the body, none but ourselves can free the mind.", "Marcus Garvey", "1937"],
+    ["As I walked out the door toward the gate that would lead to my freedom, I knew if I didn't leave my bitterness and hatred behind, I'd still be in prison.", "Nelson Mandela", ""],
+    ["Wherever I sat — on the deck of a ship or at a street café in Paris or Bangkok — I would be sitting under the same glass bell jar, stewing in my own sour air.", "Sylvia Plath", "The Bell Jar"],
+    ["Before I built a wall I'd ask to know what I was walling in or walling out.", "Robert Frost", "Mending Wall"],
+    ["Something there is that doesn't love a wall, that wants it down.", "Robert Frost", "Mending Wall"],
+    ["Imperceptibly they shut me from the outside world.", "C.P. Cavafy", "Walls"],
+    ["Erecting walls around themselves instead of building bridges into the lives of others; shutting out life.", "Joseph Fort Newton", "Adventures of Faith"],
+    ["Lock it up safe in the casket or coffin of your selfishness. But in that casket — safe, dark, motionless, airless — it will change. It will not be broken; it will become unbreakable, impenetrable, irredeemable.", "C.S. Lewis", "The Four Loves"],
+    ["Using vulnerability is not the same thing as being vulnerable; it's the opposite — it's armor.", "Brené Brown", "Daring Greatly"],
+    ["Argue for your limitations, and sure enough, they're yours.", "Richard Bach", "Illusions"],
+    ["Your task is not to seek for love, but merely to seek and find all the barriers within yourself that you have built against it.", "Helen Schucman", "A Course in Miracles"],
+  ],
 };
 
 // first person: the two walls that open the chapter. The first is across from you when you wake —

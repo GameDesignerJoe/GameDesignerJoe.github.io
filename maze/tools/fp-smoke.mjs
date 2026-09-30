@@ -76,6 +76,35 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── a real quote each time, and the numpad ─────────────────────────
+// Joe: "Pull the quotes from here and have them play randomly at the start of the game", and "a control scheme on the
+// keyboard that uses the numberpad for movement (4,8,6,2) with 0 as the enter/interact key"
+{
+  const seen = new Set(); let bad = 0;
+  for (let i = 0; i < 6; i++) {
+    const p = await ctx.newPage(); await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(500);
+    const q = await p.evaluate(() => [document.getElementById('openingText').textContent, document.getElementById('openingBy').textContent,
+      FP_OPENING.quotes.some(([t, by]) => t === document.getElementById('openingText').textContent && document.getElementById('openingBy').textContent.includes(by))]);
+    seen.add(q[0]); if (!q[2] || !q[1]) bad++;
+    await p.close();
+  }
+  const p = await open(4242); await awake(p);
+  const a0 = await p.evaluate(() => [FP.P.x, FP.P.y, FP.P.a]);
+  await p.keyboard.down('Numpad8'); await p.waitForTimeout(500); await p.keyboard.up('Numpad8');
+  const a1 = await p.evaluate(() => [FP.P.x, FP.P.y, FP.P.a, document.getElementById('page').classList.contains('show')]);
+  if (a1[3]) { await p.keyboard.press('Numpad0'); await p.waitForTimeout(300); }   // the start page, put down with 0
+  const closed = await p.evaluate(() => !document.getElementById('page').classList.contains('show'));
+  await p.waitForTimeout(600);
+  if (await p.evaluate(() => document.getElementById('page').classList.contains('show'))) { await p.keyboard.press('Numpad0'); await p.waitForTimeout(400); }   // one queued behind it
+  const a1b = await p.evaluate(() => FP.P.a);
+  await p.keyboard.down('Numpad4'); await p.waitForTimeout(400); await p.keyboard.up('Numpad4');
+  const a2 = await p.evaluate(() => FP.P.a);
+  check('a real quote at the start, a different one from time to time, with who said it; the numpad walks, turns, and 0 is the hand',
+    bad === 0 && seen.size >= 2 && Math.hypot(a1[0] - a0[0], a1[1] - a0[1]) > 0.2 && closed && Math.abs(a2 - a1b) > 0.1,
+    `${seen.size} different quotes in 6 loads, ${bad} not from the list or without a credit; 8 walked ${Math.hypot(a1[0] - a0[0], a1[1] - a0[1]).toFixed(2)}; 0 put the page down ${closed}; 4 turned ${(a2 - a1b).toFixed(2)}`);
+  await p.close();
+}
+
 // ── words on the walls ───────────────────────────────────────────
 {
   const p = await open(4242);
@@ -310,8 +339,8 @@ console.log('The Maze — first person checks');
       for (let i = -1; i <= 3; i++) if (!tiles[y][x + i] || FP.low[y * W + x + i] || held.has(y * W + x + i)) ok = false;
       if (ok) { FP.P.x = x + 0.5; FP.P.y = y + 0.5; FP.P.a = 0; return; } } });
   await p.waitForTimeout(200);
-  const walk = async () => { await p.evaluate(() => { FP.P.a = 0; }); const a = await p.evaluate(() => [FP.P.x, FP.P.y]); await p.keyboard.down('KeyW'); await p.waitForTimeout(600); await p.keyboard.up('KeyW');
-    const c = await p.evaluate(() => [FP.P.x, FP.P.y]); await p.keyboard.down('KeyS'); await p.waitForTimeout(600); await p.keyboard.up('KeyS'); return Math.hypot(c[0] - a[0], c[1] - a[1]); };
+  const walk = async () => { await p.evaluate(() => { FP.P.a = 0; }); const a = await p.evaluate(() => [FP.P.x, FP.P.y]); await p.keyboard.down('KeyW'); await p.waitForTimeout(1000); await p.keyboard.up('KeyW');
+    const c = await p.evaluate(() => [FP.P.x, FP.P.y]); await p.keyboard.down('KeyS'); await p.waitForTimeout(1000); await p.keyboard.up('KeyS'); return Math.hypot(c[0] - a[0], c[1] - a[1]); };
   const before = await walk();
   await p.evaluate(() => { document.getElementById('gear').click(); for (const d of document.querySelectorAll('#panel details')) d.open = true; document.querySelector('#panel input[type=range]').focus(); });
   await p.waitForTimeout(200);
@@ -319,7 +348,8 @@ console.log('The Maze — first person checks');
   await p.mouse.click(at[0] < 420 ? at[0] : 215, at[0] < 420 ? 450 : at[1]); await p.waitForTimeout(300);   // the view, not the panel
   const shut = await p.evaluate(() => !document.getElementById('panel').classList.contains('open'));
   const after = await walk();
-  check('the keys still walk once the panel is shut, whatever was touched on it', before > 0.3 && shut && after > 0.3,
+  // the bug this guards walked 0.00; a slow frame walks less, never nothing
+  check('the keys still walk once the panel is shut, whatever was touched on it', before > 0.2 && shut && after > 0.2,
     `walked ${before.toFixed(2)} before; panel shut ${shut}; walked ${after.toFixed(2)} after touching a slider`);
   await p.close();
 }
