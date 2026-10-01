@@ -342,9 +342,9 @@ async function renderFrame(i) {
   // 0:15 — THE TURN
   if (t >= 15 && t < 17.5) {
     const k = t - 15; P.gl = Math.max(0, 0.9 - k * 1.2) + (k > 1.6 && k < 1.75 ? 0.5 : 0); P.shake = Math.max(0, 1 - k / 0.8); P.fl = Math.max(0, 1 - k / 0.1) * 0.8;
-    slam('THEN', t, 15.0, 17.45, 150, 610, 190);
-    slam('THE BUILDING', t, 15.625, 17.45, 150, 790, 190);
-    slam('NOTICES YOU.', t, 16.25, 17.45, 150, 970, 190, { fill: '#b9f0a8' });
+    slam('THEN', t, 15.0, 17.45, 150, 540, 190);
+    slam('THE BUILDING', t, 15.625, 17.45, 150, 720, 190);
+    slam('NOTICES YOU.', t, 16.25, 17.45, 150, 900, 190, { fill: '#b9f0a8' });
     tag('THE TURN', 'lamps die toward you', t, 15.2, 17.45, 1350, 230, '#b9f0a8');
   }
   if (t >= 17.5 && t < 17.62) P.gl = 0.5;
