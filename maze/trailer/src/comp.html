@@ -1,0 +1,409 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>The Maze — trailer compositor</title>
+<style>
+@font-face { font-family: Anton; src: url(fonts/Anton-400.woff2); }
+@font-face { font-family: Mono; src: url(fonts/SpaceMono-400.woff2); }
+@font-face { font-family: Mono; font-weight: 700; src: url(fonts/SpaceMono-700.woff2); }
+@font-face { font-family: Hand; src: url(fonts/caveat-latin.woff2); }
+@font-face { font-family: Serif; font-style: italic; src: url(fonts/CormorantGaramond-500i.woff2); }
+html, body { margin: 0; background: #000; }
+canvas { display: block; }
+#scene, #text, #mapc { display: none; }
+</style></head>
+<body>
+<canvas id="out" width="1920" height="1080"></canvas>
+<canvas id="scene" width="1920" height="1080"></canvas>
+<canvas id="text" width="1920" height="1080"></canvas>
+<canvas id="mapc" width="1600" height="2048"></canvas>
+<script src="music.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// The Maze — 30s trailer. 96 BPM: a beat is 0.625s, a bar 2.5s. Every cut is on the grid the score is written to.
+// ─────────────────────────────────────────────────────────────────────────────
+const FPS = 30, WD = 1920, HT = 1080, BEAT = 0.625;
+const sc = document.getElementById('scene').getContext('2d');
+const tx = document.getElementById('text').getContext('2d');
+const mc = document.getElementById('mapc').getContext('2d');
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const sm = (a, b, t) => { const k = clamp((t - a) / (b - a)); return k * k * (3 - 2 * k); };
+const eOut = (k) => 1 - Math.pow(1 - clamp(k), 3), eIn = (k) => Math.pow(clamp(k), 3), eIO = (k) => { k = clamp(k); return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; };
+const eBack = (k) => { k = clamp(k); const c = 1.9; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
+const hash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+// ── the edit ── [t0, t1, shot, src start (s), {zoom from→to, focus, speed}]
+const EDL = [
+  [2.500, 5.000, 'wake2', 0.25, { z: [1.12, 1.0], f: [0.5, 0.45] }],
+  [6.250, 7.500, 'hall3', 0.55, { z: [1.25, 1.05], f: [0.5, 0.5] }],
+  [7.500, 8.750, 'waiting', 0.9, { z: [1.0, 1.1], f: [0.62, 0.45] }],
+  [8.750, 10.00, 'wallroom', 1.55, { z: [1.08, 1.0], f: [0.6, 0.45] }],
+  [10.00, 11.25, 'kid', 0.78, { z: [1.0, 1.08], f: [0.5, 0.42] }],
+  [11.25, 12.50, 'page', 1.05, { z: [1.0, 1.35], f: [0.5, 0.44] }],
+  [12.50, 13.75, 'cards', 1.45, { z: [1.0, 1.1], f: [0.52, 0.55] }],
+  [13.75, 14.70, 'fire', 0.42, { z: [1.12, 1.3], f: [0.55, 0.78], sp: 0.55 }],
+  [15.00, 17.50, 'turn', 0.85, { z: [1.18, 1.0], f: [0.5, 0.48] }],
+  [17.50, 18.75, 'roomdark', 2.55, { z: [1.0, 1.12], f: [0.45, 0.42], ex: 1.2 }],
+  [18.75, 20.00, 'being', 6.0, { z: [1.0, 1.25], f: [0.5, 0.45] }],
+  [20.00, 21.25, 'hide', 0.3, { z: [1.15, 1.3], f: [0.62, 0.42], ex: 1.7 }],
+  [21.25, 21.5625, 'being', 7.62, { z: [1.4, 1.5], f: [0.5, 0.3] }],
+  [21.5625, 21.875, 'turn', 3.25, { z: [1.2, 1.25], f: [0.5, 0.5] }],
+  [21.875, 22.1875, 'roomdark', 3.8, { z: [1.3, 1.35], f: [0.3, 0.42] }],
+  [22.1875, 22.50, 'being', 7.95, { z: [1.8, 2.0], f: [0.5, 0.18] }],
+  [22.50, 25.00, 'lies', 0.75, { z: [1.0, 1.12], f: [0.55, 0.42] }],
+  [25.00, 26.50, 'heart', 0.6, { z: [1.0, 1.15], f: [0.5, 0.4], ex: 1.45 }],
+  [26.50, 27.50, 'exit', 3.65, { z: [1.0, 1.1], f: [0.5, 0.4] }],
+];
+const FRAMES = { wake2: 102, hall3: 90, waiting: 90, wallroom: 90, kid: 105, page: 90, cards: 150, fire: 180, turn: 180, roomdark: 120, being: 240, hide: 210, lies: 105, heart: 150, exit: 180 };
+
+// ── images, loaded as needed ──
+const cache = new Map();
+function img(shot, n) {
+  n = Math.max(1, Math.min(FRAMES[shot], n)); const key = shot + n;
+  if (cache.has(key)) return cache.get(key);
+  const im = new Image(); im.src = `../work/shots/${shot}/${String(n).padStart(4, '0')}.jpg`;
+  const pr = im.decode().then(() => im); cache.set(key, pr);
+  if (cache.size > 40) cache.delete(cache.keys().next().value);
+  return pr;
+}
+
+// ── the maze, from the game's own generator (seed 4242), drawn as a plan ──
+let MAP = null;
+const ROOM_COL = { waiting: '#f19bb0', wall: '#e8ecff', heart: '#ff3b3b', memory: '#8fe3a8' };
+const ROOM_NAME = { waiting: 'THE WAITING ROOM', wall: 'THE WALL', heart: 'THE HEART', fire: 'MEMORY · THE FIRE', cards: 'MEMORY · CARDS', phone: 'MEMORY · THE PHONE', hide: 'MEMORY · HIDING' };
+let bfs = null, maxD = 1;
+function mapPrep() {
+  const { W, H, tiles, start } = MAP; bfs = new Int32Array(W * H).fill(-1);
+  const q = [[Math.floor(start.x), Math.floor(start.y)]]; bfs[q[0][1] * W + q[0][0]] = 0;
+  for (let i = 0; i < q.length; i++) { const [x, y] = q[i]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H || !tiles[ny][nx] || bfs[ny * W + nx] >= 0) continue; bfs[ny * W + nx] = bfs[y * W + x] + 1; maxD = Math.max(maxD, bfs[ny * W + nx]); q.push([nx, ny]); } }
+}
+const TS = 44, MOX = (1600 - 33 * 44) / 2, MOY = (2048 - 45 * 44) / 2;
+function drawMap(k, labels = 1, pathK = 1) {   // k: 0→1 how much of the maze has been carved
+  const { W, H, tiles, st, sol, secret } = MAP;
+  mc.setTransform(1, 0, 0, 1, 0, 0); mc.fillStyle = '#05070b'; mc.fillRect(0, 0, 1600, 2048);
+  // blueprint grid
+  mc.strokeStyle = 'rgba(120,170,255,0.07)'; mc.lineWidth = 1;
+  for (let x = 0; x <= 1600; x += TS / 2) { mc.beginPath(); mc.moveTo(x + MOX % (TS / 2), 0); mc.lineTo(x + MOX % (TS / 2), 2048); mc.stroke(); }
+  for (let y = 0; y <= 2048; y += TS / 2) { mc.beginPath(); mc.moveTo(0, y + MOY % (TS / 2)); mc.lineTo(1600, y + MOY % (TS / 2)); mc.stroke(); }
+  mc.translate(MOX, MOY);
+  const front = k * (maxD + 6);
+  const roomOf = new Map(); for (const s of st) for (const t of s.tiles) roomOf.set(t, s);
+  const sec = new Set((secret || []).map((s) => { const [x, y] = s.split(',').map(Number); return y * W + x; }));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!tiles[y][x]) continue; const d = bfs[y * W + x]; if (d < 0 || d > front) continue;
+    const age = front - d, hot = clamp(1 - age / 5);
+    const r = roomOf.get(y * W + x); let col = r ? ROOM_COL[r.kind] : sec.has(y * W + x) ? '#c99bff' : null;
+    const base = col ? 0.32 : 0.16;
+    mc.fillStyle = col ? hexA(col, base + hot * 0.5) : `rgba(232,214,150,${base + hot * 0.55})`;
+    mc.fillRect(x * TS + 2, y * TS + 2, TS - 4, TS - 4);
+    if (hot > 0) { mc.fillStyle = `rgba(255,248,220,${hot * 0.8})`; mc.fillRect(x * TS + 2, y * TS + 2, TS - 4, TS - 4); }
+  }
+  // walls: an outline round every open tile against solid
+  mc.strokeStyle = 'rgba(255,236,170,0.75)'; mc.lineWidth = 3; mc.beginPath();
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!tiles[y][x] || bfs[y * W + x] < 0 || bfs[y * W + x] > front) continue;
+    const solid = (a, b) => a < 0 || b < 0 || a >= W || b >= H || !tiles[b][a];
+    if (solid(x, y - 1)) { mc.moveTo(x * TS, y * TS); mc.lineTo(x * TS + TS, y * TS); }
+    if (solid(x, y + 1)) { mc.moveTo(x * TS, y * TS + TS); mc.lineTo(x * TS + TS, y * TS + TS); }
+    if (solid(x - 1, y)) { mc.moveTo(x * TS, y * TS); mc.lineTo(x * TS, y * TS + TS); }
+    if (solid(x + 1, y)) { mc.moveTo(x * TS + TS, y * TS); mc.lineTo(x * TS + TS, y * TS + TS); }
+  }
+  mc.stroke();
+  // the way out, traced
+  if (pathK > 0 && sol) {
+    const n = Math.floor(sol.length * clamp(pathK));
+    mc.strokeStyle = '#ffcf5a'; mc.lineWidth = 6; mc.lineJoin = mc.lineCap = 'round'; mc.shadowColor = '#ffb020'; mc.shadowBlur = 18;
+    mc.beginPath(); for (let i = 0; i < n; i++) { const [x, y] = sol[i]; const px = x * TS + TS / 2, py = y * TS + TS / 2; i ? mc.lineTo(px, py) : mc.moveTo(px, py); } mc.stroke(); mc.shadowBlur = 0;
+    if (n > 0) { const [x, y] = sol[n - 1]; mc.fillStyle = '#fff3c4'; mc.beginPath(); mc.arc(x * TS + TS / 2, y * TS + TS / 2, 10, 0, 7); mc.fill(); }
+  }
+  // you are here
+  const sx = MAP.start.x * TS, sy = MAP.start.y * TS;
+  mc.strokeStyle = '#7fe0ff'; mc.lineWidth = 4; mc.beginPath(); mc.arc(sx, sy, 16 + 6 * Math.sin(k * 20), 0, 7); mc.stroke();
+  // room labels
+  if (labels > 0) {
+    mc.font = '700 30px Mono'; mc.textBaseline = 'middle';
+    st.forEach((s, i) => {
+      const name = ROOM_NAME[s.mem || s.kind]; if (!name) return;
+      const xs = s.tiles.map((t) => t % W), ys = s.tiles.map((t) => (t / W) | 0), cx = (Math.min(...xs) + Math.max(...xs) + 1) / 2 * TS, cy = Math.min(...ys) * TS;
+      const show = clamp(labels * 6 - i * 0.6); if (show <= 0) return;
+      if (bfs[s.tiles[0]] > front) return;
+      const col = ROOM_COL[s.kind]; mc.globalAlpha = show;
+      mc.strokeStyle = col; mc.lineWidth = 2; mc.beginPath(); mc.moveTo(cx, cy); mc.lineTo(cx + 30, cy - 40); mc.lineTo(cx + 40 + mc.measureText(name).width * show, cy - 40); mc.stroke();
+      mc.fillStyle = col; mc.fillText(name.slice(0, Math.ceil(name.length * show)), cx + 40, cy - 58);
+      mc.globalAlpha = 1;
+    });
+  }
+  mc.setTransform(1, 0, 0, 1, 0, 0);
+}
+function hexA(h, a) { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+
+// ── WebGL: the post pass. Grade, aberration, glitch, zoom blur, grain, vignette, letterbox, and the maze in 3D ──
+const gl = document.getElementById('out').getContext('webgl', { preserveDrawingBuffer: true, antialias: false });
+const VS = `attribute vec2 p; varying vec2 v; void main(){ v = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }`;
+const FS = `precision highp float; varying vec2 v;
+uniform sampler2D uScene, uText, uMap; uniform float uT, uAb, uGl, uZb, uFl, uMapMix, uBars, uGrain, uVig, uSat, uCon, uBloom, uShake, uTextAb;
+uniform vec3 uTint, uLift; uniform vec4 uCam; uniform float uPitch;
+float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+vec3 scene(vec2 uv){ return texture2D(uScene, uv).rgb; }
+vec3 mapAt(vec2 ndc){
+  // a camera over the plan, looking down at uPitch, turned by uCam.w, uCam.z away from (uCam.x, uCam.y)
+  float ca = cos(uCam.w + 3.14159), sa = sin(uCam.w + 3.14159);
+  vec3 tgt = vec3(uCam.xy, 0.);
+  vec3 back = vec3(-sa, -ca, 0.) * cos(uPitch) + vec3(0.,0.,1.) * sin(uPitch);
+  vec3 C = tgt + back * uCam.z;
+  vec3 f = normalize(tgt - C), r = normalize(cross(f, vec3(0.,0.,1.))), u = cross(r, f);
+  vec3 d = normalize(f - ndc.x * 0.62 * (16./9.) * r + ndc.y * 0.62 * u);
+  if (d.z > -0.001) return vec3(0.);
+  float t = -C.z / d.z; vec3 P = C + d * t;
+  vec2 muv = vec2(P.x / 1600., 1. - P.y / 2048.);
+  if (muv.x < 0. || muv.y < 0. || muv.x > 1. || muv.y > 1.) return vec3(0.015,0.02,0.03);
+  vec3 c = texture2D(uMap, muv).rgb;
+  float fog = exp(-t / 5200.);
+  return c * fog;
+}
+void main(){
+  vec2 uv = v;
+  // shake
+  uv += uShake * vec2(h(vec2(uT, 1.)) - .5, h(vec2(uT, 2.)) - .5) * 0.02;
+  // glitch: slices of the frame pushed sideways
+  float gl = uGl;
+  if (gl > 0.) {
+    float row = floor(uv.y * (14. + 30. * h(vec2(floor(uT * 24.), 9.))));
+    float n = h(vec2(row, floor(uT * 24.)));
+    if (n < gl * 0.6) uv.x += (h(vec2(row, floor(uT * 24.) + 3.)) - .5) * 0.22 * gl;
+  }
+  vec2 dir = uv - 0.5;
+  float ab = uAb + gl * 0.012;
+  vec3 col = vec3(0.);
+  const int N = 10;
+  for (int i = 0; i < N; i++) {
+    float s = 1. - uZb * float(i) / float(N) * 0.18;
+    vec2 q = 0.5 + dir * s;
+    col += vec3(scene(q + dir * ab).r, scene(q).g, scene(q - dir * ab).b);
+  }
+  col /= float(N);
+  // cheap bloom: what's bright, spread
+  vec3 bl = vec3(0.);
+  for (int i = 0; i < 8; i++) { float a = float(i) * 0.785; vec2 o = vec2(cos(a), sin(a)) * 0.012; bl += max(scene(uv + o) - 0.62, 0.); bl += max(scene(uv + o * 2.4) - 0.62, 0.) * 0.6; }
+  col += bl / 8. * uBloom;
+  // the maze, in 3D
+  if (uMapMix > 0.) { vec2 ndc = (uv - 0.5) * 2.; vec3 mp = mapAt(ndc); col = mix(col, mp, uMapMix); }
+  // grade
+  float l = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(vec3(l), col, uSat);
+  col = (col - 0.5) * uCon + 0.5;
+  col = col * uTint + uLift * (1. - col);
+  // type, on top of the grade but inside the lens
+  vec2 tdir = uv - 0.5; float tab = uTextAb + gl * 0.01;
+  vec4 tr = texture2D(uText, uv + tdir * tab), tg = texture2D(uText, uv), tb = texture2D(uText, uv - tdir * tab);
+  vec3 tcol = vec3(tr.r, tg.g, tb.b); float ta = max(max(tr.a, tg.a), tb.a);
+  col = col * (1. - tg.a) + tcol;
+  // vignette, grain, scanlines, flash
+  float vg = smoothstep(1.15, 0.25, length((v - 0.5) * vec2(1.25, 1.)));
+  col *= mix(1., vg, uVig);
+  col += (h(v * 1000. + uT * 61.) - 0.5) * uGrain;
+  col *= 0.97 + 0.03 * sin(v.y * 1080. * 3.14159);
+  col = mix(col, vec3(1.), uFl);
+  // letterbox
+  float bar = uBars * 0.5 * (1. - (1920. / 2.39) / 1080.);
+  if (v.y < bar || v.y > 1. - bar) col = vec3(0.);
+  gl_FragColor = vec4(col, 1.);
+}`;
+function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+function tex(unit, name) { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.uniform1i(gl.getUniformLocation(prog, name), unit); return t; }
+const T_SCENE = tex(0, 'uScene'), T_TEXT = tex(1, 'uText'), T_MAP = tex(2, 'uMap');
+gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+const U = (n) => gl.getUniformLocation(prog, n);
+function upload(t, unit, canvas) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas); }
+
+// ── grade by act ──
+// [t, sat, con, tint rgb, lift rgb]
+const GRADES = [
+  [0, 0.95, 1.06, [1.04, 0.98, 0.86], [0.0, 0.012, 0.02]],      // act one: the yellow of the place, cool in the shadows
+  [14.6, 0.95, 1.06, [1.04, 0.98, 0.86], [0.0, 0.012, 0.02]],
+  [15.0, 0.55, 1.22, [0.86, 1.0, 0.84], [0.0, 0.02, 0.01]],      // the turn: sick and hard
+  [22.4, 0.55, 1.22, [0.86, 1.0, 0.84], [0.0, 0.02, 0.01]],
+  [22.5, 1.0, 1.04, [1.06, 0.98, 0.92], [0.01, 0.0, 0.0]],       // the lies crossed out: warmer
+  [25.0, 1.12, 1.08, [1.08, 0.94, 0.92], [0.02, 0.0, 0.0]],      // the heart
+  [27.5, 1.0, 1.05, [1.0, 1.0, 1.0], [0.0, 0.0, 0.0]],
+];
+function grade(t) { let i = 0; while (i < GRADES.length - 2 && t >= GRADES[i + 1][0]) i++; const a = GRADES[i], b = GRADES[i + 1], k = clamp((t - a[0]) / Math.max(0.001, b[0] - a[0]));
+  return { sat: lerp(a[1], b[1], k), con: lerp(a[2], b[2], k), tint: a[3].map((v, j) => lerp(v, b[3][j], k)), lift: a[4].map((v, j) => lerp(v, b[4][j], k)) }; }
+
+// ── type ──
+function txt(s, x, y, { font = '120px Anton', fill = '#fff', align = 'left', alpha = 1, track = 0, blur = 0, scale = 1, shadow = 0, baseline = 'alphabetic' } = {}) {
+  tx.save(); tx.globalAlpha = clamp(alpha); tx.font = font; tx.textAlign = 'left'; tx.textBaseline = baseline; tx.fillStyle = fill;
+  if (blur > 0.2) tx.filter = `blur(${blur}px)`;
+  if (shadow) { tx.shadowColor = 'rgba(0,0,0,0.85)'; tx.shadowBlur = shadow; }
+  tx.letterSpacing = `${track}px`;
+  const w = tx.measureText(s).width; let x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  tx.translate(x, y); tx.scale(scale, scale); tx.translate(-x, -y); tx.fillText(s, x0, y); tx.restore(); return w;
+}
+// a word slammed in: big, a touch too big, then settling; blur off as it lands
+function slam(s, t, t0, t1, x, y, size, opts = {}) {
+  if (t < t0 || t > t1) return; const k = (t - t0) / 0.22, out = sm(t1 - 0.12, t1, t);
+  txt(s, x, y, { font: `${size}px Anton`, scale: lerp(1.35, 1, eOut(k)), blur: (1 - eOut(k)) * 14 + out * 10, alpha: clamp(k * 2) * (1 - out), track: lerp(30, opts.track ?? 4, eOut(k)), align: opts.align || 'left', fill: opts.fill || '#f4efe2', shadow: 30 });
+}
+// HUD tag: a line draws, the label decodes out of noise
+const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&/<>=+';
+function tag(label, sub, t, t0, t1, x, y, col = '#ffd766') {
+  if (t < t0 || t > t1) return; const k = t - t0, out = sm(t1 - 0.15, t1, t), a = 1 - out;
+  tx.save(); tx.globalAlpha = a; tx.strokeStyle = col; tx.lineWidth = 2;
+  const L = 46 * eOut(k / 0.25); tx.beginPath(); tx.moveTo(x, y - 34); tx.lineTo(x, y - 34 + L * 1.6); tx.stroke();
+  tx.fillStyle = col; tx.fillRect(x - 5, y - 40, 10, 10);
+  tx.restore();
+  const n = Math.floor(label.length * clamp((k - 0.08) / 0.35)); let s = '';
+  for (let i = 0; i < label.length; i++) s += i < n ? label[i] : (label[i] === ' ' ? ' ' : (i < n + 4 ? GLYPHS[Math.floor(hash(i + Math.floor(t * 30) * 7.7) * GLYPHS.length)] : ''));
+  txt(s, x + 22, y, { font: '700 30px Mono', fill: col, alpha: a, track: 3, shadow: 12 });
+  if (sub) txt(sub.slice(0, Math.floor(sub.length * clamp((k - 0.25) / 0.4))), x + 22, y + 34, { font: '22px Mono', fill: 'rgba(240,235,220,0.85)', alpha: a, track: 1, shadow: 10 });
+}
+// handwriting: revealed left to right, like it's being written
+function hand(s, t, t0, t1, x, y, size, { col = '#f3ecd9', dur = 0.9, align = 'center' } = {}) {
+  if (t < t0 || t > t1) return; const k = clamp((t - t0) / dur), out = sm(t1 - 0.3, t1, t);
+  tx.save(); tx.font = `${size}px Hand`; const w = tx.measureText(s).width; const x0 = align === 'center' ? x - w / 2 : x;
+  tx.beginPath(); tx.rect(x0 - 20, y - size * 1.2, (w + 40) * eIO(k), size * 2); tx.clip();
+  txt(s, x0, y, { font: `${size}px Hand`, fill: col, alpha: 1 - out, shadow: 24, blur: out * 6 }); tx.restore();
+}
+
+// ── the frame ──
+async function renderFrame(i) {
+  const t = i / FPS;
+  sc.setTransform(1, 0, 0, 1, 0, 0); sc.fillStyle = '#000'; sc.fillRect(0, 0, WD, HT);
+  tx.clearRect(0, 0, WD, HT);
+  const P = { ab: 0.0015, gl: 0, zb: 0, fl: 0, map: 0, bars: 1, grain: 0.045, vig: 0.85, bloom: 0.9, shake: 0, tab: 0.0008, cam: [0, 0, 1500, 0], pitch: 1.0 };
+
+  // footage
+  const clip = EDL.find((c) => t >= c[0] && t < c[1]);
+  if (clip) {
+    const [t0, t1, shot, s0, o] = clip, k = (t - t0) / (t1 - t0);
+    const n = Math.round((s0 + (t - t0) * (o.sp || 1)) * FPS) + 1;
+    const im = await img(shot, n);
+    const z = lerp(o.z[0], o.z[1], eIO(k)), [fx, fy] = o.f;
+    sc.save(); sc.translate(fx * WD, fy * HT); sc.scale(z, z); sc.translate(-fx * WD, -fy * HT); if (o.ex) sc.filter = `brightness(${o.ex})`; sc.drawImage(im, 0, 0, WD, HT); sc.filter = 'none'; sc.restore();
+    // a hit on every cut: a little zoom-blur and aberration that fall away
+    const sinceCut = t - t0; P.zb += Math.max(0, 1 - sinceCut / 0.18) * 0.6; P.ab += Math.max(0, 1 - sinceCut / 0.2) * 0.006;
+    // preload what's next
+    img(shot, n + 1); img(shot, n + 2);
+  }
+
+  // 0:00 — black. The motif, a word to each note
+  if (t < 2.5) {
+    const W4 = ['he', 'said', 'stay', 'here.'], xs = [690, 805, 975, 1135];
+    W4.forEach((w, j) => { const t0 = j * BEAT; if (t >= t0) { const k = clamp((t - t0) / 0.5), out = sm(2.2, 2.5, t); txt(w, xs[j], 575, { font: '96px Hand', fill: '#efe6cf', alpha: eOut(k) * (1 - out), blur: (1 - eOut(k)) * 10 + out * 8, scale: lerp(1.08, 1, eOut(k)), shadow: 30 }); } });
+    // dust in the dark
+    for (let j = 0; j < 40; j++) { const px = hash(j) * WD + Math.sin(t * 0.6 + j) * 20, py = (hash(j + 9) * HT - t * 18 * (0.5 + hash(j + 3))) % HT; tx.fillStyle = `rgba(255,240,200,${0.08 + 0.12 * hash(j + 4)})`; tx.fillRect(px, (py + HT) % HT, 2, 2); }
+    P.vig = 1; P.grain = 0.06;
+  }
+  // 0:02.5 — waking
+  if (t >= 2.5 && t < 5) {
+    P.fl = Math.max(0, 1 - (t - 2.5) / 0.12) * 0.5;
+    hand("but I didn't.", t, 3.45, 5.0, 960, 905, 72, { col: '#efe6cf', dur: 0.8 });
+    tag('THE CHILD', 'chapter one', t, 2.75, 4.9, 150, 230);
+  }
+  // 0:05 — the maze draws itself, then we fall into it
+  if (t >= 5.0 && t < 6.25 + 0.2) {
+    const k = clamp((t - 5.0) / 1.25);
+    drawMap(eOut(clamp(k * 1.25)), clamp((k - 0.25) * 2), clamp((k - 0.35) * 1.8)); upload(T_MAP, 2, mc.canvas);
+    const sx = MAP.start.x * TS + MOX, sy = MAP.start.y * TS + MOY;
+    // a crane down over the plan, turning, then diving at where you stand
+    const dive = eIn(clamp((t - 5.85) / 0.4));
+    P.cam = [lerp(820, sx, eIO(k) * 0.5 + dive * 0.5), lerp(1050, sy, eIO(k) * 0.5 + dive * 0.5), lerp(1500, 950, eIO(k)) * (1 - dive * 0.93), lerp(-0.55, 0.3, eIO(k)) + dive * 0.4];
+    P.pitch = lerp(1.05, 0.72, eIO(k)) - dive * 0.45;
+    P.map = t < 6.25 ? 1 : 1 - (t - 6.25) / 0.2; P.zb = dive * 1.6; P.ab = 0.003 + dive * 0.01;
+    slam('NO TWO MAZES', t, 5.0, 6.2, 150, 760, 150);
+    slam('ARE THE SAME.', t, 5.3125, 6.2, 150, 900, 150, { fill: '#ffd766' });
+    tag('PROCEDURAL GENERATION', 'seed 4242 · the game\'s own generator', t, 5.15, 6.2, 1250, 230, '#7fe0ff');
+  }
+  if (t >= 6.25 && t < 6.5) P.fl = Math.max(P.fl, (1 - (t - 6.25) / 0.25) * 0.6);
+  // 0:06.25 — the halls
+  tag('RAYCAST LIGHT & FOG', 'every lamp is live', t, 6.4, 7.45, 150, 230);
+  // 0:07.5 — story rooms
+  slam('EVERY ROOM', t, 7.5, 8.7, 150, 900, 170);
+  tag('STORY ROOMS', 'the waiting room · written over by a kid', t, 7.6, 8.7, 150, 230, '#f19bb0');
+  slam('REMEMBERS', t, 8.75, 9.95, 150, 760, 170);
+  slam('SOMETHING.', t, 9.0625, 9.95, 150, 910, 170, { fill: '#ffd766' });
+  tag('THE WALL', '"im fine | it doesnt matter"', t, 8.85, 9.95, 1300, 230, '#e8ecff');
+  // 0:10 — the kid's room: a tube stutters on
+  if (t >= 10 && t < 10.5) P.ab += 0.004 * Math.sin(t * 90) ** 2;
+  tag('LIGHT SWITCHES · PITCH DARK', 'the kid\'s room, behind a squeeze', t, 10.2, 11.2, 150, 230, '#c99bff');
+  tag('PAGES', 'in his hand · read where they lie', t, 11.35, 12.45, 150, 230);
+  // 0:12.5 — memories you play
+  slam('PLAY THE MEMORY.', t, 12.5, 13.7, 960, 900, 150, { align: 'center' });
+  tag('MEMORIES', 'cards · catch · the phone · the fire · hiding', t, 12.6, 13.7, 150, 230, '#8fe3a8');
+  slam("DON'T JUST WATCH IT.", t, 13.75, 14.68, 960, 900, 150, { align: 'center', fill: '#ffd766' });
+  if (t >= 14.25 && t < 14.7) { P.zb += 0.4 * sm(14.25, 14.7, t); P.ab += 0.006 * sm(14.25, 14.7, t); }
+  // 0:14.7 — nothing. Two frames of something looking at you
+  if (t >= 14.84 && t < 14.91) { const im = await img('being', 238); sc.save(); sc.translate(960, 300); sc.scale(2.6, 2.6); sc.translate(-960, -300); sc.drawImage(im, 0, 0, WD, HT); sc.restore(); P.gl = 0.6; }
+  // 0:15 — THE TURN
+  if (t >= 15 && t < 17.5) {
+    const k = t - 15; P.gl = Math.max(0, 0.9 - k * 1.2) + (k > 1.6 && k < 1.75 ? 0.5 : 0); P.shake = Math.max(0, 1 - k / 0.8); P.fl = Math.max(0, 1 - k / 0.1) * 0.8;
+    slam('THEN', t, 15.0, 17.45, 150, 610, 190);
+    slam('THE BUILDING', t, 15.625, 17.45, 150, 790, 190);
+    slam('NOTICES YOU.', t, 16.25, 17.45, 150, 970, 190, { fill: '#b9f0a8' });
+    tag('THE TURN', 'lamps die toward you', t, 15.2, 17.45, 1350, 230, '#b9f0a8');
+  }
+  if (t >= 17.5 && t < 17.62) P.gl = 0.5;
+  tag('LEAVE.', 'words that only show in the dark', t, 17.6, 18.7, 150, 230, '#b9f0a8');
+  if (t >= 18.75 && t < 18.87) P.gl = 0.6;
+  tag('THE BEING', 'it comes when you stray', t, 18.85, 19.95, 150, 230, '#ff6b6b');
+  if (t >= 19.5 && t < 20) P.shake = sm(19.5, 20, t) * 0.4;
+  // 0:20 — the closet
+  if (t >= 20 && t < 20.12) P.gl = 0.5;
+  tag('HIDE', 'closets everywhere · he\'s coming', t, 20.1, 21.2, 150, 230, '#ff6b6b');
+  // 0:21.25 — strobe
+  if (t >= 21.25 && t < 22.5) {
+    const ph = ((t - 21.25) / 0.3125) % 1; P.fl = Math.max(0, 1 - ph / 0.12) * 0.55; P.gl = 0.35 + 0.4 * (1 - ph); P.shake = 0.5; P.ab += 0.006;
+    const on = Math.floor((t - 21.25) * 16) % 3 !== 1;
+    if (on) txt("IT'S NOT WHAT YOU THINK.", 960, 560, { font: '120px Anton', fill: '#f4efe2', align: 'center', track: 6, shadow: 30, baseline: 'middle' });
+  }
+  // 0:22.5 — the lies crossed out
+  if (t >= 22.5 && t < 22.7) P.fl = (1 - (t - 22.5) / 0.2) * 0.7;
+  slam('CROSS OUT THE LIES.', t, 22.5, 24.95, 150, 780, 150);
+  slam("FIND WHAT'S TRUE.", t, 23.75, 24.95, 150, 900, 110, { fill: '#ff6a5a' });
+  tag('YOUR CHALK', 'strike a lie and the truth shows through', t, 22.65, 24.9, 150, 230, '#ff6a5a');
+  // 0:25 — the heart
+  if (t >= 25 && t < 26.5) { const hb = Math.max(0, Math.sin((t - 25) / BEAT * Math.PI)) ** 8; P.zb += hb * 0.25; P.ab += hb * 0.003; P.bloom = 1.4; }
+  tag('THE HEART', 'follow its beat through the walls', t, 25.1, 26.45, 150, 230, '#ff3b3b');
+  // 0:26.5 — the way out
+  hand("it's time to come home now.", t, 26.55, 28.15, 960, 905, 80, { dur: 1.1 });
+  // 0:27.5 — the title
+  if (t >= 27.5) {
+    const k = t - 27.5;
+    drawMap(1, 0, 1); upload(T_MAP, 2, mc.canvas);
+    P.map = sm(27.5, 28.0, t) * 0.38; P.cam = [800, 1024, 2300 - k * 120, -0.2 + k * 0.08]; P.pitch = 0.9;
+    P.fl = Math.max(0, 1 - k / 0.15) * 0.9; P.gl = Math.max(0, 0.5 - k * 1.5); P.ab += Math.max(0, 0.012 - k * 0.02);
+    const L = 'THE MAZE'.split(''); let x = 960 - 470;
+    tx.font = '300px Anton'; tx.letterSpacing = '22px';
+    const widths = L.map((c) => tx.measureText(c).width + 22), total = widths.reduce((a, b) => a + b, 0); x = 960 - total / 2;
+    L.forEach((c, j) => { const kk = clamp((k - j * 0.045) / 0.45); txt(c, x, 600 + (1 - eBack(kk)) * 60, { font: '300px Anton', track: 0, alpha: kk * 1.4, blur: (1 - eOut(kk)) * 12, fill: '#f7f1e3', shadow: 40 }); x += widths[j]; });
+    // a rule, drawn like the way out
+    const rk = eIO(clamp((k - 0.4) / 0.7)); tx.save(); tx.strokeStyle = '#ffcf5a'; tx.lineWidth = 3; tx.shadowColor = '#ffb020'; tx.shadowBlur = 14; tx.beginPath(); tx.moveTo(960 - 420 * rk, 660); tx.lineTo(960 + 420 * rk, 660); tx.stroke(); tx.restore();
+    txt('A FIRST-PERSON STORY YOU WALK THROUGH', 960, 725, { font: '700 30px Mono', fill: '#ffd766', align: 'center', alpha: sm(28.1, 28.5, t), track: 8 });
+    txt('play it free in your browser', 960, 810, { font: 'italic 44px Serif', fill: '#efe6cf', align: 'center', alpha: sm(28.4, 28.8, t) });
+    txt('GAMEDESIGNERJOE.GITHUB.IO/MAZE', 960, 870, { font: '700 28px Mono', fill: '#f4efe2', align: 'center', alpha: sm(28.6, 29.0, t), track: 6 });
+    P.bars = 1;
+  }
+  // a frame counter in the corner, the showreel way
+  if (t > 2.5 && t < 27.5) { const f = i % 30, s = Math.floor(t); txt(`THE MAZE  ·  00:00:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`, 1770, 922, { font: '18px Mono', fill: 'rgba(240,235,220,0.55)', align: 'right', track: 2 }); }
+  // fade the very end
+  const endFade = sm(29.6, 30.0, t);
+
+  // post
+  upload(T_SCENE, 0, sc.canvas); upload(T_TEXT, 1, tx.canvas);
+  const G = grade(t);
+  gl.uniform1f(U('uT'), t); gl.uniform1f(U('uAb'), P.ab); gl.uniform1f(U('uGl'), P.gl); gl.uniform1f(U('uZb'), P.zb); gl.uniform1f(U('uFl'), P.fl);
+  gl.uniform1f(U('uMapMix'), P.map); gl.uniform1f(U('uBars'), P.bars); gl.uniform1f(U('uGrain'), P.grain); gl.uniform1f(U('uVig'), P.vig); gl.uniform1f(U('uSat'), G.sat); gl.uniform1f(U('uCon'), G.con);
+  gl.uniform1f(U('uBloom'), P.bloom); gl.uniform1f(U('uShake'), P.shake); gl.uniform1f(U('uTextAb'), P.tab);
+  gl.uniform3fv(U('uTint'), G.tint.map((v) => v * (1 - endFade))); gl.uniform3fv(U('uLift'), G.lift); gl.uniform4fv(U('uCam'), P.cam); gl.uniform1f(U('uPitch'), P.pitch);
+  gl.viewport(0, 0, WD, HT); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  return t;
+}
+async function boot() { MAP = await (await fetch('map.json')).json(); mapPrep(); await document.fonts.load('100px Anton'); await document.fonts.load('30px Mono'); await document.fonts.load('700 30px Mono'); await document.fonts.load('80px Hand'); await document.fonts.load('italic 40px Serif'); await document.fonts.ready; return true; }
+window.ready = boot();
+</script>
+</body></html>
