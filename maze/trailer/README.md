@@ -1,6 +1,6 @@
 # The Maze — 30-second trailer
 
-`trailer.mp4` — 1920×1080, 30 fps, 35.6 s, no voice-over (the second cut: longer act-one shots and exit, title line "IT'S ONLY A TRAP IF YOU WANT TO LEAVE"). Every frame of game footage is the real
+`trailer.mp4` — 1920×1080, 30 fps, 35.6 s, no voice-over (the second cut: longer act-one shots and exit, title line "THE ONLY WAY OUT IS THROUGH."). Every frame of game footage is the real
 first-person game (`../maze-fp.html`, seed 4242) driven through its debug handle (`window.FP`) under a
 frozen clock, so camera moves are smooth and every event (the turn, the being, the father, the lies,
 the heart, the way out) is the engine's own. The score is synthesized in Web Audio from the game's

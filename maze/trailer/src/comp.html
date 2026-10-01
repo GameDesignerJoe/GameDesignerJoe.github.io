@@ -390,7 +390,7 @@ async function renderFrame(i) {
     L.forEach((c, j) => { const kk = clamp((k - j * 0.045) / 0.45); txt(c, x, 600 + (1 - eBack(kk)) * 60, { font: '300px Anton', track: 0, alpha: kk * 1.4, blur: (1 - eOut(kk)) * 12, fill: '#f7f1e3', shadow: 40 }); x += widths[j]; });
     // a rule, drawn like the way out
     const rk = eIO(clamp((k - 0.4) / 0.7)); tx.save(); tx.strokeStyle = '#ffcf5a'; tx.lineWidth = 3; tx.shadowColor = '#ffb020'; tx.shadowBlur = 14; tx.beginPath(); tx.moveTo(960 - 420 * rk, 660); tx.lineTo(960 + 420 * rk, 660); tx.stroke(); tx.restore();
-    txt("IT'S ONLY A TRAP IF YOU WANT TO LEAVE", 960, 735, { font: '700 32px Mono', fill: '#ffd766', align: 'center', alpha: sm(28.1, 28.5, t), track: 8 });
+    txt("THE ONLY WAY OUT IS THROUGH.", 960, 735, { font: '700 32px Mono', fill: '#ffd766', align: 'center', alpha: sm(28.1, 28.5, t), track: 8 });
     P.bars = 1;
   }
   // a frame counter in the corner, the showreel way
