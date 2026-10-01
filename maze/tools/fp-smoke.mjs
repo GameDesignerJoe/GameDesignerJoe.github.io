@@ -133,6 +133,19 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the opening walls are chalk ─────────────────────────────────────
+// Joe: "The opening text on the walls needs to be white, not black. Too hard to read and doesn't match the 'chalk' feel"
+{
+  const p = await open(4242);
+  const r = await p.evaluate(() => { const INK = TEX.hex('#2a2622') >>> 0, CH = ((TEX.hex('#fbf9f2') & 0xffffff) | 0xfd000000) >>> 0, out = [];
+    for (let s = 1; s <= 6; s++) { FP.newMaze(s * 7717 + 3);
+      for (const w of FP.startWords) { const d = FP.decals.get(w.k * 4 + w.face); let ink = 0, ch = 0; if (d) for (const c of d) { if ((c >>> 0) === INK) ink++; if ((c >>> 0) === CH) ch++; } out.push([ink, ch]); } }
+    return out; });
+  check('the two opening walls are written in chalk, not ink', r.length >= 10 && r.every(([ink, ch]) => ink === 0 && ch > 60),
+    `${r.length} opening walls over 6 mazes, [ink, chalk] pixels: ${r.map((x) => x.join('/')).join(' ')}`);
+  await p.close();
+}
+
 // ── chalk shows on the pale walls, and the words stay on theirs ──────
 // Joe: "make the white walls a bit more dingy so that the white chalk mark shows up better", and "a tighter font on the
 // wall writing. It almost always bleeds off of the wall"
@@ -144,10 +157,10 @@ console.log('The Maze — first person checks');
     for (const th of ['school', 'bleached']) { const walls = TEX.themes[th].walls.slice(0, 3); let sum = 0, n = 0;
       for (const w of walls) for (let y = 0; y < 18; y++) for (let x = 0; x < w.w; x++) { sum += lum(w.px[y * w.w + x]); n++; }   // the upper wall, where chalk goes
       gap[th] = Math.round(chalk - sum / n); }
-    let edge = 0, words = 0; const INK = TEX.hex('#2a2622') >>> 0;
+    let edge = 0, words = 0; const INK = TEX.hex('#2a2622') >>> 0, CH = ((TEX.hex('#fbf9f2') & 0xffffff) | 0xfd000000) >>> 0;   // ink at dead ends, chalk on the opening walls
     for (let s = 1; s <= 8; s++) { FP.newMaze(s * 7717 + 3);
       for (const w of FP.wordSpots) { const d = FP.decals.get(w.k * 4 + w.face); if (!d) continue; words++;
-        for (let y = 0; y < 64; y++) for (const x of [0, 1, 62, 63]) if ((d[y * 64 + x] >>> 0) === INK) { edge++; y = 64; break; } } }
+        for (let y = 0; y < 64; y++) for (const x of [0, 1, 62, 63]) if ((d[y * 64 + x] >>> 0) === INK || (d[y * 64 + x] >>> 0) === CH) { edge++; y = 64; break; } } }
     return { gap, edge, words };
   });
   check('chalk shows on the pale walls (school, bleached), and no word at a dead end runs to the wall\'s edge',

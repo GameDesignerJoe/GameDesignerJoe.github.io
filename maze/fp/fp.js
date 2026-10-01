@@ -522,7 +522,9 @@
     const teachFace = placeTeachX(startFaces);
     if (teachFace >= 0) startFaces.add(teachFace);
     wordSpots = picks.map(([e, text]) => ({ k: e.k, face: e.face, text }));
-    for (const [e, text] of picks) writeWords(decalFor(e.k, e.face), text, R);
+    // the chapter's two opening walls in chalk, the kid's own hand. Joe: "The opening text on the walls needs to be white, not
+    // black. Too hard to read and doesn't match the 'chalk' feel"
+    for (const [e, text] of picks) { const open = startWords.includes(e); writeWords(decalFor(e.k, e.face), text, R, open, open && !(T.walls[wallVar[e.k]] || {}).board); }   // a chalkboard (school) is shorter than the wall: there, the smaller hand
     placeDoors();
     const reservedSet = new Set(picks.map(([e]) => faceKey(e.k, e.face)).concat(stairSpots.map((s) => faceKey(s.k, s.face))));
     for (const fk of writeBoards()) reservedSet.add(fk);
@@ -2294,15 +2296,17 @@
     };
     const out = {}; for (const k in G) out[k] = G[k].join(''); return out;
   })();
-  const INK = TEX.hex('#2a2622'), CHALK = TEX.hex('#ece7da');
-  function writeWords(d, text, R) {
+  const INK = TEX.hex('#2a2622'), CHALK = TEX.hex('#ece7da'), CHALK_BRIGHT = (TEX.hex('#fbf9f2') & 0xffffff) | 0xfd000000;   // the opening walls: pressed hard, the whitest of the stick, and catching the light (0xfd)
+  function writeWords(d, text, R, chalked, big) {
     const lines = [];
     for (const w of text.toLowerCase().split(' ')) {
       if (lines.length && (lines[lines.length - 1] + ' ' + w).length <= 8) lines[lines.length - 1] += ' ' + w; else lines.push(w);
     }
     // three-quarter size: 1.5 pixels to a stroke, not 2. Joe: "we need a tighter font on the wall writing. It almost always
     // bleeds off of the wall … reduce by [about] 25%". A full line of eight was the whole wall wide, edge to edge
-    const sc = 1.5, lh = Math.round(6 * sc + 2), y0 = Math.round(DEC * 0.42 - lines.length * lh / 2);
+    // the opening walls' two short lines are chalked at full size, bold enough to read in the dim of the start room; their
+    // longest line is seven letters, which fits
+    const sc = big && Math.max(...lines.map((l) => l.length)) <= 7 ? 2 : 1.5, lh = Math.round(6 * sc + 2), y0 = Math.round(DEC * 0.42 - lines.length * lh / 2);
     const px = (i) => Math.round(i * sc);   // stroke i's first pixel: 1 or 2 wide by turns
     lines.forEach((ln, li) => {
       const x0 = Math.round((DEC - ln.length * 4 * sc) / 2) + Math.round((R() - 0.5) * 4);
@@ -2311,7 +2315,7 @@
         for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) if (g[r * 3 + q] === '#')
           for (let yy = px(r); yy < px(r + 1); yy++) for (let xx = px(c * 4 + q); xx < px(c * 4 + q + 1); xx++) {
             const X = x0 + xx, Y = y0 + li * lh + yy + (c % 3 === 1 ? 1 : 0);   // a hand, not a printer
-            if (X >= 0 && X < DEC && Y >= 0 && Y < DEC && R() < 0.97) d[Y * DEC + X] = INK;
+            if (X >= 0 && X < DEC && Y >= 0 && Y < DEC && R() < (chalked ? 0.93 : 0.97)) d[Y * DEC + X] = chalked ? CHALK_BRIGHT : INK;   // chalk catches the wall unevenly
           }
       }
     });
@@ -3190,7 +3194,8 @@
           let a = aoS ? aoEdge(colAO, 1 - v) : 1;   // down where it meets the floor
           if (hasCeil && aoS) a = aoEdge(a, v);      // and up where it meets the ceiling
           let c = t.px[ti];
-          if (dec) { const dc = dec[Math.min(DEC - 1, (v * DEC) | 0) * DEC + du]; if (dc) { if (dc >>> 24 === 0xfe) { buf[y * RW + x] = shade(dc | 0xff000000, Math.sqrt(f), 1, 1); continue; } c = dc; } }   // 0xfe: a pixel that is its own light
+          if (dec) { const dc = dec[Math.min(DEC - 1, (v * DEC) | 0) * DEC + du]; if (dc) { if (dc >>> 24 === 0xfe) { buf[y * RW + x] = shade(dc | 0xff000000, Math.sqrt(f), 1, 1); continue; }
+            if (dc >>> 24 === 0xfd) { buf[y * RW + x] = shade(dc | 0xff000000, f, Math.max(lit * a, 0.9), Math.max(Lw, 0.7)); continue; } c = dc; } }   // 0xfe: a pixel that is its own light; 0xfd: one that catches what light there is (the opening walls' chalk)
           buf[y * RW + x] = shade(c, f, lit * a, Lw);
         }
       }

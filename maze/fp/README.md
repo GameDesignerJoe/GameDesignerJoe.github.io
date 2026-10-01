@@ -48,7 +48,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   open). Dead ends carry words from `WALL_WORDS` in `data/text.js` (`words`, ten a maze), at three-quarter size so a long word stays on its wall. A wall of the start room has an X on it
   already, with `WALL_TEACH` ("draw an x") over it. A chapter can open with two walls (`WALL_START`): the first across the
   start room, and you wake facing it; the second ahead of you as you step out of that room. The Child's are Joe's:
-  "He said stay here." and "but I didn't." A page (or a note) stays up until you tap off it (two picked up at once are read one after the other) — or Esc/Enter/Space — and while it's up you're reading: you don't move, the HUD steps away, the being holds still. It opens as a torn sheet of ruled notebook paper in a hand
+  "He said stay here." and "but I didn't.", in white chalk, bold, catching what light the start room has (a decal pixel marked 0xfd) A page (or a note) stays up until you tap off it (two picked up at once are read one after the other) — or Esc/Enter/Space — and while it's up you're reading: you don't move, the HUD steps away, the being holds still. It opens as a torn sheet of ruled notebook paper in a hand
   (Caveat, SIL OFL, kept in `fp/caveat-latin.woff2` so it reads the same offline). A door's jambs and the sides of a squeeze take chalk like any wall (each a face of its own,
   keyed to its open tile). Found things are kept for the run
   only — nothing is written to the top-down's save yet.
