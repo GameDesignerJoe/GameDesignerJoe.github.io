@@ -13,9 +13,9 @@ if (argv[0] === '--stills') {
   fs.mkdirSync(`${S}/${process.env.SD || 'stills'}`, { recursive: true });
   for (const i of argv[1].split(',').map(Number)) fs.writeFileSync(`${S}/${process.env.SD || 'stills'}/${String(i).padStart(4, '0')}.png`, await grab(i));
 } else {
-  const N = 900, out = argv[1] || `${S}/trailer.mp4`;
+  const N = Math.ceil(35.625 * 30), out = argv[1] || `${S}/trailer.mp4`;
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', '30', '-c:v', 'png', '-i', '-', '-i', `${S}/score.wav`,
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '256k', '-t', '30', '-shortest', out], { stdio: ['pipe', 'inherit', 'inherit'] });
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '192k', '-t', '35.625', '-shortest', out], { stdio: ['pipe', 'inherit', 'inherit'] });
   const t0 = Date.now();
   for (let i = 0; i < N; i++) { const b = await grab(i); if (!ff.stdin.write(b)) await new Promise((r) => ff.stdin.once('drain', r)); if (i % 60 === 0) console.log('frame', i, ((Date.now() - t0) / 1000).toFixed(0) + 's'); }
   ff.stdin.end(); await new Promise((r) => ff.on('close', r)); console.log('wrote', out);

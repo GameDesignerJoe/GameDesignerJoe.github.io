@@ -34,25 +34,32 @@ const hash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return
 // ── the edit ── [t0, t1, shot, src start (s), {zoom from→to, focus, speed}]
 const EDL = [
   [2.500, 5.000, 'wake2', 0.25, { z: [1.12, 1.0], f: [0.5, 0.45] }],
-  [6.250, 7.500, 'hall3', 0.55, { z: [1.25, 1.05], f: [0.5, 0.5] }],
-  [7.500, 8.750, 'waiting', 0.9, { z: [1.0, 1.1], f: [0.62, 0.45] }],
-  [8.750, 10.00, 'wallroom', 1.55, { z: [1.08, 1.0], f: [0.6, 0.45] }],
-  [10.00, 11.25, 'kid', 0.78, { z: [1.0, 1.08], f: [0.5, 0.42] }],
-  [11.25, 12.50, 'page', 1.05, { z: [1.0, 1.35], f: [0.5, 0.44] }],
-  [12.50, 13.75, 'cards', 1.45, { z: [1.0, 1.1], f: [0.52, 0.55] }],
-  [13.75, 14.70, 'fire', 0.42, { z: [1.12, 1.3], f: [0.55, 0.78], sp: 0.55 }],
-  [15.00, 17.50, 'turn', 0.85, { z: [1.18, 1.0], f: [0.5, 0.48] }],
-  [17.50, 18.75, 'roomdark', 2.55, { z: [1.0, 1.12], f: [0.45, 0.42], ex: 1.2 }],
-  [18.75, 20.00, 'being', 6.0, { z: [1.0, 1.25], f: [0.5, 0.45] }],
-  [20.00, 21.25, 'hide', 0.3, { z: [1.15, 1.3], f: [0.62, 0.42], ex: 1.7 }],
-  [21.25, 21.5625, 'being', 7.62, { z: [1.4, 1.5], f: [0.5, 0.3] }],
-  [21.5625, 21.875, 'turn', 3.25, { z: [1.2, 1.25], f: [0.5, 0.5] }],
-  [21.875, 22.1875, 'roomdark', 3.8, { z: [1.3, 1.35], f: [0.3, 0.42] }],
-  [22.1875, 22.50, 'being', 7.95, { z: [1.8, 2.0], f: [0.5, 0.18] }],
-  [22.50, 25.00, 'lies', 0.75, { z: [1.0, 1.12], f: [0.55, 0.42] }],
-  [25.00, 26.50, 'heart', 0.6, { z: [1.0, 1.15], f: [0.5, 0.4], ex: 1.45 }],
-  [26.50, 27.50, 'exit', 3.65, { z: [1.0, 1.1], f: [0.5, 0.4] }],
+  [6.875, 8.750, 'hall3', 0.55, { z: [1.25, 1.05], f: [0.5, 0.5] }],
+  [8.750, 10.625, 'waiting', 0.9, { z: [1.0, 1.1], f: [0.62, 0.45] }],
+  [10.625, 12.50, 'wallroom', 1.1, { z: [1.08, 1.0], f: [0.6, 0.45] }],
+  [12.50, 14.375, 'kid', 0.78, { z: [1.0, 1.08], f: [0.5, 0.42] }],
+  [14.375, 16.25, 'page', 1.05, { z: [1.0, 1.35], f: [0.5, 0.44] }],
+  [16.25, 18.125, 'cards', 1.45, { z: [1.0, 1.1], f: [0.52, 0.55] }],
+  [18.125, 19.70, 'fire', 0.38, { z: [1.12, 1.3], f: [0.55, 0.78], sp: 0.38 }],
+  [20.00, 22.50, 'turn', 0.85, { z: [1.18, 1.0], f: [0.5, 0.48] }],
+  [22.50, 23.75, 'roomdark', 2.55, { z: [1.0, 1.12], f: [0.45, 0.42], ex: 1.2 }],
+  [23.75, 25.00, 'being', 6.0, { z: [1.0, 1.25], f: [0.5, 0.45] }],
+  [25.00, 26.25, 'hide', 0.3, { z: [1.15, 1.3], f: [0.62, 0.42], ex: 1.7 }],
+  [26.25, 26.5625, 'being', 7.62, { z: [1.4, 1.5], f: [0.5, 0.3] }],
+  [26.5625, 26.875, 'turn', 3.25, { z: [1.2, 1.25], f: [0.5, 0.5] }],
+  [26.875, 27.1875, 'roomdark', 3.8, { z: [1.3, 1.35], f: [0.3, 0.42] }],
+  [27.1875, 27.50, 'being', 7.95, { z: [1.8, 2.0], f: [0.5, 0.18] }],
+  [27.50, 30.00, 'lies', 0.75, { z: [1.0, 1.12], f: [0.55, 0.42] }],
+  [30.00, 31.50, 'heart', 0.6, { z: [1.0, 1.15], f: [0.5, 0.4], ex: 1.45 }],
+  [31.50, 33.125, 'exit', 3.65, { z: [1.0, 1.1], f: [0.5, 0.4] }],
 ];
+// The overlays below are written against the first cut's 30s timeline (OLD). Joe: "your takes from one shot to the
+// next are way too fast … add half a second on all your shorter shots" — every act-one shot and the exit got one
+// beat more (0.625s, so the cuts stay on the score's grid); the Turn through the heart is untouched. WARP maps the
+// new timeline onto the old one, so each title still lands on its own shot, held a little longer.
+const WARP = [[0, 0], [5, 5], [6.875, 6.25], [8.75, 7.5], [10.625, 8.75], [12.5, 10], [14.375, 11.25], [16.25, 12.5], [18.125, 13.75], [19.7, 14.7], [20, 15], [31.5, 26.5], [33.125, 27.5], [35.625, 30]];
+const DUR = 35.625;
+function warp(t) { for (let i = 1; i < WARP.length; i++) { const [n0, o0] = WARP[i - 1], [n1, o1] = WARP[i]; if (t <= n1) return o0 + (t - n0) * (o1 - o0) / (n1 - n0); } return t - DUR + 30; }
 const FRAMES = { wake2: 102, hall3: 90, waiting: 90, wallroom: 90, kid: 105, page: 90, cards: 150, fire: 180, turn: 180, roomdark: 120, being: 240, hide: 210, lies: 105, heart: 150, exit: 180 };
 
 // ── images, loaded as needed ──
@@ -272,21 +279,21 @@ function hand(s, t, t0, t1, x, y, size, { col = '#f3ecd9', dur = 0.9, align = 'c
 
 // ── the frame ──
 async function renderFrame(i) {
-  const t = i / FPS;
+  const tn = i / FPS, t = warp(tn);
   sc.setTransform(1, 0, 0, 1, 0, 0); sc.fillStyle = '#000'; sc.fillRect(0, 0, WD, HT);
   tx.clearRect(0, 0, WD, HT);
   const P = { ab: 0.0015, gl: 0, zb: 0, fl: 0, map: 0, bars: 1, grain: 0.045, vig: 0.85, bloom: 0.9, shake: 0, tab: 0.0008, cam: [0, 0, 1500, 0], pitch: 1.0 };
 
   // footage
-  const clip = EDL.find((c) => t >= c[0] && t < c[1]);
+  const clip = EDL.find((c) => tn >= c[0] && tn < c[1]);
   if (clip) {
-    const [t0, t1, shot, s0, o] = clip, k = (t - t0) / (t1 - t0);
-    const n = Math.round((s0 + (t - t0) * (o.sp || 1)) * FPS) + 1;
+    const [t0, t1, shot, s0, o] = clip, k = (tn - t0) / (t1 - t0);
+    const n = Math.round((s0 + (tn - t0) * (o.sp || 1)) * FPS) + 1;
     const im = await img(shot, n);
     const z = lerp(o.z[0], o.z[1], eIO(k)), [fx, fy] = o.f;
     sc.save(); sc.translate(fx * WD, fy * HT); sc.scale(z, z); sc.translate(-fx * WD, -fy * HT); if (o.ex) sc.filter = `brightness(${o.ex})`; sc.drawImage(im, 0, 0, WD, HT); sc.filter = 'none'; sc.restore();
     // a hit on every cut: a little zoom-blur and aberration that fall away
-    const sinceCut = t - t0; P.zb += Math.max(0, 1 - sinceCut / 0.18) * 0.6; P.ab += Math.max(0, 1 - sinceCut / 0.2) * 0.006;
+    const sinceCut = tn - t0; P.zb += Math.max(0, 1 - sinceCut / 0.18) * 0.6; P.ab += Math.max(0, 1 - sinceCut / 0.2) * 0.006;
     // preload what's next
     img(shot, n + 1); img(shot, n + 2);
   }
@@ -383,20 +390,18 @@ async function renderFrame(i) {
     L.forEach((c, j) => { const kk = clamp((k - j * 0.045) / 0.45); txt(c, x, 600 + (1 - eBack(kk)) * 60, { font: '300px Anton', track: 0, alpha: kk * 1.4, blur: (1 - eOut(kk)) * 12, fill: '#f7f1e3', shadow: 40 }); x += widths[j]; });
     // a rule, drawn like the way out
     const rk = eIO(clamp((k - 0.4) / 0.7)); tx.save(); tx.strokeStyle = '#ffcf5a'; tx.lineWidth = 3; tx.shadowColor = '#ffb020'; tx.shadowBlur = 14; tx.beginPath(); tx.moveTo(960 - 420 * rk, 660); tx.lineTo(960 + 420 * rk, 660); tx.stroke(); tx.restore();
-    txt('A FIRST-PERSON STORY YOU WALK THROUGH', 960, 725, { font: '700 30px Mono', fill: '#ffd766', align: 'center', alpha: sm(28.1, 28.5, t), track: 8 });
-    txt('play it free in your browser', 960, 810, { font: 'italic 44px Serif', fill: '#efe6cf', align: 'center', alpha: sm(28.4, 28.8, t) });
-    txt('GAMEDESIGNERJOE.GITHUB.IO/MAZE', 960, 870, { font: '700 28px Mono', fill: '#f4efe2', align: 'center', alpha: sm(28.6, 29.0, t), track: 6 });
+    txt("IT'S ONLY A TRAP IF YOU WANT TO LEAVE", 960, 735, { font: '700 32px Mono', fill: '#ffd766', align: 'center', alpha: sm(28.1, 28.5, t), track: 8 });
     P.bars = 1;
   }
   // a frame counter in the corner, the showreel way
-  if (t > 2.5 && t < 27.5) { const f = i % 30, s = Math.floor(t); txt(`THE MAZE  ·  00:00:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`, 1770, 922, { font: '18px Mono', fill: 'rgba(240,235,220,0.55)', align: 'right', track: 2 }); }
+  if (t > 2.5 && t < 27.5) { const f = i % 30, s = Math.floor(tn); txt(`THE MAZE  ·  00:00:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`, 1770, 922, { font: '18px Mono', fill: 'rgba(240,235,220,0.55)', align: 'right', track: 2 }); }
   // fade the very end
   const endFade = sm(29.6, 30.0, t);
 
   // post
   upload(T_SCENE, 0, sc.canvas); upload(T_TEXT, 1, tx.canvas);
   const G = grade(t);
-  gl.uniform1f(U('uT'), t); gl.uniform1f(U('uAb'), P.ab); gl.uniform1f(U('uGl'), P.gl); gl.uniform1f(U('uZb'), P.zb); gl.uniform1f(U('uFl'), P.fl);
+  gl.uniform1f(U('uT'), tn); gl.uniform1f(U('uAb'), P.ab); gl.uniform1f(U('uGl'), P.gl); gl.uniform1f(U('uZb'), P.zb); gl.uniform1f(U('uFl'), P.fl);
   gl.uniform1f(U('uMapMix'), P.map); gl.uniform1f(U('uBars'), P.bars); gl.uniform1f(U('uGrain'), P.grain); gl.uniform1f(U('uVig'), P.vig); gl.uniform1f(U('uSat'), G.sat); gl.uniform1f(U('uCon'), G.con);
   gl.uniform1f(U('uBloom'), P.bloom); gl.uniform1f(U('uShake'), P.shake); gl.uniform1f(U('uTextAb'), P.tab);
   gl.uniform3fv(U('uTint'), G.tint.map((v) => v * (1 - endFade))); gl.uniform3fv(U('uLift'), G.lift); gl.uniform4fv(U('uCam'), P.cam); gl.uniform1f(U('uPitch'), P.pitch);
