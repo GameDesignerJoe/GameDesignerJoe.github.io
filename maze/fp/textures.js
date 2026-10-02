@@ -779,6 +779,9 @@ const TEX = (() => {
       wood:     tex(16, 16, (x, y, R) => dith(ramp4(['#7a5530', '#8f6739', '#a57944', '#b98b52']), 2 + ((y * 3 + (x >> 3)) % 5 === 0 ? -0.7 : 0) + (R() - 0.5) * 0.5, x, y)),
       plastic:  tex(16, 16, (x, y, R) => dith(ramp4(['#233f6b', '#2d4f83', '#39609a', '#4973b0']), 2.1 + (R() - 0.5) * 0.3, x, y)),
       apple:    tex(16, 16, (x, y, R) => dith(ramp4(['#6d1512', '#8f1f1a', '#b02a22', '#c9463a']), 2.2 + (x < 5 && y < 5 ? 1 : 0) + (R() - 0.5) * 0.4, x, y)),
+      leather:  tex(16, 16, (x, y, R) => dith(ramp4(['#2e1c12', '#43291a', '#5a3824', '#714a31']), 1.9 + (y % 6 === 0 || x % 8 === 0 ? -0.55 : 0) + (R() - 0.5) * 0.35, x, y)),   // the recliner's, buttoned and worn
+      carpet:   tex(16, 16, (x, y, R) => dith(ramp4(['#3d1414', '#521b1a', '#682321', '#7e2d29']), 1.8 + (R() - 0.5) * 0.6, x, y)),   // the dais's
+      spot:     tex(16, 16, (x, y) => E(Math.hypot(x - 7.5, y - 7.5) < 5 ? '#fff8e6' : '#d9d2c0')),                                    // the can light over it, lit
       stair:    tex(16, 16, (x, y, R) => dith(ramp4(['#4b4943', '#5f5c55', '#74716a', '#8a877f']), 1.9 + (R() - 0.5) * 0.7 + ((x * 3 + y * 5) % 13 === 0 ? -0.7 : 0), x, y)),
     };
     // fronts: one picture stretched over the face that looks into the room

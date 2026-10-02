@@ -378,6 +378,43 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── his chair: a recliner up on a dais, in the middle, under a spotlight ──
+// Joe: "make the chair the Dad sat on every night more grandiose. Make it more of a La-Z-Boy recliner. Having it up on a
+// couple steps like a dias. Have a spotlight shining down on it. And have the table next to it for the watch." And: "It
+// needs to be its own thing that just sits there in the center."
+{
+  const p = await open(4242); await awake(p);
+  const built = await p.evaluate(async () => { const out = { n: 0, centred: 0, dais: 0, chair: 0, table: 0, pool: 0, worst: 99 };
+    for (let s = 1; s <= 12; s++) { FP.newMaze(s * 7919 + 13); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));   // a frame, for this maze's light
+      const st = FP.story.find((q) => q.chair); if (!st) continue; out.n++;
+      const c = st.chair, W = FP.W, k = Math.floor(c.y) * W + Math.floor(c.x);
+      if ([-1, 0, 1].every((dy) => [-1, 0, 1].every((dx) => st.set.has(k + dy * W + dx)))) out.centred++;
+      const on = FP.fboxes.filter((b) => b.x0 < c.x && b.x1 > c.x && b.y0 < c.y && b.y1 > c.y);
+      const steps = on.filter((b) => b.z0 < 0.08 && b.z1 <= 0.14 && b.x1 - b.x0 > 0.7).length;
+      if (steps >= 2) out.dais++;
+      if (FP.fboxes.some((b) => b.z0 >= 0.12 && b.z1 > 0.5 && b.z1 < 0.9 && Math.hypot((b.x0 + b.x1) / 2 - c.x, (b.y0 + b.y1) / 2 - c.y) < 0.3)) out.chair++;   // its back, lifted onto the dais
+      const t = st.slot; if (t && t.z > 0.3 && FP.fboxes.some((b) => b.x0 < t.x && b.x1 > t.x && b.y0 < t.y && b.y1 > t.y && Math.abs(b.z1 - t.z) < 0.01)) out.table++;
+      // the pool: the chair's spot is lit well past the room's edge tiles
+      const edge = Math.min(...st.tiles.filter((q) => ![[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => st.set.has(q + dy * W + dx))).map((q) => FP.lightAt(q % W + 0.5, ((q / W) | 0) + 0.5)));
+      const r = FP.lightAt(c.x, c.y) / Math.max(0.01, edge); out.worst = Math.min(out.worst, r); if (r > 3) out.pool++;
+    } return out; });
+  // the beam: looking at the chair from across the room, the upper half of the view is brighter with the spotlight than without
+  await p.goto(URL(4242)); await p.waitForTimeout(700); await awake(p);
+  await p.evaluate(() => { const st = FP.story.find((q) => q.chair), c = st.chair; let d = 2.4; while (d > 1 && !st.set.has(Math.floor(c.y + c.fy * d) * FP.W + Math.floor(c.x + c.fx * d))) d -= 0.2;
+    FP.P.x = c.x + c.fx * d; FP.P.y = c.y + c.fy * d; FP.P.a = Math.atan2(-c.fy, -c.fx); });
+  await p.waitForTimeout(300); await closePage(p);
+  const glow = () => p.evaluate(() => { const cv = [...document.querySelectorAll('canvas')].sort((a, b) => b.width - a.width)[0], g = cv.getContext('2d');
+    const d = g.getImageData((cv.width * 0.4) | 0, 0, (cv.width * 0.2) | 0, (cv.height * 0.5) | 0).data; let sum = 0; for (let i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1] + d[i + 2]; return sum / (d.length / 4) / 3; });
+  const lit = await glow();
+  const saved = await p.evaluate(() => { const s = FP.spotLamps.splice(0); window.__spots = s; return s.length; });
+  await p.waitForTimeout(250); const unlit = await glow();
+  await p.evaluate(() => FP.spotLamps.push(...window.__spots));
+  check('his chair is a recliner up on two steps in the middle of its room, the table for the watch on the dais beside it, under a spotlight you can see',
+    built.n >= 8 && built.centred === built.n && built.dais === built.n && built.chair === built.n && built.table === built.n && built.pool === built.n && saved === 1 && lit > unlit + 4,
+    `of ${built.n} mazes: centred ${built.centred}, on a dais ${built.dais}, the recliner up on it ${built.chair}, the slot on its table ${built.table}, a pool of light ${built.pool} (dimmest ×${built.worst.toFixed(1)} the room's edge); the view's upper half ${unlit.toFixed(1)} → ${lit.toFixed(1)} with the beam`);
+  await p.close();
+}
+
 // ── the turn: three pages, and nothing else counts ───────────────
 {
   const p = await open(4242); await awake(p);

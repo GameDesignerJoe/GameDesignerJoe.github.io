@@ -90,8 +90,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   glowing on the wall at the end. Every lamp is live now (`flickLamps`), so any can go out. The kid's room is spared.
 - **Story rooms** (`storyRooms`; the Child, floor 1; words in `STORY_ROOMS` in data/text.js). Two ages of not looking:
   **the waiting room** — bare walls now (Joe: "the room with the chair doesn't need the words on the walls. It needs to be its
-  own thing that just sits there in the center"); ceiling dead, one floor lamp by a single chair turned to face the way in,
-  a packed bag, the little table for the watch; the Child's tune winding down (`The Waiting Room` in data/music.js). **The wall** —
+  own thing that just sits there in the center"); ceiling dead and the room held down to `CHAIR_DIM`, and in the middle of it
+  (the tile nearest the middle with floor all round, diagonals too) his La-Z-Boy: a leather recliner, footrest out, turned to
+  face the way in, up on a dais of two carpeted steps (`FURN.dais`, `DAIS_H`), the little table for the watch on the dais beside
+  it, a packed bag at the foot of the steps. Over it a can light in the ceiling and a spotlight: a soft pool (`spotLamps`,
+  `spotAt`, added wherever light is looked up) and its beam in the air (`drawBeams`), a cone each pixel looking through is
+  brightened by as much of it as its ray crosses. Joe: "make the chair the Dad sat on every night more grandiose … up on a
+  couple steps like a dias. Have a spotlight shining down on it." The Child's tune winding down (`The Waiting Room` in data/music.js). **The wall** —
   painted over white and written floor to ceiling in one tight hand, "im fine | it doesnt matter", staggered like
   brickwork, with one chipped patch where the wallpaper and the old pencil show ("come back"); every panel lit, steady;
   almost no music (`The Wall`); nothing in it now but its writing (the watch is the heart's). **To a story room** on the panel.

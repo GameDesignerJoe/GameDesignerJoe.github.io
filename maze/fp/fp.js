@@ -220,6 +220,7 @@
     for (let k = 0; k < N; k++) {
       let L = 1 - S.shadow * (1 - Math.min(1, tileL[k]));
       if (dark[k]) L = Math.min(L, S.darkLevel);
+      if (chairDim && chairDim[k]) L = Math.min(L, CHAIR_DIM);
       // a room with its lights off is as dim as a dark hall, whatever spills in at the door
       if (grouped && groupAt[k] >= 0) { const g = lightGroups[groupAt[k]], lo = g.pitch ? PITCH : S.darkLevel; if (g.lvl < 1 && L > lo) L = lo + (L - lo) * g.lvl; }
       tileL[k] = L;
@@ -808,7 +809,28 @@
       { a: [-0.1, 0.1], d: [0.05, 0.25], z: [0, 0.16], m: 'pot', top: 'dark' },
       { a: [-0.15, 0.15], d: [0.0, 0.3], z: [0.16, 0.44], m: 'leaves' },
       { a: [-0.09, 0.09], d: [0.06, 0.24], z: [0.44, 0.52], m: 'leaves' } ] },
+    // his chair in the waiting room: a recliner, up on two carpeted steps (DAIS_H in all), its footrest out
+    dais: { half: 0.48, boxes: [
+      { a: [-0.48, 0.48], d: [-0.48, 0.48], z: [0, 0.065], m: 'wood', top: 'carpet' },   // wood risers, the treads carpeted
+      { a: [-0.38, 0.38], d: [-0.38, 0.38], z: [0.065, 0.13], m: 'wood', top: 'carpet' } ] },
+    recliner: { half: 0.2, boxes: [
+      { a: [-0.13, 0.13], d: [-0.13, 0.13], z: [0, 0.1], m: 'leather' },              // the body
+      { a: [-0.2, -0.13], d: [-0.15, 0.14], z: [0, 0.25], m: 'leather' },             // the big padded arms
+      { a: [0.13, 0.2], d: [-0.15, 0.14], z: [0, 0.25], m: 'leather' },
+      { a: [-0.13, 0.13], d: [-0.1, 0.14], z: [0.1, 0.18], m: 'leather' },            // the seat cushion
+      { a: [-0.14, 0.14], d: [-0.17, -0.07], z: [0.1, 0.34], m: 'leather' },          // the back, leaning back
+      { a: [-0.14, 0.14], d: [-0.21, -0.11], z: [0.34, 0.46], m: 'leather' },
+      { a: [-0.012, 0.012], d: [0.14, 0.18], z: [0.07, 0.11], m: 'dark' },              // the footrest, out on its arm
+      { a: [-0.12, 0.12], d: [0.17, 0.33], z: [0.1, 0.15], m: 'leather' } ] },
   };
+  const DAIS_H = 0.13, SPOT_R = 0.75, SPOT_W = 0.95, CHAIR_DIM = 0.14;
+  // the spotlights (his chair's): a pool of light, round and soft-edged, added to the tile light wherever it's looked up
+  let spotLamps = [], chairDim = null;   // and the room it's in, held down to CHAIR_DIM around it
+  function spotAt(x, y) {
+    let w = 0;
+    for (const s of spotLamps) { const d2 = ((x - s.x) * (x - s.x) + (y - s.y) * (y - s.y)) / (s.r * s.r); if (d2 < 1) w += s.w * (1 - d2) * (1 - d2); }
+    return w;
+  }
   const SETS = [['desk', 5], ['couch', 3], ['cabinet', 3], ['cooler', 2], ['plant', 3], ['boxes', 1], ['bin', 1], ['lamp', 2]];
   // a piece's boxes into the world: B is the point on the wall line behind it, (ux, uy) along the
   // wall, (fx, fy) out into the room; `shift` slides it along the wall into a corner
@@ -1349,6 +1371,7 @@
   }
   // what's in them: made after the furniture, which clears its boxes each maze
   function storyProps() {
+    spotLamps = []; chairDim = null;
     for (const st of story) {
       if (st.kind === 'memory') continue;   // dressed by memoryProps (it'd fall through to the wall's boxes and watch here)
       const m = st.m, ix = m.rx - m.mx, iy = m.ry - m.my;   // into the room
@@ -1361,27 +1384,40 @@
         continue;
       }
       if (st.kind === 'waiting') {
-        let cx = m.rx + 0.5 + ix * 1.5, cy = m.ry + 0.5 + iy * 1.5;
-        if (!st.set.has(Math.floor(cy) * W + Math.floor(cx))) { const c = st.tiles[st.tiles.length >> 1]; cx = c % W + 0.5; cy = ((c / W) | 0) + 0.5; }
-        const fx = -ix, fy = -iy, ux = -fy, uy = fx;   // it faces the way in
-        const chair = { boxes: [
-          { a: [-0.11, 0.11], d: [-0.1, 0.1], z: [0.16, 0.19], m: 'fabricDk' }, { a: [-0.1, 0.1], d: [-0.13, -0.1], z: [0.19, 0.38], m: 'fabricDk' },
-          { a: [-0.015, 0.015], d: [-0.01, 0.01], z: [0.03, 0.16], m: 'steel' }, { a: [-0.11, 0.11], d: [-0.11, 0.11], z: [0, 0.025], m: 'dark' },
-          { a: [0.16, 0.3], d: [-0.07, 0.06], z: [0, 0.14], m: 'bag', top: 'bag' } ] };   // and the bag, packed, beside it
-        for (const b of buildFurn(chair, cx, cy, ux, uy, fx, fy, 0)) fboxes.push(b);
-        const lx = cx - ux * 0.36, ly = cy - uy * 0.36, lb = buildFurn(FURN.lamp, lx - fx * 0.15, ly - fy * 0.15, ux, uy, fx, fy, 0);
-        for (const b of lb) fboxes.push(b);
-        furn.push({ x: lx, y: ly, fx, fy, name: 'lamp', def: FURN.lamp, boxes: lb });
+        // Joe: "make the chair the Dad sat on every night more grandiose. Make it more of a La-Z-Boy recliner. Having it up on a
+        // couple steps like a dias. Have a spotlight shining down on it. And have the table next to it for the watch." In the
+        // middle of the room — the tile nearest it with floor all round, diagonals too, so the dais never cuts the room in two —
+        // facing the way in; where there's no such tile, a tile and a half in from the door as before
+        const ring = (k) => [-1, 0, 1].every((dy) => [-1, 0, 1].every((dx) => st.set.has(k + dy * W + dx)));
+        const tl = st.tiles.filter(ring), mx = st.tiles.reduce((a, k) => a + k % W, 0) / st.tiles.length, my = st.tiles.reduce((a, k) => a + ((k / W) | 0), 0) / st.tiles.length;
+        let cx, cy, fx, fy;
+        if (tl.length) {
+          const c = tl.reduce((q, k) => Math.hypot(k % W - mx, ((k / W) | 0) - my) < Math.hypot(q % W - mx, ((q / W) | 0) - my) ? k : q, tl[0]);
+          cx = c % W + 0.5; cy = ((c / W) | 0) + 0.5;
+          const tx = m.rx + 0.5 - cx, ty = m.ry + 0.5 - cy;
+          fx = Math.abs(tx) >= Math.abs(ty) ? Math.sign(tx) || 1 : 0; fy = fx ? 0 : Math.sign(ty) || 1;
+        } else {
+          cx = m.rx + 0.5 + ix * 1.5; cy = m.ry + 0.5 + iy * 1.5; fx = -ix; fy = -iy;
+          if (!st.set.has(Math.floor(cy) * W + Math.floor(cx))) { const c = st.tiles[st.tiles.length >> 1]; cx = c % W + 0.5; cy = ((c / W) | 0) + 0.5; }
+        }
+        const ux = -fy, uy = fx, up = tl.length ? DAIS_H : 0;
+        const lift = (bs) => bs.map((q) => ({ ...q, z0: q.z0 + up, z1: q.z1 + up }));
+        if (up) for (const b of buildFurn(FURN.dais, cx, cy, ux, uy, fx, fy, 0)) fboxes.push(b);
+        for (const b of lift(buildFurn(FURN.recliner, cx, cy, ux, uy, fx, fy, -0.06))) fboxes.push(b);
+        // the bag, packed, at the foot of the steps
+        for (const b of buildFurn({ boxes: [{ a: [-0.07, 0.07], d: [0.53, 0.66], z: [0, 0.14], m: 'bag', top: 'bag' }] }, cx, cy, ux, uy, fx, fy, -0.3)) fboxes.push(b);
         st.chair = { x: cx, y: cy, fx, fy };   // its note is folded into the watch's now
-        // the little table on the other side of the chair from the lamp, and on it the ring in the dust where his watch
-        // sat — the slot. Joe: "a 'slot' where the watch is supposed to go that you can interact with before you have
-        // the watch." It's where the watch goes back
-        const tx = cx + ux * 0.34, ty = cy + uy * 0.34;
-        if (!solid(Math.floor(tx), Math.floor(ty))) {
-          for (const b of buildFurn(FURN.sideTable, tx, ty, ux, uy, fx, fy, 0)) fboxes.push(b);
-          objs.push({ x: tx, y: ty, z: 0.24, kind: 'slot', tex: TEX.sprites.watchRing, h: 0.05, glow: 0.3 });
-          st.slot = { x: tx, y: ty };
-        } else { objs.push({ x: cx, y: cy, z: 0.19, kind: 'slot', tex: TEX.sprites.watchRing, h: 0.05, glow: 0.3 }); st.slot = { x: cx, y: cy }; }   // no room for the table: on the chair
+        // the spotlight: a can in the ceiling straight over it, and a pool of light on the chair and the steps (spotAt), the rest
+        // of the room left as dim as its dead ceiling makes it
+        fboxes.push(...buildFurn({ boxes: [{ a: [-0.07, 0.07], d: [-0.07, 0.07], z: [0.965, 1], m: 'spot' }] }, cx, cy, ux, uy, fx, fy, 0));
+        spotLamps.push({ x: cx, y: cy, r: SPOT_R, w: SPOT_W });
+        chairDim = new Uint8Array(W * H); for (const k of st.tiles) chairDim[k] = 1;
+        // the little table on the dais beside it, and on it the ring in the dust where his watch sat — the slot. Joe: "a 'slot'
+        // where the watch is supposed to go that you can interact with before you have the watch." It's where the watch goes back
+        const tx = cx + ux * 0.28, ty = cy + uy * 0.28;
+        for (const b of lift(buildFurn(FURN.sideTable, tx, ty, ux, uy, fx, fy, 0))) fboxes.push(b);
+        objs.push({ x: tx, y: ty, z: 0.24 + up, kind: 'slot', tex: TEX.sprites.watchRing, h: 0.05, glow: 0.3 });
+        st.slot = { x: tx, y: ty, z: 0.24 + up };
       }   // the wall has nothing in it but its writing: the watch is the heart's now
     }
   }
@@ -3082,6 +3118,7 @@
     turnFrame(now, px, py);
     lightFrame();
     const cw = W + 1;   // corner rows, for blending the light across each tile inline
+    const nSpot = spotLamps.length;
     if (hasCeil) {
       // ceiling: the floor pass mirrored, at the top of the wall
       for (let y = 0; y < horI; y++) {
@@ -3119,7 +3156,7 @@
         const cx = Math.floor(wx), cy = Math.floor(wy), inB = cx >= 0 && cy >= 0 && cx < W && cy < H;
         const t = inB ? floors[floorVar[cy * W + cx]] || TEX.heart.floors[(cx + cy) & 1] : floors[0], fx = wx - cx, fy = wy - cy;   // past the look's own floors: the heart's
         let L = 1;
-        if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; if (low[cy * W + cx]) L *= S.squeezeDim; }
+        if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; if (low[cy * W + cx]) L *= S.squeezeDim; if (nSpot) L += spotAt(wx, wy); }
         const fc = t.px[((fy * 32) | 0) * 32 + ((fx * 32) | 0)];
         buf[o] = shade(showPath && inB && pathMask[cy * W + cx] ? PATH_TINT(fc) : fc, f, inB ? aoAt(nbm[cy * W + cx], fx, fy) : 1, L);
       }
@@ -3206,10 +3243,39 @@
     }
     drawDoors(px, py, dX, dY, plX, plY, D, hor, eye, fog);
     drawFurniture(px, py, dX, dY, plX, plY, D, hor, eye, fog);
+    if (spotLamps.length) drawBeams(px, py, dX, dY, plX, plY, D, hor, eye, fog);
     drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog);
     veilSqueezes(D, hor, eye);
     if (darter) drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog, [darter]);
     ctx.putImageData(img, 0, 0);
+  }
+
+  // ── a spotlight's beam ────────────────────────────────────
+  // The light coming down from the can over his chair, seen in the air: a cone, narrow at the ceiling and as wide as the pool
+  // on the floor, that each pixel looking through it is brightened by as much of it as that pixel's ray passes through (up to
+  // whatever is nearest along it — the wall, the floor, the furniture). Joe: "Have a spotlight shining down on it."
+  const BEAM_TOP = 0.07, BEAM_A = 0.3, BEAM_RGB = [255, 238, 205];
+  function drawBeams(px, py, dX, dY, plX, plY, D, hor, eye, fog) {
+    for (const s of spotLamps) {
+      const r1 = s.r * 0.62;
+      for (let x = 0; x < RW; x++) {
+        const cam = 2 * (x + 0.5) / RW - 1, rx = dX + plX * cam, ry = dY + plY * cam, rr = rx * rx + ry * ry, rl = Math.sqrt(rr);
+        const t0 = ((s.x - px) * rx + (s.y - py) * ry) / rr, hx = px + rx * t0 - s.x, hy = py + ry * t0 - s.y, h2 = hx * hx + hy * hy;
+        if (h2 >= r1 * r1 || t0 + r1 / rl < 0.03) continue;
+        const wallT = colWallT[x], ov = colOv[x];
+        for (let y = 0; y < RH; y++) {
+          const dy = y + 0.5 - hor, z0 = eye - dy * t0 / D;
+          if (z0 <= 0 || z0 >= 0.965) continue;
+          const R = BEAM_TOP + (r1 - BEAM_TOP) * (1 - z0 / 0.965); if (h2 >= R * R) continue;
+          const c = Math.sqrt(R * R - h2) / rl, o = y * RW + x;
+          let far = Math.min(wallT, dy > 0 ? eye * D / dy : dy < 0 ? (1 - eye) * D / -dy : 1e9); if (ov && ovDep[o] < far) far = ovDep[o];
+          const len = Math.min(t0 + c, far) - Math.max(0.03, t0 - c); if (len <= 0) continue;
+          const a = BEAM_A * Math.min(1, len / (2 * c)) * (1 - h2 / (R * R)) * Math.exp(-fog * t0) * (0.55 + 0.45 * z0), cc = buf[o];
+          const r = Math.min(255, (cc & 0xff) + BEAM_RGB[0] * a) | 0, g = Math.min(255, ((cc >>> 8) & 0xff) + BEAM_RGB[1] * a) | 0, b = Math.min(255, ((cc >>> 16) & 0xff) + BEAM_RGB[2] * a) | 0;
+          buf[o] = 0xff000000 | (b << 16) | (g << 8) | r;
+        }
+      }
+    }
   }
 
   // ── doors: the header over each opening, and the leaves ──
@@ -3328,7 +3394,7 @@
     if (cx < 0 || cy < 0 || cx >= W || cy >= H) return 1;
     const fx = x - cx, fy = y - cy, w = W + 1, i = cy * w + cx;
     const a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b = cornerL[i + w] + (cornerL[i + w + 1] - cornerL[i + w]) * fx;
-    return a + (b - a) * fy;
+    return a + (b - a) * fy + (spotLamps.length ? spotAt(x, y) : 0);
   }
 
   // ── the far side of a squeeze, hidden ─────────────────────
@@ -3617,7 +3683,7 @@
   function leaveWatch(where) {
     carried.delete('watch'); watchLeft = true; hud();
     if (where.kind === 'slot') objs.splice(objs.indexOf(where), 1);
-    objs.push({ x: where.x, y: where.y, z: where.kind === 'slot' ? 0.24 : 0.19, kind: 'deco', tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // back where he kept it
+    objs.push({ x: where.x, y: where.y, z: where.kind === 'slot' ? where.z : 0.19, kind: 'deco', tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // back where he kept it
     giveJournal(endingText().leave);
     openExit();
   }
@@ -3986,5 +4052,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();
