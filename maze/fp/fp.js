@@ -2526,7 +2526,7 @@
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
     else if (o.kind === 'watch') { carried.add('watch'); flash('hudWatchBox'); giveJournal(o.text); }
     else if (o.kind === 'matches') { carried.add('matches'); flash('hudMatchesBox'); FP_SOUND.chalkUp(); }   // into your pocket
-    else if (o.kind === 'page') { addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg, o.text); FP_SOUND.page();
+    else if (o.kind === 'page') { journalLog.push(o.text); addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg, o.text); FP_SOUND.page();
       if (o.mem && o.mem.closet && !o.mem.done && !o.mem.coming) o.mem.coming = { t0: 0 };
       if (o.mem && o.mem.mem === 'fire') o.mem.read = true; }   // the fire room's: and now the toolbox opens   // the hiding room's: and now he's coming
     hud();
@@ -2536,7 +2536,7 @@
   const PROGRESS_PAGES = 3;
   function giveJournal(text) {
     if (!text) return;
-    addFind(); pagesFound++; flash('hudPagesBox'); showPage(-1, text); FP_SOUND.page(); hud();
+    journalLog.push(text); addFind(); pagesFound++; flash('hudPagesBox'); showPage(-1, text); FP_SOUND.page(); hud();
   }
   function flash(id) { const el = $(id); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
   // a page, or a note, stays up until you tap off it, and while it's up you're reading: you don't move,
@@ -2611,9 +2611,18 @@
     for (const [key, pg] of [...journals]) if (order.indexOf(pg) % F !== floor - 1) journals.delete(key);
   }
   function hidePage() {
-    reading = false; $('page').classList.remove('show'); document.body.classList.remove('reading');
+    reading = false; $('page').classList.remove('show', 'log'); document.body.classList.remove('reading');
     if (pageQueue.length) { const t = pageQueue.shift(); setTimeout(() => { $('pageText').textContent = t; $('pageWho').textContent = ''; openPage(); FP_SOUND.page(); }, 350); }
   }
+  // the journals you've found this run, newest first, on one long page. Joe: "I want to tap on the journal count on the hud and
+  // get a log of the journals and their text with the most recent at the top." Every page and every journal given (`journalLog`)
+  let journalLog = [];
+  $('hudPagesBox').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); e.preventDefault();
+    if (reading || !journalLog.length) return;
+    $('pageText').textContent = [...journalLog].reverse().join('\n\n· · ·\n\n'); $('pageWho').textContent = '';
+    $('page').classList.add('log'); openPage(); FP_SOUND.page();
+  });
   $('page').addEventListener('pointerdown', (e) => {
     e.stopPropagation(); e.preventDefault();
     if (e.target.closest('#page > div')) return;   // on the paper: keep reading
@@ -2642,8 +2651,11 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; seated = null; document.body.classList.remove('seated', 'book'); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
-    try { history.replaceState(null, '', location.pathname + '?seed=' + SEED); } catch (e) {}
+    journalLog = []; BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; seated = null; document.body.classList.remove('seated', 'book'); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
+    // Joe: "Feels like you are using the same seed over and over again." It was: every new maze wrote its seed into the address,
+    // and a page load plays the address's seed, so reopening the tab (a phone does that on its own) was the same maze again. A
+    // new maze takes the seed out of the address now; one typed into a link still holds until then. The seed is on the panel
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
     applyMazeDebug();
     generate(SEED); thinSqueezes(); carveHeart(); spreadPages(); reset(); startWake();
     FP_SOUND.setMusic(track());
@@ -3637,10 +3649,39 @@
     }
     if (floor === 1 && (full || seen[exit.y * W + exit.x])) { c.fillStyle = '#e0c98a'; c.fillRect(ox + exit.x * s, oy + exit.y * s, s, s); }
     for (const [st, col] of [[stairs.up, '#8fb8e0'], [stairs.down, '#e09a8f']]) if (st && (full || seen[st.y * W + st.x])) { c.fillStyle = col; c.fillRect(ox + st.x * s, oy + st.y * s, s, s); }
+    // the key rooms, each a mark of its own (Joe: "I can't find the War table on the map. Can we put a small icon on the debug
+    // map that represents each of the key rooms?") — the full map shows them all, the corner one those you've seen
+    if (floor === 1) {
+      const r = Math.max(4, s * 1.2);
+      c.font = `bold ${Math.round(r * 1.5)}px Georgia, serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      for (const m of mapMarks()) {
+        if (!full && !seen[Math.floor(m.y) * W + Math.floor(m.x)]) continue;
+        const px = ox + m.x * s, py = oy + m.y * s;
+        c.fillStyle = '#0d0f10'; c.beginPath(); c.arc(px, py, r, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = m.col; c.lineWidth = Math.max(1, r / 4); c.stroke();
+        c.fillStyle = m.col; c.fillText(m.ch, px, py + r * 0.08);
+      }
+      c.textBaseline = 'alphabetic';
+    }
     const [x, y, a] = camera(now);
     c.save(); c.translate(ox + x * s, oy + y * s); c.rotate(a);
     c.fillStyle = '#c0392b'; c.beginPath(); c.moveTo(s * 1.1, 0); c.lineTo(-s * 0.6, -s * 0.7); c.lineTo(-s * 0.6, s * 0.7); c.fill();
     c.restore();
+  }
+  // where each key room is, for the map: the wall of lies (W), his chair (C), the heart (♥), the kid's room (K), and the memory
+  // rooms — the phone (☎), the cards (♠), the fire (F), hiding (H)
+  const MARKS = { wall: ['W', '#e6d9a8'], waiting: ['C', '#d9a86b'], heart: ['♥', '#e0606a'], kid: ['K', '#9fc2e8'], phone: ['☎', '#c6e0a0'], cards: ['♠', '#c6e0a0'], fire: ['F', '#f0a33a'], hide: ['H', '#c6e0a0'] };
+  function mapMarks() {
+    const out = [], mid = (tiles) => { let x = 0, y = 0; for (const k of tiles) { x += k % W; y += (k / W) | 0; } return [x / tiles.length + 0.5, y / tiles.length + 0.5]; };
+    const add = (key, x, y) => { const [ch, col] = MARKS[key]; out.push({ key, ch, col, x, y }); };
+    for (const st of story) {
+      if (st.kind === 'heart') { add('heart', heart.mid % W + 0.5, ((heart.mid / W) | 0) + 0.5); continue; }
+      if (st.kind === 'waiting' && st.chair) { add('waiting', st.chair.x, st.chair.y); continue; }
+      if (st.kind === 'wall') { add('wall', ...mid(st.tiles)); continue; }
+      if (st.kind === 'memory' && MARKS[st.mem]) { if (st.at) add(st.mem, st.at.x + 0.5, st.at.y + 0.5); else add(st.mem, ...mid(st.tiles)); }
+    }
+    const sec = secretSet(); if (sec && sec.size) add('kid', ...mid([...sec]));
+    return out;
   }
   let bigOpen = false, bigGeom = null;
   const big = document.getElementById('bigmap'), bctx = big.getContext('2d');
@@ -3680,11 +3721,13 @@
   });
 
   // ── winning ───────────────────────────────────────────────
+  const againPlain = $('again').textContent;
   function win() {
     won = true; holdFwd = false; queued = null; anim = null; vel = 0;
     FP_SOUND.out();
     const E = endingText();
     $('winSteps').textContent = (exitOpen() && E ? E.out + '\n' : '') + steps + ' steps';
+    $('again').textContent = exitOpen() && E && E.again ? E.again : againPlain;   // the chapter's own, or the page's
     $('win').classList.add('show');
   }
   $('again').onclick = () => newMaze();
@@ -4250,5 +4293,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get lift() { return lift; }, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get darkMul() { return darkMul; }, get lifted() { return lifted; }, get turnFaces() { return turnFaces; }, get wordFaces() { return wordSpots; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get lift() { return lift; }, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get journalLog() { return journalLog; }, mapMarks, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get darkMul() { return darkMul; }, get lifted() { return lifted; }, get turnFaces() { return turnFaces; }, get wordFaces() { return wordSpots; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

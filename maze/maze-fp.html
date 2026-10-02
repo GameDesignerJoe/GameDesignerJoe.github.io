@@ -91,6 +91,9 @@
   #opening small { margin-top: 18px; color: #8a857a; font: 15px Georgia, serif; }
   #page { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 5; background: #0d0f1066; }
   #page.show { opacity: 1; pointer-events: auto; }
+  /* the log of journals (a tap on the count): one long page, scrolled */
+  #hudPagesBox { pointer-events: auto; cursor: pointer; }
+  #page.log > div { max-height: 78vh; overflow-y: auto; touch-action: pan-y; }
   /* Caveat (SIL Open Font License), the latin set, kept here so a page reads the same offline */
   /* loaded at the start (fp.js), and `block`, not `swap`: Joe saw the first journal of a run come up in one hand and change
      to another a frame later — the page drawn in a stand-in font while this one was still being fetched, then swapped */

@@ -172,7 +172,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   "not yet" — walk up to it and the handle rattles. It opens once you've taken the watch from the middle of the heart and
   left it by the chair he saved in the waiting room — on the little table beside it, where a ring in the dust shows where the
   watch used to sit (tap it without: "something goes here."; with it: he says goodbye to it, and somewhere a door unlatches). The being is standing in front of the exit then, waiting; come close and it comes down to the kid's size,
-  and fades, and goes. Out, under the Exit: "it's time to come home now." After the watch is left the being doesn't hunt
+  and fades, and goes. Out, under the Exit: "you have let go of what's been holding you back … it's time to come home now.", and the button says "Again?" (`again`; Joe: "Then the button can just say, Again?") After the watch is left the being doesn't hunt
   any more. The debug arrow points at the next thing to do. **Leave the watch** on the panel skips to it.
 - **The heart** (`heart`; the Child, floor 1; words in `STORY_ROOMS` → `heart`). The third story room, and the hidden one:
   what's under the waiting and under the wall. A room the shape of a heart, carved after the generator (on its own stream)
@@ -236,6 +236,15 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   ones take their pools with them, and a look with a sky is lit evenly. Dark halls (the generator's
   darkness plus this view's own, `darkHalls`) sit at `darkLevel`, very dim, the far end showing. Squeezes
   are dimmed, slow you, and hide what is past them (`squeezeVeil`). All of it blended at tile corners; knobs in the Lighting section.
+- **A new maze each time.** Joe: "Feels like you are using the same seed over and over again." It was: every new maze wrote
+  its seed into the address, and a page load plays the address's seed, so reopening the tab was the same maze again. A new maze
+  clears the address now; a seed typed into a link (`?seed=`) still holds until then. The seed is on the panel.
+- **The key rooms on the debug map** (`mapMarks`): W the wall, C his chair, ♥ the heart, K the kid's room, ☎ ♠ F H the phone,
+  the cards, the fire, hiding — on the full map all of them, on the corner one those you've seen. Joe: "I can't find the War
+  table on the map."
+- **The log of journals.** A tap on the journal count on the HUD is every journal of the run on one long page, newest first
+  (`journalLog`). Joe: "I want to tap on the journal count on the hud and get a log of the journals and their text with the most
+  recent at the top."
 - **The way out** ends the maze when you're up against its door (`EXIT_REACH` from the face), not on first
   setting foot on the exit tile, which was a tile short.
 - **Replacing the art:** each texture is `{ w, h, px: Uint32Array }` (0xAABBGGRR). Decode a

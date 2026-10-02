@@ -334,8 +334,10 @@ console.log('The Maze — first person checks');
     `white ${seen.has(2)}, arms out ${seen.has(3)}; came to ${near.toFixed(2)} of you; the hug ${hug}; after: ${kid}`);
   await p.evaluate(() => { const [dx, dy] = FP.exitDir; FP.P.x = exit.x + 0.5 + dx * 0.25; FP.P.y = exit.y + 0.5 + dy * 0.25; }); await p.waitForTimeout(500);
   const won = await p.evaluate(() => [FP.won, document.getElementById('winSteps').textContent]);
-  check('close to it, the being is the kid, and goes; the way out says it\'s time to come home', kid === 'done' && won[0] && /come home/.test(won[1]),
-    `being after the approach: ${kid}; out: ${won[0]}, "${won[1].split('\n')[0]}"`);
+  const again = await p.evaluate(() => document.getElementById('again').textContent);
+  // Joe: "Text at the end should be more 'you have let go of what's been holding you back' … Then the button can just say, Again?"
+  check('close to it, the being is the kid, and goes; the way out says you\'ve let go of what was holding you back, and the button says Again?', kid === 'done' && won[0] && /let go of what/.test(won[1]) && /come home/.test(won[1]) && again === 'Again?',
+    `being after the approach: ${kid}; out: ${won[0]}, "${won[1].split('\n')[0]}"; the button "${again}"`);
   await p.close();
 }
 
@@ -479,16 +481,19 @@ console.log('The Maze — first person checks');
     const m = v[pk], d = m & 1 ? [1, 0] : m & 2 ? [-1, 0] : m & 4 ? [0, 1] : [0, -1]; FP.P.a = Math.atan2(d[1], d[0]);
     return { reached: c === FP.heart.ring, steps: n, dist: FP.heart.dist[pk] }; });
   const lv = []; for (let i = 0; i < 24; i++) { lv.push(await p.evaluate(() => FP.veinLvl)); await p.waitForTimeout(50); }
+  // in one frame, the strip down the middle of the floor ahead (where the vein runs) against the strips either side: the lights
+  // swell with the beat now, so two frames a beat apart differ by more than the vein does
   const red = () => p.evaluate(() => { const cv = [...document.querySelectorAll('canvas')].sort((a, b) => b.width - a.width)[0], g = cv.getContext('2d');
-    const d = g.getImageData((cv.width * 0.42) | 0, (cv.height * 0.62) | 0, (cv.width * 0.16) | 0, (cv.height * 0.3) | 0).data; let n = 0; for (let i = 0; i < d.length; i += 4) n += d[i] - d[i + 1]; return Math.round(n / (d.length / 4) * 10) / 10; });   // how much redder than green, on average
+    const strip = (x0, x1) => { const d = g.getImageData((cv.width * x0) | 0, (cv.height * 0.66) | 0, Math.max(1, (cv.width * (x1 - x0)) | 0), (cv.height * 0.28) | 0).data; let n = 0; for (let i = 0; i < d.length; i += 4) n += d[i] - d[i + 1]; return n / (d.length / 4); };
+    return Math.round((strip(0.45, 0.55) - (strip(0.33, 0.41) + strip(0.59, 0.67)) / 2) * 10) / 10; });
   const withV = await red();
   await p.evaluate(() => { FP.heart.vein = false; }); await p.waitForTimeout(200); const without = await red();
   await p.evaluate(() => { FP.heart.vein = true; for (const q of FP.story) if (q.kind === 'heart') q.found = true; }); await p.waitForTimeout(200);
   const afterIn = await p.evaluate(() => !!FP.vein);
   const lo = Math.min(...lv), hi = Math.max(...lv);
   check('once the heart opens, a faint vein runs along the floor from you to its way in, pulsing with the beat; gone once you\'ve been in',
-    !before && path && path.reached && path.steps > 3 && lo < 0.3 && hi > 0.6 && withV > without + 3 && !afterIn,
-    `before the lies: ${before}; ${path ? `followed ${path.steps} tiles from you, reached the gap ${path.reached}` : 'no vein'}; its level ${lo.toFixed(2)}..${hi.toFixed(2)}; redness of the floor ahead ${without} → ${withV}; after the heart ${afterIn}`);
+    !before && path && path.reached && path.steps > 3 && lo < 0.3 && hi > 0.6 && withV > without + 4 && !afterIn,
+    `before the lies: ${before}; ${path ? `followed ${path.steps} tiles from you, reached the gap ${path.reached}` : 'no vein'}; its level ${lo.toFixed(2)}..${hi.toFixed(2)}; the middle of the floor redder than its sides by ${without} → ${withV}; after the heart ${afterIn}`);
   await p.close();
 }
 
@@ -545,6 +550,33 @@ console.log('The Maze — first person checks');
   check('opening the heart brings the turn and takes the lights down low, swelling with the beat, every room going out at you; the watch left, they all come back up and every wall the game wrote on says something else, in chalk',
     !before[0] && before[1] === 1 && lo < 0.4 && hi > 0.45 && hi < 0.75 && dark.out && dark.faces > 0 && after.lifted && after.mul === 1 && after.out === 0 && after.dark === 0 && after.faces > 10 && after.chalked === after.faces && after.green === 0 && !later.out,
     `turned before ${before[0]}; dark ${lo.toFixed(2)}..${hi.toFixed(2)} of full; a room walked into went out ${dark.out} (${dark.faces} faces written); after the watch: lifted ${after.lifted}, ×${after.mul}, ${after.out} lamps out, ${after.dark} dark tiles; ${after.chalked} of ${after.faces} written faces in chalk, ${after.green} green pixels left; a room walked into after went out ${later.out}`);
+  await p.close();
+}
+
+// ── a new seed each time, the key rooms on the map, the log of journals ──
+// Joe: "Feels like you are using the same seed over and over again." Every new maze wrote its seed into the address, and a load
+// plays the address's seed. And: "Can we put a small icon on the debug map that represents each of the key rooms?" And: "I want
+// to tap on the journal count on the hud and get a log of the journals and their text with the most recent at the top."
+{
+  const p = await open(4242); await awake(p); await closePage(p);
+  await p.evaluate(() => FP.newMaze()); await p.waitForTimeout(300);
+  const addr = await p.evaluate(() => location.search), first = await p.evaluate(() => FP.S && document.getElementById('seed').textContent);
+  await p.reload({ waitUntil: 'load' }); await p.waitForTimeout(700);
+  const second = await p.evaluate(() => document.getElementById('seed').textContent);
+  await p.goto(URL(4242)); await p.waitForTimeout(700); await awake(p); await closePage(p);
+  const marks = await p.evaluate(() => { const m = FP.mapMarks(), keys = new Set(m.map((q) => q.key));
+    const want = FP.story.map((q) => q.kind === 'memory' ? q.mem : q.kind).filter((k) => k !== 'memory'); if ([...secretTiles].length) want.push('kid');
+    return { n: m.length, missing: want.filter((k) => !keys.has(k)), cards: keys.has('cards') }; });
+  await p.evaluate(() => { const o = FP.objs.find((q) => q.kind === 'page'); FP.P.x = o.x; FP.P.y = o.y; }); await p.waitForTimeout(500); await closePage(p);
+  await p.evaluate(() => document.getElementById('undoLies').click()); await p.waitForTimeout(400);
+  for (let i = 0; i < 3; i++) await closePage(p);
+  const box = await p.evaluate(() => { const r = document.getElementById('hudPagesBox').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  await p.mouse.click(box[0], box[1]); await p.waitForTimeout(400);
+  const log = await p.evaluate(() => ({ n: FP.journalLog.length, open: document.getElementById('page').classList.contains('log'), text: document.getElementById('pageText').textContent, last: FP.journalLog[FP.journalLog.length - 1], first: FP.journalLog[0] }));
+  await closePage(p);
+  check('a new maze takes its seed out of the address, so a reload is a new maze; every key room has its mark on the map; a tap on the journal count is the log, newest first',
+    addr === '' && first !== second && marks.n > 4 && !marks.missing.length && marks.cards && log.n === 2 && log.open && log.text.startsWith(log.last.slice(0, 20)) && log.text.indexOf(log.first.slice(0, 20)) > 0,
+    `address "${addr}"; seed ${first} → ${second} on a reload; ${marks.n} marks, missing ${marks.missing.join(',') || 'none'}; log of ${log.n}, open ${log.open}, newest first ${log.text.startsWith(log.last.slice(0, 20))}`);
   await p.close();
 }
 

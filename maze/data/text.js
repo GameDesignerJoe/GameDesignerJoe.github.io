@@ -574,7 +574,10 @@ const FP_ENDING = {
     // holding it, but not yet been to the heart. Joe: "someone gets the watch first and can't put it in the slot and don't
     // understand why … let you know when you have the watch and try and put it there but haven't been to the heart room"
     slotNotYet: "this goes here, but there's a truth i have yet to learn that will let me place it.",
-    out: "it's time to come home now.",
+    // under the Exit when you go, and the button under it. Joe: "Text at the end should be more 'you have let go of what's been
+    // holding you back' … Then the button can just say, Again?" Claude's draft round Joe's words
+    out: "you have let go of what's been holding you back. you don't have to carry it anymore. it's time to come home now.",
+    again: "Again?",
   },
 };
 
