@@ -634,6 +634,28 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the way out, lit ─────────────────────────────────────────────
+// Joe: "We might want to add lights on the ceiling that pulse the way out." Once it's open: its lamps ahead of you light one after
+// another toward the door
+{
+  const p = await open(4242); await awake(p); await closePage(p);
+  const before = await p.evaluate(() => { const ahead = FP.lampTiles.filter((k) => FP.pathIdx.has(k)); return ahead.every((k) => FP.lampLvl[k] > 0.9 || FP.lampLvl[k] < 0.3); });
+  await p.evaluate(() => document.getElementById('undoLies').click()); await p.waitForTimeout(300); for (let i = 0; i < 3; i++) await closePage(p);
+  await p.evaluate(() => document.getElementById('leaveWatch').click()); await p.waitForTimeout(300); for (let i = 0; i < 3; i++) await closePage(p);
+  const i0 = await p.evaluate(() => { const sp = solutionPath, i = Math.max(0, sp.length - 40), [x, y] = sp[i], [nx, ny] = sp[i + 1]; FP.P.x = x + 0.5; FP.P.y = y + 0.5; FP.P.a = Math.atan2(ny - y, nx - x); return i; });
+  const run = await p.evaluate(async (i0) => { const ahead = FP.lampTiles.filter((k) => FP.pathIdx.has(k) && FP.pathIdx.get(k) > i0 + 1).sort((a, b) => FP.pathIdx.get(a) - FP.pathIdx.get(b));
+    const lo = new Map(), first = new Map(), t0 = performance.now();
+    while (performance.now() - t0 < 7000) { await new Promise((r) => requestAnimationFrame(r)); const t = performance.now() - t0;
+      for (const k of ahead) { const v = FP.lampLvl[k]; if (v < 0.5 && v > 0.3) lo.set(k, true); if (v > 0.9 && lo.get(k) && !first.has(k)) first.set(k, t); } }
+    const lit = ahead.filter((k) => first.has(k)), order = lit.map((k) => first.get(k));
+    let inOrder = 0; for (let i = 1; i < order.length; i++) if (order[i] >= order[i - 1] - 60) inOrder++;
+    return { ahead: ahead.length, lit: lit.length, inOrder, pairs: Math.max(0, order.length - 1) }; }, i0);
+  check('once the way out is open, its ceiling lamps ahead of you light one after another toward the door',
+    run.ahead >= 3 && run.lit >= run.ahead - 1 && run.inOrder >= run.pairs - 1,
+    `${run.ahead} lamps on the way ahead; ${run.lit} lit up out of their low; ${run.inOrder} of ${run.pairs} in order toward the door; before the watch, none low ${before}`);
+  await p.close();
+}
+
 // ── the turn: three pages, and nothing else counts ───────────────
 {
   const p = await open(4242); await awake(p);

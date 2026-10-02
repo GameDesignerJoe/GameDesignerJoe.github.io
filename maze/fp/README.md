@@ -121,6 +121,10 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   The dark lifts; every lamp out, every dark hall and every switched room comes back on (the chair's room too); the turn stops
   and its music with it; and every face the game wrote words on — the dead ends, the opening walls, the wall's lies, the turn's
   green (`turnFaces`) — is washed and written again in chalk with a line of `FP_ENDING` `after`.
+- **The way out, lit.** Joe: "We might want to add lights on the ceiling that pulse the way out." Once the watch is left and the
+  exit is open, the ceiling lamps on the way out from where you are to the door sit at `WAY_LOW` and light up one after
+  another toward it, over and over (`WAY_SPEED` tiles a second, `WAY_TAIL` long, `WAY_GAP` between runs) — a run of light down
+  the halls to follow. Lamps behind you stay as they are.
 - **Story rooms** (`storyRooms`; the Child, floor 1; words in `STORY_ROOMS` in data/text.js). Two ages of not looking:
   **the waiting room** — bare walls now (Joe: "the room with the chair doesn't need the words on the walls. It needs to be its
   own thing that just sits there in the center"); ceiling dead and the room held down to `CHAIR_DIM`, and in the middle of it
