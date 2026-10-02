@@ -58,7 +58,8 @@ const FP_CONFIG = {
   wakeScene: true,  // each maze starts with you getting up off a mat on the floor (a few seconds, no control)
   squeezeChains: 1,  // chains of squeezes (two tiles or more) a maze keeps, the longest first; the rest open to plain floor
   squeezeSingles: 0.5, // the share of single squeezes kept
-  liesToUndo: 3,    // faces of a story room's lies you chalk through to undo it; both undone and the heart opens
+  liesToUndo: 0,    // faces of the wall's lies you chalk through to undo it, and the heart opens; 0 is every one of them (Joe: "I didn't
+                    // cross out all of the lies in the room with all the writing and it gave me the heartbeat. Seems like I should have.")
   memoryRooms: 4,   // memory rooms a Child maze has (FP_MEMORIES in data/text.js): the phone, the cards, the fire, hiding — as many as there are rooms for, a different few each maze. Catch is the kid's room's
   storyRooms: 2,    // story rooms a Child maze has (STORY_ROOMS in data/text.js): the waiting room, the wall
   floors: 1,        // floors a maze has (1: no stairs). Joe: "for now, we should disable the other floors. Let's get all of the rooms on the one floor"

@@ -51,7 +51,8 @@
     if ((saved.cfg || 0) < 8) { delete saved.words; delete saved.showArrow; }
     if ((saved.cfg || 0) < 9) delete saved.floors;   // one floor for now (v0.146.0)
     if ((saved.cfg || 0) < 11) delete saved.memoryRooms;   // the cards and the fire joined the phone (v0.154.0), then hiding (v0.155.0)
-    saved.cfg = 11;
+    if ((saved.cfg || 0) < 12) delete saved.liesToUndo;   // every one of the wall's lies, now (v0.170.0)
+    saved.cfg = 12;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -1367,7 +1368,7 @@
       // out the lies in the one room that has all the writing on the walls, collecting the watch from the heart room, and put it
       // in on this table next to the La-Z-Boy chair. Everything else is incidental."
       const lieFaces = kind === 'wall' ? new Set(faces.map((f) => faceKey(f.k, f.face))) : null, struck = new Set([...liesStruck].filter((fk) => lieFaces && lieFaces.has(fk)));
-      const st = { kind, tiles, set, m, music: kind === 'waiting' ? 'The Waiting Room' : 'The Wall', text: W8, lieFaces, struck, need: lieFaces ? Math.min(lieFaces.size, Math.max(1, Math.round(S.liesToUndo))) : 0 };
+      const st = { kind, tiles, set, m, music: kind === 'waiting' ? 'The Waiting Room' : 'The Wall', text: W8, lieFaces, struck, need: lieFaces ? (S.liesToUndo > 0 ? Math.min(lieFaces.size, Math.round(S.liesToUndo)) : lieFaces.size) : 0 };
       st.undone = !!lieFaces && st.struck.size >= st.need; if (st.undone) st.music = null;
       story.push(st);
     }
@@ -1405,7 +1406,7 @@
         }
         const ux = -fy, uy = fx, up = tl.length ? DAIS_H : 0;
         const lift = (bs) => bs.map((q) => ({ ...q, z0: q.z0 + up, z1: q.z1 + up }));
-        if (up) for (const b of buildFurn(FURN.dais, cx, cy, ux, uy, fx, fy, 0)) fboxes.push(b);
+        if (up) for (const b of buildFurn(FURN.dais, cx, cy, ux, uy, fx, fy, 0)) fboxes.push({ ...b, step: true });   // Joe: "I should be able to walk up the few steps in the chair room"
         for (const b of lift(buildFurn(FURN.recliner, cx, cy, ux, uy, fx, fy, -0.06))) fboxes.push(b);
         // the bag, packed, at the foot of the steps
         for (const b of buildFurn({ boxes: [{ a: [-0.07, 0.07], d: [0.53, 0.66], z: [0, 0.14], m: 'bag', top: 'bag' }] }, cx, cy, ux, uy, fx, fy, -0.3)) fboxes.push(b);
@@ -2486,8 +2487,13 @@
     for (const st of story) {
       const mk = st.m.my * W + st.m.mx;
       if (st.kind === 'waiting' || st.kind === 'wall') at[st.kind] = farthest(st.tiles, mk);
+      // Joe: "The journal that says 'cross them out for me' needs to go in the room you cross the words out. Right now it's in the
+      // chair room." The waiting room's page is in the wall's room, then, just inside the way in; the wall's own at the far end
+      if (st.kind === 'wall') { const near = st.tiles.filter((k) => free(k) && k !== at.wall).sort((a, b) => Math.hypot(a % W - mk % W, ((a / W) | 0) - ((mk / W) | 0)) - Math.hypot(b % W - mk % W, ((b / W) | 0) - ((mk / W) | 0)));
+        if (near.length) at.waitingIn = near[0]; }
       if (st.kind === 'heart') at.heart = farthest(heart.room.filter((k) => k !== heart.mid), heart.tip);   // off to the side: the watch has the middle
     }
+    if (at.waitingIn !== undefined) at.waiting = at.waitingIn;
     const sec = secretSet();
     if (sec) { const [fx, fy] = typeof secretFather === 'string' && secretFather ? secretFather.split(',').map(Number) : [-1, -1]; at.kid = fy >= 0 && free(fy * W + fx) ? fy * W + fx : farthest([...sec], sk); }
     let n = 0; const used = new Set();
@@ -2663,6 +2669,15 @@
   let railTurn = null, pendTurn = 0, pendUntil = 0, pendArmed = true, turnEnd = 0, wasRail = false;
 
   // push a round body out of any wall it has sunk into; it slides round corners by construction
+  // what you're standing on: the floor, or the top of the highest step under you, and your eye goes up with it (lift)
+  const STEP_UP = 0.08;
+  let lift = 0, liftT = 0;
+  // (with `r`, the highest your feet are on: a step is shallower than you are wide, so it's the one you've got a foot on)
+  function standOn(x, y, r = 0) {
+    let z = 0;
+    for (const b of fboxes) if (b.step && x > b.x0 - r && x < b.x1 + r && y > b.y0 - r && y < b.y1 + r && b.z1 > z) z = b.z1;
+    return z;
+  }
   function collide() {
     const tx = Math.floor(P.x), ty = Math.floor(P.y);
     // at a squeeze — in one, or beside one — you turn sideways and fit it, just. Everywhere else you
@@ -2684,7 +2699,9 @@
       if (dd < RAD && dd > 1e-6) { P.x = cx + ex / dd * RAD; P.y = cy + ey / dd * RAD; }
     }
     // furniture: a box on the floor, with the same round-body push as a wall
-    for (const b of fboxes) if (!b.flat && b.z0 < S.eye && b.x1 > P.x - 1 && b.x0 < P.x + 1 && b.y1 > P.y - 1 && b.y0 < P.y + 1) push(b.x0, b.y0, b.x1, b.y1);
+    // a step (the dais's) is only in the way if it's more than STEP_UP over what you're standing on: you go up it
+    const under = standOn(P.x, P.y, r * 0.7);
+    for (const b of fboxes) if (!b.flat && b.z0 < S.eye && !(b.step && b.z1 <= under + STEP_UP) && b.x1 > P.x - 1 && b.x0 < P.x + 1 && b.y1 > P.y - 1 && b.y0 < P.y + 1) push(b.x0, b.y0, b.x1, b.y1);
     for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
       if (solid(xx, yy)) { push(xx, yy, xx + 1, yy + 1); continue; }
       const bx = boxesAt(yy * W + xx);
@@ -3060,6 +3077,11 @@
     rising = { t0: performance.now() + after }; clearStick(); document.body.classList.add('waking');
   }
   const wakeK = (now) => rising ? Math.max(0, Math.min(1, (now - rising.t0 - WAKE_LIE) / WAKE_RISE)) : 1;
+  function liftNow(now) {   // eased, so a step up is a step and not a jump
+    const dt = Math.min(0.1, Math.max(0, (now - liftT) / 1000)); liftT = now;
+    const want = seated ? 0 : standOn(P.x, P.y); lift += (want - lift) * Math.min(1, dt * 10);
+    return lift;
+  }
   function eyeNow(now) {
     if (!rising) return S.eye;
     const k = wakeK(now), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
@@ -3128,7 +3150,7 @@
     const [px, py, ang, bob] = camera(now);
     const tanH = Math.tan(S.fov * Math.PI / 360), D = (RW / 2) / tanH;
     const sk = seated ? seated.k : 0;   // sat at the card table: lower, and looking down at it
-    const hor = RH / 2 + bob - sk * D * (seated ? seated.shift : 0), eye = eyeNow(now) + ((seated ? seated.eye : S.eye) - S.eye) * sk, fog = S.fog;
+    const hor = RH / 2 + bob - sk * D * (seated ? seated.shift : 0), eye = eyeNow(now) + ((seated ? seated.eye : S.eye) - S.eye) * sk + liftNow(now), fog = S.fog;
     const dX = Math.cos(ang), dY = Math.sin(ang), plX = -dY * tanH, plY = dX * tanH;
     BRv = S.bright; FRb = FR * BRv; FGb = FG * BRv; FBb = FB * BRv;
     const sky = T.sky, SW = sky ? sky.w : 0, SH = sky ? sky.h : 0, SP = sky ? sky.px : null;
@@ -3786,7 +3808,7 @@
   // Joe: "I love the X out the lies on the walls reveals the truth … It should be required and the heart should stay
   // hidden, perhaps it's hidden until you cross out the lies." The waiting room and the wall are written over with
   // what he told himself. Chalk a face of one and every line on it is struck through, and what's true is written over
-  // them in red (`truths`, STORY_ROOMS in data/text.js). `liesToUndo` faces of a room and it's undone: its music stops.
+  // them in red (`truths`, STORY_ROOMS in data/text.js). `liesToUndo` faces of a room (0: every one) and it's undone: its music stops.
   // Both undone and somewhere a wall gives — the heart's way in opens, and its heartbeat carries (HEART_HEAR_OPEN).
   // What's struck is kept for the run (`liesStruck`), stairs and all.
   let liesStruck = new Set(), heartOpened = false;
@@ -4118,5 +4140,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get lift() { return lift; }, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

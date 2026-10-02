@@ -231,7 +231,7 @@ console.log('The Maze — first person checks');
     for (let s = 1; s <= 12; s++) { FP.newMaze(s * 7717 + 3); const W = FP.W;
       for (const o of FP.objs.filter((o) => o.kind === 'page')) { seen[o.place] = (seen[o.place] || 0) + 1;
         const k = Math.floor(o.y) * W + Math.floor(o.x); let ok = true;
-        if (o.place === 'waiting' || o.place === 'wall') ok = FP.story.some((st) => st.kind === o.place && st.set.has(k));
+        if (o.place === 'waiting' || o.place === 'wall') ok = FP.story.some((st) => st.kind === 'wall' && st.set.has(k));   // the waiting room's page ("cross them out for me") is in the wall's room now
         if (o.place === 'heart') ok = !!FP.heart && FP.heart.set.has(k);
         if (o.place === 'kid') ok = [...secretTiles].includes((k % W) + ',' + ((k / W) | 0));
         if (!ok) bad[o.place] = (bad[o.place] || 0) + 1; } }
@@ -467,6 +467,30 @@ console.log('The Maze — first person checks');
   check('once the heart opens, a faint vein runs along the floor from you to its way in, pulsing with the beat; gone once you\'ve been in',
     !before && path && path.reached && path.steps > 3 && lo < 0.3 && hi > 0.6 && withV > without + 3 && !afterIn,
     `before the lies: ${before}; ${path ? `followed ${path.steps} tiles from you, reached the gap ${path.reached}` : 'no vein'}; its level ${lo.toFixed(2)}..${hi.toFixed(2)}; redness of the floor ahead ${without} → ${withV}; after the heart ${afterIn}`);
+  await p.close();
+}
+
+// ── every lie, the page that asks for it, and up the steps ─────────
+// Joe: "I didn't cross out all of the lies in the room with all the writing and it gave me the heartbeat. Seems like I should
+// have." "The journal that says 'cross them out for me' needs to go in the room you cross the words out." "I should be able
+// to walk up the few steps in the chair room."
+{
+  const p = await open(4242); await awake(p); await closePage(p);
+  const lies = await p.evaluate(() => { const st = FP.story.find((q) => q.lieFaces), all = [...st.lieFaces];
+    for (const fk of all.slice(0, -1)) FP.crossOut(fk);
+    const short = { sealed: FP.heart.sealed, faces: all.length, need: st.need };
+    FP.crossOut(all[all.length - 1]); return { ...short, open: !FP.heart.sealed }; });
+  for (let i = 0; i < 3; i++) await closePage(p);
+  const page = await p.evaluate(() => { const o = FP.objs.find((q) => q.kind === 'page' && q.place === 'waiting'), W = FP.W, k = o ? Math.floor(o.y) * W + Math.floor(o.x) : -1;
+    const wall = FP.story.find((q) => q.kind === 'wall'), wait = FP.story.find((q) => q.kind === 'waiting');
+    return { found: !!o, inWall: !!o && wall.set.has(k), inChair: !!o && wait.set.has(k), asks: !!o && /Cross them out for me/.test(o.text) }; });
+  // up the dais: from in front of it, beside the footrest, walking at it
+  await p.evaluate(() => { const c = FP.story.find((s) => s.chair).chair; FP.P.x = c.x + c.fx * 1.2 - c.fy * 0.3; FP.P.y = c.y + c.fy * 1.2 + c.fx * 0.3; FP.P.a = Math.atan2(-c.fy, -c.fx); });
+  await p.keyboard.down('KeyW'); await p.waitForTimeout(1500); await p.keyboard.up('KeyW'); await p.waitForTimeout(400);
+  const up = await p.evaluate(() => { const c = FP.story.find((s) => s.chair).chair; return { lift: FP.lift, d: Math.hypot(FP.P.x - c.x, FP.P.y - c.y) }; });
+  check('the heart opens only when every lie on the wall is crossed out; "cross them out for me" is in that room; you can walk up the steps to his chair',
+    lies.faces > 1 && lies.need === lies.faces && lies.sealed && lies.open && page.found && page.inWall && !page.inChair && page.asks && up.lift > 0.12 && up.d < 0.5,
+    `${lies.faces} faces, ${lies.need} needed; one short, sealed ${lies.sealed}; all of them, open ${lies.open}; the page in the wall's room ${page.inWall} (the chair's ${page.inChair}); up the dais to ${up.d.toFixed(2)} from the chair, eye up ${up.lift.toFixed(3)}`);
   await p.close();
 }
 

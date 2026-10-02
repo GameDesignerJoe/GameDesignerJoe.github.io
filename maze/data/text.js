@@ -536,7 +536,8 @@ const TURN_LINES = {
 // being lies when you collect the journal there." Built out from Joe's five Child pages (his lines kept, in order),
 // to about twice the length, and each now says what its room is. Keyed by place:
 //   start   — beside the mat you wake on
-//   waiting — the waiting room, on the floor by the saved chair: its walls are what he told himself
+//   waiting — the waiting room's, but found in the wall's room, just inside the way in (Joe: "The journal that says 'cross them
+//             out for me' needs to go in the room you cross the words out"): its walls were what he told himself
 //   wall    — the wall, against the far wall: everything painted over is a lie as well; cross it out
 //   kid     — the kid's chalk room, behind its squeeze, in the dark
 //   heart   — the heart, in the middle: the letter he never sent

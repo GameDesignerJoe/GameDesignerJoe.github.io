@@ -99,7 +99,9 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   own thing that just sits there in the center"); ceiling dead and the room held down to `CHAIR_DIM`, and in the middle of it
   (the tile nearest the middle with floor all round, diagonals too) his La-Z-Boy: a leather recliner, footrest out, turned to
   face the way in, up on a dais of two carpeted steps (`FURN.dais`, `DAIS_H`), the little table for the watch on the dais beside
-  it, a packed bag at the foot of the steps. Over it a can light in the ceiling and a spotlight: a soft pool (`spotLamps`,
+  it, a packed bag at the foot of the steps. You can walk up them (Joe: "I should be able to walk up the few steps"): the dais's
+  boxes are `step`s, in the way only if more than `STEP_UP` over what your feet are on (`standOn`), and your eye goes up with
+  you (`lift`). Over it a can light in the ceiling and a spotlight: a soft pool (`spotLamps`,
   `spotAt`, added wherever light is looked up) and its beam in the air (`drawBeams`), a cone each pixel looking through is
   brightened by as much of it as its ray crosses. Joe: "make the chair the Dad sat on every night more grandiose … up on a
   couple steps like a dias. Have a spotlight shining down on it." The Child's tune winding down (`The Waiting Room` in data/music.js). **The wall** —
@@ -110,10 +112,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   anything else required to complete the maze beyond crossing out the lies in the one room that has all the writing on the
   walls, collecting the watch from the heart room, and put it in on this table next to the La-Z-Boy chair. Everything else
   is incidental."). Chalk a face and every line on it is struck through, and what's true is written clear over them in red
-  (`truths` in `STORY_ROOMS`). `liesToUndo` faces and it's undone — its music stops, somewhere a wall gives, and a journal:
+  (`truths` in `STORY_ROOMS`). Every face of it (`liesToUndo` 0; Joe: "I didn't cross out all of the lies … and it gave me the
+  heartbeat. Seems like I should have") and it's undone — its music stops, somewhere a wall gives, and a journal:
   "something is opening up inside of me. i dont want anyone to find it though." (`heart.opens`). The heart's way in, walled
   up until then, opens, and its heartbeat carries so you can follow it. A maze with no wall has its heart open from the start.
   **Cross out the lies** on the panel does it for you.
+  The page that asks for it — the waiting room's, "Cross them out for me" — is in the wall's room, just inside the way in
+  (Joe: "needs to go in the room you cross the words out"); the wall's own is at its far end.
 - **The three that move you on are journals** (Joe: "any instance where you have to do a thing to get the game to progress,
   we should give you a journal for once you do it"): the heart opening, the watch taken (`heart.watch`, his chair's old note
   folded into it), the watch left (`leave`). Counted with the rest (`PROGRESS_PAGES`).
