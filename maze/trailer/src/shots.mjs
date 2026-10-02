@@ -44,3 +44,34 @@ export const SHOTS = {
   waiting: { dur: 3, cam: dolly([17.5, 12.2, S_ + 0.25], [18.2, 14.6, S_ + 0.6], 3) },
   wallroom: { dur: 3, cam: dolly([15.5, 25.4, S_ - 0.2], [16.0, 27.6, S_ + 0.35], 3) },
 };
+
+// ── the third cut: every shot twice as long, and the moves half as fast ─────────────────────────
+// Joe: "It is like running at 2X speed … double the length of the shots so it's cleaner for people to
+// understand what they're reading and seeing." Each shot below is the long take the 77s cut is edited from.
+const wake = (lie, rise, n) => Array.from({ length: n }, (_, i) => ({ t: i / 30, arg: [i / 30, lie, rise], fn: ([t, lie, rise]) => {
+  const k = Math.max(0, Math.min(1, (t - lie) / rise)), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, amp = Math.sin(Math.PI * k);
+  FP.S.eye = 0.1 + 0.4 * e; const p0 = window._p0, sw = Math.sin(t * 3) * 0.07 * amp;
+  FP.P.x = p0.x - Math.sin(p0.a) * sw - Math.cos(p0.a) * 0.15 * (1 - e); FP.P.y = p0.y + Math.cos(p0.a) * sw;
+  FP.P.a = p0.a + Math.sin(t * 3 + 0.6) * 0.05 * amp + 0.25 * (1 - e) * Math.sin(t * 0.6); } }));
+const hall = dolly([12.5, 3.5, E - 0.1], [19.0, 3.5, E + 0.1], 8, (t) => t);   // one take: the hall, then the wipe to the school mid-move
+Object.assign(SHOTS, {
+  wake_l: { dur: 5.6, pre: async (p) => { await p.evaluate(() => { window._p0 = { x: FP.P.x, y: FP.P.y, a: FP.P.a }; }); }, events: wake(1.3, 3.6, 168) },
+  hall_l: { dur: 8, cam: hall },
+  hallschool_l: { dur: 8, theme: 'school', cam: hall },
+  waiting_l: { dur: 6, cam: dolly([17.5, 12.0, S_ + 0.2], [18.1, 14.4, S_ + 0.6], 6) },
+  wallroom_l: { dur: 6, cam: dolly([15.5, 25.3, S_ - 0.25], [15.95, 27.4, S_ + 0.35], 6) },
+  kid_l: { dur: 6, cam: dolly([21.0, 31.2, N - 0.5], [21.2, 30.7, N + 0.25], 6), events: [{ t: 1.0, fn: () => { const g = FP.lightGroups.find((g) => g.pitch); FP.flipSwitch(g); } }] },
+  page_l: { dur: 5.5, cam: dolly([5.0, 39.5, 0.15], [6.4, 39.5, 0.4], 3) },
+  cards_l: { dur: 7, events: [{ t: 0.0, fn: () => { const st = FP.story.find((s) => s.mem === 'cards'); FP.P.x = st.at.x + 0.5 + st.at.ix * 1.0; FP.P.y = st.at.y + 0.5 + st.at.iy * 1.0; FP.P.a = Math.atan2(-st.at.iy, -st.at.ix); FP.useMemory(st); } },
+    { t: 1.6, fn: () => FP.useMemory(FP.story.find((s) => s.mem === 'cards')) }, { t: 4.4, fn: () => FP.useMemory(FP.story.find((s) => s.mem === 'cards')) }] },
+  fire_l: { dur: 5, hideCss: '#page', cam: dolly([25.7, 23.6, 0.75], [25.85, 23.75, 0.8], 5), events: [{ t: 0.4, fn: () => FP.useMemory(FP.story.find((s) => s.mem === 'fire')) }] },
+  turn_l: { dur: 7, cam: dolly([13.5, 37.5, E], [14.4, 37.5, E], 7, (t) => t), events: [{ t: 1.0, fn: TURN }, { t: 3.0, fn: () => FP.hallOut(performance.now()) }] },
+  roomdark_l: { dur: 7, pre: async (p) => { await p.evaluate(TURN); await p.evaluate(() => { FP.S.turnRooms = 1; }); await p.clock.runFor(2000); }, cam: dolly([10.5, 39.5, W_], [6.8, 38.5, W_ - 0.25], 6) },
+  hide_l: { dur: 4, keepDoors: true, hideCss: '#page', pre: SHOTS.hide.pre },
+  lies_l: { dur: 7, cam: dolly([15.6, 27.4, 0.35], [15.7, 27.6, 0.45], 7), events: [{ t: 2.0, fn: () => { const st = FP.story.find((s) => s.kind === 'wall'); for (const fk of [...st.lieFaces]) FP.crossOut(fk); } }] },
+  heart_l: { dur: 6, pre: async (p) => { await p.evaluate(UNDO); await p.clock.runFor(500); }, cam: dolly([8.5, 11.2, S_], [8.5, 12.4, S_ + 0.05], 6) },
+  // the being waits just past the door now (31.15), where the camera can't see it: stand it in front of the door
+  // it shrinks to the kid's size as you come near, which in a two-tile alley is at once: hold it tall for a look first
+  exit_l: { dur: 6, pre: async (p) => { await SHOTS.exit.pre(p); }, cam: path([[0, 29.5, 4.3, N + 0.15], [1.4, 29.55, 3.9, E - 0.35], [2.6, 29.6, 3.6, E - 0.05], [6, 29.95, 3.5, E]]),
+    events: Array.from({ length: 66 }, (_, i) => ({ t: i / 30, fn: () => { const b = FP.being; if (b) { b.x = 30.75; b.y = 3.5; b.turnAt = 0; } } })) },
+});

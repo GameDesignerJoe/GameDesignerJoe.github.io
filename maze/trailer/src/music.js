@@ -1,7 +1,7 @@
-// The Maze — trailer score. 96 BPM, 14 bars and a beat, 35.6s; every cut in the edit sits on this grid.
+// The Maze — trailer score. 96 BPM, 31 bars, 77.5s; every cut in the edit sits on this grid.
 // Act I in the Child's key (C pentatonic, his music-box motif), the Turn in its own (D, 0 1 3 6 7),
 // and the heart's tune (B A G A B B B — a song he knew, slowed) to close in G.
-const BPM = 96, B = 60 / BPM, BAR = 4 * B, LEN = 36.3, SR = 48000;
+const BPM = 96, B = 60 / BPM, BAR = 4 * B, LEN = 78.2, SR = 48000;
 async function renderScore() {
   const ac = new OfflineAudioContext(2, Math.ceil(LEN * SR), SR);
   const rnd = (() => { let s = 1234567; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
@@ -72,68 +72,75 @@ async function renderScore() {
   const C5 = 523.25, at = (bar, beat = 0) => bar * BAR + beat * B;   // bars count from 0
   const PENT = [0, 2, 4, 7, 9], deg = (root, d) => { const n = PENT.length, o = Math.floor(d / n); return hz(root, PENT[((d % n) + n) % n] + 12 * o); };
   const MOTIF = [0, 2, 4, 2, 0, -3];   // the Child's: C D E D C A
+  // The third cut (77.5s) is the second one at half speed: every shot twice as long, so every section here is
+  // twice as many bars. The cue times are the edit's (comp.html's EDL).
+  const CUT = { wake: 5, map: 10, hall: 13.75, env: 17.5, waiting: 21.25, wall: 25, kid: 28.75, page: 32.5, cards: 36.25, fire: 40, hush: 44.4,
+    turn: 45, dark: 50, being: 52.5, hide: 55, strobe: 57.5, lies: 60, heart: 65, exit: 68.75, title: 72.5 };
+  const KID_ON = CUT.kid + 0.5;   // the switch, in the kid's room take
 
-  // ── 0:00 · cold open. The motif alone, one note to each word on black: he · said · stay · here.
-  hum(0, 15, 0.01);
-  MOTIF.forEach((d, i) => musicbox(at(0, i), deg(C5, d), 0.16, (i % 2 ? 0.25 : -0.25), 0.8, 3));
-  // 0:02.5 · waking: the floor, the getting up. A pad comes in under him
-  boom(at(1), 0.35, 60, 30, 2.2); pad(at(1), BAR * 2, [hz(C5 / 4, 0), hz(C5 / 4, 7), hz(C5 / 2, 4)], 0.045, { type: 'triangle', lp0: 200, lp1: 1200, det: 6 });
-  musicbox(at(1, 2.5), deg(C5, 4), 0.1, 0.4); musicbox(at(1, 3), deg(C5, 2), 0.09, -0.4);   // "but I didn't."
-  // 0:05 · the maze draws itself: the motif in eighths, a felt kick under it
-  const prog = [[0, [0, 4, 7]], [9, [9, 12, 16]], [5, [5, 9, 12]], [7, [7, 11, 14]]];   // C Am F G
-  for (let bar = 2; bar < 8; bar++) {
-    const [r, ch] = prog[(bar - 2) % 4];
-    pad(at(bar), BAR, ch.map((s) => hz(C5 / 2, s)), bar < 4 ? 0.03 : 0.04, { type: 'sawtooth', lp0: 500, lp1: bar < 4 ? 1500 : 2600, det: 8, wet: 0.7, att: 0.3 });
+  // ── 0:00 · cold open: the motif alone, a word to every other note on black — he · said · stay · here.
+  hum(0, CUT.turn - 0.6, 0.01);
+  MOTIF.slice(0, 4).forEach((d, i) => musicbox(at(0, i * 2), deg(C5, d), 0.16, (i % 2 ? 0.25 : -0.25), 0.85, 3.6));
+  // 0:05 · waking: the last two notes of the motif as he gets up, a pad under him
+  boom(CUT.wake, 0.35, 60, 30, 2.6); pad(CUT.wake, BAR * 2, [hz(C5 / 4, 0), hz(C5 / 4, 7), hz(C5 / 2, 4)], 0.045, { type: 'triangle', lp0: 200, lp1: 1200, det: 6 });
+  musicbox(CUT.wake, deg(C5, 0), 0.13, 0, 0.9, 3.4); musicbox(CUT.wake + 2 * B, deg(C5, -3), 0.12, 0.3, 0.9, 3.4);
+  musicbox(at(2, 7), deg(C5, 4), 0.09, 0.4, 0.9, 3); musicbox(at(2, 7.5), deg(C5, 2), 0.08, -0.4, 0.9, 3);   // "but I didn't."
+  // 0:10–0:40 · the maze draws itself, and act one: C Am F G, building by section
+  const prog = [[0, [0, 4, 7]], [9, [9, 12, 16]], [5, [5, 9, 12]], [7, [7, 11, 14]]];
+  const ACT1 = [4, 17];   // bars; bar 17 is the build alone, into the hush
+  for (let bar = ACT1[0]; bar < ACT1[1]; bar++) {
+    const [r, ch] = prog[(bar - ACT1[0]) % 4], lvl = (bar - ACT1[0]) / (ACT1[1] - ACT1[0]);   // 0 → 1 through the act
+    const late = at(bar) >= CUT.waiting, later = at(bar) >= CUT.kid;
+    pad(at(bar), BAR, ch.map((s) => hz(C5 / 2, s)), 0.028 + lvl * 0.016, { type: 'sawtooth', lp0: 500, lp1: 1400 + lvl * 1600, det: 8, wet: 0.7, att: 0.3 });
     bass(at(bar), hz(C5 / 8, r), BAR * 0.45); bass(at(bar, 2.5), hz(C5 / 8, r), BAR * 0.3, 0.16);
-    for (let s = 0; s < 8; s++) { const d = [0, 2, 4, 7, 9, 7, 4, 2][s] + (bar >= 4 ? 5 : 0); musicbox(at(bar, s / 2), hz(C5, ch[0] + [0, 7, 12, 7][s % 4]) * (d > 9 ? 1 : 1), s % 2 ? 0.05 : 0.075, s % 2 ? 0.5 : -0.5, 0.55, 1.2); }
-    kick(at(bar, 0), 0.75); kick(at(bar, 2), 0.6);
-    if (bar >= 3) for (let s = 0; s < 8; s++) tick(at(bar, s / 2 + 0.25), s % 2 ? 0.03 : 0.045, (s % 2 ? 0.6 : -0.6));
-    if (bar >= 4) { kick(at(bar, 1), 0.5); kick(at(bar, 3), 0.5); pluck(at(bar, 1.5), hz(C5, ch[1]), 0.05, 0.3); pluck(at(bar, 3.5), hz(C5, ch[2]), 0.05, -0.3); }
-    if (bar % 2 === 0) MOTIF.forEach((d, i) => musicbox(at(bar, i * 0.5), deg(C5 * 2, d), 0.05, 0, 0.9, 2));
+    for (let s = 0; s < 8; s++) musicbox(at(bar, s / 2), hz(C5, ch[0] + [0, 7, 12, 7][s % 4]), (s % 2 ? 0.045 : 0.07) * (0.8 + lvl * 0.3), s % 2 ? 0.5 : -0.5, 0.55, 1.2);
+    kick(at(bar, 0), 0.7); kick(at(bar, 2), 0.55);
+    if (at(bar) >= CUT.hall) for (let s = 0; s < 8; s++) tick(at(bar, s / 2 + 0.25), s % 2 ? 0.03 : 0.045, (s % 2 ? 0.6 : -0.6));
+    if (late) { kick(at(bar, 1), 0.45); kick(at(bar, 3), 0.45); }
+    if (later) { pluck(at(bar, 1.5), hz(C5, ch[1]), 0.05, 0.3); pluck(at(bar, 3.5), hz(C5, ch[2]), 0.05, -0.3); }
+    if (bar % 4 === 0) MOTIF.forEach((d, i) => musicbox(at(bar, i * 0.5), deg(C5 * 2, d), 0.05, 0, 0.9, 2.2));
   }
-  // cue hits on the act-one cuts
-  [6.875, 8.75, 10.625, 14.375, 16.25, 18.125].forEach((t) => kick(t, 0.5, 200, 60, 0.2));   // a hit on every act-one cut
-  buzz(at(5) - 0.05, 0.75, 0.06, 0.2); shimmer(at(5) + 0.6, 2.4, [hz(C5, 0), hz(C5, 4), hz(C5, 7), hz(C5, 12)], 0.08);   // 0:12.5 · the kid's room: a tube stutters on
-  // 0:17.5–19.7 · it builds, then nothing
-  riser(at(7), at(7, 3.5), 0.3); reverseSwell(at(7, 3.5), 1.6, 0.25);
-  for (let s = 0; s < 8; s++) kick(at(7, 2 + s * 0.25), 0.25 + s * 0.06, 150, 50, 0.15);
-  // ── 0:20 · THE TURN. Every tube in the place stutters and something big goes off far away
-  boom(at(8), 1.0, 80, 24, 3.2); slam(at(8), 0.9, 0.3); buzz(at(8), 1.3, 0.09, -0.3); buzz(at(8) + 0.1, 1.2, 0.07, 0.4); glitch(at(8), 0.15);
-  const D = 293.66, TURN = [0, 1, 3, 6, 7];
-  braam(at(8, 0.1), BAR * 1.9, D / 4, 0.16);
-  // the Turn's motif, slow and out of tune: D Eb D C
-  [0, 1, 0, -2].forEach((d, i) => { const n = TURN.length, o = Math.floor(d / n), st = TURN[((d % n) + n) % n] + 12 * o; musicbox(at(8, 1 + i), hz(D, st) * (1 + (i % 2 ? 0.012 : -0.008)), 0.09, i % 2 ? 0.6 : -0.6, 1, 3); });
-  for (let bar = 9; bar < 11; bar++) {
+  // a hit on every act-one cut, and a swell under the switch from one place to the other
+  [CUT.hall, CUT.waiting, CUT.wall, CUT.page, CUT.cards, CUT.fire].forEach((t) => kick(t, 0.5, 200, 60, 0.2));
+  reverseSwell(CUT.env + 1.1, 1.0, 0.12); shimmer(CUT.env + 1.1, 3, [hz(C5, 7), hz(C5, 12), hz(C5, 16)], 0.05);
+  buzz(KID_ON - 0.05, 0.9, 0.06, 0.2); shimmer(KID_ON + 0.6, 3, [hz(C5, 0), hz(C5, 4), hz(C5, 7), hz(C5, 12)], 0.08);   // the kid's room: a tube stutters on
+  // 0:42.5–0:44.4 · it builds, then nothing
+  pad(at(17), CUT.hush - at(17) - 0.4, [hz(C5 / 2, 7), hz(C5 / 2, 11), hz(C5 / 2, 14)], 0.045, { type: 'sawtooth', lp0: 600, lp1: 3500, det: 10, wet: 0.7, att: 0.2 });
+  riser(at(17), CUT.hush, 0.3); reverseSwell(CUT.hush, 2.2, 0.25);
+  for (let s = 0; s < 12; s++) kick(at(17) + s * B / 2, 0.22 + s * 0.045, 150, 50, 0.15);
+  // ── 0:45 · THE TURN
+  const D = 293.66, TURN = [0, 1, 3, 6, 7], tN = (d) => { const n = TURN.length, o = Math.floor(d / n); return TURN[((d % n) + n) % n] + 12 * o; };
+  boom(CUT.turn, 1.0, 80, 24, 3.6); slam(CUT.turn, 0.9, 0.3); buzz(CUT.turn, 2.6, 0.09, -0.3); buzz(CUT.turn + 0.1, 2.4, 0.07, 0.4); glitch(CUT.turn, 0.15);
+  braam(CUT.turn + 0.06, BAR * 1.9, D / 4, 0.16);
+  [0, 1, 0, -2].forEach((d, i) => musicbox(CUT.turn + (2 + i * 2) * B, hz(D, tN(d)) * (1 + (i % 2 ? 0.012 : -0.008)), 0.09, i % 2 ? 0.6 : -0.6, 1, 3.6));
+  for (let bar = 19; bar < 23; bar++) {
     pad(at(bar), BAR, [hz(D / 2, 0), hz(D / 2, 1), hz(D / 2, 6)], 0.04, { type: 'sawtooth', lp0: 300, lp1: 1600, det: 20, wet: 0.8, att: 0.2 });
-    for (let b = 0; b < 4; b++) heartbeat(at(bar, b), 0.7 + (bar - 9) * 0.1);
-    for (let s = 0; s < 16; s++) if (rnd() < 0.5) tick(at(bar, s / 4), 0.02 + rnd() * 0.03, rnd() * 2 - 1);
+    for (let b = 0; b < 4; b++) heartbeat(at(bar, b), 0.6 + (bar - 19) * 0.08);
+    for (let s = 0; s < 16; s++) if (rnd() < 0.45) tick(at(bar, s / 4), 0.02 + rnd() * 0.03, rnd() * 2 - 1);
     bass(at(bar), D / 8, BAR * 0.9, 0.2);
   }
-  braam(at(9), BAR * 0.95, D / 4 * Math.pow(2, 1 / 12), 0.13);   // 0:22.5 · LEAVE
-  slam(at(9), 0.5, -0.5); glitch(at(9), 0.12);
-  screech(at(9, 2.6), 1.3, 0.06); kick(at(9, 3), 0.9, 110, 30, 0.8); glitch(at(9, 3), 0.15);   // 0:23.75 · the being
-  // 0:25 · the closet: his steps, heavy and uneven, nearer and nearer
-  [0, 0.7, 1.05, 1.9, 2.5, 2.8].forEach((x, i) => step(at(10) + x, 0.4 + i * 0.1, 0.3 - i * 0.1));
-  braam(at(10), BAR * 0.5, D / 4 * Math.pow(2, 6 / 12), 0.1);
-  // 0:26.25 · the strobe: sixteenths, and a hit on every cut
-  for (let s = 0; s < 8; s++) { kick(at(10, 2 + s * 0.25), 0.55, 180, 45, 0.12); if (s % 2 === 0) glitch(at(10, 2 + s * 0.25), 0.08); }
-  riser(at(10, 2), at(11) - 0.02, 0.3); screech(at(10, 2.5), 1.25, 0.05);
-  // ── 0:27.5 · the lies crossed out: everything stops but the music box, back in the Child's key
-  boom(at(11), 0.45, 55, 28, 2); reverseSwell(at(11), 0.8, 0.12);
-  pad(at(11), BAR * 2, [hz(C5 / 2, 0), hz(C5 / 2, 7), hz(C5 / 2, 16)], 0.035, { type: 'triangle', lp0: 300, lp1: 2200, det: 5, wet: 0.9, att: 1.2 });
-  [0, 2, 4, 7, 4, 2, 4, 9].forEach((d, i) => musicbox(at(11, i * 0.5), hz(C5, d), 0.08, i % 2 ? 0.4 : -0.4, 0.9, 2.2));
-  // 0:28.75 · find what's true
-  shimmer(at(11, 2), 3, [hz(C5, 12), hz(C5, 16), hz(C5, 19)], 0.06);
-  // 0:30 · the heart: its heartbeat, and the tune he knew — B A G A B B B
+  braam(CUT.dark, BAR * 0.95, D / 4 * Math.pow(2, 1 / 12), 0.13); slam(CUT.dark, 0.5, -0.5); glitch(CUT.dark, 0.12);   // LEAVE
+  screech(CUT.being + 0.4, 2.2, 0.06); kick(CUT.being, 0.9, 110, 30, 0.8); glitch(CUT.being, 0.15);                       // the being
+  [0, 0.9, 1.3, 2.2, 2.9, 3.4].forEach((x, i) => step(CUT.hide - 1.0 + x, 0.4 + i * 0.1, 0.3 - i * 0.1));                // his steps, nearer
+  braam(CUT.hide, BAR * 0.9, D / 4 * Math.pow(2, 6 / 12), 0.1);
+  for (let s = 0; s < 16; s++) { kick(CUT.strobe + s * B / 4, 0.5, 180, 45, 0.12); if (s % 4 === 0) { glitch(CUT.strobe + s * B / 4, 0.1); kick(CUT.strobe + s * B / 4, 0.8, 120, 35, 0.4); } }   // the strobe: a hit on each cut
+  riser(CUT.strobe, CUT.lies - 0.02, 0.3); screech(CUT.strobe + 0.5, 2.0, 0.05);
+  // ── 1:00 · the lies crossed out: the music box, back in the Child's key
+  boom(CUT.lies, 0.45, 55, 28, 2.4); reverseSwell(CUT.lies, 0.8, 0.12);
+  pad(CUT.lies, BAR * 2, [hz(C5 / 2, 0), hz(C5 / 2, 7), hz(C5 / 2, 16)], 0.035, { type: 'triangle', lp0: 300, lp1: 2200, det: 5, wet: 0.9, att: 1.6 });
+  [0, 2, 4, 7, 4, 2, 4, 9].forEach((d, i) => musicbox(CUT.lies + i * B, hz(C5, d), 0.08, i % 2 ? 0.4 : -0.4, 0.9, 2.6));
+  shimmer(CUT.lies + 2.5, 3.5, [hz(C5, 12), hz(C5, 16), hz(C5, 19)], 0.06);   // find what's true
+  // 1:05 · the heart: its heartbeat, and the tune he knew — B A G A B B B, a note to a beat; then the way out
   const G4 = 392.0;
-  for (let b = 0; b < 5; b++) heartbeat(at(12, b), 0.55);
-  pad(at(12), BAR * 2.2, [hz(G4 / 2, 0), hz(G4 / 2, 4), hz(G4 / 2, 7), hz(G4 / 2, 14)], 0.04, { type: 'triangle', lp0: 400, lp1: 2400, det: 5, wet: 0.9, att: 0.6 });
-  [4, 2, 0, 2, 4, 4, 4].forEach((s, i) => musicbox(at(12, i * 0.5), hz(G4, s), 0.11, i % 2 ? 0.3 : -0.3, 0.9, 2.6));
-  bass(at(12), G4 / 8, BAR * 1.25, 0.18);
-  // ── 0:33.1 · the title. One last low note under it, and the music box rings out
-  boom(at(13, 1), 0.7, 60, 30, 3); slam(at(13, 1), 0.25, 0);
-  shimmer(at(13, 1), 3, [hz(G4, 0), hz(G4, 7), hz(G4, 14), hz(G4, 16), hz(G4, 19)], 0.09);
-  musicbox(at(13, 1), hz(G4, 0), 0.16, 0, 1, 3.4); musicbox(at(13, 1 + 1), hz(G4, 7), 0.07, 0.3, 1, 3); musicbox(at(13, 1 + 2), hz(G4, 12), 0.06, -0.3, 1, 2.6);
+  for (let b = 0; b < 12; b++) heartbeat(CUT.heart + b * B, 0.55 * (b < 6 ? 1 : 1 - (b - 6) / 8));
+  pad(CUT.heart, CUT.title - CUT.heart, [hz(G4 / 2, 0), hz(G4 / 2, 4), hz(G4 / 2, 7), hz(G4 / 2, 14)], 0.04, { type: 'triangle', lp0: 400, lp1: 2400, det: 5, wet: 0.9, att: 0.8 });
+  [4, 2, 0, 2, 4, 4, 4].forEach((s, i) => musicbox(CUT.heart + i * B, hz(G4, s), 0.11, i % 2 ? 0.3 : -0.3, 0.9, 2.8));
+  [2, 2, 2, 4, 7, 7].forEach((s, i) => musicbox(CUT.exit + 0.5 * B + i * B, hz(G4, s), 0.09, i % 2 ? 0.3 : -0.3, 0.9, 2.8));   // A A A, B D D
+  bass(CUT.heart, G4 / 8, CUT.title - CUT.heart - 0.3, 0.18);
+  // ── 1:12.5 · the title. One last low note under it, and the music box rings out
+  boom(CUT.title, 0.7, 60, 30, 3.4); slam(CUT.title, 0.25, 0);
+  shimmer(CUT.title, 4.5, [hz(G4, 0), hz(G4, 7), hz(G4, 14), hz(G4, 16), hz(G4, 19)], 0.09);
+  musicbox(CUT.title, hz(G4, 0), 0.16, 0, 1, 4.6); musicbox(CUT.title + 2 * B, hz(G4, 7), 0.07, 0.3, 1, 4); musicbox(CUT.title + 4 * B, hz(G4, 12), 0.06, -0.3, 1, 3.6);
   return ac.startRendering();
 }
 function wav(buf) {

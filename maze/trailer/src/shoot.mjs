@@ -7,7 +7,8 @@ const preview = process.argv.includes('--preview');
 const FPS = 30;
 for (const name of names) {
   const sh = SHOTS[name]; const dir = `${S}/shots/${name}`; fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
-  const { browser, p } = await openGame(sh.seed || 4242, { wake: !!sh.wake, res: sh.res || 540 });
+  const { browser, p } = await openGame(sh.seed || 4242, { wake: !!sh.wake, res: sh.res || 540, theme: sh.theme || null });
+  if (sh.hideCss) await p.addStyleTag({ content: sh.hideCss + '{display:none!important}' });
   await p.evaluate((keep) => { FP.S.move = 'free'; FP.S.sound = false; if (!keep) FP.doors.forEach((d) => { if (!d.open) { FP.toggleDoor(d); d.t = 1; } }); }, !!sh.keepDoors);
   if (sh.setup) await p.evaluate(sh.setup, sh.arg || null);
   if (sh.pre) await sh.pre(p);
