@@ -415,6 +415,31 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the one at the exit, and the being's pace ─────────────────────
+// Joe: "The Being needs to move about 20% slower." And: "He should always be at the exit stopping you from leaving as well.
+// The one that waits at the exit never chases you. He just stands there and if you collide with him he moves you someplace
+// back on the golden path."
+{
+  const p = await open(4242); await awake(p);
+  const at = await p.evaluate(() => { const g = FP.guard; if (!g) return null; const [dx, dy] = FP.exitDir;
+    FP.P.x = g.x - dx * 2.2; FP.P.y = g.y - dy * 2.2; FP.P.a = Math.atan2(dy, dx); return { x: g.x, y: g.y, d: Math.hypot(g.x - exit.x - 0.5, g.y - exit.y - 0.5), locked: FP.exitLocked, pace: FP.beingSpeed / FP.S.walk }; });
+  await p.waitForTimeout(2000); await closePage(p);
+  const still = await p.evaluate((at) => !!FP.guard && FP.guard.x === at.x && FP.guard.y === at.y, at);
+  await p.keyboard.down('KeyW'); await p.waitForTimeout(1500); await p.keyboard.up('KeyW'); await p.waitForTimeout(1200);
+  const sent = await p.evaluate(() => { const k = Math.floor(FP.P.y) * FP.W + Math.floor(FP.P.x), [dx, dy] = FP.exitDir;
+    return { far: Math.hypot(FP.P.x - exit.x - 0.5, FP.P.y - exit.y - 0.5), path: FP.pathDist[k], back: -(Math.cos(FP.P.a) * dx + Math.sin(FP.P.a) * dy) > -0.5, won: FP.won }; });
+  // leave the watch: he's gone from the exit, and the being stands there to be the kid
+  await p.evaluate(() => { FP.carried.add('watch'); for (const q of FP.story) if (q.kind === 'heart') q.found = true; });
+  await p.evaluate(() => { const st = FP.story.find((s) => s.chair), c = st.chair, t = st.slot; FP.P.x = t.x + c.fx * 1.2; FP.P.y = t.y + c.fy * 1.2; FP.P.a = Math.atan2(t.y - FP.P.y, t.x - FP.P.x); });
+  await p.waitForTimeout(300); await closePage(p);
+  for (const y of [480, 500, 460, 520]) { await p.mouse.click(215, y); await p.waitForTimeout(250); if (await p.evaluate(() => FP.watchLeft)) break; await closePage(p); }
+  const after = await p.evaluate((at) => ({ left: FP.watchLeft, guard: !!FP.guard, guide: FP.beingStateNow === 'guide' && !!FP.being && Math.hypot(FP.being.x - at.x, FP.being.y - at.y) < 0.01 }), at);
+  check('the being moves at 0.8 your walk; one like it stands at the locked exit, never moves, and walking into him puts you back on the way out; the watch left, he\'s the one to become the kid',
+    at && at.locked && Math.abs(at.pace - 0.8) < 0.01 && at.d < 0.5 && still && sent.far > 6 && sent.path === 0 && !sent.won && after.left && !after.guard && after.guide,
+    at ? `pace ×${at.pace.toFixed(2)}; at the exit ${at.d.toFixed(2)} from its tile, still after 2s ${still}; walked into: ${sent.far.toFixed(1)} from the exit, on the path ${sent.path === 0}, won ${sent.won}; watch left ${after.left}, guard gone ${!after.guard}, the being there to guide ${after.guide}` : 'no one at the exit');
+  await p.close();
+}
+
 // ── the turn: three pages, and nothing else counts ───────────────
 {
   const p = await open(4242); await awake(p);

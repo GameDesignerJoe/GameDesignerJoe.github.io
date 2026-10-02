@@ -75,12 +75,18 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   back up the way you came, waiting for you to turn round. The signs first — tubes round you stutter, a low swell — and if you turn back to the way
   out it never comes. Then it's standing at the far end of what you can see (`BEING_VIEW` tiles at most), looking at you:
   tall as the ceiling, thin, arms past its knees, two pale eyes (all you see of it in the dark). It waits. Come within
-  `BEING_NEAR` and it comes for you at your own walking pace, round by the halls — never through a squeeze or a shut door; if
+  `BEING_NEAR` and it comes for you at `BEING_PACE` (0.8) of your walk (Joe: "The Being needs to move about 20% slower"), round by the halls — never through a squeeze or a shut door; if
   you're somewhere it can't get to, or out of its sight long enough, it goes. It takes you only once you've seen it. If
   it reaches you: static, and you're on the way out a few steps further along than you left it, facing on. Back on the
   way out yourself, it lets you be. In a closet: it runs up and past the door, back and forth, stops once square in
   front of the slats to look in, and is gone. In a squeeze: it comes to the mouth of it (the one you're facing, if it
   can), looks in at you for `BEING_PEER`, and goes. **Being now** on the panel calls it (after the turn or not).
+- **The one at the exit** (`guard`; floor 1, whenever the exit is locked). Joe: "He should always be at the exit stopping you
+  from leaving as well. The one that waits at the exit never chases you. He just stands there and if you collide with him he
+  moves you someplace back on the golden path." The being's shape, from the start, standing just inside the locked way out;
+  he never moves. Walk into him (`GUARD_TOUCH`) and it's the being's static, and you're `GUARD_BACK` steps back along the way
+  out, facing back into the maze. Leave the watch and he's gone from there, and the being that stands in his place is the one
+  that becomes the kid.
 - **The turn.** A maze starts calm (`calm`: no dark halls of this view's own, switched rooms lit). Each page read is a
   find (a room walked into no longer is); at `turnAfter` (3) the building turns — every tube stutters, something big goes
   off far away, the music drops to `The Turn`. After it, a room you walk into may stutter out and go dark (`turnRooms` of them, each room decided the first time you

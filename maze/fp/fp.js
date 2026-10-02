@@ -543,6 +543,7 @@
     memoryProps();
     placePages();
     lockExit();
+    placeGuard();
     buildLight();
     // no wall to cross out (a maze without the room for it): the heart is open from the start, or nothing could open it
     if (heart && heart.sealed && floor === 1 && !story.some((q) => q.lieFaces)) openHeart(true);
@@ -945,7 +946,9 @@
   // it through the slats, stops once to look in, and is gone.
   // Joe: "make move speed 1.25 the player's. Gives them time to run and find a closet." And "the being
   // shouldn't use squeeze throughs": it goes round by the halls, and where it can't get to you, it gives up
-  const beingSpeed = () => S.walk;   // Joe: "let's get his speed to be the same as the players and see what that does" (it was 1.25×)
+  // Joe: "let's get his speed to be the same as the players and see what that does" (it was 1.25×); then "The Being needs to
+  // move about 20% slower"
+  const BEING_PACE = 0.8, beingSpeed = () => S.walk * BEING_PACE;
   // Joe: "The being should only appear after the turn. The player should have to see the being at least once
   // before it resets you." So it stays dormant until `turned`, and each time it comes it can't take you until
   // enough of it has been on your screen (BEING_SEEN_PX drawn pixels, walls and doors hiding it); unseen, it
@@ -2954,7 +2957,7 @@
     doorsFrame(dt);
     fatherFrame(now, dt);
     dartFrame(now, dt);
-    beingFrame(now, dt);
+    beingFrame(now, dt); guardFrame();
     heartFrame(now);
     memoryFrame(now);
     seatFrame(now);
@@ -3433,7 +3436,7 @@
   function drawObjects(px, py, dX, dY, plX, plY, D, hor, eye, fog, only) {
     if (!only) drawn.length = 0;
     const det = dX * plY - dY * plX, list = [];
-    const all = only || (father || being ? objs.concat(father ? [father] : [], being ? [being] : []) : objs);
+    const all = only || (father || being || guard ? objs.concat(father ? [father] : [], being ? [being] : [], guard ? [guard] : []) : objs);
     for (const o of all) {
       const rx = o.x - px, ry = o.y - py;
       const depth = (rx * plY - ry * plX) / det, cam = (dX * ry - dY * rx) / det / depth;   // along the view, and across it
@@ -3692,7 +3695,37 @@
     FP_SOUND.exitOpens();
     spawnKid();
   }
+  // ── the one at the exit ───────────────────────────────────
+  // Joe: "He should always be at the exit stopping you from leaving as well. The one that waits at the exit never chases you.
+  // He just stands there and if you collide with him he moves you someplace back on the golden path." The being's shape,
+  // standing just inside the locked way out for as long as it's locked; walk into him and it's the being's static, and you're
+  // GUARD_BACK steps back along the way out, facing back into the maze. Leave the watch and the exit opens, and where he
+  // stood the being is waiting to become the kid (spawnKid): he was always that.
+  const GUARD_BACK = 14, GUARD_TOUCH = 0.5;
+  let guard = null;
+  function placeGuard() {
+    guard = null;
+    if (!exitLocked || exitOpen() || !exitDir || floor !== 1) return;
+    const [dx, dy] = exitDir;
+    guard = beingObj(exit.x + 0.5 - dx * 0.35, exit.y + 0.5 - dy * 0.35); guard.guard = true;
+  }
+  function guardFrame() {
+    if (!guard) return;
+    if (exitOpen() || floor !== 1) { guard = null; return; }
+    if (won || stairBusy || reading || seated) return;
+    if (Math.hypot(P.x - guard.x, P.y - guard.y) < GUARD_TOUCH) guardTakes();
+  }
+  function guardTakes() {
+    FP_SOUND.beingTakes(); stairBusy = true; clearStick();
+    const fade = $('fade'); $('fadeText').textContent = ''; fade.classList.add('white', 'show');
+    setTimeout(() => {
+      const i = Math.max(1, solutionPath.length - 1 - GUARD_BACK), [x, y] = solutionPath[i], [bx, by] = solutionPath[i - 1];
+      P.x = x + 0.5; P.y = y + 0.5; P.a = Math.atan2(by - y, bx - x); lastX = P.x; lastY = P.y; vel = 0; lastTile = ''; arrive();
+      setTimeout(() => { fade.classList.remove('show'); setTimeout(() => fade.classList.remove('white'), 300); stairBusy = false; }, 350);
+    }, 420);
+  }
   function spawnKid() {
+    guard = null;
     if (kidMet || floor !== 1 || !exitDir) return;
     const [dx, dy] = exitDir;
     being = beingObj(exit.x + 0.5 - dx * 0.35, exit.y + 0.5 - dy * 0.35); being.lastSeen = performance.now(); beingState = 'guide';
@@ -4052,5 +4085,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();
