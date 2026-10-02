@@ -629,6 +629,24 @@ const TEX = (() => {
       r(4, 39, 6, 39, k); r(9, 39, 11, 39, k);
       return T;
     }),
+    // the one at the exit, warning you off: the being's body with its arms up over its head, waving (two frames, the arms
+    // swapping), and its eyes in two lights, its own pale and burning — frames [arms 0, arms 1, arms 0 hot, arms 1 hot].
+    // Joe: "We need to add some menace to the Being at the exit to scare people away. Waves arms, eyes pulse"
+    beingWave: [0, 1, 2, 3].map((n) => {
+      const f = n & 1, hot = n > 1, T = blank(16, 40), k = hex('#0c0b0d'), e = hex('#1c1a1f');
+      const eye = ((hot ? hex('#ff6a48') : hex('#e9e4cf')) & 0x00ffffff) | 0xfe000000;
+      const r = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) T.px[y * 16 + x] = c; };
+      r(5, 4, 10, 11, k); r(6, 4, 9, 4, e);                                                      // the head, lower: the arms are over it
+      for (const [x, y] of [[6, 7], [9, 7], [6, 8], [9, 8]]) T.px[y * 16 + x] = eye;
+      if (hot) for (const [x, y] of [[6, 6], [9, 6], [6, 9], [9, 9]]) T.px[y * 16 + x] = eye;   // and bigger, burning
+      r(7, 12, 8, 13, k); r(2, 13, 13, 14, k); r(3, 15, 12, 20, k); r(4, 21, 11, 26, k); r(5, 27, 10, 28, k);
+      // the arms, up and out from the shoulders: one high, one higher, swapping
+      const a = f ? 3 : 0, b = f ? 0 : 3;
+      r(1, 3 + a, 2, 13, k); r(0, 0 + a, 1, 3 + a, k);
+      r(13, 3 + b, 14, 13, k); r(14, 0 + b, 15, 3 + b, k);
+      r(5, 29, 6, 38, k); r(9, 29, 10, 38, k); r(4, 39, 6, 39, k); r(9, 39, 11, 39, k);         // legs apart, planted
+      return T;
+    }),
     // the kid's room: a picture book, a baseball, one glove (only one); and the ring in the dust where the watch sat
     kidBook: sprite(['.kkkkkkkkkk.', 'kyyyyyyyyyyk', 'kyrrryybbyyk', 'kyrrryybbyyk', 'kyyyyggyyyyk', 'kyyyggggyyyk', 'kyyyyyyyyyyk', '.kkkkkkkkkk.'],
       Object.assign({}, P, { y: hex('#e6c34a'), r: hex('#c0452f'), b: hex('#3f6aa6'), g: hex('#4f8a3e') })),
@@ -646,6 +664,20 @@ const TEX = (() => {
       r(3, 15, 4, 22, k); r(7, 15, 8, 22, k); r(2, 23, 4, 23, k); r(7, 23, 9, 23, k);
       return T;
     })(),
+    // and the end of it: the kid gone white, in three steps, and with his arms out to you. Joe: "When the being shrinks down
+    // to a kid he should go white. He should also put his arms to either side and come and give you a hug then disappear into
+    // you." Wider than `kid` by the arms; his own light, so he shows whatever the lights are doing
+    kidPale: [0, 1, 2, 3].map((n) => {
+      const out = n === 3, T = blank(16, 24);
+      const fill = [hex('#3a3836'), hex('#8c8984'), hex('#e9e6dd'), hex('#f4f2ea')][n], self = n >= 2;
+      const k = self ? (fill & 0x00ffffff) | 0xfe000000 : fill, eye = ((n >= 2 ? hex('#9d978a') : hex('#e9e4cf')) & 0x00ffffff) | 0xfe000000;
+      const r = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) T.px[y * 16 + x] = c; };
+      r(5, 0, 10, 5, k); r(4, 1, 11, 4, k); for (const [x, y] of [[6, 2], [9, 2], [6, 3], [9, 3]]) T.px[y * 16 + x] = eye;
+      r(7, 6, 8, 6, k); r(4, 7, 11, 8, k); r(5, 9, 10, 14, k);
+      if (out) { r(0, 7, 3, 8, k); r(12, 7, 15, 8, k); } else { r(3, 8, 3, 14, k); r(12, 8, 12, 14, k); }   // the arms: out to either side, or down
+      r(5, 15, 6, 22, k); r(9, 15, 10, 22, k); r(4, 23, 6, 23, k); r(9, 23, 11, 23, k);
+      return T;
+    }),
     // the memory rooms: a deck face down, and the card table's cards (made in fp.js, one per rank); crumpled paper and a
     // box of matches, the fire on it in two frames, and what's left after
     deck: sprite(['.bbbbbbb.', 'bBwBwBwBb', 'bwBwBwBwb', 'bBwBwBwBb', 'kkkkkkkkk', '.kkkkkkk.'], Object.assign({}, P, { b: hex('#2f4d8a'), B: hex('#3f63a8'), w: hex('#c9d4ea'), k: hex('#d9d3c2') })),

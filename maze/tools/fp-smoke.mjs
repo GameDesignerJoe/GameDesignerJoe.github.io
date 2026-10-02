@@ -321,9 +321,17 @@ console.log('The Maze — first person checks');
   check('the watch waits in the middle of the heart; taken (a journal, his chair\'s note folded in) and left on his table, the exit opens — the book not needed; the being waits there',
     !shutWon && before.inHeart && /saved his seat/.test(watchNote) && carrying && left[0] && left[2] && !left[3] && left[1] === 'guide',
     `won at the shut exit: ${shutWon}; watch in the heart's middle ${before.inHeart}; its note "${watchNote.slice(0, 28)}…"; carried ${carrying}; left ${left[0]}, exit open ${left[2]} with the book shelved ${left[3]}; being ${left[1]}; pages ${before.pages} → ${left[4]}`);
-  await p.evaluate(() => { const [dx, dy] = FP.exitDir; FP.P.x = exit.x + 0.5 - dx * 2.2; FP.P.y = exit.y + 0.5 - dy * 2.2; FP.P.a = Math.atan2(dy, dx); });
-  await p.waitForTimeout(3400);
-  const kid = await p.evaluate(() => FP.beingStateNow);
+  await p.evaluate(() => { const [dx, dy] = FP.exitDir; FP.P.x = exit.x + 0.5 - dx * 2.2; FP.P.y = exit.y + 0.5 - dy * 2.2; FP.P.a = Math.atan2(dy, dx);
+    window.__hug = 0; const h = FP_SOUND.kidHug; FP_SOUND.kidHug = () => { window.__hug++; h(); }; });
+  // Joe: "When the being shrinks down to a kid he should go white. He should also put his arms to either side and come and give
+  // you a hug then disappear into you"
+  const seen = new Set(); let near = 9;
+  for (let i = 0; i < 26 && (await p.evaluate(() => FP.beingStateNow)) === 'guide'; i++) {
+    const r = await p.evaluate(() => FP.being ? [TEX.sprites.kidPale.indexOf(FP.being.tex), Math.hypot(FP.P.x - FP.being.x, FP.P.y - FP.being.y)] : null);
+    if (r) { seen.add(r[0]); near = Math.min(near, r[1]); } await p.waitForTimeout(200); }
+  const kid = await p.evaluate(() => FP.beingStateNow), hug = await p.evaluate(() => window.__hug);
+  check('the kid goes white, puts his arms out, comes to you and is gone into you', seen.has(2) && seen.has(3) && near < 1 && hug === 1 && kid === 'done',
+    `white ${seen.has(2)}, arms out ${seen.has(3)}; came to ${near.toFixed(2)} of you; the hug ${hug}; after: ${kid}`);
   await p.evaluate(() => { const [dx, dy] = FP.exitDir; FP.P.x = exit.x + 0.5 + dx * 0.25; FP.P.y = exit.y + 0.5 + dy * 0.25; }); await p.waitForTimeout(500);
   const won = await p.evaluate(() => [FP.won, document.getElementById('winSteps').textContent]);
   check('close to it, the being is the kid, and goes; the way out says it\'s time to come home', kid === 'done' && won[0] && /come home/.test(won[1]),
@@ -428,6 +436,20 @@ console.log('The Maze — first person checks');
   await p.keyboard.down('KeyW'); await p.waitForTimeout(1500); await p.keyboard.up('KeyW'); await p.waitForTimeout(1200);
   const sent = await p.evaluate(() => { const k = Math.floor(FP.P.y) * FP.W + Math.floor(FP.P.x), [dx, dy] = FP.exitDir;
     return { far: Math.hypot(FP.P.x - exit.x - 0.5, FP.P.y - exit.y - 0.5), path: FP.pathDist[k], back: -(Math.cos(FP.P.a) * dx + Math.sin(FP.P.a) * dy) > -0.5, won: FP.won }; });
+  // and coming at him, he warns you off. Joe: "We need to add some menace to the Being at the exit to scare people away. Waves
+  // arms, eyes pulse, maybe a yell (fake that for now)." Once an approach: near again without backing off, no second yell
+  await p.evaluate(() => { window.__yell = 0; const y = FP_SOUND.beingYell; FP_SOUND.beingYell = (n) => { window.__yell++; y(n); };
+    const g = FP.guard, [dx, dy] = FP.exitDir; FP.P.x = g.x - dx * 3; FP.P.y = g.y - dy * 3; FP.P.a = Math.atan2(dy, dx); });
+  const frames = new Set(); for (let i = 0; i < 12; i++) { frames.add(await p.evaluate(() => TEX.sprites.beingWave.indexOf(FP.guard.tex))); await p.waitForTimeout(120); }
+  await p.evaluate(() => { const g = FP.guard, [dx, dy] = FP.exitDir; FP.P.x = g.x - dx * 2; FP.P.y = g.y - dy * 2; }); await p.waitForTimeout(200);
+  const once = await p.evaluate(() => window.__yell);
+  await p.evaluate(() => { const g = FP.guard, [dx, dy] = FP.exitDir; FP.P.x = g.x - dx * 8; FP.P.y = g.y - dy * 8; }); await p.waitForTimeout(200);
+  const calm = await p.evaluate(() => TEX.sprites.beingWave.indexOf(FP.guard.tex));
+  await p.evaluate(() => { const g = FP.guard, [dx, dy] = FP.exitDir; FP.P.x = g.x - dx * 3; FP.P.y = g.y - dy * 3; }); await p.waitForTimeout(200);
+  const again = await p.evaluate(() => window.__yell);
+  check('coming at the one at the exit, he waves his arms over his head, his eyes burn and dim, and he yells — once each time you come',
+    [0, 1, 2, 3].every((f) => frames.has(f)) && once === 1 && calm === -1 && again === 2,
+    `frames ${[...frames].sort().join(',')}; yells ${once}, still ${calm === -1} when you back off, ${again} coming again`);
   // leave the watch: he's gone from the exit, and the being stands there to be the kid
   await p.evaluate(() => { FP.carried.add('watch'); for (const q of FP.story) if (q.kind === 'heart') q.found = true; });
   await p.evaluate(() => { const st = FP.story.find((s) => s.chair), c = st.chair, t = st.slot; FP.P.x = t.x + c.fx * 1.2; FP.P.y = t.y + c.fy * 1.2; FP.P.a = Math.atan2(t.y - FP.P.y, t.x - FP.P.x); });

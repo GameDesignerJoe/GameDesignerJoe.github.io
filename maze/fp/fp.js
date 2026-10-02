@@ -3794,7 +3794,11 @@
   // standing just inside the locked way out for as long as it's locked; walk into him and it's the being's static, and you're
   // GUARD_BACK steps back along the way out, facing back into the maze. Leave the watch and the exit opens, and where he
   // stood the being is waiting to become the kid (spawnKid): he was always that.
-  const GUARD_BACK = 14, GUARD_TOUCH = 0.5;
+  // Joe: "We need to add some menace to the Being at the exit to scare people away. Waves arms, eyes pulse, maybe a yell (fake
+  // that for now)." Come within GUARD_WARN and he warns you off: his arms up over his head waving (TEX.sprites.beingWave), his
+  // eyes burning and dimming, and once each time you come at him, a yell (FP_SOUND.beingYell); back past GUARD_CALM and he
+  // stands still again, arms down, and the next approach yells again.
+  const GUARD_BACK = 14, GUARD_TOUCH = 0.5, GUARD_WARN = 5, GUARD_CALM = 7, GUARD_WAVE = 260, GUARD_EYES = 420;
   let guard = null;
   function placeGuard() {
     guard = null;
@@ -3806,7 +3810,11 @@
     if (!guard) return;
     if (exitOpen() || floor !== 1) { guard = null; return; }
     if (won || stairBusy || reading || seated) return;
-    if (Math.hypot(P.x - guard.x, P.y - guard.y) < GUARD_TOUCH) guardTakes();
+    const d = Math.hypot(P.x - guard.x, P.y - guard.y), now = performance.now();
+    if (d < GUARD_WARN && !guard.warning) { guard.warning = now; FP_SOUND.beingYell(Math.max(0.35, 1 - d / GUARD_WARN)); }
+    else if (d > GUARD_CALM) guard.warning = 0;
+    guard.tex = guard.warning ? TEX.sprites.beingWave[(Math.floor((now - guard.warning) / GUARD_WAVE) & 1) + (Math.floor((now - guard.warning) / GUARD_EYES) & 1 ? 2 : 0)] : TEX.sprites.being[0];
+    if (d < GUARD_TOUCH) guardTakes();
   }
   function guardTakes() {
     FP_SOUND.beingTakes(); stairBusy = true; clearStick();
@@ -3817,6 +3825,7 @@
       setTimeout(() => { fade.classList.remove('show'); setTimeout(() => fade.classList.remove('white'), 300); stairBusy = false; }, 350);
     }, 420);
   }
+  const KID_SHRINK = 900, KID_PALE = 900, KID_ARMS = 500, KID_PACE = 1.6, KID_INTO = 0.3;
   function spawnKid() {
     guard = null;
     if (kidMet || floor !== 1 || !exitDir) return;
@@ -3828,10 +3837,20 @@
     const d = Math.hypot(P.x - being.x, P.y - being.y);
     if (!being.turnAt && d < 2.6) { being.turnAt = now; FP_SOUND.kidGoes(); }
     if (!being.turnAt) return;
-    const k = Math.min(1, (now - being.turnAt) / 900);
-    being.tex = TEX.sprites.kid; being.h = 0.97 - 0.42 * k;   // the shape comes down to the kid's size
-    if (now - being.turnAt > 1600) being.alpha = Math.max(0, 1 - (now - being.turnAt - 1600) / 1400);
-    if (being.alpha <= 0) { being = null; beingState = 'done'; kidMet = true; }
+    // down to the kid's size (KID_SHRINK); going white (KID_PALE, in three steps); his arms out (KID_ARMS); then he comes to
+    // you at KID_PACE and, there, is gone into you: a white flash, and the warm sound (KID_INTO)
+    const t = now - being.turnAt, k = Math.min(1, t / KID_SHRINK);
+    being.h = 0.97 - 0.42 * k;
+    if (t < KID_SHRINK) { being.tex = TEX.sprites.kid; return; }
+    if (t < KID_SHRINK + KID_PALE) { being.tex = TEX.sprites.kidPale[Math.min(2, Math.floor((t - KID_SHRINK) / KID_PALE * 3))]; return; }
+    being.tex = TEX.sprites.kidPale[3];
+    if (t < KID_SHRINK + KID_PALE + KID_ARMS) return;
+    const dx = P.x - being.x, dy = P.y - being.y, dd = Math.hypot(dx, dy), dt = Math.min(0.05, (now - (being.lastT || now)) / 1000); being.lastT = now;
+    if (dd > KID_INTO + 0.02) { const st = Math.min(dd - KID_INTO, KID_PACE * dt); being.x += dx / dd * st; being.y += dy / dd * st; being.vx = dx / dd; being.vy = dy / dd; return; }
+    FP_SOUND.kidHug(); clearStick();
+    const fade = $('fade'); $('fadeText').textContent = ''; fade.classList.add('white', 'show');
+    setTimeout(() => { fade.classList.remove('show'); setTimeout(() => fade.classList.remove('white'), 600); }, 700);
+    being = null; beingState = 'done'; kidMet = true;
   }
   // the next thing to do, for the debug arrow: a room still lying, then the heart, the watch, the chair, the door
   function nextGoal() {

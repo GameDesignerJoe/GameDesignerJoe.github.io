@@ -86,7 +86,14 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   moves you someplace back on the golden path." The being's shape, from the start, standing just inside the locked way out;
   he never moves. Walk into him (`GUARD_TOUCH`) and it's the being's static, and you're `GUARD_BACK` steps back along the way
   out, facing back into the maze. Leave the watch and he's gone from there, and the being that stands in his place is the one
-  that becomes the kid.
+  that becomes the kid. And he warns you off (Joe: "We need to add some menace to the Being at the exit to scare people away.
+  Waves arms, eyes pulse, maybe a yell (fake that for now)"): within `GUARD_WARN` his arms go up over his head and wave
+  (`beingWave`), his eyes burn red and dim, and he yells (`beingYell`, faked: a swept noise shout over a growl) — once each time
+  you come at him; back past `GUARD_CALM` and he stands still again.
+- **The kid, into you.** Joe: "When the being shrinks down to a kid he should go white. He should also put his arms to either
+  side and come and give you a hug then disappear into you." Near him at the open exit: down to the kid's size (`KID_SHRINK`),
+  white in three steps (`kidPale`, `KID_PALE`), his arms out to either side (`KID_ARMS`), then he comes to you (`KID_PACE`) and
+  there is gone into you — a white flash and a warm chord (`kidHug`).
 - **The turn.** A maze starts calm (`calm`: no dark halls of this view's own, switched rooms lit). Each page read is a
   find (a room walked into no longer is); at `turnAfter` (3) the building turns — every tube stutters, something big goes
   off far away, the music drops to `The Turn`. After it, a room you walk into may stutter out and go dark (`turnRooms` of them, each room decided the first time you

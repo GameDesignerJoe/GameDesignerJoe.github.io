@@ -241,6 +241,14 @@ const FP_SOUND = (() => {
       tone(392, 1.8, { type: 'sine', vol: 0.06, attack: 0.3 }); tone(523, 2.2, { type: 'sine', vol: 0.045, attack: 0.6, at: 0.4 });
     },
     // the kid, going: a breath and a high soft note
+    // the one at the exit, when you come near: a yell, faked — a hoarse noise shout swept down, and a growl under it
+    beingYell(near) {
+      if (!live()) return;
+      burst(0.9, { vol: 0.45 * near, freq: 1400, q: 1.4, slide: 380 }); burst(0.6, { vol: 0.3 * near, freq: 700, q: 2, at: 0.05, slide: 260 });
+      tone(170, 0.9, { type: 'sawtooth', vol: 0.09 * near, slide: 70, attack: 0.04 }); tone(113, 1.1, { type: 'square', vol: 0.04 * near, slide: 55, attack: 0.08 });
+    },
+    // the kid, into you: a breath of warm air and a chord that opens
+    kidHug() { if (live()) { burst(1.4, { vol: 0.14, freq: 500, q: 0.4, type: 'lowpass' }); for (const [f, at] of [[523, 0], [659, 0.12], [784, 0.24]]) tone(f, 2.2, { type: 'sine', vol: 0.05, attack: 0.25, at }); } },
     kidGoes() { if (live()) { burst(1.2, { vol: 0.12, freq: 900, q: 0.5, slide: 400 }); tone(659, 1.6, { type: 'sine', vol: 0.05, attack: 0.3 }); } },
     // a light going out: the tube's tick and its hum dropping away, quieter the further off it is
     lightOut(near) {
