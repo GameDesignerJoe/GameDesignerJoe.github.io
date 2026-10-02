@@ -700,6 +700,11 @@ const TEX = (() => {
       for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { s = (s * 1103515245 + 12345) & 0x7fffffff;
         const d = Math.hypot(x - 7.5, y - 7.5) / 8 + (s % 100) / 600; if (d < 0.95) T.px[y * 16 + x] = hex(d < 0.55 ? '#120d0a' : d < 0.8 ? '#251b15' : '#3a2e25'); }
       return T; })(),
+    // the kid's room's toy box, where the ball goes back: empty, and with the ball in it
+    toybox: sprite(['wwwwwwwwwwww', 'wkkkkkkkkkkw', 'wWWWWWWWWWWw', 'wWwWWWWWWwWw', 'wWWWWWWWWWWw', 'wWWWWWWWWWWw', 'wwwwwwwwwwww'],
+      Object.assign({}, P, { w: hex('#6e4a2a'), W: hex('#93683d'), k: hex('#2a1d12') })),
+    toyboxBall: sprite(['....bbbb....', '...brbbrb...', 'wwwwwwwwwwww', 'wWWWWWWWWWWw', 'wWwWWWWWWwWw', 'wWWWWWWWWWWw', 'wWWWWWWWWWWw', 'wwwwwwwwwwww'],
+      Object.assign({}, P, { w: hex('#6e4a2a'), W: hex('#93683d'), b: hex('#eee9dc'), r: hex('#b8322a') })),
     // the kid's room's shelf: the gap the picture book goes back in, and its spine once it's there
     bookGap: sprite(['kkk', 'kkk', 'kkk', 'kkk', 'kkk', 'kkk', 'kkk', 'kkk'], Object.assign({}, P, { k: hex('#1a1612') })),
     bookSpine: sprite(['yyy', 'yry', 'yry', 'yyy', 'ygy', 'ygy', 'yyy', 'yyy'], Object.assign({}, P, { y: hex('#e6c34a'), r: hex('#c0452f'), g: hex('#4f8a3e') })),

@@ -1729,7 +1729,7 @@
     if (!carried.has('book')) { showNote(b.text.gap); return; }
     carried.delete('book'); b.shelved = true; hud();
     if (b.gap) { b.gap.kind = 'deco'; b.gap.tex = TEX.sprites.bookSpine; }
-    FP_SOUND.chalkUp(); showNote(b.text.shelved);
+    FP_SOUND.chalkUp(); showNote(b.text.shelved); kidCheck();
   }
   function useMemory(st) {
     const now = performance.now();
@@ -1748,7 +1748,7 @@
       carried.delete('matches'); hud();
       st.fire = { t0: now, frame: 0, crackle: 0, cough: now + 3000, obj: { x: st.paper.x, y: st.paper.y + 0.001, z: 0.02, kind: 'deco', tex: TEX.sprites.fire[0], h: 0.04, glow: 1 } };
       objs.push(st.fire.obj); FP_SOUND.strike();
-      sealRoom(st);
+      sealRoom(st);   // shut already, from the page; this for a pile lit some other way
     }
   }
   function cardsFrame(st, now) {
@@ -1812,24 +1812,57 @@
   // over SMOKE_FILL, and you cough; SMOKE_HOLD at its thickest, and it's black (SMOKE_BLACK): the fire out, ash and a burn
   // where it was, what he shouted on the walls, and you lying on the floor of the same room. Then the waking, as at the start,
   // and the memory (`after`); the doors let go.
-  const SMOKE_FILL = 8000, SMOKE_HOLD = 1500, SMOKE_BLACK = 2600, SMOKE_MAX = 0.94;
+  const SMOKE_FILL = 8000, SMOKE_HOLD = 1500, SMOKE_BLACK = 2600, SMOKE_MAX = 0.97;
   function openToolbox(st) {
     if (st.boxOpen) { if (st.matches && objs.includes(st.matches)) take(st.matches); return; }   // open: a tap on it is a tap on what's in it
     if (!st.read) { FP_SOUND.locked(); if (st.text.toolbox) showNote(st.text.toolbox); return; }   // not until you've read why
     st.boxOpen = true; st.box.tex = TEX.sprites.toolboxOpen; FP_SOUND.latch();
     st.matches = { x: st.box.x, y: st.box.y + 0.001, z: 0.24 + 0.05, kind: 'matches', tex: TEX.sprites.matches, h: 0.03, glow: 0.4 }; objs.push(st.matches);
   }
-  function sealRoom(st) {
-    st.sealed = { x: P.x, y: P.y };
-    st.held = [];
-    for (const d of doors) { const near = HD.some(([dx, dy]) => st.set.has((d.y + dy) * W + d.x + dx)) || st.set.has(d.k);
-      if (!near) continue; if (d.open) toggleDoor(d); d.locked = true; st.held.push(d); }
+  function sealRoom(st) { if (!st.sealed) { st.sealed = holdIn(st.set); st.held = st.sealed.doors; } }
+  // ── rooms that keep you ───────────────────────────────────
+  // A room you can't walk out of until you've done what it's for: its doors swung to and held (`d.locked`, which rattle), and
+  // a step out of it puts you back where you last stood inside. Only walking is held: a jump (the debug map, the being) lets
+  // go. Joe: the fire room ("Lock the fire room as soon as you touch the journal"), the wall ("lock the player in the word/lie
+  // room until they cross everything out, then reopen the door or doors that were there before"), the kid's room ("seal the
+  // room as well. You have to put the book and the ball away before it opens"). `letGo` opens again the doors that were open.
+  let holds = [];
+  function holdIn(set) {
+    const h = { set, x: P.x, y: P.y, doors: [], wasOpen: [] };
+    for (const d of doors) { if (!(HD.some(([dx, dy]) => set.has((d.y + dy) * W + d.x + dx)) || set.has(d.k))) continue;
+      h.wasOpen.push(!!d.open); if (d.open) toggleDoor(d); d.locked = true; h.doors.push(d); }
+    holds.push(h); return h;
   }
-  function smokeLevel(v) { const el = $('smoke'); if (el) el.style.opacity = v.toFixed(3); }
+  function letGo(h) {
+    if (!h || !holds.includes(h)) return;
+    holds.splice(holds.indexOf(h), 1);
+    h.doors.forEach((d, i) => { d.locked = false; if (h.wasOpen[i] && !d.open) toggleDoor(d); });
+  }
+  function holdFrame() {
+    for (const h of holds.slice()) {
+      const k = Math.floor(P.y) * W + Math.floor(P.x);
+      if (h.set.has(k)) { h.x = P.x; h.y = P.y; continue; }
+      if (Math.hypot(P.x - h.x, P.y - h.y) > 1.5) { letGo(h); continue; }   // not walked out: taken out
+      P.x = h.x; P.y = h.y; vel = 0;
+    }
+  }
+  // walking into a room (not put there): the wall's and the kid's take hold of you then
+  let holdLast = -1;
+  function holdWatch() {
+    const k = Math.floor(P.y) * W + Math.floor(P.x), was = holdLast; holdLast = k;
+    if (was < 0 || was === k || Math.abs(was % W - k % W) + Math.abs(((was / W) | 0) - ((k / W) | 0)) !== 1) return;   // a step, from the tile next door
+    const wall = story.find((q) => q.kind === 'wall' && q.lieFaces && !q.undone && !q.hold);
+    if (wall && wall.set.has(k) && !wall.set.has(was) && (S.chalkInf || chalk >= wall.need - wall.struck.size)) wall.hold = holdIn(wall.set);   // never with too little chalk to get out
+    const sec = secretSet();
+    if (kidBook && !kidHold && !kidDone() && sec && sec.has(k) && !sec.has(was)) kidHold = holdIn(sec);
+  }
+  let kidHold = null, ballAway = false, toybox = null;
+  const kidDone = () => (!kidBook || kidBook.shelved || kidBook.noShelf) && (ballAway || !toybox);
+  // Joe: "Make the smoke blacker until it fades to black." Grey as it starts, black at its thickest
+  function smokeLevel(v) { const el = $('smoke'); if (!el) return; el.style.opacity = v.toFixed(3);
+    const k = Math.min(1, v / SMOKE_MAX), c = (a, b) => Math.round(a + (b - a) * k); el.style.background = `rgb(${c(74, 6)},${c(70, 5)},${c(66, 5)})`; }
   function fireFrame(st, now) {
     const f = st.fire, t = now - f.t0;
-    // held in: a step out of the room puts you back where you last stood in it
-    if (st.sealed) { const k = Math.floor(P.y) * W + Math.floor(P.x); if (st.set.has(k)) { st.sealed.x = P.x; st.sealed.y = P.y; } else { P.x = st.sealed.x; P.y = st.sealed.y; vel = 0; } }
     if (!f.out) {
       f.obj.h = 0.04 + Math.min(1, t / 2500) * 0.48;
       if (now - f.frame > 130) { f.frame = now; f.obj.tex = TEX.sprites.fire[(Math.random() * 2) | 0]; }
@@ -1854,7 +1887,7 @@
         }, SMOKE_BLACK);
       }
     } else if (f.woke && performance.now() - f.woke > 400 + WAKE_LIE + WAKE_RISE + 300) {
-      for (const d of st.held || []) d.locked = false;
+      letGo(st.sealed);
       st.sealed = null; st.fire = null; st.done = true; showNote(st.text.after);
     }
   }
@@ -1894,12 +1927,12 @@
     if (nb) objs.push({ x: nb[0] + 0.5, y: nb[1] + 0.5, kind: 'page', memPage: true, text: text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
   }
   function pickBall(o) {
-    objs.splice(objs.indexOf(o), 1); ballHeld = o; carried.add('ball'); FP_SOUND.chalkUp();
+    objs.splice(objs.indexOf(o), 1); ballHeld = o; carried.add('ball'); FP_SOUND.chalkUp(); hud(); flash('hudBallBox');
     if (!learnt.throw) trainOn('throw', performance.now());   // what to do with it, the first time ever
   }
   function throwBall() {
     const o = ballHeld; if (!o) { carried.delete('ball'); return; }
-    carried.delete('ball'); ballHeld = null;
+    carried.delete('ball'); ballHeld = null; hud();
     // at dad if he's anywhere near where you're looking — and then never quite at him
     let a = P.a, atDad = false;
     if (catchT) { const to = Math.atan2(catchT.y - P.y, catchT.x - P.x), off = Math.atan2(Math.sin(to - P.a), Math.cos(to - P.a));
@@ -1920,7 +1953,7 @@
   }
   function ballFrame(now) {
     // carried out of the kid's room: put down where you are
-    if (ballHeld && typeof secretTiles !== 'undefined' && secretTiles.size && !secretTiles.has(Math.floor(P.x) + ',' + Math.floor(P.y))) { const o = ballHeld; ballHeld = null; carried.delete('ball'); o.x = P.x; o.y = P.y; o.z = 0; objs.push(o); }
+    if (ballHeld && typeof secretTiles !== 'undefined' && secretTiles.size && !secretTiles.has(Math.floor(P.x) + ',' + Math.floor(P.y))) { const o = ballHeld; ballHeld = null; carried.delete('ball'); o.x = P.x; o.y = P.y; o.z = 0; objs.push(o); hud(); }
     for (const o of objs) {
       const f = o.fly; if (!f) continue;
       const t = (now - f.t0) / 1000, t1 = f.tf, t2 = t1 + 0.3, t3 = t2 + 0.8;
@@ -2281,7 +2314,23 @@
       objs.push({ x: cor.x + 0.5 + ox * 0.3, y: cor.y + 0.5 + oy * 0.3, kind: M8 && M8.catch ? 'ball' : 'deco', tex: TEX.sprites.baseball, h: 0.04, glow: 0.2 });
       if (M8 && M8.catch) catchSetup(set, roomT, cor, bed, way, R, M8.catch); }
     if (kidBook) placeShelf(set, roomT, bed, way, cor, R);
+    // and the toy box the ball goes back in: against a wall of its own, clear of the shelf and the bed and the way in
+    toybox = null; ballAway = false; kidHold = null;
+    if (M8b && M8b.catch && cor) {
+      const taken = new Set(objs.map((o) => Math.floor(o.y) * W + Math.floor(o.x)));
+      const spots = roomT.filter((k) => { const x = k % W, y = (k / W) | 0; return HD.filter(([dx, dy]) => solid(x + dx, y + dy)).length === 1 && !taken.has(k) && Math.hypot(x - bed.x, y - bed.y) >= 2 && Math.abs(x - way.rx) + Math.abs(y - way.ry) >= 2 && !(kidBook && kidBook.gap && Math.hypot(x + 0.5 - kidBook.gap.x, y + 0.5 - kidBook.gap.y) < 1.5); });
+      const k = spots.sort((a, b) => Math.hypot(a % W - cor.x, ((a / W) | 0) - cor.y) - Math.hypot(b % W - cor.x, ((b / W) | 0) - cor.y))[0];
+      if (k !== undefined) { const x = k % W, y = (k / W) | 0, [dx, dy] = HD.find(([dx, dy]) => solid(x + dx, y + dy));
+        toybox = { x: x + 0.5 + dx * 0.3, y: y + 0.5 + dy * 0.3, kind: 'toybox', tex: TEX.sprites.toybox, h: 0.17, glow: 0.25 }; objs.push(toybox); }
+    }
   }
+  // the ball back in its box: with it in hand, a tap on the box (or walking up to it). Then the room may let you go
+  function putBall() {
+    if (!toybox || ballAway || !carried.has('ball')) return false;
+    carried.delete('ball'); ballHeld = null; ballAway = true; toybox.tex = TEX.sprites.toyboxBall; toybox.kind = 'deco'; hud(); FP_SOUND.chalkUp();
+    kidCheck(); return true;
+  }
+  function kidCheck() { if (kidHold && kidDone()) { letGo(kidHold); kidHold = null; } }
   // the book's shelf: against a straight run of the kid's room's wall, clear of the bed, the ball's corner, the way in,
   // dad's catch wall and the switch; a gap in its row of books where the picture book goes back
   function placeShelf(set, roomT, bed, way, cor, R) {
@@ -2494,6 +2543,7 @@
     $('hudWatchBox').style.display = carried.has('watch') ? '' : 'none';
     $('hudBookBox').style.display = carried.has('book') ? '' : 'none';
     $('hudMatchesBox').style.display = carried.has('matches') ? '' : 'none';
+    $('hudBallBox').style.display = carried.has('ball') ? '' : 'none';
   }
   // what you carry: things you pick up that aren't used up — the watch, for now. Joe: "We should make the watch
   // collectible that you pick up and then hold in your inventory. You can see on your hud. When we bring back in the
@@ -2517,6 +2567,7 @@
     if (o.kind === 'ball') { if (!walked && !o.fly) pickBall(o); return; }   // picked up to throw, never kept
     if (o.kind === 'cards') { if (!walked) useMemory(o.mem); return; }
     if (o.kind === 'toolbox') { if (!walked) openToolbox(o.mem); return; }
+    if (o.kind === 'toybox') { putBall(); return; }   // walked up to with the ball, or tapped
     if (o.kind === 'pile') { if (!walked && carried.has('matches')) useMemory(o.mem); return; }   // lit with the matches you took
     if (o.kind === 'kidBook') { if (!walked) openBook(); return; }   // read on the bed
     if (o.kind === 'shelfGap') { if (!walked) shelveBook(); return; }   // a memory room's thing: played, never taken
@@ -2528,7 +2579,7 @@
     else if (o.kind === 'matches') { carried.add('matches'); flash('hudMatchesBox'); FP_SOUND.chalkUp(); }   // into your pocket
     else if (o.kind === 'page') { journalLog.push(o.text); addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg, o.text); FP_SOUND.page();
       if (o.mem && o.mem.closet && !o.mem.done && !o.mem.coming) o.mem.coming = { t0: 0 };
-      if (o.mem && o.mem.mem === 'fire') o.mem.read = true; }   // the fire room's: and now the toolbox opens   // the hiding room's: and now he's coming
+      if (o.mem && o.mem.mem === 'fire') { o.mem.read = true; sealRoom(o.mem); } }   // the fire room's: the toolbox opens, and the room shuts   // the hiding room's: and now he's coming
     hud();
   }
   // Joe: "any instance where you have to do a thing to get the game to progress, we should give you a journal for once you do
@@ -2584,6 +2635,19 @@
       if (st.kind === 'heart') at.heart = farthest(heart.room.filter((k) => k !== heart.mid), heart.tip);   // off to the side: the watch has the middle
     }
     if (at.waitingIn !== undefined) at.waiting = at.waitingIn;
+    // and the wall's own, then, out in the hall a couple of steps from its way in: on your way to it. Joe: "There's two notes in
+    // the word/lie room. Should only be one. Need to figure out which and move the other somewhere else." The one that asks you
+    // to cross them out stays in the room; this one, which says what the wall is, is read before you go in
+    const wst = story.find((q) => q.kind === 'wall');
+    if (wst && at.waitingIn !== undefined) {
+      const start = wst.m.my * W + wst.m.mx, seen = new Map([[start, 0]]), q = [start], inStory = (k) => storyAt && storyAt[k] >= 0;
+      let best = -1;
+      for (let i = 0; i < q.length; i++) { const c = q[i], d = seen.get(c); if (d >= 1 && d <= 3 && free(c) && !inStory(c) && !inHeart(c)) { best = c; if (d >= 2) break; }
+        if (d >= 3) continue; const x = c % W, y = (c / W) | 0;
+        for (const [dx, dy] of HD) { const n = c + dy * W + dx; if (!solid(x + dx, y + dy) && !seen.has(n) && !inStory(n)) { seen.set(n, d + 1); q.push(n); } } }
+      if (best < 0 && free(start) && !inStory(start)) best = start;
+      if (best >= 0) at.wall = best;
+    }
     const sec = secretSet();
     if (sec) { const [fx, fy] = typeof secretFather === 'string' && secretFather ? secretFather.split(',').map(Number) : [-1, -1]; at.kid = fy >= 0 && free(fy * W + fx) ? fy * W + fx : farthest([...sec], sk); }
     let n = 0; const used = new Set();
@@ -2651,7 +2715,7 @@
   }
   function newMaze(seed) {
     SEED = seed || (Math.random() * 1e9 | 0);
-    journalLog = []; BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; seated = null; document.body.classList.remove('seated', 'book'); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
+    journalLog = []; holds = []; holdLast = -1; BASE = SEED; floor = 1; floorStates = new Map(); taken = new Set(); carried = new Set(); liesStruck = new Set(); heartOpened = false; watchLeft = false; kidMet = false; pageQueue = []; seated = null; document.body.classList.remove('seated', 'book'); turned = false; builtTurned = false; finds = 0; turnAt = -1e9;
     // Joe: "Feels like you are using the same seed over and over again." It was: every new maze wrote its seed into the address,
     // and a page load plays the address's seed, so reopening the tab (a phone does that on its own) was the same maze again. A
     // new maze takes the seed out of the address now; one typed into a link still holds until then. The seed is on the panel
@@ -3106,6 +3170,7 @@
     doorsFrame(dt);
     fatherFrame(now, dt);
     dartFrame(now, dt);
+    holdWatch(); holdFrame();
     beingFrame(now, dt); guardFrame(); veinFrame(now);
     heartFrame(now);
     memoryFrame(now);
@@ -3585,7 +3650,7 @@
   // ── the objects, as flat pictures facing you ──────────────
   let ovDep = new Float32Array(1), colOv = new Uint8Array(1), zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colDoorTop = new Float32Array(1), colDoorBot = new Float32Array(1), colDoorT = new Float32Array(1), colVeil = new Float32Array(1), colWallT = new Float32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
   const DITH = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
-  const PLAYED = new Set(['cards', 'matches', 'ball', 'kidBook', 'shelfGap', 'toolbox', 'pile']);
+  const PLAYED = new Set(['cards', 'matches', 'ball', 'kidBook', 'shelfGap', 'toolbox', 'pile', 'toybox']);
   const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
   // a pixel of the darter: its own shading kept as a grey, lifted toward white, lit by nothing
   const paleOf = (c, f) => { const l = Math.min(200, 38 + (((c & 0xff) + ((c >>> 8) & 0xff) + ((c >>> 16) & 0xff)) / 3) * 1.5) | 0; return shade(0xff000000 | (l << 16) | (l << 8) | l, Math.sqrt(f), 1, 1); };
@@ -3798,7 +3863,7 @@
     const cx = RW / 2; let hit = null;
     for (const d of drawn) if (d.o.kind !== 'deco' && d.x0 <= cx && cx <= d.x1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;   // a thing only looked at is never what you reach for
     if (seated) { seatedPlay(); return; }
-    if (carried.has('ball')) { throwBall(); return; }
+    if (carried.has('ball') && !(hit && hit.o.kind === 'toybox')) { throwBall(); return; }
     if (hit) { glyphsOff(); take(hit.o); return; }
     tapAt(cx, RH * 0.55);
   }
@@ -3809,7 +3874,7 @@
     let hit = null;
     for (const d of drawn) if (d.o.kind !== 'deco' && bx >= d.x0 - 6 && bx <= d.x1 + 6 && by >= d.y0 && by <= d.y1 && d.depth < REACH_THING && (!hit || d.depth < hit.depth)) hit = d;
     if (seated) { seatedPlay(); return; }   // at the card table, a tap anywhere turns a card
-    if (carried.has('ball')) { throwBall(); return; }   // holding the ball, a tap anywhere throws it
+    if (carried.has('ball') && !(hit && hit.o.kind === 'toybox')) { throwBall(); return; }   // holding the ball, a tap anywhere throws it (but on its box, it goes in)
     if (hit) { take(hit.o); return; }
     const x = Math.max(0, Math.min(RW - 1, bx | 0));
     if (hidden) return;   // from inside a closet you can only step out
@@ -3984,7 +4049,7 @@
       hand(d, line, 4, y0, 56, 2, TRUTH, R);
     }
     FP_SOUND.crossOut(st.struck.size >= st.need);
-    if (!st.undone && st.struck.size >= st.need) { st.undone = true; st.music = null; storyHere = -1; }
+    if (!st.undone && st.struck.size >= st.need) { st.undone = true; st.music = null; storyHere = -1; letGo(st.hold); st.hold = null; }   // and the doors open again
     if (story.filter((q) => q.lieFaces).every((q) => q.undone)) openHeart();
   }
   // a line through every line of writing on a face: the ink is found by its colours, grouped into rows, and each row
@@ -4293,5 +4358,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get lift() { return lift; }, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get journalLog() { return journalLog; }, mapMarks, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get darkMul() { return darkMul; }, get lifted() { return lifted; }, get turnFaces() { return turnFaces; }, get wordFaces() { return wordSpots; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get lift() { return lift; }, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get holds() { return holds; }, get toybox() { return toybox; }, get ballAway() { return ballAway; }, putBall, get journalLog() { return journalLog; }, mapMarks, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get darkMul() { return darkMul; }, get lifted() { return lifted; }, get turnFaces() { return turnFaces; }, get wordFaces() { return wordSpots; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

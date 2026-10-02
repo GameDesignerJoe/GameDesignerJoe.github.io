@@ -231,7 +231,8 @@ console.log('The Maze — first person checks');
     for (let s = 1; s <= 12; s++) { FP.newMaze(s * 7717 + 3); const W = FP.W;
       for (const o of FP.objs.filter((o) => o.kind === 'page')) { seen[o.place] = (seen[o.place] || 0) + 1;
         const k = Math.floor(o.y) * W + Math.floor(o.x); let ok = true;
-        if (o.place === 'waiting' || o.place === 'wall') ok = FP.story.some((st) => st.kind === 'wall' && st.set.has(k));   // the waiting room's page ("cross them out for me") is in the wall's room now
+        if (o.place === 'waiting') ok = FP.story.some((st) => st.kind === 'wall' && st.set.has(k));   // the waiting room's page ("cross them out for me") is in the wall's room now
+        if (o.place === 'wall') ok = FP.story.some((st) => st.kind === 'wall' && !st.set.has(k) && Math.abs(k % W - st.m.mx) + Math.abs(((k / W) | 0) - st.m.my) <= 3);   // and the wall's own out in the hall before it
         if (o.place === 'heart') ok = !!FP.heart && FP.heart.set.has(k);
         if (o.place === 'kid') ok = [...secretTiles].includes((k % W) + ',' + ((k / W) | 0));
         if (!ok) bad[o.place] = (bad[o.place] || 0) + 1; } }
@@ -580,6 +581,59 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── rooms that keep you: the wall till its lies are out, the kid's till the book and the ball are put away ──
+// Joe: "We should lock the player in the word/lie room until they cross everything out, then reopen the door or doors that were
+// there before." And: "The room with the book. We need to seal the room as well. You have to put the book and the ball away
+// before it opens. You get both as a collectible when you pick them up. You can throw the ball as many times as you want but you
+// will never hit the target." And: "There's two notes in the word/lie room. Should only be one."
+{
+  const p = await open(4242); await awake(p); await closePage(p);
+  const inWall = () => p.evaluate(() => FP.story.find((q) => q.kind === 'wall').set.has(Math.floor(FP.P.y) * FP.W + Math.floor(FP.P.x)));
+  const notes = await p.evaluate(() => { const w = FP.story.find((q) => q.kind === 'wall'); return FP.objs.filter((o) => (o.kind === 'page' || o.kind === 'note') && w.set.has(Math.floor(o.y) * FP.W + Math.floor(o.x))).length; });
+  const doorsBefore = await p.evaluate(() => { const w = FP.story.find((q) => q.kind === 'wall'); return FP.doors.filter((d) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => w.set.has((d.y + dy) * FP.W + d.x + dx))).map((d) => d.open); });
+  await p.evaluate(() => { const m = FP.story.find((q) => q.kind === 'wall').m; FP.P.x = m.mx + 0.5; FP.P.y = m.my + 0.5; FP.P.a = Math.atan2(m.ry - m.my, m.rx - m.mx); });   // in its way in, facing in
+  await p.waitForTimeout(300); for (let i = 0; i < 3; i++) await closePage(p);
+  await p.keyboard.down('KeyW'); await p.waitForTimeout(1000); await p.keyboard.up('KeyW'); await p.waitForTimeout(200);
+  for (let i = 0; i < 3; i++) await closePage(p);
+  const wallIn = { inside: await inWall(), held: await p.evaluate(() => FP.holds.length) };
+  await p.evaluate(() => { FP.P.a += Math.PI; }); await p.keyboard.down('KeyW'); await p.waitForTimeout(1500); await p.keyboard.up('KeyW');
+  const wallKept = await inWall();
+  await p.evaluate(() => document.getElementById('undoLies').click()); await p.waitForTimeout(400);
+  for (let i = 0; i < 3; i++) await closePage(p);
+  const doorsAfter = await p.evaluate(() => { const w = FP.story.find((q) => q.kind === 'wall'); return FP.doors.filter((d) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => w.set.has((d.y + dy) * FP.W + d.x + dx))).map((d) => d.open); });
+  await p.keyboard.down('KeyW'); await p.waitForTimeout(1500); await p.keyboard.up('KeyW');
+  const wallOut = !(await inWall());
+  // the kid's room: walked into by its squeeze, and held till both are put away
+  const inKid = () => p.evaluate(() => secretTiles.has(Math.floor(FP.P.x) + ',' + Math.floor(FP.P.y)));
+  await p.evaluate(() => { const W = FP.W, set = new Set([...secretTiles].map((s) => { const [x, y] = s.split(',').map(Number); return y * W + x; }));
+    for (const g of crawlGaps) { const [x, y] = g.split(',').map(Number); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (set.has((y + dy) * W + x + dx)) { FP.P.x = x + 0.5 - dx; FP.P.y = y + 0.5 - dy; FP.P.a = Math.atan2(dy, dx); return; } } });
+  await p.waitForTimeout(300); await closePage(p);
+  await p.keyboard.down('KeyW'); await p.waitForTimeout(3000); await p.keyboard.up('KeyW'); await p.waitForTimeout(200); await closePage(p);
+  const kidIn = { inside: await inKid(), held: await p.evaluate(() => FP.holds.length) };
+  await p.evaluate(() => { FP.P.a += Math.PI; }); await p.keyboard.down('KeyW'); await p.waitForTimeout(2500); await p.keyboard.up('KeyW');
+  const kidKept = await inKid();
+  await p.evaluate(() => { FP.carried.add('book'); FP.shelveBook(); }); await p.waitForTimeout(200); await closePage(p);
+  const afterBook = await p.evaluate(() => FP.holds.length);
+  const face = (sel) => p.evaluate((sel) => { const o = sel === 'ball' ? FP.objs.find((q) => q.kind === 'ball' && !q.fly) : FP.toybox; if (!o) return false;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = o.x + dx * 0.8, y = o.y + dy * 0.8; if (secretTiles.has(Math.floor(x) + ',' + Math.floor(y))) { FP.P.x = x; FP.P.y = y; FP.P.a = Math.atan2(o.y - y, o.x - x); return true; } } return false; }, sel);
+  for (let i = 0; i < 3; i++) await closePage(p);
+  await face('ball'); await p.waitForTimeout(300); await closePage(p); await p.keyboard.press('Space'); await p.waitForTimeout(300);
+  const held = await p.evaluate(() => [FP.carried.has('ball'), getComputedStyle(document.getElementById('hudBallBox')).display !== 'none']);
+  // thrown as many times as you like: it always comes down, never in the glove
+  let throws = 0; for (let i = 0; i < 8 && throws < 4; i++) { await closePage(p);
+    if (!(await p.evaluate(() => FP.carried.has('ball')))) { if (await face('ball')) { await p.waitForTimeout(200); await p.keyboard.press('Space'); await p.waitForTimeout(250); } continue; }
+    await p.keyboard.press('Space'); await p.waitForTimeout(2600); throws++; }
+  for (let i = 0; i < 3; i++) await closePage(p);
+  await face('ball'); await p.waitForTimeout(300); await p.keyboard.press('Space'); await p.waitForTimeout(300);
+  await face('box'); await p.waitForTimeout(300); await p.keyboard.press('Space'); await p.waitForTimeout(300); await closePage(p);
+  const away = await p.evaluate(() => ({ away: FP.ballAway, held: FP.holds.length, ball: FP.carried.has('ball') }));
+  check('the wall keeps you till every lie is crossed out, then its doors are as they were; the kid\'s room keeps you till the book and the ball are put away; the wall\'s room has one journal',
+    notes === 1 && wallIn.inside && wallIn.held === 1 && wallKept && JSON.stringify(doorsAfter) === JSON.stringify(doorsBefore) && wallOut
+      && kidIn.inside && kidIn.held === 1 && kidKept && afterBook === 1 && held[0] && held[1] && throws === 4 && away.away && away.held === 0 && !away.ball,
+    `journals in the wall's room ${notes}; walked in ${wallIn.inside}, held ${wallIn.held}, kept ${wallKept}; crossed out: doors ${JSON.stringify(doorsBefore)} → ${JSON.stringify(doorsAfter)}, out ${wallOut}; the kid's room: in ${kidIn.inside}, held ${kidIn.held}, kept ${kidKept}; the book shelved, still held ${afterBook}; the ball in hand ${held[0]} (HUD ${held[1]}), thrown ${throws}×; put away ${away.away}, let go ${away.held === 0}`);
+  await p.close();
+}
+
 // ── the turn: three pages, and nothing else counts ───────────────
 {
   const p = await open(4242); await awake(p);
@@ -790,6 +844,8 @@ console.log('The Maze — first person checks');
   const shut = { said: await text(), open: await p.evaluate((F) => !!eval(F).boxOpen, F) }; await esc();
   await p.evaluate((F) => { const st = eval(F), o = FP.objs.find((q) => q.kind === 'page' && q.mem === st); FP.P.x = o.x; FP.P.y = o.y; }, F);
   await p.waitForTimeout(500); await esc();
+  // Joe: "Lock the fire room as soon as you touch the journal"
+  const shutAtPage = await p.evaluate((F) => { const st = eval(F); return !!st.sealed && FP.holds.length === 1; }, F);
   await faceBox(); await p.waitForTimeout(300);
   await p.keyboard.press('Space'); await p.waitForTimeout(400);
   const opened = await p.evaluate((F) => [!!eval(F).boxOpen, FP.objs.some((o) => o.kind === 'matches')], F);
@@ -802,7 +858,9 @@ console.log('The Maze — first person checks');
   const lit = await p.evaluate((F) => { const st = eval(F); return { fire: !!st.fire, held: (st.held || []).length, shut: (st.held || []).every((d) => !d.open && d.locked), spent: !FP.carried.has('matches') }; }, F);
   await p.waitForTimeout(4000);
   // try the way out, and a held door
-  const kept = await p.evaluate(async (F) => { const st = eval(F), m = st.m; FP.P.x = m.mx + 0.5; FP.P.y = m.my + 0.5; await new Promise((r) => setTimeout(r, 200));
+  await p.evaluate((F) => { const st = eval(F), m = st.m; FP.P.x = m.rx + 0.5; FP.P.y = m.ry + 0.5; FP.P.a = Math.atan2(m.my - m.ry, m.mx - m.rx); }, F);   // at the way out, facing it
+  await p.keyboard.down('KeyW'); await p.waitForTimeout(900); await p.keyboard.up('KeyW');
+  const kept = await p.evaluate((F) => { const st = eval(F);
     const inside = st.set.has(Math.floor(FP.P.y) * FP.W + Math.floor(FP.P.x)); const d = (st.held || [])[0]; if (d) FP.toggleDoor(d); return { inside, door: d ? !d.open : true }; }, F);
   const smoke = +(await p.evaluate(() => getComputedStyle(document.getElementById('smoke')).opacity));
   await p.waitForTimeout(5600);
@@ -814,9 +872,9 @@ console.log('The Maze — first person checks');
   const trouble = await text(), freed = await p.evaluate((F) => { const st = eval(F); return st.done && !st.sealed && (st.held || []).every((d) => !d.locked); }, F);
   await esc();
   check('the fire room: the toolbox won\'t open till the page is read, then the matches go in your pocket and light the pile (twice the size); the room shuts, fills with smoke, goes black, and you wake on its floor by the burn, his words on the walls',
-    !shut.open && /toolbox/.test(shut.said) && opened[0] && opened[1] && pocket[0] && pocket[1] && pile >= 0.14 && lit.fire && lit.held > 0 && lit.shut && lit.spent
+    shutAtPage && !shut.open && /toolbox/.test(shut.said) && opened[0] && opened[1] && pocket[0] && pocket[1] && pile >= 0.14 && lit.fire && lit.held > 0 && lit.shut && lit.spent
       && kept.inside && kept.door && smoke > 0.5 && black && woke.low && woke.inRoom && woke.burn && woke.ash && woke.smoke === 0 && before === 0 && after > 200 && /see i could do it/.test(trouble) && freed,
-    `shut before the page: "${shut.said}"; after, open ${opened[0]} with the matches ${opened[1]}; in the pocket ${pocket[0]}, on the HUD ${pocket[1]}; pile ${pile}; lit ${lit.fire}, ${lit.held} doors held shut ${lit.shut}, matches spent ${lit.spent}; kept in ${kept.inside}, door held ${kept.door}; smoke ${smoke.toFixed(2)}; black ${black}; woke low ${woke.low} in the room ${woke.inRoom}, burn ${woke.burn}, ash ${woke.ash}, smoke ${woke.smoke}; his words ${before} → ${after} px; then "${trouble.slice(0, 30)}…", let out ${freed}`);
+    `room shut at the page ${shutAtPage}; box shut before the page: "${shut.said}"; after, open ${opened[0]} with the matches ${opened[1]}; in the pocket ${pocket[0]}, on the HUD ${pocket[1]}; pile ${pile}; lit ${lit.fire}, ${lit.held} doors held shut ${lit.shut}, matches spent ${lit.spent}; kept in ${kept.inside}, door held ${kept.door}; smoke ${smoke.toFixed(2)}; black ${black}; woke low ${woke.low} in the room ${woke.inRoom}, burn ${woke.burn}, ash ${woke.ash}, smoke ${woke.smoke}; his words ${before} → ${after} px; then "${trouble.slice(0, 30)}…", let out ${freed}`);
   await p.close();
 }
 

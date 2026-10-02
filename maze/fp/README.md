@@ -101,6 +101,15 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   walls, in paint that shows only in the dark, `TURN_LINES` ("you shouldnt be here!", "leave", "he left. do the
   same."); and now and then (`turnHalls`) a hall's lamps go out one after another from its far end toward you, a word
   glowing on the wall at the end. Every lamp is live now (`flickLamps`), so any can go out. The kid's room is spared.
+- **Rooms that keep you** (`holdIn`, `holdFrame`, `letGo`). A room you can't walk out of until you've done what it's for: its
+  doors swung to and held (`d.locked`; they rattle), and a step out puts you back where you last stood inside. Only walking is
+  held — a jump (the debug map, the being) lets go. The fire room shuts the moment you pick up its journal (Joe: "Lock the fire
+  room as soon as you touch the journal"); the wall takes hold when you walk in (`holdWatch`), never with too little chalk to
+  get out, and lets go when every lie is crossed out, its doors as they were (Joe: "lock the player in the word/lie room until
+  they cross everything out, then reopen the door or doors that were there before"); the kid's room takes hold when you crawl
+  in and lets go once the book is on its shelf and the ball in its toy box (`kidDone`; Joe: "You have to put the book and the
+  ball away before it opens"). The ball is in your pocket (on the HUD) when you pick it up; throw it as often as you like —
+  it never goes where you threw it — and a tap on the toy box with it in hand puts it away (`putBall`).
 - **The heart's dark** (`heartDark`). Joe: "When the heartbeat shows up we need to drop the lights down low and get them to
   slowly pulse with the heart beat … this is when we force the 'turn' as well. So you are following the red pulse while the
   walls are screaming at you to leave." Open the heart and the turn comes now if it hadn't; every light outside the heart
@@ -136,7 +145,8 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   up until then, opens, and its heartbeat carries so you can follow it. A maze with no wall has its heart open from the start.
   **Cross out the lies** on the panel does it for you.
   The page that asks for it — the waiting room's, "Cross them out for me" — is in the wall's room, just inside the way in
-  (Joe: "needs to go in the room you cross the words out"); the wall's own is at its far end.
+  (Joe: "needs to go in the room you cross the words out"). The wall's own is out in the hall a couple of steps from its way in,
+  read on your way to it (Joe: "There's two notes in the word/lie room. Should only be one").
 - **The three that move you on are journals** (Joe: "any instance where you have to do a thing to get the game to progress,
   we should give you a journal for once you do it"): the heart opening, the watch taken (`heart.watch`, his chair's old note
   folded into it), the watch left (`leave`). Counted with the rest (`PROGRESS_PAGES`).
@@ -152,9 +162,10 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   way up to you, and his is always higher; three and the memory. **Get up** (or Esc, or a step) and you're back where you stood. **The fire** — a pile of crumpled drawings (twice the size it was: Joe, "The pile to light needs to be twice as big") in the
   middle of a room, and to one side his red toolbox on a little table. It won't open until you've read the room's page
   (`toolbox`, said if you try; Joe: "hide the matches until after you've read the journal"); then it opens on the matches, a
-  tap puts them in your pocket (on the HUD), and a tap on the pile lights it (`openToolbox`, `pile`). The room shuts
-  (`sealRoom`: its doors swung to and held, `d.locked`; you can't step out of it), the fire grows, smoke comes down from the
-  ceiling (`#smoke`, over `SMOKE_FILL`) and you cough; at its thickest (`SMOKE_HOLD`) it's black (`SMOKE_BLACK`), and you
+  tap puts them in your pocket (on the HUD), and a tap on the pile lights it (`openToolbox`, `pile`). The room is shut already, from the
+  moment you picked up its journal (`sealRoom`, a hold: below), the fire grows, smoke comes down from the
+  ceiling (`#smoke`, over `SMOKE_FILL`), going from grey to black as it thickens (Joe: "Make the smoke blacker until it fades
+  to black"), and you cough; at its thickest (`SMOKE_HOLD`) it's black (`SMOKE_BLACK`), and you
   wake as at the start, on the floor of the same room, facing a burn where the fire was (`scorch`), ash on it, and what he
   said on the walls in big dark letters (`shout`); then the memory, and the doors let go. Joe: "Smoke fills the room. You
   can't get out. Fade to black from smoke damage. Wake up a few seconds later on the ground … Then we see all the writing on
