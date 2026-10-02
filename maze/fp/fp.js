@@ -20,6 +20,9 @@
   const mini = document.getElementById('mini'), mctx = mini.getContext('2d');
   const $ = (id) => document.getElementById(id);
 
+  // the journal's hand, fetched now rather than the first time a page opens (see the @font-face in maze-fp.html)
+  try { if (document.fonts && document.fonts.load) document.fonts.load("500 24px 'Caveat'"); } catch (e) {}
+
   // ── settings ──────────────────────────────────────────────
   const SKEY = 'maze.fp.v1';
   let S = Object.assign({}, FP_CONFIG);

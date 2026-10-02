@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="The Maze">
 <meta name="theme-color" content="#0d0f10">
+<link rel="preload" href="fp/caveat-latin.woff2" as="font" type="font/woff2" crossorigin>
 <title>The Maze — First Person</title>
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
@@ -90,7 +91,9 @@
   #page { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 5; background: #0d0f1066; }
   #page.show { opacity: 1; pointer-events: auto; }
   /* Caveat (SIL Open Font License), the latin set, kept here so a page reads the same offline */
-  @font-face { font-family: 'Caveat'; font-style: normal; font-weight: 400 700; font-display: swap; src: url(fp/caveat-latin.woff2) format('woff2'); }
+  /* loaded at the start (fp.js), and `block`, not `swap`: Joe saw the first journal of a run come up in one hand and change
+     to another a frame later — the page drawn in a stand-in font while this one was still being fetched, then swapped */
+  @font-face { font-family: 'Caveat'; font-style: normal; font-weight: 400 700; font-display: block; src: url(fp/caveat-latin.woff2) format('woff2'); }
   /* a journal page. Joe: "The Journal text doesn't look right anymore. It looks like web app art. I need
      something more real." So: a sheet torn out of a ruled notebook — aged paper with grain and a darker
      edge, a red margin, blue rules the handwriting sits on, a coffee ring, a slight tilt — in ink */

@@ -54,6 +54,19 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the first journal in its own hand ────────────────────────────
+// Joe: "I'm still getting a hitch when it pulls up the first journal on a run … a frame or two later it realizes it needs
+// to have a different journal text display so it swaps them." The hand wasn't fetched until the first page opened, and
+// that page was drawn in a stand-in font, then swapped. It's fetched at the start now, before any page
+{
+  const p = await ctx.newPage();
+  await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(1500);
+  const r = await p.evaluate(() => ({ loaded: [...document.fonts].filter((f) => f.family.replace(/['"]/g, '') === 'Caveat').map((f) => f.status), page: document.getElementById('page').classList.contains('show') }));
+  check('the journal\'s handwriting is loaded before the first page opens, so the first page never comes up in another hand',
+    !r.page && r.loaded.length > 0 && r.loaded.every((x) => x === 'loaded'), `before any page: Caveat ${r.loaded.join(', ') || 'not declared'}`);
+  await p.close();
+}
+
 // ── waking: no control until you're up ───────────────────────────
 {
   const p = await ctx.newPage(); p.on('pageerror', (e) => errors.push(String(e)));
