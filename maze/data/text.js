@@ -559,6 +559,13 @@ const FP_ENDING = {
   'The Child': {
     notYet: "not yet",
     leave: "i left your watch where you always kept it. i dont have to save your chair anymore. its yours. im going now.",
+    // once the watch is left: every wall the game wrote on is washed and written again with one of these, in chalk, with the
+    // lights back up. Joe: "replace out all the text in the wall with things that talk about moving on and putting things down
+    // and not having to carry what isn't yours and maybe some thank yous." Claude's drafts, to be rewritten
+    after: ["you can put it down now", "it was never yours to carry", "thank you for waiting", "you dont have to wait anymore",
+      "its ok to go", "set it down", "the chair is his. not yours", "thank you for coming back for me", "you were a good kid",
+      "it wasnt your fault", "you can stop looking", "thank you", "leaving isnt forgetting", "the door is open", "go on. its ok",
+      "you carried it long enough", "thank you for looking", "i can let go now"],
     // the slot on the little table by his chair, where the watch sat. Joe's two lines: before you have it, and with it
     slotEmpty: "something goes here.",
     slotHolding: "he always had this right next to him. but ive been holding onto it this whole time.",

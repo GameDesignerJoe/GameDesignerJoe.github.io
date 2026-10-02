@@ -494,6 +494,38 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the heart's dark, and the lights coming back up ──────────────
+// Joe: "When the heartbeat shows up we need to drop the lights down low and get them to slowly pulse with the heart beat … this
+// is when we force the 'turn' as well." And: "Once we put the watch where it goes we should bring all the lights back up and
+// replace out all the text in the wall with things that talk about moving on", and "We should totally not have the dark walls
+// with green text as you are approaching the ending."
+{
+  const p = await open(4242); await awake(p); await closePage(p);
+  const before = await p.evaluate(() => [FP.turned, FP.darkMul]);
+  await p.evaluate(() => document.getElementById('undoLies').click()); await p.waitForTimeout(300);
+  for (let i = 0; i < 3; i++) await closePage(p);
+  await p.waitForTimeout(2600);
+  const mul = []; for (let i = 0; i < 14; i++) { mul.push(await p.evaluate(() => FP.darkMul)); await p.waitForTimeout(90); }
+  // a room walked into, while it's dark: it goes out, and writes
+  const into = () => p.evaluate(async () => { const W = FP.W; let ri = -1;
+    for (let k = 0; k < FP.roomOf.length; k++) { const r = FP.roomOf[k]; if (r >= 0 && !FP.roomsOut.has(r) && !FP.roomsSpared.has(r) && !FP.story.some((s) => s.set.has(k)) && !FP.heart.set.has(k) && ![...secretTiles].includes((k % W) + ',' + ((k / W) | 0))) { ri = r; FP.P.x = k % W + 0.5; FP.P.y = ((k / W) | 0) + 0.5; break; } }
+    await new Promise((r) => setTimeout(r, 1200)); return { ri, out: FP.roomsOut.has(ri), faces: FP.turnFaces.size }; });
+  const dark = await into();
+  await p.evaluate(() => document.getElementById('leaveWatch').click()); await p.waitForTimeout(500);
+  for (let i = 0; i < 3; i++) await closePage(p);
+  await p.waitForTimeout(400);
+  const after = await p.evaluate(() => { const glow = new Set(['#bfe8b4', '#9fd49a'].map((h) => ((TEX.hex(h) & 0xffffff) | 0xfe000000) >>> 0));
+    const fks = [...FP.turnFaces, ...FP.wordFaces.map((w) => w.k * 4 + w.face), ...FP.story.filter((q) => q.lieFaces).flatMap((q) => [...q.lieFaces])];
+    let green = 0, chalked = 0; for (const fk of fks) { const d = FP.decals.get(fk); if (!d) continue; let c = 0; for (const v of d) { if (glow.has(v >>> 0)) green++; if (v >>> 24 === 0xfd) c++; } if (c > 20) chalked++; }
+    return { lifted: FP.lifted, mul: FP.darkMul, out: FP.lampsOut.size, dark: [...FP.dark].filter((v) => v).length, faces: fks.length, chalked, green }; });
+  const later = await into();
+  const lo = Math.min(...mul), hi = Math.max(...mul);
+  check('opening the heart brings the turn and takes the lights down low, swelling with the beat, every room going out at you; the watch left, they all come back up and every wall the game wrote on says something else, in chalk',
+    !before[0] && before[1] === 1 && lo < 0.4 && hi > 0.45 && hi < 0.75 && dark.out && dark.faces > 0 && after.lifted && after.mul === 1 && after.out === 0 && after.dark === 0 && after.faces > 10 && after.chalked === after.faces && after.green === 0 && !later.out,
+    `turned before ${before[0]}; dark ${lo.toFixed(2)}..${hi.toFixed(2)} of full; a room walked into went out ${dark.out} (${dark.faces} faces written); after the watch: lifted ${after.lifted}, ×${after.mul}, ${after.out} lamps out, ${after.dark} dark tiles; ${after.chalked} of ${after.faces} written faces in chalk, ${after.green} green pixels left; a room walked into after went out ${later.out}`);
+  await p.close();
+}
+
 // ── the turn: three pages, and nothing else counts ───────────────
 {
   const p = await open(4242); await awake(p);
@@ -576,9 +608,12 @@ console.log('The Maze — first person checks');
     const c = await p.evaluate(() => [FP.P.x, FP.P.y]); await p.keyboard.down('KeyS'); await p.waitForTimeout(1000); await p.keyboard.up('KeyS'); return Math.hypot(c[0] - a[0], c[1] - a[1]); };
   const before = await walk();
   await p.evaluate(() => { document.getElementById('gear').click(); for (const d of document.querySelectorAll('#panel details')) d.open = true; document.querySelector('#panel input[type=range]').focus(); });
-  await p.waitForTimeout(200);
-  const at = await p.evaluate(() => { const r = document.getElementById('panel').getBoundingClientRect(); return [Math.min(420, r.right + 10), Math.min(880, r.bottom + 10)]; });
-  await p.mouse.click(at[0] < 420 ? at[0] : 215, at[0] < 420 ? 450 : at[1]); await p.waitForTimeout(300);   // the view, not the panel
+  await p.waitForTimeout(700);   // the panel slides in: until it's there, where it isn't yet is where it's about to be
+  // a point on the view itself, not the panel and not the stick (a click on the stick's ring doesn't shut it, and the panel's
+  // size moves with what's open on it, so a fixed spot was sometimes one and sometimes the other)
+  const at = await p.evaluate(() => { const cv = [...document.querySelectorAll('canvas')].sort((a, b) => b.width - a.width)[0];
+    for (let y = 60; y < 860; y += 20) for (let x = 20; x < 420; x += 20) if (document.elementFromPoint(x, y) === cv) return [x, y]; return [215, 450]; });
+  await p.mouse.click(at[0], at[1]); await p.waitForTimeout(300);   // the view, not the panel
   const shut = await p.evaluate(() => !document.getElementById('panel').classList.contains('open'));
   const after = await walk();
   // the bug this guards walked 0.00; a slow frame walks less, never nothing

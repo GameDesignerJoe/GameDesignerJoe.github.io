@@ -222,6 +222,7 @@
       let L = 1 - S.shadow * (1 - Math.min(1, tileL[k]));
       if (dark[k]) L = Math.min(L, S.darkLevel);
       if (chairDim && chairDim[k]) L = Math.min(L, CHAIR_DIM);
+      if (darkMul < 1 && !inHeart(k)) L *= darkMul;
       // a room with its lights off is as dim as a dark hall, whatever spills in at the door
       if (grouped && groupAt[k] >= 0) { const g = lightGroups[groupAt[k]], lo = g.pitch ? PITCH : S.darkLevel; if (g.lvl < 1 && L > lo) L = lo + (L - lo) * g.lvl; }
       tileL[k] = L;
@@ -1146,6 +1147,7 @@
   const GLOW = [(TEX.hex('#bfe8b4') & 0xffffff) | 0xfe000000, (TEX.hex('#9fd49a') & 0xffffff) | 0xfe000000];
   function turnIndex() {   // the rooms of this maze, for the lights to go out in
     roomOf = new Int32Array(W * H).fill(-1); roomList = []; roomsOut = new Set(); roomsSpared = new Set(); killQ = []; lampsOut = new Set(); lastRoomComp = -1;
+    turnFaces = new Set(); heartDark = 0; darkMul = 1; lifted = false;
     for (let k0 = 0; k0 < W * H; k0++) {
       if (!room[k0] || roomOf[k0] >= 0) continue;
       const tiles = [k0]; roomOf[k0] = roomList.length;
@@ -1156,12 +1158,43 @@
   }
   function addFind() {
     finds++;
-    if (!turned && S.turnAfter > 0 && finds >= S.turnAfter) {
-      turned = true; turnAt = performance.now(); FP_SOUND.turn(); FP_SOUND.setMusic(track());
+    if (!turned && S.turnAfter > 0 && finds >= S.turnAfter) turnNow();
+  }
+  function turnNow() { turned = true; turnAt = performance.now(); FP_SOUND.turn(); FP_SOUND.setMusic(track()); }
+  // ── the heart's dark, and the lights coming back ──────────
+  // Joe: "When the heartbeat shows up we need to drop the lights down low and get them to slowly pulse with the heart beat …
+  // Or maybe this is when we force the 'turn' as well. So you are following the red pulse while the walls are screaming at you
+  // to leave." From the moment you open the heart (`heartDark`), every light outside it comes down over HEART_DARK_IN to
+  // HEART_DARK_LO of itself and swells toward HEART_DARK_HI on each beat, slowly (heartSwell); the turn comes now if it hadn't, and
+  // until you've left the watch every room you walk into goes out and writes at you.
+  // Then: "Once we put the watch where it goes we should bring all the lights back up and replace out all the text in the wall
+  // with things that talk about moving on and putting things down and not having to carry what isn't yours and maybe some thank
+  // yous", and "We should totally not have the dark walls with green text as you are approaching the ending." Leave the watch
+  // (`lightsUp`) and the dark lifts, every lamp and room comes back on, the turn stops, and every face the game wrote words
+  // on — the dead ends, the opening walls, the wall's lies, the turn's green — is washed and written again in chalk with a
+  // line from FP_ENDING `after`.
+  const HEART_DARK_IN = 2500, HEART_DARK_LO = 0.3, HEART_DARK_HI = 0.6;
+  let heartDark = 0, darkMul = 1, lifted = false, turnFaces = new Set();
+  function lightsUp() {
+    heartDark = 0; darkMul = 1; lifted = true; killQ = []; lampsOut = new Set(); chairDim = null;
+    FP_SOUND.setMusic(track());
+    if (dark) dark.fill(0);
+    for (const g of lightGroups) if (!g.on) { g.on = true; g.at = performance.now(); drawSwitch(g); }
+    const E = endingText(), lines = (E && E.after) || [];
+    if (!lines.length) return;
+    const R = rng(SEED + 250007), faces = new Map();
+    for (const w of wordSpots) faces.set(faceKey(w.k, w.face), w);
+    for (const fk of turnFaces) faces.set(fk, null);
+    for (const q of story) if (q.lieFaces) for (const fk of q.lieFaces) faces.set(fk, null);
+    let i = Math.floor(R() * lines.length);
+    for (const fk of faces.keys()) {
+      const d = decalFor(Math.floor(fk / 4), fk % 4); d.fill(0);
+      writeWords(d, lines[i++ % lines.length], R, true, false);
     }
   }
   // glowing words on a wall face, big and scrawled, where it can find room
   function glowWrite(k, face, text, R) {
+    turnFaces.add(faceKey(k, face));
     const d = decalFor(k, face), col = GLOW[Math.floor(R() * GLOW.length)];
     // short words big, longer lines a size down and wrapped, the whole thing centred-ish on the wall
     const sc = text.length <= 6 ? 3 : 2, w = Math.min(64, text.length * 4 * sc);
@@ -1210,17 +1243,18 @@
     }
     for (const k of lampsOut) lampLvl[k] = 0;
     if (heart && heart.lamp >= 0) lampLvl[heart.lamp] = 0.35 + 0.65 * heartPulse(now);   // its one lamp beats, whatever the building is doing
+    darkMul = heartDark ? 1 - Math.min(1, (now - heartDark) / HEART_DARK_IN) * (1 - (HEART_DARK_LO + (HEART_DARK_HI - HEART_DARK_LO) * heartSwell(now))) : 1;
   }
   // every frame, after the turn: a room you've just walked into, a hall you've just stepped into
   function turnWatch(now) {
-    if (!turned || !roomOf || hidden || !character || !TURN_LINES[character.name]) return;
+    if (!turned || lifted || !roomOf || hidden || !character || !TURN_LINES[character.name]) return;
     const k = Math.floor(P.y) * W + Math.floor(P.x), ri = roomOf[k], secret = secretSet();
     if (ri !== lastRoomComp) {
       lastRoomComp = ri;
       // each room is decided once, the first time you walk in after the turn: `turnRooms` of them go dark.
       // Joe: "there should be 50% chance that rooms go dark. Right now it's 100% and that feels a little much."
       if (ri >= 0 && !roomsOut.has(ri) && !roomsSpared.has(ri) && !(secret && secret.has(k)) && !inHeart(k) && !(storyAt && storyAt[k] >= 0) && now - turnAt > 1500) {
-        if (Math.random() < S.turnRooms) roomOut(ri, now); else roomsSpared.add(ri);
+        if (heartDark || Math.random() < S.turnRooms) roomOut(ri, now); else roomsSpared.add(ri);   // while the heart's dark, every one
       }
     }
     if (ri < 0 && now > hallNext && vel > 0.05 && Math.random() < 0.02) {   // checked now and then while walking a hall
@@ -2086,6 +2120,10 @@
     if ((m & 4 && fy >= lo) || (m & 8 && fy <= hi)) d = Math.min(d, Math.abs(fx - 0.5 - w));
     return d < VEIN_W ? 1 - d / VEIN_W * 0.6 : 0;
   }
+  const heartSwell = (now) => {   // the same lub-dub, slow: the building's lights come up and go down with it, not flash
+    const t = (now / 60000 * HEART_BPM) % 1;
+    return Math.max(Math.exp(-Math.pow((t - 0.1) / 0.16, 2)), 0.75 * Math.exp(-Math.pow((t - 0.38) / 0.16, 2)), Math.exp(-Math.pow((t - 1.1) / 0.16, 2)));
+  };
   function heartFrame(now) {
     if (!heart || !heart.dist || won) return;
     const t = (now / 60000 * HEART_BPM) % 1, b = Math.floor(now / 60000 * HEART_BPM) * 2 + (t >= 0.26 ? 1 : 0);
@@ -3742,6 +3780,7 @@
     if (where.kind === 'slot') objs.splice(objs.indexOf(where), 1);
     objs.push({ x: where.x, y: where.y, z: where.kind === 'slot' ? where.z : 0.19, kind: 'deco', tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // back where he kept it
     giveJournal(endingText().leave);
+    lightsUp();
     openExit();
   }
   function openExit() {
@@ -3860,7 +3899,7 @@
     }
     buildSlots(); buildLight(); heartIndex();
     if (quiet) return;
-    heart.vein = true;
+    heart.vein = true; heartDark = performance.now(); if (!turned) turnNow();
     FP_SOUND.wallGives();
     // Joe: "If the door to the heart only opens after you X out the walls we need to give you a journal popup that says something
     // like 'something is opening up inside of me. I don't want anyone to find it though.'"
@@ -4076,7 +4115,7 @@
   function track() {
     if (S.music !== 'auto' && MUSIC[S.music]) return S.music;
     if (storyMusic && MUSIC[storyMusic]) return storyMusic;   // a story room has its own
-    if (turned && MUSIC['The Turn']) return 'The Turn';
+    if (turned && !lifted && MUSIC['The Turn']) return 'The Turn';   // and once the lights come back up, the chapter's own again
     return poolMode ? 'pool' : character && character.name;
   }
   {
@@ -4140,5 +4179,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get lift() { return lift; }, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get lift() { return lift; }, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get darkMul() { return darkMul; }, get lifted() { return lifted; }, get turnFaces() { return turnFaces; }, get wordFaces() { return wordSpots; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

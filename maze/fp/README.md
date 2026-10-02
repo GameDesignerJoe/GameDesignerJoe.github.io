@@ -94,6 +94,17 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   walls, in paint that shows only in the dark, `TURN_LINES` ("you shouldnt be here!", "leave", "he left. do the
   same."); and now and then (`turnHalls`) a hall's lamps go out one after another from its far end toward you, a word
   glowing on the wall at the end. Every lamp is live now (`flickLamps`), so any can go out. The kid's room is spared.
+- **The heart's dark** (`heartDark`). Joe: "When the heartbeat shows up we need to drop the lights down low and get them to
+  slowly pulse with the heart beat … this is when we force the 'turn' as well. So you are following the red pulse while the
+  walls are screaming at you to leave." Open the heart and the turn comes now if it hadn't; every light outside the heart
+  comes down over `HEART_DARK_IN` to `HEART_DARK_LO` of itself and swells toward `HEART_DARK_HI` with each beat, slowly
+  (`heartSwell`, the heart's lub-dub widened), and until the watch is left every room you walk into goes out at you.
+- **The lights come back up** (`lightsUp`, when the watch is left). Joe: "bring all the lights back up and replace out all the
+  text in the wall with things that talk about moving on and putting things down and not having to carry what isn't yours and
+  maybe some thank yous", and "We should totally not have the dark walls with green text as you are approaching the ending."
+  The dark lifts; every lamp out, every dark hall and every switched room comes back on (the chair's room too); the turn stops
+  and its music with it; and every face the game wrote words on — the dead ends, the opening walls, the wall's lies, the turn's
+  green (`turnFaces`) — is washed and written again in chalk with a line of `FP_ENDING` `after`.
 - **Story rooms** (`storyRooms`; the Child, floor 1; words in `STORY_ROOMS` in data/text.js). Two ages of not looking:
   **the waiting room** — bare walls now (Joe: "the room with the chair doesn't need the words on the walls. It needs to be its
   own thing that just sits there in the center"); ceiling dead and the room held down to `CHAIR_DIM`, and in the middle of it
