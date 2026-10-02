@@ -154,6 +154,11 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   One warm pink lamp, beating (`HEART_BPM`); its own music (`The Heart`: a tune he knew, slowed); and, once it's open, a heartbeat you
   can hear through the walls from `HEART_HEAR_OPEN` steps off (doubled: Joe wanted it heard from further). Until the lies are crossed out its way in is wall. The turn leaves it alone, nothing else is
   placed in it, and the being can't follow you in. **To the heart** on the panel stands you outside its way in.
+  **The vein** (Joe: "once the heart room opens, we should draw a line from the player to the entrance to the heart room …
+  faint vein that pulses at the same rate of the heart"): once you've opened it (not when a maze starts with it open) and
+  until you've been in, a thin wavering line of dark red along the floor, the walking way from the tile you're on down
+  `heart.dist` to the gap in its wall (`heart.ring`) — not on through its squeeze maze, which is yours to find. Faint between
+  beats, it comes up on each lub and dub (`heartPulse`), over the floor however dark it is. Worked out again each new tile.
 - **Stairs** (`floors`, 1 by default for now — one floor, every room on it; set it higher on the panel to have them). Floor 1 is the chapter's maze; each floor above is a maze of its own
   from its own seed off the first, so it's always the same floor. Going up is a door marked up at the end of a far
   dead end (the painted flight read wrong, so it's gone). Walk into it or tap it: black, feet on stairs, "floor 2",

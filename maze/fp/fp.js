@@ -2055,6 +2055,36 @@
     const t = (now / 60000 * HEART_BPM) % 1;
     return Math.max(Math.exp(-Math.pow((t - 0.04) / 0.05, 2)), 0.7 * Math.exp(-Math.pow((t - 0.3) / 0.05, 2)));
   };
+  // ── the vein ──────────────────────────────────────────────
+  // Joe: "once the heart room opens, we should draw a line from the player to the entrance to the heart room … faint vein
+  // that pulses at the same rate of the heart." Once you've opened it (not when a maze starts with it open), until you've
+  // been in: along the floor, the walking way from the tile you're on down heart.dist to the gap in its wall (heart.ring), a
+  // thin wavering line of dark red, faint between beats and coming up on each lub and dub (heartPulse). `vein` is per tile,
+  // the sides of it the line leaves by (1 east, 2 west, 4 south, 8 north); worked out again each time you step onto a new tile.
+  const VEIN_W = 0.024, VEIN_WOBBLE = 0.035, VEIN_RGB = [178, 30, 38];
+  let vein = null, veinFrom = -1, veinLvl = 0;
+  function veinFrame(now) {
+    const pk = Math.floor(P.y) * W + Math.floor(P.x);
+    if (!heart || !heart.vein || !heart.dist || heart.sealed || floor !== 1 || heartSeen() || inHeart(pk)) { vein = null; veinFrom = -1; return; }
+    veinLvl = 0.22 + 0.6 * heartPulse(now);
+    if (pk === veinFrom && vein) return;
+    veinFrom = pk; vein = new Uint8Array(W * H);
+    const bit = (dx, dy) => dx === 1 ? 1 : dx === -1 ? 2 : dy === 1 ? 4 : 8;
+    for (let c = pk, n = 0; c !== heart.ring && n < W * H; n++) {
+      const x = c % W, y = (c / W) | 0; let nb = -1, bd = heart.dist[c] < 0 ? 1e9 : heart.dist[c], dir = null;
+      for (const [dx, dy] of HD) { const k = c + dy * W + dx; if (!solid(x + dx, y + dy) && heart.dist[k] >= 0 && heart.dist[k] < bd) { bd = heart.dist[k]; nb = k; dir = [dx, dy]; } }
+      if (nb < 0) break;
+      vein[c] |= bit(dir[0], dir[1]); vein[nb] |= bit(-dir[0], -dir[1]); c = nb;
+    }
+  }
+  // how much of the vein is at (fx, fy) in a tile with sides `m`: 0..1
+  function veinAt(m, fx, fy, wx, wy) {
+    const w = VEIN_WOBBLE * Math.sin(wx * 9.1 + wy * 7.3) * Math.sin(wx * 3.7 - wy * 5.9), lo = 0.5 - VEIN_W, hi = 0.5 + VEIN_W;
+    let d = 1;
+    if ((m & 1 && fx >= lo) || (m & 2 && fx <= hi)) d = Math.min(d, Math.abs(fy - 0.5 - w));
+    if ((m & 4 && fy >= lo) || (m & 8 && fy <= hi)) d = Math.min(d, Math.abs(fx - 0.5 - w));
+    return d < VEIN_W ? 1 - d / VEIN_W * 0.6 : 0;
+  }
   function heartFrame(now) {
     if (!heart || !heart.dist || won) return;
     const t = (now / 60000 * HEART_BPM) % 1, b = Math.floor(now / 60000 * HEART_BPM) * 2 + (t >= 0.26 ? 1 : 0);
@@ -2957,7 +2987,7 @@
     doorsFrame(dt);
     fatherFrame(now, dt);
     dartFrame(now, dt);
-    beingFrame(now, dt); guardFrame();
+    beingFrame(now, dt); guardFrame(); veinFrame(now);
     heartFrame(now);
     memoryFrame(now);
     seatFrame(now);
@@ -3162,6 +3192,8 @@
         if (inB) { const i = cy * cw + cx, a = cornerL[i] + (cornerL[i + 1] - cornerL[i]) * fx, b2 = cornerL[i + cw] + (cornerL[i + cw + 1] - cornerL[i + cw]) * fx; L = a + (b2 - a) * fy; if (low[cy * W + cx]) L *= S.squeezeDim; if (nSpot) L += spotAt(wx, wy); }
         const fc = t.px[((fy * 32) | 0) * 32 + ((fx * 32) | 0)];
         buf[o] = shade(showPath && inB && pathMask[cy * W + cx] ? PATH_TINT(fc) : fc, f, inB ? aoAt(nbm[cy * W + cx], fx, fy) : 1, L);
+        if (vein && inB && vein[cy * W + cx]) { const va = veinAt(vein[cy * W + cx], fx, fy, wx, wy) * veinLvl * Math.sqrt(f); if (va > 0) { const cc = buf[o];
+          buf[o] = 0xff000000 | ((((cc >>> 16) & 0xff) * (1 - va) + VEIN_RGB[2] * va) << 16) | ((((cc >>> 8) & 0xff) * (1 - va) + VEIN_RGB[1] * va) << 8) | (((cc & 0xff) * (1 - va) + VEIN_RGB[0] * va) | 0); } }   // the vein, over the floor however dark it is
       }
     }
 
@@ -3806,6 +3838,7 @@
     }
     buildSlots(); buildLight(); heartIndex();
     if (quiet) return;
+    heart.vein = true;
     FP_SOUND.wallGives();
     // Joe: "If the door to the heart only opens after you X out the walls we need to give you a journal popup that says something
     // like 'something is opening up inside of me. I don't want anyone to find it though.'"
@@ -4085,5 +4118,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

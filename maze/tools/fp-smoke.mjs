@@ -440,6 +440,36 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── the vein to the heart ─────────────────────────────────────────
+// Joe: "once the heart room opens, we should draw a line from the player to the entrance to the heart room … faint vein that
+// pulses at the same rate of the heart."
+{
+  const p = await open(4242); await awake(p); await closePage(p);
+  const before = await p.evaluate(() => !!FP.vein);
+  await p.evaluate(() => document.getElementById('undoLies').click()); await p.waitForTimeout(500);
+  for (let i = 0; i < 4; i++) await closePage(p);
+  await p.waitForTimeout(200);
+  const path = await p.evaluate(() => { const v = FP.vein; if (!v) return null; const W = FP.W, pk = Math.floor(FP.P.y) * W + Math.floor(FP.P.x);
+    // follow it from your tile: every step to a tile that has the way back, to the heart's gap
+    let c = pk, n = 0, prev = -1; const dirs = [[1, 0, 1, 2], [-1, 0, 2, 1], [0, 1, 4, 8], [0, -1, 8, 4]];
+    while (c !== FP.heart.ring && n++ < 2000) { const nx = dirs.find(([dx, dy, out, back]) => (v[c] & out) && c + dy * W + dx !== prev && (v[c + dy * W + dx] & back)); if (!nx) break; prev = c; c += nx[1] * W + nx[0]; }
+    // and facing along it, for the look
+    const m = v[pk], d = m & 1 ? [1, 0] : m & 2 ? [-1, 0] : m & 4 ? [0, 1] : [0, -1]; FP.P.a = Math.atan2(d[1], d[0]);
+    return { reached: c === FP.heart.ring, steps: n, dist: FP.heart.dist[pk] }; });
+  const lv = []; for (let i = 0; i < 24; i++) { lv.push(await p.evaluate(() => FP.veinLvl)); await p.waitForTimeout(50); }
+  const red = () => p.evaluate(() => { const cv = [...document.querySelectorAll('canvas')].sort((a, b) => b.width - a.width)[0], g = cv.getContext('2d');
+    const d = g.getImageData((cv.width * 0.42) | 0, (cv.height * 0.62) | 0, (cv.width * 0.16) | 0, (cv.height * 0.3) | 0).data; let n = 0; for (let i = 0; i < d.length; i += 4) n += d[i] - d[i + 1]; return Math.round(n / (d.length / 4) * 10) / 10; });   // how much redder than green, on average
+  const withV = await red();
+  await p.evaluate(() => { FP.heart.vein = false; }); await p.waitForTimeout(200); const without = await red();
+  await p.evaluate(() => { FP.heart.vein = true; for (const q of FP.story) if (q.kind === 'heart') q.found = true; }); await p.waitForTimeout(200);
+  const afterIn = await p.evaluate(() => !!FP.vein);
+  const lo = Math.min(...lv), hi = Math.max(...lv);
+  check('once the heart opens, a faint vein runs along the floor from you to its way in, pulsing with the beat; gone once you\'ve been in',
+    !before && path && path.reached && path.steps > 3 && lo < 0.3 && hi > 0.6 && withV > without + 3 && !afterIn,
+    `before the lies: ${before}; ${path ? `followed ${path.steps} tiles from you, reached the gap ${path.reached}` : 'no vein'}; its level ${lo.toFixed(2)}..${hi.toFixed(2)}; redness of the floor ahead ${without} → ${withV}; after the heart ${afterIn}`);
+  await p.close();
+}
+
 // ── the turn: three pages, and nothing else counts ───────────────
 {
   const p = await open(4242); await awake(p);
