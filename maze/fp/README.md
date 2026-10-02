@@ -89,20 +89,23 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   same."); and now and then (`turnHalls`) a hall's lamps go out one after another from its far end toward you, a word
   glowing on the wall at the end. Every lamp is live now (`flickLamps`), so any can go out. The kid's room is spared.
 - **Story rooms** (`storyRooms`; the Child, floor 1; words in `STORY_ROOMS` in data/text.js). Two ages of not looking:
-  **the waiting room** — every wall written over low in pencil and crayon, lines crossed out and written again, tallies,
-  a clock drawn stopped at five past, WAIT HERE; ceiling dead, one floor lamp by a single chair turned to face the way in,
-  a packed bag, a note on the seat; the Child's tune winding down (`The Waiting Room` in data/music.js). **The wall** —
+  **the waiting room** — bare walls now (Joe: "the room with the chair doesn't need the words on the walls. It needs to be its
+  own thing that just sits there in the center"); ceiling dead, one floor lamp by a single chair turned to face the way in,
+  a packed bag, the little table for the watch; the Child's tune winding down (`The Waiting Room` in data/music.js). **The wall** —
   painted over white and written floor to ceiling in one tight hand, "im fine | it doesnt matter", staggered like
   brickwork, with one chipped patch where the wallpaper and the old pencil show ("come back"); every panel lit, steady;
-  almost no music (`The Wall`); in the middle, a shoebox on a couple of boxes with the watch on it — the one thing here you
-  take: tap it and you carry it (`carried`, shown on the HUD, up and down the stairs; perhaps an offering, once the statues
-  come back). Notes are read where they lie (a tap, or the first time you walk to them), never taken. **To a story
-  room** on the panel. Sprites can stand off the floor now (`z`), for the note on the seat.
-- **Crossing out the lies.** The waiting room and the wall are what he told himself. Chalk a face of either and every
-  line on it is struck through, and what's true is written clear over them in red (`truths` in `STORY_ROOMS`). `liesToUndo`
-  faces and the room is undone — its music stops. Both undone and somewhere a wall gives: the heart's way in, walled up
-  until then, opens, and its heartbeat carries twice as far so you can follow it. Kept for the run, stairs and all. The
-  turn leaves both rooms alone now (its words would cover theirs). **Cross out the lies** on the panel does it for you.
+  almost no music (`The Wall`); nothing in it now but its writing (the watch is the heart's). **To a story room** on the panel.
+- **Crossing out the lies.** The wall is what he told everyone, and the only room of lies now (Joe: "We should not make
+  anything else required to complete the maze beyond crossing out the lies in the one room that has all the writing on the
+  walls, collecting the watch from the heart room, and put it in on this table next to the La-Z-Boy chair. Everything else
+  is incidental."). Chalk a face and every line on it is struck through, and what's true is written clear over them in red
+  (`truths` in `STORY_ROOMS`). `liesToUndo` faces and it's undone — its music stops, somewhere a wall gives, and a journal:
+  "something is opening up inside of me. i dont want anyone to find it though." (`heart.opens`). The heart's way in, walled
+  up until then, opens, and its heartbeat carries so you can follow it. A maze with no wall has its heart open from the start.
+  **Cross out the lies** on the panel does it for you.
+- **The three that move you on are journals** (Joe: "any instance where you have to do a thing to get the game to progress,
+  we should give you a journal for once you do it"): the heart opening, the watch taken (`heart.watch`, his chair's old note
+  folded into it), the watch left (`leave`). Counted with the rest (`PROGRESS_PAGES`).
 - **Memory rooms** (`FP_MEMORIES` in `data/text.js`, `memoryRooms`). Joe: "little activities you can do as the kid that
   trigger a core memory … play don't show." An ordinary furnished room with its middle kept clear, a thing to do in it,
   and a journal on the floor beside it (a page like the others: picked up, and counted in the HUD's total; nothing waits on the memories yet). Play
@@ -117,19 +120,17 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   memory. The middle things are given a wider mark to tap, and nothing only looked at (`deco`) is ever what Space or a tap
   reaches for. **The picture book** — in the kid's room, by the bed: tap it and you sit at the head of the bed (`BED_EYE`),
   the view tilted down to it lying open on the blanket; each tap or Space turns a page, its words under the view (`book.pages`).
-  Past the last you get up holding it (a book in the HUD), and it goes back in the gap on the shelf in the room (`placeShelf`);
-  the way out won't open until it has, as well as the watch (`exitOpen`: leave the watch first and the kid says his book's
-  still out). Get up before the end and it's put back where it lay. **Put the book away** on the Debug panel does it for you.
+  Past the last you get up holding it (a book in the HUD), and it goes back in the gap on the shelf in the room (`placeShelf`).
+  Incidental: it was needed for the way out for three versions, and isn't now. Get up before the end and it's put back where it lay. **Put the book away** on the Debug panel does it for you.
   **Hiding** — a room with a closet of its own on the far wall, and the journal just inside the way in:
   walk in and it's read ("when dad drinks he gets loud"), and then he's coming — HE_COMES of heavy uneven steps and the
   bottle, nearer and nearer, and he's in the doorway (the father's own figure). In a closet by then: he walks to it and
   stands there, and goes; the memory (`after`). Not: he walks straight past you, and the other one (`seen`). Each maze deals
   the four in its own order and gets as many as it has rooms for (about three in four mazes have any given one).
 - **The way out has to be earned** (a chapter with placed pages; lines in `FP_ENDING`). The exit is shut and chalked
-  "not yet" — walk up to it and the handle rattles. It opens once you've been to the heart and then left the watch on the
-  chair he saved in the waiting room — on the little table beside it, where a ring in the dust shows where the watch used to
-  sit (tap it: "something goes here."; with the watch before you've been to the heart: "he always had this right next to him …", then `slotNotYet`, that a truth is still to learn; with it after: he says goodbye to it, and somewhere a door
-  unlatches — once the kid's picture book is back on its shelf too (below). The being is standing in front of the exit then, waiting; come close and it comes down to the kid's size,
+  "not yet" — walk up to it and the handle rattles. It opens once you've taken the watch from the middle of the heart and
+  left it by the chair he saved in the waiting room — on the little table beside it, where a ring in the dust shows where the
+  watch used to sit (tap it without: "something goes here."; with it: he says goodbye to it, and somewhere a door unlatches). The being is standing in front of the exit then, waiting; come close and it comes down to the kid's size,
   and fades, and goes. Out, under the Exit: "it's time to come home now." After the watch is left the being doesn't hunt
   any more. The debug arrow points at the next thing to do. **Leave the watch** on the panel skips to it.
 - **The heart** (`heart`; the Child, floor 1; words in `STORY_ROOMS` → `heart`). The third story room, and the hidden one:
@@ -138,7 +139,7 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   reach it through a little maze made only of squeezes — nine cells grown to branch, with one more dead end than a plain crawl would have (`HEART_DEAD`), tight and dark — and come in at
   its point. Deep red walls written over in crayon ("i miss you", "was it me", "come home", "i wear the watch when nobody
   can see"), on the far wall "i miss you dad" over the two of them holding hands, a letter he never sent lying on the floor
-  (drawn as a journal; read where it lies). Deep red plush underfoot, padded and buttoned overhead (`TEX.heart`).
+  (one of the pages, off to the side), and in the middle, on a step of the same red plush under the lamp, the watch. Deep red plush underfoot, padded and buttoned overhead (`TEX.heart`).
   One warm pink lamp, beating (`HEART_BPM`); its own music (`The Heart`: a tune he knew, slowed); and, once it's open, a heartbeat you
   can hear through the walls from `HEART_HEAR_OPEN` steps off (doubled: Joe wanted it heard from further). Until the lies are crossed out its way in is wall. The turn leaves it alone, nothing else is
   placed in it, and the being can't follow you in. **To the heart** on the panel stands you outside its way in.

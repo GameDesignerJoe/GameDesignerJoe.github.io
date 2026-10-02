@@ -543,6 +543,8 @@
     placePages();
     lockExit();
     buildLight();
+    // no wall to cross out (a maze without the room for it): the heart is open from the start, or nothing could open it
+    if (heart && heart.sealed && floor === 1 && !story.some((q) => q.lieFaces)) openHeart(true);
     hud();
   }
 
@@ -1323,21 +1325,25 @@
       const facingK = (m.ry - m.dy * n) * W + m.rx - m.dx * n, facingF = faceTo(-m.dx, -m.dy);
       const beside = faces.filter((f) => f.face === faceTo(m.dx, m.dy) && Math.abs(f.vx - m.rx) + Math.abs(f.vy - m.ry) === 1);   // the wall the way in is in, either side of it
       const W8 = S8[kind];
+      // Joe: "the room with the chair doesn't need the words on the walls. It needs to be its own thing that just sits there
+      // in the center." Its walls are left bare (and kept from closets and switches); only the wall is written on
       faces.forEach((f, i) => {
-        const d = decalFor(f.k, f.face); d.fill(0);
-        if (kind === 'waiting') fillWaiting(d, R, W8, f.k === facingK && f.face === facingF, !beside.length ? false : f === beside[0]);
-        else fillWall(d, R, W8, f.k === facingK && f.face === facingF);
+        if (kind === 'wall') { const d = decalFor(f.k, f.face); d.fill(0); fillWall(d, R, W8, f.k === facingK && f.face === facingF); }
         reserved.add(faceKey(f.k, f.face));
       });
+      void beside; void fillWaiting;
       // the light: dead ceiling for the waiting room, every panel on for the wall
       if (T.ceils) {
         const glowVar = T.ceils.findIndex((c) => c.glow), plain = T.ceils.findIndex((c) => !c.glow);
         for (const k of tiles) ceilVar[k] = kind === 'wall' ? glowVar : plain;
         if (kind === 'wall') flickers = flickers.filter((k) => !set.has(k));
       }
-      const lieFaces = new Set(faces.map((f) => faceKey(f.k, f.face))), struck = new Set([...liesStruck].filter((fk) => lieFaces.has(fk)));
-      const st = { kind, tiles, set, m, music: kind === 'waiting' ? 'The Waiting Room' : 'The Wall', text: W8, lieFaces, struck, need: Math.min(lieFaces.size, Math.max(1, Math.round(S.liesToUndo))) };
-      st.undone = st.struck.size >= st.need; if (st.undone) st.music = null;
+      // the one room of lies is the wall now. Joe: "We should not make anything else required to complete the maze beyond crossing
+      // out the lies in the one room that has all the writing on the walls, collecting the watch from the heart room, and put it
+      // in on this table next to the La-Z-Boy chair. Everything else is incidental."
+      const lieFaces = kind === 'wall' ? new Set(faces.map((f) => faceKey(f.k, f.face))) : null, struck = new Set([...liesStruck].filter((fk) => lieFaces && lieFaces.has(fk)));
+      const st = { kind, tiles, set, m, music: kind === 'waiting' ? 'The Waiting Room' : 'The Wall', text: W8, lieFaces, struck, need: lieFaces ? Math.min(lieFaces.size, Math.max(1, Math.round(S.liesToUndo))) : 0 };
+      st.undone = !!lieFaces && st.struck.size >= st.need; if (st.undone) st.music = null;
       story.push(st);
     }
   }
@@ -1346,8 +1352,12 @@
     for (const st of story) {
       if (st.kind === 'memory') continue;   // dressed by memoryProps (it'd fall through to the wall's boxes and watch here)
       const m = st.m, ix = m.rx - m.mx, iy = m.ry - m.my;   // into the room
-      if (st.kind === 'heart') {   // the letter he never sent, on the floor in the middle (a page now, if the chapter has placed ones)
-        if (!placedPages()) objs.push({ x: heart.mid % W + 0.5, y: ((heart.mid / W) | 0) + 0.5, kind: 'note', text: st.text.letter, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });   // Joe: "It should look like a regular journal"
+      if (st.kind === 'heart') {
+        // the watch, centre stage, on a little plush step under the lamp; the letter (a page, placed with the others) off to one side
+        const mx = heart.mid % W + 0.5, my = ((heart.mid / W) | 0) + 0.5, plush = TEX.heart.ceil;   // the heart's own buttoned red
+        fboxes.push({ x0: mx - 0.12, x1: mx + 0.12, y0: my - 0.12, y1: my + 0.12, z0: 0, z1: 0.14, m: plush, top: TEX.heart.floors[0], topFit: false, front: null, fcode: 'n', glow: false });
+        objs.push({ x: mx, y: my, z: 0.14, kind: 'watch', text: st.text.watch || st.text.letter, tex: TEX.sprites.watch, h: 0.1, glow: 0.7 });
+        if (!placedPages()) objs.push({ x: (heart.far % W) + 0.5, y: ((heart.far / W) | 0) + 0.5, kind: 'note', text: st.text.letter, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });   // Joe: "It should look like a regular journal"
         continue;
       }
       if (st.kind === 'waiting') {
@@ -1362,8 +1372,7 @@
         const lx = cx - ux * 0.36, ly = cy - uy * 0.36, lb = buildFurn(FURN.lamp, lx - fx * 0.15, ly - fy * 0.15, ux, uy, fx, fy, 0);
         for (const b of lb) fboxes.push(b);
         furn.push({ x: lx, y: ly, fx, fy, name: 'lamp', def: FURN.lamp, boxes: lb });
-        objs.push({ x: cx, y: cy, z: 0.19, kind: 'note', seat: true, text: st.text.note, tex: TEX.sprites.note, h: 0.05, glow: 0.2 });
-        st.chair = { x: cx, y: cy, fx, fy };
+        st.chair = { x: cx, y: cy, fx, fy };   // its note is folded into the watch's now
         // the little table on the other side of the chair from the lamp, and on it the ring in the dust where his watch
         // sat — the slot. Joe: "a 'slot' where the watch is supposed to go that you can interact with before you have
         // the watch." It's where the watch goes back
@@ -1372,22 +1381,8 @@
           for (const b of buildFurn(FURN.sideTable, tx, ty, ux, uy, fx, fy, 0)) fboxes.push(b);
           objs.push({ x: tx, y: ty, z: 0.24, kind: 'slot', tex: TEX.sprites.watchRing, h: 0.05, glow: 0.3 });
           st.slot = { x: tx, y: ty };
-        }
-      } else {
-        // the watch, on a shoebox on a couple of boxes in the middle of the room: up off the floor, in plain sight, easy
-        // to get to. Joe: "It's difficult for me to get to the watch … it is surrounded by a bunch of like cardboard
-        // boxes … I like the idea that it's resting on top of something like that, but it should be clear that it's a
-        // pick up and that it's easier to get to." It was a ring of stacked boxes round it; now there's nothing in the way
-        const tl = st.tiles.map((k) => [k % W, (k / W) | 0]), mx = tl.reduce((a, t) => a + t[0], 0) / tl.length, my = tl.reduce((a, t) => a + t[1], 0) / tl.length;
-        // the tile nearest the middle with nothing else on it (a page there would be buried in the boxes)
-        const held = new Set(objs.map((o) => Math.floor(o.y) * W + Math.floor(o.x))), free = tl.filter((t) => !held.has(t[1] * W + t[0]));
-        const c = (free.length ? free : tl).reduce((b, t) => Math.hypot(t[0] - mx, t[1] - my) < Math.hypot(b[0] - mx, b[1] - my) ? t : b, (free.length ? free : tl)[0]);
-        const cx = c[0] + 0.5, cy = c[1] + 0.5, card = TEX.furn.mats.card, top = TEX.furn.fronts.boxTop, R = rng(SEED + 210013);
-        const box = (x0, y0, x1, y1, z0, z1, t) => fboxes.push({ x0, x1, y0, y1, z0, z1, m: card, top: t || top, topFit: !t, front: null, fcode: 'n', glow: false });
-        box(cx - 0.17, cy - 0.15, cx + 0.17, cy + 0.15, 0, 0.19); box(cx - 0.13, cy - 0.12, cx + 0.12, cy + 0.11, 0.19, 0.31);
-        box(cx - 0.1, cy - 0.07, cx + 0.1, cy + 0.07, 0.31, 0.38, TEX.furn.mats.dark);
-        objs.push({ x: cx, y: cy, z: 0.38, kind: 'watch', text: st.text.note, tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // a pickup: you carry it (`carried`)
-      }
+        } else { objs.push({ x: cx, y: cy, z: 0.19, kind: 'slot', tex: TEX.sprites.watchRing, h: 0.05, glow: 0.3 }); st.slot = { x: cx, y: cy }; }   // no room for the table: on the chair
+      }   // the wall has nothing in it but its writing: the watch is the heart's now
     }
   }
   function storyFrame() {
@@ -1595,7 +1590,7 @@
   // where it was, to start again
   const BED_EYE = 0.36, BED_AT = 0.24, BOOK_AT = 0.56, BOOK_Z = 0.195;
   let kidBook = null;
-  const exitOpen = () => !!(watchLeft && (!kidBook || kidBook.shelved || kidBook.noShelf));
+  const exitOpen = () => !!watchLeft;   // the book is incidental now (Joe: "everything else is incidental"); it was required for v0.163.0–v0.165.0
   // a picture turned so it reads the right way up to someone looking (fx, fy), laid on a box's top (world-aligned)
   function laidFlat(C, cw, ch, fx, fy) {
     const along = fx !== 0, w = along ? ch : cw, h = along ? cw : ch, T = { w, h, px: new Uint32Array(w * h) }, rx = -fy, ry = fx;
@@ -1656,7 +1651,6 @@
     carried.delete('book'); b.shelved = true; hud();
     if (b.gap) { b.gap.kind = 'deco'; b.gap.tex = TEX.sprites.bookSpine; }
     FP_SOUND.chalkUp(); showNote(b.text.shelved);
-    if (exitOpen()) openExit();
   }
   function useMemory(st) {
     const now = performance.now();
@@ -2372,10 +2366,17 @@
     if (o.kind === 'chalk') { chalk += CONFIG.chalkPerPickup; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
-    else if (o.kind === 'watch') { carried.add('watch'); flash('hudWatchBox'); showNote(o.text); FP_SOUND.chalkUp(); }
+    else if (o.kind === 'watch') { carried.add('watch'); flash('hudWatchBox'); giveJournal(o.text); }
     else if (o.kind === 'page') { addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg, o.text); FP_SOUND.page();
       if (o.mem && o.mem.closet && !o.mem.done && !o.mem.coming) o.mem.coming = { t0: 0 }; }   // the hiding room's: and now he's coming
     hud();
+  }
+  // Joe: "any instance where you have to do a thing to get the game to progress, we should give you a journal for once you do
+  // it." The heart opening, the watch taken, the watch left: each a journal, counted with the rest (PROGRESS_PAGES of them)
+  const PROGRESS_PAGES = 3;
+  function giveJournal(text) {
+    if (!text) return;
+    addFind(); pagesFound++; flash('hudPagesBox'); showPage(-1, text); FP_SOUND.page(); hud();
   }
   function flash(id) { const el = $(id); el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
   // a page, or a note, stays up until you tap off it, and while it's up you're reading: you don't move,
@@ -2416,7 +2417,7 @@
     for (const st of story) {
       const mk = st.m.my * W + st.m.mx;
       if (st.kind === 'waiting' || st.kind === 'wall') at[st.kind] = farthest(st.tiles, mk);
-      if (st.kind === 'heart') at.heart = heart.mid;
+      if (st.kind === 'heart') at.heart = farthest(heart.room.filter((k) => k !== heart.mid), heart.tip);   // off to the side: the watch has the middle
     }
     const sec = secretSet();
     if (sec) { const [fx, fy] = typeof secretFather === 'string' && secretFather ? secretFather.split(',').map(Number) : [-1, -1]; at.kid = fy >= 0 && free(fy * W + fx) ? fy * W + fx : farthest([...sec], sk); }
@@ -2431,7 +2432,7 @@
     }
     // the memory rooms' journals are pages like the rest: picked up, counted, and in the total. Joe: "The journal for the
     // phone doesn't get collected … I think you need to update your count for the new journals you made"
-    pagesTotal = Object.keys(PG).length + objs.filter((o) => o.memPage).length;
+    pagesTotal = Object.keys(PG).length + objs.filter((o) => o.memPage).length + (heart ? (story.some((q) => q.lieFaces) ? 1 : 0) + 1 + (story.some((q) => q.chair) ? 1 : 0) : 0);   // the heart opening, the watch, the watch left (PROGRESS_PAGES)
   }
   // the chapter's pages are spread across its floors, not a set on each. Joe: "Spread journals across all floors."
   // Every floor's generator lays out the whole set; each keeps only its share, dealt round like cards — page 1 on
@@ -3617,8 +3618,8 @@
     carried.delete('watch'); watchLeft = true; hud();
     if (where.kind === 'slot') objs.splice(objs.indexOf(where), 1);
     objs.push({ x: where.x, y: where.y, z: where.kind === 'slot' ? 0.24 : 0.19, kind: 'deco', tex: TEX.sprites.watch, h: 0.1, glow: 0.6 });   // back where he kept it
-    showNote(endingText().leave);
-    if (exitOpen()) openExit(); else if (kidBook && kidBook.text.notYet) showNote(kidBook.text.notYet);   // his book, still out
+    giveJournal(endingText().leave);
+    openExit();
   }
   function openExit() {
     const fk = exitFaceKey(); if (fk >= 0) decals.delete(fk);
@@ -3644,7 +3645,6 @@
   function nextGoal() {
     if (floor > 1) return stairs.down || exit;
     if (!exitLocked || exitOpen()) return exit;
-    if (watchLeft && kidBook && !kidBook.shelved) { const t = carried.has('book') ? kidBook.gap : objs.includes(kidBook.o) ? kidBook.o : null; if (t) return { x: Math.floor(t.x), y: Math.floor(t.y) }; }
     const lie = story.find((q) => q.lieFaces && !q.undone); if (lie) return { x: lie.m.rx, y: lie.m.ry };
     if (heart && !heartSeen()) return { x: heart.mid % W, y: (heart.mid / W) | 0 };
     if (!carried.has('watch')) { const w = objs.find((o) => o.kind === 'watch'); if (w) return { x: Math.floor(w.x), y: Math.floor(w.y) }; }
@@ -3694,7 +3694,7 @@
       y = y1;
     }
   }
-  function openHeart() {
+  function openHeart(quiet) {
     if (heartOpened) return;
     heartOpened = true;
     if (!heart || !heart.sealed || floor !== 1) return;
@@ -3706,7 +3706,12 @@
         | (solid(x - 1, y - 1) ? 16 : 0) | (solid(x + 1, y - 1) ? 32 : 0) | (solid(x - 1, y + 1) ? 64 : 0) | (solid(x + 1, y + 1) ? 128 : 0);
     }
     buildSlots(); buildLight(); heartIndex();
+    if (quiet) return;
     FP_SOUND.wallGives();
+    // Joe: "If the door to the heart only opens after you X out the walls we need to give you a journal popup that says something
+    // like 'something is opening up inside of me. I don't want anyone to find it though.'"
+    const H8 = character && typeof STORY_ROOMS !== 'undefined' && STORY_ROOMS[character.name] && STORY_ROOMS[character.name].heart;
+    if (H8 && H8.opens) giveJournal(H8.opens);
   }
   // the school look's boards, written on (CHALKBOARD in data/text.js), and its locked doors: faces nothing else goes
   // on. Each board gets lines written out over and over, or a lesson at the top. Its own stream

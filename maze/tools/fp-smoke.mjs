@@ -290,30 +290,37 @@ console.log('The Maze — first person checks');
   await p.evaluate(() => document.getElementById('undoLies').click()); await p.waitForTimeout(200);
   const opened = await p.evaluate(() => { const W = FP.W, h = FP.heart, seen = new Set([h.out]), q = [h.out];
     while (q.length) { const c = q.shift(); if (c === h.mid) break; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = c + dy * W + dx; if (!seen.has(n) && tiles[(n / W) | 0][n % W]) { seen.add(n); q.push(n); } } }
-    return [FP.heartOpened, seen.has(h.mid), FP.story.filter((s) => s.lieFaces).every((s) => s.undone)]; });
-  check('undoing both rooms of lies opens the heart, and you can walk into it', opened[0] && opened[1] && opened[2],
-    `both undone ${opened[2]}; heart opened ${opened[0]}; reachable from its way in ${opened[1]}`);
+    const wt = FP.story.find((s) => s.kind === 'waiting'); let bare = 0, faces = 0;
+    for (const k of wt.tiles) { const x = k % W, y = (k / W) | 0; for (const [dx, dy, f] of [[1, 0, 0], [-1, 0, 1], [0, 1, 2], [0, -1, 3]]) if (!tiles[y + dy][x + dx]) { faces++; if (!FP.decals.has(((y + dy) * W + x + dx) * 4 + f)) bare++; } }
+    return [FP.heartOpened, seen.has(h.mid), FP.story.filter((s) => s.lieFaces).map((s) => s.kind).join(','), bare, faces,
+      document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '']; });
+  await closePage(p);
+  // Joe: only the wall's lies ("the one room that has all the writing on the walls"); the chair's room "doesn't need the words
+  // on the walls"; and when the heart opens, "a journal popup that says something like 'something is opening up inside of me'"
+  check('crossing out the wall\'s lies (the only room of them; the chair\'s room is bare) opens the heart, with a journal, and you can walk into it',
+    opened[0] && opened[1] && opened[2] === 'wall' && opened[3] === opened[4] && /opening up inside of me/.test(opened[5]),
+    `rooms of lies: ${opened[2]}; heart opened ${opened[0]}, reachable ${opened[1]}; the chair's room ${opened[3]} of ${opened[4]} walls bare; "${opened[5].slice(0, 36)}…"`);
   // at the shut exit
   await p.evaluate(() => { const [dx, dy] = FP.exitDir; FP.P.x = exit.x + 0.5 + dx * 0.25; FP.P.y = exit.y + 0.5 + dy * 0.25; FP.P.a = Math.atan2(dy, dx); });
   await p.waitForTimeout(500);
   const shutWon = await p.evaluate(() => FP.won);
-  // the heart walked into, the watch taken, the seat tapped
-  await p.evaluate(() => { const h = FP.heart; FP.P.x = h.mid % FP.W + 0.5; FP.P.y = ((h.mid / FP.W) | 0) + 0.5; }); await p.waitForTimeout(400); await closePage(p);
-  await p.evaluate(() => { const o = FP.objs.find((o) => o.kind === 'watch'); for (const r of [1.6, 1.3, 1.0]) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = o.x + dx * r, y = o.y + dy * r; if (tiles[Math.floor(y)][Math.floor(x)] && !FP.objs.some((q) => q !== o && Math.hypot(q.x - x, q.y - y) < 1.5)) { FP.P.x = x; FP.P.y = y; FP.P.a = Math.atan2(-dy, -dx); return; } } });
-  await p.waitForTimeout(300); await closePage(p); await p.mouse.click(215, 470); await p.waitForTimeout(300); await closePage(p);
+  // the watch is the heart's now, centre stage: walked to, it's taken, and that's a journal; then onto the table by his chair.
+  // Joe: "We should not make anything else required to complete the maze beyond crossing out the lies in the one room that has
+  // all the writing on the walls, collecting the watch from the heart room, and put it in on this table next to the La-Z-Boy chair"
+  const before = await p.evaluate(() => { const o = FP.objs.find((q) => q.kind === 'watch'); return { inHeart: !!o && Math.floor(o.y) * FP.W + Math.floor(o.x) === FP.heart.mid, pages: document.getElementById('hudPages').textContent }; });
+  await p.evaluate(() => { const h = FP.heart; FP.P.x = h.mid % FP.W + 0.5; FP.P.y = ((h.mid / FP.W) | 0) + 0.5; }); await p.waitForTimeout(500);
+  const watchNote = await p.evaluate(() => document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '');
+  await closePage(p); await closePage(p);
   const carrying = await p.evaluate(() => FP.carried.has('watch'));
   // the slot by his chair: stand in front of it, looking at it
   await p.evaluate(() => { const st = FP.story.find((s) => s.chair), c = st.chair, t = st.slot || c; FP.P.x = t.x + c.fx * 1.2; FP.P.y = t.y + c.fy * 1.2; FP.P.a = Math.atan2(t.y - FP.P.y, t.x - FP.P.x); });
   await p.waitForTimeout(300); await closePage(p);
   for (const y of [480, 500, 460, 520]) { await p.mouse.click(215, y); await p.waitForTimeout(250); if (await p.evaluate(() => FP.watchLeft)) break; await closePage(p); }
-  const left = await p.evaluate(() => [FP.watchLeft, FP.beingStateNow, FP.exitOpen]);
+  const left = await p.evaluate(() => [FP.watchLeft, FP.beingStateNow, FP.exitOpen, !!(FP.kidBook && FP.kidBook.shelved), document.getElementById('hudPages').textContent]);
   await closePage(p); await closePage(p);
-  // and his book put away (Joe: "another collectible that needs to be dealt with in order to move on")
-  await p.evaluate(() => document.getElementById('shelveBook').click()); await p.waitForTimeout(300); await closePage(p);
-  const shelved = await p.evaluate(() => [FP.exitOpen, FP.beingStateNow]);
-  check('the exit won\'t open until the watch is left on his chair and his book is back on its shelf; then the being waits there',
-    !shutWon && carrying && left[0] && !left[2] && left[1] !== 'guide' && shelved[0] && shelved[1] === 'guide',
-    `won at the shut exit: ${shutWon}; carried the watch: ${carrying}; left it: ${left[0]}, open then: ${left[2]}; book shelved: open ${shelved[0]}, being ${shelved[1]}`);
+  check('the watch waits in the middle of the heart; taken (a journal, his chair\'s note folded in) and left on his table, the exit opens — the book not needed; the being waits there',
+    !shutWon && before.inHeart && /saved his seat/.test(watchNote) && carrying && left[0] && left[2] && !left[3] && left[1] === 'guide',
+    `won at the shut exit: ${shutWon}; watch in the heart's middle ${before.inHeart}; its note "${watchNote.slice(0, 28)}…"; carried ${carrying}; left ${left[0]}, exit open ${left[2]} with the book shelved ${left[3]}; being ${left[1]}; pages ${before.pages} → ${left[4]}`);
   await p.evaluate(() => { const [dx, dy] = FP.exitDir; FP.P.x = exit.x + 0.5 - dx * 2.2; FP.P.y = exit.y + 0.5 - dy * 2.2; FP.P.a = Math.atan2(dy, dx); });
   await p.waitForTimeout(3400);
   const kid = await p.evaluate(() => FP.beingStateNow);
@@ -476,7 +483,8 @@ console.log('The Maze — first person checks');
   await p.keyboard.press('Space'); await p.waitForTimeout(300);   // and it doesn't come up again
   const r1 = await p.evaluate(() => ({ hud: document.getElementById('hudPages').textContent, mem: FP.objs.filter((o) => o.memPage).length, again: document.getElementById('page').classList.contains('show') }));
   check('a memory room\'s journal is picked up like any page: counted, in the total, gone from the floor',
-    r0.mem >= 3 && r0.hud === '0 / ' + (5 + r0.mem) && /fone/.test(shown) && r1.hud === '1 / ' + (5 + r0.mem) && r1.mem === r0.mem - 1 && !r1.again,
+  // (+ 3: the journals for the heart opening, the watch, the table)
+    r0.mem >= 3 && r0.hud === '0 / ' + (5 + r0.mem + 3) && /fone/.test(shown) && r1.hud === '1 / ' + (5 + r0.mem + 3) && r1.mem === r0.mem - 1 && !r1.again,
     `HUD "${r0.hud}" with ${r0.mem} memory journals; read "${shown.slice(0, 30)}…"; then HUD "${r1.hud}", ${r1.mem} left, up again ${r1.again}`);
   await p.close();
 }

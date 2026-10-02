@@ -482,7 +482,7 @@ const STORY_ROOMS = {
         "busy people are important people", "hes going to be so proud of me", "i made him a drawing",
         "when he gets here im not going to be mad", "i can wait longer than anybody", "he told me to wait here so this is where i wait"],
       big: ["wait here", "he said he would come back"],
-      note: "saved your seat dad. dont worry. i didnt let anybody sit in it.",
+      note: "saved your seat dad. dont worry. i didnt let anybody sit in it.",   // first person: folded into heart.watch (v0.166.0); the waiting room's walls aren't written on any more either
       // written over the lines when you cross a face out (first person): what's true under them. Claude's drafts
       truths: ["he isnt coming back", "it was more than five minutes", "i waited and he didnt come", "nobody is coming", "i can get up now", "it wasnt my job to wait"],
     },
@@ -505,6 +505,12 @@ const STORY_ROOMS = {
         "i miss you so much", "i didnt mean to make you go", "dad", "daddy", "did you forget me", "i still say goodnight to you"],
       big: ["i miss you dad"],
       lobes: ["come home", "was it me"],
+      // the watch, centre stage in the heart now, its note folded together with the one that was on his chair. Joe: "maybe
+      // the watch should be in the heart room not in its own room … center stage … pull the note from his chair and fold
+      // it into the one for the watch"
+      watch: "the watch he gave me stopped at five past. i dont wear it. i just keep it. i saved his seat too, the whole time. i didnt let anybody sit in it.",
+      // when the wall's lies are crossed out and the heart opens. Joe's line
+      opens: "something is opening up inside of me. i dont want anyone to find it though.",
       letter: "dear dad. i wrote this so i dont forget. you smelled like coffee and cut grass. you called me buddy. you said five minutes. im not mad. i just want to know if it was me. if you come back i will be so good you wont ever want to go again. love you. please write back.",
     },
   },
