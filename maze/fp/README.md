@@ -149,9 +149,16 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   goes where you threw it; three at him and the memory comes. **Cards** — a card table in the middle of a room, your
   chair and his, empty; tap the deck and you sit down — into your chair, lower, the view tilting down to frame the table
   (`SEAT_EYE`; further back on a wide screen than a tall one, `SEAT_WIDE`/`SEAT_TALL`, so both cards fit) — then each tap or Space turns your card, then his, by itself, flat on the table and the right
-  way up to you, and his is always higher; three and the memory. **Get up** (or Esc, or a step) and you're back where you stood. **The fire** — crumpled drawings and a box of matches in the middle of a room; tap the matches and it takes and
-  grows, and then the door, hard: it's out, ash, and what he said is on the walls in big dark letters (`shout`); then the
-  memory. The middle things are given a wider mark to tap, and nothing only looked at (`deco`) is ever what Space or a tap
+  way up to you, and his is always higher; three and the memory. **Get up** (or Esc, or a step) and you're back where you stood. **The fire** — a pile of crumpled drawings (twice the size it was: Joe, "The pile to light needs to be twice as big") in the
+  middle of a room, and to one side his red toolbox on a little table. It won't open until you've read the room's page
+  (`toolbox`, said if you try; Joe: "hide the matches until after you've read the journal"); then it opens on the matches, a
+  tap puts them in your pocket (on the HUD), and a tap on the pile lights it (`openToolbox`, `pile`). The room shuts
+  (`sealRoom`: its doors swung to and held, `d.locked`; you can't step out of it), the fire grows, smoke comes down from the
+  ceiling (`#smoke`, over `SMOKE_FILL`) and you cough; at its thickest (`SMOKE_HOLD`) it's black (`SMOKE_BLACK`), and you
+  wake as at the start, on the floor of the same room, facing a burn where the fire was (`scorch`), ash on it, and what he
+  said on the walls in big dark letters (`shout`); then the memory, and the doors let go. Joe: "Smoke fills the room. You
+  can't get out. Fade to black from smoke damage. Wake up a few seconds later on the ground … Then we see all the writing on
+  the walls. There's a burned spot on the ground." The middle things are given a wider mark to tap, and nothing only looked at (`deco`) is ever what Space or a tap
   reaches for. **The picture book** — in the kid's room, by the bed: tap it and you sit at the head of the bed (`BED_EYE`),
   the view tilted down to it lying open on the blanket; each tap or Space turns a page, its words under the view (`book.pages`).
   Past the last you get up holding it (a book in the HUD), and it goes back in the gap on the shelf in the room (`placeShelf`).

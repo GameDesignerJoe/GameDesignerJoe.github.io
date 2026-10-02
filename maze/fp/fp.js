@@ -618,6 +618,7 @@
   // you aren't on, and stays that way until someone opens it again. Doors that start open swing out
   // into the room, as they always have: somebody else opened those.
   function toggleDoor(d) {
+    if (d.locked && !d.open) { FP_SOUND.locked(); return; }   // held shut (the fire room's, while it burns)
     if (!d.open) d.swing = (d.axis === 'x' ? P.x : P.y) < d.plane ? 1 : -1;
     d.open = d.open ? 0 : 1; FP_SOUND.door(!!d.open);
   }
@@ -1490,11 +1491,11 @@
   //   catch — dad on the kid room's wall, glove up. Pick up the ball, then tap (or Space) to throw: it never goes where
   //           you threw it. CATCH_THROWS at him and the memory comes.
   const MEMORY_ROOMS = ['phone', 'cards', 'fire', 'hide'];   // the ones with a room of their own; each maze deals them in its own order, so a short one has a different few
-  const RINGS = 5, RING_EVERY = 2800, CATCH_THROWS = 3, CARD_LOSSES = 3, FIRE_BURNS = 4000, HE_COMES = 9000, HE_STANDS = 3200;
+  const RINGS = 5, RING_EVERY = 2800, CATCH_THROWS = 3, CARD_LOSSES = 3, HE_COMES = 9000, HE_STANDS = 3200;
   let memFace = new Map(), memClear = new Set(), catchT = null, catchN = 0, catchDone = false, ballHeld = null;
   const memText = () => floor === 1 && typeof FP_MEMORIES !== 'undefined' && character ? FP_MEMORIES[character.name] : null;
   function placeMemories(reserved) {
-    memFace = new Map(); memClear = new Set(); catchT = null; catchN = 0; catchDone = false; ballHeld = null;
+    memFace = new Map(); memClear = new Set(); catchT = null; catchN = 0; catchDone = false; ballHeld = null; smokeLevel(0);
     const M8 = memText(); if (!M8 || S.memoryRooms <= 0) return;
     const R = rng(SEED + 290011), sx0 = Math.floor(start.x), sy0 = Math.floor(start.y), secret = secretSet();
     const comp = new Int32Array(W * H).fill(-1), rooms = [];
@@ -1590,12 +1591,16 @@
       for (const b of buildFurn(FURN.dadChair, cx - ix * 0.46, cy - iy * 0.46, ux, uy, ix, iy, 0)) fboxes.push(b);   // his, across, empty
       objs.push({ x: cx + ux * 0.13, y: cy + uy * 0.13, z: 0.245, kind: 'cards', mem: st, tex: TEX.sprites.deck, h: 0.035, glow: 0.3 });
     } else if (st.mem === 'fire') {
-      st.paper = { x: cx, y: cy, z: 0, kind: 'deco', tex: TEX.sprites.paper, h: 0.07, glow: 0.2 }; objs.push(st.paper);
-      objs.push({ x: cx + ix * 0.35, y: cy + iy * 0.35, z: 0, kind: 'matches', mem: st, tex: TEX.sprites.matches, h: 0.03, glow: 0.3 });
+      // Joe: "The pile to light needs to be twice as big." Tapped with the matches in hand, it's lit (`pile`)
+      st.paper = { x: cx, y: cy, z: 0, kind: 'pile', mem: st, tex: TEX.sprites.paper, h: 0.14, glow: 0.2 }; objs.push(st.paper);
+      // and the matches in his red toolbox on a little table to one side, shut until you've read the page
+      const tx = cx + ux * 0.62, ty = cy + uy * 0.62;
+      for (const b of buildFurn(FURN.sideTable, tx, ty, ux, uy, ix, iy, 0)) fboxes.push(b);
+      st.box = { x: tx, y: ty, z: 0.24, kind: 'toolbox', mem: st, tex: TEX.sprites.toolbox, h: 0.075, glow: 0.3 }; objs.push(st.box);
     }
     // at the far corner, past the thing: near your side it'd be what Space reaches for instead
     const jx = x - ix + ux, jy = y - iy + uy, ok = st.set.has(jy * W + jx), kx = ok ? jx : x - ix - ux, ky = ok ? jy : y - iy - uy;
-    objs.push({ x: kx + 0.5 - (kx - x) * 0.2, y: ky + 0.5 - (ky - y) * 0.2, kind: 'page', memPage: true, text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
+    objs.push({ x: kx + 0.5 - (kx - x) * 0.2, y: ky + 0.5 - (ky - y) * 0.2, kind: 'page', memPage: true, mem: st, text: st.text.page, tex: TEX.sprites.book, h: 0.3, glow: 0.35 });
   }
   // a playing card, stood on the table: white, its rank in red or black
   const RANKS = '23456789jqka', cardTexes = new Map();
@@ -1740,9 +1745,10 @@
       st.shown = []; st.round = { t0: now, kr, dr, step: 0 }; (st.hands = st.hands || []).push([kr, dr]);
     } else if (st.mem === 'fire') {
       if (st.fire || st.done) return;
-      const mt = objs.find((o) => o.kind === 'matches' && o.mem === st); if (mt) objs.splice(objs.indexOf(mt), 1);
-      st.fire = { t0: now, frame: 0, crackle: 0, obj: { x: st.paper.x, y: st.paper.y + 0.001, z: 0.02, kind: 'deco', tex: TEX.sprites.fire[0], h: 0.04, glow: 1 } };
+      carried.delete('matches'); hud();
+      st.fire = { t0: now, frame: 0, crackle: 0, cough: now + 3000, obj: { x: st.paper.x, y: st.paper.y + 0.001, z: 0.02, kind: 'deco', tex: TEX.sprites.fire[0], h: 0.04, glow: 1 } };
       objs.push(st.fire.obj); FP_SOUND.strike();
+      sealRoom(st);
     }
   }
   function cardsFrame(st, now) {
@@ -1796,20 +1802,61 @@
     }
   }
   const SHOUT = TEX.hex('#1a1614');
+  // Joe: "We need to do more with the fire room. Can we fill the room with smoke? Close the doors and don't let them open … Click
+  // on the toolbox, it opens and the matches are inside. Click on matches and collect them in your inventory. Then click on
+  // the fire to use them. Smoke fills the room. You can't get out. Fade to black from smoke damage. Wake up a few seconds
+  // later on the ground, same wake up we have at the start, if we are still in the same room. Then we see all the writing on
+  // the walls. There's a burned spot on the ground."
+  // The page read, the toolbox opens (`openToolbox`); the matches taken, the pile is lit (useMemory) and the room is shut
+  // (`sealRoom`: its doors swung to and held, and you held inside it). The fire grows; the smoke comes down from the ceiling
+  // over SMOKE_FILL, and you cough; SMOKE_HOLD at its thickest, and it's black (SMOKE_BLACK): the fire out, ash and a burn
+  // where it was, what he shouted on the walls, and you lying on the floor of the same room. Then the waking, as at the start,
+  // and the memory (`after`); the doors let go.
+  const SMOKE_FILL = 8000, SMOKE_HOLD = 1500, SMOKE_BLACK = 2600, SMOKE_MAX = 0.94;
+  function openToolbox(st) {
+    if (st.boxOpen) { if (st.matches && objs.includes(st.matches)) take(st.matches); return; }   // open: a tap on it is a tap on what's in it
+    if (!st.read) { FP_SOUND.locked(); if (st.text.toolbox) showNote(st.text.toolbox); return; }   // not until you've read why
+    st.boxOpen = true; st.box.tex = TEX.sprites.toolboxOpen; FP_SOUND.latch();
+    st.matches = { x: st.box.x, y: st.box.y + 0.001, z: 0.24 + 0.05, kind: 'matches', tex: TEX.sprites.matches, h: 0.03, glow: 0.4 }; objs.push(st.matches);
+  }
+  function sealRoom(st) {
+    st.sealed = { x: P.x, y: P.y };
+    st.held = [];
+    for (const d of doors) { const near = HD.some(([dx, dy]) => st.set.has((d.y + dy) * W + d.x + dx)) || st.set.has(d.k);
+      if (!near) continue; if (d.open) toggleDoor(d); d.locked = true; st.held.push(d); }
+  }
+  function smokeLevel(v) { const el = $('smoke'); if (el) el.style.opacity = v.toFixed(3); }
   function fireFrame(st, now) {
     const f = st.fire, t = now - f.t0;
+    // held in: a step out of the room puts you back where you last stood in it
+    if (st.sealed) { const k = Math.floor(P.y) * W + Math.floor(P.x); if (st.set.has(k)) { st.sealed.x = P.x; st.sealed.y = P.y; } else { P.x = st.sealed.x; P.y = st.sealed.y; vel = 0; } }
     if (!f.out) {
-      f.obj.h = 0.04 + Math.min(1, t / 2500) * 0.24;
+      f.obj.h = 0.04 + Math.min(1, t / 2500) * 0.48;
       if (now - f.frame > 130) { f.frame = now; f.obj.tex = TEX.sprites.fire[(Math.random() * 2) | 0]; }
       if (now > f.crackle) { f.crackle = now + 250 + Math.random() * 400; FP_SOUND.crackle(Math.min(1, t / 2500)); }
-      if (t > FIRE_BURNS) {   // and then him: the door, and it's out, and what he said is all over the walls
-        f.out = true; objs.splice(objs.indexOf(f.obj), 1); st.paper.tex = TEX.sprites.ash; st.paper.h = 0.03;
-        FP_SOUND.fireOut();
-        const lines = st.text.shout || [];
-        st.walls.forEach((q, i) => { const fk = faceKey(q.k, q.face); if (!lines.length || switchFace.has(fk) || closets.some((c) => faceKey(c.k, c.face) === fk)) return;
-          const d = decalFor(q.k, q.face); hand(d, lines[i % lines.length], 4, 8, 56, 2, SHOUT, Math.random); });
+      const k = Math.min(1, t / SMOKE_FILL); smokeLevel(SMOKE_MAX * k * k * (3 - 2 * k));
+      if (k > 0.35 && now > f.cough) { f.cough = now + 1400 + Math.random() * 1200; FP_SOUND.cough(k); }
+      if (t > SMOKE_FILL + SMOKE_HOLD) {   // it's black
+        f.out = true; stairBusy = true; clearStick();
+        const fade = $('fade'); $('fadeText').textContent = ''; fade.classList.remove('white'); fade.classList.add('show');
+        setTimeout(() => {   // and while it is: out, burned, his words, and you on the floor
+          objs.splice(objs.indexOf(f.obj), 1); st.paper.tex = TEX.sprites.ash; st.paper.h = 0.05; st.paper.kind = 'deco';
+          const sx = st.paper.x, sy = st.paper.y;
+          fboxes.push({ x0: sx - 0.34, x1: sx + 0.34, y0: sy - 0.34, y1: sy + 0.34, z0: 0, z1: 0.003, m: TEX.sprites.scorch, top: TEX.sprites.scorch, topFit: true, front: null, fcode: 'n', glow: false, flat: true });
+          FP_SOUND.fireOut(); smokeLevel(0);
+          const lines = st.text.shout || [];
+          st.walls.forEach((q, i) => { const fk = faceKey(q.k, q.face); if (!lines.length || switchFace.has(fk) || closets.some((c) => faceKey(c.k, c.face) === fk)) return;
+            const d = decalFor(q.k, q.face); hand(d, lines[i % lines.length], 4, 8, 56, 2, SHOUT, Math.random); });
+          // on the floor where you went down, facing the burn
+          P.a = Math.atan2(sy - P.y, sx - P.x); lastX = P.x; lastY = P.y; vel = 0;
+          rising = { t0: performance.now() + 400 }; document.body.classList.add('waking');
+          fade.classList.remove('show'); stairBusy = false; f.woke = performance.now();
+        }, SMOKE_BLACK);
       }
-    } else if (t > FIRE_BURNS + 1600) { st.fire = null; st.done = true; showNote(st.text.after); }
+    } else if (f.woke && performance.now() - f.woke > 400 + WAKE_LIE + WAKE_RISE + 300) {
+      for (const d of st.held || []) d.locked = false;
+      st.sealed = null; st.fire = null; st.done = true; showNote(st.text.after);
+    }
   }
   function memoryFrame(now) {
     for (const st of story) {
@@ -2446,6 +2493,7 @@
     $('hudCharcoalBox').style.display = charcoalN ? '' : 'none';
     $('hudWatchBox').style.display = carried.has('watch') ? '' : 'none';
     $('hudBookBox').style.display = carried.has('book') ? '' : 'none';
+    $('hudMatchesBox').style.display = carried.has('matches') ? '' : 'none';
   }
   // what you carry: things you pick up that aren't used up — the watch, for now. Joe: "We should make the watch
   // collectible that you pick up and then hold in your inventory. You can see on your hud. When we bring back in the
@@ -2467,7 +2515,9 @@
     if (o.kind === 'note' && o.seat && !walked && carried.has('watch') && heartSeen() && !story.some((q) => q.slot)) { leaveWatch(o); return; }
     if (o.kind === 'note') { if (!walked || !o.shown) { o.shown = true; showNote(o.text); } return; }   // read where it lies, never taken
     if (o.kind === 'ball') { if (!walked && !o.fly) pickBall(o); return; }   // picked up to throw, never kept
-    if (o.kind === 'cards' || o.kind === 'matches') { if (!walked) useMemory(o.mem); return; }
+    if (o.kind === 'cards') { if (!walked) useMemory(o.mem); return; }
+    if (o.kind === 'toolbox') { if (!walked) openToolbox(o.mem); return; }
+    if (o.kind === 'pile') { if (!walked && carried.has('matches')) useMemory(o.mem); return; }   // lit with the matches you took
     if (o.kind === 'kidBook') { if (!walked) openBook(); return; }   // read on the bed
     if (o.kind === 'shelfGap') { if (!walked) shelveBook(); return; }   // a memory room's thing: played, never taken
     objs.splice(objs.indexOf(o), 1); foundAt = performance.now(); taken.add(objKey(o));
@@ -2475,8 +2525,10 @@
     else if (o.kind === 'chalkPile') { chalk += CONFIG.chalkPerPickup * 4; flash('hudChalkBox'); FP_SOUND.chalkUp(); }
     else if (o.kind === 'charcoal') { charcoalN++; flash('hudCharcoalBox'); FP_SOUND.charcoalUp(); }
     else if (o.kind === 'watch') { carried.add('watch'); flash('hudWatchBox'); giveJournal(o.text); }
+    else if (o.kind === 'matches') { carried.add('matches'); flash('hudMatchesBox'); FP_SOUND.chalkUp(); }   // into your pocket
     else if (o.kind === 'page') { addFind(); pagesFound++; flash('hudPagesBox'); showPage(o.pg, o.text); FP_SOUND.page();
-      if (o.mem && o.mem.closet && !o.mem.done && !o.mem.coming) o.mem.coming = { t0: 0 }; }   // the hiding room's: and now he's coming
+      if (o.mem && o.mem.closet && !o.mem.done && !o.mem.coming) o.mem.coming = { t0: 0 };
+      if (o.mem && o.mem.mem === 'fire') o.mem.read = true; }   // the fire room's: and now the toolbox opens   // the hiding room's: and now he's coming
     hud();
   }
   // Joe: "any instance where you have to do a thing to get the game to progress, we should give you a journal for once you do
@@ -3521,7 +3573,7 @@
   // ── the objects, as flat pictures facing you ──────────────
   let ovDep = new Float32Array(1), colOv = new Uint8Array(1), zbuf = new Float32Array(1), colFace = new Int32Array(1), colDoor = new Int32Array(1), colDoorTop = new Float32Array(1), colDoorBot = new Float32Array(1), colDoorT = new Float32Array(1), colVeil = new Float32Array(1), colWallT = new Float32Array(1), colU = new Float32Array(1), colTop = new Float32Array(1), colBot = new Float32Array(1);
   const DITH = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
-  const PLAYED = new Set(['cards', 'matches', 'ball', 'kidBook', 'shelfGap']);
+  const PLAYED = new Set(['cards', 'matches', 'ball', 'kidBook', 'shelfGap', 'toolbox', 'pile']);
   const drawn = [];   // this frame's objects on screen: {o, x0, x1, y0, y1, depth}, for a tap to find
   // a pixel of the darter: its own shading kept as a grey, lifted toward white, lit by nothing
   const paleOf = (c, f) => { const l = Math.min(200, 38 + (((c & 0xff) + ((c >>> 8) & 0xff) + ((c >>> 16) & 0xff)) / 3) * 1.5) | 0; return shade(0xff000000 | (l << 16) | (l << 8) | l, Math.sqrt(f), 1, 1); };

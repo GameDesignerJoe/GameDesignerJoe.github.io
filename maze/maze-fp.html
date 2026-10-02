@@ -71,6 +71,7 @@
   .ic-page { width: 9px; height: 12px; background: #7a5232; border-right: 2px solid #efe6cf; border-radius: 1px; }
   .ic-chalk { width: 13px; height: 5px; background: #ece7da; border-radius: 2px; }
   .ic-watch { width: 12px; height: 12px; border-radius: 50%; background: #efe6cf; border: 2px solid #c9a45a; box-sizing: border-box; position: relative; }
+  .ic-matches { width: 13px; height: 8px; border-radius: 1px; background: #b33a26; border-top: 3px solid #e6c34a; box-sizing: border-box; }
   .ic-book { width: 10px; height: 13px; border-radius: 1px; background: #e6c34a; border-left: 3px solid #b8412f; box-sizing: border-box; }
   .ic-watch::after { content: ''; position: absolute; left: 3px; top: 1px; width: 1px; height: 4px; background: #1e1812; }
   .ic-charcoal { width: 13px; height: 5px; background: #2a2724; border: 1px solid #6a655c; border-radius: 2px; }
@@ -133,6 +134,8 @@
   body.waking #stick, body.waking #hud, body.waking #gear, body.waking #mini, body.waking #mapBtn, body.waking #dbgArrow, body.waking #hint, body.waking #glyphs { visibility: hidden; }
   body.reading #stick, body.reading #hud, body.reading #gear, body.reading #mini, body.reading #mapBtn, body.reading #dbgArrow, body.reading #hint, body.reading #glyphs { visibility: hidden; }
   /* between floors: black, the floor's number, and back */
+  /* the fire room's smoke, filling from the ceiling down (fp.js sets its opacity) */
+  #smoke { position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 5; background: linear-gradient(to bottom, rgba(52,49,46,.97), rgba(70,67,63,.9) 55%, rgba(92,88,82,.72)); }
   #fade { position: fixed; inset: 0; display: grid; place-items: center; background: #050506; opacity: 0; pointer-events: none; transition: opacity .45s; z-index: 6; }
   #fade.show { opacity: 1; pointer-events: auto; }
   #fade.white { background: #d9d6cc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); transition: opacity .12s; }
@@ -215,13 +218,14 @@
   </details>
 </div>
 <div id="dbgArrow" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 12h14m-5-5 5 5-5 5" fill="none" stroke="#e0c98a" stroke-width="2.4" stroke-linecap="round"/></svg></div>
-<div id="hud"><span id="hudPagesBox"><i class="ic-page"></i><b id="hudPages">0</b></span><span id="hudChalkBox"><i class="ic-chalk"></i><b id="hudChalk">0</b></span><span id="hudCharcoalBox"><i class="ic-charcoal"></i><b id="hudCharcoal">0</b></span><span id="hudWatchBox" style="display:none"><i class="ic-watch"></i></span><span id="hudBookBox" style="display:none"><i class="ic-book"></i></span></div>
+<div id="hud"><span id="hudPagesBox"><i class="ic-page"></i><b id="hudPages">0</b></span><span id="hudChalkBox"><i class="ic-chalk"></i><b id="hudChalk">0</b></span><span id="hudCharcoalBox"><i class="ic-charcoal"></i><b id="hudCharcoal">0</b></span><span id="hudWatchBox" style="display:none"><i class="ic-watch"></i></span><span id="hudBookBox" style="display:none"><i class="ic-book"></i></span><span id="hudMatchesBox" style="display:none"><i class="ic-matches"></i></span></div>
 <div id="glyphs"><button data-g="x">✕</button><button data-g="?">?</button><button data-g="left">←</button><button data-g="up">↑</button><button data-g="down">↓</button><button data-g="right">→</button></div>
 <div id="slats"></div>
 <button id="stepOut">Step out</button>
 <button id="getUp">Get up</button>
 <div id="bookLine"></div>
 <div id="page"><div><p id="pageText"></p><small id="pageWho"></small></div></div>
+<div id="smoke"></div>
 <div id="fade"><span id="fadeText"></span></div>
 <div id="opening" class="show"><p id="openingText"></p><small id="openingBy"></small></div>
 <div id="win"><div><h2>Exit</h2><p id="winSteps"></p><button id="again">Another maze</button></div></div>

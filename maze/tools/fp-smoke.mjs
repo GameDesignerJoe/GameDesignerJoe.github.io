@@ -734,18 +734,57 @@ console.log('The Maze — first person checks');
   const lost = await text(); await esc();
   await p.evaluate(() => document.getElementById('getUp').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))); await p.waitForTimeout(900);
   const up = await p.evaluate((s0) => !FP.seated && Math.hypot(FP.P.x - s0[0], FP.P.y - s0[1]) < 0.01, stood);
-  await stand('fire'); await p.waitForTimeout(300); await esc();
-  const ink = () => p.evaluate(() => { const st = FP.story.find((q) => q.mem === 'fire'); let n = 0; for (const q of st.walls) { const d = FP.decals.get(q.k * 4 + q.face); if (d) for (const c of d) if ((c >>> 0) === (TEX.hex('#1a1614') >>> 0)) n++; } return n; });
-  const before = await ink();
-  await p.keyboard.press('Space'); await p.waitForTimeout(2000);
-  const burning = await p.evaluate(() => { const st = FP.story.find((q) => q.mem === 'fire'); return !!(st.fire && !st.fire.out && FP.objs.includes(st.fire.obj)); });
-  await p.waitForTimeout(4000);
-  const after = await ink(), trouble = await text(), ash = await p.evaluate(() => FP.story.find((q) => q.mem === 'fire').paper.tex === TEX.sprites.ash);
+  check('memory rooms: sit down at the cards, his is always higher, three and the memory, then get up',
+    watches.rooms > 20 && watches.extra === 0 && sat && flat && up && cards.length === 3 && cards.every(([k, d]) => d > k) && /never won/.test(lost),
+    `${watches.extra} of ${watches.rooms} memory rooms with a watch; sat down ${sat}, cards flat on the table ${flat}, got up where you stood ${up}; hands ${cards.map(([k, d]) => k + '<' + d).join(', ')}, then "${lost.slice(0, 30)}…"`);
+  await p.close();
+}
+
+// ── the fire room: the toolbox, the matches, the smoke, the waking ──
+// Joe: "We need a way to hide the matches until after you've read the journal. Like have them in a red toolbox on a table.
+// Click on the toolbox, it opens and the matches are inside. Click on matches and collect them in your inventory. Then click on
+// the fire to use them. Smoke fills the room. You can't get out. Fade to black from smoke damage. Wake up a few seconds later on
+// the ground … Then we see all the writing on the walls. There's a burned spot on the ground. The pile to light needs to be
+// twice as big."
+{
+  const p = await open(4242); await awake(p);
+  const text = () => p.evaluate(() => document.getElementById('page').classList.contains('show') ? document.getElementById('pageText').textContent : '');
+  const esc = async () => { for (let i = 0; i < 4 && await text(); i++) { await p.keyboard.press('Escape'); await p.waitForTimeout(250); } };
   await esc();
-  check('memory rooms: sit down at the cards, his is always higher, three and the memory, then get up; the fire takes, then him on the walls, it\'s out, and the memory',
-    watches.rooms > 20 && watches.extra === 0 && sat && flat && up && cards.length === 3 && cards.every(([k, d]) => d > k) && /never won/.test(lost)
-      && before === 0 && burning && after > 200 && ash && /see i could do it/.test(trouble),
-    `${watches.extra} of ${watches.rooms} memory rooms with a watch; sat down ${sat}, cards flat on the table ${flat}, got up where you stood ${up}; hands ${cards.map(([k, d]) => k + '<' + d).join(', ')}, then "${lost.slice(0, 30)}…"; fire burning ${burning}, his words ${before} → ${after} px, ash ${ash}, then "${trouble.slice(0, 30)}…"`);
+  const F = 'FP.story.find((q) => q.mem === "fire")';
+  const faceBox = () => p.evaluate((F) => { const st = eval(F), bx = st.box, { ix, iy } = st.at; FP.P.x = bx.x + ix * 0.8; FP.P.y = bx.y + iy * 0.8; FP.P.a = Math.atan2(bx.y - FP.P.y, bx.x - FP.P.x); }, F);
+  await faceBox(); await p.waitForTimeout(400); await esc();
+  await p.keyboard.press('Space'); await p.waitForTimeout(400);
+  const shut = { said: await text(), open: await p.evaluate((F) => !!eval(F).boxOpen, F) }; await esc();
+  await p.evaluate((F) => { const st = eval(F), o = FP.objs.find((q) => q.kind === 'page' && q.mem === st); FP.P.x = o.x; FP.P.y = o.y; }, F);
+  await p.waitForTimeout(500); await esc();
+  await faceBox(); await p.waitForTimeout(300);
+  await p.keyboard.press('Space'); await p.waitForTimeout(400);
+  const opened = await p.evaluate((F) => [!!eval(F).boxOpen, FP.objs.some((o) => o.kind === 'matches')], F);
+  await p.keyboard.press('Space'); await p.waitForTimeout(400);
+  const pocket = await p.evaluate(() => [FP.carried.has('matches'), getComputedStyle(document.getElementById('hudMatchesBox')).display !== 'none']);
+  const ink = () => p.evaluate((F) => { const st = eval(F); let n = 0; for (const q of st.walls) { const d = FP.decals.get(q.k * 4 + q.face); if (d) for (const c of d) if ((c >>> 0) === (TEX.hex('#1a1614') >>> 0)) n++; } return n; }, F);
+  const before = await ink(), pile = await p.evaluate((F) => eval(F).paper.h, F);
+  await p.evaluate((F) => { const st = eval(F), pl = st.paper, { ix, iy } = st.at; FP.P.x = pl.x + ix * 0.9; FP.P.y = pl.y + iy * 0.9; FP.P.a = Math.atan2(-iy, -ix); }, F);
+  await p.waitForTimeout(300); await p.keyboard.press('Space'); await p.waitForTimeout(400);
+  const lit = await p.evaluate((F) => { const st = eval(F); return { fire: !!st.fire, held: (st.held || []).length, shut: (st.held || []).every((d) => !d.open && d.locked), spent: !FP.carried.has('matches') }; }, F);
+  await p.waitForTimeout(4000);
+  // try the way out, and a held door
+  const kept = await p.evaluate(async (F) => { const st = eval(F), m = st.m; FP.P.x = m.mx + 0.5; FP.P.y = m.my + 0.5; await new Promise((r) => setTimeout(r, 200));
+    const inside = st.set.has(Math.floor(FP.P.y) * FP.W + Math.floor(FP.P.x)); const d = (st.held || [])[0]; if (d) FP.toggleDoor(d); return { inside, door: d ? !d.open : true }; }, F);
+  const smoke = +(await p.evaluate(() => getComputedStyle(document.getElementById('smoke')).opacity));
+  await p.waitForTimeout(5600);
+  const black = await p.evaluate(() => document.getElementById('fade').classList.contains('show') && !document.getElementById('fade').classList.contains('white'));
+  await p.waitForTimeout(3000);
+  const woke = await p.evaluate((F) => { const st = eval(F), k = Math.floor(FP.P.y) * FP.W + Math.floor(FP.P.x); return { low: FP.eyeAt() < FP.S.eye - 0.1, inRoom: st.set.has(k), burn: FP.fboxes.some((b) => b.flat && b.top === TEX.sprites.scorch), ash: st.paper.tex === TEX.sprites.ash, smoke: +getComputedStyle(document.getElementById('smoke')).opacity }; }, F);
+  const after = await ink();
+  await p.waitForTimeout(4500);
+  const trouble = await text(), freed = await p.evaluate((F) => { const st = eval(F); return st.done && !st.sealed && (st.held || []).every((d) => !d.locked); }, F);
+  await esc();
+  check('the fire room: the toolbox won\'t open till the page is read, then the matches go in your pocket and light the pile (twice the size); the room shuts, fills with smoke, goes black, and you wake on its floor by the burn, his words on the walls',
+    !shut.open && /toolbox/.test(shut.said) && opened[0] && opened[1] && pocket[0] && pocket[1] && pile >= 0.14 && lit.fire && lit.held > 0 && lit.shut && lit.spent
+      && kept.inside && kept.door && smoke > 0.5 && black && woke.low && woke.inRoom && woke.burn && woke.ash && woke.smoke === 0 && before === 0 && after > 200 && /see i could do it/.test(trouble) && freed,
+    `shut before the page: "${shut.said}"; after, open ${opened[0]} with the matches ${opened[1]}; in the pocket ${pocket[0]}, on the HUD ${pocket[1]}; pile ${pile}; lit ${lit.fire}, ${lit.held} doors held shut ${lit.shut}, matches spent ${lit.spent}; kept in ${kept.inside}, door held ${kept.door}; smoke ${smoke.toFixed(2)}; black ${black}; woke low ${woke.low} in the room ${woke.inRoom}, burn ${woke.burn}, ash ${woke.ash}, smoke ${woke.smoke}; his words ${before} → ${after} px; then "${trouble.slice(0, 30)}…", let out ${freed}`);
   await p.close();
 }
 

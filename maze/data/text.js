@@ -371,6 +371,8 @@ const FP_MEMORIES = {
       page: "dad makes fires in the fireplace and lets me poke it with the stick. i want to make one by myself so he sees i can do it. i know where the matches are.",
       shout: ["what did you do", "you could of burned the house down", "get to your room", "what is wrong with you"],
       after: "i only wanted him to see i could do it. he yelled so loud the windows shook. then he didnt talk to me for two days. that was worse than the yelling.",
+      // his red toolbox, on the table, tapped before you've read the page: the matches are in it. Claude's draft
+      toolbox: "dads toolbox. im not allowed in it.",
     },
     // a room with a closet in it. Read the journal and he's coming: his steps, the bottle. In the closet when he gets
     // there, and he stands outside it and goes (`after`); not, and he walks right past you (`seen`)

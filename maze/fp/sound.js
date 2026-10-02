@@ -249,6 +249,10 @@ const FP_SOUND = (() => {
     },
     // the kid, into you: a breath of warm air and a chord that opens
     kidHug() { if (live()) { burst(1.4, { vol: 0.14, freq: 500, q: 0.4, type: 'lowpass' }); for (const [f, at] of [[523, 0], [659, 0.12], [784, 0.24]]) tone(f, 2.2, { type: 'sine', vol: 0.05, attack: 0.25, at }); } },
+    // the toolbox's two latches, and its lid going up
+    latch() { if (live()) { for (const at of [0, 0.14]) burst(0.04, { vol: 0.35, freq: 2200, q: 4, at }); tone(180, 0.25, { type: 'triangle', vol: 0.05, slide: 260, at: 0.22 }); } },
+    // a cough in the smoke: a short rough burst, quieter the less smoke there is
+    cough(k) { if (live()) { burst(0.12, { vol: 0.3 * k, freq: 500, q: 0.9 }); burst(0.16, { vol: 0.24 * k, freq: 420, q: 0.9, at: 0.2 }); } },
     kidGoes() { if (live()) { burst(1.2, { vol: 0.12, freq: 900, q: 0.5, slide: 400 }); tone(659, 1.6, { type: 'sine', vol: 0.05, attack: 0.3 }); } },
     // a light going out: the tube's tick and its hum dropping away, quieter the further off it is
     lightOut(near) {
