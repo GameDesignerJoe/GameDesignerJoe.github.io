@@ -85,44 +85,29 @@ wide fewer times.
 ## 5. Verify — this is the part that gets skipped
 
 ```
-node maze/tools/fp-smoke.mjs         # the first person (maze-fp.html), ~1 min
-node maze/tools/smoke.mjs            # the top-down's behaviour, ~6 min
-node maze/tools/selftest.mjs         # proves the invariants can fail, ~90s
-node maze/tools/harness.mjs          # generation invariants across 576 mazes, ~90s
+node maze/tools/fp-smoke.mjs         # the game: the first person (maze-fp.html), ~8 min
 ```
 
-fp-smoke and smoke start a server on 8765 themselves if none is answering (a fresh container has none); the other
-two still want `python3 -m http.server 8765` up. smoke runs its four big generation sweeps first, side by side in pages
-of their own, and only then the timing checks — so nothing else should be running while it does.
+**The loop runs fp-smoke, and only fp-smoke.** Joe, 2026-10-02: *"update your checks and processes to no longer look at
+the top down map in the loop. That is not a concern of ours anymore."* The top-down's suites — `smoke.mjs` (its behaviour),
+`harness.mjs` and `selftest.mjs` (its generation invariants) — stay in the repo, but they are not run, waited on, or
+reported, and a red one is not a blocker. Run them only if Joe asks. The two smoke checks that guarded the first person too
+(the writer's page matches `data/text.js`; every block of it is in `TEXT_BLOCKS`) were carried into fp-smoke.
 
-**Run harness and selftest together; run smoke on its own.** They are read-only
-processes over the same files and server, so nothing conflicts — but a dozen of
-smoke's checks measure real time (walking speed, animation counts, ripple
-travel), and the harness is heavy enough to starve them of frames. Three suites
-at once produced three red timing checks in v0.88.0 that all passed the moment
-smoke ran alone. Wait on each and read each: a suite that errored looks nothing
-like one that failed.
+fp-smoke starts a server on 8765 itself if none is answering (a fresh container has none). **Run it on its own**: a dozen
+of its checks measure real time (walking, the beat, the smoke filling a room), and a probe or a second suite running beside
+it starves them of frames — on 2026-10-02 a smoke run beside two probes came back with five red timing checks that all
+passed alone. Wait on it and read it: a suite that errored looks nothing like one that failed. Gate a push on its verdict
+with `&&`, never `;` — a `;` pushed a red run once.
 
-**How much to run depends on what you touched**, and Joe set this dial:
-
-| the change touches | run |
-|---|---|
-| generation (`generate.js`, `proto.js`, any `CONFIG` knob they read) | all three, every time |
-| render, UI, text, audio, movement | smoke, plus look at it |
-| only the first person (`fp/`, `maze-fp.html`; a `VERSION` bump doesn't count) | fp-smoke, plus look at it |
-| the first person and anything shared (`data/`, `js/`, `tools/`) | fp-smoke, then smoke |
-
-smoke never loads `maze-fp.html`, so an fp-only change can't turn it red and six minutes of it verifies nothing
-there; fp-smoke is what does. Add an fp-smoke check for new first-person behaviour, and red-proof it the same way.
-
-Generation is the one where a change 200 lines away silently invalidates an
-invariant, which is the whole reason the harness exists. Nothing else in the game
-has that property.
+Run it for every change, whatever it touches — `fp/`, `data/`, `js/` (the generator the first person builds on lives
+there), `tools/`, `maze-fp.html`. A `VERSION` bump alone needs nothing. To iterate on one check, cut the file's head and that
+block into a scratch runner; the whole suite before the commit.
 
 - **Look at it.** A Playwright shot at 430×900, `deviceScaleFactor: 2`. Landscape
   too if it touches layout. **Save shots to an absolute path in the scratchpad**, never a bare filename: a probe run
   from `maze/` writes into the repo, and one of those (`bw-watch.png`) was committed and shipped for nine versions.
-- **Add a smoke check for the new behaviour, then verify the check fails when you
+- **Add an fp-smoke check for the new behaviour, then verify the check fails when you
   revert the feature.** A check that cannot fail is worse than none — two in this
   repo passed with their feature deleted.
 - **When a check goes red after an unrelated change, suspect the check.** Four did
@@ -135,11 +120,6 @@ has that property.
   believe a red check that has nothing to do with what you changed** — and when a
   probe needs a feature of the maze, have it search for one that qualifies rather
   than taking the first thing that looks close.
-- **The harness is clean and has been since v0.85.0.** Older notes said it carried
-  a deferred door-key soft lock; that was fixed. PASS 576 is the expected result,
-  so treat *any* red as this batch's until proven otherwise — and check whether
-  `HEAD` is red too before you believe it is yours.
-
 ## 6. Ship
 
 **Fetch `origin/main` before you pick a version number.** Joe runs more than one
@@ -150,9 +130,10 @@ comments and a commit message had to be renumbered. `git fetch origin main &&
 git log --oneline HEAD..origin/main` costs two seconds. If main has moved, merge it
 in first, then number, then build the docs against what is actually there.
 
-Bump `VERSION` in `maze/js/core.js`, write the change up in `maze/docs/CLAUDE.md`,
-commit, push to `main`. A pre-commit hook runs the smoke suite and blocks the
-commit if it is red — if it blocks you, the suite is telling you something true.
+Bump `VERSION` in `maze/js/core.js`, write the change up in `maze/fp/README.md` (the first person's own notes, where each
+feature says what it does and why, in Joe's words), commit, push to `main`. A pre-commit hook
+(`.claude/hooks/maze-smoke.sh`) runs fp-smoke and blocks the commit if it is red — if it blocks you, the suite is telling you
+something true.
 
 Commit messages end with the attribution footer (see `maze/docs/CLAUDE.md`).
 
@@ -164,7 +145,7 @@ line in the game and his page is showing a version that no longer exists.
     node maze/tools/writer-page.mjs > maze/writer.html
 
 Then republish the artifact so the copy he opens from claude.ai matches too — that one
-is the one that saves. A smoke check fails if the committed page and the text disagree,
+is the one that saves. An fp-smoke check fails if the committed page and the text disagree,
 so this is hard to forget, but the republish is not checked and is yours to remember.
 
 ### Before you commit, one question about the docs
@@ -207,10 +188,10 @@ his call: give him the numbers rather than settling it yourself.
 - Check the edit landed. A scripted edit whose `assert` throws writes nothing, and
   the next command may still run against stale numbers.
 - Instrument by the second hypothesis, not the sixth.
-- One background job at a time **that writes**. Read-only jobs — the three suites,
-  a probe — can run together freely; two jobs editing the same file cannot, and a
+- One background job at a time **that writes**. Read-only jobs — a probe, a scratch
+  runner — can run beside each other (never beside the full suite: see §5); two jobs editing the same file cannot, and a
   `sed` on `config.js` while a measurement is loading it is exactly that. **A
-  red-proof run is a writing job**: it flips a knob, runs smoke, flips it back. On
+  red-proof run is a writing job**: it flips a knob, runs the check, flips it back. On
   2026-09-15 v0.101.0 was committed and pushed with `hopscotchSquares: 8` because
   the commit ran while a background red-proof still held the knob. Never commit
   while one is running; `git status` and the knob's line first.

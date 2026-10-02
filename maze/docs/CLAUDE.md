@@ -14,6 +14,17 @@ Read it before taking a task from the doc.
 Read in this order: `HANDOFF.md`, then `PROGRESSION.md`. `labyrinth/` is a
 different project — reference only.
 
+## The loop is the first person's (2026-10-02, after v0.176.0)
+
+Joe: *"Can you update your checks and processes to no longer look at the top down map in the loop. That is not a concern of
+ours anymore."* So the loop runs **`tools/fp-smoke.mjs` and nothing else**, for any change to the maze: `fp/`, `data/`,
+`js/` (the generator the first person builds on), `tools/`, `maze-fp.html`. The top-down's suites — `smoke.mjs`,
+`harness.mjs`, `selftest.mjs` — stay in the repo and still run, but they are not run, waited on or reported as part of
+a batch, and a red one is not a blocker; only if Joe asks. The two smoke checks that guarded the first person as well (the
+writer's page matches `data/text.js`; every block of writing is in `TEXT_BLOCKS`) were carried into fp-smoke. The
+pre-commit hook runs fp-smoke now. The routing in the maze-task skill (§5) says the same. Everything below about smoke,
+the harness and selftest is the history of how the top-down was kept.
+
 ## The loop, made quicker (v0.142.0)
 
 Joe: *"investigate the smoke test and see if you can optimize our overall loop. It does feel like things are taking
@@ -424,8 +435,8 @@ worth not repeating.
 verify, ship, report. Joe can type `/maze-task`. This file stays the reference: what
 the game is, why it is that way, and what has already been decided.
 
-And a **pre-commit hook** (`.claude/hooks/maze-smoke.sh`) runs the smoke suite on any
-commit touching `maze/` and blocks it if the suite is red — or if it never reaches a
+And a **pre-commit hook** (`.claude/hooks/maze-smoke.sh`) runs the first person's suite (fp-smoke; it was the top-down's
+smoke until 2026-10-02) on any commit touching `maze/` and blocks it if the suite is red — or if it never reaches a
 verdict, which is what an errored run looks like and is exactly how "Smoke 55" once
 got written into a commit message on the strength of a run that had done neither. It
 starts the static server itself if it is down, and it lets the commit through with a
@@ -481,11 +492,11 @@ On top of *Verifying a change* below:
   `deviceScaleFactor: 2` — the size he plays at. Landscape too if the change
   touches layout; the version number collided with the title there and nowhere
   else.
-- **Every new behaviour gets a smoke check**, and **verify the check fails when
+- **Every new behaviour gets an fp-smoke check**, and **verify the check fails when
   the feature is reverted.** A check that cannot fail is worse than no check: it
   reads as reassurance. Two checks in this file passed with their feature
   deleted before that rule was applied to them.
-- Run smoke, selftest and harness; bump `VERSION`; write the change up here;
+- Run fp-smoke (on its own); bump `VERSION`; write the change up in `fp/README.md`;
   commit; push. **Confirm the suites passed before writing the commit message** —
   a run that errors because the static server stopped looks nothing like a run
   that fails, and "Smoke 55" went into a commit message once on the strength of
@@ -557,6 +568,8 @@ live URL is `gamedesignerjoe.github.io/maze/maze-topdown.html`.
 in `../tools/` (it was missing from the repo; rebuilt 2026-09-09):
 
 ```
+node maze/tools/fp-smoke.mjs         # the game: the first person — the loop runs this, and only this
+# the top-down's, kept but out of the loop since 2026-10-02 (run only if Joe asks):
 python3 -m http.server 8765          # in another terminal
 node maze/tools/harness.mjs          # generation invariants across 576 mazes
 node maze/tools/smoke.mjs            # boot, walk, mark, save/reload, pool

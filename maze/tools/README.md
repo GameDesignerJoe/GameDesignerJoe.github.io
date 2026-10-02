@@ -10,19 +10,26 @@ test hooks and carries no test code.
 
 ## Running them
 
-Serve the repo, then run from the repo root:
+**The loop runs `fp-smoke.mjs`, and only that** (Joe, 2026-10-02: *"no longer look at the top down map in the loop. That
+is not a concern of ours anymore"*). It starts a server on 8765 if none is answering:
 
 ```
-python3 -m http.server 8765          # in another terminal (fp-smoke and smoke start one if it isn't)
+node maze/tools/fp-smoke.mjs         # the game, the first person: pages, the rooms, the lies, the heart, the way out
+```
 
+`fp-smoke.mjs` (v0.142.0) drives `maze-fp.html` through `window.FP` at machine speed, about eight minutes now; run it on its
+own, since some of its checks measure real time. It also carries the two of smoke's checks that guard the first person
+as well: the writer's page is current with `data/text.js`, and every block of writing is in `TEXT_BLOCKS`. `serve.mjs` is
+the shared "start a server if none is up".
+
+The top-down's suites are kept, out of the loop — run them only if asked:
+
+```
+python3 -m http.server 8765          # in another terminal (smoke starts one if it isn't)
 node maze/tools/harness.mjs          # generation invariants, ~1900 mazes
 node maze/tools/smoke.mjs            # behaviour: boot, walk, mark, save, pool
 node maze/tools/selftest.mjs         # proves the invariants can actually fail
-node maze/tools/fp-smoke.mjs         # the first person: pages, closets, the lies, the heart, the way out
 ```
-
-`fp-smoke.mjs` (v0.142.0) is the first person's suite — `maze-fp.html`, which smoke never loads. It drives the page
-through `window.FP` at machine speed, about a minute. `serve.mjs` is the shared "start a server if none is up".
 
 Each exits non-zero on failure. `--port` overrides 8765 everywhere.
 

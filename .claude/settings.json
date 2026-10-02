@@ -37,8 +37,8 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/maze-smoke.sh",
-            "timeout": 240,
-            "statusMessage": "Running the maze smoke suite before committing"
+            "timeout": 600,
+            "statusMessage": "Running the maze's first-person suite (fp-smoke) before committing"
           }
         ]
       }

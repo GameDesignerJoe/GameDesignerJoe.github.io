@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Pre-commit gate for the maze: a commit that touches maze/ has to have a passing
-# smoke suite behind it.
+# first-person suite (tools/fp-smoke.mjs) behind it. It was the top-down's smoke.mjs until
+# Joe: "update your checks and processes to no longer look at the top down map in the loop.
+# That is not a concern of ours anymore."
 #
 # Why this exists: "Smoke 55" went into a commit message once on the strength of a
 # run that had actually errored out because the static server had stopped. A run
@@ -10,8 +12,8 @@
 # It also runs tools/docs-check.mjs on the green path and passes on what it says.
 # That one is advice, never a block: staleness is a judgement, not a failure.
 #
-# It never blocks on its own failure to run — if node or python is missing it says
-# so and lets the commit through, because a gate that misfires gets switched off.
+# It never blocks on its own failure to run — if node is missing it says so and
+# lets the commit through, because a gate that misfires gets switched off.
 
 set -uo pipefail
 payload=$(cat)
@@ -33,25 +35,12 @@ block() {
   exit 0
 }
 
-command -v node >/dev/null 2>&1 || skip "maze smoke gate skipped: no node on PATH."
-PY=$(command -v python3 || command -v python) || PY=""
-[ -f maze/tools/smoke.mjs ] || skip "maze smoke gate skipped: maze/tools/smoke.mjs not found from $(pwd)."
+command -v node >/dev/null 2>&1 || skip "maze gate skipped: no node on PATH."
+[ -f maze/tools/fp-smoke.mjs ] || skip "maze gate skipped: maze/tools/fp-smoke.mjs not found from $(pwd)."
 
-URL=http://127.0.0.1:8765/maze/maze-topdown.html
-started=""
-if ! curl -sf -o /dev/null --max-time 3 "$URL" 2>/dev/null; then
-  [ -n "$PY" ] || skip "maze smoke gate skipped: the static server is not up and no python to start one."
-  nohup "$PY" -m http.server 8765 >/dev/null 2>&1 &
-  started=$!
-  for _ in 1 2 3 4 5 6 7 8 9 10; do
-    curl -sf -o /dev/null --max-time 2 "$URL" 2>/dev/null && break
-    sleep 0.5
-  done
-fi
-
-out=$(node maze/tools/smoke.mjs 2>&1)
+# fp-smoke starts a static server on 8765 itself if none is answering
+out=$(node maze/tools/fp-smoke.mjs 2>&1)
 code=$?
-[ -n "$started" ] && kill "$started" 2>/dev/null
 
 # The verdict first, the exit code only as a fallback: a red suite exits 1 *and* prints
 # a verdict, and reporting that as "it did not run" sends you looking for the wrong thing.
@@ -64,11 +53,11 @@ case "$verdict" in
     if [ -f maze/tools/docs-check.mjs ]; then
       docs=$(node maze/tools/docs-check.mjs --brief 2>/dev/null | tr '\n' ' ')
       case "$docs" in
-        *[![:space:]]*) skip "Smoke is green (55). $docs" ;;
+        *[![:space:]]*) skip "fp-smoke is green. $docs" ;;
       esac
     fi
     exit 0
     ;;
-  FAIL*) block "Smoke is red, so the commit is blocked. $verdict" ;;
+  FAIL*) block "fp-smoke is red, so the commit is blocked. $verdict" ;;
 esac
-block "The smoke suite never reached a verdict (exit $code), so this commit is not verified — this is what an errored run looks like, not a failing one. Last lines: $(printf '%s' "$out" | tail -3 | tr '\n' ' ')"
+block "fp-smoke never reached a verdict (exit $code), so this commit is not verified — this is what an errored run looks like, not a failing one. Last lines: $(printf '%s' "$out" | tail -3 | tr '\n' ' ')"

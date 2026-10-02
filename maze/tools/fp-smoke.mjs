@@ -1,15 +1,18 @@
 #!/usr/bin/env node
-// The first person's own behaviour checks: maze-fp.html, which smoke.mjs never loads. About a minute.
+// The game's suite: maze-fp.html, the first person. About eight minutes.
 //
 //   node maze/tools/fp-smoke.mjs [--port 8765]
 //
-// smoke.mjs is the top-down's suite; since the move to first person almost every change lands in fp/, where it
-// caught nothing. These are the probes that verified each first-person batch, kept: each one is something that
+// smoke.mjs is the top-down's suite, and the top-down is no longer ours to keep (Joe: "update your checks and processes to no
+// longer look at the top down map in the loop. That is not a concern of ours anymore"). This is the one the loop runs, for any
+// change; the two of smoke's checks that guard the first person too — the writer's page and the line-ID lookup over
+// data/text.js — are carried here. These are the probes that verified each first-person batch, kept: each one is something that
 // shipped broken once, or is the chapter's spine (pages in their places, the lies, the heart, the watch, the way
 // out). It drives the page through its debug handle (window.FP) rather than the stick, so it runs at machine speed,
 // and every check is written so it can fail — each names what it measured.
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import { ensureServer } from './serve.mjs';
+import { readFileSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
 const arg = (n, d) => { const i = argv.indexOf('--' + n); return i === -1 ? d : argv[i + 1]; };
@@ -37,6 +40,27 @@ const awake = async (p) => { await p.keyboard.press('Escape'); await p.waitForTi
 const pageShown = (p) => p.evaluate(() => document.getElementById('page').classList.contains('show'));
 const closePage = async (p) => { if (await pageShown(p)) { await p.mouse.click(215, 40); await p.waitForTimeout(250); } };
 console.log('The Maze — first person checks');
+
+// ── the writing: the writer's page is current, and every block of it can be looked up ──
+// maze/writer.html is generated from data/text.js, so it goes stale the moment a line is edited — and a writer editing a stale
+// page is writing into a copy of the game that no longer exists. Builds are reproducible (it carries a fingerprint of the text,
+// not a timestamp), so this is a byte comparison. And TEXT_BLOCKS, at the foot of text.js, is written by hand (the blocks are
+// consts in the page's shared scope, with no way to list them): a block left out of it has no line ids. Both were smoke's.
+{
+  const { buildPage } = await import('./writer-page.mjs');
+  const onDisk = readFileSync(new globalThis.URL('../writer.html', import.meta.url), 'utf8'), fresh = buildPage();
+  const stamp = (t) => (t.match(/"stamp":"([a-f0-9]+)"/) || [])[1] || '?';
+  const textSrc = readFileSync(new globalThis.URL('../data/text.js', import.meta.url), 'utf8');
+  const declared = [...textSrc.matchAll(/^const ([A-Z_]+)\s*=/gm)].map((m) => m[1]).filter((n) => n !== 'TEXT_BLOCKS');
+  const p = await open(4242);
+  const listed = await p.evaluate(() => Object.keys(TEXT_BLOCKS));
+  await p.close();
+  const gap = declared.filter((n) => !listed.includes(n));
+  check('the writer\'s page matches data/text.js, and every block of writing in it is in TEXT_BLOCKS',
+    onDisk === fresh && gap.length === 0 && listed.length === declared.length,
+    (onDisk === fresh ? `the page built from text ${stamp(fresh)}` : `the page was built from text ${stamp(onDisk)} and the text is now ${stamp(fresh)}: run node maze/tools/writer-page.mjs > maze/writer.html (and republish the artifact)`)
+      + `; ${listed.length} blocks listed of ${declared.length}` + (gap.length ? ', missing ' + gap.join(', ') : ''));
+}
 
 // ── every look builds, and so do many mazes ──────────────────────
 {
