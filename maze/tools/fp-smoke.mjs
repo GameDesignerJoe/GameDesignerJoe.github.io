@@ -688,7 +688,11 @@ console.log('The Maze — first person checks');
   await c.route('https://docs.google.com/forms/**', (r) => { posts.push(decodeURIComponent((r.request().postData() || '').replace(/\+/g, ' '))); r.fulfill({ status: 200, body: 'ok' }); });
   const p = await c.newPage(); p.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
   await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(700); await awake(p); await closePage(p);
-  await p.click('#gear'); await p.waitForTimeout(350); await p.click('#feedbackBtn'); await p.waitForTimeout(300);
+  // on the HUD, not in the menu: seen, and clear of the map button when that's shown too
+  const hudBtn = await p.evaluate(async () => { const fb = document.getElementById('feedbackBtn'), r = fb.getBoundingClientRect(), inPanel = !!fb.closest('#panel');
+    FP.S.map = 'screen'; await new Promise((res) => setTimeout(res, 150)); const m = document.getElementById('mapBtn').getBoundingClientRect(), r2 = fb.getBoundingClientRect();
+    return { shown: getComputedStyle(fb).display !== 'none' && r.width > 0 && r.top < 80, inPanel, clear: r2.left >= m.right }; });
+  await p.click('#feedbackBtn'); await p.waitForTimeout(300);
   const at = await p.evaluate(() => [FP.P.x, FP.P.y]);
   await p.keyboard.type('wwww the wall room felt long'); await p.waitForTimeout(300);
   const still = await p.evaluate((a) => Math.hypot(FP.P.x - a[0], FP.P.y - a[1]) < 0.01, at);
@@ -699,9 +703,9 @@ console.log('The Maze — first person checks');
   const flushed = { posts: posts.length, body: posts[0] || '', left: await p.evaluate(() => FP.feedbackKept.length) };
   await p.keyboard.press('Escape'); await p.waitForTimeout(4600); await closePage(p);
   await p.evaluate(() => { FP.openFeedback(); document.getElementById('fbText').value = 'the heart was good'; FP.sendFeedback(); }); await p.waitForTimeout(400);
-  check('Feedback at the top of the menu opens a box you can type in without walking; with no form yet it\'s kept, and sent with where it came from once there is one',
-    still && kept.length === 1 && /wall room/.test(kept[0]) && flushed.posts === 1 && /entry\.1=wwww the wall room felt long/.test(flushed.body) && /entry\.3=4242/.test(flushed.body) && /entry\.4=floor 1/.test(flushed.body) && flushed.left === 0 && posts.length === 2 && /the heart was good/.test(posts[1]),
-    `typed without moving ${still}; kept on the device ${kept.length}; on the next load with a form: ${flushed.posts} sent ("${flushed.body.slice(0, 70)}…"), ${flushed.left} left kept; sent straight off after: ${posts.length - flushed.posts}`);
+  check('Feedback, always on the HUD, opens a box you can type in without walking; with no form yet it\'s kept, and sent with where it came from once there is one',
+    hudBtn.shown && !hudBtn.inPanel && hudBtn.clear && still && kept.length === 1 && /wall room/.test(kept[0]) && flushed.posts === 1 && /entry\.1=wwww the wall room felt long/.test(flushed.body) && /entry\.3=4242/.test(flushed.body) && /entry\.4=floor 1/.test(flushed.body) && flushed.left === 0 && posts.length === 2 && /the heart was good/.test(posts[1]),
+    `on the HUD ${hudBtn.shown} (in the menu ${hudBtn.inPanel}), clear of the map button ${hudBtn.clear}; typed without moving ${still}; kept on the device ${kept.length}; on the next load with a form: ${flushed.posts} sent ("${flushed.body.slice(0, 70)}…"), ${flushed.left} left kept; sent straight off after: ${posts.length - flushed.posts}`);
   await c.close();
 }
 

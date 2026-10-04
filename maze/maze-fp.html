@@ -135,13 +135,14 @@
     width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 10px 16px; border-radius: 12px; background: #0d0f10cc; color: #ece7da;
     font: italic 18px/1.4 Georgia, serif; text-align: center; pointer-events: none; }
   /* reading a page: the page is all there is */
-  body.waking #stick, body.waking #hud, body.waking #gear, body.waking #mini, body.waking #mapBtn, body.waking #dbgArrow, body.waking #hint, body.waking #glyphs { visibility: hidden; }
-  body.reading #stick, body.reading #hud, body.reading #gear, body.reading #mini, body.reading #mapBtn, body.reading #dbgArrow, body.reading #hint, body.reading #glyphs { visibility: hidden; }
+  body.waking #stick, body.waking #hud, body.waking #gear, body.waking #mini, body.waking #mapBtn, body.waking #feedbackBtn, body.waking #dbgArrow, body.waking #hint, body.waking #glyphs { visibility: hidden; }
+  body.reading #stick, body.reading #hud, body.reading #gear, body.reading #mini, body.reading #mapBtn, body.reading #feedbackBtn, body.reading #dbgArrow, body.reading #hint, body.reading #glyphs { visibility: hidden; }
   /* between floors: black, the floor's number, and back */
   /* the fire room's smoke, filling from the ceiling down (fp.js sets its opacity) */
   #smoke { position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 5; background: #4a4642; }
   /* the Feedback box: over everything, the game paused under it */
-  #feedbackBtn { display: block; margin: 2px 0 8px; }
+  /* always on the HUD, beside the map button (or where it would be): fp.js sets `left` to follow it */
+  #feedbackBtn { position: fixed; top: calc(env(safe-area-inset-top) + 8px); left: 70px; z-index: 4; padding: 12px 14px; border-radius: 12px; background: #0d0f10aa; border: 1px solid var(--line); color: #cfc6b0; font: 14px Georgia, serif; cursor: pointer; }
   #feedback { position: fixed; inset: 0; display: none; place-items: center; z-index: 8; background: #0d0f10cc; padding: 16px; box-sizing: border-box; }
   #feedback.show { display: grid; }
   #feedback > div { width: min(420px, 100%); box-sizing: border-box; background: #1b1a18; border: 1px solid #3a3833; border-radius: 12px; padding: 16px; color: var(--ink); }
@@ -167,12 +168,12 @@
 <canvas id="mini"></canvas>
 <canvas id="bigmap"></canvas>
 <div id="mapBtn">map</div>
+<div id="feedbackBtn">Feedback</div>
 <div id="gear"><svg viewBox="0 0 24 24" fill="none" stroke="#b9b4a8" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></div>
 <div id="stick"><div id="knob"></div></div>
 <div id="hint" class="gone"></div>
 <div id="panel">
   <button id="close">✕</button>
-  <button id="feedbackBtn">Feedback</button>
   <h1>First person · tuning</h1>
   <details data-sec="look"><summary>Look</summary>
   <label><span>Theme</span><select id="optTheme"></select></label>

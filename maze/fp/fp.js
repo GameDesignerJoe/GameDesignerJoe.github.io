@@ -3757,11 +3757,12 @@
     const sec = secretSet(); if (sec && sec.size) add('kid', ...mid([...sec]));
     return out;
   }
-  let bigOpen = false, bigGeom = null;
+  let bigOpen = false, bigGeom = null, fbBeside = null;
   const big = document.getElementById('bigmap'), bctx = big.getContext('2d');
   function drawMini(now) {
     const screen = S.map === 'screen';
     $('mapBtn').style.display = screen ? 'block' : 'none';
+    if (screen !== fbBeside) { fbBeside = screen; $('feedbackBtn').style.left = screen ? Math.round($('mapBtn').getBoundingClientRect().right + 8) + 'px' : ''; }   // Feedback sits beside the map button, or in its place
     if (!screen) bigOpen = false;
     big.style.display = bigOpen ? 'block' : 'none';
     if (bigOpen) {
@@ -4245,7 +4246,7 @@
   }, { capture: true });
   $('close').onclick = () => $('panel').classList.remove('open');
   // ── feedback ──────────────────────────────────────────────
-  // The Feedback button at the top of the ☰ menu: a box to write in, and Send. It goes to the Google Form in FP_FEEDBACK_FORM
+  // The Feedback button, on the HUD beside the map button: a box to write in, and Send. It goes to the Google Form in FP_FEEDBACK_FORM
   // (fp/config.js), whose answers land in a Sheet Claude can read and sum up — Joe: "something that I could chat with you about
   // and say, 'how is the feedback?'" — with where it was written from (the version, the seed, how far along) so it can be
   // read against the game. Sent blind (a form takes a post from any page, but won't say back), so the box thanks you on
@@ -4285,7 +4286,8 @@
     $('fbText').value = ''; $('fbNote').textContent = sent ? FBT.thanks : FBT.kept;
     setTimeout(closeFeedback, 1600);
   }
-  $('feedbackBtn').onclick = openFeedback;
+  // Joe: "I would like the feedback button to be always present on the hud. Much like the map button"
+  $('feedbackBtn').addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); openFeedback(); });
   $('fbCancel').onclick = closeFeedback;
   $('fbSend').onclick = sendFeedback;
   $('feedback').addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === $('feedback')) closeFeedback(); });   // a tap off the box is cancel, and never a step in the game

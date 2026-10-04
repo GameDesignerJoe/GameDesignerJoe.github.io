@@ -131,7 +131,7 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   switchOff: [0, 1, 0.05, 'Rooms dark', 'debug'],
 };
 
-// Where the Feedback box (the ☰ menu) sends what's written in it. Joe: "a feedback button to the menu at the top … that when
+// Where the Feedback box (its button is on the HUD) sends what's written in it. Joe: "a feedback button to the menu at the top … that when
 // somebody presses it, it opens up a text window with a submit button", and "something that I could chat with you about and
 // say, 'how is the feedback?'". A Google Form, its answers kept in a Google Sheet that Claude can read: `action` is the form's
 // …/formResponse address, and each field the `entry.N` id of a question (the form's "Get pre-filled link" shows them). Empty,

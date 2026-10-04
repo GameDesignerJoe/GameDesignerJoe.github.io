@@ -554,7 +554,7 @@ const FP_PAGES = {
   },
 };
 
-// first person: the Feedback box, from the ☰ menu — the button, the box, and what it says after. Joe: "a feedback button to
+// first person: the Feedback box, from its button on the HUD — the button, the box, and what it says after. Joe: "a feedback button to
 // the menu at the top … opens up a text window with a submit button". Claude's drafts
 const FP_FEEDBACK = {
   button: "Feedback",
