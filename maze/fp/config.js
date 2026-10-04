@@ -136,7 +136,9 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
 // say, 'how is the feedback?'". A Google Form, its answers kept in a Google Sheet that Claude can read: `action` is the form's
 // …/formResponse address, and each field the `entry.N` id of a question (the form's "Get pre-filled link" shows them). Empty,
 // the box still takes feedback and keeps it on the device, and sends it the next time the game is opened with this filled in.
+// The form is "Maze feedback" on Joe's Google account; its answers are the Sheet "Maze feedback (Responses)", Drive id
+// 1W7VNHjqE-k-TAOhzp2NFY6pmBTv553IOXw_1VwAjPlk — the one to read when Joe asks how the feedback is.
 const FP_FEEDBACK_FORM = {
-  action: '',
-  fields: { text: '', version: '', seed: '', where: '' },
+  action: 'https://docs.google.com/forms/d/e/1FAIpQLSdkIdDispcUY58kjOYB_pduYwvB1iy4Z2rwvpYGmkdrCEznng/formResponse',
+  fields: { text: 'entry.797005195', version: 'entry.1334796723', seed: 'entry.299755428', where: 'entry.1577067527' },
 };

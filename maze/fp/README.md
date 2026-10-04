@@ -264,7 +264,9 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   (`FP_FEEDBACK_FORM` in `fp/config.js`: the form's `…/formResponse` address and its `entry.N` ids) along with the version,
   the seed and where in the run it was written (`fbWhere`: floor, journals, heart, watch, the way it's held — nothing about
   the person). The form's answers sit in a Google Sheet in Joe's Drive, which Claude reads to say what people are saying.
-  With no form set it's kept on the device (`maze.fp.feedback`) and sent the next time the game opens with one.
+  With no form set it's kept on the device (`maze.fp.feedback`) and sent the next time the game opens with one. Connected
+  (v0.179.0) to Joe's form "Maze feedback"; its Sheet, "Maze feedback (Responses)", is named in `fp/config.js` with its Drive
+  id — read it to answer "how is the feedback?".
 - **The log of journals.** A tap on the journal count on the HUD is every journal of the run on one long page, newest first
   (`journalLog`). Joe: "I want to tap on the journal count on the hud and get a log of the journals and their text with the most
   recent at the top."
