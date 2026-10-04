@@ -554,6 +554,18 @@ const FP_PAGES = {
   },
 };
 
+// first person: the Feedback box, from the ☰ menu — the button, the box, and what it says after. Joe: "a feedback button to
+// the menu at the top … opens up a text window with a submit button". Claude's drafts
+const FP_FEEDBACK = {
+  button: "Feedback",
+  title: "Tell me what you think",
+  placeholder: "What worked, what didn't, where you got lost, anything at all.",
+  send: "Send",
+  cancel: "Cancel",
+  thanks: "Thank you. It's on its way.",
+  kept: "Thank you. It's kept, and will be sent once feedback is connected.",
+};
+
 // first person: the way out of a chapter with placed pages. The exit is chalked `notYet` and won't open until you've
 // been to the heart and left the watch on the chair he saved in the waiting room; `leave` is what he says when you
 // do; `out` is under the Exit when you go. Claude's drafts, to be rewritten.
@@ -603,5 +615,5 @@ const CHALKBOARD = {
 // added tomorrow can't quietly stop being findable.
 const TEXT_BLOCKS = {
   ROOM_LINES, LIGHTER, EMPTY_SHELF, SHELF_LINES, SELF_LINES, NARRATOR, CAST, POOLS, TUTORIALS,
-  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES, FP_ENDING, FP_OPENING, WALL_TEACH, FP_TRAINING, FP_MEMORIES,
+  PEOPLE, EXCHANGES, SHRINE_LINES, FIGURE_LINES, SECRET_LINES, MOMENTS, MAP_EMPTY, POOL_UI, WALL_WORDS, WALL_START, STORY_ROOMS, TURN_LINES, CHALKBOARD, FP_PAGES, FP_ENDING, FP_OPENING, WALL_TEACH, FP_TRAINING, FP_MEMORIES, FP_FEEDBACK,
 };

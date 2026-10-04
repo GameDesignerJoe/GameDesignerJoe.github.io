@@ -257,6 +257,13 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
 - **The key rooms on the debug map** (`mapMarks`): W the wall, C his chair, ♥ the heart, K the kid's room, ☎ ♠ F H the phone,
   the cards, the fire, hiding — on the full map all of them, on the corner one those you've seen. Joe: "I can't find the War
   table on the map."
+- **Feedback** (the ☰ menu's first button; words in `FP_FEEDBACK`). Joe: "a feedback button to the menu at the top … opens up a
+  text window with a submit button", and "something that I could chat with you about and say, 'how is the feedback?'". A box
+  to write in, Send and Cancel; the game is paused under it and the keys are the box's. It posts to a Google Form
+  (`FP_FEEDBACK_FORM` in `fp/config.js`: the form's `…/formResponse` address and its `entry.N` ids) along with the version,
+  the seed and where in the run it was written (`fbWhere`: floor, journals, heart, watch, the way it's held — nothing about
+  the person). The form's answers sit in a Google Sheet in Joe's Drive, which Claude reads to say what people are saying.
+  With no form set it's kept on the device (`maze.fp.feedback`) and sent the next time the game opens with one.
 - **The log of journals.** A tap on the journal count on the HUD is every journal of the run on one long page, newest first
   (`journalLog`). Joe: "I want to tap on the journal count on the hud and get a log of the journals and their text with the most
   recent at the top."

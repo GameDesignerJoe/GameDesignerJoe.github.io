@@ -680,6 +680,31 @@ console.log('The Maze — first person checks');
   await p.close();
 }
 
+// ── feedback, from the menu ──────────────────────────────────────
+// Joe: "a feedback button to the menu at the top … opens up a text window with a submit button", gathered so Claude can be
+// asked "how is the feedback?". A Google Form (FP_FEEDBACK_FORM); with none set, kept on the device and sent once there is
+{
+  const c = await browser.newContext({ viewport: { width: 430, height: 900 } }), posts = [];
+  await c.route('https://docs.google.com/forms/**', (r) => { posts.push(decodeURIComponent((r.request().postData() || '').replace(/\+/g, ' '))); r.fulfill({ status: 200, body: 'ok' }); });
+  const p = await c.newPage(); p.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
+  await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(700); await awake(p); await closePage(p);
+  await p.click('#gear'); await p.waitForTimeout(350); await p.click('#feedbackBtn'); await p.waitForTimeout(300);
+  const at = await p.evaluate(() => [FP.P.x, FP.P.y]);
+  await p.keyboard.type('wwww the wall room felt long'); await p.waitForTimeout(300);
+  const still = await p.evaluate((a) => Math.hypot(FP.P.x - a[0], FP.P.y - a[1]) < 0.01, at);
+  await p.click('#fbSend'); await p.waitForTimeout(300);
+  const kept = await p.evaluate(() => FP.feedbackKept.map((q) => q.text));
+  await p.route('**/fp/config.js', async (r) => { const res = await r.fetch(); const t = (await res.text()).replace("action: '',", "action: 'https://docs.google.com/forms/d/e/TEST/formResponse',").replace("fields: { text: '', version: '', seed: '', where: '' }", "fields: { text: 'entry.1', version: 'entry.2', seed: 'entry.3', where: 'entry.4' }"); r.fulfill({ response: res, body: t }); });
+  await p.reload(); await p.waitForTimeout(1200);
+  const flushed = { posts: posts.length, body: posts[0] || '', left: await p.evaluate(() => FP.feedbackKept.length) };
+  await p.keyboard.press('Escape'); await p.waitForTimeout(4600); await closePage(p);
+  await p.evaluate(() => { FP.openFeedback(); document.getElementById('fbText').value = 'the heart was good'; FP.sendFeedback(); }); await p.waitForTimeout(400);
+  check('Feedback at the top of the menu opens a box you can type in without walking; with no form yet it\'s kept, and sent with where it came from once there is one',
+    still && kept.length === 1 && /wall room/.test(kept[0]) && flushed.posts === 1 && /entry\.1=wwww the wall room felt long/.test(flushed.body) && /entry\.3=4242/.test(flushed.body) && /entry\.4=floor 1/.test(flushed.body) && flushed.left === 0 && posts.length === 2 && /the heart was good/.test(posts[1]),
+    `typed without moving ${still}; kept on the device ${kept.length}; on the next load with a form: ${flushed.posts} sent ("${flushed.body.slice(0, 70)}…"), ${flushed.left} left kept; sent straight off after: ${posts.length - flushed.posts}`);
+  await c.close();
+}
+
 // ── the turn: three pages, and nothing else counts ───────────────
 {
   const p = await open(4242); await awake(p);
@@ -821,15 +846,21 @@ console.log('The Maze — first person checks');
   await p.evaluate(() => { const g = FP.lightGroups.find((q) => q.pitch); if (g && !g.on) FP.flipSwitch(g); });
   const throws = [];
   for (let i = 0; i < 3; i++) {
-    await p.evaluate(() => { const ball = FP.objs.find((o) => o.kind === 'ball');
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]]) { const x = ball.x + dx * 0.9, y = ball.y + dy * 0.9; if (tiles[Math.floor(y)] && tiles[Math.floor(y)][Math.floor(x)]) { FP.P.x = x; FP.P.y = y; break; } }
-      FP.P.a = Math.atan2(ball.y - FP.P.y, ball.x - FP.P.x); });
-    await p.waitForTimeout(200); await esc();
-    await p.keyboard.press('Space'); await p.waitForTimeout(200);
-    const held = await p.evaluate(() => FP.carried.has('ball'));
+    // up to it from whichever side is clear (a throw can leave it by a wall or the bed), and again if the first try missed it
+    let held = false;
+    for (let tries = 0; tries < 4 && !held; tries++) {
+      await p.evaluate((tries) => { const ball = FP.objs.find((o) => o.kind === 'ball' && !o.fly); if (!ball) return;
+        const ways = [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]], r = 0.9 - tries * 0.15;
+        for (let i = 0; i < ways.length; i++) { const [dx, dy] = ways[(i + tries * 3) % ways.length], x = ball.x + dx * r, y = ball.y + dy * r;
+          if (tiles[Math.floor(y)] && tiles[Math.floor(y)][Math.floor(x)] && !FP.fboxes.some((b) => !b.flat && x > b.x0 - 0.2 && x < b.x1 + 0.2 && y > b.y0 - 0.2 && y < b.y1 + 0.2)) { FP.P.x = x; FP.P.y = y; break; } }
+        FP.P.a = Math.atan2(ball.y - FP.P.y, ball.x - FP.P.x); }, tries);
+      await p.waitForTimeout(200); await esc();
+      await p.keyboard.press('Space'); await p.waitForTimeout(200);
+      held = await p.evaluate(() => FP.carried.has('ball'));
+    }
     await p.evaluate(() => { FP.P.a = Math.atan2(FP.catchT.y - FP.P.y, FP.catchT.x - FP.P.x); });
     await p.keyboard.press('Space'); await p.waitForTimeout(100);
-    const miss = await p.evaluate(() => { const b = FP.objs.find((o) => o.kind === 'ball'), f = b.fly, t = FP.catchT;
+    const miss = await p.evaluate(() => { const b = FP.objs.find((o) => o.kind === 'ball' && o.fly), f = b && b.fly, t = FP.catchT; if (!f) return -1;   // nothing thrown: fails, rather than stopping the suite
       const aim = Math.atan2(f.hy - FP.P.y, f.hx - FP.P.x), to = Math.atan2(t.y - FP.P.y, t.x - FP.P.x); return Math.abs(Math.atan2(Math.sin(aim - to), Math.cos(aim - to))); });
     await p.waitForTimeout(2300);
     throws.push({ held, miss });

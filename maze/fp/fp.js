@@ -3815,6 +3815,7 @@
   addEventListener('keydown', (e) => {
     // a slider or a list in the panel keeps the keys only while the panel is open. Joe: "You broke WASD on PC" — touch a
     // slider, shut the panel, and it still had the keyboard (a tap on the view doesn't take focus), so W did nothing
+    if (feedbackOpen()) { if (e.code === 'Escape') { e.preventDefault(); closeFeedback(); } return; }   // writing feedback: the keys are the box's
     const panelOpen = $('panel').classList.contains('open');
     if (panelOpen && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
     if (!panelOpen && document.activeElement && $('panel').contains(document.activeElement)) document.activeElement.blur();
@@ -4243,6 +4244,51 @@
     panel.classList.remove('open'); e.stopPropagation(); e.preventDefault();
   }, { capture: true });
   $('close').onclick = () => $('panel').classList.remove('open');
+  // ── feedback ──────────────────────────────────────────────
+  // The Feedback button at the top of the ☰ menu: a box to write in, and Send. It goes to the Google Form in FP_FEEDBACK_FORM
+  // (fp/config.js), whose answers land in a Sheet Claude can read and sum up — Joe: "something that I could chat with you about
+  // and say, 'how is the feedback?'" — with where it was written from (the version, the seed, how far along) so it can be
+  // read against the game. Sent blind (a form takes a post from any page, but won't say back), so the box thanks you on
+  // sending. With no form set yet it's kept on the device (FB_KEY) and sent the next time the game opens with one.
+  const FB_KEY = 'maze.fp.feedback', FBT = typeof FP_FEEDBACK !== 'undefined' ? FP_FEEDBACK : null;
+  const feedbackOpen = () => $('feedback').classList.contains('show');
+  if (FBT) { $('feedbackBtn').textContent = FBT.button; $('fbTitle').textContent = FBT.title; $('fbText').placeholder = FBT.placeholder; $('fbSend').textContent = FBT.send; $('fbCancel').textContent = FBT.cancel; }
+  else $('feedbackBtn').style.display = 'none';
+  const fbForm = () => typeof FP_FEEDBACK_FORM !== 'undefined' && FP_FEEDBACK_FORM.action && FP_FEEDBACK_FORM.fields.text ? FP_FEEDBACK_FORM : null;
+  function fbWhere() {   // where in the game it was written from: no one's name, nothing about them
+    const parts = [`floor ${floor}`, `${pagesFound}/${pagesTotal} journals`];
+    if (heartOpened) parts.push('heart open'); if (watchLeft) parts.push('watch left'); if (won) parts.push('out');
+    parts.push(innerWidth > innerHeight ? 'landscape' : 'portrait', touchy ? 'touch' : 'keyboard');
+    return parts.join(', ');
+  }
+  function fbPost(item) {
+    const F = fbForm(); if (!F) return false;
+    const body = new URLSearchParams(), f = F.fields;
+    body.set(f.text, item.text); if (f.version) body.set(f.version, item.version); if (f.seed) body.set(f.seed, String(item.seed)); if (f.where) body.set(f.where, item.where);
+    fetch(F.action, { method: 'POST', mode: 'no-cors', body }).catch(() => {});
+    return true;
+  }
+  function fbKept() { try { return JSON.parse(localStorage.getItem(FB_KEY) || '[]'); } catch (e) { return []; } }
+  function fbKeep(list) { try { if (list.length) localStorage.setItem(FB_KEY, JSON.stringify(list.slice(-50))); else localStorage.removeItem(FB_KEY); } catch (e) {} }
+  // anything kept from before the form was set: sent now
+  if (fbForm()) { const kept = fbKept(); if (kept.length) { kept.forEach(fbPost); fbKeep([]); } }
+  function openFeedback() {
+    $('panel').classList.remove('open'); clearStick(); vel = 0; for (const k of Object.keys(keys)) keys[k] = false;
+    $('fbNote').textContent = ''; $('feedback').classList.add('show'); setTimeout(() => $('fbText').focus(), 50);
+  }
+  function closeFeedback() { $('feedback').classList.remove('show'); $('fbText').blur(); }
+  function sendFeedback() {
+    const text = $('fbText').value.trim(); if (!text) { $('fbText').focus(); return; }
+    const item = { text, version: typeof VERSION !== 'undefined' ? VERSION : '', seed: BASE, where: fbWhere(), at: new Date().toISOString() };
+    const sent = fbPost(item);
+    if (!sent) fbKeep(fbKept().concat([item]));
+    $('fbText').value = ''; $('fbNote').textContent = sent ? FBT.thanks : FBT.kept;
+    setTimeout(closeFeedback, 1600);
+  }
+  $('feedbackBtn').onclick = openFeedback;
+  $('fbCancel').onclick = closeFeedback;
+  $('fbSend').onclick = sendFeedback;
+  $('feedback').addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === $('feedback')) closeFeedback(); });   // a tap off the box is cancel, and never a step in the game
   $('newMaze').onclick = () => { newMaze(); $('panel').classList.remove('open'); };
   // Restart: the same maze, back where you woke. Hard refresh: the latest build from the server and a
   // new maze — the top-down's hardRefresh(), and like it bounded so a dead connection still reloads.
@@ -4367,5 +4413,5 @@
   requestAnimationFrame(frame);
 
   // for the checks in tools/, and for poking at from the console
-  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get lift() { return lift; }, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, get lampLvl() { return lampLvl; }, get lampTiles() { return lampTiles; }, get pathIdx() { return pathIdx; }, get holds() { return holds; }, get toybox() { return toybox; }, get ballAway() { return ballAway; }, putBall, get journalLog() { return journalLog; }, mapMarks, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get darkMul() { return darkMul; }, get lifted() { return lifted; }, get turnFaces() { return turnFaces; }, get wordFaces() { return wordSpots; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
+  window.FP = { P, S, act, lightAt: lightAtPoint, get spotLamps() { return spotLamps; }, get kidBook() { return kidBook; }, openBook, shelveBook, get exitOpen() { return exitOpen(); }, get openingQuote() { return openingQuote; }, get seated() { return seated; }, getUp, get memFace() { return memFace; }, get catchT() { return catchT; }, get catchN() { return catchN; }, throwBall, useMemory, eyeAt: () => eyeNow(performance.now()), get lift() { return lift; }, get learnt() { return learnt; }, resetTraining, get trainShown() { return trainShown; }, newMaze, stick, toggleDoor, doorSeg, get low() { return low; }, get W() { return W; }, get decals() { return decals; }, get doors() { return doors; }, get closets() { return closets; }, get hidden() { return hidden; }, enterCloset, leaveCloset, get wordSpots() { return wordSpots; }, get objs() { return objs; }, get dark() { return dark; }, get light() { return tileL; }, get anim() { return anim; }, get won() { return won; }, get exitDir() { return exitDir; }, get father() { return father; }, get darter() { return darter; }, forceDart: () => { dartForce = true; dartSeen = new Set(); }, get lightGroups() { return lightGroups; }, get furn() { return furn; }, get fboxes() { return fboxes; }, get startWords() { return startWords; }, get floor() { return floor; }, get turned() { return turned; }, get being() { return being; }, get guard() { return guard; }, openFeedback, sendFeedback, get feedbackKept() { return fbKept(); }, get lampLvl() { return lampLvl; }, get lampTiles() { return lampTiles; }, get pathIdx() { return pathIdx; }, get holds() { return holds; }, get toybox() { return toybox; }, get ballAway() { return ballAway; }, putBall, get journalLog() { return journalLog; }, mapMarks, get vein() { return vein; }, get veinLvl() { return veinLvl; }, get darkMul() { return darkMul; }, get lifted() { return lifted; }, get turnFaces() { return turnFaces; }, get wordFaces() { return wordSpots; }, get beingSpeed() { return beingSpeed(); }, get beingState() { return beingState; }, get pathDist() { return pathDist; }, forceBeing: () => { beingForce = true; beingNext = 0; }, distField, get finds() { return finds; }, addFind, get lampsOut() { return lampsOut; }, get roomsOut() { return roomsOut; }, get roomsSpared() { return roomsSpared; }, get roomOf() { return roomOf; }, get wallVar() { return wallVar; }, hallOut, get story() { return story; }, get heart() { return heart; }, get heartAt() { return heartAt; }, get stairs() { return stairs; }, goFloor, get chalk() { return chalk; }, get exitLocked() { return exitLocked; }, get watchLeft() { return watchLeft; }, get beingStateNow() { return beingState; }, nextGoal, get heartOpened() { return heartOpened; }, crossOut, get carried() { return carried; }, startSpots, flipSwitch, fatherSpot, FS, forceFather: () => { fatherForce = true; fatherCheck = 0; }, get steps() { return steps; } };
 })();

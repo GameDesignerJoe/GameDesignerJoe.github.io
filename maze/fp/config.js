@@ -130,3 +130,13 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
   furniture: [0, 2, 0.1, 'Furniture', 'debug'],
   switchOff: [0, 1, 0.05, 'Rooms dark', 'debug'],
 };
+
+// Where the Feedback box (the ☰ menu) sends what's written in it. Joe: "a feedback button to the menu at the top … that when
+// somebody presses it, it opens up a text window with a submit button", and "something that I could chat with you about and
+// say, 'how is the feedback?'". A Google Form, its answers kept in a Google Sheet that Claude can read: `action` is the form's
+// …/formResponse address, and each field the `entry.N` id of a question (the form's "Get pre-filled link" shows them). Empty,
+// the box still takes feedback and keeps it on the device, and sends it the next time the game is opened with this filled in.
+const FP_FEEDBACK_FORM = {
+  action: '',
+  fields: { text: '', version: '', seed: '', where: '' },
+};

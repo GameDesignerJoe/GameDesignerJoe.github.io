@@ -140,6 +140,17 @@
   /* between floors: black, the floor's number, and back */
   /* the fire room's smoke, filling from the ceiling down (fp.js sets its opacity) */
   #smoke { position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 5; background: #4a4642; }
+  /* the Feedback box: over everything, the game paused under it */
+  #feedbackBtn { display: block; margin: 2px 0 8px; }
+  #feedback { position: fixed; inset: 0; display: none; place-items: center; z-index: 8; background: #0d0f10cc; padding: 16px; box-sizing: border-box; }
+  #feedback.show { display: grid; }
+  #feedback > div { width: min(420px, 100%); box-sizing: border-box; background: #1b1a18; border: 1px solid #3a3833; border-radius: 12px; padding: 16px; color: var(--ink); }
+  #feedback h3 { margin: 0 0 10px; font: 18px Georgia, serif; }
+  #fbText { width: 100%; height: 38vh; min-height: 140px; box-sizing: border-box; resize: vertical; background: #0d0f10; color: var(--ink); border: 1px solid #3a3833; border-radius: 8px; padding: 10px; font: 16px/1.4 Georgia, serif; }
+  .fbRow { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+  .fbRow button { background: #2a2824; color: var(--ink); border: 1px solid #4a4740; border-radius: 8px; padding: 9px 16px; font: 15px Georgia, serif; cursor: pointer; }
+  #fbSend { background: #4a3d24; border-color: #7a643a; }
+  #fbNote { margin: 10px 0 0; min-height: 1.2em; font: 14px Georgia, serif; color: var(--dim); }
   #fade { position: fixed; inset: 0; display: grid; place-items: center; background: #050506; opacity: 0; pointer-events: none; transition: opacity .45s; z-index: 6; }
   #fade.show { opacity: 1; pointer-events: auto; }
   #fade.white { background: #d9d6cc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); transition: opacity .12s; }
@@ -161,6 +172,7 @@
 <div id="hint" class="gone"></div>
 <div id="panel">
   <button id="close">✕</button>
+  <button id="feedbackBtn">Feedback</button>
   <h1>First person · tuning</h1>
   <details data-sec="look"><summary>Look</summary>
   <label><span>Theme</span><select id="optTheme"></select></label>
@@ -230,6 +242,7 @@
 <div id="bookLine"></div>
 <div id="page"><div><p id="pageText"></p><small id="pageWho"></small></div></div>
 <div id="smoke"></div>
+<div id="feedback"><div><h3 id="fbTitle"></h3><textarea id="fbText" maxlength="4000"></textarea><div class="fbRow"><button id="fbCancel"></button><button id="fbSend"></button></div><p id="fbNote"></p></div></div>
 <div id="fade"><span id="fadeText"></span></div>
 <div id="opening" class="show"><p id="openingText"></p><small id="openingBy"></small></div>
 <div id="win"><div><h2>Exit</h2><p id="winSteps"></p><button id="again">Another maze</button></div></div>
