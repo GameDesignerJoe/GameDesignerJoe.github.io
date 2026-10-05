@@ -781,7 +781,7 @@
       // per axis, so the long side of a phone is used: the lead pushes the player toward the back of a box on screen, and the box
       // leaves room for the stick (below in portrait, so running down stops higher than running up stops low)
       const z = baseZ(), port = isPortrait();
-      const bx = port || !isTouch ? 0 : (save.stickSide === 'left' ? -90 : 90) / z, by = port ? 90 / z : 0;
+      const bx = port || !isTouch ? 0 : (save.stickSide === 'left' ? -90 : 90) / z, by = port && isTouch ? 90 / z : 0;
       const fx = port ? [0.28, 0.72] : [0.3, 0.7], fy = port ? [0.22, 0.64] : [0.3, 0.7];
       // the player sits on screen at centre - (lead + base + follow) * z, so these keep them inside fx/fy
       const axis = (v, b, f, S) => {
@@ -807,7 +807,7 @@
     else {
       // the follow aims where the player will be when it catches up, so the lag doesn't eat the lead
       rate = 7; tx = P.x + view.lead.x + P.avx / rate; ty = P.y + view.lead.y + P.avy / rate; tz = baseZ();
-      if (isPortrait()) ty += 90 / tz;   // the stick sits at the bottom: keep the player above the middle
+      if (isPortrait() && isTouch) ty += 90 / tz;   // the stick sits at the bottom: keep the player above the middle
       else if (isTouch) tx += (save.stickSide === 'left' ? -90 : 90) / tz;   // on its side the stick sits in a corner: keep the player clear of it
       if (mode === 'intro') rate = 2.6;
     }
@@ -1200,7 +1200,16 @@
   }
 
   // ── screens ────────────────────────────────────────────────
-  const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+  // Touch or PC is decided by what's actually used, not guessed once: touchscreen laptops report touch, and so do some
+  // desktop browsers. A movement key puts it in PC mode (no stick, no room left for one); a finger on the screen brings the stick back.
+  let isTouch = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+  function setTouch(on) {
+    if (on === isTouch) return;
+    isTouch = on; document.body.classList.toggle('desk', !on);
+    if (!on) clearStick();
+  }
+  addEventListener('keydown', (e) => { if (KEYMAP[e.code]) setTouch(false); }, true);
+  addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') setTouch(true); }, true);
   function updateHUD() {
     $('floorNum').textContent = String(floorN).padStart(2, '0');
     $('floorName').textContent = NAMES[(floorN - 1) % NAMES.length];

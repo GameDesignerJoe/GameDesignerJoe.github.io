@@ -59,7 +59,7 @@
     #stick { left: auto; right: calc(env(safe-area-inset-right) + 26px); bottom: calc(env(safe-area-inset-bottom) + 16px); transform: none; width: 188px; height: 188px; }
     body[data-stick=left] #stick { right: auto; left: calc(env(safe-area-inset-left) + 26px); }
   }
-  body.desk #stick { opacity: .0; pointer-events: none; }
+  body.desk #stick, body.desk #optStick { display: none; }
 
   /* banners and stamps */
   #banner { position: fixed; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transform: translateY(16px); transition: opacity .45s, transform .45s; }
@@ -173,7 +173,7 @@
   #ver { display: none; position: fixed; left: calc(env(safe-area-inset-left) + 10px); bottom: calc(env(safe-area-inset-bottom) + 6px); z-index: 7; font-size: 11px; letter-spacing: .5px;
     color: rgba(233,245,248,.75); text-shadow: 0 1px 2px rgba(18,49,63,.5); }
   #ver button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 2px; text-decoration: underline; text-underline-offset: 2px; touch-action: manipulation; }
-  body.chrome #ver.known { display: block; }
+  body.chrome #ver { display: block; }   /* title and pause only; the refresh is there even when GitHub hasn't answered with the version */
   @media (orientation: landscape) { body[data-stick=left] #ver { left: auto; right: calc(env(safe-area-inset-right) + 10px); } }
   /* big screens: the HUD grows with the room */
   @media (min-width: 1000px) {
