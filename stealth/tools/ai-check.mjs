@@ -100,6 +100,53 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
   else check(hid && (mode === 'caught' || closest < shR), `floor ${fl}: dived into a shade in plain view -> the guard walks in (${mode}, closest ${closest.toFixed(0)})`);
   if (mode === 'caught') await wait(2600);
 }
+// being spotted is a beat, not a capture: the '!' guard stands a moment before it runs, the shout only
+// brings guards close by, and they come at a walk; a dive into a shade in plain view is called out
+// as seen, not 'Hidden'; a glimpse is investigated, at an amble
+{
+  let tried = 0, still = 0, recruitsHurry = 0, recruits = 0, warned = 0, dives = 0, glimpse = 0, glimpseN = 0, amble = 0;
+  for (const [seed, fl] of [[22, 5], [44, 9], [9, 7], [5, 12], [11, 6], [33, 8]]) {
+    await page.evaluate(([s, n]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(n); GAME.skipIntro(); GAME.stick.on = false; }, [seed, fl]); await wait(250);
+    const gi = await page.evaluate(() => { const f = GAME.L.field; return GAME.guards.findIndex(g => g.kind !== 'sentry' && f.ray(g.x, g.y, Math.cos(g.ang), Math.sin(g.ang), 120) > 110); });
+    if (gi < 0) continue;
+    // a glimpse: about half the meter, then gone round a corner (far away); the guard walks over to look
+    await page.evaluate((i) => { window.__g = GAME.guards[i]; }, gi);
+    let aw = 0;
+    for (let t = 0; t < 80 && aw < 0.4; t++) {
+      aw = await page.evaluate(() => { const g = __g; GAME.teleport(g.x + Math.cos(g.ang) * 100, g.y + Math.sin(g.ang) * 100); return g.aw; });
+      await wait(30);
+    }
+    if (aw >= 0.4 && aw < 0.56) {
+      glimpseN++;
+      await page.evaluate(() => { const e = GAME.L.entrance; GAME.teleport(e.x, e.y); });
+      let st = '';
+      for (let t = 0; t < 40 && st !== 'search' && st !== 'return'; t++) { st = await page.evaluate(() => __g.state); await wait(100); }
+      if (st === 'search') { glimpse++; if (await page.evaluate(() => !__g.hurry)) amble++; }
+    }
+    // spotted: the startle, then the shout
+    await page.evaluate(([s, n]) => { GAME.save.runSeed = s; GAME.startFloor(n); GAME.skipIntro(); }, [seed, fl]); await wait(200);
+    await page.evaluate((i) => { window.__g = GAME.guards[i]; }, gi);
+    let r = null;
+    for (let t = 0; t < 400 && !r; t++) {
+      r = await page.evaluate(() => { const g = __g; if (g.state === 'chase') return { x: g.x, y: g.y }; GAME.teleport(g.x + Math.cos(g.ang) * 60, g.y + Math.sin(g.ang) * 60); return null; });
+      if (!r) await wait(16);
+    }
+    if (!r) continue;
+    tried++;
+    await wait(200);
+    const m = await page.evaluate((r) => ({ d: Math.hypot(__g.x - r.x, __g.y - r.y), rec: GAME.guards.filter(o => o !== __g && o.state === 'search').map(o => o.hurry) }), r);
+    if (m.d < 3) still++;
+    recruits += m.rec.length; recruitsHurry += m.rec.filter(h => h).length;
+    // into a shade in plain view: a red ring and the warning, not the 'hide' puff
+    const ok = await page.evaluate(() => { const sh = GAME.L.shades.find(s => Math.hypot(s.x - __g.x, s.y - __g.y) < 400); if (!sh) return false; __g.lost = 0; __g.state = 'chase'; GAME.P.hidden = false; GAME.teleport(sh.x, sh.y); return true; });
+    if (ok) { dives++; await wait(120); if (await page.evaluate(() => GAME.P.exposedT > 0 && /saw you go in/.test(document.getElementById('toast').textContent))) warned++; }
+    if (await page.evaluate(() => GAME.mode) === 'caught') await wait(2600);
+  }
+  check(tried >= 3 && still === tried, `spotted: ${still}/${tried} guards hold still for their startle before running`);
+  check(recruitsHurry === 0, `spotted: the shout brings ${recruits} guards, ${recruitsHurry} of them at a run`);
+  check(dives >= 3 && warned === dives, `dive in plain view: ${warned}/${dives} warned they saw you go in`);
+  check(glimpseN >= 2 && glimpse === glimpseN && amble === glimpse, `glimpse: ${glimpse}/${glimpseN} half-filled meters come over to look (${amble} at a walk)`);
+}
 // cameras see out from their walls: the ray along each camera's facing reaches into the room
 {
   let n = 0, blind = 0;

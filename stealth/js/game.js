@@ -43,35 +43,45 @@
   // ── input ──────────────────────────────────────────────────
   const stick = { on: false, x: 0, y: 0 }, keys = {};
   const stickEl = $('stick'), knob = $('knob');
-  let stickId = null;
-  function setStick(cx, cy) {
+  let stickId = null, stickDownT = -1;
+  // a thumb that lands out by the ring starts a quiet walk, not a run: the landing past 55% of the travel is held as an offset,
+  // which melts away as the thumb comes back in, so pushing out from where it landed still reaches the ring and the run
+  const stickOrg = { x: 0, y: 0, len: 0 };
+  function setStick(cx, cy, down) {
     // the knob travels 68px on the 212px stick, in proportion on the smaller one, so the dashed ring (where the run starts) sits at the same place
     const b = stickEl.getBoundingClientRect(), max = b.width * 0.32;
-    const dx = cx - (b.left + b.width / 2), dy = cy - (b.top + b.height / 2);
+    const rx = cx - (b.left + b.width / 2), ry = cy - (b.top + b.height / 2), rl = Math.hypot(rx, ry);
+    if (down) {
+      const land = 0.55 * max;
+      if (rl > land) { stickOrg.x = rx - rx / rl * land; stickOrg.y = ry - ry / rl * land; } else stickOrg.x = stickOrg.y = 0;
+    } else if (rl < stickOrg.len) { const f = Math.min(0.9, rl / stickOrg.len); stickOrg.x *= f; stickOrg.y *= f; }   // gone by the time the thumb is home
+    stickOrg.len = rl;
+    const dx = rx - stickOrg.x, dy = ry - stickOrg.y;
     const len = Math.hypot(dx, dy) || 1, k = Math.min(len, max);
     knob.style.transform = `translate(${dx / len * k}px, ${dy / len * k}px)`;
     stick.x = dx / len * k / max; stick.y = dy / len * k / max; stick.on = true;
   }
-  function clearStick() { stick.on = false; stick.x = stick.y = 0; stickId = null; stickEl.classList.remove('on', 'run'); knob.style.transform = ''; }
+  function clearStick() { stick.on = false; stick.x = stick.y = 0; stickId = null; stickOrg.x = stickOrg.y = stickOrg.len = 0; stickEl.classList.remove('on', 'run', 'loud'); knob.style.transform = ''; }
   stickEl.addEventListener('pointerdown', (e) => {
     e.preventDefault(); e.stopPropagation(); AUDIO.unlock();
     if (stickId !== null) return;   // a second finger never steals the thumb's stick
     if (mode === 'intro') skipIntro();
-    stickId = e.pointerId; stickEl.classList.add('on');
+    if (overview) toggleMap();   // like the maze: a move clears the map
+    stickId = e.pointerId; stickDownT = time; stickEl.classList.add('on');
     try { stickEl.setPointerCapture(e.pointerId); } catch (err) {}
-    setStick(e.clientX, e.clientY);
+    setStick(e.clientX, e.clientY, true);
   });
   stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
   const endStick = (e) => { if (e.pointerId === stickId) clearStick(); };
   stickEl.addEventListener('pointerup', endStick); stickEl.addEventListener('pointercancel', endStick);
-  const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'shift', ShiftRight: 'shift', ControlLeft: 'sneak', ControlRight: 'sneak', AltLeft: 'sneak', AltRight: 'sneak' };
+  const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'shift', ShiftRight: 'shift', KeyC: 'sneak', Space: 'sneak' };   // never Ctrl: Ctrl+W closes the tab
   addEventListener('keydown', (e) => {
     AUDIO.unlock();
-    const k = KEYMAP[e.code];
+    const k = e.code === 'Space' && (paused || (mode !== 'play' && mode !== 'intro')) ? null : KEYMAP[e.code];   // Space still presses menu buttons
     if (k) { keys[k] = true; e.preventDefault(); if (mode === 'intro' && k !== 'shift' && k !== 'sneak') skipIntro(); }
     if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
     if (e.code === 'KeyM' || e.code === 'Tab') { e.preventDefault(); toggleMap(); }
-    if ((e.code === 'Enter' || e.code === 'Space') && mode === 'title') startGame();
+    if ((e.code === 'Enter' || e.code === 'Space') && mode === 'title' && !e.repeat) startGame();
   });
   addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; clearStick(); });
@@ -93,7 +103,7 @@
       const dx = (btn(15) ? 1 : 0) - (btn(14) ? 1 : 0), dy = (btn(13) ? 1 : 0) - (btn(12) ? 1 : 0);
       // RT or RB runs, LT or LB creeps, like Shift and Ctrl on the keys
       const run = btn(7) || btn(5), creep = btn(6) || btn(4);
-      if (dx || dy) { const l = Math.hypot(dx, dy); return { x: dx / l * 0.8, y: dy / l * 0.8, dz: 0, run, creep }; }
+      if (dx || dy) { const l = Math.hypot(dx, dy); return { x: dx / l * 0.58, y: dy / l * 0.58, dz: 0, run, creep }; }
       return { x: p.axes[0] || 0, y: p.axes[1] || 0, dz: 0.15, run, creep };
     }
     return null;
@@ -105,19 +115,19 @@
     else if (pad && Math.hypot(pad.x, pad.y) > pad.dz) { x = pad.x; y = pad.y; dz = pad.dz; isPad = true; force = pad.run ? 1 : pad.creep ? -1 : 0; }
     else {
       const kx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), ky = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
-      if (kx || ky) { const l = Math.hypot(kx, ky), s = keys.shift ? 1 : keys.sneak ? 0.45 : 0.8; x = kx / l * s; y = ky / l * s; dz = 0; kb = true; }
+      if (kx || ky) { const l = Math.hypot(kx, ky), s = keys.shift ? 1 : keys.sneak ? 0.4 : 0.58; x = kx / l * s; y = ky / l * s; dz = 0; kb = true; }   // the plain walk sits under the 0.6 heard line
     }
     const m0 = Math.min(1, Math.hypot(x, y));
     if (m0 <= dz || m0 < 0.01) return { x: 0, y: 0, m: 0, kb, isPad, force: 0 };
     let m = (m0 - dz) / (1 - dz);
-    if (force > 0) m = 1; else if (force < 0) m = Math.min(m, 0.45);
+    if (force > 0) m = 1; else if (force < 0) m = Math.min(m, 0.4);
     return { x: x / Math.hypot(x, y), y: y / Math.hypot(x, y), m, kb, isPad, force };
   }
 
   // ── floors ─────────────────────────────────────────────────
   function startFloor(n, retry) {
     floorN = n;
-    cancelResult(); clearToast();
+    cancelResult(); clearToast(); dimHUD(false);
     L = LEVEL.generate(U.hash(save.runSeed, n), n, LEVEL.history(save.runSeed, n));   // the floors below, so the shape changes as you climb
     field = L.field; D = L.D;
     for (const d of L.doors) d.open = false;
@@ -168,6 +178,7 @@
       view.x = floorBox.cx; view.y = floorBox.cy; view.z = overviewZ();
       if (retry) { view.x = P.x; view.y = P.y; view.z = baseZ() * 0.92; }
       showBanner(retry ? null : n);
+      $('hud').classList.toggle('intro', !retry);   // one clean title card: the HUD tag comes in once the banner goes
       if (!retry) AUDIO.play('floor');
     }
   }
@@ -178,7 +189,7 @@
   const isPortrait = () => H > W;
   // the play zoom: close, like the original (the player about 4% of the short side), but never so close a cone is cropped
   function baseZ() {
-    const s = isPortrait() ? W / 400 : H / 330;
+    const s = isPortrait() ? W / 340 : H / 330;
     const coneFit = Math.min(W, H) / (1.8 * (D ? D.coneLen : 160));
     return U.clamp(Math.min(s, coneFit), 0.8, 2.0);
   }
@@ -192,11 +203,12 @@
     // Joe: the walk wants more room before the run — the stick is 25% bigger for it and the run starts further out.
     if (inp.kb || inp.force) P.run = m > 0.9;
     else if (inp.isPad) { if (P.run ? m < 0.74 : m > 0.82) P.run = !P.run; }   // worn pad sticks rarely report a full 1.0 on a diagonal
-    else if (P.run ? m < 0.8 : m > 0.88) P.run = !P.run;
+    else if (P.run ? m < 0.8 : m > 0.88 && time - stickDownT > 0.12) P.run = !P.run;   // never a run on the first touch
     let speed = 0;
     if (m > 0) speed = P.run ? U.lerp(110, 128, U.clamp((m - 0.8) / 0.2, 0, 1)) : 24 + 51 * Math.min(1, m / 0.85);
     P.m = m;   // only the run is heard
     stickEl.classList.toggle('run', stick.on && P.run);
+    stickEl.classList.toggle('loud', stick.on && !P.run && m > 0.6);   // the heard band of the walk, before the ring
     const tvx = inp.x * speed, tvy = inp.y * speed, acc = 1 - Math.exp(-dt * 16);
     P.vx += (tvx - P.vx) * acc; P.vy += (tvy - P.vy) * acc;
     const before = { x: P.x, y: P.y };
@@ -238,7 +250,18 @@
     // hiding
     const was = P.hidden;
     P.hidden = L.shades.some(s => Math.hypot(s.x - P.x, s.y - P.y) < s.r - 2);
-    if (P.hidden && !was) { AUDIO.play('hide'); fx.push({ k: 'puff', x: P.x, y: P.y, t: 0, dur: 0.5 }); hint('hidden', 'Hidden. Guards can\'t see you in the dark unless they walk right into you.'); }
+    if (P.hidden && !was) {
+      // a dive in plain view hides nothing: whoever watched you go in walks straight in after you
+      const watched = guards.some(gd => gd.lost < 0.1 && (gd.state === 'chase' || gd.aw > 0.6));
+      if (watched) {
+        P.exposedT = 1.6; fx.push({ k: 'puff', x: P.x, y: P.y, t: 0, dur: 0.6, red: true });
+        if (time - (P.exposedToast || -99) > 8) { P.exposedToast = time; toast('They saw you go in \u2014 break their line of sight first.', 3.2); }
+      } else {
+        AUDIO.play('hide'); fx.push({ k: 'puff', x: P.x, y: P.y, t: 0, dur: 0.5 });
+        hint('hidden', 'Hidden \u2014 once nobody\'s watching you go in.');
+      }
+    }
+    if (P.exposedT > 0) P.exposedT -= dt;
 
     // pickups
     for (const s of L.stars) if (!s.got && Math.hypot(s.x - P.x, s.y - P.y) < 16) {
@@ -443,14 +466,17 @@
     if (gd.state !== 'chase') {
       if (spottedCD <= 0) { AUDIO.play('spotted'); spottedCD = 1.2; if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {} }
       fx.push({ k: 'flash', t: 0, dur: 0.35 });
+      if (toastId === 'sus') clearToast();   // the 'get out of the light' advice is stale once he's running
       if (!save.hints.chase && !chaseHintT) chaseHintT = 0.8;   // only if the chase lasts: a capture straight away says it already
+      // a startle: the '!' and the stinger land before they move, a beat to turn and run
+      gd.startle = 0.35;
     }
     gd.state = 'chase'; gd.aw = 1; gd.repath = 0; bubble(gd, '!');
-    // a shout: guards who can see this one come to look
+    // a shout: guards close by who can see this one come over to look, at a walk, not a sprint
     for (const o of guards) {
       if (o === gd || o.state === 'chase' || o.state === 'sus') continue;
       const d = Math.hypot(o.x - gd.x, o.y - gd.y);
-      if (d < 240 && field.ray(gd.x, gd.y, (o.x - gd.x) / d, (o.y - gd.y) / d, d) >= d - 4) toSearch(o, { x: P.x, y: P.y });
+      if (d < 170 && field.ray(gd.x, gd.y, (o.x - gd.x) / d, (o.y - gd.y) / d, d) >= d - 4) { toSearch(o, { x: P.x, y: P.y }); o.hurry = 0; }
     }
   }
   function toReturn(gd) {
@@ -495,7 +521,7 @@
       // right on top of a guard who's facing you is an instant '!'; one rounding a corner beside you still gives a '?'
       if (s.d < 20 && !P.hidden && Math.abs(U.angDiff(gd.ang, Math.atan2(P.y - gd.y, P.x - gd.x))) < D.fov) gd.aw = 1;
       if (gd.state !== 'sus') {
-        gd.prevState = gd.state; gd.state = 'sus'; gd.susLook = gd.ang;
+        gd.prevState = gd.state; gd.state = 'sus'; gd.susLook = gd.ang; gd.peakAw = 0;
         bubble(gd, '?'); if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.5; }
         hint('sus', 'A guard noticed something. Get out of the light before the meter fills.');
       }
@@ -506,9 +532,10 @@
     switch (gd.state) {
       case 'patrol': {
         if (gd.kind === 'sentry') {
-          gd.sweep += dt;
-          const w = Math.sin(gd.sweep * 0.55), shaped = Math.sign(w) * Math.min(1, Math.abs(w) * 1.5);
-          gd.ang = U.turnTo(gd.ang, gd.home.ang + shaped * gd.amp, dt * 1.6);
+          // a snap sentry (floor 13 up) holds each look, then whips its head across
+          gd.sweep += dt * (gd.snap ? 1.6 : 1);
+          const w = Math.sin(gd.sweep * 0.55), shaped = Math.sign(w) * Math.min(1, Math.abs(w) * (gd.snap ? 2.6 : 1.5));
+          gd.ang = U.turnTo(gd.ang, gd.home.ang + shaped * gd.amp, dt * (gd.snap ? 4 : 1.6));
           if (Math.hypot(gd.x - gd.home.x, gd.y - gd.home.y) > 4) stepToward(gd, gd.home.x, gd.home.y, D.patrol, dt, 3);
           break;
         }
@@ -528,6 +555,7 @@
       }
       case 'sus': {
         // stop, turn to look, edge toward what you saw
+        gd.peakAw = Math.max(gd.peakAw || 0, gd.aw);
         if (gd.last) {
           gd.ang = U.turnTo(gd.ang, Math.atan2(gd.last.y - gd.y, gd.last.x - gd.x), dt * 2.6);
           if (gd.aw > 0.6 && Math.hypot(gd.last.x - gd.x, gd.last.y - gd.y) > 30) stepToward(gd, gd.last.x, gd.last.y, 16, dt, 2.6);
@@ -535,20 +563,28 @@
         if (!s) {
           gd.aw = Math.max(0, gd.aw - dt * 0.3);
           if (gd.lost > 1.1) {
-            if (gd.aw > 0.25 && gd.last) toSearch(gd, gd.last);
+            // a real glimpse (over a third of the meter) is worth a walk over to look, at an amble
+            if ((gd.aw > 0.25 || gd.peakAw > 0.35) && gd.last) { const sure = gd.aw > 0.25; toSearch(gd, gd.last); gd.hurry = sure ? 1 : 0; }
             else { gd.aw = 0; toReturn(gd); gd.bubble = null; AUDIO.play('lost'); }
           }
         }
         break;
       }
       case 'chase': {
+        if (gd.startle > 0) {
+          gd.startle -= dt;
+          gd.ang = U.turnTo(gd.ang, Math.atan2(P.y - gd.y, P.x - gd.x), dt * turn);
+          break;
+        }
         gd.repath -= dt;
         if (s) {
           if (field.clear(gd.x, gd.y, P.x, P.y, G_R - 1)) { gd.route = [{ x: P.x, y: P.y }]; gd.ri = 0; }
           else if (gd.repath <= 0) { routeTo(gd, P.x, P.y); gd.repath = 0.3; }
         } else if (gd.repath <= 0 && gd.last) { const q = lookSpot(gd, gd.last); routeTo(gd, q.x, q.y); gd.repath = 0.6; }
         const done = follow(gd, D.chase, dt, turn);
-        if (!s && (done || gd.lost > 3)) { gd.aw = 0.6; toSearch(gd, gd.last || { x: gd.x, y: gd.y }); }
+        // out of sight for two seconds, or at the spot and you're not there: a '?' and a look round.
+        // the meter drops well back, so a glimpse as they search is a beat to duck away, not a re-capture
+        if (!s && (done || gd.lost > 2)) { gd.aw = 0.4; toSearch(gd, gd.last || { x: gd.x, y: gd.y }); }
         break;
       }
       case 'search': {
@@ -647,11 +683,11 @@
     AUDIO.play('caught'); view.shake = 1;
     if (navigator.vibrate) try { navigator.vibrate([90, 60, 160]); } catch (e) {}
     fx.push({ k: 'flash', t: 0, dur: 0.6, red: true });
-    clearStick(); clearToast(); chaseHintT = 0;
+    clearStick(); clearToast(); chaseHintT = 0; dimHUD(true);
     // frame the capture: both squares, centred under the stamp, eased in over 0.4s
     const o = catcher || P;
     // on a short screen the stamp takes the top third, so the capture sits a little below the middle
-    const z = baseZ() * 1.3, dy = H < 500 ? H * 0.16 : W >= 1000 ? H * 0.07 : 0;
+    const z = baseZ() * 1.3, dy = H < 500 ? H * 0.26 : W >= 1000 ? H * 0.07 : 0;
     shot = { x0: view.x, y0: view.y, z0: view.z, x: (o.x + P.x) / 2, y: (o.y + P.y) / 2 - dy / z, z };
     // the eye goes stamp (0.65s), then the guard's '!' (1.0s), then a red ring on the player (1.2s)
     res = { k: 'caught', stage: 0, at: 0.65, stars: [], ring: 1.2 };
@@ -663,9 +699,9 @@
     save.stars[floorN] = Math.max(prev, gotStars);
     save.floor = floorN + 1; save.best = Math.max(save.best, floorN + 1);
     persist();
-    clearStick(); clearToast(); chaseHintT = 0;
+    clearStick(); clearToast(); chaseHintT = 0; dimHUD(true);
     fx.push({ k: 'burst', x: L.exit.x, y: L.exit.y, t: 0, dur: 0.9, c: '#ffffff' });
-    const z = baseZ() * 1.25, dy = H < 500 ? H * 0.18 : 0;   // below the stamp and its stars
+    const z = baseZ() * 1.25, dy = H < 500 ? H * 0.22 : W >= 1000 ? H * 0.18 : H * 0.06;   // below the stamp, its stars and the 'Up the stairs' line
     shot = { x0: view.x, y0: view.y, z0: view.z, x: L.exit.x, y: L.exit.y - dy / z, z };
     res = { k: 'clear', stage: 0, at: 0.75, stars: [] };
   }
@@ -705,12 +741,14 @@
   function skipIntro() { if (mode === 'intro' && modeT < 1.3) modeT = 1.3; }
 
   // ── hints ──────────────────────────────────────────────────
-  let toastT = 0;
-  function toast(text, dur) { const t = $('toast'); t.textContent = text; t.classList.add('show'); toastT = dur || 3.5; }
-  function clearToast() { $('toast').classList.remove('show'); toastT = 0; }
+  let toastT = 0, toastId = null;
+  function toast(text, dur, id) { const t = $('toast'); t.textContent = text; t.classList.add('show'); toastT = dur || 3.5; toastId = id || null; }
+  function clearToast() { $('toast').classList.remove('show'); toastT = 0; toastId = null; }
+  // caught / clear: the HUD and the stick step back so the stamp owns the screen
+  function dimHUD(on) { $('hud').classList.toggle('dim', on); stickEl.classList.toggle('dim', on); }
   function hint(id, text) {
     if (save.hints[id] || floorN > 3) return;
-    save.hints[id] = 1; persist(); toast(text, 4.2);
+    save.hints[id] = 1; persist(); toast(text, 3.4, id);
   }
 
   // ── the loop ───────────────────────────────────────────────
@@ -729,12 +767,13 @@
   function step(dt) {
     time += dt; modeT += dt;
     spottedCD -= dt; hmmCD -= dt; lockedCD -= dt;
-    if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); }
+    if (toastT > 0) { toastT -= dt; if (toastT <= 0) clearToast(); }
+    if (mode !== 'intro' || bannerT <= 0) $('hud').classList.remove('intro');
     if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').className = 'hide'; }
     if (chaseHintT > 0 && mode === 'play') { chaseHintT -= dt; if (chaseHintT <= 0) { chaseHintT = 0; hint('chase', 'Seen! Break their line of sight. They\'ll search where they lost you.'); } }
     stepResult();
     // the touch that skips the intro also moves: control comes as the camera starts to close in, not 0.8s later
-    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : 'WASD or arrows to walk, Shift to run, Ctrl to creep. Stay out of the light.'); }
+    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : 'WASD or arrows to walk, Shift to run, C or Space to creep. Stay out of the light.'); }
     if (mode === 'play') { updatePlayer(dt); stats.time += dt; }
     const live = mode === 'play' || mode === 'caught' || mode === 'title' || mode === 'clear';
     if (live && !overview) { for (const gd of guards) if (!(mode === 'caught' && gd === catcher)) updateGuard(gd, dt); for (const c of cams) updateCam(c, dt); }
@@ -1048,7 +1087,7 @@
       g.lineWidth = 1.6; g.strokeStyle = COL.playerLo; g.stroke();
       g.fillStyle = COL.playerHi; g.fillRect(-s / 2 + 2.5, -s / 2 + 2.5, s - 5, 2.5);
       g.fillStyle = 'rgba(255,255,255,0.9)'; g.fillRect(s / 2 - 4.5, -2, 2.5, 4);
-      if (P.hidden) { g.globalAlpha = 1; g.setLineDash([3, 3]); g.lineDashOffset = -time * 12; g.strokeStyle = '#bff0ff'; g.lineWidth = 1.4; g.strokeRect(-s / 2 - 3, -s / 2 - 3, s + 6, s + 6); g.setLineDash([]); }
+      if (P.hidden) { g.globalAlpha = 1; g.setLineDash([3, 3]); g.lineDashOffset = -time * 12; g.strokeStyle = P.exposedT > 0 && Math.sin(time * 18) > -0.3 ? '#ff5a4a' : '#bff0ff'; g.lineWidth = 1.4; g.strokeRect(-s / 2 - 3, -s / 2 - 3, s + 6, s + 6); g.setLineDash([]); }
       g.restore();
     }
   }
@@ -1088,7 +1127,7 @@
         for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, r0 = 8 + t * 20, r1 = r0 + 8 * (1 - t); g.beginPath(); g.moveTo(f.x + Math.cos(a) * r0, f.y + Math.sin(a) * r0); g.lineTo(f.x + Math.cos(a) * r1, f.y + Math.sin(a) * r1); g.stroke(); }
         g.globalAlpha = 1;
       } else if (f.k === 'puff') {
-        g.strokeStyle = `rgba(190,240,255,${0.7 * (1 - t)})`; g.lineWidth = 1.5;
+        g.strokeStyle = f.red ? `rgba(255,90,74,${0.9 * (1 - t)})` : `rgba(190,240,255,${0.7 * (1 - t)})`; g.lineWidth = f.red ? 2.2 : 1.5;
         g.beginPath(); g.arc(f.x, f.y, 8 + t * 18, 0, TAU); g.stroke();
       } else if (f.k === 'pop') {
         const s = toScreen(f.x, f.y);
@@ -1255,7 +1294,7 @@
   }
   function titleScreen() {
     mode = 'title'; modeT = 0; paused = false; AUDIO.duck(false);
-    cancelResult(); cancelWipe(); clearToast(); chaseHintT = 0; showBanner(null);
+    cancelResult(); cancelWipe(); clearToast(); chaseHintT = 0; showBanner(null); dimHUD(false);
     $('title').classList.add('show'); $('hud').classList.add('gone'); stickEl.classList.add('gone');
     const totalStars = Object.values(save.stars).reduce((a, b) => a + b, 0);
     $('btnPlay').textContent = save.floor > 1 ? `Continue · Floor ${save.floor}` : 'Begin';
@@ -1274,7 +1313,7 @@
     wipe(() => startFloor(save.floor));
   }
   $('btnPlay').addEventListener('click', startGame);
-  $('btnNew').addEventListener('click', () => { save.floor = 1; save.runSeed = (Math.random() * 1e9) >>> 0; persist(); startGame(); });
+  $('btnNew').addEventListener('click', () => { save.floor = 1; save.runSeed = (Math.random() * 1e9) >>> 0; save.stars = {}; persist(); startGame(); });   // a new building's stars start from none
   // pointerdown, not click: Chromium sends click only for the primary pointer, and the thumb on the stick is that pointer
   let btnDownT = -1e9;
   $('pauseBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); btnDownT = performance.now(); AUDIO.play('tap'); togglePause(); });

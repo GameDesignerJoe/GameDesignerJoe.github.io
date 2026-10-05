@@ -191,11 +191,15 @@
       coneLen: Math.min(132 + n * 5, 190),
       fov: 0.6 + U.clamp((n - 12) / 3, 0, 1) * 0.1,   // wider eyes past the twelfth floor
       patrol: Math.min(40 + n * 2, 60),
-      chase: Math.min(100 + n * 2, 118),
+      chase: Math.min(90 + n * 1.5, 104),   // a sprint (128) stays about 1.23x a chaser on every floor, so a corner can still lose them
       detect: Math.min(0.6 + n * 0.025, 0.9),
       cams: n >= 3,
       keys: n < 2 ? 0 : n < 5 ? 1 : n < 9 ? 2 : 3,
-      hear: 140,
+      hear: n >= 17 ? 165 : 140,
+      // past the twelfth floor the rest stops growing, so a new pressure arrives every few floors:
+      snap: n >= 13,        // sentries whose heads whip round
+      camPairs: n >= 15,    // cameras in pairs across a room, sweeping in counterpoint
+      budget: n >= 19 ? 16 : 14,   // and, from the nineteenth (with sharper ears from the seventeenth), more of them
     };
   }
 
@@ -938,9 +942,14 @@
     }
     field.applyDoors();
     const navG = (f) => new Nav(f, 11);
-    let lo = 0;
+    let lo = 0, loPrev = 0;
+    // its own dice, so the rest of the floor rolls the same: from the sixth floor a key may wait back
+    // with the one before it, so you carry two keys to their doors rather than one at a time
+    const KR = U.rng(U.hash(seed, 0x6b));
     for (let k = 0; k < locks.length; k++) {
       // the key lives somewhere between the previous lock and this one, a side room if there is one
+      if (k > 0 && n >= 6 && KR() < 0.35) lo = loPrev;
+      loPrev = lo;
       const hi = main.indexOf(locks[k].conn.a);
       const pool = L.rooms.filter(r => r.idx >= lo && r.idx <= hi && r !== main[0] || (r === main[0] && hi === 0));
       const sides = pool.filter(r => r.side);
@@ -1458,7 +1467,7 @@
       if (n === 1) count = 1;
       counts.set(room, Math.min(count, 3));
     }
-    const budget = Math.min(14, Math.round(4 + n * 0.8));
+    const budget = Math.min(D.budget || 14, Math.round(4 + n * 0.8));
     for (let sum = [...counts.values()].reduce((a, b) => a + b, 0); sum > budget; sum--) {
       let top = null; for (const [r, c] of counts) if (c > 1 && (!top || c > counts.get(top) || (c === counts.get(top) && R.chance(0.5)))) top = r;
       if (!top) { const rs = [...counts.keys()].filter(r => r.side || r.idx > 0); if (!rs.length) break; counts.delete(R.pick(rs)); continue; }
@@ -1478,26 +1487,40 @@
         const th = R() * TAU;
         if (kind === 'cam') {
           // on the wall, looking in
-          let p = null, face = 0;
-          for (let s = 0; s < 12 && !p; s++) {
-            const a = R() * TAU, e = extent(room, a);
+          const camAt = (a) => {
+            const e = extent(room, a);
             const inward = { x: room.c.x + Math.cos(a) * (e - 36), y: room.c.y + Math.sin(a) * (e - 36) };
-            if (field.sample(inward.x, inward.y) < 16) continue;
+            if (field.sample(inward.x, inward.y) < 16) return null;
             // in from the edge until it's just off the wall face, so it sees from the room, not from inside the wall
             let q = null;
             for (let d = 6; d <= 26 && !q; d += 4) {
               const c = { x: room.c.x + Math.cos(a) * (e - d), y: room.c.y + Math.sin(a) * (e - d) }, v = field.sample(c.x, c.y);
               if (v >= 1.5 && v <= 8) q = c;
             }
-            if (!q || !okHome(q) || !farFromStart(q, 380) || nearMouth(q, 60)) continue;
-            if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 120) < 90) continue;   // a clear look into the room
-            p = q; face = a + Math.PI;
+            if (!q || !okHome(q) || !farFromStart(q, 380) || nearMouth(q, 60)) return null;
+            if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 120) < 90) return null;   // a clear look into the room
+            return q;
+          };
+          let p = null, face = 0, pa = 0;
+          for (let s = 0; s < 12 && !p; s++) {
+            const a = R() * TAU, q = camAt(a);
+            if (q) { p = q; face = a + Math.PI; pa = a; }
           }
           if (!p) continue;
           // from the ninth floor some cameras pan quick
           const quick = n >= 9 && R.chance(0.5);
-          L.cams.push({ x: p.x, y: p.y, base: face, amp: R.range(0.45, 0.85), period: quick ? R.range(3, 4) : R.range(5, 8), phase: R() * TAU });
+          const cam = { x: p.x, y: p.y, base: face, amp: R.range(0.45, 0.85), period: quick ? R.range(3, 4) : R.range(5, 8), phase: R() * TAU };
+          L.cams.push(cam);
           homes.push(p); cams++;   // a camera is on top of the room's guards, not one of them
+          // from the fifteenth floor a camera may have a twin on the far wall, half a sweep behind, so
+          // the gap in one's sweep is the other's stare
+          if (D.camPairs && R.chance(0.6)) for (let s = 0; s < 6; s++) {
+            const a = pa + Math.PI + R.range(-0.35, 0.35), q = camAt(a);
+            if (!q || Math.hypot(q.x - p.x, q.y - p.y) < 160) continue;
+            L.cams.push({ x: q.x, y: q.y, base: a + Math.PI, amp: cam.amp, period: cam.period, phase: cam.phase + Math.PI, twin: true });
+            homes.push(q); cams++;
+            break;
+          }
           continue;
         }
         if (kind === 'sentry') {
@@ -1505,7 +1528,7 @@
           const p = field.nearestFree(room.c.x + Math.cos(a) * e * 0.7, room.c.y + Math.sin(a) * e * 0.7, 16, 50);
           if (!okHome(p) || nearMouth(p, 80) || !offFirst(p)) continue;
           const face = Math.atan2(room.c.y - p.y, room.c.x - p.x) + R.range(-0.4, 0.4);
-          L.guards.push({ kind: 'sentry', x: p.x, y: p.y, ang: face, amp: R.range(0.55, 1.05) });
+          L.guards.push({ kind: 'sentry', x: p.x, y: p.y, ang: face, amp: R.range(0.55, 1.05), snap: D.snap && R.chance(0.5) });
           homes.push(p); k++;
           continue;
         }
