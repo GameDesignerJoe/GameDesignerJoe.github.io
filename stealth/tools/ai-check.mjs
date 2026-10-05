@@ -42,7 +42,8 @@ for (const fl of [2, 5, 9]) {
   // vanish: far away, at the entrance
   await page.evaluate(() => { const e = GAME.L.entrance; GAME.teleport(e.x, e.y); GAME.P.alive = true; });
   const after = new Set(); let qa = [];
-  for (let t = 0; t < 140; t++) {
+  // up to 22s: a guard that peeks (floor 6 up) checks a shade after its search before it goes back
+  for (let t = 0; t < 220; t++) {
     const r = await page.evaluate(() => { const g = GAME.guards[__watch]; return [g.state, g.bubble ? g.bubble.k + g.bubble.a.toFixed(2) : '-']; });
     after.add(r[0]); if (r[0] === 'search') qa.push(r[1]);
     if (r[0] === 'patrol' && after.has('return')) break;
@@ -62,14 +63,20 @@ for (const fl of [2, 5, 9]) {
 }
 // hide mid-chase. 'cover': break its line of sight, then slip into a shade and hold still: the guard
 // searches the rim and gives up. 'watched': walk into the shade in plain view: the guard walks in after you.
-for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover'], [5, 12, 'cover'], [22, 5, 'watched'], [44, 9, 'watched'], [9, 7, 'watched']]) {
+for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover'], [5, 12, 'cover'], [13, 8, 'cover'], [31, 10, 'cover'], [17, 6, 'cover'],
+  [22, 5, 'watched'], [44, 9, 'watched'], [9, 7, 'watched'], [13, 8, 'watched'], [31, 10, 'watched'], [17, 6, 'watched']]) {
   await page.evaluate(([s, n]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(n); }, [seed, fl]); await wait(300);
   await page.evaluate(() => GAME.skipIntro()); await wait(200);
   const ok = await page.evaluate(() => {
     const f = GAME.L.field;
     for (const sh of GAME.L.shades) for (const g of GAME.guards) {
       const d = Math.hypot(g.x - sh.x, g.y - sh.y);
-      if (d > 130 && d < 220 && f.ray(sh.x, sh.y, (g.x - sh.x) / d, (g.y - sh.y) / d, d) >= d - 4) { window.__sh = sh; window.__g = g; return true; }
+      if (d > 130 && d < 220 && f.ray(sh.x, sh.y, (g.x - sh.x) / d, (g.y - sh.y) / d, d) >= d - 4) {
+        window.__sh = sh; window.__g = g;
+        // one guard's scene: the others are sent off the floor, so none of them joins in and decides it instead
+        GAME.guards.forEach(o => { if (o !== g) { o.x = o.home.x = 1e5; o.y = o.home.y = 1e5; o.path = null; o.kind = 'sentry'; } });
+        return true;
+      }
     }
     return false;
   });
@@ -147,6 +154,43 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
   check(dives >= 3 && warned === dives, `dive in plain view: ${warned}/${dives} warned they saw you go in`);
   check(glimpseN >= 2 && glimpse === glimpseN && amble === glimpse, `glimpse: ${glimpse}/${glimpseN} half-filled meters come over to look (${amble} at a walk)`);
 }
+// the shout, tested on a known case rather than whatever the floors above happen to hold: a pair on one
+// loop (floor 7 up) in plain view of each other under 170 apart. The first is spotted from right in front;
+// the second must be called over, and at a walk (hurry 0)
+{
+  let found = null;
+  for (let seed = 1; seed <= 60 && !found; seed++) for (const fl of [7, 8, 9, 10, 11, 12]) {
+    found = await page.evaluate(([s, n]) => {
+      localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(n); GAME.skipIntro(); GAME.stick.on = false;
+      const f = GAME.L.field, gs = GAME.guards;
+      for (const a of gs) for (const b of gs) {
+        if (a === b || !a.path || b.path !== a.path) continue;
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d > 165 || f.ray(a.x, a.y, (b.x - a.x) / d, (b.y - a.y) / d, d) < d - 4) continue;
+        // the player stands just in front of a; b mustn't see them itself (it would be suspicious, not called)
+        const px = a.x + Math.cos(a.ang) * 19, py = a.y + Math.sin(a.ang) * 19;
+        if (f.sample(px, py) < 8) continue;
+        const e = Math.atan2(py - b.y, px - b.x), pd = Math.hypot(px - b.x, py - b.y);
+        if (Math.abs(((e - b.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 1.1 && pd < 220) continue;
+        return { s, n, a: a.id, b: b.id };
+      }
+      return null;
+    }, [seed, fl]);
+    if (found) break;
+  }
+  if (!found) check(false, 'shout: no floor 7-12 in 60 runs has a pair on one loop in view under 165 apart');
+  else {
+    const r = await page.evaluate(({ a, b }) => new Promise(res => {
+      const A = GAME.guards[a], B = GAME.guards[b];
+      GAME.teleport(A.x + Math.cos(A.ang) * 19, A.y + Math.sin(A.ang) * 19);
+      let t = 0; const iv = setInterval(() => {
+        if (A.state === 'chase' || ++t > 30) { clearInterval(iv); setTimeout(() => res({ a: A.state, b: B.state, hurry: B.hurry, d: Math.hypot(A.x - B.x, A.y - B.y) }), 60); }
+      }, 16);
+    }), found);
+    check(r.a === 'chase' && r.b === 'search' && !r.hurry, `shout: run ${found.s} floor ${found.n}, a pair ${r.d.toFixed(0)} apart: spotter ${r.a}, partner ${r.b} ${r.hurry ? 'at a run' : 'at a walk'}`);
+    if (await page.evaluate(() => GAME.mode) === 'caught') await wait(2600);
+  }
+}
 // cameras see out from their walls: the ray along each camera's facing reaches into the room
 {
   let n = 0, blind = 0;
@@ -191,6 +235,35 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
   const r = await cpRespawns(browser, `http://localhost:${srv.address().port}/stealth/index.html`, [11, 22, 33, 44, 55], [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   const bad = r.filter(x => x.bad);
   check(r.length > 50 && !bad.length, `checkpoint respawns: ${r.length} doors, ${bad.length} noticed within 4s standing still${bad.length ? ' (' + bad.slice(0, 4).map(x => `run ${x.seed} floor ${x.fl} door ${x.i}: ${x.bad}`).join('; ') + ')' : ''}`);
+}
+// the knock: a guard on its rounds within earshot comes over to look, at a walk; then it's spent for 6s
+{
+  let n = 0, came = 0, walk = 0, spent = 0;
+  for (const [seed, fl] of [[3, 4], [8, 6], [12, 9], [21, 11]]) {
+    await page.evaluate(([s, f]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(f); GAME.skipIntro(); GAME.stick.on = false; }, [seed, fl]); await wait(150);
+    const r = await page.evaluate(() => {
+      const f = GAME.L.field, g = GAME.guards.find(g => g.path && f.ray(g.x, g.y, -Math.cos(g.ang), -Math.sin(g.ang), 90) > 85);
+      if (!g) return null;
+      GAME.teleport(g.x - Math.cos(g.ang) * 80, g.y - Math.sin(g.ang) * 80);   // behind it, out of its cone
+      GAME.knock(); const cd1 = GAME.knockCD; GAME.knock();
+      return { st: g.state, hurry: g.hurry, cd: cd1 };
+    });
+    if (!r) continue;
+    n++; if (r.st === 'search') came++; if (r.st === 'search' && !r.hurry) walk++; if (r.cd > 5.9) spent++;
+  }
+  check(n >= 3 && came === n && walk === n && spent === n, `knock: ${came}/${n} guards behind you come to look (${walk} at a walk), cooldown set ${spent}/${n}`);
+}
+// a floor played again from the list: its stars only go up, and the climb stays where it was
+{
+  await page.evaluate(() => { localStorage.clear(); const s = GAME.save; s.runSeed = 77; s.floor = 6; s.best = 6; s.stars = { 1: 1, 2: 3, 3: 0, 4: 2, 5: 1 }; GAME.replayFloor(3); }); await wait(900);
+  await page.evaluate(() => GAME.skipIntro()); await wait(100);
+  const sameFloor = await page.evaluate(() => { const L = GAME.L; GAME.guards.forEach(g => { g.x = g.home.x = 1e5; g.y = g.home.y = 1e5; g.path = null; g.kind = 'sentry'; }); GAME.cams.length = 0;
+    L.stars.slice(0, 2).forEach(s => GAME.teleport(s.x, s.y)); return GAME.floor; });
+  for (let i = 0; i < 2; i++) { await page.evaluate((i) => { const s = GAME.L.stars[i]; GAME.teleport(s.x, s.y); }, i); await wait(80); }
+  await page.evaluate(() => { const e = GAME.L.exit; GAME.teleport(e.x, e.y); }); await wait(4200);
+  const r = await page.evaluate(() => ({ floor: GAME.save.floor, s3: GAME.save.stars[3], mode: GAME.mode, list: document.getElementById('floors').classList.contains('show'), tiles: document.querySelectorAll('#flGrid .flTile').length }));
+  check(sameFloor === 3 && r.floor === 6 && r.s3 === 2 && r.list && r.tiles === 5, `replay floor 3: stars 0 -> ${r.s3}, climb still at floor ${r.floor}, back on the list (${r.list}, ${r.tiles} floors)`);
+  await page.evaluate(() => document.getElementById('flBack').click());
 }
 check(errors.length === 0, 'no page errors ' + errors.join(' | '));
 await browser.close(); srv.close();

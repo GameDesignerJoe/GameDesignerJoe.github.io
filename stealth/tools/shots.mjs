@@ -1,4 +1,4 @@
-// node stealth/tools/shots.mjs <outDir> [floor...]
+// node stealth/tools/shots.mjs <outDir> [floor...]   (floors: '3 9 16' or '3,9,16'; default 1 4 8)
 // Serves the repo, opens the game in headless Chromium at phone and desktop sizes, and saves
 // screenshots of the title, a floor intro, play, the map view, a suspicious guard and a chase.
 // Prints console errors and the frame rate.
@@ -9,7 +9,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
 const out = path.resolve(process.argv[2] || 'shots');
-const floors = process.argv.slice(3).map(Number).filter(Boolean);
+// floors as separate words or comma-separated ('3 9 16' or '3,9,16'); anything that isn't a floor is an error, not a silent default
+const floorArgs = process.argv.slice(3).flatMap(a => a.split(/[,\s]+/)).filter(a => a !== '');
+const floors = floorArgs.map(Number);
+if (floors.some(n => !Number.isInteger(n) || n < 1)) { console.error(`bad floors argument: ${process.argv.slice(3).join(' ')} (want e.g. 3 9 16 or 3,9,16)`); process.exit(2); }
 fs.mkdirSync(out, { recursive: true });
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.woff2': 'font/woff2' };
 const srv = http.createServer((q, r) => {

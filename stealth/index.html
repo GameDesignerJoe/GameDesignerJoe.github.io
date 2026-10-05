@@ -41,7 +41,10 @@
   @keyframes punch { 0% { transform: scale(1.35); } 100% { transform: scale(1.1); } }
   #hudStars span.on, .stars span.on { color: var(--star); text-shadow: 0 0 10px rgba(243,229,126,.7), 0 2px 0 rgba(18,49,63,.35); transform: scale(1.1); }
   .right { display: flex; gap: 10px; align-items: center; pointer-events: auto; }
-  #hudKeys { display: flex; gap: 5px; margin-right: 4px; }
+  /* held keys get their own slot under the floor tag, in its pill, so they never run into the stars */
+  .left { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  #hudKeys { display: flex; flex-direction: row; gap: 7px; padding: 6px 10px; border-radius: 10px; background: rgba(18,49,63,.4); border: 2px solid rgba(233,245,248,.6); }
+  #hudKeys:empty { display: none; }
   #hudKeys .key { width: 16px; height: 11px; border-radius: 2px; box-shadow: 0 2px 0 rgba(18,49,63,.35); transform: rotate(-25deg); }
   .iconBtn { width: 48px; height: 48px; border-radius: 12px; border: 0; background: rgba(233,245,248,.82); color: var(--ink); display: grid; place-items: center;
     box-shadow: 0 3px 0 rgba(18,49,63,.25); }
@@ -70,6 +73,9 @@
   /* banners and stamps */
   #banner { position: fixed; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transform: translateY(16px); transition: opacity .45s, transform .45s; }
   #banner.show { opacity: 1; transform: none; }
+  /* a soft ink pool behind the word, so FLOOR N reads over the busy map the intro shows */
+  #banner::before { content: ''; position: absolute; left: 50%; top: 50%; width: min(150vw, 1100px); height: 300%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
+    background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(18,49,63,.5), rgba(18,49,63,.22) 45%, transparent 72%); }
   #banner.hide { opacity: 0; transform: translateY(-20px); }
   #banner .bn { font-size: clamp(56px, 13vw, 120px); font-weight: 700; font-style: italic; color: var(--pale); letter-spacing: 2px; line-height: 1.05; white-space: nowrap;
     text-shadow: 6px 8px 0 rgba(18,49,63,.5); }
@@ -78,6 +84,10 @@
   /* the stamp sits in the top third: the centre of the screen is where the capture happens, and it stays in view */
   #result { position: fixed; inset: 0; display: grid; place-content: start center; padding-top: calc(env(safe-area-inset-top) + 17vh); text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .3s; }
   #result.show { opacity: 1; background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.35), transparent 60%); }
+  /* leaving: the stamp holds its landed pose while the whole block fades under the ink, rather than snapping back to its pre-pop state */
+  #result.out { opacity: 0; background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.35), transparent 60%); }
+  #result.out .stamp { opacity: 1; transform: rotate(-6deg) scale(1.04); transition: transform .3s; }
+  #result.out .stars span.on { opacity: 1; transform: none; }
   .stamp { font-size: clamp(48px, 15vw, 120px); line-height: 1.05; letter-spacing: .02em; white-space: nowrap; justify-self: center; font-weight: 700; font-style: italic; padding: 4px 26px; border: 6px solid; border-radius: 12px; transform: rotate(-6deg) scale(2.2); opacity: 0;
     background: rgba(233,245,248,1); box-shadow: 0 8px 0 rgba(18,49,63,.35); }
   /* a heavy landing: it slams down past its size, then settles */
@@ -92,23 +102,33 @@
   #result .stars span { color: rgba(233,245,248,.35); -webkit-text-stroke: 1.5px rgba(18,49,63,.55); }
   #result .stars span.on { color: var(--star); -webkit-text-stroke: 1.5px rgba(150,120,20,.6); transform: scale(1.8); opacity: 0; animation: starPop .32s cubic-bezier(.2,1.6,.4,1) forwards; }
   @keyframes starPop { to { transform: scale(1); opacity: 1; } }
-  #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 98px); transform: translate(-50%, -10px); max-width: min(80vw, 440px); width: max-content;
+  #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 98px); transform: translate(-50%, -10px); max-width: min(80vw, 440px); width: max-content; text-wrap: balance;
     padding: 9px 16px; border-radius: 12px; background: rgba(18,49,63,.84); color: var(--pale); font-size: 14px; line-height: 1.35; text-align: center;
     opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none; z-index: 4; }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
   #wipe { position: fixed; inset: 0; background: #15364a; z-index: 6; pointer-events: none; transform: translateY(100%); }
   #wipe.in { transform: translateY(0); transition: transform .5s cubic-bezier(.7,0,.3,1); }
   #wipe.out { transform: translateY(-100%); transition: transform .55s cubic-bezier(.7,0,.3,1); }
+  /* a retry only dips to ink and back: no slide, so the respawn reads as the same floor again */
+  #wipe.fade { transform: none; opacity: 0; }
+  #wipe.fade.in { opacity: 1; transition: opacity .22s cubic-bezier(.4,0,.7,1); }
+  #wipe.fade.out { opacity: 0; transition: opacity .3s ease-out; }
 
   /* title */
   #title { position: fixed; inset: 0; z-index: 5; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding-bottom: 6vh; box-sizing: border-box;
     background: radial-gradient(ellipse at center, rgba(210,232,237,.15), rgba(40,90,105,.45)); }
   #title.show { display: flex; }
   /* a soft dark scrim behind the text block so it reads over the attract floor */
-  #title::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(18,49,63,.5), transparent); }
+  #title::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(18,49,63,.65), transparent); }
+  /* on its side the text block moves left of centre: the attract floor walks its rounds on the right */
+  @media (orientation: landscape) {
+    #title { padding-right: 38vw; }
+    #title::before { background: radial-gradient(ellipse 40% 45% at 31% 50%, rgba(18,49,63,.65), transparent); }
+    .credit { left: 0; width: 62vw; }
+  }
   @media (orientation: portrait) {
     #title { justify-content: flex-start; padding-top: 22vh; }
-    #title::before { background: radial-gradient(ellipse 80% 32% at 50% 40%, rgba(18,49,63,.55), transparent); }
+    #title::before { background: radial-gradient(ellipse 80% 32% at 50% 36%, rgba(18,49,63,.65), transparent); }
   }
   .logo { position: relative; width: min(84vw, 460px); }
   .logo svg { width: 100%; display: block; overflow: visible; }
@@ -123,7 +143,7 @@
   @media (max-width: 520px) { .tag { display: flex; flex-direction: column; align-items: center; } }
   .titleBtns { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   #titleMeta { color: var(--pale); font-size: 13px; letter-spacing: 2px; opacity: .9; min-height: 18px; text-shadow: 0 1px 0 rgba(18,49,63,.4); }
-  .credit { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 12px); color: rgba(233,245,248,.75); font-size: 11px; letter-spacing: 1px; text-align: center; padding: 0 20px; }
+  .credit { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 30px); color: rgba(233,245,248,.75); font-size: 11px; letter-spacing: 1px; text-align: center; padding: 0 20px; }
 
   /* pause */
   #pause { position: fixed; inset: 0; z-index: 5; display: none; place-items: center; background: rgba(18,49,63,.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
@@ -160,6 +180,7 @@
     .titleBtns .bigBtn, .titleBtns .ghostBtn { min-width: 200px; }
     .titleBtns .bigBtn { padding: 12px 22px; font-size: 18px; }
     .titleBtns .ghostBtn { align-self: stretch; }
+    .titleBtns #btnFloors, .titleBtns #btnNew { min-width: 130px; }
     .credit { display: none; }
     #result { padding-top: calc(env(safe-area-inset-top) + max(9vh, 54px)); }
     .stamp { font-size: clamp(40px, 17vh, 84px); padding: 2px 20px; border-width: 5px; }
@@ -180,9 +201,21 @@
   #ver { display: none; position: fixed; left: calc(env(safe-area-inset-left) + 10px); bottom: calc(env(safe-area-inset-bottom) + 6px); z-index: 7; font-size: 11px; letter-spacing: .5px;
     color: rgba(233,245,248,.75); text-shadow: 0 1px 2px rgba(18,49,63,.5); }
   #ver button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 2px; text-decoration: underline; text-underline-offset: 2px; touch-action: manipulation; }
-  body.chrome #ver { display: block; }   /* title and pause only; the refresh is there even when GitHub hasn't answered with the version */
+  body.chrome #ver { display: block; }
+  #ver:not(.known) #verNum, #ver:not(.known) .dot { display: none; }   /* no placeholder number: only the refresh until a real version is known */   /* title and pause only; the refresh is there even when GitHub hasn't answered with the version */
   @media (orientation: landscape) { body[data-stick=left] #ver { left: auto; right: calc(env(safe-area-inset-right) + 10px); } }
+  /* 320-wide phones: the stars pill has to end left of the buttons */
+  @media (max-width: 359px) {
+    .iconBtn { width: 42px; height: 42px; }
+    .right { gap: 8px; }
+    #hudStars { font-size: 18px; letter-spacing: 2px; }
+  }
   /* big screens: the HUD grows with the room */
+  /* a desktop title fills the room rather than sitting in it as a small island */
+  @media (min-width: 1000px) and (min-height: 600px) {
+    .logo { width: min(40vw, 720px); }
+    .logoWord { font-size: 150px; }
+  }
   @media (min-width: 1000px) {
     .floorTag b { font-size: 42px; }
     .floorTag small { font-size: 14px; }
@@ -198,6 +231,45 @@
     .card button { font-size: 18px; padding: 14px; }
     .card .stars { font-size: 34px; }
   }
+  /* the knock: beside the thumb's stick; its ring fills back up over six seconds */
+  #knockBtn { position: fixed; z-index: 2; width: 54px; height: 54px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; color: var(--ink); touch-action: none;
+    left: max(calc(env(safe-area-inset-left) + 14px), calc(50% - 106px - 76px)); bottom: calc(env(safe-area-inset-bottom) + 168px);   /* up off the stick's upper-left shoulder */
+    background: radial-gradient(circle, rgba(233,245,248,.86) 60%, transparent 61%), conic-gradient(var(--orange) calc(var(--k, 1) * 360deg), rgba(233,245,248,.3) 0);
+    box-shadow: 0 3px 0 rgba(18,49,63,.25); transition: opacity .4s; }
+  #knockBtn svg { width: 26px; height: 26px; opacity: .45; }
+  #knockBtn.ready svg { opacity: 1; }
+  #knockBtn.ready { background: radial-gradient(circle, rgba(233,245,248,.9) 60%, transparent 61%), conic-gradient(#fff 0 360deg); }
+  #knockBtn:active { transform: translateY(2px); }
+  #knockBtn i { display: none; position: absolute; right: -2px; bottom: -2px; font-style: normal; font-size: 11px; font-weight: 700; background: var(--ink); color: var(--pale); border-radius: 5px; padding: 0 4px; }
+  @media (orientation: landscape) {
+    #knockBtn { left: auto; right: calc(env(safe-area-inset-right) + 26px + 188px + 14px); bottom: calc(env(safe-area-inset-bottom) + 20px); }
+    body[data-stick=left] #knockBtn { right: auto; left: calc(env(safe-area-inset-left) + 26px + 188px + 14px); }
+  }
+  body.desk #knockBtn, body.desk[data-stick=left] #knockBtn { left: auto; right: calc(env(safe-area-inset-right) + 20px); bottom: calc(env(safe-area-inset-bottom) + 20px); }
+  body.desk #knockBtn i { display: block; }
+  #hud.gone ~ #knockBtn { opacity: 0; pointer-events: none; }
+  #hud.dim ~ #knockBtn, #hud.intro ~ #knockBtn { opacity: .35; }
+
+  /* the floors list: every floor climbed, its stars, and the colours they've bought */
+  #floors { position: fixed; inset: 0; z-index: 5; display: none; place-items: center; background: rgba(18,49,63,.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+  #floors.show { display: grid; }
+  .card.flCard { width: min(92vw, 460px); }
+  .flGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 7px; overflow-y: auto; max-height: 46vh; padding: 2px; touch-action: pan-y; }
+  .card .flTile { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 9px 6px; text-align: left; min-width: 0; }
+  .flTile b { font-size: 20px; font-style: italic; line-height: 1; }
+  .flTile .nm { font-size: 11px; opacity: .75; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .flTile .st { font-size: 15px; letter-spacing: 2px; color: #b08a1a; }
+  .card .flTile.full { background: #f6eeb8; }
+  .flHead { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: .7; margin-top: 4px; }
+  .flSkins { display: flex; gap: 8px; flex-wrap: wrap; }
+  .card .skin { width: 40px; height: 40px; padding: 0; border-radius: 9px; background: var(--c); border: 3px solid var(--lo); box-shadow: 0 3px 0 rgba(18,49,63,.25); text-align: center; position: relative; }
+  .card .skin.on { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .card .skin.locked { opacity: .35; filter: grayscale(.6); cursor: default; }
+  .card .skin span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--ink); }
+  #result .sub.tally { margin-top: 10px; letter-spacing: 2px; }
+  #result .sub.unlock { margin-top: 8px; background: var(--orange); }
+  #result .sub.unlock i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; border: 2px solid #fff; }
+  @media (max-height: 500px) { .flGrid { max-height: 38vh; } #result .sub.tally { margin-top: 6px; } }
   #dbg { position: fixed; left: 8px; bottom: 6px; font: 11px monospace; color: #fff; z-index: 9; pointer-events: none; }
 </style>
 </head>
@@ -205,16 +277,19 @@
 <canvas id="cv"></canvas>
 
 <div id="hud" class="gone">
-  <div class="floorTag"><div><small>Floor</small><b id="floorNum">01</b></div><div class="nm" id="floorName">Lobby</div></div>
+  <div class="left">
+    <div class="floorTag"><div><small>Floor</small><b id="floorNum">01</b></div><div class="nm" id="floorName">Lobby</div></div>
+    <div id="hudKeys"></div>
+  </div>
   <div id="hudStars"></div>
   <div class="right">
-    <div id="hudKeys"></div>
     <button class="iconBtn" id="mapBtn" aria-label="Map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></button>
     <button class="iconBtn" id="pauseBtn" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
   </div>
 </div>
 
 <div id="stick" class="gone"><div id="knob"></div></div>
+<button id="knockBtn" class="ready" aria-label="Knock (E): a noise that draws guards nearby"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 7.5a6.4 6.4 0 0 1 0 9M4.6 4.6a10.4 10.4 0 0 0 0 14.8M19.4 4.6a10.4 10.4 0 0 1 0 14.8"/></svg><i>E</i></button>
 <div id="banner"></div>
 <div id="result"></div>
 <div id="toast"></div>
@@ -235,6 +310,7 @@
   <div class="tag"><span>Climb the tower.</span> <span>Stay out of the light.</span></div>
   <div class="titleBtns">
     <button class="bigBtn" id="btnPlay">Begin</button>
+    <button class="ghostBtn" id="btnFloors">Floors &#9733;</button>
     <button class="ghostBtn" id="btnNew">New run</button>
   </div>
   <div id="titleMeta"></div>
@@ -247,15 +323,26 @@
     <div class="meta" id="pFloor"></div>
     <div class="pStars"><div class="stars" id="pStars"></div><div class="pTotal" id="pTotal"></div></div>
     <button class="primary" id="optResume">Resume</button>
-    <div class="row"><button id="optRestart">Restart floor</button><button id="optQuit">Quit to title</button></div>
+    <div class="row"><button id="optRestart">Restart floor</button><button id="optFloors">Floors &#9733;</button></div>
+    <button id="optQuit">Quit to title</button>
     <div class="row three"><button id="optMusic">Music: on</button><button id="optSound">Sound: on</button><button id="optStick">Stick: right</button></div>
     <div class="legend">Push the stick gently to sneak, all the way to run (running is loud). Dark pools hide you. Keys open doors of their colour. Three ★ on every floor.</div>
+  </div>
+</div>
+<div id="floors">
+  <div class="card flCard">
+    <h2>Floors</h2>
+    <div class="meta" id="flMeta"></div>
+    <div class="flGrid" id="flGrid"></div>
+    <div class="flHead">Your colour</div>
+    <div class="flSkins" id="flSkins"></div>
+    <button class="primary" id="flBack">Back</button>
   </div>
 </div>
 <div id="wipe"></div>
 <div id="dbg"></div>
 
-<div id="ver"><span id="verNum">v—</span> · <button id="hardRefresh" type="button">refresh</button></div>
+<div id="ver"><span id="verNum">v—</span><span class="dot"> · </span><button id="hardRefresh" type="button">refresh</button></div>
 <script>
 // The version is the number of commits that have touched stealth/, so it goes up by itself with
 // every update. Asked of GitHub once a load; the last answer is kept for when that fails.

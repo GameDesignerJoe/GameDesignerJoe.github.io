@@ -1,10 +1,10 @@
-// node stealth/tools/gen-check.js [count] — generates floors 1..12 for many seeds, reports failures and timing,
+// node stealth/tools/gen-check.js [count] [top] — generates floors 1..top (default 12) for many seeds, reports failures and timing,
 // then checks the building kinds a run climbs through: never the same kind twice in a row, and at least
 // four kinds in any ten floors running. Also fails a camera that can't see out from its wall.
 const U = require('../js/util.js'); const LEVEL = require('../js/level.js');
-const N = +process.argv[2] || 20;
+const N = +process.argv[2] || 20, TOP = +process.argv[3] || 12;   // top: the highest floor generated
 let worst = 0, total = 0, fails = 0; const kinds = {};
-for (let fl = 1; fl <= 12; fl++) {
+for (let fl = 1; fl <= TOP; fl++) {
   let att = 0, g = 0, c = 0, st = 0, k = 0, sh = 0, ms = 0, blind = 0;
   for (let s = 0; s < N; s++) {
     const t0 = Date.now(), runSeed = 1234 + s;

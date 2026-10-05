@@ -185,7 +185,7 @@
   // ── difficulty by floor ────────────────────────────────────
   function difficulty(n) {
     return {
-      rooms: n <= 1 ? 3 : n <= 3 ? 4 : n <= 5 ? 5 : n <= 8 ? 6 : n <= 12 ? 7 : 8,
+      rooms: n <= 1 ? 3 : n <= 3 ? 4 : n <= 5 ? 5 : n <= 8 ? 6 : n <= 12 ? 7 : n <= 16 ? 8 : 9,   // the building keeps getting bigger as you climb
       sides: n <= 1 ? 1 : n <= 4 ? 1 : 2,
       density: Math.min(0.9 + n * 0.12, 2.0),
       coneLen: Math.min(132 + n * 5, 190),
@@ -194,12 +194,12 @@
       chase: Math.min(90 + n * 1.5, 104),   // a sprint (128) stays about 1.23x a chaser on every floor, so a corner can still lose them
       detect: Math.min(0.6 + n * 0.025, 0.9),
       cams: n >= 3,
-      keys: n < 2 ? 0 : n < 5 ? 1 : n < 9 ? 2 : 3,
+      keys: n < 2 ? 0 : n < 5 ? 1 : n < 9 ? 2 : n < 16 ? 3 : 4,
       hear: n >= 17 ? 165 : 140,
       // past the twelfth floor the rest stops growing, so a new pressure arrives every few floors:
       snap: n >= 13,        // sentries whose heads whip round
       camPairs: n >= 15,    // cameras in pairs across a room, sweeping in counterpoint
-      budget: n >= 19 ? 16 : 14,   // and, from the nineteenth (with sharper ears from the seventeenth), more of them
+      budget: n >= 22 ? 18 : n >= 16 ? 16 : 14,   // and, from the sixteenth (with sharper ears from the seventeenth), more of them
     };
   }
 
@@ -207,6 +207,7 @@
     { name: 'red', c: '#e2483d' },
     { name: 'yellow', c: '#e9c53e' },
     { name: 'violet', c: '#8c5fe0' },
+    { name: 'green', c: '#3fbf6a' },
   ];
 
   // ── generation ─────────────────────────────────────────────
@@ -231,7 +232,7 @@
   // a hall (a 'neck', itself a zone) with a doorway at each end. Only the walls on the route get a
   // door gap, so the zones make a tree and a locked door can't be walked round. Outer edges step in
   // and out zone by zone and are bitten into, so no two floors share an outline.
-  const WALL = 18, PART = 14, GAP = 52;
+  const WALL = 13, PART = 10, GAP = 52, HW = WALL / 2;
   const chord = (r) => Math.min(90, Math.sqrt(9 * r));   // arcs are laid in chords that sag about a unit
   const dir = (a) => ({ x: Math.cos(a), y: Math.sin(a) });
   const turn = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return { x: v.x * c - v.y * s, y: v.x * s + v.y * c }; };
@@ -553,9 +554,9 @@
   // hall's width (c + t s for s in sLo..sHi), and where the hall's middle line crosses it
   function linkOf(cap, neck, ax, w) {
     const sag = cap.curved ? cap.R - Math.sqrt(cap.R * cap.R - w * w / 4) : 0, n = cap.n, t = { x: -n.y, y: n.x }, pp = { x: -ax.y, y: ax.x };
-    const c = { x: cap.p.x - n.x * (9 + sag), y: cap.p.y - n.y * (9 + sag) };
+    const c = { x: cap.p.x - n.x * (HW + sag), y: cap.p.y - n.y * (HW + sag) };
     const np = n.x * pp.x + n.y * pp.y, tp = t.x * pp.x + t.y * pp.y;
-    const sAt = (lat) => (lat + (9 + sag) * np) / tp, s0 = sAt(-w / 2), s1 = sAt(w / 2);
+    const sAt = (lat) => (lat + (HW + sag) * np) / tp, s0 = sAt(-w / 2), s1 = sAt(w / 2);
     if (cap.ang != null) (cap.zone.caps = cap.zone.caps || []).push({ a: cap.ang, h: (w / 2 + 30) / Math.max(cap.zone.r1 || 1, 1) });
     return { zone: cap.zone, neck, c, t, n, sLo: Math.min(s0, s1), sHi: Math.max(s0, s1), sMid: sAt(0), w };
   }
@@ -880,12 +881,12 @@
       if (s.type === 'line') {
         // reach on past an end only where both zones stop there, so a corner closes without a stub
         const lo = s.axis === 'u' ? 'v0' : 'u0', hi = s.axis === 'u' ? 'v1' : 'u1';
-        const a = s.q0 - (Math.abs(s.A[lo] - s.B[lo]) < 1 ? 9 : 0), b = s.q1 + (Math.abs(s.A[hi] - s.B[hi]) < 1 ? 9 : 0);
+        const a = s.q0 - (Math.abs(s.A[lo] - s.B[lo]) < 1 ? HW : 0), b = s.q1 + (Math.abs(s.A[hi] - s.B[hi]) < 1 ? HW : 0);
         const spans = s.gap == null ? [[a, b]] : [[a, s.gap - h], [s.gap + h, b]];
         for (const [u0, u1] of spans) { const p = lineAt(s, u0), q = lineAt(s, u1); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 0)); }
       } else if (s.type === 'spoke') {
         // flush where one zone steps out past the other
-        const top = s.q1 + (Math.abs(s.A.r1 - s.B.r1) < 1 ? 9 : 0), bot = s.q0 - (Math.abs(s.A.r0 - s.B.r0) < 1 ? 9 : 0);
+        const top = s.q1 + (Math.abs(s.A.r1 - s.B.r1) < 1 ? HW : 0), bot = s.q0 - (Math.abs(s.A.r0 - s.B.r0) < 1 ? HW : 0);
         const spans = s.gap == null ? [[bot, top]] : [[bot, s.gap - h], [s.gap + h, top]];
         for (const [u0, u1] of spans) { const p = pt(s.o, s.a, u0), q = pt(s.o, s.a, u1); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 0)); }
       } else if (s.type === 'link') {
@@ -893,7 +894,7 @@
         const at = (x) => ({ x: s.c.x + s.t.x * x, y: s.c.y + s.t.y * x });
         for (const [u0, u1] of [[s.sLo, s.gap - h], [s.gap + h, s.sHi]]) { const p = at(u0), q = at(u1); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 5)); }
       } else {
-        const e = 9 / s.r, gh = h / s.r;
+        const e = HW / s.r, gh = h / s.r;
         const spans = s.gap == null ? [[s.s0 - e, s.s1 + e]] : [[s.s0 - e, s.gap - gh], [s.gap + gh, s.s1 + e]];
         for (const [u0, u1] of spans) {
           const k = s.fz ? 1 : Math.max(1, Math.ceil((u1 - u0) * s.r / chord(s.r)));
@@ -1030,6 +1031,9 @@
   }
 
   // ── furniture ──────────────────────────────────────────────
+  // a partition's piece: a doorway's clear space keeps it back less far than a block, since a thin
+  // wall beside the way through still leaves the way open
+  const thinWall = (s) => s.k === 'p' && s.pts.length === 4 && Math.min(Math.hypot(s.pts[1].x - s.pts[0].x, s.pts[1].y - s.pts[0].y), Math.hypot(s.pts[2].x - s.pts[1].x, s.pts[2].y - s.pts[1].y)) <= PART + 0.5;
   function furnish(R, L, room, n) {
     if (room.kind === 'cell') return furnishCell(R, L, room, n);
     // the hub's neighbours reach into it by design, so it keeps to its own circle instead
@@ -1041,10 +1045,14 @@
       const samples = [];
       if (s.k === 'c') { for (let i = 0; i < 8; i++) samples.push({ x: s.x + Math.cos(i / 8 * TAU) * s.r, y: s.y + Math.sin(i / 8 * TAU) * s.r }); samples.push({ x: s.x, y: s.y }); }
       else for (let i = 0; i < s.pts.length; i++) { const a = s.pts[i], b = s.pts[(i + 1) % s.pts.length]; samples.push(a, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }); }
-      for (const p of samples) for (const o of others) if (U.sd(o, p.x, p.y) < 6) return false;
+      // a square-built zone keeps to its own outline (its faces on a shared wall are already set in
+      // to the wall's face), so a partition can run right up to a wall instead of stopping short
+      if (room.kind === 'rect') { for (const p of samples) if (U.sd(room.shape, p.x, p.y) > 1) return false; }
+      else for (const p of samples) for (const o of others) if (U.sd(o, p.x, p.y) < 6) return false;
       const c = U.centroid(s);
       if (U.sd(room.shape, c.x, c.y) > -4) return false;
-      for (const e of room.excl) if (U.sd(s, e.x, e.y) < e.r) return false;
+      const ek = room.kind === 'rect' && thinWall(s) ? 0.72 : 1;
+      for (const e of room.excl) if (U.sd(s, e.x, e.y) < e.r * ek) return false;
       if (spacing) for (const o of placed) {
         let d = Infinity;
         const sp = s.k === 'c' ? [{ x: s.x, y: s.y }] : s.pts, op = o.k === 'c' ? [{ x: o.x, y: o.y }] : o.pts;
@@ -1063,7 +1071,7 @@
       const W = (lx, ly) => ({ x: c.x + lx * cs - ly * sn, y: c.y + lx * sn + ly * cs });
       const polar = (a, d) => ({ x: c.x + Math.cos(a) * d, y: c.y + Math.sin(a) * d });
       const rim = room.hub ? r - 2 : r + 14;   // how far a wall from the edge reaches out
-      const style = room.hub ? R.weighted([['ring', r > 150 ? 2 : 0], ['ringspokes', r > 165 ? 1.5 : 0], ['pillars4', 2], ['spokes', 1.5], ['table', 1]])
+      const style = room.hub ? R.weighted([['ring', r > 150 ? 1.5 : 0], ['ringspokes', r > 165 ? (room.solo ? 8 : 3) : 0], ['pillars4', 1.5], ['spokes', 2], ['table', r < 200 ? 1 : 0.3]])
         : room.side ? R.weighted([['jut', 2], ['pillar', 2], ['ring', r > 115 ? 1 : 0], ['bare', 1]])
         : room.big ? R.weighted([['ring', 3], ['spokes', 2], ['ringspokes', 2]])
         : R.weighted([['pillars4', 3], ['ring', r > 190 ? 2 : 0], ['spokes', r > 180 ? 2 : 0], ['scatter', 3], ['columns', 2], ['table', 1.5], ['jut', 2]]);
@@ -1088,13 +1096,21 @@
         }
         room.spots.push({ x: c.x, y: c.y });
         if (style === 'ringspokes') {
-          const k = R.int(4, 6), off = R() * TAU;
+          // spokes out to the rim cut the outer ring into rooms: across a deep ring each has a
+          // doorway, so the rooms open one into the next; across a shallow one they stop short
+          const k = Math.max(4, Math.min(9, Math.round(TAU * (ri + r) / 2 / R.range(120, 160)))), off = R() * TAU, deep = r - ri > 140;
           for (let i = 0; i < k; i++) {
-            const a = off + i * TAU / k;
+            const a = off + i * TAU / k + R.range(-0.08, 0.08);
             if (gaps.some(g => Math.abs(U.angDiff(g, a)) < 0.35)) continue;
-            const p0 = polar(a, ri + 50), p1 = polar(a, rim);
-            if (!put(U.seg(p0.x, p0.y, p1.x, p1.y, PART, 0))) { const p2 = polar(a, r * 0.86); put(U.seg(p0.x, p0.y, p2.x, p2.y, PART, 0)); }
+            const pieces = deep ? (() => { const g = R.range(ri + 40, r - 50); return [[ri, g - 28], [g + 28, rim]]; })() : [[ri + 50, rim]];
+            for (const [d0, d1] of pieces) {
+              const p0 = polar(a, d0), p1 = polar(a, d1);
+              if (!put(U.seg(p0.x, p0.y, p1.x, p1.y, PART, 0))) { const p2 = polar(a, Math.min(d1, r * 0.86)); put(U.seg(p0.x, p0.y, p2.x, p2.y, PART, 0)); }
+            }
+            room.spots.push(polar(a + Math.PI / k, (ri + r) / 2));
           }
+          // and the inner room is split by a wall across it with a way round each end
+          if (ri > 110) { const b = R() * TAU, p0 = polar(b, ri - 58), p1 = polar(b + Math.PI, ri - 58); put(U.seg(p0.x, p0.y, p1.x, p1.y, PART, 0)); }
         }
       } else if (style === 'spokes') {
         const k = R.int(5, 8), ri = r * R.range(0.34, 0.42), off = R() * TAU;
@@ -1160,7 +1176,7 @@
     };
     const block = (x, y, w, h) => { const p = W(x, y); return put(U.rect(p.x, p.y, w, h, room.ang), 44); };
     // the four sides as (where the wall face is, which way is in, how long it runs)
-    const e = room.seamSide, inset = (k) => e[k] ? 9 : 0;
+    const e = room.seamSide, inset = (k) => e[k] ? HW : 0;
     const sides = [
       { k: 'u0', at: -hw + inset('u0'), axis: 'x', dir: 1, len: room.h },
       { k: 'u1', at: hw - inset('u1'), axis: 'x', dir: -1, len: room.h },
@@ -1186,9 +1202,50 @@
     }
     const big = room.w >= 250 && room.h >= 250;
     const style = room.pill && big ? 'pillars' : room.tower ? R.weighted([['grid', 2], ['crates', 2], ['jut', 1], ['bare', 1]])
-      : R.weighted([['closets', 3], ['slabs', 1.5], ['grid', big ? 2 : 0.8], ['table', big ? 1.4 : 0.5], ['split', big ? 2 : 0.5], ['jut', 2], ['bare', room.side ? 1 : 0.3]]);
+      : room.w * room.h >= 50000 && Math.min(room.w, room.h) >= 190 && R.chance(0.9) ? 'suite'
+      : R.weighted([['suite', room.w >= 190 && room.h >= 190 ? 6 : 0], ['closets', 3], ['slabs', 1.5], ['grid', big ? 2 : 0.8], ['table', big ? 1.4 : 0.5], ['split', big ? 2 : 0.5], ['jut', 2], ['bare', room.side ? 1 : 0.3]]);
     room.style = style;
-    if (style === 'pillars') {
+    if (style === 'suite') {
+      // a suite of small rooms: a wall down the middle the long way with a way or two through it,
+      // and rooms off each side, about 110-160 across; on a deep side the partitions reach the
+      // middle wall with a doorway in each, on a shallow one they stop short of it, some turning
+      // at the end, so the rooms are alcoves off the passage. The sides are staggered.
+      const long = Math.max(room.w, room.h) / Math.min(room.w, room.h) < 1.3 ? R.chance(0.5) : room.w >= room.h, Lg = long ? room.w : room.h, Dp = long ? room.h : room.w;
+      const m = Dp * R.range(-0.1, 0.1), lo = -Lg / 2 + inset(long ? 'u0' : 'v0'), hi = Lg / 2 - inset(long ? 'u1' : 'v1');
+      const L2 = (t0, s0, t1, s1) => long ? line(t0, s0, t1, s1) : line(s0, t0, s1, t1);
+      const ng = Lg > 420 ? 2 : 1;
+      let b = lo;
+      const gs = [];
+      for (let i = 0; i < ng; i++) {
+        const g = -Lg / 2 + Lg * (i + R.range(0.25, 0.75)) / ng;
+        L2(b, m, g - 30, m); b = g + 30; gs.push(g);
+      }
+      L2(b, m, hi, m);
+      let phase = R.range(0, 0.5);
+      for (const sg of [-1, 1]) {
+        const face = sg * (Dp / 2 - inset(long ? (sg < 0 ? 'v0' : 'v1') : (sg < 0 ? 'u0' : 'u1'))), D = Math.abs(face - m), k = Math.max(1, Math.round(Lg / R.range(100, 145)));
+        const doors = D >= 150 && R.chance(0.65), cuts = [];
+        for (let i = 1; i < k; i++) {
+          let t = -Lg / 2 + Lg * (i + (i === 1 ? phase - 0.25 : 0) + R.range(-0.18, 0.18)) / k;
+          for (const g of gs) if (Math.abs(t - g) < 56) t = g + Math.sign(t - g || 1) * 56;   // never in the way through
+          cuts.push(t);
+        }
+        cuts.sort((x, y) => x - y);
+        const edges = [-Lg / 2].concat(cuts, [Lg / 2]);
+        cuts.forEach((t, i) => {
+          if (doors) { const p0 = Math.min(face, m), p1 = Math.max(face, m), g = R.range(p0 + 36, p1 - 36); L2(t, p0, t, g - 28); L2(t, g + 28, t, p1); }
+          else {
+            const end = m + sg * 54;
+            L2(t, face, t, end);
+            // now and then it turns at the end, toward the roomier side and never so far it closes it
+            const lo = t - edges[i], hi = edges[i + 2] - t, l = Math.min(R.range(28, 44), Math.max(lo, hi) - 66);
+            if (R.chance(0.5) && l >= 24) L2(t, end, t + (hi > lo ? l : -l), end);
+          }
+        });
+        for (let i = 0; i + 1 < edges.length; i++) { const t = (edges[i] + edges[i + 1]) / 2, v = (face + m) / 2; room.spots.push(long ? W(t, v) : W(v, t)); }
+        phase = 0.5 - phase;
+      }
+    } else if (style === 'pillars') {
       // the grand hall: two rows of square pillars, 34 wide, down the long way
       const long = room.w >= room.h, Lg = long ? room.w : room.h, k = Lg > 330 ? 4 : 3, A = Lg * R.range(0.2, 0.24), B = (long ? room.h : room.w) * R.range(0.2, 0.24);
       for (let i = 0; i < k; i++) for (const j of [-1, 1]) { const u = (i - (k - 1) / 2) * A, x = long ? u : j * B, y = long ? j * B : u, p = W(x, y); put(U.rect(p.x, p.y, 34, 34, room.ang)); }
@@ -1271,7 +1328,8 @@
       for (const q of samples) if (!fits(q, m || 0)) return false;
       const c = U.centroid(s);
       if (!inCell(room, c.x, c.y, 2)) return false;
-      for (const e of room.excl) if (U.sd(s, e.x, e.y) < e.r) return false;
+      const ek = thinWall(s) ? 0.72 : 1;
+      for (const e of room.excl) if (U.sd(s, e.x, e.y) < e.r * ek) return false;
       if (spacing) for (const ob of placed) {
         let d = Infinity;
         const sp = s.k === 'c' ? [{ x: s.x, y: s.y }] : s.pts, op = ob.k === 'c' ? [{ x: ob.x, y: ob.y }] : ob.pts;
@@ -1303,7 +1361,7 @@
       for (let i = 0; i < k; i++) { const p = pt(b0 + (b1 - b0) * i / k, r), q = pt(b0 + (b1 - b0) * (i + 1) / k, r); put(U.seg(p.x, p.y, q.x, q.y, t || PART, 1.5)); }
     };
     // a short wall square to the radius at (a, r), toward increasing angle when dir > 0
-    const jog = (a, r, len, d) => { const p = pt(a, r), v = across(a); line(p, { x: p.x + v.x * len * d, y: p.y + v.y * len * d }); };
+    const jog = (a, r, len, d) => { d = d || (R.chance(0.5) ? 1 : -1); const p = pt(a, r), v = across(a); line(p, { x: p.x + v.x * len * d, y: p.y + v.y * len * d }); };
     const back = { out: r1 + tol.out - 3, in: r0 - tol.in + 3 };
 
     // closets along the outer (or inner) wall: radial partitions, some with a stepped jog at the
@@ -1353,6 +1411,54 @@
       room.spots.push(pt((a0 + a1) / 2, Pl.colR + Pl.colGap / 2));
     };
 
+    // a suite of small rooms: a curved wall round the middle of the zone with a way or two through
+    // it, and rooms off each side of it, about 110-160 round. On a deep side the partitions run
+    // from the face right to the curved wall with a doorway in each, so the rooms open one into the
+    // next; on a shallow one they stop short, some turning at the end, so the rooms are alcoves off
+    // the passage along the wall. The two sides' partitions are staggered, so no two line up.
+    const suite = (sides) => {
+      const ring = T >= 170, rs = ring ? r0 + T * R.range(0.4, 0.6) : null, span = a1 - a0, gs = [];
+      if (ring) {
+        const ng = span * rs > 420 ? 2 : 1;
+        for (let i = 0; i < ng; i++) gs.push(a0 + span * (i + R.range(0.25, 0.75)) / ng);
+        const gh = 30 / rs;
+        let b = a0 - 8 / rs;
+        for (const g of gs) { arc(rs, b, g - gh); b = g + gh; }
+        arc(rs, b, a1 + 8 / rs);
+      }
+      const bands = ring ? [{ face: back.in, to: rs, lo: r0, hi: rs }, { face: back.out, to: rs, lo: rs, hi: r1 }] : [{ face: R.chance(0.5) ? back.in : back.out, to: null, lo: r0, hi: r1 }];
+      let phase = R.range(0, 0.5);
+      for (const bd of bands) {
+        if (sides && !sides.includes(bd.face === back.out ? 'out' : 'in')) continue;
+        const D = bd.hi - bd.lo, rm = (bd.lo + bd.hi) / 2, k = Math.max(1, Math.round(span * rm / R.range(100, 145)));
+        const doors = ring && D >= 150 && R.chance(0.65), sg = bd.face > rm ? -1 : 1;   // sg: from the face, which way is in
+        const cuts = [];
+        for (let i = 1; i < k; i++) {
+          let a = a0 + span * (i + (i === 1 ? phase - 0.25 : 0) + R.range(-0.18, 0.18)) / k;
+          // never in the mouth of a way through the middle wall
+          for (const g of gs) if (Math.abs(a - g) < 56 / rs) a = g + Math.sign(a - g || 1) * 56 / rs;
+          cuts.push(a);
+        }
+        cuts.sort((x, y) => x - y);
+        const edges = [a0].concat(cuts, [a1]);
+        cuts.forEach((a, i) => {
+          if (doors) {
+            const lo = Math.min(bd.face, bd.to), hi = Math.max(bd.face, bd.to), g = R.range(lo + 36, hi - 36);
+            radial(a, lo, g - 28); radial(a, g + 28, hi);
+          } else {
+            // with no middle wall they come in from the two faces by turns, so the way through zig-zags
+            const f = ring || i % 2 === 0 ? bd.face : (bd.face === back.in ? back.out : back.in), s2 = f > rm ? -1 : 1;
+            const end = ring ? bd.to - sg * 54 : f + s2 * (T - 58);
+            radial(a, f, end);
+            const lo = (a - edges[i]) * end, hi = (edges[i + 2] - a) * end, l = Math.min(R.range(28, 44), Math.max(lo, hi) - 66);
+            if (R.chance(0.5) && l >= 24) jog(a, end, l, hi > lo ? 1 : -1);
+          }
+        });
+        for (let i = 0; i + 1 < edges.length; i++) room.spots.push(pt((edges[i] + edges[i + 1]) / 2, rm));
+        phase = 0.5 - phase;
+      }
+    };
+
     const hasCol = room.col && Pl.colR != null && Pl.colR - 40 >= r0 && Pl.colR + Pl.colGap + 40 <= r1;
     if (hasCol) {
       room.style = 'hall';
@@ -1364,10 +1470,12 @@
       return;
     }
     const arcLen = (a1 - a0) * (r0 + r1) / 2;
-    const style = R.weighted([['closets', 2.4], ['wedges', arcLen > 300 ? 2 : 0], ['ring', T >= 230 ? 1.4 : 0], ['zigzag', T >= 210 && arcLen > 260 ? 1.6 : 0],
+    // a big zone is always a suite of small rooms; the smaller ones keep their variety
+    const style = arcLen * T >= 100000 && T >= 140 && R.chance(0.9) ? 'suite' : R.weighted([['suite', arcLen > 220 && T >= 140 ? 6 : 0], ['closets', 2.4], ['wedges', arcLen > 300 ? 2 : 0], ['ring', T >= 230 ? 1.4 : 0], ['zigzag', T >= 210 && arcLen > 260 ? 1.6 : 0],
       ['dogleg', T >= 200 && arcLen > 240 ? 1.6 : 0], ['grid', T >= 180 && arcLen > 220 ? 1.6 : 0], ['table', T >= 170 && arcLen > 280 ? 1 : 0], ['blocks', 1]]);
     room.style = style;
-    if (style === 'closets') {
+    if (style === 'suite') suite();
+    else if (style === 'closets') {
       const side = tol.out > 8 ? 'out' : tol.in > 8 ? 'in' : R.chance(0.6) ? 'out' : 'in';
       const d = Math.min(R.range(100, 135), T - 90);
       if (d >= 70) closets(side, d);
@@ -1443,6 +1551,9 @@
     // and the first door out of the stairs room is left clear of every beat, so the way on is a choice of timing
     const first = L.rooms.find(r => r.idx === 0 && !r.side).outConn.mouth;
     const offFirst = (p) => Math.hypot(first.x - p.x, first.y - p.y) > 90;
+    // and nobody stands guard over a key or a star: the pickup is reached on timing, never through a stare
+    const items = L.keys.concat(L.stars);
+    const offItems = (p, d) => items.every(o => Math.hypot(o.x - p.x, o.y - p.y) > d);
     const loopLen = (pts) => { let s = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += Math.hypot(b.x - a.x, b.y - a.y); } return s; };
     const route = (way, closed) => {
       // join waypoints with real paths; each waypoint keeps its pause
@@ -1497,7 +1608,7 @@
               const c = { x: room.c.x + Math.cos(a) * (e - d), y: room.c.y + Math.sin(a) * (e - d) }, v = field.sample(c.x, c.y);
               if (v >= 1.5 && v <= 8) q = c;
             }
-            if (!q || !okHome(q) || !farFromStart(q, 380) || nearMouth(q, 60)) return null;
+            if (!q || !okHome(q) || !farFromStart(q, 380) || nearMouth(q, 60) || !offItems(q, 75)) return null;
             if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 120) < 90) return null;   // a clear look into the room
             return q;
           };
@@ -1526,7 +1637,7 @@
         if (kind === 'sentry') {
           const a = R() * TAU, e = extent(room, a);
           const p = field.nearestFree(room.c.x + Math.cos(a) * e * 0.7, room.c.y + Math.sin(a) * e * 0.7, 16, 50);
-          if (!okHome(p) || nearMouth(p, 80) || !offFirst(p)) continue;
+          if (!okHome(p) || nearMouth(p, 80) || !offFirst(p) || !offItems(p, 75)) continue;
           const face = Math.atan2(room.c.y - p.y, room.c.x - p.x) + R.range(-0.4, 0.4);
           L.guards.push({ kind: 'sentry', x: p.x, y: p.y, ang: face, amp: R.range(0.55, 1.05), snap: D.snap && R.chance(0.5) });
           homes.push(p); k++;
@@ -1564,11 +1675,11 @@
         if (len > loopLen(way) * 1.7 + 60) continue;   // a route that wanders off to get round something
         // start somewhere along it, away from the entrance
         const si = R.int(0, path.length - 1), sp = path[si];
-        if (!okHome(sp) || path.some(q => !farFromStart(q, 200) || !offFirst(q))) continue;
+        if (!okHome(sp) || !offItems(sp, 45) || path.some(q => !farFromStart(q, 200) || !offFirst(q))) continue;
         if (L.guards.length >= budget) break;
         const prev = path[(si - 1 + path.length) % path.length];
-        // from the eleventh floor some walkers finish a search by checking the nearest shade
-        const peek = n >= 11 && R.chance(0.4);
+        // from the sixth floor some walkers finish a search by checking the nearest shade, more of them as you climb
+        const peek = n >= 6 && R.chance(0.25 + 0.03 * (n - 6));
         L.guards.push({ kind, x: sp.x, y: sp.y, ang: Math.atan2(sp.y - prev.y, sp.x - prev.x), path, pi: si, peek });
         homes.push(sp); k++;
         // from the seventh floor a long loop may carry a pair, the second half a lap behind the first
@@ -1577,7 +1688,7 @@
           const at = (cum[si] + len / 2) % len;
           let sj = 0; for (let i = 0; i < path.length; i++) if (cum[i] <= at) sj = i;
           const sq = path[sj], pq = path[(sj - 1 + path.length) % path.length];
-          if (len > 420 && Math.hypot(sq.x - sp.x, sq.y - sp.y) > 120 && farFromStart(sq, 290)) {
+          if (len > 420 && Math.hypot(sq.x - sp.x, sq.y - sp.y) > 120 && farFromStart(sq, 290) && offItems(sq, 45)) {
             L.guards.push({ kind, x: sq.x, y: sq.y, ang: Math.atan2(sq.y - pq.y, sq.x - pq.x), path, pi: sj, peek, pair: true });
             homes.push(sq); k++;
           }

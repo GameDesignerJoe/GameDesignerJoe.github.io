@@ -8,34 +8,62 @@
   let W = 0, H = 0, DPR = 1;
 
   const COL = {
-    floor: '#4192a8', shadow: '#2f7488', deep: '#1f5a6c', castShade: 'rgba(18,64,82,0.36)',
+    floor: '#4192a8', shadow: '#2f7186',
     wall: '#c8e0e6',
     player: '#ff8a3d', playerHi: '#ffc896', playerLo: '#b84f17',
-    guard: '#15364a', guardHi: '#2b566c',
+    guard: '#15364a', guardHi: '#2b566c', guardRim: '#cfe6ee',
     star: '#f3e57e',
-    // cones add light: the union gets coneBase, each cone adds coneNear at the guard fading to coneFar at the arc
-    coneBase: 'rgb(16,15,14)', coneNear: 'rgb(30,28,27)', coneFar: 'rgb(17,16,15)', coneHot: 'rgba(255,128,104,0.46)',
+    // cones are light, screened onto the floor: coneNear at the guard fading to coneFar at the arc
+    coneNear: 'rgba(140,210,228,0.55)', coneFar: 'rgba(95,174,198,0.25)', coneHot: 'rgba(255,128,104,0.6)', coneHotFar: 'rgba(240,100,80,0.3)',
   };
   // the light comes from the top left, so everything throws its shadow down and to the right
   const LIGHT = { x: 26, y: 26 }, RIM = 29;   // RIM: how deep the void's shade reaches onto the floor
-  const P_SIZE = 14, P_LOOK = 1.3, P_R = 7.5, G_SIZE = 16, G_R = 8.5, CATCH = 16;
-  const NAMES = ['Lobby', 'Mailroom', 'Archives', 'Canteen', 'Records', 'Atrium', 'Server Hall', 'Laboratory', 'Gallery', 'Vault Annex', 'Boardroom', 'Observatory', 'Penthouse', 'Roof Garden'];
+  // characters are drawn a little larger than their footprint (G_LOOK, P_LOOK), and their shadows are
+  // CHAR_K of a wall's: about 1.5 times their size, at the walls' angle
+  const G_LOOK = 1.15, CHAR_K = 0.62;
+  // the player's square is exactly its footprint across (2 * P_R), so a flat face sits flush on a wall it slides along;
+  // P_R matches the guards' G_R, the clearance every floor is built and checked for
+  const P_SIZE = 14, P_R = 8.5, P_LOOK = 2 * P_R / P_SIZE, G_SIZE = 16, G_R = 8.5, CATCH = 16;
+  // the building, bottom to top: past the roof garden it's the next tower over (II, III, ...), never the lobby again
+  const NAMES = ['Lobby', 'Mailroom', 'Archives', 'Canteen', 'Records', 'Atrium', 'Server Hall', 'Laboratory', 'Gallery', 'Vault Annex', 'Boardroom', 'Observatory',
+    'Press Room', 'Trading Floor', 'Library', 'Clinic', 'Data Vault', 'Studio', 'Clean Room', 'Sky Lounge', 'Strongroom', 'Situation Room', 'Executive Wing',
+    'Private Office', 'Penthouse', 'Sky Bridge', 'Helipad', 'Roof Garden'];
+  const ROMAN = ['II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+  const floorName = (n) => { const t = Math.floor((n - 1) / NAMES.length); return NAMES[(n - 1) % NAMES.length] + (t > 0 ? ' ' + (ROMAN[t - 1] || t + 1) : ''); };
+  // stars buy colours: every STARS_PER_SKIN stars in the building unlocks the next one for the player's square
+  const STARS_PER_SKIN = 9;
+  const SKINS = [
+    { name: 'Orange', c: '#ff8a3d', hi: '#ffc896', lo: '#b84f17' },
+    { name: 'Lime', c: '#a6e34a', hi: '#dcf7b0', lo: '#5d8c1c' },
+    { name: 'Pink', c: '#ff6fae', hi: '#ffc4de', lo: '#b23a73' },
+    { name: 'Gold', c: '#ffd23d', hi: '#fff1ad', lo: '#ad850c' },
+    { name: 'Violet', c: '#b07cff', hi: '#ddc8ff', lo: '#6a40c0' },
+    { name: 'White', c: '#f2f6f7', hi: '#ffffff', lo: '#93a9b1' },
+  ];
 
   // ── save ───────────────────────────────────────────────────
   const SAVE_KEY = 'unseen.v1';
   let save;
   try { save = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { save = null; }
   if (!save || typeof save !== 'object') save = {};
-  save = Object.assign({ floor: 1, best: 1, runSeed: (Math.random() * 1e9) >>> 0, stars: {}, hints: {}, music: true, sound: true, stickSide: 'right' }, save);
+  save = Object.assign({ floor: 1, best: 1, runSeed: (Math.random() * 1e9) >>> 0, stars: {}, hints: {}, music: true, sound: true, stickSide: 'right', skin: 0 }, save);
   const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} };
+  const starTotal = () => Object.values(save.stars).reduce((a, b) => a + b, 0);
+  const skinsOpen = (total) => Math.min(SKINS.length, 1 + Math.floor(total / STARS_PER_SKIN));
+  function applySkin() {
+    if (!(save.skin < skinsOpen(starTotal()))) save.skin = 0;
+    const sk = SKINS[save.skin]; COL.player = sk.c; COL.playerHi = sk.hi; COL.playerLo = sk.lo;
+  }
+  const starStr = (k) => '\u2605'.repeat(k) + '\u2606'.repeat(3 - k);
 
   // ── state ──────────────────────────────────────────────────
   let L = null, field = null, nav = null, D = null, floorN = 1;
   let P = null, guards = [], cams = [], fx = [], time = 0;
   let mode = 'boot', modeT = 0, paused = false, overview = false;
   const view = { x: 0, y: 0, z: 1, shake: 0, lead: { x: 0, y: 0 }, locked: false };
-  let floorBox = null, spottedCD = 0, hmmCD = 0, lockedCD = 0, gotStars = 0;
+  let floorBox = null, popT = null, spottedCD = 0, hmmCD = 0, lockedCD = 0, gotStars = 0, knockCD = 0;   // knockCD: seconds until the knock is ready again
   let stats = { caught: 0, time: 0 };
+  let replay = false, clearInfo = null;   // replay: a floor played again from the list, for its stars; it doesn't move the climb
   let checkpoint = null, graceCP = false;   // graceCP: just respawned at a checkpoint, so nobody's meter fills for 1.5s   // the last door you opened on this floor: a capture after it starts you there, keys and stars kept
   // the caught and clear sequences run on game time (modeT), so a pause holds them and a quit cancels them
   let safeTop = 0, res = null, catcher = null, shot = null, wipeJob = null, bannerT = 0, chaseHintT = 0;
@@ -81,6 +109,7 @@
     if (k) { keys[k] = true; e.preventDefault(); if (mode === 'intro' && k !== 'shift' && k !== 'sneak') skipIntro(); }
     if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
     if (e.code === 'KeyM' || e.code === 'Tab') { e.preventDefault(); toggleMap(); }
+    if (e.code === 'KeyE' && !e.repeat) knock();
     if ((e.code === 'Enter' || e.code === 'Space') && mode === 'title' && !e.repeat) startGame();
   });
   addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
@@ -99,6 +128,7 @@
       if (padEdge(p, 0, 'a')) { if (mode === 'title') startGame(); else if (paused) togglePause(); }
       const mapB = padEdge(p, 8, 'back'), mapY = padEdge(p, 3, 'y');
       if ((mapB || mapY) && !paused) toggleMap();
+      if (padEdge(p, 2, 'x') && !paused) knock();   // X knocks
       const btn = (i) => !!(p.buttons[i] && p.buttons[i].pressed);
       const dx = (btn(15) ? 1 : 0) - (btn(14) ? 1 : 0), dy = (btn(13) ? 1 : 0) - (btn(12) ? 1 : 0);
       // RT or RB runs, LT or LB creeps, like Shift and Ctrl on the keys
@@ -189,13 +219,18 @@
 
   // ── floors ─────────────────────────────────────────────────
   function startFloor(n, retry) {
-    floorN = n; clearMouse();
+    floorN = n; clearMouse(); popT = null;
     cancelResult(); clearToast(); dimHUD(false);
-    L = LEVEL.generate(U.hash(save.runSeed, n), n, LEVEL.history(save.runSeed, n));   // the floors below, so the shape changes as you climb
+    // a retry of the same floor keeps the floor already built: generating it again cost ~140ms at the moment of the cut.
+    // Only what the last try changed goes back: doors shut, keys and stars on the floor. The doors-shut nav is kept on L.
+    const seed = U.hash(save.runSeed, n), same = retry && L && L.seed === seed && L.nav0;
+    if (!same) L = LEVEL.generate(seed, n, LEVEL.history(save.runSeed, n));   // the floors below, so the shape changes as you climb
     field = L.field; D = L.D;
-    for (const d of L.doors) d.open = false;
+    for (const d of L.doors) { d.open = false; d.openT = 0; }
+    for (const k of L.keys) k.got = false;
+    for (const s of L.stars) s.got = false;
     field.applyDoors();
-    nav = new LEVEL.Nav(field, 11);
+    nav = L.nav0 || (L.nav0 = new LEVEL.Nav(field, 11));
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const s of L.floor) { const b = U.bbox(s); x0 = Math.min(x0, b.x0); y0 = Math.min(y0, b.y0); x1 = Math.max(x1, b.x1); y1 = Math.max(y1, b.y1); }
     floorBox = { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
@@ -206,7 +241,7 @@
       repath: 0, lost: 0, last: null, bubble: null, cone: null, sweep: Math.random() * 10, stuck: 0, lastPos: { x: d.x, y: d.y }, scanT: 0,
     }));
     cams = L.cams.map((c) => ({ ...c, ang: c.base, aw: 0, alarm: 0, cone: null, bubble: null }));
-    fx = []; gotStars = 0; overview = false; $('mapBtn').classList.remove('on');
+    fx = []; gotStars = 0; knockCD = 0; overview = false; $('mapBtn').classList.remove('on');
     stats.time = 0;
     if (!retry || !checkpoint || checkpoint.floor !== n) checkpoint = null;
     else {
@@ -214,7 +249,9 @@
       L.keys.forEach((k, i) => { if (cp.keys.includes(i)) { k.got = true; P.keys.push(k); } });
       L.doors.forEach((d, i) => { if (cp.doors.includes(i)) { d.open = true; d.openT = -1e9; } });
       L.stars.forEach((st, i) => { if (cp.stars.includes(i)) { st.got = true; gotStars++; } });
-      field.applyDoors(); nav = new LEVEL.Nav(field, 11);
+      // the nav for this set of open doors is built once per floor, so a second retry from here is free too
+      const nk = cp.doors.join(','); L.navs = L.navs || {};
+      field.applyDoors(); nav = nk ? (L.navs[nk] || (L.navs[nk] = new LEVEL.Nav(field, 11))) : L.nav0;
       P.x = cp.x; P.y = cp.y; P.ang = cp.ang;
     }
     // a retry never replays the same moment: every beat starts a little along (±10% of it), every
@@ -239,7 +276,10 @@
     if (mode !== 'title') {
       mode = 'intro'; modeT = retry ? 1.3 : 0;
       view.x = floorBox.cx; view.y = floorBox.cy; view.z = overviewZ();
-      if (retry) { view.x = P.x; view.y = P.y; view.z = baseZ() * 0.92; }
+      if (retry) {
+        view.x = P.x; view.y = P.y; view.z = baseZ() * 0.92;
+        P.scale = 0; popT = -0.12;   // the pop waits for the ink to start lifting, so it is seen
+      }
       showBanner(retry ? null : n);
       $('hud').classList.toggle('intro', !retry);   // one clean title card: the HUD tag comes in once the banner goes
       if (!retry) AUDIO.play('floor');
@@ -258,9 +298,16 @@
   }
 
   // ── the player ─────────────────────────────────────────────
+  let mapWas = false, mapHeld = false;   // the map's open-time latch for keys and pad
   function updatePlayer(dt) {
     const inp = readInput();
     const m = inp.m;
+    // like the maze, a move clears the map: on keys or a pad as on the stick (which closes it on touch). A key already
+    // held when the map opened has to be let go first, so the map doesn't shut the moment it opens
+    const pushing = m > 0 && (inp.kb || inp.isPad);
+    if (overview && !mapWas) mapHeld = pushing;
+    mapWas = overview;
+    if (overview) { if (!pushing) mapHeld = false; else if (!mapHeld) { toggleMap(); mapWas = false; } }
     if (overview) { P.vx = P.vy = P.avx = P.avy = 0; P.moving = false; stickEl.classList.remove('run'); return; }   // the map is for planning: the floor holds still
     // a quiet walk up to the dashed ring, a loud run past it; the gap between 0.8 and 0.88 stops thumb jitter flicking between them.
     // Joe: the walk wants more room before the run — the stick is 25% bigger for it and the run starts further out.
@@ -269,7 +316,7 @@
     else if (inp.mouse) { if (P.run ? m < 0.8 : m > 0.88) P.run = !P.run; }
     else if (P.run ? m < 0.8 : m > 0.88 && time - stickDownT > 0.12) P.run = !P.run;   // never a run on the first touch
     let speed = 0;
-    if (m > 0) speed = P.run ? U.lerp(110, 128, U.clamp((m - 0.8) / 0.2, 0, 1)) : 24 + 51 * Math.min(1, m / 0.85);
+    if (m > 0) speed = P.run ? U.lerp(98, 128, U.clamp((m - 0.8) / 0.2, 0, 1)) : 24 + 51 * Math.min(1, m / 0.85);
     P.m = m;   // only the run is heard
     stickEl.classList.toggle('run', stick.on && P.run);
     stickEl.classList.toggle('loud', stick.on && !P.run && m > 0.6);   // the heard band of the walk, before the ring
@@ -286,7 +333,22 @@
     P.vx = U.lerp(P.vx, mvx, 0.5); P.vy = U.lerp(P.vy, mvy, 0.5);
     const moved = Math.hypot(P.x - before.x, P.y - before.y);
     P.moving = moved > 0.15 * dt * 60;
-    if (m > 0) P.ang = U.turnTo(P.ang, Math.atan2(inp.y, inp.x), dt * 12);
+    // face the way you're going; against a wall (close enough that a corner would reach it, and heading the way it actually slides) the square squares up to
+    // the wall instead, its nearest face to that heading flat on it, so it slides along the slab rather than digging a corner in
+    const head = moved > 0.1 * dt * 60 ? Math.atan2(mvy, mvx) : m > 0 ? Math.atan2(inp.y, inp.x) : P.ang, wd = field.sample(P.x, P.y);
+    if (wd < P_R * Math.SQRT2 + 1) {
+      // the walls' directions: the one nearest, and (for an inside corner, where that points along the diagonal) the
+      // ones under each corner. Of the headings square to one of them, take the one whose corners dig in least
+      const q = Math.PI / 2, h = P_R * Math.SQRT2, bases = [field.grad(P.x, P.y)];
+      for (let i = 0; i < 4; i++) { const a = P.ang + q / 2 + i * q, cx = P.x + Math.cos(a) * h, cy = P.y + Math.sin(a) * h; if (field.sample(cx, cy) < 2) bases.push(field.grad(cx, cy)); }
+      const dig = (a) => { let w = 0; for (let i = 0; i < 4; i++) { const c = a + q / 2 + i * q; w = Math.max(w, -field.sample(P.x + Math.cos(c) * h, P.y + Math.sin(c) * h)); } return w; };
+      let best = P.ang, bs = Infinity;
+      for (const gb of bases) {
+        const wa = Math.atan2(gb.y, gb.x), a = wa + Math.round(U.angDiff(wa, head) / q) * q, sc = dig(a) + Math.abs(U.angDiff(head, a)) * 0.5;
+        if (sc < bs) { bs = sc; best = a; }
+      }
+      P.ang = U.turnTo(P.ang, best, dt * (wd < P_R + 1 ? 20 : 12));
+    } else if (m > 0) P.ang = U.turnTo(P.ang, head, dt * 12);
 
     // footsteps: running is loud, and a guard who hears it comes to look
     if (P.moving) {
@@ -360,6 +422,29 @@
     // the stairs
     if (Math.hypot(L.exit.x - P.x, L.exit.y - P.y) < 15) clearFloor();
     else if (Math.hypot(L.exit.x - P.x, L.exit.y - P.y) < 260) hint('exit', 'The stairs up. Step on them to climb.');
+  }
+
+  // the knock: a rap on the nearest wall, the one noise you make on purpose. Every guard on its
+  // rounds within earshot (110, round corners as footsteps carry) comes over to look, at a walk, so a
+  // guard can be pulled off the door it watches. Once every six seconds.
+  const KNOCK_CD = 6, KNOCK_R = 110;
+  function knock() {
+    if (mode !== 'play' || paused || overview || !P || !P.alive || knockCD > 0) return;
+    knockCD = KNOCK_CD;
+    AUDIO.play('step', true); setTimeout(() => AUDIO.play('step', true), 120);
+    fx.push({ k: 'ring', x: P.x, y: P.y, r: KNOCK_R, t: 0, dur: 0.8 }, { k: 'ring', x: P.x, y: P.y, r: KNOCK_R * 0.8, t: 0, dur: 0.6 });
+    let n = 0;
+    for (const gd of guards) if ((gd.state === 'patrol' || gd.state === 'return') && hears(gd, KNOCK_R)) { toSearch(gd, { x: P.x, y: P.y }, true); n++; }
+    if (n) hint('knock', 'They heard that. Move before they get here.');
+    syncKnock();
+  }
+  let knockShown = -1;
+  function syncKnock() {
+    const q = Math.round((1 - knockCD / KNOCK_CD) * 48) / 48;
+    if (q === knockShown) return;
+    knockShown = q;
+    const b = $('knockBtn'); if (!b) return;
+    b.style.setProperty('--k', q); b.classList.toggle('ready', q >= 1);
   }
 
   // ── guards ─────────────────────────────────────────────────
@@ -647,8 +732,11 @@
         } else if (gd.repath <= 0 && gd.last) { const q = lookSpot(gd, gd.last); routeTo(gd, q.x, q.y); gd.repath = 0.6; }
         const done = follow(gd, D.chase, dt, turn);
         // out of sight for two seconds, or at the spot and you're not there: a '?' and a look round.
+        // Round a corner (no straight look to where you were last) they give up sooner, at 1.2s, so
+        // breaking the line of sight round one corner reliably turns a chase into a search.
         // the meter drops well back, so a glimpse as they search is a beat to duck away, not a re-capture
-        if (!s && (done || gd.lost > 2)) { gd.aw = 0.4; toSearch(gd, gd.last || { x: gd.x, y: gd.y }); }
+        const lostAt = gd.last && !field.clear(gd.x, gd.y, gd.last.x, gd.last.y, G_R - 1) ? 1.2 : 2;
+        if (!s && (done || gd.lost > lostAt)) { gd.aw = 0.4; toSearch(gd, gd.last || { x: gd.x, y: gd.y }); }
         break;
       }
       case 'search': {
@@ -718,7 +806,14 @@
   // wherever neighbouring rays disagree, so the edge a wall corner casts is a hard straight line
   function cone(o, len, fov) {
     const e = eyeOf(o), n = Math.max(18, Math.round(fov * 2 / 0.04)), pts = [e.x, e.y];
-    const ray = (a) => field.ray(e.x, e.y, Math.cos(a), Math.sin(a), len);
+    // field.ray gives up after a fixed number of steps, which cuts a ray grazing along a wall short
+    // and leaves a notch in the cone: carry on from where it stopped until it really meets a wall
+    const ray = (a) => {
+      const dx = Math.cos(a), dy = Math.sin(a);
+      let t = field.ray(e.x, e.y, dx, dy, len);
+      for (let k = 0; k < 6 && t < len && field.sample(e.x + dx * t, e.y + dy * t) >= 0.35; k++) t += field.ray(e.x + dx * t, e.y + dy * t, dx, dy, len - t);
+      return Math.min(t, len);
+    };
     const push = (a, t) => { pts.push(e.x + Math.cos(a) * t, e.y + Math.sin(a) * t); };
     let pa = o.ang - fov, pt = ray(pa);
     push(pa, pt);
@@ -759,10 +854,12 @@
   function clearFloor() {
     mode = 'clear'; modeT = 0; P.alive = false;
     AUDIO.play('clear');
-    const prev = save.stars[floorN] || 0;
+    // a replay only ever raises a floor's stars; the climb stays where it was
+    const prev = save.stars[floorN] || 0, before = starTotal();
     save.stars[floorN] = Math.max(prev, gotStars);
-    save.floor = floorN + 1; save.best = Math.max(save.best, floorN + 1);
+    if (!replay) { save.floor = floorN + 1; save.best = Math.max(save.best, floorN + 1); }
     persist();
+    clearInfo = { prev, total: starTotal(), unlocked: skinsOpen(starTotal()) > skinsOpen(before) ? SKINS[skinsOpen(starTotal()) - 1] : null };
     clearStick(); clearToast(); chaseHintT = 0; dimHUD(true);
     fx.push({ k: 'burst', x: L.exit.x, y: L.exit.y, t: 0, dur: 0.9, c: '#ffffff' });
     const z = baseZ() * 1.25, dy = H < 500 ? H * 0.22 : W >= 1000 ? H * 0.18 : H * 0.06;   // below the stamp, its stars and the 'Up the stairs' line
@@ -776,7 +873,11 @@
     } else {
       // the stars land one by one after the stamp, each with a chime
       const st = [0, 1, 2].map(i => `<span class="${i < gotStars ? 'on' : ''}" style="animation-delay:${(0.35 + i * 0.18).toFixed(2)}s">★</span>`).join('');
-      r.innerHTML = `<div class="sub above">Floor ${floorN}</div><div class="stamp clear">CLEAR</div><div class="stars">${st}</div><div class="sub foot">Up the stairs…</div>`;
+      const ci = clearInfo || { prev: 0, total: starTotal(), unlocked: null };
+      const more = replay && gotStars > ci.prev ? ` · +${gotStars - ci.prev}\u2605` : '';
+      const un = ci.unlocked ? `<div class="sub unlock"><i style="background:${ci.unlocked.c}"></i>${ci.unlocked.name} unlocked</div>` : '';
+      r.innerHTML = `<div class="sub above">Floor ${floorN}</div><div class="stamp clear">CLEAR</div><div class="stars">${st}</div>` +
+        `<div class="sub tally">${gotStars}/3${more} · total ${ci.total}\u2605</div>${un}<div class="sub foot">${replay ? 'Back to the floors…' : 'Up the stairs…'}</div>`;
       for (let i = 0; i < gotStars; i++) res.stars.push(modeT + 0.35 + i * 0.18);
     }
     r.className = 'show';
@@ -786,20 +887,28 @@
     while (res.stars.length && modeT >= res.stars[0]) { res.stars.shift(); AUDIO.play('star'); }
     if (res.ring && modeT >= res.ring) { res.ring = 0; fx.push({ k: 'burst', x: P.x, y: P.y, t: 0, dur: 0.6, c: '#ff5a44' }); }
     if (modeT < res.at) return;
-    if (res.stage === 0) { res.stage = 1; showResult(res.k); res.at = modeT + (res.k === 'caught' ? 1.5 : 2.1); return; }
+    if (res.stage === 0) { res.stage = 1; showResult(res.k); res.at = modeT + (res.k === 'caught' ? 1.25 : 2.1); return; }
     const k = res.k; res = null;
-    $('result').className = '';
-    if (k === 'caught') startFloor(floorN, true);
+    $('result').className = 'out';
+    // the retry is a quick ink fade, not a cut: the stamp fades out as the cover comes in, so it never sits over the respawn
+    if (k === 'caught') wipe(() => startFloor(floorN, true), true);
+    else if (replay) wipe(() => { titleScreen(); floorsScreen('title'); });   // a replayed floor goes back to the list
     else wipe(() => startFloor(floorN + 1));
   }
   function cancelResult() { res = null; catcher = null; shot = null; $('result').className = ''; }
   // the wipe runs on frame time and blocks the pause while it covers the screen
-  function wipe(then) { $('wipe').className = 'in'; wipeJob = { t: 0, then, done: false }; }
+  // a floor up slides the ink across; a retry (fade) only dips to it: 0.22s in, the cut once it fully covers, 0.3s out
+  function wipe(then, fade) {
+    const w = $('wipe');
+    if (fade) { w.className = 'fade'; void w.offsetWidth; }   // from clear ink, or the fade would have nothing to run from
+    w.className = fade ? 'fade in' : 'in';
+    wipeJob = { t: 0, then, done: false, fade: !!fade, cut: fade ? 0.28 : 0.52, end: fade ? 0.62 : 1.12 };
+  }
   function stepWipe(dt) {
     if (!wipeJob) return;
     wipeJob.t += dt;
-    if (!wipeJob.done && wipeJob.t >= 0.52) { wipeJob.done = true; const f = wipeJob.then; $('wipe').className = 'out'; f(); }
-    if (wipeJob && wipeJob.done && wipeJob.t >= 1.12) { wipeJob = null; $('wipe').className = ''; }
+    if (!wipeJob.done && wipeJob.t >= wipeJob.cut) { wipeJob.done = true; const f = wipeJob.then; $('wipe').className = wipeJob.fade ? 'fade out' : 'out'; f(); }
+    if (wipeJob && wipeJob.done && wipeJob.t >= wipeJob.end) { wipeJob = null; $('wipe').className = ''; }
   }
   function cancelWipe() { wipeJob = null; $('wipe').className = ''; }
   function skipIntro() { if (mode === 'intro' && modeT < 1.3) modeT = 1.3; }
@@ -837,8 +946,9 @@
     if (chaseHintT > 0 && mode === 'play') { chaseHintT -= dt; if (chaseHintT <= 0) { chaseHintT = 0; hint('chase', 'Seen! Break their line of sight. They\'ll search where they lost you.'); } }
     stepResult();
     // the touch that skips the intro also moves: control comes as the camera starts to close in, not 0.8s later
-    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : 'Hold the mouse to move, or click to go there. Point further away to go faster. Stay out of the light.'); }
-    if (mode === 'play') { updatePlayer(dt); stats.time += dt; }
+    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : pad ? 'Left stick to move: push it fully or hold RT to run, LT to creep. Y opens the map.' : 'Hold the mouse to move, or click to go there. Point further away to go faster. Stay out of the light.'); }
+    if (mode === 'play') { updatePlayer(dt); stats.time += dt; if (knockCD > 0) knockCD = Math.max(0, knockCD - dt); }
+    syncKnock();
     const live = mode === 'play' || mode === 'caught' || mode === 'title' || mode === 'clear';
     if (live && !overview) { for (const gd of guards) if (!(mode === 'caught' && gd === catcher)) updateGuard(gd, dt); for (const c of cams) updateCam(c, dt); }
     // the catcher is frozen, so his '!' is aged here: updateGuard is the only other place it grows
@@ -852,6 +962,13 @@
     fx = fx.filter(f => f.t < f.dur);
     if (landed.length) { updateHUD(); for (const f of landed) { const sp = $('hudStars').children[f.slot]; if (sp) sp.classList.add('punch'); } }
     if (mode === 'clear') P.scale = Math.max(0, 1 - U.smooth(U.clamp(modeT / 0.5, 0, 1)));
+    // a respawn pops the player back in (the mirror of the shrink on the stairs)
+    if (popT !== null) {
+      const was = popT; popT += dt;
+      if (was < 0 && popT >= 0) fx.push({ k: 'burst', x: P.x, y: P.y, t: 0, dur: 0.6, c: '#e9f5f8' });
+      const t = U.clamp(popT / 0.3, 0, 1); P.scale = U.easeOutBack(t);
+      if (t >= 1) { P.scale = 1; popT = null; }
+    }
     updateView(dt);
     // the score follows the danger
     let t = 0.05;
@@ -881,7 +998,7 @@
     // Joe: "anchor the camera to the character" — no look-ahead, no lead that eases out on a run and settles back on a stop,
     // which slid the floor about under the cursor. Once the camera has eased onto the player it is locked to them: the
     // player sits at one fixed spot on the screen and only the floor moves, so a click lands where you aimed it.
-    if (mode === 'title') { tx = floorBox.cx + Math.sin(time * 0.05) * 30; ty = floorBox.cy + Math.cos(time * 0.04) * 20; tz = overviewZ() * 1.02; rate = 1; }
+    if (mode === 'title') { const o = titleAim(); tx = o.x + Math.sin(time * 0.05) * 30; ty = o.y + Math.cos(time * 0.04) * 20; tz = o.z; rate = 1; }
     else if ((mode === 'caught' || mode === 'clear') && shot) {
       // close in on the capture (or the stairs) on a fixed curve: easeOutCubic over 0.4s, then hold
       const t = U.clamp(modeT / 0.4, 0, 1), e = 1 - Math.pow(1 - t, 3);
@@ -938,23 +1055,24 @@
     g.fillStyle = COL.shadow; g.fillRect(floorBox.x0 - 50, floorBox.y0 - 50, floorBox.w + 100, floorBox.h + 100);
     // the floor is lit where the void beside it doesn't shade it
     g.beginPath(); for (const s of L.floor) shapePath(s, RIM, RIM); g.fillStyle = COL.floor; g.fill();
-    // a soft pool of light toward the middle of the building
-    const fg = g.createRadialGradient(floorBox.cx, floorBox.cy, 0, floorBox.cx, floorBox.cy, Math.max(floorBox.w, floorBox.h) * 0.6);
-    fg.addColorStop(0, 'rgba(255,255,255,0.07)'); fg.addColorStop(1, 'rgba(0,30,40,0.06)');
-    g.fillStyle = fg; g.fillRect(floorBox.x0, floorBox.y0, floorBox.w, floorBox.h);
-    drawShades(z);
-    // walls' and pillars' shadows: one tone on the lit floor, a deeper one where they fall into the
-    // ring the void already shades, so the floor reads in layers
+    // one shadow shape in one tone: the walls', pillars', doors' and characters' shadows are swept
+    // into a single path and filled once, in the same tone as the void's rim, so where shadows
+    // overlap (or fall into the rim) they merge instead of stacking into darker bands
     g.beginPath();
-    // one light, one length: walls, pillars, doors and characters all throw the same 45-degree shadow
     for (const s of L.obs) polyPath(U.sweep(s, LIGHT.x, LIGHT.y));
     for (const d of L.doors) if (!d.open) polyPath(U.sweep(d.shape, LIGHT.x, LIGHT.y));
-    g.fillStyle = COL.castShade; g.fill();
+    charShadowPaths();
+    g.fillStyle = COL.shadow; g.fill('nonzero');
+    // depth: the floor glows toward the middle of the screen and falls about 15% darker at the corners
+    const R = Math.hypot(W, H) / 2 / z, fg = g.createRadialGradient(view.x, view.y, 0, view.x, view.y, R);
+    fg.addColorStop(0, 'rgba(120,200,220,0.12)'); fg.addColorStop(0.45, 'rgba(120,200,220,0)');
+    fg.addColorStop(0.75, 'rgba(10,40,56,0.1)'); fg.addColorStop(1, 'rgba(10,40,56,0.24)');
+    g.fillStyle = fg; g.fillRect(view.x - R, view.y - R, R * 2, R * 2);
+    drawShades(z);
     drawStairs(L.entrance, false, z);
     drawStairs(L.exit, true, z);
     drawCones();
     drawItems(z);
-    drawCharShadows();
     // walls and pillars
     g.beginPath(); for (const s of L.obs) shapePath(s); g.fillStyle = COL.wall; g.fill();
     drawDoors(z);
@@ -970,17 +1088,17 @@
     drawFlash();
   }
 
-  // hiding spots: a faint pool of shade inside a crisp pale ring, with a few soft hatch lines, so
-  // it reads as a deliberate place to stand rather than a hole in the floor
+  // hiding spots: a faint pool of shade inside a thin white ring (15%), with barely-there hatching,
+  // so they read as places to stand without competing with the player and the cones
   function drawShades(z) {
     for (const s of L.shades) {
       const inside = P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r;
       g.save();
-      g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fillStyle = 'rgba(18,64,82,0.2)'; g.fill(); g.clip();
-      g.strokeStyle = 'rgba(200,236,244,0.08)'; g.lineWidth = 2; g.beginPath();
+      g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fillStyle = 'rgba(18,64,82,0.12)'; g.fill(); g.clip();
+      g.strokeStyle = 'rgba(255,255,255,0.05)'; g.lineWidth = 2; g.beginPath();
       for (let i = -s.r * 2; i <= s.r * 2; i += 9) { g.moveTo(s.x + i - s.r, s.y - s.r); g.lineTo(s.x + i + s.r, s.y + s.r); }
       g.stroke(); g.restore();
-      g.strokeStyle = inside ? 'rgba(190,240,255,0.85)' : 'rgba(205,236,244,0.42)'; g.lineWidth = 1.8;
+      g.strokeStyle = inside ? 'rgba(190,240,255,0.85)' : 'rgba(255,255,255,0.15)'; g.lineWidth = 1.5;
       if (inside) { g.setLineDash([4, 4]); g.lineDashOffset = time * 10; }
       g.beginPath(); g.arc(s.x, s.y, s.r - 1, 0, TAU); g.stroke(); g.setLineDash([]);
     }
@@ -1010,11 +1128,11 @@
     g.restore();
   }
 
-  // a cone is light falling on the floor, not a decal over it: it is added to what is already there
-  // ('lighter'), so the floor's shading and the shadows the walls cast still read through it, and
-  // the walls, drawn after, cut it off at their edge. One pass lights the union of every calm cone
-  // evenly; a second adds each cone on its own, brightest at the guard and fading toward the arc,
-  // so a single cone lands at about #6BB8CC and ground two cones watch builds toward #7CC8DC.
+  // a cone is a lit sector: the visibility polygon from the guard, so walls cut it only along straight
+  // rays out of the guard, and its free edge is one smooth arc. Each is filled with light that is
+  // brightest at the guard (about #8CD2E4 at 55%) and fades toward the arc (#5FAEC6 at 25%). It is
+  // laid on with 'screen', the way light adds up: the shading underneath still reads through it, and
+  // where two cones cross the ground gets brighter without ever blowing out to a flat block.
   // Only a guard (or camera) in full alarm turns its cone red.
   function conePath(path, p) {
     path.moveTo(p[0], p[1]);
@@ -1022,27 +1140,23 @@
     path.closePath();
   }
   function drawCones() {
-    const calm = new Path2D(), hot = new Path2D(), each = [];
-    let nh = 0;
+    const calm = [], hot = [];
     const add = (o, len, isCam) => {
       const p = o.cone; if (!p) return;
-      if (o.state === 'chase' || (isCam && o.alarm > 0)) { conePath(hot, p); nh++; return; }
-      const one = new Path2D(); conePath(one, p); conePath(calm, p);
-      each.push({ path: one, x: p[0], y: p[1], len });
+      const one = new Path2D(); conePath(one, p);
+      (o.state === 'chase' || (isCam && o.alarm > 0) ? hot : calm).push({ path: one, x: p[0], y: p[1], len });
     };
     for (const gd of guards) add(gd, D.coneLen, false);
     for (const c of cams) add(c, D.coneLen * 1.05, true);
-    g.save(); g.globalCompositeOperation = 'lighter';
-    if (each.length) {
-      g.fillStyle = COL.coneBase; g.fill(calm, 'nonzero');
-      for (const c of each) {
-        const gr = g.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.len);
-        gr.addColorStop(0, COL.coneNear); gr.addColorStop(1, COL.coneFar);
-        g.fillStyle = gr; g.fill(c.path);
-      }
-    }
+    const fill = (c, near, far) => {
+      const gr = g.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.len);
+      gr.addColorStop(0, near); gr.addColorStop(1, far);
+      g.fillStyle = gr; g.fill(c.path);
+    };
+    g.save(); g.globalCompositeOperation = 'screen';
+    for (const c of calm) fill(c, COL.coneNear, COL.coneFar);
     g.restore();
-    if (nh) { g.fillStyle = COL.coneHot; g.fill(hot, 'nonzero'); }
+    for (const c of hot) fill(c, COL.coneHot, COL.coneHotFar);
   }
 
   function star(x, y, r, rot) {
@@ -1061,7 +1175,7 @@
     for (const k of L.keys) {
       if (k.got) continue;
       const bob = Math.sin(time * 3 + k.x) * 1.5;
-      g.fillStyle = k.color.c + '33'; g.beginPath(); g.arc(k.x, k.y, 10.5, 0, TAU); g.fill();
+      g.fillStyle = k.color.c + '1f'; g.beginPath(); g.arc(k.x, k.y, 9.5, 0, TAU); g.fill();
       g.save(); g.translate(k.x, k.y + bob); g.rotate(-0.5);
       g.fillStyle = 'rgba(20,60,75,0.5)'; g.fillRect(-7 + 2, -5 + 3, 14, 10);
       g.fillStyle = k.color.c; g.fillRect(-7, -5, 14, 10);
@@ -1075,12 +1189,13 @@
       let a = 1;
       if (d.open) { a = 1 - (time - d.openT) / 0.5; if (a <= 0) continue; }
       g.save(); g.globalAlpha = a;
-      g.beginPath(); shapePath(d.shape); g.fillStyle = '#1a2a33'; g.fill(); g.clip();
+      // a slab like the walls with the key's colour set into it: plain enough not to fight the cones
+      g.beginPath(); shapePath(d.shape); g.fillStyle = COL.wall; g.fill(); g.clip();
+      g.strokeStyle = d.color.c; g.lineWidth = 5; g.globalAlpha = a * 0.85;
+      g.beginPath(); shapePath(d.shape); g.stroke();
+      g.globalAlpha = a * 0.35; g.lineWidth = 2;
       const c = U.centroid(d.shape);
-      g.strokeStyle = d.color.c; g.lineWidth = 3.4;
-      g.beginPath();
-      for (let i = -50; i <= 50; i += 8) { g.moveTo(c.x + i - 20, c.y - 20); g.lineTo(c.x + i + 20, c.y + 20); }
-      g.stroke();
+      g.beginPath(); for (let i = -48; i <= 48; i += 16) { g.moveTo(c.x + i - 20, c.y - 20); g.lineTo(c.x + i + 20, c.y + 20); } g.stroke();
       g.restore();
     }
   }
@@ -1089,13 +1204,11 @@
     const s = U.rect(x, y, size, size, ang);
     polyPath(U.sweep(s, LIGHT.x * k, LIGHT.y * k));
   }
-  function drawCharShadows() {
-    // the guards' shadows are lighter than the player's, so the player is the one shape that stands out
-    g.fillStyle = 'rgba(16,62,78,0.3)';
-    g.beginPath();
-    for (const gd of guards) charSweep(gd.x, gd.y, gd.ang, G_SIZE, 1);
-    g.fill();
-    if (P && P.scale > 0) { g.fillStyle = 'rgba(16,62,78,0.55)'; g.beginPath(); charSweep(P.x, P.y, P.ang, P_SIZE * P_LOOK * P.scale, 1); g.fill(); }
+  // the characters' shadows join the walls' in one path (see render): same angle, same tone, and as
+  // long against their size as a wall's is against its height
+  function charShadowPaths() {
+    for (const gd of guards) charSweep(gd.x, gd.y, gd.ang, G_SIZE * G_LOOK, CHAR_K);
+    if (P && P.scale > 0) charSweep(P.x, P.y, P.ang, P_SIZE * P_LOOK * P.scale, CHAR_K);
   }
   function rsq(x, y, s, ang, r) {
     g.save(); g.translate(x, y); g.rotate(ang);
@@ -1115,12 +1228,14 @@
       g.fillStyle = '#10204a'; g.beginPath(); g.arc(c.x + Math.cos(c.ang) * 1.6, c.y + Math.sin(c.ang) * 1.6, 2.1, 0, TAU); g.fill();
     }
     for (const gd of guards) {
-      rsq(gd.x, gd.y, G_SIZE, gd.ang, 3);
+      // a pale rim (amber when suspicious, red on a chase) lifts the dark square off the shadows it stands in
+      const gs = G_SIZE * G_LOOK;
+      rsq(gd.x, gd.y, gs, gd.ang, 3);
       g.fillStyle = COL.guard; g.fill();
-      g.lineWidth = 1.5; g.strokeStyle = gd.state === 'chase' ? '#ff6b52' : gd.state === 'sus' ? '#ffcf6a' : COL.guardHi; g.stroke();
+      g.lineWidth = Math.max(1.8, 2 / z); g.strokeStyle = gd.state === 'chase' ? '#ff6b52' : gd.state === 'sus' ? '#ffcf6a' : COL.guardRim; g.stroke();
       // the visor shows which way they face
       const vc = gd.state === 'chase' ? '#ff7a62' : gd.state === 'sus' || gd.state === 'search' ? '#ffd877' : '#bdf0ff';
-      g.fillStyle = vc; g.fillRect(G_SIZE / 2 - 4.5, -G_SIZE / 2 + 3, 3, G_SIZE - 6);
+      g.fillStyle = vc; g.fillRect(gs / 2 - 5, -gs / 2 + 3.5, 3, gs - 7);
       g.restore();
     }
     if (P && P.scale > 0) {
@@ -1173,11 +1288,22 @@
     if (!P || !P.alive) return;
     const line = (o, col) => {
       g.save(); g.setLineDash([5 / z * 1.2, 5 / z * 1.2]); g.lineDashOffset = -time * 30;
-      g.strokeStyle = col; g.lineWidth = 1.6 / z * 1.2;
+      g.globalAlpha = 0.45; g.strokeStyle = col; g.lineWidth = 1.2 / z * 1.2;
       g.beginPath(); g.moveTo(o.x, o.y); g.lineTo(P.x, P.y); g.stroke(); g.restore();
     };
     for (const gd of guards) {
-      if (gd.lost > 0.05) continue;
+      if (gd.lost > 0.05) {
+        // out of their sight, a suspicious guard's last look at you (or a searcher's goal) is a faint
+        // mark on the floor, so you know which way they'll come and which way to break
+        const q = gd.state === 'sus' ? gd.last : gd.state === 'search' && gd.scanT < 0 ? gd.target : null;
+        if (q) {
+          const a = gd.state === 'sus' ? 0.55 : 0.35, r = 9 + Math.sin(time * 5) * 0.8;
+          g.save(); g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = 1.6 / z * 1.2; g.setLineDash([3 / z * 1.2, 3 / z * 1.2]);
+          g.beginPath(); g.arc(q.x, q.y, r, 0, TAU); g.stroke(); g.setLineDash([]);
+          g.fillStyle = `rgba(255,255,255,${a})`; g.beginPath(); g.arc(q.x, q.y, 1.8, 0, TAU); g.fill(); g.restore();
+        }
+        continue;
+      }
       if (gd.state === 'chase') line(gd, 'rgba(255,100,80,0.85)');
       else if (gd.state === 'sus') line(gd, `rgba(255,210,100,${0.4 + gd.aw * 0.5})`);
     }
@@ -1221,6 +1347,13 @@
       const top = caughtNow && P ? Math.min(s.y, toScreen(P.x, P.y).y) : s.y;
       const x = s.x, y = top - (h + 14) * k - 12 * (kk - k), red = glyph === '!';
       g.save(); g.globalAlpha = caughtNow ? 1 : b.a;
+      // the moment a '!' goes up the guard's square flashes white for a beat (0.15s), as the original's does
+      if (b.k === '!' && b.t < 0.15 && o.ang !== undefined && h === G_SIZE) {
+        const gs = G_SIZE * G_LOOK * view.z;
+        g.save(); g.translate(s.x, s.y); g.rotate(o.ang); g.globalAlpha = 0.9 * (1 - b.t / 0.15);
+        g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect ? g.roundRect(-gs / 2 - 1, -gs / 2 - 1, gs + 2, gs + 2, 3 * view.z) : g.rect(-gs / 2 - 1, -gs / 2 - 1, gs + 2, gs + 2); g.fill();
+        g.restore();
+      }
       if (caughtNow) {
         // a hot red glow behind the mark, strongest on the pulse
         const gr = g.createRadialGradient(x, y, 0, x, y, 30 * kk);
@@ -1276,11 +1409,14 @@
       g.restore();
     }
     for (const f of fx) if (f.k === 'pop' && f.sx !== undefined) {
-      const t = f.t / f.dur;
-      g.save(); g.globalAlpha = 1 - t * t;
-      g.font = `800 ${f.text.length > 2 ? 13 : 22}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center';
-      g.lineWidth = 4; g.strokeStyle = 'rgba(15,50,62,0.8)'; g.strokeText(f.text, f.sx, f.sy - 20 - t * 30);
-      g.fillStyle = f.c; g.fillText(f.text, f.sx, f.sy - 20 - t * 30);
+      const t = f.t / f.dur, word = f.text.length > 2;
+      // a word lands like the stars' punch: 1.3x down to its size over 0.2s, in a heavy ink outline so yellow reads on pale teal
+      const sc = 1 + 0.3 * (1 - U.smooth(U.clamp(f.t / 0.2, 0, 1))), y = f.sy - 22 - t * 30;
+      g.save(); g.globalAlpha = 1 - t * t; g.translate(f.sx, y); g.scale(sc, sc);
+      g.font = `800 ${word ? 16 : 22}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+      if (word) { g.fillStyle = 'rgba(10,40,52,0.45)'; g.fillText(f.text, 1.5, 2.5); }
+      g.lineWidth = word ? 5 : 4; g.strokeStyle = word ? 'rgba(18,49,63,0.95)' : 'rgba(15,50,62,0.8)'; g.strokeText(f.text, 0, 0);
+      g.fillStyle = f.c; g.fillText(f.text, 0, 0);
       g.restore();
     }
   }
@@ -1293,7 +1429,7 @@
       g.fillStyle = vg; g.fillRect(0, 0, W, H);
     }
     // danger reddens the edges of the screen
-    const t = AUDIO.tension;
+    const t = AUDIO.level;   // the smoothed danger, so the red edge fades in rather than snapping on
     if (t > 0.55 && mode !== 'title') {
       const a = (t - 0.55) / 0.45 * 0.3;
       const R = Math.hypot(W, H) / 2;
@@ -1316,7 +1452,7 @@
   addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') { setTouch(true); clearMouse(); } else if (e.pointerType === 'mouse') setTouch(false); }, true);
   function updateHUD() {
     $('floorNum').textContent = String(floorN).padStart(2, '0');
-    $('floorName').textContent = NAMES[(floorN - 1) % NAMES.length];
+    $('floorName').textContent = floorName(floorN);
     const shown = gotStars - fx.filter(f => f.k === 'fly').length;
     $('hudStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < shown ? 'on' : ''}">★</span>`).join('');
     $('hudKeys').innerHTML = (P ? P.keys : []).filter(k => !k.door.open).map(k => `<span class="key" style="background:${k.color.c}"></span>`).join('');
@@ -1324,15 +1460,16 @@
   function showBanner(n) {
     const b = $('banner');
     if (n === null) { b.className = ''; bannerT = 0; return; }
-    b.innerHTML = `<div class="bn">FLOOR ${n}</div><div class="bs">${NAMES[(n - 1) % NAMES.length]}</div>`;
+    b.innerHTML = `<div class="bn">FLOOR ${n}</div><div class="bs">${floorName(n)}</div>`;
     b.className = 'show'; bannerT = 1.7;
   }
   function togglePause() {
+    if (floorsShown()) { closeFloors(); return; }   // Esc, P or Start backs out of the list first
     if (mode === 'title' || mode === 'boot' || (wipeJob && !paused)) return;
     paused = !paused;
     $('pause').classList.toggle('show', paused); AUDIO.duck(paused);
     if (paused) {
-      clearStick(); $('pFloor').textContent = `Floor ${floorN} · ${NAMES[(floorN - 1) % NAMES.length]}`; syncToggles();
+      clearStick(); $('pFloor').textContent = `Floor ${floorN} · ${floorName(floorN)}` + (replay ? ' · replay' : ''); syncToggles();
       // this floor's stars as they stand, and the run's tally
       $('pStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < gotStars ? 'on' : ''}">★</span>`).join('');
       const total = Object.entries(save.stars).reduce((a, [f, v]) => a + (+f === floorN ? 0 : v), 0) + Math.max(gotStars, save.stars[floorN] || 0);
@@ -1361,7 +1498,9 @@
     mode = 'title'; modeT = 0; paused = false; AUDIO.duck(false);
     cancelResult(); cancelWipe(); clearToast(); chaseHintT = 0; showBanner(null); dimHUD(false);
     $('title').classList.add('show'); $('hud').classList.add('gone'); stickEl.classList.add('gone');
-    const totalStars = Object.values(save.stars).reduce((a, b) => a + b, 0);
+    replay = false; closeFloors(true);
+    const totalStars = starTotal();
+    $('btnFloors').style.display = save.floor > 1 ? '' : 'none';
     $('btnPlay').textContent = save.floor > 1 ? `Continue · Floor ${save.floor}` : 'Begin';
     $('btnNew').style.display = save.floor > 1 ? '' : 'none';
     $('titleMeta').textContent = save.best > 1 ? `Highest floor ${save.best} · ${totalStars} ★` : '';
@@ -1369,20 +1508,74 @@
     const keep = save.runSeed; save.runSeed = (Math.random() * 1e9) >>> 0;
     startFloor(3 + Math.floor(Math.random() * 4)); save.runSeed = keep;
     P.alive = false; P.scale = 0;
-    view.x = floorBox.cx; view.y = floorBox.cy; view.z = overviewZ();
+    const o = titleAim(); view.x = o.x; view.y = o.y; view.z = o.z;
+  }
+  // the attract floor sits clear of the wordmark: below the buttons when upright, to the right on its side
+  function titleAim() {
+    if (isPortrait()) { const z = overviewZ() * 1.02; return { x: floorBox.cx, y: floorBox.cy - H * 0.22 / z, z }; }
+    // on its side the text block is centred at ~31% of the width (see #title in index.html); the floor fills the right 44%
+    const z = Math.min(overviewZ(), (W * 0.44) / floorBox.w, (H - 60) / floorBox.h);
+    return { x: floorBox.cx - W * 0.25 / z, y: floorBox.cy, z };
   }
   function startGame() {
+    if (floorsShown()) return;
+    replay = false;
     AUDIO.unlock(); AUDIO.play('tap');
     $('title').classList.remove('show'); $('hud').classList.remove('gone'); stickEl.classList.remove('gone');
     mode = 'intro';
     wipe(() => startFloor(save.floor));
   }
+  // ── the floors you've climbed: any of them again, for the stars you missed ──
+  // Floors replay exactly: each is generated from the run's seed and its number (and the kinds below it).
+  let floorsFrom = null;
+  const floorsShown = () => $('floors').classList.contains('show');
+  function floorsScreen(from) {
+    floorsFrom = from;
+    const total = starTotal(), open = skinsOpen(total), top = save.floor - 1;   // this building's floors, climbed and cleared
+    const next = open < SKINS.length ? ` · next colour at ${open * STARS_PER_SKIN}\u2605` : '';
+    $('flMeta').textContent = `${total}\u2605 of ${top * 3}${next}`;
+    let h = '';
+    for (let n = 1; n <= top; n++) {
+      const k = save.stars[n] || 0;
+      h += `<button class="flTile${k === 3 ? ' full' : ''}" data-n="${n}" aria-label="Floor ${n}, ${floorName(n)}, ${k} of 3 stars"><b>${n}</b><span class="nm">${floorName(n)}</span><span class="st">${starStr(k)}</span></button>`;
+    }
+    $('flGrid').innerHTML = h || '<div class="meta">Clear a floor to play it again here.</div>';
+    $('flSkins').innerHTML = SKINS.map((sk, i) => i < open
+      ? `<button class="skin${i === save.skin ? ' on' : ''}" data-i="${i}" style="--c:${sk.c};--lo:${sk.lo}" aria-label="${sk.name}"></button>`
+      : `<button class="skin locked" disabled style="--c:${sk.c};--lo:${sk.lo}" aria-label="${sk.name}, ${i * STARS_PER_SKIN} stars"><span>${i * STARS_PER_SKIN}\u2605</span></button>`).join('');
+    $('pause').classList.remove('show'); $('floors').classList.add('show');
+    const cur = $('flGrid').querySelector(`[data-n="${Math.min(top, floorN)}"]`); if (cur && from === 'pause') cur.scrollIntoView({ block: 'nearest' });
+  }
+  function closeFloors(quiet) {
+    if (!floorsShown()) return;
+    $('floors').classList.remove('show');
+    if (!quiet && floorsFrom === 'pause' && paused) $('pause').classList.add('show');
+  }
+  function replayFloor(n) {
+    replay = true; closeFloors(true);
+    paused = false; AUDIO.duck(false); $('pause').classList.remove('show');
+    AUDIO.unlock(); AUDIO.play('tap');
+    $('title').classList.remove('show'); $('hud').classList.remove('gone'); stickEl.classList.remove('gone');
+    mode = 'intro';
+    wipe(() => startFloor(n));
+  }
+  $('flGrid').addEventListener('click', (e) => { const b = e.target.closest('.flTile'); if (b) replayFloor(+b.dataset.n); });
+  $('flSkins').addEventListener('click', (e) => {
+    const b = e.target.closest('.skin'); if (!b || b.disabled) return;
+    save.skin = +b.dataset.i; persist(); applySkin(); AUDIO.play('tap');
+    for (const o of $('flSkins').children) o.classList.toggle('on', o === b);
+  });
+  $('flBack').addEventListener('click', () => { AUDIO.play('tap'); closeFloors(); });
+  $('btnFloors').addEventListener('click', () => { AUDIO.unlock(); AUDIO.play('tap'); floorsScreen('title'); });
+  $('optFloors').addEventListener('click', () => floorsScreen('pause'));
   $('btnPlay').addEventListener('click', startGame);
   $('btnNew').addEventListener('click', () => { save.floor = 1; save.runSeed = (Math.random() * 1e9) >>> 0; save.stars = {}; persist(); startGame(); });   // a new building's stars start from none
   // pointerdown, not click: Chromium sends click only for the primary pointer, and the thumb on the stick is that pointer
   let btnDownT = -1e9;
   $('pauseBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); btnDownT = performance.now(); AUDIO.play('tap'); togglePause(); });
   $('mapBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); btnDownT = performance.now(); toggleMap(); });
+  $('knockBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); btnDownT = performance.now(); knock(); });
+  $('knockBtn').addEventListener('click', (e) => { if (keyClick(e)) knock(); });
   // keyboard activation (Enter or Space on a focused button) still arrives as a click with no pointer behind it;
   // a tap's own click can too (detail 0 on some touch stacks), so a click just after a pointerdown is that tap, not a second press
   const keyClick = (e) => { e.stopPropagation(); return e.detail === 0 && performance.now() - btnDownT > 500; };
@@ -1420,7 +1613,7 @@
   document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
   resize();
   AUDIO.setMusic(save.music); AUDIO.setMuted(!save.sound);
-  syncToggles();
+  syncToggles(); applySkin();
   if (!isTouch) document.body.classList.add('desk');
   titleScreen();
   requestAnimationFrame(frame);
@@ -1433,6 +1626,6 @@
     get checkpoint() { return checkpoint; }, get modeT() { return modeT; },
     skipIntro: () => { mode = 'play'; modeT = 0; view.x = P.x; view.y = P.y; view.z = baseZ(); $('banner').className = ''; },
     setOverview: (v) => { overview = v; }, teleport: (x, y) => { P.x = x; P.y = y; },
-    stick, keys, togglePause, toggleMap,
+    stick, keys, togglePause, toggleMap, replayFloor, floorsScreen, knock, get replay() { return replay; }, get knockCD() { return knockCD; },
   };
 })();
