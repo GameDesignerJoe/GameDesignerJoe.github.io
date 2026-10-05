@@ -3,6 +3,7 @@
 // gives up and goes back to its round; a guard that reaches you catches you; the stairs climb.
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
+import { cpRespawns } from './checkpoint-case.mjs';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
 const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': f.endsWith('.js') ? 'text/javascript' : 'text/html' }); r.end(d); }); }).listen(0);
@@ -137,6 +138,12 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
   const r = await page.evaluate(() => ({ x: GAME.P.x, y: GAME.P.y, key: GAME.P.keys.length, open: GAME.L.keys[0].door.open }));
   const d = Math.hypot(r.x - door.x, r.y - door.y);
   check(opened && caught === 'caught' && d < 70 && r.key === 1 && r.open, `checkpoint: caught after opening a door -> back at that door (${d.toFixed(0)} from it), key kept ${r.key}, door open ${r.open}`);
+}
+// checkpoint respawns are fair: at every door's checkpoint (5 runs x floors 2-12), stand still: nobody looks for 4s
+{
+  const r = await cpRespawns(browser, `http://localhost:${srv.address().port}/stealth/index.html`, [11, 22, 33, 44, 55], [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  const bad = r.filter(x => x.bad);
+  check(r.length > 50 && !bad.length, `checkpoint respawns: ${r.length} doors, ${bad.length} noticed within 4s standing still${bad.length ? ' (' + bad.slice(0, 4).map(x => `run ${x.seed} floor ${x.fl} door ${x.i}: ${x.bad}`).join('; ') + ')' : ''}`);
 }
 check(errors.length === 0, 'no page errors ' + errors.join(' | '));
 await browser.close(); srv.close();

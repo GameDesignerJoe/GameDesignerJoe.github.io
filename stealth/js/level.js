@@ -185,11 +185,11 @@
   // ── difficulty by floor ────────────────────────────────────
   function difficulty(n) {
     return {
-      rooms: n <= 1 ? 3 : n <= 3 ? 4 : n <= 5 ? 5 : n <= 8 ? 6 : 7,
+      rooms: n <= 1 ? 3 : n <= 3 ? 4 : n <= 5 ? 5 : n <= 8 ? 6 : n <= 12 ? 7 : 8,
       sides: n <= 1 ? 1 : n <= 4 ? 1 : 2,
       density: Math.min(0.9 + n * 0.12, 2.0),
       coneLen: Math.min(132 + n * 5, 190),
-      fov: 0.6,
+      fov: 0.6 + U.clamp((n - 12) / 3, 0, 1) * 0.1,   // wider eyes past the twelfth floor
       patrol: Math.min(40 + n * 2, 60),
       chase: Math.min(100 + n * 2, 118),
       detect: Math.min(0.6 + n * 0.025, 0.9),
@@ -218,22 +218,28 @@
   }
 
   // ── the building ───────────────────────────────────────────
-  // A floor is one mass laid out on a polar grid round a centre: a disc (a hub and one or two
-  // rings), a crescent wing (one or two bands round an empty court) or a nautilus (wedges that
-  // grow as they wind round a hub). Each zone is a cell of that grid, { a0, a1, r0, r1 }; the hub
-  // is the cell with r0 = 0. Zones that touch share a thick wall, and only the walls on the route
-  // get a door gap, so the zones make a tree and a locked door can't be walked round.
+  // A floor is a building of one or more masses joined by narrow halls. A mass is laid out round
+  // its own centre — a disc (a hub and one or two rings), a crescent wing (one or two bands round
+  // an empty court, curved or built of straight-sided blocks), a nautilus, a lone round room — or
+  // square-built in its own turned frame: a block of rooms on a grid, a wing of rooms off a long
+  // hall, a small tower. Each zone is a cell of its mass's grid, { a0, a1, r0, r1 } or
+  // { u0, u1, v0, v1 }. Zones of one mass that touch share a thick wall; masses meet only through
+  // a hall (a 'neck', itself a zone) with a doorway at each end. Only the walls on the route get a
+  // door gap, so the zones make a tree and a locked door can't be walked round. Outer edges step in
+  // and out zone by zone and are bitten into, so no two floors share an outline.
   const WALL = 18, PART = 14, GAP = 52;
   const chord = (r) => Math.min(90, Math.sqrt(9 * r));   // arcs are laid in chords that sag about a unit
+  const dir = (a) => ({ x: Math.cos(a), y: Math.sin(a) });
+  const turn = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return { x: v.x * c - v.y * s, y: v.x * s + v.y * c }; };
 
   // The building's kind is drawn on its own, before the plan, from the floors below: never the
   // same kind twice running, and never a tenth floor that leaves ten in a row with under four.
-  const KINDS = ['disc', 'crescent', 'nautilus', 'block', 'wing'];
+  const KINDS = ['disc', 'crescent', 'nautilus', 'block', 'wing', 'cluster', 'twin'];
   function pickKind(seed, n, hist) {
     hist = hist == null ? [] : typeof hist === 'string' ? [hist] : hist;
     const R = U.rng(U.hash(seed, 0x6b1d)), last9 = new Set(hist.slice(0, 9));
     const crowded = hist.length >= 9 && last9.size <= 3;
-    const w = { disc: 1, crescent: 0.8, nautilus: n >= 2 ? 0.8 : 0.3, block: 1.4, wing: n >= 2 ? 1.1 : 0 };
+    const w = { disc: 0.9, crescent: 0.9, nautilus: n >= 2 ? 0.8 : 0.3, block: 1, wing: n >= 2 ? 0.8 : 0, cluster: 1.3, twin: n >= 3 ? 1.2 : 0 };
     return R.weighted(KINDS.map(k => [k, k === hist[0] || (crowded && last9.has(k)) ? 0 : w[k]]));
   }
   // the kinds of a run's floors below n, nearest first, for generate()
@@ -245,119 +251,393 @@
     return ks.slice(1, n).reverse();
   }
 
-  function layout(R, n, Z, kind) {
-    const o = { x: 0, y: 0 }, rot = R() * TAU, AZ = 86000 + Math.min(n, 6) * 4000;
-    kind = kind || R.weighted([['disc', 1], ['crescent', 1.1], ['nautilus', n >= 2 ? 1.1 : 0.5]]);
-    if (kind === 'block' || kind === 'wing') return rectLayout(R, n, Z, kind, AZ);
-    const zones = [];
-    const split = (k, span, j) => { const w = []; let s = 0; for (let i = 0; i < k; i++) { w.push(R.range(1 - j, 1 + j)); s += w[i]; } return w.map(v => v / s * span); };
-    const band = (k, a0, span, r0, r1) => { let a = a0; for (const w of split(k, span, 0.2)) { zones.push({ a0: a, a1: a + w, r0, r1 }); a += w; } };
-    let hub = 0, span = TAU;
-    if (kind === 'disc') {
-      hub = R.range(150, 185);
-      const K = Z - 1;
-      if (K <= 5) band(K, rot, TAU, hub, Math.sqrt(K * AZ / Math.PI + hub * hub));
+  // ── masses ──
+  // A mass round a centre, of k zones. Its zones carry absolute angles, so turning it turns them.
+  function polarPod(R, k, kind, AZ, opt) {
+    opt = opt || {};
+    const rot = R() * TAU, pod = { type: 'polar', kind, o: { x: 0, y: 0 }, rot, span: TAU, hub: 0, colR: null, zones: [] }, zones = pod.zones;
+    const split = (m, span, j) => { const w = []; let s = 0; for (let i = 0; i < m; i++) { w.push(R.range(1 - j, 1 + j)); s += w[i]; } return w.map(v => v / s * span); };
+    const band = (ws, a0, r0, r1, outer) => { let a = a0; for (const w of ws) { zones.push({ a0: a, a1: a + w, r0, r1, outer }); a += w; } };
+    let hub = 0;
+    if (kind === 'solo') hub = Math.sqrt(AZ * R.range(0.9, 1.7) / Math.PI);
+    else if (kind === 'disc') {
+      const K = Math.max(2, k - 1), small = K <= 3, az = small ? AZ * 1.25 : AZ;
+      hub = small ? R.range(110, 135) : R.range(150, 185);
+      if (K <= 5) band(split(K, TAU, 0.2), rot, hub, Math.sqrt(K * az / Math.PI + hub * hub), true);
       else {
         const k1 = Math.max(3, Math.round(K * 0.38)), k2 = K - k1;
         const rm = Math.sqrt(k1 * AZ * 0.85 / Math.PI + hub * hub), ro = Math.sqrt(k2 * AZ * 1.1 / Math.PI + rm * rm);
-        band(k1, rot, TAU, hub, rm); band(k2, rot + R.range(0.2, 0.5), TAU, rm, ro);
+        band(split(k1, TAU, 0.2), rot, hub, rm, false); band(split(k2, TAU, 0.2), rot + R.range(0.2, 0.5), rm, ro, true);
       }
     } else if (kind === 'crescent') {
-      span = R.range(3.9, 4.9);
-      const ri = R.range(170, 230);
-      if (Z <= 5) band(Z, rot, span, ri, Math.sqrt(2 * Z * AZ / span + ri * ri));
+      const span = pod.span = R.range(3.9, 4.9), ri = pod.ri = R.range(170, 230);
+      pod.facet = !!opt.facet;
+      if (pod.facet && k >= 6) {
+        // two bands of straight-sided blocks, each outer block squarely on an inner one
+        const m = Math.round(k / 2), ws = split(m, span, 0.15);
+        const rm = Math.sqrt(2 * m * AZ * 0.8 / span + ri * ri), ro = Math.sqrt(2 * m * AZ * 1.1 / span + rm * rm);
+        band(ws, rot, ri, rm, false); band(ws, rot, rm, ro, true);
+      } else if (k <= 5 || pod.facet) band(split(k, span, 0.2), rot, ri, Math.sqrt(2 * k * AZ / span + ri * ri), true);
       else {
-        const k1 = Math.max(2, Math.round(Z / 3)), k2 = Z - k1;
+        const k1 = Math.max(2, Math.round(k / 3)), k2 = k - k1;
         const rm = Math.sqrt(2 * k1 * AZ * 0.8 / span + ri * ri), ro = Math.sqrt(2 * k2 * AZ * 1.1 / span + rm * rm);
-        band(k1, rot, span, ri, rm); band(k2, rot, span, rm, ro);
+        band(split(k1, span, 0.2), rot, ri, rm, false); band(split(k2, span, 0.2), rot, rm, ro, true);
       }
     } else {
       hub = R.range(140, 170);
-      const nSplit = Z >= 8 ? 2 : Z >= 6 ? 1 : 0, K = Z - 1 - nSplit, ws = split(K, TAU, 0.06);
+      const nSplit = k >= 8 ? 2 : k >= 6 ? 1 : 0, K = Math.max(3, k - 1 - nSplit), ws = split(K, TAU, 0.06);
       let a = rot;
       for (let i = 0; i < K; i++) {
         const big = i >= K - nSplit, area = AZ * (0.55 + 0.9 * i / Math.max(1, K - 1)) * (big ? 2 : 1);
         const r1 = Math.sqrt(2 * area / ws[i] + hub * hub);
-        if (big) { const rm = Math.sqrt((r1 * r1 + hub * hub) / 2); zones.push({ a0: a, a1: a + ws[i], r0: hub, r1: rm }, { a0: a, a1: a + ws[i], r0: rm, r1 }); }
-        else zones.push({ a0: a, a1: a + ws[i], r0: hub, r1 });
+        if (big) { const rm = Math.sqrt((r1 * r1 + hub * hub) / 2); zones.push({ a0: a, a1: a + ws[i], r0: hub, r1: rm }, { a0: a, a1: a + ws[i], r0: rm, r1, outer: true }); }
+        else zones.push({ a0: a, a1: a + ws[i], r0: hub, r1, outer: true });
         a += ws[i];
       }
     }
-    if (hub) zones.unshift({ hub: true, a0: 0, a1: TAU, r0: 0, r1: hub });
-    // a double row of columns that sweeps round the whole building along one radius
-    let colR = null;
-    if (R.chance(0.45)) {
-      if (kind === 'crescent') { const b = zones[0]; colR = Z <= 5 ? b.r0 + 58 : (b.r0 + b.r1) / 2 - 34; }
-      else if (kind === 'nautilus') colR = hub + 62;
-      else { const outer = zones[zones.length - 1]; colR = outer.r0 + 56; }
+    // the outer edge steps in and out zone by zone; a crescent's court edge does too
+    if (kind === 'disc' || kind === 'crescent') for (const z of zones) {
+      if (z.outer && R.chance(0.75)) z.r1 += R.range(-Math.max(0, Math.min(64, z.r1 - z.r0 - 170)), 64);
+      if (kind === 'crescent' && Math.abs(z.r0 - pod.ri) < 1e-6 && R.chance(0.6)) z.r0 += R.range(-40, Math.max(0, Math.min(40, z.r1 - z.r0 - 170)));
     }
-    return { kind, o, rot, hub, span, zones, colR, colGap: R.range(62, 74), colStep: R.range(54, 62) };
+    if (hub) { pod.hub = hub; zones.unshift({ hub: true, solo: kind === 'solo', a0: 0, a1: TAU, r0: 0, r1: hub }); }
+    // a double row of columns through a short run of zones, so it marks out one grand hall
+    if (opt.col && kind !== 'solo') {
+      let colR;
+      if (kind === 'crescent') { const b = zones[0]; colR = b.outer ? pod.ri + 64 : (pod.ri + b.r1) / 2 - 30; }
+      else if (kind === 'nautilus') colR = hub + 62;
+      else colR = zones[zones.length - 1].r0 + 56;
+      pod.colR = colR; pod.colGap = R.range(54, 62); pod.colStep = R.range(44, 52);
+      const ok = zones.filter(z => !z.hub && colR - 40 >= z.r0 && colR + pod.colGap + 40 <= z.r1);
+      if (ok.length) { const i0 = R.int(0, ok.length - 1), m = ok.length <= 4 ? 1 : R.int(1, 2); for (let i = 0; i < m; i++) ok[(i0 + i) % ok.length].col = true; }
+    }
+    pod.rOut = Math.max(...zones.map(z => z.r1));
+    for (const z of zones) z.pod = pod;
+    return pod;
+  }
+  function turnPod(pod, d) { pod.rot += d; for (const z of pod.zones) if (!z.hub) { z.a0 += d; z.a1 += d; } }
+
+  // A square-built mass, laid out in its own frame (u, v): a block of rectangular zones on a grid,
+  // a cell or two left out to make an L or a T, and on the bigger floors a void court kept open in
+  // the middle; its outer sides step in here and there.
+  function blockPod(R, Z, AZ, opt) {
+    const zones = [], pod = { type: 'rect', kind: 'block', o: { x: 0, y: 0 }, rot: 0, zones };
+    let cols, rows, gone = new Set(), court = [];
+    const key = (i, j) => i + ',' + j;
+    if (Z >= 6 && R.chance(0.8)) {
+      if (Z <= 8) { cols = rows = 3; court = [key(1, 1)]; }
+      else { cols = 4; rows = 3; court = [key(1, 1), key(2, 1)]; }
+    } else {
+      const opts = [];
+      for (let c = 2; c <= 5; c++) for (let r = 2; r <= 4; r++) { const d = c * r - Z; if (d >= (Z <= 3 ? 0 : 1) && d <= 2 && c >= r) opts.push([c, r]); }
+      [cols, rows] = R.pick(opts);
+    }
+    court.forEach(k => gone.add(k));
+    const drop = cols * rows - court.length - Z;
+    // drop edge cells, keeping the rest in one piece
+    const ok = (set) => {
+      const cells = []; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (!set.has(key(i, j))) cells.push([i, j]);
+      const seen = new Set([key(...cells[0])]), st = [cells[0]];
+      while (st.length) { const [i, j] = st.pop(); for (const [a, b] of [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]]) { const k = key(a, b); if (a >= 0 && b >= 0 && a < cols && b < rows && !set.has(k) && !seen.has(k)) { seen.add(k); st.push([a, b]); } } }
+      return seen.size === cells.length;
+    };
+    for (let t = 0; t < 40; t++) {
+      const s = new Set(gone);
+      for (let d = 0; d < drop; d++) {
+        const edge = []; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (!s.has(key(i, j)) && (i === 0 || j === 0 || i === cols - 1 || j === rows - 1)) edge.push(key(i, j));
+        s.add(R.pick(edge));
+      }
+      if (ok(s)) { gone = s; break; }
+    }
+    const base = Math.sqrt(AZ);
+    let cw = [], rh = [];
+    for (let i = 0; i < cols; i++) cw.push(R.range(0.82, 1.2) * base);
+    for (let j = 0; j < rows; j++) rh.push(R.range(0.82, 1.2) * base);
+    let area = 0; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (!gone.has(key(i, j))) area += cw[i] * rh[j];
+    const f = Math.sqrt(Z * AZ / area);
+    cw = cw.map(w => U.clamp(w * f, 260, 380)); rh = rh.map(h => U.clamp(h * f, 260, 380));
+    const W = cw.reduce((a, b) => a + b, 0), H = rh.reduce((a, b) => a + b, 0);
+    for (let i = 0, u = -W / 2; i < cols; u += cw[i], i++) for (let j = 0, v = -H / 2; j < rows; v += rh[j], j++) {
+      if (!gone.has(key(i, j))) zones.push({ rect: true, u0: u, u1: u + cw[i], v0: v, v1: v + rh[j] });
+    }
+    // stagger the outline: an outer side steps in by a bite of 30-70, so long as every wall the
+    // zone shares stays long enough for a door
+    const sides = zones.map(z => ['u0', 'u1', 'v0', 'v1'].filter(sd => !rectShared(zones, z, sd)));
+    const shared = (z) => { const out = []; for (const o of zones) if (o !== z) rectSeams(z, o, out), rectSeams(o, z, out); return out; };
+    zones.forEach((z, i) => {
+      for (const sd of sides[i]) {
+        if (!R.chance(0.5)) continue;
+        const d = R.range(30, 70), sgn = sd[1] === '0' ? 1 : -1, span = sd[0] === 'u' ? z.u1 - z.u0 : z.v1 - z.v0;
+        if (span - d < 220) continue;
+        const was = z[sd], n0 = shared(z).length;
+        z[sd] += sgn * d;
+        const now = shared(z);
+        if (now.length < n0 || now.some(s => s.q1 - s.q0 < 175)) z[sd] = was;
+      }
+    });
+    if (opt && opt.pill) { const big = zones.filter(z => z.u1 - z.u0 >= 250 && z.v1 - z.v0 >= 250); if (big.length) R.pick(big).pill = true; }
+    for (const z of zones) z.pod = pod;
+    return pod;
+  }
+  // a wing: a long hall in two or three stretches with square rooms hung off both sides of it,
+  // each room as deep as it likes
+  function wingPod(R, Z, AZ, opt) {
+    const zones = [], pod = { type: 'rect', kind: 'wing', o: { x: 0, y: 0 }, rot: 0, zones };
+    const nC = Z >= 7 ? 3 : 2, m = Math.max(1, Z - nC), top = Math.ceil(m / 2), bot = m - top;
+    const Wh = R.range(120, 150), rw = R.range(220, 250), rd = R.range(220, 236);
+    const stag = R.range(0, rw * 0.5), slots = Math.max(top * rw, bot * rw + stag);
+    const e0 = R.range(70, 170), e1 = R.range(70, 170), len = slots + e0 + e1;
+    const cuts = [-e0]; for (let i = 1; i < nC; i++) cuts.push(-e0 + len * (i + R.range(-0.12, 0.12)) / nC); cuts.push(slots + e1);
+    for (let i = 0; i < nC; i++) zones.push({ rect: true, corr: true, u0: cuts[i], u1: cuts[i + 1], v0: 0, v1: Wh });
+    for (let i = 0; i < top; i++) zones.push({ rect: true, u0: i * rw, u1: (i + 1) * rw, v0: -rd - (R.chance(0.6) ? R.range(-30, 60) : 0), v1: 0 });
+    for (let i = 0; i < bot; i++) zones.push({ rect: true, u0: stag + i * rw, u1: stag + (i + 1) * rw, v0: Wh, v1: Wh + rd + (R.chance(0.6) ? R.range(-30, 60) : 0) });
+    // centre the plan on the origin
+    let cu = 0, cv = 0; for (const z of zones) { cu += (z.u0 + z.u1) / 2; cv += (z.v0 + z.v1) / 2; }
+    cu /= zones.length; cv /= zones.length;
+    for (const z of zones) { z.u0 -= cu; z.u1 -= cu; z.v0 -= cv; z.v1 -= cv; }
+    if (opt && opt.pill) { const big = zones.filter(z => !z.corr); if (big.length) R.pick(big).pill = true; }
+    for (const z of zones) z.pod = pod;
+    return pod;
+  }
+  // a small square room, to stand at the end of a thin spoke
+  function towerPod(R) {
+    const a = R.range(150, 190), b = R.range(150, 215), pod = { type: 'rect', kind: 'tower', o: { x: 0, y: 0 }, rot: 0, zones: [] };
+    pod.zones.push({ rect: true, tower: true, u0: -a / 2, u1: a / 2, v0: -b / 2, v1: b / 2, pod });
+    return pod;
+  }
+  // does another zone of the mass share any of this side of z?
+  function rectShared(zones, z, sd) {
+    const eq = (a, b) => Math.abs(a - b) < 1e-6;
+    return zones.some(o => o !== z && (
+      sd === 'u0' ? eq(o.u1, z.u0) && Math.min(o.v1, z.v1) - Math.max(o.v0, z.v0) > 1
+      : sd === 'u1' ? eq(o.u0, z.u1) && Math.min(o.v1, z.v1) - Math.max(o.v0, z.v0) > 1
+      : sd === 'v0' ? eq(o.v1, z.v0) && Math.min(o.u1, z.u1) - Math.max(o.u0, z.u0) > 1
+      : eq(o.v0, z.v1) && Math.min(o.u1, z.u1) - Math.max(o.u0, z.u0) > 1));
+  }
+  const rectW = (pod, u, v) => { const p = turn({ x: u, y: v }, pod.rot); return { x: pod.o.x + p.x, y: pod.o.y + p.y }; };
+
+  // the zones of a mass as shapes in the world, for keeping masses apart
+  function podShapes(pod) {
+    if (pod.type === 'rect') return pod.zones.map(z => { const c = rectW(pod, (z.u0 + z.u1) / 2, (z.v0 + z.v1) / 2); return U.rect(c.x, c.y, z.u1 - z.u0, z.v1 - z.v0, pod.rot); });
+    return pod.zones.map(z => z.hub ? U.circle(pod.o.x, pod.o.y, z.r1) : cellPoly(cellOf(pod, z), z.a0, z.a1, z.r0, z.r1));
+  }
+  const cellOf = (pod, z) => ({ o: pod.o, ang: (z.a0 + z.a1) / 2, fc: pod.facet ? Math.cos((z.a1 - z.a0) / 2) : 0 });
+  // the least gap between two sets of shapes (negative where they overlap); gives up below lim
+  function sep(A, B, lim) {
+    let d = Infinity;
+    const pts = (s) => {
+      const out = [];
+      if (s.k === 'c') { for (let i = 0; i < 28; i++) out.push({ x: s.x + Math.cos(i / 28 * TAU) * s.r, y: s.y + Math.sin(i / 28 * TAU) * s.r }); return out; }
+      for (let i = 0; i < s.pts.length; i++) {
+        const a = s.pts[i], b = s.pts[(i + 1) % s.pts.length], k = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 30));
+        for (let j = 0; j < k; j++) out.push({ x: a.x + (b.x - a.x) * j / k, y: a.y + (b.y - a.y) * j / k });
+      }
+      return out;
+    };
+    for (const [X, Y] of [[A, B], [B, A]]) for (const s of X) for (const p of pts(s)) for (const t of Y) { d = Math.min(d, U.sd(t, p.x, p.y)); if (d < lim) return d; }
+    return d;
   }
 
-  // The square-built floors, laid out in their own frame (u, v) and turned by rot: a 'block' of
-  // rectangular zones on a grid, a cell or two left out to make an L or a T, and on the bigger
-  // floors a void court kept open in the middle; or a 'wing', a long hall in two or three
-  // stretches with square rooms hung off both sides of it.
-  function rectLayout(R, n, Z, kind, AZ) {
-    const o = { x: 0, y: 0 }, zones = [];
-    let rot;
-    if (kind === 'block') {
-      rot = R.int(0, 3) * Math.PI / 2;
-      let cols, rows, gone = new Set(), court = [];
-      const key = (i, j) => i + ',' + j;
-      if (Z >= 6 && R.chance(0.8)) {
-        if (Z <= 8) { cols = rows = 3; court = [key(1, 1)]; }
-        else { cols = 4; rows = 3; court = [key(1, 1), key(2, 1)]; }
-      } else {
-        const opts = [];
-        for (let c = 2; c <= 5; c++) for (let r = 2; r <= 4; r++) { const d = c * r - Z; if (d >= 1 && d <= 2 && c >= r) opts.push([c, r]); }
-        [cols, rows] = R.pick(opts);
-      }
-      court.forEach(k => gone.add(k));
-      const drop = cols * rows - court.length - Z;
-      // drop edge cells, keeping the rest in one piece
-      const ok = (set) => {
-        const cells = []; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (!set.has(key(i, j))) cells.push([i, j]);
-        const seen = new Set([key(...cells[0])]), st = [cells[0]];
-        while (st.length) { const [i, j] = st.pop(); for (const [a, b] of [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]]) { const k = key(a, b); if (a >= 0 && b >= 0 && a < cols && b < rows && !set.has(k) && !seen.has(k)) { seen.add(k); st.push([a, b]); } } }
-        return seen.size === cells.length;
-      };
-      for (let t = 0; t < 40; t++) {
-        const s = new Set(gone);
-        for (let d = 0; d < drop; d++) {
-          const edge = []; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (!s.has(key(i, j)) && (i === 0 || j === 0 || i === cols - 1 || j === rows - 1)) edge.push(key(i, j));
-          s.add(R.pick(edge));
-        }
-        if (ok(s)) { gone = s; break; }
-      }
-      const base = Math.sqrt(AZ);
-      let cw = [], rh = [];
-      for (let i = 0; i < cols; i++) cw.push(R.range(0.82, 1.2) * base);
-      for (let j = 0; j < rows; j++) rh.push(R.range(0.82, 1.2) * base);
-      let area = 0; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (!gone.has(key(i, j))) area += cw[i] * rh[j];
-      const f = Math.sqrt(Z * AZ / area);
-      cw = cw.map(w => U.clamp(w * f, 260, 380)); rh = rh.map(h => U.clamp(h * f, 260, 380));
-      const W = cw.reduce((a, b) => a + b, 0), H = rh.reduce((a, b) => a + b, 0);
-      for (let i = 0, u = -W / 2; i < cols; u += cw[i], i++) for (let j = 0, v = -H / 2; j < rows; v += rh[j], j++) {
-        if (!gone.has(key(i, j))) zones.push({ rect: true, u0: u, u1: u + cw[i], v0: v, v1: v + rh[j] });
-      }
-    } else {
-      rot = R() * TAU;
-      const nC = Z >= 7 ? 3 : 2, m = Z - nC, top = Math.ceil(m / 2), bot = m - top;
-      const Wh = R.range(120, 150), rw = R.range(220, 250), rd = R.range(220, 236);
-      const stag = R.range(0, rw * 0.5), slots = Math.max(top * rw, bot * rw + stag);
-      const e0 = R.range(70, 170), e1 = R.range(70, 170), len = slots + e0 + e1;
-      const cuts = [-e0]; for (let i = 1; i < nC; i++) cuts.push(-e0 + len * (i + R.range(-0.12, 0.12)) / nC); cuts.push(slots + e1);
-      for (let i = 0; i < nC; i++) zones.push({ rect: true, corr: true, u0: cuts[i], u1: cuts[i + 1], v0: 0, v1: Wh });
-      for (let i = 0; i < top; i++) zones.push({ rect: true, u0: i * rw, u1: (i + 1) * rw, v0: -rd, v1: 0 });
-      for (let i = 0; i < bot; i++) zones.push({ rect: true, u0: stag + i * rw, u1: stag + (i + 1) * rw, v0: Wh, v1: Wh + rd });
-      // centre the plan on the origin
-      let cu = 0, cv = 0; for (const z of zones) { cu += (z.u0 + z.u1) / 2; cv += (z.v0 + z.v1) / 2; }
-      cu /= zones.length; cv /= zones.length;
-      for (const z of zones) { z.u0 -= cu; z.u1 -= cu; z.v0 -= cv; z.v1 -= cv; }
-    }
-    return { kind, o, rot, hub: 0, span: TAU, zones, colR: null, pillars: R.chance(0.45) };
+  // ── where a hall can leave a mass ──
+  // a point on an outer face, the face's outward normal, and whether the face is curved
+  function polarCap(pod, z, a) {
+    const c = cellOf(pod, z);
+    if (c.fc && !z.hub) return { pod, zone: z, p: cellPt(c, a, z.r1), n: dir(c.ang), curved: false, R: 0, ang: a };
+    return { pod, zone: z, p: { x: pod.o.x + Math.cos(a) * z.r1, y: pod.o.y + Math.sin(a) * z.r1 }, n: dir(a), curved: true, R: z.r1, ang: a };
   }
+  function capsOf(pod, w) {
+    const out = [], need = w / 2 + 46;
+    if (pod.type === 'polar') {
+      for (const z of pod.zones) {
+        if (z.solo) { for (let i = 0; i < 18; i++) out.push(polarCap(pod, z, pod.rot + i / 18 * TAU)); continue; }
+        if (z.hub || !z.outer) continue;
+        const m = need / z.r1;
+        if (z.a1 - z.a0 < 2 * m) continue;
+        for (const f of [0.5, 0.2, 0.8]) out.push(polarCap(pod, z, U.lerp(z.a0 + m, z.a1 - m, f)));
+      }
+      if (pod.kind === 'crescent') {
+        // the two ends of the wing are straight faces
+        for (const z of pod.zones) for (const end of [0, 1]) {
+          const a = end ? z.a1 : z.a0;
+          if (Math.abs(a - (end ? pod.rot + pod.span : pod.rot)) > 1e-6 || z.r1 - z.r0 < 2 * need) continue;
+          const r = (z.r0 + z.r1) / 2;
+          out.push({ pod, zone: z, p: { x: pod.o.x + Math.cos(a) * r, y: pod.o.y + Math.sin(a) * r }, n: end ? { x: -Math.sin(a), y: Math.cos(a) } : { x: Math.sin(a), y: -Math.cos(a) }, curved: false, R: 0, end: true });
+        }
+      }
+      return out;
+    }
+    for (const z of pod.zones) for (const sd of ['u0', 'u1', 'v0', 'v1']) {
+      if (rectShared(pod.zones, z, sd)) continue;
+      const need = w / 2 + (z.corr ? 22 : 46), lo = sd[0] === 'u' ? z.v0 : z.u0, hi = sd[0] === 'u' ? z.v1 : z.u1;
+      if (hi - lo < 2 * need) continue;
+      const nl = sd === 'u0' ? { x: -1, y: 0 } : sd === 'u1' ? { x: 1, y: 0 } : sd === 'v0' ? { x: 0, y: -1 } : { x: 0, y: 1 };
+      for (const f of [0.5, 0.25, 0.75]) {
+        const q = U.lerp(lo + need, hi - need, f), lp = sd[0] === 'u' ? { x: z[sd], y: q } : { x: q, y: z[sd] };
+        out.push({ pod, zone: z, lp, nl, p: rectW(pod, lp.x, lp.y), n: turn(nl, pod.rot), curved: false, R: 0 });
+      }
+    }
+    return out;
+  }
+
+  // Hang a mass off another by a hall of width w leaving one of host's faces; the new mass is
+  // turned and moved so a face of it meets the hall's far end. Fails if it would touch anything.
+  function attach(R, P, host, pod, o) {
+    const w = o.w;
+    for (let t = 0; t < 8; t++) {
+      let caps = capsOf(host, w).filter(c => !P.capPts.some(q => Math.hypot(q.x - c.p.x, q.y - c.p.y) < w + 170));
+      if (o.end) caps = caps.filter(c => c.end);
+      if (o.corr) caps = caps.filter(c => c.zone.corr);
+      else if (host.kind === 'wing') caps = caps.filter(c => !c.zone.corr);
+      if (!caps.length) return false;
+      // lean away from the masses already down, so the building spreads rather than folds
+      let cx = 0, cy = 0; for (const p of P.pods) { cx += p.o.x; cy += p.o.y; } cx /= P.pods.length; cy /= P.pods.length;
+      const away = P.pods.length > 1 ? Math.atan2(host.o.y - cy, host.o.x - cx) : R() * TAU;
+      let c1 = null, best = -Infinity;
+      for (const c of caps) { const s = Math.cos(Math.atan2(c.n.y, c.n.x) - away) + R.range(0, 1.3); if (s > best) { best = s; c1 = c; } }
+      const a = c1.curved ? c1.n : turn(c1.n, R.range(-1, 1) * (o.skew || 0));
+      const len = o.len * R.range(0.85, 1.15);
+      const q = { x: c1.p.x + a.x * len, y: c1.p.y + a.y * len };
+      const c2 = place(R, pod, q, a, w, o.delta || 0);
+      if (!c2) continue;
+      const ang = Math.atan2(a.y, a.x), mid = { x: (c1.p.x + q.x) / 2, y: (c1.p.y + q.y) / 2 };
+      const hall = U.rect(mid.x, mid.y, Math.max(10, len - 24), w, ang);
+      const mine = podShapes(pod);
+      let ok = true;
+      for (const e of P.pods) {
+        if (sep(podShapes(e), mine, 36) < 36) { ok = false; break; }
+        const others = podShapes(e).filter((s, i) => e.zones[i] !== c1.zone);
+        if (sep(others, [hall], 30) < 30) { ok = false; break; }
+      }
+      if (ok && sep(mine.filter((s, i) => pod.zones[i] !== c2.zone), [hall], 30) < 30) ok = false;
+      if (ok) for (const k of P.halls) if (sep([k], [hall], 40) < 40 || sep([k], mine, 40) < 40) { ok = false; break; }
+      if (!ok) continue;
+      // the hall: a corridor zone of its own, reaching well into each mass past its face, so the
+      // doorway through the wall just inside the face is never pinched
+      const ext = (c, ax) => c.curved ? c.R - Math.sqrt(c.R * c.R - w * w / 4) + 40 : w / 2 * Math.abs(Math.tan(Math.acos(U.clamp(ax.x * c.n.x + ax.y * c.n.y, -1, 1)))) + 40;
+      const back = { x: -a.x, y: -a.y };
+      const neck = { type: 'rect', kind: 'neck', o: mid, rot: ang, zones: [] };
+      const nz = { rect: true, corr: true, neck: true, u0: -len / 2 - ext(c1, a), u1: len / 2 + ext(c2, back), v0: -w / 2, v1: w / 2, pod: neck };
+      neck.zones.push(nz);
+      P.pods.push(pod); P.necks.push(neck); P.halls.push(hall); P.capPts.push(c1.p, c2.p);
+      P.links.push(linkOf(c1, nz, a, w), linkOf(c2, nz, back, w));
+      return true;
+    }
+    return false;
+  }
+  // put a mass so one of its faces meets q, facing back along a (a face of a square-built mass is
+  // turned by delta from square to the hall, so masses sit askew to each other)
+  function place(R, pod, q, a, w, delta) {
+    const back = Math.atan2(-a.y, -a.x);
+    if (pod.type === 'polar') {
+      const cands = pod.zones.filter(z => z.solo || (z.outer && !z.hub && (z.a1 - z.a0) * z.r1 > w + 100));
+      if (!cands.length) return null;
+      const z = R.pick(cands);
+      if (!z.solo) { const slack = Math.max(0, (z.a1 - z.a0) / 2 - (w / 2 + 50) / z.r1); turnPod(pod, U.angDiff((z.a0 + z.a1) / 2, back) + R.range(-slack, slack)); }
+      pod.o = { x: q.x + a.x * z.r1, y: q.y + a.y * z.r1 };
+      return polarCap(pod, z, back);
+    }
+    pod.o = { x: 0, y: 0 }; pod.rot = 0;
+    const cands = capsOf(pod, w);
+    if (!cands.length) return null;
+    const c = R.pick(cands), want = back + delta;
+    pod.rot = want - Math.atan2(c.nl.y, c.nl.x);
+    const lp = turn(c.lp, pod.rot);
+    pod.o = { x: q.x - lp.x, y: q.y - lp.y };
+    return { pod, zone: c.zone, p: { x: q.x, y: q.y }, n: dir(want), curved: false, R: 0 };
+  }
+  // the doorway where a hall meets a mass: a wall along the face, just inside it, spanning the
+  // hall's width (c + t s for s in sLo..sHi), and where the hall's middle line crosses it
+  function linkOf(cap, neck, ax, w) {
+    const sag = cap.curved ? cap.R - Math.sqrt(cap.R * cap.R - w * w / 4) : 0, n = cap.n, t = { x: -n.y, y: n.x }, pp = { x: -ax.y, y: ax.x };
+    const c = { x: cap.p.x - n.x * (9 + sag), y: cap.p.y - n.y * (9 + sag) };
+    const np = n.x * pp.x + n.y * pp.y, tp = t.x * pp.x + t.y * pp.y;
+    const sAt = (lat) => (lat + (9 + sag) * np) / tp, s0 = sAt(-w / 2), s1 = sAt(w / 2);
+    if (cap.ang != null) (cap.zone.caps = cap.zone.caps || []).push({ a: cap.ang, h: (w / 2 + 30) / Math.max(cap.zone.r1 || 1, 1) });
+    return { zone: cap.zone, neck, c, t, n, sLo: Math.min(s0, s1), sHi: Math.max(s0, s1), sMid: sAt(0), w };
+  }
+
+  // ── the plan ──
+  function layout(R, n, Z, kind) {
+    const AZ = 86000 + Math.min(n, 6) * 4000;
+    kind = kind || R.pick(KINDS);
+    for (let t = 0; t < 10; t++) { const P = compose(R, n, Z, kind, AZ); if (P) return P; }
+    return null;
+  }
+  function compose(R, n, Z, kind, AZ) {
+    const P = { kind, pods: [], necks: [], halls: [], links: [], capPts: [] };
+    const thin = (x) => Object.assign({ w: R.range(66, 80), len: R.range(100, 190) }, x);
+    const hall = (x) => Object.assign({ w: R.range(98, 128), len: R.range(70, 160) }, x);
+    const skew = () => R.range(0.17, 0.52) * (R.chance(0.5) ? 1 : -1);
+    const join = (host, pod, o) => attach(R, P, host, pod, o);
+    if (kind === 'disc') {
+      const sat = n >= 2 ? R.weighted([['tower', 1], ['solo', 1.3], ['none', 0.4]]) : R.chance(0.6) ? 'solo' : 'none';
+      const main = polarPod(R, Z - (sat === 'none' ? 0 : 1), 'disc', AZ, { col: R.chance(0.45) });
+      P.pods.push(main);
+      if (sat === 'tower') join(main, towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
+      else if (sat === 'solo') join(main, polarPod(R, 1, 'solo', AZ * 0.8), hall());
+      if (n >= 6 && R.chance(0.35)) join(main, towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
+    } else if (kind === 'crescent') {
+      const tw = R.chance(0.8), main = polarPod(R, Z - (tw ? 1 : 0), 'crescent', AZ, { facet: R.chance(0.6), col: R.chance(0.5) });
+      P.pods.push(main);
+      if (tw) join(main, towerPod(R), thin({ end: true, skew: 0.3, delta: R.range(-0.4, 0.4) }));
+      if (Z >= 7 && R.chance(0.4)) join(main, polarPod(R, 1, 'solo', AZ * 0.7), hall({ end: true, skew: 0.3 }));
+    } else if (kind === 'nautilus') {
+      const tw = R.chance(0.6), main = polarPod(R, Z - (tw ? 1 : 0), 'nautilus', AZ, { col: R.chance(0.4) });
+      P.pods.push(main);
+      if (tw) join(main, towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
+    } else if (kind === 'block') {
+      const ann = Z >= 5 && R.chance(0.8) ? (Z >= 8 ? 3 : 2) : 0, tw = R.chance(ann ? 0.4 : 0.8) ? 1 : 0;
+      const main = blockPod(R, Math.max(2, Z - ann - tw), AZ, { pill: R.chance(0.5) });
+      main.rot = R.int(0, 3) * Math.PI / 2 + (R.chance(0.4) ? R.range(-0.4, 0.4) : 0);
+      P.pods.push(main);
+      if (ann) join(main, blockPod(R, ann, AZ * 0.9, {}), hall({ delta: skew() }));
+      if (tw) join(R.pick(P.pods), towerPod(R), thin({ delta: R.range(-0.45, 0.45) }));
+    } else if (kind === 'wing') {
+      const tw = R.chance(0.7), main = wingPod(R, Z - (tw ? 1 : 0), AZ, { pill: R.chance(0.45) });
+      main.rot = R() * TAU;
+      P.pods.push(main);
+      if (tw) join(main, towerPod(R), thin({ corr: true, delta: R.range(-0.45, 0.45) }));
+    } else if (kind === 'cluster') {
+      // two to four round masses of different sizes, a chain of them that bends
+      const parts = [];
+      let rem = Z;
+      if (Z >= 5) { const k = R.int(4, Math.min(6, Z - 1)); parts.push(k); rem -= k; }
+      while (rem > 0 && parts.length < 4) { if (rem >= 4 && R.chance(0.5)) { const k = R.int(4, Math.min(5, rem)); parts.push(k); rem -= k; } else { parts.push(1); rem--; } }
+      if (parts.length < 2) parts.push(1);
+      const pods = parts.map(k => k === 1 ? polarPod(R, 1, 'solo', AZ * R.range(0.75, 1.35)) : polarPod(R, k, 'disc', AZ, { col: R.chance(0.3) }));
+      P.pods.push(pods[0]);
+      for (let i = 1; i < pods.length; i++) {
+        const prev = P.pods[P.pods.length - 1];
+        if (!join(R.chance(0.7) ? prev : R.pick(P.pods), pods[i], hall({ len: R.range(70, 170) }))) join(R.pick(P.pods), pods[i], hall());
+      }
+      if (P.pods.length < 2) return null;
+      if (n >= 3 && R.chance(0.3)) join(R.pick(P.pods), towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
+    } else {
+      // twin: two masses, each a building of its own, joined by one long hall
+      const k1 = Math.ceil(Z / 2), k2 = Z - k1;
+      const types = R.pick([['disc', 'block'], ['block', 'disc'], ['disc', 'disc'], ['block', 'block'], [k1 >= 5 ? 'nautilus' : 'disc', 'block']]);
+      const mk = (t, k) => t === 'block' ? blockPod(R, Math.max(2, k), AZ, { pill: R.chance(0.4) }) : polarPod(R, Math.max(3, k), t, AZ, { col: R.chance(0.35) });
+      const main = mk(types[0], k1);
+      if (main.type === 'rect') main.rot = R.int(0, 3) * Math.PI / 2;
+      P.pods.push(main);
+      if (!join(main, mk(types[1], k2), { w: R.range(104, 136), len: R.range(200, 330), delta: types[1] === 'block' ? skew() : 0 })) return null;
+      if (R.chance(0.35)) join(R.pick(P.pods), towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
+    }
+    // rectangular bites out of the outer arcs, kept clear of the halls
+    for (const pod of P.pods) if (pod.type === 'polar' && pod.kind !== 'solo') for (const z of pod.zones) {
+      if (!z.outer || z.hub || !R.chance(0.45)) continue;
+      const depth = R.range(44, 76), bw = R.range(70, 120) / z.r1, m = 84 / z.r1, room = z.a1 - z.a0 - bw - 2 * m;
+      if (z.r1 - z.r0 - depth < 165 || room <= 0) continue;
+      const b0 = z.a0 + m + R() * room, b1 = b0 + bw;
+      if ((z.caps || []).some(c => c.a + c.h > b0 && c.a - c.h < b1)) continue;
+      if (z.col && pod.colR + pod.colGap + 40 > z.r1 - depth) continue;
+      z.bites = [{ b0, b1, rb: z.r1 - depth }];
+    }
+    P.zones = [];
+    for (const pod of P.pods.concat(P.necks)) for (const z of pod.zones) P.zones.push(z);
+    return P;
+  }
+
   // the square-built zones meet along straight lines: 'line' seams at u (axis 'u') or v ('v')
   function rectSeams(A, B, out) {
     const eq = (a, b) => Math.abs(a - b) < 1e-6;
@@ -365,18 +645,18 @@
     if (eq(A.v1, B.v0)) { const q0 = Math.max(A.u0, B.u0), q1 = Math.min(A.u1, B.u1); if (q1 - q0 > 1) out.push({ A, B, type: 'line', axis: 'v', at: A.v1, q0, q1 }); }
   }
 
-  // Pairs of zones that touch: 'arc' where B's inner edge lies on A's outer edge, 'spoke' where B
-  // starts, going round, where A ends.
-  function seams(rooms) {
+  // Pairs of zones of one mass that touch: 'arc' where B's inner edge lies on A's outer edge,
+  // 'spoke' where B starts, going round, where A ends; and a 'link' where a hall meets a mass.
+  function seams(rooms, links) {
     const out = [], eq = (a, b) => Math.abs(a - b) < 1e-6;
     for (const A of rooms) for (const B of rooms) {
-      if (A === B) continue;
+      if (A === B || A.pod !== B.pod) continue;
       if (A.rect || B.rect) { if (A.rect && B.rect) rectSeams(A, B, out); continue; }
       if (eq(A.r1, B.r0)) {
         if (A.hub) out.push({ A, B, type: 'arc', r: A.r1, s0: B.a0, s1: B.a1 });
         else for (const k of [-1, 0, 1]) {
           const s0 = Math.max(A.a0, B.a0 + k * TAU), s1 = Math.min(A.a1, B.a1 + k * TAU);
-          if (s1 - s0 > 1e-6) out.push({ A, B, type: 'arc', r: A.r1, s0, s1 });
+          if (s1 - s0 > 1e-6) out.push({ A, B, type: 'arc', r: A.r1, s0, s1, fz: A.fc ? A : null });
         }
       }
       if (!A.hub && !B.hub && Math.abs(U.angDiff(A.a1, B.a0)) < 1e-6) {
@@ -384,25 +664,39 @@
         if (q1 - q0 > 1) out.push({ A, B, type: 'spoke', a: A.a1, q0, q1 });
       }
     }
-    for (const s of out) { s.len = s.type === 'arc' ? (s.s1 - s.s0) * s.r : s.q1 - s.q0; s.hall = s.type === 'line' && s.A.corr && s.B.corr; }
+    for (const s of out) { s.o = s.A.o; s.len = s.type === 'arc' ? (s.s1 - s.s0) * s.r : s.q1 - s.q0; s.hall = s.type === 'line' && s.A.corr && s.B.corr; }
+    for (const k of links) out.push(Object.assign({ type: 'link', len: k.w, link: true }, k));
     return out;
   }
 
-  function cellPoly(o, a0, a1, r0, r1) {
-    const pts = [], k = Math.max(2, Math.ceil((a1 - a0) / 0.09));
-    for (let i = 0; i <= k; i++) { const a = a0 + (a1 - a0) * i / k; pts.push({ x: o.x + Math.cos(a) * r1, y: o.y + Math.sin(a) * r1 }); }
-    if (r0 <= 0) pts.push({ x: o.x, y: o.y });
-    else for (let i = k; i >= 0; i--) { const a = a0 + (a1 - a0) * i / k; pts.push({ x: o.x + Math.cos(a) * r0, y: o.y + Math.sin(a) * r0 }); }
+  // the floor outline of a polar zone: arcs (straight sides when the mass is built of blocks),
+  // with any bites taken out of the outer edge
+  function cellPt(c, a, r) {
+    if (c.fc) { const d = r * c.fc / Math.cos(a - c.ang); return { x: c.o.x + Math.cos(a) * d, y: c.o.y + Math.sin(a) * d }; }
+    return { x: c.o.x + Math.cos(a) * r, y: c.o.y + Math.sin(a) * r };
+  }
+  function cellPoly(c, a0, a1, r0, r1, bites) {
+    const pts = [];
+    const run = (b0, b1, r) => { const k = c.fc ? 1 : Math.max(1, Math.ceil((b1 - b0) / 0.09)); for (let i = 0; i <= k; i++) pts.push(cellPt(c, b0 + (b1 - b0) * i / k, r)); };
+    let a = a0;
+    for (const b of bites || []) { run(a, b.b0, r1); run(b.b0, b.b1, b.rb); a = b.b1; }
+    run(a, a1, r1);
+    if (r0 <= 0) pts.push({ x: c.o.x, y: c.o.y });
+    else { const k = c.fc ? 1 : Math.max(2, Math.ceil((a1 - a0) / 0.09)); for (let i = k; i >= 0; i--) pts.push(cellPt(c, a0 + (a1 - a0) * i / k, r0)); }
     return U.poly(pts);
   }
-  // a point's polar coordinates about a cell's centre, the angle unwrapped beside the cell's own
+  // a point's polar coordinates about a cell's centre, the angle unwrapped beside the cell's own;
+  // in a cell with straight sides, r is the depth along its middle, scaled so its faces sit at r0, r1
   function polarOf(room, x, y) {
-    const dx = x - room.o.x, dy = y - room.o.y, mid = (room.a0 + room.a1) / 2;
-    return { a: mid + U.angDiff(mid, Math.atan2(dy, dx)), r: Math.hypot(dx, dy) };
+    const dx = x - room.o.x, dy = y - room.o.y, mid = (room.a0 + room.a1) / 2, a = mid + U.angDiff(mid, Math.atan2(dy, dx));
+    let r = Math.hypot(dx, dy);
+    if (room.fc) r *= Math.cos(a - mid) / room.fc;
+    return { a, r };
   }
+  const inBite = (room, p, m) => room.bites && room.bites.some(b => p.a >= b.b0 - m / p.r && p.a <= b.b1 + m / p.r && p.r >= b.rb - m);
   function inCell(room, x, y, m) {
     const p = polarOf(room, x, y);
-    return p.r >= room.r0 + m && p.r <= room.r1 - m && (p.a - room.a0) * p.r >= m && (room.a1 - p.a) * p.r >= m;
+    return p.r >= room.r0 + m && p.r <= room.r1 - m && (p.a - room.a0) * p.r >= m && (room.a1 - p.a) * p.r >= m && !inBite(room, p, m);
   }
 
   // how far from a room's centre to its edge, heading a
@@ -423,9 +717,13 @@
     frac = frac || 1;
     if (room.kind === 'circle') { const a = R() * TAU, d = Math.sqrt(R()) * room.r * frac; return { x: room.c.x + Math.cos(a) * d, y: room.c.y + Math.sin(a) * d }; }
     if (room.kind === 'cell') {
-      const a = R.range(room.a0, room.a1), r = Math.sqrt(R.range(room.r0 * room.r0, room.r1 * room.r1));
-      const x = room.o.x + Math.cos(a) * r, y = room.o.y + Math.sin(a) * r;
-      return { x: room.c.x + (x - room.c.x) * frac, y: room.c.y + (y - room.c.y) * frac };
+      let q;
+      for (let t = 0; t < 8; t++) {
+        const a = R.range(room.a0, room.a1), r = Math.sqrt(R.range(room.r0 * room.r0, room.r1 * room.r1));
+        q = cellPt(room, a, r);
+        if (!room.bites || !inBite(room, { a, r }, 0)) break;
+      }
+      return { x: room.c.x + (q.x - room.c.x) * frac, y: room.c.y + (q.y - room.c.y) * frac };
     }
     const u = (R() - 0.5) * room.w * frac, v = (R() - 0.5) * room.h * frac, c = Math.cos(room.ang), s = Math.sin(room.ang);
     return { x: room.c.x + u * c - v * s, y: room.c.y + u * s + v * c };
@@ -435,29 +733,31 @@
     const R = U.rng(seed), D = difficulty(n);
     const L = { n, D, floor: [], obs: [], doors: [], shades: [], guards: [], cams: [], keys: [], stars: [], rooms: [], conns: [] };
     // the building, and its zones as rooms
-    const P = layout(R, n, D.rooms + D.sides, kind), o = P.o;
+    const P = layout(R, n, D.rooms + D.sides, kind);
+    if (!P) return null;
     L.plan = P;
-    const pt = (a, r) => ({ x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r });
-    const cr = Math.cos(P.rot), sr = Math.sin(P.rot);
-    const toW = (u, v) => ({ x: o.x + u * cr - v * sr, y: o.y + u * sr + v * cr });
-    const lineAt = (s, q) => s.axis === 'u' ? toW(s.at, q) : toW(q, s.at);
+    const pt = (o, a, r) => ({ x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r });
+    const lineAt = (s, q) => s.axis === 'u' ? s.A.toW(s.at, q) : s.A.toW(q, s.at);
     const zones = P.zones.map((z) => {
+      const pod = z.pod, o = pod.o;
       if (z.rect) {
+        const toW = (u, v) => rectW(pod, u, v);
         const w = z.u1 - z.u0, h = z.v1 - z.v0, c = toW((z.u0 + z.u1) / 2, (z.v0 + z.v1) / 2);
-        return { kind: 'rect', rect: true, corr: !!z.corr, o, u0: z.u0, u1: z.u1, v0: z.v0, v1: z.v1, c, w, h, ang: P.rot, R: Math.hypot(w, h) / 2,
-          shape: U.rect(c.x, c.y, w, h, P.rot), excl: [], spots: [], seamSide: {} };
+        return { kind: 'rect', rect: true, corr: !!z.corr, neck: !!z.neck, tower: !!z.tower, pill: !!z.pill, pod, o, toW, u0: z.u0, u1: z.u1, v0: z.v0, v1: z.v1, c, w, h, ang: pod.rot, R: Math.hypot(w, h) / 2,
+          shape: U.rect(c.x, c.y, w, h, pod.rot), excl: [], spots: [], seamSide: {} };
       }
-      const room = { kind: z.hub ? 'circle' : 'cell', hub: !!z.hub, o, a0: z.a0, a1: z.a1, r0: z.r0, r1: z.r1, excl: [], spots: [] };
-      if (z.hub) { room.r = room.R = z.r1; room.c = { x: o.x, y: o.y }; room.ang = 0; room.shape = U.circle(o.x, o.y, z.r1); }
+      const room = { kind: z.hub ? 'circle' : 'cell', hub: !!z.hub, solo: !!z.solo, pod, o, a0: z.a0, a1: z.a1, r0: z.r0, r1: z.r1, col: !!z.col, bites: z.bites || null, excl: [], spots: [] };
+      if (z.hub) { room.r = room.R = z.r1; room.c = { x: o.x, y: o.y }; room.ang = 0; room.fc = 0; room.shape = U.circle(o.x, o.y, z.r1); }
       else {
         const rc = Math.sqrt((z.r0 * z.r0 + z.r1 * z.r1) / 2);
-        room.ang = (z.a0 + z.a1) / 2; room.c = pt(room.ang, rc);
+        room.ang = (z.a0 + z.a1) / 2; room.fc = pod.facet ? Math.cos((z.a1 - z.a0) / 2) : 0; room.c = cellPt(room, room.ang, rc);
         room.w = (z.a1 - z.a0) * rc; room.h = z.r1 - z.r0; room.R = Math.hypot(room.w, room.h) / 2;
-        room.shape = cellPoly(o, z.a0, z.a1, z.r0, z.r1);
+        room.shape = cellPoly(room, z.a0, z.a1, z.r0, z.r1, room.bites);
       }
       return room;
     });
-    const all = seams(zones);
+    const roomOf = new Map(P.zones.map((z, i) => [z, zones[i]]));
+    const all = seams(zones, P.links.map(k => Object.assign({}, k, { A: roomOf.get(k.zone), B: roomOf.get(k.neck) })));
     // each zone's floor reaches a little past its shared edges into the neighbour that covers
     // them, so the union is seamless; each edge also says how far furniture may reach past it
     for (const z of zones) {
@@ -467,40 +767,48 @@
         // a band of floor straddles each shared side, so the field runs on through a doorway
         const e = z.seamSide;
         for (const s of all) {
+          if (s.type !== 'line') continue;
           if (s.A === z) e[s.axis === 'u' ? 'u1' : 'v1'] = 1;
           if (s.B === z) { e[s.axis === 'u' ? 'u0' : 'v0'] = 1; continue; }
           if (s.A !== z) continue;
-          const m = s.q0 + s.q1, c = s.axis === 'u' ? toW(s.at, m / 2) : toW(m / 2, s.at);
-          L.floor.push(s.axis === 'u' ? U.rect(c.x, c.y, 60, s.q1 - s.q0, P.rot) : U.rect(c.x, c.y, s.q1 - s.q0, 60, P.rot));
+          const m = s.q0 + s.q1, c = lineAt(s, m / 2);
+          L.floor.push(s.axis === 'u' ? U.rect(c.x, c.y, 60, s.q1 - s.q0, z.ang) : U.rect(c.x, c.y, s.q1 - s.q0, 60, z.ang));
         }
         L.floor.push(z.shape);
         continue;
       }
       let e0 = 0, e1 = 0, ein = 0;
       for (const s of all) {
+        if (s.type === 'link') continue;
         if (s.type === 'arc') { if (s.B === z) { z.tol.in = 8; ein = 30; } if (s.A === z) z.tol.out = 8; }
         else if (s.B === z) { z.tol.a0 = 8; if (s.A.r0 <= z.r0 && s.A.r1 >= z.r1) e0 = 32 / Math.max(z.r0, 90); }
         else if (s.A === z) { z.tol.a1 = 8; if (s.B.r0 <= z.r0 && s.B.r1 >= z.r1) e1 = 32 / Math.max(z.r0, 90); }
       }
-      L.floor.push(cellPoly(o, z.a0 - e0, z.a1 + e1, z.r0 - ein, z.r1));
+      // straight-sided blocks don't reach round a corner: their spoke bands close the seam instead
+      if (z.fc) e0 = e1 = 0;
+      L.floor.push(cellPoly(z, z.a0 - e0, z.a1 + e1, z.r0 - ein, z.r1, z.bites));
     }
 
     // and a straight band of floor along every spoke, so a doorway in one is never pinched shut
-    // where neither wedge reaches past it
-    for (const s of all) if (s.type === 'spoke') { const p = pt(s.a, s.q0), q = pt(s.a, s.q1 - 3); L.floor.push(U.seg(p.x, p.y, q.x, q.y, 60, 0)); }
+    // where neither wedge reaches past it (short of a block's corner, where it would poke out)
+    for (const s of all) if (s.type === 'spoke') {
+      const cut = s.A.fc ? 30 * Math.tan(Math.max(s.A.a1 - s.A.a0, s.B.a1 - s.B.a0) / 2) : 0;
+      const p = pt(s.o, s.a, s.q0), q = pt(s.o, s.a, s.q1 - 3 - cut); L.floor.push(U.seg(p.x, p.y, q.x, q.y, 60, 0));
+    }
 
     // the route: a walk through neighbouring zones from the stairs in to the stairs up
     const nb = new Map(zones.map(z => [z, []]));
-    for (const s of all) if (s.len >= 150 || (s.hall && s.len >= 110)) { nb.get(s.A).push({ to: s.B, s }); nb.get(s.B).push({ to: s.A, s }); }
+    for (const s of all) if (s.link || s.len >= 150 || (s.hall && s.len >= 110)) { nb.get(s.A).push({ to: s.B, s }); nb.get(s.B).push({ to: s.A, s }); }
     let main = null, bestScore = -1;
+    const ends = zones.filter(z => (!z.hub || z.solo) && !z.neck);
     for (let t = 0; t < 60; t++) {
-      const path = [R.pick(zones.filter(z => !z.hub))], used = new Set(path);
+      const path = [R.pick(ends)], used = new Set(path);
       while (path.length < D.rooms) {
         const opts = nb.get(path[path.length - 1]).filter(e => !used.has(e.to));
         if (!opts.length) break;
         const e = R.pick(opts); path.push(e.to); used.add(e.to);
       }
-      if (path.length < D.rooms) continue;
+      if (path.length < D.rooms || path[path.length - 1].neck) continue;
       const a = path[0].c, b = path[path.length - 1].c, score = Math.hypot(a.x - b.x, a.y - b.y) + R() * 120;
       if (score > bestScore) { bestScore = score; main = path; }
     }
@@ -523,24 +831,33 @@
     L.rooms = main.concat(sides);
 
     // doors: a gap in the shared wall
+    const onArc = (s, g) => s.fz ? cellPt(s.fz, g, s.r) : pt(s.o, g, s.r);
     const connect = (A, B, s) => {
       const conn = { a: A, b: B, width: GAP, kind: 'seam', seam: s };
       let g0, g1;
       if (s.type === 'line') {
-        const g = R.range(s.q0 + 48, s.q1 - 48), ln = s.axis === 'u' ? { x: cr, y: sr } : { x: -sr, y: cr };
+        const g = R.range(s.q0 + 48, s.q1 - 48), ln = s.axis === 'u' ? dir(s.A.ang) : dir(s.A.ang + Math.PI / 2);
         s.gap = g; conn.mouth = lineAt(s, g);
         conn.normal = A === s.A ? ln : { x: -ln.x, y: -ln.y };
         g0 = lineAt(s, g - GAP / 2); g1 = lineAt(s, g + GAP / 2);
       } else if (s.type === 'spoke') {
         const rg = R.range(s.q0 + 48, s.q1 - 48), tn = { x: -Math.sin(s.a), y: Math.cos(s.a) };
-        s.gap = rg; conn.mouth = pt(s.a, rg);
+        s.gap = rg; conn.mouth = pt(s.o, s.a, rg);
         conn.normal = A === s.A ? tn : { x: -tn.x, y: -tn.y };
-        g0 = pt(s.a, rg - GAP / 2); g1 = pt(s.a, rg + GAP / 2);
+        g0 = pt(s.o, s.a, rg - GAP / 2); g1 = pt(s.o, s.a, rg + GAP / 2);
+      } else if (s.type === 'link') {
+        // a hall's doorway: a gap in the wall across its end, or the whole end of a thin one
+        const at = (x) => ({ x: s.c.x + s.t.x * x, y: s.c.y + s.t.y * x });
+        const g = s.w >= 100 ? R.range(s.sLo + 40, s.sHi - 40) : s.sMid;
+        s.gap = g; conn.mouth = at(g);
+        conn.normal = A === s.A ? s.n : { x: -s.n.x, y: -s.n.y };
+        if (s.w >= 100) { g0 = at(g - GAP / 2); g1 = at(g + GAP / 2); } else { g0 = at(s.sLo); g1 = at(s.sHi); }
+        for (const x of [s.sLo, s.sHi]) { const p = at(x); A.excl.push({ x: p.x, y: p.y, r: 34 }); B.excl.push({ x: p.x, y: p.y, r: 34 }); }
       } else {
-        const m = 48 / s.r, g = R.range(s.s0 + m, s.s1 - m), h = GAP / 2 / s.r, rn = { x: Math.cos(g), y: Math.sin(g) };
-        s.gap = g; conn.mouth = pt(g, s.r);
+        const m = 48 / s.r, g = R.range(s.s0 + m, s.s1 - m), h = GAP / 2 / s.r, rn = s.fz ? dir(s.fz.ang) : dir(g);
+        s.gap = g; conn.mouth = onArc(s, g);
         conn.normal = A === s.A ? rn : { x: -rn.x, y: -rn.y };
-        g0 = pt(g - h, s.r); g1 = pt(g + h, s.r);
+        g0 = onArc(s, g - h); g1 = onArc(s, g + h);
       }
       conn.doorShape = U.seg(g0.x, g0.y, g1.x, g1.y, 12, 4);
       const mo = conn.mouth, nx = conn.normal.x, ny = conn.normal.y;
@@ -552,7 +869,8 @@
     for (let i = 1; i < main.length; i++) main[i].inConn = main[i - 1].outConn = connect(main[i - 1], main[i], seamOf(main[i - 1], main[i]));
     for (const z of sides) z.inConn = connect(z.host, z, z.hostSeam);
 
-    // the shared walls: straight along a spoke, short chords along an arc
+    // the shared walls: straight along a spoke, short chords along an arc, one straight run
+    // between blocks, and across each end of a hall
     for (const s of all) {
       const h = GAP / 2;
       if (s.type === 'line') {
@@ -562,15 +880,20 @@
         const spans = s.gap == null ? [[a, b]] : [[a, s.gap - h], [s.gap + h, b]];
         for (const [u0, u1] of spans) { const p = lineAt(s, u0), q = lineAt(s, u1); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 0)); }
       } else if (s.type === 'spoke') {
-        const top = s.q1 + (Math.abs(s.A.r1 - s.B.r1) < 1 ? 9 : 0);   // flush where one zone steps out past the other
-        const spans = s.gap == null ? [[s.q0 - 9, top]] : [[s.q0 - 9, s.gap - h], [s.gap + h, top]];
-        for (const [u0, u1] of spans) { const p = pt(s.a, u0), q = pt(s.a, u1); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 0)); }
+        // flush where one zone steps out past the other
+        const top = s.q1 + (Math.abs(s.A.r1 - s.B.r1) < 1 ? 9 : 0), bot = s.q0 - (Math.abs(s.A.r0 - s.B.r0) < 1 ? 9 : 0);
+        const spans = s.gap == null ? [[bot, top]] : [[bot, s.gap - h], [s.gap + h, top]];
+        for (const [u0, u1] of spans) { const p = pt(s.o, s.a, u0), q = pt(s.o, s.a, u1); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 0)); }
+      } else if (s.type === 'link') {
+        if (s.w < 100) continue;
+        const at = (x) => ({ x: s.c.x + s.t.x * x, y: s.c.y + s.t.y * x });
+        for (const [u0, u1] of [[s.sLo, s.gap - h], [s.gap + h, s.sHi]]) { const p = at(u0), q = at(u1); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 5)); }
       } else {
         const e = 9 / s.r, gh = h / s.r;
         const spans = s.gap == null ? [[s.s0 - e, s.s1 + e]] : [[s.s0 - e, s.gap - gh], [s.gap + gh, s.s1 + e]];
         for (const [u0, u1] of spans) {
-          const k = Math.max(1, Math.ceil((u1 - u0) * s.r / chord(s.r)));
-          for (let i = 0; i < k; i++) { const p = pt(u0 + (u1 - u0) * i / k, s.r), q = pt(u0 + (u1 - u0) * (i + 1) / k, s.r); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 1.5)); }
+          const k = s.fz ? 1 : Math.max(1, Math.ceil((u1 - u0) * s.r / chord(s.r)));
+          for (let i = 0; i < k; i++) { const p = onArc(s, u0 + (u1 - u0) * i / k), q = onArc(s, u0 + (u1 - u0) * (i + 1) / k); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 1.5)); }
         }
       }
     }
@@ -841,7 +1164,7 @@
 
     if (room.corr) {
       // the hall: alcoves off one long side, or a line of posts down the middle, or nothing
-      const style = R.weighted([['alcoves', 2], ['posts', room.w > 260 ? 1.5 : 0], ['bare', 1]]);
+      const style = room.neck && room.w < 170 ? 'bare' : R.weighted([['alcoves', room.h >= 100 ? 2 : 0], ['posts', room.w > 260 && room.h >= 100 ? 1.5 : 0], ['bare', 1]]);
       room.style = 'hall-' + style;
       if (style === 'alcoves') {
         const sd = sides[R.chance(0.5) ? 2 : 3], d = room.h * R.range(0.32, 0.4), step = R.range(80, 110);
@@ -853,13 +1176,31 @@
       return;
     }
     const big = room.w >= 250 && room.h >= 250;
-    const style = R.weighted([['pillars', L.plan.pillars && big ? 4 : 0], ['closets', 3], ['slabs', 2], ['split', big ? 2 : 0.5], ['jut', 2], ['bare', room.side ? 1 : 0.3]]);
+    const style = room.pill && big ? 'pillars' : room.tower ? R.weighted([['grid', 2], ['crates', 2], ['jut', 1], ['bare', 1]])
+      : R.weighted([['closets', 3], ['slabs', 1.5], ['grid', big ? 2 : 0.8], ['table', big ? 1.4 : 0.5], ['split', big ? 2 : 0.5], ['jut', 2], ['bare', room.side ? 1 : 0.3]]);
     room.style = style;
     if (style === 'pillars') {
-      // two rows of three square pillars, 36 wide, set across the long way
-      const long = room.w >= room.h, A = (long ? room.w : room.h) * R.range(0.26, 0.3), B = (long ? room.h : room.w) * R.range(0.2, 0.24);
-      for (const i of [-1, 0, 1]) for (const j of [-1, 1]) { const x = long ? i * A : j * B, y = long ? j * B : i * A, p = W(x, y); put(U.rect(p.x, p.y, 36, 36, room.ang)); }
+      // the grand hall: two rows of square pillars, 34 wide, down the long way
+      const long = room.w >= room.h, Lg = long ? room.w : room.h, k = Lg > 330 ? 4 : 3, A = Lg * R.range(0.2, 0.24), B = (long ? room.h : room.w) * R.range(0.2, 0.24);
+      for (let i = 0; i < k; i++) for (const j of [-1, 1]) { const u = (i - (k - 1) / 2) * A, x = long ? u : j * B, y = long ? j * B : u, p = W(x, y); put(U.rect(p.x, p.y, 34, 34, room.ang)); }
       room.spots.push(W(long ? A / 2 : 0, long ? 0 : A / 2));
+    } else if (style === 'grid' || style === 'crates') {
+      // pale blocks in a 2x2 or a row of three, or a tight stack of crates in a corner
+      const s = style === 'grid' ? R.range(32, 46) : R.range(22, 30), st = style === 'grid' ? s + R.range(34, 52) : s + R.range(3, 6);
+      const [ki, kj] = style === 'grid' ? R.pick([[2, 2], [3, 1], [1, 3]]) : R.pick([[2, 2], [3, 2], [2, 3]]);
+      const cx = style === 'grid' ? R.range(-0.12, 0.12) * room.w : (R.chance(0.5) ? 1 : -1) * (hw - 40 - ki * st / 2), cy = style === 'grid' ? R.range(-0.12, 0.12) * room.h : (R.chance(0.5) ? 1 : -1) * (hh - 40 - kj * st / 2);
+      for (let i = 0; i < ki; i++) for (let j = 0; j < kj; j++) {
+        if (style === 'crates' && i + j > 0 && R.chance(0.2)) continue;
+        const p = W(cx + (i - (ki - 1) / 2) * st, cy + (j - (kj - 1) / 2) * st);
+        put(U.rect(p.x, p.y, s, s, room.ang + (style === 'crates' ? R.range(-0.12, 0.12) : 0)));
+      }
+      room.spots.push(W(cx + (cx > 0 ? -1 : 1) * (ki * st / 2 + 40), cy));
+    } else if (style === 'table') {
+      // a long table with a few crates against a wall
+      const along = room.w >= room.h, tl = Math.min(R.range(130, 190), (along ? room.w : room.h) - 130), tw = R.range(30, 38);
+      block(0, 0, along ? tl : tw, along ? tw : tl);
+      for (let t = 0, k = 0; t < 10 && k < 3; t++) { const sx = (R.chance(0.5) ? 1 : -1) * (hw - 36), sy = R.range(-hh + 40, hh - 40), p = along ? W(R.range(-hw + 40, hw - 40), (R.chance(0.5) ? 1 : -1) * (hh - 34)) : W(sx, sy); if (put(U.rect(p.x, p.y, 26, 26, room.ang))) k++; }
+      room.spots.push(W(along ? 0 : hw / 2, along ? hh / 2 : 0));
     } else if (style === 'closets') {
       const sd = R.pick(sides), d = Math.min(R.range(84, 112), (sd.axis === 'x' ? room.w : room.h) * 0.4);
       const half = sd.len / 2, k = Math.max(2, Math.round(sd.len / R.range(100, 130))), jog = R.chance(0.5), js = R.chance(0.5) ? 1 : -1;
@@ -898,14 +1239,22 @@
     }
   }
 
-  // A zone of the building, in its own polar frame: closets along a wall, wedges, a ring split,
-  // big blocks, and the building's colonnade where it passes through. Walls go down in short
-  // pieces, so a piece that would block a doorway is simply left out and leaves a gap.
+  // A zone of a round mass, in its own polar frame: closets along a wall, wedges, a ring split, a
+  // zig-zag or a dogleg wall, big blocks, a grid of squares, a long table, and the mass's colonnade
+  // where its grand hall runs. In a zone built with straight sides the walls run square to those
+  // sides. Walls go down in short pieces, so a piece that would block a doorway is simply left out
+  // and leaves a gap.
   function furnishCell(R, L, room, n) {
-    const o = room.o, a0 = room.a0, a1 = room.a1, r0 = room.r0, r1 = room.r1, T = r1 - r0, tol = room.tol, Pl = L.plan;
-    const pt = (a, r) => ({ x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r });
+    const o = room.o, a0 = room.a0, a1 = room.a1, r0 = room.r0, r1 = room.r1, T = r1 - r0, tol = room.tol, Pl = room.pod, fc = room.fc;
+    const mid = (a0 + a1) / 2, md = dir(mid), tg = { x: -md.y, y: md.x }, rref = (r0 + r1) / 2;
+    // a point at angle a and radius r; in a straight-sided zone, the point at depth r on the line
+    // a 'radial' wall at angle a runs down, square to the zone's faces
+    const sOf = (a) => rref * fc * Math.tan(a - mid);
+    const pt = fc ? (a, r) => ({ x: o.x + md.x * r * fc + tg.x * sOf(a), y: o.y + md.y * r * fc + tg.y * sOf(a) }) : (a, r) => ({ x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r });
+    const across = (a) => fc ? tg : { x: -Math.sin(a), y: Math.cos(a) };   // the way round, at a
+    const squareTo = (a) => fc ? mid : a;
     const placed = [];
-    const fits = (q, m) => { const p = polarOf(room, q.x, q.y); return p.r >= r0 - tol.in + m && p.r <= r1 + tol.out - m && (p.a - a0) * p.r >= -tol.a0 + m && (a1 - p.a) * p.r >= -tol.a1 + m; };
+    const fits = (q, m) => { const p = polarOf(room, q.x, q.y); return p.r >= r0 - tol.in + m && p.r <= r1 + tol.out - m && (p.a - a0) * p.r >= -tol.a0 + m && (a1 - p.a) * p.r >= -tol.a1 + m && !inBite(room, p, m); };
     const fitsAll = (s, spacing, m) => {
       const samples = [];
       if (s.k === 'c') { for (let i = 0; i < 8; i++) samples.push({ x: s.x + Math.cos(i / 8 * TAU) * s.r, y: s.y + Math.sin(i / 8 * TAU) * s.r }); }
@@ -940,11 +1289,12 @@
     };
     const radial = (a, u0, u1, t) => line(pt(a, u0), pt(a, u1), t);
     const arc = (r, b0, b1, t) => {
+      if (fc) { line(pt(b0, r), pt(b1, r), t); return; }
       const k = Math.max(1, Math.ceil(Math.abs(b1 - b0) * r / chord(r)));
       for (let i = 0; i < k; i++) { const p = pt(b0 + (b1 - b0) * i / k, r), q = pt(b0 + (b1 - b0) * (i + 1) / k, r); put(U.seg(p.x, p.y, q.x, q.y, t || PART, 1.5)); }
     };
     // a short wall square to the radius at (a, r), toward increasing angle when dir > 0
-    const jog = (a, r, len, dir) => { const p = pt(a, r), tx = -Math.sin(a) * dir, ty = Math.cos(a) * dir; line(p, { x: p.x + tx * len, y: p.y + ty * len }); };
+    const jog = (a, r, len, d) => { const p = pt(a, r), v = across(a); line(p, { x: p.x + v.x * len * d, y: p.y + v.y * len * d }); };
     const back = { out: r1 + tol.out - 3, in: r0 - tol.in + 3 };
 
     // closets along the outer (or inner) wall: radial partitions, some with a stepped jog at the
@@ -967,20 +1317,26 @@
     // big pale blocks standing in the open, square to the radius, now and then an L
     const blocks = (k, rlo, rhi) => {
       for (let t = 0, got = 0; t < 40 && got < k; t++) {
-        const a = R.range(a0, a1), r = R.range(rlo, rhi), c = pt(a, r), w = R.range(56, 104), h = R.range(48, 96);
+        const a = R.range(a0, a1), r = R.range(rlo, rhi), c = pt(a, r), w = R.range(56, 104), h = R.range(48, 96), b = squareTo(a);
         if (R.chance(0.35)) {
           // an L: a long bar and a short one off its end
-          const th = R.range(26, 34), ux = -Math.sin(a), uy = Math.cos(a), vx = Math.cos(a), vy = Math.sin(a), sd = R.chance(0.5) ? 1 : -1;
-          const bar = U.rect(c.x, c.y, w * 1.3, th, a + Math.PI / 2);
+          const th = R.range(26, 34), ux = -Math.sin(b), uy = Math.cos(b), vx = Math.cos(b), vy = Math.sin(b), sd = R.chance(0.5) ? 1 : -1;
+          const bar = U.rect(c.x, c.y, w * 1.3, th, b + Math.PI / 2);
           const ex = c.x + ux * (w * 0.65 - th / 2) * sd + vx * (h / 2 - th / 2), ey = c.y + uy * (w * 0.65 - th / 2) * sd + vy * (h / 2 - th / 2);
-          if (put(bar, 60, 30)) { if (!put(U.rect(ex, ey, h, th, a), 0, 30)) { /* the bar alone will do */ } got++; }
-        } else if (put(U.rect(c.x, c.y, h, w, a), 60, 30)) got++;
+          if (put(bar, 60, 30)) { if (!put(U.rect(ex, ey, h, th, b), 0, 30)) { /* the bar alone will do */ } got++; }
+        } else if (put(U.rect(c.x, c.y, h, w, b), 60, 30)) got++;
       }
     };
-    // the colonnade: two staggered rows of pillars at even steps along the building's curve
+    // the colonnade: two staggered rows of pillars at even steps along the hall's curve, or down
+    // a straight-sided block in two straight rows
     const colonnade = () => {
       const pr = 10;
       [Pl.colR, Pl.colR + Pl.colGap].forEach((r, row) => {
+        if (fc) {
+          const S = r * fc * Math.tan((a1 - a0) / 2), st = Pl.colStep;
+          for (let s = -Math.floor(S / st) * st + (row ? st / 2 : 0); s <= S; s += st) put(U.circle(o.x + md.x * r * fc + tg.x * s, o.y + md.y * r * fc + tg.y * s, pr), 0, 22);
+          return;
+        }
         const st = Pl.colStep / r, ph = Pl.rot + (row ? st / 2 : 0);
         const k0 = Math.ceil((a0 - ph) / st), k1 = Math.floor((a1 - ph) / st);
         for (let k = k0; k <= k1; k++) { const p = pt(ph + k * st, r); put(U.circle(p.x, p.y, pr), 0, 22); }
@@ -988,7 +1344,7 @@
       room.spots.push(pt((a0 + a1) / 2, Pl.colR + Pl.colGap / 2));
     };
 
-    const hasCol = Pl.colR != null && Pl.colR - 40 >= r0 && Pl.colR + Pl.colGap + 40 <= r1;
+    const hasCol = room.col && Pl.colR != null && Pl.colR - 40 >= r0 && Pl.colR + Pl.colGap + 40 <= r1;
     if (hasCol) {
       room.style = 'hall';
       colonnade();
@@ -999,7 +1355,8 @@
       return;
     }
     const arcLen = (a1 - a0) * (r0 + r1) / 2;
-    const style = R.weighted([['closets', 3], ['wedges', arcLen > 300 ? 2.5 : 0], ['ring', T >= 230 ? 2 : 0], ['blocks', 1.4]]);
+    const style = R.weighted([['closets', 2.4], ['wedges', arcLen > 300 ? 2 : 0], ['ring', T >= 230 ? 1.4 : 0], ['zigzag', T >= 210 && arcLen > 260 ? 1.6 : 0],
+      ['dogleg', T >= 200 && arcLen > 240 ? 1.6 : 0], ['grid', T >= 180 && arcLen > 220 ? 1.6 : 0], ['table', T >= 170 && arcLen > 280 ? 1 : 0], ['blocks', 1]]);
     room.style = style;
     if (style === 'closets') {
       const side = tol.out > 8 ? 'out' : tol.in > 8 ? 'in' : R.chance(0.6) ? 'out' : 'in';
@@ -1025,6 +1382,42 @@
       if (R.chance(0.6)) jog(am, (rs + r1) / 2, R.range(30, 44), R.chance(0.5) ? 1 : -1);
       if (rs - r0 > 130 && R.chance(0.6)) radial(R.chance(0.5) ? (a0 + ga) / 2 : (gb + a1) / 2, back.in, r0 + (rs - r0) * 0.55);
       room.spots.push(pt((a0 + am) / 2, (rs + r1) / 2), pt((am + a1) / 2, (rs + r1) / 2));
+    } else if (style === 'zigzag') {
+      // a zig-zag wall round the middle of the zone, broken in two places
+      const rs = r0 + T * R.range(0.42, 0.58), zz = R.range(22, 34), N = Math.max(4, Math.round((a1 - a0) * rs / R.range(66, 84))), ph = R.chance(0.5) ? 1 : -1;
+      const g1 = R.int(0, N - 1), g2 = (g1 + R.int(2, Math.max(2, N - 2))) % N;
+      for (let i = 0; i < N; i++) {
+        if (i === g1 || i === g2) continue;
+        const b0 = a0 + (a1 - a0) * i / N - (i === 0 ? 8 / rs : 0), b1 = a0 + (a1 - a0) * (i + 1) / N + (i === N - 1 ? 8 / rs : 0), sg = (i % 2 ? 1 : -1) * ph;
+        line(pt(b0, rs - zz * sg), pt(b1, rs + zz * sg));
+      }
+      room.spots.push(pt(a0 + (a1 - a0) * 0.3, (r0 + rs) / 2), pt(a0 + (a1 - a0) * 0.7, (rs + r1) / 2));
+    } else if (style === 'dogleg') {
+      // a wall in from one face that turns along the zone, then turns again for the other face and
+      // stops short of it, so the way round is at the far end
+      const out = R.chance(0.5), a = a0 + (a1 - a0) * R.range(0.28, 0.42), rk = r0 + T * R.range(0.4, 0.6), d = R.chance(0.5) ? 1 : -1;
+      const len = (a1 - a0) * rk * R.range(0.22, 0.34), p = pt(a, rk), v = across(a), q = { x: p.x + v.x * len * d, y: p.y + v.y * len * d };
+      radial(a, out ? back.out : back.in, rk);
+      line(p, q);
+      const to = out ? r0 + 66 : r1 - 66, qp = polarOf(room, q.x, q.y);
+      line(q, fc ? { x: q.x + md.x * (to - qp.r) * fc, y: q.y + md.y * (to - qp.r) * fc } : { x: o.x + Math.cos(qp.a) * to, y: o.y + Math.sin(qp.a) * to });
+      room.spots.push(pt(a0 + (a - a0) / 2, rref), pt((a + a1) / 2 + (a1 - a0) * 0.15, rref));
+    } else if (style === 'grid') {
+      // pale square blocks in a 2x2, or a row of three, standing square in the room
+      const sz = R.range(34, 46), st = sz + R.range(34, 50), [ki, kj] = R.pick([[2, 2], [1, 3], [3, 1]]), b = squareTo(mid), c = pt(mid, rref + T * R.range(-0.08, 0.08));
+      const ur = dir(b), ut = { x: -ur.y, y: ur.x };
+      for (let i = 0; i < ki; i++) for (let j = 0; j < kj; j++) {
+        const x = c.x + ur.x * (i - (ki - 1) / 2) * st + ut.x * (j - (kj - 1) / 2) * st, y = c.y + ur.y * (i - (ki - 1) / 2) * st + ut.y * (j - (kj - 1) / 2) * st;
+        put(U.rect(x, y, sz, sz, b), 0, 24);
+      }
+      room.spots.push(pt(a0 + (a1 - a0) * 0.18, rref), pt(a0 + (a1 - a0) * 0.82, rref));
+    } else if (style === 'table') {
+      // a long table across the room, and a stack of crates in a corner
+      const b = squareTo(mid), c = pt(mid + (a1 - a0) * R.range(-0.12, 0.12), rref), tl = Math.min(R.range(130, 190), (a1 - a0) * rref - 150);
+      if (tl > 80) put(U.rect(c.x, c.y, R.range(30, 38), tl, b), 0, 40);
+      const ca = R.chance(0.5) ? a0 + 64 / r1 : a1 - 64 / r1, cr = R.chance(0.5) ? r1 - 44 : r0 + 44, cc = pt(ca, cr), ur = dir(squareTo(ca)), ut = { x: -ur.y, y: ur.x }, cs = R.range(22, 28);
+      for (const [i, j] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (i + j === 0 || R.chance(0.7)) put(U.rect(cc.x + (ur.x * i + ut.x * j) * (cs + 4), cc.y + (ur.y * i + ut.y * j) * (cs + 4), cs, cs, squareTo(ca) + R.range(-0.1, 0.1)), 0, 16);
+      room.spots.push(pt(mid, (r0 + rref) / 2), pt(mid, (rref + r1) / 2));
     } else {
       blocks(R.int(2, Math.max(2, Math.min(5, Math.round(arcLen * T / 40000)))), r0 + 60, r1 - 60);
       room.spots.push(room.c);
@@ -1065,7 +1458,7 @@
       if (n === 1) count = 1;
       counts.set(room, Math.min(count, 3));
     }
-    const budget = Math.min(12, Math.round(4 + n * 0.8));
+    const budget = Math.min(14, Math.round(4 + n * 0.8));
     for (let sum = [...counts.values()].reduce((a, b) => a + b, 0); sum > budget; sum--) {
       let top = null; for (const [r, c] of counts) if (c > 1 && (!top || c > counts.get(top) || (c === counts.get(top) && R.chance(0.5)))) top = r;
       if (!top) { const rs = [...counts.keys()].filter(r => r.side || r.idx > 0); if (!rs.length) break; counts.delete(R.pick(rs)); continue; }
@@ -1101,7 +1494,9 @@
             p = q; face = a + Math.PI;
           }
           if (!p) continue;
-          L.cams.push({ x: p.x, y: p.y, base: face, amp: R.range(0.45, 0.85), period: R.range(5, 8), phase: R() * TAU });
+          // from the ninth floor some cameras pan quick
+          const quick = n >= 9 && R.chance(0.5);
+          L.cams.push({ x: p.x, y: p.y, base: face, amp: R.range(0.45, 0.85), period: quick ? R.range(3, 4) : R.range(5, 8), phase: R() * TAU });
           homes.push(p); cams++;   // a camera is on top of the room's guards, not one of them
           continue;
         }
@@ -1149,8 +1544,21 @@
         if (!okHome(sp) || path.some(q => !farFromStart(q, 200) || !offFirst(q))) continue;
         if (L.guards.length >= budget) break;
         const prev = path[(si - 1 + path.length) % path.length];
-        L.guards.push({ kind, x: sp.x, y: sp.y, ang: Math.atan2(sp.y - prev.y, sp.x - prev.x), path, pi: si });
+        // from the eleventh floor some walkers finish a search by checking the nearest shade
+        const peek = n >= 11 && R.chance(0.4);
+        L.guards.push({ kind, x: sp.x, y: sp.y, ang: Math.atan2(sp.y - prev.y, sp.x - prev.x), path, pi: si, peek });
         homes.push(sp); k++;
+        // from the seventh floor a long loop may carry a pair, the second half a lap behind the first
+        if (n >= 7 && kind === 'patrol' && way.length >= 3 && L.guards.length < budget && k < count + 1 && R.chance(0.35)) {
+          const cum = [0]; for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y));
+          const at = (cum[si] + len / 2) % len;
+          let sj = 0; for (let i = 0; i < path.length; i++) if (cum[i] <= at) sj = i;
+          const sq = path[sj], pq = path[(sj - 1 + path.length) % path.length];
+          if (len > 420 && Math.hypot(sq.x - sp.x, sq.y - sp.y) > 120 && farFromStart(sq, 290)) {
+            L.guards.push({ kind, x: sq.x, y: sq.y, ang: Math.atan2(sq.y - pq.y, sq.x - pq.x), path, pi: sj, peek, pair: true });
+            homes.push(sq); k++;
+          }
+        }
       }
     }
   }
