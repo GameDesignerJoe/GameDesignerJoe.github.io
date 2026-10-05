@@ -59,8 +59,9 @@ for (const fl of [2, 5, 9]) {
   await page.evaluate(() => { const e = GAME.L.exit; GAME.teleport(e.x, e.y); }); await wait(4000);
   check(await page.evaluate(() => GAME.floor) === fl + 1, `floor ${fl}: the stairs lead to floor ${fl + 1}`);
 }
-// hide mid-chase: get chased, slip into a shade and hold still; the guard searches the rim and gives up
-for (const [seed, fl] of [[22, 5], [44, 9]]) {
+// hide mid-chase. 'cover': break its line of sight, then slip into a shade and hold still: the guard
+// searches the rim and gives up. 'watched': walk into the shade in plain view: the guard walks in after you.
+for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover'], [5, 12, 'cover'], [22, 5, 'watched'], [44, 9, 'watched'], [9, 7, 'watched']]) {
   await page.evaluate(([s, n]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(n); }, [seed, fl]); await wait(300);
   await page.evaluate(() => GAME.skipIntro()); await wait(200);
   const ok = await page.evaluate(() => {
@@ -78,17 +79,64 @@ for (const [seed, fl] of [[22, 5], [44, 9]]) {
       GAME.teleport(sh.x + (g.x - sh.x) / d * 55, sh.y + (g.y - sh.y) / d * 55); g.ang = Math.atan2(GAME.P.y - g.y, GAME.P.x - g.x); return g.state; });
     if (st !== 'chase') await wait(50);
   }
-  const seen = new Set([st]); let hid = false, mode = 'play';
+  // out of its sight a moment (as if round a corner), and straight into the pool
+  if (st !== 'chase') { console.log('floor', fl, how, 'no chase started, skipped'); continue; }
+  const shR = await page.evaluate(() => __sh.r);
+  if (how === 'cover') await page.evaluate(() => GAME.teleport(__sh.x, __sh.y));
+  const seen = new Set([st]); let hid = false, mode = 'play', closest = 1e9;
   for (let t = 0; t < 160; t++) {
     const r = await page.evaluate(() => { const sh = __sh, P = GAME.P, dx = sh.x - P.x, dy = sh.y - P.y, d = Math.hypot(dx, dy);
       if (d > 3) { GAME.stick.on = true; GAME.stick.x = dx / d * 0.7; GAME.stick.y = dy / d * 0.7; } else { GAME.stick.on = false; GAME.stick.x = GAME.stick.y = 0; }
-      return [__g.state, P.hidden, GAME.mode]; });
-    seen.add(r[0]); hid = hid || r[1]; mode = r[2];
+      return [__g.state, P.hidden, GAME.mode, Math.hypot(__g.x - sh.x, __g.y - sh.y)]; });
+    seen.add(r[0]); hid = hid || r[1]; mode = r[2]; if (hid) closest = Math.min(closest, r[3]);
+    if (how === 'watched' && (mode === 'caught' || closest < shR)) break;
     if (mode === 'caught' || (hid && r[0] === 'patrol' && seen.has('return'))) break;
     await wait(100);
   }
   await page.evaluate(() => { GAME.stick.on = false; GAME.stick.x = GAME.stick.y = 0; });
-  check(seen.has('chase') && hid && seen.has('search') && seen.has('return') && mode !== 'caught', `floor ${fl}: chased, hid in a shade -> search, return, not caught (${[...seen].join(',')}, ${mode})`);
+  const by = mode === 'caught' ? await page.evaluate(() => { const c = GAME.guards.find(g => Math.hypot(g.x - GAME.P.x, g.y - GAME.P.y) < 20); return c === __g ? 'by it' : c ? 'by another guard' : 'by ?'; }) : '';
+  if (how === 'cover') check(seen.has('chase') && hid && seen.has('search') && seen.has('return') && mode !== 'caught', `floor ${fl}: chased, broke sight, hid in a shade -> search, return, not caught (${[...seen].join(',')}, ${mode} ${by})`);
+  else check(hid && (mode === 'caught' || closest < shR), `floor ${fl}: dived into a shade in plain view -> the guard walks in (${mode}, closest ${closest.toFixed(0)})`);
+  if (mode === 'caught') await wait(2600);
+}
+// cameras see out from their walls: the ray along each camera's facing reaches into the room
+{
+  let n = 0, blind = 0;
+  for (const [seed, fl] of [[1, 8], [2, 6], [4, 10], [7, 5], [11, 9], [22, 12]]) {
+    await page.evaluate(([s, f]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(f); }, [seed, fl]); await wait(200);
+    const r = await page.evaluate(() => GAME.cams.map(c => GAME.L.field.ray(c.x + Math.cos(c.base) * 6, c.y + Math.sin(c.base) * 6, Math.cos(c.base), Math.sin(c.base), 200)));
+    n += r.length; blind += r.filter(t => t <= 60).length;
+  }
+  check(n > 0 && blind === 0, `cameras: ${n} checked, ${blind} blind (ray along their facing under 60)`);
+}
+// fairness: no sentry posted by a doorway, and no beat through the first door out of the stairs room
+{
+  let bad = 0, n = 0;
+  for (let s = 1; s <= 12; s++) for (const fl of [4, 7, 8, 10]) {
+    await page.evaluate(([a, f]) => { localStorage.clear(); GAME.save.runSeed = a; GAME.startFloor(f); }, [s, fl]);
+    bad += await page.evaluate(() => { const L = GAME.L, first = L.rooms.find(r => r.idx === 0 && !r.side).outConn.mouth;
+      let b = 0;
+      for (const g of L.guards) {
+        if (g.kind === 'sentry' && L.conns.some(c => Math.hypot(c.mouth.x - g.x, c.mouth.y - g.y) < 80)) b++;
+        if (g.path && g.path.some(q => Math.hypot(q.x - first.x, q.y - first.y) < 90)) b++;
+      }
+      return b; });
+    n++;
+  }
+  check(bad === 0, `fairness: ${n} floors, ${bad} guards plugging a doorway`);
+}
+// checkpoint: take a key, open its door, get caught: you start again through that door, key kept
+{
+  await page.evaluate(() => { localStorage.clear(); GAME.save.runSeed = 3; GAME.startFloor(5); }); await wait(300);
+  await page.evaluate(() => GAME.skipIntro()); await wait(200);
+  await page.evaluate(() => { GAME.guards.forEach(g => { g.x = g.home.x = 1e5; g.y = g.home.y = 1e5; g.path = null; g.kind = 'sentry'; }); const k = GAME.L.keys[0]; GAME.teleport(k.x, k.y); }); await wait(300);
+  const door = await page.evaluate(() => { const d = GAME.L.keys[0].door, m = d.conn.mouth, n = d.conn.dirFrom(d.conn.a); GAME.teleport(m.x - n.x * 22, m.y - n.y * 22); return { x: m.x, y: m.y }; }); await wait(400);
+  const opened = await page.evaluate(() => GAME.L.keys[0].door.open);
+  await page.evaluate(() => { const g = GAME.guards[0]; g.x = GAME.P.x + 3; g.y = GAME.P.y + 3; }); await wait(300);
+  const caught = await page.evaluate(() => GAME.mode); await wait(2800);
+  const r = await page.evaluate(() => ({ x: GAME.P.x, y: GAME.P.y, key: GAME.P.keys.length, open: GAME.L.keys[0].door.open }));
+  const d = Math.hypot(r.x - door.x, r.y - door.y);
+  check(opened && caught === 'caught' && d < 70 && r.key === 1 && r.open, `checkpoint: caught after opening a door -> back at that door (${d.toFixed(0)} from it), key kept ${r.key}, door open ${r.open}`);
 }
 check(errors.length === 0, 'no page errors ' + errors.join(' | '));
 await browser.close(); srv.close();

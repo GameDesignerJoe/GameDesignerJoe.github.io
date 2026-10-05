@@ -13,11 +13,11 @@
     player: '#ff8a3d', playerHi: '#ffc896', playerLo: '#b84f17',
     guard: '#15364a', guardHi: '#2b566c',
     star: '#f3e57e',
-    cone: 'rgba(95,182,204,0.45)', coneOver: 'rgba(127,211,230,0.5)', coneHot: 'rgba(255,112,92,0.42)',
+    cone: 'rgba(143,220,236,0.46)', coneHot: 'rgba(255,128,104,0.46)',   // a cone lands as about #66b6ca on the lit floor
   };
   // the light comes from the top left, so everything throws its shadow down and to the right
   const LIGHT = { x: 34, y: 34 };
-  const P_SIZE = 14, P_R = 7.5, G_SIZE = 16, G_R = 8.5, CATCH = 16;
+  const P_SIZE = 14, P_LOOK = 1.3, P_R = 7.5, G_SIZE = 16, G_R = 8.5, CATCH = 16;
   const NAMES = ['Lobby', 'Mailroom', 'Archives', 'Canteen', 'Records', 'Atrium', 'Server Hall', 'Laboratory', 'Gallery', 'Vault Annex', 'Boardroom', 'Observatory', 'Penthouse', 'Roof Garden'];
 
   // ── save ───────────────────────────────────────────────────
@@ -35,8 +35,9 @@
   const view = { x: 0, y: 0, z: 1, shake: 0, lead: { x: 0, y: 0 } };
   let floorBox = null, spottedCD = 0, hmmCD = 0, lockedCD = 0, gotStars = 0;
   let stats = { caught: 0, time: 0 };
+  let checkpoint = null;   // the last door you opened on this floor: a capture after it starts you there, keys and stars kept
   // the caught and clear sequences run on game time (modeT), so a pause holds them and a quit cancels them
-  let safeTop = 0, res = null, catcher = null, wipeJob = null, bannerT = 0, chaseHintT = 0;
+  let safeTop = 0, res = null, catcher = null, shot = null, wipeJob = null, bannerT = 0, chaseHintT = 0;
 
   // ── input ──────────────────────────────────────────────────
   const stick = { on: false, x: 0, y: 0 }, keys = {};
@@ -53,13 +54,15 @@
   function clearStick() { stick.on = false; stick.x = stick.y = 0; stickId = null; stickEl.classList.remove('on', 'run'); knob.style.transform = ''; }
   stickEl.addEventListener('pointerdown', (e) => {
     e.preventDefault(); e.stopPropagation(); AUDIO.unlock();
+    if (stickId !== null) return;   // a second finger never steals the thumb's stick
     if (mode === 'intro') skipIntro();
     stickId = e.pointerId; stickEl.classList.add('on');
     try { stickEl.setPointerCapture(e.pointerId); } catch (err) {}
     setStick(e.clientX, e.clientY);
   });
   stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
-  stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
+  const endStick = (e) => { if (e.pointerId === stickId) clearStick(); };
+  stickEl.addEventListener('pointerup', endStick); stickEl.addEventListener('pointercancel', endStick);
   const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'shift', ShiftRight: 'shift', ControlLeft: 'sneak', ControlRight: 'sneak', AltLeft: 'sneak', AltRight: 'sneak' };
   addEventListener('keydown', (e) => {
     AUDIO.unlock();
@@ -110,7 +113,7 @@
   function startFloor(n, retry) {
     floorN = n;
     cancelResult();
-    L = LEVEL.generate(U.hash(save.runSeed, n), n);
+    L = LEVEL.generate(U.hash(save.runSeed, n), n, LEVEL.history(save.runSeed, n));   // the floors below, so the shape changes as you climb
     field = L.field; D = L.D;
     for (const d of L.doors) d.open = false;
     field.applyDoors();
@@ -127,6 +130,15 @@
     cams = L.cams.map((c) => ({ ...c, ang: c.base, aw: 0, alarm: 0, cone: null, bubble: null }));
     fx = []; gotStars = 0; overview = false; $('mapBtn').classList.remove('on');
     stats.time = 0;
+    if (!retry || !checkpoint || checkpoint.floor !== n) checkpoint = null;
+    else {
+      const cp = checkpoint;
+      L.keys.forEach((k, i) => { if (cp.keys.includes(i)) { k.got = true; P.keys.push(k); } });
+      L.doors.forEach((d, i) => { if (cp.doors.includes(i)) d.open = true; });
+      L.stars.forEach((st, i) => { if (cp.stars.includes(i)) { st.got = true; gotStars++; } });
+      field.applyDoors(); nav = new LEVEL.Nav(field, 11);
+      P.x = cp.x; P.y = cp.y; P.ang = cp.ang;
+    }
     updateHUD();
     if (mode !== 'title') {
       mode = 'intro'; modeT = retry ? 1.3 : 0;
@@ -141,7 +153,12 @@
     return Math.min((W - 40) / floorBox.w, (H - top - bottom) / floorBox.h);
   }
   const isPortrait = () => H > W;
-  function baseZ() { return U.clamp(Math.min(W, H) / 470, 0.72, 1.7); }
+  // the play zoom: close, like the original (the player about 4% of the short side), but never so close a cone is cropped
+  function baseZ() {
+    const s = isPortrait() ? W / 400 : H / 330;
+    const coneFit = Math.min(W, H) / (1.8 * (D ? D.coneLen : 160));
+    return U.clamp(Math.min(s, coneFit), 0.8, 2.0);
+  }
 
   // ── the player ─────────────────────────────────────────────
   function updatePlayer(dt) {
@@ -191,8 +208,10 @@
 
     // pickups
     for (const s of L.stars) if (!s.got && Math.hypot(s.x - P.x, s.y - P.y) < 16) {
-      s.got = true; gotStars++; AUDIO.play('star'); updateHUD();
-      fx.push({ k: 'burst', x: s.x, y: s.y, t: 0, dur: 0.7, c: COL.star }, { k: 'pop', x: s.x, y: s.y, t: 0, dur: 1.1, text: '★', c: COL.star });
+      s.got = true; gotStars++; AUDIO.play('star');
+      // the star itself flies up to its slot in the HUD, which fills when it lands
+      fx.push({ k: 'burst', x: s.x, y: s.y, t: 0, dur: 0.7, c: COL.star }, { k: 'fly', x: s.x, y: s.y, t: 0, dur: 0.45, slot: gotStars - 1 });
+      updateHUD();
     }
     for (const k of L.keys) if (!k.got && Math.hypot(k.x - P.x, k.y - P.y) < 16) {
       k.got = true; P.keys.push(k); AUDIO.play('key'); updateHUD();
@@ -207,9 +226,14 @@
       if (P.keys.some(k => k.door === d)) {
         d.open = true; d.openT = time; field.applyDoors(); nav = new LEVEL.Nav(field, 11);
         AUDIO.play('door'); updateHUD();
+        // a checkpoint just through the door, on the far side from the floor's start
+        const cn = d.conn, dir = cn.dirFrom(cn.a), sp = field.nearestFree(cn.mouth.x + dir.x * 40, cn.mouth.y + dir.y * 40, 14, 40) || { x: P.x, y: P.y };
+        checkpoint = { floor: floorN, x: sp.x, y: sp.y, ang: Math.atan2(dir.y, dir.x), keys: L.keys.map((k, i) => k.got ? i : -1).filter(i => i >= 0),
+          doors: L.doors.map((o, i) => o.open ? i : -1).filter(i => i >= 0), stars: L.stars.map((o, i) => o.got ? i : -1).filter(i => i >= 0) };
+        hint('checkpoint', 'Door open. If you\'re caught now, you start again here.');
         const c = U.centroid(d.shape); fx.push({ k: 'burst', x: c.x, y: c.y, t: 0, dur: 0.6, c: d.color.c });
       } else if (lockedCD <= 0) {
-        lockedCD = 3; toast(`Locked. Find the ${d.color.name} key.`, 2.2);
+        lockedCD = 3; AUDIO.play('locked'); toast(`Locked. Find the ${d.color.name} key.`, 2.2);
       }
     }
     // the stairs
@@ -230,22 +254,29 @@
     for (let i = 1; i < p.length; i++) len += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y);
     return len < D.hear * 1.3;
   }
+  // where a watcher sees from: a guard's own square, a camera's lens a little out from its wall
+  const eyeOf = (o) => o.base === undefined ? o : { x: o.x + Math.cos(o.base) * 6, y: o.y + Math.sin(o.base) * 6 };
   function sees(o, len, fov, near) {
     if (!P || !P.alive) return null;
-    const dx = P.x - o.x, dy = P.y - o.y, d = Math.hypot(dx, dy);
+    const e = eyeOf(o), dx = P.x - e.x, dy = P.y - e.y, d = Math.hypot(dx, dy);
     // in a shade you are only found by someone who walks right into you
     if (P.hidden) return near && d < 12 ? { d } : null;
-    if (near && d < 26) return { d };
+    // a guard feels you at its elbow, just past arm's reach (CATCH), whichever way it faces
+    if (near && d < 18) return { d };
     if (d > len + P_R) return null;
     if (Math.abs(U.angDiff(o.ang, Math.atan2(dy, dx))) > fov + Math.atan2(P_R, d)) return null;
-    const t = field.ray(o.x, o.y, dx / d, dy / d, d);
+    const t = field.ray(e.x, e.y, dx / d, dy / d, d);
     return t >= d - P_R ? { d } : null;
   }
   // where to look for someone last seen at p: never on top of a shade, but at its rim, the guard's
   // side of it, so they stand and look round while the player holds still in the dark
+  // A guard who watched you slip in (still sure of you, and p is where it last saw you) walks
+  // right into the pool: a shade only hides you if you broke its line of sight first.
   function lookSpot(gd, p) {
     const sh = L.shades.find(s => Math.hypot(p.x - s.x, p.y - s.y) < s.r + 18);
     if (!sh) return { x: p.x, y: p.y };
+    const watched = (gd.aw > 0.6 || gd.state === 'chase') && gd.last && Math.hypot(gd.last.x - p.x, gd.last.y - p.y) < 1;
+    if (watched) return { x: sh.x, y: sh.y, dive: true };
     // stop on the rim on the guard's own side, so the walk there never cuts across the pool
     const e = Math.hypot(gd.x - sh.x, gd.y - sh.y) || 1, keep = sh.r + 24;
     const q = { x: sh.x + (gd.x - sh.x) / e * keep, y: sh.y + (gd.y - sh.y) / e * keep };
@@ -259,7 +290,7 @@
   function toSearch(gd, p, heard) {
     if (gd.state !== 'search' && gd.state !== 'chase') { if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.6; } }
     const q = lookSpot(gd, p);
-    gd.state = 'search'; gd.target = q; gd.scanT = -1; gd.hurry = !!heard ? 0 : 1;
+    gd.state = 'search'; gd.target = q; gd.scanT = -1; gd.hurry = !!heard ? 0 : 1; gd.dive = !!q.dive;
     routeTo(gd, q.x, q.y); bubble(gd, '?');
     if (heard) gd.heard = true;
   }
@@ -315,7 +346,7 @@
     if (s && gd.state !== 'chase') {
       const rate = D.detect * (0.3 + 1.9 * Math.max(0, 1 - s.d / D.coneLen)) * (P.run ? 1.4 : P.moving ? 1 : 0.8);
       gd.aw = Math.min(1, gd.aw + rate * dt);
-      if (s.d < 28 && !P.hidden) gd.aw = 1;
+      if (s.d < 20 && !P.hidden) gd.aw = 1;
       if (gd.state !== 'sus') {
         gd.prevState = gd.state; gd.state = 'sus'; gd.susLook = gd.ang;
         bubble(gd, '?'); if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.5; }
@@ -378,7 +409,7 @@
           const spd = gd.hurry ? D.chase * 0.75 : D.patrol * 1.45;
           if (follow(gd, spd, dt, 4)) { gd.scanT = 0; gd.scanBase = gd.ang; }
           // a route round a wall can still come at the pool from another side: halt at its rim and look
-          else if (P.hidden && L.shades.some(sh => Math.hypot(P.x - sh.x, P.y - sh.y) < sh.r && Math.hypot(gd.x - sh.x, gd.y - sh.y) < sh.r + 16)) { gd.scanT = 0; gd.scanBase = gd.ang; }
+          else if (P.hidden && !gd.dive && L.shades.some(sh => Math.hypot(P.x - sh.x, P.y - sh.y) < sh.r && Math.hypot(gd.x - sh.x, gd.y - sh.y) < sh.r + 16)) { gd.scanT = 0; gd.scanBase = gd.ang; }
           gd.stuck = Math.hypot(gd.x - gd.lastPos.x, gd.y - gd.lastPos.y) < 0.05 ? gd.stuck + dt : 0;
           if (gd.stuck > 1.2) { gd.scanT = 0; gd.scanBase = gd.ang; gd.stuck = 0; }
         } else {
@@ -438,9 +469,9 @@
   // the cone is the guard's visibility polygon: rays out to the first wall, with the angle refined
   // wherever neighbouring rays disagree, so the edge a wall corner casts is a hard straight line
   function cone(o, len, fov) {
-    const n = Math.max(18, Math.round(fov * 2 / 0.04)), pts = [o.x, o.y];
-    const ray = (a) => field.ray(o.x, o.y, Math.cos(a), Math.sin(a), len);
-    const push = (a, t) => { pts.push(o.x + Math.cos(a) * t, o.y + Math.sin(a) * t); };
+    const e = eyeOf(o), n = Math.max(18, Math.round(fov * 2 / 0.04)), pts = [e.x, e.y];
+    const ray = (a) => field.ray(e.x, e.y, Math.cos(a), Math.sin(a), len);
+    const push = (a, t) => { pts.push(e.x + Math.cos(a) * t, e.y + Math.sin(a) * t); };
     let pa = o.ang - fov, pt = ray(pa);
     push(pa, pt);
     for (let i = 1; i <= n; i++) {
@@ -468,6 +499,11 @@
     if (navigator.vibrate) try { navigator.vibrate([90, 60, 160]); } catch (e) {}
     fx.push({ k: 'flash', t: 0, dur: 0.6, red: true });
     clearStick(); clearToast(); chaseHintT = 0;
+    // frame the capture: both squares, centred under the stamp, eased in over 0.4s
+    const o = catcher || P;
+    // on a short screen the stamp takes the top third, so the capture sits a little below the middle
+    const z = baseZ() * 1.3, dy = H < 500 ? H * 0.12 : 0;
+    shot = { x0: view.x, y0: view.y, z0: view.z, x: (o.x + P.x) / 2, y: (o.y + P.y) / 2 - dy / z, z };
     res = { k: 'caught', stage: 0, at: 0.65, stars: [] };
   }
   function clearFloor() {
@@ -479,6 +515,8 @@
     persist();
     clearStick(); chaseHintT = 0;
     fx.push({ k: 'burst', x: L.exit.x, y: L.exit.y, t: 0, dur: 0.9, c: '#ffffff' });
+    const z = baseZ() * 1.25, dy = H < 500 ? H * 0.12 : 0;
+    shot = { x0: view.x, y0: view.y, z0: view.z, x: L.exit.x, y: L.exit.y - dy / z, z };
     res = { k: 'clear', stage: 0, at: 0.75, stars: [] };
   }
   function showResult(kind) {
@@ -503,7 +541,7 @@
     if (k === 'caught') startFloor(floorN, true);
     else wipe(() => startFloor(floorN + 1));
   }
-  function cancelResult() { res = null; catcher = null; $('result').className = ''; }
+  function cancelResult() { res = null; catcher = null; shot = null; $('result').className = ''; }
   // the wipe runs on frame time and blocks the pause while it covers the screen
   function wipe(then) { $('wipe').className = 'in'; wipeJob = { t: 0, then, done: false }; }
   function stepWipe(dt) {
@@ -532,6 +570,8 @@
     fpsAcc += dt; fpsN++; if (fpsAcc > 1) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
     readPad();
     stepWipe(dt);
+    const chrome = mode === 'title' || paused;
+    if (chrome !== document.body.classList.contains('chrome')) document.body.classList.toggle('chrome', chrome);
     if (!paused && L) step(dt);
     if (L) render();
   }
@@ -545,14 +585,16 @@
     if (mode === 'intro' && modeT > 2.1) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : 'WASD or arrows to walk, Shift to run, Ctrl to creep. Stay out of the light.'); }
     if (mode === 'play') { updatePlayer(dt); stats.time += dt; }
     const live = mode === 'play' || mode === 'caught' || mode === 'title' || mode === 'clear';
-    if (live && !overview) { for (const gd of guards) updateGuard(gd, dt); for (const c of cams) updateCam(c, dt); }
+    if (live && !overview) { for (const gd of guards) if (!(mode === 'caught' && gd === catcher)) updateGuard(gd, dt); for (const c of cams) updateCam(c, dt); }
     // cones only for what's near the screen
     const vw = W / view.z / 2 + 220, vh = H / view.z / 2 + 220;
     for (const gd of guards) if (Math.abs(gd.x - view.x) < vw && Math.abs(gd.y - view.y) < vh) cone(gd, D.coneLen, D.fov); else gd.cone = null;
     for (const c of cams) if (Math.abs(c.x - view.x) < vw && Math.abs(c.y - view.y) < vh) cone(c, D.coneLen * 1.05, 0.42); else c.cone = null;
     for (const f of fx) f.t += dt;
+    const landed = fx.filter(f => f.k === 'fly' && f.t >= f.dur);
     fx = fx.filter(f => f.t < f.dur);
-    if (mode === 'clear') P.scale = Math.max(0, 1 - modeT * 1.6);
+    if (landed.length) { updateHUD(); for (const f of landed) { const sp = $('hudStars').children[f.slot]; if (sp) sp.classList.add('punch'); } }
+    if (mode === 'clear') P.scale = Math.max(0, 1 - U.smooth(U.clamp(modeT / 0.5, 0, 1)));
     updateView(dt);
     // the score follows the danger
     let t = 0.05;
@@ -583,22 +625,28 @@
     let lx = 0, ly = 0;
     if (mode === 'play' && !overview && P.alive) {
       lx = P.avx * 0.7; ly = P.avy * 0.7;
-      const cap = Math.min(W, H) / view.z * 0.28, l = Math.hypot(lx, ly);
+      const cap = Math.min(W, H) / view.z * 0.22, l = Math.hypot(lx, ly);
       if (l > cap) { lx *= cap / l; ly *= cap / l; }
     }
-    const lk = 1 - Math.exp(-dt * (Math.hypot(lx, ly) < Math.hypot(view.lead.x, view.lead.y) ? 6 : 2.5));   // reach out gently, come back quickly
+    // reach out briskly; on a stop, hold the frame a moment so the player stops where they appear to, then settle back slowly
+    const idle = Math.hypot(lx, ly) < 6;
+    view.idleT = idle ? (view.idleT || 0) + dt : 0;
+    const lk = idle ? (view.idleT < 0.35 ? 0 : 1 - Math.exp(-dt * 2)) : 1 - Math.exp(-dt * 4);
     view.lead.x += (lx - view.lead.x) * lk; view.lead.y += (ly - view.lead.y) * lk;
     if (mode === 'title') { tx = floorBox.cx + Math.sin(time * 0.05) * 30; ty = floorBox.cy + Math.cos(time * 0.04) * 20; tz = overviewZ() * 1.02; rate = 1; }
-    else if (mode === 'caught' && P) {
-      // close in on the capture: the guard and the player, framed together
-      const o = catcher || P; tx = (o.x + P.x) / 2; ty = (o.y + P.y) / 2; tz = baseZ() * 1.35; rate = 4.5;
+    else if ((mode === 'caught' || mode === 'clear') && shot) {
+      // close in on the capture (or the stairs) on a fixed curve: easeOutCubic over 0.4s, then hold
+      const t = U.clamp(modeT / 0.4, 0, 1), e = 1 - Math.pow(1 - t, 3);
+      view.x = U.lerp(shot.x0, shot.x, e); view.y = U.lerp(shot.y0, shot.y, e); view.z = shot.z0 * Math.pow(shot.z / shot.z0, e);
+      view.shake = Math.max(0, view.shake - dt * 2.2);
+      return;
     }
-    else if (mode === 'clear' && L) { tx = L.exit.x; ty = L.exit.y; tz = baseZ() * 1.25; rate = 3.5; }
     else if ((mode === 'intro' && modeT < 1.3) || overview) { tx = floorBox.cx; ty = floorBox.cy + (isPortrait() ? 0 : 0); tz = overviewZ(); rate = overview ? 5 : 3; }
     else {
       // the follow aims where the player will be when it catches up, so the lag doesn't eat the lead
       rate = 7; tx = P.x + view.lead.x + P.avx / rate; ty = P.y + view.lead.y + P.avy / rate; tz = baseZ();
       if (isPortrait()) ty += 90 / tz;   // the stick sits at the bottom: keep the player above the middle
+      else if (isTouch) tx += (save.stickSide === 'left' ? -90 : 90) / tz;   // on its side the stick sits in a corner: keep the player clear of it
       if (mode === 'intro') rate = 2.6;
     }
     const k = 1 - Math.exp(-dt * rate);
@@ -648,7 +696,8 @@
     // walls' and pillars' shadows: one tone on the lit floor, a deeper one where they fall into the
     // ring the void already shades, so the floor reads in layers
     g.beginPath();
-    for (const s of L.obs) polyPath(U.sweep(s, LIGHT.x, LIGHT.y));
+    // round pillars throw a shorter shadow, so a row of them doesn't stripe the floor
+    for (const s of L.obs) { const k = s.k === 'c' ? 0.55 : 1; polyPath(U.sweep(s, LIGHT.x * k, LIGHT.y * k)); }
     for (const d of L.doors) if (!d.open) polyPath(U.sweep(d.shape, LIGHT.x * 0.9, LIGHT.y * 0.9));
     g.fillStyle = COL.castShade; g.fill();
     drawStairs(L.entrance, false, z);
@@ -670,15 +719,15 @@
     drawFlash();
   }
 
-  // hiding spots: a pool of deep shade, flat in the middle and falling off softly at the edge
+  // hiding spots: a crisp disc of the same shade the walls cast, with a faint pale rim so it reads
+  // as a place, not a smudge
   function drawShades(z) {
     for (const s of L.shades) {
       const inside = P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r;
-      const R = s.r + 8, gr = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, R);
-      gr.addColorStop(0, 'rgba(42,102,120,0.95)'); gr.addColorStop(0.55, 'rgba(36,94,112,0.92)');
-      gr.addColorStop(0.78, 'rgba(36,94,112,0.55)'); gr.addColorStop(1, 'rgba(42,102,120,0)');
-      g.fillStyle = gr; g.beginPath(); g.arc(s.x, s.y, R, 0, TAU); g.fill();
-      if (inside) { g.strokeStyle = 'rgba(170,235,255,0.6)'; g.lineWidth = 1.5; g.setLineDash([4, 4]); g.lineDashOffset = time * 10; g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.stroke(); g.setLineDash([]); }
+      g.fillStyle = COL.castShade; g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fill();
+      g.strokeStyle = inside ? 'rgba(170,235,255,0.7)' : 'rgba(200,236,244,0.22)'; g.lineWidth = inside ? 1.6 : 1.2;
+      if (inside) { g.setLineDash([4, 4]); g.lineDashOffset = time * 10; }
+      g.beginPath(); g.arc(s.x, s.y, s.r - 1, 0, TAU); g.stroke(); g.setLineDash([]);
     }
   }
 
@@ -706,36 +755,25 @@
     g.restore();
   }
 
-  // every cone is the same flat cyan; where two watch the same ground it builds to a brighter one.
+  // every cone is one flat cyan wedge. All of them go into one path, filled once with the nonzero
+  // rule: every cone winds the same way (cone() sweeps its rays in one direction), so where cones
+  // overlap they merge into one shape at one tint instead of stacking into a patchwork.
   // Only a guard (or camera) in full alarm turns its cone red.
-  function coneColor(o, isCam) {
-    return o.state === 'chase' || (isCam && o.alarm > 0) ? COL.coneHot : COL.cone;
-  }
   function drawCones() {
-    const list = [];
+    const calm = new Path2D(), hot = new Path2D();
+    let nc = 0, nh = 0;
     const add = (o, isCam) => {
       const p = o.cone; if (!p) return;
-      const path = new Path2D();
-      let x0 = p[0], y0 = p[1], x1 = x0, y1 = y0;
+      const red = o.state === 'chase' || (isCam && o.alarm > 0), path = red ? hot : calm;
       path.moveTo(p[0], p[1]);
-      for (let i = 2; i < p.length; i += 2) {
-        path.lineTo(p[i], p[i + 1]);
-        if (p[i] < x0) x0 = p[i]; else if (p[i] > x1) x1 = p[i];
-        if (p[i + 1] < y0) y0 = p[i + 1]; else if (p[i + 1] > y1) y1 = p[i + 1];
-      }
+      for (let i = 2; i < p.length; i += 2) path.lineTo(p[i], p[i + 1]);
       path.closePath();
-      list.push({ path, x0, y0, x1, y1, c: coneColor(o, isCam) });
+      if (red) nh++; else nc++;
     };
     for (const gd of guards) add(gd, false);
     for (const c of cams) add(c, true);
-    for (const k of list) { g.fillStyle = k.c; g.fill(k.path); }
-    // double-watched ground
-    g.fillStyle = COL.coneOver;
-    for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
-      const A = list[i], B = list[j];
-      if (A.x1 < B.x0 || B.x1 < A.x0 || A.y1 < B.y0 || B.y1 < A.y0) continue;
-      g.save(); g.clip(A.path); g.fill(B.path); g.restore();
-    }
+    if (nc) { g.fillStyle = COL.cone; g.fill(calm, 'nonzero'); }
+    if (nh) { g.fillStyle = COL.coneHot; g.fill(hot, 'nonzero'); }
   }
 
   function star(x, y, r, rot) {
@@ -784,11 +822,12 @@
     polyPath(U.sweep(s, LIGHT.x * k, LIGHT.y * k));
   }
   function drawCharShadows() {
-    g.fillStyle = 'rgba(16,62,78,0.55)';
+    // the guards' shadows are lighter than the player's, so the player is the one shape that stands out
+    g.fillStyle = 'rgba(16,62,78,0.3)';
     g.beginPath();
-    for (const gd of guards) charSweep(gd.x, gd.y, gd.ang, G_SIZE, 0.55);
-    if (P && P.scale > 0) charSweep(P.x, P.y, P.ang, P_SIZE * P.scale, 0.5);
+    for (const gd of guards) charSweep(gd.x, gd.y, gd.ang, G_SIZE, 0.5);
     g.fill();
+    if (P && P.scale > 0) { g.fillStyle = 'rgba(16,62,78,0.55)'; g.beginPath(); charSweep(P.x, P.y, P.ang, P_SIZE * P_LOOK * P.scale, 0.55); g.fill(); }
   }
   function rsq(x, y, s, ang, r) {
     g.save(); g.translate(x, y); g.rotate(ang);
@@ -817,8 +856,14 @@
       g.restore();
     }
     if (P && P.scale > 0) {
-      const s = P_SIZE * P.scale;
-      rsq(P.x, P.y, s, P.ang, 2.5);
+      // drawn larger than its footprint, with a warm glow: the brightest, warmest thing on the floor
+      const s = P_SIZE * P_LOOK * P.scale;
+      if (!P.hidden) {
+        const gl = g.createRadialGradient(P.x, P.y, s * 0.4, P.x, P.y, s * 1.6);
+        gl.addColorStop(0, 'rgba(255,170,90,0.4)'); gl.addColorStop(1, 'rgba(255,170,90,0)');
+        g.fillStyle = gl; g.beginPath(); g.arc(P.x, P.y, s * 1.6, 0, TAU); g.fill();
+      }
+      rsq(P.x, P.y, s, P.ang, 3);
       g.globalAlpha = P.hidden ? 0.55 : 1;
       g.fillStyle = COL.player; g.fill();
       g.lineWidth = 1.6; g.strokeStyle = COL.playerLo; g.stroke();
@@ -919,6 +964,18 @@
     };
     for (const gd of guards) { meter(gd); one(gd, G_SIZE); edge(gd); }
     for (const c of cams) { meter(c); one(c, 8); edge(c); }
+    for (const f of fx) if (f.k === 'fly') {
+      // from where the star lay to its slot in the HUD, arcing a little, shrinking to the slot's size
+      const sp = $('hudStars').children[f.slot]; if (!sp) continue;
+      const rc = sp.getBoundingClientRect(), a = toScreen(f.x, f.y), t = U.clamp(f.t / f.dur, 0, 1), e = 1 - Math.pow(1 - t, 3);
+      const bx = rc.left + rc.width / 2, by = rc.top + rc.height / 2;
+      const x = U.lerp(a.x, bx, e), y = U.lerp(a.y, by, e) - Math.sin(t * Math.PI) * 40, sz = U.lerp(34, rc.height * 1.1, e);
+      g.save(); g.font = `800 ${Math.round(sz)}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.shadowColor = 'rgba(243,229,126,.8)'; g.shadowBlur = 12;
+      g.lineWidth = 3; g.strokeStyle = 'rgba(150,120,20,.7)'; g.strokeText('★', x, y);
+      g.fillStyle = COL.star; g.fillText('★', x, y);
+      g.restore();
+    }
     for (const f of fx) if (f.k === 'pop' && f.sx !== undefined) {
       const t = f.t / f.dur;
       g.save(); g.globalAlpha = 1 - t * t;
@@ -931,8 +988,10 @@
   function drawFlash() {
     for (const f of fx) if (f.k === 'flash') {
       const t = f.t / f.dur;
-      g.fillStyle = f.red ? `rgba(255,60,40,${0.35 * (1 - t)})` : `rgba(255,120,80,${0.16 * (1 - t)})`;
-      g.fillRect(0, 0, W, H);
+      // a flash reddens the rim of the screen only, so the floor keeps its teal
+      const R = Math.hypot(W, H) / 2, vg = g.createRadialGradient(W / 2, H / 2, R * 0.45, W / 2, H / 2, R);
+      vg.addColorStop(0, 'rgba(255,60,40,0)'); vg.addColorStop(1, f.red ? `rgba(255,60,40,${0.5 * (1 - t)})` : `rgba(255,110,70,${0.3 * (1 - t)})`);
+      g.fillStyle = vg; g.fillRect(0, 0, W, H);
     }
     // danger reddens the edges of the screen
     const t = AUDIO.tension;
@@ -950,7 +1009,8 @@
   function updateHUD() {
     $('floorNum').textContent = String(floorN).padStart(2, '0');
     $('floorName').textContent = NAMES[(floorN - 1) % NAMES.length];
-    $('hudStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < gotStars ? 'on' : ''}">★</span>`).join('');
+    const shown = gotStars - fx.filter(f => f.k === 'fly').length;
+    $('hudStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < shown ? 'on' : ''}">★</span>`).join('');
     $('hudKeys').innerHTML = (P ? P.keys : []).filter(k => !k.door.open).map(k => `<span class="key" style="background:${k.color.c}"></span>`).join('');
   }
   function showBanner(n) {
@@ -970,9 +1030,13 @@
     overview = !overview; $('mapBtn').classList.toggle('on', overview); AUDIO.play('tap');
   }
   function syncToggles() {
-    $('optMusic').textContent = 'Music: ' + (save.music ? 'on' : 'off');
-    $('optSound').textContent = 'Sound: ' + (save.sound ? 'on' : 'off');
-    $('optStick').textContent = 'Stick: ' + save.stickSide;
+    // icon and state only, so the three fit one row on a 390px phone
+    $('optMusic').textContent = '♪ ' + (save.music ? 'On' : 'Off');
+    $('optSound').textContent = '🔊 ' + (save.sound ? 'On' : 'Off');
+    $('optStick').textContent = 'Stick ' + (save.stickSide === 'left' ? 'L' : 'R');
+    $('optMusic').setAttribute('aria-label', 'Music ' + (save.music ? 'on' : 'off'));
+    $('optSound').setAttribute('aria-label', 'Sound ' + (save.sound ? 'on' : 'off'));
+    $('optStick').setAttribute('aria-label', 'Stick on the ' + save.stickSide);
     document.body.dataset.stick = save.stickSide;
   }
   function titleScreen() {
@@ -997,8 +1061,12 @@
   }
   $('btnPlay').addEventListener('click', startGame);
   $('btnNew').addEventListener('click', () => { save.floor = 1; save.runSeed = (Math.random() * 1e9) >>> 0; persist(); startGame(); });
-  $('pauseBtn').addEventListener('click', (e) => { e.stopPropagation(); AUDIO.play('tap'); togglePause(); });
-  $('mapBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleMap(); });
+  // pointerdown, not click: Chromium sends click only for the primary pointer, and the thumb on the stick is that pointer
+  $('pauseBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); AUDIO.play('tap'); togglePause(); });
+  $('mapBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); toggleMap(); });
+  // keyboard activation (Enter or Space on a focused button) still arrives as a click with no pointer behind it
+  $('pauseBtn').addEventListener('click', (e) => { e.stopPropagation(); if (e.detail === 0) { AUDIO.play('tap'); togglePause(); } });
+  $('mapBtn').addEventListener('click', (e) => { e.stopPropagation(); if (e.detail === 0) toggleMap(); });
   $('optResume').addEventListener('click', togglePause);
   $('optRestart').addEventListener('click', () => { togglePause(); startFloor(floorN, true); });
   $('optMusic').addEventListener('click', () => { save.music = !save.music; AUDIO.setMusic(save.music); persist(); syncToggles(); });

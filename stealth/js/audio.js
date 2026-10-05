@@ -1,4 +1,5 @@
-// The score and the sounds, all synthesised. The score is one 8-bar loop in D minor that grows with
+// The score and the sounds, all synthesised. The score is an 8-bar loop in D minor, with a B phrase
+// every other time round, a new pulse figure each pass and a new key on each floor, that grows with
 // the danger: a drone and pad while you're unseen, a plucked pulse when a guard is near, a heartbeat
 // and trembling strings while one is suspicious, drums and a driving bass in a chase. AUDIO.tension
 // (0..1) is set by the game every frame; the layers fade in and out on their own. The mix is voiced
@@ -9,11 +10,18 @@
   let ctx = null, master, music, cutG, duckG, duckLP, pulseDuck, sfx, verbIn, noiseBuf, layers = {}, timer = null;
   let muted = false, musicOn = true, tension = 0, smoothT = 0, heat = 0, heatAt = -9, ducked = false, cutUntil = 0;
   const BPM = 84, S16 = 60 / BPM / 4;
-  let step = 0, nextT = 0, stepDur = S16, curCi = 0, nextBeat = 0;
+  let step = 0, cycle = 0, nextT = 0, stepDur = S16, curCh = [50, 53, 57], key = 0, lastStep = 0, stepSkip = false;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
-  // D minor: Dm  Bb  Gm  A — two bars each
-  const CHORDS = [[50, 53, 57], [46, 50, 53], [43, 46, 50], [45, 49, 52]];
-  const ROOTS = [38, 34, 31, 33];
+  // D minor, two bars a chord. A: Dm Bb Gm A. B, every second time round: Dm Gm Eb A
+  const PHRASES = [
+    { chords: [[50, 53, 57], [46, 50, 53], [43, 46, 50], [45, 49, 52]], roots: [38, 34, 31, 33] },
+    { chords: [[50, 53, 57], [43, 46, 50], [51, 55, 58], [45, 49, 52]], roots: [38, 31, 39, 33] },
+  ];
+  // the plucked pulse changes its figure each pass, so a long floor never hears the same loop twice running
+  const PULSES = [[0, 0, 7, 0, 12, 0, 7, 10], [0, 7, 0, 12, 0, 10, 7, 0], [0, 0, 12, 7, 0, 3, 7, 10]];
+  // each floor sits in its own key: D, F, C, G minor
+  const KEYS = [0, 3, -2, 5];
+  const floorKey = () => { const G = window.GAME; let f = 1; try { f = (G && G.floor) || 1; } catch (e) {} return KEYS[f % 4]; };
 
   function init() {
     if (ctx) return;
@@ -60,17 +68,24 @@
   }
 
   // the drone never stops: a low D with a slow breathing filter
-  let droneLP;
+  // (open enough, with a D3 on top, that the calm still reaches a phone speaker)
+  let droneLP, droneOsc = [];
   function drone() {
-    droneLP = ctx.createBiquadFilter(); droneLP.type = 'lowpass'; droneLP.frequency.value = 380; droneLP.Q.value = 4;
+    droneLP = ctx.createBiquadFilter(); droneLP.type = 'lowpass'; droneLP.frequency.value = 650; droneLP.Q.value = 4;
     droneLP.connect(layers.drone);
-    for (const [f, type, v] of [[mtof(26), 'sine', 0.12], [mtof(38), 'sawtooth', 0.18], [mtof(38) * 1.004, 'sawtooth', 0.18], [mtof(45), 'triangle', 0.05]]) {
-      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.value = f; g.gain.value = v;
-      o.connect(g); g.connect(droneLP); o.start();
+    for (const [m, mul, type, v] of [[26, 1, 'sine', 0.06], [38, 1, 'sawtooth', 0.18], [38, 1.004, 'sawtooth', 0.18], [45, 1, 'triangle', 0.05], [50, 1, 'sawtooth', 0.07]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.value = mtof(m + key) * mul; g.gain.value = v;
+      o.connect(g); g.connect(droneLP); o.start(); droneOsc.push([o, m, mul]);
     }
-    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 150;
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 220;
     lfo.connect(lg); lg.connect(droneLP.frequency); lfo.start();
     layers.drone.gain.setTargetAtTime(0.55, ctx.currentTime, 2);
+  }
+  // a new floor, a new key: the drone slides there and the score follows from the next bar
+  function setKey(k, t) {
+    if (k === key) return;
+    key = k;
+    for (const [o, m, mul] of droneOsc) o.frequency.setTargetAtTime(mtof(m + key) * mul, t, 0.6);
   }
 
   // ── instruments ────────────────────────────────────────────
@@ -134,21 +149,14 @@
     smoothT += (goal - smoothT) * (goal > smoothT ? 0.12 : pz ? 0.08 : 0.012);
     const t = smoothT;
     const lv = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
-    layers.pulse.gain.setTargetAtTime(lv(t, 0.12, 0.35) * 2.6, now, 0.4);
-    layers.beat.gain.setTargetAtTime(lv(t, 0.4, 0.6) * 2, now, 0.25);
-    layers.chase.gain.setTargetAtTime(lv(t, 0.78, 0.92) * 2.2, now, 0.15);
+    layers.pulse.gain.setTargetAtTime(lv(t, 0.12, 0.35) * 1.4, now, 0.4);
+    // the heartbeat and strings step back in a chase (about 14 dB) so the drums carry the pulse
+    layers.beat.gain.setTargetAtTime(lv(t, 0.4, 0.6) * 2 * (1 - 0.8 * lv(t, 0.78, 0.92)), now, 0.25);
+    layers.chase.gain.setTargetAtTime(lv(t, 0.78, 0.92) * 2, now, 0.15);
     if (droneLP) droneLP.Q.setTargetAtTime(4 + t * 8, now, 0.5);
     // a chase pushes the tempo from 84 toward 100
     stepDur = S16 * BPM / (BPM + 16 * lv(t, 0.88, 0.98));
-    while (nextT < now + 0.12) { play(step, nextT); step = (step + 1) % 128; nextT += stepDur; }
-    // the heartbeat keeps its own clock and quickens with the strongest suspicion: 57 to 120 bpm
-    if (t > 0.35) {
-      if (nextBeat < now) nextBeat = now + 0.05;
-      while (nextBeat < now + 0.12) {
-        heart(layers.beat, nextBeat, 1); heart(layers.beat, nextBeat + 0.22, 0.6);
-        nextBeat += 1.05 - 0.55 * curHeat(now);
-      }
-    } else nextBeat = 0;
+    while (nextT < now + 0.12) { play(step, nextT); step = (step + 1) % 128; if (!step) cycle++; nextT += stepDur; }
   }
   // how suspicious is the strongest guard? The game can say (AUDIO.heat); otherwise we look
   function curHeat(now) {
@@ -177,20 +185,22 @@
     cutG.gain.setTargetAtTime(1, now + dur, 0.5);
     smoothT = 0.05; cutUntil = now + dur;
   }
-  // the next sixteenth on the score's grid, so a stinger lands on the beat
+  // snap a stinger to the score's next sixteenth only when it's a hair away; never trail the flash
   function onGrid() {
     const t0 = ctx.currentTime + 0.005;
     if (!musicOn) return t0;
     let q = nextT; while (q - stepDur > t0) q -= stepDur;
-    return Math.max(t0, q);
+    return q >= t0 && q - t0 < 0.05 ? q : t0;
   }
   function duckPulse(t) {
     pulseDuck.gain.cancelScheduledValues(t); pulseDuck.gain.setTargetAtTime(0.5, t, 0.015);
     pulseDuck.gain.setTargetAtTime(1, t + 0.4, 0.12);
   }
   function play(s, t) {
-    const bar = Math.floor(s / 16), pos = s % 16, ci = Math.floor(bar / 2) % 4, ch = CHORDS[ci], root = ROOTS[ci];
-    curCi = ci;
+    const bar = Math.floor(s / 16), pos = s % 16;
+    if (pos === 0) setKey(floorKey(), t);
+    const ph = PHRASES[cycle % 2], ci = Math.floor(bar / 2) % 4, ch = ph.chords[ci].map(m => m + key), root = ph.roots[ci] + key;
+    curCh = ch;
     const T = smoothT;
     // pad: a new chord every two bars, slow in and out
     if (pos === 0 && bar % 2 === 0) {
@@ -202,13 +212,19 @@
     if (layers.pulse.gain.value > 0.01 || T > 0.1) {
       // pulse: plucked eighths on the root and fifth, a clock tick under it
       if (pos % 2 === 0) {
-        const pat = [0, 0, 7, 0, 12, 0, 7, 10], m = root + 24 + pat[pos / 2];
-        voice(layers.pulse, t, mtof(m), { type: 'square', lp: 2000 + T * 2400, lpTo: 450, lpT: 0.14, q: 3, v: pos % 8 === 0 ? 0.11 : 0.075, dur: 0.02, rel: 0.16 });
+        const pat = PULSES[cycle % 3], m = root + 24 + pat[pos / 2];
+        voice(layers.pulse, t, mtof(m), { type: 'square', lp: 2000 + T * 2400, lpTo: 450, lpT: 0.14, q: 1.8, v: pos % 8 === 0 ? 0.13 : 0.1, dur: 0.02, rel: 0.16 });
       }
       noise(layers.pulse, t, { f: 7000, q: 2, v: pos % 4 === 2 ? 0.05 : 0.018, dur: 0.004, rel: 0.03, ftype: 'highpass' });
     }
     if (T > 0.35) {
-      // heartbeat (on its own clock, see schedule) and a string that trembles on the chord's third
+      // the heartbeat rides the score's grid, so it follows the tempo and never drifts against the drums:
+      // once a half bar while a guard wonders, on every beat when one is sure, a bare thud in a chase
+      const h = curHeat(t);
+      if (h < 0.5) { if (pos % 8 === 0) heart(layers.beat, t, 1); else if (pos % 8 === 1) heart(layers.beat, t, 0.6); }
+      else if (h < 0.85) { if (pos % 4 === 0) heart(layers.beat, t, 1); else if (pos % 4 === 1) heart(layers.beat, t, 0.6); }
+      else if (pos % 2 === 0) heart(layers.beat, t, pos % 4 === 0 ? 1 : 0.7);
+      // and a string that trembles on the chord's third
       if (pos === 0 && bar % 2 === 0) {
         const o = ctx.createOscillator(), g = ctx.createGain(), trem = ctx.createOscillator(), tg = ctx.createGain(), tv = ctx.createGain(), lp = ctx.createBiquadFilter();
         o.type = 'sawtooth'; o.frequency.value = mtof(ch[1] + 12); lp.type = 'lowpass'; lp.frequency.value = 2200;
@@ -220,43 +236,71 @@
       }
     }
     if (T > 0.7) {
-      // chase: sixteenth bass, toms, a snare on the backbeat
+      // chase: sixteenth bass, toms, a snare on the backbeat, a tom roll into the top of each pass
+      const fill = bar === 7 && pos >= 12;
       const bp = [0, 0, 12, 0, 0, 7, 0, 10, 0, 0, 12, 0, 13, 12, 7, 5];
       voice(layers.chase, t, mtof(root + bp[pos]), { type: 'sawtooth', lp: 1600, lpTo: 260, lpT: 0.1, q: 5, v: pos % 4 === 0 ? 0.13 : 0.08, dur: 0.03, rel: 0.08 });
       if (pos % 2 === 0) voice(layers.chase, t, mtof(root + 24 + bp[pos]), { type: 'square', lp: 2600, lpTo: 700, lpT: 0.08, q: 2, v: 0.1, dur: 0.02, rel: 0.07 });
       if (pos === 0 || pos === 6 || pos === 10) tom(layers.chase, t, pos === 0 ? 90 : 120, 0.3);
-      if (pos === 4 || pos === 12) { noise(layers.chase, t, { f: 1800, q: 0.8, v: 0.4, dur: 0.02, rel: 0.16 }); voice(layers.chase, t, 190, { type: 'triangle', glide: 120, v: 0.12, dur: 0.02, rel: 0.08 }); }
-      if (pos === 14 && bar % 2 === 1) tom(layers.chase, t, 160, 0.35);
+      // the kick takes the beat over from the heartbeat
+      if (pos % 4 === 0) { const v = pos === 0 ? 1 : 0.8;   // a short, high-tuned kick: punch a phone can play, little sub to push the limiter
+        voice(layers.chase, t, 160, { type: 'sine', glide: 60, glideT: 0.07, v: 0.24 * v, dur: 0.02, rel: 0.12 });
+        noise(layers.chase, t, { f: 2600, q: 1, v: 0.12 * v, dur: 0.003, rel: 0.025 }); }
+      if (fill) tom(layers.chase, t, [160, 140, 120, 100][pos - 12], 0.32 + (pos - 12) * 0.02);
+      if (pos === 4 || (pos === 12 && !fill)) { noise(layers.chase, t, { f: 1800, q: 0.8, v: 0.4, dur: 0.02, rel: 0.16 }); voice(layers.chase, t, 190, { type: 'triangle', glide: 120, v: 0.12, dur: 0.02, rel: 0.08 }); }
+      if (pos === 14 && bar % 2 === 1 && !fill) tom(layers.chase, t, 160, 0.35);
       // driving hats, open on the off-beat, so the chase cuts through a small speaker
-      noise(layers.chase, t, { ftype: 'highpass', f: 6500, q: 0.8, v: pos % 4 === 2 ? 0.16 : 0.07, dur: 0.004, rel: pos % 4 === 2 ? 0.09 : 0.03 });
+      noise(layers.chase, t, { ftype: 'highpass', f: 6500, q: 0.8, v: pos % 4 === 2 ? 0.22 : 0.1, dur: 0.004, rel: pos % 4 === 2 ? 0.09 : 0.03 });
     }
   }
 
   // ── sound effects ──────────────────────────────────────────
   const T0 = () => ctx.currentTime + 0.005;
   const SFX = {
-    step(run) { const t = T0(); noise(sfx, t, { f: run ? 1400 : 1100, q: 1.2, v: run ? 0.1 : 0.08, dur: 0.008, rel: 0.05 }); if (run) voice(sfx, t, 70, { type: 'sine', glide: 50, v: 0.1, dur: 0.01, rel: 0.06 }); },
+    // a step follows the stick: a gentle push is a soft, slow pad, nearly a full push a firm walk. The
+    // weight is the second argument when it's a number, or GAME.P.m when the game passes run = false
+    step(run) {
+      const t = T0();
+      if (run === true) { noise(sfx, t, { f: 1400, q: 1.2, v: 0.1, dur: 0.008, rel: 0.05 }); voice(sfx, t, 70, { type: 'sine', glide: 50, v: 0.1, dur: 0.01, rel: 0.06 }); return; }
+      let m = typeof run === 'number' ? run : 0.6;
+      if (typeof run !== 'number') try { const P = window.GAME && window.GAME.P; if (P && typeof P.m === 'number') m = P.m; } catch (e) {}
+      m = Math.max(0, Math.min(1, m / 0.85));
+      // a sneak takes longer strides of silence: below a third of the push, every other step is skipped
+      if (m < 0.35 && t - lastStep < 0.7) { stepSkip = !stepSkip; if (stepSkip) return; }
+      lastStep = t;
+      noise(sfx, t, { f: 800 + 400 * m, q: 1.2, v: 0.03 + 0.05 * m, dur: 0.004 + 0.005 * m, rel: 0.03 + 0.025 * m });
+    },
+    locked() {   // a locked door: two dull knocks of the handle
+      const t = T0();
+      for (const d of [0, 0.09]) { voice(sfx, t + d, 90, { type: 'square', lp: 900, lpTo: 300, lpT: 0.06, v: 0.2, dur: 0.04, rel: 0.12 }); noise(sfx, t + d, { f: 900, q: 1, v: 0.14, dur: 0.005, rel: 0.05 }); }
+    },
     hmm() {   // a guard notices something: two notes asking a question, in the chord of the moment
-      const t = T0(), ch = CHORDS[curCi], top = mtof(ch[2] + 24);
+      const t = T0(), ch = curCh, top = mtof(ch[2] + 24);
       duckPulse(t);
-      voice(sfx, t, mtof(ch[1] + 24), { type: 'triangle', v: 0.12, dur: 0.08, rel: 0.1 });
-      voice(sfx, t + 0.13, top, { type: 'triangle', v: 0.12, dur: 0.1, rel: 0.25, glide: top * 1.03 });
+      noise(sfx, t, { f: 2500, q: 1, v: 0.06, a: 0.02, dur: 0.03, rel: 0.2 });
+      voice(sfx, t, mtof(ch[1] + 24), { type: 'triangle', v: 0.18, dur: 0.08, rel: 0.1 });
+      voice(sfx, t + 0.13, top, { type: 'triangle', v: 0.18, dur: 0.1, rel: 0.25, glide: top * 1.03 });
     },
     spotted() {   // "!": a stab of brass, a snap and a hit, on the beat
       const t = onGrid();
       duckPulse(t);
-      for (const m of [62, 63, 69, 74]) voice(sfx, t, mtof(m), { type: 'sawtooth', lp: 5000, lpTo: 700, lpT: 0.5, q: 2, v: 0.15, dur: 0.18, rel: 0.5 });
+      for (const m of [62, 63, 69, 74].map(m => m + key)) voice(sfx, t, mtof(m), { type: 'sawtooth', lp: 5000, lpTo: 700, lpT: 0.5, q: 2, v: 0.15, dur: 0.18, rel: 0.5 });
       kick(sfx, t, 0.45);
       noise(sfx, t, { f: 2500, q: 0.6, v: 0.25, dur: 0.02, rel: 0.25, fTo: 400 });
       noise(sfx, t, { ftype: 'highpass', f: 4000, q: 0.7, v: 0.3, dur: 0.01, rel: 0.12 });
     },
     lost() {   // gave up: the question again, falling back into the chord
-      const t = T0(), ch = CHORDS[curCi];
+      const t = T0(), ch = curCh;
       duckPulse(t);
-      voice(sfx, t, mtof(ch[2] + 24), { type: 'triangle', v: 0.08, dur: 0.1, rel: 0.1 });
-      voice(sfx, t + 0.16, mtof(ch[0] + 24), { type: 'triangle', v: 0.08, dur: 0.15, rel: 0.4 });
+      noise(sfx, t, { f: 2500, q: 1, v: 0.06, a: 0.02, dur: 0.03, rel: 0.2, fTo: 1200 });
+      voice(sfx, t, mtof(ch[2] + 24), { type: 'triangle', v: 0.18, dur: 0.1, rel: 0.1 });
+      voice(sfx, t + 0.16, mtof(ch[0] + 24), { type: 'triangle', v: 0.18, dur: 0.15, rel: 0.4 });
     },
-    alarm() { const t = T0(); for (let i = 0; i < 3; i++) voice(sfx, t + i * 0.18, 880, { type: 'square', lp: 2400, v: 0.06, dur: 0.08, rel: 0.05, glide: 660 }); },
+    alarm() {   // a camera's "!": the same stab as a guard's, then the camera's own beeps on top
+      SFX.spotted();
+      const t = T0() + 0.25;
+      for (let i = 0; i < 3; i++) voice(sfx, t + i * 0.18, 880, { type: 'square', lp: 3200, v: 0.14, dur: 0.08, rel: 0.05, glide: 660 });
+    },
     star() { const t = T0(); [81, 86, 88, 93].forEach((m, i) => voice(sfx, t + i * 0.06, mtof(m), { type: 'sine', v: 0.12, dur: 0.02, rel: 0.9 })); },
     key() { const t = T0(); [69, 73, 76, 81].forEach((m, i) => voice(sfx, t + i * 0.05, mtof(m), { type: 'triangle', v: 0.12, dur: 0.03, rel: 0.5 })); noise(sfx, t, { f: 6000, q: 3, v: 0.06, dur: 0.01, rel: 0.2 }); },
     door() { const t = T0(); voice(sfx, t, 140, { type: 'square', lp: 600, v: 0.15, dur: 0.05, rel: 0.2, glide: 90 }); noise(sfx, t + 0.05, { f: 500, q: 0.8, v: 0.2, dur: 0.25, rel: 0.2, fTo: 1600 }); voice(sfx, t + 0.3, mtof(62), { type: 'triangle', v: 0.1, dur: 0.05, rel: 0.6 }); },
@@ -264,16 +308,16 @@
       const t = T0();
       cut(1.6);
       kick(sfx, t, 0.45);
-      for (const m of [38, 39, 45]) voice(sfx, t, mtof(m), { type: 'sawtooth', lp: 1200, lpTo: 100, lpT: 1.4, v: 0.18, dur: 0.6, rel: 0.9, glide: mtof(m - 7), glideT: 1.4 });
+      for (const m of [38, 39, 45].map(m => m + key)) voice(sfx, t, mtof(m), { type: 'sawtooth', lp: 1200, lpTo: 100, lpT: 1.4, v: 0.18, dur: 0.6, rel: 0.9, glide: mtof(m - 7), glideT: 1.4 });
       noise(sfx, t, { f: 1200, q: 0.5, v: 0.3, dur: 0.1, rel: 0.8, fTo: 120 });
     },
     clear() {
       const t = T0();
       cut(2.2);
-      [62, 65, 69, 74, 77, 81].forEach((m, i) => voice(sfx, t + i * 0.07, mtof(m), { type: 'triangle', v: 0.1, dur: 0.1, rel: 1.4 }));
-      for (const m of [62, 69, 74, 78]) voice(sfx, t + 0.42, mtof(m), { type: 'sawtooth', lp: 1800, v: 0.03, a: 0.3, dur: 0.6, rel: 1.6 });
+      [62, 65, 69, 74, 77, 81].forEach((m, i) => voice(sfx, t + i * 0.07, mtof(m + key), { type: 'triangle', v: 0.1, dur: 0.1, rel: 1.4 }));
+      for (const m of [62, 69, 74, 78]) voice(sfx, t + 0.42, mtof(m + key), { type: 'sawtooth', lp: 1800, v: 0.03, a: 0.3, dur: 0.6, rel: 1.6 });
     },
-    floor() { const t = T0(); voice(sfx, t, mtof(50), { type: 'sine', v: 0.2, dur: 0.1, rel: 1.6 }); voice(sfx, t + 0.18, mtof(57), { type: 'sine', v: 0.12, dur: 0.1, rel: 1.6 }); noise(sfx, t, { f: 300, q: 0.7, v: 0.12, a: 0.4, dur: 0.3, rel: 1, fTo: 1500 }); },
+    floor() { const t = T0(), k = floorKey(); voice(sfx, t, mtof(50 + k), { type: 'sine', v: 0.2, dur: 0.1, rel: 1.6 }); voice(sfx, t + 0.18, mtof(57 + k), { type: 'sine', v: 0.12, dur: 0.1, rel: 1.6 }); noise(sfx, t, { f: 300, q: 0.7, v: 0.12, a: 0.4, dur: 0.3, rel: 1, fTo: 1500 }); },
     tap() { const t = T0(); voice(sfx, t, mtof(79), { type: 'sine', v: 0.08, dur: 0.01, rel: 0.12 }); },
     hide() {   // a cloth rustle and a soft low thump as you settle into the dark
       const t = T0();

@@ -187,7 +187,7 @@
     return {
       rooms: n <= 1 ? 3 : n <= 3 ? 4 : n <= 5 ? 5 : n <= 8 ? 6 : 7,
       sides: n <= 1 ? 1 : n <= 4 ? 1 : 2,
-      density: Math.min(0.9 + n * 0.2, 3.2),
+      density: Math.min(0.9 + n * 0.12, 2.0),
       coneLen: Math.min(132 + n * 5, 190),
       fov: 0.6,
       patrol: Math.min(40 + n * 2, 60),
@@ -195,7 +195,7 @@
       detect: Math.min(0.6 + n * 0.025, 0.9),
       cams: n >= 3,
       keys: n < 2 ? 0 : n < 5 ? 1 : n < 9 ? 2 : 3,
-      hear: 100,
+      hear: 140,
     };
   }
 
@@ -206,9 +206,12 @@
   ];
 
   // ── generation ─────────────────────────────────────────────
-  function generate(seed, n) {
+  // prev: the kinds of the floors below, nearest first (or just the one below), so the building
+  // changes shape as you climb; LEVEL.history(runSeed, n) gives it for a run
+  function generate(seed, n, prev) {
+    const kind = pickKind(seed, n, prev);
     for (let attempt = 0; attempt < 40; attempt++) {
-      const L = tryGen(U.hash(seed, attempt), n);
+      const L = tryGen(U.hash(seed, attempt), n, kind);
       if (L) { L.attempts = attempt + 1; L.seed = seed; return L; }
     }
     throw new Error('no floor for seed ' + seed);
@@ -223,9 +226,29 @@
   const WALL = 18, PART = 14, GAP = 52;
   const chord = (r) => Math.min(90, Math.sqrt(9 * r));   // arcs are laid in chords that sag about a unit
 
-  function layout(R, n, Z) {
+  // The building's kind is drawn on its own, before the plan, from the floors below: never the
+  // same kind twice running, and never a tenth floor that leaves ten in a row with under four.
+  const KINDS = ['disc', 'crescent', 'nautilus', 'block', 'wing'];
+  function pickKind(seed, n, hist) {
+    hist = hist == null ? [] : typeof hist === 'string' ? [hist] : hist;
+    const R = U.rng(U.hash(seed, 0x6b1d)), last9 = new Set(hist.slice(0, 9));
+    const crowded = hist.length >= 9 && last9.size <= 3;
+    const w = { disc: 1, crescent: 0.8, nautilus: n >= 2 ? 0.8 : 0.3, block: 1.4, wing: n >= 2 ? 1.1 : 0 };
+    return R.weighted(KINDS.map(k => [k, k === hist[0] || (crowded && last9.has(k)) ? 0 : w[k]]));
+  }
+  // the kinds of a run's floors below n, nearest first, for generate()
+  const kindMemo = new Map();
+  function history(runSeed, n) {
+    let ks = kindMemo.get(runSeed);
+    if (!ks) { ks = [null]; kindMemo.set(runSeed, ks); }
+    for (let k = ks.length; k < n; k++) ks.push(pickKind(U.hash(runSeed, k), k, ks.slice(1, k).reverse()));
+    return ks.slice(1, n).reverse();
+  }
+
+  function layout(R, n, Z, kind) {
     const o = { x: 0, y: 0 }, rot = R() * TAU, AZ = 86000 + Math.min(n, 6) * 4000;
-    const kind = R.weighted([['disc', 1], ['crescent', 1.1], ['nautilus', n >= 2 ? 1.1 : 0.5]]);
+    kind = kind || R.weighted([['disc', 1], ['crescent', 1.1], ['nautilus', n >= 2 ? 1.1 : 0.5]]);
+    if (kind === 'block' || kind === 'wing') return rectLayout(R, n, Z, kind, AZ);
     const zones = [];
     const split = (k, span, j) => { const w = []; let s = 0; for (let i = 0; i < k; i++) { w.push(R.range(1 - j, 1 + j)); s += w[i]; } return w.map(v => v / s * span); };
     const band = (k, a0, span, r0, r1) => { let a = a0; for (const w of split(k, span, 0.2)) { zones.push({ a0: a, a1: a + w, r0, r1 }); a += w; } };
@@ -263,12 +286,83 @@
     if (hub) zones.unshift({ hub: true, a0: 0, a1: TAU, r0: 0, r1: hub });
     // a double row of columns that sweeps round the whole building along one radius
     let colR = null;
-    if (R.chance(0.8)) {
+    if (R.chance(0.45)) {
       if (kind === 'crescent') { const b = zones[0]; colR = Z <= 5 ? b.r0 + 58 : (b.r0 + b.r1) / 2 - 34; }
       else if (kind === 'nautilus') colR = hub + 62;
       else { const outer = zones[zones.length - 1]; colR = outer.r0 + 56; }
     }
     return { kind, o, rot, hub, span, zones, colR, colGap: R.range(62, 74), colStep: R.range(54, 62) };
+  }
+
+  // The square-built floors, laid out in their own frame (u, v) and turned by rot: a 'block' of
+  // rectangular zones on a grid, a cell or two left out to make an L or a T, and on the bigger
+  // floors a void court kept open in the middle; or a 'wing', a long hall in two or three
+  // stretches with square rooms hung off both sides of it.
+  function rectLayout(R, n, Z, kind, AZ) {
+    const o = { x: 0, y: 0 }, zones = [];
+    let rot;
+    if (kind === 'block') {
+      rot = R.int(0, 3) * Math.PI / 2;
+      let cols, rows, gone = new Set(), court = [];
+      const key = (i, j) => i + ',' + j;
+      if (Z >= 6 && R.chance(0.8)) {
+        if (Z <= 8) { cols = rows = 3; court = [key(1, 1)]; }
+        else { cols = 4; rows = 3; court = [key(1, 1), key(2, 1)]; }
+      } else {
+        const opts = [];
+        for (let c = 2; c <= 5; c++) for (let r = 2; r <= 4; r++) { const d = c * r - Z; if (d >= 1 && d <= 2 && c >= r) opts.push([c, r]); }
+        [cols, rows] = R.pick(opts);
+      }
+      court.forEach(k => gone.add(k));
+      const drop = cols * rows - court.length - Z;
+      // drop edge cells, keeping the rest in one piece
+      const ok = (set) => {
+        const cells = []; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (!set.has(key(i, j))) cells.push([i, j]);
+        const seen = new Set([key(...cells[0])]), st = [cells[0]];
+        while (st.length) { const [i, j] = st.pop(); for (const [a, b] of [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]]) { const k = key(a, b); if (a >= 0 && b >= 0 && a < cols && b < rows && !set.has(k) && !seen.has(k)) { seen.add(k); st.push([a, b]); } } }
+        return seen.size === cells.length;
+      };
+      for (let t = 0; t < 40; t++) {
+        const s = new Set(gone);
+        for (let d = 0; d < drop; d++) {
+          const edge = []; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (!s.has(key(i, j)) && (i === 0 || j === 0 || i === cols - 1 || j === rows - 1)) edge.push(key(i, j));
+          s.add(R.pick(edge));
+        }
+        if (ok(s)) { gone = s; break; }
+      }
+      const base = Math.sqrt(AZ);
+      let cw = [], rh = [];
+      for (let i = 0; i < cols; i++) cw.push(R.range(0.82, 1.2) * base);
+      for (let j = 0; j < rows; j++) rh.push(R.range(0.82, 1.2) * base);
+      let area = 0; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (!gone.has(key(i, j))) area += cw[i] * rh[j];
+      const f = Math.sqrt(Z * AZ / area);
+      cw = cw.map(w => U.clamp(w * f, 260, 380)); rh = rh.map(h => U.clamp(h * f, 260, 380));
+      const W = cw.reduce((a, b) => a + b, 0), H = rh.reduce((a, b) => a + b, 0);
+      for (let i = 0, u = -W / 2; i < cols; u += cw[i], i++) for (let j = 0, v = -H / 2; j < rows; v += rh[j], j++) {
+        if (!gone.has(key(i, j))) zones.push({ rect: true, u0: u, u1: u + cw[i], v0: v, v1: v + rh[j] });
+      }
+    } else {
+      rot = R() * TAU;
+      const nC = Z >= 7 ? 3 : 2, m = Z - nC, top = Math.ceil(m / 2), bot = m - top;
+      const Wh = R.range(120, 150), rw = R.range(220, 250), rd = R.range(220, 236);
+      const stag = R.range(0, rw * 0.5), slots = Math.max(top * rw, bot * rw + stag);
+      const e0 = R.range(70, 170), e1 = R.range(70, 170), len = slots + e0 + e1;
+      const cuts = [-e0]; for (let i = 1; i < nC; i++) cuts.push(-e0 + len * (i + R.range(-0.12, 0.12)) / nC); cuts.push(slots + e1);
+      for (let i = 0; i < nC; i++) zones.push({ rect: true, corr: true, u0: cuts[i], u1: cuts[i + 1], v0: 0, v1: Wh });
+      for (let i = 0; i < top; i++) zones.push({ rect: true, u0: i * rw, u1: (i + 1) * rw, v0: -rd, v1: 0 });
+      for (let i = 0; i < bot; i++) zones.push({ rect: true, u0: stag + i * rw, u1: stag + (i + 1) * rw, v0: Wh, v1: Wh + rd });
+      // centre the plan on the origin
+      let cu = 0, cv = 0; for (const z of zones) { cu += (z.u0 + z.u1) / 2; cv += (z.v0 + z.v1) / 2; }
+      cu /= zones.length; cv /= zones.length;
+      for (const z of zones) { z.u0 -= cu; z.u1 -= cu; z.v0 -= cv; z.v1 -= cv; }
+    }
+    return { kind, o, rot, hub: 0, span: TAU, zones, colR: null, pillars: R.chance(0.45) };
+  }
+  // the square-built zones meet along straight lines: 'line' seams at u (axis 'u') or v ('v')
+  function rectSeams(A, B, out) {
+    const eq = (a, b) => Math.abs(a - b) < 1e-6;
+    if (eq(A.u1, B.u0)) { const q0 = Math.max(A.v0, B.v0), q1 = Math.min(A.v1, B.v1); if (q1 - q0 > 1) out.push({ A, B, type: 'line', axis: 'u', at: A.u1, q0, q1 }); }
+    if (eq(A.v1, B.v0)) { const q0 = Math.max(A.u0, B.u0), q1 = Math.min(A.u1, B.u1); if (q1 - q0 > 1) out.push({ A, B, type: 'line', axis: 'v', at: A.v1, q0, q1 }); }
   }
 
   // Pairs of zones that touch: 'arc' where B's inner edge lies on A's outer edge, 'spoke' where B
@@ -277,6 +371,7 @@
     const out = [], eq = (a, b) => Math.abs(a - b) < 1e-6;
     for (const A of rooms) for (const B of rooms) {
       if (A === B) continue;
+      if (A.rect || B.rect) { if (A.rect && B.rect) rectSeams(A, B, out); continue; }
       if (eq(A.r1, B.r0)) {
         if (A.hub) out.push({ A, B, type: 'arc', r: A.r1, s0: B.a0, s1: B.a1 });
         else for (const k of [-1, 0, 1]) {
@@ -289,7 +384,7 @@
         if (q1 - q0 > 1) out.push({ A, B, type: 'spoke', a: A.a1, q0, q1 });
       }
     }
-    for (const s of out) s.len = s.type === 'arc' ? (s.s1 - s.s0) * s.r : s.q1 - s.q0;
+    for (const s of out) { s.len = s.type === 'arc' ? (s.s1 - s.s0) * s.r : s.q1 - s.q0; s.hall = s.type === 'line' && s.A.corr && s.B.corr; }
     return out;
   }
 
@@ -336,14 +431,22 @@
     return { x: room.c.x + u * c - v * s, y: room.c.y + u * s + v * c };
   }
 
-  function tryGen(seed, n) {
+  function tryGen(seed, n, kind) {
     const R = U.rng(seed), D = difficulty(n);
     const L = { n, D, floor: [], obs: [], doors: [], shades: [], guards: [], cams: [], keys: [], stars: [], rooms: [], conns: [] };
     // the building, and its zones as rooms
-    const P = layout(R, n, D.rooms + D.sides), o = P.o;
+    const P = layout(R, n, D.rooms + D.sides, kind), o = P.o;
     L.plan = P;
     const pt = (a, r) => ({ x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r });
+    const cr = Math.cos(P.rot), sr = Math.sin(P.rot);
+    const toW = (u, v) => ({ x: o.x + u * cr - v * sr, y: o.y + u * sr + v * cr });
+    const lineAt = (s, q) => s.axis === 'u' ? toW(s.at, q) : toW(q, s.at);
     const zones = P.zones.map((z) => {
+      if (z.rect) {
+        const w = z.u1 - z.u0, h = z.v1 - z.v0, c = toW((z.u0 + z.u1) / 2, (z.v0 + z.v1) / 2);
+        return { kind: 'rect', rect: true, corr: !!z.corr, o, u0: z.u0, u1: z.u1, v0: z.v0, v1: z.v1, c, w, h, ang: P.rot, R: Math.hypot(w, h) / 2,
+          shape: U.rect(c.x, c.y, w, h, P.rot), excl: [], spots: [], seamSide: {} };
+      }
       const room = { kind: z.hub ? 'circle' : 'cell', hub: !!z.hub, o, a0: z.a0, a1: z.a1, r0: z.r0, r1: z.r1, excl: [], spots: [] };
       if (z.hub) { room.r = room.R = z.r1; room.c = { x: o.x, y: o.y }; room.ang = 0; room.shape = U.circle(o.x, o.y, z.r1); }
       else {
@@ -360,6 +463,19 @@
     for (const z of zones) {
       z.tol = { in: 20, out: 20, a0: 20, a1: 20 };
       if (z.hub) { L.floor.push(z.shape); continue; }
+      if (z.rect) {
+        // a band of floor straddles each shared side, so the field runs on through a doorway
+        const e = z.seamSide;
+        for (const s of all) {
+          if (s.A === z) e[s.axis === 'u' ? 'u1' : 'v1'] = 1;
+          if (s.B === z) { e[s.axis === 'u' ? 'u0' : 'v0'] = 1; continue; }
+          if (s.A !== z) continue;
+          const m = s.q0 + s.q1, c = s.axis === 'u' ? toW(s.at, m / 2) : toW(m / 2, s.at);
+          L.floor.push(s.axis === 'u' ? U.rect(c.x, c.y, 60, s.q1 - s.q0, P.rot) : U.rect(c.x, c.y, s.q1 - s.q0, 60, P.rot));
+        }
+        L.floor.push(z.shape);
+        continue;
+      }
       let e0 = 0, e1 = 0, ein = 0;
       for (const s of all) {
         if (s.type === 'arc') { if (s.B === z) { z.tol.in = 8; ein = 30; } if (s.A === z) z.tol.out = 8; }
@@ -369,9 +485,13 @@
       L.floor.push(cellPoly(o, z.a0 - e0, z.a1 + e1, z.r0 - ein, z.r1));
     }
 
+    // and a straight band of floor along every spoke, so a doorway in one is never pinched shut
+    // where neither wedge reaches past it
+    for (const s of all) if (s.type === 'spoke') { const p = pt(s.a, s.q0), q = pt(s.a, s.q1 - 3); L.floor.push(U.seg(p.x, p.y, q.x, q.y, 60, 0)); }
+
     // the route: a walk through neighbouring zones from the stairs in to the stairs up
     const nb = new Map(zones.map(z => [z, []]));
-    for (const s of all) if (s.len >= 150) { nb.get(s.A).push({ to: s.B, s }); nb.get(s.B).push({ to: s.A, s }); }
+    for (const s of all) if (s.len >= 150 || (s.hall && s.len >= 110)) { nb.get(s.A).push({ to: s.B, s }); nb.get(s.B).push({ to: s.A, s }); }
     let main = null, bestScore = -1;
     for (let t = 0; t < 60; t++) {
       const path = [R.pick(zones.filter(z => !z.hub))], used = new Set(path);
@@ -406,7 +526,12 @@
     const connect = (A, B, s) => {
       const conn = { a: A, b: B, width: GAP, kind: 'seam', seam: s };
       let g0, g1;
-      if (s.type === 'spoke') {
+      if (s.type === 'line') {
+        const g = R.range(s.q0 + 48, s.q1 - 48), ln = s.axis === 'u' ? { x: cr, y: sr } : { x: -sr, y: cr };
+        s.gap = g; conn.mouth = lineAt(s, g);
+        conn.normal = A === s.A ? ln : { x: -ln.x, y: -ln.y };
+        g0 = lineAt(s, g - GAP / 2); g1 = lineAt(s, g + GAP / 2);
+      } else if (s.type === 'spoke') {
         const rg = R.range(s.q0 + 48, s.q1 - 48), tn = { x: -Math.sin(s.a), y: Math.cos(s.a) };
         s.gap = rg; conn.mouth = pt(s.a, rg);
         conn.normal = A === s.A ? tn : { x: -tn.x, y: -tn.y };
@@ -430,7 +555,13 @@
     // the shared walls: straight along a spoke, short chords along an arc
     for (const s of all) {
       const h = GAP / 2;
-      if (s.type === 'spoke') {
+      if (s.type === 'line') {
+        // reach on past an end only where both zones stop there, so a corner closes without a stub
+        const lo = s.axis === 'u' ? 'v0' : 'u0', hi = s.axis === 'u' ? 'v1' : 'u1';
+        const a = s.q0 - (Math.abs(s.A[lo] - s.B[lo]) < 1 ? 9 : 0), b = s.q1 + (Math.abs(s.A[hi] - s.B[hi]) < 1 ? 9 : 0);
+        const spans = s.gap == null ? [[a, b]] : [[a, s.gap - h], [s.gap + h, b]];
+        for (const [u0, u1] of spans) { const p = lineAt(s, u0), q = lineAt(s, u1); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 0)); }
+      } else if (s.type === 'spoke') {
         const top = s.q1 + (Math.abs(s.A.r1 - s.B.r1) < 1 ? 9 : 0);   // flush where one zone steps out past the other
         const spans = s.gap == null ? [[s.q0 - 9, top]] : [[s.q0 - 9, s.gap - h], [s.gap + h, top]];
         for (const [u0, u1] of spans) { const p = pt(s.a, u0), q = pt(s.a, u1); L.obs.push(U.seg(p.x, p.y, q.x, q.y, WALL, 0)); }
@@ -541,8 +672,10 @@
         for (let j = 0; j < k; j++) beat.push({ x: a.x + (b.x - a.x) * j / k, y: a.y + (b.y - a.y) * j / k });
       }
     }
+    // one to a room and six to eight a floor: a shade is a place to break off a chase, not a path
+    const shadeCap = R.int(6, 8);
     for (const room of L.rooms) {
-      const want = room.side ? 1 : (room.kind === 'circle' && room.r > 240) || room.w * room.h > 110000 ? 3 : 2;
+      const want = L.shades.length < shadeCap ? 1 : 0;
       let got = 0;
       for (let t = 0; t < 80 && got < want; t++) {
         const p = inRoom(R, room, 0.95), s = field.sample(p.x, p.y);
@@ -568,7 +701,7 @@
   function furnish(R, L, room, n) {
     if (room.kind === 'cell') return furnishCell(R, L, room, n);
     // the hub's neighbours reach into it by design, so it keeps to its own circle instead
-    const others = room.hub ? [] : L.floor.filter(s => s !== room.shape);
+    const others = room.hub ? [] : L.floor.filter(s => s !== room.shape && s !== room.floorShape);
     const placed = [];
     // a piece is kept only if it stays out of every other room and corridor, clear of the ways
     // through, and (when asked) leaves a walkable gap to what's already there
@@ -591,6 +724,7 @@
       return true;
     };
     const c = room.c;
+    if (room.kind === 'rect') return furnishRect(R, L, room, n, put);
 
     if (room.kind === 'circle') {
       const r = room.r, th = R() * TAU, cs = Math.cos(th), sn = Math.sin(th);
@@ -675,6 +809,91 @@
       } else if (style === 'pillar') {
         put(U.rect(c.x, c.y, r * 0.3, r * 0.3, th));
         room.spots.push(W(r * 0.55, 0));
+      }
+    }
+  }
+
+  // A square-built zone, in its own frame: x along w, y along h. Grids of square pillars (the
+  // block and wing floors' colonnade), closets down a wall, slabs, a split wall with a way
+  // through, walls jutting in; a hall gets alcoves or a line of posts. Every piece goes down
+  // through put(), so one that would block a doorway or poke into a neighbour is left out.
+  function furnishRect(R, L, room, n, put) {
+    const c = room.c, ca = Math.cos(room.ang), sa = Math.sin(room.ang), hw = room.w / 2, hh = room.h / 2;
+    const W = (x, y) => ({ x: c.x + x * ca - y * sa, y: c.y + x * sa + y * ca });
+    const wall = (x0, y0, x1, y1, t) => { const p = W(x0, y0), q = W(x1, y1); return put(U.seg(p.x, p.y, q.x, q.y, t || PART, 0.5)); };
+    // a wall in pieces of about 40, so the pieces a doorway rules out leave a gap
+    const line = (x0, y0, x1, y1) => {
+      const k = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / 40));
+      for (let i = 0; i < k; i++) wall(x0 + (x1 - x0) * i / k, y0 + (y1 - y0) * i / k, x0 + (x1 - x0) * (i + 1) / k, y0 + (y1 - y0) * (i + 1) / k);
+    };
+    const block = (x, y, w, h) => { const p = W(x, y); return put(U.rect(p.x, p.y, w, h, room.ang), 44); };
+    // the four sides as (where the wall face is, which way is in, how long it runs)
+    const e = room.seamSide, inset = (k) => e[k] ? 9 : 0;
+    const sides = [
+      { k: 'u0', at: -hw + inset('u0'), axis: 'x', dir: 1, len: room.h },
+      { k: 'u1', at: hw - inset('u1'), axis: 'x', dir: -1, len: room.h },
+      { k: 'v0', at: -hh + inset('v0'), axis: 'y', dir: 1, len: room.w },
+      { k: 'v1', at: hh - inset('v1'), axis: 'y', dir: -1, len: room.w },
+    ];
+    // a wall square to a side, from its face going in d, at t along it
+    const fromSide = (sd, t, d) => sd.axis === 'x' ? line(sd.at, t, sd.at + sd.dir * d, t) : line(t, sd.at, t, sd.at + sd.dir * d);
+    const at = (sd, t, d) => sd.axis === 'x' ? { x: sd.at + sd.dir * d, y: t } : { x: t, y: sd.at + sd.dir * d };
+
+    if (room.corr) {
+      // the hall: alcoves off one long side, or a line of posts down the middle, or nothing
+      const style = R.weighted([['alcoves', 2], ['posts', room.w > 260 ? 1.5 : 0], ['bare', 1]]);
+      room.style = 'hall-' + style;
+      if (style === 'alcoves') {
+        const sd = sides[R.chance(0.5) ? 2 : 3], d = room.h * R.range(0.32, 0.4), step = R.range(80, 110);
+        for (let t = -hw + step; t < hw - 30; t += step) { fromSide(sd, t, d); const p = at(sd, t - step / 2, d / 2); room.spots.push(W(p.x, p.y)); }
+      } else if (style === 'posts') {
+        const step = R.range(90, 120);
+        for (let t = -hw + step * 0.75; t < hw - step * 0.5; t += step) block(t, 0, 22, 22);
+      }
+      return;
+    }
+    const big = room.w >= 250 && room.h >= 250;
+    const style = R.weighted([['pillars', L.plan.pillars && big ? 4 : 0], ['closets', 3], ['slabs', 2], ['split', big ? 2 : 0.5], ['jut', 2], ['bare', room.side ? 1 : 0.3]]);
+    room.style = style;
+    if (style === 'pillars') {
+      // two rows of three square pillars, 36 wide, set across the long way
+      const long = room.w >= room.h, A = (long ? room.w : room.h) * R.range(0.26, 0.3), B = (long ? room.h : room.w) * R.range(0.2, 0.24);
+      for (const i of [-1, 0, 1]) for (const j of [-1, 1]) { const x = long ? i * A : j * B, y = long ? j * B : i * A, p = W(x, y); put(U.rect(p.x, p.y, 36, 36, room.ang)); }
+      room.spots.push(W(long ? A / 2 : 0, long ? 0 : A / 2));
+    } else if (style === 'closets') {
+      const sd = R.pick(sides), d = Math.min(R.range(84, 112), (sd.axis === 'x' ? room.w : room.h) * 0.4);
+      const half = sd.len / 2, k = Math.max(2, Math.round(sd.len / R.range(100, 130))), jog = R.chance(0.5), js = R.chance(0.5) ? 1 : -1;
+      for (let i = 0; i <= k; i++) {
+        const t = -half + sd.len * i / k;
+        if (i > 0 && i < k) {
+          fromSide(sd, t, d);
+          if (jog) { const p = at(sd, t, d), q = sd.axis === 'x' ? { x: p.x, y: p.y + js * R.range(26, 40) } : { x: p.x + js * R.range(26, 40), y: p.y }; line(p.x, p.y, q.x, q.y); }
+        }
+        if (i < k) { const p = at(sd, t + sd.len / k / 2, d / 2); room.spots.push(W(p.x, p.y)); }
+      }
+    } else if (style === 'slabs') {
+      // one or two big pale slabs, now and then an L
+      const k = R.int(1, room.w * room.h > 90000 ? 2 : 1);
+      for (let t = 0, got = 0; t < 30 && got < k; t++) {
+        const x = R.range(-hw * 0.4, hw * 0.4), y = R.range(-hh * 0.4, hh * 0.4), along = R.chance(0.5);
+        const a = R.range(70, 130), b = R.range(30, 52), w = along ? a : b, h = along ? b : a;
+        if (!block(x, y, w, h)) continue;
+        got++;
+        if (R.chance(0.35)) { const sx = R.chance(0.5) ? 1 : -1, sy = R.chance(0.5) ? 1 : -1; if (along) block(x + sx * (a / 2 - b / 2), y + sy * (b / 2 + 22), b, 44); else block(x + sx * (b / 2 + 22), y + sy * (a / 2 - b / 2), 44, b); }
+        room.spots.push(W(x + (along ? 0 : 50), y + (along ? 50 : 0)));
+      }
+    } else if (style === 'split') {
+      // a wall across the room with one way through, the room's two halves each a place to wait
+      const across = room.w >= room.h, g = R.range(-0.3, 0.3), gh = 32;
+      if (across) { const x = R.range(-0.15, 0.15) * room.w, gy = g * room.h; line(x, -hh + inset('v0'), x, gy - gh); line(x, gy + gh, x, hh - inset('v1')); room.spots.push(W(x - hw / 2, 0), W(x + hw / 2, 0)); }
+      else { const y = R.range(-0.15, 0.15) * room.h, gx = g * room.w; line(-hw + inset('u0'), y, gx - gh, y); line(gx + gh, y, hw - inset('u1'), y); room.spots.push(W(0, y - hh / 2), W(0, y + hh / 2)); }
+    } else if (style === 'jut') {
+      const k = R.int(2, 4);
+      for (let i = 0; i < k; i++) {
+        const sd = R.pick(sides), t = R.range(-sd.len * 0.3, sd.len * 0.3), d = (sd.axis === 'x' ? room.w : room.h) * R.range(0.28, 0.42);
+        fromSide(sd, t, d);
+        if (R.chance(0.5)) { const p = at(sd, t, d), l = R.range(30, 50) * (R.chance(0.5) ? 1 : -1); if (sd.axis === 'x') line(p.x, p.y, p.x, p.y + l); else line(p.x, p.y, p.x + l, p.y); }
+        const p = at(sd, t + (t > 0 ? -50 : 50), d * 0.6); room.spots.push(W(p.x, p.y));
       }
     }
   }
@@ -817,6 +1036,11 @@
     const D = L.D, homes = [];
     const farFromStart = (p, d) => Math.hypot(p.x - L.entrance.x, p.y - L.entrance.y) > d;
     const okHome = (p) => p && farFromStart(p, 290) && Math.hypot(p.x - L.exit.x, p.y - L.exit.y) > 50 && homes.every(h => Math.hypot(h.x - p.x, h.y - p.y) > 80);
+    // nobody stands in a doorway: a post or a stop is kept back from every mouth
+    const nearMouth = (p, d) => L.conns.some(c => Math.hypot(c.mouth.x - p.x, c.mouth.y - p.y) < d);
+    // and the first door out of the stairs room is left clear of every beat, so the way on is a choice of timing
+    const first = L.rooms.find(r => r.idx === 0 && !r.side).outConn.mouth;
+    const offFirst = (p) => Math.hypot(first.x - p.x, first.y - p.y) > 90;
     const loopLen = (pts) => { let s = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += Math.hypot(b.x - a.x, b.y - a.y); } return s; };
     const route = (way, closed) => {
       // join waypoints with real paths; each waypoint keeps its pause
@@ -831,39 +1055,60 @@
       return out;
     };
 
+    // how many in each room, then trimmed from the busiest rooms down to the floor's budget
+    const counts = new Map();
     for (const room of L.rooms) {
       if (room.idx === 0 && !room.side && n < 4) continue;
       if (room.side && R.chance(n >= 2 ? 0.45 : 0.85)) continue;
       const area = room.kind === 'circle' ? Math.PI * room.r * room.r : room.w * room.h;
-      let count = Math.max(room.side ? 1 : 1, Math.round(area / 100000 * D.density * R.range(0.8, 1.15)));
+      let count = Math.max(1, Math.round(area / 100000 * D.density * R.range(0.8, 1.15)));
       if (n === 1) count = 1;
-      count = Math.min(count, room.big ? 5 : 4);
+      counts.set(room, Math.min(count, 3));
+    }
+    const budget = Math.min(12, Math.round(4 + n * 0.8));
+    for (let sum = [...counts.values()].reduce((a, b) => a + b, 0); sum > budget; sum--) {
+      let top = null; for (const [r, c] of counts) if (c > 1 && (!top || c > counts.get(top) || (c === counts.get(top) && R.chance(0.5)))) top = r;
+      if (!top) { const rs = [...counts.keys()].filter(r => r.side || r.idx > 0); if (!rs.length) break; counts.delete(R.pick(rs)); continue; }
+      counts.set(top, counts.get(top) - 1);
+    }
+    for (const room of L.rooms) {
+      if (!counts.has(room)) continue;
+      const count = counts.get(room);
       let cams = 0;
       const camCap = (room.kind === 'circle' ? room.r : room.R) > 240 ? 2 : 1;
       // doorways out of this room that a guard may walk through (never a locked one)
       const ways = L.conns.filter(c => (c.a === room || c.b === room) && !L.doors.some(d => d.conn === c));
-      for (let k = 0, t = 0; k < count && t < 14; t++) {
-        const kind = R.weighted([['patrol', 4.5], ['pace', 2.5], ['sentry', room.side ? 3 : 2], ['cam', D.cams && cams < camCap ? 1.4 : 0]]);
+      for (let k = 0, t = 0; k < count && t < 24; t++) {
+        // never a post in the room just past the stairs room: its only way in is that first door
+        const second = room.idx === 1 && !room.side;
+        const kind = R.weighted([['patrol', 4.5], ['pace', 2.5], ['sentry', second ? 0 : room.side ? 3 : 2], ['cam', D.cams && cams < camCap ? 1.4 : 0]]);
         const th = R() * TAU;
         if (kind === 'cam') {
           // on the wall, looking in
           let p = null, face = 0;
           for (let s = 0; s < 12 && !p; s++) {
-            const a = R() * TAU, e = extent(room, a), q = { x: room.c.x + Math.cos(a) * (e - 6), y: room.c.y + Math.sin(a) * (e - 6) };
-            const inward = { x: room.c.x + Math.cos(a) * (e - 30), y: room.c.y + Math.sin(a) * (e - 30) };
-            if (field.sample(inward.x, inward.y) < 16 || !okHome(q) || !farFromStart(q, 380)) continue;
-            if (field.sample(q.x, q.y) < -2 || field.sample(q.x, q.y) > 8) continue;
+            const a = R() * TAU, e = extent(room, a);
+            const inward = { x: room.c.x + Math.cos(a) * (e - 36), y: room.c.y + Math.sin(a) * (e - 36) };
+            if (field.sample(inward.x, inward.y) < 16) continue;
+            // in from the edge until it's just off the wall face, so it sees from the room, not from inside the wall
+            let q = null;
+            for (let d = 6; d <= 26 && !q; d += 4) {
+              const c = { x: room.c.x + Math.cos(a) * (e - d), y: room.c.y + Math.sin(a) * (e - d) }, v = field.sample(c.x, c.y);
+              if (v >= 1.5 && v <= 8) q = c;
+            }
+            if (!q || !okHome(q) || !farFromStart(q, 380) || nearMouth(q, 60)) continue;
+            if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 120) < 90) continue;   // a clear look into the room
             p = q; face = a + Math.PI;
           }
           if (!p) continue;
           L.cams.push({ x: p.x, y: p.y, base: face, amp: R.range(0.45, 0.85), period: R.range(5, 8), phase: R() * TAU });
-          homes.push(p); cams++; k++;
+          homes.push(p); cams++;   // a camera is on top of the room's guards, not one of them
           continue;
         }
         if (kind === 'sentry') {
           const a = R() * TAU, e = extent(room, a);
           const p = field.nearestFree(room.c.x + Math.cos(a) * e * 0.7, room.c.y + Math.sin(a) * e * 0.7, 16, 50);
-          if (!okHome(p)) continue;
+          if (!okHome(p) || nearMouth(p, 80) || !offFirst(p)) continue;
           const face = Math.atan2(room.c.y - p.y, room.c.x - p.x) + R.range(-0.4, 0.4);
           L.guards.push({ kind: 'sentry', x: p.x, y: p.y, ang: face, amp: R.range(0.55, 1.05) });
           homes.push(p); k++;
@@ -872,7 +1117,9 @@
         let way = [];
         if (kind === 'patrol' && n >= 4 && ways.length && R.chance(0.25)) {
           // a beat through a doorway: one stop in this room, one in the next, so the door is watched
-          const c = R.pick(ways), d = c.dirFrom(room);
+          const open = ways.filter(w => offFirst(w.mouth));
+          if (!open.length) continue;
+          const c = R.pick(open), d = c.dirFrom(room);
           for (const sgn of [-1, 1]) {
             const e = R.range(70, 110), p = field.nearestFree(c.mouth.x + d.x * e * sgn, c.mouth.y + d.y * e * sgn, 16, 50);
             if (p) way.push({ x: p.x, y: p.y, pause: R.range(0.8, 1.8), look: R.range(0.7, 1.2) });
@@ -883,14 +1130,14 @@
           for (let i = 0; i < K; i++) {
             const a = th + i * TAU / K + R.range(-0.3, 0.3), e = extent(room, a) * R.range(0.45, 0.72);
             const p = field.nearestFree(room.c.x + Math.cos(a) * e, room.c.y + Math.sin(a) * e, 16, 60);
-            if (p && way.every(w => Math.hypot(w.x - p.x, w.y - p.y) > 50)) way.push({ x: p.x, y: p.y, pause: R.chance(0.6) ? R.range(0.4, 1.4) : 0, look: R.range(0.5, 1.1) });
+            if (p && way.every(w => Math.hypot(w.x - p.x, w.y - p.y) > 50)) way.push({ x: p.x, y: p.y, pause: R.chance(0.6) && !nearMouth(p, 60) ? R.range(0.4, 1.4) : 0, look: R.range(0.5, 1.1) });
           }
           if (way.length < 3) continue;
         } else {
           const e = extent(room, th) * 0.62, e2 = extent(room, th + Math.PI) * 0.62;
           const a = field.nearestFree(room.c.x + Math.cos(th) * e, room.c.y + Math.sin(th) * e, 16, 50);
           const b = field.nearestFree(room.c.x - Math.cos(th) * e2, room.c.y - Math.sin(th) * e2, 16, 50);
-          if (!a || !b || Math.hypot(a.x - b.x, a.y - b.y) < 90) continue;
+          if (!a || !b || Math.hypot(a.x - b.x, a.y - b.y) < 90 || nearMouth(a, 60) || nearMouth(b, 60)) continue;
           way = [{ x: a.x, y: a.y, pause: R.range(0.8, 1.8), look: R.range(0.6, 1.2) }, { x: b.x, y: b.y, pause: R.range(0.8, 1.8), look: R.range(0.6, 1.2) }];
         }
         const path = route(way, true);
@@ -899,7 +1146,8 @@
         if (len > loopLen(way) * 1.7 + 60) continue;   // a route that wanders off to get round something
         // start somewhere along it, away from the entrance
         const si = R.int(0, path.length - 1), sp = path[si];
-        if (!okHome(sp) || path.some(q => !farFromStart(q, 200))) continue;
+        if (!okHome(sp) || path.some(q => !farFromStart(q, 200) || !offFirst(q))) continue;
+        if (L.guards.length >= budget) break;
         const prev = path[(si - 1 + path.length) % path.length];
         L.guards.push({ kind, x: sp.x, y: sp.y, ang: Math.atan2(sp.y - prev.y, sp.x - prev.x), path, pi: si });
         homes.push(sp); k++;
@@ -907,6 +1155,6 @@
     }
   }
 
-  root.LEVEL = { generate, difficulty, Field, Nav, KEY_COLORS };
+  root.LEVEL = { generate, difficulty, history, pickKind, Field, Nav, KEY_COLORS };
   if (typeof module !== 'undefined') module.exports = root.LEVEL;
 })(typeof window !== 'undefined' ? window : globalThis);
