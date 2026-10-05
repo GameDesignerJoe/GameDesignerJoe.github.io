@@ -264,10 +264,16 @@
   // hidden until a real number is known: a placeholder is clutter
   const known = (v) => { el.textContent = v; document.getElementById('ver').classList.add('known'); };
   try { const k = localStorage.getItem('unseen.ver'); if (k) known(k); } catch (e) {}
+  // The same answer names the commit, and the game's scripts are fetched for that commit. Without it the label could say
+  // the newest version while the browser ran scripts it had cached from the one before (GitHub Pages lets them be kept 10
+  // minutes): Joe saw v0.14 with no mouse controls. If GitHub doesn't answer in 1.5s the scripts load fresh anyway.
+  let loaded = false;
+  const go = (tag) => { if (loaded) return; loaded = true; load(tag); };
+  setTimeout(() => go(Date.now().toString(36)), 1500);
   fetch('https://api.github.com/repos/GameDesignerJoe/GameDesignerJoe.github.io/commits?path=stealth&per_page=1', { cache: 'no-store' })
-    .then(r => { if (!r.ok) throw 0; const m = /[?&]page=(\d+)>; rel="last"/.exec(r.headers.get('link') || ''); return m ? +m[1] : r.json().then(a => a.length); })
-    .then(n => { const v = 'v0.' + n; known(v); try { localStorage.setItem('unseen.ver', v); } catch (e) {} })
-    .catch(() => {});
+    .then(r => { if (!r.ok) throw 0; const m = /[?&]page=(\d+)>; rel="last"/.exec(r.headers.get('link') || ''); return r.json().then(a => ({ n: m ? +m[1] : a.length, sha: a[0] && a[0].sha })); })
+    .then(({ n, sha }) => { const v = 'v0.' + n; known(v); try { localStorage.setItem('unseen.ver', v); } catch (e) {} go(sha ? sha.slice(0, 10) : Date.now().toString(36)); })
+    .catch(() => go(Date.now().toString(36)));
   // A hard refresh: drop any service worker and cache, then reload with every script fetched fresh
   document.getElementById('hardRefresh').addEventListener('click', async (e) => {
     e.stopPropagation();
@@ -276,14 +282,16 @@
     const u = new URL(location.href); u.searchParams.set('r', Date.now().toString(36));
     location.replace(u.toString());
   });
-  // the game's scripts, cache-busted after a hard refresh
-  const bust = new URLSearchParams(location.search).get('r');
-  const files = ['js/util.js', 'js/level.js', 'js/audio.js', 'js/game.js'];
-  (function next(i) {
-    if (i >= files.length) return;
-    const s = document.createElement('script'); s.src = files[i] + (bust ? '?r=' + bust : '');
-    s.onload = () => next(i + 1); document.body.appendChild(s);
-  })(0);
+  // the game's scripts, in order, tagged with the commit (or the hard refresh's stamp)
+  function load(tag) {
+    const bust = new URLSearchParams(location.search).get('r') || tag;
+    const files = ['js/util.js', 'js/level.js', 'js/audio.js', 'js/game.js'];
+    (function next(i) {
+      if (i >= files.length) return;
+      const s = document.createElement('script'); s.src = files[i] + '?v=' + bust;
+      s.onload = () => next(i + 1); document.body.appendChild(s);
+    })(0);
+  }
 })();
 </script>
 </body>
