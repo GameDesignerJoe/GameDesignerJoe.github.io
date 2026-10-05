@@ -65,6 +65,7 @@
     body[data-stick=left] #stick { right: auto; left: calc(env(safe-area-inset-left) + 26px); }
   }
   body.desk #stick, body.desk #optStick { display: none; }
+  body.desk:not(.chrome) canvas { cursor: crosshair; }
 
   /* banners and stamps */
   #banner { position: fixed; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transform: translateY(16px); transition: opacity .45s, transform .45s; }

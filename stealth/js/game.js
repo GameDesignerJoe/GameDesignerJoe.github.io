@@ -74,7 +74,7 @@
   stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
   const endStick = (e) => { if (e.pointerId === stickId) clearStick(); };
   stickEl.addEventListener('pointerup', endStick); stickEl.addEventListener('pointercancel', endStick);
-  const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'shift', ShiftRight: 'shift', KeyC: 'sneak', Space: 'sneak' };   // never Ctrl: Ctrl+W closes the tab
+  const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyC: 'sneak', Space: 'sneak' };   // never Ctrl: Ctrl+W closes the tab
   addEventListener('keydown', (e) => {
     AUDIO.unlock();
     const k = e.code === 'Space' && (paused || (mode !== 'play' && mode !== 'intro')) ? null : KEYMAP[e.code];   // Space still presses menu buttons
@@ -108,14 +108,18 @@
     }
     return null;
   }
+  const anyKey = () => keys.up || keys.down || keys.left || keys.right;
+  let lastDt = 1 / 60;
   // one vector and a magnitude: the stick and pad lose a small dead zone, the keys walk quietly by default
   function readInput() {
     let x = 0, y = 0, dz = 0.12, kb = false, isPad = false, force = 0;   // force: 1 runs, -1 creeps
+    const ms = readMouse(lastDt);
+    if (ms && ms.m > 0 && !stick.on) { if (anyKey()) clearMouse(); else return { x: ms.x, y: ms.y, m: ms.m, kb: false, isPad: false, force: 0, mouse: true }; }
     if (stick.on) { x = stick.x; y = stick.y; }
     else if (pad && Math.hypot(pad.x, pad.y) > pad.dz) { x = pad.x; y = pad.y; dz = pad.dz; isPad = true; force = pad.run ? 1 : pad.creep ? -1 : 0; }
     else {
       const kx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), ky = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
-      if (kx || ky) { const l = Math.hypot(kx, ky), s = keys.shift ? 1 : keys.sneak ? 0.4 : 0.58; x = kx / l * s; y = ky / l * s; dz = 0; kb = true; }   // the plain walk sits under the 0.6 heard line
+      if (kx || ky) { const l = Math.hypot(kx, ky), s = keys.sneak ? 0.4 : 0.58; x = kx / l * s; y = ky / l * s; dz = 0; kb = true; }   // the plain walk sits under the 0.6 heard line
     }
     const m0 = Math.min(1, Math.hypot(x, y));
     if (m0 <= dz || m0 < 0.01) return { x: 0, y: 0, m: 0, kb, isPad, force: 0 };
@@ -124,9 +128,68 @@
     return { x: x / Math.hypot(x, y), y: y / Math.hypot(x, y), m, kb, isPad, force };
   }
 
+  // ── the mouse ──────────────────────────────────────────────
+  // Joe: "the force of a shift key to run removes the challenge of movement." On PC you move with the mouse, and how far
+  // away you point is how fast you go: a short reach creeps, a middling one walks, a long one runs (and is heard).
+  // Hold the button and the player follows the cursor; a quick click walks them there by the nav grid, at the speed the
+  // click's distance asked for, round whatever is in the way.
+  const MOUSE_REACH = 230;   // screen px from the player to the cursor at which the push is full (the run starts at 88%, ~200px)
+  const mouse = { down: false, id: null, t0: 0, sx: 0, sy: 0, wx: 0, wy: 0, steer: false, path: null, pi: 0, m: 0, goal: null, stuckT: 0 };
+  const screenToWorld = (sx, sy) => ({ x: (sx - W / 2) / view.z + view.x, y: (sy - H / 2) / view.z + view.y });
+  const reachOf = (sx, sy) => { const p = toScreen(P.x, P.y); return U.clamp((Math.hypot(sx - p.x, sy - p.y) - 10) / MOUSE_REACH, 0, 1); };
+  function clearMouse() { mouse.down = false; mouse.steer = false; mouse.path = null; mouse.goal = null; mouse.id = null; }
+  function mouseGoal(sx, sy) {
+    // a click: a route to the nearest open spot to it, walked at the speed its distance asked for
+    const w = screenToWorld(sx, sy), q = field.nearestFree(w.x, w.y, P_R + 2, 60);
+    if (!q) return;
+    const route = nav.path(P.x, P.y, q.x, q.y, 30000);
+    if (!route) return;
+    mouse.path = route; mouse.pi = 0; mouse.goal = { x: q.x, y: q.y, t: time }; mouse.m = Math.max(0.12, reachOf(sx, sy)); mouse.stuckT = 0;
+  }
+  cv.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0 || paused) return;
+    AUDIO.unlock();
+    if (mode === 'intro') skipIntro();
+    if (mode !== 'play' || !P || !P.alive) return;
+    e.preventDefault();
+    if (overview) { const keep = { x: view.x, y: view.y, z: view.z }; mouseGoal(e.clientX, e.clientY); toggleMap(); Object.assign(view, keep); return; }   // a click on the map sets off for that spot
+    mouse.down = true; mouse.id = e.pointerId; mouse.t0 = time; mouse.sx = e.clientX; mouse.sy = e.clientY; mouse.steer = false; mouse.path = null; mouse.goal = null;
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') { mouse.sx = e.clientX; mouse.sy = e.clientY; } });
+  const mouseUp = (e) => {
+    if (e.pointerId !== mouse.id) return;
+    const wasSteer = mouse.steer; mouse.down = false; mouse.id = null; mouse.steer = false;
+    if (!wasSteer && mode === 'play') mouseGoal(e.clientX, e.clientY);   // a quick click: go there
+  };
+  cv.addEventListener('pointerup', mouseUp); cv.addEventListener('pointercancel', (e) => { if (e.pointerId === mouse.id) clearMouse(); });
+  cv.addEventListener('contextmenu', (e) => { e.preventDefault(); clearMouse(); });   // a right click stops
+  // what the mouse asks for this frame, as a direction and a push, or null
+  function readMouse(dt) {
+    if (!P || mode !== 'play') return null;
+    if (mouse.down && !mouse.steer && time - mouse.t0 > 0.16) mouse.steer = true;   // held: follow the cursor
+    if (mouse.steer) {
+      const w = screenToWorld(mouse.sx, mouse.sy), dx = w.x - P.x, dy = w.y - P.y, d = Math.hypot(dx, dy);
+      if (d < P_R) return { x: 0, y: 0, m: 0 };
+      return { x: dx / d, y: dy / d, m: reachOf(mouse.sx, mouse.sy) };
+    }
+    if (mouse.path) {
+      let q = mouse.path[mouse.pi];
+      while (q && Math.hypot(q.x - P.x, q.y - P.y) < (mouse.pi < mouse.path.length - 1 ? 8 : 3)) q = mouse.path[++mouse.pi];
+      if (!q) { mouse.path = null; return null; }
+      // stuck on something (a guard's back, a door): give up rather than grind
+      mouse.stuckT = Math.hypot(P.vx, P.vy) < 6 && time - mouse.goal.t > 0.4 ? mouse.stuckT + dt : 0;
+      if (mouse.stuckT > 0.6) { mouse.path = null; return null; }
+      const dx = q.x - P.x, dy = q.y - P.y, d = Math.hypot(dx, dy);
+      const end = mouse.goal ? Math.hypot(mouse.goal.x - P.x, mouse.goal.y - P.y) : d;
+      return { x: dx / d, y: dy / d, m: Math.min(mouse.m, 0.15 + end / 40) };   // ease in to the last step
+    }
+    return null;
+  }
+
   // ── floors ─────────────────────────────────────────────────
   function startFloor(n, retry) {
-    floorN = n;
+    floorN = n; clearMouse();
     cancelResult(); clearToast(); dimHUD(false);
     L = LEVEL.generate(U.hash(save.runSeed, n), n, LEVEL.history(save.runSeed, n));   // the floors below, so the shape changes as you climb
     field = L.field; D = L.D;
@@ -203,6 +266,7 @@
     // Joe: the walk wants more room before the run — the stick is 25% bigger for it and the run starts further out.
     if (inp.kb || inp.force) P.run = m > 0.9;
     else if (inp.isPad) { if (P.run ? m < 0.74 : m > 0.82) P.run = !P.run; }   // worn pad sticks rarely report a full 1.0 on a diagonal
+    else if (inp.mouse) { if (P.run ? m < 0.8 : m > 0.88) P.run = !P.run; }
     else if (P.run ? m < 0.8 : m > 0.88 && time - stickDownT > 0.12) P.run = !P.run;   // never a run on the first touch
     let speed = 0;
     if (m > 0) speed = P.run ? U.lerp(110, 128, U.clamp((m - 0.8) / 0.2, 0, 1)) : 24 + 51 * Math.min(1, m / 0.85);
@@ -235,7 +299,7 @@
             if (gd.state === 'chase' || gd.state === 'sus') continue;
             if (hears(gd)) { toSearch(gd, { x: P.x, y: P.y }, true); }
           }
-          hint('run', 'Running makes noise. Push the stick gently to sneak.');
+          hint('run', isTouch ? 'Running makes noise. Push the stick gently to sneak.' : 'Running makes noise. Point closer to the player to sneak.');
         } else {
           P.stepT = 0.42; AUDIO.play('step', false);
           // the top of the walk is quick, and a guard right beside you hears it: the gentle push is the silent one
@@ -683,7 +747,7 @@
     AUDIO.play('caught'); view.shake = 1;
     if (navigator.vibrate) try { navigator.vibrate([90, 60, 160]); } catch (e) {}
     fx.push({ k: 'flash', t: 0, dur: 0.6, red: true });
-    clearStick(); clearToast(); chaseHintT = 0; dimHUD(true);
+    clearStick(); clearMouse(); clearToast(); chaseHintT = 0; dimHUD(true);
     // frame the capture: both squares, centred under the stamp, eased in over 0.4s
     const o = catcher || P;
     // on a short screen the stamp takes the top third, so the capture sits a little below the middle
@@ -755,7 +819,7 @@
   let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 60;
   function frame(now) {
     requestAnimationFrame(frame);
-    let dt = Math.min(0.05, (now - last) / 1000); last = now;
+    let dt = Math.min(0.05, (now - last) / 1000); last = now; lastDt = dt;
     fpsAcc += dt; fpsN++; if (fpsAcc > 1) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
     readPad();
     stepWipe(dt);
@@ -773,7 +837,7 @@
     if (chaseHintT > 0 && mode === 'play') { chaseHintT -= dt; if (chaseHintT <= 0) { chaseHintT = 0; hint('chase', 'Seen! Break their line of sight. They\'ll search where they lost you.'); } }
     stepResult();
     // the touch that skips the intro also moves: control comes as the camera starts to close in, not 0.8s later
-    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : 'WASD or arrows to walk, Shift to run, C or Space to creep. Stay out of the light.'); }
+    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : 'Hold the mouse to move, or click to go there. Point further away to go faster. Stay out of the light.'); }
     if (mode === 'play') { updatePlayer(dt); stats.time += dt; }
     const live = mode === 'play' || mode === 'caught' || mode === 'title' || mode === 'clear';
     if (live && !overview) { for (const gd of guards) if (!(mode === 'caught' && gd === catcher)) updateGuard(gd, dt); for (const c of cams) updateCam(c, dt); }
@@ -913,6 +977,7 @@
 
     drawNoise(z);
     drawSightLines(z);
+    drawMouse(z);
     drawChars(z);
     drawFx(z);
     g.restore();
@@ -1091,6 +1156,21 @@
       g.restore();
     }
   }
+  // where the mouse is taking you: a dotted route to a ring, orange when it's a run, pale for a walk, small for a creep
+  function drawMouse(z) {
+    if (!P || !P.alive || mode !== 'play' || isTouch) return;
+    const tier = (m) => m > 0.88 ? 'rgba(255,138,61,0.95)' : m > 0.6 ? 'rgba(255,214,150,0.9)' : 'rgba(225,245,250,0.85)';
+    if (mouse.path && mouse.goal) {
+      const col = tier(mouse.m);
+      g.save(); g.setLineDash([2.5 / z * 1.6, 6 / z * 1.6]); g.lineCap = 'round'; g.strokeStyle = col; g.lineWidth = 2.2 / z * 1.2;
+      g.beginPath(); g.moveTo(P.x, P.y); for (let i = mouse.pi; i < mouse.path.length; i++) g.lineTo(mouse.path[i].x, mouse.path[i].y); g.stroke(); g.restore();
+      const t = time - mouse.goal.t, r = (5 + 4 * Math.exp(-t * 6)) * (0.8 + mouse.m * 0.5);
+      g.strokeStyle = col; g.lineWidth = 2 / z * 1.2; g.beginPath(); g.arc(mouse.goal.x, mouse.goal.y, r, 0, TAU); g.stroke();
+    } else if (mouse.steer) {
+      const w = screenToWorld(mouse.sx, mouse.sy), m = reachOf(mouse.sx, mouse.sy);
+      g.strokeStyle = tier(m); g.lineWidth = 2 / z * 1.2; g.beginPath(); g.arc(w.x, w.y, 4 + m * 5, 0, TAU); g.stroke();
+    }
+  }
   function drawNoise(z) {
     for (const f of fx) if (f.k === 'ring') {
       const t = f.t / f.dur, r = U.lerp(8, f.r, U.smooth(t));
@@ -1248,7 +1328,7 @@
     if (!on) clearStick();
   }
   addEventListener('keydown', (e) => { if (KEYMAP[e.code]) setTouch(false); }, true);
-  addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') setTouch(true); }, true);
+  addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') { setTouch(true); clearMouse(); } else if (e.pointerType === 'mouse') setTouch(false); }, true);
   function updateHUD() {
     $('floorNum').textContent = String(floorN).padStart(2, '0');
     $('floorName').textContent = NAMES[(floorN - 1) % NAMES.length];
