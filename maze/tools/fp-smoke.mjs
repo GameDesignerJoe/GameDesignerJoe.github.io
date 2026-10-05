@@ -714,6 +714,27 @@ console.log('The Maze — first person checks');
   await c.close();
 }
 
+// ── no zooming the page ────────────────────────────────────────
+// Feedback, via Joe: "once you zoom in you can't zoom out." A phone's Safari zooms on a pinch whatever the page asks, and the view
+// takes every touch for the game, so the pinch back out never reached the browser. Zoom gestures are never the page's now
+{
+  const c = await browser.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true, isMobile: true });
+  const p = await c.newPage(); p.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
+  await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(700);
+  const z = await p.evaluate(() => {
+    const ta = (sel) => getComputedStyle(document.querySelector(sel)).touchAction;
+    const t = (x) => new Touch({ identifier: x, target: document.body, clientX: 100 + x * 50, clientY: 300 });
+    const two = new TouchEvent('touchmove', { touches: [t(1), t(2)], bubbles: true, cancelable: true }); document.body.dispatchEvent(two);
+    const one = new TouchEvent('touchmove', { touches: [t(1)], bubbles: true, cancelable: true }); document.body.dispatchEvent(one);
+    const dbl = new MouseEvent('dblclick', { bubbles: true, cancelable: true }); document.getElementById('hud').dispatchEvent(dbl);
+    return { body: ta('body'), panel: ta('#panel'), two: two.defaultPrevented, one: one.defaultPrevented, dbl: dbl.defaultPrevented };
+  });
+  check('a pinch or a double tap never zooms the page (the menu still scrolls), so nobody ends up zoomed in with no way out',
+    z.body === 'none' && z.panel === 'pan-y' && z.two && !z.one && z.dbl,
+    `page touch-action ${z.body}, the menu's ${z.panel}; a two-finger move held ${z.two}, a one-finger one left alone ${!z.one}; a double tap held ${z.dbl}`);
+  await c.close();
+}
+
 // ── the turn: three pages, and nothing else counts ───────────────
 {
   const p = await open(4242); await awake(p);

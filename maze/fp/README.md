@@ -267,6 +267,11 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   With no form set it's kept on the device (`maze.fp.feedback`) and sent the next time the game opens with one. Connected
   (v0.179.0) to Joe's form "Maze feedback"; its Sheet, "Maze feedback (Responses)", is named in `fp/config.js` with its Drive
   id — read it to answer "how is the feedback?".
+- **No zooming the page.** Feedback, via Joe: "once you zoom in you can't zoom out." A phone's Safari zooms on a pinch or a
+  double tap whatever the viewport asks, and the view takes every touch for the game, so the pinch back out never reached
+  the browser. Now `touch-action: none` on the page (the menu, the journal log and the feedback box keep `pan-y` to scroll),
+  Safari's own `gesturestart`/`gesturechange`, any two-finger `touchmove` and `dblclick` are held, and if the page is found
+  zoomed anyway (`visualViewport.scale`), the viewport is set again, which puts it back (`unzoom`).
 - **The log of journals.** A tap on the journal count on the HUD is every journal of the run on one long page, newest first
   (`journalLog`). Joe: "I want to tap on the journal count on the hud and get a log of the journals and their text with the most
   recent at the top."
