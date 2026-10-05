@@ -875,13 +875,24 @@
   });
   document.addEventListener('pointerdown', () => AUDIO.unlock(), { capture: true });
 
+  // Size from the layout viewport, not innerWidth: on iOS a pinch or double-tap zoom shrinks
+  // innerWidth, and the canvas used to shrink with it and stay that way.
   function resize() {
     DPR = Math.min(2, window.devicePixelRatio || 1);
-    W = innerWidth; H = innerHeight;
+    W = document.documentElement.clientWidth; H = document.documentElement.clientHeight;
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-    cv.style.width = W + 'px'; cv.style.height = H + 'px';
   }
   addEventListener('resize', resize);
+  addEventListener('orientationchange', () => setTimeout(resize, 200));
+  // iOS Safari ignores user-scalable=no: refuse its pinch and double-tap zooms by hand
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = performance.now();
+    if (now - lastTouchEnd < 350 && !e.target.closest('button')) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
   resize();
   AUDIO.setMusic(save.music); AUDIO.setMuted(!save.sound);
   syncToggles();
