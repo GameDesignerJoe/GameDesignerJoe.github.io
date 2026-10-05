@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unseen Workbench</title>
+<style>
+  :root { --bg: #eef5f7; --card: #ffffff; --ink: #12313f; --mut: #5b7782; --teal: #3f8fa4; --win: #2e9d63; --lose: #d8392a; --line: #d5e4e8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0f1d23; --card: #16282f; --ink: #e3eff2; --mut: #8fb0ba; --line: #24414b; } }
+  :root[data-theme="dark"] { --bg: #0f1d23; --card: #16282f; --ink: #e3eff2; --mut: #8fb0ba; --line: #24414b; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { margin: 0 0 4px; font-size: 26px; } .sub { color: var(--mut); margin-bottom: 18px; }
+  .wave { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .wave h2 { margin: 0 0 8px; font-size: 18px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .wave h2 small { color: var(--mut); font-weight: 400; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0 10px; }
+  td, th { text-align: left; padding: 6px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--mut); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .v { font-weight: 700; white-space: nowrap; } .v.win { color: var(--win); } .v.lose { color: var(--lose); }
+  .shots { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+  .shots img { height: 220px; border-radius: 8px; border: 1px solid var(--line); flex: none; }
+  .note { color: var(--mut); font-size: 14px; white-space: pre-wrap; }
+  .empty { color: var(--mut); padding: 30px 0; text-align: center; }
+  a { color: var(--teal); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Unseen workbench</h1>
+  <div class="sub">The Gauntlet Loop, round by round. Each piece of the game has its own builder and a fresh critic. The critic gets a blind A/B against <i>Stealth</i> (Elusor Games) where pixels can be compared, and a rubric where they can't. Newest round first. <a href="../index.html">Play the current build →</a></div>
+  <div id="waves" class="empty">Loading…</div>
+</main>
+<script>
+fetch('workbench/log.json?' + Date.now()).then(r => r.json()).then(({ waves }) => {
+  const el = document.getElementById('waves');
+  if (!waves.length) { el.textContent = 'No rounds yet.'; return; }
+  el.className = '';
+  const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  el.innerHTML = waves.slice().reverse().map(w => `
+    <section class="wave">
+      <h2>Round ${esc(w.wave)} <small>${esc(w.when || '')} ${w.commit ? '· ' + esc(w.commit) : ''}</small></h2>
+      <table><tr><th>Piece</th><th>Verdict</th><th>Biggest gap → what changed</th></tr>
+      ${(w.pieces || []).map(p => `<tr><td>${esc(p.piece)}</td><td class="v ${p.ours_wins ? 'win' : 'lose'}">${p.ours_wins ? 'ours wins' : 'reference wins'}${p.score != null ? ' · ' + esc(p.score) : ''}</td><td>${esc(p.gap)}${p.fix ? '<br><span class="note">→ ' + esc(p.fix) + '</span>' : ''}</td></tr>`).join('')}
+      </table>
+      ${w.notes ? `<div class="note">${esc(w.notes)}</div>` : ''}
+      <div class="shots">${(w.shots || []).map(s => `<a href="${esc(s)}"><img src="${esc(s)}" loading="lazy" alt=""></a>`).join('')}</div>
+    </section>`).join('');
+}).catch(() => { document.getElementById('waves').textContent = 'Could not load the log.'; });
+</script>
+</body>
+</html>
