@@ -8,14 +8,15 @@
   let W = 0, H = 0, DPR = 1;
 
   const COL = {
-    floor: '#3f8fa4', shadow: '#2e788d', deep: '#1f5a6c',
+    floor: '#4192a8', shadow: '#2f7488', deep: '#1f5a6c', castShade: 'rgba(18,64,82,0.36)',
     wall: '#c8e0e6',
     player: '#ff8a3d', playerHi: '#ffc896', playerLo: '#b84f17',
     guard: '#15364a', guardHi: '#2b566c',
     star: '#f3e57e',
+    cone: 'rgba(95,182,204,0.45)', coneOver: 'rgba(127,211,230,0.5)', coneHot: 'rgba(255,112,92,0.42)',
   };
   // the light comes from the top left, so everything throws its shadow down and to the right
-  const LIGHT = { x: 17, y: 21 };
+  const LIGHT = { x: 34, y: 34 };
   const P_SIZE = 14, P_R = 7.5, G_SIZE = 16, G_R = 8.5, CATCH = 16;
   const NAMES = ['Lobby', 'Mailroom', 'Archives', 'Canteen', 'Records', 'Atrium', 'Server Hall', 'Laboratory', 'Gallery', 'Vault Annex', 'Boardroom', 'Observatory', 'Penthouse', 'Roof Garden'];
 
@@ -31,20 +32,23 @@
   let L = null, field = null, nav = null, D = null, floorN = 1;
   let P = null, guards = [], cams = [], fx = [], time = 0;
   let mode = 'boot', modeT = 0, paused = false, overview = false;
-  const view = { x: 0, y: 0, z: 1, shake: 0 };
+  const view = { x: 0, y: 0, z: 1, shake: 0, lead: { x: 0, y: 0 } };
   let floorBox = null, spottedCD = 0, hmmCD = 0, lockedCD = 0, gotStars = 0;
   let stats = { caught: 0, time: 0 };
+  // the caught and clear sequences run on game time (modeT), so a pause holds them and a quit cancels them
+  let safeTop = 0, res = null, catcher = null, wipeJob = null, bannerT = 0, chaseHintT = 0;
 
   // ── input ──────────────────────────────────────────────────
   const stick = { on: false, x: 0, y: 0 }, keys = {};
   const stickEl = $('stick'), knob = $('knob');
-  const KNOB_MAX = 54; let stickId = null;
+  let stickId = null;
   function setStick(cx, cy) {
-    const b = stickEl.getBoundingClientRect();
+    // the knob travels 68px on the 212px stick, in proportion on the smaller one, so the dashed ring (where the run starts) sits at the same place
+    const b = stickEl.getBoundingClientRect(), max = b.width * 0.32;
     const dx = cx - (b.left + b.width / 2), dy = cy - (b.top + b.height / 2);
-    const len = Math.hypot(dx, dy) || 1, k = Math.min(len, KNOB_MAX);
+    const len = Math.hypot(dx, dy) || 1, k = Math.min(len, max);
     knob.style.transform = `translate(${dx / len * k}px, ${dy / len * k}px)`;
-    stick.x = dx / len * k / KNOB_MAX; stick.y = dy / len * k / KNOB_MAX; stick.on = true;
+    stick.x = dx / len * k / max; stick.y = dy / len * k / max; stick.on = true;
   }
   function clearStick() { stick.on = false; stick.x = stick.y = 0; stickId = null; stickEl.classList.remove('on', 'run'); knob.style.transform = ''; }
   stickEl.addEventListener('pointerdown', (e) => {
@@ -56,47 +60,56 @@
   });
   stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
   stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
-  const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'shift', ShiftRight: 'shift' };
+  const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', ShiftLeft: 'shift', ShiftRight: 'shift', ControlLeft: 'sneak', ControlRight: 'sneak', AltLeft: 'sneak', AltRight: 'sneak' };
   addEventListener('keydown', (e) => {
     AUDIO.unlock();
     const k = KEYMAP[e.code];
-    if (k) { keys[k] = true; e.preventDefault(); if (mode === 'intro' && k !== 'shift') skipIntro(); }
+    if (k) { keys[k] = true; e.preventDefault(); if (mode === 'intro' && k !== 'shift' && k !== 'sneak') skipIntro(); }
     if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
     if (e.code === 'KeyM' || e.code === 'Tab') { e.preventDefault(); toggleMap(); }
     if ((e.code === 'Enter' || e.code === 'Space') && mode === 'title') startGame();
   });
   addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; clearStick(); });
-  let padStart = false;
-  function readPad() {
+  // gamepad: left stick or D-pad to move, Start pauses, A starts and resumes, Back or Y opens the map
+  const padWas = {}; let pad = null;
+  function padEdge(p, i, k) { const b = p.buttons[i], on = !!(b && b.pressed), was = padWas[k]; padWas[k] = on; return on && !was; }
+  function readPad() {   // every frame, paused or not, so A and Start work on any screen
+    pad = pollPad();
+  }
+  function pollPad() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (const p of pads) {
       if (!p) continue;
-      const st = p.buttons[9] && p.buttons[9].pressed;
-      if (st && !padStart) { if (mode === 'title') startGame(); else togglePause(); }
-      padStart = st;
-      const x = p.axes[0] || 0, y = p.axes[1] || 0;
-      if (Math.hypot(x, y) > 0.15) return { x, y };
+      if (padEdge(p, 9, 'start')) { if (mode === 'title') startGame(); else togglePause(); }
+      if (padEdge(p, 0, 'a')) { if (mode === 'title') startGame(); else if (paused) togglePause(); }
+      const mapB = padEdge(p, 8, 'back'), mapY = padEdge(p, 3, 'y');
+      if ((mapB || mapY) && !paused) toggleMap();
+      const btn = (i) => !!(p.buttons[i] && p.buttons[i].pressed);
+      const dx = (btn(15) ? 1 : 0) - (btn(14) ? 1 : 0), dy = (btn(13) ? 1 : 0) - (btn(12) ? 1 : 0);
+      if (dx || dy) { const l = Math.hypot(dx, dy); return { x: dx / l * 0.8, y: dy / l * 0.8, dz: 0 }; }
+      return { x: p.axes[0] || 0, y: p.axes[1] || 0, dz: 0.15 };
     }
     return null;
   }
+  // one vector and a magnitude: the stick and pad lose a small dead zone, the keys walk quietly by default
   function readInput() {
-    let x = 0, y = 0;
-    const pad = readPad();
+    let x = 0, y = 0, dz = 0.12, kb = false;
     if (stick.on) { x = stick.x; y = stick.y; }
-    else if (pad) { x = pad.x; y = pad.y; }
+    else if (pad && Math.hypot(pad.x, pad.y) > pad.dz) { x = pad.x; y = pad.y; dz = pad.dz; }
     else {
       const kx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), ky = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
-      if (kx || ky) { const l = Math.hypot(kx, ky), s = keys.shift ? 0.5 : 1; x = kx / l * s; y = ky / l * s; }
+      if (kx || ky) { const l = Math.hypot(kx, ky), s = keys.shift ? 1 : keys.sneak ? 0.45 : 0.8; x = kx / l * s; y = ky / l * s; dz = 0; kb = true; }
     }
-    const m0 = Math.min(1, Math.hypot(x, y)), dz = 0.12;
-    if (m0 < dz) return { x: 0, y: 0, m: 0 };
-    return { x: x / m0, y: y / m0, m: (m0 - dz) / (1 - dz) };
+    const m0 = Math.min(1, Math.hypot(x, y));
+    if (m0 <= dz || m0 < 0.01) return { x: 0, y: 0, m: 0, kb };
+    return { x: x / Math.hypot(x, y), y: y / Math.hypot(x, y), m: (m0 - dz) / (1 - dz), kb };
   }
 
   // ── floors ─────────────────────────────────────────────────
   function startFloor(n, retry) {
     floorN = n;
+    cancelResult();
     L = LEVEL.generate(U.hash(save.runSeed, n), n);
     field = L.field; D = L.D;
     for (const d of L.doors) d.open = false;
@@ -106,7 +119,7 @@
     for (const s of L.floor) { const b = U.bbox(s); x0 = Math.min(x0, b.x0); y0 = Math.min(y0, b.y0); x1 = Math.max(x1, b.x1); y1 = Math.max(y1, b.y1); }
     floorBox = { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
     const exitAng = Math.atan2(L.exit.y - L.entrance.y, L.exit.x - L.entrance.x);
-    P = { x: L.entrance.x, y: L.entrance.y, ang: exitAng, vx: 0, vy: 0, alive: true, hidden: false, keys: [], stepT: 0, run: false, moving: false, scale: 1, m: 0 };
+    P = { x: L.entrance.x, y: L.entrance.y, ang: exitAng, vx: 0, vy: 0, avx: 0, avy: 0, alive: true, hidden: false, keys: [], stepT: 0, run: false, moving: false, scale: 1, m: 0 };
     guards = L.guards.map((d, i) => ({
       ...d, id: i, home: { x: d.x, y: d.y, ang: d.ang }, state: 'patrol', aw: 0, wait: 0, route: null, ri: 0,
       repath: 0, lost: 0, last: null, bubble: null, cone: null, sweep: Math.random() * 10, stuck: 0, lastPos: { x: d.x, y: d.y }, scanT: 0,
@@ -134,14 +147,23 @@
   function updatePlayer(dt) {
     const inp = readInput();
     const m = inp.m;
+    if (overview) { P.vx = P.vy = P.avx = P.avy = 0; P.moving = false; stickEl.classList.remove('run'); return; }   // the map is for planning: the floor holds still
+    // a quiet walk up to the dashed ring, a loud run past it; the gap between 0.8 and 0.88 stops thumb jitter flicking between them.
+    // Joe: the walk wants more room before the run — the stick is 25% bigger for it and the run starts further out.
+    if (inp.kb) P.run = m > 0.9;
+    else if (P.run ? m < 0.8 : m > 0.88) P.run = !P.run;
     let speed = 0;
-    if (m > 0) speed = m <= 0.72 ? 24 + 46 * (m / 0.72) : U.lerp(70, 128, U.clamp((m - 0.72) / 0.14, 0, 1));
-    P.run = m > 0.8; P.m = m;
+    if (m > 0) speed = P.run ? U.lerp(110, 128, U.clamp((m - 0.8) / 0.2, 0, 1)) : 24 + 51 * Math.min(1, m / 0.85);
+    P.m = m;   // only the run is heard
     stickEl.classList.toggle('run', stick.on && P.run);
     const tvx = inp.x * speed, tvy = inp.y * speed, acc = 1 - Math.exp(-dt * 16);
     P.vx += (tvx - P.vx) * acc; P.vy += (tvy - P.vy) * acc;
     const before = { x: P.x, y: P.y };
     field.move(P, P.vx * dt, P.vy * dt, P_R);
+    // what the walls let through: the camera leads on this, and a blocked push doesn't build up speed
+    const mvx = (P.x - before.x) / dt, mvy = (P.y - before.y) / dt, ak = 1 - Math.exp(-dt * 10);
+    P.avx += (mvx - P.avx) * ak; P.avy += (mvy - P.avy) * ak;
+    P.vx = U.lerp(P.vx, mvx, 0.5); P.vy = U.lerp(P.vy, mvy, 0.5);
     const moved = Math.hypot(P.x - before.x, P.y - before.y);
     P.moving = moved > 0.15 * dt * 60;
     if (m > 0) P.ang = U.turnTo(P.ang, Math.atan2(inp.y, inp.x), dt * 12);
@@ -155,7 +177,7 @@
           fx.push({ k: 'ring', x: P.x, y: P.y, r: D.hear, t: 0, dur: 0.7 });
           for (const gd of guards) {
             if (gd.state === 'chase' || gd.state === 'sus') continue;
-            if (Math.hypot(gd.x - P.x, gd.y - P.y) < D.hear) { toSearch(gd, { x: P.x, y: P.y }, true); }
+            if (hears(gd)) { toSearch(gd, { x: P.x, y: P.y }, true); }
           }
           hint('run', 'Running makes noise. Push the stick gently to sneak.');
         } else { P.stepT = 0.42; AUDIO.play('step', false); }
@@ -196,15 +218,38 @@
   }
 
   // ── guards ─────────────────────────────────────────────────
+  // footsteps carry round corners and through doorways, not through walls: heard if the guard is
+  // in the open within earshot, or the walk to you is short
+  function hears(gd) {
+    const d = Math.hypot(gd.x - P.x, gd.y - P.y);
+    if (d >= D.hear) return false;
+    if (field.ray(P.x, P.y, (gd.x - P.x) / d, (gd.y - P.y) / d, d) >= d - G_R) return true;
+    const p = nav.path(P.x, P.y, gd.x, gd.y, 900);
+    if (!p) return false;
+    let len = Math.hypot(p[0].x - P.x, p[0].y - P.y);
+    for (let i = 1; i < p.length; i++) len += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y);
+    return len < D.hear * 1.3;
+  }
   function sees(o, len, fov, near) {
     if (!P || !P.alive) return null;
     const dx = P.x - o.x, dy = P.y - o.y, d = Math.hypot(dx, dy);
+    // in a shade you are only found by someone who walks right into you
+    if (P.hidden) return near && d < 12 ? { d } : null;
     if (near && d < 26) return { d };
-    if (P.hidden && d > 30) return null;
     if (d > len + P_R) return null;
     if (Math.abs(U.angDiff(o.ang, Math.atan2(dy, dx))) > fov + Math.atan2(P_R, d)) return null;
     const t = field.ray(o.x, o.y, dx / d, dy / d, d);
     return t >= d - P_R ? { d } : null;
+  }
+  // where to look for someone last seen at p: never on top of a shade, but at its rim, the guard's
+  // side of it, so they stand and look round while the player holds still in the dark
+  function lookSpot(gd, p) {
+    const sh = L.shades.find(s => Math.hypot(p.x - s.x, p.y - s.y) < s.r + 18);
+    if (!sh) return { x: p.x, y: p.y };
+    // stop on the rim on the guard's own side, so the walk there never cuts across the pool
+    const e = Math.hypot(gd.x - sh.x, gd.y - sh.y) || 1, keep = sh.r + 24;
+    const q = { x: sh.x + (gd.x - sh.x) / e * keep, y: sh.y + (gd.y - sh.y) / e * keep };
+    return field.nearestFree(q.x, q.y, G_R + 1, 40) || { x: gd.x, y: gd.y };
   }
   function bubble(o, k) { if (!o.bubble || o.bubble.k !== k) o.bubble = { k, t: 0, a: 1 }; }
   function routeTo(gd, x, y) {
@@ -213,15 +258,16 @@
   }
   function toSearch(gd, p, heard) {
     if (gd.state !== 'search' && gd.state !== 'chase') { if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.6; } }
-    gd.state = 'search'; gd.target = { x: p.x, y: p.y }; gd.scanT = -1; gd.hurry = !!heard ? 0 : 1;
-    routeTo(gd, p.x, p.y); bubble(gd, '?');
+    const q = lookSpot(gd, p);
+    gd.state = 'search'; gd.target = q; gd.scanT = -1; gd.hurry = !!heard ? 0 : 1;
+    routeTo(gd, q.x, q.y); bubble(gd, '?');
     if (heard) gd.heard = true;
   }
   function toChase(gd) {
     if (gd.state !== 'chase') {
       if (spottedCD <= 0) { AUDIO.play('spotted'); spottedCD = 1.2; if (navigator.vibrate) try { navigator.vibrate(60); } catch (e) {} }
       fx.push({ k: 'flash', t: 0, dur: 0.35 });
-      hint('chase', 'Seen! Break their line of sight. They\'ll search where they lost you.');
+      if (!save.hints.chase && !chaseHintT) chaseHintT = 0.8;   // only if the chase lasts: a capture straight away says it already
     }
     gd.state = 'chase'; gd.aw = 1; gd.repath = 0; bubble(gd, '!');
     // a shout: guards who can see this one come to look
@@ -267,9 +313,9 @@
 
     // seeing you fills the meter; closer and faster fills it faster
     if (s && gd.state !== 'chase') {
-      const rate = D.detect * (0.85 + 2.6 * Math.max(0, 1 - s.d / D.coneLen)) * (P.run ? 1.4 : P.moving ? 1 : 0.8);
+      const rate = D.detect * (0.3 + 1.9 * Math.max(0, 1 - s.d / D.coneLen)) * (P.run ? 1.4 : P.moving ? 1 : 0.8);
       gd.aw = Math.min(1, gd.aw + rate * dt);
-      if (s.d < 28) gd.aw = 1;
+      if (s.d < 28 && !P.hidden) gd.aw = 1;
       if (gd.state !== 'sus') {
         gd.prevState = gd.state; gd.state = 'sus'; gd.susLook = gd.ang;
         bubble(gd, '?'); if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.5; }
@@ -306,7 +352,7 @@
         // stop, turn to look, edge toward what you saw
         if (gd.last) {
           gd.ang = U.turnTo(gd.ang, Math.atan2(gd.last.y - gd.y, gd.last.x - gd.x), dt * 2.6);
-          if (gd.aw > 0.45 && Math.hypot(gd.last.x - gd.x, gd.last.y - gd.y) > 30) stepToward(gd, gd.last.x, gd.last.y, 16, dt, 2.6);
+          if (gd.aw > 0.6 && Math.hypot(gd.last.x - gd.x, gd.last.y - gd.y) > 30) stepToward(gd, gd.last.x, gd.last.y, 16, dt, 2.6);
         }
         if (!s) {
           gd.aw = Math.max(0, gd.aw - dt * 0.3);
@@ -322,7 +368,7 @@
         if (s) {
           if (field.clear(gd.x, gd.y, P.x, P.y, G_R - 1)) { gd.route = [{ x: P.x, y: P.y }]; gd.ri = 0; }
           else if (gd.repath <= 0) { routeTo(gd, P.x, P.y); gd.repath = 0.3; }
-        } else if (gd.repath <= 0 && gd.last) { routeTo(gd, gd.last.x, gd.last.y); gd.repath = 0.6; }
+        } else if (gd.repath <= 0 && gd.last) { const q = lookSpot(gd, gd.last); routeTo(gd, q.x, q.y); gd.repath = 0.6; }
         const done = follow(gd, D.chase, dt, turn);
         if (!s && (done || gd.lost > 3)) { gd.aw = 0.6; toSearch(gd, gd.last || { x: gd.x, y: gd.y }); }
         break;
@@ -331,6 +377,8 @@
         if (gd.scanT < 0) {
           const spd = gd.hurry ? D.chase * 0.75 : D.patrol * 1.45;
           if (follow(gd, spd, dt, 4)) { gd.scanT = 0; gd.scanBase = gd.ang; }
+          // a route round a wall can still come at the pool from another side: halt at its rim and look
+          else if (P.hidden && L.shades.some(sh => Math.hypot(P.x - sh.x, P.y - sh.y) < sh.r && Math.hypot(gd.x - sh.x, gd.y - sh.y) < sh.r + 16)) { gd.scanT = 0; gd.scanBase = gd.ang; }
           gd.stuck = Math.hypot(gd.x - gd.lastPos.x, gd.y - gd.lastPos.y) < 0.05 ? gd.stuck + dt : 0;
           if (gd.stuck > 1.2) { gd.scanT = 0; gd.scanBase = gd.ang; gd.stuck = 0; }
         } else {
@@ -387,26 +435,40 @@
     }
   }
 
+  // the cone is the guard's visibility polygon: rays out to the first wall, with the angle refined
+  // wherever neighbouring rays disagree, so the edge a wall corner casts is a hard straight line
   function cone(o, len, fov) {
-    const n = Math.max(18, Math.round(fov * 2 / 0.04)), pts = new Float32Array((n + 2) * 2);
-    pts[0] = o.x; pts[1] = o.y;
-    for (let i = 0; i <= n; i++) {
-      const a = o.ang - fov + 2 * fov * i / n, dx = Math.cos(a), dy = Math.sin(a);
-      const t = field.ray(o.x, o.y, dx, dy, len);
-      pts[2 + i * 2] = o.x + dx * t; pts[3 + i * 2] = o.y + dy * t;
+    const n = Math.max(18, Math.round(fov * 2 / 0.04)), pts = [o.x, o.y];
+    const ray = (a) => field.ray(o.x, o.y, Math.cos(a), Math.sin(a), len);
+    const push = (a, t) => { pts.push(o.x + Math.cos(a) * t, o.y + Math.sin(a) * t); };
+    let pa = o.ang - fov, pt = ray(pa);
+    push(pa, pt);
+    for (let i = 1; i <= n; i++) {
+      const a = o.ang - fov + 2 * fov * i / n, t = ray(a);
+      if (Math.abs(t - pt) > 5) {
+        // bisect to the corner: lo keeps the previous ray's reach, hi the new one's
+        let lo = pa, hi = a, tl = pt, th = t;
+        for (let k = 0; k < 9; k++) {
+          const m = (lo + hi) / 2, tm = ray(m);
+          if (Math.abs(tm - tl) < Math.abs(tm - th)) { lo = m; tl = tm; } else { hi = m; th = tm; }
+        }
+        push(lo, tl); push(hi, th);
+      }
+      push(a, t); pa = a; pt = t;
     }
-    o.cone = pts;
+    o.cone = new Float32Array(pts);
   }
 
   // ── caught, clear ──────────────────────────────────────────
   function caught(gd) {
     P.alive = false; mode = 'caught'; modeT = 0; stats.caught++;
+    catcher = gd || null;
     if (gd) { gd.state = 'chase'; bubble(gd, '!'); gd.ang = Math.atan2(P.y - gd.y, P.x - gd.x); }
     AUDIO.play('caught'); view.shake = 1;
     if (navigator.vibrate) try { navigator.vibrate([90, 60, 160]); } catch (e) {}
     fx.push({ k: 'flash', t: 0, dur: 0.6, red: true });
-    clearStick();
-    setTimeout(() => showResult('caught'), 650);
+    clearStick(); clearToast(); chaseHintT = 0;
+    res = { k: 'caught', stage: 0, at: 0.65, stars: [] };
   }
   function clearFloor() {
     mode = 'clear'; modeT = 0; P.alive = false;
@@ -415,32 +477,48 @@
     save.stars[floorN] = Math.max(prev, gotStars);
     save.floor = floorN + 1; save.best = Math.max(save.best, floorN + 1);
     persist();
-    clearStick();
+    clearStick(); chaseHintT = 0;
     fx.push({ k: 'burst', x: L.exit.x, y: L.exit.y, t: 0, dur: 0.9, c: '#ffffff' });
-    setTimeout(() => showResult('clear'), 750);
+    res = { k: 'clear', stage: 0, at: 0.75, stars: [] };
   }
   function showResult(kind) {
     const r = $('result');
     if (kind === 'caught') {
       r.innerHTML = `<div class="stamp caught">CAUGHT</div><div class="sub">Floor ${floorN} — try again</div>`;
-      r.className = 'show';
-      setTimeout(() => { r.className = ''; startFloor(floorN, true); }, 1500);
     } else {
-      const st = [0, 1, 2].map(i => `<span class="${i < gotStars ? 'on' : ''}">★</span>`).join('');
-      r.innerHTML = `<div class="stamp clear">FLOOR ${floorN} CLEAR</div><div class="stars">${st}</div><div class="sub">Up the stairs…</div>`;
-      r.className = 'show';
-      setTimeout(() => { r.className = ''; wipe(() => startFloor(floorN + 1)); }, 2100);
+      // the stars land one by one after the stamp, each with a chime
+      const st = [0, 1, 2].map(i => `<span class="${i < gotStars ? 'on' : ''}" style="animation-delay:${(0.35 + i * 0.18).toFixed(2)}s">★</span>`).join('');
+      r.innerHTML = `<div class="sub above">Floor ${floorN}</div><div class="stamp clear">CLEAR</div><div class="stars">${st}</div><div class="sub">Up the stairs…</div>`;
+      for (let i = 0; i < gotStars; i++) res.stars.push(modeT + 0.35 + i * 0.18);
     }
+    r.className = 'show';
   }
-  function wipe(then) {
-    const w = $('wipe'); w.className = 'in';
-    setTimeout(() => { then(); w.className = 'out'; setTimeout(() => { w.className = ''; }, 600); }, 520);
+  function stepResult() {
+    if (!res) return;
+    while (res.stars.length && modeT >= res.stars[0]) { res.stars.shift(); AUDIO.play('star'); }
+    if (modeT < res.at) return;
+    if (res.stage === 0) { res.stage = 1; showResult(res.k); res.at = modeT + (res.k === 'caught' ? 1.5 : 2.1); return; }
+    const k = res.k; res = null;
+    $('result').className = '';
+    if (k === 'caught') startFloor(floorN, true);
+    else wipe(() => startFloor(floorN + 1));
   }
+  function cancelResult() { res = null; catcher = null; $('result').className = ''; }
+  // the wipe runs on frame time and blocks the pause while it covers the screen
+  function wipe(then) { $('wipe').className = 'in'; wipeJob = { t: 0, then, done: false }; }
+  function stepWipe(dt) {
+    if (!wipeJob) return;
+    wipeJob.t += dt;
+    if (!wipeJob.done && wipeJob.t >= 0.52) { wipeJob.done = true; const f = wipeJob.then; $('wipe').className = 'out'; f(); }
+    if (wipeJob && wipeJob.done && wipeJob.t >= 1.12) { wipeJob = null; $('wipe').className = ''; }
+  }
+  function cancelWipe() { wipeJob = null; $('wipe').className = ''; }
   function skipIntro() { if (mode === 'intro' && modeT < 1.3) modeT = 1.3; }
 
   // ── hints ──────────────────────────────────────────────────
   let toastT = 0;
   function toast(text, dur) { const t = $('toast'); t.textContent = text; t.classList.add('show'); toastT = dur || 3.5; }
+  function clearToast() { $('toast').classList.remove('show'); toastT = 0; }
   function hint(id, text) {
     if (save.hints[id] || floorN > 3) return;
     save.hints[id] = 1; persist(); toast(text, 4.2);
@@ -452,6 +530,8 @@
     requestAnimationFrame(frame);
     let dt = Math.min(0.05, (now - last) / 1000); last = now;
     fpsAcc += dt; fpsN++; if (fpsAcc > 1) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
+    readPad();
+    stepWipe(dt);
     if (!paused && L) step(dt);
     if (L) render();
   }
@@ -459,10 +539,13 @@
     time += dt; modeT += dt;
     spottedCD -= dt; hmmCD -= dt; lockedCD -= dt;
     if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); }
-    if (mode === 'intro' && modeT > 2.1) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : 'WASD or arrows to move, Shift to sneak. Stay out of the light.'); }
+    if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').className = 'hide'; }
+    if (chaseHintT > 0 && mode === 'play') { chaseHintT -= dt; if (chaseHintT <= 0) { chaseHintT = 0; hint('chase', 'Seen! Break their line of sight. They\'ll search where they lost you.'); } }
+    stepResult();
+    if (mode === 'intro' && modeT > 2.1) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : 'WASD or arrows to walk, Shift to run, Ctrl to creep. Stay out of the light.'); }
     if (mode === 'play') { updatePlayer(dt); stats.time += dt; }
     const live = mode === 'play' || mode === 'caught' || mode === 'title' || mode === 'clear';
-    if (live) { for (const gd of guards) updateGuard(gd, dt); for (const c of cams) updateCam(c, dt); }
+    if (live && !overview) { for (const gd of guards) updateGuard(gd, dt); for (const c of cams) updateCam(c, dt); }
     // cones only for what's near the screen
     const vw = W / view.z / 2 + 220, vh = H / view.z / 2 + 220;
     for (const gd of guards) if (Math.abs(gd.x - view.x) < vw && Math.abs(gd.y - view.y) < vh) cone(gd, D.coneLen, D.fov); else gd.cone = null;
@@ -485,15 +568,37 @@
     }
     if (mode === 'title') t = 0.05;
     AUDIO.tension = t;
+    // the heartbeat follows the most suspicious guard or camera
+    let heat = 0;
+    if (mode === 'play') {
+      for (const gd of guards) heat = Math.max(heat, gd.state === 'chase' ? 1 : gd.state === 'patrol' ? 0 : gd.aw || 0);
+      for (const c of cams) heat = Math.max(heat, c.alarm > 0 ? 1 : c.aw || 0);
+    }
+    AUDIO.heat = heat;
     if (window.__dbg) $('dbg').textContent = `${fps.toFixed(0)}fps  z${view.z.toFixed(2)}  t${AUDIO.tension.toFixed(2)}  ${guards.map(g => g.state[0]).join('')}`;
   }
   function updateView(dt) {
     let tx, ty, tz, rate = 4;
+    // look ahead: ease a lead toward where the player is really going, so a run doesn't carry them into a cone off screen
+    let lx = 0, ly = 0;
+    if (mode === 'play' && !overview && P.alive) {
+      lx = P.avx * 0.7; ly = P.avy * 0.7;
+      const cap = Math.min(W, H) / view.z * 0.28, l = Math.hypot(lx, ly);
+      if (l > cap) { lx *= cap / l; ly *= cap / l; }
+    }
+    const lk = 1 - Math.exp(-dt * (Math.hypot(lx, ly) < Math.hypot(view.lead.x, view.lead.y) ? 6 : 2.5));   // reach out gently, come back quickly
+    view.lead.x += (lx - view.lead.x) * lk; view.lead.y += (ly - view.lead.y) * lk;
     if (mode === 'title') { tx = floorBox.cx + Math.sin(time * 0.05) * 30; ty = floorBox.cy + Math.cos(time * 0.04) * 20; tz = overviewZ() * 1.02; rate = 1; }
+    else if (mode === 'caught' && P) {
+      // close in on the capture: the guard and the player, framed together
+      const o = catcher || P; tx = (o.x + P.x) / 2; ty = (o.y + P.y) / 2; tz = baseZ() * 1.35; rate = 4.5;
+    }
+    else if (mode === 'clear' && L) { tx = L.exit.x; ty = L.exit.y; tz = baseZ() * 1.25; rate = 3.5; }
     else if ((mode === 'intro' && modeT < 1.3) || overview) { tx = floorBox.cx; ty = floorBox.cy + (isPortrait() ? 0 : 0); tz = overviewZ(); rate = overview ? 5 : 3; }
     else {
-      tx = P.x + P.vx * 0.32; ty = P.y + P.vy * 0.32; tz = baseZ();
-      if (isPortrait()) ty += 70 / tz;   // the stick sits at the bottom: keep the player above the middle
+      // the follow aims where the player will be when it catches up, so the lag doesn't eat the lead
+      rate = 7; tx = P.x + view.lead.x + P.avx / rate; ty = P.y + view.lead.y + P.avy / rate; tz = baseZ();
+      if (isPortrait()) ty += 90 / tz;   // the stick sits at the bottom: keep the player above the middle
       if (mode === 'intro') rate = 2.6;
     }
     const k = 1 - Math.exp(-dt * rate);
@@ -534,17 +639,18 @@
     g.beginPath(); for (const s of L.floor) shapePath(s); g.clip();
     g.fillStyle = COL.shadow; g.fillRect(floorBox.x0 - 50, floorBox.y0 - 50, floorBox.w + 100, floorBox.h + 100);
     // the floor is lit where the void beside it doesn't shade it
-    g.beginPath(); for (const s of L.floor) shapePath(s, LIGHT.x, LIGHT.y); g.fillStyle = COL.floor; g.fill();
+    g.beginPath(); for (const s of L.floor) shapePath(s, LIGHT.x * 0.85, LIGHT.y * 0.85); g.fillStyle = COL.floor; g.fill();
     // a soft pool of light toward the middle of the building
     const fg = g.createRadialGradient(floorBox.cx, floorBox.cy, 0, floorBox.cx, floorBox.cy, Math.max(floorBox.w, floorBox.h) * 0.6);
     fg.addColorStop(0, 'rgba(255,255,255,0.07)'); fg.addColorStop(1, 'rgba(0,30,40,0.06)');
     g.fillStyle = fg; g.fillRect(floorBox.x0, floorBox.y0, floorBox.w, floorBox.h);
     drawShades(z);
-    // walls' and pillars' shadows, all one tone
+    // walls' and pillars' shadows: one tone on the lit floor, a deeper one where they fall into the
+    // ring the void already shades, so the floor reads in layers
     g.beginPath();
     for (const s of L.obs) polyPath(U.sweep(s, LIGHT.x, LIGHT.y));
     for (const d of L.doors) if (!d.open) polyPath(U.sweep(d.shape, LIGHT.x * 0.9, LIGHT.y * 0.9));
-    g.fillStyle = COL.shadow; g.fill();
+    g.fillStyle = COL.castShade; g.fill();
     drawStairs(L.entrance, false, z);
     drawStairs(L.exit, true, z);
     drawCones();
@@ -564,22 +670,14 @@
     drawFlash();
   }
 
-  // hiding spots: a pool of deep shadow, soft at the edge, with a ring of comic halftone
+  // hiding spots: a pool of deep shade, flat in the middle and falling off softly at the edge
   function drawShades(z) {
     for (const s of L.shades) {
       const inside = P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r;
-      const gr = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r + 6);
-      gr.addColorStop(0, 'rgba(12,48,62,0.62)'); gr.addColorStop(0.62, 'rgba(12,48,62,0.55)'); gr.addColorStop(1, 'rgba(12,48,62,0)');
-      g.fillStyle = gr; g.beginPath(); g.arc(s.x, s.y, s.r + 6, 0, TAU); g.fill();
-      g.fillStyle = inside ? 'rgba(170,235,255,0.5)' : 'rgba(12,48,62,0.5)';
-      const st = 4.6;
-      for (let y = -s.r - 6; y <= s.r + 6; y += st) for (let x = -s.r - 6; x <= s.r + 6; x += st) {
-        const xx = x + ((Math.round(y / st) & 1) ? st / 2 : 0), d = Math.hypot(xx, y) / s.r;
-        if (d > 1.28 || d < 0.9) continue;
-        const rr = 1.25 * (1 - Math.abs(d - 1.06) / 0.24);
-        if (rr <= 0.15) continue;
-        g.beginPath(); g.arc(s.x + xx, s.y + y, rr, 0, TAU); g.fill();
-      }
+      const R = s.r + 8, gr = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, R);
+      gr.addColorStop(0, 'rgba(42,102,120,0.95)'); gr.addColorStop(0.55, 'rgba(36,94,112,0.92)');
+      gr.addColorStop(0.78, 'rgba(36,94,112,0.55)'); gr.addColorStop(1, 'rgba(42,102,120,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(s.x, s.y, R, 0, TAU); g.fill();
       if (inside) { g.strokeStyle = 'rgba(170,235,255,0.6)'; g.lineWidth = 1.5; g.setLineDash([4, 4]); g.lineDashOffset = time * 10; g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.stroke(); g.setLineDash([]); }
     }
   }
@@ -608,26 +706,36 @@
     g.restore();
   }
 
+  // every cone is the same flat cyan; where two watch the same ground it builds to a brighter one.
+  // Only a guard (or camera) in full alarm turns its cone red.
   function coneColor(o, isCam) {
-    if (o.state === 'chase' || (isCam && o.alarm > 0)) return [255, 110, 92, 0.38];
-    const a = o.aw || 0;
-    if (a > 0) return [U.lerp(170, 255, a), U.lerp(235, 205, a), U.lerp(250, 110, a), 0.33 + a * 0.06];
-    if (o.state === 'search') return [235, 236, 190, 0.32];
-    return isCam ? [190, 214, 255, 0.28] : [170, 235, 252, 0.32];
+    return o.state === 'chase' || (isCam && o.alarm > 0) ? COL.coneHot : COL.cone;
   }
   function drawCones() {
-    const one = (o, len, isCam) => {
-      if (!o.cone) return;
-      const c = coneColor(o, isCam), p = o.cone;
-      const gr = g.createRadialGradient(o.x, o.y, 0, o.x, o.y, len);
-      gr.addColorStop(0, `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${c[3] + 0.08})`);
-      gr.addColorStop(1, `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${c[3] - 0.05})`);
-      g.beginPath(); g.moveTo(p[0], p[1]);
-      for (let i = 2; i < p.length; i += 2) g.lineTo(p[i], p[i + 1]);
-      g.closePath(); g.fillStyle = gr; g.fill();
+    const list = [];
+    const add = (o, isCam) => {
+      const p = o.cone; if (!p) return;
+      const path = new Path2D();
+      let x0 = p[0], y0 = p[1], x1 = x0, y1 = y0;
+      path.moveTo(p[0], p[1]);
+      for (let i = 2; i < p.length; i += 2) {
+        path.lineTo(p[i], p[i + 1]);
+        if (p[i] < x0) x0 = p[i]; else if (p[i] > x1) x1 = p[i];
+        if (p[i + 1] < y0) y0 = p[i + 1]; else if (p[i + 1] > y1) y1 = p[i + 1];
+      }
+      path.closePath();
+      list.push({ path, x0, y0, x1, y1, c: coneColor(o, isCam) });
     };
-    for (const gd of guards) one(gd, D.coneLen, false);
-    for (const c of cams) one(c, D.coneLen * 1.05, true);
+    for (const gd of guards) add(gd, false);
+    for (const c of cams) add(c, true);
+    for (const k of list) { g.fillStyle = k.c; g.fill(k.path); }
+    // double-watched ground
+    g.fillStyle = COL.coneOver;
+    for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+      const A = list[i], B = list[j];
+      if (A.x1 < B.x0 || B.x1 < A.x0 || A.y1 < B.y0 || B.y1 < A.y0) continue;
+      g.save(); g.clip(A.path); g.fill(B.path); g.restore();
+    }
   }
 
   function star(x, y, r, rot) {
@@ -690,10 +798,14 @@
   function drawChars(z) {
     // cameras: a blue eye on the wall
     for (const c of cams) {
-      g.fillStyle = 'rgba(70,110,255,0.25)'; g.beginPath(); g.arc(c.x, c.y, 13, 0, TAU); g.fill();
-      g.fillStyle = c.alarm > 0 ? '#e0453a' : '#2044a8'; g.beginPath(); g.arc(c.x, c.y, 7.5, 0, TAU); g.fill();
-      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(c.x, c.y, 4.6, 0, TAU); g.fill();
-      g.fillStyle = '#10204a'; g.beginPath(); g.arc(c.x + Math.cos(c.ang) * 2, c.y + Math.sin(c.ang) * 2, 2.3, 0, TAU); g.fill();
+      const hot = c.alarm > 0, rgb = hot ? '255,90,70' : '90,170,255';
+      const gl = g.createRadialGradient(c.x, c.y, 6, c.x, c.y, 20);
+      gl.addColorStop(0, `rgba(${rgb},0.55)`); gl.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = gl; g.beginPath(); g.arc(c.x, c.y, 20, 0, TAU); g.fill();
+      g.fillStyle = '#0f2a4a'; g.beginPath(); g.arc(c.x, c.y, 9, 0, TAU); g.fill();
+      g.strokeStyle = hot ? '#ff7a62' : '#6cc4ff'; g.lineWidth = 2.4; g.beginPath(); g.arc(c.x, c.y, 8.2, 0, TAU); g.stroke();
+      g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(c.x, c.y, 5, 3.4, c.ang, 0, TAU); g.fill();
+      g.fillStyle = '#10204a'; g.beginPath(); g.arc(c.x + Math.cos(c.ang) * 1.6, c.y + Math.sin(c.ang) * 1.6, 2.1, 0, TAU); g.fill();
     }
     for (const gd of guards) {
       rsq(gd.x, gd.y, G_SIZE, gd.ang, 3);
@@ -758,32 +870,55 @@
   function drawBubbles() {
     g.setTransform(DPR, 0, 0, DPR, 0, 0);
     const k = U.clamp(view.z, 0.7, 1.4);
+    const caughtNow = mode === 'caught';
     const one = (o, h) => {
       const b = o.bubble; if (!b) return;
-      const s = toScreen(o.x, o.y), pop = U.easeOutBack(U.clamp(b.t / 0.28, 0, 1)), r = 11 * k * pop;
+      // under the CAUGHT stamp only the guard who caught you keeps his mark, and it shouts
+      if (caughtNow && o !== catcher) return;
+      const big = caughtNow ? 1.5 : 1;
+      const s = toScreen(o.x, o.y), pop = U.easeOutBack(U.clamp(b.t / 0.28, 0, 1)), r = Math.max(11 * k, 13) * pop * big;
       if (r <= 0.5) return;
-      const x = s.x + 10 * k, y = s.y - (h + 16) * k;
-      g.save(); g.globalAlpha = b.a;
-      const red = b.k === '!';
-      g.fillStyle = 'rgba(10,40,52,0.35)'; g.beginPath(); g.arc(x + 2, y + 2.5, r, 0, TAU); g.fill();
-      g.fillStyle = red ? '#ff4d3a' : '#ffffff'; g.strokeStyle = red ? '#7a1a10' : '#15364a'; g.lineWidth = 2 * k;
-      g.beginPath(); g.moveTo(x - r * 0.55, y + r * 0.6); g.lineTo(x - r * 0.95, y + r * 1.25); g.lineTo(x - r * 0.05, y + r * 0.9); g.arc(x, y, r, Math.PI * 0.55, Math.PI * 0.55 + TAU * 0.86); g.closePath();
-      g.fill(); g.stroke();
-      g.fillStyle = red ? '#ffffff' : '#15364a';
-      g.font = `800 ${Math.round(15 * k * pop)}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(b.k, x, y + 1);
+      const kk = r / 11 / (pop || 1);   // glyph scale: never smaller than it reads on a phone
+      // a plain glyph over the head, as in the original: white for '?', hot red for '!'
+      const glyph = caughtNow ? '!' : b.k;
+      const x = s.x, y = s.y - (h + 14) * k - 12 * (kk - k), red = glyph === '!';
+      g.save(); g.globalAlpha = caughtNow ? 1 : b.a;
+      g.font = `800 ${Math.round(26 * kk * pop)}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = 'rgba(10,40,52,0.45)'; g.fillText(glyph, x + 2.5 * kk, y + 3 * kk);
+      g.lineWidth = 3 * kk; g.strokeStyle = red ? 'rgba(120,20,10,0.9)' : 'rgba(21,54,74,0.55)'; g.strokeText(glyph, x, y);
+      g.fillStyle = red ? '#ff5a44' : '#ffffff'; g.fillText(glyph, x, y);
       g.restore();
     };
+    const meterCol = (o) => (o.state === 'chase' || o.alarm > 0) ? '#ff5a44' : o.aw > 0.7 ? '#ff8c4a' : '#ffd36a';
     const meter = (o) => {
-      if (!(o.aw > 0) || o.state === 'chase' || o.alarm > 0) return;
-      const s = toScreen(o.x, o.y), r = 15 * k;
-      g.lineWidth = 3 * k; g.strokeStyle = 'rgba(10,40,52,0.45)';
+      if (caughtNow || !(o.aw > 0) || o.state === 'chase' || o.alarm > 0) return;
+      const s = toScreen(o.x, o.y), r = Math.max(15 * k, 18);
+      g.lineWidth = Math.max(3 * k, 3.5); g.strokeStyle = 'rgba(10,40,52,0.45)';
       g.beginPath(); g.arc(s.x, s.y, r, 0, TAU); g.stroke();
-      g.strokeStyle = o.aw > 0.7 ? '#ff8c4a' : '#ffd36a';
+      g.strokeStyle = meterCol(o);
       g.beginPath(); g.arc(s.x, s.y, r, -Math.PI / 2, -Math.PI / 2 + TAU * o.aw); g.stroke();
     };
-    for (const gd of guards) { meter(gd); one(gd, G_SIZE); }
-    for (const c of cams) { meter(c); one(c, 8); }
+    // someone off screen has noticed you: a chevron on the edge points at them, in their meter's colour
+    const top = safeTop + 64;
+    const edge = (o) => {
+      if (mode !== 'play' || overview) return;
+      if (!(o.aw > 0 || o.state === 'chase' || o.state === 'search' || o.alarm > 0)) return;
+      const s = toScreen(o.x, o.y), m = 24;
+      if (s.x > 0 && s.x < W && s.y > top - 40 && s.y < H) return;
+      const cx = W / 2, cy = (top + H) / 2, dx = s.x - cx, dy = s.y - cy;
+      const hw = W / 2 - m, hh = (H - top) / 2 - m;
+      const t = Math.min(Math.abs(dx) > 0.01 ? hw / Math.abs(dx) : Infinity, Math.abs(dy) > 0.01 ? hh / Math.abs(dy) : Infinity);
+      const px = cx + dx * t, py = cy + dy * t, a = Math.atan2(dy, dx);
+      const pulse = o.state === 'chase' || o.alarm > 0 ? 1 + 0.15 * Math.sin(time * 14) : 1;
+      g.save(); g.translate(px, py); g.rotate(a); g.scale(pulse, pulse);
+      g.beginPath(); g.moveTo(12, 0); g.lineTo(-6, -10); g.lineTo(-1, 0); g.lineTo(-6, 10); g.closePath();
+      g.fillStyle = 'rgba(10,40,52,0.5)'; g.translate(1.5, 2); g.fill(); g.translate(-1.5, -2);
+      g.fillStyle = meterCol(o); g.fill();
+      g.lineWidth = 1.5; g.strokeStyle = 'rgba(21,54,74,0.7)'; g.stroke();
+      g.restore();
+    };
+    for (const gd of guards) { meter(gd); one(gd, G_SIZE); edge(gd); }
+    for (const c of cams) { meter(c); one(c, 8); edge(c); }
     for (const f of fx) if (f.k === 'pop' && f.sx !== undefined) {
       const t = f.t / f.dur;
       g.save(); g.globalAlpha = 1 - t * t;
@@ -820,15 +955,14 @@
   }
   function showBanner(n) {
     const b = $('banner');
-    if (n === null) { b.className = ''; return; }
+    if (n === null) { b.className = ''; bannerT = 0; return; }
     b.innerHTML = `<div class="bn">FLOOR ${n}</div><div class="bs">${NAMES[(n - 1) % NAMES.length]}</div>`;
-    b.className = 'show';
-    setTimeout(() => { b.className = 'hide'; }, 1700);
+    b.className = 'show'; bannerT = 1.7;
   }
   function togglePause() {
-    if (mode === 'title' || mode === 'boot') return;
+    if (mode === 'title' || mode === 'boot' || (wipeJob && !paused)) return;
     paused = !paused;
-    $('pause').classList.toggle('show', paused);
+    $('pause').classList.toggle('show', paused); AUDIO.duck(paused);
     if (paused) { clearStick(); $('pFloor').textContent = `Floor ${floorN} · ${NAMES[(floorN - 1) % NAMES.length]}`; syncToggles(); }
   }
   function toggleMap() {
@@ -842,7 +976,8 @@
     document.body.dataset.stick = save.stickSide;
   }
   function titleScreen() {
-    mode = 'title'; modeT = 0; paused = false;
+    mode = 'title'; modeT = 0; paused = false; AUDIO.duck(false);
+    cancelResult(); cancelWipe(); clearToast(); chaseHintT = 0; showBanner(null);
     $('title').classList.add('show'); $('hud').classList.add('gone'); stickEl.classList.add('gone');
     const totalStars = Object.values(save.stars).reduce((a, b) => a + b, 0);
     $('btnPlay').textContent = save.floor > 1 ? `Continue · Floor ${save.floor}` : 'Begin';
@@ -869,7 +1004,7 @@
   $('optMusic').addEventListener('click', () => { save.music = !save.music; AUDIO.setMusic(save.music); persist(); syncToggles(); });
   $('optSound').addEventListener('click', () => { save.sound = !save.sound; AUDIO.setMuted(!save.sound); persist(); syncToggles(); });
   $('optStick').addEventListener('click', () => { save.stickSide = save.stickSide === 'right' ? 'left' : 'right'; persist(); syncToggles(); });
-  $('optQuit').addEventListener('click', () => { paused = false; $('pause').classList.remove('show'); titleScreen(); });
+  $('optQuit').addEventListener('click', () => { paused = false; AUDIO.duck(false); $('pause').classList.remove('show'); titleScreen(); });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { AUDIO.suspend(); if (mode === 'play' && !paused) togglePause(); }
   });
@@ -881,6 +1016,7 @@
     DPR = Math.min(2, window.devicePixelRatio || 1);
     W = document.documentElement.clientWidth; H = document.documentElement.clientHeight;
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    safeTop = Math.max(0, (parseFloat(getComputedStyle($('hud')).paddingTop) || 10) - 10);
   }
   addEventListener('resize', resize);
   addEventListener('orientationchange', () => setTimeout(resize, 200));

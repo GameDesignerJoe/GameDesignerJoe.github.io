@@ -40,16 +40,16 @@
   .iconBtn svg { width: 22px; height: 22px; }
 
   /* the stick: the maze's, bottom centre upright, bottom right on its side */
-  #stick { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 18px); transform: translateX(-50%); width: 170px; height: 170px; border-radius: 50%;
+  #stick { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 18px); transform: translateX(-50%); width: 212px; height: 212px; border-radius: 50%;
     background: rgba(233,245,248,.10); border: 1.5px solid rgba(233,245,248,.45); touch-action: none; z-index: 2; transition: opacity .4s; }
-  #stick::before { content: ''; position: absolute; inset: 18%; border-radius: 50%; border: 1px dashed rgba(233,245,248,.35); pointer-events: none; }
+  #stick::before { content: ''; position: absolute; inset: 21%; border-radius: 50%; border: 1px dashed rgba(233,245,248,.35); pointer-events: none; }
   #knob { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: rgba(233,245,248,.35);
     border: 1.5px solid rgba(233,245,248,.75); transition: background .12s, border-color .12s; pointer-events: none; box-shadow: 0 3px 0 rgba(18,49,63,.2); }
   #stick.on #knob { background: rgba(233,245,248,.55); }
   #stick.run #knob { background: rgba(255,138,61,.85); border-color: #fff; }
   #stick.gone { opacity: 0; pointer-events: none; }
   @media (orientation: landscape) {
-    #stick { left: auto; right: calc(env(safe-area-inset-right) + 26px); bottom: calc(env(safe-area-inset-bottom) + 16px); transform: none; width: 150px; height: 150px; }
+    #stick { left: auto; right: calc(env(safe-area-inset-right) + 26px); bottom: calc(env(safe-area-inset-bottom) + 16px); transform: none; width: 188px; height: 188px; }
     body[data-stick=left] #stick { right: auto; left: calc(env(safe-area-inset-left) + 26px); }
   }
   body.desk #stick { opacity: .0; pointer-events: none; }
@@ -62,15 +62,19 @@
     text-shadow: 0 4px 0 rgba(18,49,63,.45), 0 0 30px rgba(18,49,63,.25); }
   #banner .bs { font-size: 15px; letter-spacing: 6px; text-transform: uppercase; color: var(--pale); opacity: .9; text-shadow: 0 2px 0 rgba(18,49,63,.4); }
   #result { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .3s; }
-  #result.show { opacity: 1; }
-  .stamp { font-size: 44px; font-weight: 700; font-style: italic; padding: 6px 22px; border: 4px solid; border-radius: 8px; transform: rotate(-6deg) scale(1.6); opacity: 0;
+  #result.show { opacity: 1; background: radial-gradient(rgba(18,49,63,.35), transparent 70%); }
+  .stamp { font-size: clamp(26px, 8.5vw, 44px); white-space: nowrap; justify-self: center; font-weight: 700; font-style: italic; padding: 6px 22px; border: 4px solid; border-radius: 8px; transform: rotate(-6deg) scale(1.6); opacity: 0;
     background: rgba(233,245,248,.92); box-shadow: 0 6px 0 rgba(18,49,63,.35); }
   #result.show .stamp { animation: stamp .35s cubic-bezier(.2,1.6,.4,1) forwards; }
   @keyframes stamp { to { transform: rotate(-6deg) scale(1); opacity: 1; } }
   .stamp.caught { color: #d8392a; border-color: #d8392a; }
   .stamp.clear { color: var(--teal); border-color: var(--teal); }
   #result .sub { margin-top: 16px; color: var(--pale); font-size: 15px; letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 2px 0 rgba(18,49,63,.45); }
+  #result .sub.above { margin: 0 0 14px; }
   #result .stars { margin-top: 14px; font-size: 40px; letter-spacing: 8px; }
+  #result .stars span { color: rgba(233,245,248,.35); -webkit-text-stroke: 1.5px rgba(18,49,63,.55); }
+  #result .stars span.on { color: var(--star); -webkit-text-stroke: 1.5px rgba(150,120,20,.6); transform: scale(1.8); opacity: 0; animation: starPop .32s cubic-bezier(.2,1.6,.4,1) forwards; }
+  @keyframes starPop { to { transform: scale(1); opacity: 1; } }
   #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 64px); transform: translate(-50%, -10px); max-width: min(88vw, 440px); width: max-content;
     padding: 9px 16px; border-radius: 12px; background: rgba(18,49,63,.84); color: var(--pale); font-size: 14px; line-height: 1.35; text-align: center;
     opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none; z-index: 4; }
@@ -85,27 +89,55 @@
   #title.show { display: flex; }
   .logo { position: relative; width: min(84vw, 460px); }
   .logo svg { width: 100%; display: block; overflow: visible; }
-  .logoWord { font-size: min(19vw, 104px); font-weight: 700; font-style: italic; letter-spacing: .04em; color: var(--pale); line-height: .9; text-align: center;
+  .logoWord { font-size: min(17vw, 104px); padding-right: .08em; font-weight: 700; font-style: italic; letter-spacing: .04em; color: var(--pale); line-height: .9; text-align: center;
     text-shadow: 4px 6px 0 rgba(18,49,63,.45); }
-  .tag { color: var(--pale); letter-spacing: 6px; font-size: 13px; text-transform: uppercase; text-shadow: 0 2px 0 rgba(18,49,63,.4); margin-bottom: 22px; }
+  .tag { color: var(--pale); padding: 0 16px; text-align: center; letter-spacing: clamp(2px, 1.2vw, 6px); font-size: clamp(11px, 3.2vw, 13px); text-transform: uppercase; text-shadow: 0 2px 0 rgba(18,49,63,.4); margin-bottom: 22px; }
   .bigBtn { min-width: 240px; padding: 15px 28px; border-radius: 14px; border: 0; background: var(--orange); color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 1px;
     box-shadow: 0 5px 0 #b84f17; }
   .bigBtn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b84f17; }
   .ghostBtn { min-width: 240px; padding: 11px 22px; border-radius: 12px; border: 2px solid rgba(233,245,248,.7); background: rgba(18,49,63,.2); color: var(--pale); font-size: 15px; }
+  .tag span { display: inline-block; }
+  .titleBtns { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   #titleMeta { color: var(--pale); font-size: 13px; letter-spacing: 2px; opacity: .9; min-height: 18px; text-shadow: 0 1px 0 rgba(18,49,63,.4); }
   .credit { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 12px); color: rgba(233,245,248,.75); font-size: 11px; letter-spacing: 1px; text-align: center; padding: 0 20px; }
 
   /* pause */
   #pause { position: fixed; inset: 0; z-index: 5; display: none; place-items: center; background: rgba(18,49,63,.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
   #pause.show { display: grid; }
-  .card { background: var(--pale); border-radius: 18px; padding: 22px 22px 18px; width: min(86vw, 320px); display: flex; flex-direction: column; gap: 9px; box-shadow: 0 8px 0 rgba(18,49,63,.3); }
+  .card { background: var(--pale); border-radius: 18px; padding: 22px 22px 18px; width: min(86vw, 320px); display: flex; flex-direction: column; gap: 9px; box-shadow: 0 8px 0 rgba(18,49,63,.3);
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; touch-action: pan-y; }
   .card h2 { margin: 0; font-size: 28px; font-style: italic; }
   .card .meta { font-size: 13px; opacity: .7; margin-bottom: 6px; }
   .card button { padding: 12px; border-radius: 10px; border: 0; background: #d3e9ee; color: var(--ink); font-size: 16px; text-align: left; }
   .card button.primary { background: var(--orange); color: #fff; font-weight: 700; text-align: center; box-shadow: 0 3px 0 #b84f17; }
   .card .row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .card .row.three { grid-template-columns: 1fr 1fr 1fr; }
+  .card .row button { text-align: center; padding-left: 6px; padding-right: 6px; }
   .card .legend { font-size: 12.5px; line-height: 1.5; opacity: .8; margin-top: 4px; }
-  body:not([data-landscape]) #optStick { }
+
+  /* short screens: phones on their side */
+  @media (max-height: 500px) {
+    .card { width: min(92vw, 560px); padding: 14px 18px; gap: 7px; }
+    .card h2 { font-size: 22px; }
+    .card .meta { margin-bottom: 2px; }
+    .card button { padding: 9px 12px; font-size: 15px; }
+    .card .legend { display: none; }
+    #title { gap: 6px; }
+    .logo svg { display: none; }
+    .logoWord { font-size: min(15vh, 64px); }
+    .tag { margin-bottom: 8px; }
+    .titleBtns { flex-direction: row; }
+    .titleBtns .bigBtn, .titleBtns .ghostBtn { min-width: 200px; }
+    .titleBtns .bigBtn { padding: 12px 22px; font-size: 18px; }
+    .titleBtns .ghostBtn { align-self: stretch; }
+    .credit { display: none; }
+    #banner { top: 24%; }
+    #banner .bn { font-size: 44px; }
+    #result .stars { margin-top: 8px; font-size: 32px; }
+    #toast { top: auto; bottom: calc(env(safe-area-inset-bottom) + 30px); left: calc(env(safe-area-inset-left) + 16px); transform: translateY(10px); max-width: 46vw; font-size: 13px; text-align: left; }
+    #toast.show { transform: none; }
+    body[data-stick=left] #toast { left: auto; right: calc(env(safe-area-inset-right) + 16px); }
+  }
   #ver { position: fixed; left: calc(env(safe-area-inset-left) + 10px); bottom: calc(env(safe-area-inset-bottom) + 6px); z-index: 7; font-size: 11px; letter-spacing: .5px;
     color: rgba(233,245,248,.75); text-shadow: 0 1px 2px rgba(18,49,63,.5); }
   #ver button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 2px; text-decoration: underline; text-underline-offset: 2px; touch-action: manipulation; }
@@ -144,9 +176,11 @@
     </svg>
     <div class="logoWord">UNSEEN</div>
   </div>
-  <div class="tag">Climb the tower. Stay out of the light.</div>
-  <button class="bigBtn" id="btnPlay">Begin</button>
-  <button class="ghostBtn" id="btnNew">New run</button>
+  <div class="tag"><span>Climb the tower.</span> <span>Stay out of the light.</span></div>
+  <div class="titleBtns">
+    <button class="bigBtn" id="btnPlay">Begin</button>
+    <button class="ghostBtn" id="btnNew">New run</button>
+  </div>
   <div id="titleMeta"></div>
   <div class="credit">Headphones recommended</div>
 </div>
@@ -156,10 +190,8 @@
     <h2>Paused</h2>
     <div class="meta" id="pFloor"></div>
     <button class="primary" id="optResume">Resume</button>
-    <button id="optRestart">Restart floor</button>
-    <div class="row"><button id="optMusic">Music: on</button><button id="optSound">Sound: on</button></div>
-    <button id="optStick">Stick: right</button>
-    <button id="optQuit">Quit to title</button>
+    <div class="row"><button id="optRestart">Restart floor</button><button id="optQuit">Quit to title</button></div>
+    <div class="row three"><button id="optMusic">Music: on</button><button id="optSound">Sound: on</button><button id="optStick">Stick: right</button></div>
     <div class="legend">Push the stick gently to sneak, all the way to run (running is loud). Dark pools hide you. Keys open doors of their colour. Three ★ on every floor.</div>
   </div>
 </div>

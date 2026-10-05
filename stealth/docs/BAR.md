@@ -25,7 +25,7 @@ name, logo or levels.
 
 | # | Criterion | What 8/10 looks like |
 |---|---|---|
-| G1 | Controls | Thumbstick as in the maze: analogue, sneak by pushing gently, run at the rim. Responsive, no sticking on corners. WASD and gamepad on desktop. |
+| G1 | Controls | Thumbstick as in the maze: analogue, sneak by pushing gently, run at the rim. Owner's tuning, keep it: the stick is 212px (188px in landscape) and the run starts past 88% of the knob's travel, so walking has plenty of room. Responsive, no sticking on corners. WASD and gamepad on desktop. |
 | G2 | Guard AI | Patrol, sentry and camera behaviours. Detection fills over time rather than snapping. Seen means chase, lost means "?" search at the last known spot, then the "?" fades and the guard returns to its route. Guards path around walls. |
 | G3 | Fairness | Every floor is completable. The player is never spotted at spawn. Detection is predictable from the cone you can see. Getting caught feels like your fault. |
 | G4 | Stealth toolkit | Hiding spots, running noise vs. silent sneaking, cover behind pillars, and timing patrols all matter. |
