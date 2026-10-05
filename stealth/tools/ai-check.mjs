@@ -241,6 +241,12 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
   let n = 0, came = 0, walk = 0, spent = 0;
   for (const [seed, fl] of [[3, 4], [8, 6], [12, 9], [21, 11]]) {
     await page.evaluate(([s, f]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(f); GAME.skipIntro(); GAME.stick.on = false; }, [seed, fl]); await wait(150);
+    // a wipe or retry left over from the test before can land late: wait until this floor is really in play
+    for (let i = 0; i < 30; i++) {
+      const ok = await page.evaluate(() => GAME.mode === 'play' && GAME.P && GAME.P.alive && !document.getElementById('pause').classList.contains('show'));
+      if (ok) break;
+      await page.evaluate((f) => { if (GAME.mode !== 'intro') GAME.startFloor(f); GAME.skipIntro(); GAME.setOverview(false); }, fl); await wait(100);
+    }
     const r = await page.evaluate(() => {
       const f = GAME.L.field, g = GAME.guards.find(g => g.path && f.ray(g.x, g.y, -Math.cos(g.ang), -Math.sin(g.ang), 90) > 85);
       if (!g) return null;

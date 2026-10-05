@@ -1598,6 +1598,20 @@
         const th = R() * TAU;
         if (kind === 'cam') {
           // on the wall, looking in
+          // and no camera's sweep covers a key or either side of a locked door: those you must reach, so
+          // the arc you can see is always one you can time, never a stare you have to walk through
+          const musts = L.keys.map(k => ({ x: k.x, y: k.y }));
+          for (const d of L.doors) for (const sg of [-1, 1]) musts.push({ x: d.conn.mouth.x + d.conn.normal.x * 20 * sg, y: d.conn.mouth.y + d.conn.normal.y * 20 * sg });
+          const sweepsMust = (q, face, amp) => {
+            const ex = q.x + Math.cos(face) * 6, ey = q.y + Math.sin(face) * 6, reach = D.coneLen * 1.05 + 20;
+            return musts.some(m => {
+              const dx = m.x - ex, dy = m.y - ey, d = Math.hypot(dx, dy);
+              if (d > reach) return false;
+              if (d > 1 && field.ray(ex, ey, dx / d, dy / d, d) < d - 8) return false;
+              return Math.abs(U.angDiff(face, Math.atan2(dy, dx))) < amp + 0.42 + 0.2;
+            });
+          };
+          const amp = R.range(0.45, 0.85);
           const camAt = (a) => {
             const e = extent(room, a);
             const inward = { x: room.c.x + Math.cos(a) * (e - 36), y: room.c.y + Math.sin(a) * (e - 36) };
@@ -1610,6 +1624,7 @@
             }
             if (!q || !okHome(q) || !farFromStart(q, 380) || nearMouth(q, 60) || !offItems(q, 75)) return null;
             if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 120) < 90) return null;   // a clear look into the room
+            if (sweepsMust(q, a + Math.PI, amp)) return null;
             return q;
           };
           let p = null, face = 0, pa = 0;
@@ -1620,7 +1635,7 @@
           if (!p) continue;
           // from the ninth floor some cameras pan quick
           const quick = n >= 9 && R.chance(0.5);
-          const cam = { x: p.x, y: p.y, base: face, amp: R.range(0.45, 0.85), period: quick ? R.range(3, 4) : R.range(5, 8), phase: R() * TAU };
+          const cam = { x: p.x, y: p.y, base: face, amp, period: quick ? R.range(3, 4) : R.range(5, 8), phase: R() * TAU };
           L.cams.push(cam);
           homes.push(p); cams++;   // a camera is on top of the room's guards, not one of them
           // from the fifteenth floor a camera may have a twin on the far wall, half a sweep behind, so
@@ -1637,7 +1652,8 @@
         if (kind === 'sentry') {
           const a = R() * TAU, e = extent(room, a);
           const p = field.nearestFree(room.c.x + Math.cos(a) * e * 0.7, room.c.y + Math.sin(a) * e * 0.7, 16, 50);
-          if (!okHome(p) || nearMouth(p, 80) || !offFirst(p) || !offItems(p, 75)) continue;
+          // and a post stands in a room, never in a hall or a neck the way on has to use
+          if (!okHome(p) || nearMouth(p, 80) || !offFirst(p) || !offItems(p, 75) || field.sample(p.x, p.y) < 40) continue;
           const face = Math.atan2(room.c.y - p.y, room.c.x - p.x) + R.range(-0.4, 0.4);
           L.guards.push({ kind: 'sentry', x: p.x, y: p.y, ang: face, amp: R.range(0.55, 1.05), snap: D.snap && R.chance(0.5) });
           homes.push(p); k++;

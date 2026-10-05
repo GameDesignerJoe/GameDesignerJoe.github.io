@@ -8,19 +8,22 @@
   let W = 0, H = 0, DPR = 1;
 
   const COL = {
-    floor: '#4192a8', shadow: '#2f7186',
+    floor: '#4596ae', shadow: '#2e7389',
     wall: '#c8e0e6',
     player: '#ff8a3d', playerHi: '#ffc896', playerLo: '#b84f17',
     guard: '#15364a', guardHi: '#2b566c', guardRim: '#cfe6ee',
     star: '#f3e57e',
-    // cones are light, screened onto the floor: coneNear at the guard fading to coneFar at the arc
-    coneNear: 'rgba(140,210,228,0.55)', coneFar: 'rgba(95,174,198,0.25)', coneHot: 'rgba(255,128,104,0.6)', coneHotFar: 'rgba(240,100,80,0.3)',
+    // cones: one flat cyan, laid once over every calm cone together, so overlaps never stack
+    cone: 'rgba(108,195,216,0.38)', coneHot: 'rgba(255,118,96,0.42)',
+    // the soft shadow under a character or pickup
+    blob: 'rgba(22,74,92,0.55)',
   };
   // the light comes from the top left, so everything throws its shadow down and to the right
-  const LIGHT = { x: 26, y: 26 }, RIM = 29;   // RIM: how deep the void's shade reaches onto the floor
-  // characters are drawn a little larger than their footprint (G_LOOK, P_LOOK), and their shadows are
-  // CHAR_K of a wall's: about 1.5 times their size, at the walls' angle
-  const G_LOOK = 1.15, CHAR_K = 0.62;
+  // a wall's shadow is about 3.5 times the wall's thickness (13), at 45 degrees
+  const LIGHT = { x: 32, y: 32 }, RIM = 32;   // RIM: how deep the void's shade reaches onto the floor
+  // characters are drawn a little larger than their footprint (G_LOOK, P_LOOK); each sits on a soft
+  // capsule shadow about 1.5 times its size, thrown the walls' way
+  const G_LOOK = 1.15;
   // the player's square is exactly its footprint across (2 * P_R), so a flat face sits flush on a wall it slides along;
   // P_R matches the guards' G_R, the clearance every floor is built and checked for
   const P_SIZE = 14, P_R = 8.5, P_LOOK = 2 * P_R / P_SIZE, G_SIZE = 16, G_R = 8.5, CATCH = 16;
@@ -71,11 +74,13 @@
   // ── input ──────────────────────────────────────────────────
   const stick = { on: false, x: 0, y: 0 }, keys = {};
   const stickEl = $('stick'), knob = $('knob');
-  let stickId = null, stickDownT = -1;
-  // a thumb that lands out by the ring starts a quiet walk, not a run: the landing past 55% of the travel is held as an offset,
-  // which melts away as the thumb comes back in, so pushing out from where it landed still reaches the ring and the run
+  let stickId = null, stickDownT = -1, lastCx = 0, lastCy = 0;
+  // a thumb that lands out by the ring starts a quiet walk, not a run: the landing past 55% of the travel is held as an offset.
+  // It's only a moment's grace: it melts as the thumb comes back in or pushes on out, and it fades on its own after 0.2s
+  // (see relaxStick), so a thumb held on the dashed ring runs within half a second and the knob comes back under it
   const stickOrg = { x: 0, y: 0, len: 0 };
   function setStick(cx, cy, down) {
+    lastCx = cx; lastCy = cy;
     // the knob travels 68px on the 212px stick, in proportion on the smaller one, so the dashed ring (where the run starts) sits at the same place
     const b = stickEl.getBoundingClientRect(), max = b.width * 0.32;
     const rx = cx - (b.left + b.width / 2), ry = cy - (b.top + b.height / 2), rl = Math.hypot(rx, ry);
@@ -83,13 +88,16 @@
       const land = 0.55 * max;
       if (rl > land) { stickOrg.x = rx - rx / rl * land; stickOrg.y = ry - ry / rl * land; } else stickOrg.x = stickOrg.y = 0;
     } else if (rl < stickOrg.len) { const f = Math.min(0.9, rl / stickOrg.len); stickOrg.x *= f; stickOrg.y *= f; }   // gone by the time the thumb is home
+    else if (rl > stickOrg.len + 0.5) { stickOrg.x *= 0.85; stickOrg.y *= 0.85; }   // pushing on out asks for more: the grace gives way to it
     stickOrg.len = rl;
     const dx = rx - stickOrg.x, dy = ry - stickOrg.y;
     const len = Math.hypot(dx, dy) || 1, k = Math.min(len, max);
     knob.style.transform = `translate(${dx / len * k}px, ${dy / len * k}px)`;
     stick.x = dx / len * k / max; stick.y = dy / len * k / max; stick.on = true;
   }
-  function clearStick() { stick.on = false; stick.x = stick.y = 0; stickId = null; stickOrg.x = stickOrg.y = stickOrg.len = 0; stickEl.classList.remove('on', 'run', 'loud'); knob.style.transform = ''; }
+  // keep: a capture or a floor clear lets go of the input but not of the thumb, which picks the stick back up (as a fresh,
+  // quiet landing) the moment play resumes, without having to lift and touch again
+  function clearStick(keep) { stick.on = false; stick.x = stick.y = 0; if (!keep) stickId = null; stickOrg.x = stickOrg.y = stickOrg.len = 0; stickEl.classList.remove('on', 'run', 'loud'); knob.style.transform = ''; }
   stickEl.addEventListener('pointerdown', (e) => {
     e.preventDefault(); e.stopPropagation(); AUDIO.unlock();
     if (stickId !== null) return;   // a second finger never steals the thumb's stick
@@ -99,7 +107,19 @@
     try { stickEl.setPointerCapture(e.pointerId); } catch (err) {}
     setStick(e.clientX, e.clientY, true);
   });
-  stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
+  stickEl.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== stickId) return;
+    if (stick.on) setStick(e.clientX, e.clientY); else { lastCx = e.clientX; lastCy = e.clientY; }   // kept through a capture: just remember where it is
+  });
+  // every play frame: a thumb kept through a capture lands again, and a landing's grace fades once the first touch is past
+  function relaxStick(dt) {
+    if (stickId === null) return;
+    if (!stick.on) { stickDownT = time; stickEl.classList.add('on'); setStick(lastCx, lastCy, true); return; }
+    if (time - stickDownT <= 0.2 || (!stickOrg.x && !stickOrg.y)) return;
+    const f = Math.exp(-dt * 6); stickOrg.x *= f; stickOrg.y *= f;
+    if (Math.hypot(stickOrg.x, stickOrg.y) < 0.3) stickOrg.x = stickOrg.y = 0;
+    setStick(lastCx, lastCy);
+  }
   const endStick = (e) => { if (e.pointerId === stickId) clearStick(); };
   stickEl.addEventListener('pointerup', endStick); stickEl.addEventListener('pointercancel', endStick);
   const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyC: 'sneak', Space: 'sneak' };   // never Ctrl: Ctrl+W closes the tab
@@ -149,7 +169,7 @@
     else if (pad && Math.hypot(pad.x, pad.y) > pad.dz) { x = pad.x; y = pad.y; dz = pad.dz; isPad = true; force = pad.run ? 1 : pad.creep ? -1 : 0; }
     else {
       const kx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), ky = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
-      if (kx || ky) { const l = Math.hypot(kx, ky), s = keys.sneak ? 0.4 : 0.58; x = kx / l * s; y = ky / l * s; dz = 0; kb = true; }   // the plain walk sits under the 0.6 heard line
+      if (kx || ky) { const l = Math.hypot(kx, ky), s = keys.sneak ? 0.16 : 0.58; x = kx / l * s; y = ky / l * s; dz = 0; kb = true; }   // the plain walk sits under the 0.6 heard line
     }
     const m0 = Math.min(1, Math.hypot(x, y));
     if (m0 <= dz || m0 < 0.01) return { x: 0, y: 0, m: 0, kb, isPad, force: 0 };
@@ -254,7 +274,7 @@
       field.applyDoors(); nav = nk ? (L.navs[nk] || (L.navs[nk] = new LEVEL.Nav(field, 11))) : L.nav0;
       P.x = cp.x; P.y = cp.y; P.ang = cp.ang;
     }
-    // a retry never replays the same moment: every beat starts a little along (±10% of it), every
+    // a retry never replays the same moment: every beat starts well along (±25% of it, so a death spot moves), every
     // camera a little into its sweep. From a checkpoint, a guard whose beat comes near starts at one of
     // the points safeSpot found it can walk from for a while without looking at you
     graceCP = !!(retry && checkpoint);
@@ -262,12 +282,13 @@
       guards.forEach((gd, gi) => {
         if (!gd.path) return;
         const N = gd.path.length, ok = checkpoint && checkpoint.starts && checkpoint.starts[gi];
-        let pi = ok ? ok[Math.floor(Math.random() * ok.length)] : (gd.pi + Math.round((Math.random() * 2 - 1) * N * 0.1) + N) % N;
+        let pi = ok ? ok[Math.floor(Math.random() * ok.length)] : (gd.pi + Math.round((Math.random() * 2 - 1) * N * 0.25) + N) % N;
         // the second of a pair on one loop keeps its distance from the first rather than walking in its shoes
         const mate = ok && guards.slice(0, gi).find(o => o.path === gd.path);
         if (mate) { const gap = (i) => { const d = Math.abs(i - mate.pi) % N; return Math.min(d, N - d); }; pi = ok.reduce((b, i) => gap(i) > gap(b) ? i : b, ok[0]); if (!gap(pi)) gd.holdT = 1.6 + Math.random(); }
         gd.pi = pi; gd.x = gd.lastPos.x = gd.path[pi].x; gd.y = gd.lastPos.y = gd.path[pi].y;
         const nx = gd.path[(pi + 1) % N]; gd.ang = Math.atan2(nx.y - gd.y, nx.x - gd.x);
+        if (ok && ok.hold) gd.holdT = Math.max(gd.holdT || 0, ok.hold);
         if (!ok || gd.holdT) { gd.wait = gd.waitMax = gd.holdT || Math.random() * 0.8; gd.waitAng = gd.ang; gd.holdT = 0; }
       });
       for (const c of cams) c.phase += (Math.random() * 2 - 1) * 0.8;
@@ -294,12 +315,13 @@
   function baseZ() {
     const s = isPortrait() ? W / 340 : H / 330;
     const coneFit = Math.min(W, H) / (1.8 * (D ? D.coneLen : 160));
-    return U.clamp(Math.min(s, coneFit), 0.8, 2.0);
+    return U.clamp(Math.min(s, coneFit), 0.8, isTouch ? 2.0 : 2.6);   // a big PC screen still frames the player at about 4% of its height
   }
 
   // ── the player ─────────────────────────────────────────────
   let mapWas = false, mapHeld = false;   // the map's open-time latch for keys and pad
   function updatePlayer(dt) {
+    relaxStick(dt);
     const inp = readInput();
     const m = inp.m;
     // like the maze, a move clears the map: on keys or a pad as on the stick (which closes it on touch). A key already
@@ -326,7 +348,17 @@
     field.move(P, P.vx * dt, P.vy * dt, P_R);
     // a push almost straight into a wall stays put, rather than creeping sideways along a slightly tilted wall normal
     const want = Math.hypot(P.vx, P.vy) * dt;
-    if (want > 0.05 && Math.hypot(P.x - before.x, P.y - before.y) < want * 0.14 && field.sample(before.x, before.y) >= P_R) { P.x = before.x; P.y = before.y; }
+    if (want > 0.05 && Math.hypot(P.x - before.x, P.y - before.y) < want * 0.14 && field.sample(before.x, before.y) >= P_R) {
+      P.x = before.x; P.y = before.y;
+      // unless it's a doorway just missed: if a step along the wall (up to 10px either way) clears the jamb, ease that way
+      const g = field.grad(P.x, P.y), tx = -g.y, ty = g.x;
+      let bt = 0;
+      for (let t = 2; t <= 10 && !bt; t += 2) for (const sg of [1, -1]) {
+        const qx = P.x + tx * t * sg - g.x * 3, qy = P.y + ty * t * sg - g.y * 3;   // a little into the push, so it's the gap it finds
+        if (field.sample(qx, qy) >= P_R + 1 && field.sample(P.x + tx * t * sg, P.y + ty * t * sg) >= P_R) { bt = t * sg; break; }
+      }
+      if (bt) { const st = Math.min(Math.abs(bt), want * 0.4) * Math.sign(bt); field.move(P, tx * st, ty * st, P_R); }
+    }
     // what the walls let through: the camera leads on this, and a blocked push doesn't build up speed
     const mvx = (P.x - before.x) / dt, mvy = (P.y - before.y) / dt, ak = 1 - Math.exp(-dt * 10);
     P.avx += (mvx - P.avx) * ak; P.avy += (mvy - P.avy) * ak;
@@ -520,7 +552,9 @@
       let top = -1, topI = 0;
       for (let i = 0; i < N; i += step) { const w = walk(i); if (w >= budget) good.push(i); if (w > top) { top = w; topI = i; } }
       score = Math.min(score, top);
-      if (!good.length) { seen = true; good.push(topI); }
+      // no start keeps it off the spot for long: it starts from the best one and holds there first, so
+      // its first look still comes T seconds in (a hold at its post looks round, and its post is clear)
+      if (!good.length) { seen = true; good.push(topI); if (top > 0) good.hold = Math.min(3.5, T - top / D.patrol); }
       starts.push(good);
     }
     return { seen, near, starts, score };
@@ -657,6 +691,28 @@
     return true;
   }
 
+  // two guards never walk through each other: a walker that comes up behind another one going its
+  // way holds a beat; one meeting another (head on, or standing in its way) steps aside to its right
+  // as it goes, so both slide past like people in a hall. True when it should hold this frame.
+  function makeRoom(gd, dt) {
+    if (gd.sepT > 0) { gd.sepT -= dt; return true; }
+    const hx = Math.cos(gd.ang), hy = Math.sin(gd.ang), near = 2 * G_R + 14;
+    for (const o of guards) {
+      if (o === gd) continue;
+      const dx = o.x - gd.x, dy = o.y - gd.y, d = Math.hypot(dx, dy);
+      if (d >= near || d < 0.01 || dx * hx + dy * hy <= 0) continue;
+      const still = o.state === 'sus' || o.wait > 0 || (o.kind === 'sentry' && o.state === 'patrol') || o.sepT > 0;
+      const same = Math.cos(o.ang) * hx + Math.sin(o.ang) * hy > 0.5;
+      if (same && !still && d < 2 * G_R + 4) { gd.sepT = 0.3; return true; }
+      if (same && !still) return false;
+      // to the right of the heading, harder the closer it is, so it goes round rather than through
+      const k = 30 + 40 * (1 - d / near);
+      field.move(gd, -hy * k * dt, hx * k * dt, G_R);
+      return false;
+    }
+    return false;
+  }
+
   function updateGuard(gd, dt) {
     const s = sees(gd, D.coneLen, D.fov, true);
     if (s) { gd.last = { x: P.x, y: P.y }; gd.lost = 0; } else gd.lost += dt;
@@ -695,6 +751,7 @@
           if (gd.wait <= 0) gd.pi = (gd.pi + 1) % gd.path.length;
           break;
         }
+        if (makeRoom(gd, dt)) break;
         const q = gd.path[gd.pi];
         if (stepToward(gd, q.x, q.y, D.patrol, dt, 3.2)) {
           if (q.pause > 0) { gd.wait = gd.waitMax = q.pause; gd.waitAng = gd.ang; }
@@ -760,6 +817,7 @@
         break;
       }
       case 'return': {
+        if (makeRoom(gd, dt)) break;
         if (follow(gd, D.patrol, dt, 3.2)) {
           gd.state = 'patrol'; gd.route = null;
           if (gd.kind === 'sentry') gd.sweep = 0;
@@ -769,21 +827,30 @@
         break;
       }
     }
+    // and two squares never sit on one another: each eases out of any other's footprint
+    for (const o of guards) {
+      if (o === gd) continue;
+      const dx = gd.x - o.x, dy = gd.y - o.y, d = Math.hypot(dx, dy), min = 2 * G_R + 2;
+      if (d < min) { const u = d > 0.01 ? 1 / d : 0, m = Math.min((min - d) / 2, 40 * dt); field.move(gd, (u ? dx * u : 1) * m, (u ? dy * u : 0) * m, G_R); }
+    }
     gd.lastPos.x = gd.x; gd.lastPos.y = gd.y;
     if (P.alive && mode === 'play' && Math.hypot(gd.x - P.x, gd.y - P.y) < CATCH) caught(gd);
   }
 
+  // a camera follows you only to the edge of the arc it is drawn sweeping (plus a hair), so a glimpse
+  // can always be slipped sideways: past the edge it loses you and the meter drains
+  const camTrack = (c) => c.base + U.clamp(U.angDiff(c.base, Math.atan2(P.y - c.y, P.x - c.x)), -(c.amp + 0.25), c.amp + 0.25);
   function updateCam(c, dt) {
     if (c.bubble) c.bubble.t += dt;
     const s = sees(c, D.coneLen * 1.05, 0.42, false);
     if (c.alarm > 0) {
       c.alarm -= dt;
-      if (s) c.ang = U.turnTo(c.ang, Math.atan2(P.y - c.y, P.x - c.x), dt * 2);
+      if (s) c.ang = U.turnTo(c.ang, camTrack(c), dt * 2);
       if (c.alarm <= 0) { c.aw = 0; c.bubble = null; }
       return;
     }
     if (s && !(graceCP && mode === 'play' && modeT < 1.5)) {
-      c.ang = U.turnTo(c.ang, Math.atan2(P.y - c.y, P.x - c.x), dt * 1.2);
+      c.ang = U.turnTo(c.ang, camTrack(c), dt * 1.2);
       c.aw = Math.min(1, c.aw + dt * D.detect * 0.9);
       if (!c.bubble) { bubble(c, '?'); if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.5; } }
       if (c.aw >= 1) {
@@ -842,7 +909,7 @@
     AUDIO.play('caught'); view.shake = 1;
     if (navigator.vibrate) try { navigator.vibrate([90, 60, 160]); } catch (e) {}
     fx.push({ k: 'flash', t: 0, dur: 0.6, red: true });
-    clearStick(); clearMouse(); clearToast(); chaseHintT = 0; dimHUD(true);
+    clearStick(true); clearMouse(); clearToast(); chaseHintT = 0; dimHUD(true);
     // frame the capture: both squares, centred under the stamp, eased in over 0.4s
     const o = catcher || P;
     // on a short screen the stamp takes the top third, so the capture sits a little below the middle
@@ -860,9 +927,9 @@
     if (!replay) { save.floor = floorN + 1; save.best = Math.max(save.best, floorN + 1); }
     persist();
     clearInfo = { prev, total: starTotal(), unlocked: skinsOpen(starTotal()) > skinsOpen(before) ? SKINS[skinsOpen(starTotal()) - 1] : null };
-    clearStick(); clearToast(); chaseHintT = 0; dimHUD(true);
+    clearStick(true); clearToast(); chaseHintT = 0; dimHUD(true);
     fx.push({ k: 'burst', x: L.exit.x, y: L.exit.y, t: 0, dur: 0.9, c: '#ffffff' });
-    const z = baseZ() * 1.25, dy = H < 500 ? H * 0.22 : W >= 1000 ? H * 0.18 : H * 0.06;   // below the stamp, its stars and the 'Up the stairs' line
+    const z = baseZ() * 1.25, dy = H < 500 ? H * 0.34 : W >= 1000 ? H * 0.33 : H * 0.10;   // well below the stamp, its stars and pills: the block ends ~60% down on its side or on a desktop
     shot = { x0: view.x, y0: view.y, z0: view.z, x: L.exit.x, y: L.exit.y - dy / z, z };
     res = { k: 'clear', stage: 0, at: 0.75, stars: [] };
   }
@@ -877,7 +944,7 @@
       const more = replay && gotStars > ci.prev ? ` · +${gotStars - ci.prev}\u2605` : '';
       const un = ci.unlocked ? `<div class="sub unlock"><i style="background:${ci.unlocked.c}"></i>${ci.unlocked.name} unlocked</div>` : '';
       r.innerHTML = `<div class="sub above">Floor ${floorN}</div><div class="stamp clear">CLEAR</div><div class="stars">${st}</div>` +
-        `<div class="sub tally">${gotStars}/3${more} · total ${ci.total}\u2605</div>${un}<div class="sub foot">${replay ? 'Back to the floors…' : 'Up the stairs…'}</div>`;
+        `<div class="sub tally">${gotStars ? `${gotStars}/3${more} · total ${ci.total}\u2605` : `Floor ${floorN} done`}</div>${un}<div class="sub foot">${replay ? 'Back to the floors…' : 'Up the stairs…'}</div>`;
       for (let i = 0; i < gotStars; i++) res.stars.push(modeT + 0.35 + i * 0.18);
     }
     r.className = 'show';
@@ -949,7 +1016,8 @@
     if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : pad ? 'Left stick to move: push it fully or hold RT to run, LT to creep. Y opens the map.' : 'Hold the mouse to move, or click to go there. Point further away to go faster. Stay out of the light.'); }
     if (mode === 'play') { updatePlayer(dt); stats.time += dt; if (knockCD > 0) knockCD = Math.max(0, knockCD - dt); }
     syncKnock();
-    const live = mode === 'play' || mode === 'caught' || mode === 'title' || mode === 'clear';
+    // a clear freezes the floor: nobody walks under the stamp or across its stars
+    const live = mode === 'play' || mode === 'caught' || mode === 'title';
     if (live && !overview) { for (const gd of guards) if (!(mode === 'caught' && gd === catcher)) updateGuard(gd, dt); for (const c of cams) updateCam(c, dt); }
     // the catcher is frozen, so his '!' is aged here: updateGuard is the only other place it grows
     if (mode === 'caught' && catcher && catcher.bubble) catcher.bubble.t += dt;
@@ -1061,14 +1129,9 @@
     g.beginPath();
     for (const s of L.obs) polyPath(U.sweep(s, LIGHT.x, LIGHT.y));
     for (const d of L.doors) if (!d.open) polyPath(U.sweep(d.shape, LIGHT.x, LIGHT.y));
-    charShadowPaths();
     g.fillStyle = COL.shadow; g.fill('nonzero');
-    // depth: the floor glows toward the middle of the screen and falls about 15% darker at the corners
-    const R = Math.hypot(W, H) / 2 / z, fg = g.createRadialGradient(view.x, view.y, 0, view.x, view.y, R);
-    fg.addColorStop(0, 'rgba(120,200,220,0.12)'); fg.addColorStop(0.45, 'rgba(120,200,220,0)');
-    fg.addColorStop(0.75, 'rgba(10,40,56,0.1)'); fg.addColorStop(1, 'rgba(10,40,56,0.24)');
-    g.fillStyle = fg; g.fillRect(view.x - R, view.y - R, R * 2, R * 2);
     drawShades(z);
+    charShadows();
     drawStairs(L.entrance, false, z);
     drawStairs(L.exit, true, z);
     drawCones();
@@ -1076,6 +1139,12 @@
     // walls and pillars
     g.beginPath(); for (const s of L.obs) shapePath(s); g.fillStyle = COL.wall; g.fill();
     drawDoors(z);
+    // the light: the floor is lit most in the middle of the screen (#4596AE) and falls to about #2A6A80
+    // at the corners; the walls dim with it, so the frame reads as one lit room rather than a flat plan
+    const R = Math.hypot(W, H) / 2 / z, fg = g.createRadialGradient(view.x, view.y, 0, view.x, view.y, R);
+    fg.addColorStop(0, 'rgba(24,72,90,0)'); fg.addColorStop(0.32, 'rgba(24,72,90,0)');
+    fg.addColorStop(0.7, 'rgba(24,72,90,0.26)'); fg.addColorStop(1, 'rgba(24,72,90,0.56)');
+    g.fillStyle = fg; g.fillRect(view.x - R, view.y - R, R * 2, R * 2);
     g.restore();
 
     drawNoise(z);
@@ -1088,17 +1157,15 @@
     drawFlash();
   }
 
-  // hiding spots: a faint pool of shade inside a thin white ring (15%), with barely-there hatching,
-  // so they read as places to stand without competing with the player and the cones
+  // hiding spots: a plain pool of shade, softer at its edge, inside a faint pale ring, so they read as
+  // places to stand in the teal palette without adding a pattern or a hue to the frame
   function drawShades(z) {
     for (const s of L.shades) {
       const inside = P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r;
-      g.save();
-      g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fillStyle = 'rgba(18,64,82,0.12)'; g.fill(); g.clip();
-      g.strokeStyle = 'rgba(255,255,255,0.05)'; g.lineWidth = 2; g.beginPath();
-      for (let i = -s.r * 2; i <= s.r * 2; i += 9) { g.moveTo(s.x + i - s.r, s.y - s.r); g.lineTo(s.x + i + s.r, s.y + s.r); }
-      g.stroke(); g.restore();
-      g.strokeStyle = inside ? 'rgba(190,240,255,0.85)' : 'rgba(255,255,255,0.15)'; g.lineWidth = 1.5;
+      const pool = g.createRadialGradient(s.x, s.y, s.r * 0.5, s.x, s.y, s.r);
+      pool.addColorStop(0, 'rgba(22,74,92,0.3)'); pool.addColorStop(1, 'rgba(22,74,92,0.12)');
+      g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fillStyle = pool; g.fill();
+      g.strokeStyle = inside ? 'rgba(190,240,255,0.85)' : 'rgba(220,244,250,0.12)'; g.lineWidth = 1.5;
       if (inside) { g.setLineDash([4, 4]); g.lineDashOffset = time * 10; }
       g.beginPath(); g.arc(s.x, s.y, s.r - 1, 0, TAU); g.stroke(); g.setLineDash([]);
     }
@@ -1128,35 +1195,31 @@
     g.restore();
   }
 
-  // a cone is a lit sector: the visibility polygon from the guard, so walls cut it only along straight
-  // rays out of the guard, and its free edge is one smooth arc. Each is filled with light that is
-  // brightest at the guard (about #8CD2E4 at 55%) and fades toward the arc (#5FAEC6 at 25%). It is
-  // laid on with 'screen', the way light adds up: the shading underneath still reads through it, and
-  // where two cones cross the ground gets brighter without ever blowing out to a flat block.
-  // Only a guard (or camera) in full alarm turns its cone red.
+  // a cone is a sector: the visibility polygon from the guard, so walls cut it only along straight
+  // rays out of the guard, and its free edge is one smooth arc. Every calm cone goes into one path,
+  // filled once in one flat cyan (#6CC3D8 at 38%): every cone winds the same way, so with 'nonzero'
+  // overlaps merge into the same tint instead of stacking into brighter patches, and the shading
+  // underneath still reads through. Only a guard (or camera) in full alarm turns its cone red.
   function conePath(path, p) {
     path.moveTo(p[0], p[1]);
     for (let i = 2; i < p.length; i += 2) path.lineTo(p[i], p[i + 1]);
     path.closePath();
   }
+  // on a clear the guards, cameras and their light step back, so the stairs and the stamp own the frame
+  const clearFade = () => mode === 'clear' ? 1 - 0.6 * U.smooth(U.clamp(modeT / 0.4, 0, 1)) : 1;
   function drawCones() {
-    const calm = [], hot = [];
-    const add = (o, len, isCam) => {
+    const calm = new Path2D(), hot = new Path2D();
+    let nHot = 0;
+    const add = (o, isCam) => {
       const p = o.cone; if (!p) return;
-      const one = new Path2D(); conePath(one, p);
-      (o.state === 'chase' || (isCam && o.alarm > 0) ? hot : calm).push({ path: one, x: p[0], y: p[1], len });
+      if (o.state === 'chase' || (isCam && o.alarm > 0)) { conePath(hot, p); nHot++; } else conePath(calm, p);
     };
-    for (const gd of guards) add(gd, D.coneLen, false);
-    for (const c of cams) add(c, D.coneLen * 1.05, true);
-    const fill = (c, near, far) => {
-      const gr = g.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.len);
-      gr.addColorStop(0, near); gr.addColorStop(1, far);
-      g.fillStyle = gr; g.fill(c.path);
-    };
-    g.save(); g.globalCompositeOperation = 'screen';
-    for (const c of calm) fill(c, COL.coneNear, COL.coneFar);
-    g.restore();
-    for (const c of hot) fill(c, COL.coneHot, COL.coneHotFar);
+    for (const gd of guards) add(gd, false);
+    for (const c of cams) add(c, true);
+    const fa = clearFade(); if (fa < 1) { g.save(); g.globalAlpha *= fa; }
+    g.fillStyle = COL.cone; g.fill(calm, 'nonzero');
+    if (nHot) { g.fillStyle = COL.coneHot; g.fill(hot, 'nonzero'); }
+    if (fa < 1) g.restore();
   }
 
   function star(x, y, r, rot) {
@@ -1169,15 +1232,14 @@
       if (s.got) continue;
       const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + s.x);
       g.fillStyle = `rgba(240,240,160,${0.1 + pulse * 0.08})`; g.beginPath(); g.arc(s.x, s.y, 9.5 + pulse, 0, TAU); g.fill();
-      star(s.x + 1.5, s.y + 2, 7.5, time * 0.6); g.fillStyle = 'rgba(20,70,85,0.45)'; g.fill();
+      blob(s.x, s.y, 13);
       star(s.x, s.y, 7.5, time * 0.6); g.fillStyle = COL.star; g.fill();
     }
     for (const k of L.keys) {
       if (k.got) continue;
       const bob = Math.sin(time * 3 + k.x) * 1.5;
-      g.fillStyle = k.color.c + '1f'; g.beginPath(); g.arc(k.x, k.y, 9.5, 0, TAU); g.fill();
+      blob(k.x, k.y, 13);
       g.save(); g.translate(k.x, k.y + bob); g.rotate(-0.5);
-      g.fillStyle = 'rgba(20,60,75,0.5)'; g.fillRect(-7 + 2, -5 + 3, 14, 10);
       g.fillStyle = k.color.c; g.fillRect(-7, -5, 14, 10);
       g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(-4, -2, 8, 2.2);
       g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(-4, 1.5, 3, 1.5);
@@ -1191,24 +1253,31 @@
       g.save(); g.globalAlpha = a;
       // a slab like the walls with the key's colour set into it: plain enough not to fight the cones
       g.beginPath(); shapePath(d.shape); g.fillStyle = COL.wall; g.fill(); g.clip();
-      g.strokeStyle = d.color.c; g.lineWidth = 5; g.globalAlpha = a * 0.85;
+      g.strokeStyle = d.color.c; g.lineWidth = 3.5; g.globalAlpha = a * 0.7;
       g.beginPath(); shapePath(d.shape); g.stroke();
-      g.globalAlpha = a * 0.35; g.lineWidth = 2;
-      const c = U.centroid(d.shape);
-      g.beginPath(); for (let i = -48; i <= 48; i += 16) { g.moveTo(c.x + i - 20, c.y - 20); g.lineTo(c.x + i + 20, c.y + 20); } g.stroke();
       g.restore();
     }
   }
 
-  function charSweep(x, y, ang, size, k) {
-    const s = U.rect(x, y, size, size, ang);
-    polyPath(U.sweep(s, LIGHT.x * k, LIGHT.y * k));
+  // a soft capsule shadow on the floor, about 1.5 times the thing's size along the walls' shadow
+  // direction: a wide faint halo under a tighter core, so it anchors without a hard edge
+  const SH_DIR = (() => { const l = Math.hypot(LIGHT.x, LIGHT.y); return { x: LIGHT.x / l, y: LIGHT.y / l }; })();
+  function blob(x, y, size) {
+    const a = 0.3 * size, b = 0.8 * size;
+    g.save(); g.lineCap = 'round'; g.strokeStyle = COL.blob;
+    const a0 = g.globalAlpha;
+    g.globalAlpha = a0 * 0.45; g.lineWidth = size * 1.3;
+    g.beginPath(); g.moveTo(x + SH_DIR.x * a, y + SH_DIR.y * a); g.lineTo(x + SH_DIR.x * b, y + SH_DIR.y * b); g.stroke();
+    g.globalAlpha = a0 * 0.75; g.lineWidth = size * 0.95;
+    g.beginPath(); g.moveTo(x + SH_DIR.x * a, y + SH_DIR.y * a); g.lineTo(x + SH_DIR.x * b, y + SH_DIR.y * b); g.stroke();
+    g.restore();
   }
-  // the characters' shadows join the walls' in one path (see render): same angle, same tone, and as
-  // long against their size as a wall's is against its height
-  function charShadowPaths() {
-    for (const gd of guards) charSweep(gd.x, gd.y, gd.ang, G_SIZE * G_LOOK, CHAR_K);
-    if (P && P.scale > 0) charSweep(P.x, P.y, P.ang, P_SIZE * P_LOOK * P.scale, CHAR_K);
+  function charShadows() {
+    g.save(); g.globalAlpha *= clearFade();   // the shadows step back with the guards on a clear
+    for (const gd of guards) blob(gd.x, gd.y, G_SIZE * G_LOOK);
+    for (const c of cams) blob(c.x, c.y, 18);
+    g.restore();
+    if (P && P.scale > 0) blob(P.x, P.y, P_SIZE * P_LOOK * P.scale);
   }
   function rsq(x, y, s, ang, r) {
     g.save(); g.translate(x, y); g.rotate(ang);
@@ -1216,14 +1285,15 @@
     g.beginPath(); g.moveTo(-h + r, -h); g.arcTo(h, -h, h, h, r); g.arcTo(h, h, -h, h, r); g.arcTo(-h, h, -h, -h, r); g.arcTo(-h, -h, h, -h, r); g.closePath();
   }
   function drawChars(z) {
+    g.save(); g.globalAlpha *= clearFade();
     // cameras: a blue eye on the wall
     for (const c of cams) {
-      const hot = c.alarm > 0, rgb = hot ? '255,90,70' : '90,170,255';
+      const hot = c.alarm > 0, rgb = hot ? '255,90,70' : '150,220,236';
       const gl = g.createRadialGradient(c.x, c.y, 8, c.x, c.y, 13);
       gl.addColorStop(0, `rgba(${rgb},0.4)`); gl.addColorStop(1, `rgba(${rgb},0)`);
       g.fillStyle = gl; g.beginPath(); g.arc(c.x, c.y, 13, 0, TAU); g.fill();
       g.fillStyle = '#0f2a4a'; g.beginPath(); g.arc(c.x, c.y, 9, 0, TAU); g.fill();
-      g.strokeStyle = hot ? '#ff7a62' : '#6cc4ff'; g.lineWidth = 2.4; g.beginPath(); g.arc(c.x, c.y, 8.2, 0, TAU); g.stroke();
+      g.strokeStyle = hot ? '#ff7a62' : '#9fdcea'; g.lineWidth = 2.4; g.beginPath(); g.arc(c.x, c.y, 8.2, 0, TAU); g.stroke();
       g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(c.x, c.y, 5, 3.4, c.ang, 0, TAU); g.fill();
       g.fillStyle = '#10204a'; g.beginPath(); g.arc(c.x + Math.cos(c.ang) * 1.6, c.y + Math.sin(c.ang) * 1.6, 2.1, 0, TAU); g.fill();
     }
@@ -1238,6 +1308,7 @@
       g.fillStyle = vc; g.fillRect(gs / 2 - 5, -gs / 2 + 3.5, 3, gs - 7);
       g.restore();
     }
+    g.restore();
     if (P && P.scale > 0) {
       // drawn larger than its footprint, with a warm glow: the brightest, warmest thing on the floor
       const s = P_SIZE * P_LOOK * P.scale;
@@ -1346,7 +1417,7 @@
       // caught: the mark rides above both squares, so it never sits on the player
       const top = caughtNow && P ? Math.min(s.y, toScreen(P.x, P.y).y) : s.y;
       const x = s.x, y = top - (h + 14) * k - 12 * (kk - k), red = glyph === '!';
-      g.save(); g.globalAlpha = caughtNow ? 1 : b.a;
+      g.save(); g.globalAlpha = (caughtNow ? 1 : b.a) * cf;
       // the moment a '!' goes up the guard's square flashes white for a beat (0.15s), as the original's does
       if (b.k === '!' && b.t < 0.15 && o.ang !== undefined && h === G_SIZE) {
         const gs = G_SIZE * G_LOOK * view.z;
@@ -1394,8 +1465,10 @@
       g.lineWidth = 1.5; g.strokeStyle = 'rgba(21,54,74,0.7)'; g.stroke();
       g.restore();
     };
-    for (const gd of guards) { meter(gd); one(gd, G_SIZE); edge(gd); }
-    for (const c of cams) { meter(c); one(c, 8); edge(c); }
+    // a clear: the guards' marks and meters fade with them, under the stamp
+    const cf = clearFade(); g.save(); g.globalAlpha = cf;
+    if (cf > 0.02) { for (const gd of guards) { meter(gd); one(gd, G_SIZE); edge(gd); } for (const c of cams) { meter(c); one(c, 8); edge(c); } }
+    g.restore();
     for (const f of fx) if (f.k === 'fly') {
       // from where the star lay to its slot in the HUD, arcing a little, shrinking to the slot's size
       const sp = $('hudStars').children[f.slot]; if (!sp) continue;
@@ -1474,6 +1547,11 @@
       $('pStars').innerHTML = [0, 1, 2].map(i => `<span class="${i < gotStars ? 'on' : ''}">★</span>`).join('');
       const total = Object.entries(save.stars).reduce((a, [f, v]) => a + (+f === floorN ? 0 : v), 0) + Math.max(gotStars, save.stars[floorN] || 0);
       $('pTotal').textContent = `${total} ★ this run`;
+      // the legend speaks to whatever is in your hand
+      const tail = ' Dark pools hide you. Keys open doors of their colour. Three ★ on every floor.';
+      $('pLegend').textContent = (pad ? 'Left stick to move: push it fully or hold RT to run, LT to creep. X knocks, Y opens the map.'
+        : isTouch ? 'Push the stick gently to sneak, all the way to run (running is loud).'
+        : 'Point near the player to creep, further to walk, far to run (running is loud). Click to go there. E knocks.') + tail;
     }
   }
   function toggleMap() {
@@ -1514,8 +1592,9 @@
   function titleAim() {
     if (isPortrait()) { const z = overviewZ() * 1.02; return { x: floorBox.cx, y: floorBox.cy - H * 0.22 / z, z }; }
     // on its side the text block is centred at ~31% of the width (see #title in index.html); the floor fills the right 44%
-    const z = Math.min(overviewZ(), (W * 0.44) / floorBox.w, (H - 60) / floorBox.h);
-    return { x: floorBox.cx - W * 0.25 / z, y: floorBox.cy, z };
+    // on a desktop the wordmark is wide: the floor sits a little smaller and further right, clear of its last letter
+    const big = W >= 1000, z = Math.min(overviewZ(), (W * (big ? 0.40 : 0.44)) / floorBox.w, (H - 60) / floorBox.h);
+    return { x: floorBox.cx - W * (big ? 0.28 : 0.25) / z, y: floorBox.cy, z };
   }
   function startGame() {
     if (floorsShown()) return;
@@ -1533,13 +1612,13 @@
     floorsFrom = from;
     const total = starTotal(), open = skinsOpen(total), top = save.floor - 1;   // this building's floors, climbed and cleared
     const next = open < SKINS.length ? ` · next colour at ${open * STARS_PER_SKIN}\u2605` : '';
-    $('flMeta').textContent = `${total}\u2605 of ${top * 3}${next}`;
+    $('flMeta').textContent = top ? `${total}\u2605 of ${top * 3}${next}` : `No floors cleared yet${next}`;
     let h = '';
     for (let n = 1; n <= top; n++) {
       const k = save.stars[n] || 0;
       h += `<button class="flTile${k === 3 ? ' full' : ''}" data-n="${n}" aria-label="Floor ${n}, ${floorName(n)}, ${k} of 3 stars"><b>${n}</b><span class="nm">${floorName(n)}</span><span class="st">${starStr(k)}</span></button>`;
     }
-    $('flGrid').innerHTML = h || '<div class="meta">Clear a floor to play it again here.</div>';
+    $('flGrid').innerHTML = h || '<div class="meta flEmpty">Clear a floor to play it again here.</div>';
     $('flSkins').innerHTML = SKINS.map((sk, i) => i < open
       ? `<button class="skin${i === save.skin ? ' on' : ''}" data-i="${i}" style="--c:${sk.c};--lo:${sk.lo}" aria-label="${sk.name}"></button>`
       : `<button class="skin locked" disabled style="--c:${sk.c};--lo:${sk.lo}" aria-label="${sk.name}, ${i * STARS_PER_SKIN} stars"><span>${i * STARS_PER_SKIN}\u2605</span></button>`).join('');
