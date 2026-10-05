@@ -33,7 +33,7 @@
   let L = null, field = null, nav = null, D = null, floorN = 1;
   let P = null, guards = [], cams = [], fx = [], time = 0;
   let mode = 'boot', modeT = 0, paused = false, overview = false;
-  const view = { x: 0, y: 0, z: 1, shake: 0, lead: { x: 0, y: 0 } };
+  const view = { x: 0, y: 0, z: 1, shake: 0, lead: { x: 0, y: 0 }, locked: false };
   let floorBox = null, spottedCD = 0, hmmCD = 0, lockedCD = 0, gotStars = 0;
   let stats = { caught: 0, time: 0 };
   let checkpoint = null, graceCP = false;   // graceCP: just respawned at a checkpoint, so nobody's meter fills for 1.5s   // the last door you opened on this floor: a capture after it starts you there, keys and stars kept
@@ -878,26 +878,9 @@
   }
   function updateView(dt) {
     let tx, ty, tz, rate = 4;
-    // look ahead: ease a lead toward where the player is really going, so a run doesn't carry them into a cone off screen
-    let lx = 0, ly = 0;
-    if (mode === 'play' && !overview && P.alive) {
-      // per axis, so the long side of a phone is used: the lead pushes the player toward the back of a box on screen, and the box
-      // leaves room for the stick (below in portrait, so running down stops higher than running up stops low)
-      const z = baseZ(), port = isPortrait();
-      const bx = port || !isTouch ? 0 : (save.stickSide === 'left' ? -90 : 90) / z, by = port && isTouch ? 90 / z : 0;
-      const fx = port ? [0.28, 0.72] : [0.3, 0.7], fy = port ? [0.22, 0.64] : [0.3, 0.7];
-      // the player sits on screen at centre - (lead + base + follow) * z, so these keep them inside fx/fy
-      const axis = (v, b, f, S) => {
-        const lo = (0.5 - f[1]) * S / z - b - v / 7, hi = (0.5 - f[0]) * S / z - b - v / 7;
-        return lo > hi ? 0 : U.clamp(v * 1.5, Math.min(0, lo), Math.max(0, hi));   // it only ever reins the lead in, never pushes it out
-      };
-      lx = axis(P.avx, bx, fx, W); ly = axis(P.avy, by, fy, H);
-    }
-    // reach out briskly; on a stop, hold the frame a moment so the player stops where they appear to, then settle back slowly
-    const idle = Math.hypot(lx, ly) < 6;
-    view.idleT = idle ? (view.idleT || 0) + dt : 0;
-    const lk = idle ? (view.idleT < 0.35 ? 0 : 1 - Math.exp(-dt * 2)) : 1 - Math.exp(-dt * 4);
-    view.lead.x += (lx - view.lead.x) * lk; view.lead.y += (ly - view.lead.y) * lk;
+    // Joe: "anchor the camera to the character" — no look-ahead, no lead that eases out on a run and settles back on a stop,
+    // which slid the floor about under the cursor. Once the camera has eased onto the player it is locked to them: the
+    // player sits at one fixed spot on the screen and only the floor moves, so a click lands where you aimed it.
     if (mode === 'title') { tx = floorBox.cx + Math.sin(time * 0.05) * 30; ty = floorBox.cy + Math.cos(time * 0.04) * 20; tz = overviewZ() * 1.02; rate = 1; }
     else if ((mode === 'caught' || mode === 'clear') && shot) {
       // close in on the capture (or the stairs) on a fixed curve: easeOutCubic over 0.4s, then hold
@@ -908,12 +891,14 @@
     }
     else if ((mode === 'intro' && modeT < 1.3) || overview) { tx = floorBox.cx; ty = floorBox.cy + (isPortrait() ? 0 : 0); tz = overviewZ(); rate = overview ? 5 : 3; }
     else {
-      // the follow aims where the player will be when it catches up, so the lag doesn't eat the lead
-      rate = 7; tx = P.x + view.lead.x + P.avx / rate; ty = P.y + view.lead.y + P.avy / rate; tz = baseZ();
-      if (isPortrait() && isTouch) ty += 90 / tz;   // the stick sits at the bottom: keep the player above the middle
+      tx = P.x; ty = P.y; tz = baseZ();
+      if (isPortrait() && isTouch) ty += 90 / tz;   // the stick sits at the bottom: keep the player above the middle (a fixed offset, never moving)
       else if (isTouch) tx += (save.stickSide === 'left' ? -90 : 90) / tz;   // on its side the stick sits in a corner: keep the player clear of it
-      if (mode === 'intro') rate = 2.6;
+      if (mode === 'play' && view.locked) { view.x = tx; view.y = ty; view.z = tz; view.shake = Math.max(0, view.shake - dt * 2.2); return; }
+      rate = mode === 'intro' ? 2.6 : 6;   // the one ease: from the map, the intro or a respawn onto the player, then the lock
+      if (mode === 'play' && Math.hypot(tx - view.x, ty - view.y) * view.z < 1.5 && Math.abs(tz / view.z - 1) < 0.01) view.locked = true;
     }
+    if (mode !== 'play' || overview) view.locked = false;
     const k = 1 - Math.exp(-dt * rate);
     view.x += (tx - view.x) * k; view.y += (ty - view.y) * k;
     view.z *= Math.pow(tz / view.z, k);
