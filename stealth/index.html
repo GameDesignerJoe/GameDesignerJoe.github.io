@@ -106,6 +106,10 @@
   .card .row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
   .card .legend { font-size: 12.5px; line-height: 1.5; opacity: .8; margin-top: 4px; }
   body:not([data-landscape]) #optStick { }
+  #ver { position: fixed; left: calc(env(safe-area-inset-left) + 10px); bottom: calc(env(safe-area-inset-bottom) + 6px); z-index: 7; font-size: 11px; letter-spacing: .5px;
+    color: rgba(233,245,248,.75); text-shadow: 0 1px 2px rgba(18,49,63,.5); }
+  #ver button { font: inherit; color: inherit; background: none; border: 0; padding: 4px 2px; text-decoration: underline; text-underline-offset: 2px; touch-action: manipulation; }
+  @media (orientation: landscape) { body[data-stick=left] #ver { left: auto; right: calc(env(safe-area-inset-right) + 10px); } }
   #dbg { position: fixed; left: 8px; bottom: 6px; font: 11px monospace; color: #fff; z-index: 9; pointer-events: none; }
 </style>
 </head>
@@ -162,9 +166,34 @@
 <div id="wipe"></div>
 <div id="dbg"></div>
 
-<script src="js/util.js"></script>
-<script src="js/level.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/game.js"></script>
+<div id="ver"><span id="verNum">v—</span> · <button id="hardRefresh" type="button">refresh</button></div>
+<script>
+// The version is the number of commits that have touched stealth/, so it goes up by itself with
+// every update. Asked of GitHub once a load; the last answer is kept for when that fails.
+(function () {
+  const el = document.getElementById('verNum');
+  try { const k = localStorage.getItem('unseen.ver'); if (k) el.textContent = k; } catch (e) {}
+  fetch('https://api.github.com/repos/GameDesignerJoe/GameDesignerJoe.github.io/commits?path=stealth&per_page=1', { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw 0; const m = /[?&]page=(\d+)>; rel="last"/.exec(r.headers.get('link') || ''); return m ? +m[1] : r.json().then(a => a.length); })
+    .then(n => { const v = 'v0.' + n; el.textContent = v; try { localStorage.setItem('unseen.ver', v); } catch (e) {} })
+    .catch(() => {});
+  // A hard refresh: drop any service worker and cache, then reload with every script fetched fresh
+  document.getElementById('hardRefresh').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (err) {}
+    try { for (const k of await caches.keys()) await caches.delete(k); } catch (err) {}
+    const u = new URL(location.href); u.searchParams.set('r', Date.now().toString(36));
+    location.replace(u.toString());
+  });
+  // the game's scripts, cache-busted after a hard refresh
+  const bust = new URLSearchParams(location.search).get('r');
+  const files = ['js/util.js', 'js/level.js', 'js/audio.js', 'js/game.js'];
+  (function next(i) {
+    if (i >= files.length) return;
+    const s = document.createElement('script'); s.src = files[i] + (bust ? '?r=' + bust : '');
+    s.onload = () => next(i + 1); document.body.appendChild(s);
+  })(0);
+})();
+</script>
 </body>
 </html>
