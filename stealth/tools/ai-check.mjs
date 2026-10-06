@@ -299,7 +299,7 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
 // a camera alarm only sends guards with a real way to where it saw you (nearest by that way), never one through a wall or a locked door
 {
   let alarms = 0, sent = 0, bad = 0;
-  for (const [seed, fl] of [[903, 8], [22, 8], [308, 4], [5, 9], [14, 12], [41, 10], [60, 6]]) {
+  for (const [seed, fl] of [[903, 8], [22, 8], [308, 4], [5, 9], [14, 12], [41, 10], [60, 6], [19, 7], [100, 5], [105, 10], [106, 11], [107, 12]]) {
     await page.evaluate(([s, n]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(n); GAME.skipIntro(); GAME.stick.on = false; }, [seed, fl]); await wait(200);
     const r = await page.evaluate(() => new Promise(res => {
       const c = GAME.cams[0]; if (!c) return res(null);

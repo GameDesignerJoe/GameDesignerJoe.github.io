@@ -8,26 +8,26 @@
   let W = 0, H = 0, DPR = 1;
 
   const COL = {
-    floor: '#4596ae', shadow: '#2b6d83', deep: '#225d71',
-    wall: '#c9dfe5',
+    // two floor values, lit and shadowed, so a room reads as one flat plane under one light
+    floor: '#4396ae', shadow: '#2f7790',
+    wall: '#d6e9ee',
     player: '#ff8a3d', playerHi: '#ffc896', playerLo: '#b84f17',
     guard: '#15364a', guardHi: '#2b566c', guardRim: '#cfe6ee',
     star: '#f3e57e',
-    // calm cones: one soft pale-cyan light (about #6CC0D6 at a third over the floor) that fades towards the tip;
-    // they're gathered on a layer that keeps the brightest of them, so two crossing fans never add up
-    coneNear: 'rgb(34,66,76)', coneFar: 'rgb(12,26,30)',
+    // calm cones: one flat light-cyan wedge (about #5CB1C6 on the lit floor, #4B9AB1 in shadow) with a lighter
+    // band along its arc; they're gathered on a layer that keeps the brightest of them, so crossing fans never add up
+    coneFill: 'rgb(34,66,76)', coneRim: 'rgb(70,110,120)',
     coneHot: 'rgba(255,76,52,0.62)', coneEdgeHot: 'rgba(255,120,90,0.9)',
-    // the soft shadow under a character or pickup, and the floor's slab shadow on the void
-    blob: 'rgba(22,74,92,0.55)', voidShade: 'rgba(38,92,110,0.24)',
+    // the floor's slab shadow on the void: one flat tone, so the building's edge stands off the outside
+    voidShade: 'rgba(34,86,106,0.26)',
   };
-  // the light comes from the top left, so everything throws its shadow down and to the right:
-  // a long band at 45 degrees, about 2.5 times a wall's thickness (13), so half a room sits in shade.
-  // Shadows are swept into one shape per tone, so neighbours merge: a soft fringe, the shadow,
-  // and a deeper core hugging the thing that casts it -- void, lit floor, shadow, deep shadow
-  const LIGHT = { x: 34, y: 34 }, RIM = 30;   // RIM: how deep the void's shade reaches onto the floor
-  const PEN = 1.2, CORE = 0.42;               // the fringe's and the core's reach, as a share of LIGHT
-  // characters are drawn a little larger than their footprint (G_LOOK, P_LOOK); each sits on a soft
-  // capsule shadow about twice its size, thrown the walls' way
+  // one light, from the top left: everything throws one flat shadow down and to the right at 45 degrees,
+  // about twice a wall's thickness (13) along each axis. Every caster's shadow is swept into one shape and
+  // filled once in one tone, so neighbours merge into one region: void, lit floor, shadow, and nothing else
+  const LIGHT = { x: 26, y: 26 }, RIM = 26;   // RIM: how deep the void's shade reaches onto the floor
+  const SMALL = 0.45;                          // characters and pickups are low: their shadow is this share of LIGHT
+  // characters are drawn a little larger than their footprint (G_LOOK, P_LOOK); each throws the same flat
+  // shadow as the walls, just shorter, merged into the walls' shape
   const G_LOOK = 1.15;
   // the player's square is exactly its footprint across (2 * P_R), so a flat face sits flush on a wall it slides along;
   // P_R matches the guards' G_R, the clearance every floor is built and checked for
@@ -68,13 +68,13 @@
   let L = null, field = null, nav = null, D = null, floorN = 1;
   let P = null, guards = [], cams = [], fx = [], time = 0;
   let mode = 'boot', modeT = 0, paused = false, overview = false;
-  const view = { x: 0, y: 0, z: 1, shake: 0, lead: { x: 0, y: 0 }, locked: false, ease: null };
+  const view = { x: 0, y: 0, z: 1, shake: 0, lead: { x: 0, y: 0 }, locked: false, ease: null, ov: null };
   let floorBox = null, popT = null, spottedCD = 0, hmmCD = 0, lockedCD = 0, gotStars = 0, knockCD = 0;   // knockCD: seconds until the knock is ready again
   let stats = { caught: 0, time: 0 };
   let replay = false, clearInfo = null;   // replay: a floor played again from the list, for its stars; it doesn't move the climb
   let checkpoint = null, graceCP = false;   // graceCP: just respawned at a checkpoint, so nobody's meter fills for 1.5s   // the last door you opened on this floor: a capture after it starts you there, keys and stars kept
   // the caught and clear sequences run on game time (modeT), so a pause holds them and a quit cancels them
-  let safeTop = 0, res = null, catcher = null, shot = null, wipeJob = null, bannerT = 0, chaseHintT = 0;
+  let safeTop = 0, safeL = 0, safeR = 0, res = null, catcher = null, shot = null, wipeJob = null, bannerT = 0, chaseHintT = 0;
 
   // ── input ──────────────────────────────────────────────────
   const stick = { on: false, x: 0, y: 0 }, keys = {};
@@ -162,7 +162,8 @@
       const dx = (btn(15) ? 1 : 0) - (btn(14) ? 1 : 0), dy = (btn(13) ? 1 : 0) - (btn(12) ? 1 : 0);
       // RT or RB runs, LT or LB creeps, like Shift and Ctrl on the keys
       const run = btn(7) || btn(5), creep = btn(6) || btn(4);
-      if (dx || dy) { const l = Math.hypot(dx, dy); return { x: dx / l * 0.58, y: dy / l * 0.58, dz: 0, run, creep }; }
+      // the D-pad walks under the heard line; with LT or LB held it creeps, like C or Space on the keys
+      if (dx || dy) { const l = Math.hypot(dx, dy), s = creep && !run ? 0.16 : 0.58; return { x: dx / l * s, y: dy / l * s, dz: 0, run, creep: false }; }
       return { x: p.axes[0] || 0, y: p.axes[1] || 0, dz: 0.15, run, creep };
     }
     return null;
@@ -267,7 +268,7 @@
     P = { x: L.entrance.x, y: L.entrance.y, ang: exitAng, vx: 0, vy: 0, avx: 0, avy: 0, alive: true, hidden: false, keys: [], stepT: 0, run: false, moving: false, scale: 1, m: 0 };
     guards = L.guards.map((d, i) => ({
       ...d, id: i, home: { x: d.x, y: d.y, ang: d.ang }, state: 'patrol', aw: 0, wait: 0, route: null, ri: 0,
-      repath: 0, lost: 0, last: null, bubble: null, cone: null, sweep: Math.random() * 10, stuck: 0, lastPos: { x: d.x, y: d.y }, scanT: 0,
+      repath: 0, lost: 0, last: null, bubble: null, cone: null, sweep: d.sweep0 || 0, stuck: 0, lastPos: { x: d.x, y: d.y }, scanT: 0,
     }));
     cams = L.cams.map((c) => ({ ...c, ang: c.base, aw: 0, alarm: 0, cone: null, bubble: null }));
     fx = []; gotStars = 0; knockCD = 0; overview = false; $('mapBtn').classList.remove('on'); stickEl.classList.remove('mapdim');
@@ -362,13 +363,13 @@
     // a quiet walk up to the dashed ring, a loud run past it; the gap between 0.8 and 0.88 stops thumb jitter flicking between them.
     // Joe: the walk wants more room before the run — the stick is 25% bigger for it and the run starts further out.
     if (inp.kb || inp.force) P.run = m > 0.9;
-    else if (inp.isPad) { if (P.run ? m < 0.74 : m > 0.82) P.run = !P.run; }   // worn pad sticks rarely report a full 1.0 on a diagonal
+    else if (inp.isPad) { if (P.run ? m < 0.78 : m > 0.86) P.run = !P.run; }   // worn pad sticks rarely report a full 1.0 on a diagonal, but a worn rest near 0.83 mustn't run
     else if (inp.mouse) { if (P.run ? m < 0.8 : m > 0.88) P.run = !P.run; }
     else if (P.run ? m < 0.8 : m > 0.88 && (time - stickDownT > 0.12 || bolting())) P.run = !P.run;   // never a run on the first touch, unless it's an escape
     let speed = 0;
     if (m > 0) speed = P.run ? U.lerp(98, 128, U.clamp((m - 0.88) / 0.12, 0, 1)) : 24 + 51 * Math.min(1, m / 0.85);
     P.m = m;   // only the run is heard
-    stickEl.classList.toggle('run', stick.on && P.run);
+    stickEl.classList.toggle('run', (stick.on || inp.isPad) && P.run);   // a pad's run lights the knob too, where the stick shows
     stickEl.classList.toggle('loud', stick.on && !P.run && m > 0.6);   // the heard band of the walk, before the ring
     const tvx = inp.x * speed, tvy = inp.y * speed;
     const acc = 1 - Math.exp(-dt * (Math.hypot(tvx, tvy) < Math.hypot(P.vx, P.vy) ? 30 : 24));   // quick off the mark, quicker to a stop beside a cone
@@ -379,6 +380,7 @@
     const want = Math.hypot(P.vx, P.vy) * dt, ix = inp.x, iy = inp.y;
     const prog = (P.x - before.x) * ix + (P.y - before.y) * iy;
     const wg = field.grad(before.x, before.y);
+    let slipped = false;
     if (want > 0.05 && m > 0 && prog < want * 0.5 && -(wg.x * ix + wg.y * iy) > 0.78 && field.sample(before.x, before.y) >= P_R) {
       // a doorway just missed, the square still half over the opening: if a step across the push (a little past the player's whole
       // width either way) opens a clear way on through, slip that way instead. The step is square to the push, not along the
@@ -393,6 +395,26 @@
       if (bt) { P.x = before.x; P.y = before.y; const st = Math.min(Math.abs(bt), want) * Math.sign(bt); field.move(P, tx * st, ty * st, P_R); }
       // no gap: a push almost straight into a wall stays put, rather than creeping sideways along a slightly tilted wall normal
       else if (Math.hypot(P.x - before.x, P.y - before.y) < want * 0.14) { P.x = before.x; P.y = before.y; }
+      slipped = !!bt;
+    }
+    // a thumb roughly along a wall: the plain slide keeps only the wall-wise share of the push (40 degrees off head-on slides at
+    // 0.64), which feels sticky. Against the wall, with a fair share of the push along it, the slide is topped up to at least
+    // 0.85 of the step (eased in between 13 and 20 degrees off head-on, so there's no snap). A push almost straight in still
+    // creeps or stays put as before. Only on a plain stretch of wall: where the wall turns (an inside corner's crease), the
+    // tangent there points nowhere the thumb asked
+    if (!slipped && want > 0.05 && m > 0 && prog < want * 0.9 && field.sample(P.x, P.y) < P_R + 0.5) {
+      const gn = field.grad(P.x, P.y);
+      let tx = -gn.y, ty = gn.x, ti = tx * ix + ty * iy;
+      if (ti < 0) { tx = -tx; ty = -ty; ti = -ti; }
+      const ga = field.grad(P.x + tx * 3, P.y + ty * 3);
+      if (ti > 0.22 && ga.x * gn.x + ga.y * gn.y > 0.9) {
+        const s = (P.x - before.x) * tx + (P.y - before.y) * ty, goal = speed * dt * Math.max(ti, 0.85 * U.clamp((ti - 0.22) / 0.12, 0, 1));   // of the asked-for step: the blocked velocity has already shrunk
+        if (s < goal) {
+          const kx = P.x, ky = P.y;
+          field.move(P, tx * (goal - s), ty * (goal - s), P_R);
+          if ((P.x - before.x) * ix + (P.y - before.y) * iy < prog) { P.x = kx; P.y = ky; }   // never lose ground on the push
+        }
+      }
     }
     // what the walls let through: the camera leads on this, and a blocked push doesn't build up speed
     const mvx = (P.x - before.x) / dt, mvy = (P.y - before.y) / dt, ak = 1 - Math.exp(-dt * 10);
@@ -924,7 +946,10 @@
       return;
     }
     if (s && !(graceCP && mode === 'play' && modeT < 1.5)) {
-      c.ang = U.turnTo(c.ang, camTrack(c), dt * 1.2);
+      // a glimpse doesn't lock it on: under half its meter it keeps to its sweep (the '?' up), so a lane
+      // crossed on timing is crossed, as the floor's timed check assumes; past half it follows you
+      if (c.aw < 0.5) { c.phase += dt * TAU / c.period; c.ang = U.turnTo(c.ang, c.base + Math.sin(c.phase) * c.amp, dt * 1.5); }
+      else c.ang = U.turnTo(c.ang, camTrack(c), dt * 1.2);
       c.aw = Math.min(1, c.aw + dt * D.detect * 0.9);
       if (!c.bubble) { bubble(c, '?'); if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.5; } }
       if (c.aw >= 1) {
@@ -1020,7 +1045,7 @@
       const more = replay && gotStars > ci.prev ? ` · +${gotStars - ci.prev}\u2605` : '';
       const un = ci.unlocked ? `<div class="sub unlock"><i style="background:${ci.unlocked.c}"></i>${ci.unlocked.name} unlocked</div>` : '';
       r.innerHTML = `<div class="sub above">Floor ${floorN}</div><div class="stamp clear">CLEAR</div><div class="stars">${st}</div>` +
-        `<div class="sub tally">${gotStars ? `${gotStars}/3${more} · total ${ci.total}\u2605` : `No stars this time · total ${ci.total}\u2605`}</div>${un}<div class="sub foot">${replay ? 'Back to the floors…' : 'Up the stairs…'}</div>`;
+        (gotStars || ci.total ? `<div class="sub tally">${gotStars}/3${more} · total ${ci.total}\u2605</div>` : '') + `${un}<div class="sub foot">${replay ? 'Back to the floors…' : 'Up the stairs…'}</div>`;
       for (let i = 0; i < gotStars; i++) res.stars.push(modeT + 0.35 + i * 0.18);
     }
     r.className = 'show';
@@ -1068,13 +1093,17 @@
   }
 
   // ── the loop ───────────────────────────────────────────────
-  let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 60;
+  let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 60, stickIdleT = 0;
   function frame(now) {
     requestAnimationFrame(frame);
     let dt = Math.min(0.05, (now - last) / 1000); last = now; lastDt = dt;
     fpsAcc += dt; fpsN++; if (fpsAcc > 1) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
     readPad();
     stepWipe(dt);
+    // a resting stick steps back after 1.5s, so it does not sit over the floor; a touch brings it straight back
+    stickIdleT = stick.on || mode !== 'play' ? 0 : stickIdleT + dt;
+    const idle = stickIdleT > 1.5 && mode === 'play';
+    if (idle !== stickEl.classList.contains('idle')) { stickEl.classList.toggle('idle', idle); $('knockBtn').classList.toggle('idle', idle); }
     const chrome = mode === 'title' || paused;
     if (chrome !== document.body.classList.contains('chrome')) document.body.classList.toggle('chrome', chrome);
     if (!paused && L) step(dt);
@@ -1089,7 +1118,7 @@
     if (chaseHintT > 0 && mode === 'play') { chaseHintT -= dt; if (chaseHintT <= 0) { chaseHintT = 0; hint('chase', 'Seen! Break their line of sight. They\'ll search where they lost you.'); } }
     stepResult();
     // the touch that skips the intro also moves: control comes as the camera starts to close in, not 0.8s later
-    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : pad ? 'Left stick to move: push it fully or hold RT to run, LT to creep. Y opens the map.' : 'Hold the mouse to move, or click to go there. Point further away to go faster. Stay out of the light.'); }
+    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : pad ? 'Left stick or D-pad to move: push it fully or hold RT to run, LT to creep. Y opens the map.' : 'Hold the mouse to move, or click to go there. Point further away to go faster. Stay out of the light.'); }
     if (mode === 'play') { updatePlayer(dt); stats.time += dt; if (knockCD > 0) knockCD = Math.max(0, knockCD - dt); }
     syncKnock();
     // a clear freezes the floor: nobody walks under the stamp or across its stars
@@ -1146,6 +1175,7 @@
   }
   function updateView(dt) {
     let tx, ty, tz, rate = 4;
+    if (!overview) view.ov = null;
     // Joe: "anchor the camera to the character" — no look-ahead, no lead that eases out on a run and settles back on a stop,
     // which slid the floor about under the cursor. Once the camera has eased onto the player it is locked to them: the
     // player sits at one fixed spot on the screen and only the floor moves, so a click lands where you aimed it.
@@ -1157,11 +1187,21 @@
       view.shake = Math.max(0, view.shake - dt * 2.2);
       return;
     }
+    else if (overview && mode === 'play') {
+      // the map opens on the same fixed curve the close uses (easeOutCubic, here over 0.3s), so M or the map button reads as instant
+      const o = overviewFrame();
+      if (!view.ov) view.ov = { x0: view.x, y0: view.y, z0: view.z, t: 0 };
+      const ov = view.ov; ov.t += dt;
+      const e = 1 - Math.pow(1 - Math.min(1, ov.t / 0.3), 3);
+      view.x = U.lerp(ov.x0, o.x, e); view.y = U.lerp(ov.y0, o.y, e); view.z = ov.z0 * Math.pow(o.z / ov.z0, e);
+      view.locked = false; view.ease = null; view.shake = Math.max(0, view.shake - dt * 2.2);
+      return;
+    }
     else if ((mode === 'intro' && modeT < 1.3) || overview) { const o = overviewFrame(); tx = o.x; ty = o.y; tz = o.z; rate = overview ? 5 : 3; }
     else {
       tx = P.x; ty = P.y; tz = baseZ();
-      if (isPortrait() && isTouch) ty += 60 / tz;   // the stick sits at the bottom: keep the player above the middle (a fixed offset, never moving)
-      else if (isTouch) tx += (save.stickSide === 'left' ? -90 : 90) / tz;   // on its side the stick sits in a corner: keep the player clear of it
+      if (isPortrait() && isTouch) ty += (H > 800 ? 80 : 60) / tz;   // the stick sits at the bottom: keep the player above the middle (a fixed offset, never moving); a tall phone lifts them more, so a guard from below shows sooner
+      else if (isTouch) tx += (save.stickSide === 'left' ? -120 : 120) / tz;   // on its side the stick sits in a corner: keep the player and the floor ahead clear of it
       if (mode === 'play' && view.locked) { view.x = tx; view.y = ty; view.z = tz; view.shake = Math.max(0, view.shake - dt * 2.2); return; }
       if (mode === 'play') {
         // the one ease onto the player (from the map, the intro or a respawn): a fixed 0.35s easeOutCubic measured from the
@@ -1219,6 +1259,18 @@
     g.beginPath();
     for (const s of L.obs) if (onView(s, dx, dy)) sweepPath(s, dx, dy);
     for (const d of L.doors) if (!d.open && onView(d.shape, dx, dy)) sweepPath(d.shape, dx, dy);
+    // the low things: characters, pickups and the stairs, each a round shadow slid a shorter way
+    const sx = dx * SMALL, sy = dy * SMALL;
+    const low = (x, y, r) => { if (x + r + sx >= vx0 && x - r <= vx1 && y + r + sy >= vy0 && y - r <= vy1) posPath(U.sweep({ k: 'c', x, y, r }, sx, sy)); };
+    const lowSq = (x, y, h) => posPath(U.sweep({ pts: [{ x: x - h, y: y - h }, { x: x + h, y: y - h }, { x: x + h, y: y + h }, { x: x - h, y: y + h }] }, sx, sy));
+    for (const gd of guards) low(gd.x, gd.y, G_SIZE * G_LOOK * 0.5);
+    for (const c of cams) low(c.x, c.y, 9);
+    if (P && P.scale > 0 && !P.hidden) low(P.x, P.y, P_SIZE * P_LOOK * P.scale * 0.5);
+    if (mode !== 'clear') {
+      for (const st of L.stars) if (!st.got) low(st.x, st.y, 6);
+      for (const k of L.keys) if (!k.got) low(k.x, k.y, 6.5);
+    }
+    lowSq(L.exit.x, L.exit.y, 14);
   }
   // a shape's box (kept on it), and whether that box, stretched by a shadow's (dx, dy), meets the view
   let vx0 = 0, vy0 = 0, vx1 = 0, vy1 = 0;
@@ -1245,14 +1297,14 @@
       bgCv = bgCv || document.createElement('canvas'); bgCv.width = cv.width; bgCv.height = cv.height;
       const b = bgCv.getContext('2d'); b.setTransform(DPR, 0, 0, DPR, 0, 0);
       bgGrad = b.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.hypot(W, H) * 0.62);
-      bgGrad.addColorStop(0, '#d2e8ed'); bgGrad.addColorStop(0.55, '#a9cad3'); bgGrad.addColorStop(1, '#5f8996');
+      bgGrad.addColorStop(0, '#bed8de'); bgGrad.addColorStop(0.55, '#97b9c3'); bgGrad.addColorStop(1, '#58808d');
       b.fillStyle = bgGrad; b.fillRect(0, 0, W, H);
       // the light: lit most in the middle of the screen, falling off toward the corners (padded for the shake)
       fogCv = fogCv || document.createElement('canvas'); fogCv.width = cv.width + 2 * FOG_PAD * DPR; fogCv.height = cv.height + 2 * FOG_PAD * DPR;
       const f = fogCv.getContext('2d'); f.setTransform(DPR, 0, 0, DPR, FOG_PAD * DPR, FOG_PAD * DPR);
       const fg = f.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.hypot(W, H) / 2);
       fg.addColorStop(0, 'rgba(24,72,90,0)'); fg.addColorStop(0.32, 'rgba(24,72,90,0)');
-      fg.addColorStop(0.7, 'rgba(24,72,90,0.26)'); fg.addColorStop(1, 'rgba(24,72,90,0.56)');
+      fg.addColorStop(0.7, 'rgba(24,72,90,0.14)'); fg.addColorStop(1, 'rgba(24,72,90,0.36)');
       f.fillStyle = fg; f.fillRect(-FOG_PAD, -FOG_PAD, W + 2 * FOG_PAD, H + 2 * FOG_PAD);
     }
     g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(bgCv, 0, 0); g.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -1266,25 +1318,20 @@
     // the world rect on screen (with a margin for the shake), for culling what can't be seen
     { const hw = W / 2 / z + 24, hh = H / 2 / z + 24; vx0 = view.x - hw; vx1 = view.x + hw; vy0 = view.y - hh; vy1 = view.y + hh; }
 
-    // the floor is a raised slab: it throws the same long shadow onto the void, soft at its edge
+    // the floor is a raised slab: it throws the same flat shadow onto the void
     g.fillStyle = COL.voidShade;
-    g.beginPath(); for (const s of L.floor) sweepPath(s, LIGHT.x * PEN, LIGHT.y * PEN); g.fill('nonzero');
-    g.beginPath(); for (const s of L.floor) sweepPath(s, LIGHT.x * 0.75, LIGHT.y * 0.75); g.fill('nonzero');
+    g.beginPath(); for (const s of L.floor) sweepPath(s, LIGHT.x, LIGHT.y); g.fill('nonzero');
 
     // the floor, and everything that lies on it, inside the floor's outline
     g.save();
     g.beginPath(); for (const s of L.floor) shapePath(s); g.clip();
-    g.fillStyle = COL.deep; g.fillRect(floorBox.x0 - 50, floorBox.y0 - 50, floorBox.w + 100, floorBox.h + 100);
-    // the void's edge shades the floor like a wall would: a deep core along it, then the shadow, then lit floor
-    g.beginPath(); for (const s of L.floor) shapePath(s, RIM * CORE, RIM * CORE); g.fillStyle = COL.shadow; g.fill();
+    g.fillStyle = COL.shadow; g.fillRect(floorBox.x0 - 50, floorBox.y0 - 50, floorBox.w + 100, floorBox.h + 100);
+    // the void's edge shades the floor like a wall would: one band of shadow along it, then lit floor
     g.beginPath(); for (const s of L.floor) shapePath(s, RIM, RIM); g.fillStyle = COL.floor; g.fill();
-    // the walls', pillars' and doors' shadows: each tone is one swept shape filled once, so where shadows
-    // overlap (or fall into the rim) they merge into one region instead of stacking into offset copies
-    castPath(PEN); g.globalAlpha = 0.45; g.fillStyle = COL.shadow; g.fill('nonzero'); g.globalAlpha = 1;
+    // every shadow -- walls, pillars, doors, characters, pickups -- is one swept shape filled once in one
+    // tone, so where shadows overlap (or fall into the rim) they merge instead of stacking
     castPath(1); g.fillStyle = COL.shadow; g.fill('nonzero');
-    castPath(CORE); g.fillStyle = COL.deep; g.fill('nonzero');
     drawShades(z);
-    charShadows();
     drawStairs(L.entrance, false, z);
     drawStairs(L.exit, true, z);
     drawCones();
@@ -1292,8 +1339,8 @@
     // walls and pillars
     g.beginPath(); for (const s of L.obs) if (onView(s, 0, 0)) shapePath(s); g.fillStyle = COL.wall; g.fill();
     drawDoors(z);
-    // the light: the floor is lit most in the middle of the screen (#4596AE) and falls to about #2A6A80
-    // at the corners; the walls dim with it, so the frame reads as one lit room rather than a flat plan
+    // the light: the floor is lit most in the middle of the screen (#4396AE) and falls a little
+    // toward the corners; the walls dim with it, so the frame reads as one lit room rather than a flat plan
     // (still inside the floor's clip, which holds in device space; the restore puts the world transform back)
     g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(fogCv, (shx - FOG_PAD) * DPR, (shy - FOG_PAD) * DPR);
     g.restore();
@@ -1308,18 +1355,20 @@
     drawFlash();
   }
 
-  // hiding spots: a plain pool of shade, soft at its edge, so they read as places to stand
-  // without adding rings, a pattern or a hue to the frame
+  // hiding spots: a crisp, flat disc of darker floor with a faint pale lip, so they read as places to
+  // stand -- a hole in the light, not a smudge -- in the lit floor and in shadow alike
   function drawShades(z) {
+    g.beginPath(); let any = false;
     for (const s of L.shades) {
       if (s.x + s.r < vx0 || s.x - s.r > vx1 || s.y + s.r < vy0 || s.y - s.r > vy1) continue;
-      const inside = P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r;
-      const pool = g.createRadialGradient(s.x, s.y, s.r * 0.5, s.x, s.y, s.r);
-      pool.addColorStop(0, 'rgba(22,74,92,0.24)'); pool.addColorStop(1, 'rgba(22,74,92,0.04)');
-      g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fillStyle = pool; g.fill();
-      if (!inside) continue;
-      // the pool you're in deepens a little: no ring, no dash, just more shade
-      g.fillStyle = 'rgba(16,58,74,0.22)'; g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fill();
+      g.moveTo(s.x + s.r, s.y); g.arc(s.x, s.y, s.r, 0, TAU); any = true;
+    }
+    if (!any) return;
+    g.fillStyle = 'rgba(24,82,104,0.42)'; g.fill();
+    g.lineWidth = 1.5; g.strokeStyle = 'rgba(214,236,241,0.22)'; g.stroke();
+    // the pool you're in deepens a little: no ring, no dash, just more shade
+    for (const s of L.shades) if (P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r) {
+      g.fillStyle = 'rgba(16,58,74,0.25)'; g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fill();
     }
   }
 
@@ -1332,9 +1381,7 @@
       gl.addColorStop(0, 'rgba(230,255,255,0.4)'); gl.addColorStop(1, 'rgba(230,255,255,0)');
       g.fillStyle = gl; g.beginPath(); g.arc(0, 0, 35, 0, TAU); g.fill();
     }
-    // its shadow, then the steps themselves
-    g.fillStyle = up ? 'rgba(20,70,85,0.5)' : 'rgba(20,70,85,0.3)';
-    g.beginPath(); posPath(U.sweep({ pts: [{ x: -s / 2, y: -s / 2 }, { x: s / 2, y: -s / 2 }, { x: s / 2, y: s / 2 }, { x: -s / 2, y: s / 2 }] }, 9, 9)); g.fill();
+    // the steps (the exit's shadow is in the one shadow shape)
     g.fillStyle = up ? '#eef9fb' : 'rgba(200,230,236,0.35)';
     g.beginPath(); g.rect(-s / 2, -s / 2, s, s); g.fill();
     g.strokeStyle = up ? '#4a9db2' : 'rgba(40,110,128,0.6)'; g.lineWidth = 2;
@@ -1349,9 +1396,9 @@
 
   // a cone is a sector: the visibility polygon from the guard, so walls cut it only along straight
   // rays out of the guard (the pale walls drawn on top trim it clean), and its free edge is one arc.
-  // The calm cones are one soft light: each is laid on a dark layer as a gradient from the eye to the
-  // tip, keeping the brightest at every pixel ('lighten'), and the layer is screened over the floor once,
-  // so a fan is plain, unstroked and fading, and two crossing fans never brighten past one.
+  // The calm cones are one light: each is laid on a dark layer as a flat fill with a lighter band at its
+  // arc, keeping the brightest at every pixel ('lighten'), and the layer is screened over the floor once,
+  // so a fan is one solid unstroked wedge, and two crossing fans never brighten past one.
   // A guard (or camera) in full alarm turns its cone red, drawn over the top.
   function conePath(path, p) {
     path.moveTo(p[0], p[1]);
@@ -1398,7 +1445,7 @@
         for (const o of calm) {
           const p = o.cone, len = coneLen(p), path = new Path2D(); conePath(path, p); conePath(all, p);
           const gr = c.createRadialGradient(p[0], p[1], 0, p[0], p[1], len + 1);
-          gr.addColorStop(0, COL.coneNear); gr.addColorStop(0.55, COL.coneNear); gr.addColorStop(1, COL.coneFar);
+          gr.addColorStop(0, COL.coneFill); gr.addColorStop(0.84, COL.coneFill); gr.addColorStop(0.865, COL.coneRim); gr.addColorStop(1, COL.coneRim);
           c.fillStyle = gr; c.fill(path);
         }
         // blend only where there is light: the cones' union clips the composite, so a wide view's empty box costs nothing
@@ -1437,15 +1484,11 @@
     g.save(); g.globalAlpha *= ia;
     for (const s of L.stars) {
       if (s.got) continue;
-      const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + s.x);
-      g.fillStyle = `rgba(240,240,160,${0.1 + pulse * 0.08})`; g.beginPath(); g.arc(s.x, s.y, 9.5 + pulse, 0, TAU); g.fill();
-      blob(s.x, s.y, 13);
       star(s.x, s.y, 7.5, time * 0.6); g.fillStyle = COL.star; g.fill();
     }
     for (const k of L.keys) {
       if (k.got) continue;
       const bob = Math.sin(time * 3 + k.x) * 1.5;
-      blob(k.x, k.y, 13);
       g.save(); g.translate(k.x, k.y + bob); g.rotate(-0.5);
       g.fillStyle = k.color.c; g.fillRect(-7, -5, 14, 10);
       g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(-4, -2, 8, 2.2);
@@ -1461,32 +1504,12 @@
       g.save(); g.globalAlpha = a;
       // a slab like the walls with the key's colour set into it: plain enough not to fight the cones
       g.beginPath(); shapePath(d.shape); g.fillStyle = COL.wall; g.fill(); g.clip();
-      g.strokeStyle = d.color.c; g.lineWidth = 3.5; g.globalAlpha = a * 0.7;
+      g.strokeStyle = d.color.c; g.lineWidth = 3; g.globalAlpha = a * 0.5;
       g.beginPath(); shapePath(d.shape); g.stroke();
       g.restore();
     }
   }
 
-  // a soft capsule shadow on the floor, about twice the thing's size along the walls' shadow
-  // direction: a wide faint halo under a tighter core, so it anchors without a hard edge
-  const SH_DIR = (() => { const l = Math.hypot(LIGHT.x, LIGHT.y); return { x: LIGHT.x / l, y: LIGHT.y / l }; })();
-  function blob(x, y, size) {
-    const a = 0.3 * size, b = 1.45 * size;
-    g.save(); g.lineCap = 'round'; g.strokeStyle = COL.blob;
-    const a0 = g.globalAlpha;
-    g.globalAlpha = a0 * 0.45; g.lineWidth = size * 1.3;
-    g.beginPath(); g.moveTo(x + SH_DIR.x * a, y + SH_DIR.y * a); g.lineTo(x + SH_DIR.x * b, y + SH_DIR.y * b); g.stroke();
-    g.globalAlpha = a0 * 0.75; g.lineWidth = size * 0.95;
-    g.beginPath(); g.moveTo(x + SH_DIR.x * a, y + SH_DIR.y * a); g.lineTo(x + SH_DIR.x * b, y + SH_DIR.y * b); g.stroke();
-    g.restore();
-  }
-  function charShadows() {
-    g.save(); g.globalAlpha *= clearFade();   // the shadows step back with the guards on a clear
-    for (const gd of guards) blob(gd.x, gd.y, G_SIZE * G_LOOK);
-    for (const c of cams) blob(c.x, c.y, 18);
-    g.restore();
-    if (P && P.scale > 0) blob(P.x, P.y, P_SIZE * P_LOOK * P.scale);
-  }
   function rsq(x, y, s, ang, r) {
     g.save(); g.translate(x, y); g.rotate(ang);
     const h = s / 2;
@@ -1648,15 +1671,24 @@
       g.restore();
     };
     const meterCol = (o) => (o.state === 'chase' || o.alarm > 0) ? '#ff5a44' : o.aw > 0.7 ? '#ff8a3d' : '#f3e57e';
-    const meter = (o) => {
+    const meter = (o, h) => {
       if (caughtNow || !(o.aw > 0) || o.state === 'chase' || o.alarm > 0) return;
-      // a full dark track, then the fill from twelve o'clock, yellow turning orange as it nears 'seen'
-      const s = toScreen(o.x, o.y), r = Math.max(15 * k, 18);
-      g.lineWidth = Math.max(4, 4.5 * k); g.lineCap = 'round'; g.strokeStyle = 'rgba(18,49,63,0.5)';
-      g.beginPath(); g.arc(s.x, s.y, r, 0, TAU); g.stroke();
+      // the meter rides over the head, round the spot the '?' takes: a dark track, then the fill from twelve o'clock,
+      // yellow turning orange as it nears 'seen'. A faint '?' sits in it from the first flicker, so it never reads as a selection ring.
+      const s = toScreen(o.x, o.y), kk = Math.max(11 * k, 13) / 11, x = s.x, y = s.y - (h + 14) * k - 12 * (kk - k), r = 17 * kk;
+      g.save(); g.globalAlpha = cf;
+      g.lineWidth = Math.max(3.5, 3.5 * k); g.lineCap = 'round'; g.strokeStyle = 'rgba(18,49,63,0.5)';
+      g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke();
       const t = U.clamp((o.aw - 0.5) / 0.5, 0, 1);
       g.strokeStyle = `rgb(${Math.round(U.lerp(243, 255, t))},${Math.round(U.lerp(229, 138, t))},${Math.round(U.lerp(126, 61, t))})`;
-      g.beginPath(); g.arc(s.x, s.y, r, -Math.PI / 2, -Math.PI / 2 + TAU * o.aw); g.stroke(); g.lineCap = 'butt';
+      g.beginPath(); g.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + TAU * o.aw); g.stroke();
+      if (!o.bubble) {
+        g.globalAlpha = 0.4 * cf;
+        g.font = `800 ${Math.round(26 * kk)}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.lineWidth = 3 * kk; g.strokeStyle = 'rgba(21,54,74,0.55)'; g.strokeText('?', x, y);
+        g.fillStyle = '#ffffff'; g.fillText('?', x, y);
+      }
+      g.restore();
     };
     // someone off screen has noticed you: a chevron on the edge points at them, in their meter's colour
     const top = safeTop + 64;
@@ -1665,8 +1697,9 @@
       if (!(o.aw > 0 || o.state === 'chase' || o.state === 'search' || o.alarm > 0)) return;
       const s = toScreen(o.x, o.y), m = 24;
       if (s.x > 0 && s.x < W && s.y > top - 40 && s.y < H) return;
-      const cx = W / 2, cy = (top + H) / 2, dx = s.x - cx, dy = s.y - cy;
-      const hw = W / 2 - m, hh = (H - top) / 2 - m;
+      // inside the notch and the home bar on every side, not just the top
+      const x0 = safeL + m, x1 = W - safeR - m, cx = (x0 + x1) / 2, cy = (top + H) / 2, dx = s.x - cx, dy = s.y - cy;
+      const hw = (x1 - x0) / 2, hh = (H - top) / 2 - m;
       const t = Math.min(Math.abs(dx) > 0.01 ? hw / Math.abs(dx) : Infinity, Math.abs(dy) > 0.01 ? hh / Math.abs(dy) : Infinity);
       const px = cx + dx * t, py = cy + dy * t, a = Math.atan2(dy, dx);
       const pulse = o.state === 'chase' || o.alarm > 0 ? 1 + 0.15 * Math.sin(time * 14) : 1;
@@ -1679,7 +1712,7 @@
     };
     // a clear: the guards' marks and meters fade with them, under the stamp
     const cf = clearFade(); g.save(); g.globalAlpha = cf;
-    if (cf > 0.02) { for (const gd of guards) { meter(gd); one(gd, G_SIZE); edge(gd); } for (const c of cams) { meter(c); one(c, 8); edge(c); } }
+    if (cf > 0.02) { for (const gd of guards) { meter(gd, G_SIZE); one(gd, G_SIZE); edge(gd); } for (const c of cams) { meter(c, 8); one(c, 8); edge(c); } }
     g.restore();
     for (const f of fx) if (f.k === 'fly') {
       // from where the star lay to its slot in the HUD, arcing a little, shrinking to the slot's size
@@ -1773,7 +1806,7 @@
       $('pTotal').textContent = `${total} ★ this run`;
       // the legend speaks to whatever is in your hand
       const tail = ' Dark pools hide you. Keys open doors of their colour. Three ★ on every floor.';
-      $('pLegend').textContent = (pad ? 'Left stick to move: push it fully or hold RT to run, LT to creep. X knocks, Y opens the map.'
+      $('pLegend').textContent = (pad ? 'Left stick or D-pad to move: push the stick fully or hold RT to run, LT to creep (on the D-pad too). X knocks, Y opens the map.'
         : isTouch ? 'Push the stick gently to sneak, all the way to run (running is loud).'
         : 'Point near the player to creep, further to walk, far to run (running is loud). Click to go there. E knocks.') + tail;
     }
@@ -1827,13 +1860,15 @@
     const big = W >= 1000, z = Math.min(overviewZ(), (W * (big ? 0.40 : 0.44)) / floorBox.w, (H - 60) / floorBox.h);
     return { x: floorBox.cx - W * (big ? 0.28 : 0.25) / z, y: floorBox.cy, z };
   }
+  // the HUD and the stick come back only once the cover is down: the floor tag must already name the floor you are on
+  function showChrome() { $('hud').classList.remove('gone'); stickEl.classList.remove('gone'); }
   function startGame() {
     if (floorsShown()) return;
     replay = false;
     AUDIO.unlock(); AUDIO.play('tap');
-    $('title').classList.remove('show'); $('hud').classList.remove('gone'); stickEl.classList.remove('gone');
+    $('title').classList.remove('show');
     mode = 'intro'; modeT = 0;   // the title's clock must not carry over, or the intro hands over to play (and spends the first hint) under the wipe
-    wipe(() => startFloor(save.floor));
+    wipe(() => { showChrome(); startFloor(save.floor); });   // the HUD comes back under the cover, so it never shows the attract floor's tag
   }
   // ── the floors you've climbed: any of them again, for the stars you missed ──
   // Floors replay exactly: each is generated from the run's seed and its number (and the kinds below it).
@@ -1865,9 +1900,9 @@
     replay = true; closeFloors(true);
     paused = false; AUDIO.duck(false); $('pause').classList.remove('show');
     AUDIO.unlock(); AUDIO.play('tap');
-    $('title').classList.remove('show'); $('hud').classList.remove('gone'); stickEl.classList.remove('gone');
+    $('title').classList.remove('show');
     mode = 'intro'; modeT = 0;
-    wipe(() => startFloor(n));
+    wipe(() => { showChrome(); startFloor(n); });
   }
   $('flGrid').addEventListener('click', (e) => { const b = e.target.closest('.flTile'); if (b) replayFloor(+b.dataset.n); });
   $('flSkins').addEventListener('click', (e) => {
@@ -1908,7 +1943,9 @@
     DPR = Math.min(2, window.devicePixelRatio || 1);
     W = document.documentElement.clientWidth; H = document.documentElement.clientHeight;
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-    safeTop = Math.max(0, (parseFloat(getComputedStyle($('hud')).paddingTop) || 10) - 10);
+    const hs = getComputedStyle($('hud'));
+    safeTop = Math.max(0, (parseFloat(hs.paddingTop) || 10) - 10);
+    safeL = Math.max(0, (parseFloat(hs.paddingLeft) || 14) - 14); safeR = Math.max(0, (parseFloat(hs.paddingRight) || 12) - 12);
   }
   addEventListener('resize', resize);
   addEventListener('orientationchange', () => setTimeout(resize, 200));
@@ -1932,7 +1969,7 @@
   window.GAME = {
     get mode() { return mode; }, get P() { return P; }, get guards() { return guards; }, get cams() { return cams; }, get L() { return L; },
     get view() { return view; }, get fps() { return fps; }, get floor() { return floorN; }, get save() { return save; },
-    startGame, startFloor: (n, retry) => { $('title').classList.remove('show'); $('hud').classList.remove('gone'); stickEl.classList.remove('gone'); mode = 'intro'; startFloor(n, retry); },
+    startGame, startFloor: (n, retry) => { $('title').classList.remove('show'); mode = 'intro'; showChrome(); startFloor(n, retry); },
     get checkpoint() { return checkpoint; }, get modeT() { return modeT; },
     skipIntro: () => { mode = 'play'; modeT = 0; view.x = P.x; view.y = P.y; view.z = baseZ(); $('banner').className = ''; },
     setOverview: (v) => { overview = v; stickEl.classList.toggle('mapdim', !!v); }, teleport: (x, y) => {

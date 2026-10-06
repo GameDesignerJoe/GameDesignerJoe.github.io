@@ -30,6 +30,13 @@
   .floorTag small { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; opacity: .85; display: block; }
   .floorTag .nm { font-size: 13px; letter-spacing: 1px; opacity: .95; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @media (max-width: 520px) { .floorTag .nm { font-size: 12px; max-width: min(140px, calc(50vw - 64px)); } }
+  /* upright phones: a slimmer tag (about 70x62), so the HUD takes less of the floor */
+  @media (orientation: portrait) and (max-width: 520px) {
+    .floorTag { padding: 3px 10px 4px 8px; gap: 2px; border-radius: 12px; }
+    .floorTag b { font-size: 26px; }
+    .floorTag small { font-size: 10px; }
+    .floorTag .nm { font-size: 11px; }
+  }
   /* caught / clear: the stamp owns the screen */
   #hud.dim, #stick.dim { opacity: 0; }
   #hud.dim .right { pointer-events: none; }
@@ -66,6 +73,7 @@
   #stick.run #knob { background: rgba(255,138,61,.85); border-color: #fff; }
   #stick.gone { opacity: 0; pointer-events: none; }
   #stick.mapdim:not(.gone):not(.dim) { opacity: .35; }   /* the map is up: the stick reads as resting (a first touch closes the map) */
+  #stick.idle:not(.on):not(.run):not(.gone):not(.dim):not(.mapdim) { opacity: .45; }   /* resting for 1.5s: it steps back off the floor (a touch, or a pad's run, brings it back) */
   @media (orientation: landscape) {
     #stick { left: auto; right: calc(env(safe-area-inset-right) + 26px); bottom: calc(env(safe-area-inset-bottom) + 16px); transform: none; width: 188px; height: 188px; }
     body[data-stick=left] #stick { right: auto; left: calc(env(safe-area-inset-left) + 26px); }
@@ -127,7 +135,7 @@
   @media (orientation: landscape) {
     #title { padding-right: 38vw; }
     #title::before { background: radial-gradient(ellipse 40% 45% at 31% 50%, rgba(18,49,63,.65), transparent); }
-    .credit { left: 0; width: 62vw; }
+    .credit { left: 31vw; transform: translateX(-50%); width: max-content; }
   }
   @media (orientation: portrait) {
     #title { justify-content: flex-start; padding-top: 22vh; }
@@ -146,7 +154,8 @@
   @media (max-width: 520px) { .tag { display: flex; flex-direction: column; align-items: center; } }
   .titleBtns { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   #titleMeta { color: var(--pale); font-size: 13px; letter-spacing: 2px; opacity: .9; min-height: 18px; text-shadow: 0 1px 0 rgba(18,49,63,.4); }
-  .credit { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 30px); color: rgba(233,245,248,.75); font-size: 11px; letter-spacing: 1px; text-align: center; padding: 0 20px; }
+  .credit { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 30px); color: rgba(233,245,248,.85); font-size: 11px; letter-spacing: 1px; text-align: center;
+    padding: 3px 10px; border-radius: 999px; background: rgba(18,49,63,.55); max-width: calc(100vw - 40px); box-sizing: border-box; }   /* its own pill: it reads over the attract floor */
 
   /* pause */
   #pause { position: fixed; inset: 0; z-index: 5; display: none; place-items: center; background: rgba(18,49,63,.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
@@ -235,6 +244,10 @@
     .card h2 { font-size: 38px; }
     .card button { font-size: 18px; padding: 14px; }
     .card .stars { font-size: 34px; }
+    .card .meta, .card .legend, body.desk .card .legend { font-size: 15px; }
+  }
+  @media (min-width: 1000px) and (min-height: 501px) {
+    #toast { font-size: 17px; padding: 12px 20px; max-width: 560px; top: calc(env(safe-area-inset-top) + 120px); }
   }
   /* the knock: beside the thumb's stick; its ring fills back up over six seconds */
   #knockBtn { position: fixed; z-index: 2; width: 54px; height: 54px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; color: var(--ink); touch-action: none;
@@ -255,6 +268,7 @@
   #hud.gone ~ #knockBtn { opacity: 0; pointer-events: none; }
   #hud.dim ~ #knockBtn { opacity: 0; pointer-events: none; }
   #hud.intro ~ #knockBtn { opacity: .35; }
+  #knockBtn.idle:not(:active) { opacity: .6; }
 
   /* the floors list: every floor climbed, its stars, and the colours they've bought */
   #floors { position: fixed; inset: 0; z-index: 5; display: none; place-items: center; background: rgba(18,49,63,.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }

@@ -187,7 +187,7 @@
     return {
       rooms: n <= 1 ? 3 : n <= 3 ? 4 : n <= 5 ? 5 : n <= 8 ? 6 : n <= 12 ? 7 : n <= 16 ? 8 : 9,   // the building keeps getting bigger as you climb
       sides: n <= 1 ? 1 : n <= 4 ? 1 : 2,
-      density: Math.min(0.9 + n * 0.12, 2.0),
+      density: Math.min(0.9 + n * 0.1, 1.8),
       coneLen: Math.min(132 + n * 5, 190),
       fov: 0.6 + U.clamp((n - 12) / 3, 0, 1) * 0.1,   // wider eyes past the twelfth floor
       patrol: Math.min(38 + n * 1.2, 46),   // a silent sneak (about 60) stays at least 1.25x a walker on every floor, so you can slip past or trail one
@@ -199,7 +199,7 @@
       // past the twelfth floor the rest stops growing, so a new pressure arrives every few floors:
       snap: n >= 13,        // sentries whose heads whip round
       camPairs: n >= 15,    // cameras in pairs across a room, sweeping in counterpoint
-      budget: n >= 22 ? 18 : n >= 16 ? 16 : 14,   // and, from the sixteenth (with sharper ears from the seventeenth), more of them
+      budget: n >= 22 ? 18 : n >= 16 ? 15 : 13,   // and, from the sixteenth (with sharper ears from the seventeenth), more of them
     };
   }
 
@@ -1020,11 +1020,16 @@
 
     // no leg of the floor is plugged: every way on has a lane each post's and camera's sweep leaves dark
     // for part of its cycle. The watcher that does most of the plugging comes down (a post tries another room)
+    // and every leg can be done on timing: a perfect sneak gets through the sweeps and the beats as they
+    // really come round, under half a meter (timedRoute). Short of that, whoever watches most of the plain
+    // way on comes down too, and after eight goes the floor is drawn again
     for (let t = 0; ; t++) {
       const fx = forcedExposure(L, field);
-      if (fx.cost <= 0.25) break;
-      if (t >= 8 || !fx.who) return null;
-      unplug(fx.who);
+      if (fx.cost > 0.25) { if (t >= 12 || !fx.who) return null; unplug(fx.who); continue; }
+      const tr = timedRoute(L, field);
+      if (tr.ok) break;
+      if (t >= 12 || !tr.who) return null;
+      unplug(tr.who);
     }
     if (n >= 2 && L.guards.length < 2) return null;
 
@@ -1536,6 +1541,8 @@
     // and the first door out of the stairs room is left clear of every beat, so the way on is a choice of timing
     const first = L.rooms.find(r => r.idx === 0 && !r.side).outConn.mouth;
     const offFirst = (p) => Math.hypot(first.x - p.x, first.y - p.y) > 90;
+    // and so is each locked door, both sides of it: you come through one into the open, not into a beat
+    const offLocks = (p) => L.doors.every(d => Math.hypot(d.conn.mouth.x - p.x, d.conn.mouth.y - p.y) > 90);
     // and nobody stands guard over a key: the pickup you must have is reached on timing, never through a
     // stare. A star is a dare instead: a post or a beat may come right up to one (but not stand on it)
     const offItems = (p, d) => L.keys.every(o => Math.hypot(o.x - p.x, o.y - p.y) > d) && L.stars.every(o => Math.hypot(o.x - p.x, o.y - p.y) > Math.min(d, 30));
@@ -1550,6 +1557,8 @@
       const face = Math.atan2(room.c.y - p.y, room.c.x - p.x) + R.range(-0.4, 0.4);
       // its sweep always swings wider than its eyes, so even the lane straight down its middle goes dark for part of the cycle
       const gd = { kind: 'sentry', x: p.x, y: p.y, ang: face, amp: Math.max(R.range(0.55, 1.05), D.fov + 0.25), snap: snap === undefined ? D.snap && R.chance(0.5) : snap };
+      // where its sweep starts, fixed by where it stands, so the timed check and the game keep the same clock
+      gd.sweep0 = Math.abs(p.x * 0.37 + p.y * 0.71) % 10;
       L.guards.push(gd); roomOf.set(gd, room);
       homes.push(p);
       return gd;
@@ -1569,14 +1578,15 @@
     };
 
     // how many in each room, then trimmed from the busiest rooms down to the floor's budget
-    const counts = new Map();
+    const counts = new Map(), small = (room) => (room.kind === 'circle' ? 2 * room.r : Math.max(room.w, room.h)) < 300;
     for (const room of L.rooms) {
       if (room.idx === 0 && !room.side && n < 4) continue;
       if (room.side && R.chance(n >= 2 ? 0.45 : 0.85)) continue;
       const area = room.kind === 'circle' ? Math.PI * room.r * room.r : room.w * room.h;
       let count = Math.max(1, Math.round(area / 100000 * D.density * R.range(0.8, 1.15)));
       if (n === 1) count = 1;
-      counts.set(room, Math.min(count, 3));
+      // and a small room holds at most two watchers (cameras too), so it is never crossed by three looks at once
+      counts.set(room, Math.min(count, small(room) ? 2 : 3));
     }
     const budget = Math.min(D.budget || 14, Math.round(4 + n * 0.8));
     for (let sum = [...counts.values()].reduce((a, b) => a + b, 0); sum > budget; sum--) {
@@ -1588,7 +1598,8 @@
       if (!counts.has(room)) continue;
       const count = counts.get(room);
       let cams = 0;
-      const camCap = (room.kind === 'circle' ? room.r : room.R) > 240 ? 2 : 1;
+      // no camera in a hall, a neck or a tower: there is no way round its look, only through it
+      const camCap = room.corr || room.neck || room.tower ? 0 : small(room) ? Math.max(0, 2 - count) : (room.kind === 'circle' ? room.r : room.R) > 240 ? 2 : 1;
       // doorways out of this room that a guard may walk through (never a locked one)
       const ways = L.conns.filter(c => (c.a === room || c.b === room) && !L.doors.some(d => d.conn === c));
       for (let k = 0, t = 0; k < count && t < 24; t++) {
@@ -1611,7 +1622,8 @@
               return Math.abs(U.angDiff(face, Math.atan2(dy, dx))) < amp + 0.42 + 0.2;
             });
           };
-          const amp = R.range(0.45, 0.85);
+          // its sweep swings well past its eyes, so the lane straight down its middle goes dark for a real while
+          const amp = R.range(0.68, 0.9);
           const camAt = (a) => {
             const e = extent(room, a);
             const inward = { x: room.c.x + Math.cos(a) * (e - 36), y: room.c.y + Math.sin(a) * (e - 36) };
@@ -1624,6 +1636,8 @@
             }
             if (!q || !okHome(q) || !farFromStart(q, 380) || nearMouth(q, 60) || !offItems(q, 75)) return null;
             if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 120) < 90) return null;   // a clear look into the room
+            // and a long one: a camera staring at a wall a few steps off is a tripwire, not a sweep you can time
+            if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 400) < 150) return null;
             if (sweepsMust(q, a + Math.PI, amp)) return null;
             return q;
           };
@@ -1665,6 +1679,8 @@
           }
           if (way.length < 2 || Math.hypot(way[0].x - way[1].x, way[0].y - way[1].y) < 100) continue;
         } else if (kind === 'patrol') {
+          // a round wants a room to walk: in a hall or a neck it would only mill about in the one way through
+          if (room.corr || room.neck) continue;
           const K = R.int(3, 5);
           for (let i = 0; i < K; i++) {
             const a = th + i * TAU / K + R.range(-0.3, 0.3), e = extent(room, a) * R.range(0.45, 0.72);
@@ -1672,7 +1688,12 @@
             if (p && way.every(w => Math.hypot(w.x - p.x, w.y - p.y) > 50)) way.push({ x: p.x, y: p.y, pause: R.chance(0.6) && !nearMouth(p, 60) ? R.range(0.4, 1.4) : 0, look: R.range(0.5, 1.1) });
           }
           if (way.length < 3) continue;
+          // and a round that never gets far from one spot is a post nobody can time: it spans the room
+          let span = 0; for (const a of way) for (const b of way) span = Math.max(span, Math.hypot(a.x - b.x, a.y - b.y));
+          if (span < 120) continue;
         } else {
+          // (the first floors keep their halls clear: the way between two rooms is learned before it is guarded)
+          if (n <= 2 && (room.corr || room.neck)) continue;
           const e = extent(room, th) * 0.62, e2 = extent(room, th + Math.PI) * 0.62;
           const a = field.nearestFree(room.c.x + Math.cos(th) * e, room.c.y + Math.sin(th) * e, 16, 50);
           const b = field.nearestFree(room.c.x - Math.cos(th) * e2, room.c.y - Math.sin(th) * e2, 16, 50);
@@ -1685,7 +1706,7 @@
         if (len > loopLen(way) * 1.7 + 60) continue;   // a route that wanders off to get round something
         // start somewhere along it, away from the entrance
         const si = R.int(0, path.length - 1), sp = path[si];
-        if (!okHome(sp) || !offItems(sp, 45) || path.some(q => !farFromStart(q, 200) || !offFirst(q))) continue;
+        if (!okHome(sp) || !offItems(sp, 45) || path.some(q => !farFromStart(q, 200) || !offFirst(q) || !offLocks(q))) continue;
         if (L.guards.length >= budget) break;
         const prev = path[(si - 1 + path.length) % path.length];
         // from the sixth floor some walkers finish a search by checking the nearest shade, more of them as you climb
@@ -1732,6 +1753,30 @@
     };
   }
 
+  // the checks below open the doors one at a time and shut them all again, many times a floor, so a door is
+  // laid in or out of the field on its own patch rather than the whole field being laid again. They take
+  // the field as generation leaves it, every door shut
+  const stampBox = (field, shape) => {
+    const bb = U.bbox(shape);
+    return { i0: Math.max(0, Math.floor((bb.x0 - CAP - field.x0) / G)), i1: Math.min(field.W - 1, Math.ceil((bb.x1 + CAP - field.x0) / G)),
+      j0: Math.max(0, Math.floor((bb.y0 - CAP - field.y0) / G)), j1: Math.min(field.H - 1, Math.ceil((bb.y1 + CAP - field.y0) / G)) };
+  };
+  const shut = (v, o) => (v < o ? v : o);
+  function openDoor(field, d) {
+    d.open = true;
+    const b = stampBox(field, d.shape), F = field.F, W = field.W;
+    for (let j = b.j0; j <= b.j1; j++) F.set(field.base.subarray(j * W + b.i0, j * W + b.i1 + 1), j * W + b.i0);
+    // the doors still shut whose patch overlaps this one are laid back in
+    for (const o of field.doors) {
+      if (o.open) continue;
+      const c = stampBox(field, o.shape);
+      if (c.i0 <= b.i1 && c.i1 >= b.i0 && c.j0 <= b.j1 && c.j1 >= b.j0) field._stamp(F, o.shape, shut);
+    }
+  }
+  function shutAll(field) {
+    for (const d of field.doors) if (d.open) { d.open = false; field._stamp(field.F, d.shape, shut); }
+  }
+
   // ── forced exposure ────────────────────────────────────────
   // The least of a guard's meter each leg of the floor makes you take (the stairs to the first key, on
   // to the next with its door open, ... to the stairs up), sneaking silently past whatever a post or a
@@ -1752,10 +1797,10 @@
       return w.post ? D.detect * (0.3 + 1.9 * Math.max(0, 1 - d / D.coneLen)) : D.detect * 0.9;
     };
     const worst = { cost: 0, who: null }, opened = [];
+    shutAll(field);
     let at = L.entrance;
     for (const tgt of L.keys.concat([L.exit])) {
-      for (const d of L.doors) d.open = opened.includes(d);
-      field.applyDoors();
+      for (const d of opened) if (!d.open) openDoor(field, d);
       const nav = new Nav(field, 11), n = nav.walk.length, NW = nav.W, step = nav.C / SNEAK;
       const cc = new Float32Array(n).fill(-1), who = new Int16Array(n).fill(-1);
       const cell = (k) => {
@@ -1804,11 +1849,258 @@
       if (tgt.door) opened.push(tgt.door);
       at = tgt;
     }
-    for (const d of L.doors) d.open = false;
-    field.applyDoors();
+    shutAll(field);
     return worst;
   }
 
-  root.LEVEL = { generate, difficulty, history, pickKind, Field, Nav, KEY_COLORS, starRisk, forcedExposure };
+  // ── timed route ────────────────────────────────────────────
+  // forcedExposure only asks whether a lane is ever dark; this asks whether you can get across it before
+  // the sweep or the beat comes back. A perfect sneak spreads out over a coarse grid in time, a cell a step
+  // (42 a second straight, 60 slant: never past a silent sneak), against every post, walker and
+  // camera where it really is at that moment (a cell counts as seen if any of it is). A camera's look
+  // costs what it adds to its meter, in twentieths; any guard's look, or coming within reach of one, ends
+  // the way. A leg (the stairs to a key, on through its door, ... to the stairs up) must be done in under
+  // half a camera's meter within 72 seconds of waiting and walking, never hiding or knocking: those are
+  // for getting out of trouble, so the floor is fair without them.
+  // Returns { ok } or, for the first leg no timing gets through, { ok: false, leg, who }: who being the
+  // watcher that sees most of the plain way on. With trace, plan is the way it found, { t, x, y } a step.
+  const trCache = new WeakMap();
+  function timedRoute(L, field, trace) {
+    const D = L.D, C = 24, DT = C * Math.SQRT2 / 60, P_R = 8.5, SLACK = 8, ASLACK = 0.1, BUDGET = 10, STEPS = Math.ceil(72 / DT), CLR = 10;
+    const GW = Math.ceil(field.W * G / C), GH = Math.ceil(field.H * G / C), n = GW * GH;
+    const cx = (k) => field.x0 + (k % GW + 0.5) * C, cy = (k) => field.y0 + (((k / GW) | 0) + 0.5) * C;
+    // where each watcher is, and where it looks, t seconds in: a guard's round is played through once by the
+    // game's own rules (its turn rate, the slow-down taking a corner, the look round at a stop), frame by
+    // frame, so the clock it keeps is the clock it keeps in play
+    const W = [], FR = 1 / 60;
+    const played = (o, frames, T) => ({ o, g: 1, len: D.coneLen, fov: D.fov, period: T, at: (t) => {
+      const f = Math.min(frames.length / 3 - 1, Math.floor((t % T) / FR)) * 3;
+      return { x: frames[f], y: frames[f + 1], a: frames[f + 2] };
+    } });
+    for (const g of L.guards) {
+      const fr = [];
+      if (!g.path) {
+        const sp = g.snap ? 1.6 : 1, T = TAU / 0.55 / sp;
+        let sw = g.sweep0 || 0, a = g.ang;
+        for (let t = 0; t < T; t += FR) {
+          sw += FR * sp;
+          const w = Math.sin(sw * 0.55), sh = Math.sign(w) * Math.min(1, Math.abs(w) * (g.snap ? 2.6 : 1.5));
+          a = U.turnTo(a, g.ang + sh * g.amp, FR * (g.snap ? 4 : 1.6));
+          fr.push(g.x, g.y, a);
+        }
+        W.push(played(g, fr, T));
+        continue;
+      }
+      // a lap of the beat, from its start back round to it
+      const P = g.path, N = P.length, o = { x: g.x, y: g.y, a: g.ang };
+      let pi = g.pi, wait = 0, waitMax = 0, waitAng = 0, laps = 0, t = 0;
+      for (; t < 400; t += FR) {
+        if (wait > 0) {
+          wait -= FR;
+          o.a = U.turnTo(o.a, waitAng + Math.sin((1 - wait / waitMax) * TAU) * (P[pi].look || 0.8), FR * 2.4);
+          if (wait <= 0) { pi = (pi + 1) % N; laps++; }
+        } else {
+          const q = P[pi], dx = q.x - o.x, dy = q.y - o.y, d = Math.hypot(dx, dy);
+          let there = d < 1.5;
+          if (!there) {
+            o.a = U.turnTo(o.a, Math.atan2(dy, dx), 3.2 * FR);
+            const m = Math.min(d, D.patrol * FR * Math.max(0.3, Math.cos(U.angDiff(o.a, Math.atan2(dy, dx)))));
+            o.x += dx / d * m; o.y += dy / d * m;
+            there = Math.hypot(q.x - o.x, q.y - o.y) < 3;
+          }
+          if (there && laps === N) break;   // round to where it set out: a lap
+          if (there) {
+            if (q.pause > 0) { wait = waitMax = q.pause; waitAng = o.a; }
+            else { pi = (pi + 1) % N; laps++; }
+          }
+        }
+        fr.push(o.x, o.y, o.a);
+      }
+      W.push(played(g, fr, fr.length / 3 * FR));
+    }
+    for (const c of L.cams) W.push({ o: c, g: 0, len: D.coneLen * 1.05, fov: 0.42, period: c.period, at: (t) => ({
+      x: c.x + Math.cos(c.base) * 6, y: c.y + Math.sin(c.base) * 6, a: c.base + Math.sin(c.phase + t * TAU / c.period) * c.amp }) });
+    // each watcher's look is worked out once per sample of its own cycle (and per set of open doors near
+    // it): a flat list of cell, cost pairs
+    for (const w of W) {
+      w.m = Math.max(1, Math.round(w.period / (DT / 4))); w.dt = w.period / w.m; w.fixed = !w.o.path;
+      let c = trCache.get(w.o);
+      if (!c || c.field !== field) trCache.set(w.o, c = { field, cache: new Map(), base: new Map() });
+      w.cache = c.cache; w.base = c.base;
+      // (the doors whose being open could change what it sees, from anywhere on its beat)
+      const pts = w.o.path || [w.at(0)];
+      w.doors = L.doors.filter(d => pts.some(p => Math.hypot(d.conn.mouth.x - p.x, d.conn.mouth.y - p.y) < w.len + 60));
+    }
+    // a post and a camera never move, so what they could see is traced once and only the sweep's angle
+    // picked out per sample; a walker's look is traced per sample, the angle first. Kept per watcher
+    // between retries of one floor, since only the one taken down changes
+    // a camera's look costs its meter; a guard's look costs the leg outright: one glimpse and it stops to
+    // stare (and a camera doesn't lock on till half way), so a route a guard sees any of is no route
+    const meter = (w) => w.g ? BUDGET + 1 : Math.ceil(D.detect * 0.9 * DT * 20);
+    const box = (p, R, fn) => {
+      const i0 = Math.max(0, Math.floor((p.x - R - field.x0) / C)), i1 = Math.min(GW - 1, Math.floor((p.x + R - field.x0) / C));
+      const j0 = Math.max(0, Math.floor((p.y - R - field.y0) / C)), j1 = Math.min(GH - 1, Math.floor((p.y + R - field.y0) / C));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const k = j * GW + i, dx = cx(k) - p.x, dy = cy(k) - p.y, d = Math.hypot(dx, dy);
+        if (d <= R && walk[k]) fn(k, dx, dy, d);
+      }
+    };
+    // in clear sight of any of the cell: its middle, or a little way out from it every way, so a wall's
+    // corner that hides the middle can't hide someone standing to one side of it
+    const clearTo = (p, dx, dy, d) => {
+      if (field.ray(p.x, p.y, dx / d, dy / d, d) >= d - P_R) return true;
+      for (const [ox, oy] of [[SLACK, 0], [-SLACK, 0], [0, SLACK], [0, -SLACK]]) {
+        const ex = dx + ox, ey = dy + oy, e = Math.hypot(ex, ey);
+        if (field.sample(p.x + ex, p.y + ey) > P_R && field.ray(p.x, p.y, ex / e, ey / e, e) >= e - P_R) return true;
+      }
+      return false;
+    };
+    const look = (w, s) => {
+      const sig = w.doors.map(d => d.open ? 1 : 0).join(''), key = s + ':' + sig;
+      let out = w.cache.get(key);
+      if (out) return out;
+      const p = w.at(s * w.dt), R = w.len + P_R + SLACK, list = [];
+      if (w.fixed) {
+        let base = w.base.get(sig);
+        if (!base) {
+          const b = [];
+          box(p, R, (k, dx, dy, d) => {
+            if (w.g && d < 20 + SLACK) { b.push([k, 250, 0, 9]); return; }
+            if (d < 1 || !clearTo(p, dx, dy, d)) return;
+            b.push([k, meter(w), Math.atan2(dy, dx), w.fov + ASLACK + Math.atan2(P_R + SLACK, d)]);
+          });
+          w.base.set(sig, base = b);
+        }
+        for (const [k, c, a, tol] of base) if (Math.abs(U.angDiff(p.a, a)) <= tol) list.push(k, c);
+      } else {
+        box(p, R, (k, dx, dy, d) => {
+          if (w.g && d < 20 + SLACK) { list.push(k, 250); return; }
+          if (d < 1 || Math.abs(U.angDiff(p.a, Math.atan2(dy, dx))) > w.fov + ASLACK + Math.atan2(P_R + SLACK, d)) return;
+          if (clearTo(p, dx, dy, d)) list.push(k, meter(w));
+        });
+      }
+      out = Int32Array.from(list); w.cache.set(key, out);
+      return out;
+    };
+    let E = new Uint8Array(n), E2 = new Uint8Array(n).fill(255);
+    const vis = new Uint8Array(n), visE = new Uint8Array(n), walk = new Uint8Array(n), seen = new Uint8Array(n);
+    const idx = new Int32Array(n);
+    let cells = [], nbAt = null, nbs = null;
+    const build = () => {
+      cells = []; walk.fill(0);
+      for (let k = 0; k < n; k++) if (field.sample(cx(k), cy(k)) > CLR) { walk[k] = 1; idx[k] = cells.length; cells.push(k); }
+      const at = [0], out = [];
+      for (const k of cells) {
+        const i = k % GW, j = (k / GW) | 0;
+        for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+          const ii = i + di, jj = j + dj;
+          if ((di || dj) && ii >= 0 && jj >= 0 && ii < GW && jj < GH && walk[jj * GW + ii]) out.push(jj * GW + ii);
+        }
+        at.push(out.length);
+      }
+      nbAt = Int32Array.from(at); nbs = Int32Array.from(out);
+    };
+    const near = (x, y) => {
+      const ci = Math.floor((x - field.x0) / C), cj = Math.floor((y - field.y0) / C);
+      let best = -1, bd = Infinity;
+      for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
+        const i = ci + di, j = cj + dj, k = j * GW + i;
+        if (i < 0 || j < 0 || i >= GW || j >= GH || !walk[k]) continue;
+        const d = Math.hypot(cx(k) - x, cy(k) - y);
+        if (d < bd && field.clear(x, y, cx(k), cy(k), 4)) { bd = d; best = k; }
+      }
+      return best;
+    };
+    shutAll(field);
+    build();
+    const got = new Set();
+    let t = 0, here = near(L.entrance.x, L.entrance.y), res = { ok: true };
+    if (trace) res.watchers = W.map(w => ({ o: w.o, at: w.at, period: w.period }));
+    for (let leg = 1; leg <= L.keys.length + 1 && here >= 0; leg++) {
+      const tgt = new Map();
+      L.keys.forEach((k, i) => { if (!got.has(i)) { const c = near(k.x, k.y); if (c >= 0) tgt.set(c, i); } });
+      const ek = near(L.exit.x, L.exit.y); if (ek >= 0) tgt.set(ek, -1);
+      // a leg the coarse grid can't walk at all (a squeeze it rounds shut) is left to the nav checks
+      seen.fill(0); seen[here] = 1;
+      let open = false;
+      for (let fr = [here]; fr.length && !open;) {
+        const nx = [];
+        for (const k of fr) {
+          if (tgt.has(k)) { open = true; break; }
+          for (let q = nbAt[idx[k]]; q < nbAt[idx[k] + 1]; q++) if (!seen[nbs[q]]) { seen[nbs[q]] = 1; nx.push(nbs[q]); }
+        }
+        fr = nx;
+      }
+      if (!open) break;
+      E.fill(255); E[here] = 0;
+      let hit = null;
+      const t0 = t, from = here, pars = [];
+      for (let s = 0; s < STEPS && hit === null; s++) {
+        t += DT;
+        const par = trace ? new Int32Array(n).fill(-1) : null;
+        if (par) pars.push(par);
+        // a step is looked at four times through, so a sweep can't slip past between samples: the first half
+        // where the step sets out from (visE), the second where it ends (vis)
+        const touched = [];
+        for (const w of W) for (const [tt, into] of [[t, vis], [t - DT / 4, vis], [t - DT / 2, visE], [t - DT * 3 / 4, visE]]) {
+          const list = look(w, Math.round(tt / w.dt) % w.m);
+          for (let q = 0; q < list.length; q += 2) { const k = list[q]; if (list[q + 1] > into[k]) { if (!vis[k] && !visE[k]) touched.push(k); into[k] = list[q + 1]; } }
+        }
+        for (let ci = 0; ci < cells.length; ci++) {
+          const k = cells[ci], vk = vis[k];
+          let m = E[k] === 255 ? 255 : E[k] + Math.max(vk, visE[k]);
+          E2[k] = 255;
+          // (a cell already reached unseen, and unseen now, stays so)
+          if (m === 0) { E2[k] = 0; if (par) par[k] = k; continue; }
+          let pk = k;
+          for (let q = nbAt[ci], q1 = nbAt[ci + 1]; q < q1; q++) {
+            const o = nbs[q];
+            if (E[o] === 255) continue;
+            const v = E[o] + Math.max(vk, visE[o]);
+            if (v < m) { m = v; pk = o; }
+          }
+          if (par) par[k] = pk;
+          if (m <= BUDGET) E2[k] = m;
+        }
+        { const sw = E; E = E2; E2 = sw; }
+        for (const k of touched) vis[k] = visE[k] = 0;
+        for (const [c, what] of tgt) if (E[c] <= BUDGET) { hit = what; here = c; break; }
+      }
+      if (hit === null) {
+        // to blame: whoever looks most at the plain way on to the next thing to reach
+        const nav = new Nav(field, 11);
+        const order = L.keys.map((k, i) => i).filter(i => !got.has(i)).map(i => L.keys[i]).concat([L.exit]);
+        const from = { x: cx(here), y: cy(here) };
+        let path = null;
+        for (const o of order) { path = nav.path(from.x, from.y, o.x, o.y, 60000); if (path) break; }
+        const on = new Uint8Array(n);
+        if (path) { let a = from; for (const q of path) { const l = Math.hypot(q.x - a.x, q.y - a.y); for (let u = 0; u <= l; u += 8) { const i = Math.floor((a.x + (q.x - a.x) * u / (l || 1) - field.x0) / C), j = Math.floor((a.y + (q.y - a.y) * u / (l || 1) - field.y0) / C); if (i >= 0 && j >= 0 && i < GW && j < GH) on[j * GW + i] = 1; } a = q; } }
+        let who = null, top = 0;
+        for (const w of W) {
+          let cov = 0;
+          for (let s = 0; s < w.m; s++) { const list = look(w, s); for (let q = 0; q < list.length; q += 2) if (on[list[q]]) cov += list[q + 1]; }
+          cov /= w.m;
+          if (cov > top) { top = cov; who = w.o; }
+        }
+        res = { ok: false, leg, who };
+        break;
+      }
+      if (trace) {
+        // the way it found, back from where it got to: a point a step
+        const way = [];
+        for (let s = pars.length - 1, k = here; s >= 0; s--) { way.push({ t: t0 + (s + 1) * DT, x: cx(k), y: cy(k) }); k = pars[s][k]; }
+        way.push({ t: t0, x: cx(from), y: cy(from) });
+        (res.plan = res.plan || []).push(...way.reverse());
+      }
+      if (hit === -1) break;
+      got.add(hit);
+      const key = L.keys[hit];
+      if (key.door) { openDoor(field, key.door); build(); here = near(key.x, key.y); }
+    }
+    shutAll(field);
+    return res;
+  }
+
+  root.LEVEL = { generate, difficulty, history, pickKind, Field, Nav, KEY_COLORS, starRisk, forcedExposure, timedRoute };
   if (typeof module !== 'undefined') module.exports = root.LEVEL;
 })(typeof window !== 'undefined' ? window : globalThis);
