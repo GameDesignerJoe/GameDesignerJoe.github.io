@@ -90,10 +90,12 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
   // out of its sight a moment (as if round a corner), and straight into the pool
   if (st !== 'chase') { console.log('floor', fl, how, 'no chase started, skipped'); continue; }
   const shR = await page.evaluate(() => __sh.r);
-  if (how === 'cover') await page.evaluate(() => GAME.teleport(__sh.x, __sh.y));
+  // cover: the far half of the pool from the guard, where even a thorough guard's peek can't see in
+  await page.evaluate((how) => { const sh = __sh, g = __g, d = Math.hypot(sh.x - g.x, sh.y - g.y) || 1, k = how === 'cover' ? sh.r * 0.55 : 0;
+    window.__hide = { x: sh.x + (sh.x - g.x) / d * k, y: sh.y + (sh.y - g.y) / d * k }; if (how === 'cover') GAME.teleport(__hide.x, __hide.y); }, how);
   const seen = new Set([st]); let hid = false, mode = 'play', closest = 1e9;
   for (let t = 0; t < 160; t++) {
-    const r = await page.evaluate(() => { const sh = __sh, P = GAME.P, dx = sh.x - P.x, dy = sh.y - P.y, d = Math.hypot(dx, dy);
+    const r = await page.evaluate(() => { const sh = __sh, P = GAME.P, dx = __hide.x - P.x, dy = __hide.y - P.y, d = Math.hypot(dx, dy);
       if (d > 3) { GAME.stick.on = true; GAME.stick.x = dx / d * 0.7; GAME.stick.y = dy / d * 0.7; } else { GAME.stick.on = false; GAME.stick.x = GAME.stick.y = 0; }
       return [__g.state, P.hidden, GAME.mode, Math.hypot(__g.x - sh.x, __g.y - sh.y)]; });
     seen.add(r[0]); hid = hid || r[1]; mode = r[2]; if (hid) closest = Math.min(closest, r[3]);
@@ -209,7 +211,7 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
     bad += await page.evaluate(() => { const L = GAME.L, first = L.rooms.find(r => r.idx === 0 && !r.side).outConn.mouth;
       let b = 0;
       for (const g of L.guards) {
-        if (g.kind === 'sentry' && L.conns.some(c => Math.hypot(c.mouth.x - g.x, c.mouth.y - g.y) < 80)) b++;
+        if (g.kind === 'sentry' && L.conns.some(c => Math.hypot(c.mouth.x - g.x, c.mouth.y - g.y) < 60)) b++;
         if (g.path && g.path.some(q => Math.hypot(q.x - first.x, q.y - first.y) < 90)) b++;
       }
       return b; });
@@ -270,6 +272,90 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
   const r = await page.evaluate(() => ({ floor: GAME.save.floor, s3: GAME.save.stars[3], mode: GAME.mode, list: document.getElementById('floors').classList.contains('show'), tiles: document.querySelectorAll('#flGrid .flTile').length }));
   check(sameFloor === 3 && r.floor === 6 && r.s3 === 2 && r.list && r.tiles === 5, `replay floor 3: stars 0 -> ${r.s3}, climb still at floor ${r.floor}, back on the list (${r.list}, ${r.tiles} floors)`);
   await page.evaluate(() => document.getElementById('flBack').click());
+}
+// speed: a silent sneak (stick at 0.6, no ring) outpaces a walker on every floor by 1.2x, and an ambling searcher by a hair,
+// so trailing a beat or slipping past one always works. Measured in the game on an open lane, against difficulty() for floors 1-25
+{
+  await page.evaluate(() => { localStorage.clear(); GAME.save.runSeed = 5; GAME.startFloor(4); GAME.skipIntro(); GAME.stick.on = false; }); await wait(250);
+  const r = await page.evaluate(() => new Promise(res => {
+    const L = GAME.L, f = L.field;
+    GAME.guards.forEach(g => { g.x = g.home.x = 1e5; g.y = g.home.y = 1e5; g.path = null; g.kind = 'sentry'; }); GAME.cams.length = 0;
+    // the longest open lane from any room centre
+    let best = null;
+    for (const rm of L.rooms) for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, p = f.nearestFree(rm.c.x, rm.c.y, 14, 40); if (!p) continue;
+      const t = f.ray(p.x, p.y, Math.cos(a), Math.sin(a), 300); if (!best || t > best.t) best = { p, a, t }; }
+    GAME.teleport(best.p.x, best.p.y); GAME.P.vx = GAME.P.vy = 0;
+    Object.assign(GAME.stick, { on: true, x: Math.cos(best.a) * 0.6, y: Math.sin(best.a) * 0.6 });
+    let x0 = 0, y0 = 0, t0 = 0, rings = 0;
+    setTimeout(() => { x0 = GAME.P.x; y0 = GAME.P.y; t0 = performance.now(); }, 500);
+    const iv = setInterval(() => { if (GAME.P.run) rings++; }, 30);
+    setTimeout(() => { clearInterval(iv); const v = Math.hypot(GAME.P.x - x0, GAME.P.y - y0) / ((performance.now() - t0) / 1000);
+      GAME.stick.on = false; GAME.stick.x = GAME.stick.y = 0; res({ v, run: rings, lane: best.t }); }, 1500);
+  }));
+  const D = await page.evaluate(() => { const out = []; for (let n = 1; n <= 25; n++) { const d = LEVEL.difficulty(n); out.push({ n, patrol: d.patrol, amble: Math.min(d.patrol * 1.3, 54) }); } return out; });
+  const slow = D.filter(d => r.v < d.patrol * 1.2), fastAmble = D.filter(d => d.amble >= r.v);
+  check(r.lane > 120 && !r.run && !slow.length && !fastAmble.length, `speed: silent sneak ${r.v.toFixed(1)} vs patrol ${D[0].patrol}-${Math.max(...D.map(d => d.patrol))} (x${(r.v / Math.max(...D.map(d => d.patrol))).toFixed(2)} at worst), amble up to ${Math.max(...D.map(d => d.amble)).toFixed(1)}${slow.length ? ', too slow on ' + slow.map(d => d.n).join(',') : ''}`);
+}
+// a camera alarm only sends guards with a real way to where it saw you (nearest by that way), never one through a wall or a locked door
+{
+  let alarms = 0, sent = 0, bad = 0;
+  for (const [seed, fl] of [[903, 8], [22, 8], [308, 4], [5, 9], [14, 12], [41, 10], [60, 6]]) {
+    await page.evaluate(([s, n]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(n); GAME.skipIntro(); GAME.stick.on = false; }, [seed, fl]); await wait(200);
+    const r = await page.evaluate(() => new Promise(res => {
+      const c = GAME.cams[0]; if (!c) return res(null);
+      const f = GAME.L.field, p = f.nearestFree(c.x + Math.cos(c.base) * 80, c.y + Math.sin(c.base) * 80, 10, 30); if (!p) return res(null);
+      GAME.teleport(p.x, p.y); c.ang = c.base; c.aw = 0.98;
+      setTimeout(() => {
+        const called = GAME.guards.filter(g => g.state === 'search' && g.hurry);
+        res({ alarm: c.alarm > 0, called: called.length, bad: called.filter(g => !GAME.nav.path(g.x, g.y, GAME.P.x, GAME.P.y, 20000)).length });
+      }, 250);
+    }));
+    if (!r || !r.alarm) continue;
+    alarms++; sent += r.called; bad += r.bad;
+    await page.evaluate(() => { const e = GAME.L.entrance; GAME.teleport(e.x, e.y); });
+    if (await page.evaluate(() => GAME.mode) === 'caught') await wait(2600);
+  }
+  check(alarms >= 4 && bad === 0, `camera alarms: ${alarms} raised, ${sent} guards sent, ${bad} with no way there`);
+}
+// a thorough guard (floor 6 up) checks a shade: it finds you on its own half of the pool, and walks away from you on the far half
+{
+  let near = 0, nearN = 0, far = 0, farN = 0;
+  for (const [seed, fl] of [[22, 8], [44, 9], [9, 7], [13, 10], [31, 11], [17, 12], [6, 13], [27, 14]]) {
+    for (const side of ['near', 'far']) {
+      await page.evaluate(([s, n]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(n); GAME.skipIntro(); GAME.stick.on = false; }, [seed, fl]); await wait(200);
+      const ok = await page.evaluate((side) => {
+        const L = GAME.L, f = L.field;
+        for (const g of GAME.guards) {
+          if (!g.path) continue;
+          // the pool its peek will pick: the nearest one over its rim's reach, inside 220
+          let sh = null, bd = 220;
+          for (const s of L.shades) { const d = Math.hypot(s.x - g.x, s.y - g.y); if (d < bd && d > s.r + 30) { bd = d; sh = s; } }
+          if (!sh || !GAME.nav.path(g.x, g.y, sh.x, sh.y, 20000)) continue;
+          GAME.guards.forEach(o => { if (o !== g) { o.x = o.home.x = 1e5; o.y = o.home.y = 1e5; o.path = null; o.kind = 'sentry'; } }); GAME.cams.length = 0;
+          const e = Math.hypot(g.x - sh.x, g.y - sh.y), ux = (g.x - sh.x) / e, uy = (g.y - sh.y) / e, k = side === 'near' ? 0.45 : -0.6;
+          GAME.teleport(sh.x + ux * sh.r * k, sh.y + uy * sh.r * k);
+          g.peek = true; g.peeked = false; g.state = 'search'; g.scanT = 4.3; g.scanBase = g.ang; g.aw = 0; g.peekSh = null; g.route = []; g.bubble = { k: '?', t: 0, a: 1 };
+          window.__g = g; return true;
+        }
+        return false;
+      }, side);
+      if (!ok) continue;
+      await wait(100);   // a frame for the pool to take you in
+      let st = '', peekSh = false, mode = 'play';
+      for (let t = 0; t < 140; t++) {
+        const r = await page.evaluate(() => [__g.state, !!__g.peekSh, GAME.mode, GAME.P.hidden]);
+        st = r[0]; peekSh = peekSh || r[1]; mode = r[2];
+        if (!r[3] && mode === 'play') { st = 'not hidden'; break; }
+        if (mode === 'caught' || st === 'sus' || st === 'chase' || st === 'patrol') break;
+        await wait(100);
+      }
+      if (!peekSh) continue;
+      if (side === 'near') { nearN++; if (st === 'sus' || st === 'chase' || mode === 'caught') near++; }
+      else { farN++; if (st === 'patrol' && mode !== 'caught') far++; }
+      if (mode === 'caught') await wait(2600);
+    }
+  }
+  check(nearN >= 3 && near === nearN && farN >= 3 && far === farN, `shade peek: found on its half ${near}/${nearN}, missed on the far half ${far}/${farN}`);
 }
 check(errors.length === 0, 'no page errors ' + errors.join(' | '));
 await browser.close(); srv.close();

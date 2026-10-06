@@ -13,14 +13,17 @@
     player: '#ff8a3d', playerHi: '#ffc896', playerLo: '#b84f17',
     guard: '#15364a', guardHi: '#2b566c', guardRim: '#cfe6ee',
     star: '#f3e57e',
-    // cones: one flat cyan, laid once over every calm cone together, so overlaps never stack
-    cone: 'rgba(108,195,216,0.38)', coneHot: 'rgba(255,118,96,0.42)',
+    // cones: a clear pale cyan laid once per cone (about #64B6CD on the lit floor, a good 25% above it),
+    // so where two cones cross the light adds up towards #74C8DC; a crisp pale arc closes each fan
+    cone: 'rgba(132,216,236,0.5)', coneHot: 'rgba(255,76,52,0.62)', coneEdgeHot: 'rgba(255,120,90,0.9)',
+    coneArc: 'rgba(214,246,252,0.55)', coneArcHot: 'rgba(255,196,170,0.85)',
     // the soft shadow under a character or pickup
     blob: 'rgba(22,74,92,0.55)',
   };
   // the light comes from the top left, so everything throws its shadow down and to the right
-  // a wall's shadow is about 3.5 times the wall's thickness (13), at 45 degrees
-  const LIGHT = { x: 32, y: 32 }, RIM = 32;   // RIM: how deep the void's shade reaches onto the floor
+  // a wall's shadow is about 1.7 times the wall's thickness (13), at 45 degrees: enough for depth,
+  // short enough that open lit floor (and the cones on it) owns most of the frame
+  const LIGHT = { x: 16, y: 16 }, RIM = 20;   // RIM: how deep the void's shade reaches onto the floor
   // characters are drawn a little larger than their footprint (G_LOOK, P_LOOK); each sits on a soft
   // capsule shadow about 1.5 times its size, thrown the walls' way
   const G_LOOK = 1.15;
@@ -63,7 +66,7 @@
   let L = null, field = null, nav = null, D = null, floorN = 1;
   let P = null, guards = [], cams = [], fx = [], time = 0;
   let mode = 'boot', modeT = 0, paused = false, overview = false;
-  const view = { x: 0, y: 0, z: 1, shake: 0, lead: { x: 0, y: 0 }, locked: false };
+  const view = { x: 0, y: 0, z: 1, shake: 0, lead: { x: 0, y: 0 }, locked: false, ease: null };
   let floorBox = null, popT = null, spottedCD = 0, hmmCD = 0, lockedCD = 0, gotStars = 0, knockCD = 0;   // knockCD: seconds until the knock is ready again
   let stats = { caught: 0, time: 0 };
   let replay = false, clearInfo = null;   // replay: a floor played again from the list, for its stars; it doesn't move the climb
@@ -83,9 +86,11 @@
     lastCx = cx; lastCy = cy;
     // the knob travels 68px on the 212px stick, in proportion on the smaller one, so the dashed ring (where the run starts) sits at the same place
     const b = stickEl.getBoundingClientRect(), max = b.width * 0.32;
-    const rx = cx - (b.left + b.width / 2), ry = cy - (b.top + b.height / 2), rl = Math.hypot(rx, ry);
+    let rx = cx - (b.left + b.width / 2), ry = cy - (b.top + b.height / 2), rl = Math.hypot(rx, ry);
+    // a thumb out in the margin past the knob's travel reads as one on the rim: landing further out never runs sooner
+    if (rl > max) { rx *= max / rl; ry *= max / rl; rl = max; }
     if (down) {
-      const land = 0.55 * max;
+      const land = guards.some(g => g.state === 'chase') ? max : 0.55 * max;   // in a chase a slammed thumb runs at once
       if (rl > land) { stickOrg.x = rx - rx / rl * land; stickOrg.y = ry - ry / rl * land; } else stickOrg.x = stickOrg.y = 0;
     } else if (rl < stickOrg.len) { const f = Math.min(0.9, rl / stickOrg.len); stickOrg.x *= f; stickOrg.y *= f; }   // gone by the time the thumb is home
     else if (rl > stickOrg.len + 0.5) { stickOrg.x *= 0.85; stickOrg.y *= 0.85; }   // pushing on out asks for more: the grace gives way to it
@@ -115,8 +120,8 @@
   function relaxStick(dt) {
     if (stickId === null) return;
     if (!stick.on) { stickDownT = time; stickEl.classList.add('on'); setStick(lastCx, lastCy, true); return; }
-    if (time - stickDownT <= 0.2 || (!stickOrg.x && !stickOrg.y)) return;
-    const f = Math.exp(-dt * 6); stickOrg.x *= f; stickOrg.y *= f;
+    if (time - stickDownT <= 0.08 || (!stickOrg.x && !stickOrg.y)) return;
+    const f = Math.exp(-dt * 12); stickOrg.x *= f; stickOrg.y *= f;
     if (Math.hypot(stickOrg.x, stickOrg.y) < 0.3) stickOrg.x = stickOrg.y = 0;
     setStick(lastCx, lastCy);
   }
@@ -326,7 +331,7 @@
     const m = inp.m;
     // like the maze, a move clears the map: on keys or a pad as on the stick (which closes it on touch). A key already
     // held when the map opened has to be let go first, so the map doesn't shut the moment it opens
-    const pushing = m > 0 && (inp.kb || inp.isPad);
+    const pushing = (m > 0 && (inp.kb || inp.isPad)) || (stick.on && m > 0.25);
     if (overview && !mapWas) mapHeld = pushing;
     mapWas = overview;
     if (overview) { if (!pushing) mapHeld = false; else if (!mapHeld) { toggleMap(); mapWas = false; } }
@@ -336,13 +341,14 @@
     if (inp.kb || inp.force) P.run = m > 0.9;
     else if (inp.isPad) { if (P.run ? m < 0.74 : m > 0.82) P.run = !P.run; }   // worn pad sticks rarely report a full 1.0 on a diagonal
     else if (inp.mouse) { if (P.run ? m < 0.8 : m > 0.88) P.run = !P.run; }
-    else if (P.run ? m < 0.8 : m > 0.88 && time - stickDownT > 0.12) P.run = !P.run;   // never a run on the first touch
+    else if (P.run ? m < 0.8 : m > 0.88 && (time - stickDownT > 0.12 || guards.some(g => g.state === 'chase'))) P.run = !P.run;   // never a run on the first touch, unless it's an escape
     let speed = 0;
     if (m > 0) speed = P.run ? U.lerp(98, 128, U.clamp((m - 0.8) / 0.2, 0, 1)) : 24 + 51 * Math.min(1, m / 0.85);
     P.m = m;   // only the run is heard
     stickEl.classList.toggle('run', stick.on && P.run);
     stickEl.classList.toggle('loud', stick.on && !P.run && m > 0.6);   // the heard band of the walk, before the ring
-    const tvx = inp.x * speed, tvy = inp.y * speed, acc = 1 - Math.exp(-dt * 16);
+    const tvx = inp.x * speed, tvy = inp.y * speed;
+    const acc = 1 - Math.exp(-dt * (Math.hypot(tvx, tvy) < Math.hypot(P.vx, P.vy) ? 30 : 24));   // quick off the mark, quicker to a stop beside a cone
     P.vx += (tvx - P.vx) * acc; P.vy += (tvy - P.vy) * acc;
     const before = { x: P.x, y: P.y };
     field.move(P, P.vx * dt, P.vy * dt, P_R);
@@ -597,8 +603,15 @@
   function sees(o, len, fov, near) {
     if (!P || !P.alive) return null;
     const e = eyeOf(o), dx = P.x - e.x, dy = P.y - e.y, d = Math.hypot(dx, dy);
-    // in a shade you are only found by someone who walks right into you
-    if (P.hidden) return near && d < 12 ? { d } : null;
+    // in a shade you are only found by someone who walks right into you, or by a thorough guard
+    // come to look in this very pool, on its own half of it: the far side of the pool is the safe one
+    if (P.hidden) {
+      if (near && d < 12) return { d };
+      const sh = o.peekSh;
+      if (!sh || !(o.state === 'sus' || (o.state === 'search' && o.scanT >= 0)) || Math.hypot(P.x - sh.x, P.y - sh.y) > sh.r || d > sh.r + 30) return null;
+      if (Math.abs(U.angDiff(o.ang, Math.atan2(dy, dx))) > fov + Math.atan2(P_R, d)) return null;
+      return field.ray(e.x, e.y, dx / d, dy / d, d) >= d - P_R ? { d } : null;
+    }
     // a guard feels you at its elbow, just past arm's reach (CATCH), whichever way it faces
     if (near && d < 18) return { d };
     if (d > len + P_R) return null;
@@ -621,27 +634,47 @@
     return field.nearestFree(q.x, q.y, G_R + 1, 40) || { x: gd.x, y: gd.y };
   }
   // a thorough guard (upper floors) ends a search by going to look at the nearest pool of shade from
-  // its rim, so hiding is a held breath, not a sure thing; the rim is past arm's reach of its middle
+  // its rim and staring into it, so hiding is a held breath, not a sure thing: it sees into its own
+  // half of the pool (sees), so you slip to the far side, or out of it, while its '?' is turned your way
   function peekShade(gd) {
     gd.peeked = true;
     let sh = null, bd = 220;
     for (const s of L.shades) { const d = Math.hypot(s.x - gd.x, s.y - gd.y); if (d < bd && d > s.r + 30) { bd = d; sh = s; } }
     if (!sh) return false;
-    const q = lookSpot(gd, { x: sh.x, y: sh.y });
-    if (q.dive) return false;
-    gd.target = q; gd.scanT = -1; gd.hurry = 0; routeTo(gd, q.x, q.y);
+    // a spot on the rim with a clear look into the pool, the nearest to its own side first
+    const keep = sh.r + 24, ga = Math.atan2(gd.y - sh.y, gd.x - sh.x), spots = [];
+    for (let i = 0; i < 12; i++) {
+      const a = ga + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * TAU / 12, p = field.nearestFree(sh.x + Math.cos(a) * keep, sh.y + Math.sin(a) * keep, G_R + 1, 12);
+      if (!p) continue;
+      const dx = sh.x - p.x, dy = sh.y - p.y, d = Math.hypot(dx, dy);
+      if (d > sh.r + 8 && d < sh.r + 34 && field.ray(p.x, p.y, dx / d, dy / d, d) >= d - 4) spots.push(p);
+    }
+    let q = null, r = null;
+    // (a pool round the back of a wall, a long walk away, isn't worth the look)
+    for (const p of spots.slice(0, 4)) { r = nav.path(gd.x, gd.y, p.x, p.y, 20000); if (r && plen(r, gd) < 320) { q = p; break; } }
+    if (!q) return false;
+    gd.target = q; gd.scanT = -1; gd.hurry = 0; gd.route = r; gd.ri = 0; gd.peekSh = sh;
     if (gd.bubble) gd.bubble.a = 1;
     return true;
   }
+  // how far a route really walks, from o
+  const plen = (r, o) => { let l = 0, a = o; for (const q of r) { l += Math.hypot(q.x - a.x, q.y - a.y); a = q; } return l; };
   function bubble(o, k) { if (!o.bubble || o.bubble.k !== k) o.bubble = { k, t: 0, a: 1 }; }
+  // true when there is a way there. When there isn't (a locked door, a wall between), a searcher looks
+  // round from where it stands rather than pressing into the wall; a returner heads for its round
+  // anyway (the stuck check plans again); a chaser keeps the route it had
   function routeTo(gd, x, y) {
-    gd.route = nav.path(gd.x, gd.y, x, y, 20000); gd.ri = 0;
-    if (!gd.route) gd.route = [{ x, y }];
+    const r = nav.path(gd.x, gd.y, x, y, 20000); gd.ri = 0;
+    if (r) { gd.route = r; return true; }
+    if (gd.state === 'search') { gd.route = []; gd.scanT = 0; gd.scanBase = gd.ang; }
+    else if (gd.state === 'sus') gd.route = [];
+    else if (gd.state === 'return' || !gd.route) gd.route = [{ x, y }];
+    return false;
   }
   function toSearch(gd, p, heard) {
     if (gd.state !== 'search' && gd.state !== 'chase') { if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.6; } }
     const q = lookSpot(gd, p);
-    gd.state = 'search'; gd.target = q; gd.scanT = -1; gd.hurry = !!heard ? 0 : 1; gd.dive = !!q.dive; gd.peeked = false;
+    gd.state = 'search'; gd.target = q; gd.scanT = -1; gd.hurry = !!heard ? 0 : 1; gd.dive = !!q.dive; gd.peeked = false; gd.peekSh = null;
     routeTo(gd, q.x, q.y); bubble(gd, '?');
     if (heard) gd.heard = true;
   }
@@ -663,7 +696,7 @@
     }
   }
   function toReturn(gd) {
-    gd.state = 'return'; gd.hurry = 0; gd.heard = false;
+    gd.state = 'return'; gd.hurry = 0; gd.heard = false; gd.peekSh = null;
     if (gd.path) {
       let best = 0, bd = Infinity;
       gd.path.forEach((q, i) => { const d = Math.hypot(q.x - gd.x, q.y - gd.y); if (d < bd) { bd = d; best = i; } });
@@ -726,7 +759,7 @@
       // right on top of a guard who's facing you is an instant '!'; one rounding a corner beside you still gives a '?'
       if (s.d < 20 && !P.hidden && Math.abs(U.angDiff(gd.ang, Math.atan2(P.y - gd.y, P.x - gd.x))) < D.fov) gd.aw = 1;
       if (gd.state !== 'sus') {
-        gd.prevState = gd.state; gd.state = 'sus'; gd.susLook = gd.ang; gd.peakAw = 0;
+        gd.prevState = gd.state; gd.state = 'sus'; gd.susLook = gd.ang; gd.peakAw = 0; gd.repath = 0;
         bubble(gd, '?'); if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.5; }
         hint('sus', 'A guard noticed something. Get out of the light before the meter fills.');
       }
@@ -764,7 +797,15 @@
         gd.peakAw = Math.max(gd.peakAw || 0, gd.aw);
         if (gd.last) {
           gd.ang = U.turnTo(gd.ang, Math.atan2(gd.last.y - gd.y, gd.last.x - gd.x), dt * 2.6);
-          if (gd.aw > 0.6 && Math.hypot(gd.last.x - gd.x, gd.last.y - gd.y) > 30) stepToward(gd, gd.last.x, gd.last.y, 16, dt, 2.6);
+          if (gd.aw > 0.6 && Math.hypot(gd.last.x - gd.x, gd.last.y - gd.y) > 30) {
+            // round a corner by the nav, not along the slab
+            if (field.clear(gd.x, gd.y, gd.last.x, gd.last.y, G_R - 1)) { stepToward(gd, gd.last.x, gd.last.y, 16, dt, 2.6); gd.repath = 0; }
+            else {
+              gd.repath -= dt;
+              if (!(gd.repath > 0)) { routeTo(gd, gd.last.x, gd.last.y); gd.repath = 0.5; }
+              follow(gd, 16, dt, 2.6);
+            }
+          }
         }
         if (!s) {
           gd.aw = Math.max(0, gd.aw - dt * 0.3);
@@ -798,8 +839,8 @@
       }
       case 'search': {
         if (gd.scanT < 0) {
-          const spd = gd.hurry ? D.chase * 0.75 : D.patrol * 1.45;
-          if (follow(gd, spd, dt, 4)) { gd.scanT = 0; gd.scanBase = gd.ang; }
+          const spd = gd.hurry ? D.chase * 0.75 : Math.min(D.patrol * 1.3, 54);   // an amble stays a hair under a silent sneak (about 57)
+          if (follow(gd, spd, dt, 4)) { gd.scanT = 0; gd.scanBase = gd.peekSh ? Math.atan2(gd.peekSh.y - gd.y, gd.peekSh.x - gd.x) : gd.ang; }
           // a route round a wall can still come at the pool from another side: halt at its rim and look
           else if (P.hidden && !gd.dive && L.shades.some(sh => Math.hypot(P.x - sh.x, P.y - sh.y) < sh.r && Math.hypot(gd.x - sh.x, gd.y - sh.y) < sh.r + 16)) { gd.scanT = 0; gd.scanBase = gd.ang; }
           gd.stuck = Math.hypot(gd.x - gd.lastPos.x, gd.y - gd.lastPos.y) < 0.05 ? gd.stuck + dt : 0;
@@ -808,8 +849,9 @@
           // look around, the "?" fading as they lose interest
           gd.scanT += dt;
           const dur = 4.2;
-          gd.ang = U.turnTo(gd.ang, gd.scanBase + Math.sin(gd.scanT * 1.5) * 1.5, dt * 2.8);
-          if (gd.bubble) gd.bubble.a = 1 - U.clamp((gd.scanT - dur + 1.8) / 1.8, 0, 1);
+          // a peek stares into the pool, sweeping only its width, the '?' held solid while it looks
+          gd.ang = U.turnTo(gd.ang, gd.scanBase + Math.sin(gd.scanT * (gd.peekSh ? 1.1 : 1.5)) * (gd.peekSh ? 0.45 : 1.5), dt * 2.8);
+          if (gd.bubble) gd.bubble.a = gd.peekSh ? 1 : 1 - U.clamp((gd.scanT - dur + 1.8) / 1.8, 0, 1);
           gd.aw = Math.max(0, gd.aw - dt * 0.25);
           if (gd.scanT > dur && gd.peek && !gd.peeked && peekShade(gd)) break;
           if (gd.scanT > dur) { gd.bubble = null; gd.aw = 0; AUDIO.play('lost'); toReturn(gd); }
@@ -857,7 +899,9 @@
         // the alarm: the nearest guards come running to where you were
         c.alarm = 4; bubble(c, '!'); AUDIO.play('alarm');
         fx.push({ k: 'flash', t: 0, dur: 0.3 });
-        guards.filter(o => o.state !== 'chase').map(o => ({ o, d: Math.hypot(o.x - c.x, o.y - c.y) })).filter(e => e.d < 750)
+        // only guards with a real way there, nearest by that way, so nobody is sent to press against a wall or a locked door
+        guards.filter(o => o.state !== 'chase' && Math.hypot(o.x - c.x, o.y - c.y) < 750)
+          .map(o => { const r = nav.path(o.x, o.y, P.x, P.y, 20000); return { o, d: r ? plen(r, o) : Infinity }; }).filter(e => e.d < 900)
           .sort((a, b) => a.d - b.d).slice(0, 2).forEach(e => { toSearch(e.o, { x: P.x, y: P.y }); e.o.hurry = 1; });
         hint('cam', 'Cameras call the nearest guards to wherever they saw you.');
       }
@@ -944,7 +988,7 @@
       const more = replay && gotStars > ci.prev ? ` · +${gotStars - ci.prev}\u2605` : '';
       const un = ci.unlocked ? `<div class="sub unlock"><i style="background:${ci.unlocked.c}"></i>${ci.unlocked.name} unlocked</div>` : '';
       r.innerHTML = `<div class="sub above">Floor ${floorN}</div><div class="stamp clear">CLEAR</div><div class="stars">${st}</div>` +
-        `<div class="sub tally">${gotStars ? `${gotStars}/3${more} · total ${ci.total}\u2605` : `Floor ${floorN} done`}</div>${un}<div class="sub foot">${replay ? 'Back to the floors…' : 'Up the stairs…'}</div>`;
+        `<div class="sub tally">${gotStars ? `${gotStars}/3${more} · total ${ci.total}\u2605` : `No stars this time · total ${ci.total}\u2605`}</div>${un}<div class="sub foot">${replay ? 'Back to the floors…' : 'Up the stairs…'}</div>`;
       for (let i = 0; i < gotStars; i++) res.stars.push(modeT + 0.35 + i * 0.18);
     }
     r.className = 'show';
@@ -1077,13 +1121,24 @@
     else if ((mode === 'intro' && modeT < 1.3) || overview) { tx = floorBox.cx; ty = floorBox.cy + (isPortrait() ? 0 : 0); tz = overviewZ(); rate = overview ? 5 : 3; }
     else {
       tx = P.x; ty = P.y; tz = baseZ();
-      if (isPortrait() && isTouch) ty += 90 / tz;   // the stick sits at the bottom: keep the player above the middle (a fixed offset, never moving)
+      if (isPortrait() && isTouch) ty += 60 / tz;   // the stick sits at the bottom: keep the player above the middle (a fixed offset, never moving)
       else if (isTouch) tx += (save.stickSide === 'left' ? -90 : 90) / tz;   // on its side the stick sits in a corner: keep the player clear of it
       if (mode === 'play' && view.locked) { view.x = tx; view.y = ty; view.z = tz; view.shake = Math.max(0, view.shake - dt * 2.2); return; }
-      rate = mode === 'intro' ? 2.6 : 6;   // the one ease: from the map, the intro or a respawn onto the player, then the lock
-      if (mode === 'play' && Math.hypot(tx - view.x, ty - view.y) * view.z < 1.5 && Math.abs(tz / view.z - 1) < 0.01) view.locked = true;
+      if (mode === 'play') {
+        // the one ease onto the player (from the map, the intro or a respawn): a fixed 0.35s easeOutCubic measured from the
+        // moving player, so it lands on the anchor even mid-run and then locks. An exponential chase would trail a moving
+        // player for ever and settle back after the stop
+        if (!view.ease) view.ease = { dx: view.x - tx, dy: view.y - ty, z0: view.z, t: 0 };
+        const es = view.ease; es.t += dt;
+        const e = 1 - Math.pow(1 - Math.min(1, es.t / 0.35), 3);
+        view.x = tx + es.dx * (1 - e); view.y = ty + es.dy * (1 - e); view.z = es.z0 * Math.pow(tz / es.z0, e);
+        if (es.t >= 0.35) { view.locked = true; view.ease = null; }
+        view.shake = Math.max(0, view.shake - dt * 2.2);
+        return;
+      }
+      rate = 2.6;   // the intro's zoom from the map onto the player
     }
-    if (mode !== 'play' || overview) view.locked = false;
+    if (mode !== 'play' || overview) { view.locked = false; view.ease = null; }
     const k = 1 - Math.exp(-dt * rate);
     view.x += (tx - view.x) * k; view.y += (ty - view.y) * k;
     view.z *= Math.pow(tz / view.z, k);
@@ -1157,16 +1212,17 @@
     drawFlash();
   }
 
-  // hiding spots: a plain pool of shade, softer at its edge, inside a faint pale ring, so they read as
-  // places to stand in the teal palette without adding a pattern or a hue to the frame
+  // hiding spots: a plain pool of shade, soft at its edge, with no ring until you're in it, so they read
+  // as places to stand without adding rings, a pattern or a hue to the frame
   function drawShades(z) {
     for (const s of L.shades) {
       const inside = P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r;
       const pool = g.createRadialGradient(s.x, s.y, s.r * 0.5, s.x, s.y, s.r);
-      pool.addColorStop(0, 'rgba(22,74,92,0.3)'); pool.addColorStop(1, 'rgba(22,74,92,0.12)');
+      pool.addColorStop(0, 'rgba(22,74,92,0.24)'); pool.addColorStop(1, 'rgba(22,74,92,0.04)');
       g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fillStyle = pool; g.fill();
-      g.strokeStyle = inside ? 'rgba(190,240,255,0.85)' : 'rgba(220,244,250,0.12)'; g.lineWidth = 1.5;
-      if (inside) { g.setLineDash([4, 4]); g.lineDashOffset = time * 10; }
+      if (!inside) continue;
+      g.strokeStyle = 'rgba(190,240,255,0.85)'; g.lineWidth = 1.5;
+      g.setLineDash([4, 4]); g.lineDashOffset = time * 10;
       g.beginPath(); g.arc(s.x, s.y, s.r - 1, 0, TAU); g.stroke(); g.setLineDash([]);
     }
   }
@@ -1196,30 +1252,66 @@
   }
 
   // a cone is a sector: the visibility polygon from the guard, so walls cut it only along straight
-  // rays out of the guard, and its free edge is one smooth arc. Every calm cone goes into one path,
-  // filled once in one flat cyan (#6CC3D8 at 38%): every cone winds the same way, so with 'nonzero'
-  // overlaps merge into the same tint instead of stacking into brighter patches, and the shading
-  // underneath still reads through. Only a guard (or camera) in full alarm turns its cone red.
+  // rays out of the guard (the pale walls drawn on top trim it clean), and its free edge is one arc.
+  // Each cone is filled on its own in a translucent pale cyan, so where two cross the overlap reads
+  // brighter, as light does; a soft glow at the guard says where it starts, and a crisp pale stroke
+  // along the arc gives the fan its curved edge. A guard (or camera) in full alarm turns its cone red.
   function conePath(path, p) {
     path.moveTo(p[0], p[1]);
     for (let i = 2; i < p.length; i += 2) path.lineTo(p[i], p[i + 1]);
     path.closePath();
   }
+  // the arc: the runs of the outline that reach the cone's full length (the rest stops at walls)
+  function arcPath(p) {
+    const path = new Path2D(), ex = p[0], ey = p[1];
+    let len = 0;
+    for (let i = 2; i < p.length; i += 2) len = Math.max(len, Math.hypot(p[i] - ex, p[i + 1] - ey));
+    let pen = false;
+    for (let i = 2; i < p.length; i += 2) {
+      const far = Math.hypot(p[i] - ex, p[i + 1] - ey) > len - 1.5;
+      if (far && pen) path.lineTo(p[i], p[i + 1]); else if (far) path.moveTo(p[i], p[i + 1]);
+      pen = far;
+    }
+    return { path, len };
+  }
   // on a clear the guards, cameras and their light step back, so the stairs and the stamp own the frame
   const clearFade = () => mode === 'clear' ? 1 - 0.6 * U.smooth(U.clamp(modeT / 0.4, 0, 1)) : 1;
   function drawCones() {
-    const calm = new Path2D(), hot = new Path2D();
-    let nHot = 0;
-    const add = (o, isCam) => {
+    const fa = clearFade();
+    g.save(); g.globalAlpha *= fa; g.lineJoin = 'round'; g.lineCap = 'round';
+    const one = (o, isCam) => {
       const p = o.cone; if (!p) return;
-      if (o.state === 'chase' || (isCam && o.alarm > 0)) { conePath(hot, p); nHot++; } else conePath(calm, p);
+      const hot = isHot(o, isCam);
+      const path = new Path2D(); conePath(path, p);
+      const arc = arcPath(p);
+      if (hot) {
+        // alarm: a saturated red-orange that stays warm over the teal and its shadows (a pale salmon goes grey there),
+        // breathing a little so it reads as live, with a hot rim so the shape holds even on the darkest floor
+        const ba = g.globalAlpha;
+        g.globalAlpha = ba * (0.86 + 0.14 * Math.sin(time * 6));
+        g.fillStyle = COL.coneHot; g.fill(path);
+        const gl = g.createRadialGradient(p[0], p[1], 0, p[0], p[1], arc.len * 0.55);
+        gl.addColorStop(0, 'rgba(255,170,130,0.42)'); gl.addColorStop(1, 'rgba(255,120,90,0)');
+        g.fillStyle = gl; g.fill(path);
+        g.globalAlpha = ba;
+        g.strokeStyle = COL.coneEdgeHot; g.lineWidth = 2; g.stroke(path);
+        g.strokeStyle = COL.coneArcHot; g.lineWidth = 2.6; g.stroke(arc.path);
+        return;
+      }
+      g.fillStyle = COL.cone; g.fill(path);
+      // a glow at the eye, inside the cone, so its start (and the way the guard faces) is plain
+      const gl = g.createRadialGradient(p[0], p[1], 0, p[0], p[1], arc.len * 0.55);
+      gl.addColorStop(0, 'rgba(220,248,255,0.34)'); gl.addColorStop(1, 'rgba(220,248,255,0)');
+      g.fillStyle = gl; g.fill(path);
+      g.strokeStyle = COL.coneArc; g.lineWidth = 2.2; g.stroke(arc.path);
     };
-    for (const gd of guards) add(gd, false);
-    for (const c of cams) add(c, true);
-    const fa = clearFade(); if (fa < 1) { g.save(); g.globalAlpha *= fa; }
-    g.fillStyle = COL.cone; g.fill(calm, 'nonzero');
-    if (nHot) { g.fillStyle = COL.coneHot; g.fill(hot, 'nonzero'); }
-    if (fa < 1) g.restore();
+    // the calm cones first, then any in alarm on top, so a red one is never washed grey by a cyan one crossing it
+    const isHot = (o, isCam) => o.state === 'chase' || (isCam && o.alarm > 0);
+    for (let pass = 0; pass < 2; pass++) {
+      for (const gd of guards) if (isHot(gd, false) === !!pass) one(gd, false);
+      for (const c of cams) if (isHot(c, true) === !!pass) one(c, true);
+    }
+    g.restore();
   }
 
   function star(x, y, r, rot) {
@@ -1228,6 +1320,10 @@
     g.closePath();
   }
   function drawItems(z) {
+    // on a clear the pickups left behind go, so none sits by the stamp's stars and reads as one of them
+    const ia = mode === 'clear' ? 1 - U.smooth(U.clamp(modeT / 0.3, 0, 1)) : 1;
+    if (ia <= 0.01) return;
+    g.save(); g.globalAlpha *= ia;
     for (const s of L.stars) {
       if (s.got) continue;
       const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + s.x);
@@ -1245,6 +1341,7 @@
       g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(-4, 1.5, 3, 1.5);
       g.restore();
     }
+    g.restore();
   }
   function drawDoors(z) {
     for (const d of L.doors) {
@@ -1300,12 +1397,19 @@
     for (const gd of guards) {
       // a pale rim (amber when suspicious, red on a chase) lifts the dark square off the shadows it stands in
       const gs = G_SIZE * G_LOOK;
+      if (gd.state === 'chase') {
+        // a chasing guard glows red, pulsing with his cone
+        const gr = g.createRadialGradient(gd.x, gd.y, gs * 0.4, gd.x, gd.y, gs * 1.25);
+        gr.addColorStop(0, `rgba(255,84,60,${0.45 + 0.12 * Math.sin(time * 6)})`); gr.addColorStop(1, 'rgba(255,84,60,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(gd.x, gd.y, gs * 1.25, 0, TAU); g.fill();
+      }
       rsq(gd.x, gd.y, gs, gd.ang, 3);
       g.fillStyle = COL.guard; g.fill();
       g.lineWidth = Math.max(1.8, 2 / z); g.strokeStyle = gd.state === 'chase' ? '#ff6b52' : gd.state === 'sus' ? '#ffcf6a' : COL.guardRim; g.stroke();
-      // the visor shows which way they face
-      const vc = gd.state === 'chase' ? '#ff7a62' : gd.state === 'sus' || gd.state === 'search' ? '#ffd877' : '#bdf0ff';
-      g.fillStyle = vc; g.fillRect(gs / 2 - 5, -gs / 2 + 3.5, 3, gs - 7);
+      // the visor, and a bright notch on the front face, show which way they look
+      const vc = gd.state === 'chase' ? '#ff7a62' : gd.state === 'sus' || gd.state === 'search' ? '#ffd877' : '#e4f8fd';
+      g.fillStyle = vc; g.fillRect(gs / 2 - 5.5, -gs / 2 + 3, 3.5, gs - 6);
+      g.beginPath(); g.moveTo(gs / 2 + 1, -4); g.lineTo(gs / 2 + 5.5, 0); g.lineTo(gs / 2 + 1, 4); g.closePath(); g.fill();
       g.restore();
     }
     g.restore();
@@ -1437,14 +1541,16 @@
       g.fillStyle = red ? '#ff5a44' : '#ffffff'; g.fillText(glyph, x, y);
       g.restore();
     };
-    const meterCol = (o) => (o.state === 'chase' || o.alarm > 0) ? '#ff5a44' : o.aw > 0.7 ? '#ff8c4a' : '#ffd36a';
+    const meterCol = (o) => (o.state === 'chase' || o.alarm > 0) ? '#ff5a44' : o.aw > 0.7 ? '#ff8a3d' : '#f3e57e';
     const meter = (o) => {
       if (caughtNow || !(o.aw > 0) || o.state === 'chase' || o.alarm > 0) return;
+      // a full dark track, then the fill from twelve o'clock, yellow turning orange as it nears 'seen'
       const s = toScreen(o.x, o.y), r = Math.max(15 * k, 18);
-      g.lineWidth = Math.max(3 * k, 3.5); g.strokeStyle = 'rgba(10,40,52,0.45)';
+      g.lineWidth = Math.max(4, 4.5 * k); g.lineCap = 'round'; g.strokeStyle = 'rgba(18,49,63,0.5)';
       g.beginPath(); g.arc(s.x, s.y, r, 0, TAU); g.stroke();
-      g.strokeStyle = meterCol(o);
-      g.beginPath(); g.arc(s.x, s.y, r, -Math.PI / 2, -Math.PI / 2 + TAU * o.aw); g.stroke();
+      const t = U.clamp((o.aw - 0.5) / 0.5, 0, 1);
+      g.strokeStyle = `rgb(${Math.round(U.lerp(243, 255, t))},${Math.round(U.lerp(229, 138, t))},${Math.round(U.lerp(126, 61, t))})`;
+      g.beginPath(); g.arc(s.x, s.y, r, -Math.PI / 2, -Math.PI / 2 + TAU * o.aw); g.stroke(); g.lineCap = 'butt';
     };
     // someone off screen has noticed you: a chevron on the edge points at them, in their meter's colour
     const top = safeTop + 64;
@@ -1590,7 +1696,14 @@
   }
   // the attract floor sits clear of the wordmark: below the buttons when upright, to the right on its side
   function titleAim() {
-    if (isPortrait()) { const z = overviewZ() * 1.02; return { x: floorBox.cx, y: floorBox.cy - H * 0.22 / z, z }; }
+    if (isPortrait()) {
+      // upright: the floor hangs below the buttons, its top clear of them (with room for the drift), cut off by the bottom edge if it must be
+      const bb = document.querySelector('#title .titleBtns'), rb = bb && bb.getBoundingClientRect();
+      const top = rb && rb.bottom > 0 ? rb.bottom + 24 : H * 0.55;
+      const z = Math.min(overviewZ() * 1.02, W * 0.94 / floorBox.w), room = H - 30 - top - 40 * z;
+      const sy = floorBox.h * z < room ? top + 20 * z + (room - floorBox.h * z) / 2 : top + 20 * z;   // where the floor's top edge sits on screen
+      return { x: floorBox.cx, y: floorBox.y0 + (H / 2 - sy) / z, z };
+    }
     // on its side the text block is centred at ~31% of the width (see #title in index.html); the floor fills the right 44%
     // on a desktop the wordmark is wide: the floor sits a little smaller and further right, clear of its last letter
     const big = W >= 1000, z = Math.min(overviewZ(), (W * (big ? 0.40 : 0.44)) / floorBox.w, (H - 60) / floorBox.h);
@@ -1704,7 +1817,16 @@
     startGame, startFloor: (n, retry) => { $('title').classList.remove('show'); $('hud').classList.remove('gone'); stickEl.classList.remove('gone'); mode = 'intro'; startFloor(n, retry); },
     get checkpoint() { return checkpoint; }, get modeT() { return modeT; },
     skipIntro: () => { mode = 'play'; modeT = 0; view.x = P.x; view.y = P.y; view.z = baseZ(); $('banner').className = ''; },
-    setOverview: (v) => { overview = v; }, teleport: (x, y) => { P.x = x; P.y = y; },
-    stick, keys, togglePause, toggleMap, replayFloor, floorsScreen, knock, get replay() { return replay; }, get knockCD() { return knockCD; },
+    setOverview: (v) => { overview = v; }, teleport: (x, y) => {
+      // debug only, but never into a wall or off the floor: snap to the nearest free spot, or stay put
+      // (the field alone isn't enough: the void outside the floor's outer walls is free space to it, so the nav grid decides)
+      if (!nav || !field) return false;
+      // on the floor = a walkable nav cell within two cells (a spot by a wall or a shut door sits in an unwalkable cell)
+      const onFloor = (px, py) => { for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) { const c = nav.cell(px + di * nav.C, py + dj * nav.C); if (c >= 0 && nav.walk[c]) return true; } return false; };
+      let q = onFloor(x, y) ? (field.sample(x, y) >= P_R ? { x, y } : field.nearestFree(x, y, P_R + 0.5, 20)) : null;
+      if (!q) { const k = nav.near(x, y); if (k < 0) return false; q = nav.center(k); }
+      P.x = q.x; P.y = q.y; return true;
+    },
+    stick, keys, togglePause, toggleMap, replayFloor, floorsScreen, knock, get replay() { return replay; }, get knockCD() { return knockCD; }, get nav() { return nav; },
   };
 })();

@@ -68,7 +68,7 @@
     // the pulse steps back for a moment under every stinger
     pulseDuck = ctx.createGain(); layers.pulse.disconnect(); layers.pulse.connect(pulseDuck); pulseDuck.connect(music);
     // the chase drums keep their punch but leave the sub out: on a phone it only fed the limiter
-    const chaseHP = ctx.createBiquadFilter(); chaseHP.type = 'highpass'; chaseHP.frequency.value = 110; chaseHP.Q.value = 0.6;
+    const chaseHP = ctx.createBiquadFilter(); chaseHP.type = 'highpass'; chaseHP.frequency.value = 180; chaseHP.Q.value = 0.6;
     layers.chase.disconnect(); layers.chase.connect(chaseHP); chaseHP.connect(music);
     layers.pad.gain.value = 0.9;
     const makeup = ctx.createGain(); makeup.gain.value = MAKEUP; comp.connect(makeup); makeup.connect(lim);
@@ -102,10 +102,10 @@
     // and a breath of air over it, high enough for a phone to play, so the calm has texture and isn't silence
     const air = ctx.createBufferSource(), abp = ctx.createBiquadFilter(), ag = ctx.createGain(), alfo = ctx.createOscillator(), alg = ctx.createGain();
     air.buffer = noiseBuf; air.loop = true; abp.type = 'bandpass'; abp.frequency.value = 2500; abp.Q.value = 0.5;
-    ag.gain.value = 0.01; alfo.frequency.value = 0.1; alg.gain.value = 0.006;
+    ag.gain.value = 0.014; alfo.frequency.value = 0.1; alg.gain.value = 0.008;
     alfo.connect(alg); alg.connect(ag.gain); air.connect(abp); abp.connect(ag); ag.connect(layers.drone);
     air.start(); alfo.start();
-    layers.drone.gain.setTargetAtTime(0.55, ctx.currentTime, 2);
+    layers.drone.gain.setTargetAtTime(0.4, ctx.currentTime, 2);
   }
   // a new floor, a new key: the drone slides there and the score follows from the next bar
   function setKey(k, t) {
@@ -161,13 +161,13 @@
   // the heartbeat: a faint low body, a woody thud (and its octave) that climbs with suspicion, a click and a knock,
   // so the beat lives where a phone speaker plays rather than in a sub it can't
   function heart(dest, t, v, h) {
-    const f = 190 + 90 * (h || 0);
+    const f = 300 + 140 * (h || 0);
     voice(dest, t, 70, { type: 'sine', glide: 45, glideT: 0.12, v: 0.05 * v, dur: 0.04, rel: 0.2 });
     voice(dest, t, f, { type: 'triangle', glide: f * 0.64, glideT: 0.08, v: 0.36 * v, dur: 0.03, rel: 0.18 });
     voice(dest, t, f * 2, { type: 'triangle', glide: f * 1.3, glideT: 0.07, v: 0.12 * v, dur: 0.02, rel: 0.12 });
-    voice(dest, t, 260, { type: 'triangle', glide: 180, glideT: 0.05, v: 0.28 * v, dur: 0.015, rel: 0.08 });
+    voice(dest, t, 520, { type: 'triangle', glide: 360, glideT: 0.05, v: 0.3 * v, dur: 0.015, rel: 0.08 });
     noise(dest, t, { ftype: 'lowpass', f: 450, q: 0.7, v: 0.12 * v, dur: 0.01, rel: 0.1 });
-    noise(dest, t, { f: 1100, q: 1.2, v: 0.14 * v, dur: 0.004, rel: 0.05 });
+    noise(dest, t, { f: 1800, q: 1.2, v: 0.22 * v, dur: 0.004, rel: 0.05 });
   }
   function tom(dest, t, f, v) {
     voice(dest, t, f, { type: 'sine', glide: f * 0.55, glideT: 0.3, v, dur: 0.04, rel: 0.4 });
@@ -182,6 +182,8 @@
     const pe = document.getElementById('pause');
     const pz = ducked || !!(pe && pe.classList.contains('show'));
     if (pz !== duckOn) setDuck(pz);
+    // a locked door knocks again only once the player has stepped away from it
+    if (lockedAt) { const P = playerAt(); if (!P || !inPlay() || Math.hypot(P.x - lockedAt.x, P.y - lockedAt.y) > 40) lockedAt = null; }
     // layer levels follow the tension (and sit at calm while paused or just after a cut)
     const goal = goalT = pz || now < cutUntil ? 0.05 : tension;
     smoothT += (goal - smoothT) * (goal > smoothT ? 0.12 : pz ? 0.08 : 0.012);
@@ -189,16 +191,18 @@
     const lv = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
     // the drone backs well off as danger nears, so the brighter pulse comes up out of it rather than under it
     // (and the pulse gives way in turn to the chase's bass line)
-    layers.drone.gain.setTargetAtTime(0.55 - 0.35 * lv(t, 0.12, 0.4), now, 0.6);
+    layers.drone.gain.setTargetAtTime(0.4 - 0.25 * lv(t, 0.12, 0.4), now, 0.6);
     // (and steps back about 6 dB once a guard suspects you, so the heartbeat leads)
-    layers.pulse.gain.setTargetAtTime(lv(t, 0.12, 0.35) * 2.8 * (1 - 0.45 * lv(t, 0.78, 0.92)) * (1 - 0.5 * lv(t, 0.45, 0.6)), now, 0.4);
+    layers.pulse.gain.setTargetAtTime(lv(t, 0.12, 0.35) * 1.4 * (1 - 0.45 * lv(t, 0.78, 0.92)) * (1 - 0.5 * lv(t, 0.45, 0.6)), now, 0.4);
     // the heartbeat takes the lead from the first doubt and swells with the meter, then steps back in a
     // chase (about 14 dB) so the drums carry the pulse
     const h = curHeat(now);
     beatDuck = 1 - 0.8 * lv(t, 0.78, 0.92);
-    layers.beat.gain.setTargetAtTime(lv(t, 0.42, 0.52) * 1.45 * (0.72 + 0.3 * h) * beatDuck, now, 0.25);
+    layers.beat.gain.setTargetAtTime(lv(t, 0.42, 0.52) * 0.85 * (0.72 + 0.3 * h) * beatDuck, now, 0.25);
     // once the chase has landed on its downbeat it follows the game's tension, not the smoothed one
     layers.chase.gain.setTargetAtTime(lv(chaseLive ? Math.max(t, goal) : t, 0.78, 0.92) * 2.3, now, 0.15);
+    // the pad's low chord gives the chase room (on a phone it only fed the compressor)
+    layers.pad.gain.setTargetAtTime(0.9 * (1 - 0.5 * lv(t, 0.78, 0.92)), now, 0.3);
     if (droneLP) droneLP.Q.setTargetAtTime(4 + t * 8, now, 0.5);
     // a chase (or a camera's alarm) pushes the tempo from 84 toward 100
     stepDur = S16 * BPM / (BPM + 16 * lv(t, 0.8, 0.95));
@@ -285,9 +289,9 @@
       // and a string that trembles on the chord's third
       if (live && pos === 0 && bar % 2 === 0) {
         const o = ctx.createOscillator(), g = ctx.createGain(), trem = ctx.createOscillator(), tg = ctx.createGain(), tv = ctx.createGain(), lp = ctx.createBiquadFilter();
-        o.type = 'sawtooth'; o.frequency.value = mtof(ch[1] + 12); lp.type = 'lowpass'; lp.frequency.value = 2200;
+        o.type = 'sawtooth'; o.frequency.value = mtof(ch[1] + 24); lp.type = 'lowpass'; lp.frequency.value = 3200;
         // the tremolo rides on its own gain after the envelope, so it never swings through zero
-        tv.gain.value = 0.5; trem.frequency.value = 7.5; tg.gain.value = 0.35; trem.connect(tg); tg.connect(tv.gain);
+        tv.gain.value = 0.8; trem.frequency.value = 7.5; tg.gain.value = 0.35; trem.connect(tg); tg.connect(tv.gain);
         o.connect(lp); lp.connect(g); g.connect(tv); tv.connect(layers.beat);
         env(g, t, 0.8, 0.12, S16 * 32 - 0.8, 0.6);
         o.start(t); trem.start(t); o.stop(t + S16 * 32 + 0.8); trem.stop(t + S16 * 32 + 0.8);
@@ -304,23 +308,30 @@
       // chase: sixteenth bass (an octave up, where a phone plays it), toms, a snare on the backbeat, a tom roll into the top of each pass
       const fill = bar === 7 && pos >= 12;
       const bp = [0, 0, 12, 0, 0, 7, 0, 10, 0, 0, 12, 0, 13, 12, 7, 5];
-      voice(layers.chase, t, mtof(root + 12 + bp[pos]), { type: 'sawtooth', lp: 2400, lpTo: 300, lpT: 0.1, q: 5, v: pos % 4 === 0 ? 0.13 : 0.08, dur: 0.03, rel: 0.08 });
-      if (pos % 2 === 0) voice(layers.chase, t, mtof(root + 24 + bp[pos]), { type: 'square', lp: 3600, lpTo: 900, lpT: 0.08, q: 2, v: 0.2, dur: 0.03, rel: 0.08 });
-      if (pos === 0 || pos === 6 || pos === 10) tom(layers.chase, t, pos === 0 ? 150 : 190, 0.2);
+      voice(layers.chase, t, mtof(root + 24 + bp[pos]), { type: 'sawtooth', lp: 3200, lpTo: 300, lpT: 0.1, q: 5, v: pos % 4 === 0 ? 0.1 : 0.065, dur: 0.03, rel: 0.08 });
+      if (pos % 2 === 0) voice(layers.chase, t, mtof(root + 36 + bp[pos]), { type: 'square', lp: 5200, lpTo: 1400, lpT: 0.08, q: 2, v: 0.24, dur: 0.03, rel: 0.08 });
+      if (pos === 0 || pos === 6 || pos === 10) tom(layers.chase, t, pos === 0 ? 150 : 190, 0.13);
       // the kick takes the beat over from the heartbeat
       if (pos % 4 === 0) { const v = pos === 0 ? 1 : 0.8;   // a short, high-tuned kick: punch a phone can play, little sub to push the limiter
-        voice(layers.chase, t, 160, { type: 'sine', glide: 60, glideT: 0.07, v: 0.24 * v, dur: 0.02, rel: 0.12 });
+        voice(layers.chase, t, 160, { type: 'sine', glide: 60, glideT: 0.07, v: 0.14 * v, dur: 0.02, rel: 0.12 });
         noise(layers.chase, t, { f: 2600, q: 1, v: 0.12 * v, dur: 0.003, rel: 0.025 }); }
       if (fill) tom(layers.chase, t, [260, 230, 200, 170][pos - 12], 0.32 + (pos - 12) * 0.02);
-      if (pos === 4 || (pos === 12 && !fill)) { noise(layers.chase, t, { f: 1800, q: 0.8, v: 0.3, dur: 0.02, rel: 0.18 }); voice(layers.chase, t, 190, { type: 'triangle', glide: 120, v: 0.12, dur: 0.02, rel: 0.08 }); }
+      if (pos === 4 || (pos === 12 && !fill)) {   // the snare: a body, and a crack in the band a phone speaker plays loudest
+        noise(layers.chase, t, { f: 1800, q: 0.8, v: 0.3, dur: 0.02, rel: 0.18 }); noise(layers.chase, t, { f: 3000, q: 1, v: 0.18, dur: 0.015, rel: 0.12 });
+        voice(layers.chase, t, 220, { type: 'triangle', glide: 150, v: 0.16, dur: 0.02, rel: 0.1 }); }
       if (pos === 14 && bar % 2 === 1 && !fill) tom(layers.chase, t, 240, 0.35);
       // driving hats, open on the off-beat, so the chase cuts through a small speaker
+      // and a shaker in the 3-4 kHz a phone speaker plays loudest, pushing the sixteenths
+      noise(layers.chase, t, { f: 3500, q: 1.2, v: pos % 2 ? 0.07 : 0.11, dur: 0.006, rel: 0.04 });
       noise(layers.chase, t, { ftype: 'highpass', f: 6500, q: 0.8, v: pos % 4 === 2 ? 0.22 : 0.1, dur: 0.004, rel: pos % 4 === 2 ? 0.09 : 0.03 });
     }
   }
 
   // ── sound effects ──────────────────────────────────────────
   const T0 = () => ctx.currentTime + 0.005;
+  const inPlay = () => { try { const G = window.GAME; return !G || !G.mode || G.mode === 'play'; } catch (e) { return true; } };
+  const playerAt = () => { try { const P = window.GAME && window.GAME.P; return P && typeof P.x === 'number' ? { x: P.x, y: P.y } : null; } catch (e) { return null; } };
+  let spottedAt = -9, lockedAt = null;
   const SFX = {
     // a step follows the stick: a gentle push is a soft, slow pad, nearly a full push a firm walk. The
     // weight is the second argument when it's a number, or GAME.P.m when the game passes run = false
@@ -341,13 +352,21 @@
       noise(sfx, t, { f: 800 + 400 * m, q: 1.2, v: m > 0.6 ? 0.06 + 0.16 * m : 0.05 + 0.07 * m, dur: 0.004 + 0.005 * m, rel: 0.03 + 0.025 * m });
       if (m > 0.6) voice(sfx, t, 140, { type: 'sine', glide: 95, glideT: 0.04, v: 0.1 * m, dur: 0.008, rel: 0.05 });
     },
-    locked() {   // a locked door: two dull knocks of the handle
+    locked() {   // a locked door: two dull knocks of the handle, each with a click a phone can play
+      // (once per contact: leaning on the door doesn't knock again until you've stepped away from it)
+      const P = playerAt(); if (P && lockedAt && Math.hypot(P.x - lockedAt.x, P.y - lockedAt.y) < 40) return;
+      lockedAt = P;
       const t = T0();
-      for (const d of [0, 0.09]) { voice(sfx, t + d, 180, { type: 'square', lp: 900, lpTo: 300, lpT: 0.06, v: 0.2, dur: 0.04, rel: 0.12 }); noise(sfx, t + d, { f: 900, q: 1, v: 0.14, dur: 0.005, rel: 0.05 }); }
+      for (const d of [0, 0.09]) {
+        voice(sfx, t + d, 180, { type: 'square', lp: 900, lpTo: 300, lpT: 0.06, v: 0.2, dur: 0.04, rel: 0.12 }); noise(sfx, t + d, { f: 900, q: 1, v: 0.14, dur: 0.005, rel: 0.05 });
+        noise(sfx, t + d, { f: 2500, q: 1.5, v: 0.3, dur: 0.005, rel: 0.04 });
+      }
     },
     hmm() {   // a guard notices something: two notes asking a question, in the chord of the moment,
       // each with a bell an octave up so the question rings out above the pulse (about 1.6-2.1 kHz)
-      const t = T0(), ch = curCh, top = mtof(ch[2] + 24);
+      // (never on top of a "!" just played, nor once the floor is lost or won)
+      if (!inPlay() || ctx.currentTime - spottedAt < 1) return;
+      const t = onGrid(), ch = curCh, top = mtof(ch[2] + 24);
       duckPulse(t, 0.3, 0.5);
       noise(sfx, t, { f: 2500, q: 1, v: 0.06, a: 0.02, dur: 0.03, rel: 0.2 });
       voice(sfx, t, mtof(ch[1] + 24), { type: 'triangle', v: 0.32, dur: 0.08, rel: 0.1 });
@@ -356,7 +375,7 @@
       voice(sfx, t + 0.13, mtof(ch[2] + 36), { type: 'sine', v: 0.14, dur: 0.02, rel: 0.35 });
     },
     spotted() {   // "!": a stab of brass, a snap and a hit, on the beat
-      const t = onGrid();
+      const t = onGrid(); spottedAt = ctx.currentTime;
       duckPulse(t);
       for (const m of [62, 63, 69, 74].map(m => m + key)) voice(sfx, t, mtof(m), { type: 'sawtooth', lp: 5000, lpTo: 700, lpT: 0.5, q: 2, v: 0.15, dur: 0.18, rel: 0.5 });
       kick(sfx, t, 0.45);
@@ -367,8 +386,9 @@
       voice(sfx, t, 190, { type: 'triangle', glide: 120, v: 0.1, dur: 0.02, rel: 0.08 });
       noise(sfx, t, { ftype: 'highpass', f: 5000, q: 0.5, v: 0.16, dur: 0.02, rel: 1.1 });
     },
-    lost() {   // gave up: the question again, falling back into the chord
-      const t = T0(), ch = curCh;
+    lost() {   // gave up: the question again, falling back into the chord (no relief over a defeat, or under a "!")
+      if (!inPlay() || ctx.currentTime - spottedAt < 1) return;
+      const t = onGrid(), ch = curCh;
       duckPulse(t, 0.3, 0.5);
       noise(sfx, t, { f: 2500, q: 1, v: 0.06, a: 0.02, dur: 0.03, rel: 0.2, fTo: 1200 });
       voice(sfx, t, mtof(ch[2] + 24), { type: 'triangle', v: 0.32, dur: 0.1, rel: 0.1 });
@@ -383,8 +403,8 @@
       for (let i = 0; i < 3; i++) voice(sfx, t + i * 0.18, hi, { type: 'square', lp: 3200, v: 0.14, dur: 0.08, rel: 0.05, glide: lo });
     },
     // the pickups ring in the chord of the moment, so each floor's key carries through them
-    star() { const t = T0(), ch = curCh; [ch[0] + 36, ch[1] + 36, ch[2] + 36, ch[0] + 48].forEach((m, i) => voice(sfx, t + i * 0.06, mtof(m), { type: 'sine', v: 0.17, dur: 0.02, rel: 0.9 })); },
-    key() { const t = T0(), ch = curCh; [ch[0] + 24, ch[1] + 24, ch[2] + 24, ch[0] + 36].forEach((m, i) => voice(sfx, t + i * 0.05, mtof(m), { type: 'triangle', v: 0.17, dur: 0.03, rel: 0.5 })); noise(sfx, t, { f: 6000, q: 3, v: 0.085, dur: 0.01, rel: 0.2 }); },
+    star() { const t = onGrid(), ch = curCh; [ch[0] + 36, ch[1] + 36, ch[2] + 36, ch[0] + 48].forEach((m, i) => voice(sfx, t + i * 0.06, mtof(m), { type: 'sine', v: 0.17, dur: 0.02, rel: 0.9 })); },
+    key() { const t = onGrid(), ch = curCh; [ch[0] + 24, ch[1] + 24, ch[2] + 24, ch[0] + 36].forEach((m, i) => voice(sfx, t + i * 0.05, mtof(m), { type: 'triangle', v: 0.17, dur: 0.03, rel: 0.5 })); noise(sfx, t, { f: 6000, q: 3, v: 0.085, dur: 0.01, rel: 0.2 }); },
     door() {   // the latch clacks above the drone, the door swings, and a small high note says it's open
       const t = T0();
       voice(sfx, t, 220, { type: 'square', lp: 600, v: 0.25, dur: 0.05, rel: 0.2, glide: 140 });
@@ -396,8 +416,13 @@
       const t = T0();
       cut(1.6);
       kick(sfx, t, 0.45);
-      for (const m of [38, 39, 45].map(m => m + key)) voice(sfx, t, mtof(m), { type: 'sawtooth', lp: 1200, lpTo: 100, lpT: 1.4, v: 0.18, dur: 0.6, rel: 0.9, glide: mtof(m - 7), glideT: 1.4 });
+      for (const m of [38, 39, 45].map(m => m + key)) {
+        voice(sfx, t, mtof(m), { type: 'sawtooth', lp: 1200, lpTo: 100, lpT: 1.4, v: 0.18, dur: 0.6, rel: 0.9, glide: mtof(m - 7), glideT: 1.4 });
+        // the same cluster three octaves up, sinking with it, so the fall is heard on a phone and not only felt
+        voice(sfx, t, mtof(m + 36), { type: 'triangle', v: 0.12, dur: 0.5, rel: 0.8, glide: mtof(m + 29), glideT: 1.2 });
+      }
       noise(sfx, t, { f: 1200, q: 0.5, v: 0.3, dur: 0.1, rel: 0.8, fTo: 120 });
+      noise(sfx, t, { f: 2600, q: 0.9, v: 0.22, dur: 0.15, rel: 0.9, fTo: 600 });
     },
     clear() {
       const t = T0();
@@ -408,11 +433,12 @@
       voice(sfx, t + 0.42, mtof(50 + key), { type: 'triangle', v: 0.2, a: 0.02, dur: 0.4, rel: 1.6 });
       noise(sfx, t + 0.42, { ftype: 'highpass', f: 6000, q: 0.7, v: 0.08, a: 0.3, dur: 0.3, rel: 1.5 });
     },
-    floor() { const t = T0(), k = floorKey(); voice(sfx, t, mtof(50 + k), { type: 'sine', v: 0.2, dur: 0.1, rel: 1.6 }); voice(sfx, t + 0.18, mtof(57 + k), { type: 'sine', v: 0.12, dur: 0.1, rel: 1.6 }); noise(sfx, t, { f: 300, q: 0.7, v: 0.12, a: 0.4, dur: 0.3, rel: 1, fTo: 1500 }); },
+    floor() { const t = T0(), k = floorKey(); voice(sfx, t, mtof(50 + k), { type: 'sine', v: 0.2, dur: 0.1, rel: 1.6 }); voice(sfx, t + 0.18, mtof(57 + k), { type: 'sine', v: 0.12, dur: 0.1, rel: 1.6 });
+      voice(sfx, t, mtof(74 + k), { type: 'sine', v: 0.1, dur: 0.1, rel: 1.4 }); voice(sfx, t + 0.18, mtof(81 + k), { type: 'sine', v: 0.1, dur: 0.1, rel: 1.4 }); noise(sfx, t, { f: 300, q: 0.7, v: 0.12, a: 0.4, dur: 0.3, rel: 1, fTo: 1500 }); },
     tap() { const t = T0(); voice(sfx, t, mtof(79), { type: 'sine', v: 0.08, dur: 0.01, rel: 0.12 }); },
     hide() {   // a cloth rustle and a soft low thump as you settle into the dark
       const t = T0();
-      noise(sfx, t, { f: 1600, q: 0.8, v: 0.3, a: 0.03, dur: 0.05, rel: 0.25, fTo: 450 });
+      noise(sfx, t, { f: 3000, q: 0.8, v: 0.38, a: 0.03, dur: 0.05, rel: 0.25, fTo: 900 });
       voice(sfx, t + 0.04, 220, { type: 'triangle', glide: 140, glideT: 0.12, v: 0.22, dur: 0.02, rel: 0.18 });
     },
   };
