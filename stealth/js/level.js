@@ -187,7 +187,7 @@
     return {
       rooms: n <= 1 ? 3 : n <= 3 ? 4 : n <= 5 ? 5 : n <= 8 ? 6 : n <= 12 ? 7 : n <= 16 ? 8 : 9,   // the building keeps getting bigger as you climb
       sides: n <= 1 ? 1 : n <= 4 ? 1 : 2,
-      density: Math.min(0.9 + n * 0.1, 1.8),
+      density: Math.min(0.9 + n * 0.1, 2.6),   // keeps rising to the twenty-fourth floor: more guards a room, not just more rooms
       coneLen: Math.min(132 + n * 5, 190),
       fov: 0.6 + U.clamp((n - 12) / 3, 0, 1) * 0.1,   // wider eyes past the twelfth floor
       patrol: Math.min(38 + n * 1.2, 46),   // a silent sneak (about 60) stays at least 1.25x a walker on every floor, so you can slip past or trail one
@@ -199,7 +199,7 @@
       // past the twelfth floor the rest stops growing, so a new pressure arrives every few floors:
       snap: n >= 13,        // sentries whose heads whip round
       camPairs: n >= 15,    // cameras in pairs across a room, sweeping in counterpoint
-      budget: n >= 22 ? 18 : n >= 16 ? 15 : 13,   // and, from the sixteenth (with sharper ears from the seventeenth), more of them
+      budget: n >= 22 ? 18 : n >= 16 ? 16 : 13,   // and, from the sixteenth (with sharper ears from the seventeenth), more of them
     };
   }
 
@@ -216,7 +216,7 @@
   function generate(seed, n, prev) {
     const kind = pickKind(seed, n, prev);
     for (let attempt = 0; attempt < 40; attempt++) {
-      const L = tryGen(U.hash(seed, attempt), n, kind);
+      const L = tryGen(U.hash(seed, attempt), n, kind, attempt >= 3);   // after three goes a thin floor is let through, rather than a long wait
       if (L) { L.attempts = attempt + 1; L.seed = seed; return L; }
     }
     throw new Error('no floor for seed ' + seed);
@@ -734,7 +734,7 @@
     return { x: room.c.x + u * c - v * s, y: room.c.y + u * s + v * c };
   }
 
-  function tryGen(seed, n, kind) {
+  function tryGen(seed, n, kind, loose) {
     const R = U.rng(seed), D = difficulty(n);
     const L = { n, D, floor: [], obs: [], doors: [], shades: [], guards: [], cams: [], keys: [], stars: [], rooms: [], conns: [] };
     // the building, and its zones as rooms
@@ -997,7 +997,7 @@
     }
 
     // guards and cameras
-    const unplug = placeGuards(R, L, field, navClosed, n);
+    const unplug = placeGuards(R, L, field, navClosed, n, loose);
     // from the third floor at least one star is a dare: on a walker's beat, or in a post's or a
     // camera's look, so three stars means taking a real risk. If none is, one moves beside a beat
     if (n >= 3 && !L.stars.some(st => starRisk(L, field, st))) {
@@ -1025,13 +1025,18 @@
     // way on comes down too, and after eight goes the floor is drawn again
     for (let t = 0; ; t++) {
       const fx = forcedExposure(L, field);
-      if (fx.cost > 0.25) { if (t >= 12 || !fx.who) return null; unplug(fx.who); continue; }
+      if (fx.cost > 0.25) { if (t >= 12 || !fx.who) return null; unplug(fx.who, t >= 6); continue; }
       const tr = timedRoute(L, field);
       if (tr.ok) break;
       if (t >= 12 || !tr.who) return null;
-      unplug(tr.who);
+      unplug(tr.who, t >= 6);
     }
     if (n >= 2 && L.guards.length < 2) return null;
+    // and the timing checks never leave a floor thin: past the second, at least 60% of its budget still watches
+    // (8 on the twelfth, 9 from the sixteenth), with a camera among them from the sixteenth. Short of that, draw again
+    const budget = Math.min(D.budget, Math.round(4 + n * 0.8));
+    if (!loose && n >= 3 && L.guards.length + L.cams.length < U.clamp(Math.round(0.6 * budget), 3, 9)) return null;
+    if (!loose && n >= 16 && D.cams && !L.cams.length) return null;
 
     // hiding spots: pools of deep shadow tucked against walls, laid after the guards so none sits
     // on a beat: a shade is only safe if no round walks within reach of it
@@ -1043,6 +1048,8 @@
         for (let j = 0; j < k; j++) beat.push({ x: a.x + (b.x - a.x) * j / k, y: a.y + (b.y - a.y) * j / k });
       }
     }
+    // and none is a trap beside a post: its rim stays 60 from every sentry's spot, out of its elbow and its stare
+    const nearPost = (p, r) => L.guards.some(g => !g.path && Math.hypot(g.x - p.x, g.y - p.y) - r < 60);
     // one to a room and six to eight a floor: a shade is a place to break off a chase, not a path
     const shadeCap = R.int(6, 8);
     for (const room of L.rooms) {
@@ -1057,6 +1064,7 @@
         if (L.conns.some(c => Math.hypot(c.mouth.x - p.x, c.mouth.y - p.y) < 50)) continue;
         const r = R.range(19, 24);
         if (beat.some(q => Math.hypot(q.x - p.x, q.y - p.y) < r + 30)) continue;
+        if (nearPost(p, r)) continue;
         if (!navOpen.reach(L.entrance.x, L.entrance.y, p.x, p.y)) continue;
         L.shades.push({ x: p.x, y: p.y, r, rot: R() * TAU });
         got++;
@@ -1083,7 +1091,7 @@
       if (L.stars.concat(L.keys).some(o => Math.hypot(o.x - p.x, o.y - p.y) < 40)) continue;
       if (L.conns.some(c => Math.hypot(c.mouth.x - p.x, c.mouth.y - p.y) < 50)) continue;
       // close to this beat, but no beat (nor post) comes within arm's reach of anyone inside it
-      if (beat.some(o => Math.hypot(o.x - p.x, o.y - p.y) < r + 13)) continue;
+      if (beat.some(o => Math.hypot(o.x - p.x, o.y - p.y) < r + 13) || nearPost(p, r)) continue;
       if (!navOpen.reach(L.entrance.x, L.entrance.y, p.x, p.y)) continue;
       L.shades.push({ x: p.x, y: p.y, r, rot: R() * TAU, pass: true });
       got++;
@@ -1532,7 +1540,7 @@
   }
 
   // ── guards ─────────────────────────────────────────────────
-  function placeGuards(R, L, field, nav, n) {
+  function placeGuards(R, L, field, nav, n, loose) {
     const D = L.D, homes = [];
     const farFromStart = (p, d) => Math.hypot(p.x - L.entrance.x, p.y - L.entrance.y) > d;
     const okHome = (p) => p && farFromStart(p, 290) && Math.hypot(p.x - L.exit.x, p.y - L.exit.y) > 50 && homes.every(h => Math.hypot(h.x - p.x, h.y - p.y) > 80);
@@ -1602,7 +1610,7 @@
       const camCap = room.corr || room.neck || room.tower ? 0 : small(room) ? Math.max(0, 2 - count) : (room.kind === 'circle' ? room.r : room.R) > 240 ? 2 : 1;
       // doorways out of this room that a guard may walk through (never a locked one)
       const ways = L.conns.filter(c => (c.a === room || c.b === room) && !L.doors.some(d => d.conn === c));
-      for (let k = 0, t = 0; k < count && t < 24; t++) {
+      for (let k = 0, t = 0; k < count && t < (loose ? 24 : 48); t++) {
         // never a post in the room just past the stairs room: its only way in is that first door
         const second = room.idx === 1 && !room.side;
         const kind = R.weighted([['patrol', 4.5], ['pace', 2.5], ['sentry', second ? 0 : (room.side ? 3 : 2) + (n >= 3 && n < 15 ? 1 : 0)], ['cam', D.cams && cams < camCap ? 1.4 : 0]]);
@@ -1650,14 +1658,15 @@
           // from the ninth floor some cameras pan quick
           const quick = n >= 9 && R.chance(0.5);
           const cam = { x: p.x, y: p.y, base: face, amp, period: quick ? R.range(3, 4) : R.range(5, 8), phase: R() * TAU };
-          L.cams.push(cam);
+          L.cams.push(cam); roomOf.set(cam, room);
           homes.push(p); cams++;   // a camera is on top of the room's guards, not one of them
           // from the fifteenth floor a camera may have a twin on the far wall, half a sweep behind, so
           // the gap in one's sweep is the other's stare
           if (D.camPairs && R.chance(0.6)) for (let s = 0; s < 6; s++) {
             const a = pa + Math.PI + R.range(-0.35, 0.35), q = camAt(a);
             if (!q || Math.hypot(q.x - p.x, q.y - p.y) < 160) continue;
-            L.cams.push({ x: q.x, y: q.y, base: a + Math.PI, amp: cam.amp, period: cam.period, phase: cam.phase + Math.PI, twin: true });
+            const twin = { x: q.x, y: q.y, base: a + Math.PI, amp: cam.amp, period: cam.period, phase: cam.phase + Math.PI, twin: true };
+            L.cams.push(twin); roomOf.set(twin, room);
             homes.push(q); cams++;
             break;
           }
@@ -1742,14 +1751,25 @@
       const gd = sentryAt(room, posts().filter(o => o.snap).length < wantSnap);
       if (!gd && swap) { L.guards.push(swap); homes.push({ x: swap.x, y: swap.y }); }
     }
+    // and a floor is never thin: short of 60% of its budget in guards and cameras, posts top it up in rooms
+    // with room for another watcher (a small room still holds two at most)
+    const target = n >= 3 && !loose ? U.clamp(Math.round(0.6 * budget), 3, 9) : 0;
+    const inRoomN = (room) => L.guards.concat(L.cams).filter(g => roomOf.get(g) === room).length;
+    for (let t = 0; t < 80 && pool.length && L.guards.length + L.cams.length < target && L.guards.length < budget; t++) {
+      const room = R.pick(pool);
+      if (inRoomN(room) >= (small(room) ? 2 : 3)) continue;
+      sentryAt(room);
+    }
     // a post or a camera that plugs the way on (forcedExposure) is taken down; a post stands again in
     // another room if one will have it, so the floor keeps its mix
-    return (o) => {
+    return (o, late) => {
       const list = o.base === undefined ? L.guards : L.cams, hi = homes.findIndex(h => h.x === o.x && h.y === o.y);
       list.splice(list.indexOf(o), 1); if (hi >= 0) homes.splice(hi, 1);
-      if (o.kind !== 'sentry') return;
+      // and a walker or a camera taken down is made up with a post too while the floor is short of its 60%
+      // (late in the retries a post is only made up if the floor is short, so the retries can thin a floor out to it)
+      if ((o.kind !== 'sentry' || late) && L.guards.length + L.cams.length >= target) return;
       const was = roomOf.get(o), rooms = pool.filter(r => r !== was);
-      for (let t = 0; t < 30 && rooms.length; t++) if (sentryAt(R.pick(rooms), o.snap)) return;
+      for (let t = 0; t < 30 && rooms.length; t++) { const room = R.pick(rooms); if (inRoomN(room) < (small(room) ? 2 : 3) && sentryAt(room, !!o.snap)) return; }
     };
   }
 

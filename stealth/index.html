@@ -72,6 +72,7 @@
   #stick.loud #knob { background: rgba(255,200,150,.55); }   /* the top of the walk: a guard right beside you hears it */
   #stick.run #knob { background: rgba(255,138,61,.85); border-color: #fff; }
   #stick.gone { opacity: 0; pointer-events: none; }
+  #stick.intro:not(.on) { opacity: 0; transition: none; }   /* hidden under the floor banner, but live: a push skips the card */
   #stick.mapdim:not(.gone):not(.dim) { opacity: .35; }   /* the map is up: the stick reads as resting (a first touch closes the map) */
   #stick.idle:not(.on):not(.run):not(.gone):not(.dim):not(.mapdim) { opacity: .45; }   /* resting for 1.5s: it steps back off the floor (a touch, or a pad's run, brings it back) */
   @media (orientation: landscape) {
@@ -97,6 +98,7 @@
   #result.show { opacity: 1; background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.5), transparent 70%); }
   /* leaving: the stamp holds its landed pose while the whole block fades under the ink, rather than snapping back to its pre-pop state */
   #result.out { opacity: 0; background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.5), transparent 70%); }
+  #result.show.clear, #result.out.clear { background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.28), transparent 62%); }   /* a clear stays bright: the stairs and stars are the reward */
   #result.out .stamp { opacity: 1; transform: rotate(-6deg) scale(1.04); transition: transform .3s; }
   #result.out .stars span.on { opacity: 1; transform: none; }
   .stamp { font-size: clamp(48px, 15vw, 120px); line-height: 1.05; letter-spacing: .02em; white-space: nowrap; justify-self: center; font-weight: 700; font-style: italic; padding: 4px 26px; border: 6px solid; border-radius: 12px; transform: rotate(-6deg) scale(2.2); opacity: 0;
@@ -138,8 +140,9 @@
     .credit { left: 31vw; transform: translateX(-50%); width: max-content; }
   }
   @media (orientation: portrait) {
-    #title { justify-content: flex-start; padding-top: 22vh; }
-    #title::before { background: radial-gradient(ellipse 80% 32% at 50% 36%, rgba(18,49,63,.65), transparent); }
+    /* upright the stack rides high, so the attract floor gets the lower half whole, under the buttons */
+    #title { justify-content: flex-start; padding-top: calc(env(safe-area-inset-top) + 9vh); }
+    #title::before { background: radial-gradient(ellipse 85% 30% at 50% 27%, rgba(18,49,63,.65), transparent); }
   }
   .logo { position: relative; width: min(84vw, 460px); }
   .logo svg { width: 100%; display: block; overflow: visible; }
@@ -228,15 +231,31 @@
   /* a desktop title fills the room rather than sitting in it as a small island */
   @media (min-width: 1000px) and (min-height: 600px) {
     .logo { width: min(40vw, 720px); }
-    .logoWord { font-size: min(8.5vw, 150px); }
+    .logoWord { font-size: min(8.5vw, 170px); }
+    .tag { font-size: clamp(14px, 1.15vw, 22px); letter-spacing: .35em; padding: 8px 18px; border-radius: 10px; margin-bottom: clamp(22px, 2vw, 36px); }
+    .titleBtns { gap: clamp(10px, .8vw, 16px); }
+    #btnPlay { width: clamp(240px, 18vw, 340px); height: clamp(54px, 4.6vw, 80px); padding: 0; font-size: clamp(20px, 1.6vw, 30px); border-radius: clamp(14px, 1.1vw, 20px); box-shadow: 0 6px 0 #b84f17; }
+    .titleBtns .ghostBtn { width: clamp(240px, 18vw, 340px); font-size: clamp(15px, 1.05vw, 20px); padding: clamp(11px, .8vw, 15px) 22px; }
+    #titleMeta { font-size: clamp(13px, .9vw, 17px); }
+    .credit { font-size: 13px; padding: 4px 14px; }
   }
+  /* the HUD is sized off the room, not the phone: a 1920 monitor gets chrome to match (the reference's star pill is a big read) */
   @media (min-width: 1000px) {
-    .floorTag b { font-size: 42px; }
-    .floorTag small { font-size: 14px; }
-    .floorTag .nm { font-size: 17px; }
-    .iconBtn { width: 52px; height: 52px; border-radius: 14px; }
-    .iconBtn svg { width: 27px; height: 27px; }
-    #hudStars { font-size: 30px; top: calc(env(safe-area-inset-top) + 12px); }
+    #hud { padding: calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 20px) 0 calc(env(safe-area-inset-left) + 20px); }
+    .floorTag { padding: 6px 16px 8px 14px; border-radius: 18px; }
+    .floorTag b { font-size: clamp(42px, 3.4vw, 64px); }
+    .floorTag small { font-size: clamp(14px, 1vw, 18px); }
+    .floorTag .nm { font-size: clamp(17px, 1.25vw, 24px); max-width: clamp(140px, 11vw, 210px); }
+    .left { gap: 8px; }
+    #hudKeys { padding: 8px 12px; gap: 9px; border-radius: 12px; }
+    #hudKeys .key { width: clamp(16px, 1.2vw, 22px); height: clamp(11px, .8vw, 15px); }
+    .right { gap: clamp(10px, .8vw, 14px); }
+    .iconBtn { width: clamp(52px, 4vw, 72px); height: clamp(52px, 4vw, 72px); border-radius: 16px; }
+    .iconBtn svg { width: 50%; height: 50%; }
+    #hudStars { font-size: clamp(30px, 2.4vw, 46px); padding: 4px 14px 4px 18px; top: calc(env(safe-area-inset-top) + 16px); letter-spacing: .18em; }
+    body.desk #knockBtn { width: 68px; height: 68px; }
+    body.desk #knockBtn svg { width: 32px; height: 32px; }
+    body.desk #knockBtn i { font-size: 13px; padding: 1px 5px; }
     .stamp { font-size: clamp(72px, 9vw, 150px); }
     #result .stars { font-size: 64px; margin-top: 22px; }
     #result .sub { font-size: 18px; }
@@ -247,7 +266,7 @@
     .card .meta, .card .legend, body.desk .card .legend { font-size: 15px; }
   }
   @media (min-width: 1000px) and (min-height: 501px) {
-    #toast { font-size: 17px; padding: 12px 20px; max-width: 560px; top: calc(env(safe-area-inset-top) + 120px); }
+    #toast { font-size: clamp(17px, 1.05vw, 20px); padding: 13px 22px; border-radius: 14px; max-width: clamp(560px, 34vw, 640px); top: calc(env(safe-area-inset-top) + clamp(120px, 9vw, 168px)); }
   }
   /* the knock: beside the thumb's stick; its ring fills back up over six seconds */
   #knockBtn { position: fixed; z-index: 2; width: 54px; height: 54px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; color: var(--ink); touch-action: none;
@@ -267,7 +286,7 @@
   body.desk #knockBtn i { display: block; }
   #hud.gone ~ #knockBtn { opacity: 0; pointer-events: none; }
   #hud.dim ~ #knockBtn { opacity: 0; pointer-events: none; }
-  #hud.intro ~ #knockBtn { opacity: .35; }
+  #hud.intro ~ #knockBtn { opacity: 0; transition: none; }   /* the floor banner is a clean card: no controls under it */
   #knockBtn.idle:not(:active) { opacity: .6; }
 
   /* the floors list: every floor climbed, its stars, and the colours they've bought */

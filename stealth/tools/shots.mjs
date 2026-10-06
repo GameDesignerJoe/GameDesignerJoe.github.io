@@ -42,13 +42,16 @@ async function run(name, vp, mobile) {
     // put the player just inside a guard's cone to show suspicion, then a chase
     const ok = await page.evaluate(() => {
       const g = GAME.guards.find(g => g.kind !== 'sentry') || GAME.guards[0]; if (!g) return false;
+      window.__shotG = g;
       const d = 95; GAME.teleport(g.x + Math.cos(g.ang) * d, g.y + Math.sin(g.ang) * d);
       const f = GAME.L.field; if (f.sample(GAME.P.x, GAME.P.y) < 8) { const p = f.nearestFree(GAME.P.x, GAME.P.y, 10, 60); if (p) GAME.teleport(p.x, p.y); }
       GAME.view.x = GAME.P.x; GAME.view.y = GAME.P.y; return true;
     });
     if (ok) {
       await wait(350); await page.screenshot({ path: `${out}/${name}-f${fl}-sus.png` });
-      await wait(900); await page.screenshot({ path: `${out}/${name}-f${fl}-chase.png` });
+      // the chase shot waits for the chase itself (the meter takes 1.4s or more to fill), up to 4s
+      await page.waitForFunction(() => window.__shotG.state === 'chase', null, { timeout: 4000 }).catch(() => {});
+      await wait(150); await page.screenshot({ path: `${out}/${name}-f${fl}-chase.png` });
     }
   }
   const fps = await page.evaluate(() => GAME.fps);

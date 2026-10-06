@@ -41,11 +41,14 @@ for (const fl of [2, 5, 9]) {
   check(seen.has('sus') && seen.has('chase'), `floor ${fl}: seen -> suspicious -> chase (${[...seen].join(',')}, aw ${await page.evaluate(() => GAME.guards[__watch].aw.toFixed(2))})`);
   // vanish: far away, at the entrance
   await page.evaluate(() => { const e = GAME.L.entrance; GAME.teleport(e.x, e.y); GAME.P.alive = true; });
+  // every frame's state, not just the 100ms polls: a guard whose search ends on its own route is in 'return' for a frame
+  await page.evaluate(() => { window.__st = new Set(); if (!window.__rec) { window.__rec = true; const rec = () => { const g = GAME.guards[window.__watch]; if (g && window.__st) window.__st.add(g.state); requestAnimationFrame(rec); }; rec(); } });
   const after = new Set(); let qa = [];
   // up to 22s: a guard that peeks (floor 6 up) checks a shade after its search before it goes back
   for (let t = 0; t < 220; t++) {
     const r = await page.evaluate(() => { const g = GAME.guards[__watch]; return [g.state, g.bubble ? g.bubble.k + g.bubble.a.toFixed(2) : '-']; });
     after.add(r[0]); if (r[0] === 'search') qa.push(r[1]);
+    for (const k of await page.evaluate(() => [...window.__st])) after.add(k);
     if (r[0] === 'patrol' && after.has('return')) break;
     await wait(100);
   }
@@ -356,6 +359,45 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
     }
   }
   check(nearN >= 3 && near === nearN && farN >= 3 && far === farN, `shade peek: found on its half ${near}/${nearN}, missed on the far half ${far}/${farN}`);
+}
+// fairness at close range: a '?' is a warning, not a sentence. 55 units in front of a post, at the edge of its look,
+// a sneak sideways out of the light as soon as the '?' goes up (a 0.15s reaction) gets away; it doesn't end in '!'
+{
+  let ok = 0, n = 0; const log = [];
+  for (const [seed, fl, side] of [[15838, 4, 1], [3, 6, -1], [11, 10, 1], [5, 12, -1], [21, 14, 1], [8, 16, -1], [3, 6, 1], [21, 14, -1], [4, 20, 1], [11, 10, -1], [15838, 4, -1]]) {
+    if (n >= 6) break;
+    await page.evaluate(([s, f]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(f); GAME.skipIntro(); GAME.stick.on = false; }, [seed, fl]); await wait(300);
+    const r = await page.evaluate((side) => new Promise(res => {
+      const L = GAME.L, f = L.field, D = L.D, dist = 55;
+      for (const g of GAME.guards) {
+        if (g.path) continue;
+        const a = g.home.ang + side * (D.fov - 0.08), px = g.x + Math.cos(a) * dist, py = g.y + Math.sin(a) * dist;
+        const ox = -Math.sin(a) * side, oy = Math.cos(a) * side;   // sideways, away from the middle of its look
+        if (f.ray(g.x, g.y, Math.cos(a), Math.sin(a), dist + 5) < dist + 4 || f.ray(px, py, ox, oy, 70) < 60 || f.sample(px, py) < 12) continue;
+        GAME.guards.forEach(o => { if (o !== g) { o.x = o.home.x = 1e5; o.y = o.home.y = 1e5; o.path = null; o.kind = 'sentry'; } }); GAME.cams.length = 0;
+        g.sweep = 0; g.ang = g.home.ang; g.aw = 0; g.state = 'patrol';
+        GAME.teleport(px, py);
+        const t0 = performance.now(); let susT = -1, peak = 0;
+        const tick = () => {
+          const t = (performance.now() - t0) / 1000; peak = Math.max(peak, g.aw);
+          if (g.state === 'chase' || GAME.mode === 'caught') return res('chase@' + t.toFixed(2));
+          if (susT < 0 && g.state === 'sus') susT = t;
+          if (susT >= 0 && g.state !== 'sus') return res('got away (' + g.state + ', meter peaked ' + peak.toFixed(2) + ')');
+          GAME.stick.on = susT >= 0 && t - susT >= 0.15 && t - susT < 1.35; GAME.stick.x = GAME.stick.on ? ox * 0.6 : 0; GAME.stick.y = GAME.stick.on ? oy * 0.6 : 0;
+          if (t > 5) return res(susT < 0 ? 'unseen' : 'still sus');
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        return;
+      }
+      res(null);
+    }), side);
+    await page.evaluate(() => { GAME.stick.on = false; GAME.stick.x = GAME.stick.y = 0; });
+    log.push(`f${fl} ${r}`);
+    if (r && r !== 'unseen') { n++; if (!r.startsWith('chase')) ok++; }
+    if (await page.evaluate(() => GAME.mode) === 'caught') await wait(2600);
+  }
+  check(n === 6 && ok >= 5, `close '?' sidestep: no chase ${ok}/${n} (${log.join('; ')})`);
 }
 check(errors.length === 0, 'no page errors ' + errors.join(' | '));
 await browser.close(); srv.close();
