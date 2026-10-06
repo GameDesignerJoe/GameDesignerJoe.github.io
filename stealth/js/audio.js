@@ -2,14 +2,14 @@
 // every other time round, a new pulse figure each pass and a new key on each floor, that grows with
 // the danger: a drone and pad while you're unseen, a plucked pulse when a guard is near, a heartbeat
 // and trembling strings while one is suspicious, drums and a driving bass in a chase. AUDIO.tension
-// (0..1) is set by the game every frame; the layers fade in and out on their own. The mix is voiced
+// (0..1) is set by the game every frame (in play the score refines it with its own line-of-sight read); the layers fade in and out on their own. The mix is voiced
 // for a phone speaker: the sub is trimmed and every layer carries its weight above 300 Hz, so the
 // climb from calm to chase is something you hear on the device, not just feel on headphones.
 (function () {
   'use strict';
   let ctx = null, master, music, cutG, duckG, duckLP, pulseDuck, sfx, verbIn, noiseBuf, layers = {}, timer = null;
   let muted = false, musicOn = true, tension = 0, smoothT = 0, goalT = 0, chaseLive = false, beatDuck = 1, heat = 0, heatAt = -9, ducked = false, cutUntil = 0;
-  const BPM = 84, S16 = 60 / BPM / 4, MUSIC_V = 0.8, MAKEUP = 1.5, COMP_T = -18, OUT_TRIM = 0.79;
+  const BPM = 84, S16 = 60 / BPM / 4, MUSIC_V = 0.8, MAKEUP = 1.5, COMP_T = -14, OUT_TRIM = 0.79;
   let padVoices = [], padFloor = 1, step = 0, cycle = 0, nextT = 0, stepDur = S16, curCh = [50, 53, 57], key = 0, lastStep = 0, stepSkip = false;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   // D minor, two bars a chord. Four phrases, taken in turn (and each floor starts on a different one):
@@ -34,7 +34,8 @@
     if (!AC) return;
     ctx = new AC();
     const comp = ctx.createDynamicsCompressor();
-    // a lower, gentler compressor and makeup after it lift the quiet bed, so calm isn't a whisper on a phone
+    // a gentle compressor with makeup after it: it holds the loud end together but sits above the calm bed,
+    // so the climb from calm to chase keeps its size (about 7-8 dB at the output) rather than being squashed flat
     comp.threshold.value = COMP_T; comp.ratio.value = 2; comp.attack.value = 0.004; comp.release.value = 0.2;
     // a phone speaker can't play the sub, so don't spend the headroom on it
     const shelf = ctx.createBiquadFilter(); shelf.type = 'lowshelf'; shelf.frequency.value = 90; shelf.gain.value = -6;
@@ -44,7 +45,7 @@
     lim.threshold.value = -6; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.1;
     master = ctx.createGain(); master.gain.value = 0.85;
     master.connect(shelf); shelf.connect(hp); hp.connect(comp);
-    // and past that a soft clip, clean up to -3 dB, for the odd transient the limiter is too slow for
+    // and past that a soft clip, clean up to -2 dB (the chase peaks sit at about -2.5), for the odd transient the limiter is too slow for
     const clip = ctx.createWaveShaper(); clip.curve = softClip(); clip.oversample = '2x';
     // (the limiter adds its own makeup gain, so trim back under it to leave the clip real headroom)
     const trim = ctx.createGain(); trim.gain.value = OUT_TRIM;
@@ -70,14 +71,14 @@
     // the chase drums keep their punch but leave the sub out: on a phone it only fed the limiter
     const chaseHP = ctx.createBiquadFilter(); chaseHP.type = 'highpass'; chaseHP.frequency.value = 180; chaseHP.Q.value = 0.6;
     layers.chase.disconnect(); layers.chase.connect(chaseHP); chaseHP.connect(music);
-    layers.pad.gain.value = 0.9;
+    layers.pad.gain.value = 0.7;
     const makeup = ctx.createGain(); makeup.gain.value = MAKEUP; comp.connect(makeup); makeup.connect(lim);
     drone();
     nextT = ctx.currentTime + 0.1;
     timer = setInterval(schedule, 25);
   }
   function softClip() {
-    const n = 2048, c = new Float32Array(n), k = 0.7;
+    const n = 2048, c = new Float32Array(n), k = 0.8;
     for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1, a = Math.abs(x); c[i] = Math.sign(x) * (a <= k ? a : k + (1 - k) * Math.tanh((a - k) / (1 - k))); }
     return c;
   }
@@ -90,6 +91,7 @@
   // the drone never stops: a low D with a slow breathing filter
   // (open enough, with a D3 on top, that the calm still reaches a phone speaker)
   let droneLP, droneOsc = [];
+  const DRONE_V = 0.2;   // quiet, so there's somewhere for the danger to climb to
   function drone() {
     droneLP = ctx.createBiquadFilter(); droneLP.type = 'lowpass'; droneLP.frequency.value = 650; droneLP.Q.value = 4;
     droneLP.connect(layers.drone);
@@ -105,7 +107,7 @@
     ag.gain.value = 0.014; alfo.frequency.value = 0.1; alg.gain.value = 0.008;
     alfo.connect(alg); alg.connect(ag.gain); air.connect(abp); abp.connect(ag); ag.connect(layers.drone);
     air.start(); alfo.start();
-    layers.drone.gain.setTargetAtTime(0.4, ctx.currentTime, 2);
+    layers.drone.gain.setTargetAtTime(DRONE_V, ctx.currentTime, 2);
   }
   // a new floor, a new key: the drone slides there and the score follows from the next bar
   function setKey(k, t) {
@@ -185,13 +187,13 @@
     // a locked door knocks again only once the player has stepped away from it
     if (lockedAt) { const P = playerAt(); if (!P || !inPlay() || Math.hypot(P.x - lockedAt.x, P.y - lockedAt.y) > 40) lockedAt = null; }
     // layer levels follow the tension (and sit at calm while paused or just after a cut)
-    const goal = goalT = pz || now < cutUntil ? 0.05 : tension;
+    const goal = goalT = pz || now < cutUntil ? 0.05 : danger(tension);
     smoothT += (goal - smoothT) * (goal > smoothT ? 0.12 : pz ? 0.08 : 0.012);
     const t = smoothT;
     const lv = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
     // the drone backs well off as danger nears, so the brighter pulse comes up out of it rather than under it
     // (and the pulse gives way in turn to the chase's bass line)
-    layers.drone.gain.setTargetAtTime(0.4 - 0.25 * lv(t, 0.12, 0.4), now, 0.6);
+    layers.drone.gain.setTargetAtTime(DRONE_V * (1 - 0.625 * lv(t, 0.12, 0.4)), now, 0.6);
     // (and steps back about 6 dB once a guard suspects you, so the heartbeat leads)
     layers.pulse.gain.setTargetAtTime(lv(t, 0.12, 0.35) * 1.4 * (1 - 0.45 * lv(t, 0.78, 0.92)) * (1 - 0.5 * lv(t, 0.45, 0.6)), now, 0.4);
     // the heartbeat takes the lead from the first doubt and swells with the meter, then steps back in a
@@ -201,12 +203,45 @@
     layers.beat.gain.setTargetAtTime(lv(t, 0.42, 0.52) * 0.85 * (0.72 + 0.3 * h) * beatDuck, now, 0.25);
     // once the chase has landed on its downbeat it follows the game's tension, not the smoothed one
     layers.chase.gain.setTargetAtTime(lv(chaseLive ? Math.max(t, goal) : t, 0.78, 0.92) * 2.3, now, 0.15);
-    // the pad's low chord gives the chase room (on a phone it only fed the compressor)
-    layers.pad.gain.setTargetAtTime(0.9 * (1 - 0.5 * lv(t, 0.78, 0.92)), now, 0.3);
+    // the pad sits low in the calm and opens as a guard comes near; its low chord gives the chase room
+    // (on a phone it only fed the compressor)
+    layers.pad.gain.setTargetAtTime((0.7 + 0.2 * lv(t, 0.12, 0.4)) * (1 - 0.5 * lv(t, 0.78, 0.92)), now, 0.3);
     if (droneLP) droneLP.Q.setTargetAtTime(4 + t * 8, now, 0.5);
     // a chase (or a camera's alarm) pushes the tempo from 84 toward 100
     stepDur = S16 * BPM / (BPM + 16 * lv(t, 0.8, 0.95));
     while (nextT < now + 0.12) { play(step, nextT); step = (step + 1) % 128; if (!step) cycle++; nextT += stepDur; }
+  }
+  // what the score follows. The game sets AUDIO.tension, but in play the score reads the danger itself, so
+  // that "near a guard" means one who could see you: a clear line to you, within 1.6 cone lengths if you're
+  // in front of him (so an approaching guard swells the pulse before his cone lands), within two thirds of one if not. Through a
+  // wall (or from a hiding place) he barely registers, so most of a floor stays calm, and the first rung of
+  // the ladder, calm to near, is a real step. A suspicious guard tops out under the chase (0.76), so drums
+  // and the faster tempo wait for an actual chase.
+  function danger(v) {
+    const G = window.GAME;
+    try {
+      if (!G || G.mode !== 'play') return v;
+      const P = G.P, L = G.L, f = L && L.field, D = L && L.D;
+      if (!P || !P.alive || !f || !f.ray || !D || !D.coneLen) return v;
+      const R = D.coneLen * 1.6, P_R = 8.5, BACK = 0.4;
+      let t = 0.05;
+      for (const gd of G.guards || []) {
+        if (gd.state === 'chase') t = Math.max(t, 1);
+        else if (gd.state === 'sus') t = Math.max(t, 0.5 + (gd.aw || 0) * 0.26);
+        else if (gd.state === 'search') t = Math.max(t, 0.48);
+        const dx = P.x - gd.x, dy = P.y - gd.y, d = Math.hypot(dx, dy);
+        if (d >= R) continue;
+        const los = d > 1 && !P.hidden && f.ray(gd.x, gd.y, dx / d, dy / d, d) >= d - P_R;
+        let da = Math.abs(Math.atan2(dy, dx) - (gd.ang || 0)) % (2 * Math.PI); if (da > Math.PI) da = 2 * Math.PI - da;
+        const ahead = da < (D.fov || 0.6) + 0.4;
+        // (off to his side or at his back he has to turn first, so the near rung starts only within about two thirds of a cone length)
+        if (los && ahead) t = Math.max(t, Math.min(0.4, 0.22 + 0.26 * (1 - d / R)));
+        else if (los && d < R * BACK) t = Math.max(t, 0.14 + 0.2 * (1 - d / (R * BACK)));
+        else t = Math.max(t, 0.05 + 0.09 * (1 - d / R));
+      }
+      for (const c of G.cams || []) { if (c.alarm > 0) t = Math.max(t, 0.85); else if (c.aw > 0) t = Math.max(t, 0.5); }
+      return t;
+    } catch (e) { return v; }
   }
   // how suspicious is the strongest guard? The game can say (AUDIO.heat); otherwise we look
   // a guard who is hunting you keeps the heart going (at least 0.35) even as his meter drains
@@ -275,15 +310,16 @@
     }
     if (T > 0.35) {
       // the heartbeat rides the score's grid, so it follows the tempo and never drifts against the drums,
-      // and fills in as the meter does: a lub-dub every half bar at the first doubt (42 a minute), on every
-      // beat past 0.3, an extra beat on the 'and' of every second one past 0.6, a bare thud on every eighth
-      // from 0.85. Once the chase drums have taken over (the layer ducked under a third) it isn't built at all
+      // and fills in as the meter does: a lub-dub on every beat from the first doubt (84 a minute), on the
+      // beat and its 'and' past 0.35, an extra beat on the last sixteenth of every second one past 0.6, a bare
+      // thud on every eighth from 0.85. Once the chase drums have taken over (the layer ducked under a third)
+      // it isn't built at all
       const h = curHeat(t), live = beatDuck > 0.35;
       if (!live) {}
-      else if (h < 0.3) { if (pos % 8 === 0) heart(layers.beat, t, 1, h); else if (pos % 8 === 1) heart(layers.beat, t, 0.6, h); }
+      else if (h < 0.35) { if (pos % 4 === 0) heart(layers.beat, t, 1, h); else if (pos % 4 === 1) heart(layers.beat, t, 0.6, h); }
       else if (h < 0.85) {
-        if (pos % 4 === 0) heart(layers.beat, t, 1, h); else if (pos % 4 === 1) heart(layers.beat, t, 0.6, h);
-        else if (h >= 0.6 && pos % 8 === 6) heart(layers.beat, t, 0.85, h);
+        if (pos % 2 === 0) heart(layers.beat, t, pos % 4 === 0 ? 1 : 0.75, h); else if (pos % 4 === 1) heart(layers.beat, t, 0.6, h);
+        else if (h >= 0.6 && pos % 8 === 7) heart(layers.beat, t, 0.85, h);
       }
       else if (pos % 2 === 0) heart(layers.beat, t, pos % 4 === 0 ? 1 : 0.7, h);
       // and a string that trembles on the chord's third
@@ -299,7 +335,7 @@
     }
     // the chase comes in on a beat, at full level, rather than fading up wherever it happens to be
     const chaseT = Math.max(T, goalT);
-    if (chaseT <= 0.7) chaseLive = false;
+    if (chaseT <= 0.77) chaseLive = false;   // (a suspicious guard tops out at 0.76: the drums wait for a real chase)
     else if (!chaseLive && pos % 4 === 0) {
       chaseLive = true;
       const g = layers.chase.gain; g.cancelScheduledValues(t); g.setValueAtTime(Math.max(0, Math.min(1, (chaseT - 0.78) / 0.14)) * 2.3, t);
@@ -349,8 +385,9 @@
       if (m < 0.35 && t - lastStep < 0.7) { stepSkip = !stepSkip; if (stepSkip) return; }
       lastStep = t;
       // past 0.6 it's the loud walk the guards can hear, so the player hears it too; a sneak stays faint
-      noise(sfx, t, { f: 800 + 400 * m, q: 1.2, v: m > 0.6 ? 0.06 + 0.16 * m : 0.05 + 0.07 * m, dur: 0.004 + 0.005 * m, rel: 0.03 + 0.025 * m });
-      if (m > 0.6) voice(sfx, t, 140, { type: 'sine', glide: 95, glideT: 0.04, v: 0.1 * m, dur: 0.008, rel: 0.05 });
+      // (and it stands 4-6 dB clear of the score: the pulse steps aside for it for a moment)
+      noise(sfx, t, { f: 800 + 400 * m, q: 1.2, v: m > 0.6 ? 0.1 + 0.22 * m : 0.05 + 0.07 * m, dur: 0.004 + 0.005 * m, rel: 0.03 + 0.025 * m });
+      if (m > 0.6) { voice(sfx, t, 140, { type: 'sine', glide: 95, glideT: 0.04, v: 0.16 * m, dur: 0.008, rel: 0.05 }); duckPulse(t, 0.7, 0.12); }
     },
     locked() {   // a locked door: two dull knocks of the handle, each with a click a phone can play
       // (once per contact: leaning on the door doesn't knock again until you've stepped away from it)
@@ -368,6 +405,9 @@
       if (!inPlay() || ctx.currentTime - spottedAt < 1) return;
       const t = onGrid(), ch = curCh, top = mtof(ch[2] + 24);
       duckPulse(t, 0.3, 0.5);
+      // the first thump of the heart lands with the "?" itself, not up to a beat later: the beat layer is
+      // only starting its fade up, so this one goes out on the effects bus
+      heart(sfx, t, 1.2, 0.3);
       noise(sfx, t, { f: 2500, q: 1, v: 0.06, a: 0.02, dur: 0.03, rel: 0.2 });
       voice(sfx, t, mtof(ch[1] + 24), { type: 'triangle', v: 0.32, dur: 0.08, rel: 0.1 });
       voice(sfx, t, mtof(ch[1] + 36), { type: 'sine', v: 0.14, dur: 0.02, rel: 0.35 });
@@ -427,10 +467,13 @@
     clear() {
       const t = T0();
       cut(2.2);
-      // a fanfare: the run up, a held chord on a low root, and a shimmer over it, as big as being caught
-      [62, 65, 69, 74, 77, 81].forEach((m, i) => voice(sfx, t + i * 0.07, mtof(m + key), { type: 'triangle', v: 0.2, dur: 0.1, rel: 1.4 }));
+      // a fanfare: the run up, a downbeat, a held chord on a low root, and a shimmer over it, landing at least
+      // as hard as being caught
+      [62, 65, 69, 74, 77, 81].forEach((m, i) => voice(sfx, t + i * 0.07, mtof(m + key), { type: 'triangle', v: 0.3, dur: 0.1, rel: 1.4 }));
+      kick(sfx, t + 0.42, 0.4);
+      noise(sfx, t + 0.42, { ftype: 'highpass', f: 5000, q: 0.5, v: 0.16, dur: 0.02, rel: 1.1 });
       for (const m of [62, 69, 74, 78]) voice(sfx, t + 0.42, mtof(m + key), { type: 'sawtooth', lp: 1800, v: 0.06, a: 0.3, dur: 0.6, rel: 1.6 });
-      voice(sfx, t + 0.42, mtof(50 + key), { type: 'triangle', v: 0.2, a: 0.02, dur: 0.4, rel: 1.6 });
+      voice(sfx, t + 0.42, mtof(50 + key), { type: 'triangle', v: 0.28, a: 0.02, dur: 0.4, rel: 1.6 });
       noise(sfx, t + 0.42, { ftype: 'highpass', f: 6000, q: 0.7, v: 0.08, a: 0.3, dur: 0.3, rel: 1.5 });
     },
     floor() { const t = T0(), k = floorKey(); voice(sfx, t, mtof(50 + k), { type: 'sine', v: 0.2, dur: 0.1, rel: 1.6 }); voice(sfx, t + 0.18, mtof(57 + k), { type: 'sine', v: 0.12, dur: 0.1, rel: 1.6 });
@@ -447,9 +490,10 @@
     init,
     unlock() { init(); if (ctx && ctx.state !== 'running') ctx.resume(); },
     suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); },
-    // tension reads back what the game set; level is the score's own smoothed follow of it
+    // tension reads back what the score is following (in play, its own read of the danger; see danger());
+    // level is the score's smoothed follow of it
     set tension(v) { tension = v; },
-    get tension() { return tension; },
+    get tension() { return danger(tension); },
     get level() { return smoothT; },
     // 0..1, the strongest guard's suspicion; it sets the heartbeat's rate (read from GAME if not set)
     set heat(v) { heat = Math.max(0, Math.min(1, v)); heatAt = ctx ? ctx.currentTime : 0; },

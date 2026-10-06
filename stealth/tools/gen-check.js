@@ -1,6 +1,7 @@
 // node stealth/tools/gen-check.js [count] [top] — generates floors 1..top (default 12) for many seeds, reports failures and timing,
 // then checks the building kinds a run climbs through: never the same kind twice in a row, and at least
-// four kinds in any ten floors running. Also fails a camera that can't see out from its wall.
+// four kinds in any ten floors running. Also fails a camera that can't see out from its wall, a plugged
+// route (forcedExposure) and two keys on one spot.
 const U = require('../js/util.js'); const LEVEL = require('../js/level.js');
 const N = +process.argv[2] || 20, TOP = +process.argv[3] || 12;   // top: the highest floor generated
 let worst = 0, total = 0, fails = 0; const kinds = {};
@@ -12,6 +13,11 @@ for (let fl = 1; fl <= TOP; fl++) {
     const dt = Date.now() - t0; ms += dt; worst = Math.max(worst, dt); total++;
     att += L.attempts; g += L.guards.length; c += L.cams.length; st += L.stars.length; k += L.keys.length; sh += L.shades.length;
     kinds[L.plan.kind] = (kinds[L.plan.kind] || 0) + 1;
+    // every leg of the floor has a lane no post or camera watches all through its sweep, and no key sits in one
+    const fx = LEVEL.forcedExposure(L, L.field);
+    if (fx.cost > 0.25) { fails++; console.log('FAIL plugged route', fl, s, fx.cost.toFixed(2), fx.who && (fx.who.kind || 'cam') + ' ' + fx.who.x.toFixed(0) + ',' + fx.who.y.toFixed(0)); }
+    // and no two keys share a spot, so each one shows on the map
+    L.keys.forEach((a, i) => { if (L.keys.some((b, j) => j > i && Math.hypot(a.x - b.x, a.y - b.y) < 50)) { fails++; console.log('FAIL stacked keys', fl, s, a.x.toFixed(0), a.y.toFixed(0)); } });
     for (const cm of L.cams) {
       const ex = cm.x + Math.cos(cm.base) * 6, ey = cm.y + Math.sin(cm.base) * 6;
       if (L.field.ray(ex, ey, Math.cos(cm.base), Math.sin(cm.base), 200) <= 60) { blind++; fails++; console.log('FAIL blind camera', fl, s, cm.x.toFixed(0), cm.y.toFixed(0)); }

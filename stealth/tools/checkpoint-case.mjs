@@ -4,7 +4,7 @@ export async function cpRespawns(browser, url, seeds, floors) {
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
   const one = async (seed) => {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await page.goto(url); await wait(600);
+    await page.goto(url); await page.waitForFunction(() => window.GAME && GAME.L);
     const out = [];
     for (const fl of floors) {
       await page.evaluate(([s, n]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(n); GAME.skipIntro(); }, [seed, fl]);

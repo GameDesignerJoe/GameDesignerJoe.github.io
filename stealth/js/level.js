@@ -943,16 +943,19 @@
     }
     field.applyDoors();
     const navG = (f) => new Nav(f, 11);
-    let lo = 0, loPrev = 0;
+    let lo = 0, loPrev = 0, roomPrev = null;
     // its own dice, so the rest of the floor rolls the same: from the sixth floor a key may wait back
     // with the one before it, so you carry two keys to their doors rather than one at a time
     const KR = U.rng(U.hash(seed, 0x6b));
     for (let k = 0; k < locks.length; k++) {
       // the key lives somewhere between the previous lock and this one, a side room if there is one
-      if (k > 0 && n >= 6 && KR() < 0.35) lo = loPrev;
+      const back = k > 0 && n >= 6 && KR() < 0.35;
+      if (back) lo = loPrev;
       loPrev = lo;
       const hi = main.indexOf(locks[k].conn.a);
-      const pool = L.rooms.filter(r => r.idx >= lo && r.idx <= hi && r !== main[0] || (r === main[0] && hi === 0));
+      let pool = L.rooms.filter(r => r.idx >= lo && r.idx <= hi && r !== main[0] || (r === main[0] && hi === 0));
+      // a key that waits back with the one before it waits in another room if there is one, so the two are two finds
+      if (back && pool.some(r => r !== roomPrev)) pool = pool.filter(r => r !== roomPrev);
       const sides = pool.filter(r => r.side);
       const nav = navG(field);
       let placed = null;
@@ -961,11 +964,13 @@
         const spot = room.spots.length && R.chance(0.6) ? R.pick(room.spots) : inRoom(R, room, 0.7);
         const p = field.nearestFree(spot.x, spot.y, 16, 40);
         if (!p || Math.hypot(p.x - L.entrance.x, p.y - L.entrance.y) < 160) continue;
+        if (L.keys.some(o => Math.hypot(o.x - p.x, o.y - p.y) < 50)) continue;   // never two keys on one spot
         if (!nav.reach(L.entrance.x, L.entrance.y, p.x, p.y)) continue;
         placed = p; placed.room = room;
       }
       if (!placed) return null;
       L.keys.push({ x: placed.x, y: placed.y, color: locks[k].color, door: locks[k].door, got: false });
+      roomPrev = placed.room;
       locks[k].door.open = true; field.applyDoors();
       lo = hi + 1;
     }
@@ -992,8 +997,7 @@
     }
 
     // guards and cameras
-    placeGuards(R, L, field, navClosed, n);
-    if (n >= 2 && L.guards.length < 2) return null;
+    const unplug = placeGuards(R, L, field, navClosed, n);
     // from the third floor at least one star is a dare: on a walker's beat, or in a post's or a
     // camera's look, so three stars means taking a real risk. If none is, one moves beside a beat
     if (n >= 3 && !L.stars.some(st => starRisk(L, field, st))) {
@@ -1013,6 +1017,16 @@
         moved = true;
       }
     }
+
+    // no leg of the floor is plugged: every way on has a lane each post's and camera's sweep leaves dark
+    // for part of its cycle. The watcher that does most of the plugging comes down (a post tries another room)
+    for (let t = 0; ; t++) {
+      const fx = forcedExposure(L, field);
+      if (fx.cost <= 0.25) break;
+      if (t >= 8 || !fx.who) return null;
+      unplug(fx.who);
+    }
+    if (n >= 2 && L.guards.length < 2) return null;
 
     // hiding spots: pools of deep shadow tucked against walls, laid after the guards so none sits
     // on a beat: a shade is only safe if no round walks within reach of it
@@ -1042,6 +1056,32 @@
         L.shades.push({ x: p.x, y: p.y, r, rot: R() * TAU });
         got++;
       }
+    }
+    // and from the third floor one or two lie just off a walker's beat, partway along a straight run where it
+    // never stops or turns, so you can hold still in the dark and let it walk right past you
+    const walkers = L.guards.filter(g => g.path);
+    for (let t = 0, got = 0, want = n >= 3 ? R.int(1, 2) : 0; t < 120 && got < want && walkers.length; t++) {
+      const gd = R.pick(walkers), path = gd.path, i = R.int(0, path.length - 1), a = path[i], b = path[(i + 1) % path.length];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len < 110) continue;
+      const u = R.range(0.35, 0.65), q = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u };
+      if (path.some(w => (w.pause > 0 || w === a || w === b) && Math.hypot(w.x - q.x, w.y - q.y) < 50)) continue;
+      const r = R.range(19, 23), off = r + R.range(14, 20), sg = R.chance(0.5) ? 1 : -1;
+      const p = { x: q.x - (b.y - a.y) / len * off * sg, y: q.y + (b.x - a.x) / len * off * sg }, sd = field.sample(p.x, p.y);
+      if (sd < r - 4 || sd > r + 14) continue;   // tucked in against a wall, out of the walker's way
+      // in plain sight of the walk, not round a wall's end from it, and with room on the walk's side to look in from
+      if (field.ray(q.x, q.y, (p.x - q.x) / off, (p.y - q.y) / off, off) < off - 2) continue;
+      const toQ = Math.atan2(q.y - p.y, q.x - p.x);
+      if ([-1.4, -0.7, 0, 0.7, 1.4].some(da => field.ray(p.x, p.y, Math.cos(toQ + da), Math.sin(toQ + da), r + 26) < r + 24)) continue;
+      if (Math.hypot(p.x - L.entrance.x, p.y - L.entrance.y) < 90 || Math.hypot(p.x - L.exit.x, p.y - L.exit.y) < 70) continue;
+      if (L.shades.some(o => Math.hypot(o.x - p.x, o.y - p.y) < 90)) continue;
+      if (L.stars.concat(L.keys).some(o => Math.hypot(o.x - p.x, o.y - p.y) < 40)) continue;
+      if (L.conns.some(c => Math.hypot(c.mouth.x - p.x, c.mouth.y - p.y) < 50)) continue;
+      // close to this beat, but no beat (nor post) comes within arm's reach of anyone inside it
+      if (beat.some(o => Math.hypot(o.x - p.x, o.y - p.y) < r + 13)) continue;
+      if (!navOpen.reach(L.entrance.x, L.entrance.y, p.x, p.y)) continue;
+      L.shades.push({ x: p.x, y: p.y, r, rot: R() * TAU, pass: true });
+      got++;
     }
 
     L.field = field;
@@ -1508,7 +1548,8 @@
       // and a post stands in a room, never in a hall or a neck the way on has to use
       if (!okPost(p) || nearMouth(p, 60) || !offFirst(p) || !offItems(p, 75) || field.sample(p.x, p.y) < 26) return null;
       const face = Math.atan2(room.c.y - p.y, room.c.x - p.x) + R.range(-0.4, 0.4);
-      const gd = { kind: 'sentry', x: p.x, y: p.y, ang: face, amp: R.range(0.55, 1.05), snap: snap === undefined ? D.snap && R.chance(0.5) : snap };
+      // its sweep always swings wider than its eyes, so even the lane straight down its middle goes dark for part of the cycle
+      const gd = { kind: 'sentry', x: p.x, y: p.y, ang: face, amp: Math.max(R.range(0.55, 1.05), D.fov + 0.25), snap: snap === undefined ? D.snap && R.chance(0.5) : snap };
       L.guards.push(gd); roomOf.set(gd, room);
       homes.push(p);
       return gd;
@@ -1680,8 +1721,94 @@
       const gd = sentryAt(room, posts().filter(o => o.snap).length < wantSnap);
       if (!gd && swap) { L.guards.push(swap); homes.push({ x: swap.x, y: swap.y }); }
     }
+    // a post or a camera that plugs the way on (forcedExposure) is taken down; a post stands again in
+    // another room if one will have it, so the floor keeps its mix
+    return (o) => {
+      const list = o.base === undefined ? L.guards : L.cams, hi = homes.findIndex(h => h.x === o.x && h.y === o.y);
+      list.splice(list.indexOf(o), 1); if (hi >= 0) homes.splice(hi, 1);
+      if (o.kind !== 'sentry') return;
+      const was = roomOf.get(o), rooms = pool.filter(r => r !== was);
+      for (let t = 0; t < 30 && rooms.length; t++) if (sentryAt(R.pick(rooms), o.snap)) return;
+    };
   }
 
-  root.LEVEL = { generate, difficulty, history, pickKind, Field, Nav, KEY_COLORS, starRisk };
+  // ── forced exposure ────────────────────────────────────────
+  // The least of a guard's meter each leg of the floor makes you take (the stairs to the first key, on
+  // to the next with its door open, ... to the stairs up), sneaking silently past whatever a post or a
+  // camera sees at every point of its sweep: what can be timed costs nothing, a lane that is never dark
+  // does. Within 22 of a post is a sure '!'. A key in such a lane is plugged outright. Returns the worst
+  // leg's { cost, who }, who being the watcher that gave the most of it.
+  function forcedExposure(L, field) {
+    const D = L.D, P_R = 8.5, SNEAK = 57, W = [];
+    for (const g of L.guards) if (!g.path) W.push({ o: g, x: g.x, y: g.y, a0: g.ang, amp: g.amp, fov: D.fov, len: D.coneLen, post: true });
+    for (const c of L.cams) W.push({ o: c, x: c.x + Math.cos(c.base) * 6, y: c.y + Math.sin(c.base) * 6, a0: c.base, amp: c.amp, fov: 0.42, len: D.coneLen * 1.05 });
+    // the meter a watcher adds per second at (x, y) if it sees there all through its sweep, else 0
+    const rate = (w, x, y) => {
+      const dx = x - w.x, dy = y - w.y, d = Math.hypot(dx, dy);
+      if (w.post && d < 22) return Infinity;
+      if (d > w.len + P_R || d < 1 || field.ray(w.x, w.y, dx / d, dy / d, d) < d - P_R) return 0;
+      const a = Math.atan2(dy, dx), tol = w.fov + Math.atan2(P_R, d);
+      for (let i = 0; i <= 16; i++) if (Math.abs(U.angDiff(w.a0 + (-1 + i / 8) * w.amp, a)) > tol) return 0;
+      return w.post ? D.detect * (0.3 + 1.9 * Math.max(0, 1 - d / D.coneLen)) : D.detect * 0.9;
+    };
+    const worst = { cost: 0, who: null }, opened = [];
+    let at = L.entrance;
+    for (const tgt of L.keys.concat([L.exit])) {
+      for (const d of L.doors) d.open = opened.includes(d);
+      field.applyDoors();
+      const nav = new Nav(field, 11), n = nav.walk.length, NW = nav.W, step = nav.C / SNEAK;
+      const cc = new Float32Array(n).fill(-1), who = new Int16Array(n).fill(-1);
+      const cell = (k) => {
+        if (cc[k] < 0) {
+          const c = nav.center(k); let r = 0, b = -1;
+          for (let i = 0; i < W.length; i++) { const v = rate(W[i], c.x, c.y); if (v > r) { r = v; b = i; } }
+          cc[k] = r === Infinity ? 1 : r * step; who[k] = b;
+        }
+        return cc[k];
+      };
+      const s = nav.near(at.x, at.y), e = nav.near(tgt.x, tgt.y);
+      let cost = Infinity, top = -1;
+      // a key itself in a never-dark lane
+      if (tgt !== L.exit) for (let i = 0; i < W.length; i++) if (rate(W[i], tgt.x, tgt.y) > 0) { cost = 1; top = i; }
+      if (top < 0 && s >= 0 && e >= 0) {
+        const g = new Float64Array(n).fill(Infinity), from = new Int32Array(n).fill(-1), hk = [], hv = [];
+        const push = (k, v) => { let i = hk.length; hk.push(k); hv.push(v); while (i > 0) { const p = (i - 1) >> 1; if (hv[p] <= v) break; hk[i] = hk[p]; hv[i] = hv[p]; i = p; } hk[i] = k; hv[i] = v; };
+        const pop = () => {
+          const k0 = hk[0], lk = hk.pop(), lv = hv.pop(), m = hk.length; if (!m) return k0;
+          let i = 0; for (;;) { let c = 2 * i + 1; if (c >= m) break; if (c + 1 < m && hv[c + 1] < hv[c]) c++; if (hv[c] >= lv) break; hk[i] = hk[c]; hv[i] = hv[c]; i = c; }
+          hk[i] = lk; hv[i] = lv; return k0;
+        };
+        g[s] = 0; push(s, 0);
+        while (hk.length) {
+          const v = hv[0], k = pop();
+          if (v > g[k]) continue;
+          if (k === e) break;
+          const ki = k % NW, kj = (k / NW) | 0;
+          for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+            if (!di && !dj) continue;
+            const i = ki + di, j = kj + dj;
+            if (i < 0 || j < 0 || i >= NW || j >= nav.H) continue;
+            const nk = j * NW + i;
+            if (!nav.walk[nk] || (di && dj && (!nav.walk[kj * NW + i] || !nav.walk[j * NW + ki]))) continue;
+            const ng = g[k] + cell(nk) * (di && dj ? 1.4142 : 1) + 1e-5;
+            if (ng < g[nk]) { g[nk] = ng; from[nk] = k; push(nk, ng); }
+          }
+        }
+        cost = g[e];
+        // who gave most of it, along the cheapest way
+        const share = new Float32Array(W.length);
+        if (cost < Infinity) for (let k = e; k >= 0; k = from[k]) if (who[k] >= 0) share[who[k]] += cc[k];
+        for (let i = 0; i < W.length; i++) if (share[i] > 0 && (top < 0 || share[i] > share[top])) top = i;
+      }
+      if (cost > worst.cost) { worst.cost = cost; worst.who = top >= 0 ? W[top].o : null; }
+      if (tgt.door) opened.push(tgt.door);
+      at = tgt;
+    }
+    for (const d of L.doors) d.open = false;
+    field.applyDoors();
+    return worst;
+  }
+
+  root.LEVEL = { generate, difficulty, history, pickKind, Field, Nav, KEY_COLORS, starRisk, forcedExposure };
   if (typeof module !== 'undefined') module.exports = root.LEVEL;
 })(typeof window !== 'undefined' ? window : globalThis);
