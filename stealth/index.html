@@ -65,7 +65,7 @@
   #stick { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 18px); transform: translateX(-50%); width: 212px; height: 212px; border-radius: 50%;
     background: rgba(233,245,248,.10); border: 1.5px solid rgba(233,245,248,.45); touch-action: none; z-index: 2; transition: opacity .4s; }
   #stick::before { content: ''; position: absolute; inset: 21%; border-radius: 50%; border: 1px dashed rgba(233,245,248,.35); pointer-events: none; }
-  #stick::after { content: ''; position: absolute; inset: -28px; border-radius: 50%; }   /* an invisible margin: a thumb landing just off the disc still takes the stick */
+  #stick::after { content: ''; position: absolute; inset: -28px -28px -28px -20px; border-radius: 50%; }   /* an invisible margin: a thumb landing just off the disc still takes the stick (narrower on the left upright, clear of the knock) */
   #knob { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: rgba(233,245,248,.35);
     border: 1.5px solid rgba(233,245,248,.75); transition: background .12s, border-color .12s; pointer-events: none; box-shadow: 0 3px 0 rgba(18,49,63,.2); }
   #stick.on #knob { background: rgba(233,245,248,.55); }
@@ -77,6 +77,7 @@
   #stick.idle:not(.on):not(.run):not(.gone):not(.dim):not(.mapdim) { opacity: .45; }   /* resting for 1.5s: it steps back off the floor (a touch, or a pad's run, brings it back) */
   @media (orientation: landscape) {
     #stick { left: auto; right: calc(env(safe-area-inset-right) + 26px); bottom: calc(env(safe-area-inset-bottom) + 16px); transform: none; width: 188px; height: 188px; }
+    #stick::after { inset: -28px; }
     body[data-stick=left] #stick { right: auto; left: calc(env(safe-area-inset-left) + 26px); }
   }
   body.desk #stick, body.desk #optStick { display: none; }
@@ -88,7 +89,7 @@
   /* a soft ink pool behind the word, so FLOOR N reads over the busy map the intro shows */
   #banner::before { content: ''; position: absolute; left: 50%; top: 50%; width: min(150vw, 1100px); height: 300%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
     background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(18,49,63,.5), rgba(18,49,63,.22) 45%, transparent 72%); }
-  #banner.hide { opacity: 0; transform: translateY(-20px); }
+  #banner.hide { opacity: 0; transform: translateY(-20px); transition: opacity .25s, transform .25s; }   /* gone before the camera lands on the player */
   #banner .bn { font-size: clamp(56px, 13vw, 120px); font-weight: 700; font-style: italic; color: var(--pale); letter-spacing: 2px; line-height: 1.05; white-space: nowrap;
     text-shadow: 6px 8px 0 rgba(18,49,63,.5); }
   #banner .bs { display: inline-block; margin-top: 10px; font-size: 18px; font-weight: 700; letter-spacing: 8px; padding: 5px 10px 5px 18px; border-radius: 999px; text-transform: uppercase;
@@ -98,7 +99,7 @@
   #result.show { opacity: 1; background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.5), transparent 70%); }
   /* leaving: the stamp holds its landed pose while the whole block fades under the ink, rather than snapping back to its pre-pop state */
   #result.out { opacity: 0; background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.5), transparent 70%); }
-  #result.show.clear, #result.out.clear { background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.28), transparent 62%); }   /* a clear stays bright: the stairs and stars are the reward */
+  #result.show.clear, #result.out.clear { background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.42), transparent 70%); }   /* lighter than a catch, so the stairs stay bright, but dark enough that the stamp and stars read over pillars */
   #result.out .stamp { opacity: 1; transform: rotate(-6deg) scale(1.04); transition: transform .3s; }
   #result.out .stars span.on { opacity: 1; transform: none; }
   .stamp { font-size: clamp(48px, 15vw, 120px); line-height: 1.05; letter-spacing: .02em; white-space: nowrap; justify-self: center; font-weight: 700; font-style: italic; padding: 4px 26px; border: 6px solid; border-radius: 12px; transform: rotate(-6deg) scale(2.2); opacity: 0;
@@ -110,11 +111,20 @@
   .stamp.clear { color: var(--teal); border-color: var(--teal); }
   #result .sub { margin-top: 16px; color: var(--pale); font-size: 15px; letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 2px 0 rgba(18,49,63,.45);
     background: rgba(18,49,63,.55); padding: 3px 12px; border-radius: 999px; display: inline-block; justify-self: center; }
+  /* the line under the stamp waits for it to land (0.42s pop): the word reads first, then its subtitle */
+  #result.show .sub { opacity: 0; animation: subIn .25s ease-out .38s forwards; }
+  #result.show .sub.above { animation-delay: .2s; }
+  #result.show.clear .sub:not(.above) { animation-delay: .85s; }   /* a clear's tally follows its stars */
+  #result.out .sub { opacity: 1; }
+  @keyframes subIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   #result .sub.above { margin: 0 0 14px; }
   #result .stars { margin-top: 14px; font-size: 40px; letter-spacing: 8px; }
   #result .stars span { color: rgba(18,49,63,.3); -webkit-text-stroke: 1.5px rgba(233,245,248,.6); }   /* an empty slot: a faint pale outline, not a greyed-out control */
   #result .stars span.on { color: var(--star); -webkit-text-stroke: 1.5px rgba(150,120,20,.6); transform: scale(1.8); opacity: 0; animation: starPop .32s cubic-bezier(.2,1.6,.4,1) forwards; }
   @keyframes starPop { to { transform: scale(1); opacity: 1; } }
+  /* no stars found: the empty slots still keep the beat, each one pulsing once in turn */
+  #result.show .stars span.miss { animation: slotPulse .3s ease-in-out both; }
+  @keyframes slotPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); -webkit-text-stroke-color: rgba(233,245,248,.95); } }
   #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 98px); transform: translate(-50%, -10px); max-width: min(80vw, 440px); width: max-content; text-wrap: balance;
     padding: 9px 16px; border-radius: 12px; background: rgba(18,49,63,.84); color: var(--pale); font-size: 14px; line-height: 1.35; text-align: center;
     opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none; z-index: 4; }
@@ -265,12 +275,27 @@
     .card .stars { font-size: 34px; }
     .card .meta, .card .legend, body.desk .card .legend { font-size: 15px; }
   }
+  /* phones on their side: one slim row of 40px pills, as the reference's stars and timer pills, so the HUD takes ~12% of the height, not a quarter */
+  @media (orientation: landscape) and (max-height: 500px) {
+    #hud { padding-top: calc(env(safe-area-inset-top) + 6px); }
+    .left { gap: 4px; }
+    .floorTag { flex-direction: row; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 12px; border-radius: 999px; }
+    .floorTag small { display: none; }
+    .floorTag b { font-size: 20px; display: block; }
+    .floorTag .nm { font-size: 12px; max-width: 30vw; }
+    .floorTag .nm::before { content: '\00b7'; margin-right: 8px; opacity: .7; }
+    #hudKeys { padding: 4px 9px; }
+    .iconBtn { width: 40px; height: 40px; border-radius: 11px; }
+    .iconBtn svg { width: 20px; height: 20px; }
+    .right { gap: 8px; }
+    #hudStars { top: calc(env(safe-area-inset-top) + 6px); font-size: 18px; height: 40px; padding: 0 8px 0 12px; display: flex; align-items: center; }
+  }
   @media (min-width: 1000px) and (min-height: 501px) {
     #toast { font-size: clamp(17px, 1.05vw, 20px); padding: 13px 22px; border-radius: 14px; max-width: clamp(560px, 34vw, 640px); top: calc(env(safe-area-inset-top) + clamp(120px, 9vw, 168px)); }
   }
   /* the knock: beside the thumb's stick; its ring fills back up over six seconds */
   #knockBtn { position: fixed; z-index: 2; width: 54px; height: 54px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; color: var(--ink); touch-action: none;
-    left: max(calc(env(safe-area-inset-left) + 14px), calc(50% - 106px - 76px)); bottom: calc(env(safe-area-inset-bottom) + 168px);   /* up off the stick's upper-left shoulder */
+    left: calc(env(safe-area-inset-left) + 18px); bottom: calc(env(safe-area-inset-bottom) + 240px);   /* above the stick ring's top-left, clear of a thumb resting on its rim */
     background: radial-gradient(circle, rgba(233,245,248,.86) 60%, transparent 61%), conic-gradient(var(--orange) calc(var(--k, 1) * 360deg), rgba(233,245,248,.3) 0);
     box-shadow: 0 3px 0 rgba(18,49,63,.25); transition: opacity .4s; }
   #knockBtn svg { width: 26px; height: 26px; opacity: .45; }

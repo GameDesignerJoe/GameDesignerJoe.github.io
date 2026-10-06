@@ -191,7 +191,9 @@
       coneLen: Math.min(132 + n * 5, 190),
       fov: 0.6 + U.clamp((n - 12) / 3, 0, 1) * 0.1,   // wider eyes past the twelfth floor
       patrol: Math.min(38 + n * 1.2, 46),   // a silent sneak (about 60) stays at least 1.25x a walker on every floor, so you can slip past or trail one
-      chase: Math.min(90 + n * 1.5, 104),   // a sprint (128) stays about 1.23x a chaser on every floor, so a corner can still lose them
+      // a sprint (128) is about 1.25x a chaser on the first floors, so a corner loses them; from the eighth they close
+      // in on it, to 0.92 of a sprint from the thirteenth, so a '!' upstairs is a real chase
+      chase: n >= 8 ? Math.min(90 + n * 2.2, 118) : Math.min(90 + n * 1.5, 104),
       detect: Math.min(0.6 + n * 0.025, 0.9),
       cams: n >= 3,
       keys: n < 2 ? 0 : n < 5 ? 1 : n < 9 ? 2 : n < 16 ? 3 : 4,
@@ -199,9 +201,20 @@
       // past the twelfth floor the rest stops growing, so a new pressure arrives every few floors:
       snap: n >= 13,        // sentries whose heads whip round
       camPairs: n >= 15,    // cameras in pairs across a room, sweeping in counterpoint
-      budget: n >= 22 ? 18 : n >= 16 ? 16 : 13,   // and, from the sixteenth (with sharper ears from the seventeenth), more of them
+      budget: n >= 10 ? Math.min(15 + Math.floor((n - 10) / 2), 19) : 13,   // and more of them, one more every two floors from the tenth (with sharper ears from the seventeenth)
     };
   }
+
+  // how many guards a floor has room for: it climbs with the floor and with the building's own size, so a
+  // bigger floor upstairs is never a thinner one, and the share of it that must still watch once the checks
+  // are done (70%, or 50% for a floor let through late); and from the sixth floor, one camera, two from the
+  // eleventh, three from the sixteenth
+  function watchBudget(L, n) {
+    const area = L.rooms.reduce((t, r) => t + (r.kind === 'circle' ? Math.PI * r.r * r.r : r.w * r.h), 0);
+    return Math.max(2, Math.min(L.D.budget, Math.round(4 + n * 0.8), Math.round(area / 100000 * (0.9 + 0.03 * n))));
+  }
+  const watchFloor = (budget, n, loose) => n >= 3 ? U.clamp(Math.round((loose ? 0.5 : 0.7) * budget), 3, loose ? 8 : 12) : 0;
+  const camFloor = (n) => n >= 6 ? 1 + Math.floor((n - 6) / 5) : 0;
 
   const KEY_COLORS = [
     { name: 'red', c: '#e2483d' },
@@ -216,7 +229,8 @@
   function generate(seed, n, prev) {
     const kind = pickKind(seed, n, prev);
     for (let attempt = 0; attempt < 40; attempt++) {
-      const L = tryGen(U.hash(seed, attempt), n, kind, attempt >= 3);   // after three goes a thin floor is let through, rather than a long wait
+      // after eight goes a floor only has to meet a lower bar (half its budget, one camera), rather than a long wait
+      const L = tryGen(U.hash(seed, attempt), n, kind, attempt >= 8);
       if (L) { L.attempts = attempt + 1; L.seed = seed; return L; }
     }
     throw new Error('no floor for seed ' + seed);
@@ -244,7 +258,8 @@
     hist = hist == null ? [] : typeof hist === 'string' ? [hist] : hist;
     const R = U.rng(U.hash(seed, 0x6b1d)), last9 = new Set(hist.slice(0, 9));
     const crowded = hist.length >= 9 && last9.size <= 3;
-    const w = { disc: 0.9, crescent: 0.9, nautilus: n >= 2 ? 0.8 : 0.3, block: 1, wing: n >= 2 ? 0.8 : 0, cluster: 1.3, twin: n >= 3 ? 1.2 : 0 };
+    // the round kinds lead: a square-built floor is the odd one out, now and then, not every other floor
+    const w = { disc: 1.2, crescent: 1.15, nautilus: n >= 2 ? 1.1 : 0.4, block: 0.3, wing: n >= 2 ? 0.25 : 0, cluster: 1.25, twin: n >= 3 ? 0.7 : 0 };
     return R.weighted(KINDS.map(k => [k, k === hist[0] || (crowded && last9.has(k)) ? 0 : w[k]]));
   }
   // the kinds of a run's floors below n, nearest first, for generate()
@@ -269,7 +284,13 @@
       const K = Math.max(2, k - 1), small = K <= 3, az = small ? AZ * 1.25 : AZ;
       hub = small ? R.range(110, 135) : R.range(150, 185);
       if (K <= 5) band(split(K, TAU, 0.2), rot, hub, Math.sqrt(K * az / Math.PI + hub * hub), true);
-      else {
+      else if (K >= 9) {
+        // a rotunda: three rings round the hub, each cut finer than the one inside it, so the spokes of
+        // one ring never line up with the next and the walls read as nested cells
+        const k1 = 3, k2 = Math.max(4, Math.round((K - 3) * 0.42)), k3 = K - k1 - k2;
+        const ra = Math.max(hub + 165, Math.sqrt(k1 * AZ * 0.75 / Math.PI + hub * hub)), rb = Math.max(ra + 170, Math.sqrt(k2 * AZ * 0.9 / Math.PI + ra * ra)), rc = Math.max(rb + 175, Math.sqrt(k3 * AZ * 1.05 / Math.PI + rb * rb));
+        band(split(k1, TAU, 0.15), rot, hub, ra, false); band(split(k2, TAU, 0.2), rot + R.range(0.3, 0.6), ra, rb, false); band(split(k3, TAU, 0.2), rot + R.range(0.1, 0.25), rb, rc, true);
+      } else {
         const k1 = Math.max(3, Math.round(K * 0.38)), k2 = K - k1;
         const rm = Math.sqrt(k1 * AZ * 0.85 / Math.PI + hub * hub), ro = Math.sqrt(k2 * AZ * 1.1 / Math.PI + rm * rm);
         band(split(k1, TAU, 0.2), rot, hub, rm, false); band(split(k2, TAU, 0.2), rot + R.range(0.2, 0.5), rm, ro, true);
@@ -289,8 +310,8 @@
         band(split(k1, span, 0.2), rot, ri, rm, false); band(split(k2, span, 0.2), rot, rm, ro, true);
       }
     } else {
-      hub = R.range(140, 170);
-      const nSplit = k >= 8 ? 2 : k >= 6 ? 1 : 0, K = Math.max(3, k - 1 - nSplit), ws = split(K, TAU, 0.06);
+      const nSplit = k >= 11 ? 3 : k >= 8 ? 2 : k >= 6 ? 1 : 0, K = Math.max(3, k - 1 - nSplit), ws = split(K, TAU, 0.06);
+      hub = Math.max(R.range(140, 170), 172 * K / TAU);   // wide enough that every wedge meets it along a doorway's length
       let a = rot;
       for (let i = 0; i < K; i++) {
         const big = i >= K - nSplit, area = AZ * (0.55 + 0.9 * i / Math.max(1, K - 1)) * (big ? 2 : 1);
@@ -314,7 +335,7 @@
       else colR = zones[zones.length - 1].r0 + 56;
       pod.colR = colR; pod.colGap = R.range(54, 62); pod.colStep = R.range(62, 70);   // far enough apart to slip between
       const ok = zones.filter(z => !z.hub && colR - 40 >= z.r0 && colR + pod.colGap + 40 <= z.r1);
-      if (ok.length) { const i0 = R.int(0, ok.length - 1), m = ok.length <= 3 ? 1 : 2; for (let i = 0; i < m; i++) ok[(i0 + i) % ok.length].col = true; }
+      if (ok.length) { const i0 = R.int(0, ok.length - 1), m = ok.length <= 3 ? 1 : ok.length <= 5 ? 2 : 3; for (let i = 0; i < m; i++) ok[(i0 + i) % ok.length].col = true; }
     }
     pod.rOut = Math.max(...zones.map(z => z.r1));
     for (const z of zones) z.pod = pod;
@@ -562,8 +583,11 @@
   }
 
   // ── the plan ──
+  // A floor is one big figure cut fine: well past the rooms the route walks, so the rest hang off it as
+  // side rooms and the figure (a three-ring rotunda, a long two-band crescent, a full spiral) fills the frame
+  const zoneCount = (n, D) => Math.max(D.rooms + D.sides, n <= 1 ? 5 : n <= 2 ? 6 : n <= 4 ? 9 : n <= 8 ? 10 : n <= 12 ? 11 : 12);
   function layout(R, n, Z, kind) {
-    const AZ = 86000 + Math.min(n, 6) * 4000;
+    const AZ = (86000 + Math.min(n, 6) * 4000) * 0.9;
     kind = kind || R.pick(KINDS);
     for (let t = 0; t < 10; t++) { const P = compose(R, n, Z, kind, AZ); if (P) return P; }
     return null;
@@ -575,21 +599,24 @@
     const skew = () => R.range(0.17, 0.52) * (R.chance(0.5) ? 1 : -1);
     const join = (host, pod, o) => attach(R, P, host, pod, o);
     if (kind === 'disc') {
-      const sat = n >= 2 ? R.weighted([['tower', 1], ['solo', 1.3], ['none', 0.4]]) : R.chance(0.6) ? 'solo' : 'none';
-      const main = polarPod(R, Z - (sat === 'none' ? 0 : 1), 'disc', AZ, { col: R.chance(0.65) });
+      // the rotunda is the floor: at most a small round room close by its rim, never a box out on a stalk
+      const sat = R.weighted([['tower', n >= 2 ? 0.15 : 0], ['solo', 0.9], ['none', 1]]);
+      const main = polarPod(R, Z - (sat === 'none' ? 0 : 1), 'disc', AZ, { col: R.chance(0.75) });
       P.pods.push(main);
-      if (sat === 'tower') join(main, towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
-      else if (sat === 'solo') join(main, polarPod(R, 1, 'solo', AZ * 0.8), hall());
-      if (n >= 6 && R.chance(0.35)) join(main, towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
+      if (sat === 'tower') join(main, towerPod(R), thin({ len: R.range(70, 110), delta: R.range(-0.5, 0.5) }));
+      else if (sat === 'solo') join(main, polarPod(R, 1, 'solo', AZ * R.range(0.6, 0.9)), hall({ len: R.range(45, 90) }));
     } else if (kind === 'crescent') {
-      const tw = R.chance(0.8), main = polarPod(R, Z - (tw ? 1 : 0), 'crescent', AZ, { facet: R.chance(0.6), col: R.chance(0.7) });
+      // a long crescent, now and then capped at a horn by a small round room (a box on a stalk only rarely)
+      const tw = R.chance(0.15), cap = !tw && Z >= 7 && R.chance(0.45);
+      const main = polarPod(R, Z - (tw || cap ? 1 : 0), 'crescent', AZ, { facet: R.chance(0.45), col: R.chance(0.8) });
       P.pods.push(main);
-      if (tw) join(main, towerPod(R), thin({ end: true, skew: 0.3, delta: R.range(-0.4, 0.4) }));
-      if (Z >= 7 && R.chance(0.4)) join(main, polarPod(R, 1, 'solo', AZ * 0.7), hall({ end: true, skew: 0.3 }));
+      if (tw) join(main, towerPod(R), thin({ end: true, len: R.range(70, 120), skew: 0.3, delta: R.range(-0.4, 0.4) }));
+      if (cap) join(main, polarPod(R, 1, 'solo', AZ * 0.7), hall({ end: true, len: R.range(45, 90), skew: 0.2 }));
     } else if (kind === 'nautilus') {
-      const tw = R.chance(0.6), main = polarPod(R, Z - (tw ? 1 : 0), 'nautilus', AZ, { col: R.chance(0.6) });
+      // the spiral alone: its own growing wedges are the figure
+      const tw = R.chance(0.12), main = polarPod(R, Z - (tw ? 1 : 0), 'nautilus', AZ, { col: R.chance(0.65) });
       P.pods.push(main);
-      if (tw) join(main, towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
+      if (tw) join(main, towerPod(R), thin({ len: R.range(70, 120), delta: R.range(-0.5, 0.5) }));
     } else if (kind === 'block') {
       const ann = Z >= 5 && R.chance(0.8) ? (Z >= 8 ? 3 : 2) : 0, tw = R.chance(ann ? 0.4 : 0.8) ? 1 : 0;
       const main = blockPod(R, Math.max(2, Z - ann - tw), AZ, { pill: R.chance(0.5) });
@@ -603,30 +630,38 @@
       P.pods.push(main);
       if (tw) join(main, towerPod(R), thin({ corr: true, delta: R.range(-0.45, 0.45) }));
     } else if (kind === 'cluster') {
-      // two to four round masses of different sizes, a chain of them that bends
-      const parts = [];
-      let rem = Z;
-      if (Z >= 5) { const k = R.int(4, Math.min(6, Z - 1)); parts.push(k); rem -= k; }
-      while (rem > 0 && parts.length < 4) { if (rem >= 4 && R.chance(0.5)) { const k = R.int(4, Math.min(5, rem)); parts.push(k); rem -= k; } else { parts.push(1); rem--; } }
-      if (parts.length < 2) parts.push(1);
-      const pods = parts.map(k => k === 1 ? polarPod(R, 1, 'solo', AZ * R.range(0.75, 1.35)) : polarPod(R, k, 'disc', AZ, { col: R.chance(0.5) }));
+      // a chain of three to five round masses of very different sizes, nearly touching, that bends:
+      // one big rotunda and smaller rings and lone round rooms strung off it by short necks
+      let m = Z >= 11 ? R.int(4, 5) : Z >= 7 ? 4 : 3;
+      let big = Math.max(4, Math.round(Z * R.range(0.5, 0.6)));
+      m = Math.max(2, Math.min(m, Z - big + 1));
+      const parts = [big]; for (let i = 1; i < m; i++) parts.push(1);
+      // the rest share out what is left: a lone room grows into a small ring (a hub and two rooms) and on to four
+      for (let rem = Z - big - (m - 1), t = 0; rem > 0; t++) {
+        const i = R.int(1, m - 1);
+        if (parts[i] === 1 && rem >= 2) { parts[i] = 3; rem -= 2; }
+        else if (parts[i] >= 3 && parts[i] < 5) { parts[i]++; rem--; }
+        else if (t > 30) { parts[0]++; rem--; }
+      }
+      // the big one somewhere along the chain, not always at its head
+      big = parts[0];
+      const order = parts.slice(1); order.splice(R.int(0, Math.min(2, order.length)), 0, big);
+      const pods = order.map(k => k === 1 ? polarPod(R, 1, 'solo', AZ * R.range(0.6, 1.3)) : polarPod(R, k, 'disc', AZ, { col: k >= 5 && R.chance(0.6) }));
       P.pods.push(pods[0]);
       for (let i = 1; i < pods.length; i++) {
         const prev = P.pods[P.pods.length - 1];
-        if (!join(R.chance(0.7) ? prev : R.pick(P.pods), pods[i], hall({ len: R.range(70, 170) }))) join(R.pick(P.pods), pods[i], hall());
+        if (!join(R.chance(0.8) ? prev : R.pick(P.pods), pods[i], hall({ len: R.range(42, 85) }))) join(R.pick(P.pods), pods[i], hall({ len: R.range(50, 110) }));
       }
-      if (P.pods.length < 2) return null;
-      if (n >= 3 && R.chance(0.3)) join(R.pick(P.pods), towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
+      if (P.pods.length < Math.min(3, m)) return null;
     } else {
       // twin: two masses, each a building of its own, joined by one long hall
       const k1 = Math.ceil(Z / 2), k2 = Z - k1;
-      const types = R.pick([['disc', 'block'], ['block', 'disc'], ['disc', 'disc'], ['block', 'block'], [k1 >= 5 ? 'nautilus' : 'disc', 'block']]);
-      const mk = (t, k) => t === 'block' ? blockPod(R, Math.max(2, k), AZ, { pill: R.chance(0.4) }) : polarPod(R, Math.max(3, k), t, AZ, { col: R.chance(0.5) });
+      const types = R.weighted([[['disc', 'block'], 0.5], [['block', 'disc'], 0.4], [['disc', 'disc'], 1.4], [['disc', 'crescent'], k2 >= 4 ? 1 : 0], [[k1 >= 5 ? 'nautilus' : 'disc', 'disc'], 1.1]]);
+      const mk = (t, k) => t === 'block' ? blockPod(R, Math.max(2, k), AZ, { pill: R.chance(0.4) }) : polarPod(R, Math.max(3, k), t, AZ, { col: R.chance(0.6), facet: t === 'crescent' && R.chance(0.3) });
       const main = mk(types[0], k1);
       if (main.type === 'rect') main.rot = R.int(0, 3) * Math.PI / 2;
       P.pods.push(main);
-      if (!join(main, mk(types[1], k2), { w: R.range(104, 136), len: R.range(200, 330), delta: types[1] === 'block' ? skew() : 0 })) return null;
-      if (R.chance(0.35)) join(R.pick(P.pods), towerPod(R), thin({ delta: R.range(-0.5, 0.5) }));
+      if (!join(main, mk(types[1], k2), { w: R.range(104, 136), len: R.range(110, 220), delta: types[1] === 'block' ? skew() : 0 })) return null;
     }
     // rectangular bites out of the outer arcs, kept clear of the halls
     for (const pod of P.pods) if (pod.type === 'polar' && pod.kind !== 'solo') for (const z of pod.zones) {
@@ -738,7 +773,7 @@
     const R = U.rng(seed), D = difficulty(n);
     const L = { n, D, floor: [], obs: [], doors: [], shades: [], guards: [], cams: [], keys: [], stars: [], rooms: [], conns: [] };
     // the building, and its zones as rooms
-    const P = layout(R, n, D.rooms + D.sides, kind);
+    const P = layout(R, n, zoneCount(n, D), kind);
     if (!P) return null;
     L.plan = P;
     const pt = (o, a, r) => ({ x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r });
@@ -999,8 +1034,9 @@
     // guards and cameras
     const unplug = placeGuards(R, L, field, navClosed, n, loose);
     // from the third floor at least one star is a dare: on a walker's beat, or in a post's or a
-    // camera's look, so three stars means taking a real risk. If none is, one moves beside a beat
-    if (n >= 3 && !L.stars.some(st => starRisk(L, field, st))) {
+    // camera's look, so three stars means taking a real risk. If none is, one moves beside a beat;
+    // and from the sixth one always does, so every floor up there has a star you take on a guard's timing
+    if (n >= 6 || (n >= 3 && !L.stars.some(st => starRisk(L, field, st)))) {
       const walkers = L.guards.filter(g => g.path);
       let moved = false;
       for (let t = 0; t < 60 && walkers.length && L.stars.length && !moved; t++) {
@@ -1032,11 +1068,10 @@
       unplug(tr.who, t >= 6);
     }
     if (n >= 2 && L.guards.length < 2) return null;
-    // and the timing checks never leave a floor thin: past the second, at least 60% of its budget still watches
-    // (8 on the twelfth, 9 from the sixteenth), with a camera among them from the sixteenth. Short of that, draw again
-    const budget = Math.min(D.budget, Math.round(4 + n * 0.8));
-    if (!loose && n >= 3 && L.guards.length + L.cams.length < U.clamp(Math.round(0.6 * budget), 3, 9)) return null;
-    if (!loose && n >= 16 && D.cams && !L.cams.length) return null;
+    // and the timing checks never leave a floor thin: past the second, at least 70% of its budget still watches
+    // (half for a floor let through late), with its cameras among them from the sixth. Short of that, draw again
+    if (n >= 3 && L.guards.length + L.cams.length < watchFloor(watchBudget(L, n), n, loose)) return null;
+    if (D.cams && L.cams.length < (loose ? Math.min(1, camFloor(n)) : camFloor(n))) return null;
 
     // hiding spots: pools of deep shadow tucked against walls, laid after the guards so none sits
     // on a beat: a shade is only safe if no round walks within reach of it
@@ -1585,6 +1620,65 @@
       return out;
     };
 
+    // a camera on a room's wall, looking in (and from the fifteenth floor perhaps its twin): how many went up
+    const camIn = (room) => {
+      // on the wall, looking in
+      // and no camera's sweep covers a key or either side of a locked door: those you must reach, so
+      // the arc you can see is always one you can time, never a stare you have to walk through
+      const musts = L.keys.map(k => ({ x: k.x, y: k.y }));
+      for (const d of L.doors) for (const sg of [-1, 1]) musts.push({ x: d.conn.mouth.x + d.conn.normal.x * 20 * sg, y: d.conn.mouth.y + d.conn.normal.y * 20 * sg });
+      const sweepsMust = (q, face, amp) => {
+        const ex = q.x + Math.cos(face) * 6, ey = q.y + Math.sin(face) * 6, reach = D.coneLen * 1.05 + 20;
+        return musts.some(m => {
+          const dx = m.x - ex, dy = m.y - ey, d = Math.hypot(dx, dy);
+          if (d > reach) return false;
+          if (d > 1 && field.ray(ex, ey, dx / d, dy / d, d) < d - 8) return false;
+          return Math.abs(U.angDiff(face, Math.atan2(dy, dx))) < amp + 0.42 + 0.2;
+        });
+      };
+      // its sweep swings well past its eyes, so the lane straight down its middle goes dark for a real while
+      const amp = R.range(0.68, 0.9);
+      const camAt = (a) => {
+        const e = extent(room, a);
+        const inward = { x: room.c.x + Math.cos(a) * (e - 36), y: room.c.y + Math.sin(a) * (e - 36) };
+        if (field.sample(inward.x, inward.y) < 16) return null;
+        // in from the edge until it's just off the wall face, so it sees from the room, not from inside the wall
+        let q = null;
+        for (let d = 6; d <= 26 && !q; d += 4) {
+          const c = { x: room.c.x + Math.cos(a) * (e - d), y: room.c.y + Math.sin(a) * (e - d) }, v = field.sample(c.x, c.y);
+          if (v >= 1.5 && v <= 8) q = c;
+        }
+        if (!q || !okHome(q) || !farFromStart(q, 380) || nearMouth(q, 60) || !offItems(q, 75)) return null;
+        if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 120) < 90) return null;   // a clear look into the room
+        // and a long one: a camera staring at a wall a few steps off is a tripwire, not a sweep you can time
+        if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 400) < 150) return null;
+        if (sweepsMust(q, a + Math.PI, amp)) return null;
+        return q;
+      };
+      let p = null, face = 0, pa = 0;
+      for (let s = 0; s < 12 && !p; s++) {
+        const a = R() * TAU, q = camAt(a);
+        if (q) { p = q; face = a + Math.PI; pa = a; }
+      }
+      if (!p) return 0;
+      // from the ninth floor some cameras pan quick
+      const quick = n >= 9 && R.chance(0.5);
+      const cam = { x: p.x, y: p.y, base: face, amp, period: quick ? R.range(3, 4) : R.range(5, 8), phase: R() * TAU };
+      L.cams.push(cam); roomOf.set(cam, room);
+      homes.push(p); let placed = 1;   // a camera is on top of the room's guards, not one of them
+      // from the fifteenth floor a camera may have a twin on the far wall, half a sweep behind, so
+      // the gap in one's sweep is the other's stare
+      if (D.camPairs && R.chance(0.6)) for (let s = 0; s < 6; s++) {
+        const a = pa + Math.PI + R.range(-0.35, 0.35), q = camAt(a);
+        if (!q || Math.hypot(q.x - p.x, q.y - p.y) < 160) continue;
+        const twin = { x: q.x, y: q.y, base: a + Math.PI, amp: cam.amp, period: cam.period, phase: cam.phase + Math.PI, twin: true };
+        L.cams.push(twin); roomOf.set(twin, room);
+        homes.push(q); placed++;
+        break;
+      }
+      return placed;
+    };
+
     // how many in each room, then trimmed from the busiest rooms down to the floor's budget
     const counts = new Map(), small = (room) => (room.kind === 'circle' ? 2 * room.r : Math.max(room.w, room.h)) < 300;
     for (const room of L.rooms) {
@@ -1596,7 +1690,7 @@
       // and a small room holds at most two watchers (cameras too), so it is never crossed by three looks at once
       counts.set(room, Math.min(count, small(room) ? 2 : 3));
     }
-    const budget = Math.min(D.budget || 14, Math.round(4 + n * 0.8));
+    const budget = watchBudget(L, n);
     for (let sum = [...counts.values()].reduce((a, b) => a + b, 0); sum > budget; sum--) {
       let top = null; for (const [r, c] of counts) if (c > 1 && (!top || c > counts.get(top) || (c === counts.get(top) && R.chance(0.5)))) top = r;
       if (!top) { const rs = [...counts.keys()].filter(r => r.side || r.idx > 0); if (!rs.length) break; counts.delete(R.pick(rs)); continue; }
@@ -1615,63 +1709,7 @@
         const second = room.idx === 1 && !room.side;
         const kind = R.weighted([['patrol', 4.5], ['pace', 2.5], ['sentry', second ? 0 : (room.side ? 3 : 2) + (n >= 3 && n < 15 ? 1 : 0)], ['cam', D.cams && cams < camCap ? 1.4 : 0]]);
         const th = R() * TAU;
-        if (kind === 'cam') {
-          // on the wall, looking in
-          // and no camera's sweep covers a key or either side of a locked door: those you must reach, so
-          // the arc you can see is always one you can time, never a stare you have to walk through
-          const musts = L.keys.map(k => ({ x: k.x, y: k.y }));
-          for (const d of L.doors) for (const sg of [-1, 1]) musts.push({ x: d.conn.mouth.x + d.conn.normal.x * 20 * sg, y: d.conn.mouth.y + d.conn.normal.y * 20 * sg });
-          const sweepsMust = (q, face, amp) => {
-            const ex = q.x + Math.cos(face) * 6, ey = q.y + Math.sin(face) * 6, reach = D.coneLen * 1.05 + 20;
-            return musts.some(m => {
-              const dx = m.x - ex, dy = m.y - ey, d = Math.hypot(dx, dy);
-              if (d > reach) return false;
-              if (d > 1 && field.ray(ex, ey, dx / d, dy / d, d) < d - 8) return false;
-              return Math.abs(U.angDiff(face, Math.atan2(dy, dx))) < amp + 0.42 + 0.2;
-            });
-          };
-          // its sweep swings well past its eyes, so the lane straight down its middle goes dark for a real while
-          const amp = R.range(0.68, 0.9);
-          const camAt = (a) => {
-            const e = extent(room, a);
-            const inward = { x: room.c.x + Math.cos(a) * (e - 36), y: room.c.y + Math.sin(a) * (e - 36) };
-            if (field.sample(inward.x, inward.y) < 16) return null;
-            // in from the edge until it's just off the wall face, so it sees from the room, not from inside the wall
-            let q = null;
-            for (let d = 6; d <= 26 && !q; d += 4) {
-              const c = { x: room.c.x + Math.cos(a) * (e - d), y: room.c.y + Math.sin(a) * (e - d) }, v = field.sample(c.x, c.y);
-              if (v >= 1.5 && v <= 8) q = c;
-            }
-            if (!q || !okHome(q) || !farFromStart(q, 380) || nearMouth(q, 60) || !offItems(q, 75)) return null;
-            if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 120) < 90) return null;   // a clear look into the room
-            // and a long one: a camera staring at a wall a few steps off is a tripwire, not a sweep you can time
-            if (field.ray(q.x - Math.cos(a) * 6, q.y - Math.sin(a) * 6, -Math.cos(a), -Math.sin(a), 400) < 150) return null;
-            if (sweepsMust(q, a + Math.PI, amp)) return null;
-            return q;
-          };
-          let p = null, face = 0, pa = 0;
-          for (let s = 0; s < 12 && !p; s++) {
-            const a = R() * TAU, q = camAt(a);
-            if (q) { p = q; face = a + Math.PI; pa = a; }
-          }
-          if (!p) continue;
-          // from the ninth floor some cameras pan quick
-          const quick = n >= 9 && R.chance(0.5);
-          const cam = { x: p.x, y: p.y, base: face, amp, period: quick ? R.range(3, 4) : R.range(5, 8), phase: R() * TAU };
-          L.cams.push(cam); roomOf.set(cam, room);
-          homes.push(p); cams++;   // a camera is on top of the room's guards, not one of them
-          // from the fifteenth floor a camera may have a twin on the far wall, half a sweep behind, so
-          // the gap in one's sweep is the other's stare
-          if (D.camPairs && R.chance(0.6)) for (let s = 0; s < 6; s++) {
-            const a = pa + Math.PI + R.range(-0.35, 0.35), q = camAt(a);
-            if (!q || Math.hypot(q.x - p.x, q.y - p.y) < 160) continue;
-            const twin = { x: q.x, y: q.y, base: a + Math.PI, amp: cam.amp, period: cam.period, phase: cam.phase + Math.PI, twin: true };
-            L.cams.push(twin); roomOf.set(twin, room);
-            homes.push(q); cams++;
-            break;
-          }
-          continue;
-        }
+        if (kind === 'cam') { cams += camIn(room); continue; }
         if (kind === 'sentry') {
           if (sentryAt(room)) k++;
           continue;
@@ -1751,11 +1789,24 @@
       const gd = sentryAt(room, posts().filter(o => o.snap).length < wantSnap);
       if (!gd && swap) { L.guards.push(swap); homes.push({ x: swap.x, y: swap.y }); }
     }
-    // and a floor is never thin: short of 60% of its budget in guards and cameras, posts top it up in rooms
-    // with room for another watcher (a small room still holds two at most)
-    const target = n >= 3 && !loose ? U.clamp(Math.round(0.6 * budget), 3, 9) : 0;
     const inRoomN = (room) => L.guards.concat(L.cams).filter(g => roomOf.get(g) === room).length;
-    for (let t = 0; t < 80 && pool.length && L.guards.length + L.cams.length < target && L.guards.length < budget; t++) {
+    // from the sixth floor the cameras are never all missing: short of its share, cameras go up in rooms that can take one
+    const wantCams = D.cams ? camFloor(n) : 0;
+    const camRooms = L.rooms.filter(r => !(r.corr || r.neck || r.tower) && !(r.idx === 0 && !r.side));
+    const camUp = (not) => {
+      for (let t = 0; t < 40 && camRooms.length; t++) {
+        const room = R.pick(camRooms);
+        if (room === not || inRoomN(room) >= (small(room) ? 2 : 3)) continue;
+        if (camIn(room)) return true;
+      }
+      return false;
+    };
+    while (L.cams.length < wantCams && camUp(null));
+    // and a floor is never thin: posts top it up towards 85% of its budget in guards and cameras, in rooms with
+    // room for another watcher (a small room still holds two at most), so that after the timing checks take
+    // their share down it still has the 70% (half, late in the draws) it must keep
+    const target = watchFloor(budget, n, loose), fill = loose || n < 3 ? target : budget;
+    for (let t = 0; t < 80 && pool.length && L.guards.length + L.cams.length < fill && L.guards.length < budget; t++) {
       const room = R.pick(pool);
       if (inRoomN(room) >= (small(room) ? 2 : 3)) continue;
       sentryAt(room);
@@ -1765,9 +1816,11 @@
     return (o, late) => {
       const list = o.base === undefined ? L.guards : L.cams, hi = homes.findIndex(h => h.x === o.x && h.y === o.y);
       list.splice(list.indexOf(o), 1); if (hi >= 0) homes.splice(hi, 1);
-      // and a walker or a camera taken down is made up with a post too while the floor is short of its 60%
-      // (late in the retries a post is only made up if the floor is short, so the retries can thin a floor out to it)
-      if ((o.kind !== 'sentry' || late) && L.guards.length + L.cams.length >= target) return;
+      // a camera taken down below the floor's share goes up again in another room
+      if (o.base !== undefined && L.cams.length < wantCams && camUp(roomOf.get(o))) return;
+      // and a walker or a camera taken down is made up with a post too while the floor is short of its 85%
+      // (late in the retries only while it is short of its 70%, so the retries can thin a floor out to that)
+      if ((o.kind !== 'sentry' || late) && L.guards.length + L.cams.length >= (late ? target : fill)) return;
       const was = roomOf.get(o), rooms = pool.filter(r => r !== was);
       for (let t = 0; t < 30 && rooms.length; t++) { const room = R.pick(rooms); if (inRoomN(room) < (small(room) ? 2 : 3) && sentryAt(room, !!o.snap)) return; }
     };

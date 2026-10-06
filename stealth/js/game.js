@@ -13,10 +13,16 @@
     wall: '#d6e9ee',
     player: '#ff8a3d', playerHi: '#ffc896', playerLo: '#b84f17',
     guard: '#15364a', guardHi: '#2b566c', guardRim: '#cfe6ee',
-    star: '#f3e57e',
+    star: '#f5e86a', starRing: 'rgba(245,232,106,0.32)',
     // calm cones: one flat light-cyan wedge (about #5CB1C6 on the lit floor, #4B9AB1 in shadow) with a lighter
     // band along its arc; they're gathered on a layer that keeps the brightest of them, so crossing fans never add up
     coneFill: 'rgb(34,66,76)', coneRim: 'rgb(70,110,120)',
+    // where two calm cones cross, the light steps up once (about #5FB3C9 to #7CC6D8 on the lit floor), never more
+    coneTwo: 'rgb(77,116,133)', coneTwoRim: 'rgb(104,142,154)',
+    // a cast shadow falling across a cone dims the light under it, so the cone reads as light in the room, not an overlay
+    coneShade: 'rgb(212,224,230)',
+    // hiding spots: a pool of deep shade, one flat step below the cast shadows, that eats any light that crosses it
+    shade: 'rgba(16,64,82,0.42)',
     coneHot: 'rgba(255,76,52,0.62)', coneEdgeHot: 'rgba(255,120,90,0.9)',
     // the floor's slab shadow on the void: one flat tone, so the building's edge stands off the outside
     voidShade: 'rgba(34,86,106,0.26)',
@@ -84,8 +90,8 @@
   // It's only a moment's grace: it melts as the thumb comes back in or pushes on out, and it fades on its own over about
   // 0.25s (see relaxStick), so a thumb held still on the dashed ring has the knob back under it, and runs, within a quarter second
   const stickOrg = { x: 0, y: 0, len: 0 };
-  // an escape: a chase, or a guard half way to seeing you. A thumb slammed out then means it, and runs on the first touch
-  const bolting = () => guards.some(g => g.state === 'chase' || (g.state === 'sus' && g.aw > 0.5));
+  // an escape: a chase, or a guard's meter filling (a third of the way to seeing you). A thumb slammed out then means it, and runs on the first touch
+  const bolting = () => guards.some(g => g.state === 'chase' || (g.state === 'sus' && g.aw > 0.3));
   function setStick(cx, cy, down) {
     lastCx = cx; lastCy = cy;
     // the knob travels 68px on the 212px stick, in proportion on the smaller one, so the dashed ring (where the run starts) sits at the same place
@@ -135,7 +141,7 @@
   addEventListener('keydown', (e) => {
     AUDIO.unlock();
     const k = e.code === 'Space' && (paused || (mode !== 'play' && mode !== 'intro')) ? null : KEYMAP[e.code];   // Space still presses menu buttons
-    if (k) { keys[k] = true; e.preventDefault(); if (mode === 'intro' && k !== 'shift' && k !== 'sneak') skipIntro(); }
+    if (k) { keys[k] = true; e.preventDefault(); if (mode === 'intro' && k !== 'sneak') skipIntro(); }
     if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
     if (e.code === 'KeyM' || e.code === 'Tab') { e.preventDefault(); toggleMap(); }
     if (e.code === 'KeyE' && !e.repeat) knock();
@@ -284,24 +290,33 @@
       field.applyDoors(); nav = nk ? (L.navs[nk] || (L.navs[nk] = new LEVEL.Nav(field, 11))) : L.nav0;
       P.x = cp.x; P.y = cp.y; P.ang = cp.ang;
     }
-    // a retry never replays the same moment: every beat starts well along (±25% of it, so a death spot moves), every
-    // camera a little into its sweep. From a checkpoint, a guard whose beat comes near starts at one of
-    // the points safeSpot found it can walk from for a while without looking at you
+    // a retry plays the floor back the way it went the first time, as the stairs left it: every beat and every
+    // sweep starts where it did, so a death spot can be learned and beaten next go. From a checkpoint, a guard
+    // whose beat comes near starts at the same one, every time, of the points safeSpot found it can walk from
+    // for a while without looking at you
     graceCP = !!(retry && checkpoint);
-    if (retry) {
+    if (retry && checkpoint) {
       guards.forEach((gd, gi) => {
-        if (!gd.path) return;
-        const N = gd.path.length, ok = checkpoint && checkpoint.starts && checkpoint.starts[gi];
-        let pi = ok ? ok[Math.floor(Math.random() * ok.length)] : (gd.pi + Math.round((Math.random() * 2 - 1) * N * 0.25) + N) % N;
+        const ok = gd.path && checkpoint.starts && checkpoint.starts[gi];
+        if (!ok || !ok.length) return;
+        const N = gd.path.length;
+        // the head of the longest run of safe starts (they come every step of its beat): the one with the most
+        // of its beat still ahead of it before it comes round to look
+        const step = Math.max(1, Math.floor(N / 16)), next = (a, b) => (b - a + N) % N === step;
+        let pi = ok[0], top = 0;
+        for (let i = 0; i < ok.length; i++) {
+          if (i > 0 && next(ok[i - 1], ok[i])) continue;   // not the head of its run
+          let len = 1; while (len < ok.length && next(ok[(i + len - 1) % ok.length], ok[(i + len) % ok.length])) len++;
+          if (len > top) { top = len; pi = ok[i]; }
+        }
         // the second of a pair on one loop keeps its distance from the first rather than walking in its shoes
-        const mate = ok && guards.slice(0, gi).find(o => o.path === gd.path);
-        if (mate) { const gap = (i) => { const d = Math.abs(i - mate.pi) % N; return Math.min(d, N - d); }; pi = ok.reduce((b, i) => gap(i) > gap(b) ? i : b, ok[0]); if (!gap(pi)) gd.holdT = 1.6 + Math.random(); }
+        const mate = guards.slice(0, gi).find(o => o.path === gd.path);
+        if (mate) { const gap = (i) => { const d = Math.abs(i - mate.pi) % N; return Math.min(d, N - d); }; pi = ok.reduce((b, i) => gap(i) > gap(b) ? i : b, ok[0]); if (!gap(pi)) gd.holdT = 2; }
         gd.pi = pi; gd.x = gd.lastPos.x = gd.path[pi].x; gd.y = gd.lastPos.y = gd.path[pi].y;
         const nx = gd.path[(pi + 1) % N]; gd.ang = Math.atan2(nx.y - gd.y, nx.x - gd.x);
-        if (ok && ok.hold) gd.holdT = Math.max(gd.holdT || 0, ok.hold);
-        if (!ok || gd.holdT) { gd.wait = gd.waitMax = gd.holdT || Math.random() * 0.8; gd.waitAng = gd.ang; gd.holdT = 0; }
+        if (ok.hold) gd.holdT = Math.max(gd.holdT || 0, ok.hold);
+        if (gd.holdT) { gd.wait = gd.waitMax = gd.holdT; gd.waitAng = gd.ang; gd.holdT = 0; }
       });
-      for (const c of cams) c.phase += (Math.random() * 2 - 1) * 0.8;
     }
     updateHUD();
     if (mode !== 'title') {
@@ -376,7 +391,7 @@
     else if (inp.mouse) { if (P.run ? m < 0.8 : m > 0.88) P.run = !P.run; }
     else if (P.run ? m < 0.8 : m > 0.88 && (time - stickDownT > 0.12 || bolting())) P.run = !P.run;   // never a run on the first touch, unless it's an escape
     let speed = 0;
-    if (m > 0) speed = P.run ? U.lerp(86, 128, U.clamp((m - 0.88) / 0.12, 0, 1)) : 24 + 51 * Math.min(1, m / 0.85);
+    if (m > 0) speed = P.run ? U.lerp(86, 128, U.clamp((m - 0.88) / 0.12, 0, 1)) : 14 + 61 * Math.pow(Math.min(1, m / 0.85), 0.8);   // a creep from 14 just past the dead zone (fine work at a cone's edge), yet the mid-stick sneak (60 at 0.6) and the 75 top of the walk as before
     P.m = m;   // only the run is heard
     stickEl.classList.toggle('run', (stick.on || inp.isPad) && P.run);   // a pad's run lights the knob too, where the stick shows
     stickEl.classList.toggle('loud', stick.on && !P.run && m > 0.6);   // the heard band of the walk, before the ring
@@ -920,7 +935,8 @@
         // Round a corner (no straight look to where you were last) they give up sooner, at 1.2s, so
         // breaking the line of sight round one corner reliably turns a chase into a search.
         // the meter drops well back, so a glimpse as they search is a beat to duck away, not a re-capture
-        const lostAt = gd.last && !field.clear(gd.x, gd.y, gd.last.x, gd.last.y, G_R - 1) ? 1.2 : 2;
+        // From the eighth floor they hold on longer (1.8s round a corner, 2.6s in the open), so a '!' up there costs you
+        const lostAt = (gd.last && !field.clear(gd.x, gd.y, gd.last.x, gd.last.y, G_R - 1) ? 1.2 : 2) + (floorN >= 8 ? 0.6 : 0);
         if (!s && (done || gd.lost > lostAt)) { gd.aw = 0.4; toSearch(gd, gd.last || { x: gd.x, y: gd.y }); }
         break;
       }
@@ -983,16 +999,18 @@
       // crossed on timing is crossed, as the floor's timed check assumes; past half it follows you
       if (c.aw < 0.5) { c.phase += dt * TAU / c.period; c.ang = U.turnTo(c.ang, c.base + Math.sin(c.phase) * c.amp, dt * 1.5); }
       else c.ang = U.turnTo(c.ang, camTrack(c), dt * 1.2);
-      c.aw = Math.min(1, c.aw + dt * D.detect * 0.9);
+      // it fills as a guard's does, faster the nearer you are: a sure thing close under it, a slow '?' at the far end
+      c.aw = Math.min(1, c.aw + dt * Math.min(0.9, D.detect * (0.4 + 1.6 * Math.max(0, 1 - s.d / (D.coneLen * 1.05)))));
       if (!c.bubble) { bubble(c, '?'); if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.5; } }
       if (c.aw >= 1) {
         // the alarm: the nearest guards come running to where you were
         c.alarm = 4; bubble(c, '!'); AUDIO.play('alarm');
         fx.push({ k: 'flash', t: 0, dur: 0.3 });
-        // only guards with a real way there, nearest by that way, so nobody is sent to press against a wall or a locked door
+        // only guards with a real way there, nearest by that way, so nobody is sent to press against a wall or a locked door:
+        // the nearest two, and from the tenth floor everyone within 400 of you by that way too
         guards.filter(o => o.state !== 'chase' && Math.hypot(o.x - c.x, o.y - c.y) < 750)
           .map(o => { const r = nav.path(o.x, o.y, P.x, P.y, 20000); return { o, d: r ? plen(r, o) : Infinity }; }).filter(e => e.d < 900)
-          .sort((a, b) => a.d - b.d).slice(0, 2).forEach(e => { toSearch(e.o, { x: P.x, y: P.y }); e.o.hurry = 1; });
+          .sort((a, b) => a.d - b.d).filter((e, i) => i < 2 || (floorN >= 10 && e.d < 400)).forEach(e => { toSearch(e.o, { x: P.x, y: P.y }); e.o.hurry = 1; });
         hint('cam', 'Cameras call the nearest guards to wherever they saw you.');
       }
     } else {
@@ -1085,7 +1103,7 @@
       r.innerHTML = `<div class="stamp caught">CAUGHT</div><div class="sub">Floor ${floorN} — try again</div>`;
     } else {
       // the stars land one by one after the stamp, each with a chime
-      const st = [0, 1, 2].map(i => `<span class="${i < gotStars ? 'on' : ''}" style="animation-delay:${(0.35 + i * 0.18).toFixed(2)}s">★</span>`).join('');
+      const st = [0, 1, 2].map(i => `<span class="${i < gotStars ? 'on' : gotStars ? '' : 'miss'}" style="animation-delay:${(0.35 + i * 0.18).toFixed(2)}s">★</span>`).join('');
       const ci = clearInfo || { prev: 0, total: starTotal(), unlocked: null };
       const more = replay && gotStars > ci.prev ? ` · +${gotStars - ci.prev}\u2605` : '';
       const un = ci.unlocked ? `<div class="sub unlock"><i style="background:${ci.unlocked.c}"></i>${ci.unlocked.name} unlocked</div>` : '';
@@ -1168,7 +1186,7 @@
     if (chaseHintT > 0 && mode === 'play') { chaseHintT -= dt; if (chaseHintT <= 0) { chaseHintT = 0; hint('chase', 'Seen! Break their line of sight. They\'ll search where they lost you.'); } }
     stepResult();
     // the touch that skips the intro also moves: control comes as the camera starts to close in, not 0.8s later
-    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : pad ? 'Left stick or D-pad to move: push it fully or hold RT to run, LT to creep. Y opens the map.' : 'Hold the mouse to move, or click to go there. Point further away to go faster. Stay out of the light.'); }
+    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; if (bannerT > 0) { bannerT = 0; $('banner').className = 'hide'; } hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : pad ? 'Left stick or D-pad to move: push it fully or hold RT to run, LT to creep. Y opens the map.' : 'Hold the mouse to move, or click to go there. Point further away to go faster. Stay out of the light.'); }
     if (mode === 'play') { updatePlayer(dt); stats.time += dt; if (knockCD > 0) knockCD = Math.max(0, knockCD - dt); }
     syncKnock();
     // a clear freezes the floor: nobody walks under the stamp or across its stars
@@ -1251,9 +1269,17 @@
     else {
       tx = P.x; ty = P.y; tz = baseZ();
       // the stick sits at the bottom: keep the player above the middle, at 56% of the way down to the stick's top (a fixed
-      // offset, never moving), so a small phone keeps as much floor below the player as a tall one does in proportion
-      if (isPortrait() && isTouch) ty += (H / 2 - 0.56 * (stickTop || H - 230)) / tz;
-      else if (isTouch) tx += (save.stickSide === 'left' ? -120 : 120) / tz;   // on its side the stick sits in a corner: keep the player and the floor ahead clear of it
+      // offset, never moving), so a small phone keeps as much floor below the player as a tall one does in proportion. On a
+      // short screen the player sits a touch lower still: the HUD covers the top there, and the floor ahead of the stick matters more
+      if (isPortrait() && isTouch) ty += (H / 2 - (0.56 + 0.06 * U.clamp((760 - H) / 120, 0, 1)) * (stickTop || H - 230)) / tz;
+      else if (isTouch) {
+        // on its side the stick only fills a bottom corner: a share of the width (76px on 844) is enough to keep the player
+        // clear of it, so the floor behind them (where a guard can walk in from) isn't cut to one cone length; and a little
+        // above the middle, so more of the stick's lower corner falls behind the player
+        const off = Math.min(120, 0.09 * W);
+        tx += (save.stickSide === 'left' ? -off : off) / tz;
+        ty += 0.06 * H / tz;
+      }
       // turning the phone or moving the stick to the other side re-frames on the same 0.35s ease as a respawn, never a jump
       const fk = (isPortrait() ? 'p' : 'l') + save.stickSide;
       if (view.fk !== fk) { if (view.fk) view.locked = false; view.fk = fk; }
@@ -1322,7 +1348,7 @@
     for (const c of cams) low(c.x, c.y, 9);
     if (P && P.scale > 0 && !P.hidden) low(P.x, P.y, P_SIZE * P_LOOK * P.scale * 0.5);
     if (mode !== 'clear') {
-      for (const st of L.stars) if (!st.got) low(st.x, st.y, 6);
+      for (const st of L.stars) if (!st.got) low(st.x, st.y, 8);
       for (const k of L.keys) if (!k.got) low(k.x, k.y, 6.5);
     }
     lowSq(L.exit.x, L.exit.y, 14);
@@ -1386,11 +1412,10 @@
     // every shadow -- walls, pillars, doors, characters, pickups -- is one swept shape filled once in one
     // tone, so where shadows overlap (or fall into the rim) they merge instead of stacking
     castPath(1); g.fillStyle = COL.shadow; g.fill('nonzero');
-    drawShades(z);
     drawStairs(L.entrance, false, z);
     drawStairs(L.exit, true, z);
     drawCones();
-    drawItems(z);
+    drawShades(z);
     // walls and pillars
     g.beginPath(); for (const s of L.obs) if (onView(s, 0, 0)) shapePath(s); g.fillStyle = COL.wall; g.fill();
     drawDoors(z);
@@ -1400,6 +1425,8 @@
     g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(fogCv, (shx - FOG_PAD) * DPR, (shy - FOG_PAD) * DPR);
     g.restore();
 
+    // the pickups sit above the light's falloff, so a star keeps its yellow at the edge of the frame
+    drawItems(z);
     drawNoise(z);
     drawSightLines(z);
     drawMouse(z);
@@ -1410,20 +1437,17 @@
     drawFlash();
   }
 
-  // hiding spots: a crisp, flat disc of darker floor with a faint pale lip, so they read as places to
-  // stand -- a hole in the light, not a smudge -- in the lit floor and in shadow alike
+  // hiding spots: a pool of deep shade, part of the light like the cast shadows -- no outline, no ring, just a
+  // flat disc one step darker than shadow. It is laid after the cones, so a cone
+  // that crosses it goes dark there too: the one place the light can't reach
   function drawShades(z) {
-    g.beginPath(); let any = false;
-    for (const s of L.shades) {
-      if (s.x + s.r < vx0 || s.x - s.r > vx1 || s.y + s.r < vy0 || s.y - s.r > vy1) continue;
-      g.moveTo(s.x + s.r, s.y); g.arc(s.x, s.y, s.r, 0, TAU); any = true;
-    }
-    if (!any) return;
-    g.fillStyle = 'rgba(24,82,104,0.42)'; g.fill();
-    g.lineWidth = 1.5; g.strokeStyle = 'rgba(214,236,241,0.22)'; g.stroke();
+    const vis = L.shades.filter(s => !(s.x + s.r < vx0 || s.x - s.r > vx1 || s.y + s.r < vy0 || s.y - s.r > vy1));
+    if (!vis.length) return;
+    g.beginPath(); for (const s of vis) { g.moveTo(s.x + s.r - 2, s.y); g.arc(s.x, s.y, s.r - 2, 0, TAU); }
+    g.fillStyle = COL.shade; g.fill('nonzero');
     // the pool you're in deepens a little: no ring, no dash, just more shade
-    for (const s of L.shades) if (P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r) {
-      g.fillStyle = 'rgba(16,58,74,0.25)'; g.beginPath(); g.arc(s.x, s.y, s.r, 0, TAU); g.fill();
+    for (const s of vis) if (P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r) {
+      g.fillStyle = 'rgba(12,50,66,0.22)'; g.beginPath(); g.arc(s.x, s.y, s.r - 2, 0, TAU); g.fill();
     }
   }
 
@@ -1437,12 +1461,7 @@
       gl.addColorStop(0, `rgba(240,255,255,${0.35 + 0.35 * k})`); gl.addColorStop(1, 'rgba(230,255,255,0)');
       g.fillStyle = gl; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
     }
-    if (up) {
-      const pulse = 0.5 + 0.5 * Math.sin(time * 3);
-      const gl = g.createRadialGradient(0, 0, 4, 0, 0, 30 + pulse * 5);
-      gl.addColorStop(0, 'rgba(230,255,255,0.4)'); gl.addColorStop(1, 'rgba(230,255,255,0)');
-      g.fillStyle = gl; g.beginPath(); g.arc(0, 0, 35, 0, TAU); g.fill();
-    }
+    // no halo: the way up is a flat pale slab with its hard shadow, like every other prop; the bobbing chevron says 'here'
     // the steps (the exit's shadow is in the one shadow shape)
     g.fillStyle = up ? '#eef9fb' : 'rgba(200,230,236,0.35)';
     g.beginPath(); g.rect(-s / 2, -s / 2, s, s); g.fill();
@@ -1503,12 +1522,29 @@
         c.fillStyle = '#000'; c.fillRect(x0, y0, x1 - x0, y1 - y0);
         c.setTransform(m.a * S, m.b * S, m.c * S, m.d * S, m.e * S, m.f * S);
         c.globalCompositeOperation = 'lighten';
-        const all = new Path2D();
+        const all = new Path2D(), one = [];
+        const grad = (p, len, a, b) => {
+          const gr = c.createRadialGradient(p[0], p[1], 0, p[0], p[1], len + 1);
+          gr.addColorStop(0, a); gr.addColorStop(0.84, a); gr.addColorStop(0.865, b); gr.addColorStop(1, b);
+          return gr;
+        };
         for (const o of calm) {
           const p = o.cone, len = coneLen(p), path = new Path2D(); conePath(path, p); conePath(all, p);
-          const gr = c.createRadialGradient(p[0], p[1], 0, p[0], p[1], len + 1);
-          gr.addColorStop(0, COL.coneFill); gr.addColorStop(0.84, COL.coneFill); gr.addColorStop(0.865, COL.coneRim); gr.addColorStop(1, COL.coneRim);
-          c.fillStyle = gr; c.fill(path);
+          let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
+          for (let i = 0; i < p.length; i += 2) { bx0 = Math.min(bx0, p[i]); bx1 = Math.max(bx1, p[i]); by0 = Math.min(by0, p[i + 1]); by1 = Math.max(by1, p[i + 1]); }
+          one.push({ p, len, path, bx0, by0, bx1, by1 });
+          c.fillStyle = grad(p, len, COL.coneFill, COL.coneRim); c.fill(path);
+        }
+        // where two cones cross, one step brighter (still 'lighten', so three never go past two)
+        for (let i = 0; i < one.length; i++) for (let j = i + 1; j < one.length; j++) {
+          const a = one[i], b = one[j];
+          if (a.bx1 < b.bx0 || b.bx1 < a.bx0 || a.by1 < b.by0 || b.by1 < a.by0) continue;
+          c.save(); c.clip(a.path);
+          c.fillStyle = grad(b.p, b.len, COL.coneTwo, COL.coneTwoRim); c.fill(b.path);
+          c.restore();
+          c.save(); c.clip(b.path);
+          c.fillStyle = grad(a.p, a.len, COL.coneTwo, COL.coneTwoRim); c.fill(a.path);
+          c.restore();
         }
         // blend only where there is light: the cones' union clips the composite, so a wide view's empty box costs nothing
         g.save(); g.clip(all, 'nonzero'); g.setTransform(1, 0, 0, 1, 0, 0);
@@ -1532,6 +1568,16 @@
       g.strokeStyle = COL.coneEdgeHot; g.lineWidth = 1.6; g.stroke(path);
     }
     g.restore();
+    // the walls' shadows fall across the light: every cast shadow is laid again over the cones, multiplied, so a
+    // cone dims in the band behind a wall or a pillar exactly where the floor does
+    if (calm.length || hot.length) {
+      const lit = new Path2D();
+      for (const o of calm) conePath(lit, o.cone);
+      for (const o of hot) conePath(lit, o.cone);
+      g.save(); g.clip(lit, 'nonzero');
+      castPath(1); g.globalCompositeOperation = 'multiply'; g.globalAlpha *= fa; g.fillStyle = COL.coneShade; g.fill('nonzero');
+      g.restore();
+    }
   }
 
   function star(x, y, r, rot) {
@@ -1546,7 +1592,10 @@
     g.save(); g.globalAlpha *= ia;
     for (const s of L.stars) {
       if (s.got) continue;
-      star(s.x, s.y, 7.5, time * 0.6); g.fillStyle = COL.star; g.fill();
+      // a faint pickup ring, then the star: saturated pale yellow, about the player's size
+      g.fillStyle = 'rgba(245,232,106,0.10)'; g.beginPath(); g.arc(s.x, s.y, 17, 0, TAU); g.fill();
+      g.strokeStyle = COL.starRing; g.lineWidth = 1.5; g.stroke();
+      star(s.x, s.y, 10.5, time * 0.6); g.fillStyle = COL.star; g.fill();
     }
     for (const k of L.keys) {
       if (k.got) continue;
@@ -1591,7 +1640,7 @@
       g.fillStyle = '#10204a'; g.beginPath(); g.arc(c.x + Math.cos(c.ang) * 1.6, c.y + Math.sin(c.ang) * 1.6, 2.1, 0, TAU); g.fill();
     }
     for (const gd of guards) {
-      // a pale rim (amber when suspicious, red on a chase) lifts the dark square off the shadows it stands in
+      // a dark square, rimmed amber when suspicious and red on a chase
       const gs = G_SIZE * G_LOOK;
       if (gd.state === 'chase') {
         // a chasing guard glows red, pulsing with his cone
@@ -1601,7 +1650,9 @@
       }
       rsq(gd.x, gd.y, gs, gd.ang, 3);
       g.fillStyle = COL.guard; g.fill();
-      g.lineWidth = Math.max(1.8, 2 / z); g.strokeStyle = gd.state === 'chase' ? '#ff6b52' : gd.state === 'sus' ? '#ffcf6a' : COL.guardRim; g.stroke();
+      // flat like the props: no pale outline on a calm guard (its hard shadow lifts it); a suspicious or chasing one
+      // keeps a coloured edge so the change of state still reads at a glance
+      if (gd.state === 'chase' || gd.state === 'sus') { g.lineWidth = Math.max(1.8, 2 / z); g.strokeStyle = gd.state === 'chase' ? '#ff6b52' : '#ffcf6a'; g.stroke(); }
       // the visor, and a bright notch on the front face, show which way they look
       const vc = gd.state === 'chase' ? '#ff7a62' : gd.state === 'sus' || gd.state === 'search' ? '#ffd877' : '#e4f8fd';
       g.fillStyle = vc; g.fillRect(gs / 2 - 5.5, -gs / 2 + 3, 3.5, gs - 6);
@@ -1711,7 +1762,7 @@
       const glyph = caughtNow ? '!' : b.k;
       // caught: the mark rides above both squares, so it never sits on the player
       const top = caughtNow && P ? Math.min(s.y, toScreen(P.x, P.y).y) : s.y;
-      const x = s.x, y = top - (h + 14) * k - 12 * (kk - k), red = glyph === '!';
+      const x = s.x + (caughtNow ? 0 : o.mx || 0), y = top - (h + 14) * k - 12 * (kk - k) + (caughtNow ? 0 : o.my || 0), red = glyph === '!';
       g.save(); g.globalAlpha = (caughtNow ? 1 : b.a) * cf;
       // the moment a '!' goes up the guard's square flashes white for a beat (0.15s), as the original's does
       if (b.k === '!' && b.t < 0.15 && o.ang !== undefined && h === G_SIZE) {
@@ -1737,7 +1788,7 @@
       if (caughtNow || !(o.aw > 0) || o.state === 'chase' || o.alarm > 0) return;
       // the meter rides over the head, round the spot the '?' takes: a dark track, then the fill from twelve o'clock,
       // yellow turning orange as it nears 'seen'. A faint '?' sits in it from the first flicker, so it never reads as a selection ring.
-      const s = toScreen(o.x, o.y), kk = Math.max(11 * k, 13) / 11, x = s.x, y = s.y - (h + 14) * k - 12 * (kk - k), r = 17 * kk;
+      const s = toScreen(o.x, o.y), kk = Math.max(11 * k, 13) / 11, x = s.x + (o.mx || 0), y = s.y - (h + 14) * k - 12 * (kk - k) + (o.my || 0), r = 17 * kk;
       g.save(); g.globalAlpha = cf;
       g.lineWidth = Math.max(3.5, 3.5 * k); g.lineCap = 'round'; g.strokeStyle = 'rgba(18,49,63,0.5)';
       g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke();
@@ -1751,6 +1802,20 @@
         g.fillStyle = '#ffffff'; g.fillText('?', x, y);
       }
       g.restore();
+    };
+    // the mark sits over the head, unless the player is up-screen of the guard: then the sight line runs through that spot,
+    // so the mark and its ring step aside, away from the player, easing across rather than jumping
+    const place = (o, h) => {
+      let tx = 0, ty = 0;
+      if (P && P.alive && (o.bubble || o.aw > 0)) {
+        const s = toScreen(o.x, o.y), p = toScreen(P.x, P.y), dx = p.x - s.x, dy = p.y - s.y, d = Math.hypot(dx, dy);
+        if (d > 1 && -dy / d > 0.5) {
+          o.ms = dx > 4 ? -1 : dx < -4 ? 1 : (o.ms || 1);
+          tx = o.ms * (h + 22) * k; ty = 8 * k;
+        }
+      }
+      const e = 1 - Math.pow(0.85, Math.min(3, (lastDt || 1 / 60) * 60));
+      o.mx = (o.mx || 0) + (tx - (o.mx || 0)) * e; o.my = (o.my || 0) + (ty - (o.my || 0)) * e;
     };
     // someone off screen has noticed you: a chevron on the edge points at them, in their meter's colour
     const top = safeTop + 64;
@@ -1774,7 +1839,7 @@
     };
     // a clear: the guards' marks and meters fade with them, under the stamp
     const cf = clearFade(); g.save(); g.globalAlpha = cf;
-    if (cf > 0.02) { for (const gd of guards) { meter(gd, G_SIZE); one(gd, G_SIZE); edge(gd); } for (const c of cams) { meter(c, 8); one(c, 8); edge(c); } }
+    if (cf > 0.02) { for (const gd of guards) { place(gd, G_SIZE); meter(gd, G_SIZE); one(gd, G_SIZE); edge(gd); } for (const c of cams) { place(c, 8); meter(c, 8); one(c, 8); edge(c); } }
     g.restore();
     for (const f of fx) if (f.k === 'fly') {
       // from where the star lay to its slot in the HUD, arcing a little, shrinking to the slot's size
@@ -1865,6 +1930,9 @@
     const b = $('banner');
     if (n === null) { b.className = ''; bannerT = 0; return; }
     b.innerHTML = `<div class="bn">FLOOR ${n}</div><div class="bs">${floorName(n)}</div>`;
+    // the card centres on the floor the intro shows, not on the screen: on its side the map sits beside the stick's room
+    const o = floorBox && overviewFrame(), dx = o ? (floorBox.cx - o.x) * o.z : 0;
+    b.style.left = dx > 1 ? `${Math.round(dx * 2)}px` : ''; b.style.right = dx < -1 ? `${Math.round(-dx * 2)}px` : '';
     b.className = 'show'; bannerT = 1.7;
   }
   function togglePause() {
