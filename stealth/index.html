@@ -84,21 +84,24 @@
   body.desk:not(.chrome) canvas { cursor: crosshair; }
 
   /* banners and stamps */
-  #banner { position: fixed; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transform: translateY(16px); transition: opacity .45s, transform .45s; }
-  #banner.show { opacity: 1; transform: none; }
+  #banner { position: fixed; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .45s, transform .45s; }
+  /* the card lands: a quick drop from 1.15x that overshoots a touch and settles, rather than only fading up */
+  #banner.show { opacity: 1; transform: none; animation: bannerIn .35s cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes bannerIn { from { opacity: 0; transform: scale(1.15); } to { opacity: 1; transform: none; } }
   /* a soft ink pool behind the word, so FLOOR N reads over the busy map the intro shows */
-  #banner::before { content: ''; position: absolute; left: 50%; top: 50%; width: min(150vw, 1100px); height: 300%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
-    background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(18,49,63,.5), rgba(18,49,63,.22) 45%, transparent 72%); }
+  #banner::before { content: ''; position: absolute; left: 50%; top: 50%; width: min(150vw, 1100px); height: 180%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
+    background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(18,49,63,.28), rgba(18,49,63,.12) 45%, transparent 72%); }
   #banner.hide { opacity: 0; transform: translateY(-20px); transition: opacity .25s, transform .25s; }   /* gone before the camera lands on the player */
   #banner .bn { font-size: clamp(56px, 13vw, 120px); font-weight: 700; font-style: italic; color: var(--pale); letter-spacing: 2px; line-height: 1.05; white-space: nowrap;
-    text-shadow: 6px 8px 0 rgba(18,49,63,.5); }
+    text-shadow: 0 8px 0 rgba(18,49,63,.6); -webkit-text-stroke: 2px rgba(18,49,63,.35); paint-order: stroke fill; }   /* a heavy word with a solid drop, straight on the scene */
   #banner .bs { display: inline-block; margin-top: 10px; font-size: 18px; font-weight: 700; letter-spacing: 8px; padding: 5px 10px 5px 18px; border-radius: 999px; text-transform: uppercase;
     color: var(--ink); background: rgba(233,245,248,.88); box-shadow: 0 3px 0 rgba(18,49,63,.3); }
   /* the stamp sits in the top third: the centre of the screen is where the capture happens, and it stays in view */
   #result { position: fixed; inset: 0; display: grid; place-content: start center; padding-top: calc(env(safe-area-inset-top) + 17vh); text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .3s; }
-  #result.show { opacity: 1; background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.5), transparent 70%); }
-  /* leaving: the stamp holds its landed pose while the whole block fades under the ink, rather than snapping back to its pre-pop state */
-  #result.out { opacity: 0; background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.5), transparent 70%); }
+  /* a catch has no CSS ink: the canvas draws it (drawInk), with a hole round the capture so the '!' and both squares stay at full brightness */
+  #result.show { opacity: 1; }
+  /* leaving: the stamp holds its landed pose while the whole block fades, rather than snapping back to its pre-pop state */
+  #result.out { opacity: 0; }
   #result.show.clear, #result.out.clear { background: radial-gradient(circle at 50% 28%, rgba(18,49,63,.42), transparent 70%); }   /* lighter than a catch, so the stairs stay bright, but dark enough that the stamp and stars read over pillars */
   #result.out .stamp { opacity: 1; transform: rotate(-6deg) scale(1.04); transition: transform .3s; }
   #result.out .stars span.on { opacity: 1; transform: none; }
@@ -172,12 +175,15 @@
 
   /* pause */
   #pause { position: fixed; inset: 0; z-index: 5; display: none; place-items: center; background: rgba(18,49,63,.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
-  #pause.show { display: grid; }
+  #pause.show { display: grid; animation: fadeIn .18s ease-out both; }
+  #pause.show .card { animation: cardIn .18s cubic-bezier(.2,.9,.3,1.2) both; }   /* the card settles in from .96, as finished as the stamp */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes cardIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
   .card { background: var(--pale); border-radius: 18px; padding: 22px 22px 18px; width: min(86vw, 320px); display: flex; flex-direction: column; gap: 9px; box-shadow: 0 8px 0 rgba(18,49,63,.3);
     max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; touch-action: pan-y; }
   .card h2 { margin: 0; font-size: 28px; font-style: italic; }
   .card .meta { font-size: 13px; opacity: .7; margin-bottom: 6px; }
-  .card button { padding: 12px; border-radius: 10px; border: 0; background: #d3e9ee; color: var(--ink); font-size: 16px; text-align: left; }
+  .card button { padding: 12px; border-radius: 10px; border: 0; background: #d3e9ee; color: var(--ink); font-size: 16px; text-align: center; }
   .card button.primary { background: var(--orange); color: #fff; font-weight: 700; text-align: center; box-shadow: 0 3px 0 #b84f17; }
   .card .row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
   .card .row.three { grid-template-columns: 1fr 1fr 1fr; }
@@ -268,7 +274,10 @@
     body.desk #knockBtn i { font-size: 13px; padding: 1px 5px; }
     .stamp { font-size: clamp(72px, 9vw, 150px); }
     #result .stars { font-size: 64px; margin-top: 22px; }
-    #result .sub { font-size: 18px; }
+    #result .sub { font-size: clamp(20px, 1.6vw, 30px); padding: 6px 18px; letter-spacing: 4px; }
+    #result .sub.tally { margin-top: 16px; }
+    #result .sub.above { margin-bottom: 20px; }
+    #result .sub.unlock i { width: 18px; height: 18px; }
     .card { width: 420px; padding: 30px 30px 24px; gap: 12px; }
     .card h2 { font-size: 38px; }
     .card button { font-size: 18px; padding: 14px; }

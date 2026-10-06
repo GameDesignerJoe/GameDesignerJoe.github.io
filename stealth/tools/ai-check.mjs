@@ -1,4 +1,6 @@
-// NODE_PATH=$(npm root -g) node stealth/tools/ai-check.mjs
+// NODE_PATH=$(npm root -g) node stealth/tools/ai-check.mjs [--quick]
+// Takes about 7 minutes: run it with no timeout under it (a shell's 120-400s default kills it part way, and the
+// browser closing under it then reads like a failure). --quick runs the checkpoint-respawn sweep on 2 runs, not 5.
 // Drives the real game headless: a guard sees you, chases, loses you, searches with its "?",
 // gives up and goes back to its round; a guard that reaches you catches you; the stairs climb.
 import { createRequire } from 'node:module';
@@ -13,7 +15,11 @@ const errors = []; page.on('pageerror', e => errors.push(e.message));
 await page.goto(`http://localhost:${srv.address().port}/stealth/index.html`);
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 await wait(800);
-let fails = 0; const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) fails++; };
+// each line says how far in it is, so a run cut short by a timeout shows where and when it stopped
+const T0 = Date.now(), el = () => ((Date.now() - T0) / 1000).toFixed(0).padStart(4) + 's ';
+let fails = 0; const check = (ok, what) => { console.log(el() + (ok ? 'PASS ' : 'FAIL ') + what); if (!ok) fails++; };
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { console.log(`${el()}STOPPED by ${sig} (a timeout?) after ${fails} FAIL: not a result, ai-check needs about 7 minutes`); process.exit(2); });
+const QUICK = process.argv.includes('--quick');
 
 for (const fl of [2, 5, 9]) {
   // pick a patrolling guard with open floor in front of it; a few runs' floors have none, so try another run
@@ -237,9 +243,9 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
 }
 // checkpoint respawns are fair: at every door's checkpoint (5 runs x floors 2-12), stand still: nobody looks for 4s
 {
-  const r = await cpRespawns(browser, `http://localhost:${srv.address().port}/stealth/index.html`, [11, 22, 33, 44, 55], [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  const r = await cpRespawns(browser, `http://localhost:${srv.address().port}/stealth/index.html`, QUICK ? [11, 33] : [11, 22, 33, 44, 55], [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   const bad = r.filter(x => x.bad);
-  check(r.length > 50 && !bad.length, `checkpoint respawns: ${r.length} doors, ${bad.length} noticed within 4s standing still${bad.length ? ' (' + bad.slice(0, 4).map(x => `run ${x.seed} floor ${x.fl} door ${x.i}: ${x.bad}`).join('; ') + ')' : ''}`);
+  check(r.length > (QUICK ? 20 : 50) && !bad.length, `checkpoint respawns: ${r.length} doors, ${bad.length} noticed within 4s standing still${bad.length ? ' (' + bad.slice(0, 4).map(x => `run ${x.seed} floor ${x.fl} door ${x.i}: ${x.bad}`).join('; ') + ')' : ''}`);
 }
 // the knock: a guard on its rounds within earshot comes over to look, at a walk; then it's spent for 6s
 {
@@ -401,4 +407,5 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
 }
 check(errors.length === 0, 'no page errors ' + errors.join(' | '));
 await browser.close(); srv.close();
+console.log(`${el()}done, ${fails} FAIL`);
 process.exit(fails ? 1 : 0);

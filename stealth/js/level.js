@@ -192,29 +192,33 @@
       fov: 0.6 + U.clamp((n - 12) / 3, 0, 1) * 0.1,   // wider eyes past the twelfth floor
       patrol: Math.min(38 + n * 1.2, 46),   // a silent sneak (about 60) stays at least 1.25x a walker on every floor, so you can slip past or trail one
       // a sprint (128) is about 1.25x a chaser on the first floors, so a corner loses them; from the eighth they close
-      // in on it, to 0.92 of a sprint from the thirteenth, so a '!' upstairs is a real chase
-      chase: n >= 8 ? Math.min(90 + n * 2.2, 118) : Math.min(90 + n * 1.5, 104),
+      // in on it, to 0.875 of a sprint from the tenth, so a '!' upstairs is a real chase but one corner still breaks it
+      chase: n >= 8 ? Math.min(90 + n * 2.2, 112) : Math.min(90 + n * 1.5, 104),
       detect: Math.min(0.6 + n * 0.025, 0.9),
       cams: n >= 3,
       keys: n < 2 ? 0 : n < 5 ? 1 : n < 9 ? 2 : n < 16 ? 3 : 4,
       hear: n >= 17 ? 165 : 140,
       // past the twelfth floor the rest stops growing, so a new pressure arrives every few floors:
       snap: n >= 13,        // sentries whose heads whip round
-      camPairs: n >= 15,    // cameras in pairs across a room, sweeping in counterpoint
+      camPairs: n >= 10,    // cameras in pairs across a room, sweeping in counterpoint
       budget: n >= 10 ? Math.min(15 + Math.floor((n - 10) / 2), 19) : 13,   // and more of them, one more every two floors from the tenth (with sharper ears from the seventeenth)
     };
   }
 
   // how many guards a floor has room for: it climbs with the floor and with the building's own size, so a
   // bigger floor upstairs is never a thinner one, and the share of it that must still watch once the checks
-  // are done (70%, or 50% for a floor let through late); and from the sixth floor, one camera, two from the
-  // eleventh, three from the sixteenth
+  // are done (70%, or 50% for a floor let through late)
   function watchBudget(L, n) {
     const area = L.rooms.reduce((t, r) => t + (r.kind === 'circle' ? Math.PI * r.r * r.r : r.w * r.h), 0);
     return Math.max(2, Math.min(L.D.budget, Math.round(4 + n * 0.8), Math.round(area / 100000 * (0.9 + 0.03 * n))));
   }
   const watchFloor = (budget, n, loose) => n >= 3 ? U.clamp(Math.round((loose ? 0.5 : 0.7) * budget), 3, loose ? 8 : 12) : 0;
-  const camFloor = (n) => n >= 6 ? 1 + Math.floor((n - 6) / 5) : 0;
+  // cameras: one from the third floor, and one more each three floors (five at most), so each band of floors adds a watched lane
+  const camFloor = (n) => n >= 3 ? Math.min(5, 1 + Math.floor((n - 3) / 3)) : 0;
+  // the mix: posts never outnumber their share of the walkers (four to five), and the walkers keep climbing, about
+  // four on the fifth floor, six on the ninth, seven on the twelfth, nine at most
+  const sentryCap = (walkers) => Math.max(2, Math.ceil(0.8 * walkers));
+  const walkFloor = (n) => n >= 3 ? Math.min(9, Math.round(2 + 0.45 * n)) : 0;
 
   const KEY_COLORS = [
     { name: 'red', c: '#e2483d' },
@@ -253,14 +257,16 @@
 
   // The building's kind is drawn on its own, before the plan, from the floors below: never the
   // same kind twice running, and never a tenth floor that leaves ten in a row with under four.
-  const KINDS = ['disc', 'crescent', 'nautilus', 'block', 'wing', 'cluster', 'twin'];
+  const KINDS = ['disc', 'crescent', 'nautilus', 'block', 'wing', 'cluster', 'twin'], ROUND = new Set(['disc', 'crescent', 'nautilus']);
   function pickKind(seed, n, hist) {
     hist = hist == null ? [] : typeof hist === 'string' ? [hist] : hist;
     const R = U.rng(U.hash(seed, 0x6b1d)), last9 = new Set(hist.slice(0, 9));
     const crowded = hist.length >= 9 && last9.size <= 3;
     // the round kinds lead: a square-built floor is the odd one out, now and then, not every other floor
-    const w = { disc: 1.2, crescent: 1.15, nautilus: n >= 2 ? 1.1 : 0.4, block: 0.3, wing: n >= 2 ? 0.25 : 0, cluster: 1.25, twin: n >= 3 ? 0.7 : 0 };
-    return R.weighted(KINDS.map(k => [k, k === hist[0] || (crowded && last9.has(k)) ? 0 : w[k]]));
+    const w = { disc: 1.2, crescent: 1.15, nautilus: n >= 2 ? 1.1 : 0.4, block: 0.6, wing: n >= 2 ? 0.6 : 0, cluster: 1.25, twin: n >= 3 ? 0.7 : 0 };
+    // and the round family (disc, crescent, nautilus) is never more than two of any four floors running
+    const roundFull = hist.slice(0, 3).filter(k => ROUND.has(k)).length >= 2;
+    return R.weighted(KINDS.map(k => [k, k === hist[0] || (crowded && last9.has(k)) || (roundFull && ROUND.has(k)) ? 0 : w[k]]));
   }
   // the kinds of a run's floors below n, nearest first, for generate()
   const kindMemo = new Map();
@@ -356,7 +362,8 @@
     } else {
       const opts = [];
       for (let c = 2; c <= 5; c++) for (let r = 2; r <= 4; r++) { const d = c * r - Z; if (d >= (Z <= 3 ? 0 : 1) && d <= 2 && c >= r) opts.push([c, r]); }
-      [cols, rows] = R.pick(opts);
+      // (twelve zones has no grid one or two cells over in 5x4, so it fills one exactly)
+      [cols, rows] = opts.length ? R.pick(opts) : Z <= 12 ? [4, 3] : [5, 4];
     }
     court.forEach(k => gone.add(k));
     const drop = cols * rows - court.length - Z;
@@ -1058,19 +1065,24 @@
     // for part of its cycle. The watcher that does most of the plugging comes down (a post tries another room)
     // and every leg can be done on timing: a perfect sneak gets through the sweeps and the beats as they
     // really come round, under half a meter (timedRoute). Short of that, whoever watches most of the plain
-    // way on comes down too, and after eight goes the floor is drawn again
+    // way on comes down too, and after eighteen goes the floor is drawn again
     for (let t = 0; ; t++) {
       const fx = forcedExposure(L, field);
-      if (fx.cost > 0.25) { if (t >= 12 || !fx.who) return null; unplug(fx.who, t >= 6); continue; }
+      if (fx.cost > 0.25) { if (t >= 18 || !fx.who) return null; unplug(fx.who, t >= 6); continue; }
       const tr = timedRoute(L, field);
       if (tr.ok) break;
-      if (t >= 12 || !tr.who) return null;
+      if (t >= 18 || !tr.who) return null;
       unplug(tr.who, t >= 6);
     }
     if (n >= 2 && L.guards.length < 2) return null;
     // and the timing checks never leave a floor thin: past the second, at least 70% of its budget still watches
     // (half for a floor let through late), with its cameras among them from the sixth. Short of that, draw again
-    if (n >= 3 && L.guards.length + L.cams.length < watchFloor(watchBudget(L, n), n, loose)) return null;
+    // (a floor whose posts are at their share of its walkers is let through at the lower bar: what it lacks is not made up in stares)
+    const nPost = L.guards.filter(g => !g.path).length, atCap = nPost >= sentryCap(L.guards.length - nPost);
+    if (n >= 3 && L.guards.length + L.cams.length < watchFloor(watchBudget(L, n), n, loose || atCap)) return null;
+    // and the checks never leave a floor of fixed stares: past the second its walkers stay within three of their
+    // floor (walkFloor), and its posts never outnumber them two to one. Short of that, draw again
+    if (!loose && n >= 3 && (L.guards.length - nPost < walkFloor(n) - 3 || (nPost >= 2 && nPost >= 2 * (L.guards.length - nPost)))) return null;
     if (D.cams && L.cams.length < (loose ? Math.min(1, camFloor(n)) : camFloor(n))) return null;
 
     // hiding spots: pools of deep shadow tucked against walls, laid after the guards so none sits
@@ -1620,7 +1632,7 @@
       return out;
     };
 
-    // a camera on a room's wall, looking in (and from the fifteenth floor perhaps its twin): how many went up
+    // a camera on a room's wall, looking in (and from the tenth floor perhaps its twin): how many went up
     const camIn = (room) => {
       // on the wall, looking in
       // and no camera's sweep covers a key or either side of a locked door: those you must reach, so
@@ -1666,7 +1678,7 @@
       const cam = { x: p.x, y: p.y, base: face, amp, period: quick ? R.range(3, 4) : R.range(5, 8), phase: R() * TAU };
       L.cams.push(cam); roomOf.set(cam, room);
       homes.push(p); let placed = 1;   // a camera is on top of the room's guards, not one of them
-      // from the fifteenth floor a camera may have a twin on the far wall, half a sweep behind, so
+      // from the tenth floor a camera may have a twin on the far wall, half a sweep behind, so
       // the gap in one's sweep is the other's stare
       if (D.camPairs && R.chance(0.6)) for (let s = 0; s < 6; s++) {
         const a = pa + Math.PI + R.range(-0.35, 0.35), q = camAt(a);
@@ -1675,6 +1687,74 @@
         L.cams.push(twin); roomOf.set(twin, room);
         homes.push(q); placed++;
         break;
+      }
+      return placed;
+    };
+
+    // a walker's beat in a room (a round, a pace, or a beat through one of its doorways), and from the
+    // seventh floor perhaps its pair (pairOK: the room has a place for it): how many went on it, 0 if none fits
+    const beatIn = (room, kind, pairOK) => {
+      const th = R() * TAU;
+      // doorways out of this room that a guard may walk through (never a locked one)
+      const ways = L.conns.filter(c => (c.a === room || c.b === room) && !L.doors.some(d => d.conn === c));
+      let way = [];
+      if (kind === 'patrol' && n >= 4 && ways.length && R.chance(0.25)) {
+        // a beat through a doorway: one stop in this room, one in the next, so the door is watched
+        const open = ways.filter(w => offFirst(w.mouth));
+        if (!open.length) return 0;
+        const c = R.pick(open), d = c.dirFrom(room);
+        for (const sgn of [-1, 1]) {
+          const e = R.range(70, 110), p = field.nearestFree(c.mouth.x + d.x * e * sgn, c.mouth.y + d.y * e * sgn, 16, 50);
+          if (p) way.push({ x: p.x, y: p.y, pause: R.range(0.8, 1.8), look: R.range(0.7, 1.2) });
+        }
+        if (way.length < 2 || Math.hypot(way[0].x - way[1].x, way[0].y - way[1].y) < 100) return 0;
+      } else if (kind === 'patrol') {
+        // a round wants a room to walk: in a hall or a neck it would only mill about in the one way through
+        if (room.corr || room.neck) return 0;
+        const K = R.int(3, 5);
+        for (let i = 0; i < K; i++) {
+          const a = th + i * TAU / K + R.range(-0.3, 0.3), e = extent(room, a) * R.range(0.45, 0.72);
+          const p = field.nearestFree(room.c.x + Math.cos(a) * e, room.c.y + Math.sin(a) * e, 16, 60);
+          if (p && way.every(w => Math.hypot(w.x - p.x, w.y - p.y) > 50)) way.push({ x: p.x, y: p.y, pause: R.chance(0.6) && !nearMouth(p, 60) ? R.range(0.4, 1.4) : 0, look: R.range(0.5, 1.1) });
+        }
+        if (way.length < 3) return 0;
+        // and a round that never gets far from one spot is a post nobody can time: it spans the room
+        let span = 0; for (const a of way) for (const b of way) span = Math.max(span, Math.hypot(a.x - b.x, a.y - b.y));
+        if (span < 120) return 0;
+      } else {
+        // (the first floors keep their halls clear: the way between two rooms is learned before it is guarded)
+        if (n <= 2 && (room.corr || room.neck)) return 0;
+        const e = extent(room, th) * 0.62, e2 = extent(room, th + Math.PI) * 0.62;
+        const a = field.nearestFree(room.c.x + Math.cos(th) * e, room.c.y + Math.sin(th) * e, 16, 50);
+        const b = field.nearestFree(room.c.x - Math.cos(th) * e2, room.c.y - Math.sin(th) * e2, 16, 50);
+        if (!a || !b || Math.hypot(a.x - b.x, a.y - b.y) < 90 || nearMouth(a, 60) || nearMouth(b, 60)) return 0;
+        way = [{ x: a.x, y: a.y, pause: R.range(0.8, 1.8), look: R.range(0.6, 1.2) }, { x: b.x, y: b.y, pause: R.range(0.8, 1.8), look: R.range(0.6, 1.2) }];
+      }
+      const path = route(way, true);
+      if (!path) return 0;
+      let len = 0; for (let i = 0; i < path.length; i++) { const a = path[i], b = path[(i + 1) % path.length]; len += Math.hypot(b.x - a.x, b.y - a.y); }
+      if (len > loopLen(way) * 1.7 + 60) return 0;   // a route that wanders off to get round something
+      // start somewhere along it, away from the entrance
+      const si = R.int(0, path.length - 1), sp = path[si];
+      if (!okHome(sp) || !offItems(sp, 45) || path.some(q => !farFromStart(q, 200) || !offFirst(q) || !offLocks(q))) return 0;
+      if (L.guards.length >= budget) return 0;
+      const prev = path[(si - 1 + path.length) % path.length];
+      // from the sixth floor some walkers finish a search by checking the nearest shade, more of them as you climb
+      const peek = n >= 6 && R.chance(0.25 + 0.03 * (n - 6));
+      const wk = { kind, x: sp.x, y: sp.y, ang: Math.atan2(sp.y - prev.y, sp.x - prev.x), path, pi: si, peek };
+      L.guards.push(wk); roomOf.set(wk, room);
+      homes.push(sp); let placed = 1;
+      // from the seventh floor a long loop may carry a pair, the second half a lap behind the first
+      if (n >= 7 && kind === 'patrol' && way.length >= 3 && L.guards.length < budget && pairOK && R.chance(0.35)) {
+        const cum = [0]; for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y));
+        const at = (cum[si] + len / 2) % len;
+        let sj = 0; for (let i = 0; i < path.length; i++) if (cum[i] <= at) sj = i;
+        const sq = path[sj], pq = path[(sj - 1 + path.length) % path.length];
+        if (len > 420 && Math.hypot(sq.x - sp.x, sq.y - sp.y) > 120 && farFromStart(sq, 290) && offItems(sq, 45)) {
+          const pr = { kind, x: sq.x, y: sq.y, ang: Math.atan2(sq.y - pq.y, sq.x - pq.x), path, pi: sj, peek, pair: true };
+          L.guards.push(pr); roomOf.set(pr, room);
+          homes.push(sq); placed++;
+        }
       }
       return placed;
     };
@@ -1702,76 +1782,16 @@
       let cams = 0;
       // no camera in a hall, a neck or a tower: there is no way round its look, only through it
       const camCap = room.corr || room.neck || room.tower ? 0 : small(room) ? Math.max(0, 2 - count) : (room.kind === 'circle' ? room.r : room.R) > 240 ? 2 : 1;
-      // doorways out of this room that a guard may walk through (never a locked one)
-      const ways = L.conns.filter(c => (c.a === room || c.b === room) && !L.doors.some(d => d.conn === c));
       for (let k = 0, t = 0; k < count && t < (loose ? 24 : 48); t++) {
         // never a post in the room just past the stairs room: its only way in is that first door
         const second = room.idx === 1 && !room.side;
-        const kind = R.weighted([['patrol', 4.5], ['pace', 2.5], ['sentry', second ? 0 : (room.side ? 3 : 2) + (n >= 3 && n < 15 ? 1 : 0)], ['cam', D.cams && cams < camCap ? 1.4 : 0]]);
-        const th = R() * TAU;
+        const kind = R.weighted([['patrol', 4.5], ['pace', 2.5], ['sentry', second ? 0 : (room.side ? 3 : 2) + (n >= 3 && n < 9 ? 1 : 0)], ['cam', D.cams && cams < camCap ? 1.4 : 0]]);
         if (kind === 'cam') { cams += camIn(room); continue; }
         if (kind === 'sentry') {
           if (sentryAt(room)) k++;
           continue;
         }
-        let way = [];
-        if (kind === 'patrol' && n >= 4 && ways.length && R.chance(0.25)) {
-          // a beat through a doorway: one stop in this room, one in the next, so the door is watched
-          const open = ways.filter(w => offFirst(w.mouth));
-          if (!open.length) continue;
-          const c = R.pick(open), d = c.dirFrom(room);
-          for (const sgn of [-1, 1]) {
-            const e = R.range(70, 110), p = field.nearestFree(c.mouth.x + d.x * e * sgn, c.mouth.y + d.y * e * sgn, 16, 50);
-            if (p) way.push({ x: p.x, y: p.y, pause: R.range(0.8, 1.8), look: R.range(0.7, 1.2) });
-          }
-          if (way.length < 2 || Math.hypot(way[0].x - way[1].x, way[0].y - way[1].y) < 100) continue;
-        } else if (kind === 'patrol') {
-          // a round wants a room to walk: in a hall or a neck it would only mill about in the one way through
-          if (room.corr || room.neck) continue;
-          const K = R.int(3, 5);
-          for (let i = 0; i < K; i++) {
-            const a = th + i * TAU / K + R.range(-0.3, 0.3), e = extent(room, a) * R.range(0.45, 0.72);
-            const p = field.nearestFree(room.c.x + Math.cos(a) * e, room.c.y + Math.sin(a) * e, 16, 60);
-            if (p && way.every(w => Math.hypot(w.x - p.x, w.y - p.y) > 50)) way.push({ x: p.x, y: p.y, pause: R.chance(0.6) && !nearMouth(p, 60) ? R.range(0.4, 1.4) : 0, look: R.range(0.5, 1.1) });
-          }
-          if (way.length < 3) continue;
-          // and a round that never gets far from one spot is a post nobody can time: it spans the room
-          let span = 0; for (const a of way) for (const b of way) span = Math.max(span, Math.hypot(a.x - b.x, a.y - b.y));
-          if (span < 120) continue;
-        } else {
-          // (the first floors keep their halls clear: the way between two rooms is learned before it is guarded)
-          if (n <= 2 && (room.corr || room.neck)) continue;
-          const e = extent(room, th) * 0.62, e2 = extent(room, th + Math.PI) * 0.62;
-          const a = field.nearestFree(room.c.x + Math.cos(th) * e, room.c.y + Math.sin(th) * e, 16, 50);
-          const b = field.nearestFree(room.c.x - Math.cos(th) * e2, room.c.y - Math.sin(th) * e2, 16, 50);
-          if (!a || !b || Math.hypot(a.x - b.x, a.y - b.y) < 90 || nearMouth(a, 60) || nearMouth(b, 60)) continue;
-          way = [{ x: a.x, y: a.y, pause: R.range(0.8, 1.8), look: R.range(0.6, 1.2) }, { x: b.x, y: b.y, pause: R.range(0.8, 1.8), look: R.range(0.6, 1.2) }];
-        }
-        const path = route(way, true);
-        if (!path) continue;
-        let len = 0; for (let i = 0; i < path.length; i++) { const a = path[i], b = path[(i + 1) % path.length]; len += Math.hypot(b.x - a.x, b.y - a.y); }
-        if (len > loopLen(way) * 1.7 + 60) continue;   // a route that wanders off to get round something
-        // start somewhere along it, away from the entrance
-        const si = R.int(0, path.length - 1), sp = path[si];
-        if (!okHome(sp) || !offItems(sp, 45) || path.some(q => !farFromStart(q, 200) || !offFirst(q) || !offLocks(q))) continue;
-        if (L.guards.length >= budget) break;
-        const prev = path[(si - 1 + path.length) % path.length];
-        // from the sixth floor some walkers finish a search by checking the nearest shade, more of them as you climb
-        const peek = n >= 6 && R.chance(0.25 + 0.03 * (n - 6));
-        const wk = { kind, x: sp.x, y: sp.y, ang: Math.atan2(sp.y - prev.y, sp.x - prev.x), path, pi: si, peek };
-        L.guards.push(wk); roomOf.set(wk, room);
-        homes.push(sp); k++;
-        // from the seventh floor a long loop may carry a pair, the second half a lap behind the first
-        if (n >= 7 && kind === 'patrol' && way.length >= 3 && L.guards.length < budget && k < count + 1 && R.chance(0.35)) {
-          const cum = [0]; for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y));
-          const at = (cum[si] + len / 2) % len;
-          let sj = 0; for (let i = 0; i < path.length; i++) if (cum[i] <= at) sj = i;
-          const sq = path[sj], pq = path[(sj - 1 + path.length) % path.length];
-          if (len > 420 && Math.hypot(sq.x - sp.x, sq.y - sp.y) > 120 && farFromStart(sq, 290) && offItems(sq, 45)) {
-            L.guards.push({ kind, x: sq.x, y: sq.y, ang: Math.atan2(sq.y - pq.y, sq.x - pq.x), path, pi: sj, peek, pair: true });
-            homes.push(sq); k++;
-          }
-        }
+        k += beatIn(room, kind, k < count + 1);
       }
     }
     // the mix: from the third floor at least one post stands still in a room, and from the thirteenth at
@@ -1802,14 +1822,20 @@
       return false;
     };
     while (L.cams.length < wantCams && camUp(null));
-    // and a floor is never thin: posts top it up towards 85% of its budget in guards and cameras, in rooms with
-    // room for another watcher (a small room still holds two at most), so that after the timing checks take
-    // their share down it still has the 70% (half, late in the draws) it must keep
-    const target = watchFloor(budget, n, loose), fill = loose || n < 3 ? target : budget;
-    for (let t = 0; t < 80 && pool.length && L.guards.length + L.cams.length < fill && L.guards.length < budget; t++) {
-      const room = R.pick(pool);
-      if (inRoomN(room) >= (small(room) ? 2 : 3)) continue;
-      sentryAt(room);
+    // and a floor is never thin: walkers top it up to its budget in guards and cameras, in rooms with room for
+    // another watcher (a small room still holds two at most), so that after the timing checks take their share
+    // down it still has the 70% (half, late in the draws) it must keep. A room no beat will fit takes a post, but
+    // only while the posts stay under their share of the walkers (sentryCap): what climbing adds is mostly beats
+    // to time, not more fixed stares, and short of walkers (walkFloor) only beats go up
+    const target = watchFloor(budget, n, loose), fill = loose || n < 3 ? target : budget, wantWalk = walkFloor(n);
+    const walkers = () => L.guards.filter(g => g.path).length, postRoom = () => posts().length < sentryCap(walkers());
+    const roomFor = (room) => (small(room) ? 2 : 3) - inRoomN(room);
+    for (let t = 0; t < 120 && pool.length && (L.guards.length + L.cams.length < fill || walkers() < wantWalk) && L.guards.length < budget; t++) {
+      const room = R.pick(pool), left = roomFor(room);
+      if (left <= 0) continue;
+      let got = 0;
+      for (let b = 0; b < 4 && !got; b++) got = beatIn(room, R.weighted([['patrol', 4.5], ['pace', 2.5]]), left >= 2);
+      if (!got && walkers() >= wantWalk && postRoom() && !(room.idx === 1 && !room.side)) sentryAt(room);
     }
     // a post or a camera that plugs the way on (forcedExposure) is taken down; a post stands again in
     // another room if one will have it, so the floor keeps its mix
@@ -1820,9 +1846,14 @@
       if (o.base !== undefined && L.cams.length < wantCams && camUp(roomOf.get(o))) return;
       // and a walker or a camera taken down is made up with a post too while the floor is short of its 85%
       // (late in the retries only while it is short of its 70%, so the retries can thin a floor out to that)
-      if ((o.kind !== 'sentry' || late) && L.guards.length + L.cams.length >= (late ? target : fill)) return;
-      const was = roomOf.get(o), rooms = pool.filter(r => r !== was);
-      for (let t = 0; t < 30 && rooms.length; t++) { const room = R.pick(rooms); if (inRoomN(room) < (small(room) ? 2 : 3) && sentryAt(room, !!o.snap)) return; }
+      // A walker is made up with a beat in another room if one fits, and always while the floor is short of its
+      // walkers: a beat the checks took down is drawn again elsewhere, not left as a gap. A post only while the
+      // posts are under their share
+      const was = roomOf.get(o), rooms = pool.filter(r => r !== was), shortW = o.path && walkers() < wantWalk - (late ? 3 : 0);
+      if (!shortW && (o.kind !== 'sentry' || late) && L.guards.length + L.cams.length >= (late ? target : fill)) return;
+      if (o.path) for (let t = 0; t < 12 && rooms.length; t++) { const room = R.pick(rooms), left = roomFor(room); if (left > 0 && beatIn(room, R.weighted([['patrol', 4.5], ['pace', 2.5]]), left >= 2)) return; }
+      if (!postRoom()) return;
+      for (let t = 0; t < 30 && rooms.length; t++) { const room = R.pick(rooms); if (roomFor(room) > 0 && sentryAt(room, !!o.snap)) return; }
     };
   }
 
