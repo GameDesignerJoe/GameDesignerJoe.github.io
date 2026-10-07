@@ -84,7 +84,7 @@
   // ── input ──────────────────────────────────────────────────
   const stick = { on: false, x: 0, y: 0, raw: 0 }, keys = {}, keysTapped = {};   // keysTapped: a key that went down since the last frame, so a tap quicker than a frame still moves (and shuts the map)
   const stickEl = $('stick'), knob = $('knob');
-  let stickId = null, stickDownT = -1, lastCx = 0, lastCy = 0;
+  let stickId = null, stickDownT = -1, lastCx = 0, lastCy = 0, stickCx = 0, stickStale = false;   // stale: the stick moved under a held thumb (a turn), so lastCx/Cy wait for its next move
   // a thumb that lands out by the ring starts a quiet walk, not a run: the landing past 55% of the travel is held as an offset.
   // It's only a moment's grace: it melts as the thumb comes back in or pushes on out, and it fades on its own over about
   // 0.4s (see relaxStick), so a thumb held still on the dashed ring has the knob back under it, and runs, within half a second
@@ -117,21 +117,23 @@
     if (stickId !== null) return;   // a second finger never steals the thumb's stick
     if (mode === 'intro') skipIntro();
     if (overview) toggleMap();   // like the maze: a move clears the map
-    stickId = e.pointerId; stickDownT = time; stickEl.classList.add('on');
+    stickId = e.pointerId; stickDownT = time; stickStale = false; stickEl.classList.add('on');
     try { stickEl.setPointerCapture(e.pointerId); } catch (err) {}
     setStick(e.clientX, e.clientY, true);
   });
   stickEl.addEventListener('pointermove', (e) => {
     if (e.pointerId !== stickId) return;
-    if (stick.on) setStick(e.clientX, e.clientY); else { lastCx = e.clientX; lastCy = e.clientY; }   // kept through a capture: just remember where it is
+    if (stick.on) setStick(e.clientX, e.clientY); else { lastCx = e.clientX; lastCy = e.clientY; stickStale = false; }   // kept through a capture: just remember where it is
   });
   // every play frame: a thumb kept through a capture lands again, and a landing's grace fades once the first touch is past
   function relaxStick(dt) {
     if (stickId === null) return;
-    if (!stick.on) { stickDownT = time; stickEl.classList.add('on'); setStick(lastCx, lastCy, true); return; }
+    if (!stick.on) { if (stickStale) return; stickDownT = time; stickEl.classList.add('on'); setStick(lastCx, lastCy, true); return; }
     if (time - stickDownT <= 0.05 || (!stickOrg.x && !stickOrg.y)) return;
-    const f = Math.exp(-dt * (bolting() || P.run ? 20 : 3.5)); stickOrg.x *= f; stickOrg.y *= f;   // about 0.4s of walk on a rim landing, so a clumsy first touch can pull back before it's heard; once it runs, the knob snaps home under the thumb
-    if (Math.hypot(stickOrg.x, stickOrg.y) < 0.3) stickOrg.x = stickOrg.y = 0;
+    // a quiet walk for the first ~150ms of a rim landing, so a clumsy first touch can pull back before it's heard; then it gives way
+    // quickly (a thumb held on the dashed ring runs by ~0.35s, one on the rim by ~0.25s), and once it runs the knob snaps home under the thumb
+    const f = Math.exp(-dt * (bolting() || P.run ? 20 : 6)); stickOrg.x *= f; stickOrg.y *= f;
+    if (Math.hypot(stickOrg.x, stickOrg.y) < 0.04 * stickEl.offsetWidth * 0.32) stickOrg.x = stickOrg.y = 0;   // the last few px would only creep: drop them and the held thumb is where it is
     setStick(lastCx, lastCy);
   }
   const endStick = (e) => { if (e.pointerId === stickId) clearStick(); };
@@ -358,8 +360,13 @@
     const bn = mode === 'intro' && bannerT > 0 ? $('banner').getBoundingClientRect() : null;
     if (bn && bn.height) {
       const fb = (top, l, rr, b) => ({ top, l, r: rr, b, z: Math.min((W - 40 - l - rr) / floorBox.w, (H - top - b) / floorBox.h) });
-      if (bn.top < H / 2) f = fb(bn.bottom + 14, 0, 0, 30);
-      else {
+      if (bn.top < H / 2) {
+        // a floor that fits by its width leaves spare height: it sits nearer the card than the bottom (30% of the slack
+        // above it), so the card and the floor read as one composition, not a title floating over an empty band
+        f = fb(bn.bottom + 14, 0, 0, 30);
+        const slack = H - f.top - f.b - floorBox.h * f.z;
+        if (slack > 24) return { x: floorBox.cx, y: floorBox.cy - (f.top + slack * 0.3 + floorBox.h * f.z / 2 - H / 2) / f.z, z: f.z };
+      } else {
         const top = safeTop + 24, up = fb(top, 0, 0, H - bn.top + 14);
         const side = bn.left > W / 2 ? fb(top, 0, W - bn.left - 6, 30) : fb(top, bn.right - 6, 0, 30);
         f = up.z >= side.z ? up : side;
@@ -418,12 +425,12 @@
     if (overview) { if (!pushing) mapHeld = false; else if (!mapHeld) { toggleMap(); mapWas = false; } }
     if (overview) { P.vx = P.vy = P.avx = P.avy = 0; P.moving = false; stickEl.classList.remove('run'); return; }   // the map is for planning: the floor holds still
     // a quiet walk up to the dashed ring, a loud run past it (it picks up from the top of the walk, 75 to 86, so the speed
-    // reads as one analogue range and the noise and the orange knob mark the ring); the gap between 0.8 and 0.88 stops thumb jitter flicking between them.
+    // reads as one analogue range and the noise and the orange knob mark the ring); the gap between 0.84 and 0.88 (the dashed ring is drawn at about 0.89) stops thumb jitter flicking between them.
     // Joe: the walk wants more room before the run — the stick is 25% bigger for it and the run starts further out.
     if (inp.kb || inp.force) P.run = m > 0.9;
     else if (inp.isPad) { if (P.run ? m < 0.78 : m > 0.86) P.run = !P.run; }   // worn pad sticks rarely report a full 1.0 on a diagonal, but a worn rest near 0.83 mustn't run
     else if (inp.mouse) { if (P.run ? m < 0.8 : m > 0.88) P.run = !P.run; }
-    else if (P.run ? m < 0.8 : m > 0.88 && (time - stickDownT > 0.12 || bolting())) P.run = !P.run;   // never a run on the first touch, unless it's an escape
+    else if (P.run ? m < 0.84 : m > 0.88 && (time - stickDownT > 0.12 || bolting())) P.run = !P.run;   // never a run on the first touch, unless it's an escape
     let speed = 0;
     // the run's pace reads the thumb itself, not the landing's grace: a thumb out on the rim breaks into the full sprint the moment the run starts
     const mr = stick.on ? Math.max(m, (stick.raw - 0.12) / 0.88) : m;
@@ -477,8 +484,8 @@
       let tx = -gn.y, ty = gn.x, ti = tx * ix + ty * iy;
       if (ti < 0) { tx = -tx; ty = -ty; ti = -ti; }
       const ga = field.grad(P.x + tx * 3, P.y + ty * 3);
-      if (ti > 0.22 && ga.x * gn.x + ga.y * gn.y > 0.9) {
-        const s = (P.x - before.x) * tx + (P.y - before.y) * ty, goal = speed * dt * Math.max(ti, 0.85 * U.clamp((ti - 0.22) / 0.12, 0, 1));   // of the asked-for step: the blocked velocity has already shrunk
+      if (ti > 0.14 && ga.x * gn.x + ga.y * gn.y > 0.9) {   // from 8 degrees off head-on: a thumb roughly along a corridor wall still slides down it
+        const s = (P.x - before.x) * tx + (P.y - before.y) * ty, goal = speed * dt * Math.max(ti, 0.85 * U.clamp((ti - 0.14) / 0.12, 0, 1));   // of the asked-for step: the blocked velocity has already shrunk
         if (s < goal) {
           const kx = P.x, ky = P.y;
           field.move(P, tx * (goal - s), ty * (goal - s), P_R);
@@ -730,7 +737,7 @@
       if (near && d < 12) return { d };
       const sh = o.peekSh;
       if (!sh || !(o.state === 'sus' || (o.state === 'search' && o.scanT >= 0)) || Math.hypot(P.x - sh.x, P.y - sh.y) > sh.r || d > sh.r + 30) return null;
-      if ((P.x - sh.x) * (e.x - sh.x) + (P.y - sh.y) * (e.y - sh.y) < 0) return null;   // past the middle, on the far half, you stay unseen
+      if ((P.x - sh.x) * (e.x - sh.x) + (P.y - sh.y) * (e.y - sh.y) < 0.2 * sh.r * Math.hypot(e.x - sh.x, e.y - sh.y)) return null;   // in the middle, or past it on the far side, you stay unseen
       if (Math.abs(U.angDiff(o.ang, Math.atan2(dy, dx))) > fov + Math.atan2(P_R, d)) return null;
       return field.ray(e.x, e.y, dx / d, dy / d, d) >= d - P_R ? { d } : null;
     }
@@ -779,6 +786,8 @@
     for (const p of spots.slice(0, 4)) { r = nav.path(gd.x, gd.y, p.x, p.y, 20000); if (r && plen(r, gd) < 320) { q = p; break; } }
     if (!q) return false;
     gd.target = q; gd.scanT = -1; gd.hurry = 0; gd.route = r; gd.ri = 0; gd.peekSh = sh;
+    // the tell: it stops and turns its head to the pool for a beat before it walks over, so you see it coming
+    gd.peekTell = 0.8;
     if (gd.bubble) gd.bubble.a = 1;
     return true;
   }
@@ -799,7 +808,7 @@
   function toSearch(gd, p, heard) {
     if (gd.state !== 'search' && gd.state !== 'chase') { if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.6; } }
     const q = lookSpot(gd, p);
-    gd.state = 'search'; gd.target = q; gd.scanT = -1; gd.hurry = !!heard ? 0 : 1; gd.dive = !!q.dive; gd.peeked = false; gd.peekSh = null;
+    gd.state = 'search'; gd.target = q; gd.scanT = -1; gd.hurry = !!heard ? 0 : 1; gd.dive = !!q.dive; gd.peeked = false; gd.peekSh = null; gd.peekTell = 0; gd.called = false;
     // the heading you were last seen on, if this is the spot it last saw you (a call to look somewhere else carries none)
     gd.trail = !heard && gd.lastV && gd.last && Math.hypot(p.x - gd.last.x, p.y - gd.last.y) < 1 ? { x: gd.lastV.x, y: gd.lastV.y } : null; gd.leg2 = false;
     routeTo(gd, q.x, q.y); bubble(gd, '?');
@@ -1012,9 +1021,10 @@
       }
       case 'search': {
         if (gd.scanT < 0) {
+          if (gd.peekTell > 0 && gd.peekSh) { gd.peekTell -= dt; gd.ang = U.turnTo(gd.ang, Math.atan2(gd.peekSh.y - gd.y, gd.peekSh.x - gd.x), dt * 4); break; }
           // (the follow-on leg is always an amble: a silent sneak along the same heading still pulls away from it)
-          const spd = gd.hurry && !gd.leg2 ? D.chase * 0.75 : Math.min(D.patrol * 1.3, 54);   // an amble stays a hair under a silent sneak (about 57)
-          if (follow(gd, spd, dt, 4)) { gd.scanT = 0; gd.scanBase = gd.peekSh ? Math.atan2(gd.peekSh.y - gd.y, gd.peekSh.x - gd.x) : gd.ang; }
+          const spd = gd.called ? D.chase * 0.9 : gd.hurry && !gd.leg2 ? D.chase * 0.75 : Math.min(D.patrol * 1.3, 54);   // an amble stays a hair under a silent sneak (about 57)
+          if (follow(gd, spd, dt, 4)) { gd.scanT = 0; gd.called = false; gd.scanBase = gd.peekSh ? Math.atan2(gd.peekSh.y - gd.y, gd.peekSh.x - gd.x) : gd.ang; }
           // a route round a wall can still come at the pool from another side: halt at its rim and look
           else if (P.hidden && !gd.dive && L.shades.some(sh => Math.hypot(P.x - sh.x, P.y - sh.y) < sh.r && Math.hypot(gd.x - sh.x, gd.y - sh.y) < sh.r + 16)) { gd.scanT = 0; gd.scanBase = gd.ang; }
           gd.stuck = Math.hypot(gd.x - gd.lastPos.x, gd.y - gd.lastPos.y) < 0.05 ? gd.stuck + dt : 0;
@@ -1088,10 +1098,19 @@
         c.alarm = 4; bubble(c, '!'); AUDIO.play('alarm');
         fx.push({ k: 'flash', t: 0, dur: 0.3 });
         // only guards with a real way there, nearest by that way, so nobody is sent to press against a wall or a locked door:
-        // the nearest two, and from the tenth floor everyone within 400 of you by that way too
-        guards.filter(o => o.state !== 'chase' && Math.hypot(o.x - c.x, o.y - c.y) < 750)
-          .map(o => { const r = nav.path(o.x, o.y, P.x, P.y, 20000); return { o, d: r ? plen(r, o) : Infinity }; }).filter(e => e.d < 900)
-          .sort((a, b) => a.d - b.d).filter((e, i) => i < 2 || (floorN >= 10 && e.d < 400)).forEach(e => { toSearch(e.o, { x: P.x, y: P.y }); e.o.hurry = 1; });
+        // the nearest two (within 1400 of a walk), and from the tenth floor everyone within 500 of you by that way too.
+        // And an alarm is never a dud: with no one that near, the nearest guard with any way there comes anyway
+        const near = guards.filter(o => o.state !== 'chase')
+          .map(o => { const r = nav.path(o.x, o.y, P.x, P.y, 40000); return { o, d: r ? plen(r, o) : Infinity }; }).filter(e => e.d < Infinity)
+          .sort((a, b) => a.d - b.d);
+        let sent = near.filter(e => e.d < 1400).filter((e, i) => i < 2 || (floorN >= 10 && e.d < 500));
+        if (!sent.length && near.length) sent = [near[0]];
+        for (const e of sent) {
+          // (a guard a camera calls runs there, not the hurried walk of a search: the alarm is a real consequence)
+          toSearch(e.o, { x: P.x, y: P.y }); e.o.hurry = 1; e.o.called = true;
+          // the call made plain: a line from the lens to each guard it sends, and a ring where that guard hears it
+          fx.push({ k: 'call', c, o: e.o, t: 0, dur: 0.6 }, { k: 'ring', x: e.o.x, y: e.o.y, r: 38, t: 0, dur: 0.6 });
+        }
         hint('cam', 'Cameras call the guards');
       }
     } else {
@@ -1212,13 +1231,25 @@
     }
     if (res.ring && modeT >= res.ring) { res.ring = 0; fx.push({ k: 'burst', x: P.x, y: P.y, t: 0, dur: 0.6, c: '#ff5a44' }); }
     if (modeT < res.at) return;
-    if (res.stage === 0) { res.stage = 1; showResult(res.k); res.at = modeT + (res.k === 'caught' ? 1.25 : 2.1); return; }
+    if (res.stage === 0) { res.stage = 1; showResult(res.k); if (res.k === 'clear') clearFrame(); res.at = modeT + (res.k === 'caught' ? 1.25 : 2.1); return; }
     const k = res.k; res = null;
     $('result').className = k === 'clear' ? 'out clear' : 'out';
     // the retry is a quick ink fade, not a cut: the stamp fades out as the cover comes in, so it never sits over the respawn
     if (k === 'caught') wipe(() => startFloor(floorN, true), true);
     else if (replay) wipe(() => { titleScreen(); floorsScreen('title'); });   // a replayed floor goes back to the list
     else wipe(() => startFloor(floorN + 1));
+  }
+  // a clear's words are measured once they are in, and the shot eases down (0.35s) until the stairs' top sits at least
+  // 36px under the last line, the tally and 'Up the stairs…' included: the same rule on a phone either way up and a desktop
+  function clearFrame() {
+    if (!shot || !L) return;
+    let bot = 0; for (const c of $('result').children) bot = Math.max(bot, c.offsetTop + c.offsetHeight);
+    if (!bot) return;
+    // the stairs' centre on screen: their top is the bobbing chevron, 35 units over the centre (drawStairs), so it scales
+    // with the zoom; never pushed so low that the steps leave the bottom
+    const want = Math.min(bot + 36 + 35 * shot.z, H - 20 - 16 * shot.z);
+    const y = L.exit.y - (want - H / 2) / shot.z;
+    if (y < shot.y) shot.adj = { y0: shot.y, y, t: modeT };
   }
   function cancelResult() { res = null; catcher = null; shot = null; $('result').className = ''; }
   // the wipe runs on frame time and blocks the pause while it covers the screen
@@ -1245,17 +1276,36 @@
     const t = $('toast'); t.classList.remove('show', 'near'); toastT = 0; toastId = null;
     if (now) { t.classList.add('cut'); void t.offsetWidth; requestAnimationFrame(() => t.classList.remove('cut')); }   // caught / clear: no fading ghost under the flash
   }
-  // upright, a danger call rides under the player rather than up by the HUD, so the eye stays on the guard
+  // upright, a danger call rides under the player rather than up by the HUD, so the eye stays on the guard. But never on
+  // his mark: the '?' and its meter are the one thing to read just then, and a guard often comes from the cone's side,
+  // under the player. So each frame the pill takes the first clear spot of: where it is now, under the player, over the
+  // player, the HUD's slot; it stays put while that spot is clear, so it never flickers between two
+  let toastSlot = 0;
   function placeToast() {
     const t = $('toast'); if (!t.classList.contains('near') || !P) return;
-    const s = toScreen(P.x, P.y); t.style.setProperty('--ty', `${Math.round(U.clamp(s.y + 50 * Math.max(view.z, 0.7), safeTop + 100, stickTop - 50))}px`);
+    const s = toScreen(P.x, P.y), zz = Math.max(view.z, 0.7), k = U.clamp(view.z, 0.7, 1.4);
+    const hw = (t.offsetWidth || 220) / 2, hh = (t.offsetHeight || 35) / 2;
+    // every mark up just now, where drawBubbles puts it (over the head, or stepped aside when the player is up-screen)
+    const marks = [];
+    const add = (o, h) => { if (!(o.aw > 0 || o.bubble || o.state === 'chase')) return; const gs = toScreen(o.x, o.y); marks.push({ x: gs.x + (o.mx || 0), y: gs.y - (h + 14) * k + (o.my || 0), gy: gs.y }); };
+    for (const gd of guards) add(gd, G_SIZE); for (const c of cams) add(c, 8);
+    const hits = (top) => marks.some(m => Math.abs(m.y - (top + hh)) < hh + 26 && Math.abs(m.x - W / 2) < hw + 24);
+    const near = (m) => Math.hypot(m.x - s.x, m.y - s.y);
+    const g0 = marks.length ? marks.reduce((a, b) => near(b) < near(a) ? b : a) : null;
+    const clamp = (y) => U.clamp(y, safeTop + 100, stickTop - 50);
+    // the far side of the player from the guard: over him when the guard is below, further under when he is above
+    const slots = [clamp(s.y + 50 * zz), clamp(g0 && g0.gy > s.y ? s.y - 60 * zz - 18 : s.y + 60 * zz), safeTop + 98];
+    let i = hits(slots[toastSlot]) ? -1 : toastSlot;
+    if (i < 0) { i = [0, 1].find(j => !hits(slots[j])); if (i === undefined) i = 2; }
+    toastSlot = i;
+    t.style.setProperty('--ty', `${Math.round(slots[i])}px`);
   }
   // caught / clear: the HUD and the stick step back so the stamp owns the screen
   function dimHUD(on) { $('hud').classList.toggle('dim', on); stickEl.classList.toggle('dim', on); }
   function hint(id, text) {
     if (save.hints[id] || floorN > 3) return;
     save.hints[id] = 1; persist(); toast(text, 3.4, id);
-    if (NEAR_HINTS.has(id) && isPortrait()) { $('toast').classList.add('near'); placeToast(); }
+    if (NEAR_HINTS.has(id) && isPortrait()) { $('toast').classList.add('near'); toastSlot = 0; placeToast(); }
   }
   const NEAR_HINTS = new Set(['sus', 'knock', 'chase']);
 
@@ -1351,6 +1401,7 @@
       // close in on the capture (or the stairs) on a fixed curve: easeOutCubic over 0.4s, then hold
       const t = U.clamp(modeT / 0.4, 0, 1), e = 1 - Math.pow(1 - t, 3);
       view.x = U.lerp(shot.x0, shot.x, e); view.y = U.lerp(shot.y0, shot.y, e); view.z = shot.z0 * Math.pow(shot.z / shot.z0, e);
+      if (shot.adj) view.y = U.lerp(shot.adj.y0, shot.adj.y, U.smooth(U.clamp((modeT - shot.adj.t) / 0.35, 0, 1)));   // a clear steps the stairs clear of its words
       view.shake = Math.max(0, view.shake - dt * 2.2);
       return;
     }
@@ -1745,7 +1796,9 @@
       g.fillStyle = COL.guard; g.fill();
       // flat like the props: no pale outline on a calm guard (its hard shadow lifts it); a suspicious or chasing one
       // keeps a coloured edge so the change of state still reads at a glance
-      if (gd.state === 'chase' || gd.state === 'sus') { g.lineWidth = Math.max(1.8, 2 / z); g.strokeStyle = gd.state === 'chase' ? '#ff6b52' : '#ffcf6a'; g.stroke(); }
+      // a guard come to look into a pool wears a pale rim, pulsing, from its first turn toward it until it leaves
+      if (gd.peekSh && gd.state === 'search') { g.lineWidth = Math.max(1.8, 2 / z); g.strokeStyle = `rgba(228,248,253,${(0.65 + 0.3 * Math.sin(time * 7)).toFixed(3)})`; g.stroke(); }
+      else if (gd.state === 'chase' || gd.state === 'sus') { g.lineWidth = Math.max(1.8, 2 / z); g.strokeStyle = gd.state === 'chase' ? '#ff6b52' : '#ffcf6a'; g.stroke(); }
       // one plain dark shape with a pale visor along the face they look out of: a bar most of the face wide, plain
       // at play zoom, and lined up with the cone that leaves it
       const vc = gd.state === 'chase' ? '#ff7a62' : gd.state === 'sus' || gd.state === 'search' ? '#ffd877' : '#e4f8fd';
@@ -1827,6 +1880,12 @@
         g.beginPath(); g.arc(f.x, f.y, 6 + t * 34, 0, TAU); g.stroke();
         for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, r0 = 8 + t * 20, r1 = r0 + 8 * (1 - t); g.beginPath(); g.moveTo(f.x + Math.cos(a) * r0, f.y + Math.sin(a) * r0); g.lineTo(f.x + Math.cos(a) * r1, f.y + Math.sin(a) * r1); g.stroke(); }
         g.globalAlpha = 1;
+      } else if (f.k === 'call') {
+        // a camera's alarm reaching a guard: a dashed red line from the lens, running toward the guard, fading out
+        const a = 1 - t;
+        g.save(); g.setLineDash([6 / z, 5 / z]); g.lineDashOffset = -f.t * 60 / z; g.lineCap = 'round';
+        g.strokeStyle = `rgba(255,110,90,${0.8 * a})`; g.lineWidth = 2 / z * 1.2;
+        g.beginPath(); g.moveTo(f.c.x, f.c.y); g.lineTo(f.o.x, f.o.y); g.stroke(); g.restore();
       } else if (f.k === 'puff') {
         g.strokeStyle = f.red ? `rgba(255,90,74,${0.9 * (1 - t)})` : `rgba(190,240,255,${0.7 * (1 - t)})`; g.lineWidth = f.red ? 2.2 : 1.5;
         g.beginPath(); g.arc(f.x, f.y, 8 + t * 18, 0, TAU); g.stroke();
@@ -1946,11 +2005,12 @@
     if (cf > 0.02) { for (const gd of guards) mark(gd, G_SIZE); for (const c of cams) mark(c, 8); }
     g.restore();
     for (const f of fx) if (f.k === 'fly') {
-      // from where the star lay to its slot in the HUD, arcing a little, shrinking to the slot's size
+      // from where the star lay to its slot in the HUD, arcing a little, shrinking to the slot's size. The arc dies away with
+      // the glide, and it never rises past the slot, so the star lands in the pill rather than overshooting off the top
       const sp = $('hudStars').children[f.slot]; if (!sp) continue;
       const rc = sp.getBoundingClientRect(), a = toScreen(f.x, f.y), t = U.clamp(f.t / f.dur, 0, 1), e = 1 - Math.pow(1 - t, 3);
       const bx = rc.left + rc.width / 2, by = rc.top + rc.height / 2;
-      const x = U.lerp(a.x, bx, e), y = U.lerp(a.y, by, e) - Math.sin(t * Math.PI) * 40, sz = U.lerp(34, rc.height * 1.1, e);
+      const x = U.lerp(a.x, bx, e), y = Math.max(U.lerp(a.y, by, e) - Math.sin(t * Math.PI) * 40 * (1 - e), by - 6), sz = U.lerp(34, rc.height * 1.1, e);
       g.save(); g.font = `800 ${Math.round(sz)}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.shadowColor = 'rgba(243,229,126,.8)'; g.shadowBlur = 12;
       g.lineWidth = 3; g.strokeStyle = 'rgba(150,120,20,.7)'; g.strokeText('★', x, y);
@@ -2204,7 +2264,11 @@
     const hs = getComputedStyle($('hud'));
     safeTop = Math.max(0, (parseFloat(hs.paddingTop) || 10) - 10);
     safeL = Math.max(0, (parseFloat(hs.paddingLeft) || 14) - 14); safeR = Math.max(0, (parseFloat(hs.paddingRight) || 12) - 12);
-    stickTop = stickEl.getBoundingClientRect().top;
+    const sb = stickEl.getBoundingClientRect(), sc = sb.left + sb.width / 2, moved = Math.abs(sc - stickCx) > 4;
+    stickTop = sb.top; stickCx = sc;
+    // turned with the thumb down: the stick has moved under it, so the old reading means nothing. Let go of it and land
+    // again, quietly, on the thumb's next move (its last point was in the old orientation's coordinates)
+    if (moved && stickId !== null) { clearStick(true); stickStale = true; }
   }
   addEventListener('resize', resize);
   addEventListener('orientationchange', () => setTimeout(resize, 200));

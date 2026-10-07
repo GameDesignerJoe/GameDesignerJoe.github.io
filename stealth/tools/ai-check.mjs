@@ -352,7 +352,12 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
       await wait(100);   // a frame for the pool to take you in
       let st = '', peekSh = false, mode = 'play';
       for (let t = 0; t < 140; t++) {
-        const r = await page.evaluate(() => [__g.state, !!__g.peekSh, GAME.mode, GAME.P.hidden]);
+        // once it has picked its spot on the rim, the halves are its spot's: you step to 0.45 of the way to it, or 0.6 past the middle
+        const r = await page.evaluate((side) => {
+          const g = __g, sh = g.peekSh;
+          if (sh && !g.__moved) { g.__moved = true; const e = Math.hypot(g.target.x - sh.x, g.target.y - sh.y), k = side === 'near' ? 0.45 : -0.6; GAME.teleport(sh.x + (g.target.x - sh.x) / e * sh.r * k, sh.y + (g.target.y - sh.y) / e * sh.r * k); }
+          return [g.state, !!sh, GAME.mode, GAME.P.hidden];
+        }, side);
         st = r[0]; peekSh = peekSh || r[1]; mode = r[2];
         if (!r[3] && mode === 'play') { st = 'not hidden'; break; }
         if (mode === 'caught' || st === 'sus' || st === 'chase' || st === 'patrol') break;
@@ -360,7 +365,7 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
       }
       if (!peekSh) continue;
       if (side === 'near') { nearN++; if (st === 'sus' || st === 'chase' || mode === 'caught') near++; }
-      else { farN++; if (st === 'patrol' && mode !== 'caught') far++; }
+      else { farN++; if ((st === 'patrol' || st === 'return') && mode !== 'caught') far++; }   // (gave up and heading back, or back on its round)
       if (mode === 'caught') await wait(2600);
     }
   }

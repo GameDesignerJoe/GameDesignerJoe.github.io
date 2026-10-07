@@ -64,7 +64,7 @@
   /* the stick: the maze's, bottom centre upright, bottom right on its side */
   #stick { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 18px); transform: translateX(-50%); width: 212px; height: 212px; border-radius: 50%;
     background: rgba(233,245,248,.10); border: 1.5px solid rgba(233,245,248,.45); touch-action: none; z-index: 2; transition: opacity .4s; }
-  #stick::before { content: ''; position: absolute; inset: 21%; border-radius: 50%; border: 1px dashed rgba(233,245,248,.35); pointer-events: none; }
+  #stick::before { content: ''; position: absolute; inset: 21.4%; border-radius: 50%; border: 1px dashed rgba(233,245,248,.35); pointer-events: none; }
   #stick::after { content: ''; position: absolute; inset: -28px -28px -28px -20px; border-radius: 50%; }   /* an invisible margin: a thumb landing just off the disc still takes the stick (narrower on the left upright, clear of the knock) */
   #knob { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: rgba(233,245,248,.35);
     border: 1.5px solid rgba(233,245,248,.75); transition: background .12s, border-color .12s; pointer-events: none; box-shadow: 0 3px 0 rgba(18,49,63,.2); }
@@ -440,10 +440,11 @@
   try { const k = localStorage.getItem('unseen.ver'); if (k) known(k); } catch (e) {}
   // The same answer names the commit, and the game's scripts are fetched for that commit. Without it the label could say
   // the newest version while the browser ran scripts it had cached from the one before (GitHub Pages lets them be kept 10
-  // minutes): Joe saw v0.14 with no mouse controls. If GitHub doesn't answer in 1.5s the scripts load fresh anyway.
+  // minutes): Joe saw v0.14 with no mouse controls. If GitHub doesn't answer in 0.4s (a slow or blocked API, a proxy) the
+  // scripts load fresh anyway, and offline they load at once: the page never sits on a bare background waiting for it.
   let loaded = false;
   const go = (tag) => { if (loaded) return; loaded = true; load(tag); };
-  setTimeout(() => go(Date.now().toString(36)), 1500);
+  setTimeout(() => go(Date.now().toString(36)), navigator.onLine === false ? 0 : 400);
   fetch('https://api.github.com/repos/GameDesignerJoe/GameDesignerJoe.github.io/commits?path=stealth&per_page=1', { cache: 'no-store' })
     .then(r => { if (!r.ok) throw 0; const m = /[?&]page=(\d+)>; rel="last"/.exec(r.headers.get('link') || ''); return r.json().then(a => ({ n: m ? +m[1] : a.length, sha: a[0] && a[0].sha })); })
     .then(({ n, sha }) => { const v = 'v0.' + n; known(v); try { localStorage.setItem('unseen.ver', v); } catch (e) {} go(sha ? sha.slice(0, 10) : Date.now().toString(36)); })

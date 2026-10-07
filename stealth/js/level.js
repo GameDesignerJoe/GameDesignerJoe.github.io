@@ -216,7 +216,7 @@
   }
   // the least a floor may keep: 70% of its budget (50% let through late), and never under one watcher per
   // floor-and-a-third climbed, plus two (five on the fourth, eight on the eighth, eleven on the twelfth; one fewer late)
-  const watchFloor = (budget, n, loose) => n >= 3 ? Math.max(U.clamp(Math.round((loose ? 0.5 : 0.7) * budget), 3, loose ? 8 : 12), Math.min(budget, Math.round(0.75 * n + (loose ? 1 : 2)))) : 0;
+  const watchFloor = (budget, n, loose) => n >= 3 ? Math.max(U.clamp(Math.round((loose ? 0.5 : 0.7) * budget), 3, loose ? 8 : 12), Math.min(budget, Math.round((n >= 12 ? 0.8 : 0.75) * n + (loose ? 1 : 2)))) : 0;
   // cameras: one from the third floor, and one more each three floors (five at most), so each band of floors adds a watched lane
   const camFloor = (n) => n >= 3 ? Math.min(5, 1 + Math.floor((n - 3) / 3)) : 0;
   // the mix: posts never outnumber their share of the walkers (four to five), and the walkers keep climbing, about
@@ -1156,6 +1156,10 @@
       const fx = forcedExposure(L, field);
       if (fx.cost > 0.25) { if (t >= 18 || !fx.who) return null; unplug(fx.who, t >= 6); continue; }
       const tr = timedRoute(L, field);
+      // and no camera is a dud: some walker's beat comes within 900 of a walk of the middle of its sweep, so
+      // its alarm always has someone near enough to send, not a camera behind its own locked door
+      const lone = tr.ok ? L.cams.find(c => !camCalls(L, field, navClosed, c)) : null;
+      if (lone) { if (t >= 18) return null; unplug(lone, t >= 6); continue; }
       if (tr.ok) break;
       if (t >= 18 || !tr.who) return null;
       unplug(tr.who, t >= 6);
@@ -1183,9 +1187,11 @@
     }
     // and none is a trap beside a post: its rim stays 60 from every sentry's spot, out of its elbow and its stare
     const nearPost = (p, r) => L.guards.some(g => !g.path && Math.hypot(g.x - p.x, g.y - p.y) - r < 60);
-    // one to a room and six to eight a floor: a shade is a place to break off a chase, not a path
-    const shadeCap = R.int(6, 8);
-    for (const room of L.rooms) {
+    // one to a room and six to eight a floor, one more each three floors past the eighth (eleven at most): a shade is
+    // a place to break off a chase, not a path, and a busier floor keeps enough of them to break off in. A floor
+    // with fewer rooms than that goes round them a second time
+    const shadeCap = Math.min(11, R.int(6, 8) + Math.floor(Math.max(0, n - 8) / 3));
+    for (const room of L.rooms.concat(n > 8 ? L.rooms : [])) {
       const want = L.shades.length < shadeCap ? 1 : 0;
       let got = 0;
       for (let t = 0; t < 80 && got < want; t++) {
@@ -1203,10 +1209,10 @@
         got++;
       }
     }
-    // and from the third floor one or two lie just off a walker's beat, partway along a straight run where it
+    // and from the third floor one or two (two or three from the ninth) lie just off a walker's beat, partway along a straight run where it
     // never stops or turns, so you can hold still in the dark and let it walk right past you
     const walkers = L.guards.filter(g => g.path);
-    for (let t = 0, got = 0, want = n >= 3 ? R.int(1, 2) : 0; t < 120 && got < want && walkers.length; t++) {
+    for (let t = 0, got = 0, want = n >= 9 ? R.int(2, 3) : n >= 3 ? R.int(1, 2) : 0; t < 120 && got < want && walkers.length; t++) {
       const gd = R.pick(walkers), path = gd.path, i = R.int(0, path.length - 1), a = path[i], b = path[(i + 1) % path.length];
       const len = Math.hypot(b.x - a.x, b.y - a.y);
       if (len < 110) continue;
@@ -1233,6 +1239,20 @@
     L.field = field;
     L.nav = navClosed;
     return L;
+  }
+
+  // whether a camera has a walker to call: the nearest points of each beat to the middle of its sweep, by a walk
+  // with the doors shut, within 900
+  function camCalls(L, field, nav, c) {
+    const dx = Math.cos(c.base), dy = Math.sin(c.base), m = Math.min(100, field.ray(c.x + dx * 6, c.y + dy * 6, dx, dy, 100) - 12);
+    const mx = c.x + dx * (6 + Math.max(0, m)), my = c.y + dy * (6 + Math.max(0, m));
+    const walk = (r) => { let l = 0, a = { x: mx, y: my }; for (const q of r) { l += Math.hypot(q.x - a.x, q.y - a.y); a = q; } return l; };
+    for (const gd of L.guards) {
+      if (!gd.path) continue;
+      const near = gd.path.map(q => ({ q, d: Math.hypot(q.x - mx, q.y - my) })).filter(e => e.d < 900).sort((a, b) => a.d - b.d).slice(0, 2);
+      for (const e of near) { const r = nav.path(mx, my, e.q.x, e.q.y, 40000); if (r && walk(r) < 900) return true; }
+    }
+    return false;
   }
 
   // ── furniture ──────────────────────────────────────────────
