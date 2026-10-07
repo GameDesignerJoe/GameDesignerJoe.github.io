@@ -7,9 +7,9 @@
 // climb from calm to chase is something you hear on the device, not just feel on headphones.
 (function () {
   'use strict';
-  let ctx = null, master, music, cutG, stingDuck, cue, cueLift, duckG, duckLP, pulseDuck, sfx, verbIn, noiseBuf, layers = {}, timer = null;
+  let ctx = null, master, music, cutG, stingDuck, cue, cueLift, pickup, duckG, duckLP, pulseDuck, sfx, verbIn, noiseBuf, layers = {}, timer = null;
   let muted = false, musicOn = true, tension = 0, smoothT = 0, goalT = 0, chaseLive = false, beatDuck = 1, heat = 0, heatAt = -9, ducked = false, cutUntil = 0, beatHoldUntil = 0, chaseOut = null, chaseHoldUntil = 0;
-  const BPM = 84, S16 = 60 / BPM / 4, MUSIC_V = 0.8, MAKEUP = 1.1, COMP_T = -14, OUT_TRIM = 0.82, CHASE_V = 1.6, CHASE_MAKEUP = 1.45;
+  const BPM = 84, S16 = 60 / BPM / 4, MUSIC_V = 0.8, MAKEUP = 1.1, COMP_T = -14, OUT_TRIM = 0.82, CHASE_V = 1.6, CHASE_MAKEUP = 1.15;
   let tremStr = null, padVoices = [], padFloor = 1, step = 0, cycle = 0, nextT = 0, stepDur = S16, curCh = [50, 53, 57], key = 0, lastStep = 0, stepSkip = false;
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
   // D minor, two bars a chord. Four phrases, taken in turn (and each floor starts on a different one):
@@ -36,19 +36,20 @@
     ctx = new AC();
     const comp = ctx.createDynamicsCompressor();
     // a gentle bus compressor with makeup after it. It sits above everything but the odd stinger peak (under
-    // a dB of reduction even in a chase), so the climb from calm to chase keeps its size: the real gain
+    // a dB of reduction even in a chase or on being caught), so the climb from calm to chase keeps its size: the real gain
     // control is done where the loud material starts, in the chase drums' own compressor below
     comp.threshold.value = COMP_T; comp.ratio.value = 2; comp.attack.value = 0.004; comp.release.value = 0.2;
     // a phone speaker can't play the sub, so don't spend the headroom on it
     const shelf = ctx.createBiquadFilter(); shelf.type = 'lowshelf'; shelf.frequency.value = 90; shelf.gain.value = -6;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 35; hp.Q.value = 0.7;
-    // and a limiter after the compressor so the big hits never clip. It's a safety net, not the mixer: a chase
-    // only brushes it (a dB or two), so it never ducks the drone and pad at the drums' rate
+    // and a limiter after the compressor so the big hits never clip. It's a safety net, not the mixer: the
+    // steady beds (calm, suspicion, chase) sit under 1.5 dB of reduction on it, so it never ducks the drone and
+    // pad at the heartbeat's or the drums' rate; only a stinger's first moments and the caught hit reach further
     const lim = ctx.createDynamicsCompressor();
     lim.threshold.value = -5; lim.knee.value = 2; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.25;
     master = ctx.createGain(); master.gain.value = 0.85;
     master.connect(shelf); shelf.connect(hp); hp.connect(comp);
-    // and past that a soft clip, clean up to -2 dB (every state's peaks sit under -2.5), for the odd transient the limiter is too slow for
+    // and past that a soft clip, clean up to -2 dB (every state's peaks sit under -2.5, the caught hit at about -2.6), for the odd transient the limiter is too slow for
     const clip = ctx.createWaveShaper(); clip.curve = softClip(); clip.oversample = '2x';
     // (the limiter adds its own makeup gain, so trim back under it to leave the clip real headroom)
     const trim = ctx.createGain(); trim.gain.value = OUT_TRIM;
@@ -94,6 +95,9 @@
     cueComp.threshold.value = -16; cueComp.knee.value = 4; cueComp.ratio.value = 6; cueComp.attack.value = 0.001; cueComp.release.value = 0.12;
     cueLift = ctx.createGain(); cueLift.gain.value = 1;
     cue.connect(cueComp); cueComp.connect(cueLift); cueLift.connect(sfx);
+    // the pickups and the doors have a lift of their own that climbs with the danger (+7 dB in a chase), so a
+    // star, a key or a door taken mid-chase still rings out over the drums rather than vanishing under them
+    pickup = ctx.createGain(); pickup.gain.value = 1; pickup.connect(sfx);
     drone();
     nextT = ctx.currentTime + 0.1;
     timer = setInterval(schedule, 25);
@@ -110,13 +114,13 @@
   }
 
   // the drone never stops: a low D with a slow breathing filter
-  // (open enough, with a D3 on top, that the calm still reaches a phone speaker)
+  // (open enough, with a D3 and an A3 on top, that the calm still reaches a phone speaker)
   let droneLP, droneOsc = [];
-  const DRONE_V = 0.2;   // quiet, so there's somewhere for the danger to climb to
+  const DRONE_V = 0.26;   // quiet, so there's somewhere for the danger to climb to
   function drone() {
     droneLP = ctx.createBiquadFilter(); droneLP.type = 'lowpass'; droneLP.frequency.value = 950; droneLP.Q.value = 4;
     droneLP.connect(layers.drone);
-    for (const [m, mul, type, v] of [[38, 1, 'sawtooth', 0.18], [38, 1.004, 'sawtooth', 0.18], [45, 1, 'triangle', 0.05], [50, 1, 'sawtooth', 0.07]]) {
+    for (const [m, mul, type, v] of [[38, 1, 'sawtooth', 0.18], [38, 1.004, 'sawtooth', 0.18], [45, 1, 'triangle', 0.05], [50, 1, 'sawtooth', 0.12], [57, 1, 'triangle', 0.05]]) {
       const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.value = mtof(m + key) * mul; g.gain.value = v;
       o.connect(g); g.connect(droneLP); o.start(); droneOsc.push([o, m, mul]);
     }
@@ -191,12 +195,14 @@
     if (!dub) voice(dest, t, 62, { type: 'sine', glide: 48, glideT: 0.09, v: 0.22 * v, dur: 0.02, rel: 0.14 });
     voice(dest, t, f, { type: 'triangle', glide: f * 0.64, glideT: 0.08, v: 0.18 * v, dur: 0.03, rel: 0.18 });
     voice(dest, t, f * 2, { type: 'triangle', glide: f * 1.3, glideT: 0.07, v: 0.42 * v, dur: 0.02, rel: 0.18 });
-    voice(dest, t, 520, { type: 'triangle', glide: 360, glideT: 0.05, v: 0.48 * v, dur: 0.015, rel: 0.12 });
+    voice(dest, t, 520, { type: 'triangle', glide: 360, glideT: 0.05, v: 0.34 * v, dur: 0.015, rel: 0.12 });
     noise(dest, t, { ftype: 'lowpass', f: 450, q: 0.7, v: 0.04 * v, dur: 0.01, rel: 0.1 });
-    noise(dest, t, { f: 1800, q: 1.2, v: 0.42 * v, dur: 0.004, rel: 0.05 });
+    noise(dest, t, { f: 1800, q: 1.2, v: 0.3 * v, dur: 0.004, rel: 0.05 });
   }
+  // (with a triangle an octave up falling with it, so a tom keeps its size on a phone speaker)
   function tom(dest, t, f, v) {
     voice(dest, t, f, { type: 'sine', glide: f * 0.55, glideT: 0.3, v, dur: 0.04, rel: 0.4 });
+    voice(dest, t, f * 2, { type: 'triangle', glide: f * 1.1, glideT: 0.25, v: v * 0.35, dur: 0.03, rel: 0.25 });
     noise(dest, t, { f: f * 3, q: 1.4, v: v * 0.25, dur: 0.01, rel: 0.12, ftype: 'bandpass' });
   }
 
@@ -226,7 +232,7 @@
     // chase (about 14 dB) so the drums carry the pulse
     const h = curHeat(now);
     beatDuck = 1 - 0.8 * lv(t, 0.78, 0.92);
-    layers.beat.gain.setTargetAtTime(lv(t, 0.42, 0.52) * 1.15 * (0.72 + 0.3 * h) * beatDuck, now, 0.25);
+    layers.beat.gain.setTargetAtTime(lv(t, 0.42, 0.52) * 0.95 * (0.72 + 0.3 * h) * beatDuck, now, 0.25);
     // once the chase has landed on its downbeat it follows the game's tension, not the smoothed one
     // (and when it ends it holds its level through the closing hit, then lets that ring out)
     if (now >= chaseHoldUntil) layers.chase.gain.setTargetAtTime(lv(chaseLive ? Math.max(t, goal) : t, 0.78, 0.92) * CHASE_V, now, chaseHoldUntil && !chaseLive ? 0.3 : 0.15);
@@ -235,6 +241,7 @@
     layers.pad.gain.setTargetAtTime((0.7 - 0.25 * lv(t, 0.12, 0.3)) * (1 - 0.9 * lv(t, 0.78, 0.92)), now, 0.3);
     if (droneLP) droneLP.Q.setTargetAtTime(4 + t * 8, now, 0.5);
     cueLift.gain.setTargetAtTime(1 + 0.62 * lv(t, 0.3, 0.72) + 0.3 * lv(t, 0.8, 0.95), now, 0.3);
+    pickup.gain.setTargetAtTime(1 + 1.4 * lv(t, 0.4, 0.9), now, 0.3);
     // a chase (or a camera's alarm) pushes the tempo from 84 toward 100
     stepDur = S16 * BPM / (BPM + 16 * lv(t, 0.8, 0.95));
     while (nextT < now + 0.12) { play(step, nextT); step = (step + 1) % 128; if (!step) cycle++; nextT += stepDur; }
@@ -354,6 +361,21 @@
     g.cancelScheduledValues(t); g.setTargetAtTime(depth, t, 0.012);
     g.setTargetAtTime(1, t + hold, 0.18);
   }
+  // the chase's kick: short and tuned high (220 falling to 110 Hz, with its octave as a triangle), punch a phone
+  // can play and little sub to push the limiter, and a knock at 1.1 kHz so on a phone it's a beat and not a tick
+  function chaseKick(t, v) {
+    voice(layers.chase, t, 220, { type: 'sine', glide: 110, glideT: 0.07, v: 0.14 * v, dur: 0.02, rel: 0.12 });
+    voice(layers.chase, t, 440, { type: 'triangle', glide: 220, glideT: 0.06, v: 0.06 * v, dur: 0.015, rel: 0.08 });
+    noise(layers.chase, t, { f: 2600, q: 1, v: 0.12 * v, dur: 0.003, rel: 0.025 });
+    voice(layers.chase, t, 1100, { type: 'triangle', glide: 500, glideT: 0.04, v: 0.12 * v, dur: 0.005, rel: 0.05 });
+  }
+  // a pickup's step back: deeper and longer the more danger there is (about 4 dB in the calm, 10 in a chase);
+  // returns the danger (0..1) so the sound can lean on it too
+  function pickDuck(t, hold) {
+    const k = Math.max(0, Math.min(1, (smoothT - 0.4) / 0.5));
+    duckMusic(t, 0.6 - 0.25 * k, hold + 0.1 * k); duckPulse(t, 0.6 - 0.3 * k, hold + 0.1 * k);
+    return k;
+  }
   function play(s, t) {
     const bar = Math.floor(s / 16), pos = s % 16;
     // a key change mid-chord fades the old pad out and starts the new one on this bar, so two keys never ring together
@@ -431,11 +453,11 @@
       // the suspicion's trembling string lets go, so its chord doesn't blur the chase's
       if (tremStr) { tremStr.gain.cancelScheduledValues(t); tremStr.gain.setTargetAtTime(0, t, 0.06); tremStr = null; }
       // (landing off the beat, the first hit is a kick and a tom of its own, not just the bass)
-      if (pos % 4) { voice(layers.chase, t, 160, { type: 'sine', glide: 60, glideT: 0.07, v: 0.14, dur: 0.02, rel: 0.12 }); tom(layers.chase, t, 190, 0.2); }
+      if (pos % 4) { chaseKick(t, 1); tom(layers.chase, t, 280, 0.2); }
     }
     if (chaseOut === s) {
       chaseOut = null;
-      tom(layers.chase, t, 150, 0.3);
+      tom(layers.chase, t, 220, 0.3);
       noise(layers.chase, t, { ftype: 'highpass', f: 5000, q: 0.5, v: 0.16, dur: 0.02, rel: 1.1 });
       voice(layers.chase, t, mtof(root + 24), { type: 'sawtooth', lp: 3200, lpTo: 300, lpT: 0.3, q: 5, v: 0.12, dur: 0.4, rel: 0.3 });
     }
@@ -445,18 +467,14 @@
       const bp = [0, 0, 12, 0, 0, 7, 0, 10, 0, 0, 12, 0, 13, 12, 7, 5];
       voice(layers.chase, t, mtof(root + 24 + bp[pos]), { type: 'sawtooth', lp: 3200, lpTo: 300, lpT: 0.1, q: 5, v: pos % 4 === 0 ? 0.1 : 0.065, dur: 0.03, rel: 0.08 });
       if (pos % 2 === 0) voice(layers.chase, t, mtof(root + 36 + bp[pos]), { type: 'square', lp: 5200, lpTo: 1400, lpT: 0.08, q: 2, v: 0.24, dur: 0.03, rel: 0.08 });
-      if (pos === 0 || pos === 6 || pos === 10) tom(layers.chase, t, pos === 0 ? 150 : 190, 0.13);
+      if (pos === 0 || pos === 6 || pos === 10) tom(layers.chase, t, pos === 0 ? 220 : 280, 0.13);
       // the kick takes the beat over from the heartbeat
-      if (pos % 4 === 0) { const v = pos === 0 ? 1 : 0.8;   // a short, high-tuned kick: punch a phone can play, little sub to push the limiter
-        voice(layers.chase, t, 160, { type: 'sine', glide: 60, glideT: 0.07, v: 0.14 * v, dur: 0.02, rel: 0.12 });
-        noise(layers.chase, t, { f: 2600, q: 1, v: 0.12 * v, dur: 0.003, rel: 0.025 });
-        // and a knock at 1.1 kHz, so on a phone the kick is a beat and not a tick
-        voice(layers.chase, t, 1100, { type: 'triangle', glide: 500, glideT: 0.04, v: 0.12 * v, dur: 0.005, rel: 0.05 }); }
-      if (fill) tom(layers.chase, t, [260, 230, 200, 170][pos - 12], 0.32 + (pos - 12) * 0.02);
+      if (pos % 4 === 0) chaseKick(t, pos === 0 ? 1 : 0.8);
+      if (fill) tom(layers.chase, t, [330, 290, 260, 230][pos - 12], 0.32 + (pos - 12) * 0.02);
       if (pos === 4 || (pos === 12 && !fill)) {   // the snare: a body, and a crack in the band a phone speaker plays loudest
         noise(layers.chase, t, { f: 1800, q: 0.8, v: 0.3, dur: 0.02, rel: 0.18 }); noise(layers.chase, t, { f: 3000, q: 1, v: 0.18, dur: 0.015, rel: 0.12 });
         voice(layers.chase, t, 220, { type: 'triangle', glide: 150, v: 0.16, dur: 0.02, rel: 0.1 }); }
-      if (pos === 14 && bar % 2 === 1 && !fill) tom(layers.chase, t, 240, 0.35);
+      if (pos === 14 && bar % 2 === 1 && !fill) tom(layers.chase, t, 300, 0.35);
       // driving hats, open on the off-beat, so the chase cuts through a small speaker
       // and a shaker in the 3-4 kHz a phone speaker plays loudest, pushing the sixteenths
       noise(layers.chase, t, { f: 3500, q: 1.2, v: pos % 2 ? 0.07 : 0.11, dur: 0.006, rel: 0.04 });
@@ -579,6 +597,9 @@
       noise(b, t, { f: 1800, q: 0.8, v: 0.3, dur: 0.02, rel: 0.16 });
       voice(b, t, 190, { type: 'triangle', glide: 120, v: 0.1, dur: 0.02, rel: 0.08 });
       noise(b, t, { ftype: 'highpass', f: 5000, q: 0.5, v: 0.16, dur: 0.02, rel: 1.1 });
+      // and a two-tom pickup off it, so the drums are under way within a third of a second of the "!", not a bar
+      // later (most chases are over in a second, so the stinger has to start the running itself)
+      tom(b, t + stepDur * 2, 330, 0.24); tom(b, t + stepDur * 3, 280, 0.28);
       return b;
     },
     lost() {   // gave up: the question again, falling back into the chord (no relief over a defeat, or under a "!")
@@ -597,18 +618,25 @@
       const t = T0() + 0.25, ch = curCh, hi = mtof(ch[2] + 24), lo = mtof(ch[1] + 24);
       for (let i = 0; i < 3; i++) voice(b, t + i * 0.18, hi, { type: 'square', lp: 3200, v: 0.14, dur: 0.08, rel: 0.05, glide: lo });
     },
-    // the pickups ring in the chord of the moment, so each floor's key carries through them
-    // (and the score steps back for them, so a key or a door mid-chase is still heard). They go out on the
-    // effects bus, not the cues', so the danger's lift never raises a pickup over the "?" and the "!"
-    star() { const t = onGrid(), ch = curCh; duckMusic(t, 0.6, 0.3); duckPulse(t, 0.6, 0.3); [ch[0] + 36, ch[1] + 36, ch[2] + 36, ch[0] + 48].forEach((m, i) => voice(sfx, t + i * 0.06, mtof(m), { type: 'sine', v: 0.16, dur: 0.02, rel: 0.9 })); },
-    key() { const t = onGrid(), ch = curCh; duckMusic(t, 0.6, 0.3); duckPulse(t, 0.6, 0.3); [ch[0] + 24, ch[1] + 24, ch[2] + 24, ch[0] + 36].forEach((m, i) => voice(sfx, t + i * 0.05, mtof(m), { type: 'triangle', v: 0.24, dur: 0.03, rel: 0.5 })); noise(sfx, t, { f: 6000, q: 3, v: 0.12, dur: 0.01, rel: 0.2 }); },
+    // the pickups ring in the chord of the moment, so each floor's key carries through them. They go out on a
+    // bus of their own (pickup), whose lift climbs with the danger (+7 dB in a chase), and the score steps back
+    // further for them the more danger there is, so a star, a key or a door mid-chase is a clear 3 dB and more
+    // over the drums, as the "?" and the "!" are; in the calm they're still the light touches they were
+    star() { const t = onGrid(), ch = curCh, k = pickDuck(t, 0.3);
+      [ch[0] + 36, ch[1] + 36, ch[2] + 36, ch[0] + 48].forEach((m, i) => voice(pickup, t + i * 0.06, mtof(m), { type: 'triangle', v: 0.2, dur: 0.02, rel: 0.9 }));
+      // and a body an octave under the top note, in the 1-2.5 kHz a chase's hats and bass leave open
+      voice(pickup, t + 0.18, mtof(ch[0] + 36), { type: 'sine', v: 0.1 + 0.06 * k, dur: 0.08, rel: 0.8 }); },
+    key() { const t = onGrid(), ch = curCh, k = pickDuck(t, 0.3);
+      // (its arpeggio sits where a chase's bass runs, so with danger it gains an octave above, a bell over the drums)
+      [ch[0] + 24, ch[1] + 24, ch[2] + 24, ch[0] + 36].forEach((m, i) => { voice(pickup, t + i * 0.05, mtof(m), { type: 'triangle', v: 0.24, dur: 0.03, rel: 0.5 });
+        if (k) voice(pickup, t + i * 0.05, mtof(m + 12), { type: 'triangle', v: 0.18 * k, dur: 0.03, rel: 0.6 }); });
+      noise(pickup, t, { f: 6000, q: 3, v: 0.12, dur: 0.01, rel: 0.2 }); },
     door() {   // the latch clacks above the drone, the door swings, and a small high note says it's open
-      const t = T0();
-      duckMusic(t, 0.6, 0.4); duckPulse(t, 0.6, 0.4);
-      voice(sfx, t, 220, { type: 'square', lp: 600, v: 0.36, dur: 0.05, rel: 0.2, glide: 140 });
-      noise(sfx, t, { f: 3200, q: 4, v: 0.24, dur: 0.004, rel: 0.04 });
-      noise(sfx, t + 0.05, { f: 500, q: 0.8, v: 0.3, dur: 0.25, rel: 0.2, fTo: 1600 });
-      voice(sfx, t + 0.3, mtof(74 + key), { type: 'triangle', v: 0.24, dur: 0.05, rel: 0.6 });
+      const t = T0(); pickDuck(t, 0.4);
+      voice(pickup, t, 220, { type: 'square', lp: 600, v: 0.36, dur: 0.05, rel: 0.2, glide: 140 });
+      noise(pickup, t, { f: 3200, q: 4, v: 0.24, dur: 0.004, rel: 0.04 });
+      noise(pickup, t + 0.05, { f: 500, q: 0.8, v: 0.3, dur: 0.25, rel: 0.2, fTo: 1600 });
+      voice(pickup, t + 0.3, mtof(74 + key), { type: 'triangle', v: 0.24, dur: 0.05, rel: 0.6 });
     },
     caught() {
       // the hit lands on top of the score's last beat (the cut starts 20 ms after it), so it's a blow and not a fade
@@ -618,8 +646,8 @@
       // the impact a phone can play: the low cluster two octaves up (about 300-440 Hz), torn and closing fast,
       // with a crash on it, so being caught is the loudest thing in the game and not the music going away
       for (const m of [38, 39, 45].map(m => m + key + 24)) for (const [type, dt] of [['sawtooth', -12], ['square', 9]])
-        voice(sfx, t, mtof(m), { type, detune: dt, lp: 3500, lpTo: 500, lpT: 1.0, v: 0.36, dur: 0.42, rel: 0.9 });
-      noise(sfx, t, { f: 2200, q: 0.6, v: 0.6, dur: 0.08, rel: 0.7, fTo: 500 });
+        voice(sfx, t, mtof(m), { type, detune: dt, lp: 3500, lpTo: 500, lpT: 1.0, v: 0.22, dur: 0.42, rel: 0.9 });
+      noise(sfx, t, { f: 2200, q: 0.6, v: 0.4, dur: 0.08, rel: 0.7, fTo: 500 });
       for (const m of [38, 39, 45].map(m => m + key)) {
         voice(sfx, t, mtof(m), { type: 'sawtooth', lp: 1200, lpTo: 100, lpT: 1.4, v: 0.1, dur: 0.6, rel: 0.9, glide: mtof(m - 7), glideT: 1.4 });
         // the same cluster three octaves up, sinking with it, so the fall is heard on a phone and not only felt

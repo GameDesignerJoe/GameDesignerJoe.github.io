@@ -210,9 +210,13 @@
   // are done (70%, or 50% for a floor let through late)
   function watchBudget(L, n) {
     const area = L.rooms.reduce((t, r) => t + (r.kind === 'circle' ? Math.PI * r.r * r.r : r.w * r.h), 0);
-    return Math.max(2, Math.min(L.D.budget, Math.round(4 + n * 0.8), Math.round(area / 100000 * (0.9 + 0.03 * n))));
+    const fit = Math.max(2, Math.min(L.D.budget, Math.round((n <= 4 ? 3 : 4) + n * 0.8), Math.round(area / 100000 * (0.9 + 0.03 * n))));
+    // and a height floor that doesn't hang on the plan's size, so no kind of building is a soft floor in the climb
+    return Math.max(fit, Math.min(L.D.budget, Math.round(2 + 0.75 * n)));
   }
-  const watchFloor = (budget, n, loose) => n >= 3 ? U.clamp(Math.round((loose ? 0.5 : 0.7) * budget), 3, loose ? 8 : 12) : 0;
+  // the least a floor may keep: 70% of its budget (50% let through late), and never under one watcher per
+  // floor-and-a-third climbed, plus two (five on the fourth, eight on the eighth, eleven on the twelfth; one fewer late)
+  const watchFloor = (budget, n, loose) => n >= 3 ? Math.max(U.clamp(Math.round((loose ? 0.5 : 0.7) * budget), 3, loose ? 8 : 12), Math.min(budget, Math.round(0.75 * n + (loose ? 1 : 2)))) : 0;
   // cameras: one from the third floor, and one more each three floors (five at most), so each band of floors adds a watched lane
   const camFloor = (n) => n >= 3 ? Math.min(5, 1 + Math.floor((n - 3) / 3)) : 0;
   // the mix: posts never outnumber their share of the walkers (four to five), and the walkers keep climbing, about
@@ -283,53 +287,81 @@
     opt = opt || {};
     const rot = R() * TAU, pod = { type: 'polar', kind, o: { x: 0, y: 0 }, rot, span: TAU, hub: 0, colR: null, zones: [] }, zones = pod.zones;
     const split = (m, span, j) => { const w = []; let s = 0; for (let i = 0; i < m; i++) { w.push(R.range(1 - j, 1 + j)); s += w[i]; } return w.map(v => v / s * span); };
+    // cut a band unevenly: a narrow sliver beside a wide hall, never a run of even slices. No cut is
+    // under about 130 of wall at the band's inner edge (so a doorway still fits) or over about 100 degrees
+    const vary = (m, span, rIn) => {
+      const lo = Math.min(Math.max(130 / Math.max(rIn, 1), 0.3), span / m * 0.8), hi = Math.max(1.75, span / m * 1.2);
+      let w = []; for (let i = 0; i < m; i++) { const u = R(); w.push(u < 0.28 ? R.range(0.3, 0.55) : u < 0.78 ? R.range(0.8, 1.25) : R.range(1.6, 2.3)); }
+      const s0 = w.reduce((a, b) => a + b, 0); w = w.map(v => v / s0 * span);
+      for (let t = 0; t < 12; t++) {
+        const fix = w.map(v => v < lo ? lo : v > hi ? hi : null), freeSum = w.reduce((a, v, i) => a + (fix[i] == null ? v : 0), 0), fixSum = fix.reduce((a, v) => a + (v == null ? 0 : v), 0);
+        if (fix.every(v => v == null) || freeSum <= 0) break;
+        w = w.map((v, i) => fix[i] != null ? fix[i] : v * (span - fixSum) / freeSum);
+      }
+      return w;
+    };
     const band = (ws, a0, r0, r1, outer) => { let a = a0; for (const w of ws) { zones.push({ a0: a, a1: a + w, r0, r1, outer }); a += w; } };
     let hub = 0;
     if (kind === 'solo') hub = Math.sqrt(AZ * R.range(0.9, 1.7) / Math.PI);
     else if (kind === 'disc') {
       const K = Math.max(2, k - 1), small = K <= 3, az = small ? AZ * 1.25 : AZ;
       hub = small ? R.range(110, 135) : R.range(150, 185);
-      if (K <= 5) band(split(K, TAU, 0.2), rot, hub, Math.sqrt(K * az / Math.PI + hub * hub), true);
+      if (K <= 5) band(vary(K, TAU, hub), rot, hub, Math.sqrt(K * az / Math.PI + hub * hub), true);
       else if (K >= 9) {
         // a rotunda: three rings round the hub, each cut finer than the one inside it, so the spokes of
         // one ring never line up with the next and the walls read as nested cells
         const k1 = 3, k2 = Math.max(4, Math.round((K - 3) * 0.42)), k3 = K - k1 - k2;
         const ra = Math.max(hub + 165, Math.sqrt(k1 * AZ * 0.75 / Math.PI + hub * hub)), rb = Math.max(ra + 170, Math.sqrt(k2 * AZ * 0.9 / Math.PI + ra * ra)), rc = Math.max(rb + 175, Math.sqrt(k3 * AZ * 1.05 / Math.PI + rb * rb));
-        band(split(k1, TAU, 0.15), rot, hub, ra, false); band(split(k2, TAU, 0.2), rot + R.range(0.3, 0.6), ra, rb, false); band(split(k3, TAU, 0.2), rot + R.range(0.1, 0.25), rb, rc, true);
+        band(vary(k1, TAU, hub), rot, hub, ra, false); band(vary(k2, TAU, ra), rot + R.range(0.3, 0.6), ra, rb, false); band(vary(k3, TAU, rb), rot + R.range(0.1, 0.25), rb, rc, true);
       } else {
         const k1 = Math.max(3, Math.round(K * 0.38)), k2 = K - k1;
         const rm = Math.sqrt(k1 * AZ * 0.85 / Math.PI + hub * hub), ro = Math.sqrt(k2 * AZ * 1.1 / Math.PI + rm * rm);
-        band(split(k1, TAU, 0.2), rot, hub, rm, false); band(split(k2, TAU, 0.2), rot + R.range(0.2, 0.5), rm, ro, true);
+        band(vary(k1, TAU, hub), rot, hub, rm, false); band(vary(k2, TAU, rm), rot + R.range(0.2, 0.5), rm, ro, true);
       }
     } else if (kind === 'crescent') {
       const span = pod.span = R.range(3.9, 4.9), ri = pod.ri = R.range(170, 230);
       pod.facet = !!opt.facet;
       if (pod.facet && k >= 6) {
         // two bands of straight-sided blocks, each outer block squarely on an inner one
-        const m = Math.round(k / 2), ws = split(m, span, 0.15);
+        const m = Math.round(k / 2), ws = vary(m, span, ri);
         const rm = Math.sqrt(2 * m * AZ * 0.8 / span + ri * ri), ro = Math.sqrt(2 * m * AZ * 1.1 / span + rm * rm);
         band(ws, rot, ri, rm, false); band(ws, rot, rm, ro, true);
-      } else if (k <= 5 || pod.facet) band(split(k, span, 0.2), rot, ri, Math.sqrt(2 * k * AZ / span + ri * ri), true);
+      } else if (k <= 5 || pod.facet) band(vary(k, span, ri), rot, ri, Math.sqrt(2 * k * AZ / span + ri * ri), true);
       else {
         const k1 = Math.max(2, Math.round(k / 3)), k2 = k - k1;
         const rm = Math.sqrt(2 * k1 * AZ * 0.8 / span + ri * ri), ro = Math.sqrt(2 * k2 * AZ * 1.1 / span + rm * rm);
-        band(split(k1, span, 0.2), rot, ri, rm, false); band(split(k2, span, 0.2), rot, rm, ro, true);
+        band(vary(k1, span, ri), rot, ri, rm, false); band(vary(k2, span, rm), rot, rm, ro, true);
       }
     } else {
-      const nSplit = k >= 11 ? 3 : k >= 8 ? 2 : k >= 6 ? 1 : 0, K = Math.max(3, k - 1 - nSplit), ws = split(K, TAU, 0.06);
-      hub = Math.max(R.range(140, 170), 172 * K / TAU);   // wide enough that every wedge meets it along a doorway's length
+      // a coil: the wedges grow round the turn from a shallow lip to a deep tail, so the outline winds out
+      // like a shell; on the bigger floors a ring of three rooms wraps the hub inside the coil, as in a real one
+      const ring = k >= 9, nSplit = ring ? (k >= 12 ? 1 : 0) : k >= 11 ? 3 : k >= 8 ? 2 : k >= 6 ? 1 : 0;
+      const K = Math.max(3, k - 1 - nSplit - (ring ? 3 : 0)), ws = split(K, TAU, 0.35).sort((p, q) => q - p);   // wide and shallow at the lip, narrow and deep at the tail
+      let r0 = hub = ring ? R.range(125, 145) : Math.max(R.range(140, 170), 172 * K / TAU);   // wide enough that every wedge meets it along a doorway's length
+      if (ring) { r0 = Math.max(hub + R.range(165, 190), 172 * K / TAU / 0.85); band(vary(3, TAU, hub), rot + R.range(0.4, 1.2), hub, r0, false); }
       let a = rot;
       for (let i = 0; i < K; i++) {
-        const big = i >= K - nSplit, area = AZ * (0.55 + 0.9 * i / Math.max(1, K - 1)) * (big ? 2 : 1);
-        const r1 = Math.sqrt(2 * area / ws[i] + hub * hub);
-        if (big) { const rm = Math.sqrt((r1 * r1 + hub * hub) / 2); zones.push({ a0: a, a1: a + ws[i], r0: hub, r1: rm }, { a0: a, a1: a + ws[i], r0: rm, r1, outer: true }); }
-        else zones.push({ a0: a, a1: a + ws[i], r0: hub, r1, outer: true });
+        const t = i / Math.max(1, K - 1), big = i >= K - nSplit, area = AZ * (0.26 + 2.7 * Math.pow(t, 1.6)) * (big ? 2 : 1);
+        const r1 = Math.max(r0 + 175, Math.sqrt(2 * area / ws[i] + r0 * r0));
+        if (big) { const rm = Math.sqrt((r1 * r1 + r0 * r0) / 2); zones.push({ a0: a, a1: a + ws[i], r0, r1: rm }, { a0: a, a1: a + ws[i], r0: rm, r1, outer: true }); }
+        else zones.push({ a0: a, a1: a + ws[i], r0, r1, outer: true });
         a += ws[i];
       }
+      pod.coreR = r0;
+    }
+    // a coiled disc or a crescent bent into a J: the outer band deepens zone by zone round the turn, so
+    // the figure winds out from a shallow lip to a deep head rather than closing as an even ring
+    const coil = opt.coil && (kind === 'disc' || kind === 'crescent') && zones.filter(z => z.outer).length >= 3;
+    if (coil) {
+      const outer = zones.filter(z => z.outer).sort((p, q) => ((p.a0 - rot) % TAU + TAU) % TAU - ((q.a0 - rot) % TAU + TAU) % TAU);
+      // the reach is set against the whole radius, so a three-ring rotunda coils as plainly as a small disc
+      const rAvg = outer.reduce((t, z) => t + z.r1, 0) / outer.length, lo = R.range(0.8, 0.88), hi = R.range(1.3, 1.42), flip = R.chance(0.5);
+      outer.forEach((z, i) => { const t = i / (outer.length - 1); z.r1 = Math.max(z.r0 + 175, rAvg * U.lerp(lo, hi, flip ? 1 - t : t)); });
+      pod.coil = true;
     }
     // the outer edge steps in and out zone by zone; a crescent's court edge does too
     if (kind === 'disc' || kind === 'crescent') for (const z of zones) {
-      if (z.outer && R.chance(0.75)) z.r1 += R.range(-Math.max(0, Math.min(64, z.r1 - z.r0 - 170)), 64);
+      if (z.outer && R.chance(coil ? 0.4 : 0.75)) z.r1 += coil ? R.range(-Math.max(0, Math.min(24, z.r1 - z.r0 - 175)), 24) : R.range(-Math.max(0, Math.min(64, z.r1 - z.r0 - 170)), 64);
       if (kind === 'crescent' && Math.abs(z.r0 - pod.ri) < 1e-6 && R.chance(0.6)) z.r0 += R.range(-40, Math.max(0, Math.min(40, z.r1 - z.r0 - 170)));
     }
     if (hub) { pod.hub = hub; zones.unshift({ hub: true, solo: kind === 'solo', a0: 0, a1: TAU, r0: 0, r1: hub }); }
@@ -337,7 +369,7 @@
     if (opt.col && kind !== 'solo') {
       let colR;
       if (kind === 'crescent') { const b = zones[0]; colR = b.outer ? pod.ri + 64 : (pod.ri + b.r1) / 2 - 30; }
-      else if (kind === 'nautilus') colR = hub + 62;
+      else if (kind === 'nautilus') colR = pod.coreR + 62;
       else colR = zones[zones.length - 1].r0 + 56;
       pod.colR = colR; pod.colGap = R.range(54, 62); pod.colStep = R.range(62, 70);   // far enough apart to slip between
       const ok = zones.filter(z => !z.hub && colR - 40 >= z.r0 && colR + pod.colGap + 40 <= z.r1);
@@ -393,13 +425,20 @@
     for (let i = 0, u = -W / 2; i < cols; u += cw[i], i++) for (let j = 0, v = -H / 2; j < rows; v += rh[j], j++) {
       if (!gone.has(key(i, j))) zones.push({ rect: true, u0: u, u1: u + cw[i], v0: v, v1: v + rh[j] });
     }
-    // stagger the outline: an outer side steps in by a bite of 30-70, so long as every wall the
-    // zone shares stays long enough for a door
+    stagger(R, zones, 0.5);
+    if (opt && opt.pill) { const big = zones.filter(z => z.u1 - z.u0 >= 250 && z.v1 - z.v0 >= 250); if (big.length) R.pick(big).pill = true; }
+    for (const z of zones) z.pod = pod;
+    return pod;
+  }
+  // stagger the outline: an outer side steps in by a bite of 30-70, so long as every wall the
+  // zone shares stays long enough for a door
+  function stagger(R, zones, p, skip) {
     const sides = zones.map(z => ['u0', 'u1', 'v0', 'v1'].filter(sd => !rectShared(zones, z, sd)));
     const shared = (z) => { const out = []; for (const o of zones) if (o !== z) rectSeams(z, o, out), rectSeams(o, z, out); return out; };
     zones.forEach((z, i) => {
+      if (skip && skip(z)) return;
       for (const sd of sides[i]) {
-        if (!R.chance(0.5)) continue;
+        if (!R.chance(p)) continue;
         const d = R.range(30, 70), sgn = sd[1] === '0' ? 1 : -1, span = sd[0] === 'u' ? z.u1 - z.u0 : z.v1 - z.v0;
         if (span - d < 220) continue;
         const was = z[sd], n0 = shared(z).length;
@@ -408,7 +447,36 @@
         if (now.length < n0 || now.some(s => s.q1 - s.q0 < 175)) z[sd] = was;
       }
     });
-    if (opt && opt.pill) { const big = zones.filter(z => z.u1 - z.u0 >= 250 && z.v1 - z.v0 >= 250); if (big.length) R.pick(big).pill = true; }
+  }
+  // A cross: two broad halls cross at the heart of the block and run on past it as porticoes, so the
+  // outline is a cross, with the rooms in the four corners between the arms (a big corner cut in two,
+  // a corner left open as a court when there are few rooms). Turned a quarter, it reads as a diagonal spine.
+  function crossPod(R, Z, AZ) {
+    const zones = [], pod = { type: 'rect', kind: 'block', cross: true, o: { x: 0, y: 0 }, rot: 0, zones };
+    const h = R.range(120, 140), base = Math.sqrt(AZ), q = () => U.clamp(R.range(0.85, 1.3) * base, 250, 420);
+    const qa = [q(), q()], qb = [q(), q()];   // the corners' reach left and right of the crossing, and above and below
+    const ext = [0, 1, 2, 3].map(() => R.chance(0.75) ? R.range(60, 170) : 0);
+    const hc = h / 2, U0 = -hc - qa[0], U1 = hc + qa[1], V0 = -hc - qb[0], V1 = hc + qb[1];
+    zones.push({ rect: true, corr: true, u0: -hc, u1: hc, v0: -hc, v1: hc });
+    zones.push({ rect: true, corr: true, u0: U0 - ext[0], u1: -hc, v0: -hc, v1: hc }, { rect: true, corr: true, u0: hc, u1: U1 + ext[1], v0: -hc, v1: hc });
+    zones.push({ rect: true, corr: true, u0: -hc, u1: hc, v0: V0 - ext[2], v1: -hc }, { rect: true, corr: true, u0: -hc, u1: hc, v0: hc, v1: V1 + ext[3] });
+    const corners = [[U0, -hc, V0, -hc], [hc, U1, V0, -hc], [U0, -hc, hc, V1], [hc, U1, hc, V1]];
+    let rooms = Math.max(3, Z - 5);
+    const order = [0, 1, 2, 3]; for (let i = 3; i > 0; i--) { const j = R.int(0, i); [order[i], order[j]] = [order[j], order[i]]; }
+    const keep = order.slice(0, Math.min(4, rooms));
+    let splits = Math.max(0, rooms - keep.length);
+    for (const ci of keep) {
+      const [u0, u1, v0, v1] = corners[ci], w = u1 - u0, d = v1 - v0;
+      if (splits > 0 && Math.max(w, d) >= 380) {
+        splits--;
+        // cut square to the long side, never leaving a room thinner than a doorway's wall
+        if (w >= d) { const m = U.lerp(u0 + 180, u1 - 180, R.range(0.3, 0.7)); zones.push({ rect: true, u0, u1: m, v0, v1 }, { rect: true, u0: m, u1, v0, v1 }); }
+        else { const m = U.lerp(v0 + 180, v1 - 180, R.range(0.3, 0.7)); zones.push({ rect: true, u0, u1, v0, v1: m }, { rect: true, u0, u1, v0: m, v1 }); }
+      } else zones.push({ rect: true, u0, u1, v0, v1 });
+    }
+    stagger(R, zones, 0.6, z => z.corr);
+    const big = zones.filter(z => !z.corr && z.u1 - z.u0 >= 250 && z.v1 - z.v0 >= 250);
+    if (big.length && R.chance(0.5)) R.pick(big).pill = true;
     for (const z of zones) z.pod = pod;
     return pod;
   }
@@ -416,8 +484,10 @@
   // each room as deep as it likes
   function wingPod(R, Z, AZ, opt) {
     const zones = [], pod = { type: 'rect', kind: 'wing', o: { x: 0, y: 0 }, rot: 0, zones };
-    const nC = Z >= 7 ? 3 : 2, m = Math.max(1, Z - nC), top = Math.ceil(m / 2), bot = m - top;
-    const Wh = R.range(120, 150), rw = R.range(220, 250), rd = R.range(220, 236);
+    // the rooms are as big as a rotunda's cells, but each is only half one, so a wing hangs about twice the
+    // zone count off its hall: it covers as much floor as the other kinds and is no thinner a floor
+    const Wh = R.range(120, 150), rw = R.range(220, 250), rd = R.range(220, 236), per = rw * rd;
+    const m0 = Math.max(1, Math.round((Z - 2) * AZ / per)), nC = m0 >= 7 ? 3 : 2, m = Math.max(1, Math.round((Z - nC) * AZ / per)), top = Math.ceil(m / 2), bot = m - top;
     const stag = R.range(0, rw * 0.5), slots = Math.max(top * rw, bot * rw + stag);
     const e0 = R.range(70, 170), e1 = R.range(70, 170), len = slots + e0 + e1;
     const cuts = [-e0]; for (let i = 1; i < nC; i++) cuts.push(-e0 + len * (i + R.range(-0.12, 0.12)) / nC); cuts.push(slots + e1);
@@ -608,14 +678,14 @@
     if (kind === 'disc') {
       // the rotunda is the floor: at most a small round room close by its rim, never a box out on a stalk
       const sat = R.weighted([['tower', n >= 2 ? 0.15 : 0], ['solo', 0.9], ['none', 1]]);
-      const main = polarPod(R, Z - (sat === 'none' ? 0 : 1), 'disc', AZ, { col: R.chance(0.75) });
+      const main = polarPod(R, Z - (sat === 'none' ? 0 : 1), 'disc', AZ, { col: R.chance(0.75), coil: R.chance(0.7) });
       P.pods.push(main);
       if (sat === 'tower') join(main, towerPod(R), thin({ len: R.range(70, 110), delta: R.range(-0.5, 0.5) }));
       else if (sat === 'solo') join(main, polarPod(R, 1, 'solo', AZ * R.range(0.6, 0.9)), hall({ len: R.range(45, 90) }));
     } else if (kind === 'crescent') {
       // a long crescent, now and then capped at a horn by a small round room (a box on a stalk only rarely)
       const tw = R.chance(0.15), cap = !tw && Z >= 7 && R.chance(0.45);
-      const main = polarPod(R, Z - (tw || cap ? 1 : 0), 'crescent', AZ, { facet: R.chance(0.45), col: R.chance(0.8) });
+      const main = polarPod(R, Z - (tw || cap ? 1 : 0), 'crescent', AZ, { facet: R.chance(0.45), col: R.chance(0.8), coil: R.chance(0.6) });
       P.pods.push(main);
       if (tw) join(main, towerPod(R), thin({ end: true, len: R.range(70, 120), skew: 0.3, delta: R.range(-0.4, 0.4) }));
       if (cap) join(main, polarPod(R, 1, 'solo', AZ * 0.7), hall({ end: true, len: R.range(45, 90), skew: 0.2 }));
@@ -624,6 +694,12 @@
       const tw = R.chance(0.12), main = polarPod(R, Z - (tw ? 1 : 0), 'nautilus', AZ, { col: R.chance(0.65) });
       P.pods.push(main);
       if (tw) join(main, towerPod(R), thin({ len: R.range(70, 120), delta: R.range(-0.5, 0.5) }));
+    } else if (kind === 'block' && Z >= 8 && R.chance(0.55)) {
+      // a cross of halls with rooms in its corners, square to the frame or turned to a diagonal
+      const tw = R.chance(0.35) ? 1 : 0, main = crossPod(R, Z - tw, AZ);
+      main.rot = R.int(0, 3) * Math.PI / 2 + (R.chance(0.45) ? Math.PI / 4 : R.range(-0.2, 0.2));
+      P.pods.push(main);
+      if (tw) join(main, towerPod(R), thin({ corr: true, delta: R.range(-0.45, 0.45) }));
     } else if (kind === 'block') {
       const ann = Z >= 5 && R.chance(0.8) ? (Z >= 8 ? 3 : 2) : 0, tw = R.chance(ann ? 0.4 : 0.8) ? 1 : 0;
       const main = blockPod(R, Math.max(2, Z - ann - tw), AZ, { pill: R.chance(0.5) });
@@ -653,7 +729,7 @@
       // the big one somewhere along the chain, not always at its head
       big = parts[0];
       const order = parts.slice(1); order.splice(R.int(0, Math.min(2, order.length)), 0, big);
-      const pods = order.map(k => k === 1 ? polarPod(R, 1, 'solo', AZ * R.range(0.6, 1.3)) : polarPod(R, k, 'disc', AZ, { col: k >= 5 && R.chance(0.6) }));
+      const pods = order.map(k => k === 1 ? polarPod(R, 1, 'solo', AZ * R.range(0.45, 1.5)) : polarPod(R, k, 'disc', AZ, { col: k >= 5 && R.chance(0.6), coil: k >= 5 && R.chance(0.5) }));
       P.pods.push(pods[0]);
       for (let i = 1; i < pods.length; i++) {
         const prev = P.pods[P.pods.length - 1];
@@ -662,23 +738,33 @@
       if (P.pods.length < Math.min(3, m)) return null;
     } else {
       // twin: two masses, each a building of its own, joined by one long hall
-      const k1 = Math.ceil(Z / 2), k2 = Z - k1;
+      const k1 = Math.max(Math.ceil(Z / 2), Math.min(Z - 3, Math.round(Z * R.range(0.55, 0.68)))), k2 = Z - k1;   // one mass clearly the bigger
       const types = R.weighted([[['disc', 'block'], 0.5], [['block', 'disc'], 0.4], [['disc', 'disc'], 1.4], [['disc', 'crescent'], k2 >= 4 ? 1 : 0], [[k1 >= 5 ? 'nautilus' : 'disc', 'disc'], 1.1]]);
-      const mk = (t, k) => t === 'block' ? blockPod(R, Math.max(2, k), AZ, { pill: R.chance(0.4) }) : polarPod(R, Math.max(3, k), t, AZ, { col: R.chance(0.6), facet: t === 'crescent' && R.chance(0.3) });
+      const mk = (t, k) => t === 'block' ? blockPod(R, Math.max(2, k), AZ, { pill: R.chance(0.4) }) : polarPod(R, Math.max(3, k), t, AZ, { col: R.chance(0.6), facet: t === 'crescent' && R.chance(0.3), coil: k >= 5 && R.chance(0.5) });
       const main = mk(types[0], k1);
       if (main.type === 'rect') main.rot = R.int(0, 3) * Math.PI / 2;
       P.pods.push(main);
       if (!join(main, mk(types[1], k2), { w: R.range(104, 136), len: R.range(110, 220), delta: types[1] === 'block' ? skew() : 0 })) return null;
     }
-    // rectangular bites out of the outer arcs, kept clear of the halls
+    // bites out of the outer arcs, kept clear of the halls: a single notch, or a row of two to four
+    // teeth (a sawtooth, deepening or shallowing along the row) on a long enough stretch of rim
     for (const pod of P.pods) if (pod.type === 'polar' && pod.kind !== 'solo') for (const z of pod.zones) {
-      if (!z.outer || z.hub || !R.chance(0.45)) continue;
-      const depth = R.range(44, 76), bw = R.range(70, 120) / z.r1, m = 84 / z.r1, room = z.a1 - z.a0 - bw - 2 * m;
-      if (z.r1 - z.r0 - depth < 165 || room <= 0) continue;
-      const b0 = z.a0 + m + R() * room, b1 = b0 + bw;
-      if ((z.caps || []).some(c => c.a + c.h > b0 && c.a - c.h < b1)) continue;
-      if (z.col && pod.colR + pod.colGap + 40 > z.r1 - depth) continue;
-      z.bites = [{ b0, b1, rb: z.r1 - depth }];
+      if (!z.outer || z.hub || !R.chance(0.65)) continue;
+      const m = 84 / z.r1, free = z.a1 - z.a0 - 2 * m;
+      let teeth = free * z.r1 > 300 && R.chance(0.6) ? R.int(2, 4) : 1;
+      const bw = (teeth > 1 ? R.range(46, 66) : R.range(70, 130)) / z.r1, gap = R.range(54, 86) / z.r1;
+      while (teeth > 1 && teeth * bw + (teeth - 1) * gap > free) teeth--;
+      const total = teeth * bw + (teeth - 1) * gap, d0 = R.range(44, 80), d1 = teeth > 1 && R.chance(0.6) ? R.range(36, 84) : d0;
+      if (total > free) continue;
+      const s0 = z.a0 + m + R() * (free - total), bites = [];
+      for (let i = 0; i < teeth; i++) {
+        const b0 = s0 + i * (bw + gap), b1 = b0 + bw, depth = U.lerp(d0, d1, teeth > 1 ? i / (teeth - 1) : 0);
+        if (z.r1 - z.r0 - depth < 165) continue;
+        if ((z.caps || []).some(c => c.a + c.h > b0 && c.a - c.h < b1)) continue;
+        if (z.col && pod.colR + pod.colGap + 40 > z.r1 - depth) continue;
+        bites.push({ b0, b1, rb: z.r1 - depth });
+      }
+      if (bites.length) z.bites = bites;
     }
     P.zones = [];
     for (const pod of P.pods.concat(P.necks)) for (const z of pod.zones) P.zones.push(z);
@@ -1782,16 +1868,20 @@
       let cams = 0;
       // no camera in a hall, a neck or a tower: there is no way round its look, only through it
       const camCap = room.corr || room.neck || room.tower ? 0 : small(room) ? Math.max(0, 2 - count) : (room.kind === 'circle' ? room.r : room.R) > 240 ? 2 : 1;
-      for (let k = 0, t = 0; k < count && t < (loose ? 24 : 48); t++) {
+      // (and the floor as a whole stops at its budget, short of the cameras it is still owed (camFloor): a pair of
+      // walkers on one loop, or the cameras put up after, never takes it past)
+      const full = () => L.guards.length + L.cams.length + Math.max(0, (D.cams ? camFloor(n) : 0) - L.cams.length) >= budget;
+      for (let k = 0, t = 0; k < count && !full() && t < (loose ? 24 : 48); t++) {
         // never a post in the room just past the stairs room: its only way in is that first door
         const second = room.idx === 1 && !room.side;
         const kind = R.weighted([['patrol', 4.5], ['pace', 2.5], ['sentry', second ? 0 : (room.side ? 3 : 2) + (n >= 3 && n < 9 ? 1 : 0)], ['cam', D.cams && cams < camCap ? 1.4 : 0]]);
-        if (kind === 'cam') { cams += camIn(room); continue; }
+        // a camera is one of the room's watchers, not one on top of them, so a floor's count stays near its budget
+        if (kind === 'cam') { const c = camIn(room); cams += c; k += c; continue; }
         if (kind === 'sentry') {
           if (sentryAt(room)) k++;
           continue;
         }
-        k += beatIn(room, kind, k < count + 1);
+        k += beatIn(room, kind, k < count + 1 && L.guards.length + Math.max(L.cams.length, D.cams ? camFloor(n) : 0) + 2 <= budget);
       }
     }
     // the mix: from the third floor at least one post stands still in a room, and from the thirteenth at
@@ -1830,7 +1920,7 @@
     const target = watchFloor(budget, n, loose), fill = loose || n < 3 ? target : budget, wantWalk = walkFloor(n);
     const walkers = () => L.guards.filter(g => g.path).length, postRoom = () => posts().length < sentryCap(walkers());
     const roomFor = (room) => (small(room) ? 2 : 3) - inRoomN(room);
-    for (let t = 0; t < 120 && pool.length && (L.guards.length + L.cams.length < fill || walkers() < wantWalk) && L.guards.length < budget; t++) {
+    for (let t = 0; t < 120 && pool.length && (L.guards.length + L.cams.length < fill || walkers() < wantWalk) && L.guards.length + L.cams.length < budget + (walkers() < wantWalk ? 1 : 0); t++) {
       const room = R.pick(pool), left = roomFor(room);
       if (left <= 0) continue;
       let got = 0;

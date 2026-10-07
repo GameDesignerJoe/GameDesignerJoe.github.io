@@ -405,6 +405,59 @@ for (const [seed, fl, how] of [[22, 5, 'cover'], [44, 9, 'cover'], [9, 7, 'cover
   }
   check(n === 6 && ok >= 5, `close '?' sidestep: no chase ${ok}/${n} (${log.join('; ')})`);
 }
+// a sure search (floor 6 up) doesn't end at one corner: lost round a corner, it looks where it last saw you, then
+// walks on the way you were heading and looks again. A silent sneak kept on that heading still outpaces it, so the
+// searcher reaches its second spot and you're not caught
+{
+  let ok = 0, n = 0; const log = [];
+  for (const [seed, fl] of [[3, 6], [11, 7], [5, 8], [21, 9], [8, 10], [13, 11], [17, 6], [31, 12], [44, 8], [9, 7], [22, 9], [2, 10]]) {
+    if (n >= 6) break;
+    await page.evaluate(([s, f]) => { localStorage.clear(); GAME.save.runSeed = s; GAME.startFloor(f); GAME.skipIntro(); GAME.stick.on = false; }, [seed, fl]); await wait(300);
+    const r = await page.evaluate(() => new Promise(res => {
+      const L = GAME.L, f = L.field, ray = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy); return f.ray(a.x, a.y, dx / d, dy / d, d) >= d - 4; };
+      // a corner: a spot C the guard can see, and a clear lane on from it (350 long) that it can't see down
+      let sc = null;
+      for (let k = 0; k < 30000 && !sc; k++) {
+        const C = { x: L.entrance.x + (Math.random() - 0.5) * 2400, y: L.entrance.y + (Math.random() - 0.5) * 2400 };
+        if (f.sample(C.x, C.y) < 16) continue;
+        const a = Math.random() * Math.PI * 2, u = { x: Math.cos(a), y: Math.sin(a) };
+        let lane = true; for (let t = 0; t <= 350 && lane; t += 10) { const q = { x: C.x + u.x * t, y: C.y + u.y * t }; lane = f.sample(q.x, q.y) >= 14 && !L.shades.some(s => Math.hypot(q.x - s.x, q.y - s.y) < s.r + 12); }
+        if (!lane) continue;
+        for (let j = 0; j < 24 && !sc; j++) {
+          const b = Math.random() * Math.PI * 2, e = 80 + Math.random() * 50, G = { x: C.x + Math.cos(b) * e, y: C.y + Math.sin(b) * e };
+          if (f.sample(G.x, G.y) < 14 || !ray(G, C)) continue;
+          const M = { x: (G.x + C.x) / 2, y: (G.y + C.y) / 2 }, N = { x: G.x * 0.25 + C.x * 0.75, y: G.y * 0.25 + C.y * 0.75 }; let hid = true; for (let t = 50; t <= 350 && hid; t += 15) { const q = { x: C.x + u.x * t, y: C.y + u.y * t }; hid = !ray(G, q) && (t < 80 || !ray(M, q)); }
+          if (hid) sc = { C, u, G };
+        }
+      }
+      if (!sc) return res(null);
+      const { C, u, G } = sc, g = GAME.guards[0];
+      GAME.guards.forEach(o => { if (o !== g) { o.x = o.home.x = 1e5; o.y = o.home.y = 1e5; o.path = null; o.kind = 'sentry'; } }); GAME.cams.length = 0;
+      g.x = G.x; g.y = G.y; g.ang = Math.atan2(C.y - G.y, C.x - G.x);
+      // it saw you at C going along u (a sneak), then lost you round the corner, a couple of seconds back
+      g.state = 'sus'; g.aw = 0.5; g.peakAw = 0.9; g.felt = false; g.elbowT = 0; g.repath = 0; g.susAt = { x: C.x, y: C.y };
+      g.last = { x: C.x, y: C.y }; g.lastV = { x: u.x * 57, y: u.y * 57 }; g.lost = 1;
+      GAME.teleport(C.x + u.x * 130, C.y + u.y * 130);
+      const t0 = performance.now(); let leg2 = false, reached = false, tr = [], ls = '';
+      const tick = () => {
+        const t = (performance.now() - t0) / 1000, P = GAME.P, along = (P.x - C.x) * u.x + (P.y - C.y) * u.y;
+        GAME.stick.on = along < 345; GAME.stick.x = GAME.stick.on ? u.x * 0.6 : 0; GAME.stick.y = GAME.stick.on ? u.y * 0.6 : 0;
+        const k = g.state + (g.leg2 ? '2' : '') + (g.scanT >= 0 ? 's' : ''); if (k !== ls) { ls = k; tr.push(k + '@' + t.toFixed(1) + ':' + Math.round(along) + '/' + Math.round(Math.hypot(P.x - g.x, P.y - g.y))); }
+        if (g.state === 'chase' || GAME.mode === 'caught') return res(tr.join(' ') + ' chase@' + t.toFixed(1) + (leg2 ? ' on leg 2' : ''));
+        leg2 = leg2 || g.leg2; if (g.leg2 && g.state === 'search' && g.scanT >= 0) reached = true;
+        if (reached) return res('reached the second spot @' + t.toFixed(1) + ' ' + Math.round(Math.hypot(g.x - C.x, g.y - C.y)) + ' on, you ' + Math.round(Math.hypot(P.x - g.x, P.y - g.y)) + ' off');
+        if (t > 14) return res(tr.join(' ') + ' no second spot (' + g.state + (leg2 ? ', leg 2' : '') + ')');
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }));
+    await page.evaluate(() => { GAME.stick.on = false; GAME.stick.x = GAME.stick.y = 0; });
+    log.push(`f${fl} ${r}`);
+    if (r) { n++; if (r.startsWith('reached')) ok++; }
+    if (await page.evaluate(() => GAME.mode) === 'caught') await wait(2600);
+  }
+  check(n === 6 && ok >= 5, `sure search walks on: second spot reached, not caught ${ok}/${n} (${log.join('; ')})`);
+}
 check(errors.length === 0, 'no page errors ' + errors.join(' | '));
 await browser.close(); srv.close();
 console.log(`${el()}done, ${fails} FAIL`);

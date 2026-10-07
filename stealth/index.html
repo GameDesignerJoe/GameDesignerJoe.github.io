@@ -75,6 +75,7 @@
   #stick.intro:not(.on) { opacity: 0; transition: none; }   /* hidden under the floor banner, but live: a push skips the card */
   #stick.mapdim:not(.gone):not(.dim) { opacity: .35; }   /* the map is up: the stick reads as resting (a first touch closes the map) */
   #stick.idle:not(.on):not(.run):not(.gone):not(.dim):not(.mapdim) { opacity: .45; }   /* resting for 1.5s: it steps back off the floor (a touch, or a pad's run, brings it back) */
+  @media (orientation: landscape) { #stick.idle:not(.on):not(.run):not(.gone):not(.dim):not(.mapdim) { opacity: .25; } }   /* on its side it rests over the floor itself: further back still */
   @media (orientation: landscape) {
     #stick { left: auto; right: calc(env(safe-area-inset-right) + 26px); bottom: calc(env(safe-area-inset-bottom) + 16px); transform: none; width: 188px; height: 188px; }
     #stick::after { inset: -28px; }
@@ -84,7 +85,7 @@
   body.desk:not(.chrome) canvas { cursor: crosshair; }
 
   /* banners and stamps */
-  #banner { position: fixed; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .45s, transform .45s; }
+  #banner { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 6vh); text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .45s, transform .45s; }
   /* the card lands: a quick drop from 1.15x that overshoots a touch and settles, rather than only fading up */
   #banner.show { opacity: 1; transform: none; animation: bannerIn .35s cubic-bezier(.34,1.56,.64,1) both; }
   @keyframes bannerIn { from { opacity: 0; transform: scale(1.15); } to { opacity: 1; transform: none; } }
@@ -96,6 +97,9 @@
     text-shadow: 0 8px 0 rgba(18,49,63,.6); -webkit-text-stroke: 2px rgba(18,49,63,.35); paint-order: stroke fill; }   /* a heavy word with a solid drop, straight on the scene */
   #banner .bs { display: inline-block; margin-top: 10px; font-size: 18px; font-weight: 700; letter-spacing: 8px; padding: 5px 10px 5px 18px; border-radius: 999px; text-transform: uppercase;
     color: var(--ink); background: rgba(233,245,248,.88); box-shadow: 0 3px 0 rgba(18,49,63,.3); }
+  /* the card owns empty space, not the map: upright it takes the HUD's band (hidden during the intro) and the map fits below it
+     (overviewFrame in game.js reads the card's box); on its side it sits bottom-left in the stick's free column, as the reference's LURK */
+  @media (orientation: portrait) { #banner { top: calc(env(safe-area-inset-top) + 34px); } }
   /* the stamp sits in the top third: the centre of the screen is where the capture happens, and it stays in view */
   #result { position: fixed; inset: 0; display: grid; place-content: start center; padding-top: calc(env(safe-area-inset-top) + 17vh); text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .3s; }
   /* a catch has no CSS ink: the canvas draws it (drawInk), with a hole round the capture so the '!' and both squares stay at full brightness */
@@ -128,10 +132,13 @@
   /* no stars found: the empty slots still keep the beat, each one pulsing once in turn */
   #result.show .stars span.miss { animation: slotPulse .3s ease-in-out both; }
   @keyframes slotPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); -webkit-text-stroke-color: rgba(233,245,248,.95); } }
-  #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 98px); transform: translate(-50%, -10px); max-width: min(80vw, 440px); width: max-content; text-wrap: balance;
-    padding: 9px 16px; border-radius: 12px; background: rgba(18,49,63,.84); color: var(--pale); font-size: 14px; line-height: 1.35; text-align: center;
+  #toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 98px); transform: translate(-50%, -10px); max-width: min(70vw, 320px); width: max-content; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 8px 16px; border-radius: 999px; background: rgba(18,49,63,.84); color: var(--pale); font-size: 14px; font-weight: 700; line-height: 1.35; text-align: center;
     opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none; z-index: 4; }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #toast.cut { transition: none; }   /* caught / clear: gone at once, never a ghost under the flash */
+  /* a danger call sits under the player, where the eye already is (game.js places it) */
+  #toast.near { top: var(--ty, 60%); }
   #wipe { position: fixed; inset: 0; background: #15364a; z-index: 6; pointer-events: none; transform: translateY(100%); }
   #wipe.in { transform: translateY(0); transition: transform .5s cubic-bezier(.7,0,.3,1); }
   #wipe.out { transform: translateY(-100%); transition: transform .55s cubic-bezier(.7,0,.3,1); }
@@ -222,7 +229,10 @@
     #result .sub { margin-top: 10px; }
     #result .sub.above { margin: 0 0 8px; }
     #result .sub.foot { display: none; }
-    #banner { top: 22%; }
+    #banner { top: auto; bottom: calc(env(safe-area-inset-bottom) + 24px); left: calc(env(safe-area-inset-left) + 24px); right: auto; text-align: left; }
+    body[data-stick=left] #banner { left: auto; right: calc(env(safe-area-inset-right) + 24px); text-align: right; }
+    #banner::before { left: 0; width: 160%; transform: translate(-30%, -50%); }
+    body[data-stick=left] #banner::before { left: auto; right: 0; transform: translate(30%, -50%); }
     #banner .bn { font-size: clamp(48px, 15vh, 76px); }
     #banner .bs { font-size: 15px; letter-spacing: 6px; margin-top: 6px; }
     .tag { max-width: min(76vh, calc(100vw - 32px)); letter-spacing: 3px; }
@@ -273,6 +283,8 @@
     body.desk #knockBtn svg { width: 32px; height: 32px; }
     body.desk #knockBtn i { font-size: 13px; padding: 1px 5px; }
     .stamp { font-size: clamp(72px, 9vw, 150px); }
+    #banner .bn { font-size: clamp(96px, 8vw, 150px); }
+    #banner .bs { font-size: clamp(22px, 1.8vw, 32px); letter-spacing: .45em; padding: 6px 16px 6px 26px; margin-top: 14px; }
     #result .stars { font-size: 64px; margin-top: 22px; }
     #result .sub { font-size: clamp(20px, 1.6vw, 30px); padding: 6px 18px; letter-spacing: 4px; }
     #result .sub.tally { margin-top: 16px; }
@@ -300,11 +312,11 @@
     #hudStars { top: calc(env(safe-area-inset-top) + 6px); font-size: 18px; height: 40px; padding: 0 8px 0 12px; display: flex; align-items: center; }
   }
   @media (min-width: 1000px) and (min-height: 501px) {
-    #toast { font-size: clamp(17px, 1.05vw, 20px); padding: 13px 22px; border-radius: 14px; max-width: clamp(560px, 34vw, 640px); top: calc(env(safe-area-inset-top) + clamp(120px, 9vw, 168px)); }
+    #toast { font-size: clamp(17px, 1.05vw, 20px); padding: 13px 22px; border-radius: 999px; max-width: clamp(560px, 34vw, 640px); top: calc(env(safe-area-inset-top) + clamp(120px, 9vw, 168px)); }
   }
   /* the knock: beside the thumb's stick; its ring fills back up over six seconds */
   #knockBtn { position: fixed; z-index: 2; width: 54px; height: 54px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; color: var(--ink); touch-action: none;
-    left: calc(env(safe-area-inset-left) + 18px); bottom: calc(env(safe-area-inset-bottom) + 240px);   /* above the stick ring's top-left, clear of a thumb resting on its rim */
+    left: calc(env(safe-area-inset-left) + 18px); bottom: calc(env(safe-area-inset-bottom) + 18px + 79px);   /* in the thumb row, beside the stick's midline and clear of its ring */
     background: radial-gradient(circle, rgba(233,245,248,.86) 60%, transparent 61%), conic-gradient(var(--orange) calc(var(--k, 1) * 360deg), rgba(233,245,248,.3) 0);
     box-shadow: 0 3px 0 rgba(18,49,63,.25); transition: opacity .4s; }
   #knockBtn svg { width: 26px; height: 26px; opacity: .45; }
@@ -312,6 +324,7 @@
   #knockBtn.ready { background: radial-gradient(circle, rgba(233,245,248,.9) 60%, transparent 61%), conic-gradient(#fff 0 360deg); }
   #knockBtn:active { transform: translateY(2px); }
   #knockBtn i { display: none; position: absolute; right: -2px; bottom: -2px; font-style: normal; font-size: 11px; font-weight: 700; background: var(--ink); color: var(--pale); border-radius: 5px; padding: 0 4px; }
+  @media (orientation: portrait) { body[data-stick=left] #knockBtn { left: auto; right: calc(env(safe-area-inset-right) + 18px); } }
   @media (orientation: landscape) {
     #knockBtn { left: auto; right: calc(env(safe-area-inset-right) + 26px + 188px + 14px); bottom: calc(env(safe-area-inset-bottom) + 20px); }
     body[data-stick=left] #knockBtn { right: auto; left: calc(env(safe-area-inset-left) + 26px + 188px + 14px); }

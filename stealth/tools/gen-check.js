@@ -1,4 +1,4 @@
-// node stealth/tools/gen-check.js [count] [top] — generates floors 1..top (default 12) for many seeds, reports failures and timing,
+// node stealth/tools/gen-check.js [count] [top] [runs] — generates floors 1..top (default 12) for many seeds, reports failures and timing,
 // then checks the building kinds a run climbs through: never the same kind twice in a row, and at least
 // four kinds in any ten floors running. Reports the guard mix per floor too: walkers, posts, and the floors where
 // posts outnumber walkers two to one (sentry-heavy). Also fails a camera that can't see out from its wall, a plugged
@@ -41,5 +41,21 @@ for (let r = 0; r < 300; r++) {
 }
 fails += repeats + thin;
 console.log(`variety: ${runs} runs of 20 floors, ${repeats} back-to-back repeats, fewest kinds in any 10 floors ${minDistinct}`);
+// and the climb itself: over whole runs (floors 1..16) the watchers (guards and cameras) never fall away sharply
+// from one floor to the next (a step that loses three or more on at most 3% of steps), and no floor from the third
+// up has fewer than one per floor-and-a-third climbed, round(1 + 0.75n), whatever kind of building it is
+const RUNS = +process.argv[4] || 30; let steps = 0, sharp = 0, under = 0, upFloors = 0;
+for (let r = 0; r < RUNS; r++) {
+  const runSeed = 5000 + r; let prev = -1;
+  for (let fl = 1; fl <= 16; fl++) {
+    let L; try { L = LEVEL.generate(U.hash(runSeed, fl), fl, LEVEL.history(runSeed, fl)); } catch (e) { fails++; console.log('FAIL', fl, 'run', runSeed, e.message); prev = -1; continue; }
+    const w = L.guards.length + L.cams.length;
+    if (prev >= 0) { steps++; if (w <= prev - 3) { sharp++; console.log('drop', runSeed, 'f' + (fl - 1) + '->f' + fl, prev, '->', w, L.plan.kind); } }
+    if (fl >= 3) { upFloors++; if (w < Math.round(1 + 0.75 * fl)) { under++; fails++; console.log('FAIL thin floor', fl, 'run', runSeed, w, 'watchers', L.plan.kind); } }
+    prev = w;
+  }
+}
+if (sharp > 0.03 * steps) { fails++; console.log('FAIL sharp drops', sharp + '/' + steps); }
+console.log(`climb: ${RUNS} runs of 16 floors, ${sharp}/${steps} steps lose 3+ watchers, ${under}/${upFloors} floors under round(1 + 0.75n)`);
 console.log('worst ms', worst, 'no timed route', timed + '/' + total, 'fails', fails);
 process.exit(fails ? 1 : 0);

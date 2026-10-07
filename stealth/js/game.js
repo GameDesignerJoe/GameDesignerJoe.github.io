@@ -13,14 +13,13 @@
     wall: '#d6e9ee',
     player: '#ff8a3d', playerHi: '#ffc896', playerLo: '#b84f17',
     guard: '#15364a', guardHi: '#2b566c', guardRim: '#cfe6ee',
-    star: '#f5e86a', starRing: 'rgba(245,232,106,0.32)',
-    // calm cones: one flat light-cyan wedge (about #5FB3CB on the lit floor), no band at the arc; they're gathered
-    // on a layer that keeps the brightest of them, so crossing fans keep the one tint and never add up
-    coneFill: 'rgb(36,68,78)',
-    // a cast shadow falling across a cone dims the light under it, so the cone reads as light in the room, not an overlay
-    coneShade: 'rgb(212,224,230)',
+    star: '#efe598', starRing: 'rgba(230,248,252,0.28)',
+    // calm cones: one light-cyan wedge laid at half strength (about #63B8CF on the lit floor, still a clear step above
+    // it where the fan crosses a cast shadow), a step brighter (about #7FCDE0) in the third nearest the guard;
+    // crossing fans stack, so an overlap reads brighter still
+    coneFill: 'rgba(122,202,222,0.55)', coneNear: 'rgba(150,222,236,0.32)',
     // hiding spots: a pool of deep shade, one flat step below the cast shadows, that eats any light that crosses it
-    shade: 'rgba(16,64,82,0.42)',
+    pool: '#25627d', shade: 'rgba(16,64,82,0.3)',
     coneHot: 'rgba(255,76,52,0.62)', coneEdgeHot: 'rgba(255,120,90,0.9)',
     // the floor's slab shadow on the void: a soft falloff (stacked thin layers), so the edge fades into the vignette
     // instead of standing on a hard grey shelf
@@ -83,7 +82,7 @@
   let stickTop = 0, safeTop = 0, safeL = 0, safeR = 0, res = null, catcher = null, shot = null, hudBand = null, wipeJob = null, bannerT = 0, chaseHintT = 0;
 
   // ── input ──────────────────────────────────────────────────
-  const stick = { on: false, x: 0, y: 0 }, keys = {};
+  const stick = { on: false, x: 0, y: 0, raw: 0 }, keys = {}, keysTapped = {};   // keysTapped: a key that went down since the last frame, so a tap quicker than a frame still moves (and shuts the map)
   const stickEl = $('stick'), knob = $('knob');
   let stickId = null, stickDownT = -1, lastCx = 0, lastCy = 0;
   // a thumb that lands out by the ring starts a quiet walk, not a run: the landing past 55% of the travel is held as an offset.
@@ -108,11 +107,11 @@
     const dx = rx - stickOrg.x, dy = ry - stickOrg.y;
     const len = Math.hypot(dx, dy) || 1, k = Math.min(len, max);
     knob.style.transform = `translate(${dx / len * k}px, ${dy / len * k}px)`;
-    stick.x = dx / len * k / max; stick.y = dy / len * k / max; stick.on = true;
+    stick.x = dx / len * k / max; stick.y = dy / len * k / max; stick.raw = rl / max; stick.on = true;   // raw: where the thumb really is, grace or not
   }
   // keep: a capture or a floor clear lets go of the input but not of the thumb, which picks the stick back up (as a fresh,
   // quiet landing) the moment play resumes, without having to lift and touch again
-  function clearStick(keep) { stick.on = false; stick.x = stick.y = 0; if (!keep) stickId = null; stickOrg.x = stickOrg.y = stickOrg.len = 0; stickEl.classList.remove('on', 'run', 'loud'); knob.style.transform = ''; }
+  function clearStick(keep) { stick.on = false; stick.x = stick.y = stick.raw = 0; if (!keep) stickId = null; stickOrg.x = stickOrg.y = stickOrg.len = 0; stickEl.classList.remove('on', 'run', 'loud'); knob.style.transform = ''; }
   stickEl.addEventListener('pointerdown', (e) => {
     e.preventDefault(); e.stopPropagation(); AUDIO.unlock();
     if (stickId !== null) return;   // a second finger never steals the thumb's stick
@@ -131,7 +130,7 @@
     if (stickId === null) return;
     if (!stick.on) { stickDownT = time; stickEl.classList.add('on'); setStick(lastCx, lastCy, true); return; }
     if (time - stickDownT <= 0.05 || (!stickOrg.x && !stickOrg.y)) return;
-    const f = Math.exp(-dt * (bolting() ? 20 : 3.5)); stickOrg.x *= f; stickOrg.y *= f;   // about 0.4s of walk on a rim landing, so a clumsy first touch can pull back before it's heard
+    const f = Math.exp(-dt * (bolting() || P.run ? 20 : 3.5)); stickOrg.x *= f; stickOrg.y *= f;   // about 0.4s of walk on a rim landing, so a clumsy first touch can pull back before it's heard; once it runs, the knob snaps home under the thumb
     if (Math.hypot(stickOrg.x, stickOrg.y) < 0.3) stickOrg.x = stickOrg.y = 0;
     setStick(lastCx, lastCy);
   }
@@ -141,14 +140,14 @@
   addEventListener('keydown', (e) => {
     AUDIO.unlock();
     const k = e.code === 'Space' && (paused || (mode !== 'play' && mode !== 'intro')) ? null : KEYMAP[e.code];   // Space still presses menu buttons
-    if (k) { keys[k] = true; e.preventDefault(); if (mode === 'intro' && k !== 'sneak') skipIntro(); }
+    if (k) { keys[k] = true; if (!e.repeat) keysTapped[k] = true; e.preventDefault(); if (mode === 'intro' && k !== 'sneak') skipIntro(); }
     if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
     if (e.code === 'KeyM' || e.code === 'Tab') { e.preventDefault(); toggleMap(); }
     if (e.code === 'KeyE' && !e.repeat) knock();
     if ((e.code === 'Enter' || e.code === 'Space') && mode === 'title' && !e.repeat) startGame();
   });
   addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
-  addEventListener('blur', () => { for (const k in keys) keys[k] = false; clearStick(); });
+  addEventListener('blur', () => { for (const k in keys) keys[k] = keysTapped[k] = false; clearStick(); });
   // gamepad: left stick or D-pad to move, Start pauses, A starts and resumes, Back or Y opens the map
   const padWas = {}; let pad = null;
   function padEdge(p, i, k) { const b = p.buttons[i], on = !!(b && b.pressed), was = padWas[k]; padWas[k] = on; return on && !was; }
@@ -175,7 +174,8 @@
     }
     return null;
   }
-  const anyKey = () => keys.up || keys.down || keys.left || keys.right;
+  const held = (k) => keys[k] || keysTapped[k];
+  const anyKey = () => held('up') || held('down') || held('left') || held('right');
   let lastDt = 1 / 60;
   // one vector and a magnitude: the stick and pad lose a small dead zone, the keys walk quietly by default
   function readInput() {
@@ -185,8 +185,8 @@
     if (stick.on) { x = stick.x; y = stick.y; }
     else if (pad && Math.hypot(pad.x, pad.y) > pad.dz) { x = pad.x; y = pad.y; dz = pad.dz; isPad = true; force = pad.creep ? -1 : 0; }
     else {
-      const kx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), ky = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
-      if (kx || ky) { const l = Math.hypot(kx, ky), s = keys.sneak ? 0.16 : 0.58; x = kx / l * s; y = ky / l * s; dz = 0; kb = true; }   // the plain walk sits under the 0.6 heard line
+      const kx = (held('right') ? 1 : 0) - (held('left') ? 1 : 0), ky = (held('down') ? 1 : 0) - (held('up') ? 1 : 0);
+      if (kx || ky) { const l = Math.hypot(kx, ky), s = held('sneak') ? 0.16 : 0.58; x = kx / l * s; y = ky / l * s; dz = 0; kb = true; }   // the plain walk sits under the 0.6 heard line
     }
     const m0 = Math.min(1, Math.hypot(x, y));
     if (m0 <= dz || m0 < 0.01) return { x: 0, y: 0, m: 0, kb, isPad, force: 0 };
@@ -322,12 +322,12 @@
     updateHUD();
     if (mode !== 'title') {
       mode = 'intro'; modeT = retry ? 1.3 : 0;
+      showBanner(retry ? null : n);   // first: the fly-over's frame is fitted round the card
       { const o = overviewFrame(); view.x = o.x; view.y = o.y; view.z = o.z; }
       if (retry) {
         view.x = P.x; view.y = P.y; view.z = baseZ() * 0.92;
         P.scale = 0; popT = -0.12;   // the pop waits for the ink to start lifting, so it is seen
       }
-      showBanner(retry ? null : n);
       $('hud').classList.toggle('intro', !retry);   // one clean title card: the HUD tag comes in once the banner goes
       stickEl.classList.toggle('intro', !retry);   // the stick (and the knock, after the HUD in the markup) too; it still takes a push, which skips the card
       if (!retry) AUDIO.play('floor');
@@ -352,6 +352,20 @@
     const rect = (q) => { const e = document.querySelector(q), r = e && e.getBoundingClientRect(); return r && r.height ? r : null; };
     const tag = rect('#hud .floorTag'), stars = rect('#hudStars'), btns = rect('#hud .right');
     let f = fit(Math.max(safeTop + 140, tag ? tag.bottom + 46 : 0), left, right);   // under the tag and a key chip
+    // the floor card owns its own space. The HUD and the stick are hidden under it, so the fly-over only steps round the card:
+    // upright and on a desktop it sits on top and the map starts under it; on a phone on its side it sits bottom-left
+    // (bottom-right for a left stick), so the map either rises above it or steps beside it, whichever leaves it bigger
+    const bn = mode === 'intro' && bannerT > 0 ? $('banner').getBoundingClientRect() : null;
+    if (bn && bn.height) {
+      const fb = (top, l, rr, b) => ({ top, l, r: rr, b, z: Math.min((W - 40 - l - rr) / floorBox.w, (H - top - b) / floorBox.h) });
+      if (bn.top < H / 2) f = fb(bn.bottom + 14, 0, 0, 30);
+      else {
+        const top = safeTop + 24, up = fb(top, 0, 0, H - bn.top + 14);
+        const side = bn.left > W / 2 ? fb(top, 0, W - bn.left - 6, 30) : fb(top, bn.right - 6, 0, 30);
+        f = up.z >= side.z ? up : side;
+      }
+      return { x: floorBox.cx + (f.r - f.l) / 2 / f.z, y: floorBox.cy + (f.b - f.top) / 2 / f.z, z: f.z };
+    }
     if (!isPortrait()) {
       const cr = rect('#hud .left');
       if (cr && cr.width) {
@@ -364,10 +378,11 @@
   const isPortrait = () => H > W;
   // the play zoom: close, like the original (the player about 4% of the short side), but never so close a cone is cropped
   function baseZ() {
-    const s = isPortrait() ? W / 340 : H / 330;
+    const s = isPortrait() ? W / 300 : H / 330;   // upright, a tall phone's player reads at nearer 4% of its height
     // the short way decides: a guard at the full reach of his cone stays on screen, square and all (from the side when
-    // upright, from above or below on its side), so the light never comes in from beyond the frame
-    const cl = D ? D.coneLen : 160, coneFit = isPortrait() ? W / (2 * (cl + 24)) : H / (2 * (cl + 16));
+    // upright, from above or below on its side), so the light never comes in from beyond the frame. Upright that side-on
+    // reach is the tight one, so it may crop the far guard's square at the edge (his centre still shows) to come 12% closer
+    const cl = D ? D.coneLen : 160, coneFit = isPortrait() ? 1.12 * W / (2 * (cl + 24)) : H / (2 * (cl + 16));
     return U.clamp(Math.min(s, coneFit), 0.8, isTouch ? 2.0 : 2.6);   // a big PC screen still frames the player at about 4% of its height
   }
 
@@ -393,6 +408,7 @@
   function updatePlayer(dt) {
     relaxStick(dt);
     const inp = readInput();
+    for (const k in keysTapped) keysTapped[k] = false;   // a tap gives its one frame, then only a held key counts
     const m = inp.m;
     // like the maze, a move clears the map: on keys or a pad as on the stick (which closes it on touch). A key already
     // held when the map opened has to be let go first, so the map doesn't shut the moment it opens
@@ -409,12 +425,14 @@
     else if (inp.mouse) { if (P.run ? m < 0.8 : m > 0.88) P.run = !P.run; }
     else if (P.run ? m < 0.8 : m > 0.88 && (time - stickDownT > 0.12 || bolting())) P.run = !P.run;   // never a run on the first touch, unless it's an escape
     let speed = 0;
-    if (m > 0) speed = P.run ? U.lerp(86, 128, U.clamp((m - 0.88) / 0.12, 0, 1)) : 14 + 61 * Math.pow(Math.min(1, m / 0.85), 0.8);   // a creep from 14 just past the dead zone (fine work at a cone's edge), yet the mid-stick sneak (60 at 0.6) and the 75 top of the walk as before
+    // the run's pace reads the thumb itself, not the landing's grace: a thumb out on the rim breaks into the full sprint the moment the run starts
+    const mr = stick.on ? Math.max(m, (stick.raw - 0.12) / 0.88) : m;
+    if (m > 0) speed = P.run ? U.lerp(86, 128, U.clamp((mr - 0.88) / 0.12, 0, 1)) : 14 + 61 * Math.pow(Math.min(1, m / 0.85), 0.8);   // a creep from 14 just past the dead zone (fine work at a cone's edge), yet the mid-stick sneak (60 at 0.6) and the 75 top of the walk as before
     P.m = m;   // only the run is heard
     stickEl.classList.toggle('run', (stick.on || inp.isPad) && P.run);   // a pad's run lights the knob too, where the stick shows
     stickEl.classList.toggle('loud', stick.on && !P.run && m > 0.6);   // the heard band of the walk, before the ring
     const tvx = inp.x * speed, tvy = inp.y * speed;
-    const acc = 1 - Math.exp(-dt * (Math.hypot(tvx, tvy) < Math.hypot(P.vx, P.vy) ? 30 : 24));   // quick off the mark, quicker to a stop beside a cone
+    const acc = 1 - Math.exp(-dt * (Math.hypot(tvx, tvy) < Math.hypot(P.vx, P.vy) ? 30 : P.run ? 40 : 24));   // quick off the mark, quicker to a stop beside a cone, and a run breaks into its sprint at once
     P.vx += (tvx - P.vx) * acc; P.vy += (tvy - P.vy) * acc;
     const before = { x: P.x, y: P.y };
     field.move(P, P.vx * dt, P.vy * dt, P_R);
@@ -502,7 +520,7 @@
             if (gd.state === 'chase' || gd.state === 'sus') continue;
             if (hears(gd)) { toSearch(gd, { x: P.x, y: P.y }, true); }
           }
-          hint('run', isTouch ? 'Running makes noise. Push the stick gently to sneak.' : 'Running makes noise. Point closer to the player to sneak.');
+          hint('run', isTouch ? 'Gentle push = sneak' : 'Point closer to sneak');
         } else {
           P.stepT = 0.42; AUDIO.play('step', false);
           // the top of the walk is quick, and a guard right beside you hears it: the gentle push is the silent one
@@ -522,10 +540,10 @@
       const watched = guards.some(gd => gd.lost < 0.1 && (gd.state === 'chase' || gd.aw > 0.6));
       if (watched) {
         P.exposedT = 1.6; fx.push({ k: 'puff', x: P.x, y: P.y, t: 0, dur: 0.6, red: true });
-        if (time - (P.exposedToast || -99) > 8) { P.exposedToast = time; toast('They saw you go in \u2014 break their line of sight first.', 3.2); }
+        if (time - (P.exposedToast || -99) > 8) { P.exposedToast = time; toast('They saw you go in!', 3.2); }
       } else {
         AUDIO.play('hide'); fx.push({ k: 'puff', x: P.x, y: P.y, t: 0, dur: 0.5 });
-        hint('hidden', 'Hidden \u2014 once nobody\'s watching you go in.');
+        hint('hidden', 'Hidden, if nobody saw you');
       }
     }
     if (P.exposedT > 0) P.exposedT -= dt;
@@ -540,7 +558,7 @@
     for (const k of L.keys) if (!k.got && Math.hypot(k.x - P.x, k.y - P.y) < 16) {
       k.got = true; P.keys.push(k); AUDIO.play('key'); updateHUD();
       fx.push({ k: 'burst', x: k.x, y: k.y, t: 0, dur: 0.7, c: k.color.c }, { k: 'pop', x: k.x, y: k.y, t: 0, dur: 0.9, text: k.color.name.toUpperCase() + ' KEY', c: k.color.c, pill: true });
-      hint('key', 'A key opens the door striped in its colour.');
+      hint('key', 'Keys open matching doors');
     }
     // doors open for whoever carries their key
     for (const d of L.doors) {
@@ -554,15 +572,15 @@
         const sp = safeSpot(d.conn), dir = sp.dir;
         checkpoint = { floor: floorN, x: sp.x, y: sp.y, starts: sp.starts, ang: Math.atan2(dir.y, dir.x), keys: L.keys.map((k, i) => k.got ? i : -1).filter(i => i >= 0),
           doors: L.doors.map((o, i) => o.open ? i : -1).filter(i => i >= 0), stars: L.stars.map((o, i) => o.got ? i : -1).filter(i => i >= 0) };
-        hint('checkpoint', 'Door open. If you\'re caught now, you start again here.');
+        hint('checkpoint', 'Checkpoint');
         const c = U.centroid(d.shape); fx.push({ k: 'burst', x: c.x, y: c.y, t: 0, dur: 0.6, c: d.color.c });
       } else if (lockedCD <= 0) {
-        lockedCD = 3; AUDIO.play('locked'); toast(`Locked. Find the ${d.color.name} key.`, 2.2);
+        lockedCD = 3; AUDIO.play('locked'); toast(`Find the ${d.color.name} key`, 2.2);
       }
     }
     // the stairs
     if (Math.hypot(L.exit.x - P.x, L.exit.y - P.y) < 15) clearFloor();
-    else if (Math.hypot(L.exit.x - P.x, L.exit.y - P.y) < 260) hint('exit', 'The stairs up. Step on them to climb.');
+    else if (Math.hypot(L.exit.x - P.x, L.exit.y - P.y) < 260) hint('exit', 'Stairs up: step on them');
   }
 
   // the knock: a rap on the nearest wall, the one noise you make on purpose. Every guard on its
@@ -576,7 +594,7 @@
     fx.push({ k: 'ring', x: P.x, y: P.y, r: KNOCK_R, t: 0, dur: 0.8 }, { k: 'ring', x: P.x, y: P.y, r: KNOCK_R * 0.8, t: 0, dur: 0.6 });
     let n = 0;
     for (const gd of guards) if ((gd.state === 'patrol' || gd.state === 'return') && hears(gd, KNOCK_R)) { toSearch(gd, { x: P.x, y: P.y }, true); n++; }
-    if (n) hint('knock', 'They heard that. Move before they get here.');
+    if (n) hint('knock', 'They heard that. Move!');
     syncKnock();
   }
   let knockShown = -1;
@@ -782,8 +800,23 @@
     if (gd.state !== 'search' && gd.state !== 'chase') { if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.6; } }
     const q = lookSpot(gd, p);
     gd.state = 'search'; gd.target = q; gd.scanT = -1; gd.hurry = !!heard ? 0 : 1; gd.dive = !!q.dive; gd.peeked = false; gd.peekSh = null;
+    // the heading you were last seen on, if this is the spot it last saw you (a call to look somewhere else carries none)
+    gd.trail = !heard && gd.lastV && gd.last && Math.hypot(p.x - gd.last.x, p.y - gd.last.y) < 1 ? { x: gd.lastV.x, y: gd.lastV.y } : null; gd.leg2 = false;
     routeTo(gd, q.x, q.y); bubble(gd, '?');
     if (heard) gd.heard = true;
+  }
+  // the follow-on spot of a sure search: along the heading you were last seen on, short of any wall, through the nav
+  function searchOn(gd) {
+    const v = gd.trail, e = Math.hypot(v.x, v.y), ux = v.x / e, uy = v.y / e, o = gd.target || gd;
+    gd.trail = null;
+    const want = 90 + Math.random() * 30, t = Math.min(want, field.ray(o.x, o.y, ux, uy, want) - 14);
+    const q = t > 30 && field.nearestFree(o.x + ux * t, o.y + uy * t, G_R + 1, 40);
+    if (!q || Math.hypot(q.x - gd.x, q.y - gd.y) < 30) return false;
+    const r = nav.path(gd.x, gd.y, q.x, q.y, 20000);
+    if (!r || plen(r, gd) > 260) return false;
+    gd.leg2 = true; gd.legT = 0; gd.target = q; gd.scanT = -1; gd.route = r; gd.ri = 0; gd.stuck = 0;
+    bubble(gd, '?'); if (gd.bubble) gd.bubble.a = 1;
+    return true;
   }
   function toChase(gd) {
     if (gd.state !== 'chase') {
@@ -868,7 +901,8 @@
 
   function updateGuard(gd, dt) {
     const s = sees(gd, D.coneLen, D.fov, true);
-    if (s) { gd.last = { x: P.x, y: P.y }; gd.lost = 0; } else gd.lost += dt;
+    // (and which way you were going then: a sure searcher, upstairs, follows that heading on after its first look)
+    if (s) { gd.last = { x: P.x, y: P.y }; gd.lastV = Math.hypot(P.vx, P.vy) > 15 ? { x: P.vx, y: P.vy } : null; gd.lost = 0; } else gd.lost += dt;
     if (gd.bubble) gd.bubble.t += dt;
     if (gd.elbowT > 0) gd.elbowT -= dt;
 
@@ -886,7 +920,7 @@
         // felt at its elbow: it stops dead and turns to face you for a beat, a scare to back away from
         gd.elbowT = s.elbow ? 0.3 : 0; gd.felt = !!s.elbow;
         bubble(gd, '?'); if (hmmCD <= 0) { AUDIO.play('hmm'); hmmCD = 0.5; }
-        hint('sus', 'A guard noticed something. Get out of the light before the meter fills.');
+        hint('sus', 'Out of the light!');
       }
       if (gd.aw >= 1) toChase(gd);
     }
@@ -947,7 +981,8 @@
           gd.aw = Math.max(0, gd.aw - dt * 0.3);
           if (gd.lost > 1.1) {
             // a real glimpse (over a third of the meter) is worth a walk over to look, at an amble
-            if ((gd.aw > 0.25 || gd.peakAw > 0.35) && gd.last) { const sure = gd.aw > 0.25; toSearch(gd, gd.last); gd.hurry = sure ? 1 : 0; }
+            // (upstairs, one already hunting you that glimpses you again stays sure of you, so it still walks on after its look)
+            if ((gd.aw > 0.25 || gd.peakAw > 0.35) && gd.last) { const sure = gd.aw > 0.25 || (floorN >= 6 && gd.hurry && (gd.prevState === 'search' || gd.prevState === 'chase')); toSearch(gd, gd.last); gd.hurry = sure ? 1 : 0; }
             else { gd.aw = 0; toReturn(gd); gd.bubble = null; AUDIO.play('lost'); }
           }
         }
@@ -977,16 +1012,24 @@
       }
       case 'search': {
         if (gd.scanT < 0) {
-          const spd = gd.hurry ? D.chase * 0.75 : Math.min(D.patrol * 1.3, 54);   // an amble stays a hair under a silent sneak (about 57)
+          // (the follow-on leg is always an amble: a silent sneak along the same heading still pulls away from it)
+          const spd = gd.hurry && !gd.leg2 ? D.chase * 0.75 : Math.min(D.patrol * 1.3, 54);   // an amble stays a hair under a silent sneak (about 57)
           if (follow(gd, spd, dt, 4)) { gd.scanT = 0; gd.scanBase = gd.peekSh ? Math.atan2(gd.peekSh.y - gd.y, gd.peekSh.x - gd.x) : gd.ang; }
           // a route round a wall can still come at the pool from another side: halt at its rim and look
           else if (P.hidden && !gd.dive && L.shades.some(sh => Math.hypot(P.x - sh.x, P.y - sh.y) < sh.r && Math.hypot(gd.x - sh.x, gd.y - sh.y) < sh.r + 16)) { gd.scanT = 0; gd.scanBase = gd.ang; }
           gd.stuck = Math.hypot(gd.x - gd.lastPos.x, gd.y - gd.lastPos.y) < 0.05 ? gd.stuck + dt : 0;
-          if (gd.stuck > 1.2) { gd.scanT = 0; gd.scanBase = gd.ang; gd.stuck = 0; }
+          // (the walk on is never longer than a few seconds: short of its spot by then, it looks from where it is)
+          if (gd.leg2) gd.legT = (gd.legT || 0) + dt;
+          if (gd.stuck > 1.2 || (gd.leg2 && gd.legT > 5)) { gd.scanT = 0; gd.scanBase = gd.ang; gd.stuck = 0; }
         } else {
           // look around, the "?" fading as they lose interest
           gd.scanT += dt;
-          const dur = 4.2;
+          // from the sixth floor a guard sure of you doesn't stop at one corner: after a shorter first look it walks on
+          // the way you were heading when it lost you, 90 to 120 further (its goal ring shows where), and looks again
+          // (with no way on, it finishes its first look as any searcher would)
+          const onward = floorN >= 6 && gd.hurry && !gd.leg2 && !gd.peekSh && gd.trail;
+          if (onward && gd.scanT > 2.4 && searchOn(gd)) break;
+          const dur = gd.leg2 ? 2.5 : 4.2;
           // a peek stares into the pool, sweeping only its width, the '?' held solid while it looks
           gd.ang = U.turnTo(gd.ang, gd.scanBase + Math.sin(gd.scanT * (gd.peekSh ? 1.1 : 1.5)) * (gd.peekSh ? 0.45 : 1.5), dt * 2.8);
           if (gd.bubble) gd.bubble.a = gd.peekSh ? 1 : 1 - U.clamp((gd.scanT - dur + 1.8) / 1.8, 0, 1);
@@ -1014,7 +1057,10 @@
       if (d < min) { const u = d > 0.01 ? 1 / d : 0, m = Math.min((min - d) / 2, 40 * dt); field.move(gd, (u ? dx * u : 1) * m, (u ? dy * u : 0) * m, G_R); }
     }
     gd.lastPos.x = gd.x; gd.lastPos.y = gd.y;
-    if (P.alive && mode === 'play' && Math.hypot(gd.x - P.x, gd.y - P.y) < CATCH) caught(gd);
+    // (a guard that has just felt you at its elbow gets its beat to turn first: it stands still, so a brush at arm's
+    // reach is a '?', never a capture with no '!'. Squares right on top of each other still catch)
+    const cd = Math.hypot(gd.x - P.x, gd.y - P.y);
+    if (P.alive && mode === 'play' && cd < CATCH && !(cd > 10 && gd.state === 'sus' && gd.felt && gd.elbowT > 0)) caught(gd);
   }
 
   // a camera follows you only to the edge of the arc it is drawn sweeping (plus a hair), so a glimpse
@@ -1046,7 +1092,7 @@
         guards.filter(o => o.state !== 'chase' && Math.hypot(o.x - c.x, o.y - c.y) < 750)
           .map(o => { const r = nav.path(o.x, o.y, P.x, P.y, 20000); return { o, d: r ? plen(r, o) : Infinity }; }).filter(e => e.d < 900)
           .sort((a, b) => a.d - b.d).filter((e, i) => i < 2 || (floorN >= 10 && e.d < 400)).forEach(e => { toSearch(e.o, { x: P.x, y: P.y }); e.o.hurry = 1; });
-        hint('cam', 'Cameras call the nearest guards to wherever they saw you.');
+        hint('cam', 'Cameras call the guards');
       }
     } else {
       c.aw = Math.max(0, c.aw - dt * 0.5);
@@ -1069,10 +1115,18 @@
       return Math.min(t, len);
     };
     const push = (a, t) => { pts.push(e.x + Math.cos(a) * t, e.y + Math.sin(a) * t); };
-    let pa = o.ang - fov, pt = ray(pa);
+    const A = (i) => o.ang - fov + 2 * fov * i / n, T = [];
+    for (let i = 0; i <= n; i++) T.push(ray(A(i)));
+    // a lone ray that slips past a wall's end would draw a hairline spike out of the fan: the wedge keeps
+    // its clean straight cuts, without slivers thinner than one step of the sweep
+    for (let i = 0; i <= n; i++) {
+      const l = i > 0 ? T[i - 1] : T[i + 1], r = i < n ? T[i + 1] : T[i - 1];
+      if (T[i] > Math.max(l, r) + 8) T[i] = Math.max(l, r);
+    }
+    let pa = A(0), pt = T[0];
     push(pa, pt);
     for (let i = 1; i <= n; i++) {
-      const a = o.ang - fov + 2 * fov * i / n, t = ray(a);
+      const a = A(i), t = T[i];
       if (Math.abs(t - pt) > 5) {
         // bisect to the corner: lo keeps the previous ray's reach, hi the new one's
         let lo = pa, hi = a, tl = pt, th = t;
@@ -1096,7 +1150,7 @@
     AUDIO.play('caught'); view.shake = 1;
     if (navigator.vibrate) try { navigator.vibrate([90, 60, 160]); } catch (e) {}
     fx.push({ k: 'flash', t: 0, dur: 0.6, red: true });
-    clearStick(true); clearMouse(); clearToast(); chaseHintT = 0; dimHUD(true);
+    clearStick(true); clearMouse(); clearToast(true); chaseHintT = 0; dimHUD(true);
     // the catch fires inside the drawn sizes, so the orange square would sit on the guard who caught you: ease the player
     // back along the line between them (cosmetic: the run is over) until both squares read side by side
     if (gd) {
@@ -1126,7 +1180,7 @@
     if (!replay) { save.floor = floorN + 1; save.best = Math.max(save.best, floorN + 1); }
     persist();
     clearInfo = { prev, total: starTotal(), unlocked: skinsOpen(starTotal()) > skinsOpen(before) ? SKINS[skinsOpen(starTotal()) - 1] : null };
-    clearStick(true); clearToast(); chaseHintT = 0; dimHUD(true);
+    clearStick(true); clearToast(true); chaseHintT = 0; dimHUD(true);
     fx.push({ k: 'burst', x: L.exit.x, y: L.exit.y, t: 0, dur: 0.9, c: '#ffffff' });
     const z = baseZ() * 1.25, dy = H < 500 ? H * 0.34 : W >= 1000 ? H * 0.22 : H * 0.10;   // well below the stamp, its stars and pills: on a desktop the stairs sit ~65% down, inside the floor
     shot = { x0: view.x, y0: view.y, z0: view.z, x: L.exit.x, y: L.exit.y - dy / z, z };
@@ -1187,13 +1241,23 @@
   // ── hints ──────────────────────────────────────────────────
   let toastT = 0, toastId = null;
   function toast(text, dur, id) { const t = $('toast'); t.textContent = text; t.classList.add('show'); toastT = dur || 3.5; toastId = id || null; }
-  function clearToast() { $('toast').classList.remove('show'); toastT = 0; toastId = null; }
+  function clearToast(now) {
+    const t = $('toast'); t.classList.remove('show', 'near'); toastT = 0; toastId = null;
+    if (now) { t.classList.add('cut'); void t.offsetWidth; requestAnimationFrame(() => t.classList.remove('cut')); }   // caught / clear: no fading ghost under the flash
+  }
+  // upright, a danger call rides under the player rather than up by the HUD, so the eye stays on the guard
+  function placeToast() {
+    const t = $('toast'); if (!t.classList.contains('near') || !P) return;
+    const s = toScreen(P.x, P.y); t.style.setProperty('--ty', `${Math.round(U.clamp(s.y + 50 * Math.max(view.z, 0.7), safeTop + 100, stickTop - 50))}px`);
+  }
   // caught / clear: the HUD and the stick step back so the stamp owns the screen
   function dimHUD(on) { $('hud').classList.toggle('dim', on); stickEl.classList.toggle('dim', on); }
   function hint(id, text) {
     if (save.hints[id] || floorN > 3) return;
     save.hints[id] = 1; persist(); toast(text, 3.4, id);
+    if (NEAR_HINTS.has(id) && isPortrait()) { $('toast').classList.add('near'); placeToast(); }
   }
+  const NEAR_HINTS = new Set(['sus', 'knock', 'chase']);
 
   // ── the loop ───────────────────────────────────────────────
   let last = performance.now(), fpsAcc = 0, fpsN = 0, fps = 60, stickIdleT = 0;
@@ -1215,13 +1279,13 @@
   function step(dt) {
     time += dt; modeT += dt;
     spottedCD -= dt; hmmCD -= dt; lockedCD -= dt;
-    if (toastT > 0) { toastT -= dt; if (toastT <= 0) clearToast(); }
+    if (toastT > 0) { toastT -= dt; if (toastT <= 0) clearToast(); else placeToast(); }
     if (mode !== 'intro' || bannerT <= 0) { $('hud').classList.remove('intro'); stickEl.classList.remove('intro'); }
     if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').className = 'hide'; }
-    if (chaseHintT > 0 && mode === 'play') { chaseHintT -= dt; if (chaseHintT <= 0) { chaseHintT = 0; hint('chase', 'Seen! Break their line of sight. They\'ll search where they lost you.'); } }
+    if (chaseHintT > 0 && mode === 'play') { chaseHintT -= dt; if (chaseHintT <= 0) { chaseHintT = 0; hint('chase', 'Seen! Break line of sight'); } }
     stepResult();
     // the touch that skips the intro also moves: control comes as the camera starts to close in, not 0.8s later
-    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; if (bannerT > 0) { bannerT = 0; $('banner').className = 'hide'; } hint('move', isTouch ? 'Drag the stick to move. Stay out of the light.' : pad ? 'Left stick or D-pad to move: push it all the way out to run, hold LT to creep. Y opens the map.' : 'Hold the mouse to move, or click to go there. Point further away to go faster. Stay out of the light.'); }
+    if (mode === 'intro' && (modeT > 2.1 || (modeT > 1.3 && readInput().m > 0))) { mode = 'play'; modeT = 0; if (bannerT > 0) { bannerT = 0; $('banner').className = 'hide'; } hint('move', isTouch ? 'Drag the stick to move' : pad ? 'Stick moves, LT creeps, Y map' : 'Hold the mouse to move'); }
     if (mode === 'play') { updatePlayer(dt); stats.time += dt; if (knockCD > 0) knockCD = Math.max(0, knockCD - dt); }
     syncKnock();
     // a clear freezes the floor: nobody walks under the stamp or across its stars
@@ -1313,9 +1377,9 @@
       }
       else if (isTouch) {
         // on its side the stick only fills a bottom corner: a share of the width (76px on 844) is enough to keep the player
-        // clear of it, so the floor behind them (where a guard can walk in from) isn't cut to one cone length; and a little
+        // clear of it (118px on 844), so the floor behind them (where a guard can walk in from) isn't cut to one cone length; and a little
         // above the middle, so more of the stick's lower corner falls behind the player
-        const off = Math.min(120, 0.09 * W);
+        const off = Math.min(120, 0.14 * W);
         tx += (save.stickSide === 'left' ? -off : off) / tz;
         ty += 0.06 * H / tz;
       }
@@ -1345,7 +1409,7 @@
   }
 
   // ── drawing ────────────────────────────────────────────────
-  let bgGrad = null, bgKey = '', bgCv = null, fogCv = null, voidCv = null, shadeCv = null;
+  let bgGrad = null, bgKey = '', bgCv = null, fogCv = null, voidCv = null;
   const FOG_PAD = 16;
   function shapePath(s, dx, dy) {
     dx = dx || 0; dy = dy || 0;
@@ -1400,7 +1464,14 @@
   function castPath(k) {
     const dx = LIGHT.x * k, dy = LIGHT.y * k;
     g.beginPath();
-    for (const s of L.obs) if (onView(s, dx, dy)) sweepPath(s, dx, dy);
+    // a small prop (a pillar, a crate) is low: its shadow reaches a little past its own width, not a
+    // wall's full reach, so a row of them leaves open floor between the bands instead of striping the room
+    for (const s of L.obs) {
+      const b = shapeBox(s), lo = Math.min(b.x1 - b.x0, b.y1 - b.y0), hi = Math.max(b.x1 - b.x0, b.y1 - b.y0);
+      const prop = s.k === 'c' || (lo >= 16 && hi < 46 && hi < lo * 1.6);   // compact, so not a stub of wall
+      const f = prop ? Math.min(1, hi * 1.2 / Math.hypot(LIGHT.x, LIGHT.y)) : 1, ex = dx * f, ey = dy * f;
+      if (onView(s, ex, ey)) sweepPath(s, ex, ey);
+    }
     for (const d of L.doors) if (!d.open && onView(d.shape, dx, dy)) sweepPath(d.shape, dx, dy);
     // the low things: characters, pickups and the stairs, each a round shadow slid a shorter way
     const sx = dx * SMALL, sy = dy * SMALL;
@@ -1503,24 +1574,19 @@
     drawFlash();
   }
 
-  // hiding spots: a pool of deep shade, part of the light like the cast shadows -- no outline, no ring, just a
-  // soft disc one step darker than shadow. It is laid after the cones, so a cone
+  // hiding spots: a pool of shade, part of the light like the cast shadows -- one flat tone a hair below the
+  // shadow's, with a hard edge, no ring, no blur, so it reads as a placed thing and never as dirt, and still shows
+  // where it lies inside a cast shadow. It is laid after the cones, so a cone
   // that crosses it goes dark there too: the one place the light can't reach
   function drawShades(z) {
     const vis = L.shades.filter(s => !(s.x + s.r < vx0 || s.x - s.r > vx1 || s.y + s.r < vy0 || s.y - s.r > vy1));
     if (!vis.length) return;
-    // soft-edged, so it reads as a pool of shade on the floor and never as a hole cut in it
-    // (one pool, painted once as a sprite and stamped at each spot's size: a gradient fill per pool per frame is dear)
-    if (!shadeCv) {
-      shadeCv = document.createElement('canvas'); shadeCv.width = shadeCv.height = 128;
-      const c = shadeCv.getContext('2d'), gr = c.createRadialGradient(64, 64, 0, 64, 64, 64);
-      gr.addColorStop(0, COL.shade); gr.addColorStop(0.55, COL.shade); gr.addColorStop(1, 'rgba(16,64,82,0)');
-      c.fillStyle = gr; c.fillRect(0, 0, 128, 128);
-    }
-    for (const s of vis) g.drawImage(shadeCv, s.x - s.r, s.y - s.r, 2 * s.r, 2 * s.r);
+    g.beginPath();
+    for (const s of vis) { g.moveTo(s.x + s.r - 2, s.y); g.arc(s.x, s.y, s.r - 2, 0, TAU); }
+    g.fillStyle = COL.pool; g.fill();
     // the pool you're in deepens a little: no ring, no dash, just more shade
     for (const s of vis) if (P && P.hidden && Math.hypot(P.x - s.x, P.y - s.y) < s.r) {
-      g.fillStyle = 'rgba(12,50,66,0.22)'; g.beginPath(); g.arc(s.x, s.y, s.r - 2, 0, TAU); g.fill();
+      g.fillStyle = COL.shade; g.beginPath(); g.arc(s.x, s.y, s.r - 4, 0, TAU); g.fill();
     }
   }
 
@@ -1550,9 +1616,9 @@
 
   // a cone is a sector: the visibility polygon from the guard, so walls cut it only along straight
   // rays out of the guard (the pale walls drawn on top trim it clean), and its free edge is one arc.
-  // The calm cones are one light: each is laid on a dark layer as one flat fill, keeping the brightest at
-  // every pixel ('lighten'), and the layer is screened over the floor once, so a fan is one solid unstroked
-  // wedge, and two crossing fans keep the same tint.
+  // A calm cone is one light-cyan wedge laid straight over the floor (about #63B8CF at half strength), a
+  // little brighter in the third nearest the guard; nothing else is laid over it, so it reads as one shape.
+  // Fans that cross stack, so the overlap is plainly brighter, never a muddy mid-tone.
   // A guard (or camera) in full alarm turns its cone red, drawn over the top.
   function conePath(path, p) {
     path.moveTo(p[0], p[1]);
@@ -1564,8 +1630,6 @@
     for (let i = 2; i < p.length; i += 2) len = Math.max(len, Math.hypot(p[i] - p[0], p[i + 1] - p[1]));
     return len;
   }
-  let coneCv = null, coneG = null;
-  const CONE_RES = 0.5;
   // on a clear the guards, cameras and their light step back, so the stairs and the stamp own the frame
   const clearFade = () => mode === 'clear' ? 1 - 0.6 * U.smooth(U.clamp(modeT / 0.4, 0, 1)) : 1;
   function drawCones() {
@@ -1574,38 +1638,17 @@
     const calm = [], hot = [];
     for (const gd of guards) if (gd.cone) (isHot(gd, false) ? hot : calm).push(gd);
     for (const c of cams) if (c.cone) (isHot(c, true) ? hot : calm).push(c);
-    if (calm.length) {
-      if (!coneCv) { coneCv = document.createElement('canvas'); coneG = coneCv.getContext('2d'); }
-      // the layer is soft light, so it is drawn at half the device resolution (a quarter of the pixels to
-      // blend) and scaled up; the walls drawn on top keep the cut against them sharp
-      const S = CONE_RES, lw = Math.ceil(cv.width * S), lh = Math.ceil(cv.height * S);
-      if (coneCv.width !== lw || coneCv.height !== lh) { coneCv.width = lw; coneCv.height = lh; }
-      // only the box the cones cover is cleared and composited
-      const m = g.getTransform();
-      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-      for (const o of calm) for (let i = 0; i < o.cone.length; i += 2) {
-        const X = m.a * o.cone[i] + m.c * o.cone[i + 1] + m.e, Y = m.b * o.cone[i] + m.d * o.cone[i + 1] + m.f;
-        if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y;
-      }
-      x0 = Math.max(0, Math.floor(x0 * S) - 1); y0 = Math.max(0, Math.floor(y0 * S) - 1);
-      x1 = Math.min(lw, Math.ceil(x1 * S) + 1); y1 = Math.min(lh, Math.ceil(y1 * S) + 1);
-      if (x1 > x0 && y1 > y0) {
-        const c = coneG;
-        c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over';
-        c.fillStyle = '#000'; c.fillRect(x0, y0, x1 - x0, y1 - y0);
-        c.setTransform(m.a * S, m.b * S, m.c * S, m.d * S, m.e * S, m.f * S);
-        c.globalCompositeOperation = 'lighten';
-        // every fan one flat fill: 'lighten' keeps one tint where they cross, so overlaps never band
-        const all = new Path2D();
-        c.fillStyle = COL.coneFill;
-        for (const o of calm) { const path = new Path2D(); conePath(path, o.cone); conePath(all, o.cone); c.fill(path); }
-        // blend only where there is light: the cones' union clips the composite, so a wide view's empty box costs nothing
-        g.save(); g.clip(all, 'nonzero'); g.setTransform(1, 0, 0, 1, 0, 0);
-        g.globalAlpha *= fa; g.globalCompositeOperation = 'screen';
-        g.drawImage(coneCv, x0, y0, x1 - x0, y1 - y0, x0 / S, y0 / S, (x1 - x0) / S, (y1 - y0) / S);
-        g.restore();
-      }
+    g.save(); g.globalAlpha *= fa;
+    for (const o of calm) {
+      const p = o.cone, path = new Path2D(); conePath(path, p);
+      g.fillStyle = COL.coneFill; g.fill(path);
+      // the near third glows a step brighter, easing into the body of the fan
+      const R = cams.includes(o) ? D.coneLen * 1.05 : D.coneLen;
+      const gl = g.createRadialGradient(p[0], p[1], 0, p[0], p[1], R * 0.42);
+      gl.addColorStop(0, COL.coneNear); gl.addColorStop(0.72, COL.coneNear); gl.addColorStop(1, 'rgba(150,222,236,0)');
+      g.fillStyle = gl; g.fill(path);
     }
+    g.restore();
     g.save(); g.globalAlpha *= fa; g.lineJoin = 'round';
     for (const o of hot) {
       // alarm: a saturated red-orange that stays warm over the teal and its shadows (a pale salmon goes grey there),
@@ -1621,16 +1664,6 @@
       g.strokeStyle = COL.coneEdgeHot; g.lineWidth = 1.6; g.stroke(path);
     }
     g.restore();
-    // the walls' shadows fall across the light: every cast shadow is laid again over the cones, multiplied, so a
-    // cone dims in the band behind a wall or a pillar exactly where the floor does
-    if (calm.length || hot.length) {
-      const lit = new Path2D();
-      for (const o of calm) conePath(lit, o.cone);
-      for (const o of hot) conePath(lit, o.cone);
-      g.save(); g.clip(lit, 'nonzero');
-      castPath(1); g.globalCompositeOperation = 'multiply'; g.globalAlpha *= fa; g.fillStyle = COL.coneShade; g.fill('nonzero');
-      g.restore();
-    }
   }
 
   function star(x, y, r, rot) {
@@ -1645,10 +1678,11 @@
     g.save(); g.globalAlpha *= ia;
     for (const s of L.stars) {
       if (s.got) continue;
-      // a faint pickup ring, then the star: saturated pale yellow, about the player's size
-      g.fillStyle = 'rgba(245,232,106,0.10)'; g.beginPath(); g.arc(s.x, s.y, 17, 0, TAU); g.fill();
-      g.strokeStyle = COL.starRing; g.lineWidth = 1.5; g.stroke();
-      star(s.x, s.y, 10.5, time * 0.6); g.fillStyle = COL.star; g.fill();
+      // a faint pale pickup ring held close, then the star: a soft pale yellow a little under the player's size,
+      // so the orange square stays the one warm thing that pulls the eye
+      g.fillStyle = 'rgba(230,248,252,0.08)'; g.beginPath(); g.arc(s.x, s.y, 12.5, 0, TAU); g.fill();
+      g.strokeStyle = COL.starRing; g.lineWidth = 1.2; g.stroke();
+      star(s.x, s.y, 8.5, time * 0.6); g.fillStyle = COL.star; g.fill();
     }
     for (const k of L.keys) {
       if (k.got) continue;
@@ -1695,6 +1729,12 @@
     for (const gd of guards) {
       // a dark square, rimmed amber when suspicious and red on a chase
       const gs = G_SIZE * G_LOOK;
+      // its elbow: the reach it feels you at whichever way it faces, a faint ring that shows only as you come close
+      const pd = P && P.alive && !P.hidden ? Math.hypot(P.x - gd.x, P.y - gd.y) : Infinity;
+      if (pd < 40 && gd.state !== 'chase') {
+        g.strokeStyle = `rgba(255,255,255,${(0.15 * U.clamp((40 - pd) / 4, 0, 1)).toFixed(3)})`; g.lineWidth = Math.max(1.5, 1.6 / z);
+        g.beginPath(); g.arc(gd.x, gd.y, ELBOW, 0, TAU); g.stroke();
+      }
       if (gd.state === 'chase') {
         // a chasing guard glows red, pulsing with his cone
         const gr = g.createRadialGradient(gd.x, gd.y, gs * 0.4, gd.x, gd.y, gs * 1.25);
@@ -1706,10 +1746,11 @@
       // flat like the props: no pale outline on a calm guard (its hard shadow lifts it); a suspicious or chasing one
       // keeps a coloured edge so the change of state still reads at a glance
       if (gd.state === 'chase' || gd.state === 'sus') { g.lineWidth = Math.max(1.8, 2 / z); g.strokeStyle = gd.state === 'chase' ? '#ff6b52' : '#ffcf6a'; g.stroke(); }
-      // one plain dark shape: only a small notch on the front face says which way they look
+      // one plain dark shape with a pale visor along the face they look out of: a bar most of the face wide, plain
+      // at play zoom, and lined up with the cone that leaves it
       const vc = gd.state === 'chase' ? '#ff7a62' : gd.state === 'sus' || gd.state === 'search' ? '#ffd877' : '#e4f8fd';
       g.fillStyle = vc;
-      g.beginPath(); g.moveTo(gs / 2 + 1, -4); g.lineTo(gs / 2 + 5.5, 0); g.lineTo(gs / 2 + 1, 4); g.closePath(); g.fill();
+      g.fillRect(gs / 2 - 4.2, -gs * 0.34, 3, gs * 0.68);
       g.restore();
     }
     g.restore();
@@ -1849,13 +1890,14 @@
       // yellow turning orange as it nears 'seen'. A faint '?' sits in it from the first flicker, so it never reads as a selection ring.
       const s = toScreen(o.x, o.y), kk = Math.max(11 * k, 13) / 11, r = 17 * kk, x = s.x + (o.mx || 0), y = Math.max(s.y - (h + 14) * k - 12 * (kk - k) + (o.my || 0), under(x, r + 2));
       g.save(); g.globalAlpha = cf;
-      g.lineWidth = Math.max(3.5, 3.5 * k); g.lineCap = 'round'; g.strokeStyle = 'rgba(18,49,63,0.5)';
+      // the track is only a whisper: the fill and the white '?' carry the read, not a dark halo
+      g.lineWidth = Math.max(5, 5 * k); g.lineCap = 'round'; g.strokeStyle = 'rgba(233,245,248,0.2)';
       g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke();
       const t = U.clamp((o.aw - 0.5) / 0.5, 0, 1);
       g.strokeStyle = `rgb(${Math.round(U.lerp(243, 255, t))},${Math.round(U.lerp(229, 138, t))},${Math.round(U.lerp(126, 61, t))})`;
-      g.beginPath(); g.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + TAU * o.aw); g.stroke();
+      g.beginPath(); g.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + TAU * Math.max(0.12, o.aw)); g.stroke();   // a 12% sweep from the first flicker: never a thin tick
       if (!o.bubble) {
-        g.globalAlpha = 0.4 * cf;
+        g.globalAlpha = 0.75 * cf;
         g.font = `800 ${Math.round(26 * kk)}px "Chakra Petch", system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
         g.lineWidth = 3 * kk; g.strokeStyle = 'rgba(21,54,74,0.55)'; g.strokeText('?', x, y);
         g.fillStyle = '#ffffff'; g.fillText('?', x, y);
@@ -1992,7 +2034,7 @@
     if (!on) clearStick();
   }
   addEventListener('keydown', (e) => { if (KEYMAP[e.code]) setTouch(false); }, true);
-  addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') { setTouch(true); clearMouse(); } else if (e.pointerType === 'mouse') setTouch(false); }, true);
+  addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') { setTouch(true); clearMouse(); } else if (e.pointerType === 'mouse' && mode !== 'title' && !paused && !e.target.closest('button')) setTouch(false); }, true);   // a mouse on a menu button keeps a phone in touch mode
   function updateHUD() {
     $('floorNum').textContent = String(floorN).padStart(2, '0');
     $('floorName').textContent = floorName(floorN);
@@ -2004,9 +2046,6 @@
     const b = $('banner');
     if (n === null) { b.className = ''; bannerT = 0; return; }
     b.innerHTML = `<div class="bn">FLOOR ${n}</div><div class="bs">${floorName(n)}</div>`;
-    // the card centres on the floor the intro shows, not on the screen: on its side the map sits beside the stick's room
-    const o = floorBox && overviewFrame(), dx = o ? (floorBox.cx - o.x) * o.z : 0;
-    b.style.left = dx > 1 ? `${Math.round(dx * 2)}px` : ''; b.style.right = dx < -1 ? `${Math.round(-dx * 2)}px` : '';
     b.className = 'show'; bannerT = 1.7;
   }
   function togglePause() {
