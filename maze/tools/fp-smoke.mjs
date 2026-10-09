@@ -68,7 +68,7 @@ console.log('The Maze — first person checks');
   const r = await p.evaluate(async () => {
     const looks = Object.keys(TEX.themes), el = document.getElementById('optTheme'), out = [];
     for (const k of looks) { el.value = k; el.dispatchEvent(new Event('change')); FP.newMaze(101); out.push(k); }
-    el.value = 'office'; el.dispatchEvent(new Event('change'));
+    el.value = 'school'; el.dispatchEvent(new Event('change'));
     let built = 0; for (let s = 1; s <= 20; s++) { FP.newMaze(s * 7717 + 3); built++; }
     return { looks: out, built };
   });
@@ -174,9 +174,10 @@ console.log('The Maze — first person checks');
 // Joe: "The opening text on the walls needs to be white, not black. Too hard to read and doesn't match the 'chalk' feel"
 {
   const p = await open(4242);
-  const r = await p.evaluate(() => { const INK = TEX.hex('#2a2622') >>> 0, CH = ((TEX.hex('#fbf9f2') & 0xffffff) | 0xfd000000) >>> 0, out = [];
+  // chalk on a plain wall is the bright chalk; on a school chalkboard the board's own (the words redrawn in it, smaller)
+  const r = await p.evaluate(() => { const INK = TEX.hex('#2a2622') >>> 0, CH = ((TEX.hex('#fbf9f2') & 0xffffff) | 0xfd000000) >>> 0, BOARD = TEX.hex('#e9e6dc') >>> 0, out = [];
     for (let s = 1; s <= 6; s++) { FP.newMaze(s * 7717 + 3);
-      for (const w of FP.startWords) { const d = FP.decals.get(w.k * 4 + w.face); let ink = 0, ch = 0; if (d) for (const c of d) { if ((c >>> 0) === INK) ink++; if ((c >>> 0) === CH) ch++; } out.push([ink, ch]); } }
+      for (const w of FP.startWords) { const d = FP.decals.get(w.k * 4 + w.face); let ink = 0, ch = 0; if (d) for (const c of d) { if ((c >>> 0) === INK) ink++; if ((c >>> 0) === CH || (c >>> 0) === BOARD) ch++; } out.push([ink, ch]); } }
     return out; });
   check('the two opening walls are written in chalk, not ink', r.length >= 10 && r.every(([ink, ch]) => ink === 0 && ch > 60),
     `${r.length} opening walls over 6 mazes, [ink, chalk] pixels: ${r.map((x) => x.join('/')).join(' ')}`);
@@ -744,6 +745,19 @@ console.log('The Maze — first person checks');
   await c.close();
 }
 
+// ── it starts in the school ──────────────────────────────────────
+// Joe: "Can you make the starting theme the school instead of the back room?" — for a new player, and for one whose saved
+// settings still carry the old default; a look chosen since stays chosen
+{
+  const look = async (saved) => { const c = await browser.newContext({ viewport: { width: 430, height: 900 } });
+    if (saved) await c.addInitScript((v) => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('maze.fp.v1', v); sessionStorage.setItem('seeded', '1'); } }, JSON.stringify(saved));
+    const p = await c.newPage(); await p.goto(URL(4242), { waitUntil: 'load' }); await p.waitForTimeout(500);
+    const t = await p.evaluate(() => FP.S.theme); await c.close(); return t; };
+  const fresh = await look(null), old = await look({ theme: 'office', move: 'glide', cfg: 12 }), chosen = await look({ theme: 'bleached', move: 'glide', cfg: 13 });
+  check('a new game starts in the school, and so does one whose settings still say the back rooms; a look chosen since is kept',
+    fresh === 'school' && old === 'school' && chosen === 'bleached', `new: ${fresh}; saved before (office): ${old}; chosen since (bleached): ${chosen}`);
+}
+
 // ── the turn: three pages, and nothing else counts ───────────────
 {
   const p = await open(4242); await awake(p);
@@ -1004,10 +1018,14 @@ console.log('The Maze — first person checks');
   await p.waitForTimeout(300);
   if (await p.evaluate(() => document.getElementById('page').classList.contains('show'))) { await p.keyboard.press('Escape'); await p.waitForTimeout(250); }
   await p.keyboard.press('Space'); await p.waitForTimeout(900); await p.keyboard.press('Space'); await p.waitForTimeout(1300);
-  // the rows of the view with a card's face in them (pale, and hardly any colour): the lowest must be above the bottom
-  const rows = await p.evaluate(() => { const c = document.getElementById('view'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let lo = -1, n = 0;
-    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) { const i = (y * c.width + x) * 4, r = d[i], g = d[i + 1], b = d[i + 2];
-      if (r > 150 && Math.max(r, g, b) - Math.min(r, g, b) < 28) { n++; lo = y; } } return { lo, n, h: c.height }; });
+  // the rows of the view the cards are in: what changes when they're taken off the table for a frame (a pale floor, like the
+  // school's, reads as a card by colour alone): the lowest must be above the bottom
+  const rows = await p.evaluate(async () => { const c = document.getElementById('view'), g = c.getContext('2d'), frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const st = FP.story.find((q) => q.mem === 'cards'), a = g.getImageData(0, 0, c.width, c.height).data;
+    const off = st.shown.slice(); for (const o of off) FP.fboxes.splice(FP.fboxes.indexOf(o), 1); await frame();
+    const b = g.getImageData(0, 0, c.width, c.height).data; FP.fboxes.push(...off); let lo = -1, n = 0;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) { const i = (y * c.width + x) * 4; if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 60) { n++; lo = y; } }
+    return { lo, n, h: c.height }; });
   check('at the card table on a wide screen, your card is all there, above the bottom of the view',
     rows.n > 200 && rows.lo >= 0 && rows.lo < rows.h * 0.9, `card face down to row ${rows.lo} of ${rows.h} (${rows.n} px)`);
   await wctx.close();

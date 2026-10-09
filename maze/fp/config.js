@@ -19,7 +19,8 @@ const FP_CONFIG = {
   gapW: 0.23,       // how wide a squeeze's slot is, as a fraction of a tile. You are 0.4 across; at a squeeze you narrow to fit
   walk: 1.2,        // tiles a second at full stick (the top-down's CONFIG.speed is 2.31; Joe set 1.2 for this view)
   stickTurn: 150,   // degrees a second at full stick, sideways
-  theme: 'office',  // a key of TEX.themes: 'office' | 'bleached' | 'dusk'
+  theme: 'school',  // a key of TEX.themes: 'school' | 'office' | 'bleached' | 'dusk'. Joe: "make the starting theme the school
+                    // instead of the back room" (it was 'office', the back rooms)
   bends: true,      // rails only: holding forward at a bend with only one way on takes you round it
   move: 'glide',    // the stick: 'glide' (free, with quiet help), 'rails' in halls (buffered quarter turns, like the top-down), or 'free'
   // glide's three helps, each 0 (off) to 1 (strong)

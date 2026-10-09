@@ -52,7 +52,8 @@
     if ((saved.cfg || 0) < 9) delete saved.floors;   // one floor for now (v0.146.0)
     if ((saved.cfg || 0) < 11) delete saved.memoryRooms;   // the cards and the fire joined the phone (v0.154.0), then hiding (v0.155.0)
     if ((saved.cfg || 0) < 12) delete saved.liesToUndo;   // every one of the wall's lies, now (v0.170.0)
-    saved.cfg = 12;
+    if ((saved.cfg || 0) < 13) delete saved.theme;   // the school is where it starts now (v0.182.0); a look saved before was only the old default
+    saved.cfg = 13;
     Object.assign(S, saved);
   } catch (e) {}
   if (!TEX.themes[S.theme]) S.theme = FP_CONFIG.theme;
@@ -1402,6 +1403,10 @@
         reserved.add(faceKey(f.k, f.face));
       });
       void beside; void fillWaiting;
+      // and bare means bare: the school's boards are chalked before the story rooms are chosen, so the chair's room has its
+      // board words (and any dead end's) taken off again here
+      if (kind === 'waiting') for (const r of tiles) { const x = r % W, y = (r / W) | 0;
+        for (const [dx, dy] of HD) if (solid(x + dx, y + dy) && !exitFace[(y + dy) * W + x + dx]) decals.delete(faceKey((y + dy) * W + x + dx, faceTo(dx, dy))); }
       // the light: dead ceiling for the waiting room, every panel on for the wall
       if (T.ceils) {
         const glowVar = T.ceils.findIndex((c) => c.glow), plain = T.ceils.findIndex((c) => !c.glow);
