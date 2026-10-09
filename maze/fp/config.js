@@ -140,5 +140,7 @@ const FP_RANGES = {   // [min, max, step, label, panel section]
 // 1W7VNHjqE-k-TAOhzp2NFY6pmBTv553IOXw_1VwAjPlk — the one to read when Joe asks how the feedback is.
 const FP_FEEDBACK_FORM = {
   action: 'https://docs.google.com/forms/d/e/1FAIpQLSdkIdDispcUY58kjOYB_pduYwvB1iy4Z2rwvpYGmkdrCEznng/formResponse',
-  fields: { text: 'entry.797005195', version: 'entry.1334796723', seed: 'entry.299755428', where: 'entry.1577067527' },
+  // `shot`: the picture of the view when Feedback was tapped, a small JPEG as base64 text (a Short answer question — the form's
+  // own file upload would make everyone sign in, and nothing could be sent from the game). Claude turns it back into a picture
+  fields: { text: 'entry.797005195', version: 'entry.1334796723', seed: 'entry.299755428', where: 'entry.1577067527', shot: 'entry.362987115' },
 };

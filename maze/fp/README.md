@@ -264,6 +264,11 @@ It loads the top-down's `data/` and generator scripts (`core.js`, `generate.js`,
   (`FP_FEEDBACK_FORM` in `fp/config.js`: the form's `…/formResponse` address and its `entry.N` ids) along with the version,
   the seed and where in the run it was written (`fbWhere`: floor, journals, heart, watch, the way it's held — nothing about
   the person). The form's answers sit in a Google Sheet in Joe's Drive, which Claude reads to say what people are saying.
+  With it goes a picture (`fbSnap`): the view the moment Feedback is tapped — the canvas only, before the box is up, so never
+  the box, the HUD or the button (Joe: "make sure it's not a picture of the submit button") — a small JPEG as base64 text in the
+  form's Short answer question **Screenshot** (`shot`), made smaller and softer until it fits a cell (`FB_SHOT_MAX`). The
+  form's own file upload would make everyone sign in, and nothing could be sent from the game; Claude decodes the text back
+  into a picture when reading the feedback.
   With no form set it's kept on the device (`maze.fp.feedback`) and sent the next time the game opens with one. Connected
   (v0.179.0) to Joe's form "Maze feedback"; its Sheet, "Maze feedback (Responses)", is named in `fp/config.js` with its Drive
   id — read it to answer "how is the feedback?".

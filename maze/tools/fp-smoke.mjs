@@ -701,6 +701,15 @@ console.log('The Maze — first person checks');
   const still = await p.evaluate((a) => Math.hypot(FP.P.x - a[0], FP.P.y - a[1]) < 0.01, at);
   await p.click('#fbSend'); await p.waitForTimeout(300);
   const kept = await p.evaluate(() => FP.feedbackKept.map((q) => q.text));
+  // the picture kept with it: a JPEG of the view, and of the game — not the box (the box is pale; the view behind it, the dark
+  // of the start room, compared with a copy of the canvas taken now with the box shut)
+  const shot = await p.evaluate(async () => { const b = (FP.feedbackKept[0] || {}).shot || ''; if (!b) return { jpeg: false };
+    const img = new Image(); img.src = 'data:image/jpeg;base64,' + b; await img.decode();
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    const v = document.getElementById('view'), d = document.createElement('canvas'); d.width = img.width; d.height = img.height; d.getContext('2d').drawImage(v, 0, 0, img.width, img.height);
+    const a = g.getImageData(0, 0, img.width, img.height).data, e = d.getContext('2d').getImageData(0, 0, img.width, img.height).data;
+    let diff = 0; for (let i = 0; i < a.length; i += 4) diff += Math.abs(a[i] - e[i]) + Math.abs(a[i + 1] - e[i + 1]) + Math.abs(a[i + 2] - e[i + 2]);
+    return { jpeg: b.startsWith('/9j/'), w: img.width, h: img.height, len: b.length, ok: diff / (a.length / 4) / 3 < 25 && b.length <= 40000 }; });
   // then the game as it is, with Joe's form (the post itself caught here, never sent): what was kept goes
   await c.unroute('**/fp/config.js', blank);
   await p.reload(); await p.waitForTimeout(1200);
@@ -709,8 +718,8 @@ console.log('The Maze — first person checks');
   await p.keyboard.press('Escape'); await p.waitForTimeout(4600); await closePage(p);
   await p.evaluate(() => { FP.openFeedback(); document.getElementById('fbText').value = 'the heart was good'; FP.sendFeedback(); }); await p.waitForTimeout(400);
   check('Feedback, always on the HUD, opens a box you can type in without walking; with no form yet it\'s kept, and sent with where it came from once there is one',
-    hudBtn.shown && !hudBtn.inPanel && hudBtn.clear && still && kept.length === 1 && /wall room/.test(kept[0]) && /^https:\/\/docs\.google\.com\/forms\/.+\/formResponse$/.test(real.action) && flushed.posts === 1 && flushed.body.includes(real.fields.text + '=wwww the wall room felt long') && flushed.body.includes(real.fields.seed + '=4242') && flushed.body.includes(real.fields.where + '=floor 1') && flushed.left === 0 && posts.length === 2 && /the heart was good/.test(posts[1]),
-    `on the HUD ${hudBtn.shown} (in the menu ${hudBtn.inPanel}), clear of the map button ${hudBtn.clear}; typed without moving ${still}; kept on the device ${kept.length}; on the next load with a form: ${flushed.posts} sent ("${flushed.body.slice(0, 70)}…"), ${flushed.left} left kept; sent straight off after: ${posts.length - flushed.posts}`);
+    hudBtn.shown && !hudBtn.inPanel && hudBtn.clear && still && kept.length === 1 && shot.jpeg && shot.ok && /wall room/.test(kept[0]) && /^https:\/\/docs\.google\.com\/forms\/.+\/formResponse$/.test(real.action) && flushed.posts === 1 && flushed.body.includes(real.fields.text + '=wwww the wall room felt long') && flushed.body.includes(real.fields.seed + '=4242') && flushed.body.includes(real.fields.where + '=floor 1') && flushed.body.includes(real.fields.shot + '=/9j/') && flushed.left === 0 && posts.length === 2 && /the heart was good/.test(posts[1]),
+    `a picture with it: ${shot.jpeg ? `${shot.w}×${shot.h} JPEG, ${shot.len} characters` : 'none'}, of the view and not the box ${shot.ok}; on the HUD ${hudBtn.shown} (in the menu ${hudBtn.inPanel}), clear of the map button ${hudBtn.clear}; typed without moving ${still}; kept on the device ${kept.length}; on the next load with a form: ${flushed.posts} sent ("${flushed.body.slice(0, 70)}…"), ${flushed.left} left kept; sent straight off after: ${posts.length - flushed.posts}`);
   await c.close();
 }
 

@@ -4283,21 +4283,40 @@
     const F = fbForm(); if (!F) return false;
     const body = new URLSearchParams(), f = F.fields;
     body.set(f.text, item.text); if (f.version) body.set(f.version, item.version); if (f.seed) body.set(f.seed, String(item.seed)); if (f.where) body.set(f.where, item.where);
+    if (f.shot && item.shot) body.set(f.shot, item.shot);
     fetch(F.action, { method: 'POST', mode: 'no-cors', body }).catch(() => {});
     return true;
   }
   function fbKept() { try { return JSON.parse(localStorage.getItem(FB_KEY) || '[]'); } catch (e) { return []; } }
-  function fbKeep(list) { try { if (list.length) localStorage.setItem(FB_KEY, JSON.stringify(list.slice(-50))); else localStorage.removeItem(FB_KEY); } catch (e) {} }
+  function fbKeep(list) { try { if (list.length) localStorage.setItem(FB_KEY, JSON.stringify(list.slice(-20))); else localStorage.removeItem(FB_KEY); } catch (e) {} }
   // anything kept from before the form was set: sent now
   if (fbForm()) { const kept = fbKept(); if (kept.length) { kept.forEach(fbPost); fbKeep([]); } }
+  // the picture: the view as it is the moment Feedback is tapped — before the box is up, and the canvas only, so never the box,
+  // the HUD or the button (Joe: "Just need to make sure it's not a picture of the submit button"). Small enough for a cell of
+  // the Sheet (FB_SHOT_MAX characters of base64): a JPEG, made smaller and softer until it fits
+  const FB_SHOT_MAX = 40000;
+  let fbShot = '';
+  function fbSnap() {
+    try {
+      for (const [w, q] of [[320, 0.7], [280, 0.6], [240, 0.5], [200, 0.45], [160, 0.4]]) {
+        const k = Math.min(1, w / Math.max(cv.width, cv.height)), c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(cv.width * k)); c.height = Math.max(1, Math.round(cv.height * k));
+        c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height);
+        const b = c.toDataURL('image/jpeg', q).split(',')[1] || '';
+        if (b.length <= FB_SHOT_MAX) return b;
+      }
+    } catch (e) {}
+    return '';
+  }
   function openFeedback() {
+    fbShot = fbSnap();
     $('panel').classList.remove('open'); clearStick(); vel = 0; for (const k of Object.keys(keys)) keys[k] = false;
     $('fbNote').textContent = ''; $('feedback').classList.add('show'); setTimeout(() => $('fbText').focus(), 50);
   }
   function closeFeedback() { $('feedback').classList.remove('show'); $('fbText').blur(); }
   function sendFeedback() {
     const text = $('fbText').value.trim(); if (!text) { $('fbText').focus(); return; }
-    const item = { text, version: typeof VERSION !== 'undefined' ? VERSION : '', seed: BASE, where: fbWhere(), at: new Date().toISOString() };
+    const item = { text, version: typeof VERSION !== 'undefined' ? VERSION : '', seed: BASE, where: fbWhere(), at: new Date().toISOString(), shot: fbShot };
     const sent = fbPost(item);
     if (!sent) fbKeep(fbKept().concat([item]));
     $('fbText').value = ''; $('fbNote').textContent = sent ? FBT.thanks : FBT.kept;
