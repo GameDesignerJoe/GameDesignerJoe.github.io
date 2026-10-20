@@ -1,19 +1,24 @@
 {
-  "_doc": "Core rules. Tiers are chosen by the current streak (wolves caught since the last mistake), as in the original. See docs/DESIGN.md.",
-  "peltsPerWolf": 1,
+  "_doc": "Core rules. Tiers are chosen by the current streak (wolves caught since the last mistake), as in the original. 'pelts' = pelts per wolf at that tier, 'hintCost' = Sniff price. See docs/DESIGN.md.",
   "mistake": {
-    "_doc": "'streak' = lose the streak (difficulty resets) but keep banked pelts. 'classic' = the original rule: lose every pelt too.",
-    "mode": "streak"
+    "_doc": "'streak' = a mistake resets the streak and costs 'peltCost' pelts. 'classic' = the original rule: lose every pelt.",
+    "mode": "streak",
+    "peltCost": 1
   },
-  "hint": { "cost": 1, "_doc": "Sniff: costs pelts, sends away half the innocent sheep." },
+  "hint": {
+    "cost": 1,
+    "_doc": "Sniff: sends away half the innocent sheep. Default price; a tier's hintCost overrides it."
+  },
+  "minSheepScale": 0.85,
   "shopPromptAt": 5,
   "farmCap": 24,
+  "releaseRefund": 0.5,
   "tiers": [
-    { "minStreak": 0,  "name": "Lambing season", "sheep": [3, 4],   "subtlety": [1, 1], "motion": [],                                   "mixedBreeds": 1 },
-    { "minStreak": 3,  "name": "Spring flock",   "sheep": [5, 7],   "subtlety": [1, 2], "motion": ["blink"],                            "mixedBreeds": 1 },
-    { "minStreak": 6,  "name": "Market day",     "sheep": [8, 11],  "subtlety": [2, 3], "motion": ["blink", "look"],                    "mixedBreeds": 1 },
-    { "minStreak": 9,  "name": "Summer fair",    "sheep": [11, 14], "subtlety": [2, 4], "motion": ["blink", "look", "chew"],            "mixedBreeds": 1 },
-    { "minStreak": 13, "name": "Shearing time",  "sheep": [14, 18], "subtlety": [3, 4], "motion": ["blink", "look", "chew", "shuffle"], "mixedBreeds": 2 },
-    { "minStreak": 18, "name": "Full moon",      "sheep": [17, 21], "subtlety": [3, 5], "motion": ["blink", "look", "chew", "shuffle"], "mixedBreeds": 2 }
+    {"minStreak": 0, "name": "Lambing season", "pelts": 1, "hintCost": 1, "sheep": [3, 4], "subtlety": [1, 1], "motion": [], "mixedBreeds": 1},
+    {"minStreak": 3, "name": "Spring flock", "pelts": 1, "hintCost": 1, "sheep": [5, 7], "subtlety": [1, 2], "motion": ["blink"], "mixedBreeds": 1},
+    {"minStreak": 6, "name": "Market day", "pelts": 2, "hintCost": 1, "sheep": [8, 11], "subtlety": [2, 3], "motion": ["blink", "look"], "mixedBreeds": 1},
+    {"minStreak": 9, "name": "Summer fair", "pelts": 2, "hintCost": 1, "sheep": [11, 14], "subtlety": [3, 4], "motion": ["blink", "look", "chew"], "mixedBreeds": 1},
+    {"minStreak": 13, "name": "Shearing time", "pelts": 3, "hintCost": 2, "sheep": [14, 18], "subtlety": [3, 4], "motion": ["blink", "look", "chew", "shuffle"], "mixedBreeds": 2},
+    {"minStreak": 18, "name": "Full moon", "pelts": 4, "hintCost": 2, "sheep": [17, 21], "subtlety": [3, 5], "motion": ["blink", "look", "chew", "shuffle"], "mixedBreeds": 2}
   ]
 }

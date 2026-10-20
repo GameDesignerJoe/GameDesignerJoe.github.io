@@ -165,3 +165,46 @@ export function mix(hexA, hexB, t) {
   const ch = (s) => Math.round(((a >> s) & 255) * (1 - t) + ((b >> s) & 255) * t);
   return '#' + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
 }
+
+// Dense points along a smooth closed curve through control points
+// (Catmull-Rom). Used to build organic outlines that fur() can roughen.
+export function smoothClosed(ctrl, perSeg = 6) {
+  const out = [];
+  const n = ctrl.length;
+  for (let i = 0; i < n; i++) {
+    const p0 = ctrl[(i - 1 + n) % n], p1 = ctrl[i], p2 = ctrl[(i + 1) % n], p3 = ctrl[(i + 2) % n];
+    for (let k = 0; k < perSeg; k++) {
+      const t = k / perSeg, t2 = t * t, t3 = t2 * t;
+      const f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+      // optional 3rd element = spike size at that control point, interpolated
+      const s1 = p1[2] ?? 0, s2 = p2[2] ?? 0;
+      out.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1]), s1 + (s2 - s1) * t]);
+    }
+  }
+  return out;
+}
+
+// Roughen an outline into fur: every other point is pushed outward into a
+// spike (size from the point's 3rd element), giving the jagged tufted edge of
+// the reference wolves. Returns a Path2D.
+export function fur(pts, seed = 1, scale = 1) {
+  const r = rng(seed);
+  let area = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    area += a[0] * b[1] - b[0] * a[1];
+  }
+  const sign = area > 0 ? -1 : 1;
+  const p = new Path2D();
+  pts.forEach((pt, i) => {
+    const prev = pts[(i - 1 + pts.length) % pts.length], next = pts[(i + 1) % pts.length];
+    let nx = next[1] - prev[1], ny = -(next[0] - prev[0]);
+    const len = Math.hypot(nx, ny) || 1;
+    nx = (nx / len) * sign; ny = (ny / len) * sign;
+    const s = (pt[2] || 0) * scale * (i % 2 ? (0.7 + r() * 0.6) : 0);
+    const x = pt[0] + nx * s, y = pt[1] + ny * s;
+    i ? p.lineTo(x, y) : p.moveTo(x, y);
+  });
+  p.closePath();
+  return p;
+}

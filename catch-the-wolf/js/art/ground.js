@@ -76,6 +76,12 @@ export function paintDirt(ctx, x, y, w, h, radius = 26, seed = 3) {
     ctx.fillStyle = DIRT.dark;
     ctx.fillRect(bx + band - 1.5, y, 1.5, h);
   }
+  // Faint diagonal cross-grain over the bands.
+  ctx.strokeStyle = DIRT.dark; ctx.lineWidth = 1; ctx.globalAlpha = 0.18;
+  for (let d = -h; d < w; d += 22) {
+    ctx.beginPath(); ctx.moveTo(x + d, y); ctx.lineTo(x + d + h * 0.6, y + h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + d + h * 0.6, y); ctx.lineTo(x + d, y + h); ctx.stroke();
+  }
   ctx.globalAlpha = 1;
   // Pebbles and scuffs.
   for (let i = 0; i < (w * h) / 900; i++) {
@@ -96,7 +102,7 @@ function fringe(ctx, x, y, w, h, radius, r) {
   // Walk the rounded-rect perimeter, dropping little grass spikes that point
   // inward over the dirt edge.
   const pts = [];
-  const step = 5;
+  const step = 4;
   const straight = [
     [x + radius, y, x + w - radius, y, 0, 1],
     [x + w, y + radius, x + w, y + h - radius, -1, 0],
@@ -123,27 +129,48 @@ function fringe(ctx, x, y, w, h, radius, r) {
       pts.push([cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, -Math.cos(a), -Math.sin(a)]);
     }
   }
-  // Dark outline pass, then bright grass pass.
+  // Group the perimeter into clumps of 2-4 blades with gaps between, so the
+  // edge reads as tufts (like the reference tiles) rather than a sawtooth.
+  const blades = [];
+  for (let i = 0; i < pts.length;) {
+    const n = 2 + Math.floor(r() * 3);
+    const base = 4 + r() * 6;
+    for (let k = 0; k < n && i < pts.length; k++, i++) {
+      blades.push({ p: pts[i], len: base * (0.6 + r() * 0.8) + (k === 1 ? 3 : 0), lean: (r() - 0.5) * 4 });
+    }
+    i += r() < 0.5 ? 1 : 0;
+  }
+  // Earth lip just inside the dirt edge.
+  ctx.strokeStyle = DIRT.edge; ctx.lineWidth = 2.2; ctx.globalAlpha = 0.55;
+  ctx.beginPath();
+  pts.forEach(([px, py, nx, ny], i) => { const x = px + nx * 6, y = py + ny * 6; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.closePath(); ctx.stroke();
+  ctx.globalAlpha = 1;
+  // Dark outline pass, then bright grass pass, then lime highlights.
   for (const pass of [0, 1]) {
     ctx.fillStyle = pass ? GRASS.base : GRASS.deep;
-    for (const [px, py, nx, ny] of pts) {
-      const len = (pass ? 5 : 6.5) + r() * 4;
-      const tx = -ny, ty = nx; // tangent
-      const lean = (r() - 0.5) * 3;
+    const grow = pass ? 0 : 1.6;
+    for (const { p: [px, py, nx, ny], len, lean } of blades) {
+      const tx = -ny, ty = nx;
+      const w = 3.4 + grow * 0.6;
       ctx.beginPath();
-      ctx.moveTo(px - tx * 3.6 - nx * 3, py - ty * 3.6 - ny * 3);
-      ctx.lineTo(px + nx * len + tx * lean, py + ny * len + ty * lean);
-      ctx.lineTo(px + tx * 3.6 - nx * 3, py + ty * 3.6 - ny * 3);
+      ctx.moveTo(px - tx * w - nx * 3, py - ty * w - ny * 3);
+      ctx.lineTo(px + nx * (len + grow) + tx * lean, py + ny * (len + grow) + ty * lean);
+      ctx.lineTo(px + tx * w - nx * 3, py + ty * w - ny * 3);
       ctx.closePath();
       ctx.fill();
     }
   }
-  ctx.strokeStyle = GRASS.light; ctx.lineWidth = 1; ctx.globalAlpha = 0.6;
-  for (let i = 0; i < pts.length; i += 3) {
-    const [px, py, nx, ny] = pts[i];
-    ctx.beginPath(); ctx.moveTo(px - nx * 2, py - ny * 2); ctx.lineTo(px + nx * 3, py + ny * 3); ctx.stroke();
+  ctx.fillStyle = GRASS.light;
+  for (const { p: [px, py, nx, ny], len, lean } of blades) {
+    if (len < 7) continue;
+    const tx = -ny, ty = nx;
+    ctx.beginPath();
+    ctx.moveTo(px - tx * 1.2, py - ty * 1.2);
+    ctx.lineTo(px + nx * len * 0.7 + tx * lean * 0.7, py + ny * len * 0.7 + ty * lean * 0.7);
+    ctx.lineTo(px + tx * 0.6, py + ty * 0.6);
+    ctx.fill();
   }
-  ctx.globalAlpha = 1;
 }
 
 // --- scenery -----------------------------------------------------------------
@@ -151,10 +178,22 @@ function fringe(ctx, x, y, w, h, radius, r) {
 
 export function paintTree(ctx, x, y, s = 1, seed = 5) {
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-  ctx.fillStyle = 'rgba(22,40,30,0.3)';
-  ctx.beginPath(); ctx.ellipse(10, 12, 48, 40, 0, 0, Math.PI * 2); ctx.fill();
-  cloud(ctx, { x: 0, y: 0, rx: 46, ry: 42, lobes: 11, lobeR: 15, seed, curls: 6, curlR: 11 },
-    { base: '#5fb33a', mid: '#4f9e2f', shade: '#3a7d22', light: '#8fd65a' }, 3.4);
+  ctx.fillStyle = 'rgba(22,40,30,0.32)';
+  ctx.beginPath(); ctx.ellipse(16, 20, 50, 42, 0, 0, Math.PI * 2); ctx.fill();
+  // trunk peeking out below the canopy
+  const trunk = new Path2D(); trunk.roundRect(-7, 18, 14, 32, 5);
+  inked(ctx, trunk, '#8a5a34', 3);
+  ctx.fillStyle = '#6b4325'; ctx.fillRect(1, 20, 5, 28);
+  const { path } = cloud(ctx, { x: 0, y: 0, rx: 46, ry: 42, lobes: 11, lobeR: 15, seed, curls: 6, curlR: 11 },
+    { base: '#5fb33a', mid: '#4f9e2f', shade: '#357320', light: '#9be066' }, 3.4);
+  // darker under-canopy ring and big top highlights
+  ctx.save(); ctx.clip(path);
+  ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(30,70,20,0.35)';
+  ctx.beginPath(); ctx.ellipse(6, 8, 46, 42, 0, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+  ctx.fillStyle = 'rgba(190,240,140,0.55)';
+  ctx.beginPath(); ctx.ellipse(-16, -18, 14, 8, -0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(8, -26, 8, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
   ctx.restore();
 }
 
@@ -202,22 +241,31 @@ export function paintHay(ctx, x, y, s = 1) {
   ctx.restore();
   ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = 2.4;
   for (const bx of [-9, 9]) { ctx.beginPath(); ctx.moveTo(bx, -14); ctx.lineTo(bx, 14); ctx.stroke(); }
+  // loose straw poking out of the ends
+  ctx.strokeStyle = '#d9b445'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+  for (const [x1, y1, x2, y2] of [[-22, -8, -27, -10], [-22, 2, -28, 3], [-22, 9, -26, 13], [22, -6, 27, -9], [22, 4, 28, 6], [22, 10, 25, 14]]) {
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
   ctx.restore();
 }
 
 export function paintPond(ctx, x, y, rx, ry, seed = 4) {
   const r = rng(seed);
-  const p = new Path2D();
-  const n = 18;
-  for (let i = 0; i <= n; i++) {
-    const a = (i / n) * Math.PI * 2, k = 0.9 + r() * 0.16;
-    const px = x + Math.cos(a) * rx * k, py = y + Math.sin(a) * ry * k;
-    i ? p.lineTo(px, py) : p.moveTo(px, py);
+  // Smooth blob: curve through the midpoints of a jittered ring.
+  const n = 10, ring = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2, k = 0.88 + r() * 0.2;
+    ring.push([x + Math.cos(a) * rx * k, y + Math.sin(a) * ry * k]);
   }
+  const mid = (i) => { const a = ring[i % n], b = ring[(i + 1) % n]; return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; };
+  const p = new Path2D();
+  p.moveTo(...mid(0));
+  for (let i = 1; i <= n; i++) p.quadraticCurveTo(ring[i % n][0], ring[i % n][1], ...mid(i));
   p.closePath();
   ctx.save();
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 14; ctx.strokeStyle = '#c9b27a'; ctx.stroke(p); // sandy bank
+  ctx.lineWidth = 16; ctx.strokeStyle = '#d2bc84'; ctx.stroke(p); // sandy bank
+  ctx.lineWidth = 7; ctx.strokeStyle = '#b39a62'; ctx.stroke(p);
   inked(ctx, p, '#4fa3d9', 3);
   ctx.clip(p);
   ctx.fillStyle = '#3a86bd';
@@ -270,6 +318,8 @@ export function paintTrough(ctx, x, y, s = 1) {
   ctx.fillStyle = 'rgba(22,40,30,0.28)'; ctx.fillRect(-24, -6, 52, 22);
   const p = new Path2D(); p.roundRect(-26, -11, 52, 22, 4);
   inked(ctx, p, '#9a6a3c', 2.6);
+  ctx.strokeStyle = '#7a5130'; ctx.lineWidth = 1;
+  for (const px of [-13, 0, 13]) { ctx.beginPath(); ctx.moveTo(px, -11); ctx.lineTo(px, -7); ctx.moveTo(px, 7); ctx.lineTo(px, 11); ctx.stroke(); }
   const w = new Path2D(); w.roundRect(-21, -6.5, 42, 13, 3);
   ctx.fillStyle = '#4fa3d9'; ctx.fill(w);
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(-17, -4.5, 14, 2);

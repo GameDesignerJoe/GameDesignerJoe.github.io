@@ -35,6 +35,7 @@ export function flyPelt(root, x, y, target, done) {
   const tx = r.left + 22, ty = r.top + r.height / 2;
   const t0 = performance.now(), dur = 650;
   const step = (now) => {
+    if (!img.isConnected) return; // scene changed mid-flight: no stray coin sound
     const t = Math.min(1, (now - t0) / dur);
     const e = t * t * (3 - 2 * t);
     const px = x + (tx - x) * e, py = y + (ty - y) * e - Math.sin(t * Math.PI) * 120;

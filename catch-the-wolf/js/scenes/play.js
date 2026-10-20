@@ -2,7 +2,7 @@
 // Phases: 'hunt' (tap away) → 'reveal' (caught it) or 'missed' (tapped a
 // sheep) → next round. Rules live in game/rules.js; this file is staging.
 
-import { makeRound, catchWolf, mistake, canHint, spendHint, db, tierFor } from '../game/rules.js';
+import { makeRound, catchWolf, mistake, canHint, spendHint, hintCost, db, tierFor, storeRound, restoreRound, clearRound } from '../game/rules.js';
 import { Sheep, sortByDepth } from '../game/critter.js';
 import { drawWolf } from '../art/render.js';
 import { Particles } from '../engine/particles.js';
@@ -20,13 +20,15 @@ export const playScene = {
     this.timers = new Timers();
     this.sheep = [];
     this.wolf = null;
+    this.ring = null;
+    this.focus = null;
     this.phase = 'idle';
     this.buildUI();
     this.layoutReady = false;
     this.pendingRound = true;
   },
 
-  exit() { this.timers.clear(); },
+  exit() { this.timers.clear(); this.bg = null; this.sheep = []; this.wolf = null; this.ring = null; this.focus = null; },
 
   buildUI() {
     const { app } = this;
@@ -43,7 +45,7 @@ export const playScene = {
         <div class="bottombar">
           <button class="btn small" data-act="menu">◀ Menu</button>
           <div class="spacer"></div>
-          <button class="btn small sky" data-act="hint" title="Sniff out half the flock">👃 Sniff <img src="${peltURL()}" alt="">${db.game.hint.cost}</button>
+          <button class="btn small sky" data-act="hint" title="Sniff out half the flock">👃 Sniff <img src="${peltURL()}" alt="pelts"><span data-hintcost></span></button>
           <div class="spacer"></div>
           <button class="btn small gold" data-act="shop">Shop</button>
         </div>
@@ -68,6 +70,7 @@ export const playScene = {
     this.ui.querySelector('[data-tier]').textContent = tier.name;
     this.ui.querySelector('[data-pelts]').textContent = s.pelts;
     const hint = this.ui.querySelector('[data-act="hint"]');
+    this.ui.querySelector('[data-hintcost]').textContent = hintCost(s);
     const innocents = this.sheep.filter((x) => !x.isWolf && !x.leaving).length;
     hint.disabled = this.phase !== 'hunt' || this.hinted || !canHint(s) || innocents < 2;
     const cheapest = Math.min(...db.breeds.filter((b) => b.price != null).map((b) => b.price));
@@ -81,13 +84,35 @@ export const playScene = {
     this.bg = playBackdrop(w, h, this.app.dpr, this.field);
     if (this.pendingRound) { this.pendingRound = false; this.startRound(true); }
     else this.placeSheep(false);
+    const wolf = this.wolf;
+    if (wolf && !wolf.run && wolf.sheep) { wolf.x = wolf.sheep.x; wolf.y = wolf.sheep.y - 4 * wolf.sheep.scale; wolf.scale = wolf.sheep.scale; }
   },
 
   // ---- rounds ----------------------------------------------------------------
+  // How many sheep fit in the field at the minimum readable scale.
+  capacity() {
+    const f = this.field, s = db.game.minSheepScale || 0.85;
+    let best = 0;
+    for (let cols = 1; cols <= 7; cols++) {
+      const rows = Math.floor(f.h / (132 * s));
+      if (f.w / cols >= 96 * s) best = Math.max(best, cols * rows);
+    }
+    return Math.max(3, best);
+  },
+
   startRound(first = false) {
-    const s = this.app.save.data;
-    this.round = makeRound(s.streak);
-    this.hinted = false;
+    const { app } = this;
+    const s = app.save.data;
+    const resumed = restoreRound(s);
+    if (resumed) {
+      this.round = resumed.round;
+      this.hinted = resumed.hinted;
+    } else {
+      this.round = makeRound(s.streak, { colorSafe: s.settings.colorSafe, maxSheep: this.capacity() });
+      this.hinted = false;
+      storeRound(s, this.round, false);
+      app.save.write();
+    }
     this.sheep = this.round.sheep.map((d) => {
       const c = new Sheep(d.look, 0, 0, 1);
       c.isWolf = d.isWolf;
@@ -114,10 +139,17 @@ export const playScene = {
     }
     const { cols, rows, cw, ch } = best;
     const scale = Math.min(best.scale, 1.2);
-    // Spare cells let the flock look scattered rather than gridded.
-    const cells = shuffle([...Array(cols * rows).keys()]).slice(0, n).sort((a, b) => a - b);
+    // Spare cells let the flock look scattered rather than gridded. Cells are
+    // kept across resizes unless the grid shape itself changes (rotation).
+    const gridKey = `${cols}x${rows}`;
+    if (fresh || this.gridKey !== gridKey) {
+      const cells = shuffle([...Array(cols * rows).keys()]).slice(0, n).sort((a, b) => a - b);
+      this.sheep.forEach((sh, i) => { sh.cell = cells[i]; });
+      this.gridKey = gridKey;
+    }
     this.sheep.forEach((sh, i) => {
-      const cell = cells[i];
+      if (sh.leaving && !fresh) { sh.scale = scale; return; }
+      const cell = sh.cell;
       const cx = f.x + (cell % cols + 0.5) * cw, cy = f.y + (Math.floor(cell / cols) + 0.5) * ch;
       const slackX = Math.max(0, cw - 96 * scale) / 2, slackY = Math.max(0, ch - 132 * scale) / 2;
       if (fresh || sh.jx === undefined) { sh.jx = rand(-1, 1); sh.jy = rand(-1, 1); }
@@ -133,11 +165,45 @@ export const playScene = {
   // ---- input -------------------------------------------------------------------
   pointer(e) {
     if (e.type !== 'down' || this.phase !== 'hunt') return;
-    for (let i = this.sheep.length - 1; i >= 0; i--) {
-      const sh = this.sheep[i];
-      if (sh.leaving || !sh.hit(e.x, e.y)) continue;
-      if (sh.isWolf) this.caught(sh); else this.missed(sh);
-      return;
+    // Overlapping hit areas: the sheep whose centre is nearest wins.
+    let best = null, bestScore = 1;
+    for (const sh of this.sheep) {
+      if (sh.leaving) continue;
+      const sc = sh.hitScore(e.x, e.y);
+      if (sc <= bestScore) { best = sh; bestScore = sc; }
+    }
+    if (best) this.choose(best);
+  },
+
+  choose(sh) {
+    this.focus = null;
+    if (sh.isWolf) this.caught(sh); else this.missed(sh);
+  },
+
+  // Keyboard play: arrows move a selection ring between sheep, Enter/Space picks.
+  key(e) {
+    if (this.phase !== 'hunt' || this.app.ui.querySelector('.scrim')) return;
+    const live = this.sheep.filter((x) => !x.leaving);
+    if (!live.length) return;
+    const dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (dirs[e.key]) {
+      e.preventDefault();
+      const cur = live.includes(this.focus) ? this.focus : null;
+      if (!cur) { this.focus = live[0]; return; }
+      const [dx, dy] = dirs[e.key];
+      let best = null, bestD = Infinity;
+      for (const o of live) {
+        if (o === cur) continue;
+        const vx = o.x - cur.x, vy = o.y - cur.y;
+        const along = vx * dx + vy * dy;
+        if (along <= 4) continue;
+        const d = along + Math.abs(vx * dy - vy * dx) * 2;
+        if (d < bestD) { bestD = d; best = o; }
+      }
+      if (best) this.focus = best;
+    } else if ((e.key === 'Enter' || e.key === ' ') && live.includes(this.focus)) {
+      e.preventDefault();
+      this.choose(this.focus);
     }
   },
 
@@ -145,10 +211,13 @@ export const playScene = {
     const { app } = this;
     this.phase = 'reveal';
     const result = catchWolf(app.save.data);
+    clearRound(app.save.data);
     app.save.write();
     app.haptic(30);
+    this.refreshHud();
     this.unmask(sh, true);
-    banner(app.ui, 'Gotcha!', this.round.tell.label, 'good');
+    banner(app.ui, result.gained > 1 ? `Gotcha! +${result.gained}` : 'Gotcha!', this.round.tell.label, this.bannerSide(sh, 'good'));
+    if (result.newRecord) this.timers.after(1.2, () => banner(app.ui, 'New record!', `Streak of ${app.save.data.streak}`, 'good'));
     // The flock cheers.
     this.sheep.forEach((o, i) => { if (o !== sh) this.timers.after(0.25 + i * 0.04, () => { o.hop = 14 * o.scale; }); });
     this.timers.after(0.35, () => app.sfx.baa(1.15));
@@ -170,14 +239,17 @@ export const playScene = {
     this.phase = 'missed';
     const wolfSheep = this.sheep.find((x) => x.isWolf);
     const result = mistake(app.save.data);
+    clearRound(app.save.data);
     app.save.write();
     app.haptic(80);
+    // Ring the wolf so the player sees what they missed before it unmasks.
+    this.ring = { sheep: wolfSheep, t: 0 };
     app.sfx.wrong();
     this.timers.after(0.15, () => app.sfx.baa(0.85));
     // The innocent sheep shakes its head indignantly.
     sh.indignant = 0.9;
-    banner(app.ui, "That's a sheep!", 'Watch the wolf…', 'bad');
-    this.timers.after(1.1, () => this.unmask(wolfSheep, false));
+    banner(app.ui, "That's a sheep!", 'Watch the wolf…', this.bannerSide(wolfSheep, 'bad'));
+    this.timers.after(1.3, () => { this.ring = null; this.unmask(wolfSheep, false); });
     this.timers.after(2.6, () => this.showMissed(result));
     this.refreshHud();
   },
@@ -189,7 +261,7 @@ export const playScene = {
     this.fx.burstWool(sh.x, sh.y - 6 * sh.scale, sh.look.wool, sh.scale, 16);
     this.fx.sparkle(sh.x, sh.y - 20 * sh.scale, sh.scale, caught ? 12 : 4);
     sh.gone = true;
-    this.wolf = { fur: sh.look.wolfFur || 'grey', x: sh.x, y: sh.y - 4 * sh.scale, scale: sh.scale, t: 0, heading: 0, run: false, caught };
+    this.wolf = { sheep: sh, fur: sh.look.wolfFur || 'grey', x: sh.x, y: sh.y - 4 * sh.scale, scale: sh.scale, t: 0, heading: 0, run: false, caught };
     this.timers.after(caught ? 0.9 : 0.7, () => {
       app.sfx.howl();
       const w = this.wolf;
@@ -197,6 +269,11 @@ export const playScene = {
       w.run = true;
       w.dir = w.x < this.app.w / 2 ? -1 : 1;
     });
+  },
+
+  // Keep banners off the sheep that matters: top of the screen unless it's up there.
+  bannerSide(sh, kind) {
+    return `${kind}${sh.y < this.app.h * 0.45 ? ' low' : ''}`;
   },
 
   nextRound(delay = 0) {
@@ -210,8 +287,9 @@ export const playScene = {
   useHint() {
     const s = this.app.save.data;
     if (this.phase !== 'hunt' || this.hinted || !spendHint(s)) return;
-    this.app.save.write();
     this.hinted = true;
+    if (s.round) s.round.hinted = true;
+    this.app.save.write();
     const innocents = shuffle(this.sheep.filter((x) => !x.isWolf));
     innocents.slice(0, Math.floor(innocents.length / 2)).forEach((o, i) => {
       o.leaving = true; o.leaveDelay = i * 0.05; o.sniffed = true;
@@ -275,6 +353,7 @@ export const playScene = {
         <h2>Baa-d luck!</h2>
         <p>The wolf gave itself away with <b>${this.round.tell.label.replace(/!$/, '').toLowerCase()}</b>.</p>
         ${lines.length ? `<p>${lines.join(' ')}</p>` : '<p>Look for the one that doesn\'t fit.</p>'}
+        <p style="font-size:14px;opacity:.7">Best streak: ${app.save.data.bestStreak}</p>
         <div class="row">
           <button class="btn red big" data-again>Hunt again</button>
         </div>
@@ -322,12 +401,30 @@ export const playScene = {
   draw(ctx) {
     const { app } = this;
     if (this.bg) ctx.drawImage(this.bg.canvas, 0, 0, app.w, app.h);
+    const r = this.ring;
+    if (r) {
+      const sh = r.sheep, pulse = 1 + Math.sin(performance.now() / 90) * 0.06;
+      ctx.save();
+      ctx.lineWidth = 6; ctx.strokeStyle = '#ee5b3f';
+      ctx.beginPath(); ctx.ellipse(sh.x, sh.y - 8 * sh.scale, 50 * sh.scale * pulse, 68 * sh.scale * pulse, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      ctx.restore();
+    }
+    const f = this.focus;
+    if (f && !f.leaving && this.phase === 'hunt') {
+      ctx.save();
+      ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.setLineDash([10, 8]);
+      ctx.lineDashOffset = -performance.now() / 40;
+      ctx.beginPath(); ctx.ellipse(f.x, f.y - 8 * f.scale, 46 * f.scale, 64 * f.scale, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
     for (const sh of this.sheep) sh.draw(ctx);
     const w = this.wolf;
     if (w) {
       const pop = ease.outBack(Math.min(1, w.t * 3));
       drawWolf(ctx, w.fur, w.x, w.y - (w.run ? Math.abs(Math.sin(w.t * 18)) * 5 : 0), w.scale * 1.05 * pop, w.heading,
-        { run: w.run ? Math.sin(w.t * 18) : 0, look: w.run ? 'ahead' : 'up' });
+        { run: w.run ? Math.sin(w.t * 18) : 0, look: w.run ? 'ahead' : 'up' }, w.scale * 1.05);
     }
     this.fx.draw(ctx);
   },

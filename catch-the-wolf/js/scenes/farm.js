@@ -1,12 +1,14 @@
 // The player's farm: every sheep bought in the shop lives here, wandering,
-// grazing and napping. Tap to pet (shows its name), drag to move.
+// grazing and napping. Tap to pet (shows its name), drag to move, drop at the
+// gate to let one go to a neighbour's farm (part refund) — so a full farm is
+// never a dead end.
 
 import { Sheep, sortByDepth } from '../game/critter.js';
-import { breedById, db } from '../game/rules.js';
+import { breedById, db, release, releaseRefund } from '../game/rules.js';
 import { Particles } from '../engine/particles.js';
 import { clamp } from '../engine/util.js';
 import { farmBackdrop } from './backdrop.js';
-import { el, hudPelts } from './ui.js';
+import { el, hudPelts, bumpPelts } from './ui.js';
 
 // A rectangular paddock the farm brain can wander in.
 export function paddockWorld(area, avoid, fx) {
@@ -23,6 +25,7 @@ export const farmScene = {
     this.fx = new Particles();
     this.sheep = [];
     this.drag = null;
+    this.tag = null;
     const s = app.save.data;
     this.ui = el(`
       <div class="passthrough">
@@ -56,7 +59,7 @@ export const farmScene = {
     this.refresh();
   },
 
-  exit() { this.savePositions(); },
+  exit() { this.savePositions(); this.bg = null; this.tag = null; this.drag = null; },
 
   refresh() {
     const s = this.app.save.data;
@@ -69,6 +72,7 @@ export const farmScene = {
     this.area = area;
     this.bg = farmBackdrop(w, h, this.app.dpr, area);
     this.world = paddockWorld(area, this.bg.avoid, this.fx);
+    this.gate = { x: area.x + area.w / 2, y: area.y + area.h - 10, r: 56 * this.bg.scale };
     const scale = clamp(Math.sqrt((area.w * area.h) / Math.max(10, this.app.save.data.farm.length + 6)) / 150, 0.55, 1.05);
     if (!this.sheep.length) {
       for (const a of this.app.save.data.farm) {
@@ -82,7 +86,7 @@ export const farmScene = {
         if (a.isNew) {
           sh.x = area.x + area.w / 2; sh.y = area.y + area.h + 40;
           sh.tx = area.x + area.w * (0.3 + Math.random() * 0.4); sh.ty = area.y + area.h * 0.6;
-          sh.state = 'walk'; sh.stateT = 6; sh.heading = 0;
+          sh.state = 'walk'; sh.stateT = 6; sh.heading = 0; sh.entering = true;
           delete a.isNew;
         }
         this.sheep.push(sh);
@@ -95,8 +99,9 @@ export const farmScene = {
   savePositions() {
     const { area } = this;
     if (!area) return;
+    if (!(area.w > 0 && area.h > 0)) return;
     for (const sh of this.sheep) {
-      if (!sh.data) continue;
+      if (!sh.data || sh.entering) continue;
       sh.data.x = clamp((sh.x - area.x) / area.w, 0.05, 0.95);
       sh.data.y = clamp((sh.y - area.y) / area.h, 0.05, 0.95);
     }
@@ -104,13 +109,17 @@ export const farmScene = {
   },
 
   pointer(e) {
+    // One drag at a time, owned by the finger that started it.
+    if (this.drag && e.id !== this.drag.id) return;
     if (e.type === 'down') {
-      for (let i = this.sheep.length - 1; i >= 0; i--) {
-        const sh = this.sheep[i];
-        if (!sh.hit(e.x, e.y)) continue;
-        this.drag = { sh, ox: sh.x - e.x, oy: sh.y - e.y, sx: e.x, sy: e.y, moved: false };
-        return;
+      if (this.drag) return;
+      let best = null, bestScore = 1;
+      for (const sh of this.sheep) {
+        if (sh.leavingFarm) continue;
+        const sc = sh.hitScore(e.x, e.y);
+        if (sc <= bestScore) { best = sh; bestScore = sc; }
       }
+      if (best) this.drag = { id: e.id, sh: best, ox: best.x - e.x, oy: best.y - e.y, sx: e.x, sy: e.y, moved: false };
     } else if (e.type === 'move' && this.drag) {
       const d = this.drag;
       if (!d.moved && Math.hypot(e.x - d.sx, e.y - d.sy) > 8) {
@@ -128,12 +137,44 @@ export const farmScene = {
         this.app.haptic(10);
         this.showName(sh);
       } else {
+        const atGate = Math.hypot(sh.x - this.gate.x, sh.y - this.gate.y) < this.gate.r;
         const c = this.world.clamp(sh.x, sh.y, 30 * sh.scale);
         sh.x = c.x; sh.y = c.y;
         sh.state = 'idle'; sh.stateT = 1;
         this.savePositions();
+        if (atGate && sh.data) this.confirmRelease(sh);
       }
     }
+  },
+
+  confirmRelease(sh) {
+    const { app } = this;
+    const refund = releaseRefund(sh.data);
+    const panel = el(`
+      <div class="scrim"><div class="panel" role="dialog" aria-modal="true" aria-label="Let a sheep go">
+        <h2>Say goodbye?</h2>
+        <p><b>${sh.data.name}</b> will trot off to a neighbour's farm.${refund ? ` You'll get <b>${refund} pelt${refund === 1 ? '' : 's'}</b> back.` : ''}</p>
+        <div class="row">
+          <button class="btn red" data-yes>Let ${sh.data.name} go</button>
+          <button class="btn" data-close>Keep</button>
+        </div>
+      </div></div>`);
+    app.ui.append(panel);
+    panel.querySelector('[data-close]').onclick = () => { app.sfx.tap(); panel.remove(); };
+    panel.querySelector('[data-yes]').onclick = () => {
+      panel.remove();
+      release(app.save.data, sh.data.uid);
+      app.save.write();
+      app.sfx.baa(1.2);
+      if (refund) { app.sfx.coin(); bumpPelts(this.ui, app.save.data.pelts); }
+      // Trot out through the gate, then vanish.
+      sh.data = null;
+      sh.leavingFarm = true;
+      sh.entering = true;
+      sh.tx = this.gate.x; sh.ty = this.area.y + this.area.h + 120;
+      sh.state = 'walk'; sh.stateT = 5;
+      this.refresh();
+    };
   },
 
   showName(sh) {
@@ -145,7 +186,16 @@ export const farmScene = {
   },
 
   update(dt) {
-    for (const sh of this.sheep) sh.updateFarm(dt, this.world);
+    for (const sh of this.sheep) {
+      if (sh.leavingFarm) {
+        sh.state = 'walk'; sh.stateT = 5;
+        sh.alpha = Math.max(0, sh.alpha - dt * (sh.y > this.area.y + this.area.h ? 1.5 : 0));
+        if (sh.alpha <= 0) sh.gone = true;
+      }
+      sh.updateFarm(dt, this.world);
+    }
+    this.sheep = this.sheep.filter((sh) => !sh.gone);
+    this.world.others = this.sheep;
     sortByDepth(this.sheep);
     this.fx.update(dt);
     if (this.tag) {
@@ -159,6 +209,20 @@ export const farmScene = {
 
   draw(ctx) {
     if (this.bg) ctx.drawImage(this.bg.canvas, 0, 0, this.app.w, this.app.h);
+    // While dragging, show the gate as a drop target.
+    const d = this.drag;
+    if (d?.moved && this.gate) {
+      const g = this.gate, near = Math.hypot(d.sh.x - g.x, d.sh.y - g.y) < g.r;
+      ctx.save();
+      ctx.fillStyle = near ? 'rgba(238,91,63,0.35)' : 'rgba(255,255,255,0.22)';
+      ctx.strokeStyle = near ? '#ee5b3f' : '#fff'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '400 17px "Lilita One", system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.lineWidth = 5; ctx.strokeStyle = '#262a3b'; ctx.fillStyle = '#fff';
+      ctx.strokeText('Let go here', g.x, g.y - g.r - 8); ctx.fillText('Let go here', g.x, g.y - g.r - 8);
+      ctx.restore();
+    }
     for (const sh of this.sheep) sh.draw(ctx);
     this.fx.draw(ctx);
   },

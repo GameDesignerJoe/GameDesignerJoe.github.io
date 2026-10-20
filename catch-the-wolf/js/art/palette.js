@@ -5,7 +5,7 @@
 export const WOOL = {
   cream:    { base: '#fbf3df', mid: '#efe2c3', shade: '#d9c7a2', light: '#ffffff' },
   charcoal: { base: '#4a5372', mid: '#3d4561', shade: '#2f3650', light: '#6c789b' },
-  cocoa:    { base: '#a77a52', mid: '#946945', shade: '#7a5436', light: '#c69a70' },
+  cocoa:    { base: '#ad8058', mid: '#8f6440', shade: '#6b4729', light: '#d4a87c' },
   ash:      { base: '#c9ccd3', mid: '#b5b9c3', shade: '#9a9fac', light: '#eceef2' },
   rose:     { base: '#f6b9cf', mid: '#eca3bd', shade: '#d986a5', light: '#ffe2ec' },
   butter:   { base: '#f7dc8a', mid: '#ecca6b', shade: '#d4ab4c', light: '#fff2c4' },

@@ -5,10 +5,12 @@
 // Fidgets never change the look, only the pose, so a tell is always visible
 // apart from a blink. That's what keeps hard tiers fair.
 
-import { drawSheep, sheepHit } from '../art/render.js';
+import { drawSheep, sheepHitScore } from '../art/render.js';
 import { rand, pick, clamp, ease, angleDiff } from '../engine/util.js';
 
 let uidSeq = 1;
+const DRAG_MOTION = new Set(['blink']);
+const FARM_MOTION = new Set(['blink', 'look']);
 
 export class Sheep {
   constructor(look, x, y, scale = 1) {
@@ -42,9 +44,14 @@ export class Sheep {
     this.dragging = false;
   }
 
-  hit(px, py) {
-    return !this.gone && this.appear > 0.5 && sheepHit(this.look, this.x, this.y - this.hop, this.scale, this.heading, px, py);
+  // Tap score: <= 1 is a hit, lower is closer to centre (used to pick the
+  // nearest sheep when hit areas overlap).
+  hitScore(px, py) {
+    if (this.gone || this.appear <= 0.5) return Infinity;
+    return sheepHitScore(this.look, this.x, this.y - this.hop, this.scale, this.heading, px, py);
   }
+
+  hit(px, py) { return this.hitScore(px, py) <= 1; }
 
   // Shared clocks: blink, glance, chew.
   fidget(dt, motion) {
@@ -107,11 +114,11 @@ export class Sheep {
     if (this.dragging) {
       p.step = Math.sin(this.t * 22);  // legs paddle in the air
       p.lie = 0;
-      this.fidget(dt, new Set(['blink']));
+      this.fidget(dt, DRAG_MOTION);
       return;
     }
     this.stateT -= dt;
-    const motion = new Set(['blink', 'look']);
+    const motion = FARM_MOTION;
 
     switch (this.state) {
       case 'idle':
@@ -202,6 +209,12 @@ export class Sheep {
       const dx = this.x - o.x, dy = this.y - o.y, d = Math.hypot(dx, dy), min = o.r + r * 0.8;
       if (d > 0 && d < min) { this.x += (dx / d) * (min - d) * 0.35; this.y += (dy / d) * (min - d) * 0.35; }
     }
+    if (this.leavingFarm) return; // heading out through the gate
+    if (this.entering) {
+      // Walking in through the gate: don't snap to the fence until inside.
+      if (world.inside(this.x, this.y, 40 * this.scale)) this.entering = false;
+      return;
+    }
     const c = world.clamp(this.x, this.y, 38 * this.scale);
     this.x = c.x; this.y = c.y;
   }
@@ -221,7 +234,7 @@ export class Sheep {
     ctx.save();
     if (this.alpha < 1) ctx.globalAlpha = this.alpha;
     const lift = this.dragging ? 14 * this.scale : 0;
-    drawSheep(ctx, this.look, this.x, this.y - this.hop - lift, this.scale * a * (this.dragging ? 1.08 : 1), this.heading, this.pose);
+    drawSheep(ctx, this.look, this.x, this.y - this.hop - lift, this.scale * a * (this.dragging ? 1.08 : 1), this.heading, this.pose, this.scale);
     ctx.restore();
   }
 }

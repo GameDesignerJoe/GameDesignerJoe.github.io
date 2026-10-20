@@ -16,15 +16,29 @@ const DEFAULTS = {
   seenHowTo: false,
   farm: [],            // [{ uid, breed, name, x, y }] — x/y are 0..1 farm coords
   nextUid: 1,
-  settings: { sound: true, haptics: true },
+  settings: { sound: true, haptics: true, colorSafe: false },
+};
+
+// One step per version bump: STEPS[n] upgrades a v(n) save to v(n+1).
+const STEPS = {
+  // 1: (d) => { d.newField = d.oldField; delete d.oldField; },
 };
 
 function migrate(data) {
-  // if (data.version === 1) { ...; data.version = 2; }
+  let v = Number(data.version) || 1;
+  while (v < VERSION) { STEPS[v]?.(data); v++; }
+  data.version = VERSION;
+  // Basic validation so a hand-edited or half-written save can't poison play.
+  for (const k of ['pelts', 'streak', 'bestStreak', 'wolvesCaught', 'mistakes', 'nextUid']) {
+    if (!Number.isFinite(data[k]) || data[k] < 0) delete data[k];
+  }
+  if (!Array.isArray(data.farm)) data.farm = [];
+  data.farm = data.farm.filter((a) => a && typeof a.breed === 'string')
+    .map((a) => ({ ...a, x: Number.isFinite(a.x) ? a.x : 0.5, y: Number.isFinite(a.y) ? a.y : 0.5 }));
   return data;
 }
 
-function fresh() { return structuredClone(DEFAULTS); }
+function fresh() { return JSON.parse(JSON.stringify(DEFAULTS)); } // structuredClone needs iOS 15.4+
 
 export const save = {
   data: fresh(),
@@ -42,7 +56,8 @@ export const save = {
     return this.data;
   },
   write() {
-    try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch { /* private mode etc. */ }
+    // Skip '_' keys: render caches hang off look objects (look._ids).
+    try { localStorage.setItem(KEY, JSON.stringify(this.data, (k, v) => (k.startsWith('_') ? undefined : v))); } catch { /* private mode etc. */ }
   },
   reset() {
     const settings = this.data.settings;

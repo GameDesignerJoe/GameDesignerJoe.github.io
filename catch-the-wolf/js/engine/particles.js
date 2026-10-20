@@ -6,6 +6,13 @@ import { cloud } from '../art/draw.js';
 import { WOOL } from '../art/palette.js';
 import { paintHeart } from '../art/icons.js';
 
+const defCache = new Map();
+function def(kind, pal, seed) {
+  const k = `${kind}/${pal}/${seed}`;
+  if (!defCache.has(k)) defCache.set(k, PAINTERS[kind](pal, seed));
+  return defCache.get(k);
+}
+
 const PAINTERS = {
   wool: (pal, seed) => ({
     id: `fx/wool/${pal}/${seed}`,
@@ -85,10 +92,10 @@ export class Particles {
         ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#262a3b'; ctx.lineWidth = 3 * p.size;
         ctx.strokeText('z', 0, 0); ctx.fillText('z', 0, 0);
       } else {
-        const def = PAINTERS[p.kind](p.pal, p.seed);
+        const d = def(p.kind, p.pal, p.seed);
         const s = p.size * (p.kind === 'wool' ? 1 - t * 0.35 : 1);
         ctx.scale(s, s);
-        blit(ctx, sprite(def.id, def.box, s, def.paint));
+        blit(ctx, sprite(d.id, d.box, p.size, d.paint));
       }
       ctx.restore();
     }

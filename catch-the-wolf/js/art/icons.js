@@ -1,46 +1,45 @@
 // Small UI art: the pelt (currency), hearts, sparkles. Exposed both as canvas
 // painters and as cached data-URL images so the DOM HUD can use the same art.
 
-import { INK, ellipse, inked, shadeInside } from './draw.js';
+import { INK, ellipse, inked } from './draw.js';
 import { WOLF } from './palette.js';
 import { paintSheep } from './sheep.js';
 
-// A stretched wolf hide, top-down: head with ears at the top, four leg flaps,
-// a tail at the bottom. Units: about 64 across.
+// A wolf-skin rug, top-down: round head with pointy ears and a sleepy face,
+// four rounded leg flaps, a bushy tail. Units: about 64 across.
 export function paintPelt(ctx) {
-  const fur = WOLF.grey;
-  const p = new Path2D();
-  p.moveTo(0, -26);
-  p.bezierCurveTo(6, -26, 9, -22, 9, -18);
-  p.lineTo(13, -26); p.lineTo(15, -14);           // right ear
-  p.bezierCurveTo(19, -12, 28, -14, 29, -8);      // right foreleg
-  p.bezierCurveTo(24, -6, 19, -4, 17, 2);
-  p.bezierCurveTo(18, 10, 26, 14, 26, 20);        // right hind leg
-  p.bezierCurveTo(20, 21, 14, 18, 9, 18);
-  p.bezierCurveTo(6, 22, 4, 30, 0, 32);           // tail
-  p.bezierCurveTo(-4, 30, -6, 22, -9, 18);
-  p.bezierCurveTo(-14, 18, -20, 21, -26, 20);
-  p.bezierCurveTo(-26, 14, -18, 10, -17, 2);
-  p.bezierCurveTo(-19, -4, -24, -6, -29, -8);
-  p.bezierCurveTo(-28, -14, -19, -12, -15, -14);
-  p.lineTo(-13, -26); p.lineTo(-9, -18);
-  p.bezierCurveTo(-9, -22, -6, -26, 0, -26);
-  p.closePath();
-  inked(ctx, p, fur.base, 3);
-  shadeInside(ctx, p, { x: 0, y: 2, rx: 26, ry: 28 }, fur.shade, fur.light, 0.22);
-  ctx.save(); ctx.clip(p);
-  ctx.fillStyle = fur.pale;
-  ctx.beginPath(); ctx.ellipse(0, 4, 9, 13, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = fur.mid;
-  ctx.beginPath(); ctx.ellipse(0, -16, 6, 6, 0, 0, Math.PI * 2); ctx.fill();
+  const f = WOLF.grey;
+  // Tail first (under the hide).
+  const tail = new Path2D();
+  tail.moveTo(-4, 16); tail.quadraticCurveTo(-9, 26, -2, 33); tail.quadraticCurveTo(6, 34, 6, 26); tail.quadraticCurveTo(5, 20, 4, 16); tail.closePath();
+  inked(ctx, tail, f.base, 2.6);
+  ctx.save(); ctx.clip(tail); ctx.fillStyle = f.dark; ctx.beginPath(); ctx.ellipse(1, 33, 7, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  // Hide with four leg flaps.
+  const hide = new Path2D();
+  ellipse(hide, 0, 4, 15, 16);
+  for (const [x, y, a] of [[-17, -6, -0.5], [17, -6, 0.5], [-16, 15, 0.6], [16, 15, -0.6]]) ellipse(hide, x, y, 8.5, 5.5, a);
+  inked(ctx, hide, f.base, 2.8);
+  ctx.save(); ctx.clip(hide);
+  ctx.fillStyle = f.shade; ctx.beginPath(); ctx.ellipse(6, 12, 22, 14, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = f.base; ctx.beginPath(); ctx.ellipse(-2, 2, 20, 15, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = f.pale; ctx.beginPath(); ctx.ellipse(0, 6, 7, 10, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
-  // stitched edge
-  ctx.save();
-  ctx.setLineDash([2.2, 2.6]);
-  ctx.strokeStyle = 'rgba(38,42,59,0.45)'; ctx.lineWidth = 1;
-  ctx.translate(0, 1); ctx.scale(0.86, 0.86);
-  ctx.stroke(p);
+  // Head with ears.
+  for (const s of [-1, 1]) {
+    const ear = new Path2D();
+    ear.moveTo(s * 4, -20); ear.lineTo(s * 12, -31); ear.lineTo(s * 12.5, -17); ear.closePath();
+    inked(ctx, ear, f.base, 2.4);
+    ctx.fillStyle = f.dark; ctx.beginPath(); ctx.moveTo(s * 7, -21); ctx.lineTo(s * 11, -27); ctx.lineTo(s * 11, -20); ctx.fill();
+  }
+  const head = new Path2D(); ellipse(head, 0, -16, 11, 10);
+  inked(ctx, head, f.base, 2.6);
+  ctx.save(); ctx.clip(head);
+  ctx.fillStyle = f.pale; ctx.beginPath(); ctx.ellipse(0, -10, 6, 6, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * 5, -18, 2.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); }
+  const nose = new Path2D(); ellipse(nose, 0, -9.5, 2.6, 1.9);
+  inked(ctx, nose, '#1c1f2b', 0.6);
 }
 
 export function paintHeart(ctx, col = '#ff6b8b') {

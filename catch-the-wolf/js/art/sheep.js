@@ -1,14 +1,15 @@
 // Procedural top-down sheep, drawn as separate layers so the renderer can
-// animate them (head turns, blinks, ear flicks, trotting legs) and so a wolf
-// "tell" is just one layer drawn differently.
+// animate them (head turns, blinks, trotting legs) and so a wolf "tell" is
+// just one layer drawn differently.
 //
 // Units: the sheep faces up (-y). Body centre is (0, 6); the neck pivot is at
 // NECK. Head-layer painters draw in neck-local space (origin = neck).
 //
-// A `look` is plain data — see js/game/looks.js for the full field list.
+// A `look` is plain data; docs/DESIGN.md shows the fields.
 
-import { INK, INK_W, cloud, circle, ellipse, inked, shadeInside, groundShadow } from './draw.js';
+import { INK, INK_W, cloud, ellipse, inked, shadeInside, groundShadow, smoothClosed, fur } from './draw.js';
 import { WOOL, FACE, HORN, HOOF, WOLF, EYE } from './palette.js';
+import { paintWolfTail, paintWolfEar } from './wolf.js';
 
 export const NECK = { x: 0, y: -27 };
 export const HEAD_SCALE = 1.22;
@@ -35,7 +36,8 @@ export function paintLegs(ctx, look, step = 0) {
     const l = legs[i];
     const rear = i >= 2;
     const y = l.y + l.s * 5 + (rear ? 6 : -6);
-    if (rear && paws) paintPaw(ctx, l.x, y + 2, wolfFur(look), l.x < 0 ? -1 : 1);
+    // Wolf paws poke well out from under the fleece so the tell is visible.
+    if (rear && paws) paintPaw(ctx, l.x * 1.15, y + 7, wolfFur(look));
     else paintHoof(ctx, l.x, y);
   }
 }
@@ -45,23 +47,21 @@ function paintHoof(ctx, x, y) {
   ellipse(p, x, y, 5.2, 6.4);
   inked(ctx, p, HOOF.base, INK_W * 0.8);
   shadeInside(ctx, p, { x, y, rx: 5.2, ry: 6.4 }, HOOF.shade, HOOF.light, 0.3);
-  // the cleft
   ctx.strokeStyle = HOOF.shade; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(x, y + 1.5); ctx.lineTo(x, y + 6); ctx.stroke();
 }
 
-function paintPaw(ctx, x, y, fur, side) {
+function paintPaw(ctx, x, y, f) {
   const p = new Path2D();
-  ellipse(p, x, y, 6.6, 7.4);
-  inked(ctx, p, fur.base, INK_W * 0.8);
-  shadeInside(ctx, p, { x, y, rx: 6.6, ry: 7.4 }, fur.shade, fur.light, 0.3);
-  // three claws poking out the back
-  ctx.fillStyle = '#f4f0e6';
-  ctx.strokeStyle = INK; ctx.lineWidth = 1.1;
-  for (let k = -1; k <= 1; k++) {
-    const cx = x + k * 3, cy = y + 7;
+  ellipse(p, x, y, 6.8, 7.2);
+  inked(ctx, p, f.base, INK_W * 0.85);
+  shadeInside(ctx, p, { x, y, rx: 6.8, ry: 7.2 }, f.shade, f.light, 0.3);
+  // White claws with ink, fanned out behind the paw.
+  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.lineJoin = 'round';
+  for (const k of [-1, 0, 1]) {
+    const cx = x + k * 3.6, cy = y + 6.2;
     ctx.beginPath();
-    ctx.moveTo(cx - 1.4, cy - 1); ctx.lineTo(cx + side * 0.4, cy + 4.2); ctx.lineTo(cx + 1.4, cy - 1);
+    ctx.moveTo(cx - 1.7, cy - 1); ctx.lineTo(cx + k * 1.2, cy + 5.2); ctx.lineTo(cx + 1.7, cy - 1);
     ctx.closePath(); ctx.fill(); ctx.stroke();
   }
 }
@@ -71,32 +71,19 @@ export function paintTail(ctx, look, wag = 0) {
   ctx.save();
   ctx.translate(0, 40);
   ctx.rotate(wag * 0.35);
-  if (look.tells?.tail) paintWolfTail(ctx, wolfFur(look));
-  else cloud(ctx, { x: 0, y: 6, rx: 8.5, ry: 8.5, lobes: 6, lobeR: 4.2, seed: 11 }, woolOf(look), INK_W * 0.9);
-  ctx.restore();
-}
-
-function paintWolfTail(ctx, fur) {
-  // Bushy and long — trails out from under the fleece, curving to one side.
-  const p = new Path2D();
-  p.moveTo(-6, -2);
-  p.bezierCurveTo(-12, 10, -10, 22, -2, 30);
-  p.bezierCurveTo(4, 35, 14, 33, 16, 25);
-  p.bezierCurveTo(12, 27, 8, 22, 9, 14);
-  p.bezierCurveTo(10, 6, 8, 0, 6, -2);
-  p.closePath();
-  inked(ctx, p, fur.base);
-  shadeInside(ctx, p, { x: 2, y: 14, rx: 14, ry: 18 }, fur.shade, fur.light, 0.3);
-  // pale tip
-  ctx.save(); ctx.clip(p);
-  const tip = new Path2D(); ellipse(tip, 6, 31, 11, 7, -0.4);
-  ctx.fillStyle = fur.pale; ctx.fill(tip);
-  ctx.restore();
-  // fur flicks
-  ctx.strokeStyle = fur.shade; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
-  for (const [x1, y1, x2, y2] of [[-5, 8, -2, 12], [-4, 16, -1, 20], [3, 12, 5, 17]]) {
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  if (look.tells?.tail === 'tip') {
+    // Just the dark tip poking out from under the fleece, beside a normal puff.
+    ctx.save(); ctx.translate(5, -6); ctx.rotate(-0.95);
+    paintWolfTail(ctx, wolfFur(look), 0.6);
+    ctx.restore();
+    cloud(ctx, { x: 0, y: 6, rx: 8.5, ry: 8.5, lobes: 6, lobeR: 4.2, seed: 11 }, woolOf(look), INK_W * 0.9);
+  } else if (look.tells?.tail) {
+    ctx.rotate(0.35);
+    paintWolfTail(ctx, wolfFur(look), 0.82);
+  } else {
+    cloud(ctx, { x: 0, y: 6, rx: 8.5, ry: 8.5, lobes: 6, lobeR: 4.2, seed: 11 }, woolOf(look), INK_W * 0.9);
   }
+  ctx.restore();
 }
 
 // --- body --------------------------------------------------------------------
@@ -106,7 +93,7 @@ export function paintBody(ctx, look) {
     x: 0, y: 6, rx: 31, ry: 37, lobes: 15, lobeR: 10.5, jitter: 0.2,
     seed: look.woolSeed || 7, curls: 7, curlR: 7.4,
   }, pal);
-  if (look.tells?.patch) paintFurPatch(ctx, path, look.tells.patch, wolfFur(look));
+  if (look.tells?.patch) paintFurPatch(ctx, path, look.tells.patch, wolfFur(look), pal);
   if (look.tells?.tint) {
     // A costume that's ever so slightly off-colour.
     ctx.save(); ctx.clip(path);
@@ -117,121 +104,125 @@ export function paintBody(ctx, look) {
   }
 }
 
-// A rip in the fleece with grey wolf fur showing through.
-function paintFurPatch(ctx, bodyPath, where, fur) {
-  const spots = { left: [-15, 10], right: [15, 16], rump: [2, 28], back: [-4, -6] };
+// A rip in the fleece with grey wolf fur poking through: spiky fur edge, a
+// shadow where the wool overhangs it, fur strokes. No sticker-like outline.
+function paintFurPatch(ctx, bodyPath, where, f, wool) {
+  const spots = { left: [-14, 10], right: [14, 16], rump: [2, 28], back: [-4, -6] };
   const [x, y] = spots[where] || spots.left;
   ctx.save();
   ctx.clip(bodyPath);
-  // The hole: an irregular oval of grey fur, shaded darker at the top where
-  // the wool overhangs it.
-  const hole = new Path2D();
-  const n = 14;
-  for (let i = 0; i <= n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    const r = 1 + (i % 3 === 0 ? 0.18 : i % 2 ? -0.08 : 0.06);
-    const px = x + Math.cos(a) * 9.5 * r, py = y + Math.sin(a) * 7.5 * r;
-    i ? hole.lineTo(px, py) : hole.moveTo(px, py);
-  }
-  hole.closePath();
-  inked(ctx, hole, fur.base, INK_W * 0.75);
+  // Wool rim shadow first (the torn edge sits lower than the fleece).
+  const rimPts = smoothClosed([[x, y - 11.5, 0], [x + 12, y - 4, 0], [x + 10, y + 8, 0], [x - 2, y + 10.5, 0], [x - 12, y + 4, 0], [x - 11, y - 7, 0]], 4);
+  ctx.fillStyle = wool.shade;
+  ctx.fill(fur(rimPts, 3));
+  const pts = smoothClosed([[x, y - 9, 2.6], [x + 10, y - 3, 2.8], [x + 8, y + 6.5, 2.4], [x - 2, y + 8.5, 2.6], [x - 10, y + 3, 2.8], [x - 9, y - 6, 2.4]], 4);
+  const hole = fur(pts, 17);
+  ctx.fillStyle = f.base; ctx.fill(hole);
   ctx.save(); ctx.clip(hole);
-  ctx.fillStyle = fur.shade;
-  ctx.beginPath(); ctx.ellipse(x - 1, y - 6.5, 12, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = f.dark;
+  ctx.beginPath(); ctx.ellipse(x - 1, y - 9, 14, 6, 0, 0, Math.PI * 2); ctx.globalAlpha = 0.8; ctx.fill(); ctx.globalAlpha = 1;
+  ctx.fillStyle = f.light;
+  ctx.beginPath(); ctx.ellipse(x - 2, y + 2, 5, 3, -0.3, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
-  // Fur strands.
-  ctx.strokeStyle = fur.dark; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
-  for (const [dx, dy] of [[-5, 0], [-1, 2], [3, -1], [5, 3], [0, 5]]) {
-    ctx.beginPath(); ctx.moveTo(x + dx, y + dy - 1.5); ctx.quadraticCurveTo(x + dx + 1.5, y + dy, x + dx + 0.8, y + dy + 2.2); ctx.stroke();
+  ctx.strokeStyle = f.dark; ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const [dx, dy] of [[-5, 1], [0, 3], [5, 0], [1, -3]]) {
+    ctx.beginPath(); ctx.moveTo(x + dx - 2, y + dy - 2); ctx.lineTo(x + dx, y + dy + 1.2); ctx.lineTo(x + dx + 2, y + dy - 2); ctx.stroke();
   }
   ctx.restore();
 }
 
 // --- head (neck-local) ----------------------------------------------------------
+// A tapered wedge: wide at the crown, narrowing to the muzzle. `tip` is how far
+// forward the muzzle reaches (a wolf snout reaches further and narrower).
+function headPath(tip = -31, muzzle = 6.5) {
+  const p = new Path2D();
+  p.moveTo(0, -1);
+  p.bezierCurveTo(-8, -1, -12, -6, -11.5, -13);
+  p.bezierCurveTo(-11, -19, -muzzle - 2, tip + 6, -muzzle + 1, tip + 1.5);
+  p.bezierCurveTo(-muzzle + 3, tip - 1.2, muzzle - 3, tip - 1.2, muzzle - 1, tip + 1.5);
+  p.bezierCurveTo(muzzle + 2, tip + 6, 11, -19, 11.5, -13);
+  p.bezierCurveTo(12, -6, 8, -1, 0, -1);
+  p.closePath();
+  return p;
+}
+
 // Everything above the shoulders except the eyes, which blink independently.
 export function paintHead(ctx, look) {
   const face = faceOf(look);
   const t = look.tells || {};
+  const wf = wolfFur(look);
 
   // Ears go under the head.
   paintEar(ctx, look, -1, t.earL || t.ears);
   paintEar(ctx, look, 1, t.earR || t.ears);
   if (look.horns === 'curl') { paintHorn(ctx, -1); paintHorn(ctx, 1); }
 
-  // Skull + muzzle as one silhouette.
   const wolfSnout = t.muzzle === 'wolf';
-  const head = new Path2D();
-  ellipse(head, 0, -11, 11.5, 14.5);
-  if (wolfSnout) {
-    head.moveTo(-7, -18);
-    head.bezierCurveTo(-6.5, -30, -3.5, -35, 0, -35.5);
-    head.bezierCurveTo(3.5, -35, 6.5, -30, 7, -18);
-    head.closePath();
-  } else {
-    ellipse(head, 0, -21, 9, 8);
-  }
+  const tip = wolfSnout ? -36 : -31;
+  const head = headPath(tip, wolfSnout ? 5.2 : 6.5);
   inked(ctx, head, face.base);
-  shadeInside(ctx, head, { x: 0, y: -15, rx: 11.5, ry: 18 }, face.shade, face.light, 0.22);
+  shadeInside(ctx, head, { x: 0, y: -15, rx: 11.5, ry: 17 }, face.shade, face.light, 0.22);
 
+  ctx.save(); ctx.clip(head);
   if (wolfSnout) {
-    const fur = wolfFur(look);
-    ctx.save(); ctx.clip(head);
-    const s = new Path2D(); ellipse(s, 0, -29, 8, 9);
-    ctx.fillStyle = fur.base; ctx.fill(s);
-    ctx.restore();
-    const nose = new Path2D(); ellipse(nose, 0, -33.4, 3.6, 2.6);
-    inked(ctx, nose, '#1c1f2b', 0.8);
+    // Grey fur creeping up the muzzle, blended rather than a separate cone.
+    const g = ctx.createLinearGradient(0, tip, 0, -16);
+    g.addColorStop(0, wf.base); g.addColorStop(0.65, wf.base); g.addColorStop(1, wf.base + '00');
+    ctx.fillStyle = g;
+    ctx.fillRect(-12, tip - 2, 24, 22);
   } else {
-    // Soft pink muzzle and nostrils.
-    ctx.save(); ctx.clip(head);
-    const m = new Path2D(); ellipse(m, 0, -24, 7.4, 5.4);
+    const m = new Path2D(); ellipse(m, 0, tip + 4.5, 6, 4.6);
     ctx.fillStyle = face.muzzle; ctx.fill(m);
-    ctx.restore();
-    if (t.nose === 'black') {
-      const nose = new Path2D(); ellipse(nose, 0, -26.2, 3.8, 2.6);
-      inked(ctx, nose, '#1c1f2b', 0.8);
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
-      ctx.beginPath(); ctx.arc(-1.2, -27, 0.9, 0, Math.PI * 2); ctx.fill();
-    } else {
-      ctx.fillStyle = INK;
-      for (const s of [-1, 1]) {
-        ctx.beginPath(); ctx.ellipse(s * 2.8, -26, 1.1, 1.7, s * 0.5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  if (wolfSnout || t.nose === 'black') {
+    const nose = new Path2D(); ellipse(nose, 0, tip + 2.2, 4.9, 3.2);
+    inked(ctx, nose, '#1c1f2b', 0.9);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath(); ctx.arc(-1.5, tip + 1.3, 1, 0, Math.PI * 2); ctx.fill();
+    if (wolfSnout) {
+      ctx.fillStyle = wf.dark;
+      for (const side of [-1, 1]) for (const [dx, dy] of [[3.2, 7], [3.9, 9.5]]) {
+        ctx.beginPath(); ctx.arc(side * dx, tip + dy, 0.6, 0, Math.PI * 2); ctx.fill();
       }
+    }
+  } else {
+    ctx.fillStyle = INK;
+    for (const s of [-1, 1]) {
+      ctx.beginPath(); ctx.ellipse(s * 2.4, tip + 2.6, 1.1, 1.6, s * 0.5, 0, Math.PI * 2); ctx.fill();
     }
   }
   if (t.fang) {
-    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = INK; ctx.lineWidth = 1.1; ctx.lineJoin = 'round';
-    ctx.lineWidth = 1.3;
+    // Two big fangs jutting out from the sides of the mouth.
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = INK; ctx.lineWidth = 1.3; ctx.lineJoin = 'round';
+    const fy = tip + 7;
     for (const side of [-1, 1]) {
-      const fx = side * (wolfSnout ? 6.4 : 8.6), fy = wolfSnout ? -26 : -23;
-      ctx.beginPath(); ctx.moveTo(fx - side * 2.2, fy - 1.5); ctx.lineTo(fx + side * 2.2, fy - 1.5); ctx.lineTo(fx + side * 3.6, fy + 5); ctx.closePath();
-      ctx.fill(); ctx.stroke();
+      const fx = side * (wolfSnout ? 5 : 6.2);
+      ctx.beginPath();
+      ctx.moveTo(fx - side * 0.6, fy - 2.8); ctx.lineTo(fx + side * 6.2, fy + 1.2); ctx.lineTo(fx - side * 0.2, fy + 2.6);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
     }
   }
 
-  // Woolly fringe on the crown.
+  // Woolly cap at the back of the crown, kept clear of the eyes.
   if (look.tuft !== false) {
-    cloud(ctx, { x: 0, y: -3, rx: 10.5, ry: 7.5, lobes: 7, lobeR: 4.4, seed: 23 }, woolOf(look), INK_W * 0.85);
+    cloud(ctx, { x: 0, y: -1, rx: 10, ry: 6, lobes: 7, lobeR: 3.9, seed: 23 }, woolOf(look), INK_W * 0.85);
   }
 }
 
 function paintEar(ctx, look, side, kind) {
   const face = faceOf(look);
   ctx.save();
-  ctx.translate(side * 8.5, -9);
   if (kind === 'wolf') {
-    // Tall, pointed and upright — not a sheep ear at all.
-    const fur = wolfFur(look);
-    ctx.rotate(side * 0.55);
-    const p = new Path2D();
-    p.moveTo(-5.5, 3); p.quadraticCurveTo(-4, -8, 0, -15); p.quadraticCurveTo(4, -8, 5.5, 3); p.closePath();
-    inked(ctx, p, fur.base);
-    const inner = new Path2D();
-    inner.moveTo(-2.6, 1.5); inner.quadraticCurveTo(-1.8, -5, 0, -10); inner.quadraticCurveTo(1.8, -5, 2.6, 1.5); inner.closePath();
-    ctx.fillStyle = fur.dark; ctx.fill(inner);
+    // Tall, pointed and upright: not a sheep ear at all.
+    ctx.translate(side * 8.5, -9);
+    ctx.rotate(side * 0.5);
+    paintWolfEar(ctx, wolfFur(look));
   } else {
+    ctx.translate(side * 8.5, -8);
     const droop = kind === 'droop' || look.ears === 'droop';
-    ctx.rotate(side * (droop ? 2.2 : 1.45));
+    ctx.rotate(side * (droop ? 2.35 : 1.75));
     const p = new Path2D();
     p.moveTo(0, 2);
     p.bezierCurveTo(-7, -2, -6.5, -15, 0, -19);
@@ -246,75 +237,90 @@ function paintEar(ctx, look, side, kind) {
 }
 
 function paintHorn(ctx, side) {
-  // A thick curl sweeping back and round, like the reference ram.
+  // A ram's curl: tapered spiral sweeping back and round, filled as one shape
+  // so it narrows to a point; ridges follow the curl.
   ctx.save();
-  ctx.translate(side * 10, -8);
+  ctx.translate(side * 9.5, -8);
   ctx.scale(side, 1);
-  const pts = [];
-  for (let i = 0; i <= 40; i++) {
-    const t = i / 40;
-    const a = -2.2 + t * 4.9;
-    const r = 11.5 * (1 - t * 0.62);
-    pts.push([4 + Math.cos(a) * r + t * 3, 7 + Math.sin(a) * r]);
+  const N = 44, pts = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const a = -2.0 + t * 5.0;
+    const r = 11.5 * (1 - t * 0.7);
+    pts.push({ x: 5 + Math.cos(a) * r + t * 2, y: 6 + Math.sin(a) * r, w: 5.2 - t * 3.3 });
   }
-  const stroke = (w, col) => {
-    ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-    ctx.lineWidth = w; ctx.strokeStyle = col; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
-  };
-  stroke(9.5 + INK_W * 2, INK);
-  stroke(9.5, HORN.base);
-  ctx.save(); ctx.translate(-0.8, -0.8); stroke(3.4, HORN.light); ctx.restore();
-  // ridges
-  ctx.strokeStyle = HORN.shade; ctx.lineWidth = 1.2;
-  for (let i = 4; i < 36; i += 5) {
-    const [x, y] = pts[i], [nx, ny] = pts[i + 1];
-    const dx = nx - x, dy = ny - y, len = Math.hypot(dx, dy) || 1;
-    const ox = (-dy / len) * 4, oy = (dx / len) * 4;
-    ctx.beginPath(); ctx.moveTo(x - ox, y - oy); ctx.lineTo(x + ox, y + oy); ctx.stroke();
+  const outer = [], inner = [];
+  for (let i = 0; i <= N; i++) {
+    const p = pts[i], q = pts[Math.min(N, i + 1)], o = pts[Math.max(0, i - 1)];
+    const dx = q.x - o.x, dy = q.y - o.y, len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    outer.push([p.x - nx * p.w, p.y - ny * p.w]);
+    inner.push([p.x + nx * p.w, p.y + ny * p.w]);
   }
+  const shape = new Path2D();
+  outer.forEach(([x, y], i) => (i ? shape.lineTo(x, y) : shape.moveTo(x, y)));
+  for (let i = inner.length - 1; i >= 0; i--) shape.lineTo(inner[i][0], inner[i][1]);
+  shape.closePath();
+  inked(ctx, shape, HORN.base);
+  ctx.save(); ctx.clip(shape);
+  // inner shade
+  ctx.strokeStyle = HORN.shade; ctx.lineWidth = 3.2; ctx.lineCap = 'round';
+  ctx.beginPath(); inner.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+  // bright rim on the outer edge only
+  ctx.strokeStyle = HORN.light; ctx.lineWidth = 2.2;
+  ctx.beginPath(); outer.slice(2, 30).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+  // curved ridges following the curl
+  ctx.strokeStyle = HORN.shade; ctx.lineWidth = 1.1;
+  for (let i = 5; i < N - 6; i += 5) {
+    const a = outer[i], b = inner[i], c = pts[i + 2];
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(c.x, c.y, b[0], b[1]); ctx.stroke();
+  }
+  ctx.restore();
   ctx.restore();
 }
 
 // --- eyes (neck-local) -------------------------------------------------------------
 // state: 'open' | 'half' | 'closed'. look.eyes picks the resting style.
+// Small and side-set like the reference, forward of the crown wool.
 export function paintEyes(ctx, look, state = 'open', gaze = 0) {
   const t = look.tells || {};
   const style = look.eyes || 'open';
   const lid = state === 'closed' ? 1 : state === 'half' || style === 'sleepy' ? 0.5 : 0;
   for (const side of [-1, 1]) {
-    const x = side * 7.6, y = -13.5;
-    const wolfEye = t.eyes === 'wolf';
-    const rx = 3.9, ry = 4.6;
+    const x = side * 7.9, y = -16;
+    const wolfEye = t.eyes === 'wolf' || (t.eyes === 'wolfL' && side === -1);
+    const rx = 3.2, ry = 3.7;
     if (lid >= 1) {
       ctx.strokeStyle = INK; ctx.lineWidth = 1.7; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.arc(x, y - 1, 3.4, 0.25 * Math.PI, 0.75 * Math.PI); ctx.stroke();
-      continue;
-    }
-    const e = new Path2D(); ellipse(e, x, y, rx, ry);
-    inked(ctx, e, wolfEye ? EYE.wolf : EYE.white, 1.3);
-    ctx.save(); ctx.clip(e);
-    if (wolfEye) {
-      ctx.fillStyle = EYE.wolfRim;
-      ctx.beginPath(); ctx.ellipse(x + 1, y + 1.4, rx, ry, 0, 0, Math.PI * 2); ctx.globalAlpha = 0.35; ctx.fill(); ctx.globalAlpha = 1;
-      ctx.fillStyle = EYE.pupil;
-      ctx.beginPath(); ctx.ellipse(x + gaze * 1.2, y - 0.6, 1.05, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y - 1, 2.9, 0.25 * Math.PI, 0.75 * Math.PI); ctx.stroke();
     } else {
-      ctx.fillStyle = EYE.pupil;
-      ctx.beginPath(); ctx.arc(x + side * 0.6 + gaze * 1.3, y - 1.2, 2.55, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(x + side * 0.6 + gaze * 1.3 - 0.9, y - 2.2, 0.9, 0, Math.PI * 2); ctx.fill();
+      const e = new Path2D(); ellipse(e, x, y, rx, ry);
+      inked(ctx, e, wolfEye ? EYE.wolf : EYE.white, 1.3);
+      ctx.save(); ctx.clip(e);
+      if (wolfEye) {
+        ctx.fillStyle = EYE.wolfRim; ctx.globalAlpha = 0.4;
+        ctx.beginPath(); ctx.ellipse(x + 1, y + 1.4, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        ctx.fillStyle = EYE.pupil;
+        ctx.beginPath(); ctx.ellipse(x + gaze, y - 0.4, 0.95, 2.9, 0, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = EYE.pupil;
+        ctx.beginPath(); ctx.arc(x + side * 0.5 + gaze, y - 0.9, 2.1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(x + side * 0.5 + gaze - 0.8, y - 1.8, 0.75, 0, Math.PI * 2); ctx.fill();
+      }
+      if (lid > 0) {
+        const edge = y + ry - ry * 2 * (1 - lid);
+        ctx.fillStyle = faceOf(look).base;
+        ctx.fillRect(x - rx - 1, edge - ry * 2, rx * 2 + 2, ry * 2);
+        ctx.strokeStyle = INK; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(x - rx, edge); ctx.lineTo(x + rx, edge); ctx.stroke();
+      }
+      ctx.restore();
     }
-    if (lid > 0) {
-      const lidCol = faceOf(look).base;
-      ctx.fillStyle = lidCol;
-      ctx.fillRect(x - rx - 1, y + ry - ry * 2 * (1 - lid) - ry * 2, rx * 2 + 2, ry * 2);
-      ctx.strokeStyle = INK; ctx.lineWidth = 1.3;
-      ctx.beginPath(); ctx.moveTo(x - rx, y + ry - ry * 2 * (1 - lid)); ctx.lineTo(x + rx, y + ry - ry * 2 * (1 - lid)); ctx.stroke();
-    }
-    ctx.restore();
     if (t.brows) {
-      ctx.strokeStyle = INK; ctx.lineWidth = 2.8; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(x + side * 5, y - 8.5); ctx.lineTo(x - side * 3.2, y - 4.4); ctx.stroke();
+      // Heavy scowl: inner ends dip toward the eyes.
+      ctx.strokeStyle = INK; ctx.lineWidth = 3.6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x + side * 4.6, y - 7.6); ctx.lineTo(x - side * 3.6, y - 4.4); ctx.stroke();
     }
   }
 }
@@ -334,5 +340,3 @@ export function paintSheep(ctx, look, pose = {}) {
   paintEyes(ctx, look, eyes);
   ctx.restore();
 }
-
-export { circle };

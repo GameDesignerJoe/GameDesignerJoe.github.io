@@ -1,19 +1,21 @@
 {
-  "_doc": "Every way a wolf's disguise can slip. subtlety 1 = obvious, 5 = very hard. 'tells' is merged into the wolf's look; see js/art/sheep.js for what each key draws. Add a tell here and the round generator picks it up automatically. 'notWith' lists look traits that would hide the tell ('horns' = any value, 'wool:ash' = that value); the generator skips it for those flocks.",
+  "_doc": "Every way a wolf's disguise can slip. subtlety 1 = obvious, 5 = very hard. 'tells' is merged into the wolf's look; see js/art/sheep.js for what each key draws. Tells sharing a 'group' are variants of one idea: the generator picks a group first, then a variant, so variants don't crowd out other tells. 'notWith' lists look traits that would hide the tell ('horns' = any value, 'wool:ash' = that value). 'colorOnly' tells are skipped when the player turns on colour-friendly tells.",
   "tells": [
-    { "id": "tail",      "subtlety": 1, "label": "A bushy wolf tail!",          "tells": { "tail": true } },
-    { "id": "ears",      "subtlety": 1, "label": "Pointy wolf ears!",           "notWith": ["horns"], "tells": { "ears": "wolf" } },
-    { "id": "snout",     "subtlety": 2, "label": "A long wolf snout!",          "tells": { "muzzle": "wolf" } },
-    { "id": "earL",      "subtlety": 2, "label": "One pointy wolf ear!",        "notWith": ["horns"], "tells": { "earL": "wolf" } },
-    { "id": "earR",      "subtlety": 2, "label": "One pointy wolf ear!",        "notWith": ["horns"], "tells": { "earR": "wolf" } },
-    { "id": "eyes",      "subtlety": 3, "label": "Yellow wolf eyes!",           "tells": { "eyes": "wolf" } },
-    { "id": "paws",      "subtlety": 3, "label": "Clawed paws, not hooves!",    "tells": { "paws": true } },
-    { "id": "patchL",    "subtlety": 3, "label": "Grey fur under the wool!",    "notWith": ["wool:ash"], "tells": { "patch": "left" } },
-    { "id": "patchR",    "subtlety": 3, "label": "Grey fur under the wool!",    "notWith": ["wool:ash"], "tells": { "patch": "right" } },
-    { "id": "patchRump", "subtlety": 4, "label": "Grey fur under the wool!",    "notWith": ["wool:ash"], "tells": { "patch": "rump" } },
-    { "id": "fang",      "subtlety": 4, "label": "Fangs!",                      "tells": { "fang": true } },
-    { "id": "brows",     "subtlety": 4, "label": "A sly scowl!",                "notWith": ["face:dark"], "tells": { "brows": true } },
-    { "id": "nose",      "subtlety": 5, "label": "A wet black wolf nose!",      "notWith": ["face:dark"], "tells": { "nose": "black" } },
-    { "id": "tint",      "subtlety": 5, "label": "Fake wool, slightly off-colour!", "notWith": ["wool:charcoal", "wool:cocoa"], "tells": { "tint": "#dcdcf0" } }
+    {"id": "tail", "subtlety": 1, "label": "A bushy wolf tail!", "tells": {"tail": true}},
+    {"id": "ears", "subtlety": 1, "label": "Pointy wolf ears!", "notWith": ["horns"], "tells": {"ears": "wolf"}},
+    {"id": "snout", "subtlety": 2, "label": "A long wolf snout!", "tells": {"muzzle": "wolf"}},
+    {"id": "earL", "subtlety": 2, "label": "One pointy wolf ear!", "notWith": ["horns"], "tells": {"earL": "wolf"}, "group": "ear"},
+    {"id": "earR", "subtlety": 2, "label": "One pointy wolf ear!", "notWith": ["horns"], "tells": {"earR": "wolf"}, "group": "ear"},
+    {"id": "eyes", "subtlety": 2, "label": "Yellow wolf eyes!", "tells": {"eyes": "wolf"}},
+    {"id": "paws", "subtlety": 3, "label": "Clawed paws, not hooves!", "tells": {"paws": true}},
+    {"id": "patchL", "subtlety": 2, "label": "Grey fur under the wool!", "tells": {"patch": "left"}, "group": "patch"},
+    {"id": "patchR", "subtlety": 2, "label": "Grey fur under the wool!", "tells": {"patch": "right"}, "group": "patch"},
+    {"id": "patchRump", "subtlety": 3, "label": "Grey fur under the wool!", "tells": {"patch": "rump"}},
+    {"id": "eyeOne", "subtlety": 4, "label": "One yellow wolf eye!", "tells": {"eyes": "wolfL"}},
+    {"id": "tailTip", "subtlety": 4, "label": "A wolf tail tip peeking out!", "tells": {"tail": "tip"}},
+    {"id": "fang", "subtlety": 4, "label": "Fangs!", "tells": {"fang": true}},
+    {"id": "brows", "subtlety": 4, "label": "A sly scowl!", "notWith": ["face:dark", "eyes:sleepy"], "tells": {"brows": true}},
+    {"id": "nose", "subtlety": 5, "label": "A wet black wolf nose!", "notWith": ["face:dark"], "tells": {"nose": "black"}},
+    {"id": "tint", "subtlety": 5, "label": "Fake wool, slightly off-colour!", "colorOnly": true, "notWith": ["wool:charcoal", "wool:cocoa"], "tells": {"tint": "#dcdcf0"}}
   ]
 }

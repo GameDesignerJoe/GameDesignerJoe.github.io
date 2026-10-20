@@ -49,8 +49,21 @@
     { wool: 'cream', face: 'cream', tells: { nose: 'black' } },
     { wool: 'cream', face: 'cream', tells: { brows: true } },
     { wool: 'charcoal', face: 'dark', tells: { ears: 'wolf' } },
+    { wool: 'cream', face: 'cream', tells: { tint: '#dcdcf0' } },
+    { wool: 'cocoa', face: 'tan', tells: { muzzle: 'wolf', fang: true } },
+    { wool: 'charcoal', face: 'dark', wolfFur: 'black', tells: { patch: 'right' } },
+    { wool: 'ash', face: 'dark', wolfFur: 'black', tells: { tail: true } },
+    { wool: 'cream', face: 'cream', tells: { eyes: 'wolfL' } },
+    { wool: 'charcoal', face: 'dark', tells: { tail: 'tip' } },
+    { wool: 'cream', face: 'cream', tells: { tail: 'tip' } },
   ];
-  const cols = 8, size = innerWidth / cols, s = size / 125;
+  const q = new URLSearchParams(location.search);
+  if (q.has('wolf')) {
+    paintMeadow(ctx, innerWidth, innerHeight, 3);
+    [['grey','up',0],['black','ahead',0],['white','ahead',1]].forEach(([f,l,r],i)=>{ctx.save();ctx.translate(170+i*330,480);ctx.scale(4,4);paintWolf(ctx,f,{look:l,run:r});ctx.restore();});
+    throw 'done';
+  }
+  const cols = Number(q.get('cols') || 8), size = innerWidth / cols, s = size / 125;
   looks.forEach((look, i) => {
     ctx.save();
     ctx.translate((i % cols + 0.5) * size, (Math.floor(i / cols) + 0.5) * size * 1.2 + 60);

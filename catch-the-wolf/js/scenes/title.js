@@ -38,7 +38,7 @@ export const titleScene = {
     });
   },
 
-  exit() {},
+  exit() { this.bg = null; },
 
   resize(w, h) {
     this.bg = titleBackdrop(w, h, this.app.dpr);

@@ -10,11 +10,24 @@
 const cache = new Map();
 const overrides = new Map();
 const seen = new Set();
-const MAX = 900;
+// Budget by pixels, not entries: iOS Safari caps total canvas memory and
+// silently renders blank once it's exceeded. 12M px ≈ 48 MB of RGBA.
+const MAX_PIXELS = 12_000_000;
+let pixels = 0;
+
+function evict(key) {
+  const s = cache.get(key);
+  if (!s) return;
+  pixels -= s.canvas.width * s.canvas.height;
+  s.canvas.width = 0; s.canvas.height = 0; // lets Safari free it now
+  cache.delete(key);
+}
+
+export function clearSprites() { for (const k of [...cache.keys()]) evict(k); }
 
 let dpr = 1;
 export function setPixelRatio(r) {
-  if (r !== dpr) { dpr = r; cache.clear(); }
+  if (r !== dpr) { dpr = r; clearSprites(); }
 }
 
 export async function loadOverrides(url) {
@@ -58,7 +71,8 @@ export function sprite(id, bounds, scale, paint) {
   else paint(ctx);
   s = { canvas, bounds };
   cache.set(key, s);
-  if (cache.size > MAX) cache.delete(cache.keys().next().value);
+  pixels += canvas.width * canvas.height;
+  while (pixels > MAX_PIXELS && cache.size > 1) evict(cache.keys().next().value);
   return s;
 }
 

@@ -12,7 +12,7 @@ export const shopScene = {
     this.ui = el(`
       <div class="shop-wrap">
         <div class="shop-head">
-          <button class="btn small" data-act="back">◀</button>
+          <button class="btn small" data-act="back" aria-label="Back to menu">◀</button>
           <h1>The Shop</h1>
           ${hudPelts(s.pelts)}
         </div>
@@ -33,7 +33,7 @@ export const shopScene = {
     this.render();
   },
 
-  exit() {},
+  exit() { this.bg = null; },
 
   render() {
     const s = this.app.save.data;
@@ -41,7 +41,7 @@ export const shopScene = {
     for (const a of s.farm) counts[a.breed] = (counts[a.breed] || 0) + 1;
     const full = s.farm.length >= db.game.farmCap;
     this.ui.querySelector('[data-sub]').textContent = full
-      ? `Your farm is full (${s.farm.length}/${db.game.farmCap})`
+      ? `Farm full (${s.farm.length}/${db.game.farmCap}) · let a sheep go at the farm gate`
       : `Trade wolf pelts for sheep · Farm ${s.farm.length}/${db.game.farmCap}`;
     this.ui.querySelector('[data-grid]').innerHTML = db.breeds.filter((b) => b.price != null).map((b) => {
       const afford = s.pelts >= b.price;
@@ -49,7 +49,7 @@ export const shopScene = {
         ${counts[b.id] ? `<span class="owned">×${counts[b.id]}</span>` : ''}
         <img class="sheep" src="${sheepURL(b.id, b.look, 120)}" alt="${b.name}">
         <h3>${b.name}</h3>
-        <button class="btn small ${afford && !full ? 'gold' : ''}" data-buy="${b.id}" ${full ? 'disabled' : ''}>
+        <button class="btn small ${afford && !full ? 'gold' : ''}" data-buy="${b.id}" aria-label="Buy ${b.name} for ${b.price} pelts">
           <img src="${peltURL()}" alt="pelts">${b.price}
         </button>
       </div>`;
@@ -70,7 +70,7 @@ export const shopScene = {
       this.render();
     } else {
       app.sfx.wrong();
-      const msg = r.reason === 'full' ? ['Farm is full!', 'Room for ' + db.game.farmCap + ' sheep']
+      const msg = r.reason === 'full' ? ['Farm is full!', 'Drag a sheep to the farm gate to let it go']
         : ['Need more wolves!', `${r.need} more pelt${r.need === 1 ? '' : 's'} to go`];
       banner(app.ui, msg[0], msg[1], 'bad');
     }

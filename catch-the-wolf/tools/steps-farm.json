@@ -1,0 +1,4 @@
+[{"eval":"(()=>{const farm=[];['white','brown','grey'].forEach((id,i)=>farm.push({uid:i+1,breed:id,name:'S'+i,x:0.3,y:0.3+i*0.2}));localStorage.setItem('catchTheWolf.save',JSON.stringify({version:1,pelts:5,farm,nextUid:9,seenHowTo:true}));'ok'})()"},
+ {"eval":"location.hash='farm';location.reload();1"},{"wait":2500},
+ {"eval":"[ctw.sceneName, performance.now()|0]"},{"wait":1000},{"eval":"[ctw.sceneName, performance.now()|0]"},
+ {"shot":"catch-the-wolf/tools/shots/farm.png"}]

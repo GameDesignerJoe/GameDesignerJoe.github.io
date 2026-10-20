@@ -3,7 +3,8 @@
 //   { enter(app, params), exit(), resize(w, h), update(dt), draw(ctx), pointer(e) }
 // and own a DOM layer in #ui for their buttons/HUD.
 
-import { loadData } from './game/rules.js';
+import { loadData, breedById } from './game/rules.js';
+import './engine/compat.js';
 import { save } from './engine/storage.js';
 import { setPixelRatio, loadOverrides } from './engine/sprites.js';
 import { setSoundEnabled, unlockAudio, sfx } from './engine/audio.js';
@@ -12,6 +13,10 @@ import { playScene } from './scenes/play.js';
 import { shopScene } from './scenes/shop.js';
 import { farmScene } from './scenes/farm.js';
 import { openSettings } from './scenes/settings.js';
+
+// Bump when shipping data/JSON changes so GitHub Pages' cache can't pair new
+// code with old data.
+export const VERSION = '1.1.0';
 
 const SCENES = { title: titleScene, play: playScene, shop: shopScene, farm: farmScene };
 
@@ -37,7 +42,8 @@ export const app = {
 };
 
 function resize() {
-  app.dpr = Math.min(window.devicePixelRatio || 1, 3);
+  // DPR 2 is visually indistinguishable on phones and fills ~55% fewer pixels than 3.
+  app.dpr = Math.min(window.devicePixelRatio || 1, 2);
   app.w = window.innerWidth;
   app.h = window.innerHeight;
   canvas.width = Math.round(app.w * app.dpr);
@@ -59,8 +65,17 @@ function bindInput() {
   window.addEventListener('pointermove', send('move'));
   window.addEventListener('pointerup', send('up'));
   window.addEventListener('pointercancel', send('up'));
-  // Any UI tap also unlocks audio.
-  ui.addEventListener('pointerdown', () => unlockAudio());
+  // Any UI tap also unlocks audio; older iOS only counts touchend/click as a gesture.
+  for (const ev of ['pointerdown', 'touchend', 'click']) window.addEventListener(ev, () => unlockAudio(), { passive: true });
+  // Keyboard: Escape closes the top dialog; scenes may handle the rest.
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const scrim = [...ui.querySelectorAll('.scrim')].pop();
+      const close = scrim?.querySelector('[data-close], [data-go], [data-ok], [data-again]');
+      if (close) { close.click(); return; }
+    }
+    app.scene?.key?.(e);
+  });
 }
 
 let last = performance.now();
@@ -78,9 +93,26 @@ function frame(now) {
 async function boot() {
   save.load();
   setSoundEnabled(save.data.settings.sound);
-  await Promise.all([loadData('./data/'), loadOverrides('./data/sprites.json'), document.fonts?.ready]);
+  try {
+    await Promise.all([loadData('./data/', VERSION), loadOverrides(`./data/sprites.json?v=${VERSION}`), document.fonts?.ready]);
+  } catch (e) {
+    console.error(e);
+    const b = document.getElementById('boot');
+    b.innerHTML = `The sheep got out! Couldn't load the game data.<br><button class="btn" style="margin-top:14px" onclick="location.reload()">Try again</button>`;
+    return;
+  }
+  // Drop farm animals whose breed no longer exists (renamed/removed in data).
+  const before = save.data.farm.length;
+  save.data.farm = save.data.farm.filter((a) => breedById(a.breed));
+  if (save.data.farm.length !== before) save.write();
   resize();
-  window.addEventListener('resize', resize);
+  // Coalesce resize bursts (window drags) into one repaint per frame.
+  let pending = false;
+  window.addEventListener('resize', () => {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => { pending = false; resize(); });
+  });
   bindInput();
   // Deep links (#farm, #shop, #play) — handy for testing and sharing.
   const start = location.hash.slice(1);
