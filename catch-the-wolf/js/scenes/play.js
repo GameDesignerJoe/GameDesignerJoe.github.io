@@ -152,7 +152,7 @@ export const playScene = {
     this.atmo = new Atmosphere({ light: this.cal.time.light, weather: this.round.weather, season: this.cal.season.id });
     this.atmo.resize(app.w, app.h);
     if (prevSeason && prevSeason !== this.cal.season.id) banner(app.ui, `${this.cal.season.name} arrives!`, 'A new season, new dangers', 'good');
-    this.hunger = s.settings.hungryWolf ? { rest: db.game.hungryWolf.startDelay, victim: null, bite: 0, puff: 0 } : null;
+    this.hunger = s.settings.hungryWolf ? { rest: db.game.hungryWolf.startDelay, victim: null, bite: 0 } : null;
     this.placeSheep(true);
     this.phase = 'hunt';
     this.refreshHud();
@@ -333,7 +333,7 @@ export const playScene = {
   },
 
   nextRound(delay = 0) {
-    // Between seasons: the Wolf Stampede change-up.
+    // After each day (world.json bonusEvery): the Wolf Stampede change-up.
     if (this.pendingBonus) {
       this.pendingBonus = false;
       this.timers.after(delay + 0.4, () => this.app.go('bonus'));
@@ -445,7 +445,9 @@ export const playScene = {
       if (sh.leaving) {
         sh.leaveDelay -= dt;
         if (sh.leaveDelay <= 0) {
-          if (sh.sniffed) {
+          if (sh.eaten) {
+            sh.alpha = Math.max(0, sh.alpha - dt * 1.2);
+          } else if (sh.sniffed) {
             // Sniffed-out sheep trot off the field, fading.
             sh.alpha = Math.max(0, sh.alpha - dt * 1.6);
             sh.y += 90 * sh.scale * dt; sh.pose.step = Math.sin(sh.t * 14);
@@ -474,8 +476,8 @@ export const playScene = {
   },
 
   // Experimental hungry wolf (Settings): it stalks a sheep, and five seconds
-  // of mouth-on-wool eats it. Costs a pelt each time. The victim trembles and
-  // loses tufts while being nibbled, which is also a clue.
+  // of mouth-on-wool eats it. Costs a pelt each time. The nibbling is silent
+  // and the victim just fades away, so nothing points at the wolf.
   updateHunger(dt) {
     const H = this.hunger, cfg = db.game.hungryWolf, { app } = this;
     const wolf = this.sheep.find((x) => x.isWolf && !x.leaving && !x.gone);
@@ -493,19 +495,14 @@ export const playScene = {
     const head = wolf.circles()[1];
     const touching = v.circles().some((c) => Math.hypot(c.x - head.x, c.y - head.y) < c.r + head.r + 6 * wolf.scale);
     H.bite = touching ? H.bite + dt : Math.max(0, H.bite - dt * 1.5);
-    if (H.bite > 1) {
-      v.heading += Math.sin(performance.now() / 25) * 0.03; // trembling
-      H.puff -= dt;
-      if (H.puff <= 0) { H.puff = 0.7; this.fx.burstWool(v.x, v.y, v.look.wool, v.scale * 0.35, 3); }
-    }
     if (H.bite < cfg.biteSeconds) return;
     // Gulp.
     const s = app.save.data;
     const lost = Math.min(s.pelts, cfg.peltLoss);
     s.pelts -= lost;
-    v.leaving = true; v.leaveDelay = 0; v.alpha = 0; v.gone = true;
-    this.fx.burstWool(v.x, v.y, v.look.wool, v.scale, 18);
-    app.sfx.poof(); app.sfx.wrong();
+    // A quiet fade (handled with the other leaving sheep), no burst.
+    v.leaving = true; v.leaveDelay = 0; v.eaten = true;
+    app.sfx.wrong();
     app.haptic(60);
     if (s.round) s.round.sheep = this.live().map((x) => ({ look: x.look, isWolf: x.isWolf }));
     app.save.write();

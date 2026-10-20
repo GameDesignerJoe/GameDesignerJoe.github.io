@@ -19,7 +19,7 @@
     "_doc": "Experimental (Settings toggle). The wolf stalks a sheep; mouth-to-wool for 'biteSeconds' eats it and costs 'peltLoss'. Waits 'startDelay' s at round start and 'rest' s between meals.",
     "biteSeconds": 5,
     "peltLoss": 1,
-    "startDelay": 4,
+    "startDelay": 5,
     "rest": [
       3,
       6

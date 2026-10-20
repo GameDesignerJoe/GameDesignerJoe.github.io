@@ -1,4 +1,4 @@
-// Wolf Stampede: the change-up between seasons. An empty pen, unmasked wolves
+// Wolf Stampede: the change-up after each day. An empty pen, unmasked wolves
 // dashing about, a short countdown. Tap as many as you can; each is a pelt.
 // Fast and silly on purpose. Tuning lives in data/world.json → bonus.
 
@@ -135,8 +135,8 @@ export const bonusScene = {
       <div class="scrim"><div class="panel" role="dialog" aria-modal="true" aria-label="Stampede over">
         <h2>Stampede over!</h2>
         <p>You caught <b>${this.caught} wolf${this.caught === 1 ? '' : 'ves'}</b>${n ? ` for <b>+${n} pelt${n === 1 ? '' : 's'}</b>` : ''}.</p>
-        <p style="font-size:15px">${this.cal.season.name} is here. The hunt goes on, and so does the risk!</p>
-        <div class="row"><button class="btn red big" data-go>On to ${this.cal.season.name}!</button></div>
+        <p style="font-size:15px">${this.cal.set === 0 ? `${this.cal.season.name} is here!` : `A new day dawns: ${this.cal.season.name}, day ${this.cal.set + 1}.`} The hunt goes on, and so does the risk!</p>
+        <div class="row"><button class="btn red big" data-go>${this.cal.set === 0 ? `On to ${this.cal.season.name}!` : 'Back to the hunt!'}</button></div>
       </div></div>`);
     app.ui.append(panel);
     app.sfx.baa(1.1);

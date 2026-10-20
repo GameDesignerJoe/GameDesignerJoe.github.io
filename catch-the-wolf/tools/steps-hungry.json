@@ -2,6 +2,8 @@
   {"eval": "localStorage.setItem('catchTheWolf.save', JSON.stringify({version:1,pelts:5,streak:3,seenHowTo:true,shopPromptShown:true,farm:[],settings:{sound:false,hungryWolf:true}})); location.hash='play'; location.reload(); 1"},
   {"wait": 2500},
   {"eval": "(()=>{const s=ctw.scene; window._n=s.live().length; return {sheep:_n, hunger: !!s.hunger}})()"},
+  {"wait": 1500},
+  {"eval": "(()=>{const H=ctw.scene.hunger; return {test:'5s start delay: not stalking yet at ~4s', victim: !!H.victim, ok: !H.victim}})()"},
   {"wait": 8000},
   {"eval": "(()=>{const s=ctw.scene; const H=s.hunger; return {victim: !!H.victim, bite: +H.bite.toFixed(1), live: s.live().length}})()"},
   {"shot": "catch-the-wolf/tools/shots/h-stalk.png"},
