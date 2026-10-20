@@ -1,0 +1,66 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #e9e9e7;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#title {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 9vh;
+  box-sizing: border-box;
+  pointer-events: none;
+  transition: opacity 3.5s ease;
+  color: #151515;
+  text-align: center;
+  /* Lift the lettering off the busy ink of the map, like snow drifting behind it. */
+  text-shadow: 0 0 14px rgba(244, 244, 242, 0.95), 0 0 34px rgba(244, 244, 242, 0.8);
+}
+
+#title h1 {
+  font-family: 'Playfair Display SC', 'Didot', 'Bodoni 72', Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(30px, 9.5vw, 104px);
+  letter-spacing: 0.08em;
+  margin: 0 4vw;
+  line-height: 1.05;
+}
+
+#begin {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: clamp(13px, 1.6vw, 18px);
+  letter-spacing: 0.2em;
+  opacity: 0.55;
+  margin-top: 1.4em;
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
+/* The prompt waits until every system has loaded, so the first tap can unlock audio. */
+#begin { visibility: hidden; }
+#title.ready #begin { visibility: visible; }
+
+#title.gone { opacity: 0; }
+#title.gone #begin { animation: none; opacity: 0; }
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.65; }
+}
