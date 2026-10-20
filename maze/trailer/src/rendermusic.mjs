@@ -1,0 +1,10 @@
+import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import fs from 'fs';
+const S = process.env.WORK || new URL('../work', import.meta.url).pathname;
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const p = await browser.newPage(); p.on('pageerror', e => console.log('ERR', String(e))); p.on('console', m => console.log(m.text()));
+await p.setContent('<html><body></body></html>');
+await p.addScriptTag({ content: fs.readFileSync(new URL('music.js', import.meta.url).pathname, 'utf8') });
+const b64 = await p.evaluate(async () => { const buf = await renderScore(); const { bytes, peak } = wav(buf); console.log('peak', peak.toFixed(3)); let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); });
+fs.writeFileSync(`${S}/score.wav`, Buffer.from(b64, 'base64'));
+await browser.close(); console.log('wrote score.wav');

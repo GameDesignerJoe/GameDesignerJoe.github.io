@@ -1,0 +1,1740 @@
+// The Maze — the maze itself: grid, rooms, pockets, doors, darkness, placement
+//
+// Part of the engine, loaded as a plain script in the order it used to appear
+// in maze-topdown.html. Everything shares one global scope, exactly as before.
+
+// ── maze generation ─────────────────────────────────────────────
+// tiles[y][x]: 0 = wall, 1 = floor. Cells live at odd coordinates.
+const P = 2;   // wall margin around the cell grid; the exit alley is carved into it
+// The thread asks "am I standing on it" on every tile change, and a linear scan of a few hundred
+// tiles per step is a scan we do not need to do — so the route is kept as a set beside the array.
+// Every place that assigns solutionPath calls this, prototypes included, or the set goes stale and
+// answers for the previous maze.
+function syncSolution() { solutionKeys = new Set(solutionPath.map(([x, y]) => x + ',' + y)); }
+let W, H, tiles, tunnelTiles, start, exit, exitAlley = [], solutionPath = [], solutionKeys = new Set(), chalkSpots = new Set(), charcoalSpots = new Set(), pickups = new Map(), keySpot = null;
+let journals = new Map(), character = null, journalIdx = 0;
+let gated = false;   // this maze's exit is locked
+let poolMode = false;   // this run is a pool level: small, lit, one stone, a door
+let poolDoor = null;    // {x,y,openAt} the grey door in the room's doorway; slides away once you hold the stone
+let startRoom = null;   // {x0,y0,x1,y1} tile bounds of the sealed start room
+let scrapSpots = new Set();
+let doors = [];              // locked doors inside the maze: {x,y,shape,open}
+let innerKeys = new Map();   // 'x,y' → shape of the key lying there
+let heldKeys = new Set();    // shapes you carry
+let shrines = [];            // the statues: {x,y} where it stands (now wall), {sx,sy} the step with the bowl, who, mark, done
+let offerings = new Map();   // 'x,y' → PEOPLE id of the carved stone lying there
+let exitGateAt = 0;          // when the way out started to swing; 0 while it is still shut
+const KEY_SHAPES = ['circle', 'triangle', 'square'];
+let exitTree = new Set();    // cells of the squeeze tree guarding the way out
+let exitTreeMouth = null;    // 'x,y' of its one entrance, the squeeze you go in by
+let secretReserve = null;    // {cx,cy,rc} the square of cells held back for the kid's room
+let startArrow = null;       // {x,y,dir} the arrow painted on the start-room floor, first time only
+let secretSwitch = null;     // 'x,y' the button on its floor: stand on it and the lights come on
+let secretFather = null;     // 'x,y' where somebody drew a man walking away
+let secretTiles = new Set(); // tiles of the secret place: a room walled up, or a dead-end passage, behind one squeeze
+let secretMarks = new Map(); // 'x,y' → glyph: somebody else's chalk, in that room
+let crawlGaps = new Set();   // 'x,y' wall gaps a child can crawl through (open only when the phase allows)
+let crawlCells = new Set();  // open cells that sit between two gaps of one squeeze — drawn narrow too
+let giantMode = false;       // the Prototype menu's giant: the ordinary generator at ten X-Larges, every feature on
+let gapFits = () => true, plusSwept = 0;   // set per build: is a tile shaped like a crawl gap; how many the end-of-build sweep removed
+let hopscotch = [];          // ordered tiles of a hopscotch court
+let ticTacToe = null;        // {x,y,cells} a 3×3 chalk board on a room floor, mid-game
+let figures = [];            // the father, placed like pickups: [{x,y,alpha,seen,gone}]
+let startGap = null;
+let darkTiles = new Set(), darkFringe = new Map(), lampSpot = null, sealedGaps = [];   // darkFringe: tile → 1 (dim) or 2 (dimmer), the drop-off around the dark
+let keyVault = null; // {x0,y0,x1,y1,cx,cy} the nest of rings a key is buried in, or null
+let vaultRects = [];  // where they will go, claimed before the rooms so they never lose the fight for space
+let keyVaults = [];  // {x0,y0,x1,y1,cx,cy} one nest of rings per key, in the order they were claimed
+let landmarks = [];  // {x,y,kind} the one thing at the heart of a section: what you navigate by
+let sections = [];   // {i,kind,x0..y1 cells, tx0..ty1 tiles} the labyrinth prototype's rooms-worth of maze
+let clusters = [];  // districts with a heart of their own: {heart, x0,y0,x1,y1 (cells), tx0,ty0,tx1,ty1 (tiles)}
+let sliders = [];   // {x,y,dx,dy,shifted}  x,y = home tile; slides one tile along d
+let pockets = [];   // sealed dead-end tiles reachable only via a slider   // journals: 'x,y' → page index
+const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
+const isOpen = (x, y) => !!(tiles[y]?.[x]);
+// What a child chalks on the floor of their own room. Not arrows: Joe, on the old set — "it just
+// looks like a code they will need to know". A game of noughts and crosses, the word Dad?, a
+// couple of balls, and the rest in the x's a kid makes when there is nothing else to do.
+function secretRoomChalkOn(spots, R) {   // R is generate()'s seeded rng, so a room is the same room every time
+  const free = spots.filter(k => k !== secretSwitch && k !== secretFather);
+  const take = () => free.length ? free.splice(R() * free.length | 0, 1)[0] : null;
+  const one = (kind) => { const k = take(); if (k) secretMarks.set(k, kind); };
+  one('ttt'); one('dad');
+  for (let i = 0, n = 2 + (R() * 3 | 0); i < n; i++) one('ball');
+  for (const k of free) if (R() < CONFIG.secretRoomChalk) secretMarks.set(k, 'x');
+}
+
+// Where a landmark that is really there may stand. Only link/link crossings: those tiles were wall
+// before the room was opened, so closing them again takes away no way through at all — every cell
+// and every link lane is still open, and the route is planned after this, so it plans around them
+// for free. Picked round the outside of the room and spread by angle, so they read as a ring you
+// walk between rather than a clump in the middle. Shared by the columns and the statues.
+// Module scope on purpose: js/proto.js builds the gallery's bays with it too.
+function standOn(tx0, ty0, tx1, ty1, want) {
+  const cx = (tx0 + tx1) / 2, cy = (ty0 + ty1) / 2, all = [];
+  for (let my = ty0 + 1; my < ty1; my += 2)
+    for (let mx = tx0 + 1; mx < tx1; mx += 2) all.push([mx, my, Math.hypot(mx - cx, my - cy), Math.atan2(my - cy, mx - cx)]);
+  if (!all.length) return [];
+  const far = Math.max(...all.map((c) => c[2]));
+  let ring = all.filter((c) => c[2] >= far * 0.6);
+  if (ring.length < want) ring = all;
+  ring.sort((a, b) => a[3] - b[3]);
+  const take = Math.min(want, ring.length), out = [];
+  for (let i = 0; i < take; i++) {
+    const [mx, my] = ring[Math.round(i * ring.length / take) % ring.length];
+    if (!out.some(([ox, oy]) => ox === mx && oy === my)) { tiles[my][mx] = 0; out.push([mx, my]); }
+  }
+  return out;
+}
+
+// Joe, on the backlog: "Deciding how many things we want in the maze to requirements and then
+// building the maze around those things. This gets away from a maze that is x by x size and instead
+// focuses on the content of the maze."
+//
+// This is the first step of that, and the cheapest one: the maze is still carved first, but it no
+// longer gets to quietly ship with less in it than the phase asked for. Measured before building:
+// of 3000 locked doors the phases called for across 1400 mazes, 1386 were placed — 46% — and 343
+// mazes had no locked door at all. Vaults and map fragments were at 100% in the same run, because
+// both claim their ground before anything else is carved. Doors had to find a legal spot in
+// finished geometry, and usually could not.
+//
+// So: build it, count what it got, and if it is short, build it again from a different seed —
+// exactly what buildProto has always done for prototypes. A seed still maps to one maze and the run
+// signature is unchanged, because the variant is derived from the seed.
+//
+// It scores the doors first and then how many keys lie in a nest, because the loop is running
+// either way and taking the first build that merely meets the doors throws away the better one two
+// seeds later for nothing. Measured over 280 mazes: doors 46% -> 99%, mazes with no door at all
+// 343 in 1400 -> none, and keys in a nest holding at 55% against 59% before, on nearly twice as
+// many doors. It costs about 300ms a maze against 40ms for a single build, which is the price of
+// the whole batch and is paid behind the title screen.
+//
+// What it cannot do is conjure a third door: every seed measured reaches two, almost none reaches
+// three, and no number of re-rolls changes that. That is the architecture, not the dice, and it is
+// why the three-door phases now ask for two. The rest of that answer is the rewrite Joe is pointing
+// at in THOUGHTS — building the maze around the content instead of sifting the content into it.
+// Clauses the maze that actually shipped could not meet, from the chapter's MUST row. Empty when it
+// met everything, which is the normal case for a chapter whose contract is reachable. This is the
+// half that was missing before: the loop always did settle for the best it could find, and never
+// said so, which is how "keys should be in vaults" could read as met while 97% of mazes had one
+// lying in a hall. Read by the debug panel and by tools/quality.mjs.
+let contractMiss = [];
+
+function generate(seed) {
+  buildMaze(seed);
+  contractMiss = [];
+  if (protoMode || poolMode || giantMode) return;   // the giant is built once: a rebuild costs ten X-Larges
+  const F = phase();
+  const must = (typeof MUST !== 'undefined' && MUST[F.who]) || null;
+  const want = F.f.doors || 0;
+  if (!want && !must) return;
+
+  // Rank a build in two tiers, because the second one is expensive. Tier one is free — the doors,
+  // because a missing door is a missing lock and no clause makes up for one, then how many keys lie
+  // in a nest, which is a set lookup and is Joe's first complaint. Tier two is the rest of the
+  // contract, which costs floods and a Tarjan over the whole floor, and is only paid for by a build
+  // that is already at least as good on tier one. That gate is most of what keeps an xl level load
+  // from measuring a dozen mazes it was never going to ship.
+  //
+  // Weighting matters here and the first cut of it was wrong. With every clause worth the same, a
+  // build could win by picking up a threshold while dropping a key into a hall, and 20 of 20 Soldier
+  // mazes shipped with a loose key — exactly the bug this was written to fix. keysVaulted outranks
+  // the rest together now; see the weights in contract.js.
+  //
+  // CONTRACT is defined in a script that loads after this one. Only this function body reads it, and
+  // by then everything is up.
+  const rank = (c, w) => c.doors * 100000 + c.vaulted * 1000 + w;
+  const look = (bestCheap) => {
+    const c = CONTRACT.cheap();
+    // strictly worse where it is free to tell: not worth measuring
+    if (bestCheap && (c.doors < bestCheap.doors || (c.doors === bestCheap.doors && c.vaulted < bestCheap.vaulted))) {
+      return { cheap: c, s: rank(c, 0), g: null, full: false };
+    }
+    const g = must ? CONTRACT.grade(CONTRACT.measure(), must) : [];
+    return { cheap: c, g, s: rank(c, CONTRACT.weigh(g)),
+             full: c.doors >= want && g.every((x) => x.ok) };
+  };
+
+  let cur = look(null);
+  if (cur.full) return;
+  let best = { s: cur.s, seed, cheap: cur.cheap, miss: cur.g.filter((c) => !c.ok) };
+  let lastSeed = seed, since = 0;
+  for (let i = 1; i < CONFIG.manifestTries; i++) {
+    // Settle once the doors are in and more builds stop buying clauses. Without this a chapter
+    // holding a clause the generator cannot reach — `thresholds` is one, deliberately — would run
+    // every try on every level load and pay for it in load time, forever, for nothing.
+    if (best.cheap.doors >= want && since >= CONFIG.manifestSettle) break;
+    lastSeed = seed + i * 7919;
+    buildMaze(lastSeed);
+    cur = look(best.cheap);
+    const better = cur.s > best.s && cur.g;
+    // Patience is spent on tier one only. A build that buys a threshold or a few tiles of room gap
+    // is worth keeping, but it is not a reason to keep looking — and letting those reset the counter
+    // ran 9.6 builds a maze at xl, 800ms of level load, for clauses that mostly cannot be met anyway.
+    // Keys are what more tries can actually buy, so keys are what the loop waits on.
+    const gained = cur.cheap.doors > best.cheap.doors
+      || (cur.cheap.doors === best.cheap.doors && cur.cheap.vaulted > best.cheap.vaulted);
+    if (better) best = { s: cur.s, seed: lastSeed, cheap: cur.cheap, miss: cur.g.filter((c) => !c.ok) };
+    if (gained) since = 0; else since++;
+    if (cur.full) return;
+  }
+  if (best.seed !== lastSeed) buildMaze(best.seed);   // settle for the fullest one we saw
+  contractMiss = best.miss;                           // and this time, say what it cost
+}
+
+function buildMaze(seed) {
+  const R = rng(seed);
+  protoMode = false; landmarks = []; sections = []; keyVaults = []; vaultRects = []; shrines = []; offerings = new Map();
+  // a prototype replaces the maze outright: it sets everything this would have set, and returns
+  giantMode = !SAVE.poolPending && SAVE.ui.proto === 'giant';
+  if (!SAVE.poolPending && SAVE.ui.proto && SAVE.ui.proto !== 'off' && !giantMode) {
+    for (let i = 0; i < CONFIG.protoTries; i++) if (buildProto(seed + i * 7919, SAVE.ui.proto)) return;
+    buildProto(seed, SAVE.ui.proto); return;   // settle for the last one rather than no level at all
+  }
+  poolMode = !!SAVE.poolPending;
+  const F = poolMode ? { signs: phase().f.signs, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: true, tunnels: false, pockets: false, pathSlider: false, braid: 0 }
+    : giantMode ? GIANT_F : phase().f;
+  const sizeKey = poolMode ? 'sm' : giantMode ? 'giant' : (SAVE.ui.size && SAVE.ui.size !== 'auto') ? SAVE.ui.size : (has(6) && phase().who !== 'You' ? 'lg' : phase().size);
+  [CONFIG.cols, CONFIG.rows] = SIZES[sizeKey] || SIZES.md;
+  // Joe's standing rule, from the list: "in any instance where the maze is too small for what
+  // you're trying to do make it bigger... that is a good rule to then make the maze larger." The
+  // nests looked like exactly that instance — squeezing several into a medium maze cost a third of
+  // the doors. It turned out not to be the maze that was too small: it was the window the doors
+  // were picked from. Once a door may take any tile on the route that severs it, two nests cost 3%
+  // of the doors, not a third, and growing the maze buys back only half of even that — for 15%
+  // more ground to walk, which Joe did not ask for. So the lever stays, off, for the day a maze
+  // really is too small for what it holds; it is not what got the keys into the nests.
+  if (!poolMode && CONFIG.vaultCells > 0 && CONFIG.vaultGrow) {
+    const keys = (F.doors || 0) + (CONFIG.keyGate && F.gate ? 1 : 0);
+    const nests = Math.max(1, Math.min(CONFIG.vaultMax, keys));
+    if (nests > 1) {
+      // what the nests take, plus the share of the maze they must not eat into
+      const wantCells = nests * (CONFIG.vaultCells + CONFIG.vaultApart) ** 2 / CONFIG.vaultShare;
+      const grow = Math.sqrt(Math.max(1, wantCells / (CONFIG.cols * CONFIG.rows)));
+      CONFIG.cols = Math.min(CONFIG.maxCols, Math.round(CONFIG.cols * grow));
+      CONFIG.rows = Math.min(CONFIG.maxRows, Math.round(CONFIG.rows * grow));
+    }
+  }
+  const AREA = (CONFIG.cols * CONFIG.rows) / (14 * 20);   // 1 at medium; feature counts scale with it
+  const N = base => Math.max(1, Math.round(base * AREA));
+  const N0 = base => Math.round(base * AREA);   // may be zero
+  W = CONFIG.cols * 2 + 1 + 2*P; H = CONFIG.rows * 2 + 1 + 2*P;
+  const TX = c => c*2 + 1 + P;   // cell index → tile index
+  tiles = Array.from({ length: H }, () => new Uint8Array(W));
+
+  // Turns (debug menu): a preset for straighter, sparser halls. Off, everything below is exactly as before —
+  // the preset path is the only one that touches the random stream, so Auto seeds are unchanged.
+  // the debug menu wins; otherwise a phase may name its own preset, which is how the Child gets
+  // a map with dead space in it — wall to carve a room out of, and room for the tree at the exit
+  const T = (SAVE.ui.turns && SAVE.ui.turns !== 'auto') ? CONFIG.turnsPresets[SAVE.ui.turns]
+    : (F.turns ? CONFIG.turnsPresets[F.turns] : null);
+  const straight = T ? T.straight : CONFIG.hallStraightness;
+  const fill = T ? T.fill : CONFIG.hallFill;
+
+  // growing tree: pick newest cell (backtracker) or a random one (Prim-ish) per branchiness
+  const visited = Array.from({ length: CONFIG.rows }, () => new Uint8Array(CONFIG.cols));
+  // Reserve a square of cells for the kid's room before anything is carved, and mark it visited
+  // so the maze grows around it. What is left at the end is a solid block of wall in the middle of
+  // the map, which is the only way to get a room that is actually a room — square, open, nothing
+  // in the middle of it — rather than a winding piece of corridor with the walls taken out.
+  secretReserve = null;
+  if (F.crawl && CONFIG.secretRooms && !poolMode) {
+    const rc = CONFIG.secretRoomCells, srr = CONFIG.startRoomCells;
+    const barred = (x, y) => (x <= srr + 1 && y >= CONFIG.rows - 2 - srr)
+      || (x <= 1 && y <= 1) || (x >= CONFIG.cols - 2 && y <= 1) || (x >= CONFIG.cols - 2 && y >= CONFIG.rows - 2);
+    for (let tries = 0; tries < 60 && !secretReserve; tries++) {
+      const cx = 1 + (R() * Math.max(1, CONFIG.cols - rc - 2) | 0), cy = 1 + (R() * Math.max(1, CONFIG.rows - rc - 2) | 0);
+      if (cx + rc > CONFIG.cols - 1 || cy + rc > CONFIG.rows - 1) continue;
+      let ok = true;
+      for (let y = cy - 1; y <= cy + rc && ok; y++) for (let x = cx - 1; x <= cx + rc; x++) if (barred(x, y)) { ok = false; break; }
+      if (ok) secretReserve = { cx, cy, rc };
+    }
+    if (secretReserve) for (let y = 0; y < secretReserve.rc; y++) for (let x = 0; x < secretReserve.rc; x++)
+      visited[secretReserve.cy + y][secretReserve.cx + x] = 1;
+  }
+  const cameFrom = Array.from({ length: CONFIG.rows }, () => new Array(CONFIG.cols).fill(null));   // direction each cell was carved in
+  const active = [[0, 0]]; visited[0][0] = 1; tiles[TX(0)][TX(0)] = 1;
+  while (active.length) {
+    const branch = (SAVE.ui.branch && SAVE.ui.branch !== 'auto') ? +SAVE.ui.branch
+      : (T && T.branch !== undefined) ? T.branch
+      : (F.branch !== undefined ? F.branch : CONFIG.branchiness);
+    const idx = R() < branch ? (R() * active.length | 0) : active.length - 1;
+    const [cx, cy] = active[idx];
+    const opts = DIRS.map(([dx,dy]) => [cx+dx, cy+dy, dx, dy]).filter(([nx,ny]) => nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && !visited[ny][nx]);
+    if (!opts.length) { active.splice(idx, 1); continue; }
+    // carry straight on when we can and the dice say so; otherwise as before. No dice rolled when straightness is 0.
+    const ahead = cameFrom[cy][cx];
+    const onward = ahead && opts.find(([,, dx, dy]) => dx === ahead[0] && dy === ahead[1]);
+    const [nx, ny, dx, dy] = (straight > 0 && onward && R() < straight) ? onward : opts[R() * opts.length | 0];
+    visited[ny][nx] = 1; tiles[TX(ny)][TX(nx)] = 1; tiles[cy+ny+1+P][cx+nx+1+P] = 1; cameFrom[ny][nx] = [dx, dy];
+    active.push([nx, ny]);
+  }
+  // dead space: prune dead-end branches back, leaf by leaf, until only `fill` of the grid is corridor.
+  // Pruning a leaf can never disconnect anything, and the start room's block (with its ring of
+  // neighbours, so a doorway always has somewhere to open onto) and all three candidate exit
+  // corners are kept, so start and exit stay joined whichever corner the exit lands in.
+  if (fill < 1) {
+    const rc = CONFIG.startRoomCells;
+    const keep = (cx, cy) => (cx <= rc && cy >= CONFIG.rows - 1 - rc)                       // start block + ring
+      || (cx === 0 && cy === 0) || (cx === CONFIG.cols - 1 && cy === 0) || (cx === CONFIG.cols - 1 && cy === CONFIG.rows - 1);
+    const linked = (ax, ay, bx, by) => !!tiles[ay+by+1+P][ax+bx+1+P];
+    const degree = (cx, cy) => DIRS.filter(([dx,dy]) => { const nx=cx+dx, ny=cy+dy; return nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && visited[ny][nx] && linked(cx,cy,nx,ny); }).length;
+    let open = CONFIG.cols * CONFIG.rows; const target = Math.round(open * fill);
+    for (let pass = 0; open > target && pass < 400; pass++) {
+      const leaves = [];
+      for (let cy = 0; cy < CONFIG.rows; cy++) for (let cx = 0; cx < CONFIG.cols; cx++) if (visited[cy][cx] && !keep(cx, cy) && degree(cx, cy) === 1) leaves.push([cx, cy]);
+      if (!leaves.length) break;
+      leaves.sort(() => R() - 0.5);
+      for (const [cx, cy] of leaves.slice(0, Math.max(1, Math.min(leaves.length, open - target)))) {
+        if (degree(cx, cy) !== 1) continue;   // a neighbour's removal this pass may have changed it
+        const [dx, dy] = DIRS.find(([dx,dy]) => { const nx=cx+dx, ny=cy+dy; return nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && visited[ny][nx] && linked(cx,cy,nx,ny); });
+        visited[cy][cx] = 0; tiles[TX(cy)][TX(cx)] = 0; tiles[cy+(cy+dy)+1+P][cx+(cx+dx)+1+P] = 0; open--;
+      }
+    }
+  }
+  // braid
+  const braid = (SAVE.ui.braid && SAVE.ui.braid !== 'auto') ? +SAVE.ui.braid : (F.braid || 0);
+  // Both ends have to be real floor. On a full grid they always are, so this is exactly as
+  // it was; with dead space it stops braid opening a gap from one pruned cell into another,
+  // which leaves a floor tile walled in on both sides that nobody can ever stand on.
+  if (braid > 0) for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) {
+    if (isOpen(x, y) && DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length === 1 && R() < braid) {
+      const c = DIRS.filter(([dx,dy]) => !isOpen(x+dx, y+dy) && x+dx*2 >= TX(0) && x+dx*2 < W-P && y+dy*2 >= TX(0) && y+dy*2 < H-P && isOpen(x+dx*2, y+dy*2));
+      if (c.length) { const [dx,dy] = c[R()*c.length|0]; tiles[y+dy][x+dx] = 1; }
+    }
+  }
+  // ── the vault's ground, claimed first ────────────────────────────────────────
+  // Where it goes is chosen here, before the rooms, because it is the biggest thing in the maze and
+  // the rooms fit round it far more easily than it fits round them. With the rooms placed first a
+  // medium maze could not find a spot at all once there were five of them — the Child never got a
+  // vault in twenty-five seeds. It is *carved* much further down, after the districts, which would
+  // otherwise re-cut the whole nest.
+  // Joe: "getting keys should be an adventure! ... All keys should be in vaults kind of like this.
+  // Some sort of cool challenge to get to them. If you can't think of one then just mirror the one
+  // you have. We need to get away from just finding keys in the hall." Measured before building it:
+  // every maze already had a vault, but only 58 of 270 door keys were in one — 212 were lying in a
+  // dead end. One vault holds one key, and a phase can have three doors plus an exit gate.
+  //
+  // So it is one vault per key now, mirroring the one that was here. They are claimed together,
+  // before the rooms, because whoever claims last loses the fight for space. A vault shrinks when
+  // several are wanted rather than failing to fit: vaultCellsMin is still bigger than a room.
+  vaultRects = [];
+  if (!poolMode && CONFIG.vaultCells > 0) {
+    const VR0 = rng(seed + 7757);
+    const wantKeys = (F.doors || 0) + (CONFIG.keyGate && F.gate ? 1 : 0);
+    const want = Math.max(1, Math.min(CONFIG.vaultMax, wantKeys));
+    const big = Math.max(3, Math.min(CONFIG.vaultCells, Math.min(CONFIG.cols, CONFIG.rows) - 5));
+    // Try the full size first and step down only if that many will not fit. A single vault is the
+    // size it always was, so a one-door maze is unchanged from v0.85.0.
+    for (let vc = big; vc >= CONFIG.vaultCellsMin && vaultRects.length < want; vc--) {
+      const got = [];
+      const legal = (cx0, cy0) => {
+        if (cx0 + vc >= CONFIG.cols || cy0 + vc >= CONFIG.rows) return false;
+        if (cx0 <= CONFIG.startRoomCells + 1 && cy0 + vc >= CONFIG.rows - CONFIG.startRoomCells - 1) return false;
+        if (secretReserve && cx0 <= secretReserve.cx + secretReserve.rc && cx0 + vc > secretReserve.cx
+          && cy0 <= secretReserve.cy + secretReserve.rc && cy0 + vc > secretReserve.cy) return false;
+        // a clear cell between two nests, so their outer rings never share a wall
+        const gap = CONFIG.vaultApart;
+        return !got.some(v => cx0 < v.cx0 + v.vc + gap && cx0 + vc + gap > v.cx0
+                           && cy0 < v.cy0 + v.vc + gap && cy0 + vc + gap > v.cy0);
+      };
+      // Spread them. Dropped at random they clump, and a key can only use a nest that falls in the
+      // section its own door opens — so a huddle of vaults in one corner leaves most keys loose,
+      // which is what the first cut of this measured: 41% of keys vaulted instead of 21%, but no
+      // better. Each new nest takes the legal spot furthest from the ones already down.
+      for (let n = 0; n < want; n++) {
+        let best = null, bestD = -1;
+        for (let tries = 0; tries < 400; tries++) {
+          const cx0 = 1 + (VR0() * Math.max(1, CONFIG.cols - vc - 1) | 0);
+          const cy0 = 1 + (VR0() * Math.max(1, CONFIG.rows - vc - 1) | 0);
+          if (!legal(cx0, cy0)) continue;
+          const d = got.length ? Math.min(...got.map(v => Math.hypot(cx0 - v.cx0, cy0 - v.cy0))) : 1;
+          if (d > bestD) { bestD = d; best = { cx0, cy0, vc }; }
+          if (got.length && bestD >= vc * 2) break;          // far enough; no need to keep looking
+        }
+        if (!best) break;
+        got.push(best);
+      }
+      if (got.length > vaultRects.length) vaultRects = got;   // keep the best try as the size steps down
+    }
+  }
+
+  // rooms: open a rectangle of tiles, away from the corners; remember centers for journals
+  const roomCenters = [], roomRects = [], roomTiles = [];   // roomRects in cells, so districts below can keep clear of them; roomTiles in tiles, for the landmarks
+  for (let i = 0; i < N(CONFIG.rooms * (F.rooms || 1)); i++) {
+    const cells = CONFIG.roomCells[0] + (R() * (CONFIG.roomCells[1] - CONFIG.roomCells[0] + 1) | 0);
+    const tw = cells * 2 - 1;
+    // Where it goes. Joe: "All the rooms are pushed into the same space. These should be more spread
+    // out." The old loop took the FIRST spot that was not too close to another room, and after twenty
+    // misses settled for wherever it was — which is how two rooms landed on one tile (1 Archivist maze
+    // in 30, QUALITY.md) and how eleven rooms in a lg maze ended up a few seconds' walk apart. Now it
+    // draws roomSpreadTries spots that pass the hard rules, and takes the one FARTHEST from every
+    // room already placed. Spread is what is chosen, not what is settled for. A best spot that would
+    // still touch another room means the maze has no room for this room, and it goes without: a room
+    // on top of a room is not two rooms.
+    let cx0, cy0, best = -1;
+    for (let t = 0; t < CONFIG.roomSpreadTries; t++) {
+      const ax0 = 1 + (R() * (CONFIG.cols - cells - 1) | 0), ay0 = 1 + (R() * (CONFIG.rows - cells - 1) | 0);
+      if (ax0 <= CONFIG.startRoomCells && ay0 + cells >= CONFIG.rows - CONFIG.startRoomCells) continue;   // out of the start-room corner
+      if (secretReserve && ax0 <= secretReserve.cx + secretReserve.rc && ax0 + cells > secretReserve.cx && ay0 <= secretReserve.cy + secretReserve.rc && ay0 + cells > secretReserve.cy) continue;   // off the kid's room
+      if (vaultRects.some(v => ax0 <= v.cx0 + v.vc && ax0 + cells > v.cx0 && ay0 <= v.cy0 + v.vc && ay0 + cells > v.cy0)) continue;   // off every vault's ground
+      if (!(() => { for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) if (isOpen(TX(ax0+x), TX(ay0+y))) return true; return false; })()) continue;   // on corridor, never an island
+      const tcx = TX(ax0) + (tw>>1), tcy = TX(ay0) + (tw>>1);
+      const gap = roomCenters.reduce((m, [rx, ry]) => Math.min(m, Math.max(Math.abs(rx - tcx), Math.abs(ry - tcy))), Infinity);
+      if (gap > best) { best = gap; cx0 = ax0; cy0 = ay0; }
+      if (gap === Infinity) break;   // the first room: anywhere legal is as far as it gets
+    }
+    if (best < tw + 2) continue;   // nowhere it can stand apart from the others: no room here
+    // Twenty tries, then it settles for wherever it landed. That is fine for keeping rooms apart —
+    // near enough is near enough — but two of the rules above are not preferences: they are ground
+    // that gets written over later, whatever is standing on it. A vault's rings are cut long after
+    // this, and the start room's ring is shut after everything. A room that loses either draw ends
+    // up with walls across its middle and a landmark you cannot walk around: six rooms in 547 on
+    // the nests once there were two to lose to, and one well on the start room, which could always
+    // have happened and finally did. Neither is a room, so the maze goes without rather than ship
+    // a broken one.
+    if (vaultRects.some(v => cx0 <= v.cx0 + v.vc && cx0 + cells > v.cx0 && cy0 <= v.cy0 + v.vc && cy0 + cells > v.cy0)) continue;
+    if (cx0 <= CONFIG.startRoomCells && cy0 + cells >= CONFIG.rows - CONFIG.startRoomCells) continue;
+    if (secretReserve && cx0 <= secretReserve.cx + secretReserve.rc && cx0 + cells > secretReserve.cx && cy0 <= secretReserve.cy + secretReserve.rc && cy0 + cells > secretReserve.cy) continue;
+    for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) tiles[TX(cy0)+y][TX(cx0)+x] = 1;
+    roomCenters.push([TX(cx0) + (tw>>1), TX(cy0) + (tw>>1)]);
+    roomRects.push([cx0, cy0, cx0 + cells - 1, cy0 + cells - 1]);
+    roomTiles.push([TX(cx0), TX(cy0), TX(cx0) + tw - 1, TX(cy0) + tw - 1]);
+  }
+
+  // Each room is a place, not an empty box. Joe: "love all these prototype rooms you've made. Please
+  // add them into the general mix of possible rooms in the mazes." These were the labyrinth
+  // prototype's; now an ordinary maze deals them out too, one to a room, never the same twice
+  // running, and never on the room holding the kid's chalk.
+  landmarks = [];
+  if (!poolMode && CONFIG.roomLandmarkChance > 0) {
+    // Its own stream, not generate()'s R. Drawing from R here would shift every decision downstream
+    // of it and silently redeal every seed in the game — the smoke checks noticed within a minute,
+    // which is the only reason this comment exists rather than a week of "why is that maze different
+    // now". Seeded off the same seed, so a maze's rooms are still the same rooms every time.
+    const LR = rng(seed + 104729);
+    let last = null;
+    roomTiles.forEach(([tx0, ty0, tx1, ty1], i) => {
+      if (LR() > CONFIG.roomLandmarkChance) return;
+      const free = LANDMARK_KINDS.filter((k) => k !== last);
+      const kind = free[LR() * free.length | 0]; last = kind;
+      const L = { x: (tx0 + tx1) >> 1, y: (ty0 + ty1) >> 1, kind, room: i, rx0: tx0, ry0: ty0, rx1: tx1, ry1: ty1 };
+      // Columns are the one landmark that is really there. They stand on the link/link crossings —
+      // the tiles that were wall before this room was opened — so shutting them takes away no way
+      // through at all: every cell and every link lane is still open, and the route below plans
+      // around them for free because it is planned after this.
+      // Joe: "room two in the prototype should also be columns that light up. They should be off
+      // until the player's right next to them and then they light up." Room two of the gallery is
+      // the statues, and his earlier note about them said the same — "make these more like columns
+      // that you can't walk over". So the statues stand on the floor too now, six in a ring, on the
+      // same crossings and by the same rule.
+      if (kind === 'columns' || kind === 'statues') {
+        L.cols = standOn(tx0, ty0, tx1, ty1, kind === 'statues' ? 6 : 4);
+        if (L.cols.length < 4) { for (const [mx, my] of L.cols) tiles[my][mx] = 1; return; }   // too small a room for them
+      }
+      landmarks.push(L);
+    });
+    // A page goes at its room's centre — and a pool room's centre is the deepest water. Joe:
+    // "Floating book in blackness... It's floating out in an open space." Measured: 69 of 598
+    // Child pages lay in a pool room and 68 of those under the disc, drawn over near-black water
+    // with the rings round them. So any room's spot for pages (and for the hopscotch, and for the
+    // route-nearest ordering) that falls in a pool's water moves to that pool's nearest rim tile —
+    // the border ring is the floor you walk round, and the disc covers everything inside it.
+    // "Any room's", not "the pool room's": room spacing is a soft rule that settles after twenty
+    // tries, so a second room can overlap the pool and drop its own centre in the water. One did,
+    // in 200 mazes. Every consumer reads roomCenters after this, so all of them follow.
+    for (const L of landmarks) if (L.kind === 'pool') roomCenters.forEach((c, j) => {
+      const [cx, cy] = c;
+      if (cx < L.rx0 || cx > L.rx1 || cy < L.ry0 || cy > L.ry1) return;                       // not in this pool's room
+      if (cx === L.rx0 || cx === L.rx1 || cy === L.ry0 || cy === L.ry1) return;             // already on the rim
+      const rim = [];
+      for (let x = L.rx0; x <= L.rx1; x++) rim.push([x, L.ry0], [x, L.ry1]);
+      for (let y = L.ry0 + 1; y < L.ry1; y++) rim.push([L.rx0, y], [L.rx1, y]);
+      rim.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy) || a[1] - b[1] || a[0] - b[0]);
+      roomCenters[j] = rim.find(([x, y]) => !roomCenters.some((o, k) => k !== j && o[0] === x && o[1] === y)) || rim[0];   // and never on another room's spot
+    });
+
+    // The well is a hole, so you should not be able to stand in it. Joe: "I think the dark well
+    // should have collision on it so you can't actually walk over it." Shut here, with the rooms,
+    // and not later: everything that matters is laid out after this point — the route, the door
+    // chain, the secret room, every pickup — and all of it plans around a wall for free. Shutting it
+    // at the end instead looked tidier and was much worse: it severed paths that had been planned
+    // while it was open and took the harness from 4 violations to 31.
+    for (const L of landmarks) if (L.kind === 'well') { tiles[L.y][L.x] = 0; L.solid = true; }
+  }
+
+  // ── districts ────────────────────────────────────────────────────────────────
+  // Patches of maze with a character of their own, so the whole map does not feel
+  // the same. Stamped once the halls and the rooms are down, over the patches that
+  // already twist the most, because those are the parts worth making strange.
+  //
+  // A district is filled in first — dead space inside it comes back as floor — so the
+  // heart reads as a quarter of its own rather than a few surviving scraps. On a Sparse
+  // or Least map that is the whole point: dense, strange ground with emptiness around it.
+  //
+  // The safety argument, which every heart below relies on: only links with BOTH ends
+  // inside the patch are ever cut, so every way in and out survives untouched; and
+  // afterwards the whole patch is spanned, so nothing inside can be stranded either.
+  // A district can add floor and add connections. It can never take a connection away.
+  clusters = [];
+  const clusterAt = (heart, x, y) => clusters.some(c => c.heart === heart && x >= c.tx0 && x <= c.tx1 && y >= c.ty0 && y <= c.ty1);
+  if (!poolMode && SAVE.ui.clusters !== 'off' && CONFIG.clusters > 0) {
+    const forced = (SAVE.ui.clusters && SAVE.ui.clusters !== 'auto') ? SAVE.ui.clusters : null;
+    // squeeze needs crawl gaps and shifting needs sliders, so a phase without them gets neither —
+    // unless the debug menu asks for one by name, in which case you get the carve and no furniture.
+    const hearts = forced ? [forced]
+      : CONFIG.clusterHearts.filter(h => h === 'squeeze' ? !!F.crawl : h === 'shifting' ? !!F.pockets : true);
+    // shifting needs pockets, not swings. On a swing-only phase (the Child) the extra sliders a
+    // shifting district asks for come out as pushable blocks, and the Child has not learned those yet.
+    const want = forced ? Math.max(2, N0(CONFIG.clusters)) : N0(CONFIG.clusters);
+    const rc = CONFIG.startRoomCells;
+    const live = (cx, cy) => cx >= 0 && cy >= 0 && cx < CONFIG.cols && cy < CONFIG.rows && !!tiles[TX(cy)][TX(cx)];
+    const gap = (ax, ay, bx, by) => [ax + bx + 1 + P, ay + by + 1 + P];
+    const joined = (ax, ay, bx, by) => { const [gx, gy] = gap(ax, ay, bx, by); return !!tiles[gy][gx]; };
+    const setLink = (ax, ay, bx, by, v) => { const [gx, gy] = gap(ax, ay, bx, by); tiles[gy][gx] = v; };
+    // keep off the start room and its ring, all three candidate exit corners, and the rooms
+    const barred = (cx, cy) => (cx <= rc + 1 && cy >= CONFIG.rows - 2 - rc)
+      || (cx <= 1 && cy <= 1) || (cx >= CONFIG.cols - 2 && cy <= 1) || (cx >= CONFIG.cols - 2 && cy >= CONFIG.rows - 2)
+      || roomRects.some(([rx0, ry0, rx1, ry1]) => cx >= rx0 && cx <= rx1 && cy >= ry0 && cy <= ry1)   // rooms may be touched, never overlapped
+      || vaultRects.some(v => cx >= v.cx0 && cx < v.cx0 + v.vc && cy >= v.cy0 && cy < v.cy0 + v.vc)   // nor any vault's
+      || (secretReserve && cx >= secretReserve.cx - 1 && cx <= secretReserve.cx + secretReserve.rc && cy >= secretReserve.cy - 1 && cy <= secretReserve.cy + secretReserve.rc);
+    // score candidate patches by how much they already twist; the twistiest go first
+    const cands = [];
+    // a district is trimmed to the grid it lands on, or a small maze — the Child's, and
+    // You — would have nowhere a 7-cell patch could sit clear of the room and the corners
+    const span = (n) => { const hi = Math.max(3, Math.min(CONFIG.clusterCells[1], n - 5)), lo = Math.min(CONFIG.clusterCells[0], hi); return lo + (R() * (hi - lo + 1) | 0); };
+    for (let i = 0; i < 160 && want > 0; i++) {
+      const w = span(CONFIG.cols), h = span(CONFIG.rows);
+      if (w >= CONFIG.cols || h >= CONFIG.rows) continue;
+      const x0 = R() * (CONFIG.cols - w + 1) | 0, y0 = R() * (CONFIG.rows - h + 1) | 0;
+      const x1 = x0 + w - 1, y1 = y0 + h - 1;
+      let n = 0, twist = 0, ways = 0, bad = false;
+      for (let cy = y0; cy <= y1 && !bad; cy++) for (let cx = x0; cx <= x1; cx++) {
+        if (barred(cx, cy)) { bad = true; break; }
+        if (!live(cx, cy)) continue;
+        n++;
+        const nb = DIRS.filter(([dx, dy]) => live(cx + dx, cy + dy) && joined(cx, cy, cx + dx, cy + dy));
+        for (const [dx, dy] of nb) if (cx + dx < x0 || cx + dx > x1 || cy + dy < y0 || cy + dy > y1) ways++;
+        if (nb.length >= 3) twist += 2;
+        else if (nb.length === 2 && !(nb[0][0] === -nb[1][0] && nb[0][1] === -nb[1][1])) twist++;
+      }
+      // `ways` is the safety condition: a patch with no link out would be stamped into an island
+      if (bad || !ways || n < w * h * CONFIG.clusterLiveShare) continue;
+      cands.push({ x0, y0, x1, y1, score: twist * 2 + n + R() * 4 });
+    }
+    cands.sort((a, b) => b.score - a.score);
+    const bag = hearts.slice(); bag.sort(() => R() - 0.5);   // deal the hearts out rather than roll, so a map gets variety
+    for (const c of cands) {
+      if (clusters.length >= want) break;
+      if (clusters.some(o => c.x0 <= o.x1 + 1 && c.x1 >= o.x0 - 1 && c.y0 <= o.y1 + 1 && c.y1 >= o.y0 - 1)) continue;
+      clusters.push({ heart: bag[clusters.length % bag.length], x0: c.x0, y0: c.y0, x1: c.x1, y1: c.y1,
+        tx0: TX(c.x0) - 1, ty0: TX(c.y0) - 1, tx1: TX(c.x1) + 1, ty1: TX(c.y1) + 1 });
+    }
+    for (const c of clusters) {
+      const cells = [];
+      for (let cy = c.y0; cy <= c.y1; cy++) for (let cx = c.x0; cx <= c.x1; cx++) { tiles[TX(cy)][TX(cx)] = 1; cells.push([cx, cy]); }
+      const at = new Map(cells.map(([x, y], i) => [x + ',' + y, i]));
+      const uf = cells.map((_, i) => i);
+      const find = (a) => { while (uf[a] !== a) { uf[a] = uf[uf[a]]; a = uf[a]; } return a; };
+      const cut = (ax, ay, bx, by) => {                        // open a link whatever it costs; may make a loop
+        if (!at.has(ax + ',' + ay) || !at.has(bx + ',' + by)) return;
+        const a = find(at.get(ax + ',' + ay)), b = find(at.get(bx + ',' + by));
+        setLink(ax, ay, bx, by, 1); if (a !== b) uf[a] = b;
+      };
+      const spanTo = (ax, ay, bx, by) => {                     // open a link only if it joins two separate pieces
+        const a = find(at.get(ax + ',' + ay)), b = find(at.get(bx + ',' + by));
+        if (a === b) return; uf[a] = b; setLink(ax, ay, bx, by, 1);
+      };
+      // wipe the inside clean — links to the outside are never touched
+      for (const [cx, cy] of cells) for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx <= c.x1 && ny <= c.y1) setLink(cx, cy, nx, ny, 0);
+      }
+      const W2 = c.x1 - c.x0 + 1, H2 = c.y1 - c.y0 + 1;
+      if (c.heart === 'lattice') {                             // every link open: a field of pillars, no landmarks
+        for (const [cx, cy] of cells) for (const [dx, dy] of [[1, 0], [0, 1]]) cut(cx, cy, cx + dx, cy + dy);
+      } else if (c.heart === 'rings') {                        // nested loops, joined to each other in one place only
+        for (let r = 0; r * 2 + 1 < Math.min(W2, H2); r += 2) {
+          const a = c.x0 + r, b = c.y0 + r, e = c.x1 - r, f = c.y1 - r;
+          for (let x = a; x < e; x++) { cut(x, b, x + 1, b); cut(x, f, x + 1, f); }
+          for (let y = b; y < f; y++) { cut(a, y, a, y + 1); cut(e, y, e, y + 1); }
+        }
+      } else if (c.heart === 'comb' || c.heart === 'shifting') {
+        const horiz = W2 >= H2;                                 // a spine down the long axis, teeth off it
+        const near = horiz ? c.y0 : c.x0, far = horiz ? c.y1 : c.x1, mid = (near + far) >> 1;
+        const lo = horiz ? c.x0 : c.y0, hi = horiz ? c.x1 : c.y1;
+        const link = (a1, b1, a2, b2) => horiz ? cut(a1, b1, a2, b2) : cut(b1, a1, b2, a2);
+        for (let a = lo; a < hi; a++) link(a, mid, a + 1, mid);
+        for (let a = lo; a <= hi; a += 2) {
+          // comb: one long tooth, alternating sides. shifting: short teeth both ways, so nearly every stub can move
+          const up = c.heart === 'shifting' || ((a - lo) % 4 === 0), down = c.heart === 'shifting' || ((a - lo) % 4 !== 0);
+          const reach = c.heart === 'shifting' ? Math.max(1, (far - near) >> 2) : far - near;
+          if (up) for (let b = mid; b > Math.max(near, mid - reach); b--) link(a, b, a, b - 1);
+          if (down) for (let b = mid; b < Math.min(far, mid + reach); b++) link(a, b, a, b + 1);
+        }
+      }
+      // whatever the heart left apart, span it: a random tree, which is also all `thicket` and
+      // `squeeze` ask for — a knot of short branching paths with no long sight lines
+      const edges = [];
+      for (const [cx, cy] of cells) for (const [dx, dy] of [[1, 0], [0, 1]]) if (at.has((cx + dx) + ',' + (cy + dy))) edges.push([cx, cy, cx + dx, cy + dy]);
+      edges.sort(() => R() - 0.5);
+      for (const [ax, ay, bx, by] of edges) spanTo(ax, ay, bx, by);
+    }
+  }
+
+  // ── the vault ────────────────────────────────────────────────────────────────
+  // Carved *after* the districts, not with the rooms: districts keep clear of roomRects and knew
+  // nothing about this, so stamping them afterwards re-cut the whole nest and walled the key in
+  // where nothing could reach it. Every one of 18 gated mazes was unsolvable before this moved.
+  // Joe: "we need to really hide the keys. This is a case where I'd say break out of the sizing
+  // constraints and just go make an area that buries a key inside it somewhere." So: one structure
+  // per maze, bigger than any room, of nested rings with a single gap each — and no two gaps on the
+  // same side, so you walk the whole way round every ring to reach the middle. The key goes in the
+  // middle. Carved here rather than with the rooms: the districts run between the two and would
+  // re-cut the whole nest, walling the key in where nothing could reach it.
+  keyVault = null; keyVaults = [];
+  vaultRects.forEach((rect, vi) => {
+    // Each nest gets its own stream. At vi 0 that is exactly the stream the single vault always
+    // used, so a maze with one vault comes out bit-identical to v0.85.0 — and a second vault can
+    // never redeal the first one's rings.
+    const VR = rng(seed + 31337 + vi * 101);
+    const { cx0, cy0, vc } = rect, vt = vc * 2 - 1;
+    {
+      const tx0 = TX(cx0), ty0 = TX(cy0), tx1 = tx0 + vt - 1, ty1 = ty0 + vt - 1;
+      // No "is it on corridor?" test any more: its ground was claimed before the rooms and the
+      // districts, so the maze is carved around it and the entrances below reconnect it either way.
+      for (let y = ty0; y <= ty1; y++) for (let x = tx0; x <= tx1; x++) tiles[y][x] = 1;
+      // the rings, from the outside in, each shut but for one gap, and never on the side the last one used
+      let lastSide = -1;
+      for (let d = 1; d + 1 < vt / 2; d += 2) {
+        const a = tx0 + d, b = ty0 + d, c = tx1 - d, e = ty1 - d;
+        for (let x = a; x <= c; x++) { tiles[b][x] = 0; tiles[e][x] = 0; }
+        for (let y = b; y <= e; y++) { tiles[y][a] = 0; tiles[y][c] = 0; }
+        let side = VR() * 4 | 0; if (side === lastSide) side = (side + 1) % 4; lastSide = side;
+        const mid = (lo, hi) => lo + 1 + (VR() * Math.max(1, hi - lo - 1) | 0);
+        if (side === 0) tiles[b][mid(a, c)] = 1;
+        else if (side === 1) tiles[e][mid(a, c)] = 1;
+        else if (side === 2) tiles[mid(b, e)][a] = 1;
+        else tiles[mid(b, e)][c] = 1;
+      }
+      // Put back every way in that the block just paved over. Without this the vault is an island:
+      // the rim is open and the nest inside it is walked perfectly well, but nothing outside can
+      // reach the rim — 16 of 20 gated mazes were unsolvable. They all land on the rim, which runs
+      // the whole way round, so the maze stays as connected as it was; the key is still three
+      // gapped rings deeper in, which is the part that is meant to be hard.
+      for (let x = tx0 + 1; x < tx1; x += 2) {
+        if (tiles[ty0 - 2] && tiles[ty0 - 2][x]) tiles[ty0 - 1][x] = 1;
+        if (tiles[ty1 + 2] && tiles[ty1 + 2][x]) tiles[ty1 + 1][x] = 1;
+      }
+      for (let y = ty0 + 1; y < ty1; y += 2) {
+        if (tiles[y][tx0 - 2]) tiles[y][tx0 - 1] = 1;
+        if (tiles[y][tx1 + 2]) tiles[y][tx1 + 1] = 1;
+      }
+      keyVaults.push({ x0: tx0, y0: ty0, x1: tx1, y1: ty1, cx: (tx0 + tx1) >> 1, cy: (ty0 + ty1) >> 1 });
+    }
+  });
+  keyVault = keyVaults[0] || null;   // the first is still "the vault" for everything that wants one
+
+  // The districts and the vault are stamped over the rooms, and about one well in a hundred gets
+  // opened back up by one of them. Re-shut here rather than at the end: this is still before the
+  // route, the door chain, the secret room and every pickup, so they all plan around a wall for
+  // free. Doing it at the end instead severs paths that were planned while it was open — that cost
+  // 31 harness violations, against 6 here.
+  for (const L of landmarks) if (L.kind === 'well') { tiles[L.y][L.x] = 0; L.solid = true; }
+
+  // one past self per maze; spread their pages across the rooms (first page first, last page last)
+  // the self of this phase; lay out their next unfound pages in order
+  const uncollected = c => c.pages.map((_, i) => i).filter(i => !(SAVE.collected[c.name] || [])[i]);
+  character = CAST.find(c => c.name === phase().who) || CAST[0];
+  journalIdx = 0; journals = new Map();
+  const chosen = poolMode ? [] : uncollected(character).slice(0, roomCenters.length);
+  roomCenters.forEach(([x, y], i) => { if (chosen[i] !== undefined) journals.set(x+','+y, chosen[i]); });
+  // (re-ordered below so the first page sits in the room nearest the solution route)
+  const pendingPages = chosen;
+
+  // shifting cells: seal a dead end E into a pocket; the cell D two tiles away (through the wall) becomes a slider aimed at E
+  sliders = []; pockets = []; startRoom = null; sealedGaps = []; startArrow = null;
+  const sx = TX(0), sy = TX(CONFIG.rows-1);
+  {
+    const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
+    const cornerTiles = [[TX(0),TX(0)], [TX(CONFIG.cols-1),TX(0)], [TX(CONFIG.cols-1),TX(CONFIG.rows-1)], [sx,sy]];
+    const isCorner = (x,y) => cornerTiles.some(([cx,cy]) => cx===x && cy===y) || (x <= sx + CONFIG.startRoomCells*2 && y >= sy - CONFIG.startRoomCells*2);   // also the start room and its neighbours
+    let want = F.pockets ? N(CONFIG.sliders[0]) + (R() * (N(CONFIG.sliders[1]) - N(CONFIG.sliders[0]) + 1) | 0) : F.swing ? (typeof F.swing === 'number' ? F.swing : N(CONFIG.swings)) : 0;
+    const used = new Set();
+    const cands = [];
+    for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) if (isOpen(x,y) && nOpen(x,y) === 1 && !isCorner(x,y)) cands.push([x,y]);
+    cands.sort(() => R() - 0.5);
+    // a shifting district wants nearly every stub in it to move: serve its dead ends first, and allow extra
+    if (F.pockets && clusters.some(c => c.heart === 'shifting')) {
+      const inShift = ([x, y]) => clusterAt('shifting', x, y);
+      const extra = Math.min(cands.filter(inShift).length, CONFIG.clusterSliders * clusters.filter(c => c.heart === 'shifting').length);
+      if (extra > 0) { want += extra; cands.sort((a, b) => (inShift(b) ? 1 : 0) - (inShift(a) ? 1 : 0)); }
+    }
+    for (const [ex, ey] of cands) {
+      if (sliders.length >= want) break;
+      if (used.has(ex+','+ey)) continue;
+      const [bx, by] = DIRS.find(([dx,dy]) => isOpen(ex+dx, ey+dy));   // toward parent
+      const opts = DIRS.filter(([dx,dy]) => !(dx===bx && dy===by) && !(dx===-bx && dy===-by))   // perpendicular to the entry
+        .map(([dx,dy]) => [dx,dy, ex+dx*2, ey+dy*2])
+        .filter(([dx,dy,Dx,Dy]) => Dx>=TX(0) && Dx<W-P && Dy>=TX(0) && Dy<H-P && isOpen(Dx,Dy) && nOpen(Dx,Dy) <= 2 && !isCorner(Dx,Dy) && !used.has(Dx+','+Dy) && !isOpen(ex+dx, ey+dy));
+      if (!opts.length) continue;
+      opts.sort((a, b) => F.pockets ? nOpen(a[2], a[3]) - nOpen(b[2], b[3]) : nOpen(b[2], b[3]) - nOpen(a[2], a[3]));   // pushable sliders prefer dead ends; swings prefer corridors
+      const [dx, dy, Dx, Dy] = opts[0];
+      tiles[ey+by][ex+bx] = 0; sealedGaps.push([ex+bx, ey+by]);        // seal the pocket
+      pockets.push([ex, ey]); used.add(ex+','+ey); used.add(Dx+','+Dy);
+      sliders.push({ x: Dx, y: Dy, dx: -dx, dy: -dy, shifted: false });  // slider pushes toward the pocket
+    }
+  }
+  start = { x: sx + 0.5, y: sy + 0.5 };
+  startGap = null;
+  // the start room: open a small room in the corner, seal every way out, and make one edge tile the slider
+  if (CONFIG.sliderAtStart) {
+    const openDoor = !F.pockets && !F.pathSlider;   // early phases: the room is simply open
+    const rc = CONFIG.startRoomCells, tw = rc*2 - 1;
+    const x0 = sx, y0 = sy - tw + 1, x1 = sx + tw - 1, y1 = sy;            // room tile bounds
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) tiles[y][x] = 1;
+    startRoom = { x0, y0, x1, y1 };
+    start = { x: x0 + (tw>>1) + 0.5, y: y0 + (tw>>1) + 0.5 };   // wake up in the middle of the room
+    // gaps leading out of the room: right side (x1+1) on cell rows, top side (y0-1) on cell columns
+    const gaps = [];
+    for (let y = y0; y <= y1; y += 2) if (isOpen(x1+1, y)) gaps.push([x1+1, y, 1, 0]);
+    for (let x = x0; x <= x1; x += 2) if (isOpen(x, y0-1)) gaps.push([x, y0-1, 0, -1]);
+    // make sure there is at least one way out to aim at
+    if (!gaps.length) { const y = y1; tiles[y][x1+1] = 1; gaps.push([x1+1, y, 1, 0]); }
+    const [gx, gy, ax, ay] = gaps[R() * gaps.length | 0];
+    for (const [x, y] of gaps) tiles[y][x] = 0;
+    const comp = (x0, y0) => { const seen = new Set([x0+','+y0]), q2 = [[x0,y0]]; while (q2.length) { const [x,y] = q2.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k)) { seen.add(k); q2.push([nx,ny]); } } } return seen; };
+    const inRoom = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    let main = comp(gx + ax, gy + ay);
+    // bridge each orphaned region back into the main one; repeat, since an orphan may only touch another orphan
+    for (let pass = 0; pass < gaps.length + 1; pass++) {
+      let progressed = false;
+      for (const [x, y, dx, dy] of gaps) {
+        if (x === gx && y === gy) continue;
+        const nx = x + dx, ny = y + dy; if (main.has(nx+','+ny)) continue;
+        const orphan = comp(nx, ny), bridges = [];
+        for (const k of orphan) { const [ox, oy] = k.split(',').map(Number); for (const [ex,ey] of DIRS) { const bx=ox+ex, by=oy+ey, fx=ox+ex*2, fy=oy+ey*2; if (!isOpen(bx,by) && main.has(fx+','+fy) && !inRoom(fx,fy) && fx>=TX(0) && fx<W-P && fy>=TX(0) && fy<H-P) bridges.push([bx,by]); } }
+        if (bridges.length) { const [bx,by] = bridges[R() * bridges.length | 0]; tiles[by][bx] = 1; main = comp(gx + ax, gy + ay); progressed = true; }
+      }
+      if (!progressed) break;
+    }
+    if (openDoor) tiles[gy][gx] = 1; else {
+      sliders.push({ x: gx - ax, y: gy - ay, dx: ax, dy: ay, shifted: false, atStart: true });
+      // Somebody painted an arrow on the block itself, pointing the way it goes. It used to be on
+      // the floor two tiles back, which read as a sign about the room rather than about the block.
+      // It is the only thing in here that says the wall moves, so it stays until you learn it.
+      if (!SAVE.pushLearned) startArrow = { x: gx - ax, y: gy - ay, dir: ax > 0 ? 'right' : ax < 0 ? 'left' : ay > 0 ? 'down' : 'up' };
+    }
+    startGap = [gx, gy];
+    // And nothing else leaks. Rooms, districts and crawl gaps are all placed before this and none of
+    // them knows the start room is about to be sealed, so any of them can leave a hole in its wall —
+    // with five rooms to a maze instead of three, one finally did. The ring is shut here, after all
+    // of them, except for the one gap the block sits in.
+    for (let x = startRoom.x0 - 1; x <= startRoom.x1 + 1; x++)
+      for (const y of [startRoom.y0 - 1, startRoom.y1 + 1])
+        if (!(x === gx && y === gy) && tiles[y] && tiles[y][x]) tiles[y][x] = 0;
+    for (let y = startRoom.y0 - 1; y <= startRoom.y1 + 1; y++)
+      for (const x of [startRoom.x0 - 1, startRoom.x1 + 1])
+        if (!(x === gx && y === gy) && tiles[y] && tiles[y][x]) tiles[y][x] = 0;
+  }
+
+  // crawl gaps: closed walls between two open cells; open for the Child, drawn sealed for everyone after
+  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null; secretTiles = new Set(); secretMarks = new Map(); secretSwitch = null; secretFather = null; exitTree = new Set(); exitTreeMouth = null;
+  // A crawl gap is a low hole in a wall between two cells: floor on one axis, wall on the other.
+  // Joe, shown one open on all four sides: "a crawl gap should never be also a plus gap." So every
+  // place that makes one asks this first, and a sweep at the end of the build catches any that a
+  // later carve (a vault ring, the start room's ring, a statue) opened a side of. `gapFits` reads the
+  // tile as it stands; a gap is only ever made where the tile itself is already open floor or is
+  // about to be, so only the four neighbours are judged.
+  gapFits = (gx, gy) => { const r = isOpen(gx + 1, gy), l = isOpen(gx - 1, gy), d = isOpen(gx, gy + 1), u = isOpen(gx, gy - 1);
+    return (r && l && !d && !u) || (d && u && !r && !l); };
+  plusSwept = 0;
+  if (!poolMode) {
+    const roomRing = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    const cands2 = [];
+    for (let y = TX(0); y < H - P; y += 2) for (let x = TX(0); x < W - P; x += 2) {
+      for (const [dx, dy] of [[1,0],[0,1]]) { const gx = x + dx, gy = y + dy, fx = x + dx*2, fy = y + dy*2;
+        if (fx >= W - P || fy >= H - P || isOpen(gx, gy) || !isOpen(x, y) || !isOpen(fx, fy) || roomRing(gx, gy)) continue;
+        if (!gapFits(gx, gy)) continue;   // a room or a court beside it would give the hole a third side
+        if (pockets.some(([px,py]) => (px===x&&py===y) || (px===fx&&py===fy))) continue;
+        if (sliders.some(sl => (sl.x===x&&sl.y===y) || (sl.x===fx&&sl.y===fy))) continue;
+        cands2.push([gx, gy]); }
+    }
+    cands2.sort(() => R() - 0.5);
+    let wantGaps = F.crawl ? (typeof F.crawl === 'number' ? F.crawl : Math.max(2, N0(CONFIG.crawlGaps))) : N0(CONFIG.crawlGaps);
+    // a squeeze district is mostly crawl gaps: serve the ones inside it first, on top of the map's usual quota
+    if (clusters.some(c => c.heart === 'squeeze')) {
+      const inSq = ([x, y]) => clusterAt('squeeze', x, y);
+      const extra = Math.min(cands2.filter(inSq).length, CONFIG.clusterCrawlGaps * clusters.filter(c => c.heart === 'squeeze').length);
+      if (extra > 0) { wantGaps += extra; cands2.sort((a, b) => (inSq(b) ? 1 : 0) - (inSq(a) ? 1 : 0)); }
+    }
+    const usedCells = new Set();
+    for (const g of cands2) {
+      if (crawlGaps.size >= wantGaps) break;
+      const [gx, gy] = g; if (crawlGaps.has(g.join(','))) continue;
+      // the two cells either side
+      const horiz = isOpen(gx-1, gy) && isOpen(gx+1, gy);
+      const A = horiz ? [gx-1, gy] : [gx, gy-1], Bc = horiz ? [gx+1, gy] : [gx, gy+1];
+      if (usedCells.has(A.join(',')) || usedCells.has(Bc.join(','))) continue;
+      crawlGaps.add(g.join(',')); if (F.crawl) tiles[gy][gx] = 1; usedCells.add(A.join(',')); usedCells.add(Bc.join(','));
+      // sometimes it keeps going: from the far cell, a second gap in another direction makes an L (or a straight run)
+      if (F.crawl && R() < 0.45) {
+        // The far cell becomes a crawl cell, drawn narrow: it can have the two holes and nothing else,
+        // or the tunnel has a side passage — which is Joe's plus by another name. Its own corridor link
+        // counts, so this only happens where the cell was a dead end that the first hole opened.
+        const BcArms = DIRS.filter(([dx, dy]) => isOpen(Bc[0] + dx, Bc[1] + dy)).length;
+        const opts = BcArms > 1 ? [] : DIRS.map(([dx,dy]) => [Bc[0]+dx, Bc[1]+dy, Bc[0]+dx*2, Bc[1]+dy*2]).filter(([hx,hy,cx,cy]) => !(hx===gx&&hy===gy) && !isOpen(hx,hy) && isOpen(cx,cy) && cx>=TX(0) && cx<W-P && cy>=TX(0) && cy<H-P && !roomRing(hx,hy) && !usedCells.has(cx+','+cy) && !pockets.some(([px,py])=>px===cx&&py===cy) && !sliders.some(sl=>sl.x===cx&&sl.y===cy) && !sliders.some(sl=>sl.x===Bc[0]&&sl.y===Bc[1]))
+          .filter(([hx, hy, cx, cy]) => { tiles[hy][hx] = 1; const ok = gapFits(hx, hy); tiles[hy][hx] = 0; return ok; });
+        if (opts.length) { const [hx, hy, cx, cy] = opts[R() * opts.length | 0]; crawlGaps.add(hx+','+hy); tiles[hy][hx] = 1; crawlCells.add(Bc.join(',')); usedCells.add(cx+','+cy); }
+      }
+    }
+    // swings: a pocket slider that moves on its own
+    if (F.swing) for (const sl of sliders.filter(sl => !sl.atStart && !sl.onPath).slice(0, typeof F.swing === 'number' ? F.swing : N(CONFIG.swings))) { sl.auto = true; sl.nextAt = 0; }
+
+    // A secret place: wherever the maze pinches. Shut one passage and see what falls off the
+    // back of it; the biggest chunk that comes away, within reason, is the hiding place, and
+    // that one passage becomes the squeeze you get in by. Nothing is carved and nothing is
+    // sealed — the pinch was already there, it is only relabelled — so this cannot go wrong.
+    //
+    // Inside it is dark until you find the switch on the floor and stand on it, someone has
+    // drawn all over the place, and one of the drawings is a man walking away.
+    //
+    // Child only. For every phase after, a crawl gap is drawn shut and this would wall it away.
+    if (F.crawl && CONFIG.secretRooms) {
+      const sealedKeys = new Set(sealedGaps.map(([x, y]) => x + ',' + y));
+      const roomZone = (x, y) => startRoom && x >= startRoom.x0 - 2 && x <= startRoom.x1 + 2 && y >= startRoom.y0 - 2 && y <= startRoom.y1 + 2;
+      const corners = [[TX(0), TX(0)], [TX(CONFIG.cols - 1), TX(0)], [TX(CONFIG.cols - 1), TX(CONFIG.rows - 1)]];
+      const busy = (x, y) => sealedKeys.has(x + ',' + y) || crawlGaps.has(x + ',' + y)
+        || sliders.some(sl => (sl.x === x && sl.y === y) || (sl.x + sl.dx === x && sl.y + sl.dy === y));
+      const reachFromStart = () => {
+        const s0 = Math.floor(start.x), t0 = Math.floor(start.y);
+        const seen = new Set([s0 + ',' + t0]), q2 = [[s0, t0]];
+        while (q2.length) { const [x, y] = q2.shift(); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+          if (seen.has(k) || !(isOpen(nx, ny) || sealedKeys.has(k))) continue; seen.add(k); q2.push([nx, ny]); } }
+        return seen;
+      };
+      // First choice: carve the room out of solid wall. A pinched-off chunk of maze is a
+      // winding passage however you dress it, and a room somebody escaped to and played in is a
+      // room — square, open, nothing in the middle of it. On a map with dead space there is wall
+      // to put one in, and carving into wall only ever adds floor, so nothing can be cut off.
+      let carved = false;
+      if (secretReserve) {
+        const { cx, cy, rc } = secretReserve, tw = rc * 2 - 1;
+        const x0 = TX(cx), y0 = TX(cy);
+        // every way it could open onto the maze; one of them becomes the squeeze
+        const ways = [];
+        for (let i = 0; i < rc; i++) {
+          for (const [ox2, oy2, dx, dy] of [[cx + i, cy - 1, 0, 1], [cx + i, cy + rc, 0, -1], [cx - 1, cy + i, 1, 0], [cx + rc, cy + i, -1, 0]]) {
+            if (ox2 < 0 || oy2 < 0 || ox2 >= CONFIG.cols || oy2 >= CONFIG.rows) continue;
+            if (!isOpen(TX(ox2), TX(oy2)) || roomZone(TX(ox2), TX(oy2))) continue;
+            const gx = TX(ox2) + dx, gy = TX(oy2) + dy;
+            if (sealedKeys.has(gx + ',' + gy) || crawlGaps.has(gx + ',' + gy)) continue;
+            ways.push([gx, gy]);
+          }
+        }
+        if (ways.length) {
+          for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) { tiles[y0 + y][x0 + x] = 1; secretTiles.add((x0 + x) + ',' + (y0 + y)); }
+          // the way in is a hole through the room's wall ring, so its sides are that ring: wall. But
+          // choose among the ones that read so once the room is floor, not before.
+          const fitting = ways.filter(([gx, gy]) => { tiles[gy][gx] = 1; const ok = gapFits(gx, gy); tiles[gy][gx] = 0; return ok; });
+          const way = (fitting.length ? fitting : ways)[R() * (fitting.length ? fitting.length : ways.length) | 0];
+          tiles[way[1]][way[0]] = 1; crawlGaps.add(way.join(','));
+          const inner = [];
+          for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) inner.push([x0 + x, y0 + y]);
+          const wayD = (p2) => Math.abs(p2[0] - way[0]) + Math.abs(p2[1] - way[1]);
+          inner.sort((a, b) => wayD(a) - wayD(b));
+          // a step in from the way in, never on it: the light only shows once you are inside
+          secretSwitch = (inner.find(p2 => wayD(p2) >= CONFIG.secretSwitchIn) || inner[0]).join(',');
+          secretFather = inner[inner.length - 1].join(',');
+          secretRoomChalkOn([...secretTiles], R);
+          carved = true;
+        }
+      }
+
+      const best = [];
+      // no wall to carve into, so fall back to finding where the maze pinches.
+      // two passes: the size we would like, then whatever will do, because a maze without a
+      // hiding place in it is worse than a small one
+      for (const [lo, hi] of (carved ? [] : [[CONFIG.secretMinTiles, CONFIG.secretMaxTiles], [5, 100]])) {
+      if (best.length) break;
+      for (let y = TX(0) - 1; y < H - P; y++) for (let x = TX(0) - 1; x < W - P; x++) {
+        if (!isOpen(x, y) || ((x - P) % 2 === 1) === ((y - P) % 2 === 1)) continue;   // link tiles only
+        if (busy(x, y) || roomZone(x, y)) continue;
+        tiles[y][x] = 0;
+        const seen = reachFromStart();
+        tiles[y][x] = 1;
+        const piece = [];
+        for (let py = 0; py < H && piece.length <= hi; py++) for (let px = 0; px < W; px++)
+          if (tiles[py][px] && !seen.has(px + ',' + py)) piece.push(px + ',' + py);
+        if (piece.length < lo || piece.length > hi) continue;
+        // nothing with a pocket in it: getting into a hiding place should be one squeeze, not a
+        // squeeze and then a block to shove
+        if (piece.some(k => { const [px, py] = k.split(',').map(Number);
+          return roomZone(px, py) || sealedKeys.has(k) || pockets.some(([qx, qy]) => qx === px && qy === py)
+            || corners.some(([cx, cy]) => cx === px && cy === py); })) continue;
+        best.push({ mouth: x + ',' + y, piece });
+      } }
+      if (best.length) {
+        best.sort((a, b) => b.piece.length - a.piece.length);
+        const pick = best[0];
+        crawlGaps.add(pick.mouth);
+        secretTiles = new Set(pick.piece);
+        // open it out into a room. The pinch usually comes away as a winding passage, and a
+        // child's room is a room. Only links with both ends already inside are opened, and the
+        // piece is sealed but for its one squeeze, so this changes nothing about getting in or
+        // out — it just gives the place a floor you can see across and draw all over.
+        for (const k of [...secretTiles]) {
+          const [cx, cy] = k.split(',').map(Number);
+          if ((cx - P) % 2 !== 1 || (cy - P) % 2 !== 1) continue;
+          for (const [dx, dy] of [[1, 0], [0, 1]]) {
+            const gx = cx + dx, gy = cy + dy, nx = cx + dx * 2, ny = cy + dy * 2;
+            if (!secretTiles.has(nx + ',' + ny)) continue;
+            tiles[gy][gx] = 1; secretTiles.add(gx + ',' + gy);
+          }
+        }
+        // the switch: a cell a little way in, so you have to be inside before you see it
+        const [mx, my] = pick.mouth.split(',').map(Number);
+        const cells = pick.piece.filter(k => { const [x, y] = k.split(',').map(Number); return (x - P) % 2 === 1 && (y - P) % 2 === 1; })
+          .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number);
+            return (Math.abs(ax - mx) + Math.abs(ay - my)) - (Math.abs(bx - mx) + Math.abs(by - my)); });
+        // a step in from the mouth, never on it, and still nowhere near the back of the room
+        const mouthD = (k) => { const [x, y] = k.split(',').map(Number); return Math.abs(x - mx) + Math.abs(y - my); };
+        secretSwitch = cells.find(k => mouthD(k) >= CONFIG.secretSwitchIn) || cells[0] || null;
+        // and a man walking away, chalked on the floor as far from the switch as it gets
+        secretFather = cells.length > 2 ? cells[cells.length - 1] : null;
+        secretRoomChalkOn([...secretTiles], R);
+      }
+    }
+  }
+  if (poolMode) {   // no maze: the start room, a straight hall north, and the water at its end
+    for (let y = 0; y < H; y++) tiles[y].fill(0);
+    const { x0, y0, x1, y1 } = startRoom;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) tiles[y][x] = 1;
+    const hx = x0 + 2, hallLen = Math.max(6, Math.min(14, y0 - P - 2));
+    for (let y = y0 - 1; y >= y0 - hallLen; y--) tiles[y][hx] = 1;
+    sliders = []; pockets = []; sealedGaps = []; startGap = [hx, y0 - 1];
+    exit = { x: hx, y: y0 - hallLen }; exitAlley = [[hx, y0 - hallLen + 1]];
+  }
+  // exit gets its own alley: corner cell → one walkway tile → exit tile, carved outward into the margin
+  let exX, exY;
+  if (!poolMode) {
+    const cornerCells = [[TX(0), TX(0), -1], [TX(CONFIG.cols-1), TX(0), 1], [TX(CONFIG.cols-1), TX(CONFIG.rows-1), 1]];
+    const [ccx, ccy, side] = cornerCells[R() * 3 | 0];
+    exitAlley = [[ccx + side, ccy]]; exX = ccx + side*2; exY = ccy;
+    tiles[ccy][ccx + side] = 1; tiles[exY][exX] = 1;
+    exit = { x: exX, y: exY };
+  } else { exX = exit.x; exY = exit.y; }
+
+  // BFS from start for the solution path (with the start room's door temporarily open)
+  if (startGap) tiles[startGap[1]][startGap[0]] = 1;
+  const prev = new Map(); const seen = new Set([sx+','+sy]); const q = [[sx, sy]];
+  while (q.length) { const [x,y] = q.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k)) { seen.add(k); prev.set(k,[x,y]); q.push([nx,ny]); } } }
+  solutionPath = []; let cur = [exX, exY];
+  while (cur) { solutionPath.push(cur); cur = prev.get(cur[0]+','+cur[1]); }
+  solutionPath.reverse();
+  syncSolution();
+
+  // the first unfound page goes in the room closest to the route; the rest in the others
+  if (pendingPages.length && roomCenters.length) {
+    const onPath = new Set(solutionPath.map(([x,y]) => x+','+y));
+    // One flood out from the whole route, read back per room. This used to flood from each room
+    // to the route inside the sort's comparator — thousands of floods in a big maze, each one
+    // shifting its queue — and was 12.5 of the giant's 20 seconds. Same distances, one pass.
+    const pathDist = new Map(); { const q3 = solutionPath.map(([x, y]) => [x, y]); for (const [x, y] of q3) pathDist.set(x + ',' + y, 0);
+      for (let h = 0; h < q3.length; h++) { const [x, y] = q3[h], d = pathDist.get(x + ',' + y); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny; if (isOpen(nx, ny) && !pathDist.has(k)) { pathDist.set(k, d + 1); q3.push([nx, ny]); } } } }
+    // A room's centre can be stone — a well, a statue, the columns — so, as the old flood did from
+    // its first step, a shut centre reads one more than the nearest open neighbour. 1e9 where nothing
+    // joins, as before, so the sort still sees a number.
+    const distToPath = ([cx, cy]) => { if (pathDist.has(cx + ',' + cy)) return pathDist.get(cx + ',' + cy);
+      let best = 1e9; for (const [dx, dy] of DIRS) { const d = pathDist.get((cx + dx) + ',' + (cy + dy)); if (d !== undefined && d + 1 < best) best = d + 1; } return best; };
+    const ordered = roomCenters.slice().sort((a, b) => distToPath(a) - distToPath(b));
+    journals = new Map(); pendingPages.forEach((pg, i) => { const [x, y] = ordered[i]; journals.set(x+','+y, pg); });
+  }
+
+  // a slider on the main route: seal the gap ahead of a corridor cell and make that cell push into it
+  if (CONFIG.sliderOnPath && F.pathSlider) {
+    const isCell = ([x,y]) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
+    const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
+    const usedT = new Set([...sliders.map(sl => sl.x+','+sl.y), ...pockets.map(([x,y]) => x+','+y), ...sliders.map(sl => (sl.x+sl.dx*2)+','+(sl.y+sl.dy*2))]);
+    const idxs = [];
+    for (let i = 4; i < solutionPath.length - 6; i++) {
+      const c = solutionPath[i], g = solutionPath[i+1], n = solutionPath[i+2];
+      if (!isCell(c) || !n || !isCell(n) || nOpen(c[0], c[1]) !== 2 || nOpen(n[0], n[1]) > 3) continue;
+      if (usedT.has(c.join(',')) || usedT.has(n.join(','))) continue;
+      idxs.push(i);
+    }
+    const reachesExit = () => { const seen = new Set([sx+','+sy]), q2 = [[sx, sy]]; for (let h = 0; h < q2.length; h++) { const [x,y] = q2[h]; if (x === exX && y === exY) return true; for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k)) { seen.add(k); q2.push([nx,ny]); } } } return seen.has(exX+','+exY); };
+    idxs.sort(() => R() - 0.5);
+    for (const i of idxs) {   // only a gap whose sealing truly severs start from exit (rooms add loops)
+      const c = solutionPath[i], g = solutionPath[i+1], n = solutionPath[i+2];
+      tiles[g[1]][g[0]] = 0;
+      if (reachesExit()) { tiles[g[1]][g[0]] = 1; continue; }
+      sealedGaps.push([g[0], g[1]]);
+      sliders.push({ x: c[0], y: c[1], dx: n[0] - c[0] > 0 ? 1 : n[0] - c[0] < 0 ? -1 : 0, dy: n[1] - c[1] > 0 ? 1 : n[1] - c[1] < 0 ? -1 : 0, shifted: false, onPath: true });
+      break;
+    }
+  }
+
+  // The way out of a phase that pushes blocks is a run of them, each one load-bearing, clustered
+  // at the end of the route. The Child has to squeeze its way out; everyone who has learned to
+  // shove a wall should have to shove their way out. A block only counts if sealing its gap really
+  // does cut start from exit — and the ones already placed are treated as passable while testing
+  // that, because you can push those too, so the second block has to be load-bearing on its own.
+  if (F.pockets && !F.crawl && CONFIG.exitPushBlocks && !poolMode) {
+    const isCell2 = ([x, y]) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
+    const nOpen2 = (x, y) => DIRS.filter(([dx, dy]) => isOpen(x + dx, y + dy)).length;
+    const usedT2 = new Set([...sliders.map(sl => sl.x + ',' + sl.y), ...pockets.map(([x, y]) => x + ',' + y),
+      ...sliders.map(sl => (sl.x + sl.dx * 2) + ',' + (sl.y + sl.dy * 2)), ...sliders.map(sl => (sl.x + sl.dx) + ',' + (sl.y + sl.dy))]);
+    const roomRing5 = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    const placed = [];
+    const reaches = () => {
+      for (const [x, y] of placed) tiles[y][x] = 1;                 // you can push the ones already there
+      const s0 = Math.floor(start.x), t0 = Math.floor(start.y);
+      const seen = new Set([s0 + ',' + t0]), q2 = [[s0, t0]];
+      while (q2.length) { const [x, y] = q2.shift(); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        if (isOpen(nx, ny) && !seen.has(k)) { seen.add(k); q2.push([nx, ny]); } } }
+      for (const [x, y] of placed) tiles[y][x] = 0;
+      return seen.has(exX + ',' + exY);
+    };
+    const idxs = [];
+    for (let i = 4; i < solutionPath.length - 6; i++) {
+      const c = solutionPath[i], g = solutionPath[i + 1], n = solutionPath[i + 2];
+      if (!isCell2(c) || !n || !isCell2(n) || nOpen2(c[0], c[1]) !== 2 || nOpen2(n[0], n[1]) > 3) continue;
+      if (usedT2.has(c.join(',')) || usedT2.has(n.join(',')) || roomRing5(c[0], c[1])) continue;
+      if (exitAlley.some(([ax, ay]) => ax === g[0] && ay === g[1])) continue;
+      idxs.push(i);
+    }
+    // the last stretch first, and only fall back to earlier ground if that will not yield enough:
+    // this is meant to be the end of the level, not something you meet halfway
+    const tailFrom = solutionPath.length * (1 - CONFIG.exitPushTail);
+    idxs.sort((a, b) => (a >= tailFrom ? 0 : 1) - (b >= tailFrom ? 0 : 1) || b - a);
+    for (const i of idxs) {
+      if (placed.length >= CONFIG.exitPushBlocks) break;
+      const c = solutionPath[i], g = solutionPath[i + 1], n = solutionPath[i + 2];
+      if (usedT2.has(c.join(',')) || usedT2.has(n.join(','))) continue;
+      tiles[g[1]][g[0]] = 0;
+      if (reaches()) { tiles[g[1]][g[0]] = 1; continue; }           // you could walk round it
+      sealedGaps.push([g[0], g[1]]); placed.push([g[0], g[1]]);
+      sliders.push({ x: c[0], y: c[1], dx: Math.sign(n[0] - c[0]), dy: Math.sign(n[1] - c[1]), shifted: false, onPath: true });
+      usedT2.add(c.join(',')); usedT2.add(n.join(',')); usedT2.add(g.join(','));
+    }
+  }
+
+  // The way out is the last thing between him and out, so it should be a decision, not a corridor.
+  // The final stretch becomes a tree of squeezes: one mouth in, forks along the way, one branch
+  // that goes on and the rest that end in nothing. Some of it is chambers you step into and choose
+  // from; the rest is drawn as tunnel, so it is just crawling, elbows and all.
+  //
+  // The wrong branches are not invented. Take the last stretch of the way out and lift it out of
+  // the maze, and what is left falls into pieces: one big piece, the maze you came from, and a
+  // handful of small ones hanging off the stretch. Those small ones are already dead ends — that
+  // is what makes them small — so absorbing one whole costs nothing and cuts nothing. Only the
+  // trunk's own links back to the big piece are shut, one at a time and only while every floor
+  // tile in the maze is still walkable.
+  //
+  // How long a trunk to take is not obvious, so every length is built and measured and the best
+  // one kept: it has to be the only way to the exit, and among those, the one that makes you
+  // choose most often wins. Building is deterministic given the length, so the winner is simply
+  // built again. Child phases only: for everyone after, a crawl gap is drawn shut and this would
+  // wall the exit away.
+  if (F.crawl && CONFIG.exitGauntlet && !poolMode) {
+    const isCell = (x, y) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
+    const inGrid = (x, y) => x >= TX(0) && x < W - P && y >= TX(0) && y < H - P;
+    const roomZone = (x, y) => startRoom && x >= startRoom.x0 - 2 && x <= startRoom.x1 + 2 && y >= startRoom.y0 - 2 && y <= startRoom.y1 + 2;
+    const sealedKeys2 = new Set(sealedGaps.map(([x, y]) => x + ',' + y));
+    const busy = (x, y) => sealedKeys2.has(x + ',' + y) || secretTiles.has(x + ',' + y)
+      || sliders.some(sl => (sl.x === x && sl.y === y) || (sl.x + sl.dx === x && sl.y + sl.dy === y))
+      || pockets.some(([px, py]) => px === x && py === y);
+    const nbrs = (x, y) => DIRS.map(([dx, dy]) => [x + dx * 2, y + dy * 2, x + dx, y + dy])
+      .filter(([nx, ny, gx, gy]) => inGrid(nx, ny) && isOpen(gx, gy) && isOpen(nx, ny));
+    const walkAll = () => {
+      const s0 = Math.floor(start.x), t0 = Math.floor(start.y);
+      const seen = new Set([s0 + ',' + t0]), q2 = [[s0, t0]];
+      for (let h = 0; h < q2.length; h++) { const [x, y] = q2[h]; for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        if (seen.has(k) || !(isOpen(nx, ny) || sealedKeys2.has(k))) continue; seen.add(k); q2.push([nx, ny]); } }
+      return seen;
+    };
+    const nothingStranded = () => { const seen = walkAll();
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x] && !seen.has(x + ',' + y)) return false;
+      return true; };
+
+    const pathCells = solutionPath.filter(([x, y]) => isCell(x, y) && inGrid(x, y));
+
+    // Build a tree of the given trunk length and leave it standing. Returns what it is worth.
+    const build = (want) => {
+      const trunk = pathCells.slice(-want);
+      const before = pathCells[pathCells.length - want - 1];
+      const mouth = trunk[0];
+      const entrance = ((before[0] + mouth[0]) / 2) + ',' + ((before[1] + mouth[1]) / 2);
+      const trunkSet = new Set(trunk.map(c => c.join(',')));
+
+      // lift the trunk out and see what the maze falls into
+      const seenCell = new Set(trunkSet), pieces = [];
+      for (const c of trunk) for (const [nx, ny] of nbrs(c[0], c[1])) {
+        const k0 = nx + ',' + ny;
+        if (seenCell.has(k0)) continue;
+        const piece = new Set([k0]), q2 = [[nx, ny]]; seenCell.add(k0);
+        let touchesBefore = false;
+        while (q2.length) {
+          const [x, y] = q2.shift();
+          if (x === before[0] && y === before[1]) touchesBefore = true;
+          for (const [ax, ay] of nbrs(x, y)) { const k = ax + ',' + ay;
+            if (trunkSet.has(k) || piece.has(k)) continue; piece.add(k); seenCell.add(k); q2.push([ax, ay]); }
+        }
+        pieces.push({ piece, touchesBefore });
+      }
+      // take every hanging piece that will fit, not a chosen few: one left out is a plain corridor
+      // off the tree, which spoils the look of it and cannot be shut either, because whatever is
+      // down there would be stranded
+      const G = new Set(trunkSet);
+      const fits = pieces
+        .filter(p => !p.touchesBefore && p.piece.size <= CONFIG.exitGauntletBranch
+          && ![...p.piece].some(k => { const [x, y] = k.split(',').map(Number); return roomZone(x, y); }))
+        .sort((a, b) => b.piece.size - a.piece.size);
+      let budget = CONFIG.exitGauntletMaxCells - trunk.length;
+      for (const b of fits) { if (b.piece.size > budget) continue; for (const k of b.piece) G.add(k); budget -= b.piece.size; }
+
+      // shut the ways back into the maze you came from, keeping the one you came in by
+      const shut = [];
+      for (const k of G) {
+        const [cx, cy] = k.split(',').map(Number);
+        for (const [dx, dy] of DIRS) {
+          const gx = cx + dx, gy = cy + dy, nx = cx + dx * 2, ny = cy + dy * 2;
+          if (!isOpen(gx, gy) || gx + ',' + gy === entrance) continue;
+          if (!inGrid(nx, ny)) continue;                       // the exit alley: that is the way out
+          if (G.has(nx + ',' + ny) || busy(gx, gy)) continue;
+          // Never the route itself. The trunk is the last cells of the way out, but where the way
+          // out crosses a room it leaves the cell lattice, and a link the lattice reads as "off the
+          // tree" can be the route's own next step. Seed 32676 (v0.102.0): the rooms moved, the
+          // route crossed one beside the tree, and this shut a tile of it — nothing was stranded,
+          // because there was another way round, which is the other half of the same failure.
+          if (solutionKeys.has(gx + ',' + gy)) continue;
+          tiles[gy][gx] = 0;
+          if (nothingStranded()) shut.push([gx, gy]); else tiles[gy][gx] = 1;
+        }
+      }
+      // with the mouth shut, is the exit gone?
+      const [mgx, mgy] = entrance.split(',').map(Number);
+      const wasMouth = tiles[mgy][mgx]; tiles[mgy][mgx] = 0;
+      const only = !walkAll().has(exX + ',' + exY);
+      tiles[mgy][mgx] = wasMouth;
+      // and how often does it make you choose?
+      let forks = 0;
+      for (const k of G) { const [cx, cy] = k.split(',').map(Number);
+        if (nbrs(cx, cy).filter(([nx, ny]) => G.has(nx + ',' + ny)).length >= 3) forks++; }
+      return { G, shut, entrance, mouth, only, forks };
+    };
+    const unbuild = (r) => { for (const [gx, gy] of r.shut) tiles[gy][gx] = 1; };
+
+    const lengths = [];
+    for (let n = CONFIG.exitGauntlet; n >= 4; n -= 2) { const m = Math.min(n, pathCells.length - 3); if (m >= 4 && !lengths.includes(m)) lengths.push(m); }
+    let best = null;
+    for (const want of lengths) {
+      const r = build(want);
+      if (!best || (r.only && !best.only) || (r.only === best.only && r.forks > best.forks)) { unbuild(r); best = { want, only: r.only, forks: r.forks }; }
+      else unbuild(r);
+    }
+    // A tree that is not the only way to the exit is a decoration with a bypass, and the maze is
+    // better off with no tree than with that. It used to be kept anyway; seed 32676 is the case.
+    if (best && best.only) {
+      const r = build(best.want);
+      const G = r.G;
+      // Auto-moving floor on the way out. A few cells of the trunk slide sideways into the dead
+      // wall beside them and back, on a clock, so finding the right branch is not the whole of
+      // it: you also have to wait for the floor. Joe wanted the gauntlet to make you think about
+      // the choice, and a hole that comes and goes is what makes you stand still long enough to.
+      //
+      // Nothing is carved. The cell is trunk floor already and the alcove it steps into stays
+      // wall until the tile gets there, so the tree is still the only way to the exit and there
+      // is no new ground to stand on. Placed before the squeezes go in, so busy() keeps them off
+      // the swing's own cell and its alcove.
+      if (F.swing && CONFIG.exitGauntletSwings) {
+        const trunk = pathCells.slice(-best.want);
+        const picked = [];
+        for (const [cx, cy] of trunk) {
+          if (picked.length >= CONFIG.exitGauntletSwings) break;
+          if (busy(cx, cy) || (cx === r.mouth[0] && cy === r.mouth[1])) continue;
+          if (picked.some(([px, py]) => Math.abs(px - cx) + Math.abs(py - cy) < 6)) continue;
+          // straight through, so the hole it leaves is a hole in a corridor and not in a junction
+          const ways = DIRS.filter(([dx, dy]) => isOpen(cx + dx, cy + dy));
+          if (ways.length !== 2 || ways[0][0] !== -ways[1][0] || ways[0][1] !== -ways[1][1]) continue;
+          // and an alcove beside it: dead wall two tiles deep, so opening it joins nothing
+          const side = DIRS.filter(([dx, dy]) => !isOpen(cx + dx, cy + dy) && !busy(cx + dx, cy + dy)
+            && inGrid(cx + dx * 2, cy + dy * 2) && !isOpen(cx + dx * 2, cy + dy * 2));
+          if (!side.length) continue;
+          const [dx, dy] = side[R() * side.length | 0];
+          sliders.push({ x: cx, y: cy, dx, dy, shifted: false, auto: true, gauntlet: true, nextAt: 0 });
+          picked.push([cx, cy]);
+        }
+      }
+      // every passage in the tree is a squeeze, the mouth included
+      for (const k of G) {
+        const [cx, cy] = k.split(',').map(Number);
+        for (const [dx, dy] of [[1, 0], [0, 1]]) {
+          const gx = cx + dx, gy = cy + dy, nx = cx + dx * 2, ny = cy + dy * 2;
+          if (G.has(nx + ',' + ny) && isOpen(gx, gy) && !busy(gx, gy) && gapFits(gx, gy)) crawlGaps.add(gx + ',' + gy);
+        }
+      }
+      { const [ex2, ey2] = r.entrance.split(',').map(Number); if (isOpen(ex2, ey2) && !busy(ex2, ey2)) crawlGaps.add(r.entrance); }
+      // and the pass-through cells are drawn narrow, so they read as tunnel rather than a room
+      for (const k of G) {
+        const [cx, cy] = k.split(',').map(Number);
+        if (k === r.mouth.join(',') || busy(cx, cy)) continue;
+        if (DIRS.filter(([dx, dy]) => isOpen(cx + dx, cy + dy)).length === 2 && R() < CONFIG.exitGauntletTunnel) crawlCells.add(k);
+      }
+      exitTree = G; exitTreeMouth = r.entrance;
+    }
+  }
+
+  // a squeeze on the way out that you cannot go round: a gap on the route whose sealing would cut
+  // start from exit, turned into a crawl gap. The tile is already open, so nothing about the maze
+  // changes except that getting through it means getting down. Child only — for everyone after, a
+  // crawl gap is drawn shut, and this one would wall the exit off.
+  if (F.crawl && CONFIG.crawlOnPath && !poolMode) {
+    const isCell = ([x, y]) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
+    const nearRoom = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    const sx4 = Math.floor(start.x), sy4 = Math.floor(start.y);
+    const joined = () => { const seen = new Set([sx4+','+sy4]), q2 = [[sx4, sy4]];
+      for (let h = 0; h < q2.length; h++) { const [x, y] = q2[h]; if (x === exX && y === exY) return true; for (const [dx, dy] of DIRS) { const nx = x+dx, ny = y+dy, k = nx+','+ny;
+        if (isOpen(nx, ny) && !seen.has(k)) { seen.add(k); q2.push([nx, ny]); } } } return seen.has(exX + ',' + exY); };
+    const idxs = [];
+    for (let i = 4; i < solutionPath.length - 4; i++) {
+      const g = solutionPath[i];
+      if (isCell(g) || crawlGaps.has(g.join(',')) || nearRoom(g[0], g[1]) || !gapFits(g[0], g[1])) continue;
+      if (exitAlley.some(([ax, ay]) => ax === g[0] && ay === g[1])) continue;
+      if (startGap && g[0] === startGap[0] && g[1] === startGap[1]) continue;
+      if (sealedGaps.some(([gx, gy]) => gx === g[0] && gy === g[1])) continue;
+      if (sliders.some(sl => (sl.x === g[0] && sl.y === g[1]) || (sl.x + sl.dx === g[0] && sl.y + sl.dy === g[1]))) continue;
+      idxs.push(i);
+    }
+    idxs.sort(() => R() - 0.5);
+    let made = 0;
+    for (const i of idxs) {
+      if (made >= CONFIG.crawlOnPath) break;
+      const g = solutionPath[i];
+      tiles[g[1]][g[0]] = 0; const roundAbout = joined(); tiles[g[1]][g[0]] = 1;
+      if (roundAbout) continue;                       // you could walk round it, so squeezing would be optional
+      crawlGaps.add(g.join(',')); made++;
+    }
+  }
+  if (startGap && sliders.some(sl => sl.atStart)) tiles[startGap[1]][startGap[0]] = 0;   // seal the start room again (unless the door is simply open)
+
+  // walking distance from the exit, in tiles
+  const distExit = new Map([[exX+','+exY, 0]]); const q2 = [[exX, exY]];
+  while (q2.length) { const [x,y] = q2.shift(); const d = distExit.get(x+','+y); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !distExit.has(k)) { distExit.set(k, d+1); q2.push([nx,ny]); } } }
+  // dead ends (excluding start/exit and anything too close to the exit)
+  const deadEnds = [];
+  for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) {
+    if (!isOpen(x,y)) continue;
+    const n = DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
+    const nearExit = (distExit.get(x+','+y) ?? Infinity) <= CONFIG.pickupExitBuffer * 2;
+    if (n === 1 && !(x===sx && y===sy) && !nearExit && !sliders.some(sl => sl.x===x && sl.y===y)) deadEnds.push(x+','+y);
+  }
+  const taken = new Set();
+  const free = () => deadEnds.filter(k => !taken.has(k));
+  const pickFree = () => { const f = free(); return f.length ? f[R()*f.length|0] : null; };
+
+  // ── the statues, and the stones they wait for ─────────────────
+  // Joe: "a sort of mini quest where you find something in the maze that needs to go someplace
+  // else... This means that you'll have to backtrack around the maze and therefore mapping and
+  // chalk might be more useful. This is the statue idea." Each statue is one of the five people he
+  // lost sight of, and wants the small stone carved with their mark. They gate nothing — the
+  // journals are the game's only gate — so a satisfied one points its thread at the nearest page
+  // you have not found, which is the one thing you are still looking for by then.
+  //
+  // Claimed here, before the loot rolls, for the reason v0.88.0 measured: what claims its ground
+  // first gets placed, what sifts for a spot in what is left does not. A statue stands in a dead
+  // end — the tile itself becomes stone you can see and not cross, and the one tile before it is
+  // the step with the bowl. Its stone lies as far from it as the dead ends allow, by walking, so
+  // finding one means remembering the other. Own stream, so nothing downstream is redealt.
+  if (F.shrines && !poolMode && CONFIG.shrines > 0) {
+    const SR = rng(seed + 4001);
+    // One person to a chapter (data/phases.js), so both statues wait for the same mark and any
+    // stone you find here fits either. Joe: "The symbol above the bowl doesn't match the one I was
+    // carrying" — it could not, when the two were dealt from five. A phase that only says `true`
+    // still gets a shuffle, so nothing about a proto or an old save falls over.
+    const chapter = PEOPLE.find(p => p.id === F.shrines);
+    const who = chapter ? [chapter, chapter] : PEOPLE.slice();
+    if (!chapter) for (let i = who.length - 1; i > 0; i--) { const j = SR() * (i + 1) | 0; [who[i], who[j]] = [who[j], who[i]]; }
+    const okEnd = k => { const [x, y] = k.split(',').map(Number); return !crawlCells.has(k) && !crawlGaps.has(k) && !journals.has(k)
+      && !(startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1); };
+    // A statue turns its tile to stone, so the tile has to be a dead end in the *player's* model,
+    // not just isOpen()'s. A cell beside a pushable block reads as a dead end here — the block is
+    // wall until it is shoved — but it is a through-passage in play, and walling it off cut 26
+    // tiles adrift and the exit with them, three mazes in 576. Nothing that touches a slider, the
+    // route, or the exit alley gets a statue.
+    const slideTiles = new Set(sliders.flatMap(sl => [sl.x + ',' + sl.y, (sl.x + sl.dx) + ',' + (sl.y + sl.dy)]));
+    const alleySet = new Set(exitAlley.map(([x, y]) => x + ',' + y));
+    const standable = k => { const [x, y] = k.split(',').map(Number);
+      return !solutionKeys.has(k) && !alleySet.has(k) && !DIRS.some(([dx, dy]) => slideTiles.has((x + dx) + ',' + (y + dy))); };
+    for (let i = 0; i < CONFIG.shrines && i < who.length; i++) {
+      const cands = free().filter(okEnd).filter(standable).filter(k => { const [x, y] = k.split(',').map(Number); return !shrines.some(s => Math.abs(s.sx - x) + Math.abs(s.sy - y) < 4); });
+      if (!cands.length) break;
+      const k = cands[SR() * cands.length | 0]; const [x, y] = k.split(',').map(Number);
+      const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(x + ddx, y + ddy));
+      tiles[y][x] = 0; taken.add(k);   // the statue stands here now; the corridor ends one tile sooner
+      shrines.push({ x, y, sx: x + dx, sy: y + dy, who: who[i].id, mark: who[i].mark, done: false });
+    }
+    // walking distance out from every step at once, so "far from its statue" is the walk you make to
+    // bring it back — to *any* statue, since both wait for the same person and either bowl takes it.
+    // Measured from one step only, a stone could lie at the other statue's feet.
+    const d = new Map(shrines.map(sh => [sh.sx + ',' + sh.sy, 0])); const q = shrines.map(sh => [sh.sx, sh.sy]);
+    for (let h = 0; h < q.length; h++) { const [x, y] = q[h], dd = d.get(x + ',' + y); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, kk = nx + ',' + ny; if (isOpen(nx, ny) && !d.has(kk)) { d.set(kk, dd + 1); q.push([nx, ny]); } } }
+    for (const sh of shrines) {
+      const cands = free().filter(okEnd);
+      if (!cands.length) break;
+      const far = cands.filter(k => (d.get(k) ?? 0) >= CONFIG.offeringMinTiles);
+      const pool = (far.length ? far : cands).slice().sort((a, b) => (d.get(b) ?? 0) - (d.get(a) ?? 0));
+      const top = pool.slice(0, Math.max(1, Math.ceil(pool.length * 0.2)));   // the farthest fifth, then chance
+      const k = top[SR() * top.length | 0];
+      offerings.set(k, sh.who); taken.add(k);
+    }
+  }
+  // How much floor one map fragment charts. The same sum revealAround() does in js/state.js: a
+  // share of the floor, divided down for big mazes so X-Large gets a patch rather than a quarter
+  // of the whole place. Both the spacing rule and the charcoal budget need it.
+  const scrapPatch = () => {
+    let openN = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) openN++;
+    const area = (CONFIG.cols * CONFIG.rows) / (14 * 20);
+    const share = Math.max(CONFIG.mapScrapMinShare, Math.min(CONFIG.mapScrapShare, CONFIG.mapScrapShare / area));
+    return Math.floor(openN * share);
+  };
+
+  // key first, so it always exists
+  keySpot = null; gated = !poolMode && CONFIG.keyGate && F.gate && R() < B.keyChance();
+  poolDoor = poolMode && startGap ? { x: startGap[0], y: startGap[1], openAt: 0 } : null;
+  const pocketKeys = pockets.map(([x,y]) => x+','+y);
+  // One nest per key, so each key that takes one takes it out of the pool. The exit gate goes
+  // first because it is assigned first; the doors below draw from what is left.
+  const vaultPool = keyVaults.slice();
+  const takeVault = (ok) => { const i = vaultPool.findIndex(ok); return i < 0 ? null : vaultPool.splice(i, 1)[0]; };
+  if (poolMode) keySpot = (startRoom.x0 + 3) + ',' + (startRoom.y0 + 3);
+  else if (gated) {
+    // the heart of a vault first, if this maze got one: that is the whole point of building them
+    const v = takeVault(v2 => !taken.has(v2.cx + ',' + v2.cy));
+    if (v) { keySpot = v.cx + ',' + v.cy; taken.add(keySpot); }
+    else if (pocketKeys.length && R() < CONFIG.sliderKeyChance) keySpot = pocketKeys.shift();
+    else { keySpot = pickFree(); if (keySpot) taken.add(keySpot); }
+  }
+
+  // pickups: one roll per dead end, capped
+  chalkSpots = new Set(); pickups = new Map(); charcoalSpots = new Set();
+  const count = kind => [...pickups.values()].filter(v => v === kind).length; const MAXP = N(CONFIG.pickupMax);
+  const capFor = kind => kind === 'pointer' ? CONFIG.pointerMax : MAXP;   // one pointer per maze; a second is a second answer
+  for (const k of deadEnds) {
+    if (taken.has(k)) continue;
+    const r = R();
+    if (r < CONFIG.chalkSpawnRate) { if (!poolMode) { chalkSpots.add(k); taken.add(k); } }
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate) { if (F.charcoal) { charcoalSpots.add(k); taken.add(k); } }
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate) { if (F.compass && count('pointer') < capFor('pointer')) { pickups.set(k, 'pointer'); taken.add(k); } }
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (F.thread && count('path') < MAXP) { pickups.set(k, 'path'); taken.add(k); } }
+  }
+  for (const k of pocketKeys) { const r = R(); if (r < 0.3 || (!F.charcoal && r < 0.5)) chalkSpots.add(k); else if (r < 0.5) charcoalSpots.add(k); else if (r < 0.75 && F.compass && count('pointer') < capFor('pointer')) pickups.set(k, 'pointer'); else if (F.thread && count('path') < MAXP) pickups.set(k, 'path'); else chalkSpots.add(k); }
+  // Joe: "we should always have enough charcoal to map the whole maze. We don't need more than
+  // that." So the spawn rate above only decides *where* it lies; how much there is comes from the
+  // size of the place, divided by how far a piece goes now (B.charcoal(), so the Memory stone
+  // making pieces go further means fewer of them rather than a surplus). Top up if the rolls were
+  // stingy, trim if they were generous. An X-Large maze used to depend on the dice for something
+  // the player cannot finish the map without.
+  if (F.charcoal && !poolMode) {
+    let floorTiles = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) floorTiles++;
+
+    // Joe: "if there are map fragments on the map we can spawn less charcoal since the fragments
+    // supersede the charcoal." They chart floor, so that floor is not the charcoal's job. The scraps
+    // are placed further down, but how many there will be and how much each charts are both known
+    // here. Capped by mapScrapCharcoalFloor, because this assumes you actually find them.
+    const charted = F.scraps ? N(CONFIG.mapScraps) * scrapPatch() : 0;
+    const bare = Math.ceil(floorTiles / Math.max(1, B.charcoal()));
+    const want = Math.max(1, Math.ceil(bare * CONFIG.mapScrapCharcoalFloor),
+      Math.ceil(Math.max(0, floorTiles - charted) / Math.max(1, B.charcoal())));
+    // Joe: "we should add a starting piece of charcoal into the home room." His own row, one tile
+    // to his right — the name is set into the tile above him and the chapter into the one below,
+    // and he asked that it not land on either. The start room is five tiles square and wholly
+    // floor, and neither the slider (an edge tile) nor the start-room chalk (the far corner) can
+    // be here. It comes out of the budget rather than on top of it, so the maze still holds just
+    // enough charcoal to map itself and no more.
+    const home = startRoom && CONFIG.startRoomCharcoal > 0 ? (startRoom.x0 + 3) + ',' + (startRoom.y0 + 2) : null;
+    const loose = home ? Math.max(0, want - 1) : want;   // how many are left to scatter through the maze
+    const have = [...charcoalSpots];
+    for (let i = loose; i < have.length; i++) { charcoalSpots.delete(have[i]); taken.delete(have[i]); }
+    while (charcoalSpots.size < loose) {
+      const k = pickFree();
+      if (!k) break;                                  // nowhere left to put one; better short than stuck
+      charcoalSpots.add(k); taken.add(k);
+    }
+    if (home) { charcoalSpots.add(home); taken.add(home); }
+  }
+  for (const kind of ['pointer', 'path']) if (!count(kind) && (kind === 'pointer' ? F.compass : F.thread)) { const k = pickFree(); if (k) { pickups.set(k, kind); taken.add(k); } }
+  if (!chalkSpots.size && !poolMode) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }
+  // chalk in the start room, on interior tiles clear of the mat, shelves and slider
+  if (startRoom && !poolMode) { const { x0, y0 } = startRoom; [[x0+1, y0+1], [x0+3, y0+3], [x0+3, y0+1], [x0+1, y0+3]].slice(0, CONFIG.startRoomChalk).forEach(([x, y]) => chalkSpots.add(x+','+y)); }
+
+  // locked doors as a chain along the route: door 1 splits the maze, its key lies in the part you start in;
+  // door 2 is further along, its key lies between door 1 and door 2; and so on. The exit is behind the last door.
+  doors = []; innerKeys = new Map();
+  if (F.doors && !poolMode && solutionPath.length > 20) {
+    const roomRing3 = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    const isGap = (x, y) => isOpen(x, y) && ((x - P) % 2 === 0) !== ((y - P) % 2 === 0);
+    // A gate is two jambs and two leaves: it only makes sense in a passage that runs straight
+    // through. Joe: "found another hot gate that was at a T intersection and didn't make any sense."
+    // At a T the jamb stands in open floor and one leaf swings across an arm that stays open — it
+    // still seals the tile, so nothing was ever unwinnable, it just looks like nonsense. 39 of 287
+    // doors were landing on a T or a crossroads. A door tile has to be a doorway, not a junction.
+    const doorway = (x, y) => {
+      const lr = isOpen(x - 1, y) && isOpen(x + 1, y), ud = isOpen(x, y - 1) && isOpen(x, y + 1);
+      return DIRS.filter(([dx, dy]) => isOpen(x + dx, y + dy)).length === 2 && (lr || ud);
+    };
+    const okGap = (x, y) => isGap(x, y) && doorway(x, y) && !roomRing3(x, y) && !crawlGaps.has(x+','+y) && !sliders.some(sl => (sl.x+sl.dx===x&&sl.y+sl.dy===y) || (sl.x===x&&sl.y===y)) && !exitAlley.some(([ax,ay])=>ax===x&&ay===y) && !(startGap && x===startGap[0] && y===startGap[1]) && !sealedGaps.some(([gx,gy]) => gx===x&&gy===y);
+    // treat everything you can slide through as open while planning
+    // Planning treats what you can slide through as open — but it used to treat *every* sealed gap
+    // that way, and most of them are not doors you can shove: they are simply wall. A gap only
+    // opens if a block can come to rest in it, so the ones that count are the slider tiles and the
+    // squares those blocks move into. Nothing else ever opens, however hard you push.
+    //
+    // This is the door-key soft lock, and it is the whole of it. Joe: "found one of those soft
+    // locks where the key was on the wrong side of the gate." The planner picked a key cell inside
+    // a sealed pocket, having walked into that pocket through a gap that does not open — so the
+    // cell looked like it sat *before* the door when in play it sat behind it. Two mazes in 576,
+    // every time, and deferred since v0.75.0. Matching the planning model to what a player can
+    // actually shove is one line and takes the harness to clean.
+    //
+    // It costs 4 doors in 280 mazes: some tiles that used to sever the route no longer do once the
+    // ground behind them is honestly unreachable. Cheap, for a maze that cannot be made unwinnable.
+    const slideOpens = new Set(sliders.flatMap(sl => [sl.x + ',' + sl.y, (sl.x + sl.dx) + ',' + (sl.y + sl.dy)]));
+    const reopened = [...sealedGaps, ...(startGap ? [startGap] : [])].filter(([x, y]) => !isOpen(x, y) && slideOpens.has(x + ',' + y)); for (const [x, y] of reopened) tiles[y][x] = 1;
+    // `stopAt`: a tile whose reaching is the whole question — the flood ends there, with it in the
+    // set. severs() asks only whether the exit is still reachable, and in the giant that saved a
+    // full flood per candidate door tile.
+    const reach = (sx0, sy0, sealed, stopAt) => { const seen = new Set([sx0+','+sy0]), q = [[sx0, sy0]]; for (let h = 0; h < q.length; h++) { const [x,y] = q[h]; if (stopAt && x+','+y === stopAt) break; for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k) && !sealed.has(k)) { seen.add(k); q.push([nx,ny]); } } } return seen; };
+    const sx3 = Math.floor(start.x), sy3 = Math.floor(start.y);
+    const n = F.doors, L = solutionPath.length;
+    // door positions: spread along the route, snapped to the nearest usable passage tile
+    const picks = [];
+    const severs = (x, y) => !reach(sx3, sy3, new Set([...picks.map(([px,py]) => px+','+py), x+','+y]), exit.x+','+exit.y).has(exit.x+','+exit.y);   // loops mustn't route around it
+    // Evenly spread. I tried pushing them late so the ground before the first one — the only ground
+    // its key may lie in — would be bigger: it worked, and it cost half the doors in the game,
+    // because a door has to sever the route and there are far fewer places late on that do. The key
+    // distance is solved below instead, where it costs nothing.
+    //
+    // Spread, but no longer blindly. A key may only lie in the ground its own door opens, and the
+    // nests are staked out long before this route exists — so for most doors the nearest nest sat in
+    // the wrong section and the key fell back to a dead end. Four keys in five, however many nests
+    // the maze had: more of them only ate ground the doors needed. Joe: "We need to get away from
+    // just finding keys in the hall." The fix is to stop treating the door as fixed and the nest as
+    // the thing that has to fit, and turn it round. Every tile within reach of the even-spread
+    // target severs the route just as well; among those, take the first that leaves an unclaimed
+    // nest in the section it closes. Candidates come in order of distance from the target, so the
+    // doors stay as evenly spread as the ground allows and suiting the nest costs no doors at all.
+    // When nothing in the window suits one, the nearest tile wins exactly as it did before.
+    const vaultKeys = keyVaults.map(v => [v.cx + ',' + v.cy, v.cx, v.cy]);
+    const claimedV = new Set();
+    let beforePrev = new Set();   // ground open before the previous door — this door's section starts where that ends
+    let prevIdx = 6;
+    for (let i = 1; i <= n; i++) { const target = Math.floor(L * i / (n + 1));
+      // Every tile in this list severs the route, so any of them is a door. They come in order of
+      // distance from the even spacing, so taking the first that also suits a nest keeps the doors
+      // as evenly spread as the ground allows — and when none suits one, cands[0] is the tile the
+      // old code would have picked anyway.
+      const cands = [];
+      for (let off = 0; off < L && cands.length < CONFIG.doorVaultTries; off++) for (const idx of [target + off, target - off]) { const t = solutionPath[idx]; if (t && idx > prevIdx && idx < L - 4 && okGap(t[0], t[1]) && !picks.some(([px,py]) => px===t[0]&&py===t[1]) && severs(t[0], t[1])) cands.push([t, idx]); }
+      // Sealing this one tile over-counts the section slightly, because the doors after it are not
+      // placed yet, so a nest it seems to offer may not be in that section once they are. Placing
+      // them twice — provisionally, then again knowing the rest — fixes the model exactly and
+      // changed not one maze in 840, so it is not here. The key loop below tests the real sections
+      // and falls back on its own: the worst an over-count costs is a key back in a dead end.
+      let best = null, bestV = null, bestIdx = 0, bestSide = null;
+      for (const [t, idx] of cands) {
+        const side = reach(sx3, sy3, new Set([t[0] + ',' + t[1]]));
+        const v = vaultKeys.find(([k, vx, vy]) => side.has(k) && !beforePrev.has(k) && !claimedV.has(k) && !taken.has(k) && Math.hypot(vx - t[0], vy - t[1]) >= CONFIG.keyDoorMinApart);
+        if (v) { best = t; bestV = v[0]; bestIdx = idx; bestSide = side; break; }
+      }
+      if (!best && cands.length) { best = cands[0][0]; bestIdx = cands[0][1]; }
+      if (!best) break;
+      picks.push(best); prevIdx = bestIdx; if (bestV) claimedV.add(bestV);
+      beforePrev = bestSide || reach(sx3, sy3, new Set([best[0] + ',' + best[1]]));
+    }
+    // keys: each in the section opened by the previous door and closed by this one
+    let prevSide = new Set();
+    for (let i = 0; i < picks.length; i++) {
+      const sealed = new Set(picks.slice(i).map(([x, y]) => x+','+y));
+      const side = reach(sx3, sy3, sealed);
+      const section = [...side].filter(k => !prevSide.has(k));
+      const routeSet = new Set(solutionPath.map(([x, y]) => x+','+y));
+      const pocketSet = new Set(pockets.map(([x, y]) => x+','+y));
+      const cellsIn = section.filter(k => { const [x, y] = k.split(',').map(Number); return (x-P)%2===1 && (y-P)%2===1 && !roomRing3(x, y) && !journals.has(k) && !innerKeys.has(k) && !sliders.some(sl => sl.x===x&&sl.y===y) && !(x===exit.x&&y===exit.y) && !routeSet.has(k) && (!taken.has(k) || pocketSet.has(k)); });
+      if (!cellsIn.length) break;
+      // hide it: deep in the section, far from the route, far from its door; a sealed pocket (behind a slider or swing) is best of all
+      const dRoute = new Map(); { const q = solutionPath.filter(([x,y]) => side.has(x+','+y)).map(([x,y]) => [x,y]); q.forEach(([x,y]) => dRoute.set(x+','+y, 0)); while (q.length) { const [x,y] = q.shift(); const d = dRoute.get(x+','+y); for (const [dx,dy] of DIRS) { const k = (x+dx)+','+(y+dy); if (isOpen(x+dx,y+dy) && side.has(k) && !dRoute.has(k)) { dRoute.set(k, d+1); q.push([x+dx,y+dy]); } } } }
+      const dDoor = new Map(); { const q = [picks[i]]; dDoor.set(picks[i].join(','), 0); while (q.length) { const [x,y] = q.shift(); const d = dDoor.get(x+','+y); for (const [dx,dy] of DIRS) { const k = (x+dx)+','+(y+dy); if (isOpen(x+dx,y+dy) && !dDoor.has(k) && (side.has(k) || k === picks[i].join(','))) { dDoor.set(k, d+1); q.push([x+dx,y+dy]); } } } }
+      // A key must never sit within reach of its own door. Joe, on a Soldier maze: "perhaps we should
+      // set up a rule for how many tiles away from the door the key has to be." dDoor is the real
+      // walk from the door, not a straight line, so this is the walk you actually have to make. Keep
+      // the whole section if nothing clears the bar rather than placing nothing at all.
+      // Two rules, because they catch different things. dDoor is the walk you actually have to make
+      // *within this section* — you cannot go through the door to fetch its own key, so that is the
+      // honest distance. But a key can be a long walk round and still sit three tiles from the door
+      // as the crow flies, close enough to see both at once, which is what Joe saw in his Soldier
+      // maze. So it must also be out of sight of it.
+      const [dx0, dy0] = picks[i];
+      const farEnough = cellsIn.filter(k => {
+        if ((dDoor.get(k) ?? 99) < CONFIG.keyDoorMinTiles) return false;
+        const [kx, ky] = k.split(',').map(Number);
+        return Math.hypot(kx - dx0, ky - dy0) >= CONFIG.keyDoorMinApart;
+      });
+      // When nothing in the section clears the bar, take the single farthest cell there is rather than
+      // a random one from what is left. The randomness is the whole problem: the first door's section
+      // can come to a dozen cells all beside it, and picking at random among those is exactly how a
+      // key ends up three tiles from its own lock. This way it is always as far as the ground allows.
+      const best1 = cellsIn.slice().sort((a, b) => {
+        const da = dDoor.get(a) ?? 0, db = dDoor.get(b) ?? 0;
+        if (db !== da) return db - da;
+        const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number);
+        return Math.hypot(bx - dx0, by - dy0) - Math.hypot(ax - dx0, ay - dy0);
+      })[0];
+      // And if even the farthest cell in the section is within sight of the door, this door does not
+      // get to exist: that section is a pocket beside its own lock and no rule can fix the ground.
+      // Refusing *every* section that misses the full bar cost half the doors in the game; refusing
+      // only the hopeless ones costs almost none.
+      // The vault first, and on its own terms. `cellsIn` throws out anything on the route, anything
+      // already claimed, anything near a room — none of which makes the heart of a vault a bad place
+      // for a key. All that actually matters is that it is in *this* section, or the chain soft
+      // locks. Asking that directly is what keeps the doors: without it the rule below had to drop
+      // two thirds of them for want of anywhere to put their keys.
+      // Each door draws its own nest from what is left, so two keys never share one and a maze
+      // with three doors buries three keys. The test is per-vault and unchanged in substance: it
+      // must be in *this* section, unclaimed, and out of sight of the door it opens.
+      const vaultFor = vaultPool.find(v2 => { const k2 = v2.cx + ',' + v2.cy;
+        return side.has(k2) && !prevSide.has(k2) && !taken.has(k2)
+          && Math.hypot(v2.cx - dx0, v2.cy - dy0) >= CONFIG.keyDoorMinApart; });
+      const vk0 = vaultFor && (vaultFor.cx + ',' + vaultFor.cy);
+      const vaultLegal = !!vk0;
+      if (!vaultLegal) { const [bx, by] = best1.split(',').map(Number);
+        if (!farEnough.length && Math.hypot(bx - dx0, by - dy0) < CONFIG.keyDoorFloor) break; }
+      const usable = vaultLegal ? [vk0] : farEnough.length ? farEnough : [best1];
+      const scored = usable.map(k => [k, (dRoute.get(k) ?? 30) * 2 + Math.min(30, dDoor.get(k) ?? 30) + (pocketSet.has(k) ? 40 : 0) + (deadEnds.includes(k) ? 8 : 0) + R() * 6]).sort((a, b) => b[1] - a[1]);
+      const pool = scored.slice(0, Math.max(1, Math.ceil(scored.length * 0.2))).map(([k]) => k);   // the best fifth, then chance
+      // The vault takes precedence when it is legal — and legal means *in this section*: the chain
+      // only works if each key lies in the ground the previous door opened, so a key dropped into a
+      // vault on the far side of its own door is a soft lock. cellsIn is already that section, so
+      // asking it is the whole check.
+      const kk = vaultLegal ? vk0 : pool[R() * pool.length | 0], shape = KEY_SHAPES[i % KEY_SHAPES.length];
+      // and it is spent: taken out of the pool so the next door cannot bury its key in the same nest
+      if (vaultLegal) vaultPool.splice(vaultPool.indexOf(vaultFor), 1);
+      innerKeys.set(kk, shape); taken.add(kk); chalkSpots.delete(kk); charcoalSpots.delete(kk); pickups.delete(kk); scrapSpots.delete(kk);   // the key replaces whatever loot lay there
+      doors.push({ x: picks[i][0], y: picks[i][1], shape, open: false, onRoute: true });
+      prevSide = side;
+    }
+    for (const [x, y] of reopened) tiles[y][x] = 0;
+  }
+
+  // map scraps in free dead ends
+  // Map fragments, held apart by their own reach. Joe: "I had three map fragments all right next to
+  // each other, which means that the last two were basically useless." A scrap charts a patch of
+  // scrapPatch() tiles, so two of them within about a patch-radius of each other chart the same
+  // ground twice. Each new one is placed as far from those already down as the dead ends allow,
+  // and only settles for less when nothing clears the bar — short of the rule beats none placed.
+  scrapSpots = new Set();
+  if (F.scraps) {
+    const want = Math.sqrt(scrapPatch()) * CONFIG.mapScrapApart;   // patch radius, in tiles of walking
+    const slideOpens = new Set(sliders.flatMap(sl => [sl.x + ',' + sl.y, (sl.x + sl.dx) + ',' + (sl.y + sl.dy)]));
+    const walk = (x, y) => isOpen(x, y) || slideOpens.has(x + ',' + y);
+    let scrapD = null;   // nearest-scrap distance per tile, grown as scraps land (see below)
+    for (let i = 0; i < N(CONFIG.mapScraps); i++) {
+      const cands = free();
+      if (!cands.length) break;
+      let pick = null;
+      if (!scrapSpots.size || !CONFIG.mapScrapApart) pick = cands[R() * cands.length | 0];
+      else {
+        // walking distance out from the scraps already down, so "far enough away" is the walk you
+        // actually make rather than a line through the walls.
+        // And the walk a *player* makes: a block you can shove is a way through, so this counts the
+        // slider tiles and the squares those blocks move into as floor. Without that, two fragments
+        // either side of a pushable block measured two dozen tiles apart and stood four apart in
+        // play — the same mismatch between the planner's model and the player's that put a door key
+        // on the wrong side of its own gate. Two mazes in 576.
+        // The walking distance from every tile to the nearest scrap, kept between placements: the
+        // first time it is one flood from all the scraps down, and each scrap after only relaxes the
+        // tiles it is now the nearest to. It used to be a whole-maze flood from all the scraps for
+        // every scrap placed — 80 floods of 45,000 tiles in the giant, 1.2s of its build. Same
+        // distances, same pick.
+        if (!scrapD) { scrapD = new Map(); const q = [];
+          for (const k of scrapSpots) { scrapD.set(k, 0); q.push(k.split(',').map(Number)); }
+          for (let h = 0; h < q.length; h++) { const [x, y] = q[h], dd = scrapD.get(x + ',' + y);
+            for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+              if (walk(nx, ny) && !scrapD.has(k)) { scrapD.set(k, dd + 1); q.push([nx, ny]); } } } }
+        const d = scrapD;
+        const ok = cands.filter(k => (d.get(k) ?? Infinity) >= want);
+        if (ok.length) pick = ok[R() * ok.length | 0];
+        else {
+          // Nothing clears the full bar. Take the farthest the dead ends offer — but settling has a
+          // floor of its own: a fragment inside one patch radius of another charts ground that is
+          // already charted, which is precisely the useless one Joe reported. Rather than ship it,
+          // this maze goes without. Two mazes in 576 were landing a second fragment four tiles from
+          // the first, in a patch twelve across.
+          const far = cands.slice().sort((a, b) => (d.get(b) ?? 0) - (d.get(a) ?? 0))[0];
+          if ((d.get(far) ?? 0) < Math.sqrt(scrapPatch())) break;
+          pick = far;
+        }
+      }
+      if (pick) { scrapSpots.add(pick); taken.add(pick);
+        // the new scrap is now the nearest for some ground: relax those tiles and no others
+        if (scrapD) { const q = [pick.split(',').map(Number)]; scrapD.set(pick, 0);
+          for (let h = 0; h < q.length; h++) { const [x, y] = q[h], dd = scrapD.get(x + ',' + y);
+            for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+              if (walk(nx, ny) && dd + 1 < (scrapD.get(k) ?? Infinity)) { scrapD.set(k, dd + 1); q.push([nx, ny]); } } } } }
+    }
+  }
+
+  // darkness: one region grown from a far tile until it holds the configured share of the floor; never the start room or its ring
+  darkTiles = new Set(); darkFringe = new Map(); lampSpot = null;
+  const darkShare = (F.darkness && F.lamp && (giantMode || R() < B.darkChance())) ? F.darkness[R() * F.darkness.length | 0] : 0;   // the giant shows everything it has
+  if (darkShare > 0) {
+    const roomZone = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    // distances from the room door, with the door open
+    const door = startGap ? [startGap[0] + (startGap[0] > startRoom.x1 ? 1 : 0), startGap[1] - (startGap[1] < startRoom.y0 ? 1 : 0)] : [sx, sy];
+    const reopen = sealedGaps.filter(([x, y]) => !(startGap && x === startGap[0] && y === startGap[1]));
+    for (const [x, y] of reopen) tiles[y][x] = 1;   // let the darkness reach across sliders and into pockets
+    const dist = new Map([[door.join(','), 0]]); const qd = [door];
+    while (qd.length) { const [x,y] = qd.shift(); const d = dist.get(x+','+y); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !dist.has(k) && !roomZone(nx,ny)) { dist.set(k, d+1); qd.push([nx,ny]); } } }
+    const openAll = [...dist.keys()], maxD = Math.max(...dist.values());
+    const target = Math.floor(openAll.length * darkShare);
+    const seeds = openAll.filter(k => dist.get(k) >= maxD * 0.5);
+    const seed = seeds[R() * seeds.length | 0];
+    const qg = [seed]; darkTiles.add(seed);
+    while (qg.length && darkTiles.size < target) {
+      const idx = R() < 0.3 ? (R() * qg.length | 0) : 0;                    // mostly breadth-first, a little ragged at the edge
+      const [x,y] = qg.splice(idx, 1)[0].split(',').map(Number);
+      for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !darkTiles.has(k) && !roomZone(nx,ny) && (dist.get(k) ?? Infinity) >= CONFIG.darkBufferTiles && darkTiles.size < target) { darkTiles.add(k); qg.push(k); } }
+    }
+    // the lamp: a dead end you can reach without crossing darkness, else any lit reachable tile
+    const litReach = new Set([door.join(',')]); const ql = [door];
+    while (ql.length) { const [x,y] = ql.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !litReach.has(k) && !darkTiles.has(k) && !roomZone(nx,ny)) { litReach.add(k); ql.push([nx,ny]); } } }
+    const litDead = deadEnds.filter(k => !taken.has(k) && litReach.has(k));
+    if (litDead.length) lampSpot = litDead[R() * litDead.length | 0];
+    else { const any = [...litReach].filter(k => { const [x,y] = k.split(',').map(Number); return (x-P)%2===1 && (y-P)%2===1 && !taken.has(k) && !chalkSpots.has(k) && !pickups.has(k) && k !== keySpot && !journals.has(k) && !charcoalSpots.has(k); }); lampSpot = any.length ? any[R() * any.length | 0] : null; }
+    if (lampSpot) taken.add(lampSpot);
+    for (const [x, y] of reopen) tiles[y][x] = 0;   // reseal
+    for (const [x, y] of reopen) darkTiles.delete(x+','+y);
+    // the drop-off: two rings of open tiles around the darkness get progressively dimmer
+    darkFringe = new Map();
+    let ring = [...darkTiles];
+    for (let level = 2; level >= 1; level--) {
+      const next = [];
+      for (const k of ring) { const [x,y] = k.split(',').map(Number); for (const [dx,dy] of DIRS) { const nk = (x+dx)+','+(y+dy); if (isOpen(x+dx, y+dy) && !darkTiles.has(nk) && !darkFringe.has(nk)) { darkFringe.set(nk, level); next.push(nk); } } }
+      ring = next;
+    }
+  }
+
+  // the father: fixed spots you walk into. First just outside the door; the rest spaced along the way and at junctions.
+  figures = [];
+  if (F.figure && !poolMode) {
+    const spots = [];
+    if (startRoom) {   // across the room's wall: visible from inside, a long way round on foot
+      const { x0, y0, x1, y1 } = startRoom, cxr = x0 + 2, cyr = y0 + 2;
+      const dist = new Map([[cxr+','+cyr, 0]]), q0 = [[cxr, cyr]];
+      while (q0.length) { const [cx, cy] = q0.shift(); const d = dist.get(cx+','+cy); if (d >= 9) continue; for (const [dx,dy] of DIRS) { const nx=cx+dx, ny=cy+dy, k=nx+','+ny; if (isOpen(nx,ny) && !dist.has(k)) { dist.set(k, d+1); q0.push([nx,ny]); } } }
+      const near = [];
+      for (let y = y0 - 3; y <= y1 + 3; y++) for (let x = x0 - 3; x <= x1 + 3; x++) {
+        if (!isOpen(x, y) || (x >= x0 - 1 && x <= x1 + 1 && y >= y0 - 1 && y <= y1 + 1) || dist.has(x+','+y)) continue;   // outside the ring, not walkable in 9
+        if (startGap && Math.abs(x - startGap[0]) + Math.abs(y - startGap[1]) <= 2) continue;                              // not the doorway
+        if (solutionPath.some(([rx, ry]) => rx === x && ry === y)) continue;                                                   // not on your way
+        near.push([x, y]); }
+      if (near.length) spots.push(near[R() * near.length | 0]);
+    }
+    const tooClose = (x, y) => spots.some(([sx2, sy2]) => Math.abs(sx2 - x) + Math.abs(sy2 - y) < 6);
+    const roomZone2 = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    // vantage spots: a tile you can see across a wall (within ~2.5 tiles as the crow flies) but not walk to in under 10 steps.
+    // Prefer spots whose vantage tiles lie on the solution route, so you actually pass them.
+    const onRoute = new Set(solutionPath.map(([x, y]) => x+','+y));
+    const scored = [];
+    for (let y = TX(0); y < H - P; y += 2) for (let x = TX(0); x < W - P; x += 2) {
+      if (!isOpen(x, y) || roomZone2(x, y) || onRoute.has(x+','+y) || journals.has(x+','+y) || taken.has(x+','+y) || sliders.some(sl => sl.x===x&&sl.y===y) || (x === exit.x && y === exit.y)) continue;
+      const dist = new Map([[x+','+y, 0]]), q2 = [[x, y]];
+      for (let h = 0; h < q2.length; h++) { const [cx, cy] = q2[h]; const d = dist.get(cx+','+cy); if (d >= 10) continue; for (const [dx,dy] of DIRS) { const nx=cx+dx, ny=cy+dy, k=nx+','+ny; if (isOpen(nx,ny) && !dist.has(k)) { dist.set(k, d+1); q2.push([nx,ny]); } } }
+      let vantage = 0, routeVantage = 0;
+      for (let vy = y - 3; vy <= y + 3; vy++) for (let vx = x - 3; vx <= x + 3; vx++) { if (!isOpen(vx, vy) || roomZone2(vx, vy)) continue; const e = Math.hypot(vx - x, vy - y); if (e < 1.5 || e > 2.6) continue; if (!dist.has(vx+','+vy)) { vantage++; if (onRoute.has(vx+','+vy)) routeVantage++; } }
+      if (vantage >= 2) scored.push([x, y, routeVantage * 3 + vantage]);
+    }
+    scored.sort((a, b) => b[2] - a[2] + (R() - 0.5) * 2);
+    for (const [x, y] of scored) { if (spots.length >= CONFIG.figureSpots) break; if (!tooClose(x, y)) spots.push([x, y]); }
+    figures = spots.map(([x, y]) => ({ x: x + 0.5, y: y + 0.5, alpha: 1, seen: false, gone: false }));
+  }
+
+  // tunnels: straight interior runs of corridor (exactly two opposite neighbors), roofed over
+  tunnelTiles = new Set();
+  const runs = [];
+  for (const horiz of [true, false]) {
+    for (let a = 1; a < (horiz ? H : W) - 1; a++) {
+      let run = [];
+      for (let b = 1; b < (horiz ? W : H); b++) {
+        const x = horiz ? b : a, y = horiz ? a : b;
+        const straight = isOpen(x,y) && !doors.some(d => d.x===x && d.y===y) && !crawlGaps.has(x+','+y) && !crawlCells.has(x+','+y) && !sliders.some(sl => sl.x===x && sl.y===y) && !(x===exit.x && y===exit.y) && !exitAlley.some(([ax,ay]) => ax===x && ay===y) && (horiz ? (isOpen(x-1,y) && isOpen(x+1,y) && !isOpen(x,y-1) && !isOpen(x,y+1)) : (isOpen(x,y-1) && isOpen(x,y+1) && !isOpen(x-1,y) && !isOpen(x+1,y)));
+        if (straight) run.push(x+','+y); else { if (run.length >= CONFIG.tunnelMinTiles) runs.push(run); run = []; }
+      }
+      if (run.length >= CONFIG.tunnelMinTiles) runs.push(run);
+    }
+  }
+  for (let i = 0; i < (F.tunnels ? N(CONFIG.tunnels) : 0) && runs.length; i++) {
+    const run = runs.splice(R() * runs.length | 0, 1)[0];
+    run.forEach(k => tunnelTiles.add(k));
+  }
+  // tic-tac-toe: a board chalked on a room floor, waiting. Two crosses and no noughts, always with
+  // the middle open and the third of a line, so putting your own X in the middle wins it.
+  if (F.hopscotch && !poolMode && roomCenters.length) {
+    const spots = roomCenters.filter(([x, y]) => !journals.has(x+','+y));
+    const [cx, cy] = (spots.length ? spots : roomCenters)[R() * (spots.length ? spots.length : roomCenters.length) | 0];
+    const games = [
+      ['x','','', '','','', '','','x'],   // the diagonal
+      ['','','x', '','','', 'x','',''],   // the other one
+      ['','x','', '','','', '','x',''],   // down the middle
+      ['','','', 'x','','x', '','',''],   // across it
+    ];
+    ticTacToe = { x: journals.has(cx+','+cy) && isOpen(cx+1, cy) ? cx + 1 : cx, y: cy, cells: games[R() * games.length | 0] };
+  }
+  // Last chance to be sure every page is on floor he can stand on, and deliberately the last thing:
+  // journals are chosen at the rooms' middles, but districts, the vault and the well's own collision
+  // are all stamped over the rooms *after* they are cut, so a page's tile can be taken away long
+  // after it was picked. Joe: "having a book floating over this made me wanna make it so you
+  // actually couldn't pick up the book because it was over the dark well." A page that has lost its
+  // tile steps to the nearest one it can be reached on rather than hanging over the hole.
+  if (journals.size) {
+    const fixed = new Map();
+    for (const [k, pg] of journals) {
+      const [jx, jy] = k.split(',').map(Number);
+      if (tiles[jy] && tiles[jy][jx]) { fixed.set(k, pg); continue; }
+      let spot = null;
+      for (let r = 1; r <= 4 && !spot; r++)
+        for (let dy = -r; dy <= r && !spot; dy++)
+          for (let dx = -r; dx <= r && !spot; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            const nx = jx + dx, ny = jy + dy;
+            if (tiles[ny] && tiles[ny][nx]) spot = [nx, ny];
+          }
+      fixed.set(spot ? spot.join(',') : k, pg);
+    }
+    journals = fixed;
+  }
+
+  // hopscotch: chalked squares down a straight run, numbered; step them in order
+  if (F.hopscotch && !poolMode) {
+    // Joe: "Hopscotch should stop at four. It's too long otherwise." It ran to eight squares when the
+    // corridor allowed. A run has to be at least as long as the court, so the court never comes up short.
+    const ok = runs.filter(r => r.length >= CONFIG.hopscotchSquares && !r.some(k => crawlGaps.has(k) || crawlCells.has(k) || journals.has(k) || chalkSpots.has(k)));
+    if (ok.length) { const run = ok[R() * ok.length | 0]; hopscotch = run.slice(0, Math.min(CONFIG.hopscotchSquares, run.length)); if (R() < 0.5) hopscotch.reverse(); }
+  }
+
+  // The last word on crawl gaps: anything carved after they were laid — a vault's rings, the start
+  // room's ring, a statue turning its tile to stone, the secret room — can have opened or shut a
+  // side of one. A hole that is not floor on one axis and wall on the other is not a hole; it is a
+  // corridor tile, and it stops being drawn or walked as a squeeze. Same for a crawl cell that has
+  // grown a third way out. Only open gaps are judged: for the selves after the Child a gap is drawn
+  // shut and is wall, and what stands beside a wall is nobody's business. `plusSwept` is for the
+  // probes, so the sources can be seen to be doing their part and this stays the exception.
+  for (const k of [...crawlGaps]) { const [gx, gy] = k.split(',').map(Number);
+    if (isOpen(gx, gy) && !gapFits(gx, gy)) { crawlGaps.delete(k); plusSwept++; } }
+  for (const k of [...crawlCells]) { const [cx, cy] = k.split(',').map(Number);
+    if (DIRS.filter(([dx, dy]) => isOpen(cx + dx, cy + dy)).length > 2) { crawlCells.delete(k); plusSwept++; } }
+}
+
+

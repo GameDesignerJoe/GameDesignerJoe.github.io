@@ -1,0 +1,305 @@
+/* The Maze — the whole look.
+ *
+ * Cold greys, not horror: weight, solitude, indifference. Chalk-white for
+ * anything the player made or the selves left behind; gold for keys, gates and
+ * the compass; bone for the thread. See docs/HANDOFF.md §2.
+ *
+ * Nothing here is generated and nothing reads it back — the engine never
+ * touches the CSSOM. Safe to edit by hand.
+ */
+
+html, body { margin:0; height:100%; background:#0d0f10; overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; }
+body { font: 13px/1.4 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; color:#b9b4a8; }
+canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
+/* Books standing on a shelf, not lying in a row. Joe: "make these indicators for the books go
+   vertically so they look like books on a shelf." The heights vary the way a real shelf does,
+   and the line they stand on is the shelf. */
+#books { display:flex; gap:2px; align-items:flex-end; padding-bottom:3px; border-bottom:1px solid rgba(185,180,168,.28); }
+#books i { display:block; width:4px; height:15px; border-radius:1px 1px 0 0; background:rgba(185,180,168,.3); transition:background .45s ease; }
+#books i:nth-child(3n)   { height:12px; }
+#books i:nth-child(4n+2) { height:18px; }
+#books i:nth-child(5n+3) { height:16px; }
+#books i.got { background:#ece7da; }
+#hud { position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:56px; right:56px; display:flex; justify-content:flex-start; pointer-events:none; letter-spacing:.02em; opacity:.7; }
+#tools { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 204px); display:none; justify-content:center; align-items:center; gap:14px; }
+#tools { display:flex; }
+#glyphs { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 262px); display:none; gap:8px; padding:8px; border-radius:26px; background:rgba(13,15,16,.92); border:1px solid rgba(185,180,168,.3); }
+#glyphs.show { display:flex; }
+#glyphs div { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(185,180,168,.2); }
+#glyphs div:active { background:rgba(236,231,218,.15); }
+#glyphs svg { width:22px; height:22px; }
+@media (orientation: landscape) { #glyphs { left:14px; right:auto; transform:none; bottom:calc(env(safe-area-inset-bottom) + 140px); flex-wrap:wrap; width:200px; justify-content:flex-start; } body.stick-left #glyphs { left:auto; right:14px; justify-content:flex-end; } }
+#lamp { display:none; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); }
+#lamp.show { display:flex; }
+#lamp svg { width:16px; height:16px; }
+#lamp.on { border-color:#e8d9a0; box-shadow:0 0 14px rgba(232,217,160,.35); } #lamp.on svg path { fill:#e8d9a0; stroke:#e8d9a0; }
+#chalk { display:flex; align-items:center; gap:8px; padding:8px 14px 8px 12px; border-radius:22px; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#e8e3d6; font-size:16px; }
+#chalk i { display:block; width:18px; height:6px; border-radius:2px; background:#ece7da; transform:rotate(-35deg); }
+#chalk.empty { color:#7d786d; } #chalk.empty i { background:#5a564f; }
+#chalk.shake { animation:shake .3s; }
+.pulse { animation:pulse .7s ease-out; }
+@keyframes pulse { 0%{ box-shadow:0 0 0 0 rgba(236,231,218,0); border-color:rgba(185,180,168,.25); } 20%{ box-shadow:0 0 0 6px rgba(236,231,218,.35); border-color:#ece7da; background:rgba(236,231,218,.18); } 100%{ box-shadow:0 0 0 0 rgba(236,231,218,0); } }
+#key.pulse { animation:keypulse .7s ease-out; }
+@keyframes keypulse { 20%{ transform:scale(1.5); filter:drop-shadow(0 0 8px #e0c98a); } 100%{ transform:scale(1); } }
+#mapBtn.beckon { animation:beckon 1.8s ease-in-out infinite; }
+@keyframes beckon { 0%,100%{ box-shadow:0 0 0 0 rgba(201,185,138,0); border-color:rgba(185,180,168,.3); } 50%{ box-shadow:0 0 0 7px rgba(201,185,138,.18); border-color:#c9b98a; } }
+@keyframes shake { 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+#charcoal { display:flex; align-items:center; gap:8px; padding:8px 14px 8px 12px; border-radius:22px; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#e8e3d6; font-size:16px; }
+#charcoal.paused { border-color:rgba(201,185,138,.5); color:#c9b98a; } #charcoal.paused i { border-color:#c9b98a; }
+#charcoal i { display:block; position:relative; width:24px; height:9px; border-radius:1.5px; background:transparent; border:1px solid #a89f8c; transform:rotate(28deg); overflow:hidden; }
+#charcoal i::after { content:''; position:absolute; left:0; top:0; bottom:0; width:var(--fill, 100%); background:#3a3d3f; transition:width .25s; }
+#charcoal.active i::after { background:#c9b98a; } #charcoal.paused i::after { background:#6a5f45; }
+#charcoal span:empty { display:none; }
+#charcoal.active { border-color:#c9b98a; color:#c9b98a; } #charcoal.active i { border-color:#c9b98a; }
+#charcoal.empty { color:#7d786d; } #charcoal.empty i { border-color:#3c3b38; } #charcoal.empty i::after { background:#2a2c2e; }
+#charcoal.shake { animation:shakeL .3s; }
+/* a tile logged: two knocks, the second smaller — a heartbeat, not a throb. Joe, twice: "The charcoal
+   icon on the hud/screen should have a little pulse to it every time a tile is logged. Like a little
+   heart beat as the player is walking." The first cut was an 8% swell over 440ms, and at walking pace a
+   tile lands every 430ms, so it never came back to rest and read as nothing. Bigger, quicker, and the
+   ring flashes with it. Then, at 20% every tile: "It's too crazy. Make it pulse like half as
+   much" — so half the swell, and (movement.js) every other tile. */
+#charcoal.beat { animation:charbeat var(--beat, 440ms) ease-out; }
+@keyframes charbeat {
+  0%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); }
+  16%{ transform:scale(1.11); box-shadow:0 0 0 3px rgba(201,185,138,.26); }
+  36%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); }
+  52%{ transform:scale(1.05); box-shadow:0 0 0 2px rgba(201,185,138,.14); }
+  100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(201,185,138,0); } }
+/* and the piece running out: loud, twice, so you look up and light the next one */
+#charcoal.spent { animation:charspent var(--spent, 1500ms) ease-out; }
+@keyframes charspent {
+  0%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); }
+  12%{ box-shadow:0 0 0 12px rgba(201,185,138,.34); transform:scale(1.14); }
+  40%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); }
+  56%{ box-shadow:0 0 0 12px rgba(201,185,138,.28); transform:scale(1.12); }
+  100%{ box-shadow:0 0 0 0 rgba(201,185,138,0); transform:scale(1); } }
+/* locked on: a standing ring round the pill, so the armed state reads at a glance. Joe: "The press and
+   hold for the charcoal lock needs a stronger visual to show it's locked, maybe a bolder outline." So a
+   2px gold border on the pill itself, a wider halo, and the stick inside goes solid gold. */
+#charcoal.locked { border:2px solid #c9b98a; padding:7px 13px 7px 11px; box-shadow:0 0 0 3px rgba(201,185,138,.35), 0 0 14px rgba(201,185,138,.35); }
+#charcoal.locked i { border-color:#c9b98a; border-width:2px; }
+#charcoal.locked i::after { background:#c9b98a; }
+@keyframes shakeL { 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+#mapBtn { width:48px; height:48px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.6); display:grid; place-items:center; }
+#mapBtn svg { width:24px; height:24px; }
+#map { position:fixed; inset:0; z-index:3; display:none; background:#0d0f10; touch-action:none; }
+#map.show { display:block; }
+#mapCv { position:absolute; inset:0; width:100%; height:100%; }
+#map .hint { position:absolute; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 24px); text-align:center; color:#6f6b62; font-size:14px; font-style:italic; pointer-events:none; }
+#map h1 { position:absolute; top:calc(env(safe-area-inset-top) + 14px); left:20px; margin:0; font-weight:400; font-size:24px; letter-spacing:.06em; color:#e8e3d6; pointer-events:none; }
+#mapClose { position:absolute; top:calc(env(safe-area-inset-top) + 8px); right:12px; width:40px; height:40px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.8); color:#d8d3c6; font-size:20px; }
+#stone { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:14px; width:32px; height:32px; display:none; }
+#stone.show { display:block; }
+#keys { position:fixed; top:calc(env(safe-area-inset-top) + 50px); right:14px; display:flex; gap:6px; }
+#keys svg { width:22px; height:22px; }
+/* the carved stone you carry, under the keys */
+#carried { position:fixed; top:calc(env(safe-area-inset-top) + 80px); right:14px; display:flex; gap:6px; }
+#carried svg { width:22px; height:22px; }
+#key { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:14px; width:32px; height:32px; display:none; }
+#key.show { display:block; }
+#fx { position:fixed; top:calc(env(safe-area-inset-top) + 50px); left:50%; transform:translateX(-50%); display:flex; gap:8px; pointer-events:none; }
+#fx { border-radius:16px; }
+/* #fx held the "pointer 12s" chip. Joe: "it shouldn't have a number" — the compass says how long
+   it has left by going out instead, so nothing is written here now. The container stays: it is
+   still positioned and still in the pre-title fade-in below. */
+/* The camera sits close now, so this text lands on lit floor (#6e6a62) rather than on black. Joe:
+   "we're gonna need to slightly change the font colour of these book pickups and likely any other
+   text so that it reads over the top of the grayscale background now that we have the camera
+   zoomed in." Both are lifted well clear of the floor's value, and the shadow is a tight dark halo
+   rather than a wide soft one, which is what actually holds an edge against grey. */
+#narr { position:fixed; top:calc(env(safe-area-inset-top) + 92px); left:28px; right:28px; text-align:center; font-size:19px; font-style:italic; line-height:1.45; color:#f2eee2; pointer-events:none; opacity:0; transition:opacity .9s ease; text-shadow:0 1px 3px #0d0f10, 0 2px 12px rgba(13,15,16,.95), 0 0 26px rgba(13,15,16,.85); }
+#narr.show { opacity:1; }
+/* A journal page is the one surface Joe writes line breaks into — CAST[0].pages[3] ends on a
+   repeated line, a beat apart. Default white-space collapses that newline to a space and the
+   beat is silently lost, so pages honour the breaks he types. Narrator lines are unaffected. */
+#narr.journal { color:#d6cfbc; font-style:italic; font-size:17px; white-space:pre-line; }
+#narr.journal small { display:block; margin-top:8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; opacity:.75; }
+#gear { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:10px; width:36px; height:36px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); display:grid; place-items:center; }
+#gear svg { width:20px; height:20px; }
+#dbg { position:fixed; top:calc(env(safe-area-inset-top) + 52px); left:10px; display:none; flex-direction:column; gap:10px; padding:12px 14px; background:rgba(13,15,16,.92); border:1px solid rgba(185,180,168,.25); border-radius:8px;
+  box-sizing:border-box; max-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 76px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+#dbg > * { flex:0 0 auto; }   /* a column that scrolls must not squash its rows to fit */
+#dbg::-webkit-scrollbar { width:4px; } #dbg::-webkit-scrollbar-thumb { background:rgba(185,180,168,.3); border-radius:2px; }
+#dbg.show { display:flex; }
+#dbg label { display:flex; align-items:center; gap:10px; color:#d8d3c6; }
+#dbg input { width:18px; height:18px; accent-color:#a89f8c; }
+#dbg select { font:inherit; color:#d8d3c6; background:#141618; border:1px solid rgba(185,180,168,.3); border-radius:6px; padding:4px 6px; }
+#dbg button { margin-top:4px; padding:8px 12px; font:inherit; color:#d8d3c6; background:transparent; border:1px solid rgba(185,180,168,.35); border-radius:6px; }
+#dbg .ver { font-size:12px; opacity:.5; text-align:right; }
+/* the collapsible sections */
+#dbg .sec { border:1px solid rgba(185,180,168,.16); border-radius:8px; padding:0 10px; }
+#dbg .sec[open] { padding-bottom:10px; }
+#dbg .sec > summary { list-style:none; cursor:pointer; padding:9px 0; font-size:12px; letter-spacing:.16em;
+  text-transform:uppercase; color:#8d887c; }
+#dbg .sec > summary::-webkit-details-marker { display:none; }
+#dbg .sec > summary::after { content:'+'; float:right; font-size:14px; letter-spacing:0; opacity:.7; }
+#dbg .sec[open] > summary::after { content:'–'; }
+#dbg .sec[open] > summary { color:#d8d3c6; border-bottom:1px solid rgba(185,180,168,.14); margin-bottom:10px; }
+#dbg .sec > label { margin-bottom:9px; }
+#dbg .sec > button { margin-top:0; width:100%; }
+#stick { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 14px); transform:translateX(-50%); width:170px; height:170px; border-radius:50%; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.22); }
+#knob { position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%; background:rgba(185,180,168,.18); border:1px solid rgba(185,180,168,.45); transition:background .12s; }
+#stick.on #knob { background:rgba(185,180,168,.32); }
+#title { position:fixed; inset:0; z-index:5; pointer-events:none; }
+#title.hide { display:none; }
+/* No bar along the bottom any more: the floor runs to the edge of the screen and the two things
+   that were on it stand on their own. The version fades out as you wake, the way the title does. */
+#verTitle { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 1px); text-align:center; font-size:11px; font-style:italic;
+  color:rgba(236,231,218,.42); text-shadow:0 1px 3px rgba(13,15,16,.75); transition:opacity .7s ease; }
+#title.leaving #verTitle { opacity:0; }
+/* The ? belongs to the game, not the title. Joe: "the question should not be visible at the start
+   of the game, but then once you touch the character to get to gameplay, then we add the ? to the
+   top right" — so it rides in with the rest of the HUD rather than fading out with the name. */
+#howBtn { position:fixed; top:calc(env(safe-area-inset-top) + 12px); right:18px; font-size:22px; font-style:italic;
+  color:rgba(236,231,218,.5); text-shadow:0 1px 3px rgba(13,15,16,.75); padding:4px 10px; pointer-events:auto; z-index:4; }
+#howBtn.open { color:#ece7da; }
+/* The map is z-index 3 and its close button rides inside it; the ? is z-index 4, so it sat right
+   on top of the X. Joe: "if you open the map, you can't actually leave because it opens up the how
+   to play." Stories does not have this — its own close button is above the ? already. */
+body.map-open #howBtn { display:none; }
+body.pre #howBtn { opacity:0; transform:translateY(-24px); pointer-events:none; }
+#howPanel { position:fixed; left:0; right:0; bottom:0; max-height:0; overflow:hidden; background:#1b1f21; transition:max-height .55s cubic-bezier(.2,.7,.2,1); pointer-events:auto; }
+#howPanel.open { max-height:70vh; overflow-y:auto; scrollbar-width:none; }
+#howPanel::-webkit-scrollbar { display:none; }
+#howPanel .rows { padding:18px 24px 28px; max-width:380px; margin:0 auto; }
+#howPanel .row { display:flex; gap:16px; align-items:flex-start; margin-bottom:18px; font-size:16px; line-height:1.5; color:#d8d3c6; font-style:italic; }
+#howPanel .row svg { flex:none; width:40px; height:40px; }
+#howPanel .row b { font-weight:400; font-style:normal; color:#ece7da; }
+#howPanel .row p { margin:0; }
+.hud-el { transition:transform .8s cubic-bezier(.2,.7,.2,1), opacity .8s; }
+body.pre #hud, body.pre #gear, body.pre #key, body.pre #fx { opacity:0; transform:translateY(-24px); }
+body.pre #tools { opacity:0; transform:translateY(40px); }
+body.pre #stick, body.pre #glyphs { opacity:0; transform:translate(-50%, 40px); }
+@media (orientation: landscape) { body.pre #stick { transform:translateX(40px); } body.pre #tools, body.pre #glyphs { transform:translateX(-40px); } body.pre.stick-left #stick { transform:translateX(-40px); } body.pre.stick-left #tools, body.pre.stick-left #glyphs { transform:translateX(40px); } }
+.ghost { margin-top:12px; padding:12px 0; width:100%; font:inherit; font-size:16px; color:#b9b4a8; background:transparent; border:1px solid rgba(185,180,168,.3); border-radius:8px; }
+.ghost:active { background:rgba(185,180,168,.1); }
+.storiesBtn { display:flex; align-items:center; justify-content:center; gap:10px; }
+.storiesBtn .book { width:22px; height:22px; flex:none; }
+#dbg .storiesBtn { justify-content:flex-start; } #dbg .storiesBtn .book { width:18px; height:18px; }
+#msg .ghost { width:auto; padding:10px 22px; display:flex; margin:12px auto 0; }
+#stories { position:fixed; inset:0; z-index:6; display:none; background:rgba(13,15,16,.96); padding:calc(env(safe-area-inset-top) + 20px) 22px 40px; overflow-y:auto; touch-action:pan-y; }
+#stories.show { display:block; }
+#stories h1 { font-weight:400; font-size:30px; letter-spacing:.04em; margin:0 0 4px; color:#e8e3d6; }
+#stories .sub { margin:0 0 22px; color:#8d887c; font-size:15px; }
+#stories .who { margin-bottom:22px; }
+#stories .who .name { display:flex; justify-content:space-between; font-size:18px; color:#d8d3c6; margin-bottom:8px; }
+#stories .who .name span:last-child { color:#8d887c; font-size:15px; }
+#stories .who .name span:first-child { text-decoration:underline dotted rgba(185,180,168,.35); text-underline-offset:4px; }
+#stories .boxes { display:flex; gap:8px; }
+#stories .box { flex:1; height:36px; border-radius:6px; background:#1f2224; border:1px solid rgba(185,180,168,.12); }
+#stories .box.got { background:#b8b0a0; border-color:#b8b0a0; cursor:pointer; }
+#stories .box.sel { outline:2px solid #ece7da; outline-offset:2px; }
+#reader { min-height:90px; margin:0 0 24px; padding:14px 16px; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.12); border-radius:8px; }
+#reader .hint { color:#6f6b62; font-size:15px; font-style:italic; }
+#reader .who { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8d887c; margin-bottom:10px; }
+#reader p { margin:0 0 12px; font-size:16px; line-height:1.55; color:#c8c1b2; }
+#reader p:last-child { margin-bottom:0; }
+#reader p.missing { color:#4f4c46; font-style:italic; }
+#storiesClose { position:fixed; z-index:7; top:calc(env(safe-area-inset-top) + 8px); right:12px; width:40px; height:40px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.8); color:#d8d3c6; font-size:20px; }
+#tut { position:fixed; inset:0; z-index:6; display:none; place-items:center; background:rgba(13,15,16,.7); padding:28px; perspective:900px; }
+#tut.show { display:grid; }
+#tut .card { position:relative; max-width:340px; width:100%; padding:26px 26px 22px; background:#141618; border:1px solid rgba(185,180,168,.18); box-shadow:0 30px 60px rgba(0,0,0,.6); transform-origin:50% 50%; }
+#tut .card::before { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg, rgba(0,0,0,.18) 0%, transparent 12%, transparent 30%, rgba(0,0,0,.22) 33.5%, transparent 37%, transparent 63%, rgba(0,0,0,.22) 66.5%, transparent 70%, transparent 88%, rgba(0,0,0,.18) 100%); }
+#tut.show .card { animation:unfold .9s cubic-bezier(.2,.7,.2,1) both; }
+#tut.fold .card { animation:refold .55s cubic-bezier(.6,0,.8,.4) both; }
+@keyframes unfold { 0%{ clip-path:inset(0 50% 0 50%); transform:rotateX(18deg) scaleY(.92); opacity:0; } 35%{ clip-path:inset(0 33.4% 0 33.4%); transform:rotateX(8deg) scaleY(.98); opacity:1; } 55%{ clip-path:inset(0 33.4% 0 33.4%); } 100%{ clip-path:inset(0 0 0 0); transform:none; opacity:1; } }
+@keyframes refold { 0%{ clip-path:inset(0 0 0 0); transform:none; opacity:1; } 45%{ clip-path:inset(0 33.4% 0 33.4%); opacity:1; } 100%{ clip-path:inset(0 50% 0 50%); transform:rotateX(14deg) scaleY(.94); opacity:0; } }
+#tut svg.icon { width:56px; height:56px; display:block; margin:0 0 16px; }
+#tut h1 { font-weight:400; font-size:28px; letter-spacing:.04em; margin:0 0 12px; color:#e8e3d6; }
+#tut p { margin:0 0 14px; font-size:17px; line-height:1.6; color:#9a968c; font-style:italic; }
+#tutClose { display:block; margin:22px auto 0; padding:6px 10px 2px; font:inherit; font-size:20px; font-style:italic; letter-spacing:.06em; color:#ece7da; background:none; border:0; position:relative; }
+#tutClose svg { position:absolute; left:0; right:0; bottom:-6px; width:100%; height:12px; }
+#tutClose:active { opacity:.6; }
+/* the exchange at a statue: the same folded card as a tutorial, two questions, one answer */
+#talk { position:fixed; inset:0; z-index:6; display:none; place-items:center; background:rgba(13,15,16,.7); padding:28px; perspective:900px; }
+#talk.show { display:grid; }
+#talk .card { position:relative; max-width:360px; width:100%; padding:26px 26px 22px; background:#141618; border:1px solid rgba(185,180,168,.18); box-shadow:0 30px 60px rgba(0,0,0,.6); transform-origin:50% 50%; }
+#talk.show .card { animation:unfold .9s cubic-bezier(.2,.7,.2,1) both; }
+#talk.fold .card { animation:refold .55s cubic-bezier(.6,0,.8,.4) both; }
+#talk .who { font-size:14px; letter-spacing:.14em; text-transform:uppercase; color:#9a968c; margin:0 0 18px; }
+#talk .choices button { display:block; width:100%; text-align:left; font:inherit; font-size:18px; line-height:1.5; color:#e8e3d6; background:none; border:0; border-left:2px solid rgba(185,180,168,.25); padding:8px 0 8px 14px; margin:0 0 10px; }
+#talk .choices button:active { opacity:.6; }
+#talk .choices.asked button.unasked { color:#5e5b54; border-left-color:transparent; }
+#talk .choices.asked button.chosen { border-left-color:#e0c98a; }
+#talk .answer { display:none; margin:18px 0 0; padding-top:16px; border-top:1px solid rgba(185,180,168,.18); font-size:17px; line-height:1.6; color:#c9c3b6; font-style:italic; }
+#talk .answer.show { display:block; }
+#talkClose { display:none; margin:22px auto 0; padding:6px 10px 2px; font:inherit; font-size:20px; font-style:italic; letter-spacing:.06em; color:#ece7da; background:none; border:0; position:relative; }
+#talkClose.show { display:block; }
+#talkClose svg { position:absolute; left:0; right:0; bottom:-6px; width:100%; height:12px; }
+#talkClose:active { opacity:.6; }
+#pool { position:fixed; inset:0; z-index:6; display:none; background:#141a1d; padding:0 26px; }
+#pool.show { display:grid; grid-template-rows:1fr auto 1fr; }
+#pool .water { align-self:end; justify-self:center; width:min(78vw, 360px); height:min(22vh, 150px); border-radius:50%; background:#1f2a30; border:1px solid rgba(111,136,147,.35); position:relative; overflow:hidden; transition:background 1.6s; }
+#pool .water::after { content:''; position:absolute; left:20%; right:20%; top:45%; height:1px; background:rgba(111,136,147,.35); }
+#pool.clear .water { background:#2c3d46; }
+#pool .stone { position:absolute; left:50%; top:52%; width:34px; height:24px; margin:-12px 0 0 -17px; border-radius:50%; background:#8a857a; transition:transform 1.2s cubic-bezier(.4,0,.8,.4), opacity 1.2s; }
+#pool.clear .stone { transform:translateY(60px) scale(.6); opacity:0; }
+#pool .talk { padding:28px 0 12px; max-width:380px; margin:0 auto; text-align:center; }
+#pool .who { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8d887c; margin-bottom:12px; }
+#pool .say { font-size:19px; line-height:1.55; color:#d8d3c6; font-style:italic; min-height:3.2em; }
+#pool .choices { display:flex; flex-direction:column; gap:10px; margin-top:22px; }
+#pool .choices button { font:inherit; font-size:16px; font-style:italic; color:#ece7da; background:transparent; border:1px solid rgba(185,180,168,.3); border-radius:8px; padding:12px 14px; }
+#pool .choices button.chalk { border:0; text-decoration:underline; text-underline-offset:6px; text-decoration-color:rgba(236,231,218,.5); font-size:19px; }
+#pool .keeper { align-self:start; text-align:center; padding-top:18px; font-size:13px; color:#5f6b70; font-style:italic; }
+#fade { position:fixed; inset:0; background:#0d0f10; pointer-events:none; opacity:0; z-index:4; }
+#fade.in { opacity:1; }
+#fade.out { opacity:0; transition:opacity 3.2s ease-in-out; }
+@media (orientation: landscape) {
+  #stick { left:auto; right:22px; bottom:calc(env(safe-area-inset-bottom) + 10px); transform:none; width:150px; height:150px; }
+  #tools { left:14px; right:auto; bottom:calc(env(safe-area-inset-bottom) + 26px); width:200px; flex-wrap:wrap; gap:8px; justify-content:flex-start; }
+  body.stick-left #stick { right:auto; left:22px; }
+  body.stick-left #tools { left:auto; right:14px; justify-content:flex-end; }
+  #dbg { z-index:8; }
+  #narr { top:calc(env(safe-area-inset-top) + 56px); left:15%; right:15%; }
+}
+#msg { position:fixed; inset:0; display:none; place-items:center; text-align:center; background:#0d0f10; z-index:5; }
+#msg.show { display:grid; }
+#msg h1 { font-weight:400; font-size:32px; margin:0 0 18px; color:#e8e3d6; }
+#msg ul { list-style:none; margin:0 auto; padding:0; text-align:left; font-size:18px; line-height:1.9; color:#d8d3c6; display:inline-block; }
+#msg li { display:flex; justify-content:space-between; gap:28px; }
+#msg li b { font-weight:400; color:#ece7da; }
+#msg li.pages { display:block; text-align:left; max-width:340px; }
+#msg .whose { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8d887c; margin-bottom:12px; text-align:center; }
+#msg .page { margin:0 0 14px; font-size:16px; line-height:1.55; color:#b8b0a0; font-style:italic; }
+#msg .page.none { color:#6f6b62; }
+#msg li.stat { display:block; margin-top:8px; font-size:13px; color:#4f4c46; text-align:center; }
+#msg .seed { margin-top:14px; font-size:15px; opacity:.55; }
+#again { margin-top:26px; padding:14px 34px; font: inherit; font-size:19px; color:#0d0f10; background:#d8d3c6; border:0; border-radius:8px; }
+#again:active { background:#ece7da; }
+
+/* the run log: what you have finished and how long it took. Its own overlay, like Stories */
+#stats { position:fixed; inset:0; display:none; flex-direction:column; background:#0d0f10; z-index:7;
+  padding:calc(env(safe-area-inset-top) + 22px) 20px calc(env(safe-area-inset-bottom) + 20px); overflow-y:auto; overscroll-behavior:contain; }
+#stats.show { display:flex; }
+#stats h1 { font-weight:400; font-size:26px; margin:0 0 14px; color:#e8e3d6; text-align:center; }
+#statsBody { flex:1 1 auto; max-width:520px; width:100%; margin:0 auto; }
+#statsBody .none { color:#6f6b62; text-align:center; font-style:italic; }
+#statsBody .sum { color:#8d887c; font-size:12px; letter-spacing:.14em; text-transform:uppercase; text-align:center; margin:0 0 14px; }
+#statsBody .best { display:flex; justify-content:space-between; gap:20px; margin:0 0 4px; font-size:14px; color:#b8b0a0; }
+#statsBody .best b { font-weight:400; color:#ece7da; }
+#statsBody .run { display:grid; grid-template-columns:1fr auto; gap:2px 16px; margin:14px 0 0; padding-top:10px; border-top:1px solid #1f2224; font-size:15px; color:#d8d3c6; }
+#statsBody .run b { font-weight:400; color:#ece7da; }
+#statsBody .run i { grid-column:1 / -1; font-style:normal; font-size:12px; color:#6f6b62; }
+#stats .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:20px; }
+/* Clear stands well away from Close, and quietly. Joe: "swap the clear and close buttons here, move
+   the clear one down so it can[not] accidentally be hit. Add an 'are you sure' to the clear button?"
+   It asks twice, and the second ask is in the same warning colour Reset save uses. */
+#stats .row .ghost { width:auto; margin-top:0; padding:11px 24px; }
+#statsClose { padding:12px 30px; font:inherit; font-size:16px; color:#0d0f10; background:#d8d3c6; border:0; border-radius:8px; }
+#statsClose:active { background:#ece7da; }
+#stats .row.danger { margin-top:38px; }
+#statsClear { font-size:12px; opacity:.45; padding:8px 18px; border-color:rgba(185,180,168,.2); }
+#statsClear[data-sure="1"] { opacity:1; color:#b07a6a; border-color:rgba(176,122,106,.55); }
+
+/* the debug Zoom slider */
+#dbg input[type=range] { flex:1 1 auto; min-width:90px; accent-color:#8d887c; background:transparent; }
+#dbg #zoomLbl { color:#8d887c; font-variant-numeric:tabular-nums; min-width:42px; text-align:right; }
+
+/* The "Line IDs" debug view: the path into data/text.js under whatever line just showed. Small,
+   dim and monospaced so it never reads as part of the writing, and breakable because some paths
+   are long — ROOM_LINES["The Cartographer"].basin[2] does not fit a phone in one piece. */
+.lid { display: block; margin-top: 6px; font: 10px/1.35 ui-monospace, "IBM Plex Mono", Menlo, monospace;
+       color: #9a9182; opacity: .75; letter-spacing: 0; text-transform: none; font-style: normal;
+       word-break: break-all; }
+#poolChoices .lid, #talkChoices .lid { margin-top: 3px; opacity: .6; }

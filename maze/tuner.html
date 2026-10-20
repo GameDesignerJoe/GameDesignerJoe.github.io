@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Maze — tuner</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<!--
+  The Maze — the tuner
+
+  Joe: "a page that shows the rules I give for say the Criminal and what a block
+  of mazes would look like."
+
+  Pick a chapter, see its contract from data/phases.js down the left, and a block
+  of mazes built to it with every clause it missed called out. Change a number
+  and the block redraws.
+
+  ── how the pictures are made, and why it is done this way ──
+
+  The first two cuts of this page drew the mazes themselves, with a colour and a
+  shape per thing. Joe: "I can't understand what is being displayed. Your
+  iconography doesn't translate and you have too many varied colors... get
+  something closer to what I see when I go to the show full map debug."
+
+  He is right, and the fix is to stop inventing a second visual language. This
+  page now runs THE GAME, in a hidden iframe, in its own Full map debug mode, and
+  copies its canvas. Every book, gate, key, statue, chalk mark and push block is
+  drawn by js/render.js exactly as the player sees it, because it IS the player's
+  view with the fog off. There is no iconography here to learn, and when the game's
+  art changes these pictures change with it.
+
+  What the picture cannot say — which key is buried, where the maze divides, where
+  a district is — is an optional overlay, off by default, and hovering any tile
+  names what is on it.
+
+  TWO THINGS THIS MUST NEVER DO, both load-bearing:
+
+  1. Never write to the save. The game autosaves every 6 seconds (input.js), and on
+     visibilitychange and pagehide. Opening this page would have overwritten Joe's
+     real run. The frame is set `parked` — the game's own stop-saving switch, from
+     run-save.js — and persist() and saveRun() are stubbed as well.
+  2. Never keep a second copy of the generator. The frame is the real game, loaded
+     from the same files; this page holds no generation code at all.
+
+  Time to finish is tools/bots.mjs; the standing table is tools/quality.mjs and
+  docs/QUALITY.md. This page is for looking.
+-->
+<style>
+  :root {
+    --bg: #0d0f10; --panel: #14171a; --line: #23282b;
+    --ink: #ece7da; --dim: #8d887e; --faint: #5d5952;
+    --ok: #7d9b6a; --bad: #b4614f;
+    --serif: "Iowan Old Style", Palatino, Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--serif); }
+
+  header {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end;
+  }
+  h1 { margin: 0; font-size: 19px; font-weight: normal; letter-spacing: .14em; text-transform: uppercase; }
+  h1 small { display: block; font-size: 11px; letter-spacing: .08em; color: var(--faint); text-transform: none; margin-top: 3px; }
+  .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .ctl label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+  select, input[type=number], button {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+    font: 14px var(--serif); padding: 6px 9px; border-radius: 3px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--dim); }
+  .check { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--dim); padding-bottom: 7px; cursor: pointer; }
+
+  main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; padding: 20px; }
+  aside { flex: 0 0 290px; min-width: 260px; }
+  .grid-wrap { flex: 1 1 460px; min-width: 0; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 14px 15px; }
+  .card h2 { margin: 0 0 3px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); font-weight: normal; }
+  .card p.note { margin: 0 0 12px; font-size: 12px; color: var(--faint); font-style: italic; }
+
+  .clause { display: grid; grid-template-columns: 1fr 68px; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
+  .clause:first-of-type { border-top: 0; }
+  .clause .name { font-size: 13px; }
+  .clause .today { display: block; font-size: 11px; color: var(--faint); }
+  .clause input { width: 100%; text-align: right; }
+  .clause.off .name { color: var(--faint); }
+
+  .verdict { margin: 0 0 14px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); font-size: 14px; }
+  .verdict b { font-weight: normal; color: var(--ink); }
+  .verdict .miss { color: var(--bad); }
+  .verdict .all-ok { color: var(--ok); }
+
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 9px; }
+  figure.fail { border-color: #3a2b28; }
+  .shot { position: relative; }
+  .shot canvas { width: 100%; height: auto; display: block; background: #0d0f10; border-radius: 2px; cursor: zoom-in; }
+  figcaption { margin-top: 8px; font-size: 11px; color: var(--faint); display: flex; justify-content: space-between; gap: 8px; }
+  .chips { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { font-size: 10.5px; letter-spacing: .04em; padding: 2px 6px; border-radius: 2px; border: 1px solid transparent; white-space: nowrap; }
+  .chip.ok { color: var(--ok); border-color: #2a3527; }
+  .chip.bad { color: var(--bad); border-color: #3f2b26; background: #1c1513; }
+
+  /* hover: the picture is the game's, so the words have to come from somewhere */
+  .tip {
+    position: fixed; z-index: 50; pointer-events: none; opacity: 0;
+    background: #0a0c0d; border: 1px solid var(--line); border-radius: 3px;
+    padding: 5px 9px; font-size: 12px; color: var(--ink); max-width: 260px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.6); transition: opacity .08s;
+  }
+  .tip.show { opacity: 1; }
+  .tip em { color: var(--faint); font-style: normal; }
+
+  .hint { margin-top: 14px; font-size: 11.5px; color: var(--faint); line-height: 1.7; }
+  .hint b { color: var(--dim); font-weight: normal; }
+
+  dialog { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 5px; padding: 0; max-width: 96vw; max-height: 94vh; overflow: auto; }
+  dialog::backdrop { background: rgba(5,6,7,.82); }
+  dialog .body { padding: 16px; }
+  dialog table { border-collapse: collapse; margin-top: 12px; font-size: 12px; width: 100%; max-width: 560px; }
+  dialog td { padding: 3px 10px 3px 0; color: var(--dim); }
+  dialog td:last-child { color: var(--ink); text-align: right; }
+
+  /* the game, running. Off to the side, full size, so its canvas is high resolution. */
+  #game { position: fixed; left: -20000px; top: 0; width: 1400px; height: 1900px; border: 0; }
+
+  @media (max-width: 720px) {
+    main { padding: 14px; gap: 14px; }
+    aside { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The Maze — tuner<small>the contract in data/phases.js, and a block of mazes built to it</small></h1>
+  <div class="ctl">
+    <label for="who">Chapter</label>
+    <select id="who"></select>
+  </div>
+  <div class="ctl">
+    <label for="count">Mazes</label>
+    <select id="count"><option>4</option><option selected>9</option><option>16</option></select>
+  </div>
+  <div class="ctl">
+    <label for="size">Size</label>
+    <select id="size"><option value="">the chapter's own</option><option>sm</option><option>md</option><option>lg</option><option>xl</option></select>
+  </div>
+  <div class="ctl">
+    <label for="base">First seed</label>
+    <input type="number" id="base" value="4242" step="1" style="width:96px">
+  </div>
+  <div class="ctl">
+    <label>&nbsp;</label>
+    <button id="reroll">Re-roll</button>
+  </div>
+  <label class="check"><input type="checkbox" id="overlay"> contract overlay</label>
+</header>
+
+<main>
+  <aside>
+    <div class="card">
+      <h2 id="contractFor">The contract</h2>
+      <p class="note">A floor, not a target. Blank means the clause is not checked for this chapter.</p>
+      <div id="clauses"></div>
+    </div>
+    <div class="hint">
+      <b>These are the game drawing itself</b>, in its own Full map debug view, so
+      everything is the art you see when you play. <b>Hover any tile</b> to read what
+      is on it. <b>Click</b> for one maze large, with everything it holds counted.
+      <br><br>
+      <b>Contract overlay</b> adds what the picture cannot say: a blue wash where the
+      maze divides, a grey wash on a district, a gold outline round a vault.
+    </div>
+  </aside>
+
+  <div class="grid-wrap">
+    <div class="verdict" id="verdict">starting the game…</div>
+    <div class="grid" id="grid"></div>
+  </div>
+</main>
+
+<div class="tip" id="tip"></div>
+
+<dialog id="big"><div class="body">
+  <div class="shot"><canvas id="bigCv"></canvas></div>
+  <table id="bigTable"></table>
+</div></dialog>
+
+<iframe id="game" src="maze-topdown.html?seed=1" title="the game, rendering"></iframe>
+
+<script>
+// Everything — PHASES, MUST, CONTRACT, the generator — is read out of the frame,
+// so there is exactly one copy of each and this page cannot drift from the game.
+
+// ── state ────────────────────────────────────────────────────────────────────
+// `must` is a working copy of the chapter's MUST row: edits here change the page
+// and nothing else. What is in data/phases.js is what the game will build to,
+// so a number that earns its keep has to be typed back into that file.
+let phaseIdx = 0, must = {}, built = [], G = null;   // G: the game's window
+const $ = (id) => document.getElementById(id);
+const K = (x, y) => x + ',' + y;
+
+// ── the game, in a frame ─────────────────────────────────────────────────────
+function bootGame() {
+  return new Promise((resolve, reject) => {
+    const f = $('game');
+    const go = () => {
+      const w = f.contentWindow;
+      // The engine's globals are script-scope bindings, not window properties, so
+      // the parent cannot reach them. Load a script INTO the frame: it shares the
+      // realm and can see them. See tuner-frame.js.
+      const s = w.document.createElement('script');
+      s.src = 'tuner-frame.js';
+      s.onload = () => {
+        if (!w.TUNER) return reject(new Error('tuner-frame.js loaded but defined nothing'));
+        w.TUNER.park();                    // before anything can tick: never touch the save
+        resolve(w);
+      };
+      s.onerror = () => reject(new Error('could not load tuner-frame.js into the game'));
+      w.document.body.appendChild(s);
+    };
+    // Do NOT trust readyState here. A fresh iframe serves an about:blank document
+    // that reports "complete" before src has loaded at all, and injecting into that
+    // one puts the script on a document that is about to be thrown away — which is
+    // exactly how this sat on "starting the game…" with no error to show for it.
+    // Wait for the game's own canvas to exist instead.
+    const t0 = Date.now();
+    const tick = () => {
+      const w = f.contentWindow, d = w && w.document;
+      if (d && d.readyState === 'complete' && d.getElementById('c')) return go();
+      if (Date.now() - t0 > 20000) return reject(new Error('the game did not load in the frame'));
+      setTimeout(tick, 60);
+    };
+    tick();
+  });
+}
+
+// Build one maze IN THE GAME and copy its Full map view out.
+function buildOne(seed, size) {
+  const c = CHAPTERS[phaseIdx];
+  return G.TUNER.build(c.proto ? 0 : phaseIdx, size, seed, must, c.proto);
+}
+
+// copy the frame's canvas into ours, cropped to exactly the maze
+function shoot(cv, s, outW) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const outH = Math.round(outW * s.H / s.W);
+  cv.width = outW * dpr; cv.height = outH * dpr;
+  cv.style.aspectRatio = `${s.W} / ${s.H}`;
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(G.TUNER.canvas(), s.src.x, s.src.y, s.src.w, s.src.h, 0, 0, cv.width, cv.height);
+  if ($('overlay').checked) drawOverlay(g, s, cv.width / s.W);
+}
+
+// What the picture cannot say. Off by default, and deliberately three washes
+// rather than a legend: the maze itself is the game's, and this sits over it.
+function drawOverlay(g, s, px) {
+  g.save();
+  g.globalAlpha = 0.30; g.fillStyle = '#5e8f96';
+  for (const k of s.splits) { const [x, y] = k.split(',').map(Number); g.fillRect(x * px, y * px, px, px); }
+  g.globalAlpha = 0.16; g.fillStyle = '#b9c6cc';
+  for (const [x0, y0, x1, y1] of s.districts) g.fillRect(x0 * px, y0 * px, (x1 - x0 + 1) * px, (y1 - y0 + 1) * px);
+  g.globalAlpha = 0.9; g.strokeStyle = '#d8b36a'; g.lineWidth = Math.max(1, px * 0.3);
+  for (const v of s.vaults) g.strokeRect(v.x0 * px, v.y0 * px, (v.x1 - v.x0 + 1) * px, (v.y1 - v.y0 + 1) * px);
+  g.restore();
+}
+
+// ── what is on a tile, in the game's words ───────────────────────────────────
+// The picture is the game's own rendering, so nothing in it carries a label. This
+// is the whole reason hover exists: read the generator's globals and say, in plain
+// words, what it put on each tile. Most specific first; the room a tile belongs to
+// comes last, as context rather than as the answer.
+function whatIsWhere(w) {
+  const at = {};
+  const add = (k, text) => { if (k == null) return; (at[k] = at[k] || []).push(text); };
+  const addXY = (x, y, text) => add(K(x, y), text);
+  const each = (coll, fn) => { if (coll) for (const it of coll) fn(it); };
+
+  addXY(Math.floor(w.start.x), Math.floor(w.start.y), 'where you wake');
+  addXY(Math.floor(w.exit.x), Math.floor(w.exit.y), w.gated ? 'the way out — locked' : 'the way out');
+  each(w.exitAlley, ([x, y]) => addXY(x, y, 'the alley to the way out'));
+  each(w.exitTree, (k) => add(k, 'the squeeze gauntlet guarding the way out'));
+
+  const vaultAt = new Set(w.keyVaults.map((v) => K(v.cx, v.cy)));
+  for (const [k, shape] of w.innerKeys) add(k, `a ${shape} key — ` + (vaultAt.has(k) ? 'buried in a vault' : 'lying loose in a hall'));
+  each(w.doors, (d) => addXY(d.x, d.y, `a locked door — takes the ${d.shape} key`));
+  if (w.keySpot) add(w.keySpot, 'the key to the way out');
+  each(w.keyVaults, (v) => addXY(v.cx, v.cy, 'the heart of a vault'));
+
+  for (const k of w.journals.keys()) add(k, 'a journal');
+  for (const [k, kind] of w.pickups) add(k, `a ${kind} pickup`);
+  each(w.chalkSpots, (k) => add(k, 'chalk'));
+  each(w.charcoalSpots, (k) => add(k, 'charcoal'));
+  each(w.scrapSpots, (k) => add(k, 'a map fragment'));
+
+  each(w.shrines, (sh) => { addXY(sh.x, sh.y, `a statue — ${sh.who}`); addXY(sh.sx, sh.sy, `the bowl at ${sh.who}'s statue`); });
+  for (const [k, who] of w.offerings) add(k, `a carved stone to carry — ${who}`);
+
+  each(w.crawlGaps, (k) => add(k, 'a crawl gap — only the Child fits'));
+  each(w.crawlCells, (k) => add(k, 'a squeeze'));
+  each(w.sliders, (sl) => {
+    addXY(sl.x, sl.y, sl.gauntlet ? 'a gauntlet swing — the floor slides away' : sl.atStart ? 'the push block out of the start room' : 'a push block');
+    addXY(sl.x + sl.dx, sl.y + sl.dy, 'where that block slides to');
+  });
+  each(w.pockets, ([x, y]) => addXY(x, y, 'a pocket, reachable only by shoving a block'));
+  if (typeof w.tunnelTiles !== 'undefined') each(w.tunnelTiles, (k) => add(k, 'a tunnel'));
+  each(w.darkTiles, (k) => add(k, 'darkness — you need the lamp'));
+  if (w.lampSpot) add(w.lampSpot, 'the lamp');
+
+  each(w.hopscotch, (k, i) => add(k, 'a hopscotch square'));
+  if (w.ticTacToe) addXY(w.ticTacToe.x, w.ticTacToe.y, 'a tic-tac-toe board chalked on the floor');
+  each(w.figures, (f) => addXY(Math.floor(f.x), Math.floor(f.y), 'the father, walking away'));
+  if (typeof w.secretTiles !== 'undefined') each(w.secretTiles, (k) => add(k, 'the secret room'));
+  if (w.secretSwitch) add(w.secretSwitch, 'the switch that lights the secret room');
+  if (w.secretFather) add(w.secretFather, 'somebody drew a man walking away');
+  if (w.startArrow) addXY(w.startArrow.x, w.startArrow.y, 'the arrow on the start-room floor');
+
+  // context last: which room you are standing in, and which district
+  each(w.landmarks, (l) => {
+    if (l.rx0 == null) { addXY(l.x, l.y, `the ${l.kind} room`); return; }
+    for (let y = l.ry0; y <= l.ry1; y++) for (let x = l.rx0; x <= l.rx1; x++) addXY(x, y, `the ${l.kind} room`);
+  });
+  each(w.clusters, (c) => {
+    for (let y = c.ty0; y <= c.ty1; y++) for (let x = c.tx0; x <= c.tx1; x++) addXY(x, y, `a district — ${c.heart}`);
+  });
+
+  // de-duplicate: a room rectangle repeats its name on every tile it covers
+  for (const k in at) at[k] = [...new Set(at[k])];
+  return at;
+}
+
+function countOf(w) {
+  const n = (v) => v == null ? 0 : (v.size ?? v.length ?? (v ? 1 : 0));
+  const kinds = {};
+  for (const l of w.landmarks) kinds[l.kind] = (kinds[l.kind] || 0) + 1;
+  return {
+    kinds: Object.entries(kinds).map(([k, v]) => v > 1 ? `${v}× ${k}` : k).join(', '),
+    journals: n(w.journals), pickups: n(w.pickups),
+    chalk: n(w.chalkSpots), charcoal: n(w.charcoalSpots), scraps: n(w.scrapSpots),
+    shrines: n(w.shrines), offerings: n(w.offerings),
+    sliders: n(w.sliders), pockets: n(w.pockets), crawl: n(w.crawlGaps),
+    tunnels: typeof w.tunnelTiles !== 'undefined' ? n(w.tunnelTiles) : 0,
+    dark: n(w.darkTiles), lamp: !!w.lampSpot,
+    hopscotch: n(w.hopscotch), tic: !!w.ticTacToe, figures: n(w.figures),
+    secret: typeof w.secretTiles !== 'undefined' ? n(w.secretTiles) : 0,
+    secretSwitch: !!w.secretSwitch,
+  };
+}
+
+// ── the page ─────────────────────────────────────────────────────────────────
+let CHAPTERS = [];
+function sizeFor() { return $('size').value || CHAPTERS[phaseIdx].size || 'md'; }
+
+function render() {
+  if (!G) return;
+  const n = +$('count').value, base = +$('base').value || 4242, size = sizeFor();
+  built = [];
+  const grid = $('grid'); grid.textContent = '';
+
+  // Build and copy ONE AT A TIME. The frame has a single canvas holding whichever
+  // maze it drew last, so building all of them first and copying afterwards gave
+  // nine thumbnails of the ninth maze — right numbers, wrong pictures, every time.
+  for (let i = 0; i < n; i++) {
+    const s = buildOne(base + i * 137, size);
+    built.push(s);
+
+    const ok = s.grade.every((c) => c.ok);
+    const fig = document.createElement('figure');
+    if (!ok) fig.className = 'fail';
+    const shot = document.createElement('div'); shot.className = 'shot';
+    const cv = document.createElement('canvas');
+    cv.addEventListener('click', () => enlarge(s));
+    hoverable(cv, s);
+    shot.appendChild(cv); fig.appendChild(shot);
+    const cap = document.createElement('figcaption');
+    cap.innerHTML = `<span>seed ${s.seed}</span><span>${s.m.floor} tiles</span>`;
+    fig.appendChild(cap);
+    const chips = document.createElement('div'); chips.className = 'chips';
+    for (const c of s.grade) {
+      const el = document.createElement('span');
+      el.className = 'chip ' + (c.ok ? 'ok' : 'bad');
+      el.textContent = `${c.label} ${c.show}`;
+      el.title = `wants ${c.want}`;
+      chips.appendChild(el);
+    }
+    fig.appendChild(chips);
+    grid.appendChild(fig);
+    shoot(cv, s, 520);            // while this maze is still the one on the frame's canvas
+  }
+
+  // the verdict: which clause is failing, and how often. The count is the thing
+  // to read — one maze missing is luck, nine missing is the generator.
+  const full = built.filter((s) => s.grade.every((c) => c.ok)).length;
+  const misses = {};
+  for (const s of built) for (const c of s.grade) if (!c.ok) misses[c.label] = (misses[c.label] || 0) + 1;
+  const worst = Object.entries(misses).sort((a, b) => b[1] - a[1]);
+  $('verdict').innerHTML = `<b>${full} of ${built.length}</b> met every clause`
+    + (worst.length
+      ? ' · ' + worst.map(([k, v]) => `<span class="miss">${k} failed ${v}</span>`).join(' · ')
+      : ' <span class="all-ok">— nothing missed</span>');
+}
+
+// ── hover ────────────────────────────────────────────────────────────────────
+// The picture is the game's own, so nothing in it is labelled. This is where the
+// words come from: the tile under the pointer, and everything the generator put
+// on it, in the game's language.
+function hoverable(cv, s) {
+  const tip = $('tip');
+  cv.addEventListener('pointermove', (e) => {
+    const r = cv.getBoundingClientRect();
+    const tx = Math.floor((e.clientX - r.left) / r.width * s.W);
+    const ty = Math.floor((e.clientY - r.top) / r.height * s.H);
+    if (tx < 0 || ty < 0 || tx >= s.W || ty >= s.H) { tip.classList.remove('show'); return; }
+    // always answer. Silence over a corridor reads as a broken tooltip.
+    const here = s.what[K(tx, ty)] || [s.grid[ty] && s.grid[ty][tx] === '1' ? 'floor' : 'wall'];
+    tip.innerHTML = here.join('<br>') + `<br><em>${tx}, ${ty}</em>`;
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - 270) + 'px';
+    tip.style.top = (e.clientY + 16) + 'px';
+    tip.classList.add('show');
+  });
+  cv.addEventListener('pointerleave', () => tip.classList.remove('show'));
+}
+
+function enlarge(s) {
+  // the frame is showing whatever was built last, so put this one back first
+  const fresh = buildOne(s.seed, sizeFor());
+  s = Object.assign(s, { src: fresh.src });
+  const wide = Math.min(window.innerWidth - 80, Math.floor((window.innerHeight * 0.66) * s.W / s.H), 1100);
+  shoot($('bigCv'), s, Math.max(320, wide));
+  hoverable($('bigCv'), s);
+  const m = s.m, c = s.counts;
+  // A dash means the chapter does not have the thing at all — The Child has no
+  // doors, so no keys and no key detour. It does not mean the maze is missing it.
+  const rows = [
+    ['seed', s.seed], ['floor', m.floor + ' tiles'],
+    ['keys buried', m.keys ? `${m.vaulted} of ${m.keys}` : 'no doors this chapter'],
+    ['exit guarded', `${m.exitGuard} tiles` + (m.gated ? ', and locked' : '')],
+    ['key is a walk', m.keys ? `${Math.round(m.keyDetour)} tiles over going straight out` : 'no doors this chapter'],
+    ['rooms', `${m.rooms} — ` + (c.kinds || 'none') + `, closest two ${m.roomGap} apart`],
+    ['maze divides', `${m.thresholds}` + (m.thresholds ? `, biggest ${Math.round(m.biggestSplit * 100)}% of the floor` : '')],
+    ['districts', m.districts], ['exit at', `${m.toExit} of ${m.far} tiles out`],
+    ['journals', c.journals],
+    ['chalk / charcoal / scraps', `${c.chalk} / ${c.charcoal} / ${c.scraps}`],
+    ['shrines, with offerings to carry', `${c.shrines}, ${c.offerings}`],
+    ['push blocks / pockets behind them', `${c.sliders} / ${c.pockets}`],
+    ['crawl gaps', c.crawl], ['tunnel tiles', c.tunnels],
+    ['darkness / lamp', `${c.dark} tiles / ${c.lamp ? 'yes' : 'none'}`],
+    ['pointer and path pickups', c.pickups],
+    ['hopscotch / tic-tac-toe', `${c.hopscotch} / ${c.tic ? 'yes' : 'none'}`],
+    ['the father, standing about', c.figures],
+    ['secret room', c.secret ? `${c.secret} tiles` + (c.secretSwitch ? ', with its switch' : '') : 'none'],
+  ];
+  $('bigTable').innerHTML = rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('');
+  $('big').showModal();
+}
+$('big').addEventListener('click', (e) => { if (e.target.id === 'big') { $('big').close(); $('tip').classList.remove('show'); } });
+
+// ── the contract panel ───────────────────────────────────────────────────────
+// Reads MUST for the chapter, and lets a number be tried without editing the
+// file. Clearing a box turns the clause off for this session.
+function loadContract() {
+  const who = CHAPTERS[phaseIdx].who;
+  must = G.TUNER.mustFor(who);   // a prototype has no MUST row: every clause reads unset
+  $('contractFor').textContent = who;
+  const box = $('clauses'); box.textContent = '';
+  for (const { key, label } of G.TUNER.clauses()) {
+    const row = document.createElement('div');
+    row.className = 'clause' + (must[key] == null ? ' off' : '');
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.innerHTML = `${label}<span class="today">${key}</span>`;
+    const inp = document.createElement('input');
+    if (must[key] === 'all') { inp.type = 'text'; inp.value = 'all'; }
+    else { inp.type = 'number'; inp.value = must[key] ?? ''; }
+    inp.addEventListener('change', () => {
+      const v = inp.value.trim();
+      if (v === '') delete must[key];
+      else must[key] = (v === 'all') ? 'all' : Number(v);
+      row.classList.toggle('off', must[key] == null);
+      render();
+    });
+    row.append(name, inp);
+    box.appendChild(row);
+  }
+}
+
+function fillChapters() {
+  CHAPTERS = G.TUNER.phases().concat(G.TUNER.protos ? G.TUNER.protos() : []);
+  for (const [i, p] of CHAPTERS.entries()) {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = p.proto ? `· ${p.who}` : `${i} · ${p.who}`;
+    $('who').appendChild(o);
+  }
+}
+$('who').addEventListener('change', () => { phaseIdx = +$('who').value; loadContract(); render(); });
+for (const id of ['count', 'size', 'base', 'overlay']) $(id).addEventListener('change', render);
+$('reroll').addEventListener('click', () => { $('base').value = (Math.random() * 1e6 | 0); render(); });
+
+bootGame().then((w) => { G = w; fillChapters(); loadContract(); render(); })
+  .catch((e) => { $('verdict').innerHTML = '<span class="miss">the game would not start in the frame: '
+    + String(e.message || e) + '</span>'; });
+</script>
+</body>
+</html>

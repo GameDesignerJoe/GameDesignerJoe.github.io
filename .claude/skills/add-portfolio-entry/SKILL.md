@@ -87,6 +87,17 @@ Rules that the CSS enforces, so don't break them:
 
 Report the title, description, href, and image path you used. Leave the change uncommitted unless the user asks — then commit `index.html` and the new `art/` file together.
 
+**Always push portfolio changes straight to `main`, never to a feature branch.** This is the GitHub Pages site: `main` *is* the live site, so a tile sitting on a side branch isn't on the page. No pull request — commit the two files and push:
+
+```bash
+git checkout main && git pull origin main
+git add index.html art/<slug>.png
+git commit -m "Add <App> to the portfolio grid"
+git push -u origin main
+```
+
+If the session started you on a feature branch, move the work over to `main` before pushing (`git cherry-pick`, or commit on `main` directly) rather than pushing the branch. Treat this as the standing instruction for this skill — you don't need to ask again each time.
+
 ## Updating an app that's already listed
 
 Same flow, but delete the existing `<div>` block for that app first and re-insert it at the top. Refresh the screenshot too if the app has changed, remembering the `?v=N` bump.

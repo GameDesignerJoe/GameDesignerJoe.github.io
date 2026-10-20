@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Maze">
+<meta name="theme-color" content="#0d0f10">
+<link rel="preload" href="fp/caveat-latin.woff2" as="font" type="font/woff2" crossorigin>
+<title>The Maze — First Person</title>
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root { --ink: #ece7da; --dim: #b9b4a8; --bg: #0d0f10; --line: #2a2825; --gold: #e0c98a; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; overscroll-behavior: none; }
+  /* no zooming the page: someone pinched in on a button and couldn't get back out (the view takes every touch for the game, so
+     the pinch out never reached the browser). Only what scrolls keeps its one-finger scroll: the menu, the journal log, the
+     feedback box */
+  html, body { touch-action: none; }
+  #panel, #page.log > div, #fbText { touch-action: pan-y; }
+  body { font: 14px/1.35 Georgia, 'Times New Roman', serif; color: var(--ink); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* the world is drawn small and scaled up without smoothing: that is the pixel art */
+  #view { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; display: block; }
+  #bigmap { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: none; z-index: 3; touch-action: none; }
+  #mapBtn { position: fixed; top: calc(env(safe-area-inset-top) + 8px); left: 70px; display: none; z-index: 4; padding: 12px 14px; border-radius: 12px; background: #0d0f10aa; border: 1px solid var(--line); color: #cfc6b0; font: 14px Georgia, serif; }
+  #mini { position: fixed; top: calc(env(safe-area-inset-top) + 12px); right: 12px; display: none; opacity: .85; pointer-events: none; border: 1px solid var(--line); background: #0d0f10aa; }
+  #gear { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 10px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; background: #0d0f1088; cursor: pointer; z-index: 3; }
+  #gear svg { width: 24px; height: 24px; }
+  #hint { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 200px); transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: #0d0f1099; font-size: 15px; color: var(--dim); text-align: center; max-width: calc(100vw - 32px); box-sizing: border-box; pointer-events: none; transition: opacity 1.2s; }
+  #hint b { color: var(--ink); font-weight: normal; }
+  #hint.gone { opacity: 0; transition: opacity .5s; }
+  /* the stick, glowing, when you've stood a while and never touched it (training) */
+  #stick.glow { animation: stickGlow 1.6s ease-in-out infinite; }
+  @keyframes stickGlow { 50% { border-color: rgba(224,201,138,.8); box-shadow: 0 0 22px rgba(224,201,138,.45); } }
+  /* A small card, top left, only as tall as what's open in it — so the maze stays in view while
+     you tune it, and you can keep walking with it up. Drag a slider and everything but that row
+     fades out, the card's own background included, so you are looking at the change, not the panel. */
+  #panel { position: fixed; top: calc(env(safe-area-inset-top) + 8px); left: 8px; width: min(300px, calc(100vw - 16px)); max-height: calc(100vh - env(safe-area-inset-top) - 200px); max-height: calc(100dvh - env(safe-area-inset-top) - 200px); box-sizing: border-box; padding: 8px 12px 6px; background: #0d0f10d9; border: 1px solid var(--line); border-radius: 12px; transform: translateX(calc(-100% - 12px)); transition: transform .2s, background .15s, border-color .15s; z-index: 4; overflow-y: auto; font-size: 13px; }
+  @media (orientation: landscape) { #panel { max-height: calc(100dvh - 16px); } }
+  #panel.open { transform: none; }
+  #panel h1 { font-size: 14px; font-weight: normal; margin: 2px 0 4px; color: var(--dim); }
+  #panel details { border-top: 1px solid var(--line); padding: 0; }
+  #panel summary { cursor: pointer; color: var(--ink); font-size: 13px; padding: 7px 0; list-style: none; }
+  #panel summary::before { content: '▸'; display: inline-block; width: 14px; color: var(--dim); transition: transform .15s; }
+  #panel details[open] summary::before { transform: rotate(90deg); }
+  #panel summary::-webkit-details-marker { display: none; }
+  #panel .note { color: #7a756b; font-size: 11px; margin: 0 0 2px 14px; }
+  #panel label { display: grid; grid-template-columns: 82px 1fr 34px; align-items: center; gap: 6px; margin: 3px 0; color: var(--dim); font-size: 12px; transition: opacity .15s; }
+  #panel label b { font-weight: normal; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+  #panel input[type=range] { width: 100%; accent-color: var(--gold); margin: 4px 0; }
+  #panel select { grid-column: 2 / 4; background: #1b1a18; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px; font: inherit; }
+  #panel .btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+  #panel button, #panel a.btn { background: #1b1a18; color: var(--ink); border: 1px solid #3a3833; border-radius: 7px; padding: 5px 9px; font: inherit; font-size: 12px; text-decoration: none; cursor: pointer; }
+  #panel .meta { color: #7a756b; font-size: 11px; margin: 4px 0 6px; line-height: 1.5; }
+  #close { position: absolute; top: 4px; right: 4px; padding: 4px 8px !important; background: none !important; border: 0 !important; font-size: 15px !important; color: var(--dim) !important; }
+  #panel.drag, #panel.drag * { visibility: hidden; }
+  #panel.drag label.live, #panel.drag label.live * { visibility: visible; }
+  #panel.drag label.live { background: #0d0f10c0; border-radius: 8px; padding: 0 6px; }
+  #stick { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 14px); transform: translateX(-50%); width: 170px; height: 170px; border-radius: 50%; background: rgba(185,180,168,.06); border: 1px solid rgba(185,180,168,.22); touch-action: none; z-index: 2; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: rgba(185,180,168,.18); border: 1px solid rgba(185,180,168,.45); transition: background .12s; pointer-events: none; }
+  #stick.on #knob { background: rgba(185,180,168,.32); }
+  /* on the white theme the stick is drawn dark, or it vanishes into the haze */
+  body[data-theme=bleached] #stick { background: rgba(60,56,48,.07); border-color: rgba(60,56,48,.28); }
+  body[data-theme=bleached] #knob { background: rgba(60,56,48,.16); border-color: rgba(60,56,48,.45); }
+  body[data-theme=bleached] #stick.on #knob { background: rgba(60,56,48,.3); }
+  @media (orientation: landscape) { #stick { left: auto; right: 22px; bottom: calc(env(safe-area-inset-bottom) + 10px); transform: none; width: 150px; height: 150px; } }
+  @media (orientation: landscape) { body[data-stick=left] #stick { right: auto; left: calc(env(safe-area-inset-left) + 22px); } }
+  @media (orientation: landscape) { #hint { bottom: calc(env(safe-area-inset-bottom) + 18px); } }
+  #hud { position: fixed; top: calc(env(safe-area-inset-top) + 12px); right: 12px; display: flex; gap: 6px; z-index: 2; pointer-events: none; }
+  #hud span { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 9px; background: #0d0f10aa; color: var(--ink); font-size: 13px; }
+  #hud b { font-weight: normal; font-variant-numeric: tabular-nums; }
+  #hud i { display: inline-block; }
+  .ic-page { width: 9px; height: 12px; background: #7a5232; border-right: 2px solid #efe6cf; border-radius: 1px; }
+  .ic-chalk { width: 13px; height: 5px; background: #ece7da; border-radius: 2px; }
+  .ic-watch { width: 12px; height: 12px; border-radius: 50%; background: #efe6cf; border: 2px solid #c9a45a; box-sizing: border-box; position: relative; }
+  .ic-matches { width: 13px; height: 8px; border-radius: 1px; background: #b33a26; border-top: 3px solid #e6c34a; box-sizing: border-box; }
+  .ic-ball { width: 10px; height: 10px; border-radius: 50%; background: #eee9dc; border: 2px solid #b8322a; box-sizing: border-box; }
+  .ic-book { width: 10px; height: 13px; border-radius: 1px; background: #e6c34a; border-left: 3px solid #b8412f; box-sizing: border-box; }
+  .ic-watch::after { content: ''; position: absolute; left: 3px; top: 1px; width: 1px; height: 4px; background: #1e1812; }
+  .ic-charcoal { width: 13px; height: 5px; background: #2a2724; border: 1px solid #6a655c; border-radius: 2px; }
+  #hud span.pulse { animation: hudPulse .6s ease-out; }
+  @keyframes hudPulse { 0% { transform: scale(1.35); background: #e0c98a55; } 100% { transform: none; } }
+  #mini { top: calc(env(safe-area-inset-top) + 48px); }
+  #dbgArrow { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 14px); width: 34px; height: 34px; margin-left: -17px; z-index: 2; pointer-events: none; }
+  #dbgArrow svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  #glyphs { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 200px); transform: translateX(-50%); display: none; gap: 6px; padding: 6px; border-radius: 12px; background: #0d0f10dd; z-index: 3; }
+  #glyphs.show { display: flex; }
+  #glyphs button { width: 42px; height: 42px; border-radius: 9px; border: 1px solid #3a3833; background: #1b1a18; color: #ece7da; font-size: 20px; cursor: pointer; }
+  @media (orientation: landscape) { #glyphs { bottom: calc(env(safe-area-inset-bottom) + 20px); } }
+  #winSteps { white-space: pre-line; }
+  #opening { position: fixed; inset: 0; z-index: 9; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .9s; }
+  #opening.show { opacity: 1; pointer-events: auto; }
+  #opening p { max-width: 520px; margin: 0; color: #d9d3c4; font: italic 22px/1.45 Georgia, 'Times New Roman', serif; text-align: center; }
+  #opening small { margin-top: 18px; color: #8a857a; font: 15px Georgia, serif; }
+  #page { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 5; background: #0d0f1066; }
+  #page.show { opacity: 1; pointer-events: auto; }
+  /* the log of journals (a tap on the count): one long page, scrolled */
+  #hudPagesBox { pointer-events: auto; cursor: pointer; }
+  #page.log > div { max-height: 78vh; overflow-y: auto; touch-action: pan-y; }
+  /* Caveat (SIL Open Font License), the latin set, kept here so a page reads the same offline */
+  /* loaded at the start (fp.js), and `block`, not `swap`: Joe saw the first journal of a run come up in one hand and change
+     to another a frame later — the page drawn in a stand-in font while this one was still being fetched, then swapped */
+  @font-face { font-family: 'Caveat'; font-style: normal; font-weight: 400 700; font-display: block; src: url(fp/caveat-latin.woff2) format('woff2'); }
+  /* a journal page. Joe: "The Journal text doesn't look right anymore. It looks like web app art. I need
+     something more real." So: a sheet torn out of a ruled notebook — aged paper with grain and a darker
+     edge, a red margin, blue rules the handwriting sits on, a coffee ring, a slight tilt — in ink */
+  #page > div { position: relative; width: min(330px, calc(100vw - 40px)); box-sizing: border-box; padding: 34px 22px 20px 50px; color: #1f2c44;
+    background:
+      radial-gradient(circle at 97% 3%, transparent 26px, #7b5327aa 27px, #7b532744 29px, #7b532710 33px, transparent 36px),
+      linear-gradient(90deg, transparent 36px, #c0655a88 36px, #c0655a88 37px, transparent 37px, transparent 39px, #c0655a44 39px, #c0655a44 40px, transparent 40px),
+      repeating-linear-gradient(180deg, transparent 0 27px, #5c7fa644 27px 28px),
+      radial-gradient(ellipse at 50% 45%, transparent 55%, #6b4a1c38 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .24 0 0 0 0 .12 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      #e6dbc0;
+    background-position: 0 0, 0 0, 0 6px, 0 0, 0 0;
+    transform: rotate(-1.4deg) translateY(8px) scale(.98); transition: transform .5s;
+    box-shadow: 0 22px 40px #000b, 0 3px 8px #0007;
+    clip-path: polygon(0 1.6%, 3% .4%, 7% 1.4%, 11% .2%, 16% 1.2%, 21% .5%, 26% 1.7%, 31% .3%, 37% 1.1%, 42% .2%, 48% 1.5%, 53% .6%, 59% 1.3%, 64% .1%, 70% 1.2%, 75% .5%, 81% 1.6%, 86% .4%, 92% 1.3%, 96% .3%, 100% 1.1%, 100% 100%, 0 100%); }
+  #page.show > div { transform: rotate(-1.4deg); }
+  #page p { margin: 0 0 14px; font-family: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive; font-weight: 500; font-size: 24px; line-height: 28px; white-space: pre-line; text-shadow: 0 0 .4px #1f2c44aa; }
+  #page small { display: block; text-align: right; font-family: 'Caveat', 'Bradley Hand', cursive; font-size: 19px; color: #54607a; }
+  /* inside a closet: the hall through the vent's slats, and a way out */
+  #slats, #stepOut, #getUp { display: none; }
+  body.hiding #slats { display: block; position: fixed; inset: 0; pointer-events: none; z-index: 2;
+    background: repeating-linear-gradient(to bottom, #0b0a08f0 0 3.4vh, #0b0a0866 3.4vh 3.9vh, transparent 3.9vh 7.2vh, #0b0a0855 7.2vh 7.6vh),
+                radial-gradient(ellipse at center, transparent 50%, #0b0a08cc 100%); }
+  body.hiding #stepOut { display: block; position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 34px); transform: translateX(-50%); z-index: 3;
+    padding: 12px 26px; border-radius: 12px; border: 1px solid #6b5436; background: #1b1a18ee; color: #ece7da; font: inherit; font-size: 16px; }
+  body.hiding #stick, body.hiding #hud { display: none; }
+  /* sat at the card table (a memory room): the same button as the closet's, to get up */
+  body.seated #getUp { display: block; position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 34px); transform: translateX(-50%); z-index: 3;
+    padding: 12px 26px; border-radius: 12px; border: 1px solid #6b5436; background: #1b1a18ee; color: #ece7da; font: inherit; font-size: 16px; }
+  body.seated #stick, body.seated #hud { display: none; }
+  /* reading the picture book on the bed: its words, under the view */
+  #bookLine { display: none; }
+  body.seated.book #bookLine { display: block; position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 100px); transform: translateX(-50%); z-index: 3;
+    width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 10px 16px; border-radius: 12px; background: #0d0f10cc; color: #ece7da;
+    font: italic 18px/1.4 Georgia, serif; text-align: center; pointer-events: none; }
+  /* reading a page: the page is all there is */
+  body.waking #stick, body.waking #hud, body.waking #gear, body.waking #mini, body.waking #mapBtn, body.waking #feedbackBtn, body.waking #dbgArrow, body.waking #hint, body.waking #glyphs { visibility: hidden; }
+  body.reading #stick, body.reading #hud, body.reading #gear, body.reading #mini, body.reading #mapBtn, body.reading #feedbackBtn, body.reading #dbgArrow, body.reading #hint, body.reading #glyphs { visibility: hidden; }
+  /* between floors: black, the floor's number, and back */
+  /* the fire room's smoke, filling from the ceiling down (fp.js sets its opacity) */
+  #smoke { position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 5; background: #4a4642; }
+  /* the Feedback box: over everything, the game paused under it */
+  /* always on the HUD, beside the map button (or where it would be): fp.js sets `left` to follow it */
+  #feedbackBtn { position: fixed; top: calc(env(safe-area-inset-top) + 8px); left: 70px; z-index: 4; padding: 12px 14px; border-radius: 12px; background: #0d0f10aa; border: 1px solid var(--line); color: #cfc6b0; font: 14px Georgia, serif; cursor: pointer; }
+  #feedback { position: fixed; inset: 0; display: none; place-items: center; z-index: 8; background: #0d0f10cc; padding: 16px; box-sizing: border-box; }
+  #feedback.show { display: grid; }
+  #feedback > div { width: min(420px, 100%); box-sizing: border-box; background: #1b1a18; border: 1px solid #3a3833; border-radius: 12px; padding: 16px; color: var(--ink); }
+  #feedback h3 { margin: 0 0 10px; font: 18px Georgia, serif; }
+  #fbText { width: 100%; height: 38vh; min-height: 140px; box-sizing: border-box; resize: vertical; background: #0d0f10; color: var(--ink); border: 1px solid #3a3833; border-radius: 8px; padding: 10px; font: 16px/1.4 Georgia, serif; }
+  .fbRow { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+  .fbRow button { background: #2a2824; color: var(--ink); border: 1px solid #4a4740; border-radius: 8px; padding: 9px 16px; font: 15px Georgia, serif; cursor: pointer; }
+  #fbSend { background: #4a3d24; border-color: #7a643a; }
+  #fbNote { margin: 10px 0 0; min-height: 1.2em; font: 14px Georgia, serif; color: var(--dim); }
+  #fade { position: fixed; inset: 0; display: grid; place-items: center; background: #050506; opacity: 0; pointer-events: none; transition: opacity .45s; z-index: 6; }
+  #fade.show { opacity: 1; pointer-events: auto; }
+  #fade.white { background: #d9d6cc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); transition: opacity .12s; }
+  #fade span { font-family: Georgia, serif; font-size: 22px; letter-spacing: .25em; color: #cfc6b0; text-transform: uppercase; }
+  #win { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(#f3e6c055, #0d0f10ee 70%); opacity: 0; pointer-events: none; transition: opacity 1.4s; z-index: 5; text-align: center; }
+  #win.show { opacity: 1; pointer-events: auto; }
+  #win h2 { font-weight: normal; font-size: 34px; margin: 0 0 6px; letter-spacing: .04em; }
+  #win p { color: var(--dim); margin: 0 0 20px; }
+  #win button { background: #1b1a18; color: var(--ink); border: 1px solid #6b5436; border-radius: 10px; padding: 10px 18px; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<canvas id="mini"></canvas>
+<canvas id="bigmap"></canvas>
+<div id="mapBtn">map</div>
+<div id="feedbackBtn">Feedback</div>
+<div id="gear"><svg viewBox="0 0 24 24" fill="none" stroke="#b9b4a8" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></div>
+<div id="stick"><div id="knob"></div></div>
+<div id="hint" class="gone"></div>
+<div id="panel">
+  <button id="close">✕</button>
+  <h1>First person · tuning</h1>
+  <details data-sec="look"><summary>Look</summary>
+  <label><span>Theme</span><select id="optTheme"></select></label>
+    <div data-knobs="look"></div>
+  </details>
+  <details data-sec="stick"><summary>Stick</summary>
+  <label><span>Movement</span><select id="optMove"><option value="glide">Glide — free, with help</option><option value="rails">Rails in halls, free in rooms</option><option value="free">Free, no help</option></select></label>
+  <label><span>Rails bends</span><select id="optBends"><option value="true">Follow the hall round</option><option value="false">Stop, lean to turn</option></select></label>
+    <div data-knobs="stick"></div>
+  </details>
+  <details data-sec="glide"><summary>Glide help</summary>
+    <div class="note">Only in Glide. Each 0 is off.</div>
+    <div data-knobs="glide"></div>
+  </details>
+  <details data-sec="light"><summary>Lighting</summary>
+    <div data-knobs="light"></div>
+  </details>
+  <details data-sec="sound"><summary>Sound</summary>
+  <label><span>Sound</span><select id="optSound"><option value="true">On</option><option value="false">Off</option></select></label>
+  <label><span>Music</span><select id="optMusic"><option value="auto">Follow the chapter</option></select></label>
+    <div data-knobs="sound"></div>
+  </details>
+  <details data-sec="maze"><summary>Maze</summary>
+    <div class="note">The top-down's own. Here they change the maze, never your top-down save.</div>
+  <label><span>Level</span><select id="optLevel"><option value="save">From my save</option></select></label>
+  <label><span>Stones</span><select id="optStones"><option value="level">As the level</option></select></label>
+  <label><span>Prototype</span><select id="optM_proto"><option value="off">Off</option><option value="push2">Two-way blocks</option><option value="laby">Labyrinth</option><option value="gallery">Room gallery</option><option value="giant">Giant: ten X-Larges, everything on</option><option value="districts">Districts: content first</option></select></label>
+  <label><span>Size</span><select id="optM_size"><option value="auto">Auto</option><option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option><option value="xl">X-Large</option></select></label>
+  <label><span>Branching</span><select id="optM_branch"><option value="auto">Auto</option><option value="0.05">Long halls</option><option value="0.15">Few forks</option><option value="0.35">Default</option><option value="0.6">Busy</option><option value="0.9">Shrub</option></select></label>
+  <label><span>Turns</span><select id="optM_turns"><option value="auto">Auto</option><option value="fewer">Fewer</option><option value="sparse">Sparse</option><option value="least">Least</option></select></label>
+  <label><span>Districts</span><select id="optM_clusters"><option value="auto">Auto</option><option value="off">Off</option><option value="rings">All rings</option><option value="thicket">All thicket</option><option value="comb">All comb</option><option value="lattice">All lattice</option><option value="squeeze">All squeeze</option><option value="shifting">All shifting</option></select></label>
+  <label><span>Loops</span><select id="optM_braid"><option value="auto">Auto</option><option value="0">None</option><option value="0.1">Few</option><option value="0.2">Some</option><option value="0.35">Many</option></select></label>
+  </details>
+  <details data-sec="debug"><summary>Debug</summary>
+  <label><span>Show path</span><select id="optShowPath"><option value="false">Off</option><option value="true">On the floor</option></select></label>
+  <label><span>Arrow</span><select id="optShowArrow"><option value="false">Off</option><option value="true">Points to the exit</option></select></label>
+  <label><span>Chalk</span><select id="optChalkInf"><option value="false">Counted</option><option value="true">Infinite</option></select></label>
+    <div data-knobs="debug"></div>
+  <label><span>Debug map</span><select id="optMap"><option value="off">Off</option><option value="walked">Where I've walked</option><option value="full">Whole maze</option><option value="screen">Full screen: tap to go</option></select></label>
+  <label><span>Stick in landscape</span><select id="optStick"><option value="left">Left</option><option value="right">Right</option></select></label>
+    <div class="btns">
+      <button id="fullscreen">Full screen</button>
+      <button id="hardRefresh">Hard refresh</button>
+      <button id="restart">Restart</button>
+      <button id="fatherNow">Father next</button>
+      <button id="toStairs">To the stairs</button>
+      <button id="toStory">To a story room</button>
+      <button id="toHeart">To the heart</button>
+      <button id="undoLies">Cross out the lies</button>
+      <button id="leaveWatch">Leave the watch</button>
+      <button id="shelveBook">Put the book away</button>
+      <button id="beingNow">Being now</button>
+      <button id="newMaze">New maze</button>
+      <a class="btn" id="topdown" href="maze-topdown.html">Top-down view</a>
+      <button id="resetTraining">Reset training</button>
+      <button id="resetKnobs">Reset knobs</button>
+    </div>
+    <div class="meta">Top-down opens this seed unless it has a run in progress to resume.<br>Seed <span id="seed"></span> · <span id="who"></span><br><span id="ver"></span> · <span id="fps"></span><br>Keys: W/↑/8 walk · S/↓/2 back · A D / ← → / 4 6 turn · Shift+A/D or Q E sidestep · Space, X or 0: whatever's ahead (take, open, chalk, step out) · click to tap</div>
+  </details>
+</div>
+<div id="dbgArrow" style="display:none"><svg viewBox="0 0 24 24"><path d="M4 12h14m-5-5 5 5-5 5" fill="none" stroke="#e0c98a" stroke-width="2.4" stroke-linecap="round"/></svg></div>
+<div id="hud"><span id="hudPagesBox"><i class="ic-page"></i><b id="hudPages">0</b></span><span id="hudChalkBox"><i class="ic-chalk"></i><b id="hudChalk">0</b></span><span id="hudCharcoalBox"><i class="ic-charcoal"></i><b id="hudCharcoal">0</b></span><span id="hudWatchBox" style="display:none"><i class="ic-watch"></i></span><span id="hudBookBox" style="display:none"><i class="ic-book"></i></span><span id="hudMatchesBox" style="display:none"><i class="ic-matches"></i></span><span id="hudBallBox" style="display:none"><i class="ic-ball"></i></span></div>
+<div id="glyphs"><button data-g="x">✕</button><button data-g="?">?</button><button data-g="left">←</button><button data-g="up">↑</button><button data-g="down">↓</button><button data-g="right">→</button></div>
+<div id="slats"></div>
+<button id="stepOut">Step out</button>
+<button id="getUp">Get up</button>
+<div id="bookLine"></div>
+<div id="page"><div><p id="pageText"></p><small id="pageWho"></small></div></div>
+<div id="smoke"></div>
+<div id="feedback"><div><h3 id="fbTitle"></h3><textarea id="fbText" maxlength="4000"></textarea><div class="fbRow"><button id="fbCancel"></button><button id="fbSend"></button></div><p id="fbNote"></p></div></div>
+<div id="fade"><span id="fadeText"></span></div>
+<div id="opening" class="show"><p id="openingText"></p><small id="openingBy"></small></div>
+<div id="win"><div><h2>Exit</h2><p id="winSteps"></p><button id="again">Another maze</button></div></div>
+
+<!-- The top-down's own tuning and generator, unchanged: a seed is the same maze in both views -->
+<script src="data/config.js"></script>
+<script src="data/phases.js"></script>
+<script src="data/text.js"></script>
+<script src="data/music.js"></script>
+<script src="js/core.js"></script>
+<script src="js/generate.js"></script>
+<script src="js/proto.js"></script>
+<script src="js/districts.js"></script>
+<script src="js/contract.js"></script>
+<script src="js/audio.js"></script>
+<!-- First person: its knobs, its pixel art, its renderer -->
+<script src="fp/config.js"></script>
+<script src="fp/textures.js"></script>
+<script src="fp/sound.js"></script>
+<script src="fp/fp.js"></script>
+</body>
+</html>

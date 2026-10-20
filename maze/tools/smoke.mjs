@@ -1,0 +1,3138 @@
+#!/usr/bin/env node
+// The Maze — behaviour smoke test.
+//
+// The other half of docs/HANDOFF.md §9: boot the page, tap the sleeper, walk,
+// mark, save and reload, and check the movement values. §9 exists because the
+// recentering ease went missing for two versions while every frame still
+// rendered — so these assert what the game *does*, driven through real touch
+// input, not what it draws.
+//
+// Also checks that every id the script reaches for actually exists, after the
+// CSS range-replacement that once left the game paused on an invisible card.
+//
+//   node maze/tools/smoke.mjs [--port 8765] [--seed 4242] [--headed]
+//
+// Needs a static server on --port, e.g. python3 -m http.server 8765 from the repo root.
+
+import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { ensureServer } from './serve.mjs';
+
+const argv = process.argv.slice(2);
+const arg = (n, d) => { const i = argv.indexOf('--' + n); return i === -1 ? d : argv[i + 1]; };
+const PORT = Number(arg('port', 8765));
+const SEED = Number(arg('seed', 4242));
+const PAGE_URL = `http://127.0.0.1:${PORT}/maze/maze-topdown.html?seed=${SEED}`;
+
+const stopServer = await ensureServer(PORT);
+const results = [];
+const check = (name, pass, detail = '') => {
+  results.push({ name, pass, detail });
+  console.log(`  ${pass ? 'ok  ' : 'FAIL'}  ${name}${detail ? `\n          ${detail}` : ''}`);
+};
+
+const browser = await chromium.launch({
+  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  args: ['--no-sandbox'],
+  headless: !argv.includes('--headed'),
+});
+const ctx = await browser.newContext({
+  viewport: { width: 430, height: 900 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2,
+});
+
+// Watch the loudest gain any node is set to, so the swing falloff (v0.35.0)
+// can be measured from outside the audio module.
+await ctx.addInitScript(() => {
+  window.__peak = 0;
+  window.__osc = 0;          // oscillators created — the drone and every music note make one
+  window.__voices = [];      // {t, oscillator} per voice, so a note's voices can be grouped
+  const Native = window.AudioContext || window.webkitAudioContext;
+  if (!Native) return;
+  class Probed extends Native {
+    constructor(...a) {
+      super(...a);
+      const osc = this.createOscillator.bind(this);
+      this.createOscillator = (...b) => { window.__osc++; const n = osc(...b);
+        // every voice of one note is made in the same tick, so the tick groups them
+        window.__voices.push({ t: performance.now(), n }); return n; };
+      const g = this.createGain.bind(this);
+      this.createGain = (...b) => {
+        const n = g(...b);
+        for (const m of ['setValueAtTime', 'linearRampToValueAtTime']) {
+          const o = n.gain[m].bind(n.gain);
+          n.gain[m] = (v, ...r) => { if (v > window.__peak) window.__peak = v; return o(v, ...r); };
+        }
+        return n;
+      };
+    }
+  }
+  window.AudioContext = Probed; window.webkitAudioContext = Probed;
+});
+const page = await ctx.newPage();
+const pageErrors = [];
+const fmtOf = (ms) => `${Math.floor(ms / 60000)}m ${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}s`;
+page.on('pageerror', (e) => pageErrors.push(String(e)));
+
+console.log('The Maze — behaviour smoke test');
+await page.goto(PAGE_URL, { waitUntil: 'load' });
+await page.waitForTimeout(1400);
+
+const version = await page.evaluate(() => VERSION);
+console.log(`  game v${version} at ${PAGE_URL}\n`);
+
+// ── the generation sweeps, run first and side by side ─────────────
+// Four of the checks below are pure sweeps of generate() over hundreds of seeds — no clock, no input, nothing but
+// the generator — and together they were three minutes of a seven-minute run, one after another in the one page.
+// They run here instead, before anything else, in pages of their own (a context of their own, so no storage is
+// shared), all at once: the machine has the cores. Nothing timing-sensitive runs until they're done, so they can't
+// starve a frame-counting check (v0.88.0). Each check still reads its numbers where it always did, and the main page
+// is then put back as its sweep would have left it (`settle`: the sweep's last maze), so what follows is unchanged.
+const SWEEP_FNS = {
+  vaultedA: [(phs) => {
+  let keys = 0, inNest = 0, doorN = 0, mazes = 0;
+  for (const ph of phs) for (let s2 = 1; s2 <= 60; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 19 + ph); mazes++; doorN += doors.length;
+    const nests = new Set(keyVaults.map((v) => v.cx + ',' + v.cy));
+    for (const [k] of innerKeys) { keys++; if (nests.has(k)) inNest++; }
+  }
+  return { keys, inNest, doorN, mazes };
+}, [1, 2, 3, 4]],
+  vaultedB: [(phs) => {
+  let keys = 0, inNest = 0, doorN = 0, mazes = 0;
+  for (const ph of phs) for (let s2 = 1; s2 <= 60; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 19 + ph); mazes++; doorN += doors.length;
+    const nests = new Set(keyVaults.map((v) => v.cx + ',' + v.cy));
+    for (const [k] of innerKeys) { keys++; if (nests.has(k)) inNest++; }
+  }
+  return { keys, inNest, doorN, mazes };
+}, [5, 6, 7]],
+  manifest: [() => {
+  let want = 0, got = 0, none = 0, mazes = 0;
+  for (const ph of [1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 19 + ph); mazes++;
+    const n = PHASES[ph].f.doors || 0;
+    want += n; got += doors.length;
+    if (n && !doors.length) none++;
+  }
+  return { want, got, none, mazes };
+}],
+  wetPages: [() => {
+  let pages = 0, inPool = 0, wet = 0;
+  for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 25; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
+    for (const k of journals.keys()) { pages++; const [x, y] = k.split(',').map(Number);
+      const L = landmarks.find((l) => l.kind === 'pool' && l.rx0 <= x && x <= l.rx1 && l.ry0 <= y && y <= l.ry1);
+      if (!L) continue; inPool++;
+      if (!(x === L.rx0 || x === L.rx1 || y === L.ry0 || y === L.ry1)) wet++; } }
+  return { pages, inPool, wet };
+}],
+  shrineGen: [() => {
+  let mazes = 0, statues = 0, stones = 0, theirs = 0, strays = [];
+  for (const ph of [0, 1, 2, 3, 4, 5, 6, 7]) for (let s2 = 1; s2 <= 30; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 19 + ph);
+    mazes++; statues += shrines.length; stones += offerings.size;
+    // one person to a chapter: every statue and every stone here is theirs
+    const want = phase().f.shrines;
+    for (const sh of shrines) if (sh.who === want) theirs++; else strays.push(`${phase().who} statue ${sh.who}`);
+    for (const who of offerings.values()) if (who === want) theirs++; else strays.push(`${phase().who} stone ${who}`);
+  }
+  return { mazes, statues, stones, theirs, strays: strays.slice(0, 4), strayN: strays.length };
+}],
+};
+const SWEPT = {};
+{
+  const t0 = Date.now(), sweepCtx = await browser.newContext();
+  const lanes = [['vaultedA'], ['vaultedB'], ['manifest', 'wetPages'], ['shrineGen']];
+  await Promise.all(lanes.map(async (lane) => {
+    const p = await sweepCtx.newPage();
+    p.on('pageerror', (e) => pageErrors.push('sweep: ' + String(e)));
+    await p.goto(PAGE_URL, { waitUntil: 'load' }); await p.waitForTimeout(1400);
+    for (const name of lane) { const [fn, a] = SWEEP_FNS[name]; SWEPT[name] = await p.evaluate(fn, a); }
+    await p.close();
+  }));
+  await sweepCtx.close();
+  console.log(`  (generation sweeps: ${Math.round((Date.now() - t0) / 1000)}s, side by side)\n`);
+}
+const settle = (ph, seed) => page.evaluate(([ph, s]) => { SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s); }, [ph, seed]);
+
+// ── 1. boots to the title screen, asleep ─────────────────────────
+const boot = await page.evaluate(() => ({
+  started, hasTitle: !!document.getElementById('title'),
+  titleHidden: document.getElementById('title').classList.contains('hide'),
+  pre: document.body.classList.contains('pre'),
+  who: phase().who, zoom: zoomS, titleZoom: CONFIG.titleTilePx,
+}));
+check('boots to the title screen, asleep', !boot.started && boot.hasTitle && !boot.titleHidden && boot.pre,
+  `started=${boot.started} pre=${boot.pre} zoom=${boot.zoom} (title zoom ${boot.titleZoom}) as ${boot.who}`);
+
+// ── 2. every id the script reaches for exists ───────────────────
+// The engine lives in js/*.js since v0.33.0; the shell still holds the markup.
+const engineDir = new URL('../js/', import.meta.url);
+const src = [readFileSync(new URL('../maze-topdown.html', import.meta.url), 'utf8')]
+  .concat(readdirSync(engineDir).filter((f) => f.endsWith('.js'))
+    .map((f) => readFileSync(new URL(f, engineDir), 'utf8')))
+  .join('\n');
+const ids = [...new Set([...src.matchAll(/\$\('([A-Za-z][\w-]*)'\)/g)].map((m) => m[1]))];
+const idReport = await page.evaluate((list) => {
+  const rules = new Set();
+  for (const sheet of document.styleSheets) {
+    try { for (const r of sheet.cssRules) if (r.selectorText) rules.add(r.selectorText); }
+    catch (e) { /* cross-origin sheet */ }
+  }
+  const css = [...rules].join(' ');
+  return list.map((id) => ({ id, exists: !!document.getElementById(id), styled: css.includes('#' + id) }));
+}, ids);
+const missing = idReport.filter((r) => !r.exists);
+check(`every $('id') in the script exists in the DOM (${ids.length} ids)`, missing.length === 0,
+  missing.length ? `missing: ${missing.map((m) => m.id).join(', ')}` : '');
+const unstyled = idReport.filter((r) => r.exists && !r.styled);
+console.log(`          (${idReport.length - unstyled.length} of ${idReport.length} also have a CSS rule; `
+  + `no rule for: ${unstyled.map((u) => u.id).join(', ') || 'none'})`);
+
+// ── 2b. the script tags load in the order the engine expects ────
+// 20 plain scripts sharing one global scope: order is load-bearing. Reordering
+// them, or dropping one, breaks the game in ways a glance at the page will not
+// show. Assert the sequence.
+const shell = readFileSync(new URL('../maze-topdown.html', import.meta.url), 'utf8');
+const tagOrder = [...shell.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
+const EXPECTED = [
+  'data/config.js', 'data/phases.js', 'data/text.js', 'data/music.js',
+  'js/core.js', 'js/generate.js', 'js/proto.js', 'js/districts.js', 'js/contract.js', 'js/audio.js', 'js/state.js', 'js/input.js',
+  'js/stories.js', 'js/run-save.js', 'js/tutorials.js', 'js/pool.js', 'js/map.js',
+  'js/movement.js', 'js/render.js', 'js/boot.js',
+];
+check('script tags load data first, then the engine in order',
+  JSON.stringify(tagOrder) === JSON.stringify(EXPECTED),
+  tagOrder.length === EXPECTED.length
+    ? `${tagOrder.length} tags, in order`
+    : `got ${tagOrder.length} tags: ${tagOrder.join(' ')}`);
+
+// Every file the shell references must actually be there.
+const onDisk = new Set([...readdirSync(new URL('../js/', import.meta.url)).map((f) => 'js/' + f),
+  ...readdirSync(new URL('../data/', import.meta.url)).map((f) => 'data/' + f)]);
+const absent = tagOrder.filter((t) => !onDisk.has(t));
+const orphans = [...onDisk].filter((f) => f.endsWith('.js') && !tagOrder.includes(f));
+check('every referenced script exists, and none is left unloaded', absent.length === 0 && orphans.length === 0,
+  `${absent.length ? 'missing: ' + absent.join(', ') + '; ' : ''}`
+  + `${orphans.length ? 'on disk but never loaded: ' + orphans.join(', ') : 'no orphans'}`);
+
+// ── 2c. the stylesheet actually loaded ──────────────────────────
+// Since v0.34.0 the CSS is an external file. A 404 on it leaves the game
+// unstyled — canvas still renders, every other check here still passes, and
+// nothing says why it looks wrong. So check the sheet is attached and full.
+const sheet = await page.evaluate(() => {
+  const link = [...document.querySelectorAll('link[rel=stylesheet]')].map((l) => l.getAttribute('href'));
+  let rules = 0, external = 0;
+  for (const s of document.styleSheets) {
+    if (s.href) external++;
+    try { rules += s.cssRules.length; } catch (e) { /* unreadable over file:// */ }
+  }
+  return { link, external, rules, bodyBg: getComputedStyle(document.body).backgroundColor };
+});
+check('the external stylesheet loaded and parsed', 
+  sheet.link.includes('css/style.css') && sheet.external === 1 && sheet.rules > 150,
+  `link ${JSON.stringify(sheet.link)}, ${sheet.external} external sheet(s), `
+  + `${sheet.rules} rules, body background ${sheet.bodyBg}`);
+
+// ── 3. movement knobs are present and sane ──────────────────────
+// The recentering incident: a block silently failed to insert and the values
+// vanished. Assert they exist and are in the range the settled design needs.
+const knobs = await page.evaluate(() => ({
+  speed: CONFIG.speed, turnBufferMs: CONFIG.turnBufferMs, turnForgiveness: CONFIG.turnForgiveness,
+  stickDeadzone: CONFIG.stickDeadzone, cameraLag: CONFIG.cameraLag, pushHoldMs: CONFIG.pushHoldMs,
+  hasRecenterVar: typeof recenter !== 'undefined',
+}));
+const knobsOk = knobs.speed > 0 && knobs.turnBufferMs >= 100 && knobs.turnForgiveness > 0
+  && knobs.stickDeadzone > 0 && knobs.stickDeadzone < 1 && knobs.cameraLag > 0 && knobs.pushHoldMs > 0
+  && knobs.hasRecenterVar;
+check('movement knobs present and in range', knobsOk, JSON.stringify(knobs));
+
+// ── 4. tapping the sleeper starts the run ───────────────────────
+const cdp = await ctx.newCDPSession(page);
+const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', {
+  type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }],
+});
+await touch('touchStart', 215, 450);
+await touch('touchEnd', 215, 450);
+await page.waitForTimeout(3600);   // introSeconds 2.8 plus slack
+const afterTap = await page.evaluate(() => ({
+  started, pre: document.body.classList.contains('pre'),
+  titleHidden: document.getElementById('title').classList.contains('hide'),
+  zoom: Math.round(zoomS), tilePx: CONFIG.tilePx,
+}));
+check('tapping the sleeper begins the run and zooms out', afterTap.started && !afterTap.pre,
+  `started=${afterTap.started} zoom=${afterTap.zoom} (play zoom ${afterTap.tilePx})`);
+
+// ── 5. the stick walks, smoothly, on the centreline ─────────────
+// Push north from the stick's centre and sample the player each frame.
+const stick = await page.evaluate(() => {
+  const r = document.getElementById('stick').getBoundingClientRect();
+  return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+});
+const before = await page.evaluate(() => ({ x: player.x, y: player.y }));
+await touch('touchStart', stick.cx, stick.cy);
+const samples = [];
+for (const dy of [-20, -45, -70, -70, -70, -70, -70, -70, -70, -70]) {
+  await touch('touchMove', stick.cx, stick.cy + dy);
+  await page.waitForTimeout(90);
+  samples.push(await page.evaluate(() => ({ x: player.x, y: player.y, dir, held })));
+}
+await touch('touchEnd', stick.cx, stick.cy);
+await page.waitForTimeout(260);
+const after = await page.evaluate(() => ({ x: player.x, y: player.y }));
+
+const moved = Math.hypot(after.x - before.x, after.y - before.y);
+check('the stick moves the player', moved > 0.3,
+  `from (${before.x.toFixed(2)}, ${before.y.toFixed(2)}) to (${after.x.toFixed(2)}, ${after.y.toFixed(2)}) — ${moved.toFixed(2)} tiles`);
+
+// Continuity: no frame-to-frame jump big enough to be a snap.
+let worst = 0;
+for (let i = 1; i < samples.length; i++) {
+  worst = Math.max(worst, Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y));
+}
+check('movement is continuous, not snapped', worst < 1.5,
+  `largest step between samples: ${worst.toFixed(3)} tiles (a snap would land on a whole number)`);
+
+// Centreline: walking north, x should sit near a tile centre (.5).
+const offAxis = samples.map((s) => Math.abs((s.x % 1) - 0.5)).sort((a, b) => b - a)[0];
+check('walking holds the corridor centreline', offAxis < 0.2,
+  `worst off-centre while moving: ${offAxis.toFixed(3)} tiles from the .5 centreline`);
+
+// ── 6. chalk leaves a permanent mark ────────────────────────────
+const marked = await page.evaluate(() => {
+  chalk = Math.max(chalk, 3);            // give ourselves a piece to spend
+  const tx = Math.floor(player.x), ty = Math.floor(player.y);
+  const key = tx + ',' + ty;
+  const had = marks.size;
+  marks.set(key, 'x');                   // the glyph picker's own effect
+  saveRun(true);
+  return { key, had, now: marks.size };
+});
+check('a chalk mark lands and is recorded', marked.now === marked.had + 1,
+  `mark at ${marked.key}; marks ${marked.had} → ${marked.now}`);
+
+// ── 7. save and reload resumes in place ─────────────────────────
+const pre = await page.evaluate(() => {
+  saveRun(true);
+  return { x: player.x, y: player.y, marks: [...marks.keys()], steps, seed: SEED, phase: SAVE.phase };
+});
+await page.reload({ waitUntil: 'load' });
+await page.waitForTimeout(1800);
+const post = await page.evaluate(() => ({
+  x: player.x, y: player.y, marks: [...marks.keys()], started, seed: SEED, phase: SAVE.phase,
+}));
+const samePos = Math.hypot(post.x - pre.x, post.y - pre.y) < 0.75;
+const sameMarks = pre.marks.every((k) => post.marks.includes(k));
+check('reload resumes the run in place', samePos && sameMarks && post.seed === pre.seed,
+  `pos (${pre.x.toFixed(2)}, ${pre.y.toFixed(2)}) → (${post.x.toFixed(2)}, ${post.y.toFixed(2)}); `
+  + `marks ${pre.marks.length} → ${post.marks.length} kept=${sameMarks}; seed ${pre.seed} → ${post.seed}`);
+
+// ── 8. a pool level lays out and its stone opens the door ───────
+const pool = await page.evaluate(() => {
+  SAVE.poolPending = true;
+  generate(99); sliding = null;   // the world is swapped by hand here; a slide in flight belongs to the old one
+  const r = {
+    poolMode, hasDoor: !!poolDoor, stone: keySpot,
+    room: startRoom, pages: journals.size, dark: darkTiles.size,
+    pools: POOLS.length, whoAtThisStone: POOLS[Math.min(SAVE.stones || 0, POOLS.length - 1)]?.who,
+  };
+  SAVE.poolPending = false;
+  return r;
+});
+check('a pool level lays out with its stone and door', pool.poolMode && pool.hasDoor && !!pool.stone && pool.pages === 0,
+  `door=${pool.hasDoor} stone=${pool.stone} pages=${pool.pages} dark=${pool.dark}; `
+  + `${pool.pools} pools, this one hosts ${pool.whoAtThisStone}`);
+
+// ── 7b. a resumed run still gets its music ──────────────────────
+// restoreRun goes straight into the maze with no title, and the title tap was
+// the only thing that ever called AUDIO.begin(). Every reload used to come
+// back permanently silent — no drone, no composer, forever. Fixed in v0.36.0
+// by starting the bed on the first gesture instead.
+const resumedAudio = await page.evaluate(async () => {
+  const before = window.__osc || 0;
+  document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 6500));
+  return { before, after: window.__osc || 0, started };
+});
+check('a resumed run starts its music on the first touch',
+  resumedAudio.after - resumedAudio.before > 4,
+  `oscillators ${resumedAudio.before} → ${resumedAudio.after} `
+  + `(+${resumedAudio.after - resumedAudio.before} after one gesture on a resumed run)`);
+
+// ── 7c. Update app parks you on the mat with your progress ──────
+// Pressing it mid-corridor used to resume you mid-corridor, so you never got
+// the title tap and so never got sound back. It now keeps everything done and
+// only drops where you were standing. pagehide and the 6s autosave both fire
+// during the reload, so parking has to freeze saving or they write it back.
+const parked = await page.evaluate(() => {
+  const was = { steps, marks: marks.size, mapped: mapped.size, px: player.x, py: player.y };
+  parkRunAtHome();
+  return { was, run: { px: SAVE.run.px, py: SAVE.run.py, atHome: !!SAVE.run.atHome, steps: SAVE.run.steps },
+    startTile: { x: start.x, y: start.y } };
+});
+// and a later save must not clobber it
+const stuck = await page.evaluate(() => { saveRun(true); return { px: SAVE.run.px, atHome: !!SAVE.run.atHome }; });
+check('Update app parks the run on the mat and keeps what you did',
+  parked.run.atHome && parked.run.px === parked.startTile.x && parked.run.py === parked.startTile.y
+    && parked.run.steps === parked.was.steps && stuck.atHome && stuck.px === parked.startTile.x,
+  `stood at (${parked.was.px.toFixed(1)}, ${parked.was.py.toFixed(1)}), `
+  + `parked at (${parked.run.px}, ${parked.run.py}), mat is (${parked.startTile.x}, ${parked.startTile.y}); `
+  + `steps ${parked.was.steps} kept; survives a later saveRun: ${stuck.atHome}`);
+
+// ── 8b. a swing you are nowhere near does not thump in your ear ──
+// Swings move on their own anywhere in the maze. Before v0.35.0 every one of
+// them played at full volume wherever you stood — on the Child level that was
+// a low boom every 1.6s from something 25 tiles of walking away, loud enough
+// to bury the music. Assert the falloff, not just that a sound happens.
+const falloff = await page.evaluate(async () => {
+  // stand out in the maze first. Whatever ran before may have left the player on the mat, and a
+  // sealed start room is one tile of corridor to measure a falloff along.
+  { const mid = solutionPath[Math.floor(solutionPath.length / 2)];
+    if (mid) { player.x = mid[0] + 0.5; player.y = mid[1] + 0.5; } }
+  const home = { x: Math.floor(player.x), y: Math.floor(player.y) };
+  const tilesAt = [[0, [home.x, home.y]]];
+  const seen = new Set([home.x + ',' + home.y]);
+  let edge = [[home.x, home.y]];
+  for (let n = 1; n <= CONFIG.sfxRangeTiles + 2 && edge.length; n++) {
+    const next = [];
+    for (const [cx, cy] of edge) for (const [dx, dy] of DIRS) {
+      const ax = cx + dx, ay = cy + dy, k = ax + ',' + ay;
+      if (seen.has(k) || !isOpen(ax, ay)) continue;
+      seen.add(k); next.push([ax, ay]);
+    }
+    edge = next;
+    if (edge.length) tilesAt.push([n, edge[0]]);
+  }
+  const was = { x: player.x, y: player.y };
+  const rows = [];
+  for (const [d, [tx, ty]] of tilesAt) {
+    player.x = tx + 0.5; player.y = ty + 0.5;
+    window.__peak = 0;
+    AUDIO.swing(home.x, home.y);          // read synchronously; swing builds its nodes in this tick
+    rows.push([d, +window.__peak.toFixed(4)]);
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  player.x = was.x; player.y = was.y;
+  return { rows, near: CONFIG.sfxNearTiles, far: CONFIG.sfxRangeTiles };
+});
+const vols = falloff.rows.map(([, v]) => v);
+const loudClose = vols[0] > 0.1;
+const silentFar = falloff.rows.filter(([d]) => d >= falloff.far).every(([, v]) => v === 0);
+const monotonic = vols.every((v, i) => i === 0 || v <= vols[i - 1] + 1e-9);
+const reachedRange = falloff.rows.some(([d]) => d >= falloff.far);
+check('a swing fades with distance and goes silent out of earshot',
+  loudClose && silentFar && monotonic && reachedRange,
+  `near=${falloff.near} far=${falloff.far}; `
+  + falloff.rows.map(([d, v]) => `${d}:${v}`).join(' ')
+  + `${reachedRange ? '' : ' — corridor too short to reach the range limit'}`);
+
+// ── 8c. the Full map debug view: tap to stand there, pinch to zoom ──
+// A tap has to be told apart from a drag, and the zoom has to hold the point
+// under your fingers still, or panning a big maze on a phone is unusable.
+await page.evaluate(() => { setDebugMap(true); });
+await page.waitForTimeout(150);
+
+const target = await page.evaluate(() => {
+  const f = dbgFrame(), here = [Math.floor(player.x), Math.floor(player.y)];
+  let best = null, bd = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!isOpen(x, y) || (x === exit.x && y === exit.y)) continue;
+    const d = Math.abs(x - here[0]) + Math.abs(y - here[1]);
+    if (d > bd) { bd = d; best = [x, y]; }
+  }
+  return { tile: best, from: here, fitted: dbgView === null, px: f.ox + best[0] * f.S + f.S / 2, py: f.oy + best[1] * f.S + f.S / 2 };
+});
+await touch('touchStart', target.px, target.py);
+await page.waitForTimeout(40);
+await touch('touchEnd', target.px, target.py);
+await page.waitForTimeout(150);
+const landed = await page.evaluate(() => ({ x: Math.floor(player.x), y: Math.floor(player.y), cam: cam.x, solved }));
+check('a tap on the Full map stands you there',
+  target.fitted && landed.x === target.tile[0] && landed.y === target.tile[1]
+    && Math.abs(landed.cam - (landed.x + 0.5)) < 0.01 && !landed.solved,
+  `opened fitted; from ${target.from} tapped ${target.tile}, landed ${landed.x},${landed.y}, camera snapped with it`);
+
+const held = await page.evaluate(() => ({ x: player.x, y: player.y }));
+await touch('touchStart', 200, 400);
+for (const dx of [12, 30, 52, 78]) { await touch('touchMove', 200 + dx, 400); await page.waitForTimeout(30); }
+await touch('touchEnd', 278, 400);
+await page.waitForTimeout(120);
+const dragged = await page.evaluate(() => ({ x: player.x, y: player.y, v: dbgView && { cx: +dbgView.cx.toFixed(2), cy: +dbgView.cy.toFixed(2) } }));
+check('a drag pans the Full map instead of teleporting',
+  dragged.x === held.x && dragged.y === held.y && !!dragged.v,
+  `player unmoved at ${held.x.toFixed(1)},${held.y.toFixed(1)}; view centre ${JSON.stringify(dragged.v)}`);
+
+const zoom = await page.evaluate(() => {
+  const px = 300, py = 500, f0 = dbgFrame();
+  const w0 = [(px - f0.ox) / f0.S, (py - f0.oy) / f0.S];
+  for (let i = 0; i < 6; i++) dbgZoomAt(dbgHold().S * 1.12, px, py);
+  const f1 = dbgFrame(), w1 = [(px - f1.ox) / f1.S, (py - f1.oy) / f1.S];
+  for (let i = 0; i < 80; i++) dbgZoomAt(dbgHold().S * 1.3, px, py);
+  const capped = dbgFrame().S;
+  for (let i = 0; i < 120; i++) dbgZoomAt(dbgHold().S * 0.8, px, py);
+  const floored = dbgFrame().S;
+  return { S0: f0.S, S1: f1.S, drift: Math.hypot(w1[0] - w0[0], w1[1] - w0[1]), capped, floored,
+    max: CONFIG.debugMapMaxZoom, min: Math.min(innerWidth / W, (innerHeight - 260) / H) * CONFIG.debugMapMinZoom };
+});
+check('Full map zoom holds its anchor and stops at both ends',
+  zoom.S1 > zoom.S0 * 1.5 && zoom.drift < 0.01
+    && Math.abs(zoom.capped - zoom.max) < 0.01 && Math.abs(zoom.floored - zoom.min) < 0.01,
+  `${zoom.S0.toFixed(1)} → ${zoom.S1.toFixed(1)} px/tile, anchor drift ${zoom.drift.toExponential(1)} tiles; `
+  + `in stops at ${zoom.capped.toFixed(1)} (cap ${zoom.max}), out at ${zoom.floored.toFixed(2)} (floor ${zoom.min.toFixed(2)})`);
+
+const offNow = await page.evaluate(() => { setDebugMap(false); return { x: player.x, y: player.y, v: dbgView }; });
+await touch('touchStart', 120, 300);
+await page.waitForTimeout(40);
+await touch('touchEnd', 120, 300);
+await page.waitForTimeout(120);
+const offAfter = await page.evaluate(() => ({ x: player.x, y: player.y, v: dbgView }));
+check('with Full map off, a tap on the maze does nothing',
+  offNow.x === offAfter.x && offNow.y === offAfter.y && offNow.v === null && offAfter.v === null,
+  `player still ${offAfter.x.toFixed(1)},${offAfter.y.toFixed(1)}; view reset to fitted on untick`);
+
+// ── 8d. getting a different maze, and not resuming into the wrong one ──
+// Changing a debug option restarts on the title screen. With Full map ticked the
+// whole maze used to be drawn over that screen, where the HUD is hidden and the
+// sleeper is a few pixels wide, so there was no way back to the menu at all.
+await page.evaluate(() => { setDebugMap(true); });
+await page.waitForTimeout(150);
+await page.evaluate(() => { const el = $('optSize'); el.value = 'lg'; el.dispatchEvent(new Event('change')); });
+await page.waitForTimeout(800);
+const onTitle = await page.evaluate(() => ({
+  started, debugMap, pre: document.body.classList.contains('pre'),
+  titleShown: !$('title').classList.contains('hide'),
+  S: Math.round(viewS), titleZoom: CONFIG.titleTilePx,
+  px: viewOx + player.x * viewS, py: viewOy + player.y * viewS,
+}));
+check('a debug option with Full map on leaves a title screen you can tap',
+  onTitle.titleShown && onTitle.pre && !onTitle.started && onTitle.debugMap && onTitle.S === onTitle.titleZoom,
+  `Full map still ticked, view is the title's ${onTitle.S}px/tile, sleeper at ${Math.round(onTitle.px)},${Math.round(onTitle.py)}`);
+
+await touch('touchStart', onTitle.px, onTitle.py);
+await page.waitForTimeout(40);
+await touch('touchEnd', onTitle.px, onTitle.py);
+await page.waitForTimeout(3600);
+const woke = await page.evaluate(() => ({ started, S: Math.round(viewS), fitted: Math.round(dbgFrame().S), gear: getComputedStyle($('gear')).opacity }));
+check('and the Full map comes back the moment you are awake',
+  woke.started && woke.S === woke.fitted && woke.gear === '1',
+  `awake, fitted to ${woke.S}px/tile, gear visible again`);
+
+const preNew = await page.evaluate(() => { SAVE.stones = 3; SAVE.collected = { 'The Child': [true] }; persist();
+  return { seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones, collected: JSON.stringify(SAVE.collected) }; });
+await page.evaluate(() => $('newMaze').click());
+await page.waitForTimeout(700);
+const postNew = await page.evaluate(() => ({ seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones,
+  collected: JSON.stringify(SAVE.collected), label: $('seedLbl').textContent, titleShown: !$('title').classList.contains('hide') }));
+check('New maze rerolls the seed and keeps everything you have done',
+  postNew.seed !== preNew.seed && postNew.phase === preNew.phase && postNew.stones === preNew.stones
+    && postNew.collected === preNew.collected && postNew.titleShown,
+  `seed ${preNew.seed} → ${postNew.seed}; phase ${postNew.phase}, ${postNew.stones} stones, pages kept; panel reads "${postNew.label}"`);
+
+// A run is rebuilt from its seed, so only the build that made it can resume it.
+const stale = await page.evaluate(() => {
+  $('title').classList.add('hide'); document.body.classList.remove('pre'); started = true;
+  parked = false;   // the Update-app check above froze saving; thaw it so this run is written
+  saveRun(true);
+  const mine = SAVE.run.seed;
+  SAVE.run.v = '0.0.1-not-this-build'; persist();
+  parked = true;   // pagehide autosaves on reload and would stamp the live version straight back
+  return { mine };
+});
+await page.reload({ waitUntil: 'load' });
+await page.waitForTimeout(900);
+const afterStale = await page.evaluate(() => ({ seed: SEED, stones: SAVE.stones, pages: JSON.stringify(SAVE.collected) }));
+check('a run saved by another build starts a fresh maze instead of resuming',
+  afterStale.seed !== stale.mine && afterStale.stones === 3 && afterStale.pages.includes('The Child'),
+  `run from another build dropped (seed ${stale.mine}), now on ${afterStale.seed}; stones and pages kept`);
+
+// ── 8e. the page counter, and the father who leaves ──────────────
+const books = await page.evaluate(() => {
+  SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; SAVE.collected = {}; SAVE.ui = {};
+  delete SAVE.run; reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const el = $('books');
+  const before = { bars: el.childElementCount, got: el.querySelectorAll('.got').length, pages: journals.size };
+  const k = [...journals.keys()][0];
+  if (!k) return { skip: true };
+  const [x, y] = k.split(',').map(Number);
+  journals.delete(k); pagesThisRun.push(0); updateBooks();
+  return { before, after: { bars: el.childElementCount, got: el.querySelectorAll('.got').length }, took: k };
+});
+check('the page counter shows one bar per page and fills as you find them',
+  !books.skip && books.before.bars === books.before.pages && books.before.bars > 0
+    && books.before.got === 0 && books.after.bars === books.before.bars && books.after.got === 1,
+  books.skip ? 'no pages on this maze' :
+  `${books.before.bars} bars for ${books.before.pages} pages, none filled; took ${books.took}, now ${books.after.got} filled`);
+
+// He is placed where you can see him across a wall but not walk to him. Seen, he waits, then goes.
+const dad = await page.evaluate(() => {
+  SAVE.phase = 0; SAVE.stones = 0; SAVE.ui = {}; delete SAVE.run; reset(7777);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const f = figures[0];
+  if (!f) return { skip: true };
+  const lit = litTiles();
+  let stand = null;
+  for (let y = 0; y < H && !stand; y++) for (let x = 0; x < W; x++) {
+    if (!isOpen(x, y)) continue;
+    const d = Math.hypot(x + 0.5 - f.x, y + 0.5 - f.y);
+    if (d > lit || d < 1.2 || walkable(x, y, Math.floor(f.x), Math.floor(f.y), 4)) continue;
+    stand = [x + 0.5, y + 0.5]; break;
+  }
+  if (!stand) return { skip: true };
+  player.x = stand[0]; player.y = stand[1];
+  const t0 = performance.now();
+  updateFigures(t0, 0.016);
+  const seen = f.seen, d0 = Math.hypot(f.x - player.x, f.y - player.y);
+  let t = t0, n = 0, movedAt = 0;
+  while (!f.gone && n < 900) { t += 16; updateFigures(t, 0.016); n++; if (!movedAt && Math.hypot(f.x - player.x, f.y - player.y) > d0 + 0.05) movedAt = (t - t0) / 1000; }
+  return { seen, d0, d1: Math.hypot(f.x - player.x, f.y - player.y), gone: f.gone, movedAt, secs: (t - t0) / 1000, linger: CONFIG.figureLingerSec };
+});
+check('the father waits where he stands, then walks away and is gone',
+  !dad.skip && dad.seen && dad.gone && dad.d1 > dad.d0 + 0.8 && dad.movedAt >= dad.linger * 0.9,
+  dad.skip ? 'no vantage tile on this maze' :
+  `seen at ${dad.d0.toFixed(1)} tiles, still for ${dad.movedAt.toFixed(1)}s (linger ${dad.linger}s), `
+  + `walked out to ${dad.d1.toFixed(1)} and faded by ${dad.secs.toFixed(1)}s`);
+
+// ── 8f. putting a burden down, and the waking that says so ───────
+// The upgrade after a pool is a bigger light, and nothing used to tell you: you just
+// played on. Now the next waking is slower and the light opens as it pulls out.
+await page.evaluate(() => {
+  SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = true; SAVE.collected = {}; SAVE.ui = {};
+  delete SAVE.run; delete SAVE.lifted; persist(); reset(4242); startPool();
+});
+let poolTaps = 0;
+for (let i = 0; i < 30; i++) {
+  const st = await page.evaluate(() => ({ shown: $('pool').classList.contains('show'), btn: !!document.querySelector('#poolChoices button') }));
+  if (!st.shown) break;
+  if (st.btn) { await page.evaluate(() => document.querySelector('#poolChoices button').click()); poolTaps++; }
+  await page.waitForTimeout(300);
+}
+const dropped = await page.evaluate(() => ({ stones: SAVE.stones, lifted: SAVE.lifted, phase: SAVE.phase }));
+const lift = await page.evaluate(async () => {
+  const before = { glow: +liftGlow.toFixed(3), band: liftBand, amt: liftBandAmt, radius: +B.viewRadius().toFixed(3) };
+  wake();
+  const rows = []; const t0 = performance.now();
+  await new Promise((r) => { const step = () => { rows.push([(performance.now() - t0) / 1000, +liftGlow.toFixed(3), +liftBandAmt.toFixed(2), Math.round(zoomS)]);
+    if (performance.now() - t0 > (CONFIG.liftBandSec + CONFIG.liftBurstSec + 0.5) * 1000) return r(); requestAnimationFrame(step); }; step(); });
+  const atBand = rows.filter((r) => r[0] < CONFIG.liftBandSec * 0.9);
+  return { before, bandSec: CONFIG.liftBandSec, burstSec: CONFIG.liftBurstSec, from: CONFIG.liftGlowFrom,
+    bandEnd: atBand.length ? atBand[atBand.length - 1][2] : 0,
+    heldDark: atBand.every((r) => Math.abs(r[1] - CONFIG.liftGlowFrom) < 0.01),
+    heldZoom: atBand.every((r) => r[3] === rows[0][3]),
+    endGlow: liftGlow, endBand: liftBand, endRadius: +B.viewRadius().toFixed(3), done: !intro, started };
+});
+check('a burden put down makes the next waking say so, in two beats',
+  dropped.lifted === 0 && dropped.stones === 1 && dropped.phase === 1
+    && Math.abs(lift.before.glow - lift.from) < 0.01 && lift.before.band === 0 && lift.before.amt === 0
+    && lift.bandEnd > 0.7 && lift.heldDark && lift.heldZoom
+    && lift.endGlow === 1 && lift.endBand === -1 && lift.done && lift.started,
+  `${poolTaps} taps through the pool, stone 0 down, phase ${dropped.phase}; `
+  + `wakes in the old light (${lift.before.glow} of full, ${lift.before.radius} tiles), `
+  + `a band of him goes pale over ${lift.bandSec}s with nothing else moving, `
+  + `then the light is cut out to ${lift.endRadius} tiles in ${lift.burstSec}s`);
+
+const plainWake = await page.evaluate(async () => {
+  SAVE.phase = 2; SAVE.stones = 1; SAVE.poolPending = false; delete SAVE.lifted; delete SAVE.run; persist();
+  reset(4242); wake();
+  const lift = !!intro.lift, g0 = liftGlow;
+  await new Promise((r) => setTimeout(r, (CONFIG.introSeconds + 0.5) * 1000));
+  return { lift, g0, glow: liftGlow, started, done: !intro };
+});
+check('an ordinary waking is exactly as it was',
+  !plainWake.lift && plainWake.g0 === 1 && plainWake.glow === 1 && plainWake.started && plainWake.done,
+  `no lift, light held at ${plainWake.glow} throughout, awake after ${await page.evaluate(() => CONFIG.introSeconds)}s`);
+
+// ── 8g. the glint on the start block, and a first step with nowhere to go ──
+// Two things that only bite after a delay, so nothing catches them by accident. The glint draws
+// the block's sliver again in the hint colour; when that stopped sharing the sliver code it threw
+// every frame, and a throw inside draw() never re-queues the frame loop — the game simply froze.
+const glint = await page.evaluate(async () => {
+  SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; delete SAVE.pushLearned; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const sl = sliders.find((s) => s.atStart);
+  if (!sl) return { skip: true };
+  player.x = sl.x + 0.5; player.y = sl.y + 0.5; firstPushDone = false; idleSince = gameNow() - CONFIG.hintIdleSec * 1000 - 2000;
+  const before = { frames: 0 };
+  let n = 0; const t0 = performance.now();
+  await new Promise((r) => { const step = () => { n++; if (performance.now() - t0 > 900) return r(); requestAnimationFrame(step); }; step(); });
+  return { frames: n, hint: CONFIG.hintIdleSec, ways: blockWays(sl).length, at: [sl.x, sl.y] };
+});
+check('the start block can glint without stopping the game',
+  !glint.skip && glint.frames > 20,
+  glint.skip ? 'no start block on this phase' :
+  `stood still past ${glint.hint}s on the block at ${glint.at}; ${glint.frames} frames drawn while it glinted, ${glint.ways} sliver(s) on it`);
+
+// The scripted step off the mat outranks the stick and only clears when you change tile. Facing a
+// wall it never cleared, and the stick stayed dead for the rest of the run.
+const boxedIn = await page.evaluate(async () => {
+  SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  // wall him in on all four sides, then hand him the scripted step
+  const cx = Math.floor(player.x), cy = Math.floor(player.y), was = [];
+  for (const [dx, dy] of DIRS) { was.push([cx + dx, cy + dy, tiles[cy + dy][cx + dx]]); tiles[cy + dy][cx + dx] = 0; }
+  introWalk = { dx: 0, dy: -1 }; held = { dx: 1, dy: 0 };
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const cleared = introWalk === null;
+  for (const [x, y, v] of was) tiles[y][x] = v;
+  held = null;
+  return { cleared };
+});
+check('a scripted first step with nowhere to go gives up instead of holding the stick',
+  boxedIn.cleared, 'walled in on all four sides, introWalk cleared itself on the next frame');
+
+// ── 8h. the gauntlet's auto-moving floor ──────────────────────────
+// A cell of the exit tree's trunk slides out of the way on a clock and comes back, so the way on
+// is a hole half the time. It must actually take the floor with it, and it must always give it
+// back — a hole that stayed would be a soft lock on the only route out.
+const gswing = await page.evaluate(async () => {
+  let sl = null;
+  for (let s = 0; s < 40 && !sl; s++) {
+    SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+    delete SAVE.run; persist(); reset(7000 + s * 11);
+    sl = sliders.find((x) => x.gauntlet) || null;
+  }
+  if (!sl) return { skip: true };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  // Never park him in the swing's path: the swing refuses to slide into you, so standing on the tile
+  // it wants pins it at home forever and the check reads "floor 135 frames, hole 0". That was an
+  // intermittent failure for as long as this check has existed — DIRS order decides which side he
+  // waits on, and sometimes that side is the one it travels to.
+  // Never park him on either tile the swing travels between: it refuses to slide into you, so
+  // standing on the one it wants pins it at home forever and the check reads "hole 0". Both ways —
+  // a swing that starts shifted travels *back*, which is how this kept failing after I excluded
+  // only the forward one.
+  const side = DIRS.find(([dx, dy]) => isOpen(sl.x + dx, sl.y + dy)
+    && !(dx === sl.dx && dy === sl.dy) && !(dx === -sl.dx && dy === -sl.dy));
+  if (!side) return { skip: true };
+  player.x = sl.x + side[0] + 0.5; player.y = sl.y + side[1] + 0.5;   // waiting at the squeeze beside it
+  // Deterministic, twice over. `nextAt = 0` reads as "unset" to the swing loop, which then schedules
+  // the first move a *random* fraction of swingSeconds away — and the loop runs on gameNow(), which
+  // a card left up by an earlier check freezes, so the move could simply never come due. Setting a
+  // real time makes it fire on the first frame, and clearing `paused` keeps the clock running.
+  // `nextAt = 0` reads as "unset" to the swing loop, which schedules the first move a random fraction
+  // of swingSeconds away — fine, as long as the window is long enough to see several whole cycles.
+  // Forcing it to fire on frame one instead was worse: the sampling then started mid-slide and only
+  // ever caught one state. Clearing `paused` is the part that matters: the loop runs on gameNow(),
+  // which a card left up by an earlier check freezes, so the move never came due at all.
+  const wasSec = CONFIG.swingSeconds; CONFIG.swingSeconds = 0.35;
+  CONFIG.tutorials = false; paused = false; sl.nextAt = 0;
+  const seen = { home: 0, away: 0, moves: 0 };
+  let wasHome = null;
+  const t0 = performance.now();
+  await new Promise((r) => { const step = () => {
+    if (tiles[sl.y][sl.x]) seen.home++;
+    if (tiles[sl.y + sl.dy][sl.x + sl.dx]) seen.away++;
+    // Count the *changes*, not the frames in each state. Which end it rests at, and for how long,
+    // depends on the maze the seed search happens to land on — and that moved the moment generation
+    // changed. A gauntlet floor that slides out of the way and comes back is two changes; that is
+    // the thing the check is named for, and it is the thing that does not depend on the seed.
+    { const home = !!tiles[sl.y][sl.x];
+      if (wasHome !== null && home !== wasHome) seen.moves++;
+      wasHome = home; }
+    // Eight seconds, not four, and the reason is measured. The swing's dwells are
+    // asymmetric — about 2.07s at one end and 1.28s at the other, a full cycle of
+    // ~3.35s — and `nextAt = 0` starts it at a random phase. A four-second window
+    // therefore held two transitions on a lucky phase and only ONE on an unlucky
+    // one, so this check was passing on the phase the seed happened to land on
+    // rather than on the behaviour. v0.94.0 moved which maze ships and the phase
+    // went the other way. Eight seconds spans two whole cycles from any start, so
+    // a working swing always shows at least four changes and a pinned one still
+    // shows none.
+    if (performance.now() - t0 > 8000) return r();
+    requestAnimationFrame(step); }; step(); });
+  CONFIG.swingSeconds = wasSec;
+  return { at: [sl.x, sl.y], into: [sl.dx, sl.dy], seen,
+    onRoute: solutionPath.some(([x, y]) => x === sl.x && y === sl.y) };
+});
+check('the gauntlet floor slides out of the way and comes back',
+  gswing.skip || (gswing.seen.moves >= 2 && gswing.onRoute),
+  gswing.skip ? 'no gauntlet swing in 40 Child mazes' :
+  `the cell at ${gswing.at} is on the route out; it left toward ${gswing.into} and came back ${gswing.seen.moves} times over eight seconds (floor ${gswing.seen.home} frames, hole ${gswing.seen.away})`);
+
+// ── 8i. the pool room's gate ──────────────────────────────────────
+// It used to slide aside the moment you picked the stone up. Now you have to carry the stone to
+// it and shove — and the way stays shut for the whole grind, which is twice as long as it was.
+const gate = await page.evaluate(async () => {
+  SAVE.stones = 0; SAVE.phase = 0; SAVE.poolPending = true; SAVE.ui = {};
+  delete SAVE.run; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const out = { secs: CONFIG.poolDoorSeconds, hold: CONFIG.pushHoldMs, slow: CONFIG.stoneSlow };
+  // walk up to the gate empty-handed: it should not budge
+  player.x = poolDoor.x + 0.5; player.y = poolDoor.y + 1.5; cam.x = player.x; cam.y = player.y;
+  held = { dx: 0, dy: -1 };
+  await new Promise((r) => setTimeout(r, 500));
+  out.shutEmptyHanded = !poolDoor.openAt && Math.floor(player.y) === poolDoor.y + 1;
+  // take the stone. That alone must not open it
+  held = null;
+  const [kx, ky] = keySpot.split(',').map(Number);
+  out.plainSpeed = B.speed();
+  player.x = kx + 0.5; player.y = ky + 0.5;
+  await new Promise((r) => setTimeout(r, 250));
+  out.hasStone = hasKey; out.shutOnPickup = !poolDoor.openAt;
+  out.stoneSpeed = B.speed();
+  // now shove it
+  player.x = poolDoor.x + 0.5; player.y = poolDoor.y + 1.5;
+  held = { dx: 0, dy: -1 };
+  await new Promise((r) => setTimeout(r, 600));
+  out.shoved = !!poolDoor.openAt;
+  // A shove must not pop it open — but it no longer holds you out for the whole grind either.
+  // The leaves ease across, so you are through once they are clear: shut just after the shove,
+  // open by the time it is half done.
+  await new Promise((r) => setTimeout(r, 120));
+  out.shutJustAfter = poolDoorShut() && Math.floor(player.y) === poolDoor.y + 1;
+  await new Promise((r) => setTimeout(r, CONFIG.poolDoorSeconds * 1000 * 0.5));
+  out.openMidGrind = !poolDoorShut();
+  await new Promise((r) => setTimeout(r, CONFIG.poolDoorSeconds * 1000 * 0.6 + 700));
+  out.openAfter = !poolDoorShut(); out.through = player.y < poolDoor.y + 1;
+  held = null;
+  return out;
+});
+check('the pool gate waits to be shoved with the stone, and opens as its leaves clear',
+  gate.shutEmptyHanded && gate.hasStone && gate.shutOnPickup && gate.shoved && gate.shutJustAfter && gate.openMidGrind && gate.openAfter && gate.through,
+  `empty-handed it held; picking the stone up left it shut; a ${gate.hold}ms lean started it; still shut just after the shove; through by halfway into the ${gate.secs}s grind`);
+check('a stone in your arms costs you 30% of your speed',
+  Math.abs(gate.stoneSpeed / gate.plainSpeed - gate.slow) < 0.001,
+  `${gate.plainSpeed.toFixed(2)} tiles/s empty-handed, ${gate.stoneSpeed.toFixed(2)} carrying the stone (x${gate.slow})`);
+
+// ── 8j. the Level menu goes where it says ─────────────────────────
+// Two menus used to decide this between them — Phase, and Pool room — and a character could be
+// picked while poolPending was still set from somewhere else, which put you at the water instead.
+// One menu now sets phase, stones and pool together, so walk every entry and check all three.
+const levels = await page.evaluate(async () => {
+  const sel = $('optLevel'), rows = [];
+  for (let i = 0; i < sel.options.length; i++) {
+    sel.value = String(i); sel.dispatchEvent(new Event('change'));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    rows.push({ label: sel.options[i].textContent, pool: poolMode, who: phase().who,
+      phase: SAVE.phase, stones: SAVE.stones });
+  }
+  // and the one that bit: a pool, then the character whose pool it is
+  sel.value = '7'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const wentToWater = poolMode;
+  sel.value = '6'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const cameBackOut = !poolMode && phase().who === PHASES[3].who;
+  // and the menu re-reads where you are whenever the panel is opened
+  SAVE.phase = 5; SAVE.stones = 5; SAVE.poolPending = true;
+  $('gear').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  const shows = sel.options[+sel.value].textContent;
+  $('gear').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  return { rows, wentToWater, cameBackOut, shows, phases: PHASES.length, stones: STONES.length };
+});
+const everyLevelRight = levels.rows.length === levels.phases * 2 - 1 && levels.rows.every((r, i) => {
+  const isPool = i % 2 === 1, ph = Math.floor(i / 2);
+  return r.pool === isPool && r.phase === ph && r.stones === ph;
+});
+check('the Level menu takes you to the level it names',
+  everyLevelRight && levels.wentToWater && levels.cameBackOut,
+  `${levels.rows.length} entries — ${levels.phases} characters and the ${levels.stones} pools between them — each with the right phase, stones and water; `
+  + 'pool then character came back out of the water onto the character whose pool it is');
+check('the Level menu re-reads where you are when the panel opens',
+  levels.shows.includes('Shame'),
+  `phase 5 with a pool pending, and the menu opened showing "${levels.shows.trim()}"`);
+
+// ── 8k. the shelves and the basin still speak ─────────────────────
+// Two things had made them go quiet. The latch that stops a line repeating while you stand there
+// was never cleared, so it only ever fired once per page load — and a debug level change is a
+// reset(), not a reload, so every maze after the first was silent. And "standing still" was
+// `!sliding`, which any swing anywhere in the maze satisfied for half a second at a time; with
+// five of them on the Child level the dwell almost never reached a second.
+const room = await page.evaluate(async () => {
+  const said = []; const real = window.narrate; narrate = (l) => { said.push(l); real(l); };
+  const go = async (i) => { const sel = $('optLevel'); sel.value = String(i); sel.dispatchEvent(new Event('change'));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; };
+  const stand = async (x, y, ms) => { player.x = x + 0.5; player.y = y + 0.5; dir = null; held = null;
+    said.length = 0; await new Promise((r) => setTimeout(r, ms)); return said.slice(); };
+  const basinSaid = (lines) => { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).basin;
+    return lines.some((l) => L.includes(l) || LIGHTER.includes(l) || l.startsWith('One stone')); };
+  const shelfSaid2 = (lines) => { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).shelf;
+    return lines.some((l) => L.includes(l) || EMPTY_SHELF.includes(l)); };
+  const out = { swings: 0 };
+  await go(0);
+  out.swings = sliders.filter((s) => s.auto).length;
+  const b1 = [startRoom.x0 + 3, startRoom.y0 + 3];
+  out.first = basinSaid(await stand(b1[0], b1[1], 1500));
+  await stand(startRoom.x0 + 1, startRoom.y0 + 2, 400);           // step off
+  out.again = basinSaid(await stand(b1[0], b1[1], 1500));          // and back on
+  const sp = SHELF_SPOTS(startRoom.x0, startRoom.y0, startRoom.y1)[0];
+  out.shelf = shelfSaid2(await stand(sp[0], sp[1], 1800));
+  await go(2);                                                     // a whole new maze
+  const b2 = [startRoom.x0 + 3, startRoom.y0 + 3];
+  out.newLevel = basinSaid(await stand(b2[0], b2[1], 1500));
+  const sp2 = SHELF_SPOTS(startRoom.x0, startRoom.y0, startRoom.y1)[0];
+  out.shelfNewLevel = shelfSaid2(await stand(sp2[0], sp2[1], 1800));
+  narrate = real;
+  return out;
+});
+check('the shelves and the basin speak every time you stand at them',
+  room.first && room.again && room.shelf && room.newLevel && room.shelfNewLevel,
+  `basin: first stand ${room.first ? 'spoke' : 'SILENT'}, again after stepping off and back ${room.again ? 'spoke' : 'SILENT'}, `
+  + `in a new maze ${room.newLevel ? 'spoke' : 'SILENT'}; shelves: ${room.shelf ? 'spoke' : 'SILENT'} then ${room.shelfNewLevel ? 'spoke' : 'SILENT'} `
+  + `— with ${room.swings} swings moving in the level while you stood there`);
+
+// ── 8l. cornering at walking speed ────────────────────────────────
+// The slide back onto the corridor's centreline used to be its own movement at 1.6x walking, on
+// top of the step, so turning a corner off-centre you crabbed diagonally at nearly twice speed.
+// Joe: "they have this almost like race car cornering thing to them."
+const corner = await page.evaluate(async () => {
+  SAVE.phase = 2; SAVE.stones = 2; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  let at = null;
+  // A corner worth measuring needs a run-up and somewhere to turn into, not just three open sides.
+  // Taking the first junction that matched meant the walk could reach the turn late, or turn into a
+  // one-tile stub, and cover 2.97 tiles in a straight line — which reads as "never turned" and fails
+  // a check whose actual subject (speed through the turn) was fine. Ask for two tiles each way.
+  // ...and arms he can actually walk. A closed door reads as open floor to isOpen(), so the probe
+  // would set him at a junction, ask for the turn, and watch him walk straight on into the corridor
+  // because the way down was locked. Harmless until v0.88.0 put nearly twice as many doors in every
+  // maze, at which point the first matching junction had one below it.
+  const blocked = (x, y) => doors.some((d) => d.x === x && d.y === y)
+    || sliders.some((sl) => (sl.x === x && sl.y === y) || (sl.x + sl.dx === x && sl.y + sl.dy === y))
+    || crawlGaps.has(x + ',' + y);
+  // A corner worth measuring: two tiles of run-up and two to turn into, clear of the border, and
+  // every arm actually walkable. It also no longer insists the corner be on the solution path —
+  // walking speed through a turn is a property of movement, not of the route, and on this maze
+  // every three-way junction the route passes now has a locked door on one of its arms.
+  const ok = (x, y) => x > 5 && y > 3 && x < W - 4 && y < H - 4
+    && isOpen(x, y) && isOpen(x + 1, y) && isOpen(x, y + 1) && isOpen(x, y + 2)
+    && isOpen(x - 1, y) && isOpen(x - 2, y) && !darkTiles.has(x + ',' + y)
+    && !blocked(x, y + 1) && !blocked(x + 1, y) && !blocked(x - 1, y)
+    && !blocked(x, y + 2) && !blocked(x - 2, y);
+  for (const [x, y] of solutionPath) if (ok(x, y)) { at = [x, y]; break; }
+  if (!at) for (let y = 4; y < H - 4 && !at; y++) for (let x = 6; x < W - 4; x++) if (ok(x, y)) { at = [x, y]; break; }
+  if (!at) return { skip: true };
+  player.x = at[0] - 1.5; player.y = at[1] + 0.5; dir = null; recenter = null;
+  // measured inside the frame loop against the game's own dt — sampling from a second rAF loop
+  // reads high, because its callback and the game's do not share a clock reading
+  const walk = B.speed(), rates = [], realUpdate = update;
+  let lastWall = null, gone = 0, movedX = 0, movedY = 0;
+  update = function (wall) {
+    const bx = player.x, by = player.y;
+    const dt = lastWall == null ? 0 : Math.min(0.05, (wall - lastWall) / 1000); lastWall = wall;
+    realUpdate(wall);
+    const d = Math.hypot(player.x - bx, player.y - by);
+    gone += d; movedX += Math.abs(player.x - bx); movedY += Math.abs(player.y - by);
+    if (dt > 0) rates.push(d / (walk * dt));
+  };
+  held = { dx: 1, dy: 0 };
+  const t0b = performance.now();
+  await new Promise((r) => { const step = () => { const el = performance.now() - t0b;
+    // Turn when he actually reaches the junction, not at a fixed 260ms. Speed eases in over
+    // CONFIG.moveEase, so a clock says nothing about where he is: on some mazes the turn was asked
+    // for a tile short of the corner, hit wall, and the buffer expired before he got there — he
+    // walked the whole window in a straight line and the check read it as "never turned".
+    if (player.x >= at[0] - 0.05 && el < 1200) held = { dx: 0, dy: 1 };
+    if (el > 1200) return r();
+    requestAnimationFrame(step); }; step(); });
+  held = null; update = realUpdate;
+  const moving = rates.filter((r) => r > 0.2);
+  // Distance, not frame count: the speed now eases in over CONFIG.moveEase, so how many frames clear
+  // a rate threshold depends on where the ramp happens to fall. Ground covered does not.
+  return { frames: moving.length, gone, worst: Math.max(...moving),
+    turned: gone > 0.8 && movedX > 0.2 && movedY > 0.2 };
+});
+check('going round a corner is walking speed, not a sprint across it',
+  corner.skip || (corner.turned && corner.worst < 1.05),
+  corner.skip ? 'no corner on this route' :
+  `${(corner.gone || 0).toFixed(2)} tiles walked through a corner over ${corner.frames} frames, none faster than ${corner.worst.toFixed(2)}x walking speed (the crab across a corner used to hit 1.89x)`);
+
+// ── 8m. the clock, and the log of what you have finished ──────────
+const log = await page.evaluate(async () => {
+  const fmt = [0, 42300, 61000, 254000, 4569000].map(fmtTime);
+  clearLog();
+  const sel = $('optLevel'); sel.value = '0'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  t0 = gameNow() - 254000; steps = 161;
+  player.x = exit.x + 0.5; player.y = exit.y + 0.5;
+  await new Promise((r) => setTimeout(r, 300));
+  const rows = readLog();
+  const shown = $('msgStats').textContent;
+  $('msg').classList.remove('show'); solved = false;
+  return { fmt, rows: rows.length, row: rows[0], shown, csv: statsCsv().split('\n').length };
+});
+check('time reads in hours, minutes and seconds',
+  log.fmt[0] === '0.0s' && log.fmt[1] === '42.3s' && log.fmt[2] === '1m 01s' && log.fmt[3] === '4m 14s' && log.fmt[4] === '1h 16m 09s',
+  log.fmt.join(' · ') + `; the end-of-run card says "${(log.shown.match(/\d+m \d+s|\d+\.\d+s/) || [''])[0]}"`);
+check('finishing a maze writes a line in the run log',
+  log.rows === 1 && log.row && log.row.ms > 250000 && log.row.steps >= 161 && log.row.who && log.csv === 2,
+  log.row ? `${log.row.who}, ${fmtOf(log.row.ms)}, ${log.row.steps} tiles, seed ${log.row.seed}, size ${log.row.size}; CSV is a header and ${log.csv - 1} row` : 'nothing logged');
+
+// ── 8n. the labyrinth prototype ───────────────────────────────────
+// Sections that own their edges, a hall through the dead seam between them, a landmark at the
+// heart of each. It is chosen from the Prototype menu like any other, and picking Off has to put
+// a real maze back with none of it left over.
+const laby = await page.evaluate(async () => {
+  const sel = $('optProto');
+  sel.value = 'laby'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const built = { proto: SAVE.ui.proto, protoMode, sections: sections.length, landmarks: landmarks.length,
+    W, H, route: solutionPath.length - 1, kinds: [...new Set(sections.map((s2) => s2.kind))].sort() };
+  // every landmark stands on floor, and no two that are near each other are the same thing
+  built.onFloor = landmarks.every((L) => !!tiles[L.y][L.x]);
+  built.distinct = new Set(landmarks.map((L) => L.kind)).size;
+  // the way out has to be walkable from the mat. The start room is sealed behind the block you
+  // lean on, so its gap counts as floor — you can always shove it
+  built.sealed = !tiles[startGap[1]][startGap[0]] && !!sliders.find((s2) => s2.atStart);
+  const gapKey = startGap.join(',');
+  const seen = new Set([Math.floor(start.x) + ',' + Math.floor(start.y)]), q = [[Math.floor(start.x), Math.floor(start.y)]];
+  for (let h = 0; h < q.length; h++) { const [x, y] = q[h];
+    for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+      if (seen.has(k) || !tiles[ny] || (!tiles[ny][nx] && k !== gapKey)) continue; seen.add(k); q.push([nx, ny]); } }
+  built.exitReachable = seen.has(exit.x + ',' + exit.y);
+  built.room = startRoom && (startRoom.x1 - startRoom.x0 + 1);
+  built.fog = protoWide;
+  built.landmarksReachable = landmarks.every((L) => seen.has(L.x + ',' + L.y));
+  sel.value = 'off'; sel.dispatchEvent(new Event('change'));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // Off leaves no *sections* — those are still the prototype's. Landmarks are no longer its alone:
+  // Joe asked for the prototype's rooms in the general mix, so an ordinary maze deals them too, and
+  // each of those belongs to a room rather than a section.
+  built.offAgain = !protoMode && sections.length === 0;
+  // a landmark's heart is floor unless the landmark *is* the hole — the well is shut on purpose
+  // since v0.81.0. This is what the 'one run in ten' flake turned out to be: not timing at all,
+  // just the Off maze happening to roll a well.
+  built.plainRooms = landmarks.length > 0 && landmarks.every((L) => L.room !== undefined && (tiles[L.y][L.x] || L.solid));
+  built.plainCount = landmarks.length;
+  built.solidColumns = landmarks.filter((L) => L.kind === 'columns')
+    .every((L) => L.cols && L.cols.length === 4 && L.cols.every(([x, y]) => !tiles[y][x]));
+  return built;
+});
+check('the labyrinth prototype builds, and Off puts the maze back',
+  laby.protoMode === true && laby.sections >= 6 && laby.landmarks === laby.sections
+  && laby.onFloor && laby.exitReachable && laby.landmarksReachable && laby.kinds.length >= 2
+  && laby.room === 5 && laby.sealed && laby.fog === false && laby.offAgain && laby.plainRooms && laby.solidColumns,
+  `${laby.sections} sections (${laby.kinds.join(', ')}) across ${laby.W}x${laby.H}, `
+  + `${laby.landmarks} landmarks of ${laby.distinct} kinds, all on floor and all reachable; `
+  + `a sealed ${laby.room}x${laby.room} start room with one block to lean on, the maze's own fog; `
+  + `the way out is ${laby.route} tiles; Off leaves no sections behind and gives an ordinary maze `
+  + `with ${laby.plainCount} rooms that are places, every column tile actually shut`
+  // say which flag went, or a failure here reads as a wall of things that are all fine
+  + `  [proto=${laby.protoMode} onFloor=${laby.onFloor} exitOk=${laby.exitReachable} lmOk=${laby.landmarksReachable} `
+  + `room=${laby.room} sealed=${laby.sealed} fog=${laby.fog} offAgain=${laby.offAgain} plainRooms=${laby.plainRooms} `
+  + `solidCols=${laby.solidColumns} sections=${laby.sections} lm=${laby.landmarks}]`);
+
+// ── 8o. getting through a squeeze ─────────────────────────────────
+// Joe: "the character leaves the squeeze space and drifts out into the black portion of the map."
+// Two things did that. The slide onto the centreline, which in a gap a third of a tile wide
+// carried you out of it; and the body itself, which is most of a tile across and hung over both
+// walls of the channel whatever you did with it. Now you are held to the channel and you turn
+// sideways to fit — and there is no camera kick and no fading out any more.
+const squeeze = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  let gap = null;
+  for (const k of crawlGaps) { const [x, y] = k.split(',').map(Number);
+    if (isOpen(x-1, y) && isOpen(x+1, y) && !isOpen(x, y-1) && !isOpen(x, y+1) && isOpen(x-2, y)) { gap = [x, y]; break; } }
+  if (!gap) return { skip: true };
+  player.x = gap[0] - 1 + 0.5; player.y = gap[1] + 0.42;      // come at it off-centre, as you do after a corner
+  dir = null; recenter = null; held = { dx: 1, dy: 0 };
+  const off = []; let kick = 0;
+  const t0b = performance.now();
+  await new Promise((r) => { const step = () => {
+    if (inSqueeze) { off.push(Math.abs(player.y - (Math.floor(player.y) + 0.5))); kick = Math.max(kick, Math.abs(camBump)); }
+    if (performance.now() - t0b > 2000) return r();
+    requestAnimationFrame(step); }; step(); });
+  held = null;
+  const lim = CONFIG.squeezeChannel / 2;
+  const bodyHalf = CONFIG.playerSize * 0.62 * (phase().bodyScale || 1) * CONFIG.squeezeShrink * 0.75 * CONFIG.squeezePinch;
+  return { frames: off.length, worst: off.length ? Math.max(...off) : 0, lim, bodyHalf, kick, shrink: CONFIG.squeezeShrink, pinch: CONFIG.squeezePinch };
+});
+check('a squeeze holds you in its channel, and you fit through it',
+  squeeze.skip || (squeeze.frames > 10 && squeeze.worst <= squeeze.lim + 0.001 && squeeze.bodyHalf <= squeeze.lim && squeeze.kick === 0),
+  squeeze.skip ? 'no straight squeeze on this maze' :
+  `${squeeze.frames} frames inside one: never more than ${squeeze.worst.toFixed(3)} off the centreline (the channel allows ${squeeze.lim}); `
+  + `the body draws ${squeeze.bodyHalf.toFixed(3)} half-wide, pinched to ${squeeze.pinch} of its back at ${squeeze.shrink}x, so it fits; no camera kick`);
+
+// ── 8p. the app icon and the manifest ─────────────────────────────
+// Add to Home Screen used to grab a screenshot, because there was no icon at all. A missing file
+// here fails silently on the phone and looks like nothing, so check they actually resolve.
+const icon = await page.evaluate(async () => {
+  const links = [...document.querySelectorAll('link[rel*="icon"], link[rel="manifest"]')].map((l) => l.rel);
+  let m = null; try { m = await fetch('manifest.webmanifest').then((r) => r.json()); } catch (e) { m = null; }
+  const load = (src) => new Promise((r) => { const i = new Image();
+    i.onload = () => r({ src, w: i.width }); i.onerror = () => r({ src, w: 0 }); i.src = src; });
+  const files = ['icons/icon-32.png', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+  const imgs = await Promise.all(files.map(load));
+  return { links, name: m && m.name, display: m && m.display, icons: m && m.icons && m.icons.length,
+    loaded: imgs.filter((i) => i.w > 0).length, sizes: imgs.map((i) => i.w).join('/') };
+});
+check('the app icon and the manifest are there and load',
+  icon.links.includes('apple-touch-icon') && icon.links.includes('manifest')
+  && icon.name === 'The Maze' && icon.display === 'standalone' && icon.icons >= 2 && icon.loaded === 4,
+  `${icon.links.join(', ')}; manifest says "${icon.name}", ${icon.display}, ${icon.icons} icons; `
+  + `${icon.loaded} of 4 png files load at ${icon.sizes}`);
+
+// ── 8q. walking about a room ──────────────────────────────────────
+// Joe: "my character only walks in the middle of floors not across them. So there's this strange
+// robotic feeling." Where there is room to walk he now walks where the stick points — and a shut
+// gate is still shut, which is the thing that went wrong first: open floor underneath is not
+// permission to walk through it.
+const roam = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.ui = { proto: 'laby' }; SAVE.poolPending = false; delete SAVE.run; persist(); reset(3291);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const L = landmarks[0];
+  player.x = L.x + 0.5; player.y = L.y + 0.5; dir = null; recenter = null;
+  const from = [player.x, player.y], seen = [];
+  stickAim = { x: Math.SQRT1_2, y: -Math.SQRT1_2 }; held = { dx: 1, dy: 0 };
+  await new Promise((r) => { const t0b = performance.now(); const step = () => {
+    seen.push([player.x, player.y]);
+    if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
+  held = null; stickAim = null;
+  const out = {
+    bothAxes: Math.abs(player.x - from[0]) > 0.2 && Math.abs(player.y - from[1]) > 0.2,
+    offGrid: seen.some(([x, y]) => Math.abs(x % 1 - 0.5) > 0.12 && Math.abs(y % 1 - 0.5) > 0.12),
+    inWall: seen.some(([x, y]) => !isOpen(Math.floor(x), Math.floor(y))),
+  };
+  // and a corridor still holds you to its line
+  let hall = null;
+  for (let y = 2; y < H - 2 && !hall; y++) for (let x = 2; x < W - 2; x++)
+    if (isOpen(x, y) && isOpen(x + 1, y) && isOpen(x - 1, y) && !isOpen(x, y - 1) && !isOpen(x, y + 1) && !openFloor(x, y)) { hall = [x, y]; break; }
+  if (hall) {
+    // Free movement has no rail to hold him, so the corridor's own walls are the test: lean at an
+    // angle and he rides the wall, but he must never end up inside one, and he must still get down
+    // the corridor rather than jamming on it.
+    player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
+    const fromX = player.x;
+    stickAim = { x: 0.72, y: -0.69 }; held = { dx: 1, dy: 0 };
+    const off = [], wall = [];
+    await new Promise((r) => { const t0b = performance.now(); const step = () => {
+      off.push(Math.abs(player.y - (Math.floor(player.y) + 0.5)));
+      wall.push(!isOpen(Math.floor(player.x), Math.floor(player.y)));
+      if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null;
+    out.corridorWalked = player.x - fromX > 0.5;      // he got down it
+    out.corridorInWall = wall.some(Boolean);          // and never through its side
+    out.corridorOff = Math.max(...off);               // and on the default model, on its line
+    // free everywhere: the corridor's own walls are all that holds him, so he rides one
+    SAVE.ui.move = 'free';
+    player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
+    stickAim = { x: 0.72, y: -0.69 }; held = { dx: 1, dy: 0 };
+    const offF = [], wallF = [];
+    await new Promise((r) => { const t0b = performance.now(); const step = () => {
+      offF.push(Math.abs(player.y - (Math.floor(player.y) + 0.5)));
+      wallF.push(!isOpen(Math.floor(player.x), Math.floor(player.y)));
+      if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null;
+    out.freeRides = Math.max(...offF) > 0.1 && !wallF.some(Boolean);
+    out.freeOff = Math.max(...offF);
+    // and with the rails put back, the old behaviour is still there to feel
+    SAVE.ui.move = 'rails';
+    player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
+    stickAim = { x: 0.72, y: -0.69 }; held = { dx: 1, dy: 0 };
+    const off2 = [];
+    await new Promise((r) => { const t0b = performance.now(); const step = () => {
+      off2.push(Math.abs(player.y - (Math.floor(player.y) + 0.5)));
+      if (performance.now() - t0b > 500) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null; SAVE.ui.move = 'rooms';
+    out.railsHold = Math.max(...off2) < 0.05;
+  }
+  return out;
+});
+check('rails in the halls, free in the rooms — and both ends still on the menu',
+  roam.bothAxes && roam.offGrid && !roam.inWall
+  && roam.corridorWalked !== false && roam.corridorInWall !== true
+  && (roam.corridorOff === undefined || roam.corridorOff < 0.05)
+  && roam.freeRides !== false && roam.railsHold !== false,
+  `on the default model — in a room: moved on both axes at once and off the grid lines, never into `
+  + `a wall; in a corridor with the stick held at an angle, held to the line `
+  + `(${(roam.corridorOff || 0).toFixed(2)} off) `
+  + `${roam.corridorWalked === false ? 'but DID NOT GET DOWN IT' : 'and still gets down it'}, `
+  + `${roam.corridorInWall ? 'and ENDED UP IN A WALL' : 'never into one'}. `
+  + `Set to free everywhere the same corridor lets him ride the wall `
+  + `(${(roam.freeOff || 0).toFixed(2)} off, ${roam.freeRides === false ? 'NOT RIDING' : 'never into one'}); `
+  + `set to rails, ${roam.railsHold === false ? 'they DO NOT hold' : 'the centreline hold is back'}`);
+
+// ── 8r. the title screen ──────────────────────────────────────────
+// Joe: "get rid of the black section at the bottom... move the question up to the top right...
+// get rid of the tile count." Then, on seeing it: "I prefer the chapter to look like it's a part
+// of the floor like we have with the maze title... I'm fine if the fog of war eats the bottom of
+// it... hold the chapter title a little longer as we zoom out so it's readable and then fade out."
+// So the chapter is painted into the floor under the darkness pass, not laid over the top in DOM,
+// and it outlives the name above him. The pixels are the only thing that can prove either.
+const titleScreen = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  const lit = () => {            // the brightest thing in the band of floor the chapter is set into
+    const b = cv.getContext('2d');
+    const x = innerWidth / 2, y = innerHeight / 2 + CONFIG.chapterDrop * zoomS;
+    const d = b.getImageData((x - 110) * dpr, (y - 0.12 * zoomS) * dpr, 220 * dpr, 0.34 * zoomS * dpr).data;
+    let m = 0; for (let i = 0; i < d.length; i += 4) m = Math.max(m, d[i]);
+    return m;
+  };
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  SAVE.phase = 0; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist(); reset(4242);
+  await frame();
+  const out = {
+    noStepLbl: !document.getElementById('stepLbl'),
+    noBar: !document.getElementById('titleBar'),
+    noDomChapter: !document.getElementById('chapter'),
+    asleep: lit(),
+  };
+  // the floor with nothing written on it, for comparison: a prototype is not a chapter
+  SAVE.ui = { proto: 'laby' }; reset(4242); await frame(); out.proto = lit();
+  SAVE.ui = {}; SAVE.poolPending = true; reset(4242); await frame(); out.pool = lit();
+  SAVE.poolPending = false; reset(4242); await frame();
+  // and on the way out it outlives the name: the two fades, sampled second by second
+  out.outBy = CONFIG.chapterHoldSec + CONFIG.chapterFadeSec; out.zoomSec = CONFIG.introSeconds;
+  out.nameGoneAt12 = nameFade(1.2) === 0;
+  out.chapFullAt12 = chapterFade(1.2) > 0.7;
+  out.chapGone = chapterFade(out.outBy + 0.01) === 0 && chapterFade(out.outBy - 0.3) > 0.2;
+  out.outlives = out.outBy > 0.9 && out.outBy < CONFIG.introSeconds;
+  out.caps = spaced('The Child') === 'T H E   C H I L D' && spaced('Chapter I') === 'C H A P T E R   I';
+  // and none of the seven names runs off the screen, however long it is
+  { const c = cv.getContext('2d'), TS = titleScale(CONFIG.titleTilePx), max = innerWidth - 32;
+    const wide = PHASES.map((ph) => { const t = spaced(ph.who); fitFont(c, t, 700, TS * 0.18);
+      return [ph.who, c.measureText(t).width]; });
+    const m = 'M A Z E'; fitFont(c, m, 700, TS * 0.34); wide.push(['THE MAZE', c.measureText(m).width]);
+    out.overflow = wide.filter(([, w]) => w > max + 0.5).map(([n]) => n);
+    out.longest = wide.sort((a, b) => b[1] - a[1])[0]; out.max = max; }
+  // the ? is the game's, not the title's: gone while he sleeps, in the top right once he is up
+  const q = $('howBtn').getBoundingClientRect(), v = $('verTitle').getBoundingClientRect();
+  $('howBtn').style.transition = 'none';      // read where it settles, not where it is mid-slide
+  out.qHiddenAsleep = +getComputedStyle($('howBtn')).opacity === 0;
+  document.body.classList.remove('pre');
+  out.qShownAwake = +getComputedStyle($('howBtn')).opacity > 0.2;
+  out.qTopRight = q.top < innerHeight * 0.2 && q.right > innerWidth * 0.8;
+  document.body.classList.add('pre'); $('howBtn').style.transition = '';
+  // it sits along the very bottom now, centred, out of the way of the title. Joe: "need to move the
+  // version number down. Might as well center it too"
+  out.verBottom = v.bottom > innerHeight * 0.95 && Math.abs((v.left + v.right) / 2 - innerWidth / 2) < 4;
+  return out;
+});
+check('the title screen: the chapter set into the floor, the ? only once you are up',
+  titleScreen.noStepLbl && titleScreen.noBar && titleScreen.noDomChapter
+  && titleScreen.qHiddenAsleep && titleScreen.qShownAwake && titleScreen.qTopRight && titleScreen.verBottom
+  && titleScreen.asleep > titleScreen.proto + 8 && titleScreen.asleep > titleScreen.pool + 8
+  && titleScreen.nameGoneAt12 && titleScreen.chapFullAt12 && titleScreen.chapGone && titleScreen.outlives && titleScreen.caps && titleScreen.overflow.length === 0,
+  `the chapter is lettered all caps and tracked out, and shrinks to fit — the longest, "${titleScreen.longest[0]}", `
+  + `sets ${titleScreen.longest[1].toFixed(0)}px into ${titleScreen.max}px and `
+  + `${titleScreen.overflow.length ? titleScreen.overflow.join(', ') + ' RUN OFF' : 'none of the eight runs off'}; `
+  + `the band of floor below him reads ${titleScreen.asleep} with it written in and `
+  + `${titleScreen.proto}/${titleScreen.pool} on a prototype/pool, which get no heading; `
+  + `1.2s into the zoom-out the name above him is gone and the chapter is still up, and it is out `
+  + `at ${titleScreen.outBy.toFixed(1)}s — before the ${titleScreen.zoomSec}s zoom ends; `
+  + `the ? is gone while he sleeps and rides in top right once he is up; `
+  + `the version centred along the very bottom, no tile count and no black bar`);
+
+// ── 8s. gates, and the key that opens one ────────────────────────
+// Joe: "when you use a gold key, it doesn't disappear from the inventory... I'd expect these keys
+// to be one use", and "all of the gates in the game should open like the pool level gate." Each
+// maze deals one key per door and no two doors share a shape, so spending it is always safe — this
+// check is what says so out loud.
+const gates = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.stones = 3; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist();
+  let seed = 0; for (let ph = 3; ph <= 5 && !seed; ph++) { SAVE.phase = ph;
+    for (let sd = 4242; sd < 4340; sd++) { reset(sd); if (doors.length) { seed = sd; break; } } }
+  if (!seed) return { skip: true };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  const shapes = doors.map((d) => d.shape);
+  const out = { doors: doors.length, unique: new Set(shapes).size === shapes.length, keys: innerKeys.size };
+  const d = doors[0];
+  heldKeys = new Set([d.shape]); renderKeys();
+  out.carried = $('keys').childElementCount;
+  // walk onto its tile the way the game does
+  player.x = d.x + 0.5; player.y = d.y + 0.5; lastTileKey = '';
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  out.opened = !!d.open; out.swings = !!d.openAt; out.spent = !heldKeys.has(d.shape); out.shown = $('keys').childElementCount;
+  // and it is still drawn once open, lying back against the jambs, rather than vanishing
+  out.drawsOpen = typeof drawGate === 'function';
+  // the way out swings too, and only once the key is yours
+  SAVE.phase = 5; for (let sd = 900; sd < 1000 && !gated; sd++) reset(sd);
+  out.exitGated = gated; out.exitShut = !hasKey && !exitGateAt;
+  return out;
+});
+check('a key is one use, and every gate swings back on its jambs',
+  gates.skip || (gates.unique && gates.opened && gates.swings && gates.spent
+    && gates.carried === 1 && gates.shown === 0 && gates.drawsOpen),
+  gates.skip ? 'no maze with a door in the seeds tried' :
+  `${gates.doors} door(s), ${gates.keys} key(s), no two doors sharing a shape; walking onto one with its `
+  + `key opened it (and it swings rather than blinking), and the key went from ${gates.carried} in hand to `
+  + `${gates.shown}; one drawGate draws them all, the way out included`);
+
+// ── 8t. into a corridor mouth without jiggling ───────────────────
+// Joe: "when I try and push into the cell the movement fights me, and stops the character from
+// moving. I have to like jiggle it to get him to move in." Free movement in a room plus a body with
+// width means an off-centre approach catches the jamb, so the mouth funnels him onto its line.
+const mouth = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.ui = { proto: 'laby' }; SAVE.poolPending = false; delete SAVE.run; persist(); reset(3291);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  // a room tile whose neighbour is a one-wide corridor running away from it
+  let spot = null;
+  for (let y = 2; y < H - 2 && !spot; y++) for (let x = 2; x < W - 2; x++) {
+    if (!isOpen(x, y) || !openFloor(x, y)) continue;
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (!isOpen(nx, ny) || openFloor(nx, ny)) continue;
+      if (!isOpen(nx + dx, ny + dy)) continue;                       // it has to go somewhere
+      if (dx ? (isOpen(nx, ny-1) || isOpen(nx, ny+1)) : (isOpen(nx-1, ny) || isOpen(nx+1, ny))) continue;
+      spot = [x, y, dx, dy]; break;
+    }
+  }
+  if (!spot) return { skip: true };
+  const [x, y, dx, dy] = spot;
+  // stand off the mouth's centreline by a third of a tile, and lean straight at it
+  player.x = x + 0.5 + (dx ? 0 : 0.33); player.y = y + 0.5 + (dy ? 0 : 0.33);
+  dir = null; recenter = null; stickAim = null; held = { dx, dy };
+  const from = dx ? player.x : player.y;
+  await new Promise((r) => { const t0b = performance.now(); const step = () => {
+    if (performance.now() - t0b > 1400) return r(); requestAnimationFrame(step); }; step(); });
+  held = null;
+  const got = (dx ? player.x - from : player.y - from) * (dx || dy);
+  return { got, inside: isOpen(Math.floor(player.x), Math.floor(player.y)) && !openFloor(Math.floor(player.x), Math.floor(player.y)) };
+});
+check('an off-centre lean still takes you into a corridor mouth',
+  mouth.skip || (mouth.got > 1.2 && mouth.inside),
+  mouth.skip ? 'no room-to-corridor mouth on this prototype' :
+  `coming at it a third of a tile off the line, he walked ${mouth.got.toFixed(2)} tiles in and ended up `
+  + `${mouth.inside ? 'inside the corridor' : 'STILL IN THE ROOM'} — no jiggling`);
+
+// ── 8u. the shelf of books ───────────────────────────────────────
+// Joe: "make these indicators for the books go vertically so they look like books on a shelf."
+const shelf = await page.evaluate(() => {
+  SAVE.ui = {}; delete SAVE.run; persist(); SAVE.phase = 0; reset(4242);
+  document.body.classList.remove('pre');
+  const b = $('books').children[0];
+  if (!b) return { skip: true };
+  const r = b.getBoundingClientRect(), hs = [...$('books').children].map((c) => c.getBoundingClientRect().height);
+  return { w: r.width, h: r.height, n: hs.length, varied: new Set(hs.map((v) => Math.round(v))).size > 1,
+    shelfLine: getComputedStyle($('books')).borderBottomStyle !== 'none' };
+});
+check('the books stand up on a shelf',
+  shelf.skip || (shelf.h > shelf.w * 2 && shelf.varied && shelf.shelfLine),
+  shelf.skip ? 'no pages in this maze' :
+  `${shelf.n} of them, each ${shelf.w}x${shelf.h} so they stand rather than lie, at ${shelf.varied ? 'varying' : 'ONE'} `
+  + `height, on a shelf line`);
+
+// ── 8v. the run log's buttons ────────────────────────────────────
+// Joe: "swap the clear and close buttons here, move the clear one down so it can[not] accidentally
+// be hit. Add an 'are you sure' to the clear button?" Clear is the one action here you cannot undo.
+const runlog = await page.evaluate(async () => {
+  showStats();
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const close = $('statsClose').getBoundingClientRect(), clear = $('statsClear').getBoundingClientRect();
+  const out = {
+    closeAbove: clear.top > close.bottom + 12,
+    ownRow: $('statsClear').parentElement !== $('statsClose').parentElement,
+    quieter: clear.height < close.height,
+  };
+  writeLog([{ at: Date.now(), who: 'The Child', ms: 1000, steps: 10, seed: 1 }]);
+  $('statsClear').click();                      // one tap only asks
+  out.asks = $('statsClear').dataset.sure === '1' && readLog().length === 1;
+  out.wording = /again|sure/i.test($('statsClear').textContent);
+  $('statsClear').click();
+  out.thenClears = readLog().length === 0;
+  $('stats').classList.remove('show');
+  return out;
+});
+check('clearing the run log takes two taps, and its button is out of the way',
+  runlog.closeAbove && runlog.ownRow && runlog.quieter && runlog.asks && runlog.wording && runlog.thenClears,
+  `Close sits above Clear in its own row, Clear smaller and set ${runlog.closeAbove ? 'well' : 'NOT'} below it; `
+  + `one tap only asks ("${runlog.wording ? 'tap again' : 'NO PROMPT'}") and leaves the log alone, a second one clears it`);
+
+// ── 8w. rooms that are places, and the vault ─────────────────────
+// Joe: "love all these prototype rooms you've made. Please add them into the general mix of possible
+// rooms in the mazes", "make these more like columns that you can't walk over", and "we need to
+// really hide the keys... go make an area that buries a key inside it somewhere." All three change
+// the shape of the maze itself, so what this really checks is that none of them broke it.
+const places = await page.evaluate(() => {
+  CONFIG.tutorials = false;
+  SAVE.stones = 3; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist();
+  // the harness's own rule: a block's sealed gap counts as floor, because you can always shove it
+  const flood = () => {
+    const soft = new Set([...(sealedGaps || []).map((g) => g.join(',')), startGap ? startGap.join(',') : '']);
+    const seen = new Set(), sx = Math.floor(start.x), sy = Math.floor(start.y), q = [[sx, sy]];
+    seen.add(sx + ',' + sy);
+    for (let h = 0; h < q.length; h++) { const [x, y] = q[h];
+      for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        if (seen.has(k) || !tiles[ny] || (!tiles[ny][nx] && !soft.has(k))) continue; seen.add(k); q.push([nx, ny]); } }
+    return seen;
+  };
+  const out = { mazes: 0, withLandmarks: 0, kinds: new Set(), colRooms: 0, colsShut: 0,
+    vaults: 0, buried: 0, keyLost: 0, exitLost: 0, landmarkInWall: 0 };
+  for (let ph = 1; ph <= 6; ph++) { SAVE.phase = ph;
+    for (let sd = 1; sd <= 12; sd++) {
+      generate(sd); out.mazes++;
+      const seen = flood();
+      if (!seen.has(exit.x + ',' + exit.y)) out.exitLost++;
+      if (landmarks.length) out.withLandmarks++;
+      for (const L of landmarks) {
+        out.kinds.add(L.kind);
+        // its heart must still be floor — unless the landmark *is* the hole. The well is shut
+        // on purpose since v0.81.0, so a solid one is right rather than a room lost in the wall.
+        if (!tiles[L.y][L.x] && !L.solid) out.landmarkInWall++;
+        if (L.kind === 'columns') { out.colRooms++;
+          if (L.cols.length === 4 && L.cols.every(([x, y]) => !tiles[y][x])) out.colsShut++; }
+      }
+      if (keyVault) { out.vaults++;
+        const heart = keyVault.cx + ',' + keyVault.cy;
+        const buried = keySpot === heart || [...innerKeys.keys()].includes(heart);
+        if (buried) { out.buried++; if (!seen.has(heart)) out.keyLost++; }
+      }
+    } }
+  out.kinds = [...out.kinds];
+  return out;
+});
+check('rooms are places, columns are walls, and a buried key can still be got to',
+  places.exitLost === 0 && places.landmarkInWall === 0 && places.withLandmarks > places.mazes * 0.5
+  && places.kinds.length >= 5 && places.colRooms > 0 && places.colsShut === places.colRooms
+  && places.vaults > 0 && places.buried > 0 && places.keyLost === 0,
+  `${places.withLandmarks} of ${places.mazes} ordinary mazes have rooms that are places, `
+  + `${places.kinds.length} kinds across them (${places.kinds.join(', ')}); `
+  + `${places.colsShut}/${places.colRooms} column rooms have all four actually shut; `
+  + `${places.vaults} vaults, ${places.buried} with a key at the heart, `
+  + `${places.keyLost} unreachable; the way out is reachable in all ${places.mazes}`
+  // name the flag that went, or a failure here is a paragraph of things that are all fine
+  + `  [inWall=${places.landmarkInWall} colsShut=${places.colsShut}/${places.colRooms} vaults=${places.vaults} unreachable=${places.unreachable}]`);
+
+// ── 8x. the ball pit gets out of your way ────────────────────────
+// Joe: "can we make the ball pit reactive to the player's movement? Don't crash the server." So the
+// shove has to happen, and it has to stop happening the moment he is not in the pit.
+const pit = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.phase = 4; SAVE.stones = 4; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist();
+  let L = null;
+  for (let sd = 1; sd < 200 && !L; sd++) { reset(sd); L = landmarks.find((l) => l.kind === 'balls'); }
+  if (!L) return { skip: true };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // far away: nothing should be shoved
+  player.x = 1.5; player.y = 1.5; await frame(); await frame();
+  const away = L.shove ? Math.max(...L.shove) : 0;
+  // standing in it: the balls near him give way. Not one spot but a short walk about the pit —
+  // where the balls lie is the room's own noise, and the exact middle of one pit (the first with
+  // a pit once the rooms spread out, v0.102.0) happened to have no ball within reach, which read
+  // as 0.12 tiles of give against a bar of 0.15. A player is not stood on one tile either.
+  const cx = (L.rx0 + L.rx1) / 2 + 0.5, cy = (L.ry0 + L.ry1) / 2 + 0.5;
+  let inIt = 0;
+  for (const [ox2, oy2] of [[0, 0], [0.8, 0], [-0.8, 0], [0, 0.8], [0, -0.8], [0.8, 0.8], [-0.8, -0.8]]) {
+    player.x = cx + ox2; player.y = cy + oy2;
+    for (let i = 0; i < 10; i++) await frame();
+    inIt = Math.max(inIt, ...L.shove.map(Math.abs));
+  }
+  // and they roll back once he leaves
+  player.x = 1.5; player.y = 1.5;
+  for (let i = 0; i < 45; i++) await frame();
+  const after = Math.max(...L.shove.map(Math.abs));
+  return { away, inIt, after, tile: zoomS };
+});
+check('the ball pit gets out of your way, and rolls back after',
+  pit.skip || (pit.away === 0 && pit.inIt > pit.tile * 0.15 && pit.after < pit.inIt * 0.5),
+  pit.skip ? 'no ball pit in the seeds tried' :
+  `standing clear, nothing is moved (${pit.away}); standing in it the furthest ball gives up `
+  + `${(pit.inIt / pit.tile).toFixed(2)} tiles; a moment after leaving it is back to `
+  + `${(pit.after / pit.tile).toFixed(2)}`);
+
+// ── 8y. he points the way he is going ────────────────────────────
+// Joe: "can you make a toggle that makes it so whichever direction the character is moving it is
+// pointed that way? ...when he's moving he only points up, down, left, right."
+//
+// In an open room this changes nothing and the check has to say so: the stick's angle *is* the angle
+// he travels, so taking it from either gives the same number. Where the two part company is
+// wherever the ground argues with the stick — a corridor he is sliding along, a mouth he is being
+// funnelled into, a corner he is easing round. Lean at 45 degrees in a one-tile corridor and he
+// travels straight along it: pointed at the ground he covers he faces down the corridor, pointed at
+// the stick he faces into the wall he is scraping. That is the whole of what this buys.
+const facing = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.ui = { proto: 'laby', move: 'free' }; SAVE.poolPending = false; delete SAVE.run; persist(); reset(3291);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  let hall = null;
+  for (let y = 2; y < H - 2 && !hall; y++) for (let x = 2; x < W - 2; x++)
+    if (isOpen(x, y) && isOpen(x + 1, y) && isOpen(x - 1, y) && !isOpen(x, y - 1) && !isOpen(x, y + 1) && !openFloor(x, y)) { hall = [x, y]; break; }
+  if (!hall) return { skip: true };
+  const lean = async () => {
+    player.x = hall[0] + 0.5; player.y = hall[1] + 0.5; dir = null; recenter = null;
+    facing = facingShown = 0;
+    stickAim = { x: Math.SQRT1_2, y: -Math.SQRT1_2 }; held = { dx: 1, dy: 0 };   // 45 degrees into the wall
+    const from = player.x, seen = [];
+    await new Promise((r) => { const t0b = performance.now(); const step = () => { seen.push(facingShown);
+      if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null;
+    let jump = 0; for (let i = 4; i < seen.length; i++) { let d = seen[i] - seen[i - 1]; d = Math.atan2(Math.sin(d), Math.cos(d)); jump = Math.max(jump, Math.abs(d)); }
+    return { deg: facingShown * 180 / Math.PI, went: player.x - from, jumpDeg: jump * 180 / Math.PI };
+  };
+  SAVE.ui.face = true;  const on = await lean();
+  SAVE.ui.face = false; const off = await lean();
+  SAVE.ui.face = true;
+  // and in a room, where the stick and the ground agree, both must land on the same angle
+  const L = landmarks[0];
+  const room = async (f) => { SAVE.ui.face = f;
+    player.x = L.x + 0.5; player.y = L.y + 0.5; dir = null; recenter = null; facing = facingShown = Math.PI;
+    stickAim = { x: 0.87, y: 0.5 }; held = { dx: 1, dy: 0 };
+    await new Promise((r) => { const t0b = performance.now(); const step = () => {
+      if (performance.now() - t0b > 700) return r(); requestAnimationFrame(step); }; step(); });
+    held = null; stickAim = null; return facingShown * 180 / Math.PI; };
+  const rOn = await room(true), rOff = await room(false);
+  SAVE.ui.face = true;
+  return { on, off, rOn, rOff, want: 30 };
+});
+check('he turns to the ground he covers, not to where the stick points',
+  facing.skip || (
+    Math.abs(facing.on.deg) < 6                    // on: down the corridor, which is where he goes
+    && Math.abs(facing.off.deg) > 30               // off: at the wall he is scraping
+    && facing.on.went > 0.5 && facing.on.jumpDeg < 25 && facing.on.jumpDeg > 0.5
+    && Math.abs(facing.rOn - facing.want) < 6 && Math.abs(facing.rOff - facing.want) < 6),
+  facing.skip ? 'no one-tile corridor on this prototype' :
+  `leaning 45 degrees into the wall of a one-tile corridor he travels straight down it: pointed at `
+  + `the ground he covers he faces ${facing.on.deg.toFixed(0)} degrees, pointed at the stick he faces `
+  + `${facing.off.deg.toFixed(0)} — at a wall he is only scraping. He turns to it at most `
+  + `${facing.on.jumpDeg.toFixed(1)} degrees a frame, so it is a turn. In a room, where the stick and `
+  + `the ground agree, both settings land on the same ${facing.rOn.toFixed(0)} degrees`);
+
+// ── 8z. the fog is a vignette, and it does not pop ───────────────
+// Joe: "it's not there at the start of the game. Then you hit the character and it pops in after a
+// second. Feels jank. At this point I'd like just a 'light dusting' around the edges to give it a
+// vignette style feel to it." The pop was a cap four times looser while he slept that tightened over
+// the intro; there is no ramp now and no title-screen case, which is the whole fix. So what this
+// measures is that the dark at the corner is the *same* asleep as it is in play.
+const fog = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.phase = 0; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist(); reset(4242);
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const b2 = cv.getContext('2d');
+  const at = (fx, fy) => { const d = b2.getImageData(innerWidth * fx * dpr, innerHeight * fy * dpr, 2, 2).data; return d[0]; };
+  await frame();
+  const asleep = { corner: at(0.04, 0.06), middle: at(0.5, 0.5) };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null;
+  await frame();
+  const awake = { corner: at(0.04, 0.06), middle: at(0.5, 0.5) };
+  // a vignette: lit in the middle, dark at the corner, and no jump between the two moments
+  // a pop would be enormous — the old cap was four times looser asleep — so the bar is "nothing
+  // like a pop", not "identical to the level": the start room's own light differs a little
+  const out = { asleep, awake, popped: Math.abs(asleep.corner - awake.corner) > 25,
+    vignette: awake.middle - awake.corner > 25 };
+  // and the slider moves it both ways
+  SAVE.ui.fog = 0.4; await frame(); out.tight = at(0.5, 0.22);
+  SAVE.ui.fog = 2.2; await frame(); out.wide = at(0.5, 0.22);
+  SAVE.ui.fog = 1;   await frame();
+  out.sliderWorks = out.wide - out.tight > 15;
+  return out;
+});
+check('the fog is a vignette, the same asleep as awake, and the slider moves it',
+  !fog.popped && fog.vignette && fog.sliderWorks,
+  `the corner reads ${fog.asleep.corner} asleep and ${fog.awake.corner} once he is up — no pop; `
+  + `the middle reads ${fog.awake.middle} against the corner's ${fog.awake.corner}, so it gathers at `
+  + `the edges rather than cutting a hole; the slider takes a point up the screen from `
+  + `${fog.tight} at 0.4x to ${fog.wide} at 2.2x`);
+
+// ── 8aa. the debug panel folds up, and the two new sliders ───────
+// Joe: "we have a lot of things in the debug menu perhaps we want to put them into collapsible
+// sections so that we can keep some of them closed that we aren't using", plus "please give me a
+// slider that lets me set the speed of the character".
+const panel = await page.evaluate(async () => {
+  const secs = [...document.querySelectorAll('#dbg .sec')];
+  const out = { sections: secs.map((d) => d.dataset.sec), open: secs.filter((d) => d.open).length };
+  // every control still has a home
+  const ids = ['optLevel', 'optStones', 'optProto', 'optZoom', 'optSpeed', 'optFog', 'optMove', 'optFace',
+    'optStick', 'optSound', 'optSize', 'optBranch', 'optTurns', 'optClusters', 'optBraid', 'optFloor',
+    'optTexture', 'optArrow', 'optPath', 'optMap'];
+  out.homeless = ids.filter((id) => !$(id) || !$(id).closest('#dbg .sec'));
+  // shutting one is remembered
+  const first = secs[0]; const was = first.open;
+  first.open = !was; first.dispatchEvent(new Event('toggle'));
+  out.remembered = SAVE.ui['sec:' + first.dataset.sec] === !was;
+  first.open = was; first.dispatchEvent(new Event('toggle'));
+  // and the speed slider is a plain multiplier on what he walks
+  const base = CONFIG.speed;
+  SAVE.ui.speed = 0.5; const slow = B.speed();
+  SAVE.ui.speed = 1.5; const fast = B.speed();
+  SAVE.ui.speed = 1;   const norm = B.speed();
+  out.speedScales = Math.abs(slow / norm - 0.5) < 0.01 && Math.abs(fast / norm - 1.5) < 0.01;
+  out.range = [(slow / base).toFixed(2), (fast / base).toFixed(2)];
+  return out;
+});
+check('the debug panel folds into sections, and Speed is a plain multiplier',
+  panel.sections.length >= 4 && panel.open >= 1 && panel.open < panel.sections.length
+  && panel.homeless.length === 0 && panel.remembered && panel.speedScales,
+  `${panel.sections.length} sections (${panel.sections.join(', ')}) with ${panel.open} open to start; `
+  + `every control lives in one of them; shutting one is remembered; `
+  + `Speed runs ${panel.range[0]}x to ${panel.range[1]}x of the configured walk`);
+
+// ── 8ab. the spiral turns ────────────────────────────────────────
+// Joe: "the spiral room needs to move so the spiral is spinning in the center."
+const spiral = await page.evaluate(async () => {
+  CONFIG.tutorials = false;
+  SAVE.phase = 4; SAVE.stones = 4; SAVE.poolPending = false; SAVE.ui = {}; delete SAVE.run; persist();
+  let L = null;
+  for (let sd = 1; sd < 200 && !L; sd++) { reset(sd); L = landmarks.find((l) => l.kind === 'spiral'); }
+  if (!L) return { skip: true };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true; intro = null; darkTiles = new Set();
+  player.x = (L.rx0 + L.rx1) / 2 + 0.5; player.y = (L.ry0 + L.ry1) / 2 + 0.5; cam = { ...player };
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const b2 = cv.getContext('2d');
+  // a ring of samples round the eye of it: the arms sweeping past change them, a still picture does not
+  // Sample several rings, not one: which radius the arms fall on depends on how big the room is, and
+  // that changed the moment rooms did. Any ring that moves is the spiral moving.
+  const ring = () => { const out = [];
+    for (const rad of [0.38, 0.62, 0.9, 1.2]) for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2;
+      const x = (innerWidth / 2 + Math.cos(a) * zoomS * rad) * dpr, y = (innerHeight / 2 + Math.sin(a) * zoomS * rad) * dpr;
+      if (x < 0 || y < 0 || x >= cv.width || y >= cv.height) { out.push(0); continue; }
+      out.push(b2.getImageData(x, y, 1, 1).data[0]); }
+    return out; };
+  await frame(); const a1 = ring();
+  const t0b = performance.now();
+  await new Promise((r) => { const step = () => { if (performance.now() - t0b > 2500) return r(); requestAnimationFrame(step); }; step(); });
+  await frame(); const a2 = ring();
+  // The biggest single change, not the average over all of them. Most samples sit on flat floor
+  // between the arms and never move whatever happens, so averaging buries the signal in them — an
+  // arm sweeping across one sample is the whole evidence, and it is worth eighty levels.
+  let worst = 0; for (let i = 0; i < a1.length; i++) worst = Math.max(worst, Math.abs(a1[i] - a2[i]));
+  return { shift: worst, of: a1.length, hz: CONFIG.spiralSpinHz };
+});
+check('the spiral turns about the middle of its room',
+  spiral.skip || (spiral.shift > 12 && spiral.hz > 0),
+  spiral.skip ? 'no spiral room in the seeds tried' :
+  `of ${spiral.of} samples round its eye the one an arm swept across shifted ${spiral.shift.toFixed(0)} `
+  + `levels over two and a half seconds at ${spiral.hz} turns a second`);
+
+// ── 8b. the screen, after Joe played it on his phone (v0.77.0) ───
+
+// The ? is z-index 4 and the map is 3, so the ? sat on top of the map's close
+// button: opening the map trapped you in it, because the X opened How to Play.
+const overlap = await page.evaluate(async () => {
+  const box = (el) => { const r = el.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; };
+  const hits = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+  const how = document.getElementById('howBtn'), x = document.getElementById('mapClose');
+  const stacked = hits(box(how), box(x));            // they still share the corner
+  openMap(); await new Promise((r) => setTimeout(r, 120));
+  const hiddenWithMapOpen = getComputedStyle(how).display === 'none';
+  // and the X is what a tap in that corner actually reaches now
+  const b = box(x), top = document.elementFromPoint((b.l + b.r) / 2, (b.t + b.b) / 2);
+  const reachesX = !!top && (top === x || x.contains(top));
+  closeMap(); await new Promise((r) => setTimeout(r, 120));
+  return { stacked, hiddenWithMapOpen, reachesX, backAfter: getComputedStyle(how).display !== 'none' };
+});
+check('the map\'s close button is not buried under the ?',
+  overlap.hiddenWithMapOpen && overlap.reachesX && overlap.backAfter,
+  `the two still share the corner (${overlap.stacked ? 'overlapping' : 'not overlapping'}), so the ? is hidden while the map is open `
+  + `(${overlap.hiddenWithMapOpen}); a tap in that corner reaches the X (${overlap.reachesX}); and the ? comes back on close (${overlap.backAfter})`);
+
+// Walking himself off the mat is a scripted beat. It used to be a fraction of
+// B.speed(), which the debug Speed slider multiplies — so turning the player up
+// turned the intro up with him, which is what "walking off the mat too quickly"
+// was. Same beat at both ends of the slider now.
+const matWalk = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const run = async (mul) => {
+    SAVE.ui.speed = mul; persist();
+    reset(SEED);                                      // back to the mat, asleep
+    await nap(150);
+    wake();
+    // introWalk is set a whole introSeconds after the tap, and the first cut of
+    // this check ran out before it ever arrived — then read the *previous* run's
+    // pending timer as this run's walk. Wait for the beat rather than assume when.
+    for (let i = 0; i < 200 && !introWalk; i++) await nap(50);
+    // The average over the whole beat, not the peak of it. Peak reads the noise: the walk is short,
+    // the ease ramp is a good fraction of it, and sampling from outside the frame loop lands
+    // wherever it lands — at 0.4 tiles/s that drifted far enough to fail about one run in three.
+    // Both runs include the same ramp, so the averages compare honestly.
+    const y0 = player.y, t0 = performance.now();
+    let y1 = y0, t1 = t0;
+    for (let i = 0; i < 120 && introWalk; i++) { await nap(20); y1 = player.y; t1 = performance.now(); }
+    const secs = (t1 - t0) / 1000;
+    const peak = secs > 0.15 ? Math.abs(y1 - y0) / secs : 0;
+    await nap(120);                                   // let the beat finish before the next reset
+    return { peak, normal: B.speed() };
+  };
+  const slow = await run(1), fast = await run(1.8);
+  SAVE.ui.speed = 1; persist();
+  return { slow, fast };
+});
+
+{
+  const a = matWalk.slow.peak, b = matWalk.fast.peak;
+  const drift = a > 0 ? Math.abs(b - a) / a : 1;
+  // 0.4 rather than something tight: sampling a 0.8 tiles/s ramp from outside the
+  // frame loop drifts about 20% run to run, while the regression this is here to
+  // catch — the slider multiplying the walk again — puts the two 80% apart. Wide
+  // enough not to cry wolf, far inside the thing it is watching for.
+  check('the walk off the mat ignores the debug speed slider',
+    a > 0.2 && drift < 0.4 && matWalk.fast.normal > matWalk.slow.normal * 1.5,
+    `at slider 1x he walks off at ${a.toFixed(2)} tiles/s and at 1.8x at ${b.toFixed(2)} — ${(drift * 100).toFixed(0)}% apart, `
+    + `while his own walk goes ${matWalk.slow.normal.toFixed(2)} to ${matWalk.fast.normal.toFixed(2)}`);
+}
+
+// He is nearly black under a full load of stones, on a floor that is not much
+// lighter. Joe: "we're gonna have to have a white border on the character at all
+// times, otherwise they will blend and disappear into the background."
+const edge = await page.evaluate(async () => {
+  const cv = document.querySelector('canvas'), d = window.devicePixelRatio || 1;
+  const px = cv.width / 2, py = cv.height / 2, R = Math.round(CONFIG.playerSize * zoomS * d * 1.3);
+  const g = cv.getContext('2d').getImageData(px - R, py - R, R * 2, R * 2).data;
+  let brightest = 0, darkest = 255;
+  for (let i = 0; i < g.length; i += 4) {
+    const v = (g[i] + g[i + 1] + g[i + 2]) / 3;
+    if (v > brightest) brightest = v;
+    if (v < darkest) darkest = v;
+  }
+  return { brightest, darkest, stones: SAVE.stones || 0 };
+});
+check('he is drawn with a light edge, so he cannot sink into the floor',
+  edge.brightest > 200 && edge.brightest - edge.darkest > 90,
+  `carrying ${edge.stones} stones, the box around him runs ${edge.darkest.toFixed(0)} to ${edge.brightest.toFixed(0)} `
+  + `— a body that dark needs an edge that bright to stay findable`);
+
+// ── 8c. every self's melody lands where a phone can sound it (v0.77.0) ──
+//
+// Joe: "the music for the soldier is not really firing as much as expected. Just
+// picking up the ambient noise, not the actual soldier melody." It was firing —
+// at a median of 110Hz with a floor of 55Hz, which a phone speaker cannot
+// reproduce. The Criminal was worse: every note under 150Hz. Two checks, because
+// one alone would not have caught it: play the two bass selves for real, and work
+// out the lowest note every preset can reach.
+const AUDIBLE = 180;   // Hz a phone can be relied on to sound
+
+const heard = await page.evaluate(async (floorHz) => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const out = {};
+  // Establish the precondition rather than inherit it: the debug-panel check earlier in this
+  // suite walks every control, optSound included, and since v0.78.0 switching sound off really
+  // does tear the composer down instead of muting it. Left to chance, this check measured a
+  // silent game and blamed the music.
+  AUDIO.setEnabled(true); AUDIO.begin();
+  await nap(2800);                                   // the first bar is scheduled 2.5s in
+  for (const name of ['The Soldier', 'The Criminal']) {
+    AUDIO.setMusic(name);
+    await nap(400);
+    window.__voices.length = 0;
+    // Wait for notes rather than assume a window. These two are the sparsest selves in the game
+    // and a fixed nine seconds caught nothing about one run in four — a check that cries wolf gets
+    // ignored, which is worse than not having it. A motif bar ignores density and rests and always
+    // plays, so one is guaranteed inside motifEvery bars: the Soldier's every 2 (~7s), the
+    // Criminal's every 3 (~12s). 18s is past both with room to spare.
+    // The shared bed (audio.js startDrone: 55, 82.4, 110, 164.8Hz and its slow LFOs) is not a note; if it happens
+    // to be built inside the window its tick used to count as one "topping out at 82Hz", and this check failed now
+    // and then with the music fine. A tick made of nothing but the bed's oscillators is left out.
+    const BED = new Set([55, 82.4, 110, 164.8]);
+    const byTick = new Map(), bedTick = new Map();
+    for (let waited = 0; waited < 18000; waited += 250) {
+      await nap(250);
+      for (const v of window.__voices) {
+        const k = Math.round(v.t / 40);               // voices of one note are made in the same tick
+        const f = v.n.frequency.value || 0;
+        byTick.set(k, Math.max(byTick.get(k) || 0, f));
+        bedTick.set(k, (bedTick.get(k) ?? true) && (f < 1 || BED.has(Math.round(f * 10) / 10)));
+      }
+      window.__voices.length = 0;
+      if ([...byTick.keys()].filter((k) => !bedTick.get(k)).length >= 4) break;   // a motif bar's worth: enough to judge
+    }
+    const tops = [...byTick].filter(([k, f]) => f > 0 && !bedTick.get(k)).map(([, f]) => f);
+    out[name] = { notes: tops.length, mute: tops.filter((f) => f < floorHz).length, lowestTop: tops.length ? Math.min(...tops) : 0 };
+  }
+  return out;
+}, AUDIBLE);
+{
+  const rows = Object.entries(heard);
+  // One note each is the bar, not two: these two selves are the sparsest in the game (the Criminal
+  // rests 40% of bars at density 0.35) and a nine-second window does not reliably hold more. The
+  // count is only here so that a silent game cannot pass "none of them were inaudible" vacuously —
+  // the coverage across all nine presets is the check below.
+  const played = rows.every(([, r]) => r.notes >= 1);
+  const allHeard = rows.every(([, r]) => r.mute === 0);
+  check('the bass selves are pitched where a phone can sound them',
+    played && allHeard,
+    rows.map(([n, r]) => `${n}: ${r.notes} notes, ${r.mute} of them with nothing above ${AUDIBLE}Hz, `
+      + `quietest note topping out at ${r.lowestTop.toFixed(0)}Hz`).join('; '));
+}
+
+// And the same property for every self, from the presets rather than the clock —
+// a real-time pass over all nine would add a minute to this suite to catch a
+// character Joe has not reached yet.
+const reach = await page.evaluate((floorHz) => {
+  const bad = [];
+  for (const [name, p] of Object.entries(MUSIC)) {
+    const n = p.scale.length;
+    const degrees = [...(p.motif || []), -1, 0];           // -1 is the lowest a random beat can pick
+    for (const deg of degrees) {
+      const oct = Math.floor(deg / n), st = p.scale[((deg % n) + n) % n] + 12 * oct;
+      const f = p.root * Math.pow(2, st / 12);
+      // the rule, asked of the game rather than modelled here: a note either clears the
+      // floor on its own, or the engine carries its pitch up until it does
+      const carrier = AUDIO.carrierFor(f);
+      const top = Math.max(f, carrier * 2);
+      if (top < floorHz) bad.push(`${name}: a ${f.toFixed(0)}Hz note reaches only ${top.toFixed(0)}Hz`);
+    }
+  }
+  return { bad, count: Object.keys(MUSIC).length };
+}, AUDIBLE);
+check(`no self's melody sits below what a phone can play (${reach.count} presets)`,
+  reach.bad.length === 0,
+  reach.bad.length ? reach.bad.join('; ')
+    : `every preset's lowest reachable note is either above ${AUDIBLE}Hz already or carried up to it`);
+
+// Joe: "turning the debug sound on and off should restart the audio." It used to
+// ride the master gain to 0 and back, leaving the bed and the composer running on
+// in silence, so switching back on rejoined them mid-bar.
+const restart = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  AUDIO.setEnabled(true); await nap(300);
+  const before = window.__osc;
+  await nap(400);
+  const ranOn = window.__osc > before;                 // the bed is alive and making voices
+  AUDIO.setEnabled(false); await nap(700);             // past the 350ms teardown
+  const atOff = window.__osc;
+  await nap(1200);
+  const quiet = window.__osc === atOff;                // nothing still playing behind the silence
+  AUDIO.setEnabled(true); await nap(900);
+  const rebuilt = window.__osc > atOff;                // and switching on builds a new bed
+  AUDIO.setEnabled(true);
+  return { ranOn, quiet, rebuilt, made: window.__osc - atOff };
+});
+check('the sound toggle restarts the audio rather than muting it',
+  restart.quiet && restart.rebuilt,
+  `with it off nothing new is voiced for over a second (${restart.quiet}); switching it back on builds the bed again `
+  + `(${restart.made} new voices). Muting alone would have kept the composer running through the silence`);
+
+// ── 8d. the rooms answer to you (v0.79.0) ───────────────────────
+
+// Joe: "the spiral in the spiral room should move and rotate whatever direction
+// the player is moving." Walk him a quarter-turn round the eye one way, then the
+// other, and the spiral should follow each time.
+const drag = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let tries = 0; tries < 40; tries++) {
+    const L = (landmarks || []).find((l) => l.kind === 'spiral');
+    if (L) {
+      const px = L.x + 0.5, py = L.y + 0.5, rr = 1.6;
+      const put = (ang) => { player.x = px + Math.cos(ang) * rr; player.y = py + Math.sin(ang) * rr; };
+      const sweep = async (dir) => {
+        // a spiral that has never been on screen has no `spin` yet: stand by it a frame first
+        put(0); await nap(60); if (L.spin === undefined) { await nap(120); }
+        const from = L.spin ?? 0;
+        for (let i = 1; i <= 12; i++) { put(dir * i * Math.PI / 24); await nap(28); }
+        return L.spin - from;
+      };
+      const cw = await sweep(1), ccw = await sweep(-1);
+      return { skip: false, cw, ccw };
+    }
+    reset(SEED + tries + 1);                           // another maze until one has a spiral
+    await nap(40);
+  }
+  return { skip: true };
+});
+check('the spiral turns the way you walk round it',
+  drag.skip || (drag.cw > 0.15 && drag.ccw < -0.15),
+  drag.skip ? 'no spiral room in the seeds tried'
+    : `walking a quarter-turn one way moved it ${drag.cw.toFixed(2)} radians and the other way ${drag.ccw.toFixed(2)} — `
+      + `it follows the direction rather than running on its own clock`);
+
+// Joe: "room two in the prototype should also be columns that light up." Room two
+// of the gallery is the statues, so they stand on the floor now like the columns
+// and take the light at the same reach.
+const stat = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  buildGallery(SEED); await nap(200);                 // the gallery lays out one bay per kind
+  const L = (landmarks || []).find((l) => l.kind === 'statues');
+  if (!L) return { missing: true };                   // never a skip: the gallery always has one
+  const solid = (L.cols || []).filter(([mx, my]) => tiles[my][mx] === 0).length;
+  // the room is still walkable: every open tile in it reachable from its doorway
+  const seen = new Set(), q = [[L.rx0, L.ry0 + ((L.ry1 - L.ry0) >> 1)]];
+  let open = 0;
+  for (let y = L.ry0; y <= L.ry1; y++) for (let x = L.rx0; x <= L.rx1; x++) if (tiles[y][x]) open++;
+  while (q.length) { const [x, y] = q.pop(), k = x + ',' + y;
+    if (seen.has(k) || x < L.rx0 || x > L.rx1 || y < L.ry0 || y > L.ry1 || !tiles[y][x]) continue;
+    seen.add(k); q.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]); }
+  // and they should be dark until he is on top of them. Sample one statue's own tile
+  // from across the room, then from the tile beside it.
+  const cv = document.querySelector('canvas'), d = window.devicePixelRatio || 1;
+  const [mx, my] = L.cols[0];
+  const lookAt = async (px, py) => {
+    player.x = px; player.y = py; cam.x = px; cam.y = py;
+    await nap(260);
+    const sx = Math.round((cv.width / 2 + (mx + 0.5 - player.x) * zoomS * d));
+    const sy = Math.round((cv.height / 2 + (my + 0.5 - player.y) * zoomS * d));
+    const g = cv.getContext('2d').getImageData(sx - 6, sy - 6, 12, 12).data;
+    let sum = 0; for (let i = 0; i < g.length; i += 4) sum += (g[i] + g[i + 1] + g[i + 2]) / 3;
+    return sum / (g.length / 4);
+  };
+  const near = await lookAt(mx + 1.5, my + 0.5);
+  const far = await lookAt(L.x + 0.5, L.y + 0.5 + (L.ry1 - L.ry0));
+  return { skip: false, placed: (L.cols || []).length, solid, open, reached: seen.size, near, far };
+});
+check('the statues stand on the floor, and light up as you reach them',
+  !stat.missing && stat.placed >= 4 && stat.solid === stat.placed && stat.reached === stat.open
+    && stat.near > stat.far + 6,
+  stat.missing ? 'the gallery has no statue bay at all, which is itself the bug'
+    : `${stat.placed} of them, all ${stat.solid} shut against you, and all ${stat.open} open tiles of the bay still `
+      + `reach each other. One of them reads ${stat.far.toFixed(0)} from across the room and ${stat.near.toFixed(0)} from the tile beside it`);
+
+// ── 8e. collision, the squeeze line, and the nav view (v0.80.0) ──
+
+// Joe: "there's collision when the pool level gate opens that stops me from
+// walking through it until it's all the way open." Gates ease out, so the leaves
+// are most of the way across early; the tile used to stay shut for the whole
+// slide regardless.
+const poolGate = await page.evaluate(() => {
+  SAVE.poolPending = true;
+  generate(99); sliding = null;
+  const out = { has: !!poolDoor };
+  if (poolDoor) {
+    const at = (frac) => {
+      poolDoor.openAt = gameNow() - frac * CONFIG.poolDoorSeconds * 1000;
+      return passable(poolDoor.x, poolDoor.y);
+    };
+    poolDoor.openAt = 0;
+    out.beforeShoving = passable(poolDoor.x, poolDoor.y);   // shut until you shove it
+    out.atStart = at(0.02);
+    out.third = at(1 / 3);      // the leaves are ~70% across here, comfortably wider than he is
+    out.half = at(0.5);
+    out.done = at(1);
+    out.swingAtThird = gateEase(1 / 3);
+  }
+  SAVE.poolPending = false;
+  return out;
+});
+check('the pool gate lets you through once its leaves are clear, not once the clock runs out',
+  poolGate.has && !poolGate.beforeShoving && !poolGate.atStart && poolGate.third && poolGate.half && poolGate.done,
+  `shut before you shove it (${!poolGate.beforeShoving}) and at the start of the slide (${!poolGate.atStart}); `
+  + `open a third of the way through (${poolGate.third}), by which point the leaves have swung `
+  + `${(poolGate.swingAtThird * 100).toFixed(0)}% across`);
+
+// Joe: "we should only give this pop-up text about not being able to get into the
+// squeeze through when the character's directly hitting or pointing towards the
+// squeeze through." It used to fire on entering any tile with a gap beside it.
+const said = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let t = 0; t < 60; t++) {
+    SAVE.phase = 2;                                   // the Soldier: too big for a squeeze
+    generate(500 + t); sliding = null; started = true;
+    if (!crawlGaps.size) continue;
+    const [gk] = [...crawlGaps];
+    const [gx, gy] = gk.split(',').map(Number);
+    // stand on a floor tile beside the gap, if there is one
+    const spot = [[1,0],[-1,0],[0,1],[0,-1]].find(([dx, dy]) => isOpen(gx + dx, gy + dy));
+    if (!spot) continue;
+    const [dx, dy] = spot;
+    const stand = async (face) => {
+      crawlSaid = false; held = null; dir = null;
+      player.x = gx + dx + 0.5; player.y = gy + dy + 0.5;
+      facing = face; await nap(140);
+      return crawlSaid;
+    };
+    const toward = Math.atan2(-dy, -dx);              // back along the offset: at the gap
+    const away = toward + Math.PI;
+    return { skip: false, facingIt: await stand(toward), facingAway: await stand(away) };
+  }
+  return { skip: true };
+});
+check('he only remarks on a squeeze he is actually looking at',
+  !said.skip && said.facingIt && !said.facingAway,
+  said.skip ? 'no crawl gap with a tile beside it in the seeds tried'
+    : `turned to the gap he says it (${said.facingIt}); standing in the same place turned away he does not (${!said.facingAway})`);
+
+// Joe: "number each tile from 1-n and display it on the tile... it should display
+// the seed on the screen and a number on each tile that is faint, but legible."
+const nav = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 0; reset(4242); sliding = null; started = true;   // reset, not generate: it puts him on the mat of the new maze
+  let walk = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isOpen(x, y)) walk++;
+  const hereA = navNumberAt(Math.floor(player.x), Math.floor(player.y));
+  const [ex, ey] = [exit.x, exit.y];
+  const exitNo = navNumberAt(ex, ey);
+  SAVE.ui.nav = true; await nap(160);
+  const painted = SAVE.ui.nav;
+  // the numbers must not move when the view is toggled or the camera pans
+  player.x += 3; await nap(120);
+  const hereB = navNumberAt(Math.floor(player.x) - 3, Math.floor(player.y));
+  SAVE.ui.nav = false;
+  return { walk, hereA, hereB, exitNo, painted, wallNo: navNumberAt(0, 0) };
+});
+check('the nav view numbers every walkable tile, and the numbers hold still',
+  nav.painted && nav.walk > 50 && Number.isFinite(nav.hereA) && nav.hereA === nav.hereB
+    && Number.isFinite(nav.exitNo) && nav.exitNo <= nav.walk && nav.wallNo === '\u2014',
+  `${nav.walk} walkable tiles; he starts on ${nav.hereA} and it is still ${nav.hereB} after the camera moves; `
+  + `the way out is ${nav.exitNo}; a wall tile has no number`);
+
+// Joe: "All the rooms are pushed into the same space. These should be more spread out." The worst
+// of it was The Archivist: eleven rooms in a lg maze, two of them on one tile in 1 maze of 30 and
+// within four tiles of each other in 7 of 30 (QUALITY.md). The bar is the property, not the knob:
+// no two rooms' middles within four tiles, in the chapter that clumped hardest and in the Child's.
+const roomSpread = await page.evaluate(() => {
+  let pairs = 0, close = 0, mazes = 0, minGap = Infinity;
+  for (const ph of [0, 3]) for (let s2 = 1; s2 <= 30; s2++) {
+    SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 53 + ph); mazes++;
+    const rooms = landmarks.filter((l) => l.rx1 > l.rx0).map((l) => [(l.rx0 + l.rx1) / 2, (l.ry0 + l.ry1) / 2]);
+    for (let i = 0; i < rooms.length; i++) for (let j = i + 1; j < rooms.length; j++) {
+      const g = Math.max(Math.abs(rooms[i][0] - rooms[j][0]), Math.abs(rooms[i][1] - rooms[j][1])); pairs++; minGap = Math.min(minGap, g); if (g < 4) close++; }
+  }
+  return { mazes, pairs, close, minGap };
+});
+check('no two rooms are placed within four tiles of each other',
+  roomSpread.pairs > 0 && roomSpread.close === 0,
+  `${roomSpread.pairs} room pairs over ${roomSpread.mazes} Child and Archivist mazes; ${roomSpread.close} within four tiles, the closest ${roomSpread.minGap} apart`);
+
+// Joe: "Hopscotch should stop at four. It's too long otherwise." The bar is his number, not the
+// knob: every court in every Child maze is four squares, and every maze that has a straight run
+// of four gets one.
+const hop = await page.evaluate(() => {
+  const lens = [], missing = [];
+  for (let s2 = 1; s2 <= 60; s2++) { SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 31);
+    if (hopscotch.length) lens.push(hopscotch.length); else missing.push(s2 * 31); }
+  return { n: lens.length, max: Math.max(...lens), min: Math.min(...lens), missing: missing.length };
+});
+check('the hopscotch court is four squares, no more',
+  hop.n > 0 && hop.max === 4 && hop.min === 4,
+  `${hop.n} courts over 60 Child mazes, ${hop.min}–${hop.max} squares each; ${hop.missing} mazes without one`);
+
+// Joe: "I want to make a prototype of the biggest map we could possibly make. 10 times the size of
+// our biggest map... with all the features we have to put in it." The Prototype menu's Giant: ten
+// X-Larges of cells, the ordinary generator, every feature on. Built once, so it has to come in
+// under a time a phone will wait for, and hold everything the game has.
+const giant = await page.evaluate(async () => {
+  if (!$('optProto').querySelector('option[value="giant"]')) return { missing: true };
+  SAVE.phase = 4; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui.proto = 'giant';
+  const t0 = performance.now(); generate(4242); const ms = Math.round(performance.now() - t0);
+  // the exit, by walking, counting a pushable block's tiles as floor: he starts sealed behind one
+  const slideOpens = new Set(sliders.flatMap((sl) => [sl.x + ',' + sl.y, (sl.x + sl.dx) + ',' + (sl.y + sl.dy)]));
+  const walk = (x, y) => isOpen(x, y) || slideOpens.has(x + ',' + y);
+  const s0 = Math.floor(start.x) + ',' + Math.floor(start.y), seen = new Set([s0]), q = [[Math.floor(start.x), Math.floor(start.y)]];
+  for (let h = 0; h < q.length; h++) { const [x, y] = q[h]; for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny; if (walk(nx, ny) && !seen.has(k)) { seen.add(k); q.push([nx, ny]); } } }
+  const r = { ms, cells: CONFIG.cols * CONFIG.rows, xl: SIZES.xl[0] * SIZES.xl[1], exit: seen.has(exit.x + ',' + exit.y), reached: seen.size,
+    has: { doors: doors.length, keys: innerKeys.size, vaults: keyVaults.length, statues: shrines.length, stones: offerings.size, gaps: crawlGaps.size, sliders: sliders.length, swings: sliders.filter((s2) => s2.auto).length,
+      dark: darkTiles.size, lamp: lampSpot ? 1 : 0, scraps: scrapSpots.size, pages: journals.size, compass: [...pickups.values()].filter((v) => v === 'pointer').length, thread: [...pickups.values()].filter((v) => v === 'path').length,
+      hopscotch: hopscotch.length, figures: figures.length, rooms: landmarks.length, kinds: new Set(landmarks.map((l) => l.kind)).size, secret: secretTiles.size, tree: exitTree.size, districts: clusters.length } };
+  SAVE.ui.proto = 'off'; generate(4242); return r;
+});
+check('the Giant prototype is ten X-Larges, holds every feature the game has, and builds in the time a phone will wait',
+  !giant.missing && giant.cells >= giant.xl * 10 && giant.exit && Object.values(giant.has).every((v) => v > 0) && giant.has.kinds === 7 && giant.ms < 8000,
+  giant.missing ? 'no Giant on the Prototype menu' :
+  `${giant.cells} cells (${(giant.cells / giant.xl).toFixed(1)}× XL) built in ${giant.ms}ms; the exit is reachable (${giant.exit}, ${giant.reached} tiles); `
+  + Object.entries(giant.has).map(([k, v]) => `${k} ${v}`).join(', '));
+
+// Joe: "add an infinite charcoal to the debug window." Lit, it never wears down; empty, a tap
+// still lights a piece; and the pill says so.
+const infCoal = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 1; SAVE.ui.charcoalInf = false; reset(4242); sliding = null; started = true; await nap(60);
+  if (!$('optCharcoal')) return { label: 'no toggle', litFromNothing: false, stillFull: false, logged: 0, off: true, full: 0 };   // fail, never throw, on a build without it
+  $('optCharcoal').checked = true; $('optCharcoal').dispatchEvent(new Event('change'));
+  const label = $('charcoalN').textContent;
+  charcoal = 0; charcoalLeft = 0; charcoalOn = false; updateCharcoal(); useCharcoal(); await nap(30);
+  const litFromNothing = charcoalOn && charcoalLeft > 0; const full = charcoalLeft;
+  // walk onto fresh tiles: the piece stays whole
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)]; const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [0, 0];
+  mapped = new Map(); visited = new Set(); let logged = 0;
+  for (const [x, y] of [[sx + dx, sy + dy], [sx, sy], [sx + dx, sy + dy]]) { player.x = x + 0.5; player.y = y + 0.5; lastTileKey = ''; await nap(100); }
+  logged = mapped.size; const stillFull = charcoalLeft === full;
+  $('optCharcoal').checked = false; $('optCharcoal').dispatchEvent(new Event('change')); charcoalOn = false; updateCharcoal();
+  return { label, litFromNothing, full, stillFull, logged, off: !SAVE.ui.charcoalInf };
+});
+check('the debug window\'s infinite charcoal never wears down and never runs out',
+  infCoal.label === '∞' && infCoal.litFromNothing && infCoal.stillFull && infCoal.logged > 0 && infCoal.off,
+  `pill reads "${infCoal.label}"; from an empty pocket a tap lit a piece (${infCoal.litFromNothing}); ${infCoal.logged} tiles charted and the piece is still ${infCoal.stillFull ? 'whole' : 'worn'} at ${infCoal.full}; switched back off (${infCoal.off})`);
+
+// ── sounds a phone can play, and a clock that stops (v0.107.0) ──
+// Joe: "There's no sound for when the gates open" and "the push block needs to be a little bit
+// louder." Both had their weight in a tone under 100Hz, which a phone speaker cannot reproduce —
+// the music learned this in v0.7x (bassCarrierHz). Every oscillator a gate or a push makes must sit
+// at or above that floor, read off the voices the audio probe records.
+const sfxPitch = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const floor = CONFIG.bassCarrierHz, out = {};
+  for (const name of ['gate', 'slideStart', 'slideEnd']) {
+    window.__voices.length = 0; AUDIO[name](); await nap(700);
+    const freqs = window.__voices.map((v) => v.n.frequency.value).filter((f) => f > 0);
+    out[name] = { voices: freqs.length, low: freqs.filter((f) => f < floor).length, lowest: freqs.length ? Math.round(Math.min(...freqs)) : 0 };
+  }
+  return { floor, out };
+});
+check('the gate and the push block sound where a phone can play them',
+  Object.values(sfxPitch.out).every((r) => r.voices >= 1 && r.low === 0),
+  Object.entries(sfxPitch.out).map(([n, r]) => `${n}: ${r.voices} voices, lowest ${r.lowest}Hz, ${r.low} under the ${sfxPitch.floor}Hz floor`).join('; '));
+
+// Joe: "it might've just been very delayed. Yeah, really delayed. I restarted to see if that fixed
+// it." Safari interrupts the audio context and it stays suspended; sounds scheduled into the stopped
+// clock used to queue and fire together, late, when a gesture finally woke it. Now a sound that
+// cannot play is dropped, and the next touch wakes the clock.
+const stopped = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  AUDIO.pickup(); await nap(150);
+  const ac = window.__voices.length ? window.__voices[window.__voices.length - 1].n.context : null;
+  if (!ac) return { noContext: true };
+  // Chrome resumes a suspended context the moment it is asked; Safari, interrupted, does not until
+  // a gesture. Hold the resume shut the way Safari does, so the probe reads the game, not Chrome.
+  const realResume = ac.resume.bind(ac); ac.resume = () => Promise.resolve();
+  await ac.suspend(); await nap(50);
+  window.__voices.length = 0; AUDIO.pickup(); AUDIO.key(); await nap(500);
+  const isRunning = () => (typeof AUDIO.running === 'function' ? AUDIO.running() : ac.state === 'running');   // fail, never throw, on a build without it
+  const whileStopped = window.__voices.length, running = isRunning();
+  // a touch wakes it
+  ac.resume = realResume;
+  document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); dispatchEvent(new PointerEvent('pointerdown')); await nap(300);
+  const wokeUp = isRunning();
+  window.__voices.length = 0; AUDIO.pickup(); await nap(300);
+  const afterWake = window.__voices.length;
+  return { whileStopped, running, wokeUp, afterWake };
+});
+check('a sound with the audio clock stopped is dropped, not queued, and a touch restarts the clock',
+  !stopped.noContext && stopped.whileStopped === 0 && !stopped.running && stopped.wokeUp && stopped.afterWake >= 1,
+  stopped.noContext ? 'no audio context to stop' :
+  `with the context suspended a pickup and a key made ${stopped.whileStopped} voices (running ${stopped.running}); a touch resumed it (${stopped.wokeUp}) and the next pickup made ${stopped.afterWake}`);
+
+// ── the charcoal HUD and the compass pickup (v0.100.0) ──
+// Joe, twice: "The charcoal icon on the hud/screen should have a little pulse to it every time a
+// tile is logged. Like a little heart beat." The first cut swelled 8% and never came to rest between
+// tiles. The bar here is the stylesheet's own keyframe: its peak must be a real swell, and the beat
+// must be shorter than a tile at walking pace so it can rest. And: "The press and hold for the
+// charcoal lock needs a stronger visual to show it's locked, maybe a bolder outline."
+const hud = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  let peak = 0;
+  for (const sh of document.styleSheets) for (const r of sh.cssRules) if (r.name === 'charbeat')
+    for (const k of r.cssRules) { const m = /scale\(([\d.]+)\)/.exec(k.style.transform); if (m) peak = Math.max(peak, Number(m[1])); }
+  const beatMs = CONFIG.charcoalBeatMs, tileMs = 1000 / B.speed();
+  // the beat actually fires as a tile is logged
+  SAVE.phase = 1; reset(4242); sliding = null; started = true; await nap(60);
+  charcoal = 2; charcoalLeft = B.charcoal(); charcoalOn = true; updateCharcoal(); charcoalEl.classList.remove('beat');
+  // walk him onto fresh tiles: mapHere() adds each, and beat() fires on every second one — Joe,
+  // on once a tile: "It's too crazy. Make it pulse like half as much." So two tiles: one beat.
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)];
+  const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [0, 0];
+  mapped = new Map(); visited = new Set(); charcoalTiles = 0; let beats = 0;
+  const seenBeat = () => { if (charcoalEl.classList.contains('beat')) { beats++; charcoalEl.classList.remove('beat'); } };
+  player.x = sx + dx + 0.5; player.y = sy + dy + 0.5; lastTileKey = ''; await nap(120); seenBeat();
+  const afterOne = beats;
+  player.x = sx + 0.5; player.y = sy + 0.5; mapped = new Map(); lastTileKey = ''; await nap(120); seenBeat();
+  const beatFired = beats === 1 && afterOne === 0;
+  // and the lock reads
+  const plain = getComputedStyle(charcoalEl); const plainBorder = parseFloat(plain.borderTopWidth), plainShadow = plain.boxShadow;
+  // read it once the pill has finished changing: 30ms caught the halo mid-transition now and then, and the check
+  // failed with nothing wrong (v0.142.0)
+  charcoalLock = true; updateCharcoal(); await nap(400);
+  const lk = getComputedStyle(charcoalEl); const lockBorder = parseFloat(lk.borderTopWidth), lockShadow = lk.boxShadow;
+  // and locked with nothing left: Joe, "Locked, charcoal states gold, even after all of the charcoal is gone"
+  charcoal = 0; charcoalLeft = 0; updateCharcoal(); await nap(30);
+  const em = getComputedStyle(charcoalEl); const emptyBorder = parseFloat(em.borderTopWidth), emptyLocked = charcoalEl.classList.contains('locked'), stillArmed = charcoalLock;
+  charcoalLock = false; charcoalOn = false; updateCharcoal();
+  return { peak, beatMs, tileMs, beatFired, plainBorder, lockBorder, plainShadow, lockShadow, emptyBorder, emptyLocked, stillArmed };
+});
+// v0.100.0 asked for a swell of at least 1.15; Joe then asked for half as much, so the bar is a
+// band — visible (over 1.05) and not the old size (under 1.15) — and one beat per two tiles.
+check('the charcoal icon beats once per two tiles logged, a swell you can see and not too much',
+  hud.beatFired && hud.peak > 1.05 && hud.peak < 1.15 && hud.beatMs > 0 && hud.beatMs < hud.tileMs,
+  `one beat over two fresh tiles, none after the first (${hud.beatFired}); keyframe peaks at scale ${hud.peak} (band 1.05–1.15) over ${hud.beatMs}ms, a tile takes ${hud.tileMs.toFixed(0)}ms`);
+check('lock-on gives the charcoal pill a bolder outline than resting',
+  hud.lockBorder >= 2 && hud.lockBorder > hud.plainBorder && hud.lockShadow !== 'none' && hud.lockShadow !== hud.plainShadow,
+  `border ${hud.plainBorder}px resting, ${hud.lockBorder}px locked; halo ${hud.lockShadow !== 'none' ? 'on' : 'off'} when locked`);
+check('a locked pill with no charcoal left drops its gold, and stays armed for the next piece',
+  !hud.emptyLocked && hud.emptyBorder === hud.plainBorder && hud.stillArmed,
+  `empty and locked: ring shown ${hud.emptyLocked}, border ${hud.emptyBorder}px (resting ${hud.plainBorder}px); lock still armed ${hud.stillArmed}`);
+
+// Joe: "The map icon only has to flash the first time it appears, not every time." And: "stop
+// drawing the important locations on the map so that players can put chalk down for them
+// instead. If we don't draw the statue or the gates, then they have a reason to use chalk."
+const mapOnce = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  delete SAVE.mapBeckoned; SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run; persist();
+  reset(4242); wake(); for (let i = 0; i < 200 && !started; i++) await nap(50); await nap(200); introWalk = null; held = null;
+  const first = $('mapBtn').classList.contains('beckon');
+  openMap(); await nap(50); const afterOpen = $('mapBtn').classList.contains('beckon'), remembered = !!SAVE.mapBeckoned;
+  // the map, with a gate, a statue and a stone all on charted floor: none of them drawn
+  const d = doors[0], sh = shrines[0], st = [...offerings.keys()][0];
+  for (const k of [d && d.x + ',' + d.y, sh && sh.sx + ',' + sh.sy, st].filter(Boolean)) mapped.set(k, 'floor');
+  const realMark = window.drawMark, realShape = window.drawShape; let marks = 0, gates = 0, keys = 0;
+  drawMark = (...a) => { if (a[0] === mctx) marks++; return realMark(...a); };
+  drawShape = (...a) => { if (a[0] === mctx) { if (a[5] === CONFIG.colors.gate) gates++; else keys++; } return realShape(...a); };
+  drawMap(); drawMark = realMark; drawShape = realShape;
+  closeMap(); await nap(50);
+  reset(4242); wake(); for (let i = 0; i < 200 && !started; i++) await nap(50); await nap(200); introWalk = null; held = null;
+  const second = $('mapBtn').classList.contains('beckon');
+  return { first, afterOpen, remembered, second, marks, gates, keys, hadDoor: !!d, hadShrine: !!sh, hadStone: !!st };
+});
+check('the map button beckons the first time only, and the map draws no gates, statues or stones',
+  mapOnce.first && !mapOnce.afterOpen && mapOnce.remembered && !mapOnce.second && mapOnce.marks === 0 && mapOnce.gates === 0 && mapOnce.hadDoor && mapOnce.hadShrine,
+  `beckons on the first run (${mapOnce.first}), stops when opened (${!mapOnce.afterOpen}), remembered (${mapOnce.remembered}), quiet on the next run (${!mapOnce.second}); `
+  + `with a gate, a statue and a stone charted the map drew ${mapOnce.gates} gates and ${mapOnce.marks} marks (keys drawn: ${mapOnce.keys})`);
+
+// Joe: "The pickup for the compass should look different than the main character as well. Make it
+// look like the icon that shows up when you collect it." A compass has a case: a ring of the pickup's
+// colour with the dark inside it, where the old arrowhead had floor beside it. Sampled on the ring
+// at right angles to the needle, so the needle itself is never what is being read.
+const cpick = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 2; reset(4242); sliding = null; started = true; SAVE.ui.nav = false; await nap(60);
+  const [sx, sy] = [Math.floor(player.x), Math.floor(player.y)];
+  const [dx, dy] = DIRS.find(([ddx, ddy]) => isOpen(sx + ddx, sy + ddy)) || [1, 0];
+  const k = (sx + dx) + ',' + (sy + dy); pickups.set(k, 'pointer'); charcoalSpots.delete(k); chalkSpots.delete(k);
+  // keep him where he is so the pickup is not picked up while we look
+  lastTileKey = sx + ',' + sy; await nap(400);
+  const cv = document.querySelector('canvas'), g = cv.getContext('2d'), dpr = cv.width / innerWidth;
+  // the renderer's own camera: anchored at 0.5 across and 0.42 down in portrait
+  const S = zoomS, ay = innerWidth > innerHeight ? 0.5 : 0.42;
+  const ox = innerWidth * 0.5 - cam.x * S, oy = innerHeight * ay - (cam.y + camBump) * S;
+  const cx = ox + (sx + dx + 0.5) * S, cy = oy + (sy + dy + 0.5) * S;
+  const ang = Math.atan2(exit.y + 0.5 - (sy + dy + 0.5), exit.x + 0.5 - (sx + dx + 0.5)) + Math.PI / 2;
+  const at = (r) => { const d = g.getImageData(Math.round((cx + Math.cos(ang) * r) * dpr), Math.round((cy + Math.sin(ang) * r) * dpr), 1, 1).data; return [d[0], d[1], d[2]]; };
+  const ring = at(S * 0.2), inside = at(S * 0.1), floor = at(S * 0.34);
+  pickups.delete(k);
+  const lum = (c) => (c[0] + c[1] + c[2]) / 3;
+  return { ring, inside, floor, ringLum: lum(ring), insideLum: lum(inside), floorLum: lum(floor), S };
+});
+check('the compass pickup is a compass: a bright case round a dark face, not an arrowhead on the floor',
+  cpick.ringLum > cpick.insideLum + 40 && cpick.ringLum > cpick.floorLum + 30,
+  `on the ring ${cpick.ringLum.toFixed(0)}, inside the case ${cpick.insideLum.toFixed(0)}, floor beside it ${cpick.floorLum.toFixed(0)} (tile ${cpick.S}px)`);
+
+// Joe, with two screenshots of a T he could not get through: "the nav mesh isn't
+// showing the seed for it to be easy for you to reproduce." It was there — bottom
+// left, under the joystick and the phone's home bar, where his screenshots never
+// reach. The tag now sits at the top of the picture, under the HUD row and below
+// the narrator's line, and names the chapter, the seed and the tile he stands on.
+const tag = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 0; reset(4242); sliding = null; started = true;
+  narrEl.innerHTML = 'the man said wait here.'; narrEl.className = 'show';
+  SAVE.ui.nav = true; await nap(160);
+  const text = navTagText, here = navNumberAt(Math.floor(player.x), Math.floor(player.y));
+  const nb = narrEl.getBoundingClientRect().bottom;      // the picture is the whole window, so page px = canvas px
+  SAVE.ui.nav = false; narrEl.className = '';
+  return { text, here, nb, top: CONFIG.navTagTop, vh: innerHeight, who: phase().who };
+});
+// Joe, seed 5855848, tiles 123 and 124: "anytime there's a 'plus' shape for a squeeze it
+// doesn't let you cross through one of the sides. This one won't let me go up or down.
+// Only left to right." A crawl gap or crawl cell open on both axes held him on the axis
+// its shape suggested, and the clamp pulled every step on the other axis straight back.
+// Every open arm of every such tile must let him through, in every seed that has one.
+const plus = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const prevMove = SAVE.ui.move; SAVE.ui.move = 'rooms';
+  const tried = [], stuck = []; let tiles3 = 0;
+  for (const seed of [5855848, 4242, 77, 9001, 31337, 2024]) {
+    SAVE.phase = 0; reset(seed); sliding = null; started = true; await nap(60);
+    if (!phase().f.crawl) continue;
+    const arms = (x, y) => DIRS.map(([dx, dy]) => isOpen(x + dx, y + dy));
+    for (const k of [...crawlGaps, ...crawlCells]) {
+      const [x, y] = k.split(',').map(Number); const a = arms(x, y);
+      if (!isOpen(x, y) || a.filter(Boolean).length < 3) continue;
+      tiles3++;
+      for (let i = 0; i < 4; i++) { if (!a[i]) continue; const [dx, dy] = DIRS[i];
+        player.x = x + 0.5; player.y = y + 0.5; dir = null; recenter = null; moveVel = 0;
+        held = { dx, dy }; stickAim = { x: dx, y: dy }; await nap(900); held = null; stickAim = null;
+        const went = dx ? (player.x - x - 0.5) * dx : (player.y - y - 0.5) * dy;
+        tried.push(went); if (went < 0.3) stuck.push(`seed ${seed} tile ${navNumberAt(x, y)} ${['right', 'left', 'down', 'up'][i]} (${went.toFixed(2)})`); }
+    }
+    if (tiles3 >= 8) break;
+  }
+  SAVE.ui.move = prevMove; dir = null; held = null;
+  return { tiles3, arms: tried.length, stuck };
+});
+// Since v0.104.0 the generator makes no such tile ("a crawl gap should never be also a plus gap"),
+// so this usually finds nothing and passes on that; the movement rule stays for the day one slips.
+check('a squeeze open on both axes lets him through every one of its arms',
+  plus.stuck.length === 0,
+  plus.tiles3 ? `${plus.tiles3} three- and four-armed squeeze tiles, ${plus.arms} arms walked; stuck on ${plus.stuck.length}`
+    + (plus.stuck.length ? `: ${plus.stuck.slice(0, 4).join('; ')}` : '')
+    : 'no squeeze tile with three or more open arms in the seeds tried — as the generator now intends');
+// Joe: "a crawl gap should never be also a plus gap." The bar is his rule, not a knob: every open
+// crawl gap has floor on one axis and wall on the other, and every crawl cell two ways out at most.
+const gapShape = await page.evaluate(() => {
+  let gaps = 0, cells = 0, badGaps = 0, badCells = 0, swept = 0, mazes = 0;
+  for (let s2 = 1; s2 <= 60; s2++) { SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 17); mazes++; swept += typeof plusSwept === "number" ? plusSwept : 0;   // fail, never throw, on a build without the sweep
+    const o = (x, y) => isOpen(x, y);
+    for (const k of crawlGaps) { gaps++; const [x, y] = k.split(',').map(Number); const r = o(x + 1, y), l = o(x - 1, y), d = o(x, y + 1), u = o(x, y - 1);
+      if (!((r && l && !d && !u) || (d && u && !r && !l))) badGaps++; }
+    for (const k of crawlCells) { cells++; const [x, y] = k.split(',').map(Number); if (DIRS.filter(([dx, dy]) => o(x + dx, y + dy)).length > 2) badCells++; } }
+  return { mazes, gaps, cells, badGaps, badCells, swept };
+});
+check('no crawl gap has a third side, and no crawl cell a third way out',
+  gapShape.gaps > 0 && gapShape.badGaps === 0 && gapShape.badCells === 0,
+  `${gapShape.gaps} gaps and ${gapShape.cells} crawl cells over ${gapShape.mazes} Child mazes; ${gapShape.badGaps} gaps with a third side, ${gapShape.badCells} cells with a third way; the end-of-build sweep removed ${gapShape.swept}`);
+
+check('the nav view tag names chapter, seed and tile, and sits below the narrator line',
+  tag.text.includes(`seed 4242`) && tag.text.includes(tag.who) && tag.text.includes(`tile ${tag.here} of`)
+    && tag.top - 4 >= tag.nb && tag.top < tag.vh * 0.25,
+  `"${tag.text}"; tag top ${tag.top}px, narrator bottom ${Math.round(tag.nb)}px, screen ${tag.vh}px tall`);
+
+// Joe, with a screenshot of the start-room block set off at an angle: "since you
+// can approach it from any angle it carries that angle to the tile, snaps it to
+// the player and then moves to where it needs to go. Instead the tile should stay
+// fixed in the line that it has and the player should get gently pulled into
+// alignment as the tile moves." Both halves are checked: the tile's own path, and
+// his offset closing.
+const ride = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; delete SAVE.pushLearned; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const sl = sliders.find((s2) => s2.atStart) || sliders[0];
+  if (!sl) return { skip: true };
+  const ways = blockWays(sl);
+  if (!ways.length) return { skip: true };
+  const [dx, dy] = ways[0], off = 0.34;               // walk onto it well off its centreline
+  player.x = sl.x + 0.5 + (dx ? 0 : off);
+  player.y = sl.y + 0.5 + (dy ? 0 : off);
+  held = { dx, dy }; dir = null;
+  await nap(CONFIG.pushHoldMs + 150);
+  if (!sliding) { held = null; return { skip: true }; }
+  const ax = sliding.to[0] - sliding.from[0];
+  let worstTile = 0, early = null, late = 0;
+  for (let i = 0; i < 40 && sliding; i++) {
+    const [tx, ty, k] = slidePos(sliding, gameNow());
+    // the painted position, not the computed one: this is the thing Joe saw go wrong
+    const [px2, py2] = slideDrawnAt || [tx, ty];
+    worstTile = Math.max(worstTile, ax ? Math.abs(py2 - (sliding.from[1] + 0.5)) : Math.abs(px2 - (sliding.from[0] + 0.5)));
+    const po = ax ? Math.abs(player.y - ty) : Math.abs(player.x - tx);
+    if (early === null && k > 0.05) early = po;       // he still carries his offset at the start
+    if (k > 0.85) late = Math.max(late, po);          // and none of it by the end
+    await nap(25);
+  }
+  held = null;
+  return { skip: false, off, worstTile, early, late, alignBy: CONFIG.slideAlign };
+});
+check('a pushed tile keeps its own line, and he is eased onto it',
+  !ride.skip && ride.worstTile < 0.002 && ride.early > ride.off * 0.4 && ride.late < 0.02,
+  ride.skip ? 'no start block to push on this phase'
+    : `walked on ${ride.off} tiles off the line: the tile never leaves its own straight line `
+      + `(worst ${ride.worstTile.toFixed(4)}), he still carries ${ride.early.toFixed(2)} of the offset early on, `
+      + `and is within ${ride.late.toFixed(3)} of square by the end — no snap at the start, no angle on the tile`);
+
+// ── 8f. the well, the book, and how much charcoal (v0.81.0) ──────
+
+// Joe: "I think the dark well should have collision on it so you can't actually
+// walk over it", and the book over it "made me wanna make it so you actually
+// couldn't pick up the book". Journals go to a room's middle and so does its
+// landmark, so in a landmark room the page was *always* on it — in the well's
+// mouth, on the dais, in the pool. Shutting the well made that unreachable.
+const wellBook = await page.evaluate(() => {
+  let wells = 0, shut = 0, pagesOnSolid = 0, pagesOffFloor = 0, roomsWithPages = 0, seeds = 0;
+  for (let s2 = 1; s2 <= 60; s2++) {
+    SAVE.phase = 3; SAVE.stones = 0; SAVE.poolPending = false;
+    generate(s2 * 7); seeds++;
+    const solid = new Set();
+    for (const L of landmarks) {
+      if (L.kind === 'well') { wells++; if (!tiles[L.y][L.x]) shut++; }
+      if (L.solid) solid.add(L.x + ',' + L.y);
+      for (const [x, y] of (L.cols || [])) solid.add(x + ',' + y);
+    }
+    for (const k of journals.keys()) {
+      const [jx, jy] = k.split(',').map(Number);
+      if (!tiles[jy] || !tiles[jy][jx]) pagesOffFloor++;
+      if (solid.has(k)) pagesOnSolid++;
+      roomsWithPages++;
+    }
+  }
+  return { wells, shut, pagesOnSolid, pagesOffFloor, roomsWithPages, seeds };
+});
+check('the well is shut, and no page is left standing on something solid',
+  wellBook.wells > 0 && wellBook.shut === wellBook.wells
+    && wellBook.pagesOnSolid === 0 && wellBook.pagesOffFloor === 0,
+  `${wellBook.wells} wells across ${wellBook.seeds} mazes, all ${wellBook.shut} shut against you; `
+  + `of ${wellBook.roomsWithPages} pages laid out, ${wellBook.pagesOnSolid} sit on something solid and `
+  + `${wellBook.pagesOffFloor} are off the floor`);
+
+// Joe: "we should always have enough charcoal to map the whole maze. We don't
+// need more than that." The spawn rate decides where it lies; the size of the
+// place decides how much.
+const coal = await page.evaluate(() => {
+  const rows = [];
+  for (const ph of [1, 3, 6]) {
+    let short = 0, over = 0, worstShort = 0, n = 20, pieces = 0, floorSum = 0, chartSum = 0, scrapSum = 0;
+    for (let s2 = 1; s2 <= n; s2++) {
+      SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 13);
+      let floor = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x]) floor++;
+      // Joe: "if there are map fragments on the map we can spawn less charcoal since the fragments
+      // supersede the charcoal." So the floor the charcoal has to cover is the floor the fragments
+      // will not chart — and the budget is floored, so it can never fall off a cliff if a run
+      // misses them. "Enough to map the whole maze" now means enough *together with the fragments*.
+      const area = (CONFIG.cols * CONFIG.rows) / (14 * 20);
+      const share = Math.max(CONFIG.mapScrapMinShare, Math.min(CONFIG.mapScrapShare, CONFIG.mapScrapShare / area));
+      const charted = phase().f.scraps ? scrapSpots.size * Math.floor(floor * share) : 0;
+      const bare = Math.ceil(floor / B.charcoal());
+      const need = Math.max(1, Math.ceil(bare * CONFIG.mapScrapCharcoalFloor),
+        Math.ceil(Math.max(0, floor - charted) / B.charcoal()));
+      const got = charcoalSpots.size;
+      pieces += got; floorSum += floor; chartSum += charted; scrapSum += scrapSpots.size;
+      if (got < need) { short++; worstShort = Math.max(worstShort, need - got); }
+      if (got > need) over++;
+    }
+    rows.push({ who: PHASES[ph].who, floor: Math.round(floorSum / n), pieces: +(pieces / n).toFixed(1),
+      scraps: +(scrapSum / n).toFixed(1), charted: Math.round(chartSum / n), short, over, worstShort, n });
+  }
+  return rows;
+});
+check('there is enough charcoal to map what the fragments do not, and no more',
+  coal.every((r) => r.over === 0) && coal.every((r) => r.short <= r.n * 0.1),
+  coal.map((r) => `${r.who}: ${r.floor} floor tiles, ${r.scraps} fragments charting ~${r.charted} of them, `
+    + `${r.pieces} pieces of charcoal on average, ${r.over} mazes with a surplus, ${r.short}/${r.n} short`
+    + (r.worstShort ? ` (by at most ${r.worstShort})` : '')).join('; '));
+
+// ── 8z. the charcoal: a piece at home, a heartbeat, and the hold ──
+// Joe: "we should add a starting piece of charcoal into the home room. Just make
+// sure it's not going to be on any text and don't give it out until it's
+// unlocked." The text is the name, set into the tile above the mat, and the
+// chapter, set into the one below it — both centred on the middle column of the
+// room — so the piece has to be clear of that column, and he wakes in it. And it
+// comes out of the maze's charcoal budget, not on top of it: the check above
+// this one ("enough to map the maze, and no more") is what holds that.
+const homeCoal = await page.evaluate(() => {
+  const rows = [];
+  for (const ph of [0, 1, 3, 6]) {
+    let rooms = 0, inRoom = 0, onTextCol = 0, offFloor = 0, sharedWithChalk = 0, onSlider = 0;
+    const n = 12;
+    for (let s2 = 1; s2 <= n; s2++) {
+      SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false; generate(s2 * 29);
+      if (!startRoom) continue;
+      rooms++;
+      const { x0, y0, x1, y1 } = startRoom;
+      const here = [...charcoalSpots].filter((k) => { const [x, y] = k.split(',').map(Number);
+        return x >= x0 && x <= x1 && y >= y0 && y <= y1; });
+      inRoom += here.length;
+      for (const k of here) {
+        const [x, y] = k.split(',').map(Number);
+        if (x === x0 + 2) onTextCol++;            // the name, him, and the chapter all live in this column
+        if (!tiles[y][x]) offFloor++;
+        if (chalkSpots.has(k)) sharedWithChalk++;
+        if (sliders.some((sl) => sl.x === x && sl.y === y)) onSlider++;
+      }
+    }
+    rows.push({ who: PHASES[ph].who, coal: !!PHASES[ph].f.charcoal, rooms, inRoom, onTextCol, offFloor, sharedWithChalk, onSlider });
+  }
+  return rows;
+});
+{
+  const withCoal = homeCoal.filter((r) => r.coal), without = homeCoal.filter((r) => !r.coal);
+  check('a piece of charcoal waits in the home room, clear of the text — and only where charcoal exists',
+    withCoal.length > 0 && withCoal.every((r) => r.rooms > 0 && r.inRoom === r.rooms)
+      && withCoal.every((r) => r.onTextCol === 0 && r.offFloor === 0 && r.sharedWithChalk === 0 && r.onSlider === 0)
+      && without.every((r) => r.inRoom === 0),
+    homeCoal.map((r) => `${r.who}: ${r.inRoom}/${r.rooms} rooms hold one`
+      + (r.inRoom ? `, ${r.onTextCol} on the text column, ${r.offFloor} off the floor, ${r.sharedWithChalk} under the chalk, ${r.onSlider} on the block` : '')).join('; '));
+}
+
+// The icon itself: a knock per tile logged, a loud one when the piece is spent,
+// and press-and-hold arming the hand-off to the next piece. Driven through the
+// game's own walk and real pointer events, not by calling the handlers.
+const coalUI = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 1; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run;
+  SAVE.tutorials = Object.keys(TUTORIALS); persist();   // no card is allowed to pause the walk
+  reset(4242); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(300);
+  introWalk = null;
+  // Walk a long straight corridor, not the home room: lighting a piece maps where you stand and
+  // everything round it, which is the whole of a five-tile room — nothing in there would ever log
+  // a second time, and the first cut of this check sat in the room counting zero.
+  let best = null;
+  for (let y = 0; y < H; y++) { let run = 0;
+    for (let x = 0; x < W; x++) { if (tiles[y][x]) { run++; if (!best || run > best.n) best = { x: x - run + 1, y, n: run }; } else run = 0; } }
+  player = { x: best.x + 0.5, y: best.y + 0.5 }; dir = null; recenter = null; stickAim = null;
+  // Clear the charcoal lying about first. This check is about what the icon does — lights, beats,
+  // pulses when a piece runs out, hands over to the next — and every count below is a count the
+  // probe sets itself. Leave the floor stocked and walking the corridor quietly tops the pocket
+  // back up, so the numbers become a fact about this maze's loot instead of about the mechanic.
+  // That is what broke it in v0.88.0: re-rolling the seed gave every maze a different scatter.
+  charcoalSpots.clear();
+  const anim = {};
+  charcoalEl.addEventListener('animationstart', (e) => { anim[e.animationName] = (anim[e.animationName] || 0) + 1; });
+  const walk = async (ms) => { dir = null; recenter = null; held = { dx: 1, dy: 0 }; await nap(ms); held = null; await nap(150); };
+
+  charcoal = 3; charcoalLeft = 0; charcoalOn = false; charcoalLock = false; updateCharcoal();
+  // a short tap lights the first piece — the action used to fire on pointerdown and now waits for
+  // the release, so a plain tap still has to work
+  charcoalEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  await nap(60);
+  charcoalEl.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  await nap(80);
+  const tapLit = charcoalOn, tapLocked = charcoalLock, afterTap = charcoal;
+
+  const mapped0 = mapped.size;
+  await walk(1600);                                 // and watch the icon knock as tiles go on
+  const beats = anim.charbeat || 0, logged = mapped.size - mapped0;
+
+  charcoalLeft = 2;                                 // nearly spent: the next tile finishes it
+  await walk(900);
+  const spent = { anim: anim.charspent || 0, on: charcoalOn, left: charcoalLeft, carry: charcoal };
+
+  // press and hold: arms lock-on, and lights a piece now because nothing is lit
+  charcoalEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  await nap(CONFIG.charcoalHoldMs + 200);
+  charcoalEl.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  await nap(120);
+  const held1 = { lock: charcoalLock, cls: charcoalEl.classList.contains('locked'), on: charcoalOn, carry: charcoal };
+
+  // and now the hand-off: spend the lit piece and the last one should light itself
+  charcoalLeft = 2;
+  await walk(900);
+  const handoff = { on: charcoalOn, carry: charcoal, left: charcoalLeft, spentAnim: anim.charspent || 0 };
+  charcoalEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));   // a second hold disarms it
+  await nap(CONFIG.charcoalHoldMs + 200);
+  charcoalEl.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  await nap(120);
+  const unlock = { lock: charcoalLock, cls: charcoalEl.classList.contains('locked') };
+  held = null;
+  return { tapLit, tapLocked, afterTap, beats, logged, spent, held1, handoff, unlock, hold: CONFIG.charcoalHoldMs, run: best.n };
+});
+check('a tap lights the charcoal, walking makes it beat, and spending a piece pulses it hard',
+  coalUI.tapLit && !coalUI.tapLocked && coalUI.afterTap === 2
+    // v0.106.0 halved the beat to every other step that logs tiles (Joe: "make it pulse like half
+    // as much"), so a 1.6s walk is three or four steps and one or two beats: the bar is one
+    && coalUI.beats >= 1 && coalUI.logged > 0 && coalUI.spent.anim >= 1 && !coalUI.spent.on && coalUI.spent.left === 0,
+  `tap lit it (${coalUI.tapLit}) without locking it (${!coalUI.tapLocked}), leaving ${coalUI.afterTap} in the pocket; `
+  + `walking a ${coalUI.run}-tile corridor put ${coalUI.logged} tiles on the map and knocked the icon ${coalUI.beats} times; `
+  + `the piece then ran out, the icon pulsed hard ${coalUI.spent.anim} time(s) and nothing lit itself `
+  + `(${!coalUI.spent.on}, ${coalUI.spent.carry} still carried)`);
+check('press and hold locks the charcoal on, and the next piece lights itself',
+  coalUI.held1.lock && coalUI.held1.cls && coalUI.held1.on && coalUI.held1.carry === 1
+    && coalUI.handoff.on && coalUI.handoff.carry === 0 && coalUI.handoff.left > 2
+    && coalUI.handoff.spentAnim > coalUI.spent.anim
+    && !coalUI.unlock.lock && !coalUI.unlock.cls,
+  `a ${coalUI.hold}ms hold armed it (${coalUI.held1.lock}), lit a piece on the spot and left ${coalUI.held1.carry} carried; `
+  + `that piece ran out and the last one lit itself — ${coalUI.handoff.left} tiles on it, ${coalUI.handoff.carry} left in the pocket; `
+  + `a second hold disarmed it (${!coalUI.unlock.lock})`);
+
+// ── 8y. the thread waits to be found, and the compass is a compass ──
+// Joe: "it stays up bright and strong until you find it, then it gives a pulse
+// and starts a 15 second timer... the bigger the maze the less likely you are to
+// see it before it goes away. So, just leave it visible until the player walks on
+// a tile that has the thread." Picking it up must NOT start the clock; standing
+// on the route must.
+const thread = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 4; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run;   // The Priest: thread exists
+  SAVE.tutorials = Object.keys(TUTORIALS); persist();
+  reset(4242); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(300);
+  introWalk = null; held = null;
+  // stand him somewhere off the route and drop a thread under his feet, so picking it up is a
+  // real pickup on a real tile rather than a poke at the variables
+  const off = (() => { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++)
+    if (tiles[y][x] && !solutionKeys.has(x + ',' + y)) return [x, y]; return null; })();
+  pickups.set(off[0] + ',' + off[1], 'path');
+  pathArmed = false; pathUntil = 0; pathFoundAt = 0;
+  lastTileKey = ''; player = { x: off[0] + 0.5, y: off[1] + 0.5 }; dir = null; recenter = null;
+  await nap(260);                                   // one tile-change: he picks it up
+  const onPickup = { armed: pathArmed, until: pathUntil, found: pathFoundAt, uses: pathUses };
+  await nap(1400);                                  // well past nothing — an old build would be counting down
+  const waited = { armed: pathArmed, until: pathUntil };
+  // now put him on the route. The thread is the way out drawn on the floor: that is finding it.
+  const on = solutionPath[Math.floor(solutionPath.length / 2)];
+  lastTileKey = ''; player = { x: on[0] + 0.5, y: on[1] + 0.5 }; dir = null; recenter = null;
+  await nap(260);
+  const onReach = { armed: pathArmed, until: pathUntil, found: pathFoundAt, sec: (pathUntil - gameNow()) / 1000 };
+  held = null;
+  return { onPickup, waited, onReach, want: B.pathSec(), offRoute: off, onRoute: on };
+});
+check('the thread stays lit until you reach it, then flares and starts its clock',
+  thread.onPickup.armed && thread.onPickup.until === 0 && thread.onPickup.uses > 0
+    && thread.waited.armed && thread.waited.until === 0
+    && !thread.onReach.armed && thread.onReach.found > 0
+    && Math.abs(thread.onReach.sec - thread.want) < 1.5,
+  `picked up off the route at ${thread.offRoute}: lit and held (armed ${thread.onPickup.armed}, no clock), `
+  + `still held 1.4s later (${thread.waited.armed}, clock ${thread.waited.until}); `
+  + `stepping onto the route at ${thread.onRoute} flared it and started ${thread.onReach.sec.toFixed(1)}s `
+  + `of a ${thread.want}s timer`);
+
+// The compass: no number anywhere, a case that holds still with a needle that
+// turns, half the old size, fading out and stuttering at the end.
+const compass = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  // The first cut of this counted pixels over a fixed brightness threshold, and at the alphas the
+  // dying blink actually uses almost nothing cleared it — so it read 0 against 16 and its
+  // "hi > lo * 2.5" passed on noise, with lo pinned at zero. It measures the brightest pixel in the
+  // compass's box against the same box with the compass switched off instead: one number, monotone
+  // in alpha, and every claim below is stated as a share of the distance from bare floor to full.
+  const peak = () => {
+    const S2 = viewS, ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);
+    const px = viewOx + player.x * S2, py = viewOy + player.y * S2, d = S2 * CONFIG.compassOut;
+    const cx = Math.round(px + Math.cos(ang) * d), cy = Math.round(py + Math.sin(ang) * d);
+    const box = Math.ceil(S2 * CONFIG.compassTiles) + 3, dpr = cv.width / cv.clientWidth;
+    const img = ctx.getImageData((cx - box) * dpr, (cy - box) * dpr, box * 2 * dpr, box * 2 * dpr).data;
+    let hi = 0;
+    for (let k = 0; k < img.length; k += 4) if (img[k] > hi) hi = img[k];
+    return hi;
+  };
+  SAVE.phase = 4; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run;
+  SAVE.tutorials = Object.keys(TUTORIALS); persist();
+  reset(4242); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(400); introWalk = null; held = null;
+  opt.arrow.checked = false;
+  pointerUntil = 0; await nap(140);
+  const floor = peak();                               // the same patch of ground, with no compass on it
+  pointerUntil = gameNow() + B.pointerSec() * 1000;   // freshly picked up
+  await nap(140);
+  const fresh = peak();
+  const chip = $('fx').textContent.trim();            // "it shouldn't have a number"
+  const half = CONFIG.compassTiles / 0.22;            // the old arrow reached S*0.22 from its middle
+  // Sit inside the dying window for the whole sample and never fall out the far side of it. The
+  // first cut gave the compass 900ms of life and then sampled for 1200 — so the last third of every
+  // sample set was the compass *expired*, which pinned the low reading at bare floor whether it
+  // blinked or not. Deleting the blink left this check green. It starts at half a second inside the
+  // window and samples 1.2s, so every sample is alive and dying, and `aliveAtEnd` says so.
+  pointerUntil = gameNow() + (CONFIG.compassDyingSec - 0.5) * 1000;
+  const dying = [];
+  for (let i = 0; i < 30; i++) { await nap(40); dying.push(peak()); }
+  const aliveAtEnd = pointerUntil - gameNow(), windowSec = CONFIG.compassDyingSec;
+  pointerUntil = 0; await nap(140);
+  const gone = peak();
+  const span = Math.max(1, fresh - floor);            // floor → full compass, as one unit
+  const lo = Math.min(...dying), hi = Math.max(...dying);
+  return { floor, fresh, chip, half, gone, span, aliveAtEnd, windowSec,
+    dyingLo: (lo - floor) / span, dyingHi: (hi - floor) / span,
+    goneShare: (gone - floor) / span, dyingSec: CONFIG.compassDyingSec, dim: CONFIG.compassDyingDim };
+});
+check('the compass is an instrument, carries no number, and dies like a bulb',
+  compass.chip === '' && Math.abs(compass.half - 0.5) < 0.03
+    && compass.span > 40                                   // it is actually drawing something
+    && compass.aliveAtEnd > 0                              // and it never expired mid-sample — see above
+    && compass.aliveAtEnd < compass.windowSec * 1000       // while staying inside the dying window throughout
+    && compass.dyingHi > 0.3                               // when the bulb is on it is still bright
+    && compass.dyingLo < 0.12                              // and when it is out it is nearly gone
+    && compass.dyingHi - compass.dyingLo > 0.25            // so the stutter is a real swing, not noise
+    && compass.goneShare < 0.1,                            // spent, the patch is bare floor again
+  `nothing written on the HUD ("${compass.chip}"); the case is ${(compass.half * 100).toFixed(0)}% of the old arrow's reach; `
+  + `bare floor peaks at ${compass.floor} and the fresh compass at ${compass.fresh} — call that span 1. `
+  + `Inside the last ${compass.dyingSec}s — still ${(compass.aliveAtEnd / 1000).toFixed(1)}s of life left at the last sample, `
+  + `so nothing here is measuring it simply expiring — it stutters between ${compass.dyingLo.toFixed(2)} and ${compass.dyingHi.toFixed(2)} of it `
+  + `(the dim is ${compass.dim}), and once spent it sits at ${compass.goneShare.toFixed(2)} — back to the floor`);
+
+// ── 8x. the basin, the water, and room to get round a landmark ──
+// Joe: "the rocks in the basin, in the pool level always have the same count
+// until you pick up a rock." The count *was* changing — 7 down to 0 across the
+// seven pools — but it could not be read: seven ellipses overlapping inside a
+// 45px circle, where six and three are the same pale clump. So this counts what
+// is actually PAINTED, slot by slot, and it counts it against this basin's own
+// water: the fog vignette dims the whole thing by how far down the screen it
+// sits, and a fixed brightness threshold read zero everywhere.
+const basin = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  const painted = () => {
+    const r = viewS * CONFIG.basinTiles;
+    const px = viewOx + (startRoom.x0 + 3 + 0.5) * viewS, py = viewOy + (startRoom.y0 + 3 + 0.5) * viewS;
+    const dpr = cv.width / cv.clientWidth;
+    const at = (ux, uy) => ctx.getImageData(Math.round(px + ux * r) * dpr, Math.round(py + uy * r) * dpr, 1, 1).data[0];
+    const mid = (0.5 - 1) / 6 * Math.PI * 2 - Math.PI / 2;    // between two ring slots: never a stone
+    const water = at(Math.cos(mid) * CONFIG.basinRing, Math.sin(mid) * CONFIG.basinRing);
+    let n = 0;
+    for (let i = 0; i < 7; i++) {
+      const a = (i - 1) / 6 * Math.PI * 2 - Math.PI / 2;
+      const ux = i === 0 ? 0 : Math.cos(a) * CONFIG.basinRing, uy = i === 0 ? 0 : Math.sin(a) * CONFIG.basinRing;
+      if (at(ux, uy) > water + 12) n++;
+    }
+    return n;
+  };
+  const rows = [];
+  for (const st of [0, 3, 6]) {
+    SAVE.stones = st; SAVE.phase = st + 1; SAVE.poolPending = true; delete SAVE.run;
+    SAVE.tutorials = Object.keys(TUTORIALS); persist();
+    reset(1234 + st); wake();
+    for (let i = 0; i < 200 && !started; i++) await nap(50);
+    await nap(500); introWalk = null; held = null;
+    const bx = startRoom.x0 + 3, by = startRoom.y0 + 3;
+    lastTileKey = ''; player = { x: bx + 0.5, y: by - 2.5 }; dir = null; recenter = null;
+    await nap(350);
+    const before = painted(), keyBefore = hasKey;
+    lastTileKey = ''; player = { x: bx + 0.5, y: by + 0.5 }; dir = null; recenter = null; await nap(350);
+    lastTileKey = ''; player = { x: bx + 0.5, y: by - 2.5 }; dir = null; recenter = null; await nap(350);
+    rows.push({ st, want: STONES.length - st, before, after: painted(), keyBefore, keyAfter: hasKey });
+  }
+  held = null;
+  return rows;
+});
+check('the basin heaps one stone per burden you still carry, and taking one takes one',
+  basin.every((r) => r.before === r.want) && basin.every((r) => r.after === r.want - 1)
+    && basin.every((r) => !r.keyBefore && r.keyAfter),
+  basin.map((r) => `${r.st} put down: ${r.before} in the basin (want ${r.want}), ${r.after} after taking one`).join('; ')
+  + ' — counted off the canvas slot by slot, against the basin\'s own water');
+
+// Joe: "the pool room should change shades of blue as the player walks over it
+// going light to darker from the out in... when you step into it it begins to
+// shift in tone in small rings from out to in."
+const water = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 4; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run;
+  SAVE.tutorials = Object.keys(TUTORIALS); SAVE.ui.zoom = 0.7; persist();
+  let L = null, seed = 0;
+  for (let s2 = 1; s2 < 120 && !L; s2++) { reset(s2 * 11); seed = s2 * 11; L = landmarks.find((l) => l.kind === 'pool' && (l.rx1 - l.rx0) >= 3) || null; }
+  if (!L) return null;
+  const px = (L.rx0 + L.rx1) / 2 + 0.5, py = (L.ry0 + L.ry1) / 2 + 0.5;
+  reset(seed); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(600); introWalk = null; held = null;
+  const stand = async (dy, ms) => { lastTileKey = ''; player = { x: px, y: py + dy }; cam = { x: px, y: py + dy }; dir = null; recenter = null; await nap(ms); };
+  const N = 22;
+  // brightness from the middle out to the rim, sampled NORTH of the middle — index 0 is the middle,
+  // the last is the rim, so index rises with radius. That matters for the direction test below.
+  const profile = () => {
+    const S2 = viewS, cx = viewOx + px * S2, cy = viewOy + py * S2;
+    const rad = Math.min(L.rx1 - L.rx0 + 1, L.ry1 - L.ry0 + 1) / 2 * S2, r2 = rad * 0.80 * 0.88;
+    const dpr = cv.width / cv.clientWidth, o = [];
+    for (let i = 1; i <= N; i++) { const rr = r2 * (i / (N + 1));
+      o.push(ctx.getImageData(Math.round(cx) * dpr, Math.round(cy - rr) * dpr, 1, 1).data[2]); }   // the blue channel: the water's own axis
+    return o;
+  };
+  await stand(-3.2, 500); await nap(CONFIG.poolSettleSec * 1000 + 900);   // outside it, fully settled
+  const still = profile();
+  // Inside the water but off to the SOUTH, so he is not standing on the ray being sampled. Parking
+  // him in the middle put the player's own pale arrow over the inner samples, and the "ripple" that
+  // came back was mostly him — a residual bigger than the whole light-to-dark ramp gave it away.
+  await stand(1.2, 450);
+  const frames = [];
+  for (let i = 0; i < 20; i++) { await nap(60); frames.push(profile()); }
+  // Strip the standing light-to-dark ramp and correlate what is left. Without this the ramp is 83
+  // units against a ripple of 40 and every correlation pins itself at no shift at all, which is
+  // exactly what the first cut of this reported while the water was visibly moving.
+  const resid = (f) => f.map((v, i2) => v - still[i2]);
+  const corr = (A, B) => { let best = 0, bestErr = Infinity;
+    for (let sh = -8; sh <= 8; sh++) { let e = 0, n = 0;
+      for (let i2 = 0; i2 < A.length; i2++) { const j2 = i2 + sh; if (j2 < 0 || j2 >= A.length) continue; e += Math.abs(A[i2] - B[j2]); n++; }
+      if (n >= 10 && e / n < bestErr) { bestErr = e / n; best = sh; } }
+    return best; };
+  // A ring that has moved inward now sits at a SMALLER index than it did, so the later frame
+  // matches the earlier one shifted UP: a positive number here means inward. Three gaps rather
+  // than one — still water gives 0,0,0 and outward rings give -1,-2,-3, so the slope is the claim.
+  // The shift is a whole number of samples, so adjacent gaps can legitimately tie (1,2,2 as often
+  // as 1,2,3). Demanding a strict rise every time failed a pool that was visibly working, so what
+  // is asserted is: inward at every gap, never backwards, and further by the last one.
+  // Direction, without aliasing. Reading a later frame's spatial shift against an earlier one
+  // aliases on a pattern that repeats every few bands (2,2,2 and 1,2,1 for water visibly closing,
+  // 7 of 17 runs), and frame to frame the travel is under a band and rounds to nothing. So read
+  // TIME at two neighbouring radii instead: a ring passes the outer band first and the inner band
+  // about a quarter-second later, so the inner series lags the outer. Find the lag that lines them
+  // up; inward is a positive lag, still water none, outward a negative one.
+  const mid = Math.floor(frames[0].length / 2);
+  const outer = frames.map((f) => f[mid + 1] - still[mid + 1]), inner = frames.map((f) => f[mid] - still[mid]);
+  let lag = 0, lagErr = Infinity;
+  for (let L = -12; L <= 12; L++) { let e = 0, n = 0;
+    for (let t = 0; t < frames.length; t++) { const u = t + L; if (u < 0 || u >= frames.length) continue; e += Math.abs(outer[t] - inner[u]); n++; }
+    if (n >= 10 && e / n < lagErr) { lagErr = e / n; lag = L; } }
+  const travel = lag, back = lag < 0 ? 1 : 0, steps = frames.length;
+  const atMid = frames.map((f) => f[Math.floor(f.length / 2)]);
+  return { stillMid: still[0], stillRim: still[still.length - 1], travel, back, steps,
+    ripple: Math.max(...resid(frames[0]).map(Math.abs)),
+    swing: Math.max(...atMid) - Math.min(...atMid), bands: CONFIG.poolBands };
+});
+check('the pool is light at its rim and deep in the middle, and the rings travel inward as he walks it',
+  water && water.stillRim > water.stillMid + 25
+    && water.swing > 6
+    && water.travel >= 1,                                     // inward: the inner band lags the outer by a positive lag
+
+  water ? `still, the middle reads ${water.stillMid} on the blue channel and the rim ${water.stillRim} — `
+    + `${water.stillRim - water.stillMid} lighter at the edge, across ${water.bands} bands. Standing in it, a fixed radius `
+    + `swings ${water.swing} and the ripple stands ${water.ripple} clear of that ramp; over ${water.steps} frames `
+    + `the inner band lags the outer by ${water.travel} frame(s) — ${water.travel > 0 ? 'the rings close inward' : water.travel < 0 ? 'the rings run outward' : 'the water stands still'}`
+    : 'no pool room found in the seeds tried');
+
+// Joe: "there should be enough space around the pool room, or any room that we
+// have points of interest in for players to get around them. We should never
+// make it big enough or add too much collision so that players can't get around
+// it." Measured first: this already holds — so this check is here to keep it
+// holding when the mazes get bigger, not because anything was broken.
+const around = await page.evaluate(() => {
+  const K = (x, y) => x + ',' + y;
+  const kinds = {};
+  let rooms = 0;
+  for (const ph of [2, 3, 4, 5, 6]) {
+    for (let s2 = 1; s2 <= 12; s2++) {
+      SAVE.phase = ph; SAVE.stones = 0; SAVE.poolPending = false;
+      generate(s2 * 37 + ph);
+      for (const L of landmarks) {
+        const rx0 = L.rx0 ?? L.x, ry0 = L.ry0 ?? L.y, rx1 = L.rx1 ?? L.x, ry1 = L.ry1 ?? L.y;
+        if (rx1 - rx0 < 2 || ry1 - ry0 < 2) continue;       // a tile, not a room
+        rooms++;
+        kinds[L.kind] = kinds[L.kind] || { n: 0, stuck: 0 };
+        kinds[L.kind].n++;
+        const open = (x, y) => x >= rx0 && x <= rx1 && y >= ry0 && y <= ry1 && tiles[y] && tiles[y][x];
+        const cx = (rx0 + rx1) >> 1, cy = (ry0 + ry1) >> 1;
+        // the four ways round it, and whether you can get between them without crossing the middle
+        const sides = [[cx, ry0], [cx, ry1], [rx0, cy], [rx1, cy]].filter(([x, y]) => open(x, y));
+        if (sides.length < 2) { kinds[L.kind].stuck++; continue; }
+        const seen = new Set([K(sides[0][0], sides[0][1])]), q = [sides[0]];
+        while (q.length) { const [x, y] = q.shift();
+          for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, kk = K(nx, ny);
+            if (seen.has(kk) || kk === K(cx, cy) || !open(nx, ny)) continue; seen.add(kk); q.push([nx, ny]); } }
+        if (sides.some(([x, y]) => !seen.has(K(x, y)))) kinds[L.kind].stuck++;
+      }
+    }
+  }
+  return { rooms, kinds };
+});
+{
+  // The ball pit is the one kind that is allowed to fail this: its balls roll out of your way and
+  // settle back, so a still frame of one is not a wall. Everything else is measured as it stands.
+  const solid = Object.entries(around.kinds).filter(([k]) => k !== 'balls');
+  const bad = solid.filter(([, v]) => v.stuck > 0);
+  check('you can always get round a point of interest, staying inside its room',
+    around.rooms > 200 && bad.length === 0,
+    `${around.rooms} landmark rooms over five selves: `
+    + solid.map(([k, v]) => `${k} ${v.n - v.stuck}/${v.n}`).join(', ')
+    + (around.kinds.balls ? `; ball pits ${around.kinds.balls.n - around.kinds.balls.stuck}/${around.kinds.balls.n}, not counted — the balls move out of your way` : ''));
+}
+
+// ── 8b. keys are found in the nests, not lying in the halls ──────
+// Joe: "Getting keys should be an adventure! ... All keys should be in vaults kind of like this.
+// ... We need to get away from just finding keys in the hall." Measured before anything was built:
+// 58 of 270 door keys lay in a nest — one in five. The rest were loose in a dead end.
+//
+// What moved it was not more nests. It was letting a door take any tile on the route that severs
+// it, instead of only one near its even-spread mark, and taking the first of those that leaves an
+// unclaimed nest in the section it closes. Over 2100 mazes that is 57% of keys in a nest against
+// 23% before, for 3% fewer doors — while a second nest with the old narrow window managed 39%.
+//
+// The bar is fixed at 45% and reads no knob, deliberately: a check that computes its expectation
+// from the thing it is testing cannot fail, which this suite has learned twice. 45% sits above
+// every way of reverting this — one nest and the wide search reach 41%, two nests and the narrow
+// search 39%, the game as it stood 23% — and well under what ships.
+const vaulted = (({ vaultedA: a, vaultedB: b }) => ({ keys: a.keys + b.keys, inNest: a.inNest + b.inNest, doorN: a.doorN + b.doorN, mazes: a.mazes + b.mazes }))(SWEPT);
+await settle(7, 60 * 19 + 7);   // the page as the sweep left it: its last maze
+check('most door keys are found in a nest, not loose in a dead end',
+  vaulted.keys > 300 && vaulted.inNest / vaulted.keys >= 0.45,
+  `${vaulted.inNest} of ${vaulted.keys} keys in a nest (${(100 * vaulted.inNest / vaulted.keys).toFixed(0)}%, bar 45%) `
+  + `over ${vaulted.mazes} mazes carrying ${(vaulted.doorN / vaulted.mazes).toFixed(2)} doors each`);
+
+// ── 8c. the maze contains what the phase asked for ───────────────
+// Joe: "Deciding how many things we want in the maze to requirements and then building the maze
+// around those things. This gets away from a maze that is x by x size and instead focuses on the
+// content of the maze."
+//
+// Measured before v0.88.0: of 3000 locked doors the phases called for, 1386 were placed — 46% —
+// and 343 of 1400 mazes had none at all. Vaults and fragments were at 100% in the same run, because
+// they claim ground before the carve; doors had to find a spot in finished geometry. generate() now
+// re-rolls the seed until the manifest fits, and the three-door phases ask for two, because no
+// number of re-rolls ever found a third.
+//
+// The bar is 90% and reads no knob. It shipped at 99%; without the re-roll it is 46%.
+const manifest = SWEPT.manifest;
+await settle(7, 30 * 19 + 7);
+check('a maze gets the locked doors its phase asked for',
+  manifest.want > 200 && manifest.got / manifest.want >= 0.9 && manifest.none === 0,
+  `${manifest.got} of ${manifest.want} doors placed (${Math.round(100 * manifest.got / manifest.want)}%, bar 90%), `
+  + `${manifest.none} of ${manifest.mazes} mazes with none at all`);
+
+// ── 8c2. no page under the water ──────────────────────────────────
+// Joe: "Floating book in blackness." 68 of 69 Child pages in a pool room sat under the disc.
+const wetPages = SWEPT.wetPages;
+await settle(7, 25 * 19 + 7);
+check('a page in a pool room lies on the rim you walk round, never in the water',
+  wetPages.inPool > 20 && wetPages.wet === 0,
+  `${wetPages.pages} pages over 200 mazes, ${wetPages.inPool} in a pool room, ${wetPages.wet} of them in the water`);
+
+// ── 8d. a stone to somebody's statue ──────────────────────────────
+// Joe: "a sort of mini quest where you find something in the maze that needs to go someplace
+// else... This is the statue idea." Two statues a maze from the Cartographer on, each one of the
+// four people, each waiting for the stone carved with their mark. First: they are placed. Then the
+// walk — pick a stone up, fail to pick up the second (one at a time is the backtrack), set it in
+// the right bowl, and watch the statue point its thread at the nearest page not yet found.
+// Every chapter, the Child's included — v0.89.0 kept her out to protect the theme, and Joe's read
+// was that the abandoned boy has as much to ask as anyone: "Not sure why we don't have one in the
+// first child chapter. Seems like it would be a good idea."
+const shrineGen = SWEPT.shrineGen;
+await settle(7, 30 * 19 + 7);
+check('every maze, the Child\'s included, carries two statues and their two stones',
+  shrineGen.statues === shrineGen.mazes * 2 && shrineGen.stones === shrineGen.mazes * 2,
+  `${shrineGen.statues} statues and ${shrineGen.stones} stones across ${shrineGen.mazes} mazes over all eight selves (wanted ${shrineGen.mazes * 2} each)`);
+// Joe: "We need to lock in each person to each chapter. So child chapter has statues of the father."
+check('both statues in a maze, and both stones, belong to the chapter\'s person',
+  shrineGen.theirs === shrineGen.statues + shrineGen.stones && shrineGen.strayN === 0,
+  `${shrineGen.theirs} of ${shrineGen.statues + shrineGen.stones} statues and stones are the chapter's person`
+  + (shrineGen.strayN ? `; strays: ${shrineGen.strays.join(', ')}` : ''));
+
+const shrineWalk = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run;
+  SAVE.tutorials = Object.keys(TUTORIALS); persist();
+  reset(4242); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(300); introWalk = null; held = null;
+  // fail, never throw: with statues switched off this probe has nothing to walk to, and an errored
+  // suite looks nothing like a failed one
+  if (shrines.length < 2 || offerings.size < 2) return { who: 'none', got: null, stoneGone: false, stillOne: false, otherStays: false, wrongBowl: false, done: false, handsFree: false, thread: 0, lit: false, endsOnPage: false, pages: journals.size, missing: `${shrines.length} statues, ${offerings.size} stones` };
+  const sh = shrines[0], other = shrines[1];
+  const [mine, theirs] = [...offerings.entries()];
+  const at = (k) => { const [x, y] = k.split(',').map(Number); player.x = x + 0.5; player.y = y + 0.5; lastTileKey = ''; };
+  const step = async (k) => { at(k); for (let i = 0; i < 6; i++) { await nap(40); } };
+  // Joe: "When you don't have a stone but you collide with the statue, it should say something."
+  narrEl.textContent = ''; await step(sh.sx + ',' + sh.sy); const emptySaid = narrEl.textContent === SHRINE_LINES.noStone, tookNothing = !sh.done;
+  await step(mine[0]);      const got = carried, stoneGone = !offerings.has(mine[0]);
+  await step(theirs[0]);    const stillOne = carried === sh.who, otherStays = offerings.has(theirs[0]);
+  const pages = journals.size;
+  // one person to a chapter, so either bowl is the right bowl
+  await step(other.sx + ',' + other.sy); const done = other.done, handsFree = carried === null, thread = shrinePath.length, lit = shrineUntil > gameNow();
+  const endsOnPage = thread ? journals.has(shrinePath[thread - 1].join(',')) : false;
+  return { who: sh.who, emptySaid, tookNothing, got, stoneGone, stillOne, otherStays, done, handsFree, thread, lit, endsOnPage, pages };
+});
+check('a stone is carried one at a time, and settling it in a bowl points the statue at a page',
+  shrineWalk.emptySaid && shrineWalk.tookNothing && shrineWalk.got === shrineWalk.who && shrineWalk.stoneGone && shrineWalk.stillOne && shrineWalk.otherStays
+    && shrineWalk.done && shrineWalk.handsFree && (shrineWalk.pages === 0 || (shrineWalk.thread > 1 && shrineWalk.lit && shrineWalk.endsOnPage)),
+  shrineWalk.missing ? `nothing to walk: this maze has ${shrineWalk.missing}` :
+  `empty-handed at the step he said so (${shrineWalk.emptySaid}) and the bowl took nothing (${shrineWalk.tookNothing}); picked up ${shrineWalk.who}'s stone (${shrineWalk.got}); a second stone stayed on the floor (${shrineWalk.otherStays}); `
+  + `the other bowl took it (${shrineWalk.done}, hands free ${shrineWalk.handsFree}) and lit a ${shrineWalk.thread}-tile thread that ends on a page (${shrineWalk.endsOnPage}), with ${shrineWalk.pages} pages still out`);
+
+// ── 8e. the exchange ──────────────────────────────────────────────
+// Joe: "You drop the thing in. You are then allowed to ask a question, maybe two are offered...
+// you then get an answer." Two questions on a folded card; ask one, get its answer, and the other
+// stays there unasked. Progress is per person and per game: when their steps are spent the statue
+// has one line left and says it every time, on the floor, with no card. Both halves here.
+const talk = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; delete SAVE.run; SAVE.asked = {};
+  SAVE.tutorials = Object.keys(TUTORIALS); persist();
+  reset(4242); wake();
+  for (let i = 0; i < 200 && !started; i++) await nap(50);
+  await nap(300); introWalk = null; held = null;
+  if (shrines.length < 2) return { missing: `${shrines.length} statues` };
+  const sh = shrines[0], mine = [...offerings.entries()].find(([, who]) => who === sh.who);
+  const at = async (k) => { const [x, y] = k.split(',').map(Number); player.x = x + 0.5; player.y = y + 0.5; lastTileKey = ''; for (let i = 0; i < 6; i++) await nap(40); };
+  await at(mine[0]); await at(sh.sx + ',' + sh.sy);
+  await nap(700);                                            // the card takes a beat to unfold
+  const card = $('talk'), btns = [...$('talkChoices').children];
+  const opened = card.classList.contains('show'), two = btns.length === 2, pausedNow = paused, who = $('talkWho').textContent;
+  // fail, never throw: with the words removed no card opens and there are no buttons to press
+  if (!opened || btns.length < 2) return { who, personName: PEOPLE.find((p) => p.id === sh.who).name, opened, two, pausedNow, noCardWhy: `${btns.length} questions offered`, oDone: false, noCard: true, finished: false, other: shrines[1].who };
+  const before = SAVE.asked[sh.who] || 0, q0 = btns[0].textContent;
+  btns[1].click(); await nap(100);
+  const answer = $('talkAnswer').textContent, answerShown = $('talkAnswer').classList.contains('show');
+  const unasked = btns[0].classList.contains('unasked') && btns[0].textContent.endsWith(SHRINE_LINES.unasked), chosen = btns[1].classList.contains('chosen');
+  const advanced = (SAVE.asked[sh.who] || 0) === before + 1, expected = EXCHANGES[sh.who]?.steps?.[before]?.a?.[1] ?? null;
+  btns[1].click(); await nap(60);                            // a second tap does nothing
+  const stillOne = (SAVE.asked[sh.who] || 0) === before + 1;
+  $('talkClose').click(); await nap(700);
+  const closed = !card.classList.contains('show'), unpaused = !paused;
+  // spend the other statue's person entirely, then deliver: no card, the finished line on the floor
+  const o = shrines[1], theirs = [...offerings.entries()].find(([, who]) => who === o.who);
+  SAVE.asked[o.who] = EXCHANGES[o.who].steps.length; persist();
+  await at(theirs[0]); await at(o.sx + ',' + o.sy); await nap(700);
+  const noCard = !card.classList.contains('show'), finished = narrEl.textContent === EXCHANGES[o.who].done, oDone = o.done;
+  return { who, personName: PEOPLE.find((p) => p.id === sh.who).name, opened, two, pausedNow, q0, answer, expected, answerShown, unasked, chosen, advanced, stillOne, closed, unpaused, noCard, finished, oDone, other: o.who };
+});
+check('a stone in the bowl opens two questions; one asked gets its answer, the other stays unasked',
+  !talk.missing && talk.opened && talk.two && talk.pausedNow && talk.who === talk.personName && talk.answerShown && talk.answer === talk.expected
+    && talk.unasked && talk.chosen && talk.advanced && talk.stillOne && talk.closed && talk.unpaused,
+  talk.missing ? `nothing to ask: ${talk.missing}` : talk.noCardWhy ? `no exchange: card opened ${talk.opened}, ${talk.noCardWhy}` :
+  `card for ${talk.who} opened (${talk.opened}) with ${talk.two ? 'two' : 'not two'} questions and paused the walk (${talk.pausedNow}); asking the second answered "${(talk.answer || '').slice(0, 40)}…" (${talk.answer === talk.expected}), `
+  + `left the first unasked (${talk.unasked}), advanced their step once (${talk.advanced}, second tap ignored ${talk.stillOne}); close folded it (${talk.closed}) and unpaused (${talk.unpaused})`);
+check('a statue whose person has nothing left to say takes the stone and says its one line, with no card',
+  !talk.missing && talk.oDone && talk.noCard && talk.finished,
+  talk.missing ? `nothing to ask: ${talk.missing}` : `${talk.other}'s statue took the stone (${talk.oDone}), opened no card (${talk.noCard}) and said its finished line (${talk.finished})`);
+
+// ── 8f. Reset save restarts the game ──────────────────────────────
+// Joe: "When I reset my save it should just restart the game as well." It erased the save and left
+// you in the old maze. Now it does what every other control in the panel does: a fresh maze at
+// phase 0, asleep on the mat, panel closed.
+const resetGame = await page.evaluate(async () => {
+  const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+  SAVE.phase = 3; SAVE.stones = 2; SAVE.poolPending = false; SAVE.collected = { 'The Child': [true, true] }; persist();
+  reset(4242); wake(); for (let i = 0; i < 200 && !started; i++) await nap(50); await nap(300); introWalk = null; held = null;
+  const seedBefore = SEED, wasStarted = started;
+  dbg.classList.add('show');
+  $('resetSave').click(); await nap(50);                     // arms
+  const armed = $('resetSave').dataset.armed === '1';
+  $('resetSave').click(); await nap(400);                    // erases, and now restarts
+  let stored = null; try { stored = localStorage.getItem(SAVE_KEY); } catch (e) {}
+  return { wasStarted, armed, stored, phase: SAVE.phase, stones: SAVE.stones, collected: Object.keys(SAVE.collected).length, run: 'run' in SAVE,
+    panelClosed: !dbg.classList.contains('show'), started, pre: document.body.classList.contains('pre'), newSeed: SEED !== seedBefore, hasMaze: W > 0 && tiles.length === H };
+});
+check('Reset save erases the save and restarts the game, asleep at the beginning',
+  resetGame.wasStarted && resetGame.armed && resetGame.stored === null && resetGame.phase === 0 && resetGame.stones === 0 && resetGame.collected === 0 && !resetGame.run
+    && resetGame.panelClosed && !resetGame.started && resetGame.pre && resetGame.newSeed && resetGame.hasMaze,
+  `from a run at phase 3: save cleared (${resetGame.stored === null}), phase ${resetGame.phase}, ${resetGame.stones} stones, ${resetGame.collected} selves collected; `
+  + `panel closed (${resetGame.panelClosed}), asleep at the title (${!resetGame.started && resetGame.pre}), a new maze under him (${resetGame.newSeed && resetGame.hasMaze})`);
+
+// ── 8g. every line the player reads lives in data/text.js (v0.82.0) ──
+
+// Joe, planning the rewrite: "it'll be good to have a single file that contains all the lines to
+// everything visible to the players." It wasn't one file — 21 lines were literals scattered through
+// five engine files, invisible to anyone doing a writing pass. They are MOMENTS now, keyed by self.
+const voice = await page.evaluate(() => {
+  const was = character;
+  const pick = (who, slug, vars) => { character = { name: who, pages: [] }; return moment(slug, vars); };
+  const out = {
+    childTtt:  pick('The Child', 'tttWon'),
+    adultTtt:  pick('The Soldier', 'tttWon'),
+    childHop:  pick('The Child', 'hopscotchDone'),
+    adultHop:  pick('The Soldier', 'hopscotchDone'),
+    shared:    pick('The Soldier', 'exitLocked'),
+    sharedKid: pick('The Child', 'exitLocked'),     // no per-self entry: everyone gets `_`
+    filled:    pick('The Soldier', 'keyFound', { shape: 'circle' }),
+    missing:   pick('The Soldier', 'nosuchslug'),
+  };
+  character = was;
+  return out;
+});
+check('a moment speaks in the voice of whoever is walking',
+  voice.childTtt !== voice.adultTtt && voice.childHop !== voice.adultHop
+    && voice.shared === voice.sharedKid && voice.shared.length > 0
+    && voice.filled.includes('circle') && voice.missing === '',
+  `the Child wins at noughts and crosses with "${voice.childTtt}" and the Soldier with "${voice.adultTtt}"; `
+  + `a moment with no per-self line gives everyone the same words; {shape} fills to "${voice.filled}"; `
+  + `an unknown slug is empty rather than undefined`);
+
+// And it has to stay one file. This is the guard: a narrate() with a literal in it is prose that
+// the writer's pass would never see.
+const strays = await page.evaluate(async () => {
+  const files = ['core', 'generate', 'proto', 'audio', 'state', 'input', 'stories', 'run-save',
+                 'tutorials', 'pool', 'map', 'movement', 'render', 'boot'];
+  const found = [];
+  for (const f of files) {
+    const src = await (await fetch('js/' + f + '.js')).text();
+    for (const line of src.split('\n')) {
+      if (line.trim().startsWith('//')) continue;
+      // narrate("…") or narrate('…') or narrate(`…`) — a literal, not a lookup
+      const m = line.match(/narrate\(\s*(["'`])/);
+      if (m) found.push(f + '.js: ' + line.trim().slice(0, 60));
+    }
+  }
+  return found;
+});
+check('no player-facing line is left hardcoded in the engine',
+  strays.length === 0,
+  strays.length ? strays.slice(0, 4).join(' | ')
+    : 'every narrate() takes its words from data/text.js, so a writing pass sees all of them');
+
+// Joe, on the writer's page: "I might want to write a new line for the basin, or for
+// when he is walking through the maze, or standing at a bookshelf." The shelf and
+// basin lines used to be picked with `t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0` — hard-wired to
+// exactly three, so a fourth line could never fire and "add a line" would have been a
+// lie. They spread across however many there are now.
+const spread = await page.evaluate(() => {
+  const pick = (n, t) => Math.min(n - 1, Math.floor(t * n));       // the rule the engine uses
+  const reach = (n) => { const seen = new Set();
+    for (let t = 0; t <= 1.0001; t += 0.01) seen.add(pick(n, t));
+    return seen.size; };
+  const shelf = (ROOM_LINES['The Child'] || {}).shelf || [];
+  return { three: reach(3), four: reach(4), seven: reach(7), atFull: pick(shelf.length, 1), have: shelf.length };
+});
+check('every shelf and basin line can be reached, however many there are',
+  spread.three === 3 && spread.four === 4 && spread.seven === 7 && spread.atFull === spread.have - 1,
+  `with 3 lines all 3 come up, with 4 all 4, with 7 all 7; carrying every page you get the last of `
+  + `the ${spread.have} there are. A fourth line used to be unreachable, so the page could not offer one`);
+
+// maze/writer.html is generated from data/text.js, so it can go stale the moment anyone edits a
+// line — and a writer editing a stale page is writing into a copy of the game that no longer
+// exists. Builds are reproducible (the page carries a fingerprint of the text, not a timestamp),
+// so this is a byte comparison.
+{
+  const { buildPage } = await import('./writer-page.mjs');
+  const onDisk = readFileSync(new URL('../writer.html', import.meta.url), 'utf8');
+  const fresh = buildPage();
+  const stamp = (t) => (t.match(/"stamp":"([a-f0-9]+)"/) || [])[1] || '?';
+  check('the writer page matches the text it is meant to show',
+    onDisk === fresh,
+    onDisk === fresh
+      ? `built from text ${stamp(fresh)}, ${(onDisk.length / 1024).toFixed(0)}KB`
+      : `the committed page was built from text ${stamp(onDisk)} and the text is now ${stamp(fresh)}. `
+        + 'Run: node maze/tools/writer-page.mjs > maze/writer.html   (and republish the artifact)');
+}
+
+// ── 8i. a line break Joe types is a line break he gets (v0.108.0) ──
+
+// He wrote CAST[0].pages[3] to land twice — "I wasn't." then, a beat later, "I wasn't." — with a
+// newline between. Default white-space collapses a newline to a space, so the beat would have
+// vanished between the writer's page and the screen with nothing to show it had. The journal
+// honours the break; the narrator, which is one line by design, is left alone.
+const wrapped = await page.evaluate(async () => {
+  const el = document.getElementById('narr');
+  const two = "one line.\nand another.", one = two.replace('\n', ' ');
+  const measure = (t, journal) => { el.className = journal ? 'show journal' : 'show'; el.textContent = t;
+    return el.getBoundingClientRect().height; };
+  const out = { pageTwo: measure(two, true), pageOne: measure(one, true),
+                narrTwo: measure(two, false), narrOne: measure(one, false),
+                typed: (CAST[0].pages[3] || '').includes('\n') };
+  el.className = ''; el.textContent = '';
+  return out;
+});
+check('a line break in a journal page is a line break on the page',
+  wrapped.pageTwo > wrapped.pageOne + 4 && Math.abs(wrapped.narrTwo - wrapped.narrOne) < 2 && wrapped.typed,
+  'a page written across two lines stands ' + Math.round(wrapped.pageTwo) + 'px against '
+  + Math.round(wrapped.pageOne) + 'px for the same words run together, and the narrator ignores the '
+  + 'break as it always has (' + Math.round(wrapped.narrTwo) + 'px vs ' + Math.round(wrapped.narrOne) + 'px). '
+  + (wrapped.typed ? "The Child's fourth page is the one that carries one" : 'NOTHING IN text.js CARRIES A BREAK')); 
+
+// ── 8h. the path into data/text.js, under the line (v0.103.0) ────
+
+// Joe: "a debug element that would show the ID of every string when I played." The id is only
+// useful if it is the *same* id the writer's page is keyed by, and if it points at the line that
+// is actually on screen — an id that is subtly wrong is worse than none, because the writer edits
+// the wrong slot and the words don't change.
+
+// The lookup walks TEXT_BLOCKS, which is written by hand because these are consts in a shared
+// script scope with no way to enumerate them. So: it has to be complete, or a whole block of
+// writing quietly has no ids.
+{
+  const textSrc = readFileSync(new URL('../data/text.js', import.meta.url), 'utf8');
+  const declared = [...textSrc.matchAll(/^const ([A-Z_]+)\s*=/gm)].map((m) => m[1]).filter((n) => n !== 'TEXT_BLOCKS');
+  const listed = await page.evaluate(() => Object.keys(TEXT_BLOCKS));
+  const gap = declared.filter((n) => !listed.includes(n));
+  check('every block of writing is reachable by the line-ID lookup',
+    gap.length === 0 && listed.length === declared.length,
+    gap.length ? 'declared in data/text.js but missing from TEXT_BLOCKS: ' + gap.join(', ')
+      : listed.length + ' blocks declared, all ' + listed.length + ' listed');
+}
+
+// Round-trip: every line in the file, looked up by its words, must give a path that leads back to
+// those same words. This is the check that would catch a walker that numbers arrays wrong or
+// mangles a quoted key — the failure mode that sends a writer to the wrong line.
+const round = await page.evaluate(() => {
+  const leaves = [];
+  const walk = (n, p) => {
+    if (typeof n === 'string') return leaves.push([p, n]);
+    if (Array.isArray(n)) n.forEach((v, i) => walk(v, p + '[' + i + ']'));
+    else if (n && typeof n === 'object') for (const k of Object.keys(n))
+      walk(n[k], p + (/^[A-Za-z_$][\w$]*$/.test(k) ? '.' + k : '[' + JSON.stringify(k) + ']'));
+  };
+  for (const name of Object.keys(TEXT_BLOCKS)) walk(TEXT_BLOCKS[name], name);
+  const bad = [];
+  let blank = 0;
+  for (const [, text] of leaves) {
+    // CAST[7].summary is '' — You has no blurb on the Stories screen. An empty slot is not a line
+    // anyone reads, and tagging it would put an id under nothing.
+    if (text === '') { blank++; continue; }
+    const id = lineId(text);
+    if (!id) { bad.push('no id for ' + JSON.stringify(text.slice(0, 40))); continue; }
+    let got; try { got = eval(id.replace(/ ×\d+$/, '')); } catch (e) { got = '<' + e.message + '>'; }
+    if (got !== text) bad.push(id + ' leads to ' + JSON.stringify(String(got).slice(0, 40)));
+  }
+  // a {braces} line still resolves after the vars are filled in, which is how the player sees it
+  const filled = lineId(moment('keyFound', { shape: 'circle' }));
+  return { total: leaves.length, blank, bad: bad.slice(0, 4), filled, junk: lineId('words the game never says'), empty: lineId('') };
+});
+check('every line in data/text.js can be found again from the words on screen',
+  round.bad.length === 0 && round.filled === 'MOMENTS.keyFound._' && round.junk === null && round.empty === null,
+  round.bad.length ? round.bad.join(' | ')
+    : (round.total - round.blank) + ' lines round-trip (' + round.blank + ' empty slot skipped); a filled-in '
+      + '"A key. Its head is a circle." still resolves to ' + round.filled
+      + ', and words from nowhere — or no words at all — give no id');
+
+// And the toggle has to actually put it under the line, and actually stop when it is off.
+const shown = await page.evaluate(() => {
+  const line = SELF_LINES['The Child'][3], was = SAVE.ui.ids;
+  const read = () => { const t = document.querySelector('#narr .lid'); return t ? t.textContent : null; };
+  SAVE.ui.ids = true;  narrate(line); const on = read();
+  SAVE.ui.ids = false; narrate(line); const off = read();
+  SAVE.ui.ids = was;
+  return { on, off, words: line, narr: document.getElementById('narr').textContent };
+});
+check('the Line IDs view names the line, and shows nothing when it is off',
+  shown.on === 'SELF_LINES["The Child"][3]' && shown.off === null && shown.narr.startsWith(shown.words),
+  shown.on === null ? 'the toggle was on and no id appeared'
+    : 'the Child’s fourth walking line shows as ' + shown.on + ', and the words themselves are untouched'
+      + (shown.off === null ? '; off, nothing is drawn' : '; but it did not clear: ' + shown.off));
+
+// ── 9. no page errors throughout ─────────────────────────────────
+check('no page errors', pageErrors.length === 0,
+  pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');
+
+// ── report ───────────────────────────────────────────────────────
+const failed = results.filter((r) => !r.pass);
+console.log('');
+console.log(failed.length === 0
+  ? `PASS — ${results.length} behaviour checks`
+  : `FAIL — ${failed.length} of ${results.length} behaviour checks: ${failed.map((f) => f.name).join('; ')}`);
+
+await browser.close();
+stopServer();
+process.exit(failed.length ? 1 : 0);

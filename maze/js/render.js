@@ -1,0 +1,1159 @@
+// The Maze — every frame: floor, walls, fog, lamp cone, marks, HUD
+//
+// Part of the engine, loaded as a plain script in the order it used to appear
+// in maze-topdown.html. Everything shares one global scope, exactly as before.
+
+// ── render ──────────────────────────────────────────────────────
+let dpr = 1;
+function resize() { dpr = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
+addEventListener('resize', resize); resize();
+
+// ── the floor ───────────────────────────────────────────────────
+// Marks in the concrete, not effects on the screen. Everything here is fixed by the seed and
+// the shape of the maze, so it is in the same place every time you come back to it: this is a
+// room somebody has lived in their whole life, not a filter over the picture.
+const tileNoise = (x, y, salt) => {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(salt, 2246822519)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+};
+
+// how much of the maze's traffic passes over each tile, as distance out from the way through.
+// Feet polish the routes people actually take; nothing walks a dead end but you.
+let wearMap = null, wearSeed = -1;
+function floorWear() {
+  if (wearSeed === SEED && wearMap) return wearMap;
+  const d = new Map(), q = [];
+  for (const [x, y] of solutionPath) { const k = x + ',' + y; if (!d.has(k)) { d.set(k, 0); q.push([x, y]); } }
+  for (let i = 0; i < q.length; i++) {
+    const [x, y] = q[i], n = d.get(x + ',' + y);
+    if (n >= CONFIG.floorWearReach) continue;
+    for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+      if (!isOpen(nx, ny) || d.has(k)) continue; d.set(k, n + 1); q.push([nx, ny]); }
+  }
+  wearSeed = SEED; wearMap = d; return d;
+}
+function drawWorn(S, ox, oy, x0_, x1_, y0_, y1_) {
+  // Stroked along the corridor rather than dabbed on each tile, so it reads as one worn track
+  // running through the place instead of a row of spots. Two passes, a soft wide one and a
+  // narrower brighter one, and the overlap at a junction comes out brighter — which is right,
+  // because a junction is where more feet crossed.
+  const wear = floorWear(), reach = CONFIG.floorWearReach;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (let y = y0_; y <= y1_; y++) for (let x = x0_; x <= x1_; x++) {
+    if (!tiles[y][x]) continue;
+    const n = wear.get(x + ',' + y);
+    if (n === undefined) continue;
+    const w = (1 - n / reach) * (0.7 + 0.3 * tileNoise(x, y, 11));
+    if (w <= 0.02) continue;
+    const px = ox + x * S + S / 2, py = oy + y * S + S / 2;
+    // How open the tile is decides how it is painted. A corridor gets a stroked track. A room
+    // gets a flat wash instead, because in an open floor everybody walks everywhere — and because
+    // stroking a plus on every tile of a room leaves the diagonals bare and prints a lattice of
+    // rings across it, which is what this used to do.
+    const openN = DIRS.reduce((n, [dx, dy]) => n + (isOpen(x + dx, y + dy) ? 1 : 0), 0);
+    const roomish = Math.max(0, Math.min(1, (openN - 2) / 2));
+    if (roomish > 0) {
+      ctx.fillStyle = `rgba(186,181,170,${(w * CONFIG.floorWorn * 0.115 * roomish).toFixed(3)})`;
+      ctx.fillRect(ox + x * S, oy + y * S, S + 0.5, S + 0.5);
+    }
+    if (roomish < 1) for (const [width, k] of [[0.66, 0.1], [0.33, 0.13]]) {
+      ctx.strokeStyle = `rgba(186,181,170,${(w * CONFIG.floorWorn * k * (1 - roomish)).toFixed(3)})`;
+      ctx.lineWidth = S * width; ctx.beginPath();
+      let any = false;
+      for (const [dx, dy] of DIRS) { if (!isOpen(x + dx, y + dy)) continue; any = true; ctx.moveTo(px, py); ctx.lineTo(px + dx * S * 0.55, py + dy * S * 0.55); }
+      if (!any) { ctx.moveTo(px, py); ctx.lineTo(px + 0.01, py); }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+// dirt gathers where the mop never reaches: along the foot of every wall, and twice over in a corner
+function drawGrime(S, ox, oy, x0_, x1_, y0_, y1_) {
+  const reach = 0.42;
+  ctx.save();
+  for (let y = y0_; y <= y1_; y++) for (let x = x0_; x <= x1_; x++) {
+    if (!tiles[y][x]) continue;
+    const px = ox + x * S, py = oy + y * S;
+    const a = CONFIG.floorGrime * (0.55 + 0.75 * tileNoise(x, y, 23));
+    for (const [dx, dy] of DIRS) {
+      if (isOpen(x + dx, y + dy)) continue;
+      const x1 = dx > 0 ? px + S : dx < 0 ? px : px, y1 = dy > 0 ? py + S : dy < 0 ? py : py;
+      const g = ctx.createLinearGradient(x1, y1, x1 - dx * S * reach, y1 - dy * S * reach);
+      g.addColorStop(0, `rgba(22,23,24,${(0.55 * a).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(22,23,24,0)');
+      ctx.fillStyle = g; ctx.fillRect(px, py, S + 0.5, S + 0.5);
+    }
+  }
+  ctx.restore();
+}
+// strip lights overhead. Most of them work.
+let lampGrid = null, lampSeed = -1;
+function ceilingLights() {
+  if (lampSeed === SEED && lampGrid) return lampGrid;
+  const out = [], step = CONFIG.floorLightSpacing * 2;
+  for (let cy = P + 1; cy < H; cy += step) for (let cx = P + 1; cx < W; cx += step) {
+    const n = tileNoise(cx, cy, 41), m = tileNoise(cx, cy, 57);
+    out.push({ x: cx + (n - 0.5) * 3, y: cy + (m - 0.5) * 3, r: 3.1 + n * 1.8, bad: m < CONFIG.floorLightBad, ph: n * 40 });
+  }
+  lampSeed = SEED; lampGrid = out; return out;
+}
+function drawLights(S, ox, oy, vw, vh, nowMs) {
+  const t = nowMs / 1000;
+  ctx.save();
+  for (const L of ceilingLights()) {
+    const px = ox + L.x * S, py = oy + L.y * S, r = L.r * S;
+    if (px + r < 0 || px - r > vw || py + r < 0 || py - r > vh) continue;
+    let lit = 0.86 + 0.14 * Math.sin(t * 1.7 + L.ph);
+    if (L.bad) {
+      const s = Math.sin(t * 17.3 + L.ph) * Math.sin(t * 5.1 + L.ph * 2) * Math.sin(t * 31.7);
+      if (s > 0.5) lit *= 0.15;                       // the stutter
+      else if (s > 0.35) lit *= 0.6;
+    }
+    const g = ctx.createRadialGradient(px, py, 0, px, py, r);
+    g.addColorStop(0, `rgba(226,222,206,${(lit * CONFIG.floorLights * 0.22).toFixed(3)})`);
+    g.addColorStop(0.55, `rgba(226,222,206,${(lit * CONFIG.floorLights * 0.09).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(226,222,206,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawFloorTexture(S, ox, oy, vw, vh, x0_, x1_, y0_, y1_, nowMs) {
+  const f = SAVE.ui.floor || 'wornlights';   // the two that carry it, on by default
+  if (f === 'off') return;
+  const all = f === 'all', pair = f === 'wornlights';
+  if ((all || pair || f === 'worn') && CONFIG.floorWorn > 0) drawWorn(S, ox, oy, x0_, x1_, y0_, y1_);
+  if ((all || pair || f === 'lights') && CONFIG.floorLights > 0) drawLights(S, ox, oy, vw, vh, nowMs);
+  if ((all || f === 'grime') && CONFIG.floorGrime > 0) drawGrime(S, ox, oy, x0_, x1_, y0_, y1_);
+}
+
+// ── texture ─────────────────────────────────────────────────────
+// Three ways to age the concrete, so the look can be picked by eye rather than argued about.
+// Damp lies on the floor and goes under the fog, because a stain is a thing in the room. Grain
+// and Dust sit on the glass over everything, because they are not.
+let grainTile = null, dampBlobs = null, dampFor = -1, motes = null, grainAt = 0, grainOff = [0, 0];
+function grainPattern() {
+  if (grainTile) return grainTile;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), img = g.createImageData(128, 128);
+  for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255 | 0; img.data[i] = img.data[i+1] = img.data[i+2] = v; img.data[i+3] = 30; }
+  g.putImageData(img, 0, 0); grainTile = c; return c;
+}
+function dampPatches() {
+  if (dampFor === SEED) return dampBlobs;
+  const R2 = rng((SEED ^ 0x9e3779b9) >>> 0), out = [];
+  for (let i = 0; i < CONFIG.textureDamp; i++) out.push({ x: R2() * W, y: R2() * H, r: 1.4 + R2() * 4.2, a: 0.2 + R2() * 0.5 });
+  dampFor = SEED; dampBlobs = out; return out;
+}
+function drawDamp(S, ox, oy, vw, vh) {
+  ctx.save(); ctx.globalAlpha = CONFIG.textureAmount;
+  for (const b of dampPatches()) {
+    const px = ox + b.x * S, py = oy + b.y * S, r = b.r * S;
+    if (px + r < 0 || px - r > vw || py + r < 0 || py - r > vh) continue;
+    const g = ctx.createRadialGradient(px, py, 0, px, py, r);
+    g.addColorStop(0, `rgba(24,26,27,${(0.34 * b.a).toFixed(3)})`); g.addColorStop(1, 'rgba(24,26,27,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawGrain(vw, vh, nowMs) {
+  if (nowMs - grainAt > 90) { grainAt = nowMs; grainOff = [Math.random() * 128 | 0, Math.random() * 128 | 0]; }
+  ctx.save(); ctx.globalAlpha = CONFIG.textureGrain; ctx.translate(-grainOff[0], -grainOff[1]);
+  ctx.fillStyle = ctx.createPattern(grainPattern(), 'repeat');
+  ctx.fillRect(0, 0, vw + 128, vh + 128); ctx.restore();
+}
+function drawDust(vw, vh, dt, S, ox, oy, x0_, x1_, y0_, y1_) {
+  if (!motes) { motes = []; for (let i = 0; i < CONFIG.textureMotes; i++) motes.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.012, vy: -0.004 - Math.random() * 0.012, r: 0.6 + Math.random() * 1.7, a: 0.1 + Math.random() * 0.4 }); }
+  ctx.save();
+  // clipped to the floor, so it hangs in the rooms and the halls rather than over the stone
+  ctx.beginPath();
+  for (let y = y0_; y <= y1_; y++) for (let x = x0_; x <= x1_; x++) if (tiles[y][x]) ctx.rect(ox + x*S, oy + y*S, S + 0.5, S + 0.5);
+  ctx.clip();
+  ctx.fillStyle = '#ece7da';
+  for (const m of motes) {
+    m.x += m.vx * dt; m.y += m.vy * dt;
+    if (m.y < -0.02) { m.y = 1.02; m.x = Math.random(); } if (m.x < -0.02) m.x = 1.02; if (m.x > 1.02) m.x = -0.02;
+    ctx.globalAlpha = m.a * CONFIG.textureAmount;
+    ctx.beginPath(); ctx.arc(m.x * vw, m.y * vh, m.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// The body, drawn into an already translated and rotated context. Seven bands from tail to
+// nose, one per stone: dark while it is still carried, pale once it has been put down. He
+// starts as a shape you can barely see and ends the pale arrow he always used to be.
+const mixHex = (a, b, t) => {
+  const p = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const [r1, g1, b1] = p(a), [r2, g2, b2] = p(b), k = Math.max(0, Math.min(1, t));
+  return `rgb(${Math.round(r1 + (r2 - r1) * k)},${Math.round(g1 + (g2 - g1) * k)},${Math.round(b1 + (b2 - b1) * k)})`;
+};
+// Chalk, the way a kid holds it: a line drawn in three wobbly bits rather than one straight one,
+// with the wobble fixed by where the line is so it never shimmers between frames.
+function chalkLine(x0, y0, x1, y1, jitter, mx_, my_, salt) {
+  const n = 3, nx = -(y1 - y0), ny = x1 - x0, len = Math.hypot(nx, ny) || 1;
+  ctx.moveTo(x0, y0);
+  for (let i = 1; i <= n; i++) {
+    const t = i / n, ax = x0 + (x1 - x0) * t, ay = y0 + (y1 - y0) * t;
+    const off = i === n ? 0 : (tileNoise(mx_, my_, salt + i) - 0.5) * jitter;
+    ctx.lineTo(ax + nx / len * off, ay + ny / len * off);
+  }
+}
+// The digits 1–8 as a child would chalk them: strokes, not a typeface, each in a 0–1 box.
+const CHALK_DIGITS = {
+  1: [[[0.34, 0.18], [0.52, 0.04], [0.5, 0.96]]],
+  2: [[[0.16, 0.26], [0.32, 0.04], [0.66, 0.06], [0.74, 0.32], [0.2, 0.94], [0.82, 0.92]]],
+  3: [[[0.16, 0.1], [0.62, 0.04], [0.76, 0.28], [0.44, 0.5], [0.78, 0.7], [0.58, 0.96], [0.14, 0.88]]],
+  4: [[[0.62, 0.04], [0.12, 0.66], [0.86, 0.62]], [[0.6, 0.04], [0.64, 0.96]]],
+  5: [[[0.78, 0.08], [0.26, 0.06], [0.2, 0.46], [0.56, 0.42], [0.78, 0.66], [0.58, 0.94], [0.18, 0.86]]],
+  6: [[[0.72, 0.06], [0.3, 0.3], [0.2, 0.66], [0.46, 0.96], [0.76, 0.74], [0.54, 0.5], [0.22, 0.62]]],
+  7: [[[0.14, 0.08], [0.84, 0.06], [0.38, 0.96]]],
+  8: [[[0.5, 0.04], [0.24, 0.2], [0.5, 0.46], [0.76, 0.22], [0.5, 0.04]], [[0.5, 0.46], [0.22, 0.72], [0.5, 0.96], [0.8, 0.7], [0.5, 0.46]]],
+};
+function chalkDigit(n, px, py, h, mx_, my_, salt) {
+  const paths = CHALK_DIGITS[n]; if (!paths) return;
+  const w = h * 0.62, tilt = (tileNoise(mx_, my_, salt) - 0.5) * 0.22;
+  ctx.save(); ctx.translate(px, py); ctx.rotate(tilt); ctx.beginPath();
+  for (const path of paths) {
+    path.forEach(([x, y], i) => { const ax = (x - 0.5) * w, ay = (y - 0.5) * h; i ? ctx.lineTo(ax, ay) : ctx.moveTo(ax, ay); });
+  }
+  ctx.stroke(); ctx.restore();
+}
+
+// the eight lines of a noughts-and-crosses board
+const TTT_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+// the boards a kid leaves behind: two crosses, no noughts, the middle open
+const TTT_GAMES = [
+  ['x','','', '','','', '','','x'], ['','','x', '','','', 'x','',''],
+  ['','x','', '','','', '','x',''], ['','','', 'x','','x', '','',''],
+];
+// A game of noughts and crosses chalked on the floor — except there are never any noughts. Two
+// crosses are down and the middle is open, so your own X in the middle wins it, and when it does
+// the line is struck through. `cells` is nine of '' or 'x'.
+function drawTicTacToe(px, py, S, cells, won) {
+  const C = CONFIG.colors, g = S * 0.26;
+  ctx.save(); ctx.globalAlpha = 0.85;
+  ctx.strokeStyle = C.mark; ctx.lineWidth = Math.max(1, S * 0.03); ctx.lineCap = 'round'; ctx.beginPath();
+  ctx.moveTo(px - g/2, py - g*1.5); ctx.lineTo(px - g/2, py + g*1.5); ctx.moveTo(px + g/2, py - g*1.5); ctx.lineTo(px + g/2, py + g*1.5);
+  ctx.moveTo(px - g*1.5, py - g/2); ctx.lineTo(px + g*1.5, py - g/2); ctx.moveTo(px - g*1.5, py + g/2); ctx.lineTo(px + g*1.5, py + g/2);
+  ctx.stroke();
+  const cross = (i) => { const cx = px + ((i % 3) - 1) * g, cy = py + (Math.floor(i / 3) - 1) * g, a = g * 0.28;
+    ctx.beginPath(); ctx.moveTo(cx-a, cy-a); ctx.lineTo(cx+a, cy+a); ctx.moveTo(cx+a, cy-a); ctx.lineTo(cx-a, cy+a); ctx.stroke(); };
+  ctx.lineWidth = Math.max(1.2, S * 0.035);
+  cells.forEach((c, i) => { if (c === 'x') cross(i); });
+  if (won) {
+    cross(4);
+    const line = TTT_LINES.find(([a, b, c2]) => (cells[a] === 'x' || a === 4) && (cells[b] === 'x' || b === 4) && (cells[c2] === 'x' || c2 === 4));
+    if (line) { const at = (i) => [px + ((i % 3) - 1) * g, py + (Math.floor(i / 3) - 1) * g];
+      const [ax, ay] = at(line[0]), [bx, by] = at(line[2]);
+      ctx.lineWidth = Math.max(1.4, S * 0.04);
+      ctx.beginPath(); ctx.moveTo(ax + (ax - bx) * 0.12, ay + (ay - by) * 0.12); ctx.lineTo(bx + (bx - ax) * 0.12, by + (by - ay) * 0.12); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+
+// A squeeze is drawn on the wall it goes through: the tile stays wall-coloured and a narrow
+// strip of floor is cut through the middle of it, with one arm reaching toward each side you can
+// actually walk to and a lip along the cut. It used to assume every squeeze ran straight through,
+// so a squeeze on a tile open three or four ways — they turn up in the exit gauntlet — showed a
+// single strip and then let you walk out of a side with nothing drawn on it at all.
+function drawSqueeze(px, py, S, mx, my, open) {
+  const C = CONFIG.colors, w = CONFIG.squeezeChannel, lo = 0.5 - w/2, hi = 0.5 + w/2, t = 1.5;
+  const arm = DIRS.map(([dx, dy]) => isOpen(mx + dx, my + dy));   // DIRS order: right, left, down, up
+  ctx.fillStyle = C.wall; ctx.fillRect(px, py, S+0.5, S+0.5);
+  ctx.fillStyle = open ? C.floor : '#151819';
+  ctx.fillRect(px + S*lo, py + S*lo, S*w + 0.5, S*w + 0.5);
+  if (arm[0]) ctx.fillRect(px + S*hi, py + S*lo, S*lo + 0.5, S*w + 0.5);
+  if (arm[1]) ctx.fillRect(px, py + S*lo, S*lo, S*w + 0.5);
+  if (arm[2]) ctx.fillRect(px + S*lo, py + S*hi, S*w + 0.5, S*lo + 0.5);
+  if (arm[3]) ctx.fillRect(px + S*lo, py, S*w + 0.5, S*lo);
+  if (!open) return;
+  // the lip: along the flanks of each arm, and across the face of the hub where there is no arm
+  ctx.fillStyle = C.thick;
+  const flankH = (x, wd) => { ctx.fillRect(px + x, py + S*lo - 1, wd, t); ctx.fillRect(px + x, py + S*hi - 0.5, wd, t); };
+  const flankV = (y, ht) => { ctx.fillRect(px + S*lo - 1, py + y, t, ht); ctx.fillRect(px + S*hi - 0.5, py + y, t, ht); };
+  if (arm[0]) flankH(S*hi, S*lo + 0.5); else ctx.fillRect(px + S*hi - 0.5, py + S*lo - 1, t, S*w + 2);
+  if (arm[1]) flankH(0, S*lo); else ctx.fillRect(px + S*lo - 1, py + S*lo - 1, t, S*w + 2);
+  if (arm[2]) flankV(S*hi, S*lo + 0.5); else ctx.fillRect(px + S*lo - 1, py + S*hi - 0.5, S*w + 2, t);
+  if (arm[3]) flankV(0, S*lo); else ctx.fillRect(px + S*lo - 1, py + S*lo - 1, S*w + 2, t);
+}
+
+// A block is floor with a thick sliver of wall down the side it can still be shoved — one sliver
+// per way, so a two-way block wears two. Nothing else: the tile has to read as part of the map
+// with a hint on it, not as an object sitting on top of one. It was a whole outlined slab from
+// v0.54 to v0.60, and Joe was right about that: "the entire thing is outlined and it doesn't even
+// look like it's part of the map. It just looks like a block."
+function blockSlivers(px, py, S, ways, color) {
+  const w = S * 0.08;
+  ctx.fillStyle = color || CONFIG.colors.thick;
+  for (const [dx, dy] of ways) {
+    if (dx === 1) ctx.fillRect(px + S - w, py, w, S);
+    else if (dx === -1) ctx.fillRect(px, py, w, S);
+    else if (dy === 1) ctx.fillRect(px, py + S - w, S, w);
+    else ctx.fillRect(px, py, S, w);
+  }
+}
+
+// Where he sits on the scale from burdened to free: 0 is full black, 1 is the pale he ends at, and
+// it passes through the halfway grey so the middle of the run is a grey man rather than a black one
+// going suddenly white. Seven stones means eight rungs, 0/7 to 7/7.
+function burdenTone(lit) {
+  const C = CONFIG.colors;
+  return lit <= 0.5 ? mixHex(C.playerBurdened, C.playerLifting, lit / 0.5)
+                    : mixHex(C.playerLifting, C.player, (lit - 0.5) / 0.5);
+}
+
+// pinch is how much of the back corners' width is left: 1 walking, less in a squeeze, where the
+// arrow narrows behind the nose instead of shrinking whole
+function drawPlayerBody(c, r, pinch = 1) {
+  const C = CONFIG.colors, n = STONES.length, by = r * 0.75 * pinch;
+  c.beginPath(); c.moveTo(r, 0); c.lineTo(-r*0.8, -by); c.lineTo(-r*0.45, 0); c.lineTo(-r*0.8, by); c.closePath();
+  c.save(); c.clip();
+  const x0 = -r*0.8, span = r*1.8;
+  // The whole man is one value, and the stages lighten all of him. Joe, correcting me: "what I meant
+  // by gradient was that we would take the whole character from dark to light. So stage one is full
+  // black, stage two is near black, stage three is dark gray and so on." I had built it as a ramp
+  // running along his body with the stages moving the ramp's edge — which is a gradient, but not
+  // this one. Here the gradient is the *scale of values he is drawn in* across the run of the game.
+  const lit = Math.max(0, Math.min(1, liftBand >= 0 ? (liftBand + liftBandAmt) / n : (SAVE.stones || 0) / n));
+  c.fillStyle = burdenTone(lit);
+  c.fillRect(x0 - 0.5, -r*1.1, span + 1, r*2.2);
+  c.restore();
+  if (CONFIG.playerOutline > 0) { c.strokeStyle = C.playerEdge || C.player; c.lineWidth = r * CONFIG.playerOutline; c.lineJoin = 'round'; c.stroke(); }
+}
+
+// How much of the name, and how much of the chapter, is still showing this many seconds into the
+// zoom-out. Joe: "hold the chapter title a little longer as we zoom out so it's readable and then
+// fade out" — so the chapter sits at full while the name goes, and is out well before the zoom is.
+// The name and the chapter are set into the floor, so they ride the tile size — but the camera is
+// close now, and a tile is 150px of a 430px phone. Cap the type at the screen so a closer zoom
+// (or the title screen's closer-still one) makes more floor visible rather than bigger letters.
+const titleScale = (S) => Math.min(S, innerWidth * 0.35);
+// How the floor-set text is lettered: all caps, tracked out by putting a space between the letters
+// rather than with ctx.letterSpacing, which Safari only learned in 17.4. Joe: "have the text for the
+// chapter title be in all caps."
+const spaced = (t) => t.toUpperCase().split('').join(' ');
+// Set it at this size, or smaller if that would run off the screen. Joe: "text is bleeding out of
+// the frame. We can just shrink the text a bit." All caps and a space between every letter makes a
+// long name wide — "T H E   O N E   W H O   S T A Y E D" wants 439px of a 430px phone — so the two
+// lines of the chapter and the name above them all measure themselves first.
+const TITLE_FACE = 'Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif';
+function fitFont(c, text, weight, px) {
+  const max = innerWidth - 32;
+  c.font = `${weight} ${px}px ${TITLE_FACE}`;
+  const w = c.measureText(text).width;
+  if (w > max) c.font = `${weight} ${Math.max(7, px * max / w)}px ${TITLE_FACE}`;
+}
+const nameFade = (el) => Math.max(0, 1 - el / 0.9);
+const chapterFade = (el) => Math.max(0, 1 - Math.max(0, el - CONFIG.chapterHoldSec) / CONFIG.chapterFadeSec);
+
+// A gate: two leaves hinged at the jambs that swing apart down the middle and lie back against the
+// walls — and stay there, because a gate you shoved open does not vanish. Joe: "all of the gates in
+// the game should open like the pool level gate", and "can you make the gate look more like a
+// structure and less like a curved line? The fact that the edges are curved completely pulls out
+// the fact that it's a gate." So each leaf is a framed panel with square ends and a mullion, and
+// the jambs it hangs off are drawn too.
+// Which number the nav view paints on a tile. Counted the same way the view counts — walkable
+// tiles in reading order — so the label under the picture and the number on the floor agree.
+function navNumberAt(tx, ty) {
+  if (!tiles || !isOpen(tx, ty)) return '—';
+  let n = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (isOpen(x, y)) n++;
+    if (x === tx && y === ty) return n;
+  }
+  return '—';
+}
+
+function drawGate(c, px, py, horiz, open, S, color, inset = 0, sense = 1) {
+  const len = S / 2, th = Math.max(3, S * 0.1), ease = gateEase(open);   // shared with the collision
+  const gx = horiz ? px + inset : px, gy = horiz ? py : py + inset;
+  const leaf = (hx, hy, shut, swing) => {
+    c.save(); c.translate(hx, hy); c.rotate(shut + swing * ease * Math.PI / 2);
+    c.fillStyle = color; c.fillRect(0, -th / 2, len, th);                        // the panel: square ends
+    c.fillStyle = 'rgba(13,15,16,.32)'; c.fillRect(len * 0.14, -th * 0.23, len * 0.72, th * 0.46);   // the field inside its frame
+    c.fillStyle = color; c.fillRect(len * 0.5 - th * 0.07, -th * 0.4, th * 0.14, th * 0.8);          // one mullion across it
+    c.restore();
+  };
+  // the jambs: short posts standing in the wall line on either side, so it reads as set into a doorway
+  c.fillStyle = color;
+  if (horiz) { c.fillRect(gx - th * 0.75, py - S / 2 - th * 0.5, th * 1.5, th); c.fillRect(gx - th * 0.75, py + S / 2 - th * 0.5, th * 1.5, th); }
+  else { c.fillRect(px - S / 2 - th * 0.5, gy - th * 0.75, th, th * 1.5); c.fillRect(px + S / 2 - th * 0.5, gy - th * 0.75, th, th * 1.5); }
+  if (horiz) { leaf(gx, py - S / 2, Math.PI / 2, sense); leaf(gx, py + S / 2, -Math.PI / 2, -sense); }
+  else { leaf(px - S / 2, gy, 0, -sense); leaf(px + S / 2, gy, Math.PI, sense); }
+  return [gx, gy];
+}
+
+let lastDraw = 0;   // wall-clock of the previous frame, for the few things that ease rather than tick
+function draw() {
+  const C = CONFIG.colors, vw = innerWidth, vh = innerHeight, nowMs = gameNow();
+  const tNow = performance.now();
+  const dtDraw = lastDraw ? Math.min(0.05, (tNow - lastDraw) / 1000) : 0.016; lastDraw = tNow;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, vw, vh);
+
+  let S = zoomS, ox, oy;
+  // Full map only once the run is going. On the title screen it drew the whole maze over
+  // the sleeping figure, and since the HUD is hidden there and the figure was a few pixels
+  // wide, changing Size with it ticked left you looking at a map you could not leave.
+  if (debugMap && started) { const f = dbgFrame(); S = f.S; ox = f.ox; oy = f.oy; }
+  else {
+    const landscape = vw > vh, leftStick = document.body.classList.contains('stick-left');
+    const pre = !started && !intro;   // asleep: dead center, no HUD to make room for
+    const ax = 0.5, ay = pre ? 0.47 : landscape ? 0.5 : 0.42;
+    ox = vw*ax - cam.x*S; oy = vh*ay - (cam.y + camBump) * S;
+  }
+  viewS = S; viewOx = ox; viewOy = oy;
+  const T = (x, y) => [ox + x*S + S/2, oy + y*S + S/2];
+
+  const x0_ = Math.max(0, Math.floor(-ox/S) - 1), x1_ = Math.min(W-1, Math.ceil((vw-ox)/S) + 1);
+  const y0_ = Math.max(0, Math.floor(-oy/S) - 1), y1_ = Math.min(H-1, Math.ceil((vh-oy)/S) + 1);
+
+  // floor + seams
+  ctx.fillStyle = C.floor;
+  for (let y=y0_; y<=y1_; y++) for (let x=x0_; x<=x1_; x++) if (tiles[y][x]) ctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5);
+  ctx.strokeStyle = C.grout; ctx.lineWidth = 1; ctx.beginPath();
+  for (let y=y0_; y<=y1_; y++) for (let x=x0_; x<=x1_; x++) if (tiles[y][x]) { ctx.moveTo(ox+x*S, oy+y*S); ctx.lineTo(ox+x*S+S, oy+y*S); ctx.moveTo(ox+x*S, oy+y*S); ctx.lineTo(ox+x*S, oy+y*S+S); }
+  ctx.stroke();
+  if (!debugMap) drawFloorTexture(S, ox, oy, vw, vh, x0_, x1_, y0_, y1_, nowMs);
+  // walls
+  ctx.fillStyle = C.wall;
+  for (let y=y0_; y<=y1_; y++) for (let x=x0_; x<=x1_; x++) if (!tiles[y][x]) ctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5);
+
+  // shelves in the start room: one per character, five slots each; a white spine for every page you hold
+  if (startRoom) {
+    const { x0, y0, x1, y1 } = startRoom;
+    const spots = SHELF_SPOTS(x0, y0, y1);
+    CAST.filter(c => c.pages.length).forEach((c, ci) => {
+      const [tx, ty, o] = spots[ci] || []; if (!o || tx < x0_ || tx > x1_ || ty < y0_ || ty > y1_) return;
+      const got = SAVE.collected[c.name] || [];
+      const px = ox + tx*S, py = oy + ty*S, inset = S*0.14, len = S*0.72, start = (S - len) / 2;
+      ctx.strokeStyle = C.shelf; ctx.lineWidth = 1; ctx.beginPath();
+      if (o === 'v') { ctx.moveTo(px + inset, py + start); ctx.lineTo(px + inset, py + start + len); } else { ctx.moveTo(px + start, py + S - inset); ctx.lineTo(px + start + len, py + S - inset); }
+      ctx.stroke();
+      for (let i = 0; i < c.pages.length; i++) {
+        const t = start + len * (i + 0.5) / c.pages.length;
+        if (got[i]) { ctx.fillStyle = C.book; if (o === 'v') ctx.fillRect(px + inset - S*0.01, py + t - S*0.025, S*0.13, S*0.05); else ctx.fillRect(px + t - S*0.025, py + S - inset - S*0.12, S*0.05, S*0.13); }
+        else { ctx.fillStyle = C.shelf; if (o === 'v') ctx.fillRect(px + inset + S*0.04, py + t - S*0.01, S*0.02, S*0.02); else ctx.fillRect(px + t - S*0.01, py + S - inset - S*0.06, S*0.02, S*0.02); }
+      }
+    });
+  }
+
+  // The basin: the burdens you are still carrying, heaped where the water should be. Joe reported
+  // the count never changing in a pool level. It was changing — 7 down to 0 across the seven pools —
+  // but it could not be *read*: the old layout put seven ellipses inside a 45px circle at offsets
+  // that overlapped, so six of them and three of them are the same pale clump. They are laid out to
+  // be counted now: one in the middle, then a ring of six, none of them touching.
+  if (startRoom) {
+    const r = S * CONFIG.basinTiles;
+    const bx = ox + (startRoom.x0 + 3) * S + S/2, by = oy + (startRoom.y0 + 3) * S + S/2;
+    // And the stone you carry to the water is one OF these rather than a pebble lying on top of
+    // them, which was the other half of it: the pile is full until you pick it up, one fewer after.
+    const left = STONES.length - (SAVE.stones || 0) - (poolMode && hasKey ? 1 : 0);
+    const loose = poolMode && !!keySpot;   // the one at the middle is the one you can take
+    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = left > 0 ? '#2a2c2e' : C.poolRim; ctx.beginPath(); ctx.arc(bx, by, r*0.82, 0, Math.PI*2); ctx.fill();   // water shows once the stones are gone
+    if (!left) { ctx.strokeStyle = '#6f8893'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(bx, by, r*0.45, 0, Math.PI*2); ctx.stroke(); }
+    for (let i = 0; i < left; i++) {
+      const a = (i - 1) / 6 * Math.PI*2 - Math.PI/2, R2 = CONFIG.basinRing;
+      const ux = i === 0 ? 0 : Math.cos(a) * R2, uy = i === 0 ? 0 : Math.sin(a) * R2;
+      ctx.fillStyle = (loose && i === 0) ? '#a29d92' : '#8a857a';
+      ctx.beginPath(); ctx.ellipse(bx + ux*r, by + uy*r, r*CONFIG.basinStoneR, r*CONFIG.basinStoneR*0.78, i*0.7, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // the name, set into the tile above the mat: architectural capitals in chalk white
+  if (startRoom && (!started || intro)) {
+    const fadeT = intro ? nameFade((performance.now() - intro.t0) / 1000) : 1;
+    const tx = startRoom.x0 + 2, ty = startRoom.y0 + 1, px = ox + tx*S + S/2, py = oy + ty*S + S/2, TS = titleScale(S);
+    ctx.save(); ctx.globalAlpha = fadeT; ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    fitFont(ctx, 'T H E', 500, TS*0.13); ctx.fillText('T H E', px, py - S*0.26);
+    fitFont(ctx, 'M A Z E', 700, TS*0.34); ctx.fillText('M A Z E', px, py + S*0.06);
+    ctx.restore();
+  }
+
+  // the chapter, set into the floor below him like the name is set into the floor above. Joe:
+  // "I'm fine if the fog of war eats the bottom of it, that would actually look kind of cool" —
+  // so it is drawn here, under the darkness pass, and held a beat longer than the name on the way
+  // out so you can still read it while the camera pulls back.
+  if (startRoom && !poolMode && !protoMode && (!started || intro)) {
+    const fadeC = intro ? chapterFade((performance.now() - intro.t0) / 1000) : 1;
+    if (fadeC > 0) {
+      const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+      const cx = ox + (startRoom.x0 + 2)*S + S/2, cy = oy + (start.y + CONFIG.chapterDrop)*S, TS = titleScale(S);
+      ctx.save(); ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.globalAlpha = fadeC * 0.55;
+      const num = spaced('Chapter ' + (roman[SAVE.phase || 0] || (SAVE.phase + 1))), who = spaced(phase().who);
+      fitFont(ctx, num, 500, TS*0.08); ctx.fillText(num, cx, cy);
+      ctx.globalAlpha = fadeC;
+      fitFont(ctx, who, 700, TS*0.18); ctx.fillText(who, cx, cy + TS*0.17);
+      ctx.restore();
+    }
+  }
+  if (!started && !intro) {   // asleep: a slow breath of light around the mat
+    const glow = 0.5 + 0.5 * Math.sin(performance.now() / 900), px = ox + player.x*S, py = oy + player.y*S;
+    ctx.fillStyle = CONFIG.hintColor; ctx.globalAlpha = 0.05 + 0.09 * glow; ctx.beginPath(); ctx.arc(px, py, S*0.7, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+  }
+
+  // squeezes, gaps and between-cells alike: one arm of floor toward each side you can actually
+  // pass to, so the drawing never promises a way that isn't there and never hides one that is
+  for (const k of crawlGaps) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
+    drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, !!phase().f.crawl); }
+  if (phase().f.crawl) for (const k of crawlCells) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
+    drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, true); }
+  // Landmarks: what is in a room, filling the room. Joe: "imagine the spiral covering the whole
+  // floor rather than just one part of it... the pool takes up the whole room. Or there's a giant
+  // ball pit in one." One to a section and never the same as a neighbour's — this is what you
+  // navigate by, and it has to be a place, not an ornament on one tile of it.
+  for (const L of landmarks) {
+    const rx0 = L.rx0 ?? L.x, ry0 = L.ry0 ?? L.y, rx1 = L.rx1 ?? L.x, ry1 = L.ry1 ?? L.y;
+    // off screen it is not drawn, so nothing eases either: a ball pit you walked out of would keep
+    // the hole you left in it until you came back and watched it close. Forget it instead.
+    if (rx1 < x0_ - 1 || rx0 > x1_ + 1 || ry1 < y0_ - 1 || ry0 > y1_ + 1) { if (L.shove) L.shove.fill(0); continue; }
+    const x = ox + rx0 * S, y = oy + ry0 * S, w = (rx1 - rx0 + 1) * S, h = (ry1 - ry0 + 1) * S;
+    const cx = x + w / 2, cy = y + h / 2, rad = Math.min(w, h) / 2;
+    ctx.save();
+    if (L.kind === 'pool') {                       // the room is a pool, with a rim you walk round
+      // Joe: "the pool room should change shades of blue as the player walks over it going light to
+      // darker from the out in... when you step into it it begins to shift in tone in small rings
+      // from out to in." It was three flat discs and three static scratches. It is bands now, drawn
+      // rim inward so each one covers the last: shallow blue at the edge, deep blue in the middle.
+      const r2 = rad * 0.80;
+      ctx.fillStyle = C.grout; ctx.beginPath(); ctx.arc(cx, cy, r2, 0, Math.PI*2); ctx.fill();
+      // He disturbs it by standing in it, and it keeps moving for a beat after he steps back out —
+      // water does not stop when you do. wetAt lives on the landmark, so two pools in one maze each
+      // remember their own, and a pool off screen is not drawn and so does not ripple to nobody.
+      const pd = Math.hypot((ox + player.x*S) - cx, (oy + player.y*S) - cy) / Math.max(1, r2 * 0.88);
+      if (pd < 1 && !solved) L.wetAt = nowMs;
+      const settle = L.wetAt ? 1 - (nowMs - L.wetAt) / (CONFIG.poolSettleSec * 1000) : 0;
+      const wet = Math.max(0, Math.min(1, settle));
+      const N = Math.max(2, CONFIG.poolBands);
+      for (let i = N; i >= 1; i--) {
+        const t = i / N;                           // 1 at the rim, towards 0 at the middle
+        // light out, dark in — and while it is disturbed, the tone travels *inward* through the
+        // bands. The phase advances with t as well as with time, so constant tone moves to smaller
+        // radii as the clock runs: rings closing on the middle rather than spreading from it.
+        let m = 1 - t;                             // 0 at the rim, 1 in the middle
+        if (wet > 0) m += wet * CONFIG.poolRippleAmt * Math.sin(t * CONFIG.poolRingFreq + nowMs / 1000 * CONFIG.poolRingSpeed * Math.PI * 2);
+        ctx.fillStyle = mixHex(C.poolRim, C.poolDeep, Math.max(0, Math.min(1, m)));
+        ctx.beginPath(); ctx.arc(cx, cy, r2 * 0.88 * t, 0, Math.PI*2); ctx.fill();
+      }
+    } else if (L.kind === 'statues') {             // standing on the floor now, round the room, looking in
+      // Joe: "they should be off until the player's right next to them and then they light up."
+      // The same proximity the columns answer to, and the same reach — but no flame: a statue is
+      // stone, so what it does is come up out of the dark and take an edge of light, and the ring
+      // scribed round them lights with them.
+      ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.04);
+      ctx.beginPath(); ctx.arc(cx, cy, rad * 0.62, 0, Math.PI*2); ctx.stroke();
+      for (const [mx, my] of (L.cols || [])) {
+        const [sx, sy] = T(mx, my);
+        const near = Math.hypot(player.x - (mx + 0.5), player.y - (my + 0.5));
+        const lit = Math.max(0, 1 - near / CONFIG.columnLightTiles);
+        if (lit > 0.01) {
+          const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, S * 0.95);
+          glow.addColorStop(0, `rgba(201,185,138,${(0.22 * lit).toFixed(3)})`);
+          glow.addColorStop(1, 'rgba(201,185,138,0)');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sx, sy, S * 0.95, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(sx, sy, S * 0.25, S * 0.3, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.42 + 0.48 * lit;
+        ctx.beginPath(); ctx.ellipse(sx, sy - S * 0.04, S * 0.16, S * 0.22, 0, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(sx, sy - S * 0.16, S * 0.07, 0, Math.PI*2); ctx.fill();
+      }
+    } else if (L.kind === 'spiral') {
+      // Joe: "the spiral room needs to move so the spiral is spinning in the center." It turns about
+      // the middle of the room rather than being redrawn, so the arms sweep past you and the eye of
+      // it stays put. gameNow() drives it, so it stops with the game rather than with the clock.
+      // Joe: "the spiral in the spiral room should move and rotate whatever direction the player is
+      // moving." So it is dragged: the angle he sweeps round the middle of the room is handed to
+      // the spiral, and walking round it one way or the other turns it that way. The slow drift it
+      // had is still underneath, so it is never quite still. Two guards, both learned by watching
+      // it: near the eye a step of nothing is a huge change of angle, so the pull fades out as he
+      // approaches the middle; and the per-frame turn is capped, or crossing the centre fast
+      // whips it round. It only answers to him while he is in the room it is drawn in.
+      { const px = L.x + 0.5, py = L.y + 0.5, gap = Math.hypot(player.x - px, player.y - py);
+        const pa = Math.atan2(player.y - py, player.x - px);
+        if (L.spin === undefined) { L.spin = 0; L.lastA = pa; L.lastT = nowMs; }
+        L.spin += (nowMs - L.lastT) / 1000 * CONFIG.spiralSpinHz * Math.PI * 2;   // the old drift
+        const inRoom = player.x >= L.rx0 - 1 && player.x <= L.rx1 + 1 && player.y >= L.ry0 - 1 && player.y <= L.ry1 + 1;
+        if (inRoom) {
+          let d = pa - L.lastA; d = Math.atan2(Math.sin(d), Math.cos(d));
+          const damp = Math.min(1, gap / CONFIG.spiralFollowFade);
+          L.spin += Math.max(-CONFIG.spiralFollowMax, Math.min(CONFIG.spiralFollowMax, d * CONFIG.spiralFollow * damp));
+        }
+        L.lastA = pa; L.lastT = nowMs; }
+      ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5; ctx.lineWidth = Math.max(1.5, S * 0.09); ctx.lineCap = 'round';
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(L.spin);
+      ctx.beginPath();
+      const turns = Math.PI * 9;
+      for (let t = 0; t <= turns; t += 0.1) { const rr = S * 0.12 + (t / turns) * (rad * 0.86 - S * 0.12);
+        const gx = Math.cos(t) * rr, gy = Math.sin(t) * rr; t ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy); }
+      ctx.stroke(); ctx.restore();
+    } else if (L.kind === 'columns') {
+      // Joe: "make these more like columns that you can't walk over. When the player walks next to
+      // them they light up with a flickering flame on the top of them." They stand on the link/link
+      // crossings, which were wall before the room was opened, so closing them costs no way through
+      // — the cell lattice underneath is untouched. L.cols is where generate() actually shut them.
+      const cols = L.cols || [];
+      ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.03);
+      if (cols.length === 4) { const a = T(cols[0][0], cols[0][1]), b2 = T(cols[3][0], cols[3][1]);
+        ctx.strokeRect(a[0], a[1], b2[0] - a[0], b2[1] - a[1]); }
+      for (const [mx, my] of cols) {
+        const [sx, sy] = T(mx, my);
+        const near = Math.hypot(player.x - (mx + 0.5), player.y - (my + 0.5));
+        const lit = Math.max(0, 1 - near / CONFIG.columnLightTiles);
+        ctx.fillStyle = C.wall; ctx.fillRect(sx - S*0.42, sy - S*0.42, S*0.84, S*0.84);
+        ctx.fillStyle = C.shelf; ctx.globalAlpha = 0.4 + 0.3 * lit; ctx.fillRect(sx - S*0.28, sy - S*0.28, S*0.56, S*0.56); ctx.globalAlpha = 1;
+        if (lit > 0.01) {
+          // the flame: three tongues on their own clocks, so it never pulses in step with itself
+          const t2 = nowMs / 1000 + mx * 1.7 + my * 2.3;
+          const flick = 0.72 + 0.28 * Math.sin(t2 * 9.1) * Math.sin(t2 * 5.3 + 1.1);
+          const h2 = S * 0.46 * lit * flick;
+          const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, S * 1.15);
+          glow.addColorStop(0, `rgba(201,185,138,${(0.30 * lit).toFixed(3)})`);
+          glow.addColorStop(1, 'rgba(201,185,138,0)');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sx, sy, S * 1.15, 0, Math.PI*2); ctx.fill();
+          for (let f = 0; f < 3; f++) {
+            const w2 = S * (0.13 - f * 0.035), hh = h2 * (1 - f * 0.22);
+            ctx.fillStyle = ['#c9b98a', '#e6d8a8', '#fdf4d6'][f];
+            ctx.globalAlpha = lit * (0.75 + 0.25 * flick);
+            ctx.beginPath(); ctx.moveTo(sx - w2, sy + S*0.06);
+            ctx.quadraticCurveTo(sx - w2 * 0.5, sy - hh * 0.6, sx, sy - hh);
+            ctx.quadraticCurveTo(sx + w2 * 0.5, sy - hh * 0.6, sx + w2, sy + S*0.06);
+            ctx.closePath(); ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
+    } else if (L.kind === 'dais') {                // a platform, stepped, filling the middle
+      const steps = [[0.86, C.grout], [0.70, C.floor], [0.54, '#7d786d'], [0.38, C.shelf]];
+      steps.forEach(([k, col], i) => { ctx.fillStyle = col; ctx.globalAlpha = i === 3 ? 0.55 : 1;
+        ctx.fillRect(cx - rad*k, cy - rad*k, rad*k*2, rad*k*2); });
+      ctx.globalAlpha = 1;
+    } else if (L.kind === 'well') {                // a mouth in the floor, and flagstones round it
+      ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S * 0.05);
+      ctx.beginPath(); ctx.arc(cx, cy, rad * 0.82, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(cx, cy, rad * 0.54, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = C.bg; ctx.beginPath(); ctx.arc(cx, cy, rad * 0.38, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1.5, S * 0.07); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx - rad*0.6, cy - rad*0.5); ctx.lineTo(cx + rad*0.6, cy - rad*0.5); ctx.stroke();
+    } else if (L.kind === 'balls') {               // a pit of them, all over the floor
+      // Joe: "can we make the ball pit reactive to the player's movement? Don't crash the server."
+      // So: no physics and no per-ball collisions. Each ball carries one shove vector that eases
+      // back to nothing, and the shove is only computed at all while he is inside the pit's tiles.
+      // That is 46 lerps on the frames it matters and zero on every other.
+      if (!L.shove) L.shove = new Float32Array(92);
+      const inPit = player.x > rx0 - 1 && player.x < rx1 + 2 && player.y > ry0 - 1 && player.y < ry1 + 2;
+      const px2 = ox + player.x * S, py2 = oy + player.y * S, reach = S * CONFIG.ballPitReach;
+      const ease = Math.min(1, (dtDraw || 0.016) / CONFIG.ballPitSettle);
+      ctx.fillStyle = C.grout; ctx.fillRect(x + S*0.35, y + S*0.35, w - S*0.7, h - S*0.7);
+      ctx.fillStyle = C.bg; ctx.fillRect(x + S*0.5, y + S*0.5, w - S, h - S);
+      for (let i = 0; i < 46; i++) {
+        const a = tileNoise(rx0 + i, ry0, 91 + i), b2 = tileNoise(rx0, ry0 + i, 113 + i), c2 = tileNoise(rx0 + i, ry0 + i, 137);
+        let bx = x + S*0.6 + a * (w - S*1.2), by = y + S*0.6 + b2 * (h - S*1.2);
+        const br = S * (0.11 + c2 * 0.1);
+        let sx2 = L.shove[i*2], sy2 = L.shove[i*2+1];
+        if (inPit) {
+          const dx2 = bx + sx2 - px2, dy2 = by + sy2 - py2, d2 = Math.hypot(dx2, dy2) || 1;
+          if (d2 < reach) { const push = (reach - d2) * CONFIG.ballPitPush;   // nearest get nudged furthest
+            sx2 += (dx2 / d2 * push - sx2) * ease * 2.2; sy2 += (dy2 / d2 * push - sy2) * ease * 2.2; }
+          else { sx2 -= sx2 * ease; sy2 -= sy2 * ease; }
+        } else if (sx2 || sy2) { sx2 -= sx2 * ease; sy2 -= sy2 * ease;          // and roll back once he leaves
+          if (Math.abs(sx2) < 0.05 && Math.abs(sy2) < 0.05) sx2 = sy2 = 0; }
+        L.shove[i*2] = sx2; L.shove[i*2+1] = sy2;
+        bx += sx2; by += sy2;
+        ctx.fillStyle = c2 > 0.66 ? C.shelf : c2 > 0.33 ? '#7d786d' : C.floor;
+        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(0.6, S*0.012); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  // tic-tac-toe, chalked on the floor. Your own chalk X on its tile is the move that wins it
+  if (ticTacToe) { const [px, py] = T(ticTacToe.x, ticTacToe.y);
+    drawTicTacToe(px, py, S, ticTacToe.cells, marks.get(ticTacToe.x + ',' + ticTacToe.y) === 'x'); }
+  // hopscotch: one court chalked down the corridor, not a box per tile. The cells touch, the way
+  // a kid draws them, so the numbers sit close together instead of one big square per tile with a
+  // gap between each. Small numbers, wobbly lines, no typeface.
+  if (hopscotch.length) {
+    const first = hopscotch[0].split(',').map(Number), second = (hopscotch[1] || hopscotch[0]).split(',').map(Number);
+    const horiz = second[0] !== first[0], hw = S * 0.22;
+    ctx.save(); ctx.globalAlpha = 0.75; ctx.strokeStyle = C.mark; ctx.lineWidth = Math.max(1, S * 0.024);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const j = S * 0.05;
+    hopscotch.forEach((k, i) => {
+      const [mx, my] = k.split(',').map(Number), [px, py] = T(mx, my), half = S / 2;
+      ctx.beginPath();
+      if (horiz) {
+        chalkLine(px - half, py - hw, px + half, py - hw, j, mx, my, 61);   // the two rails
+        chalkLine(px - half, py + hw, px + half, py + hw, j, mx, my, 67);
+        chalkLine(px - half, py - hw, px - half, py + hw, j, mx, my, 71);   // the line off the cell before
+        if (i === hopscotch.length - 1) chalkLine(px + half, py - hw, px + half, py + hw, j, mx, my, 73);
+      } else {
+        chalkLine(px - hw, py - half, px - hw, py + half, j, mx, my, 61);
+        chalkLine(px + hw, py - half, px + hw, py + half, j, mx, my, 67);
+        chalkLine(px - hw, py - half, px + hw, py - half, j, mx, my, 71);
+        if (i === hopscotch.length - 1) chalkLine(px - hw, py + half, px + hw, py + half, j, mx, my, 73);
+      }
+      ctx.stroke();
+      chalkDigit(i + 1, px, py, S * 0.26, mx, my, 79);
+    });
+    ctx.restore();
+  }
+  // sliding tile in flight
+  // The tile is drawn where the tile is, never where the player is — carried or not. Drawing it at
+  // player.x/y is what made it set off at the angle he walked up at.
+  if (sliding) { const [fx, fy] = slidePos(sliding, nowMs);
+    // where it was actually drawn, so tools/smoke.mjs can check the picture rather than re-deriving
+    // it — a check that recomputes the answer passes with the drawing still wrong
+    slideDrawnAt = [fx, fy];
+    ctx.fillStyle = C.floor; ctx.fillRect(ox + (fx-0.5)*S, oy + (fy-0.5)*S, S+0.5, S+0.5); }
+  for (const sl of sliders) {
+    if (sl.auto || (sliding && sliding.sl === sl)) continue;
+    const [tx, ty] = blockAt(sl);
+    const px = ox + tx*S, py = oy + ty*S, ways = blockWays(sl);
+    blockSlivers(px, py, S, ways);
+    // hint: the first slider glints if you've been standing still and haven't pushed it yet.
+    // Only the first — every block after it the player has to read for himself.
+    if (sl.atStart && !firstPushDone && started && !solved && nowMs - idleSince > CONFIG.hintIdleSec * 1000 && Math.hypot(tx + 0.5 - player.x, ty + 0.5 - player.y) < B.viewRadius() * 2 + 1) {
+      const t = (nowMs - idleSince - CONFIG.hintIdleSec * 1000) / 1000;
+      const a = Math.min(1, t / 1.5) * (0.3 + 0.25 * Math.sin(t * 2.2));
+      ctx.save(); ctx.globalAlpha = a; blockSlivers(px, py, S, ways, CONFIG.hintColor); ctx.restore();
+    }
+  }
+
+  // The pool level's gate. Two leaves that swing apart down the middle and lie back against the
+  // walls of the hall — and stay there, because a gate you shoved open does not vanish. It sits a
+  // little back from the room's wall rather than flush with it, so it reads as a thing standing in
+  // the doorway rather than as part of the wall.
+  if (poolDoor) {
+    const open = poolDoor.openAt ? Math.min(1, (nowMs - poolDoor.openAt) / (CONFIG.poolDoorSeconds * 1000)) : 0;
+    const [px, py] = T(poolDoor.x, poolDoor.y), horiz = isOpen(poolDoor.x-1, poolDoor.y) && isOpen(poolDoor.x+1, poolDoor.y);
+    const inRoom = (x, y) => !!startRoom && x >= startRoom.x0 && x <= startRoom.x1 && y >= startRoom.y0 && y <= startRoom.y1;
+    const toRoom = horiz ? (inRoom(poolDoor.x - 1, poolDoor.y) ? -1 : inRoom(poolDoor.x + 1, poolDoor.y) ? 1 : 0)
+                         : (inRoom(poolDoor.x, poolDoor.y - 1) ? -1 : inRoom(poolDoor.x, poolDoor.y + 1) ? 1 : 0);
+    const [gx, gy] = drawGate(ctx, px, py, horiz, open, S, C.poolGate, toRoom * S * CONFIG.poolGateInset, toRoom || 1);
+    // the stone it wants, on the seam. It goes with the seam as the leaves part
+    if (open < 0.3) { ctx.save(); ctx.globalAlpha = 1 - open / 0.3;
+      drawStone(ctx, gx, gy, S * 0.17, C.poolGate); ctx.restore(); }
+  }
+
+  // start & exit (+ gate)
+  { const mx = ox + (start.x-0.5)*S, my = oy + (start.y-0.5)*S;   // a thin sleeping mat, with a slightly lighter fold at the head
+    ctx.fillStyle = C.start; ctx.fillRect(mx + S*0.24, my + S*0.10, S*0.52, S*0.80);
+    ctx.fillStyle = C.grout; ctx.fillRect(mx + S*0.32, my + S*0.15, S*0.36, S*0.13); }   // pillow at the top
+  { const [ex, ey] = T(exit.x, exit.y);
+    // The way out should not read as another ring painted on the floor. Joe: "we need to make this
+    // exit more interesting. Can you add a shimmer or a warping to it? Something that gives it an
+    // otherworldly quality." So the ring breathes a halo, and the ring itself is drawn as a set of
+    // short arcs whose radii ripple — the circle never quite holds still.
+    // Joe: "now make the circle go oval, in and out from different angles over time as well." So it
+    // is never a circle: the ring is squeezed along an axis that itself wanders round, and the two
+    // do not share a period, so the shape never repeats anywhere you would notice.
+    { const t = nowMs / 1000, warp = S * CONFIG.exitWarp, n = CONFIG.exitArcs;
+      const hz = CONFIG.exitShimmerHz * Math.PI * 2;
+      const rot = t * CONFIG.exitSpinHz * Math.PI * 2;                    // which way it is pulled
+      const ecc = CONFIG.exitOval * Math.sin(t * hz * 0.63);              // and how far, in and out
+      const rx = S*0.22 * (1 + ecc), ry = S*0.22 * (1 - ecc);
+      const pulse3 = 0.5 + 0.5 * Math.sin(t * hz);
+      ctx.save(); ctx.translate(ex, ey); ctx.rotate(rot);                 // the halo leans with it
+      ctx.scale(1 + ecc * 0.7, 1 - ecc * 0.7);
+      const halo = ctx.createRadialGradient(0, 0, S*0.08, 0, 0, S*0.62);
+      halo.addColorStop(0, `rgba(236,231,218,${(0.10 + 0.08 * pulse3).toFixed(3)})`);
+      halo.addColorStop(1, 'rgba(236,231,218,0)');
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0, 0, S*0.62, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = poolMode ? '#6f8893' : C.exit; ctx.lineWidth = Math.max(1.5, S*0.045); ctx.lineCap = 'round';
+      for (let i = 0; i < n; i++) {
+        const a0 = i / n * Math.PI * 2, a1 = (i + 0.72) / n * Math.PI * 2;
+        const w = warp * Math.sin(t * hz + i * 1.7);
+        ctx.globalAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 1.6 + i * 2.1));
+        ctx.beginPath(); ctx.ellipse(ex, ey, Math.max(1, rx + w), Math.max(1, ry + w), rot, a0, a1); ctx.stroke();
+      }
+      // the dark at the middle of it goes with the ring. Joe: "I meant the oval of the center circle
+      // black dot as well" — a round hole inside a warping ring reads as a decal laid over it
+      ctx.fillStyle = poolMode ? '#3d4a52' : C.wall; ctx.beginPath();
+      ctx.ellipse(ex, ey, S*0.1 * (1 + ecc), S*0.1 * (1 - ecc), rot, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1; }
+    // the way out is gated too, and it swings like the rest: shut until the key is yours
+    if (gated && !poolMode) {
+      const horiz = isOpen(exit.x-1, exit.y) && isOpen(exit.x+1, exit.y);
+      const open = !hasKey ? 0 : exitGateAt ? Math.min(1, (nowMs - exitGateAt) / (CONFIG.gateSwingSeconds * 1000)) : 1;
+      drawGate(ctx, ex, ey, horiz, open, S, C.gate);
+    }
+  }
+
+  // the thread (under fog). Three states: armed and burning steady until he reaches it, flaring at
+  // the moment he does, then fading over its 15 seconds. Joe: "the bigger the maze the less likely
+  // you are to see it before it goes away" — so the clock does not start until it has been found.
+  if ((opt.path.checked || pathArmed || pathUntil > nowMs) && solutionPath.length) {
+    const held = opt.path.checked || pathArmed;                                   // bright and steady
+    const fade = held ? 1 : Math.min(1, (pathUntil - nowMs) / (B.pathSec() * 1000));
+    // "then it gives a pulse" — one flare as he sets foot on it, brighter and thicker, easing out
+    const since = pathFoundAt ? (nowMs - pathFoundAt) / 1000 : 1e9;
+    const flare = since < CONFIG.pathPulseSec ? 1 + CONFIG.pathPulseGain * (1 - since / CONFIG.pathPulseSec) : 1;
+    ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(2, S*0.12) * flare; ctx.lineJoin = 'round';
+    ctx.globalAlpha = Math.min(1, 0.9 * fade * flare); ctx.beginPath();
+    solutionPath.forEach(([x,y], i) => { const [px, py] = T(x, y); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  // a satisfied statue's thread: from its step to the nearest page you had not found, lit for
+  // shrineThreadSec and fading. The same stitch as the thread to the exit, a different destination.
+  if (shrineUntil > nowMs && shrinePath.length) {
+    const fade = Math.min(1, (shrineUntil - nowMs) / (CONFIG.shrineThreadSec * 1000));
+    ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(2, S*0.12); ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.9 * fade; ctx.beginPath();
+    shrinePath.forEach(([x,y], i) => { const [px, py] = T(x, y); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  // chalk pickups
+  ctx.fillStyle = C.chalk;
+  for (const k of chalkSpots) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
+    ctx.save(); ctx.translate(px, py); ctx.rotate(-0.6); ctx.fillRect(-S*0.18, -S*0.055, S*0.36, S*0.11); ctx.restore(); }
+  // charcoal pickups: a dark stub with a lighter edge
+  for (const k of charcoalSpots) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
+    ctx.save(); ctx.translate(px, py); ctx.rotate(0.5); ctx.fillStyle = C.charcoal; ctx.fillRect(-S*0.16, -S*0.07, S*0.32, S*0.14); ctx.strokeStyle = C.exit; ctx.lineWidth = 1; ctx.strokeRect(-S*0.16, -S*0.07, S*0.32, S*0.14); ctx.restore(); }
+  // pointer / path pickups
+  for (const [k, kind] of pickups) {
+    const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
+    // Joe: "The pickup for the compass should look different than the main character as well. Make
+    // it look like the icon that shows up when you collect it." It was his own arrowhead lying on the
+    // floor. So it is the compass now — the same case, north tick and needle as the one that rides
+    // beside him once he has it, small, the needle already pointing at the way out.
+    if (kind === 'pointer') { const R0 = S*0.2, ang = Math.atan2(exit.y + 0.5 - (my + 0.5), exit.x + 0.5 - (mx + 0.5));
+      ctx.save(); ctx.translate(px, py);
+      ctx.fillStyle = 'rgba(13,15,16,.74)'; ctx.beginPath(); ctx.arc(0, 0, R0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = C.pointerPickup; ctx.lineWidth = Math.max(1, R0*0.17); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -R0); ctx.lineTo(0, -R0*0.62); ctx.stroke();
+      ctx.rotate(ang); ctx.fillStyle = C.pointerPickup; ctx.beginPath(); ctx.moveTo(R0*0.74, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(232,227,214,.30)'; ctx.beginPath(); ctx.moveTo(-R0*0.62, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+      ctx.restore(); }
+    else { ctx.strokeStyle = C.pathPickup; ctx.lineWidth = Math.max(1.5, S*0.05); ctx.beginPath();
+      for (let i=0; i<=40; i++) { const t = i/40, a = t*Math.PI*5, r = S*0.05 + t*S*0.14; const x = px + Math.cos(a)*r, y = py + Math.sin(a)*r; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); } ctx.stroke(); }
+  }
+  // journals: a small open book, breathing on the spot so a page reads as something waiting
+  for (const k of journals.keys()) { const [mx, my] = k.split(',').map(Number); const [px, py0] = T(mx, my);
+    const py = py0 - Math.sin(nowMs / (CONFIG.journalFloatSec * 1000) * Math.PI * 2 + (mx * 7 + my * 13)) * S * CONFIG.journalFloat;
+    ctx.fillStyle = C.journal; ctx.beginPath(); ctx.moveTo(px - S*0.22, py - S*0.14); ctx.lineTo(px, py - S*0.08); ctx.lineTo(px + S*0.22, py - S*0.14); ctx.lineTo(px + S*0.22, py + S*0.14); ctx.lineTo(px, py + S*0.2); ctx.lineTo(px - S*0.22, py + S*0.14); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = C.wall; ctx.lineWidth = Math.max(1, S*0.025); ctx.beginPath(); ctx.moveTo(px, py - S*0.08); ctx.lineTo(px, py + S*0.2); ctx.stroke(); }
+  // carved stones: small and dark, the mark cut into the top in light. Smaller than the basin's
+  // stones on purpose, so the two never read as one thing.
+  for (const [k, who] of offerings) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my); const r = S * CONFIG.offeringR;
+    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(px, py + r*0.15, r, r*0.78, 0.3, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1, S*0.03); drawMark(ctx, (PEOPLE.find(p => p.id === who) || {}).mark, px, py, r*0.5); }
+  // the statues: one figure on its tile, the bowl on the step before it, the mark it waits for cut
+  // above the bowl. Dark until you are near, like the ring of six; white and steady once its stone
+  // is in — the dead at rest, or someone finally answered.
+  for (const sh of shrines) { const [px, py] = T(sh.x, sh.y); const [bx, by] = T(sh.sx, sh.sy);
+    const near = Math.hypot(player.x - (sh.x + 0.5), player.y - (sh.y + 0.5));
+    // The ring of six goes fully dark until you are beside it, and reads fine because it stands in
+    // a lit room. A lone statue at the end of a dark corridor does not: sampled two tiles out it
+    // painted 27,31,33 — wall — and the thing Joe wants "present on the map" was not there to see.
+    // So the figure keeps a resting light and only the glow is proximity's.
+    const nearLit = Math.max(0, 1 - near / CONFIG.columnLightTiles);
+    const lit = sh.done ? 1 : Math.max(CONFIG.shrineRestLight, nearLit);
+    // The statue's tile is wall, so it used to be a grey egg floating in black. Joe: "I don't think
+    // this is how it's supposed to look for the statues. The grey oval is out in darkness." So the
+    // tile is a niche cut into the wall — a recess of dim floor with the wall's lip round it — and
+    // the figure stands on a plinth in it, head and shoulders, in the stone's own pale colour. The
+    // niche is dimmer than the corridor so it reads as set back; the glow is still proximity's.
+    const inset = S*0.1, dim = 0.55 + 0.25*lit;
+    ctx.save(); ctx.globalAlpha = dim; ctx.fillStyle = C.floor; ctx.fillRect(px - S/2 + inset, py - S/2 + inset, S - inset*2, S - inset*2); ctx.restore();
+    ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S*0.03); ctx.strokeRect(px - S/2 + inset, py - S/2 + inset, S - inset*2, S - inset*2);
+    if (nearLit > 0.01) { const glow = ctx.createRadialGradient(px, py, 0, px, py, S*0.95); glow.addColorStop(0, `rgba(201,185,138,${(0.22*nearLit).toFixed(3)})`); glow.addColorStop(1, 'rgba(201,185,138,0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(px, py, S*0.95, 0, Math.PI*2); ctx.fill(); }
+    ctx.fillStyle = C.wall; ctx.fillRect(px - S*0.26, py + S*0.2, S*0.52, S*0.14);                       // the plinth
+    ctx.fillStyle = C.grout; ctx.fillRect(px - S*0.26, py + S*0.2, S*0.52, S*0.025);                    // its lit top edge
+    const stone = sh.done ? '#e9e2d0' : C.shelf; ctx.fillStyle = stone; ctx.globalAlpha = sh.done ? 1 : 0.5 + 0.5*lit;
+    ctx.beginPath(); ctx.moveTo(px - S*0.2, py + S*0.2); ctx.lineTo(px - S*0.17, py - S*0.06); ctx.quadraticCurveTo(px - S*0.16, py - S*0.16, px - S*0.07, py - S*0.17);   // the body: shoulders to plinth
+    ctx.lineTo(px + S*0.07, py - S*0.17); ctx.quadraticCurveTo(px + S*0.16, py - S*0.16, px + S*0.17, py - S*0.06); ctx.lineTo(px + S*0.2, py + S*0.2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py - S*0.27, S*0.09, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;   // the head
+    ctx.strokeStyle = C.grout; ctx.lineWidth = Math.max(1, S*0.04); ctx.beginPath(); ctx.ellipse(bx, by, S*0.22, S*0.14, 0, 0, Math.PI*2); ctx.stroke();
+    if (sh.done) { ctx.fillStyle = C.wall; ctx.beginPath(); ctx.ellipse(bx, by, S*0.1, S*0.07, 0.3, 0, Math.PI*2); ctx.fill(); }
+    ctx.strokeStyle = C.shelf; ctx.lineWidth = Math.max(1, S*0.03); drawMark(ctx, sh.mark, bx, by - S*0.3, S*0.1); }
+  // map scraps: a torn corner of paper
+  for (const k of scrapSpots) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
+    ctx.fillStyle = C.mapFloor; ctx.beginPath(); ctx.moveTo(px - S*0.2, py - S*0.16); ctx.lineTo(px + S*0.16, py - S*0.2); ctx.lineTo(px + S*0.2, py + S*0.12); ctx.lineTo(px + S*0.02, py + S*0.2); ctx.lineTo(px - S*0.18, py + S*0.14); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = C.wall; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px - S*0.1, py - S*0.04); ctx.lineTo(px + S*0.08, py - S*0.04); ctx.moveTo(px - S*0.06, py + S*0.06); ctx.lineTo(px + S*0.12, py + S*0.06); ctx.stroke(); }
+  // the lamp
+  if (lampSpot) { const [mx, my] = lampSpot.split(',').map(Number); const [px, py] = T(mx, my);
+    ctx.strokeStyle = C.lamp; ctx.lineWidth = Math.max(1.2, S*0.035); ctx.lineJoin = 'round'; ctx.beginPath();
+    const k = 0.75;
+    ctx.moveTo(px - S*0.1*k, py - S*0.24*k); ctx.lineTo(px + S*0.1*k, py - S*0.24*k); ctx.lineTo(px + S*0.18*k, py - S*0.04*k); ctx.lineTo(px - S*0.18*k, py - S*0.04*k); ctx.closePath();
+    ctx.moveTo(px - S*0.12*k, py - S*0.04*k); ctx.lineTo(px - S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.12*k, py - S*0.04*k);
+    ctx.moveTo(px - S*0.06*k, py + S*0.1*k); ctx.lineTo(px - S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.06*k, py + S*0.1*k); ctx.stroke(); }
+  // inner doors: bars across the passage with the lock's shape; shaped keys lying in dead ends
+  // a locked door is the same gate: two leaves, and the lock's shape on the seam while it is shut
+  for (const d of doors) { const [px, py] = T(d.x, d.y), horiz = isOpen(d.x-1, d.y) && isOpen(d.x+1, d.y);
+    const open = !d.open ? 0 : d.openAt ? Math.min(1, (nowMs - d.openAt) / (CONFIG.gateSwingSeconds * 1000)) : 1;
+    const [gx, gy] = drawGate(ctx, px, py, horiz, open, S, C.gate);
+    if (open < 0.3) { ctx.save(); ctx.globalAlpha = 1 - open / 0.3;
+      drawShape(ctx, d.shape, gx, gy, S*0.13, C.gate, Math.max(1.5, S*0.045)); ctx.restore(); } }
+  for (const [k, shape] of innerKeys) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
+    ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(px - S*0.02, py); ctx.lineTo(px + S*0.22, py); ctx.moveTo(px + S*0.12, py); ctx.lineTo(px + S*0.12, py + S*0.09); ctx.moveTo(px + S*0.2, py); ctx.lineTo(px + S*0.2, py + S*0.07); ctx.stroke();
+    drawShape(ctx, shape, px - S*0.13, py, S*0.1, C.key, Math.max(2, S*0.06)); }
+  // key (or, at a pool level, the stone)
+  // The pool level's stone sits on the basin's own tile, so the basin draws it — as the pale one at
+  // the middle of the heap. Drawing it again here put a second pebble on top of the pile, which is
+  // why taking it appeared to change nothing. Anywhere else (it never is, today) it draws as before.
+  // The poolMode test has to stay on the OUTER branch. Skipping the draw by failing this condition
+  // fell through to the `else if (keySpot)` below it and painted a door key on the basin — the pool
+  // level has no doors and no keys, and it looked exactly as wrong as it sounds.
+  if (keySpot && poolMode) {
+    // On the basin's own tile the basin draws it, as the pale stone at the middle of the heap;
+    // drawing it again here is the second pebble that made taking one appear to change nothing.
+    if (!(startRoom && keySpot === (startRoom.x0 + 3) + ',' + (startRoom.y0 + 3))) {
+      const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
+      ctx.fillStyle = '#8a857a'; ctx.beginPath(); ctx.ellipse(px, py + S*0.03, S*0.2, S*0.14, 0.3, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#a29d92'; ctx.beginPath(); ctx.ellipse(px - S*0.06, py - S*0.04, S*0.07, S*0.04, 0.3, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  else if (keySpot) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
+    ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(px - S*0.14, py, S*0.1, 0, Math.PI*2); ctx.moveTo(px - S*0.04, py); ctx.lineTo(px + S*0.22, py); ctx.moveTo(px + S*0.12, py); ctx.lineTo(px + S*0.12, py + S*0.09); ctx.moveTo(px + S*0.2, py); ctx.lineTo(px + S*0.2, py + S*0.07); ctx.stroke(); }
+
+  // Someone else's chalk, all over the kid's room floor. Fainter than yours: it is old. A game
+  // nobody finished, the word Dad?, a couple of balls, and x's — no arrows. Joe, on the arrows:
+  // "it just looks like a code they will need to know."
+  if (secretMarks.size) { ctx.save(); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.42;
+    for (const [k, g] of secretMarks) { const [mx, my] = k.split(',').map(Number);
+      if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
+      const [px, py] = T(mx, my), lw = Math.max(1, S * 0.045);
+      if (g === 'ttt') { ctx.save(); ctx.globalAlpha = 0.42;
+        drawTicTacToe(px, py, S * 0.8, TTT_GAMES[tileNoise(mx, my, 83) * TTT_GAMES.length | 0], marks.get(k) === 'x');
+        ctx.restore(); }
+      else if (g === 'dad') drawChalkWord(ctx, 'Dad?', px, py, S * 0.3, lw);
+      else if (g === 'ball') drawChalkBall(ctx, px, py, S * 0.15, lw);
+      else drawGlyph(ctx, g, px, py, S*0.19, Math.max(1, S*0.055)); }
+    ctx.restore(); }
+
+  if (startArrow) { const [px, py] = T(startArrow.x, startArrow.y);
+    ctx.save(); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5;
+    drawGlyph(ctx, startArrow.dir, px, py, S * 0.3, Math.max(1.5, S * 0.075)); ctx.restore(); }
+
+  if (secretFather) { const [mx, my] = secretFather.split(',').map(Number);
+    if (mx >= x0_ && mx <= x1_ && my >= y0_ && my <= y1_) { const [px, py] = T(mx, my);
+      ctx.save(); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5; drawChalkPair(ctx, px, py, S * 0.4, Math.max(1, S * 0.05)); ctx.restore(); } }
+
+  // chalk marks (a mark on a sliding tile rides with it)
+  ctx.strokeStyle = C.mark;
+  for (const [k, g] of marks) {
+    let [mx, my] = k.split(',').map(Number); let px, py;
+    // a mark on a sliding tile rides with the tile, not with him
+    if (sliding && k === sliding.from.join(',')) { const [sx2, sy2] = slidePos(sliding, nowMs); px = ox + sx2*S; py = oy + sy2*S; } else { [px, py] = T(mx, my); }
+    drawGlyph(ctx, g, px, py, S*0.16, Math.max(1.5, S*0.05));
+  }
+
+  // tunnel roofs (over floor, marks and pickups; under the player)
+  ctx.fillStyle = C.tunnel;
+  for (const k of tunnelTiles) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue; ctx.fillRect(ox + mx*S, oy + my*S, S+0.5, S+0.5); }
+
+  // The secret place is unlit. From outside all there is to see is the squeeze; inside, the
+  // floor is painted back out and the only thing showing is the switch, until you stand on it
+  // and the lights argue their way on over everything somebody drew in here.
+  if (!debugMap && CONFIG.secretDark && secretTiles.size) {
+    const secs = CONFIG.secretLightSec * 1000;
+    let lit = 0;
+    if (secretOn) { const k = Math.min(1, (nowMs - secretLitAt) / secs);
+      lit = k >= 1 ? 1 : Math.max(0, Math.min(1, k * 1.25 + (Math.sin(k * 47) * Math.sin(k * 19) > 0.25 ? -0.75 : 0))); }
+    if (lit < 1) {
+      // the same colour as the walls, not black: painted-out floor should read as more wall,
+      // not as a hole in the picture
+      ctx.save(); ctx.fillStyle = C.wall; ctx.globalAlpha = 1 - lit;
+      for (const k of secretTiles) { const [mx, my] = k.split(',').map(Number);
+        if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
+        ctx.fillRect(ox + mx*S, oy + my*S, S + 0.5, S + 0.5); }
+      ctx.restore();
+      // a little light in the floor, breathing — but only once you are actually inside. From the
+      // squeeze there is nothing to see; you have to commit to the dark before it shows you anything
+      const inside = secretTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y));
+      if (secretSwitch && !secretOn && inside) {
+        const [bx, by] = secretSwitch.split(',').map(Number);
+        if (bx >= x0_ && bx <= x1_ && by >= y0_ && by <= y1_) {
+          const [px, py] = T(bx, by), pulse2 = 0.6 + 0.4 * Math.sin(nowMs / 620), rr = S * CONFIG.secretGlowTiles;
+          const g = ctx.createRadialGradient(px, py, 0, px, py, rr);
+          g.addColorStop(0, `rgba(232,217,160,${(CONFIG.secretGlow * pulse2).toFixed(3)})`); g.addColorStop(1, 'rgba(232,217,160,0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = C.lamp; ctx.globalAlpha = (0.35 + 0.5 * pulse2) * CONFIG.secretGlowCore;
+          ctx.beginPath(); ctx.arc(px, py, S * 0.055, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
+
+  // player: arrowhead, black nose; ghosted inside a tunnel
+  { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1) * (inSqueeze ? CONFIG.squeezeShrink : 1);
+    const inTunnel = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y));
+    ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = inTunnel ? 0.35 : 1;
+    drawPlayerBody(ctx, r, inSqueeze ? CONFIG.squeezePinch : 1);
+    ctx.restore(); }
+
+  // darkness: dark tiles are painted out entirely, then the lamp cuts a cone and a foot-glow back in
+  if (darkTiles.size && !debugMap) {
+    if (!draw.dark) draw.dark = document.createElement('canvas');
+    const dk = draw.dark; if (dk.width !== cv.width || dk.height !== cv.height) { dk.width = cv.width; dk.height = cv.height; }
+    const d = dk.getContext('2d'); d.setTransform(dpr, 0, 0, dpr, 0, 0); d.globalCompositeOperation = 'source-over'; d.clearRect(0, 0, vw, vh);
+    const inDark = darkTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y));
+    const paintTile = (mx, my, alpha) => { d.globalAlpha = alpha; d.fillRect(ox + mx*S - 1, oy + my*S - 1, S + 2, S + 2);
+      for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) if (!isOpen(mx+dx, my+dy)) d.fillRect(ox + (mx+dx)*S - 1, oy + (my+dy)*S - 1, S + 2, S + 2); };
+    d.fillStyle = C.bg;
+    // the world dims as you go in: the far halls fade first, the tiles under you last
+    d.globalAlpha = Math.pow(darkAmt, 1.6); d.fillRect(0, 0, vw, vh);
+    if (darkAmt < 0.999) {
+      for (const k of darkTiles) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ - 1 || mx > x1_ + 1 || my < y0_ - 1 || my > y1_ + 1) continue; paintTile(mx, my, 1); }
+      for (const [k, level] of darkFringe) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ - 1 || mx > x1_ + 1 || my < y0_ - 1 || my > y1_ + 1) continue; paintTile(mx, my, level === 2 ? 0.72 : 0.42); }
+    }
+    d.globalAlpha = 1;
+    if (hasLamp && lampOn) {
+      const px = ox + player.x*S, py = oy + player.y*S, reach = CONFIG.coneTiles * S, half = CONFIG.coneDeg * Math.PI / 360;
+      d.globalCompositeOperation = 'destination-out';
+      const g = d.createRadialGradient(px, py, S*0.2, px, py, reach); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.75, 'rgba(0,0,0,0.9)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      // occluded cone: march rays through the tile grid and stop at the first wall (plus a sliver so the wall face shows)
+      d.fillStyle = g; d.beginPath(); d.moveTo(px, py);
+      const rays = 72, stepT = 0.08, maxT = CONFIG.coneTiles;
+      for (let i = 0; i <= rays; i++) {
+        const a = facingShown - half + (2 * half) * i / rays, ca = Math.cos(a), sa = Math.sin(a);
+        let t = 0, hit = false;
+        while (t < maxT) { const wx = player.x + ca * t, wy = player.y + sa * t; if (!isOpen(Math.floor(wx), Math.floor(wy))) { hit = true; break; } t += stepT; }
+        const tt = hit ? Math.min(maxT, t + 0.22) : maxT;
+        d.lineTo(px + ca * tt * S, py + sa * tt * S);
+      }
+      d.closePath(); d.fill();
+      const f = d.createRadialGradient(px, py, 0, px, py, S*0.7); f.addColorStop(0, 'rgba(0,0,0,0.9)'); f.addColorStop(1, 'rgba(0,0,0,0)');
+      d.fillStyle = f; d.beginPath(); d.arc(px, py, S*0.7, 0, Math.PI*2); d.fill();
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dk, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // in the dark you can see yourself only by your own lamp
+    if (!inDark || (hasLamp && lampOn)) { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1) * (inSqueeze ? CONFIG.squeezeShrink : 1);
+      ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y)) ? 0.35 : 1;
+      drawPlayerBody(ctx, r); ctx.restore(); }
+  }
+  // lit lamp outside the dark: same reach, brighter floor
+  if (hasLamp && lampOn && !debugMap) {
+    const px = ox + player.x*S, py = oy + player.y*S, rr = B.viewRadius() * 2 * S;
+    const g = ctx.createRadialGradient(px, py, 0, px, py, rr); g.addColorStop(0, 'rgba(232,217,160,0.16)'); g.addColorStop(1, 'rgba(232,217,160,0)');
+    ctx.fillStyle = g; ctx.fillRect(px - rr, py - rr, rr*2, rr*2);
+  }
+
+  // the father: the same figure as you, full-sized, facing away — under the fog like everything else
+  for (const f of figures) { if (f.gone || f.hidden) continue; const px = ox + f.x*S, py = oy + f.y*S, r = CONFIG.playerSize * S * 0.62 * 1.1;
+    if (px < -S || px > vw + S || py < -S || py > vh + S) continue;
+    const ang = Math.atan2(f.y - player.y, f.x - player.x);
+    ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.globalAlpha = f.alpha * 0.9;
+    ctx.fillStyle = '#cfcabd'; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r*0.8, -r*0.75); ctx.lineTo(-r*0.45, 0); ctx.lineTo(-r*0.8, r*0.75); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill();
+    ctx.restore(); }
+
+  if (!debugMap && (SAVE.ui.texture || 'off') === 'damp') drawDamp(S, ox, oy, vw, vh);
+
+  // Grain and Dust go UNDER the fog, not over it. Over the top they carried on across the black
+  // surround and the empty space below the maze, which reads as dirt on the screen rather than
+  // anything in the room. Under it, the fog puts them out exactly where it puts everything else.
+  if (!debugMap) {
+    const tex = SAVE.ui.texture || 'off';
+    if (tex === 'grain') drawGrain(vw, vh, nowMs);
+    else if (tex === 'dust') drawDust(vw, vh, Math.min(0.05, (nowMs - (draw.lastMs || nowMs)) / 1000), S, ox, oy, x0_, x1_, y0_, y1_);
+  }
+  draw.lastMs = nowMs;
+
+  // fog
+  if (!debugMap) {
+    const px = ox + player.x*S, py = oy + player.y*S;
+    // A vignette, not a spotlight. Joe: "it's not there at the start of the game. Then you hit the
+    // character and it pops in after a second. Feels jank. At this point I'd like just a 'light
+    // dusting' around the edges to give it a vignette style feel to it."
+    //
+    // The pop was mine: the old cap was four times looser while he slept and tightened over the
+    // intro, so the dark rushed in a second after the tap. There is no ramp now and no title-screen
+    // special case — the same fog the whole time is what takes the jank out. The lit core reaches
+    // most of the way to the nearest edge and the fade runs past the corner, so the dark only ever
+    // gathers at the edges. `fogMul` is the slider; the burdens and the darkness still shrink it.
+    const shrink = 1 - 0.55 * darkAmt;
+    const half = Math.min(vw, vh) * 0.5, corner = Math.hypot(vw, vh) * 0.5, fm = fogMul();
+    const light = B.viewRadius() * 2 * S * shrink;
+    const inner = Math.min(light, half * CONFIG.fogCore) * fm * shrink;
+    const outer = Math.max(inner * 1.3, corner * CONFIG.fogEdge * fm * shrink);
+    const g = ctx.createRadialGradient(px, py, inner, px, py, outer);
+    g.addColorStop(0, 'rgba(13,15,16,0)'); g.addColorStop(1, 'rgba(13,15,16,1)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
+  }
+
+  // your chalk used to show through the fog — a beacon you left yourself. It gave away
+  // corridors you had not lit, so it is off by default; CONFIG.markGhostAlpha brings it back.
+  if (!debugMap && CONFIG.markGhostAlpha > 0) { ctx.strokeStyle = C.mark; ctx.globalAlpha = CONFIG.markGhostAlpha;
+    for (const [k, g] of marks) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue; const [px, py] = T(mx, my); if (Math.hypot(px - (ox + player.x*S), py - (oy + player.y*S)) < B.viewRadius() * 2 * S) continue; drawGlyph(ctx, g, px, py, S*0.16, Math.max(1.5, S*0.05)); }
+    ctx.globalAlpha = 1; }
+  // ── the nav view (debug) ──────────────────────────────────────────────────────
+  // Joe asked for the nav mesh, and for a number on every tile so a screenshot plus the seed is
+  // enough to point at one. The numbers run 1..n in reading order over *walkable* tiles only —
+  // numbering the wall as well would treble the count and none of those are ever the thing he is
+  // pointing at. It reads passable() and isOpen() rather than keeping its own idea of the rules,
+  // so what it paints is what the game actually thinks, which is the entire point of it.
+  // Drawn over the fog on purpose. Under it the vignette ate the far half of the grid, which is
+  // the half you most want numbered when something is unreachable. Joe asked for faint but
+  // legible; the fog was making it neither.
+  if (SAVE.ui.nav) {
+    ctx.save();
+    ctx.font = `${Math.max(7, Math.round(S * 0.16))}px ui-monospace, Menlo, monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let n = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const open = isOpen(x, y);
+      if (open) n++;                                   // the number is fixed by the maze, not the view
+      const [sx, sy] = T(x, y);
+      if (sx < -S || sy < -S || sx > vw + S || sy > vh + S) continue;
+      if (!open) continue;
+      const walk = passable(x, y);
+      // green where he may stand, red where the floor is open but something is holding it shut —
+      // a locked door, a gate that has not swung far enough, the exit before its key
+      ctx.fillStyle = walk ? 'rgba(90,190,120,.16)' : 'rgba(210,90,80,.28)';
+      ctx.fillRect(sx - S / 2, sy - S / 2, S, S);
+      ctx.strokeStyle = walk ? 'rgba(90,190,120,.32)' : 'rgba(210,90,80,.5)';
+      ctx.lineWidth = 1; ctx.strokeRect(sx - S / 2 + 0.5, sy - S / 2 + 0.5, S - 1, S - 1);
+      if (S >= 26) { ctx.fillStyle = 'rgba(236,231,218,.62)'; ctx.fillText(String(n), sx, sy); }
+    }
+    // the seed, on the picture rather than in the panel, so one screenshot carries everything
+    // needed to point at a tile: "seed 4242, tile 391" and I can stand exactly where he stood
+    // Joe: "the nav mesh isn't showing the seed for it to be easy for you to reproduce." It was —
+    // bottom-left, under the joystick and the phone's home bar, where no screenshot of his ever
+    // reached. Top of the picture now, under the HUD row, with the chapter, so one screenshot says
+    // everything: which maze, which self, and the tile he is standing on.
+    const tag = `${phase().who} · seed ${SEED} · tile ${navNumberAt(Math.floor(player.x), Math.floor(player.y))} of ${n}`;
+    ctx.font = '13px ui-monospace, Menlo, monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    const wq = ctx.measureText(tag).width, tx = vw - 14, ty = CONFIG.navTagTop;
+    ctx.fillStyle = 'rgba(13,15,16,.82)'; ctx.fillRect(tx - wq - 8, ty - 4, wq + 16, 21);
+    ctx.fillStyle = '#e8e3d6'; ctx.fillText(tag, tx, ty);
+    navTagText = tag;   // for the smoke suite: canvas text is not in the DOM, so the string it drew is kept
+    ctx.restore();
+  }
+
+  // the compass (over fog). It was a second arrowhead riding beside him, drawn with his own shape.
+  // Joe: "the compass pointer looks too much like the character. Perhaps we make it look more like
+  // an actual compass." So: a case that stays upright, and a needle inside it that turns. Only the
+  // needle moves, which is what makes it read as an instrument rather than as another player.
+  if ((opt.arrow.checked || pointerUntil > nowMs) && !solved) {
+    const ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);
+    const px = ox + player.x*S, py = oy + player.y*S, d = S*CONFIG.compassOut, R0 = S*CONFIG.compassTiles;
+    const left = (pointerUntil - nowMs) / 1000;
+    // "It should just do a fade like the thread" — and near the end, "it starts to blink in and out
+    // like a light bulb about to die." Two beats that do not share a period, so the stutter never
+    // falls into a rhythm; a clean sine would read as a pulse, which is a different thing entirely.
+    const F0 = CONFIG.compassFadeFloor;
+    let a = opt.arrow.checked ? 1 : F0 + (1 - F0) * Math.max(0, Math.min(1, left / B.pointerSec()));
+    if (!opt.arrow.checked && left < CONFIG.compassDyingSec) {
+      const t = nowMs / 1000;
+      const lit = Math.sin(t * CONFIG.compassFlickA) + Math.sin(t * CONFIG.compassFlickB) > -0.2;
+      a *= lit ? 1 : CONFIG.compassDyingDim;   // a dying bulb is still bright when it is on
+    }
+    ctx.save(); ctx.translate(px + Math.cos(ang)*d, py + Math.sin(ang)*d); ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(13,15,16,.74)'; ctx.beginPath(); ctx.arc(0, 0, R0, 0, Math.PI*2); ctx.fill();   // the case
+    ctx.strokeStyle = C.arrow; ctx.lineWidth = Math.max(1, R0*0.17); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -R0); ctx.lineTo(0, -R0*0.62); ctx.stroke();                           // north, scribed on the case
+    ctx.rotate(ang);                                                                                      // and the needle, alone
+    ctx.fillStyle = C.arrow; ctx.beginPath(); ctx.moveTo(R0*0.74, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(232,227,214,.30)'; ctx.beginPath(); ctx.moveTo(-R0*0.62, 0); ctx.lineTo(-R0*0.12, -R0*0.30); ctx.lineTo(-R0*0.12, R0*0.30); ctx.closePath(); ctx.fill();
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
+}
+

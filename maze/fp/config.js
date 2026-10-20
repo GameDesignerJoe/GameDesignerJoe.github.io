@@ -1,0 +1,147 @@
+// The Maze, first person — the knobs
+//
+// Defaults for every slider in the gear panel. What you set on the panel is remembered on the
+// device (maze.fp.v1) and wins over these; "Reset" puts these back.
+//
+// stepMs and eye come from the Labyrinth slider session (docs/labyrinth/03-technical-design.md).
+// fov 75, res 360, fog 0.11, walk 1.2, the half-width squeeze and the lighting (shadow 1, reach 2, darkHalls
+// 0.8, darkLevel 0.1, squeezeSlow 0.35) are Joe's, from playing this on his phone.
+
+const FP_CONFIG = {
+  fov: 75,          // degrees, left edge to right edge
+  res: 360,         // pixels across the screen's short side the world is drawn at, before it is scaled up
+  fog: 0.11,        // how fast things fade with distance, per tile. 0 = no fog at all
+  bright: 1,        // overall brightness: 1 is as drawn, lower is darker, fog included
+  eye: 0.5,         // eye height as a fraction of a wall. The walls are one tile tall
+  stepMs: 270,      // one tile forward
+  turnMs: 210,      // a quarter turn
+  bob: 1.5,         // head bob, in drawn pixels, over one step
+  gapW: 0.23,       // how wide a squeeze's slot is, as a fraction of a tile. You are 0.4 across; at a squeeze you narrow to fit
+  walk: 1.2,        // tiles a second at full stick (the top-down's CONFIG.speed is 2.31; Joe set 1.2 for this view)
+  stickTurn: 150,   // degrees a second at full stick, sideways
+  theme: 'school',  // a key of TEX.themes: 'school' | 'office' | 'bleached' | 'dusk'. Joe: "make the starting theme the school
+                    // instead of the back room" (it was 'office', the back rooms)
+  bends: true,      // rails only: holding forward at a bend with only one way on takes you round it
+  move: 'glide',    // the stick: 'glide' (free, with quiet help), 'rails' in halls (buffered quarter turns, like the top-down), or 'free'
+  // glide's three helps, each 0 (off) to 1 (strong)
+  settle: 0.6,      // ease off the turn roughly facing an open way, and the view drifts square to it
+  settleDeg: 35,    // how far off an open way (degrees, either side) settling will still take you
+  centre: 0.6,      // in a one-wide hall, walking drifts you to its middle
+  slip: 0.6,        // a feeler ahead touching a corner slides you sideways past it
+  // the stick's own feel
+  deadzone: 0.22,   // fraction of the stick's travel that reads as not pushing — the top-down's CONFIG.stickDeadzone
+  accel: 10,        // how quickly walking speed catches up with the stick. Higher is snappier
+  turnEase: 14,     // how quickly turning catches up with the stick. Higher is snappier, lower is floatier
+  words: 10,        // dead ends a maze with words written on their far wall (WALL_WORDS in data/text.js). Joe: "at least triple"
+  chalkInf: true,   // debug: chalk never runs out. On by default for now (Joe: "just turn on the path and infinite chalk by default")
+  showPath: true,   // debug: the way out, marked on the floor in gold
+  showArrow: false, // debug: an arrow that points at the next thing to do (Joe: "Turn off the arrow debug and just leave the rug")
+  stickSide: 'left', // debug: in landscape, which side the stick sits (Joe: "I would default it to left")
+  // debug: the top-down's own maze knobs, applied in memory only (never to the top-down's save)
+  dbgLevel: 'save', dbgStones: 'level',
+  dbg_proto: 'off', dbg_size: 'auto', dbg_branch: 'auto', dbg_turns: 'auto', dbg_clusters: 'auto', dbg_braid: 'auto',
+  doorRoom: 0.75,   // the chance a room's mouth has a door in it
+  doorHall: 0.07,   // and any other one-wide passage between two cells
+  doorsOpen: 0.2,   // how many of them are standing open when you arrive. Joe: "about 20%"
+  closets: 30,      // closets a maze: narrow doors you can step into and look out of. Tripled from 10 for the being — Joe: "closets everywhere"
+  furniture: 1,     // how furnished the rooms are: 0 bare, 1 as drawn, 2 cluttered (the office look only)
+  switches: 3,      // rooms a maze with a light switch by the way in
+  switchOff: 0.65,  // how many of those are dark when you arrive
+  being: true,      // the being: when you're well off the way out, it comes for you, and puts you back on it
+  beingOff: 10,     // how far off the way out (in steps) before it might notice
+  beingChance: 0.1, // the chance it comes, each time you go that far off (Joe: "a 10% chance")
+  beingDead: 0.25,  // after the turn, the chance it comes when you walk into the end of a dead end
+  calm: true,       // a maze starts calm, before the turn: no dark halls of this view's own, switched rooms lit
+  turnAfter: 3,     // pages read before the building turns on you (rooms walked into no longer count). 0 never
+  turnRooms: 0.5,   // after the turn, the chance a room you walk into goes dark (each room decided once)
+  turnHalls: 0.5,   // after the turn, the chance a hall you walk into goes dark ahead of you
+  heart: true,      // the heart: a hidden story room, furthest from the start and the exit, through a maze of squeezes (Child, floor 1)
+  wakeScene: true,  // each maze starts with you getting up off a mat on the floor (a few seconds, no control)
+  squeezeChains: 1,  // chains of squeezes (two tiles or more) a maze keeps, the longest first; the rest open to plain floor
+  squeezeSingles: 0.5, // the share of single squeezes kept
+  liesToUndo: 0,    // faces of the wall's lies you chalk through to undo it, and the heart opens; 0 is every one of them (Joe: "I didn't
+                    // cross out all of the lies in the room with all the writing and it gave me the heartbeat. Seems like I should have.")
+  memoryRooms: 4,   // memory rooms a Child maze has (FP_MEMORIES in data/text.js): the phone, the cards, the fire, hiding — as many as there are rooms for, a different few each maze. Catch is the kid's room's
+  storyRooms: 2,    // story rooms a Child maze has (STORY_ROOMS in data/text.js): the waiting room, the wall
+  floors: 1,        // floors a maze has (1: no stairs). Joe: "for now, we should disable the other floors. Let's get all of the rooms on the one floor"
+  father: 2,        // times a maze the father is glimpsed crossing ahead of you. Joe: "once or twice a maze"
+  // lighting
+  shadow: 1,        // how much the lighting shows: 0 is flat, 1 is full-strength pools and shadow
+  reach: 2,         // how far a ceiling lamp's light carries, in tiles, through open floor
+  darkHalls: 0.8,   // the chance any straight hall of three or more tiles is one of this view's dark ones
+  darkLevel: 0.1,   // how dark a dark hall is: Joe asked for very dim, not black
+  squeezeDim: 0.45, // a squeeze is this bright, times the light around it
+  squeezeSlow: 0.35, // and you walk through it at this fraction of your speed
+  squeezeScare: 0.3, // the chance, each squeeze you push through, that something darts across its far end
+  squeezeVeil: 0.72, // how hard it is to see past a squeeze: 1 is black, 0 is clear. Joe: "much more difficult to see into it, but not completely black"
+  sound: true,      // music and sound
+  music: 'auto',    // which self's track plays: 'auto' follows the maze (as the top-down does), or a key of MUSIC in data/music.js
+  ambience: 1,      // how often something happens somewhere else in the building: 0 never, 1 about once a minute
+  sfxVol: 0.9,      // how loud the room is: steps, hum, doors, the squeeze. The music keeps the top-down's own level
+  map: 'off',       // 'off' | 'walked' | 'full' — a debug overlay, not the charcoal map
+  sec: 'stick',     // which section of the ☰ panel is open
+};
+
+const FP_RANGES = {   // [min, max, step, label, panel section]
+  fov:       [45, 110, 1, 'FOV', 'look'],
+  res:       [90, 360, 10, 'Resolution', 'look'],
+  fog:       [0, 0.5, 0.01, 'Fog', 'look'],
+  bright:    [0.2, 1.8, 0.05, 'Brightness', 'look'],
+  eye:       [0.25, 0.75, 0.01, 'Eye height', 'look'],
+  bob:       [0, 6, 0.5, 'Head bob', 'look'],
+  gapW:      [0.12, 0.9, 0.01, 'Squeeze width', 'look'],
+  walk:      [0.8, 4.5, 0.05, 'Walk speed', 'stick'],
+  stickTurn: [50, 320, 5, 'Turn speed', 'stick'],
+  accel:     [2, 30, 1, 'Walk snap', 'stick'],
+  turnEase:  [2, 40, 1, 'Turn snap', 'stick'],
+  deadzone:  [0, 0.6, 0.02, 'Deadzone', 'stick'],
+  settle:    [0, 1, 0.05, 'Settle', 'glide'],
+  settleDeg: [5, 60, 1, 'Settle angle', 'glide'],
+  centre:    [0, 1, 0.05, 'Centre', 'glide'],
+  slip:      [0, 1, 0.05, 'Corner slip', 'glide'],
+  shadow:    [0, 1, 0.05, 'Shadow', 'light'],
+  reach:     [1.5, 10, 0.5, 'Lamp reach', 'light'],
+  darkHalls: [0, 1, 0.05, 'Dark halls', 'light'],
+  darkLevel: [0, 0.6, 0.02, 'Dark level', 'light'],
+  squeezeDim:[0.05, 1, 0.05, 'Squeeze dim', 'light'],
+  squeezeSlow:[0.2, 1, 0.05, 'Squeeze slow', 'light'],
+  squeezeVeil:[0, 1, 0.02, 'Squeeze veil', 'light'],
+  squeezeScare:[0, 1, 0.05, 'Squeeze scare', 'light'],
+  turnMs:    [80, 600, 10, 'Rails turn ms', 'stick'],
+  sfxVol:    [0, 1.6, 0.05, 'Room volume', 'sound'],
+  ambience:  [0, 3, 0.1, 'Distant sounds', 'sound'],
+  words:     [0, 30, 1, 'Wall words', 'debug'],
+  doorRoom:  [0, 1, 0.05, 'Room doors', 'debug'],
+  doorHall:  [0, 0.5, 0.01, 'Hall doors', 'debug'],
+  doorsOpen: [0, 1, 0.05, 'Doors open', 'debug'],
+  closets:   [0, 60, 1, 'Closets', 'debug'],
+  father:    [0, 6, 1, 'Father', 'debug'],
+  floors:    [1, 4, 1, 'Floors', 'debug'],
+  memoryRooms:[0, 4, 1, 'Memory rooms', 'debug'],
+  storyRooms:[0, 2, 1, 'Story rooms', 'debug'],
+  squeezeChains: [0, 6, 1, 'Squeeze chains', 'debug'],
+  squeezeSingles: [0, 1, 0.05, 'Single squeezes', 'debug'],
+  turnAfter: [0, 12, 1, 'Turn after', 'debug'],
+  beingOff:  [2, 20, 1, 'Being: off path', 'debug'],
+  beingChance: [0, 1, 0.05, 'Being: chance', 'debug'],
+  beingDead: [0, 1, 0.05, 'Being: dead ends', 'debug'],
+  turnRooms: [0, 1, 0.05, 'Rooms go dark', 'debug'],
+  turnHalls: [0, 1, 0.05, 'Halls go dark', 'debug'],
+  switches:  [0, 8, 1, 'Switches', 'debug'],
+  furniture: [0, 2, 0.1, 'Furniture', 'debug'],
+  switchOff: [0, 1, 0.05, 'Rooms dark', 'debug'],
+};
+
+// Where the Feedback box (its button is on the HUD) sends what's written in it. Joe: "a feedback button to the menu at the top … that when
+// somebody presses it, it opens up a text window with a submit button", and "something that I could chat with you about and
+// say, 'how is the feedback?'". A Google Form, its answers kept in a Google Sheet that Claude can read: `action` is the form's
+// …/formResponse address, and each field the `entry.N` id of a question (the form's "Get pre-filled link" shows them). Empty,
+// the box still takes feedback and keeps it on the device, and sends it the next time the game is opened with this filled in.
+// The form is "Maze feedback" on Joe's Google account; its answers are the Sheet "Maze feedback (Responses)", Drive id
+// 1W7VNHjqE-k-TAOhzp2NFY6pmBTv553IOXw_1VwAjPlk — the one to read when Joe asks how the feedback is.
+const FP_FEEDBACK_FORM = {
+  action: 'https://docs.google.com/forms/d/e/1FAIpQLSdkIdDispcUY58kjOYB_pduYwvB1iy4Z2rwvpYGmkdrCEznng/formResponse',
+  // `shot`: the picture of the view when Feedback was tapped, a small JPEG as base64 text (a Short answer question — the form's
+  // own file upload would make everyone sign in, and nothing could be sent from the game). Claude turns it back into a picture
+  fields: { text: 'entry.797005195', version: 'entry.1334796723', seed: 'entry.299755428', where: 'entry.1577067527', shot: 'entry.362987115' },
+};

@@ -1,0 +1,506 @@
+# Is it worth walking? — the baseline
+
+<!-- reviewed: v0.97.0 — re-measured against the game at v0.97.0, which is what this doc is -->
+
+Joe, on the maze editor thread: *"I can say these words to you, but I don't see
+you bringing the imagination to pull it off. I still find keys not in vaults
+that I had to work my way to get to. I still find the exit easy to stumble into.
+I still find myself finishing mazes in a couple minutes rather than 10-20. I'm
+not seeing districts anymore. Rooms are not landing, there's not enough maze
+hallways between rooms."*
+
+Five complaints, all of them the same shape: a thing he asked for that the maze
+does not do. This is what happens when you measure them instead of arguing about
+them.
+
+**The finding underneath all five: `harness.mjs` proves every maze is
+*playable* — the exit is reachable, each door severs the route, every key is
+winnable before its door — and not one of its invariants asks whether the maze
+is worth walking.** Joe's five live entirely in the unmeasured half, which is
+why they regress without anything going red.
+
+## Reproducing this
+
+```
+python3 -m http.server 8765       # from the repo root, in another terminal
+
+open http://localhost:8765/maze/tuner.html    # look at it
+node maze/tools/quality.mjs       # the table below
+node maze/tools/bots.mjs --phase N --size S    # time to finish
+node maze/tools/shape.mjs --phase N --size S   # thresholds
+```
+
+`quality.mjs` sweeps every self at its own size. `bots.mjs` and `shape.mjs` take
+one phase at a time, and default to the Child's size rather than the phase's, so
+pass `--size` to match `PHASES`. 30 seeds a self throughout; differences under
+about 5% at that count are noise.
+
+## What a maze holds (v0.97.0, 30 seeds)
+
+| self | size | floor | keys vaulted | **every key** | exit at | beyond | locked | gauntlet | rooms | room gap min/med | divides | **fell short** |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| The Child | md | 503 | — | — | 0.69 | 23% | 0% | **17** | 4.0 | 6 / 18 | 1.57 | 13% |
+| The Cartographer | md | 624 | 93% | **93%** | 0.79 | 18% | 0% | 0 | 3.2 | 10 / 16 | 0.27 | 100% |
+| The Soldier | md | 640 | 43% | **3%** | 0.76 | 24% | 0% | 0 | 3.5 | 2 / 12 | 0.10 | 100% |
+| The Archivist | lg | 1269 | 48% | **0%** | 0.82 | 15% | 0% | 0 | 11.0 | **0** / 8 | 0.20 | 100% |
+| The Priest | lg | 1246 | 40% | **3%** | 0.80 | 16% | 0% | 0 | 7.2 | 8 / 12 | 0.07 | 100% |
+| The Criminal | lg | 1241 | 33% | **0%** | 0.79 | 16% | 50% | 0 | 7.2 | 6 / 10 | 0.10 | 100% |
+| The One Who Stayed | xl | 2459 | 50% | **0%** | 0.85 | 10% | 0% | 0 | 15.0 | 6 / 10 | 0.03 | 100% |
+| You | sm | 316 | 77% | **77%** | 0.85 | 12% | 0% | 0 | 1.7 | **0** / 14 | 0.87 | 100% |
+
+*every key* is the share of mazes where no key is loose. *exit at* is walking
+distance to the exit over the maze's far point. *beyond* is how much floor lies
+further out than the exit. *gauntlet* is squeeze-tree tiles guarding the way out.
+*fell short* is the share of mazes `generate()` could not build to the chapter's
+`MUST` row — new in v0.97.0, and the number that was missing all along.
+
+**The room gap column is lower than the v0.93.0 printing of this doc, and the
+old numbers were wrong.** `quality.mjs` carried its own copy of the measurement
+and it took a room's distance to another room from a flood that could *start* at
+a well but never *finish* at one — and 17% of landmarks are wells, which stand
+in the wall. So a well was invisible as a destination and the gap read high, by
+up to 46 tiles on one Child maze. There is one measurement now, `js/contract.js`,
+checked against a pairwise reference over 88 mazes with no mismatch. Rooms are
+closer together than this doc first said, not further apart.
+
+**Two rooms could land on the same tile.** 1 maze in 30 for The Archivist and 1 in
+16 for You, with 7 of 30 Archivist mazes putting two rooms within 4 tiles. That
+was a placement bug rather than a tuning one, and it is the sharp end of *"rooms
+are not landing."* Fixed in v0.102.0: the placer draws `roomSpreadTries` spots and
+takes the one farthest from every room already placed, and goes without a room
+rather than overlap one. Over the same 60 seeds the closest pair went from 0–6
+tiles to 8–10 in every chapter, medians up 2–6, room counts held.
+
+## How long it takes (`bots.mjs`, 30 seeds, 200 explorer runs a maze)
+
+| self | size | optimal route | explorer median | fastest 10% | key detour |
+|---|---|---|---|---|---|
+| The Child | md | 45s | 4m 11s | 1m 37s | — |
+| The Cartographer | md | 57s | 7m 59s | 5m 10s | 27s |
+| The Soldier | md | 40s | 6m 16s | 2m 51s | 13s |
+| The Archivist | lg | 1m 02s | 12m 43s | 5m 46s | 19s |
+| The Priest | lg | 60s | 11m 47s | 5m 18s | 16s |
+| The Criminal | lg | 1m 13s | 16m 10s | 8m 10s | 31s |
+| The One Who Stayed | xl | 1m 28s | 26m 30s | 12m 28s | 23s |
+| You | sm | 35s | 3m 49s | 2m 19s | 12s |
+
+## The shape of it (`shape.mjs`, 30 seeds)
+
+| self | size | thresholds | biggest split | dead ends |
+|---|---|---|---|---|
+| The Child | md | 1.4 | 24% | 11 |
+| The Cartographer | md | 0.2 | 3% | 38 |
+| The Soldier | md | 0.1 | 3% | 31 |
+| The Archivist | lg | 0.2 | 5% | 67 |
+| The Priest | lg | 0.1 | 2% | 72 |
+| The Criminal | lg | 0.1 | 2% | 73 |
+| The One Who Stayed | xl | **0.0** | **0%** | 151 |
+| You | sm | 0.8 | 17% | 21 |
+
+## What the numbers say
+
+**1. The content is 45–90 seconds long.** Knowing the maze, every level in the
+game is that much walking, and going from md to xl — four times the floor — adds
+thirty seconds of route. So the 10–20 minutes Joe wants is made entirely of
+being lost, and being lost is the one thing a player burns off as they learn.
+That is why he finishes in two minutes and the explorer bot does not: he is near
+the oracle and it is blundering. Raising the ceiling means more *required*
+route, not more floor.
+
+**2. Keys: the average was hiding it.** `config.js` has long said, on
+`manifestSettle`, that about 55% of keys get a nest, and that number was treated
+as acceptable. Per maze it is not: in **every two-door self, 0–3% of mazes have
+all their keys vaulted.** One-door selves are fine (77–93%). So from the Soldier
+on, nearly every maze Joe plays has a key lying in a hall, and he was not
+finding the unlucky 45% — he was finding the 97%.
+
+The cause is in `generate()`: the retry loop scores a build as doors first, keys
+in nests second, and stops once the *doors* are in and `manifestSettle` more
+tries fail to better the keys. The vault is a tiebreaker that loses to door
+placement, and nothing reports the shortfall. **A design requirement entered the
+code as a preference.** That pattern, not a failure of imagination, is what
+produced three of the five.
+
+**3. Nothing guards the exit past the Child.** The squeeze gauntlet exists in
+the Child's maze (16 tiles) and in no other self. The exit is locked only for
+the Criminal, and only half the time. The exit is not badly placed — 0.72–0.84
+of the way out, with 10–24% of the floor beyond it — it is simply unguarded.
+
+**4. Districts are gone, and size makes it worse.** The xl maze, the biggest in
+the game, has **zero thresholds**: 2,456 tiles with no interior boundary
+anywhere. Note it against the districts column — The One Who Stayed has 4
+districts and 0 thresholds. `generate.js` says why in its own comment: a district
+can add floor and add connections, never take one away. Four districts you cannot
+perceive is the same as none. `LABYRINTH.md` predicted exactly this before any of
+it was built.
+
+**5. Rooms clump.** The Archivist puts 11 landmarks in a lg maze with a 6-tile
+minimum gap and a 13-tile median — a couple of seconds of walking between
+places that are supposed to be different places. Compare the Cartographer, 3.4
+rooms at 20/24. This is Joe's *"all the rooms are pushed into the same space"*,
+and it is worst where there are most rooms.
+
+## Loops, and why the districts are eating the thresholds (v0.110.0)
+
+Joe brought in a maze-quality rubric from another conversation — a
+`maze-metrics.ts` and a `maze-expert` agent that reads it. Most of its twelve
+metrics we already had, two of ours are better than its versions (see the end of
+this section), but one had no equivalent here and it turned out to be the
+mechanism behind the biggest finding in this doc.
+
+**loops** — the cycle rank of the maze graph, edges minus nodes plus one, at cell
+level. A loop destroys an articulation point *by definition*, and a threshold is
+a run of articulation tiles. So thresholds and loops are two ends of the same
+fact, and we had only been counting one end.
+
+Measured at v0.110.0, 24 seeds a chapter: **18 loops (You) to 139 (The One Who
+Stayed)**, and **not one maze in the game is a perfect maze**. That is why
+thresholds sit near zero. Not a coincidence, not a tuning miss — arithmetic.
+
+### Where the loops come from, and the uncomfortable part
+
+16 seeds a chapter, sweeping the two features that add connections:
+
+| | loops | thresholds |
+|---|---|---|
+| The Criminal, as shipped | 76.5 | 0.06 |
+| braid off | 75.9 | 0.19 |
+| **districts off** | **61.5** | **0.44** |
+| The One Who Stayed, as shipped | 122.2 | 0.06 |
+| braid off | 122.8 | 0.31 |
+| districts off | 96.0 | 0.31 |
+| **both off** | **91.3** | **0.88** |
+
+Three things fall out of that table:
+
+**Braid changes the loop count by less than 1%.** 76.5 → 75.9. This doc already
+recorded that braid does not bring thresholds back; now we know why, and the
+earlier entry should be read as settled rather than merely observed. Braid at
+0.06 is not where the loops come from, so turning it off cannot recover a
+chokepoint.
+
+**Districts are the biggest single lever, and they were built to make places.**
+Switching them off multiplies The Criminal's thresholds by seven. The feature
+added to give the maze districts you can feel is helping to erase the boundaries
+that would let you feel them — because a district re-cuts links inside itself and
+`generate.js` says plainly that it "can never take a connection away". Adding
+connections without taking any is the definition of adding loops.
+
+**Neither accounts for most of them.** With both off there are still 61–91 loops.
+The rest is structural, and it is isolated below.
+
+Read it with the caveats: 16 seeds, and 0.44 thresholds is still *less than one
+per maze*. Turning districts off takes a terrible number to a bad one. It is a
+direction, not a fix.
+
+### The rooms and the vaults are the other half — and the vault is the expensive one
+
+Sweeping each structure that can add a connection, 40 seeds a chapter, every
+other knob left alone:
+
+| The Criminal (lg) | loops | of shipped | thresholds |
+|---|---|---|---|
+| as shipped | 78 | — | 0.13 |
+| **vaults off** | 67 | **−14%** | **0.82** |
+| rooms off | 54 | −31% | 0.38 |
+| districts off | 61 | −22% | 0.50 |
+| rooms + vaults off | 38 | −51% | **1.60** |
+
+| The One Who Stayed (xl) | loops | of shipped | thresholds |
+|---|---|---|---|
+| as shipped | 141 | — | 0.07 |
+| **vaults off** | 130 | **−8%** | **0.75** |
+| rooms off | 83 | −41% | 0.42 |
+| districts off | 104 | −26% | 0.38 |
+| rooms + vaults off | 69 | −51% | **1.32** |
+
+**Rooms and vaults together are half the loops**, which answers the question this
+section originally left open. Tunnels, the secret room and braid are all within
+noise of zero. Crawl gaps contribute nothing outside The Child, and for a good
+reason: `generate.js` records the gap but only opens the tile when `F.crawl`, so
+in every other chapter it is a wall with a name.
+
+**But loops are not fungible, and that is the more useful finding.** Look at what
+each removal buys per loop it takes away:
+
+| removed | loops it costs | thresholds it buys | per loop |
+|---|---|---|---|
+| a chapter's vaults | 11 | +0.69 | **0.063** |
+| its districts | 17 | +0.37 | 0.022 |
+| its rooms | 24 | +0.25 | 0.010 |
+
+**One vault destroys about as much structure as six to ten rooms' worth of
+loops.** It is 8–14% of the loop count and 6–11× the thresholds. A room is small
+and there are seven of them scattered about; a vault is a single 15×15 blob of
+concentric rings dropped in the middle of the maze, and it short-circuits a whole
+region rather than a corner of one.
+
+That points somewhere specific, and it is a hypothesis rather than a measurement:
+**the vault's problem is likely where it sits and how it joins on, not that it
+exists.** A nest hung off the maze by one corridor would bury its key *and* put a
+threshold at its own mouth — it would buy both of the things this doc says we are
+missing. Today it is embedded with its ground rejoining the corridor network on
+every side. Nobody has checked the vault's connectivity, and that is the next
+thing to measure.
+
+Two honest limits. Even the best row here is **1.3–1.6 thresholds**, still under
+two per maze, so none of this reaches "a maze with places you can feel" — it
+moves a hopeless number to a poor one. And the tension is real rather than
+accidental: the vault is what makes *"getting a key should be an adventure"*
+true, so removing vaults is not a proposal. Moving them might be.
+
+### The other thing worth taking
+
+**firstFork** — how far you walk before the maze first asks you anything. Ours is
+**7–10 tiles**, which is fine. It is in the contract now mostly so it cannot
+quietly get worse.
+
+It comes with a lesson about measuring, though. Taken the rubric's way it reads
+**1 on every maze in the game**, because you wake in a room and a room has three
+ways out of every tile in it. `LABYRINTH.md` records us making exactly that
+mistake in the junction count and correcting it. `contract.js` skips room tiles,
+which is the difference between 1 and 8.
+
+### What the rubric would have got wrong
+
+Kept here because the next person to bring in an outside rubric should know what
+to check.
+
+- **Its reachability does not know about push blocks.** Flooding from the start
+  the way it does stops at **9 cells** — the sealed start room — and its
+  `explorablePercentage` then reads 2–6%. Its own guidance says to flag that as a
+  generation bug. It would condemn every maze in the game.
+- **`explorablePercentage` divides by the whole rectangle**, so deliberate dead
+  space reads as a bug. The Child prunes to 65% fill on purpose, and that is the
+  one lever in this doc that creates thresholds at all.
+- **`longestDeadEndCorridorLength` measures nothing.** It counts consecutive
+  iterations of a `Set` in BFS visit order as though they were adjacent cells.
+- **`solutionToAreaRatio` is backwards for this game.** Ours is 6–15%, and the
+  rubric scores a low ratio as "space to actually get lost in, which is usually
+  more fun". That number is the thing the top of this doc identifies as the
+  problem: the route is 45–90 seconds and the rest is undifferentiated mesh. It
+  is a rubric for a maze you solve, not a place you are meant to spend twenty
+  minutes in and build a memory of.
+
+What its agent got right, and worth keeping: cite the metric that supports the
+judgement, propose the smallest change that addresses the cause, and re-run
+before declaring it fixed.
+
+## Two sweeps, one dead end and one real lever
+
+**Braid is not what removed the thresholds.** (Why, see the loops section above:
+braid changes the loop count by under 1%, and loops are what thresholds are made
+of.) The Child is the only self with
+thresholds and the only one with braid off, which made it the obvious suspect.
+It is not: with braid forced to zero, the Soldier's md maze goes 0.08 → 0.21
+thresholds and the xl maze 0.00 → 0.04. Nothing. **No braid setting brings
+structure back**, so don't spend a batch there.
+
+**Dead space is the lever, and it does not reach.** The `fill` term in
+`turnsPresets` — the dead-space preset the Child alone uses, via its phase's
+`turns` — is the only knob in the game that moves thresholds:
+
+| preset | md thresholds | xl thresholds | floor cost |
+|---|---|---|---|
+| auto (seven of eight selves) | 0.08 | 0.00 | — |
+| `fewer` | 0.17 | 0.13 | none |
+| `sparse` (the Child's) | 0.63 | 0.71 | −24% / −32% |
+| `least` | 0.67 | 0.96 | −24% / −32% |
+
+Eight to twelve times better, and **still under one threshold per maze** when a
+maze with districts you can feel wants four or five. It also buys that by
+deleting a third of the floor, which runs straight into Joe wanting bigger
+mazes. So: a real lever, switched off for seven of eight selves, that cannot on
+its own reach the target.
+
+## What follows from this
+
+Three of the five — keys not buried, the exit unguarded, rooms on top of each
+other — are **contract failures, not tuning failures**. The vault code, the
+gauntlet code and the room placer all exist; the generator does not insist on
+them and never reports a miss. That is a small change, and no knob panel is
+needed for it.
+
+**A correction, because the first reading of this doc got it backwards.** The
+key detour was listed here as a fourth failure, on the strength of its 12–31
+seconds looking small. Measured against the route it is added to, it is the
+opposite — at 2.31 tiles a second, those seconds are 54–90 tiles, and the key
+**adds 36–93% to the optimal route**:
+
+| self | unlocked | locked | the key adds |
+|---|---|---|---|
+| The Cartographer | 29.6s | 57.0s | 93% |
+| The Soldier | 27.1s | 40.4s | 49% |
+| The Archivist | 42.8s | 62.0s | 45% |
+| The Priest | 43.8s | 59.9s | 37% |
+| The Criminal | 41.8s | 73.0s | 75% |
+| The One Who Stayed | 64.7s | 88.0s | 36% |
+| You | 22.9s | 35.1s | 53% |
+
+Keys are the single most effective thing in the game at lengthening a route, and
+"a twenty-second errand" was the wrong way to read that column. So `keyDetour`
+stays a clause in the contract, but as **a floor to defend rather than a gap to
+close** — it is already good and should not be allowed to drift back.
+
+What is wrong with keys is the other half of Joe's sentence. *"Getting a key
+should be an adventure"* is not a complaint that the walk is short; it is that
+the walk ends at a key lying in a corridor. That is `keysVaulted`, and that one
+really is 0–3%.
+
+The other two — districts, and a maze that takes 10–20 minutes — **cannot be
+reached from the current config at all.** The best knob in the game tops out at
+0.96 thresholds and costs a third of the maze. A tuning tool would find that
+ceiling faster; it would not move it.
+
+## What enforcing the contract did, and did not, do (v0.97.0)
+
+`generate()` now builds against the chapter's `MUST` row and records what it
+could not meet in `contractMiss`. The prediction when this was proposed was that
+making the requirement hard would collect three of the five. **It did not. The
+keys did not move at all:**
+
+| self | every key, before | every key, after |
+|---|---|---|
+| The Cartographer | 93% | 93% |
+| The Soldier | 3% | 3% |
+| The Archivist | 0% | 0% |
+| The Priest | 3% | 3% |
+| The Criminal | 0% | 0% |
+| The One Who Stayed | 0% | 0% |
+| You | 77% | 77% |
+
+The reason, in hindsight, is in the old code: the retry loop was *already*
+ranking builds by keys-in-nests as a tiebreaker. It was doing its best the whole
+time. Writing the same preference down as a requirement does not give the loop
+anything new to find — a maze with both keys buried turns up in about 3% of
+builds, and five or six tries cannot reliably find one. **A requirement the
+generator cannot satisfy is not made satisfiable by insisting.**
+
+So the lesson is the opposite of the one this doc started with. The three
+"contract failures" are not fixed by a contract. What the contract bought is
+narrower and still worth having:
+
+- **The shortfall is now visible.** Every chapter but The Child fails its row in
+  100% of mazes, and says which clauses. That number did not exist before, and
+  its absence is exactly how "keys should be in vaults" stayed shipped-and-broken.
+- **It holds a line.** A later change that makes any of this worse now has
+  somewhere to go red.
+- **It costs about what it did before.** Same number of builds a maze as
+  v0.93.0 — 9.3 at md, 8.4 at lg, 9.2 at xl — plus 8ms (md), 17ms (lg) and 38ms
+  (xl) of measuring. Worth knowing: an xl level load was *already* ~760ms of
+  building before any of this, because the loop already ran nine builds.
+
+One thing did move, and it moved because of a mistake worth recording. The first
+cut weighted every clause equally, and 20 of 20 Soldier mazes then shipped with a
+loose key, because a build could win by gaining a threshold while dropping a key
+into a hall. Weighting `keysVaulted` above the rest together put it back. Equal
+weights are not neutral; they are a claim that Joe's first complaint matters as
+much as his last.
+
+**What would actually fix the keys** is placement, not selection: put the key in
+a nest rather than build mazes until one lands there. That is a change to how
+keys are assigned, it is a generation change of its own, and it belongs in its
+own batch.
+
+## The threshold rule, and forks that are free (v0.110.0)
+
+Joe, having played the district prototype: *"I noticed a lot more long hallways.
+Rather than twists and turns."* He was right, and it was not the first area — it
+was every district, and it was two mistakes made at once.
+
+The shipping generator carves at **branchiness 0.35** and **hallStraightness 0** —
+`config.js` in its own words: *"0 = long winding corridors (backtracker), 1 = many
+short branches and junctions (Prim-like)"* and *"0 = today's snaking"*. The first
+cut of the prototype had **no branch knob at all** (so: 0, the corridor end) and
+**straightness of 0.30–0.75**. Measured against the real Criminal:
+
+| | straight | forks | mean run | longest run |
+|---|---|---|---|---|
+| prototype, first cut | 39–55% | 11–19% | 1.8–3.1 | 6.4–10.9 |
+| **prototype, now** | **20–31%** | **20–29%** | **1.3–1.7** | **3.4–5.1** |
+| The Criminal, shipping | 24% | 32% | 1.4 | 4.3 |
+
+The two causes separate cleanly in the data: straightness drives run length (0.30
+→ 39% straight, 0.75 → 55%), while forks track the carver type almost regardless
+of it — The Squeezes at 0.30 and The Blocks at 0.75 had near-identical fork rates.
+
+### Then Joe's rule, which is the part worth keeping
+
+*"I could see Forks being allowed, but it knows it can't break a threshold. It
+sees those as barriers and just stops if it's going to pierce a path that will
+break a threshold."*
+
+Right — and **building content-first makes it nearly free, because we do not have
+to detect a threshold, we declared it.** A district boundary is a threshold by
+construction: one link between two large regions is an articulation point. Five
+districts in a chain give four gates, and the measured threshold count is 4.19.
+The gates *are* the thresholds.
+
+So the rule is a lookup, not a graph search: *may this fork join these two cells?
+→ are they in the same district?* `js/districts.js` states it once, in `mayLink`,
+and every carve — tree, braid, gate — goes through it.
+
+**Which corrects something this doc implied.** Earlier it read as though forks and
+thresholds pull against each other and the hallway feel was the price of the
+structure. For the district architecture that is wrong. The thresholds come from
+the gates, not from suppressing forks. Turning `branch` up and `straight` down
+cost nothing structurally — it **gained**:
+
+| | first cut | with forks freed |
+|---|---|---|
+| forks | 11–19% | 20–29% |
+| thresholds | median 4 | **median 6** |
+| loops | 56–66 | 62–83 |
+| mazes broken, of 24 | 0 | 0 |
+
+More forks *and* more thresholds, because the extra branching makes narrow waists
+inside a district that were not there before. The cost is a shorter optimal route
+— 3m 45s to 3m 08s — since a bushier district offers more shortcuts. Explorer
+median went the other way, 28m to 35m.
+
+What the rule must NOT mean, and this is the whole difficulty of the general
+version: *"preserve every articulation point"*. Every dead-end stub is one, so
+that reading forbids nearly every fork and lands back on a perfect maze with no
+loops at all. It has to be a **protected** threshold — either declared, as here,
+or discovered as a cut that splits off at least the 15% share this doc measures
+by. Declared is far cheaper, and content-first hands it to you for nothing.
+
+**Where the rule is worth more than it is here:** in the shipping generator. Its
+own comment says a district *"can add floor and add connections. It can never take
+a connection away."* Joe's rule changes that to *may add a connection unless it
+pierces a threshold* — which, given that districts are the second-largest source
+of loops and removing them multiplies thresholds sevenfold, is probably the single
+most valuable change available to the real generator without rewriting it.
+
+## Where the targets live now
+
+`data/phases.js` carries a `MUST` row per chapter — the contract: keys buried,
+exit guarded, key detour, rooms apart, thresholds. `js/contract.js` measures a
+maze against it and says which clauses it met; `tuner.html` shows a block of
+mazes with every miss called out, and lets a number be tried before it is typed
+back into the file. Nothing in the running game reads `MUST` yet, so a maze the
+player walks is still built exactly as this doc measured it.
+
+The first numbers in `MUST` were picked by a stated rule rather than by feel,
+and the rule is written above the table there: hold a line where the game is
+already good, reject roughly the worst quarter where it can improve, and leave
+the clause red where the feature does not exist yet. `exitGuard` and
+`thresholds` are red on purpose for almost every chapter — that is the missing
+gauntlet and the missing structure, made visible in the place where the work
+would happen.
+
+**No targets are set here on purpose.** What a good number is for any row above
+is a design decision and Joe's to make. The point of this doc is that the
+numbers exist, so that a change which quietly undoes one of them has somewhere
+to show up.
+
+## What this does not measure
+
+- **The explorer bot is naive** — no map, no compass, no thread, no memory of
+  the layout beyond where it has been. Its medians are a ceiling for a competent
+  player, not a target. The oracle row is the floor. A real player is somewhere
+  between, and Joe is near the bottom.
+- Doors are ignored in the walking distances here; `bots.mjs` prices the locks.
+- Nothing here looks at whether a room is *good*, only at where it is and how
+  far it is from the next one.
+- Prototypes and pool levels are out of scope.

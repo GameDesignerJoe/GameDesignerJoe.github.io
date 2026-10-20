@@ -1,0 +1,129 @@
+// The Maze — a run in progress, restored exactly where you left it
+//
+// Part of the engine, loaded as a plain script in the order it used to appear
+// in maze-topdown.html. Everything shares one global scope, exactly as before.
+
+// ── run persistence: the maze in progress, restored exactly where you left it ──
+// The maze itself is rebuilt from its seed; everything that changed during the run is stored here.
+function serializeRun() {
+  if (!started || solved || !player) return null;
+  return {
+    seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones || 0, pool: poolMode, size: SAVE.ui.size || 'auto', branch: SAVE.ui.branch || 'auto', braid: SAVE.ui.braid || 'auto', turns: SAVE.ui.turns || 'auto', clusters: SAVE.ui.clusters || 'auto', v: VERSION,
+    px: player.x, py: player.y, facing, t: gameNow() - t0, steps, deadEndsEntered, leftRoom, pagesThisRun,
+    marks: [...marks.entries()], mapped: [...mapped.entries()], visited: [...visited],
+    chalk, chalkUsed, chalkFound, charcoal, charcoalLeft, charcoalOn, charcoalLock, charcoalUsed, charcoalFound,
+    hasKey, keySpot, hasLamp, lampOn, lampSpot, gated, doorOpen: !!(poolDoor && poolDoor.openAt),
+    chalkSpots: [...chalkSpots], charcoalSpots: [...charcoalSpots], scrapSpots: [...scrapSpots], pickups: [...pickups.entries()], journals: [...journals.entries()],
+    pointerLeft: Math.max(0, pointerUntil - gameNow()), pathLeft: Math.max(0, pathUntil - gameNow()), pathArmed, pointerUses, pathUses, journalsRead,
+    sliders: sliders.map(sl => sl.shifted), figures: figures.map(f => f.gone), doorsOpen: doors.map(d => d.open), innerKeys: [...innerKeys.entries()], heldKeys: [...heldKeys],
+    shrinesDone: shrines.map(s => s.done), offerings: [...offerings.entries()], carried, shrinePath, shrineLeft: Math.max(0, shrineUntil - gameNow()),
+    hopIdx, hopSaid, tttSaid, crawlSaid, secretOn, narrQueue, narrLeft: Math.max(0, narrNext - gameNow()), wakeDone: true,
+  };
+}
+let lastRunSave = 0;
+let parked = false;   // a refresh is in flight; the stored run is deliberate now, leave it alone
+function saveRun(force) {
+  if (parked) return;
+  const now = performance.now(); if (!force && now - lastRunSave < 2500) return; lastRunSave = now;
+  const run = serializeRun(); if (run) { SAVE.run = run; persist(); }
+}
+// Park the run on the mat for the reload that is about to happen: keep
+// everything done, drop only where you were standing. Then freeze saving —
+// location.replace fires pagehide, and the 6s autosave is still ticking, and
+// either would write the live position straight back over this.
+function parkRunAtHome() {
+  saveRun(true);
+  if (SAVE.run && start) { SAVE.run.px = start.x; SAVE.run.py = start.y; SAVE.run.atHome = true; persist(); }
+  parked = true;
+}
+function clearRun() { if (SAVE.run) { delete SAVE.run; persist(); } }
+function restoreRun(run) {
+  reset(run.seed);   // same seed, same phase and stones → same maze
+  // atHome: reset() has already put you on the mat facing the right way, so
+  // leave the position alone and keep everything else the run remembers.
+  if (!run.atHome) { player.x = run.px; player.y = run.py; cam.x = run.px; cam.y = run.py; facing = facingShown = run.facing; }
+  steps = run.steps; deadEndsEntered = run.deadEndsEntered; leftRoom = run.leftRoom; pagesThisRun = run.pagesThisRun || [];
+  marks = new Map(run.marks); mapped = new Map(run.mapped); visited = new Set(run.visited);
+  chalk = run.chalk; chalkUsed = run.chalkUsed; chalkFound = run.chalkFound; charcoal = run.charcoal; charcoalLeft = run.charcoalLeft; charcoalOn = run.charcoalOn; charcoalLock = !!run.charcoalLock; charcoalUsed = run.charcoalUsed; charcoalFound = run.charcoalFound;
+  hasKey = run.hasKey; keySpot = run.keySpot; hasLamp = run.hasLamp; lampOn = run.lampOn; lampSpot = run.lampSpot; gated = run.gated;
+  if (poolDoor && run.doorOpen) poolDoor.openAt = 1;
+  chalkSpots = new Set(run.chalkSpots); charcoalSpots = new Set(run.charcoalSpots); scrapSpots = new Set(run.scrapSpots); pickups = new Map(run.pickups); journals = new Map(run.journals);
+  pointerUses = run.pointerUses; pathUses = run.pathUses; journalsRead = run.journalsRead;
+  run.sliders.forEach((sh, i) => { const sl = sliders[i]; if (!sl || sl.shifted === sh) return; const fx = sl.x, fy = sl.y, tx = sl.x + sl.dx, ty = sl.y + sl.dy; tiles[fy][fx] = sh ? 0 : 1; tiles[ty][tx] = sh ? 1 : 0; sl.shifted = sh; });
+  run.figures.forEach((g, i) => { if (figures[i] && g) { figures[i].gone = true; figures[i].alpha = 0; } });
+  (run.doorsOpen || []).forEach((o, i) => { if (doors[i]) { doors[i].open = o; doors[i].openAt = 0; } });   // openAt 0 means it finished swinging before the reload
+  exitGateAt = 0;   // and a gate that opened before the reload is drawn already open, not swinging
+  if (run.innerKeys) innerKeys = new Map(run.innerKeys); heldKeys = new Set(run.heldKeys || []); renderKeys();
+  (run.shrinesDone || []).forEach((d, i) => { if (shrines[i]) shrines[i].done = !!d; }); if (run.offerings) offerings = new Map(run.offerings); carried = run.carried ?? null;
+  // a run saved before one person was locked to a chapter (v0.99.0) can hold a stone no statue here
+  // wants, and the old `child` id. Both become this maze's person rather than a stone that fits nothing.
+  { const here = shrines[0]?.who; if (here) { const fix = w => shrines.some(s => s.who === w) ? w : here;
+    offerings = new Map([...offerings].map(([k, w]) => [k, fix(w)])); if (carried !== null) carried = fix(carried); } }
+  renderCarried(); shrinePath = run.shrinePath || [];
+  hopIdx = run.hopIdx; hopSaid = run.hopSaid; tttSaid = run.tttSaid; crawlSaid = run.crawlSaid; secretOn = !!run.secretOn; secretLitAt = secretOn ? -1e9 : 0; narrQueue = run.narrQueue || narrQueue;
+  lastTileKey = Math.floor(player.x) + ',' + Math.floor(player.y);
+  updateChalk(); updateCharcoal(); updateBooks();
+  if (hasKey) (poolMode ? $('stone') : keyEl).classList.add('show'); if (hasLamp) { $('lamp').classList.add('show'); $('lamp').classList.toggle('on', lampOn); }
+  const g0 = gameNow(); t0 = g0 - run.t; pointerUntil = run.pointerLeft ? g0 + run.pointerLeft : 0; pathUntil = run.pathLeft ? g0 + run.pathLeft : 0; shrineUntil = run.shrineLeft ? g0 + run.shrineLeft : 0; pathArmed = !!run.pathArmed; pathFoundAt = 0; narrNext = leftRoom ? g0 + Math.max(4000, run.narrLeft) : Infinity;
+  if (run.atHome) return;   // stay asleep on the mat; tapping the sleeper begins, and starts the sound
+  // straight into the maze, no title: the fade lifts on you where you stood
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx * zoomMul(); started = true;
+  setTimeout(() => narrate(moment(poolMode ? 'resumePool' : 'resumeMaze')), 2200);
+}
+
+// ── the run log ─────────────────────────────────────────────────
+// Every maze you finish, written down: how long it took and enough of the rest to tell one run
+// from another. It lives under its own key, not in SAVE, so Reset save does not throw away the
+// record of what you have already tested. Capped, newest last.
+const LOG_KEY = 'maze.log.v1';
+const LOG_MAX = 300;
+function readLog() { try { return JSON.parse(localStorage.getItem(LOG_KEY)) || []; } catch (e) { return []; } }
+function writeLog(rows) { try { localStorage.setItem(LOG_KEY, JSON.stringify(rows.slice(-LOG_MAX))); } catch (e) {} }
+function clearLog() { try { localStorage.removeItem(LOG_KEY); } catch (e) {} }
+function logRun(extra) {
+  const rows = readLog();
+  rows.push(Object.assign({
+    at: Date.now(), v: VERSION, seed: SEED, phase: SAVE.phase || 0, who: poolMode ? 'pool' : (character ? character.name : '?'),
+    stones: SAVE.stones || 0, size: W + 'x' + H, ms: Math.round(gameNow() - t0), steps,
+    optimal: Math.max(0, solutionPath.length - 1), deadEnds: deadEndsEntered,
+    chalkUsed, chalkFound, charcoalUsed, charcoalFound, pointerUses, pathUses,
+    pages: journalsRead, mapped: [...mapped.values()].filter(v => v !== 'wall').length,
+  }, extra || {}));
+  writeLog(rows);
+  return rows.length;
+}
+// hours, minutes and seconds — "1h 04m 09s", "4m 09s", "42.3s"
+function fmtTime(ms) {
+  const t = Math.max(0, ms) / 1000, h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+  const two = (n) => String(n).padStart(2, '0');
+  if (h) return `${h}h ${two(m)}m ${two(Math.floor(sec))}s`;
+  if (m) return `${m}m ${two(Math.floor(sec))}s`;
+  return sec.toFixed(1) + 's';
+}
+function statsCsv() {
+  const rows = readLog();
+  if (!rows.length) return '';
+  const cols = ['at', 'v', 'who', 'phase', 'stones', 'seed', 'size', 'ms', 'steps', 'optimal', 'deadEnds', 'chalkUsed', 'chalkFound', 'charcoalUsed', 'charcoalFound', 'pointerUses', 'pathUses', 'pages', 'mapped'];
+  const line = (r) => cols.map((c) => (c === 'at' ? new Date(r[c]).toISOString() : r[c] ?? '')).join(',');
+  return cols.join(',') + '\n' + rows.map(line).join('\n');
+}
+function showStats() {
+  const rows = readLog().slice().reverse();
+  const box = $('statsBody');
+  if (!rows.length) { box.innerHTML = '<p class="none">Nothing finished yet. Walk out of one and it will be here.</p>'; }
+  else {
+    const mazes = rows.filter((r) => r.who !== 'pool');
+    const total = rows.reduce((a, r) => a + r.ms, 0);
+    const best = {};
+    for (const r of mazes) if (!best[r.who] || r.ms < best[r.who]) best[r.who] = r.ms;
+    const head = `<p class="sum">${rows.length} finished · ${fmtTime(total)} in all</p>`
+      + Object.keys(best).map((w) => `<p class="best"><span>${w}</span><b>${fmtTime(best[w])}</b></p>`).join('');
+    const list = rows.slice(0, 40).map((r) => {
+      const d = new Date(r.at), when = `${d.getMonth() + 1}/${d.getDate()}`;
+      const ratio = r.optimal ? (r.steps / r.optimal).toFixed(2) + '×' : '';
+      return `<p class="run"><span>${when} · ${r.who}</span><b>${fmtTime(r.ms)}</b><i>${r.steps} tiles ${ratio} · seed ${r.seed}</i></p>`;
+    }).join('');
+    box.innerHTML = head + list;
+  }
+  $('stats').classList.add('show');
+}

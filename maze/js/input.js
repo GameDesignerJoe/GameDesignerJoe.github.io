@@ -1,0 +1,200 @@
+// The Maze — the stick, chalk, charcoal, lamp, gear
+//
+// Part of the engine, loaded as a plain script in the order it used to appear
+// in maze-topdown.html. Everything shares one global scope, exactly as before.
+
+// ── input ───────────────────────────────────────────────────────
+const stickEl = $('stick'), knob = $('knob');
+const KNOB_MAX = 54; let stickId = null;
+function stickCenter() { const b = stickEl.getBoundingClientRect(); return { x: b.left + b.width/2, y: b.top + b.height/2 }; }
+function setStick(clientX, clientY) {
+  const c = stickCenter(); const dx = clientX - c.x, dy = clientY - c.y;
+  const len = Math.hypot(dx, dy) || 1, k = Math.min(len, KNOB_MAX);
+  knob.style.transform = `translate(${dx/len*k}px, ${dy/len*k}px)`;
+  if (len / KNOB_MAX < CONFIG.stickDeadzone) { held = null; stickAim = null; return; }
+  held = Math.abs(dx) > Math.abs(dy) ? { dx: Math.sign(dx), dy: 0 } : { dx: 0, dy: Math.sign(dy) };
+  // the raw direction as well as the squared-off one: corridors want the axis, a room wants the
+  // way you are actually pointing
+  stickAim = { x: dx / len, y: dy / len };
+}
+function clearStick() { held = null; stickAim = null; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
+stickEl.addEventListener('pointerdown', e => { if ($('dbg').classList.contains('show')) return; stickId = e.pointerId; stickEl.classList.add('on'); stickEl.setPointerCapture(e.pointerId); setStick(e.clientX, e.clientY); e.preventDefault(); });
+stickEl.addEventListener('pointermove', e => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
+stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
+
+chalkEl.addEventListener('pointerdown', e => { e.stopPropagation(); useChalk(); });
+$('glyphs').addEventListener('pointerdown', e => { e.stopPropagation(); const g = e.target.closest('[data-g]'); if (g) useChalk(g.dataset.g); });
+cv.addEventListener('pointerdown', () => $('glyphs').classList.remove('show'));
+// Tap toggles the piece in hand; press and hold arms lock-on. The hold fires on its own clock
+// rather than on release, so you feel it lock while your thumb is still down — and the release
+// that follows must not then also count as a tap.
+let charcoalHold = 0, charcoalHeld = false;
+charcoalEl.addEventListener('pointerdown', e => { e.stopPropagation(); charcoalHeld = false;
+  clearTimeout(charcoalHold); charcoalHold = setTimeout(() => { charcoalHeld = true; lockCharcoal(); }, CONFIG.charcoalHoldMs); });
+charcoalEl.addEventListener('pointerup', e => { e.stopPropagation(); clearTimeout(charcoalHold); if (!charcoalHeld) useCharcoal(); });
+charcoalEl.addEventListener('pointercancel', () => { clearTimeout(charcoalHold); charcoalHeld = false; });
+$('lamp').addEventListener('pointerdown', e => { e.stopPropagation(); if (!hasLamp || paused || solved) return; lampOn = !lampOn; $('lamp').classList.toggle('on', lampOn); lampOn ? AUDIO.lampOn() : AUDIO.lampOff(); });
+
+const dbg = $('dbg'), opt = { arrow: $('optArrow'), path: $('optPath'), map: $('optMap') };
+let dbgClosedAt = 0;   // when a tap outside the panel dismissed it. That same tap must not also teleport you
+$('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); if (dbg.classList.contains('show')) syncLevel(); });
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveRun(true); });
+addEventListener('pagehide', () => saveRun(true));
+setInterval(() => saveRun(true), 6000);
+document.addEventListener('pointerdown', e => { if (dbg.classList.contains('show') && !dbg.contains(e.target) && !$('gear').contains(e.target)) { dbg.classList.remove('show'); dbgClosedAt = performance.now(); } }, true);
+dbg.addEventListener('pointerdown', e => e.stopPropagation());
+opt.map.addEventListener('change', () => setDebugMap(opt.map.checked));   // always opens fitted, so untick and tick to get the fit back
+$('optSize').value = SAVE.ui.size || 'auto'; $('optBranch').value = SAVE.ui.branch || 'auto'; $('optBraid').value = SAVE.ui.braid || 'auto'; $('optTurns').value = SAVE.ui.turns || 'auto'; $('optClusters').value = SAVE.ui.clusters || 'auto'; $('optTexture').value = SAVE.ui.texture || 'off'; $('optFloor').value = SAVE.ui.floor || 'wornlights'; $('optProto').value = SAVE.ui.proto || 'off';
+$('optTurns').addEventListener('change', () => { SAVE.ui.turns = $('optTurns').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optClusters').addEventListener('change', () => { SAVE.ui.clusters = $('optClusters').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optBranch').addEventListener('change', () => { SAVE.ui.branch = $('optBranch').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optBraid').addEventListener('change', () => { SAVE.ui.braid = $('optBraid').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optSize').addEventListener('change', () => { SAVE.ui.size = $('optSize').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+// One Level menu: the eight characters with the pool that comes after each of them, in the order
+// you meet them. There used to be a Phase menu and a separate Pool room menu, and between them a
+// level could be selected while poolPending was still set from somewhere else — you asked for a
+// character and got the water. Every pick here sets all of it: phase, stones, pool or not, and
+// Prototype off, so nothing can be left over from the last one.
+//
+// A character level is entered with the stones you would have put down by then; a pool with the
+// next one still in your arms. Both are the phase index, which is what makes the interleave work.
+const LEVELS = [];
+PHASES.forEach((p, i) => {
+  LEVELS.push({ label: i + ' · ' + p.who, phase: i, stones: i, pool: false });
+  if (i < STONES.length) LEVELS.push({ label: '↳ pool · ' + STONES[i], phase: i, stones: i, pool: true });
+});
+LEVELS.forEach((L, i) => { const o = document.createElement('option'); o.value = i; o.textContent = L.label; $('optLevel').appendChild(o); });
+for (let i = 0; i <= STONES.length; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i + ' put down'; $('optStones').appendChild(o); }
+// the menu says where you actually are, every time it is opened: the game moves on by itself
+// after a pool, and a menu showing the wrong level would make the next pick a silent no-op
+function syncLevel() {
+  const ph = Math.min(PHASES.length - 1, SAVE.phase || 0);
+  let i = LEVELS.findIndex(L => L.phase === ph && L.pool === !!SAVE.poolPending);
+  if (i < 0) i = LEVELS.findIndex(L => L.phase === ph && !L.pool);
+  $('optLevel').value = i; $('optStones').value = Math.min(STONES.length, SAVE.stones || 0);
+}
+syncLevel();
+$('optLevel').addEventListener('change', () => {
+  const L = LEVELS[+$('optLevel').value]; if (!L) return;
+  SAVE.phase = L.phase; SAVE.stones = L.stones; SAVE.poolPending = L.pool;
+  SAVE.ui.proto = 'off'; $('optProto').value = 'off'; $('optStones').value = L.stones;
+  delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze();
+});
+$('optStones').addEventListener('change', () => { SAVE.stones = +$('optStones').value; persist(); });
+// Zoom is pure view: no reset, no new maze, so you can drag it while you walk and watch it move.
+// All the way in is the three tiles around you; all the way out is twice the ground you normally see.
+function applyZoom(save) {
+  const v = zoomMul();
+  $('optZoom').value = v; $('zoomLbl').textContent = v.toFixed(2).replace(/0$/, '') + 'x';
+  SAVE.ui.zoom = v; if (save) persist();
+}
+// Which movement model, and whether he points the way he is actually going. Joe: "in corridors I
+// prefer the corridor movement over the free movement. But in rooms I'm more interested in the free
+// movement" — that is the default; the other two are here to be felt against it.
+// which sections you left open, remembered. The panel is long enough now that reopening it all
+// every time was its own small tax.
+for (const d of document.querySelectorAll('#dbg .sec')) {
+  const key = 'sec:' + d.dataset.sec;
+  if (SAVE.ui[key] !== undefined) d.open = !!SAVE.ui[key];
+  d.addEventListener('toggle', () => { SAVE.ui[key] = d.open; persist(); });
+}
+// speed and fog, both plain multipliers on what the game would otherwise do
+function applySpeed(save) { const v = speedMul();
+  $('optSpeed').value = v; $('speedLbl').textContent = v.toFixed(2).replace(/0$/, '') + 'x';
+  SAVE.ui.speed = v; if (save) persist(); }
+$('optSpeed').addEventListener('input', () => { SAVE.ui.speed = +$('optSpeed').value; applySpeed(false); });
+$('optSpeed').addEventListener('change', () => { SAVE.ui.speed = +$('optSpeed').value; applySpeed(true); });
+function applyFog(save) { const v = fogMul();
+  $('optFog').value = v; $('fogLbl').textContent = v.toFixed(2).replace(/0$/, '') + 'x';
+  SAVE.ui.fog = v; if (save) persist(); }
+$('optFog').addEventListener('input', () => { SAVE.ui.fog = +$('optFog').value; applyFog(false); });
+$('optFog').addEventListener('change', () => { SAVE.ui.fog = +$('optFog').value; applyFog(true); });
+$('optMove').value = SAVE.ui.move || 'rooms';
+$('optMove').addEventListener('change', () => { SAVE.ui.move = $('optMove').value; persist(); dir = null; recenter = null; clearStick(); });
+// Joe: "give me the debug option of infinite chalk." It tops the stick up rather than skipping the
+// spend, so everything downstream — the counter, the pulse, the sound — still happens as it does.
+$('optChalk').checked = !!SAVE.ui.chalkInf;
+$('optChalk').addEventListener('change', () => { SAVE.ui.chalkInf = $('optChalk').checked; persist(); updateChalk(); });
+// Joe: "add an infinite charcoal to the debug window." The piece in hand never wears down and the
+// pocket never runs out, so the map can be charted end to end while looking at something else.
+$('optCharcoal').checked = !!SAVE.ui.charcoalInf;
+$('optCharcoal').addEventListener('change', () => { SAVE.ui.charcoalInf = $('optCharcoal').checked; persist(); if (SAVE.ui.charcoalInf && charcoal === 0 && charcoalLeft <= 0) charcoal = 1; updateCharcoal(); });
+$('optFace').checked = SAVE.ui.face !== false;
+$('optFace').addEventListener('change', () => { SAVE.ui.face = $('optFace').checked; persist(); });
+$('optZoom').addEventListener('input', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(false); applySpeed(false); applyFog(false); });
+$('optZoom').addEventListener('change', () => { SAVE.ui.zoom = +$('optZoom').value; applyZoom(true); });
+applyZoom(false);
+
+function applyStick() { document.body.classList.toggle('stick-left', (SAVE.ui.stick || 'right') === 'left'); $('optStick').value = SAVE.ui.stick || 'right'; }
+$('optStick').addEventListener('change', () => { SAVE.ui.stick = $('optStick').value; persist(); applyStick(); }); applyStick();
+// texture is pure paint — no reset, no new maze, so you can flick between them and look
+$('optTexture').addEventListener('change', () => { SAVE.ui.texture = $('optTexture').value; persist(); });
+// a prototype replaces the maze entirely, so it needs a fresh one
+$('optProto').addEventListener('change', () => { SAVE.ui.proto = $('optProto').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optFloor').addEventListener('change', () => { SAVE.ui.floor = $('optFloor').value; persist(); });
+// Joe: "should we consider setting up some sort of visual debug draw that shows how we are mapping
+// what can or can't be walked on? If this were a 3-D game, I would be asking to visualize the nav
+// mesh." And: "I suggest we also number each tile from 1-n and display it on the tile. This way I
+// can give you the seed and the tile number in a screenshot so you can debug it."
+$('optNav').checked = !!SAVE.ui.nav;
+$('optNav').addEventListener('change', () => { SAVE.ui.nav = $('optNav').checked; persist(); });
+// the path into data/text.js under every line the game shows, for writing against a screenshot
+$('optIds').checked = !!SAVE.ui.ids;
+$('optIds').addEventListener('change', () => { SAVE.ui.ids = $('optIds').checked; persist(); });
+// the run log: what you have finished, how long each took, and a CSV of the lot to take away
+$('statsBtn').addEventListener('click', () => { dbg.classList.remove('show'); showStats(); });
+$('statsClose').addEventListener('click', () => $('stats').classList.remove('show'));
+$('statsCopy').addEventListener('click', async () => {
+  const csv = statsCsv(); const b = $('statsCopy');
+  try { await navigator.clipboard.writeText(csv); b.textContent = 'Copied'; }
+  catch (e) { b.textContent = 'Could not copy'; }
+  setTimeout(() => { b.textContent = 'Copy CSV'; }, 1400);
+});
+$('statsClear').addEventListener('click', () => {
+  const b = $('statsClear');
+  if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Clear every run? Tap again'; setTimeout(() => { b.dataset.sure = '0'; b.textContent = 'Clear the log'; }, 3200); return; }
+  clearLog(); b.dataset.sure = '0'; b.textContent = 'Clear the log'; showStats();
+});
+$('optSound').checked = CONFIG.sound;
+$('optSound').addEventListener('change', () => AUDIO.setEnabled($('optSound').checked));
+$('resetSave').addEventListener('click', () => {
+  const b = $('resetSave');
+  if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again to erase'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Reset save'; }, 3000); return; }
+  SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [], ui: SAVE.ui, phase: 0, stones: 0, poolPending: false, finished: false }; delete SAVE.run; try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  b.dataset.armed = ''; b.textContent = 'Save erased';
+  setTimeout(() => b.textContent = 'Reset save', 1500);
+  // Joe: "When I reset my save it should just restart the game as well." Every other control in
+  // this panel already does exactly that; this one erased the save and left you standing in the
+  // old maze with the old HUD. Same three calls as its neighbours: a fresh maze at phase 0, asleep
+  // on the mat, the panel closed.
+  reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze();
+});
+function hardRefresh(btn) {
+  btn.textContent = 'Updating…';
+  // Come back on the mat, asleep, rather than where you were standing. An
+  // update that drops you mid-corridor never gives you the title tap, and the
+  // tap is what starts the sound. Everything done is kept; only the position
+  // and the "already awake" go.
+  parkRunAtHome();
+  // ask the network for a fresh copy (bounded), then reload with a cache-busting stamp that we strip again on load
+  const timeout = new Promise(r => setTimeout(r, 2500));
+  Promise.race([fetch(location.pathname, { cache: 'reload' }).catch(() => {}), timeout])
+    .then(() => location.replace(location.pathname + '?u=' + Date.now()));
+}
+// Reroll the maze without touching what you have done. Same phase, same stones, same pages
+// found — a new seed. Every dropdown here already rerolls; this is the one that changes
+// nothing else. `?seed=1234` in the URL replays a particular maze.
+$('newMaze').addEventListener('click', () => { delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('update').addEventListener('click', () => hardRefresh($('update')));
+// A resumed run skips the title and its tap, so nothing has unlocked the audio
+// context or started the drone — every reload used to come back silent. Take
+// the first gesture, whatever it is. begin() is idempotent, so on a fresh run
+// where wake() already did it this is a no-op.
+addEventListener('pointerdown', () => AUDIO.begin(), { once: true });
+// And every touch after: Safari interrupts the context — lock screen, notification, a switch of
+// apps — and it does not come back on its own. Joe: "really delayed"; that was the queue of sounds
+// scheduled into a stopped clock, played the moment it finally woke. begin() is cheap and idempotent.
+addEventListener('pointerdown', () => AUDIO.unlock());
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') AUDIO.unlock(); });
+
+
