@@ -44,7 +44,7 @@ function ensure() {
 function target() {
   const W = state.wind.speed, X = state.weather;
   const sh = director.shelter || 0;
-  return clamp01(0.18 + W * 0.35 + X.snowfall * 0.2 + X.whiteout * 0.6 + state.wind.gust * 0.08 - sh * 0.4);
+  return clamp01(0.18 + W * 0.35 + X.snowfall * 0.2 + X.whiteout * 0.6 + (director.frontier || 0) * 0.5 + state.wind.gust * 0.08 - sh * 0.4);
 }
 
 export function draw(ctx) {

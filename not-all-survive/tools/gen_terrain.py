@@ -1,13 +1,17 @@
-"""Generate assets/terrain.png from ref/map.png (or assets/map.webp).
+"""Generate assets/terrain.png (the auto class map) from ref/map.png (or assets/map.webp).
 
-Run from anywhere:  python tools/gen_terrain.py [--overlay out.png] [--components]
+Run from anywhere:  python tools/gen_terrain.py [--overlay out.png]
 
-Output: assets/terrain.png, half resolution (1232 x 928), RGB:
-  R = class * 40, +20 if elevated (rock face just south: plateau top / ledge)
-      classes: 0 snow, 1 deep, 2 ice, 3 thin, 4 rock, 5 path
-  G = exposure 0..255      (open plains / plateau tops high, nooks among cliffs low)
-  B = map luminance, blurred, in steps of 8 (ground.js detail placement);
-      low bit set = climb-only plateau top (walkable, but not reachable on foot)
+Output: assets/terrain.png, half resolution (1232 x 928, 1 px = 2x2 world px), RGB:
+  R = class * 32      classes: 0 snow, 1 deep, 2 ice, 3 thin, 4 rock, 5 path,
+                               6 cliff (climbable face), 7 shadow (walkable shaded ground)
+  G = 255 where the painting has ink / hatching texture (only such rock and cliff
+      pixels draw over actors; flat grey never occludes), else 0
+  B = map luminance, Gaussian-blurred, in steps of 8 (detail placement, snow lips)
+Everything else - foot regions, plateau heights, climb links, exposure, occluder
+pieces - is derived at runtime by js/world/terrain.js from the final class map
+(this file with assets/terrain-edits.png and any ?edits localStorage edits on top),
+so hand edits to classes regenerate all of it.
 Only Pillow + numpy are needed (see imgops.py).
 """
 import os
@@ -23,8 +27,9 @@ if not os.path.exists(SRC):
     SRC = os.path.join(ROOT, 'assets', 'map.webp')
 OUT = os.path.join(ROOT, 'assets', 'terrain.png')
 
-SNOW, DEEP, ICE, THIN, ROCK, PATH = range(6)
-NAMES = ['snow', 'deep', 'ice', 'thin', 'rock', 'path']
+SNOW, DEEP, ICE, THIN, ROCK, PATH, CLIFF, SHADOW = range(8)
+NAMES = ['snow', 'deep', 'ice', 'thin', 'rock', 'path', 'cliff', 'shadow']
+CLASS_STEP = 32   # R = class * CLASS_STEP
 
 # ---- hand-authored data (full-res map pixel coordinates) -------------------------
 # The open, broken sea ice at bottom centre ("darker ice means thin ice and can break").
@@ -60,6 +65,8 @@ PATH_WIDTH = 5  # in mask (half-res) px, i.e. ~10 map px wide
 # Hand corrections: polygons forced to a class, applied last (full-res coords).
 SHADOW_TO_ICE = False
 FORCE = [
+    # Narrow flat shaded slope beside the cliff north-east of spawn (critic, round 3).
+    (SHADOW, [(1696, 1442), (1706, 1440), (1712, 1452), (1714, 1490), (1708, 1492), (1700, 1470)]),
     # (class, polygon)
     # Cast shadow of the big cliff on the central lake.
     # Shaded flats at cliff feet that read as walkable ground.
@@ -95,7 +102,22 @@ def features(im):
     den = box_mean(valid.astype(np.float32), 10)
     grain = np.where(den > 0.25, num / np.maximum(den, 1e-3), 0)
     Lb = np.asarray(im.filter(ImageFilter.GaussianBlur(0.8))).astype(np.float32)
-    return half(Lm), half(inkd), half(sd), half(grain), half(Lb)
+    # Structure tensor: vertical hatching (cliff faces) has strong horizontal gradients
+    # and weak vertical ones. vert = +1 for vertical lines, E = gradient energy.
+    gx = np.zeros_like(L); gy = np.zeros_like(L)
+    gx[:, 1:-1] = (L[:, 2:] - L[:, :-2]) / 2
+    gy[1:-1] = (L[2:] - L[:-2]) / 2
+    jxx, jyy = box_mean(gx * gx, 4), box_mean(gy * gy, 4)
+    E = jxx + jyy + 1e-3
+    hv, he = half((jxx - jyy) / E), half(E)
+    hatched = np.clip((box_mean(hv, 3) - 0.05) / 0.35, 0, 1) * np.clip(box_mean(he, 3) / 150, 0, 1)
+    # Fine texture (for shadow / occlusion): any ink or tonal detail within ~3 world px.
+    m2 = box_mean(L, 1)
+    lsd2 = np.sqrt(np.maximum(box_mean(L * L, 1) - m2 * m2, 0))
+    tex = (lsd2 > 7) | (L < 150)
+    th, tw = tex.shape[0] // 2 * 2, tex.shape[1] // 2 * 2
+    tex = tex[:th, :tw].reshape(th // 2, 2, tw // 2, 2).any(axis=(1, 3))
+    return half(Lm), half(inkd), half(sd), half(grain), half(Lb), hatched, tex
 
 
 def path_mask(shape):
@@ -113,7 +135,7 @@ def path_mask(shape):
 
 def classify():
     im = Image.open(SRC).convert('L')
-    Lm, inkd, sd, grain, Lb = features(im)
+    Lm, inkd, sd, grain, Lb, hatched, tex = features(im)
     H, W = Lm.shape
     sea = polygon_mask((H, W), SEA, 0.5)
     sky = polygon_mask((H, W), SKY, 0.5)
@@ -188,61 +210,162 @@ def classify():
     cls[near & (cls == ROCK)] = SNOW
     cls[pm] = PATH
 
-    # Reachability: foot regions plus vertical climb routes (see climb_reach).
-    lum = half(np.asarray(Image.open(SRC).convert('L').filter(ImageFilter.GaussianBlur(1))))
+    occ = lambda: (cls == ROCK) | (cls == CLIFF)
+
+    # Snow caps: the white lip on top of a face (and snowy rims) read as rock after the
+    # morphology above. Give back bright, flat, line-free "rock" next to walkable
+    # ground, up to 8 world px deep, so climbs end where the snow visibly starts.
+    brightflat = (Lm >= 236) & (sd < 2) & (inkd < 0.03) & ~sky
+    caps = np.zeros_like(brightflat)
+    for _ in range(4):
+        grow = disk_dilate(~occ(), 1) & occ() & brightflat
+        if not grow.any():
+            break
+        cls[grow] = SNOW
+        caps |= grow
+    # Snow lips: at the top of every occluder run (walkable ground directly above), the
+    # bright painted snow lip - up to 12 world px - is ground, not face.
+    o = occ()
+    lip = np.zeros_like(o)
+    for x in range(W):
+        for y0, y1 in column_runs(o[:, x]):
+            if y0 == 0:
+                continue
+            y = y0
+            while y < min(y1 - 2, y0 + 6) and Lb[y, x] >= 236:
+                lip[y, x] = True
+                y += 1
+    lip &= ~sky
+    cls[lip] = SNOW
+    caps |= lip
+
+    # Larger white snowfields wholly inside rock (mesa tops classed rock): snow too;
+    # the reachability pass below seals any that no climb reaches.
+    fields = remove_small(open_(occ() & brightflat, 1), 40)
+    cls[fields] = SNOW
+    caps |= fields
+    print(f'  snow caps / tops returned to snow: {np.mean(caps) * 100:.2f}% of map')
+
+    # Shadow: shaded ground - cast shadows at cliff feet, shaded snow slopes at the foot
+    # of mountains - is flat, low-contrast grey with no ink, hatching or tonal detail.
+    # Grow walkable ground into such flat "rock" up to ~50 world px (geodesically, so it
+    # follows the flat patch from the walkable edge); it becomes walkable shadow.
+    cand = (cls == ROCK) & ~tex & (Lm >= 135) & (Lm <= 240) & (hatched < 0.5) & ~sky
+    shadow = np.zeros_like(cand)
+    front = ~occ()
+    for _ in range(7):
+        # Steps of 4 px hop over the thin ink outline that often rims a shaded patch.
+        grow = disk_dilate(front, 4) & cand & ~shadow
+        if not grow.any():
+            break
+        shadow |= grow
+        front = grow
+    shadow = open_(shadow, 1)
+    # The hopped-over outline pixels between ground and shadow become shadow too.
+    walk0 = ~occ()
+    gap = disk_erode(disk_dilate(shadow | walk0, 3), 3) & (cls == ROCK) & (hatched < 0.5) & ~sky
+    shadow |= gap & disk_dilate(shadow, 3)
+    cls[shadow] = SHADOW
+    print(f'  shaded ground made walkable (shadow): {np.mean(shadow) * 100:.2f}% of map')
+
+    # Cliff vs rock, then reachability (foot regions + climbs up/down cliff faces).
     sx, sy = SPAWN[0] // 2, SPAWN[1] // 2
-    assert cls[sy, sx] != ROCK, 'spawn is not walkable'
-    sealed, plateau = climb_reach(cls, lum, (sy, sx))
+    assert not occ()[sy, sx], 'spawn is not walkable'
+    split_cliffs(cls, hatched, sky)
+    sealed, plateau = climb_reach(cls, (sy, sx))
     print(f'  sealed pockets (no foot or climb route) -> rock: {np.mean(sealed) * 100:.1f}% of map')
     cls[sealed] = ROCK
-    # Pockets filled in above leave square edges: smooth again, only ever adding rock,
-    # then re-run reachability.
-    rb = np.asarray(Image.fromarray(((cls == ROCK) * 255).astype(np.uint8))
+    # Pockets filled in above leave square edges: smooth again, only ever adding rock.
+    rb = np.asarray(Image.fromarray((occ() * 255).astype(np.uint8))
                     .filter(ImageFilter.GaussianBlur(1.6))) > 127
-    add = rb & (cls != ROCK) & ~pm & ~near
+    add = rb & ~occ() & ~pm & ~near
     cls[add] = ROCK
-    sealed, plateau = climb_reach(cls, lum, (sy, sx))
+    split_cliffs(cls, hatched, sky)
+    sealed, plateau = climb_reach(cls, (sy, sx))
     cls[sealed] = ROCK
+    split_cliffs(cls, hatched, sky)
     print(f'  climb-only plateau tops: {np.mean(plateau) * 100:.1f}% of map')
-    return cls, plateau, lum
+    lum = half(np.asarray(Image.open(SRC).convert('L').filter(ImageFilter.GaussianBlur(1))))
+    return cls, plateau, lum, disk_dilate(tex, 1)   # occlusion flag: texture within ~2 px
 
 
 # Climb rules, in mask px (1 mask px = 2 world units) - keep in step with terrain.js.
-CLIMB_BASE = 4        # rock must start within 8 world units
-CLIMB_MAX = 55        # at most 110 world units of rock
+CLIMB_MAX = 55        # at most 110 world units of face
 CLIMB_LAND = 2        # landing stays walkable for 4 world units
 MIN_PLATEAU = 60      # mask px: smaller climb-only pockets aren't worth keeping
 
 
-def climb_reach(cls, lum, spawn):
-    """Foot-connected regions, joined by vertical climb routes (up or down a face).
-    Returns (sealed, plateau): sealed = walkable cells with no foot+climb route from
-    the spawn; plateau = reachable only by climbing (not in the spawn's foot region)."""
-    walk = cls != ROCK
+def column_runs(occ_col):
+    """(start, end_exclusive) runs of True in a 1D bool array."""
+    d = np.diff(np.concatenate([[0], occ_col.astype(np.int8), [0]]))
+    return zip(np.nonzero(d == 1)[0], np.nonzero(d == -1)[0])
+
+
+def split_cliffs(cls, hatched, sky):
+    """Every occluder pixel becomes CLIFF or ROCK. A vertical run of occluder in one
+    column is a cliff when it has walkable ground directly above AND below, is at most
+    CLIMB_MAX long, and is mostly vertical hatching; everything else is rock."""
+    H, W = cls.shape
+    occ = (cls == ROCK) | (cls == CLIFF)
+    cliff = np.zeros_like(occ)
+    for x in range(W):
+        for y0, y1 in column_runs(occ[:, x]):
+            if y0 == 0 or y1 >= H or y1 - y0 > CLIMB_MAX:
+                continue
+            if hatched[y0:y1, x].mean() >= 0.35:
+                cliff[y0:y1, x] = True
+    # Tidy: majority along each band (13 columns wide, 5 rows tall), within occluders,
+    # so climbability doesn't flip column by column inside one face.
+    c = cliff.astype(np.float32)
+    k = 6
+    cs = np.cumsum(np.pad(c, ((0, 0), (k + 1, k))), axis=1)
+    horiz = (cs[:, 2 * k + 1:] - cs[:, :-2 * k - 1]) / (2 * k + 1)
+    o = occ.astype(np.float32)
+    os_ = np.cumsum(np.pad(o, ((0, 0), (k + 1, k))), axis=1)
+    ohoriz = (os_[:, 2 * k + 1:] - os_[:, :-2 * k - 1]) / (2 * k + 1)
+    frac = box_mean(horiz, 0) / np.maximum(ohoriz, 1e-3)
+    frac = np.minimum(frac, 1)
+    vert = np.zeros_like(frac)
+    for d in range(-2, 3):
+        vert += np.roll(frac, d, axis=0)
+    cliff = (vert / 5 > 0.5) & occ & ~sky
+    # Close gaps: in each row, a stretch of non-cliff occluder up to 24 world px wide
+    # with cliff on both sides belongs to the same face.
+    for y in range(H):
+        row, orow = cliff[y], occ[y]
+        x = 0
+        while x < W:
+            if row[x] or not orow[x]:
+                x += 1
+                continue
+            x0 = x
+            while x < W and orow[x] and not row[x]:
+                x += 1
+            if x0 > 0 and x < W and row[x0 - 1] and row[x] and x - x0 <= 12:
+                row[x0:x] = True
+    cls[occ] = ROCK
+    cls[cliff] = CLIFF
+
+
+def climb_reach(cls, spawn):
+    """Foot-connected regions, joined by vertical climbs through CLIFF runs (up or
+    down). Returns (sealed, plateau): sealed = walkable cells with no foot+climb route
+    from the spawn; plateau = reachable only by climbing."""
+    occ = (cls == ROCK) | (cls == CLIFF)
+    walk = ~occ
     lab, sizes = label(walk)
     H, W = cls.shape
     edges = set()
     for x in range(W):
-        col = walk[:, x]
-        lc = lab[:, x]
-        lm = lum[:, x]
-        # foot of a face: walkable cell with rock right below it (climb down / south)
-        for y in np.nonzero(col[:-1] & ~col[1:])[0]:
-            y1 = y + 1
-            e = y1
-            while e < H and not col[e] and e - y1 <= CLIMB_MAX:
-                e += 1
-            if e >= H or e - y1 > CLIMB_MAX:
+        col = cls[:, x]
+        for y0, y1 in column_runs(occ[:, x]):
+            if y0 == 0 or y1 + CLIMB_LAND >= H or y1 - y0 > CLIMB_MAX:
                 continue
-            if not col[e:e + CLIMB_LAND + 1].all() or e + CLIMB_LAND >= H:
+            if (col[y0:y1] == CLIFF).mean() < 0.5 or not walk[y1:y1 + CLIMB_LAND + 1, x].all():
                 continue
-            length = e - y1
-            if length * 2 > 60 and lm[y1:e].mean() < 115:
-                continue
-            a_, b_ = lc[y], lc[e]
+            a_, b_ = lab[y0 - 1, x], lab[y1, x]
             if a_ != b_:
                 edges.add((min(a_, b_), max(a_, b_)))
-    # BFS from the spawn region over climb edges.
     adj = {}
     for a_, b_ in edges:
         adj.setdefault(a_, []).append(b_)
@@ -264,60 +387,29 @@ def climb_reach(cls, lum, spawn):
     return sealed, plateau
 
 
-def exposure(cls):
-    """0..1: open ground far from rock is exposed; rock directly south (below) means
-    we're on a plateau / ridge top, which is more exposed still."""
-    rock = (cls == ROCK).astype(np.float32)
-    near = box_mean(rock, 25)             # ~100 full px window
-    open_ = np.clip(1 - near * 1.6, 0, 1)
-    # Rock just below a walkable point (cliff face under a mesa top) -> elevated.
-    below = np.zeros_like(rock)
-    for dy in range(2, 14):
-        below[:-dy] = np.maximum(below[:-dy], rock[dy:])
-    above = np.zeros_like(rock)
-    for dy in range(2, 14):
-        above[dy:] = np.maximum(above[dy:], rock[:-dy])
-    walk = 1 - rock
-    elevated = np.clip(box_mean(below * (1 - above) * walk, 8) * 2.5, 0, 1)
-    e = 0.15 + 0.7 * open_ + 0.35 * elevated
-    e[cls == ICE] += 0.1
-    e = np.clip(box_mean(e, 3), 0, 1)
-    return e
-
-
-def elevated_mask(cls):
-    """Walkable points with a rock face just below them (south, within ~30 map px):
-    plateau / mesa tops and ledges, seen from the oblique camera."""
-    rock = cls == ROCK
-    below = np.zeros_like(rock)
-    for dy in range(2, 16):
-        below[:-dy] |= rock[dy:]
-    return below & ~rock
+CLASS_COLORS = np.array([[0, 0, 0], [0, 230, 0], [0, 150, 255], [255, 0, 255], [255, 40, 0],
+                         [255, 220, 0], [255, 140, 0], [0, 200, 170]], np.float32)
+CLASS_ALPHA = np.array([0, .4, .4, .55, .45, .8, .55, .5])
 
 
 def main():
-    cls, plateau, lum = classify()
-    elev = elevated_mask(cls)
-    exp = exposure(cls)
+    cls, plateau, lum, textured = classify()
     H, W = cls.shape
     rgb = np.zeros((H, W, 3), np.uint8)
-    rgb[..., 0] = cls * 40 + elev * 20   # +20 = on a plateau top / ledge
-    rgb[..., 1] = (np.round(exp * 15) * 17).astype(np.uint8)  # 16 levels: compresses well
-    # map luminance (32 levels, low 3 bits free) | 1 = climb-only plateau top
-    rgb[..., 2] = (np.clip(np.round(lum / 8), 0, 31) * 8).astype(np.uint8) | plateau.astype(np.uint8)
+    rgb[..., 0] = cls * CLASS_STEP
+    rgb[..., 1] = textured.astype(np.uint8) * 255   # 255 = inked / hatched (may occlude)
+    rgb[..., 2] = (np.clip(np.round(lum / 8), 0, 31) * 8).astype(np.uint8)
     Image.fromarray(rgb, 'RGB').save(OUT, optimize=True)
     print('wrote', OUT, (W, H), os.path.getsize(OUT), 'bytes')
     for i, n in enumerate(NAMES):
-        print(f'  {n:5s} {np.mean(cls == i) * 100:5.1f}%')
+        print(f'  {n:6s} {np.mean(cls == i) * 100:5.1f}%')
     if '--overlay' in sys.argv:
         out = sys.argv[sys.argv.index('--overlay') + 1]
         base = np.asarray(Image.open(SRC).convert('RGB').resize((W, H))).astype(np.float32)
-        col = np.array([[0, 0, 0], [0, 230, 0], [0, 150, 255], [255, 0, 255], [255, 40, 0], [255, 220, 0]], np.float32)
-        a = np.array([0, .4, .4, .55, .45, .8])[cls][..., None]
-        o = base * (1 - a) + col[cls] * a
-        o[plateau] = o[plateau] * 0.5 + np.array([120, 0, 200]) * 0.5   # plateau tops: purple
+        a = CLASS_ALPHA[cls][..., None]
+        o = base * (1 - a) + CLASS_COLORS[cls] * a
+        o[plateau] = o[plateau] * 0.6 + np.array([120, 0, 200]) * 0.4   # plateau tops: purple
         Image.fromarray(o.astype(np.uint8)).save(out)
-        Image.fromarray((exp * 255).astype(np.uint8)).save(out.replace('.png', '_exp.png'))
 
 
 if __name__ == '__main__':

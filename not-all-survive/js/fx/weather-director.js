@@ -18,9 +18,9 @@ const clamp01 = v => Math.max(0, Math.min(1, v));
 const SPELLS = {
   calm:    { wind: [0.08, 0.2],  snow: [0.12, 0.3],  white: 0,    gustEvery: [16, 30], dur: [25, 45], rate: 0.04 },
   build:   { wind: [0.4, 0.55],  snow: [0.3, 0.5],   white: 0,    gustEvery: [9, 14],  dur: [14, 22], rate: 0.035 },
-  windy:   { wind: [0.6, 0.78],  snow: [0.35, 0.55], white: 0,    gustEvery: [5, 9],   dur: [30, 50], rate: 0.05 },
-  stormIn: { wind: [0.9, 1],     snow: [0.9, 1],     white: 0.9,  gustEvery: [3, 5],   dur: [10, 11], rate: 0.1 },
-  storm:   { wind: [0.88, 1],    snow: [0.9, 1],     white: 0.92, gustEvery: [3, 6],   dur: [22, 38], rate: 0.1 },
+  windy:   { wind: [0.6, 0.78],  snow: [0.35, 0.55], white: 0.3,    gustEvery: [5, 9],   dur: [30, 50], rate: 0.05 },
+  stormIn: { wind: [0.9, 1],     snow: [0.9, 1],     white: 0.96,  gustEvery: [3, 5],   dur: [10, 11], rate: 0.1 },
+  storm:   { wind: [0.88, 1],    snow: [0.9, 1],     white: 0.98, gustEvery: [3, 6],   dur: [22, 38], rate: 0.1 },
   clear:   { wind: [0.45, 0.6],  snow: [0.3, 0.45],  white: 0,    gustEvery: [6, 10],  dur: [12, 16], rate: 0.075 },
 };
 const NEXT = { calm: () => 'build', build: () => 'windy', windy: () => (Math.random() < 0.6 ? 'stormIn' : 'calm'),
@@ -165,6 +165,9 @@ let tAccum = 0;
 export function update(dt) {
   tAccum += dt;
   const W = state.wind, Wx = state.weather;
+  // The spell's own values live in d.base; what we publish may be blended toward the
+  // frontier storm (see below), so restore the unblended values before evolving them.
+  if (d.base) { W.speed = d.base.speed; Wx.snowfall = d.base.snow; Wx.whiteout = d.base.white; }
 
   if (mode === 'cycle') {
     d.left -= dt;
@@ -182,6 +185,28 @@ export function update(dt) {
 
   // Direction wanders slowly around its base, a little more in storms.
   W.angle = d.baseAngle + Math.sin(tAccum * 0.031) * 0.22 + Math.sin(tAccum * 0.013 + 2) * 0.15;
+
+  // The edge of the world: whatever the cycle is doing, deep in the border the weather
+  // ramps to a full whiteout, with heavy snow and the wind blowing in from the edge
+  // (toward the interior) so it pushes the explorer back.
+  d.base = { speed: W.speed, snow: Wx.snowfall, white: Wx.whiteout };
+  const fr = state.frontier, fa = fr ? clamp01(fr.amount) : 0;
+  d.frontier = fa;
+  // Over the first ~60 px of the border the weather hard-cuts toward the peak.
+  const e0 = Math.min(1, fa / 0.14);
+  d.frontierEsc = e0 * e0 * (3 - 2 * e0);
+  if (fa > 0.001) {
+    const k = Math.min(1, fa * 1.25);
+    if (fr.inX || fr.inY) {
+      const bx = Math.cos(W.angle) * (1 - k) + fr.inX * k, by = Math.sin(W.angle) * (1 - k) + fr.inY * k;
+      W.angle = Math.atan2(by, bx) + Math.sin(tAccum * 0.4) * 0.12 * k;
+    }
+    const esc = d.frontierEsc;
+    W.speed = W.speed + (1 - W.speed) * Math.max(esc * 0.9, Math.min(1, fa * 1.4));
+    Wx.snowfall = Wx.snowfall + (1 - Wx.snowfall) * Math.max(esc * 0.9, Math.min(1, fa * 1.6));
+    Wx.whiteout = Wx.whiteout + (1 - Wx.whiteout) * Math.max(esc * 0.86, Math.pow(fa, 0.85));
+    if (fa > 0.2) d.sweep = 1;
+  }
 
   // Gust fronts.
   d.nextGust -= dt;

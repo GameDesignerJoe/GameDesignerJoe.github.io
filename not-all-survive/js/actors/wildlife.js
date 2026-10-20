@@ -207,9 +207,9 @@ export function drawables() {
   if (!bear) return [];
   const r = visibleRect(30);
   const out = [];
-  if (onScreen(r, bear.x, bear.y)) out.push({ y: bear.y, draw: ctx => drawBear(ctx, bear) });
+  if (onScreen(r, bear.x, bear.y)) out.push({ x: bear.x, y: bear.y, draw: ctx => drawBear(ctx, bear) });
   for (const g of groups) for (const m of g.members) {
-    if (onScreen(r, m.x, m.y)) out.push({ y: m.y, draw: ctx => drawPenguin(ctx, m) });
+    if (onScreen(r, m.x, m.y)) out.push({ x: m.x, y: m.y, draw: ctx => drawPenguin(ctx, m) });
   }
   return out;
 }

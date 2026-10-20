@@ -14,6 +14,7 @@ const MODULES = {
   terrain: './world/terrain.js',
   map: './world/map.js',
   ground: './world/ground.js',
+  frontier: './world/frontier.js',   // before explorer and weather, which both read it
   explorer: './actors/explorer.js',
   footprints: './fx/footprints.js',
   weather: './fx/weather.js',        // after explorer: sees step events, draws drift over prints
@@ -22,7 +23,7 @@ const MODULES = {
   audio: './audio/audio.js',
 };
 const only = state.params.get('only')?.split(',');
-const ALWAYS = ['terrain', 'map', 'ground'];
+const ALWAYS = ['terrain', 'map', 'ground', 'frontier'];
 const names = Object.keys(MODULES).filter(n => !only || ALWAYS.includes(n) || only.includes(n));
 
 // Each module loads and runs in isolation: one broken module logs an error and is
@@ -98,12 +99,21 @@ function frame(now) {
   ctx.save();
   applyCamera(ctx);
   for (const s of systems) drawLayer(s, 'drawGround');
+  // Depth sort. Anything standing on the ground reports its feet as { x, y } and is
+  // keyed by terrain.sortKey (y plus the height of the ground it stands on), so it
+  // sorts correctly against the cliff/rock occluder pieces from layers.js, which
+  // arrive pre-keyed (no x). Drawables without x keep their plain y.
+  const sortKey = terrainMod?.sortKey;
   const actors = [];
   for (const s of systems) {
     const d = safe(s, () => s.mod.drawables?.());
-    if (d) for (const a of d) actors.push({ ...a, sys: s });
+    if (!d) continue;
+    for (const a of d) {
+      const key = a.x !== undefined && sortKey ? sortKey(a.x, a.y) : a.y;
+      actors.push({ draw: a.draw, key, sys: s });
+    }
   }
-  actors.sort((a, b) => a.y - b.y);
+  actors.sort((a, b) => a.key - b.key);
   for (const a of actors) { ctx.save(); safe(a.sys, () => a.draw(ctx)); ctx.restore(); }
   for (const s of systems) drawLayer(s, 'drawSky');
   ctx.restore();
@@ -120,11 +130,13 @@ function drawLayer(s, hook) {
   ctx.restore();
 }
 
+let terrainMod = null;
 async function boot() {
   // Fetch every module in parallel, but keep the declared update order.
   const loaded = await Promise.all(names.map(name =>
     import(MODULES[name]).then(mod => ({ name, mod }), e => console.error(`[${name}] failed to load:`, e))));
   for (const s of loaded) if (s) systems.push(s);
+  terrainMod = systems.find(s => s.name === 'terrain')?.mod ?? null;
   await Promise.all(systems.map(s => safe(s, () => s.mod.init?.())));
 }
 

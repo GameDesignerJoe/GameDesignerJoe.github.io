@@ -88,6 +88,8 @@ export function init() {
   // test hooks: NAS.player.knock('fall'|'shove'), NAS.player.climb(dx, dy)
   P.knock = kind => (kind === 'shove' ? startShove(1) : startFall(1));
   P.climb = (dx = 0, dy = -1) => tryClimb(dx, dy);
+  P.climbTap = (dir = 1) => climbRequest(dir);   // one climbing cycle (dir -1: down)
+  P.blowOff = () => tearOff();
   P.facing = Math.PI / 2;
   if (state.params.get('demo') === 'dir') P.facing = (parseFloat(state.params.get('a') || '90') * Math.PI) / 180;
 }
@@ -112,7 +114,10 @@ export function update(dt) {
   const wa = state.wind.angle ?? 0, ws = state.wind.speed ?? 0, gust = state.wind.gust ?? 0;
   let shelter = 0;
   try { shelter = T.shelterAt ? clamp(T.shelterAt(P.x, P.y) || 0) : 0; } catch { shelter = 0; }
-  const wEff = clamp((ws + gust * 0.7) * (1 - shelter));
+  // the world edge: weather.js already turns the wind to blow in from the edge; out here no rock
+  // gives shelter, and the storm itself is the obstacle
+  const fr = state.frontier, fa = fr ? clamp(fr.amount || 0) : 0;
+  const wEff = Math.max(clamp((ws + gust * 0.7) * (1 - shelter)), fa);
   P.exposure = wEff;
   const windPose = smooth(0.42, 0.85, wEff);
   // A gust arriving: a stagger that pushes the body and hood downwind.
@@ -125,18 +130,26 @@ export function update(dt) {
   handleActions();
   if (P.mode === 'climb') { updateClimb(dt); finishFrame(dt, 'rock', 0, wEff, wa); return; }
   if (P.mode === 'down') { updateDown(dt); finishFrame(dt, ter, 0, wEff, wa); return; }
+  if (P.mode === 'refuse') { updateRefuse(dt); finishFrame(dt, ter, 0, wEff, wa); return; }
   ovrW = approach(ovrW, 0, 5, dt);
 
   // --- intent ----------------------------------------------------------------------------
   let ix = inp.x, iy = inp.y;
   if (P.mode === 'approach' && route) {
     // walk to the foot of the climb by ourselves
-    const dx = route.bottom.x - P.x, dy = route.bottom.y - P.y, d = Math.hypot(dx, dy);
+    // follow the waypoints round any rock, then the last leg to the route
+    while (route.path && route.path.length > 1 && Math.hypot(route.path[0].x - P.x, route.path[0].y - P.y) < 4) route.path.shift();
+    // no progress for a while (a gust shoved us into a corner): plan again from here
+    route.stuckT = P.speed < 1.5 && approachT > 0.5 ? (route.stuckT || 0) + dt : 0;
+    if (route.stuckT > 1.2) { route.path = findPath(P.x, P.y, route.walkTo.x, route.walkTo.y); route.stuckT = 0; }
+    const wp = route.path && route.path.length > 1 ? route.path[0] : route.walkTo;
+    const dRoute = Math.hypot(route.walkTo.x - P.x, route.walkTo.y - P.y);
+    const dx = wp.x - P.x, dy = wp.y - P.y, d = Math.max(0.001, Math.hypot(dx, dy));
     approachT += dt;
     // arrived (or about to step past it this frame, or pressed against the rock right by it)
-    if (d < Math.max(1.4, P.speed * dt * 1.5) || (approachT > 0.6 && d < 5 && P.speed < 1)) { beginClimb(); finishFrame(dt, ter, 0, wEff, wa); return; }
-    if (approachT > 8) { P.mode = 'walk'; route = null; }
-    else { ix = dx / d * Math.min(1, d / 3 + 0.4); iy = dy / d * Math.min(1, d / 3 + 0.4); }
+    if (dRoute < Math.max(1.4, P.speed * dt * 1.5) || (approachT > 0.6 && dRoute < 5 && P.speed < 1)) { beginClimb(); finishFrame(dt, ter, 0, wEff, wa); return; }
+    if (approachT > route.limit) { P.mode = 'walk'; route = null; }
+    else { const m = Math.min(1, dRoute / 3 + 0.4); ix = dx / d * m; iy = dy / d * m; }
   }
   if (shoveT > 0) { ix *= 0.15; iy *= 0.15; }
   const mag = Math.min(1, Math.hypot(ix, iy));
@@ -146,11 +159,14 @@ export function update(dt) {
 
   // Pause at each foot plant on ice: |sin| is 0 at the plants.
   tentMod = 1 - pose.tent * (1 - Math.pow(Math.abs(Math.sin(phase * Math.PI * 2)), 0.6));
-  let spd = BASE_SPEED * sf * mag * (1 - 0.45 * wEff * into) * (1 - pose.tent * 0.35);
+  let spd = BASE_SPEED * sf * mag * (1 - 0.45 * wEff * into) * (1 - pose.tent * 0.35) * lerp(1, 0.45, fa);
   if (staggerT > 0) spd *= 0.35;
   if (slipT > 0) spd *= 0.5;
-  const tvx = active ? Math.cos(wantDir) * spd : 0;
-  const tvy = active ? Math.sin(wantDir) * spd * KY : 0;
+  // a steady push back toward the interior, stronger the deeper in
+  // (not while walking a planned route to a climb: the path already threads the rock)
+  const drift = fa > 0 && P.mode !== 'approach' ? fa * (2.5 + 7 * fa) : 0;
+  const tvx = (active ? Math.cos(wantDir) * spd : 0) + (fa > 0 ? fr.inX * drift : 0);
+  const tvy = (active ? Math.sin(wantDir) * spd * KY : 0) + (fa > 0 ? fr.inY * drift : 0);
   const k = active ? prof.accel : prof.fric;
   P.vx = approach(P.vx, tvx, k, dt);
   P.vy = approach(P.vy, tvy, k, dt);
@@ -208,7 +224,7 @@ export function update(dt) {
   const g = pose.gait, idle = 1 - smooth(0.1, 0.5, g);
   const up = wrapPi(wa + Math.PI - P.facing);
   const back = Math.cos(up) < 0 ? 0.35 : 1;
-  const wl = windPose * (0.18 + 0.2 * g);
+  const wl = windPose * (0.18 + 0.2 * g) + fa * 0.16;
   pose.windLeanF = approach(pose.windLeanF, Math.cos(up) * wl * back, 3, dt);
   pose.windLeanS = approach(pose.windLeanS, Math.sin(up) * wl * 0.8, 3, dt);
   const side = Math.sin(up);
@@ -249,7 +265,7 @@ export function update(dt) {
   pose.headYaw = approach(pose.headYaw, look * 0.75 - pose.brace * Math.sign(up || 1) * 0.35, 1.4, dt);
   // --- wind knockdowns: in a real storm, out in the open, now and then ------------------------
   if (P.mode === 'walk' && shoveT <= 0 && cowerW < 0.3) {
-    const storm = smooth(0.62, 0.9, ws) * smooth(0.4, 0.85, gust) * (1 - smooth(0.25, 0.6, shelter));
+    const storm = Math.max(smooth(0.62, 0.9, ws) * smooth(0.4, 0.85, gust) * (1 - smooth(0.25, 0.6, shelter)), smooth(0.55, 1, fa) * 1.6);
     const slickK = ter === 'ice' || ter === 'thin' ? 2 : 1;
     if (storm > 0 && rand() < storm * slickK * dt / 110) startFall(storm);
     else if (storm > 0 && rand() < storm * slickK * dt / 40) startShove(storm);
@@ -304,23 +320,111 @@ let downT = 0, downV = { x: 0, y: 0 }, downDir = 0;
 let cowerW = 0, hunkerW = 0, hunkerSide = 1, idleT = 0, rockScanT = 0, rockHit = null;
 const chips = [];
 
-// --- climbing: finding a route ----------------------------------------------------------------------
+// --- climbing: input -------------------------------------------------------------------------------
+// Off the wall: a tap on a face (or Space/E facing one) walks to the route and mounts it.
+// On the wall: each fresh tap (or Space/E) is ONE climbing cycle; a tap well below the climber
+// climbs down a cycle instead. Holding doesn't repeat; one tap may be queued during a cycle.
 function handleActions() {
   const inp = state.input;
-  // only fresh presses count (input.action defaults to 0; a press made mid-climb must not fire later)
-  const fresh = t => t > 0 && state.time - t < 0.4;
-  if (P.mode !== 'walk' && P.mode !== 'cower') { if (inp.tap) lastTapT = inp.tap.t; if (inp.action) lastActT = inp.action; return; }
-  if (inp.tap && inp.tap.t !== lastTapT && fresh(inp.tap.t)) {
-    lastTapT = inp.tap.t;
-    const dx = inp.tap.x - P.x, dy = inp.tap.y - P.y;
-    if (Math.hypot(dx, dy) < 30 && !walkable(inp.tap.x, inp.tap.y)) {
-      if (tryClimb(dx, dy)) inp.tap = null;
+  // only fresh presses count (input.action defaults to 0; a press made mid-animation must not fire later)
+  const fresh = t => t > 0 && state.time - t < 1.0;
+  let tap = null, act = false;
+  if (inp.tap && inp.tap.t !== lastTapT) { lastTapT = inp.tap.t; if (fresh(inp.tap.t)) tap = inp.tap; }
+  if (inp.action && inp.action !== lastActT) { lastActT = inp.action; if (fresh(inp.action)) act = true; }
+  if (P.mode === 'climb') {
+    if (tap || act) {
+      // The climb keeps the direction it started in (route.up); later taps just continue it.
+      // Reversing takes a tap clearly on the other side: well below the boots when going up,
+      // well above the head when going down.
+      const c = climb;
+      let dir = c ? c.lock : 1;
+      if (c && tap) {
+        if (c.lock > 0 && tap.y > P.y + 25) dir = -1;
+        else if (c.lock < 0 && tap.y < P.y - 17 - 25) dir = 1;
+      }
+      if (c) c.lock = dir;
+      climbRequest(dir);
+      if (tap) inp.tap = null; else inp.action = null;
+    }
+    return;
+  }
+  if (P.mode !== 'walk' && P.mode !== 'cower') return;
+  if (tap && tapClimb(tap)) inp.tap = null;
+  if (act && tryClimb(Math.cos(P.facing), Math.sin(P.facing) * KY)) inp.action = null;
+}
+
+// A tap on rock, or on ground at another level (below a lip / up on a plateau), asks terrain for
+// the best vertical route toward it: tap above climbs up, tap below climbs down.
+function tapClimb(tap) {
+  let other = !walkable(tap.x, tap.y);
+  try { if (!other && T.regionAt) other = T.regionAt(tap.x, tap.y) !== T.regionAt(P.x, P.y); } catch { /* keep */ }
+  if (!other) return false;
+  let r = null;
+  try { r = T.bestClimb?.(P.x, P.y, tap.x, tap.y) ?? null; } catch { r = null; }
+  if (!r) {
+    const dx = tap.x - P.x, dy = tap.y - P.y;
+    return Math.hypot(dx, dy) < 30 && tryClimb(dx, dy);
+  }
+  setRoute(r);
+  return true;
+}
+function setRoute(r) {
+  const up = r.up !== false;
+  route = { ...r, up, bottom: up ? r.start : r.end, top: up ? r.end : r.start, walkTo: r.walkTo || r.start };
+  route.path = findPath(P.x, P.y, route.walkTo.x, route.walkTo.y);
+  let len = 0, a = P;
+  for (const q of route.path) { len += Math.hypot(q.x - a.x, q.y - a.y); a = q; }
+  route.limit = 10 + len / 2.5;          // give up if it takes far longer than the walk should
+  P.mode = 'approach'; approachT = 0;
+}
+
+// Walking to a route that's round a rock spur: breadth-first search on a coarse grid (4u cells,
+// within ~180u), returned as simplified waypoints ending at the target.
+function findPath(x0, y0, x1, y1) {
+  const G = 5, pad = 260;
+  const minX = Math.min(x0, x1) - pad, minY = Math.min(y0, y1) - pad;
+  const W = Math.ceil((Math.abs(x1 - x0) + 2 * pad) / G) + 1, Hh = Math.ceil((Math.abs(y1 - y0) + 2 * pad) / G) + 1;
+  if (W * Hh > 40000) return [{ x: x1, y: y1 }];
+  const cell = (x, y) => [Math.round((x - minX) / G), Math.round((y - minY) / G)];
+  const [sx, sy] = cell(x0, y0), [tx, ty] = cell(x1, y1);
+  const prev = new Int32Array(W * Hh).fill(-1);
+  // cells need body clearance, so the path never threads a gap the walk collision won't pass
+  const ok = (i, j) => {
+    const x = minX + i * G, y = minY + j * G;
+    if (!walkable(x, y)) return false;
+    for (let a = 0; a < 8; a++) if (!walkable(x + Math.cos(a * 0.785) * 4, y + Math.sin(a * 0.785) * 4)) return false;
+    return true;
+  };
+  const q = [sy * W + sx]; prev[sy * W + sx] = sy * W + sx;
+  let found = -1;
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], i = c % W, j = (c / W) | 0;
+    if (Math.abs(i - tx) <= 1 && Math.abs(j - ty) <= 1) { found = c; break; }
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const ni = i + di, nj = j + dj, n = nj * W + ni;
+      if (ni < 0 || nj < 0 || ni >= W || nj >= Hh || prev[n] >= 0) continue;
+      if (!ok(ni, nj) && !(Math.abs(ni - tx) <= 1 && Math.abs(nj - ty) <= 1)) continue;
+      prev[n] = c; q.push(n);
     }
   }
-  if (inp.action && inp.action !== lastActT && fresh(inp.action)) {
-    lastActT = inp.action;
-    if (tryClimb(Math.cos(P.facing), Math.sin(P.facing) * KY)) inp.action = null;
-  }
+  if (found < 0) return [{ x: x1, y: y1 }];
+  const pts = [];
+  for (let c = found; ; c = prev[c]) { pts.push({ x: minX + (c % W) * G, y: minY + ((c / W) | 0) * G }); if (prev[c] === c) break; }
+  pts.reverse();
+  // keep only the corners: drop points whose neighbours can see each other
+  // a leg is clear if a body-wide corridor along it is walkable (the walk collision looks 1.5u ahead)
+  const clear = (a, b) => {
+    const d = Math.hypot(b.x - a.x, b.y - a.y) || 1, n = Math.ceil(d / 2), px = -(b.y - a.y) / d * 2.2, py = (b.x - a.x) / d * 2.2;
+    for (let k = 1; k < n; k++) {
+      const x = a.x + (b.x - a.x) * k / n, y = a.y + (b.y - a.y) * k / n;
+      if (!walkable(x, y) || !walkable(x + px, y + py) || !walkable(x - px, y - py)) return false;
+    }
+    return true;
+  };
+  const out = []; let a = { x: x0, y: y0 };
+  for (let k = 1; k < pts.length; k++) if (!clear(a, pts[k])) { out.push(pts[k - 1]); a = pts[k - 1]; }
+  out.push({ x: x1, y: y1 });
+  return out;
 }
 
 function tryClimb(dx, dy) {
@@ -329,10 +433,7 @@ function tryClimb(dx, dy) {
   try { r = T.climbRoute?.(P.x, P.y, dx / d, dy / d) ?? null; } catch { r = null; }
   if (!r) r = scanRoute(P.x, P.y, dx / d, dy / d);
   if (!r) return false;
-  const up = r.up !== false;
-  route = { ...r, up, bottom: up ? r.start : r.end, top: up ? r.end : r.start };
-  if (up) { P.mode = 'approach'; approachT = 0; }
-  else beginClimb(); // going down: we're already standing at the lip
+  setRoute(r);
   return true;
 }
 
@@ -356,30 +457,58 @@ function scanRoute(px, py, dx, dy) {
 }
 
 // --- climbing: the cycle ------------------------------------------------------------------------------
-// Each half-cycle leads with one side (c.side): that axe swings from low beside the hip to full
-// stretch overhead and strikes, then that boot kicks in, then the other boot, then the climber
-// stands up on the frog-splayed legs and everything planted drops H relative to the body.
-// The axes alternate, so at full reach one hand is far above the hood while the other is low,
-// planted by the shoulder; both hands are never at the hood together.
-const CY = 0.85, H = 3.6, HAND_TOP = 17.3, FOOT_LO = 1.6, SHOULDER_Z = 10.7;
-const PH = { swing: [0.0, 0.3], kick1: [0.34, 0.47], kick2: [0.5, 0.63], pull: [0.68, 0.95] };
+// One tap = two half-cycles: right axe, left kick, pull; left axe, right kick, pull. In a half
+// led by side s, axe s swings from low by the hip to full stretch overhead and strikes, the
+// opposite boot kicks in high, then the climber stands up on the frog-splayed legs. The other
+// axe stays planted out by the shoulder, so the hands are never both at the hood.
+const CY = 0.85, H = 2.5, HAND_TOP = 17.3, HAND_LOW = 9.5, FOOT_LO = 1.9, SHOULDER_Z = 10.7;
+const HAND_SINK = 1.3;      // the high axe sinks this far on the pull: hanging, one arm stays up straight
+const HF = 1.8;             // boots step 2*HF and drop HF per pull (less than the hands: keeps the knees bent)
+const PH = { swing: [0.0, 0.34], kick: [0.4, 0.58], pull: [0.64, 0.94] };
+const ROUTE_K = 1.3;        // route distance per half-cycle, relative to the body rise
+
+const climbWindy = () => envW.ws + envW.gust > 0.8;
 
 function beginClimb() {
+  if (climbWindy()) { startRefuse(); return; }
   const b = route.bottom, t = route.top;
   const L = Math.max(6, Math.hypot(t.x - b.x, t.y - b.y));
-  const D = H / clamp(-(t.y - b.y) / L, 0.35, 1);          // route distance per half-cycle
+  const D = (H * ROUTE_K) / clamp(-(t.y - b.y) / L, 0.35, 1);
   const sMax = Math.max(0, L - 3);
   climb = {
     L, D, sMax, dir: { x: (t.x - b.x) / L, y: (t.y - b.y) / L },
     face: Math.atan2((t.y - b.y) / KY, t.x - b.x),
-    up: route.up, stage: route.up ? 'cycle' : 'lower', t: route.up ? 0 : 1, pc: route.up ? 0 : 0.999,
-    base: route.up ? 0 : Math.max(0, sMax - D), s: route.up ? 0 : L, cyc: 0, rest: 0, slipT: 0, slipFoot: 1,
-    side: 1, from: null,
+    up: route.up, stage: route.up ? 'cycle' : 'lower', t: route.up ? 0 : 1, pc: 0,
+    base: route.up ? 0 : sMax, s: route.up ? 0 : L, run: 0, dirn: 1, queued: 0,
+    slipT: 0, slipFoot: 1, side: 1, from: null, windT: 0, vs: 0, lock: route.up ? 1 : -1,
   };
-  P.mode = 'climb'; P.climbStage = climb.stage;
+  P.mode = 'climb'; P.climbStage = climb.stage; P.climbHold = false;
   P.vx = P.vy = 0;
+  climb.from = cyclePose(0, 1);
   ovr = climbPose();
-  climb.from = cyclePose(0.999, 1);
+}
+
+function climbRequest(dir) {
+  const c = climb;
+  if (!c) return;
+  if (c.stage !== 'cycle' || c.run > 0) { if (c.stage !== 'torn' && c.stage !== 'off') c.queued = dir; return; }
+  startRun(dir);
+}
+function startRun(dir) {
+  const c = climb;
+  c.queued = 0;
+  if (dir > 0) { c.dirn = 1; c.run = 2; c.pc = 0; return; }
+  if (c.base < c.D * 0.6) { stepOff(); return; }
+  c.dirn = -1; c.run = 2;
+  beginDownHalf();
+}
+function beginDownHalf() {
+  const c = climb;
+  c.side = -c.side; c.base = Math.max(0, c.base - c.D); c.pc = 0.999;
+}
+function stepOff() {
+  const c = climb;
+  c.from = cyclePose(clamp(c.pc), c.side); c.stage = 'off'; c.t = 0; c.run = 0;
 }
 
 const segs = (pts, t) => {               // piecewise smooth path through points, t in 0..1
@@ -390,34 +519,38 @@ const segs = (pts, t) => {               // piecewise smooth path through points
 function cyclePose(pc, side) {
   const c = climb;
   const u = smooth(PH.pull[0], PH.pull[1], pc);          // stand-up progress
+  const sw = smooth(PH.swing[0], PH.swing[1], pc);
   const hands = [], feet = [];
   for (const s of [-1, 1]) {
-    // hands
+    const top = [1.3, s * 1.45, HAND_TOP], low = [0.9, s * 2.7, HAND_LOW];
     let h;
     if (s === side) {
       const [a, b] = PH.swing;
-      const low = [0.9, s * 2.7, HAND_TOP - 2 * H], top = [1.3, s * 1.45, HAND_TOP];
       if (pc < a) h = low;
-      else if (pc < b) h = segs([low, [0.2, s * 3.3, HAND_TOP - H + 0.6], [-0.5, s * 2.2, HAND_TOP + 0.9], top], (pc - a) / (b - a));
+      else if (pc < b) h = segs([low, [0.2, s * 3.3, HAND_TOP - 2.6], [-0.5, s * 2.2, HAND_TOP + 0.9], top], (pc - a) / (b - a));
       else h = top;
-      if (pc >= PH.pull[0]) h = [h[0], h[1], HAND_TOP - H * u];
+      if (pc >= PH.pull[0]) h = [top[0], top[1], HAND_TOP - HAND_SINK * u];
     } else {
-      // planted at about shoulder height, settling as the reach goes up; drops low on the pull
-      const z0 = lerp(HAND_TOP - H, SHOULDER_Z, smooth(0, PH.swing[1], pc));
-      h = [0.9, s * 2.7, lerp(z0, HAND_TOP - 2 * H, u)];
+      // planted, settling out by the shoulder as the other arm reaches; low by the hip after the pull
+      const p0 = [top[0], top[1], HAND_TOP - HAND_SINK];
+      const p1 = [0.95, s * 2.6, SHOULDER_Z];
+      h = mix(mix(p0, p1, sw), low, u);
     }
     hands.push(h);
-    // feet: splayed, both step up H each half-cycle (leading side first)
-    const [a, b] = s === side ? PH.kick1 : PH.kick2;
-    const lo = [0.75, s * 1.25, FOOT_LO], hi = [0.85, s * 1.2, FOOT_LO + H];
+    // feet: only the boot opposite the swinging axe kicks, stepping up 2H; both drop H on the pull
     let f;
-    if (pc < a) f = lo;
-    else if (pc < b) {
-      const k = (pc - a) / (b - a);
-      // knee lifts, boot comes off the wall and up ~1.2u past the hold, then drives in (last ~0.06 s)
-      f = k < 0.55 ? segs([lo, [-0.4, s * 1.55, FOOT_LO + H * 0.55], [-0.6, s * 1.45, FOOT_LO + H + 1.2]], k / 0.55)
-        : mix([-0.6, s * 1.45, FOOT_LO + H + 1.2], hi, smooth(0, 1, (k - 0.55) / 0.45));
-    } else f = [hi[0], hi[1], FOOT_LO + H - H * u];
+    if (s === -side) {
+      const [a, b] = PH.kick;
+      const lo = [0.75, s * 1.25, FOOT_LO], hi = [0.85, s * 1.2, FOOT_LO + 2 * HF];
+      if (pc < a) f = lo;
+      else if (pc < b) {
+        const k = (pc - a) / (b - a);
+        // the knee lifts, the boot comes off the wall to ~0.8u past the hold, then drives in (last ~0.07 s)
+        const over = [-0.6, s * 1.5, FOOT_LO + 2 * HF + 0.8];
+        f = k < 0.55 ? segs([lo, [-0.5, s * 1.6, FOOT_LO + HF], over], k / 0.55) : mix(over, hi, smooth(0, 1, (k - 0.55) / 0.45));
+      } else f = hi;
+      if (pc >= PH.pull[0]) f = [hi[0], hi[1], FOOT_LO + 2 * HF - HF * u];
+    } else f = [0.8, s * 1.22, FOOT_LO + HF - HF * u];
     if (c && c.slipT > 0 && s === c.slipFoot) { const k = Math.sin(clamp(c.slipT / 0.5) * Math.PI); f = [f[0] - 0.4 * k, f[1] + s * 0.4 * k, f[2] - 1.2 * k]; }
     feet.push(f);
   }
@@ -425,19 +558,36 @@ function cyclePose(pc, side) {
 }
 
 const CLIMB_POLE_L = [[0.25, -1.1, 0.15], [0.25, 1.1, 0.15]];    // knees out: frog stance
+const CLIMB_POLE_A = [[-0.2, -0.7, -1], [-0.2, 0.7, -1]];
 function climbPose() {
   const c = climb, t = state.time, wp = envW.windPose;
   const sway = Math.sin(t * 1.7) * 0.07 * wp + Math.sin(t * 3.9) * 0.03 * wp + envW.gust * 0.12;
   const slip = c.slipT > 0 ? Math.sin(clamp(c.slipT / 0.5) * Math.PI) : 0;
   if (c.stage === 'cycle') {
     const pc = clamp(c.pc), cp = cyclePose(pc, c.side), e = Math.sin(Math.PI * cp.u);
-    const reachK = 1.0 * smooth(0.1, PH.swing[1], pc) * (1 - cp.u);
+    const reachK = smooth(0.1, PH.swing[1], pc) * (1 - cp.u);
+    // hanging between taps: heavy breathing, a slow sway, axes planted
+    const hold = c.run === 0 ? 1 : 0;
+    const br = hold * Math.sin(t * Math.PI * 2 / 1.5);
     return {
-      hz: 7.6 - 0.3 * e - slip * 0.5, leanF: 0.12 + 0.12 * e, leanS: sway + slip * c.slipFoot * 0.12 + c.side * 0.06 * smooth(0, 0.3, pc) * (1 - cp.u),
+      hz: 7.6 - 0.3 * e - slip * 0.5 + br * 0.16, leanF: 0.12 + 0.12 * e - br * 0.03,
+      leanS: sway + slip * c.slipFoot * 0.12 + c.side * 0.06 * reachK + hold * Math.sin(t * 1.05) * 0.05,
       feet: cp.feet, hands: cp.hands,
-      poleA: [[-0.2, -0.7, -1], [-0.2, 0.7, -1]], poleL: CLIMB_POLE_L,
-      hemAttach: 0, facePitch: -0.3, full: true, axes: 1,
+      poleA: CLIMB_POLE_A, poleL: CLIMB_POLE_L,
+      hemAttach: 0, facePitch: -0.3 + hold * 0.15, full: true, axes: 1,
       shrug: [c.side < 0 ? reachK : 0, c.side > 0 ? reachK : 0],
+    };
+  }
+  if (c.stage === 'torn') {
+    // grip lost: axes scrape down the ice, then a backward fall down the face, arms flung up
+    const f = c.from, k = smooth(0, 0.35, c.t), fl = Math.sin(t * 17) * 0.6 * k;
+    return {
+      hz: 7.6 + 0.4 * k, leanF: lerp(0.12, -0.35, k), leanS: Math.sin(t * 7) * 0.1 * k,
+      feet: [mix(f.feet[0], [1.4, -1.6, 3.2], k), mix(f.feet[1], [1.0, 1.7, 1.6], k)],
+      hands: [mix([f.hands[0][0], f.hands[0][1], f.hands[0][2] - 1.5 * clamp(c.t / 0.35)], [0.4, -3.4 + fl, 15.6], k),
+        mix([f.hands[1][0], f.hands[1][1], f.hands[1][2] - 1.5 * clamp(c.t / 0.35)], [0.4, 3.4 - fl, 15.2], k)],
+      poleA: [[-0.5, -1, 0], [-0.5, 1, 0]], poleL: CLIMB_POLE_L,
+      hemAttach: 0, facePitch: -0.5, full: true, axes: 1,
     };
   }
   if (c.stage === 'off') {
@@ -446,13 +596,13 @@ function climbPose() {
       hz: lerp(7.6, 7.9, m), leanF: lerp(0.12, 0.05, m), leanS: 0,
       feet: [mix(f.feet[0], [0, -1, 0], m), mix(f.feet[1], [0, 1, 0], m)],
       hands: [mix(f.hands[0], [0.3, -1.9, 8.2], m), mix(f.hands[1], [0.3, 1.9, 8.2], m)],
-      poleA: [[-0.4, -1, -0.5], [-0.4, 1, -0.5]], poleL: [mix(CLIMB_POLE_L[0], [1, -0.15, 0.1], m), mix(CLIMB_POLE_L[1], [1, 0.15, 0.1], m)],
+      poleA: CLIMB_POLE_A, poleL: [mix(CLIMB_POLE_L[0], [1, -0.15, 0.1], m), mix(CLIMB_POLE_L[1], [1, 0.15, 0.1], m)],
       hemAttach: 0, facePitch: 0.1, full: m < 0.7, axes: 1 - m,
     };
   }
   // Top-out over the lip (t: 0 -> 1); 'lower' plays it backwards.
   // hands slap down over the lip, a knee comes up onto it, roll forward onto the top, stand.
-  const m = clamp(c.t), f = c.from || cyclePose(0.999, 1);
+  const m = clamp(c.t), f = c.from || cyclePose(0, 1);
   const K = [
     { t: 0, hz: 7.6, lf: 0.15, fL: f.feet[0], fR: f.feet[1], hL: f.hands[0], hR: f.hands[1], pl: 0 },
     { t: 0.22, hz: 7.4, lf: 0.35, fL: [0.75, -1.25, 2.4], fR: [0.75, 1.25, 2.0], hL: [2.4, -2.7, 10.6], hR: [2.4, 2.7, 10.6], pl: 0 },
@@ -466,24 +616,51 @@ function climbPose() {
   return {
     hz: lerp(A.hz, B.hz, k), leanF: lerp(A.lf, B.lf, k), leanS: sway * (1 - m),
     feet: [mix(A.fL, B.fL, k), mix(A.fR, B.fR, k)], hands: [mix(A.hL, B.hL, k), mix(A.hR, B.hR, k)],
-    poleA: [[-0.4, -1, -0.5], [-0.4, 1, -0.5]], poleL: [mix(CLIMB_POLE_L[0], [1, -0.3, 0.1], pl), mix(CLIMB_POLE_L[1], [1, 0.3, 0.1], pl)],
+    poleA: CLIMB_POLE_A, poleL: [mix(CLIMB_POLE_L[0], [1, -0.3, 0.1], pl), mix(CLIMB_POLE_L[1], [1, 0.3, 0.1], pl)],
     hemAttach: 0, facePitch: lerp(-0.2, 0.3, m), full: m < 0.9, axes: clamp(1 - (m - 0.25) * 3),
   };
 }
 
 function climbEvent(type, i) {
   const o = ovr || climbPose();
-  const v = type === 'axe' ? o.hands[i] : o.feet[i];
+  const v = type === 'kick' ? o.feet[i] : o.hands[i];
   const w = toWorld(v, P.facing);
   const x = P.x + w.x, y = P.y + w.y - w.z; // the strike point as it appears on the painted face
   if (type === 'axe') state.events.push({ type: 'axe', x, y, hand: i ? 'R' : 'L' });
-  else state.events.push({ type: 'kick', x, y, foot: i ? 'R' : 'L' });
-  const n = type === 'axe' ? 6 : 4;
-  const z0 = w.z + (type === 'axe' ? 1.8 : 0);
+  else if (type === 'kick') state.events.push({ type: 'kick', x, y, foot: i ? 'R' : 'L' });
+  const n = type === 'kick' ? 4 : 6;
+  const z0 = w.z + (type === 'kick' ? 0 : 1.8);
   for (let k = 0; k < n; k++) {
     chips.push({ x: P.x + w.x + (rand() - 0.5) * 0.8, y: P.y + w.y + 0.3, z: z0, vx: (rand() - 0.5) * 5, vy: (rand() * 0.6 + 0.3) * 3 * KY, vz: 1 + rand() * 3, age: 0, life: 0.7 + rand() * 0.5, r: 0.12 + rand() * 0.16 });
   }
   if (chips.length > 60) chips.splice(0, chips.length - 60);
+}
+
+// The visible top lip: is the painted ground just above the climber's hands walkable snow?
+// If so, the last cycle flows straight into the top-out there.
+function lipAbove() {
+  const c = climb;
+  if (!walkable(P.x, P.y - 17) || !walkable(P.x, P.y - 19)) return false;
+  for (let t = 10; t <= 34; t++) {
+    const x = P.x + c.dir.x * t, y = P.y + c.dir.y * t;
+    if (walkable(x, y) && walkable(x + c.dir.x * 3, y + c.dir.y * 3)) {
+      route.top = { x: x + c.dir.x * 2, y: y + c.dir.y * 2 };
+      c.sMax = c.s; c.L = c.s + t + 2;
+      return true;
+    }
+  }
+  return false;
+}
+
+function tearOff() {
+  const c = climb;
+  if (!c || c.stage === 'torn' || c.stage === 'off') return false;
+  const o = ovr || climbPose();
+  c.from = { hands: o.hands.map(h => h.slice()), feet: o.feet.map(f => f.slice()) };
+  c.stage = 'torn'; c.t = 0; c.vs = 0; c.run = 0; c.queued = 0;
+  state.events.push({ type: 'scrape', x: P.x, y: P.y - 15 });
+  climbEvent('scrape', 0); climbEvent('scrape', 1);
+  return true;
 }
 
 function updateClimb(dt) {
@@ -492,29 +669,32 @@ function updateClimb(dt) {
   P.facing = wrapPi(P.facing + clamp(wrapPi(c.face - P.facing), -8 * dt, 8 * dt));
   if (c.slipT > 0) c.slipT -= dt;
   const slow = 1 - 0.3 * envW.windPose;
+  // strong wind on the wall: the longer they hang in it, the likelier a gust tears them off
+  const w = envW.ws + envW.gust;
+  c.windT = w > 0.7 ? c.windT + dt : Math.max(0, c.windT - dt * 0.5);
+  if (c.stage === 'cycle' && w > 0.7 && rand() < (w - 0.7) * (0.25 + 0.2 * c.windT) * (envW.gust > 0.35 ? 1 : 0.3) * dt) tearOff();
   if (c.stage === 'cycle') {
-    const dirn = c.up ? 1 : -1;
-    const prev = c.pc;
-    if (c.rest > 0) c.rest -= dt;
-    else c.pc += dirn * dt * slow / CY;
-    const cross = x => (dirn > 0 ? prev < x && c.pc >= x : prev > x && c.pc <= x);
-    const lead = c.side > 0 ? 1 : 0, other = 1 - lead;
-    if (cross(PH.swing[1])) climbEvent('axe', lead);
-    if (cross(PH.kick1[1])) {
-      climbEvent('kick', lead);
-      // a crampon skids off the ice: kick again (more likely in wind)
-      if (c.up && rand() < 0.05 + 0.25 * envW.windPose) { c.slipT = 0.5; c.slipFoot = c.side; c.pc = PH.kick1[0] + 0.001; }
-    }
-    if (cross(PH.kick2[1])) climbEvent('kick', other);
-    if (dirn > 0 && prev < 0.95 && c.pc >= 0.95 && c.cyc % 4 === 3 && c.rest <= 0) c.rest = 0.4 + rand() * 0.4; // breathe
-    if (dirn > 0 && c.pc >= 1) {
-      c.pc -= 1; c.cyc++; c.base += c.D; c.side = -c.side;
-      if (c.base >= c.sMax) { c.from = cyclePose(0.999, -c.side); c.stage = 'mantle'; c.t = 0; c.base = c.sMax; }
-    }
-    if (dirn < 0 && c.pc <= 0) {
-      c.pc += 1; c.cyc++; c.base -= c.D; c.side = -c.side;
-      if (c.base + c.D <= 0) { c.from = cyclePose(0, -c.side); c.stage = 'off'; c.t = 0; c.pc = 0; }
-      else if (c.cyc % 4 === 3) c.rest = 0.4 + rand() * 0.3;
+    if (c.run > 0) {
+      const dirn = c.dirn, prev = c.pc;
+      c.pc += dirn * dt * slow / CY;
+      const cross = x => (dirn > 0 ? prev < x && c.pc >= x : prev > x && c.pc <= x);
+      const lead = c.side > 0 ? 1 : 0, other = 1 - lead;
+      if (cross(PH.swing[1])) climbEvent('axe', lead);
+      if (cross(PH.kick[1])) {
+        climbEvent('kick', other);
+        // a crampon skids off the ice: kick again (more likely in wind)
+        if (dirn > 0 && rand() < 0.05 + 0.25 * envW.windPose) { c.slipT = 0.5; c.slipFoot = -c.side; c.pc = PH.kick[0] + 0.001; }
+      }
+      if (dirn > 0 && c.pc >= 1) {
+        c.pc = 0; c.base += c.D; c.side = -c.side; c.run--;
+        c.s = c.base;
+        if (c.base >= c.sMax || lipAbove()) { c.from = cyclePose(0, c.side); c.stage = 'mantle'; c.t = 0; c.base = c.sMax; c.run = 0; }
+      }
+      if (dirn < 0 && c.pc <= 0) {
+        c.pc = 0; c.run--;
+        if (c.run > 0) { if (c.base < c.D * 0.6) stepOff(); else beginDownHalf(); }
+      }
+      if (c.stage === 'cycle' && c.run === 0 && c.queued) startRun(c.queued);
     }
     if (c.stage === 'cycle') c.s = clamp(c.base + c.D * smooth(PH.pull[0], PH.pull[1], clamp(c.pc)), 0, c.L);
   } else if (c.stage === 'mantle' || c.stage === 'lower') {
@@ -522,21 +702,70 @@ function updateClimb(dt) {
     c.t += dirn * dt / 2.8;
     c.s = lerp(c.sMax, c.L, smooth(0.3, 0.85, clamp(c.t)));
     if (dirn > 0 && c.t >= 1) { endClimb(); return; }
-    if (dirn < 0 && c.t <= 0) { c.stage = 'cycle'; c.pc = 0.999; c.t = 0; }
+    if (dirn < 0 && c.t <= 0) {
+      c.stage = 'cycle'; c.pc = 0; c.t = 0; c.run = 0; c.base = c.sMax;
+      if (c.queued) startRun(c.queued);
+    }
   } else if (c.stage === 'off') {
-    c.t += dt / 0.6; c.s = 0;
+    c.t += dt / 0.6; c.s = Math.max(0, c.s - dt * 8);
     if (c.t >= 1) { endClimb(); return; }
+  } else if (c.stage === 'torn') {
+    c.t += dt;
+    if (c.t > 0.35) { c.vs += 75 * dt; c.s -= c.vs * dt; }
+    if (c.s <= 0) {
+      c.s = 0;
+      const away = c.face + Math.PI;
+      endClimb();
+      startFall(1, away);
+      return;
+    }
   }
   P.x = route.bottom.x + c.dir.x * c.s;
   P.y = route.bottom.y + c.dir.y * c.s;
   P.climbStage = c.stage;
+  P.climbHold = c.stage === 'cycle' && c.run === 0;
   ovr = climbPose();
 }
 function endClimb() {
-  P.mode = 'walk'; P.climbStage = null;
-  const end = climb.up ? route.top : route.bottom;
+  P.mode = 'walk'; P.climbStage = null; P.climbHold = false;
+  const end = climb.stage === 'mantle' ? route.top : route.bottom;
   P.x = end.x; P.y = end.y;
   climb = null; route = null;
+}
+
+// --- refusing a climb in a gale: reach for the wall, look up into the wind, back off -----------------
+let refT = 0, refFace = 0;
+function startRefuse() {
+  P.mode = 'refuse'; refT = 0;
+  refFace = Math.atan2((route.top.y - route.bottom.y) / KY, route.top.x - route.bottom.x);
+  route = null;
+  state.events.push({ type: 'refuse', x: P.x, y: P.y });
+}
+function updateRefuse(dt) {
+  refT += dt;
+  ovrW = approach(ovrW, refT < 2.4 ? 1 : 0, 8, dt);
+  // face the wall and reach; then turn half away from it, shaking the head, and trudge off
+  const turn = smooth(0.95, 1.5, refT);
+  const want = refFace + (Math.cos(refFace) >= 0 ? 1 : -1) * Math.PI * 0.8 * turn;
+  P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -6 * dt, 6 * dt));
+  const reach = smooth(0.1, 0.5, refT) * (1 - smooth(0.85, 1.2, refT));
+  const shake = refT > 1.1 && refT < 1.9 ? Math.sin((refT - 1.1) * 16) * 0.55 * Math.sin(clamp((refT - 1.1) / 0.8) * Math.PI) : 0;
+  const walkK = smooth(1.5, 1.7, refT) * (1 - smooth(2.4, 2.6, refT));
+  if (walkK > 0) {
+    const st = 4.5 * walkK * dt, nx = P.x - Math.cos(refFace) * st, ny = P.y - Math.sin(refFace) * st * KY;
+    if (walkable(nx, ny)) { P.x = nx; P.y = ny; }
+  }
+  const ph = Math.sin(refT * Math.PI * 2 * 1.6) * walkK;
+  ovr = {
+    hz: 7.9 - 0.3 * reach - 0.15 * Math.abs(ph), leanF: 0.05 + 0.12 * reach + 0.12 * walkK, leanS: envW.gust * 0.1,
+    feet: [[0.3 * reach + 1.1 * ph, -1, Math.max(0, ph) * 0.6], [0.5 * reach - 1.1 * ph, 1, Math.max(0, -ph) * 0.6]],
+    hands: [mix([0.3, -1.9, 8.2], [1.2, -2.2, 10.6], reach * 0.5), mix([0.3, 1.9, 8.2], [2.0, 2.5, 15.2], reach)],
+    poleA: [[-0.5, -1, -0.5], [-0.5, 1, -0.5]], poleL: [[1, -0.15, 0.1], [1, 0.15, 0.1]],
+    hemAttach: 0, facePitch: lerp(0.15, -0.5, smooth(0.2, 0.6, refT) * (1 - smooth(1.0, 1.4, refT))) + 0.2 * smooth(1.6, 2.0, refT), faceYaw: shake,
+    full: reach > 0.2, axes: 0,
+  };
+  P.vx = P.vy = 0;
+  if (refT >= 2.7) P.mode = 'walk';
 }
 
 // --- wind: shoves and knockdowns ----------------------------------------------------------------------
@@ -547,10 +776,10 @@ function startShove(strength) {
   staggerT = 0.6; staggerSide = slipSide;
   state.events.push({ type: 'shove', strength });
 }
-function startFall(strength) {
+function startFall(strength, dir) {
   if (P.mode === 'climb' || P.mode === 'down') return;
   P.mode = 'down'; downT = 0; route = null;
-  downDir = envW.wa;
+  downDir = dir ?? envW.wa;
   const v = 9 + 7 * strength;
   downV = { x: Math.cos(downDir) * v, y: Math.sin(downDir) * v * KY };
   state.events.push({ type: 'fall', strength });
@@ -633,7 +862,7 @@ function findRock(maxD) {
 let shadowOff = 0;
 function updateShadowOff(dt) {
   const c = climb;
-  const onWall = (P.mode === 'climb' && c && (c.stage === 'cycle' || c.stage === 'lower' || (c.stage === 'mantle' && c.t < 0.9) || (c.stage === 'off' && c.t < 0.7)))
+  const onWall = (P.mode === 'climb' && c && (c.stage === 'cycle' || c.stage === 'lower' || c.stage === 'torn' || (c.stage === 'mantle' && c.t < 0.9) || (c.stage === 'off' && c.t < 0.7)))
     || (P.mode === 'approach' && route && Math.hypot(P.x - route.bottom.x, P.y - route.bottom.y) < 2.5);
   shadowOff = clamp(shadowOff + (onWall ? 1 : -1) * dt / 0.2);
 }
@@ -885,7 +1114,7 @@ function buildRig() {
   const head = torsoToBody([0.4 + hunch * 0.6, jitR, SPINE + HEAD_UP - 0.1 - hunch * 0.45 + upZ * 1.1], tf);
   const peak = torsoToBody([-0.85 + hunch * 0.5 + wdF * gk * 0.8, wdR * gk * 0.8, SPINE + HEAD_UP + 1.15 + upZ], tf);
   const drape = torsoToBody([-1.1, 0, SPINE - 0.5], tf);
-  const faceYaw = twist + pose.headYaw;
+  const faceYaw = twist + pose.headYaw + (O && O.faceYaw ? O.faceYaw * ow : 0);
   let facePitch = 0.15 + hunch; // head always bowed a little; 1 = looking at the feet
   if (cw > 0.001) facePitch = lerp(facePitch, 0.9, cw);
   if (O) facePitch = lerp(facePitch, O.facePitch, ow);
@@ -1020,8 +1249,8 @@ function darkSide(ctx, clipPts, a, b, alpha = 0.62, soft = 0.4) {
   ctx.save();
   ctx.beginPath(); polyPath(ctx, clipPts); ctx.clip();
   const quad = off => { ctx.beginPath(); ctx.moveTo(A[0] + nx * off, A[1] + ny * off); ctx.lineTo(B[0] + nx * off, B[1] + ny * off); ctx.lineTo(B[0] + nx * 40, B[1] + ny * 40); ctx.lineTo(A[0] + nx * 40, A[1] + ny * 40); ctx.closePath(); };
-  if (soft > 0) { quad(-soft); ctx.fillStyle = `rgba(26,26,28,${alpha * 0.3})`; ctx.fill(); }
-  quad(0); ctx.fillStyle = `rgba(26,26,28,${alpha})`; ctx.fill();
+  if (soft > 0) { quad(-soft); ctx.fillStyle = `rgba(14,18,30,${alpha * 0.3})`; ctx.fill(); }
+  quad(0); ctx.fillStyle = `rgba(14,18,30,${alpha})`; ctx.fill();
   ctx.restore();
 }
 function ringArcIdx(pts, upper) {
@@ -1103,17 +1332,19 @@ function drawShadow(ctx, rig, X, Y) {
 
 // --- the figure -------------------------------------------------------------------------------------
 const C = {
-  coat: '#9c9c9c', panel: '#b2b2b0', hood: '#a2a2a2', rim: '#c4c4c2',
-  trousersL: '#5a5a5a', trousersD: '#333333', boot: '#2a2a2a', mitt: '#363636',
-  sleeveL: '#9c9c9c', sleeveD: '#545454', face: '#3a3a3a', nose: '#8e8e8e',
-  pack: '#8a8a8a',
+  // a very dark, desaturated navy coat: the only colour in the scene
+  coat: '#363e51', panel: '#646d7d', hood: '#3a4254', rim: '#747d8d',
+  trousersL: '#2c2c2e', trousersD: '#1b1b1d', boot: '#151515', mitt: '#1e1e20',
+  sleeveL: '#363e51', sleeveD: '#1e2330', face: '#121418', nose: '#7c7c7c',
+  pack: '#3e3e3c',
 };
 
 const C0 = { ...C };
+const NOCLIP = state.params.get('noclip') === '1';   // debug: disable the arm clip
 const shade = (hex, k) => '#' + [1, 3, 5].map(i => Math.max(0, parseInt(hex.slice(i, i + 2), 16) - k).toString(16).padStart(2, '0')).join('');
 function drawFigure(ctx, rig, X, Y) {
   const yaw = rig.yaw;
-  const dk = Math.round(18 * cowerW);       // cowering hump separates from the whiteout
+  const dk = Math.round(6 * cowerW);       // cowering hump separates from the whiteout
   for (const k of ['coat', 'panel', 'hood', 'rim', 'sleeveL', 'sleeveD', 'pack']) C[k] = dk ? shade(C0[k], dk) : C0[k];
   const pr = v => { const w = toWorld(v, yaw); return [X + w.x, Y + w.y - w.z]; };
   const depth = v => toWorld(v, yaw).g;
@@ -1182,10 +1413,23 @@ function drawFigure(ctx, rig, X, Y) {
     if (A.axe > 0.3) drawAxe(ctx, A, pr);
     mitt(pts[1]);
   };
+  // Walking poses drawn under the coat are clipped below the shoulder line, so a raised far arm
+  // (shielding the face, balancing) can never poke up past the shoulders or behind the hood.
+  const shTop = Math.min(...rig.top.map(v => pr(v)[1])) + 0.6;
+  // Walking poses: only the near arm may break the coat outline; the far one stays under it.
+  const nearS = arms[0].d >= arms[1].d ? arms[0].s : arms[1].s;
+  // Seen from behind, a working forearm/mitt at the coat edge reads as a stub sticking out of the
+  // jacket: keep walking arms inside the coat (only a slip's flailing arms break out).
+  const fromBehind = Math.sin(P.facing) < -0.3;
+  for (const A of arms) A.hidden = !A.full && (A.s !== nearS || A.d < -0.45 || (fromBehind && slipT <= 0));
   for (const A of arms) {
     if (A.behind) { if (A.full) drawArm(A); continue; }   // never drawn on the back
-    if (A.d < -0.45 && !A.full) continue;                 // far side, hidden under the coat
-    if (A.full || A.spreadW > 0.3 || (A.s === pose.shieldSide && pose.shield > 0.3)) drawArm(A);
+    if (A.hidden) continue;
+    if (A.full) drawArm(A);
+    else if (A.spreadW > 0.3 || (A.s === pose.shieldSide && pose.shield > 0.3)) {
+      if (NOCLIP) drawArm(A);
+      else { ctx.save(); ctx.beginPath(); ctx.rect(X - 40, shTop, 80, 80); ctx.clip(); drawArm(A); ctx.restore(); }
+    }
   }
 
   const packD = depth(rig.pack[4]);
@@ -1194,7 +1438,7 @@ function drawFigure(ctx, rig, X, Y) {
   drawCoat(ctx, rig, pr, depth);
 
   if (packD >= 0) drawPack(ctx, rig, pr);
-  const out = arms.filter(A => !A.behind && A.active > 0.3 && (A.d >= -0.45 || A.full));
+  const out = arms.filter(A => !A.behind && !A.hidden && A.active > 0.3);
   for (const A of out) if (!A.overHead && A.dh <= headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
   drawHood(ctx, rig, pr);
   for (const A of out) if (A.overHead || A.dh > headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
@@ -1402,7 +1646,7 @@ function drawKicks(ctx) {
 
 export function drawables() {
   return [{
-    y: P.y,
+    x: P.x, y: P.y,   // feet: main.js sorts by terrain.sortKey(x, y) (face foot on a cliff, + height on a plateau)
     draw(ctx) {
       const rig = buildRig();
       const X = P.x, Y = P.y;
@@ -1429,4 +1673,4 @@ export function drawScreen(ctx) {
   ctx.fillText(s, 10, state.view.h - 12);
 }
 
-export const _debug = { pose, climb: () => climb, route: () => route };
+export const _debug = { pose, climb: () => climb, route: () => route, ovr: () => ovr, ovrW: () => ovrW, findPath: (...a) => findPath(...a) };

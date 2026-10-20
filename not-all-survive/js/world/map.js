@@ -9,6 +9,8 @@
 //           base, and kept in a small LRU cache (bitmaps are closed when evicted).
 import { state, MAP_W, MAP_H } from '../state.js';
 import { visibleRect } from '../camera.js';
+// Occluder pieces (rock and cliff faces cut from this imagery) join the actor y-sort.
+export { drawables } from './layers.js';
 
 const SCALE = 4, TILE = 128, GUTTER = 4;
 const NTX = Math.ceil(MAP_W / TILE), NTY = Math.ceil(MAP_H / TILE);
@@ -110,9 +112,11 @@ export function drawGround(ctx) {
   if (!noTiles) drawTiles(ctx);
 }
 
+let tilesOn = false;
 function drawTiles(ctx) {
   const dz = state.cam.zoom * state.view.dpr;
   visibleKeys.clear();
+  tilesOn = dz >= TILE_MIN_DEVICE_ZOOM;
   if (dz < TILE_MIN_DEVICE_ZOOM) {
     if (controllers.size) abortOutside(1, 1, 0, 0); // nothing wanted: abort all
     if (dz < 1.2 && cache.size) dropAll();
@@ -187,6 +191,17 @@ function drawTiles(ctx) {
 }
 
 export function mapImage() { return img; }
+export { SCALE as TILE_SCALE, TILE as TILE_SIZE, GUTTER as TILE_GUTTER };
+/** The crisp tile bitmap under world (x, y) if tiles are on screen and that tile is
+ *  loaded and fully faded in, else null. Bitmap px (bx, by) = world
+ *  (tx * TILE + (bx - GUTTER) / SCALE, ...). */
+export function tileAt(x, y) {
+  if (!tilesOn || noTiles) return null;
+  const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+  const e = cache.get(ty * NTX + tx);
+  if (!e || performance.now() - e.t < FADE_MS) return null;
+  return { bmp: e.bmp, tx, ty };
+}
 /** Debug / capture helper: tile cache stats. */
 export function tileStats() {
   return { cached: cache.size, pending: pending.size, failed: failed.size, cap: CAP };

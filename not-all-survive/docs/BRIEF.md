@@ -18,7 +18,8 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 ## Art direction — match the painting, don't invent a new style
 - **Strictly monochrome.** Paper/snow white `#f2f2f0`–`#fafafa`; snow shadow and ice
   mid-greys `#c4c6c8`–`#dcdcdc`; rock `#5a5a5a`–`#8a8a8a`; ink `#262626`–`#3a3a3a`.
-  No colour. (A barely perceptible cold tint in the fog is allowed if a critic agrees.)
+  No colour, with one deliberate exception: the explorer's coat is a very dark,
+  desaturated navy (Joe's call), the only colour in the scene.
 - **Inked illustration.** Thin, slightly irregular dark outlines; flat grey fills with
   soft cel shading; stipple dots along snow edges; fine vertical hatching on cliffs.
 - **Light from the upper-left**, cast shadows fall toward the lower-right, soft and grey
@@ -36,7 +37,9 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
   `window.NAS === state` in the browser.
 - `js/main.js` — boot and loop. Each system module exports some of
   `init()` (may return a Promise), `update(dt)`, `drawGround(ctx)` (world space, under actors),
-  `drawables()` → `[{ y, draw(ctx) }]` (world space, y-sorted with every other actor),
+  `drawables()` → `[{ x, y, draw(ctx) }]` (world space, depth-sorted with every other actor;
+  give the FEET position as x, y and main.js keys it by terrain.sortKey so it layers
+  correctly against cliffs and plateau heights; without x the plain y is used),
   `drawSky(ctx)` (world space, above actors), `drawScreen(ctx)` (screen space in CSS
   pixels, after the world). Each draw hook gets a `ctx.save()`/`restore()` around it.
 - `state.events` — a one-frame event bus (types documented in `state.js`).

@@ -18,7 +18,9 @@ const cache = new Map();
 const visible = [];   // reused every frame
 
 const dbg = state.params.get('debug');
-const showTerrain = dbg !== null && (dbg === 'terrain' || dbg.split(',').includes('terrain'));
+const dbgList = dbg === null ? [] : dbg.split(',');
+const showTerrain = dbgList.includes('terrain');
+const showHeight = dbgList.includes('height');
 const noDetail = state.params.has('nodetail');
 
 function rng(seed) {
@@ -101,7 +103,7 @@ function tile(tx, ty) {
 export function drawGround(ctx) {
   if (!mask()) return;
   if (!noDetail) drawDetail(ctx);
-  if (showTerrain) drawDebug(ctx);
+  if (showTerrain || showHeight) drawDebug(ctx);
 }
 
 function drawDetail(ctx) {
@@ -148,27 +150,41 @@ function drawDetail(ctx) {
 }
 
 // --- debug overlay ---------------------------------------------------------------
-const DEBUG_COLORS = [null, [40, 200, 60], [30, 140, 255], [230, 0, 230], [255, 50, 0], [255, 210, 0]];
-let debugCanvas = null;
+// snow, deep, ice, thin, rock, path, cliff, shadow
+const DEBUG_COLORS = [null, [40, 200, 60], [30, 140, 255], [230, 0, 230], [255, 50, 0], [255, 210, 0], [255, 150, 0], [0, 210, 180]];
+let debugCanvas = null, debugVersion = -1;
 
 function buildDebug() {
   const m = mask();
   const c = document.createElement('canvas');
   c.width = m.w; c.height = m.h;
   const g = c.getContext('2d');
-  const id = g.createImageData(m.w, m.h);
+  const id = g.createImageData(m.w, m.h), d = id.data;
   for (let i = 0; i < m.cls.length; i++) {
-    const col = DEBUG_COLORS[m.cls[i]];
+    let col = null;
+    if (showTerrain) col = DEBUG_COLORS[m.cls[i]];
+    if (showHeight) {
+      const r = m.region[i];
+      if (r) {
+        const h = m.regionH[r];
+        if (!m.regionReach[r]) col = [90, 90, 90];                         // unreachable
+        else if (h > 0.5) { const k = Math.min(1, h / 160); col = [120 - 80 * k, 40, 160 + 95 * k]; }
+        else if (h < -0.5) col = [0, 160, 60];
+        // region borders
+        const x = i % m.w;
+        if ((x > 0 && m.region[i - 1] !== r) || (i >= m.w && m.region[i - m.w] !== r)) col = [255, 255, 255];
+      }
+    }
     if (!col) continue;
-    id.data[i * 4] = col[0]; id.data[i * 4 + 1] = col[1]; id.data[i * 4 + 2] = col[2];
-    id.data[i * 4 + 3] = 255;
+    d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255;
   }
   g.putImageData(id, 0, 0);
+  debugVersion = m.version;
   return c;
 }
 
 function drawDebug(ctx) {
-  if (!debugCanvas) debugCanvas = buildDebug();
+  if (!debugCanvas || debugVersion !== mask().version) debugCanvas = buildDebug();
   const m = mask(), s = m.scale;
   const r = visibleRect(4);
   const x0 = Math.max(0, Math.floor(r.x0 / s)), y0 = Math.max(0, Math.floor(r.y0 / s));

@@ -138,8 +138,9 @@ export function drawNear(ctx) {
     const p = L.p[i];
     if ((p.ph % 1) < inPocket(p.x, p.y) * 0.9) continue;
     const v = Math.hypot(p.vx, p.vy);
-    const stretch = 1 + Math.min(2.5, v * 0.0035);
-    const r = p.s;
+    // Streaked by the wind rather than round orbs: stretch hard, thin out as they stretch.
+    const stretch = 1 + Math.min(5, v * 0.009);
+    const r = p.s * (1 - 0.45 * Math.min(1, v / 450));
     const ang = Math.atan2(p.vy, p.vx), c = Math.cos(ang), sn = Math.sin(ang);
     ctx.setTransform(c * state.view.dpr, sn * state.view.dpr, -sn * state.view.dpr, c * state.view.dpr, p.x * state.view.dpr, p.y * state.view.dpr);
     ctx.globalAlpha = L.alpha * (0.65 + 0.35 * Math.sin(p.ph + state.time * 0.7));

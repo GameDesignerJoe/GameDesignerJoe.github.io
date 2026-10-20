@@ -9,6 +9,7 @@
 //   weather-screen.js    whiteout, cold vignette, frost, grain, dimming, shake (drawScreen)
 //   weather-haze.js      white border haze, the frame of the experience (drawScreen)
 //   weather-plumes.js    spindrift banners streaming off rock edges (drawSky)
+//   weather-frontier.js  the storm wall over the world-edge border (drawScreen)
 //   weather-noise.js     one-time texture generation
 import { state } from '../state.js';
 import { makeTextures } from './weather-noise.js';
@@ -19,6 +20,7 @@ import * as snow from './weather-snow.js';
 import * as screen from './weather-screen.js';
 import * as haze from './weather-haze.js';
 import * as plumes from './weather-plumes.js';
+import * as frontier from './weather-frontier.js';
 
 // ?wxoff=drift,sky,snow,fog,finish switches parts off (for profiling).
 const off = new Set((state.params.get('wxoff') || '').split(','));
@@ -32,6 +34,7 @@ export function init() {
   screen.init(T);
   haze.init(T);
   plumes.init(T);
+  frontier.init(T);
 }
 
 // Adaptive quality: if real frames run long for a couple of seconds, thin the particle
@@ -69,6 +72,7 @@ export function drawScreen(ctx) {
   screen.drawDim(ctx);
   if (!off.has('snow')) snow.drawFar(ctx);
   if (!off.has('fog')) screen.drawWhiteout(ctx);
+  if (!off.has('frontier')) frontier.draw(ctx);
   if (!off.has('snow')) snow.drawMid(ctx);
   if (!off.has('haze')) haze.draw(ctx);
   if (!off.has('snow')) snow.drawNear(ctx);

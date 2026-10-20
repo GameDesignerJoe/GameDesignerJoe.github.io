@@ -40,14 +40,15 @@ export function update(dt) {
   const target = clamp01((expo * 0.55 + state.weather.whiteout * 0.5 + director.storminess * 0.2 - 0.12) * (1 - sh * 0.85));
   if (lastT === 0 && state.params.has('frostnow')) frost = target;
   else if (lastT === 0 && state.params.get('weather') && state.params.get('weather') !== 'cycle') frost = Math.min(target, 0.45);
-  const rate = target > frost ? 0.11 : 0.04 + sh * 0.12;
+  const fa = director.frontier || 0;
+  const rate = target > frost ? 0.11 + fa * 0.6 : 0.04 + sh * 0.12;
   frost += (target - frost) * Math.min(1, dt * rate);
   if (target > frost) frost = Math.min(target, frost + dt * 0.012); // keeps creeping, never stalls
 
   // Camera shake only on strong gusts; a couple of px at most.
   const g = state.wind.gust, W = state.wind.speed;
   // ...plus a 1-2 px jolt when a gust front slams into the explorer.
-  const amp = (Math.max(0, g * W - 0.35) * 2.6 + director.hitShake * director.hitShake * 1.8) * (1 - (director.shelter || 0));
+  const amp = (Math.max(0, g * W - 0.35) * 2.6 + director.hitShake * director.hitShake * 1.8 + (director.frontierEsc || 0) * 1.6) * (1 - (director.shelter || 0));
   const t = state.time;
   state.cam.shakeX = amp * (Math.sin(t * 23.1) * 0.6 + Math.sin(t * 37.7 + 1) * 0.4);
   state.cam.shakeY = amp * 0.6 * (Math.sin(t * 19.3 + 2) * 0.6 + Math.sin(t * 41.9) * 0.4);
@@ -80,7 +81,7 @@ export function drawWhiteout(ctx) {
   const dt = Math.max(0, state.time - lastT); lastT = state.time;
   const Wd = state.wind.speed;
   const a = state.wind.angle, c = Math.cos(a), s = Math.sin(a);
-  wU += (40 + 160 * Wd) * dt; wV += 6 * dt;
+  wU += (40 + 160 * Wd) * dt * (1 + (director.frontierEsc || 0)); wV += 6 * dt;
   const f = state.weather.whiteout;
   if (f < 0.01) return;
 
@@ -94,12 +95,14 @@ export function drawWhiteout(ctx) {
   // Base veil + moving fog structure, world-anchored with parallax so the fog streams
   // past instead of sliding with the camera: big white billows, darker grey billows
   // moving faster, and fine wind-driven streaks of snow over it all.
-  g.fillStyle = `rgba(${FOG},${Math.pow(f, 1.5) * 0.72})`;
+  // At the peak the world goes almost pure white (the grey billows thin out too).
+  const peak = Math.max(0, Math.min(1, (f - 0.7) / 0.3));
+  g.fillStyle = `rgba(${FOG},${Math.pow(f, 1.5) * 0.72 + peak * 0.2})`;
   g.fillRect(0, 0, fw, fh);
   const cam = state.cam;
   const layers = [
     [fogPat, 256, 256, 1.0, 1.0, 3.2, 0.8],
-    [greyPat, 256, 256, 1.3, 1.8, 2.2, 0.9],
+    [greyPat, 256, 256, 1.3, 1.8, 2.2, 0.9 * (1 - 0.55 * peak)],
     [fogPat, 256, 256, 1.7, 2.6, 1.2, 0.5],
     [streakPat, 256, 128, 2.0, 8.0, 2.6, 0.5],
     [streakPat, 256, 128, 2.6, 11.0, 1.5, 0.35],
@@ -120,6 +123,12 @@ export function drawWhiteout(ctx) {
     const R = Math.hypot(w, h) / size;
     g.fillRect(-R - tw - ou / size, -R - th - ov / size, R * 2 + tw * 2, R * 2 + th * 2);
     g.restore();
+  }
+
+  if (peak > 0) {
+    g.globalAlpha = 1;
+    g.fillStyle = `rgba(244,245,246,${peak * 0.55})`;
+    g.fillRect(0, 0, fw, fh);
   }
 
   // Storm rolling in: a hard-edged wall sweeps across the screen from upwind in ~4 s,
@@ -152,7 +161,7 @@ export function drawWhiteout(ctx) {
   const p = worldToScreen(state.player.x, state.player.y - 8);
   const diag = Math.hypot(w, h);
   const ff = Math.pow(f, 0.8);
-  const R1 = (diag * 0.75 * (1 - ff) + 34 * z * ff) * sc * (1 + 1.2 * (director.shelter || 0));
+  const R1 = (diag * 0.75 * (1 - ff) + (34 * z * (1 - peak) + 85 * peak) * ff) * sc * (1 + 1.2 * (director.shelter || 0));
   const R0 = R1 * 0.12;
   g.globalCompositeOperation = 'destination-out';
   const rg = g.createRadialGradient(p.x * sc, p.y * sc, R0, p.x * sc, p.y * sc, R1);

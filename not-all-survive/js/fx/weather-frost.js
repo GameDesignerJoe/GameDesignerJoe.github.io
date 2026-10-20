@@ -60,7 +60,7 @@ function build() {
       }
       for (const [p0, p1, o] of pts) {
         const b = runB * p1 / edgeLen;
-        if (axis === 0) segs.push([p0, o, p1, o, 0.9, b]); else segs.push([o, p0, o, p1, 0.9, b]);
+        // (The runner itself is not drawn: a line hugging the screen edge reads as a frame.)
       }
       // 3-4 fronds on this corner's share of the edge, random spacing (heavy jitter).
       const n = 3 + Math.floor(r() * 2);

@@ -41,6 +41,9 @@ export const state = {
   wind: { angle: num('windAngle', Math.PI * 0.08), speed: num('wind', 0.45), gust: 0 },
   weather: { whiteout: num('whiteout', 0), snowfall: num('snow', 0.5), light: 1 },
 
+  // frontier.js adds state.frontier = { amount 0..1, inX, inY }: how deep into the
+  // world-edge storm border the explorer is, and which way is back toward the interior.
+
   // One-frame event bus. Push { type, x, y, ... } during update(); systems later in the
   // update order see it the same frame, then main.js clears it. Known types:
   //   step  { x, y, terrain, foot: 'L'|'R', weight }     (explorer -> footprints, audio)

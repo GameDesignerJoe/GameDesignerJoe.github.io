@@ -1125,10 +1125,10 @@ export function drawGround(ctx) {
 export function drawables() {
   if (!onScreen()) return [];
   const out = [
-    { y: TENT.y + 3, draw: drawTent },
-    { y: SLED.y + 1, draw: drawSled },
+    { x: TENT.x, y: TENT.y + 3, draw: drawTent },
+    { x: SLED.x, y: SLED.y + 1, draw: drawSled },
   ];
-  for (const d of dogs) out.push({ y: d.y, draw: ctx => { drawChain(ctx, d); drawDog(ctx, d); } });
+  for (const d of dogs) out.push({ x: d.x, y: d.y, draw: ctx => { drawChain(ctx, d); drawDog(ctx, d); } });
   return out;
 }
 
