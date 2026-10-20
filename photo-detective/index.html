@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Photo Time Detective</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+ --bg:#1d1a17;--panel:#262220;--white:#2d2926;--ink:#f2ede2;--muted:#c9c1b3;--faint:#9a9284;--line:#443e38;--band:#33302a;
+ --amber:#ffb547;--teal:#3aa7ad;--red:#d4544c;--sans:'IBM Plex Sans',Helvetica,Arial,sans-serif;--serif:'Instrument Serif',Georgia,serif;--mono:'IBM Plex Mono',Menlo,Consolas,monospace}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f2ede2;--panel:#faf7f0;--white:#ffffff;--ink:#1b1916;--muted:#5f5a52;--faint:#8a8378;--line:#d8d1c2;--band:#ebe3d2;--amber:#b5621a;--teal:#1e6e74;--red:#a8322d}}
+:root[data-theme="light"]{--bg:#f2ede2;--panel:#faf7f0;--white:#ffffff;--ink:#1b1916;--muted:#5f5a52;--faint:#8a8378;--line:#d8d1c2;--band:#ebe3d2;--amber:#b5621a;--teal:#1e6e74;--red:#a8322d}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45}
+button{font:inherit;color:inherit;cursor:pointer}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+header .t{font-family:var(--serif);font-size:24px;line-height:1.1}
+header small{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint);display:block}
+header .sp{flex:1}
+.prog{font-family:var(--mono);font-size:12px;color:var(--faint);white-space:nowrap}
+.prog b{color:var(--ink)}
+.found.hint{border:3px solid var(--amber);border-style:solid;animation:hintpulse .7s ease-in-out 5;box-shadow:0 0 0 2px rgba(0,0,0,.5)}
+@keyframes hintpulse{0%,100%{box-shadow:0 0 0 2px rgba(0,0,0,.5),0 0 0 0 rgba(255,181,71,0)}50%{box-shadow:0 0 0 2px rgba(0,0,0,.5),0 0 0 10px rgba(255,181,71,.45)}}
+.btn{height:38px;padding:0 16px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:8px}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.sm{height:32px;padding:0 12px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+main{padding:16px 20px 32px;max-width:1500px;margin:0 auto}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;align-items:start}
+@media (max-width:980px){.layout{grid-template-columns:1fr}}
+.stage{position:relative;background:#111;border-radius:10px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none;aspect-ratio:1600/1079;margin:0 auto}
+.stage canvas{display:block;width:100%;height:100%;cursor:crosshair}
+.marquee{position:absolute;border:2px solid var(--amber);background:rgba(255,181,71,.15);box-shadow:0 0 0 1px rgba(0,0,0,.5);pointer-events:none;display:none}
+.zoomtag{position:absolute;left:12px;top:12px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:5px 9px;border-radius:6px;background:rgba(27,25,22,.8);color:#f2ede2;pointer-events:none}
+.found{position:absolute;border:2px solid rgba(58,167,173,.9);border-radius:4px;pointer-events:none;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+.found.useless{border-color:rgba(154,146,132,.8);border-style:dashed}
+.found.missed{border-color:#ff6b57;pointer-events:auto;cursor:pointer}
+.found.missed.useless{border-color:rgba(154,146,132,.9)}
+.found .tag{position:absolute;left:-2px;bottom:100%;margin-bottom:2px;padding:2px 6px;border-radius:4px;background:rgba(27,25,22,.88);color:#f2ede2;font-family:var(--mono);font-size:10px;letter-spacing:.04em;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.found.missed.useless .tag{color:#c9c1b3}
+.tip{margin-top:10px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mobile-only{display:none}
+.modes{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.mode{height:34px;padding:0 14px;border:none;background:transparent;font-size:13px}
+.mode.on{background:var(--ink);color:var(--bg)}
+@media (max-width:980px), (pointer:coarse){
+  .desktop-only{display:none}.mobile-only{display:inline-flex}
+  header{padding:8px 12px;gap:8px}header .t{font-size:18px}header .btn.sm{height:30px;padding:0 10px;font-size:12px}.prog{font-size:11px}
+  main{padding:10px 12px 24px}
+  .layout{grid-template-columns:1fr;gap:10px}
+  .tl{padding:8px 10px}.years{grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:2px}.yr{height:22px;font-size:10px}
+  .rail{max-height:none;position:static}
+  /* selection / result card as a bottom sheet */
+  #sel:not(:empty){position:fixed;left:0;right:0;bottom:0;z-index:15;max-height:70vh;overflow:auto;background:var(--panel);border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -12px 32px rgba(0,0,0,.45);padding-bottom:env(safe-area-inset-bottom,0px)}
+  #sel .card{border:none;border-radius:0}
+  #sel .card .crop{aspect-ratio:16/8}
+  #sel .closesheet{display:flex}
+}
+.closesheet{display:none;position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:17px;border:none;background:rgba(27,25,22,.75);color:#f2ede2;align-items:center;justify-content:center;font-size:18px;z-index:2}
+/* right rail */
+.rail{display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 100px);overflow:auto;position:sticky;top:12px}
+@media (max-width:980px){.rail{max-height:none;position:static}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.card .crop{width:100%;aspect-ratio:16/10;background:#111;display:block}
+.card .body{padding:14px;display:flex;flex-direction:column;gap:10px}
+.card h3{font-family:var(--serif);font-weight:400;font-size:22px;margin:0;line-height:1.1}
+.card .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint)}
+.card p{margin:0;font-size:14px;line-height:1.5;color:var(--muted)}
+.card .effect{padding:10px 12px;border-radius:8px;background:var(--band);font-size:14px;line-height:1.4}
+.card .effect b{color:var(--teal)}
+.card .effect.none b{color:var(--faint)}
+.bar{height:10px;border-radius:5px;background:var(--band);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--amber);transition:width .1s linear}
+.card.researching .bar i{width:100%;transition:width 1.6s cubic-bezier(.2,.8,.3,1)}
+.found-list{display:flex;flex-direction:column;gap:6px}
+.fitem{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:13px}
+.fitem img{width:48px;height:30px;object-fit:cover;border-radius:3px;background:#111;flex-shrink:0}
+.fitem .fx{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--teal);white-space:nowrap}
+.fitem .fx.none{color:var(--faint)}
+.empty{padding:14px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:13px;text-align:center}
+/* timeline */
+.tl{margin-top:10px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.tl .th{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.tl .th .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint)}
+.tl .th .left{font-size:14px;color:var(--muted)}
+.tl .th .left b{color:var(--ink);font-family:var(--mono)}
+.years{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:3px}
+.yr{height:26px;border-radius:5px;border:1px solid var(--line);background:var(--white);font-family:var(--mono);font-size:12px;display:flex;align-items:center;justify-content:center;transition:background .4s,color .4s,border-color .4s,transform .3s}
+.yr.out{background:transparent;color:var(--faint);border-color:transparent;opacity:.35;text-decoration:line-through}
+.yr{position:relative}
+.yr.shot{animation:shot .55s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes shot{0%{background:var(--white);color:var(--ink);transform:scale(1)}18%{background:#ff6b57;color:#fff;transform:scale(1.35) rotate(-4deg);box-shadow:0 0 0 6px rgba(255,107,87,.5)}55%{background:#5a2a24;color:#f2ede2;transform:scale(.6) rotate(6deg);opacity:.9}100%{background:transparent;color:var(--faint);border-color:transparent;opacity:.35;transform:scale(1);text-decoration:line-through}}
+.yr .sp{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:3px;background:#ffb547;pointer-events:none;animation:spark .6s ease-out forwards}
+@keyframes spark{0%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.2);opacity:0}}
+.yr.win{background:var(--amber);color:#1b1916;border-color:var(--amber);font-weight:600;transform:scale(1.12);animation:pulse 1.2s ease-in-out infinite}
+@keyframes drop{0%{background:var(--red);color:#fff}100%{}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,181,71,.6)}50%{box-shadow:0 0 0 8px rgba(255,181,71,0)}}
+@media (prefers-reduced-motion: reduce){.yr,.yr.win,.yr.shot{animation:none;transition:none;transform:none}.yr .sp{display:none}.card.researching .bar i{transition:none}}
+/* overlays */
+.ov{position:fixed;inset:0;background:rgba(20,17,14,.84);display:none;align-items:center;justify-content:center;padding:16px;z-index:20}
+.ov.open{display:flex}
+.box{width:min(620px,100%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px;display:flex;flex-direction:column;gap:14px;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+.box h2{font-family:var(--serif);font-weight:400;font-size:32px;margin:0;line-height:1.1}
+.box p{margin:0;font-size:15px;line-height:1.55;color:var(--muted)}
+.box .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint)}
+.box ul{margin:0;padding-left:18px;font-size:14px;line-height:1.6}
+.box .big{font-family:var(--serif);font-size:64px;line-height:1;color:var(--amber)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30;max-width:90%}
+.toast.show{opacity:1}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+</style>
+</head>
+<body>
+<header>
+  <div><small id="caseNo">PHOTO 1 OF 1</small><div class="t">Photo Time Detective</div></div>
+  <div class="sp"></div>
+  <div class="prog" id="prog"></div>
+  <button class="btn ghost sm" id="btnHint" type="button">Hint</button>
+  <button class="btn ghost sm" id="btnComplete" type="button">Complete</button>
+  <button class="btn ghost sm" id="btnSound" type="button">Sound: on</button>
+  <button class="btn ghost sm" id="btnReset" type="button">Start over</button>
+</header>
+<main>
+<div class="layout">
+  <div>
+    <div class="stage" id="stage"><canvas id="pc"></canvas><div class="marquee" id="mq"></div><div class="zoomtag" id="ztag">1.0×</div><div id="marks"></div></div>
+    <div class="tip"><span class="desktop-only">Drag a box around anything that might tell you when this was taken. Scroll to zoom; right-drag to move.</span><span class="mobile-only">Drag a box around anything that might carry a date. Pinch to zoom; two fingers to move.</span><div class="modes mobile-only"><button class="mode on" data-tmode="box" type="button">Select</button><button class="mode" data-tmode="pan" type="button">Move</button></div></div>
+    <div class="tl">
+      <div class="th"><div class="lbl">WHEN WAS THIS TAKEN?</div><div class="left"><b id="leftN"></b> <span id="leftT">years still possible</span></div></div>
+      <div class="years" id="years"></div>
+    </div>
+  </div>
+  <aside class="rail">
+    <div id="sel"></div>
+    <div><div class="lbl" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint);margin-bottom:8px">RESEARCHED</div><div class="found-list" id="foundList"><div class="empty">Nothing yet. Pick something in the photo.</div></div></div>
+  </aside>
+</div>
+</main>
+<div class="ov open" id="intro"><div class="box"><div class="lbl" id="introLbl">PHOTO 1</div><h2 id="introTitle">A parking lot, somewhere, sometime.</h2><p>This is a real photograph. Your job is to work out the year it was taken using only what's in the picture.</p><p>Box anything that looks like it might carry a date — a sign, a car, a license plate — and hit Research. Each thing you research will knock years off the timeline below the photo. Keep going until one year is left.</p><div style="display:flex;justify-content:flex-end"><button class="btn" id="introGo" type="button">Start</button></div></div></div>
+<div class="ov" id="win"><div class="box" id="winBox"></div></div>
+<div class="toast" id="toast"></div>
+<script src="js/cases.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
