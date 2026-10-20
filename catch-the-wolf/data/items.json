@@ -1,0 +1,11 @@
+{
+  "_doc": "Farm goodies sold in the shop. kind 'food': bought into your pantry, placed on the farm from the tray; sheep within 'attract' (units, scaled with the farm; 0 = whole farm) walk over and eat. 'seats' = how many eat at once, 'amount' = sheep-seconds of eating before it's gone. kind 'toy': lives on the farm; now and then a sheep runs at it and sends it rolling. 'r' = radius, 'bounce' 0..1, 'friction' = how fast it slows. Art: js/art/props.js ITEM_PAINTERS[paint].",
+  "maxToys": 6,
+  "maxFoodOut": 4,
+  "items": [
+    {"id": "clover",    "name": "Clover Patch", "kind": "food", "price": 2,  "paint": "clover",    "r": 22, "seats": 4, "amount": 120, "attract": 260},
+    {"id": "hay",       "name": "Hay Pile",     "kind": "food", "price": 5,  "paint": "hay",       "r": 30, "seats": 6, "amount": 300, "attract": 0},
+    {"id": "ball",      "name": "Red Ball",     "kind": "toy",  "price": 6,  "paint": "ball",      "r": 12, "bounce": 0.6,  "friction": 1.5},
+    {"id": "beachball", "name": "Beach Ball",   "kind": "toy",  "price": 12, "paint": "beachball", "r": 18, "bounce": 0.85, "friction": 0.9}
+  ]
+}

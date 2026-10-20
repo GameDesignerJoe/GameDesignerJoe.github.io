@@ -208,3 +208,23 @@ body { font-family: var(--body); color: var(--ink); user-select: none; -webkit-u
   .banner { animation-duration: 2.2s; }
   .panel, .scrim, .nameplate, .chip.pop { animation: none; }
 }
+
+/* Press your luck: pelts you hold are at risk until spent. */
+.chip.at-risk { position: relative; }
+.chip.at-risk::after {
+  content: 'at risk'; position: absolute; left: 50%; bottom: -13px; transform: translateX(-50%);
+  font: 900 10px/1 var(--body); text-transform: uppercase; letter-spacing: 0.5px;
+  color: #fff; background: var(--red); border: 2px solid var(--ink); border-radius: 999px; padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.shop-section { grid-column: 1 / -1; margin: 8px 0 -2px; font: 400 24px/1 var(--title); color: #fff; -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; text-shadow: 0 4px 0 var(--ink); }
+.card h3 small { display: block; font: 800 11px/1.2 var(--body); opacity: 0.6; margin-top: 3px; }
+.card.goodie img.sheep { aspect-ratio: 1 / 1; max-width: 96px; }
+
+/* Farm pantry tray: food waiting to be put out */
+.tray { position: absolute; left: 0; right: 0; bottom: calc(76px + var(--safe-bottom)); display: flex; justify-content: center; gap: 8px; padding: 0 12px; flex-wrap: wrap; }
+.tray .btn img { height: 30px; margin: -6px -2px; }
+.tray .btn.armed { --c: var(--green); --d: var(--green-dark); --t: #fff; animation: pulse 1s ease-in-out infinite; }
+
+.tabs { display: flex; justify-content: center; gap: 10px; margin: 0 0 6px; }

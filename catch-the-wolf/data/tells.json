@@ -1,5 +1,5 @@
 {
-  "_doc": "Every way a wolf's disguise can slip. subtlety 1 = obvious, 5 = very hard. 'tells' is merged into the wolf's look; see js/art/sheep.js for what each key draws. Tells sharing a 'group' are variants of one idea: the generator picks a group first, then a variant, so variants don't crowd out other tells. 'notWith' lists look traits that would hide the tell ('horns' = any value, 'wool:ash' = that value). 'colorOnly' tells are skipped when the player turns on colour-friendly tells.",
+  "_doc": "Every way a wolf's disguise can slip. subtlety 1 = obvious, 5 = very hard. 'tells' is merged into the wolf's look; see js/art/sheep.js for what each key draws. Tells sharing a 'group' are variants of one idea: the generator picks a group first, then a variant, so variants don't crowd out other tells. 'notWith' lists traits of the wolf's costume that would hide the tell ('horns' = any value, 'wool:ash' = that value). Colour tells set 'tint' to a target perceptual difference, ΔE (bigger = more obvious) and are rejected if the shifted fleece lands near another breed in the flock. 'colorOnly' tells are skipped when the player turns on colour-friendly tells.",
   "tells": [
     {"id": "tail", "subtlety": 1, "label": "A bushy wolf tail!", "tells": {"tail": true}},
     {"id": "ears", "subtlety": 1, "label": "Pointy wolf ears!", "notWith": ["horns"], "tells": {"ears": "wolf"}},
@@ -16,6 +16,9 @@
     {"id": "fang", "subtlety": 4, "label": "Fangs!", "tells": {"fang": true}},
     {"id": "brows", "subtlety": 4, "label": "A sly scowl!", "notWith": ["face:dark", "eyes:sleepy"], "tells": {"brows": true}},
     {"id": "nose", "subtlety": 5, "label": "A wet black wolf nose!", "notWith": ["face:dark"], "tells": {"nose": "black"}},
-    {"id": "tint", "subtlety": 5, "label": "Fake wool, slightly off-colour!", "colorOnly": true, "notWith": ["wool:charcoal", "wool:cocoa"], "tells": {"tint": "#dcdcf0"}}
+    {"id": "tintStrong", "subtlety": 2, "group": "tint", "colorOnly": true, "label": "Fake wool: the wrong colour!", "tells": {"tint": 16}},
+    {"id": "tint", "subtlety": 3, "group": "tint", "colorOnly": true, "label": "Fake wool: slightly the wrong colour!", "tells": {"tint": 11}},
+    {"id": "tintSubtle", "subtlety": 4, "group": "tint", "colorOnly": true, "label": "Fake wool: a subtly different shade!", "tells": {"tint": 8}},
+    {"id": "tintFaint", "subtlety": 5, "group": "tint", "colorOnly": true, "label": "Fake wool: the faintest wrong tint!", "tells": {"tint": 5.5}}
   ]
 }

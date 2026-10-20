@@ -16,7 +16,7 @@ import { openSettings } from './scenes/settings.js';
 
 // Bump when shipping data/JSON changes so GitHub Pages' cache can't pair new
 // code with old data.
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.0';
 
 const SCENES = { title: titleScene, play: playScene, shop: shopScene, farm: farmScene };
 

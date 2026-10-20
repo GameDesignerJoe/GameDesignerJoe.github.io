@@ -2,8 +2,9 @@
 // returns data out, so it can be unit-tested and rebalanced from JSON.
 
 import { randInt, pick, shuffle } from '../engine/util.js';
+import { WOOL, tintPalette, colorDistance } from '../art/palette.js';
 
-export const db = { game: null, tells: [], breeds: [], names: [] };
+export const db = { game: null, tells: [], breeds: [], names: [], items: [], itemRules: {} };
 
 export async function loadData(base = './data/', version = '') {
   const get = async (f) => {
@@ -11,7 +12,9 @@ export async function loadData(base = './data/', version = '') {
     if (!res.ok) throw new Error(`${f}: HTTP ${res.status}`);
     return res.json();
   };
-  const [game, tells, breeds] = await Promise.all([get('game.json'), get('tells.json'), get('breeds.json')]);
+  const [game, tells, breeds, items] = await Promise.all([get('game.json'), get('tells.json'), get('breeds.json'), get('items.json')]);
+  db.items = items.items;
+  db.itemRules = { maxToys: items.maxToys ?? 6, maxFoodOut: items.maxFoodOut ?? 4 };
   db.game = game;
   db.tells = tells.tells;
   db.breeds = breeds.breeds;
@@ -26,6 +29,7 @@ export function tierFor(streak) {
 }
 
 export const breedById = (id) => db.breeds.find((b) => b.id === id);
+export const itemById = (id) => db.items.find((i) => i.id === id);
 
 // Pick the wolf fur that contrasts most with the fleece, so an ear, tail or
 // patch always reads: a black wolf under grey wool, a grey wolf otherwise.
@@ -40,14 +44,29 @@ function blocked(tell, look) {
   });
 }
 
-// Tells the generator may use for a flock: within the tier's subtlety band and
-// not hidden by any breed in the round.
-export function eligibleTells(tier, looks, opts = {}) {
-  const [lo, hi] = tier.subtlety;
-  return db.tells.filter((t) => t.subtlety >= lo && t.subtlety <= hi && usable(t, looks, opts));
+// A colour tell must leave the fake fleece clearly unlike every other breed
+// in the flock, or it would just look like one more breed.
+// Checked against every breed that can turn up in a round, not just this
+// flock: players learn the breeds, so a fake that looks like a Rose Sheep reads
+// as "a Rose Sheep", not as a slip.
+function tintClash(t, wolfLook) {
+  const strength = t.tells.tint;
+  if (!strength) return false;
+  const fake = tintPalette(WOOL[wolfLook.wool] || WOOL.cream, strength).base;
+  const clearance = db.game.tintClearance ?? 50;
+  const wools = new Set(db.breeds.filter((b) => b.inRounds).map((b) => b.look.wool));
+  return [...wools].some((w) => w !== wolfLook.wool && colorDistance(fake, (WOOL[w] || WOOL.cream).base) < clearance);
 }
 
-const usable = (t, looks, opts) => looks.every((l) => !blocked(t, l)) && !(opts.colorSafe && t.colorOnly);
+// Can this tell be used on this wolf's costume in this flock?
+const usable = (t, wolfLook, looks, opts) => !blocked(t, wolfLook) && !(opts.colorSafe && t.colorOnly) && !tintClash(t, wolfLook);
+
+// Tells the generator may use: within the tier's subtlety band and readable
+// on the wolf's costume.
+export function eligibleTells(tier, wolfLook, looks, opts = {}) {
+  const [lo, hi] = tier.subtlety;
+  return db.tells.filter((t) => t.subtlety >= lo && t.subtlety <= hi && usable(t, wolfLook, looks, opts));
+}
 
 // Pick a tell: a group first (so the three patch variants count as one idea),
 // then a variant within it.
@@ -67,12 +86,18 @@ function pickTell(tells) {
 export function makeRound(streak, opts = {}) {
   const tier = tierFor(streak);
   const pool = db.breeds.filter((b) => b.inRounds && (b.minTier ?? 0) <= tier.index);
-  const breeds = shuffle([...pool]).slice(0, Math.max(1, tier.mixedBreeds || 1));
+  // Prefer breeds with different wool, so "4 breeds" looks like 4.
+  const want = Math.max(1, tier.mixedBreeds || 1);
+  const breeds = [];
+  for (const b of shuffle([...pool])) if (breeds.length < want && !breeds.some((x) => x.look.wool === b.look.wool)) breeds.push(b);
+  for (const b of pool) if (breeds.length < want && !breeds.includes(b)) breeds.push(b);
   const looks = breeds.map((b) => ({ ...b.look }));
+  // The wolf wears one breed's costume; tells are judged against that costume.
+  const wb = pick(breeds);
 
-  let tells = eligibleTells(tier, looks, opts);
-  if (!tells.length) tells = db.tells.filter((t) => usable(t, looks, opts));
-  if (!tells.length) tells = db.tells.filter((t) => !t.notWith); // data blocks everything: fall back to safe tells
+  let tells = eligibleTells(tier, wb.look, looks, opts);
+  if (!tells.length) tells = db.tells.filter((t) => usable(t, wb.look, looks, opts));
+  if (!tells.length) tells = db.tells.filter((t) => !t.notWith && !t.tells.tint); // data blocks everything: safe fallback
   const tell = pickTell(tells);
 
   const count = Math.max(2, Math.min(randInt(tier.sheep[0], tier.sheep[1]), (opts.maxSheep ?? 99) - 1));
@@ -81,8 +106,7 @@ export function makeRound(streak, opts = {}) {
     const breed = breeds[i % breeds.length];
     sheep.push({ look: { ...breed.look, breed: breed.id }, isWolf: false });
   }
-  // The wolf wears the same costume as one of the breeds, plus one slip.
-  const wb = pick(breeds);
+  // Same costume as its breed, plus one slip.
   const wolfLook = { ...wb.look, breed: wb.id, wolfFur: wolfFurFor(wb.look), tells: { ...tell.tells } };
   sheep.push({ look: wolfLook, isWolf: true });
   shuffle(sheep);
@@ -137,6 +161,30 @@ export function buy(save, breedId) {
   const animal = { uid: save.nextUid++, breed: b.id, name, x: 0.3 + Math.random() * 0.4, y: 0.35 + Math.random() * 0.3 };
   save.farm.push(animal);
   return { ok: true, animal };
+}
+
+// Farm goodies. Food goes into the pantry (placed from the farm tray); toys go
+// straight onto the farm, rolling in through the gate.
+export function buyItem(save, id) {
+  const it = itemById(id);
+  if (!it) return { ok: false, reason: 'unknown' };
+  if (it.kind === 'toy' && save.toys.length >= db.itemRules.maxToys) return { ok: false, reason: 'toys' };
+  if (save.pelts < it.price) return { ok: false, reason: 'pelts', need: it.price - save.pelts };
+  save.pelts -= it.price;
+  if (it.kind === 'food') save.pantry[id] = (save.pantry[id] || 0) + 1;
+  else save.toys.push({ uid: save.nextUid++, item: id, x: 0.5, y: 0.97, isNew: true });
+  return { ok: true, item: it };
+}
+
+// Take one food out of the pantry and put it on the farm at (x, y) in 0..1 farm coords.
+export function placeFood(save, id, x, y) {
+  const it = itemById(id);
+  if (!it || !(save.pantry[id] > 0)) return null;
+  if (save.foods.length >= db.itemRules.maxFoodOut) return null;
+  save.pantry[id] -= 1;
+  const food = { uid: save.nextUid++, item: id, x, y, remaining: it.amount };
+  save.foods.push(food);
+  return food;
 }
 
 // Let a farm sheep go to a neighbour's farm, refunding part of its price.

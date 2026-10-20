@@ -15,6 +15,9 @@ const DEFAULTS = {
   shopPromptShown: false,
   seenHowTo: false,
   farm: [],            // [{ uid, breed, name, x, y }] — x/y are 0..1 farm coords
+  pantry: {},          // { itemId: count } food waiting to be put out
+  foods: [],           // [{ uid, item, x, y, remaining }] food on the farm
+  toys: [],            // [{ uid, item, x, y }] toys on the farm
   nextUid: 1,
   settings: { sound: true, haptics: true, colorSafe: false },
 };
@@ -33,6 +36,8 @@ function migrate(data) {
     if (!Number.isFinite(data[k]) || data[k] < 0) delete data[k];
   }
   if (!Array.isArray(data.farm)) data.farm = [];
+  for (const k of ['foods', 'toys']) if (!Array.isArray(data[k])) data[k] = [];
+  if (!data.pantry || typeof data.pantry !== 'object') data.pantry = {};
   data.farm = data.farm.filter((a) => a && typeof a.breed === 'string')
     .map((a) => ({ ...a, x: Number.isFinite(a.x) ? a.x : 0.5, y: Number.isFinite(a.y) ? a.y : 0.5 }));
   return data;

@@ -62,7 +62,7 @@ export function farmBackdrop(w, h, dpr, area) {
   const hay = { x: area.x + 46 * s, y: area.y + area.h * 0.55 };
   paintHay(ctx, hay.x, hay.y, 1.2 * s);
   paintHay(ctx, hay.x + 6 * s, hay.y + 34 * s, 1.2 * s);
-  avoid.push({ x: hay.x + 3 * s, y: hay.y + 17 * s, r: 34 * s });
+  avoid.push({ x: hay.x + 3 * s, y: hay.y + 17 * s, r: 46 * s });
 
   const trough = { x: area.x + area.w * 0.32, y: area.y + 40 * s };
   paintTrough(ctx, trough.x, trough.y, 1.25 * s);

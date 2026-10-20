@@ -6,7 +6,7 @@ import { Particles } from '../engine/particles.js';
 import { pick } from '../engine/util.js';
 import { titleBackdrop } from './backdrop.js';
 import { el, hudPelts } from './ui.js';
-import { paddockWorld } from './farm.js';
+import { paddockWorld } from '../game/world.js';
 
 export const titleScene = {
   enter(app) {

@@ -8,14 +8,23 @@
 // A `look` is plain data; docs/DESIGN.md shows the fields.
 
 import { INK, INK_W, cloud, ellipse, inked, shadeInside, groundShadow, smoothClosed, fur } from './draw.js';
-import { WOOL, FACE, HORN, HOOF, WOLF, EYE } from './palette.js';
+import { WOOL, FACE, HORN, HOOF, WOLF, EYE, tintPalette } from './palette.js';
 import { paintWolfTail, paintWolfEar } from './wolf.js';
 
 export const NECK = { x: 0, y: -27 };
 export const HEAD_SCALE = 1.22;
 export const BOX = { x: -52, y: -66, w: 104, h: 132 }; // generous sprite bounds
 
-const woolOf = (look) => WOOL[look.wool] || WOOL.cream;
+// The colour-shift tell (tells.tint = 0..1) re-tints all wool: body, crown, tail.
+const tinted = new Map();
+const woolOf = (look) => {
+  const base = WOOL[look.wool] || WOOL.cream;
+  const t = look.tells?.tint;
+  if (!t) return base;
+  const k = `${look.wool}/${t}`;
+  if (!tinted.has(k)) tinted.set(k, tintPalette(base, Number(t)));
+  return tinted.get(k);
+};
 const faceOf = (look) => FACE[look.face] || FACE.cream;
 const wolfFur = (look) => WOLF[look.wolfFur] || WOLF.grey;
 
@@ -94,14 +103,6 @@ export function paintBody(ctx, look) {
     seed: look.woolSeed || 7, curls: 7, curlR: 7.4,
   }, pal);
   if (look.tells?.patch) paintFurPatch(ctx, path, look.tells.patch, wolfFur(look), pal);
-  if (look.tells?.tint) {
-    // A costume that's ever so slightly off-colour.
-    ctx.save(); ctx.clip(path);
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = look.tells.tint;
-    ctx.fillRect(-60, -60, 120, 130);
-    ctx.restore();
-  }
 }
 
 // A rip in the fleece with grey wolf fur poking through: spiky fur edge, a

@@ -17,18 +17,21 @@ farm, where they graze, nap and have zoomies. Tap a real sheep and your streak
 | Original | Remake | Why |
 |---|---|---|
 | Wolf differs by a random body part (colour, eye style, ear droop) | Every tell is *wolfish* (`data/tells.json`) | Thematic: you learn to look for wolf bits, and each reveal explains itself ("Yellow wolf eyes!") |
-| Wrong tap wipes all pelts | Wrong tap resets the streak and costs 1 pelt (`mistake.peltCost`) | Losing everything punished the farm meta. A small cost still stops deliberate misses. `mistake.mode: "classic"` restores the old rule |
+| Wrong tap wipes all pelts | Kept, deliberately: **press your luck**. Pelts you hold are "at risk" (HUD badge) until spent in the shop | Joe's call. The shop is the bank, which gives every round a risk. `mistake.mode: "streak"` switches to a gentler 1-pelt penalty |
 | 1 pelt per wolf at every tier | Pelts per wolf rise with the tier (1 → 4) | Gives a reason to climb, and shortens the shop grind |
 | Leaving mid-round dealt a new flock | The round in progress is saved and restored | No free rerolls of a hard flock |
 | Trash can on the farm, no refund | Drag a sheep to the farm gate to let it go, for half its price back | A full farm is never a dead end for pelts |
 | Pelts not saved (bug), farm cap counted per session (bug) | Everything persists in one versioned save | — |
 | Fixed 320×480 canvas | Responsive canvas + DOM UI, any phone/desktop, DPR-sharp | — |
 | Silent | Synthesised baa/poof/howl/coin (WebAudio, no files) | — |
-| Unused "skip" button | **Sniff** hint: sends half the innocent sheep away (1 pelt, 2 at the top tiers) | Gives pelts a second use, softens hard tiers |
+| Unused "skip" button | **Sniff**: each use sends half the flock away (never the wolf), down to 2. 1 pelt per sniff, 2 at the top tiers | Spend pelts to buy certainty, or keep them and risk it |
+| Farm sheep shuffle | Plus **farm goodies** (`data/items.json`). Food from the pantry tray brings sheep running to eat it. Toys get run into by a sheep and roll, bounce off the fence and pond, and can be flicked or thrown | Something to do with pelts beyond buying sheep |
 | Wrong tap: a text screen | The wolf is ringed in red, then unmasks, and the panel names its tell | A miss teaches you what to look for |
 | Mouse only | Tap, plus keyboard play (arrows + Enter), Escape closes dialogs, colour-friendly tells option, reduced motion | — |
 | Farm sheep shuffle in place | Behaviour states: graze, walk, run, lie down, sleep; tap to pet (hearts + name), drag to move | Matches the animation list in the reference sheep pack |
-| Static sheep | Fidgets scale with tier (blink → glance → chew → shuffle) | New difficulty axis that never hides a tell |
+| Static sheep in a grid | The flock wanders the pen: stands, grazes, ambles, faces any direction. `activity` per tier controls how restless it is. It never lies down or sleeps in a level (that would hide paws or eyes) | Moving targets, and the field feels alive |
+| Every sheep in a round identical | Up to 4 breeds share the field (`mixedBreeds`). Tells are wolf parts, so variety doesn't muddy the search | More to look at, harder at the top tiers |
+| Body-colour difference | **Colour wolves**: the fake fleece is shifted toward a wrong hue, in four strengths (strong → faint), scaled to read equally on every wool. A colour wolf is never allowed to land near any breed's real colour | Colour as a skill that ramps with the tier |
 
 ## Systems map
 
@@ -48,12 +51,16 @@ js/art/          procedural painters (no state)
   wolf.js       the unmasked wolf
   ground.js     meadow, dirt with grass fringe, trees, fences, pond, hay…
   icons.js      pelt, heart, data-URL icons for the DOM
+  props.js      farm goodies: clover, hay pile, red ball, beach ball
   render.js     composes cached layers into an animated sheep/wolf + hit test
 js/game/
   rules.js      pure rules: round generation, tiers, outcomes, shop
-  critter.js    Sheep entity: pose animation, idle fidgets, farm brain
+  critter.js    Sheep entity: pose animation, fidgets, one brain with
+                profiles (farm / field), food seeking, toy chasing,
+                two-circle rotated collision
+  world.js      paddock bounds the brain moves within
 js/scenes/       title, play, shop, farm, settings (+ backdrop.js, ui.js)
-data/            game.json, tells.json, breeds.json, sprites.json
+data/            game.json, tells.json, breeds.json, items.json, sprites.json
 tools/shoot.mjs  headless-Chrome driver: tap/eval/screenshot for testing
 ```
 
@@ -103,6 +110,11 @@ browser console to see the ids in use (for example `sheep/body/cream/7` or
 is scaled into that sprite's bounds: the `BOX`/`HEAD_BOX`/`TAIL_BOX`/`WOLF_BOX`
 constants in `sheep.js` and `render.js`, in units where the sheep's body is
 about 62 wide. Export at about 4× units for crisp phones.
+
+**New food or toy.** Add an entry to `data/items.json` and a painter to
+`props.js → ITEM_PAINTERS`. Food sets `seats` (how many eat at once), `amount`
+(sheep-seconds of eating) and `attract` (reach; 0 means the whole farm). Toys
+set `r`, `bounce` and `friction`.
 
 **New sound.** Add a recipe to `audio.js → sfx`. To use a recorded file
 instead, decode it into a buffer once and play it from the same function.
