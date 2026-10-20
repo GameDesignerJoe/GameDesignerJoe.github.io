@@ -411,22 +411,20 @@ export const farmScene = {
       ctx.strokeText('Let go here', g.x, g.y - g.r - 8); ctx.fillText('Let go here', g.x, g.y - g.r - 8);
       ctx.restore();
     }
-    // Sheep, toys and food share one depth order, so sheep eating from behind
-    // a pile don't hide it.
+    // Food lies on the ground layer, under every sheep.
+    for (const f of this.foods) {
+      const left = Math.round(clamp(f.remaining / f.item.amount, 0, 1) * 10) / 10;
+      ctx.save(); ctx.translate(f.x, f.y); ctx.scale(this.sc, this.sc);
+      blit(ctx, sprite(`item/${f.item.paint}/${left}`, FOOD_BOX, this.sc, (c) => ITEM_PAINTERS[f.item.paint](c, { left })));
+      ctx.restore();
+    }
+    // Sheep and toys share one depth order.
     const list = [
       ...this.sheep.map((s) => ({ y: s.y, s })),
       ...this.toys.map((t) => ({ y: t.y + t.r * 0.5, t })),
-      ...this.foods.map((f) => ({ y: f.y + f.r * 0.6, f })),
     ].sort((a, b) => a.y - b.y);
     for (const e of list) {
       if (e.s) { e.s.draw(ctx); continue; }
-      if (e.f) {
-        const f = e.f, left = Math.round(clamp(f.remaining / f.item.amount, 0, 1) * 10) / 10;
-        ctx.save(); ctx.translate(f.x, f.y); ctx.scale(this.sc, this.sc);
-        blit(ctx, sprite(`item/${f.item.paint}/${left}`, FOOD_BOX, this.sc, (c) => ITEM_PAINTERS[f.item.paint](c, { left })));
-        ctx.restore();
-        continue;
-      }
       const t = e.t, base = t.item.r;
       const rollQ = Math.round((((t.roll % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 16)) % 32;
       const box = { x: -base * 1.6, y: -base * 1.4, w: base * 3.2, h: base * 3 };

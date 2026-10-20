@@ -7,6 +7,42 @@ import { rng, ellipse, inked, cloud, mix } from './draw.js';
 export const GRASS = { base: '#7cc242', dark: '#5fa630', deep: '#3f7d22', light: '#a3dc5c', blade: '#4d9128' };
 export const DIRT = { base: '#7a5737', dark: '#5f4129', light: '#936c47', edge: '#3e2a1a' };
 
+// Seasonal looks. setSeason() swaps the palettes every painter reads, so the
+// same scenery code paints spring meadows, dry summer grass, autumn leaves or
+// a snowfield. Add a season here and in data/world.json.
+const SEASONS = {
+  spring: {
+    grass: { base: '#7cc242', dark: '#5fa630', deep: '#3f7d22', light: '#a3dc5c', blade: '#4d9128' },
+    mottle: ['163,220,92', '79,150,40'], flowers: ['#ffffff', '#ffe066', '#ffd1e3'],
+    tree: { base: '#5fb33a', mid: '#4f9e2f', shade: '#357320', light: '#9be066' }, treeGlow: 'rgba(190,240,140,0.55)', treeRing: 'rgba(30,70,20,0.35)',
+    bush: { base: '#4fa634', mid: '#43922b', shade: '#317321', light: '#7ccc55' }, berries: true,
+  },
+  summer: {
+    grass: { base: '#9cc23f', dark: '#80a632', deep: '#59782a', light: '#c4de66', blade: '#6e9128' },
+    mottle: ['205,220,110', '150,150,50'], flowers: ['#ffe066', '#ffffff'], dry: '#cdbb63',
+    tree: { base: '#4e9e32', mid: '#438b2a', shade: '#2f6a1e', light: '#86cc52' }, treeGlow: 'rgba(200,240,140,0.5)', treeRing: 'rgba(30,70,20,0.35)',
+    bush: { base: '#4a9a31', mid: '#3f8729', shade: '#2d681e', light: '#79c150' }, berries: true,
+  },
+  fall: {
+    grass: { base: '#a5a447', dark: '#8a8a36', deep: '#5f6424', light: '#c8c466', blade: '#7b7a2c' },
+    mottle: ['205,190,100', '140,110,50'], flowers: null, leaves: ['#e0672b', '#f2a73a', '#c8452a', '#e8c24a'],
+    tree: { base: '#e08a2e', mid: '#cf7424', shade: '#a2501a', light: '#f7b552' }, treeGlow: 'rgba(255,225,150,0.5)', treeRing: 'rgba(120,50,10,0.3)',
+    bush: { base: '#c86a2a', mid: '#b35a23', shade: '#8c421a', light: '#e99a4a' }, berries: false,
+  },
+  winter: {
+    grass: { base: '#eef3f8', dark: '#d8e2ed', deep: '#9fb3c8', light: '#ffffff', blade: '#86a07a' },
+    mottle: ['255,255,255', '165,185,212'], flowers: null, snow: true,
+    tree: { base: '#f4f8fc', mid: '#dfe9f3', shade: '#b3c5d9', light: '#ffffff' }, treeGlow: 'rgba(255,255,255,0.7)', treeRing: 'rgba(80,110,150,0.3)',
+    bush: { base: '#e9f0f7', mid: '#d6e2ee', shade: '#a9bdd2', light: '#ffffff' }, berries: false,
+  },
+};
+let SEASON = SEASONS.spring;
+export function setSeason(id) {
+  SEASON = SEASONS[id] || SEASONS.spring;
+  Object.assign(GRASS, SEASON.grass);
+}
+export const currentSeason = () => SEASON;
+
 export function paintMeadow(ctx, w, h, seed = 1, density = 1) {
   const r = rng(seed);
   ctx.fillStyle = GRASS.base;
@@ -15,21 +51,57 @@ export function paintMeadow(ctx, w, h, seed = 1, density = 1) {
   for (let i = 0; i < (w * h) / 9000; i++) {
     const x = r() * w, y = r() * h, rad = 30 + r() * 90;
     const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    const c = r() < 0.5 ? '163,220,92' : '79,150,40';
+    const c = r() < 0.5 ? SEASON.mottle[0] : SEASON.mottle[1];
     g.addColorStop(0, `rgba(${c},0.22)`);
     g.addColorStop(1, `rgba(${c},0)`);
     ctx.fillStyle = g;
     ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
   }
-  // Grass tufts.
-  const tufts = Math.round(((w * h) / 2600) * density);
-  for (let i = 0; i < tufts; i++) grassTuft(ctx, r() * w, r() * h, 0.7 + r() * 0.7, r);
-  // A sprinkle of tiny flowers.
-  for (let i = 0; i < ((w * h) / 22000) * density; i++) {
-    const x = r() * w, y = r() * h;
-    const col = ['#ffffff', '#ffe066', '#ffd1e3'][Math.floor(r() * 3)];
-    for (let k = 0; k < 3; k++) flower(ctx, x + (r() - 0.5) * 18, y + (r() - 0.5) * 12, 2 + r(), col);
+  // Summer: sun-dried patches.
+  if (SEASON.dry) {
+    for (let i = 0; i < (w * h) / 30000; i++) {
+      const x = r() * w, y = r() * h, rad = 25 + r() * 50;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+      g.addColorStop(0, SEASON.dry + 'aa'); g.addColorStop(1, SEASON.dry + '00');
+      ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
   }
+  // Grass tufts (only a few poke through snow).
+  const tufts = Math.round(((w * h) / 2600) * density * (SEASON.snow ? 0.25 : 1));
+  for (let i = 0; i < tufts; i++) grassTuft(ctx, r() * w, r() * h, 0.7 + r() * 0.7, r);
+  // Spring and summer flowers.
+  if (SEASON.flowers) {
+    for (let i = 0; i < ((w * h) / 22000) * density; i++) {
+      const x = r() * w, y = r() * h;
+      const col = SEASON.flowers[Math.floor(r() * SEASON.flowers.length)];
+      for (let k = 0; k < 3; k++) flower(ctx, x + (r() - 0.5) * 18, y + (r() - 0.5) * 12, 2 + r(), col);
+    }
+  }
+  // Fall: fallen leaves.
+  if (SEASON.leaves) {
+    for (let i = 0; i < ((w * h) / 2200) * density; i++) leaf(ctx, r() * w, r() * h, 0.8 + r() * 0.6, r() * 6, SEASON.leaves[Math.floor(r() * SEASON.leaves.length)]);
+  }
+  // Winter: drifts and glints.
+  if (SEASON.snow) {
+    for (let i = 0; i < (w * h) / 14000; i++) {
+      const x = r() * w, y = r() * h;
+      ctx.fillStyle = 'rgba(160,182,210,0.35)';
+      ctx.beginPath(); ctx.ellipse(x + 4, y + 3, 26 + r() * 30, 7 + r() * 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(x, y, 24 + r() * 28, 6 + r() * 5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < (w * h) / 3000; i++) { ctx.beginPath(); ctx.arc(r() * w, r() * h, 0.8 + r(), 0, Math.PI * 2); ctx.fill(); }
+  }
+}
+
+export function leaf(ctx, x, y, s, rot, col) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.moveTo(0, -5); ctx.quadraticCurveTo(4, 0, 0, 5); ctx.quadraticCurveTo(-4, 0, 0, -5); ctx.fill();
+  ctx.strokeStyle = 'rgba(80,30,10,0.45)'; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(0, 4); ctx.stroke();
+  ctx.restore();
 }
 
 export function grassTuft(ctx, x, y, s, r = Math.random) {
@@ -184,13 +256,12 @@ export function paintTree(ctx, x, y, s = 1, seed = 5) {
   const trunk = new Path2D(); trunk.roundRect(-7, 18, 14, 32, 5);
   inked(ctx, trunk, '#8a5a34', 3);
   ctx.fillStyle = '#6b4325'; ctx.fillRect(1, 20, 5, 28);
-  const { path } = cloud(ctx, { x: 0, y: 0, rx: 46, ry: 42, lobes: 11, lobeR: 15, seed, curls: 6, curlR: 11 },
-    { base: '#5fb33a', mid: '#4f9e2f', shade: '#357320', light: '#9be066' }, 3.4);
+  const { path } = cloud(ctx, { x: 0, y: 0, rx: 46, ry: 42, lobes: 11, lobeR: 15, seed, curls: 6, curlR: 11 }, SEASON.tree, 3.4);
   // darker under-canopy ring and big top highlights
   ctx.save(); ctx.clip(path);
-  ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(30,70,20,0.35)';
+  ctx.lineWidth = 10; ctx.strokeStyle = SEASON.treeRing;
   ctx.beginPath(); ctx.ellipse(6, 8, 46, 42, 0, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
-  ctx.fillStyle = 'rgba(190,240,140,0.55)';
+  ctx.fillStyle = SEASON.treeGlow;
   ctx.beginPath(); ctx.ellipse(-16, -18, 14, 8, -0.5, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.ellipse(8, -26, 8, 5, -0.3, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
@@ -201,9 +272,8 @@ export function paintBush(ctx, x, y, s = 1, seed = 9, berries = false) {
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
   ctx.fillStyle = 'rgba(22,40,30,0.28)';
   ctx.beginPath(); ctx.ellipse(4, 6, 24, 18, 0, 0, Math.PI * 2); ctx.fill();
-  cloud(ctx, { x: 0, y: 0, rx: 22, ry: 17, lobes: 8, lobeR: 8, seed, curls: 3, curlR: 6 },
-    { base: '#4fa634', mid: '#43922b', shade: '#317321', light: '#7ccc55' }, 3);
-  if (berries) {
+  cloud(ctx, { x: 0, y: 0, rx: 22, ry: 17, lobes: 8, lobeR: 8, seed, curls: 3, curlR: 6 }, SEASON.bush, 3);
+  if (berries && SEASON.berries) {
     const r = rng(seed);
     for (let i = 0; i < 5; i++) {
       const p = new Path2D(); ellipse(p, (r() - 0.5) * 26, (r() - 0.5) * 18, 2.4, 2.4);
@@ -224,6 +294,7 @@ export function paintRock(ctx, x, y, s = 1) {
   ctx.save(); ctx.clip(p);
   ctx.fillStyle = '#878c99'; ctx.beginPath(); ctx.ellipse(4, 6, 16, 7, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#d3d6de'; ctx.beginPath(); ctx.ellipse(-5, -6, 6, 2.5, -0.3, 0, Math.PI * 2); ctx.fill();
+  if (SEASON.snow) { ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(-1, -8, 14, 5, -0.1, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
   ctx.restore();
 }
@@ -266,6 +337,22 @@ export function paintPond(ctx, x, y, rx, ry, seed = 4) {
   ctx.lineJoin = 'round';
   ctx.lineWidth = 16; ctx.strokeStyle = '#d2bc84'; ctx.stroke(p); // sandy bank
   ctx.lineWidth = 7; ctx.strokeStyle = '#b39a62'; ctx.stroke(p);
+  if (SEASON.snow) {
+    // Frozen: pale ice with cracks, no lily pads.
+    inked(ctx, p, '#cfe7f4', 3);
+    ctx.clip(p);
+    ctx.fillStyle = '#e8f5fc';
+    ctx.beginPath(); ctx.ellipse(x - rx * 0.15, y - ry * 0.2, rx * 0.6, ry * 0.4, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(110,150,185,0.7)'; ctx.lineWidth = 1.2;
+    for (let i = 0; i < 5; i++) {
+      let cx = x + (r() - 0.5) * rx, cy = y + (r() - 0.5) * ry;
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      for (let k = 0; k < 3; k++) { cx += (r() - 0.5) * 30; cy += (r() - 0.5) * 18; ctx.lineTo(cx, cy); }
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
   inked(ctx, p, '#4fa3d9', 3);
   ctx.clip(p);
   ctx.fillStyle = '#3a86bd';
@@ -308,7 +395,9 @@ export function paintFence(ctx, x1, y1, x2, y2, s = 1) {
     ctx.beginPath(); ctx.arc(px, 0, 2.6 * s, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = woodDark; ctx.lineWidth = 0.8 * s;
     ctx.beginPath(); ctx.arc(px, 0, 4 * s, 0, Math.PI * 2); ctx.stroke();
+    if (SEASON.snow) { ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(px - 0.5 * s, -1.5 * s, 5.5 * s, 4 * s, 0, 0, Math.PI * 2); ctx.fill(); }
   }
+  if (SEASON.snow) { ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(2, -3.2 * s, len - 4, 2.4 * s); }
   ctx.restore();
 }
 

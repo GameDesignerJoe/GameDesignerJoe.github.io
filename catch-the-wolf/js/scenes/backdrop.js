@@ -2,7 +2,7 @@
 // canvas. Returns { canvas, avoid } where `avoid` lists solid props (circles)
 // for the farm sheep to steer around.
 
-import { paintMeadow, paintDirt, paintTree, paintBush, paintRock, paintHay, paintPond, paintFence, paintTrough } from '../art/ground.js';
+import { paintMeadow, paintDirt, paintTree, paintBush, paintRock, paintHay, paintPond, paintFence, paintTrough, setSeason } from '../art/ground.js';
 import { rng } from '../art/draw.js';
 
 function surface(w, h, dpr) {
@@ -25,7 +25,8 @@ function pen(ctx, r, s, gate = true) {
 }
 
 // Find-the-wolf field: grass inside a fenced pen, scenery in the margins.
-export function playBackdrop(w, h, dpr, field) {
+export function playBackdrop(w, h, dpr, field, season = 'spring') {
+  setSeason(season);
   const { c, ctx } = surface(w, h, dpr);
   paintMeadow(ctx, w, h, 11, 0.9);
   const r = rng(5);
@@ -46,6 +47,7 @@ export function playBackdrop(w, h, dpr, field) {
 
 // The player's farm: a big paddock with a pond, trees, hay and a trough.
 export function farmBackdrop(w, h, dpr, area) {
+  setSeason('spring');
   const { c, ctx } = surface(w, h, dpr);
   paintMeadow(ctx, w, h, 21, 1);
   const s = Math.max(0.75, Math.min(1.3, Math.min(w, h) / 560));
@@ -87,7 +89,8 @@ export function farmBackdrop(w, h, dpr, area) {
 }
 
 // Title: open meadow with a dirt path and a few trees.
-export function titleBackdrop(w, h, dpr) {
+export function titleBackdrop(w, h, dpr, season = 'spring') {
+  setSeason(season);
   const { c, ctx } = surface(w, h, dpr);
   paintMeadow(ctx, w, h, 31, 1);
   const r = rng(13);

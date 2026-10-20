@@ -4,7 +4,7 @@
 import { randInt, pick, shuffle } from '../engine/util.js';
 import { WOOL, tintPalette, colorDistance } from '../art/palette.js';
 
-export const db = { game: null, tells: [], breeds: [], names: [], items: [], itemRules: {} };
+export const db = { game: null, tells: [], breeds: [], names: [], items: [], itemRules: {}, world: null };
 
 export async function loadData(base = './data/', version = '') {
   const get = async (f) => {
@@ -12,7 +12,8 @@ export async function loadData(base = './data/', version = '') {
     if (!res.ok) throw new Error(`${f}: HTTP ${res.status}`);
     return res.json();
   };
-  const [game, tells, breeds, items] = await Promise.all([get('game.json'), get('tells.json'), get('breeds.json'), get('items.json')]);
+  const [game, tells, breeds, items, world] = await Promise.all([get('game.json'), get('tells.json'), get('breeds.json'), get('items.json'), get('world.json')]);
+  db.world = world;
   db.items = items.items;
   db.itemRules = { maxToys: items.maxToys ?? 6, maxFoodOut: items.maxFoodOut ?? 4 };
   db.game = game;
@@ -29,6 +30,30 @@ export function tierFor(streak) {
 }
 
 export const breedById = (id) => db.breeds.find((b) => b.id === id);
+
+// --- calendar -------------------------------------------------------------------
+// Where a streak sits in the year: season, time of day, which set of the season.
+export function calendarFor(streak) {
+  const W = db.world, perSet = W.times.length, perSeason = perSet * W.setsPerSeason;
+  const seasonIdx = Math.floor(streak / perSeason) % W.seasons.length;
+  const within = streak % perSeason;
+  const set = Math.floor(within / perSet);
+  const time = W.times[within % perSet];
+  const season = W.seasons[seasonIdx];
+  const year = Math.floor(streak / (perSeason * W.seasons.length));
+  return { season, time, set, year, slot: within % perSet };
+}
+
+export function pickWeather(cal) {
+  const pools = cal.season.weather;
+  return pick(pools[Math.min(cal.set + cal.year, pools.length - 1)]);
+}
+
+// Hidden speed bonus: ×3 / ×2 / ×1 by seconds taken, more time at harder tiers.
+export function speedMultiplier(streak, seconds) {
+  const [q3, q2] = tierFor(streak).quick || [4, 8];
+  return seconds <= q3 ? 3 : seconds <= q2 ? 2 : 1;
+}
 export const itemById = (id) => db.items.find((i) => i.id === id);
 
 // Pick the wolf fur that contrasts most with the fleece, so an ear, tail or
@@ -110,15 +135,16 @@ export function makeRound(streak, opts = {}) {
   const wolfLook = { ...wb.look, breed: wb.id, wolfFur: wolfFurFor(wb.look), tells: { ...tell.tells } };
   sheep.push({ look: wolfLook, isWolf: true });
   shuffle(sheep);
-  return { tier, sheep, tell };
+  return { tier, sheep, tell, weather: pickWeather(calendarFor(streak)) };
 }
 
 // --- outcomes ----------------------------------------------------------------
 // Each mutates the save data and returns what the UI needs to show.
 
-export function catchWolf(save) {
+export function catchWolf(save, seconds = Infinity) {
   const tier = tierFor(save.streak);
-  const gained = tier.pelts ?? 1;
+  const mult = speedMultiplier(save.streak, seconds);
+  const gained = (tier.pelts ?? 1) * mult;
   save.pelts += gained;
   save.streak += 1;
   save.wolvesCaught += 1;
@@ -127,7 +153,11 @@ export function catchWolf(save) {
   const after = tierFor(save.streak);
   const promptShop = !save.shopPromptShown && save.pelts >= db.game.shopPromptAt;
   if (promptShop) save.shopPromptShown = true;
-  return { gained, tierUp: after.index > tier.index ? after : null, promptShop, newRecord };
+  const every = db.world.bonusEvery || 18;
+  const bonus = save.streak > 0 && save.streak % every === 0; // a Wolf Stampede is due
+  const before = calendarFor(save.streak - 1), now = calendarFor(save.streak);
+  const seasonUp = now.season.id !== before.season.id ? now.season : null;
+  return { gained, mult, tierUp: after.index > tier.index ? after : null, promptShop, newRecord, bonus, seasonUp };
 }
 
 export function mistake(save) {
@@ -204,13 +234,13 @@ export function release(save, uid) {
 // The round in progress is kept in the save so leaving (menu, shop, reload)
 // can't reroll a hard flock for free.
 export function storeRound(save, round, hinted) {
-  save.round = { streak: save.streak, tellId: round.tell.id, tierIndex: round.tier.index, hinted, sheep: round.sheep.map((s) => ({ look: s.look, isWolf: s.isWolf })) };
+  save.round = { streak: save.streak, tellId: round.tell.id, tierIndex: round.tier.index, hinted, weather: round.weather, elapsed: 0, sheep: round.sheep.map((s) => ({ look: s.look, isWolf: s.isWolf })) };
 }
 export function restoreRound(save) {
   const r = save.round;
   if (!r || r.streak !== save.streak) return null;
   const tell = db.tells.find((t) => t.id === r.tellId);
   if (!tell || !Array.isArray(r.sheep) || !r.sheep.some((s) => s.isWolf)) return null;
-  return { round: { tier: tierFor(save.streak), tell, sheep: r.sheep.map((s) => ({ look: { ...s.look }, isWolf: s.isWolf })) }, hinted: !!r.hinted };
+  return { round: { tier: tierFor(save.streak), tell, weather: r.weather, sheep: r.sheep.map((s) => ({ look: { ...s.look }, isWolf: s.isWolf })) }, hinted: !!r.hinted, elapsed: r.elapsed || 0 };
 }
 export function clearRound(save) { delete save.round; }

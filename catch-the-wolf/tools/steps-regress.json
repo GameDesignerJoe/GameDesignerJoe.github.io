@@ -3,7 +3,7 @@
   {"wait": 2500},
   {"eval": "document.querySelector('[data-ok]').click(); 'howto dismissed'"},
   {"wait": 400},
-  {"eval": "(()=>{const s=ctw.scene; const w=s.sheep.find(x=>x.isWolf); s.pointer({type:'down',x:w.x,y:w.y,id:1}); const d=ctw.save.data; return {test:'catch', pelts:d.pelts, streak:d.streak, ok:d.pelts===1&&d.streak===1}})()"},
+  {"eval": "(()=>{const s=ctw.scene; const w=s.sheep.find(x=>x.isWolf); s.pointer({type:'down',x:w.x,y:w.y,id:1}); const d=ctw.save.data; return {test:'catch (fast = x3)', pelts:d.pelts, streak:d.streak, ok:d.pelts===3&&d.streak===1}})()"},
   {"wait": 3200},
   {"eval": "(()=>{const s=ctw.scene; const before=[s.round.tell.id, s.sheep.length]; ctw.go('title'); ctw.go('play'); const t=ctw.scene; const after=[t.round.tell.id, t.sheep.length]; return {test:'round persists', before, after, ok: before[0]===after[0] && before[1]===after[1]}})()"},
   {"wait": 800},

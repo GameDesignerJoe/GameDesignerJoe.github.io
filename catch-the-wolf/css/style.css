@@ -228,3 +228,9 @@ body { font-family: var(--body); color: var(--ink); user-select: none; -webkit-u
 .tray .btn.armed { --c: var(--green); --d: var(--green-dark); --t: #fff; animation: pulse 1s ease-in-out infinite; }
 
 .tabs { display: flex; justify-content: center; gap: 10px; margin: 0 0 6px; }
+
+.panel img.tellcard { display: block; width: 100%; max-width: 340px; margin: 4px auto 0; background: #8fcf5a; border: 3px solid var(--ink); border-radius: 16px; }
+
+/* Wolf Stampede countdown (the bonus round is the one place a timer shows) */
+.stampede-bar { position: absolute; left: 50%; top: calc(70px + var(--safe-top)); transform: translateX(-50%); width: min(420px, 80%); height: 16px; background: var(--cream); border: 3px solid var(--ink); border-radius: 999px; overflow: hidden; box-shadow: 0 3px 0 var(--ink); }
+.stampede-bar > div { height: 100%; width: 100%; background: linear-gradient(90deg, var(--red), var(--gold)); transition: width 0.1s linear; }

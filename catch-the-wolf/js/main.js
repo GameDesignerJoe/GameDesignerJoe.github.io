@@ -12,13 +12,14 @@ import { titleScene } from './scenes/title.js';
 import { playScene } from './scenes/play.js';
 import { shopScene } from './scenes/shop.js';
 import { farmScene } from './scenes/farm.js';
+import { bonusScene } from './scenes/bonus.js';
 import { openSettings } from './scenes/settings.js';
 
 // Bump when shipping data/JSON changes so GitHub Pages' cache can't pair new
 // code with old data.
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 
-const SCENES = { title: titleScene, play: playScene, shop: shopScene, farm: farmScene };
+const SCENES = { title: titleScene, play: playScene, shop: shopScene, farm: farmScene, bonus: bonusScene };
 
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
@@ -116,7 +117,7 @@ async function boot() {
   bindInput();
   // Deep links (#farm, #shop, #play) — handy for testing and sharing.
   const start = location.hash.slice(1);
-  app.go(SCENES[start] ? start : 'title');
+  app.go(SCENES[start] && start !== 'bonus' ? start : 'title');
   document.getElementById('boot')?.remove();
   requestAnimationFrame((t) => { last = t; frame(t); });
 }

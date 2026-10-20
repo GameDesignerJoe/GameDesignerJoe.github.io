@@ -27,6 +27,11 @@ farm, where they graze, nap and have zoomies. Tap a real sheep and your streak
 | Unused "skip" button | **Sniff**: each use sends half the flock away (never the wolf), down to 2. 1 pelt per sniff, 2 at the top tiers | Spend pelts to buy certainty, or keep them and risk it |
 | Farm sheep shuffle | Plus **farm goodies** (`data/items.json`). Food from the pantry tray brings sheep running to eat it. Toys get run into by a sheep and roll, bounce off the fence and pond, and can be flicked or thrown | Something to do with pelts beyond buying sheep |
 | Wrong tap: a text screen | The wolf is ringed in red, then unmasks, and the panel names its tell | A miss teaches you what to look for |
+| Same field every round | **A year of seasons** (`data/world.json`). Each season runs dawn → noon → day → sunset → night → night, three times. Then spring → summer → fall → winter, with the terrain repainted (flowers, dry grass, fallen leaves, snow and a frozen pond). Light follows the time of day, and weather (wind, rain, fog, snow) gets rougher by set and season. Tied to the streak, so a miss sends you back to spring dawn | Environmental difficulty on top of flock size |
+| — | **Wolf Stampede** between seasons: an empty pen, unmasked wolves dashing about, 15 s to tap as many as you can (+1 pelt each). The one place a timer shows | A fast, silly change-up |
+| 1 pelt per catch | Plus a **hidden speed bonus**: ×3 / ×2 / ×1 pelts by how fast you found the wolf (`quick` per tier, more time at harder tiers). Never shown as a timer, only as praise ("Lightning fast!") | Rewards sharp eyes without a stressful clock |
+| Wrong tap: a text screen | The miss panel shows a picture: a real sheep beside the wolf in the same costume, with the slip circled | Shows the tell instead of naming it |
+| — | **Hungry wolf** (experimental, Settings toggle). The wolf stalks a sheep, and 5 s of mouth-on-wool eats it for −1 pelt. The victim trembles and loses tufts, which is also a clue. Tuning in `game.json → hungryWolf` | Time pressure; a toggle so it can be tried |
 | Mouse only | Tap, plus keyboard play (arrows + Enter), Escape closes dialogs, colour-friendly tells option, reduced motion | — |
 | Farm sheep shuffle in place | Behaviour states: graze, walk, run, lie down, sleep; tap to pet (hearts + name), drag to move | Matches the animation list in the reference sheep pack |
 | Static sheep in a grid | The flock wanders the pen: stands, grazes, ambles, faces any direction. `activity` per tier controls how restless it is. It never lies down or sleeps in a level (that would hide paws or eyes) | Moving targets, and the field feels alive |
@@ -43,6 +48,7 @@ js/engine/
   storage.js    versioned save (localStorage) with migrate()
   audio.js      synthesised sfx; swap any recipe for a sample later
   particles.js  wool puffs, hearts, sparkles, z's
+  atmosphere.js time-of-day light and weather over the play field
   util.js       easing, random, Timers
 js/art/          procedural painters (no state)
   draw.js       ink-outline helpers, cloud() fluff generator, RNG
@@ -52,6 +58,7 @@ js/art/          procedural painters (no state)
   ground.js     meadow, dirt with grass fringe, trees, fences, pond, hay…
   icons.js      pelt, heart, data-URL icons for the DOM
   props.js      farm goodies: clover, hay pile, red ball, beach ball
+  tellcard.js   the "here's what you missed" sheep-vs-wolf picture
   render.js     composes cached layers into an animated sheep/wolf + hit test
 js/game/
   rules.js      pure rules: round generation, tiers, outcomes, shop
@@ -59,8 +66,8 @@ js/game/
                 profiles (farm / field), food seeking, toy chasing,
                 two-circle rotated collision
   world.js      paddock bounds the brain moves within
-js/scenes/       title, play, shop, farm, settings (+ backdrop.js, ui.js)
-data/            game.json, tells.json, breeds.json, items.json, sprites.json
+js/scenes/       title, play, bonus (Wolf Stampede), shop, farm, settings (+ backdrop.js, ui.js)
+data/            game.json, tells.json, breeds.json, items.json, world.json, sprites.json
 tools/shoot.mjs  headless-Chrome driver: tap/eval/screenshot for testing
 ```
 

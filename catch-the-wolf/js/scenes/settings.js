@@ -11,6 +11,7 @@ export function openSettings(app) {
       <label class="toggle">Sound <input type="checkbox" data-k="sound" ${s.settings.sound ? 'checked' : ''}></label>
       <label class="toggle">Vibration <input type="checkbox" data-k="haptics" ${s.settings.haptics ? 'checked' : ''}></label>
       <label class="toggle">Colour-friendly tells <input type="checkbox" data-k="colorSafe" ${s.settings.colorSafe ? 'checked' : ''}></label>
+      <label class="toggle">Hungry wolf <small style="font:800 11px var(--body);opacity:.6">&nbsp;experimental</small><input type="checkbox" data-k="hungryWolf" ${s.settings.hungryWolf ? 'checked' : ''}></label>
       <div class="stats">
         <div class="stat"><b>${s.wolvesCaught}</b><span>Wolves caught</span></div>
         <div class="stat"><b>${s.bestStreak}</b><span>Best streak</span></div>

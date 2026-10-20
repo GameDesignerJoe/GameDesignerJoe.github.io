@@ -1,0 +1,22 @@
+{
+  "_doc": "The calendar a run moves through. Each season plays 'times' in order, 'setsPerSeason' times over (one wolf per slot), then the next season begins. Position comes from the streak, so a mistake sends you back to the first slot of spring. 'weather' per season lists a pool for each set (set 1 calm → set 3 rough); one is picked per round. 'light' is drawn over the field: mode multiply/screen, colour, alpha, and an optional vignette (0..1). A Wolf Stampede bonus round plays every 'bonusEvery' catches (18 = between seasons).",
+  "setsPerSeason": 3,
+  "bonusEvery": 18,
+  "bonus": { "seconds": 15, "maxWolves": 5, "peltsPerWolf": 1 },
+  "times": [
+    { "id": "dawn",   "name": "Dawn",   "icon": "🌅", "light": { "mode": "multiply", "color": "#f4cfc4", "alpha": 1 } },
+    { "id": "noon",   "name": "Noon",   "icon": "☀️", "light": { "mode": "screen",   "color": "#fff7d6", "alpha": 0.10 } },
+    { "id": "day",    "name": "Day",    "icon": "🌤️", "light": null },
+    { "id": "sunset", "name": "Sunset", "icon": "🌇", "light": { "mode": "multiply", "color": "#ffbf8a", "alpha": 1, "vignette": 0.2 } },
+    { "id": "night",  "name": "Night",  "icon": "🌙", "light": { "mode": "multiply", "color": "#6b78b8", "alpha": 1, "vignette": 0.45 } },
+    { "id": "night",  "name": "Night",  "icon": "🌙", "light": { "mode": "multiply", "color": "#5d6aac", "alpha": 1, "vignette": 0.55 } }
+  ],
+  "seasons": [
+    { "id": "spring", "name": "Spring", "weather": [["clear"], ["clear", "wind"], ["clear", "wind", "rain"]] },
+    { "id": "summer", "name": "Summer", "weather": [["clear", "wind"], ["clear", "wind", "fog"], ["wind", "rain", "fog"]] },
+    { "id": "fall",   "name": "Fall",   "weather": [["wind", "clear"], ["wind", "rain", "fog"], ["rain", "fog", "wind"]] },
+    { "id": "winter", "name": "Winter", "weather": [["snow", "clear"], ["snow", "fog", "wind"], ["snow", "fog"]] }
+  ],
+  "weatherNames": { "clear": "Clear", "wind": "Windy", "rain": "Rain", "fog": "Fog", "snow": "Snow" },
+  "weatherIcons": { "clear": "", "wind": "💨", "rain": "🌧️", "fog": "🌫️", "snow": "❄️" }
+}

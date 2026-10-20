@@ -19,7 +19,7 @@ const DEFAULTS = {
   foods: [],           // [{ uid, item, x, y, remaining }] food on the farm
   toys: [],            // [{ uid, item, x, y }] toys on the farm
   nextUid: 1,
-  settings: { sound: true, haptics: true, colorSafe: false },
+  settings: { sound: true, haptics: true, colorSafe: false, hungryWolf: false },
 };
 
 // One step per version bump: STEPS[n] upgrades a v(n) save to v(n+1).

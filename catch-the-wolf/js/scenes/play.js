@@ -2,7 +2,9 @@
 // Phases: 'hunt' (tap away) → 'reveal' (caught it) or 'missed' (tapped a
 // sheep) → next round. Rules live in game/rules.js; this file is staging.
 
-import { makeRound, catchWolf, mistake, canHint, spendHint, hintCost, db, tierFor, storeRound, restoreRound, clearRound } from '../game/rules.js';
+import { makeRound, catchWolf, mistake, canHint, spendHint, hintCost, db, storeRound, restoreRound, clearRound, calendarFor } from '../game/rules.js';
+import { Atmosphere } from '../engine/atmosphere.js';
+import { tellCardURL } from '../art/tellcard.js';
 import { Sheep, sortByDepth, PROFILES } from '../game/critter.js';
 import { paddockWorld } from '../game/world.js';
 import { drawWolf } from '../art/render.js';
@@ -30,7 +32,12 @@ export const playScene = {
     this.pendingRound = true;
   },
 
-  exit() { this.timers.clear(); this.bg = null; this.sheep = []; this.wolf = null; this.ring = null; this.focus = null; },
+  exit() {
+    // Bank the hidden clock so leaving can't reset the speed bonus.
+    const r = this.app.save.data.round;
+    if (r && this.phase === 'hunt') { r.elapsed = this.huntT || 0; this.app.save.write(); }
+    this.timers.clear(); this.bg = null; this.bgSeason = null; this.sheep = []; this.wolf = null; this.ring = null; this.focus = null; this.hunger = null;
+  },
 
   buildUI() {
     const { app } = this;
@@ -67,9 +74,10 @@ export const playScene = {
 
   refreshHud() {
     const s = this.app.save.data;
-    const tier = tierFor(s.streak);
+    const cal = this.cal || calendarFor(s.streak);
+    const W = db.world, wx = this.round?.weather;
     this.ui.querySelector('[data-streakn]').textContent = `Streak ${s.streak}`;
-    this.ui.querySelector('[data-tier]').textContent = tier.name;
+    this.ui.querySelector('[data-tier]').textContent = `${cal.time.icon} ${cal.season.name} ${cal.time.name}${wx && wx !== 'clear' ? ` · ${W.weatherIcons[wx]}` : ''}`;
     this.ui.querySelector('[data-pelts]').textContent = s.pelts;
     const hint = this.ui.querySelector('[data-act="hint"]');
     this.ui.querySelector('[data-hintcost]').textContent = hintCost(s);
@@ -85,12 +93,21 @@ export const playScene = {
     const top = 78, bottom = 86;
     const fw = Math.min(w - 36, MAX_FIELD_W);
     this.field = { x: (w - fw) / 2, y: top + 8, w: fw, h: Math.max(200, h - top - bottom - 16) };
-    this.bg = playBackdrop(w, h, this.app.dpr, this.field);
+    this.paintBackdrop(true);
     this.world = paddockWorld(this.field, [], this.fx);
+    this.atmo?.resize(w, h);
     if (this.pendingRound) { this.pendingRound = false; this.startRound(true); }
     else this.placeSheep(false);
     const wolf = this.wolf;
     if (wolf && !wolf.run && wolf.sheep) { wolf.x = wolf.sheep.x; wolf.y = wolf.sheep.y - 4 * wolf.sheep.scale; wolf.scale = wolf.sheep.scale; }
+  },
+
+  // Scenery follows the season; repaint only when it changes (or on resize).
+  paintBackdrop(force = false) {
+    const season = calendarFor(this.app.save.data.streak).season.id;
+    if (!force && this.bgSeason === season) return;
+    this.bgSeason = season;
+    this.bg = playBackdrop(this.app.w, this.app.h, this.app.dpr, this.field, season);
   },
 
   // ---- rounds ----------------------------------------------------------------
@@ -109,8 +126,11 @@ export const playScene = {
     const { app } = this;
     const s = app.save.data;
     const resumed = restoreRound(s);
+    this.huntT = 0;
     if (resumed) {
       this.round = resumed.round;
+      this.huntT = resumed.elapsed;
+      if (!this.round.weather) this.round.weather = 'clear';
     } else {
       this.round = makeRound(s.streak, { colorSafe: s.settings.colorSafe, maxSheep: this.capacity() });
       storeRound(s, this.round, false);
@@ -123,6 +143,14 @@ export const playScene = {
     });
     this.motion = new Set(this.round.tier.motion);
     this.profile = PROFILES.field(this.round.tier.activity ?? 0.5);
+    // Season, time of day and weather.
+    const prevSeason = this.cal?.season.id;
+    this.cal = calendarFor(s.streak);
+    this.paintBackdrop();
+    this.atmo = new Atmosphere({ light: this.cal.time.light, weather: this.round.weather, season: this.cal.season.id });
+    this.atmo.resize(app.w, app.h);
+    if (prevSeason && prevSeason !== this.cal.season.id) banner(app.ui, `${this.cal.season.name} arrives!`, 'A new season, new dangers', 'good');
+    this.hunger = s.settings.hungryWolf ? { rest: db.game.hungryWolf.startDelay, victim: null, bite: 0, puff: 0 } : null;
     this.placeSheep(true);
     this.phase = 'hunt';
     this.refreshHud();
@@ -233,13 +261,16 @@ export const playScene = {
   caught(sh) {
     const { app } = this;
     this.phase = 'reveal';
-    const result = catchWolf(app.save.data);
+    const result = catchWolf(app.save.data, this.huntT);
     clearRound(app.save.data);
     app.save.write();
     app.haptic(30);
     this.refreshHud();
     this.unmask(sh, true);
-    banner(app.ui, result.gained > 1 ? `Gotcha! +${result.gained}` : 'Gotcha!', this.round.tell.label, this.bannerSide(sh, 'good'));
+    // Speed is rewarded but never timed on screen: the praise says it all.
+    const cheer = result.mult === 3 ? 'Lightning fast!' : result.mult === 2 ? 'Quick catch!' : 'Gotcha!';
+    banner(app.ui, `${cheer} +${result.gained}`, this.round.tell.label, this.bannerSide(sh, 'good'));
+    this.pendingBonus = result.bonus;
     if (result.newRecord) this.timers.after(1.2, () => banner(app.ui, 'New record!', `Streak of ${app.save.data.streak}`, 'good'));
     // The flock cheers.
     this.sheep.forEach((o, i) => { if (o !== sh) this.timers.after(0.25 + i * 0.04, () => { o.hop = 14 * o.scale; }); });
@@ -300,6 +331,12 @@ export const playScene = {
   },
 
   nextRound(delay = 0) {
+    // Between seasons: the Wolf Stampede change-up.
+    if (this.pendingBonus) {
+      this.pendingBonus = false;
+      this.timers.after(delay + 0.4, () => this.app.go('bonus'));
+      return;
+    }
     this.timers.after(delay, () => {
       // Old flock pops out, new one pops in.
       this.sheep.forEach((o, i) => { o.leaving = true; o.leaveDelay = i * 0.02; });
@@ -380,6 +417,7 @@ export const playScene = {
     const panel = el(`
       <div class="scrim"><div class="panel">
         <h2>Baa-d luck!</h2>
+        <img class="tellcard" src="${tellCardURL(this.sheep.find((x) => x.isWolf)?.look || {})}" alt="A real sheep beside the wolf, with its slip circled">
         <p>The wolf gave itself away with <b>${this.round.tell.label.replace(/!$/, '').toLowerCase()}</b>.</p>
         ${lines.length ? `<p>${lines.join(' ')}</p>` : '<p>Look for the one that doesn\'t fit.</p>'}
         ${lostPelts >= cheapestSheep() ? '<p style="font-size:15px"><b>Tip:</b> spend pelts in the shop and they\'re safe forever.</p>' : ''}
@@ -396,6 +434,11 @@ export const playScene = {
   update(dt) {
     this.timers.update(dt);
     this.fx.update(dt);
+    this.atmo?.update(dt);
+    // The hidden clock: only runs while you can actually hunt.
+    const hunting = this.phase === 'hunt' && !this.app.ui.querySelector('.scrim') && document.visibilityState !== 'hidden';
+    if (hunting && this.sheep.every((x) => x.appear >= 1 || x.leaving)) this.huntT += dt;
+    if (hunting && this.hunger) this.updateHunger(dt);
     for (const sh of this.sheep) {
       if (sh.leaving) {
         sh.leaveDelay -= dt;
@@ -428,6 +471,49 @@ export const playScene = {
     }
   },
 
+  // Experimental hungry wolf (Settings): it stalks a sheep, and five seconds
+  // of mouth-on-wool eats it. Costs a pelt each time. The victim trembles and
+  // loses tufts while being nibbled, which is also a clue.
+  updateHunger(dt) {
+    const H = this.hunger, cfg = db.game.hungryWolf, { app } = this;
+    const wolf = this.sheep.find((x) => x.isWolf && !x.leaving && !x.gone);
+    if (!wolf) return;
+    const prey = this.live().filter((x) => !x.isWolf);
+    if (!H.victim || H.victim.leaving || H.victim.gone) {
+      H.victim = null; H.bite = 0;
+      H.rest -= dt;
+      if (H.rest > 0 || !prey.length) return;
+      H.victim = prey.reduce((a, b) => (Math.hypot(b.x - wolf.x, b.y - wolf.y) < Math.hypot(a.x - wolf.x, a.y - wolf.y) ? b : a));
+    }
+    const v = H.victim;
+    // Stalk: keep walking at the victim.
+    wolf.state = 'walk'; wolf.stateT = 2; wolf.tx = v.x; wolf.ty = v.y;
+    const head = wolf.circles()[1];
+    const touching = v.circles().some((c) => Math.hypot(c.x - head.x, c.y - head.y) < c.r + head.r + 6 * wolf.scale);
+    H.bite = touching ? H.bite + dt : Math.max(0, H.bite - dt * 1.5);
+    if (H.bite > 1) {
+      v.heading += Math.sin(performance.now() / 25) * 0.03; // trembling
+      H.puff -= dt;
+      if (H.puff <= 0) { H.puff = 0.7; this.fx.burstWool(v.x, v.y, v.look.wool, v.scale * 0.35, 3); }
+    }
+    if (H.bite < cfg.biteSeconds) return;
+    // Gulp.
+    const s = app.save.data;
+    const lost = Math.min(s.pelts, cfg.peltLoss);
+    s.pelts -= lost;
+    v.leaving = true; v.leaveDelay = 0; v.alpha = 0; v.gone = true;
+    this.fx.burstWool(v.x, v.y, v.look.wool, v.scale, 18);
+    app.sfx.poof(); app.sfx.wrong();
+    app.haptic(60);
+    if (s.round) s.round.sheep = this.live().map((x) => ({ look: x.look, isWolf: x.isWolf }));
+    app.save.write();
+    banner(app.ui, 'A sheep was eaten!', lost ? `The wolf took ${lost} pelt${lost === 1 ? '' : 's'}` : 'Find that wolf!', 'bad');
+    bumpPelts(this.ui, s.pelts);
+    this.refreshHud();
+    wolf.state = 'idle'; wolf.stateT = 1;
+    H.victim = null; H.bite = 0; H.rest = rand(...cfg.rest);
+  },
+
   draw(ctx) {
     const { app } = this;
     if (this.bg) ctx.drawImage(this.bg.canvas, 0, 0, app.w, app.h);
@@ -457,5 +543,6 @@ export const playScene = {
         { run: w.run ? Math.sin(w.t * 18) : 0, look: w.run ? 'ahead' : 'up' }, w.scale * 1.05);
     }
     this.fx.draw(ctx);
+    this.atmo?.draw(ctx);
   },
 };
