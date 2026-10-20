@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Catch the Wolf — art gallery</title>
+<style>
+  body { margin: 0; background: #6aa84f; font: 14px system-ui, sans-serif; color: #fff; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+  import { paintSheep } from './js/art/sheep.js';
+  import { paintWolf } from './js/art/wolf.js';
+  import { paintMeadow, paintDirt, paintTree, paintBush, paintRock, paintHay, paintTrough, paintPond, paintFence } from './js/art/ground.js';
+  const c = document.getElementById('c');
+  const dpr = window.devicePixelRatio || 1;
+  c.width = innerWidth * dpr; c.height = innerHeight * dpr;
+  c.style.width = innerWidth + 'px'; c.style.height = innerHeight + 'px';
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  paintMeadow(ctx, innerWidth, innerHeight, 3);
+  paintDirt(ctx, 20, 20, innerWidth - 40, 560, 34, 2);
+  const W2 = innerWidth;
+  paintTree(ctx, 80, 1180, 1);
+  paintBush(ctx, 230, 1170, 1.2, 4, true);
+  paintRock(ctx, 330, 1190, 1.4);
+  paintHay(ctx, 430, 1180, 1.3);
+  paintTrough(ctx, 540, 1180, 1.3);
+  paintPond(ctx, 760, 1180, 90, 55);
+  paintFence(ctx, 30, 1260, W2 - 30, 1260, 1.3);
+  ctx.save(); ctx.translate(780, 900); ctx.scale(1.6, 1.6); paintWolf(ctx, 'grey', { look: 'up' }); ctx.restore();
+  ctx.save(); ctx.translate(620, 900); ctx.scale(1.2, 1.2); paintWolf(ctx, 'black', { run: 1 }); ctx.restore();
+  const looks = [
+    { wool: 'cream', face: 'cream' },
+    { wool: 'charcoal', face: 'dark', horns: 'curl' },
+    { wool: 'cream', face: 'dark', horns: 'curl' },
+    { wool: 'cocoa', face: 'tan', ears: 'droop' },
+    { wool: 'ash', face: 'dark', eyes: 'sleepy' },
+    { wool: 'rose', face: 'cream' },
+    { wool: 'cream', face: 'cream', tells: { tail: true } },
+    { wool: 'cream', face: 'cream', tells: { earL: 'wolf' } },
+    { wool: 'cream', face: 'cream', tells: { eyes: 'wolf' } },
+    { wool: 'cream', face: 'cream', tells: { muzzle: 'wolf' } },
+    { wool: 'cream', face: 'cream', tells: { paws: true } },
+    { wool: 'cream', face: 'cream', tells: { patch: 'left' } },
+    { wool: 'cream', face: 'cream', tells: { fang: true } },
+    { wool: 'cream', face: 'cream', tells: { nose: 'black' } },
+    { wool: 'cream', face: 'cream', tells: { brows: true } },
+    { wool: 'charcoal', face: 'dark', tells: { ears: 'wolf' } },
+  ];
+  const cols = 8, size = innerWidth / cols, s = size / 125;
+  looks.forEach((look, i) => {
+    ctx.save();
+    ctx.translate((i % cols + 0.5) * size, (Math.floor(i / cols) + 0.5) * size * 1.2 + 60);
+    ctx.scale(s, s);
+    paintSheep(ctx, look, { headAngle: i === 3 ? 0.3 : 0 });
+    ctx.restore();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+[{"eval":"(()=>{const farm=[];const b=['white','brown','grey','black','rose','ram','lopear','sleepy','butter','sky','mint','lilac'];b.forEach((id,i)=>farm.push({uid:i+1,breed:id,name:'S'+i,x:0.15+(i%4)*0.23,y:0.15+Math.floor(i/4)*0.3}));localStorage.setItem('catchTheWolf.save',JSON.stringify({version:1,pelts:37,streak:19,bestStreak:19,wolvesCaught:40,mistakes:3,seenHowTo:true,shopPromptShown:true,farm,nextUid:20,settings:{sound:false,haptics:true}}));location.hash='shop';location.reload();'ok'})()"},
+ {"wait":2500},{"shot":"catch-the-wolf/tools/shots/shop.png"},
+ {"eval":"ctw.go('farm');'ok'"},{"wait":6000},{"shot":"catch-the-wolf/tools/shots/farm.png"},
+ {"eval":"ctw.go('play');'ok'"},{"wait":2000},{"shot":"catch-the-wolf/tools/shots/play-hard.png"},
+ {"eval":"(()=>{const s=ctw.scene;return [s.round.tell.id,s.sheep.length,s.round.tier.name]})()"}
+]

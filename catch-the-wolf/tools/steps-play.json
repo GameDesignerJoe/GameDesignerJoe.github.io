@@ -1,0 +1,11 @@
+[{"tap":[215,777]},{"wait":1200},{"shot":"catch-the-wolf/tools/shots/play-howto.png"},
+ {"eval":"document.querySelector('[data-ok]').click(); 'ok'"},{"wait":600},
+ {"shot":"catch-the-wolf/tools/shots/play-round.png"},
+ {"eval":"(()=>{const s=ctw.scene; const w=s.sheep.find(x=>x.isWolf); return [w.x,w.y, s.round.tell.id]})()"},
+ {"eval":"(()=>{const s=ctw.scene; const w=s.sheep.find(x=>x.isWolf); s.pointer({type:'down',x:w.x,y:w.y}); return s.phase})()"},
+ {"wait":450},{"shot":"catch-the-wolf/tools/shots/play-reveal.png"},
+ {"wait":3000},{"shot":"catch-the-wolf/tools/shots/play-next.png"},
+ {"eval":"(()=>{const s=ctw.scene; const w=s.sheep.find(x=>!x.isWolf); s.pointer({type:'down',x:w.x,y:w.y}); return s.phase})()"},
+ {"wait":1600},{"shot":"catch-the-wolf/tools/shots/play-miss.png"},
+ {"wait":1800},{"shot":"catch-the-wolf/tools/shots/play-miss-panel.png"}
+]

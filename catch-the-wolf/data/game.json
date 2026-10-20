@@ -1,0 +1,19 @@
+{
+  "_doc": "Core rules. Tiers are chosen by the current streak (wolves caught since the last mistake), as in the original. See docs/DESIGN.md.",
+  "peltsPerWolf": 1,
+  "mistake": {
+    "_doc": "'streak' = lose the streak (difficulty resets) but keep banked pelts. 'classic' = the original rule: lose every pelt too.",
+    "mode": "streak"
+  },
+  "hint": { "cost": 1, "_doc": "Sniff: costs pelts, sends away half the innocent sheep." },
+  "shopPromptAt": 5,
+  "farmCap": 24,
+  "tiers": [
+    { "minStreak": 0,  "name": "Lambing season", "sheep": [3, 4],   "subtlety": [1, 1], "motion": [],                                   "mixedBreeds": 1 },
+    { "minStreak": 3,  "name": "Spring flock",   "sheep": [5, 7],   "subtlety": [1, 2], "motion": ["blink"],                            "mixedBreeds": 1 },
+    { "minStreak": 6,  "name": "Market day",     "sheep": [8, 11],  "subtlety": [2, 3], "motion": ["blink", "look"],                    "mixedBreeds": 1 },
+    { "minStreak": 9,  "name": "Summer fair",    "sheep": [11, 14], "subtlety": [2, 4], "motion": ["blink", "look", "chew"],            "mixedBreeds": 1 },
+    { "minStreak": 13, "name": "Shearing time",  "sheep": [14, 18], "subtlety": [3, 4], "motion": ["blink", "look", "chew", "shuffle"], "mixedBreeds": 2 },
+    { "minStreak": 18, "name": "Full moon",      "sheep": [17, 21], "subtlety": [3, 5], "motion": ["blink", "look", "chew", "shuffle"], "mixedBreeds": 2 }
+  ]
+}

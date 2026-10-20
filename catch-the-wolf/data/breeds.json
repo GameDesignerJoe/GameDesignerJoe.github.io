@@ -1,0 +1,19 @@
+{
+  "_doc": "Breeds appear in rounds (if 'inRounds') and in the shop (if 'price'). 'look' fields: wool (palette.js WOOL), face (FACE), horns 'curl', ears 'droop', eyes 'sleepy', tuft false, size (1 = adult). minTier gates when a breed can be a round's flock.",
+  "breeds": [
+    { "id": "white",  "name": "White Sheep",   "price": 5,  "inRounds": true, "minTier": 0, "look": { "wool": "cream", "face": "cream" } },
+    { "id": "brown",  "name": "Brown Sheep",   "price": 10, "inRounds": true, "minTier": 0, "look": { "wool": "cocoa", "face": "tan" } },
+    { "id": "grey",   "name": "Grey Sheep",    "price": 15, "inRounds": true, "minTier": 1, "look": { "wool": "ash", "face": "dark" } },
+    { "id": "black",  "name": "Black Sheep",   "price": 20, "inRounds": true, "minTier": 1, "look": { "wool": "charcoal", "face": "dark" } },
+    { "id": "rose",   "name": "Rose Sheep",    "price": 25, "inRounds": true, "minTier": 3, "look": { "wool": "rose", "face": "cream" } },
+    { "id": "ram",    "name": "Curly Ram",     "price": 30, "inRounds": true, "minTier": 2, "look": { "wool": "cream", "face": "dark", "horns": "curl" } },
+    { "id": "lopear", "name": "Lop-Eared Ewe", "price": 35, "inRounds": true, "minTier": 2, "look": { "wool": "cream", "face": "tan", "ears": "droop" } },
+    { "id": "sleepy", "name": "Sleepy Sheep",  "price": 40, "inRounds": true, "minTier": 3, "look": { "wool": "ash", "face": "cream", "eyes": "sleepy" } },
+    { "id": "night",  "name": "Midnight Ram",  "price": 45, "inRounds": true, "minTier": 4, "look": { "wool": "charcoal", "face": "dark", "horns": "curl" } },
+    { "id": "butter", "name": "Buttercup",     "price": 50, "inRounds": false, "look": { "wool": "butter", "face": "cream" } },
+    { "id": "sky",    "name": "Bluebell",      "price": 60, "inRounds": false, "look": { "wool": "sky", "face": "cream" } },
+    { "id": "mint",   "name": "Mint Sprig",    "price": 70, "inRounds": false, "look": { "wool": "mint", "face": "tan", "ears": "droop" } },
+    { "id": "lilac",  "name": "Lilac Ram",     "price": 85, "inRounds": false, "look": { "wool": "lilac", "face": "dark", "horns": "curl" } }
+  ],
+  "names": ["Dolly", "Baabara", "Shaun", "Woolly", "Clover", "Mutton", "Fleecy", "Lambert", "Daisy", "Cotton", "Nibbles", "Pickles", "Biscuit", "Marshmallow", "Haggis", "Tufty", "Puddle", "Bramble", "Ewenice", "Lambchop", "Barnaby", "Hazel", "Juniper", "Pebble", "Sprout", "Wooliam", "Ramsey", "Curly", "Socks", "Muffin", "Teasel", "Thistle"]
+}
