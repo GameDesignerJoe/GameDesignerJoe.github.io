@@ -6,7 +6,8 @@ Output: assets/terrain.png, half resolution (1232 x 928), RGB:
   R = class * 40, +20 if elevated (rock face just south: plateau top / ledge)
       classes: 0 snow, 1 deep, 2 ice, 3 thin, 4 rock, 5 path
   G = exposure 0..255      (open plains / plateau tops high, nooks among cliffs low)
-  B = map luminance, blurred (lets ground.js place glints on shaded snow etc.)
+  B = map luminance, blurred, in steps of 8 (ground.js detail placement);
+      low bit set = climb-only plateau top (walkable, but not reachable on foot)
 Only Pillow + numpy are needed (see imgops.py).
 """
 import os
@@ -187,30 +188,80 @@ def classify():
     cls[near & (cls == ROCK)] = SNOW
     cls[pm] = PATH
 
-    # Reachability: walkable pockets not connected (4-way) to the spawn become rock.
-    lab, sizes = label(cls != ROCK)
+    # Reachability: foot regions plus vertical climb routes (see climb_reach).
+    lum = half(np.asarray(Image.open(SRC).convert('L').filter(ImageFilter.GaussianBlur(1))))
     sx, sy = SPAWN[0] // 2, SPAWN[1] // 2
-    keep = lab[sy, sx]
-    assert keep, 'spawn is not walkable'
-    unreachable = (lab != keep) & (cls != ROCK)
-    if '--components' in sys.argv:
-        order = np.argsort(sizes)[::-1]
-        for l in order[:12]:
-            if l == 0: continue
-            ys, xs = np.nonzero(lab == l)
-            print('   comp', l, sizes[l], 'bbox', xs.min() * 2, ys.min() * 2, xs.max() * 2, ys.max() * 2, '(spawn)' if l == keep else '')
-    print(f'  unreachable walkable pockets -> rock: {np.mean(unreachable) * 100:.1f}% of map')
-    cls[unreachable] = ROCK
-    # Pockets filled in above leave square edges: smooth again, only ever adding rock
-    # (so nothing new opens up), then re-check reachability.
+    assert cls[sy, sx] != ROCK, 'spawn is not walkable'
+    sealed, plateau = climb_reach(cls, lum, (sy, sx))
+    print(f'  sealed pockets (no foot or climb route) -> rock: {np.mean(sealed) * 100:.1f}% of map')
+    cls[sealed] = ROCK
+    # Pockets filled in above leave square edges: smooth again, only ever adding rock,
+    # then re-run reachability.
     rb = np.asarray(Image.fromarray(((cls == ROCK) * 255).astype(np.uint8))
                     .filter(ImageFilter.GaussianBlur(1.6))) > 127
     add = rb & (cls != ROCK) & ~pm & ~near
     cls[add] = ROCK
-    lab, sizes = label(cls != ROCK)
-    keep = lab[sy, sx]
-    cls[(lab != keep) & (cls != ROCK)] = ROCK
-    return cls
+    sealed, plateau = climb_reach(cls, lum, (sy, sx))
+    cls[sealed] = ROCK
+    print(f'  climb-only plateau tops: {np.mean(plateau) * 100:.1f}% of map')
+    return cls, plateau, lum
+
+
+# Climb rules, in mask px (1 mask px = 2 world units) - keep in step with terrain.js.
+CLIMB_BASE = 4        # rock must start within 8 world units
+CLIMB_MAX = 55        # at most 110 world units of rock
+CLIMB_LAND = 2        # landing stays walkable for 4 world units
+MIN_PLATEAU = 60      # mask px: smaller climb-only pockets aren't worth keeping
+
+
+def climb_reach(cls, lum, spawn):
+    """Foot-connected regions, joined by vertical climb routes (up or down a face).
+    Returns (sealed, plateau): sealed = walkable cells with no foot+climb route from
+    the spawn; plateau = reachable only by climbing (not in the spawn's foot region)."""
+    walk = cls != ROCK
+    lab, sizes = label(walk)
+    H, W = cls.shape
+    edges = set()
+    for x in range(W):
+        col = walk[:, x]
+        lc = lab[:, x]
+        lm = lum[:, x]
+        # foot of a face: walkable cell with rock right below it (climb down / south)
+        for y in np.nonzero(col[:-1] & ~col[1:])[0]:
+            y1 = y + 1
+            e = y1
+            while e < H and not col[e] and e - y1 <= CLIMB_MAX:
+                e += 1
+            if e >= H or e - y1 > CLIMB_MAX:
+                continue
+            if not col[e:e + CLIMB_LAND + 1].all() or e + CLIMB_LAND >= H:
+                continue
+            length = e - y1
+            if length * 2 > 60 and lm[y1:e].mean() < 115:
+                continue
+            a_, b_ = lc[y], lc[e]
+            if a_ != b_:
+                edges.add((min(a_, b_), max(a_, b_)))
+    # BFS from the spawn region over climb edges.
+    adj = {}
+    for a_, b_ in edges:
+        adj.setdefault(a_, []).append(b_)
+        adj.setdefault(b_, []).append(a_)
+    start = lab[spawn]
+    seen = {start}
+    q = [start]
+    while q:
+        r = q.pop()
+        for n in adj.get(r, ()):
+            if n not in seen and sizes[n] >= MIN_PLATEAU:
+                seen.add(n)
+                q.append(n)
+    keep = np.zeros(len(sizes), bool)
+    keep[list(seen)] = True
+    keep[0] = False
+    sealed = walk & ~keep[lab]
+    plateau = walk & keep[lab] & (lab != start)
+    return sealed, plateau
 
 
 def exposure(cls):
@@ -245,15 +296,15 @@ def elevated_mask(cls):
 
 
 def main():
-    cls = classify()
+    cls, plateau, lum = classify()
     elev = elevated_mask(cls)
-    lum = half(np.asarray(Image.open(SRC).convert('L').filter(ImageFilter.GaussianBlur(1))))
     exp = exposure(cls)
     H, W = cls.shape
     rgb = np.zeros((H, W, 3), np.uint8)
     rgb[..., 0] = cls * 40 + elev * 20   # +20 = on a plateau top / ledge
     rgb[..., 1] = (np.round(exp * 15) * 17).astype(np.uint8)  # 16 levels: compresses well
-    rgb[..., 2] = np.clip(np.round(lum / 8) * 8, 0, 255).astype(np.uint8)  # map luminance (32 levels)
+    # map luminance (32 levels, low 3 bits free) | 1 = climb-only plateau top
+    rgb[..., 2] = (np.clip(np.round(lum / 8), 0, 31) * 8).astype(np.uint8) | plateau.astype(np.uint8)
     Image.fromarray(rgb, 'RGB').save(OUT, optimize=True)
     print('wrote', OUT, (W, H), os.path.getsize(OUT), 'bytes')
     for i, n in enumerate(NAMES):
@@ -264,6 +315,7 @@ def main():
         col = np.array([[0, 0, 0], [0, 230, 0], [0, 150, 255], [255, 0, 255], [255, 40, 0], [255, 220, 0]], np.float32)
         a = np.array([0, .4, .4, .55, .45, .8])[cls][..., None]
         o = base * (1 - a) + col[cls] * a
+        o[plateau] = o[plateau] * 0.5 + np.array([120, 0, 200]) * 0.5   # plateau tops: purple
         Image.fromarray(o.astype(np.uint8)).save(out)
         Image.fromarray((exp * 255).astype(np.uint8)).save(out.replace('.png', '_exp.png'))
 

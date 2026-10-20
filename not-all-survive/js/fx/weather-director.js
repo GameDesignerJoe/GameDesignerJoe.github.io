@@ -30,6 +30,7 @@ const FIXED = { calm: 'calm', wind: 'windy', storm: 'storm' };
 const d = {
   spell: 'windy', left: 30, target: { wind: 0.5, snow: 0.5, white: 0 }, rate: 0.05,
   nextGust: 0.6, baseAngle: state.wind.angle, fronts: [],
+  shelter: 0,     // smoothed state.player.sheltered (relief arrives within ~1 s)
   hitShake: 0,    // 1 -> 0 after a gust front hits the explorer
   sweep: 1,       // 0..1 how far a rolling-in storm has swept across the screen
   storminess: 0,  // smoothed 0..1 overall severity
@@ -205,6 +206,10 @@ export function update(dt) {
     if (!f.hit && frontU(f, pv) >= pu) { f.hit = true; d.hitShake = Math.max(d.hitShake, f.strength); }
   }
   d.hitShake = Math.max(0, d.hitShake - dt * 1.4);
+  // ?shelter=1 forces it (captures; the explorer normally writes player.sheltered).
+  const shT = Math.max(0, Math.min(1, P.has('shelter') ? parseFloat(P.get('shelter')) : state.player.sheltered || 0));
+  d.shelter += (shT - d.shelter) * Math.min(1, dt * (shT > d.shelter ? 4 : 1.5));
+  state.weather.shelter = d.shelter;
   refreshGustGrid();
 
   W.gust = clamp01(gustAt(state.player.x, state.player.y));

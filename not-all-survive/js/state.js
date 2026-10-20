@@ -20,7 +20,7 @@ export const state = {
   cam: { x: num('x', 1360), y: num('y', 1560), zoom: num('zoom', 0), shakeX: 0, shakeY: 0 },
 
   // Input intent, normalised. input.js writes it; the explorer reads it.
-  input: { x: 0, y: 0, active: false, pointer: null },
+  input: { x: 0, y: 0, active: false, pointer: null, tap: null, action: 0 },
 
   player: {
     x: num('x', 1360), y: num('y', 1560),
@@ -31,6 +31,8 @@ export const state = {
     terrain: 'snow',        // terrain under the feet (see terrain.js TERRAIN)
     lean: 0,                // 0..1, how hard they're pushing (explorer.js owns it)
     exposure: 0,            // 0..1, how exposed to wind they are (weather.js may read)
+    mode: 'walk',           // 'walk' | 'climb' | 'down' (knocked over) | 'cower' (explorer.js owns)
+    sheltered: 0,           // 0..1, hunkered in the lee of rock — weather/audio soften for it
   },
 
   // weather.js owns these; everyone else reads them. It also adds weather.phase,
@@ -46,6 +48,10 @@ export const state = {
   //   penguin / bear       { x, y, kind }                 (wildlife -> audio)
   //   crack { x, y, strength }                            (thin ice -> audio)
   //   avalanche { x, y }                                  (weather -> audio)
+  //   axe  { x, y, hand: 'L'|'R' }    ice axe strike while climbing   (explorer -> audio)
+  //   kick { x, y, foot: 'L'|'R' }    crampon kick into the ice face  (explorer -> audio)
+  //   fall { x, y, strength }         knocked off the feet by wind    (explorer -> audio, weather)
+  //   shove { x, y, strength }        staggered back by a gust        (explorer -> audio)
   events: [],
 };
 

@@ -1,5 +1,7 @@
 // Keyboard (WASD / arrows) and pointer (hold anywhere to walk toward it) input.
-// Writes state.input = { x, y, active } as a direction with magnitude 0..1.
+// Writes state.input = { x, y, active } as a direction with magnitude 0..1, plus
+// state.input.tap = { x, y, t } (world point of the latest press) and
+// state.input.action = <time> (latest Space/E press). Consumers clear tap/action when used.
 import { state } from './state.js';
 import { screenToWorld, nudgeZoom } from './camera.js';
 
@@ -9,7 +11,11 @@ const touches = new Map(); // pointerId -> {x, y}, for pinch zoom
 let pinchDist = 0;
 
 export function initInput(canvas) {
-  addEventListener('keydown', e => { keys.add(e.code); });
+  addEventListener('keydown', e => {
+    keys.add(e.code);
+    // Space / E: the context action (climb the face you're walking into).
+    if ((e.code === 'Space' || e.code === 'KeyE') && !e.repeat) state.input.action = state.time;
+  });
   addEventListener('keyup', e => { keys.delete(e.code); });
   addEventListener('blur', () => keys.clear());
 
@@ -31,6 +37,10 @@ export function initInput(canvas) {
     if (touches.size > 2) return;
     pointerId = e.pointerId;
     state.input.pointer = { sx: e.clientX, sy: e.clientY };
+    // Every press is also reported as a tap at a world point, so actors can treat a
+    // press on a cliff as "climb this" rather than "walk toward this".
+    const w = screenToWorld(e.clientX, e.clientY);
+    state.input.tap = { x: w.x, y: w.y, t: state.time };
   });
   canvas.addEventListener('pointermove', e => {
     if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });

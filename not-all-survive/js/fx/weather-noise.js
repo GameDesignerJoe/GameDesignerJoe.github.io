@@ -248,14 +248,72 @@ export function makeFrost(S, seed = 1234) {
       for (const s of segs) {
         if (s[5] > lim) continue;
         const fade = Math.min(1, (lim - s[5]) / 0.08);
-        g.strokeStyle = pass ? `rgba(206,208,210,${0.95 * fade})` : `rgba(252,252,253,${0.7 * fade})`;
+        g.strokeStyle = pass ? `rgba(172,175,178,${0.9 * fade})` : `rgba(252,252,253,${0.7 * fade})`;
         g.lineWidth = pass ? s[4] : s[4] + 1.4;
         g.beginPath(); g.moveTo(s[0], s[1]); g.lineTo(s[2], s[3]); g.stroke();
       }
     }
     for (const d of dots) {
       if (d[2] > lim) continue;
-      g.fillStyle = `rgba(150,153,156,${0.55 * Math.min(1, (lim - d[2]) / 0.08)})`;
+      g.fillStyle = `rgba(130,133,136,${0.6 * Math.min(1, (lim - d[2]) / 0.08)})`;
+      g.fillRect(d[0], d[1], 1.2, 1.2);
+    }
+    stages.push(c);
+  }
+  return stages;
+}
+
+// Edge frost: a strip of feather frost rooted along one screen edge (y = 0) and growing
+// inward (+y), L long and D deep. Stages reveal it by inward depth, so the screen can
+// grow it from a rime along the edge to fronds reaching D into the view.
+export function makeFrostStrip(L, D, seed = 4321) {
+  const r = rng(seed);
+  const segs = [], dots = [];
+  function frond(x, y, a, len, curl, w, depth) {
+    const step = 3.2, n = Math.floor(len / step);
+    for (let i = 0; i < n; i++) {
+      const t = i / n;
+      const nx = x + Math.cos(a) * step, ny = y + Math.sin(a) * step;
+      segs.push([x, y, nx, ny, w * (1 - t * 0.6), ny / D]);
+      if (r() < 0.1) dots.push([nx + (r() - 0.5) * 5, ny + (r() - 0.5) * 5, ny / D]);
+      if (depth > 0 && i > 0) {
+        const side = i % 2 ? 1 : -1;     // barbs alternate sides like a feather
+        const bl = len * (0.07 + 0.14 * (1 - t)) * (0.5 + r() * 0.7);
+        if (bl > 3) frond(nx, ny, a + side * (0.45 + r() * 0.35), bl, curl * 0.5, w * 0.6, depth - 1);
+      }
+      x = nx; y = ny;
+      a += curl * (0.5 + r()) + (r() - 0.5) * 0.08;
+    }
+  }
+  // Roots kept away from the strip's ends (tiles overlap), fronds reaching inward with
+  // a gentle lean and curl; a few long ones, many short ones.
+  const count = Math.round(L / 26);
+  for (let i = 0; i < count; i++) {
+    const x = L * (0.16 + 0.68 * (i + r()) / count);
+    const lean = (r() - 0.5) * 0.9;
+    const len = D * (0.18 + Math.pow(r(), 1.6) * 0.8);
+    frond(x, r() * 3, Math.PI / 2 - lean, len, (r() - 0.5) * 0.05, 1.05, 2);
+  }
+  for (let i = 0; i < L / 4; i++) { const y = Math.pow(r(), 2.2) * D * 0.6; dots.push([L * (0.1 + 0.8 * r()), y, y / D]); }
+
+  const stages = [];
+  for (let k = 1; k <= FROST_STAGES; k++) {
+    const lim = k / FROST_STAGES;
+    const c = canvas(L, D), g = c.getContext('2d');
+    const gd = g.createLinearGradient(0, 0, 0, D * 0.25 * lim + 4);
+    gd.addColorStop(0, `rgba(246,247,248,${0.55 * lim})`); gd.addColorStop(1, 'rgba(246,247,248,0)');
+    g.fillStyle = gd; g.fillRect(0, 0, L, D * 0.25 * lim + 4);
+    g.lineCap = 'round';
+    for (const pass of [0, 1]) for (const s of segs) {
+      if (s[5] > lim) continue;
+      const fade = Math.min(1, (lim - s[5]) / 0.08);
+      g.strokeStyle = pass ? `rgba(172,175,178,${0.9 * fade})` : `rgba(252,252,253,${0.7 * fade})`;
+      g.lineWidth = pass ? s[4] : s[4] + 1.4;
+      g.beginPath(); g.moveTo(s[0], s[1]); g.lineTo(s[2], s[3]); g.stroke();
+    }
+    for (const d of dots) {
+      if (d[2] > lim) continue;
+      g.fillStyle = `rgba(130,133,136,${0.6 * Math.min(1, (lim - d[2]) / 0.08)})`;
       g.fillRect(d[0], d[1], 1.2, 1.2);
     }
     stages.push(c);

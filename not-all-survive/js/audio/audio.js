@@ -16,8 +16,8 @@ let time = 0, windTick = 0, tidyTick = 4;
 let echoProx = 0, rockNear = 0, echo = null;
 let shelter = 0, exertion = 0, nextBreath = 0, breathIn = true;
 let iceTimer = 20, iceCheck = 0, nearIce = false;
-const voices = { step: 0, creature: 0, ice: 0, breath: 0 };
-const LIMIT = { step: 4, creature: 8, ice: 4, breath: 2 };
+const voices = { step: 0, creature: 0, ice: 0, breath: 0, body: 0 };
+const LIMIT = { step: 4, creature: 8, ice: 4, breath: 2, body: 4 };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const R = (a, b) => a + Math.random() * (b - a);
@@ -169,6 +169,16 @@ function handle(e) {
       claim('ice', oneShot('ice', e.x ?? state.player.x, e.y ?? state.player.y, bus.ice, S.crack, { strength: e.strength }, 0.4));
       return;
     }
+    case 'axe': case 'kick': case 'shove': case 'fall': {
+      if (voices.body >= LIMIT.body) return;
+      const root = ctx.createGain(); root.connect(bus.steps);
+      const dur = { axe: S.axe, kick: S.kick, shove: S.shove, fall: S.fall }[e.type](ctx, B, root, t, e);
+      claim('body', dur);
+      setTimeout(() => root.disconnect(), (dur + 0.3) * 1000);
+      if (e.type === 'fall') { exertion = 1; nextBreath = time + dur; }       // winded
+      if (e.type === 'shove') { exertion = Math.min(1, exertion + 0.3); nextBreath = time + 0.8; }
+      return;
+    }
     case 'avalanche': {
       if (voices.creature >= LIMIT.creature) return;
       // far rock face: extra reverb, quieter than creatures so it never masks the wind
@@ -201,7 +211,8 @@ function updateWind(now) {
   // wind.angle is the direction the wind blows toward; it is heard from upwind
   const pan = -Math.cos(w.angle || 0) * 0.7;
   const intensity = clamp((w.speed ?? 0.4) + (w.gust || 0) * 0.35, 0, 1.3);
-  wind.set({ intensity, speed: w.speed ?? 0.4, gust: clamp(w.gust || 0, 0, 1), pan, shelter, whiteout: clamp(wx.whiteout || 0, 0, 1), time }, ctx.currentTime + (now ? 0 : 0.02));
+  const cower = state.player.mode === 'cower' ? 1 : 0;
+  wind.set({ cower, intensity, speed: w.speed ?? 0.4, gust: clamp(w.gust || 0, 0, 1), pan, shelter, whiteout: clamp(wx.whiteout || 0, 0, 1), time }, ctx.currentTime + (now ? 0 : 0.02));
   // slapback: sheltered spots and nearby rock both mean a reflecting face is close
   const prox = Math.max(shelter, rockNear);
   echoProx += (prox - echoProx) * 0.1;
@@ -217,7 +228,10 @@ function updateWind(now) {
 function updateBreath(dt) {
   const p = state.player, w = state.wind;
   let target = 0;
-  if (p.moving) {
+  if (p.mode === 'climb') target = 0.8;
+  else if (p.mode === 'down') target = 0.85;
+  else if (p.mode === 'cower') target = 0.45;
+  else if (p.moving) {
     const v = Math.hypot(p.vx, p.vy) || 1;
     const into = Math.max(0, -(p.vx * Math.cos(w.angle) + p.vy * Math.sin(w.angle)) / v) * (w.speed ?? 0.4) * (1 - shelter);
     target = 0.25 + 0.35 * (p.lean || 0) + 0.3 * into + (p.terrain === 'deep' ? 0.35 : 0);
@@ -227,8 +241,10 @@ function updateBreath(dt) {
   if (time < nextBreath) return;
   const period = (4.2 - 2.7 * exertion) * R(0.8, 1.2);
   const len = period * (breathIn ? 0.36 : 0.46) * R(0.8, 1.2);
-  const level = 0.08 + 0.92 * exertion;
-  if (claim('breath', len)) S.breath(ctx, B, bus.breath, ctx.currentTime + 0.01, { inhale: breathIn, len, level });
+  // in the lee, with the wind gone, your own breathing comes forward
+  const level = (0.08 + 0.92 * exertion) * (1 + 0.8 * shelter);
+  const shaky = p.mode === 'cower' ? 0.8 : 0;
+  if (claim('breath', len)) S.breath(ctx, B, bus.breath, ctx.currentTime + 0.01, { inhale: breathIn, len, level, shaky });
   nextBreath = time + (breathIn ? period * 0.42 : period * 0.58);
   breathIn = !breathIn;
 }
@@ -267,7 +283,8 @@ function updateIceAmbience(dt) {
 export function update(dt) {
   if (!ctx || !wind || ctx.state !== 'running') return;
   time += dt;
-  shelter += (shelterNow() - shelter) * Math.min(1, dt * 1.2);
+  const sh = Math.max(shelterNow(), clamp(+state.player.sheltered || 0, 0, 1));
+  shelter += (sh - shelter) * Math.min(1, dt * 1.5);
   windTick -= dt;
   if (windTick <= 0) { windTick = 0.125; updateWind(false); } // 8 Hz
   tidyTick -= dt;

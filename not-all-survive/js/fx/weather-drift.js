@@ -125,6 +125,7 @@ export function update(dt) {
   const a = state.wind.angle, c = Math.cos(a), sn = Math.sin(a);
   const area = (r.x1 - r.x0) * (r.y1 - r.y0);
   const burst = burstFront();
+  const shP = director.shelter || 0;
   for (const f of director.fronts) if (f.hit && f.hitTime === undefined) f.hitTime = state.time;
   let n = Math.round(area / 420 * clamp01(0.2 + state.wind.speed * 1.1));
   if (burst) n *= 3;
@@ -150,6 +151,7 @@ export function update(dt) {
     s.x += c * s.v * dt;
     s.y += sn * s.v * dt;
     s.I = clamp01((W - 0.1) * 1.25);
+    if (shP > 0.02) { const d = Math.hypot(s.x - state.player.x, s.y - state.player.y); if (d < 60) s.I *= 1 - shP * 0.85 * (1 - d / 60); }
   }
 }
 
@@ -242,6 +244,17 @@ function drawSheets(ctx) {
   if (grid.any) {
     g.imageSmoothingEnabled = true;
     g.drawImage(grid.cv, grid.x0 - CELL / 2, grid.y0 - CELL / 2, grid.gw * CELL, grid.gh * CELL);
+  }
+  // Hunkered in the lee: the drift around the explorer thins out.
+  const sh = director.shelter || 0;
+  if (sh > 0.02) {
+    const p = state.player;
+    const rg = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, 55);
+    rg.addColorStop(0, `rgba(0,0,0,${0.85 * sh})`);
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.globalCompositeOperation = 'destination-out';
+    g.fillStyle = rg;
+    g.fillRect(p.x - 55, p.y - 55, 110, 110);
   }
   g.globalCompositeOperation = 'source-over';
 

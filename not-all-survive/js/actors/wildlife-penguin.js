@@ -40,12 +40,25 @@ export function makeGroup(cx, cy, n, homeR, w, opts = {}) {
   return g;
 }
 
+// Threats: the explorer and the bear. Penguins flee whichever is nearer.
+let BEAR = null;
+export function setBear(b) { BEAR = b; }
+const CALMP = state.params.has('wlCalm');
+function threat(x, y) {
+  const p = CALMP ? null : state.player;
+  const dp = p ? Math.hypot(p.x - x, p.y - y) : Infinity;
+  const db = BEAR ? Math.hypot(BEAR.x - x, BEAR.y - y) : Infinity;
+  if (db < dp) return { x: BEAR.x, y: BEAR.y, bear: true };
+  return p ? { x: p.x, y: p.y } : { x: -1e5, y: -1e5 };
+}
+const nearBear = (x, y, r) => BEAR && Math.hypot(BEAR.x - x, BEAR.y - y) < r;
+
 function groupUpdate(g, dt, w) {
-  const p = state.params.has('wlCalm') ? { x: -1e5, y: -1e5 } : state.player;
   // centroid
   let mx = 0, my = 0;
   for (const m of g.members) { mx += m.x; my += m.y; }
   mx /= g.members.length; my /= g.members.length;
+  const p = threat(mx, my);
   const windy = (state.wind.speed + (state.wind.gust || 0) * 0.5) > 0.72 || g.force === 'huddle';
   g.huddle = approach(g.huddle, windy ? 1 : 0, 0.6, dt);
 
@@ -57,14 +70,14 @@ function groupUpdate(g, dt, w) {
     for (let k = 0; k < 8; k++) {
       const aa = a + (k % 2 ? 1 : -1) * k * 0.3;
       const tx = mx + Math.cos(aa) * 115, ty = my + Math.sin(aa) * 115;
-      if (w.walkable(tx, ty) && w.clearLine(mx, my, tx, ty)) { g.tx = tx; g.ty = ty; break; }
+      if (w.walkable(tx, ty) && !nearBear(tx, ty, 70) && w.clearLine(mx, my, tx, ty)) { g.tx = tx; g.ty = ty; break; }
     }
     g.panic = 4; g.t = rnd(25, 40);
   } else if (g.t <= 0 && g.huddle < 0.3) {
     for (let k = 0; k < 20; k++) {
       const a = Math.random() * TAU, r = Math.random() * g.home.r;
       const tx = g.home.x + Math.cos(a) * r, ty = g.home.y + Math.sin(a) * r;
-      if (w.walkable(tx, ty) && w.clearLine(g.cx, g.cy, tx, ty)) { g.tx = tx; g.ty = ty; break; }
+      if (w.walkable(tx, ty) && !nearBear(tx, ty, 70) && w.clearLine(g.cx, g.cy, tx, ty)) { g.tx = tx; g.ty = ty; break; }
     }
     g.t = rnd(14, 30);
   }
@@ -82,7 +95,7 @@ const CALM = state.params.has('wlCalm'); // captures: ignore the explorer
 const FAR = { x: -1e5, y: -1e5 };
 export function updateGroup(g, dt, w) {
   groupUpdate(g, dt, w);
-  const p = CALM ? FAR : state.player;
+
   const H = g.huddle > 0.5;
   const downwind = state.wind.angle; // back to the wind
   const ms = g.members;
@@ -94,6 +107,7 @@ export function updateGroup(g, dt, w) {
   }
   for (const m of ms) {
     m.t -= dt; m.headT -= dt;
+    const p = threat(m.x, m.y);
     const pd = Math.hypot(p.x - m.x, p.y - m.y);
     // desired spot in the flock
     let hx, hy;
@@ -104,7 +118,7 @@ export function updateGroup(g, dt, w) {
     // startled: waddle away (or toboggan) from the explorer
     // keeps fleeing while pressed; re-aims away from the explorer every half second
     m.fleeT = (m.fleeT || 0) - dt;
-    const pressed = pd < 40 || (m.flee && pd < 60);
+    const pressed = pd < (p.bear ? 48 : 40) || (m.flee && pd < 60);
     if (pressed && m.st !== 'slide' && m.fleeT <= 0) {
       m.fleeT = 0.5;
       const base = Math.atan2(m.y - p.y, m.x - p.x);
@@ -143,7 +157,7 @@ export function updateGroup(g, dt, w) {
             // potter about near its spot
             const a = Math.random() * TAU;
             const gx = hx + Math.cos(a) * rnd(2, 7), gy = hy + Math.sin(a) * rnd(2, 6);
-            if (w.walkable(gx, gy)) { m.goal = { x: gx, y: gy }; m.st = 'walk'; m.t = 10; }
+            if (w.walkable(gx, gy) && !nearBear(gx, gy, 50)) { m.goal = { x: gx, y: gy }; m.st = 'walk'; m.t = 10; }
             else m.t = rnd(1, 3);
           } else if (r < 0.7 && w.icy(m.x, m.y)) {
             // a spontaneous toboggan run across the ice
@@ -213,6 +227,14 @@ export function updateGroup(g, dt, w) {
     m.fout = approach(m.fout, fo, 6, dt);
   }
 
+  // never overlap the bear
+  if (BEAR) for (const m of ms) {
+    const dx = m.x - BEAR.x, dy = (m.y - BEAR.y) * 1.4, d = Math.hypot(dx, dy);
+    if (d < 16 && d > 1e-3) {
+      const k = (16 - d) * Math.min(1, dt * 8), nx = m.x + dx / d * k, ny = m.y + dy / d * k / 1.4;
+      if (w.walkable(nx, ny)) { m.x = nx; m.y = ny; }
+    }
+  }
   // separation: keep personal space (tighter in a huddle)
   const minD = H ? 3.8 : 4.2;
   for (let a = 0; a < ms.length; a++) {

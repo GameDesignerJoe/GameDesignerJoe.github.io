@@ -379,7 +379,11 @@ export function breath(ctx, B, out, t, o = {}) {
   bp.frequency.setValueAtTime(f, t);
   bp.frequency.linearRampToValueAtTime(f * (inh ? R(1.15, 1.35) : R(0.65, 0.8)), t + len);
   const hp = filt(ctx, 'highpass', 280), g = gain(ctx);
-  chain(s, hp, bp, g, out);
+  if (o.shaky) { // cold, frightened tremble
+    const tr = gain(ctx, 1 - 0.4 * o.shaky), lfo = osc(ctx, 'sine', R(6, 10), t, len), lg = gain(ctx, 0.4 * o.shaky);
+    chain(lfo, lg); lg.connect(tr.gain);
+    chain(s, hp, bp, tr, g, out);
+  } else chain(s, hp, bp, g, out);
   const att = len * (inh ? 0.5 : 0.25);
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lvl * (inh ? 0.7 : 1), t + att);
   g.gain.linearRampToValueAtTime(0, t + len);
@@ -569,20 +573,29 @@ export function createWind(ctx, B, out) {
   chain(flap, flapG); flapG.connect(hAM.gain);
   chain(hS, hF, hAM, hG); hG.connect(out); // bypasses the shelter filter: it's at your ears
 
+  // in the lee: the gale roaring just overhead (dark, wide) ...
+  const oS = src(ctx, B.pink, now, Infinity, 0.9), oB = filt(ctx, 'bandpass', 320, 0.7), oL = filt(ctx, 'lowpass', 900, 0.6), oG = gain(ctx);
+  chain(oS, oB, oL, oG); oG.connect(out);
+  // ... and, close by, the quiet: a few grains of snow sifting down off the rock
+  const sS = src(ctx, B.whiteM, now, Infinity, 1.1), sF = filt(ctx, 'bandpass', 3800, 1.2), sAM = gain(ctx, 0), sG = gain(ctx);
+  const sGrit = src(ctx, B.grit, now, Infinity, 0.3), sGG = gain(ctx, 1);
+  chain(sGrit, sGG); sGG.connect(sAM.gain);
+  chain(sS, sF, sAM, sG); sG.connect(out);
+
   return {
     whistles,
     set(p, t) {
-      const x = p.time, w = p.whiteout || 0, sh = p.shelter || 0, g = p.gust || 0;
+      const x = p.time, w = p.whiteout || 0, sh = p.shelter || 0, g = p.gust || 0, cw = p.cower || 0;
       const I = Math.max(p.intensity, w * 1.1), open = 1 - sh;
       // fast turbulence: +-6 dB x intensity (rumble +-2 dB), separate seeds per ear and per layer
       const turb = (seed, depth = 6 * Math.min(1, I + 0.4)) => dbToGain(depth * clamp(1.8 * wander(x * (1.3 + (seed % 2.2)) + seed), -1, 1));
       const couple = k => 1 + 0.15 * clamp((k - 1) * 2, -1, 1); // brighter when louder
       // rumble: the weight of the air
-      const rb = (0.12 + 0.35 * I + 0.15 * w) * (1 - 0.35 * sh) * (0.75 + 0.5 * g);
+      const rb = (0.12 + 0.35 * I + 0.15 * w) * (1 - 0.35 * sh) * (0.75 + 0.5 * g) * (1 + 0.35 * cw);
       P(rumble.gL.gain, rb * turb(0.3, 2), t, 0.25); P(rumble.gR.gain, rb * turb(5.9, 2), t, 0.25);
       P(rumble.f[0].frequency, 110 + 120 * I + 30 * wander(x * 0.11), t, 0.3);
       // body: the whoosh; gusts swing it ~15 dB
-      const bb = (0.05 + 0.5 * Math.pow(I, 1.4) + 0.12 * w) * (0.85 + 0.15 * wander(x * 0.23 + 3)) * (1 - 0.6 * sh) * (0.35 + 1.65 * g);
+      const bb = (0.05 + 0.5 * Math.pow(I, 1.4) + 0.12 * w) * (0.85 + 0.15 * wander(x * 0.23 + 3)) * (1 - 0.6 * sh) * (0.35 + 1.65 * g) * (1 + 0.9 * cw);
       const kL = turb(1.7), kR = turb(8.2);
       P(body.gL.gain, bb * kL, t); P(body.gR.gain, bb * kR, t);
       P(body.f[0].frequency, (330 + 420 * I) * (1 + 0.3 * wander(x * 0.07 + 1)) * (1 - 0.35 * w) * (1 - 0.4 * sh) * couple((kL + kR) / 2) * (1 + 0.2 * g), t);
@@ -591,14 +604,14 @@ export function createWind(ctx, B, out) {
       const kg = turb(3.1);
       P(gG.gain, (0.04 + 0.12 * I + 0.6 * g * (0.4 + I)) * (1 - 0.7 * sh) * kg, t);
       P(gF.frequency, (550 + 700 * g + 300 * I) * (1 + 0.25 * wander(x * 0.13 + 7)) * couple(kg), t);
-      if (gP.pan) P(gP.pan, clamp(p.pan * 0.8 + 0.15 * wander(x * 0.09), -1, 1), t, 0.3);
+      if (gP.pan) P(gP.pan, clamp((p.pan * 0.8 + 0.15 * wander(x * 0.09)) * (1 - 0.8 * cw), -1, 1), t, 0.3); // cowering: all around you
       // hiss: gritty spindrift, capped
-      const hb = Math.min(0.15, (0.003 + 0.12 * I * I + 0.05 * w) * (0.3 + 1.5 * g)) * (1 - 0.85 * sh);
+      const hb = Math.min(0.15, (0.003 + 0.12 * I * I + 0.05 * w) * (0.3 + 1.5 * g)) * (1 - 0.95 * sh);
       const hL = turb(4.4), hR = turb(9.7);
       P(hiss.gL.gain, hb * hL, t); P(hiss.gR.gain, hb * hR, t);
       P(hiss.f[0].frequency, (4200 + 1600 * wander(x * 0.17 + 5) + 1200 * g) * couple((hL + hR) / 2), t);
       // whistles emerge only in strong wind or gusts
-      const strong = clamp((I - 0.5) * 2.2 + g * 0.9, 0, 1.4) * (1 - 0.8 * sh) * (1 - 0.5 * w);
+      const strong = clamp((I - 0.5) * 2.2 + g * 0.9, 0, 1.4) * open * open * (1 - 0.5 * w);
       for (const wh of whistles) {
         const swell = Math.max(0, wander(x * 0.16 + wh.seed) * 1.4 - 0.15);
         const f = wh.base * (1 + 0.22 * wander(x * 0.05 + wh.seed)) * (1 + 0.18 * g);
@@ -608,12 +621,16 @@ export function createWind(ctx, B, out) {
       }
       // hood flutter
       const sp = p.speed ?? p.intensity;
-      const fl = clamp((sp + 0.4 * g - 0.7) / 0.3, 0, 1) * open * (1 - 0.3 * w);
-      P(hG.gain, 0.5 * fl * (0.7 + 0.5 * g) * turb(6.6), t, 0.08);
+      const fl = Math.max(clamp((sp + 0.4 * g - 0.7) / 0.3, 0, 1), cw * clamp(0.5 + sp, 0, 1)) * open * (1 - 0.3 * w);
+      P(hG.gain, (0.5 + 0.5 * cw) * fl * (0.7 + 0.5 * g) * turb(6.6), t, 0.08);
       P(flap.playbackRate, 0.6 + 1.1 * clamp(sp - 0.5 + g * 0.4, 0, 1) + 0.1 * wander(x * 1.9), t, 0.2); // ~4-12 flaps/s
       // shelter: occluded, lower, softer
-      P(shelterLP.frequency, 16000 * Math.pow(open, 2.2) + 700, t, 0.4);
-      P(bus.gain, 1 - 0.45 * sh, t, 0.4);
+      P(shelterLP.frequency, 16000 * Math.pow(open, 3) + 450, t, 0.4);
+      P(bus.gain, 1 - 0.75 * sh, t, 0.4);
+      // the lee: overhead roar and close sifting snow
+      P(oG.gain, sh * (0.05 + 0.3 * I + 0.1 * w) * (0.6 + 0.7 * g) * turb(11.3, 4), t, 0.3);
+      P(oB.frequency, 260 + 140 * I + 60 * g, t, 0.4);
+      P(sG.gain, sh * (0.02 + 0.03 * I), t, 0.5);
     },
     tidy(t) {
       for (const prm of touched) {
@@ -665,4 +682,72 @@ export function avalanche(ctx, B, out, t) {
   cg.gain.setValueCurveAtTime(grainCurve(d, (d * R(30, 45)) | 0, 25, 0.5, 1.1), t, d);
   chain(c, cb, cg, g);
   return d + 0.1;
+}
+
+// ---------------------------------------------------------------- explorer actions
+// Ice axe strike: a sharp metallic bite, an ice crunch, sometimes chips skittering down.
+export function axe(ctx, B, out, t, o = {}) {
+  const p = pan(ctx, (o.hand === 'L' ? -1 : 1) * R(0.1, 0.25)); p.connect(out);
+  noiseBurst(ctx, B, p, t, 'highpass', R(2500, 4000), 0.7, 0.9, 0.0008, 0.02);
+  const f = R(2600, 4200), rd = R(0.06, 0.14);
+  for (const [m, a] of [[1, 0.12], [1.53, 0.07], [2.37, 0.05], [3.11, 0.03]]) {
+    const ob = osc(ctx, 'sine', f * m * R(0.98, 1.02), t, rd), g = gain(ctx);
+    chain(ob, g, p); perc(g.gain, t, a, 0.0008, rd * R(0.6, 1));
+  }
+  noiseBurst(ctx, B, p, t, 'lowpass', R(500, 800), 1, 0.7, 0.002, 0.05); // the pick going in
+  const cd = R(0.08, 0.14), cs = src(ctx, B.whiteM, t, cd), cb = filt(ctx, 'bandpass', R(1800, 3500), 0.9), cg = gain(ctx);
+  chain(cs, cb, cg, p); cg.gain.setValueCurveAtTime(grainCurve(cd, (R(18, 30)) | 0, 3, 0.8, 1.6), t + 0.003, cd);
+  let end = Math.max(rd, cd);
+  if (Math.random() < 0.55) { // chips skittering and falling away
+    let at = t + R(0.05, 0.12), a = R(0.25, 0.4);
+    const n = 2 + ((Math.random() * 4) | 0);
+    for (let i = 0; i < n; i++) {
+      noiseBurst(ctx, B, p, at, 'bandpass', R(3500, 6500), 2, a, 0.0005, R(0.006, 0.015));
+      at += R(0.05, 0.16); a *= R(0.55, 0.8);
+    }
+    end = Math.max(end, at - t);
+  }
+  return end + 0.1;
+}
+
+// Crampon kick: spiky crunch, a thud, and a short downward scrape. Heavier than a step.
+export function kick(ctx, B, out, t, o = {}) {
+  const p = pan(ctx, (o.foot === 'L' ? -1 : 1) * R(0.08, 0.2)); p.connect(out);
+  noiseBurst(ctx, B, p, t, 'lowpass', R(250, 400), 1, 3.2, 0.003, 0.08);
+  const cd = R(0.1, 0.16), cs = src(ctx, B.whiteM, t, cd), cb = filt(ctx, 'bandpass', R(2500, 4500), 0.8), cg = gain(ctx);
+  chain(cs, cb, cg, p); cg.gain.setValueCurveAtTime(grainCurve(cd, (R(30, 45)) | 0, 2, 2, 1.8), t, cd);
+  const st = t + R(0.03, 0.06), sd = R(0.1, 0.16), sc = src(ctx, B.whiteM, st, sd), sb = filt(ctx, 'bandpass', R(1800, 2600), 2.5), sg = gain(ctx);
+  sb.frequency.setValueAtTime(sb.frequency.value, st); sb.frequency.exponentialRampToValueAtTime(R(900, 1300), st + sd);
+  chain(sc, sb, sg, p);
+  sg.gain.setValueAtTime(0, st); sg.gain.linearRampToValueAtTime(0.5, st + sd * 0.2); sg.gain.linearRampToValueAtTime(0, st + sd);
+  return Math.max(cd, st - t + sd) + 0.1;
+}
+
+// Shoved by a gust: a burst of cloth flapping, two scuffing steps, an effort grunt-breath.
+export function shove(ctx, B, out, t, o = {}) {
+  const s = clamp(o.strength ?? 0.6, 0, 1), d = R(0.4, 0.7) + 0.3 * s;
+  const cs = src(ctx, B.pinkM, t, d, 1.3), cb = filt(ctx, 'bandpass', R(450, 750), 0.9), am = gain(ctx, 0.1), cg = gain(ctx);
+  const fl = src(ctx, B.flap, t, d, R(1.7, 2.2)), fg = gain(ctx, 0.9);
+  chain(fl, fg); fg.connect(am.gain);
+  chain(cs, cb, am, cg, out);
+  cg.gain.setValueAtTime(0, t); cg.gain.linearRampToValueAtTime(0.5 * (0.5 + s), t + 0.04); cg.gain.setTargetAtTime(0, t + 0.1, d / 3);
+  footstep(ctx, B, out, t + R(0.12, 0.2), { terrain: 'snow', weight: 0.9, foot: 'L' });
+  footstep(ctx, B, out, t + R(0.35, 0.5), { terrain: 'snow', weight: 0.7, foot: 'R' });
+  breath(ctx, B, out, t + 0.05, { inhale: false, len: R(0.25, 0.38), level: 0.7 + 0.3 * s });
+  return Math.max(d, 0.7) + 0.1;
+}
+
+// Knocked down: a muffled body thump into snow, a slide hiss, then a winded exhale.
+export function fall(ctx, B, out, t, o = {}) {
+  const s = clamp(o.strength ?? 0.7, 0, 1);
+  noiseBurst(ctx, B, out, t, 'lowpass', R(140, 200), 0.8, 2.6 * (0.6 + 0.4 * s), 0.01, 0.28);
+  noiseBurst(ctx, B, out, t + 0.01, 'lowpass', R(700, 1000), 0.7, 0.5, 0.01, 0.2); // the snow giving way
+  const sd = R(0.5, 0.9) * (0.6 + 0.6 * s), st = t + 0.05, ss = src(ctx, B.whiteM, st, sd), sb = filt(ctx, 'bandpass', 2000, 0.8), sg = gain(ctx);
+  sb.frequency.setValueAtTime(R(1800, 2400), st); sb.frequency.exponentialRampToValueAtTime(R(900, 1300), st + sd);
+  chain(ss, sb, sg, out);
+  sg.gain.setValueAtTime(0, st); sg.gain.linearRampToValueAtTime(0.35 * s + 0.1, st + 0.05); sg.gain.linearRampToValueAtTime(0, st + sd);
+  const bt = t + R(0.35, 0.5), bl = R(0.6, 0.9);
+  breath(ctx, B, out, bt, { inhale: false, len: bl, level: 0.8 });
+  breath(ctx, B, out, bt + bl + 0.1, { inhale: true, len: R(0.5, 0.7), level: 0.5, shaky: 0.8 });
+  return bt - t + bl + 0.9;
 }

@@ -7,6 +7,16 @@
 // area and are capped for phones.
 import { state } from '../state.js';
 import { gustFast, director } from './weather-director.js';
+import { worldToScreen } from '../camera.js';
+
+// Shelter pocket (screen px) around the explorer: snow slower and thinner inside.
+const pocket = { x: 0, y: 0, sh: 0, R: 120 };
+// 0..1 how deep inside the pocket a screen point is.
+const inPocket = (x, y) => {
+  if (pocket.sh < 0.02) return 0;
+  const d = Math.hypot(x - pocket.x, y - pocket.y) / pocket.R;
+  return d >= 1 ? 0 : pocket.sh * (1 - d * d);
+};
 
 let T;
 const LAYERS = [
@@ -39,6 +49,8 @@ export function update(dt) {
   const dx = lastCam.set ? (cam.x - lastCam.x) * z : 0, dy = lastCam.set ? (cam.y - lastCam.y) * z : 0;
   lastCam.x = cam.x; lastCam.y = cam.y; lastCam.set = true;
   const a = state.wind.angle, c = Math.cos(a), s = Math.sin(a);
+  const pp = worldToScreen(state.player.x, state.player.y - 8);
+  pocket.x = pp.x; pocket.y = pp.y; pocket.sh = director.shelter || 0;
   const area = w * h, snow = state.weather.snowfall, W0 = state.wind.speed;
   const m = 40;
 
@@ -68,8 +80,9 @@ export function update(dt) {
       const tvx = c * sp + dpsidy * turb, tvy = s * sp + L.fall * p.k - dpsidx * turb;
       const k = Math.min(1, dt * 4);
       p.vx += (tvx - p.vx) * k; p.vy += (tvy - p.vy) * k;
-      p.x += p.vx * dt - dx * L.par;
-      p.y += p.vy * dt - dy * L.par;
+      const slow = 1 - 0.5 * inPocket(p.x, p.y);
+      p.x += p.vx * dt * slow - dx * L.par;
+      p.y += p.vy * dt * slow - dy * L.par;
       if (p.x < -m) p.x += w + 2 * m; else if (p.x > w + m) p.x -= w + 2 * m;
       if (p.y < -m) p.y += h + 2 * m; else if (p.y > h + m) p.y -= h + 2 * m;
     }
@@ -85,6 +98,7 @@ function sliverPath(ctx, L, bucket, ox, oy) {
   for (let i = 0; i < L.n; i++) {
     const p = L.p[i];
     if (p.wb !== bucket) continue;
+    if ((p.ph % 1) < inPocket(p.x, p.y) * 0.55) continue;   // ~half as dense in the pocket
     const vx = p.vx, vy = p.vy, sp = Math.hypot(vx, vy) || 1;
     const ux = vx / sp, uy = vy / sp;
     const len = Math.max(lw * 2.2, sp * L.streak * p.len);
@@ -122,6 +136,7 @@ export function drawNear(ctx) {
   const L = LAYERS[2];
   for (let i = 0; i < L.n; i++) {
     const p = L.p[i];
+    if ((p.ph % 1) < inPocket(p.x, p.y) * 0.9) continue;
     const v = Math.hypot(p.vx, p.vy);
     const stretch = 1 + Math.min(2.5, v * 0.0035);
     const r = p.s;

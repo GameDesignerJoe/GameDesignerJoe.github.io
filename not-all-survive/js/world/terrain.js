@@ -5,7 +5,8 @@
 //   R = class * 40 (0 snow, 1 deep, 2 ice, 3 thin, 4 rock, 5 path), +20 if elevated
 //       (a rock face just south of the point: a plateau top or ledge in the oblique view)
 //   G = exposure 0..255 (open plains / plateau tops high, nooks among cliffs low)
-//   B = blurred map luminance (ground.js uses it to place detail)
+//   B = blurred map luminance in steps of 8 (ground.js uses it to place detail);
+//       low bit = climb-only plateau top (walkable, not reachable on foot from spawn)
 //
 // Contract:
 //   TERRAIN                -> names of terrain types
@@ -16,6 +17,11 @@
 //   exposureAt(x, y)       -> 0..1, how open / high the ground is
 //   elevatedAt(x, y)       -> bool, on a plateau top / ledge
 //   findWalkable(x, y)     -> { x, y } nearest walkable point
+//   climbRoute(x, y, dx, dy) -> { start, end, length, kind, up } | null  (ice climbing)
+//   climbable(x, y)        -> bool, cheap hover check: any climb route from here
+//   isPlateau(x, y)        -> bool, climb-only ground (walkable, no foot route from spawn)
+//   reachableOnFoot(x, y)  -> bool, in the spawn's foot region
+//   regionAt(x, y)         -> foot-connected region id (0 = rock)
 //   ?terrain=<type> forces terrainAt() everywhere (animation testing)
 import { state, MAP_W, MAP_H } from '../state.js';
 
@@ -30,7 +36,10 @@ let MW = 0, MH = 0;
 let cls = null;                       // Uint8Array, class index per mask px
 let expo = null;                      // Uint8Array, exposure 0..255
 let lum = null;                       // Uint8Array, map luminance 0..255
-let elev = null;                      // Uint8Array, 1 = plateau top / ledge
+let elev = null;                      // Uint8Array, 1 = plateau top / ledge (rock just south)
+let plat = null;                      // Uint8Array, 1 = climb-only plateau top
+let region = null;                    // Int32Array, foot-connected region id per mask px
+let spawnRegion = 0;
 // Coarse rock occupancy for shelter rays: 1 cell = 8 map px, value = rock fraction 0..255.
 const CELL = 8;
 let CW = 0, CH = 0, coarse = null;
@@ -59,12 +68,13 @@ function build(img) {
   const d = g.getImageData(0, 0, MW, MH).data;
   c.width = c.height = 0; c = null; // let the canvas go
   const n = MW * MH;
-  cls = new Uint8Array(n); expo = new Uint8Array(n); lum = new Uint8Array(n); elev = new Uint8Array(n);
+  cls = new Uint8Array(n); expo = new Uint8Array(n); lum = new Uint8Array(n); elev = new Uint8Array(n); plat = new Uint8Array(n);
   for (let i = 0, j = 0; i < n; i++, j += 4) {
     cls[i] = Math.min(5, Math.floor((d[j] + 5) / 40));
     elev[i] = d[j] % 40 >= 10 ? 1 : 0;
     expo[i] = d[j + 1];
-    lum[i] = d[j + 2];
+    lum[i] = d[j + 2] & 0xf8;
+    plat[i] = d[j + 2] & 1;
   }
   // Coarse rock grid.
   const k = CELL / MASK_SCALE;
@@ -79,7 +89,46 @@ function build(img) {
     }
   }
   for (let i = 0; i < cnt.length; i++) coarse[i] = Math.min(255, Math.round((cnt[i] / (k * k)) * 255));
+  labelRegions();
   ready = true;
+}
+
+// 4-connected foot regions over the walkable mask (scanline flood fill, ~1M cells).
+function labelRegions() {
+  const n = MW * MH;
+  region = new Int32Array(n);
+  const stack = new Int32Array(n);
+  let id = 0;
+  for (let s0 = 0; s0 < n; s0++) {
+    if (region[s0] || cls[s0] === ROCK) continue;
+    id++;
+    let sp = 0;
+    stack[sp++] = s0; region[s0] = id;
+    while (sp) {
+      const p = stack[--sp], x = p % MW;
+      if (x > 0 && !region[p - 1] && cls[p - 1] !== ROCK) { region[p - 1] = id; stack[sp++] = p - 1; }
+      if (x < MW - 1 && !region[p + 1] && cls[p + 1] !== ROCK) { region[p + 1] = id; stack[sp++] = p + 1; }
+      if (p >= MW && !region[p - MW] && cls[p - MW] !== ROCK) { region[p - MW] = id; stack[sp++] = p - MW; }
+      if (p < n - MW && !region[p + MW] && cls[p + MW] !== ROCK) { region[p + MW] = id; stack[sp++] = p + MW; }
+    }
+  }
+  const si = idx(SPAWN_X, SPAWN_Y);
+  spawnRegion = si >= 0 ? region[si] : 0;
+}
+const SPAWN_X = 1360, SPAWN_Y = 1560; // the spawn the mask was built from (gen_terrain.py)
+
+export function regionAt(x, y) {
+  if (!ready) return 0;
+  const i = idx(x, y);
+  return i < 0 ? 0 : region[i];
+}
+export function isPlateau(x, y) {
+  if (!ready) return false;
+  const i = idx(x, y);
+  return i >= 0 && plat[i] === 1;
+}
+export function reachableOnFoot(x, y) {
+  return ready ? regionAt(x, y) === spawnRegion && spawnRegion !== 0 : true;
 }
 
 function idx(x, y) {
@@ -164,30 +213,92 @@ export function shelterAt(x, y) {
   return Math.min(1, total * 1.15);
 }
 
-/** Nearest walkable point (searches outward in rings, up to ~300 world px). Every
- *  walkable mask pixel is reachable from the spawn: unreachable pockets are baked in
- *  as rock by tools/gen_terrain.py, so the result is never a sealed-off pocket. */
-export function findWalkable(x, y) {
-  if (!ready || isWalkable(x, y)) return { x, y };
+/** Nearest walkable point in the player's current foot region (or the spawn's, if the
+ *  player is not on walkable ground), searching outward in rings up to ~300 world px.
+ *  Pass `inRegion` to search a specific region instead. */
+export function findWalkable(x, y, inRegion) {
+  if (!ready) return { x, y };
+  let want = inRegion;
+  if (want === undefined) {
+    want = regionAt(state.player.x, state.player.y) || spawnRegion;
+  }
+  const i0 = idx(x, y);
+  if (i0 >= 0 && region[i0] === want) return { x, y };
   const mx = Math.floor(x / MASK_SCALE), my = Math.floor(y / MASK_SCALE);
   for (let r = 1; r <= 150; r++) {
     let best = null, bd = Infinity;
     for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const step = Math.abs(dy) === r ? 1 : 2 * r;   // ring cells only
+      for (let dx = -r; dx <= r; dx += step) {
         const px = mx + dx, py = my + dy;
         if (px < 0 || py < 0 || px >= MW || py >= MH) continue;
-        if (cls[py * MW + px] === ROCK) continue;
+        if (region[py * MW + px] !== want) continue;
         const dd = dx * dx + dy * dy;
         if (dd < bd) { bd = dd; best = [px, py]; }
       }
     }
     if (best) return { x: (best[0] + 0.5) * MASK_SCALE, y: (best[1] + 0.5) * MASK_SCALE };
   }
-  return { x: Math.min(MAP_W - 1, Math.max(0, x)), y: Math.min(MAP_H - 1, Math.max(0, y)) };
+  return { x: SPAWN_X, y: SPAWN_Y };
+}
+
+// --- climbing ------------------------------------------------------------------------
+// Climbs are near-vertical in the oblique view: north (dy < 0) goes up a south-facing
+// face, south comes down one. Every walkable mask cell is reachable from the spawn by
+// walking plus climbing (gen_terrain.py seals the rest into rock, using the same rules
+// on vertical columns), so any walkable landing is a reachable one; landings may be
+// climb-only plateau tops (isPlateau).
+const CLIMB_MAX = 110;         // world units of rock at most
+const CLIMB_BASE_REACH = 8;    // the start must be this close to the rock face
+const CLIMB_MIN_DY = Math.cos((50 * Math.PI) / 180); // within 50 deg of vertical
+const CLIMB_LAND = 4;          // landing must stay walkable for this far
+
+export function climbRoute(x, y, dx, dy) {
+  if (!ready || !isWalkable(x, y)) return null;
+  const len = Math.hypot(dx, dy);
+  if (!len) return null;
+  dx /= len; dy /= len;
+  if (Math.abs(dy) < CLIMB_MIN_DY) return null;
+  // Walk to the foot of the face.
+  let d = 0, sx = x, sy = y;
+  while (d <= CLIMB_BASE_REACH && isWalkable(x + dx * d, y + dy * d)) { sx = x + dx * d; sy = y + dy * d; d += 1; }
+  if (d > CLIMB_BASE_REACH) return null; // no rock right here
+  // Through the rock.
+  const r0 = d;
+  let lumSum = 0, n = 0;
+  for (; d <= r0 + CLIMB_MAX; d += 1) {
+    const px = x + dx * d, py = y + dy * d;
+    if (px < 0 || py < 0 || px >= MAP_W || py >= MAP_H) return null;
+    if (isWalkable(px, py)) {
+      // A real landing, not a one-pixel sliver between two faces.
+      let ok = true;
+      for (let k = 1; k <= CLIMB_LAND && ok; k++) ok = isWalkable(px + dx * k, py + dy * k);
+      if (!ok) { lumSum += lumAt(px, py); n++; continue; }
+      const length = d - r0;
+      const meanLum = n ? lumSum / n : 255;
+      // Big, dark peak masses (deep-shaded mountain flanks) aren't climbable faces.
+      if (length > 60 && meanLum < 115) return null;
+      return {
+        start: { x: sx, y: sy },
+        end: { x: px, y: py },
+        length,
+        kind: length <= 85 && meanLum >= 125 ? 'cliff' : 'mountain',
+        up: dy < 0,
+        shade: Math.round(meanLum),   // mean painted luminance of the face (0..255)
+      };
+    }
+    lumSum += lumAt(px, py); n++;
+  }
+  return null;
+}
+
+const CLIMB_DIRS = [[0, -1], [0, 1], [0.42, -0.91], [-0.42, -0.91], [0.42, 0.91], [-0.42, 0.91]];
+export function climbable(x, y) {
+  for (const [dx, dy] of CLIMB_DIRS) if (climbRoute(x, y, dx, dy)) return true;
+  return false;
 }
 
 /** Raw mask access for ground.js (debug overlay, detail placement). */
 export function mask() {
-  return ready ? { cls, expo, lum, elev, w: MW, h: MH, scale: MASK_SCALE } : null;
+  return ready ? { cls, expo, lum, elev, plat, region, w: MW, h: MH, scale: MASK_SCALE } : null;
 }

@@ -126,7 +126,7 @@ export function updateBear(b, dt, w) {
         b.routeT = (b.routeT || 0) - dt;
         if (b.routeT <= 0) { b.routeT = 0.8; b.route = w.route(b.x, b.y, p.x, p.y, true); }
         const R = b.route;
-        const blocked = R && R.reach > 75; // geometry truly in the way
+        const blocked = R && R.reach > 30; // geometry truly in the way
         if (pd > 64 && !blocked) {
           face = R ? Math.atan2(R.y - b.y, R.x - b.x) : toP;
           wantSpeed = pd > 110 ? 6.5 : 4.2;

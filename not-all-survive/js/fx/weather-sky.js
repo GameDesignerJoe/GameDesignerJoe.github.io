@@ -178,7 +178,7 @@ function kick(x, y, weight = 1) {
   const a = state.wind.angle, W = state.wind.speed;
   const n = 3 + Math.round(Math.random() * 2);
   for (let i = 0; i < n; i++) {
-    if (puffs.length > 40) puffs.shift();
+    if (puffs.length > 70) puffs.shift();
     puffs.push({
       x: x + (Math.random() - 0.5) * 3, y: y + (Math.random() - 0.5) * 1.5,
       vx: Math.cos(a) * (6 + 22 * W) + (Math.random() - 0.5) * 8,
@@ -190,6 +190,20 @@ function kick(x, y, weight = 1) {
 
 export function update(dt) {
   updateSlides(dt);
+  for (const e of state.events) if (e.type === 'fall') {
+    // Knocked flat: a burst of snow at the explorer.
+    const x = e.x ?? state.player.x, y = e.y ?? state.player.y, st = Math.min(1.5, e.strength ?? 1);
+    const a = state.wind.angle;
+    for (let i = 0; i < 12; i++) {
+      if (puffs.length > 70) puffs.shift();
+      const ang = Math.random() * Math.PI * 2, sp = 10 + Math.random() * 18;
+      puffs.push({
+        x: x + Math.cos(ang) * 3, y: y - 2 + Math.sin(ang) * 1.5,
+        vx: Math.cos(ang) * sp + Math.cos(a) * 10, vy: Math.sin(ang) * sp * 0.5 - 6 + Math.sin(a) * 10,
+        age: 0, life: 0.6 + Math.random() * 0.2, r: (4.5 + Math.random() * 4) * (0.8 + st * 0.3), white: true,
+      });
+    }
+  }
   for (const e of state.events) if (e.type === 'step') {
     sawStepEvent = true;
     if (e.terrain !== 'rock' && e.terrain !== 'ice') kick(e.x, e.y, (e.weight ?? 1) * (e.terrain === 'deep' ? 1.9 : 1));
@@ -236,8 +250,14 @@ export function drawSky(ctx) {
     const t = q.age / q.life;
     const al = 0.7 * (1 - t) * Math.min(1, t * 6);
     const s = q.r * (1 + t * 1.8);
-    if (pass === 0) { ctx.globalAlpha = al * 0.8; ctx.drawImage(T.flakeGrey, q.x - s * 0.55, q.y - s * 0.4, s * 1.6, s * 1.6); }
-    else { ctx.globalAlpha = al; ctx.drawImage(T.flake, q.x - s, q.y - s, s * 2, s * 2); }
+    if (pass === 0) {
+      // Fall bursts are white: only a whisper of shade under them.
+      ctx.globalAlpha = al * (q.white ? 0.2 : 0.8);
+      ctx.drawImage(T.flakeGrey, q.x - s * 0.55, q.y - s * 0.4, s * 1.6, s * 1.6);
+    } else {
+      ctx.globalAlpha = q.white ? Math.min(1, al * 1.35) : al;
+      ctx.drawImage(T.flake, q.x - s, q.y - s, s * 2, s * 2);
+    }
   }
   ctx.globalAlpha = 1;
 
@@ -252,14 +272,14 @@ export function drawSky(ctx) {
   // Low haze: long ragged banks lying along the wind.
   ctx.globalCompositeOperation = 'source-over';
   // (Both fog layers step aside once the screen-space whiteout covers the view.)
-  const hazeA = (0.08 + st * 0.45) * (1 - clamp01((wo - 0.5) / 0.3));
+  const hazeA = (0.08 + st * 0.45) * (1 - clamp01((wo - 0.5) / 0.3)) * (1 - 0.4 * (director.shelter || 0));
   if (hazeA > 0.01) {
     ctx.globalAlpha = hazeA;
     fillWind(ctx, pHaze, 256, 256, 2.2, hazeU, 0, r, a);
   }
 
   // Thicker billowing fog in heavy weather (scrolls faster, coarser).
-  const fogA = (clamp01((st - 0.35) / 0.65) * 0.55 + wo * 0.25) * (1 - clamp01((wo - 0.3) / 0.3));
+  const fogA = (clamp01((st - 0.55) / 0.45) * 0.4 + wo * 0.25) * (1 - clamp01((wo - 0.3) / 0.3)) * (1 - 0.45 * (director.shelter || 0));
   if (fogA > 0.01) {
     ctx.globalAlpha = fogA;
     fillWind(ctx, pFog, 256, 256, 1.6, fogU, 40, r, a);

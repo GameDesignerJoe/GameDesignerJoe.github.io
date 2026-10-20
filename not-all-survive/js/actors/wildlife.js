@@ -12,13 +12,14 @@ import { state, MAP_W, MAP_H } from '../state.js';
 import { visibleRect } from '../camera.js';
 import * as terrain from '../world/terrain.js';
 import { makeBear, updateBear, drawBear, bearShadow } from './wildlife-bear.js';
-import { makeGroup, updateGroup, drawPenguin, penguinShadow } from './wildlife-penguin.js';
+import { makeGroup, updateGroup, drawPenguin, penguinShadow, setBear } from './wildlife-penguin.js';
 import { pathOf } from './wildlife-rig.js';
 
 // ---------------------------------------------------------------- walkability
 // Prefer the real terrain module once it exists (it exports findWalkable); until then
 // use our own coarse rock/ice mask (8 map px per cell) derived from the painting.
 let mask = null, MW = 0, MHh = 0;
+let REGIONS = null; // foot regions of the animals' homes, set at init
 const realTerrain = () => typeof terrain.findWalkable === 'function' && !!terrain.mask?.();
 
 function maskAt(x, y) {
@@ -35,7 +36,11 @@ const W = {
       const t = terrain.terrainAt?.(x, y);
       if (t === 'rock') return false;
       if (!bear && t === 'thin') return false;
-      return terrain.isWalkable?.(x, y) ?? true;
+      if (!(terrain.isWalkable?.(x, y) ?? true)) return false;
+      // stay in the explorer's on-foot region: never on climb-only plateau tops
+      if (terrain.isPlateau?.(x, y)) return false;
+      // and inside the ground regions their homes are on (no climbing between regions)
+      return !REGIONS || !terrain.regionAt || REGIONS.has(terrain.regionAt(x, y));
     }
     return maskAt(x, y) < 200; // fallback until/unless the real terrain mask exists
   },
@@ -164,10 +169,15 @@ export async function init() {
     [1601, 1673, 3, 40],        // stragglers on the snow to the east
     [1500, 885, 26, 100, 55],   // the colony under the crags ("hunt for food")
   );
-  for (const [x, y, n, r, spread] of spec) {
-    const p = W.near(x, y);
-    groups.push(makeGroup(p.x, p.y, n, r, W, { force: forcePeng, spread }));
+  const homes = [];
+  for (const [x, y, n, r, spread] of spec) homes.push([W.near(x, y), n, r, spread]);
+  if (realTerrain() && terrain.regionAt) {
+    REGIONS = new Set([terrain.regionAt(bear.home.x, bear.home.y), ...homes.map(h => terrain.regionAt(h[0].x, h[0].y))]);
+    REGIONS.delete(0);
+    if (!REGIONS.size) REGIONS = null;
   }
+  setBear(bear);
+  for (const [p, n, r, spread] of homes) groups.push(makeGroup(p.x, p.y, n, r, W, { force: forcePeng, spread }));
 }
 
 export function update(dt) {

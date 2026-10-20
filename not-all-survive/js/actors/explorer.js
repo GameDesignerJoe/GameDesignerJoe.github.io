@@ -83,6 +83,11 @@ let rng = 1234567;
 const rand = () => { rng = (rng * 1103515245 + 12345) & 0x7fffffff; return rng / 0x7fffffff; };
 
 export function init() {
+  P.mode = 'walk';
+  P.sheltered = 0;
+  // test hooks: NAS.player.knock('fall'|'shove'), NAS.player.climb(dx, dy)
+  P.knock = kind => (kind === 'shove' ? startShove(1) : startFall(1));
+  P.climb = (dx = 0, dy = -1) => tryClimb(dx, dy);
   P.facing = Math.PI / 2;
   if (state.params.get('demo') === 'dir') P.facing = (parseFloat(state.params.get('a') || '90') * Math.PI) / 180;
 }
@@ -114,11 +119,29 @@ export function update(dt) {
   const gRise = Math.max(0, gust - lastGust) / dt;
   lastGust = gust;
   pose.gustKick = Math.max(pose.gustKick - dt * 1.6, clamp(gRise * 0.35) * (1 - shelter));
+  pose.windAmt = approach(pose.windAmt, clamp(smooth(0.15, 0.95, wEff) * 0.9 + gust * 0.5), 4, dt);
+  envW = { wa, ws, gust, wEff, windPose, shelter };
+
+  handleActions();
+  if (P.mode === 'climb') { updateClimb(dt); finishFrame(dt, 'rock', 0, wEff, wa); return; }
+  if (P.mode === 'down') { updateDown(dt); finishFrame(dt, ter, 0, wEff, wa); return; }
+  ovrW = approach(ovrW, 0, 5, dt);
 
   // --- intent ----------------------------------------------------------------------------
-  const mag = Math.min(1, Math.hypot(inp.x, inp.y));
+  let ix = inp.x, iy = inp.y;
+  if (P.mode === 'approach' && route) {
+    // walk to the foot of the climb by ourselves
+    const dx = route.bottom.x - P.x, dy = route.bottom.y - P.y, d = Math.hypot(dx, dy);
+    approachT += dt;
+    // arrived (or about to step past it this frame, or pressed against the rock right by it)
+    if (d < Math.max(1.4, P.speed * dt * 1.5) || (approachT > 0.6 && d < 5 && P.speed < 1)) { beginClimb(); finishFrame(dt, ter, 0, wEff, wa); return; }
+    if (approachT > 8) { P.mode = 'walk'; route = null; }
+    else { ix = dx / d * Math.min(1, d / 3 + 0.4); iy = dy / d * Math.min(1, d / 3 + 0.4); }
+  }
+  if (shoveT > 0) { ix *= 0.15; iy *= 0.15; }
+  const mag = Math.min(1, Math.hypot(ix, iy));
   const active = mag > 0.05;
-  const wantDir = active ? Math.atan2(inp.y / KY, inp.x) : P.facing;
+  const wantDir = active ? Math.atan2(iy / KY, ix) : P.facing;
   const into = Math.max(0, -Math.cos(wantDir - wa));
 
   // Pause at each foot plant on ice: |sin| is 0 at the plants.
@@ -136,6 +159,7 @@ export function update(dt) {
   P.vx += Math.cos(wa) * push;
   P.vy += Math.sin(wa) * push * KY;
   if (staggerT > 0) { P.vx += -Math.sin(P.facing) * staggerSide * 6 * dt; P.vy += Math.cos(P.facing) * staggerSide * 6 * dt * KY; }
+  if (shoveT > 0) { shoveT -= dt; P.vx += Math.cos(wa) * shoveV * dt; P.vy += Math.sin(wa) * shoveV * dt * KY; shoveV *= Math.exp(-4 * dt); }
 
   // --- collision: slide along rock ---------------------------------------------------------
   const ox = P.x, oy = P.y;
@@ -159,6 +183,7 @@ export function update(dt) {
     const d = wrapPi(wantDir - P.facing);
     P.facing = wrapPi(P.facing + clamp(d, -turnRate, turnRate));
   }
+  updateCower(dt, active);
 
   // --- gait ---------------------------------------------------------------------------------
   const walkSpeed = Math.min(P.speed, Math.hypot(tvx, tvy) + 0.5);
@@ -222,7 +247,13 @@ export function update(dt) {
   const yawWind = clamp(up - Math.sign(up || 1) * Math.PI / 2, -0.75, 0.75) * pose.brace;
   pose.torsoYaw = approach(pose.torsoYaw, yawWind + look * 0.3, 2, dt);
   pose.headYaw = approach(pose.headYaw, look * 0.75 - pose.brace * Math.sign(up || 1) * 0.35, 1.4, dt);
-  pose.windAmt = approach(pose.windAmt, clamp(smooth(0.15, 0.95, wEff) * 0.9 + gust * 0.5), 4, dt);
+  // --- wind knockdowns: in a real storm, out in the open, now and then ------------------------
+  if (P.mode === 'walk' && shoveT <= 0 && cowerW < 0.3) {
+    const storm = smooth(0.62, 0.9, ws) * smooth(0.4, 0.85, gust) * (1 - smooth(0.25, 0.6, shelter));
+    const slickK = ter === 'ice' || ter === 'thin' ? 2 : 1;
+    if (storm > 0 && rand() < storm * slickK * dt / 110) startFall(storm);
+    else if (storm > 0 && rand() < storm * slickK * dt / 40) startShove(storm);
+  }
 
   // --- coat hem spring: lags hip velocity by ~0.15 s ----------------------------------------
   const c = Math.cos(P.facing), sn = Math.sin(P.facing);
@@ -246,7 +277,377 @@ export function update(dt) {
 
   updateBreath(dt, ter, g, wEff, wa);
   updateKicks(dt);
+  updateChips(dt);
 }
+
+// Shared tail for the special modes (climb, down): no walking, but breath, particles and
+// the hem spring keep running.
+function finishFrame(dt, ter, g, wEff, wa) {
+  P.speed = 0; P.moving = false;
+  pose.gait = approach(pose.gait, 0, 6, dt);
+  hemS.f = approach(hemS.f, 0, 4, dt); hemS.r = approach(hemS.r, 0, 4, dt); hemS.z = approach(hemS.z, 0, 4, dt);
+  updateBreath(dt, ter, Math.max(g, 0.8), wEff, wa);
+  updateKicks(dt);
+  updateChips(dt);
+}
+
+// =================================================================================================
+// Modes beyond walking: climbing (ice axes + crampons), wind knockdowns, cowering / hunkering.
+// Each special pose is a body-frame override `ovr` that buildRig blends in by `ovrW`; cowering
+// has its own weight `cowerW` because it blends with the idle stance rather than replacing it.
+// =================================================================================================
+let envW = { wa: 0, ws: 0, gust: 0, wEff: 0, windPose: 0, shelter: 0 };
+let ovr = null, ovrW = 0;
+let route = null, climb = null, approachT = 0, lastTapT = -1, lastActT = -1;
+let shoveT = 0, shoveV = 0;
+let downT = 0, downV = { x: 0, y: 0 }, downDir = 0;
+let cowerW = 0, hunkerW = 0, hunkerSide = 1, idleT = 0, rockScanT = 0, rockHit = null;
+const chips = [];
+
+// --- climbing: finding a route ----------------------------------------------------------------------
+function handleActions() {
+  const inp = state.input;
+  // only fresh presses count (input.action defaults to 0; a press made mid-climb must not fire later)
+  const fresh = t => t > 0 && state.time - t < 0.4;
+  if (P.mode !== 'walk' && P.mode !== 'cower') { if (inp.tap) lastTapT = inp.tap.t; if (inp.action) lastActT = inp.action; return; }
+  if (inp.tap && inp.tap.t !== lastTapT && fresh(inp.tap.t)) {
+    lastTapT = inp.tap.t;
+    const dx = inp.tap.x - P.x, dy = inp.tap.y - P.y;
+    if (Math.hypot(dx, dy) < 30 && !walkable(inp.tap.x, inp.tap.y)) {
+      if (tryClimb(dx, dy)) inp.tap = null;
+    }
+  }
+  if (inp.action && inp.action !== lastActT && fresh(inp.action)) {
+    lastActT = inp.action;
+    if (tryClimb(Math.cos(P.facing), Math.sin(P.facing) * KY)) inp.action = null;
+  }
+}
+
+function tryClimb(dx, dy) {
+  const d = Math.hypot(dx, dy) || 1;
+  let r = null;
+  try { r = T.climbRoute?.(P.x, P.y, dx / d, dy / d) ?? null; } catch { r = null; }
+  if (!r) r = scanRoute(P.x, P.y, dx / d, dy / d);
+  if (!r) return false;
+  const up = r.up !== false;
+  route = { ...r, up, bottom: up ? r.start : r.end, top: up ? r.end : r.start };
+  if (up) { P.mode = 'approach'; approachT = 0; }
+  else beginClimb(); // going down: we're already standing at the lip
+  return true;
+}
+
+// Fallback until terrain.climbRoute exists: walk the ray, find the rock band and the first
+// walkable ground beyond it.
+function scanRoute(px, py, dx, dy) {
+  let rockAt = -1;
+  for (let t = 1; t <= 34; t += 1) if (!walkable(px + dx * t, py + dy * t)) { rockAt = t; break; }
+  if (rockAt < 0) return null;
+  for (let t = rockAt + 1; t <= rockAt + 170; t += 1) {
+    if (walkable(px + dx * t, py + dy * t) && walkable(px + dx * (t + 3), py + dy * (t + 3))) {
+      if (t - rockAt < 6) return null;
+      const start = { x: px + dx * (rockAt - 1.5), y: py + dy * (rockAt - 1.5) };
+      const end = { x: px + dx * (t + 3), y: py + dy * (t + 3) };
+      let up = dy < 0;
+      try { if (T.elevatedAt) up = !!T.elevatedAt(end.x, end.y) || (!T.elevatedAt(start.x, start.y) && dy < 0); } catch { /* keep */ }
+      return { start, end, length: Math.hypot(end.x - start.x, end.y - start.y), kind: 'cliff', up };
+    }
+  }
+  return null;
+}
+
+// --- climbing: the cycle ------------------------------------------------------------------------------
+// Each half-cycle leads with one side (c.side): that axe swings from low beside the hip to full
+// stretch overhead and strikes, then that boot kicks in, then the other boot, then the climber
+// stands up on the frog-splayed legs and everything planted drops H relative to the body.
+// The axes alternate, so at full reach one hand is far above the hood while the other is low,
+// planted by the shoulder; both hands are never at the hood together.
+const CY = 0.85, H = 3.6, HAND_TOP = 17.3, FOOT_LO = 1.6, SHOULDER_Z = 10.7;
+const PH = { swing: [0.0, 0.3], kick1: [0.34, 0.47], kick2: [0.5, 0.63], pull: [0.68, 0.95] };
+
+function beginClimb() {
+  const b = route.bottom, t = route.top;
+  const L = Math.max(6, Math.hypot(t.x - b.x, t.y - b.y));
+  const D = H / clamp(-(t.y - b.y) / L, 0.35, 1);          // route distance per half-cycle
+  const sMax = Math.max(0, L - 3);
+  climb = {
+    L, D, sMax, dir: { x: (t.x - b.x) / L, y: (t.y - b.y) / L },
+    face: Math.atan2((t.y - b.y) / KY, t.x - b.x),
+    up: route.up, stage: route.up ? 'cycle' : 'lower', t: route.up ? 0 : 1, pc: route.up ? 0 : 0.999,
+    base: route.up ? 0 : Math.max(0, sMax - D), s: route.up ? 0 : L, cyc: 0, rest: 0, slipT: 0, slipFoot: 1,
+    side: 1, from: null,
+  };
+  P.mode = 'climb'; P.climbStage = climb.stage;
+  P.vx = P.vy = 0;
+  ovr = climbPose();
+  climb.from = cyclePose(0.999, 1);
+}
+
+const segs = (pts, t) => {               // piecewise smooth path through points, t in 0..1
+  const n = pts.length - 1, f = clamp(t) * n, i = Math.min(n - 1, Math.floor(f));
+  return mix(pts[i], pts[i + 1], smooth(0, 1, f - i));
+};
+
+function cyclePose(pc, side) {
+  const c = climb;
+  const u = smooth(PH.pull[0], PH.pull[1], pc);          // stand-up progress
+  const hands = [], feet = [];
+  for (const s of [-1, 1]) {
+    // hands
+    let h;
+    if (s === side) {
+      const [a, b] = PH.swing;
+      const low = [0.9, s * 2.7, HAND_TOP - 2 * H], top = [1.3, s * 1.45, HAND_TOP];
+      if (pc < a) h = low;
+      else if (pc < b) h = segs([low, [0.2, s * 3.3, HAND_TOP - H + 0.6], [-0.5, s * 2.2, HAND_TOP + 0.9], top], (pc - a) / (b - a));
+      else h = top;
+      if (pc >= PH.pull[0]) h = [h[0], h[1], HAND_TOP - H * u];
+    } else {
+      // planted at about shoulder height, settling as the reach goes up; drops low on the pull
+      const z0 = lerp(HAND_TOP - H, SHOULDER_Z, smooth(0, PH.swing[1], pc));
+      h = [0.9, s * 2.7, lerp(z0, HAND_TOP - 2 * H, u)];
+    }
+    hands.push(h);
+    // feet: splayed, both step up H each half-cycle (leading side first)
+    const [a, b] = s === side ? PH.kick1 : PH.kick2;
+    const lo = [0.75, s * 1.25, FOOT_LO], hi = [0.85, s * 1.2, FOOT_LO + H];
+    let f;
+    if (pc < a) f = lo;
+    else if (pc < b) {
+      const k = (pc - a) / (b - a);
+      // knee lifts, boot comes off the wall and up ~1.2u past the hold, then drives in (last ~0.06 s)
+      f = k < 0.55 ? segs([lo, [-0.4, s * 1.55, FOOT_LO + H * 0.55], [-0.6, s * 1.45, FOOT_LO + H + 1.2]], k / 0.55)
+        : mix([-0.6, s * 1.45, FOOT_LO + H + 1.2], hi, smooth(0, 1, (k - 0.55) / 0.45));
+    } else f = [hi[0], hi[1], FOOT_LO + H - H * u];
+    if (c && c.slipT > 0 && s === c.slipFoot) { const k = Math.sin(clamp(c.slipT / 0.5) * Math.PI); f = [f[0] - 0.4 * k, f[1] + s * 0.4 * k, f[2] - 1.2 * k]; }
+    feet.push(f);
+  }
+  return { hands, feet, u };
+}
+
+const CLIMB_POLE_L = [[0.25, -1.1, 0.15], [0.25, 1.1, 0.15]];    // knees out: frog stance
+function climbPose() {
+  const c = climb, t = state.time, wp = envW.windPose;
+  const sway = Math.sin(t * 1.7) * 0.07 * wp + Math.sin(t * 3.9) * 0.03 * wp + envW.gust * 0.12;
+  const slip = c.slipT > 0 ? Math.sin(clamp(c.slipT / 0.5) * Math.PI) : 0;
+  if (c.stage === 'cycle') {
+    const pc = clamp(c.pc), cp = cyclePose(pc, c.side), e = Math.sin(Math.PI * cp.u);
+    const reachK = 1.0 * smooth(0.1, PH.swing[1], pc) * (1 - cp.u);
+    return {
+      hz: 7.6 - 0.3 * e - slip * 0.5, leanF: 0.12 + 0.12 * e, leanS: sway + slip * c.slipFoot * 0.12 + c.side * 0.06 * smooth(0, 0.3, pc) * (1 - cp.u),
+      feet: cp.feet, hands: cp.hands,
+      poleA: [[-0.2, -0.7, -1], [-0.2, 0.7, -1]], poleL: CLIMB_POLE_L,
+      hemAttach: 0, facePitch: -0.3, full: true, axes: 1,
+      shrug: [c.side < 0 ? reachK : 0, c.side > 0 ? reachK : 0],
+    };
+  }
+  if (c.stage === 'off') {
+    const m = clamp(c.t), f = c.from || cyclePose(0, 1);
+    return {
+      hz: lerp(7.6, 7.9, m), leanF: lerp(0.12, 0.05, m), leanS: 0,
+      feet: [mix(f.feet[0], [0, -1, 0], m), mix(f.feet[1], [0, 1, 0], m)],
+      hands: [mix(f.hands[0], [0.3, -1.9, 8.2], m), mix(f.hands[1], [0.3, 1.9, 8.2], m)],
+      poleA: [[-0.4, -1, -0.5], [-0.4, 1, -0.5]], poleL: [mix(CLIMB_POLE_L[0], [1, -0.15, 0.1], m), mix(CLIMB_POLE_L[1], [1, 0.15, 0.1], m)],
+      hemAttach: 0, facePitch: 0.1, full: m < 0.7, axes: 1 - m,
+    };
+  }
+  // Top-out over the lip (t: 0 -> 1); 'lower' plays it backwards.
+  // hands slap down over the lip, a knee comes up onto it, roll forward onto the top, stand.
+  const m = clamp(c.t), f = c.from || cyclePose(0.999, 1);
+  const K = [
+    { t: 0, hz: 7.6, lf: 0.15, fL: f.feet[0], fR: f.feet[1], hL: f.hands[0], hR: f.hands[1], pl: 0 },
+    { t: 0.22, hz: 7.4, lf: 0.35, fL: [0.75, -1.25, 2.4], fR: [0.75, 1.25, 2.0], hL: [2.4, -2.7, 10.6], hR: [2.4, 2.7, 10.6], pl: 0 },
+    { t: 0.45, hz: 8.6, lf: 0.55, fL: [0.6, -1.2, 1.2], fR: [2.2, 1.1, 6.4], hL: [2.8, -2.6, 8.6], hR: [2.8, 2.6, 8.6], pl: 0.3 },
+    { t: 0.7, hz: 6.6, lf: 0.62, fL: [-1.6, -1.0, 1.0], fR: [1.6, 1.0, 1.2], hL: [3.4, -1.7, 3.0], hR: [3.3, 1.7, 3.0], pl: 0.8 },
+    { t: 0.88, hz: 6.6, lf: 0.35, fL: [-0.8, -1.0, 0.2], fR: [1.2, 1.0, 0], hL: [1.8, -1.6, 4.8], hR: [1.6, 1.9, 5.6], pl: 1 },
+    { t: 1, hz: 7.9, lf: 0.05, fL: [0, -1.0, 0], fR: [0, 1.0, 0], hL: [0.3, -1.9, 8.2], hR: [0.3, 1.9, 8.2], pl: 1 },
+  ];
+  let i = 0; while (i < K.length - 2 && m > K[i + 1].t) i++;
+  const A = K[i], B = K[i + 1], k = smooth(0, 1, (m - A.t) / (B.t - A.t)), pl = lerp(A.pl, B.pl, k);
+  return {
+    hz: lerp(A.hz, B.hz, k), leanF: lerp(A.lf, B.lf, k), leanS: sway * (1 - m),
+    feet: [mix(A.fL, B.fL, k), mix(A.fR, B.fR, k)], hands: [mix(A.hL, B.hL, k), mix(A.hR, B.hR, k)],
+    poleA: [[-0.4, -1, -0.5], [-0.4, 1, -0.5]], poleL: [mix(CLIMB_POLE_L[0], [1, -0.3, 0.1], pl), mix(CLIMB_POLE_L[1], [1, 0.3, 0.1], pl)],
+    hemAttach: 0, facePitch: lerp(-0.2, 0.3, m), full: m < 0.9, axes: clamp(1 - (m - 0.25) * 3),
+  };
+}
+
+function climbEvent(type, i) {
+  const o = ovr || climbPose();
+  const v = type === 'axe' ? o.hands[i] : o.feet[i];
+  const w = toWorld(v, P.facing);
+  const x = P.x + w.x, y = P.y + w.y - w.z; // the strike point as it appears on the painted face
+  if (type === 'axe') state.events.push({ type: 'axe', x, y, hand: i ? 'R' : 'L' });
+  else state.events.push({ type: 'kick', x, y, foot: i ? 'R' : 'L' });
+  const n = type === 'axe' ? 6 : 4;
+  const z0 = w.z + (type === 'axe' ? 1.8 : 0);
+  for (let k = 0; k < n; k++) {
+    chips.push({ x: P.x + w.x + (rand() - 0.5) * 0.8, y: P.y + w.y + 0.3, z: z0, vx: (rand() - 0.5) * 5, vy: (rand() * 0.6 + 0.3) * 3 * KY, vz: 1 + rand() * 3, age: 0, life: 0.7 + rand() * 0.5, r: 0.12 + rand() * 0.16 });
+  }
+  if (chips.length > 60) chips.splice(0, chips.length - 60);
+}
+
+function updateClimb(dt) {
+  const c = climb;
+  ovrW = approach(ovrW, 1, 7, dt);
+  P.facing = wrapPi(P.facing + clamp(wrapPi(c.face - P.facing), -8 * dt, 8 * dt));
+  if (c.slipT > 0) c.slipT -= dt;
+  const slow = 1 - 0.3 * envW.windPose;
+  if (c.stage === 'cycle') {
+    const dirn = c.up ? 1 : -1;
+    const prev = c.pc;
+    if (c.rest > 0) c.rest -= dt;
+    else c.pc += dirn * dt * slow / CY;
+    const cross = x => (dirn > 0 ? prev < x && c.pc >= x : prev > x && c.pc <= x);
+    const lead = c.side > 0 ? 1 : 0, other = 1 - lead;
+    if (cross(PH.swing[1])) climbEvent('axe', lead);
+    if (cross(PH.kick1[1])) {
+      climbEvent('kick', lead);
+      // a crampon skids off the ice: kick again (more likely in wind)
+      if (c.up && rand() < 0.05 + 0.25 * envW.windPose) { c.slipT = 0.5; c.slipFoot = c.side; c.pc = PH.kick1[0] + 0.001; }
+    }
+    if (cross(PH.kick2[1])) climbEvent('kick', other);
+    if (dirn > 0 && prev < 0.95 && c.pc >= 0.95 && c.cyc % 4 === 3 && c.rest <= 0) c.rest = 0.4 + rand() * 0.4; // breathe
+    if (dirn > 0 && c.pc >= 1) {
+      c.pc -= 1; c.cyc++; c.base += c.D; c.side = -c.side;
+      if (c.base >= c.sMax) { c.from = cyclePose(0.999, -c.side); c.stage = 'mantle'; c.t = 0; c.base = c.sMax; }
+    }
+    if (dirn < 0 && c.pc <= 0) {
+      c.pc += 1; c.cyc++; c.base -= c.D; c.side = -c.side;
+      if (c.base + c.D <= 0) { c.from = cyclePose(0, -c.side); c.stage = 'off'; c.t = 0; c.pc = 0; }
+      else if (c.cyc % 4 === 3) c.rest = 0.4 + rand() * 0.3;
+    }
+    if (c.stage === 'cycle') c.s = clamp(c.base + c.D * smooth(PH.pull[0], PH.pull[1], clamp(c.pc)), 0, c.L);
+  } else if (c.stage === 'mantle' || c.stage === 'lower') {
+    const dirn = c.stage === 'mantle' ? 1 : -1;
+    c.t += dirn * dt / 2.8;
+    c.s = lerp(c.sMax, c.L, smooth(0.3, 0.85, clamp(c.t)));
+    if (dirn > 0 && c.t >= 1) { endClimb(); return; }
+    if (dirn < 0 && c.t <= 0) { c.stage = 'cycle'; c.pc = 0.999; c.t = 0; }
+  } else if (c.stage === 'off') {
+    c.t += dt / 0.6; c.s = 0;
+    if (c.t >= 1) { endClimb(); return; }
+  }
+  P.x = route.bottom.x + c.dir.x * c.s;
+  P.y = route.bottom.y + c.dir.y * c.s;
+  P.climbStage = c.stage;
+  ovr = climbPose();
+}
+function endClimb() {
+  P.mode = 'walk'; P.climbStage = null;
+  const end = climb.up ? route.top : route.bottom;
+  P.x = end.x; P.y = end.y;
+  climb = null; route = null;
+}
+
+// --- wind: shoves and knockdowns ----------------------------------------------------------------------
+function startShove(strength) {
+  if (P.mode === 'climb' || P.mode === 'down') return;
+  shoveT = 1.0; shoveV = 9 + 6 * strength;
+  slipT = 0.9; slipSide = rand() < 0.5 ? -1 : 1;
+  staggerT = 0.6; staggerSide = slipSide;
+  state.events.push({ type: 'shove', strength });
+}
+function startFall(strength) {
+  if (P.mode === 'climb' || P.mode === 'down') return;
+  P.mode = 'down'; downT = 0; route = null;
+  downDir = envW.wa;
+  const v = 9 + 7 * strength;
+  downV = { x: Math.cos(downDir) * v, y: Math.sin(downDir) * v * KY };
+  state.events.push({ type: 'fall', strength });
+}
+const DOWN_K = [
+  { t: 0, hz: 7.9, lf: 0.05, fL: [0, -1, 0], fR: [0, 1, 0], hL: [0.3, -1.9, 8.2], hR: [0.3, 1.9, 8.2], hem: 0 },
+  { t: 0.4, hz: 1.25, lf: 1.42, fL: [-6.4, -1.3, 0.35], fR: [-6.2, 1.1, 0.35], hL: [6.0, -2.6, 0.45], hR: [5.6, 2.8, 0.45], hem: 1 },
+  { t: 1.4, hz: 1.2, lf: 1.44, fL: [-6.4, -1.3, 0.35], fR: [-6.3, 1.0, 0.35], hL: [5.8, -2.4, 0.45], hR: [5.5, 2.6, 0.45], hem: 1 },
+  { t: 2.2, hz: 3.7, lf: 1.18, fL: [-3.5, -1.1, 0.4], fR: [-3.4, 1.1, 0.4], hL: [4.1, -1.5, 0.45], hR: [4.1, 1.5, 0.45], hem: 0.8 },
+  { t: 2.8, hz: 4.6, lf: 0.35, fL: [-3.2, -1.0, 0.4], fR: [1.6, 1.0, 0], hL: [1.5, -0.6, 4.8], hR: [1.8, 0.9, 4.6], hem: 0.2 },
+  { t: 3.4, hz: 7.9, lf: 0.05, fL: [0, -1, 0], fR: [0, 1, 0], hL: [0.3, -1.9, 8.2], hR: [0.3, 1.9, 8.2], hem: 0 },
+];
+function updateDown(dt) {
+  downT += dt;
+  ovrW = approach(ovrW, downT < 3.2 ? 1 : 0, 10, dt);
+  // thrown: spin to face downwind (face-down, head downwind) and slide
+  P.facing = wrapPi(P.facing + clamp(wrapPi(downDir - P.facing), -9 * dt, 9 * dt));
+  const f = Math.exp(-(downT < 0.4 ? 1.5 : 5) * dt);
+  downV.x *= f; downV.y *= f;
+  const nx = P.x + downV.x * dt, ny = P.y + downV.y * dt;
+  if (walkable(nx, ny)) { P.x = nx; P.y = ny; } else { downV.x = downV.y = 0; }
+  const struggle = downT > 1.4 && downT < 2.8 ? Math.sin(state.time * 9) * 0.12 : 0;
+  let i = 0; while (i < DOWN_K.length - 2 && downT > DOWN_K[i + 1].t) i++;
+  const A = DOWN_K[i], B = DOWN_K[i + 1], k = smooth(0, 1, clamp((downT - A.t) / (B.t - A.t)));
+  ovr = {
+    hz: lerp(A.hz, B.hz, k) + struggle * 0.5, leanF: lerp(A.lf, B.lf, k), leanS: struggle,
+    feet: [mix(A.fL, B.fL, k), mix(A.fR, B.fR, k)], hands: [mix(A.hL, B.hL, k), mix(A.hR, B.hR, k)],
+    poleA: [[0.2, -1, -0.8], [0.2, 1, -0.8]], poleL: [[1, -0.2, 0.1], [1, 0.2, 0.1]],
+    hemAttach: lerp(A.hem, B.hem, k), facePitch: 0.4, full: true, axes: 0,
+  };
+  P.vx = downV.x; P.vy = downV.y;
+  if (downT >= 3.4) { P.mode = 'walk'; P.vx = P.vy = 0; }
+}
+
+// --- cowering in a storm, hunkering in the lee of rock -----------------------------------------------
+function updateCower(dt, active) {
+  idleT = active ? 0 : idleT + dt;
+  const wo = state.weather.whiteout ?? 0;
+  const storm = wo > 0.45 || envW.wEff > 0.78;
+  const want = !active && idleT > 0.8 && storm && P.mode !== 'approach' && shoveT <= 0;
+  cowerW = approach(cowerW, want ? 1 : 0, want ? 1.4 : 4.5, dt);
+  if (cowerW > 0.5 && P.mode === 'walk') P.mode = 'cower';
+  if (cowerW < 0.3 && P.mode === 'cower') P.mode = 'walk';
+  // hunker: rock close by and we're in its lee
+  let hk = 0;
+  if (want && envW.shelter > 0.4) {
+    rockScanT -= dt;
+    if (rockScanT <= 0) { rockScanT = 0.5; rockHit = findRock(9); }
+    if (rockHit) hk = 1;
+  }
+  hunkerW = approach(hunkerW, hk, 2, dt);
+  if (want) {
+    let target = envW.wa; // back to the wind: face downwind
+    if (rockHit && hk) {
+      const ra = Math.atan2((rockHit.y - P.y) / KY, rockHit.x - P.x);
+      const a1 = ra + Math.PI / 2, a2 = ra - Math.PI / 2;
+      target = Math.cos(a1 - envW.wa) > Math.cos(a2 - envW.wa) ? a1 : a2;
+      hunkerSide = Math.sin(ra - target) > 0 ? 1 : -1; // which shoulder is against the rock
+      // shuffle in until the shoulder is against the rock
+      const d = Math.hypot(rockHit.x - P.x, (rockHit.y - P.y) / KY);
+      if (d > 2.8) { const st = Math.min(3 * dt, d - 2.8); P.x += Math.cos(ra) * st; P.y += Math.sin(ra) * st * KY; }
+    }
+    P.facing = wrapPi(P.facing + clamp(wrapPi(target - P.facing), -2.2 * dt, 2.2 * dt));
+  }
+  P.sheltered = cowerW * clamp(0.2 + 0.8 * envW.shelter * (0.45 + 0.55 * hunkerW));
+}
+function findRock(maxD) {
+  let best = null;
+  for (let k = 0; k < 16; k++) {
+    const a = (k / 16) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a) * KY;
+    for (let d = 1.5; d <= maxD; d += 1) {
+      if (!walkable(P.x + c * d, P.y + s * d)) { if (!best || d < best.d) best = { x: P.x + c * d, y: P.y + s * d, d }; break; }
+    }
+  }
+  return best;
+}
+
+// Ground shadow fades out (linearly, ~0.2 s) as the climber steps onto the wall, starting in the
+// last stride of the approach so no blob is left on the snow.
+let shadowOff = 0;
+function updateShadowOff(dt) {
+  const c = climb;
+  const onWall = (P.mode === 'climb' && c && (c.stage === 'cycle' || c.stage === 'lower' || (c.stage === 'mantle' && c.t < 0.9) || (c.stage === 'off' && c.t < 0.7)))
+    || (P.mode === 'approach' && route && Math.hypot(P.x - route.bottom.x, P.y - route.bottom.y) < 2.5);
+  shadowOff = clamp(shadowOff + (onWall ? 1 : -1) * dt / 0.2);
+}
+function updateChips(dt) {
+  updateShadowOff(dt);
+  for (let i = chips.length - 1; i >= 0; i--) {
+    const p = chips[i];
+    p.age += dt;
+    if (p.age >= p.life) { chips.splice(i, 1); continue; }
+    p.vz -= 26 * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+  }
+}
+
 
 function footDown(foot, prof, ter) {
   const S = pose.stepEff * pose.gait * 0.5;
@@ -383,13 +784,28 @@ function buildRig() {
   const shift = pose.shift;
   const sway = shift * 0.42 + g * 0.18 * Math.sin(ph2) - slip * slipSide * 0.5 + wdR * gk * 0.6;
   const hx = wdF * gk * 0.4, hr = sway;
-  const hz = HIP_H - crouch * 1.3 - sinkNow * 0.85 + bob + pose.lift * g * 0.06 - Math.abs(shift) * 0.12;
+  let hz = HIP_H - crouch * 1.3 - sinkNow * 0.85 + bob + pose.lift * g * 0.06 - Math.abs(shift) * 0.12;
 
-  const leanF = pose.lean * (0.4 + 0.6 * g) + pose.windLeanF + pose.hug * 0.12 + pose.brace * 0.06 + stag * 0.25
+  let leanF = pose.lean * (0.4 + 0.6 * g) + pose.windLeanF + pose.hug * 0.12 + pose.brace * 0.06 + stag * 0.25
     - slip * 0.1 + pose.work * g * 0.05 * Math.cos(ph2 * 2) + wdF * gk * 0.18;
-  const leanS = pose.windLeanS + slip * slipSide * 0.22 + stag * staggerSide * 0.2 + g * 0.03 * Math.sin(ph2)
+  let leanS = pose.windLeanS + slip * slipSide * 0.22 + stag * staggerSide * 0.2 + g * 0.03 * Math.sin(ph2)
     - shift * 0.05 + wdR * gk * 0.22;
-  const twist = pose.torsoYaw + g * pose.swing * 0.07 * Math.cos(ph2);
+  let twist = pose.torsoYaw + g * pose.swing * 0.07 * Math.cos(ph2);
+  // shove: one big stagger step downwind, leaning, an arm thrown out (first ~0.5 s)
+  // snaps in over ~0.12 s, holds ~0.45 s, eases back by ~0.8 s
+  const shE = 1 - shoveT, shK = shoveT > 0 ? smooth(0, 0.12, shE) * (1 - smooth(0.57, 0.8, shE)) : 0;
+  const shSide = wdR >= 0 ? 1 : -1;
+  if (shK > 0.001) { leanS += wdR * 0.3 * shK + shSide * 0.08 * shK; leanF += wdF * 0.3 * shK; hz -= 0.6 * shK; }
+  // cower: squat low, bowed over, leaning a shoulder into the rock when hunkering
+  const cw = cowerW;
+  if (cw > 0.001) {
+    hz = lerp(hz, 3.4, cw); leanF = lerp(leanF, 0.78, cw);
+    leanS = lerp(leanS, hunkerSide * 0.28 * hunkerW, cw); twist = lerp(twist, 0, cw);
+  }
+  // climb / knockdown override
+  const O = ovr && ovrW > 0.001 ? ovr : null, ow = O ? ovrW : 0;
+  const climbW = O && O.full && P.mode === 'climb' ? ow : 0;
+  if (O) { hz = lerp(hz, O.hz, ow); leanF = lerp(leanF, O.leanF, ow); leanS = lerp(leanS, O.leanS, ow); twist = lerp(twist, 0, ow); }
   const tf = { cy: Math.cos(twist), sy: Math.sin(twist), cp: Math.cos(leanF), sp: Math.sin(leanF), cr: Math.cos(leanS), sr: Math.sin(leanS), hx, hr, hz };
   const upZ = breathe + jitZ;
   const shoulderC = torsoToBody([0, jitR, SPINE + upZ], tf);
@@ -406,9 +822,14 @@ function buildRig() {
     foot[0] += unload * 0.35; foot[1] -= s * unload * 0.15; foot[2] += unload * 0.2;
     // foot stamp
     if (stampOn > 0 && s === stampSide) foot[2] += Math.sin(clamp(stampOn / 0.45) * Math.PI) * 1.1;
+    let ft = foot, poleL = [1, s * 0.15, 0.1];
+    if (cw > 0.001) { ft = mix(ft, [0.9, s * 1.15, 0], cw); poleL = mix(poleL, [1, s * 0.6, 0.2], cw); }
+    if (O) { ft = mix(ft, O.feet[s < 0 ? 0 : 1], ow); poleL = mix(poleL, O.poleL[s < 0 ? 0 : 1], ow); }
+    if (shK > 0.001 && s === shSide) ft = [ft[0] + wdF * 2.0 * shK, ft[1] + wdR * 2.0 * shK + s * 0.4 * shK, ft[2] + 0.7 * Math.max(0, Math.sin(clamp((1 - shoveT) / 0.3) * Math.PI))];
+    foot[0] = ft[0]; foot[1] = ft[1]; foot[2] = ft[2];
     const hip = [hx, hr + s * 0.78, hz];
     const ankle = [foot[0], foot[1], foot[2] + ANKLE_H];
-    const kn = ik(hip, ankle, THIGH, SHIN, [1, s * 0.15, 0.1]);
+    const kn = ik(hip, ankle, THIGH, SHIN, poleL);
     legs.push({ s, hip, knee: kn.joint, ankle: kn.end, foot, q });
   }
 
@@ -416,7 +837,7 @@ function buildRig() {
   const arms = [];
   const sh = pose.shieldSide;
   for (const s of [-1, 1]) {
-    const shoulderT = [0, s * SHOULDER_W + jitR, SPINE - 0.4 + upZ];
+    const shoulderT = [0, s * SHOULDER_W + jitR, SPINE - 0.4 + upZ + (O && O.shrug ? O.shrug[s < 0 ? 0 : 1] * ow : 0)];
     const legF = s < 0 ? Math.cos(ph2) : -Math.cos(ph2);
     const armF = -legF * pose.swing * g * 1.1;
     let hand = [0.3 + armF * 0.6, s * 1.9, SPINE - 4.1 + Math.abs(armF) * 0.15];
@@ -434,11 +855,29 @@ function buildRig() {
     if (s === sh) hand = mix(hand, [2.0, s * 0.3, SPINE + HEAD_UP - 0.4], pose.shield * (1 - slip));
     else hand = mix(hand, [0.9, s * 2.1, SPINE - 3.6], pose.shield * 0.5 * (1 - pose.spread));
     const shoulder = torsoToBody(shoulderT, tf);
-    const handB = torsoToBody(hand, tf);
-    const pole = torsoDir([-1 + shieldW * 0.6 + pose.work * 1.0 + spreadW * 0.6 + pose.creep * 0.5, s * (0.8 + shieldW * 1.2 + spreadW * 0.5), -0.6 - spreadW * 0.6 - pose.work * 0.6], tf);
+    let handB = torsoToBody(hand, tf);
+    let pole = torsoDir([-1 + shieldW * 0.6 + pose.work * 1.0 + spreadW * 0.6 + pose.creep * 0.5, s * (0.8 + shieldW * 1.2 + spreadW * 0.5), -0.6 - spreadW * 0.6 - pose.work * 0.6], tf);
+    let overHead = false;
+    if (cw > 0.001) {
+      // arms wrapped over the head and hood; hunkering, the rock-side hand braces on the rock
+      const onRock = s === hunkerSide ? hunkerW : 0;
+      const cT = mix([1.05, -s * 0.4, SPINE + HEAD_UP + 0.85], [0.4, s * 2.8, SPINE - 0.6], onRock);
+      handB = mix(handB, torsoToBody(cT, tf), cw);
+      pole = mix(pole, torsoDir([0.9, s * 1.1, -0.1], tf), cw);
+      overHead = cw > 0.5 && onRock < 0.5;
+    }
+    let flung = false;
+    if (shK > 0.3 && !O) {
+      const fs = s === -shSide ? 1 : 0.5;   // the upwind arm flies out wide, the other half out
+      handB = mix(handB, torsoToBody([0.6 + (fs < 1 ? 1.2 : 0), s * 3.6 * fs + s * 0.8, SPINE - 0.6 + fs * 0.8], tf), clamp((shK - 0.3) * 2) * fs);
+      pole = mix(pole, torsoDir([-0.5, s, -0.4], tf), shK);
+      flung = fs === 1;
+    }
+    if (O) { handB = mix(handB, O.hands[s < 0 ? 0 : 1], ow); pole = mix(pole, O.poleA[s < 0 ? 0 : 1], ow); }
     const a = ik(shoulder, handB, UPPER_ARM, FOREARM, pole);
-    const active = Math.max(spreadW, pose.hug, Math.max(0, pose.work - 0.3) * 1.4, shieldW, pose.creep);
-    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW });
+    const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung;
+    const active = full ? 1 : Math.max(spreadW, pose.hug, Math.max(0, pose.work - 0.3) * 1.4, shieldW, pose.creep);
+    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0 });
   }
 
   // Head / hood. Thin ice: looking down at the feet.
@@ -447,7 +886,9 @@ function buildRig() {
   const peak = torsoToBody([-0.85 + hunch * 0.5 + wdF * gk * 0.8, wdR * gk * 0.8, SPINE + HEAD_UP + 1.15 + upZ], tf);
   const drape = torsoToBody([-1.1, 0, SPINE - 0.5], tf);
   const faceYaw = twist + pose.headYaw;
-  const facePitch = 0.15 + hunch; // head always bowed a little; 1 = looking at the feet
+  let facePitch = 0.15 + hunch; // head always bowed a little; 1 = looking at the feet
+  if (cw > 0.001) facePitch = lerp(facePitch, 0.9, cw);
+  if (O) facePitch = lerp(facePitch, O.facePitch, ow);
 
   // Coat rings
   const top = [], hem = [];
@@ -477,9 +918,10 @@ function buildRig() {
       const kd = Math.hypot(kf, kr) || 1;
       const w = Math.pow(Math.max(0, (kf * uf + kr * ur) / kd), 3);
       const reach = kf * uf + kr * ur + 0.45 - Math.hypot(uf * rf, ur * rr);
-      if (reach > 0) { pf += uf * reach * w; pr += ur * reach * w; }
+      // on the wall the coat hangs straight and the frog-splayed knees poke out past it
+      if (reach > 0) { const k = 1 - 0.8 * climbW; pf += uf * reach * w * k; pr += ur * reach * w * k; }
       const lift = L.knee[2] - (hemC[2] + 0.4);
-      if (lift > 0) pz += lift * w * 0.85;
+      if (lift > 0) pz += lift * w * (0.85 - 0.5 * climbW);
     }
     for (const A of arms) {
       const an = Math.hypot(A.hand[0] - hemC[0], A.hand[1] - hemC[1]) > Math.hypot(A.elbow[0] - hemC[0], A.elbow[1] - hemC[1]) ? A.hand : A.elbow;
@@ -503,7 +945,14 @@ function buildRig() {
     } else {
       pf += uf * dw * wAmt * 0.35; pr += ur * dw * wAmt * 0.35;
     }
-    hem.push([pf, pr, pz]);
+    // coat pulled tight when cowering; when lying down it follows the body, not gravity
+    if (cw > 0.001) { pf = lerp(pf, hemC[0] + (pf - hemC[0]) * 0.85, cw); pr = lerp(pr, hemC[1] + (pr - hemC[1]) * 0.85, cw); }
+    if (O && O.hemAttach > 0) {
+      const att = torsoToBody([uf * rf * 0.85, ur * rr * 0.8, -2.3], tf);
+      const k = O.hemAttach * ow;
+      pf = lerp(pf, att[0], k); pr = lerp(pr, att[1], k); pz = lerp(pz, att[2], k);
+    }
+    hem.push([pf, pr, Math.max(0.12, pz)]);
   }
 
   // Small rucksack on the back.
@@ -511,7 +960,7 @@ function buildRig() {
   for (const [f, r, z] of [[-1.0, -0.8, 2.4], [-1.0, 0.8, 2.4], [-1.0, 0.8, 0.8], [-1.0, -0.8, 0.8],
     [-1.4, -0.72, 2.3], [-1.4, 0.72, 2.3], [-1.4, 0.72, 0.95], [-1.4, -0.72, 0.95]]) pack.push(torsoToBody([f, r, z], tf));
 
-  return { yaw, legs, arms, head, peak, drape, faceYaw, facePitch, top, hem, pack, shoulderC, hips: [hx, hr, hz], tf, sinkNow, hemC, twist, hemYaw };
+  return { yaw, legs, arms, head, peak, drape, faceYaw, facePitch, top, hem, pack, shoulderC, hips: [hx, hr, hz], tf, sinkNow, hemC, twist, hemYaw, lying: O ? O.hemAttach * ow : 0, climbing: O && O.full && P.mode === 'climb' ? ow : 0, shadowOff };
 }
 
 // --- drawing helpers -----------------------------------------------------------------------------
@@ -640,13 +1089,13 @@ function drawShadow(ctx, rig, X, Y) {
     c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.lineTo(d[0], d[1]); c.stroke();
   }
   ctx.save();
-  ctx.globalAlpha = 0.34;
+  ctx.globalAlpha = 0.34 * (1 - rig.shadowOff);
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(shCan, X - SH_OX, Y - SH_OY, SH_W, SH_H);
   ctx.restore();
   // dark contact shadow right under the boots
-  ctx.fillStyle = 'rgba(30,31,34,0.28)';
-  for (const L of rig.legs) {
+  ctx.fillStyle = `rgba(30,31,34,${0.28 * (1 - rig.shadowOff)})`;
+  if (rig.shadowOff < 0.99) for (const L of rig.legs) {
     const f = toWorld([L.foot[0], L.foot[1], 0], rig.yaw);
     ctx.beginPath(); ctx.ellipse(X + f.x + 0.4, Y + f.y + 0.2, 1.1, 0.48, 0, 0, Math.PI * 2); ctx.fill();
   }
@@ -660,8 +1109,12 @@ const C = {
   pack: '#8a8a8a',
 };
 
+const C0 = { ...C };
+const shade = (hex, k) => '#' + [1, 3, 5].map(i => Math.max(0, parseInt(hex.slice(i, i + 2), 16) - k).toString(16).padStart(2, '0')).join('');
 function drawFigure(ctx, rig, X, Y) {
   const yaw = rig.yaw;
+  const dk = Math.round(18 * cowerW);       // cowering hump separates from the whiteout
+  for (const k of ['coat', 'panel', 'hood', 'rim', 'sleeveL', 'sleeveD', 'pack']) C[k] = dk ? shade(C0[k], dk) : C0[k];
   const pr = v => { const w = toWorld(v, yaw); return [X + w.x, Y + w.y - w.z]; };
   const depth = v => toWorld(v, yaw).g;
   const cxBody = pr(rig.hips)[0];
@@ -690,6 +1143,14 @@ function drawFigure(ctx, rig, X, Y) {
       const fc = [ank[0] - 0.1, ank[1], ank[2] - 0.2];
       const toe = [ank[0] + 0.7, ank[1], Math.max(L.foot[2] + 0.2, ank[2] - 0.35)];
       limb(ctx, [pr(fc), pr(toe)], 0.95, C.boot, 0.17);
+      if (rig.climbing > 0.3 || P.terrain === 'ice' || P.terrain === 'thin') {
+        ctx.strokeStyle = INK; ctx.lineWidth = 0.12; ctx.lineCap = 'round'; ctx.beginPath();
+        for (const t of [0.05, 0.45, 0.85]) {
+          const q = pr([lerp(fc[0], toe[0], t), ank[1], lerp(fc[2], toe[2], t) - 0.45]);
+          ctx.moveTo(q[0], q[1]); ctx.lineTo(q[0] + 0.05, q[1] + 0.32);
+        }
+        ctx.stroke();
+      }
     } else lips.push(endPt);
   }
 
@@ -703,19 +1164,29 @@ function drawFigure(ctx, rig, X, Y) {
     ctx.strokeStyle = INK; ctx.lineWidth = 0.15; ctx.stroke();
   };
   const sleeveCol = p => (p[0] < cxBody ? C.sleeveL : C.sleeveD);
-  // The arm on the far side stays hidden under the cape (side-on, an arm reaching away from
-  // the camera would otherwise poke up behind the hood like an ear).
-  for (const A of arms) if ((A.spreadW > 0.3 || (A.s === pose.shieldSide && pose.shield > 0.3)) && A.d >= -0.45) {
+  // Occlusion: an arm whose hand is further from the camera than the body (walking away, or
+  // reaching up a wall) is drawn BEFORE the coat, so the coat hides whatever is behind it and only
+  // the parts beyond the silhouette show. Hands on our side of the body go over the coat.
+  const bodyD = depth(rig.shoulderC);
+  for (const A of arms) A.behind = A.dh < bodyD - 0.25;
+  const drawArm = A => {
     const pts = [pr(A.shoulder), pr(A.elbow), pr(A.hand)];
     limb(ctx, pts, 1.15, sleeveCol(pts[1]));
+    if (A.axe > 0.3) drawAxe(ctx, A, pr);
     mitt(pts[2]);
-  }
+  };
   const drawForearm = A => {
     const from = mix(A.elbow, A.hand, A.spreadW > 0.5 ? 0.25 : lerp(0.45, 0.12, pose.hug));
     const pts = [pr(from), pr(A.hand)];
     limb(ctx, pts, 0.85, sleeveCol(pts[1]));
+    if (A.axe > 0.3) drawAxe(ctx, A, pr);
     mitt(pts[1]);
   };
+  for (const A of arms) {
+    if (A.behind) { if (A.full) drawArm(A); continue; }   // never drawn on the back
+    if (A.d < -0.45 && !A.full) continue;                 // far side, hidden under the coat
+    if (A.full || A.spreadW > 0.3 || (A.s === pose.shieldSide && pose.shield > 0.3)) drawArm(A);
+  }
 
   const packD = depth(rig.pack[4]);
   if (packD < 0) drawPack(ctx, rig, pr);
@@ -723,10 +1194,25 @@ function drawFigure(ctx, rig, X, Y) {
   drawCoat(ctx, rig, pr, depth);
 
   if (packD >= 0) drawPack(ctx, rig, pr);
-  const out = arms.filter(A => A.active > 0.3 && (A.d >= -0.45 || A.dh > headD - 0.2));
-  for (const A of out) if (A.dh <= headD + 0.6) drawForearm(A);
+  const out = arms.filter(A => !A.behind && A.active > 0.3 && (A.d >= -0.45 || A.full));
+  for (const A of out) if (!A.overHead && A.dh <= headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
   drawHood(ctx, rig, pr);
-  for (const A of out) if (A.dh > headD + 0.6) drawForearm(A);
+  for (const A of out) if (A.overHead || A.dh > headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
+}
+
+// Ice axe in the ink style: a short shaft continuing the forearm, the pick biting into the wall.
+function drawAxe(ctx, A, pr) {
+  const d = [A.hand[0] - A.elbow[0], A.hand[1] - A.elbow[1], A.hand[2] - A.elbow[2]];
+  const l = Math.hypot(...d) || 1, n = [d[0] / l, d[1] / l, d[2] / l];
+  const at = k => [A.hand[0] + n[0] * k, A.hand[1] + n[1] * k, A.hand[2] + n[2] * k];
+  const top = at(1.8), bot = at(-0.4);                       // 2.2u shaft
+  const pick = [top[0] + 0.7, top[1], top[2] - 0.4];          // 0.8u pick, drooping into the ice
+  const adze = [top[0] - 0.45, top[1], top[2] + 0.05];
+  const P0 = pr(bot), P1 = pr(top), Pk = pr(pick), Pa = pr(adze);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineWidth = 0.32; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(Pa[0], Pa[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(Pk[0], Pk[1]); ctx.lineWidth = 0.34; ctx.stroke();
 }
 
 function drawCoat(ctx, rig, pr, depth) {
@@ -739,7 +1225,8 @@ function drawCoat(ctx, rig, pr, depth) {
   const sil = [...upper, ...side(R0, R1), ...lower.slice().reverse(), ...side(L1, L0)];
   const sharp = new Set([upper.length + 3, upper.length + 3 + lower.length - 1]);
   // sharp at the two hem corners; drop the very first/last of the side runs from smoothing ambiguity
-  const poly = dense(sil, sharp, 3);
+  let poly = dense(sil, sharp, 3);
+  if (rig.lying > 0.5) poly = dense(convexHull(topS.concat(hemSc)), null, 3);
 
   ctx.beginPath(); polyPath(ctx, poly); ctx.fillStyle = C.coat; ctx.fill();
 
@@ -925,7 +1412,8 @@ export function drawables() {
       // breath behind the head is drawn before the figure, the rest after it
       const headY = Y + fw.y;
       // (only vapour clearly in front of the face may cross the figure, never smear the hood)
-      const front = p => p.y > headY + 0.9;
+      const away = Math.sin(P.facing) < -0.2;
+      const front = p => !away && p.y > headY + 0.9;
       drawPuffs(ctx, puffs.filter(p => !front(p)));
       drawFigure(ctx, rig, X, Y);
       drawPuffs(ctx, puffs.filter(front));
@@ -941,4 +1429,4 @@ export function drawScreen(ctx) {
   ctx.fillText(s, 10, state.view.h - 12);
 }
 
-export const _debug = { pose };
+export const _debug = { pose, climb: () => climb, route: () => route };
