@@ -152,6 +152,11 @@ export const playScene = {
     this.atmo = new Atmosphere({ light: this.cal.time.light, weather: this.round.weather, season: this.cal.season.id });
     this.atmo.resize(app.w, app.h);
     if (prevSeason && prevSeason !== this.cal.season.id) banner(app.ui, `${this.cal.season.name} arrives!`, 'A new season, new dangers', 'good');
+    if (this.torchMode()) {
+      this.torchPos = { x: this.field.x + this.field.w / 2, y: this.field.y + this.field.h / 2 };
+      this.press = null;
+      banner(app.ui, 'Midnight!', 'Drag to shine your torch · tap to catch', 'good low');
+    }
     this.hunger = s.settings.hungryWolf ? { rest: db.game.hungryWolf.startDelay, victim: null, bite: 0 } : null;
     this.placeSheep(true);
     this.phase = 'hunt';
@@ -217,12 +222,31 @@ export const playScene = {
 
   // ---- input -------------------------------------------------------------------
   pointer(e) {
-    if (e.type !== 'down' || this.phase !== 'hunt') return;
+    // Midnight: the pointer is a torch. Dragging (or hovering a mouse) moves
+    // the light; only a quick, nearly-still tap picks a sheep, so searching
+    // never catches anything by accident.
+    if (this.torchMode()) {
+      if (e.type === 'down' || e.type === 'move') this.torchPos = { x: e.x, y: e.y };
+      if (e.type === 'down') this.press = { x: e.x, y: e.y, t: performance.now(), id: e.id };
+      if (e.type === 'up' && this.press && this.press.id === e.id) {
+        const p = this.press;
+        this.press = null;
+        if (Math.hypot(e.x - p.x, e.y - p.y) < 14 && performance.now() - p.t < 450) this.pickAt(e.x, e.y);
+      }
+      return;
+    }
+    if (e.type === 'down') this.pickAt(e.x, e.y);
+  },
+
+  torchMode() { return !!this.cal?.time.light?.torch; },
+
+  pickAt(x, y) {
+    if (this.phase !== 'hunt') return;
     // Overlapping hit areas: the sheep whose centre is nearest wins.
     let best = null, bestScore = 1;
     for (const sh of this.sheep) {
       if (sh.leaving) continue;
-      const sc = sh.hitScore(e.x, e.y);
+      const sc = sh.hitScore(x, y);
       if (sc <= bestScore) { best = sh; bestScore = sc; }
     }
     if (best) this.choose(best);
@@ -254,6 +278,7 @@ export const playScene = {
         if (d < bestD) { bestD = d; best = o; }
       }
       if (best) this.focus = best;
+      if (this.focus) this.torchPos = { x: this.focus.x, y: this.focus.y };
     } else if ((e.key === 'Enter' || e.key === ' ') && live.includes(this.focus)) {
       e.preventDefault();
       this.choose(this.focus);
@@ -263,7 +288,8 @@ export const playScene = {
   caught(sh) {
     const { app } = this;
     this.phase = 'reveal';
-    const result = catchWolf(app.save.data, this.huntT);
+    // Dark rounds stretch the hidden speed window (world.json quickTime).
+    const result = catchWolf(app.save.data, this.huntT / (this.cal.time.quickTime || 1));
     clearRound(app.save.data);
     app.save.write();
     app.haptic(30);
@@ -437,6 +463,8 @@ export const playScene = {
     this.timers.update(dt);
     this.fx.update(dt);
     this.atmo?.update(dt);
+    // Midnight: once the round is decided, lift the darkness so the reveal shows.
+    if (this.atmo) this.atmo.reveal = this.phase === 'hunt' || this.phase === 'paused' ? 0 : Math.min(1, (this.atmo.reveal || 0) + dt * 2.5);
     // The hidden clock: only runs while you can actually hunt.
     const hunting = this.phase === 'hunt' && !this.app.ui.querySelector('.scrim') && document.visibilityState !== 'hidden';
     if (hunting && this.sheep.every((x) => x.appear >= 1 || x.leaving)) this.huntT += dt;
@@ -542,6 +570,6 @@ export const playScene = {
         { run: w.run ? Math.sin(w.t * 18) : 0, look: w.run ? 'ahead' : 'up' }, w.scale * 1.05);
     }
     this.fx.draw(ctx);
-    this.atmo?.draw(ctx);
+    if (this.atmo) { this.atmo.torch = this.torchPos; this.atmo.draw(ctx); }
   },
 };

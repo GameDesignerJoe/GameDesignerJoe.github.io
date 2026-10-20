@@ -1,0 +1,19 @@
+[
+  {"eval": "localStorage.setItem('catchTheWolf.save', JSON.stringify({version:1,pelts:0,streak:5,seenHowTo:true,shopPromptShown:true,farm:[],settings:{sound:false}})); location.hash='play'; location.reload(); 1"},
+  {"wait": 2500},
+  {"eval": "(()=>{const s=ctw.scene; return {test:'streak 5 is midnight torch round', time:s.cal.time.id, torch:s.torchMode(), ok: s.torchMode()}})()"},
+  {"eval": "(()=>{const s=ctw.scene; const n=s.sheep.find(x=>!x.isWolf); s.pointer({type:'down',x:n.x-120,y:n.y,id:1}); s.pointer({type:'move',x:n.x-60,y:n.y,id:1}); s.pointer({type:'move',x:n.x,y:n.y,id:1}); s.pointer({type:'up',x:n.x,y:n.y,id:1}); return {test:'dragging the torch over a sheep does not pick it', phase:s.phase, ok: s.phase==='hunt'}})()"},
+  {"eval": "(()=>{const s=ctw.scene; const w=s.sheep.find(x=>x.isWolf); s.torchPos={x:w.x,y:w.y}; return 'torch on wolf'})()"},
+  {"wait": 300},
+  {"shot": "catch-the-wolf/tools/shots/n-midnight.png"},
+  {"eval": "(()=>{const s=ctw.scene; const w=s.sheep.find(x=>x.isWolf); s.pointer({type:'down',x:w.x,y:w.y,id:2}); s.pointer({type:'up',x:w.x,y:w.y,id:2}); return {test:'a still tap catches', phase:s.phase, ok: s.phase==='reveal'}})()"},
+  {"wait": 900},
+  {"shot": "catch-the-wolf/tools/shots/n-midnight-reveal.png"},
+  {"eval": "(()=>{const farm=[]; const br=['white','brown','grey','black','rose','ram','lamb','lopear']; for(let i=0;i<24;i++) farm.push({uid:i+1,breed:br[i%8],name:'S'+i,x:Math.random(),y:Math.random()}); const d=ctw.save.data; d.farm=farm; ctw.save.write(); Date._real=Date.now; Date.now=()=>180000; ctw.go('farm'); return 'farm at night'})()"},
+  {"wait": 20000},
+  {"eval": "(()=>{const s=ctw.scene; let inside=0; for(const sh of s.sheep) for(const o of s.world.avoid) if(Math.hypot(sh.x-o.x,sh.y-o.y) < o.r) inside++; const sleeping=s.sheep.filter(x=>x.state==='lie'||x.state==='sleep').length; return {test:'farm night: sheep nap, none stuck inside props', label: document.querySelector('[data-time]').textContent, sleeping, inside, ok: inside===0 && sleeping>=4}})()"},
+  {"shot": "catch-the-wolf/tools/shots/n-farm-night.png"},
+  {"eval": "(()=>{Date.now=()=>60000; return 'day'})()"},
+  {"wait": 600},
+  {"shot": "catch-the-wolf/tools/shots/n-farm-day.png"}
+]

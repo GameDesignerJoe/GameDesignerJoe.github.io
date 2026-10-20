@@ -15,6 +15,8 @@ import { paddockWorld } from '../game/world.js';
 import { ITEM_PAINTERS } from '../art/props.js';
 import { iconURL } from '../art/icons.js';
 import { farmBackdrop } from './backdrop.js';
+import { Atmosphere } from '../engine/atmosphere.js';
+import { farmLight } from '../game/daycycle.js';
 import { el, hudPelts, bumpPelts, banner } from './ui.js';
 
 const FOOD_BOX = { x: -42, y: -32, w: 84, h: 64 };
@@ -29,13 +31,15 @@ export const farmScene = {
     this.drag = null;
     this.tag = null;
     this.placing = null;
+    this.atmo = new Atmosphere();
+    this.fireflies = [];
     const s = app.save.data;
     this.ui = el(`
       <div class="passthrough">
         <div class="hud">
           ${hudPelts(s.pelts)}
           <div class="spacer"></div>
-          <div class="chip streak"><span><span class="label">My farm</span><span data-count></span></span></div>
+          <div class="chip streak"><span><span class="label" data-time>My farm</span><span data-count></span></span></div>
           <div class="spacer"></div>
           <button class="btn icon" data-act="settings" aria-label="Settings">⚙</button>
         </div>
@@ -132,6 +136,9 @@ export const farmScene = {
     this.world.others = this.sheep;
     this.world.foods = this.foods;
     this.world.toys = this.toys;
+    this.atmo.resize(w, h);
+    // Fireflies for the night.
+    this.fireflies = Array.from({ length: 14 }, () => ({ x: area.x + Math.random() * area.w, y: area.y + Math.random() * area.h, ph: Math.random() * 6, sp: 0.4 + Math.random() * 0.6 }));
   },
 
   makeFood(d) {
@@ -304,6 +311,17 @@ export const farmScene = {
 
   // ---- frame -------------------------------------------------------------------
   update(dt) {
+    // Day/night: light from the farm clock; sheep head to bed when it's dark.
+    const L = farmLight();
+    this.atmo.light = L.light.color === '#ffffff' && !L.light.vignette ? null : L.light;
+    this.night = L.night;
+    if (this.world) this.world.night = L.isNight;
+    const label = `My farm · ${L.icon} ${L.name}`;
+    if (label !== this.lastLabel) { this.lastLabel = label; this.ui.querySelector('[data-time]').textContent = label; }
+    for (const f of this.fireflies) {
+      f.ph += dt * f.sp;
+      f.x += Math.cos(f.ph * 1.3) * 14 * dt; f.y += Math.sin(f.ph) * 10 * dt;
+    }
     for (const sh of this.sheep) {
       if (sh.leavingFarm) {
         sh.state = 'walk'; sh.stateT = 5;
@@ -434,5 +452,18 @@ export const farmScene = {
       ctx.restore();
     }
     this.fx.draw(ctx);
+    this.atmo.draw(ctx);
+    // Fireflies glow over the dark.
+    if (this.night > 0.3) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const f of this.fireflies) {
+        const a = (this.night - 0.3) * (0.5 + Math.sin(f.ph * 3) * 0.5);
+        const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 9);
+        g.addColorStop(0, `rgba(255,245,150,${a})`); g.addColorStop(1, 'rgba(255,245,150,0)');
+        ctx.fillStyle = g; ctx.fillRect(f.x - 9, f.y - 9, 18, 18);
+      }
+      ctx.restore();
+    }
   },
 };

@@ -56,19 +56,23 @@ export function farmBackdrop(w, h, dpr, area) {
   const yardW = Math.min(area.w * 0.5, 260 * s), yardH = 90 * s;
   paintDirt(ctx, area.x + area.w / 2 - yardW / 2, area.y + area.h - yardH - 10 * s, yardW, yardH, 28 * s, 8);
 
-  const pondR = Math.min(area.w, area.h) * 0.16;
-  const pond = { x: area.x + area.w - pondR * 1.25, y: area.y + pondR * 1.3 };
+  // Every solid prop keeps a sheep-wide corridor to the fence and to its
+  // neighbours, so the flock can always walk all the way round it.
+  const lane = 95 * s;
+  const pondR = Math.min(area.w, area.h) * 0.13;
+  const pondRx = pondR * 1.15 + 8, pondRy = pondR * 0.8 + 8; // incl. the sandy bank
+  const pond = { x: area.x + area.w - pondRx - lane, y: area.y + pondRy + lane };
   paintPond(ctx, pond.x, pond.y, pondR * 1.15, pondR * 0.8, 6);
-  avoid.push({ x: pond.x, y: pond.y, r: pondR * 1.05 });
+  avoid.push({ x: pond.x, y: pond.y, r: pondRx });
 
-  const hay = { x: area.x + 46 * s, y: area.y + area.h * 0.55 };
+  const hay = { x: area.x + lane + 26 * s, y: area.y + area.h * 0.28 };
   paintHay(ctx, hay.x, hay.y, 1.2 * s);
   paintHay(ctx, hay.x + 6 * s, hay.y + 34 * s, 1.2 * s);
   avoid.push({ x: hay.x + 3 * s, y: hay.y + 17 * s, r: 46 * s });
 
-  const trough = { x: area.x + area.w * 0.32, y: area.y + 40 * s };
+  const trough = { x: area.x + lane + 34 * s, y: area.y + area.h * 0.7 };
   paintTrough(ctx, trough.x, trough.y, 1.25 * s);
-  avoid.push({ x: trough.x, y: trough.y, r: 28 * s });
+  avoid.push({ x: trough.x, y: trough.y, r: 34 * s });
 
   // Scatter of flowers/rocks inside, trees outside the fence.
   const r = rng(9);
@@ -82,7 +86,7 @@ export function farmBackdrop(w, h, dpr, area) {
     else if (k < 0.75) paintBush(ctx, x, y, (0.8 + r() * 0.5) * s, 50 + i, r() < 0.3);
   }
   // A tree inside the paddock for shade.
-  const tree = { x: area.x + area.w * 0.2, y: area.y + area.h * 0.22 };
+  const tree = { x: area.x + area.w * 0.55, y: area.y + area.h * 0.47 };
   paintTree(ctx, tree.x, tree.y, 0.9 * s, 77);
   avoid.push({ x: tree.x, y: tree.y, r: 50 * s });
   return { canvas: c, avoid, scale: s };

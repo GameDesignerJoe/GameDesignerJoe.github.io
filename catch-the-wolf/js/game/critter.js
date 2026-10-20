@@ -190,6 +190,7 @@ export class Sheep {
           else { this.state = 'idle'; this.stateT = rand(...profile.idle); }
           break;
         }
+        this.steerAround(world, dt);
         // Slow down when another sheep is right in front, rather than shoving.
         const blocked = this.state === 'walk' && this.blockedAhead(world);
         const sp = blocked ? this.speed * 0.25 : this.speed;
@@ -234,6 +235,21 @@ export class Sheep {
     this.heading += angleDiff(this.heading, want) * clamp(dt * rate, 0, 1);
   }
 
+  // Veer round solid props (pond, hay, trough, tree) that lie ahead, toward
+  // whichever side is already closer, so sheep walk round rather than stick.
+  steerAround(world, dt) {
+    let steer = 0;
+    for (const o of world.avoid) {
+      const dx = o.x - this.x, dy = o.y - this.y, d = Math.hypot(dx, dy);
+      const reach = o.r + 70 * this.size;
+      if (d > reach) continue;
+      const off = angleDiff(this.heading, Math.atan2(dx, -dy));
+      if (Math.abs(off) > 1.3) continue;
+      steer += (off > 0 ? -1 : 1) * (1.4 - Math.abs(off)) * (1 - (d - o.r) / (reach - o.r));
+    }
+    if (steer) this.heading += clamp(steer, -2, 2) * dt * 6;
+  }
+
   blockedAhead(world) {
     const ax = this.x + Math.sin(this.heading) * 50 * this.size, ay = this.y - Math.cos(this.heading) * 50 * this.size;
     return world.others.some((o) => o !== this && !o.gone && Math.hypot(o.x - ax, o.y - ay) < 34 * o.size);
@@ -248,7 +264,8 @@ export class Sheep {
     if (food && Math.random() < 0.8 && this.seek(food)) return;
 
     const r = Math.random();
-    const { walk, run, lie, graze } = profile;
+    let { walk, run, lie, graze } = profile;
+    if (world.night && profile.lie) { lie = 0.55; walk *= 0.5; run = 0; graze *= 0.6; } // bedtime on the farm
     if (r < graze) { this.state = 'graze'; this.stateT = rand(2.5, 6); }
     else if (r < graze + walk) this.goTo(world, 'walk', rand(...profile.walkDist) * this.scale);
     else if (r < graze + walk + run) this.goTo(world, 'run', rand(160, 320) * this.scale);

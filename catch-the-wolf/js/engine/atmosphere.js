@@ -91,6 +91,27 @@ export class Atmosphere {
     const L = this.light;
     if (!L) return;
     const { w, h } = this;
+    if (L.torch) {
+      // Pitch dark, except a soft circle of torchlight where the player points.
+      const t = this.torch || { x: w / 2, y: h / 2 };
+      const r = Math.min(w, h) * (L.radius || 0.2);
+      const dark = (L.darkness ?? 0.97) * (1 - (this.reveal || 0) * 0.8); // lifts when the round ends
+      const g = ctx.createRadialGradient(t.x, t.y, r * 0.45, t.x, t.y, r);
+      g.addColorStop(0, 'rgba(4,6,18,0)');
+      g.addColorStop(0.7, `rgba(4,6,18,${dark * 0.6})`);
+      g.addColorStop(1, `rgba(4,6,18,${dark})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      // A warm glow in the beam.
+      ctx.save();
+      ctx.globalCompositeOperation = 'soft-light';
+      const glow = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r * 0.8);
+      glow.addColorStop(0, 'rgba(255,230,170,0.5)'); glow.addColorStop(1, 'rgba(255,230,170,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(t.x - r, t.y - r, r * 2, r * 2);
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.globalCompositeOperation = L.mode || 'multiply';
     ctx.globalAlpha = L.alpha ?? 1;
