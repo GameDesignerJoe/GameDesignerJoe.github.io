@@ -65,6 +65,7 @@ export function iconURL(key, w, h, paint, scale = 3) {
   ctx.scale(scale, scale);
   paint(ctx, w, h);
   const url = c.toDataURL();
+  c.width = 0; c.height = 0; // free now; WebKit counts unreleased canvases against a hard cap
   urlCache.set(k, url);
   return url;
 }

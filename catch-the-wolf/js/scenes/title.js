@@ -3,6 +3,7 @@
 import { Sheep, sortByDepth } from '../game/critter.js';
 import { db } from '../game/rules.js';
 import { Particles } from '../engine/particles.js';
+import { freeCanvas } from '../engine/sprites.js';
 import { pick } from '../engine/util.js';
 import { titleBackdrop } from './backdrop.js';
 import { el, hudPelts } from './ui.js';
@@ -38,9 +39,10 @@ export const titleScene = {
     });
   },
 
-  exit() { this.bg = null; },
+  exit() { freeCanvas(this.bg?.canvas); this.bg = null; },
 
   resize(w, h) {
+    freeCanvas(this.bg?.canvas);
     this.bg = titleBackdrop(w, h, this.app.dpr);
     const scale = Math.max(0.7, Math.min(1.1, Math.min(w, h) / 600));
     this.world = paddockWorld({ x: 30, y: h * 0.32, w: w - 60, h: h * 0.38 }, [], this.fx);

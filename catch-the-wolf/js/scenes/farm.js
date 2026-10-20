@@ -9,7 +9,7 @@
 import { Sheep } from '../game/critter.js';
 import { breedById, itemById, db, release, releaseRefund, placeFood } from '../game/rules.js';
 import { Particles } from '../engine/particles.js';
-import { sprite, blit } from '../engine/sprites.js';
+import { sprite, blit, freeCanvas } from '../engine/sprites.js';
 import { clamp, rand } from '../engine/util.js';
 import { paddockWorld } from '../game/world.js';
 import { ITEM_PAINTERS } from '../art/props.js';
@@ -65,7 +65,7 @@ export const farmScene = {
     this.refresh();
   },
 
-  exit() { this.savePositions(); this.bg = null; this.tag = null; this.drag = null; this.placing = null; },
+  exit() { this.savePositions(); freeCanvas(this.bg?.canvas); this.bg = null; this.tag = null; this.drag = null; this.placing = null; },
 
   refresh() {
     const s = this.app.save.data;
@@ -95,6 +95,7 @@ export const farmScene = {
     const area = { x: 22, y: top + 14, w: w - 44, h: Math.max(220, h - top - bottom - 28) };
     const save = this.app.save.data;
     this.area = area;
+    freeCanvas(this.bg?.canvas);
     this.bg = farmBackdrop(w, h, this.app.dpr, area);
     this.world = paddockWorld(area, this.bg.avoid, this.fx);
     this.gate = { x: area.x + area.w / 2, y: area.y + area.h - 10, r: 56 * this.bg.scale };

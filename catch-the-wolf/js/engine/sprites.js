@@ -10,10 +10,15 @@
 const cache = new Map();
 const overrides = new Map();
 const seen = new Set();
-// Budget by pixels, not entries: iOS Safari caps total canvas memory and
-// silently renders blank once it's exceeded. 12M px ≈ 48 MB of RGBA.
-const MAX_PIXELS = 12_000_000;
+// Budget by pixels, not entries: iOS WebKit caps total canvas memory per page
+// and silently gives new canvases no backing store once it's exceeded (they
+// draw as blank). 6M px ≈ 24 MB of RGBA keeps us well clear.
+const MAX_PIXELS = 6_000_000;
 let pixels = 0;
+// If a sprite canvas comes back blank anyway, flush and retry; after repeated
+// failures, stop caching and paint every layer live (slower, never invisible).
+let failures = 0;
+let liveMode = false;
 
 function evict(key) {
   const s = cache.get(key);
@@ -49,9 +54,31 @@ function bucket(scale) {
   return Math.pow(2, Math.ceil(Math.log2(s) * 4) / 4);
 }
 
+// Release a canvas's backing store now (WebKit otherwise waits for GC).
+export function freeCanvas(c) {
+  if (c) { c.width = 0; c.height = 0; }
+}
+
+// Paint a 1px marker in the corner and read it back: no backing store, no pixel.
+function backed(ctx) {
+  try {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, 1, 1);
+    const ok = ctx.getImageData(0, 0, 1, 1).data[3] > 0;
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.restore();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 // bounds: { x, y, w, h } in painter units. paint(ctx) draws in those units.
 export function sprite(id, bounds, scale, paint) {
   seen.add(id);
+  if (liveMode) return { live: paint, bounds, id };
   const q = bucket(scale);
   const key = id + '@' + q;
   let s = cache.get(key);
@@ -64,6 +91,13 @@ export function sprite(id, bounds, scale, paint) {
   canvas.width = Math.max(1, Math.ceil(bounds.w * q));
   canvas.height = Math.max(1, Math.ceil(bounds.h * q));
   const ctx = canvas.getContext('2d');
+  if (!ctx || !backed(ctx)) {
+    // Out of canvas memory: free everything we hold and draw this one live.
+    freeCanvas(canvas);
+    clearSprites();
+    if (++failures >= 3) { liveMode = true; console.warn('sprite cache disabled: canvas memory exhausted, painting live'); }
+    return { live: paint, bounds, id };
+  }
   ctx.scale(q, q);
   ctx.translate(-bounds.x, -bounds.y);
   const img = overrides.get(id);
@@ -79,8 +113,21 @@ export function sprite(id, bounds, scale, paint) {
 // Draw a cached sprite in the current transform (painter units).
 export function blit(ctx, s) {
   const b = s.bounds;
+  if (s.live) {
+    // Uncached: run the painter (or draw the override) in place.
+    ctx.save();
+    const img = overrides.get(s.id);
+    if (img) ctx.drawImage(img, b.x, b.y, b.w, b.h); else s.live(ctx);
+    ctx.restore();
+    return;
+  }
   ctx.drawImage(s.canvas, b.x, b.y, b.w, b.h);
 }
+
+export const spriteStats = () => ({ entries: cache.size, pixels, failures, liveMode });
+// Test hook: simulate exhausted canvas memory.
+export function forceLiveSprites(on = true) { liveMode = on; if (on) clearSprites(); }
+if (typeof window !== 'undefined') { window.spriteStats = spriteStats; window.forceLiveSprites = forceLiveSprites; }
 
 export function listSpriteIds() { return [...seen].sort(); }
 if (typeof window !== 'undefined') window.listSpriteIds = listSpriteIds;

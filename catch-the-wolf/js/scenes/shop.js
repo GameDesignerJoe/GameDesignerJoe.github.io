@@ -4,6 +4,7 @@ import { db, buy, buyItem } from '../game/rules.js';
 import { ITEM_PAINTERS } from '../art/props.js';
 import { iconURL } from '../art/icons.js';
 import { titleBackdrop } from './backdrop.js';
+import { freeCanvas } from '../engine/sprites.js';
 import { peltURL, sheepURL } from '../art/icons.js';
 import { el, hudPelts, bumpPelts, banner } from './ui.js';
 
@@ -44,7 +45,7 @@ export const shopScene = {
     this.render();
   },
 
-  exit() { this.bg = null; },
+  exit() { freeCanvas(this.bg?.canvas); this.bg = null; },
 
   render() {
     const s = this.app.save.data;
@@ -122,7 +123,7 @@ export const shopScene = {
     }
   },
 
-  resize(w, h) { this.bg = titleBackdrop(w, h, this.app.dpr); },
+  resize(w, h) { freeCanvas(this.bg?.canvas); this.bg = titleBackdrop(w, h, this.app.dpr); },
   draw(ctx) {
     if (!this.bg) return;
     ctx.drawImage(this.bg.canvas, 0, 0, this.app.w, this.app.h);

@@ -50,5 +50,7 @@ export function tellCardURL(look) {
   for (const [x, text, col] of [[95, 'Sheep', '#ffffff'], [265, 'Wolf', '#ffb4a6']]) {
     ctx.strokeText(text, x, 232); ctx.fillStyle = col; ctx.fillText(text, x, 232);
   }
-  return c.toDataURL();
+  const url = c.toDataURL();
+  c.width = 0; c.height = 0;
+  return url;
 }

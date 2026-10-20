@@ -9,6 +9,7 @@ import { Sheep, sortByDepth, PROFILES } from '../game/critter.js';
 import { paddockWorld } from '../game/world.js';
 import { drawWolf } from '../art/render.js';
 import { Particles } from '../engine/particles.js';
+import { freeCanvas } from '../engine/sprites.js';
 import { Timers, rand, clamp, ease, shuffle } from '../engine/util.js';
 import { peltURL, sheepURL } from '../art/icons.js';
 import { playBackdrop } from './backdrop.js';
@@ -36,7 +37,7 @@ export const playScene = {
     // Bank the hidden clock so leaving can't reset the speed bonus.
     const r = this.app.save.data.round;
     if (r && this.phase === 'hunt') { r.elapsed = this.huntT || 0; this.app.save.write(); }
-    this.timers.clear(); this.bg = null; this.bgSeason = null; this.sheep = []; this.wolf = null; this.ring = null; this.focus = null; this.hunger = null;
+    this.timers.clear(); freeCanvas(this.bg?.canvas); this.bg = null; this.bgSeason = null; this.sheep = []; this.wolf = null; this.ring = null; this.focus = null; this.hunger = null;
   },
 
   buildUI() {
@@ -107,6 +108,7 @@ export const playScene = {
     const season = calendarFor(this.app.save.data.streak).season.id;
     if (!force && this.bgSeason === season) return;
     this.bgSeason = season;
+    freeCanvas(this.bg?.canvas);
     this.bg = playBackdrop(this.app.w, this.app.h, this.app.dpr, this.field, season);
   },
 

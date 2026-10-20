@@ -17,7 +17,7 @@ import { openSettings } from './scenes/settings.js';
 
 // Bump when shipping data/JSON changes so GitHub Pages' cache can't pair new
 // code with old data.
-export const VERSION = '1.3.0';
+export const VERSION = '1.3.1';
 
 const SCENES = { title: titleScene, play: playScene, shop: shopScene, farm: farmScene, bonus: bonusScene };
 
@@ -107,12 +107,17 @@ async function boot() {
   save.data.farm = save.data.farm.filter((a) => breedById(a.breed));
   if (save.data.farm.length !== before) save.write();
   resize();
-  // Coalesce resize bursts (window drags) into one repaint per frame.
-  let pending = false;
+  // Resize bursts (window drags, the iOS address bar sliding in and out) are
+  // settled into one repaint, and pure height wobbles under 15% are ignored:
+  // each repaint allocates a full-screen backdrop.
+  let timer = 0;
   window.addEventListener('resize', () => {
-    if (pending) return;
-    pending = true;
-    requestAnimationFrame(() => { pending = false; resize(); });
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const w = window.innerWidth, h = window.innerHeight;
+      if (w === app.w && Math.abs(h - app.h) / app.h < 0.15) return;
+      resize();
+    }, 250);
   });
   bindInput();
   // Deep links (#farm, #shop, #play) — handy for testing and sharing.

@@ -5,6 +5,7 @@
 import { db, calendarFor } from '../game/rules.js';
 import { drawWolf } from '../art/render.js';
 import { Particles } from '../engine/particles.js';
+import { freeCanvas } from '../engine/sprites.js';
 import { rand, clamp, pick, ease } from '../engine/util.js';
 import { playBackdrop } from './backdrop.js';
 import { el, banner, hudPelts, bumpPelts } from './ui.js';
@@ -38,12 +39,13 @@ export const bonusScene = {
     app.sfx.howl();
   },
 
-  exit() { this.bg = null; },
+  exit() { freeCanvas(this.bg?.canvas); this.bg = null; },
 
   resize(w, h) {
     const top = 96, bottom = 30;
     const fw = Math.min(w - 36, 640);
     this.field = { x: (w - fw) / 2, y: top, w: fw, h: Math.max(240, h - top - bottom) };
+    freeCanvas(this.bg?.canvas);
     this.bg = playBackdrop(w, h, this.app.dpr, this.field, this.cal.season.id);
     this.scale = clamp(fw / 430, 0.75, 1.25) * 0.85;
   },
