@@ -126,8 +126,8 @@ function drawDetail(ctx) {
     ctx.moveTo(c[0], c[1]);
     for (let i = 2; i < c.length; i += 2) ctx.lineTo(c[i], c[i + 1]);
   }
-  ctx.strokeStyle = 'rgba(92,96,100,0.55)';
-  ctx.lineWidth = 1.1;
+  ctx.strokeStyle = 'rgba(124,128,132,0.8)';   // mid-grey hairline, never black
+  ctx.lineWidth = 0.8;
   ctx.stroke();
 
   // Glints: tiny, brief four-point catches keyed to camera position, so they flash as

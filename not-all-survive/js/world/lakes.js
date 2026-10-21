@@ -5,14 +5,14 @@
 //     bobbing, drifting in a small orbit round its home and rocking slightly, over a
 //     water-filled hole, with a dark waterline that thickens on the down-bob and a
 //     lapping light line below it;
-//   - ink ripples drifting downwind, expanding ring ripples, a shifting wet sheen.
-// Ice (class ice): narrow hard-edged sheen bands sliding with the wind; skating snow
+//   - ink ripples drifting downwind, expanding ring ripples.
+// Ice (class ice): skating snow
 //   streaks and puffs; every 3-5 s a bright gust band of loose snow runs across; a slow
-//   cloud shadow; every 6-10 s a new hairline crack draws itself in with a glint.
+//   cloud shadow; every 8-15 s a small fracture network fades in (and out after 30-60 s).
 // All scale with state.wind. Pattern tiles, masks and floe sprites are pre-baked; per
 // frame each surface is one offscreen fill + mask + composite, plus the floe sprites.
-// state.quality.level: high = all; medium = lower-res effects, no cloud; low = sheen and
-// ripples only, floes static. ?nolakes turns it all off.
+// state.quality.level: high = all; medium = lower-res effects, no cloud; low = ripples
+// and fractures only, floes static. ?nolakes turns it all off.
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 import { mask, classAt, lumAt } from './terrain.js';
@@ -350,7 +350,7 @@ function floeSprite(f) {
 
 // --- live state ----------------------------------------------------------------------------
 const puffs = [], cracks = [], rings = [];
-let crackTimer = 3, gustTimer = 2, gust = null, ringTimer = 0.5;
+let crackTimer = 2, gustTimer = 2, gust = null, ringTimer = 0.5;
 let fx = null, fxg = null, coverT = 0;
 const cover = { ice: false, water: false };
 
@@ -416,28 +416,42 @@ function update(dt, r, wind) {
     }
   }
   for (let i = rings.length - 1; i >= 0; i--) { rings[i].age += dt; if (rings[i].age > rings[i].life) rings.splice(i, 1); }
-  // A new crack drawing itself in.
+  // Now and then a small fracture network appears (fades in as a whole).
   crackTimer -= dt;
   if (crackTimer <= 0 && cover.ice) {
-    crackTimer = 4 + rnd() * 2;
+    crackTimer = 8 + rnd() * 7;
     for (let tries = 0; tries < 16; tries++) {
-      let [x, y] = randIn(r);
+      const [x, y] = randIn(r);
       if (!flatIce(x, y)) continue;
-      let a = rnd() * TAU;
-      const pts = [x, y];
-      const segs = 3 + ((rnd() * 4) | 0);
-      for (let s = 0; s < segs; s++) {
-        a += (rnd() < 0.5 ? 1 : -1) * (0.2 + rnd() * 0.4);
-        const len = 4 + rnd() * 6;
-        const nx = x + Math.cos(a) * len, ny = y + Math.sin(a) * len * 0.7;
-        if (!flatIce(nx, ny)) break;
-        pts.push(nx, ny); x = nx; y = ny;
+      const lines = [];
+      const jag = (x0, y0, a, len) => {        // a jagged polyline of short kinked steps
+        const pts = [x0, y0];
+        let x = x0, y = y0, d = 0;
+        while (d < len) {
+          const st = 1.5 + rnd() * 2.5;
+          a += (rnd() - 0.5) * 1.1;
+          const nx = x + Math.cos(a) * st, ny = y + Math.sin(a) * st * 0.7;
+          if (classAt(nx, ny) !== ICE) break;
+          pts.push(nx, ny); x = nx; y = ny; d += st;
+        }
+        return pts;
+      };
+      const a0 = rnd() * TAU, main = jag(x, y, a0, 10 + rnd() * 20);
+      if (main.length < 6) continue;
+      lines.push(main);
+      const nb = 2 + ((rnd() * 3) | 0);
+      for (let k = 0; k < nb; k++) {
+        const i = 2 * (1 + ((rnd() * (main.length / 2 - 1)) | 0));
+        const br = jag(main[i - 2], main[i - 1], a0 + (rnd() < 0.5 ? 1 : -1) * (0.6 + rnd() * 0.9), 3 + rnd() * 8);
+        if (br.length >= 4) lines.push(br);
       }
-      if (pts.length >= 6) { cracks.push({ pts, age: 0 }); if (cracks.length > 8) cracks.shift(); break; }
+      cracks.push({ lines, age: 0, life: 30 + rnd() * 30, w: 0.6 + rnd() * 0.3, c: 120 + ((rnd() * 20) | 0) });
+      if (cracks.length > 6) cracks.shift();
+      break;
     }
   }
   for (const c of cracks) c.age += dt;
-  while (cracks.length && cracks[0].age > 70) cracks.shift();
+  for (let i = cracks.length - 1; i >= 0; i--) if (cracks[i].age > cracks[i].life + 3) cracks.splice(i, 1);
 }
 
 function ensureFx(w, h) {
@@ -500,7 +514,6 @@ export function drawLakes(ctx) {
   // ---- ice ----
   if (cover.ice && S.ice) {
     begin();
-    patternFill(g, tex.sheen, r, wa, t * (8 + ws * 16), 0, 1.2, Math.min(1, 0.75 + ws * 0.25), 0.7);
     if (q !== 'low') {
       const a = 0.25 + ws * 0.6;
       patternFill(g, tex.streakDark, r, wa, t * (20 + ws * 70), Math.sin(t * 0.7) * 3 + 1.2, 0.6, Math.min(1, a * 0.6), 0.7);
@@ -513,9 +526,8 @@ export function drawLakes(ctx) {
         g.translate(cx, cy); g.rotate(wa);
         const bx = -D / 2 - 30 + gust.s;
         g.beginPath(); g.rect(bx - gust.width / 2, -D, gust.width, 2 * D); g.clip();
-        // A hard-edged strip: faint white veil, then dense racing streaks with ink shadow.
-        g.fillStyle = 'rgba(255,255,255,0.18)';
-        g.fillRect(bx - gust.width / 2, -D, gust.width, 2 * D);
+        // Dense racing streaks with ink shadow (no veil: a filled strip reads as a line
+        // down the screen).
         g.rotate(-wa); g.translate(-cx, -cy);
         patternFill(g, tex.streakDark, r, wa, t * 110, 11 + 1.6, 0.55, 0.8, 0.7);
         patternFill(g, tex.streak, r, wa, t * 110, 11, 0.55, 1, 0.7);
@@ -546,11 +558,10 @@ export function drawLakes(ctx) {
   if (cover.water && S.water) {
     const b = S.wb;
     begin();
-    // Ink ripples drifting downwind at two speeds, plus the shifting wet sheen.
+    // Ink ripples drifting downwind at two speeds.
     const drift = 15 + ws * 10;
     patternFill(g, tex.ripple, r, 0, t * drift * Math.cos(wa), t * drift * 0.5 * Math.sin(wa), 0.5, 1);
     patternFill(g, tex.ripple, r, 0, t * drift * 0.6 * Math.cos(wa) + 31, t * 6 + 17, 0.7, 0.75);
-    patternFill(g, tex.sheen, r, wa + 0.4, t * (4 + ws * 6), 0, 1.6, 0.14 + ws * 0.08, 0.5);
     // Expanding rings.
     g.lineWidth = 0.9;
     for (const ring of rings) {
@@ -570,37 +581,21 @@ export function drawLakes(ctx) {
     drawFloes(ctx, r, t, q);
   }
 
-  // ---- cracks drawing themselves in ----
+  // ---- fracture networks: fade in over ~1.5 s, fade out over 3 s at end of life ----
   if (cracks.length) {
     ctx.save();
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.lineCap = 'round'; ctx.lineJoin = 'miter';
     for (const c of cracks) {
-      const n = c.pts.length / 2 - 1;
-      const grow = Math.min(n, (c.age / 1.6) * n);
-      const fade = c.age > 55 ? Math.max(0, 1 - (c.age - 55) / 15) : 1;
-      ctx.globalAlpha = 0.9 * fade;
-      ctx.strokeStyle = 'rgb(60,63,66)';
-      ctx.lineWidth = 1.4;
+      const fin = Math.min(1, c.age / 1.5), fout = Math.max(0, Math.min(1, (c.life + 3 - c.age) / 3));
+      ctx.globalAlpha = 0.85 * fin * fout;
+      ctx.strokeStyle = `rgb(${c.c},${c.c + 3},${c.c + 6})`;
+      ctx.lineWidth = c.w;
       ctx.beginPath();
-      ctx.moveTo(c.pts[0], c.pts[1]);
-      let tx = c.pts[0], ty = c.pts[1];
-      for (let i = 1; i <= Math.ceil(grow); i++) {
-        const f = Math.min(1, grow - (i - 1));
-        tx = c.pts[i * 2 - 2] + (c.pts[i * 2] - c.pts[i * 2 - 2]) * f;
-        ty = c.pts[i * 2 - 1] + (c.pts[i * 2 + 1] - c.pts[i * 2 - 1]) * f;
-        ctx.lineTo(tx, ty);
+      for (const p of c.lines) {
+        ctx.moveTo(p[0], p[1]);
+        for (let i = 2; i < p.length; i += 2) ctx.lineTo(p[i], p[i + 1]);
       }
       ctx.stroke();
-      if (c.age < 2.4) {
-        const k = c.age < 1.6 ? 1 : 1 - (c.age - 1.6) / 0.8;
-        ctx.globalAlpha = 0.95 * k;
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 0.7;
-        const s = 1.8 + 1.4 * k;
-        ctx.beginPath();
-        ctx.moveTo(tx - s, ty); ctx.lineTo(tx + s, ty); ctx.moveTo(tx, ty - s); ctx.lineTo(tx, ty + s);
-        ctx.stroke();
-      }
     }
     ctx.restore();
   }
