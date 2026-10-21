@@ -32,12 +32,13 @@ export const state = {
     lean: 0,                // 0..1, how hard they're pushing (explorer.js owns it)
     exposure: 0,            // 0..1, how exposed to wind they are (weather.js may read)
     mode: 'walk',           // 'walk' | 'climb' | 'down' (knocked over) | 'cower' (explorer.js owns)
-    sheltered: 0,           // 0..1, hunkered in the lee of rock — weather/audio soften for it
+    gear: { snowshoes: false },   // equipped items (the pack in ui/compass.js toggles them)
+    sheltered: 0,           // 0..1, hunkered in the lee of rock â€” weather/audio soften for it
   },
 
   // weather.js owns these; everyone else reads them. It also adds weather.phase,
   // weather.ctl (console controls), weather.lastAvalanche, and writes cam.shakeX/Y.
-  // weather.light dimming is applied by weather.js itself — don't dim again elsewhere.
+  // weather.light dimming is applied by weather.js itself â€” don't dim again elsewhere.
   wind: { angle: num('windAngle', Math.PI * 0.08), speed: num('wind', 0.45), gust: 0 },
   weather: { whiteout: num('whiteout', 0), snowfall: num('snow', 0.5), light: 1,
     // temp in degrees C and cold 0..1 (0 = a mild -10, 1 = a deadly -45 with wind chill).
@@ -74,6 +75,7 @@ export const state = {
   //   kick { x, y, foot: 'L'|'R' }    crampon kick into the ice face  (explorer -> audio)
   //   fall { x, y, strength }         knocked off the feet by wind    (explorer -> audio, weather)
   //   shove { x, y, strength }        staggered back by a gust        (explorer -> audio)
+  //   gear { item, on, auto }         e.g. snowshoes strapped on / off (pack -> explorer, audio)
   events: [],
 };
 

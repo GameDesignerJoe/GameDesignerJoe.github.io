@@ -3,10 +3,16 @@
 // (or press C again) to take it out: a needle hangs over the explorer, pointing north
 // (screen up-left for now), shaken by the wind. Too much wind, climbing, deep snow,
 // being knocked down or cowering means you can't hold it — it goes back in the pack.
-// Keyboard: hold C to dig, C again to take it out or put it away.
+// Keyboard: hold C to dig, C (or 1) to take the compass, 2 for the snowshoes.
+//
+// The pack holds more than the compass: a grey slot below it holds the snowshoes.
+// Tapping it straps them on (or takes them off). Climbing or stepping onto ice puts
+// them back in the pack. state.player.gear = { snowshoes } is the equipped state;
+// explorer.js reads it for speed, gait and footprints.
 //
 // state.compass = { phase: 'idle'|'rummage'|'slot'|'out', ... }
-// Pushes events: rummage, compass (taken out), stow (put away).
+// Pushes events: rummage, compass (taken out), stow (put away),
+//   gear { item: 'snowshoes', on, auto } (strapped on / taken off / auto-stowed).
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
 import { SIGNAL } from '../palette.js';
@@ -20,17 +26,27 @@ const HEAD = 24;                  // height above the feet where the compass dia
 const BAR_Y = 20;                 // the pack bar sits just above the hood
 
 const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, angle: NORTH + 1.2, vel: 0 };
+const gear = state.player.gear = state.player.gear || { snowshoes: false };
 let holding = false;              // pointer or key held on the explorer
 let wasMoving = false;
 
 const zoom = () => state.cam.zoom || 1;
 const feet = () => worldToScreen(state.player.x, state.player.y);
 
-// Can the explorer get the compass out, or keep holding it, right now?
-function blocked() {
+// Can the explorer get into the pack at all right now? (Deep snow is fine: that's
+// exactly where you want your snowshoes.)
+function packBlocked() {
   const p = state.player, w = state.wind;
   return p.mode === 'climb' || p.mode === 'approach' || p.mode === 'down' || p.mode === 'cower'
-    || p.terrain === 'deep' || (w.speed + (w.gust || 0)) > 0.85 || (state.frontier?.amount || 0) > 0.4;
+    || (w.speed + (w.gust || 0)) > 0.85 || (state.frontier?.amount || 0) > 0.4;
+}
+// Can they hold the compass? Not while wading through deep snow either.
+function blocked() { return packBlocked() || state.player.terrain === 'deep'; }
+// Snowshoes are useless (and dangerous) on ice and while climbing.
+const iceUnder = () => state.player.terrain === 'ice' || state.player.terrain === 'thin';
+function shoesBlocked() {
+  const m = state.player.mode;
+  return m === 'climb' || m === 'approach' || iceUnder();
 }
 
 function onPlayer(sx, sy) {
@@ -43,11 +59,25 @@ function slotCenter() {
 }
 function onSlot(sx, sy) {
   const s = slotCenter();
-  return Math.hypot(sx - s.x, sy - s.y) < s.r + 10;
+  return Math.hypot(sx - s.x, sy - s.y) < s.r + 8;
+}
+// The snowshoe slot sits directly below the compass slot.
+function shoeCenter() {
+  const s = slotCenter();
+  return { x: s.x, y: s.y + s.r * 2.5, r: s.r };
+}
+function onShoes(sx, sy) {
+  const s = shoeCenter();
+  return Math.hypot(sx - s.x, sy - s.y) < s.r + 8;
+}
+function setShoes(on, auto = false) {
+  if (gear.snowshoes === on) return;
+  gear.snowshoes = on;
+  state.events.push({ type: 'gear', item: 'snowshoes', on, auto, x: state.player.x, y: state.player.y });
 }
 
 function startRummage() {
-  if (blocked()) return;
+  if (packBlocked()) return;
   C.phase = 'rummage'; C.t = 0;
   state.events.push({ type: 'rummage', x: state.player.x, y: state.player.y });
 }
@@ -65,7 +95,11 @@ function stow() {
 export function init() {
   state.uiPress = (sx, sy) => {
     if (!state.begun && !state.params.has('autostart')) return false;
-    if (C.phase === 'slot' && onSlot(sx, sy)) { takeOut(); return true; }
+    if (C.phase === 'slot' && onSlot(sx, sy)) { if (!blocked()) takeOut(); return true; }
+    if (C.phase === 'slot' && onShoes(sx, sy)) {
+      if (!shoesBlocked()) { setShoes(!gear.snowshoes); C.phase = 'idle'; }
+      return true;
+    }
     if (onPlayer(sx, sy)) {
       if (C.phase === 'out') { stow(); return true; }
       holding = true;
@@ -78,8 +112,14 @@ export function init() {
   state.uiRelease = () => { holding = false; };
 
   addEventListener('keydown', e => {
-    if (e.code !== 'KeyC' || e.repeat) return;
-    if (C.phase === 'slot') takeOut();
+    if (e.repeat) return;
+    if (C.phase === 'slot' && e.code === 'Digit2') {
+      if (!shoesBlocked()) { setShoes(!gear.snowshoes); C.phase = 'idle'; }
+      return;
+    }
+    if (C.phase === 'slot' && e.code === 'Digit1') { if (!blocked()) takeOut(); return; }
+    if (e.code !== 'KeyC') return;
+    if (C.phase === 'slot') { if (!blocked()) takeOut(); }
     else if (C.phase === 'out') stow();
     else { holding = true; if (C.phase === 'idle') startRummage(); }
   });
@@ -87,6 +127,8 @@ export function init() {
 
   // Test hooks: NAS.compassOpen() skips straight to the needle.
   window.NAS.compassOpen = () => takeOut();
+  window.NAS.packOpen = () => { C.phase = 'slot'; C.t = 0; };
+  window.NAS.snowshoes = on => setShoes(on);
 }
 
 export function update(dt) {
@@ -96,14 +138,17 @@ export function update(dt) {
 
   if (C.phase === 'rummage') {
     // Let go, start walking, or get caught out by the weather: the dig is abandoned.
-    if (!holding || moving || blocked()) C.phase = 'idle';
+    if (!holding || moving || packBlocked()) C.phase = 'idle';
     else if (C.t >= RUMMAGE_S) { C.phase = 'slot'; C.t = 0; }
   } else if (C.phase === 'slot') {
-    if (C.t > SLOT_TIMEOUT_S || (moving && !wasMoving) || blocked()) C.phase = 'idle';
+    if (C.t > SLOT_TIMEOUT_S || (moving && !wasMoving) || packBlocked()) C.phase = 'idle';
   } else if (C.phase === 'out') {
     if (blocked() || C.t > OUT_S) stow();
   }
   wasMoving = moving;
+
+  // Snowshoes go back in the pack the moment you climb or step onto ice.
+  if (gear.snowshoes && shoesBlocked()) setShoes(false, true);
 
   // Fades.
   const k = Math.min(1, dt * 8);
@@ -163,6 +208,44 @@ function drawNeedle(ctx, cx, cy, len, angle, alpha) {
   ctx.fill();
 }
 
+// A grey slot holding a pair of snowshoes: two teardrop frames with cross lacing.
+function drawShoeSlot(ctx, z, pop) {
+  const s = shoeCenter(), r = s.r * pop, on = gear.snowshoes, dim = shoesBlocked();
+  ctx.globalAlpha = C.slotA * (dim ? 0.45 : 1);
+  ctx.beginPath();
+  ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(150,152,158,0.42)';
+  ctx.fill();
+  ctx.lineWidth = Math.max(1.2, z * 0.35);
+  ctx.strokeStyle = on ? SIGNAL.lit : 'rgba(255,255,255,0.85)';   // yellow ring = worn
+  ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(40,40,44,0.3)';
+  ctx.beginPath();
+  ctx.arc(s.x, s.y, r + Math.max(1.2, z * 0.35), 0, Math.PI * 2);
+  ctx.stroke();
+  for (const side of [-1, 1]) {
+    const cx = s.x + side * r * 0.24, cy = s.y, rw = r * 0.2, rh = r * 0.5;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(side * 0.18);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rw, rh, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(236,235,230,0.9)';
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, z * 0.28);
+    ctx.strokeStyle = 'rgba(40,36,30,0.9)';
+    ctx.stroke();
+    ctx.lineWidth = Math.max(0.6, z * 0.12);
+    ctx.strokeStyle = 'rgba(40,36,30,0.6)';
+    ctx.beginPath();
+    for (let i = -2; i <= 2; i++) { ctx.moveTo(-rw * 0.8, i * rh * 0.3); ctx.lineTo(rw * 0.8, i * rh * 0.3); }
+    ctx.moveTo(0, -rh * 0.85); ctx.lineTo(0, rh * 0.85);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 export function drawScreen(ctx) {
   if (C.phase === 'idle' && C.slotA < 0.01 && C.outA < 0.01) return;
   const { dpr } = state.view;
@@ -217,7 +300,13 @@ export function drawScreen(ctx) {
     ctx.strokeStyle = 'rgba(30,30,32,0.8)';
     ctx.lineWidth = Math.max(1, z * 0.25);
     ctx.stroke();
-    drawNeedle(ctx, s.x, s.y, r * 0.5, NORTH, C.slotA);
+    drawNeedle(ctx, s.x, s.y, r * 0.5, NORTH, C.slotA * (blocked() ? 0.35 : 1));
+    if (blocked()) {      // greyed out: you can't hold it here
+      ctx.globalAlpha = C.slotA * 0.55;
+      ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,200,204,0.6)'; ctx.fill();
+    }
+    drawShoeSlot(ctx, z, pop);
   }
 
   // The needle itself, over the explorer.
