@@ -34,16 +34,28 @@ export function tierFor(streak) {
 export const breedById = (id) => db.breeds.find((b) => b.id === id);
 
 // --- calendar -------------------------------------------------------------------
-// Where a streak sits in the year: season, time of day, which set of the season.
+// Where a streak sits in the year: season, time of day, which set (day) of
+// the season, and which of the time's rounds (each time lasts roundsPerTime).
+export const roundsPerTime = () => Math.max(1, db.world.roundsPerTime || 1);
+export const roundsPerDay = () => db.world.times.length * roundsPerTime();
 export function calendarFor(streak) {
-  const W = db.world, perSet = W.times.length, perSeason = perSet * W.setsPerSeason;
+  const W = db.world, rpt = roundsPerTime(), perSet = roundsPerDay(), perSeason = perSet * W.setsPerSeason;
   const seasonIdx = Math.floor(streak / perSeason) % W.seasons.length;
   const within = streak % perSeason;
   const set = Math.floor(within / perSet);
-  const time = W.times[within % perSet];
+  const slot = Math.floor((within % perSet) / rpt);
+  const time = W.times[slot];
   const season = W.seasons[seasonIdx];
   const year = Math.floor(streak / (perSeason * W.seasons.length));
-  return { season, time, set, year, slot: within % perSet };
+  return { season, time, set, year, slot, round: within % rpt };
+}
+
+// A small deterministic hash, for choices that must survive leaving and
+// coming back (hungry round, weather) but change from run to run.
+function hash2(a, b) {
+  let h = (a * 2654435761 + b * 40503) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
+  return (h ^ (h >>> 13)) >>> 0;
 }
 
 // Hungry wolf: one round in each day (a set of times) the wolf goes hungry.
@@ -53,15 +65,18 @@ export function isHungryRound(streak, runSeed = 0) {
   const H = db.game.hungryWolf;
   const slots = (H.times || []).map((id) => db.world.times.findIndex((t) => t.id === id)).filter((i) => i >= 0);
   if (!slots.length || !H.everyDay) return false;
-  const perSet = db.world.times.length, day = Math.floor(streak / perSet);
-  let h = (runSeed * 2654435761 + day * 40503) >>> 0;
-  h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
-  return streak % perSet === slots[((h ^ (h >>> 13)) >>> 0) % slots.length];
+  // One round of the day: a time from the list, then one of its rounds.
+  const rpt = roundsPerTime(), perDay = roundsPerDay(), day = Math.floor(streak / perDay);
+  const h = hash2(runSeed, day);
+  const target = slots[h % slots.length] * rpt + (Math.floor(h / slots.length) % rpt);
+  return streak % perDay === target;
 }
 
-export function pickWeather(cal) {
-  const pools = cal.season.weather;
-  return pick(pools[Math.min(cal.set + cal.year, pools.length - 1)]);
+// Weather holds for the whole time of day, so a stretch of rounds feels like
+// one dawn or one rainy noon rather than a reroll every catch.
+export function pickWeather(cal, streak = 0, runSeed = 0) {
+  const pool = cal.season.weather[Math.min(cal.set + cal.year, cal.season.weather.length - 1)];
+  return pool[hash2(runSeed + 1, Math.floor(streak / roundsPerTime())) % pool.length];
 }
 
 // Hidden speed bonus: ×3 / ×2 / ×1 by seconds taken, more time at harder tiers.
@@ -150,7 +165,7 @@ export function makeRound(streak, opts = {}) {
   const wolfLook = { ...wb.look, breed: wb.id, wolfFur: wolfFurFor(wb.look), tells: { ...tell.tells } };
   sheep.push({ look: wolfLook, isWolf: true });
   shuffle(sheep);
-  return { tier, sheep, tell, weather: pickWeather(calendarFor(streak)) };
+  return { tier, sheep, tell, weather: pickWeather(calendarFor(streak), streak, opts.runSeed) };
 }
 
 // --- outcomes ----------------------------------------------------------------
@@ -169,7 +184,7 @@ export function catchWolf(save, seconds = Infinity, tell = null) {
   const after = tierFor(save.streak);
   const promptShop = !save.shopPromptShown && save.pelts >= db.game.shopPromptAt;
   if (promptShop) save.shopPromptShown = true;
-  const every = db.world.bonusEvery || 18;
+  const every = db.world.bonusEvery || roundsPerDay();
   const bonus = save.streak > 0 && save.streak % every === 0; // a Wolf Stampede is due
   const before = calendarFor(save.streak - 1), now = calendarFor(save.streak);
   const seasonUp = now.season.id !== before.season.id ? now.season : null;

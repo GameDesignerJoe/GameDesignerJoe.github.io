@@ -135,7 +135,7 @@ export const playScene = {
       this.huntT = resumed.elapsed;
       if (!this.round.weather) this.round.weather = 'clear';
     } else {
-      this.round = makeRound(s.streak, { colorSafe: s.settings.colorSafe, maxSheep: this.capacity() });
+      this.round = makeRound(s.streak, { colorSafe: s.settings.colorSafe, maxSheep: this.capacity(), runSeed: s.runSeed });
       storeRound(s, this.round, false);
       app.save.write();
     }
@@ -154,9 +154,10 @@ export const playScene = {
     this.atmo.resize(app.w, app.h);
     if (prevSeason && prevSeason !== this.cal.season.id) banner(app.ui, `${this.cal.season.name} arrives!`, 'A new season, new dangers', 'good');
     if (this.torchMode()) {
+      this.torchTouch = this.torchTouch ?? matchMedia('(pointer: coarse)').matches;
       this.torchPos = { x: this.field.x + this.field.w / 2, y: this.field.y + this.field.h / 2 };
       this.press = null;
-      banner(app.ui, 'Midnight!', 'Drag to shine your torch · tap to catch', 'good low');
+      if (first || this.cal.round === 0) banner(app.ui, 'Midnight!', 'Drag to shine your torch · tap to catch', 'good low');
     }
     // Once a day the wolf is hungry: it hunts the flock while you hunt it.
     this.hunger = isHungryRound(s.streak, s.runSeed) ? { rest: db.game.hungryWolf.startDelay, victim: null, bite: 0 } : null;
@@ -229,7 +230,13 @@ export const playScene = {
     // the light; only a quick, nearly-still tap picks a sheep, so searching
     // never catches anything by accident.
     if (this.torchMode()) {
-      if (e.type === 'down' || e.type === 'move') this.torchPos = { x: e.x, y: e.y };
+      // On a touch screen the beam is bigger and sits above the fingertip, so
+      // the finger doesn't cover what it's lighting (world.json touchRadius/touchLift).
+      if (e.type === 'down' || e.type === 'move') {
+        const L = this.cal.time.light, side = Math.min(this.app.w, this.app.h);
+        this.torchTouch = !!e.touch;
+        this.torchPos = { x: e.x, y: e.y - (e.touch ? (L.touchLift || 0) * side : 0) };
+      }
       if (e.type === 'down') this.press = { x: e.x, y: e.y, t: performance.now(), id: e.id };
       if (e.type === 'up' && this.press && this.press.id === e.id) {
         const p = this.press;
@@ -575,6 +582,6 @@ export const playScene = {
         { run: w.run ? Math.sin(w.t * 18) : 0, look: w.run ? 'ahead' : 'up' }, w.scale * 1.05);
     }
     this.fx.draw(ctx);
-    if (this.atmo) { this.atmo.torch = this.torchPos; this.atmo.draw(ctx); }
+    if (this.atmo) { this.atmo.torch = this.torchPos; this.atmo.torchTouch = this.torchTouch; this.atmo.draw(ctx); }
   },
 };

@@ -17,7 +17,7 @@ import { openSettings } from './scenes/settings.js';
 
 // Bump when shipping data/JSON changes so GitHub Pages' cache can't pair new
 // code with old data.
-export const VERSION = '1.5.0';
+export const VERSION = '1.6.0';
 
 const SCENES = { title: titleScene, play: playScene, shop: shopScene, farm: farmScene, bonus: bonusScene };
 
@@ -60,7 +60,7 @@ function bindInput() {
   const send = (type) => (ev) => {
     if (type === 'down') unlockAudio();
     const r = canvas.getBoundingClientRect();
-    app.scene?.pointer?.({ type, x: ev.clientX - r.left, y: ev.clientY - r.top, id: ev.pointerId });
+    app.scene?.pointer?.({ type, x: ev.clientX - r.left, y: ev.clientY - r.top, id: ev.pointerId, touch: ev.pointerType === 'touch' || ev.pointerType === 'pen' });
   };
   canvas.addEventListener('pointerdown', send('down'));
   window.addEventListener('pointermove', send('move'));

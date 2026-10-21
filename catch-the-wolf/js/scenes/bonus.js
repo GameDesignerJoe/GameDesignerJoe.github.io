@@ -132,6 +132,7 @@ export const bonusScene = {
     for (const w of this.wolves) w.speed *= 1.6;
     setTimeout(() => { this.wolves = []; }, 700);
     const n = this.caught * this.cfg.peltsPerWolf;
+    const newSeason = this.cal.set === 0 && this.cal.slot === 0 && this.cal.round === 0;
     noteStampede(app.save.data, this.caught);
     const got = checkAchievements(app.save.data);
     app.save.write();
@@ -140,8 +141,8 @@ export const bonusScene = {
       <div class="scrim"><div class="panel" role="dialog" aria-modal="true" aria-label="Stampede over">
         <h2>Stampede over!</h2>
         <p>You caught <b>${this.caught} wolf${this.caught === 1 ? '' : 'ves'}</b>${n ? ` for <b>+${n} pelt${n === 1 ? '' : 's'}</b>` : ''}.</p>
-        <p style="font-size:15px">${this.cal.set === 0 ? `${this.cal.season.name} is here!` : `A new day dawns: ${this.cal.season.name}, day ${this.cal.set + 1}.`} The hunt goes on, and so does the risk!</p>
-        <div class="row"><button class="btn red big" data-go>${this.cal.set === 0 ? `On to ${this.cal.season.name}!` : 'Back to the hunt!'}</button></div>
+        <p style="font-size:15px">${newSeason ? `${this.cal.season.name} is here!` : `Back to ${this.cal.season.name} ${this.cal.time.name.toLowerCase()}, day ${this.cal.set + 1}.`} The hunt goes on, and so does the risk!</p>
+        <div class="row"><button class="btn red big" data-go>${newSeason ? `On to ${this.cal.season.name}!` : 'Back to the hunt!'}</button></div>
       </div></div>`);
     app.ui.append(panel);
     app.sfx.baa(1.1);

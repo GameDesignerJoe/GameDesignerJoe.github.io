@@ -94,7 +94,7 @@ export class Atmosphere {
     if (L.torch) {
       // Pitch dark, except a soft circle of torchlight where the player points.
       const t = this.torch || { x: w / 2, y: h / 2 };
-      const r = Math.min(w, h) * (L.radius || 0.2);
+      const r = Math.min(w, h) * ((this.torchTouch && L.touchRadius) || L.radius || 0.2);
       const dark = (L.darkness ?? 0.97) * (1 - (this.reveal || 0) * 0.8); // lifts when the round ends
       const g = ctx.createRadialGradient(t.x, t.y, r * 0.45, t.x, t.y, r);
       g.addColorStop(0, 'rgba(4,6,18,0)');

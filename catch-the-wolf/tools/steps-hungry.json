@@ -1,7 +1,7 @@
 [
   {"eval": "localStorage.setItem('catchTheWolf.save', JSON.stringify({version:2,pelts:5,streak:0,runSeed:77,seenHowTo:true,shopPromptShown:true,farm:[],settings:{sound:false}})); location.hash='title'; location.reload(); 1"},
   {"wait": 2000},
-  {"eval": "(async()=>{const R=await import('./js/game/rules.js'); const d=ctw.save.data; for(let i=0;i<6;i++) if(R.isHungryRound(i,d.runSeed)) d.streak=i; ctw.save.write(); ctw.go('play'); return {hungrySlot:d.streak}})()"},
+  {"eval": "(async()=>{const R=await import('./js/game/rules.js'); const d=ctw.save.data; for(let i=0;i<R.roundsPerDay();i++) if(R.isHungryRound(i,d.runSeed)) d.streak=i; ctw.save.write(); ctw.go('play'); return {hungrySlot:d.streak}})()"},
   {"wait": 2500},
   {"eval": "(()=>{const s=ctw.scene; window._n=s.live().length; return {sheep:_n, hunger: !!s.hunger}})()"},
   {"wait": 1500},

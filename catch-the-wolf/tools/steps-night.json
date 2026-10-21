@@ -1,8 +1,9 @@
 [
-  {"eval": "localStorage.setItem('catchTheWolf.save', JSON.stringify({version:1,pelts:0,streak:5,seenHowTo:true,shopPromptShown:true,farm:[],settings:{sound:false}})); location.hash='play'; location.reload(); 1"},
+  {"eval": "localStorage.setItem('catchTheWolf.save', JSON.stringify({version:1,pelts:0,streak:15,seenHowTo:true,shopPromptShown:true,farm:[],settings:{sound:false}})); location.hash='play'; location.reload(); 1"},
   {"wait": 2500},
-  {"eval": "(()=>{const s=ctw.scene; return {test:'streak 5 is midnight torch round', time:s.cal.time.id, torch:s.torchMode(), ok: s.torchMode()}})()"},
+  {"eval": "(()=>{const s=ctw.scene; return {test:'streak 15 is midnight torch round', time:s.cal.time.id, torch:s.torchMode(), ok: s.torchMode()}})()"},
   {"eval": "(()=>{const s=ctw.scene; const n=s.sheep.find(x=>!x.isWolf); s.pointer({type:'down',x:n.x-120,y:n.y,id:1}); s.pointer({type:'move',x:n.x-60,y:n.y,id:1}); s.pointer({type:'move',x:n.x,y:n.y,id:1}); s.pointer({type:'up',x:n.x,y:n.y,id:1}); return {test:'dragging the torch over a sheep does not pick it', phase:s.phase, ok: s.phase==='hunt'}})()"},
+  {"eval": "(()=>{const s=ctw.scene; const side=Math.min(innerWidth,innerHeight); s.pointer({type:'move',x:200,y:400,id:5,touch:true}); const lift=400-s.torchPos.y; s.atmo.torchTouch=true; const touchR=(s.cal.time.light.touchRadius)*side; s.pointer({type:'move',x:200,y:400,id:6}); const mouseLift=400-s.torchPos.y; s.torchTouch=false; return {test:'touch torch is bigger and lifted above the finger', lift:Math.round(lift), touchR:Math.round(touchR), mouseLift, ok: lift>20 && lift < touchR*0.45 && touchR > s.cal.time.light.radius*side && mouseLift===0}})()"},
   {"eval": "(()=>{const s=ctw.scene; const w=s.sheep.find(x=>x.isWolf); s.torchPos={x:w.x,y:w.y}; return 'torch on wolf'})()"},
   {"wait": 300},
   {"shot": "catch-the-wolf/tools/shots/n-midnight.png"},
