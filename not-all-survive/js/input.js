@@ -9,6 +9,12 @@ const keys = new Set();
 let pointerId = null;
 const touches = new Map(); // pointerId -> {x, y}, for pinch zoom
 let pinchDist = 0;
+let claimedId = null;      // pointer held by a UI element (compass) rather than walking
+
+// UI elements can claim a press before it turns into walking or a climb tap:
+// state.uiPress(sx, sy) -> true to take it; state.uiRelease() is called when it ends.
+state.uiPress = null;
+state.uiRelease = null;
 
 export function initInput(canvas) {
   addEventListener('keydown', e => {
@@ -35,6 +41,7 @@ export function initInput(canvas) {
       return;
     }
     if (touches.size > 2) return;
+    if (state.uiPress?.(e.clientX, e.clientY)) { claimedId = e.pointerId; return; }
     pointerId = e.pointerId;
     state.input.pointer = { sx: e.clientX, sy: e.clientY };
     // Every press is also reported as a tap at a world point, so actors can treat a
@@ -55,6 +62,7 @@ export function initInput(canvas) {
   const end = e => {
     touches.delete(e.pointerId);
     if (touches.size < 2) pinchDist = 0;
+    if (e.pointerId === claimedId) { claimedId = null; state.uiRelease?.(); return; }
     if (e.pointerId !== pointerId) return;
     pointerId = null;
     state.input.pointer = null;

@@ -59,6 +59,7 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - `?wind=0..1`, `?windAngle=<rad>`, `?whiteout=0..1`, `?snow=0..1` initial weather.
 - `?only=explorer,weather` load only those systems (map, terrain and ground always load).
 - Day/night cycles (3 min day, 2 min night). `?night` / `?day` pin it; the gear menu's Time button cycles cycle → day → night.
+- Compass: press and hold the explorer (or hold C) to dig in the pack; tap the slot (or C) to take it out; tap the explorer (or C) to put it away. `NAS.compassOpen()` skips straight to it.
 - `?terrain=ice` forces `terrainAt()` to return that type everywhere (handy for animation tests).
 - `?debug` lets modules draw debug overlays.
 

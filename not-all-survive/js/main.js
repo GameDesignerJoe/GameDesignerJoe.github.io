@@ -23,10 +23,11 @@ const MODULES = {
   camp: './actors/camp.js',
   wildlife: './actors/wildlife.js',
   audio: './audio/audio.js',
-  night: './fx/night.js',            // last: grades the finished frame and adds warm lights
+  night: './fx/night.js',            // grades the finished frame and adds warm lights
+  compass: './ui/compass.js',        // after night, so the UI isn't tinted
 };
 const only = state.params.get('only')?.split(',');
-const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night'];
+const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'compass'];
 const names = Object.keys(MODULES).filter(n => !only || ALWAYS.includes(n) || only.includes(n));
 
 // Each module loads and runs in isolation: one broken module logs an error and is
@@ -57,7 +58,8 @@ let ready = false;
 function begin() {
   if (state.begun || !ready) return;
   state.begun = true;
-  state.begunAt = state.time;
+  // With ?autostart the world is already showing, so there's no reveal to play.
+  state.begunAt = state.params.has('autostart') ? -1e9 : state.time;
   state.started = true;
   document.getElementById('title').classList.add('gone');
   systems.find(s => s.name === 'audio')?.mod.unlock?.();
