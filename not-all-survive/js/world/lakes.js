@@ -8,7 +8,7 @@
 //   - ink ripples drifting downwind, expanding ring ripples.
 // Ice (class ice): skating snow
 //   streaks and puffs; every 3-5 s a bright gust band of loose snow runs across; a slow
-//   cloud shadow; every 8-15 s a small fracture network fades in (and out after 30-60 s).
+//   cloud shadow. White crack networks: icecracks.js.
 // All scale with state.wind. Pattern tiles, masks and floe sprites are pre-baked; per
 // frame each surface is one offscreen fill + mask + composite, plus the floe sprites.
 // state.quality.level: high = all; medium = lower-res effects, no cloud; low = ripples
@@ -16,6 +16,7 @@
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 import { mask, classAt, lumAt } from './terrain.js';
+import { drawIceCracks } from './icecracks.js';
 import { tileAt, mapImage, TILE_SCALE, TILE_SIZE, TILE_GUTTER } from './map.js';
 
 const ICE = 2, THIN = 3;
@@ -349,7 +350,7 @@ function floeSprite(f) {
 }
 
 // --- live state ----------------------------------------------------------------------------
-const puffs = [], cracks = [], rings = [];
+const puffs = [], rings = [];
 let crackTimer = 2, gustTimer = 2, gust = null, ringTimer = 0.5;
 let fx = null, fxg = null, coverT = 0;
 const cover = { ice: false, water: false };
@@ -416,42 +417,6 @@ function update(dt, r, wind) {
     }
   }
   for (let i = rings.length - 1; i >= 0; i--) { rings[i].age += dt; if (rings[i].age > rings[i].life) rings.splice(i, 1); }
-  // Now and then a small fracture network appears (fades in as a whole).
-  crackTimer -= dt;
-  if (crackTimer <= 0 && cover.ice) {
-    crackTimer = 8 + rnd() * 7;
-    for (let tries = 0; tries < 16; tries++) {
-      const [x, y] = randIn(r);
-      if (!flatIce(x, y)) continue;
-      const lines = [];
-      const jag = (x0, y0, a, len) => {        // a jagged polyline of short kinked steps
-        const pts = [x0, y0];
-        let x = x0, y = y0, d = 0;
-        while (d < len) {
-          const st = 1.5 + rnd() * 2.5;
-          a += (rnd() - 0.5) * 1.1;
-          const nx = x + Math.cos(a) * st, ny = y + Math.sin(a) * st * 0.7;
-          if (classAt(nx, ny) !== ICE) break;
-          pts.push(nx, ny); x = nx; y = ny; d += st;
-        }
-        return pts;
-      };
-      const a0 = rnd() * TAU, main = jag(x, y, a0, 10 + rnd() * 20);
-      if (main.length < 6) continue;
-      lines.push(main);
-      const nb = 2 + ((rnd() * 3) | 0);
-      for (let k = 0; k < nb; k++) {
-        const i = 2 * (1 + ((rnd() * (main.length / 2 - 1)) | 0));
-        const br = jag(main[i - 2], main[i - 1], a0 + (rnd() < 0.5 ? 1 : -1) * (0.6 + rnd() * 0.9), 3 + rnd() * 8);
-        if (br.length >= 4) lines.push(br);
-      }
-      cracks.push({ lines, age: 0, life: 30 + rnd() * 30, w: 0.6 + rnd() * 0.3, c: 120 + ((rnd() * 20) | 0) });
-      if (cracks.length > 6) cracks.shift();
-      break;
-    }
-  }
-  for (const c of cracks) c.age += dt;
-  for (let i = cracks.length - 1; i >= 0; i--) if (cracks[i].age > cracks[i].life + 3) cracks.splice(i, 1);
 }
 
 function ensureFx(w, h) {
@@ -492,7 +457,7 @@ export function drawLakes(ctx) {
   if (coverT <= 0) { coverT = 0.25; updateCover(r); }
   const wind = state.wind;
   update(dt, r, wind);
-  if (!cover.ice && !cover.water && !cracks.length) return;
+  if (!cover.ice && !cover.water) return;
 
   const t = state.time, ws = Math.min(1.2, wind.speed + wind.gust * 0.6);
   const wa = wind.angle;
@@ -581,24 +546,8 @@ export function drawLakes(ctx) {
     drawFloes(ctx, r, t, q);
   }
 
-  // ---- fracture networks: fade in over ~1.5 s, fade out over 3 s at end of life ----
-  if (cracks.length) {
-    ctx.save();
-    ctx.lineCap = 'round'; ctx.lineJoin = 'miter';
-    for (const c of cracks) {
-      const fin = Math.min(1, c.age / 1.5), fout = Math.max(0, Math.min(1, (c.life + 3 - c.age) / 3));
-      ctx.globalAlpha = 0.85 * fin * fout;
-      ctx.strokeStyle = `rgb(${c.c},${c.c + 3},${c.c + 6})`;
-      ctx.lineWidth = c.w;
-      ctx.beginPath();
-      for (const p of c.lines) {
-        ctx.moveTo(p[0], p[1]);
-        for (let i = 2; i < p.length; i += 2) ctx.lineTo(p[i], p[i + 1]);
-      }
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
+  // ---- white crack networks (icecracks.js) ----
+  drawIceCracks(ctx, r, dt, cover.ice);
 }
 
 // Floe homes filled with water, all in one canvas (1 world px) over the water box: one
