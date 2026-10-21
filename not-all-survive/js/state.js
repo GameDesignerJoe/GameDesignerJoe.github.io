@@ -41,6 +41,13 @@ export const state = {
   wind: { angle: num('windAngle', Math.PI * 0.08), speed: num('wind', 0.45), gust: 0 },
   weather: { whiteout: num('whiteout', 0), snowfall: num('snow', 0.5), light: 1 },
 
+  // Lighting. night eases toward nightTarget (0 = day, 1 = full night); the gear menu
+  // and ?night set the target, and a future day/night cycle will drive it. Actors push
+  // warm light sources into lights each frame: { x, y, r (world px), intensity 0..1 }.
+  // night.js clears the list after drawing.
+  lighting: { night: params.has('night') ? 1 : 0, nightTarget: params.has('night') ? 1 : 0 },
+  lights: [],
+
   // frontier.js adds state.frontier = { amount 0..1, inX, inY }: how deep into the
   // world-edge storm border the explorer is, and which way is back toward the interior.
 

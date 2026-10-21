@@ -19,6 +19,7 @@ export function initMenu() {
   panel.innerHTML = `
     <button data-act="camp">Return to base camp</button>
     <button data-act="sound">Sound: on</button>
+    <button data-act="night">Night: off</button>
     <label>Quality
       <select data-act="quality">
         <option value="auto">Auto</option>
@@ -39,7 +40,9 @@ export function initMenu() {
 
   const sel = panel.querySelector('select');
   const soundBtn = panel.querySelector('[data-act="sound"]');
+  const nightBtn = panel.querySelector('[data-act="night"]');
   const sync = () => {
+    nightBtn.textContent = `Night: ${state.lighting.nightTarget > 0.5 ? 'on' : 'off'}`;
     sel.value = state.quality.mode === 'auto' ? 'auto' : state.quality.level;
     soundBtn.textContent = `Sound: ${state.audio?.muted ? 'off' : 'on'}`;
   };
@@ -51,6 +54,7 @@ export function initMenu() {
     if (act === 'camp') { returnToCamp(); panel.hidden = true; }
     if (act === 'sound') { state.audio?.setMuted?.(!state.audio.muted); sync(); }
     if (act === 'perf') showOverlay(!state.perfVisible);
+    if (act === 'night') { state.lighting.nightTarget = state.lighting.nightTarget > 0.5 ? 0 : 1; sync(); }
   });
   // Clicking anywhere else closes it.
   addEventListener('pointerdown', () => { panel.hidden = true; });

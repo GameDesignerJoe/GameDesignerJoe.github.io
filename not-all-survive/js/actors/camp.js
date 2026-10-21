@@ -11,6 +11,7 @@
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 import * as terrain from '../world/terrain.js';
+import { SIGNAL } from '../palette.js';
 
 const TAU = Math.PI * 2;
 const SQ = 0.72;                 // ground-plane depth foreshortening
@@ -168,6 +169,25 @@ function snowBank(ctx, inner, outer) {
   }
 }
 
+// --- the tent is the game's signal yellow; grey tones (~180..246) map onto the palette,
+// and at night the canvas glows from inside toward SIGNAL.glow.
+const hexRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const Y_SH = hexRGB(SIGNAL.shadow), Y_BA = hexRGB(SIGNAL.base), Y_LI = hexRGB(SIGNAL.lit), Y_DP = hexRGB(SIGNAL.deep), Y_GL = hexRGB(SIGNAL.glow);
+let tentNight = 0;
+const mix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+const rgb = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+function yel(tone) {
+  const f = clamp((tone - 182) / 56, 0, 1);
+  let c = f < 0.5 ? mix(Y_SH, Y_BA, f * 2) : mix(Y_BA, Y_LI, (f - 0.5) * 2);
+  if (tentNight > 0) c = mix(c, mix(Y_GL, [255, 236, 190], 0.15 + 0.25 * f), tentNight * 0.85);
+  return rgb(c);
+}
+const deepA = a => `rgba(${Y_DP[0]},${Y_DP[1]},${Y_DP[2]},${a * (1 - 0.4 * tentNight)})`;
+function doorFill(dA, dLb, dRb) {
+  if (tentNight <= 0.02) return '#3d3d3f';
+  return rgb(mix([61, 61, 63], [255, 226, 150], tentNight));
+}
+
 function drawTent(ctx) {
   const P = projT, { Wr, He, Ws, Hr, L2 } = T;
   const wl = windLocal(TENT.yaw);
@@ -192,10 +212,10 @@ function drawTent(ctx) {
     const nW = P.rot(sd * He, 0);
     const tone = 178 + 40 * lam(nW[0], nW[1], Ws - Wr);
     poly(ctx, [...bot.map(p => P3(P, p)), ...bot.slice().reverse().map(p => P(p[0], p[1], 0))]);
-    ctx.fillStyle = 'rgba(110,112,115,0.9)'; ctx.fill();
+    ctx.fillStyle = SIGNAL.deep; ctx.fill();
     poly(ctx, [...top.map(p => P3(P, p)), ...bot.slice().reverse().map(p => P3(P, p))]); ctx.closePath();
-    ctx.fillStyle = grey(tone); ctx.fill();
-    for (const i of GUY_I) inkLine(ctx, [P3(P, top[i]), P3(P, bot[i])], lwF, 'rgba(70,70,72,0.5)', i + sd);
+    ctx.fillStyle = yel(tone); ctx.fill();
+    for (const i of GUY_I) inkLine(ctx, [P3(P, top[i]), P3(P, bot[i])], lwF, deepA(0.5), i + sd);
     inkLine(ctx, bot.map(p => P3(P, p)), lwM, INK, 11 + sd);
   }
 
@@ -226,7 +246,7 @@ function drawTent(ctx) {
       const tone = Math.min(246, base + 75 * (lam(nw[0], nw[1], n[2]) - lB));
       const pts = [...m[i].map(p => P3(P, p)), ...m[i + 1].slice().reverse().map(p => P3(P, p))];
       poly(ctx, pts); ctx.closePath();
-      ctx.fillStyle = grey(tone); ctx.fill();
+      ctx.fillStyle = yel(tone); ctx.fill();
       ctx.lineWidth = 0.25; ctx.strokeStyle = ctx.fillStyle; ctx.stroke();
     }
     // soft gradient: lighter at the ridge, greyer toward the eave
@@ -239,7 +259,7 @@ function drawTent(ctx) {
     const fold = (u0, v0, u1, v1, s) => {
       const pts = [];
       for (let k = 0; k <= 6; k++) { const t = k / 6; pts.push(P3(P, tent3(lerp(u0, u1, t), lerp(v0, v1, t), sd, wl))); }
-      inkLine(ctx, pts, lwF, 'rgba(72,72,75,0.42)', s, 0.12);
+      inkLine(ctx, pts, lwF, deepA(0.5), s, 0.12);
     };
     for (const ue of [0.09, 0.19, 0.3]) { fold(0.005, 0.02, ue, 0.95, ue * 40 + sd); fold(0.995, 0.02, 1 - ue, 0.95, ue * 50 + sd); }
     for (const i of GUY_I) { const u = i / NU; fold(u, 1, u - 0.05, 0.5, i * 3 + sd); fold(u, 1, u + 0.05, 0.55, i * 5 + sd); }
@@ -260,23 +280,27 @@ function drawTent(ctx) {
   }
   poly(ctx, [eL, apex, eR, ...gHem.slice().reverse()]); ctx.closePath();
   const gg = ctx.createLinearGradient(apex[0], apex[1], (gHem[0][0] + gHem[12][0]) / 2, gHem[6][1]);
-  gg.addColorStop(0, grey(gTone + 14)); gg.addColorStop(1, grey(gTone - 12));
+  gg.addColorStop(0, yel(gTone + 14)); gg.addColorStop(1, yel(gTone - 12));
   ctx.fillStyle = gg; ctx.fill();
   for (const f of [-0.85, -0.5, 0.55, 0.88]) {
     const end = P(f * Ws, L2 + 0.02, 0.4);
-    inkLine(ctx, [P(f * 0.6, L2, Hr - 0.6), [lerp(apex[0], end[0], 0.5) + f * 0.4, lerp(apex[1], end[1], 0.5)], end], lwF, 'rgba(70,70,72,0.38)', 50 + f * 10, 0.15);
+    inkLine(ctx, [P(f * 0.6, L2, Hr - 0.6), [lerp(apex[0], end[0], 0.5) + f * 0.4, lerp(apex[1], end[1], 0.5)], end], lwF, deepA(0.45), 50 + f * 10, 0.15);
+  }
+  if (tentNight > 0.02) {
+    inkLine(ctx, [apex, P(0, L2, 0.3)], inkW(0.5), `rgba(${Y_SH[0]},${Y_SH[1]},${Y_SH[2]},${0.45 * tentNight})`, 71, 0);
+    for (const sd of [-1, 1]) for (const i of [7, 13]) inkLine(ctx, mesh[sd][i].map(p => P3(P, p)), inkW(0.4), `rgba(${Y_SH[0]},${Y_SH[1]},${Y_SH[2]},${0.3 * tentNight})`, i + sd, 0);
   }
   const dh = Hr * 0.62, dw = 3.0;
   const dA = P(0, L2 + 0.03, dh), dLb = P(-dw, L2 + 0.03, 0), dRb = P(dw, L2 + 0.03, 0);
-  poly(ctx, [dA, dRb, dLb]); ctx.closePath(); ctx.fillStyle = '#3d3d3f'; ctx.fill();
+  poly(ctx, [dA, dRb, dLb]); ctx.closePath(); ctx.fillStyle = doorFill(dA, dLb, dRb); ctx.fill();
   const fl = [P(-0.35, L2 + 0.06, dh - 0.4), P(-dw, L2 + 0.06, 0), P(-dw - 2.0, L2 + 0.4, 0.25), P(-dw - 0.5, L2 + 0.3, 2.6)];
-  poly(ctx, fl); ctx.closePath(); ctx.fillStyle = grey(gTone - 18); ctx.fill();
-  inkLine(ctx, [...fl, fl[0]], lwF, INK, 61, 0);
+  poly(ctx, fl); ctx.closePath(); ctx.fillStyle = yel(gTone - 18); ctx.fill();
+  inkLine(ctx, [...fl, fl[0]], lwF, SIGNAL.deep, 61, 0);
   const xf = dw - 1.7 + Math.sin(windPh * 4.3) * (0.35 + 0.6 * wind) + gust * 0.9 - 0.3 * wind;
   const midf = P(lerp(0, xf, 0.5) + Math.sin(windPh * 6.1) * 0.3 * wind, L2 + 0.25, dh * 0.5);
   const rf = [dA, dRb, P(xf, L2 + 0.35 + 0.4 * wind, 0.15), midf];
-  poly(ctx, rf); ctx.closePath(); ctx.fillStyle = grey(gTone + 6); ctx.fill();
-  inkLine(ctx, [...rf, dA], lwF, INK, 63, 0);
+  poly(ctx, rf); ctx.closePath(); ctx.fillStyle = yel(gTone + 6); ctx.fill();
+  inkLine(ctx, [...rf, dA], lwF, SIGNAL.deep, 63, 0);
   inkLine(ctx, [eL, apex, eR], lwM, INK, 65, 0.03);
   inkLine(ctx, gHem, lwM, INK, 67);
   inkLine(ctx, [apex, P(0, L2 + 0.1, Hr + 1.3)], inkW(0.3), INK, 69, 0);
@@ -1065,6 +1089,9 @@ function onScreen(m = 30) {
 }
 
 export function update(dt) {
+  const night = state.lighting?.night || 0;
+  tentNight = night;
+  if (night > 0 && state.lights) state.lights.push({ x: TENT.x, y: TENT.y - 2, r: 38, intensity: 0.9 * night });
   const w = state.wind;
   const shelter = terrain.shelterAt ? terrain.shelterAt(TENT.x, TENT.y) || 0 : 0;
   gust = clamp(w.gust || 0, 0, 1);
@@ -1134,19 +1161,19 @@ const corners = (xs, ys, hs) => { const o = []; for (const x of xs) for (const y
 const TENT_BOX = boxOf(projT, corners([-21, 21], [-23.5, 23.5], [0, 14]), 2.5);
 const SLED_BOX = boxOf(projS, corners([-14.5, 16], [-4.5, 4.5], [0, 10]), 2);
 const sprites = new Map();
-function drawCached(ctx, key, box, hz, render, dx = 0, dy = 0) {
+function drawCached(ctx, key, box, hz, render, dx = 0, dy = 0, stamp = 0) {
   const s = zoom() * (state.view.dpr || 1);
   let sp = sprites.get(key);
   if (!sp) { sp = { cv: document.createElement('canvas'), t: -1e9, s: 0 }; sprites.set(key, sp); }
   const now = performance.now() / 1000;
-  if (Math.abs(s - sp.s) / s > 0.02 || now - sp.t >= 1 / hz) {
+  if (Math.abs(s - sp.s) / s > 0.02 || now - sp.t >= 1 / hz || Math.abs(stamp - (sp.stamp || 0)) > 0.03) {
     const w = Math.ceil((box.x1 - box.x0) * s) + 2, h = Math.ceil((box.y1 - box.y0) * s) + 2;
     if (sp.cv.width !== w || sp.cv.height !== h) { sp.cv.width = w; sp.cv.height = h; }
     const c = sp.cv.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, w, h);
     c.setTransform(s, 0, 0, s, -box.x0 * s, -box.y0 * s);
     render(c);
-    Object.assign(sp, { s, t: now, x0: box.x0, y0: box.y0, w: w / s, h: h / s, dx, dy });
+    Object.assign(sp, { s, t: now, x0: box.x0, y0: box.y0, w: w / s, h: h / s, dx, dy, stamp });
   }
   ctx.drawImage(sp.cv, sp.x0 + dx - sp.dx, sp.y0 + dy - sp.dy, sp.w, sp.h);
 }
@@ -1159,7 +1186,7 @@ export function drawables() {
   if (!onScreen()) return [];
   const hz = HZ[state.quality?.level] || HZ.high;
   const out = [
-    { x: TENT.x, y: TENT.y + 3, draw: ctx => drawCached(ctx, 'tent', TENT_BOX, hz[0], drawTent) },
+    { x: TENT.x, y: TENT.y + 3, draw: ctx => drawCached(ctx, 'tent', TENT_BOX, hz[0], drawTent, 0, 0, tentNight) },
     { x: SLED.x, y: SLED.y + 1, draw: ctx => drawCached(ctx, 'sled', SLED_BOX, hz[1], drawSled) },
   ];
   for (const d of dogs) out.push({ x: d.x, y: d.y, draw: ctx => {

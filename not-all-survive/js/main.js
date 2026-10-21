@@ -23,9 +23,10 @@ const MODULES = {
   camp: './actors/camp.js',
   wildlife: './actors/wildlife.js',
   audio: './audio/audio.js',
+  night: './fx/night.js',            // last: grades the finished frame and adds warm lights
 };
 const only = state.params.get('only')?.split(',');
-const ALWAYS = ['terrain', 'map', 'ground', 'frontier'];
+const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night'];
 const names = Object.keys(MODULES).filter(n => !only || ALWAYS.includes(n) || only.includes(n));
 
 // Each module loads and runs in isolation: one broken module logs an error and is

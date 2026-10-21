@@ -18,8 +18,9 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 ## Art direction — match the painting, don't invent a new style
 - **Strictly monochrome.** Paper/snow white `#f2f2f0`–`#fafafa`; snow shadow and ice
   mid-greys `#c4c6c8`–`#dcdcdc`; rock `#5a5a5a`–`#8a8a8a`; ink `#262626`–`#3a3a3a`.
-  No colour, with one deliberate exception: the explorer's coat is a very dark,
-  desaturated navy (Joe's call), the only colour in the scene.
+  No colour, with one deliberate exception: SIGNAL YELLOW (js/palette.js), Joe's
+  attention colour. The explorer's coat and the tent wear it; later, anything the
+  player should notice may too. Never use it decoratively.
 - **Inked illustration.** Thin, slightly irregular dark outlines; flat grey fills with
   soft cel shading; stipple dots along snow edges; fine vertical hatching on cliffs.
 - **Light from the upper-left**, cast shadows fall toward the lower-right, soft and grey
@@ -57,6 +58,7 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - `?x=&y=` spawn point (world px); `?zoom=`; `?speed=` time scale.
 - `?wind=0..1`, `?windAngle=<rad>`, `?whiteout=0..1`, `?snow=0..1` initial weather.
 - `?only=explorer,weather` load only those systems (map, terrain and ground always load).
+- `?night` starts at full night (the gear menu also toggles it).
 - `?terrain=ice` forces `terrainAt()` to return that type everywhere (handy for animation tests).
 - `?debug` lets modules draw debug overlays.
 

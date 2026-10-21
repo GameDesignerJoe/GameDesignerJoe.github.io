@@ -17,6 +17,7 @@
 //   state.wind.angle is the direction the wind blows TOWARD (downwind).
 import { state } from '../state.js';
 import * as T from '../world/terrain.js';
+import { SIGNAL } from '../palette.js';
 
 const KY = 0.8;              // ground-depth foreshortening (rig, travel, footprints)
 const BASE_SPEED = 13;       // world units / s on plain snow
@@ -1256,7 +1257,7 @@ function inkOutline(ctx, pts, wMin = 0.12, wMax = 0.36, closed = true) {
   if (cur > 0) ctx.stroke();
 }
 // Hard light/dark split: everything to the right of the line a->b (extended) goes dark.
-function darkSide(ctx, clipPts, a, b, alpha = 0.62, soft = 0.4) {
+function darkSide(ctx, clipPts, a, b, alpha = 0.62, soft = 0.4, rgb = DEEP) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
   const l = Math.hypot(dx, dy) || 1;
   const ux = dx / l, uy = dy / l;
@@ -1266,8 +1267,8 @@ function darkSide(ctx, clipPts, a, b, alpha = 0.62, soft = 0.4) {
   ctx.save();
   ctx.beginPath(); polyPath(ctx, clipPts); ctx.clip();
   const quad = off => { ctx.beginPath(); ctx.moveTo(A[0] + nx * off, A[1] + ny * off); ctx.lineTo(B[0] + nx * off, B[1] + ny * off); ctx.lineTo(B[0] + nx * 40, B[1] + ny * 40); ctx.lineTo(A[0] + nx * 40, A[1] + ny * 40); ctx.closePath(); };
-  if (soft > 0) { quad(-soft); ctx.fillStyle = `rgba(14,18,30,${alpha * 0.3})`; ctx.fill(); }
-  quad(0); ctx.fillStyle = `rgba(14,18,30,${alpha})`; ctx.fill();
+  if (soft > 0) { quad(-soft); ctx.fillStyle = `rgba(${rgb},${alpha * 0.3})`; ctx.fill(); }
+  quad(0); ctx.fillStyle = `rgba(${rgb},${alpha})`; ctx.fill();
   ctx.restore();
 }
 function ringArcIdx(pts, upper) {
@@ -1348,13 +1349,17 @@ function drawShadow(ctx, rig, X, Y) {
 }
 
 // --- the figure -------------------------------------------------------------------------------------
+// hex '#rrggbb' -> [r, g, b]; rgba string; mix toward another colour
+const hexRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mixHex = (h1, h2, t) => '#' + hexRGB(h1).map((v, i) => Math.round(v + (hexRGB(h2)[i] - v) * t).toString(16).padStart(2, '0')).join('');
 const C = {
-  // a very dark, desaturated navy coat: the only colour in the scene
-  coat: '#363e51', panel: '#646d7d', hood: '#3a4254', rim: '#747d8d',
+  // the signal yellow (js/palette.js): the explorer is what to watch
+  coat: SIGNAL.lit, panel: mixHex(SIGNAL.lit, '#f4efe4', 0.6), hood: SIGNAL.lit, rim: mixHex(SIGNAL.lit, '#f4efe4', 0.45),
   trousersL: '#2c2c2e', trousersD: '#1b1b1d', boot: '#151515', mitt: '#1e1e20',
-  sleeveL: '#363e51', sleeveD: '#1e2330', face: '#121418', nose: '#7c7c7c',
+  sleeveL: SIGNAL.lit, sleeveD: SIGNAL.shadow, face: '#121418', nose: '#7c7c7c',
   pack: '#3e3e3c',
 };
+const DEEP = hexRGB(SIGNAL.deep).join(',');      // shading and creases on the yellow cloth
 
 const C0 = { ...C };
 const NOCLIP = state.params.get('noclip') === '1';   // debug: disable the arm clip
@@ -1529,7 +1534,7 @@ function drawCoat(ctx, rig, pr, depth) {
     const a2 = [lerp(a[0], b[0], s), lerp(a[1], b[1], s)];
     ctx.beginPath(); ctx.moveTo(a2[0], a2[1]);
     ctx.quadraticCurveTo((a2[0] + b[0]) / 2 + 0.15, (a2[1] + b[1]) / 2, b[0], b[1] - 0.15);
-    ctx.lineWidth = 0.15; ctx.strokeStyle = `rgba(38,38,38,${0.35 + 0.35 * v})`; ctx.stroke();
+    ctx.lineWidth = 0.15; ctx.strokeStyle = `rgba(${DEEP},${0.5 + 0.4 * v})`; ctx.stroke();
   }
   ctx.restore();
 
@@ -1541,7 +1546,7 @@ function drawCoat(ctx, rig, pr, depth) {
   // Internal ink marks: shadow under the shoulder on the dark side, cloth turn at the hem.
   ctx.save();
   ctx.beginPath(); polyPath(ctx, poly); ctx.clip();
-  ctx.strokeStyle = 'rgba(20,20,20,0.55)'; ctx.lineCap = 'round';
+  ctx.strokeStyle = `rgba(${DEEP},0.8)`; ctx.lineCap = 'round';
   const rx = Math.max(...poly.map(p => p[0]));
   const hemY = Math.max(...poly.map(p => p[1]));
   ctx.lineWidth = 0.14;
@@ -1559,7 +1564,7 @@ function drawPack(ctx, rig, pr) {
   const hull = dense(convexHull(c), null, 3);
   ctx.beginPath(); polyPath(ctx, hull); ctx.fillStyle = C.pack; ctx.fill();
   const cx = hull.reduce((s, p) => s + p[0], 0) / hull.length;
-  darkSide(ctx, hull, [cx + 0.1, 0], [cx + 0.25, 1], 0.55, 0);
+  darkSide(ctx, hull, [cx + 0.1, 0], [cx + 0.25, 1], 0.55, 0, '26,26,28');   // the pack stays neutral grey
   const f0 = pr(mix(rig.pack[4], rig.pack[7], 0.35)), f1 = pr(mix(rig.pack[5], rig.pack[6], 0.35));
   ctx.beginPath(); ctx.moveTo(f0[0], f0[1]); ctx.lineTo(f1[0], f1[1]);
   ctx.strokeStyle = 'rgba(30,30,30,0.7)'; ctx.lineWidth = 0.15; ctx.stroke();
@@ -1612,7 +1617,7 @@ function drawHood(ctx, rig, pr) {
     face = { fcx, fcy, wfac, toward };
   } else {
     // back of the hood: a fold falling from the point
-    ctx.strokeStyle = 'rgba(38,38,38,0.45)'; ctx.lineWidth = 0.14; ctx.lineCap = 'round';
+    ctx.strokeStyle = `rgba(${DEEP},0.7)`; ctx.lineWidth = 0.14; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(pk[0], pk[1] + 0.5); ctx.quadraticCurveTo(h[0] + 0.45, h[1], h[0] + 0.3, h[1] + HOOD_RY); ctx.stroke();
   }
   ctx.restore();
