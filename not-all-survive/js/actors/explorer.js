@@ -79,6 +79,17 @@ let stampT = 8, stampOn = 0, stampSide = 1;
 let lastGust = 0;
 // coat hem spring (body-frame offset of the hem centre, lags hip velocity)
 const hemS = { f: 0, r: 0, z: 0, vf: 0, vr: 0, vz: 0 };
+// Compass (js/ui/compass.js): weights for rummaging in the pack, offering it in the slot, and
+// holding it out; packSwing 0 = on the back, 1 = swung round in front.
+const CP = { rum: 0, slot: 0, out: 0, pack: 0 };
+function updateCompassPose(dt) {
+  const ph = state.compass?.phase || 'idle';
+  CP.rum = approach(CP.rum, ph === 'rummage' ? 1 : 0, ph === 'rummage' ? 4 : 5, dt);
+  CP.slot = approach(CP.slot, ph === 'slot' ? 1 : 0, 5, dt);
+  CP.out = approach(CP.out, ph === 'out' ? 1 : 0, 5, dt);
+  // the pack comes off one shoulder and round to the front over ~0.6 s, and back on after
+  CP.pack = clamp(CP.pack + (ph === 'rummage' ? 1 : -1) * dt / 0.6);
+}
 const puffs = [], kicks = [];
 let rng = 1234567;
 const rand = () => { rng = (rng * 1103515245 + 12345) & 0x7fffffff; return rng / 0x7fffffff; };
@@ -119,6 +130,7 @@ export function update(dt) {
   if (dt <= 0) return;
   const inp = state.input;
   for (const e of state.events) if (e.type === 'teleport') resetTo(e.x, e.y);
+  updateCompassPose(dt);
   const ter = (T.terrainAt(P.x, P.y)) || 'snow';
   P.terrain = ter;
   const prof = PROFILES[ter] || PROFILES.snow;
@@ -177,7 +189,7 @@ export function update(dt) {
 
   // Pause at each foot plant on ice: |sin| is 0 at the plants.
   tentMod = 1 - pose.tent * (1 - Math.pow(Math.abs(Math.sin(phase * Math.PI * 2)), 0.6));
-  let spd = BASE_SPEED * sf * mag * (1 - 0.45 * wEff * into) * (1 - pose.tent * 0.35) * lerp(1, 0.45, fa);
+  let spd = BASE_SPEED * sf * mag * (1 - 0.45 * wEff * into) * (1 - pose.tent * 0.35) * lerp(1, 0.45, fa) * (1 - 0.25 * CP.out);
   if (staggerT > 0) spd *= 0.35;
   if (slipT > 0) spd *= 0.5;
   // a steady push back toward the interior, stronger the deeper in
@@ -216,6 +228,10 @@ export function update(dt) {
     const turnRate = (ter === 'ice' || ter === 'thin' ? 4 : 6.5) * dt;
     const d = wrapPi(wantDir - P.facing);
     P.facing = wrapPi(P.facing + clamp(d, -turnRate, turnRate));
+  } else if (CP.out > 0.5) {
+    // orienting by the compass: turn slowly to face north-west (screen up-left)
+    const nw = Math.atan2(-1 / KY, -1);
+    P.facing = wrapPi(P.facing + clamp(wrapPi(nw - P.facing), -0.8 * dt, 0.8 * dt));
   }
   updateCower(dt, active);
 
@@ -1049,6 +1065,13 @@ function buildRig() {
     hz = lerp(hz, 3.4, cw); leanF = lerp(leanF, 0.78, cw);
     leanS = lerp(leanS, hunkerSide * 0.28 * hunkerW, cw); twist = lerp(twist, 0, cw);
   }
+  // compass: bent over the pack while rummaging; braced and head bowed holding it out
+  const rw = CP.rum, cow = CP.out;
+  if (rw > 0.001 || cow > 0.001) {
+    hz -= 0.5 * rw + 0.25 * cow * (1 - g);
+    leanF += 0.38 * rw + 0.1 * cow;
+    twist = lerp(twist, 0, Math.max(rw, cow));
+  }
   // climb / knockdown override
   const O = ovr && ovrW > 0.001 ? ovr : null, ow = O ? ovrW : 0;
   const climbW = O && O.full && P.mode === 'climb' ? ow : 0;
@@ -1120,11 +1143,34 @@ function buildRig() {
       pole = mix(pole, torsoDir([-0.5, s, -0.4], tf), shK);
       flung = fs === 1;
     }
+    // compass poses (walking ones: the climb/fall overrides below still win)
+    let cpFull = 0;
+    if (CP.rum > 0.001) {
+      const dig = Math.sin(t * 9 + (s > 0 ? 0 : 1.9)), dig2 = Math.sin(t * 5.3 + s);
+      const hT = torsoToBody([1.75 + 0.15 * dig2, s * 0.75, SPINE - 2.7 + 0.35 * dig], tf);
+      handB = mix(handB, hT, CP.rum * CP.pack); pole = mix(pole, torsoDir([-0.3, s, -0.6], tf), CP.rum);
+      cpFull = Math.max(cpFull, CP.rum * CP.pack);
+    }
+    if (CP.slot > 0.001) {
+      // one hand out to the side, toward the slot (screen left of the explorer), holding it up
+      const side = Math.sin(yaw) >= 0 ? 1 : -1;
+      if (s === side) {
+        const hT = [-Math.cos(yaw) * 2.6, Math.sin(yaw) * 3.0, HIP_H + SPINE - 1.4];
+        handB = mix(handB, hT, CP.slot); pole = mix(pole, torsoDir([-0.4, s, -0.5], tf), CP.slot);
+        cpFull = Math.max(cpFull, CP.slot);
+      }
+    }
+    if (CP.out > 0.001) {
+      const shake = envW.wEff * 0.14;
+      const hT = torsoToBody([1.55 + Math.sin(t * 27) * shake, s * 0.38 + Math.sin(t * 31 + 1) * shake, SPINE - 1.25 + Math.sin(t * 23 + 2) * shake], tf);
+      handB = mix(handB, hT, CP.out); pole = mix(pole, torsoDir([-0.2, s * 1.1, -0.7], tf), CP.out);
+      cpFull = Math.max(cpFull, CP.out);
+    }
     if (O) { handB = mix(handB, O.hands[s < 0 ? 0 : 1], ow); pole = mix(pole, O.poleA[s < 0 ? 0 : 1], ow); }
     const a = ik(shoulder, handB, UPPER_ARM, FOREARM, pole);
-    const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung;
+    const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4);
     const active = full ? 1 : Math.max(spreadW, pose.hug, Math.max(0, pose.work - 0.3) * 1.4, shieldW, pose.creep);
-    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0 });
+    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4 });
   }
 
   // Head / hood. Thin ice: looking down at the feet.
@@ -1135,6 +1181,7 @@ function buildRig() {
   const faceYaw = twist + pose.headYaw + (O && O.faceYaw ? O.faceYaw * ow : 0);
   let facePitch = 0.15 + hunch; // head always bowed a little; 1 = looking at the feet
   if (cw > 0.001) facePitch = lerp(facePitch, 0.9, cw);
+  facePitch = lerp(facePitch, 0.95, Math.max(CP.rum, CP.out * 0.85));
   if (O) facePitch = lerp(facePitch, O.facePitch, ow);
 
   // Coat rings
@@ -1205,7 +1252,13 @@ function buildRig() {
   // Small rucksack on the back.
   const pack = [];
   for (const [f, r, z] of [[-1.0, -0.8, 2.4], [-1.0, 0.8, 2.4], [-1.0, 0.8, 0.8], [-1.0, -0.8, 0.8],
-    [-1.4, -0.72, 2.3], [-1.4, 0.72, 2.3], [-1.4, 0.72, 0.95], [-1.4, -0.72, 0.95]]) pack.push(torsoToBody([f, r, z], tf));
+    [-1.4, -0.72, 2.3], [-1.4, 0.72, 2.3], [-1.4, 0.72, 0.95], [-1.4, -0.72, 0.95]]) {
+    // rummaging: off one shoulder and round the side to the front, held low by the hands
+    const k = smooth(0, 1, CP.pack), th = Math.PI * k;
+    const c = Math.cos(th), sn = Math.sin(th);
+    const pf = f * c - r * sn + 0.55 * k, prr = f * sn + r * c, pz = z - 1.5 * k + 0.5 * Math.sin(th);
+    pack.push(torsoToBody([pf, prr, pz], tf));
+  }
 
   return { yaw, legs, arms, head, peak, drape, faceYaw, facePitch, top, hem, pack, shoulderC, hips: [hx, hr, hz], tf, sinkNow, hemC, twist, hemYaw, lying: O ? O.hemAttach * ow : 0, climbing: O && O.full && P.mode === 'climb' ? ow : 0, shadowOff };
 }
@@ -1445,7 +1498,8 @@ function drawFigure(ctx, rig, X, Y) {
   const fromBehind = Math.sin(P.facing) < -0.3;
   for (const A of arms) A.hidden = !A.full && (A.s !== nearS || A.d < -0.45 || (fromBehind && slipT <= 0));
   for (const A of arms) {
-    if (A.behind) { if (A.full) drawArm(A); continue; }   // never drawn on the back
+    if (A.behind) { if (A.full && !(A.cp && fromBehind)) drawArm(A); continue; }   // never drawn on the back
+    if (A.cp && fromBehind) continue;   // compass hands in front: hidden by the body from behind
     if (A.hidden) continue;
     if (A.full) drawArm(A);
     else if (A.spreadW > 0.3 || (A.s === pose.shieldSide && pose.shield > 0.3)) {
@@ -1460,7 +1514,7 @@ function drawFigure(ctx, rig, X, Y) {
   drawCoat(ctx, rig, pr, depth);
 
   if (packD >= 0) drawPack(ctx, rig, pr);
-  const out = arms.filter(A => !A.behind && !A.hidden && A.active > 0.3);
+  const out = arms.filter(A => !A.behind && !A.hidden && !(A.cp && fromBehind) && A.active > 0.3);
   for (const A of out) if (!A.overHead && A.dh <= headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
   drawHood(ctx, rig, pr);
   for (const A of out) if (A.overHead || A.dh > headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
