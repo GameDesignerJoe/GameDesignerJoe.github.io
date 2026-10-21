@@ -25,10 +25,11 @@ const MODULES = {
   wildlife: './actors/wildlife.js',
   audio: './audio/audio.js',
   night: './fx/night.js',            // grades the finished frame and adds warm lights
+  bright: './fx/bright.js',          // blinding clear days: glare, halo, lost detail
   compass: './ui/compass.js',        // after night, so the UI isn't tinted
 };
 const only = state.params.get('only')?.split(',');
-const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'compass'];
+const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'bright', 'compass'];
 const names = Object.keys(MODULES).filter(n => !only || ALWAYS.includes(n) || only.includes(n));
 
 // Each module loads and runs in isolation: one broken module logs an error and is

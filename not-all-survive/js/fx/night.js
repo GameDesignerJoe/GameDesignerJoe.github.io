@@ -20,6 +20,7 @@
 import { state } from '../state.js';
 import { SIGNAL } from '../palette.js';
 import { worldToScreen } from '../camera.js';
+import { mask } from '../world/terrain.js';
 
 const EASE_S = 3.5;                // time to (nearly) reach the night target
 const BLUE = [0.26, 0.44, 0.95];   // multiply colour at full night
@@ -255,6 +256,7 @@ export function drawScreen(ctx) {
 
   // --- optional cores (only lights that ask for one) ---
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawFigure(ctx, n, white);
   for (const l of lights) {
     if (!l.core) continue;
     const r = l.r0 * 0.35;
@@ -262,6 +264,70 @@ export function drawScreen(ctx) {
     ctx.drawImage(core, l.x - r, l.y - r, 2 * r, 2 * r);
   }
   state.lights.length = 0;
+}
+
+// The explorer's coat would sink to rusty brown under the blue multiply, and a light on
+// him spills onto the snow. Instead the figure itself is drawn again on top, into a small
+// offscreen clipped to the body (not the shadow or ground), given its own gentler night
+// grade (navy wash that keeps the hue), and laid over the graded frame. The snow around
+// him is untouched: no halo. The explorer module is the same instance main.js loaded.
+let explorerMod = null, fig = null, figCtx = null;
+const onlyP = state.params.get('only');
+if (!onlyP || onlyP.split(',').includes('explorer')) import('../actors/explorer.js').then(m => { explorerMod = m; });
+const FIG = { x0: -6, x1: 6, y0: -19, y1: 1 };   // world px box around the feet
+
+// Same test layers.js uses to decide an occluder covers the explorer: a real textured
+// rock/cliff face (>= 4 mask px in a column) just below his feet, unless he stands on
+// shadow ground. Kept in step with layers.js behindFace().
+function behindFace(x, y) {
+  const m = mask();
+  if (!m) return false;
+  const s = m.scale;
+  const fi = Math.floor(y / s) * m.w + Math.floor(x / s);
+  if (m.cls[fi] === 7) return false;
+  const mx0 = Math.floor((x - 1) / s), mx1 = Math.floor((x + 1) / s);
+  const my0 = Math.floor((y + 2) / s), my1 = Math.floor((y + 24) / s);
+  for (let mx = Math.max(0, mx0); mx <= Math.min(m.w - 1, mx1); mx++) {
+    let c = 0;
+    for (let my = Math.max(0, my0); my <= Math.min(m.h - 1, my1); my++) {
+      const i = my * m.w + mx;
+      if (m.occ[i] && m.tex[i]) { if (++c >= 4) return true; } else if (c) c = 0;
+    }
+  }
+  return false;
+}
+
+function drawFigure(ctx, n, white) {
+  const p = state.player;
+  if (!explorerMod?.drawables || !p || !state.started) return;
+  const a = n * (1 - 0.85 * white);   // a whiteout veils him like everything else
+  if (a < 0.02 || behindFace(p.x, p.y)) return;   // behind a cliff: layers.js covers him; don't redraw over it
+  const zoom = state.cam.zoom || 1, dpr = state.view.dpr;
+  const s = worldToScreen(p.x + FIG.x0, p.y + FIG.y0);
+  const fw = Math.ceil((FIG.x1 - FIG.x0) * zoom * dpr), fh = Math.ceil((FIG.y1 - FIG.y0) * zoom * dpr);
+  if (!fig) { fig = document.createElement('canvas'); figCtx = fig.getContext('2d'); }
+  if (fig.width < fw || fig.height < fh) { fig.width = Math.max(fig.width, fw); fig.height = Math.max(fig.height, fh); }
+  const g = figCtx;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+  g.clearRect(0, 0, fw, fh);
+  // clip to the body: a rounded column from the boots to the hood, so the cast shadow
+  // and footprints (lower right of the feet) stay out of it
+  g.beginPath();
+  g.ellipse(fw / 2, fh * 0.52, fw * 0.36, fh * 0.5, 0, 0, Math.PI * 2);
+  g.clip();
+  g.setTransform(zoom * dpr, 0, 0, zoom * dpr, -(p.x + FIG.x0) * zoom * dpr, -(p.y + FIG.y0) * zoom * dpr);
+  try { for (const d of explorerMod.drawables()) { g.save(); d.draw(g); g.restore(); } } catch { return; }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  // the figure's own night: a navy wash over its pixels only
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = 'rgba(14,22,58,0.34)';
+  g.fillRect(0, 0, fw, fh);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = a;
+  ctx.drawImage(fig, 0, 0, fw, fh, s.x, s.y, fw / dpr, fh / dpr);
+  ctx.globalAlpha = 1;
 }
 
 function drawAurora(g, w, h, a) {
