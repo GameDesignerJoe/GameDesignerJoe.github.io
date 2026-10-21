@@ -176,7 +176,7 @@ It's the art review sheet. `window.ctw` exposes the app in the console:
 ### Home-screen icon
 
 `tools/icon.html` paints the app icon from the game's own art: a close-up of a
-sheep whose disguise has slipped (wolf ears, yellow eyes). After an art change,
+friendly sheep's face, turned so the eyes sit above the nose. After an art change,
 regenerate the PNGs that `index.html` and `manifest.json` point to:
 
 ```bash
