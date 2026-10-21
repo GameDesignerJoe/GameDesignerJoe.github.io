@@ -28,11 +28,28 @@ const HALO = 1.5;                  // the pool on the snow spreads past a light'
 const MAX_LIGHTS = 8;              // nearest to the screen centre win
 const WARM = [1, 3, 5].map(i => parseInt(SIGNAL.glow.slice(i, i + 2), 16)); // SIGNAL.glow as rgb
 
+// Day/night cycle: DAY_S of daylight, then NIGHT_S of night, repeating. The ease below
+// (EASE_S) gives dusk and dawn. ?night / ?day pin it; the gear menu can pin it too.
+const DAY_S = 180, NIGHT_S = 120;
+const pinned = state.params.has('night') ? 'night' : state.params.has('day') ? 'day' : null;
+if (pinned) state.lighting.mode = pinned;
+else if (!state.lighting.mode) state.lighting.mode = 'cycle';
+state.lighting.clock = 0;   // seconds into the current cycle
+
 export function update(dt) {
   const L = state.lighting;
+  if (L.mode === 'cycle') {
+    // The clock only runs once the player is in the world, so the title stays daylight.
+    if (state.begun || state.params.has('autostart')) L.clock = (L.clock + dt) % (DAY_S + NIGHT_S);
+    L.nightTarget = L.clock >= DAY_S ? 1 : 0;
+  } else {
+    L.nightTarget = L.mode === 'night' ? 1 : 0;
+  }
   const d = L.nightTarget - L.night;
   // exponential ease that gets ~95% of the way in EASE_S
-  L.night += Math.abs(d) < 0.002 ? d : d * Math.min(1, dt * 3 / EASE_S);
+  // Dusk and dawn in the cycle are slow (~20 s); a manual switch from the menu is quick.
+  const ease = L.mode === 'cycle' ? 20 : EASE_S;
+  L.night += Math.abs(d) < 0.002 ? d : d * Math.min(1, dt * 3 / ease);
 }
 
 // --- buffers and sprites ------------------------------------------------------------
@@ -136,11 +153,8 @@ export function drawScreen(ctx) {
   const dark = 1 - 0.5 * storm;
   const lights = visibleLights(w, h, zoom, white);
 
-  // The explorer's own warm lift: tight (about their own size), so the coat reads as
-  // SIGNAL yellow anywhere without a visible disc on the snow.
-  const p = state.player;
-  const ex = p && state.started ? worldToScreen(p.x, p.y - 7) : null;
-  const er = 8 * zoom;
+  // No light on the explorer by design (Joe: it looked odd; a flashlight may come later).
+  const ex = null, er = 0;
 
   // --- light map: blue base, vignette, warm pools (rebuilt at ~15 Hz or on change) ---
   const lw = lightMap.width, lh = lightMap.height, sx = lw / w, sy = lh / h;

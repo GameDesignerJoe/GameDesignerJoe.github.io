@@ -58,7 +58,7 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - `?x=&y=` spawn point (world px); `?zoom=`; `?speed=` time scale.
 - `?wind=0..1`, `?windAngle=<rad>`, `?whiteout=0..1`, `?snow=0..1` initial weather.
 - `?only=explorer,weather` load only those systems (map, terrain and ground always load).
-- `?night` starts at full night (the gear menu also toggles it).
+- Day/night cycles (3 min day, 2 min night). `?night` / `?day` pin it; the gear menu's Time button cycles cycle → day → night.
 - `?terrain=ice` forces `terrainAt()` to return that type everywhere (handy for animation tests).
 - `?debug` lets modules draw debug overlays.
 
