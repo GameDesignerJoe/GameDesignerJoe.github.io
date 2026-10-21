@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Catch the Wolf — app icon</title>
+<!-- Paints the home-screen icon from the game's own art. Screenshot it at the
+     icon size (see docs/DESIGN.md → Home-screen icon):
+       icon.html?size=180            apple-touch-icon
+       icon.html?size=512&maskable   Android adaptive icon (wider safe margin) -->
+<style>html, body { margin: 0; background: #5fa630; } canvas { display: block; }</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+  import { paintSheep } from '../js/art/sheep.js';
+  import { paintMeadow } from '../js/art/ground.js';
+  const q = new URLSearchParams(location.search);
+  const size = Number(q.get('size')) || 512, maskable = q.has('maskable');
+  const c = document.getElementById('c');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  // Paint at 512 and scale, so every size is the same picture.
+  ctx.scale(size / 512, size / 512);
+  paintMeadow(ctx, 512, 512, 7, 0.7);
+  // A soft spotlight behind the sheep.
+  const g = ctx.createRadialGradient(256, 270, 40, 256, 270, 260);
+  g.addColorStop(0, 'rgba(255,250,210,0.45)'); g.addColorStop(1, 'rgba(255,250,210,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+  // The wolf in sheep's clothing: a cream sheep whose disguise has slipped.
+  const look = { wool: 'cream', face: 'cream', wolfFur: 'grey', tells: { ears: 'wolf', eyes: 'wolf' } };
+  // Close up on the face, where the tells are; the fleece runs off the
+  // bottom. Maskable icons get cropped to a circle (safe zone = 80% across),
+  // so they're drawn smaller.
+  const k = maskable ? 4.6 : 6;
+  ctx.translate(256, maskable ? 430 : 480);
+  ctx.scale(k, k);
+  paintSheep(ctx, look, {});
+  document.title = 'ready';
+</script>
+</body>
+</html>

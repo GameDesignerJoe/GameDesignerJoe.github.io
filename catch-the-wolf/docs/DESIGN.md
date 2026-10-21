@@ -173,6 +173,22 @@ or false. It covers:
 It's the art review sheet. `window.ctw` exposes the app in the console:
 `ctw.save.data.streak = 18; ctw.go('play')` jumps to the hardest tier.
 
+### Home-screen icon
+
+`tools/icon.html` paints the app icon from the game's own art: a close-up of a
+sheep whose disguise has slipped (wolf ears, yellow eyes). After an art change,
+regenerate the PNGs that `index.html` and `manifest.json` point to:
+
+```bash
+for a in "180 apple-touch-icon" "192 icon-192" "512 icon-512" "512&maskable icon-maskable-512"; do
+  set -- $a; s=${1%%&*}
+  node catch-the-wolf/tools/shoot.mjs --path "catch-the-wolf/tools/icon.html?size=$1" --w $s --h $s --dpr 1 --out catch-the-wolf/assets/$2.png
+done
+```
+
+iOS only uses `apple-touch-icon` (it ignores SVG), and caches it, so delete
+and re-add the home-screen shortcut to see a new one.
+
 ## Ideas parked for later
 
 - **Rule rounds** at high tiers: the flock is deliberately varied and the
