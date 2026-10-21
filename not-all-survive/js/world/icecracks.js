@@ -142,10 +142,12 @@ function render(segs, x0, y0, w, h) {
 }
 
 // --- static patches per tile ------------------------------------------------------------
-const tiles = new Map();   // key -> null | { c, x, y, w, h }
-const TILE_CAP = 40;
+const tiles = new Map();   // key -> { c, x, y, w, h } (LRU, capped)
+const empty = new Set();   // tiles known to have no patch (cheap, never evicted)
+const TILE_CAP = 96;       // bitmaps kept; a 2560 px view needs ~70 tiles
 function tilePatch(tx, ty) {
   const k = ty * 4096 + tx;
+  if (empty.has(k)) return null;
   if (tiles.has(k)) { const v = tiles.get(k); tiles.delete(k); tiles.set(k, v); return v; }
   const r = rng((tx * 92837111) ^ (ty * 689287499) ^ 0x1ce);
   let out = null;
@@ -165,10 +167,11 @@ function tilePatch(tx, ty) {
       out = { c: render(segs, x, y, w, h), x, y, w, h };
     }
   }
+  if (!out) { empty.add(k); return null; }
   tiles.set(k, out);
   if (tiles.size > TILE_CAP) {
     const [k0, v0] = tiles.entries().next().value;
-    if (v0) v0.c.width = 0;
+    v0.c.width = 0;
     tiles.delete(k0);
   }
   return out;

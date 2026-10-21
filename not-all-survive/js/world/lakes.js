@@ -1,18 +1,15 @@
-// Life on the frozen lakes and the open sea, drawn by ground.js right after the map.
+// Life on the open sea, drawn by ground.js right after the map. Frozen lakes stay
+// still apart from the white crack networks (icecracks.js).
 //
-// Water (dark thin ice / open leads at the bottom centre):
-//   - every white floe is cut out of the painting (crisp tile when loaded) and drawn
-//     bobbing, drifting in a small orbit round its home and rocking slightly, over a
-//     water-filled hole, with a dark waterline that thickens on the down-bob and a
-//     lapping light line below it;
-//   - ink ripples drifting downwind, expanding ring ripples.
-// Ice (class ice): skating snow
-//   streaks and puffs; every 3-5 s a bright gust band of loose snow runs across; a slow
-//   cloud shadow. White crack networks: icecracks.js.
-// All scale with state.wind. Pattern tiles, masks and floe sprites are pre-baked; per
-// frame each surface is one offscreen fill + mask + composite, plus the floe sprites.
-// state.quality.level: high = all; medium = lower-res effects, no cloud; low = ripples
-// and fractures only, floes static. ?nolakes turns it all off.
+// Open water (dark thin-ice / leads at the bottom centre):
+//   - an animated caustic cell network: baked Worley F2-F1 frames, cross-faded, drifting
+//     slowly downwind, squashed 0.8 vertically, masked to the painted water;
+//   - wind waves above ~0.5 wind: small crescent whitecaps facing downwind that rise,
+//     curl, break into spray and fade to foam;
+//   - every white floe cut from the painting, bobbing and drifting in a small orbit over
+//     a water-filled hole, with a dark waterline and a lapping light line.
+// state.quality.level: high = all; medium = one caustic layer, fewer waves; low = also
+// lower res, static floes. ?nolakes turns it all off.
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 import { mask, classAt, lumAt } from './terrain.js';
@@ -35,93 +32,6 @@ function rng(seed) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-// --- pre-baked textures ----------------------------------------------------------------
-let tex = null;
-function bake() {
-  const r = rng(7);
-  // Sheen: a few narrow, hard-edged light bands (seamless in x; drawn across the wind).
-  const sheen = canvas(256, 4), sg = sheen.getContext('2d');
-  for (const [c, w, a] of [[30, 3, 1], [37, 1.2, 0.7], [110, 5, 0.9], [118, 1.5, 0.6], [190, 2, 0.9], [232, 1, 0.6]]) {
-    sg.fillStyle = `rgba(255,255,255,${a})`;
-    sg.fillRect(c, 0, w, 4);
-    // a thin darker line on the lee side: the band reads as a ridge of light, not a glow
-    sg.fillStyle = `rgba(120,126,132,${a * 0.6})`;
-    sg.fillRect(c + w + 1, 0, 1, 4);
-  }
-
-  // Skating snow: fine wavy streaks along x (seamless).
-  const streak = canvas(160, 96), kg = streak.getContext('2d');
-  kg.strokeStyle = '#fff'; kg.lineCap = 'round';
-  for (let i = 0; i < 16; i++) {
-    const x0 = r() * 160, y0 = r() * 96, len = 14 + r() * 30, amp = 0.6 + r() * 1.2, ph = r() * TAU;
-    const lw = 0.7 + r() * 0.6, al = 0.45 + r() * 0.5;
-    for (const ox of [-160, 0, 160]) for (const oy of [-96, 0, 96]) {
-      kg.lineWidth = lw; kg.globalAlpha = al;
-      kg.beginPath();
-      for (let s = 0; s <= len; s += 2) {
-        const x = x0 + s + ox, y = y0 + Math.sin(ph + s * 0.25) * amp + oy;
-        s ? kg.lineTo(x, y) : kg.moveTo(x, y);
-      }
-      kg.stroke();
-    }
-  }
-  kg.globalAlpha = 1;
-
-  // Cloud shadow: soft dark blobs (seamless).
-  const cloud = canvas(128, 128), cg = cloud.getContext('2d');
-  for (let i = 0; i < 6; i++) {
-    const x = r() * 128, y = r() * 128, rad = 18 + r() * 26;
-    for (const ox of [-128, 0, 128]) for (const oy of [-128, 0, 128]) {
-      const gr = cg.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, rad);
-      gr.addColorStop(0, 'rgba(40,44,48,0.5)'); gr.addColorStop(1, 'rgba(40,44,48,0)');
-      cg.fillStyle = gr; cg.fillRect(x + ox - rad, y + oy - rad, rad * 2, rad * 2);
-    }
-  }
-
-  // Ripples: curved ink troughs with a light crest above, varied length / tilt (seamless).
-  const ripple = canvas(256, 160), rg = ripple.getContext('2d');
-  rg.lineCap = 'round';
-  // Varied: clustered placement, length and bend +-50%, some arcs broken in two.
-  const arcs = [];
-  for (let c = 0; c < 9; c++) {
-    const cx0 = r() * 256, cy0 = r() * 160, n = 1 + ((r() * 4) | 0);
-    for (let k = 0; k < n; k++) arcs.push([cx0 + (r() - 0.5) * 40, cy0 + (r() - 0.5) * 22]);
-  }
-  for (const [x, y] of arcs) {
-    const l = 15 * (0.5 + r()), tilt = (r() - 0.5) * 0.6, bend = 2.5 * (0.5 + r());
-    const broken = r() < 0.35, gap = 0.25 + r() * 0.2, crest = r() < 0.7;
-    for (const ox of [-256, 0, 256]) for (const oy of [-160, 0, 160]) {
-      const cx = x + ox, cy = y + oy, dx = Math.cos(tilt) * l / 2, dy = Math.sin(tilt) * l / 2;
-      const P = u => { // point on the arc, u in 0..1
-        const ax = cx - dx, ay = cy - dy + bend, bx = cx + dx, by = cy + dy + bend, mx = cx, my = cy - bend;
-        const v = 1 - u;
-        return [v * v * ax + 2 * v * u * mx + u * u * bx, v * v * ay + 2 * v * u * my + u * u * by];
-      };
-      const seg = (u0, u1) => { rg.beginPath(); for (let u = u0; u <= u1 + 1e-6; u += 0.1) { const [px, py] = P(Math.min(u, u1)); u === u0 ? rg.moveTo(px, py) : rg.lineTo(px, py); } rg.stroke(); };
-      rg.strokeStyle = 'rgba(48,52,56,0.95)'; rg.lineWidth = 0.9 + r() * 0.6;
-      if (broken) { seg(0, 0.5 - gap / 2); seg(0.5 + gap / 2, 1); } else seg(0, 1);
-      if (crest) {
-        rg.strokeStyle = 'rgba(214,218,222,0.85)'; rg.lineWidth = 1;
-        rg.beginPath(); rg.moveTo(cx - dx * 0.4, cy - dy * 0.4 + bend + 4); rg.quadraticCurveTo(cx, cy + 4 - bend * 0.2, cx + dx * 0.4, cy + dy * 0.4 + bend + 4); rg.stroke();
-      }
-    }
-  }
-
-  // Puff: a small soft white dot.
-  const puff = canvas(16, 16), pg = puff.getContext('2d');
-  const pgr = pg.createRadialGradient(8, 8, 0, 8, 8, 8);
-  pgr.addColorStop(0, 'rgba(255,255,255,0.95)'); pgr.addColorStop(1, 'rgba(255,255,255,0)');
-  pg.fillStyle = pgr; pg.fillRect(0, 0, 16, 16);
-
-  // Dark copy of the streaks: their tiny ink shadow (the snow sits on the ice).
-  const streakDark = canvas(160, 96), dg = streakDark.getContext('2d');
-  dg.drawImage(streak, 0, 0);
-  dg.globalCompositeOperation = 'source-in';
-  dg.fillStyle = 'rgb(40,44,48)'; dg.fillRect(0, 0, 160, 96);
-
-  tex = { sheen, streak, streakDark, cloud, ripple, puff };
 }
 
 // Upscale a binary mask (Uint8Array w*h of 0/1) by `up` with smooth, antialiased edges:
@@ -192,7 +102,7 @@ function build(m) {
     const i0 = y * 2 * w + x * 2;
     if ((cls[i0] === ICE) + (cls[i0 + 1] === ICE) + (cls[i0 + w] === ICE) + (cls[i0 + w + 1] === ICE) >= 2) { ib[y * iw + x] = 1; iceAny = true; }
   }
-  const ice = iceAny ? smoothMask(ib, iw, ih, 2) : null;
+  const ice = null; void iceAny;   // frozen lakes are drawn still: no mask needed
 
   // Water: bounding box of thin ice.
   let x0 = w, y0 = h, x1 = -1, y1 = -1;
@@ -350,20 +260,8 @@ function floeSprite(f) {
 }
 
 // --- live state ----------------------------------------------------------------------------
-const puffs = [], rings = [];
-let crackTimer = 2, gustTimer = 2, gust = null, ringTimer = 0.5;
 let fx = null, fxg = null, coverT = 0;
 const cover = { ice: false, water: false };
-
-function flatIce(x, y) {
-  for (let k = 0; k < 9; k++) {
-    const px = x + (k % 3 - 1) * 7, py = y + ((k / 3) | 0) * 7 - 7;
-    if (classAt(px, py) !== ICE) return false;
-    const L = lumAt(px, py);
-    if (L < 205 || L > 232) return false;
-  }
-  return true;
-}
 
 function updateCover(r) {
   cover.ice = cover.water = false;
@@ -377,47 +275,6 @@ function updateCover(r) {
   }
 }
 
-const rnd = Math.random;
-function randIn(r) { return [r.x0 + rnd() * (r.x1 - r.x0), r.y0 + rnd() * (r.y1 - r.y0)]; }
-
-function update(dt, r, wind) {
-  const q = state.quality.level;
-  const ws = wind.speed + wind.gust * 0.6;
-  const wx = Math.cos(wind.angle), wy = Math.sin(wind.angle);
-  // Puffs of loose snow skittering over the ice.
-  const maxP = q === 'high' ? 22 : 10;
-  if (cover.ice && q !== 'low' && puffs.length < maxP && rnd() < dt * (1 + ws * 8)) {
-    const [x, y] = randIn(r);
-    if (classAt(x, y) === ICE) {
-      const sp = 16 + ws * 50;
-      puffs.push({ x, y, vx: wx * sp, vy: wy * sp * 0.7, age: 0, life: 1.6 + rnd() * 2.4, ph: rnd() * TAU, s: 0.7 + rnd() * 0.8 });
-    }
-  }
-  for (let i = puffs.length - 1; i >= 0; i--) {
-    const p = puffs[i];
-    p.age += dt;
-    const k = Math.sin(p.age * 3 + p.ph) * 0.35;
-    p.x += (p.vx - p.vy * k) * dt; p.y += (p.vy + p.vx * k) * dt;
-    if (p.age > p.life) puffs.splice(i, 1);
-  }
-  // Gust band of loose snow running across the ice.
-  gustTimer -= dt;
-  if (!gust && gustTimer <= 0 && cover.ice) {
-    gustTimer = 2 + rnd();
-    gust = { s: -60, speed: 80 + rnd() * 40 + ws * 30, width: 30 + rnd() * 30 };
-  }
-  if (gust) { gust.s += gust.speed * dt; if (gust.s > Math.hypot(r.x1 - r.x0, r.y1 - r.y0) + 60) gust = null; }
-  // Expanding ring ripples on open water.
-  ringTimer -= dt;
-  if (cover.water && ringTimer <= 0) {
-    ringTimer = 0.9 + rnd() * 1.2;
-    for (let k = 0; k < 8; k++) {
-      const [x, y] = randIn(r);
-      if (classAt(x, y) === THIN && lumAt(x, y) < WATER_LUM) { rings.push({ x, y, age: 0, life: 2.2 + rnd() }); break; }
-    }
-  }
-  for (let i = rings.length - 1; i >= 0; i--) { rings[i].age += dt; if (rings[i].age > rings[i].life) rings.splice(i, 1); }
-}
 
 function ensureFx(w, h) {
   if (!fx) { fx = canvas(w, h); fxg = fx.getContext('2d'); }
@@ -445,10 +302,161 @@ function patternFill(g, img, r, angle, off, offY, s, alpha, sy = 1) {
   g.restore();
 }
 
+
+// --- caustic cells (open water) -----------------------------------------------------------
+// A tiling 128 x 128 texture (1 texel = 1 world px before the 0.8 vertical squash) of
+// Worley F2-F1 edge lines: a connected network of rounded, oblong light cells. Seeds orbit
+// small circles so the loop closes; CAUSTIC_FRAMES frames are baked once and cross-faded.
+const CT = 128, CAUSTIC_FRAMES = 12, CAUSTIC_LOOP = 9;   // seconds per loop
+let caustic = null;
+function bakeCaustic() {
+  const r = rng(4242);
+  const N = 10;                                 // seed grid N x N (cells ~13 px)
+  const cell = CT / N;
+  const seeds = [];
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    seeds.push({
+      x: (i + 0.15 + r() * 0.7) * cell, y: (j + 0.15 + r() * 0.7) * cell,
+      rx: 1.5 + r() * 2.5, ry: 1.5 + r() * 2.5, ph: r() * TAU, k: r() < 0.5 ? 1 : 2,
+    });
+  }
+  caustic = [];
+  for (let f = 0; f < CAUSTIC_FRAMES; f++) {
+    const a = (f / CAUSTIC_FRAMES) * TAU;
+    const pos = seeds.map(s => [s.x + Math.cos(a * s.k + s.ph) * s.rx, s.y + Math.sin(a * s.k + s.ph) * s.ry]);
+    const c = canvas(CT, CT), g = c.getContext('2d'), id = g.createImageData(CT, CT), d = id.data;
+    for (let y = 0; y < CT; y++) {
+      for (let x0 = 0; x0 < CT; x0++) {
+        // Tileable domain warp: bends straight Voronoi edges into rounded, wavy ones.
+        const w1 = (TAU / CT) * 4, w2 = (TAU / CT) * 6;
+        const x = x0 + 2.4 * Math.sin(y * w1 + a + 1.3) + 1.0 * Math.sin(y * w2 - a * 2);
+        const yy = y + 2.4 * Math.sin(x0 * w1 - a + 0.7) + 1.0 * Math.sin(x0 * w2 + a * 2);
+        const gi = Math.floor((((x % CT) + CT) % CT) / cell), gj = Math.floor((((yy % CT) + CT) % CT) / cell);
+        const xw = ((x % CT) + CT) % CT, yw = ((yy % CT) + CT) % CT;
+        let f1 = 1e9, f2 = 1e9;
+        for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
+          const ii = (gi + di + N) % N, jj = (gj + dj + N) % N;
+          const p = pos[jj * N + ii];
+          // wrap the seed into this neighbourhood
+          let px = p[0] + (gi + di - ii) * cell, py = p[1] + (gj + dj - jj) * cell;
+          const dd = Math.hypot(px - xw - 0.5, py - yw - 0.5);
+          if (dd < f1) { f2 = f1; f1 = dd; } else if (dd < f2) f2 = dd;
+        }
+        const e = (f2 - f1) * (0.7 + 0.3 * Math.min(1, f1 / 5));   // borders; junctions open into rounded corners
+        const line = Math.max(0, 1 - e / 1.7);    // ~1.5 px soft line
+        const glow = Math.max(0, 1 - e / 3) * 0.15;
+        const v = Math.min(1, line * line * (3 - 2 * line) + glow);
+        const o = (y * CT + x0) * 4;
+        d[o] = 232; d[o + 1] = 236; d[o + 2] = 240; d[o + 3] = Math.round(v * 255);
+      }
+    }
+    g.putImageData(id, 0, 0);
+    caustic.push(c);
+  }
+}
+
+// --- wind waves (whitecaps) ---------------------------------------------------------------
+// A short crescent ridge facing downwind: rises (dark band + light crest), curls, breaks
+// into white spray, flattens into a foam patch that fades. ~1.5-3 s each, over open water.
+const waves = [];
+let waveTimer = 0;
+function isWater(x, y) { return classAt(x, y) === THIN && lumAt(x, y) < WATER_LUM; }
+
+function updateWaves(dt, r, wind) {
+  const ws = wind.speed + wind.gust * 0.6;
+  const q = state.quality.level;
+  const strength = Math.max(0, Math.min(1, (ws - 0.45) / 0.6));
+  const wx = Math.cos(wind.angle), wy = Math.sin(wind.angle);
+  const cap = q === 'low' ? 8 : q === 'medium' ? 18 : 30;
+  waveTimer -= dt;
+  if (strength > 0 && cover.water && waveTimer <= 0 && waves.length < cap) {
+    waveTimer = 0.22 / (0.3 + strength * 3);
+    for (let k = 0; k < 6; k++) {
+      const x = r.x0 + Math.random() * (r.x1 - r.x0), y = r.y0 + Math.random() * (r.y1 - r.y0);
+      const w = 12 + Math.random() * 10;
+      // whole crest must sit on open water
+      const px = -wy, py = wx;
+      if (!isWater(x, y) || !isWater(x + px * w / 2, y + py * w / 2 * 0.8) || !isWater(x - px * w / 2, y - py * w / 2 * 0.8) || !isWater(x + wx * 6, y + wy * 5)) continue;
+      waves.push({ x, y, w, age: 0, life: 1.5 + Math.random() * 1.5, sp: 3 + strength * 6, seed: Math.random() * 1000 });
+      break;
+    }
+  }
+  for (let i = waves.length - 1; i >= 0; i--) {
+    const v = waves[i];
+    v.age += dt;
+    v.x += wx * v.sp * dt; v.y += wy * v.sp * dt * 0.8;
+    if (v.age > v.life || !isWater(v.x, v.y)) waves.splice(i, 1);
+  }
+}
+
+function drawWaves(ctx, wind) {
+  if (!waves.length) return;
+  const wa = wind.angle;
+  ctx.save();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const v of waves) {
+    const k = v.age / v.life;                     // 0..1
+    // phases: rise 0-.35, curl .35-.55, break .55-.7, foam .7-1
+    const rise = Math.min(1, k / 0.35), fade = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
+    const h = (k < 0.55 ? rise : Math.max(0, 1 - (k - 0.55) / 0.25)) * 3.2;   // ridge height (px)
+    ctx.save();
+    ctx.translate(v.x, v.y);
+    ctx.scale(1, 0.8);
+    // Crest faces downwind but leans toward horizontal in this oblique view (side-on
+    // ridges read as slashes): local +y = the wave's travel direction, tilted <= 35 deg.
+    const toward = Math.sin(wa) >= 0 ? Math.PI / 2 : -Math.PI / 2;
+    let d = wa - toward; d = Math.atan2(Math.sin(d), Math.cos(d));
+    ctx.rotate(toward + Math.max(-0.6, Math.min(0.6, d * 0.4)) - Math.PI / 2 + Math.PI);
+    const hw = v.w / 2;
+    // soft grey under-shadow (downwind side)
+    if (h > 0.2) {
+      ctx.globalAlpha = 0.35 * fade;
+      ctx.fillStyle = 'rgb(70,74,78)';
+      ctx.beginPath();
+      ctx.moveTo(-hw, 0.5); ctx.quadraticCurveTo(0, 0.5 + h * 1.4, hw, 0.5);
+      ctx.quadraticCurveTo(0, 0.5 + h * 0.4, -hw, 0.5); ctx.fill();
+    }
+    // the ridge: a filled body (darker back, lighter face) with a light crest line
+    if (k < 0.7) {
+      const curl = k > 0.35 ? Math.min(1, (k - 0.35) / 0.2) : 0;
+      ctx.globalAlpha = 0.6 * fade;
+      ctx.fillStyle = 'rgb(96,100,104)';
+      ctx.beginPath();
+      ctx.moveTo(-hw, 0.8); ctx.quadraticCurveTo(0, 0.8 - h * 1.1, hw, 0.8);
+      ctx.quadraticCurveTo(0, 0.8 + h * 0.5, -hw, 0.8); ctx.fill();
+      ctx.globalAlpha = 0.5 * fade;
+      ctx.fillStyle = 'rgb(200,205,210)';
+      ctx.beginPath();
+      ctx.moveTo(-hw * 0.9, 0); ctx.quadraticCurveTo(0, -h - 0.3, hw * 0.9, 0);
+      ctx.quadraticCurveTo(0, -h * 0.35, -hw * 0.9, 0); ctx.fill();
+      ctx.globalAlpha = 0.95 * fade;
+      ctx.strokeStyle = 'rgb(240,243,246)'; ctx.lineWidth = 0.7 + h * 0.15;
+      ctx.beginPath(); ctx.moveTo(-hw * 0.85, -0.1); ctx.quadraticCurveTo(0, -h - 0.5, hw * (0.85 - curl * 0.1), -0.1 + curl * 1.4);
+      ctx.stroke();
+    }
+    // spray and foam
+    if (k > 0.5) {
+      const R = rng(v.seed | 0);
+      const fk = Math.min(1, (k - 0.5) / 0.2);
+      ctx.fillStyle = 'rgb(246,248,250)';
+      const n = 8 + ((v.w * 0.8) | 0);
+      for (let i = 0; i < n; i++) {
+        const u = R() * 2 - 1, spread = R();
+        const x = u * hw * (0.9 + fk * 0.2), y = -0.4 + spread * (0.6 + fk * 2.2) + (k > 0.7 ? (k - 0.7) * 3 : 0);
+        const s = (0.5 + R() * 0.7) * (k < 0.7 ? 1 : 1 - (k - 0.7) / 0.45);
+        if (s <= 0.05) continue;
+        ctx.globalAlpha = 0.9 * fade;
+        ctx.fillRect(x - s / 2, y - s / 2, s, s);
+      }
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
 export function drawLakes(ctx) {
   const m = mask();
   if (!m || state.params.has('nolakes')) return;
-  if (!tex) bake();
   if (builtVersion !== m.version) build(m);
   const q = state.quality.level;
   const r = visibleRect(6);
@@ -456,98 +464,48 @@ export function drawLakes(ctx) {
   coverT -= dt;
   if (coverT <= 0) { coverT = 0.25; updateCover(r); }
   const wind = state.wind;
-  update(dt, r, wind);
-  if (!cover.ice && !cover.water) return;
+  updateWaves(dt, r, wind);
 
-  const t = state.time, ws = Math.min(1.2, wind.speed + wind.gust * 0.6);
-  const wa = wind.angle;
-  // ~2.5 px per world unit at most: the marks are soft-edged ink, and fill cost scales
-  // with this canvas, not the screen.
+  // Frozen lakes are still: only the white crack networks.
+  drawIceCracks(ctx, r, dt, cover.ice);
+  if (!cover.water || !S.water) return;
+  if (!caustic) bakeCaustic();
+
+  const t = state.time;
   const res = Math.min(state.cam.zoom, 2.5) * (q === 'high' ? 1 : q === 'medium' ? 0.7 : 0.5);
   const W = Math.min(1100, Math.ceil((r.x1 - r.x0) * res)), H = Math.min(1100, Math.ceil((r.y1 - r.y0) * res));
   const sx = W / (r.x1 - r.x0), sy = H / (r.y1 - r.y0);
   ensureFx(W, H);
   const g = fxg;
-  const begin = () => {
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.globalCompositeOperation = 'source-over';
-    g.globalAlpha = 1;
-    g.clearRect(0, 0, W, H);
-    g.setTransform(sx, 0, 0, sy, -r.x0 * sx, -r.y0 * sy);
-  };
-
-  // ---- ice ----
-  if (cover.ice && S.ice) {
-    begin();
-    if (q !== 'low') {
-      const a = 0.25 + ws * 0.6;
-      patternFill(g, tex.streakDark, r, wa, t * (20 + ws * 70), Math.sin(t * 0.7) * 3 + 1.2, 0.6, Math.min(1, a * 0.6), 0.7);
-      patternFill(g, tex.streak, r, wa, t * (20 + ws * 70), Math.sin(t * 0.7) * 3, 0.6, a * 0.8, 0.7);
-      patternFill(g, tex.streak, r, wa + 0.12, t * (32 + ws * 95) + 53, Math.cos(t * 0.5) * 4 + 37, 0.85, a * 0.55, 0.7);
-      // Gust band: a bright running band of skating snow, perpendicular to the wind.
-      if (gust) {
-        g.save();
-        const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2, D = Math.hypot(r.x1 - r.x0, r.y1 - r.y0);
-        g.translate(cx, cy); g.rotate(wa);
-        const bx = -D / 2 - 30 + gust.s;
-        g.beginPath(); g.rect(bx - gust.width / 2, -D, gust.width, 2 * D); g.clip();
-        // Dense racing streaks with ink shadow (no veil: a filled strip reads as a line
-        // down the screen).
-        g.rotate(-wa); g.translate(-cx, -cy);
-        patternFill(g, tex.streakDark, r, wa, t * 110, 11 + 1.6, 0.55, 0.8, 0.7);
-        patternFill(g, tex.streak, r, wa, t * 110, 11, 0.55, 1, 0.7);
-        patternFill(g, tex.streakDark, r, wa + 0.08, t * 140 + 70, 29 + 1.6, 0.75, 0.6, 0.7);
-        patternFill(g, tex.streak, r, wa + 0.08, t * 140 + 70, 29, 0.75, 0.9, 0.7);
-        g.restore();
-      }
-      for (const p of puffs) {
-        const f = Math.sin((p.age / p.life) * Math.PI);
-        const s = 5 * p.s;
-        g.globalAlpha = 0.75 * f;
-        g.drawImage(tex.puff, p.x - s / 2, p.y - s / 2, s, s);
-        g.globalAlpha = 0.4 * f;
-        g.drawImage(tex.puff, p.x - Math.cos(wa) * 4 - s * 0.35, p.y - Math.sin(wa) * 3 - s * 0.35, s * 0.7, s * 0.7);
-      }
-      g.globalAlpha = 1;
-    }
-    if (q === 'high') patternFill(g, tex.cloud, r, 0, t * (2 + ws * 5), t * 1.2, 7, 0.22);
-    g.globalCompositeOperation = 'destination-in';
-    g.globalAlpha = 1;
-    g.imageSmoothingEnabled = true;
-    g.drawImage(S.ice, 0, 0, S.ice.width * S.iceScale / 2, S.ice.height * S.iceScale / 2);
-    g.globalCompositeOperation = 'source-over';
-    ctx.drawImage(fx, 0, 0, W, H, r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+  g.clearRect(0, 0, W, H);
+  g.setTransform(sx, 0, 0, sy, -r.x0 * sx, -r.y0 * sy);
+  g.imageSmoothingEnabled = true;
+  // Caustic cells: cross-fade two baked frames; the whole sheet drifts slowly downwind.
+  const ph = ((t / CAUSTIC_LOOP) % 1) * CAUSTIC_FRAMES;
+  const f0 = Math.floor(ph) % CAUSTIC_FRAMES, f1 = (f0 + 1) % CAUSTIC_FRAMES, fr = ph - Math.floor(ph);
+  const ws = Math.min(1.2, wind.speed + wind.gust * 0.6);
+  const dx = t * (1.5 + ws * 3) * Math.cos(wind.angle), dy = t * (1.5 + ws * 3) * Math.sin(wind.angle);
+  const base = 0.5;
+  patternFill(g, caustic[f0], r, 0, dx, dy, 1, base * (1 - fr), 0.8);
+  patternFill(g, caustic[f1], r, 0, dx, dy, 1, base * fr, 0.8);
+  if (q === 'high') {
+    // a second, larger and slower layer, faint: breaks up the repeat
+    const ph2 = ((t / (CAUSTIC_LOOP * 1.7) + 0.37) % 1) * CAUSTIC_FRAMES;
+    const g0 = Math.floor(ph2) % CAUSTIC_FRAMES, g1 = (g0 + 1) % CAUSTIC_FRAMES, gr = ph2 - Math.floor(ph2);
+    patternFill(g, caustic[g0], r, 0.6, dx * 0.6 + 41, dy * 0.6 + 23, 1.6, 0.3 * (1 - gr), 0.8);
+    patternFill(g, caustic[g1], r, 0.6, dx * 0.6 + 41, dy * 0.6 + 23, 1.6, 0.3 * gr, 0.8);
   }
-
-  // ---- water ----
-  if (cover.water && S.water) {
-    const b = S.wb;
-    begin();
-    // Ink ripples drifting downwind at two speeds.
-    const drift = 15 + ws * 10;
-    patternFill(g, tex.ripple, r, 0, t * drift * Math.cos(wa), t * drift * 0.5 * Math.sin(wa), 0.5, 1);
-    patternFill(g, tex.ripple, r, 0, t * drift * 0.6 * Math.cos(wa) + 31, t * 6 + 17, 0.7, 0.75);
-    // Expanding rings.
-    g.lineWidth = 0.9;
-    for (const ring of rings) {
-      const k = ring.age / ring.life, rad = 2 + k * 14;
-      g.globalAlpha = (1 - k) * 0.9;
-      g.strokeStyle = 'rgb(44,48,52)';
-      g.beginPath(); g.ellipse(ring.x, ring.y, rad, rad * 0.45, 0, 0, TAU); g.stroke();
-      g.strokeStyle = 'rgb(214,218,222)';
-      g.beginPath(); g.ellipse(ring.x, ring.y - 1, rad * 0.7, rad * 0.32, 0, Math.PI, TAU); g.stroke();
-    }
-    g.globalAlpha = 1;
-    g.globalCompositeOperation = 'destination-in';
-    g.imageSmoothingEnabled = true;
-    g.drawImage(S.water, b.x, b.y, b.w, b.h);
-    g.globalCompositeOperation = 'source-over';
-    ctx.drawImage(fx, 0, 0, W, H, r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
-    drawFloes(ctx, r, t, q);
-  }
-
-  // ---- white crack networks (icecracks.js) ----
-  drawIceCracks(ctx, r, dt, cover.ice);
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'destination-in';
+  const b = S.wb;
+  g.drawImage(S.water, b.x, b.y, b.w, b.h);
+  g.globalCompositeOperation = 'source-over';
+  ctx.drawImage(fx, 0, 0, W, H, r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+  drawWaves(ctx, wind);
+  drawFloes(ctx, r, t, q);
 }
 
 // Floe homes filled with water, all in one canvas (1 world px) over the water box: one
