@@ -161,3 +161,9 @@ button.link:hover { color: var(--ink); }
 }
 #busy[hidden] { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+#eraseMode { display: grid; grid-template-columns: 1fr 1fr; margin-top: 6px; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; }
+#eraseMode[hidden] { display: none; }
+#eraseMode button { border: none; border-radius: 0; padding: 4px 2px; font-size: 12px; }
+#eraseMode button + button { border-left: 1px solid var(--ink); }
+#eraseMode button.on { background: var(--ink); color: var(--paper); }
