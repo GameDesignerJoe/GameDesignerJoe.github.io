@@ -46,7 +46,10 @@ export const state = {
   // 'night' (gear menu, ?day, ?night). Actors push
   // warm light sources into lights each frame: { x, y, r (world px), intensity 0..1 }.
   // night.js clears the list after drawing.
-  lighting: { night: params.has('night') ? 1 : 0, nightTarget: params.has('night') ? 1 : 0 },
+  lighting: { night: params.has('night') ? 1 : 0, nightTarget: params.has('night') ? 1 : 0,
+    // bright: a blinding clear day (glare, washed-out detail). Eases toward brightTarget;
+    // ?bright and the gear menu set it. Only shows by day.
+    bright: params.has('bright') ? 1 : 0, brightTarget: params.has('bright') ? 1 : 0 },
   lights: [],
 
   // frontier.js adds state.frontier = { amount 0..1, inX, inY }: how deep into the

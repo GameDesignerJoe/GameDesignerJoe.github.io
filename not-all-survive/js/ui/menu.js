@@ -20,6 +20,7 @@ export function initMenu() {
     <button data-act="camp">Return to base camp</button>
     <button data-act="sound">Sound: on</button>
     <button data-act="night">Time: cycle</button>
+    <button data-act="bright">Bright day: off</button>
     <label>Quality
       <select data-act="quality">
         <option value="auto">Auto</option>
@@ -43,6 +44,7 @@ export function initMenu() {
   const nightBtn = panel.querySelector('[data-act="night"]');
   const sync = () => {
     nightBtn.textContent = `Time: ${state.lighting.mode}`;
+    panel.querySelector('[data-act="bright"]').textContent = `Bright day: ${state.lighting.brightTarget > 0.5 ? 'on' : 'off'}`;
     sel.value = state.quality.mode === 'auto' ? 'auto' : state.quality.level;
     soundBtn.textContent = `Sound: ${state.audio?.muted ? 'off' : 'on'}`;
   };
@@ -54,6 +56,7 @@ export function initMenu() {
     if (act === 'camp') { returnToCamp(); panel.hidden = true; }
     if (act === 'sound') { state.audio?.setMuted?.(!state.audio.muted); sync(); }
     if (act === 'perf') showOverlay(!state.perfVisible);
+    if (act === 'bright') { state.lighting.brightTarget = state.lighting.brightTarget > 0.5 ? 0 : 1; sync(); }
     // Cycle -> always day -> always night -> cycle.
     if (act === 'night') {
       const L = state.lighting;

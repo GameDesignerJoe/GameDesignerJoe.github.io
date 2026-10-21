@@ -13,6 +13,7 @@ import { SIGNAL } from '../palette.js';
 
 const RUMMAGE_S = 2;              // time to dig the compass out of the pack
 const SLOT_TIMEOUT_S = 6;         // an ignored slot closes itself
+const OUT_S = 12;                 // the compass goes back in the pack after this long
 const NORTH = -Math.PI * 0.75;    // screen angle of "north": up-left for now
 const BAR_W = 12, BAR_H = 1.3;    // world units: about twice the explorer's width
 const HEAD = 24;                  // height above the feet where the compass dial sits
@@ -100,7 +101,7 @@ export function update(dt) {
   } else if (C.phase === 'slot') {
     if (C.t > SLOT_TIMEOUT_S || (moving && !wasMoving) || blocked()) C.phase = 'idle';
   } else if (C.phase === 'out') {
-    if (blocked()) stow();
+    if (blocked() || C.t > OUT_S) stow();
   }
   wasMoving = moving;
 
