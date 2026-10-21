@@ -46,3 +46,21 @@ export function flyPelt(root, x, y, target, done) {
   };
   requestAnimationFrame(step);
 }
+
+// Achievement toasts: queued so several unlocked at once show one after another.
+const toastQueue = [];
+export function celebrate(app, list) {
+  if (!list?.length) return;
+  const idle = !toastQueue.length;
+  toastQueue.push(...list);
+  if (idle) nextToast(app);
+}
+function nextToast(app) {
+  const a = toastQueue[0];
+  if (!a) return;
+  const t = el(`<div class="achv-toast" role="status"><span class="medal">${a.medal}</span><span><small>Achievement unlocked</small>${a.icon} ${a.title}<em>${a.desc}</em></span></div>`);
+  app.ui.append(t);
+  app.sfx.coin();
+  setTimeout(() => app.sfx.coin(), 140);
+  setTimeout(() => { t.remove(); toastQueue.shift(); nextToast(app); }, 2900);
+}

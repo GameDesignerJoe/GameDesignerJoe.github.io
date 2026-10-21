@@ -54,6 +54,18 @@ export class Particles {
     }
   }
 
+  // A temper: a red anger mark over the head, and steam puffs from the nose.
+  anger(x, y, scale) {
+    this.list.push({ kind: 'anger', x, y, vx: 0, vy: -18, drag: 0, g: 0, life: 0.8, age: 0, size: scale, spin: 0, rot: (Math.random() - 0.5) * 0.4 });
+  }
+
+  steam(x, y, scale, heading = 0) {
+    for (let i = 0; i < 2; i++) {
+      const a = heading + (i ? 0.5 : -0.5) - Math.PI / 2;
+      this.list.push({ kind: 'steam', x, y, vx: Math.cos(a) * 40 * scale, vy: Math.sin(a) * 40 * scale - 20 * scale, drag: 2.5, g: -30, life: 0.55, age: 0, size: scale, spin: 0, rot: 0 });
+    }
+  }
+
   zzz(x, y, scale) {
     this.list.push({ kind: 'z', x, y, vx: 14, vy: -26, drag: 0, g: 0, life: 2.2, age: 0, size: scale, spin: 0, rot: -0.2 });
   }
@@ -87,6 +99,20 @@ export class Particles {
           i ? ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : ctx.moveTo(rr, 0);
         }
         ctx.closePath(); ctx.fill();
+      } else if (p.kind === 'anger') {
+        // Four bent strokes round a gap, the manga "cross vein".
+        const s = p.size * (t < 0.15 ? t / 0.15 : 1) * 1.1;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 4; i++) {
+          ctx.save(); ctx.rotate(i * Math.PI / 2);
+          ctx.beginPath(); ctx.moveTo(3 * s, -9 * s); ctx.quadraticCurveTo(3 * s, -3 * s, 9 * s, -3 * s);
+          ctx.strokeStyle = '#262a3b'; ctx.lineWidth = 6 * s; ctx.stroke();
+          ctx.strokeStyle = '#ee3b2f'; ctx.lineWidth = 3.2 * s; ctx.stroke();
+          ctx.restore();
+        }
+      } else if (p.kind === 'steam') {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.arc(0, 0, (3 + t * 6) * p.size, 0, Math.PI * 2); ctx.fill();
       } else if (p.kind === 'z') {
         ctx.font = `800 ${Math.round(14 * p.size * (0.7 + t * 0.6))}px Nunito, system-ui, sans-serif`;
         ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#262a3b'; ctx.lineWidth = 3 * p.size;

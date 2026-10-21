@@ -3,8 +3,9 @@
 
 import { randInt, pick, shuffle } from '../engine/util.js';
 import { WOOL, tintPalette, colorDistance } from '../art/palette.js';
+import { noteCatch, noteBought } from './achievements.js';
 
-export const db = { game: null, tells: [], breeds: [], names: [], items: [], itemRules: {}, world: null };
+export const db = { game: null, tells: [], breeds: [], names: [], items: [], itemRules: {}, world: null, achievements: null };
 
 export async function loadData(base = './data/', version = '') {
   const get = async (f) => {
@@ -12,8 +13,9 @@ export async function loadData(base = './data/', version = '') {
     if (!res.ok) throw new Error(`${f}: HTTP ${res.status}`);
     return res.json();
   };
-  const [game, tells, breeds, items, world] = await Promise.all([get('game.json'), get('tells.json'), get('breeds.json'), get('items.json'), get('world.json')]);
+  const [game, tells, breeds, items, world, achievements] = await Promise.all(['game', 'tells', 'breeds', 'items', 'world', 'achievements'].map((f) => get(`${f}.json`)));
   db.world = world;
+  db.achievements = achievements;
   db.items = items.items;
   db.itemRules = { maxToys: items.maxToys ?? 6, maxFoodOut: items.maxFoodOut ?? 4 };
   db.game = game;
@@ -42,6 +44,19 @@ export function calendarFor(streak) {
   const season = W.seasons[seasonIdx];
   const year = Math.floor(streak / (perSeason * W.seasons.length));
   return { season, time, set, year, slot: within % perSet };
+}
+
+// Hungry wolf: one round in each day (a set of times) the wolf goes hungry.
+// Which slot is decided by the run's seed and the day, so it can't be
+// predicted from run to run but stays put if you leave and come back.
+export function isHungryRound(streak, runSeed = 0) {
+  const H = db.game.hungryWolf;
+  const slots = (H.times || []).map((id) => db.world.times.findIndex((t) => t.id === id)).filter((i) => i >= 0);
+  if (!slots.length || !H.everyDay) return false;
+  const perSet = db.world.times.length, day = Math.floor(streak / perSet);
+  let h = (runSeed * 2654435761 + day * 40503) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
+  return streak % perSet === slots[((h ^ (h >>> 13)) >>> 0) % slots.length];
 }
 
 export function pickWeather(cal) {
@@ -141,10 +156,11 @@ export function makeRound(streak, opts = {}) {
 // --- outcomes ----------------------------------------------------------------
 // Each mutates the save data and returns what the UI needs to show.
 
-export function catchWolf(save, seconds = Infinity) {
+export function catchWolf(save, seconds = Infinity, tell = null) {
   const tier = tierFor(save.streak);
   const mult = speedMultiplier(save.streak, seconds);
   const gained = (tier.pelts ?? 1) * mult;
+  noteCatch(save, tell, mult);
   save.pelts += gained;
   save.streak += 1;
   save.wolvesCaught += 1;
@@ -167,6 +183,7 @@ export function mistake(save) {
   save.pelts -= lostPelts;
   save.streak = 0;
   save.mistakes += 1;
+  save.runSeed = Math.floor(Math.random() * 1e9); // a new run: the hungry wolf turns up at new times
   return { lostPelts, lostStreak };
 }
 
@@ -190,6 +207,7 @@ export function buy(save, breedId) {
   const name = free.length ? pick(free) : `${pick(db.names)} ${save.farm.length + 1}`;
   const animal = { uid: save.nextUid++, breed: b.id, name, x: 0.3 + Math.random() * 0.4, y: 0.35 + Math.random() * 0.3 };
   save.farm.push(animal);
+  noteBought(save, b.id);
   return { ok: true, animal };
 }
 

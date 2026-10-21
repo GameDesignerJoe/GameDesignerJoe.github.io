@@ -234,3 +234,37 @@ body { font-family: var(--body); color: var(--ink); user-select: none; -webkit-u
 /* Wolf Stampede countdown (the bonus round is the one place a timer shows) */
 .stampede-bar { position: absolute; left: 50%; top: calc(70px + var(--safe-top)); transform: translateX(-50%); width: min(420px, 80%); height: 16px; background: var(--cream); border: 3px solid var(--ink); border-radius: 999px; overflow: hidden; box-shadow: 0 3px 0 var(--ink); }
 .stampede-bar > div { height: 100%; width: 100%; background: linear-gradient(90deg, var(--red), var(--gold)); transition: width 0.1s linear; }
+
+/* Achievements: unlock toast and the list dialog */
+.achv-toast {
+  position: absolute; left: 50%; top: calc(14px + var(--safe-top)); transform: translateX(-50%); z-index: 6;
+  display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100% - 32px);
+  background: var(--cream); border: 4px solid var(--ink); border-radius: 18px; box-shadow: 0 6px 0 var(--ink);
+  padding: 8px 16px 10px 10px; font: 400 20px/1.1 var(--title); pointer-events: none !important;
+  animation: achv 2.9s ease-out forwards;
+}
+.achv-toast .medal { font-size: 34px; line-height: 1; }
+.achv-toast small { display: block; font: 900 11px var(--body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--gold-dark); }
+.achv-toast em { display: block; font: 700 13px/1.2 var(--body); font-style: normal; opacity: 0.7; margin-top: 2px; }
+@keyframes achv {
+  0% { opacity: 0; transform: translate(-50%, -30px); }
+  10% { opacity: 1; transform: translate(-50%, 4px); }
+  16% { transform: translate(-50%, 0); }
+  88% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -20px); }
+}
+.panel.achv { max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); display: flex; flex-direction: column; padding-bottom: 18px; }
+.panel.achv .achv-sum { margin: 0 0 8px; font-size: 15px; }
+.achv-list { overflow-y: auto; text-align: left; margin: 0 -8px; padding: 0 8px; flex: 1; min-height: 0; touch-action: pan-y; }
+.achv-list h3 { font: 400 19px/1 var(--title); margin: 14px 0 6px; }
+.achv-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.achv-list li { display: flex; align-items: center; gap: 10px; background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 6px 10px; opacity: 0.8; }
+.achv-list li.done { opacity: 1; background: #fff4c8; }
+.achv-list .medal { font-size: 24px; width: 30px; text-align: center; }
+.achv-list .what { flex: 1; min-width: 0; }
+.achv-list .what b { display: block; font: 800 15px/1.15 var(--body); }
+.achv-list .what small { display: block; font: 700 12px/1.25 var(--body); opacity: 0.7; }
+.achv-list .bar { display: block; height: 7px; margin-top: 4px; background: var(--cream-2); border-radius: 99px; overflow: hidden; }
+.achv-list .bar i { display: block; height: 100%; background: var(--gold); }
+.achv-list .count { font: 900 13px var(--body); opacity: 0.75; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .achv-toast { animation-duration: 3.4s; } }

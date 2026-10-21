@@ -16,7 +16,9 @@
   "releaseRefund": 0.5,
   "tintClearance": 12,
   "hungryWolf": {
-    "_doc": "Experimental (Settings toggle). The wolf stalks a sheep; mouth-to-wool for 'biteSeconds' eats it and costs 'peltLoss'. Waits 'startDelay' s at round start and 'rest' s between meals.",
+    "_doc": "A special round once a day (every set of times in world.json): the wolf stalks a sheep; mouth-to-wool for 'biteSeconds' eats it and costs 'peltLoss'. Waits 'startDelay' s at round start and 'rest' s between meals. 'times' lists the time-of-day slots it may land on (one is picked per day, per run); 'everyDay' false turns it off.",
+    "everyDay": true,
+    "times": ["noon", "day", "sunset", "night"],
     "biteSeconds": 5,
     "peltLoss": 1,
     "startDelay": 5,

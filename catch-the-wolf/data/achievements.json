@@ -1,0 +1,30 @@
+{
+  "_doc": "Achievements. Each family turns into one achievement per goal (id 'family-goal'). 'stat' names a number worked out in js/game/achievements.js from the save; '{n}' in 'desc' is the goal and '{breed}' the priciest shop breed. A goal of \"all\" means every sheep in the shop. 'titles' name each step (bronze, silver, gold, diamond). Tell families are generated from 'tellKinds' × 'tellGoals': one per wolf part in data/tells.json → 'kind'. Unlocks are stored in the save, so renaming a family's id re-earns it.",
+  "medals": ["🥉", "🥈", "🥇", "💎"],
+  "families": [
+    {"id": "streak", "name": "Streaks", "icon": "🔥", "stat": "bestStreak", "goals": [10, 25, 50, 100],
+     "titles": ["On a roll", "Sharp shepherd", "Wolf whisperer", "Legend of the flock"], "desc": "Reach a streak of {n}"},
+    {"id": "stampede", "name": "Wolf Stampede", "icon": "🐺", "stat": "stampedeBest", "goals": [10, 20, 30],
+     "titles": ["Wolf wrangler", "Stampede star", "Frenzy master"], "desc": "Tap {n} wolves in one Wolf Stampede"},
+    {"id": "lightning", "name": "Speed", "icon": "⚡", "stat": "lightning", "goals": [10],
+     "titles": ["Lightning eyes"], "desc": "Catch {n} wolves fast enough for the full speed bonus"},
+    {"id": "collector", "name": "Collector", "icon": "🐑", "stat": "breedsBought", "goals": ["all"],
+     "titles": ["One of each"], "desc": "Buy one of every kind of sheep in the shop"},
+    {"id": "prize", "name": "Prize flock", "icon": "👑", "stat": "topBreedCount", "goals": [12, 24],
+     "titles": ["Fancy farm", "Finest flock in the land"], "desc": "Keep {n} {breed} on your farm at once"}
+  ],
+  "tellGoals": [10, 25, 50, 100],
+  "tellTitles": ["spotter", "tracker", "expert", "master"],
+  "tellKinds": [
+    {"kind": "eyes",   "name": "Wolf eyes",   "icon": "👁️", "desc": "wolf eyes"},
+    {"kind": "ears",   "name": "Wolf ears",   "icon": "👂", "desc": "wolf ears"},
+    {"kind": "tail",   "name": "Wolf tail",   "icon": "🦊", "desc": "a wolf tail"},
+    {"kind": "snout",  "name": "Wolf snout",  "icon": "👃", "desc": "a wolf snout"},
+    {"kind": "paws",   "name": "Wolf paws",   "icon": "🐾", "desc": "wolf paws"},
+    {"kind": "fur",    "name": "Wolf fur",    "icon": "🧶", "desc": "grey fur under the wool"},
+    {"kind": "fangs",  "name": "Fangs",       "icon": "🦷", "desc": "fangs"},
+    {"kind": "scowl",  "name": "Sly scowl",   "icon": "😠", "desc": "a sly scowl"},
+    {"kind": "nose",   "name": "Wolf nose",   "icon": "⚫", "desc": "a black wolf nose"},
+    {"kind": "colour", "name": "Fake wool",   "icon": "🎨", "desc": "wrong-coloured wool"}
+  ]
+}

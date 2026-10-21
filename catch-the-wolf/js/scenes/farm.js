@@ -5,6 +5,9 @@
 //
 // Goodies: food from the pantry tray is put down with a tap and sheep flock to
 // eat it; toys roll around when a sheep runs into them (or you flick them).
+// Fixtures: sheep drink at the pond and trough and nibble the hay bales. At
+// night they huddle up to sleep by the tree, and a toy rolling into a sleeper
+// starts a ten-second grudge (critter.js wakeAngry).
 
 import { Sheep } from '../game/critter.js';
 import { breedById, itemById, db, release, releaseRefund, placeFood } from '../game/rules.js';
@@ -20,6 +23,10 @@ import { farmLight } from '../game/daycycle.js';
 import { el, hudPelts, bumpPelts, banner } from './ui.js';
 
 const FOOD_BOX = { x: -42, y: -32, w: 84, h: 64 };
+// Farm props sheep can visit, by backdrop kind: how many at once.
+const SPOT_SEATS = { pond: 4, trough: 2, hay: 3 };
+const WAKE_SPEED = 70;   // a toy rolling faster than this (units/s) wakes a sleeper
+const GRUDGE = 10;       // seconds an angry sheep stays angry
 
 export const farmScene = {
   enter(app) {
@@ -136,6 +143,13 @@ export const farmScene = {
     this.world.others = this.sheep;
     this.world.foods = this.foods;
     this.world.toys = this.toys;
+    this.world.sfx = this.app.sfx;
+    // Fixtures act like food that never runs out.
+    this.world.spots = this.bg.avoid.filter((o) => SPOT_SEATS[o.kind]).map((o) => ({ ...o, seats: SPOT_SEATS[o.kind], eaters: new Set(), remaining: Infinity, fixture: true }));
+    for (const sh of this.sheep) if (sh.food?.fixture) { sh.leaveFood(); sh.state = 'idle'; sh.stateT = 0.5; } // old spots are gone
+    // Bed: the lee of the shade tree, where the first sleeper settles.
+    const tree = this.bg.avoid.find((o) => o.kind === 'tree');
+    this.world.bed = tree ? this.world.clamp(tree.x, tree.y + tree.r + 50 * scale, 60 * scale) : { x: area.x + area.w / 2, y: area.y + area.h / 2 };
     this.atmo.resize(w, h);
     // Fireflies for the night.
     this.fireflies = Array.from({ length: 14 }, () => ({ x: area.x + Math.random() * area.w, y: area.y + Math.random() * area.h, ph: Math.random() * 6, sp: 0.4 + Math.random() * 0.6 }));
@@ -220,10 +234,12 @@ export const farmScene = {
       if (d.toy) {
         if (!d.moved) {
           // Tap: flick it in a random direction.
+          d.toy.kicker = null; // your doing: a sheep it wakes has no one to blame
           const a = Math.random() * Math.PI * 2, k = 320 * this.sc;
           d.toy.vx += Math.cos(a) * k; d.toy.vy += Math.sin(a) * k;
           this.app.sfx.pop();
         } else {
+          d.toy.kicker = null;
           const cap = 900 * this.sc, sp = Math.hypot(d.vx, d.vy), f = sp > cap ? cap / sp : 1;
           d.toy.vx = d.vx * f * 0.6; d.toy.vy = d.vy * f * 0.6;
         }
@@ -344,6 +360,17 @@ export const farmScene = {
     }
   },
 
+  wake(sh, toy) {
+    const culprit = toy.kicker && !toy.kicker.gone && !toy.kicker.leavingFarm ? toy.kicker : null;
+    sh.wakeAngry(culprit, toy, GRUDGE);
+    this.fx.anger(sh.x + 18 * sh.scale, sh.y - 52 * sh.scale, sh.scale * 1.3);
+    this.app.sfx.baa(0.7);
+    this.app.haptic(25);
+    // Name the grudge, so it's clear what's going on.
+    const name = (s) => s?.data?.name || 'A sheep';
+    banner(this.app.ui, `${name(sh)} is cross!`, culprit ? `${name(culprit)} woke it up. Run, ${name(culprit)}!` : 'Who threw that?', 'bad low');
+  },
+
   // Eaten-up food disappears (and leaves the save).
   stepFoods() {
     const gone = this.foods.filter((f) => f.remaining <= 0);
@@ -365,12 +392,16 @@ export const farmScene = {
     for (const t of this.toys) {
       if (this.drag?.toy === t) continue;
       const { bounce, friction } = t.item;
-      // Sheep bump into toys they walk through.
+      // Sheep bump into toys they walk through. A toy that rolls into a
+      // sleeping sheep wakes it up, cross, and it goes after whoever kicked it.
+      const rolling = Math.hypot(t.vx, t.vy) > WAKE_SPEED * this.sc;
       for (const sh of this.sheep) {
         if (sh.dragging || sh.gone) continue;
         for (const c of sh.circles()) {
           const dx = t.x - c.x, dy = t.y - c.y, d = Math.hypot(dx, dy) || 0.01, min = c.r + t.r;
           if (d < min) {
+            if (rolling && sh.asleep && sh.appear >= 1 && !sh.leavingFarm && t.kicker !== sh) this.wake(sh, t);
+            else if (sh.speed > 20 * this.sc && sh.state !== 'angry') t.kicker = sh;
             t.x += (dx / d) * (min - d); t.y += (dy / d) * (min - d);
             const push = Math.max(40 * this.sc, sh.speed * 1.2);
             t.vx += (dx / d) * push * dt * 8; t.vy += (dy / d) * push * dt * 8;

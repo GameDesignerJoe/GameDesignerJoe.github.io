@@ -2,7 +2,8 @@
 // Phases: 'hunt' (tap away) → 'reveal' (caught it) or 'missed' (tapped a
 // sheep) → next round. Rules live in game/rules.js; this file is staging.
 
-import { makeRound, catchWolf, mistake, canHint, spendHint, hintCost, db, storeRound, restoreRound, clearRound, calendarFor } from '../game/rules.js';
+import { makeRound, catchWolf, mistake, canHint, spendHint, hintCost, db, storeRound, restoreRound, clearRound, calendarFor, isHungryRound } from '../game/rules.js';
+import { checkAchievements } from '../game/achievements.js';
 import { Atmosphere } from '../engine/atmosphere.js';
 import { tellCardURL } from '../art/tellcard.js';
 import { Sheep, sortByDepth, PROFILES } from '../game/critter.js';
@@ -13,7 +14,7 @@ import { freeCanvas } from '../engine/sprites.js';
 import { Timers, rand, clamp, ease, shuffle } from '../engine/util.js';
 import { peltURL, sheepURL } from '../art/icons.js';
 import { playBackdrop } from './backdrop.js';
-import { el, banner, hudPelts, bumpPelts, flyPelt } from './ui.js';
+import { el, banner, hudPelts, bumpPelts, flyPelt, celebrate } from './ui.js';
 
 const MAX_FIELD_W = 640;
 const cheapestSheep = () => Math.min(...db.breeds.filter((b) => b.price != null).map((b) => b.price));
@@ -78,7 +79,7 @@ export const playScene = {
     const cal = this.cal || calendarFor(s.streak);
     const W = db.world, wx = this.round?.weather;
     this.ui.querySelector('[data-streakn]').textContent = `Streak ${s.streak}`;
-    this.ui.querySelector('[data-tier]').textContent = `${cal.time.icon} ${cal.season.name} ${cal.time.name}${wx && wx !== 'clear' ? ` · ${W.weatherIcons[wx]}` : ''}`;
+    this.ui.querySelector('[data-tier]').textContent = `${cal.time.icon} ${cal.season.name} ${cal.time.name}${wx && wx !== 'clear' ? ` · ${W.weatherIcons[wx]}` : ''}${this.hunger ? ' · 🍖 Hungry wolf' : ''}`;
     this.ui.querySelector('[data-pelts]').textContent = s.pelts;
     const hint = this.ui.querySelector('[data-act="hint"]');
     this.ui.querySelector('[data-hintcost]').textContent = hintCost(s);
@@ -157,7 +158,9 @@ export const playScene = {
       this.press = null;
       banner(app.ui, 'Midnight!', 'Drag to shine your torch · tap to catch', 'good low');
     }
-    this.hunger = s.settings.hungryWolf ? { rest: db.game.hungryWolf.startDelay, victim: null, bite: 0 } : null;
+    // Once a day the wolf is hungry: it hunts the flock while you hunt it.
+    this.hunger = isHungryRound(s.streak, s.runSeed) ? { rest: db.game.hungryWolf.startDelay, victim: null, bite: 0 } : null;
+    if (this.hunger && !this.torchMode()) banner(app.ui, 'Hungry wolf!', 'It\'s eating the flock. Find it fast!', 'bad low');
     this.placeSheep(true);
     this.phase = 'hunt';
     this.refreshHud();
@@ -289,9 +292,11 @@ export const playScene = {
     const { app } = this;
     this.phase = 'reveal';
     // Dark rounds stretch the hidden speed window (world.json quickTime).
-    const result = catchWolf(app.save.data, this.huntT / (this.cal.time.quickTime || 1));
+    const result = catchWolf(app.save.data, this.huntT / (this.cal.time.quickTime || 1), this.round.tell);
     clearRound(app.save.data);
+    const got = checkAchievements(app.save.data);
     app.save.write();
+    this.timers.after(1.4, () => celebrate(app, got));
     app.haptic(30);
     this.refreshHud();
     this.unmask(sh, true);
@@ -503,7 +508,7 @@ export const playScene = {
     }
   },
 
-  // Experimental hungry wolf (Settings): it stalks a sheep, and five seconds
+  // Hungry wolf (one round a day, rules.isHungryRound): it stalks a sheep, and five seconds
   // of mouth-on-wool eats it. Costs a pelt each time. The nibbling is silent
   // and the victim just fades away, so nothing points at the wolf.
   updateHunger(dt) {

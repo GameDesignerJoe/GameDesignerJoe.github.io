@@ -3,7 +3,7 @@
 // migrate() so existing players keep their farms.
 
 const KEY = 'catchTheWolf.save';
-const VERSION = 1;
+const VERSION = 2;
 
 const DEFAULTS = {
   version: VERSION,
@@ -19,12 +19,20 @@ const DEFAULTS = {
   foods: [],           // [{ uid, item, x, y, remaining }] food on the farm
   toys: [],            // [{ uid, item, x, y }] toys on the farm
   nextUid: 1,
-  settings: { sound: true, haptics: true, colorSafe: false, hungryWolf: false },
+  runSeed: 0,          // reshuffled on each mistake: which round of each day has the hungry wolf
+  stats: { stampedeBest: 0, lightning: 0, tellsFound: {}, bought: [] }, // for achievements
+  achievements: {},    // { id: unlockedAt }
+  settings: { sound: true, haptics: true, colorSafe: false },
 };
 
 // One step per version bump: STEPS[n] upgrades a v(n) save to v(n+1).
 const STEPS = {
-  // 1: (d) => { d.newField = d.oldField; delete d.oldField; },
+  // v2: achievements. Sheep already on the farm count as bought. The hungry
+  // wolf moved from a settings toggle to one round a day.
+  1: (d) => {
+    d.stats = { stampedeBest: 0, lightning: 0, tellsFound: {}, bought: [...new Set((d.farm || []).map((a) => a?.breed).filter(Boolean))] };
+    if (d.settings) delete d.settings.hungryWolf;
+  },
 };
 
 function migrate(data) {
@@ -38,6 +46,14 @@ function migrate(data) {
   if (!Array.isArray(data.farm)) data.farm = [];
   for (const k of ['foods', 'toys']) if (!Array.isArray(data[k])) data[k] = [];
   if (!data.pantry || typeof data.pantry !== 'object') data.pantry = {};
+  if (!data.achievements || typeof data.achievements !== 'object') data.achievements = {};
+  const st = data.stats && typeof data.stats === 'object' ? data.stats : {};
+  data.stats = {
+    stampedeBest: Number.isFinite(st.stampedeBest) ? st.stampedeBest : 0,
+    lightning: Number.isFinite(st.lightning) ? st.lightning : 0,
+    tellsFound: st.tellsFound && typeof st.tellsFound === 'object' ? st.tellsFound : {},
+    bought: Array.isArray(st.bought) ? st.bought : [],
+  };
   data.farm = data.farm.filter((a) => a && typeof a.breed === 'string')
     .map((a) => ({ ...a, x: Number.isFinite(a.x) ? a.x : 0.5, y: Number.isFinite(a.y) ? a.y : 0.5 }));
   return data;
@@ -58,6 +74,7 @@ export const save = {
       console.warn('save unreadable, starting fresh', e);
       this.data = fresh();
     }
+    if (!this.data.runSeed) this.data.runSeed = 1 + Math.floor(Math.random() * 1e9);
     return this.data;
   },
   write() {

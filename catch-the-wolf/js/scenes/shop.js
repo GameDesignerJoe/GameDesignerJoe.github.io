@@ -6,7 +6,8 @@ import { iconURL } from '../art/icons.js';
 import { titleBackdrop } from './backdrop.js';
 import { freeCanvas } from '../engine/sprites.js';
 import { peltURL, sheepURL } from '../art/icons.js';
-import { el, hudPelts, bumpPelts, banner } from './ui.js';
+import { el, hudPelts, bumpPelts, banner, celebrate } from './ui.js';
+import { checkAchievements } from '../game/achievements.js';
 
 export const shopScene = {
   enter(app) {
@@ -108,7 +109,9 @@ export const shopScene = {
     const r = buy(app.save.data, id);
     if (r.ok) {
       r.animal.isNew = true;
+      const got = checkAchievements(app.save.data);
       app.save.write();
+      celebrate(app, got);
       app.sfx.coin();
       setTimeout(() => app.sfx.baa(1.1), 180);
       app.haptic(25);

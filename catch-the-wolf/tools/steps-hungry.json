@@ -1,5 +1,7 @@
 [
-  {"eval": "localStorage.setItem('catchTheWolf.save', JSON.stringify({version:1,pelts:5,streak:3,seenHowTo:true,shopPromptShown:true,farm:[],settings:{sound:false,hungryWolf:true}})); location.hash='play'; location.reload(); 1"},
+  {"eval": "localStorage.setItem('catchTheWolf.save', JSON.stringify({version:2,pelts:5,streak:0,runSeed:77,seenHowTo:true,shopPromptShown:true,farm:[],settings:{sound:false}})); location.hash='title'; location.reload(); 1"},
+  {"wait": 2000},
+  {"eval": "(async()=>{const R=await import('./js/game/rules.js'); const d=ctw.save.data; for(let i=0;i<6;i++) if(R.isHungryRound(i,d.runSeed)) d.streak=i; ctw.save.write(); ctw.go('play'); return {hungrySlot:d.streak}})()"},
   {"wait": 2500},
   {"eval": "(()=>{const s=ctw.scene; window._n=s.live().length; return {sheep:_n, hunger: !!s.hunger}})()"},
   {"wait": 1500},
@@ -10,5 +12,5 @@
   {"wait": 12000},
   {"eval": "(()=>{const s=ctw.scene; return {test:'hungry wolf eats sheep and takes pelts', before:_n, live: s.live().length, pelts: ctw.save.data.pelts, saved: ctw.save.data.round.sheep.length, ok: s.live().length < _n && ctw.save.data.pelts < 5 && ctw.save.data.round.sheep.length===s.live().length}})()"},
   {"shot": "catch-the-wolf/tools/shots/h-after.png"},
-  {"eval": "(()=>{const d=ctw.save.data; d.settings.hungryWolf=false; delete d.round; ctw.go('play'); return {test:'toggle off = no hunger', ok: ctw.scene.hunger===null}})()"}
+  {"eval": "(()=>{const d=ctw.save.data; d.streak=0; delete d.round; ctw.go('play'); return {test:'other rounds of the day = no hunger', ok: ctw.scene.hunger===null}})()"}
 ]

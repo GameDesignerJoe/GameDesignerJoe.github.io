@@ -8,7 +8,8 @@ import { Particles } from '../engine/particles.js';
 import { freeCanvas } from '../engine/sprites.js';
 import { rand, clamp, pick, ease } from '../engine/util.js';
 import { playBackdrop } from './backdrop.js';
-import { el, banner, hudPelts, bumpPelts } from './ui.js';
+import { el, banner, hudPelts, bumpPelts, celebrate } from './ui.js';
+import { noteStampede, checkAchievements } from '../game/achievements.js';
 
 const FURS = ['grey', 'grey', 'black', 'white'];
 
@@ -131,6 +132,10 @@ export const bonusScene = {
     for (const w of this.wolves) w.speed *= 1.6;
     setTimeout(() => { this.wolves = []; }, 700);
     const n = this.caught * this.cfg.peltsPerWolf;
+    noteStampede(app.save.data, this.caught);
+    const got = checkAchievements(app.save.data);
+    app.save.write();
+    setTimeout(() => celebrate(app, got), 500);
     const panel = el(`
       <div class="scrim"><div class="panel" role="dialog" aria-modal="true" aria-label="Stampede over">
         <h2>Stampede over!</h2>

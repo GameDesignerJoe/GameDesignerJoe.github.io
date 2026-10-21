@@ -1,7 +1,10 @@
 // A living sheep: position, heading, an animation pose and a brain.
 //
 // One brain, tuned by a profile:
-//   farm  — wanders, grazes, naps, has zoomies, eats food, chases toys
+//   farm  — wanders, grazes, naps, has zoomies, eats food, chases toys, drinks
+//           at the pond and trough, nibbles the hay. At night the flock beds
+//           down in a huddle, and lambs stay up playing ball. A sleeper hit
+//           by a rolling toy wakes up angry and rams whoever kicked it.
 //   field — the find-the-wolf level: stands, grazes, ambles. Never lies down
 //           or sleeps, because that would hide paws or eyes (tells).
 // Fidgets and wandering only change the pose and position, never the look,
@@ -18,7 +21,7 @@ const DRAG_MOTION = new Set(['blink']);
 const FARM_MOTION = new Set(['blink', 'look']);
 
 export const PROFILES = {
-  farm: { walk: 0.4, run: 0.05, lie: 0.11, graze: 0.32, walkSpeed: 46, walkDist: [60, 180], idle: [1, 3], turn: 5 },
+  farm: { walk: 0.4, run: 0.05, lie: 0.11, graze: 0.32, walkSpeed: 46, walkDist: [60, 180], idle: [1, 3], turn: 5, visit: 0.16 },
   // activity 0..1 comes from the tier: calm early, restless late.
   field: (activity = 0.5) => ({
     walk: 0.25 + activity * 0.45, run: 0, lie: 0, graze: 0.3, walkSpeed: 26 + activity * 18,
@@ -58,9 +61,15 @@ export class Sheep {
     this.dragging = false;
     this.food = null;
     this.toy = null;
+    // temper
+    this.angryAt = null;      // the sheep (or toy) a woken sheep is after
+    this.fleeFrom = null;
+    this.knockX = 0; this.knockY = 0;
   }
 
   get size() { return this.scale * (this.look.size || 1); }
+  get isLamb() { return (this.look.size || 1) < 1; }
+  get asleep() { return this.state === 'sleep' || this.state === 'lie'; }
 
   // Tap score: <= 1 is a hit, lower is closer to centre (used to pick the
   // nearest sheep when hit areas overlap).
@@ -134,6 +143,13 @@ export class Sheep {
     }
     if (this.appear < 1) { this.fidget(dt, motion); return; }
     this.stateT -= dt;
+    // Knocked by a ram: slide, slowing fast.
+    if (this.knockX || this.knockY) {
+      this.x += this.knockX * dt; this.y += this.knockY * dt;
+      const k = Math.exp(-6 * dt);
+      this.knockX *= k; this.knockY *= k;
+      if (Math.hypot(this.knockX, this.knockY) < 5) this.knockX = this.knockY = 0;
+    }
 
     switch (this.state) {
       case 'idle':
@@ -154,6 +170,11 @@ export class Sheep {
         p.headPush += (1 - p.headPush) * clamp(dt * 5, 0, 1);
         p.headAngle = Math.sin(this.t * 13) * 0.03;
         f.remaining -= dt;
+        // Lapping at the pond or trough: little splashes at the muzzle.
+        if (f.kind === 'pond' || f.kind === 'trough') {
+          this.zT -= dt;
+          if (this.zT <= 0) { this.zT = rand(0.6, 1.2); const h = this.circles()[1]; world.fx?.sparkle(h.x, h.y, this.scale * 0.35, 3, '#cfeeff'); }
+        }
         if (this.stateT <= 0) { this.leaveFood(); this.choose(world, profile); }
         break;
       }
@@ -171,6 +192,7 @@ export class Sheep {
             const k = this.speed * 1.9 + 120 * this.scale;
             toy.vx += Math.sin(this.heading) * k;
             toy.vy -= Math.cos(this.heading) * k;
+            toy.kicker = this; // whoever a sleeper should blame
             toy.chaser = null; this.toy = null;
             this.hop = 12 * this.scale;
             world.fx?.sparkle(toy.x, toy.y, this.scale * 0.6, 5);
@@ -181,12 +203,13 @@ export class Sheep {
         const dx = this.tx - this.x, dy = this.ty - this.y;
         const d = Math.hypot(dx, dy);
         this.faceToward(this.tx, this.ty, dt, profile.turn);
-        const fast = this.state === 'run' || this.state === 'chase' || (this.state === 'seek' && d > 160 * this.scale);
+        const fast = this.state === 'run' || this.state === 'chase' || (this.state === 'seek' && d > 160 * this.scale && !this.food?.fixture);
         const target = (fast ? 150 : profile.walkSpeed) * this.scale;
         this.speed += (target - this.speed) * clamp(dt * 3, 0, 1);
         if (d < 6 * this.scale + 2 || this.stateT <= 0) {
           if (this.state === 'seek') { this.state = 'eat'; this.stateT = rand(5, 9); }
           else if (this.state === 'chase') { if (this.toy) this.toy.chaser = null; this.toy = null; this.state = 'idle'; this.stateT = 1; }
+          else if (this.bedtime) { this.bedtime = false; this.state = 'lie'; this.stateT = rand(2, 4); }
           else { this.state = 'idle'; this.stateT = rand(...profile.idle); }
           break;
         }
@@ -208,7 +231,7 @@ export class Sheep {
           if (this.zT <= 0) { this.zT = 1.2; world.fx?.zzz(this.x + 14 * this.scale, this.y - 40 * this.scale, this.scale); }
         }
         if (this.stateT <= 0) {
-          if (this.state === 'lie' && Math.random() < 0.5) { this.state = 'sleep'; this.stateT = rand(6, 12); }
+          if (this.state === 'lie' && Math.random() < (world.night ? 0.9 : 0.5)) { this.state = 'sleep'; this.stateT = world.night ? rand(20, 40) : rand(6, 12); }
           else { this.state = 'getup'; this.stateT = 0.6; }
         }
         break;
@@ -216,14 +239,21 @@ export class Sheep {
         p.lie += (0 - p.lie) * clamp(dt * 5, 0, 1);
         if (this.stateT <= 0) { p.lie = 0; this.choose(world, profile); }
         break;
+      case 'angry':
+        this.updateAngry(dt, world);
+        break;
+      case 'flee':
+        this.updateFlee(dt, world);
+        break;
     }
     if (this.state !== 'graze' && this.state !== 'eat' && this.chewT <= 0) p.headPush += (0 - p.headPush) * clamp(dt * 4, 0, 1);
     if (this.state !== 'sleep') this.fidget(dt, motion);
+    if (this.state === 'angry') { p.eyes = 'half'; p.headPush += (0.7 - p.headPush) * clamp(dt * 6, 0, 1); } // head down, glaring
 
     // Trot cycle scales with speed.
     this.stepPhase += dt * (this.speed / Math.max(0.01, this.scale)) * 0.22;
     p.step = this.speed > 4 ? Math.sin(this.stepPhase) : p.step * 0.8;
-    const bouncy = this.state === 'run' || this.state === 'chase' || (this.state === 'seek' && this.speed > 90 * this.scale);
+    const bouncy = this.state === 'run' || this.state === 'chase' || this.state === 'angry' || this.state === 'flee' || (this.state === 'seek' && this.speed > 90 * this.scale);
     this.hop = bouncy ? Math.abs(Math.sin(this.stepPhase)) * 4 * this.scale : Math.max(0, this.hop - dt * 90);
     p.squash = 1 + Math.sin(this.t * 2.2 + this.id) * 0.012;
 
@@ -257,11 +287,20 @@ export class Sheep {
 
   choose(world, profile = PROFILES.farm) {
     // Toys: now and then one sheep goes for a free toy (even at dinner time).
+    // Lambs don't want to go to bed: at night they'd much rather play ball.
     const toy = (world.toys || []).find((t) => !t.chaser && !t.gone);
-    if (toy && Math.random() < 0.18) { toy.chaser = this; this.toy = toy; this.state = 'chase'; this.stateT = 5; return; }
+    const playful = world.night && profile.lie && this.isLamb ? 0.6 : 0.18;
+    if (toy && Math.random() < playful) { toy.chaser = this; this.toy = toy; this.state = 'chase'; this.stateT = 5; return; }
     // Food: hungry sheep head for anything in reach with a free seat.
     const food = (world.foods || []).find((f) => f.remaining > 0 && f.eaters.size < f.seats && Math.hypot(f.x - this.x, f.y - this.y) < f.attract);
     if (food && Math.random() < 0.8 && this.seek(food)) return;
+    // Bedtime: grown-ups huddle up with the others and go to sleep.
+    if (world.night && profile.lie && !this.isLamb && Math.random() < 0.9) { this.bedDown(world); return; }
+    // The farm's fixtures: a drink at the pond or trough, a nibble of hay.
+    if (!world.night && profile.visit && Math.random() < profile.visit) {
+      const spots = (world.spots || []).filter((sp) => sp.eaters.size < sp.seats);
+      if (spots.length && this.seek(pick(spots))) return;
+    }
 
     const r = Math.random();
     let { walk, run, lie, graze } = profile;
@@ -269,7 +308,10 @@ export class Sheep {
     if (r < graze) { this.state = 'graze'; this.stateT = rand(2.5, 6); }
     else if (r < graze + walk) this.goTo(world, 'walk', rand(...profile.walkDist) * this.scale);
     else if (r < graze + walk + run) this.goTo(world, 'run', rand(160, 320) * this.scale);
-    else if (r < graze + walk + run + lie) { this.state = 'lie'; this.stateT = rand(3, 7); }
+    else if (r < graze + walk + run + lie) {
+      if (world.night && !this.isLamb) this.bedDown(world); // no sleeping alone at night
+      else { this.state = 'lie'; this.stateT = rand(3, 7); }
+    }
     else { this.state = 'idle'; this.stateT = rand(...profile.idle); }
   }
 
@@ -279,8 +321,11 @@ export class Sheep {
     this.leaveFood();
     this.food = food;
     food.eaters.add(this);
-    const a = Math.atan2(this.y - food.y, this.x - food.x) + rand(-0.5, 0.5);
-    const rr = food.r + 58 * this.size; // head reaches in; the food stays visible
+    let a = Math.atan2(this.y - food.y, this.x - food.x) + rand(-0.5, 0.5);
+    // The pond is a wide oval: drink from its left or right bank, where the
+    // water is closest to its collision circle.
+    if (food.ry) a = (Math.cos(a) >= 0 ? 0 : Math.PI) + rand(-0.45, 0.45);
+    const rr = food.r + (food.fixture ? 50 : 58) * this.size; // head reaches in; the food stays visible
     this.tx = food.x + Math.cos(a) * rr; this.ty = food.y + Math.sin(a) * rr;
     this.state = 'seek'; this.stateT = 8;
     this.pose.lie = 0;
@@ -290,6 +335,134 @@ export class Sheep {
   leaveFood() {
     if (this.food) this.food.eaters.delete(this);
     this.food = null;
+  }
+
+  // Night: join the huddle (the sleepers gathered nearest the bed spot under
+  // the tree) and lie down against whichever of them is closest, so the flock
+  // sleeps in one heap rather than scattered across the field.
+  bedDown(world) {
+    const bed = world.bed;
+    const sleepers = world.others.filter((o) => o !== this && !o.gone && !o.leavingFarm && o.asleep);
+    let buddy = null;
+    if (sleepers.length) {
+      const d = (o, p) => Math.hypot(o.x - p.x, o.y - p.y);
+      const heart = bed ? sleepers.reduce((a, b) => (d(b, bed) < d(a, bed) ? b : a)) : sleepers[0];
+      const huddle = sleepers.filter((o) => d(o, heart) < 220 * this.size);
+      buddy = huddle.reduce((a, b) => (d(b, this) < d(a, this) ? b : a));
+      if (d(buddy, this) < 100 * this.size) { this.state = 'lie'; this.stateT = rand(2, 4); return; }
+    }
+    const anchor = buddy || bed;
+    if (!anchor) { this.state = 'lie'; this.stateT = rand(2, 4); return; }
+    const a = Math.atan2(this.y - anchor.y, this.x - anchor.x) + rand(-0.6, 0.6);
+    const gap = buddy ? 78 * this.size : rand(0, 30) * this.size;
+    const c = world.clamp(anchor.x + Math.cos(a) * gap, anchor.y + Math.sin(a) * gap, 44 * this.size);
+    this.tx = c.x; this.ty = c.y;
+    this.state = 'walk'; this.stateT = 9; this.bedtime = true;
+  }
+
+  // Woken by a rolling toy. `culprit` is the sheep that last kicked it; with
+  // nobody to blame (you threw it), the sheep takes it out on the toy.
+  wakeAngry(culprit, toy, seconds = 10) {
+    this.leaveFood();
+    if (this.toy) { this.toy.chaser = null; this.toy = null; }
+    this.bedtime = false;
+    this.state = 'angry'; this.stateT = seconds;
+    this.angryAt = culprit && culprit !== this && !culprit.gone ? culprit : toy;
+    this.restT = 0.5; // a moment to scramble up and glare
+    this.huffT = 0;
+    this.hop = 12 * this.scale;
+    if (this.angryAt instanceof Sheep) this.angryAt.flee(this, seconds);
+  }
+
+  flee(from, seconds) {
+    this.leaveFood();
+    if (this.toy) { this.toy.chaser = null; this.toy = null; }
+    this.bedtime = false;
+    this.fleeFrom = from;
+    this.state = 'flee'; this.stateT = seconds;
+  }
+
+  // Charge, ram, back off, charge again, until the temper runs out.
+  updateAngry(dt, world) {
+    const p = this.pose, tgt = this.angryAt;
+    p.lie += (0 - p.lie) * clamp(dt * 8, 0, 1);
+    if (this.stateT <= 0 || !tgt || tgt.gone || tgt.leavingFarm || tgt.dragging) {
+      this.angryAt = null;
+      this.state = 'idle'; this.stateT = rand(1, 2); this.speed = 0;
+      return;
+    }
+    const head = this.circles()[1];
+    this.huffT -= dt;
+    if (this.huffT <= 0) {
+      this.huffT = 0.45;
+      world.fx?.steam(head.x, head.y, this.scale, this.heading);
+      if (Math.random() < 0.5) world.fx?.anger(this.x + 18 * this.scale, this.y - 52 * this.scale, this.scale);
+    }
+    if (this.restT > 0) {
+      this.restT -= dt;
+      this.speed *= Math.exp(-6 * dt);
+      this.faceToward(tgt.x, tgt.y, dt, 6);
+      return;
+    }
+    this.tx = tgt.x; this.ty = tgt.y;
+    this.faceToward(this.tx, this.ty, dt, 7);
+    this.speed += (175 * this.scale - this.speed) * clamp(dt * 4, 0, 1);
+    this.steerAround(world, dt);
+    this.x += Math.sin(this.heading) * this.speed * dt;
+    this.y -= Math.cos(this.heading) * this.speed * dt;
+    // Everyone else awake gets out of the way.
+    for (const o of world.others) {
+      if (o === this || o === tgt || o.gone || o.dragging || o.leavingFarm || o.asleep || o.state === 'angry' || o.state === 'flee') continue;
+      if (Math.hypot(o.x - this.x, o.y - this.y) < 150 * this.size) o.flee(this, rand(1.5, 2.5));
+    }
+    // Ram!
+    const sx = Math.sin(this.heading), sy = -Math.cos(this.heading);
+    const hit = tgt instanceof Sheep
+      ? tgt.circles().some((c) => Math.hypot(c.x - head.x, c.y - head.y) < c.r + head.r + 6 * this.scale)
+      : Math.hypot(tgt.x - head.x, tgt.y - head.y) < tgt.r + head.r;
+    if (!hit) return;
+    if (tgt instanceof Sheep) {
+      tgt.knockX += sx * 300 * this.scale; tgt.knockY += sy * 300 * this.scale;
+      tgt.hop = 16 * this.scale;
+    } else {
+      tgt.vx += sx * 520 * this.scale; tgt.vy += sy * 520 * this.scale;
+      tgt.kicker = this;
+    }
+    world.fx?.sparkle(head.x + sx * head.r, head.y + sy * head.r, this.scale * 0.7, 7);
+    world.sfx?.pop();
+    world.sfx?.baa(1.35);
+    this.speed = 0;
+    this.restT = rand(0.7, 1.1);
+    this.rams = (this.rams || 0) + 1;
+  }
+
+  // Run from an angry sheep, turning along the fence rather than into it.
+  updateFlee(dt, world) {
+    const from = this.fleeFrom;
+    this.pose.lie += (0 - this.pose.lie) * clamp(dt * 8, 0, 1);
+    if (this.stateT <= 0 || !from || from.gone || from.state !== 'angry') {
+      this.fleeFrom = null;
+      this.state = 'idle'; this.stateT = rand(1, 2);
+      return;
+    }
+    let ax = this.x - from.x, ay = this.y - from.y;
+    const d = Math.hypot(ax, ay) || 1;
+    ax /= d; ay /= d;
+    const reach = 120 * this.size, pad = 44 * this.size;
+    let tx = this.x + ax * reach, ty = this.y + ay * reach;
+    if (!world.inside(tx, ty, pad)) {
+      // Cornered: of the two ways along the fence, take the open one furthest from the bully.
+      const way = [[-ay, ax], [ay, -ax]].map(([vx, vy]) => ({ x: this.x + vx * reach, y: this.y + vy * reach }))
+        .filter((o) => world.inside(o.x, o.y, pad))
+        .sort((a, b) => Math.hypot(b.x - from.x, b.y - from.y) - Math.hypot(a.x - from.x, a.y - from.y))[0];
+      if (way) { tx = way.x; ty = way.y; }
+    }
+    this.tx = tx; this.ty = ty;
+    this.faceToward(tx, ty, dt, 6);
+    this.speed += (150 * this.scale - this.speed) * clamp(dt * 4, 0, 1);
+    this.steerAround(world, dt);
+    this.x += Math.sin(this.heading) * this.speed * dt;
+    this.y -= Math.cos(this.heading) * this.speed * dt;
   }
 
   goTo(world, mode, dist) {
@@ -355,6 +528,7 @@ export class Sheep {
     this.pose.lie = 0;
     this.leaveFood();
     if (this.toy) { this.toy.chaser = null; this.toy = null; }
+    this.angryAt = null; this.fleeFrom = null; this.bedtime = false; // a pat calms any temper
     this.state = 'idle'; this.stateT = rand(1, 2);
     this.lookTarget = 0;
     fx?.hearts(this.x, this.y - 50 * this.scale, this.scale);

@@ -6,7 +6,9 @@ import { Particles } from '../engine/particles.js';
 import { freeCanvas } from '../engine/sprites.js';
 import { pick } from '../engine/util.js';
 import { titleBackdrop } from './backdrop.js';
-import { el, hudPelts } from './ui.js';
+import { el, hudPelts, celebrate } from './ui.js';
+import { openAchievements } from './achievements.js';
+import { checkAchievements, allAchievements } from '../game/achievements.js';
 import { paddockWorld } from '../game/world.js';
 
 export const titleScene = {
@@ -15,6 +17,9 @@ export const titleScene = {
     this.fx = new Particles();
     this.sheep = [];
     const s = app.save.data;
+    // Goals already met (an older save, or anything missed): award them now.
+    const fresh = checkAchievements(s);
+    if (fresh.length) { app.save.write(); setTimeout(() => celebrate(app, fresh), 600); }
     const farmLine = s.farm.length ? `My Farm <small style="font-size:.7em;opacity:.8">(${s.farm.length})</small>` : 'My Farm';
     this.ui = el(`
       <div class="title-wrap passthrough">
@@ -27,6 +32,7 @@ export const titleScene = {
             <button class="btn green" data-act="farm">${farmLine}</button>
             <button class="btn gold" data-act="shop">Shop</button>
           </div>
+          <button class="btn sky small" data-act="achievements">🏆 Achievements <small style="font-size:.8em;opacity:.85">${Object.keys(s.achievements).length}/${allAchievements().length}</small></button>
         </div>
       </div>`);
     app.ui.append(this.ui);
@@ -35,6 +41,7 @@ export const titleScene = {
       if (!act) return;
       app.sfx.tap();
       if (act === 'settings') app.openSettings();
+      else if (act === 'achievements') openAchievements(app);
       else app.go(act);
     });
   },

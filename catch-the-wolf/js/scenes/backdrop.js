@@ -1,6 +1,7 @@
 // Static scenery for each screen, painted once per resize into an offscreen
 // canvas. Returns { canvas, avoid } where `avoid` lists solid props (circles)
-// for the farm sheep to steer around.
+// for the farm sheep to steer around. Farm props carry a `kind` (pond, hay,
+// trough, tree) so sheep can visit them: drink, nibble, sleep in the shade.
 
 import { paintMeadow, paintDirt, paintTree, paintBush, paintRock, paintHay, paintPond, paintFence, paintTrough, setSeason } from '../art/ground.js';
 import { rng } from '../art/draw.js';
@@ -63,16 +64,16 @@ export function farmBackdrop(w, h, dpr, area) {
   const pondRx = pondR * 1.15 + 8, pondRy = pondR * 0.8 + 8; // incl. the sandy bank
   const pond = { x: area.x + area.w - pondRx - lane, y: area.y + pondRy + lane };
   paintPond(ctx, pond.x, pond.y, pondR * 1.15, pondR * 0.8, 6);
-  avoid.push({ x: pond.x, y: pond.y, r: pondRx });
+  avoid.push({ x: pond.x, y: pond.y, r: pondRx, ry: pondRy, kind: 'pond' });
 
   const hay = { x: area.x + lane + 26 * s, y: area.y + area.h * 0.28 };
   paintHay(ctx, hay.x, hay.y, 1.2 * s);
   paintHay(ctx, hay.x + 6 * s, hay.y + 34 * s, 1.2 * s);
-  avoid.push({ x: hay.x + 3 * s, y: hay.y + 17 * s, r: 46 * s });
+  avoid.push({ x: hay.x + 3 * s, y: hay.y + 17 * s, r: 46 * s, kind: 'hay' });
 
   const trough = { x: area.x + lane + 34 * s, y: area.y + area.h * 0.7 };
   paintTrough(ctx, trough.x, trough.y, 1.25 * s);
-  avoid.push({ x: trough.x, y: trough.y, r: 34 * s });
+  avoid.push({ x: trough.x, y: trough.y, r: 34 * s, kind: 'trough' });
 
   // Scatter of flowers/rocks inside, trees outside the fence.
   const r = rng(9);
@@ -88,7 +89,7 @@ export function farmBackdrop(w, h, dpr, area) {
   // A tree inside the paddock for shade.
   const tree = { x: area.x + area.w * 0.55, y: area.y + area.h * 0.47 };
   paintTree(ctx, tree.x, tree.y, 0.9 * s, 77);
-  avoid.push({ x: tree.x, y: tree.y, r: 50 * s });
+  avoid.push({ x: tree.x, y: tree.y, r: 50 * s, kind: 'tree' });
   return { canvas: c, avoid, scale: s };
 }
 

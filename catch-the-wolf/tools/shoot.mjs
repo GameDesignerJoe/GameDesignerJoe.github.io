@@ -28,6 +28,7 @@ const MIME = {
   '.gif': 'image/gif', '.ico': 'image/x-icon', '.webp': 'image/webp', '.woff2': 'font/woff2',
 };
 const CHROMES = [
+  process.env.CHROME, // e.g. CHROME=/usr/bin/chromium on Linux
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
@@ -58,7 +59,7 @@ function serve() {
 }
 
 async function main() {
-  const chrome = CHROMES.find(existsSync);
+  const chrome = CHROMES.find((p) => p && existsSync(p));
   if (!chrome) throw new Error('no Chrome/Edge found');
   const server = await serve();
   const base = `http://127.0.0.1:${server.address().port}/`;
@@ -67,7 +68,9 @@ async function main() {
   const port = 9300 + Math.floor(Math.random() * 500);
   const proc = spawn(chrome, [
     '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--mute-audio',
-    `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${W},${H}`, 'about:blank',
+    `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${W},${H}`,
+    ...(process.getuid?.() === 0 ? ['--no-sandbox'] : []), // Chrome refuses to sandbox as root (CI containers)
+    'about:blank',
   ], { stdio: 'ignore' });
 
   let ws;
