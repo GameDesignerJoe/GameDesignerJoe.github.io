@@ -102,7 +102,7 @@ export const farmScene = {
   },
 
   resize(w, h) {
-    const top = 76, bottom = 84;
+    const top = 76 + this.app.safe.top, bottom = 84 + this.app.safe.bottom;
     const area = { x: 22, y: top + 14, w: w - 44, h: Math.max(220, h - top - bottom - 28) };
     const save = this.app.save.data;
     this.area = area;

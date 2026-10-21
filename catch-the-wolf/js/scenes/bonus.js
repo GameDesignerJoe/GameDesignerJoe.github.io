@@ -43,7 +43,7 @@ export const bonusScene = {
   exit() { freeCanvas(this.bg?.canvas); this.bg = null; },
 
   resize(w, h) {
-    const top = 96, bottom = 30;
+    const top = 96 + this.app.safe.top, bottom = 30 + this.app.safe.bottom;
     const fw = Math.min(w - 36, 640);
     this.field = { x: (w - fw) / 2, y: top, w: fw, h: Math.max(240, h - top - bottom) };
     freeCanvas(this.bg?.canvas);

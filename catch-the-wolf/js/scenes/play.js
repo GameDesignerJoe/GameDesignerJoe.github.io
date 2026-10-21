@@ -92,7 +92,7 @@ export const playScene = {
   },
 
   resize(w, h) {
-    const top = 78, bottom = 86;
+    const top = 78 + this.app.safe.top, bottom = 86 + this.app.safe.bottom;
     const fw = Math.min(w - 36, MAX_FIELD_W);
     this.field = { x: (w - fw) / 2, y: top + 8, w: fw, h: Math.max(200, h - top - bottom - 16) };
     this.paintBackdrop(true);

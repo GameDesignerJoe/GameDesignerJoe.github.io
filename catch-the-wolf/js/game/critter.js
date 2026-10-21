@@ -206,7 +206,10 @@ export class Sheep {
         const fast = this.state === 'run' || this.state === 'chase' || (this.state === 'seek' && d > 160 * this.scale && !this.food?.fixture);
         const target = (fast ? 150 : profile.walkSpeed) * this.scale;
         this.speed += (target - this.speed) * clamp(dt * 3, 0, 1);
-        if (d < 6 * this.scale + 2 || this.stateT <= 0) {
+        // A seeker in a crowd may never reach its exact seat: once its head can
+        // reach the food, that's close enough to start eating.
+        const canReach = this.state === 'seek' && this.food && Math.hypot(this.food.x - this.x, this.food.y - this.y) < this.food.r + 64 * this.size;
+        if (d < 6 * this.scale + 2 || this.stateT <= 0 || canReach) {
           if (this.state === 'seek') { this.state = 'eat'; this.stateT = rand(5, 9); }
           else if (this.state === 'chase') { if (this.toy) this.toy.chaser = null; this.toy = null; this.state = 'idle'; this.stateT = 1; }
           else if (this.bedtime) { this.bedtime = false; this.state = 'lie'; this.stateT = rand(2, 4); }

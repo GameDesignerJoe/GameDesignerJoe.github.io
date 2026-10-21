@@ -17,7 +17,7 @@ import { openSettings } from './scenes/settings.js';
 
 // Bump when shipping data/JSON changes so GitHub Pages' cache can't pair new
 // code with old data.
-export const VERSION = '1.6.0';
+export const VERSION = '1.6.1';
 
 const SCENES = { title: titleScene, play: playScene, shop: shopScene, farm: farmScene, bonus: bonusScene };
 
@@ -27,6 +27,7 @@ const ui = document.getElementById('ui');
 
 export const app = {
   w: 0, h: 0, dpr: 1,
+  safe: { top: 0, bottom: 0 }, // notch / status bar / home indicator insets, CSS px
   ui, save, sfx,
   scene: null,
   go(name, params = {}) {
@@ -42,7 +43,16 @@ export const app = {
   haptic(ms = 12) { if (save.data.settings.haptics && navigator.vibrate) navigator.vibrate(ms); },
 };
 
+// The CSS safe-area insets, measured once per resize for canvas layouts.
+const safeProbe = Object.assign(document.createElement('div'), { style: 'position:fixed;visibility:hidden;pointer-events:none;top:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)' });
+function measureSafe() {
+  if (!safeProbe.isConnected) document.body.append(safeProbe);
+  const cs = getComputedStyle(safeProbe);
+  app.safe = { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 };
+}
+
 function resize() {
+  measureSafe();
   // DPR 2 is visually indistinguishable on phones and fills ~55% fewer pixels than 3.
   app.dpr = Math.min(window.devicePixelRatio || 1, 2);
   app.w = window.innerWidth;
