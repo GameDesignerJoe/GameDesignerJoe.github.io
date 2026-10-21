@@ -19,8 +19,12 @@ import { state } from '../state.js';
 import { worldToScreen, screenToWorld } from '../camera.js';
 import { classAt, lumAt } from '../world/terrain.js';
 
-const EASE_S = 1.2;          // bright eases toward brightTarget
+// Glare builds and fades as a slow linear ramp shaped by a smoothstep, so it creeps in
+// as the sun comes out rather than cutting: ~30 s when the forecast drives it, ~6 s
+// when it's switched by hand from the gear menu.
+const RAMP_AUTO_S = 30, RAMP_MANUAL_S = 6;
 const EYES_S = 4;            // eye adaptation time
+let ramp = state.lighting.bright || 0;   // linear 0..1 progress toward brightTarget
 const ICE = 2, THIN = 3, WATER_LUM = 176;
 const TENT = { x: 1330, y: 1542 };   // camp.js TENT (not exported); keep the tent's yellow clear of glare
 const WARM = [255, 250, 236];
@@ -32,8 +36,10 @@ let sprites = null;
 
 export function update(dt) {
   const L = state.lighting;
-  const d = (L.brightTarget ?? 0) - (L.bright ?? 0);
-  L.bright = (L.bright ?? 0) + (Math.abs(d) < 0.002 ? d : d * Math.min(1, dt * 3 / EASE_S));
+  const target = L.brightTarget ?? 0;
+  const rate = dt / (L.brightForced == null ? RAMP_AUTO_S : RAMP_MANUAL_S);
+  ramp = target > ramp ? Math.min(target, ramp + rate) : Math.max(target, ramp - rate);
+  L.bright = ramp * ramp * (3 - 2 * ramp);
   eyes += (strength() - eyes) * Math.min(1, dt * 1.6 / EYES_S);
 }
 
@@ -134,9 +140,11 @@ export function drawScreen(ctx) {
   if (base < 0.005) return;
   const low = state.quality.level === 'low';
   ensure(low);
-  // eyes not yet adapted -> blinding at first (up to ~3x), settling over a few seconds
-  const lag = Math.max(0, base - eyes) / Math.max(0.2, base);
-  const A = base * (1 + 2.2 * lag);
+  // Eyes not yet adapted -> brighter than it really is, settling over a few seconds.
+  // Measured in absolute terms, so a slow build-up (eyes keep pace) never flashes;
+  // only a fast change, like stepping out of a whiteout into sun, overshoots.
+  const lag = Math.max(0, base - eyes);
+  const A = Math.min(1.6, base + 1.4 * lag);
   const { w, h, dpr } = state.view;
   const t = state.time, cam = state.cam, zoom = cam.zoom || 1;
   const gw = glare.width, gh = glare.height, k = gw / w;
