@@ -4,10 +4,11 @@
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 import { director } from './weather-director.js';
-import { fillWind } from './weather-noise.js';
+import { fillWind, lowRes } from './weather-noise.js';
+import { waterMask, waterClear } from './weather-drift.js';
 import * as terrain from '../world/terrain.js';
 
-let T, pCloud, pHaze, pFog, patCtx = null;
+let T;
 let cloudU = 0, cloudV = 0, hazeU = 0, fogU = 0, lastT = 0;
 const clamp01 = v => Math.max(0, Math.min(1, v));
 
@@ -224,16 +225,56 @@ export function update(dt) {
   while (puffs.length && puffs[0].age > puffs[0].life) puffs.shift();
 }
 
-function pats(ctx) {
-  if (patCtx === ctx) return;
-  patCtx = ctx;
-  pCloud = ctx.createPattern(T.cloud, 'repeat');
-  pHaze = ctx.createPattern(T.haze, 'repeat');
-  pFog = ctx.createPattern(T.fog, 'repeat');
+// Cloud shadows and fog banks are soft, so they're rendered into two quarter-res
+// buffers (world-aligned via the camera transform) and composited once each, instead
+// of three full-resolution pattern fills on the main canvas.
+let cloudB = null, fogB = null;
+function prep(B, pat) {
+  const cam = state.cam, z = cam.zoom, { w, h } = state.view, s = B.sc;
+  if (B.fresh || !B.pats) { B.pats = { cloud: B.g.createPattern(T.cloud, 'repeat'), haze: B.g.createPattern(T.haze, 'repeat'), fog: B.g.createPattern(T.fog, 'repeat') }; B.fresh = false; }
+  B.g.setTransform(1, 0, 0, 1, 0, 0);
+  B.g.globalCompositeOperation = 'source-over';
+  B.g.globalAlpha = 1;
+  B.g.clearRect(0, 0, B.c.width, B.c.height);
+  B.g.setTransform(s * z, 0, 0, s * z, s * (w / 2 + cam.shakeX - cam.x * z), s * (h / 2 + cam.shakeY - cam.y * z));
+}
+function blit(ctx, B, op, alpha) {
+  const { w, h, dpr } = state.view;
+  ctx.save();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.globalCompositeOperation = op;
+  ctx.globalAlpha = alpha;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(B.c, 0, 0, w, h);
+  ctx.restore();
+}
+
+// Low haze banks and storm fog (world-aligned, low-res), drawn into the shared
+// atmosphere buffer by weather.js. Thinned over open water outside storms.
+export function drawFogInto(g) {
+  const a = state.wind.angle, st = director.storminess;
+  const wo = state.weather.whiteout;
+  const r = visibleRect(10);
+  const hazeA = (0.08 + st * 0.45) * (1 - clamp01((wo - 0.5) / 0.3)) * (1 - 0.4 * (director.shelter || 0));
+  const fogA0 = (clamp01((st - 0.55) / 0.45) * 0.4 + wo * 0.25) * (1 - clamp01((wo - 0.3) / 0.3)) * (1 - 0.45 * (director.shelter || 0));
+  if (hazeA <= 0.01 && fogA0 <= 0.01) return;
+  fogB = lowRes(fogB, 0.25, 320);
+  prep(fogB);
+  if (hazeA > 0.01) { fogB.g.globalAlpha = hazeA; fillWind(fogB.g, fogB.pats.haze, 256, 256, 2.2, hazeU, 0, r, a); }
+  if (fogA0 > 0.01) { fogB.g.globalAlpha = fogA0; fillWind(fogB.g, fogB.pats.fog, 256, 256, 1.6, fogU, 40, r, a); }
+  const wc = waterClear(), m = waterMask();
+  if (wc > 0.02 && m) {
+    fogB.g.globalCompositeOperation = 'destination-out';
+    fogB.g.globalAlpha = 0.5 * wc;
+    fogB.g.imageSmoothingEnabled = true;
+    fogB.g.drawImage(m.cv, m.x0 - m.CELL / 2, m.y0 - m.CELL / 2, m.gw * m.CELL, m.gh * m.CELL);
+    fogB.g.globalCompositeOperation = 'source-over';
+  }
+  g.globalAlpha = 1;
+  g.drawImage(fogB.c, 0, 0, state.view.w, state.view.h);
 }
 
 export function drawSky(ctx) {
-  pats(ctx);
   const dt = Math.max(0, state.time - lastT); lastT = state.time;
   const W = state.wind.speed, a = state.wind.angle, st = director.storminess;
   const wo = state.weather.whiteout;
@@ -264,25 +305,15 @@ export function drawSky(ctx) {
   // Cloud shadows: soft grey masses. Washed out by the flat light of a whiteout.
   const cloudA = (0.24 + st * 0.14) * (1 - wo * 0.85);
   if (cloudA > 0.01) {
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = cloudA;
-    fillWind(ctx, pCloud, 128, 128, 4.2, cloudU, cloudV, r, a);
+    cloudB = lowRes(cloudB, 0.2, 256);
+    prep(cloudB);
+    fillWind(cloudB.g, cloudB.pats.cloud, 128, 128, 4.2, cloudU, cloudV, r, a);
+    blit(ctx, cloudB, 'multiply', cloudA);
   }
 
   // Low haze: long ragged banks lying along the wind.
   ctx.globalCompositeOperation = 'source-over';
   // (Both fog layers step aside once the screen-space whiteout covers the view.)
   const hazeA = (0.08 + st * 0.45) * (1 - clamp01((wo - 0.5) / 0.3)) * (1 - 0.4 * (director.shelter || 0));
-  if (hazeA > 0.01) {
-    ctx.globalAlpha = hazeA;
-    fillWind(ctx, pHaze, 256, 256, 2.2, hazeU, 0, r, a);
-  }
-
-  // Thicker billowing fog in heavy weather (scrolls faster, coarser).
-  const fogA = (clamp01((st - 0.55) / 0.45) * 0.4 + wo * 0.25) * (1 - clamp01((wo - 0.3) / 0.3)) * (1 - 0.45 * (director.shelter || 0));
-  if (fogA > 0.01) {
-    ctx.globalAlpha = fogA;
-    fillWind(ctx, pFog, 256, 256, 1.6, fogU, 40, r, a);
-  }
   ctx.globalAlpha = 1;
 }

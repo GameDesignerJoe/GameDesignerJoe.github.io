@@ -8,7 +8,7 @@ import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 import * as terrain from '../world/terrain.js';
 import { director, windFast, frontU, frontFade } from './weather-director.js';
-import { canvas, fillWind } from './weather-noise.js';
+import { canvas, fillWind, qParticles, qRes } from './weather-noise.js';
 
 let T, buf, bctx, pats = {};
 const clamp01 = v => Math.max(0, Math.min(1, v));
@@ -24,7 +24,10 @@ function refreshGrid() {
   if (!grid.cv || grid.cv.width !== gw || grid.cv.height !== gh) {
     grid.cv = canvas(gw, gh);
     grid.vals = new Float32Array(gw * gh);
+    grid.wcv = canvas(gw, gh);
+    grid.wat = new Float32Array(gw * gh);
   }
+  const wimg = grid.wcv.getContext('2d').createImageData(gw, gh);
   const g = grid.cv.getContext('2d');
   const img = g.createImageData(gw, gh);
   let any = false;
@@ -40,11 +43,32 @@ function refreshGrid() {
     if (Math.abs(f - 1) > 0.03) any = true;
     const k = j * gw + i;
     grid.vals[k] = f;
+    // Open water / thin ice (and a little smooth ice): fog and snow thin out there in
+    // ordinary weather so the water animation reads.
+    const wk = cls === 3 ? 1 : cls === 2 ? 0.35 : 0;
+    grid.wat[k] = wk;
+    wimg.data[k * 4 + 3] = wk * 255;
     img.data[k * 4] = img.data[k * 4 + 1] = img.data[k * 4 + 2] = 255;
     img.data[k * 4 + 3] = Math.min(1, f) * 255;
   }
   g.putImageData(img, 0, 0);
+  grid.wcv.getContext('2d').putImageData(wimg, 0, 0);
   Object.assign(grid, { x0, y0, gw, gh, any, t: state.time });
+}
+
+// 0..1 how much open water / thin ice is at a world point (coarse).
+export function waterAt(x, y) {
+  if (!grid.wat) return 0;
+  const i = Math.round((x - grid.x0) / CELL), j = Math.round((y - grid.y0) / CELL);
+  if (i < 0 || j < 0 || i >= grid.gw || j >= grid.gh) return 0;
+  return grid.wat[j * grid.gw + i];
+}
+export function waterMask() { return grid.wcv ? { cv: grid.wcv, x0: grid.x0, y0: grid.y0, gw: grid.gw, gh: grid.gh, CELL } : null; }
+// How strongly water clears fog/snow right now: full in ordinary weather, none in
+// storms and whiteouts.
+export function waterClear() {
+  const st = director.storminess, wo = state.weather.whiteout;
+  return Math.max(0, 1 - Math.max(0, (st - 0.55) / 0.25)) * Math.max(0, 1 - wo * 2.5);
 }
 
 // ~0..1.15 wind multiplier at a world point (1 = ordinary open ground).
@@ -129,7 +153,7 @@ export function update(dt) {
   for (const f of director.fronts) if (f.hit && f.hitTime === undefined) f.hitTime = state.time;
   let n = Math.round(area / 420 * clamp01(0.2 + state.wind.speed * 1.1));
   if (burst) n *= 3;
-  n = Math.min(Math.round(MAX * director.quality), n);
+  n = Math.min(Math.round(MAX * director.quality * qParticles()), n);
   for (let i = 0; i < MAX; i++) {
     const s = S[i];
     // During a burst, ordinary streamers age out three times as fast and respawn at the front.
@@ -160,7 +184,7 @@ let sheetU = 0, blobU = 0, lastT = 0;
 
 function ensureBuf() {
   const { w, h } = state.view;
-  const scale = Math.min(0.5, 720 / Math.max(w, h));
+  const scale = Math.min(0.5, 560 / Math.max(w, h)) * qRes();
   const bw = Math.max(2, Math.round(w * scale)), bh = Math.max(2, Math.round(h * scale));
   if (!buf || buf.width !== bw || buf.height !== bh) {
     buf = canvas(bw, bh);
@@ -230,13 +254,13 @@ function drawSheets(ctx) {
   g.fillRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
 
   // ...plus every gust front as a travelling band.
-  if (gusty) { g.globalCompositeOperation = 'lighter'; drawBands(g, r, a, 0.35, 0.3); }
+  if (gusty) { g.globalCompositeOperation = 'lighter'; drawBands(g, r, a, 1, 0.45); }   // (ice is thinned afterwards by the grid mask)
 
   // Streak texture through the mask.
   g.globalCompositeOperation = 'source-in';
   fillWind(g, pats.streak, 256, 128, 0.42, sheetU, 0, r, a);
   // A soft unstreaked wall of blowing snow riding each front.
-  if (gusty) { g.globalCompositeOperation = 'source-over'; drawBands(g, r, a, 0.25, 0.12); }
+  if (gusty) { g.globalCompositeOperation = 'source-over'; drawBands(g, r, a, 0.6, 0.18); }
   // Patchiness drifting more slowly than the streaks.
   g.globalCompositeOperation = 'destination-in';
   fillWind(g, pats.blob, 64, 64, 3.2, blobU, 0, r, a);
@@ -265,79 +289,56 @@ function drawSheets(ctx) {
   ctx.globalAlpha = 1;
 }
 
-const LEVEL_A = [0.3, 0.62, 1];
-const PART_A = [1, 0.4];
-const SEG = 8;
 
-// Preallocated polyline storage per bucket (3 intensity levels x head/tail): no
-// per-frame allocation. pts: x,y pairs; lens: points per polyline.
-const NB = 6;
-const pts = Array.from({ length: NB }, () => new Float32Array(MAX * (SEG + 2) * 2));
-const lens = Array.from({ length: NB }, () => new Uint8Array(MAX * 2));
-const np = new Int32Array(NB), nl = new Int32Array(NB);
-
-function strokeBucket(ctx, b) {
-  const P = pts[b], Ls = lens[b];
-  ctx.beginPath();
-  let k = 0;
-  for (let l = 0; l < nl[b]; l++) {
-    const n = Ls[l];
-    ctx.moveTo(P[k], P[k + 1]);
-    for (let i = 1; i < n; i++) ctx.lineTo(P[k + i * 2], P[k + i * 2 + 1]);
-    k += n * 2;
+// Streamers are drawn as sprites: a few pre-rendered snaking ribbons (white line with
+// a grey under-edge, bright head fading to a faint tail), rotated to the wind and
+// stretched to each streamer's length. Stroking hundreds of polylines per frame was
+// far too expensive on the GPU.
+const RIBBONS = 6, RW = 256, RH = 24;
+let ribbons = [];
+function makeRibbons() {
+  for (let v = 0; v < RIBBONS; v++) {
+    const c = canvas(RW, RH), g = c.getContext('2d');
+    const amp = 2.5 + v * 1.1, k1 = 0.035 + v * 0.008, ph = v * 1.7;
+    const yAt = x => RH / 2 + amp * Math.sin(x * k1 + ph) + amp * 0.35 * Math.sin(x * k1 * 2.7 + ph * 2);
+    for (const pass of [0, 1]) {
+      for (let x = 0; x < RW - 2; x += 2) {
+        // Head at the right (x = RW), fading toward the tail on the left.
+        const f = Math.pow(x / RW, 1.3) * Math.min(1, (RW - x) / 10);
+        g.strokeStyle = pass ? `rgba(255,255,255,${f})` : `rgba(105,110,115,${0.55 * f})`;
+        g.lineWidth = 2.4;
+        g.beginPath();
+        g.moveTo(x, yAt(x) + (pass ? 0 : 1.6));
+        g.lineTo(x + 2.5, yAt(x + 2) + (pass ? 0 : 1.6));
+        g.stroke();
+      }
+    }
+    ribbons.push(c);
+    createImageBitmap?.(c).then(bm => { ribbons[v] = bm; });
   }
-  ctx.stroke();
 }
 
 function drawStreamers(ctx) {
+  if (!ribbons.length) makeRibbons();
   const a = state.wind.angle, c = Math.cos(a), sn = Math.sin(a);
-  const t = state.time;
-  np.fill(0); nl.fill(0);
-  let drew = false;
-  for (const s of S) {
+  const cam = state.cam, z = cam.zoom || 1, { w, h, dpr } = state.view;
+  const k = dpr * z;
+  const ox = dpr * (w / 2 + cam.shakeX - cam.x * z), oy = dpr * (h / 2 + cam.shakeY - cam.y * z);
+  // Ribbon height in world units: thick enough that the 2.4 px sprite line maps to
+  // about 1.2 CSS px on screen at any zoom.
+  const H = Math.max(6, 12 / z) * (RH / 24);
+  for (let i = 0; i < S.length; i++) {
+    const s = S[i];
     if (s.dead || s.I < 0.03) continue;
     const env = Math.sin(Math.PI * Math.min(1, s.age / s.life));
     const I = s.I * env;
     if (I < 0.04) continue;
-    const lvl = Math.min(2, Math.floor(I * 3));
     const L = Math.min(70, Math.max(6, s.v * 0.42)) * s.lenK;
-    const uh = s.x * c + s.y * sn;
-    // Two continuous polylines: bright head, faint tail (sharing the joint point).
-    let part = -1, b = 0, cnt = 0;
-    for (let i = 0; i <= SEG; i++) {
-      const back = (L * i) / SEG;
-      const uu = uh - back;
-      const off = s.amp * Math.sin(uu * s.k + s.ph + t * 0.5) + s.amp * 0.35 * Math.sin(uu * s.k * 2.7 + s.ph2 - t * 0.9);
-      const x = s.x - c * back - sn * off, y = s.y - sn * back + c * off;
-      const p2 = i < SEG * 0.45 ? 0 : 1;
-      if (p2 !== part) {
-        if (part >= 0) { pts[b][np[b]++] = x; pts[b][np[b]++] = y; lens[b][nl[b]++] = cnt + 1; }
-        part = p2; b = lvl * 2 + part; cnt = 0;
-      }
-      pts[b][np[b]++] = x; pts[b][np[b]++] = y; cnt++;
-    }
-    lens[b][nl[b]++] = cnt;
-    drew = true;
+    ctx.globalAlpha = Math.min(1, 0.25 + I * 0.85);
+    ctx.setTransform(k * c, k * sn, -k * sn, k * c, ox + k * s.x, oy + k * s.y);
+    ctx.drawImage(ribbons[i % RIBBONS], -L, -H / 2 * (0.6 + 0.4 * s.amp / 3.4), L, H * (0.6 + 0.4 * s.amp / 3.4));
   }
-  if (!drew) return;
-  ctx.lineCap = 'butt';
-  ctx.lineJoin = 'round';
-  // Keep lines at least ~1.2 CSS px wide on low-zoom (phone) views.
-  const z = state.cam.zoom || 1, lw = Math.max(0.75, 1.25 / z);
-  // Grey under-edge (light comes from the upper left, so it sits lower right).
-  ctx.save();
-  ctx.translate(0.4, 0.6);
-  ctx.lineWidth = lw * 0.95;
-  for (let l = 0; l < 3; l++) for (let p = 0; p < 2; p++) {
-    ctx.strokeStyle = `rgba(105,110,115,${LEVEL_A[l] * PART_A[p] * 0.55})`;
-    strokeBucket(ctx, l * 2 + p);
-  }
-  ctx.restore();
-  ctx.lineWidth = lw;
-  for (let l = 0; l < 3; l++) for (let p = 0; p < 2; p++) {
-    ctx.strokeStyle = `rgba(255,255,255,${LEVEL_A[l] * PART_A[p]})`;
-    strokeBucket(ctx, l * 2 + p);
-  }
+  ctx.globalAlpha = 1;
 }
 
 // The leading edge of every gust front: a broken, scalloped surge of blowing snow.
@@ -359,7 +360,19 @@ function crestSprite() {
   gd.addColorStop(0.86, 'rgba(255,255,255,0.55)');
   gd.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gd; g.fillRect(0, 0, 96, 1);
+  createImageBitmap?.(crest).then(b => { crest = b; });
   return crest;
+}
+let shade = null;
+function shadeSprite() {
+  if (shade) return shade;
+  shade = canvas(32, 1);
+  const g = shade.getContext('2d'), gd = g.createLinearGradient(0, 0, 32, 0);
+  gd.addColorStop(0, 'rgba(150,154,158,1)');
+  gd.addColorStop(1, 'rgba(150,154,158,0)');
+  g.fillStyle = gd; g.fillRect(0, 0, 32, 1);
+  createImageBitmap?.(shade).then(b => { shade = b; });
+  return shade;
 }
 function drawFrontEdges(ctx) {
   if (!director.fronts.length) return;
@@ -405,6 +418,9 @@ function drawFrontEdges(ctx) {
       const span = depth + 36 * px;
       ctx.globalAlpha = k;
       ctx.drawImage(crestSprite(), u + 6 * px - span, v - 0.2, span, PIECE + 0.4);
+      // Soft grey shadow just ahead of the surge, so it reads over white snow too.
+      ctx.globalAlpha = 0.45 * k;
+      ctx.drawImage(shadeSprite(), u + 1 * px, v - 0.2, 22 * px, PIECE + 0.4);
       // Faint grey under-edge.
       ctx.globalAlpha = 1;
       ctx.fillStyle = `rgba(150,154,158,${0.18 * k})`;

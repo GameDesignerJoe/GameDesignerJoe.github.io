@@ -7,7 +7,9 @@
 // area and are capped for phones.
 import { state } from '../state.js';
 import { gustFast, director } from './weather-director.js';
+import { qParticles } from './weather-noise.js';
 import { worldToScreen } from '../camera.js';
+import { waterAt, waterClear } from './weather-drift.js';
 
 // Shelter pocket (screen px) around the explorer: snow slower and thinner inside.
 const pocket = { x: 0, y: 0, sh: 0, R: 120 };
@@ -60,7 +62,7 @@ export function update(dt) {
     const amount = L.name === 'near' ? Math.max(0.06, Math.min(1, (snow - 0.55) / 0.4)) : Math.min(1, Math.max(snow, W0 * 0.35));
     // Small screens get a denser fill per pixel (they're held closer to the eye).
     const boost = 1 + Math.max(0, Math.min(0.6, (700000 - area) / 700000));
-    L.n = Math.min(Math.round(L.cap * director.quality), Math.round(area * L.dens * boost * Math.pow(amount, 0.85)));
+    L.n = Math.min(Math.round(L.cap * director.quality * qParticles()), Math.round(area * L.dens * boost * Math.pow(amount, 0.85)));
     for (let i = 0; i < L.n; i++) {
       const p = L.p[i];
       // Wind at this flake's ground position (far layers feel the gust fronts locally).
@@ -91,40 +93,60 @@ export function update(dt) {
 
 // Streaks as tapered slivers (round-ish head, needle tail), filled in three width
 // buckets: no per-frame allocation, no stroking.
+// Streaks are drawn as sprites (a pre-rendered tapered sliver, rotated and stretched
+// per flake): GPU canvases batch drawImage cheaply, whereas filling hundreds of small
+// path polygons per frame was the single most expensive thing in the weather.
 const WIDTH_K = [0.6, 1, 1.6];
-function sliverPath(ctx, L, bucket, ox, oy) {
-  const lw = (L.size[0] + L.size[1]) / 2 * WIDTH_K[bucket] * 0.5;
-  ctx.beginPath();
-  for (let i = 0; i < L.n; i++) {
-    const p = L.p[i];
-    if (p.wb !== bucket) continue;
-    if ((p.ph % 1) < inPocket(p.x, p.y) * 0.55) continue;   // ~half as dense in the pocket
-    const vx = p.vx, vy = p.vy, sp = Math.hypot(vx, vy) || 1;
-    const ux = vx / sp, uy = vy / sp;
-    const len = Math.max(lw * 2.2, sp * L.streak * p.len);
-    const hx = p.x + ox, hy = p.y + oy;
-    const nx = -uy * lw, ny = ux * lw;
-    ctx.moveTo(hx + ux * lw, hy + uy * lw);
-    ctx.lineTo(hx + nx, hy + ny);
-    ctx.lineTo(hx - ux * len, hy - uy * len);
-    ctx.lineTo(hx - nx, hy - ny);
-    ctx.closePath();
+let sliverW = null, sliverG = null;
+function makeSliver(rgb) {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 16;
+  const g = c.getContext('2d');
+  g.fillStyle = `rgb(${rgb})`;
+  g.beginPath();
+  g.moveTo(0, 8);                 // needle tail
+  g.lineTo(52, 2);
+  g.arc(56, 8, 6, -Math.PI / 2, Math.PI / 2);   // round head
+  g.lineTo(52, 14);
+  g.closePath();
+  g.fill();
+  return c;
+}
+
+function drawSprites(ctx, L, img, ox, oy, alphaK) {
+  const d = state.view.dpr, cam = state.cam, z = cam.zoom || 1, { w, h } = state.view;
+  // ~30% fewer flakes over open water / thin ice in ordinary weather.
+  const wc = waterClear() * 0.3;
+  for (let b = 0; b < 3; b++) {
+    const lw = (L.size[0] + L.size[1]) / 2 * WIDTH_K[b] * 0.5;
+    ctx.globalAlpha = alphaK * [0.7, 0.9, 1][b];
+    for (let i = 0; i < L.n; i++) {
+      const p = L.p[i];
+      if (p.wb !== b) continue;
+      if ((p.ph % 1) < inPocket(p.x, p.y) * 0.55) continue;   // ~half as dense in the pocket
+      if (wc > 0.01 && ((p.ph * 7.3) % 1) < wc * waterAt(cam.x + (p.x - w / 2) / z, cam.y + (p.y - h / 2) / z)) continue;
+      const vx = p.vx, vy = p.vy, sp = Math.hypot(vx, vy) || 1;
+      const ux = vx / sp, uy = vy / sp;
+      const len = Math.max(lw * 2.2, sp * L.streak * p.len);
+      ctx.setTransform(d * ux, d * uy, -d * uy, d * ux, d * (p.x + ox), d * (p.y + oy));
+      ctx.drawImage(img, -len, -lw, len + lw, lw * 2);
+    }
   }
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.globalAlpha = 1;
 }
 
 function drawStreaks(ctx, L, shadow) {
   if (!L.n) return;
-  for (let b = 0; b < 3; b++) {
-    // Faint grey shadow side so flakes read over white snow (skipped in fog).
-    if (shadow > 0.02) {
-      sliverPath(ctx, L, b, 0.7, 0.9);
-      ctx.fillStyle = `rgba(90,95,100,${0.22 * L.alpha * shadow})`;
-      ctx.fill();
-    }
-    sliverPath(ctx, L, b, 0, 0);
-    ctx.fillStyle = `rgba(255,255,255,${L.alpha * [0.7, 0.9, 1][b]})`;
-    ctx.fill();
+  if (!sliverW) {
+    sliverW = makeSliver('255,255,255'); sliverG = makeSliver('90,95,100');
+    // Immutable bitmaps upload to the GPU once (canvas sources may be re-snapshotted).
+    createImageBitmap?.(sliverW).then(b => { sliverW = b; });
+    createImageBitmap?.(sliverG).then(b => { sliverG = b; });
   }
+  // Faint grey shadow side so flakes read over white snow (skipped in fog).
+  if (shadow > 0.02) drawSprites(ctx, L, sliverG, 0.7, 0.9, 0.22 * L.alpha * shadow);
+  drawSprites(ctx, L, sliverW, 0, 0, L.alpha);
 }
 
 export function drawFar(ctx) { drawStreaks(ctx, LAYERS[0], 1 - state.weather.whiteout); }

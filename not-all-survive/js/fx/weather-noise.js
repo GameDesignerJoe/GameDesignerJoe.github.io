@@ -7,8 +7,43 @@ export function rng(seed) {
   return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
 }
 
+// Quality: 'high' | 'medium' | 'low' (state.quality, set by ui/perf.js).
+const QS = { high: 1, medium: 0.8, low: 0.6 };
+const QP = { high: 1, medium: 0.65, low: 0.4 };
+// Resolution multiplier for offscreen buffers, and particle-count multiplier.
+export const qRes = () => QS[globalThis.NAS?.quality?.level] ?? 1;
+export const qParticles = () => QP[globalThis.NAS?.quality?.level] ?? 1;
+
+// A low-res screen-aligned buffer for soft layers. scale: fraction of CSS px (capped).
+export function lowRes(buf, scale, cap = 320) {
+  const { w, h } = globalThis.NAS.view;
+  // Kept above 256x256 in area so the browser keeps it a GPU canvas (small canvases
+  // fall back to the CPU and cost an upload every frame).
+  const sc = Math.max(Math.min(scale, cap / Math.max(w, h)) * qRes(), Math.sqrt(70000 / (w * h)));
+  const bw = Math.max(2, Math.round(w * sc)), bh = Math.max(2, Math.round(h * sc));
+  if (buf && buf.c.width === bw && buf.c.height === bh) return buf;
+  const c = canvas(bw, bh);
+  return { c, g: c.getContext('2d'), sc: bw / w, fresh: true };
+}
+
+// Every weather canvas is registered here (weakly) so a storm's canvas memory can be
+// audited: NAS.weather.canvases() -> { live, mb, biggest }.
+const reg = new Set();
+globalThis.__wxCanvases = () => {
+  let live = 0, px = 0, big = '';
+  for (const r of reg) {
+    const c = r.deref();
+    if (!c) { reg.delete(r); continue; }
+    if (!c.width) continue;
+    live++; px += c.width * c.height;
+    if (!big || c.width * c.height > big[0]) big = [c.width * c.height, `${c.width}x${c.height}`];
+  }
+  return { live, mb: +(px * 4 / 1048576).toFixed(1), biggest: big[1] };
+};
+
 export function canvas(w, h) {
   const c = document.createElement('canvas');
+  reg.add(new WeakRef(c));
   c.width = Math.max(1, Math.round(w));
   c.height = Math.max(1, Math.round(h));
   return c;

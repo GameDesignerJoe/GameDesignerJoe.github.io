@@ -94,6 +94,22 @@ export function init() {
   if (state.params.get('demo') === 'dir') P.facing = (parseFloat(state.params.get('a') || '90') * Math.PI) / 180;
 }
 
+// Menu "Return to base camp": drop every in-progress state so he simply stands there.
+function resetTo(x, y) {
+  climb = null; route = null; ovr = null; ovrW = 0;
+  shoveT = 0; shoveV = 0; slipT = 0; staggerT = 0; downT = 0; refT = 0;
+  cowerW = 0; hunkerW = 0; idleT = 0; rockHit = null; shadowOff = 0; stampOn = 0;
+  chips.length = 0;
+  for (const k in hemS) hemS[k] = 0;
+  pose.gait = 0; pose.gustKick = 0; pose.stepEff = pose.step;
+  P.x = x ?? P.x; P.y = y ?? P.y; P.vx = P.vy = 0; P.speed = 0; P.moving = false;
+  P.mode = 'walk'; P.climbStage = null; P.climbHold = false; P.sheltered = 0;
+  const inp = state.input;
+  if (inp.tap) lastTapT = inp.tap.t;
+  if (inp.action) lastActT = inp.action;
+  inp.tap = null;
+}
+
 function walkable(x, y) {
   try { return T.isWalkable(x, y) !== false; } catch { return true; }
 }
@@ -101,6 +117,7 @@ function walkable(x, y) {
 export function update(dt) {
   if (dt <= 0) return;
   const inp = state.input;
+  for (const e of state.events) if (e.type === 'teleport') resetTo(e.x, e.y);
   const ter = (T.terrainAt(P.x, P.y)) || 'snow';
   P.terrain = ter;
   const prof = PROFILES[ter] || PROFILES.snow;

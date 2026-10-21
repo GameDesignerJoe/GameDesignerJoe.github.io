@@ -10,6 +10,7 @@ import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 import * as terrain from '../world/terrain.js';
 import { director, gustFast } from './weather-director.js';
+import { qParticles } from './weather-noise.js';
 
 const ROCK = 4, ICE = 2, THIN = 3;
 const STEP = 8;
@@ -45,7 +46,7 @@ function scan() {
   const z = state.cam.zoom || 1, minD = 70 / z;
   const out = [];
   for (const c of cand) {
-    if (out.length >= MAX_EMIT) break;
+    if (out.length >= Math.max(2, Math.round(MAX_EMIT * qParticles()))) break;
     if (out.some(o => Math.hypot(o.x - c.x, o.y - c.y) < minD)) continue;
     const prev = emitters.find(e => e.x === c.x && e.y === c.y);
     out.push(prev || { x: c.x, y: c.y, ph: Math.random() * 10, lenK: Math.random(), str: -1, scroll: Math.random() });

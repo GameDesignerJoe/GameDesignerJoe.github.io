@@ -691,7 +691,7 @@ function updateDog(d, dt) {
 
   // --- breath vapour
   d.breathT -= dt;
-  if (d.breathT <= 0 && d.tip) {
+  if (d.breathT <= 0 && d.tip && state.quality?.level !== 'low') {
     const busy = d.state === 'bark' || d.state === 'howl' || d.mouth > 0.2;
     d.breathT = busy ? rr(0.35, 0.6) : rr(1.4, 2.6);
     const a = state.wind.angle, ws = 2 + 9 * wind;
@@ -1122,13 +1122,50 @@ export function drawGround(ctx) {
   }
 }
 
+// --- sprite caches: each actor is rendered into a small canvas at screen resolution and
+// refreshed at a modest rate (wind motion is slow), then blitted every frame.
+const HZ = { high: [15, 8, 20], medium: [12, 6, 15], low: [8, 4, 10] };
+function boxOf(P, pts, m) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [lx, ly, h] of pts) { const [x, y] = P(lx, ly, h); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  return { x0: x0 - m, y0: y0 - m, x1: x1 + m, y1: y1 + m };
+}
+const corners = (xs, ys, hs) => { const o = []; for (const x of xs) for (const y of ys) for (const h of hs) o.push([x, y, h]); return o; };
+const TENT_BOX = boxOf(projT, corners([-21, 21], [-23.5, 23.5], [0, 14]), 2.5);
+const SLED_BOX = boxOf(projS, corners([-14.5, 16], [-4.5, 4.5], [0, 10]), 2);
+const sprites = new Map();
+function drawCached(ctx, key, box, hz, render, dx = 0, dy = 0) {
+  const s = zoom() * (state.view.dpr || 1);
+  let sp = sprites.get(key);
+  if (!sp) { sp = { cv: document.createElement('canvas'), t: -1e9, s: 0 }; sprites.set(key, sp); }
+  const now = performance.now() / 1000;
+  if (Math.abs(s - sp.s) / s > 0.02 || now - sp.t >= 1 / hz) {
+    const w = Math.ceil((box.x1 - box.x0) * s) + 2, h = Math.ceil((box.y1 - box.y0) * s) + 2;
+    if (sp.cv.width !== w || sp.cv.height !== h) { sp.cv.width = w; sp.cv.height = h; }
+    const c = sp.cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, w, h);
+    c.setTransform(s, 0, 0, s, -box.x0 * s, -box.y0 * s);
+    render(c);
+    Object.assign(sp, { s, t: now, x0: box.x0, y0: box.y0, w: w / s, h: h / s, dx, dy });
+  }
+  ctx.drawImage(sp.cv, sp.x0 + dx - sp.dx, sp.y0 + dy - sp.dy, sp.w, sp.h);
+}
+function dogBox(d) {
+  const r = 9.5 * d.look.size;
+  return { x0: d.x - r, y0: d.y - 12 * d.look.size, x1: d.x + r, y1: d.y + 4.5 * d.look.size };
+}
+
 export function drawables() {
   if (!onScreen()) return [];
+  const hz = HZ[state.quality?.level] || HZ.high;
   const out = [
-    { x: TENT.x, y: TENT.y + 3, draw: drawTent },
-    { x: SLED.x, y: SLED.y + 1, draw: drawSled },
+    { x: TENT.x, y: TENT.y + 3, draw: ctx => drawCached(ctx, 'tent', TENT_BOX, hz[0], drawTent) },
+    { x: SLED.x, y: SLED.y + 1, draw: ctx => drawCached(ctx, 'sled', SLED_BOX, hz[1], drawSled) },
   ];
-  for (const d of dogs) out.push({ x: d.x, y: d.y, draw: ctx => { drawChain(ctx, d); drawDog(ctx, d); } });
+  for (const d of dogs) out.push({ x: d.x, y: d.y, draw: ctx => {
+    drawChain(ctx, d);
+    drawCached(ctx, 'dog' + d.i, dogBox(d), hz[2], c => drawDog(c, d), d.x, d.y);
+  } });
   return out;
 }
 

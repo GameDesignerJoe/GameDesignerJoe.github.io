@@ -108,8 +108,21 @@ export function drawGround(ctx) {
   if (x1 <= x0 || y1 <= y0) return;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+  // Skip the full-screen base draw when opaque crisp tiles cover the whole view.
+  if (noTiles || !tilesCover(r)) ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
   if (!noTiles) drawTiles(ctx);
+}
+
+function tilesCover(r) {
+  if (state.cam.zoom * state.view.dpr < TILE_MIN_DEVICE_ZOOM) return false;
+  const now = performance.now();
+  const tx0 = Math.max(0, Math.floor(r.x0 / TILE)), ty0 = Math.max(0, Math.floor(r.y0 / TILE));
+  const tx1 = Math.min(NTX - 1, Math.floor(r.x1 / TILE)), ty1 = Math.min(NTY - 1, Math.floor(r.y1 / TILE));
+  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+    const e = cache.get(ty * NTX + tx);
+    if (!e || now - e.t < FADE_MS) return false;
+  }
+  return true;
 }
 
 let tilesOn = false;

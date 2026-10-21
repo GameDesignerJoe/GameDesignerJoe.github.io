@@ -17,6 +17,7 @@ let last = null; // previous print, for the deep-snow drag furrow
 
 export function update(dt) {
   for (const e of state.events) {
+    if (e.type === 'teleport') { last = null; continue; }   // a new trail, no furrow from the old spot
     if (e.type !== 'step') continue;
     const t = e.terrain;
     if (!RATE[t]) { last = null; continue; }

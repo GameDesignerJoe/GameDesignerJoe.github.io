@@ -7,6 +7,8 @@
 import { state } from './state.js';
 import { initInput, updateInput } from './input.js';
 import { updateCamera, applyCamera } from './camera.js';
+import { beginFrame, endFrame, track, updateOverlay, onQuality, maxPixels } from './ui/perf.js';
+import { initMenu } from './ui/menu.js';
 
 // Order matters for update; draw order is decided by which hook a module implements.
 // ?only=explorer,weather limits which systems load (map, terrain and ground always load).
@@ -32,19 +34,22 @@ const systems = [];
 const broken = new Set();
 function safe(s, fn) {
   if (broken.has(s)) return undefined;
-  try { return fn(); } catch (e) { broken.add(s); console.error(`[${s.name}] disabled:`, e); }
+  try { return track(s.name, fn); } catch (e) { broken.add(s); console.error(`[${s.name}] disabled:`, e); }
 }
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
+// Render resolution follows the quality level (perf.js lowers dprCap on slow devices).
 function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), state.quality.dprCap);
+  dpr = Math.min(dpr, Math.sqrt(maxPixels() / (innerWidth * innerHeight)));
   state.view = { w: innerWidth, h: innerHeight, dpr };
   canvas.width = Math.round(innerWidth * dpr);
   canvas.height = Math.round(innerHeight * dpr);
 }
 addEventListener('resize', resize);
+onQuality(resize);
 resize();
 
 let ready = false;
@@ -81,6 +86,7 @@ let last = performance.now();
 function frame(now) {
   const raw = Math.min(0.05, (now - last) / 1000);
   last = now;
+  beginFrame();
   const dt = raw * state.timeScale;
   state.dt = dt;
   state.time += dt;
@@ -89,7 +95,7 @@ function frame(now) {
   updateInput();
   for (const s of systems) safe(s, () => s.mod.update?.(dt));
   state.events.length = 0; // events live for exactly one update pass
-  updateCamera(dt);
+  track('camera', () => updateCamera(dt));
 
   const { w, h, dpr } = state.view;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -113,13 +119,15 @@ function frame(now) {
       actors.push({ draw: a.draw, key, sys: s });
     }
   }
-  actors.sort((a, b) => a.key - b.key);
+  track('sort', () => actors.sort((a, b) => a.key - b.key));
   for (const a of actors) { ctx.save(); safe(a.sys, () => a.draw(ctx)); ctx.restore(); }
   for (const s of systems) drawLayer(s, 'drawSky');
   ctx.restore();
 
   for (const s of systems) drawLayer(s, 'drawScreen');
 
+  endFrame(now);
+  updateOverlay(now);
   requestAnimationFrame(frame);
 }
 
@@ -141,6 +149,7 @@ async function boot() {
 }
 
 initInput(canvas);
+initMenu();
 if (state.started) {
   const title = document.getElementById('title');
   title.style.transition = 'none';

@@ -11,6 +11,7 @@
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 import { mask, classAt, lumAt } from './terrain.js';
+import { drawLakes } from './lakes.js';
 
 const SNOW = 0, DEEP = 1, ICE = 2, PATH = 5;
 const TILE = 64;
@@ -102,7 +103,7 @@ function tile(tx, ty) {
 // --- drawing ---------------------------------------------------------------------
 export function drawGround(ctx) {
   if (!mask()) return;
-  if (!noDetail) drawDetail(ctx);
+  if (!noDetail) { drawLakes(ctx); drawDetail(ctx); }
   if (showTerrain || showHeight) drawDebug(ctx);
 }
 

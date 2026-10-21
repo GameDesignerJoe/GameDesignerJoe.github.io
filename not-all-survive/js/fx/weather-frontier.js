@@ -7,13 +7,20 @@
 // Rendered in a quarter-res buffer (soft by design); streamers at full res.
 import { state, MAP_W, MAP_H } from '../state.js';
 import { worldToScreen } from '../camera.js';
-import { canvas } from './weather-noise.js';
+import { canvas, qRes } from './weather-noise.js';
 import { director } from './weather-director.js';
 
-const BORDER = 260;        // matches world/frontier.js
+import { BORDER } from '../world/frontier.js';
 // The wall masses a little inside the border (towering storm), so it reads from
 // ~200 px inside the safe area at the usual zoom.
-const FRONT = BORDER + 90;
+// The wall's front line sits a little inside each side's border (proportional, so the
+// thin south border keeps its storm down by the painting's edge, clear of the sea).
+const FRONT = {
+  left: BORDER.left * 1.35, right: BORDER.right * 1.35,
+  // South: the gameplay border is thin (the sea stays playable), but the storm bank
+  // still rises ~140 world px from the bottom edge so it reads as a wall.
+  top: BORDER.top * 1.35, bottom: Math.max(BORDER.bottom * 1.25, 140),
+};
 let T, buf, g, fogPat, greyPat, streakPat, cloudPat;
 let t = 0;
 const wisps = [];
@@ -22,7 +29,8 @@ export function init(textures) { T = textures; }
 
 function ensure() {
   const { w, h } = state.view;
-  const sc = Math.min(0.25, 320 / Math.max(w, h));
+  // Big enough (>256x256 area) to stay a GPU canvas; scaled by quality.
+  const sc = Math.max(Math.min(0.34, 440 / Math.max(w, h)) * qRes(), Math.sqrt(70000 / (w * h)));
   const bw = Math.max(2, Math.round(w * sc)), bh = Math.max(2, Math.round(h * sc));
   if (!buf || buf.width !== bw || buf.height !== bh) {
     buf = canvas(bw, bh);
@@ -37,7 +45,7 @@ function ensure() {
 // Sides in screen space: front = screen coordinate of the border's inner line along the
 // side's normal axis; dir = +1 if the storm lies toward increasing coordinate.
 function sides() {
-  const a = worldToScreen(FRONT, FRONT), b = worldToScreen(MAP_W - FRONT, MAP_H - FRONT);
+  const a = worldToScreen(FRONT.left, FRONT.top), b = worldToScreen(MAP_W - FRONT.right, MAP_H - FRONT.bottom);
   return [
     { axis: 'x', front: a.x, dir: -1, id: 0 },   // west: storm at smaller x
     { axis: 'x', front: b.x, dir: 1, id: 1 },    // east
@@ -53,8 +61,9 @@ const hash = n => { const h = Math.sin(n * 127.1 + 311.7) * 43758.5453; return h
 const ragged = (side, s) => {
   const k = side.id * 3.1, ds = (side.id % 2 ? 1 : -1) * t;
   const warp = 7 * Math.sin(s * 0.013 + ds * 0.9 + k) + 4 * Math.sin(s * 0.031 - t * 1.3);
-  return 16 * Math.sin(s * 0.047 + warp + ds * 2.6) + 8 * Math.sin(s * 0.11 + warp * 1.7 - t * 3.4 + k)
-    + 2.5 * Math.sin(s * 0.21 + warp * 2.3 + t * 5.1);
+  // Rounded billow tops with notches between them (|sin|), boiling and rolling along.
+  return 22 * Math.abs(Math.sin(s * 0.03 + warp + ds * 2.2)) + 9 * Math.abs(Math.sin(s * 0.083 + warp * 1.6 - t * 3.1 + k))
+    + 2.5 * Math.sin(s * 0.21 + warp * 2.3 + t * 5.1) - 14;
 };
 const lobeAt = (side, s) => 30 * Math.sin(s * 0.011 + side.id * 2 + t * 0.6) + 14 * Math.sin(s * 0.027 - t * 0.9);
 
@@ -181,39 +190,53 @@ export function draw(ctx) {
 // Wind-driven sheets inside the wall, at full resolution: long thin bright and grey
 // streaks racing along the wall (like the whiteout sheets), densest near the torn top.
 const SHEETS = 34;
+// Sheets are sprites (a tapered sliver bitmap, stretched and placed along the wall),
+// kept well inside the torn edge so no clipping path is needed.
+let sliver = null;
+function sliverSprite() {
+  if (sliver) return sliver;
+  sliver = canvas(64, 8);
+  const g2 = sliver.getContext('2d');
+  g2.fillStyle = '#fff';
+  g2.beginPath(); g2.moveTo(0, 4); g2.lineTo(56, 1); g2.arc(58, 4, 3, -Math.PI / 2, Math.PI / 2); g2.lineTo(56, 7); g2.closePath(); g2.fill();
+  createImageBitmap?.(sliver).then(b => { sliver = b; });
+  return sliver;
+}
+let sliverG = null;
+function sliverGrey() {
+  if (sliverG) return sliverG;
+  sliverG = canvas(64, 8);
+  const g2 = sliverG.getContext('2d');
+  g2.fillStyle = 'rgb(150,154,158)';
+  g2.beginPath(); g2.moveTo(0, 4); g2.lineTo(56, 1); g2.arc(58, 4, 3, -Math.PI / 2, Math.PI / 2); g2.lineTo(56, 7); g2.closePath(); g2.fill();
+  createImageBitmap?.(sliverG).then(b => { sliverG = b; });
+  return sliverG;
+}
 function drawSheets(ctx, side, alpha) {
-  const { w, h } = state.view;
+  const { w, h, dpr } = state.view;
   const len = side.axis === 'x' ? h : w;
   const fast = 1 + (director.frontierEsc || 0);
   const dirS = side.id % 2 ? -1 : 1;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  sidePath(ctx, side, 1, -4);
-  ctx.clip();
-  ctx.lineCap = 'round';
+  const W_ = sliverSprite(), G_ = sliverGrey();
   for (let i = 0; i < SHEETS; i++) {
     const h1 = hash(i * 1.31 + side.id * 17), h2 = hash(i * 2.17 + 5), h3 = hash(i * 3.71 + 9);
-    const depth = Math.pow(h1, 1.8) * 160 + 6;               // px inside the front, most near the top
+    const depth = Math.pow(h1, 1.8) * 160 + 22;               // px inside the front, most near the top
     const L = 70 + h2 * 200, sp = (220 + h3 * 200) * fast;
     const span = len + L + 200;
     const s = (((t * sp * dirS + h2 * 5000) % span) + span) % span - L - 100;
     const s0 = dirS > 0 ? s : len - s;
     const n = side.front - side.dir * (lobeAt(side, s0) + ragged(side, s0) + 30) + side.dir * depth;
     const grey = h3 < 0.38;
-    ctx.fillStyle = grey ? `rgba(150,154,158,${0.22 + 0.18 * h1})` : `rgba(252,252,253,${0.3 + 0.3 * (1 - h1)})`;
-    // A tapered sliver (fat head, needle tail) on a gentle curve, tilted a little.
-    const wd = 0.5 + h2 * 1.1, bow = (6 + 8 * h3) * Math.sin(t * 1.6 + i), tilt = (h1 - 0.5) * 0.12 * L;
-    const P = (u, off) => {
-      const ss = s0 - dirS * L * u, nn = n + bow * Math.sin(Math.PI * u) + tilt * u + off;
-      return side.axis === 'x' ? [nn, ss] : [ss, nn];
-    };
-    ctx.beginPath();
-    let q = P(0, 0); ctx.moveTo(q[0], q[1]);
-    for (let k = 1; k <= 6; k++) { const u = k / 6; q = P(u, -wd * (1 - u)); ctx.lineTo(q[0], q[1]); }
-    for (let k = 5; k >= 0; k--) { const u = k / 6; q = P(u, wd * (1 - u)); ctx.lineTo(q[0], q[1]); }
-    ctx.fill();
+    const wd = 1 + h2 * 2.2;
+    ctx.globalAlpha = alpha * (grey ? 0.22 + 0.18 * h1 : 0.3 + 0.3 * (1 - h1));
+    // Sprite runs along +x with its head at the right; point it along the travel direction.
+    const ux = side.axis === 'x' ? 0 : -dirS, uy = side.axis === 'x' ? -dirS : 0;
+    const x = side.axis === 'x' ? n : s0, y = side.axis === 'x' ? s0 : n;
+    ctx.setTransform(-dpr * ux, -dpr * uy, dpr * uy, -dpr * ux, dpr * x, dpr * y);
+    ctx.drawImage(grey ? G_ : W_, -L, -wd / 2, L, wd);
   }
-  ctx.restore();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.globalAlpha = 1;
 }
 
 // --- streamers tearing off the top of the wall toward the explorer -------------------
@@ -221,7 +244,7 @@ function updateWisps(dt, S) {
   const { w, h } = state.view;
   for (const side of S) {
     const len = side.axis === 'x' ? h : w;
-    if (Math.random() < dt * len / 40 && wisps.length < 90) {
+    if (Math.random() < dt * len / 60 && wisps.length < 50) {
       const s = Math.random() * len;
       wisps.push({ side, s, age: 0, life: 0.8 + Math.random() * 0.7, L: 30 + Math.random() * 45,
         curl: (Math.random() - 0.5) * 0.8, w0: 1.2 + Math.random() * 1.6 });
@@ -229,8 +252,9 @@ function updateWisps(dt, S) {
   }
   // A few wisps blow across the explorer when they're at the wall or inside it.
   const p = state.player;
-  const dEdge = Math.min(p.x, p.y, MAP_W - p.x, MAP_H - p.y);
-  const near = Math.max(director.frontier || 0, Math.min(1, Math.max(0, (FRONT + 60 - dEdge) / 90)));
+  // How far past each side's wall front the explorer is (positive = inside the storm side).
+  const past = Math.max(FRONT.left - p.x, FRONT.top - p.y, p.x - (MAP_W - FRONT.right), p.y - (MAP_H - FRONT.bottom));
+  const near = Math.max(director.frontier || 0, Math.min(1, Math.max(0, (past + 60) / 90)));
   if (near > 0.05 && Math.random() < dt * 5 * near && wisps.length < 110) {
     const ps = worldToScreen(p.x, p.y - 8), a = state.wind.angle;
     const back = 25 + Math.random() * 30;

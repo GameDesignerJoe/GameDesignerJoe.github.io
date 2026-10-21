@@ -5,7 +5,7 @@
 // noise moving with the wind, rendered in a small buffer and composited once.
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
-import { canvas } from './weather-noise.js';
+import { canvas, qRes } from './weather-noise.js';
 import { director } from './weather-director.js';
 
 let T, buf, g, fogPat, ring;
@@ -31,7 +31,8 @@ export function init(textures) {
 
 function ensure() {
   const { w, h } = state.view;
-  const sc = Math.min(0.25, 320 / Math.max(w, h));
+  // Big enough (>256x256 area) to stay a GPU canvas; scaled by quality.
+  const sc = Math.max(Math.min(0.34, 440 / Math.max(w, h)) * qRes(), Math.sqrt(70000 / (w * h)));
   const bw = Math.max(2, Math.round(w * sc)), bh = Math.max(2, Math.round(h * sc));
   if (!buf || buf.width !== bw || buf.height !== bh) {
     buf = canvas(bw, bh);

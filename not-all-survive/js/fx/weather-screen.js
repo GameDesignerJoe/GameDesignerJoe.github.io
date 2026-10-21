@@ -5,7 +5,7 @@
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
 import { director } from './weather-director.js';
-import { canvas } from './weather-noise.js';
+import { canvas, qRes } from './weather-noise.js';
 import { drawFrost } from './weather-frost.js';
 
 let T, fog, fctx, fogPat = null, greyPat = null, streakPat = null;
@@ -13,23 +13,9 @@ let frost = 0, wU = 0, wV = 0, lastT = 0, grainX = 0, grainY = 0, grainClock = 0
 const clamp01 = v => Math.max(0, Math.min(1, v));
 const FOG = '236,238,240';
 
-let finish = null, finishKey = '';
+let grainPat = null, grainCtx = null;
 const JIT = 8;
 // One screen-sized canvas holding the vignette and the grain (CSS px, capped area).
-function ensureFinish() {
-  const { w, h } = state.view;
-  const key = `${w}x${h}`;
-  if (finish && finishKey === key) return;
-  finishKey = key;
-  const W = w + JIT, H = h + JIT;
-  const k = Math.min(1, Math.sqrt(1300000 / (W * H)));
-  finish = canvas(W * k, H * k);
-  const g = finish.getContext('2d');
-  g.drawImage(T.vignette, -W * k * 0.06, -H * k * 0.06, W * k * 1.12, H * k * 1.12);
-  g.globalAlpha = 0.6;
-  g.fillStyle = g.createPattern(T.grain, 'repeat');
-  g.fillRect(0, 0, finish.width, finish.height);
-}
 export function init(textures) { T = textures; }
 
 export function update(dt) {
@@ -56,7 +42,8 @@ export function update(dt) {
 
 function ensureFog() {
   const { w, h } = state.view;
-  const sc = Math.min(0.25, 360 / Math.max(w, h));
+  // Big enough (>256x256 area) to stay a GPU canvas; scaled by quality.
+  const sc = Math.max(Math.min(0.34, 440 / Math.max(w, h)) * qRes(), Math.sqrt(70000 / (w * h)));
   const fw = Math.max(2, Math.round(w * sc)), fh = Math.max(2, Math.round(h * sc));
   if (!fog || fog.width !== fw || fog.height !== fh) {
     fog = canvas(fw, fh);
@@ -188,23 +175,36 @@ export function drawWhiteout(ctx) {
   ctx.drawImage(fog, 0, 0, w, h);
 }
 
+// Cold vignette: to pale grey, not black (drawn into the shared atmosphere buffer).
+export function drawVignette(ctx) {
+  const { w, h } = state.view;
+  ctx.globalAlpha = clamp01(0.5 + director.storminess * 0.3 + state.weather.whiteout * 0.2);
+  ctx.drawImage(T.vignette, -w * 0.06, -h * 0.06, w * 1.12, h * 1.12);
+  ctx.globalAlpha = 1;
+}
+
 export function drawFinish(ctx) {
   const { w, h } = state.view;
   const st = director.storminess, wo = state.weather.whiteout;
 
   // Cold vignette (to pale grey, not black) and paper grain, baked into one layer and
   // jittered a few px at ~12 fps like film. Dropped entirely on slow devices.
-  if (director.quality >= 0.85) {
-    ensureFinish();
+  const wxoff = state.params.get('wxoff') || '';
+  if (director.quality >= 0.85 && (state.quality?.level ?? 'high') === 'high' && !wxoff.includes('grain')) {
+    // A repeating pattern straight from the (GPU) grain bitmap: no screen-sized canvas.
+    if (!grainPat || grainCtx !== ctx) { grainCtx = ctx; grainPat = ctx.createPattern(T.grain, 'repeat'); }
     grainClock += state.dt;
-    if (grainClock > 0.08) { grainClock = 0; grainX = Math.random() * JIT; grainY = Math.random() * JIT; }
-    ctx.globalAlpha = clamp01(0.5 + st * 0.3 + wo * 0.2);
-    ctx.drawImage(finish, -grainX, -grainY, w + JIT, h + JIT);
-    ctx.globalAlpha = 1;
+    if (grainClock > 0.08) { grainClock = 0; grainX = Math.random() * 128; grainY = Math.random() * 128; }
+    ctx.save();
+    ctx.globalAlpha = 0.36;
+    ctx.translate(-grainX, -grainY);
+    ctx.fillStyle = grainPat;
+    ctx.fillRect(0, 0, w + 128, h + 128);
+    ctx.restore();
   }
 
   // Frost creeping in along the screen edges from the corners: cross-fade through the
   // growth stages; each corner a little ahead or behind the others.
-  drawFrost(ctx, frost);
+  if (!wxoff.includes('frost')) drawFrost(ctx, frost);
 
 }

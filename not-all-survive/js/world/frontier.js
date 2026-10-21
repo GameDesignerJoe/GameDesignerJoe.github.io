@@ -6,16 +6,18 @@
 // the walk and push back against the player.
 import { state, MAP_W, MAP_H } from '../state.js';
 
-// Border depth in world px. The painting's own edges (sky band, fogged corners) sit
-// inside this, so the storm hides the end of the art before the player reaches it.
-const BORDER = 260;
+// Border depth in world px, per side. The painting's own edges (sky band, fogged
+// corners) sit inside this, so the storm hides the end of the art before the player
+// reaches it. The south edge is thin: the sea, the trail and the cliffs below camp
+// run right down to the bottom of the painting and must stay playable.
+export const BORDER = { left: 230, right: 230, top: 280, bottom: 90 };
 
 state.frontier = { amount: 0, inX: 0, inY: 0 };
 
 export function frontierAt(x, y) {
   // Per side: 0 at the inner edge of the border, 1 at the map edge.
-  const l = 1 - x / BORDER, r = 1 - (MAP_W - x) / BORDER;
-  const t = 1 - y / BORDER, b = 1 - (MAP_H - y) / BORDER;
+  const l = 1 - x / BORDER.left, r = 1 - (MAP_W - x) / BORDER.right;
+  const t = 1 - y / BORDER.top, b = 1 - (MAP_H - y) / BORDER.bottom;
   const k = v => Math.max(0, Math.min(1, v));
   const dx = k(l) - k(r), dy = k(t) - k(b);   // > 0 means push toward +x / +y
   const raw = Math.max(k(l), k(r), k(t), k(b));
