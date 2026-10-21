@@ -18,6 +18,7 @@ function build() {
   for (const c of corners) {
     if (c.full) { if (c.full.close) c.full.close(); else c.full.width = c.full.height = 0; }   // free GPU memory
     if (c.view) c.view.width = c.view.height = 0;
+    if (c.tview) c.tview.width = c.tview.height = 0;
   }
   const { w, h } = state.view;
   const cwC = Math.ceil(w / 2) + 2, chC = Math.ceil(h / 2) + 2;
@@ -172,9 +173,19 @@ function compose(c, a, D) {
   g.imageSmoothingQuality = 'high';
   g.drawImage(c.mask, -sw / mw, -sh / mh, sw + 2 * sw / mw, sh + 2 * sh / mh);
   g.globalCompositeOperation = 'source-over';
+  // Cool-blue night variant (same pixels, tinted), used when lighting.night > 0.
+  if (!c.tview) { c.tview = canvas(sw, sh); c.tg = c.tview.getContext('2d'); }
+  const tg = c.tg;
+  tg.globalCompositeOperation = 'source-over';
+  tg.clearRect(0, 0, sw, sh);
+  tg.drawImage(c.view, 0, 0);
+  tg.globalCompositeOperation = 'source-atop';
+  tg.fillStyle = 'rgba(196,212,240,0.55)';
+  tg.fillRect(0, 0, sw, sh);
+  tg.globalCompositeOperation = 'source-over';
 }
 
-export function drawFrost(ctx, amount) {
+export function drawFrost(ctx, amount, tint = 0) {
   if (amount <= 0.02) return;
   const { w, h } = state.view;
   const key2 = `${w}x${h}`;
@@ -209,7 +220,8 @@ export function drawFrost(ctx, amount) {
     ctx.scale(c.right ? -1 : 1, c.bottom ? -1 : 1);
     // Receding fades the whole thing as well as shrinking it back into the corner.
     ctx.globalAlpha = Math.min(1, amount * 2.5);
-    ctx.drawImage(c.vbm && c.vbmStamp !== -1 ? c.vbm : c.view, 0, 0, c.cw, c.ch);
+    if (tint < 0.98) ctx.drawImage(c.vbm && c.vbmStamp !== -1 ? c.vbm : c.view, 0, 0, c.cw, c.ch);
+    if (tint > 0.02 && c.tview) { ctx.globalAlpha *= tint; ctx.drawImage(c.tview, 0, 0, c.cw, c.ch); }
     ctx.restore();
   }
   ctx.globalAlpha = 1;

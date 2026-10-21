@@ -267,7 +267,8 @@ export function update(dt) {
   const shieldT = windPose * smooth(0.15, 0.75, g) * clamp(0.15 + into * 1.1 + Math.abs(side) * 0.35);
   pose.shield = approach(pose.shield, shieldT, 3, dt);
   const gustAmt = smooth(0.12, 0.5, gust);
-  pose.hug = approach(pose.hug, idle * clamp(windPose * (0.7 + 0.3 * wEff) + pose.shiver * 0.6), 2.5, dt);
+  // hands tucked into the armpits when idle in hard cold (cold is read just below, for shivers too)
+  pose.hug = approach(pose.hug, idle * clamp(windPose * (0.7 + 0.3 * wEff) + pose.shiver * 0.6 + smooth(0.7, 0.85, clamp(state.weather.cold ?? 0))), 2.5, dt);
   pose.brace = approach(pose.brace, idle * windPose * (0.35 + 0.65 * gustAmt), 3, dt);
 
   // --- idle life: weight shifts, slow looks, shivers, foot stamps ----------------------------
@@ -282,7 +283,8 @@ export function update(dt) {
   const look = lookTarget * idle * (1 - windPose * 0.7);
   shiverT -= dt;
   if (shiverOn > 0) shiverOn -= dt;
-  if (shiverT <= 0) { shiverT = 3 + rand() * 4; if (wEff > 0.4 && idle > 0.5) shiverOn = 0.8 + rand() * 0.6; }
+  const coldNow = clamp(state.weather.cold ?? 0);
+  if (shiverT <= 0) { shiverT = (3 + rand() * 4) * (1 - 0.5 * coldNow); if ((wEff > 0.4 || coldNow > 0.55) && idle > 0.5) shiverOn = 0.8 + rand() * 0.6; }
   pose.shiver = approach(pose.shiver, shiverOn > 0 ? 1 : 0, 8, dt);
   stampT -= dt * (1 + wEff);
   if (stampOn > 0) {
@@ -954,17 +956,30 @@ function updateBreath(dt, ter, g, wEff, wa) {
   breathT -= dt;
   if (breathT <= 0) {
     breathT = lerp(2.6, 0.9, exert) * (0.85 + rand() * 0.3);
-    const n = 3 + Math.round(exert * 2);
-    const fa = P.facing + pose.torsoYaw + pose.headYaw;
-    const fc = Math.cos(fa), fs = Math.sin(fa);
-    for (let i = 0; i < n; i++) {
-      puffs.push({
-        x: faceWorld.x + fc * 1.1, y: faceWorld.y + fs * 1.1 * KY, z: faceWorld.z,
-        vx: fc * (2.5 + exert * 2) + P.vx * 0.6, vy: fs * (2.5 + exert * 2) * KY + P.vy * 0.6, vz: -0.2,
-        age: -i * 0.07, life: 1.2 + rand() * 0.6 - wEff * 0.4, r: 0.18 + rand() * 0.14,
-      });
+    // Breath shows with the cold (weather.cold 0..1, colder at night and in wind): barely an
+    // occasional wisp when mild, a clear puff every exhale from ~0.6, dense clouds past 0.85.
+    const cold = clamp(state.weather.cold ?? 0.4);
+    const vis = smooth(0.15, 0.7, cold);
+    if (cold >= 0.3 || rand() < 0.3) {
+      // one plume per exhale (plus a second, thinner one when it's bitter), leaving the face
+      // opening, stretching downwind and tearing into curls. Exerting: small and quick; standing
+      // in hard cold: big, slow and long-lived.
+      const n = 1 + (cold > 0.75 ? 1 : 0) + (cold > 0.88 ? 1 : 0);
+      const fa = P.facing + pose.torsoYaw + pose.headYaw;
+      const fc = Math.cos(fa), fs = Math.sin(fa);
+      const size = (0.55 + 0.9 * cold + smooth(0.85, 1, cold) * 0.5) * (1 - 0.4 * exert);
+      for (let i = 0; i < n; i++) {
+        const v = 2.0 + exert * 3.5;
+        puffs.push({
+          x: faceWorld.x + fc * 0.9, y: faceWorld.y + fs * 0.9 * KY, z: faceWorld.z - 0.1 * i,
+          vx: fc * v + P.vx * 0.6, vy: fs * v * KY + P.vy * 0.6, vz: 0.12 * cold,
+          age: -i * 0.12, life: (2.0 + rand() * 1.0) * (0.6 + 0.4 * smooth(0.3, 0.6, cold)) * (1 - 0.3 * exert) * (1 - wEff * 0.25),
+          r: (1.1 + rand() * 0.3) * size, a: (cold < 0.3 ? 0.12 : lerp(0.3, 0.7, smooth(0.3, 0.6, cold))) * (i ? 0.6 : 1),
+          curls: 2 + Math.floor(rand() * 3), seed: rand() * 6.28,
+        });
+      }
+      if (puffs.length > 80) puffs.splice(0, puffs.length - 80);
     }
-    if (puffs.length > 40) puffs.splice(0, puffs.length - 40);
   }
   const wx = Math.cos(wa) * (2 + 10 * wEff), wy = Math.sin(wa) * (2 + 10 * wEff) * KY;
   for (let i = puffs.length - 1; i >= 0; i--) {
@@ -1700,14 +1715,48 @@ function drawHood(ctx, rig, pr) {
   inkOutline(ctx, open, 0.12, 0.34, false);
 }
 
+// One soft ellipse: white, fading to nothing at the edge (no rim), stretched along `ang`.
+function wisp(ctx, x, y, rx, ry, ang, col, a) {
+  if (a <= 0.004 || rx <= 0.01) return;
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(ang); ctx.scale(rx, ry);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  g.addColorStop(0, `rgba(${col},${a})`);
+  g.addColorStop(0.55, `rgba(${col},${a * 0.55})`);
+  g.addColorStop(1, `rgba(${col},0)`);
+  ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+}
+// Breath: a plume stretched downwind (to ~3:1), its trailing edge tearing into curls that drift
+// off and thin out. Mostly white at low alpha; a whisper of grey on the shadow side (light from
+// the upper left) gives it an edge on white snow.
 function drawPuffs(ctx, list) {
   for (const p of list) {
     if (p.age < 0) continue;
     const t = p.age / p.life;
-    const a = 0.42 * (1 - t) * Math.min(1, p.age * 6);
-    const r = p.r + t * 1.0;
-    ctx.beginPath(); ctx.arc(p.x, p.y - p.z, r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(246,247,248,${a})`; ctx.fill();
+    const a = (p.a ?? 0.35) * (1 - t) * (1 - t * 0.3) * Math.min(1, p.age * 8);
+    const sp = Math.hypot(p.vx, p.vy);
+    const ang = sp > 0.01 ? Math.atan2(p.vy, p.vx) : 0;
+    const ux = Math.cos(ang), uy = Math.sin(ang);
+    const rx = p.r * (1 + 2.2 * Math.min(1, t * 1.6)) * (1 + 0.6 * t);
+    const ry = p.r * (0.7 + 0.6 * t);
+    const x = p.x, y = p.y - p.z;
+    const core = 1 - smooth(0.35, 0.9, t);              // the body of the plume thins as it tears
+    wisp(ctx, x + 0.3, y + 0.38, rx, ry, ang, '120,128,140', a * 0.55 * core);
+    wisp(ctx, x, y, rx, ry, ang, '251,252,253', a * core);
+    // curls breaking off the trailing edge
+    const n = p.curls || 0, tear = smooth(0.15, 0.6, t);
+    for (let k = 0; k < n; k++) {
+      const f = (k + 1) / (n + 1);
+      const back = rx * (0.5 + 0.9 * f) * tear;
+      const side = Math.sin(p.seed + k * 2.1 + p.age * 3.2) * ry * (0.8 + 1.4 * tear);
+      const cx = x - ux * back - uy * side, cy = y - uy * back + ux * side - tear * 0.6 * f;
+      const cr = p.r * (0.35 + 0.35 * (1 - f)) * (0.6 + 1.2 * tear);
+      const ca = a * tear * (1 - t * 0.6) * (0.7 - 0.3 * f);
+      wisp(ctx, cx + 0.2, cy + 0.26, cr * 1.4, cr, ang + Math.sin(p.seed + k) * 0.8, '120,128,140', ca * 0.5);
+      wisp(ctx, cx, cy, cr * 1.4, cr, ang + Math.sin(p.seed + k) * 0.8, '251,252,253', ca);
+    }
   }
 }
 function drawKicks(ctx) {

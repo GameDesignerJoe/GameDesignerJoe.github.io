@@ -39,7 +39,13 @@ export const state = {
   // weather.ctl (console controls), weather.lastAvalanche, and writes cam.shakeX/Y.
   // weather.light dimming is applied by weather.js itself — don't dim again elsewhere.
   wind: { angle: num('windAngle', Math.PI * 0.08), speed: num('wind', 0.45), gust: 0 },
-  weather: { whiteout: num('whiteout', 0), snowfall: num('snow', 0.5), light: 1 },
+  weather: { whiteout: num('whiteout', 0), snowfall: num('snow', 0.5), light: 1,
+    // temp in degrees C and cold 0..1 (0 = a mild -10, 1 = a deadly -45 with wind chill).
+    // The weather director owns them; frost, breath, shivering and the snow squeak read them.
+    temp: -18, cold: 0.3,
+    // Today's forecast, chosen once per day/night cycle by the weather director, e.g.
+    // { id: 'clear'|'bright'|'breezy'|'overcast'|'eveningStorm'|'blizzard', ... }.
+    forecast: null },
 
   // Lighting. night eases toward nightTarget (0 = day, 1 = full night). night.js runs a
   // day/night cycle (3 min day, 2 min night) unless lighting.mode is pinned to 'day' or
@@ -49,7 +55,9 @@ export const state = {
   lighting: { night: params.has('night') ? 1 : 0, nightTarget: params.has('night') ? 1 : 0,
     // bright: a blinding clear day (glare, washed-out detail). Eases toward brightTarget;
     // ?bright and the gear menu set it. Only shows by day.
-    bright: params.has('bright') ? 1 : 0, brightTarget: params.has('bright') ? 1 : 0 },
+    bright: params.has('bright') ? 1 : 0, brightTarget: params.has('bright') ? 1 : 0,
+    // null = the weather director decides; true/false = pinned by the gear menu or ?bright.
+    brightForced: params.has('bright') ? true : null },
   lights: [],
 
   // frontier.js adds state.frontier = { amount 0..1, inX, inY }: how deep into the

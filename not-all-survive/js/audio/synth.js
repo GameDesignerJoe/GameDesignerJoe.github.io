@@ -626,7 +626,8 @@ export function createWind(ctx, B, out) {
       P(flap.playbackRate, 0.6 + 1.1 * clamp(sp - 0.5 + g * 0.4, 0, 1) + 0.1 * wander(x * 1.9), t, 0.2); // ~4-12 flaps/s
       // shelter: occluded, lower, softer
       P(shelterLP.frequency, 16000 * Math.pow(open, 3) + 450, t, 0.4);
-      P(bus.gain, 1 - 0.75 * sh, t, 0.4);
+      // calm cold nights: the bed sinks back and the world goes still
+      P(bus.gain, (1 - 0.75 * sh) * (1 - 0.55 * (p.still || 0)), t, 0.8);
       // the lee: overhead roar and close sifting snow
       P(oG.gain, sh * (0.05 + 0.3 * I + 0.1 * w) * (0.6 + 0.7 * g) * turb(11.3, 4), t, 0.3);
       P(oB.frequency, 260 + 140 * I + 60 * g, t, 0.4);
@@ -750,4 +751,24 @@ export function fall(ctx, B, out, t, o = {}) {
   breath(ctx, B, out, bt, { inhale: false, len: bl, level: 0.8 });
   breath(ctx, B, out, bt + bl + 0.1, { inhale: true, len: R(0.5, 0.7), level: 0.5, shaky: 0.8 });
   return bt - t + bl + 0.9;
+}
+
+// "Ringing silence": on still, cold nights a barely-there high air tone (two narrow
+// noise bands near 8-11 kHz, slowly breathing). set(still 0..1, time, t).
+export function createAir(ctx, B, out) {
+  const g = gain(ctx, 0), now = ctx.currentTime;
+  const bands = [8200, 10900].map((f, i) => {
+    const s = src(ctx, B.whistle[i], now, Infinity, 1.7), b1 = filt(ctx, 'bandpass', f, 40), b2 = filt(ctx, 'bandpass', f, 40), bg = gain(ctx, i ? 0.6 : 1);
+    chain(s, b1, b2, bg, g);
+    return b1;
+  });
+  g.connect(out);
+  let last = -1;
+  return {
+    set(still, time, t) {
+      const v = still * 0.9 * (0.75 + 0.25 * wander(time * 0.05));
+      if (Math.abs(v - last) < 0.02) return;
+      last = v; g.gain.setTargetAtTime(v, t, 2);
+    },
+  };
 }

@@ -1,5 +1,6 @@
 // Boot, the frame loop, and the draw order. Each system lives in its own module and
-// exposes some of: init(), update(dt), drawGround(ctx), drawables(), drawSky(ctx), drawScreen(ctx).
+// exposes some of: init(), update(dt), drawGround(ctx), drawables(), drawSky(ctx), drawScreen(ctx),
+// drawOverlay(ctx) (screen space, after every drawScreen, i.e. after the night grade).
 //
 // Draw order each frame:
 //   world space  : map -> ground layers (footprints, drifting snow) -> y-sorted actors -> sky layers
@@ -128,6 +129,8 @@ function frame(now) {
   ctx.restore();
 
   for (const s of systems) drawLayer(s, 'drawScreen');
+  // Overlays sit on the lens, after the night grade: frost on the screen stays pale.
+  for (const s of systems) drawLayer(s, 'drawOverlay');
 
   endFrame(now);
   updateOverlay(now);

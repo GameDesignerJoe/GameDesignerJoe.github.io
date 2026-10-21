@@ -15,7 +15,7 @@ let muted = false, unlockedAt = -1e9;
 let time = 0, windTick = 0, tidyTick = 4;
 let echoProx = 0, rockNear = 0, echo = null;
 let shelter = 0, exertion = 0, nextBreath = 0, breathIn = true;
-let iceTimer = 20, iceCheck = 0, nearIce = false;
+let iceTimer = 20, iceCheck = 0, nearIce = false, nightTimer = 25, still = 0, air = null;
 const voices = { step: 0, creature: 0, ice: 0, breath: 0, body: 0 };
 const LIMIT = { step: 4, creature: 8, ice: 4, breath: 2, body: 4 };
 
@@ -110,6 +110,7 @@ function build() {
   send(bus.ice, bus.echoIn, 0.5);
 
   wind = S.createWind(ctx, B, bus.wind);
+  air = S.createAir(ctx, B, fadeGain);
   updateWind(true);
 }
 
@@ -196,7 +197,7 @@ function handle(e) {
 
 function coldness() {
   const w = state.weather;
-  if (typeof w.cold === 'number') return clamp(w.cold, 0, 1);
+  if (typeof w.cold === 'number') return clamp((w.cold - 0.3) / 0.4, 0, 1); // squeak: none below 0.3, full at 0.7
   if (typeof w.temp === 'number') return clamp((-w.temp - 5) / 30, 0, 1); // degrees C
   return 0.8; // it's Antarctica
 }
@@ -212,7 +213,7 @@ function updateWind(now) {
   const pan = -Math.cos(w.angle || 0) * 0.7;
   const intensity = clamp((w.speed ?? 0.4) + (w.gust || 0) * 0.35, 0, 1.3);
   const cower = state.player.mode === 'cower' ? 1 : 0;
-  wind.set({ cower, intensity, speed: w.speed ?? 0.4, gust: clamp(w.gust || 0, 0, 1), pan, shelter, whiteout: clamp(wx.whiteout || 0, 0, 1), time }, ctx.currentTime + (now ? 0 : 0.02));
+  wind.set({ still, cower, intensity, speed: w.speed ?? 0.4, gust: clamp(w.gust || 0, 0, 1), pan, shelter, whiteout: clamp(wx.whiteout || 0, 0, 1), time }, ctx.currentTime + (now ? 0 : 0.02));
   // slapback: sheltered spots and nearby rock both mean a reflecting face is close
   const prox = Math.max(shelter, rockNear);
   echoProx += (prox - echoProx) * 0.1;
@@ -271,8 +272,18 @@ function updateIceAmbience(dt) {
       } catch { rockNear = 0; }
     }
   }
+  // calm, cold nights: the ice contracts; distant booms and creaks come from far lakes
+  if (still > 0.3) {
+    nightTimer -= dt * still;
+    if (nightTimer <= 0) {
+      nightTimer = R(18, 45);
+      const a = Math.random() * Math.PI * 2, d = R(250, 450);
+      if (Math.random() < 0.6) { if (voices.ice < LIMIT.ice) claim('ice', oneShot('ice', p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, bus.ice, S.distantIce, { pan: R(-0.8, 0.8) }, 0.6)); }
+      else oneShot('ice', p.x + Math.cos(a) * d * 0.5, p.y + Math.sin(a) * d * 0.5, bus.ice, (c, b, o, t) => S.creak(c, o, t, 0.8), {}, 0.5);
+    }
+  }
   if (!nearIce) return;
-  iceTimer -= dt * (p.terrain === 'thin' ? 1.8 : 1);
+  iceTimer -= dt * (p.terrain === 'thin' ? 1.8 : 1) * (1 + 1.5 * still);
   if (iceTimer > 0) return;
   iceTimer = R(14, 40);
   if (voices.ice >= LIMIT.ice) return;
@@ -285,6 +296,12 @@ export function update(dt) {
   time += dt;
   const sh = Math.max(shelterNow(), clamp(+state.player.sheltered || 0, 0, 1));
   shelter += (sh - shelter) * Math.min(1, dt * 1.5);
+  // stillness: night x calm wind x cold
+  const night = clamp(+(state.lighting?.night) || 0, 0, 1), wsp = state.wind.speed ?? 0.4;
+  const cold = typeof state.weather.cold === 'number' ? clamp(state.weather.cold, 0, 1) : 0.7;
+  const stillT = night * clamp(1 - (wsp - 0.1) / 0.3, 0, 1) * (1 - (state.weather.whiteout || 0)) * (0.5 + 0.5 * cold);
+  still += (stillT - still) * Math.min(1, dt * 0.3);
+  air?.set(still, time, ctx.currentTime);
   windTick -= dt;
   if (windTick <= 0) { windTick = 0.125; updateWind(false); } // 8 Hz
   tidyTick -= dt;

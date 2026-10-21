@@ -86,6 +86,8 @@ export function drawSky(ctx) {
   if (!off.has('plumes')) { ctx.save(); tm('plumes', () => plumes.drawSky(ctx)); ctx.restore(); }
 }
 
+export function drawOverlay(ctx) { tm('frost', () => screen.drawFrostOverlay(ctx)); }
+
 export function drawScreen(ctx) {
   if (!off.has('snow')) tm('snowFar', () => snow.drawFar(ctx));
   // Every soft full-screen layer (dimming, fog banks, whiteout, border haze, vignette)

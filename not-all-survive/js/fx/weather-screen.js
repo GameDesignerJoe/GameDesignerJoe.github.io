@@ -23,7 +23,10 @@ export function update(dt) {
   const expo = Math.max(state.player.exposure || 0, director.localExposure || 0);
   // Sheltered in the lee of rock: frost recedes (faster the deeper the shelter).
   const sh = director.shelter || 0;
-  const target = clamp01((expo * 0.55 + state.weather.whiteout * 0.5 + director.storminess * 0.2 - 0.12) * (1 - sh * 0.85));
+  // Exposure in wind grows it, and so does plain cold: a calm, clear night creeps frost
+  // in from the corners on its own, receding again by day.
+  const coldF = clamp01((state.weather.cold - 0.4) / 0.35);
+  const target = clamp01(Math.max(expo * 0.55 + state.weather.whiteout * 0.5 + director.storminess * 0.2 - 0.12, coldF) * (1 - sh * 0.85));
   if (lastT === 0 && state.params.has('frostnow')) frost = target;
   else if (lastT === 0 && state.params.get('weather') && state.params.get('weather') !== 'cycle') frost = Math.min(target, 0.45);
   const fa = director.frontier || 0;
@@ -183,6 +186,13 @@ export function drawVignette(ctx) {
   ctx.globalAlpha = 1;
 }
 
+// Frost on the lens: drawn after the night grade (main.js drawOverlay), so it stays
+// pale at night, with a slight cool-blue tint so it still belongs to the scene.
+export function drawFrostOverlay(ctx) {
+  if ((state.params.get('wxoff') || '').includes('frost')) return;
+  drawFrost(ctx, frost, state.lighting?.night || 0);
+}
+
 export function drawFinish(ctx) {
   const { w, h } = state.view;
   const st = director.storminess, wo = state.weather.whiteout;
@@ -205,6 +215,6 @@ export function drawFinish(ctx) {
 
   // Frost creeping in along the screen edges from the corners: cross-fade through the
   // growth stages; each corner a little ahead or behind the others.
-  if (!wxoff.includes('frost')) drawFrost(ctx, frost);
+
 
 }

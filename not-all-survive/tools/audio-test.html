@@ -55,6 +55,12 @@ const TESTS = [
   ['axe x4 (steps bus)', 4, M.steps, (c, B, o) => { for (let i = 0; i < 4; i++) S.axe(c, B, o, 0.05 + i * 0.9, { hand: i % 2 ? 'R' : 'L' }); }],
   ['kick x4 (steps bus)', 3, M.steps, (c, B, o) => { for (let i = 0; i < 4; i++) S.kick(c, B, o, 0.05 + i * 0.7, { foot: i % 2 ? 'R' : 'L' }); }],
   ['shove 0.6 @0s, fall 0.8 @2s (steps bus)', 5.5, M.steps, (c, B, o) => { S.shove(c, B, o, 0.05, { strength: 0.6 }); S.fall(c, B, o, 2, { strength: 0.8 }); }],
+  ['CALM COLD NIGHT wind .15: day 0-3s, still night 4-10s (air tone, distant boom @6s)', 10, M.wind, (c, B, o) => {
+    const w = S.createWind(c, B, o), air = S.createAir(c, B, c.destination); let st = 0;
+    for (let t = 0; t < 10; t += 0.125) { st += ((t > 3 ? 1 : 0) - st) * 0.08; w.set({ still: st, intensity: 0.15, speed: 0.15, gust: 0, pan: -0.4, shelter: 0, whiteout: 0, time: t + 500 }, t); air.set(st, t, t); }
+    const ice = c.createGain(); ice.gain.value = M.ice / (1 + Math.pow(350 / 70, 1.3)); const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9000 / (1 + 350 / 110); lp.connect(ice); ice.connect(c.destination);
+    S.distantIce(c, B, lp, 6, {});
+  }],
   ['FULL MIX (master chain): wind .45, snow steps, howl @200px, crack', 10, 1, (c, B, o) => {
     const sfx = c.createGain(), comp = c.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.3;
     const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.15;
@@ -112,7 +118,7 @@ for (let r = 0; r < TESTS.length; r++) {
   const swing = (20 * Math.log10(wmax / Math.max(1e-9, wmin))).toFixed(1);
   const y0 = 30 + r * ROW;
   const seg = (a, b) => { let e = 0; const i0 = Math.floor(a * SR), i1 = Math.min(n, Math.floor(b * SR)); for (let i = i0; i < i1; i++) e += L[i] * L[i] + Rc[i] * Rc[i]; return db(Math.sqrt(e / (2 * Math.max(1, i1 - i0)))); };
-  const segs = /SHELTER/.test(name) ? `exposed ${seg(1, 4)} / lee ${seg(6, 9)} dB rms` : /COWER/.test(name) ? `walk ${seg(0.5, 3)} / cower ${seg(4, 8)} dB rms` : '';
+  const segs = /SHELTER/.test(name) ? `exposed ${seg(1, 4)} / lee ${seg(6, 9)} dB rms` : /COWER/.test(name) ? `walk ${seg(0.5, 3)} / cower ${seg(4, 8)} dB rms` : /NIGHT/.test(name) ? `day ${seg(0.5, 3)} / night ${seg(8, 10)} dB rms` : '';
   const stats = { segs, swing, name, peak: db(peak), rms: db(rms), loud: db(best), dc: dc.toExponential(1), clip, err: err && String(err) };
   results.push(stats);
   g.fillStyle = err ? '#f66' : '#ddd';
