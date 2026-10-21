@@ -41,6 +41,17 @@ const PROFILES = {
   path: { creep: 0, cad: 2.5, speed: 1.2, step: 5.3, lift: 0.75, lean: 0.03, swing: 1.2, spread: 0, work: 0, crouch: 0.05, stance: 0.95, sink: 0.08, bob: 0.28, accel: 6, fric: 7, hunch: 0.05, tent: 0, weight: 0.5 },
   rock: { creep: 0, cad: 2.4, speed: 0.9, step: 4.4, lift: 0.9, lean: 0.08, swing: 0.8, spread: 0.1, work: 0, crouch: 0.2, stance: 1.0, sink: 0, bob: 0.2, accel: 5, fric: 6, hunch: 0.2, tent: 0, weight: 0.6 },
 };
+// Snowshoes (state.player.gear.snowshoes): a wide, flat-footed gliding trudge. Deep snow gets
+// much easier; plain snow a little quicker. (Ice / thin ice never: the pack auto-stows them.)
+const SHOE = {
+  snow: { ...PROFILES.snow, speed: 1.15, cad: 2.3, step: 4.8, lift: 0.55, stance: 1.55, sink: 0.12, bob: 0.17, lean: 0.12, swing: 0.75, crouch: 0.18, weight: 0.55 },
+  deep: { ...PROFILES.deep, speed: 0.8, cad: 2.15, step: 4.1, lift: 0.85, lean: 0.2, swing: 0.6, spread: 0.04, work: 0.35, crouch: 0.22, stance: 1.6, sink: 0.3, bob: 0.26, accel: 4, fric: 5.5, hunch: 0.3, weight: 0.6 },
+};
+const SHOE_SPEED = { snow: 1.15, deep: 0.8 };   // deep: as a fraction of plain-snow speed
+let strapT = 0, strapDur = 0, strapOn = true, strapLock = false;   // kneel-and-strap animation
+const shoesOn = () => !!(P.gear && P.gear.snowshoes);
+const shoesDrawn = () => shoesOn() || (strapT > 0 && !strapOn);   // still on the feet while unstrapping
+
 const POSE_KEYS = ['step', 'lift', 'lean', 'swing', 'spread', 'work', 'crouch', 'stance', 'sink', 'bob', 'hunch', 'tent', 'creep'];
 
 // Rig dimensions (world units). Total height ~16.
@@ -100,6 +111,7 @@ export function init() {
   // test hooks: NAS.player.knock('fall'|'shove'), NAS.player.climb(dx, dy)
   P.knock = kind => (kind === 'shove' ? startShove(1) : startFall(1));
   P.climb = (dx = 0, dy = -1) => tryClimb(dx, dy);
+  P.gear = P.gear || { snowshoes: false };
   P.climbTap = (dir = 1) => climbRequest(dir);   // one climbing cycle (dir -1: down)
   P.blowOff = () => tearOff();
   P.facing = Math.PI / 2;
@@ -131,10 +143,20 @@ export function update(dt) {
   const inp = state.input;
   for (const e of state.events) if (e.type === 'teleport') resetTo(e.x, e.y);
   updateCompassPose(dt);
+  for (const e of state.events) if (e.type === 'gear' && e.item === 'snowshoes') {
+    // strapping on / taking off by hand: kneel at the feet ~1.2 s, rooted; the game pulling
+    // them off (climbing, ice): a quick 0.4 s bend, no lock
+    strapOn = !!e.on;
+    if (e.auto) { strapDur = strapT = 0.4; strapLock = false; }
+    else { strapDur = strapT = 1.2; strapLock = true; }
+  }
+  if (strapT > 0) strapT = Math.max(0, strapT - dt);
   const ter = (T.terrainAt(P.x, P.y)) || 'snow';
   P.terrain = ter;
-  const prof = PROFILES[ter] || PROFILES.snow;
+  const shoes = shoesOn() && (ter === 'snow' || ter === 'deep');
+  const prof = shoes ? SHOE[ter] : (PROFILES[ter] || PROFILES.snow);
   let sf = stubTerrain ? prof.speed : (T.speedFactor(ter) ?? 1);
+  if (shoes && !stubTerrain) sf = ter === 'deep' ? SHOE_SPEED.deep * (T.speedFactor('snow') ?? 1) : sf * SHOE_SPEED.snow;
   // Ice is walked cautiously (Joe): walking pace stays near the cautious profile, and any extra
   // speed the terrain grants on ice shows up as glide (low friction), not frantic feet.
   if (ter === 'ice' || ter === 'thin') sf = Math.min(sf, prof.speed * 1.15);
@@ -182,6 +204,7 @@ export function update(dt) {
     else { const m = Math.min(1, dRoute / 3 + 0.4); ix = dx / d * m; iy = dy / d * m; }
   }
   if (shoveT > 0) { ix *= 0.15; iy *= 0.15; }
+  if (strapT > 0 && strapLock) { ix = 0; iy = 0; }   // kneeling at the snowshoe bindings
   const mag = Math.min(1, Math.hypot(ix, iy));
   const active = mag > 0.05;
   const wantDir = active ? Math.atan2(iy / KY, ix) : P.facing;
@@ -922,13 +945,14 @@ function footDown(foot, prof, ter) {
   const x = P.x + S * c - s * st * sn;
   const y = P.y + (S * sn + s * st * c) * KY;
   const weight = prof.weight * (0.6 + 0.4 * pose.gait);
-  state.events.push({ type: 'step', x, y, terrain: ter, foot, weight, angle: P.facing });
+  state.events.push({ type: 'step', x, y, terrain: ter, foot, weight, angle: P.facing, shoe: shoesOn() });
   if ((ter === 'ice' || ter === 'thin') && slipT <= 0 && rand() < (ter === 'ice' ? 0.09 : 0.05)) { slipT = 0.9; slipSide = s; }
-  if (ter === 'deep' && staggerT <= 0 && rand() < 0.1) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
+  const shoe = shoesOn();
+  if (ter === 'deep' && !shoe && staggerT <= 0 && rand() < 0.1) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
   if (ter === 'thin' && rand() < 0.22) state.events.push({ type: 'crack', x, y, strength: 0.3 + rand() * 0.7 });
   // snow kicked up by the swinging boot
   if (ter === 'deep') {
-    const n = 6;
+    const n = shoe ? 2 : 6;
     for (let i = 0; i < n; i++) {
       const sp = (ter === 'deep' ? 5 : 3) * (0.5 + rand());
       const a = P.facing + (rand() - 0.5) * 1.4;
@@ -1041,6 +1065,7 @@ const N = 32; // coat ring resolution
 
 function buildRig() {
   const t = state.time, g = pose.gait, idle = 1 - smooth(0.1, 0.5, g);
+  const shoeW = shoesDrawn() ? 1 : 0;
   const S = pose.stepEff * 0.5 * g;
   const yaw = P.facing;
   const ph2 = phase * Math.PI * 2;
@@ -1080,6 +1105,11 @@ function buildRig() {
     hz = lerp(hz, 3.4, cw); leanF = lerp(leanF, 0.78, cw);
     leanS = lerp(leanS, hunkerSide * 0.28 * hunkerW, cw); twist = lerp(twist, 0, cw);
   }
+  // strapping snowshoes on / off: kneel with the hands at the bindings (a quick bend when the
+  // game pulls them off)
+  const strK = strapT > 0 ? Math.sin(clamp(1 - strapT / strapDur) * Math.PI) : 0;
+  const strDeep = strapLock ? 1 : 0.5;
+  if (strK > 0.001) { hz -= 3.0 * strK * strDeep; leanF += 0.75 * strK * strDeep; twist = lerp(twist, 0, strK); }
   // compass: bent over the pack while rummaging; braced and head bowed holding it out
   const rw = CP.rum, cow = CP.out;
   if (rw > 0.001 || cow > 0.001) {
@@ -1101,6 +1131,7 @@ function buildRig() {
     const q = (phase + (s < 0 ? 0 : 0.5)) % 1;
     const foot = legFoot(q, s, S, pose.lift * g, sinkNow, pose.stance);
     if (g < 1) foot[2] = lerp(-sinkNow, foot[2], g);
+    if (shoeW > 0) foot[1] += s * 0.45 * shoeW * clamp(foot[2] / 0.8);   // frames swung wide of each other
     if (slip > 0 && s === slipSide) { foot[1] += s * 1.4 * slip; foot[0] += 0.6 * slip; }
     // idle: the unloaded leg (opposite the weight shift) relaxes, heel lifting a touch
     const unload = idle * clamp(-shift * s);
@@ -1160,6 +1191,12 @@ function buildRig() {
     }
     // compass poses (walking ones: the climb/fall overrides below still win)
     let cpFull = 0;
+    if (strK > 0.001 && !O) {
+      const work = Math.sin(t * 10 + s) * 0.25;
+      handB = mix(handB, [1.4 + work, s * 1.1, 1.6 + 0.3 * Math.abs(work)], strK);
+      pole = mix(pole, torsoDir([-0.2, s, -0.4], tf), strK);
+      cpFull = Math.max(cpFull, strK);
+    }
     if (CP.rum > 0.001) {
       const dig = Math.sin(t * 9 + (s > 0 ? 0 : 1.9)), dig2 = Math.sin(t * 5.3 + s);
       const hT = torsoToBody([1.75 + 0.15 * dig2, s * 0.75, SPINE - 2.7 + 0.35 * dig], tf);
@@ -1196,7 +1233,7 @@ function buildRig() {
   const faceYaw = twist + pose.headYaw + (O && O.faceYaw ? O.faceYaw * ow : 0);
   let facePitch = 0.15 + hunch; // head always bowed a little; 1 = looking at the feet
   if (cw > 0.001) facePitch = lerp(facePitch, 0.9, cw);
-  facePitch = lerp(facePitch, 0.95, Math.max(CP.rum, CP.out * 0.85));
+  facePitch = lerp(facePitch, 0.95, Math.max(CP.rum, CP.out * 0.85, strK));
   if (O) facePitch = lerp(facePitch, O.facePitch, ow);
 
   // Coat rings
@@ -1449,6 +1486,7 @@ function drawFigure(ctx, rig, X, Y) {
     ctx.beginPath(); ctx.ellipse(p[0], p[1], 1.0, 0.45, 0, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(105,108,112,0.5)'; ctx.fill();
   }
+  if (shoesDrawn()) for (const L of legs) drawShoe(ctx, L, pr);
   for (const L of legs) {
     const ank = L.ankle, knee = L.knee;
     const buried = L.foot[2] < -0.2 && rig.sinkNow >= 0.8;
@@ -1533,6 +1571,38 @@ function drawFigure(ctx, rig, X, Y) {
   for (const A of out) if (!A.overHead && A.dh <= headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
   drawHood(ctx, rig, pr);
   for (const A of out) if (A.overHead || A.dh > headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
+}
+
+// A snowshoe under each boot: a long teardrop frame (~2.4 x 1.1u) lying flat, dark wood
+// with pale rawhide lacing, ink outline; it rides up with the foot when it's lifted.
+function drawShoe(ctx, L, pr) {
+  const z = Math.max(L.foot[2], -0.25) + 0.05, cx = L.ankle[0] + 0.25, cy = L.foot[1];
+  const out = [], inn = [];
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+    // teardrop: round nose forward (+x), tapering to a tail behind
+    // (sized against the chunky boot, which is ~1.3u wide with its ink: the frame must show round it)
+    const w = c > 0 ? 0.92 : 0.92 * (1 + c * 0.7);
+    const lx = c > 0 ? c * 1.55 : c * 2.1;
+    out.push(pr([cx + lx, cy + sn * w, z]));
+    inn.push(pr([cx + lx * 0.74 + 0.05, cy + sn * w * 0.6, z]));
+  }
+  ctx.beginPath(); polyPath(ctx, out); ctx.fillStyle = '#3d2f20'; ctx.fill();
+  ctx.lineWidth = 0.16; ctx.strokeStyle = INK; ctx.stroke();
+  // rawhide bed: a warm tan, darker than the snow so the frame reads as a shape
+  ctx.beginPath(); polyPath(ctx, inn); ctx.fillStyle = '#b8a380'; ctx.fill();
+  // lacing: a coarse lattice across the pale bed
+  ctx.save(); ctx.beginPath(); polyPath(ctx, inn); ctx.clip();
+  ctx.strokeStyle = 'rgba(60,46,30,0.85)'; ctx.lineWidth = 0.08; ctx.beginPath();
+  for (let k = -5; k <= 4; k++) {
+    const a = pr([cx + k * 0.42 - 0.8, cy - 0.9, z]), b = pr([cx + k * 0.42 + 0.8, cy + 0.9, z]);
+    const c2 = pr([cx + k * 0.42 + 0.8, cy - 0.9, z]), d = pr([cx + k * 0.42 - 0.8, cy + 0.9, z]);
+    ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.moveTo(c2[0], c2[1]); ctx.lineTo(d[0], d[1]);
+  }
+  ctx.stroke(); ctx.restore();
+  // toe bar where the boot binds
+  const t0 = pr([cx + 0.45, cy - 0.65, z]), t1 = pr([cx + 0.45, cy + 0.65, z]);
+  ctx.beginPath(); ctx.moveTo(t0[0], t0[1]); ctx.lineTo(t1[0], t1[1]); ctx.strokeStyle = '#4a3a28'; ctx.lineWidth = 0.14; ctx.stroke();
 }
 
 // Ice axe in the ink style: a short shaft continuing the forearm, the pick biting into the wall.
@@ -1798,4 +1868,4 @@ export function drawScreen(ctx) {
   ctx.fillText(s, 10, state.view.h - 12);
 }
 
-export const _debug = { pose, climb: () => climb, route: () => route, ovr: () => ovr, ovrW: () => ovrW, findPath: (...a) => findPath(...a) };
+export const _debug = { pose, climb: () => climb, route: () => route, ovr: () => ovr, ovrW: () => ovrW, findPath: (...a) => findPath(...a), shoes: () => [shoesOn(), shoesDrawn(), strapT] };

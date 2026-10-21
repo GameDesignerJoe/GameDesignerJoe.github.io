@@ -22,7 +22,7 @@ export function update(dt) {
     const t = e.terrain;
     if (!RATE[t]) { last = null; continue; }
     const a = e.angle ?? state.player.facing;
-    const p = { x: e.x, y: e.y, a, t, foot: e.foot, w: e.weight ?? 0.7, fill: 0, seed: Math.random(), prev: null };
+    const p = { x: e.x, y: e.y, a, t, foot: e.foot, w: e.weight ?? 0.7, fill: 0, seed: Math.random(), prev: null, shoe: !!e.shoe };
     if (t === 'deep' && last && last.t === 'deep' && Math.hypot(last.x - p.x, last.y - p.y) < 9) p.prev = { x: last.x, y: last.y };
     prints.push(p);
     last = p;
@@ -54,8 +54,9 @@ export function drawGround(ctx) {
     ctx.lineCap = 'round';
     // a soft trough ploughed between the holes: no outline, just a shallow grey drag
     ctx.beginPath(); ctx.moveTo(p.prev.x, p.prev.y); ctx.lineTo(p.x, p.y);
-    ctx.strokeStyle = `rgba(160,163,168,${al * 0.32})`; ctx.lineWidth = 2.2; ctx.stroke();
-    ctx.strokeStyle = `rgba(140,143,148,${al * 0.2})`; ctx.lineWidth = 1.1; ctx.stroke();
+    const sh = p.shoe ? 0.35 : 1;   // snowshoes ride high: a much shallower trench
+    ctx.strokeStyle = `rgba(160,163,168,${al * 0.32 * sh})`; ctx.lineWidth = p.shoe ? 2.8 : 2.2; ctx.stroke();
+    ctx.strokeStyle = `rgba(140,143,148,${al * 0.2 * sh})`; ctx.lineWidth = 1.1; ctx.stroke();
   }
   for (const p of prints) {
     if (p.x < r.x0 || p.x > r.x1 || p.y < r.y0 || p.y > r.y1) continue;
@@ -68,7 +69,27 @@ export function drawGround(ctx) {
     const side = p.foot === 'L' ? -1 : 1;
     ctx.translate(0, side * 0.15);
     ctx.rotate(side * 0.12);
-    if (p.t === 'deep') {
+    if (p.shoe && (p.t === 'deep' || p.t === 'snow')) {
+      // snowshoe: a big shallow teardrop with the lattice pressed into it (a little deeper in deep snow)
+      const al = life * (p.t === 'deep' ? 0.5 : 0.4);
+      const tear = () => {
+        ctx.beginPath();
+        for (let k = 0; k < 16; k++) {
+          const a = (k / 16) * Math.PI * 2, c = Math.cos(a);
+          const w = c > 0 ? 0.9 : 0.9 * (1 + c * 0.7), x = c > 0 ? c * 1.5 : c * 2.0;
+          k ? ctx.lineTo(x, Math.sin(a) * w) : ctx.moveTo(x, Math.sin(a) * w);
+        }
+        ctx.closePath();
+      };
+      tear(); ctx.fillStyle = `rgba(135,139,145,${al})`; ctx.fill();
+      ctx.save(); ctx.scale(0.82, 0.7); tear(); ctx.restore(); ctx.fillStyle = `rgba(185,188,193,${al})`; ctx.fill();
+      if (life > 0.4) {
+        ctx.save(); tear(); ctx.clip();
+        ctx.strokeStyle = `rgba(120,124,130,${al * 0.7})`; ctx.lineWidth = 0.08; ctx.beginPath();
+        for (let k = -5; k <= 4; k++) { ctx.moveTo(k * 0.42 - 0.8, -0.9); ctx.lineTo(k * 0.42 + 0.8, 0.9); ctx.moveTo(k * 0.42 + 0.8, -0.9); ctx.lineTo(k * 0.42 - 0.8, 0.9); }
+        ctx.stroke(); ctx.restore();
+      }
+    } else if (p.t === 'deep') {
       const al = life * (0.55 + 0.25 * p.w);
       // an irregular punched hole: dark wall on the upper-left, paler trodden floor
       const hole = (sx, sy, ox, oy) => {
