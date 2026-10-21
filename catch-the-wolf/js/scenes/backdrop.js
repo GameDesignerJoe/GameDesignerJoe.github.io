@@ -5,6 +5,7 @@
 
 import { paintMeadow, paintDirt, paintTree, paintBush, paintRock, paintHay, paintPond, paintFence, paintTrough, setSeason } from '../art/ground.js';
 import { rng } from '../art/draw.js';
+import { drawSheep } from '../art/render.js';
 
 function surface(w, h, dpr) {
   const c = document.createElement('canvas');
@@ -91,6 +92,22 @@ export function farmBackdrop(w, h, dpr, area) {
   paintTree(ctx, tree.x, tree.y, 0.9 * s, 77);
   avoid.push({ x: tree.x, y: tree.y, r: 50 * s, kind: 'tree' });
   return { canvas: c, avoid, scale: s };
+}
+
+// A small picture of the player's farm with their sheep in it, as a data URL
+// (the milestone popup). `farm` is save.farm, `lookOf(animal)` its look.
+export function farmSnapshotURL(farm, lookOf, w = 360, h = 220) {
+  const area = { x: 16, y: 14, w: w - 32, h: h - 28 };
+  const { canvas, scale } = farmBackdrop(w, h, 2, area);
+  const ctx = canvas.getContext('2d');
+  const sc = Math.min(0.6, Math.max(0.32, Math.sqrt((area.w * area.h) / Math.max(6, farm.length + 4)) / 150)) * Math.min(1, scale);
+  const r = rng(farm.length + 3);
+  const placed = farm.map((a) => ({ look: lookOf(a), x: area.x + a.x * area.w, y: area.y + a.y * area.h, heading: r() * Math.PI * 2 }))
+    .filter((p) => p.look).sort((a, b) => a.y - b.y);
+  for (const p of placed) drawSheep(ctx, p.look, p.x, p.y, sc, p.heading, {}, sc);
+  const url = canvas.toDataURL();
+  canvas.width = 0; canvas.height = 0; // WebKit counts unreleased canvases against a hard cap
+  return url;
 }
 
 // Title: open meadow with a dirt path and a few trees.

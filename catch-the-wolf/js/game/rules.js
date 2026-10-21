@@ -58,19 +58,29 @@ function hash2(a, b) {
   return (h ^ (h >>> 13)) >>> 0;
 }
 
-// Hungry wolf: one round in each day (a set of times) the wolf goes hungry.
-// Which slot is decided by the run's seed and the day, so it can't be
-// predicted from run to run but stays put if you leave and come back.
-export function isHungryRound(streak, runSeed = 0) {
-  const H = db.game.hungryWolf;
-  const slots = (H.times || []).map((id) => db.world.times.findIndex((t) => t.id === id)).filter((i) => i >= 0);
-  if (!slots.length || !H.everyDay) return false;
-  // One round of the day: a time from the list, then one of its rounds.
-  const rpt = roundsPerTime(), perDay = roundsPerDay(), day = Math.floor(streak / perDay);
-  const h = hash2(runSeed, day);
-  const target = slots[h % slots.length] * rpt + (Math.floor(h / slots.length) % rpt);
-  return streak % perDay === target;
+// Special rounds, once a day each (game.json hungryWolf / wolfPack): which
+// round of the day is decided by the run's seed and the day, so it can't be
+// predicted from run to run but stays put if you leave and come back. The two
+// never share a round.
+function dayRounds(cfg) {
+  const rpt = roundsPerTime();
+  if (!cfg?.everyDay) return [];
+  return (cfg.times || []).map((id) => db.world.times.findIndex((t) => t.id === id)).filter((i) => i >= 0)
+    .flatMap((slot) => Array.from({ length: rpt }, (_, r) => slot * rpt + r));
 }
+function specialRounds(day, runSeed) {
+  const hungryPool = dayRounds(db.game.hungryWolf);
+  const hungry = hungryPool.length ? hungryPool[hash2(runSeed, day) % hungryPool.length] : -1;
+  const packPool = dayRounds(db.game.wolfPack).filter((r) => r !== hungry);
+  const pack = packPool.length ? packPool[hash2(runSeed + 101, day) % packPool.length] : -1;
+  return { hungry, pack };
+}
+// 'hungry', 'pack' or null for this streak.
+export function specialRound(streak, runSeed = 0) {
+  const perDay = roundsPerDay(), sp = specialRounds(Math.floor(streak / perDay), runSeed), at = streak % perDay;
+  return at === sp.hungry ? 'hungry' : at === sp.pack ? 'pack' : null;
+}
+export const isHungryRound = (streak, runSeed = 0) => specialRound(streak, runSeed) === 'hungry';
 
 // Weather holds for the whole time of day, so a stretch of rounds feels like
 // one dawn or one rainy noon rather than a reroll every catch.
@@ -135,37 +145,74 @@ function pickTell(tells) {
   return pick(pick([...groups.values()]));
 }
 
-// Build one round. Returns { tier, sheep: [{ look, isWolf }], tell }.
-// opts.colorSafe skips tells that are only a colour difference.
-// opts.maxSheep caps the flock so sheep stay big enough to read on small screens.
-export function makeRound(streak, opts = {}) {
-  const tier = tierFor(streak);
-  const pool = db.breeds.filter((b) => b.inRounds && (b.minTier ?? 0) <= tier.index);
-  // Prefer breeds with different wool, so "4 breeds" looks like 4.
-  const want = Math.max(1, tier.mixedBreeds || 1);
-  const breeds = [];
-  for (const b of shuffle([...pool])) if (breeds.length < want && !breeds.some((x) => x.look.wool === b.look.wool)) breeds.push(b);
-  for (const b of pool) if (breeds.length < want && !breeds.includes(b)) breeds.push(b);
-  const looks = breeds.map((b) => ({ ...b.look }));
-  // The wolf wears one breed's costume; tells are judged against that costume.
+// One disguised wolf: a breed's costume plus one slip.
+function makeWolf(tier, breeds, looks, opts) {
   const wb = pick(breeds);
-
   let tells = eligibleTells(tier, wb.look, looks, opts);
   if (!tells.length) tells = db.tells.filter((t) => usable(t, wb.look, looks, opts));
   if (!tells.length) tells = db.tells.filter((t) => !t.notWith && !t.tells.tint); // data blocks everything: safe fallback
   const tell = pickTell(tells);
+  return { look: { ...wb.look, breed: wb.id, wolfFur: wolfFurFor(wb.look), tells: { ...tell.tells } }, isWolf: true, tell };
+}
 
+// Build one round. Returns { tier, sheep: [{ look, isWolf, tell? }], tell, pack? }.
+// opts.colorSafe skips tells that are only a colour difference.
+// opts.maxSheep caps the flock so sheep stay big enough to read on small screens.
+// opts.pack: a Wolf Pack round, several wolves (each with its own slip) among fewer sheep.
+export function makeRound(streak, opts = {}) {
+  if (opts.pack) return makePackRound(streak, opts);
+  const tier = tierFor(streak);
+  // Prefer breeds with different wool, so "4 breeds" looks like 4.
+  const breeds = roundBreeds(tier), looks = breeds.map((b) => ({ ...b.look }));
+  // The wolf wears one breed's costume; tells are judged against that costume.
+  const wolf = makeWolf(tier, breeds, looks, opts);
   const count = Math.max(2, Math.min(randInt(tier.sheep[0], tier.sheep[1]), (opts.maxSheep ?? 99) - 1));
   const sheep = [];
   for (let i = 0; i < count; i++) {
     const breed = breeds[i % breeds.length];
     sheep.push({ look: { ...breed.look, breed: breed.id }, isWolf: false });
   }
-  // Same costume as its breed, plus one slip.
-  const wolfLook = { ...wb.look, breed: wb.id, wolfFur: wolfFurFor(wb.look), tells: { ...tell.tells } };
-  sheep.push({ look: wolfLook, isWolf: true });
+  sheep.push({ look: wolf.look, isWolf: true });
   shuffle(sheep);
-  return { tier, sheep, tell, weather: pickWeather(calendarFor(streak), streak, opts.runSeed) };
+  return { tier, sheep, tell: wolf.tell, weather: pickWeather(calendarFor(streak), streak, opts.runSeed) };
+}
+
+function roundBreeds(tier) {
+  const pool = db.breeds.filter((b) => b.inRounds && (b.minTier ?? 0) <= tier.index);
+  const want = Math.max(1, tier.mixedBreeds || 1);
+  const breeds = [];
+  for (const b of shuffle([...pool])) if (breeds.length < want && !breeds.some((x) => x.look.wool === b.look.wool)) breeds.push(b);
+  for (const b of pool) if (breeds.length < want && !breeds.includes(b)) breeds.push(b);
+  return breeds;
+}
+
+function makePackRound(streak, opts) {
+  const tier = tierFor(streak), P = db.game.wolfPack;
+  const breeds = roundBreeds(tier), looks = breeds.map((b) => ({ ...b.look }));
+  // More wolves at harder tiers; the flock shrinks to make room for them.
+  const top = Math.max(1, db.game.tiers.length - 1);
+  const room = (opts.maxSheep ?? 99) - 1;
+  let wolves = Math.round(P.wolves[0] + (P.wolves[1] - P.wolves[0]) * (tier.index / top));
+  wolves = Math.max(2, Math.min(wolves, room - 2));
+  const flock = Math.max(2, Math.min(Math.round(randInt(tier.sheep[0], tier.sheep[1]) * (P.sheepShare ?? 0.6)), room - wolves));
+  const sheep = [];
+  for (let i = 0; i < flock; i++) {
+    const breed = breeds[i % breeds.length];
+    sheep.push({ look: { ...breed.look, breed: breed.id }, isWolf: false });
+  }
+  for (let i = 0; i < wolves; i++) sheep.push(makeWolf(tier, breeds, looks, opts));
+  shuffle(sheep);
+  return { tier, sheep, tell: sheep.find((x) => x.isWolf).tell, pack: true, packSize: wolves, weather: pickWeather(calendarFor(streak), streak, opts.runSeed) };
+}
+
+// A Wolf Pack wolf that isn't the last one: its pelts, but the streak only
+// moves when the whole pack is caught (catchWolf on the last).
+export function catchPackWolf(save, tell) {
+  const gained = tierFor(save.streak).pelts ?? 1;
+  noteCatch(save, tell, 1);
+  save.pelts += gained;
+  save.wolvesCaught += 1;
+  return { gained };
 }
 
 // --- outcomes ----------------------------------------------------------------
@@ -267,13 +314,18 @@ export function release(save, uid) {
 // The round in progress is kept in the save so leaving (menu, shop, reload)
 // can't reroll a hard flock for free.
 export function storeRound(save, round, hinted) {
-  save.round = { streak: save.streak, tellId: round.tell.id, tierIndex: round.tier.index, hinted, weather: round.weather, elapsed: 0, sheep: round.sheep.map((s) => ({ look: s.look, isWolf: s.isWolf })) };
+  save.round = { streak: save.streak, tellId: round.tell.id, tierIndex: round.tier.index, hinted, weather: round.weather, elapsed: 0, pack: !!round.pack, packSize: round.sheep.filter((x) => x.isWolf).length, sheep: saveSheep(round.sheep) };
+}
+// The flock as stored: a pack wolf keeps its own tell id.
+export function saveSheep(list) {
+  return list.map((s) => ({ look: s.look, isWolf: s.isWolf, ...(s.tell ? { tellId: s.tell.id } : {}) }));
 }
 export function restoreRound(save) {
   const r = save.round;
   if (!r || r.streak !== save.streak) return null;
   const tell = db.tells.find((t) => t.id === r.tellId);
   if (!tell || !Array.isArray(r.sheep) || !r.sheep.some((s) => s.isWolf)) return null;
-  return { round: { tier: tierFor(save.streak), tell, weather: r.weather, sheep: r.sheep.map((s) => ({ look: { ...s.look }, isWolf: s.isWolf })) }, hinted: !!r.hinted, elapsed: r.elapsed || 0 };
+  const sheep = r.sheep.map((s) => ({ look: { ...s.look }, isWolf: s.isWolf, ...(s.tellId ? { tell: db.tells.find((t) => t.id === s.tellId) || tell } : {}) }));
+  return { round: { tier: tierFor(save.streak), tell, weather: r.weather, pack: !!r.pack, packSize: r.packSize || 1, sheep }, hinted: !!r.hinted, elapsed: r.elapsed || 0 };
 }
 export function clearRound(save) { delete save.round; }

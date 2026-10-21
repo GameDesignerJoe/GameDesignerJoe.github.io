@@ -1,5 +1,5 @@
 {
-  "_doc": "The calendar a run moves through. Each season plays 'times' in order, 'setsPerSeason' times over, then the next season begins. Each time of day lasts 'roundsPerTime' wolves (weather holds for all of them), so a day is times × roundsPerTime wolves. Position comes from the streak, so a mistake sends you back to the first slot of spring. 'weather' per season lists a pool for each set (set 1 calm → set 3 rough); one is picked per round. 'light' is drawn over the field: mode multiply/screen, colour, alpha, and an optional vignette (0..1). 'torch' makes it pitch dark except a circle of light under the finger/cursor ('radius' = share of the shorter screen side; on touch screens 'touchRadius' instead, with the light lifted 'touchLift' above the fingertip so the finger doesn't hide it); 'quickTime' stretches the hidden speed-bonus window. A Wolf Stampede bonus round plays every 'bonusEvery' catches.",
+  "_doc": "The calendar a run moves through. Each season plays 'times' in order, 'setsPerSeason' times over, then the next season begins. Each time of day lasts 'roundsPerTime' wolves (weather holds for all of them), so a day is times × roundsPerTime wolves. Position comes from the streak, so a mistake sends you back to the first slot of spring. 'weather' per season lists a pool for each set (set 1 calm → set 3 rough); one is picked per round. 'light' is drawn over the field: mode multiply/screen, colour, alpha, and an optional vignette (0..1). 'torch' makes it pitch dark except a circle of light under the finger/cursor ('radius' = share of the shorter screen side; on touch screens 'touchRadius' instead, with the light lifted 'touchLift' above the fingertip so the finger doesn't hide it; 'night' grades the whole field that colour first, so the beam lights a night meadow); 'quickTime' stretches the hidden speed-bonus window. A Wolf Stampede bonus round plays every 'bonusEvery' catches.",
   "setsPerSeason": 3,
   "roundsPerTime": 3,
   "bonusEvery": 12,
@@ -10,7 +10,7 @@
     { "id": "day",    "name": "Day",    "icon": "🌤️", "light": null },
     { "id": "sunset", "name": "Sunset", "icon": "🌇", "light": { "mode": "multiply", "color": "#ffbf8a", "alpha": 1, "vignette": 0.2 } },
     { "id": "night",  "name": "Night",  "icon": "🌙", "light": { "mode": "multiply", "color": "#6b78b8", "alpha": 1, "vignette": 0.45 } },
-    { "id": "midnight", "name": "Midnight", "icon": "🔦", "light": { "torch": true, "darkness": 0.985, "radius": 0.2, "touchRadius": 0.32, "touchLift": 0.13 }, "quickTime": 1.8 }
+    { "id": "midnight", "name": "Midnight", "icon": "🔦", "light": { "torch": true, "darkness": 0.985, "radius": 0.2, "touchRadius": 0.32, "touchLift": 0.13, "night": "#5c6aa8" }, "quickTime": 1.8 }
   ],
   "seasons": [
     { "id": "spring", "name": "Spring", "weather": [["clear"], ["clear", "wind"], ["clear", "wind", "rain"]] },

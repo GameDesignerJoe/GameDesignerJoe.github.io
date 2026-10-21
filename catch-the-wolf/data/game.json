@@ -12,6 +12,8 @@
   },
   "minSheepScale": 0.85,
   "shopPromptAt": 5,
+  "farmPromptAt": [50, 100, 150, 200],
+  "_farmPromptDoc": "Streaks that bring up the 'visit your farm' popup (a picture of the farm, with Shop / Farm / Keep hunting).",
   "farmCap": 24,
   "releaseRefund": 0.5,
   "tintClearance": 12,
@@ -26,6 +28,13 @@
       3,
       6
     ]
+  },
+  "wolfPack": {
+    "_doc": "A special round once a day, never the same round as the hungry wolf: 'wolves' [at the first tier, at the top tier] disguised wolves, each with its own slip, among a flock 'sheepShare' the usual size. Find them all to clear the round; each wolf pays the tier's pelts, and the last one carries the speed bonus (time shared across the pack). 'times' = time-of-day slots it may land on.",
+    "everyDay": true,
+    "times": ["noon", "day", "sunset", "night"],
+    "wolves": [4, 8],
+    "sheepShare": 0.6
   },
   "tiers": [
     {"minStreak": 0, "name": "Lambing season", "pelts": 1, "hintCost": 1, "sheep": [3, 4], "subtlety": [1, 1], "motion": [], "mixedBreeds": 1, "activity": 0.15, "quick": [3, 6]},

@@ -144,6 +144,7 @@ export const farmScene = {
     this.world.foods = this.foods;
     this.world.toys = this.toys;
     this.world.sfx = this.app.sfx;
+    this.world.onWake = (sh, culprit) => this.wake(sh, culprit, null);
     // Fixtures act like food that never runs out.
     this.world.spots = this.bg.avoid.filter((o) => SPOT_SEATS[o.kind]).map((o) => ({ ...o, seats: SPOT_SEATS[o.kind], eaters: new Set(), remaining: Infinity, fixture: true }));
     for (const sh of this.sheep) if (sh.food?.fixture) { sh.leaveFood(); sh.state = 'idle'; sh.stateT = 0.5; } // old spots are gone
@@ -360,8 +361,9 @@ export const farmScene = {
     }
   },
 
-  wake(sh, toy) {
-    const culprit = toy.kicker && !toy.kicker.gone && !toy.kicker.leavingFarm ? toy.kicker : null;
+  // A sleeper woken by `culprit` (a sheep, or null if you threw the toy).
+  wake(sh, kicker, toy) {
+    const culprit = kicker && !kicker.gone && !kicker.leavingFarm ? kicker : null;
     sh.wakeAngry(culprit, toy, GRUDGE);
     this.fx.anger(sh.x + 18 * sh.scale, sh.y - 52 * sh.scale, sh.scale * 1.3);
     this.app.sfx.baa(0.7);
@@ -400,7 +402,7 @@ export const farmScene = {
         for (const c of sh.circles()) {
           const dx = t.x - c.x, dy = t.y - c.y, d = Math.hypot(dx, dy) || 0.01, min = c.r + t.r;
           if (d < min) {
-            if (rolling && sh.asleep && sh.appear >= 1 && !sh.leavingFarm && t.kicker !== sh) this.wake(sh, t);
+            if (rolling && sh.asleep && sh.appear >= 1 && !sh.leavingFarm && t.kicker !== sh) this.wake(sh, t.kicker, t);
             else if (sh.speed > 20 * this.sc && sh.state !== 'angry') t.kicker = sh;
             t.x += (dx / d) * (min - d); t.y += (dy / d) * (min - d);
             const push = Math.max(40 * this.sc, sh.speed * 1.2);

@@ -1,8 +1,9 @@
-// Find the wolf. One round = one flock with one disguised wolf.
+// Find the wolf. One round = one flock with one disguised wolf (or, once a
+// day, a Wolf Pack: several, and you need them all).
 // Phases: 'hunt' (tap away) → 'reveal' (caught it) or 'missed' (tapped a
 // sheep) → next round. Rules live in game/rules.js; this file is staging.
 
-import { makeRound, catchWolf, mistake, canHint, spendHint, hintCost, db, storeRound, restoreRound, clearRound, calendarFor, isHungryRound } from '../game/rules.js';
+import { makeRound, catchWolf, catchPackWolf, mistake, canHint, spendHint, hintCost, db, storeRound, restoreRound, clearRound, saveSheep, calendarFor, specialRound, breedById } from '../game/rules.js';
 import { checkAchievements } from '../game/achievements.js';
 import { Atmosphere } from '../engine/atmosphere.js';
 import { tellCardURL } from '../art/tellcard.js';
@@ -13,7 +14,7 @@ import { Particles } from '../engine/particles.js';
 import { freeCanvas } from '../engine/sprites.js';
 import { Timers, rand, clamp, ease, shuffle } from '../engine/util.js';
 import { peltURL, sheepURL } from '../art/icons.js';
-import { playBackdrop } from './backdrop.js';
+import { playBackdrop, farmSnapshotURL } from './backdrop.js';
 import { el, banner, hudPelts, bumpPelts, flyPelt, celebrate } from './ui.js';
 
 const MAX_FIELD_W = 640;
@@ -25,7 +26,7 @@ export const playScene = {
     this.fx = new Particles();
     this.timers = new Timers();
     this.sheep = [];
-    this.wolf = null;
+    this.wolves = [];   // unmasked wolves: popping out, then bolting
     this.ring = null;
     this.focus = null;
     this.phase = 'idle';
@@ -38,7 +39,7 @@ export const playScene = {
     // Bank the hidden clock so leaving can't reset the speed bonus.
     const r = this.app.save.data.round;
     if (r && this.phase === 'hunt') { r.elapsed = this.huntT || 0; this.app.save.write(); }
-    this.timers.clear(); freeCanvas(this.bg?.canvas); this.bg = null; this.bgSeason = null; this.sheep = []; this.wolf = null; this.ring = null; this.focus = null; this.hunger = null;
+    this.timers.clear(); freeCanvas(this.bg?.canvas); this.bg = null; this.bgSeason = null; this.sheep = []; this.wolves = []; this.ring = null; this.focus = null; this.hunger = null;
   },
 
   buildUI() {
@@ -79,11 +80,12 @@ export const playScene = {
     const cal = this.cal || calendarFor(s.streak);
     const W = db.world, wx = this.round?.weather;
     this.ui.querySelector('[data-streakn]').textContent = `Streak ${s.streak}`;
-    this.ui.querySelector('[data-tier]').textContent = `${cal.time.icon} ${cal.season.name} ${cal.time.name}${wx && wx !== 'clear' ? ` · ${W.weatherIcons[wx]}` : ''}${this.hunger ? ' · 🍖 Hungry wolf' : ''}`;
+    const pack = this.round?.pack ? this.disguised().length : 0;
+    this.ui.querySelector('[data-tier]').textContent = `${cal.time.icon} ${cal.season.name} ${cal.time.name}${wx && wx !== 'clear' ? ` · ${W.weatherIcons[wx]}` : ''}${this.hunger ? ' · 🍖 Hungry wolf' : ''}${pack ? ` · 🐺 ${pack} left` : ''}`;
     this.ui.querySelector('[data-pelts]').textContent = s.pelts;
     const hint = this.ui.querySelector('[data-act="hint"]');
     this.ui.querySelector('[data-hintcost]').textContent = hintCost(s);
-    hint.disabled = this.phase !== 'hunt' || !canHint(s) || this.live().length <= (db.game.hint.minSheep ?? 2);
+    hint.disabled = this.phase !== 'hunt' || !canHint(s) || this.live().length <= (db.game.hint.minSheep ?? 2) || !this.live().some((x) => !x.isWolf);
     // Press your luck: unbanked pelts are lost on a mistake.
     const chip = this.ui.querySelector('[data-pelts]').closest('.chip');
     chip.classList.toggle('at-risk', db.game.mistake.mode === 'classic' && s.pelts > 0);
@@ -100,8 +102,7 @@ export const playScene = {
     this.atmo?.resize(w, h);
     if (this.pendingRound) { this.pendingRound = false; this.startRound(true); }
     else this.placeSheep(false);
-    const wolf = this.wolf;
-    if (wolf && !wolf.run && wolf.sheep) { wolf.x = wolf.sheep.x; wolf.y = wolf.sheep.y - 4 * wolf.sheep.scale; wolf.scale = wolf.sheep.scale; }
+    for (const wolf of this.wolves) if (!wolf.run && wolf.sheep) { wolf.x = wolf.sheep.x; wolf.y = wolf.sheep.y - 4 * wolf.sheep.scale; wolf.scale = wolf.sheep.scale; }
   },
 
   // Scenery follows the season; repaint only when it changes (or on resize).
@@ -129,19 +130,21 @@ export const playScene = {
     const { app } = this;
     const s = app.save.data;
     const resumed = restoreRound(s);
+    const special = specialRound(s.streak, s.runSeed);
     this.huntT = 0;
     if (resumed) {
       this.round = resumed.round;
       this.huntT = resumed.elapsed;
       if (!this.round.weather) this.round.weather = 'clear';
     } else {
-      this.round = makeRound(s.streak, { colorSafe: s.settings.colorSafe, maxSheep: this.capacity(), runSeed: s.runSeed });
+      this.round = makeRound(s.streak, { colorSafe: s.settings.colorSafe, maxSheep: this.capacity(), runSeed: s.runSeed, pack: special === 'pack' });
       storeRound(s, this.round, false);
       app.save.write();
     }
     this.sheep = this.round.sheep.map((d) => {
       const c = new Sheep(d.look, 0, 0, 1);
       c.isWolf = d.isWolf;
+      c.tell = d.tell || (d.isWolf ? this.round.tell : null);
       return c;
     });
     this.motion = new Set(this.round.tier.motion);
@@ -160,8 +163,16 @@ export const playScene = {
       if (first || this.cal.round === 0) banner(app.ui, 'Midnight!', 'Drag to shine your torch · tap to catch', 'good low');
     }
     // Once a day the wolf is hungry: it hunts the flock while you hunt it.
-    this.hunger = isHungryRound(s.streak, s.runSeed) ? { rest: db.game.hungryWolf.startDelay, victim: null, bite: 0 } : null;
+    this.hunger = special === 'hungry' ? { rest: db.game.hungryWolf.startDelay, victim: null, bite: 0 } : null;
     if (this.hunger && !this.torchMode()) banner(app.ui, 'Hungry wolf!', 'It\'s eating the flock. Find it fast!', 'bad low');
+    const n = this.disguised().length;
+    if (this.round.pack) banner(app.ui, 'Wolf pack!', `${n} wolves in the flock. Find them all!`, 'bad low');
+    // A wolf whose slip is only its colour gets a nudge, so you know what to look for.
+    if (this.disguised().some((x) => x.tell?.colorOnly)) {
+      this.timers.after(this.round.pack || this.hunger || this.torchMode() ? 1.8 : 0.3, () => {
+        if (this.phase === 'hunt') banner(app.ui, 'Hint: check the wool', this.round.pack ? 'Some wolves wear the wrong colour' : 'One fleece is the wrong colour', 'good low');
+      });
+    }
     this.placeSheep(true);
     this.phase = 'hunt';
     this.refreshHud();
@@ -171,6 +182,7 @@ export const playScene = {
   // Fit the flock into the field: pick the column count that gives the biggest
   // sheep, scatter them over random cells with a little jitter.
   live() { return this.sheep.filter((x) => !x.leaving && !x.gone); },
+  disguised() { return this.sheep.filter((x) => x.isWolf && !x.leaving && !x.gone); },
 
   placeSheep(fresh) {
     const f = this.field, n = this.sheep.length;
@@ -297,9 +309,11 @@ export const playScene = {
 
   caught(sh) {
     const { app } = this;
+    if (this.round.pack && this.disguised().length > 1) { this.caughtPackWolf(sh); return; }
     this.phase = 'reveal';
-    // Dark rounds stretch the hidden speed window (world.json quickTime).
-    const result = catchWolf(app.save.data, this.huntT / (this.cal.time.quickTime || 1), this.round.tell);
+    // Dark rounds stretch the hidden speed window (world.json quickTime); a
+    // pack shares it across its wolves.
+    const result = catchWolf(app.save.data, this.huntT / (this.cal.time.quickTime || 1) / (this.round.pack ? this.round.packSize || 1 : 1), sh.tell);
     clearRound(app.save.data);
     const got = checkAchievements(app.save.data);
     app.save.write();
@@ -309,7 +323,7 @@ export const playScene = {
     this.unmask(sh, true);
     // Speed is rewarded but never timed on screen: the praise says it all.
     const cheer = result.mult === 3 ? 'Lightning fast!' : result.mult === 2 ? 'Quick catch!' : 'Gotcha!';
-    banner(app.ui, `${cheer} +${result.gained}`, this.round.tell.label, this.bannerSide(sh, 'good'));
+    banner(app.ui, `${this.round.pack ? 'Pack cleared! ' : ''}${cheer} +${result.gained}`, sh.tell.label, this.bannerSide(sh, 'good'));
     this.pendingBonus = result.bonus;
     if (result.newRecord) this.timers.after(1.2, () => banner(app.ui, 'New record!', `Streak of ${app.save.data.streak}`, 'good'));
     // The flock cheers.
@@ -324,26 +338,49 @@ export const playScene = {
     this.timers.after(1.9, () => {
       if (result.tierUp) banner(app.ui, result.tierUp.name, 'Bigger flock, sneakier wolves', 'good');
       if (result.promptShop) this.showShopPrompt();
+      else if ((db.game.farmPromptAt || []).includes(app.save.data.streak)) this.showFarmPrompt();
       else this.nextRound(result.tierUp ? 0.9 : 0);
     });
+  },
+
+  // One of a Wolf Pack, with more still hiding: its pelts, and the hunt goes on.
+  caughtPackWolf(sh) {
+    const { app } = this;
+    const s = app.save.data;
+    const { gained } = catchPackWolf(s, sh.tell);
+    this.unmask(sh, true);
+    if (s.round) s.round.sheep = saveSheep(this.live());
+    const got = checkAchievements(s);
+    app.save.write();
+    app.haptic(20);
+    this.timers.after(1.2, () => celebrate(app, got));
+    const left = this.disguised().length;
+    banner(app.ui, `+${gained} · ${left} to go!`, sh.tell.label, this.bannerSide(sh, 'good'));
+    this.timers.after(0.4, () => flyPelt(app.ui, sh.x, sh.y - 30 * sh.scale, this.ui.querySelector('[data-pelts]').closest('.chip'), () => {
+      app.sfx.coin();
+      bumpPelts(this.ui, s.pelts);
+    }));
+    this.refreshHud();
   },
 
   missed(sh) {
     const { app } = this;
     this.phase = 'missed';
-    const wolfSheep = this.sheep.find((x) => x.isWolf);
+    const hiding = this.disguised();
+    const wolfSheep = hiding[0];
+    this.missedWolf = wolfSheep;
     const result = mistake(app.save.data);
     clearRound(app.save.data);
     app.save.write();
     app.haptic(80);
     // Ring the wolf so the player sees what they missed before it unmasks.
-    this.ring = { sheep: wolfSheep, t: 0 };
+    this.ring = { list: hiding, t: 0 };
     app.sfx.wrong();
     this.timers.after(0.15, () => app.sfx.baa(0.85));
     // The innocent sheep shakes its head indignantly.
     sh.indignant = 0.9;
-    banner(app.ui, "That's a sheep!", 'Watch the wolf…', this.bannerSide(wolfSheep, 'bad'));
-    this.timers.after(1.3, () => { this.ring = null; this.unmask(wolfSheep, false); });
+    banner(app.ui, "That's a sheep!", hiding.length > 1 ? 'Watch the wolves…' : 'Watch the wolf…', this.bannerSide(wolfSheep, 'bad'));
+    this.timers.after(1.3, () => { this.ring = null; hiding.forEach((w, i) => this.timers.after(i * 0.12, () => this.unmask(w, false))); });
     this.timers.after(2.6, () => this.showMissed(result));
     // The HUD keeps showing the lost streak/pelts until the panel explains it.
   },
@@ -355,10 +392,10 @@ export const playScene = {
     this.fx.burstWool(sh.x, sh.y - 6 * sh.scale, sh.look.wool, sh.scale, 16);
     this.fx.sparkle(sh.x, sh.y - 20 * sh.scale, sh.scale, caught ? 12 : 4);
     sh.gone = true;
-    this.wolf = { sheep: sh, fur: sh.look.wolfFur || 'grey', x: sh.x, y: sh.y - 4 * sh.scale, scale: sh.scale, t: 0, heading: 0, run: false, caught };
+    const w = { sheep: sh, fur: sh.look.wolfFur || 'grey', x: sh.x, y: sh.y - 4 * sh.scale, scale: sh.scale, t: 0, heading: 0, run: false, caught };
+    this.wolves.push(w);
     this.timers.after(caught ? 0.9 : 0.7, () => {
       app.sfx.howl();
-      const w = this.wolf;
       // Bolt for the nearest side edge.
       w.run = true;
       w.dir = w.x < this.app.w / 2 ? -1 : 1;
@@ -380,7 +417,7 @@ export const playScene = {
     this.timers.after(delay, () => {
       // Old flock pops out, new one pops in.
       this.sheep.forEach((o, i) => { o.leaving = true; o.leaveDelay = i * 0.02; });
-      this.timers.after(0.45, () => { this.wolf = null; this.startRound(); });
+      this.timers.after(0.45, () => { this.wolves = []; this.startRound(); });
     });
   },
 
@@ -448,6 +485,29 @@ export const playScene = {
     panel.querySelector('[data-go]').onclick = () => { app.sfx.tap(); panel.remove(); this.nextRound(); };
   },
 
+  // Streak milestones (game.json farmPromptAt): a look at your farm and a
+  // nudge to bank your pelts in sheep before the luck runs out.
+  showFarmPrompt() {
+    const { app } = this;
+    const s = app.save.data;
+    const pic = farmSnapshotURL(s.farm, (a) => breedById(a.breed)?.look);
+    const panel = el(`
+      <div class="scrim"><div class="panel" role="dialog" aria-modal="true" aria-label="Visit your farm">
+        <h2>Streak of ${s.streak}!</h2>
+        <img class="tellcard" src="${pic}" alt="Your farm">
+        <p>${s.farm.length ? `Your ${s.farm.length} sheep miss you.` : 'Your farm is still empty.'} You're holding <b>${s.pelts} pelt${s.pelts === 1 ? '' : 's'}</b>. Buy some sheep before a wolf runs off with them?</p>
+        <div class="row">
+          <button class="btn gold" data-shop>Shop</button>
+          <button class="btn green" data-farm>Visit farm</button>
+          <button class="btn" data-go>Keep hunting</button>
+        </div>
+      </div></div>`);
+    app.ui.append(panel);
+    panel.querySelector('[data-shop]').onclick = () => { app.sfx.tap(); app.go('shop'); };
+    panel.querySelector('[data-farm]').onclick = () => { app.sfx.tap(); app.go('farm'); };
+    panel.querySelector('[data-go]').onclick = () => { app.sfx.tap(); panel.remove(); this.nextRound(); };
+  },
+
   showMissed({ lostPelts, lostStreak }) {
     const { app } = this;
     this.refreshHud();
@@ -457,8 +517,8 @@ export const playScene = {
     const panel = el(`
       <div class="scrim"><div class="panel">
         <h2>Baa-d luck!</h2>
-        <img class="tellcard" src="${tellCardURL(this.sheep.find((x) => x.isWolf)?.look || {})}" alt="A real sheep beside the wolf, with its slip circled">
-        <p>The wolf gave itself away with <b>${this.round.tell.label.replace(/!$/, '').toLowerCase()}</b>.</p>
+        <img class="tellcard" src="${tellCardURL(this.missedWolf?.look || {})}" alt="A real sheep beside the wolf, with its slip circled">
+        <p>${this.round.pack ? 'One wolf' : 'The wolf'} gave itself away with <b>${(this.missedWolf?.tell || this.round.tell).label.replace(/!$/, '').toLowerCase()}</b>.</p>
         ${lines.length ? `<p>${lines.join(' ')}</p>` : '<p>Look for the one that doesn\'t fit.</p>'}
         ${lostPelts >= cheapestSheep() ? '<p style="font-size:15px"><b>Tip:</b> spend pelts in the shop and they\'re safe forever.</p>' : ''}
         <p style="font-size:14px;opacity:.7">Best streak: ${app.save.data.bestStreak}</p>
@@ -505,14 +565,14 @@ export const playScene = {
         sh.pose.eyes = 'half';
       }
     }
-    const w = this.wolf;
-    if (w) {
+    for (const w of this.wolves) {
       w.t += dt;
       if (w.run) {
         w.heading += (w.dir * Math.PI / 2 - w.heading) * clamp(dt * 8, 0, 1);
         w.x += w.dir * 520 * w.scale * dt * Math.min(1, w.t);
       }
     }
+    this.wolves = this.wolves.filter((w) => !w.run || (w.x > -200 && w.x < this.app.w + 200));
   },
 
   // Hungry wolf (one round a day, rules.isHungryRound): it stalks a sheep, and five seconds
@@ -558,12 +618,14 @@ export const playScene = {
     if (this.bg) ctx.drawImage(this.bg.canvas, 0, 0, app.w, app.h);
     const r = this.ring;
     if (r) {
-      const sh = r.sheep, pulse = 1 + Math.sin(performance.now() / 90) * 0.06;
+      const pulse = 1 + Math.sin(performance.now() / 90) * 0.06;
       ctx.save();
-      ctx.lineWidth = 6; ctx.strokeStyle = '#ee5b3f';
-      ctx.beginPath(); ctx.ellipse(sh.x, sh.y - 8 * sh.scale, 50 * sh.scale * pulse, 68 * sh.scale * pulse, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.lineWidth = 2; ctx.strokeStyle = '#fff';
-      ctx.stroke();
+      for (const sh of r.list) {
+        ctx.lineWidth = 6; ctx.strokeStyle = '#ee5b3f';
+        ctx.beginPath(); ctx.ellipse(sh.x, sh.y - 8 * sh.scale, 50 * sh.scale * pulse, 68 * sh.scale * pulse, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 2; ctx.strokeStyle = '#fff';
+        ctx.stroke();
+      }
       ctx.restore();
     }
     const f = this.focus;
@@ -575,8 +637,7 @@ export const playScene = {
       ctx.restore();
     }
     for (const sh of this.sheep) sh.draw(ctx);
-    const w = this.wolf;
-    if (w) {
+    for (const w of this.wolves) {
       const pop = ease.outBack(Math.min(1, w.t * 3));
       drawWolf(ctx, w.fur, w.x, w.y - (w.run ? Math.abs(Math.sin(w.t * 18)) * 5 : 0), w.scale * 1.05 * pop, w.heading,
         { run: w.run ? Math.sin(w.t * 18) : 0, look: w.run ? 'ahead' : 'up' }, w.scale * 1.05);

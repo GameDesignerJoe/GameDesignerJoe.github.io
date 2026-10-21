@@ -16,9 +16,9 @@
     {"id": "fang", "kind": "fangs", "subtlety": 4, "label": "Fangs!", "tells": {"fang": true}},
     {"id": "brows", "kind": "scowl", "subtlety": 4, "label": "A sly scowl!", "notWith": ["face:dark", "eyes:sleepy"], "tells": {"brows": true}},
     {"id": "nose", "kind": "nose", "subtlety": 5, "label": "A wet black wolf nose!", "notWith": ["face:dark"], "tells": {"nose": "black"}},
-    {"id": "tintStrong", "kind": "colour", "subtlety": 2, "group": "tint", "colorOnly": true, "label": "Fake wool: the wrong colour!", "tells": {"tint": 28}},
-    {"id": "tint", "kind": "colour", "subtlety": 3, "group": "tint", "colorOnly": true, "label": "Fake wool: slightly the wrong colour!", "tells": {"tint": 20}},
-    {"id": "tintSubtle", "kind": "colour", "subtlety": 4, "group": "tint", "colorOnly": true, "label": "Fake wool: a subtly different shade!", "tells": {"tint": 15}},
-    {"id": "tintFaint", "kind": "colour", "subtlety": 5, "group": "tint", "colorOnly": true, "label": "Fake wool: the faintest wrong tint!", "tells": {"tint": 11}}
+    {"id": "tintStrong", "kind": "colour", "subtlety": 2, "group": "tint", "colorOnly": true, "label": "Fake wool: the wrong colour!", "tells": {"tint": 40}},
+    {"id": "tint", "kind": "colour", "subtlety": 3, "group": "tint", "colorOnly": true, "label": "Fake wool: slightly the wrong colour!", "tells": {"tint": 31}},
+    {"id": "tintSubtle", "kind": "colour", "subtlety": 4, "group": "tint", "colorOnly": true, "label": "Fake wool: a subtly different shade!", "tells": {"tint": 24}},
+    {"id": "tintFaint", "kind": "colour", "subtlety": 5, "group": "tint", "colorOnly": true, "label": "Fake wool: the faintest wrong tint!", "tells": {"tint": 18}}
   ]
 }

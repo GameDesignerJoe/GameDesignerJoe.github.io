@@ -3,8 +3,9 @@
 // One brain, tuned by a profile:
 //   farm  — wanders, grazes, naps, has zoomies, eats food, chases toys, drinks
 //           at the pond and trough, nibbles the hay. At night the flock beds
-//           down in a huddle, and lambs stay up playing ball. A sleeper hit
-//           by a rolling toy wakes up angry and rams whoever kicked it.
+//           down in a huddle, and lambs stay up playing ball (or barge into
+//           a sleeper for fun). A sleeper hit by a rolling toy, or a lamb,
+//           wakes up angry and rams whoever did it.
 //   field — the find-the-wolf level: stands, grazes, ambles. Never lies down
 //           or sleeps, because that would hide paws or eyes (tells).
 // Fidgets and wandering only change the pose and position, never the look,
@@ -21,7 +22,7 @@ const DRAG_MOTION = new Set(['blink']);
 const FARM_MOTION = new Set(['blink', 'look']);
 
 export const PROFILES = {
-  farm: { walk: 0.4, run: 0.05, lie: 0.11, graze: 0.32, walkSpeed: 46, walkDist: [60, 180], idle: [1, 3], turn: 5, visit: 0.16 },
+  farm: { walk: 0.4, run: 0.05, lie: 0.11, graze: 0.32, walkSpeed: 46, walkDist: [60, 180], idle: [1, 3], turn: 5, visit: 0.16, prank: 0.12 },
   // activity 0..1 comes from the tier: calm early, restless late.
   field: (activity = 0.5) => ({
     walk: 0.25 + activity * 0.45, run: 0, lie: 0, graze: 0.3, walkSpeed: 26 + activity * 18,
@@ -253,6 +254,9 @@ export class Sheep {
       case 'angry':
         this.updateAngry(dt, world);
         break;
+      case 'prank':
+        this.updatePrank(dt, world);
+        break;
       case 'flee':
         this.updateFlee(dt, world);
         break;
@@ -264,7 +268,7 @@ export class Sheep {
     // Trot cycle scales with speed.
     this.stepPhase += dt * (this.speed / Math.max(0.01, this.scale)) * 0.22;
     p.step = this.speed > 4 ? Math.sin(this.stepPhase) : p.step * 0.8;
-    const bouncy = this.state === 'run' || this.state === 'chase' || this.state === 'angry' || this.state === 'flee' || (this.state === 'seek' && this.speed > 90 * this.scale);
+    const bouncy = this.state === 'run' || this.state === 'chase' || this.state === 'prank' || this.state === 'angry' || this.state === 'flee' || (this.state === 'seek' && this.speed > 90 * this.scale);
     this.hop = bouncy ? Math.abs(Math.sin(this.stepPhase)) * 4 * this.scale : Math.max(0, this.hop - dt * 90);
     p.squash = 1 + Math.sin(this.t * 2.2 + this.id) * 0.012;
 
@@ -318,6 +322,11 @@ export class Sheep {
     const toy = (world.toys || []).find((t) => !t.chaser && !t.gone);
     const playful = world.night && profile.lie && this.isLamb ? 0.6 : 0.18;
     if (toy && Math.random() < playful) { toy.chaser = this; this.toy = toy; this.state = 'chase'; this.stateT = 5; return; }
+    // Now and then a lamb charges a sleeping grown-up, just to see what happens.
+    if (this.isLamb && profile.lie && Math.random() < (profile.prank ?? 0)) {
+      const mark = world.others.find((o) => o !== this && !o.isLamb && !o.gone && !o.leavingFarm && o.asleep && Math.hypot(o.x - this.x, o.y - this.y) < 400 * this.size);
+      if (mark) { this.prankOn = mark; this.state = 'prank'; this.stateT = 6; return; }
+    }
     // Food: hungry sheep head for anything in reach with a free seat.
     const food = (world.foods || []).find((f) => f.remaining > 0 && f.eaters.size < f.seats && Math.hypot(f.x - this.x, f.y - this.y) < f.attract);
     if (food && Math.random() < 0.8 && this.seek(food)) return;
@@ -469,6 +478,29 @@ export class Sheep {
     this.speed = 0;
     this.restT = rand(0.7, 1.1);
     this.rams = (this.rams || 0) + 1;
+  }
+
+  // A lamb's dare: gallop at a sleeper and bump it. It wakes up cross (the
+  // farm's onWake shows who did it) and the lamb has to run for it.
+  updatePrank(dt, world) {
+    const mark = this.prankOn;
+    if (this.stateT <= 0 || !mark || mark.gone || !mark.asleep) {
+      this.prankOn = null;
+      this.state = 'idle'; this.stateT = rand(1, 2);
+      return;
+    }
+    this.faceToward(mark.x, mark.y, dt, 7);
+    this.speed += (160 * this.scale - this.speed) * clamp(dt * 4, 0, 1);
+    this.steerAround(world, dt);
+    this.x += Math.sin(this.heading) * this.speed * dt;
+    this.y -= Math.cos(this.heading) * this.speed * dt;
+    const head = this.circles()[1];
+    if (!mark.circles().some((c) => Math.hypot(c.x - head.x, c.y - head.y) < c.r + head.r + 4 * this.scale)) return;
+    this.prankOn = null;
+    world.fx?.sparkle(head.x, head.y, this.scale * 0.6, 6);
+    world.sfx?.pop();
+    if (world.onWake) world.onWake(mark, this);
+    else mark.wakeAngry(this, null);
   }
 
   // Run from an angry sheep, turning along the fence rather than into it.

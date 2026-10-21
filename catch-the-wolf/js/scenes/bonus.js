@@ -59,16 +59,26 @@ export const bonusScene = {
     const y = side === 2 ? f.y + 10 : side === 3 ? f.y + f.h - 10 : rand(f.y + 60, f.y + f.h - 60);
     const toward = Math.atan2(f.x + f.w / 2 - x, -(f.y + f.h / 2 - y)) + rand(-0.6, 0.6);
     this.wolves.push({
-      x, y, heading: toward, speed: rand(170, 280) * s, fur: pick(FURS), t: rand(0, 5),
+      x, y, heading: toward, speed: rand(145, 240) * s, fur: pick(FURS), t: rand(0, 5), trail: [],
       turnIn: rand(0.4, 1.4), spin: 0, appear: 0,
     });
   },
 
+  // Forgiving taps on fast targets: a hit is anywhere along the wolf's body
+  // (nose to tail, not just its middle), generously padded, and also counts
+  // where the wolf was a moment ago, since eyes and fingers lag behind it.
   pointer(e) {
     if (e.type !== 'down' || this.phase !== 'run') return;
-    let best = null, bestD = 50 * this.scale;
+    const s = this.scale, reach = 62 * s;
+    const bodyDist = (x, y, heading) => {
+      const hx = Math.sin(heading) * 34 * s, hy = -Math.cos(heading) * 34 * s; // half body length
+      const vx = e.x - (x - hx), vy = e.y - (y - hy);
+      const t = clamp((vx * hx * 2 + vy * hy * 2) / (4 * (hx * hx + hy * hy)), 0, 1);
+      return Math.hypot(vx - hx * 2 * t, vy - hy * 2 * t);
+    };
+    let best = null, bestD = reach;
     for (const w of this.wolves) {
-      const d = Math.hypot(w.x - e.x, w.y - e.y);
+      const d = Math.min(bodyDist(w.x, w.y, w.heading), ...w.trail.map((p) => bodyDist(p.x, p.y, p.heading)));
       if (d < bestD) { best = w; bestD = d; }
     }
     if (!best) return;
@@ -113,9 +123,12 @@ export const bonusScene = {
       w.turnIn -= dt;
       if (w.turnIn <= 0) {
         w.heading += rand(-1.6, 1.6);
-        w.speed = clamp(w.speed * rand(0.8, 1.35), 150 * s, 360 * s);
+        w.speed = clamp(w.speed * rand(0.8, 1.35), 130 * s, 300 * s);
         w.turnIn = rand(0.35, 1.2);
       }
+      // Where it was over the last ~120 ms, for forgiving taps.
+      w.trail.push({ x: w.x, y: w.y, heading: w.heading, t: this.t });
+      while (w.trail.length && this.t - w.trail[0].t > 0.12) w.trail.shift();
       w.x += Math.sin(w.heading) * w.speed * dt;
       w.y -= Math.cos(w.heading) * w.speed * dt;
       // Bounce off the fence.
