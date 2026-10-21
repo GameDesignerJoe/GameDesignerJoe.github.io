@@ -1,189 +1,29 @@
-// The storm wall at the edge of the world. Seen from the safe area, the frontier
-// border is a wall of storm massing ahead: a dense grey storm body with a churning,
-// scalloped top edge where the border begins, white billows boiling and rolling fast
-// along it, whitening into blank whiteout deeper in, and white streamers tearing off
-// the top toward the explorer. Each side of the map is drawn the same way (the
-// painting's own flat edge art is buried under the same moving material).
-// Rendered in a quarter-res buffer (soft by design); streamers at full res.
-import { state, MAP_W, MAP_H } from '../state.js';
+// The edge storm, as the explorer feels it. It exists ONLY as a function of the
+// player's own position (director.frontier = state.frontier.amount): nothing is drawn
+// while they're in the safe area, however close the camera is to the map edge. As they
+// push into a border it ramps in around them (the director drives the whiteout veil,
+// heavy snow, inward wind, frost and haze); this module adds sheets of driven snow
+// racing past on the inward wind and wisps blowing across the explorer.
+import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
-import { canvas, qRes } from './weather-noise.js';
+import { canvas } from './weather-noise.js';
 import { director } from './weather-director.js';
 
-import { BORDER } from '../world/frontier.js';
-// The wall masses a little inside the border (towering storm), so it reads from
-// ~200 px inside the safe area at the usual zoom.
-// The wall's front line sits a little inside each side's border (proportional, so the
-// thin south border keeps its storm down by the painting's edge, clear of the sea).
-const FRONT = {
-  left: BORDER.left * 1.35, right: BORDER.right * 1.35,
-  // South: the gameplay border is thin (the sea stays playable), but the storm bank
-  // still rises ~140 world px from the bottom edge so it reads as a wall.
-  top: BORDER.top * 1.35, bottom: Math.max(BORDER.bottom * 1.25, 140),
-};
-let T, buf, g, fogPat, greyPat, streakPat, cloudPat;
+let T;
 let t = 0;
 const wisps = [];
 
 export function init(textures) { T = textures; }
 
-function ensure() {
-  const { w, h } = state.view;
-  // Big enough (>256x256 area) to stay a GPU canvas; scaled by quality.
-  const sc = Math.max(Math.min(0.34, 440 / Math.max(w, h)) * qRes(), Math.sqrt(70000 / (w * h)));
-  const bw = Math.max(2, Math.round(w * sc)), bh = Math.max(2, Math.round(h * sc));
-  if (!buf || buf.width !== bw || buf.height !== bh) {
-    buf = canvas(bw, bh);
-    g = buf.getContext('2d');
-    fogPat = g.createPattern(T.fog, 'repeat');
-    greyPat = g.createPattern(T.fogGrey, 'repeat');
-    streakPat = g.createPattern(T.streak, 'repeat');
-    cloudPat = g.createPattern(T.cloud, 'repeat');
-  }
-}
-
-// Sides in screen space: front = screen coordinate of the border's inner line along the
-// side's normal axis; dir = +1 if the storm lies toward increasing coordinate.
-function sides() {
-  const a = worldToScreen(FRONT.left, FRONT.top), b = worldToScreen(MAP_W - FRONT.right, MAP_H - FRONT.bottom);
-  return [
-    { axis: 'x', front: a.x, dir: -1, id: 0 },   // west: storm at smaller x
-    { axis: 'x', front: b.x, dir: 1, id: 1 },    // east
-    { axis: 'y', front: a.y, dir: -1, id: 2 },   // north
-    { axis: 'y', front: b.y, dir: 1, id: 3 },    // south
-  ];
-}
-
 const hash = n => { const h = Math.sin(n * 127.1 + 311.7) * 43758.5453; return h - Math.floor(h); };
 
-// Torn top edge: domain-warped, fast-moving noise along the wall (about +-28 px),
-// riding on big slow lobes so the line is never straight.
-const ragged = (side, s) => {
-  const k = side.id * 3.1, ds = (side.id % 2 ? 1 : -1) * t;
-  const warp = 7 * Math.sin(s * 0.013 + ds * 0.9 + k) + 4 * Math.sin(s * 0.031 - t * 1.3);
-  // Rounded billow tops with notches between them (|sin|), boiling and rolling along.
-  return 22 * Math.abs(Math.sin(s * 0.03 + warp + ds * 2.2)) + 9 * Math.abs(Math.sin(s * 0.083 + warp * 1.6 - t * 3.1 + k))
-    + 2.5 * Math.sin(s * 0.21 + warp * 2.3 + t * 5.1) - 14;
-};
-const lobeAt = (side, s) => 30 * Math.sin(s * 0.011 + side.id * 2 + t * 0.6) + 14 * Math.sin(s * 0.027 - t * 0.9);
-
-// Path of one side's storm region (beyond its torn top edge).
-function sidePath(ctx, side, sc, extra = 0) {
-  const { w, h } = state.view;
-  ctx.beginPath();
-  const len = side.axis === 'x' ? h : w, far = side.dir > 0 ? (side.axis === 'x' ? w : h) + 400 : -400;
-  for (let s = -60; s <= len + 60; s += 6) {
-    const n = side.front - side.dir * (lobeAt(side, s) + ragged(side, s) + 30 + extra);
-    if (side.axis === 'x') ctx.lineTo(n * sc, s * sc); else ctx.lineTo(s * sc, n * sc);
-  }
-  if (side.axis === 'x') { ctx.lineTo(far * sc, (len + 60) * sc); ctx.lineTo(far * sc, -60 * sc); }
-  else { ctx.lineTo((len + 60) * sc, far * sc); ctx.lineTo(-60 * sc, far * sc); }
-  ctx.closePath();
-}
-
-// Fill the buffer with a pattern scrolled along the side (and drifting toward the interior).
-function layer(pat, tw, th, size, along, inward, side, al, rot = 0) {
-  const bw = buf.width, bh = buf.height;
-  const k = size;
-  const TW = tw * k, TH = th * k;
-  let ox = 0, oy = 0;
-  if (side.axis === 'x') { ox = -side.dir * inward; oy = along; } else { ox = along; oy = -side.dir * inward; }
-  ox = ((ox % TW) + TW) % TW; oy = ((oy % TH) + TH) % TH;
-  g.save();
-  g.globalAlpha = al;
-  if (rot) { g.translate(buf.width / 2, buf.height / 2); g.rotate(rot); g.translate(-buf.width, -buf.height); }
-  g.translate(ox - TW, oy - TH);
-  // Patterns that are long along x (streaks) get turned to run along the side.
-  if (side.axis === 'x' && th !== tw) { g.translate(TW, 0); g.rotate(Math.PI / 2); }
-  g.scale(k, k);
-  g.fillStyle = pat;
-  g.fillRect(0, 0, (bw * (rot ? 2.5 : 1) + TW * 2) / k + tw, (bh * (rot ? 2.5 : 1) + TH * 2) / k + th);
-  g.restore();
-}
-
 export function draw(ctx) {
-  const { w, h } = state.view;
   const dt = Math.min(0.1, state.dt);
   t += dt;
-  const S = sides().filter(s => {
-    const lim = s.axis === 'x' ? w : h;
-    // Visible when the front (with its crest) is on screen or the screen is inside it.
-    return s.dir < 0 ? s.front + 70 > 0 : s.front - 70 < lim;
-  });
-  updateWisps(dt, S);
-  if (!S.length) { drawWisps(ctx); return; }
-  ensure();
-  const bw = buf.width, sc = bw / w;
-  g.setTransform(1, 0, 0, 1, 0, 0);
-  g.globalAlpha = 1;
-  g.globalCompositeOperation = 'source-over';
-  g.clearRect(0, 0, bw, buf.height);
-  const fast = 1 + (director.frontierEsc || 0);   // sheets speed up as the explorer enters
-
-  for (const side of S) {
-    // Soft, boiling fringe ahead of the wall (feathered in a few offset passes).
-    for (const [extra, al] of [[30, 0.16], [18, 0.22], [8, 0.32]]) {
-      sidePath(g, side, sc, extra);
-      g.fillStyle = `rgba(214,217,220,${al})`;
-      g.fill();
-    }
-    g.save();
-    sidePath(g, side, sc, 0);
-    g.clip();
-    // Storm body: darker grey near the crest, whitening into blank whiteout deeper in.
-    const f0 = side.front * sc, deep = 300 * sc * side.dir;
-    const x0 = side.axis === 'x' ? f0 : 0, y0 = side.axis === 'y' ? f0 : 0;
-    const x1 = side.axis === 'x' ? f0 + deep : 0, y1 = side.axis === 'y' ? f0 + deep : 0;
-    const gd = g.createLinearGradient(x0 - side.dir * 60 * sc * (side.axis === 'x' ? 1 : 0), y0 - side.dir * 60 * sc * (side.axis === 'y' ? 1 : 0), x1, y1);
-    gd.addColorStop(0, 'rgb(164,168,172)');
-    gd.addColorStop(0.4, 'rgb(184,188,192)');
-    gd.addColorStop(1, 'rgb(236,238,240)');
-    g.fillStyle = gd;
-    g.fillRect(0, 0, bw, buf.height);
-    // Dark billow cores rolling along the border, then bright billows boiling over them,
-    // then fast sheets of blowing snow.
-    const roll = t * 110 * fast * sc;              // ~110 screen px/s along the edge
-    g.globalCompositeOperation = 'multiply';
-    // Two textures at non-integer scales and different rotations: no visible grid.
-    layer(greyPat, 256, 256, 0.62, roll * 0.8 + side.id * 50, t * 14 * sc, side, 0.75, 0.37);
-    layer(cloudPat, 128, 128, 0.62 * 1.37 * 2, -roll * 0.45 + side.id * 90, t * 22 * sc, side, 0.5, -0.61);
-    g.globalCompositeOperation = 'source-over';
-    // (bright drifting snow over the dark body)
-    layer(fogPat, 256, 256, 0.5, roll + side.id * 30, t * 30 * sc, side, 0.5, 0.21);
-    layer(fogPat, 256, 256, 0.5 * 0.731, roll * 1.5, t * 45 * sc, side, 0.3, -0.83);
-    // Erode the top with fast-moving fog noise (torn, ragged), then refill the depths
-    // so only the front 20-60 px is torn open.
-    g.globalCompositeOperation = 'destination-out';
-    layer(fogPat, 256, 256, 0.21, roll * 1.8 + side.id * 70, t * 40 * sc, side, 0.55, 0.13);
-    g.globalCompositeOperation = 'source-over';
-    const gx0 = side.axis === 'x' ? f0 : 0, gy0 = side.axis === 'y' ? f0 : 0;
-    const gx1 = side.axis === 'x' ? f0 + 110 * sc * side.dir : 0, gy1 = side.axis === 'y' ? f0 + 110 * sc * side.dir : 0;
-    const rf = g.createLinearGradient(gx0, gy0, gx1, gy1);
-    rf.addColorStop(0, 'rgba(200,203,206,0)');
-    rf.addColorStop(0.45, 'rgba(196,199,202,0.55)');
-    rf.addColorStop(1, 'rgba(232,234,236,1)');
-    g.fillStyle = rf;
-    g.fillRect(0, 0, bw, buf.height);
-    g.restore();
-  }
-
-  // Keep the explorer readable once they're in it (the global whiteout takes over there).
-  const p = worldToScreen(state.player.x, state.player.y - 8);
-  const R = 90 * sc;
-  const rg = g.createRadialGradient(p.x * sc, p.y * sc, 0, p.x * sc, p.y * sc, R);
-  rg.addColorStop(0, 'rgba(0,0,0,0.8)');
-  rg.addColorStop(1, 'rgba(0,0,0,0)');
-  g.globalCompositeOperation = 'destination-out';
-  g.fillStyle = rg;
-  g.fillRect(0, 0, bw, buf.height);
-  g.globalCompositeOperation = 'source-over';
-
-  // Once the explorer is inside, the global whiteout takes over and the wall body fades.
-  ctx.imageSmoothingEnabled = true;
-  ctx.globalAlpha = 1 - 0.6 * Math.max(0, Math.min(1, ((director.frontier || 0) - 0.35) / 0.45));
-  ctx.drawImage(buf, 0, 0, w, h);
-  for (const side of S) drawSheets(ctx, side, ctx.globalAlpha);
-  ctx.globalAlpha = 1;
+  const fa = director.frontier || 0;
+  updateWisps(dt, fa);
+  if (fa <= 0.01 && !wisps.length) return;
+  if (fa > 0.01) drawSheets(ctx, fa);
   drawWisps(ctx);
 }
 
@@ -212,49 +52,36 @@ function sliverGrey() {
   createImageBitmap?.(sliverG).then(b => { sliverG = b; });
   return sliverG;
 }
-function drawSheets(ctx, side, alpha) {
+// Long thin bright and grey streaks racing across the screen along the wind (which
+// the director turns to blow inward from the edge). Count and alpha follow the amount.
+function drawSheets(ctx, fa) {
   const { w, h, dpr } = state.view;
-  const len = side.axis === 'x' ? h : w;
-  const fast = 1 + (director.frontierEsc || 0);
-  const dirS = side.id % 2 ? -1 : 1;
+  const a = state.wind.angle, c = Math.cos(a), sn = Math.sin(a);
   const W_ = sliverSprite(), G_ = sliverGrey();
-  for (let i = 0; i < SHEETS; i++) {
-    const h1 = hash(i * 1.31 + side.id * 17), h2 = hash(i * 2.17 + 5), h3 = hash(i * 3.71 + 9);
-    const depth = Math.pow(h1, 1.8) * 160 + 22;               // px inside the front, most near the top
-    const L = 70 + h2 * 200, sp = (220 + h3 * 200) * fast;
-    const span = len + L + 200;
-    const s = (((t * sp * dirS + h2 * 5000) % span) + span) % span - L - 100;
-    const s0 = dirS > 0 ? s : len - s;
-    const n = side.front - side.dir * (lobeAt(side, s0) + ragged(side, s0) + 30) + side.dir * depth;
+  const diag = Math.hypot(w, h);
+  const n = Math.round(SHEETS * Math.min(1, fa * 1.6));
+  const fast = 1 + (director.frontierEsc || 0);
+  for (let i = 0; i < n; i++) {
+    const h1 = hash(i * 1.31), h2 = hash(i * 2.17 + 5), h3 = hash(i * 3.71 + 9);
+    const L = 80 + h2 * 220, sp = (260 + h3 * 260) * fast;
+    const span = diag + L + 200;
+    const u = (((t * sp + h2 * 5000) % span) + span) % span - span / 2;   // along the wind
+    const v = (h1 - 0.5) * diag;                                         // across it
+    const x = w / 2 + c * u - sn * v, y = h / 2 + sn * u + c * v;
     const grey = h3 < 0.38;
     const wd = 1 + h2 * 2.2;
-    ctx.globalAlpha = alpha * (grey ? 0.22 + 0.18 * h1 : 0.3 + 0.3 * (1 - h1));
-    // Sprite runs along +x with its head at the right; point it along the travel direction.
-    const ux = side.axis === 'x' ? 0 : -dirS, uy = side.axis === 'x' ? -dirS : 0;
-    const x = side.axis === 'x' ? n : s0, y = side.axis === 'x' ? s0 : n;
-    ctx.setTransform(-dpr * ux, -dpr * uy, dpr * uy, -dpr * ux, dpr * x, dpr * y);
+    ctx.globalAlpha = Math.min(1, fa * 1.3) * (grey ? 0.3 : 0.6);
+    ctx.setTransform(dpr * c, dpr * sn, -dpr * sn, dpr * c, dpr * x, dpr * y);
     ctx.drawImage(grey ? G_ : W_, -L, -wd / 2, L, wd);
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalAlpha = 1;
 }
 
-// --- streamers tearing off the top of the wall toward the explorer -------------------
-function updateWisps(dt, S) {
-  const { w, h } = state.view;
-  for (const side of S) {
-    const len = side.axis === 'x' ? h : w;
-    if (Math.random() < dt * len / 60 && wisps.length < 50) {
-      const s = Math.random() * len;
-      wisps.push({ side, s, age: 0, life: 0.8 + Math.random() * 0.7, L: 30 + Math.random() * 45,
-        curl: (Math.random() - 0.5) * 0.8, w0: 1.2 + Math.random() * 1.6 });
-    }
-  }
+function updateWisps(dt, fa) {
   // A few wisps blow across the explorer when they're at the wall or inside it.
   const p = state.player;
-  // How far past each side's wall front the explorer is (positive = inside the storm side).
-  const past = Math.max(FRONT.left - p.x, FRONT.top - p.y, p.x - (MAP_W - FRONT.right), p.y - (MAP_H - FRONT.bottom));
-  const near = Math.max(director.frontier || 0, Math.min(1, Math.max(0, (past + 60) / 90)));
+  const near = fa;
   if (near > 0.05 && Math.random() < dt * 5 * near && wisps.length < 110) {
     const ps = worldToScreen(p.x, p.y - 8), a = state.wind.angle;
     const back = 25 + Math.random() * 30;
@@ -262,9 +89,9 @@ function updateWisps(dt, S) {
       y: ps.y - Math.sin(a) * back + (Math.random() - 0.5) * 22, a, age: 0, life: 0.7 + Math.random() * 0.4,
       L: 30 + Math.random() * 25, w0: 1.2 + Math.random(), sp: 70 + Math.random() * 50 });
   }
-  for (const q of wisps) { q.age += dt; if (q.free) { q.x += Math.cos(q.a) * q.sp * dt; q.y += Math.sin(q.a) * q.sp * dt; continue; } q.s += dt * 90 * (q.side.id % 2 ? -1 : 1); }
+  for (const q of wisps) { q.age += dt; if (q.free) { q.x += Math.cos(q.a) * q.sp * dt; q.y += Math.sin(q.a) * q.sp * dt; continue; } }
   let k = 0;
-  for (const q of wisps) if (q.age < q.life && (q.free || S.includes(q.side))) wisps[k++] = q;
+  for (const q of wisps) if (q.age < q.life) wisps[k++] = q;
   wisps.length = k;
 }
 
@@ -281,18 +108,5 @@ function drawWisps(ctx) {
       ctx.stroke();
       continue;
     }
-    const side = q.side, u = q.age / q.life;
-    const base = side.front - side.dir * (lobeAt(side, q.s) + ragged(side, q.s) + 28);
-    const reach = q.L * (0.3 + u);                 // tears off and runs inward
-    const n0 = base - side.dir * reach * 0.25, n1 = base - side.dir * reach;
-    const s1 = q.s + q.curl * reach;
-    const p = (n, s) => side.axis === 'x' ? [n, s] : [s, n];
-    const [ax, ay] = p(n0, q.s), [bx, by] = p((n0 + n1) / 2, (q.s + s1) / 2 + q.curl * 8), [cx, cy] = p(n1, s1);
-    ctx.strokeStyle = `rgba(255,255,255,${0.7 * Math.sin(Math.PI * u)})`;
-    ctx.lineWidth = q.w0 * (1 - u * 0.5);
-    ctx.beginPath();
-    ctx.moveTo(ax, ay);
-    ctx.quadraticCurveTo(bx, by, cx, cy);
-    ctx.stroke();
   }
 }

@@ -2,7 +2,7 @@
 //
 // Deliberately restrained: only marks the illustrator might have drawn, at the
 // painting's own line weight, masked by terrain.
-//   ice   - occasional hairline cracks, only on genuinely flat open ice
+//   (ice crack networks live in icecracks.js, drawn from lakes.js)
 //   snow  - very rare tiny glints on shaded snow/ice that catch as the camera moves
 // Features are generated once per 64px world tile from a seeded RNG, cached, culled
 // to the visible rect, and drawn as a handful of batched paths.
@@ -63,33 +63,6 @@ function makeTile(tx, ty) {
     if (r() < p) t.glints.push(x, y, r() * 6.283);
   }
 
-  // Ice cracks: a few straight-ish segments with a slight zig, maybe one short branch.
-  if (r() < 0.22) {
-    let x = ox + 8 + r() * (TILE - 16), y = oy + 8 + r() * (TILE - 16);
-    if (flatIce(x, y)) {
-      let a = r() * 6.283;
-      const pts = [x, y];
-      const segs = 2 + ((r() * 3) | 0);
-      for (let s = 0; s < segs; s++) {
-        a += (r() < 0.5 ? 1 : -1) * (0.25 + r() * 0.35);
-        const len = 4 + r() * 5;
-        const nx = x + Math.cos(a) * len, ny = y + Math.sin(a) * len * 0.7; // foreshortened
-        if (!flatIce(nx, ny)) break;
-        pts.push(nx, ny);
-        x = nx; y = ny;
-      }
-      if (pts.length >= 6) {
-        t.cracks.push(pts);
-        if (pts.length >= 8 && r() < 0.5) {
-          const i = 2 * (1 + ((r() * (pts.length / 2 - 2)) | 0)); // interior vertex only
-          const ba = a + 1.2 * (r() < 0.5 ? 1 : -1), bl = 2.5 + r() * 2.5;
-          const bx = pts[i] + Math.cos(ba) * bl, by = pts[i + 1] + Math.sin(ba) * bl * 0.7;
-          if (flatIce(bx, by)) t.cracks.push([pts[i], pts[i + 1], bx, by]);
-        }
-      }
-    }
-  }
-
   return t;
 }
 
@@ -119,16 +92,6 @@ function drawDetail(ctx) {
   const time = state.time;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-
-  // Ice cracks, at the painting's ink weight (~1.1 map px), softened to sit in the grey.
-  ctx.beginPath();
-  for (const t of visible) for (const c of t.cracks) {
-    ctx.moveTo(c[0], c[1]);
-    for (let i = 2; i < c.length; i += 2) ctx.lineTo(c[i], c[i + 1]);
-  }
-  ctx.strokeStyle = 'rgba(92,96,100,0.55)';
-  ctx.lineWidth = 1.1;
-  ctx.stroke();
 
   // Glints: tiny, brief four-point catches keyed to camera position, so they flash as
   // you move rather than blinking on their own.

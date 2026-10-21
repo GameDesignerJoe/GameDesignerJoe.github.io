@@ -24,10 +24,14 @@
       <h2>Tools</h2>
       <div id="tools">
         <button data-tool="brush" title="Brush (B)"><svg viewBox="0 0 24 24"><path d="M4 20c2 0 4-1 4-3s-1-3-2-3-3 1-3 3v3zM9 14l9-10 2 2-10 9z"/></svg><span>Brush</span><kbd>B</kbd></button>
-        <button data-tool="eraser" title="Eraser: back to the automatic terrain (E)"><svg viewBox="0 0 24 24"><path d="M3 17l8-8 7 7-4 4H7zM11 9l4-4 7 7-4 4M7 20h14"/></svg><span>Eraser</span><kbd>E</kbd></button>
+        <button data-tool="eraser" title="Eraser (E): clear to snow, or restore the automatic terrain"><svg viewBox="0 0 24 24"><path d="M3 17l8-8 7 7-4 4H7zM11 9l4-4 7 7-4 4M7 20h14"/></svg><span>Eraser</span><kbd>E</kbd></button>
         <button data-tool="fill" title="Fill a connected area (G)"><svg viewBox="0 0 24 24"><path d="M5 11l7-7 7 7-7 7zM19 15c0 2 1 3 1 4a1 1 0 0 1-2 0c0-1 1-2 1-4z"/></svg><span>Fill</span><kbd>G</kbd></button>
         <button data-tool="lasso" title="Lasso fill (L): hold Alt to erase"><svg viewBox="0 0 24 24"><path d="M6 15c-3-3 0-9 7-9s8 5 5 7-7 2-9 1c-1 2 0 5-2 6" stroke-dasharray="3 2"/></svg><span>Lasso</span><kbd>L</kbd></button>
         <button data-tool="rect" title="Rectangle fill (R): hold Alt to erase"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" stroke-dasharray="3 2"/></svg><span>Rectangle</span><kbd>R</kbd></button>
+      </div>
+      <div id="eraseMode" hidden>
+        <button data-mode="snow" title="Paint plain walkable snow over anything, automatic or painted">Clear to snow</button>
+        <button data-mode="auto" title="Remove only your own paint, so the automatic guess shows again">Restore auto</button>
       </div>
       <label class="row" id="sizeRow">Brush size
         <input id="size" type="range" min="1" max="80" value="8">
@@ -39,6 +43,7 @@
     <section>
       <h2>Terrain</h2>
       <ul id="legend"></ul>
+      <p class="hint">Paint over anything to change it. The automatic map is only a starting point.</p>
     </section>
 
     <section>
@@ -80,14 +85,17 @@
     <div class="card">
       <button class="close" title="Close (Esc)">×</button>
       <h2>Painting the terrain</h2>
-      <p>The game guesses what every patch of your map is. Paint over the guesses that are wrong;
-        anything you don’t paint keeps the automatic guess.</p>
+      <p>The game guesses what every patch of your map is. <b>Paint over anything to change it</b>:
+        whatever you paint replaces the automatic guess, rock and cliffs included. Anything you don’t
+        paint keeps the guess.</p>
       <table>
         <tr><td><kbd>B</kbd> Brush</td><td>Paint the selected terrain. <kbd>[</kbd> <kbd>]</kbd> size.</td></tr>
-        <tr><td><kbd>E</kbd> Eraser</td><td>Remove your paint: that spot goes back to the automatic guess.</td></tr>
+        <tr><td><kbd>E</kbd> Eraser</td><td>Two modes, shown under the tools: <b>Clear to snow</b> (the default) turns anything,
+          automatic or painted, into plain walkable snow; <b>Restore auto</b> removes only your own paint so the
+          automatic guess shows again.</td></tr>
         <tr><td><kbd>G</kbd> Fill</td><td>Click an area to repaint every connected patch of the same terrain.</td></tr>
         <tr><td><kbd>R</kbd> <kbd>L</kbd> Rectangle, Lasso</td><td>Drag to fill a big area.</td></tr>
-        <tr><td><kbd>Alt</kbd>/<kbd>⌥</kbd></td><td>Hold it with the Brush, Fill, Rectangle or Lasso to erase instead of paint.</tr>
+        <tr><td><kbd>Alt</kbd>/<kbd>⌥</kbd></td><td>Hold it with the Brush, Fill, Rectangle or Lasso to erase instead of paint (using the Eraser’s mode).</tr>
         <tr><td><kbd>0</kbd>–<kbd>7</kbd></td><td>Pick a terrain. <kbd>I</kbd> picks the terrain under the cursor.</td></tr>
         <tr><td>Move around</td><td>Scroll or pinch to zoom. Drag with <kbd>Space</kbd>, the right or middle mouse button, or two fingers. <kbd>F</kbd> shows the whole map.</td></tr>
         <tr><td>Undo</td><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd>, redo with <kbd>Shift</kbd> as well.</td></tr>

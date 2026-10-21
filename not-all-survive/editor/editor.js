@@ -349,7 +349,13 @@ function doRedo() {
 // --- tools -------------------------------------------------------------------------------
 let tool = 'brush', cur = 4, size = 8;
 let op = null, last = null, strokeErase = false;   // Alt held at the start of a stroke erases
-const paintVal = () => (tool === 'eraser' || strokeErase ? NONE : cur);
+// Eraser modes: 'snow' paints an explicit Snow edit over anything (auto or edited);
+// 'auto' removes Joe's edits so the automatic map shows again. Alt-erase follows it.
+const ERASE_KEY = 'nas.editorEraseMode';
+let eraseMode = 'snow';
+try { if (localStorage.getItem(ERASE_KEY) === 'auto') eraseMode = 'auto'; } catch {}
+const eraseVal = () => (eraseMode === 'snow' ? 0 : NONE);
+const paintVal = () => (tool === 'eraser' || strokeErase ? eraseVal() : cur);
 
 function stamp(o, mx, my, v) {
   // Pixels whose centres lie within the brush circle (always at least the one under it).
@@ -377,8 +383,8 @@ function strokeTo(w) {
 function fillAt(w, erase) {
   const mx = Math.floor(w.x / S), my = Math.floor(w.y / S);
   if (mx < 0 || my < 0 || mx >= MW || my >= MH) return;
-  const s0 = my * MW + mx, target = composed(s0), v = erase ? NONE : cur;
-  if (!erase && target === cur) return toast(`That area is already ${CLASSES[cur].name}`);
+  const s0 = my * MW + mx, target = composed(s0), v = erase ? eraseVal() : cur;
+  if (v !== NONE && target === v) return toast(`That area is already ${CLASSES[v].name}`);
   const o = new Op(erase ? `erase ${CLASSES[target].name} area` : `fill with ${CLASSES[v].name}`);
   const seen = new Uint8Array(N), stack = new Int32Array(N);
   let sp = 0; stack[sp++] = s0; seen[s0] = 1;
@@ -392,8 +398,8 @@ function fillAt(w, erase) {
   }
   if (o.finish()) {
     refresh(...o.b);
-    toast(erase ? `Erased ${o.idx.length.toLocaleString()} px of edits` : `Filled ${o.idx.length.toLocaleString()} px of ${CLASSES[target].name} with ${CLASSES[v].name}`);
-  } else if (erase) toast('No edits there to erase');
+    toast(erase && v === NONE ? `Restored ${o.idx.length.toLocaleString()} px to auto` : erase ? `Cleared ${o.idx.length.toLocaleString()} px to snow` : `Filled ${o.idx.length.toLocaleString()} px of ${CLASSES[target].name} with ${CLASSES[v].name}`);
+  } else if (erase) toast('No edits there to restore');
 }
 
 /** Fill a polygon (world points) or rect with the current class, or erase it. */
@@ -412,7 +418,7 @@ function fillShape(pts, erase) {
   m.forEach((p, k) => (k ? g.lineTo(p.x - x0, p.y - y0) : g.moveTo(p.x - x0, p.y - y0)));
   g.closePath(); g.fill();
   const d = g.getImageData(0, 0, w, h).data;
-  const v = erase ? NONE : cur;
+  const v = erase ? eraseVal() : cur;
   const o = new Op(erase ? 'erase area' : `${tool === 'rect' ? 'rectangle' : 'lasso'} of ${CLASSES[v].name}`);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] >= 128) o.set((y + y0) * MW + x + x0, v);
   if (o.finish()) refresh(x0, y0, x1, y1);
@@ -598,8 +604,15 @@ addEventListener('keyup', e => {
 addEventListener('blur', () => { spaceDown = altDown = false; cv.classList.remove('pan'); });
 
 // --- panel -------------------------------------------------------------------------------
+function setEraseMode(m) {
+  eraseMode = m;
+  try { localStorage.setItem(ERASE_KEY, m); } catch {}
+  document.querySelectorAll('#eraseMode button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  render();
+}
 function setTool(t) {
   tool = t;
+  $('eraseMode').hidden = t !== 'eraser';
   document.querySelectorAll('#tools button').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
   ui.sizeRow.classList.toggle('off', !(t === 'brush' || t === 'eraser'));
   render();
@@ -636,6 +649,8 @@ function buildPanel() {
   $('playtest').onclick = playtest;
   // Don't leave buttons focused: Space (pan) would press them again.
   document.querySelectorAll('#panel button, #panel input').forEach(b => b.addEventListener('click', () => b.blur()));
+  document.querySelectorAll('#eraseMode button').forEach(b => (b.onclick = () => setEraseMode(b.dataset.mode)));
+  setEraseMode(eraseMode);
   setTool('brush'); setClass(4); setSize(8);
 }
 
@@ -904,7 +919,8 @@ window.terrainEditor = {
   get codes() { return lastCodes; },
   get routesReady() { return routesReady; }, get routesBusy() { return routesBusy; },
   fill: (x, y, c) => { const c0 = cur; cur = c; fillAt({ x, y }); cur = c0; },
-  exportPng,
+  exportPng, setEraseMode, get eraseMode() { return eraseMode; },
+  erase: (x, y, r) => { const t = tool; tool = 'eraser'; const o = new Op('erase'), s0 = size; size = (r * 2) / S; stamp(o, x / S, y / S, eraseVal()); size = s0; tool = t; o.finish(); refresh(...o.b); save(); return o.idx.length; },
 };
 
 boot();
