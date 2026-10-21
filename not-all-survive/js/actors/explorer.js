@@ -1573,36 +1573,42 @@ function drawFigure(ctx, rig, X, Y) {
   for (const A of out) if (A.overHead || A.dh > headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
 }
 
-// A snowshoe under each boot: a long teardrop frame (~2.4 x 1.1u) lying flat, dark wood
-// with pale rawhide lacing, ink outline; it rides up with the foot when it's lifted.
-function drawShoe(ctx, L, pr) {
-  const z = Math.max(L.foot[2], -0.25) + 0.05, cx = L.ankle[0] + 0.25, cy = L.foot[1];
-  const out = [], inn = [];
-  for (let i = 0; i < 18; i++) {
-    const a = (i / 18) * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
-    // teardrop: round nose forward (+x), tapering to a tail behind
-    // (sized against the chunky boot, which is ~1.3u wide with its ink: the frame must show round it)
-    const w = c > 0 ? 0.92 : 0.92 * (1 + c * 0.7);
-    const lx = c > 0 ? c * 1.55 : c * 2.1;
-    out.push(pr([cx + lx, cy + sn * w, z]));
-    inn.push(pr([cx + lx * 0.74 + 0.05, cy + sn * w * 0.6, z]));
+// A snowshoe under each boot: a long teardrop frame lying flat, its round toe ~1.2u ahead of
+// the boot tip and its tail ~2u behind the heel (~4 x 1.7u). Pale bent-wood frame, paler
+// rawhide webbing cross-hatched, dark ink outline: it reads against the black boot and, by its
+// outline, on white snow. It rides up with the foot when the foot is lifted.
+const SHOE_FRAME = '#c9b48a', SHOE_WEB = '#e2d6b8';
+function shoeOutline(fn) {           // teardrop in shoe-local coords: x forward (toe +), y across
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+    const w = c > 0 ? 1.0 : 1.0 * (1 + c * 0.72);   // wider than the boot so it shows beside it front-on
+    fn(c > 0 ? c * 1.9 : c * 2.4, sn * w);
   }
-  ctx.beginPath(); polyPath(ctx, out); ctx.fillStyle = '#3d2f20'; ctx.fill();
-  ctx.lineWidth = 0.16; ctx.strokeStyle = INK; ctx.stroke();
-  // rawhide bed: a warm tan, darker than the snow so the frame reads as a shape
-  ctx.beginPath(); polyPath(ctx, inn); ctx.fillStyle = '#b8a380'; ctx.fill();
-  // lacing: a coarse lattice across the pale bed
+}
+function drawShoe(ctx, L, pr) {
+  const z = Math.max(L.foot[2], -0.25) + 0.05, cx = L.ankle[0] + 0.3, cy = L.foot[1];
+  const out = [], inn = [];
+  shoeOutline((x, y) => { out.push(pr([cx + x, cy + y, z])); inn.push(pr([cx + x * 0.8 + 0.08, cy + y * 0.66, z])); });
+  ctx.beginPath(); polyPath(ctx, out); ctx.fillStyle = SHOE_FRAME; ctx.fill();
+  ctx.lineWidth = 0.2; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.stroke();
+  ctx.beginPath(); polyPath(ctx, inn); ctx.fillStyle = SHOE_WEB; ctx.fill();
+  ctx.lineWidth = 0.08; ctx.strokeStyle = 'rgba(70,52,30,0.7)'; ctx.stroke();
+  // cross-hatched webbing
   ctx.save(); ctx.beginPath(); polyPath(ctx, inn); ctx.clip();
-  ctx.strokeStyle = 'rgba(60,46,30,0.85)'; ctx.lineWidth = 0.08; ctx.beginPath();
-  for (let k = -5; k <= 4; k++) {
-    const a = pr([cx + k * 0.42 - 0.8, cy - 0.9, z]), b = pr([cx + k * 0.42 + 0.8, cy + 0.9, z]);
-    const c2 = pr([cx + k * 0.42 + 0.8, cy - 0.9, z]), d = pr([cx + k * 0.42 - 0.8, cy + 0.9, z]);
+  ctx.strokeStyle = 'rgba(110,86,52,0.85)'; ctx.lineWidth = 0.075; ctx.beginPath();
+  for (let k = -6; k <= 5; k++) {
+    const a = pr([cx + k * 0.42 - 0.9, cy - 1, z]), b = pr([cx + k * 0.42 + 0.9, cy + 1, z]);
+    const c2 = pr([cx + k * 0.42 + 0.9, cy - 1, z]), d = pr([cx + k * 0.42 - 0.9, cy + 1, z]);
     ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.moveTo(c2[0], c2[1]); ctx.lineTo(d[0], d[1]);
   }
   ctx.stroke(); ctx.restore();
-  // toe bar where the boot binds
-  const t0 = pr([cx + 0.45, cy - 0.65, z]), t1 = pr([cx + 0.45, cy + 0.65, z]);
-  ctx.beginPath(); ctx.moveTo(t0[0], t0[1]); ctx.lineTo(t1[0], t1[1]); ctx.strokeStyle = '#4a3a28'; ctx.lineWidth = 0.14; ctx.stroke();
+  // cross bars fore and aft of the binding
+  ctx.strokeStyle = '#8a7350'; ctx.lineWidth = 0.14; ctx.beginPath();
+  for (const bx of [0.75, -0.75]) {
+    const t0 = pr([cx + bx, cy - 0.72, z]), t1 = pr([cx + bx, cy + 0.72, z]);
+    ctx.moveTo(t0[0], t0[1]); ctx.lineTo(t1[0], t1[1]);
+  }
+  ctx.stroke();
 }
 
 // Ice axe in the ink style: a short shaft continuing the forearm, the pick biting into the wall.

@@ -70,25 +70,25 @@ export function drawGround(ctx) {
     ctx.translate(0, side * 0.15);
     ctx.rotate(side * 0.12);
     if (p.shoe && (p.t === 'deep' || p.t === 'snow')) {
-      // snowshoe: a big shallow teardrop with the lattice pressed into it (a little deeper in deep snow)
-      const al = life * (p.t === 'deep' ? 0.5 : 0.4);
+      // snowshoe: a big shallow oval outline with the webbing lattice pressed faintly inside
+      // (a touch deeper in deep snow); sized like the frame, ~4 x 1.7u
+      const al = life * (p.t === 'deep' ? 0.55 : 0.45);
       const tear = () => {
         ctx.beginPath();
-        for (let k = 0; k < 16; k++) {
-          const a = (k / 16) * Math.PI * 2, c = Math.cos(a);
-          const w = c > 0 ? 0.9 : 0.9 * (1 + c * 0.7), x = c > 0 ? c * 1.5 : c * 2.0;
+        for (let k = 0; k < 20; k++) {
+          const a = (k / 20) * Math.PI * 2, c = Math.cos(a);
+          const w = c > 0 ? 1.0 : 1.0 * (1 + c * 0.72), x = c > 0 ? c * 1.9 : c * 2.4;
           k ? ctx.lineTo(x, Math.sin(a) * w) : ctx.moveTo(x, Math.sin(a) * w);
         }
         ctx.closePath();
       };
-      tear(); ctx.fillStyle = `rgba(135,139,145,${al})`; ctx.fill();
-      ctx.save(); ctx.scale(0.82, 0.7); tear(); ctx.restore(); ctx.fillStyle = `rgba(185,188,193,${al})`; ctx.fill();
-      if (life > 0.4) {
-        ctx.save(); tear(); ctx.clip();
-        ctx.strokeStyle = `rgba(120,124,130,${al * 0.7})`; ctx.lineWidth = 0.08; ctx.beginPath();
-        for (let k = -5; k <= 4; k++) { ctx.moveTo(k * 0.42 - 0.8, -0.9); ctx.lineTo(k * 0.42 + 0.8, 0.9); ctx.moveTo(k * 0.42 + 0.8, -0.9); ctx.lineTo(k * 0.42 - 0.8, 0.9); }
-        ctx.stroke(); ctx.restore();
-      }
+      ctx.translate(-0.3, 0);
+      tear(); ctx.fillStyle = `rgba(200,203,208,${al * 0.35})`; ctx.fill();
+      ctx.save(); tear(); ctx.clip();
+      ctx.strokeStyle = `rgba(150,154,160,${al * 0.75})`; ctx.lineWidth = 0.07; ctx.beginPath();
+      for (let k = -6; k <= 5; k++) { ctx.moveTo(k * 0.42 - 0.9, -1); ctx.lineTo(k * 0.42 + 0.9, 1); ctx.moveTo(k * 0.42 + 0.9, -1); ctx.lineTo(k * 0.42 - 0.9, 1); }
+      ctx.stroke(); ctx.restore();
+      tear(); ctx.strokeStyle = `rgba(118,122,128,${al})`; ctx.lineWidth = 0.18; ctx.stroke();
     } else if (p.t === 'deep') {
       const al = life * (0.55 + 0.25 * p.w);
       // an irregular punched hole: dark wall on the upper-left, paler trodden floor
