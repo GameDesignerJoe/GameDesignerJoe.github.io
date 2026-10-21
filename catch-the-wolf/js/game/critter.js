@@ -231,7 +231,15 @@ export class Sheep {
         if (this.state === 'sleep') {
           p.eyes = 'closed';
           this.zT -= dt;
-          if (this.zT <= 0) { this.zT = 1.2; world.fx?.zzz(this.x + 14 * this.scale, this.y - 40 * this.scale, this.scale); }
+          if (this.zT <= 0) {
+            this.zT = 1.2;
+            world.fx?.zzz(this.x + 14 * this.scale, this.y - 40 * this.scale, this.scale);
+            // Nodded off alone before dark? Wake soon and go join the huddle.
+            if (world.night && world.bed && Math.hypot(this.x - world.bed.x, this.y - world.bed.y) > 120 * this.size
+              && !world.others.some((o) => o !== this && !o.gone && o.asleep && Math.hypot(o.x - this.x, o.y - this.y) < 130 * this.size)) {
+              this.stateT = Math.min(this.stateT, rand(0.5, 2));
+            }
+          }
         }
         if (this.stateT <= 0) {
           if (this.state === 'lie' && Math.random() < (world.night ? 0.9 : 0.5)) { this.state = 'sleep'; this.stateT = world.night ? rand(20, 40) : rand(6, 12); }
@@ -281,6 +289,22 @@ export class Sheep {
       steer += (off > 0 ? -1 : 1) * (1.4 - Math.abs(off)) * (1 - (d - o.r) / (reach - o.r));
     }
     if (steer) this.heading += clamp(steer, -2, 2) * dt * 6;
+  }
+
+  // Veer round other sheep ahead (angry charges and getaways, which go
+  // straight for a point and would otherwise run into a sleeper and stick).
+  steerAroundSheep(world, dt, ignore) {
+    let steer = 0;
+    for (const o of world.others) {
+      if (o === this || o === ignore || o.gone || o.dragging) continue;
+      const dx = o.x - this.x, dy = o.y - this.y, d = Math.hypot(dx, dy);
+      const reach = (70 + 40) * this.size;
+      if (d > reach || d < 1) continue;
+      const off = angleDiff(this.heading, Math.atan2(dx, -dy));
+      if (Math.abs(off) > 1.1) continue;
+      steer += (off > 0 ? -1 : 1) * (1.2 - Math.abs(off)) * (1 - d / reach);
+    }
+    if (steer) this.heading += clamp(steer, -2, 2) * dt * 7;
   }
 
   blockedAhead(world) {
@@ -411,12 +435,20 @@ export class Sheep {
     this.faceToward(this.tx, this.ty, dt, 7);
     this.speed += (175 * this.scale - this.speed) * clamp(dt * 4, 0, 1);
     this.steerAround(world, dt);
+    this.steerAroundSheep(world, dt, tgt);
     this.x += Math.sin(this.heading) * this.speed * dt;
     this.y -= Math.cos(this.heading) * this.speed * dt;
-    // Everyone else awake gets out of the way.
+    // Everyone else awake gets out of the way; a sleeper in the path is
+    // shoved aside rather than blocking the charge.
     for (const o of world.others) {
-      if (o === this || o === tgt || o.gone || o.dragging || o.leavingFarm || o.asleep || o.state === 'angry' || o.state === 'flee') continue;
-      if (Math.hypot(o.x - this.x, o.y - this.y) < 150 * this.size) o.flee(this, rand(1.5, 2.5));
+      if (o === this || o === tgt || o.gone || o.dragging || o.leavingFarm || o.state === 'angry' || o.state === 'flee') continue;
+      const dx = o.x - this.x, dy = o.y - this.y, d = Math.hypot(dx, dy) || 1;
+      if (!o.asleep) { if (d < 150 * this.size) o.flee(this, rand(1.5, 2.5)); continue; }
+      if (d < 75 * this.size) {
+        const side = Math.sin(this.heading) * dy + Math.cos(this.heading) * dx >= 0 ? 1 : -1; // which side of our path it's on
+        o.knockX += Math.cos(this.heading) * side * 140 * this.scale * dt * 8;
+        o.knockY += Math.sin(this.heading) * side * 140 * this.scale * dt * 8;
+      }
     }
     // Ram!
     const sx = Math.sin(this.heading), sy = -Math.cos(this.heading);
@@ -464,6 +496,7 @@ export class Sheep {
     this.faceToward(tx, ty, dt, 6);
     this.speed += (150 * this.scale - this.speed) * clamp(dt * 4, 0, 1);
     this.steerAround(world, dt);
+    this.steerAroundSheep(world, dt, from);
     this.x += Math.sin(this.heading) * this.speed * dt;
     this.y -= Math.cos(this.heading) * this.speed * dt;
   }
@@ -488,6 +521,10 @@ export class Sheep {
     const mine = this.circles();
     for (const o of world.others) {
       if (o === this || o.dragging || o.gone || o.appear < 0.5) continue;
+      // A charge or a getaway barges through a sleeping huddle (shoving
+      // sleepers aside as it goes, see updateAngry) rather than being walled in.
+      const rushing = (x) => x.state === 'angry' || x.state === 'flee';
+      if ((rushing(this) && o.asleep) || (this.asleep && rushing(o))) continue;
       if (Math.abs(o.x - this.x) > 120 * this.size || Math.abs(o.y - this.y) > 140 * this.size) continue;
       const theirs = o.circles();
       for (const a of mine) for (const b of theirs) {
