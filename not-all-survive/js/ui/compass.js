@@ -3,12 +3,14 @@
 // (or press C again) to take it out: a needle hangs over the explorer, pointing north
 // (screen up-left for now), shaken by the wind. Too much wind, climbing, deep snow,
 // being knocked down or cowering means you can't hold it — it goes back in the pack.
-// Keyboard: hold C to dig, C (or 1) to take the compass, 2 for the snowshoes.
+// Keyboard: hold C to dig, then C or 1 compass, 2 snowshoes, 3 ice axes, 4 crampons.
 //
-// The pack holds more than the compass: a grey slot below it holds the snowshoes.
-// Tapping it straps them on (or takes them off). Climbing or stepping onto ice puts
-// them back in the pack. state.player.gear = { snowshoes } is the equipped state;
-// explorer.js reads it for speed, gait and footprints.
+// The pack holds more than the compass: grey slots hold the snowshoes (below the
+// compass), and the ice axes and crampons (a second column further left). Tapping
+// one puts it on or takes it off. Climbing or stepping onto ice puts snowshoes back
+// in the pack; snowshoes and crampons can't both be worn. Climbing needs axes AND
+// crampons (explorer.js checks gear before starting a climb). state.player.gear = { snowshoes } is the equipped state;
+// state.player.gear = { snowshoes, axes, crampons }; explorer.js reads it.
 //
 // state.compass = { phase: 'idle'|'rummage'|'slot'|'out', ... }
 // Pushes events: rummage, compass (taken out), stow (put away),
@@ -26,7 +28,7 @@ const HEAD = 24;                  // height above the feet where the compass dia
 const BAR_Y = 20;                 // the pack bar sits just above the hood
 
 const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, angle: NORTH + 1.2, vel: 0 };
-const gear = state.player.gear = state.player.gear || { snowshoes: false };
+const gear = state.player.gear = Object.assign({ snowshoes: false, axes: false, crampons: false }, state.player.gear);
 let holding = false;              // pointer or key held on the explorer
 let wasMoving = false;
 
@@ -61,19 +63,34 @@ function onSlot(sx, sy) {
   const s = slotCenter();
   return Math.hypot(sx - s.x, sy - s.y) < s.r + 8;
 }
-// The snowshoe slot sits directly below the compass slot.
-function shoeCenter() {
+// Gear slots. Column 1 (beside the explorer): compass, then snowshoes below it.
+// Column 2 (further left): ice axes, then crampons. Climbing needs axes AND crampons.
+const GEAR = [
+  { id: 'snowshoes', col: 0, row: 1, key: 'Digit2', icon: drawSnowshoes, blocked: () => shoesBlocked() },
+  { id: 'axes', col: 1, row: 0, key: 'Digit3', icon: drawAxes, blocked: () => climbing() },
+  { id: 'crampons', col: 1, row: 1, key: 'Digit4', icon: drawCrampons, blocked: () => climbing() },
+];
+const climbing = () => state.player.mode === 'climb' || state.player.mode === 'approach';
+// Snowshoes and crampons both strap to the boots: wearing one means taking off the other.
+const EXCLUSIVE = { snowshoes: 'crampons', crampons: 'snowshoes' };
+
+function gearCenter(g) {
   const s = slotCenter();
-  return { x: s.x, y: s.y + s.r * 2.5, r: s.r };
+  return { x: s.x - g.col * s.r * 2.5, y: s.y + g.row * s.r * 2.5, r: s.r };
 }
-function onShoes(sx, sy) {
-  const s = shoeCenter();
-  return Math.hypot(sx - s.x, sy - s.y) < s.r + 8;
+function gearAt(sx, sy) {
+  return GEAR.find(g => { const c = gearCenter(g); return Math.hypot(sx - c.x, sy - c.y) < c.r + 8; });
 }
-function setShoes(on, auto = false) {
-  if (gear.snowshoes === on) return;
-  gear.snowshoes = on;
-  state.events.push({ type: 'gear', item: 'snowshoes', on, auto, x: state.player.x, y: state.player.y });
+function setGear(id, on, auto = false) {
+  if (gear[id] === on) return;
+  if (on && EXCLUSIVE[id] && gear[EXCLUSIVE[id]]) setGear(EXCLUSIVE[id], false, true);
+  gear[id] = on;
+  state.events.push({ type: 'gear', item: id, on, auto, x: state.player.x, y: state.player.y });
+}
+function toggleGear(g) {
+  if (g.blocked()) return;
+  setGear(g.id, !gear[g.id]);
+  C.phase = 'idle';
 }
 
 function startRummage() {
@@ -96,9 +113,9 @@ export function init() {
   state.uiPress = (sx, sy) => {
     if (!state.begun && !state.params.has('autostart')) return false;
     if (C.phase === 'slot' && onSlot(sx, sy)) { if (!blocked()) takeOut(); return true; }
-    if (C.phase === 'slot' && onShoes(sx, sy)) {
-      if (!shoesBlocked()) { setShoes(!gear.snowshoes); C.phase = 'idle'; }
-      return true;
+    if (C.phase === 'slot') {
+      const g = gearAt(sx, sy);
+      if (g) { toggleGear(g); return true; }
     }
     if (onPlayer(sx, sy)) {
       if (C.phase === 'out') { stow(); return true; }
@@ -113,10 +130,8 @@ export function init() {
 
   addEventListener('keydown', e => {
     if (e.repeat) return;
-    if (C.phase === 'slot' && e.code === 'Digit2') {
-      if (!shoesBlocked()) { setShoes(!gear.snowshoes); C.phase = 'idle'; }
-      return;
-    }
+    const g = C.phase === 'slot' && GEAR.find(x => x.key === e.code);
+    if (g) { toggleGear(g); return; }
     if (C.phase === 'slot' && e.code === 'Digit1') { if (!blocked()) takeOut(); return; }
     if (e.code !== 'KeyC') return;
     if (C.phase === 'slot') { if (!blocked()) takeOut(); }
@@ -128,7 +143,8 @@ export function init() {
   // Test hooks: NAS.compassOpen() skips straight to the needle.
   window.NAS.compassOpen = () => takeOut();
   window.NAS.packOpen = () => { C.phase = 'slot'; C.t = 0; };
-  window.NAS.snowshoes = on => setShoes(on);
+  window.NAS.snowshoes = on => setGear('snowshoes', on);
+  window.NAS.gear = (id, on) => setGear(id, on);   // e.g. NAS.gear('axes', true)
 }
 
 export function update(dt) {
@@ -148,7 +164,7 @@ export function update(dt) {
   wasMoving = moving;
 
   // Snowshoes go back in the pack the moment you climb or step onto ice.
-  if (gear.snowshoes && shoesBlocked()) setShoes(false, true);
+  if (gear.snowshoes && shoesBlocked()) setGear('snowshoes', false, true);
 
   // Fades.
   const k = Math.min(1, dt * 8);
@@ -208,41 +224,94 @@ function drawNeedle(ctx, cx, cy, len, angle, alpha) {
   ctx.fill();
 }
 
-// A grey slot holding a pair of snowshoes: two teardrop frames with cross lacing.
-function drawShoeSlot(ctx, z, pop) {
-  const s = shoeCenter(), r = s.r * pop, on = gear.snowshoes, dim = shoesBlocked();
+// A grey gear slot; the ring turns signal yellow while the item is worn.
+function drawGearSlot(ctx, g, z, pop) {
+  const c = gearCenter(g), r = c.r * pop, on = gear[g.id], dim = g.blocked();
   ctx.globalAlpha = C.slotA * (dim ? 0.45 : 1);
   ctx.beginPath();
-  ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+  ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(150,152,158,0.42)';
   ctx.fill();
   ctx.lineWidth = Math.max(1.2, z * 0.35);
-  ctx.strokeStyle = on ? SIGNAL.lit : 'rgba(255,255,255,0.85)';   // yellow ring = worn
+  ctx.strokeStyle = on ? SIGNAL.lit : 'rgba(255,255,255,0.85)';
   ctx.stroke();
   ctx.lineWidth = 1;
   ctx.strokeStyle = 'rgba(40,40,44,0.3)';
   ctx.beginPath();
-  ctx.arc(s.x, s.y, r + Math.max(1.2, z * 0.35), 0, Math.PI * 2);
+  ctx.arc(c.x, c.y, r + Math.max(1.2, z * 0.35), 0, Math.PI * 2);
   ctx.stroke();
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  g.icon(ctx, r, z);
+  ctx.restore();
+}
+
+const INK = 'rgba(40,36,30,0.9)', PALE = 'rgba(236,235,230,0.92)';
+
+// Two teardrop frames with cross lacing.
+function drawSnowshoes(ctx, r, z) {
   for (const side of [-1, 1]) {
-    const cx = s.x + side * r * 0.24, cy = s.y, rw = r * 0.2, rh = r * 0.5;
+    const rw = r * 0.2, rh = r * 0.5;
     ctx.save();
-    ctx.translate(cx, cy);
+    ctx.translate(side * r * 0.24, 0);
     ctx.rotate(side * 0.18);
     ctx.beginPath();
     ctx.ellipse(0, 0, rw, rh, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(236,235,230,0.9)';
-    ctx.fill();
-    ctx.lineWidth = Math.max(1, z * 0.28);
-    ctx.strokeStyle = 'rgba(40,36,30,0.9)';
-    ctx.stroke();
-    ctx.lineWidth = Math.max(0.6, z * 0.12);
-    ctx.strokeStyle = 'rgba(40,36,30,0.6)';
+    ctx.fillStyle = PALE; ctx.fill();
+    ctx.lineWidth = Math.max(1, z * 0.28); ctx.strokeStyle = INK; ctx.stroke();
+    ctx.lineWidth = Math.max(0.6, z * 0.12); ctx.strokeStyle = 'rgba(40,36,30,0.6)';
     ctx.beginPath();
     for (let i = -2; i <= 2; i++) { ctx.moveTo(-rw * 0.8, i * rh * 0.3); ctx.lineTo(rw * 0.8, i * rh * 0.3); }
     ctx.moveTo(0, -rh * 0.85); ctx.lineTo(0, rh * 0.85);
     ctx.stroke();
     ctx.restore();
+  }
+}
+
+// Two ice axes crossed: shafts, curved picks, adze heads.
+function drawAxes(ctx, r, z) {
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.rotate(side * 0.55);
+    const L = r * 0.62;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(1.6, z * 0.42); ctx.strokeStyle = INK;
+    ctx.beginPath(); ctx.moveTo(0, L); ctx.lineTo(0, -L * 0.8); ctx.stroke();       // shaft
+    ctx.lineWidth = Math.max(1, z * 0.22); ctx.strokeStyle = PALE;
+    ctx.beginPath(); ctx.moveTo(0, L * 0.9); ctx.lineTo(0, -L * 0.7); ctx.stroke(); // shaft highlight
+    ctx.lineWidth = Math.max(1.4, z * 0.34); ctx.strokeStyle = INK;
+    ctx.beginPath();                                                                 // head: pick + adze
+    ctx.moveTo(-L * 0.55, -L * 0.62);
+    ctx.quadraticCurveTo(0, -L * 1.0, L * 0.5, -L * 0.72);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// A crampon seen from below: a frame with two rows of spikes.
+function drawCrampons(ctx, r, z) {
+  const w = r * 0.42, h = r * 0.62;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.55, -h); ctx.lineTo(w * 0.55, -h);
+  ctx.lineTo(w * 0.7, -h * 0.2); ctx.lineTo(w * 0.5, h); ctx.lineTo(-w * 0.5, h);
+  ctx.lineTo(-w * 0.7, -h * 0.2); ctx.closePath();
+  ctx.fillStyle = PALE; ctx.fill();
+  ctx.lineWidth = Math.max(1, z * 0.28); ctx.strokeStyle = INK; ctx.stroke();
+  ctx.fillStyle = INK;
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 4; i++) {
+      const y = -h * 0.85 + i * h * 0.6, x = side * w * (0.72 - (i === 3 ? 0.15 : 0));
+      ctx.beginPath();
+      ctx.moveTo(x, y - r * 0.06); ctx.lineTo(x + side * r * 0.16, y); ctx.lineTo(x, y + r * 0.06);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  // front points
+  for (const dx of [-0.2, 0.2]) {
+    ctx.beginPath();
+    ctx.moveTo(w * dx - r * 0.05, -h); ctx.lineTo(w * dx, -h - r * 0.18); ctx.lineTo(w * dx + r * 0.05, -h);
+    ctx.closePath(); ctx.fill();
   }
 }
 
@@ -306,7 +375,7 @@ export function drawScreen(ctx) {
       ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(200,200,204,0.6)'; ctx.fill();
     }
-    drawShoeSlot(ctx, z, pop);
+    for (const g of GEAR) drawGearSlot(ctx, g, z, pop);
   }
 
   // The needle itself, over the explorer.

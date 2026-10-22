@@ -32,7 +32,7 @@ export const state = {
     lean: 0,                // 0..1, how hard they're pushing (explorer.js owns it)
     exposure: 0,            // 0..1, how exposed to wind they are (weather.js may read)
     mode: 'walk',           // 'walk' | 'climb' | 'down' (knocked over) | 'cower' (explorer.js owns)
-    gear: { snowshoes: false },   // equipped items (the pack in ui/compass.js toggles them)
+    gear: { snowshoes: false, axes: false, crampons: false },   // equipped items (the pack in ui/compass.js toggles them)
     sheltered: 0,           // 0..1, hunkered in the lee of rock — weather/audio soften for it
   },
 
