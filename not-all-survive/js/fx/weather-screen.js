@@ -9,7 +9,7 @@ import { canvas, qRes } from './weather-noise.js';
 import { drawFrost } from './weather-frost.js';
 
 let T, fog, fctx, fogPat = null, greyPat = null, streakPat = null;
-let frost = 0, wU = 0, wV = 0, lastT = 0, grainX = 0, grainY = 0, grainClock = 0;
+let frost = 0, wU = 0, wV = 0, lastT = 0, grainX = 0, grainY = 0, grainClock = 0, bodyCold = 0;
 const clamp01 = v => Math.max(0, Math.min(1, v));
 const FOG = '236,238,240';
 
@@ -26,11 +26,17 @@ export function update(dt) {
   // Exposure in wind grows it, and so does plain cold: a calm, clear night creeps frost
   // in from the corners on its own, receding again by day.
   const coldF = clamp01((state.weather.cold - 0.4) / 0.35);
-  const target = clamp01(Math.max(expo * 0.55 + state.weather.whiteout * 0.5 + director.storminess * 0.2 - 0.12, coldF) * (1 - sh * 0.85));
+  // The explorer's own chill (body.js warmth) creeps it in further, and shelter doesn't
+  // push that part back: ~0.2 at warmth 0.7, ~0.6 at 0.4, nearly all the way at 0.15.
+  // Inside the tent it all melts away.
+  const inside = state.player.mode === 'inside' || state.player.mode === 'gone';
+  bodyCold = inside ? 0 : clamp01((0.88 - (state.body ? state.body.warmth : 1)) / 0.78);
+  const target = inside ? 0 : clamp01(Math.max(clamp01(Math.max(expo * 0.55 + state.weather.whiteout * 0.5 + director.storminess * 0.2 - 0.12, coldF) * (1 - sh * 0.85)), bodyCold));
   if (lastT === 0 && state.params.has('frostnow')) frost = target;
+  else if (state.body?.phase === 'black') frost = Math.min(frost, target);   // a new expedition member: fresh eyes
   else if (lastT === 0 && state.params.get('weather') && state.params.get('weather') !== 'cycle') frost = Math.min(target, 0.45);
   const fa = director.frontier || 0;
-  const rate = target > frost ? 0.11 + fa * 0.6 : 0.04 + sh * 0.12;
+  const rate = inside ? 0.3 : target > frost ? 0.11 + fa * 0.6 + bodyCold * 0.15 : 0.04 + sh * 0.12;
   frost += (target - frost) * Math.min(1, dt * rate);
   if (target > frost) frost = Math.min(target, frost + dt * 0.012); // keeps creeping, never stalls
 
@@ -181,7 +187,9 @@ export function drawWhiteout(ctx) {
 // Cold vignette: to pale grey, not black (drawn into the shared atmosphere buffer).
 export function drawVignette(ctx) {
   const { w, h } = state.view;
-  ctx.globalAlpha = clamp01(0.5 + director.storminess * 0.3 + state.weather.whiteout * 0.2);
+  // as the explorer chills the pale vignette gives way to ink (body.js darkens the edges):
+  // pale grey would vanish in a white-out
+  ctx.globalAlpha = clamp01(0.5 + director.storminess * 0.3 + state.weather.whiteout * 0.2) * (1 - 0.75 * bodyCold);
   ctx.drawImage(T.vignette, -w * 0.06, -h * 0.06, w * 1.12, h * 1.12);
   ctx.globalAlpha = 1;
 }

@@ -772,3 +772,65 @@ export function createAir(ctx, B, out) {
     },
   };
 }
+
+// ---------------------------------------------------------------- the body (body.js events)
+// Teeth chattering: a quick, slightly uneven run of tiny dry clicks (~13-19 a second) that
+// swells and fades over `dur`. Close and centred: it's your own jaw.
+export function chatter(ctx, B, out, t, o = {}) {
+  const dur = o.dur ?? 0.8, lvl = clamp(o.strength ?? 0.6, 0, 1), rate = R(13, 19);
+  for (let at = t; at < t + dur; at += R(0.75, 1.3) / rate) {
+    const env = Math.sin(Math.PI * (at - t) / dur);
+    noiseBurst(ctx, B, out, at, 'bandpass', R(2400, 4200), 2.4, lvl * 0.55 * (0.35 + 0.65 * env) * R(0.6, 1), 0.001, R(0.008, 0.018));
+  }
+  return dur + 0.1;
+}
+
+// Heartbeat: a soft, low lub-dub felt more than heard, plus a dull knock so it survives
+// small speakers.
+export function heartbeat(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1);
+  const thump = (at, a) => {
+    const f = osc(ctx, 'sine', 64, at, 0.3), lp = filt(ctx, 'lowpass', 180), g = gain(ctx);
+    f.frequency.setValueAtTime(74, at); f.frequency.exponentialRampToValueAtTime(40, at + 0.2);
+    chain(f, lp, g, out); perc(g.gain, at, a * 0.9, 0.012, 0.24);
+    noiseBurst(ctx, B, out, at, 'lowpass', 260, 0.8, a * 0.35, 0.006, 0.09);
+  };
+  thump(t, lvl); thump(t + 0.27, lvl * 0.62);
+  return 0.8;
+}
+
+// The stove in the tent, heard from inside: a low soft roar with a breathy hiss on top.
+// set(level, t). Pops (the crackle) are one-shots: pop().
+export function createFire(ctx, B, out) {
+  const g = gain(ctx, 0), now = ctx.currentTime;
+  const rS = src(ctx, B.brown, now, Infinity, 0.8), rF = filt(ctx, 'lowpass', 420, 0.6), rG = gain(ctx, 0.55);
+  chain(rS, rF, rG, g);
+  const hS = src(ctx, B.pinkM, now, Infinity, 0.9), hF = filt(ctx, 'bandpass', 1700, 0.7), hG = gain(ctx, 0.07);
+  chain(hS, hF, hG, g);
+  g.connect(out);
+  let last = -1;
+  return {
+    set(level, t) {
+      if (Math.abs(level - last) < 0.01) return;
+      last = level; g.gain.setTargetAtTime(level, t, 0.5);
+    },
+  };
+}
+export function pop(ctx, B, out, t, o = {}) {
+  const lvl = o.level ?? 0.5;
+  noiseBurst(ctx, B, out, t, 'bandpass', R(1100, 3600), 1.4, lvl * R(0.3, 1), 0.001, R(0.012, 0.05));
+  if (Math.random() < 0.35) noiseBurst(ctx, B, out, t + R(0.02, 0.08), 'bandpass', R(2000, 4500), 1.8, lvl * R(0.2, 0.5), 0.001, R(0.008, 0.02));
+  return 0.2;
+}
+
+// A single gust sweeping past: a band of noise that swells and falls over ~2.5 s, rising in
+// pitch as it peaks and panning across.
+export function gustSwell(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.7, 0, 1), dur = R(2.2, 2.8);
+  const s = src(ctx, B.pink, t, dur), bp = filt(ctx, 'bandpass', 400, 0.8), g = gain(ctx), pn = pan(ctx, -0.6);
+  chain(s, bp, g, pn, out);
+  bp.frequency.setValueAtTime(320, t); bp.frequency.linearRampToValueAtTime(R(800, 1000), t + dur * 0.45); bp.frequency.linearRampToValueAtTime(380, t + dur);
+  if (pn.pan) pn.pan.linearRampToValueAtTime(0.6, t + dur);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9 * lvl, t + dur * 0.45); g.gain.linearRampToValueAtTime(0, t + dur);
+  return dur + 0.1;
+}

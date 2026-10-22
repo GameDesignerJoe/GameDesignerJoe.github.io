@@ -18,6 +18,7 @@
 import { state } from '../state.js';
 import { worldToScreen, screenToWorld } from '../camera.js';
 import { classAt, lumAt } from '../world/terrain.js';
+import { TENT } from '../actors/camp.js';   // keep the tent's yellow clear of glare
 
 // Glare builds and fades as a slow linear ramp shaped by a smoothstep, so it creeps in
 // as the sun comes out rather than cutting: ~30 s when the forecast drives it, ~6 s
@@ -26,7 +27,6 @@ const RAMP_AUTO_S = 30, RAMP_MANUAL_S = 6;
 const EYES_S = 4;            // eye adaptation time
 let ramp = state.lighting.bright || 0;   // linear 0..1 progress toward brightTarget
 const ICE = 2, THIN = 3, WATER_LUM = 176;
-const TENT = { x: 1330, y: 1542 };   // camp.js TENT (not exported); keep the tent's yellow clear of glare
 const WARM = [255, 250, 236];
 
 let eyes = 0;                // what the eyes are adapted to (lags bright)

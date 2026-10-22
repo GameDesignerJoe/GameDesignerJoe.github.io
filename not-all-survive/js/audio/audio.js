@@ -9,7 +9,8 @@ let terrain = null; // built in parallel; guard every use
 import('../world/terrain.js').then(m => { terrain = m; }).catch(() => {});
 
 let ctx = null, B = null, wind = null;
-let muteGain = null, fadeGain = null;
+let muteGain = null, fadeGain = null, dull = null, fire = null;
+let insideK = 0, popT = 0, dullF = 20000, dullSet = 20000;
 const bus = {};
 let muted = false, unlockedAt = -1e9;
 let time = 0, windTick = 0, tidyTick = 4;
@@ -75,8 +76,12 @@ function build() {
   const lim = ctx.createDynamicsCompressor();
   lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20;
   lim.attack.value = 0.002; lim.release.value = 0.15;
+  // dull: the world going muffled and far away as the body gives out (body.js warmth)
+  dull = ctx.createBiquadFilter(); dull.type = 'lowpass'; dull.frequency.value = 20000; dull.Q.value = 0.5;
   sfx.connect(comp); comp.connect(fadeGain);
-  fadeGain.connect(muteGain); muteGain.connect(lim); lim.connect(ctx.destination);
+  fadeGain.connect(dull); dull.connect(muteGain); muteGain.connect(lim); lim.connect(ctx.destination);
+  // the body's own sounds (chattering teeth, the heartbeat) are inside your head: not muffled
+  bus.head = ctx.createGain(); bus.head.gain.value = 0.7; bus.head.connect(muteGain);
   fadeGain.gain.setValueAtTime(0, t);
   fadeGain.gain.linearRampToValueAtTime(0.0001, t + 0.3);
   fadeGain.gain.linearRampToValueAtTime(1, t + 4.5);
@@ -111,6 +116,7 @@ function build() {
 
   wind = S.createWind(ctx, B, bus.wind);
   air = S.createAir(ctx, B, fadeGain);
+  fire = S.createFire(ctx, B, fadeGain);
   updateWind(true);
 }
 
@@ -180,6 +186,20 @@ function handle(e) {
       if (e.type === 'shove') { exertion = Math.min(1, exertion + 0.3); nextBreath = time + 0.8; }
       return;
     }
+    case 'chatter': {
+      if (voices.body >= LIMIT.body) return;
+      claim('body', S.chatter(ctx, B, bus.head, t, e));
+      return;
+    }
+    case 'gust': {
+      // a gust across the camp as the next member's world opens up
+      S.gustSwell(ctx, B, bus.wind, t, e);
+      return;
+    }
+    case 'heartbeat': {
+      S.heartbeat(ctx, B, bus.head, t, e);
+      return;
+    }
     case 'avalanche': {
       if (voices.creature >= LIMIT.creature) return;
       // far rock face: extra reverb, quieter than creatures so it never masks the wind
@@ -228,6 +248,8 @@ function updateWind(now) {
 
 function updateBreath(dt) {
   const p = state.player, w = state.wind;
+  // hidden in the tent, dead, or gone: no breathing to hear
+  if (p.mode === 'inside' || p.mode === 'tent-in' || p.mode === 'collapse' || p.mode === 'dead' || p.mode === 'gone') { exertion = 0; return; }
   let target = 0;
   if (p.mode === 'climb') target = 0.8;
   else if (p.mode === 'down') target = 0.85;
@@ -294,7 +316,22 @@ function updateIceAmbience(dt) {
 export function update(dt) {
   if (!ctx || !wind || ctx.state !== 'running') return;
   time += dt;
-  const sh = Math.max(shelterNow(), clamp(+state.player.sheltered || 0, 0, 1));
+  // in the tent: the wind drops to a muffled roar on the canvas and the stove crackles
+  const m = state.player.mode;
+  insideK += ((m === 'inside' ? 1 : 0) - insideK) * Math.min(1, dt * 1.2);
+  fire?.set(0.32 * insideK * (state.body?.phase === 'sleep' ? 0.3 : 1), ctx.currentTime);
+  popT -= dt;
+  if (insideK > 0.2 && popT <= 0) {
+    popT = R(0.08, 0.7);
+    S.pop(ctx, B, fadeGain, ctx.currentTime + 0.01, { level: 0.22 * insideK });
+  }
+  // near death everything but the body's own sounds goes dull and far away
+  const bd = state.body, w = bd ? bd.warmth : 1, ph = bd?.phase;
+  const dTarget = ph === 'dying' || ph === 'iris' ? 380 : ph === 'black' || ph === 'over' ? 900
+    : m === 'inside' ? 20000 : 20000 * Math.pow(clamp(w / 0.3, 0.04, 1), 2.2);
+  dullF += (dTarget - dullF) * Math.min(1, dt * 1.5);
+  if (Math.abs(dullF - dullSet) > dullSet * 0.03) { dullSet = dullF; dull.frequency.setTargetAtTime(Math.max(300, dullF), ctx.currentTime, 0.1); }
+  const sh = Math.max(shelterNow(), clamp(+state.player.sheltered || 0, 0, 1), insideK);
   shelter += (sh - shelter) * Math.min(1, dt * 1.5);
   // stillness: night x calm wind x cold
   const night = clamp(+(state.lighting?.night) || 0, 0, 1), wsp = state.wind.speed ?? 0.4;

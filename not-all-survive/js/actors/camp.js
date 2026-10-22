@@ -21,8 +21,8 @@ const LX = -0.55, LY = -0.45, LZ = 0.70; // light direction (towards the light)
 // --- layout (world px = map px). Spawn is (1360,1560). ---------------------------------
 // Open snow just west of spawn, tucked in the lee (east side) of a low rubble outcrop at
 // ~(1280-1307, 1528-1555); the prevailing wind blows west -> east.
-const TENT = { x: 1330, y: 1542, yaw: -0.72 };   // door faces south-east, towards spawn
-const SLED = { x: 1299, y: 1573, yaw: 0.42 };     // front points east, at the dogs
+export const TENT = { x: 1330, y: 1542, yaw: -0.72 };   // door faces south-east, towards spawn
+export const SLED = { x: 1299, y: 1573, yaw: 0.42 };     // front points east, at the dogs
 const PICKET = { ax: 1315, ay: 1569, bx: 1353, by: 1575 };
 const BOUNDS = { x0: 1222, y0: 1500, x1: 1400, y1: 1602 };
 
@@ -173,7 +173,7 @@ function snowBank(ctx, inner, outer) {
 // and at night the canvas glows from inside toward SIGNAL.glow.
 const hexRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const Y_SH = hexRGB(SIGNAL.shadow), Y_BA = hexRGB(SIGNAL.base), Y_LI = hexRGB(SIGNAL.lit), Y_DP = hexRGB(SIGNAL.deep), Y_GL = hexRGB(SIGNAL.glow);
-let tentNight = 0;
+let tentNight = 0, occ = 0, smokeT = 0, doorLit = 0;
 const mix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 const rgb = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
 function yel(tone) {
@@ -184,8 +184,9 @@ function yel(tone) {
 }
 const deepA = a => `rgba(${Y_DP[0]},${Y_DP[1]},${Y_DP[2]},${a * (1 - 0.4 * tentNight)})`;
 function doorFill(dA, dLb, dRb) {
-  if (tentNight <= 0.02) return '#3d3d3f';
-  return rgb(mix([61, 61, 63], [255, 226, 150], tentNight));
+  const k = Math.max(tentNight, doorLit);       // the lamp inside shows through the door slit
+  if (k <= 0.02) return '#3d3d3f';
+  return rgb(mix([61, 61, 63], [255, 226, 150], k));
 }
 
 function drawTent(ctx) {
@@ -1090,8 +1091,26 @@ function onScreen(m = 30) {
 
 export function update(dt) {
   const night = state.lighting?.night || 0;
-  tentNight = night;
-  if (night > 0 && state.lights) state.lights.push({ x: TENT.x, y: TENT.y - 2, r: 38, intensity: 0.9 * night });
+  // Someone inside (explorer mode 'inside', or crawling through the door): the lamp is lit,
+  // so the canvas glows by day too and brighter by night. Holding to sleep turns it down.
+  const m = state.player.mode;
+  const occT = m === 'inside' ? 1 : m === 'tent-in' || m === 'tent-out' ? 0.6 : 0;
+  occ += (occT - occ) * Math.min(1, dt * (occT > occ ? 1.2 : 0.8));
+  const lamp = 1 - 0.7 * (state.body?.sleepHold || 0) - (state.body?.phase === 'sleep' ? 0.6 : 0);
+  // the canvas breathes faintly with the lamp light, and the door slit glows signal yellow
+  const pulse = 1 + 0.12 * Math.sin(state.time * 1.4) * occ;
+  tentNight = Math.max(night * (occ > 0.05 ? lamp : 1), 0.42 * occ * lamp) * pulse;
+  doorLit = occ * Math.max(0, lamp) * 0.9 * pulse;
+  if (night > 0 && state.lights) state.lights.push({ x: TENT.x, y: TENT.y - 2, r: 38 + 8 * occ, intensity: (0.9 + 0.3 * occ) * night * (occ > 0.05 ? lamp : 1) });
+  // ...and a thread of stove smoke leaves the ridge vent, bent away downwind
+  if (occ > 0.5 && onScreen()) {
+    smokeT -= dt;
+    if (smokeT <= 0) {
+      smokeT = rr(0.08, 0.15);
+      const [vx, vy] = projT(0, T.L2 - 0.6, T.Hr + 1.0), a = state.wind.angle, ws = 1.5 + 9 * state.wind.speed;
+      puffs.push({ x: vx, y: vy, vx: Math.cos(a) * ws, vy: Math.sin(a) * ws * SQ - 2.2, age: 0, life: rr(2.2, 3.2), r: 0.55, smoke: 1 });
+    }
+  }
   const w = state.wind;
   const shelter = terrain.shelterAt ? terrain.shelterAt(TENT.x, TENT.y) || 0 : 0;
   gust = clamp(w.gust || 0, 0, 1);
@@ -1147,6 +1166,7 @@ export function drawGround(ctx) {
     const lying = d.p.hipH < 2.5, wdt = (lying ? 10 : 8.5) * d.look.size, hgt = (lying ? 4.2 : 3.2) * d.look.size;
     ctx.drawImage(shadowSprite, d.x - wdt / 2 + 1.3, d.y - hgt / 2 + 0.8, wdt, hgt);
   }
+  drawSkiShadows(ctx);
 }
 
 // --- sprite caches: each actor is rendered into a small canvas at screen resolution and
@@ -1186,19 +1206,30 @@ export function drawables() {
   if (!onScreen()) return [];
   const hz = HZ[state.quality?.level] || HZ.high;
   const out = [
-    { x: TENT.x, y: TENT.y + 3, draw: ctx => drawCached(ctx, 'tent', TENT_BOX, hz[0], drawTent, 0, 0, tentNight) },
+    { x: TENT.x, y: TENT.y + 3, draw: ctx => drawCached(ctx, 'tent', TENT_BOX, hz[0], drawTent, 0, 0, tentNight + doorLit * 3) },
     { x: SLED.x, y: SLED.y + 1, draw: ctx => drawCached(ctx, 'sled', SLED_BOX, hz[1], drawSled) },
   ];
   for (const d of dogs) out.push({ x: d.x, y: d.y, draw: ctx => {
     drawChain(ctx, d);
     drawCached(ctx, 'dog' + d.i, dogBox(d), hz[2], c => drawDog(c, d), d.x, d.y);
   } });
+  const n = Math.min(SKI_SPOTS.length, skisLeft());
+  for (let i = 0; i < n; i++) { const b = skiBase(i); out.push({ x: b.x, y: b.y, draw: ctx => drawSkiPair(ctx, i) }); }
   return out;
 }
 
 export function drawSky(ctx) {
   if (!onScreen()) return;
   for (const q of puffs) {
+    if (q.smoke) {
+      // stove smoke: a pale grey thread that swells and thins as it goes
+      const t = q.age / q.life, r = q.r + t * 2.6, a = Math.min(1, q.age * 3) * (1 - t) * (1 - t * 0.5);
+      ctx.beginPath(); ctx.arc(q.x + r * 0.2, q.y + r * 0.2, r, 0, TAU);
+      ctx.fillStyle = `rgba(96,100,106,${a * 0.5})`; ctx.fill();
+      ctx.beginPath(); ctx.arc(q.x, q.y, r * 0.85, 0, TAU);
+      ctx.fillStyle = `rgba(178,181,185,${a * 0.8})`; ctx.fill();
+      continue;
+    }
     const t = q.age / q.life, r = q.r + t * 1.6, a = (1 - t) * 0.55;
     ctx.beginPath(); ctx.arc(q.x + 0.15, q.y + 0.15, r * 1.25, 0, TAU);
     ctx.fillStyle = `rgba(140,145,150,${a * 0.16})`; ctx.fill();
@@ -1216,13 +1247,139 @@ export function drawSky(ctx) {
   }
 }
 
-// Simple circles the explorer can steer around (lead wires collision later).
+// Simple circles round the camp things (the ?debug overlay draws them). The explorer's
+// collision uses campBlocked() below, which is exact for the tent and sled footprints.
 export function campObstacles() {
   const out = [];
   const [tx, ty] = projT(0, 0, 0);
   out.push({ x: tx, y: ty - 2, r: 11 }, { x: projT(0, 7, 0)[0], y: projT(0, 7, 0)[1], r: 9 }, { x: projT(0, -7, 0)[0], y: projT(0, -7, 0)[1], r: 9 });
   for (const lx of [-9, -2, 5, 11]) { const [x, y] = projS(lx, 0, 0); out.push({ x, y, r: 4.2 }); }
   for (const d of dogs) out.push({ x: d.x, y: d.y, r: 2.4 });
+  for (let i = 0; i < Math.min(SKI_SPOTS.length, skisLeft()); i++) { const b = skiBase(i); out.push({ x: b.x + 0.6, y: b.y, r: SKI_R }); }
   return out;
 }
+// Is world (x, y) inside something at camp the explorer can't walk through: the tent's
+// footprint (the door is at its front edge, so the snow in front stays open), the sled, or a
+// pair of skis. Cheap outside the camp's bounds.
+const SKI_R = 2.0;
+export function campBlocked(x, y) {
+  if (x < BOUNDS.x0 || x > BOUNDS.x1 || y < BOUNDS.y0 || y > BOUNDS.y1) return false;
+  const [lx, ly] = toLocal(x, y);
+  if (Math.abs(lx) < T.Ws + 0.4 && Math.abs(ly) < T.L2 + 0.4) return true;
+  const c = Math.cos(SLED.yaw), s = Math.sin(SLED.yaw), dx = x - SLED.x, dy = (y - SLED.y) / SQ;
+  if (Math.abs(dx * c + dy * s) < 14 && Math.abs(-dx * s + dy * c) < 3.6) return true;
+  for (let i = 0; i < Math.min(SKI_SPOTS.length, skisLeft()); i++) {
+    const b = skiBase(i);
+    if (Math.hypot(x - b.x - 0.6, (y - b.y) / SQ) < SKI_R) return true;
+  }
+  return false;
+}
+// The tent's whole visible silhouette (gable, both roof slopes, skirts: the hull of its
+// corners, no wind) and the door opening, in world space, for the crawl in and out:
+// explorer.js hides the figure behind the canvas except where the door shows it. Cached.
+let doorClip = null;
+export function tentDoorClip() {
+  if (doorClip) return doorClip;
+  const { Wr, He, Ws, Hr, L2 } = T, dh = Hr * 0.62, dw = 3.0, pts = [];
+  for (const ly of [-L2, L2]) {
+    for (const sd of [-1, 1]) pts.push(projT(sd * (Ws + 0.4), ly, 0), projT(sd * Wr, ly, He));
+    pts.push(projT(0, ly, Hr + 0.3));
+  }
+  return (doorClip = { gable: hull(pts), door: [projT(0, L2, dh), projT(dw, L2, 0), projT(-dw, L2, 0)] });
+}
 export { dogs as campDogs };
+
+// --- the tent door (explorer.js crawls through it) and taps on camp things -----------------------
+// tentDoor(): x, y just inside the doorway (where the explorer hides), fx, fy on the snow in
+// front of it, out = unit world direction out of the door, and around(px, py) -> waypoints
+// that lead round the tent to the door from wherever the explorer is.
+const toLocal = (x, y, h = 0) => {
+  const c = Math.cos(TENT.yaw), s = Math.sin(TENT.yaw), dx = x - TENT.x, dy = (y + h - TENT.y) / SQ;
+  return [dx * c + dy * s, -dx * s + dy * c];
+};
+export function tentDoor() {
+  const [x, y] = projT(0, T.L2 - 1.2, 0), [fx, fy] = projT(0, T.L2 + 4.5, 0);
+  const d = Math.hypot(fx - x, fy - y) || 1;
+  return {
+    x, y, fx, fy, out: { x: (fx - x) / d, y: (fy - y) / d },
+    around(px, py) {
+      const [lx, ly] = toLocal(px, py);
+      if (ly > T.L2 + 2) return [];
+      const sd = lx >= 0 ? 1 : -1, wx = sd * (T.Ws + 7), pts = [];
+      if (ly < -T.L2 + 4) pts.push(projT(wx, -T.L2 - 3, 0));
+      pts.push(projT(wx, T.L2 + 5, 0));
+      return pts.map(([x, y]) => ({ x, y }));
+    },
+  };
+}
+// What a tap at world (x, y) lands on: 'tent' (anywhere on its canvas, door or slopes),
+// 'sled' (slice 4: the sled transfer), or null. Tries a few heights, since a point on the
+// picture of the roof is up off the ground.
+export function campInteract(x, y) {
+  for (let h = 0; h <= T.Hr; h += 2) {
+    const [lx, ly] = toLocal(x, y, h);
+    if (Math.abs(ly) < T.L2 + 1.5 && Math.abs(lx) < (T.Ws + 1) * (1 - h / (T.Hr + 2)) + 0.6) return 'tent';
+  }
+  const c = Math.cos(SLED.yaw), s = Math.sin(SLED.yaw);
+  for (let h = 0; h <= 8; h += 2) {
+    const dx = x - SLED.x, dy = (y + h - SLED.y) / SQ, lx = dx * c + dy * s, ly = -dx * s + dy * c;
+    if (Math.abs(lx) < 15 && Math.abs(ly) < 5) return 'sled';
+  }
+  return null;
+}
+
+// --- the party's skis: one pair stuck upright in the snow by the tent door for every member
+// still alive (state.party, body.js). A death takes a pair away; nothing else says how many are left.
+// a row off to the right of the door, spaced so the pairs can be counted at play zoom
+const SKI_SPOTS = [[15, 15.5], [21.5, 15.8], [28, 15.4], [34.5, 15.7]];   // tent-local (x across, y along)
+const SKI_H = 15, SKI_LIT = '#aaa7a1', SKI_DARK = '#76736e';
+const skisLeft = () => (state.party ? state.party.filter(m => m.alive).length : 4);
+function skiBase(i) {
+  const [lx, ly] = SKI_SPOTS[i], [x, y] = projT(lx, ly, 0);
+  return { x, y, lean: [0.35, -0.3, 0.2, -0.4][i] };
+}
+function drawSkiShadows(ctx) {
+  const n = Math.min(SKI_SPOTS.length, skisLeft());
+  ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(70,74,80,0.14)'; ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const b = skiBase(i);
+    ctx.moveTo(b.x + 0.4, b.y + 0.3); ctx.lineTo(b.x + SKI_H * SHX * 0.8, b.y + SKI_H * SHY * 0.8);
+  }
+  ctx.stroke();
+}
+function drawSkiPair(ctx, i) {
+  const b = skiBase(i), lw = inkW(0.18);
+  // a little drift heaped round the tails
+  ctx.beginPath(); ctx.ellipse(b.x + 0.3, b.y + 0.15, 2.4, 0.95, 0, 0, TAU);
+  ctx.fillStyle = '#f7f7f5'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(b.x + 0.3, b.y + 0.15, 2.4, 0.95, 0, 0.1, Math.PI * 0.9);
+  ctx.lineWidth = lwFineW(); ctx.strokeStyle = 'rgba(140,142,146,0.8)'; ctx.stroke();
+  // the pole, stuck in behind the skis: shaft, basket just above the snow, wrist loop
+  const px = b.x + 1.9, top = [px + 0.5, b.y - 11.5];
+  line(ctx, [[px, b.y - 0.2], top], inkW(0.24), '#3c3c3e');
+  ctx.beginPath(); ctx.ellipse(px + 0.06, b.y - 1.3, 0.8, 0.28, 0, 0, TAU);
+  ctx.lineWidth = inkW(0.14); ctx.strokeStyle = '#3c3c3e'; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(top[0] + 0.25, top[1] + 0.9, 0.3, 0.75, 0.2, 0, TAU); ctx.stroke();
+  // two long planks, tails in the snow a hand apart, leaning in so the tips nearly touch,
+  // each curling forward at the top; grey wood, lit on the left
+  for (const sd of [-1, 1]) {
+    const x0 = b.x + sd * 0.75, x1 = b.x + sd * 0.28 + b.lean, yT = b.y - SKI_H + (sd > 0 ? 0.5 : 0);
+    const w0 = 0.3, w1 = 0.26, tipX = x1 + 0.55;
+    const pts = [[x0 - w0, b.y], [x1 - w1, yT + 1.4], [tipX - 0.15, yT - 0.25], [tipX + 0.3, yT - 0.05], [x1 + w1, yT + 1.6], [x0 + w0, b.y]];
+    poly(ctx, pts); ctx.closePath();
+    ctx.fillStyle = SKI_LIT; ctx.fill();
+    // shadowed right edge and the curl's underside
+    poly(ctx, [[x0 + w0 * 0.1, b.y], [x1 + w1 * 0.1, yT + 1.5], [tipX + 0.3, yT - 0.05], [x1 + w1, yT + 1.6], [x0 + w0, b.y]]); ctx.closePath();
+    ctx.fillStyle = SKI_DARK; ctx.fill();
+    // leather binding a little under halfway up
+    const k = 0.42, bx = lerp(x0, x1, k), by = lerp(b.y, yT, k);
+    ctx.fillStyle = '#2e2e30'; ctx.fillRect(bx - w0 - 0.06, by - 0.4, 2 * w0 + 0.12, 0.8);
+    inkLine(ctx, pts, lw, INK, 80 + i * 3 + sd, 0.04);
+  }
+  // snow over the tails, so the planks go INTO the drift
+  ctx.beginPath(); ctx.ellipse(b.x + 0.2, b.y + 0.05, 1.6, 0.55, 0, 0, TAU);
+  ctx.fillStyle = '#f8f8f6'; ctx.fill();
+  ctx.fillStyle = 'rgba(72,72,74,0.7)';
+  for (const [dx, dy] of [[1.6, 0.5], [2.2, 0.2], [0.6, 0.85], [-1.2, 0.6]]) ctx.fillRect(b.x + dx, b.y + dy, 0.22, 0.22);
+}

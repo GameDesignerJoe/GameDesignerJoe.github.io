@@ -21,7 +21,9 @@ const MODULES = {
   explorer: './actors/explorer.js',
   footprints: './fx/footprints.js',
   weather: './fx/weather.js',        // after explorer: sees step events, draws drift over prints
+  body: './actors/body.js',          // after weather (reads temp/cold): warmth, death, hand-over, sleep
   camp: './actors/camp.js',
+  fallen: './actors/fallen.js',      // after body: picks up 'handover' the same frame
   wildlife: './actors/wildlife.js',
   audio: './audio/audio.js',
   night: './fx/night.js',            // grades the finished frame and adds warm lights

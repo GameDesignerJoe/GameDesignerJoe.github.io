@@ -31,7 +31,10 @@ export const state = {
     terrain: 'snow',        // terrain under the feet (see terrain.js TERRAIN)
     lean: 0,                // 0..1, how hard they're pushing (explorer.js owns it)
     exposure: 0,            // 0..1, how exposed to wind they are (weather.js may read)
-    mode: 'walk',           // 'walk' | 'climb' | 'down' (knocked over) | 'cower' (explorer.js owns)
+    // explorer.js owns it: 'walk' | 'approach' (walking to a climb or the tent door) | 'climb' |
+    // 'refuse' | 'down' (knocked over) | 'cower' | 'tent-in' / 'inside' (hidden) / 'tent-out' |
+    // 'collapse' / 'dead' (died of cold) | 'gone' (the expedition is over: no explorer)
+    mode: 'walk',
     gear: { snowshoes: false, axes: false, crampons: false },   // equipped items (the pack in ui/compass.js toggles them)
     sheltered: 0,           // 0..1, hunkered in the lee of rock — weather/audio soften for it
   },
@@ -64,6 +67,11 @@ export const state = {
   // frontier.js adds state.frontier = { amount 0..1, inX, inY }: how deep into the
   // world-edge storm border the explorer is, and which way is back toward the interior.
 
+  // body.js adds state.body = { warmth, wet, energy, injury, food, water } (0..1; hidden, no
+  // bars), plus body.phase ('alive' | 'dying' | 'iris' | 'black' | 'open' | 'over' | 'sleep') and
+  // body.sleepHold; state.party = [{ name, alive, x, y }] x 4 and state.member (who's playing).
+  // fallen.js adds state.fallen = [{ x, y, facing, name, snow }]: the dead, where they lie.
+
   // One-frame event bus. Push { type, x, y, ... } during update(); systems later in the
   // update order see it the same frame, then main.js clears it. Known types:
   //   step  { x, y, terrain, foot: 'L'|'R', weight }     (explorer -> footprints, audio)
@@ -76,6 +84,14 @@ export const state = {
   //   fall { x, y, strength }         knocked off the feet by wind    (explorer -> audio, weather)
   //   shove { x, y, strength }        staggered back by a gust        (explorer -> audio)
   //   gear { item, on, auto }         e.g. snowshoes strapped on / off (pack -> explorer, audio)
+  //   tent { action: 'in'|'out'|'sleep'|'wake', x, y }   crawled in / out, held to sleep, morning
+  //                                   (explorer -> body; body pushes 'wake')
+  //   death { x, y, cause: 'cold', member }               the body gave out (body -> anyone)
+  //   handover { x, y, facing, member, name, sprite }    the next member takes over; sprite is the
+  //                                   still of the body left behind (body -> fallen)
+  //   expedition { over: true }       all four are dead (body)
+  //   chatter { x, y, strength, dur } teeth chattering in the cold (body -> audio)
+  //   heartbeat { x, y, strength }    one slow beat near the end (body -> audio)
   events: [],
 };
 

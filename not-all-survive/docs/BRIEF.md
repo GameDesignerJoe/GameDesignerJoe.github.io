@@ -62,6 +62,51 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - Pack: press and hold the explorer (or hold C) to dig in it. Slots: compass (C or 1), snowshoes (2), ice axes (3), crampons (4). Climbing needs axes AND crampons. Hooks: `NAS.compassOpen()`, `NAS.packOpen()`, `NAS.gear(id, on)`.
 - `?terrain=ice` forces `terrainAt()` to return that type everywhere (handy for animation tests).
 - `?debug` lets modules draw debug overlays.
+- `?warmth=0..1` starts the explorer that cold (body.js). Hooks: `NAS.body` (the values),
+  `NAS.freeze(v?)` (warmth to v, or 0.2 colder), `NAS.warm(v = 1)`, `NAS.kill()`,
+  `NAS.player.tent()` (walk to the tent and crawl in). The gear menu shows a body readout
+  with Freeze me / Warm me / Kill buttons.
+
+## Survival (man vs. environment) — no bars, no HUD
+The plan lives in Joe's survival plan (slices 1–7). Slice 1 is built: the body, the cold,
+the base camp tent, and death handing over to the next expedition member.
+
+- **The body** (`js/actors/body.js`): `state.body = { warmth, wet, energy, injury, food, water }`,
+  each 0–1, hidden. Only warmth is live; wet (×4 loss), food (hunger adds to the loss) and
+  energy (feeds the walking heat) are hooked in for the later slices.
+  Warmth loss = `LOSS × (cold × (0.35 + 0.65 × wind exposure))^1.5`, more at night, less
+  sheltered (cowering, hunkered in the lee); walking makes heat. Measured (headless, sped up):
+  a dry explorer standing in a full blizzard dies in ~2¾–3 min, a wet one in ~45 s; walking in
+  the blizzard ~3½ min; a calm clear day takes ~55 min standing still and warms you on the
+  move; a calm night ~9 min standing.
+- **Reading the cold** (all driven by warmth, escalating):
+  explorer (`explorer.js`) — hugs themselves even walking (< 0.7), shivers oftener then hard and
+  near-constant (< 0.45), stumbles and slows (< 0.35), falters onto one knee and kneels when
+  still (< 0.2), and stops shivering near the end (< 0.1); cowering in a storm they ball up
+  tighter and shake the whole time. The coat's signal yellow drains toward a grey ochre (never
+  fully: a trace stays findable). Screen — the edges of sight close in, in ink, steadily from
+  ~0.75 to 0.3 (the pale cold vignette gives way to it: pale grey vanishes in a white-out);
+  frost creeps further in (`weather-screen.js`); the image dims slightly (no desaturation —
+  the tent and coat must stay yellow); below 0.2 a soft, feathered ink iris closes, throbbing
+  with a slow heartbeat (`body.js drawOverlay`, after the night grade). The hard hand-drawn
+  iris edge is only for death. Sound — teeth chattering, then a heartbeat, the world going
+  dull and far away (`audio.js`).
+- **The tent**: tap it (or Space/E by the door) → the explorer walks round to the door,
+  kneels and crawls in (hidden behind the gable except through the doorway, sinking into its
+  dark), and is hidden (`'inside'`). The tent, sled and skis are solid (`camp.js campBlocked`).
+  The camera rests on the tent: the door slit glows signal yellow and the canvas breathes with
+  the lamp (by day too), stove smoke leaves the ridge, the wind muffles, the stove roars and
+  crackles, the frost melts and warmth comes back fast. Letting go of a press leaves (crawls
+  out). After dark only, a press held ~1 s turns the lamp down and sleeps out the rest of the
+  night: a fade to ink, the clock jumps to that dawn, fade back in. (No sleeping through a day
+  storm.)
+- **Death and the party**: warmth 0 → collapse (kneel, slump, lie face down) → the ink iris
+  closes onto the body, holds a beat, closes → cut to base camp: the next of the four crawls
+  out of the tent as the iris opens. The body stays where it fell for the run
+  (`js/actors/fallen.js`: the explorer's own drawing at death, frosted, with snow settling on
+  it and a drift building round it). Pairs of skis stuck in the snow by the tent door show
+  who's left (`camp.js`), one pair fewer per death. All four dead: the iris opens a little on
+  the empty camp, "None came home", the names, tap to begin again.
 
 ## Capturing frames (you can and should look at your own work)
 A static server is already running at `http://localhost:8765/` (repo root). If it isn't:
