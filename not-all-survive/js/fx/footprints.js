@@ -22,7 +22,7 @@ export function update(dt) {
     const t = e.terrain;
     if (!RATE[t]) { last = null; continue; }
     const a = e.angle ?? state.player.facing;
-    const p = { x: e.x, y: e.y, a, t, foot: e.foot, w: e.weight ?? 0.7, fill: 0, seed: Math.random(), prev: null, shoe: !!e.shoe };
+    const p = { x: e.x, y: e.y, a, t, foot: e.foot, w: e.weight ?? 0.7, fill: 0, seed: Math.random(), prev: null, shoe: !!e.shoe, cramp: !!e.cramp };
     if (t === 'deep' && last && last.t === 'deep' && Math.hypot(last.x - p.x, last.y - p.y) < 9) p.prev = { x: last.x, y: last.y };
     prints.push(p);
     last = p;
@@ -115,8 +115,15 @@ export function drawGround(ctx) {
       ctx.fillStyle = `rgba(120,123,128,${al})`; ctx.fill();
       ctx.beginPath(); sole(ctx, 1.8, 0.72, 0.14, 0.12);
       ctx.fillStyle = `rgba(178,181,185,${al * 0.85})`; ctx.fill();
+      // crampon points pricked round the sole
+      if (p.cramp && life > 0.3) {
+        ctx.fillStyle = `rgba(95,98,104,${al * 0.9})`;
+        for (const [x, y] of [[0.9, 0], [0.62, -0.38], [0.62, 0.38], [0.2, -0.42], [0.2, 0.42], [-0.35, -0.36], [-0.35, 0.36], [-0.7, 0]]) {
+          ctx.beginPath(); ctx.arc(x, y, 0.09, 0, Math.PI * 2); ctx.fill();
+        }
+      }
       // tread lines
-      if (life > 0.5) {
+      if (life > 0.5 && !p.cramp) {
         ctx.strokeStyle = `rgba(110,112,116,${al * 0.6})`; ctx.lineWidth = 0.12;
         ctx.beginPath();
         for (let k = 0; k < 3; k++) { const x = 0.55 - k * 0.32; ctx.moveTo(x, -0.28); ctx.lineTo(x, 0.28); }
@@ -125,6 +132,15 @@ export function drawGround(ctx) {
     } else {
       // ice: faint scuff marks, a little skid along the travel direction
       const al = life * 0.3;
+      if (p.cramp) {
+        // crampons on ice: a neat cluster of pricks instead of a skid
+        ctx.fillStyle = `rgba(95,98,104,${life * 0.55})`;
+        for (const [x, y] of [[0.9, 0], [0.62, -0.38], [0.62, 0.38], [0.2, -0.42], [0.2, 0.42], [-0.35, -0.36], [-0.35, 0.36], [-0.7, 0]]) {
+          ctx.beginPath(); ctx.arc(x, y, 0.08, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        continue;
+      }
       ctx.strokeStyle = `rgba(95,98,104,${al})`; ctx.lineWidth = 0.14; ctx.lineCap = 'round';
       ctx.beginPath();
       const k = 0.6 + p.seed * 0.8;

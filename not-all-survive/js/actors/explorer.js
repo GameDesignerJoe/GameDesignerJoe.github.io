@@ -48,9 +48,20 @@ const SHOE = {
   deep: { ...PROFILES.deep, speed: 0.8, cad: 2.15, step: 4.1, lift: 0.85, lean: 0.2, swing: 0.6, spread: 0.04, work: 0.35, crouch: 0.22, stance: 1.6, sink: 0.3, bob: 0.26, accel: 4, fric: 5.5, hunch: 0.3, weight: 0.6 },
 };
 const SHOE_SPEED = { snow: 1.15, deep: 0.8 };   // deep: as a fraction of plain-snow speed
-let strapT = 0, strapDur = 0, strapOn = true, strapLock = false;   // kneel-and-strap animation
+let strapT = 0, strapDur = 0, strapOn = true, strapLock = false, strapItem = 'snowshoes';   // kneel-and-strap animation
 const shoesOn = () => !!(P.gear && P.gear.snowshoes);
-const shoesDrawn = () => shoesOn() || (strapT > 0 && !strapOn);   // still on the feet while unstrapping
+const crampOn = () => !!(P.gear && P.gear.crampons);
+const axesOn = () => !!(P.gear && P.gear.axes);
+const hasClimbGear = () => axesOn() && crampOn();      // Joe: both are needed to climb
+// Crampons: confident on ice (less of the arm-spread shuffle, rare slips); a slight
+// crunch-stomp on snow, same speed.
+const CRAMP = {
+  ice: { ...PROFILES.ice, cad: 2.4, step: 3.4, lift: 0.45, lean: 0.18, swing: 0.55, spread: 0.18, crouch: 0.3, stance: 1.1, accel: 3.2, fric: 3.5, hunch: 0.3, tent: 0.12, weight: 0.6 },
+  thin: { ...PROFILES.thin, cad: 2.0, step: 2.2, lift: 0.3, spread: 0.12, crouch: 0.6, tent: 0.4, hunch: 0.75, accel: 2.2, fric: 2.5 },
+  snow: { ...PROFILES.snow, lift: 1.15, bob: 0.3, weight: 0.85 },
+};
+let axeReachT = 0;                                       // quick reach to the pack for the axes
+const shoesDrawn = () => shoesOn() || (strapT > 0 && !strapOn && strapItem === 'snowshoes');   // still on the feet while unstrapping
 
 const POSE_KEYS = ['step', 'lift', 'lean', 'swing', 'spread', 'work', 'crouch', 'stance', 'sink', 'bob', 'hunch', 'tent', 'creep'];
 
@@ -143,10 +154,13 @@ export function update(dt) {
   const inp = state.input;
   for (const e of state.events) if (e.type === 'teleport') resetTo(e.x, e.y);
   updateCompassPose(dt);
-  for (const e of state.events) if (e.type === 'gear' && e.item === 'snowshoes') {
+  for (const e of state.events) if (e.type === 'gear' && e.item === 'axes' && !e.auto) axeReachT = 0.5;
+  if (axeReachT > 0) axeReachT = Math.max(0, axeReachT - dt);
+  for (const e of state.events) if (e.type === 'gear' && (e.item === 'snowshoes' || e.item === 'crampons')) {
+    if (e.item === 'crampons' && e.auto && !e.on) continue;   // swapped for snowshoes: their own kneel plays
     // strapping on / taking off by hand: kneel at the feet ~1.2 s, rooted; the game pulling
     // them off (climbing, ice): a quick 0.4 s bend, no lock
-    strapOn = !!e.on;
+    strapOn = !!e.on; strapItem = e.item;
     if (e.auto) { strapDur = strapT = 0.4; strapLock = false; }
     else { strapDur = strapT = 1.2; strapLock = true; }
   }
@@ -154,12 +168,16 @@ export function update(dt) {
   const ter = (T.terrainAt(P.x, P.y)) || 'snow';
   P.terrain = ter;
   const shoes = shoesOn() && (ter === 'snow' || ter === 'deep');
-  const prof = shoes ? SHOE[ter] : (PROFILES[ter] || PROFILES.snow);
+  const cramp = crampOn() && !shoes && CRAMP[ter];
+  const prof = shoes ? SHOE[ter] : cramp ? CRAMP[ter] : (PROFILES[ter] || PROFILES.snow);
   let sf = stubTerrain ? prof.speed : (T.speedFactor(ter) ?? 1);
   if (shoes && !stubTerrain) sf = ter === 'deep' ? SHOE_SPEED.deep * (T.speedFactor('snow') ?? 1) : sf * SHOE_SPEED.snow;
   // Ice is walked cautiously (Joe): walking pace stays near the cautious profile, and any extra
   // speed the terrain grants on ice shows up as glide (low friction), not frantic feet.
   if (ter === 'ice' || ter === 'thin') sf = Math.min(sf, prof.speed * 1.15);
+  // crampons bite: ~85% of snow pace on ice (thin ice still careful)
+  if (cramp && ter === 'ice') sf = 0.92 * (stubTerrain ? PROFILES.snow.speed : (T.speedFactor('snow') ?? 1));
+  if (cramp && ter === 'thin') sf = Math.max(sf, 0.6 * (stubTerrain ? PROFILES.snow.speed : (T.speedFactor('snow') ?? 1)));
   if (!(sf > 0)) sf = prof.speed;
 
   // --- wind ---------------------------------------------------------------------------
@@ -529,7 +547,8 @@ const ROUTE_K = 1.3;        // route distance per half-cycle, relative to the bo
 const climbWindy = () => envW.ws + envW.gust > 0.8;
 
 function beginClimb() {
-  if (climbWindy()) { startRefuse(); return; }
+  // no axes and crampons (or a gale): reach for the wall, look up, shake the head, back off
+  if (climbWindy() || !hasClimbGear()) { startRefuse(!hasClimbGear() ? 'gear' : 'wind'); return; }
   const b = route.bottom, t = route.top;
   const L = Math.max(6, Math.hypot(t.x - b.x, t.y - b.y));
   const D = (H * ROUTE_K) / clamp(-(t.y - b.y) / L, 0.35, 1);
@@ -794,11 +813,11 @@ function endClimb() {
 
 // --- refusing a climb in a gale: reach for the wall, look up into the wind, back off -----------------
 let refT = 0, refFace = 0;
-function startRefuse() {
+function startRefuse(reason = 'wind') {
   P.mode = 'refuse'; refT = 0;
   refFace = Math.atan2((route.top.y - route.bottom.y) / KY, route.top.x - route.bottom.x);
   route = null;
-  state.events.push({ type: 'refuse', x: P.x, y: P.y });
+  state.events.push({ type: 'refuse', x: P.x, y: P.y, reason });
 }
 function updateRefuse(dt) {
   refT += dt;
@@ -945,8 +964,8 @@ function footDown(foot, prof, ter) {
   const x = P.x + S * c - s * st * sn;
   const y = P.y + (S * sn + s * st * c) * KY;
   const weight = prof.weight * (0.6 + 0.4 * pose.gait);
-  state.events.push({ type: 'step', x, y, terrain: ter, foot, weight, angle: P.facing, shoe: shoesOn() });
-  if ((ter === 'ice' || ter === 'thin') && slipT <= 0 && rand() < (ter === 'ice' ? 0.09 : 0.05)) { slipT = 0.9; slipSide = s; }
+  state.events.push({ type: 'step', x, y, terrain: ter, foot, weight, angle: P.facing, shoe: shoesOn(), cramp: crampOn() });
+  if ((ter === 'ice' || ter === 'thin') && slipT <= 0 && rand() < (ter === 'ice' ? 0.09 : 0.05) * (crampOn() ? 0.15 : 1)) { slipT = 0.9; slipSide = s; }
   const shoe = shoesOn();
   if (ter === 'deep' && !shoe && staggerT <= 0 && rand() < 0.1) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
   if (ter === 'thin' && rand() < 0.22) state.events.push({ type: 'crack', x, y, strength: 0.3 + rand() * 0.7 });
@@ -1170,6 +1189,12 @@ function buildRig() {
     const shieldW = s === sh ? pose.shield : 0;
     if (s === sh) hand = mix(hand, [2.0, s * 0.3, SPINE + HEAD_UP - 0.4], pose.shield * (1 - slip));
     else hand = mix(hand, [0.9, s * 2.1, SPINE - 3.6], pose.shield * 0.5 * (1 - pose.spread));
+    // carrying the ice axes: hands out by the thighs, a short swing; the reach to the pack
+    // (taking them in or out) is a quick hand to the back of the shoulder
+    const carryW = axesOn() && !O ? clamp(1 - Math.max(pose.hug, pose.shield * (s === sh ? 1 : 0), pose.spread * 0.6, cw, CP.rum, CP.out, CP.slot)) : 0;
+    if (carryW > 0) hand = mix(hand, [0.5 + armF * 0.55, s * 3.0, SPINE - 4.0 + Math.abs(armF) * 0.1], carryW);
+    const reachK = axeReachT > 0 && s > 0 ? Math.sin(clamp(1 - axeReachT / 0.5) * Math.PI) : 0;
+    if (reachK > 0) hand = mix(hand, [-0.9, s * 1.5, SPINE + 0.2], reachK);
     const shoulder = torsoToBody(shoulderT, tf);
     let handB = torsoToBody(hand, tf);
     let pole = torsoDir([-1 + shieldW * 0.6 + pose.work * 1.0 + spreadW * 0.6 + pose.creep * 0.5, s * (0.8 + shieldW * 1.2 + spreadW * 0.5), -0.6 - spreadW * 0.6 - pose.work * 0.6], tf);
@@ -1220,9 +1245,9 @@ function buildRig() {
     }
     if (O) { handB = mix(handB, O.hands[s < 0 ? 0 : 1], ow); pole = mix(pole, O.poleA[s < 0 ? 0 : 1], ow); }
     const a = ik(shoulder, handB, UPPER_ARM, FOREARM, pole);
-    const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4);
+    const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4) || carryW > 0.5 || reachK > 0.3;
     const active = full ? 1 : Math.max(spreadW, pose.hug, Math.max(0, pose.work - 0.3) * 1.4, shieldW, pose.creep);
-    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4 });
+    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4, carry: carryW > 0.5 && reachK < 0.3 });
   }
 
   // Head / hood. Thin ice: looking down at the feet.
@@ -1502,12 +1527,19 @@ function drawFigure(ctx, rig, X, Y) {
       const fc = [ank[0] - 0.1, ank[1], ank[2] - 0.2];
       const toe = [ank[0] + 0.7, ank[1], Math.max(L.foot[2] + 0.2, ank[2] - 0.35)];
       limb(ctx, [pr(fc), pr(toe)], 0.95, C.boot, 0.17);
-      if (rig.climbing > 0.3 || P.terrain === 'ice' || P.terrain === 'thin') {
-        ctx.strokeStyle = INK; ctx.lineWidth = 0.12; ctx.lineCap = 'round'; ctx.beginPath();
-        for (const t of [0.05, 0.45, 0.85]) {
-          const q = pr([lerp(fc[0], toe[0], t), ank[1], lerp(fc[2], toe[2], t) - 0.45]);
-          ctx.moveTo(q[0], q[1]); ctx.lineTo(q[0] + 0.05, q[1] + 0.32);
+      if (crampOn() && !shoesDrawn()) {
+        // crampons: a steel frame under the sole with points at the toe and along the sides
+        const sole = k => [lerp(fc[0] - 0.15, toe[0] + 0.2, k), ank[1], lerp(fc[2], toe[2], k) - 0.5];
+        const a = pr(sole(0)), b = pr(sole(1));
+        ctx.lineCap = 'round'; ctx.strokeStyle = '#3c4046'; ctx.lineWidth = 0.16;
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+        ctx.strokeStyle = '#1c1e22'; ctx.lineWidth = 0.1; ctx.beginPath();
+        for (const k of [0, 0.33, 0.66, 1]) {
+          const q = pr(sole(k));
+          for (const sd of [-0.42, 0.42]) { const r = pr([sole(k)[0], ank[1] + sd, sole(k)[2]]); ctx.moveTo(r[0], r[1]); ctx.lineTo(r[0], r[1] + 0.32); }
+          ctx.moveTo(q[0], q[1]); ctx.lineTo(q[0], q[1] + 0.3);
         }
+        const t2 = pr(sole(1.12)); ctx.moveTo(b[0], b[1]); ctx.lineTo(t2[0] + 0.1, t2[1] + 0.2);   // front points
         ctx.stroke();
       }
     } else lips.push(endPt);
@@ -1530,6 +1562,7 @@ function drawFigure(ctx, rig, X, Y) {
   for (const A of arms) A.behind = A.dh < bodyD - 0.25;
   const drawArm = A => {
     const pts = [pr(A.shoulder), pr(A.elbow), pr(A.hand)];
+    if (A.carry) drawAxeCarry(ctx, A, pr);
     limb(ctx, pts, 1.15, sleeveCol(pts[1]));
     if (A.axe > 0.3) drawAxe(ctx, A, pr);
     mitt(pts[2]);
@@ -1550,6 +1583,8 @@ function drawFigure(ctx, rig, X, Y) {
   // jacket: keep walking arms inside the coat (only a slip's flailing arms break out).
   const fromBehind = Math.sin(P.facing) < -0.3;
   for (const A of arms) A.hidden = !A.full && (A.s !== nearS || A.d < -0.45 || (fromBehind && slipT <= 0));
+  // carried axes: the far-side one is drawn under the coat only (never over the back)
+  for (const A of arms) A.under = A.carry && A.s !== nearS;
   for (const A of arms) {
     if (A.behind) { if (A.full && !(A.cp && fromBehind)) drawArm(A); continue; }   // never drawn on the back
     if (A.cp && fromBehind) continue;   // compass hands in front: hidden by the body from behind
@@ -1567,7 +1602,7 @@ function drawFigure(ctx, rig, X, Y) {
   drawCoat(ctx, rig, pr, depth);
 
   if (packD >= 0) drawPack(ctx, rig, pr);
-  const out = arms.filter(A => !A.behind && !A.hidden && !(A.cp && fromBehind) && A.active > 0.3);
+  const out = arms.filter(A => !A.behind && !A.hidden && !A.under && !(A.cp && fromBehind) && A.active > 0.3);
   for (const A of out) if (!A.overHead && A.dh <= headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
   drawHood(ctx, rig, pr);
   for (const A of out) if (A.overHead || A.dh > headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
@@ -1624,6 +1659,18 @@ function drawAxe(ctx, A, pr) {
   ctx.strokeStyle = '#1a1a1a';
   ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineWidth = 0.32; ctx.stroke();
   ctx.beginPath(); ctx.moveTo(Pa[0], Pa[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(Pk[0], Pk[1]); ctx.lineWidth = 0.34; ctx.stroke();
+}
+
+// An ice axe carried in the hand: head in the fist (pick forward, adze back), the shaft hanging
+// down by the thigh. Same ink style as the climbing axes.
+function drawAxeCarry(ctx, A, pr) {
+  const h = A.hand;
+  const top = [h[0] + 0.05, h[1], h[2] + 0.35], bot = [h[0] + 0.4, h[1] + Math.sign(h[1]) * 0.1, h[2] - 2.6];
+  const pick = [top[0] + 1.0, top[1], top[2] - 0.45], adze = [top[0] - 0.55, top[1], top[2] + 0.05];
+  const P0 = pr(bot), P1 = pr(top), Pk = pr(pick), Pa = pr(adze);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.moveTo(P1[0], P1[1]); ctx.lineTo(P0[0], P0[1]); ctx.lineWidth = 0.38; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(Pa[0], Pa[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(Pk[0], Pk[1]); ctx.lineWidth = 0.42; ctx.stroke();
 }
 
 function drawCoat(ctx, rig, pr, depth) {
