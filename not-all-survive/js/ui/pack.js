@@ -17,8 +17,9 @@
 // or cowering means you can't hold it; it goes back in the pack. Tap the explorer to put it
 // away. It only works while there's a compass in the pack.
 //
-// Gear: climbing or stepping onto ice puts snowshoes back in the pack; snowshoes and crampons
-// can't both be worn; climbing needs axes AND crampons (explorer.js checks before a climb).
+// Gear: climbing or stepping onto ice puts snowshoes back in the pack (not thin ice: there they
+// spread the weight); snowshoes and crampons can't both be worn; climbing needs axes AND crampons
+// (explorer.js checks before a climb).
 //
 // Containers: the sled at base camp, a fallen member's body, a pile on the snow. Within reach a
 // small signal-yellow glint catches on it (the sled's lashing, the body's pack, the pile). Press
@@ -43,11 +44,16 @@
 // Eating: tap a ration. The explorer kneels and eats for 3 s with the pack open (hands to the
 // face, a chewing bob); moving cancels it and the ration isn't used. +0.35 food, a little warmth.
 //
-// state.compass = { phase: 'idle'|'rummage'|'slot'|'out'|'transfer'|'eat', target, ... } (the
+// Splinting (slice 5): tap a splint while hurt. The explorer sits in the snow with the bad leg out
+// and binds it for 4 s (explorer.js); moving cancels it and the splint isn't used. Injury -0.25 at
+// once, and the limp costs half the pace until the next injury (body.splint).
+//
+// state.compass = { phase: 'idle'|'rummage'|'slot'|'out'|'transfer'|'eat'|'splint', target, ... } (the
 //   name is history: it's the pack UI's state). target = { kind: 'sled'|'fallen'|'ground', x, y }
 //   while rummaging in / transferring with a container; explorer.js kneels and faces it.
 // Pushes events: rummage, compass (taken out), stow (put away), gear { item, on, auto },
 //   transfer / pickup / drop { id, n, x, y }, eat { stage: 'start'|'chew'|'done'|'stop' },
+//   splint { stage: 'start'|'wrap'|'done'|'stop' },
 //   full { x, y } (refused: no room, can't drop here, too full to eat).
 import { state } from '../state.js';
 import { worldToScreenUI as worldToScreen, screenToWorld, visibleRect } from '../camera.js';   // (not the breathing pulse)
@@ -68,6 +74,7 @@ const DROP_S = 1.0;               // press and hold a pack slot this long: drop 
 const MOVE_S = 0.6;               // ...a container slot (or the pack's, at a container): move the stack
 const ARC_FROM = 0.3;             // the hold arc only shows after this (a tap never sees it)
 const EAT_S = 3, EAT_FOOD = 0.35, EAT_WARM = 0.04;
+const SPLINT_S = 4, SPLINT_HEAL = 0.25;
 const REACH = { sled: 20, fallen: 16, ground: 12 };   // how close to rummage (world units; the sled from its edge, on its ground plane)
 const LEAVE = 6;                  // ...and how much further walking away closes it
 const BEAR_NEAR = 60;             // an alerted bear this close: no kneeling over a pack
@@ -78,13 +85,13 @@ const TAU = Math.PI * 2;
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 const P = state.player, pack = state.pack;
-const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, xferA: 0, angle: NORTH + 1.2, vel: 0, target: null, eatI: -1 };
+const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, xferA: 0, angle: NORTH + 1.2, vel: 0, target: null, eatI: -1, splintI: -1 };
 let holding = false;              // pointer or key held on the explorer / a container
 let holdCode = null;              // which key is doing the holding ('auto': arrived at a container)
 let wasMoving = false;
 let press = null;                 // a press on a slot: { block: 'pack'|'cont', i, t, key?, done }
 let shownT = null, side = -1;     // the container drawn (kept through its fade), the pack's side
-let chewT = 0, doorPress = false, pending = null;
+let chewT = 0, wrapT = 0, doorPress = false, pending = null;
 const shakes = new Map();         // 'pack:3' -> time of the refusal
 const puffs = [];                 // snow kicked up by a move: { x, y, t }
 
@@ -103,7 +110,7 @@ function feet() {
 // Can the explorer get into the pack at all right now? (Deep snow is fine: that's exactly
 // where you want your snowshoes.) Not crawling through the tent door, collapsing or dead (no
 // explorer to press); in the tent, only through the door.
-const AWAY = new Set(['tent-in', 'inside', 'tent-out', 'collapse', 'dead', 'gone', 'swim', 'sink']);
+const AWAY = new Set(['tent-in', 'inside', 'tent-out', 'collapse', 'dead', 'gone', 'swim', 'sink', 'crawlout']);
 const away = () => (AWAY.has(P.mode) && !inTent()) || (state.body && state.body.phase !== 'alive' && state.body.phase !== 'open');
 function bearClose() {
   const b = state.bear;
@@ -231,6 +238,7 @@ function startRummage(target = null) {
 }
 function close() {
   if (C.phase === 'eat') state.events.push({ type: 'eat', stage: 'stop', x: P.x, y: P.y });
+  if (C.phase === 'splint') state.events.push({ type: 'splint', stage: 'stop', x: P.x, y: P.y });
   C.phase = 'idle'; C.t = 0; C.target = null; press = null; doorPress = false;
 }
 function takeOut() {
@@ -250,12 +258,18 @@ function startEat(i) {
   C.phase = 'eat'; C.eatI = i; C.t = 0; chewT = 0.9;
   state.events.push({ type: 'eat', stage: 'start', x: P.x, y: P.y });
 }
+// Bind the hurt leg with the splint in slot i (only when hurt: no wasting it).
+function startSplint(i) {
+  if (!state.body || !(state.body.injury > 0.02)) { shake('pack', i); return; }
+  C.phase = 'splint'; C.splintI = i; C.t = 0; wrapT = 0.8;
+  state.events.push({ type: 'splint', stage: 'start', x: P.x, y: P.y });
+}
 // Tap a pack slot (pack open): use what's in it.
 function useSlot(i) {
   const s = pack.slots[i];
   if (!s) return;
   const it = ITEMS[s.id];
-  const u = { i, slot: s, handsBlocked: blocked(), inTent: inTent(), takeOut, eat: startEat };
+  const u = { i, slot: s, handsBlocked: blocked(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint };
   if (it.blocked(u)) { shakes.set('pack:' + i, state.time); return; }
   C.t = 0;
   it.use(u);
@@ -327,10 +341,10 @@ export function init() {
     if (!state.begun && !state.params.has('autostart')) return false;
     if (away()) { close(); return false; }   // presses go to the tent / the hand-over
     pending = null;
-    const open = C.phase === 'slot' || C.phase === 'transfer' || C.phase === 'eat';
+    const open = C.phase === 'slot' || C.phase === 'transfer' || C.phase === 'eat' || C.phase === 'splint';
     if (open) {
       const hit = slotAt(sx, sy);
-      if (hit && C.phase === 'eat') return true;          // (busy eating: swallow it)
+      if (hit && (C.phase === 'eat' || C.phase === 'splint')) return true;   // (busy eating / binding: swallow it)
       if (hit) { press = { ...hit, t: state.time, done: false }; return true; }
     }
     if (inTent()) {
@@ -343,8 +357,8 @@ export function init() {
       if (open) close();
       return false;
     }
-    if (C.phase === 'eat') {
-      close();                     // walked off mid-meal: the ration goes back
+    if (C.phase === 'eat' || C.phase === 'splint') {
+      close();                     // walked off mid-meal (or mid-binding): the ration / splint goes back
       return onPlayer(sx, sy);
     }
     // a pile: only a press on the pile itself, and nearer it than the explorer's middle
@@ -412,6 +426,7 @@ export function init() {
   window.NAS.snowshoes = on => window.NAS.gear('snowshoes', on);
   window.NAS.openSled = () => { C.target = shownT = { kind: 'sled', ref: state.sled, x: SLED.x, y: SLED.y }; C.phase = 'transfer'; C.t = 0; side = feet().x >= worldToScreen(SLED.x, SLED.y).x ? 1 : -1; lay = null; };
   window.NAS.eat = () => { const i = find(pack, 'food'); if (i >= 0) startEat(i); };
+  window.NAS.splint = () => { const i = find(pack, 'splint'); if (i >= 0) startSplint(i); };
   window.NAS.packUI = () => { lay = null; const L = layouts(); return { pack: L.pack, cont: L.cont || [], r: L.r }; };
 }
 
@@ -467,6 +482,23 @@ export function update(dt) {
         C.phase = 'slot'; C.t = 0;
       }
     }
+  } else if (C.phase === 'splint') {
+    const s = pack.slots[C.splintI];
+    if (mv || packBlocked() || !s || s.id !== 'splint') {
+      // stood up and walked off (or the weather got in): the splint goes back unused
+      state.events.push({ type: 'splint', stage: 'stop', x: P.x, y: P.y });
+      if (mv) { C.phase = 'idle'; C.t = 0; } else { C.phase = 'slot'; C.t = 0; }
+    } else {
+      wrapT -= dt;
+      if (wrapT <= 0 && C.t < SPLINT_S - 0.3) { wrapT = 0.55 + Math.random() * 0.3; state.events.push({ type: 'splint', stage: 'wrap', x: P.x, y: P.y }); }
+      if (C.t >= SPLINT_S) {
+        take(pack, C.splintI, 1);
+        const B = state.body;
+        if (B) { B.injury = Math.max(0, B.injury - SPLINT_HEAL); B.splint = true; }
+        state.events.push({ type: 'splint', stage: 'done', x: P.x, y: P.y });
+        C.phase = 'slot'; C.t = 0;
+      }
+    }
   } else if (C.phase === 'out') {
     if (blocked() || inTent() || C.t > OUT_S || find(pack, 'compass') < 0) stow();
   }
@@ -474,12 +506,12 @@ export function update(dt) {
   if (press && C.phase !== 'slot' && C.phase !== 'transfer') press = null;
   wasMoving = mv;
 
-  // Snowshoes go back in the pack the moment you climb or step onto ice.
+  // Snowshoes go back in the pack the moment you climb or step onto ice (not thin ice).
   if (worn('snowshoes') && shoesBlocked()) wear('snowshoes', false, true);
 
   // Fades.
   const k = Math.min(1, dt * 8);
-  const open = C.phase === 'slot' || C.phase === 'transfer' || C.phase === 'eat';
+  const open = C.phase === 'slot' || C.phase === 'transfer' || C.phase === 'eat' || C.phase === 'splint';
   C.slotA += ((open ? 1 : 0) - C.slotA) * k;
   C.xferA += ((C.phase === 'transfer' ? 1 : 0) - C.xferA) * k;
   if (C.phase === 'transfer') shownT = C.target;
@@ -735,6 +767,7 @@ export function drawScreen(ctx) {
       const dim = !!s && C.phase !== 'transfer' && ITEMS[s.id].blocked({ i, slot: s, handsBlocked: hb, inTent: it });
       let hold = holdK('pack', i);
       if (C.phase === 'eat' && i === C.eatI) hold = C.t / EAT_S;   // eating: the arc fills over the meal
+      if (C.phase === 'splint' && i === C.splintI) hold = C.t / SPLINT_S;   // ...and over the binding
       drawSlot(ctx, p.x, p.y, L.r * pop, s, { a: C.slotA, key: 'pack:' + i, dim, hold });
     });
   }

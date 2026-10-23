@@ -72,15 +72,19 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - `?energy=0..1`, `?reserve=0..1` start them that worn out. Hooks `NAS.tire(v?)` (energy to v,
   or 0.25 lower), `NAS.rest()` (energy and reserve full); the gear menu has Tire me / Rest me
   and shows energy / its cap, the drain per minute and the reserve.
+- `?injury=0..1` starts them hurt. Hooks `NAS.hurt(v?)` (injury to v, or 0.25 worse, with the
+  flinch), `NAS.heal()`, `NAS.splint()` (bind the leg with a splint from the pack), `NAS.breakIce()`
+  (a hole in the ice at the explorer's feet, anywhere), `NAS.holes`; the gear menu has Hurt me /
+  Heal me / Break ice and shows the injury (splinted or not) and the thin-ice stress underfoot.
 
 ## Survival (man vs. environment) — no bars, no HUD
-The plan lives in Joe's survival plan (slices 1–7). Slices 1–4 are built: the body, the cold,
+The plan lives in Joe's survival plan (slices 1–7). Slices 1–5 are built: the body, the cold,
 the base camp tent, death handing over to the next expedition member; open water and wet;
-exhaustion; the sled, the 10-slot pack, food and hunger.
+exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin ice.
 
 - **The body** (`js/actors/body.js`): `state.body = { warmth, wet, energy, reserve, injury, food, water }`,
-  each 0–1, hidden. Warmth, wet, energy/reserve and food are live; injury (caps energy) is
-  hooked in for a later slice.
+  each 0–1, hidden. Warmth, wet, energy/reserve, food and injury are live; water waits for a
+  later slice.
   Warmth loss = `LOSS × (cold × (0.35 + 0.65 × wind exposure))^1.5`, more at night, less
   sheltered (cowering, hunkered in the lee); walking makes heat. Measured (headless, sped up):
   a dry explorer standing in a full blizzard dies in ~2¾–3 min, a wet one in ~45 s; walking in
@@ -108,9 +112,9 @@ exhaustion; the sled, the 10-slot pack, food and hunger.
   night: a fade to ink, the clock jumps to that dawn, fade back in. (No sleeping through a day
   storm.)
 - **Open water** (slice 2). `terrain.isWater(x, y)` (dark thin-ice class: the sea and its leads;
-  frozen lakes are ice class and stay safe; thin ice holds until slice 5) and
+  frozen lakes are ice class and stay safe; pale thin ice holds a while, then breaks: slice 5) and
   `terrain.waterDepth(x, y)` (world px from land; floes are snow, so they count as land to hop
-  between). The first `terrain.WADE_DEPTH` (9) px from land is a wading shelf, beyond is deep,
+  between; a hole broken in thin ice is open water too, deep right to its edge). The first `terrain.WADE_DEPTH` (9) px from land is a wading shelf, beyond is deep,
   with ±1.5 px of hysteresis at the drop-off. lakes.js darkens open water a step and paints the
   shelf paler (a soft edge, from the depth field read bilinearly) with ink stipple scattered
   along the drop-off, so the player can see where it gets deep. Floes ride a slight swell in
@@ -223,8 +227,8 @@ exhaustion; the sled, the 10-slot pack, food and hunger.
   stack, kind, icon, `use`, `blocked`; add an item there and the pack, sled and transfer take it)
   and the containers: `state.pack` (10 slots, everything counts, the compass and gear too; worn
   things stay in their slot, ring signal yellow), `state.sled` (the party's supply: 12 rations in
-  stacks of 3, snowshoes, axes, crampons and a spare compass), `state.ground` (piles on the snow)
-  and each fallen member's `pack`. Food stacks to 3 a slot, gear one. `player.gear` is a derived
+  stacks of 3, snowshoes, axes, crampons, a spare compass and two splints), `state.ground` (piles on the snow)
+  and each fallen member's `pack`. Food stacks to 3 a slot, splints 2, gear one. `player.gear` is a derived
   view (getters on the pack), so the explorer and body read it as before. The first member sets
   out with a compass and 2 rations; each one after a death starts empty bar a compass if the sled
   still has one, and must restock at the sled. The sled is all the food there is (hunting later).
@@ -278,6 +282,109 @@ exhaustion; the sled, the 10-slot pack, food and hunger.
     about, a mitt to the stomach, hunched, every 6–15 s, with a low gurgling growl (now and then
     walking too); the wind ducks under the growl, so it's heard in a storm. The ice axes, carried
     but not in hand, show strapped on the back of the pack.
+- **Falls and injury** (slice 5). `body.injury` is one number, shown as a hurt leg (`P.badLeg`, picked
+  when a fresh injury comes).
+  - **Sources** (explorer.js pushes `injury` / `impact`, body.js adds it up): torn off a wall (wind,
+    energy gone, `P.blowOff()`), the drop is the height climbed, (s / L0) × the route's height:
+    under 15 px only the knockdown; 15–50 px injury 0.2–0.7 (to 0.85 at 55), longer down and slower
+    up; over 55 px fatal (below). A wind knockdown on ice, thin ice or rock: +0.03–0.08. A slip on
+    ice: 1 in 20 of them, +0.05. Landing in deep water: swimming (a fatal one sinks: no body);
+    landing on thin ice slams it (height / 40 of stress: a big drop goes through).
+  - **Fair warning on a wall**: the first time a climb passes the fatal height they stop ~1 s and
+    look down over a shoulder (`vertigo`: the wind rising, a sharp breath in). A gust no longer tears
+    them off at once: it peels them (0.8 s, `peel`: swung out from the wall, the arms shaking hard),
+    and a tap in that moment drives the axes back in (`replant`, two strikes' energy) and saves them;
+    no tap and the grip goes. On screen (body.js, readable muted on a phone): the peel snaps a band of
+    ink with a torn lower edge in along the top edge from the downwind corner, throbbing faster as the
+    window runs out, and tugs the view sideways (not with Reduce motion); the look-down smears the
+    left and right edges of the frame downward for ~1 s. Neither is the cold's steady soft edge.
+  - **Effects**: a limp (from ~0.05, full by ~0.85): the step onto the bad leg cut short (its half of
+    the cycle runs up to 1.9× faster), the hips dropping hard (0.9 units) and the body lurching over it, the bad leg
+    swung through stiff and low with a shorter stride. Up to 40% slower (× injury; half that with a
+    splint). Walking costs more energy (× (1 + 0.7 × injury)); the cap was already lowered
+    (`body.max` × (1 − 0.5 × injury)). Climbing up refused above 0.5 (`refuse` reason `'hurt'`: the
+    long look up the wall, then a hand to the bad thigh, bent over it, and away); climbing down is
+    allowed, slower, so nobody is stranded on a plateau. Standing about above
+    0.45, a mitt pressed on the front of the bad thigh, the weight off that leg.
+  - **Healing**: never outside. In the tent ~0.1 a minute (1 → 0 in ~10 min); a night's sleep −0.3.
+    The **splint & bandage** (`splint` item, stack 2, two on the sled; slot icon: a slat with a roll
+    of bandage across it): tap it hurt, the explorer sits side-on to the camera, the bad leg straight
+    out, the good knee drawn up, bent over it passing the roll round the shin for 4 s (the slot's arc
+    fills; moving cancels it and keeps the splint). −0.25 at once and the limp costs half the pace
+    until the next injury (`body.splint`), and evens the limp's rhythm out some; while it holds, a
+    pale bandage shows bound round the bad shin. Dimmed (unusable) when not hurt or in the tent.
+  - **Cues**: on impact a burst of snow thrown up, a dead thump, a sharp dry crack and a grunt
+    knocked out of them (`impact` audio; no grunt or breath after a fatal one), a hard jolt of the
+    view (a drop and shudder, ~0.5 s: `cam.dip` + shakeX, off with Reduce motion), and the **flinch**
+    (body.js drawOverlay): an ink bite out of the bottom edge on the bad leg's side, as if the lens
+    cracked there: a low, irregular jagged band hugging the edge out from the corner, a few long fine
+    fracture lines running up and inward off it, a few flecks; flashing in over ~0.07 s and fading
+    over ~0.7–1.15 s, bigger the harder the landing (a smaller one for a knock or a slip). The
+    landing's snow burst is kept about the figure's width (weather-sky's big knockdown puff is
+    skipped for a fall off a wall), so the body is seen as it lands. Unlike the cold's steady soft edge, the hunger's doubling, the exhaustion blur
+    or the plunge's white flash. Badly hurt (> 0.5), rarely (cooldown 4.5–7.5 s), a faint, quick echo
+    of it in time with a step on the bad leg. The steps go uneven: a light, quick one onto the bad leg
+    with a scuff of the boot dragging in after it, a heavy one onto the good. Footprints: that boot's
+    print is smeared back with a short broken scuff trailing off it to the outside, every bad step and
+    only on that side (unlike the tired drag's continuous groove).
+  - **A fatal fall** (> 55 px): they hit the snow and lie as they landed, crumpled (twisted half onto
+    a side, one leg flung out, the other knee bent up, an arm thrown past the head, the other under
+    them; laid side-on to the view so it reads), in a long hollow pressed into the snow with its lip
+    thrown up and dark broken lumps about it (kept in the still fallen.js holds), and don't get up:
+    `death` { cause: 'fall' }, 0.8 s longer on the body than a death of cold, then the iris and the
+    hand-over as usual, the body left at the foot of the wall.
+  - Measured (headless, real cliffs): the ~74 px wall at (1460, 1490): a fall from 10 px nothing;
+    30 px → 0.42; 42 px → 0.58; 52.5 px → 0.78; from the last move before the top-out (56.6 px)
+    fatal. The ~110 px wall at (1490, 1500): fatal from half way up (55 px). Limp at 0.85: 0.30 s on
+    the bad leg, 0.68 s on the good.
+- **Thin ice** (slice 5, `js/world/thinice.js`). Pale thin-ice class (lum ≥ 176), faintly mottled
+  darker so a careful eye can tell it from safe lake ice, carries stress in a
+  grid of 4 px cells, filled only where someone has stood: explorer.js loads it every frame they're
+  on it (walking, standing, cowering, knocked flat) by how heavily (1 + 0.35 × pack slots used / 10;
+  snowshoes × 0.35, which now stay on on thin ice; flat on it × 0.45) and how hard they move
+  (standing 0.06 / s, plus 0.1 / s at the creep's walking pace, more at a crampon march), spread
+  round the feet (σ 6 px), divided by the ice's strength (×1.5 at its edge down to ×0.85 in the
+  middle, so it's thinner further out; a refrozen hole × 0.6, the weakest). Cells nobody is on ease back after 1.5 s (0.035 / s): backing
+  off the way you came relieves it; walking straight across holds the stress under the feet at
+  ~0.3 (creaks only), lingering or turning about on it builds it.
+  - **Warnings**: from 0.18 creaks, oftener as it rises, each with a quick glance down and a hairline
+    flickering under the boots; at 0.4 the first real crack: a sharp crack and two or three long
+    fractures (20–30 px) shooting out well past the figure (`icecracks.fracturePatch`: few, long and
+    decisive, white with a thin ink underside so they read on pale ice and on a phone), and the
+    explorer stops dead 0.5 s looking down (once a spell on the ice, only when walking; no load builds
+    during it, and pushing back the way they came ends it at once); more fractures at 0.55, then
+    cross-cracks joining them round the feet at 0.7 and 0.85, louder cracks and single fractures
+    between; they stay ~40 s and fade over ~12 s.
+  - **Break** at 1: a crash of the slab breaking up and a shard burst, and they're in (the usual
+    plunge: white flash, gasp, cold shock). The hole (`state.holes`; `terrain.isWater` / `waterDepth`
+    read it: deep right to the edge and only over thin-ice class, so it never spreads onto land; the
+    shore beat treats it as a wall and the bear and the penguins keep off it): water near ink-black
+    in the middle inside a jagged rim of fractured ice, slabs and chips tipped up along the edge, a
+    few flat grey shards afloat, fractures round it. It only breaks on thin ice and is never wider
+    than the thin ice round it (its radius and the broken ring capped by the distance to the edge).
+    Drawn over the footprints. It stays open 150 s, then skins over from the rim
+    inward over 100 s (the shards caught where they float) into darker new ice, drawn for the run.
+  - **Self-rescue**: in the hole they swim (deep-water cold, ~23 s from full warmth). A tap (or
+    pushing at the edge) is one heave: to the edge, arms up onto the ice (with axes in the pack: swung
+    up and driven in), a pull up and forward, the chest onto the ice. Without axes the edge breaks off
+    40% of the time (the hole widens, they drop back and lose half the way they'd made) and each pull
+    costs 0.09 energy; with axes 8% and 0.035. Each heave gets them further (0.34 bare / 0.48 axes ×
+    their strength, ±20%) until one carries them out: belly-down onto the ice, wriggling flat away
+    from the hole (hard work: energy drains, none comes back; the pack can't be opened), then up,
+    soaked through (wet = 1): the race to the tent begins. Dying in the hole:
+    they slip under the ice (the sea's sink, no body; fallen.js's dark rings at the hole).
+  - Where it is on the default map: one real patch, x ~776–880, y ~1730–1774 (about 100 × 40 px,
+    with dark open-water spots in it), reachable on foot; a small strip at x 1268–1294, y 1834–1854
+    on the bottom edge; the rest are specks of a few px. (Terrain is Joe's: paint more in the editor.)
+  - Measured (headless, sped up, back and forth on an 18 px track at (835, 1758), light pack unless
+    said; two runs each): first creak 1.2–1.8 s (snowshoes 5.3), first crack 2.7–4.9 s (snowshoes
+    14–15); breaks: creeping (half push) 27–29 s, walking 13–15 s, a crampon march 9.4–11.5 s,
+    walking with a full pack 6.6–6.9 s (crack to break ~4 s, the tightest window), snowshoes 28–38 s;
+    standing still 13–24 s (by how thin it is there). Walking straight on across it holds the stress
+    under the feet at ~0.3; backing off at the first crack gets them off it unbroken. Heaving out: axes, 3 pulls in 4.4 s (Monte Carlo of the rules with the
+    cold and energy: 2 heaves 27%, 3 55%, 4+ 18%); bare hands, 12 pulls with 5 edge breaks in 16.6 s,
+    out with energy spent and warmth 0.28 (Monte Carlo: mean ~7 heaves, ~84% out if they heave without
+    a pause). Frame time on the ice with two holes and cracks in view (1440p storm): ~10 ms.
 - **Death and the party**: warmth 0 → collapse (kneel, slump, lie face down) → the ink iris
   closes onto the body, holds a beat, closes → cut to base camp: the next of the four crawls
   out of the tent as the iris opens. The body stays where it fell for the run

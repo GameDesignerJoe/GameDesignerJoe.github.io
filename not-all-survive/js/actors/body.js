@@ -2,8 +2,8 @@
 // screen carry it.
 //
 // state.body = { warmth, wet, energy, reserve, injury, food, water }, each 0..1 (wet and injury
-// start at 0, the rest at 1). Warmth, wet, energy and food are live; injury is a hook a later
-// slice fills in (it caps energy).
+// start at 0, the rest at 1). Warmth, wet, energy, food and injury are live; water is a hook a
+// later slice fills in.
 //   explorer.js        reads warmth for the cold poses (hug, hard shiver, stumble, kneel,
 //                      collapse) and dulls the coat toward grey ochre
 //   weather-screen.js  grows the frost with 1 - warmth
@@ -53,13 +53,33 @@
 // it comes standing still too (a sway, ~1 in 30 s at the worst). Reduce motion keeps only the dim.
 // Going to sleep hungry (food < 0.75) eats a ration from the pack, if there is one.
 //
+// Injury (slice 5): one number, shown as a hurt leg. explorer.js pushes 'injury' { amount, cause }
+// (a fall from a wall 15-55 px high, a knockdown on ice or rock, a slip) and 'impact' { severity,
+// fatal } as they land; this module adds it up (body.splint goes: a new injury undoes the splint).
+// It caps energy (energyMax), makes walking cost more (x(1 + INJ_DRAIN x injury)) and explorer.js
+// limps, slows (up to -40%, half that splinted) and won't climb above 0.5. It never heals outside;
+// in the tent slowly (INJ_TENT), and a night's sleep takes INJ_SLEEP off. A fatal fall (> ~55 px)
+// kills outright: 'death' { cause: 'fall' }, the body left crumpled at the foot of the wall.
+// On impact: a hard jolt of the view (cam.dip and shakeX; not with Reduce motion) and an ink
+// "flinch": jagged splinters of ink flashing in from the lower corner on the bad leg's side,
+// fading over ~1 s, bigger the harder the landing (drawOverlay; unlike the cold's steady soft
+// edge, the hunger's doubling or the breath blur). Hurt badly (> 0.5), a faint echo of it now and
+// then in time with a step on the bad leg. ui/pack.js binds the leg with a splint (-0.25, body.splint).
+// Heaving out of a hole in the ice ('heave' { stage: 'pull', axes }) costs HEAVE (far less with axes).
+// On a wall (explorer.js): a gust peeling them off ('peel') snaps a jagged band of ink in along the
+// top edge on the downwind side, throbbing fast for as long as the window lasts (tap now), and tugs
+// the view sideways (not with Reduce motion); a re-plant ('replant') or the grip going ('scrape')
+// clears it. Looking down past the fatal height ('vertigo'): the screen edges smear downward a
+// moment (drawScreen), as if the drop pulled at the eyes. Neither is the cold's steady soft edge.
+//
 // state.party = [{ name, alive, x, y }] x 4, state.member = index of the one playing now.
 // The hand-over takes the dead member's pack off them (items.js takePack: it goes with the body
 // in the 'handover' event, unless the sea took them) and the next one starts with an empty pack,
 // bar a compass if the sled still has one (items.js restock).
 // Hooks: NAS.freeze(v?) (warmth to v, or 0.2 colder), NAS.warm(v = 1), NAS.kill(),
 //        NAS.soak(v = 1), NAS.dry(), NAS.tire(v?) (energy to v, or 0.25 lower), NAS.rest(),
-//        NAS.starve(v?) (food to v, or 0.25 lower), NAS.feed(v = 1).
+//        NAS.starve(v?) (food to v, or 0.25 lower), NAS.feed(v = 1),
+//        NAS.hurt(v?) (injury to v, or 0.25 worse, with the flinch), NAS.heal().
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
 import { takePack, restock, find, take } from '../items.js';
@@ -103,6 +123,9 @@ const REST_LO = 0.4 / 15, REST_HI = 0.6 / 45, TENT_REST = 1 / 15, PATH_REST = 1 
 // tent (RES_TIME / s); resting in the tent eases it back, sleeping the night restores it.
 // (a day and a night out without sleep, ~5 min, wears off about half of it)
 const RES_WORK = 0.1, RES_TIME = 1 / 800, RES_TENT = 1 / 300;
+// injury: walking costs more hurt; heals only in the tent (from 1 to 0 in ~10 min there) and by a
+// night's sleep; a heave out of the ice (without axes; with them far less)
+const INJ_DRAIN = 0.7, INJ_TENT = 1 / 600, INJ_SLEEP = 0.3, HEAVE = 0.09, HEAVE_AXES = 0.035;
 // how high energy can come back: reserve, hunger, and (slice 5) injury
 const energyMax = () => (0.35 + 0.65 * B.reserve) * (1 - 0.5 * clamp(B.injury)) * (1 - 0.35 * hungerK());
 
@@ -119,7 +142,7 @@ const NAMES = ['Halloran', 'Ashby', 'Teague', 'Marsh'];
 
 const B = state.body = {
   warmth: 1, wet: 0, energy: 1, reserve: 1, injury: 0, food: 1, water: 1,
-  frozen: 0, shock: 0,
+  frozen: 0, shock: 0, splint: false,
   phase: 'alive', t: 0, sleepHold: 0, rate: 0, drain: 0, max: 1, hunger: 0, foodRate: 0, dizzy: 0,
   climbHalf: CLIMB_HALF, hang: HANG,   // per axe strike / per s hanging (explorer.js sizes up a wall)
 };
@@ -134,6 +157,9 @@ let chatT = 3, beatT = 0, throb = 0, irisFrom = 1, overT = 0, restartArmed = fal
 let lastTap = -1, lastAct = 0, slept = false, flash = 0, blurK = 0, breathV = 0, pulseK = 0;
 let stillT = 0, walkT = 0, restZoomOn = false, restZoomK = 0;
 let dizzyT = 0, dizzyCool = 0, stopT = 0;
+let joltT = 9, joltA = 0, flinch = null, echoCool = 0;
+let peel = null, vertT = 0;
+const PEEL_S = 0.8, VERT_S = 1.1;
 const DIZZY_S = 0.7;
 const PULSE = 0.006;   // the view's breath: at most 0.6% zoom at the top of a breath in
 const approach = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
@@ -149,6 +175,14 @@ export function init() {
   state.rest = () => { B.energy = 1; B.reserve = 1; };
   state.starve = v => { B.food = typeof v === 'number' ? clamp(v) : Math.max(0, B.food - 0.25); };
   state.feed = (v = 1) => { B.food = clamp(v); };
+  state.hurt = v => {
+    if (B.phase !== 'alive') return;
+    const to = typeof v === 'number' ? clamp(v) : Math.min(1, B.injury + 0.25);
+    if (to > B.injury) { B.splint = false; startFlinch(0.25 + 0.6 * (to - B.injury)); }
+    B.injury = to;
+  };
+  state.heal = () => { B.injury = 0; B.splint = false; };
+  if (state.params.has('injury')) B.injury = clamp(parseFloat(state.params.get('injury')));
   if (state.params.has('food')) B.food = clamp(parseFloat(state.params.get('food')));
   if (state.params.has('energy')) B.energy = clamp(parseFloat(state.params.get('energy')));
   if (state.params.has('reserve')) B.reserve = clamp(parseFloat(state.params.get('reserve')));
@@ -226,16 +260,17 @@ function updateEnergy(dt) {
   } else {
     const push = clamp(P.push || 0), hw = clamp(P.headwind || 0);
     if (m === 'swim') drain = SWIM;
+    else if (m === 'crawlout') drain = SWIM * 0.6;     // dragging themselves out flat: hard work, no rest
     else if (m === 'climb') drain = P.climbHold ? HANG : 0;
     else if (P.crawl) drain = 0;                        // crawling on spent: no worse, no better
     else if (push > 0.05) {
       const ter = lv ? 'water' : P.terrain;
       const base = g.snowshoes && ter in DRAIN_SHOE ? DRAIN_SHOE[ter] : g.crampons && ter in DRAIN_CRAMP ? DRAIN_CRAMP[ter] : DRAIN[ter] ?? DRAIN.snow;
-      // into a gale even a path costs something
-      drain = base * push * (1 + HEADWIND * hw) + push * hw / 500;
+      // into a gale even a path costs something; hurt, every step costs more
+      drain = (base * push * (1 + HEADWIND * hw) + push * hw / 500) * (1 + INJ_DRAIN * clamp(B.injury));
       if (ter === 'path') drain -= PATH_REST * (1 - 0.5 * push) * (1 - smooth(0.2, 0.6, hw));
     }
-    if (push <= 0.05 && m !== 'climb' && m !== 'swim' && !P.crawl) {
+    if (push <= 0.05 && m !== 'climb' && m !== 'swim' && m !== 'crawlout' && !P.crawl) {
       // getting the wind back: the body's own cold, the air's, wet clothes and a gale all slow it
       const chilled = smooth(0.8, 0.3, B.warmth), air = 0.3 * clamp(state.weather.cold ?? 0.3);
       const gale = smooth(0.35, 0.9, clamp(P.exposure || 0) * (1 - 0.7 * clamp(P.sheltered || 0)));
@@ -249,6 +284,8 @@ function updateEnergy(dt) {
     // shivering is work too
     drain += SHIVER * smooth(0.7, 0.35, B.warmth) * (1 - smooth(0.13, 0.05, B.warmth));
   }
+  // heaving out of a hole in the ice: each pull costs (far less with axes to pull on)
+  for (const e of state.events) if (e.type === 'heave' && e.stage === 'pull') climbCost += e.axes ? HEAVE_AXES : HEAVE;
   const max = energyMax();
   B.max = max;
   if (climbCost > 0) { B.energy = Math.max(0, B.energy - climbCost); B.reserve = Math.max(0, B.reserve - climbCost * RES_WORK * hunger); climbCost = 0; }
@@ -277,6 +314,163 @@ function updateFood(dt) {
   B.hunger = hungerK();
 }
 
+// Injury: what explorer.js reports (falls, knockdowns, slips), the impact cues, healing in the tent.
+function updateInjury(dt) {
+  for (const e of state.events) {
+    if (e.type === 'injury' && B.phase === 'alive') {
+      B.injury = Math.min(1, B.injury + e.amount);
+      if (e.amount > 0.01) B.splint = false;         // a new injury undoes the splint
+      if (!e.quiet) startFlinch(0.25 + 1.2 * e.amount);
+    }
+    if (e.type === 'impact') {
+      // the view jolts (px), and the flinch takes the screen (fatal: the hardest of all)
+      joltA = Math.max(joltA * Math.exp(-joltT * 7), 3 + 12 * clamp(e.severity ?? 0.5)); joltT = 0;
+      startFlinch(e.fatal ? 1.2 : 0.35 + 0.7 * clamp(e.severity ?? 0.5));
+    }
+    // badly hurt: now and then a faint echo of the flinch, in time with a step on the bad leg
+    if (e.type === 'step' && e.bad && B.injury > 0.5 && echoCool <= 0 && Math.random() < 0.15 + 0.2 * smooth(0.5, 1, B.injury)) {
+      echoCool = 4.5 + Math.random() * 3;
+      startFlinch(0.1 + 0.12 * smooth(0.5, 1, B.injury), true);
+    }
+  }
+  echoCool -= dt;
+  // on a wall: the peel window, and the look down
+  for (const e of state.events) {
+    if (e.type === 'peel') startPeelCue();
+    if ((e.type === 'replant' || e.type === 'scrape') && peel && !peel.end) peel.end = peel.t;
+    if (e.type === 'vertigo') vertT = VERT_S;
+  }
+  if (peel) { peel.t += dt; if (peel.t > PEEL_S + 0.4 || (peel.end !== null && peel.t > peel.end + 0.25)) peel = null; }
+  vertT = Math.max(0, vertT - dt);
+  if (peel && !state.reduceMotion) {
+    // the view tugged sideways, downwind, with the gust, shuddering while it lasts
+    const k = peel.end !== null ? Math.max(0, 1 - (peel.t - peel.end) / 0.25) : 1;
+    state.cam.shakeX += peel.side * k * (7 * Math.exp(-peel.t * 6) + 1.8 * Math.sin(peel.t * 31));
+  }
+  if (P.mode === 'inside' || B.phase === 'sleep') B.injury = Math.max(0, B.injury - INJ_TENT * dt);
+  if (flinch) { flinch.t += dt; if (flinch.t > flinch.life) flinch = null; }
+}
+
+// The flinch: an ink "bite" taken out of the bottom edge of the screen on the bad leg's side, as
+// if the lens cracked there: a low jagged band of ink hugging the edge out from the corner
+// (irregular, never evenly toothed), a few long fracture lines running up and inward off it with a
+// sharp kink or a split, and a few flecks. Built once per flinch in units of the screen diagonal
+// (x inward from the corner, y up from the bottom edge); drawn growing out in ~0.07 s and fading
+// over its life (~0.7-1.15 s; an echo ~0.45 s, small). sev 0..1.2.
+function startFlinch(sev, echo = false) {
+  if (flinch && !echo && flinch.sev > sev && flinch.t < 0.3) return;
+  if (flinch && echo && !flinch.echo) return;          // never step on a real one
+  const side = (P.badLeg || 1) > 0 ? 1 : -1, sv = Math.min(1, sev), polys = [];
+  let seed = 1 + ((Math.random() * 2e9) | 0);
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  // the bite: up the side edge a little, then a jagged top edge running in along the bottom
+  const Lb = (0.14 + 0.24 * sv) * (0.85 + 0.3 * rnd()), H0 = 0.02 + 0.045 * sv, bite = [0, 0.004];
+  const hs = H0 * (1.1 + 0.6 * rnd());
+  bite.push(0, -hs * 0.6, 0.004, -hs);
+  const tops = [];
+  for (let u = 0.01; u < Lb; u += 0.004 + 0.045 * rnd() * rnd()) {
+    // a solid foot of ink along the edge, then ragged, uneven points above it
+    const f = 1 - u / Lb, spike = rnd() < 0.12 ? 1.6 + 1.2 * rnd() : 0.3 + 0.6 * rnd() * rnd();
+    const y = -H0 * (0.3 * Math.pow(f, 0.6) + 0.7 * Math.pow(f, 1.3) * spike);
+    bite.push(u, y); tops.push([u, y]);
+  }
+  bite.push(Lb, 0.004);
+  polys.push(bite);
+  // a few long fracture lines off it, up and inward, straight with a sharp kink now and then
+  const n = 2 + Math.round(2.5 * sv);
+  for (let i = 0; i < n; i++) {
+    const q = tops[Math.floor(rnd() * Math.min(tops.length, 4 + tops.length * 0.6))] || [0, -H0];
+    let dir = -(0.25 + 0.9 * rnd()), x = q[0], y = q[1];
+    const L = (0.08 + 0.15 * rnd()) * (0.6 + 0.4 * sv), m = 7, w0 = 0.0014 + 0.0016 * sv;
+    const left = [], right = [];
+    for (let k = 0; k <= m; k++) {
+      const wd = w0 * (1 - k / m), nx = -Math.sin(dir), ny = Math.cos(dir);
+      left.push(x + nx * wd, y + ny * wd); right.push(x - nx * wd, y - ny * wd);
+      x += Math.cos(dir) * L / m; y += Math.sin(dir) * L / m;
+      dir += rnd() < 0.25 ? (rnd() - 0.5) * 0.7 : (rnd() - 0.5) * 0.08;
+    }
+    const pl = left.slice();
+    for (let k = right.length - 2; k >= 0; k -= 2) pl.push(right[k], right[k + 1]);
+    polys.push(pl);
+    if (rnd() < 0.4) {
+      const j = 2 * (2 + ((rnd() * 4) | 0)), bx = left[j], by = left[j + 1], b = dir + (rnd() < 0.5 ? 0.6 : -0.6), l2 = L * 0.3;
+      polys.push([bx, by - w0 * 0.5, bx + Math.cos(b) * l2, by + Math.sin(b) * l2, bx, by + w0 * 0.5]);
+    }
+  }
+  const dots = [];
+  for (let i = 0; i < 4 + 8 * sv; i++) dots.push(rnd() * Lb * 0.9, -H0 * (1.2 + 2.5 * rnd()), 0.0012 + 0.0025 * rnd());
+  flinch = { t: 0, life: echo ? 0.45 : 0.7 + 0.45 * sv, sev, side, polys, dots, echo };
+}
+function drawFlinch(ctx, w, h) {
+  const f = flinch, D = Math.hypot(w, h), grow = smooth(0, 0.07, f.t);
+  const a = (f.echo ? 0.45 : 0.75 + 0.2 * Math.min(1, f.sev)) * Math.pow(1 - f.t / f.life, 1.6);
+  if (a < 0.01) return;
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.fillStyle = INK;
+  ctx.translate(f.side > 0 ? w : 0, h);
+  ctx.scale(-f.side * D, D);                            // x runs in from the corner
+  ctx.beginPath();
+  for (let p = 0; p < f.polys.length; p++) {
+    const pts = f.polys[p];
+    ctx.moveTo(pts[0] * grow, pts[1] * grow);
+    for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i] * grow, pts[i + 1] * grow);
+    ctx.closePath();
+  }
+  const d = f.dots;
+  for (let i = 0; i < d.length; i += 3) { ctx.moveTo(d[i] * grow + d[i + 2], d[i + 1] * grow); ctx.arc(d[i] * grow, d[i + 1] * grow, d[i + 2], 0, TAU); }
+  ctx.fill();
+  ctx.restore();
+}
+
+// The peel cue: a band of ink with a torn lower edge along the top of the screen from the downwind
+// corner, built once (x in from the corner, y down from the top, units of the screen diagonal).
+function startPeelCue() {
+  const side = Math.cos(state.wind.angle || 0) >= 0 ? 1 : -1, pts = [0, -0.004];
+  let seed = 1 + ((Math.random() * 2e9) | 0);
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const L = 0.42 + 0.12 * rnd(), H = 0.042;
+  pts.push(0, H * 1.6);
+  for (let u = 0.008; u < L; u += 0.006 + 0.04 * rnd() * rnd()) {
+    const f = 1 - u / L;
+    pts.push(u, H * (0.25 + 0.75 * f) * (rnd() < 0.2 ? 1.7 + rnd() : 0.5 + 0.7 * rnd()));
+  }
+  pts.push(L, -0.004);
+  peel = { t: 0, end: null, side, pts };
+}
+function drawPeel(ctx, w, h) {
+  const p = peel, D = Math.hypot(w, h);
+  const snap = smooth(0, 0.08, p.t), out = p.end !== null ? Math.max(0, 1 - (p.t - p.end) / 0.25) : 1;
+  // throbbing faster as the window runs out: tap now
+  const urg = clamp(p.t / PEEL_S), throbK = 0.75 + 0.25 * Math.sin(p.t * (18 + 22 * urg));
+  const a = 0.85 * snap * out * throbK;
+  if (a < 0.01) return;
+  ctx.save();
+  ctx.globalAlpha = a; ctx.fillStyle = INK;
+  ctx.translate(p.side > 0 ? w : 0, 0);
+  const grow = 0.6 + 0.4 * snap + 0.25 * urg;
+  ctx.scale(-p.side * Math.min(w, D * 0.75), D * grow);   // (along the edge: a share of the width, so a phone keeps the far corner clear)
+  ctx.beginPath(); ctx.moveTo(p.pts[0], p.pts[1]);
+  for (let i = 2; i < p.pts.length; i += 2) ctx.lineTo(p.pts[i] * (0.7 + 0.3 * snap), p.pts[i + 1]);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+// The look down: the left and right edges of the frame laid back over themselves stretched
+// downward (a smear, not darkness), strongest at the very edge.
+function drawVertigo(ctx, k) {
+  const cv = ctx.canvas, W = cv.width, H = cv.height;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (let i = 0; i < 6; i++) {
+    // (narrow bands laid widest first, each a little more stretched toward the edge: no seams)
+    const f = 1 - i / 6, bw = W * 0.22 * f, st = 1 + 0.2 * (1 - 0.8 * f) * k, al = 0.32 * k;
+    ctx.globalAlpha = al;
+    ctx.drawImage(cv, 0, 0, bw, H, 0, -H * 0.01 * k, bw, H * st);
+    ctx.drawImage(cv, W - bw, 0, bw, H, W - bw, -H * 0.01 * k, bw, H * st);
+  }
+  ctx.restore();
+}
+
 // Sleeping is only for the night, and only in the day/night cycle (a pinned clock has no morning).
 export function canSleep() { const L = state.lighting; return L.mode === 'cycle' && L.night > 0.5 && L.clock >= 180; }
 
@@ -291,7 +485,8 @@ function handover() {
   const sprite = lost ? null : P.snapshot?.(), kit = takePack();
   state.events.push({ type: 'handover', x: P.x, y: P.y, facing: P.facing, member: state.member, name: m.name, lost, sprite, pack: lost ? null : kit });
   const next = state.party.findIndex(q => q.alive);
-  Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, reserve: 1, injury: 0, food: 0.8, sleepHold: 0, dizzy: 0 });   // (a little hungry already)
+  Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, reserve: 1, injury: 0, splint: false, food: 0.8, sleepHold: 0, dizzy: 0 });
+  flinch = null; joltA = 0; peel = null; vertT = 0;   // (a little hungry already)
   if (next < 0) {
     P.respawn?.(true);                                  // nobody left: the camera rests on the empty camp
     state.events.push({ type: 'expedition', over: true });
@@ -318,6 +513,7 @@ export function update(dt) {
   // into the water: the cold shock (explorer.js pushes plunge; audio gasps)
   for (const e of state.events) if (e.type === 'plunge') { B.shock = 1; flash = Math.max(flash, e.deep ? 1 : 0.7); }
   flash = Math.max(0, flash - dt * 1.8);
+  updateInjury(dt);
   if (B.phase !== 'over') { updateWet(dt); updateEnergy(dt); updateFood(dt); }
 
   switch (B.phase) {
@@ -328,15 +524,22 @@ export function update(dt) {
       if (B.phase === 'alive' && ((B.warmth <= 0 && outside()) || killed)) {
         killed = false; B.warmth = 0;
         irisFrom = irisAlive(0);
-        setPhase('dying');
-        state.events.push({ type: 'death', x: P.x, y: P.y, cause: P.water?.level ? 'water' : 'cold', member: state.member });
+        setPhase('dying'); B.cause = P.water?.level ? 'water' : 'cold';
+        state.events.push({ type: 'death', x: P.x, y: P.y, cause: B.cause, member: state.member });
+      }
+      // a fall from high on a wall: dead where they land (explorer.js lays them out crumpled)
+      if (B.phase === 'alive' && state.events.some(e => e.type === 'impact' && e.fatal)) {
+        irisFrom = irisAlive(B.warmth);
+        setPhase('dying'); B.cause = 'fall';
+        state.events.push({ type: 'death', x: P.x, y: P.y, cause: 'fall', member: state.member });
       }
       break;
     }
     case 'dying':
       // explorer.js plays the collapse and settles into 'dead'
       // (a climber torn off the wall falls first, so allow the time)
-      if ((P.mode === 'dead' && B.t > 1.2) || B.t > 9) { irisFrom = irisAlive(0); setPhase('iris'); }
+      // (a fall: a longer look at the body as it lies before the iris closes)
+      if ((P.mode === 'dead' && B.t > (B.cause === 'fall' ? 2.0 : 1.2)) || B.t > 9) { irisFrom = irisAlive(B.warmth); setPhase('iris'); }
       break;
     case 'iris':
       if (B.t >= IRIS_IN + BEAT + IRIS_OUT) { handover(); }
@@ -363,6 +566,7 @@ export function update(dt) {
         L.clock = 0; L.night = 0; L.nightTarget = 0;
         B.warmth = 1; B.reserve = 1; B.energy = 1;   // a night's sleep: rested
         B.food = Math.max(0, B.food - FOOD_SLEEP);   // and a little hungrier for it
+        B.injury = Math.max(0, B.injury - INJ_SLEEP);   // and the leg a good deal better
         state.events.push({ type: 'tent', action: 'wake', x: P.x, y: P.y });
       }
       if (B.t >= SLEEP_FADE + SLEEP_HOLD + SLEEP_WAKE) { slept = false; setPhase('alive'); }
@@ -390,7 +594,12 @@ export function update(dt) {
   restZoomK = approach(restZoomK, restZoomOn ? 1 : 0, restZoomOn ? 0.7 : 0.9, dt);
   state.cam.rest = 1 + 0.18 * restZoomK;
   state.cam.pulse = PULSE * pk * v * pulseK;
-  state.cam.dip = 0;
+  // the jolt of a hard landing: a sharp drop of the view and a shudder, gone in ~0.5 s
+  // (weather-screen.js has already written this frame's shake; this adds to it)
+  joltT += dt;
+  const jk = joltA > 0 && !state.reduceMotion ? joltA * Math.exp(-joltT * 7) : 0;
+  state.cam.dip = jk > 0.05 ? jk * Math.cos(joltT * 34) : 0;
+  if (jk > 0.05) state.cam.shakeX += 0.45 * jk * Math.sin(joltT * 41 + 1);
   blurK = 0.8 * Math.pow(smooth(0.35, 1, pk), 1.3);
   breathV = v;
 
@@ -578,6 +787,11 @@ export function drawOverlay(ctx) {
     ctx.globalAlpha = 1;
   }
 
+  // Peeling off a wall: ink snapping in along the top edge (tap now).
+  if (peel && live) drawPeel(ctx, w, h);
+  // A hard landing: ink splinters from the corner (and their faint echo on bad-leg steps).
+  if (flinch && (live || ph === 'dying')) drawFlinch(ctx, w, h);
+
   // Cold shock: a brief white flash as the sea closes over the legs (or the head).
   if (flash > 0.01) {
     ctx.globalAlpha = 0.55 * flash * flash;
@@ -655,7 +869,8 @@ export function drawScreen(ctx) {
   const bk = blurK * (0.45 + 0.55 * (1 - breathV));
   if (bk > 0.02) drawBreathBlur(ctx, bk);
   if (B.dizzy > 0.01) drawDizzy(ctx, B.dizzy);
+  if (vertT > 0) drawVertigo(ctx, Math.sin(Math.PI * (1 - vertT / VERT_S)));
   if (!state.debug) return;
   ctx.fillStyle = '#000'; ctx.font = '12px monospace';
-  ctx.fillText(`warmth ${B.warmth.toFixed(3)} rate ${(B.rate * 60).toFixed(3)}/min wet ${B.wet.toFixed(2)} rime ${B.frozen.toFixed(2)} food ${B.food.toFixed(3)} ${B.phase} member ${state.member}`, 10, 34);
+  ctx.fillText(`warmth ${B.warmth.toFixed(3)} rate ${(B.rate * 60).toFixed(3)}/min wet ${B.wet.toFixed(2)} rime ${B.frozen.toFixed(2)} food ${B.food.toFixed(3)} injury ${B.injury.toFixed(2)}${B.splint ? ' (splint)' : ''} ice ${(P.iceStress || 0).toFixed(2)} ${B.phase} member ${state.member}`, 10, 34);
 }

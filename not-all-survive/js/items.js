@@ -7,7 +7,7 @@
 //   state.sled    the party's supply at base camp (SLED_SLOTS): what isn't carried stays here.
 //   state.ground  piles dropped on the snow: [{ x, y, slots, t }] (ui/pack.js draws them).
 //   fallen.js     each body keeps the pack the member died with (f.pack), to be recovered.
-// Food stacks to 3 in a slot; gear is one per slot.
+// Food stacks to 3 in a slot, splints to 2; gear is one per slot.
 //
 // state.player.gear = { snowshoes, axes, crampons } is a derived view of the pack (getters:
 // worn in the pack; setting one wears / takes it off), so explorer.js and body.js read it as
@@ -28,8 +28,9 @@ const P = state.player;
 
 // --- conditions the items share -----------------------------------------------------------------
 export const climbing = () => P.mode === 'climb' || P.mode === 'approach';
-// Snowshoes are useless (and dangerous) on ice and while climbing.
-export const iceUnder = () => P.terrain === 'ice' || P.terrain === 'thin' || P.terrain === 'water';
+// Snowshoes are useless (and dangerous) on ice and while climbing. (Thin ice is the exception: they
+// spread the weight, so they stay on there: thinice.js.)
+export const iceUnder = () => P.terrain === 'ice' || P.terrain === 'water';
 export const shoesBlocked = () => climbing() || iceUnder();
 // Snowshoes and crampons both strap to the boots: wearing one means taking off the other.
 export const EXCLUSIVE = { snowshoes: 'crampons', crampons: 'snowshoes' };
@@ -49,6 +50,10 @@ item({ id: 'axes', name: 'Ice axes', wear: true, icon: drawAxes, blocked: () => 
 item({ id: 'crampons', name: 'Crampons', wear: true, icon: drawCrampons, blocked: () => climbing(), use: u => wearSlot(u.i, !u.slot.worn) });
 // rations: pemmican and ship's biscuit, one item. Eating takes a while (ui/pack.js plays it).
 item({ id: 'food', name: 'Rations', kind: 'food', stack: 3, icon: drawFood, blocked: u => u.handsBlocked, use: u => u.eat(u.i) });
+// splint and bandage roll (slice 5): kneel and bind the hurt leg, ~4 s (ui/pack.js plays it); only
+// when hurt, never in the tent (it heals there anyway)
+item({ id: 'splint', name: 'Splint & bandage', kind: 'tool', stack: 2, icon: drawSplint,
+  blocked: u => u.handsBlocked || u.inTent || !((state.body?.injury || 0) > 0.02), use: u => u.splint(u.i) });
 
 // --- containers -------------------------------------------------------------------------------------
 export const makeSlots = n => Array.from({ length: n }, () => null);
@@ -94,8 +99,9 @@ export const used = c => c.slots.reduce((a, s) => a + (s ? 1 : 0), 0);
 const pack = state.pack = { slots: makeSlots(PACK_SLOTS) };
 const sled = state.sled = { slots: makeSlots(SLED_SLOTS) };
 state.ground = [];
-// the party's supply: 12 rations, a set of every bit of gear, and a spare compass
+// the party's supply: 12 rations, a set of every bit of gear, a spare compass and two splints
 for (let i = 0; i < 4; i++) add(sled, 'food', 3);
+add(sled, 'splint', 2);
 for (const id of ['snowshoes', 'axes', 'crampons', 'compass']) add(sled, id, 1);
 // the first member sets out with a compass and two rations
 add(pack, 'compass', 1);
@@ -286,6 +292,37 @@ function drawCrampons(ctx, r, z) {
     ctx.beginPath(); ctx.moveTo(x - r * 0.06, base); ctx.lineTo(x, base + r * 0.24); ctx.lineTo(x + r * 0.06, base); ctx.closePath(); ctx.fill();
   }
   ctx.beginPath(); ctx.moveTo(x1 - r * 0.02, sole); ctx.lineTo(x1 + r * 0.26, sole + r * 0.12); ctx.lineTo(x1 - r * 0.02, base); ctx.closePath(); ctx.fill();
+}
+
+// Splint and bandage: a short wooden slat on the diagonal with a fat roll of bandage lying across
+// it, the loose end trailing; the roll's face shows its spiral.
+function drawSplint(ctx, r, z) {
+  ctx.save();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const lw = Math.max(1, z * 0.26);
+  // the slat
+  ctx.rotate(-0.7);
+  ctx.beginPath(); ctx.rect(-r * 0.62, -r * 0.1, r * 1.24, r * 0.2);
+  ctx.fillStyle = 'rgba(176,160,128,0.98)'; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.lineWidth = Math.max(0.6, z * 0.1); ctx.strokeStyle = 'rgba(40,36,30,0.45)';
+  ctx.beginPath(); ctx.moveTo(-r * 0.5, 0.02 * r); ctx.lineTo(r * 0.5, -0.02 * r); ctx.stroke();   // the grain
+  ctx.rotate(0.7);
+  // the loose end of the bandage, trailing down off the roll
+  ctx.beginPath(); ctx.moveTo(r * 0.12, r * 0.2); ctx.quadraticCurveTo(r * 0.3, r * 0.45, r * 0.52, r * 0.42);
+  ctx.lineWidth = Math.max(2, z * 0.5); ctx.strokeStyle = INK; ctx.stroke();
+  ctx.lineWidth = Math.max(1.2, z * 0.32); ctx.strokeStyle = 'rgba(240,238,232,1)'; ctx.stroke();
+  // the roll: its side, then its face with the spiral
+  const rx = r * 0.28, ry = r * 0.32, x0 = -r * 0.16, x1 = r * 0.14;
+  ctx.beginPath();
+  ctx.moveTo(x0, -ry); ctx.lineTo(x1, -ry); ctx.ellipse(x1, 0, rx * 0.45, ry, 0, -Math.PI / 2, Math.PI / 2); ctx.lineTo(x0, ry);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(214,210,200,0.99)'; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x0, 0, rx * 0.45, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(242,240,234,1)'; ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  for (let k = 0; k <= 24; k++) { const a = k / 24 * Math.PI * 4, f = 0.15 + 0.75 * k / 24; const x = x0 + Math.cos(a) * rx * 0.45 * f, y = Math.sin(a) * ry * f; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.lineWidth = Math.max(0.6, z * 0.1); ctx.strokeStyle = 'rgba(40,36,30,0.55)'; ctx.stroke();
+  ctx.restore();
 }
 
 // Rations: one fat ship's biscuit, a little from above: a pale round with its thickness showing

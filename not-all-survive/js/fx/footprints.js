@@ -7,6 +7,9 @@
 // Wet boots (step.wet, body.js, after open water) leave darker, soaked prints.
 // Tired boots (step.drag 0..1, explorer.js, low energy) don't clear the snow: each boot scores
 // a dragged groove from its last print into the next, in deep snow and (fainter) plain snow.
+// A limp (step.bad: the hurt leg's boot, step.limp 0..1, slice 5): that boot's print is smeared
+// back, with a short broken scuff trailing off it to the outside, every bad step and only on that
+// side (not the tired drag's continuous groove), so the trail reads one foot hurt, not worn out.
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 
@@ -26,7 +29,7 @@ export function update(dt) {
     const t = e.terrain;
     if (!RATE[t]) { last = null; lastFoot.L = lastFoot.R = null; continue; }
     const a = e.angle ?? state.player.facing;
-    const p = { x: e.x, y: e.y, a, t, foot: e.foot, w: e.weight ?? 0.7, fill: 0, seed: Math.random(), prev: null, shoe: !!e.shoe, cramp: !!e.cramp, wet: Math.min(1, e.wet || 0) };
+    const p = { x: e.x, y: e.y, a, t, foot: e.foot, w: e.weight ?? 0.7, fill: 0, seed: Math.random(), prev: null, shoe: !!e.shoe, cramp: !!e.cramp, wet: Math.min(1, e.wet || 0), limp: e.bad ? Math.min(1, e.limp || 0) : 0 };
     if (t === 'deep' && last && last.t === 'deep' && Math.hypot(last.x - p.x, last.y - p.y) < 9) p.prev = { x: last.x, y: last.y };
     const lf = lastFoot[p.foot];
     const drag = Math.min(1, e.drag || 0);
@@ -52,6 +55,21 @@ function sole(ctx, len, wid, ox = 0, oy = 0) {
   ctx.ellipse(len * 0.18 + ox, oy, len * 0.34, wid * 0.5, 0, 0, Math.PI * 2);
   ctx.moveTo(-len * 0.28 + ox + len * 0.2, oy);
   ctx.ellipse(-len * 0.3 + ox, oy, len * 0.2, wid * 0.42, 0, 0, Math.PI * 2);
+}
+
+// The hurt boot's scuff: from the heel, a short curve trailing back and out, then a broken dash
+// beyond it (the toe catching twice), a shadowed groove with a lit lip (print space).
+function scuff(ctx, p, side, al) {
+  const k = p.limp, o = side * (0.9 + 0.4 * p.seed);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 2; i++) {
+    const dx = i * 0.12, dy = i * 0.2;
+    ctx.beginPath();
+    ctx.moveTo(-0.9 + dx, 0.1 * side + dy);
+    ctx.quadraticCurveTo(-1.6 + dx, 0.35 * o + dy, -2.1 - 0.5 * k + dx, 0.6 * o + dy);
+    ctx.moveTo(-2.6 - 0.7 * k + dx, 0.72 * o + dy); ctx.lineTo(-3.1 - 1.0 * k + dx, 0.8 * o + dy);
+    ctx.strokeStyle = i ? `rgba(252,252,252,${al * 0.85})` : `rgba(108,112,118,${al * 0.8})`; ctx.lineWidth = i ? 0.14 : 0.24; ctx.stroke();
+  }
 }
 
 export function drawGround(ctx) {
@@ -134,7 +152,7 @@ export function drawGround(ctx) {
         ctx.closePath();
       };
       // dragged in (tired): the hole smeared back along the line of travel, a ploughed tail
-      const dg = p.drag ? p.drag.k : 0, ox = -0.9 * dg;
+      const dg = Math.max(p.drag ? p.drag.k : 0, p.limp * 0.4), ox = -0.9 * dg;
       hole(1.55 + 0.9 * dg, 0.95, ox, 0);
       ctx.fillStyle = `rgba(98,101,106,${al})`; ctx.fill();
       hole(1.2 + 0.8 * dg, 0.68, 0.2 + ox, 0.14);
@@ -142,8 +160,15 @@ export function drawGround(ctx) {
       // kicked-up rim toward the lower right
       ctx.beginPath(); ctx.ellipse(0.2, 0.95, 1.3, 0.35, 0, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(252,252,252,${life * 0.7})`; ctx.fill();
+      if (p.limp > 0.1) scuff(ctx, p, side, al);
     } else if (p.t === 'snow' || p.t === 'path') {
       const al = life * (p.t === 'snow' ? 0.62 : 0.38) * (0.75 + 0.35 * p.w) * (1 + 0.5 * p.wet);
+      // the hurt leg's boot: the print smeared back where it scraped in, and a broken scuff
+      if (p.limp > 0.1) {
+        ctx.beginPath(); ctx.ellipse(-0.6 - 0.4 * p.limp, 0.05, 0.75 + 0.5 * p.limp, 0.34, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(146,149,155,${Math.min(1, al) * 0.45 * p.limp})`; ctx.fill();
+        scuff(ctx, p, side, Math.min(1, al));
+      }
       // soaked: a dark damp halo round the sole and a darker floor
       if (p.wet > 0.05) { ctx.beginPath(); sole(ctx, 2.5, 1.25, -0.05, 0); ctx.fillStyle = `rgba(110,116,124,${life * 0.3 * p.wet})`; ctx.fill(); }
       ctx.beginPath(); sole(ctx, 2.1, 0.95);

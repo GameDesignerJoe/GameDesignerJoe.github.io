@@ -19,6 +19,7 @@ const MODULES = {
   ground: './world/ground.js',
   frontier: './world/frontier.js',   // before explorer and weather, which both read it
   explorer: './actors/explorer.js',
+  thinice: './world/thinice.js',     // after explorer (it loads the ice); draws cracks and holes under the prints
   footprints: './fx/footprints.js',
   weather: './fx/weather.js',        // after explorer: sees step events, draws drift over prints
   body: './actors/body.js',          // after weather (reads temp/cold): warmth, death, hand-over, sleep

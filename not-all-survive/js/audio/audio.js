@@ -171,12 +171,82 @@ function handle(e) {
       // rime: the frozen coat creaks and crackles as the body moves inside it
       const fz = state.body?.frozen || 0;
       if (fz > 0.25 && Math.random() < 0.35 * fz) S.creak(ctx, root, t + R(0.03, 0.12), 0.35 * fz);
+      // limping: the hurt leg's boot drags in after the step (uneven: light step, scuff; heavy step)
+      if (e.bad && e.limp > 0.1 && e.terrain !== 'rock') S.scuff(ctx, B, root, t + R(0.06, 0.12), { strength: 0.3 + 0.6 * e.limp });
       setTimeout(() => root.disconnect(), (dur + 0.3) * 1000);
       return;
     }
     case 'crack': {
+      // (thin ice under stress: close and sharp; thinice.js sends strength by the stress)
       if (voices.ice >= LIMIT.ice) return;
-      claim('ice', oneShot('ice', e.x ?? state.player.x, e.y ?? state.player.y, bus.ice, S.crack, { strength: e.strength }, 0.4));
+      claim('ice', oneShot('ice', e.x ?? state.player.x, e.y ?? state.player.y, bus.ice, S.crack, { strength: e.strength }, e.stress ? 0.2 : 0.4));
+      return;
+    }
+    // Thin ice (thinice.js): creaks as it starts to bear, a breaking slab as it goes.
+    case 'creak': {
+      if (voices.ice >= LIMIT.ice) return;
+      claim('ice', oneShot('ice', e.x, e.y, bus.ice, (c, b, out, at, o) => S.creak(c, out, at, o.strength), { strength: 0.6 + 0.8 * (e.strength ?? 0.5) }, 0.2));
+      return;
+    }
+    case 'breakthrough': {
+      const root = ctx.createGain(); root.connect(bus.ice);
+      const dur = S.breakthrough(ctx, B, root, t);
+      setTimeout(() => root.disconnect(), (dur + 0.5) * 1000);
+      return;
+    }
+    // Hurt: the landing from a height (thump, crack, grunt), a smaller knock (just the grunt).
+    case 'impact': {
+      const root = ctx.createGain(); root.connect(bus.steps);
+      const dur = S.impact(ctx, B, root, t, { strength: e.severity, fatal: e.fatal });
+      setTimeout(() => root.disconnect(), (dur + 0.3) * 1000);
+      return;
+    }
+    case 'injury': {
+      if (e.quiet || voices.body >= LIMIT.body) return;
+      claim('body', S.grunt(ctx, B, bus.head, t + 0.05, { strength: 0.5 + 2 * e.amount }));
+      return;
+    }
+    // Out of a hole in the ice: an effort grunt on each pull (and the axes biting), the edge breaking
+    // off under them, sliding back in, and the scrape of the body out across the ice.
+    case 'heave': {
+      if (voices.body >= LIMIT.body + 1) return;
+      const root = ctx.createGain(); root.connect(bus.steps);
+      let dur = 0.5;
+      if (e.stage === 'pull') {
+        dur = S.grunt(ctx, B, bus.head, t + 0.12, { strength: 0.9 });
+        if (e.axes) S.axe(ctx, B, root, t, {}); else S.splash(ctx, B, root, t, { strength: 0.6 });
+      } else if (e.stage === 'break') { S.crack(ctx, B, root, t, { strength: 0.8 }); S.splash(ctx, B, root, t + 0.08, { strength: 1.1 }); dur = 1.2; }
+      else if (e.stage === 'slip') dur = S.splash(ctx, B, root, t, { strength: 0.8 });
+      else if (e.stage === 'out') { dur = S.scuff(ctx, B, root, t, { strength: 1 }) + S.scuff(ctx, B, root, t + 0.35, { strength: 0.8 }) + 0.4; S.breath(ctx, B, bus.head, t + 0.3, { inhale: false, len: 0.8, level: 0.9, shaky: 1 }); }
+      claim('body', dur);
+      setTimeout(() => root.disconnect(), (dur + 0.5) * 1000);
+      return;
+    }
+    // On a wall: looking down past the height that kills (the wind rising, a sharp breath in); a gust
+    // peeling them off (a scrape of the axes, cloth hammering, a strained breath); the axes driven
+    // back in (a grunt; the two bites are 'axe' events).
+    case 'vertigo': {
+      S.gustSwell(ctx, B, bus.wind, t, { strength: 0.9 });
+      S.breath(ctx, B, bus.head, t + 0.15, { inhale: true, len: 0.32, level: 1.2, shaky: 0.9 });
+      return;
+    }
+    case 'peel': {
+      const root = ctx.createGain(); root.connect(bus.steps);
+      S.gustSwell(ctx, B, bus.wind, t, { strength: 1 });
+      S.shove(ctx, B, root, t, { strength: 0.8 });
+      setTimeout(() => root.disconnect(), 2000);
+      return;
+    }
+    case 'replant': {
+      // (the two axe bites come as 'axe' events)
+      S.grunt(ctx, B, bus.head, t + 0.05, { strength: 0.9 });
+      return;
+    }
+    case 'splint': {
+      if (voices.body >= LIMIT.body) return;
+      if (e.stage === 'wrap') claim('body', S.wrap(ctx, B, bus.steps, t, { strength: 0.55 }));
+      else if (e.stage === 'start') claim('body', S.rustle(ctx, B, bus.steps, t, { strength: 0.5 }));
+      else if (e.stage === 'done') claim('body', S.wrap(ctx, B, bus.steps, t, { strength: 0.7, tight: true }));
       return;
     }
     case 'axe': case 'kick': case 'shove': case 'fall': {
@@ -185,7 +255,7 @@ function handle(e) {
       const dur = { axe: S.axe, kick: S.kick, shove: S.shove, fall: S.fall }[e.type](ctx, B, root, t, e);
       claim('body', dur);
       setTimeout(() => root.disconnect(), (dur + 0.3) * 1000);
-      if (e.type === 'fall') { exertion = 1; nextBreath = time + dur; }       // winded
+      if (e.type === 'fall' && !e.fatal) { exertion = 1; nextBreath = time + dur; }       // winded
       if (e.type === 'shove') { exertion = Math.min(1, exertion + 0.3); nextBreath = time + 0.8; }
       return;
     }

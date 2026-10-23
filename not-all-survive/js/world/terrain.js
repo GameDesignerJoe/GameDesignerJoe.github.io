@@ -30,9 +30,11 @@
 //   bestClimb(px, py, tapX, tapY) -> route + { walkTo } | null (walk to walkTo, then climb)
 //   climbable(x, y)
 //   isWater(x, y)           open water: thin-ice class darker than WATER_LUM (the painted
-//                           sea and leads; frozen lakes are class ice and never water)
+//                           sea and leads; frozen lakes are class ice and never water), and
+//                           any hole broken through thin ice (state.holes, thinice.js)
 //   waterDepth(x, y)        world px from the nearest shore (0 on land): near the edge is
-//                           wading, further out is deep (explorer.js / body.js decide)
+//                           wading, further out is deep (explorer.js / body.js decide); a
+//                           hole is deep right to its edge
 //   mask(), rebuild(), EDITS_KEY   (for the editor / debug overlays)
 //   ?terrain=<type> forces terrainAt() everywhere (animation testing)
 import { state, MAP_W, MAP_H } from '../state.js';
@@ -325,12 +327,29 @@ export function speedFactor(type) {
 export function isWater(x, y) {
   if (!ready) return false;
   const i = idx(x, y);
-  return i >= 0 && wdist[i] > 0;
+  return i >= 0 && (wdist[i] > 0 || (cls[i] === THIN && inHole(x, y)));
 }
 export function waterDepth(x, y) {
   if (!ready) return 0;
   const i = idx(x, y);
-  return i < 0 ? 0 : wdist[i] * MASK_SCALE;
+  if (i < 0) return 0;
+  return wdist[i] ? wdist[i] * MASK_SCALE : cls[i] === THIN && inHole(x, y) ? HOLE_DEPTH : 0;
+}
+// Holes broken through thin ice (thinice.js keeps state.holes = [{ x, y, ro, ... }], ro = the open
+// radius on the ground plane, shrinking as it refreezes). Open water, and deep at once: there's
+// no shelf under thin ice. Only ever over thin ice (class 3): a hole never spreads onto land.
+// The list stays tiny (a handful a run), so a straight loop is cheap.
+const HOLE_DEPTH = 24;
+function inHole(x, y) {
+  const hs = state.holes;
+  if (!hs || !hs.length) return false;
+  for (let k = 0; k < hs.length; k++) {
+    const h = hs[k];
+    if (h.ro <= 0) continue;                              // refrozen: solid again
+    const dx = x - h.x, dy = (y - h.y) / 0.8;
+    if (dx * dx + dy * dy < h.ro * h.ro) return true;
+  }
+  return false;
 }
 
 export function lumAt(x, y) {

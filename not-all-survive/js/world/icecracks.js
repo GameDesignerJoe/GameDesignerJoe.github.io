@@ -43,8 +43,10 @@ export function iceDepth(x, y, max = 40) {
 // clipped by the bisector half-planes of nearby seeds; shared edges are deduplicated by
 // their (rounded) endpoints, so junctions stay connected and lines never cross.
 const SQ = 0.8;
-function network(cx, cy, R, r) {
-  const sp = 10 + r() * 6;
+// opt.sp: cell spacing (default 10-16 px); opt.on(x, y): where a crack may run (default: lake ice)
+function network(cx, cy, R, r, opt = {}) {
+  const sp = opt.sp ?? 10 + r() * 6;
+  const on = opt.on ?? ((x, y) => classAt(x, y) === ICE);
   // Poisson-disc by dart throwing (small patches: fine).
   const seeds = [];
   const box = R * 1.25;
@@ -98,7 +100,7 @@ function network(cx, cy, R, r) {
     if (rd > 1) continue;
     if (r() < 0.15 + Math.max(0, rd - 0.65) * 1.6) continue;     // open cells, soft rim
     const [ax, ay] = W(P[0], P[1]), [bx, by] = W(Q[0], Q[1]);
-    if (classAt(ax, ay) !== ICE || classAt(bx, by) !== ICE || classAt((ax + bx) / 2, (ay + by) / 2) !== ICE) continue;
+    if (!on(ax, ay) || !on(bx, by) || !on((ax + bx) / 2, (ay + by) / 2)) continue;
     const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L;
     const n = 2 + ((r() * 3) | 0), line = [ax, ay];
     for (let k = 1; k < n; k++) {
@@ -120,25 +122,88 @@ function network(cx, cy, R, r) {
   return segs;
 }
 
-function render(segs, x0, y0, w, h) {
+// ink: a thin dark underside under every white line (offset to the lower right, light from the
+// upper left), so the cracks still read white against pale thin ice (Joe: cracks are white)
+function render(segs, x0, y0, w, h, ink = false) {
   const c = document.createElement('canvas');
   c.width = Math.ceil(w * PX); c.height = Math.ceil(h * PX);
   const g = c.getContext('2d');
   g.setTransform(PX, 0, 0, PX, -x0 * PX, -y0 * PX);
   g.lineJoin = 'miter'; g.lineCap = 'round';
-  const stroke = (dy, color, scale) => {
+  const stroke = (dx, dy, color, scale) => {
     g.strokeStyle = color;
     for (const s of segs) {
       g.lineWidth = 0.38 * s.w * scale;
       g.beginPath();
-      g.moveTo(s.line[0], s.line[1] + dy);
-      for (let i = 2; i < s.line.length; i += 2) g.lineTo(s.line[i], s.line[i + 1] + dy);
+      g.moveTo(s.line[0] + dx, s.line[1] + dy);
+      for (let i = 2; i < s.line.length; i += 2) g.lineTo(s.line[i] + dx, s.line[i + 1] + dy);
       g.stroke();
     }
   };
-  stroke(0.35, 'rgba(150,156,162,0.35)', 0.8);   // faint shadow-side hairline
-  stroke(0, 'rgba(244,246,248,0.95)', 1);         // the white crack
+  if (ink) stroke(0.12, 0.26, 'rgba(36,38,42,0.8)', 1.45);   // the inked underside
+  else stroke(0, 0.35, 'rgba(150,156,162,0.35)', 0.8);        // faint shadow-side hairline
+  stroke(0, 0, 'rgba(246,248,250,0.97)', 1);                   // the white crack
   return c;
+}
+
+// --- fractures in thin ice under a weight (thinice.js) ---------------------------------------
+// Not a nest: a few long, decisive fractures shooting out from round the feet, straight runs with
+// a sharp kink now and then and the odd split; with opt.ring, short cross-cracks joining the
+// spokes at about that radius (the ice breaking round, the last warning). White with an ink
+// underside. opt = { n spokes, L: [min, max] length, from: start radius, ring: radius or 0 }.
+// on(x, y): where a crack may run (it stops at the edge of the thin ice). -> { c, x, y, w, h }
+export function fracturePatch(cx, cy, opt, seed, on) {
+  const r = rng(seed >>> 0), segs = [], spokes = [];
+  const n = opt.n, a0 = r() * TAU;
+  let x0 = cx, y0 = cy, x1 = cx, y1 = cy;
+  const grow = (x, y) => { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; };
+  for (let k = 0; k < n; k++) {
+    const a = a0 + (k / n) * TAU + (r() - 0.5) * (TAU / n) * 0.7;
+    const L = opt.L[0] + (opt.L[1] - opt.L[0]) * r();
+    const pts = [], line = [];
+    let d = opt.from ?? 1.5, dir = a;
+    let x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * SQ;
+    line.push(x, y); pts.push([x, y, d]);
+    // a sharp kink or two along it (never dead straight), at random points
+    const k1 = (opt.from ?? 1.5) + L * (0.25 + 0.3 * r()), k2 = r() < 0.5 ? L * (0.6 + 0.25 * r()) : Infinity;
+    let kinked = 0;
+    while (d < L) {
+      const st = Math.min(2 + r() * 2, L / 3);
+      d += st; dir += (r() - 0.5) * 0.14;
+      if (kinked === 0 && d >= k1) { dir += (r() < 0.5 ? 1 : -1) * (0.35 + 0.4 * r()); kinked = 1; }
+      else if (kinked === 1 && d >= k2) { dir += (r() < 0.5 ? 1 : -1) * (0.3 + 0.3 * r()); kinked = 2; }
+      x += Math.cos(dir) * st; y += Math.sin(dir) * st * SQ;
+      if (on && !on(x, y)) break;
+      line.push(x, y); pts.push([x, y, d]); grow(x, y);
+    }
+    if (line.length < 4) continue;
+    // tapered: the outer part of it drawn finer, the last stretch finer still
+    const np = line.length / 2, c1 = Math.max(2, Math.round(np * 0.55)), c2 = Math.max(c1 + 1, Math.round(np * 0.82));
+    segs.push({ line: line.slice(0, c1 * 2), w: 1.25 });
+    if (c1 < np) segs.push({ line: line.slice((c1 - 1) * 2, Math.min(np, c2) * 2), w: 0.85 });
+    if (c2 < np) segs.push({ line: line.slice((c2 - 1) * 2), w: 0.5 });
+    spokes.push({ a, pts });
+    if (pts.length > 4 && r() < 0.5) {       // a split part way out
+      const q = pts[2 + ((r() * (pts.length - 3)) | 0)], b = dir + (r() < 0.5 ? 1 : -1) * (0.35 + r() * 0.4), l2 = L * (0.25 + r() * 0.2);
+      const ln = [q[0], q[1]];
+      let bx = q[0], by = q[1], bd = 0, bdir = b;
+      while (bd < l2) { const st = 2 + r() * 2; bd += st; bdir += (r() - 0.5) * 0.15; bx += Math.cos(bdir) * st; by += Math.sin(bdir) * st * SQ; if (on && !on(bx, by)) break; ln.push(bx, by); grow(bx, by); }
+      if (ln.length >= 4) segs.push({ line: ln, w: 0.85 });
+    }
+  }
+  if (opt.ring && spokes.length > 1) {
+    spokes.sort((p, q) => p.a - q.a);
+    for (let k = 0; k < spokes.length; k++) {
+      const A = spokes[k], B = spokes[(k + 1) % spokes.length];
+      const pa = A.pts.find(p => p[2] >= opt.ring * (0.8 + 0.4 * r())) || A.pts[A.pts.length - 1];
+      const pb = B.pts.find(p => p[2] >= opt.ring * (0.8 + 0.4 * r())) || B.pts[B.pts.length - 1];
+      if (Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) > opt.ring * 2.2) continue;
+      const mx = (pa[0] + pb[0]) / 2 + (r() - 0.5) * 1.5, my = (pa[1] + pb[1]) / 2 + (r() - 0.5) * 1.2;
+      segs.push({ line: [pa[0], pa[1], mx, my, pb[0], pb[1]], w: 0.8 });
+    }
+  }
+  const x = x0 - 3, y = y0 - 3, w = x1 - x0 + 6, h = y1 - y0 + 6;
+  return { c: render(segs, x, y, w, h, true), x, y, w, h };
 }
 
 // --- static patches per tile ------------------------------------------------------------

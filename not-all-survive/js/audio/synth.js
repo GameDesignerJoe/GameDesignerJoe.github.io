@@ -756,6 +756,7 @@ export function fall(ctx, B, out, t, o = {}) {
   sb.frequency.setValueAtTime(R(1800, 2400), st); sb.frequency.exponentialRampToValueAtTime(R(900, 1300), st + sd);
   chain(ss, sb, sg, out);
   sg.gain.setValueAtTime(0, st); sg.gain.linearRampToValueAtTime(0.35 * s + 0.1, st + 0.05); sg.gain.linearRampToValueAtTime(0, st + sd);
+  if (o.fatal) return 1;                               // (no breath after it)
   const bt = t + R(0.35, 0.5), bl = R(0.6, 0.9);
   breath(ctx, B, out, bt, { inhale: false, len: bl, level: 0.8 });
   breath(ctx, B, out, bt + bl + 0.1, { inhale: true, len: R(0.5, 0.7), level: 0.5, shaky: 0.8 });
@@ -934,4 +935,68 @@ export function growl(ctx, B, out, t, o = {}) {
   chain(m, lp, mg, out);
   mg.gain.setValueAtTime(0, t); mg.gain.linearRampToValueAtTime(0.12 * lvl, t + dur * 0.3); mg.gain.linearRampToValueAtTime(0, t + dur);
   return dur + 0.1;
+}
+
+// ---------------------------------------------------------------- falls, injury, thin ice (slice 5)
+// A grunt: a short voiced push of breath from the chest (a low buzz through two vowel bands and a
+// breathy band of noise), falling in pitch. Close: it's your own throat.
+export function grunt(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1.2), d = R(0.16, 0.26) * (0.8 + 0.4 * lvl), f0 = R(105, 135);
+  const v = osc(ctx, 'sawtooth', f0, t, d), env = gain(ctx);
+  v.frequency.setValueAtTime(f0 * 1.12, t); v.frequency.exponentialRampToValueAtTime(f0 * 0.78, t + d);
+  formants(ctx, v, env, [[R(480, 620), 4, 0.9], [R(1000, 1300), 5, 0.45], [R(2300, 2700), 7, 0.15]]);
+  const n = src(ctx, B.pinkM, t, d), nb = filt(ctx, 'bandpass', R(900, 1300), 0.9), ng = gain(ctx, 0.5);
+  chain(n, nb, ng, env);
+  env.connect(out);
+  env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(0.32 * lvl, t + 0.025);
+  env.gain.setTargetAtTime(0, t + d * 0.55, d * 0.25);
+  return d + 0.15;
+}
+// Landing hard from a height: the body hitting the snow (a deep, dead thump and the snow giving),
+// a sharp dry crack on top (high, short: the leg), and the grunt knocked out of them; a fatal one
+// has no breath after it.
+export function impact(ctx, B, out, t, o = {}) {
+  const s = clamp(o.strength ?? 0.6, 0, 1);
+  noiseBurst(ctx, B, out, t, 'lowpass', R(90, 130), 0.8, 3.4 * (0.6 + 0.4 * s), 0.006, 0.38);
+  noiseBurst(ctx, B, out, t + 0.005, 'lowpass', R(500, 800), 0.7, 0.9, 0.006, 0.25);
+  noiseBurst(ctx, B, out, t + 0.012, 'highpass', R(2200, 3200), 0.9, 1.1 * (0.4 + 0.6 * s), 0.0006, 0.018);
+  noiseBurst(ctx, B, out, t + 0.016, 'bandpass', R(1500, 2200), 3, 0.8 * s, 0.0008, 0.035);
+  if (!o.fatal) grunt(ctx, B, out, t + R(0.06, 0.1), { strength: 0.7 + 0.5 * s });
+  else noiseBurst(ctx, B, out, t + 0.1, 'bandpass', R(500, 700), 1.5, 0.25, 0.01, 0.25);   // only the air going out of them
+  return 1;
+}
+// A scuffing drag of a boot through snow (the hurt leg).
+export function scuff(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.5, 0, 1), d = R(0.12, 0.2);
+  const n = src(ctx, B.whiteM, t, d), bp = filt(ctx, 'bandpass', R(1200, 1700), 1.3), g = gain(ctx);
+  bp.frequency.exponentialRampToValueAtTime(R(500, 700), t + d);
+  chain(n, bp, g, out);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.28 * lvl, t + d * 0.3); g.gain.linearRampToValueAtTime(0, t + d);
+  return d + 0.05;
+}
+// Thin ice giving way: a huge crack, the slab breaking up (a crash of grainy bursts), and the
+// slosh of the water coming up through it.
+export function breakthrough(ctx, B, out, t) {
+  crack(ctx, B, out, t, { strength: 1 });
+  noiseBurst(ctx, B, out, t, 'lowpass', 120, 1, 2.6, 0.004, 0.45);
+  const n = 7 + ((Math.random() * 5) | 0);
+  for (let i = 0; i < n; i++) noiseBurst(ctx, B, out, t + R(0.02, 0.35), 'bandpass', R(1500, 4500), 1.6, R(0.25, 0.6), 0.001, R(0.02, 0.06));
+  splash(ctx, B, out, t + 0.12, { strength: 1.3 });
+  return 1.6;
+}
+// Binding a leg: cloth pulled round and round (a rising rustle), and at the end the knot pulled
+// tight with a hiss through the teeth.
+export function wrap(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.5, 0, 1), d = R(0.25, 0.4);
+  const n = src(ctx, B.pinkM, t, d), bp = filt(ctx, 'bandpass', R(2000, 2800), 1.2), g = gain(ctx);
+  bp.frequency.linearRampToValueAtTime(R(3000, 3800), t + d);
+  chain(n, bp, g, out);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.3 * lvl, t + d * 0.6); g.gain.linearRampToValueAtTime(0, t + d);
+  if (o.tight) {
+    const h = src(ctx, B.whiteM, t + d, 0.35), hb = filt(ctx, 'bandpass', R(4500, 6000), 2), hg = gain(ctx);
+    chain(h, hb, hg, out);
+    hg.gain.setValueAtTime(0, t + d); hg.gain.linearRampToValueAtTime(0.12 * lvl, t + d + 0.05); hg.gain.linearRampToValueAtTime(0, t + d + 0.35);
+    return d + 0.45;
+  }
+  return d + 0.05;
 }

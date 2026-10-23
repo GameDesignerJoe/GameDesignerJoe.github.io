@@ -191,8 +191,9 @@ function kick(x, y, weight = 1) {
 
 export function update(dt) {
   updateSlides(dt);
-  for (const e of state.events) if (e.type === 'fall') {
-    // Knocked flat: a burst of snow at the explorer.
+  for (const e of state.events) if (e.type === 'fall' && !(e.drop > 0)) {
+    // Knocked flat: a burst of snow at the explorer. (Not for a fall off a wall: explorer.js throws
+    // its own, smaller burst there, so the body isn't hidden as it lands.)
     const x = e.x ?? state.player.x, y = e.y ?? state.player.y, st = Math.min(1.5, e.strength ?? 1);
     const a = state.wind.angle;
     for (let i = 0; i < 12; i++) {

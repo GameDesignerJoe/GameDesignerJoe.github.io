@@ -48,6 +48,11 @@ export function initMenu() {
         <button data-act="rest">Rest me</button>
       </div>
       <div class="row">
+        <button data-act="hurt">Hurt me</button>
+        <button data-act="heal">Heal me</button>
+        <button data-act="breakice">Break ice</button>
+      </div>
+      <div class="row">
         <button data-act="starve">Starve me</button>
         <button data-act="feed">Feed me</button>
         <button data-act="fill">Fill pack</button>
@@ -85,7 +90,8 @@ export function initMenu() {
       + `wet ${b.wet.toFixed(2)}  rime ${(b.frozen || 0).toFixed(2)}  shock ${(b.shock || 0).toFixed(2)}
 energy ${b.energy.toFixed(2)}/${(b.max ?? 1).toFixed(2)}  ${(b.drain > 0 ? '-' : '+')}${Math.abs((b.drain || 0) * 60).toFixed(3)}/min
 `
-      + `reserve ${(b.reserve ?? 1).toFixed(2)}  injury ${b.injury.toFixed(2)}  in water ${P.water?.level ?? 0}
+      + `reserve ${(b.reserve ?? 1).toFixed(2)}  in water ${P.water?.level ?? 0}
+injury ${b.injury.toFixed(2)}${b.splint ? ' splinted' : ''}  ice stress ${(P.iceStress || 0).toFixed(2)}${state.holes?.some(h => h.ro > 0) ? `  holes ${state.holes.filter(h => h.ro > 0).length}` : ''}
 `
       + `food ${b.food.toFixed(2)}  -${((b.foodRate || 0) * 60).toFixed(3)}/min  water ${b.water.toFixed(2)}
 `
@@ -124,6 +130,9 @@ sled ${packText(state.sled)}
     if (act === 'dry') { state.dry?.(); showBody(); }
     if (act === 'tire') { state.tire?.(); showBody(); }
     if (act === 'rest') { state.rest?.(); showBody(); }
+    if (act === 'hurt') { state.hurt?.(); showBody(); }
+    if (act === 'heal') { state.heal?.(); showBody(); }
+    if (act === 'breakice') { state.breakIce?.(); panel.hidden = true; }
     if (act === 'starve') { state.starve?.(); showBody(); }
     if (act === 'feed') { state.feed?.(); showBody(); }
     if (act === 'fill') { state.fillPack?.(); showBody(); }

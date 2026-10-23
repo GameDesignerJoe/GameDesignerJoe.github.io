@@ -36,8 +36,10 @@ export const state = {
     exposure: 0,            // 0..1, how exposed to wind they are (weather.js may read)
     // explorer.js owns it: 'walk' | 'approach' (walking to a climb or the tent door) | 'climb' |
     // 'refuse' | 'down' (knocked over) | 'cower' | 'tent-in' / 'inside' (hidden) / 'tent-out' |
-    // 'collapse' / 'dead' (died of cold) | 'swim' (out of their depth in open water) |
-    // 'sink' (died in the water: slips under, no body) | 'gone' (the expedition is over)
+    // 'collapse' / 'dead' (died of cold, or a fatal fall: crumpled) | 'swim' (out of their depth
+    // in open water, or in a hole in the ice, heaving at its edge) | 'crawlout' (heaved out of a
+    // hole: belly-down away from it) | 'sink' (died in the water: slips under, no body) |
+    // 'gone' (the expedition is over)
     mode: 'walk',
     // explorer.js also adds water = { level: 0 land | 1 wading | 2 deep, depth, zW } and
     // lostAtSea (true once they've gone under)
@@ -48,7 +50,8 @@ export const state = {
     // explorer.js also writes, for body.js / audio: push (0..1, pushing on and getting somewhere
     // this frame), headwind (0..1, how much of it into the wind), pant (0..1, how blown) and
     // breathPh (0..1, the panting clock: breath in from 0, out from 0.5), resting (stopped bent
-    // double), spent (energy gone: sat in the snow) and crawl (spent but crawling on)
+    // double), spent (energy gone: sat in the snow) and crawl (spent but crawling on),
+    // badLeg (1 right / -1 left: the hurt one) and iceStress (thin-ice stress under the feet)
   },
 
   // weather.js owns these; everyone else reads them. It also adds weather.phase,
@@ -87,22 +90,38 @@ export const state = {
   // name is history), which explorer.js reads for the rummage / kneel / eat poses.
   // body.js adds state.body = { warmth, wet, energy, reserve, injury, food, water } (0..1; hidden,
   // no bars; reserve is the day's fatigue and caps energy at body.max), drain (energy / s), frozen (rime on wet clothes, <= wet) and shock (cold-water gasp),
+  // splint (the hurt leg is bound: the limp costs half the pace until the next injury),
   // hunger (0..1 below food 0.3), foodRate (food / s) and dizzy (0..1, a lightheaded moment), plus body.phase ('alive' | 'dying' | 'iris' | 'black' | 'open' | 'over' | 'sleep') and
   // body.sleepHold; state.party = [{ name, alive, x, y }] x 4 and state.member (who's playing).
   // wildlife.js adds state.bear (the polar bear: x, y, ...).
   // fallen.js adds state.fallen = [{ x, y, facing, name, snow, pack }]: the dead, where they lie,
   // with the pack they died with (pack = { slots }; none if the sea took them).
+  // thinice.js adds state.holes = [{ x, y, r, ro, age, freeze, ... }]: holes broken through thin
+  // ice (ro the open radius, shrinking to 0 as it refreezes); terrain.isWater / waterDepth read it.
 
   // One-frame event bus. Push { type, x, y, ... } during update(); systems later in the
   // update order see it the same frame, then main.js clears it. Known types:
   //   step  { x, y, terrain, foot: 'L'|'R', weight }     (explorer -> footprints, audio)
   //   bark / howl / whine  { x, y }                       (camp dogs -> audio)
   //   penguin / bear       { x, y, kind }                 (wildlife -> audio)
-  //   crack { x, y, strength }                            (thin ice -> audio)
+  //   crack { x, y, strength, stress? }  thin ice cracking under a weight (stress: the stress
+  //                                   under the feet), or a hole's edge breaking off (thinice -> audio)
+  //   creak { x, y, strength }        thin ice starting to bear the weight (thinice -> audio)
+  //   breakthrough { x, y, r }        thin ice gave way: a hole (thinice -> audio; the plunge follows)
+  //   heave { x, y, stage: 'pull'|'break'|'slip'|'out', axes }   heaving out of a hole: a pull (costs
+  //                                   energy), the edge breaking off, sliding back, out onto the ice
+  //                                   (explorer -> body, audio)
   //   avalanche { x, y }                                  (weather -> audio)
   //   axe  { x, y, hand: 'L'|'R' }    ice axe strike while climbing   (explorer -> audio)
   //   kick { x, y, foot: 'L'|'R' }    crampon kick into the ice face  (explorer -> audio)
-  //   fall { x, y, strength }         knocked off the feet by wind    (explorer -> audio, weather)
+  //   fall { x, y, strength, drop, fatal }   knocked off the feet by wind, or off a wall (drop: px
+  //                                   fallen) (explorer -> audio, weather)
+  //   impact { x, y, height, severity, fatal }   landed hard from a wall (15+ px): the jolt, the
+  //                                   flinch, the crack and grunt; fatal (55+ px) kills (explorer -> body, audio)
+  //   injury { x, y, amount, cause: 'fall'|'knock'|'slip', quiet }   hurt (explorer -> body, audio)
+  //   splint { x, y, stage: 'start'|'wrap'|'done'|'stop' }   binding the hurt leg (pack -> audio)
+  //   vertigo { x, y }                on a wall, past the height that kills: a look down (explorer -> audio)
+  //   peel / replant { x, y }         a gust peeling them off the wall / a tap driving the axes back in (explorer -> audio)
   //   shove { x, y, strength }        staggered back by a gust        (explorer -> audio)
   //   gear { item, on, auto }         e.g. snowshoes strapped on / off (pack -> explorer, audio)
   //   rummage { x, y, target? }       started digging in the pack (or the sled / a body / a pile) (pack)
@@ -116,7 +135,7 @@ export const state = {
   //   arrive { x, y }                 walked to the container a press sent them to (explorer -> pack)
   //   tent { action: 'in'|'out'|'sleep'|'wake', x, y }   crawled in / out, held to sleep, morning
   //                                   (explorer -> body; body pushes 'wake')
-  //   death { x, y, cause: 'cold', member }               the body gave out (body -> anyone)
+  //   death { x, y, cause: 'cold'|'water'|'fall', member }   the body gave out (body -> anyone)
   //   handover { x, y, facing, member, name, sprite, pack }    the next member takes over; sprite is the
   //                                   still of the body left behind, pack its slots (null: lost at sea) (body -> fallen)
   //   expedition { over: true }       all four are dead (body)
@@ -129,7 +148,8 @@ export const state = {
   //   drip { x, y }                   water dripping off wet clothes (explorer -> audio)
   //   step.wet                        0..1 on step events: soaked boots leave darker prints
   //   step.drag                       0..1 on step events: worn-out boots drag between prints
-  //   refuse { x, y, reason }         won't start a climb: 'wind' | 'gear' | 'tired' (explorer)
+  //   step.limp, step.bad             0..1, and true on the hurt leg's steps: it drags, prints smear
+  //   refuse { x, y, reason }         won't start a climb: 'wind' | 'gear' | 'tired' | 'hurt' (explorer)
   //   rest  { x, y }                  worn out: stopped, hands on knees, a heavy breath out (explorer -> audio)
   //   tired { x, y }                  energy gone: sat down in the snow until it comes back (explorer -> audio)
   //   pant  { x, y, inhale, len, strength }   one ragged breath while blown (explorer -> audio)
