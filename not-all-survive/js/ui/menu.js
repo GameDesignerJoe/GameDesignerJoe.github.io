@@ -8,6 +8,7 @@ const BASE_CAMP = { x: 1360, y: 1560 };
 const GEAR = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8.4 4.6.9-1.1-.9-1.1-2-.3a6.8 6.8 0 0 0-.6-1.4l1.2-1.7-.4-1.4-1.4-.4-1.7 1.2a6.8 6.8 0 0 0-1.4-.6l-.3-2-1.1-.9-1.1.9-.3 2a6.8 6.8 0 0 0-1.4.6L7 4.5l-1.4.4-.4 1.4 1.2 1.7c-.3.4-.5.9-.6 1.4l-2 .3-.9 1.1.9 1.1 2 .3c.1.5.3 1 .6 1.4l-1.2 1.7.4 1.4 1.4.4 1.7-1.2c.4.3.9.5 1.4.6l.3 2 1.1.9 1.1-.9.3-2c.5-.1 1-.3 1.4-.6l1.7 1.2 1.4-.4.4-1.4-1.2-1.7c.3-.4.5-.9.6-1.4l2-.3Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
 
 export function initMenu() {
+  try { state.reduceMotion = localStorage.getItem('nas_reduceMotion') === '1'; } catch { state.reduceMotion = false; }
   const gear = document.createElement('button');
   gear.id = 'gear';
   gear.setAttribute('aria-label', 'Menu');
@@ -30,6 +31,7 @@ export function initMenu() {
       </select>
     </label>
     <button data-act="perf">Performance overlay</button>
+    <button data-act="motion">Reduce motion: off</button>
     <div class="body-dbg">
       <pre data-act="bodyinfo"></pre>
       <div class="row">
@@ -40,6 +42,10 @@ export function initMenu() {
       <div class="row">
         <button data-act="soak">Soak me</button>
         <button data-act="dry">Dry me</button>
+      </div>
+      <div class="row">
+        <button data-act="tire">Tire me</button>
+        <button data-act="rest">Rest me</button>
       </div>
     </div>
     <a href="editor/" target="_blank" rel="noopener">Terrain editor ↗</a>`;
@@ -60,6 +66,7 @@ export function initMenu() {
     panel.querySelector('[data-act="bright"]').textContent = `Bright day: ${bf === null ? 'auto' : bf ? 'on' : 'off'}`;
     sel.value = state.quality.mode === 'auto' ? 'auto' : state.quality.level;
     soundBtn.textContent = `Sound: ${state.audio?.muted ? 'off' : 'on'}`;
+    panel.querySelector('[data-act="motion"]').textContent = `Reduce motion: ${state.reduceMotion ? 'on' : 'off'}`;
   };
 
   // Body debug readout (body.js): refreshed while the menu is open.
@@ -71,7 +78,9 @@ export function initMenu() {
     info.textContent = `warmth ${b.warmth.toFixed(2)}  ${(b.rate * 60 >= 0 ? '+' : '')}${(b.rate * 60).toFixed(3)}/min
 `
       + `wet ${b.wet.toFixed(2)}  rime ${(b.frozen || 0).toFixed(2)}  shock ${(b.shock || 0).toFixed(2)}
-energy ${b.energy.toFixed(2)}  injury ${b.injury.toFixed(2)}  in water ${P.water?.level ?? 0}
+energy ${b.energy.toFixed(2)}/${(b.max ?? 1).toFixed(2)}  ${(b.drain > 0 ? '-' : '+')}${Math.abs((b.drain || 0) * 60).toFixed(3)}/min
+`
+      + `reserve ${(b.reserve ?? 1).toFixed(2)}  injury ${b.injury.toFixed(2)}  in water ${P.water?.level ?? 0}
 `
       + `food ${b.food.toFixed(2)}  water ${b.water.toFixed(2)}
 `
@@ -88,11 +97,19 @@ energy ${b.energy.toFixed(2)}  injury ${b.injury.toFixed(2)}  in water ${P.water
     if (act === 'camp') { returnToCamp(); panel.hidden = true; }
     if (act === 'sound') { state.audio?.setMuted?.(!state.audio.muted); sync(); }
     if (act === 'perf') showOverlay(!state.perfVisible);
+    // Reduce motion: no breathing camera when exhausted (remembered on this device)
+    if (act === 'motion') {
+      state.reduceMotion = !state.reduceMotion;
+      try { localStorage.setItem('nas_reduceMotion', state.reduceMotion ? '1' : '0'); } catch { /* private mode */ }
+      sync();
+    }
     if (act === 'freeze') { state.freeze?.(); showBody(); }
     if (act === 'warm') { state.warm?.(); showBody(); }
     if (act === 'kill') { state.kill?.(); panel.hidden = true; }
     if (act === 'soak') { state.soak?.(); showBody(); }
     if (act === 'dry') { state.dry?.(); showBody(); }
+    if (act === 'tire') { state.tire?.(); showBody(); }
+    if (act === 'rest') { state.rest?.(); showBody(); }
     // Bright day: auto (weather decides) -> on -> off -> auto.
     if (act === 'bright') {
       const L = state.lighting;

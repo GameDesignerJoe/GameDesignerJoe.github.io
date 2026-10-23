@@ -26,7 +26,7 @@ function introFactor() {
 export function updateCamera(dt) {
   const c = state.cam, p = state.player;
   const intro = introFactor();
-  const target = state.params.has('zoom') ? parseFloat(state.params.get('zoom')) : baseZoom() * (c.user || 1) * intro;
+  const target = state.params.has('zoom') ? parseFloat(state.params.get('zoom')) : baseZoom() * (c.user || 1) * intro * (c.rest || 1);   // rest: body.js eases in on a worn-out stop
   // During the reveal the target itself is eased, so follow it tightly.
   const rate = intro < 1 ? 12 : 2;
   c.zoom = c.zoom ? c.zoom + (target - c.zoom) * Math.min(1, dt * rate) : target;
@@ -48,23 +48,38 @@ export function updateCamera(dt) {
   c.y = Math.max(hh, Math.min(MAP_H - hh * 0.8, c.y));
 }
 
+// The view breathes with an exhausted explorer (body.js writes cam.pulse, a small zoom
+// fraction, and cam.dip, screen px down): applied on top of the follow, never eased into it.
+const zoomNow = c => c.zoom * (1 + (c.pulse || 0));
+const offY = c => c.shakeY + (c.dip || 0);
+
 // Applies the world transform to ctx (canvas already scaled for DPR).
 export function applyCamera(ctx) {
-  const c = state.cam;
-  ctx.translate(state.view.w / 2 + c.shakeX, state.view.h / 2 + c.shakeY);
-  ctx.scale(c.zoom, c.zoom);
+  const c = state.cam, z = zoomNow(c);
+  ctx.translate(state.view.w / 2 + c.shakeX, state.view.h / 2 + offY(c));
+  ctx.scale(z, z);
   ctx.translate(-c.x, -c.y);
 }
 
 export function screenToWorld(sx, sy) {
-  const c = state.cam;
+  const c = state.cam, z = zoomNow(c);
   return {
-    x: (sx - state.view.w / 2 - c.shakeX) / c.zoom + c.x,
-    y: (sy - state.view.h / 2 - c.shakeY) / c.zoom + c.y,
+    x: (sx - state.view.w / 2 - c.shakeX) / z + c.x,
+    y: (sy - state.view.h / 2 - offY(c)) / z + c.y,
   };
 }
 
 export function worldToScreen(wx, wy) {
+  const c = state.cam, z = zoomNow(c);
+  return {
+    x: (wx - c.x) * z + state.view.w / 2 + c.shakeX,
+    y: (wy - c.y) * z + state.view.h / 2 + offY(c),
+  };
+}
+
+// The same, ignoring the breathing pulse: for UI pinned to the explorer (the pack, the compass),
+// which mustn't bob with the view.
+export function worldToScreenUI(wx, wy) {
   const c = state.cam;
   return {
     x: (wx - c.x) * c.zoom + state.view.w / 2 + c.shakeX,

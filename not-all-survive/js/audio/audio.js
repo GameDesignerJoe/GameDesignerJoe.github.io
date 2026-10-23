@@ -206,6 +206,26 @@ function handle(e) {
       exertion = 1; nextBreath = time + dur;
       return;
     }
+    // Exhaustion (explorer.js times the panting): ragged breaths whose rate follows energy,
+    // close up (not spatial); a heavy breath out on stopping, bent double; a
+    // long groaning one dropping into the snow, spent.
+    case 'pant': {
+      const k = clamp(e.strength ?? 0.5, 0, 1);
+      if (voices.breath >= LIMIT.breath + 1) return;
+      const len = clamp((e.len || 0.6) * (e.inhale ? 0.8 : 0.95), 0.25, 1.6) * R(0.9, 1.1);
+      const level = (0.35 + 0.75 * k) * (e.inhale ? 0.85 : 1) * (1 + 0.5 * shelter);
+      claim('breath', len);
+      S.breath(ctx, B, bus.breath, t, { inhale: !!e.inhale, len, level, shaky: 0.25 + 0.6 * k, rasp: k });
+      return;
+    }
+    case 'rest': case 'tired': {
+      const big = e.type === 'tired';
+      const root = ctx.createGain(); root.connect(bus.breath);
+      S.breath(ctx, B, root, t, { inhale: false, len: big ? 1.3 : 0.95, level: big ? 1.5 : 1.25, shaky: 0.5, rasp: 1 });
+      if (big) S.slump(ctx, B, bus.steps, t + 0.2, { strength: 0.6 });   // down into the snow
+      setTimeout(() => root.disconnect(), 2500);
+      return;
+    }
     case 'drip': {
       if (voices.ice >= LIMIT.ice) return;
       claim('ice', S.drip(ctx, B, bus.steps, t));
@@ -282,6 +302,8 @@ function updateBreath(dt) {
   target = clamp(Math.max(target, 0.7 * (state.body?.shock || 0), p.mode === 'swim' ? 0.95 : 0), 0, 1);
   exertion += (target - exertion) * Math.min(1, dt * (target > exertion ? 0.25 : 0.06));
   if (time < nextBreath) return;
+  // panting: explorer.js sends every breath as a 'pant' event, in time with the clouds
+  if ((p.pant || 0) >= 0.22 && p.mode !== 'swim') { nextBreath = time + 0.25; return; }
   const period = (4.2 - 2.7 * exertion) * R(0.8, 1.2);
   const len = period * (breathIn ? 0.36 : 0.46) * R(0.8, 1.2);
   // in the lee, with the wind gone, your own breathing comes forward

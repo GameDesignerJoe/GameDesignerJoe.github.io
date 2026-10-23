@@ -178,6 +178,7 @@ export async function init() {
     if (!REGIONS.size) REGIONS = null;
   }
   setBear(bear);
+  state.bear = bear;   // explorer.js: no stopping for breath with the bear close
   for (const [p, n, r, spread] of homes) groups.push(makeGroup(p.x, p.y, n, r, W, { force: forcePeng, spread }));
 }
 

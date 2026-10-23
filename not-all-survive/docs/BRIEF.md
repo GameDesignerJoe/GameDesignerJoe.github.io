@@ -68,14 +68,18 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
   `NAS.freeze(v?)` (warmth to v, or 0.2 colder), `NAS.warm(v = 1)`, `NAS.kill()`,
   `NAS.player.tent()` (walk to the tent and crawl in). The gear menu shows a body readout
   with Freeze me / Warm me / Kill buttons.
+- `?energy=0..1`, `?reserve=0..1` start them that worn out. Hooks `NAS.tire(v?)` (energy to v,
+  or 0.25 lower), `NAS.rest()` (energy and reserve full); the gear menu has Tire me / Rest me
+  and shows energy / its cap, the drain per minute and the reserve.
 
 ## Survival (man vs. environment) — no bars, no HUD
-The plan lives in Joe's survival plan (slices 1–7). Slice 1 is built: the body, the cold,
-the base camp tent, and death handing over to the next expedition member.
+The plan lives in Joe's survival plan (slices 1–7). Slices 1–3 are built: the body, the cold,
+the base camp tent, death handing over to the next expedition member; open water and wet;
+exhaustion.
 
-- **The body** (`js/actors/body.js`): `state.body = { warmth, wet, energy, injury, food, water }`,
-  each 0–1, hidden. Only warmth is live; wet (×4 loss), food (hunger adds to the loss) and
-  energy (feeds the walking heat) are hooked in for the later slices.
+- **The body** (`js/actors/body.js`): `state.body = { warmth, wet, energy, reserve, injury, food, water }`,
+  each 0–1, hidden. Warmth, wet and energy/reserve are live; food (hunger adds to the warmth
+  loss and wears the reserve faster) and injury (caps energy) are hooked in for later slices.
   Warmth loss = `LOSS × (cold × (0.35 + 0.65 × wind exposure))^1.5`, more at night, less
   sheltered (cowering, hunkered in the lee); walking makes heat. Measured (headless, sped up):
   a dry explorer standing in a full blizzard dies in ~2¾–3 min, a wet one in ~45 s; walking in
@@ -143,6 +147,77 @@ the base camp tent, and death handing over to the next expedition member.
   - Measured (headless, sped up): wading only (standing on the shelf, calm day) ~1¾ min;
     deep water ~23 s; wet on land in a blizzard ~42 s; wet on a calm day −0.08 warmth/min standing
     (~12 min) and −0.03/min walking (dry, walking warms you).
+- **Exhaustion** (slice 3). `energy` is the short-term wind (minutes), `reserve` the day's
+  fatigue: it caps how far energy comes back (`body.max = (0.35 + 0.65 × reserve) × (1 − 0.5 ×
+  injury)`), wears down with the work (0.1 per full energy spent) and the hours outside (~0.075
+  per minute: a day and a night out without sleep costs about half), eases back resting in the
+  tent and is restored by sleeping the night there.
+  - **Drain** (body.js `DRAIN`, × how hard they push, × up to 2.1 into a headwind with full
+    exposure): deep snow ~90 s from full, ~4 min on snowshoes; plain snow ~6 min of walking to
+    the stop-start stage; ice light (half again with crampons); a path costs nothing and slowly
+    gives some back. Each axe strike on a climb costs 0.032 (`body.climbHalf`): a ~75 px cliff
+    takes ~60% of full energy, the biggest (~110 px) nearly all of it. Wading is heavy (~2 min),
+    swimming very heavy (~30 s). Shivering costs a little.
+  - **Recovery** (not linear): standing still, 0 → 0.4 in ~15 s, → full in ~60 s in calm air; far
+    slower cold, wet or in a gale; cowering a little less; in the tent ~15 s. The stops bent
+    double on the way give back only about the breath they cost (×0.12): standing still on purpose
+    is the real rest.
+  - **The body** (`explorer.js`): below ~0.5 the stride shortens, the feet drag (lower lift),
+    bent further over, head down, arms barely swinging, each step heavier and slower. Worn out,
+    they stop by themselves on a legible ramp (never in the water, never with the bear within
+    ~60): once as energy passes 0.2, again at 0.12 and 0.06, then every ~7 s of pushing (~5 s near
+    the end): bent double, hands braced on the knees, the back heaving (input ignored ~2–2.7 s). Standing still worn out (< 0.3), they bend double of their own accord after
+    ~1.5 s. At 0 they sit down in the snow huddled: knees drawn up together, arms wrapped round
+    them inside the coat, the hood bowed onto the knees, the coat a rounded mound over it all with
+    only the two grey boot soles peeking out at its front edge, a contact shadow under the seat
+    and the rucksack lost in the coat (turning a little toward the camera as they go down, so it
+    reads from any side). They stay down until energy is back
+    to ~0.2, unless pushed on: then up onto hands and knees, crawling at a quarter pace (crawling
+    neither costs nor gives back energy). The tent can be tapped from sat within ~15 units: they
+    crawl to it. Sitting spent in the cold: no walking heat and +30% warmth loss (exhaustion feeds
+    the cold; it never kills on its own). In the water there is no stopping and no sitting: at 0
+    the wade or the swim is just weak and slow. Routes (to the tent, a climb) wait out the stops
+    and their give-up clock runs at the pace they can manage.
+  - **Climbing**: sized up first: refused if energy < 0.2 or < 1.15 × the wall's estimated cost
+    (capped at 0.98, so the biggest walls stay possible fresh): axe strikes = (route length − 17,
+    where the top-out takes over) / step × `climbHalf`, plus hanging between moves (`body.hang` ×
+    moves × 1.5 s × tiredness^1.2, tiredness taken two-thirds of the way up). A climb allowed to
+    start finishes (`refuse` reason `'tired'`: a long look up the wall, then
+    the head drops and the shoulders sag). On the wall low energy slows every move, makes them
+    hang between taps (up to ~1.5 s, taps wait) and shakes the arms; at 0 the arms shake hard for
+    a second and the grip goes (the usual tear-off and fall), and they end up sat where they land.
+    Swimming: the thrash weakens. A worn reserve shows standing about: sagging, head low, slow
+    weight shifts.
+  - **Panting**: one breathing clock (`explorer.js updatePant`, `player.pant` / `player.breathPh`)
+    times the breath clouds (big, fast, one per breath, shown in any cold), the heaving chest and
+    shoulders, the ragged breath sounds (`pant` events, a throaty rasp layer), and the screen.
+  - **Screen** (`body.js`): never darkness (the cold owns the ink edge). The edges of sight go
+    soft and faintly washed, swelling at the end of each breath out (the frame so far shrunk to
+    1/6, never under 128 px a side, laid back outside a clear middle round the explorer; drawn in
+    body.js drawScreen, so the night grade, the pack / compass UI, the frost and the cold's ink
+    stay crisp). From ~0.4 energy, strong at 0. Only once they've stopped (bent double, sat
+    spent, or standing still under 0.3), the view breathes too: up to 0.6% zoom on each breath in
+    (`cam.pulse`, camera.js; `cam.dip` is left at 0). The gear menu's Reduce motion (saved on the
+    device, `state.reduceMotion`) turns the pulse off. On a deliberate worn-out stop (sat spent,
+    or stood still under 0.3 for over a second; not the brief stops on the way) the camera also
+    eases in once by 18% and holds, easing back out after ~1.5 s of walking on (`cam.rest`, a
+    multiplier on the follow zoom: the player's pinch zoom stands; crawling keeps it close; not
+    with Reduce motion). UI pinned to the explorer uses
+    `camera.worldToScreenUI`, which ignores the pulse.
+  - **Footprints**: tired boots drag: in deep snow each hole is smeared back into a ploughed
+    tail and joined to that boot's last print by a churned groove; on plain snow a short broken
+    scuff runs on from the last toe (`step.drag`). Crawling leaves no boot prints.
+  - **Sound**: ragged breaths at the panting rate, a heavy breath out on each stop bent double
+    (`rest`), a long groaning one and a soft thump sitting down spent (`tired`).
+  - Measured (headless, sped up, calm day, full reserve): deep snow 88 s of walking to empty
+    (98 s with the stops); on snowshoes ~250 s; plain snow 259 s of walking to 0.25, then 0.25 → 0
+    in ~2 min (128 s including the stops), ~6½ min in all; standing still 0 → 0.4 in 16 s, → full
+    ~60 s (0.2 in 8 s); tent 15 s; spent in a blizzard (cowering) 0 → 0.2 in ~40 s, death by cold
+    at ~157 s. A day and a night (300 s) walking about outside: reserve 1 → 0.51, energy cap 1 →
+    0.68. Cliff at (1460, 1490), ~74 px: 58% of full, estimate 0.585, threshold 0.673 (started at
+    0.68 it finished with 0.10 left); at (1490, 1500), ~110 px: 94% (estimate 0.93: only fresh,
+    finishing with 0.06). Camera pulse at most 0.51% zoom (~6.5 px at the edge of a 2560 px
+    screen), only when stopped; the rest zoom-in 18%.
 - **Death and the party**: warmth 0 → collapse (kneel, slump, lie face down) → the ink iris
   closes onto the body, holds a beat, closes → cut to base camp: the next of the four crawls
   out of the tent as the iris opens. The body stays where it fell for the run

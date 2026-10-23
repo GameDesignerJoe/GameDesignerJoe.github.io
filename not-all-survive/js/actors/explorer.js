@@ -90,6 +90,28 @@ const approach = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate
 
 // body.js warmth (1 = fine, 0 = dead of cold); 1 when the body system isn't loaded
 const warmth = () => (state.body ? state.body.warmth : 1);
+// body.js energy (short-term wind) and reserve (the day's fatigue); 1 without the body system
+const energy = () => (state.body ? state.body.energy : 1);
+const reserve = () => (state.body ? state.body.reserve ?? 1 : 1);
+// how worn out it shows: nothing above energy 0.5, all of it at 0
+const tiredK = () => Math.pow(smooth(0.5, 0, energy()), 1.15);
+// the pace they can keep up, relative to fresh (route give-up clocks run on it)
+const paceK = () => (spent ? 0.25 : 1 - 0.45 * tiredK());
+
+// --- exhaustion (body.js energy) ---------------------------------------------------------------
+// Below ~0.5 the stride shortens and drags; below ~0.25 they stop by themselves now and then,
+// hands on knees, head down, heaving (restT, input ignored); standing still worn out (< 0.3)
+// they bend double on their own after a moment. At 0 they sit down in the snow (spent) until
+// energy is back to ~0.2; pushing on from there gets them onto hands and knees, crawling at a
+// quarter pace (they can still crawl to the tent). Never in the water: there it only slows them. The panting is one breathing cycle
+// (pantPh 0..1: in, then out from 0.5) at a rate set by how blown they are (pant 0..1): it
+// times the breath clouds, the heaving chest, the 'pant' sound events, and (player.pant /
+// player.breathPh) body.js's screen pulse.
+let restT = 0, restW = 0, spent = false, sitW = 0, pant = 0, pantPh = 0, fallSpent = false;
+// spent but pushed on anyway: up onto hands and knees, crawling at a quarter pace (crawlW blends it)
+let crawlW = 0, crawlPh = 0, sitDone = false;
+const STOP_AT = [0.2, 0.12, 0.06];   // energy at which a worn-out stop comes (then a steady beat)
+let stopStage = 0, stopGap = 0, tentCrawl = false;
 
 // --- open water (terrain.isWater) ----------------------------------------------------------------
 // level 0 land, 1 wading (within WADE_D of land: the paler shelf lakes.js draws), 2 deep
@@ -200,6 +222,7 @@ function resetTo(x, y) {
   shoveT = 0; shoveV = 0; slipT = 0; staggerT = 0; downT = 0; refT = 0;
   cowerW = 0; hunkerW = 0; idleT = 0; rockHit = null; shadowOff = 0; stampOn = 0;
   kneelW = 0; faltT = 0; colT = 0; tentT = 0; tentFade = 1; pressT = -1; strapT = 0; axeReachT = 0;
+  restT = 0; restW = 0; spent = false; sitW = 0; fallSpent = false; crawlW = 0;
   pose.shiver = 0; pose.coldShake = 0; pose.hug = 0; shiverOn = 0;
   water.level = 0; water.depth = 0; water.zW = 0; hesT = 0; commit = null; hesMem = null; sinkT = 0; dryRoute = null;
   drips.length = 0; P.lostAtSea = false; swimSide = 1;
@@ -284,6 +307,9 @@ export function update(dt) {
   pose.windAmt = approach(pose.windAmt, clamp(smooth(0.15, 0.95, wEff) * 0.9 + gust * 0.5), 4, dt);
   envW = { wa, ws, gust, wEff, windPose, shelter };
 
+  P.push = 0; P.headwind = 0;                    // how hard they're working (walking sets it)
+  P.resting = restT > 0;                         // a stop to get the breath back (body.js: only a gasp's worth)
+  updatePant(dt);
   // the body gives out (body.js): down where they stand
   if (state.body?.phase === 'dying' && P.mode !== 'collapse' && P.mode !== 'dead' && P.mode !== 'sink') startCollapse();
   if (P.mode === 'gone') { P.exposure = 0; P.sheltered = 1; P.speed = 0; P.moving = false; return; }
@@ -299,7 +325,7 @@ export function update(dt) {
   if (P.mode === 'climb') { updateClimb(dt); finishFrame(dt, 'rock', 0, wEff, wa); return; }
   if (P.mode === 'down') { updateDown(dt); finishFrame(dt, ter, 0, wEff, wa); return; }
   if (P.mode === 'refuse') { updateRefuse(dt); finishFrame(dt, ter, 0, wEff, wa); return; }
-  ovrW = approach(ovrW, 0, 5, dt);
+  ovrW = approach(ovrW, crawlW > 0.02 ? crawlW : 0, crawlW > 0.02 ? 6 : 5, dt);
 
   // --- intent ----------------------------------------------------------------------------
   let ix = inp.x, iy = inp.y;
@@ -308,12 +334,15 @@ export function update(dt) {
     // follow the waypoints round any rock, then the last leg to the route
     while (route.path && route.path.length > 1 && Math.hypot(route.path[0].x - P.x, route.path[0].y - P.y) < 4) route.path.shift();
     // no progress for a while (a gust shoved us into a corner): plan again from here
-    route.stuckT = P.speed < 1.5 && approachT > 0.5 ? (route.stuckT || 0) + dt : 0;
+    // (not while stopped for breath or sat spent: that's not being stuck)
+    const halted = restT > 0 || (spent && crawlW < 0.5);
+    route.stuckT = !halted && P.speed < 1.5 * paceK() && approachT > 0.5 ? (route.stuckT || 0) + dt : 0;
     if (route.stuckT > 1.2) { route.path = route.avoid ? findPath(P.x, P.y, route.walkTo.x, route.walkTo.y, true, 7, 150) : findPath(P.x, P.y, route.walkTo.x, route.walkTo.y); route.stuckT = 0; }
     const wp = route.path && route.path.length > 1 ? route.path[0] : route.walkTo;
     const dRoute = Math.hypot(route.walkTo.x - P.x, route.walkTo.y - P.y);
     const dx = wp.x - P.x, dy = wp.y - P.y, d = Math.max(0.001, Math.hypot(dx, dy));
-    approachT += dt;
+    // the give-up clock runs at the pace they can manage, and not at all while stopped
+    if (!halted) approachT += dt * paceK();
     // arrived (or about to step past it this frame, or pressed against the rock right by it)
     if (dRoute < Math.max(1.4, P.speed * dt * 1.5) || (approachT > 0.6 && dRoute < 5 && P.speed < 1)) { if (route.kind === 'tent') beginTentIn(); else beginClimb(); finishFrame(dt, ter, 0, wEff, wa); return; }
     if (approachT > route.limit) { P.mode = 'walk'; route = null; }
@@ -378,6 +407,40 @@ export function update(dt) {
   const warm = warmth();
   if (P.mode === 'walk' && faltT <= 0 && Math.hypot(ix, iy) > 0.05 && rand() < dt * 0.22 * smooth(0.17, 0.04, warm)) faltT = 2.2 + rand() * 1.2;
   if (faltT > 0) { faltT -= dt; ix = 0; iy = 0; }
+  // Exhaustion (body.js energy): worn out, they stop by themselves now and then to get their
+  // breath back, hands on knees; with nothing left at all they sit down in the snow and stay
+  // down until some of it comes back (in the shallows there's nowhere to sit: they stand bent).
+  const en = energy();
+  const pushing = Math.hypot(ix, iy) > 0.05 && (P.mode === 'walk' || P.mode === 'approach');
+  // (no stopping for breath in the water, or with the bear close)
+  const bear = state.bear, bearNear = !!bear && Math.hypot(bear.x - P.x, bear.y - P.y) < 60;
+  // A legible ramp, not a dice roll: one stop as energy passes 0.2, another at 0.12, another
+  // at 0.06, then every ~7 s of pushing below that (~5 s near the end). They only catch the
+  // breath they cost (body.js), so the slide to empty goes on: standing still on purpose is the
+  // real rest, and sitting spent is what comes of not taking it.
+  if (en > STOP_AT[0] + 0.05) stopStage = 0;
+  else if (stopStage > 0 && en > STOP_AT[stopStage - 1] + 0.05) stopStage--;
+  if (pushing && restT <= 0 && !spent && !water.level && !bearNear) {
+    if (stopStage < STOP_AT.length && en < STOP_AT[stopStage]) { stopStage++; stopGap = 0; startRest(1.8 + 0.3 * stopStage); }
+    else if (stopStage >= STOP_AT.length) {
+      stopGap += dt;
+      if (stopGap > (en < 0.03 ? 6 : 8)) { stopGap = 0; startRest(2.2); }
+    }
+  }
+  if (!spent && en <= 0.001 && !water.level && (P.mode === 'walk' || P.mode === 'approach' || P.mode === 'cower')) {
+    spent = true; restT = 0;
+    if (P.mode === 'cower') P.mode = 'walk';
+    state.events.push({ type: 'tired', x: P.x, y: P.y });
+  }
+  if (spent && (en >= 0.2 || water.level)) spent = false;
+  if (water.level) restT = 0;
+  if (restT > 0) { restT -= dt; ix = 0; iy = 0; }
+  // spent and pushing on: up onto hands and knees (the first ~0.6 s is the effort of it)
+  // (only once they're down: holding on through the moment it runs out still drops them)
+  if (!spent) sitDone = false; else if (sitW > 0.85) sitDone = true;
+  const crawling = spent && sitDone && Math.hypot(ix, iy) > 0.05;
+  crawlW = approach(crawlW, crawling ? 1 : 0, crawling ? 2.2 : 3, dt);
+  if (spent && crawlW < 0.6) { ix = 0; iy = 0; }
   const mag = Math.min(1, Math.hypot(ix, iy));
   const active = mag > 0.05;
   const wantDir = active ? Math.atan2(iy / KY, ix) : P.facing;
@@ -390,6 +453,9 @@ export function update(dt) {
   if (slipT > 0) spd *= 0.5;
   spd *= lerp(0.42, 1, smooth(0.05, 0.45, warm));   // numb, heavy legs
   spd *= 1 - 0.2 * (state.body?.frozen || 0);        // clothes frozen stiff
+  const tk = tiredK();
+  spd *= 1 - 0.45 * tk;                              // worn out: shorter, heavier strides
+  if (spent) spd = BASE_SPEED * sf * mag * 0.25 * smooth(0.6, 1, crawlW);   // crawling: a quarter pace
   // a steady push back toward the interior, stronger the deeper in
   // (not while walking a planned route to a climb: the path already threads the rock)
   const drift = fa > 0 && P.mode !== 'approach' ? fa * (2.5 + 7 * fa) : 0;
@@ -426,6 +492,11 @@ export function update(dt) {
   P.x = nx; P.y = ny;
   P.speed = Math.hypot(P.x - ox, P.y - oy) / dt;
   P.moving = P.speed > 0.6;
+  // the work of it, for body.js: pushing on and getting somewhere, and how much of it into the wind
+  if (P.moving && active && !spent) { P.push = mag; P.headwind = into * wEff; }
+  P.crawl = crawlW > 0.5;   // body.js: crawling spent neither costs nor gives back
+  P.spent = spent;
+  if (crawlW > 0.02) { crawlPh += P.speed * dt * 1.6; ovr = crawlPose(1, crawlPh, clamp(P.speed / 1.2)); }
 
   // --- facing -----------------------------------------------------------------------------
   if (active) {
@@ -450,14 +521,14 @@ export function update(dt) {
   if (pose.gait > 0.02) phase += (walkSpeed * tentMod * dt) / (2 * Math.max(0.6, strideProj));
   if (phase >= 1) phase -= 1;
   const crossed = f => (prev < f && phase >= f) || (f === 0 && phase < prev);
-  if (pose.gait > 0.25) {
+  if (pose.gait > 0.25 && crawlW < 0.5) {
     if (crossed(0)) footDown('L', prof, ter);
     if (crossed(0.5)) footDown('R', prof, ter);
   }
 
   // --- pose targets ---------------------------------------------------------------------------
   const r = Math.min(1, dt * 3.2);
-  for (const key of POSE_KEYS) pose[key] += (prof[key] - pose[key]) * r;
+  for (const key of POSE_KEYS) pose[key] += (tiredTarget(key, prof[key], tk) - pose[key]) * r;
   if (hesT > 0) { pose.hunch = approach(pose.hunch, 1.15, 7, dt); pose.spread = approach(pose.spread, 0.3, 5, dt); }
 
   const g = pose.gait, idle = 1 - smooth(0.1, 0.5, g);
@@ -479,7 +550,8 @@ export function update(dt) {
 
   // --- idle life: weight shifts, slow looks, shivers, foot stamps ----------------------------
   shiftT -= dt;
-  if (shiftT <= 0) { shiftT = 2 + rand() * 2; shiftTarget = -shiftTarget; }
+  // (a worn reserve: slower, heavier weight shifts)
+  if (shiftT <= 0) { shiftT = (2 + rand() * 2) * (1 + 1.2 * smooth(0.55, 0.1, reserve())); shiftTarget = -shiftTarget; }
   pose.shift = approach(pose.shift, shiftTarget * idle, 2.2, dt);
   lookT -= dt;
   if (lookT <= 0) {
@@ -519,7 +591,7 @@ export function update(dt) {
   // --- numb feet: stumbles once the cold is deep ---------------------------------------------
   if (P.mode === 'walk' && active && staggerT <= 0 && rand() < dt * 0.45 * smooth(0.36, 0.1, warm)) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
   // --- wind knockdowns: in a real storm, out in the open, now and then ------------------------
-  if (P.mode === 'walk' && shoveT <= 0 && cowerW < 0.3) {
+  if (P.mode === 'walk' && shoveT <= 0 && cowerW < 0.3 && !spent) {
     const storm = Math.max(smooth(0.62, 0.9, ws) * smooth(0.4, 0.85, gust) * (1 - smooth(0.25, 0.6, shelter)), smooth(0.55, 1, fa) * 1.6);
     const slickK = ter === 'ice' || ter === 'thin' ? 2 : 1;
     if (storm > 0 && rand() < storm * slickK * dt / 110) startFall(storm);
@@ -552,11 +624,50 @@ export function update(dt) {
   updateWaterFx(dt);
 }
 
+// Worn out (tk 0..1): the stride shortens and the feet barely clear the snow (they drag),
+// bent further over, head down, the arms hardly swing, and each step lands heavier.
+function tiredTarget(key, v, tk) {
+  if (tk <= 0) return v;
+  switch (key) {
+    case 'step': return v * (1 - 0.35 * tk);
+    case 'lift': return v * (1 - 0.6 * tk);
+    case 'lean': return v + 0.22 * tk;
+    case 'hunch': return v + 0.5 * tk;
+    case 'swing': return v * (1 - 0.7 * tk);
+    case 'bob': return v + 0.14 * tk;
+    case 'crouch': return v + 0.18 * tk;
+    case 'sink': return v + 0.15 * tk;
+    default: return v;
+  }
+}
+function startRest(dur) {
+  restT = dur;
+  state.events.push({ type: 'rest', x: P.x, y: P.y });
+}
+// The panting clock (see restT above): rate and depth from energy, with a floor from a worn
+// reserve (it never quite settles) and a push while stopped bent over or sat in the snow.
+function updatePant(dt) {
+  const hidden = P.mode === 'inside' || P.mode === 'gone' || P.mode === 'dead' || P.mode === 'collapse' || P.mode === 'sink' || P.lostAtSea;
+  const want = hidden ? 0 : Math.max(smooth(0.6, 0.04, energy()), restT > 0 || spent ? 0.85 : 0, 0.2 * smooth(0.55, 0.1, reserve()));
+  pant = approach(pant, want, want > pant ? 1.2 : 0.5, dt);
+  const prev = pantPh;
+  pantPh += dt * lerp(0.26, 1.05, pant);
+  if (pantPh >= 1) pantPh -= 1;
+  P.pant = pant; P.breathPh = pantPh;
+  if (pant < 0.22 || hidden || P.mode === 'tent-in' || P.mode === 'tent-out' || P.mode === 'swim') return;   // (a swimmer gasps: audio.js)
+  const len = 0.5 / lerp(0.26, 1.05, pant);
+  if (prev < 0.5 && pantPh >= 0.5) {
+    state.events.push({ type: 'pant', x: P.x, y: P.y, inhale: false, len, strength: pant });
+    exhale(pant);
+  } else if (pantPh < prev) state.events.push({ type: 'pant', x: P.x, y: P.y, inhale: true, len, strength: pant });
+}
+
 // Shared tail for the special modes (climb, down): no walking, but breath, particles and
 // the hem spring keep running.
 function finishFrame(dt, ter, g, wEff, wa) {
   P.speed = 0; P.moving = false;
   pose.gait = approach(pose.gait, 0, 6, dt);
+  restT = 0; restW = approach(restW, 0, 5, dt); sitW = approach(sitW, spent ? 1 : 0, spent ? 1.8 : 5, dt);
   hemS.f = approach(hemS.f, 0, 4, dt); hemS.r = approach(hemS.r, 0, 4, dt); hemS.z = approach(hemS.z, 0, 4, dt);
   updateBreath(dt, ter, Math.max(g, 0.8), wEff, wa);
   updateKicks(dt);
@@ -606,8 +717,11 @@ function handleActions() {
   }
   if (P.mode !== 'walk' && P.mode !== 'cower') return;
   // the tent: a tap on it (or Space/E by its door) walks to the door and crawls in
-  if (tap && campInteract(tap.x, tap.y) === 'tent') { goToTent(); inp.tap = null; return; }
-  if (act && nearDoor()) { goToTent(); inp.action = null; return; }
+  // (spent, only from close by: ~15 units, crawling)
+  const reachTent = !spent || Math.hypot(P.x - tentDoor().fx, P.y - tentDoor().fy) < 15;
+  if (tap && reachTent && campInteract(tap.x, tap.y) === 'tent') { goToTent(); inp.tap = null; return; }
+  if (act && reachTent && nearDoor()) { goToTent(); inp.action = null; return; }
+  if (spent) return;   // no climbing from sat in the snow
   if (tap && tapClimb(tap)) inp.tap = null;
   if (act && tryClimb(Math.cos(P.facing), Math.sin(P.facing) * KY)) inp.action = null;
 }
@@ -735,9 +849,21 @@ const climbWindy = () => envW.ws + envW.gust > 0.8;
 function beginClimb() {
   // no axes and crampons (or a gale): reach for the wall, look up, shake the head, back off
   if (climbWindy() || !hasClimbGear()) { startRefuse(!hasClimbGear() ? 'gear' : 'wind'); return; }
+  // too worn out to start up a wall: look up at it, then hang the head
+  // (not enough left for this wall: ~one axe strike per D of route, body.climbHalf each)
   const b = route.bottom, t = route.top;
   const L = Math.max(6, Math.hypot(t.x - b.x, t.y - b.y));
   const D = (H * ROUTE_K) / clamp(-(t.y - b.y) / L, 0.35, 1);
+  // plus hanging between moves when tired (body.hang / s, up to 1.5 s a move): with a margin,
+  // so a climb they're allowed to start is one they can finish (falls get lethal in slice 5)
+  // (one axe strike per D of route, until the lip is in reach ~17 above the boots and the
+  // top-out takes over: lipAbove; tiredness taken as it will be about two-thirds of the way up)
+  const moves = Math.max(1, (L - 17) / D), strikes = moves * (state.body?.climbHalf ?? 0);
+  const tkUp = Math.pow(smooth(0.5, 0, energy() - 0.65 * strikes), 1.15);
+  const cost = strikes + (state.body?.hang ?? 0) * moves * 1.5 * Math.pow(tkUp, 1.2);
+  climbCostEst = cost;
+  // (capped so the very biggest walls stay possible fresh and fully rested)
+  if (energy() < 0.2 || energy() < Math.min(cost * 1.15, 0.98)) { startRefuse('tired'); return; }
   const sMax = Math.max(0, L - 3);
   climb = {
     L, D, sMax, dir: { x: (t.x - b.x) / L, y: (t.y - b.y) / L },
@@ -745,6 +871,7 @@ function beginClimb() {
     up: route.up, stage: route.up ? 'cycle' : 'lower', t: route.up ? 0 : 1, pc: 0,
     base: route.up ? 0 : sMax, s: route.up ? 0 : L, run: 0, dirn: 1, queued: 0,
     slipT: 0, slipFoot: 1, side: 1, from: null, windT: 0, vs: 0, lock: route.up ? 1 : -1,
+    restT: 0, spentT: 0,
   };
   P.mode = 'climb'; P.climbStage = climb.stage; P.climbHold = false;
   P.vx = P.vy = 0;
@@ -755,7 +882,7 @@ function beginClimb() {
 function climbRequest(dir) {
   const c = climb;
   if (!c) return;
-  if (c.stage !== 'cycle' || c.run > 0) { if (c.stage !== 'torn' && c.stage !== 'off') c.queued = dir; return; }
+  if (c.stage !== 'cycle' || c.run > 0 || c.restT > 0) { if (c.stage !== 'torn' && c.stage !== 'off') c.queued = dir; return; }
   startRun(dir);
 }
 function startRun(dir) {
@@ -832,11 +959,14 @@ function climbPose() {
     const reachK = smooth(0.1, PH.swing[1], pc) * (1 - cp.u);
     // hanging between taps: heavy breathing, a slow sway, axes planted
     const hold = c.run === 0 ? 1 : 0;
-    const br = hold * Math.sin(t * Math.PI * 2 / 1.5);
+    const br = hold * lerp(Math.sin(t * Math.PI * 2 / 1.5), -Math.cos(pantPh * Math.PI * 2), smooth(0.15, 0.5, pant)) * (1 + 1.5 * pant);
+    // worn out, the arms shake (hard once there's nothing left)
+    const tr = (0.35 * tiredK() + 0.65 * smooth(0, 1, c.spentT)) * (0.4 + 0.6 * hold);
+    const shake = (v, k) => tr > 0.01 ? [v[0] + Math.sin(t * 41 + k) * 0.12 * tr, v[1] + Math.sin(t * 47 + k * 2) * 0.18 * tr, v[2] + Math.sin(t * 37 + k * 3) * 0.2 * tr] : v;
     return {
-      hz: 7.6 - 0.3 * e - slip * 0.5 + br * 0.16, leanF: 0.12 + 0.12 * e - br * 0.03,
-      leanS: sway + slip * c.slipFoot * 0.12 + c.side * 0.06 * reachK + hold * Math.sin(t * 1.05) * 0.05,
-      feet: cp.feet, hands: cp.hands,
+      hz: 7.6 - 0.3 * e - slip * 0.5 + br * 0.16 + Math.sin(t * 43) * 0.08 * tr, leanF: 0.12 + 0.12 * e - br * 0.03,
+      leanS: sway + slip * c.slipFoot * 0.12 + c.side * 0.06 * reachK + hold * Math.sin(t * 1.05) * 0.05 + Math.sin(t * 39) * 0.03 * tr,
+      feet: cp.feet, hands: [shake(cp.hands[0], 0), shake(cp.hands[1], 1.7)],
       poleA: CLIMB_POLE_A, poleL: CLIMB_POLE_L,
       hemAttach: 0, facePitch: -0.3 + hold * 0.15, full: true, axes: 1,
       shrug: [c.side < 0 ? reachK : 0, c.side > 0 ? reachK : 0],
@@ -932,7 +1062,11 @@ function updateClimb(dt) {
   ovrW = approach(ovrW, 1, 7, dt);
   P.facing = wrapPi(P.facing + clamp(wrapPi(c.face - P.facing), -8 * dt, 8 * dt));
   if (c.slipT > 0) c.slipT -= dt;
-  const slow = 1 - 0.3 * envW.windPose;
+  const tk = tiredK();
+  const slow = (1 - 0.3 * envW.windPose) * (1 - 0.4 * tk);   // worn out: every move slower
+  // nothing left: the arms shake, then the grip goes (~1 s) and they fall
+  c.spentT = c.stage === 'cycle' && energy() <= 0.001 ? c.spentT + dt : 0;
+  if (c.spentT > 1.0 && tearOff()) fallSpent = true;   // (and they stay down, spent, where they land)
   // strong wind on the wall: the longer they hang in it, the likelier a gust tears them off
   const w = envW.ws + envW.gust;
   c.windT = w > 0.7 ? c.windT + dt : Math.max(0, c.windT - dt * 0.5);
@@ -951,6 +1085,7 @@ function updateClimb(dt) {
       }
       if (dirn > 0 && c.pc >= 1) {
         c.pc = 0; c.base += c.D; c.side = -c.side; c.run--;
+        if (c.run === 0) c.restT = 1.5 * Math.pow(tk, 1.2);   // worn out: hang there a while between moves
         c.s = c.base;
         if (c.base >= c.sMax || lipAbove()) { c.from = cyclePose(0, c.side); c.stage = 'mantle'; c.t = 0; c.base = c.sMax; c.run = 0; }
       }
@@ -958,7 +1093,10 @@ function updateClimb(dt) {
         c.pc = 0; c.run--;
         if (c.run > 0) { if (c.base < c.D * 0.6) stepOff(); else beginDownHalf(); }
       }
-      if (c.stage === 'cycle' && c.run === 0 && c.queued) startRun(c.queued);
+      if (c.stage === 'cycle' && c.run === 0 && c.queued && c.restT <= 0) startRun(c.queued);
+    } else if (c.restT > 0) {
+      c.restT -= dt;
+      if (c.restT <= 0 && c.queued) startRun(c.queued);
     }
     if (c.stage === 'cycle') c.s = clamp(c.base + c.D * smooth(PH.pull[0], PH.pull[1], clamp(c.pc)), 0, c.L);
   } else if (c.stage === 'mantle' || c.stage === 'lower') {
@@ -998,9 +1136,9 @@ function endClimb() {
 }
 
 // --- refusing a climb in a gale: reach for the wall, look up into the wind, back off -----------------
-let refT = 0, refFace = 0;
+let refT = 0, refFace = 0, refWhy = 'wind', climbCostEst = 0;
 function startRefuse(reason = 'wind') {
-  P.mode = 'refuse'; refT = 0;
+  P.mode = 'refuse'; refT = 0; refWhy = reason;
   refFace = Math.atan2((route.top.y - route.bottom.y) / KY, route.top.x - route.bottom.x);
   route = null;
   state.events.push({ type: 'refuse', x: P.x, y: P.y, reason });
@@ -1012,8 +1150,12 @@ function updateRefuse(dt) {
   const turn = smooth(0.95, 1.5, refT);
   const want = refFace + (Math.cos(refFace) >= 0 ? 1 : -1) * Math.PI * 0.8 * turn;
   P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -6 * dt, 6 * dt));
-  const reach = smooth(0.1, 0.5, refT) * (1 - smooth(0.85, 1.2, refT));
-  const shake = refT > 1.1 && refT < 1.9 ? Math.sin((refT - 1.1) * 16) * 0.55 * Math.sin(clamp((refT - 1.1) / 0.8) * Math.PI) : 0;
+  // worn out ('tired'): no reach and no head shake; a long look up the wall, then the head
+  // drops and the shoulders sag, and they turn away from it
+  const tired = refWhy === 'tired';
+  const reach = smooth(0.1, 0.5, refT) * (1 - smooth(0.85, 1.2, refT)) * (tired ? 0.25 : 1);
+  const shake = !tired && refT > 1.1 && refT < 1.9 ? Math.sin((refT - 1.1) * 16) * 0.55 * Math.sin(clamp((refT - 1.1) / 0.8) * Math.PI) : 0;
+  const sag = tired ? smooth(0.95, 1.35, refT) * (1 - smooth(2.2, 2.6, refT)) : 0;
   const walkK = smooth(1.5, 1.7, refT) * (1 - smooth(2.4, 2.6, refT));
   if (walkK > 0) {
     const st = 4.5 * walkK * dt, nx = P.x - Math.cos(refFace) * st, ny = P.y - Math.sin(refFace) * st * KY;
@@ -1021,11 +1163,11 @@ function updateRefuse(dt) {
   }
   const ph = Math.sin(refT * Math.PI * 2 * 1.6) * walkK;
   ovr = {
-    hz: 7.9 - 0.3 * reach - 0.15 * Math.abs(ph), leanF: 0.05 + 0.12 * reach + 0.12 * walkK, leanS: envW.gust * 0.1,
+    hz: 7.9 - 0.3 * reach - 0.15 * Math.abs(ph) - 0.5 * sag, leanF: 0.05 + 0.12 * reach + 0.12 * walkK + 0.3 * sag, leanS: envW.gust * 0.1,
     feet: [[0.3 * reach + 1.1 * ph, -1, Math.max(0, ph) * 0.6], [0.5 * reach - 1.1 * ph, 1, Math.max(0, -ph) * 0.6]],
     hands: [mix([0.3, -1.9, 8.2], [1.2, -2.2, 10.6], reach * 0.5), mix([0.3, 1.9, 8.2], [2.0, 2.5, 15.2], reach)],
     poleA: [[-0.5, -1, -0.5], [-0.5, 1, -0.5]], poleL: [[1, -0.15, 0.1], [1, 0.15, 0.1]],
-    hemAttach: 0, facePitch: lerp(0.15, -0.5, smooth(0.2, 0.6, refT) * (1 - smooth(1.0, 1.4, refT))) + 0.2 * smooth(1.6, 2.0, refT), faceYaw: shake,
+    hemAttach: 0, facePitch: lerp(0.15, -0.5, smooth(0.2, 0.6, refT) * (1 - smooth(1.0, 1.4, refT))) + 0.2 * smooth(1.6, 2.0, refT) + 0.85 * sag, faceYaw: shake,
     full: reach > 0.2, axes: 0,
   };
   P.vx = P.vy = 0;
@@ -1075,6 +1217,8 @@ function updateDown(dt) {
     hemAttach: lerp(A.hem, B.hem, k), facePitch: 0.4, full: true, axes: 0,
   };
   P.vx = downV.x; P.vy = downV.y;
+  // fallen off a wall with nothing left: instead of getting up, they end up sat in the snow
+  if (fallSpent && downT > 2.2) { fallSpent = false; spent = true; state.events.push({ type: 'tired', x: P.x, y: P.y }); }
   if (downT >= 3.4) { P.mode = 'walk'; P.vx = P.vy = 0; }
 }
 
@@ -1084,9 +1228,22 @@ function updateCower(dt, active) {
   const wo = state.weather.whiteout ?? 0;
   const storm = wo > 0.45 || envW.wEff > 0.78;
   // the deep cold (warmth < 0.2) puts them on one knee instead, hugging themselves
-  const kneel = (warmth() < 0.2 && !active && idleT > 1.0) || faltT > 0;
+  const kneel = ((warmth() < 0.2 && !active && idleT > 1.0) || faltT > 0) && !spent;
   kneelW = approach(kneelW, kneel ? 1 : 0, kneel ? 2.2 : 3, dt);
-  const want = !active && idleT > 0.8 && storm && P.mode !== 'approach' && shoveT <= 0 && !kneel && !water.level;
+  // worn out: bent double for a few breaths; spent: down into the snow (slowly, heavily)
+  // stood still worn out (< 0.3), they bend double of their own accord after a moment
+  const volRest = !active && idleT > 1.5 && energy() < 0.3 && !water.level && !spent && cowerW < 0.3 && kneelW < 0.3 && P.mode === 'walk';
+  const bend = restT > 0 || volRest;
+  restW = approach(restW, bend ? 1 : 0, bend ? 4 : 2.5, dt);
+  const sitting = spent && crawlW < 0.5;
+  sitW = approach(sitW, sitting ? 1 : 0, sitting ? 1.8 : 3, dt);
+  // sitting down they come round toward the camera a little (legs out toward the viewer:
+  // it reads as sitting from anywhere)
+  if (sitting && sitW < 0.9) {
+    const want = Math.PI / 2 + clamp(wrapPi(P.facing - Math.PI / 2), -0.7, 0.7);
+    P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -2.5 * dt, 2.5 * dt));
+  }
+  const want = !active && idleT > 0.8 && storm && P.mode !== 'approach' && shoveT <= 0 && !kneel && !water.level && !spent && restT <= 0;
   cowerW = approach(cowerW, want ? 1 : 0, want ? 1.4 : 4.5, dt);
   if (cowerW > 0.5 && P.mode === 'walk') P.mode = 'cower';
   if (cowerW < 0.3 && P.mode === 'cower') P.mode = 'walk';
@@ -1149,6 +1306,7 @@ function goToTent() {
 function canSleep() { const L = state.lighting; return L.mode === 'cycle' && L.night > 0.5 && L.clock >= 180; }
 function nearDoor() { const d = tentDoor(); return Math.hypot(P.x - d.fx, P.y - d.fy) < 12; }
 function beginTentIn() {
+  tentCrawl = crawlW > 0.5;   // crawled here: stay down, straight on in
   route = null; P.mode = 'tent-in'; tentT = 0; tentFrom = { x: P.x, y: P.y };
   P.vx = P.vy = 0;
   if (state.compass && state.compass.phase !== 'idle') state.compass.phase = 'idle';
@@ -1177,7 +1335,7 @@ function updateTent(dt) {
   const inward = Math.atan2(-d.out.y / KY, -d.out.x);
   if (P.mode === 'tent-in') {
     P.facing = wrapPi(P.facing + clamp(wrapPi(inward - P.facing), -5 * dt, 5 * dt));
-    const k = smooth(0.2, 0.95, tentT);           // down onto hands and knees
+    const k = tentCrawl ? 1 : smooth(0.2, 0.95, tentT);   // down onto hands and knees
     const m = smooth(0.95, 2.25, tentT);          // and in through the door
     P.x = lerp(tentFrom.x, d.x, m); P.y = lerp(tentFrom.y, d.y, m);
     tentFade = 1;
@@ -1315,7 +1473,7 @@ function swimPose(t, k, side = 1) {
 let strokeT = 0, swimSide = 1;
 function updateSwim(dt, wEff) {
   const inp = state.input;
-  const k = 0.35 + 0.65 * smooth(0.02, 0.3, warmth());   // strength left
+  const k = (0.35 + 0.65 * smooth(0.02, 0.3, warmth())) * (1 - 0.5 * tiredK());   // strength left (the cold, exhaustion)
   const mag = Math.min(1, Math.hypot(inp.x, inp.y));
   swimT += dt * (3.2 + 2.5 * mag) * (0.5 + 0.5 * k);
   const want = mag > 0.05 ? Math.atan2(inp.y / KY, inp.x) : P.facing;
@@ -1508,7 +1666,9 @@ function footDown(foot, prof, ter) {
   const jf = (rand() - 0.5) * 0.7, jr = (rand() - 0.5) * 0.3;   // no two strides quite alike
   const x = P.x + (S + jf) * c - s * (st + jr) * sn;
   const y = P.y + ((S + jf) * sn + s * (st + jr) * c) * KY;
-  const weight = prof.weight * (0.6 + 0.4 * pose.gait);
+  const weight = prof.weight * (0.6 + 0.4 * pose.gait) * (1 + 0.3 * tiredK());
+  // worn out, the boots no longer clear the snow: footprints.js scores drag marks between prints
+  const drag = smooth(0.32, 0.05, energy());
   if (ter === 'water') {
     // wading: a splash, drops thrown up, a ring spreading from the leg
     state.events.push({ type: 'splash', x, y, strength: 0.4 + 0.4 * clamp(water.depth / WADE_D) });
@@ -1516,7 +1676,7 @@ function footDown(foot, prof, ter) {
     ring(x, y, 1, 5, 1.1);
     return;
   }
-  state.events.push({ type: 'step', x, y, terrain: ter, foot, weight, angle: P.facing, shoe: shoesOn(), cramp: crampOn(), wet: state.body?.wet || 0 });
+  state.events.push({ type: 'step', x, y, terrain: ter, foot, weight, angle: P.facing, shoe: shoesOn(), cramp: crampOn(), wet: state.body?.wet || 0, drag });
   if ((ter === 'ice' || ter === 'thin') && slipT <= 0 && rand() < (ter === 'ice' ? 0.09 : 0.05) * (crampOn() ? 0.15 : 1)) { slipT = 0.9; slipSide = s; }
   const shoe = shoesOn();
   if (ter === 'deep' && !shoe && staggerT <= 0 && rand() < 0.1) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
@@ -1545,38 +1705,44 @@ function updateKicks(dt) {
 
 // --- breath vapour -----------------------------------------------------------------------------
 let faceWorld = { x: 0, y: 0, z: 13 };
+let breathX = 0, breathW = 0;
+// One exhale. Breath shows with the cold (weather.cold 0..1, colder at night and in wind):
+// barely an occasional wisp when mild, a clear puff every exhale from ~0.6, dense clouds past
+// 0.85. pk: panting (0..1): blown, every breath is a big cloud driven hard out of the hood,
+// whatever the air.
+function exhale(pk) {
+  const cold = clamp(state.weather.cold ?? 0.4), exert = breathX * (1 - pk), wEff = breathW;
+  const faint = smooth(0.3, 0.03, warmth());
+  if (!(cold >= 0.3 || pk > 0.3 || rand() < 0.3)) return;
+  // one plume per exhale (plus a second, thinner one when it's bitter), leaving the face
+  // opening, stretching downwind and tearing into curls. Exerting: small and quick; standing
+  // in hard cold: big, slow and long-lived; panting: big and fast, one after another.
+  const n = 1 + (cold > 0.75 || pk > 0.6 ? 1 : 0) + (cold > 0.88 ? 1 : 0);
+  const fa = P.facing + pose.torsoYaw + pose.headYaw;
+  const fc = Math.cos(fa), fs = Math.sin(fa);
+  const size = (0.55 + 0.9 * cold + smooth(0.85, 1, cold) * 0.5) * (1 - 0.4 * exert) * lerp(1, 0.6, faint) * (1 + 0.9 * pk);
+  for (let i = 0; i < n; i++) {
+    const v = (2.0 + exert * 3.5) * (1 + 0.8 * pk);
+    puffs.push({
+      x: faceWorld.x + fc * 0.9, y: faceWorld.y + fs * 0.9 * KY, z: faceWorld.z - 0.1 * i,
+      vx: fc * v + P.vx * 0.6, vy: fs * v * KY + P.vy * 0.6, vz: 0.12 * cold,
+      age: -i * 0.12, life: (2.0 + rand() * 1.0) * (0.6 + 0.4 * smooth(0.3, 0.6, cold)) * (1 - 0.3 * exert) * (1 - wEff * 0.25) * (1 - 0.25 * pk),
+      r: (1.1 + rand() * 0.3) * size, a: Math.max(cold < 0.3 ? 0.12 : lerp(0.3, 0.7, smooth(0.3, 0.6, cold)), 0.55 * pk) * (i ? 0.6 : 1),
+      curls: 2 + Math.floor(rand() * 3), seed: rand() * 6.28,
+    });
+  }
+  if (puffs.length > 80) puffs.splice(0, puffs.length - 80);
+}
 function updateBreath(dt, ter, g, wEff, wa) {
   const exert = clamp(g * (ter === 'deep' ? 1 : ter === 'snow' ? 0.6 : ter === 'thin' ? 0.5 : 0.4) + wEff * 0.3);
-  breathStrong = exert;
+  breathStrong = Math.max(exert, pant);
+  breathX = exert; breathW = wEff;
   breathT -= dt;
   const faint = smooth(0.3, 0.03, warmth());       // hypothermia: slow, shallow breaths
-  if (P.mode === 'dead') breathT = 1;
+  if (P.mode === 'dead' || pant >= 0.22) breathT = 1;   // panting: updatePant times each breath
   if (breathT <= 0) {
     breathT = lerp(2.6, 0.9, exert) * (0.85 + rand() * 0.3) * lerp(1, 1.8, faint);
-    // Breath shows with the cold (weather.cold 0..1, colder at night and in wind): barely an
-    // occasional wisp when mild, a clear puff every exhale from ~0.6, dense clouds past 0.85.
-    const cold = clamp(state.weather.cold ?? 0.4);
-    const vis = smooth(0.15, 0.7, cold);
-    if (cold >= 0.3 || rand() < 0.3) {
-      // one plume per exhale (plus a second, thinner one when it's bitter), leaving the face
-      // opening, stretching downwind and tearing into curls. Exerting: small and quick; standing
-      // in hard cold: big, slow and long-lived.
-      const n = 1 + (cold > 0.75 ? 1 : 0) + (cold > 0.88 ? 1 : 0);
-      const fa = P.facing + pose.torsoYaw + pose.headYaw;
-      const fc = Math.cos(fa), fs = Math.sin(fa);
-      const size = (0.55 + 0.9 * cold + smooth(0.85, 1, cold) * 0.5) * (1 - 0.4 * exert) * lerp(1, 0.6, faint);
-      for (let i = 0; i < n; i++) {
-        const v = 2.0 + exert * 3.5;
-        puffs.push({
-          x: faceWorld.x + fc * 0.9, y: faceWorld.y + fs * 0.9 * KY, z: faceWorld.z - 0.1 * i,
-          vx: fc * v + P.vx * 0.6, vy: fs * v * KY + P.vy * 0.6, vz: 0.12 * cold,
-          age: -i * 0.12, life: (2.0 + rand() * 1.0) * (0.6 + 0.4 * smooth(0.3, 0.6, cold)) * (1 - 0.3 * exert) * (1 - wEff * 0.25),
-          r: (1.1 + rand() * 0.3) * size, a: (cold < 0.3 ? 0.12 : lerp(0.3, 0.7, smooth(0.3, 0.6, cold))) * (i ? 0.6 : 1),
-          curls: 2 + Math.floor(rand() * 3), seed: rand() * 6.28,
-        });
-      }
-      if (puffs.length > 80) puffs.splice(0, puffs.length - 80);
-    }
+    exhale(0);
   }
   const wx = Math.cos(wa) * (2 + 10 * wEff), wy = Math.sin(wa) * (2 + 10 * wEff) * KY;
   for (let i = puffs.length - 1; i >= 0; i--) {
@@ -1649,14 +1815,18 @@ function buildRig() {
   const gk = pose.gustKick;
 
   // breathing (bigger at rest), shiver jitter
-  const breathe = Math.sin(t * Math.PI * 2 / lerp(3.4, 1.3, breathStrong)) * lerp(0.25, 0.12, g);
+  // panting: the chest and shoulders heave on the panting clock, up on the breath in, down on
+  // the breath out, deeper the more blown they are
+  const heave = -Math.cos(pantPh * Math.PI * 2), pk = smooth(0.15, 0.5, pant);
+  const breathe = lerp(Math.sin(t * Math.PI * 2 / lerp(3.4, 1.3, breathStrong)) * lerp(0.25, 0.12, g), heave * (0.22 + 0.4 * pant), pk);
+  const droop = smooth(0.55, 0.1, reserve()) * idle;   // a worn reserve: slow, sagging, head low
   const shv = pose.shiver * (0.12 + 0.28 * pose.coldShake);   // hard shivering in the deep cold
   const jitR = shv * Math.sin(t * 71), jitZ = shv * 0.6 * Math.sin(t * 53 + 1);
 
   // Hips: bob, crouch, weight shift, stagger
   const bob = -pose.bob * g * Math.cos(ph2 * 2);
   const sinkNow = pose.sink;
-  const crouch = pose.crouch + idle * 0.1 + pose.brace * 0.3 + pose.hug * 0.15 + slip * 0.4 + stag * 0.3 + pose.shiver * 0.1;
+  const crouch = pose.crouch + idle * 0.1 + pose.brace * 0.3 + pose.hug * 0.15 + slip * 0.4 + stag * 0.3 + pose.shiver * 0.1 + droop * 0.28;
   const shift = pose.shift;
   const sway = shift * 0.42 + g * 0.18 * Math.sin(ph2) - slip * slipSide * 0.5 + wdR * gk * 0.6;
   const hx = wdF * gk * 0.4, hr = sway;
@@ -1682,6 +1852,12 @@ function buildRig() {
   // kneeling in the deep cold: down on one knee, bowed, hugging themselves
   const kw = kneelW;
   if (kw > 0.001) { hz = lerp(hz, 4.3, kw); leanF = lerp(leanF, 0.45, kw); leanS = lerp(leanS, 0, kw); twist = lerp(twist, 0, kw); }
+  // worn out: stopped bent double, hands braced on the knees, the back rising and falling with
+  // each breath; spent: sat huddled in the snow, knees drawn up together, arms wrapped round
+  // them inside the coat, the hood down on the knees, only the boot soles showing in front
+  const resW = restW * (1 - sitW), sitK = sitW;
+  if (resW > 0.001) { hz = lerp(hz, 6.0, resW); leanF = lerp(leanF, 0.74 + 0.05 * heave, resW); leanS = lerp(leanS, 0, resW); twist = lerp(twist, 0, resW); }
+  if (sitK > 0.001) { hz = lerp(hz, 0.5, sitK); leanF = lerp(leanF, 0.5 + 0.04 * heave, sitK); leanS = lerp(leanS, 0, sitK); twist = lerp(twist, 0, sitK); }
   // strapping snowshoes on / off: kneel with the hands at the bindings (a quick bend when the
   // game pulls them off)
   const strK = strapT > 0 ? Math.sin(clamp(1 - strapT / strapDur) * Math.PI) : 0;
@@ -1699,7 +1875,7 @@ function buildRig() {
   const climbW = O && O.full && P.mode === 'climb' ? ow : 0;
   if (O) { hz = lerp(hz, O.hz, ow); leanF = lerp(leanF, O.leanF, ow); leanS = lerp(leanS, O.leanS, ow); twist = lerp(twist, 0, ow); }
   const tf = { cy: Math.cos(twist), sy: Math.sin(twist), cp: Math.cos(leanF), sp: Math.sin(leanF), cr: Math.cos(leanS), sr: Math.sin(leanS), hx, hr, hz };
-  const upZ = breathe + jitZ;
+  const upZ = breathe + jitZ - 0.4 * droop;
   const shoulderC = torsoToBody([0, jitR, SPINE + upZ], tf);
 
   // Legs
@@ -1718,6 +1894,8 @@ function buildRig() {
     let ft = foot, poleL = [1, s * 0.15, 0.1];
     if (cw > 0.001) { ft = mix(ft, [0.9, s * 1.15, 0], cw); poleL = mix(poleL, [1, s * 0.6, 0.2], cw); }
     if (kw > 0.001) { ft = mix(ft, s < 0 ? [-2.9, -0.9, 0.2] : [1.6, 1.25, 0], kw); poleL = mix(poleL, s < 0 ? [1, -0.1, -0.2] : [1, 0.35, 0.3], kw); }
+    if (resW > 0.001) { ft = mix(ft, [-0.3 + (s < 0 ? 0.4 : -0.2), s * 1.5, 0], resW); poleL = mix(poleL, [1, s * 0.3, 0.1], resW); }
+    if (sitK > 0.001) { ft = mix(ft, [3.4, s * 0.5, 0.15], sitK); poleL = mix(poleL, [0.8, s * 0.1, 1], sitK); }
     if (O) { ft = mix(ft, O.feet[s < 0 ? 0 : 1], ow); poleL = mix(poleL, O.poleL[s < 0 ? 0 : 1], ow); }
     if (shK > 0.001 && s === shSide) ft = [ft[0] + wdF * 2.0 * shK, ft[1] + wdR * 2.0 * shK + s * 0.4 * shK, ft[2] + 0.7 * Math.max(0, Math.sin(clamp((1 - shoveT) / 0.3) * Math.PI))];
     foot[0] = ft[0]; foot[1] = ft[1]; foot[2] = ft[2];
@@ -1802,15 +1980,20 @@ function buildRig() {
       handB = mix(handB, hT, CP.out); pole = mix(pole, torsoDir([-0.2, s * 1.1, -0.7], tf), CP.out);
       cpFull = Math.max(cpFull, CP.out);
     }
+    // bent double: the hands braced just above the knees, arms locked straight; sat in the snow:
+    // forearms laid over the drawn-up knees, the mitts hanging past them
+    const kn = legs[s < 0 ? 0 : 1].knee;
+    if (resW > 0.001 && !O) { handB = mix(handB, [kn[0] + 0.35, kn[1] * 1.05, kn[2] + 0.4], resW); pole = mix(pole, torsoDir([-1, s * 0.9, -0.2], tf), resW); }
+    if (sitK > 0.001 && !O) { handB = mix(handB, [kn[0] + 0.45, kn[1] * 0.2, kn[2] - 0.9], sitK); pole = mix(pole, torsoDir([0.2, s * 1, -0.4], tf), sitK); }
     if (O) { handB = mix(handB, O.hands[s < 0 ? 0 : 1], ow); pole = mix(pole, O.poleA[s < 0 ? 0 : 1], ow); }
     const a = ik(shoulder, handB, UPPER_ARM, FOREARM, pole);
-    const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4) || carryW > 0.5 || reachK > 0.3;
+    const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4) || carryW > 0.5 || reachK > 0.3 || (!O && resW > 0.4);   // (sat: the arms stay inside the coat, wrapped round the knees)
     const active = full ? 1 : Math.max(spreadW, pose.hug, Math.max(0, pose.work - 0.3) * 1.4, shieldW, pose.creep);
     arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4, carry: carryW > 0.5 && reachK < 0.3 });
   }
 
   // Head / hood. Thin ice: looking down at the feet.
-  const hunch = pose.hunch + 0.45 * smooth(0.6, 0.15, warmth());   // head sinks into the hood as they chill
+  const hunch = pose.hunch + 0.45 * smooth(0.6, 0.15, warmth()) + 0.55 * droop;   // head sinks into the hood as they chill
   const head = torsoToBody([0.4 + hunch * 0.6, jitR, SPINE + HEAD_UP - 0.1 - hunch * 0.45 + upZ * 1.1], tf);
   const peak = torsoToBody([-0.85 + hunch * 0.5 + wdF * gk * 0.8, wdR * gk * 0.8, SPINE + HEAD_UP + 1.15 + upZ], tf);
   const drape = torsoToBody([-1.1, 0, SPINE - 0.5], tf);
@@ -1818,6 +2001,8 @@ function buildRig() {
   let facePitch = 0.15 + hunch; // head always bowed a little; 1 = looking at the feet
   if (cw > 0.001) facePitch = lerp(facePitch, 0.9, cw);
   if (kw > 0.001) facePitch = lerp(facePitch, 1.0, kw);   // kneeling: head hung
+  facePitch = lerp(facePitch, 1.15, resW);                 // bent double: head down
+  facePitch = lerp(facePitch, 1.3, sitK);                  // sat spent: the hood down on the knees
   facePitch = lerp(facePitch, 0.95, Math.max(CP.rum, CP.out * 0.85, strK));
   if (O) facePitch = lerp(facePitch, O.facePitch, ow);
 
@@ -1878,6 +2063,12 @@ function buildRig() {
     }
     // coat pulled tight when cowering; when lying down it follows the body, not gravity
     if (cw > 0.001) { pf = lerp(pf, hemC[0] + (pf - hemC[0]) * 0.85, cw); pr = lerp(pr, hemC[1] + (pr - hemC[1]) * 0.85, cw); }
+    // sat in the snow: the coat skirt pooled flat on the snow round the hips
+    if (sitK > 0.001) {
+      // (a rounded mound over the drawn-up knees: only the boot soles show at its front edge)
+      const k = 0.9 * sitK;
+      pf = lerp(pf, hx + 0.9 + uf * rf * (uf > 0 ? 1.55 : 1.15), k); pr = lerp(pr, hr + ur * rr * 1.1, k); pz = lerp(pz, 0.15, k);
+    }
     if (O && O.hemAttach > 0) {
       const att = torsoToBody([uf * rf * 0.85, ur * rr * 0.8, -2.3], tf);
       const k = O.hemAttach * ow;
@@ -1893,7 +2084,7 @@ function buildRig() {
     // rummaging: off one shoulder and round the side to the front, held low by the hands
     const k = smooth(0, 1, CP.pack), th = Math.PI * k;
     const c = Math.cos(th), sn = Math.sin(th);
-    const pf = f * c - r * sn + 0.55 * k, prr = f * sn + r * c, pz = z - 1.5 * k + 0.5 * Math.sin(th);
+    const pf = (f * c - r * sn + 0.55 * k) * (1 - 0.35 * resW), prr = f * sn + r * c, pz = z - 1.5 * k + 0.5 * Math.sin(th) + 0.7 * resW;
     pack.push(torsoToBody([pf, prr, pz], tf));
   }
 
@@ -2137,6 +2328,12 @@ function drawFigure(ctx, rig, X, Y) {
   const pr = v => { const w = toWorld(v, yaw); return [X + w.x, Y + w.y - w.z]; };
   const depth = v => toWorld(v, yaw).g;
   const cxBody = pr(rig.hips)[0];
+  if (sitW > 0.05) {
+    // sat in the snow: a dark contact shadow pressed in under the seat
+    const q = pr([rig.hips[0] + 0.8, rig.hips[1], 0]);
+    ctx.beginPath(); ctx.ellipse(q[0] + 0.3, q[1] + 0.35, 3.6, 1.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(62,64,70,${0.32 * sitW})`; ctx.fill();
+  }
 
   // --- legs ---------------------------------------------------------------------------------
   const legs = rig.legs.slice().sort((a, b) => depth(a.ankle) - depth(b.ankle));
@@ -2161,8 +2358,17 @@ function drawFigure(ctx, rig, X, Y) {
     limb(ctx, pts, 0.95, lit ? C.trousersL : C.trousersD, 0.17);
     if (!buried) {
       const fc = [ank[0] - 0.1, ank[1], ank[2] - 0.2];
-      const toe = [ank[0] + 0.7, ank[1], Math.max(L.foot[2] + 0.2, ank[2] - 0.35)];
+      let toe = [ank[0] + 0.7, ank[1], Math.max(L.foot[2] + 0.2, ank[2] - 0.35)];
+      if (sitW > 0.01) toe = mix(toe, [ank[0] + 0.3, ank[1], ank[2] + 0.9], sitW);   // sat: toes up
       limb(ctx, [pr(fc), pr(toe)], 0.95, C.boot, 0.17);
+      if (sitW > 0.5) {
+        // the worn grey soles, turned to the camera
+        const q = pr([ank[0] + 0.55, ank[1], ank[2] + 0.45]);
+        ctx.globalAlpha = smooth(0.5, 0.9, sitW);
+        ctx.beginPath(); ctx.ellipse(q[0], q[1], 0.42, 0.62, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#7a7b7e'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.13; ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
       if (crampOn() && !shoesDrawn()) {
         // crampons: a steel frame under the sole with points at the toe and along the sides
         const sole = k => [lerp(fc[0] - 0.15, toe[0] + 0.2, k), ank[1], lerp(fc[2], toe[2], k) - 0.5];
@@ -2244,11 +2450,12 @@ function drawFigure(ctx, rig, X, Y) {
   }
 
   const packD = depth(rig.pack[4]);
-  if (packD < 0) drawPack(ctx, rig, pr);
+  const packOn = sitW < 0.5;   // (sat huddled: the rucksack is lost in the coat)
+  if (packD < 0 && packOn) drawPack(ctx, rig, pr);
 
   drawCoat(ctx, rig, pr, depth);
 
-  if (packD >= 0) drawPack(ctx, rig, pr);
+  if (packD >= 0 && packOn) drawPack(ctx, rig, pr);
   const out = arms.filter(A => !A.behind && !A.hidden && !A.under && !(A.cp && fromBehind) && A.active > 0.3);
   for (const A of out) if (!A.overHead && A.dh <= headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
   drawHood(ctx, rig, pr);
@@ -2640,4 +2847,4 @@ export function drawScreen(ctx) {
   ctx.fillText(s, 10, state.view.h - 12);
 }
 
-export const _debug = { hes: () => [hesT, commit], dryRoute: () => dryRoute, water, pose, climb: () => climb, route: () => route, ovr: () => ovr, ovrW: () => ovrW, findPath: (...a) => findPath(...a), shoes: () => [shoesOn(), shoesDrawn(), strapT] };
+export const _debug = { restStop: (d = 3) => startRest(d), tired: () => ({ restT, spent, restW, sitW, crawlW, sitDone, pant, pantPh, stopStage, climbCostEst }), hes: () => [hesT, commit], dryRoute: () => dryRoute, water, pose, climb: () => climb, route: () => route, ovr: () => ovr, ovrW: () => ovrW, findPath: (...a) => findPath(...a), shoes: () => [shoesOn(), shoesDrawn(), strapT] };

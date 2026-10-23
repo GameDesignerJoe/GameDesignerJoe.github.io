@@ -5,6 +5,8 @@
 //   ice / thin: faint scuffs                  rock : nothing
 // Prints fill in and fade over time, faster in falling snow and wind. Bounded list, culled.
 // Wet boots (step.wet, body.js, after open water) leave darker, soaked prints.
+// Tired boots (step.drag 0..1, explorer.js, low energy) don't clear the snow: each boot scores
+// a dragged groove from its last print into the next, in deep snow and (fainter) plain snow.
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 
@@ -15,18 +17,25 @@ const RATE = { deep: 1 / 160, snow: 1 / 120, path: 1 / 60, ice: 1 / 16, thin: 1 
 
 const prints = [];
 let last = null; // previous print, for the deep-snow drag furrow
+const lastFoot = { L: null, R: null };   // previous print of each boot, for the tired drag marks
 
 export function update(dt) {
   for (const e of state.events) {
-    if (e.type === 'teleport') { last = null; continue; }   // a new trail, no furrow from the old spot
+    if (e.type === 'teleport') { last = null; lastFoot.L = lastFoot.R = null; continue; }   // a new trail, no furrow from the old spot
     if (e.type !== 'step') continue;
     const t = e.terrain;
-    if (!RATE[t]) { last = null; continue; }
+    if (!RATE[t]) { last = null; lastFoot.L = lastFoot.R = null; continue; }
     const a = e.angle ?? state.player.facing;
     const p = { x: e.x, y: e.y, a, t, foot: e.foot, w: e.weight ?? 0.7, fill: 0, seed: Math.random(), prev: null, shoe: !!e.shoe, cramp: !!e.cramp, wet: Math.min(1, e.wet || 0) };
     if (t === 'deep' && last && last.t === 'deep' && Math.hypot(last.x - p.x, last.y - p.y) < 9) p.prev = { x: last.x, y: last.y };
+    const lf = lastFoot[p.foot];
+    const drag = Math.min(1, e.drag || 0);
+    if (drag > 0.08 && (t === 'deep' || t === 'snow') && !p.shoe && lf && lf.t === t && Math.hypot(lf.x - p.x, lf.y - p.y) < 12) {
+      p.drag = { x: lf.x, y: lf.y, a: lf.a, k: drag };
+    }
     prints.push(p);
     last = p;
+    lastFoot[p.foot] = p;
   }
   if (prints.length > MAX) prints.splice(0, prints.length - MAX);
   const weather = 1 + 2.5 * (state.weather.snowfall ?? 0) + 1.5 * (state.wind.speed ?? 0) + (state.weather.whiteout ?? 0) * 2;
@@ -58,6 +67,27 @@ export function drawGround(ctx) {
     const sh = p.shoe ? 0.35 : 1;   // snowshoes ride high: a much shallower trench
     ctx.strokeStyle = `rgba(160,163,168,${al * 0.32 * sh})`; ctx.lineWidth = p.shoe ? 2.8 : 2.2; ctx.stroke();
     ctx.strokeStyle = `rgba(140,143,148,${al * 0.2 * sh})`; ctx.lineWidth = 1.1; ctx.stroke();
+  }
+  // tired drag marks: the toe of the last print ploughed on into the heel of this one, a
+  // narrow groove (shadowed on the upper-left wall, a lit lip on the lower-right) that wavers
+  for (const p of prints) {
+    const d = p.drag;
+    if (!d || p.x < r.x0 || p.x > r.x1 || p.y < r.y0 || p.y > r.y1) continue;
+    const life = 1 - p.fill * p.fill, deep = p.t === 'deep';
+    const al = life * (0.35 + 0.65 * d.k) * (deep ? 0.8 : 0.42);
+    const x0 = d.x + Math.cos(d.a) * 0.9, y0 = d.y + Math.sin(d.a) * 0.9 * KY;
+    // on plain snow the boot only scuffs part of the way before it lifts (more of it, more tired)
+    const reach = deep ? 1 : 0.35 + 0.4 * d.k;
+    const ex = p.x - Math.cos(p.a) * (deep ? 1.2 : 0.9), ey = p.y - Math.sin(p.a) * (deep ? 1.2 : 0.9) * KY;
+    const x1 = x0 + (ex - x0) * reach, y1 = y0 + (ey - y0) * reach;
+    const nx = -(y1 - y0), ny = x1 - x0, nl = Math.hypot(nx, ny) || 1;
+    const wv = (p.seed - 0.5) * 0.9;       // the boot wanders a little off the line
+    const mx = (x0 + x1) / 2 + nx / nl * wv, my = (y0 + y1) / 2 + ny / nl * wv;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(mx, my, x1, y1);
+    ctx.strokeStyle = `rgba(118,121,127,${al * 0.75})`; ctx.lineWidth = deep ? 0.9 : 0.6; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0 + 0.2, y0 + 0.28); ctx.quadraticCurveTo(mx + 0.2, my + 0.28, x1 + 0.2, y1 + 0.28);
+    ctx.strokeStyle = `rgba(252,252,252,${al * 0.9})`; ctx.lineWidth = deep ? 0.45 : 0.3; ctx.stroke();
   }
   for (const p of prints) {
     if (p.x < r.x0 || p.x > r.x1 || p.y < r.y0 || p.y > r.y1) continue;
@@ -103,9 +133,11 @@ export function drawGround(ctx) {
         }
         ctx.closePath();
       };
-      hole(1.55, 0.95, 0, 0);
+      // dragged in (tired): the hole smeared back along the line of travel, a ploughed tail
+      const dg = p.drag ? p.drag.k : 0, ox = -0.9 * dg;
+      hole(1.55 + 0.9 * dg, 0.95, ox, 0);
       ctx.fillStyle = `rgba(98,101,106,${al})`; ctx.fill();
-      hole(1.2, 0.68, 0.2, 0.14);
+      hole(1.2 + 0.8 * dg, 0.68, 0.2 + ox, 0.14);
       ctx.fillStyle = `rgba(178,181,185,${al})`; ctx.fill();
       // kicked-up rim toward the lower right
       ctx.beginPath(); ctx.ellipse(0.2, 0.95, 1.3, 0.35, 0, 0, Math.PI * 2);

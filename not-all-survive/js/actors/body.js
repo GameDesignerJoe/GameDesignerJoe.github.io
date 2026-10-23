@@ -1,9 +1,9 @@
 // The explorer's body, and the expedition it belongs to. No bars, ever: the body and the
 // screen carry it.
 //
-// state.body = { warmth, wet, energy, injury, food, water }, each 0..1 (wet and injury start
-// at 0, the rest at 1). Only warmth is live so far; the others are hooks the later slices
-// fill in (wet multiplies the warmth loss, food caps it, energy feeds the walking heat).
+// state.body = { warmth, wet, energy, reserve, injury, food, water }, each 0..1 (wet and injury
+// start at 0, the rest at 1). Warmth, wet and energy are live; injury and food are hooks the
+// later slices fill in (food adds to the warmth loss and the fatigue, injury caps energy).
 //   explorer.js        reads warmth for the cold poses (hug, hard shiver, stumble, kneel,
 //                      collapse) and dulls the coat toward grey ochre
 //   weather-screen.js  grows the frost with 1 - warmth
@@ -25,9 +25,23 @@
 // and thaws fast; out in the cold drying is slow (a little faster in calm sun).
 // body.shock 0..1: the cold-water gasp, fading over ~20 s (ragged breath, the white flash).
 //
+// Exhaustion (slice 3): energy is the short-term wind, spent in minutes by deep snow, climbing,
+// swimming and walking into a gale, and got back by standing still (slowly in the cold, wet or
+// a gale; fast in the tent). reserve is the day's fatigue: every bit of work wears it down a
+// little, and so does time out of the tent; it caps how far energy can come back
+// (energyMax). Sleeping the night in the tent restores it.
+//   explorer.js  reads energy for the tired gait, the hands-on-knees rest stops, sitting down
+//                spent at 0, refusing a climb (< 0.2) and losing the grip at 0 on the wall, and
+//                drives the panting (pushes 'rest', 'tired', 'pant'); it reports how hard
+//                they're working as player.push (0..1) and player.headwind (0..1)
+//   this module  pulses the edges of sight soft in time with the panting (drawScreen), and once
+//                they've stopped the camera breathes with it (state.cam.pulse, camera.js; off
+//                with the gear menu's Reduce motion, state.reduceMotion)
+// body.drain: energy / s right now (negative = recovering), for the debug readout.
+//
 // state.party = [{ name, alive, x, y }] x 4, state.member = index of the one playing now.
 // Hooks: NAS.freeze(v?) (warmth to v, or 0.2 colder), NAS.warm(v = 1), NAS.kill(),
-//        NAS.soak(v = 1), NAS.dry().
+//        NAS.soak(v = 1), NAS.dry(), NAS.tire(v?) (energy to v, or 0.25 lower), NAS.rest().
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
 
@@ -52,12 +66,34 @@ const INSIDE_GAIN = 1 / 22;       // in the tent: from near death back to full i
 const WADE_LOSS = 1 / 120, DEEP_LOSS = 1 / 25;
 const SOAK_WADE = 0.12, DRY_COLD = 1 / 600, DRY_SUN = 1 / 200, DRY_TENT = 1 / 12, THAW_TENT = 1 / 8, RIME = 1 / 90;
 
+// --- energy --------------------------------------------------------------------------------------
+// Drain / s while walking at full push, by the ground (1 / seconds from full to empty):
+// deep snow ~90 s (snowshoes ~4 min), plain snow ~6 min (~7 with the stops), a path never. Walking into the wind
+// costs up to x(1 + HEADWIND) more. Each half of a climbing cycle (one axe strike) costs
+// CLIMB_HALF (a whole cliff is roughly half the energy). Wading and swimming are heavy work.
+const DRAIN = { deep: 1 / 90, snow: 1 / 360, ice: 1 / 600, thin: 1 / 540, rock: 1 / 500, path: 0, water: 1 / 110 };
+const DRAIN_SHOE = { deep: 1 / 240, snow: 1 / 520 };
+const DRAIN_CRAMP = { ice: 1 / 1300, thin: 1 / 900 };
+const HEADWIND = 1.1, SWIM = 1 / 32, HANG = 1 / 420, SHIVER = 1 / 1500;
+const CLIMB_HALF = 0.032;
+// Recovery / s: standing still from empty to full in ~60 s in calm air; much slower cold, wet
+// or in a gale; cowering only a little; slow walking on a path a little; the tent ~15 s.
+// Not linear: the first of it comes back fast (0 -> 0.4 in ~15 s), the rest slowly (to full ~60 s).
+const REST_LO = 0.4 / 15, REST_HI = 0.6 / 45, TENT_REST = 1 / 15, PATH_REST = 1 / 400;
+// Reserve: the work wears it (RES_WORK per unit of energy spent) and so does time out of the
+// tent (RES_TIME / s); resting in the tent eases it back, sleeping the night restores it.
+// (a day and a night out without sleep, ~5 min, wears off about half of it)
+const RES_WORK = 0.1, RES_TIME = 1 / 800, RES_TENT = 1 / 300;
+// how high energy can come back: reserve, and (slice 5) injury
+const energyMax = () => (0.35 + 0.65 * B.reserve) * (1 - 0.5 * clamp(B.injury));
+
 const NAMES = ['Halloran', 'Ashby', 'Teague', 'Marsh'];
 
 const B = state.body = {
-  warmth: 1, wet: 0, energy: 1, injury: 0, food: 1, water: 1,
+  warmth: 1, wet: 0, energy: 1, reserve: 1, injury: 0, food: 1, water: 1,
   frozen: 0, shock: 0,
-  phase: 'alive', t: 0, sleepHold: 0, rate: 0,
+  phase: 'alive', t: 0, sleepHold: 0, rate: 0, drain: 0, max: 1,
+  climbHalf: CLIMB_HALF, hang: HANG,   // per axe strike / per s hanging (explorer.js sizes up a wall)
 };
 state.party = NAMES.map(name => ({ name, alive: true, x: null, y: null }));
 state.member = 0;
@@ -67,7 +103,10 @@ const IRIS_IN = 1.8, BEAT = 2.4, IRIS_OUT = 0.9, BLACK = 0.9, OPEN = 2.2;
 const SLEEP_FADE = 0.9, SLEEP_HOLD = 1.1, SLEEP_WAKE = 1.6;
 
 let chatT = 3, beatT = 0, throb = 0, irisFrom = 1, overT = 0, restartArmed = false, killed = false;
-let lastTap = -1, lastAct = 0, slept = false, flash = 0;
+let lastTap = -1, lastAct = 0, slept = false, flash = 0, blurK = 0, breathV = 0, pulseK = 0;
+let stillT = 0, walkT = 0, restZoomOn = false, restZoomK = 0;
+const PULSE = 0.006;   // the view's breath: at most 0.6% zoom at the top of a breath in
+const approach = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
 
 export function init() {
   // (only while alive and playing: not mid-death, during the hand-over, asleep or after the end)
@@ -76,6 +115,10 @@ export function init() {
   state.kill = () => { if (B.phase === 'alive') { B.warmth = 0; killed = true; } };   // works from inside the tent too
   state.soak = (v = 1) => { B.wet = clamp(v); };
   state.dry = () => { B.wet = 0; B.frozen = 0; };
+  state.tire = v => { if (B.phase === 'alive' || B.phase === 'open') B.energy = typeof v === 'number' ? clamp(v) : Math.max(0, B.energy - 0.25); };
+  state.rest = () => { B.energy = 1; B.reserve = 1; };
+  if (state.params.has('energy')) B.energy = clamp(parseFloat(state.params.get('energy')));
+  if (state.params.has('reserve')) B.reserve = clamp(parseFloat(state.params.get('reserve')));
   if (state.params.has('warmth')) B.warmth = clamp(parseFloat(state.params.get('warmth')));
   if (state.params.has('wet')) B.wet = clamp(parseFloat(state.params.get('wet')));
   if (state.params.has('frozen')) B.frozen = Math.min(B.wet, clamp(parseFloat(state.params.get('frozen'))));
@@ -95,6 +138,8 @@ function warmthRate() {
   loss *= 1 - 0.6 * clamp(P.sheltered || 0);          // cowering, hunkered in the lee of rock
   loss *= 1 + 3 * clamp(B.wet);                        // wet: ~4x
   loss *= 1 + 0.5 * clamp((0.3 - B.food) / 0.3);       // hungry: up to +50% (slice 4)
+  // spent: sitting still in the snow with nothing left, the cold gets in (up to +30%)
+  if (!P.moving) loss *= 1 + 0.3 * smooth(0.25, 0, B.energy);
   // in the water itself: the sea takes the heat straight out
   const lv = P.water?.level || 0;
   if (lv === 1) loss += WADE_LOSS * (0.6 + 0.4 * clamp((P.water.depth || 0) / 4));
@@ -129,6 +174,58 @@ function updateWet(dt) {
   B.frozen = Math.min(B.frozen, B.wet);
   B.shock = Math.max(0, B.shock - dt / 20);
 }
+// Energy and reserve. Work drains energy: walking (player.push, from explorer.js) by the ground
+// underfoot, the gear and the headwind; each axe strike on a climb; wading and swimming; a
+// little for shivering. Not working gets it back, up to energyMax, slower the colder, wetter
+// and windier it is. The reserve wears down with the work and the hours outside.
+let climbCost = 0;
+function updateEnergy(dt) {
+  for (const e of state.events) if (e.type === 'axe') climbCost += CLIMB_HALF;
+  const m = P.mode, lv = P.water?.level || 0, g = P.gear || {};
+  const hunger = 1 + 0.6 * clamp((0.3 - B.food) / 0.3);      // slice 4: hungry, the reserve goes faster
+  let drain = 0;
+  if (m === 'inside' || B.phase === 'sleep') {
+    drain = -TENT_REST;
+    B.reserve = Math.min(1, B.reserve + RES_TENT * dt);
+  } else if (m === 'tent-in' || m === 'tent-out' || m === 'gone' || m === 'dead' || m === 'collapse' || m === 'sink' || B.phase !== 'alive') {
+    drain = 0;
+  } else {
+    const push = clamp(P.push || 0), hw = clamp(P.headwind || 0);
+    if (m === 'swim') drain = SWIM;
+    else if (m === 'climb') drain = P.climbHold ? HANG : 0;
+    else if (P.crawl) drain = 0;                        // crawling on spent: no worse, no better
+    else if (push > 0.05) {
+      const ter = lv ? 'water' : P.terrain;
+      const base = g.snowshoes && ter in DRAIN_SHOE ? DRAIN_SHOE[ter] : g.crampons && ter in DRAIN_CRAMP ? DRAIN_CRAMP[ter] : DRAIN[ter] ?? DRAIN.snow;
+      // into a gale even a path costs something
+      drain = base * push * (1 + HEADWIND * hw) + push * hw / 500;
+      if (ter === 'path') drain -= PATH_REST * (1 - 0.5 * push) * (1 - smooth(0.2, 0.6, hw));
+    }
+    if (push <= 0.05 && m !== 'climb' && m !== 'swim' && !P.crawl) {
+      // getting the wind back: the body's own cold, the air's, wet clothes and a gale all slow it
+      const chilled = smooth(0.8, 0.3, B.warmth), air = 0.3 * clamp(state.weather.cold ?? 0.3);
+      const gale = smooth(0.35, 0.9, clamp(P.exposure || 0) * (1 - 0.7 * clamp(P.sheltered || 0)));
+      let k = clamp((1 - 0.65 * chilled - air) * (1 - 0.45 * clamp(B.wet)) * (1 - 0.6 * gale), 0.08, 1);
+      if (m === 'cower') k *= 0.6;                      // balled up against the storm: only a little
+      if (lv) k *= 0.35;                                // standing in the sea
+      if (P.resting) k *= 0.05;                         // a stop on the way: only the breath it cost
+      drain = -(B.energy < 0.4 ? REST_LO : REST_HI) * k;
+    }
+    // shivering is work too
+    drain += SHIVER * smooth(0.7, 0.35, B.warmth) * (1 - smooth(0.13, 0.05, B.warmth));
+  }
+  const max = energyMax();
+  B.max = max;
+  if (climbCost > 0) { B.energy = Math.max(0, B.energy - climbCost); B.reserve = Math.max(0, B.reserve - climbCost * RES_WORK * hunger); climbCost = 0; }
+  if (drain > 0) {
+    B.energy = Math.max(0, B.energy - drain * dt);
+    B.reserve = Math.max(0, B.reserve - drain * dt * RES_WORK * hunger);
+  } else if (B.energy < max) B.energy = Math.min(max, B.energy - drain * dt);
+  else B.energy = Math.max(max, B.energy - dt / 90);  // the cap came down (reserve): it sinks to it
+  if (m !== 'inside' && B.phase !== 'sleep' && m !== 'gone') B.reserve = Math.max(0, B.reserve - RES_TIME * hunger * dt);
+  B.drain = drain;
+}
+
 // Sleeping is only for the night, and only in the day/night cycle (a pinned clock has no morning).
 export function canSleep() { const L = state.lighting; return L.mode === 'cycle' && L.night > 0.5 && L.clock >= 180; }
 
@@ -140,7 +237,7 @@ function handover() {
   const lost = !!P.lostAtSea;
   state.events.push({ type: 'handover', x: P.x, y: P.y, facing: P.facing, member: state.member, name: m.name, lost, sprite: lost ? null : P.snapshot?.() });
   const next = state.party.findIndex(q => q.alive);
-  Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, injury: 0, sleepHold: 0 });
+  Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, reserve: 1, injury: 0, sleepHold: 0 });
   if (next < 0) {
     P.respawn?.(true);                                  // nobody left: the camera rests on the empty camp
     state.events.push({ type: 'expedition', over: true });
@@ -161,7 +258,7 @@ export function update(dt) {
   // into the water: the cold shock (explorer.js pushes plunge; audio gasps)
   for (const e of state.events) if (e.type === 'plunge') { B.shock = 1; flash = Math.max(flash, e.deep ? 1 : 0.7); }
   flash = Math.max(0, flash - dt * 1.8);
-  if (B.phase !== 'over') updateWet(dt);
+  if (B.phase !== 'over') { updateWet(dt); updateEnergy(dt); }
 
   switch (B.phase) {
     case 'alive': case 'open': {
@@ -204,12 +301,37 @@ export function update(dt) {
         slept = true;
         const L = state.lighting;
         L.clock = 0; L.night = 0; L.nightTarget = 0;
-        B.warmth = 1;
+        B.warmth = 1; B.reserve = 1; B.energy = 1;   // a night's sleep: rested
         state.events.push({ type: 'tent', action: 'wake', x: P.x, y: P.y });
       }
       if (B.t >= SLEEP_FADE + SLEEP_HOLD + SLEEP_WAKE) { slept = false; setPhase('alive'); }
       break;
   }
+
+  // The view breathes with the panting (explorer.js runs the clock): it swells in a touch on
+  // each breath in. Only while alive and outside, only once they've stopped (bent double, sat
+  // spent, or stood still worn out), and never with Reduce motion on (gear menu).
+  const pk = (B.phase === 'alive' || B.phase === 'open') && outside() ? clamp(P.pant || 0) : 0;
+  const v = 0.5 - 0.5 * Math.cos((P.breathPh || 0) * TAU);      // 0 at the start of a breath in, 1 at its top
+  const stopped = !P.moving && (P.resting || (P.spent && !P.crawl) || B.energy < 0.3);
+  pulseK = approach(pulseK, stopped && !state.reduceMotion ? 1 : 0, 2, dt);
+  // and the camera eases in on them, once, ~18%, and holds while they stay stopped (worn out:
+  // sat spent, or stood still under 0.3 and bent double of their own accord); back out once they've walked on ~1.5 s.
+  // A multiplier on the follow zoom (camera.js cam.rest), so the player's own pinch zoom stands.
+  // Not with Reduce motion.
+  const live = (B.phase === 'alive' || B.phase === 'open') && outside();
+  // (the brief stops on the way don't count, or it would breathe in and out with each one;
+  // crawling on spent keeps it close)
+  stillT = stopped && !P.resting ? stillT + dt : 0;
+  walkT = P.moving && !P.crawl ? walkT + dt : 0;
+  if (!live || state.reduceMotion || walkT > 1.5) restZoomOn = false;
+  else if (stillT > 1.0) restZoomOn = true;
+  restZoomK = approach(restZoomK, restZoomOn ? 1 : 0, restZoomOn ? 0.7 : 0.9, dt);
+  state.cam.rest = 1 + 0.18 * restZoomK;
+  state.cam.pulse = PULSE * pk * v * pulseK;
+  state.cam.dip = 0;
+  blurK = 0.8 * Math.pow(smooth(0.35, 1, pk), 1.3);
+  breathV = v;
 
   // Sounds of the body: teeth chattering while it still fights the cold (it stops near the
   // end, as shivering does), and a slow heartbeat in the last of it.
@@ -305,6 +427,51 @@ function drawIris(ctx, cx, cy, r, w, h) {
   }
 }
 
+// Exhaustion on the screen: not darkness (the cold owns the ink). The edges of sight go soft
+// and a little washed, swelling with each breath out and easing on the breath in, as if the
+// eyes won't hold focus while the lungs heave. A cheap blur: the frame so far shrunk twice (to
+// 1/3, then 1/6, never under 128 px a side so it stays a GPU canvas) and laid back at full
+// size outside a clear middle round the explorer. Drawn in drawScreen: after the weather's
+// screen layers, before the night grade and the pack / compass UI (which stay crisp).
+// The shrunk copy refreshes every other frame (a blur a frame late can't show), and the masked
+// one only when that copy, the strength or the middle has moved on.
+let blurA = null, blurB = null, blurTick = 0, blurKq = -1, blurCx = 0, blurCy = 0;
+function drawBreathBlur(ctx, k) {
+  const src = ctx.canvas, W = src.width, H = src.height;
+  const up = Math.max(1, 128 / Math.min(W / 6, H / 6));
+  const aw = Math.round(Math.max(W / 3, W / 6 * up)), ah = Math.round(Math.max(H / 3, H / 6 * up));
+  const bw = Math.round(W / 6 * up), bh = Math.round(H / 6 * up);
+  if (!blurA) { blurA = document.createElement('canvas'); blurB = document.createElement('canvas'); }
+  let fresh = (blurTick++ & 1) === 0;
+  if (blurA.width !== aw || blurA.height !== ah) { blurA.width = aw; blurA.height = ah; fresh = true; }
+  if (blurB.width !== bw || blurB.height !== bh) { blurB.width = bw; blurB.height = bh; fresh = true; }
+  const a = blurA.getContext('2d'), b = blurB.getContext('2d');
+  const p = worldToScreen(P.x, P.y - 6), sx = bw / state.view.w, r = Math.hypot(bw, bh) / 2;
+  const kq = Math.round(k * 40) / 40, cx = Math.round(p.x * sx), cy = Math.round(p.y * sx);
+  if (fresh || kq !== blurKq || cx !== blurCx || cy !== blurCy) {
+    blurKq = kq; blurCx = cx; blurCy = cy;
+    a.imageSmoothingEnabled = b.imageSmoothingEnabled = true;
+    if (fresh) a.drawImage(src, 0, 0, aw, ah);
+    b.globalCompositeOperation = 'copy';
+    b.drawImage(blurA, 0, 0, bw, bh);
+    // a faint wash of light in it (soft, never ink)
+    b.globalCompositeOperation = 'source-atop';
+    b.fillStyle = `rgba(246,247,248,${0.16 * kq})`; b.fillRect(0, 0, bw, bh);
+    // clear in the middle round the explorer, soft toward the edges
+    const g = b.createRadialGradient(cx, cy, r * lerp(0.72, 0.4, kq), cx, cy, r * lerp(1.1, 0.88, kq));
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
+    b.globalCompositeOperation = 'destination-in';
+    b.fillStyle = g; b.fillRect(0, 0, bw, bh);
+    b.globalCompositeOperation = 'source-over';
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.globalAlpha = clamp(k);
+  ctx.drawImage(blurB, 0, 0, W, H);
+  ctx.restore();
+}
+
 export function drawOverlay(ctx) {
   const { w, h } = state.view;
   const half = Math.hypot(w, h) / 2;
@@ -393,6 +560,10 @@ export function drawOverlay(ctx) {
 }
 
 export function drawScreen(ctx) {
+  // the breath blur (strongest at the end of each breath out); the cold's ink, the iris and the
+  // frost all lie crisp on top of it (drawOverlay)
+  const bk = blurK * (0.45 + 0.55 * (1 - breathV));
+  if (bk > 0.02) drawBreathBlur(ctx, bk);
   if (!state.debug) return;
   ctx.fillStyle = '#000'; ctx.font = '12px monospace';
   ctx.fillText(`warmth ${B.warmth.toFixed(3)} rate ${(B.rate * 60).toFixed(3)}/min wet ${B.wet.toFixed(2)} rime ${B.frozen.toFixed(2)} ${B.phase} member ${state.member}`, 10, 34);

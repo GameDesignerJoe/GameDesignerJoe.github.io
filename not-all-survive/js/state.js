@@ -17,7 +17,10 @@ export const state = {
   timeScale: num('speed', 1),
 
   view: { w: 0, h: 0, dpr: 1 },   // CSS pixel size of the canvas
-  cam: { x: num('x', 1360), y: num('y', 1560), zoom: num('zoom', 0), shakeX: 0, shakeY: 0 },
+  // pulse (zoom fraction) and dip (screen px): body.js makes the view breathe when exhausted;
+  // rest (zoom multiplier, eased): body.js closes in on a worn-out stop (camera.js applies it)
+  // (camera.worldToScreenUI ignores them; menu.js sets state.reduceMotion to switch it off)
+  cam: { x: num('x', 1360), y: num('y', 1560), zoom: num('zoom', 0), shakeX: 0, shakeY: 0, pulse: 0, dip: 0 },
 
   // Input intent, normalised. input.js writes it; the explorer reads it.
   input: { x: 0, y: 0, active: false, pointer: null, tap: null, action: 0 },
@@ -40,6 +43,10 @@ export const state = {
     // lostAtSea (true once they've gone under)
     gear: { snowshoes: false, axes: false, crampons: false },   // equipped items (the pack in ui/compass.js toggles them)
     sheltered: 0,           // 0..1, hunkered in the lee of rock — weather/audio soften for it
+    // explorer.js also writes, for body.js / audio: push (0..1, pushing on and getting somewhere
+    // this frame), headwind (0..1, how much of it into the wind), pant (0..1, how blown) and
+    // breathPh (0..1, the panting clock: breath in from 0, out from 0.5), resting (stopped bent
+    // double), spent (energy gone: sat in the snow) and crawl (spent but crawling on)
   },
 
   // weather.js owns these; everyone else reads them. It also adds weather.phase,
@@ -70,9 +77,10 @@ export const state = {
   // frontier.js adds state.frontier = { amount 0..1, inX, inY }: how deep into the
   // world-edge storm border the explorer is, and which way is back toward the interior.
 
-  // body.js adds state.body = { warmth, wet, energy, injury, food, water } (0..1; hidden, no
-  // bars), frozen (rime on wet clothes, <= wet) and shock (cold-water gasp), plus body.phase ('alive' | 'dying' | 'iris' | 'black' | 'open' | 'over' | 'sleep') and
+  // body.js adds state.body = { warmth, wet, energy, reserve, injury, food, water } (0..1; hidden,
+  // no bars; reserve is the day's fatigue and caps energy at body.max), drain (energy / s), frozen (rime on wet clothes, <= wet) and shock (cold-water gasp), plus body.phase ('alive' | 'dying' | 'iris' | 'black' | 'open' | 'over' | 'sleep') and
   // body.sleepHold; state.party = [{ name, alive, x, y }] x 4 and state.member (who's playing).
+  // wildlife.js adds state.bear (the polar bear: x, y, ...).
   // fallen.js adds state.fallen = [{ x, y, facing, name, snow }]: the dead, where they lie.
 
   // One-frame event bus. Push { type, x, y, ... } during update(); systems later in the
@@ -101,6 +109,11 @@ export const state = {
   //   splash { x, y, strength, swim? } a wading step or swimming stroke (explorer -> audio)
   //   drip { x, y }                   water dripping off wet clothes (explorer -> audio)
   //   step.wet                        0..1 on step events: soaked boots leave darker prints
+  //   step.drag                       0..1 on step events: worn-out boots drag between prints
+  //   refuse { x, y, reason }         won't start a climb: 'wind' | 'gear' | 'tired' (explorer)
+  //   rest  { x, y }                  worn out: stopped, hands on knees, a heavy breath out (explorer -> audio)
+  //   tired { x, y }                  energy gone: sat down in the snow until it comes back (explorer -> audio)
+  //   pant  { x, y, inhale, len, strength }   one ragged breath while blown (explorer -> audio)
   events: [],
 };
 

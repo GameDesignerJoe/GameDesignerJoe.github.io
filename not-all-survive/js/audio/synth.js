@@ -384,6 +384,15 @@ export function breath(ctx, B, out, t, o = {}) {
     chain(lfo, lg); lg.connect(tr.gain);
     chain(s, hp, bp, tr, g, out);
   } else chain(s, hp, bp, g, out);
+  if (o.rasp) {
+    // blown: a rough, lower layer in the throat under the air (rasp 0..1)
+    const r = src(ctx, B.pinkM, t, len), rb = filt(ctx, 'bandpass', inh ? R(520, 700) : R(380, 520), 2.2), rg = gain(ctx);
+    const am = osc(ctx, 'square', R(28, 42), t, len), ag = gain(ctx, 0.5);
+    const rt = gain(ctx, 0.5); chain(am, ag); ag.connect(rt.gain);
+    chain(r, rb, rt, rg, out);
+    rg.gain.setValueAtTime(0, t); rg.gain.linearRampToValueAtTime(lvl * 0.55 * o.rasp, t + len * 0.3);
+    rg.gain.linearRampToValueAtTime(0, t + len);
+  }
   const att = len * (inh ? 0.5 : 0.25);
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lvl * (inh ? 0.7 : 1), t + att);
   g.gain.linearRampToValueAtTime(0, t + len);
@@ -751,6 +760,14 @@ export function fall(ctx, B, out, t, o = {}) {
   breath(ctx, B, out, bt, { inhale: false, len: bl, level: 0.8 });
   breath(ctx, B, out, bt + bl + 0.1, { inhale: true, len: R(0.5, 0.7), level: 0.5, shaky: 0.8 });
   return bt - t + bl + 0.9;
+}
+
+// Sitting down hard in the snow, spent: a soft, heavy thump and the snow settling.
+export function slump(ctx, B, out, t, o = {}) {
+  const s = clamp(o.strength ?? 0.5, 0, 1);
+  noiseBurst(ctx, B, out, t, 'lowpass', R(120, 170), 0.8, 1.6 * (0.5 + 0.5 * s), 0.02, 0.35);
+  noiseBurst(ctx, B, out, t + 0.03, 'lowpass', R(600, 900), 0.7, 0.3, 0.02, 0.3);
+  return 0.5;
 }
 
 // "Ringing silence": on still, cold nights a barely-there high air tone (two narrow

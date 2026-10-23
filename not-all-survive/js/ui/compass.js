@@ -16,7 +16,7 @@
 // Pushes events: rummage, compass (taken out), stow (put away),
 //   gear { item: 'snowshoes', on, auto } (strapped on / taken off / auto-stowed).
 import { state } from '../state.js';
-import { worldToScreen } from '../camera.js';
+import { worldToScreenUI as worldToScreen } from '../camera.js';   // (not the breathing pulse)
 import { SIGNAL } from '../palette.js';
 
 const RUMMAGE_S = 2;              // time to dig the compass out of the pack
