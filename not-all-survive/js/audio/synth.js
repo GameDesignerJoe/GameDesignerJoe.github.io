@@ -880,3 +880,58 @@ export function drip(ctx, B, out, t) {
   noiseBurst(ctx, B, out, t, 'bandpass', R(1800, 3000), 4, R(0.05, 0.12), 0.001, 0.02);
   return 0.1;
 }
+
+// ---------------------------------------------------------------- the pack and food (slice 4)
+// Canvas and oilcloth handled: a soft rustle (a few overlapping bands of noise swelling and
+// falling), and with `thud` the dull drop of something into the snow or onto the sled.
+export function rustle(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1.2), n = 2 + ((Math.random() * 3) | 0);
+  for (let i = 0; i < n; i++) {
+    const at = t + i * R(0.04, 0.09);
+    noiseBurst(ctx, B, out, at, 'bandpass', R(1800, 3600), 1.1, lvl * R(0.18, 0.32), R(0.02, 0.05), R(0.08, 0.16));
+  }
+  if (o.thud) {
+    noiseBurst(ctx, B, out, t + 0.06, 'lowpass', R(140, 200), 0.8, 0.9 * lvl, 0.01, 0.22);
+    noiseBurst(ctx, B, out, t + 0.07, 'lowpass', R(700, 1000), 0.7, 0.2 * lvl, 0.01, 0.2);
+  }
+  return 0.45;
+}
+// No room: a stiff, muffled knock of a full pack and a short scrape.
+export function refuse(ctx, B, out, t) {
+  noiseBurst(ctx, B, out, t, 'lowpass', 260, 1.2, 0.8, 0.004, 0.12);
+  noiseBurst(ctx, B, out, t + 0.1, 'lowpass', 220, 1.2, 0.6, 0.004, 0.1);
+  noiseBurst(ctx, B, out, t + 0.02, 'bandpass', 1400, 1.5, 0.12, 0.01, 0.16);
+  return 0.35;
+}
+// A bite of hard biscuit or frozen pemmican: a dry crunch (grainy high bursts over a dull jaw
+// knock), close and centred.
+export function chew(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1);
+  noiseBurst(ctx, B, out, t, 'lowpass', R(300, 420), 1, 0.8 * lvl, 0.003, 0.06);
+  const n = 4 + ((Math.random() * 4) | 0);
+  for (let i = 0; i < n; i++) noiseBurst(ctx, B, out, t + R(0, 0.08), 'bandpass', R(1800, 4200), 2.2, lvl * R(0.2, 0.45), 0.001, R(0.008, 0.024));
+  return 0.2;
+}
+// An empty stomach: a low, wet gurgle — a band of brown noise whose centre wanders and whose
+// level bubbles (a few uneven swells), over a faint low moan that slides down.
+export function growl(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1), dur = R(1.1, 1.8);
+  const s = src(ctx, B.brown, t, dur), bp = filt(ctx, 'bandpass', 160, 4), g = gain(ctx);
+  chain(s, bp, g, out);
+  bp.frequency.setValueAtTime(R(120, 160), t);
+  bp.frequency.linearRampToValueAtTime(R(220, 300), t + dur * 0.35);
+  bp.frequency.linearRampToValueAtTime(R(90, 130), t + dur);
+  g.gain.setValueAtTime(0, t);
+  const n = 4 + ((Math.random() * 4) | 0);
+  for (let i = 0; i < n; i++) {
+    const at = t + (i / n) * dur * 0.9, a = lvl * R(0.6, 1.4) * Math.sin(Math.PI * (i + 0.5) / n);
+    g.gain.linearRampToValueAtTime(a, at + 0.04);
+    g.gain.linearRampToValueAtTime(a * 0.25, at + dur / n * 0.8);
+  }
+  g.gain.linearRampToValueAtTime(0, t + dur);
+  const m = osc(ctx, 'sine', R(95, 120), t, dur), mg = gain(ctx), lp = filt(ctx, 'lowpass', 240);
+  m.frequency.exponentialRampToValueAtTime(R(55, 70), t + dur);
+  chain(m, lp, mg, out);
+  mg.gain.setValueAtTime(0, t); mg.gain.linearRampToValueAtTime(0.12 * lvl, t + dur * 0.3); mg.gain.linearRampToValueAtTime(0, t + dur);
+  return dur + 0.1;
+}

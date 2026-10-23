@@ -246,6 +246,34 @@ function handle(e) {
       claim('creature', oneShot('creature', e.x, e.y, bus.avalanche, S.avalanche, e, 0.45));
       return;
     }
+    // The pack (ui/pack.js): things moved between the pack and the sled / a body / the snow,
+    // dropped, picked up; a refusal when there's no room; eating; an empty stomach (explorer.js).
+    case 'transfer': case 'pickup': case 'drop': {
+      if (voices.body >= LIMIT.body) return;
+      claim('body', S.rustle(ctx, B, bus.steps, t, { strength: 0.6, thud: e.type !== 'pickup' }));
+      return;
+    }
+    case 'full': {
+      if (voices.body >= LIMIT.body) return;
+      claim('body', S.refuse(ctx, B, bus.steps, t));
+      return;
+    }
+    case 'eat': {
+      if (voices.body >= LIMIT.body) return;
+      if (e.stage === 'chew') claim('body', S.chew(ctx, B, bus.head, t, { strength: 0.55 }));
+      else if (e.stage === 'start') claim('body', S.rustle(ctx, B, bus.steps, t, { strength: 0.45 }));
+      return;
+    }
+    case 'growl': {
+      if (voices.body >= LIMIT.body) return;
+      const dur = S.growl(ctx, B, bus.head, t, e);
+      claim('body', dur);
+      // the wind ducks under it, so it's heard even in a storm
+      const g = bus.wind.gain, base = S.MIX.wind;
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(base * 0.4, t + 0.2); g.setTargetAtTime(base, t + dur * 0.8, 0.35);
+      return;
+    }
     case 'bark': case 'howl': case 'whine': case 'penguin': case 'bear': {
       if (voices.creature >= LIMIT.creature) return;
       const fn = { bark: S.bark, howl: S.howl, whine: S.whine, penguin: S.penguin, bear: S.bear }[e.type];

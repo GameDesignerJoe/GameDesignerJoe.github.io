@@ -7,8 +7,10 @@
 // Lost at sea ('handover' with lost: true, no sprite): no body; slow dark rings where they went
 // under, fading over ~25 s, then nothing.
 //
-// state.fallen = [{ x, y, facing, name, snow 0..1, ... }] (sea: { lost: true, age })
-// Slice 4 will let you hold on a body to recover the pack.
+// state.fallen = [{ x, y, facing, name, snow 0..1, pack, ... }] (sea: { lost: true, age }, no pack)
+// pack = { slots } is what they carried when they died (body.js puts it in the 'handover' event):
+// press and hold on the body, close by, and ui/pack.js opens it like the sled, to recover it.
+// The sea keeps what it takes.
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 
@@ -34,6 +36,7 @@ export function update(dt) {
     }
     fallen.push({
       x: e.x, y: e.y, facing: e.facing ?? 0, name: e.name, sprite: sp, blobs,
+      pack: { slots: e.pack || [] },
       snow: 0, cache: null, cacheSnow: -1, seed: r() * 100,
     });
   }

@@ -2,8 +2,8 @@
 // screen carry it.
 //
 // state.body = { warmth, wet, energy, reserve, injury, food, water }, each 0..1 (wet and injury
-// start at 0, the rest at 1). Warmth, wet and energy are live; injury and food are hooks the
-// later slices fill in (food adds to the warmth loss and the fatigue, injury caps energy).
+// start at 0, the rest at 1). Warmth, wet, energy and food are live; injury is a hook a later
+// slice fills in (it caps energy).
 //   explorer.js        reads warmth for the cold poses (hug, hard shiver, stumble, kneel,
 //                      collapse) and dulls the coat toward grey ochre
 //   weather-screen.js  grows the frost with 1 - warmth
@@ -39,11 +39,30 @@
 //                with the gear menu's Reduce motion, state.reduceMotion)
 // body.drain: energy / s right now (negative = recovering), for the debug readout.
 //
+// Hunger (slice 4): food runs down over ~15 min at rest (three days and nights), faster working
+// (up to ~x1.8 at full push) and shivering cold (up to ~x1.6); slowly in the tent; a night's
+// sleep costs a little (FOOD_SLEEP). Eating a ration (ui/pack.js) gives +0.35. Below 0.3 energy
+// comes back slower, its cap drops (up to -35%) and the reserve wears faster; below 0.1 the cold
+// gets in more and the body makes less heat walking. Starving at 0 kills only through the cold
+// and exhaustion, never by itself. explorer.js shows it (a hand to the stomach, the growl, a
+// slower gait from 0.3, unsteady near empty); body.hunger is the 0..1 of it below 0.3.
+// Lightheaded (body.dizzy 0..1, ~0.7 s episodes): below 0.3, setting off after a stop (and now
+// and then walking on) the world dims and swims a moment (drawScreen: a faint doubled image
+// drifting and a dimming, distinct from the cold's ink and exhaustion's blur) and the explorer
+// sways and staggers; oftener the emptier (cooldown 25 s at 0.3 down to 7 s near 0). Below 0.2
+// it comes standing still too (a sway, ~1 in 30 s at the worst). Reduce motion keeps only the dim.
+// Going to sleep hungry (food < 0.75) eats a ration from the pack, if there is one.
+//
 // state.party = [{ name, alive, x, y }] x 4, state.member = index of the one playing now.
+// The hand-over takes the dead member's pack off them (items.js takePack: it goes with the body
+// in the 'handover' event, unless the sea took them) and the next one starts with an empty pack,
+// bar a compass if the sled still has one (items.js restock).
 // Hooks: NAS.freeze(v?) (warmth to v, or 0.2 colder), NAS.warm(v = 1), NAS.kill(),
-//        NAS.soak(v = 1), NAS.dry(), NAS.tire(v?) (energy to v, or 0.25 lower), NAS.rest().
+//        NAS.soak(v = 1), NAS.dry(), NAS.tire(v?) (energy to v, or 0.25 lower), NAS.rest(),
+//        NAS.starve(v?) (food to v, or 0.25 lower), NAS.feed(v = 1).
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
+import { takePack, restock, find, take } from '../items.js';
 
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -84,15 +103,24 @@ const REST_LO = 0.4 / 15, REST_HI = 0.6 / 45, TENT_REST = 1 / 15, PATH_REST = 1 
 // tent (RES_TIME / s); resting in the tent eases it back, sleeping the night restores it.
 // (a day and a night out without sleep, ~5 min, wears off about half of it)
 const RES_WORK = 0.1, RES_TIME = 1 / 800, RES_TENT = 1 / 300;
-// how high energy can come back: reserve, and (slice 5) injury
-const energyMax = () => (0.35 + 0.65 * B.reserve) * (1 - 0.5 * clamp(B.injury));
+// how high energy can come back: reserve, hunger, and (slice 5) injury
+const energyMax = () => (0.35 + 0.65 * B.reserve) * (1 - 0.5 * clamp(B.injury)) * (1 - 0.35 * hungerK());
+
+// --- food ----------------------------------------------------------------------------------------
+// Food / s at rest in the open: full to empty in ~15 min (three days and nights). Work burns more
+// (x(1 + FOOD_WORK x push)), so does shivering (x(1 + FOOD_COLD) at the worst of it); in the tent
+// a little less. Sleeping the night through costs FOOD_SLEEP.
+const FOOD_REST = 1 / 900, FOOD_WORK = 0.8, FOOD_COLD = 0.6, FOOD_TENT = 0.6, FOOD_SLEEP = 0.06;
+const HUNGRY = 0.3;               // below this it starts to tell
+const hungerK = () => clamp((HUNGRY - B.food) / HUNGRY);   // 0 fed .. 1 starving
+const starving = () => smooth(0.1, 0, B.food);              // the last of it: the cold gets in
 
 const NAMES = ['Halloran', 'Ashby', 'Teague', 'Marsh'];
 
 const B = state.body = {
   warmth: 1, wet: 0, energy: 1, reserve: 1, injury: 0, food: 1, water: 1,
   frozen: 0, shock: 0,
-  phase: 'alive', t: 0, sleepHold: 0, rate: 0, drain: 0, max: 1,
+  phase: 'alive', t: 0, sleepHold: 0, rate: 0, drain: 0, max: 1, hunger: 0, foodRate: 0, dizzy: 0,
   climbHalf: CLIMB_HALF, hang: HANG,   // per axe strike / per s hanging (explorer.js sizes up a wall)
 };
 state.party = NAMES.map(name => ({ name, alive: true, x: null, y: null }));
@@ -105,6 +133,8 @@ const SLEEP_FADE = 0.9, SLEEP_HOLD = 1.1, SLEEP_WAKE = 1.6;
 let chatT = 3, beatT = 0, throb = 0, irisFrom = 1, overT = 0, restartArmed = false, killed = false;
 let lastTap = -1, lastAct = 0, slept = false, flash = 0, blurK = 0, breathV = 0, pulseK = 0;
 let stillT = 0, walkT = 0, restZoomOn = false, restZoomK = 0;
+let dizzyT = 0, dizzyCool = 0, stopT = 0;
+const DIZZY_S = 0.7;
 const PULSE = 0.006;   // the view's breath: at most 0.6% zoom at the top of a breath in
 const approach = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
 
@@ -117,6 +147,9 @@ export function init() {
   state.dry = () => { B.wet = 0; B.frozen = 0; };
   state.tire = v => { if (B.phase === 'alive' || B.phase === 'open') B.energy = typeof v === 'number' ? clamp(v) : Math.max(0, B.energy - 0.25); };
   state.rest = () => { B.energy = 1; B.reserve = 1; };
+  state.starve = v => { B.food = typeof v === 'number' ? clamp(v) : Math.max(0, B.food - 0.25); };
+  state.feed = (v = 1) => { B.food = clamp(v); };
+  if (state.params.has('food')) B.food = clamp(parseFloat(state.params.get('food')));
   if (state.params.has('energy')) B.energy = clamp(parseFloat(state.params.get('energy')));
   if (state.params.has('reserve')) B.reserve = clamp(parseFloat(state.params.get('reserve')));
   if (state.params.has('warmth')) B.warmth = clamp(parseFloat(state.params.get('warmth')));
@@ -137,7 +170,7 @@ function warmthRate() {
   let loss = LOSS * Math.pow(chill, 1.5) * (1 + 0.3 * night);
   loss *= 1 - 0.6 * clamp(P.sheltered || 0);          // cowering, hunkered in the lee of rock
   loss *= 1 + 3 * clamp(B.wet);                        // wet: ~4x
-  loss *= 1 + 0.5 * clamp((0.3 - B.food) / 0.3);       // hungry: up to +50% (slice 4)
+  loss *= 1 + 0.6 * starving();                        // starving: up to +60% (slice 4)
   // spent: sitting still in the snow with nothing left, the cold gets in (up to +30%)
   if (!P.moving) loss *= 1 + 0.3 * smooth(0.25, 0, B.energy);
   // in the water itself: the sea takes the heat straight out
@@ -146,7 +179,8 @@ function warmthRate() {
   if (lv === 2) loss += DEEP_LOSS;
   const pace = P.mode === 'walk' && P.moving && !lv ? clamp(P.speed / 9) : P.mode === 'climb' ? 0.8 : 0;
   // wet clothes don't hold the heat of working
-  const heat = HEAT * pace * (0.4 + 0.6 * clamp(B.energy)) * (1 - 0.65 * clamp(B.wet));
+  // (nor does a starving body: nothing left to burn)
+  const heat = HEAT * pace * (0.4 + 0.6 * clamp(B.energy)) * (1 - 0.65 * clamp(B.wet)) * (1 - 0.4 * starving());
   return heat - loss;
 }
 
@@ -182,7 +216,7 @@ let climbCost = 0;
 function updateEnergy(dt) {
   for (const e of state.events) if (e.type === 'axe') climbCost += CLIMB_HALF;
   const m = P.mode, lv = P.water?.level || 0, g = P.gear || {};
-  const hunger = 1 + 0.6 * clamp((0.3 - B.food) / 0.3);      // slice 4: hungry, the reserve goes faster
+  const hunger = 1 + 0.6 * hungerK();                         // slice 4: hungry, the reserve goes faster
   let drain = 0;
   if (m === 'inside' || B.phase === 'sleep') {
     drain = -TENT_REST;
@@ -208,6 +242,7 @@ function updateEnergy(dt) {
       let k = clamp((1 - 0.65 * chilled - air) * (1 - 0.45 * clamp(B.wet)) * (1 - 0.6 * gale), 0.08, 1);
       if (m === 'cower') k *= 0.6;                      // balled up against the storm: only a little
       if (lv) k *= 0.35;                                // standing in the sea
+      k *= 1 - 0.5 * hungerK();                         // hungry: slower to come back
       if (P.resting) k *= 0.05;                         // a stop on the way: only the breath it cost
       drain = -(B.energy < 0.4 ? REST_LO : REST_HI) * k;
     }
@@ -226,6 +261,22 @@ function updateEnergy(dt) {
   B.drain = drain;
 }
 
+// Food: a slow clock, faster working and shivering, slower in the tent. (Eating is ui/pack.js.)
+function updateFood(dt) {
+  const m = P.mode;
+  let rate = 0;
+  if (m === 'inside' || B.phase === 'sleep') rate = FOOD_REST * FOOD_TENT;
+  else if (B.phase === 'alive' || B.phase === 'open') {
+    if (m !== 'tent-in' && m !== 'tent-out' && m !== 'gone' && m !== 'dead' && m !== 'collapse' && m !== 'sink') {
+      const work = m === 'swim' ? 1 : m === 'climb' ? 0.9 : P.water?.level ? 0.6 : clamp(P.push || 0);
+      rate = FOOD_REST * (1 + FOOD_WORK * work) * (1 + FOOD_COLD * smooth(0.8, 0.3, B.warmth));
+    } else rate = FOOD_REST;
+  }
+  B.food = Math.max(0, B.food - rate * dt);
+  B.foodRate = rate;
+  B.hunger = hungerK();
+}
+
 // Sleeping is only for the night, and only in the day/night cycle (a pinned clock has no morning).
 export function canSleep() { const L = state.lighting; return L.mode === 'cycle' && L.night > 0.5 && L.clock >= 180; }
 
@@ -235,15 +286,19 @@ function handover() {
   // fallen.js keeps the body where it fell; the picture is taken now, before the swap
   // (lost at sea: no body, only fading rings where they went under)
   const lost = !!P.lostAtSea;
-  state.events.push({ type: 'handover', x: P.x, y: P.y, facing: P.facing, member: state.member, name: m.name, lost, sprite: lost ? null : P.snapshot?.() });
+  // their pack stays with them (fallen.js), unless the sea took it; the next one starts empty
+  // (the picture first, while they still wear what they wore)
+  const sprite = lost ? null : P.snapshot?.(), kit = takePack();
+  state.events.push({ type: 'handover', x: P.x, y: P.y, facing: P.facing, member: state.member, name: m.name, lost, sprite, pack: lost ? null : kit });
   const next = state.party.findIndex(q => q.alive);
-  Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, reserve: 1, injury: 0, sleepHold: 0 });
+  Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, reserve: 1, injury: 0, food: 0.8, sleepHold: 0, dizzy: 0 });   // (a little hungry already)
   if (next < 0) {
     P.respawn?.(true);                                  // nobody left: the camera rests on the empty camp
     state.events.push({ type: 'expedition', over: true });
     setPhase('over'); overT = 0; restartArmed = false;
   } else {
     state.member = next;
+    restock();                                          // a compass from the sled, if there's one left
     P.respawn?.(false);                                 // the next one crawls out of the tent
     setPhase('black');
   }
@@ -254,11 +309,16 @@ export function update(dt) {
   B.t += dt;
   throb = Math.max(0, throb - dt * 5);
   // sleep only skips what's left of the night (explorer.js only offers it after dark)
-  for (const e of state.events) if (e.type === 'tent' && e.action === 'sleep' && B.phase === 'alive' && canSleep()) setPhase('sleep');
+  for (const e of state.events) if (e.type === 'tent' && e.action === 'sleep' && B.phase === 'alive' && canSleep()) {
+    setPhase('sleep');
+    // supper before sleeping, if they're hungry and there's a ration in the pack
+    const i = B.food < 0.75 ? find(state.pack, 'food') : -1;
+    if (i >= 0) { take(state.pack, i, 1); B.food = Math.min(1, B.food + 0.35); state.events.push({ type: 'eat', stage: 'done', x: P.x, y: P.y }); }
+  }
   // into the water: the cold shock (explorer.js pushes plunge; audio gasps)
   for (const e of state.events) if (e.type === 'plunge') { B.shock = 1; flash = Math.max(flash, e.deep ? 1 : 0.7); }
   flash = Math.max(0, flash - dt * 1.8);
-  if (B.phase !== 'over') { updateWet(dt); updateEnergy(dt); }
+  if (B.phase !== 'over') { updateWet(dt); updateEnergy(dt); updateFood(dt); }
 
   switch (B.phase) {
     case 'alive': case 'open': {
@@ -302,6 +362,7 @@ export function update(dt) {
         const L = state.lighting;
         L.clock = 0; L.night = 0; L.nightTarget = 0;
         B.warmth = 1; B.reserve = 1; B.energy = 1;   // a night's sleep: rested
+        B.food = Math.max(0, B.food - FOOD_SLEEP);   // and a little hungrier for it
         state.events.push({ type: 'tent', action: 'wake', x: P.x, y: P.y });
       }
       if (B.t >= SLEEP_FADE + SLEEP_HOLD + SLEEP_WAKE) { slept = false; setPhase('alive'); }
@@ -332,6 +393,20 @@ export function update(dt) {
   state.cam.dip = 0;
   blurK = 0.8 * Math.pow(smooth(0.35, 1, pk), 1.3);
   breathV = v;
+
+  // Lightheaded with hunger: a short episode setting off after a stop, or now and then walking on.
+  const hk = smooth(0.3, 0.02, B.food);
+  let setOff = false;
+  if (!P.moving) stopT += dt; else { setOff = stopT > 1.2; stopT = 0; }
+  dizzyCool -= dt;
+  if (dizzyT > 0) dizzyT -= dt;
+  else if (hk > 0 && dizzyCool <= 0 && B.phase === 'alive' && outside() && (P.mode === 'walk' || P.mode === 'cower')
+    && ((P.moving && ((setOff && Math.random() < 0.35 + 0.6 * hk) || Math.random() < dt * 0.05 * hk))
+      || (!P.moving && B.food < 0.2 && Math.random() < dt * 0.03 * hk))) {   // (below 0.2, standing too: a sway)
+    dizzyT = DIZZY_S; dizzyCool = lerp(25, 7, hk);
+    state.events.push({ type: 'dizzy', x: P.x, y: P.y, strength: hk });
+  }
+  B.dizzy = dizzyT > 0 && B.phase === 'alive' ? Math.sin(Math.PI * (1 - dizzyT / DIZZY_S)) : 0;
 
   // Sounds of the body: teeth chattering while it still fights the cold (it stops near the
   // end, as shivering does), and a slow heartbeat in the last of it.
@@ -472,6 +547,21 @@ function drawBreathBlur(ctx, k) {
   ctx.restore();
 }
 
+// Lightheaded: the frame laid over itself a touch larger and drifting sideways (a faint doubled,
+// swimming image), and the whole of it dimmed a moment. Only during an episode (~0.7 s).
+function drawDizzy(ctx, k) {
+  const cv = ctx.canvas, W = cv.width, H = cv.height, dpr = state.view.dpr || 1;
+  const sc = 1 + 0.02 * k, dx = Math.sin(state.time * 8) * 12 * k * dpr, dy = Math.cos(state.time * 5.5) * 4 * k * dpr;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // (Reduce motion: only the dimming, no doubled, drifting image)
+  if (!state.reduceMotion) { ctx.globalAlpha = 0.38 * k; ctx.drawImage(cv, (W - W * sc) / 2 + dx, (H - H * sc) / 2 + dy, W * sc, H * sc); }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = `rgba(30,32,36,${0.2 * k})`;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
 export function drawOverlay(ctx) {
   const { w, h } = state.view;
   const half = Math.hypot(w, h) / 2;
@@ -564,7 +654,8 @@ export function drawScreen(ctx) {
   // frost all lie crisp on top of it (drawOverlay)
   const bk = blurK * (0.45 + 0.55 * (1 - breathV));
   if (bk > 0.02) drawBreathBlur(ctx, bk);
+  if (B.dizzy > 0.01) drawDizzy(ctx, B.dizzy);
   if (!state.debug) return;
   ctx.fillStyle = '#000'; ctx.font = '12px monospace';
-  ctx.fillText(`warmth ${B.warmth.toFixed(3)} rate ${(B.rate * 60).toFixed(3)}/min wet ${B.wet.toFixed(2)} rime ${B.frozen.toFixed(2)} ${B.phase} member ${state.member}`, 10, 34);
+  ctx.fillText(`warmth ${B.warmth.toFixed(3)} rate ${(B.rate * 60).toFixed(3)}/min wet ${B.wet.toFixed(2)} rime ${B.frozen.toFixed(2)} food ${B.food.toFixed(3)} ${B.phase} member ${state.member}`, 10, 34);
 }

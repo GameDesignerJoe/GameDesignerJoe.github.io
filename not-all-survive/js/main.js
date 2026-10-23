@@ -28,10 +28,10 @@ const MODULES = {
   audio: './audio/audio.js',
   night: './fx/night.js',            // grades the finished frame and adds warm lights
   bright: './fx/bright.js',          // blinding clear days: glare, halo, lost detail
-  compass: './ui/compass.js',        // after night, so the UI isn't tinted
+  pack: './ui/pack.js',              // after night, so the UI isn't tinted (the pack, the compass, containers)
 };
 const only = state.params.get('only')?.split(',');
-const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'bright', 'compass'];
+const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'bright', 'pack'];
 const names = Object.keys(MODULES).filter(n => !only || ALWAYS.includes(n) || only.includes(n));
 
 // Each module loads and runs in isolation: one broken module logs an error and is

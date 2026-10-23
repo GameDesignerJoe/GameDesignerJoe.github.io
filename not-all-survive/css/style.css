@@ -116,7 +116,7 @@ html, body {
 #menu label { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-left: 2px; }
 #menu select { padding: 4px 6px; }
 #menu .body-dbg { border-top: 1px solid rgba(40, 40, 40, 0.15); padding-top: 6px; display: flex; flex-direction: column; gap: 6px; }
-#menu .body-dbg pre { margin: 0; font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace; white-space: pre; }
+#menu .body-dbg pre { margin: 0; font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; max-width: 300px; }
 #menu .body-dbg .row { display: flex; gap: 6px; }
 #menu .body-dbg .row button { flex: 1; padding: 6px 4px; text-align: center; white-space: nowrap; font-size: 13px; }
 

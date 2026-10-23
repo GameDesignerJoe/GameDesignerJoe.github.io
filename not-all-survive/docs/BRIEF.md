@@ -59,7 +59,8 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - `?wind=0..1`, `?windAngle=<rad>`, `?whiteout=0..1`, `?snow=0..1` initial weather.
 - `?only=explorer,weather` load only those systems (map, terrain and ground always load).
 - Day/night cycles (3 min day, 2 min night). `?night` / `?day` pin it; the gear menu's Time button cycles cycle → day → night.
-- Pack: press and hold the explorer (or hold C) to dig in it. Slots: compass (C or 1), snowshoes (2), ice axes (3), crampons (4). Climbing needs axes AND crampons. Hooks: `NAS.compassOpen()`, `NAS.packOpen()`, `NAS.gear(id, on)`.
+- Pack: press and hold the explorer (or hold C) to dig in it; 10 slots (keys 1-9, 0; C takes out the compass). Climbing needs axes AND crampons. See "The pack, the sled and food" below. Hooks: `NAS.compassOpen()`, `NAS.packOpen()`, `NAS.gear(id, on)` (puts it in the pack first if need be), `NAS.give(id, n)`, `NAS.pack`, `NAS.sled`, `NAS.ground`, `NAS.openSled()`, `NAS.eat()`, `NAS.packUI()` (slot screen positions, for scripted taps via `NAS.uiPress(x, y)` / `NAS.uiRelease()`).
+- `?kit=all` starts the first member with the compass, snowshoes, axes, crampons and 3 rations (the gear comes out of the sled). `?food=0..1` starts them that hungry; hooks `NAS.starve(v?)` (food to v, or 0.25 lower), `NAS.feed(v = 1)`, `NAS.fillPack()`; the gear menu has Starve me / Feed me / Fill pack and shows food, its rate, the pack and the sled.
 - `?terrain=ice` forces `terrainAt()` to return that type everywhere (handy for animation tests).
 - `?debug` lets modules draw debug overlays.
 - `?wet=0..1`, `?frozen=0..1` start them soaked / rimed. Hooks `NAS.soak(v = 1)`, `NAS.dry()`;
@@ -73,13 +74,13 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
   and shows energy / its cap, the drain per minute and the reserve.
 
 ## Survival (man vs. environment) — no bars, no HUD
-The plan lives in Joe's survival plan (slices 1–7). Slices 1–3 are built: the body, the cold,
+The plan lives in Joe's survival plan (slices 1–7). Slices 1–4 are built: the body, the cold,
 the base camp tent, death handing over to the next expedition member; open water and wet;
-exhaustion.
+exhaustion; the sled, the 10-slot pack, food and hunger.
 
 - **The body** (`js/actors/body.js`): `state.body = { warmth, wet, energy, reserve, injury, food, water }`,
-  each 0–1, hidden. Warmth, wet and energy/reserve are live; food (hunger adds to the warmth
-  loss and wears the reserve faster) and injury (caps energy) are hooked in for later slices.
+  each 0–1, hidden. Warmth, wet, energy/reserve and food are live; injury (caps energy) is
+  hooked in for a later slice.
   Warmth loss = `LOSS × (cold × (0.35 + 0.65 × wind exposure))^1.5`, more at night, less
   sheltered (cowering, hunkered in the lee); walking makes heat. Measured (headless, sped up):
   a dry explorer standing in a full blizzard dies in ~2¾–3 min, a wet one in ~45 s; walking in
@@ -218,6 +219,65 @@ exhaustion.
     0.68 it finished with 0.10 left); at (1490, 1500), ~110 px: 94% (estimate 0.93: only fresh,
     finishing with 0.06). Camera pulse at most 0.51% zoom (~6.5 px at the edge of a 2560 px
     screen), only when stopped; the rest zoom-in 18%.
+- **The pack, the sled and food** (slice 4). `js/items.js` is the registry (`ITEMS`: id, name,
+  stack, kind, icon, `use`, `blocked`; add an item there and the pack, sled and transfer take it)
+  and the containers: `state.pack` (10 slots, everything counts, the compass and gear too; worn
+  things stay in their slot, ring signal yellow), `state.sled` (the party's supply: 12 rations in
+  stacks of 3, snowshoes, axes, crampons and a spare compass), `state.ground` (piles on the snow)
+  and each fallen member's `pack`. Food stacks to 3 a slot, gear one. `player.gear` is a derived
+  view (getters on the pack), so the explorer and body read it as before. The first member sets
+  out with a compass and 2 rations; each one after a death starts empty bar a compass if the sled
+  still has one, and must restock at the sled. The sled is all the food there is (hunting later).
+  - **The pack UI** (`js/ui/pack.js`, the only UI, on demand): hold the explorer 2 s (a bar fills
+    over the hood) and the 10 round slots open as two columns of five beside them, slot 1 where
+    the compass slot always was (beside the hood), 1–5 down the near column, 6–0 down the far one;
+    to the left, flipped to the right when a column wouldn't fit (and only then slid back on, so
+    columns never stack). The slot radius is 5.5 world units but never under 13 px (18 px on a
+    touch screen; hit radius +8 px). Empty slots are faint; a stack shows an ink pip each. Tap:
+    wear / take off (that slot: one of a kind is worn), take out the compass, eat. Press and hold
+    1 s (a white, ink-edged arc shows only from 0.3 s, so taps never see it): drop ONE on the snow
+    beside the explorer (a small pile, the icons laid flat, snowing over with time; piles within
+    6 units merge; nowhere walkable: refused). Anything worn that leaves the pack is taken off
+    first (the gear event plays). The compass works only while there's one in the pack. Blocked
+    uses, a full pack and "too full to eat" shake the slot (ring to ink, a muffled knock).
+  - **Containers**: within reach of the sled (~20 units from its edge), a body (16) or a pile (12)
+    a small signal-yellow glint twinkles on it (the sled's lashing, the body's pack, the pile),
+    never under ~12 screen px across; fainter from twice the reach.
+    Hold it and the explorer kneels low, turns to it (a little off straight-away from the camera)
+    and digs; a press on one further off walks there (round water and camp) and digs on arrival;
+    any input of the player's own cancels the walk. Its contents fan out in a block of square,
+    crate-like slots beside it on the far side from the explorer (one faint empty slot first,
+    nearest the pack, then the stacks), the round pack slots beside the explorer on the other
+    side; faint dashed ink tethers join each block to its owner. Tap moves one across, hold 0.6 s
+    moves the stack. Each move kicks up a puff of snow and jostles the sled's load; the load's
+    bundles come off as the sled empties (camp.js, top sacks first). Walking away, an alerted bear
+    within 60 units, or 14 s untouched closes it. Keyboard: hold Space / E close to one; 1–0 from
+    the pack, Shift + 1–0 from the container. At death the pack goes with the body (fallen.js);
+    the sea keeps what it takes.
+  - **In the tent**: by day, press and hold the glowing door and the pack opens there (to eat; a
+    quick tap on the door leaves, as a tap anywhere does). After dark the door is the bed: a hold
+    there (or anywhere) sleeps, the dig bar filling over the door with it (~1 s). Going to sleep
+    hungry (food < 0.75) eats a ration from the pack, if there is one.
+  - **Hunger** (`body.js`): food runs down in ~15 min standing about (three days and nights),
+    ~8 min walking at full push, ~9½ min standing shivering cold (warmth 0.35), ~25 min in the
+    tent; sleeping the night costs 0.06. A new member after a death starts at 0.8. A ration: tap
+    it, the explorer kneels with the pack open, turns half toward the camera, takes it out and
+    eats for 3 s (mitts and a biscuit at the face, a chewing bob, crunching); +0.35 food, +0.04
+    warmth; walking off (or a tap elsewhere) cancels it and keeps the ration (no eating above
+    0.95). Below 0.3: energy comes back slower (to half), its cap drops (up to −35%), the reserve
+    wears faster (×1.6) and the gait slows (up to −20% near 0). Below 0.1: warmth loss up to +60%
+    and less heat from walking. At 0 it kills only through the cold and exhaustion.
+    Cues, no UI: **lightheaded** episodes (`body.dizzy`, ~0.7 s) below 0.3, setting off after a
+    stop (35–95%) and now and then walking on, with a cooldown of 25 s at 0.3 down to 7 s near 0:
+    the frame doubles faintly, drifting, and dims (body.js drawScreen; distinct from the cold's ink
+    edge and exhaustion's blur; Reduce motion keeps only the dim), and the explorer sways, staggers
+    and slows. Below 0.2 a sway comes standing still too, and a growl every 6–15 s whatever
+    they're doing. The first time food drops below 0.35 the explorer glances back and pats the
+    pack, the once, while the first fifth of the dig bar flashes over them (teaching the hold,
+    no words). Under ~0.35, standing
+    about, a mitt to the stomach, hunched, every 6–15 s, with a low gurgling growl (now and then
+    walking too); the wind ducks under the growl, so it's heard in a storm. The ice axes, carried
+    but not in hand, show strapped on the back of the pack.
 - **Death and the party**: warmth 0 → collapse (kneel, slump, lie face down) → the ink iris
   closes onto the body, holds a beat, closes → cut to base camp: the next of the four crawls
   out of the tent as the iris opens. The body stays where it fell for the run

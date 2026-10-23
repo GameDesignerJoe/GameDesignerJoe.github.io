@@ -47,6 +47,11 @@ export function initMenu() {
         <button data-act="tire">Tire me</button>
         <button data-act="rest">Rest me</button>
       </div>
+      <div class="row">
+        <button data-act="starve">Starve me</button>
+        <button data-act="feed">Feed me</button>
+        <button data-act="fill">Fill pack</button>
+      </div>
     </div>
     <a href="editor/" target="_blank" rel="noopener">Terrain editor ↗</a>`;
 
@@ -82,13 +87,22 @@ energy ${b.energy.toFixed(2)}/${(b.max ?? 1).toFixed(2)}  ${(b.drain > 0 ? '-' :
 `
       + `reserve ${(b.reserve ?? 1).toFixed(2)}  injury ${b.injury.toFixed(2)}  in water ${P.water?.level ?? 0}
 `
-      + `food ${b.food.toFixed(2)}  water ${b.water.toFixed(2)}
+      + `food ${b.food.toFixed(2)}  -${((b.foodRate || 0) * 60).toFixed(3)}/min  water ${b.water.toFixed(2)}
+`
+      + `pack ${packText(state.pack)}
+sled ${packText(state.sled)}
 `
       + `${b.phase} · ${P.mode} · party ${alive}/${state.party?.length ?? 0}
 `
       + `${state.weather.temp}°C cold ${state.weather.cold.toFixed(2)} wind ${(P.exposure || 0).toFixed(2)}`;
   };
   setInterval(() => { if (!panel.hidden) showBody(); }, 250);
+  // e.g. "compass* food3 food2 axes" (* = worn); ".." for each empty pack slot
+  function packText(c) {
+    if (!c) return '-';
+    const full = c.slots.filter(Boolean).map(q => q.id + (q.n > 1 ? q.n : '') + (q.worn ? '*' : ''));
+    return (full.join(' ') || 'empty') + (c === state.pack ? ` (${c.slots.length - full.length} free)` : '');
+  }
 
   gear.addEventListener('click', () => { panel.hidden = !panel.hidden; sync(); showBody(); });
   sel.addEventListener('change', () => setQuality(sel.value));
@@ -110,6 +124,9 @@ energy ${b.energy.toFixed(2)}/${(b.max ?? 1).toFixed(2)}  ${(b.drain > 0 ? '-' :
     if (act === 'dry') { state.dry?.(); showBody(); }
     if (act === 'tire') { state.tire?.(); showBody(); }
     if (act === 'rest') { state.rest?.(); showBody(); }
+    if (act === 'starve') { state.starve?.(); showBody(); }
+    if (act === 'feed') { state.feed?.(); showBody(); }
+    if (act === 'fill') { state.fillPack?.(); showBody(); }
     // Bright day: auto (weather decides) -> on -> off -> auto.
     if (act === 'bright') {
       const L = state.lighting;

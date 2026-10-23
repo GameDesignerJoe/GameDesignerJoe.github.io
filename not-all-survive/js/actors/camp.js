@@ -347,6 +347,21 @@ const BUNDLES = (() => {
   return out.sort((a, b) => a.depth - b.depth);
 })();
 const TARP = { x: 8.0, y: 0, w: 4.2, d: 6.4, h0: 2.9, h: 3.0 };
+// The load follows what's in the sled (state.sled, items.js): as things are taken out the
+// bundles come off, the top sacks first, then the lower ones, down to a few at the bottom; and
+// each thing moved in or out (ui/pack.js calls sledNudge) jostles the load for a moment.
+BUNDLES.map((b, i) => i).sort((a, b) => BUNDLES[b].h0 - BUNDLES[a].h0 || BUNDLES[a].x - BUNDLES[b].x).forEach((i, k) => { BUNDLES[i].rank = k; });
+let sledFull = null, sledGone = 0, sledJolt = 0;
+export function sledNudge() { sledJolt = 1; }
+function updateSledLoad(dt) {
+  const sl = state.sled;
+  if (!sl) return;
+  const n = sl.slots.reduce((a, q) => a + (q ? 1 : 0), 0);
+  if (sledFull === null) sledFull = Math.max(1, n);
+  sledGone = Math.round(clamp(1 - n / sledFull, 0, 1) * BUNDLES.length * 0.75);
+  sledJolt = Math.max(0, sledJolt - dt * 2.5);
+}
+const sledStamp = () => sledGone + sledJolt * 0.9 + (sledJolt > 0 ? (state.time * 7) % 1 * 0.05 : 0);
 
 function roundPath(ctx, pts, r = 0.5) {
   const n = pts.length, m = (a, b) => [lerp(a[0], b[0], 0.5), lerp(a[1], b[1], 0.5)];
@@ -459,12 +474,15 @@ function drawSled(ctx) {
   const fs = side(far);
   roundPath(ctx, fs); ctx.fillStyle = '#58585a'; ctx.fill();
   ctx.lineWidth = lwM; ctx.strokeStyle = INK; ctx.stroke();
-  // the heaped load and the tarp-covered front
-  for (const b of BUNDLES) drawBundle(ctx, P, b, snow);
+  // the heaped load (what's left of it, jostled when something's moved) and the tarp-covered front
+  for (const b of BUNDLES) {
+    if (b.rank < sledGone) continue;
+    drawBundle(ctx, P, sledJolt > 0 ? { ...b, h0: b.h0 + sledJolt * 0.45 * Math.max(0, Math.sin(b.seed * 7 + state.time * 26)) } : b, snow);
+  }
   drawTarp(ctx, P, TARP, snow, near);
   // three lashing lines thrown across the load, gunwale to gunwale
   for (const x of [-7.6, -1.8, 4.2]) {
-    let t = 2.9; for (const b of BUNDLES) if (Math.abs(x - b.x) < b.w / 2 + 0.3) t = Math.max(t, b.h0 + b.h);
+    let t = 2.9; for (const b of BUNDLES) if (b.rank >= sledGone && Math.abs(x - b.x) < b.w / 2 + 0.3) t = Math.max(t, b.h0 + b.h);
     inkLine(ctx, [P(x - 0.3, far * 2.2, t), P(x, 0, t + 0.15), P(x + 0.3, near * 2.4, t - 0.1), P(x + 0.5, near * 3.65, 4.55)], inkW(0.24), 'rgba(30,30,32,0.9)', x, 0);
   }
   // near hull wall: curved basket side with plank seams and a light gunwale
@@ -1090,6 +1108,7 @@ function onScreen(m = 30) {
 }
 
 export function update(dt) {
+  updateSledLoad(dt);
   const night = state.lighting?.night || 0;
   // Someone inside (explorer mode 'inside', or crawling through the door): the lamp is lit,
   // so the canvas glows by day too and brighter by night. Holding to sleep turns it down.
@@ -1207,7 +1226,7 @@ export function drawables() {
   const hz = HZ[state.quality?.level] || HZ.high;
   const out = [
     { x: TENT.x, y: TENT.y + 3, draw: ctx => drawCached(ctx, 'tent', TENT_BOX, hz[0], drawTent, 0, 0, tentNight + doorLit * 3) },
-    { x: SLED.x, y: SLED.y + 1, draw: ctx => drawCached(ctx, 'sled', SLED_BOX, hz[1], drawSled) },
+    { x: SLED.x, y: SLED.y + 1, draw: ctx => drawCached(ctx, 'sled', SLED_BOX, hz[1], drawSled, 0, 0, sledStamp()) },
   ];
   for (const d of dogs) out.push({ x: d.x, y: d.y, draw: ctx => {
     drawChain(ctx, d);

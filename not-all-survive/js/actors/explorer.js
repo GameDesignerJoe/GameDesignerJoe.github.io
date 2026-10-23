@@ -166,7 +166,7 @@ const P = state.player;
 const pose = {
   ...PROFILES.snow, stepEff: PROFILES.snow.step, shield: 0, shieldSide: 1, hug: 0, brace: 0,
   windLeanF: 0, windLeanS: 0, torsoYaw: 0, headYaw: 0, windAmt: 0, gait: 0,
-  shift: 0, shiver: 0, gustKick: 0, coldShake: 0,
+  shift: 0, shiver: 0, gustKick: 0, coldShake: 0, stomach: 0,
 };
 let phase = 0, tentMod = 1;
 let slipT = 0, slipSide = 1, staggerT = 0, staggerSide = 1;
@@ -174,19 +174,34 @@ let breathT = 1, breathStrong = 0;
 // idle behaviour timers
 let shiftT = 2.5, shiftTarget = 1, lookT = 3, lookTarget = 0, shiverT = 4, shiverOn = 0;
 let stampT = 8, stampOn = 0, stampSide = 1;
+// hunger (body.js food): a hand to the stomach now and then, standing about hungry
+let stomachT = 9, stomachOn = 0, dizzyPrev = 0;
+// the once: the first time food drops below 0.35, a glance and a pat at the pack (teaching the
+// hold-to-open: ui/pack.js flashes the start of the dig bar over them while player.patHint > 0)
+const PAT_S = 1.6;
+let patT = 0, patDone = false;
+const food = () => (state.body ? state.body.food ?? 1 : 1);
 let lastGust = 0;
 // coat hem spring (body-frame offset of the hem centre, lags hip velocity)
 const hemS = { f: 0, r: 0, z: 0, vf: 0, vr: 0, vz: 0 };
-// Compass (js/ui/compass.js): weights for rummaging in the pack, offering it in the slot, and
-// holding it out; packSwing 0 = on the back, 1 = swung round in front.
-const CP = { rum: 0, slot: 0, out: 0, pack: 0 };
+// The pack (js/ui/pack.js, state.compass): weights for rummaging in the pack, offering it in
+// the slot, holding the compass out; kneeling (at the sled, a body or a pile, or to eat), digging
+// in a container in front (dig) and eating (eat, eatT the seconds into the meal); pack 0 = on the
+// back, 1 = swung round in front.
+const CP = { rum: 0, slot: 0, out: 0, pack: 0, kneel: 0, dig: 0, eat: 0, eatT: 0 };
 function updateCompassPose(dt) {
-  const ph = state.compass?.phase || 'idle';
-  CP.rum = approach(CP.rum, ph === 'rummage' ? 1 : 0, ph === 'rummage' ? 4 : 5, dt);
+  const st = state.compass, ph = st?.phase || 'idle', tgt = !!st?.target;
+  CP.rum = approach(CP.rum, ph === 'rummage' && !tgt ? 1 : 0, ph === 'rummage' ? 4 : 5, dt);
   CP.slot = approach(CP.slot, ph === 'slot' ? 1 : 0, 5, dt);
   CP.out = approach(CP.out, ph === 'out' ? 1 : 0, 5, dt);
+  const kneel = (ph === 'rummage' && tgt) || ph === 'transfer' || ph === 'eat';
+  CP.kneel = approach(CP.kneel, kneel ? 1 : 0, kneel ? 3.5 : 4.5, dt);
+  CP.dig = approach(CP.dig, (ph === 'rummage' && tgt) || ph === 'transfer' ? 1 : 0, 4, dt);
+  CP.eat = approach(CP.eat, ph === 'eat' ? 1 : 0, ph === 'eat' ? 4 : 6, dt);
+  CP.eatT = ph === 'eat' ? st.t : 0;
   // the pack comes off one shoulder and round to the front over ~0.6 s, and back on after
-  CP.pack = clamp(CP.pack + (ph === 'rummage' ? 1 : -1) * dt / 0.6);
+  // (a ration comes out of it too)
+  CP.pack = clamp(CP.pack + ((ph === 'rummage' && !tgt) || ph === 'eat' ? 1 : -1) * dt / 0.6);
 }
 const puffs = [], kicks = [];
 let rng = 1234567;
@@ -206,6 +221,10 @@ export function init() {
   P.respawn = gone => respawn(gone);
   P.snapshot = () => snapshot();
   P.tent = () => goToTent();                     // test hook: walk to the tent and crawl in
+  // ui/pack.js: walk to a point (the sled, a body, a pile pressed from afar); pushes 'arrive'
+  // there. Any input of the player's own cancels it. And leave the tent (a tap on its door).
+  P.reach = (x, y) => goReach(x, y);
+  P.leaveTent = () => { if (P.mode === 'inside' && state.body?.phase !== 'sleep') { pressT = -1; P.mode = 'tent-out'; tentT = 0; } };
   P.water = water;                               // body.js reads level / depth
   P.lostAtSea = false;
   P.facing = Math.PI / 2;
@@ -253,6 +272,8 @@ export function update(dt) {
   updateCompassPose(dt);
   for (const e of state.events) if (e.type === 'gear' && e.item === 'axes' && !e.auto) axeReachT = 0.5;
   if (axeReachT > 0) axeReachT = Math.max(0, axeReachT - dt);
+  if (patT > 0) patT = Math.max(0, patT - dt);
+  P.patHint = patT > 0 ? 1 - patT / PAT_S : 0;
   for (const e of state.events) if (e.type === 'gear' && (e.item === 'snowshoes' || e.item === 'crampons')) {
     if (e.item === 'crampons' && e.auto && !e.on) continue;   // swapped for snowshoes: their own kneel plays
     // strapping on / taking off by hand: kneel at the feet ~1.2 s, rooted; the game pulling
@@ -344,8 +365,14 @@ export function update(dt) {
     // the give-up clock runs at the pace they can manage, and not at all while stopped
     if (!halted) approachT += dt * paceK();
     // arrived (or about to step past it this frame, or pressed against the rock right by it)
-    if (dRoute < Math.max(1.4, P.speed * dt * 1.5) || (approachT > 0.6 && dRoute < 5 && P.speed < 1)) { if (route.kind === 'tent') beginTentIn(); else beginClimb(); finishFrame(dt, ter, 0, wEff, wa); return; }
-    if (approachT > route.limit) { P.mode = 'walk'; route = null; }
+    if (route.kind === 'reach' && (inp.active || (inp.tap && inp.tap.t !== lastTapT))) { P.mode = 'walk'; route = null; }   // their own way instead
+    else if (route.kind === 'reach' && (dRoute < 2 || (approachT > 0.6 && dRoute < 6 && P.speed < 1))) {
+      P.mode = 'walk'; route = null;
+      state.events.push({ type: 'arrive', x: P.x, y: P.y });
+    }
+    else if (dRoute < Math.max(1.4, P.speed * dt * 1.5) || (approachT > 0.6 && dRoute < 5 && P.speed < 1)) { if (route.kind === 'tent') beginTentIn(); else beginClimb(); finishFrame(dt, ter, 0, wEff, wa); return; }
+    if (!route) { /* arrived, or given up for their own way */ }
+    else if (approachT > route.limit) { P.mode = 'walk'; route = null; }
     else { const m = Math.min(1, dRoute / 3 + 0.4); ix = dx / d * m; iy = dy / d * m; }
   }
   // Holding on a point across open water: walk round it if there's a way on dry ground
@@ -455,6 +482,11 @@ export function update(dt) {
   spd *= 1 - 0.2 * (state.body?.frozen || 0);        // clothes frozen stiff
   const tk = tiredK();
   spd *= 1 - 0.45 * tk;                              // worn out: shorter, heavier strides
+  spd *= 1 - 0.2 * smooth(0.3, 0, food());           // hungry: slower, more so the emptier (stumbles below)
+  const dz = state.body?.dizzy || 0;
+  spd *= 1 - 0.55 * dz;                              // lightheaded: the legs go for a moment
+  if (dz > 0.05 && dizzyPrev <= 0.05 && P.mode === 'walk' && staggerT <= 0) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
+  dizzyPrev = dz;
   if (spent) spd = BASE_SPEED * sf * mag * 0.25 * smooth(0.6, 1, crawlW);   // crawling: a quarter pace
   // a steady push back toward the interior, stronger the deeper in
   // (not while walking a planned route to a climb: the path already threads the rock)
@@ -507,6 +539,16 @@ export function update(dt) {
     // orienting by the compass: turn slowly to face north-west (screen up-left)
     const nw = Math.atan2(-1 / KY, -1);
     P.facing = wrapPi(P.facing + clamp(wrapPi(nw - P.facing), -0.8 * dt, 0.8 * dt));
+  } else if (state.compass?.target) {
+    // kneeling to the sled, a body or a pile: turn to it
+    // (turned a little off straight-away from the camera, so the reaching arms show from behind)
+    const tg = state.compass.target, w0 = Math.atan2((tg.y - P.y) / KY, tg.x - P.x);
+    const want = Math.sin(w0) < -0.3 ? w0 + (Math.cos(w0) >= 0 ? 0.55 : -0.55) : w0;
+    P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -3 * dt, 3 * dt));
+  } else if (CP.eat > 0.3) {
+    // eating: half round toward the camera, so the meal reads (whichever side is nearer)
+    const want = Math.cos(P.facing) >= 0 ? Math.PI * 0.3 : Math.PI * 0.7;
+    P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -1.6 * dt, 1.6 * dt));
   }
   updateCower(dt, active);
 
@@ -588,8 +630,26 @@ export function update(dt) {
   const yawWind = clamp(up - Math.sign(up || 1) * Math.PI / 2, -0.75, 0.75) * pose.brace;
   pose.torsoYaw = approach(pose.torsoYaw, yawWind + look * 0.3, 2, dt);
   pose.headYaw = approach(pose.headYaw, look * 0.75 - pose.brace * Math.sign(up || 1) * 0.35, 1.4, dt);
-  // --- numb feet: stumbles once the cold is deep ---------------------------------------------
-  if (P.mode === 'walk' && active && staggerT <= 0 && rand() < dt * 0.45 * smooth(0.36, 0.1, warm)) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
+  // --- hunger: standing about hungry (food < ~0.35), now and then a hand goes to the stomach,
+  // hunched over it for a couple of seconds, oftener the emptier; in a quiet moment (little
+  // wind) it growls (audio). Not while busy with the pack, cowering, kneeling or worn out.
+  const fd = food();
+  stomachT -= dt;
+  if (stomachOn > 0) stomachOn -= dt;
+  if (stomachT <= 0) {
+    stomachT = lerp(15, 6, smooth(0.35, 0.03, fd)) * (0.7 + rand() * 0.6);
+    if (fd < 0.35 && idle > 0.7 && CP.kneel < 0.1 && CP.rum < 0.1 && CP.out < 0.1 && CP.slot < 0.1 && cowerW < 0.2 && kneelW < 0.2 && !spent && restT <= 0 && !water.level) {
+      stomachOn = 2.2 + rand() * 1.2;
+      state.events.push({ type: 'growl', x: P.x, y: P.y, strength: 0.45 + 0.55 * smooth(0.35, 0, fd) });   // (audio ducks the wind under it)
+    } else if (fd < 0.3 && (fd < 0.2 || rand() < 0.35)) state.events.push({ type: 'growl', x: P.x, y: P.y, strength: 0.4 + 0.5 * smooth(0.3, 0, fd) });   // walking, cowering...: just the sound (always, below 0.2)
+  }
+  if (!patDone && fd < 0.35 && idle > 0.7 && P.mode === 'walk' && CP.kneel < 0.1 && CP.rum < 0.1 && CP.slot < 0.1 && CP.out < 0.1 && kneelW < 0.2 && !spent && restT <= 0 && !water.level && (state.compass?.phase || 'idle') === 'idle') {
+    patDone = true; patT = PAT_S; stomachOn = 0;
+  }
+  if (!(idle > 0.5) || fd >= 0.4) stomachOn = Math.min(stomachOn, 0);
+  pose.stomach = approach(pose.stomach, stomachOn > 0 ? 1 : 0, stomachOn > 0 ? 3 : 4, dt);
+  // --- numb feet: stumbles once the cold is deep (and starving: unsteady on the feet) ----------
+  if (P.mode === 'walk' && active && staggerT <= 0 && rand() < dt * (0.45 * smooth(0.36, 0.1, warm) + 0.2 * smooth(0.1, 0, fd))) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
   // --- wind knockdowns: in a real storm, out in the open, now and then ------------------------
   if (P.mode === 'walk' && shoveT <= 0 && cowerW < 0.3 && !spent) {
     const storm = Math.max(smooth(0.62, 0.9, ws) * smooth(0.4, 0.85, gust) * (1 - smooth(0.25, 0.6, shelter)), smooth(0.55, 1, fa) * 1.6);
@@ -720,6 +780,7 @@ function handleActions() {
   // (spent, only from close by: ~15 units, crawling)
   const reachTent = !spent || Math.hypot(P.x - tentDoor().fx, P.y - tentDoor().fy) < 15;
   if (tap && reachTent && campInteract(tap.x, tap.y) === 'tent') { goToTent(); inp.tap = null; return; }
+  if (act && state.compass?.target) act = false;   // Space / E held at the sled / a body: rummaging (ui/pack.js)
   if (act && reachTent && nearDoor()) { goToTent(); inp.action = null; return; }
   if (spent) return;   // no climbing from sat in the snow
   if (tap && tapClimb(tap)) inp.tap = null;
@@ -1302,6 +1363,20 @@ function goToTent() {
   route = { kind: 'tent', up: true, avoid: wet, walkTo: { x: d.fx, y: d.fy }, bottom: { x: -1e6, y: -1e6 }, top: { x: d.x, y: d.y }, path, limit: 10 + len / 2.5 };
   P.mode = 'approach'; approachT = 0;
 }
+// Walk to a point by ourselves (a press on the sled, a body or a pile from afar: ui/pack.js digs in
+// it on arrival). Round water, and round the camp, like the tent route. Not spent, not mid-climb.
+function goReach(x, y) {
+  if ((P.mode !== 'walk' && P.mode !== 'cower') || spent || water.level) return false;
+  const wet = crossesWater(P.x, P.y, x, y);
+  const path = findPath(P.x, P.y, x, y, wet, wet ? 7 : 5, 150);
+  let len = 0, a = P;
+  for (const q of path) { len += Math.hypot(q.x - a.x, q.y - a.y); a = q; }
+  route = { kind: 'reach', up: true, avoid: wet, walkTo: { x, y }, bottom: { x: -1e6, y: -1e6 }, top: { x, y }, path, limit: 8 + len / 2.5 };
+  P.mode = 'approach'; approachT = 0;
+  const inp = state.input;
+  if (inp.tap) lastTapT = inp.tap.t;
+  return true;
+}
 // Sleep only skips the rest of a night (the cycle's night, not a pinned clock). Same test as body.js.
 function canSleep() { const L = state.lighting; return L.mode === 'cycle' && L.night > 0.5 && L.clock >= 180; }
 function nearDoor() { const d = tentDoor(); return Math.hypot(P.x - d.fx, P.y - d.fy) < 12; }
@@ -1391,9 +1466,7 @@ function updateInside(dt) {
 function respawn(gone) {
   const d = tentDoor();
   resetTo(d.x, d.y);
-  // the dead member's kit stays with the body (slice 4: recover the pack); until then the
-  // next one starts with the default: nothing strapped on (in place: the pack holds this object)
-  if (P.gear) for (const k in P.gear) P.gear[k] = false;
+  // (the dead member's kit stays with the body: body.js empties the pack, items.js)
   puffs.length = 0; kicks.length = 0;
   P.facing = Math.atan2(d.out.y / KY, d.out.x);
   ovr = crawlPose(1, 0, 0); ovrW = 1;
@@ -1863,6 +1936,21 @@ function buildRig() {
   const strK = strapT > 0 ? Math.sin(clamp(1 - strapT / strapDur) * Math.PI) : 0;
   const strDeep = strapLock ? 1 : 0.5;
   if (strK > 0.001) { hz -= 3.0 * strK * strDeep; leanF += 0.75 * strK * strDeep; twist = lerp(twist, 0, strK); }
+  // kneeling at the sled, a body or a pile (leaning in to dig), or to eat: down on one knee
+  const pkw = CP.kneel;
+  // (digging: right down, bent well over what's in front; eating: kneeling up)
+  // (seen from behind, leaning over only lifts the head up the screen: lower, less bent)
+  const toCam = clamp(0.5 + 0.5 * Math.sin(yaw));
+  if (pkw > 0.001) { hz = lerp(hz, lerp(4.2, lerp(2.3, 3.0, toCam), CP.dig), pkw); leanF = lerp(leanF, 0.2 + CP.dig * lerp(0.15, 0.6, toCam), pkw); leanS = lerp(leanS, 0, pkw); twist = lerp(twist, 0, pkw); }
+  // lightheaded with hunger (body.dizzy): a slow sway from side to side, the head rolling with it
+  const dzy = state.body?.dizzy || 0;
+  if (dzy > 0.001) { leanS += 0.2 * dzy * Math.sin(t * 5.2); leanF += 0.08 * dzy; }
+  // hungry: hunched a little over a hand on the stomach
+  const stw = pose.stomach;
+  if (stw > 0.001) { leanF += 0.3 * stw; hz -= 0.35 * stw; }
+  // eating: a slight bob with each chew once the food is at the mouth
+  const eatK = CP.eat * smooth(0.35, 0.85, CP.eatT);
+  const chew = eatK * Math.sin(CP.eatT * 15) * (1 - smooth(2.6, 3.0, CP.eatT));
   // compass: bent over the pack while rummaging; braced and head bowed holding it out
   const rw = CP.rum, cow = CP.out;
   if (rw > 0.001 || cow > 0.001) {
@@ -1894,6 +1982,7 @@ function buildRig() {
     let ft = foot, poleL = [1, s * 0.15, 0.1];
     if (cw > 0.001) { ft = mix(ft, [0.9, s * 1.15, 0], cw); poleL = mix(poleL, [1, s * 0.6, 0.2], cw); }
     if (kw > 0.001) { ft = mix(ft, s < 0 ? [-2.9, -0.9, 0.2] : [1.6, 1.25, 0], kw); poleL = mix(poleL, s < 0 ? [1, -0.1, -0.2] : [1, 0.35, 0.3], kw); }
+    if (pkw > 0.001) { ft = mix(ft, s < 0 ? [-2.9, -0.9, 0.2] : [1.6, 1.25, 0], pkw); poleL = mix(poleL, s < 0 ? [1, -0.1, -0.2] : [1, 0.35, 0.3], pkw); }
     if (resW > 0.001) { ft = mix(ft, [-0.3 + (s < 0 ? 0.4 : -0.2), s * 1.5, 0], resW); poleL = mix(poleL, [1, s * 0.3, 0.1], resW); }
     if (sitK > 0.001) { ft = mix(ft, [3.4, s * 0.5, 0.15], sitK); poleL = mix(poleL, [0.8, s * 0.1, 1], sitK); }
     if (O) { ft = mix(ft, O.feet[s < 0 ? 0 : 1], ow); poleL = mix(poleL, O.poleL[s < 0 ? 0 : 1], ow); }
@@ -1930,7 +2019,9 @@ function buildRig() {
     // (taking them in or out) is a quick hand to the back of the shoulder
     const carryW = axesOn() && !O ? clamp(1 - Math.max(pose.hug, pose.shield * (s === sh ? 1 : 0), pose.spread * 0.6, cw, CP.rum, CP.out, CP.slot)) : 0;
     if (carryW > 0) hand = mix(hand, [0.5 + armF * 0.55, s * 3.0, SPINE - 4.0 + Math.abs(armF) * 0.1], carryW);
-    const reachK = axeReachT > 0 && s > 0 ? Math.sin(clamp(1 - axeReachT / 0.5) * Math.PI) : 0;
+    // (and the once, patting the pack: the same reach, tapping twice)
+    const patK = patT > 0 && s > 0 ? Math.sin(clamp(1 - patT / PAT_S) * Math.PI) * (0.75 + 0.25 * Math.sin((1 - patT / PAT_S) * Math.PI * 6)) : 0;
+    const reachK = Math.max(axeReachT > 0 && s > 0 ? Math.sin(clamp(1 - axeReachT / 0.5) * Math.PI) : 0, patK);
     if (reachK > 0) hand = mix(hand, [-0.9, s * 1.5, SPINE + 0.2], reachK);
     const shoulder = torsoToBody(shoulderT, tf);
     let handB = torsoToBody(hand, tf);
@@ -1974,6 +2065,31 @@ function buildRig() {
         cpFull = Math.max(cpFull, CP.slot);
       }
     }
+    if (CP.dig > 0.001 && !O) {
+      // reaching down into the sled / the dead one's pack / the pile in front, a hand at a time
+      const dig = Math.sin(t * 5.5 + (s > 0 ? 0 : 2.4)), dig2 = Math.sin(t * 3.1 + s * 1.3);
+      handB = mix(handB, [3.4 + 0.5 * dig2, s * 1.1, 0.9 + 0.7 * Math.max(0, dig)], CP.dig);
+      pole = mix(pole, torsoDir([-0.2, s, -0.5], tf), CP.dig);
+      cpFull = Math.max(cpFull, CP.dig);
+    }
+    if (CP.eat > 0.001 && !O) {
+      // eating: the ration out of the pack in both mitts (low, unwrapping it), then up to the
+      // face, the mitts dipping a little with each bite
+      const et = CP.eatT, up = smooth(0.35, 0.85, et) * (1 - smooth(2.7, 3.05, et));
+      const unwrap = Math.sin(t * 9 + s) * 0.18 * (1 - up);
+      const low = torsoToBody([1.7 + unwrap, s * 0.55, SPINE - 2.9], tf);
+      const bite = Math.max(0, Math.sin(et * 7.5)) * 0.22;
+      const mouth = torsoToBody([1.3 + bite, s * 0.32, SPINE + HEAD_UP - 0.95 - bite * 0.5 + 0.05 * chew], tf);
+      handB = mix(handB, mix(low, mouth, up), CP.eat);
+      pole = mix(pole, torsoDir([-0.3, s * 1.2, -0.7], tf), CP.eat);
+      cpFull = Math.max(cpFull, CP.eat);
+    }
+    if (stw > 0.001 && s < 0 && !O) {
+      // hungry: the mitt pressed flat to the stomach
+      handB = mix(handB, torsoToBody([1.25, -0.15, SPINE - 3.0], tf), stw);
+      pole = mix(pole, torsoDir([-0.4, s * 1.1, -0.4], tf), stw);
+      cpFull = Math.max(cpFull, stw);
+    }
     if (CP.out > 0.001) {
       const shake = envW.wEff * 0.14;
       const hT = torsoToBody([1.55 + Math.sin(t * 27) * shake, s * 0.38 + Math.sin(t * 31 + 1) * shake, SPINE - 1.25 + Math.sin(t * 23 + 2) * shake], tf);
@@ -1989,21 +2105,24 @@ function buildRig() {
     const a = ik(shoulder, handB, UPPER_ARM, FOREARM, pole);
     const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4) || carryW > 0.5 || reachK > 0.3 || (!O && resW > 0.4);   // (sat: the arms stay inside the coat, wrapped round the knees)
     const active = full ? 1 : Math.max(spreadW, pose.hug, Math.max(0, pose.work - 0.3) * 1.4, shieldW, pose.creep);
-    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4, carry: carryW > 0.5 && reachK < 0.3 });
+    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4, carry: carryW > 0.5 && reachK < 0.3, food: !O && s > 0 && CP.eat > 0.4 && CP.eatT > 0.2 });
   }
 
   // Head / hood. Thin ice: looking down at the feet.
   const hunch = pose.hunch + 0.45 * smooth(0.6, 0.15, warmth()) + 0.55 * droop;   // head sinks into the hood as they chill
-  const head = torsoToBody([0.4 + hunch * 0.6, jitR, SPINE + HEAD_UP - 0.1 - hunch * 0.45 + upZ * 1.1], tf);
+  const head = torsoToBody([0.4 + hunch * 0.6, jitR, SPINE + HEAD_UP - 0.1 - hunch * 0.45 + upZ * 1.1 + 0.07 * chew], tf);
   const peak = torsoToBody([-0.85 + hunch * 0.5 + wdF * gk * 0.8, wdR * gk * 0.8, SPINE + HEAD_UP + 1.15 + upZ], tf);
   const drape = torsoToBody([-1.1, 0, SPINE - 0.5], tf);
-  const faceYaw = twist + pose.headYaw + (O && O.faceYaw ? O.faceYaw * ow : 0);
+  // (patting the pack: a glance back over that shoulder)
+  const faceYaw = twist + pose.headYaw + (O && O.faceYaw ? O.faceYaw * ow : 0) + 0.9 * (patT > 0 ? Math.sin(clamp(1 - patT / PAT_S) * Math.PI) : 0);
   let facePitch = 0.15 + hunch; // head always bowed a little; 1 = looking at the feet
   if (cw > 0.001) facePitch = lerp(facePitch, 0.9, cw);
   if (kw > 0.001) facePitch = lerp(facePitch, 1.0, kw);   // kneeling: head hung
   facePitch = lerp(facePitch, 1.15, resW);                 // bent double: head down
   facePitch = lerp(facePitch, 1.3, sitK);                  // sat spent: the hood down on the knees
-  facePitch = lerp(facePitch, 0.95, Math.max(CP.rum, CP.out * 0.85, strK));
+  facePitch = lerp(facePitch, 0.95, Math.max(CP.rum, CP.out * 0.85, strK, CP.dig * 0.9));
+  facePitch = lerp(facePitch, 0.4 + 0.06 * chew, eatK);    // eating: head up a little to the food
+  facePitch = lerp(facePitch, 1.0, stw * 0.6);             // hungry: looking down at it
   if (O) facePitch = lerp(facePitch, O.facePitch, ow);
 
   // Coat rings
@@ -2419,6 +2538,7 @@ function drawFigure(ctx, rig, X, Y) {
     limb(ctx, pts, 1.15, sleeveCol(pts[1]));
     if (A.axe > 0.3) drawAxe(ctx, A, pr);
     mitt(pts[2], pts[1]);
+    if (A.food) drawRation(ctx, pts[2]);
   };
   const drawForearm = A => {
     const from = mix(A.elbow, A.hand, A.spreadW > 0.5 ? 0.25 : lerp(0.45, 0.12, pose.hug));
@@ -2527,6 +2647,15 @@ function drawAxeCarry(ctx, A, pr) {
   ctx.beginPath(); ctx.moveTo(Pa[0], Pa[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(Pk[0], Pk[1]); ctx.lineWidth = 0.42; ctx.stroke();
 }
 
+// Eating: a ship's biscuit held up in the mitt (pale, inked, a few docking holes).
+function drawRation(ctx, h) {
+  ctx.beginPath(); ctx.ellipse(h[0] + 0.15, h[1] - 0.35, 0.62, 0.5, -0.3, 0, Math.PI * 2);
+  ctx.fillStyle = '#e8e4da'; ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 0.13; ctx.stroke();
+  ctx.fillStyle = 'rgba(40,36,30,0.75)';
+  for (const [u, v] of [[-0.22, -0.12], [0.22, -0.12], [0, 0.14]]) { ctx.beginPath(); ctx.arc(h[0] + 0.15 + u, h[1] - 0.35 + v, 0.06, 0, Math.PI * 2); ctx.fill(); }
+}
+
 function drawCoat(ctx, rig, pr, depth) {
   const topS = rig.top.map(pr), hemSc = rig.hem.map(pr);
   const ui = ringArcIdx(topS, true), li = ringArcIdx(hemSc, false);
@@ -2617,6 +2746,16 @@ function drawPack(ctx, rig, pr) {
   ctx.beginPath(); ctx.moveTo(f0[0], f0[1]); ctx.lineTo(f1[0], f1[1]);
   ctx.strokeStyle = 'rgba(30,30,30,0.7)'; ctx.lineWidth = 0.15; ctx.stroke();
   inkOutline(ctx, hull, 0.1, 0.28);
+  // ice axes carried but not in hand: strapped on the back of the pack, one diagonal, the head
+  // up past its top
+  if (CP.pack < 0.3 && state.pack?.slots.some(q => q && q.id === 'axes' && !q.worn)) {
+    const lo = rig.pack[6], hi = rig.pack[4];
+    const a = pr(mix(hi, lo, 1.05)), b = pr(mix(lo, hi, 1.3)), hd = pr(mix(lo, hi, 1.3).map((v, i) => v + [0, 0.7, -0.15][i]));
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 0.3; ctx.stroke();
+    const hb = pr(mix(lo, hi, 1.3).map((v, i) => v + [0, -0.6, 0.1][i]));
+    ctx.beginPath(); ctx.moveTo(hb[0], hb[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(hd[0], hd[1]); ctx.lineWidth = 0.32; ctx.stroke();
+  }
 }
 
 function drawHood(ctx, rig, pr) {
@@ -2847,4 +2986,4 @@ export function drawScreen(ctx) {
   ctx.fillText(s, 10, state.view.h - 12);
 }
 
-export const _debug = { restStop: (d = 3) => startRest(d), tired: () => ({ restT, spent, restW, sitW, crawlW, sitDone, pant, pantPh, stopStage, climbCostEst }), hes: () => [hesT, commit], dryRoute: () => dryRoute, water, pose, climb: () => climb, route: () => route, ovr: () => ovr, ovrW: () => ovrW, findPath: (...a) => findPath(...a), shoes: () => [shoesOn(), shoesDrawn(), strapT] };
+export const _debug = { restStop: (d = 3) => startRest(d), tired: () => ({ restT, spent, restW, sitW, crawlW, sitDone, pant, pantPh, stopStage, climbCostEst }), hes: () => [hesT, commit], dryRoute: () => dryRoute, water, pose, climb: () => climb, route: () => route, ovr: () => ovr, ovrW: () => ovrW, findPath: (...a) => findPath(...a), shoes: () => [shoesOn(), shoesDrawn(), strapT], stomach: (d = 3) => { stomachOn = d; stomachT = 20; }, pat: () => { patT = PAT_S; patDone = true; }, cp: CP, rig: () => buildRig() };
