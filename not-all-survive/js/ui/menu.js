@@ -37,6 +37,10 @@ export function initMenu() {
         <button data-act="warm">Warm me</button>
         <button data-act="kill">Kill</button>
       </div>
+      <div class="row">
+        <button data-act="soak">Soak me</button>
+        <button data-act="dry">Dry me</button>
+      </div>
     </div>
     <a href="editor/" target="_blank" rel="noopener">Terrain editor ↗</a>`;
 
@@ -66,7 +70,8 @@ export function initMenu() {
     const alive = state.party ? state.party.filter(m => m.alive).length : 0;
     info.textContent = `warmth ${b.warmth.toFixed(2)}  ${(b.rate * 60 >= 0 ? '+' : '')}${(b.rate * 60).toFixed(3)}/min
 `
-      + `wet ${b.wet.toFixed(2)}  energy ${b.energy.toFixed(2)}  injury ${b.injury.toFixed(2)}
+      + `wet ${b.wet.toFixed(2)}  rime ${(b.frozen || 0).toFixed(2)}  shock ${(b.shock || 0).toFixed(2)}
+energy ${b.energy.toFixed(2)}  injury ${b.injury.toFixed(2)}  in water ${P.water?.level ?? 0}
 `
       + `food ${b.food.toFixed(2)}  water ${b.water.toFixed(2)}
 `
@@ -86,6 +91,8 @@ export function initMenu() {
     if (act === 'freeze') { state.freeze?.(); showBody(); }
     if (act === 'warm') { state.warm?.(); showBody(); }
     if (act === 'kill') { state.kill?.(); panel.hidden = true; }
+    if (act === 'soak') { state.soak?.(); showBody(); }
+    if (act === 'dry') { state.dry?.(); showBody(); }
     // Bright day: auto (weather decides) -> on -> off -> auto.
     if (act === 'bright') {
       const L = state.lighting;

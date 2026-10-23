@@ -40,10 +40,12 @@ export function updateCamera(dt) {
   c.x += (tx - c.x) * k;
   c.y += (ty - c.y) * k;
 
-  // Keep the view inside the painting.
+  // Keep the view inside the painting, except that at the bottom edge (the sea) it may run
+  // a little past it, so the explorer isn't pinned low on a tall phone screen; the white
+  // border haze covers what's beyond.
   const hw = state.view.w / 2 / c.zoom, hh = state.view.h / 2 / c.zoom;
   c.x = Math.max(hw, Math.min(MAP_W - hw, c.x));
-  c.y = Math.max(hh, Math.min(MAP_H - hh, c.y));
+  c.y = Math.max(hh, Math.min(MAP_H - hh * 0.8, c.y));
 }
 
 // Applies the world transform to ctx (canvas already scaled for DPR).

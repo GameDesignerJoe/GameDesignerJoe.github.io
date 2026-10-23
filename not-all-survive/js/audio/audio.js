@@ -168,6 +168,9 @@ function handle(e) {
       const root = ctx.createGain(); root.connect(bus.steps);
       const dur = S.footstep(ctx, B, root, t, { terrain: e.terrain, weight: e.weight, foot: e.foot, cold: coldness() });
       claim('step', dur);
+      // rime: the frozen coat creaks and crackles as the body moves inside it
+      const fz = state.body?.frozen || 0;
+      if (fz > 0.25 && Math.random() < 0.35 * fz) S.creak(ctx, root, t + R(0.03, 0.12), 0.35 * fz);
       setTimeout(() => root.disconnect(), (dur + 0.3) * 1000);
       return;
     }
@@ -189,6 +192,23 @@ function handle(e) {
     case 'chatter': {
       if (voices.body >= LIMIT.body) return;
       claim('body', S.chatter(ctx, B, bus.head, t, e));
+      return;
+    }
+    case 'splash': {
+      if (voices.step >= LIMIT.step) return;
+      claim('step', oneShot('step', e.x, e.y, bus.steps, S.splash, e, 0.15));
+      return;
+    }
+    case 'plunge': {
+      const root = ctx.createGain(); root.connect(bus.steps);
+      const dur = S.plunge(ctx, B, root, t, e);
+      setTimeout(() => root.disconnect(), (dur + 0.3) * 1000);
+      exertion = 1; nextBreath = time + dur;
+      return;
+    }
+    case 'drip': {
+      if (voices.ice >= LIMIT.ice) return;
+      claim('ice', S.drip(ctx, B, bus.steps, t));
       return;
     }
     case 'gust': {
@@ -259,14 +279,15 @@ function updateBreath(dt) {
     const into = Math.max(0, -(p.vx * Math.cos(w.angle) + p.vy * Math.sin(w.angle)) / v) * (w.speed ?? 0.4) * (1 - shelter);
     target = 0.25 + 0.35 * (p.lean || 0) + 0.3 * into + (p.terrain === 'deep' ? 0.35 : 0);
   }
-  target = clamp(target, 0, 1);
+  target = clamp(Math.max(target, 0.7 * (state.body?.shock || 0), p.mode === 'swim' ? 0.95 : 0), 0, 1);
   exertion += (target - exertion) * Math.min(1, dt * (target > exertion ? 0.25 : 0.06));
   if (time < nextBreath) return;
   const period = (4.2 - 2.7 * exertion) * R(0.8, 1.2);
   const len = period * (breathIn ? 0.36 : 0.46) * R(0.8, 1.2);
   // in the lee, with the wind gone, your own breathing comes forward
   const level = (0.08 + 0.92 * exertion) * (1 + 0.8 * shelter);
-  const shaky = p.mode === 'cower' ? 0.8 : 0;
+  const shock = state.body?.shock || 0;               // the cold-water gasp: ragged for a while
+  const shaky = Math.max(p.mode === 'cower' ? 0.8 : 0, shock);
   if (claim('breath', len)) S.breath(ctx, B, bus.breath, ctx.currentTime + 0.01, { inhale: breathIn, len, level, shaky });
   nextBreath = time + (breathIn ? period * 0.42 : period * 0.58);
   breathIn = !breathIn;

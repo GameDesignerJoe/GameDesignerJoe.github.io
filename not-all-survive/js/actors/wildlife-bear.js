@@ -62,7 +62,7 @@ function emit(b, kind) { state.events.push({ type: 'bear', x: b.x, y: b.y, kind 
 
 export function updateBear(b, dt, w) {
   // nobody to watch: calm test mode, or the explorer is in the tent, dead, or gone
-  const away = ['inside', 'tent-in', 'collapse', 'dead', 'gone'].includes(state.player.mode);
+  const away = ['inside', 'tent-in', 'collapse', 'dead', 'gone', 'sink'].includes(state.player.mode);
   const p = state.params.has('wlCalm') || away ? { x: -1e5, y: -1e5 } : state.player;
   const pdx = p.x - b.x, pdy = p.y - b.y, pd = Math.hypot(pdx, pdy);
   const toP = Math.atan2(pdy, pdx);

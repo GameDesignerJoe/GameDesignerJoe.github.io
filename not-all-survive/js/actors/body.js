@@ -18,8 +18,16 @@
 // body.t: seconds into the phase. body.sleepHold: 0..1 how long a press inside the tent has
 //   been held (explorer.js writes it; camp.js turns the lamp down with it).
 //
+// Wet (slice 2): open water soaks the explorer (explorer.js reports state.player.water
+// = { level: 0 land | 1 wading | 2 deep, depth, zW }). Wading drains warmth fast, deep water
+// in ~25 s; wet clothes multiply the loss ~4x on land and slowly freeze into rime
+// (body.frozen 0..1, never more than wet): stiff, white-crusted, still cold. The tent dries
+// and thaws fast; out in the cold drying is slow (a little faster in calm sun).
+// body.shock 0..1: the cold-water gasp, fading over ~20 s (ragged breath, the white flash).
+//
 // state.party = [{ name, alive, x, y }] x 4, state.member = index of the one playing now.
-// Hooks: NAS.freeze(v?) (warmth to v, or 0.2 colder), NAS.warm(v = 1), NAS.kill().
+// Hooks: NAS.freeze(v?) (warmth to v, or 0.2 colder), NAS.warm(v = 1), NAS.kill(),
+//        NAS.soak(v = 1), NAS.dry().
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
 
@@ -39,11 +47,16 @@ const TAU = Math.PI * 2;
 const LOSS = 0.0089;
 const HEAT = 0.0019;
 const INSIDE_GAIN = 1 / 22;       // in the tent: from near death back to full in ~20 s
+// water (warmth / s on top of the air): wading with the legs in near-freezing sea, and
+// swimming in it (~25 s to death); wet clothes dry or freeze (per s)
+const WADE_LOSS = 1 / 120, DEEP_LOSS = 1 / 25;
+const SOAK_WADE = 0.12, DRY_COLD = 1 / 600, DRY_SUN = 1 / 200, DRY_TENT = 1 / 12, THAW_TENT = 1 / 8, RIME = 1 / 90;
 
 const NAMES = ['Halloran', 'Ashby', 'Teague', 'Marsh'];
 
 const B = state.body = {
   warmth: 1, wet: 0, energy: 1, injury: 0, food: 1, water: 1,
+  frozen: 0, shock: 0,
   phase: 'alive', t: 0, sleepHold: 0, rate: 0,
 };
 state.party = NAMES.map(name => ({ name, alive: true, x: null, y: null }));
@@ -54,14 +67,18 @@ const IRIS_IN = 1.8, BEAT = 2.4, IRIS_OUT = 0.9, BLACK = 0.9, OPEN = 2.2;
 const SLEEP_FADE = 0.9, SLEEP_HOLD = 1.1, SLEEP_WAKE = 1.6;
 
 let chatT = 3, beatT = 0, throb = 0, irisFrom = 1, overT = 0, restartArmed = false, killed = false;
-let lastTap = -1, lastAct = 0, slept = false;
+let lastTap = -1, lastAct = 0, slept = false, flash = 0;
 
 export function init() {
   // (only while alive and playing: not mid-death, during the hand-over, asleep or after the end)
   state.freeze = v => { if (B.phase === 'alive') B.warmth = typeof v === 'number' ? clamp(v) : Math.max(0.02, B.warmth - 0.2); };
   state.warm = (v = 1) => { if (B.phase === 'alive' || B.phase === 'open') B.warmth = clamp(v); };
   state.kill = () => { if (B.phase === 'alive') { B.warmth = 0; killed = true; } };   // works from inside the tent too
+  state.soak = (v = 1) => { B.wet = clamp(v); };
+  state.dry = () => { B.wet = 0; B.frozen = 0; };
   if (state.params.has('warmth')) B.warmth = clamp(parseFloat(state.params.get('warmth')));
+  if (state.params.has('wet')) B.wet = clamp(parseFloat(state.params.get('wet')));
+  if (state.params.has('frozen')) B.frozen = Math.min(B.wet, clamp(parseFloat(state.params.get('frozen'))));
 }
 
 const P = state.player;
@@ -76,14 +93,42 @@ function warmthRate() {
   const chill = cold * (0.35 + 0.65 * wind);
   let loss = LOSS * Math.pow(chill, 1.5) * (1 + 0.3 * night);
   loss *= 1 - 0.6 * clamp(P.sheltered || 0);          // cowering, hunkered in the lee of rock
-  loss *= 1 + 3 * clamp(B.wet);                        // wet: ~4x (slice 2 sets it)
+  loss *= 1 + 3 * clamp(B.wet);                        // wet: ~4x
   loss *= 1 + 0.5 * clamp((0.3 - B.food) / 0.3);       // hungry: up to +50% (slice 4)
-  const pace = P.mode === 'walk' && P.moving ? clamp(P.speed / 9) : P.mode === 'climb' ? 0.8 : 0;
-  const heat = HEAT * pace * (0.4 + 0.6 * clamp(B.energy));
+  // in the water itself: the sea takes the heat straight out
+  const lv = P.water?.level || 0;
+  if (lv === 1) loss += WADE_LOSS * (0.6 + 0.4 * clamp((P.water.depth || 0) / 4));
+  if (lv === 2) loss += DEEP_LOSS;
+  const pace = P.mode === 'walk' && P.moving && !lv ? clamp(P.speed / 9) : P.mode === 'climb' ? 0.8 : 0;
+  // wet clothes don't hold the heat of working
+  const heat = HEAT * pace * (0.4 + 0.6 * clamp(B.energy)) * (1 - 0.65 * clamp(B.wet));
   return heat - loss;
 }
 
 function setPhase(p) { B.phase = p; B.t = 0; }
+
+// Soaking, drying, freezing into rime. Frozen never exceeds wet; rime only forms in the cold.
+function updateWet(dt) {
+  const lv = P.water?.level || 0;
+  if (lv === 2) { B.wet = Math.min(1, B.wet + 1.5 * dt); B.frozen = Math.max(0, B.frozen - dt * 0.5); }
+  else if (lv === 1) {
+    // wading soaks the legs and the coat hem: up to about half, deeper water more, slowly
+    const cap = 0.35 + 0.25 * clamp((P.water.depth || 0) / 9);
+    if (B.wet < cap) B.wet = Math.min(cap, B.wet + SOAK_WADE * dt);
+    B.frozen = Math.max(0, B.frozen - dt * 0.3);
+  }
+  else if (P.mode === 'inside' || B.phase === 'sleep') {
+    B.wet = Math.max(0, B.wet - DRY_TENT * dt); B.frozen = Math.max(0, B.frozen - THAW_TENT * dt);
+  } else {
+    const L = state.lighting, cold = clamp(state.weather.cold ?? 0.3);
+    // calm sun on a bright day dries a little faster; otherwise it mostly freezes
+    const sun = (1 - clamp(L.night || 0)) * clamp(L.bright || 0) * clamp(1 - (state.wind.speed || 0) * 1.5);
+    B.wet = Math.max(0, B.wet - (DRY_COLD + DRY_SUN * sun) * dt * (1 - 0.6 * B.frozen));
+    B.frozen = Math.min(B.wet, B.frozen + RIME * smooth(0.15, 0.6, cold) * B.wet * dt);
+  }
+  B.frozen = Math.min(B.frozen, B.wet);
+  B.shock = Math.max(0, B.shock - dt / 20);
+}
 // Sleeping is only for the night, and only in the day/night cycle (a pinned clock has no morning).
 export function canSleep() { const L = state.lighting; return L.mode === 'cycle' && L.night > 0.5 && L.clock >= 180; }
 
@@ -91,9 +136,11 @@ function handover() {
   const m = state.party[state.member];
   m.alive = false; m.x = P.x; m.y = P.y;
   // fallen.js keeps the body where it fell; the picture is taken now, before the swap
-  state.events.push({ type: 'handover', x: P.x, y: P.y, facing: P.facing, member: state.member, name: m.name, sprite: P.snapshot?.() });
+  // (lost at sea: no body, only fading rings where they went under)
+  const lost = !!P.lostAtSea;
+  state.events.push({ type: 'handover', x: P.x, y: P.y, facing: P.facing, member: state.member, name: m.name, lost, sprite: lost ? null : P.snapshot?.() });
   const next = state.party.findIndex(q => q.alive);
-  Object.assign(B, { warmth: 1, wet: 0, energy: 1, injury: 0, sleepHold: 0 });
+  Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, injury: 0, sleepHold: 0 });
   if (next < 0) {
     P.respawn?.(true);                                  // nobody left: the camera rests on the empty camp
     state.events.push({ type: 'expedition', over: true });
@@ -111,6 +158,10 @@ export function update(dt) {
   throb = Math.max(0, throb - dt * 5);
   // sleep only skips what's left of the night (explorer.js only offers it after dark)
   for (const e of state.events) if (e.type === 'tent' && e.action === 'sleep' && B.phase === 'alive' && canSleep()) setPhase('sleep');
+  // into the water: the cold shock (explorer.js pushes plunge; audio gasps)
+  for (const e of state.events) if (e.type === 'plunge') { B.shock = 1; flash = Math.max(flash, e.deep ? 1 : 0.7); }
+  flash = Math.max(0, flash - dt * 1.8);
+  if (B.phase !== 'over') updateWet(dt);
 
   switch (B.phase) {
     case 'alive': case 'open': {
@@ -121,7 +172,7 @@ export function update(dt) {
         killed = false; B.warmth = 0;
         irisFrom = irisAlive(0);
         setPhase('dying');
-        state.events.push({ type: 'death', x: P.x, y: P.y, cause: 'cold', member: state.member });
+        state.events.push({ type: 'death', x: P.x, y: P.y, cause: P.water?.level ? 'water' : 'cold', member: state.member });
       }
       break;
     }
@@ -270,6 +321,13 @@ export function drawOverlay(ctx) {
     ctx.globalAlpha = 1;
   }
 
+  // Cold shock: a brief white flash as the sea closes over the legs (or the head).
+  if (flash > 0.01) {
+    ctx.globalAlpha = 0.55 * flash * flash;
+    ctx.fillStyle = '#f6f8fa'; ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1;
+  }
+
   // The iris: centred on the explorer (on the tent door as the next one comes out).
   const p = worldToScreen(P.x, P.y - 6);
   const z = state.cam.zoom || 1;
@@ -337,5 +395,5 @@ export function drawOverlay(ctx) {
 export function drawScreen(ctx) {
   if (!state.debug) return;
   ctx.fillStyle = '#000'; ctx.font = '12px monospace';
-  ctx.fillText(`warmth ${B.warmth.toFixed(3)} rate ${(B.rate * 60).toFixed(3)}/min ${B.phase} member ${state.member}`, 10, 34);
+  ctx.fillText(`warmth ${B.warmth.toFixed(3)} rate ${(B.rate * 60).toFixed(3)}/min wet ${B.wet.toFixed(2)} rime ${B.frozen.toFixed(2)} ${B.phase} member ${state.member}`, 10, 34);
 }

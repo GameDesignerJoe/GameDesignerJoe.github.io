@@ -38,17 +38,17 @@ const feet = () => worldToScreen(state.player.x, state.player.y);
 // Can the explorer get into the pack at all right now? (Deep snow is fine: that's
 // exactly where you want your snowshoes.)
 // Not at all in the tent, crawling through its door, collapsing or dead (no explorer to press).
-const AWAY = new Set(['tent-in', 'inside', 'tent-out', 'collapse', 'dead', 'gone']);
+const AWAY = new Set(['tent-in', 'inside', 'tent-out', 'collapse', 'dead', 'gone', 'swim', 'sink']);
 const away = () => AWAY.has(state.player.mode) || (state.body && state.body.phase !== 'alive' && state.body.phase !== 'open');
 function packBlocked() {
   const p = state.player, w = state.wind;
-  return away() || p.mode === 'climb' || p.mode === 'approach' || p.mode === 'down' || p.mode === 'cower'
+  return away() || p.terrain === 'water' || p.mode === 'climb' || p.mode === 'approach' || p.mode === 'down' || p.mode === 'cower'
     || (w.speed + (w.gust || 0)) > 0.85 || (state.frontier?.amount || 0) > 0.4;
 }
 // Can they hold the compass? Not while wading through deep snow either.
 function blocked() { return packBlocked() || state.player.terrain === 'deep'; }
 // Snowshoes are useless (and dangerous) on ice and while climbing.
-const iceUnder = () => state.player.terrain === 'ice' || state.player.terrain === 'thin';
+const iceUnder = () => state.player.terrain === 'ice' || state.player.terrain === 'thin' || state.player.terrain === 'water';
 function shoesBlocked() {
   const m = state.player.mode;
   return m === 'climb' || m === 'approach' || iceUnder();

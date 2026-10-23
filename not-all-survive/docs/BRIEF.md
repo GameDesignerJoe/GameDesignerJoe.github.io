@@ -62,6 +62,8 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - Pack: press and hold the explorer (or hold C) to dig in it. Slots: compass (C or 1), snowshoes (2), ice axes (3), crampons (4). Climbing needs axes AND crampons. Hooks: `NAS.compassOpen()`, `NAS.packOpen()`, `NAS.gear(id, on)`.
 - `?terrain=ice` forces `terrainAt()` to return that type everywhere (handy for animation tests).
 - `?debug` lets modules draw debug overlays.
+- `?wet=0..1`, `?frozen=0..1` start them soaked / rimed. Hooks `NAS.soak(v = 1)`, `NAS.dry()`;
+  the gear menu has Soak me / Dry me and shows wet, rime and whether they're in the water.
 - `?warmth=0..1` starts the explorer that cold (body.js). Hooks: `NAS.body` (the values),
   `NAS.freeze(v?)` (warmth to v, or 0.2 colder), `NAS.warm(v = 1)`, `NAS.kill()`,
   `NAS.player.tent()` (walk to the tent and crawl in). The gear menu shows a body readout
@@ -100,6 +102,47 @@ the base camp tent, and death handing over to the next expedition member.
   out). After dark only, a press held ~1 s turns the lamp down and sleeps out the rest of the
   night: a fade to ink, the clock jumps to that dawn, fade back in. (No sleeping through a day
   storm.)
+- **Open water** (slice 2). `terrain.isWater(x, y)` (dark thin-ice class: the sea and its leads;
+  frozen lakes are ice class and stay safe; thin ice holds until slice 5) and
+  `terrain.waterDepth(x, y)` (world px from land; floes are snow, so they count as land to hop
+  between). The first `terrain.WADE_DEPTH` (9) px from land is a wading shelf, beyond is deep,
+  with ±1.5 px of hysteresis at the drop-off. lakes.js darkens open water a step and paints the
+  shelf paler (a soft edge, from the depth field read bilinearly) with ink stipple scattered
+  along the drop-off, so the player can see where it gets deep. Floes ride a slight swell in
+  place (no drift): their painted edge is the walkable edge. The bottom edge of the painting
+  dissolves into drifting white (weather-haze.js); the camera may run a little past it on tall
+  screens so the explorer isn't pinned low.
+  (Known terrain-data issue: a path-class strip crosses the lead at y≈1738-1741, x≈1305-1345,
+  so it's walkable and not water there; fix in the terrain editor.)
+  - **The shore**: open water is a wall until committed. Walking into it (land → shelf, or
+    shelf → deep) stops at the edge for ~0.9 s, head down, braking hard (even gliding on ice);
+    pressing on after that, or pressing again right there within 4 s, commits to that level at
+    that spot. Gusts, knockdowns, glides and routes never carry anyone in uncommitted. Holding on
+    a point across water walks round it on dry ground if there's a way (planned on a coarse grid,
+    re-planned only when the finger moves on, dropped after 1.5 s without headway); if not,
+    straight to the shore and the beat there. Routes to the tent or a climb also go round water.
+    The pack can't be opened in the water.
+  - **Wading**: slow, high-stepping, arms out; the figure sinks into the painted surface (legs
+    hidden below a lit waterline), rings spread from the legs and a wake trails. Each step
+    splashes. Entering from land (once per entry): a white flash, a gasp, ragged breathing
+    (body.shock). Wading soaks to about half (more the deeper), slowly; deep water soaks through.
+  - **Deep**: swimming upright in a dark collar of water, face turned up to the camera, one arm
+    flung up and out ending in a dark mitt, the other beating the surface; they swap every
+    ~0.6 s in a burst of spray, weakening with the cold; slow headway; no breath clouds. ~23 s to death from
+    full warmth. Dying in deep water: the body tips away from a raised arm, the hood goes under,
+    and the open mitt is the last thing seen; the collar melts into dark rings, bubbles break and
+    the other mitt floats off downwind (~16 s); no body — fallen.js keeps slow dark rings at the
+    spot for ~25 s after the hand-over. Dying on the shelf: they fall face down
+    at the water's edge and the body stays. The party hands over as usual.
+  - **Wet**: ×4 warmth loss on land; the coat goes a deep wet ochre (still warm in hue, unlike the
+    cold's grey); drips fall from the hem; boots leave darker prints; frost comes on faster.
+    In the cold, wet clothes freeze into rime (body.frozen ≤ wet): white specks on the shoulders
+    and hem, a crust along it, stiffer arms and ~20% slower; the coat creaks as they move.
+    Drying out in the cold takes ~10 min (faster in calm sun) and mostly turns to rime first;
+    the tent dries in ~12 s and thaws the rime.
+  - Measured (headless, sped up): wading only (standing on the shelf, calm day) ~1¾ min;
+    deep water ~23 s; wet on land in a blizzard ~42 s; wet on a calm day −0.08 warmth/min standing
+    (~12 min) and −0.03/min walking (dry, walking warms you).
 - **Death and the party**: warmth 0 → collapse (kneel, slump, lie face down) → the ink iris
   closes onto the body, holds a beat, closes → cut to base camp: the next of the four crawls
   out of the tent as the iris opens. The body stays where it fell for the run

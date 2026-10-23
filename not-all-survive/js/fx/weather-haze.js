@@ -3,7 +3,9 @@
 // in a whiteout, eased when the explorer is sheltered. Not a ring: an elliptical mask
 // (portrait screens get a tall ellipse) eaten into by two layers of drifting fog
 // noise moving with the wind, rendered in a small buffer and composited once.
-import { state } from '../state.js';
+// The south edge of the painting (the sea runs right down to it, and the camera may run a
+// little past it on tall screens) dissolves into the same drifting white: never an edge.
+import { state, MAP_H } from '../state.js';
 import { worldToScreen } from '../camera.js';
 import { canvas, qRes } from './weather-noise.js';
 import { director } from './weather-director.js';
@@ -79,6 +81,19 @@ export function draw(ctx) {
   g.fillRect(0, 0, bw, bh);
   g.globalCompositeOperation = 'destination-in';
   g.drawImage(ring, cx - mw / 2, cy - mh / 2, mw, mh);
+  // The bottom of the painting: white rising over its last ~90 px and solid beyond, so the
+  // fog below eats a drifting, organic edge into it.
+  const z = state.cam.zoom || 1, yb = worldToScreen(0, MAP_H).y;
+  const edge = yb - 90 * z < h;
+  if (edge) {
+    g.globalCompositeOperation = 'source-over';
+    const y0 = (yb - 90 * z) * sc, y1 = yb * sc;
+    const gd = g.createLinearGradient(0, y0, 0, y1);
+    gd.addColorStop(0, `rgba(${SNOW},0)`);
+    gd.addColorStop(0.55, `rgba(${SNOW},0.55)`);
+    gd.addColorStop(1, `rgba(${SNOW},1)`);
+    g.fillStyle = gd; g.fillRect(0, y0, bw, bh - y0 + 2);
+  }
   // ...eat into it with drifting fog noise so the edge is organic and moves with the wind.
   g.globalCompositeOperation = 'destination-out';
   const layers = [[1.6, u1, 0.6], [0.9, u2, 0.45]];
@@ -103,8 +118,26 @@ export function draw(ctx) {
   g.drawImage(ring, cx - mw * 0.62, cy - mh * 0.62, mw * 1.24, mh * 1.24);
   g.globalAlpha = 1;
 
+  if (edge) {
+    // under the fog, the painting's very last stretch and everything past it goes solid
+    // white too (the fog layer above is only ~80% opaque)
+    g.globalCompositeOperation = 'source-over';
+    const ys = (yb - 26 * z) * sc, ye = (yb + 4 * z) * sc;
+    const gd = g.createLinearGradient(0, ys, 0, ye);
+    gd.addColorStop(0, `rgba(${SNOW},0)`); gd.addColorStop(1, `rgba(${SNOW},1)`);
+    g.fillStyle = gd; g.fillRect(0, ys, bw, bh - ys + 2);
+  }
+
   ctx.imageSmoothingEnabled = true;
   ctx.globalAlpha = clamp01(0.8 + I * 0.2);
   ctx.drawImage(buf, 0, 0, w, h);
   ctx.globalAlpha = 1;
+  if (edge) {
+    const ys = yb - 14 * z;
+    if (ys < h) {
+      const gd = ctx.createLinearGradient(0, ys, 0, yb + 6 * z);
+      gd.addColorStop(0, `rgba(${SNOW},0)`); gd.addColorStop(1, `rgba(${SNOW},1)`);
+      ctx.fillStyle = gd; ctx.fillRect(0, ys, w, h - ys);
+    }
+  }
 }

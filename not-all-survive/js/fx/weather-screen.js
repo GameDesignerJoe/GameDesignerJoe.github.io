@@ -31,12 +31,13 @@ export function update(dt) {
   // Inside the tent it all melts away.
   const inside = state.player.mode === 'inside' || state.player.mode === 'gone';
   bodyCold = inside ? 0 : clamp01((0.88 - (state.body ? state.body.warmth : 1)) / 0.78);
-  const target = inside ? 0 : clamp01(Math.max(clamp01(Math.max(expo * 0.55 + state.weather.whiteout * 0.5 + director.storminess * 0.2 - 0.12, coldF) * (1 - sh * 0.85)), bodyCold));
+  const wet = inside ? 0 : (state.body?.wet || 0);   // wet: the frost comes on faster and further
+  const target = inside ? 0 : clamp01(Math.max(clamp01(Math.max(expo * 0.55 + state.weather.whiteout * 0.5 + director.storminess * 0.2 - 0.12, coldF) * (1 - sh * 0.85)), bodyCold) + 0.18 * wet);
   if (lastT === 0 && state.params.has('frostnow')) frost = target;
   else if (state.body?.phase === 'black') frost = Math.min(frost, target);   // a new expedition member: fresh eyes
   else if (lastT === 0 && state.params.get('weather') && state.params.get('weather') !== 'cycle') frost = Math.min(target, 0.45);
   const fa = director.frontier || 0;
-  const rate = inside ? 0.3 : target > frost ? 0.11 + fa * 0.6 + bodyCold * 0.15 : 0.04 + sh * 0.12;
+  const rate = inside ? 0.3 : target > frost ? 0.11 + fa * 0.6 + bodyCold * 0.15 + wet * 0.25 : 0.04 + sh * 0.12;
   frost += (target - frost) * Math.min(1, dt * rate);
   if (target > frost) frost = Math.min(target, frost + dt * 0.012); // keeps creeping, never stalls
 

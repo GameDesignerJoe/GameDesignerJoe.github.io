@@ -36,6 +36,7 @@ const W = {
       const t = terrain.terrainAt?.(x, y);
       if (t === 'rock') return false;
       if (!bear && t === 'thin') return false;
+      if (terrain.isWater?.(x, y)) return false;     // nobody walks on open water
       if (!(terrain.isWalkable?.(x, y) ?? true)) return false;
       // stay in the explorer's on-foot region: never on climb-only plateau tops
       if (terrain.isPlateau?.(x, y)) return false;

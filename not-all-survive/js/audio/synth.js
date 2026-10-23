@@ -834,3 +834,32 @@ export function gustSwell(ctx, B, out, t, o = {}) {
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9 * lvl, t + dur * 0.45); g.gain.linearRampToValueAtTime(0, t + dur);
   return dur + 0.1;
 }
+
+// ---------------------------------------------------------------- water (slice 2)
+// A wading step / swimming stroke: a wet slap (a bright noise burst with a quick fall) over a
+// low hollow plop, then a short trickle of drops falling back.
+export function splash(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1.4);
+  noiseBurst(ctx, B, out, t, 'bandpass', R(900, 1600), 0.9, 0.9 * lvl, 0.004, R(0.12, 0.22));
+  noiseBurst(ctx, B, out, t + 0.005, 'lowpass', R(250, 380), 1.2, 0.8 * lvl, 0.006, 0.16);
+  const f = osc(ctx, 'sine', R(140, 210), t, 0.12), g = gain(ctx);
+  f.frequency.exponentialRampToValueAtTime(R(60, 90), t + 0.1);
+  chain(f, g, out); perc(g.gain, t, 0.25 * lvl, 0.004, 0.11);
+  const n = 3 + ((Math.random() * 4) | 0);
+  for (let i = 0; i < n; i++) noiseBurst(ctx, B, out, t + R(0.12, 0.45), 'bandpass', R(2200, 4200), 3, R(0.08, 0.2) * lvl, 0.001, R(0.01, 0.03));
+  return 0.6;
+}
+// Into the sea: a big splash, then the involuntary gasp of cold shock and a shaky breath out.
+export function plunge(ctx, B, out, t, o = {}) {
+  const deep = !!o.deep;
+  splash(ctx, B, out, t, { strength: deep ? 1.4 : 1.0 });
+  noiseBurst(ctx, B, out, t, 'lowpass', 160, 0.8, deep ? 1.6 : 0.9, 0.01, deep ? 0.5 : 0.3);
+  breath(ctx, B, out, t + 0.18, { inhale: true, len: 0.42, level: 1.1, shaky: 1 });
+  breath(ctx, B, out, t + 0.75, { inhale: false, len: 0.7, level: 0.8, shaky: 1 });
+  return 1.6;
+}
+// A drip off wet clothes onto snow: a tiny dull tick.
+export function drip(ctx, B, out, t) {
+  noiseBurst(ctx, B, out, t, 'bandpass', R(1800, 3000), 4, R(0.05, 0.12), 0.001, 0.02);
+  return 0.1;
+}

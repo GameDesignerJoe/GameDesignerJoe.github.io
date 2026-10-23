@@ -29,6 +29,10 @@
 //   climbRoute(x, y, dx, dy) -> { start, end, length, height, kind:'cliff', up, shade } | null
 //   bestClimb(px, py, tapX, tapY) -> route + { walkTo } | null (walk to walkTo, then climb)
 //   climbable(x, y)
+//   isWater(x, y)           open water: thin-ice class darker than WATER_LUM (the painted
+//                           sea and leads; frozen lakes are class ice and never water)
+//   waterDepth(x, y)        world px from the nearest shore (0 on land): near the edge is
+//                           wading, further out is deep (explorer.js / body.js decide)
 //   mask(), rebuild(), EDITS_KEY   (for the editor / debug overlays)
 //   ?terrain=<type> forces terrainAt() everywhere (animation testing)
 import { state, MAP_W, MAP_H } from '../state.js';
@@ -43,6 +47,9 @@ export const CLASS_STEP = 32;
 export const EDITS_KEY = 'nas.terrainEdits';
 
 const SPEED = { snow: 1, deep: 0.45, ice: 1.15, thin: 0.9, path: 1.3, rock: 0 };
+export const WATER_LUM = 176;         // thin-ice pixels darker than this are open water
+export const WADE_DEPTH = 9;          // world px from land: the wading shelf; beyond is deep (explorer, lakes)
+const THIN = 3;
 
 export const MASK_SCALE = 2;          // world px per mask px
 const SPAWN_X = 1360, SPAWN_Y = 1560;
@@ -55,6 +62,7 @@ let expo = null, elev = null;         // Uint8Array
 let region = null;                    // Int32Array foot region id (0 = occluder)
 let regionH = null;                   // Float32Array height per region id
 let regionReach = null;               // Uint8Array 1 = reachable from spawn (walk + climb)
+let wdist = null;                     // Uint8Array open water: distance to shore (mask px, capped), 0 on land
 let spawnRegion = 0;
 let version = 0;                      // bumps on every rebuild (layers.js re-cuts pieces)
 const CELL = 8;                       // coarse occluder grid for shelter rays (world px)
@@ -129,11 +137,32 @@ export function rebuild() {
   deriveElevation();
   deriveExposure();
   deriveCoarse();
+  deriveWater();
   version++;
   ready = true;
 }
 
 // --- derivation ------------------------------------------------------------------------
+// Open water and its distance from the shore: a two-pass chamfer distance (3 straight /
+// 4 diagonal, /3 = mask px), capped at 255. The shore is land (anything not thin-ice class):
+// floes and thin ice out in the sea don't make the water beside them shallow, so stepping
+// off a floe can put you straight into deep water.
+function deriveWater() {
+  const n = MW * MH, D = new Uint16Array(n), BIG = 65535;
+  for (let i = 0; i < n; i++) D[i] = cls[i] === THIN ? BIG : 0;
+  const at = (x, y) => (x < 0 || y < 0 || x >= MW || y >= MH ? 0 : D[y * MW + x]);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+    const i = y * MW + x; if (!D[i]) continue;
+    D[i] = Math.min(D[i], at(x - 1, y) + 3, at(x, y - 1) + 3, at(x - 1, y - 1) + 4, at(x + 1, y - 1) + 4);
+  }
+  for (let y = MH - 1; y >= 0; y--) for (let x = MW - 1; x >= 0; x--) {
+    const i = y * MW + x; if (!D[i]) continue;
+    D[i] = Math.min(D[i], at(x + 1, y) + 3, at(x, y + 1) + 3, at(x + 1, y + 1) + 4, at(x - 1, y + 1) + 4);
+  }
+  wdist = new Uint8Array(n);
+  for (let i = 0; i < n; i++) wdist[i] = cls[i] === THIN && lum[i] < WATER_LUM ? Math.max(1, Math.min(255, Math.round(D[i] / 3))) : 0;
+}
+
 function labelRegions() {
   const n = MW * MH;
   region = new Int32Array(n);
@@ -291,6 +320,17 @@ export function isWalkable(x, y) {
 
 export function speedFactor(type) {
   return SPEED[type] ?? 1;
+}
+
+export function isWater(x, y) {
+  if (!ready) return false;
+  const i = idx(x, y);
+  return i >= 0 && wdist[i] > 0;
+}
+export function waterDepth(x, y) {
+  if (!ready) return 0;
+  const i = idx(x, y);
+  return i < 0 ? 0 : wdist[i] * MASK_SCALE;
 }
 
 export function lumAt(x, y) {

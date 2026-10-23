@@ -4,6 +4,7 @@
 //   snow      : lighter pressed prints        path : faint prints
 //   ice / thin: faint scuffs                  rock : nothing
 // Prints fill in and fade over time, faster in falling snow and wind. Bounded list, culled.
+// Wet boots (step.wet, body.js, after open water) leave darker, soaked prints.
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
 
@@ -22,7 +23,7 @@ export function update(dt) {
     const t = e.terrain;
     if (!RATE[t]) { last = null; continue; }
     const a = e.angle ?? state.player.facing;
-    const p = { x: e.x, y: e.y, a, t, foot: e.foot, w: e.weight ?? 0.7, fill: 0, seed: Math.random(), prev: null, shoe: !!e.shoe, cramp: !!e.cramp };
+    const p = { x: e.x, y: e.y, a, t, foot: e.foot, w: e.weight ?? 0.7, fill: 0, seed: Math.random(), prev: null, shoe: !!e.shoe, cramp: !!e.cramp, wet: Math.min(1, e.wet || 0) };
     if (t === 'deep' && last && last.t === 'deep' && Math.hypot(last.x - p.x, last.y - p.y) < 9) p.prev = { x: last.x, y: last.y };
     prints.push(p);
     last = p;
@@ -110,11 +111,13 @@ export function drawGround(ctx) {
       ctx.beginPath(); ctx.ellipse(0.2, 0.95, 1.3, 0.35, 0, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(252,252,252,${life * 0.7})`; ctx.fill();
     } else if (p.t === 'snow' || p.t === 'path') {
-      const al = life * (p.t === 'snow' ? 0.62 : 0.38) * (0.75 + 0.35 * p.w);
+      const al = life * (p.t === 'snow' ? 0.62 : 0.38) * (0.75 + 0.35 * p.w) * (1 + 0.5 * p.wet);
+      // soaked: a dark damp halo round the sole and a darker floor
+      if (p.wet > 0.05) { ctx.beginPath(); sole(ctx, 2.5, 1.25, -0.05, 0); ctx.fillStyle = `rgba(110,116,124,${life * 0.3 * p.wet})`; ctx.fill(); }
       ctx.beginPath(); sole(ctx, 2.1, 0.95);
-      ctx.fillStyle = `rgba(120,123,128,${al})`; ctx.fill();
+      ctx.fillStyle = `rgba(${120 - 40 * p.wet},${123 - 38 * p.wet},${128 - 34 * p.wet},${Math.min(1, al)})`; ctx.fill();
       ctx.beginPath(); sole(ctx, 1.8, 0.72, 0.14, 0.12);
-      ctx.fillStyle = `rgba(178,181,185,${al * 0.85})`; ctx.fill();
+      ctx.fillStyle = `rgba(${178 - 70 * p.wet},${181 - 68 * p.wet},${185 - 64 * p.wet},${Math.min(1, al * 0.85)})`; ctx.fill();
       // crampon points pricked round the sole
       if (p.cramp && life > 0.3) {
         ctx.fillStyle = `rgba(95,98,104,${al * 0.9})`;

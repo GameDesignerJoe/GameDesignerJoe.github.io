@@ -6,19 +6,20 @@
 //     slowly downwind, squashed 0.8 vertically, masked to the painted water;
 //   - wind waves above ~0.5 wind: small crescent whitecaps facing downwind that rise,
 //     curl, break into spray and fade to foam;
-//   - every white floe cut from the painting, bobbing and drifting in a small orbit over
-//     a water-filled hole, with a dark waterline and a lapping light line.
+//   - every white floe cut from the painting and laid crisply over the water effects, riding
+//     a slight swell in place (no drift: its drawn edge is the walkable edge);
+//   - the open water darkened a step so it reads as lethal, and the wading shelf along the
+//     shore (terrain.WADE_DEPTH) paler, with a stippled ink line where it drops off.
 // state.quality.level: high = all; medium = one caustic layer, fewer waves; low = also
 // lower res, static floes. ?nolakes turns it all off.
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
-import { mask, classAt, lumAt } from './terrain.js';
+import { mask, classAt, lumAt, isWater, waterDepth, WATER_LUM, WADE_DEPTH } from './terrain.js';
 import { drawIceCracks } from './icecracks.js';
 import { tileAt, mapImage, TILE_SCALE, TILE_SIZE, TILE_GUTTER } from './map.js';
 
 const ICE = 2, THIN = 3;
 const TAU = Math.PI * 2;
-const WATER_LUM = 176;      // thin-ice pixels darker than this are open water
 const WATER_RGB = 'rgb(126,129,132)';
 
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
@@ -163,7 +164,7 @@ function build(m) {
   }
   if (holes) holes.width = 0;
   holes = null;
-  S = { ice, water, wb, floes, iceScale: m.scale * 2 };
+  S = { ice, water, wb, floes, iceScale: m.scale * 2, dark: null, shelf: null };
 }
 
 // Floe sprites: cut from the crisp tile (or the 1x base), masked to the floe; plus dark
@@ -360,7 +361,6 @@ function bakeCaustic() {
 // into white spray, flattens into a foam patch that fades. ~1.5-3 s each, over open water.
 const waves = [];
 let waveTimer = 0;
-function isWater(x, y) { return classAt(x, y) === THIN && lumAt(x, y) < WATER_LUM; }
 
 function updateWaves(dt, r, wind) {
   const ws = wind.speed + wind.gust * 0.6;
@@ -503,9 +503,78 @@ export function drawLakes(ctx) {
   const b = S.wb;
   g.drawImage(S.water, b.x, b.y, b.w, b.h);
   g.globalCompositeOperation = 'source-over';
+  drawDeepAndShelf(ctx);
   ctx.drawImage(fx, 0, 0, W, H, r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
   drawWaves(ctx, wind);
   drawFloes(ctx, r, t, q);
+}
+
+// The water's value and the wading shelf, both baked once over the water box (mask res):
+//   dark  - the open water tinted down toward a cold slate (drawn at partial alpha);
+//   shelf - water within WADE_DEPTH of land lifted paler, and stipple dots of ink along the
+//           line where it drops off into deep water (the explorer wades there, swims beyond).
+function buildDeepAndShelf() {
+  const b = S.wb, m = mask(), sc = m.scale;
+  const w = Math.max(1, Math.round(b.w / sc)), h = Math.max(1, Math.round(b.h / sc));
+  const dark = canvas(w, h), dg = dark.getContext('2d');
+  dg.drawImage(S.water, 0, 0, w, h);
+  dg.globalCompositeOperation = 'source-in';
+  dg.fillStyle = 'rgb(58,64,72)'; dg.fillRect(0, 0, w, h);
+  // The depth field sampled at the mask's resolution once, then read bilinearly at 1 world px
+  // per pixel with a soft threshold, so the shelf has a smooth edge at any zoom (no squares).
+  const D = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) D[y * w + x] = waterDepth(b.x + (x + 0.5) * sc, b.y + (y + 0.5) * sc);
+  const at = (x, y) => D[Math.max(0, Math.min(h - 1, y)) * w + Math.max(0, Math.min(w - 1, x))];
+  const bil = (fx, fy) => {
+    const x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
+    const a0 = at(x0, y0), a1 = at(x0 + 1, y0), a2 = at(x0, y0 + 1), a3 = at(x0 + 1, y0 + 1);
+    // water / land coverage blends too (0 depth is land), so the shelf's outer edge is soft
+    return [(a0 + (a1 - a0) * tx) * (1 - ty) + (a2 + (a3 - a2) * tx) * ty,
+      ((a0 > 0) + ((a1 > 0) - (a0 > 0)) * tx) * (1 - ty) + ((a2 > 0) + ((a3 > 0) - (a2 > 0)) * tx) * ty];
+  };
+  const W1 = Math.ceil(b.w), H1 = Math.ceil(b.h);
+  const shelf = canvas(W1, H1), sg = shelf.getContext('2d'), img = sg.createImageData(W1, H1), d = img.data, dots = [];
+  // a seeded scatter for the stipple
+  let seed = 4242; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let y = 0; y < H1; y++) for (let x = 0; x < W1; x++) {
+    const [dp, cov] = bil(x / sc - 0.5, y / sc - 0.5);
+    if (cov < 0.02) continue;
+    const i = (y * W1 + x) * 4;
+    const sh = Math.max(0, Math.min(1, (WADE_DEPTH + 1.2 - dp) / 2.4));   // soft step across the drop-off
+    const a = sh * cov;
+    if (a > 0.01) { d[i] = 214; d[i + 1] = 218; d[i + 2] = 222; d[i + 3] = Math.round(150 * a); }
+    // stipple: scattered along the drop-off contour, thinning out into the deep side
+    const off = dp - WADE_DEPTH;
+    if (cov > 0.9 && off > -1 && off < 4) {
+      const p = off < 0.8 ? 0.16 : 0.16 * Math.max(0, 1 - (off - 0.8) / 3.2) * 0.45;
+      if (rnd() < p) dots.push(b.x + x + (rnd() - 0.5) * 1.2, b.y + y + (rnd() - 0.5) * 1.2, 0.18 + rnd() * 0.2);
+    }
+  }
+  sg.putImageData(img, 0, 0);
+  S.dark = dark; S.shelf = shelf; S.dots = dots;
+}
+function drawDeepAndShelf(ctx) {
+  if (!S || !S.wb) return;
+  if (!S.dark) buildDeepAndShelf();
+  const b = S.wb;
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.globalAlpha = 0.5;
+  ctx.drawImage(S.dark, b.x, b.y, b.w, b.h);
+  ctx.globalAlpha = 1;
+  ctx.drawImage(S.shelf, b.x, b.y, b.w, b.h);
+  // stipple along the drop-off (culled to the view)
+  // (one path, culled: a few hundred tiny arcs at most on screen)
+  const r = visibleRect(4), dd = S.dots;
+  ctx.fillStyle = 'rgba(52,56,62,0.6)';
+  ctx.beginPath();
+  for (let i = 0; i < dd.length; i += 3) {
+    const x = dd[i], y = dd[i + 1], rr = dd[i + 2];
+    if (x < r.x0 || x > r.x1 || y < r.y0 || y > r.y1) continue;
+    ctx.moveTo(x + rr, y); ctx.ellipse(x, y, rr, rr * 0.8, 0, 0, Math.PI * 2);
+  }
+  ctx.fill();
+  ctx.restore();
 }
 
 // Floe homes filled with water, all in one canvas (1 world px) over the water box: one
@@ -528,32 +597,27 @@ function drawFloes(ctx, r, t, q) {
   for (const f of S.floes) {
     if (f.x > r.x1 || f.y > r.y1 || f.x + f.w < r.x0 || f.y + f.h < r.y0) continue;
     if (!floeSprite(f)) continue;
-    if (!f.holed) addHole(f);
     vis.push(f);
   }
-  if (holes) {
+  // (no water-filled holes under them: they don't drift any more, and the holes showed as
+  // pale boxes over the darkened water)
+  if (false && holes) {
     const b = S.wb;
     const x0 = Math.max(r.x0, b.x), y0 = Math.max(r.y0, b.y), x1 = Math.min(r.x1, b.x + b.w), y1 = Math.min(r.y1, b.y + b.h);
     if (x1 > x0 && y1 > y0) ctx.drawImage(holes, x0 - b.x, y0 - b.y, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
   }
   for (const f of vis) {
     const sp = f.sprite;
+    // ride the swell in place: the explorer walks on the painted floe, so it may not drift
     const k = f.size > 200 ? 0.35 : f.size > 60 ? 0.7 : 1;
-    const bob = still ? 0 : Math.sin(t * TAU / f.per + f.ph) * 1.7 * k;
-    const ox = still ? 0 : Math.cos(t * f.orbSp + f.orb) * f.orbR * k;
-    const oy = still ? 0 : Math.sin(t * f.orbSp + f.orb) * f.orbR * 0.5 * k;
-    const rot = still ? 0 : Math.sin(t * TAU / (f.per * 1.7) + f.ph * 1.3) * f.rot * k;
+    const bob = still ? 0 : Math.sin(t * TAU / f.per + f.ph) * 0.3 * k;
+    const ox = 0, oy = 0, rot = 0;
     const cx = f.x + f.w / 2 + ox, cy = f.y + f.h / 2 + oy;
     const c = Math.cos(rot), sn = Math.sin(rot);
     // base * translate(cx, cy) * rotate(rot)
     ctx.setTransform(base.a * c + base.c * sn, base.b * c + base.d * sn, -base.a * sn + base.c * c, -base.b * sn + base.d * c,
       base.a * cx + base.c * cy + base.e, base.b * cx + base.d * cy + base.f);
-    const lap = still ? 0 : Math.sin(t * 2.1 + f.ph) * 0.6;
-    ctx.globalAlpha = 0.7;
-    ctx.drawImage(f.silLight, -f.w / 2, -f.h / 2 + bob + 2.6 + lap, f.w, f.h);
-    ctx.globalAlpha = 0.95;
-    ctx.drawImage(f.silDark, -f.w / 2, -f.h / 2 + bob + 0.9 + Math.max(0, bob) * 0.6, f.w, f.h);
-    ctx.globalAlpha = 1;
+    // (no extra waterline bands: the floe's own painted ink is its edge)
     ctx.drawImage(sp.cv, -f.w / 2, -f.h / 2 + bob, f.w, f.h);
   }
   ctx.restore();

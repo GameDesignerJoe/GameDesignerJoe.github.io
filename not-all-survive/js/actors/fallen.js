@@ -4,7 +4,10 @@
 // and the snow slowly drifts over it: white settles on the upper surfaces, a drift builds
 // round the body and creeps up its lee side. Faster in a storm, never quite burying it.
 //
-// state.fallen = [{ x, y, facing, name, snow 0..1, ... }]
+// Lost at sea ('handover' with lost: true, no sprite): no body; slow dark rings where they went
+// under, fading over ~25 s, then nothing.
+//
+// state.fallen = [{ x, y, facing, name, snow 0..1, ... }] (sea: { lost: true, age })
 // Slice 4 will let you hold on a body to recover the pack.
 import { state } from '../state.js';
 import { visibleRect } from '../camera.js';
@@ -20,6 +23,7 @@ function seeded(seed) {
 
 export function update(dt) {
   for (const e of state.events) {
+    if (e.type === 'handover' && e.lost) { fallen.push({ x: e.x, y: e.y, name: e.name, lost: true, age: 0 }); continue; }
     if (e.type !== 'handover' || !e.sprite) continue;
     const r = seeded(1 + fallen.length * 7919 + Math.floor(e.x * 13 + e.y * 7));
     // snow patches, in sprite pixels: scattered over the figure, bigger toward the upwind
@@ -36,7 +40,7 @@ export function update(dt) {
   const snowfall = clamp(state.weather.snowfall ?? 0.3), wind = clamp(state.wind.speed ?? 0.3);
   // ~1.5 min to drift over in a blizzard, many minutes on a calm day
   const rate = 0.0015 + 0.009 * snowfall * (0.4 + wind);
-  for (const f of fallen) f.snow = Math.min(SNOW_MAX, f.snow + rate * dt);
+  for (const f of fallen) { if (f.lost) f.age += dt; else f.snow = Math.min(SNOW_MAX, f.snow + rate * dt); }
 }
 
 // Snow lying along the top edges of the silhouette: the figure minus itself shifted down by
@@ -156,9 +160,23 @@ function drift(ctx, f, front) {
 }
 const smooth01 = t => { t = clamp(t); return t * t * (3 - 2 * t); };
 
+// Where the sea took one: three dark rings opening slowly, staggered, fading out (the floating
+// mitt and the bubbles are explorer.js's, seen while the camera is still on the spot).
+const SEA_LIFE = 25;
+function drawSea(ctx, f) {
+  for (let k = 0; k < 3; k++) {
+    const t = ((f.age + k * 2.2) % 6.6) / 6.6, fade = clamp(1 - f.age / SEA_LIFE);
+    const r = 3 + 11 * Math.sqrt(t), a = (1 - t) * fade;
+    if (a <= 0.01) continue;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, r, r * 0.42, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 0.35; ctx.strokeStyle = `rgba(40,44,50,${0.4 * a})`; ctx.stroke();
+  }
+}
+
 // One drawable per body, made once.
 function drawableFor(f) {
   if (f.drawable) return f.drawable;
+  if (f.lost) return (f.drawable = { x: f.x, y: f.y, draw: ctx => drawSea(ctx, f) });
   return (f.drawable = {
     x: f.x, y: f.y,
     draw(ctx) {
@@ -180,7 +198,7 @@ export function drawables() {
   if (!fallen.length) return out;
   const r = visibleRect(30);
   for (const f of fallen) {
-    if (f.x < r.x0 || f.x > r.x1 || f.y < r.y0 || f.y > r.y1) continue;
+    if (f.x < r.x0 || f.x > r.x1 || f.y < r.y0 || f.y > r.y1 || (f.lost && f.age > SEA_LIFE)) continue;
     out.push(drawableFor(f));
   }
   return out;

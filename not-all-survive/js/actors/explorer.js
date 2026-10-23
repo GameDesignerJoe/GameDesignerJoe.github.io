@@ -19,6 +19,7 @@ import { state } from '../state.js';
 import * as T from '../world/terrain.js';
 import { SIGNAL } from '../palette.js';
 import { tentDoor, campInteract, campBlocked, tentDoorClip } from './camp.js';
+import { screenToWorld } from '../camera.js';
 
 const KY = 0.8;              // ground-depth foreshortening (rig, travel, footprints)
 const BASE_SPEED = 13;       // world units / s on plain snow
@@ -41,6 +42,8 @@ const PROFILES = {
   thin: { creep: 1, cad: 1.7, speed: 0.38, step: 1.35, lift: 0.05, lean: 0.38, swing: 0, spread: 0.2, work: 0, crouch: 0.9, stance: 1.2, sink: 0, bob: 0.03, accel: 1.4, fric: 0.7, hunch: 1.0, tent: 0.78, weight: 0.3 },
   path: { creep: 0, cad: 2.5, speed: 1.2, step: 5.3, lift: 0.75, lean: 0.03, swing: 1.2, spread: 0, work: 0, crouch: 0.05, stance: 0.95, sink: 0.08, bob: 0.28, accel: 6, fric: 7, hunch: 0.05, tent: 0, weight: 0.5 },
   rock: { creep: 0, cad: 2.4, speed: 0.9, step: 4.4, lift: 0.9, lean: 0.08, swing: 0.8, spread: 0.1, work: 0, crouch: 0.2, stance: 1.0, sink: 0, bob: 0.2, accel: 5, fric: 6, hunch: 0.2, tent: 0, weight: 0.6 },
+  // wading in open water: slow, high-stepping against the drag, arms out for balance
+  water: { creep: 0, cad: 1.5, speed: 0.38, step: 2.6, lift: 2.4, lean: 0.24, swing: 0.2, spread: 0.4, work: 0.55, crouch: 0.28, stance: 1.12, sink: 0, bob: 0.4, accel: 2, fric: 3.2, hunch: 0.55, tent: 0, weight: 0.8 },
 };
 // Snowshoes (state.player.gear.snowshoes): a wide, flat-footed gliding trudge. Deep snow gets
 // much easier; plain snow a little quicker. (Ice / thin ice never: the pack auto-stows them.)
@@ -88,6 +91,53 @@ const approach = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate
 // body.js warmth (1 = fine, 0 = dead of cold); 1 when the body system isn't loaded
 const warmth = () => (state.body ? state.body.warmth : 1);
 
+// --- open water (terrain.isWater) ----------------------------------------------------------------
+// level 0 land, 1 wading (within WADE_D of land: the paler shelf lakes.js draws), 2 deep
+// (swimming). zW is how far the figure stands sunk below the painted surface (legs hidden;
+// deep: only head and shoulders). The shelf/deep boundary has +-HYST of hysteresis.
+// Open water is a wall until committed: walking into it stops at the edge for a beat (HES_S),
+// head down; pressing on after the beat, or pressing again there soon after, commits to that
+// level at that spot (commit = { lv, x, y }). Gusts, glides on ice and routes never carry
+// anyone in uncommitted.
+const WADE_D = T.WADE_DEPTH || 9, HYST = 1.5, HES_S = 0.9;
+const water = { level: 0, depth: 0, zW: 0 };
+let hesT = 0, hesLevel = 0, hesDir = 0, hesMem = null, commit = null;
+let swimT = 0, sinkT = 0, ringT = 0, dripT = 0, dryRoute = null, flotsam = null, bubbleT = 0;
+const rings = [], drips = [], bubbles = [];
+let lastSinkX = 0, lastSinkY = 0;
+function waterLevelAt(x, y) {
+  try { if (!T.isWater?.(x, y)) return 0; return T.waterDepth(x, y) >= WADE_D ? 2 : 1; } catch { return 0; }
+}
+// the level under the explorer, with hysteresis across the drop-off
+function levelHere(x, y, cur) {
+  let d = 0;
+  try { if (!T.isWater?.(x, y)) return 0; d = T.waterDepth(x, y); } catch { return 0; }
+  if (cur === 2) return d < WADE_D - HYST ? 1 : 2;
+  return d >= WADE_D + HYST ? 2 : 1;
+}
+const committed = lv => !!commit && commit.lv >= lv && (water.level > 0 || Math.hypot(P.x - commit.x, P.y - commit.y) < 14);
+// may the explorer move onto (x, y)? Not into deeper water than they're in, uncommitted.
+function dryOk(x, y) {
+  const lv = waterLevelAt(x, y);
+  return lv <= water.level || committed(lv);
+}
+function crossesWater(x0, y0, x1, y1) {
+  const d = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(d / 3);
+  for (let k = 1; k <= n; k++) if (waterLevelAt(x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n)) return true;
+  return false;
+}
+function ring(x, y, r0, r1, life, dark = 0) {
+  rings.push({ x, y, r0, r1, life, age: 0, dark });
+  if (rings.length > 40) rings.splice(0, rings.length - 40);
+}
+function splashDrops(x, y, n, z = 0.4, up = 4) {
+  for (let i = 0; i < n; i++) {
+    const a = rand() * Math.PI * 2, sp = 1 + rand() * 2.5;
+    kicks.push({ x, y, z, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * KY, vz: up * (0.6 + rand() * 0.7), life: 0.45 + rand() * 0.3, age: 0, r: 0.14 + rand() * 0.16 });
+  }
+  if (kicks.length > 50) kicks.splice(0, kicks.length - 50);
+}
+
 const stubTerrain = (() => { try { return T.speedFactor('deep') === T.speedFactor('path'); } catch { return true; } })();
 
 const P = state.player;
@@ -134,6 +184,8 @@ export function init() {
   P.respawn = gone => respawn(gone);
   P.snapshot = () => snapshot();
   P.tent = () => goToTent();                     // test hook: walk to the tent and crawl in
+  P.water = water;                               // body.js reads level / depth
+  P.lostAtSea = false;
   P.facing = Math.PI / 2;
   // Space / E held (inside the tent a hold sleeps till morning)
   addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'KeyE') keyHeld = true; });
@@ -149,6 +201,8 @@ function resetTo(x, y) {
   cowerW = 0; hunkerW = 0; idleT = 0; rockHit = null; shadowOff = 0; stampOn = 0;
   kneelW = 0; faltT = 0; colT = 0; tentT = 0; tentFade = 1; pressT = -1; strapT = 0; axeReachT = 0;
   pose.shiver = 0; pose.coldShake = 0; pose.hug = 0; shiverOn = 0;
+  water.level = 0; water.depth = 0; water.zW = 0; hesT = 0; commit = null; hesMem = null; sinkT = 0; dryRoute = null;
+  drips.length = 0; P.lostAtSea = false; swimSide = 1;
   chips.length = 0;
   for (const k in hemS) hemS[k] = 0;
   pose.gait = 0; pose.gustKick = 0; pose.stepEff = pose.step;
@@ -185,12 +239,25 @@ export function update(dt) {
     else { strapDur = strapT = 1.2; strapLock = true; }
   }
   if (strapT > 0) strapT = Math.max(0, strapT - dt);
-  const ter = (T.terrainAt(P.x, P.y)) || 'snow';
+  // open water under the feet (not while hidden in / crawling out of the tent, or gone)
+  const hidden = P.mode === 'inside' || P.mode === 'gone' || P.mode === 'tent-in' || P.mode === 'tent-out' || P.lostAtSea;
+  const lvl = hidden ? 0 : levelHere(P.x, P.y, water.level);
+  if (lvl && !water.level && P.mode !== 'sink' && P.mode !== 'dead') {
+    // into the sea from land: the cold shock, once per entry
+    state.events.push({ type: 'plunge', x: P.x, y: P.y, deep: lvl === 2 });
+    splashDrops(P.x, P.y, lvl === 2 ? 14 : 8, 0.4, lvl === 2 ? 6 : 4);
+    ring(P.x, P.y, 2, 9, 1.6);
+  } else if (lvl === 2 && water.level === 1) { splashDrops(P.x, P.y, 6, 0.6, 4); ring(P.x, P.y, 2, 8, 1.4); }   // off the shelf
+  water.level = lvl; water.depth = lvl ? T.waterDepth(P.x, P.y) : 0;
+  const zWant = P.mode === 'sink' ? water.zW : lvl === 1 ? lerp(1.6, 5.2, clamp(water.depth / WADE_D)) : lvl === 2 ? 9.6 - 0.6 * Math.sin(swimT * 2.2) * (1 - smooth(0.3, 0.05, warmth())) + 1.2 * smooth(0.3, 0.02, warmth()) : 0;
+  if (P.mode !== 'sink') water.zW = approach(water.zW, zWant, 5, dt);
+  if (commit && !lvl && Math.hypot(P.x - commit.x, P.y - commit.y) > 14) commit = null;   // out and away from that edge
+  const ter = lvl ? 'water' : ((T.terrainAt(P.x, P.y)) || 'snow');
   P.terrain = ter;
   const shoes = shoesOn() && (ter === 'snow' || ter === 'deep');
   const cramp = crampOn() && !shoes && CRAMP[ter];
   const prof = shoes ? SHOE[ter] : cramp ? CRAMP[ter] : (PROFILES[ter] || PROFILES.snow);
-  let sf = stubTerrain ? prof.speed : (T.speedFactor(ter) ?? 1);
+  let sf = stubTerrain || ter === 'water' ? prof.speed : (T.speedFactor(ter) ?? 1);
   if (shoes && !stubTerrain) sf = ter === 'deep' ? SHOE_SPEED.deep * (T.speedFactor('snow') ?? 1) : sf * SHOE_SPEED.snow;
   // Ice is walked cautiously (Joe): walking pace stays near the cautious profile, and any extra
   // speed the terrain grants on ice shows up as glide (low friction), not frantic feet.
@@ -218,11 +285,15 @@ export function update(dt) {
   envW = { wa, ws, gust, wEff, windPose, shelter };
 
   // the body gives out (body.js): down where they stand
-  if (state.body?.phase === 'dying' && P.mode !== 'collapse' && P.mode !== 'dead') startCollapse();
+  if (state.body?.phase === 'dying' && P.mode !== 'collapse' && P.mode !== 'dead' && P.mode !== 'sink') startCollapse();
   if (P.mode === 'gone') { P.exposure = 0; P.sheltered = 1; P.speed = 0; P.moving = false; return; }
   if (P.mode === 'inside') { updateInside(dt); return; }
   if (P.mode === 'tent-in' || P.mode === 'tent-out') { updateTent(dt); finishFrame(dt, ter, 0, wEff, wa); return; }
+  if (P.mode === 'sink') { updateSink(dt); finishFrame(dt, ter, 0, wEff, wa); updateWaterFx(dt); return; }
   if (P.mode === 'collapse' || P.mode === 'dead') { updateCollapse(dt); finishFrame(dt, ter, 0, wEff, wa); return; }
+  // out of your depth: swimming (from walking, cowering, or a route that led in)
+  if (lvl === 2 && (P.mode === 'walk' || P.mode === 'cower' || P.mode === 'approach')) { P.mode = 'swim'; route = null; cowerW = 0; }
+  if (P.mode === 'swim') { updateSwim(dt, wEff); finishFrame(dt, ter, 0.6, wEff, wa); updateWaterFx(dt); return; }
 
   handleActions();
   if (P.mode === 'climb') { updateClimb(dt); finishFrame(dt, 'rock', 0, wEff, wa); return; }
@@ -238,7 +309,7 @@ export function update(dt) {
     while (route.path && route.path.length > 1 && Math.hypot(route.path[0].x - P.x, route.path[0].y - P.y) < 4) route.path.shift();
     // no progress for a while (a gust shoved us into a corner): plan again from here
     route.stuckT = P.speed < 1.5 && approachT > 0.5 ? (route.stuckT || 0) + dt : 0;
-    if (route.stuckT > 1.2) { route.path = findPath(P.x, P.y, route.walkTo.x, route.walkTo.y); route.stuckT = 0; }
+    if (route.stuckT > 1.2) { route.path = route.avoid ? findPath(P.x, P.y, route.walkTo.x, route.walkTo.y, true, 7, 150) : findPath(P.x, P.y, route.walkTo.x, route.walkTo.y); route.stuckT = 0; }
     const wp = route.path && route.path.length > 1 ? route.path[0] : route.walkTo;
     const dRoute = Math.hypot(route.walkTo.x - P.x, route.walkTo.y - P.y);
     const dx = wp.x - P.x, dy = wp.y - P.y, d = Math.max(0.001, Math.hypot(dx, dy));
@@ -248,6 +319,58 @@ export function update(dt) {
     if (approachT > route.limit) { P.mode = 'walk'; route = null; }
     else { const m = Math.min(1, dRoute / 3 + 0.4); ix = dx / d * m; iy = dy / d * m; }
   }
+  // Holding on a point across open water: walk round it if there's a way on dry ground
+  // (re-planned as the finger moves); if not, straight on to the shore (and the beat there).
+  const ptr = inp.pointer;
+  if (P.mode === 'walk' && ptr && !water.level && !state.demoInput) {
+    // The plan is tied to where the finger is ON SCREEN (the camera follows, so its world point
+    // slides every frame): only plan again once the finger has really moved, or if stuck.
+    const moved = !dryRoute || Math.hypot(ptr.sx - dryRoute.sx, ptr.sy - dryRoute.sy) > 28;
+    if (moved) {
+      const tg = screenToWorld(ptr.sx, ptr.sy);
+      if (!waterLevelAt(tg.x, tg.y) && crossesWater(P.x, P.y, tg.x, tg.y)) {
+        const path = findPath(P.x, P.y, tg.x, tg.y, true, 7, 150);
+        const ok = path.length > 1 || !crossesWater(P.x, P.y, path[0].x, path[0].y);
+        dryRoute = { sx: ptr.sx, sy: ptr.sy, path: ok ? path : null, best: 1e9, prog: state.time };
+      } else dryRoute = { sx: ptr.sx, sy: ptr.sy, path: null };
+    }
+    const pth = dryRoute.path;
+    if (pth) {
+      while (pth.length > 1 && Math.hypot(pth[0].x - P.x, pth[0].y - P.y) < 4) pth.shift();
+      const wp = pth[0], dx = wp.x - P.x, dy = wp.y - P.y, d = Math.hypot(dx, dy) || 1;
+      // no headway for 1.5 s (blocked, shoved off it): give up on it; straight on to the shore
+      if (d < dryRoute.best - 0.5) { dryRoute.best = d; dryRoute.prog = state.time; }
+      if (state.time - dryRoute.prog > 1.5) dryRoute.path = null;
+      else { const m = Math.min(1, Math.hypot(ix, iy)); ix = dx / d * m; iy = dy / d * m; }
+    }
+  } else dryRoute = null;
+  // The edge of open water: stop for a beat and look down at it. Pressing on after the beat,
+  // or pressing again soon after, goes in. (Also from the shallows into deep water.)
+  const dryWalk = !!(dryRoute && dryRoute.path);   // routed round the water: it's just a wall
+  if (P.mode === 'walk' && Math.hypot(ix, iy) > 0.05 && !dryWalk) {
+    // look a little ahead and take the FIRST deeper level met along the way (the shelf before
+    // the deep beyond it)
+    // (the brake during the beat and the water wall stop even a glide on ice short of it)
+    const wd = Math.atan2(iy / KY, ix), ahead = 3 + P.speed * 0.3;
+    let lvA = 0;
+    for (let d = 0.6; d <= ahead; d += 0.8) {
+      const l = waterLevelAt(P.x + Math.cos(wd) * d, P.y + Math.sin(wd) * d * KY);
+      if (l > water.level) { lvA = l; break; }
+    }
+    // once the beat has begun, it runs on while they keep pushing that way
+    if (!lvA && hesT > 0 && Math.cos(wd - hesDir) > 0.5) lvA = hesLevel;
+    if (lvA && !committed(lvA)) {
+      const near = hesMem && state.time - hesMem.t < 4 && hesMem.lv >= lvA && Math.hypot(P.x - hesMem.x, P.y - hesMem.y) < 12;
+      if (hesT <= 0 && near) commit = { lv: lvA, x: P.x, y: P.y };          // pressed again right here
+      else {
+        if (hesT <= 0) { hesLevel = lvA; hesDir = wd; state.events.push({ type: 'shore', x: P.x, y: P.y, level: lvA }); }
+        hesT += dt;
+        if (hesT >= HES_S) { commit = { lv: lvA, x: P.x, y: P.y }; hesT = 0; hesMem = null; }
+        else { ix = 0; iy = 0; }
+      }
+    }
+  } else if (hesT > 0) { hesT = 0; hesMem = { t: state.time, x: P.x, y: P.y, lv: hesLevel }; }   // let go during the beat: remembered here
+  if (hesT > 0) P.facing = wrapPi(P.facing + clamp(wrapPi(hesDir - P.facing), -5 * dt, 5 * dt));
   if (shoveT > 0) { ix *= 0.15; iy *= 0.15; }
   if (strapT > 0 && strapLock) { ix = 0; iy = 0; }   // kneeling at the snowshoe bindings
   // Deep cold (body.js warmth): now and then the legs simply stop, and they go down on one
@@ -266,6 +389,7 @@ export function update(dt) {
   if (staggerT > 0) spd *= 0.35;
   if (slipT > 0) spd *= 0.5;
   spd *= lerp(0.42, 1, smooth(0.05, 0.45, warm));   // numb, heavy legs
+  spd *= 1 - 0.2 * (state.body?.frozen || 0);        // clothes frozen stiff
   // a steady push back toward the interior, stronger the deeper in
   // (not while walking a planned route to a climb: the path already threads the rock)
   const drift = fa > 0 && P.mode !== 'approach' ? fa * (2.5 + 7 * fa) : 0;
@@ -274,6 +398,11 @@ export function update(dt) {
   const k = active ? prof.accel : prof.fric;
   P.vx = approach(P.vx, tvx, k, dt);
   P.vy = approach(P.vy, tvy, k, dt);
+  if (hesT > 0) {
+    // the beat at the edge: dig in, whatever the ice or the wind would have
+    const ux = Math.cos(hesDir), uy = Math.sin(hesDir) * KY, ul = Math.hypot(ux, uy), along = (P.vx * ux + P.vy * uy) / ul;
+    if (along > 0) { const b = along * (1 - Math.exp(-12 * dt)) / ul; P.vx -= ux * b; P.vy -= uy * b; }
+  }
   const slick = ter === 'ice' || ter === 'thin' ? 2.5 : 1;
   const push = gust * (1 - shelter) * 7 * slick * dt;
   P.vx += Math.cos(wa) * push;
@@ -286,6 +415,7 @@ export function update(dt) {
   let nx = P.x + P.vx * dt, ny = P.y + P.vy * dt;
   const probe = (x, y) => {
     const d = Math.hypot(x - ox, y - oy) || 1;
+    if (!dryOk(x, y)) return false;                 // open water is a wall until committed
     return passable(x, y) && passable(x + ((x - ox) / d) * 1.5, y + ((y - oy) / d) * 1.5);
   };
   if (!probe(nx, ny)) {
@@ -328,6 +458,7 @@ export function update(dt) {
   // --- pose targets ---------------------------------------------------------------------------
   const r = Math.min(1, dt * 3.2);
   for (const key of POSE_KEYS) pose[key] += (prof[key] - pose[key]) * r;
+  if (hesT > 0) { pose.hunch = approach(pose.hunch, 1.15, 7, dt); pose.spread = approach(pose.spread, 0.3, 5, dt); }
 
   const g = pose.gait, idle = 1 - smooth(0.1, 0.5, g);
   const up = wrapPi(wa + Math.PI - P.facing);
@@ -418,6 +549,7 @@ export function update(dt) {
   updateBreath(dt, ter, g, wEff, wa);
   updateKicks(dt);
   updateChips(dt);
+  updateWaterFx(dt);
 }
 
 // Shared tail for the special modes (climb, down): no walking, but breath, particles and
@@ -498,7 +630,8 @@ function tapClimb(tap) {
 function setRoute(r) {
   const up = r.up !== false;
   route = { ...r, up, bottom: up ? r.start : r.end, top: up ? r.end : r.start, walkTo: r.walkTo || r.start };
-  route.path = findPath(P.x, P.y, route.walkTo.x, route.walkTo.y);
+  route.avoid = crossesWater(P.x, P.y, route.walkTo.x, route.walkTo.y);   // round the water if it's in the way
+  route.path = route.avoid ? findPath(P.x, P.y, route.walkTo.x, route.walkTo.y, true, 7, 150) : findPath(P.x, P.y, route.walkTo.x, route.walkTo.y);
   let len = 0, a = P;
   for (const q of route.path) { len += Math.hypot(q.x - a.x, q.y - a.y); a = q; }
   route.limit = 10 + len / 2.5;          // give up if it takes far longer than the walk should
@@ -507,8 +640,7 @@ function setRoute(r) {
 
 // Walking to a route that's round a rock spur: breadth-first search on a coarse grid (4u cells,
 // within ~180u), returned as simplified waypoints ending at the target.
-function findPath(x0, y0, x1, y1) {
-  const G = 5, pad = 260;
+function findPath(x0, y0, x1, y1, avoidWater = false, G = 5, pad = 260) {
   const minX = Math.min(x0, x1) - pad, minY = Math.min(y0, y1) - pad;
   const W = Math.ceil((Math.abs(x1 - x0) + 2 * pad) / G) + 1, Hh = Math.ceil((Math.abs(y1 - y0) + 2 * pad) / G) + 1;
   if (W * Hh > 40000) return [{ x: x1, y: y1 }];
@@ -518,8 +650,12 @@ function findPath(x0, y0, x1, y1) {
   // cells need body clearance, so the path never threads a gap the walk collision won't pass
   const ok = (i, j) => {
     const x = minX + i * G, y = minY + j * G;
-    if (!passable(x, y)) return false;
-    for (let a = 0; a < 8; a++) if (!passable(x + Math.cos(a * 0.785) * 4, y + Math.sin(a * 0.785) * 4)) return false;
+    if (!passable(x, y) || (avoidWater && waterLevelAt(x, y))) return false;
+    for (let a = 0; a < 8; a++) {
+      const qx = x + Math.cos(a * 0.785) * 4, qy = y + Math.sin(a * 0.785) * 4;
+      // keep clear of the edge too (except right where we start: we may be standing by it)
+      if (!passable(qx, qy) || (avoidWater && waterLevelAt(qx, qy) && Math.abs(i - sx) + Math.abs(j - sy) > 2)) return false;
+    }
     return true;
   };
   const q = [sy * W + sx]; prev[sy * W + sx] = sy * W + sx;
@@ -544,7 +680,7 @@ function findPath(x0, y0, x1, y1) {
     const d = Math.hypot(b.x - a.x, b.y - a.y) || 1, n = Math.ceil(d / 2), px = -(b.y - a.y) / d * 2.2, py = (b.x - a.x) / d * 2.2;
     for (let k = 1; k < n; k++) {
       const x = a.x + (b.x - a.x) * k / n, y = a.y + (b.y - a.y) * k / n;
-      if (!passable(x, y) || !passable(x + px, y + py) || !passable(x - px, y - py)) return false;
+      if (!passable(x, y) || !passable(x + px, y + py) || !passable(x - px, y - py) || (avoidWater && waterLevelAt(x, y))) return false;
     }
     return true;
   };
@@ -881,7 +1017,7 @@ function updateRefuse(dt) {
   const walkK = smooth(1.5, 1.7, refT) * (1 - smooth(2.4, 2.6, refT));
   if (walkK > 0) {
     const st = 4.5 * walkK * dt, nx = P.x - Math.cos(refFace) * st, ny = P.y - Math.sin(refFace) * st * KY;
-    if (passable(nx, ny)) { P.x = nx; P.y = ny; }
+    if (passable(nx, ny) && dryOk(nx, ny)) { P.x = nx; P.y = ny; }
   }
   const ph = Math.sin(refT * Math.PI * 2 * 1.6) * walkK;
   ovr = {
@@ -928,7 +1064,7 @@ function updateDown(dt) {
   const f = Math.exp(-(downT < 0.4 ? 1.5 : 5) * dt);
   downV.x *= f; downV.y *= f;
   const nx = P.x + downV.x * dt, ny = P.y + downV.y * dt;
-  if (passable(nx, ny)) { P.x = nx; P.y = ny; } else { downV.x = downV.y = 0; }
+  if (passable(nx, ny) && dryOk(nx, ny)) { P.x = nx; P.y = ny; } else { downV.x = downV.y = 0; }
   const struggle = downT > 1.4 && downT < 2.8 ? Math.sin(state.time * 9) * 0.12 : 0;
   let i = 0; while (i < DOWN_K.length - 2 && downT > DOWN_K[i + 1].t) i++;
   const A = DOWN_K[i], B = DOWN_K[i + 1], k = smooth(0, 1, clamp((downT - A.t) / (B.t - A.t)));
@@ -950,7 +1086,7 @@ function updateCower(dt, active) {
   // the deep cold (warmth < 0.2) puts them on one knee instead, hugging themselves
   const kneel = (warmth() < 0.2 && !active && idleT > 1.0) || faltT > 0;
   kneelW = approach(kneelW, kneel ? 1 : 0, kneel ? 2.2 : 3, dt);
-  const want = !active && idleT > 0.8 && storm && P.mode !== 'approach' && shoveT <= 0 && !kneel;
+  const want = !active && idleT > 0.8 && storm && P.mode !== 'approach' && shoveT <= 0 && !kneel && !water.level;
   cowerW = approach(cowerW, want ? 1 : 0, want ? 1.4 : 4.5, dt);
   if (cowerW > 0.5 && P.mode === 'walk') P.mode = 'cower';
   if (cowerW < 0.3 && P.mode === 'cower') P.mode = 'walk';
@@ -1001,11 +1137,12 @@ let tentT = 0, tentFade = 1, tentFrom = { x: 0, y: 0 }, pressT = -1, pressPtr = 
 let doorK = 0;   // 0 = clear of the door .. 1 = all the way in (drawn clipped by the gable)
 function goToTent() {
   const d = tentDoor();
-  const path = [...d.around(P.x, P.y), { x: d.fx, y: d.fy }];
+  const wet = crossesWater(P.x, P.y, d.fx, d.fy);   // water between: plan round it (else the shore stops them)
+  const path = wet ? findPath(P.x, P.y, d.fx, d.fy, true, 7, 150) : [...d.around(P.x, P.y), { x: d.fx, y: d.fy }];
   let len = 0, a = P;
   for (const q of path) { len += Math.hypot(q.x - a.x, q.y - a.y); a = q; }
   // an 'approach' like a climb's, but it ends at the door (bottom is unused: no wall to step onto)
-  route = { kind: 'tent', up: true, walkTo: { x: d.fx, y: d.fy }, bottom: { x: -1e6, y: -1e6 }, top: { x: d.x, y: d.y }, path, limit: 10 + len / 2.5 };
+  route = { kind: 'tent', up: true, avoid: wet, walkTo: { x: d.fx, y: d.fy }, bottom: { x: -1e6, y: -1e6 }, top: { x: d.x, y: d.y }, path, limit: 10 + len / 2.5 };
   P.mode = 'approach'; approachT = 0;
 }
 // Sleep only skips the rest of a night (the cycle's night, not a pinned clock). Same test as body.js.
@@ -1110,7 +1247,7 @@ function respawn(gone) {
 }
 
 // --- dying of cold: kneel, slump forward, lie still ----------------------------------------------------
-let colT = 0;
+let colT = 0, colTo = null, colFrom = null;
 const COLLAPSE_K = [
   { t: 0, hz: 4.7, lf: 0.32, fL: [-2.7, -1.0, 0.25], fR: [1.3, 1.1, 0], hL: [1.9, 0.5, 6.3], hR: [1.9, -0.5, 6.6], hem: 0 },
   { t: 0.9, hz: 4.1, lf: 0.55, fL: [-3.0, -1.0, 0.3], fR: [-2.9, 1.0, 0.3], hL: [2.2, 0.4, 5.0], hR: [2.2, -0.4, 5.3], hem: 0.2 },
@@ -1120,6 +1257,18 @@ const COLLAPSE_K = [
 function startCollapse() {
   // on the wall: the grip goes and they fall (the knockdown plays); collapse where they land
   if (P.mode === 'climb' && climb) { tearOff(); return; }
+  // in the water: they slip under (no body is left)
+  if (water.level === 2 || P.mode === 'swim') { P.mode = 'sink'; sinkT = 0; route = null; hesT = 0; if (state.compass) state.compass.phase = 'idle'; return; }
+  // in the shallows: they stagger the last step to the edge and fall face down there
+  colTo = null;
+  if (water.level === 1) {
+    let best = null;
+    for (let r = 1; r <= 14 && !best; r += 1) for (let k = 0; k < 16; k++) {
+      const a = k / 16 * Math.PI * 2, x = P.x + Math.cos(a) * r, y = P.y + Math.sin(a) * r * KY;
+      if (!waterLevelAt(x, y) && passable(x, y)) { best = { x, y }; break; }
+    }
+    if (best) { colTo = best; colFrom = { x: P.x, y: P.y }; P.facing = Math.atan2((best.y - P.y) / KY, best.x - P.x); }
+  }
   const fromDown = P.mode === 'down';
   if (P.mode === 'inside' || P.mode === 'tent-in' || P.mode === 'tent-out') { const d = tentDoor(); P.x = d.fx; P.y = d.fy; }
   climb = null; route = null; shoveT = 0; slipT = 0; staggerT = 0; faltT = 0; tentFade = 1; doorK = 0;
@@ -1128,6 +1277,7 @@ function startCollapse() {
 }
 function updateCollapse(dt) {
   colT += dt;
+  if (colTo) { const k = smooth(0, 1.4, colT); P.x = lerp(colFrom.x, colTo.x, k); P.y = lerp(colFrom.y, colTo.y, k); if (colT > 1.4) colTo = null; }
   ovrW = approach(ovrW, 1, 5, dt);
   cowerW = approach(cowerW, 0, 4, dt); kneelW = approach(kneelW, 0, 4, dt);
   let i = 0; while (i < COLLAPSE_K.length - 2 && colT > COLLAPSE_K[i + 1].t) i++;
@@ -1140,6 +1290,193 @@ function updateCollapse(dt) {
   };
   if (P.mode === 'collapse' && colT >= COLLAPSE_K[COLLAPSE_K.length - 1].t + 0.2) P.mode = 'dead';
   P.vx = P.vy = 0; P.sheltered = 0;
+}
+
+// --- deep water: swimming, struggling, slipping under -----------------------------------------------
+// Upright in the water, head and shoulders out, arms thrashing; slow headway toward the input.
+// The cold takes the strength out of it (body.js drains warmth in ~25 s out here).
+function swimPose(t, k, side = 1) {
+  // one arm flung up and out to the side, bent at the elbow, the mitt high (it swaps sides
+  // every ~0.6 s with a burst of spray: updateSwim), the other beating the water at the surface
+  const a = Math.sin(t), up = 11.2;
+  const reach = [0.9 + 0.3 * Math.sin(t * 0.9), side * (3.4 + 0.4 * k), 14.4 + 1.0 * k + 0.4 * Math.sin(t * 1.3)];
+  const beat = [1.5 + 1.4 * Math.max(0, a) * k, -side * (2.5 + 0.4 * k), up - 0.4 + 1.5 * a * k];
+  // the head turned up and toward the camera: a face, gasping
+  const toCam = clamp(wrapPi(Math.PI / 2 - P.facing), -1.3, 1.3);
+  return {
+    hz: 7.9, leanF: 0.12 + 0.1 * k * Math.abs(a), leanS: -0.12 * side * k + 0.05 * a * k,
+    feet: [[0.6 * Math.sin(t * 1.7), -1, 0.4], [-0.6 * Math.sin(t * 1.7), 1, 0.4]],
+    hands: side > 0 ? [beat, reach] : [reach, beat],
+    poleA: side > 0 ? [[-0.2, -1, -0.2], [0.1, 1, -0.9]] : [[0.1, -1, -0.9], [-0.2, 1, -0.2]],   // the reaching elbow out and down
+    poleL: [[1, -0.2, 0.1], [1, 0.2, 0.1]],
+    hemAttach: 0, facePitch: -0.45 + 0.3 * (1 - k), faceYaw: toCam, full: true, axes: 0,
+  };
+}
+let strokeT = 0, swimSide = 1;
+function updateSwim(dt, wEff) {
+  const inp = state.input;
+  const k = 0.35 + 0.65 * smooth(0.02, 0.3, warmth());   // strength left
+  const mag = Math.min(1, Math.hypot(inp.x, inp.y));
+  swimT += dt * (3.2 + 2.5 * mag) * (0.5 + 0.5 * k);
+  const want = mag > 0.05 ? Math.atan2(inp.y / KY, inp.x) : P.facing;
+  if (mag > 0.05) P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -2.5 * dt, 2.5 * dt));
+  const sp = 3.4 * mag * k;
+  P.vx = approach(P.vx, Math.cos(want) * sp, 2, dt);
+  P.vy = approach(P.vy, Math.sin(want) * sp * KY, 2, dt);
+  const nx = P.x + P.vx * dt, ny = P.y + P.vy * dt;
+  if (passable(nx, ny)) { P.x = nx; P.y = ny; } else { P.vx *= 0.2; P.vy *= 0.2; }
+  ovrW = approach(ovrW, 1, 6, dt);
+  // the arms swap every ~0.6 s (slower as the strength goes): the reaching arm comes down
+  // and beats the water in a burst of spray, the other flies up
+  strokeT -= dt;
+  if (strokeT <= 0) {
+    strokeT = 0.6 + 0.35 * (1 - k);
+    swimSide = -swimSide;
+    const c = Math.cos(P.facing), sn = Math.sin(P.facing), sd = -swimSide;
+    const hx = P.x + c * 1.4 - sd * sn * 3, hy = P.y + (sn * 1.4 + sd * c * 3) * KY;
+    state.events.push({ type: 'splash', x: hx, y: hy, strength: 0.55 + 0.45 * k, swim: true });
+    splashDrops(hx, hy, 12, 1.2, 6.5);
+    ring(hx, hy, 1.5, 9, 1.3);
+  }
+  ovr = swimPose(swimT, k, swimSide);
+  puffs.length = 0;                    // no breath clouds hanging over a swimmer's head
+  P.sheltered = 0;
+  // back into the shallows: wading again
+  if (water.level < 2) { P.mode = 'walk'; ovr = null; }
+}
+function updateSink(dt) {
+  sinkT += dt;
+  lastSinkX = P.x; lastSinkY = P.y;
+  // a last reach, then under: the figure sinks below the surface and the rings close over it
+  water.zW = 9.6 + 13 * smooth(0.5, 3.2, sinkT);
+  ovrW = approach(ovrW, 1, 6, dt);
+  const k = 1 - smooth(0.2, 1.6, sinkT);
+  ovr = swimPose(swimT += dt * 2 * k, 0.4 * k, 1);
+  // one arm up, open-handed, the last of them to go under; the other drops
+  // the body tips away from the raised arm, so the hood goes under first and the hand, high
+  // and out to the side, is the last thing seen
+  const tip = smooth(0.2, 1.2, sinkT);
+  ovr.leanS = lerp(ovr.leanS, -0.5, tip); ovr.hz = lerp(ovr.hz, 8.4, tip);
+  ovr.hands = [mix(ovr.hands[0], [0.6, -1.0, 6.5], tip), mix(ovr.hands[1], [0.4, 3.0, 18.4], tip)];
+  ovr.poleA = [[0.2, -1, -0.8], [-0.3, 1, -0.4]];
+  if (sinkT > 1.0 && !flotsam) flotsam = { x: P.x + 1.2, y: P.y + 0.6, age: 0 };   // a mitt comes loose and floats
+  if (sinkT < 2.2 && rand() < dt * 4) ring(P.x + (rand() - 0.5) * 2, P.y + (rand() - 0.5) * 1.2, 1.5, 8, 2.2, 1);
+  if (sinkT >= 3.4 && P.mode === 'sink') { P.mode = 'dead'; P.lostAtSea = true; ring(P.x, P.y, 2, 10, 3, 1); bubbleT = 4; }
+  P.vx = P.vy = 0; P.sheltered = 0;
+}
+// Rings on the water (idle, wake, strokes) and drips off wet clothes back on land.
+function updateWaterFx(dt) {
+  for (let i = rings.length - 1; i >= 0; i--) { const r = rings[i]; r.age += dt; if (r.age >= r.life) rings.splice(i, 1); }
+  // what's left where someone went under: a mitt riding the swell off downwind, bubbles
+  if (flotsam) {
+    flotsam.age += dt;
+    const wa = state.wind.angle || 0, ws = 0.4 + 0.6 * (state.wind.speed || 0);
+    flotsam.x += Math.cos(wa) * ws * dt; flotsam.y += Math.sin(wa) * ws * dt * KY;
+    if (rand() < dt * 0.35) ring(flotsam.x, flotsam.y, 1, 3.5, 1.4);
+    if (flotsam.age > 16) flotsam = null;
+  }
+  if (bubbleT > 0) {
+    bubbleT -= dt;
+    if (rand() < dt * 5) bubbles.push({ x: lastSinkX + (rand() - 0.5) * 2.2, y: lastSinkY + (rand() - 0.5) * 1, age: 0, life: 0.5 + rand() * 0.4, r: 0.18 + rand() * 0.2 });
+  }
+  for (let i = bubbles.length - 1; i >= 0; i--) { const b = bubbles[i]; b.age += dt; if (b.age >= b.life) bubbles.splice(i, 1); }
+  if (water.level && !P.lostAtSea && P.mode !== 'sink') {
+    ringT -= dt;
+    if (ringT <= 0) {
+      // standing: slow rings from the legs; moving: a wake of them behind
+      const mv = Math.hypot(P.vx, P.vy);
+      ringT = mv > 1 ? 0.22 : 0.7;
+      ring(P.x - P.vx * 0.15, P.y - P.vy * 0.15, water.level === 2 ? 2.5 : 1.8, water.level === 2 ? 9 : 6, mv > 1 ? 1.3 : 1.8);
+    }
+  }
+  // drips from the hem while the clothes are wet (not once frozen stiff)
+  const B = state.body, wet = B ? B.wet : 0, fz = B ? B.frozen : 0;
+  if (!water.level && wet > 0.15 && P.mode !== 'inside' && P.mode !== 'gone' && P.mode !== 'tent-in' && P.mode !== 'tent-out') {
+    dripT -= dt * wet * (1 - 0.85 * fz) * 9;
+    if (dripT <= 0) {
+      dripT = 0.4 + rand() * 0.6;
+      const a = rand() * Math.PI * 2, c = Math.cos(P.facing + a), sn = Math.sin(P.facing + a);
+      drips.push({ x: P.x + c * 2.4, y: P.y + sn * 1.2 * KY, z: 5.6 + rand() * 0.6, vz: 0 });
+      if (rand() < 0.3) state.events.push({ type: 'drip', x: P.x, y: P.y });
+    }
+  }
+  for (let i = drips.length - 1; i >= 0; i--) {
+    const d = drips[i]; d.vz -= 30 * dt; d.z += d.vz * dt;
+    if (d.z <= 0) drips.splice(i, 1);
+  }
+  if (drips.length > 30) drips.splice(0, drips.length - 30);
+}
+function drawFlotsam(ctx) {
+  for (const b of bubbles) {
+    const t = b.age / b.life;
+    ctx.beginPath(); ctx.arc(b.x, b.y - t * 0.3, b.r * (0.7 + 0.5 * t), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(246,248,250,${0.9 * (1 - t)})`; ctx.fill();
+    ctx.lineWidth = 0.08; ctx.strokeStyle = `rgba(80,86,94,${0.8 * (1 - t)})`; ctx.stroke();
+  }
+  const f = flotsam;
+  if (!f) return;
+  // a black mitt with its thumb, half awash, bobbing; fading in its last few seconds
+  const a = clamp((16 - f.age) / 4), bob = Math.sin(f.age * 2.3) * 0.2, x = f.x, y = f.y + bob;
+  ctx.globalAlpha = a;
+  ctx.save(); ctx.translate(x, y); ctx.scale(1.6, 1.6);   // big enough to read as a mitt at play zoom
+  ctx.beginPath(); ctx.ellipse(0.2, 0.35, 1.1, 0.42, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(30,34,40,0.35)'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 0, 0.85, 0.55, 0.25, 0, Math.PI * 2); ctx.fillStyle = '#1e1e20'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0.78, -0.3, 0.34, 0.22, 0.7, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-0.85, 0.05); ctx.lineTo(-1.25, 0.15); ctx.lineWidth = 0.32; ctx.strokeStyle = '#1e1e20'; ctx.stroke();   // the cuff
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+function drawRings(ctx) {
+  drawFlotsam(ctx);
+  ctx.lineCap = 'round';
+  for (const r of rings) {
+    const t = r.age / r.life, rr = lerp(r.r0, r.r1, Math.sqrt(t)), a = (1 - t) * (1 - t);
+    if (r.dark) {
+      ctx.beginPath(); ctx.ellipse(r.x, r.y, rr, rr * 0.42, 0, 0, Math.PI * 2);
+      ctx.lineWidth = 0.4; ctx.strokeStyle = `rgba(40,44,50,${0.55 * a})`; ctx.stroke();
+      continue;
+    }
+    ctx.beginPath(); ctx.ellipse(r.x + 0.15, r.y + 0.22, rr, rr * 0.42, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 0.22; ctx.strokeStyle = `rgba(78,82,88,${0.4 * a})`; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(r.x, r.y, rr, rr * 0.42, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 0.18; ctx.strokeStyle = `rgba(238,241,244,${0.75 * a})`; ctx.stroke();
+  }
+}
+function drawDrips(ctx) {
+  ctx.fillStyle = 'rgba(96,106,120,0.75)';
+  for (const d of drips) { ctx.beginPath(); ctx.ellipse(d.x, d.y - d.z, 0.1, 0.16, 0, 0, Math.PI * 2); ctx.fill(); }
+}
+// In the water: the figure sunk by zW below the painted surface and cut off at it, a dark
+// ring of water round it and a light line where it meets the body.
+function drawInWater(ctx) {
+  const X = P.x, Y = P.y, zW = water.zW;
+  drawRings(ctx);
+  if (P.lostAtSea) return;
+  const rig = buildRig();
+  const fw = toWorld(rig.head, rig.yaw);
+  faceWorld = { x: X + fw.x, y: Y + fw.y, z: fw.z - 0.5 - zW };   // drawn at y - z: sunk by zW
+  const rx = zW > 6 ? 2.7 : 2.2, deep = zW > 6, under = smooth(12.5, 17, zW);   // going under
+  // the water round the body: a dark collar when swimming (reads even when small), melting
+  // into the rings as they go under
+  ctx.beginPath(); ctx.ellipse(X, Y + 0.1, rx + (deep ? 1.6 : 0.9), (rx + (deep ? 1.6 : 0.9)) * 0.42, 0, 0, Math.PI * 2);
+  ctx.fillStyle = deep ? `rgba(34,38,46,${0.6 * (1 - under)})` : 'rgba(70,76,84,0.22)'; ctx.fill();
+  ctx.save();
+  ctx.beginPath(); ctx.rect(X - 30, Y - 45, 60, 45.15); ctx.clip();
+  ctx.translate(0, zW);
+  drawFigure(ctx, rig, X, Y);
+  ctx.restore();
+  // the waterline: lit froth across the front of the body (gone once the body is under; a
+  // raised arm alone makes no waterline arc)
+  if (under < 0.99) {
+    ctx.globalAlpha = 1 - under;
+    ctx.beginPath(); ctx.ellipse(X, Y, rx, rx * 0.4, 0, 0.05 * Math.PI, 0.95 * Math.PI);
+    ctx.lineWidth = 0.28; ctx.strokeStyle = 'rgba(242,245,248,0.9)'; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(X, Y, rx, rx * 0.4, 0, 1.05 * Math.PI, 1.95 * Math.PI);
+    ctx.lineWidth = 0.16; ctx.strokeStyle = 'rgba(60,64,70,0.5)'; ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  if (!deep) drawPuffs(ctx, puffs);
+  drawKicks(ctx);
 }
 
 // Ground shadow fades out (linearly, ~0.2 s) as the climber steps onto the wall, starting in the
@@ -1168,10 +1505,18 @@ function footDown(foot, prof, ter) {
   const s = foot === 'L' ? -1 : 1;
   const st = pose.stance + (slipT > 0 && s === slipSide ? 1.2 : 0);
   const c = Math.cos(P.facing), sn = Math.sin(P.facing);
-  const x = P.x + S * c - s * st * sn;
-  const y = P.y + (S * sn + s * st * c) * KY;
+  const jf = (rand() - 0.5) * 0.7, jr = (rand() - 0.5) * 0.3;   // no two strides quite alike
+  const x = P.x + (S + jf) * c - s * (st + jr) * sn;
+  const y = P.y + ((S + jf) * sn + s * (st + jr) * c) * KY;
   const weight = prof.weight * (0.6 + 0.4 * pose.gait);
-  state.events.push({ type: 'step', x, y, terrain: ter, foot, weight, angle: P.facing, shoe: shoesOn(), cramp: crampOn() });
+  if (ter === 'water') {
+    // wading: a splash, drops thrown up, a ring spreading from the leg
+    state.events.push({ type: 'splash', x, y, strength: 0.4 + 0.4 * clamp(water.depth / WADE_D) });
+    splashDrops(x, y, 4, 0.5, 3.5);
+    ring(x, y, 1, 5, 1.1);
+    return;
+  }
+  state.events.push({ type: 'step', x, y, terrain: ter, foot, weight, angle: P.facing, shoe: shoesOn(), cramp: crampOn(), wet: state.body?.wet || 0 });
   if ((ter === 'ice' || ter === 'thin') && slipT <= 0 && rand() < (ter === 'ice' ? 0.09 : 0.05) * (crampOn() ? 0.15 : 1)) { slipT = 0.9; slipSide = s; }
   const shoe = shoesOn();
   if (ter === 'deep' && !shoe && staggerT <= 0 && rand() < 0.1) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
@@ -1388,7 +1733,7 @@ function buildRig() {
   for (const s of [-1, 1]) {
     const shoulderT = [0, s * SHOULDER_W + jitR, SPINE - 0.4 + upZ + (O && O.shrug ? O.shrug[s < 0 ? 0 : 1] * ow : 0)];
     const legF = s < 0 ? Math.cos(ph2) : -Math.cos(ph2);
-    const armF = -legF * pose.swing * g * 1.1;
+    const armF = -legF * pose.swing * g * 1.1 * (1 - 0.6 * (state.body?.frozen || 0));
     let hand = [0.3 + armF * 0.6, s * 1.9, SPINE - 4.1 + Math.abs(armF) * 0.15];
     const workT = [0.9 - legF * 0.9 * g, s * 2.1, SPINE - 2.9 + Math.max(0, -legF) * 0.6];
     hand = mix(hand, workT, pose.work);
@@ -1724,13 +2069,70 @@ function dullCoat(d) {
   dullCache.set(d, o);
   return o;
 }
+const wetCache = new Map();
+function wetCoat(dl, wq) {
+  const key = dl * 100 + wq;
+  let o = wetCache.get(key);
+  if (o) return o;
+  const src = dl ? dullCoat(dl) : C0;
+  o = {};
+  for (const k of Object.keys(src)) {
+    const [r, g, b] = hexRGB(src[k]), t = wq * 0.7;
+    const tg = [r * 0.6, g * 0.5, b * 0.36];            // darker and richer: wet canvas
+    o[k] = '#' + [r, g, b].map((v, i) => Math.round(v + (tg[i] - v) * t).toString(16).padStart(2, '0')).join('');
+  }
+  wetCache.set(key, o);
+  return o;
+}
+// Rime on the coat: frozen wet cloth. A pale frosting, white specks, a crust along the hem.
+// Patches of rime fixed on the cloth (body angle phi round the coat, v from shoulder 0 to
+// hem 1), so they move with the coat instead of crawling: crusted on the shoulders and the
+// hem, where the wet froze first; a few on the body.
+const RIME_PTS = Array.from({ length: 34 }, (_, i) => {
+  const h = k => { const a = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return a - Math.floor(a); };
+  const band = h(3), v = band < 0.4 ? 0.04 + h(2) * 0.16 : band < 0.8 ? 0.82 + h(2) * 0.16 : 0.25 + h(2) * 0.5;
+  return [(h(1) - 0.5) * Math.PI * 2, v, 0.16 + 0.16 * h(4), h(5)];
+});
+function drawRime(ctx, poly, lower, upper, fz, rig, pr, facingCam) {
+  ctx.save();
+  ctx.beginPath(); polyPath(ctx, poly); ctx.clip();
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of poly) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  ctx.fillStyle = `rgba(232,238,244,${0.28 * fz})`; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  // the crust: a pale frozen band along the shoulders and a thicker one along the hem
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const band = (pts, w, a, dy) => {
+    if (!pts || pts.length < 2) return;
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1] + dy);
+    for (const [x, y] of pts) ctx.lineTo(x, y + dy);
+    ctx.lineWidth = w; ctx.strokeStyle = `rgba(246,248,250,${a})`; ctx.stroke();
+  };
+  band(upper, 0.4 + 0.7 * fz, 0.75 * fz, 0.35);
+  band(lower, 0.5 + 0.9 * fz, 0.85 * fz, -0.2);
+  // patches on the cloth we can see: one path, one fill (grey underside first)
+  const n = Math.round(RIME_PTS.length * fz), spots = [];
+  for (let i = 0; i < n; i++) {
+    const [phi, v, r, j] = RIME_PTS[i];
+    if (facingCam(phi) < 0.1) continue;
+    spots.push([pr(mix(ringAt(rig.top, phi), ringAt(rig.hem, phi), v)), r * (0.7 + 0.5 * fz), j]);
+  }
+  const blot = (dx, dy, k) => {
+    ctx.beginPath();
+    for (const [[x, y], r, j] of spots) { ctx.moveTo(x + dx + r * k, y + dy); ctx.ellipse(x + dx, y + dy, r * k, r * k * (0.6 + 0.3 * j), 0, 0, Math.PI * 2); }
+  };
+  blot(0.08, 0.1, 1); ctx.fillStyle = 'rgba(150,156,164,0.55)'; ctx.fill();
+  blot(0, 0, 1); ctx.fillStyle = 'rgba(250,251,252,0.95)'; ctx.fill();
+  ctx.restore();
+}
 const shade = (hex, k) => '#' + [1, 3, 5].map(i => Math.max(0, parseInt(hex.slice(i, i + 2), 16) - k).toString(16).padStart(2, '0')).join('');
 function drawFigure(ctx, rig, X, Y) {
   const yaw = rig.yaw;
   const dk = Math.round(6 * cowerW);       // cowering hump separates from the whiteout
   // the cold takes the colour out of the coat: signal yellow dulls toward a grey ochre
   const dl = Math.round(smooth(0.66, 0.0, warmth()) * 20) / 20;
-  const base = dl ? dullCoat(dl) : C0;
+  // soaked, the cloth goes a deeper, darker ochre (still warm in hue: not the cold grey)
+  const wq = Math.round(clamp(state.body?.wet || 0) * 10) / 10;
+  const base = wq ? wetCoat(dl, wq) : dl ? dullCoat(dl) : C0;
   for (const k of ['coat', 'panel', 'hood', 'rim', 'sleeveL', 'sleeveD', 'pack']) C[k] = dk ? shade(base[k], dk) : base[k];
   const pr = v => { const w = toWorld(v, yaw); return [X + w.x, Y + w.y - w.z]; };
   const depth = v => toWorld(v, yaw).g;
@@ -1783,7 +2185,18 @@ function drawFigure(ctx, rig, X, Y) {
   // --- arms: under the coat; forearms that come out are drawn again on top ---------------------
   const arms = rig.arms.map(A => ({ ...A, d: depth(A.shoulder), dh: depth(A.hand) }));
   const headD = depth(rig.head);
-  const mitt = h => {
+  const inSea = P.mode === 'swim' || P.mode === 'sink';
+  const mitt = (h, from) => {
+    if (inSea && from && from[1] - h[1] > 0.6) {
+      // raised in the water: a bigger open mitt, the thumb sticking out to one side
+      const dx = h[0] - from[0], dy = h[1] - from[1], l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
+      const ang = Math.atan2(uy, ux);
+      ctx.beginPath(); ctx.ellipse(h[0] + ux * 0.2, h[1] + uy * 0.2, 0.8, 0.58, ang, 0, Math.PI * 2);
+      ctx.moveTo(h[0] - uy * 0.75 + 0.3, h[1] + ux * 0.75); ctx.ellipse(h[0] - uy * 0.7 - ux * 0.05, h[1] + ux * 0.7 - uy * 0.05, 0.36, 0.22, ang + 0.9, 0, Math.PI * 2);
+      ctx.fillStyle = C.mitt; ctx.fill();
+      ctx.strokeStyle = INK; ctx.lineWidth = 0.15; ctx.stroke();
+      return;
+    }
     ctx.beginPath(); ctx.ellipse(h[0], h[1], 0.5, 0.46, 0, 0, Math.PI * 2);
     ctx.fillStyle = C.mitt; ctx.fill();
     ctx.strokeStyle = INK; ctx.lineWidth = 0.15; ctx.stroke();
@@ -1799,14 +2212,14 @@ function drawFigure(ctx, rig, X, Y) {
     if (A.carry) drawAxeCarry(ctx, A, pr);
     limb(ctx, pts, 1.15, sleeveCol(pts[1]));
     if (A.axe > 0.3) drawAxe(ctx, A, pr);
-    mitt(pts[2]);
+    mitt(pts[2], pts[1]);
   };
   const drawForearm = A => {
     const from = mix(A.elbow, A.hand, A.spreadW > 0.5 ? 0.25 : lerp(0.45, 0.12, pose.hug));
     const pts = [pr(from), pr(A.hand)];
     limb(ctx, pts, 0.85, sleeveCol(pts[1]));
     if (A.axe > 0.3) drawAxe(ctx, A, pr);
-    mitt(pts[1]);
+    mitt(pts[1], pts[0]);
   };
   // Walking poses drawn under the coat are clipped below the shoulder line, so a raised far arm
   // (shielding the face, balancing) can never poke up past the shoulders or behind the hood.
@@ -1982,6 +2395,8 @@ function drawCoat(ctx, rig, pr, depth) {
   }
   ctx.restore();
 
+  const fz = state.body?.frozen || 0;
+  if (fz > 0.03) drawRime(ctx, poly, lower, upper, fz, rig, pr, facingCam);
   inkOutline(ctx, poly, 0.13, 0.36);
 }
 
@@ -2025,6 +2440,14 @@ function drawHood(ctx, rig, pr) {
   }
   const poly = dense(pts, null, 2);
   ctx.beginPath(); polyPath(ctx, poly); ctx.fillStyle = C.hood; ctx.fill();
+  // rime on the hood: frost along the crown (the face, drawn later, stays clear of it)
+  const fzH = state.body?.frozen || 0;
+  if (fzH > 0.05) {
+    ctx.save(); ctx.beginPath(); polyPath(ctx, poly); ctx.clip();
+    ctx.beginPath(); ctx.ellipse(h[0], h[1] - 0.2, rx * 1.05, ry * 0.95, 0, Math.PI * 1.08, Math.PI * 1.92);
+    ctx.lineWidth = 0.35 + 0.5 * fzH; ctx.strokeStyle = `rgba(246,248,250,${0.8 * fzH})`; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.restore();
+  }
 
   // Face: a dark oval filling the upper hood front, pale cheek and nose inside (no rim).
   const fy = P.facing + rig.faceYaw;
@@ -2127,8 +2550,13 @@ function drawKicks(ctx) {
 }
 
 export function drawables() {
-  if (P.mode === 'inside' || P.mode === 'gone' || (tentFade <= 0.01 && doorK <= 0)) return [];
-  return [{
+  // rings left on the water once the explorer is gone from it (under, or back on land)
+  const lingering = rings.length || flotsam || bubbles.length;
+  const ex0 = flotsam || rings[rings.length - 1] || bubbles[0];
+  const extra = lingering && (!water.level || P.lostAtSea) ? [{ x: ex0.x, y: ex0.y, draw: drawRings }] : [];
+  if (P.lostAtSea || P.mode === 'inside' || P.mode === 'gone' || (tentFade <= 0.01 && doorK <= 0)) return extra;
+  if ((water.zW > 0.05 || water.level) && (P.mode === 'walk' || P.mode === 'swim' || P.mode === 'sink')) return [{ x: P.x, y: P.y, draw: drawInWater }];
+  return [...extra, {
     x: P.x, y: P.y,   // feet: main.js sorts by terrain.sortKey(x, y) (face foot on a cliff, + height on a plateau)
     draw(ctx) {
       if (doorK > 0) { drawThroughDoor(ctx); return; }
@@ -2147,6 +2575,7 @@ export function drawables() {
       drawFigure(ctx, rig, X, Y);
       drawPuffs(ctx, puffs.filter(front));
       drawKicks(ctx);
+      drawDrips(ctx);
     },
   }];
 }
@@ -2211,4 +2640,4 @@ export function drawScreen(ctx) {
   ctx.fillText(s, 10, state.view.h - 12);
 }
 
-export const _debug = { pose, climb: () => climb, route: () => route, ovr: () => ovr, ovrW: () => ovrW, findPath: (...a) => findPath(...a), shoes: () => [shoesOn(), shoesDrawn(), strapT] };
+export const _debug = { hes: () => [hesT, commit], dryRoute: () => dryRoute, water, pose, climb: () => climb, route: () => route, ovr: () => ovr, ovrW: () => ovrW, findPath: (...a) => findPath(...a), shoes: () => [shoesOn(), shoesDrawn(), strapT] };

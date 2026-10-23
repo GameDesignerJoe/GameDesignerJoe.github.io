@@ -33,8 +33,11 @@ export const state = {
     exposure: 0,            // 0..1, how exposed to wind they are (weather.js may read)
     // explorer.js owns it: 'walk' | 'approach' (walking to a climb or the tent door) | 'climb' |
     // 'refuse' | 'down' (knocked over) | 'cower' | 'tent-in' / 'inside' (hidden) / 'tent-out' |
-    // 'collapse' / 'dead' (died of cold) | 'gone' (the expedition is over: no explorer)
+    // 'collapse' / 'dead' (died of cold) | 'swim' (out of their depth in open water) |
+    // 'sink' (died in the water: slips under, no body) | 'gone' (the expedition is over)
     mode: 'walk',
+    // explorer.js also adds water = { level: 0 land | 1 wading | 2 deep, depth, zW } and
+    // lostAtSea (true once they've gone under)
     gear: { snowshoes: false, axes: false, crampons: false },   // equipped items (the pack in ui/compass.js toggles them)
     sheltered: 0,           // 0..1, hunkered in the lee of rock — weather/audio soften for it
   },
@@ -68,7 +71,7 @@ export const state = {
   // world-edge storm border the explorer is, and which way is back toward the interior.
 
   // body.js adds state.body = { warmth, wet, energy, injury, food, water } (0..1; hidden, no
-  // bars), plus body.phase ('alive' | 'dying' | 'iris' | 'black' | 'open' | 'over' | 'sleep') and
+  // bars), frozen (rime on wet clothes, <= wet) and shock (cold-water gasp), plus body.phase ('alive' | 'dying' | 'iris' | 'black' | 'open' | 'over' | 'sleep') and
   // body.sleepHold; state.party = [{ name, alive, x, y }] x 4 and state.member (who's playing).
   // fallen.js adds state.fallen = [{ x, y, facing, name, snow }]: the dead, where they lie.
 
@@ -92,6 +95,12 @@ export const state = {
   //   expedition { over: true }       all four are dead (body)
   //   chatter { x, y, strength, dur } teeth chattering in the cold (body -> audio)
   //   heartbeat { x, y, strength }    one slow beat near the end (body -> audio)
+  //   gust { x, y, strength }         a gust as the next member's iris opens (body -> audio)
+  //   shore { x, y, level }           stopped at the edge of open water, looking down (explorer)
+  //   plunge { x, y, deep }           into the sea: cold shock (explorer -> body, audio)
+  //   splash { x, y, strength, swim? } a wading step or swimming stroke (explorer -> audio)
+  //   drip { x, y }                   water dripping off wet clothes (explorer -> audio)
+  //   step.wet                        0..1 on step events: soaked boots leave darker prints
   events: [],
 };
 
