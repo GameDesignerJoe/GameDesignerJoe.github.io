@@ -431,7 +431,44 @@ const nearPup = () => !!state.pup?.pitched && pupDist() < REACH.pup;
 // (Space / E at base camp's door is always base camp's)
 const nearCampDoor = () => { try { const d = tentDoor(); return Math.hypot(P.x - d.fx, P.y - d.fy) < 15; } catch { return false; } };
 
+// Names on the slots (Joe: tool tips): a mouse hovering a slot, or a finger pressing one (and for a
+// moment after the tap), shows the item's name in a small label just above it.
+let hoverPt = null, tipSlot = null, tipT = -9;
+function tipText(t) {
+  if (t.block === 'snow') return snowHere() ? 'Eat snow' : 'Eat snow (no snow here)';
+  const c = t.block === 'cont' ? shownT?.ref : pack;
+  const s = c?.slots[t.i];
+  if (!s) return t.block === 'cont' ? null : 'Empty';
+  const it = ITEMS[s.id];
+  let txt = it.name;
+  if (s.drinks !== undefined) txt += ` (${s.drinks}/${FLASK_DRINKS})`;
+  else if (s.n > 1) txt += ` ×${s.n}`;
+  if (s.worn) txt += ' · worn';
+  return txt;
+}
+function drawTip(ctx, L) {
+  const fresh = state.time - tipT < 1.1;
+  const t = press ? { block: press.block, i: press.i } : hoverPt ? slotAt(hoverPt.x, hoverPt.y) : fresh ? tipSlot : null;
+  if (!t || t.block === undefined) return;
+  const p = t.block === 'snow' ? L.snow : t.block === 'cont' ? L.cont?.find(q => q.i === t.i) : L.pack[t.i];
+  const txt = p && tipText(t);
+  if (!txt) return;
+  const a = t.block === 'cont' ? C.xferA : C.slotA;
+  const fs = Math.max(12, Math.min(15, L.r * 0.62));
+  ctx.font = `${fs}px Georgia, serif`;
+  const w = ctx.measureText(txt).width + fs * 1.1, h = fs * 1.6;
+  const x = Math.max(4, Math.min(state.view.w - w - 4, p.x - w / 2)), y = p.y - L.r * 1.25 - h - 4;
+  ctx.globalAlpha = a;
+  roundRect(ctx, x, y, w, h, h / 2);
+  ctx.fillStyle = 'rgba(250,250,247,0.92)'; ctx.fill();
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(40,40,44,0.35)'; ctx.stroke();
+  ctx.fillStyle = 'rgba(36,33,28,0.95)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(txt, x + w / 2, y + h / 2 + 0.5);
+  ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+}
+
 export function init() {
+  addEventListener('pointermove', e => { hoverPt = e.pointerType === 'mouse' ? { x: e.clientX, y: e.clientY } : null; });
   state.uiPress = (sx, sy) => {
     if (!state.begun && !state.params.has('autostart')) return false;
     if (away()) { close(); return false; }   // presses go to the tent / the hand-over
@@ -447,7 +484,7 @@ export function init() {
     if (open) {
       const hit = slotAt(sx, sy);
       if (hit && BUSY.has(C.phase)) return true;   // (busy eating / binding / drinking: swallow it)
-      if (hit) { press = { ...hit, t: state.time, done: false }; return true; }
+      if (hit) { press = { ...hit, t: state.time, done: false }; tipSlot = hit; tipT = state.time; return true; }
     }
     if (inTent()) {
       // in the tent: the door opens the pack; anywhere else goes to the tent (leave / sleep)
@@ -1004,6 +1041,8 @@ export function drawScreen(ctx) {
     });
     if (L.snow) drawSnowSlot(ctx, L.snow.x, L.snow.y, L.r * pop * 0.82, { a: C.slotA, dim: !snowHere() || (C.phase !== 'slot' && C.phase !== 'snow'), hold: C.phase === 'snow' ? C.t / SNOW_S : holdK('snow', 0) });
   }
+
+  if (C.slotA > 0.3 || C.xferA > 0.3) drawTip(ctx, L);
 
   // The needle itself, over the explorer.
   if (C.outA > 0.01) {

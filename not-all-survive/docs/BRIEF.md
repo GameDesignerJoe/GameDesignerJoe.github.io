@@ -241,7 +241,7 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
   view (getters on the pack), so the explorer and body read it as before. The first member sets
   out with a compass and 2 rations; each one after a death starts empty bar a compass if the sled
   still has one, and must restock at the sled. The sled is all the food there is (hunting later).
-  - **The pack UI** (`js/ui/pack.js`, the only UI, on demand): hold the explorer ~0.45 s, just long enough to
+  - **The pack UI** (`js/ui/pack.js`, the only UI, on demand): hold the explorer ~0.45 s (hover or press a slot to see its name), just long enough to
     be sure they mean it (a bar fills over the hood), and the 10 round slots open as two columns of five beside them, slot 1 where
     the compass slot always was (beside the hood), 1–5 down the near column, 6–0 down the far one;
     to the left, flipped to the right when a column wouldn't fit (and only then slid back on, so
