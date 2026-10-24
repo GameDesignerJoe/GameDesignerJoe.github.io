@@ -7,6 +7,7 @@
 // Writes state.input = { x, y, active } as a direction with magnitude 0..1, plus
 // state.input.tap = { x, y, t } (world point of the latest press) and
 // state.input.action = <time> (latest Space/E press). Consumers clear tap/action when used.
+// state.input.stickTap = <time>: a quick tap on the hidden stick that never pushed (hunt.js fires with it).
 import { state } from './state.js';
 import { screenToWorld, nudgeZoom } from './camera.js';
 
@@ -60,7 +61,7 @@ export function initInput(canvas) {
       if (e.clientY > innerHeight * (1 - STICK_ZONE)) {
         // the hidden stick: centred where the thumb landed. (Climbing, a thumb on it is the
         // next move, like Space.)
-        stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
+        stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY, t0: state.time, moved: false };
         if (state.player?.mode === 'climb') state.input.action = state.time;
       } else state.input.tap = { x: w.x, y: w.y, t: state.time };   // higher up: a tap, not a walk
       return;
@@ -87,7 +88,11 @@ export function initInput(canvas) {
     touches.delete(e.pointerId);
     if (touches.size < 2) pinchDist = 0;
     if (e.pointerId === claimedId) { claimedId = null; state.uiRelease?.(); return; }
-    if (stick && e.pointerId === stick.id) { stick = null; return; }
+    if (stick && e.pointerId === stick.id) {
+      // a quick tap on the stick half that never pushed: a tap there (hunt.js: fires the raised rifle)
+      if (!stick.moved && state.time - stick.t0 < 0.35) state.input.stickTap = state.time;
+      stick = null; return;
+    }
     if (e.pointerId !== pointerId) return;
     pointerId = null;
     state.input.pointer = null;
@@ -131,7 +136,7 @@ export function updateInput() {
     if (k > STICK_DEAD) {
       const m = (k - STICK_DEAD) / (1 - STICK_DEAD);
       x = dx / len * m; y = dy / len * m;
-      S.active = true; S.x = x; S.y = y;
+      S.active = true; S.x = x; S.y = y; stick.moved = true;
       if (!S.used) { S.used = true; try { localStorage.setItem('nas_stickUsed', '1'); } catch { /* private mode */ } }
     }
   }

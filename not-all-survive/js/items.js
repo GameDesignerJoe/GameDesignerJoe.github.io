@@ -23,7 +23,9 @@
 // on 0,0 in a slot of radius r px at zoom z),
 // use(u) and blocked(u) }, where u is what the pack UI offers: { i, slot, handsBlocked, storm (a gale:
 // the compass can't be held nor gear strapped on or off; eating, splinting and pitching go on), inTent,
-// takeOut(), eat(i), splint(i), pitch(i), drink(i) }. Add a new item here and the pack, the sled and the transfer UI take it.
+// takeOut(), eat(i), splint(i), pitch(i), drink(i), aim(i) (raise the rifle), flare(i) (strike a flare) }. A food
+// item may say what eating it does: eat: { food, warm } (rations: EAT_FOOD / EAT_WARM in ui/pack.js), and cooked:
+// { food, warm } if the tent's stove can cook it (raw meat). Add a new item here and the pack, the sled and the transfer UI take it.
 //
 // The canvas sheet and the rope (the goal, goal/burden.js): one of each on the sled; wrapping the lost
 // explorer takes both from the pack.
@@ -35,7 +37,7 @@ import { state } from './state.js';
 import { SIGNAL } from './palette.js';
 import { RECORDINGS } from './recordings.js';
 
-export const PACK_SLOTS = 10, SLED_SLOTS = 20;
+export const PACK_SLOTS = 10, SLED_SLOTS = 24;
 const P = state.player;
 
 // --- conditions the items share -----------------------------------------------------------------
@@ -92,6 +94,18 @@ export const carryingRecorder = () => pack.slots.some(q => q && q.id.startsWith(
 // from the pack (both used up). Nothing to do with them on their own: a tap only shows the name.
 item({ id: 'sheet', name: 'Canvas sheet', kind: 'tool', icon: drawSheet, use: () => {} });
 item({ id: 'rope', name: 'Rope', kind: 'tool', icon: drawRope, use: () => {} });
+// The bear slice (actors/hunt.js): the flare, the rifle and its cartridges, and raw meat.
+// A flare (two on the sled, stack 2): tap it and the explorer strikes it and holds it up, a fizzing signal-
+// yellow light for ~20 s; a bear within ~80 flees, and it lights the night round them. Not in a tent.
+item({ id: 'flare', name: 'Flare', kind: 'tool', stack: 2, icon: drawFlare, blocked: u => u.inTent || P.terrain === 'water', use: u => u.flare(u.i) });
+// The rifle (one on the sled): tap it and the explorer raises it (aim mode, hunt.js). Not in a tent, not
+// wading deep snow or knocked down. It fires the cartridges in the pack (stack 5 a slot, 10 on the sled).
+item({ id: 'rifle', name: 'Rifle', kind: 'tool', icon: drawRifle, blocked: u => u.handsBlocked || u.inTent, use: u => u.aim(u.i) });
+item({ id: 'cartridges', name: 'Cartridges', kind: 'tool', stack: 5, icon: drawCartridges, use: () => {} });
+// Raw meat (a butchered penguin, dog or bear: hunt.js): eaten from the pack +0.25 food, but it's frozen: a
+// little warmth lost (eat); cooked on a tent's stove (the tent menu's Cook) +0.5 food and a little warmth.
+item({ id: 'meat', name: 'Raw meat', kind: 'food', stack: 3, icon: drawMeat, eat: { food: 0.25, warm: -0.035 }, cooked: { food: 0.5, warm: 0.05 },
+  blocked: u => u.handsBlocked || (state.body?.food ?? 0) > 0.95, use: u => u.eat(u.i) });
 
 // --- containers -------------------------------------------------------------------------------------
 export const makeSlots = n => Array.from({ length: n }, () => null);
@@ -149,6 +163,9 @@ add(sled, 'radio', 1);        // a spare radio, for whoever goes out next
 add(sled, 'sheet', 1);        // a canvas sheet and a rope: to wrap the lost explorer and bring them home
 add(sled, 'rope', 1);
 for (const id of ['snowshoes', 'axes', 'crampons', 'compass', 'flask']) add(sled, id, 1);
+add(sled, 'rifle', 1);        // the bear slice (hunt.js): a rifle, ten cartridges, two flares
+add(sled, 'cartridges', 10);
+add(sled, 'flare', 2);
 // the first member sets out with a compass, two rations and a full flask
 add(pack, 'compass', 1);
 add(pack, 'food', 2);
@@ -524,6 +541,76 @@ function drawRope(ctx, r, z) {
     const a = k / 14 * Math.PI * 2, px = x + Math.cos(a) * rx, py = y + Math.sin(a) * ry;
     ctx.moveTo(px - cw * 0.35, py - cw * 0.35); ctx.lineTo(px + cw * 0.35, py + cw * 0.35);
   }
+  ctx.stroke();
+  ctx.restore();
+}
+// A flare: a stubby paper tube on the diagonal, its striker cap at the top in signal yellow (the thing to
+// find in a hurry), a dark band below the cap, the pale tube.
+function drawFlare(ctx, r, z) {
+  ctx.save();
+  ctx.rotate(0.55);
+  ctx.lineJoin = 'round';
+  const lw = Math.max(1.1, z * 0.28), w = r * 0.2, h = r * 0.62;
+  ctx.beginPath(); ctx.rect(-w, -h * 0.55, 2 * w, h * 1.5);
+  ctx.fillStyle = 'rgba(214,208,194,0.99)'; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.rect(-w, -h * 0.55, 2 * w, h * 0.22);
+  ctx.fillStyle = 'rgba(58,54,48,0.95)'; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-w, -h * 0.55); ctx.lineTo(-w * 0.8, -h * 0.95); ctx.quadraticCurveTo(0, -h * 1.12, w * 0.8, -h * 0.95); ctx.lineTo(w, -h * 0.55); ctx.closePath();
+  ctx.fillStyle = SIGNAL.lit; ctx.fill(); ctx.stroke();
+  ctx.lineWidth = Math.max(0.6, z * 0.1); ctx.strokeStyle = 'rgba(40,36,30,0.45)';
+  ctx.beginPath(); ctx.moveTo(-w * 0.4, -h * 0.1); ctx.lineTo(-w * 0.4, h * 0.85); ctx.stroke();
+  ctx.restore();
+}
+// The rifle: a long bolt-action gun on the diagonal, the wooden stock (a grey-brown) to the lower left, the
+// dark steel barrel to the upper right, the bolt handle sticking down.
+function drawRifle(ctx, r, z) {
+  ctx.save();
+  ctx.rotate(-0.62);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const lw = Math.max(1, z * 0.24), L = r * 0.9;
+  ctx.beginPath();
+  ctx.moveTo(-L, -r * 0.02); ctx.lineTo(-L, r * 0.22); ctx.lineTo(-L * 0.45, r * 0.11); ctx.lineTo(-L * 0.25, r * 0.14);
+  ctx.lineTo(L * 0.35, r * 0.07); ctx.lineTo(L * 0.35, -r * 0.02); ctx.lineTo(-L * 0.4, -r * 0.03); ctx.closePath();
+  ctx.fillStyle = 'rgba(112,98,80,0.98)'; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-L * 0.3, -r * 0.06); ctx.lineTo(L, -r * 0.06);
+  ctx.lineWidth = Math.max(2, r * 0.1); ctx.strokeStyle = 'rgba(38,36,34,1)'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-L * 0.1, -r * 0.05); ctx.lineTo(-L * 0.02, r * 0.16);
+  ctx.lineWidth = Math.max(1.2, r * 0.06); ctx.stroke();
+  ctx.beginPath(); ctx.arc(-L * 0.02, r * 0.18, Math.max(1, r * 0.05), 0, Math.PI * 2); ctx.fillStyle = 'rgba(38,36,34,1)'; ctx.fill();
+  ctx.restore();
+}
+// Cartridges: three dull brass rounds standing in a row, the bullets' grey noses, the rims inked.
+function drawCartridges(ctx, r, z) {
+  const lw = Math.max(0.9, z * 0.2);
+  ctx.lineJoin = 'round';
+  for (let k = -1; k <= 1; k++) {
+    const x = k * r * 0.3, y = Math.abs(k) * r * 0.06, w = r * 0.1, h = r * 0.5;
+    ctx.beginPath(); ctx.rect(x - w, y - h * 0.3, 2 * w, h);
+    ctx.fillStyle = 'rgba(176,164,132,0.98)'; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - w, y - h * 0.3); ctx.quadraticCurveTo(x - w, y - h * 0.75, x, y - h * 0.82); ctx.quadraticCurveTo(x + w, y - h * 0.75, x + w, y - h * 0.3); ctx.closePath();
+    ctx.fillStyle = 'rgba(96,94,92,0.98)'; ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - w * 1.2, y + h * 0.7); ctx.lineTo(x + w * 1.2, y + h * 0.7); ctx.stroke();
+  }
+}
+// Raw meat: a frozen chunk seen a little from above: a rounded grey-brown slab (no red: it's frozen, and the
+// game is monochrome), frost-pale marbling across it, a pale knuckle of bone out of one end.
+function drawMeat(ctx, r, z) {
+  ctx.save();
+  ctx.rotate(-0.25);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const lw = Math.max(1.1, z * 0.28), rx = r * 0.5, ry = r * 0.36;
+  ctx.beginPath(); ctx.moveTo(rx * 0.6, -ry * 0.1); ctx.lineTo(rx * 1.22, -ry * 0.18);
+  ctx.lineWidth = Math.max(2.2, r * 0.16); ctx.strokeStyle = INK; ctx.stroke();
+  ctx.lineWidth = Math.max(1.4, r * 0.11); ctx.strokeStyle = 'rgba(236,232,220,1)'; ctx.stroke();
+  for (const dy of [-0.13, 0.13]) { ctx.beginPath(); ctx.arc(rx * 1.3, -ry * 0.18 + r * dy, Math.max(1.1, r * 0.09), 0, Math.PI * 2); ctx.fillStyle = 'rgba(236,232,220,1)'; ctx.fill(); ctx.lineWidth = Math.max(0.8, z * 0.16); ctx.strokeStyle = INK; ctx.stroke(); }
+  ctx.beginPath(); ctx.ellipse(0, ry * 0.25, rx, ry, 0, 0, Math.PI); ctx.lineTo(-rx, 0); ctx.ellipse(0, 0, rx, ry, 0, Math.PI, 0, true); ctx.closePath();
+  ctx.fillStyle = 'rgba(78,70,64,0.98)'; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(120,108,100,0.99)'; ctx.fill(); ctx.stroke();
+  ctx.lineWidth = Math.max(0.8, z * 0.14); ctx.strokeStyle = 'rgba(230,226,218,0.85)';
+  ctx.beginPath();
+  ctx.moveTo(-rx * 0.6, -ry * 0.2); ctx.quadraticCurveTo(-rx * 0.1, ry * 0.25, rx * 0.5, -ry * 0.05);
+  ctx.moveTo(-rx * 0.3, ry * 0.5); ctx.quadraticCurveTo(rx * 0.1, ry * 0.2, rx * 0.35, ry * 0.5);
   ctx.stroke();
   ctx.restore();
 }

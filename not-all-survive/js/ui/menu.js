@@ -80,6 +80,11 @@ export function initMenu() {
       <div class="row">
         <button data-act="bundle">Wrapped body here</button>
       </div>
+      <div class="row">
+        <button data-act="bearcharge">Bear charges</button>
+        <button data-act="rifle">Give rifle</button>
+        <button data-act="flare">Give flare</button>
+      </div>
     </div>
     <a href="editor/" target="_blank" rel="noopener">Terrain editor ↗</a>`;
 
@@ -127,9 +132,18 @@ sled ${packText(state.sled)}
 ${b.phase} · ${P.mode}${P.mode === 'inside' || P.mode === 'tent-in' || P.mode === 'tent-out' ? ` (${P.shelter?.kind ?? 'camp'})` : ''} · party ${alive}/${state.party?.length ?? 0}
 `
       + `${state.weather.temp}°C cold ${state.weather.cold.toFixed(2)} wind ${(P.exposure || 0).toFixed(2)}
-weather: ${state.weather.forecast?.label ?? '-'} · now ${state.weather.phase ?? '-'}`;
+weather: ${state.weather.forecast?.label ?? '-'} · now ${state.weather.phase ?? '-'}
+${bearText()}`;
   };
   setInterval(() => { if (!panel.hidden) showBody(); }, 250);
+  // the bear (slice 7): what it's doing, how worked up, how far; the rifle's cartridges
+  function bearText() {
+    const md = window.NAS.bear?.mood?.();
+    const cart = state.pack?.slots.reduce((a, q) => a + (q && q.id === 'cartridges' ? q.n : 0), 0) ?? 0;
+    const carc = (state.hunt?.carcasses || []).filter(c => !c.done).map(c => c.kind).join(' ');
+    return md ? `bear: ${md.st} aggro ${md.aggro.toFixed(2)} (${md.rate >= 0 ? '+' : ''}${(md.rate * 60).toFixed(2)}/min) ${md.pd.toFixed(0)} away, hp ${md.hp}
+rifle: ${state.hunt?.aim ? 'up' : 'down'}, ${cart} cartridges${carc ? ` · carcasses: ${carc}` : ''}` : 'bear: -';
+  }
   // the pup tent: where it is, and the work on it
   function pupText() {
     const u = state.pup;
@@ -187,6 +201,10 @@ weather: ${state.weather.forecast?.label ?? '-'} · now ${state.weather.phase ??
     if (act === 'strike') { state.strike?.(true); showBody(); }
     // the goal (goal/burden.js): the lost explorer, wrapped, set down beside the explorer
     if (act === 'bundle') { state.goal?.wrapped(); panel.hidden = true; }
+    // the bear slice: the bear comes (the warning, then the charge); the rifle (and five cartridges), a flare
+    if (act === 'bearcharge') { window.NAS.bear?.charge(); panel.hidden = true; }
+    if (act === 'rifle') { window.NAS.giveRifle?.(); showBody(); }
+    if (act === 'flare') { window.NAS.giveFlare?.(); showBody(); }
     // Bright day: auto (weather decides) -> on -> off -> auto.
     if (act === 'bright') {
       const L = state.lighting;

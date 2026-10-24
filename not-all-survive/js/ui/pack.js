@@ -77,6 +77,15 @@
 // eat, drink, or play a recorder or the radio (CARRY_OK); no containers, no snow eating. While the ending
 // card is up (burden.cardUp) a press only dismisses it. Keyboard: 1-n pick from the row.
 //
+// The bear slice (actors/hunt.js; Joe, slice 7): tap the rifle and the pack closes and it's raised (aim mode:
+// hunt.js takes the presses: a tap anywhere fires, on another animal switches to it, on the explorer lowers it;
+// touch: the stick half is still the stick, a tap there fires); tap a flare and it's struck. With the bear
+// worked up close by (BEAR_NEAR) the pack still opens, but only the rifle and the flares can be used: the rest
+// are dimmed. A carcass (shot, hunt.js): a press on it (or Space / E by it) brings up a row over it, as the lost
+// explorer's does: Butcher (kneel at it ~6 s, the bar filling over them; meat into the pack, the rest left in
+// a pile by it). Raw meat eats like a ration (items.js says how much: eat); the tent menu has Cook (+0.5 food,
+// greyed without raw meat).
+//
 // state.compass = { phase: 'idle'|'rummage'|'slot'|'out'|'transfer'|'eat'|'splint'|'drink'|'snow'|'tentmenu'|'actmenu', target, ... } (the
 //   name is history: it's the pack UI's state). target = { kind: 'sled'|'fallen'|'ground', x, y }
 //   while rummaging in / transferring with a container; explorer.js kneels and faces it.
@@ -101,6 +110,10 @@ import {
   ITEMS, PACK_SLOTS, wearSlot, worn, wear, take, add, room, find, isEmpty, dropAt, sweepGround,
   shoesBlocked, drawNeedle, NORTH, FLASK_DRINKS,
 } from '../items.js';
+import {
+  aiming, aimPress, startAim, strikeFlare, huntBusy, carcassAt, carcassDist, carcassPos, CARCASS_REACH,
+  HUNT_ACTS, huntActName, huntActWhy, huntDoAct, HUNT_ICON,
+} from '../actors/hunt.js';
 
 const RUMMAGE_S = 0.45;           // a hold just long enough to be sure they mean it (pack, sled, body)
 const PILE_S = 1;                 // ...or to crouch to a pile on the snow
@@ -113,7 +126,7 @@ const SPLINT_S = 4, SPLINT_HEAL = 0.25;
 const DRINK_S = 2, DRINK_WATER = 0.3;                 // a pull from the flask (thirst)
 const SNOW_S = 2.6, SNOW_WATER = 0.12, SNOW_CHILL = 0.05;   // a mittful of snow: quenches, and chills
 const SNOWY = new Set(['snow', 'deep', 'path']);      // where there's snow to scoop
-const REACH = { sled: 20, fallen: 16, ground: 12, pup: PUP_REACH, bundle: BUNDLE_REACH };   // how close to rummage (world units; the sled and the pup tent from the edge, on its ground plane)
+const REACH = { sled: 20, fallen: 16, ground: 12, pup: PUP_REACH, bundle: BUNDLE_REACH, carcass: CARCASS_REACH };   // how close to rummage (world units; the sled and the pup tent from the edge, on its ground plane)
 const STRIKE_ARM = 0.9;           // a press on the pitched pup tent held this long strikes it (shorter: a tap, crawl in)
 const LEAVE = 6;                  // ...and how much further walking away closes it
 const BEAR_NEAR = 60;             // an alerted bear this close: no kneeling over a pack
@@ -157,8 +170,10 @@ const AWAY = new Set(['tent-in', 'inside', 'tent-out', 'collapse', 'dead', 'gone
 const away = () => (AWAY.has(P.mode) && !inTent()) || (state.body && state.body.phase !== 'alive' && state.body.phase !== 'open');
 function bearClose() {
   const b = state.bear;
-  return !!b && (b.st === 'alert' || b.st === 'stalk') && Math.hypot(b.x - P.x, b.y - P.y) < BEAR_NEAR;
+  return !!b && b.threat && Math.hypot(b.x - P.x, b.y - P.y) < BEAR_NEAR;
 }
+// with the bear worked up close by, only these come out of the pack (the rest are dimmed)
+const BEAR_OK = new Set(['rifle', 'flare']);
 // No pack at all: busy elsewhere, in the water, on a wall, walking to one, knocked down.
 function packAway() {
   return away() || P.terrain === 'water' || P.mode === 'climb' || P.mode === 'approach' || P.mode === 'down';
@@ -185,7 +200,7 @@ function blocked() { return !inTent() && (packBlocked() || P.terrain === 'deep')
 // recorder or the radio; no kneeling into a container, no snow
 const burdened = () => !!state.burden?.mode;
 const carrying = () => state.burden?.mode === 'carry';
-const CARRY_OK = new Set(['food', 'flask', 'radio']);
+const CARRY_OK = new Set(['food', 'flask', 'radio', 'meat']);
 const carryBlocked = s => carrying() && !!s && !CARRY_OK.has(s.id) && !s.id.startsWith('rec_');
 
 function onPlayer(sx, sy) {
@@ -215,6 +230,7 @@ function sledLocal(x, y) { const dx = x - SLED.x, dy = (y - SLED.y) / 0.72; retu
 function dist(t) {
   if (t.kind === 'pup') return pupDist();
   if (t.kind === 'bundle') return bundleDist();
+  if (t.kind === 'carcass') return carcassDist(t.ref);
   if (t.kind !== 'sled') return Math.hypot(P.x - t.x, P.y - t.y);
   const [lx, ly] = sledLocal(P.x, P.y);
   return Math.hypot(Math.max(0, Math.abs(lx) - 13), Math.max(0, Math.abs(ly) - 3.5));
@@ -239,6 +255,7 @@ function nearest(far = 1) {
   for (const f of state.fallen || []) if (f.pack && !f.lost && (!isEmpty(f.pack) || (f.distress && bodyReady()))) consider({ kind: 'fallen', ref: f.pack, x: f.x, y: f.y, distress: !!f.distress });
   if (!burdened() && bundleDist() < REACH.bundle * far) { const a = bundleAnchor(); consider({ kind: 'bundle', ref: null, x: a.x, y: a.y + 2 }); }
   for (const g of state.ground) consider({ kind: 'ground', ref: g, x: g.x, y: g.y });
+  for (const c of state.hunt?.carcasses || []) if (!c.done) { const p = carcassPos(c); consider({ kind: 'carcass', ref: c, x: p.x, y: p.y }); }
   // the pitched pup tent only when nothing else is in reach (the sled, a body, a pile come first)
   const pp = state.pup?.pitched;
   if (!best && pp) consider({ kind: 'pup', ref: null, x: pp.x, y: pp.y });
@@ -307,14 +324,14 @@ function shake(block, i) {
   state.events.push({ type: 'full', x: P.x, y: P.y });
 }
 function startRummage(target = null) {
-  if ((target ? packBlocked() : openBlocked()) || (target && bearClose()) || pupJob()) return;
+  if ((target ? packBlocked() : openBlocked()) || (target && bearClose()) || pupJob() || aiming() || huntBusy()) return;
   C.phase = 'rummage'; C.t = 0; C.target = target;
   state.events.push({ type: 'rummage', x: P.x, y: P.y, target: target?.kind });
 }
 // The tent menu (Joe): inside a tent, a tap brings up what you can do there, as a row of round
 // slots above the tent: leave, eat, drink, sleep (after dark), open the pack. A tap off it closes it.
-const TENT_ACTS = ['leave', 'eat', 'drink', 'sleep', 'pack'];
-const TENT_NAMES = { leave: 'Leave the tent', eat: 'Eat a ration', drink: 'Drink (snow melted on the stove)', sleep: 'Sleep till dawn', pack: 'Open the pack' };
+const TENT_ACTS = ['leave', 'eat', 'cook', 'drink', 'sleep', 'pack'];
+const TENT_NAMES = { leave: 'Leave the tent', eat: 'Eat a ration', cook: 'Cook meat on the stove', drink: 'Drink (snow melted on the stove)', sleep: 'Sleep till dawn', pack: 'Open the pack' };
 const TENT_DRINK = 0.35;
 function tentLayout() {
   const f = feet(), z = zoom(), r = slotR(), sp = r * 2.5, { w } = state.view;
@@ -332,6 +349,7 @@ const tentFlask = () => pack.slots.findIndex(q => q && q.id === 'flask' && q.dri
 function tentBlocked(id) {
   const B = state.body;
   if (id === 'eat') return find(pack, 'food') < 0 || (B && B.food > 0.95);
+  if (id === 'cook') return find(pack, 'meat') < 0 || (B && B.food > 0.95);
   if (id === 'drink') return !!B && B.water > 0.95;
   if (id === 'sleep') return !canSleep();
   return false;
@@ -341,6 +359,7 @@ function tentAct(p) {
   const B = state.body;
   if (p.id === 'leave') { close(); P.leaveTent?.(); }
   else if (p.id === 'eat') startEat(find(pack, 'food'));
+  else if (p.id === 'cook') startEat(find(pack, 'meat'), true);
   else if (p.id === 'drink') {
     // from the flask if there's a drink in it (the stove tops it up); else a mug off the stove
     const i = tentFlask();
@@ -360,6 +379,19 @@ const TENT_ICON = {
     ctx.lineCap = 'butt';
   },
   eat: (ctx, r, z) => ITEMS.food.icon(ctx, r, z),
+  // a pan on the stove with a chunk of meat in it and steam rising
+  cook: (ctx, r, z) => {
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const lw = Math.max(1.1, z * 0.26);
+    ctx.beginPath(); ctx.moveTo(r * 0.3, r * 0.18); ctx.lineTo(r * 0.72, r * 0.02); ctx.lineWidth = Math.max(2, r * 0.12); ctx.strokeStyle = INK_T; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-r * 0.08, r * 0.2, r * 0.46, r * 0.18, 0, 0, Math.PI); ctx.lineTo(-r * 0.54, r * 0.08); ctx.ellipse(-r * 0.08, r * 0.08, r * 0.46, r * 0.17, 0, Math.PI, 0, true); ctx.closePath();
+    ctx.fillStyle = 'rgba(70,68,66,0.98)'; ctx.fill(); ctx.lineWidth = lw; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-r * 0.08, r * 0.08, r * 0.28, r * 0.09, 0, 0, TAU); ctx.fillStyle = 'rgba(132,118,106,1)'; ctx.fill();
+    ctx.lineWidth = Math.max(0.9, z * 0.16); ctx.strokeStyle = 'rgba(40,36,30,0.7)';
+    ctx.beginPath();
+    for (const dx of [-0.25, 0, 0.25]) { ctx.moveTo(r * (dx - 0.08), -r * 0.05); ctx.quadraticCurveTo(r * (dx + 0.02), -r * 0.25, r * (dx - 0.08), -r * 0.42); }
+    ctx.stroke();
+  },
   drink: (ctx, r, z) => ITEMS.flask.icon(ctx, r, z),
   // a crescent moon
   sleep: (ctx, r) => {
@@ -395,9 +427,14 @@ function drawTentMenu(ctx) {
 
 // The lost explorer's row (goal/burden.js): over the body, the bundle or the explorer's own head; the same
 // round slots as the tent menu.
-let actKind = null;               // 'body' | 'bundle' | 'self' (kept through the fade)
+let actKind = null;               // 'body' | 'bundle' | 'self' | 'carcass' (kept through the fade)
+let actRef = null;                // the carcass (hunt.js) the row is over
+const actIds = () => (actKind === 'carcass' ? HUNT_ACTS : ACTS[actKind] || []);
+const aName = id => (actKind === 'carcass' ? huntActName(id) : actName(id));
+const aWhy = id => (actKind === 'carcass' ? huntActWhy(id, actRef) : actWhy(id));
 function actAnchor() {
   const z = zoom();
+  if (actKind === 'carcass' && actRef) { const p = carcassPos(actRef), q = worldToScreen(p.x, p.y); return { x: q.x, y: q.y - (actRef.kind === 'bear' ? 20 : 16) * z }; }
   if (actKind === 'self') { const f = feet(); return { x: f.x, y: f.y - 27 * z }; }
   // (over the body or the bundle, high enough to clear the explorer standing beside it)
   if (actKind === 'body') { const d = state.distress; const q = worldToScreen(d.x, d.y); return { x: q.x, y: q.y - 21 * z }; }
@@ -405,26 +442,28 @@ function actAnchor() {
   const q = worldToScreen(a.x, a.y); return { x: q.x, y: q.y - 20 * z };
 }
 function actLayout() {
-  const ids = ACTS[actKind] || [], r = slotR(), sp = r * 2.5, { w } = state.view, a = actAnchor();
+  const ids = actIds(), r = slotR(), sp = r * 2.5, { w } = state.view, a = actAnchor();
   const y = Math.max(r + 8, a.y - r - 4);
   let x0 = a.x - (ids.length - 1) * sp / 2;
   x0 = Math.max(r + 6, Math.min(w - r - 6 - (ids.length - 1) * sp, x0));
   return { r, pos: ids.map((id, i) => ({ id, i, x: x0 + i * sp, y })) };
 }
 function actAt(sx, sy) { const L = actLayout(); return L.pos.find(p => Math.hypot(sx - p.x, sy - p.y) < L.r + 8) || null; }
-function openAct(kind) {
+function openAct(kind, ref = null) {
   if (C.phase === 'out') stow();
   else if (C.phase !== 'idle') close();
-  actKind = kind; C.phase = 'actmenu'; C.t = 0;
+  actKind = kind; actRef = ref; C.phase = 'actmenu'; C.t = 0;
 }
 // where the lost explorer's row is tied: in reach of it still?
 function actInReach() {
+  if (actKind === 'carcass') return !!actRef && !actRef.done && carcassDist(actRef) < REACH.carcass + LEAVE;
   if (actKind === 'self') return burdened();
   if (actKind === 'body') { const d = state.distress; return bodyReady() && Math.hypot(P.x - d.x, P.y - d.y) < REACH.fallen + LEAVE; }
   return !burdened() && bundleDist() < REACH.bundle + LEAVE;
 }
 function actDo(p) {
-  if (actWhy(p.id)) { shake('act', p.i); return; }
+  if (aWhy(p.id)) { shake('act', p.i); return; }
+  if (actKind === 'carcass') { const c = actRef; close(); huntDoAct(p.id, c); return; }
   const kind = actKind, r = doAct(p.id);
   close();
   if (r === 'pack') { C.phase = 'slot'; C.t = 0; C.target = null; lay = null; }
@@ -437,7 +476,7 @@ const PACK_ICON = (ctx, r, z) => TENT_ICON.pack(ctx, r, z);
 function drawActMenu(ctx) {
   const L = actLayout(), pop = 0.7 + 0.3 * C.actA, z = zoom();
   for (const p of L.pos) {
-    const dim = !!actWhy(p.id);
+    const dim = !!aWhy(p.id);
     let x = p.x;
     const sh = shakes.get('act:' + p.i);
     if (sh !== undefined) { const age = state.time - sh; if (age > 0.5) shakes.delete('act:' + p.i); else x += Math.sin(age * 46) * Math.min(7, L.r * 0.42) * (1 - age / 0.5); }
@@ -448,7 +487,7 @@ function drawActMenu(ctx) {
     ctx.lineWidth = lw; ctx.strokeStyle = dim ? 'rgba(170,170,174,0.7)' : 'rgba(255,255,255,0.85)'; ctx.stroke();
     ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(40,40,44,0.3)';
     ctx.beginPath(); ctx.arc(x, p.y, r + lw, 0, TAU); ctx.stroke();
-    ctx.save(); ctx.translate(x, p.y); (ACT_ICON[p.id] || PACK_ICON)(ctx, r, z); ctx.restore();
+    ctx.save(); ctx.translate(x, p.y); ((actKind === 'carcass' ? HUNT_ICON[p.id] : ACT_ICON[p.id]) || PACK_ICON)(ctx, r, z); ctx.restore();
   }
   ctx.globalAlpha = 1;
 }
@@ -471,10 +510,10 @@ function stow() {
   if (C.phase === 'out') state.events.push({ type: 'stow', x: P.x, y: P.y });
   C.phase = 'idle'; C.t = 0;
 }
-function startEat(i) {
+function startEat(i, cooked = false) {
   // (not when already full: no wasting a ration by accident; not with the bear coming)
-  if ((state.body && state.body.food > 0.95) || bearClose()) { shake('pack', i); return; }
-  C.phase = 'eat'; C.eatI = i; C.t = 0; chewT = 0.9;
+  if (i < 0 || (state.body && state.body.food > 0.95) || bearClose()) { shake('pack', i); return; }
+  C.phase = 'eat'; C.eatI = i; C.t = 0; chewT = 0.9; C.eatCook = cooked;
   state.events.push({ type: 'eat', stage: 'start', x: P.x, y: P.y });
 }
 // Bind the hurt leg with the splint in slot i (only when hurt: no wasting it).
@@ -508,8 +547,11 @@ function useSlot(i) {
   const s = pack.slots[i];
   if (!s) return;
   const it = ITEMS[s.id];
-  const u = { i, slot: s, handsBlocked: blocked(), storm: stormy(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint, pitch: pitchSlot, drink: startDrink, play: playRecording, radio: () => toggleRadio() };
-  if (it.blocked(u) || carryBlocked(s)) { shakes.set('pack:' + i, state.time); return; }
+  const u = { i, slot: s, handsBlocked: blocked(), storm: stormy(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint, pitch: pitchSlot, drink: startDrink, play: playRecording, radio: () => toggleRadio(),
+    // the bear slice (hunt.js): raise the rifle (the pack closes), strike a flare (the pack closes)
+    aim: j => { if (startAim()) close(); else shake('pack', j); },
+    flare: j => { if (strikeFlare(j)) close(); else shake('pack', j); } };
+  if (it.blocked(u) || carryBlocked(s) || (bearClose() && !BEAR_OK.has(s.id))) { shakes.set('pack:' + i, state.time); return; }
   C.t = 0;
   it.use(u);
   if (it.wear && !inTent()) close();   // putting gear on / off: the pack closes and the kneel plays
@@ -601,7 +643,7 @@ const nearCampDoor = () => { try { const d = tentDoor(); return Math.hypot(P.x -
 // moment after the tap), shows the item's name in a small label just above it.
 let hoverPt = null, tipSlot = null, tipT = -9;
 function tipText(t) {
-  if (t.block === 'act') { const id = (ACTS[actKind] || [])[t.i]; if (!id) return null; const why = actWhy(id); return actName(id) + (why ? ` (${why})` : ''); }
+  if (t.block === 'act') { const id = actIds()[t.i]; if (!id) return null; const why = aWhy(id); return aName(id) + (why ? ` (${why})` : ''); }
   if (t.block === 'tent') { const id = TENT_ACTS[t.i]; return TENT_NAMES[id] + (id === 'sleep' && !canSleep() ? ' (after dark)' : ''); }
   if (t.block === 'snow') return snowHere() ? 'Eat snow' : 'Eat snow (no snow here)';
   const c = t.block === 'cont' ? shownT?.ref : pack;
@@ -644,6 +686,13 @@ export function init() {
     if (cardUp()) { dismissCard(); return true; }   // the ending card: a press only takes it away
     if (away()) { close(); return false; }   // presses go to the tent / the hand-over
     pending = null;
+    // the rifle raised (hunt.js): presses are its (touch: the stick half stays the stick, a tap there fires)
+    if (aiming()) {
+      if (TOUCH && sy > innerHeight * 0.5) return false;
+      return aimPress(sx, sy, onPlayer(sx, sy));
+    }
+    // butchering: a press on the explorer is swallowed; anywhere else walks (and stops it)
+    if (huntBusy()) return onPlayer(sx, sy);
     // kneeling at the lost explorer (wrapping, hoisting, the rope): a press on the explorer is swallowed;
     // anywhere else walks (and stops it)
     if (burdenBusy()) return onPlayer(sx, sy);
@@ -709,6 +758,14 @@ export function init() {
       return false;
     }
     if (t && t.kind !== 'ground' && pressContainer(t)) return true;
+    // a carcass (hunt.js): its row (Butcher), walking there first from further off
+    { const w = screenToWorld(sx, sy), c = !carrying() && carcassAt(w.x, w.y, zoom());
+      if (c) {
+        if (open) close();
+        if (carcassDist(c) < REACH.carcass) { openAct('carcass', c); return true; }
+        const p = carcassPos(c), g = reachPoint({ kind: 'carcass', x: p.x, y: p.y });
+        if (P.reach?.(g.x, g.y)) { pending = { kind: 'carcass', ref: c, x: p.x, y: p.y, menu: 'carcass' }; return true; }
+      } }
     // the wrapped bundle: carry or drag
     { const w = screenToWorld(sx, sy);
       if (!burdened() && bundleAt(w.x, w.y, zoom())) {
@@ -760,9 +817,10 @@ export function init() {
     // Space / E close to the sled, a body or a pile: hold to rummage in it (the pup tent: tap to
     // crawl in, hold to strike it)
     if ((e.code === 'Space' || e.code === 'KeyE') && C.phase === 'actmenu') { close(); return; }
-    if ((e.code === 'Space' || e.code === 'KeyE') && C.phase === 'idle' && !inTent() && !pupJob()) {
+    if ((e.code === 'Space' || e.code === 'KeyE') && C.phase === 'idle' && !inTent() && !pupJob() && !aiming() && !huntBusy()) {
       const t = nearest();
       if (t && t.kind === 'pup') { if (!away() && !nearCampDoor()) pressPup(e.code); }
+      else if (t && t.kind === 'carcass') { if (!away() && !burdenBusy()) openAct('carcass', t.ref); }
       else if (t && t.kind === 'bundle') { if (!away() && !burdenBusy()) openAct('bundle'); }
       else if (t && t.distress && bodyReady()) { if (!away() && !burdenBusy()) openAct('body'); }
       else if (t && !carrying()) { holding = true; holdCode = e.code; startRummage(t); }
@@ -790,7 +848,7 @@ export function init() {
   window.NAS.snowEat = () => { if (C.phase === 'idle') { C.phase = 'slot'; C.t = 0; } startSnow(); };
   window.NAS.tentUI = () => tentLayout();   // the tent menu's slot positions (inside a tent)
   // the lost explorer's row: NAS.actMenu('body' | 'bundle' | 'self') opens it; NAS.actUI() -> its slot positions
-  window.NAS.actMenu = kind => openAct(kind);
+  window.NAS.actMenu = (kind, ref) => openAct(kind, kind === 'carcass' ? ref || (state.hunt?.carcasses || []).find(c => !c.done) : null);
   window.NAS.actUI = () => actLayout();
   window.NAS.packUI = () => { lay = null; const L = layouts(); return { pack: L.pack, cont: L.cont || [], r: L.r }; };
 }
@@ -805,7 +863,7 @@ export function update(dt) {
   if (pending) {
     if (state.events.some(e => e.type === 'arrive')) pending.arrived = state.time;
     if (pending.arrived) {
-      if (!mv && C.phase === 'idle' && pending.menu && dist(pending) < REACH[pending.kind] + 2) { const k = pending.menu; pending = null; openAct(k); }
+      if (!mv && C.phase === 'idle' && pending.menu && dist(pending) < REACH[pending.kind] + 2) { const k = pending.menu, ref = pending.kind === 'carcass' ? pending.ref : null; pending = null; openAct(k, ref); }
       else if (!mv && C.phase === 'idle' && dist(pending) < REACH[pending.kind] + 2) { const t = pending; pending = null; holding = true; holdCode = 'auto'; startRummage(t); if (C.phase !== 'rummage') holdCode = null; }
       else if (state.time - pending.arrived > 1.5) pending = null;
     } else if (P.mode !== 'approach') pending = null;
@@ -822,8 +880,11 @@ export function update(dt) {
   // a press held on a slot: once it's been held long enough, drop one / move the whole stack
   if (press && !press.done && state.time - press.t >= holdNeed() && (C.phase === 'slot' || C.phase === 'transfer')) { press.done = true; slotAction(press, true); }
 
-  // an alerted bear close by: no kneeling over a pack
-  if (C.phase !== 'idle' && C.phase !== 'out' && bearClose()) close();
+  // an alerted bear close by: no kneeling over a pack (the pack itself still opens: for the rifle, a flare)
+  if (C.phase !== 'idle' && C.phase !== 'out' && C.phase !== 'slot' && C.phase !== 'rummage' && C.phase !== 'actmenu' && bearClose()) close();
+  if (C.phase === 'rummage' && C.target && bearClose()) close();
+  if (aiming() && C.phase !== 'idle') close();
+  if (huntBusy() && C.phase !== 'idle') close();
 
   if (C.phase === 'tentmenu' && !inTent()) close();
   if (C.phase === 'actmenu' && (!actInReach() || packAway() || burdenBusy() || (mv && !wasMoving && !state.input.pointer))) close();
@@ -845,7 +906,7 @@ export function update(dt) {
     if (!t || (mv && !wasMoving && !state.input.pointer) || packBlocked() || dist(t) > REACH[t.kind] + LEAVE) close();
   } else if (C.phase === 'eat') {
     const s = pack.slots[C.eatI];
-    if (mv || packBlocked() || !s || s.id !== 'food') {
+    if (mv || packBlocked() || !s || ITEMS[s.id]?.kind !== 'food') {
       // walked off (or the weather got in): the ration goes back uneaten
       state.events.push({ type: 'eat', stage: 'stop', x: P.x, y: P.y });
       if (mv) { C.phase = 'idle'; C.t = 0; } else { C.phase = 'slot'; C.t = 0; }
@@ -853,9 +914,12 @@ export function update(dt) {
       chewT -= dt;
       if (chewT <= 0 && C.t < EAT_S - 0.2) { chewT = 0.38 + Math.random() * 0.14; state.events.push({ type: 'eat', stage: 'chew', x: P.x, y: P.y }); }
       if (C.t >= EAT_S) {
+        // what it does: a ration (EAT_FOOD, EAT_WARM), or what the item says (raw meat: less, and it chills;
+        // cooked on the stove: more)
+        const it = ITEMS[s.id], ef = (C.eatCook && it.cooked) || it.eat || { food: EAT_FOOD, warm: EAT_WARM };
         take(pack, C.eatI, 1);
         const B = state.body;
-        if (B) { B.food = Math.min(1, B.food + EAT_FOOD); B.warmth = Math.min(1, B.warmth + EAT_WARM); }
+        if (B) { B.food = Math.min(1, B.food + ef.food); B.warmth = clamp(B.warmth + ef.warm, 0.01, 1); }
         state.events.push({ type: 'eat', stage: 'done', x: P.x, y: P.y });
         C.phase = 'slot'; C.t = 0;
       }
@@ -1020,6 +1084,7 @@ function glintPoint(t) {
   if (t.kind === 'sled') { const lx = -1.8, ly = 2.4, h = 5.6; return { x: SLED.x + lx * SLED_C - ly * SLED_S, y: SLED.y + (lx * SLED_S + ly * SLED_C) * 0.72 - h }; }
   if (t.kind === 'fallen') return { x: t.x - 0.5, y: t.y - 2.6 };
   if (t.kind === 'bundle') return { x: t.x, y: t.y - 4.2 };
+  if (t.kind === 'carcass') return { x: t.x + 0.6, y: t.y - (t.ref.kind === 'bear' ? 7 : t.ref.kind === 'dog' ? 3.5 : 2.2) };
   return { x: t.x + 0.8, y: t.y - 2.2 };
 }
 const pileDraw = new WeakMap();
@@ -1038,7 +1103,7 @@ export function drawables() {
   }
   if (puffs.length) { const p = puffs[puffs.length - 1]; puffItem.x = p.x; puffItem.y = p.y + 4; items.push(puffItem); }
   glintAt = null;
-  if (C.phase === 'idle' && !away() && !inTent() && !bearClose() && !pupJob() && !burdenBusy() && !carrying()) {
+  if (C.phase === 'idle' && !away() && !inTent() && !bearClose() && !pupJob() && !burdenBusy() && !carrying() && !aiming() && !huntBusy()) {
     const t = nearest(2);
     if (t) { const d = dist(t) / REACH[t.kind]; glintK = d <= 1 ? 1 : 0.35 + 0.65 * (1 - (d - 1)); glintAt = glintPoint(t); glintItem.x = t.x; glintItem.y = (t.kind === 'sled' ? SLED.y + 6 : t.kind === 'bundle' ? t.y + 4 : t.y + 2); items.push(glintItem); }
   }
@@ -1220,7 +1285,7 @@ export function drawScreen(ctx) {
   const armK = pupPress && !pupPress.struck ? Math.max(0, (state.time - pupPress.t - 0.12) / (STRIKE_ARM - 0.12)) : 0;
   if (armK > 0.01) drawPupArm(ctx, armK);
   // kneeling at the lost explorer (wrapping them, hoisting, the rope): the bar fills over them
-  const BJ = state.burden?.job, jobK = BJ ? BJ.t / BJ.dur : -1;
+  const BJ = state.burden?.job || state.hunt?.job, jobK = BJ ? BJ.t / BJ.dur : -1;
   if (C.phase === 'idle' && C.slotA < 0.01 && C.outA < 0.01 && C.xferA < 0.01 && C.tentA < 0.01 && C.actA < 0.01 && sleepK < 0.01 && hint <= 0 && strikeK < 0 && jobK < 0) return;
   const { dpr } = state.view;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1262,11 +1327,11 @@ export function drawScreen(ctx) {
   }
   // The pack, beside the explorer (tethered to them while a container is open too).
   if (C.slotA > 0.01) {
-    const hb = blocked(), it = inTent(), sw = stormy();
+    const hb = blocked(), it = inTent(), sw = stormy(), bc = bearClose();
     if (C.xferA > 0.01) tether(ctx, L.pack.slice(0, 5), L.r, L.packOwner, C.xferA);
     L.pack.forEach((p, i) => {
       const s = pack.slots[i];
-      const dim = !!s && C.phase !== 'transfer' && (ITEMS[s.id].blocked({ i, slot: s, handsBlocked: hb, storm: sw, inTent: it }) || carryBlocked(s));
+      const dim = !!s && C.phase !== 'transfer' && (ITEMS[s.id].blocked({ i, slot: s, handsBlocked: hb, storm: sw, inTent: it }) || carryBlocked(s) || (bc && !BEAR_OK.has(s.id)));
       let hold = holdK('pack', i);
       if (C.phase === 'eat' && i === C.eatI) hold = C.t / EAT_S;   // eating: the arc fills over the meal
       if (C.phase === 'splint' && i === C.splintI) hold = C.t / SPLINT_S;   // ...and over the binding

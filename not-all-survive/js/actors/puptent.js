@@ -164,7 +164,7 @@ function ev(type, stage, extra) { const o = pup.job || pup.pitched || P; state.e
 
 // Start pitching from the pack. Returns false (refused: the slot shakes) if there's no ground for
 // it here, or it can't be done now.
-const bearNear = () => { const b = state.bear; return !!b && (b.st === 'alert' || b.st === 'stalk') && Math.hypot(b.x - P.x, b.y - P.y) < 60; };
+const bearNear = () => { const b = state.bear; return !!b && b.threat && Math.hypot(b.x - P.x, b.y - P.y) < 60; };
 export function startPitch() {
   if (pup.job || pup.pitched || !inPack() || busyMode() || !bodyOk() || P.water?.level || P.spent || bearNear()) return false;
   const s = findSite();

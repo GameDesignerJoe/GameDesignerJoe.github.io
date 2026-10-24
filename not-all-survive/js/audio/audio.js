@@ -403,9 +403,37 @@ function handle(e) {
       return;
     }
     case 'bark': case 'howl': case 'whine': case 'penguin': case 'bear': {
-      if (voices.creature >= LIMIT.creature) return;
-      const fn = { bark: S.bark, howl: S.howl, whine: S.whine, penguin: S.penguin, bear: S.bear }[e.type];
-      claim('creature', oneShot('creature', e.x, e.y, bus.creatures, fn, e, 0.3));
+      // (the bear's attack voices go through even with the creature voices full: they matter)
+      const big = e.type === 'bear' && e.kind !== 'huff' && e.kind !== 'growl';
+      if (voices.creature >= LIMIT.creature + (big ? 3 : 0)) return;
+      const fn = { bark: S.bark, howl: S.howl, whine: S.whine, penguin: S.penguin, bear: big ? S.bearAct : S.bear }[e.type];
+      const dur = oneShot('creature', e.x, e.y, bus.creatures, fn, e, 0.3);
+      claim('creature', dur);
+      // the warning and the charge: the wind ducks under them, so they're heard in a storm
+      if (big && (e.kind === 'warn' || e.kind === 'roar' || e.kind === 'maul')) {
+        const g = bus.wind.gain, base = S.MIX.wind;
+        g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
+        g.linearRampToValueAtTime(base * 0.35, t + 0.15); g.setTargetAtTime(base, t + dur * 0.8, 0.4);
+      }
+      return;
+    }
+    // the rifle (hunt.js): the shot is loud and right here; its echo comes back off the ice (in the voice)
+    case 'rifle': {
+      const root = ctx.createGain(); root.gain.value = e.stage === 'shot' ? 1.1 : 0.7; root.connect(bus.steps);
+      if (e.stage === 'shot') { const s2 = ctx.createGain(); s2.gain.value = 0.35; root.connect(s2); s2.connect(bus.reverbIn); setTimeout(() => s2.disconnect(), 3000); }
+      const dur = S.rifle(ctx, B, root, t, e);
+      setTimeout(() => root.disconnect(), (dur + 0.5) * 1000);
+      if (e.stage === 'shot') {
+        const g = bus.wind.gain, base = S.MIX.wind;
+        g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
+        g.linearRampToValueAtTime(base * 0.3, t + 0.02); g.setTargetAtTime(base, t + 0.6, 0.5);
+      }
+      return;
+    }
+    case 'flare': case 'butcher': {
+      const root = ctx.createGain(); root.gain.value = 0.9; root.connect(bus.steps);
+      const dur = (e.type === 'flare' ? S.flare : S.butcher)(ctx, B, root, t, e);
+      setTimeout(() => root.disconnect(), (dur + 0.4) * 1000);
       return;
     }
   }

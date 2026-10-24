@@ -527,6 +527,10 @@ const POSE = {
   hstretch: { hipH: 3.8, shH: 5.0, bend: 0, neckP: 1.0, headP: 0.2, tailUp: 0.5, fPaw: 0.5, fPawH: 0, hPaw: -2.1, hPawH: 0 },
   howl: { hipH: 1.4, shH: 5.0, bend: 0, neckP: 1.35, headP: 1.1, tailUp: 0.1, fPaw: 0.45, fPawH: 0, hPaw: 1.2, hPawH: 0 },
   lhowl: { hipH: 1.15, shH: 1.7, bend: 0.2, neckP: 1.3, headP: 1.05, tailUp: 0.05, fPaw: 2.6, fPawH: 0.25, hPaw: 1.7, hPawH: 0.3 },
+  // the bear slice (hunt.js): pressed flat, head down between the paws, tail tucked (cowering at the raised
+  // rifle); shot: laid out flat and still, the head down on the snow
+  cower: { hipH: 1.1, shH: 1.0, bend: 0.3, neckP: 0.12, headP: -0.45, tailUp: 0, fPaw: 2.3, fPawH: 0.2, hPaw: 1.5, hPawH: 0.3 },
+  dead: { hipH: 0.95, shH: 0.9, bend: 0.12, neckP: 0.02, headP: -0.25, tailUp: 0, fPaw: 2.9, fPawH: 0.05, hPaw: 2.2, hPawH: 0.05 },
 };
 const DOG_LOOK = [
   { dark: 62, light: 168, size: 0.98 },
@@ -613,19 +617,38 @@ function nextState(d) {
 }
 
 function startBark(d) {
-  if (d.state === 'howl') return;
+  if (d.state === 'howl' || d.dead || d.state === 'cower') return;
   d.barkPose = d.state === 'stand' || d.state === 'walk' ? 'stand' : 'sit';
   const n = 2 + Math.floor(rnd() * 3);
   setState(d, 'bark', 0.45 * n + 0.4, d.barkPose);
   d.barks = []; for (let k = 0; k < n; k++) d.barks.push(0.15 + k * rr(0.36, 0.46));
 }
 function startHowl(d) {
+  if (d.dead || d.state === 'cower') return;
   const lying = LYING(d.state) && rnd() < 0.55;
   setState(d, 'howl', rr(4.5, 6.5), lying ? 'lhowl' : 'howl');
   d.howled = false;
 }
 
+// Shot (hunt.js killDog): down where it stood, settling flat and still over a second, snow settling on it;
+// no more breath, no sounds. Butchered: gone (d.gone), the chain left lying.
+function updateDeadDog(d, dt) {
+  const k = 1 - Math.exp(-dt * (d.t < 0.4 ? 9 : 3));
+  d.t += dt;
+  for (const key in POSE.dead) d.p[key] = lerp(d.p[key], POSE.dead[key], k);
+  d.mouth = lerp(d.mouth, 0, k); d.wag = 0; d.tailYaw = 0; d.earsBack = lerp(d.earsBack, 0.4, k);
+  d.neckYaw = lerp(d.neckYaw, 0.5, k); d.shake = 0; d.move = 0; d.speed = 0;
+  d.snow = Math.min(1, d.snow + dt * 0.01 * (0.3 + state.weather.snowfall + wind));
+}
+export function killDog(d) {
+  if (d.dead) return false;
+  d.dead = true; d.t = 0; d.state = 'dead'; d.poseName = 'dead'; d.barks = []; d.barkDelay = d.howlDelay = -1;
+  // the rest whine and cower at it
+  for (const o of dogs) if (!o.dead) { o.cowerT = Math.max(o.cowerT || 0, 14); if (rnd() < 0.7) o.whineDelay = rr(0.3, 1.6); }
+  return true;
+}
 function updateDog(d, dt) {
+  if (d.dead) { if (!d.gone) updateDeadDog(d, dt); return; }
   const pl = state.player;
   const dxp = pl.x - d.x, dyp = (pl.y - d.y) / SQ;
   d.pd = Math.hypot(dxp, dyp);
@@ -675,12 +698,22 @@ function updateDog(d, dt) {
   d.move = lerp(d.move, speed > 0.1 ? 1 : 0, 1 - Math.exp(-dt * 8));
   d.gait += dt * Math.max(speed, d.state === 'circle' ? 1.6 : 0) * 2.8;
 
-  if (d.t > d.dur && !FROZEN) nextState(d);
+  // cowering (hunt.js: the rifle raised near them, or one of them shot): pressed flat, ears back, tail
+  // tucked, whining now and then; no barking
+  d.cowerT = Math.max(0, (d.cowerT || 0) - dt);
+  const cowering = d.cowerT > 0;
+  if (cowering) {
+    if (d.state !== 'cower') { d.state = 'cower'; d.poseName = 'cower'; d.t = 0; d.dur = 1e9; d.barks = []; d.barkDelay = -1; d.howlDelay = -1; }
+    if (d.whineDelay > 0) { d.whineDelay -= dt; if (d.whineDelay <= 0) state.events.push({ type: 'whine', x: d.x, y: d.y }); }
+    else if (rnd() < dt / 5) state.events.push({ type: 'whine', x: d.x, y: d.y });
+  } else if (d.state === 'cower') setState(d, 'lie', rr(4, 8));
+
+  if (d.t > d.dur && !FROZEN && !cowering) nextState(d);
 
   // --- reactions
   if (d.barkDelay > 0) { d.barkDelay -= dt; if (d.barkDelay <= 0) startBark(d); }
   if (d.howlDelay > 0) { d.howlDelay -= dt; if (d.howlDelay <= 0) startHowl(d); }
-  if (!FROZEN && !LYING(d.state) && d.state !== 'bark' && d.state !== 'howl' && rnd() < dt / 110) startBark(d);
+  if (!FROZEN && !cowering && !LYING(d.state) && d.state !== 'bark' && d.state !== 'howl' && rnd() < dt / 110) startBark(d);
   if (near && d.appr > 0.6 && rnd() < dt / 40) state.events.push({ type: 'whine', x: d.x, y: d.y });
 
   // snow settles on resting dogs
@@ -713,14 +746,14 @@ function updateDog(d, dt) {
   d.neckYaw = lerp(d.neckYaw, lookTarget, 1 - Math.exp(-dt * (d.state === 'shake' ? 30 : 5)));
 
   // --- tail, ears, mouth
-  const wagT = d.state === 'howl' || d.state === 'curl' ? 0 : near ? (d.appr > 0.5 ? 0.75 : 0.3) : d.state === 'walk' ? 0.2 : 0.06;
+  const wagT = d.state === 'howl' || d.state === 'curl' || d.state === 'cower' ? 0 : near ? (d.appr > 0.5 ? 0.75 : 0.3) : d.state === 'walk' ? 0.2 : 0.06;
   d.wag = lerp(d.wag, wagT, 1 - Math.exp(-dt * 3));
   d.wagPh += dt * (8 + 7 * d.wag);
   d.tailYaw = Math.sin(d.wagPh) * d.wag;
   d.earT -= dt;
   if (d.earT < 0) { d.earT = rr(1.2, 5); d.earFlick = 0.16; }
   d.earFlick -= dt;
-  const earBase = d.state === 'curl' || d.state === 'rest' ? 0.35 : d.state === 'howl' ? 0.5 : near ? 0 : clamp(wind * 0.6, 0, 0.5);
+  const earBase = d.state === 'cower' ? 1 : d.state === 'curl' || d.state === 'rest' ? 0.35 : d.state === 'howl' ? 0.5 : near ? 0 : clamp(wind * 0.6, 0, 0.5);
   d.earsBack = lerp(d.earsBack, earBase + (d.earFlick > 0 ? 0.7 : 0), 1 - Math.exp(-dt * 18));
   d.mouthT -= dt;
   let mouthTarget = 0;
@@ -805,8 +838,12 @@ function drawDog(ctx, d) {
   // local (x fwd, z right, h up) -> screen-world, scaled by this dog's size
   // mirror the skeleton so a curled dog always wraps with its head on the camera side
   const mz = ch > 0 ? -1 : 1;
-  const W = q => [d.x + (q.x * ch - q.z * mz * sh) * sz, d.y + ((q.x * sh + q.z * mz * ch) * SQ - q.h) * sz];
-  const depth = q => q.x * sh + q.z * mz * ch;
+  // shot (hunt.js): rolled over onto its side as it settles, the legs out stiff toward the camera
+  const roll = d.dead ? 1.35 * clamp(d.t / 0.6, 0, 1) : 0, rc = Math.cos(roll), rs = Math.sin(roll);
+  const rz = q => (roll ? q.z * rc + q.h * rs * mz * (sh >= 0 ? 1 : -1) : q.z);
+  const rh = q => (roll ? Math.max(0.1, q.h * rc - q.z * rs * mz * (sh >= 0 ? 1 : -1) + 1.4 * rs) : q.h);
+  const W = q => { const z = rz(q); return [d.x + (q.x * ch - z * mz * sh) * sz, d.y + ((q.x * sh + z * mz * ch) * SQ - rh(q)) * sz]; };
+  const depth = q => q.x * sh + rz(q) * mz * ch;
   const R = r => r * sz;
   const frontK = Math.abs(sh) * (1 - clamp(p.bend / 1.6, 0, 1));
   const owW = inkW(0.3);
@@ -938,7 +975,7 @@ function drawDog(ctx, d) {
       fillPrim(ctx, cap, owW, false);
       ctx.fillStyle = '#1e1e1e';
       ctx.beginPath(); ctx.arc(Tp[0], Tp[1], R(0.24), 0, TAU); ctx.fill();
-      if (depth(hd) > -0.6) {
+      if (depth(hd) > -0.6 && !d.dead) {
         const e = W(add(add(add(head, hf, 0.45), up, 0.18), hs, (depth(hs) > 0 ? 1 : -1) * 0.4));
         ctx.beginPath(); ctx.arc(e[0], e[1], R(0.15), 0, TAU); ctx.fill();
       }
@@ -1158,22 +1195,22 @@ export function update(dt) {
   howlTimer -= dt;
   if (howlTimer < 0 && !FROZEN) {
     howlTimer = rr(45, 95);
-    const order = dogs.slice().sort(() => rnd() - 0.5);
-    startHowl(order[0]);
+    const order = dogs.filter(d => !d.dead).sort(() => rnd() - 0.5);
+    if (order.length) startHowl(order[0]);
     order.slice(1).forEach((d, k) => { d.howlDelay = 0.8 + k * rr(0.4, 0.9) + rr(0, 0.6); });
   }
   // the explorer walking up sets them off
   const pl = state.player, pd = Math.hypot(pl.x - (PICKET.ax + PICKET.bx) / 2, (pl.y - PICKET.ay) / SQ);
   if (!playerNear && pd < 34 && !FROZEN) {
     playerNear = true;
-    for (const d of dogs) if (rnd() < 0.6) d.barkDelay = rr(0.2, 1.2);
+    for (const d of dogs) if (!d.dead && rnd() < 0.6) d.barkDelay = rr(0.2, 1.2);
   } else if (playerNear && pd > 62) playerNear = false;
 
   for (const d of dogs) updateDog(d, dt);
   // dogs keep a little personal space
   for (let i = 0; i < dogs.length; i++) for (let j = i + 1; j < dogs.length; j++) {
     const A = dogs[i], B = dogs[j], dx = B.x - A.x, dy = (B.y - A.y) / SQ, dd = Math.hypot(dx, dy);
-    if (dd < 5 && dd > 1e-3) {
+    if (dd < 5 && dd > 1e-3 && !A.dead && !B.dead) {
       const push = (5 - dd) * 0.5 * Math.min(1, dt * 4), ux = dx / dd, uy = dy / dd;
       A.x -= ux * push; A.y -= uy * push * SQ; B.x += ux * push; B.y += uy * push * SQ;
     }
@@ -1194,6 +1231,7 @@ export function drawGround(ctx) {
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(groundCv, BOUNDS.x0, BOUNDS.y0, BOUNDS.x1 - BOUNDS.x0, BOUNDS.y1 - BOUNDS.y0);
   for (const d of dogs) {
+    if (d.gone) continue;
     const lying = d.p.hipH < 2.5, wdt = (lying ? 10 : 8.5) * d.look.size, hgt = (lying ? 4.2 : 3.2) * d.look.size;
     ctx.drawImage(shadowSprite, d.x - wdt / 2 + 1.3, d.y - hgt / 2 + 0.8, wdt, hgt);
   }
@@ -1252,7 +1290,7 @@ export function drawables() {
   ];
   for (const d of dogs) out.push({ x: d.x, y: d.y, draw: ctx => {
     drawChain(ctx, d);
-    drawCached(ctx, 'dog' + d.i, dogBox(d), hz[2], c => drawDog(c, d), d.x, d.y);
+    if (!d.gone) drawCached(ctx, 'dog' + d.i, dogBox(d), d.dead ? 2 : hz[2], c => drawDog(c, d), d.x, d.y);
   } });
   const n = Math.min(SKI_SPOTS.length, skisLeft());
   for (let i = 0; i < n; i++) { const b = skiBase(i); out.push({ x: b.x, y: b.y, draw: ctx => drawSkiPair(ctx, i) }); }
@@ -1295,7 +1333,7 @@ export function campObstacles() {
   const [tx, ty] = projT(0, 0, 0);
   out.push({ x: tx, y: ty - 2, r: 11 }, { x: projT(0, 7, 0)[0], y: projT(0, 7, 0)[1], r: 9 }, { x: projT(0, -7, 0)[0], y: projT(0, -7, 0)[1], r: 9 });
   for (const lx of [-9, -2, 5, 11]) { const [x, y] = projS(lx, 0, 0); out.push({ x, y, r: 4.2 }); }
-  for (const d of dogs) out.push({ x: d.x, y: d.y, r: 2.4 });
+  for (const d of dogs) if (!d.gone) out.push({ x: d.x, y: d.y, r: 2.4 });
   for (let i = 0; i < Math.min(SKI_SPOTS.length, skisLeft()); i++) { const b = skiBase(i); out.push({ x: b.x + 0.6, y: b.y, r: SKI_R }); }
   return out;
 }

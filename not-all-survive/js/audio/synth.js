@@ -1101,3 +1101,170 @@ export function pull(ctx, B, out, t, o = {}) {
   noiseBurst(ctx, B, out, t + d, 'lowpass', R(300, 420), 1, 0.5 * lvl, 0.002, 0.06);
   return d + 0.15;
 }
+
+// ---------------------------------------------------------------- the bear attack, the rifle, the flare (slice 7)
+// A big animal voice: a sawtooth throat (f0 contour over the duration) through open-mouth formants, rough
+// with brown-noise AM, a breath band of noise under it, soft-clipped. peak: level.
+function beast(ctx, B, out, t, d, f0, f1, f2, peak, rough = 1.6, mouth = 650) {
+  const z = osc(ctx, 'sawtooth', f0, t, d);
+  z.frequency.setValueAtTime(f0, t);
+  z.frequency.linearRampToValueAtTime(f1, t + d * 0.35);
+  z.frequency.linearRampToValueAtTime(f2, t + d);
+  const am = gain(ctx, 0.6), rs = src(ctx, B.brown, t, d, 5), rg = gain(ctx, rough);
+  chain(rs, rg); rg.connect(am.gain);
+  const env = gain(ctx), sh = shaper(ctx), post = gain(ctx, 0.7);
+  formants(ctx, z, am, [[mouth, 2.5, 1], [mouth * 1.9, 3.5, 0.5], [mouth * 3.4, 5, 0.18]]);
+  const lp = filt(ctx, 'lowpass', 2400);
+  chain(am, lp, env, sh, post, out);
+  const br = src(ctx, B.pinkM, t, d), bb = filt(ctx, 'bandpass', mouth * 1.2, 0.8), bg = gain(ctx, 0.45);
+  chain(br, bb, bg, env);
+  env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(peak, t + Math.min(0.12, d * 0.15));
+  env.gain.setValueAtTime(peak * 0.85, t + d * 0.7); env.gain.linearRampToValueAtTime(0, t + d);
+  return d;
+}
+// The bear's other voices (bear() keeps huff and growl): the warning growl (deeper, longer, the chest in it),
+// the forepaw slap on the snow, the charge roar, the maul (snarls, blows, the body going down), ripping the pup
+// tent's canvas, a bellow when it's hit, the dying groan, the plunge through the ice, splashing in the hole,
+// the heave out.
+export function bearAct(ctx, B, out, t, o = {}) {
+  const k = o.kind;
+  if (k === 'warn') {
+    const d = R(2.0, 2.5);
+    beast(ctx, B, out, t, d, R(44, 52), R(56, 64), R(40, 46), 1.1, 2.2, 420);
+    noiseBurst(ctx, B, out, t, 'lowpass', 90, 0.8, 1.1, 0.25, d);   // the chest
+    return d + 0.1;
+  }
+  if (k === 'slap') {
+    for (const dt of [0, R(0.05, 0.09)]) {
+      noiseBurst(ctx, B, out, t + dt, 'lowpass', R(70, 100), 0.9, 5, 0.004, 0.35);
+      noiseBurst(ctx, B, out, t + dt + 0.004, 'bandpass', R(900, 1400), 0.8, 0.9, 0.003, 0.14);   // the snow
+    }
+    return 0.5;
+  }
+  if (k === 'roar' || k === 'hurt') {
+    const d = k === 'roar' ? R(1.1, 1.4) : R(0.6, 0.85), hi = k === 'hurt' ? 1.35 : 1;
+    beast(ctx, B, out, t, d, R(80, 95) * hi, R(150, 175) * hi, R(95, 115) * hi, 1.5, 2.6, 720);
+    noiseBurst(ctx, B, out, t, 'bandpass', 900, 0.7, 0.6, 0.05, d * 0.8);
+    return d + 0.1;
+  }
+  if (k === 'maul') {
+    beast(ctx, B, out, t, 0.7, 95, 140, 85, 1.4, 3, 700);
+    beast(ctx, B, out, t + 0.75, 0.9, 85, 120, 70, 1.1, 3, 620);
+    for (let i = 0; i < 4; i++) {
+      const at = t + 0.08 + i * R(0.33, 0.45);
+      noiseBurst(ctx, B, out, at, 'lowpass', R(80, 120), 0.8, 2.2, 0.005, 0.3);         // blows
+      noiseBurst(ctx, B, out, at + 0.01, 'highpass', R(2400, 3600), 0.9, 0.35, 0.002, R(0.04, 0.08));   // cloth tearing
+    }
+    impact(ctx, B, out, t + 0.05, { strength: 1, fatal: !!o.fatal });
+    return 2;
+  }
+  if (k === 'rip') {
+    beast(ctx, B, out, t, 0.6, 90, 130, 80, 1.0, 3, 680);
+    for (let i = 0; i < 5; i++) {
+      const at = t + i * R(0.12, 0.2), s = src(ctx, B.whiteM, at, 0.22), hp = filt(ctx, 'bandpass', R(1800, 3200), 1.2), g = gain(ctx);
+      chain(s, hp, g, out); g.gain.setValueAtTime(0, at);
+      for (let j = 0; j < 6; j++) g.gain.linearRampToValueAtTime(R(0.2, 0.7), at + j * 0.03 + 0.01), g.gain.linearRampToValueAtTime(0.05, at + j * 0.03 + 0.025);
+      g.gain.linearRampToValueAtTime(0, at + 0.22);
+    }
+    return 1.2;
+  }
+  if (k === 'die') {
+    const d = R(1.8, 2.3);
+    beast(ctx, B, out, t, d, R(70, 80), R(60, 66), R(38, 44), 0.9, 1.6, 480);
+    noiseBurst(ctx, B, out, t + d * 0.9, 'lowpass', 120, 0.8, 1.4, 0.05, 0.5);   // down on the snow
+    return d + 0.6;
+  }
+  if (k === 'plunge') {
+    crack(ctx, B, out, t, { strength: 1 });
+    splash(ctx, B, out, t + 0.08, { strength: 1.4 });
+    noiseBurst(ctx, B, out, t + 0.06, 'lowpass', 120, 0.8, 2.2, 0.01, 0.7);
+    beast(ctx, B, out, t + 0.4, 0.7, 110, 150, 90, 0.9, 2.6, 700);
+    return 1.4;
+  }
+  if (k === 'splash') { splash(ctx, B, out, t, { strength: 1.2 }); if (Math.random() < 0.4) beast(ctx, B, out, t + 0.1, 0.4, 100, 130, 95, 0.6, 2.4, 650); return 0.7; }
+  if (k === 'heave') { splash(ctx, B, out, t, { strength: 1.3 }); beast(ctx, B, out, t + 0.1, 0.8, 70, 95, 60, 0.9, 2.2, 520); return 1; }
+  return bear(ctx, B, out, t, o);
+}
+
+// The rifle. The shot: a hard crack (supersonic snap, the muzzle's blast low under it) and its echo coming
+// back off the ice and the cliffs, two or three times, duller and further each time. The bolt worked: a
+// lift-and-draw, a push-and-lock (two dry metal clacks either side of a short slide). A dry click: the
+// firing pin falling on nothing. Raising / lowering: cloth and a sling's creak.
+export function rifle(ctx, B, out, t, o = {}) {
+  const st = o.stage;
+  if (st === 'shot') {
+    noiseBurst(ctx, B, out, t, 'highpass', 1800, 0.7, 3.2, 0.0006, 0.05);
+    noiseBurst(ctx, B, out, t, 'bandpass', 900, 0.6, 2.4, 0.001, 0.12);
+    noiseBurst(ctx, B, out, t + 0.002, 'lowpass', 140, 0.7, 4.2, 0.003, 0.5);
+    const sh = shaper(ctx), g = gain(ctx, 0.9); sh.connect(g); g.connect(out);
+    noiseBurst(ctx, B, sh, t, 'lowpass', 400, 0.6, 1.4, 0.002, 0.25);
+    // the echoes: off the ice (a long rolling one) and the rock
+    const ech = [[R(0.32, 0.42), 0.55, 1400], [R(0.78, 0.95), 0.32, 900], [R(1.35, 1.6), 0.18, 600]];
+    for (const [dt, a, f] of ech) {
+      noiseBurst(ctx, B, out, t + dt, 'bandpass', f, 0.6, a * 1.6, 0.01, 0.35);
+      noiseBurst(ctx, B, out, t + dt + 0.01, 'lowpass', 160, 0.7, a * 1.8, 0.02, 0.6);
+    }
+    return 2.4;
+  }
+  const clack = (at, f, a) => { noiseBurst(ctx, B, out, at, 'bandpass', f, 6, a, 0.0008, 0.03); noiseBurst(ctx, B, out, at, 'highpass', 5000, 1, a * 0.4, 0.0005, 0.012); };
+  if (st === 'bolt') {
+    clack(t, R(2600, 3000), 0.8);
+    const s = src(ctx, B.whiteM, t + 0.05, 0.12), bp = filt(ctx, 'bandpass', 4200, 2), g = gain(ctx);
+    chain(s, bp, g, out); g.gain.setValueAtTime(0, t + 0.05); g.gain.linearRampToValueAtTime(0.25, t + 0.09); g.gain.linearRampToValueAtTime(0, t + 0.17);
+    clack(t + 0.2, R(2300, 2700), 0.75);
+    const s2 = src(ctx, B.whiteM, t + 0.24, 0.1), bp2 = filt(ctx, 'bandpass', 3800, 2), g2 = gain(ctx);
+    chain(s2, bp2, g2, out); g2.gain.setValueAtTime(0, t + 0.24); g2.gain.linearRampToValueAtTime(0.22, t + 0.27); g2.gain.linearRampToValueAtTime(0, t + 0.34);
+    clack(t + 0.36, R(2000, 2400), 0.9);
+    return 0.5;
+  }
+  if (st === 'dry') { clack(t, R(3200, 3600), 0.9); noiseBurst(ctx, B, out, t + 0.002, 'bandpass', 1200, 3, 0.25, 0.001, 0.04); return 0.2; }
+  rustle(ctx, B, out, t, { strength: st === 'raise' ? 0.6 : 0.45 });
+  clack(t + 0.12, R(1800, 2200), 0.25);
+  return 0.5;
+}
+
+// The flare. Struck: the cap scraped across the striker (a rasp) and the fuel catching (a rush of noise
+// swelling); burning: a hard, crackling fizz (high noise chopped by grit, a hiss under it); going out: the
+// fizz sputtering and dying.
+export function flare(ctx, B, out, t, o = {}) {
+  const st = o.stage;
+  if (st === 'strike') {
+    const s = src(ctx, B.whiteM, t, 0.3), bp = filt(ctx, 'bandpass', 2500, 1.5), g = gain(ctx);
+    chain(s, bp, g, out);
+    bp.frequency.setValueAtTime(1800, t); bp.frequency.linearRampToValueAtTime(3800, t + 0.25);
+    g.gain.setValueAtTime(0, t);
+    for (let i = 0; i < 4; i++) { g.gain.linearRampToValueAtTime(0.7, t + i * 0.06 + 0.02); g.gain.linearRampToValueAtTime(0.15, t + i * 0.06 + 0.05); }
+    g.gain.linearRampToValueAtTime(0, t + 0.3);
+    return 0.4;
+  }
+  if (st === 'lit') {
+    const s = src(ctx, B.whiteM, t, 0.7), hp = filt(ctx, 'highpass', 1500, 0.7), g = gain(ctx);
+    chain(s, hp, g, out); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9, t + 0.12); g.gain.linearRampToValueAtTime(0.35, t + 0.7);
+    noiseBurst(ctx, B, out, t, 'lowpass', 300, 0.8, 0.8, 0.02, 0.3);
+    return 0.8;
+  }
+  const lvl = clamp(o.strength ?? 1, 0, 1) * (st === 'out' ? 0.6 : 1), d = st === 'out' ? 1.2 : 0.55;
+  const s = src(ctx, B.whiteM, t, d), hp = filt(ctx, 'highpass', R(2800, 3600), 0.8), g = gain(ctx), am = gain(ctx, 0.5);
+  const gr = src(ctx, B.grit || B.whiteM, t, d, 1.3), grg = gain(ctx, 0.9);
+  chain(gr, grg); grg.connect(am.gain);
+  chain(s, hp, am, g, out);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.45 * lvl, t + 0.05);
+  if (st === 'out') { for (let i = 0; i < 5; i++) g.gain.linearRampToValueAtTime(R(0, 0.35) * lvl, t + 0.15 + i * 0.18); }
+  g.gain.linearRampToValueAtTime(st === 'out' ? 0 : 0.45 * lvl, t + d - 0.05); g.gain.linearRampToValueAtTime(0, t + d);
+  const h = src(ctx, B.pinkM, t, d), hb = filt(ctx, 'bandpass', 900, 0.7), hg = gain(ctx);
+  chain(h, hb, hg, out); hg.gain.setValueAtTime(0, t); hg.gain.linearRampToValueAtTime(0.12 * lvl, t + 0.05); hg.gain.linearRampToValueAtTime(0, t + d);
+  return d;
+}
+
+// Butchering (kept muffled: the work, not the wound): a knife working through a frozen hide (a short dull
+// scrape and a soft thud under it), and the pack taking the meat.
+export function butcher(ctx, B, out, t, o = {}) {
+  if (o.stage === 'cut') {
+    const s = src(ctx, B.whiteM, t, 0.22), bp = filt(ctx, 'bandpass', R(700, 1100), 1.4), g = gain(ctx);
+    chain(s, bp, g, out);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1.1, t + 0.06); g.gain.linearRampToValueAtTime(0, t + 0.22);
+    noiseBurst(ctx, B, out, t + 0.04, 'lowpass', R(150, 220), 0.8, 1.6, 0.006, 0.14);
+    return 0.3;
+  }
+  return rustle(ctx, B, out, t, { strength: 0.5, thud: o.stage === 'done' });
+}

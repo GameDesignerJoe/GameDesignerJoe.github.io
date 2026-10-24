@@ -6,13 +6,19 @@
 //   ?spawnWildlife=near   bear + a penguin group right beside the spawn
 //   ?wlBear=walk|sit|lie|sniff|ground|stare|h<deg>   force a bear pose (h90 = stand facing south)
 //   ?wlPeng=huddle        force huddling
+//   ?bear=near            the bear close by the spawn (behaving as it would: it notices and stalks)
 //
-// Events: { type: 'penguin', x, y, kind: 'call' }, { type: 'bear', x, y, kind: 'huff'|'growl' }
+// Events: { type: 'penguin', x, y, kind: 'call' }, { type: 'bear', x, y, kind: 'huff'|'growl'|'warn'|'slap'|
+//   'roar'|'maul'|'rip'|'hurt'|'die'|'plunge'|'splash'|'heave' } (wildlife-bear.js: the attack, slice 7)
+// Hooks (on the bear itself: NAS.bear === state.bear): NAS.bear.mood() (st, aggro, its rate, distance, hp), charge(now?) (the warning
+//   then the charge; now: straight to the charge; fetched close first if it's far), near() (fetched to ~65 from
+//   the explorer, alert), setAggro(v), plunge() (through the ice where it stands), scare()
 import { state, MAP_W, MAP_H } from '../state.js';
 import { visibleRect } from '../camera.js';
 import * as terrain from '../world/terrain.js';
-import { makeBear, updateBear, drawBear, bearShadow } from './wildlife-bear.js';
-import { makeGroup, updateGroup, drawPenguin, penguinShadow, setBear } from './wildlife-penguin.js';
+import { makeBear, updateBear, drawBear, bearShadow, bearMood, forceCharge, scareBear, bearSwim } from './wildlife-bear.js';
+import { makeGroup, updateGroup, drawPenguin, penguinShadow, setBear, scareGroup } from './wildlife-penguin.js';
+export { drawPenguin, penguinShadow };
 import { pathOf } from './wildlife-rig.js';
 import { pupBlocked } from './puptent.js';
 
@@ -152,7 +158,12 @@ export async function init() {
   const forcePeng = state.params.get('wlPeng');
 
   let bh, b0;
-  if (near) {
+  if (state.params.get('bear') === 'near') {
+    // close by, but its own self: it notices, stalks, and may come
+    bh = W.near(sx + 85, sy - 30, true);
+    bear = makeBear(bh.x, bh.y, { x: bh.x, y: bh.y, r: 60 }, { force: forceBear });
+    bear.heading = Math.PI;
+  } else if (near) {
     bh = W.near(sx + 34, sy - 20, true);
     bear = makeBear(bh.x, bh.y, { x: bh.x, y: bh.y, r: 45 }, { awareRange: 22, force: forceBear });
     bear.heading = Math.PI; // walking across the view
@@ -182,12 +193,52 @@ export async function init() {
   setBear(bear);
   state.bear = bear;   // explorer.js: no stopping for breath with the bear close
   for (const [p, n, r, spread] of homes) groups.push(makeGroup(p.x, p.y, n, r, W, { force: forcePeng, spread }));
+  // hooks (gear menu: Bear charges)
+  const fetch = (d = 65) => {
+    const P = state.player;
+    if (bear.dead) return;
+    if (bear.swim) bear.swim = null;
+    if (Math.hypot(bear.x - P.x, bear.y - P.y) > d + 25) {
+      // (beside them, east or west first: side-on it reads best)
+      for (let k = 0; k < 16; k++) {
+        const a = (k % 2 ? Math.PI : 0) + (k % 4 < 2 ? 1 : -1) * Math.floor(k / 4) * 0.4, x = P.x + Math.cos(a) * d, y = P.y + Math.sin(a) * d * 0.8;
+        if (W.walkable(x, y, true)) { bear.x = x; bear.y = y; bear.feet = null; break; }
+      }
+    }
+    bear.heading = Math.atan2(P.y - bear.y, P.x - bear.x);
+  };
+  // (NAS === state, and state.bear is the bear itself: the hooks hang on it)
+  Object.assign(bear, {
+    mood: () => bearMood(bear),
+    charge: (now = false) => { fetch(); forceCharge(bear, now); },
+    near: () => { fetch(); bear.cool = 0; bear.st = 'alert'; bear.t = 3; bear.since = 0; bear.aggro = 0; },
+    setAggro: v => { bear.aggro = v; },
+    plunge: () => bearSwim(bear),
+    scare: () => scareBear(bear, state.player.x, state.player.y),
+  });
+}
+// hunt.js: what can be shot, and what a shot does to a penguin
+export const herd = () => groups;
+export const theBear = () => bear;
+// A penguin shot: out of its group for good (hunt.js leaves the carcass); the rest scatter.
+export function killPenguin(m) {
+  const g = m.g, i = g.members.indexOf(m);
+  if (i < 0) return null;
+  g.members.splice(i, 1);
+  scareGroup(g, state.player.x, state.player.y);
+  // the bird itself becomes the carcass: laid over on its side, still
+  Object.assign(m, { dead: true, st: 'dead', speed: 0, walkAmp: 0, pitch: 0, preen: 0, call: 0, flap: 0, hop: 0, fout: 0.85 });
+  return m;
+}
+// A shot heard: penguins within r scatter from the explorer
+export function hearShot(x, y, r = 220) {
+  for (const g of groups) if (g.members.length && Math.hypot(g.cx - x, g.cy - y) < r) scareGroup(g, x, y);
 }
 
 export function update(dt) {
   if (!bear) return;
   updateBear(bear, dt, W);
-  for (const g of groups) updateGroup(g, dt, W);
+  for (const g of groups) if (g.members.length) updateGroup(g, dt, W);
 }
 
 function onScreen(r, x, y) { return x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1; }
@@ -196,7 +247,7 @@ export function drawGround(ctx) {
   if (!bear) return;
   const r = visibleRect(40);
   const sh = [];
-  if (onScreen(r, bear.x, bear.y)) bearShadow(bear, sh);
+  if (!bear.gone && !bear.swim && onScreen(r, bear.x, bear.y)) bearShadow(bear, sh);
   const ps = [];
   for (const g of groups) for (const m of g.members) if (onScreen(r, m.x, m.y)) penguinShadow(m, ps);
   if (ps.length) { ctx.fillStyle = 'rgba(96,101,108,0.2)'; ctx.fill(pathOf(ps)); }
@@ -211,11 +262,25 @@ export function drawables() {
   if (!bear) return [];
   const r = visibleRect(30);
   const out = [];
-  if (onScreen(r, bear.x, bear.y)) out.push({ x: bear.x, y: bear.y, draw: ctx => drawBear(ctx, bear) });
+  if (!bear.gone && onScreen(r, bear.x, bear.y)) out.push({ x: bear.x, y: bear.y, draw: ctx => drawBear(ctx, bear) });
   for (const g of groups) for (const m of g.members) {
     if (onScreen(r, m.x, m.y)) out.push({ x: m.x, y: m.y, draw: ctx => drawPenguin(ctx, m) });
   }
   return out;
+}
+
+// Snow thrown by the bear (the charge's paws, the warning's slap, the plunge): white flecks, faint ink edge.
+export function drawSky(ctx) {
+  if (!bear || !bear.spray.length) return;
+  const r = visibleRect(30);
+  if (!onScreen(r, bear.x, bear.y)) return;
+  ctx.fillStyle = '#fbfbfa'; ctx.strokeStyle = 'rgba(110,112,116,0.55)'; ctx.lineWidth = 0.08;
+  for (const q of bear.spray) {
+    const a = 1 - q.age / q.life;
+    ctx.globalAlpha = Math.min(1, a * 1.6);
+    ctx.beginPath(); ctx.arc(q.x, q.y - q.z, q.r * (0.7 + 0.5 * a), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
 }
 
 // for the console / critics

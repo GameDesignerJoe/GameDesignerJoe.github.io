@@ -100,6 +100,8 @@
 // The hand-over takes the dead member's pack off them (items.js takePack: it goes with the body
 // in the 'handover' event, unless the sea took them) and the next one starts with an empty pack,
 // bar a compass if the sled still has one (items.js restock).
+// The bear's maul (slice 7, wildlife-bear.js calls state.maul(amount, fatal)): injury +amount, the hardest jolt
+// and the biggest flinch; fatal kills: 'death' { cause: 'bear' }, a 2.6 s beat on the body before the iris.
 // Hooks: NAS.freeze(v?) (warmth to v, or 0.2 colder), NAS.warm(v = 1), NAS.kill(),
 //        NAS.soak(v = 1), NAS.dry(), NAS.tire(v?) (energy to v, or 0.25 lower), NAS.rest(),
 //        NAS.starve(v?) (food to v, or 0.25 lower), NAS.feed(v = 1),
@@ -226,6 +228,20 @@ export function init() {
     B.injury = to;
   };
   state.heal = () => { B.injury = 0; B.splint = false; };
+  // the bear's maul (wildlife-bear.js, slice 7; it updates after this module, so it calls in rather than
+  // pushing an event): heavy injury, the hardest jolt and the biggest flinch; fatal (a second maul, or one
+  // past ~0.95 injury) kills: 'death' { cause: 'bear' }, the body laid out where it fell (explorer.js)
+  state.maul = (amount, fatal) => {
+    if (B.phase !== 'alive') return;
+    B.injury = Math.min(1, B.injury + amount); B.splint = false;
+    joltA = 15; joltT = 0;
+    startFlinch(fatal ? 1.2 : 0.9 + 0.4 * amount);
+    if (fatal || B.injury >= 0.999) {
+      irisFrom = irisAlive(B.warmth);
+      setPhase('dying'); B.cause = 'bear';
+      state.events.push({ type: 'death', x: P.x, y: P.y, cause: 'bear', member: state.member });
+    }
+  };
   state.parch = v => { B.water = typeof v === 'number' ? clamp(v) : Math.max(0, B.water - 0.25); };
   state.quench = () => { B.water = 1; if (state.pack) fillFlasks(state.pack, 99); };
   if (state.params.has('water')) B.water = clamp(parseFloat(state.params.get('water')));
@@ -650,7 +666,8 @@ export function update(dt) {
       // explorer.js plays the collapse and settles into 'dead'
       // (a climber torn off the wall falls first, so allow the time)
       // (a fall: a longer look at the body as it lies before the iris closes)
-      if ((P.mode === 'dead' && B.t > (B.cause === 'fall' ? 2.0 : 1.2)) || B.t > 9) { irisFrom = irisAlive(B.warmth); setPhase('iris'); }
+      // (the bear: longer again, to see it standing over them)
+      if ((P.mode === 'dead' && B.t > (B.cause === 'bear' ? 2.6 : B.cause === 'fall' ? 2.0 : 1.2)) || B.t > 9) { irisFrom = irisAlive(B.warmth); setPhase('iris'); }
       break;
     case 'iris':
       if (B.t >= IRIS_IN + BEAT + IRIS_OUT) { handover(); }

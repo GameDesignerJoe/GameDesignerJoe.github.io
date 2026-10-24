@@ -88,7 +88,7 @@ export const state = {
 
   // items.js adds the things carried: state.pack = { slots: [{ id, n, worn? } | null] x 10 } (the
   // explorer's pack: everything counts, food stacks to 3), state.sled (the party's supply at base
-  // camp, 20 slots) and state.ground = [{ x, y, slots }] (piles dropped on the snow); ITEMS is the
+  // camp, 24 slots) and state.ground = [{ x, y, slots }] (piles dropped on the snow); ITEMS is the
   // registry. ui/pack.js adds state.compass = { phase: 'idle'|'rummage'|'slot'|'out'|'transfer'|
   // 'eat', target: { kind: 'sled'|'fallen'|'ground', x, y } | null, t, ... } (the pack UI; the
   // name is history), which explorer.js reads for the rummage / kneel / eat poses.
@@ -100,7 +100,17 @@ export const state = {
   // Thirst: body.thirst (0..1 below water 0.35), body.parched (0..1 below 0.15), body.waterRate (water / s).
   // A flask's slot carries drinks (0..3). ui/pack.js adds compass.phase 'drink' | 'snow'.
   // fx/thirst.js adds state.thirst = { mirage (0..1 shown), man (the Third Man: x, y, vis, slip...), show(on), episode(on) }.
-  // wildlife.js adds state.bear (the polar bear: x, y, ...).
+  // wildlife.js adds state.bear (the polar bear: x, y, st ('alert'|'stalk'|'warn'|'charge'|'maul'|'rip'|'over'|
+  // 'flee'|'swim'|'dead'|... ), threat (worked up and after the explorer), aggro 0..1, hp, dead, gone (butchered),
+  // swim (through the ice) ...; and its hooks: charge(now?), near(), mood(), setAggro(v), plunge(), scare()).
+  // The bear calls state.maul(amount, fatal) (body.js) and player.maul(fatal, x, y) (explorer.js) directly: it
+  // updates after both. explorer.js writes player.backing (walking away from it, facing it: it calms the bear),
+  // player.muzzleAt and player.flareAt (world points where the rifle's muzzle and the flare's head were drawn).
+  // actors/hunt.js adds state.hunt = { aim: { t, tgt: { kind, ref }, dir, swayX, swayZ, chance, kick } | null,
+  // strikeT (striking a flare), held (a lit flare in hand), flares: [{ x, y, t, held, out }], job: { kind:
+  // 'butcher', t, dur, x, y, c } | null, carcasses: [{ kind: 'bear'|'dog'|'penguin', ref, x, y, meat, done }],
+  // stats: { shots, hits } } (explorer.js reads aim, strikeT, held and job; ui/pack.js the carcasses and job).
+  // input.js adds input.stickTap (time of a quick tap on the hidden stick that never pushed: fires the rifle).
   // fallen.js adds state.fallen = [{ x, y, facing, name, snow, pack }]: the dead, where they lie,
   // with the pack they died with (pack = { slots }; none if the sea took them).
   // puptent.js adds state.pup = { pitched: { x, y, yaw, t, snow } | null, job: { kind: 'pitch'|'strike',
@@ -119,7 +129,13 @@ export const state = {
   // update order see it the same frame, then main.js clears it. Known types:
   //   step  { x, y, terrain, foot: 'L'|'R', weight }     (explorer -> footprints, audio)
   //   bark / howl / whine  { x, y }                       (camp dogs -> audio)
-  //   penguin / bear       { x, y, kind }                 (wildlife -> audio)
+  //   penguin / bear       { x, y, kind }                 (wildlife -> audio; the bear's kinds: 'huff' | 'growl' |
+  //                                   'warn' (the warning growl) | 'slap' (forepaws on the snow) | 'roar' (the charge) |
+  //                                   'maul' { fatal, amount } | 'rip' (the pup tent's canvas) | 'hurt' (shot) | 'die' |
+  //                                   'plunge' | 'splash' | 'heave' (through the ice and out))
+  //   rifle { x, y, stage: 'raise'|'lower'|'shot'|'bolt'|'dry', hit?, kind?, d?, p? }   (hunt -> audio)
+  //   flare { x, y, stage: 'strike'|'lit'|'burn'|'out', strength? }   (hunt -> audio)
+  //   butcher { x, y, stage: 'start'|'cut'|'done'|'stop', n?, fit? }   butchering a carcass (hunt -> audio)
   //   crack { x, y, strength, stress? }  ice (thin or a lake) cracking under a weight (stress: the stress
   //                                   under the feet), or a hole's edge breaking off (thinice -> audio)
   //   creak { x, y, strength }        ice starting to bear the weight (thinice -> audio)
@@ -165,7 +181,7 @@ export const state = {
   //   strike { x, y, stage: 'start'|'pull'|'done'|'stop' }   taking the pup tent down (a stake pulled; done:
   //                                   back in the pack; stop: let go, it stays up) (puptent -> audio)
   //   flap { x, y, strength, inside }  a pitched pup tent's canvas cracking in the wind, close by (puptent -> audio)
-  //   death { x, y, cause: 'cold'|'water'|'fall', member }   the body gave out (body -> anyone)
+  //   death { x, y, cause: 'cold'|'water'|'fall'|'bear', member }   the body gave out (body -> anyone)
   //   handover { x, y, facing, member, name, sprite, pack }    the next member takes over; sprite is the
   //                                   still of the body left behind, pack its slots (null: lost at sea) (body -> fallen)
   //   expedition { over: true }       all four are dead (body)

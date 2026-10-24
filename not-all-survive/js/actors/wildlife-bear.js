@@ -2,11 +2,14 @@
 // haunches, jointed legs with world-planted feet and a lateral-sequence walk), its
 // behaviour brain, and its drawing.
 import { state } from '../state.js';
-import { proj, inkUnion, pathOf, clamp, lerp, angDiff, approach, ik, SHX, SHY, CAM_Y, CAM_Z } from './wildlife-rig.js';
+import { proj, inkUnion, pathOf, clamp, lerp, smooth, angDiff, approach, ik, K, SHX, SHY, CAM_Y, CAM_Z } from './wildlife-rig.js';
+import * as T from '../world/terrain.js';
+import * as ICE from '../world/thinice.js';
 
 const TAU = Math.PI * 2;
 const STRIDE = 7.4, DUTY = 0.64;
 const INK = '#3a3a3a';
+const KY = 0.8;   // the explorer's ground foreshortening (their facing is in that ground space)
 // [stand, sit, lie] x (f, top z, bottom z)
 const PROFILE = [
   [[-9.0, 11.0, 7.6], [-7.6, 6.2, 0.8], [-9.0, 6.4, 1.2]],
@@ -33,8 +36,33 @@ export function makeBear(x, y, home, opts = {}) {
     sit: 0, lie: 0, headUp: 0, yaw: 0, sniff: 0, circle: Math.random() < 0.5 ? 1 : -1,
     awareRange: opts.awareRange ?? 150, cool: 0, growlCool: 3, huffCool: 6,
     force: opts.force || null, since: 0, feet: null,
+    // the attack (slice 7): aggro builds while it stalks; hp (rifle hits to kill), mauls (per member)
+    aggro: 0, hp: BEAR.HP, mauls: {}, threat: false, rage: false, flinch: 0, slap: 0,
+    dead: false, gone: false, swim: null, wet: 0, spray: [], fx: 0, fy: 0,
   };
 }
+
+// The attack (Joe, slice 7). A stalking bear works itself up (aggro, 0..1): faster close in, on an
+// explorer who is weak (cold, worn out, hurt), standing still, down or sat spent, carrying or dragging the
+// lost explorer, carrying raw meat, at night, or hurrying off with their back to it (prey). Backing away
+// slowly while facing it (explorer.js player.backing) brings it down. As it builds the circle tightens.
+// At 1 it warns (fair): head down low, a hard stare, a forepaw slap on the snow, a deep growl (WARN_S);
+// backing off then can still turn it (a bluff). Then the charge (CHARGE_V, a snow spray off the paws) and,
+// on contact, the maul: knocked down, injury 0.5-0.8, a big ink flinch; a second maul for the same
+// member, or one that takes injury past ~0.95, kills ('death' cause 'bear': body.js, laid out by explorer.js).
+// Ways out: back away; a flare within FLARE_R (hunt.js scareBear: it flees); the rifle (hitBear: ~3 hits
+// kill; wounded it flees or charges harder); base camp's tent (it loses them; the pup tent's canvas
+// isn't bear-proof: it rips at it and they scramble out); thin or lake ice: chasing over it the bear
+// bears on it (ICE.weigh, w BEAR.ICE_W) and can go through: it flounders, heaves out and retreats.
+export const BEAR = {
+  RATE: 0.022,          // aggro / s near a healthy explorer going about (x the factors below)
+  BACK: 0.075,          // aggro / s shed while they back away facing it
+  WARN_S: 2.6, CHARGE_V: 30, REACH: 6.5, MAUL_S: 2.4, HP: 3, FLARE_R: 80, ICE_W: 3,
+  CRACKED: 0.5,         // ice stress (thinice.js, 1 breaks) a charging bear goes through: past the first real cracks
+};
+const HUNTING = new Set(['alert', 'stalk', 'warn', 'charge', 'maul', 'rip']);
+const ICEY = new Set(['stalk', 'warn', 'charge', 'maul', 'rip']);   // bears on the ice in these (chasing)
+const MAUL_MODES = new Set(['walk', 'cower', 'down', 'refuse', 'approach']);
 
 // ---------------------------------------------------------------- behaviour
 function pick(b, w) {
@@ -58,14 +86,182 @@ function nextIdle(b, w) {
   else { b.goal = pick(b, w); setState(b, 'walk', 30); }
 }
 
-function emit(b, kind) { state.events.push({ type: 'bear', x: b.x, y: b.y, kind }); }
+function emit(b, kind, extra) { state.events.push({ type: 'bear', x: b.x, y: b.y, kind, ...extra }); }
+
+// how fast it works itself up (aggro / s) at distance pd from the explorer
+function aggroRate(b, pd) {
+  const P = state.player, B = state.body;
+  if (P.backing) return -BEAR.BACK;
+  const near = smooth(150, 40, pd);
+  const weak = B ? clamp(0.7 * (1 - B.warmth) + 0.5 * (1 - B.energy) + (B.injury || 0), 0, 1) : 0;
+  const still = P.moving ? 0 : 1;
+  const burden = state.burden?.mode ? 1 : 0;
+  const night = state.lighting?.night || 0;
+  const meat = state.pack?.slots.some(q => q && q.id === 'meat') ? 1 : 0;
+  const down = P.mode === 'down' || P.mode === 'cower' || P.spent ? 1 : 0;
+  const toB = Math.atan2((b.y - P.y) / KY, b.x - P.x);
+  const fleeing = P.moving && P.speed > 6 && Math.cos(P.facing - toB) < -0.3;
+  const k = 1 + 1.5 * weak + 0.7 * still + 0.9 * burden + 0.8 * night + 0.5 * meat + 1.2 * down + (fleeing ? 0.8 : 0);
+  return BEAR.RATE * (0.25 + near) * k;
+}
+// what it sees in the explorer right now, for captures and the gear menu
+export function bearMood(b) {
+  const P = state.player, pd = Math.hypot(P.x - b.x, P.y - b.y);
+  return { st: b.st, aggro: +b.aggro.toFixed(3), rate: +(HUNTING.has(b.st) ? aggroRate(b, pd) : 0).toFixed(4), pd: +pd.toFixed(1), hp: b.hp };
+}
+
+function startCharge(b) {
+  setState(b, 'charge', 5);
+  b.slapped = b.warned = false;
+  emit(b, 'roar');
+}
+// The forepaw slap of the warning: a puff of snow at the forepaws, a thump (and on ice a jolt to it).
+function slap(b) {
+  const ca = Math.cos(b.heading), sa = Math.sin(b.heading), fx = b.x + ca * 4.2, fy = b.y + sa * 4.2 * KY;
+  sprayAt(b, fx, fy, 18, 4, 4.5);
+  emit(b, 'slap');
+  const t = T.terrainAt?.(fx, fy);
+  if (t === 'thin' || t === 'ice') { const r = ICE.slam(fx, fy, 0.3); if (r.broke) enterSwim(b); }
+}
+
+// Thrown snow (the charge's paws, the slap, the plunge): kept on the bear, drawn by wildlife.js drawSky.
+function sprayAt(b, x, y, n, sp = 4, up = 3, back = null) {
+  for (let i = 0; i < n; i++) {
+    const a = back !== null ? back + (Math.random() - 0.5) * 1.6 : Math.random() * TAU, s = sp * (0.4 + Math.random());
+    b.spray.push({ x: x + (Math.random() - 0.5) * 2, y: y + (Math.random() - 0.5) * 1.2, z: 0.3 + Math.random() * 0.6, vx: Math.cos(a) * s, vy: Math.sin(a) * s * KY, vz: up * (0.5 + Math.random() * 0.8), r: 0.3 + Math.random() * 0.45, age: 0, life: 0.45 + Math.random() * 0.4 });
+  }
+  if (b.spray.length > 90) b.spray.splice(0, b.spray.length - 90);
+}
+function updateSpray(b, dt) {
+  for (let i = b.spray.length - 1; i >= 0; i--) {
+    const q = b.spray[i];
+    q.age += dt; q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt; q.vz -= 16 * dt; q.vx *= 0.96; q.vy *= 0.96;
+    if (q.age > q.life || q.z < 0) b.spray.splice(i, 1);
+  }
+}
+
+// A flare (hunt.js) or anything else it won't face: away from (x, y) at a lope, then off home.
+export function scareBear(b, x, y) {
+  if (b.dead || b.swim) return false;
+  if (b.st === 'flee') { b.fx = x; b.fy = y; return false; }
+  b.fx = x; b.fy = y; b.aggro = 0; b.rage = false;
+  setState(b, 'flee', 5 + Math.random() * 2);
+  emit(b, 'huff');
+  return true;
+}
+// A rifle hit from (x, y). Returns 'dead' | 'flee' | 'charge' | 'swim'.
+export function hitBear(b, x, y) {
+  if (b.dead) return 'dead';
+  b.hp--; b.flinch = 1;
+  emit(b, 'hurt');
+  if (b.hp <= 0) { die(b); return 'dead'; }
+  if (b.swim) return 'swim';
+  const P = state.player, pd = Math.hypot(P.x - b.x, P.y - b.y);
+  // wounded: it runs, or it comes on harder (more likely the closer, and already charging)
+  const fight = b.st === 'charge' ? 0.55 : b.st === 'maul' ? 0.3 : pd < 70 ? 0.4 : 0.15;
+  if (Math.random() < fight) {
+    b.rage = true; b.aggro = 1;
+    if (b.st !== 'charge') startCharge(b);
+    return 'charge';
+  }
+  scareBear(b, x, y);
+  b.st = 'flee'; b.t = 7;
+  return 'flee';
+}
+function die(b) {
+  b.dead = true; b.threat = false; b.swim = null; b.rage = false;
+  setState(b, 'dead', 1e9);
+  b.deadT = 0;
+  emit(b, 'die');
+}
+// Dead: down onto its side over ~1.2 s, the head laid on the snow, then still for the run (a carcass:
+// hunt.js butchers it).
+function updateDead(b, dt) {
+  b.deadT = (b.deadT || 0) + dt;
+  b.speed = approach(b.speed, 0, 6, dt);
+  if (b.speed > 0.05) { b.x += Math.cos(b.heading) * b.speed * dt; b.y += Math.sin(b.heading) * b.speed * dt * K; }
+  // (the standing pose, legs straight: build() rolls it onto its side, so they stick out stiff)
+  b.sit = approach(b.sit, 0, 4, dt);
+  b.lie = approach(b.lie, 0, 4, dt);
+  b.headUp = approach(b.headUp, -0.15, 2.5, dt);
+  b.yaw = approach(b.yaw, 0.2, 2, dt);
+  b.sniff = 0; b.gait = approach(b.gait, 0, 6, dt); b.flinch = Math.max(0, b.flinch - dt * 2);
+  updateSpray(b, dt);
+  updateFeet(b, dt, 0, 0);
+}
+
+// Through the ice (thin or a lake, chasing): a plunge, a few seconds floundering side-on in the hole, then a
+// heave out on the side away from the explorer and off at a lope. Cooled right off.
+function enterSwim(b) {
+  if (b.swim || b.dead) return;
+  // the hole is the explorer's size: a bear goes through wider
+  const h = state.holes?.length ? state.holes[state.holes.length - 1] : null;
+  if (h && Math.hypot(h.x - b.x, h.y - b.y) < 10) { ICE.widen(h, b.heading); ICE.widen(h, b.heading + Math.PI); }
+  b.swim = { t: 0, dur: 4.5 + Math.random() * 2.5, sink: 0, hx: h ? h.x : b.x, hy: h ? h.y : b.y, out: null, splashT: 0.3 };
+  b.x = b.swim.hx; b.y = b.swim.hy;
+  b.speed = 0; b.aggro = 0; b.rage = false; b.threat = false;
+  setState(b, 'swim', 1e9);
+  sprayAt(b, b.x, b.y, 22, 5, 7);
+  emit(b, 'plunge');
+}
+function updateSwim(b, dt, w) {
+  const s = b.swim;
+  s.t += dt;
+  b.sit = approach(b.sit, 0, 4, dt); b.lie = approach(b.lie, 0, 4, dt);
+  if (!s.out) {
+    s.sink = approach(s.sink, 8.2 + Math.sin(s.t * 3.1) * 0.7, 5, dt);
+    // side-on in the water, thrashing; the head up, straining
+    const side = Math.cos(b.heading) >= 0 ? 0 : Math.PI;
+    b.heading += clamp(angDiff(b.heading, side + Math.sin(s.t * 1.7) * 0.35), -2, 2) * dt;
+    b.headUp = approach(b.headUp, 0.7 + 0.25 * Math.sin(s.t * 5), 4, dt);
+    b.gait = approach(b.gait, 0.8, 4, dt); b.cycle += dt * 1.6;
+    s.splashT -= dt;
+    if (s.splashT <= 0) { s.splashT = 0.5 + Math.random() * 0.5; sprayAt(b, b.x + (Math.random() - 0.5) * 8, b.y, 6, 3, 5); emit(b, 'splash'); }
+    if (s.t > s.dur) {
+      // out onto the ice on the side away from the explorer, at the nearest firm edge that way
+      const P = state.player;
+      let best = null, bs = -1e9;
+      for (let r = 4; r <= 26 && !best; r += 2) {
+        for (let k = 0; k < 24; k++) {
+          const a = k / 24 * TAU, x = s.hx + Math.cos(a) * r, y = s.hy + Math.sin(a) * r * KY;
+          if (!w.walkable(x, y, true) || !w.walkable(x + Math.cos(a) * 4, y + Math.sin(a) * 4 * KY, true)) continue;
+          const sc = Math.hypot(x - P.x, y - P.y);
+          if (sc > bs) { bs = sc; best = { x, y, a }; }
+        }
+      }
+      if (!best) { s.dur += 2; if (s.t > 30) best = { x: b.home.x, y: b.home.y, a: 0 }; }
+      if (best) { s.out = { x0: b.x, y0: b.y, x1: best.x, y1: best.y, t: 0, s0: s.sink }; b.heading = Math.atan2(best.y - b.y, best.x - b.x); emit(b, 'heave'); sprayAt(b, b.x, b.y, 14, 4, 6); }
+    }
+  } else {
+    const o = s.out;
+    o.t += dt;
+    const k = smooth(0, 1.5, o.t);
+    b.x = lerp(o.x0, o.x1, k); b.y = lerp(o.y0, o.y1, k);
+    s.sink = lerp(o.s0, 0, smooth(0.2, 1.4, o.t));
+    b.headUp = approach(b.headUp, -0.2, 3, dt);
+    b.cycle += dt * 2.2; b.gait = approach(b.gait, 1, 4, dt);
+    if (o.t >= 1.5) {
+      b.swim = null; b.wet = 1; b.feet = null;
+      const P = state.player;
+      scareBear(b, P.x, P.y);
+      b.t = 6; b.cool = 120;
+    }
+  }
+  b.yaw = approach(b.yaw, 0, 3, dt);
+  updateSpray(b, dt);
+}
 
 export function updateBear(b, dt, w) {
+  if (b.gone) return;
+  if (b.dead) { updateDead(b, dt); return; }
+  b.flinch = Math.max(0, b.flinch - dt * 2.5);
+  b.wet = Math.max(0, b.wet - dt / 90);
+  if (b.swim) { b.threat = false; updateSwim(b, dt, w); return; }
   // nobody to watch: calm test mode, or the explorer is in base camp's tent, dead, or gone (in the pup
-  // tent the bear still knows they're there: canvas isn't bear-proof; slice 7 will have it come)
-  const pm = state.player.mode, inPup = (pm === 'inside' || pm === 'tent-in') && state.player.shelter?.kind === 'pup';
+  // tent the bear still knows they're there: canvas isn't bear-proof, and it will come for them)
+  const PL = state.player, pm = PL.mode, inPup = (pm === 'inside' || pm === 'tent-in') && PL.shelter?.kind === 'pup';
   const away = !inPup && ['inside', 'tent-in', 'collapse', 'dead', 'gone', 'sink'].includes(pm);
-  const p = state.params.has('wlCalm') || away ? { x: -1e5, y: -1e5 } : state.player;
+  const p = state.params.has('wlCalm') || away ? { x: -1e5, y: -1e5 } : PL;
   const pdx = p.x - b.x, pdy = p.y - b.y, pd = Math.hypot(pdx, pdy);
   const toP = Math.atan2(pdy, pdx);
   b.t -= dt; b.since += dt;
@@ -73,6 +269,7 @@ export function updateBear(b, dt, w) {
 
   let wantSpeed = 0, wantHead = 0, wantSit = 0, wantLie = 0, wantYaw = 0, sniff = 0, face = null;
   let track = false; // head turns to keep staring at the explorer
+  let turnK = 1, accel = 2.2;
   const homeD = Math.hypot(b.x - b.home.x, b.y - b.home.y);
 
   if (b.force) {
@@ -89,9 +286,14 @@ export function updateBear(b, dt, w) {
     else if (f === 'spin') { face = b.heading + 1.2; }
     if (f.startsWith('h')) { b.heading = parseFloat(f.slice(1)) * Math.PI / 180; }
   } else {
-    // Awareness of the explorer interrupts anything calm.
-    const calm = b.st !== 'alert' && b.st !== 'stalk' && b.st !== 'leave';
-    if (calm && pd < b.awareRange && b.cool <= 0) { setState(b, 'alert', 2.5 + Math.random() * 1.5); emit(b, 'huff'); }
+    // Awareness of the explorer interrupts anything calm. (Carrying or dragging the lost explorer, it
+    // notices from further off.)
+    const calm = !HUNTING.has(b.st) && b.st !== 'leave' && b.st !== 'flee' && b.st !== 'over';
+    const aware = b.awareRange * (state.burden?.mode ? 1.35 : 1);
+    if (calm && pd < aware && b.cool <= 0) { setState(b, 'alert', 2.5 + Math.random() * 1.5); b.aggro = 0; emit(b, 'huff'); }
+    // the explorer gone into base camp's tent (or dead) in the middle of it: it loses them
+    // (not over a kill: it stays with the body a while)
+    if (away && (b.st === 'warn' || b.st === 'charge' || (b.st === 'maul' && !b.fatal) || b.st === 'rip')) { b.aggro = 0; setState(b, 'stalk', 4); }
 
     switch (b.st) {
       case 'walk': case 'leave': {
@@ -125,13 +327,16 @@ export function updateBear(b, dt, w) {
         if (b.t <= 0) setState(b, 'stalk', 28 + Math.random() * 16);
         break;
       case 'stalk': {
-        // close in (pathing round edges), then circle at 50-60 units, head low, eyes locked on
+        // close in (pathing round edges), then circle, head low, eyes locked on; working itself up, the
+        // circle tightening as it does (58 units down to 40)
         track = true; wantHead = -0.4;
+        b.aggro = clamp(b.aggro + aggroRate(b, pd) * dt, 0, 1.2);
+        const R0 = lerp(58, 40, clamp(b.aggro, 0, 1));
         b.routeT = (b.routeT || 0) - dt;
         if (b.routeT <= 0) { b.routeT = 0.8; b.route = w.route(b.x, b.y, p.x, p.y, true); }
         const R = b.route;
         const blocked = R && R.reach > 30; // geometry truly in the way
-        if (pd > 64 && !blocked) {
+        if (pd > R0 + 6 && !blocked) {
           face = R ? Math.atan2(R.y - b.y, R.x - b.x) : toP;
           wantSpeed = pd > 110 ? 6.5 : 4.2;
         } else if (blocked) {
@@ -144,22 +349,85 @@ export function updateBear(b, dt, w) {
             face = toP + b.circle * Math.PI / 2; wantSpeed = 2.4;
           }
           if (pd < 130 && b.growlCool <= 0) { emit(b, 'growl'); b.growlCool = 4 + Math.random() * 3; }
-        } else if (pd < 34) { face = toP; wantHead = 0.45; wantSpeed = 0; // stands its ground
+        } else if (pd < 30) { face = toP; wantHead = 0.45; wantSpeed = 0; // stands its ground
           if (b.growlCool <= 0) { emit(b, 'growl'); b.growlCool = 3 + Math.random() * 2; } }
         else {
-          const bend = clamp((pd - 56) / 18, -0.6, 0.6);
+          const bend = clamp((pd - R0) / 18, -0.6, 0.6);
           face = toP + b.circle * (Math.PI / 2 - bend);
-          wantSpeed = 2.6;
+          wantSpeed = 2.6 + 1.2 * clamp(b.aggro, 0, 1);
           if (!w.walkable(b.x + Math.cos(face) * 12, b.y + Math.sin(face) * 12, true)) b.circle *= -1;
         }
         if (pd < 62 && b.growlCool <= 0) { emit(b, 'growl'); b.growlCool = 5 + Math.random() * 4; }
-        if (b.t <= 0 || pd > 320) {
+        // worked up: the warning, then the charge (only with a way to them)
+        if (b.aggro >= 1 && !blocked && pd < 95 && !away) { setState(b, 'warn', BEAR.WARN_S); b.slapped = b.warned = false; break; }
+        // (a bear worked up doesn't just wander off)
+        if ((b.t <= 0 && b.aggro < 0.6) || pd > 320) {
           b.cool = 30; b.goal = { x: b.home.x, y: b.home.y }; setState(b, 'leave', 60); emit(b, 'huff');
         }
         break;
       }
+      case 'warn': {
+        // the warning: stopped square on, head down low, the hard stare; a forepaw slap on the snow; a deep
+        // growl. Backing off now can still turn it into a bluff.
+        face = toP; track = true; wantHead = -0.95; wantSpeed = 0;
+        if (!b.slapped && b.since > 0.8) { b.slapped = true; slap(b); }
+        if (!b.warned && b.since > 1.15) { b.warned = true; emit(b, 'warn'); }
+        if (PL.backing) b.aggro -= 0.3 * dt;
+        if (b.t <= 0) {
+          if (b.aggro < 0.8) { b.aggro = 0.55; setState(b, 'stalk', 12 + Math.random() * 8); emit(b, 'huff'); }
+          else if (pm === 'tent-out' || pm === 'tent-in') b.t = 0.25;   // wait for them to come out of the pup tent
+          else startCharge(b);
+        }
+        break;
+      }
+      case 'charge': {
+        // flat out at them, head low and forward; contact: the maul (in the pup tent: it rips at the canvas)
+        face = toP; track = true; wantHead = -0.55; wantSpeed = BEAR.CHARGE_V * (b.rage ? 1.15 : 1); turnK = 2; accel = 5;
+        if (b.speed > 12) sprayAt(b, b.x - Math.cos(b.heading) * 5, b.y - Math.sin(b.heading) * 5 * KY, 1 + (Math.random() < b.speed / 40 ? 1 : 0), 4, 3, b.heading + Math.PI);
+        if (pd < (inPup ? 11 : BEAR.REACH)) {
+          if (inPup) { setState(b, 'rip', 1.6); emit(b, 'rip'); }
+          else if (MAUL_MODES.has(pm)) maul(b);
+        } else if (b.t <= 0 || pm === 'swim' || pm === 'climb' || pm === 'crawlout') {
+          // couldn't reach them: back to circling, still worked up
+          b.aggro = 0.6; setState(b, 'stalk', 15);
+        }
+        break;
+      }
+      case 'maul': {
+        // over them, mauling: head driving down, the forepaws working
+        face = Math.atan2(PL.y - b.y, PL.x - b.x); wantSpeed = 0;   // (it stays where it hit them: they're thrown clear of it, in sight)
+        wantHead = -0.55 + 0.5 * Math.sin(b.since * 11);
+        if (b.t <= 0) {
+          if (b.fatal) { b.goal = { x: b.home.x, y: b.home.y }; setState(b, 'over', 6 + Math.random() * 3); }
+          else if (Math.random() < 0.55) { b.cool = 60; b.aggro = 0; b.goal = { x: b.home.x, y: b.home.y }; setState(b, 'leave', 60); emit(b, 'huff'); }
+          else { b.aggro = 0.45; setState(b, 'stalk', 20 + Math.random() * 10); }
+        }
+        break;
+      }
+      case 'rip': {
+        // at the pup tent: raking and tearing at the canvas; they scramble out (the warning again, short, then
+        // the charge once they're out)
+        face = toP; track = true; wantSpeed = 0; wantHead = -0.3 + 0.6 * Math.sin(b.since * 9);
+        if (!b.ripped && b.since > 0.4) { b.ripped = true; PL.leaveTent?.(); emit(b, 'rip'); }
+        if (b.t <= 0) { b.ripped = false; b.aggro = 1; setState(b, 'warn', 1.3); b.slapped = b.warned = true; }
+        break;
+      }
+      case 'over': {
+        // over the body it killed: nosing at it, then away (cooled right off: the next one walks out safe)
+        wantHead = -1; sniff = 1; wantYaw = Math.sin(b.since * 1.2) * 0.4; wantSpeed = 0;
+        if (b.kill) { const kd = Math.hypot(b.kill.x - b.x, b.kill.y - b.y); face = Math.atan2(b.kill.y - b.y, b.kill.x - b.x); if (kd > 8) wantSpeed = 2.2; }
+        if (b.t <= 0) { b.cool = 120; b.aggro = 0; b.fatal = false; setState(b, 'leave', 60); emit(b, 'huff'); }
+        break;
+      }
+      case 'flee': {
+        // away from what scared it at a lope, then home
+        face = Math.atan2(b.y - b.fy, b.x - b.fx); wantSpeed = b.hp < BEAR.HP ? 12 : 11; wantHead = 0.1; turnK = 1.8; accel = 4;
+        if (b.t <= 0) { b.cool = Math.max(b.cool, 75); b.goal = { x: b.home.x, y: b.home.y }; setState(b, 'leave', 60); }
+        break;
+      }
     }
   }
+  b.threat = HUNTING.has(b.st);
 
   if (track) {
     // head yaw holds the stare whatever the body is doing
@@ -170,32 +438,67 @@ export function updateBear(b, dt, w) {
   const h0 = b.heading, x0 = b.x, y0 = b.y;
   let turn = 0;
   if (face !== null && wantSpeed > 0.5) {
-    const st = w.steer(b.x, b.y, face, b.st === 'stalk' ? 7 : 14, true);
+    const st = w.steer(b.x, b.y, face, b.st === 'stalk' || b.st === 'charge' ? 7 : 14, true);
     if (st !== null) face = st; else wantSpeed = 0;
   }
   if (face !== null) {
     const d = angDiff(b.heading, face);
-    turn = clamp(d * 2.5, -1.2, 1.2);
+    turn = clamp(d * 2.5 * turnK, -1.2 * turnK, 1.2 * turnK);
     b.heading += turn * dt;
     if (Math.abs(d) > 1.2) wantSpeed *= 0.3;
   }
   b.turn = turn;
   if (Math.max(b.sit, b.lie) > 0.25) wantSpeed = 0; // get up first
-  b.speed = approach(b.speed, wantSpeed, 2.2, dt);
+  b.speed = approach(b.speed, wantSpeed, accel, dt);
   if (b.speed > 0.05) {
     const nx = b.x + Math.cos(b.heading) * b.speed * dt, ny = b.y + Math.sin(b.heading) * b.speed * dt;
     if (w.walkable(nx + Math.cos(b.heading) * 4, ny + Math.sin(b.heading) * 4, true)) { b.x = nx; b.y = ny; }
-    else { b.speed *= 0.5; if (b.st !== 'stalk') b.goal = pick(b, w); b.circle *= -1; }
+    else { b.speed *= 0.5; if (b.st !== 'stalk' && b.st !== 'charge' && b.st !== 'flee') b.goal = pick(b, w); b.circle *= -1; }
   }
 
   b.sit = approach(b.sit, wantSit, 1.4, dt);
   b.lie = approach(b.lie, wantLie, 1.0, dt);
-  b.headUp = approach(b.headUp, wantHead, 2.2, dt);
+  b.headUp = approach(b.headUp, wantHead, b.st === 'maul' ? 8 : 2.2, dt);
   b.yaw = approach(b.yaw, wantYaw, 3, dt);
   b.sniff = approach(b.sniff, sniff, 3, dt);
 
+  // chasing over thin ice or a frozen lake: its weight on it (thinice.js), and through it if it goes
+  if (ICEY.has(b.st)) {
+    const tt = T.terrainAt?.(b.x, b.y);
+    if (tt === 'thin' || tt === 'ice') {
+      const r = ICE.weigh(b.x, b.y, dt, BEAR.ICE_W, clamp(b.speed / 4.2, 0, 3));
+      // ice already cracked through (stress past CRACKED: the real fractures show there) won't take a
+      // charging bear's weight: the lure across ice the explorer has cracked, thin or a lake
+      if (!r.broke && b.st === 'charge' && b.speed > 12 && ICE.stressAt(b.x, b.y) >= BEAR.CRACKED) r.broke = !!ICE.breakAt(b.x, b.y);
+      if (r.broke || T.isWater?.(b.x, b.y)) enterSwim(b);
+    }
+  }
+  updateSpray(b, dt);
   updateFeet(b, dt, Math.hypot(b.x - x0, b.y - y0), Math.abs(angDiff(h0, b.heading)));
 }
+
+// Contact: the maul. Heavy injury, knocked down; a second maul (or one past ~0.95 injury) kills.
+function maul(b) {
+  const PL = state.player, B = state.body, m = state.member || 0;
+  const amount = 0.5 + Math.random() * 0.3;
+  const fatal = (b.mauls[m] || 0) >= 1 || ((B?.injury || 0) + amount >= 0.95);
+  b.mauls[m] = (b.mauls[m] || 0) + 1;
+  b.fatal = fatal; b.kill = fatal ? { x: PL.x, y: PL.y } : null;
+  setState(b, 'maul', BEAR.MAUL_S);
+  b.speed = Math.min(b.speed, 6);
+  PL.maul?.(fatal, b.x, b.y);
+  state.maul?.(amount, fatal);
+  sprayAt(b, PL.x, PL.y, 16, 4, 5);
+  emit(b, 'maul', { fatal, amount });
+}
+// Hooks (wildlife.js NAS.bear): make it come now (with the warning, or skip straight to the charge)
+export function forceCharge(b, now = false) {
+  if (b.dead || b.swim) return;
+  b.aggro = 1; b.cool = 0;
+  if (now) startCharge(b);
+  else { setState(b, 'warn', BEAR.WARN_S); b.slapped = b.warned = false; }
+}
+export const bearSwim = b => enterSwim(b);
 
 // ---------------------------------------------------------------- feet (world planted)
 function neutral(b, leg, out) {
@@ -213,7 +516,9 @@ function updateFeet(b, dt, moved, turned) {
   // The gait clock advances only with ground actually covered (plus turning), so stance
   // feet never skate.
   const act = moved + turned * 5.5;
-  b.cycle += act * DUTY / STRIDE;
+  // charging (and loping off) the strides lengthen, up to ~2.3x at full tilt, rather than the feet blurring
+  const SL = STRIDE * (1 + 1.3 * clamp((b.speed - 7) / 23, 0, 1));
+  b.cycle += act * DUTY / SL;
   b.gait = approach(b.gait, clamp(act / Math.max(dt, 1e-3) / 4.5, 0, 1), 5, dt);
   const pose = Math.max(b.sit, b.lie);
   const mv = clamp(b.speed / 3, 0, 1);
@@ -226,9 +531,9 @@ function updateFeet(b, dt, moved, turned) {
     F.ph = ph;
     neutral(b, leg, NT);
     // landing spot: half a stride ahead of the neutral point when walking
-    const tx = NT.x + ca * STRIDE * 0.5 * mv, ty = NT.y + sa * STRIDE * 0.5 * mv;
+    const tx = NT.x + ca * SL * 0.5 * mv, ty = NT.y + sa * SL * 0.5 * mv;
     const crossed = act > 0 && prev < DUTY && (ph >= DUTY || ph < prev);
-    const far = Math.hypot(F.wx - NT.x, F.wy - NT.y) > STRIDE * 0.55;
+    const far = Math.hypot(F.wx - NT.x, F.wy - NT.y) > SL * 0.55;
     if (!F.swing && pose < 0.5 && (crossed || (far && inAir < 2))) {
       F.swing = true; F.s = 0; F.fx = F.wx; F.fy = F.wy; inAir++;
       F.len = Math.hypot(tx - F.wx, ty - F.wy);
@@ -238,10 +543,20 @@ function updateFeet(b, dt, moved, turned) {
       F.s = Math.min(1, Math.max(F.s + dt * 1.6, act > 0 && ph >= DUTY ? phS : 0));
       const e = F.s * F.s * (3 - 2 * F.s);
       F.cx = lerp(F.fx, tx, e); F.cy = lerp(F.fy, ty, e);
-      F.cz = Math.sin(Math.PI * F.s) * (leg.front ? 1.7 : 1.3) * clamp(F.len / 3, 0.35, 1);
+      F.cz = Math.sin(Math.PI * F.s) * (leg.front ? 1.7 : 1.3) * clamp(F.len / 3, 0.35, 1) * (SL > STRIDE * 1.2 ? 1.6 : 1);
       F.lift = Math.sin(Math.PI * F.s) * clamp(F.len / 3, 0.35, 1);
       if (F.s >= 1) { F.swing = false; F.wx = tx; F.wy = ty; F.cx = tx; F.cy = ty; F.cz = 0; F.lift = 0; inAir--; }
     } else { F.cx = F.wx; F.cy = F.wy; F.cz = 0; F.lift = 0; }
+    // the warning's slap: both forepaws come up (0.45-0.8 s in) and slam down on the snow
+    if (leg.front && b.st === 'warn' && !b.slapped) {
+      const u = smooth(0.4, 0.68, b.since) * (1 - smooth(0.72, 0.8, b.since));
+      F.cz += 3.2 * u; F.lift = Math.max(F.lift, 0.8 * u);
+    }
+    // mauling: the forepaws raking, one then the other
+    if (leg.front && b.st === 'maul') {
+      const u = Math.max(0, Math.sin(b.since * 9 + (leg.l < 0 ? 0 : Math.PI)));
+      F.cz += 2.6 * u; F.lift = Math.max(F.lift, 0.7 * u);
+    }
   }
 }
 
@@ -255,19 +570,31 @@ const IK = {};
 function build(b) {
   if (!b.feet) updateFeet(b, 0.016, 0, 0);
   const ca = Math.cos(b.heading), sa = Math.sin(b.heading);
-  const ox = b.x, oy = b.y;
+  // mauling: the whole body drives forward onto them in lunges; hit by a bullet: a jolt
+  const lunge = b.st === 'maul' ? Math.max(0, Math.sin(b.since * 9)) * 1.3 : 0;
+  const jolt = b.flinch > 0 ? Math.sin(b.flinch * 30) * b.flinch * 0.9 : 0;
+  const ox = b.x + ca * (lunge - jolt), oy = b.y + sa * (lunge - jolt) * K;
   const g = b.gait, sit = b.sit, lie = b.lie, pose = Math.max(sit, lie);
   const ph = b.cycle * TAU;
-  const breath = 1 + Math.sin(state.time * 1.7) * 0.012;
-  const sway = Math.sin(ph + 0.6) * 0.45 * g;
-  const bob = Math.cos(ph * 2) * 0.25 * g;
+  const breath = b.dead ? 1 : 1 + Math.sin(state.time * 1.7) * 0.012;
+  // at a charge the back bounds (a gallop's rise and fall), more than the walk's bob
+  const run = clamp((b.speed - 9) / 20, 0, 1);
+  const sway = Math.sin(ph + 0.6) * 0.45 * g * (1 - 0.6 * run);
+  const bob = Math.cos(ph * 2) * (0.25 + 0.7 * run) * g;
   const shRoll = Math.sin((b.cycle + 0.25) * TAU) * 0.55 * g;   // front shoulders over the support leg
   const hipRoll = Math.sin(b.cycle * TAU) * 0.45 * g;
   const zr = (base, s, l) => base + (s - base) * sit + (l - base) * lie;
 
   let i = 0;
-  const pt = (f, l, z) => proj(tmp[i++], ox, oy, ca, sa, f, l + sway, z + bob);
-  const pt0 = (f, l, z) => proj(tmp[i++], ox, oy, ca, sa, f, l, z); // no body sway (feet)
+  // dead: rolled over onto its side as it goes down (about the line it lies on), the legs out stiff toward
+  // the camera, so it reads as a carcass, not a bear asleep
+  // (standing pose, rolled ~80 degrees about the line of its feet, lifted onto its side and shifted back
+  // over where it stood)
+  const roll = b.dead ? 1.4 * smooth(0.1, 1.0, b.deadT || 0) : 0, side = ca >= 0 ? 1 : -1;
+  const rc = Math.cos(roll), rs = Math.sin(roll) * side, lift = 3.4 * Math.abs(rs), back = 7.5 * rs;
+  const rolled = (o, f, L, Z) => proj(o, ox, oy, ca, sa, f, L * rc - Z * rs + back, Math.max(0.12, L * rs + Z * rc + lift));
+  const pt = roll ? (f, l, z) => rolled(tmp[i++], f, l + sway, z + bob) : (f, l, z) => proj(tmp[i++], ox, oy, ca, sa, f, l + sway, z + bob);
+  const pt0 = roll ? (f, l, z) => rolled(tmp[i++], f, l, z) : (f, l, z) => proj(tmp[i++], ox, oy, ca, sa, f, l, z); // no body sway (feet)
 
   // body: smooth chain of blobs; the hindquarters split into a wide pair of haunches
   const prof = PROFILE.map(([S, Si, L]) => [zr(S[0], Si[0], L[0]), zr(S[1], Si[1], L[1]), zr(S[2], Si[2], L[2])]);
@@ -330,7 +657,7 @@ function build(b) {
     const p = pt(skull.f + a1, skull.l + a2, skull.z + 0.75);
     const nf = 0.45 * cy - side * sy, nl = 0.45 * sy + side * cy;
     const vis = (nf * sa + nl * ca) * CAM_Y + 0.35 * CAM_Z;
-    if (vis > 0.12) eyes.push({ x: p.x, y: p.y, a: clamp((vis - 0.12) * 4, 0, 1) });
+    if (vis > 0.12) eyes.push({ x: p.x, y: p.y, a: clamp((vis - 0.12) * 4, 0, 1) * (b.dead ? 0 : 1) });
   }
   const noseVis = (cy * sa + sy * ca) * CAM_Y + 0.4 * CAM_Z + (hu < 0 ? -hu * 0.3 : 0);
 
@@ -435,7 +762,32 @@ export function bearShadow(b, out) {
   }
 }
 
+// Through the ice: the body sunk into the hole and cut off at the surface (it floundered side-on, so the
+// waterline is near enough level), a dark collar of water round it, a broken pale lip where the fur meets
+// the water and rings going out.
 export function drawBear(ctx, b) {
+  const s = b.swim;
+  if (!s || s.sink < 0.25) { drawBody(ctx, b); return; }
+  const t = state.time, wl = b.y + 0.7;
+  ctx.beginPath(); ctx.ellipse(b.x, b.y + 0.2, 9.5, 3.4, 0, 0, TAU);
+  ctx.fillStyle = 'rgba(30,34,40,0.9)'; ctx.fill();
+  ctx.save();
+  ctx.beginPath(); ctx.rect(b.x - 40, b.y - 60, 80, wl - (b.y - 60)); ctx.clip();
+  ctx.translate(0, s.sink * 0.8);
+  drawBody(ctx, b);
+  ctx.restore();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(246,247,248,0.9)'; ctx.lineWidth = 0.45;
+  ctx.beginPath();
+  for (let k = 0; k < 7; k++) { const u = -7 + k * 2.3 + Math.sin(t * 3 + k) * 0.4; ctx.moveTo(b.x + u, wl + Math.sin(k * 1.7 + t * 4) * 0.25); ctx.lineTo(b.x + u + 1.3, wl + Math.sin(k * 2.3 + t * 4) * 0.25); }
+  ctx.stroke();
+  for (let k = 0; k < 2; k++) {
+    const a = (t * 0.7 + k * 0.5) % 1;
+    ctx.beginPath(); ctx.ellipse(b.x, b.y + 0.3, 9 + a * 7, 3.2 + a * 2.4, 0, 0, TAU);
+    ctx.strokeStyle = `rgba(210,214,220,${0.55 * (1 - a)})`; ctx.lineWidth = 0.3; ctx.stroke();
+  }
+}
+function drawBody(ctx, b) {
   const R = build(b);
   const far = R.legs.filter(L => L.depth < -0.3).sort((a, c) => a.depth - c.depth);
   const near = R.legs.filter(L => L.depth >= -0.3).sort((a, c) => a.depth - c.depth);

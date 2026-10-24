@@ -278,7 +278,7 @@ function updateDrag(dt) {
 
 // --- the frame -------------------------------------------------------------------------------------------
 const DROP_ANY = new Set(['swim', 'sink', 'collapse', 'dead', 'crawlout', 'tent-in', 'inside', 'gone']);
-const bearClose = () => { const b = state.bear; return !!b && (b.st === 'alert' || b.st === 'stalk') && Math.hypot(b.x - P.x, b.y - P.y) < BEAR_NEAR; };
+const bearClose = () => { const b = state.bear; return !!b && b.threat && Math.hypot(b.x - P.x, b.y - P.y) < BEAR_NEAR; };
 export function update(dt) {
   const d = D();
   if (!d?.ready) return;

@@ -92,11 +92,20 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
   `show(on)` he comes at the next chance while walking / goes, `episode(on)` a mirage episode now at full strength). The
   gear menu has Parch me / Quench me and shows water, its rate, the drinks in each flask, the mirage and the Third Man.
 
+- The bear (slice 7): `?bear=near` puts the bear close by the spawn, behaving as itself (it notices, stalks, may
+  come). Hooks on the bear (`NAS.bear === state.bear`): `NAS.bear.charge(now?)` (fetched close if it's far; the
+  warning then the charge, or `true`: straight to the charge), `NAS.bear.near()`, `NAS.bear.mood()` (state, aggro,
+  its rate per s, distance, hp), `NAS.bear.setAggro(v)`, `NAS.bear.plunge()`, `NAS.bear.scare()`. The rifle and
+  flare: `NAS.gun = { aim(), fire(), lower(), flare(), chance(), chanceAt(d, opts), target(kind), butcher() }`,
+  `NAS.giveRifle()` (and five cartridges), `NAS.giveFlare()`, `NAS.hunt` (the state), `NAS.actMenu('carcass')`.
+  Keys: R raises / lowers the rifle, Space fires, F strikes a flare. The gear menu: Bear charges / Give rifle /
+  Give flare, and the readout shows the bear (state, aggro and its rate, distance, hp), the rifle and carcasses.
+
 ## Survival (man vs. environment) — no bars, no HUD
-The plan lives in Joe's survival plan (slices 1–7). Slices 1–6 are built: the body, the cold,
+The plan lives in Joe's survival plan (slices 1–7). All seven are built: the body, the cold,
 the base camp tent, death handing over to the next expedition member; open water and wet;
 exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin ice; the pup tent
-(no fire: Joe cut it; a tent's glow implies the stove); thirst.
+(no fire: Joe cut it; a tent's glow implies the stove); thirst; the polar bear's attack, the flare and the rifle.
 
 - **The body** (`js/actors/body.js`): `state.body = { warmth, wet, energy, reserve, injury, food, water }`,
   each 0–1, hidden. All are live (water: the thirst slice).
@@ -242,7 +251,7 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
   stack, kind, icon, `use`, `blocked`; add an item there and the pack, sled and transfer take it)
   and the containers: `state.pack` (10 slots, everything counts, the compass and gear too; worn
   things stay in their slot, ring signal yellow), `state.sled` (the party's supply: 12 rations in
-  stacks of 3, snowshoes, axes, crampons, a spare compass, two splints, a canvas sheet and a rope), `state.ground` (piles on the snow)
+  stacks of 3, snowshoes, axes, crampons, a spare compass, two splints, a canvas sheet and a rope, a rifle, ten cartridges and two flares; 24 slots), `state.ground` (piles on the snow)
   and each fallen member's `pack`. Food stacks to 3 a slot, splints 2, gear one. `player.gear` is a derived
   view (getters on the pack), so the explorer and body read it as before. The first member sets
   out with a compass and 2 rations; each one after a death starts empty bar a compass if the sled
@@ -277,7 +286,7 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     the pack, Shift + 1–0 from the container. At death the pack goes with the body (fallen.js);
     the sea keeps what it takes.
   - **In the tent**: a tap brings up the tent menu, a row of round slots above the tent: leave,
-    eat a ration, drink (from the flask, or a mug of snow melted on the stove: +0.35 water), sleep
+    eat a ration, cook raw meat on the stove (slice 7), drink (from the flask, or a mug of snow melted on the stove: +0.35 water), sleep
     till dawn (after dark only; greyed by day), open the pack. Greyed when no use (full, no
     rations, daytime); names on hover / press. A tap off it closes it. Space still leaves (and a
     held Space after dark sleeps). Going to sleep hungry (food < 0.75) eats a ration from the
@@ -419,7 +428,7 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     a crack still showing is ice still weak; at a break the ones round the hole go over to thin ice's
     timed fade. Knockdowns (0.12) and landing from a fall (height / 40) load lake ice too (a lake hardly
     feels a knock). For wildlife: `thinice.weigh(x, y, dt, w, k)` bears on the ice like the explorer's load
-    without the freeze beat (a bear would be w ~3); not wired yet (the bear has no plunge or swim: slice 7).
+    without the freeze beat; the bear chasing over ice uses it (w 3: see "The polar bear attacks").
   - Where it is on the default map: one real patch, x ~776–880, y ~1730–1774 (about 100 × 40 px,
     with dark open-water spots in it), reachable on foot; a small strip at x 1268–1294, y 1834–1854
     on the bottom edge; the rest are specks of a few px. (Terrain is Joe's: paint more in the editor.)
@@ -624,6 +633,71 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     min). Deep snow, walking 5.8 px/s, 0.667/min; carrying 5.7 px/s, 0.317/min; dragging 1.8 px/s, 0.933/min
     (~64 s). Frame time (1440p storm, GPU, dragging in view): 17.3 ms median, HEAD 16.8-17.0 at the same spot
     (the module ~0.08 ms CPU).
+- **The polar bear attacks** (slice 7: `js/actors/wildlife-bear.js` the bear, `js/actors/hunt.js` the flare, the
+  rifle, carcasses and butchering; items in `items.js`, the taps routed by `ui/pack.js`).
+  - **Working itself up**: stalking, the bear builds `aggro` (0..1) at `BEAR.RATE` (0.022/s) × (0.25 + how near:
+    smooth 150 → 40) × (1 + 1.5 weak (cold, worn out, hurt) + 0.7 standing still + 0.9 carrying or dragging the lost
+    explorer + 0.8 night + 0.5 raw meat in the pack + 1.2 knocked down / cowering / sat spent + 0.8 hurrying off with
+    their back to it). Its circle tightens as it builds (58 → 40 units) and it circles faster; a bear worked past 0.6
+    doesn't wander off at the end of its stalk. Carrying or dragging the lost explorer, it notices from 1.35× further.
+  - **Backing away**: walking away from a bear that's after them (within 110), the explorer backs off slowly, facing
+    it, the stride run backwards (×0.55 pace; `player.backing`): its aggro falls (−0.075/s). Further off they turn and
+    walk; the bear falls behind and gives up past 320.
+  - **The warning** (at aggro 1, with a way to them, within 95; 2.6 s): stopped square on, head down low, the hard
+    stare; both forepaws up and slammed on the snow (a puff of snow, a thump; on ice a jolt to it: `ICE.slam` 0.3);
+    a deep growl (the wind ducks under it). Backing off now sheds it ×4 faster: under 0.8 at the end it's a bluff
+    (back to stalking at 0.55). Then **the charge**: a roar, 30 units/s (strides lengthening up to 2.3×, the back
+    bounding), snow spraying off the paws. **The maul** on contact (6.5): thrown flat away from it (lying stunned
+    ~5 s), injury +0.5–0.8, the hardest jolt and the biggest ink flinch; a second maul for the same member, or one
+    past ~0.95 injury, kills: `death` { cause: 'bear' }, laid out as a fatal fall leaves them, thrown just clear in
+    front of its head (no gore: monochrome, the coat's colour only), the beat on the body 2.6 s before the iris,
+    the bear nosing at it 6–9 s before it goes (cooled 120 s: the next one walks out safe). Not fatal: 55% it lumbers
+    off, else it circles again at 0.45. In a tent: base camp's loses it (it gives up); in the pup tent it charges
+    the canvas, rakes and tears at it (`rip`) and they scramble out, then the short warning and the charge.
+  - **Ways out**: back away; a flare; the rifle; base camp's tent; and **thin ice and the frozen lakes**: chasing over
+    ice it bears on it (`ICE.weigh`, w 3), and ice already cracked past 0.5 (the real fractures show there) won't take
+    a charging bear: it goes through (the hole widened twice for its bulk), flounders side-on in it 4.5–7 s (sunk to
+    the back, a dark collar of water, a broken lip of foam, rings, splashing), heaves out on the side away from the
+    explorer and lopes off (cooled 120 s). The lure: crack the ice yourself, stand beyond it. (The bear keeps to
+    its home's regions: on the default map that's the frozen inlet's lake ice, not the thin-ice patch.)
+  - **The flare** (`flare`, stack 2, two on the sled; slot icon a paper tube with a signal-yellow striker cap): tap it,
+    the explorer strikes it at the chest (0.9 s, a rasp and a rush) and holds it up high, out to the side: a fizzing
+    signal-yellow fire (tongues, a white heart, a soft glow), sparks, a thin plume of smoke streaming off downwind,
+    20 s. A bear within 80 of it flees (any state but swimming). By night it lights the snow round them (a warm pool,
+    `state.lights`, with a core). Anything that needs both hands (the rifle, the pack, butchering), a knockdown or
+    a tent: it's stuck upright in the snow where they stand, burning on there.
+  - **The rifle** (`rifle`, one on the sled; `cartridges` stack 5, ten on the sled): tap it, the pack closes and it's
+    raised (0.45 s), turned onto the nearest animal in front of them within 140 (else the nearest in range): a small
+    inked bracket round it (four corners, ink with a pale halo, after the night grade; tightening as the aim settles,
+    swaying by how unsteady the shot is). A tap anywhere fires; a tap on another animal switches; a tap on the
+    explorer, the keys or the stick lower it (touch: a quick tap on the stick half fires, a drag lowers). A target
+    shot dead isn't replaced by another on its own (no stray shot into the dogs behind it). Each shot: a cartridge,
+    a hard crack with its echo coming back off the ice two or three times, the wind ducking, a muzzle flash, a
+    puff of smoke, the aim kicked up, the bolt worked (1.25 s a shot); none left: a dry click. Hit chance
+    (`hitChance`): 0.97 at 15 falling to ~0.3 at 140; ×(1 − 0.35 × the wind on them), ×(1 − 0.4 × cold hands: warmth
+    0.65 → 0.15), ×(1 − 0.15 blown), ×(1 − 0.1 × injury), a snap shot ×0.75 (full after ~1.3 s on aim); a bear ×1.1
+    (×0.8 charging flat out), a penguin ×0.85. A miss kicks up snow by the target. The bear takes 3 hits (each: a
+    bellow and a jolt; wounded it flees, or comes on harder: 55% if already charging, 40% close in); a penguin or a
+    dog 1. Every shot scatters the penguins within 220; the dogs whine and press flat (cowering) at the raised rifle
+    within 90 and for 14 s after a shot; shooting one of them is allowed, and grim. A bear close that isn't hit:
+    half the time it runs, else it's riled (+0.35). With the bear worked up within 60 the pack still opens, but only
+    the rifle and the flares can be used (the rest dimmed).
+  - **Carcasses** stay where they fell, the snow under them a shade darker: the bear rolled onto its side, legs out
+    stiff; a dog the same; a penguin laid over on its side. Hold on one (Space / E by it): a round-slot row over it,
+    Butcher (a knife): kneel at it 6 s (the bar fills; walking off stops it, nothing lost; not with the bear near):
+    meat (penguin 1, dog 3, bear 6) into the pack as far as it goes, the rest left in a pile by it; the carcass is
+    gone, its stain stays. **Raw meat** (`meat`, stack 3; a frozen grey-brown slab with a knuckle of bone): eaten from
+    the pack +0.25 food, −0.035 warmth (frozen); cooked in a tent (the tent menu's Cook, a pan) +0.5 food, +0.05
+    warmth. Carrying it, a bear works up faster.
+  - Measured (headless, GPU): a healthy explorer standing still with the bear close: alert 3 s, stalking ~21 s
+    (20.4 / 20.6 s two runs; 22–24 s on the inlet), the warning 2.6 s, the charge 1.5 s from ~44 units, the maul
+    (injury 0.64–0.79). Backing away: aggro held at 0 while backing; never charged in 40 s. Hit chances (calm, warm,
+    held): 20 / 40 / 60 / 80 / 100 / 120 / 140 units → bear 0.97 / 0.95 / 0.83 / 0.70 / 0.58 / 0.46 / 0.34; wind 0.6
+    0.84 … 0.27; cold (warmth 0.3) 0.73 … 0.23; storm and cold 0.50 … 0.16; charging bear 0.85 … 0.27; penguin 0.83 …
+    0.26; dog 0.97 … 0.31. Shots to kill the bear (Monte Carlo, standing): 3.1 / 3.2 / 3.6 / 4.3 / 5.2 / 6.6 / 8.9;
+    in wind 0.6 and cold (0.4) 4.4 … 14. Raw meat +0.247 food, −0.036 warmth; cooked +0.498. Frame time (1440p storm,
+    GPU, the bear close): 22.6–23.8 ms, HEAD 23.2–24.8 at the same spot; flare lit 14.6, aiming 17.0, mid-charge
+    19.1 (a lighter scene).
 - **Death and the party**: warmth 0 → collapse (kneel, slump, lie face down) → the ink iris
   closes onto the body, holds a beat, closes → cut to base camp: the next of the four crawls
   out of the tent as the iris opens. The body stays where it fell for the run

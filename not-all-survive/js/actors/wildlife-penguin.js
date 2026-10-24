@@ -43,6 +43,11 @@ export function makeGroup(cx, cy, n, homeR, w, opts = {}) {
 // Threats: the explorer and the bear. Penguins flee whichever is nearer.
 let BEAR = null;
 export function setBear(b) { BEAR = b; }
+// A shot (hunt.js): the group runs from (x, y), and every bird in it startles.
+export function scareGroup(g, x, y) {
+  g.scare = { x, y };
+  for (const m of g.members) { m.fleeT = 0; m.flap = 1; }
+}
 const CALMP = state.params.has('wlCalm');
 function threat(x, y) {
   const p = CALMP ? null : state.player;
@@ -64,9 +69,12 @@ function groupUpdate(g, dt, w) {
 
   const pd = Math.hypot(p.x - mx, p.y - my);
   g.t -= dt; g.panic -= dt;
-  if (pd < g.spread + 45 && g.panic <= 0) {
+  // a gunshot (hunt.js: scareGroup): away from where it came from, whatever the distance
+  const sc = g.scare;
+  if (sc) g.scare = null;
+  if ((sc || pd < g.spread + 45) && (g.panic <= 0 || sc)) {
     // move the whole group away from the explorer
-    const a = Math.atan2(my - p.y, mx - p.x);
+    const a = sc ? Math.atan2(my - sc.y, mx - sc.x) : Math.atan2(my - p.y, mx - p.x);
     for (let k = 0; k < 8; k++) {
       const aa = a + (k % 2 ? 1 : -1) * k * 0.3;
       const tx = mx + Math.cos(aa) * 115, ty = my + Math.sin(aa) * 115;
@@ -258,10 +266,11 @@ const T = Array.from({ length: 24 }, () => ({ x: 0, y: 0, gx: 0, gy: 0, dy: 0, z
 // local point -> rolled, pitched, projected
 function mk(m) {
   const ca = Math.cos(m.heading), sa = Math.sin(m.heading);
-  const roll = Math.sin(m.phase) * 0.2 * m.walkAmp;
+  // (shot: hunt.js lays the bird over on its side, m.dead)
+  const roll = m.dead ? 1.3 * m.side : Math.sin(m.phase) * 0.2 * m.walkAmp;
   const cr = Math.cos(roll), sr = Math.sin(roll);
   const q = m.pitch * 1.45, cq = Math.cos(q), sq = Math.sin(q);
-  const lift = m.pitch * 1.35 + Math.sin(m.hop * Math.PI) * 0.8;
+  const lift = m.pitch * 1.35 + Math.sin(m.hop * Math.PI) * 0.8 + (m.dead ? 1.0 : 0);
   const back = m.pitch * 2.2;
   const s = m.s;
   let i = 0;

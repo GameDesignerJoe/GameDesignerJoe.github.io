@@ -30,6 +30,7 @@ const MODULES = {
   burden: './goal/burden.js',       // after distress and explorer: wrapping them, carrying or dragging them home
   thirst: './fx/thirst.js',          // after body (reads water) and camp: the mirage (drawSky, over every sky layer) and the Third Man
   wildlife: './actors/wildlife.js',
+  hunt: './actors/hunt.js',          // after wildlife and camp: the flare, the rifle, carcasses and butchering (slice 7)
   audio: './audio/audio.js',
   recorder: './audio/recorder.js',  // the audio recorders: plays one, ducks it under weather, stops it at death
   night: './fx/night.js',            // grades the finished frame and adds warm lights

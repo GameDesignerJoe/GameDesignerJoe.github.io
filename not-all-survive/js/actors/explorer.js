@@ -16,6 +16,13 @@
 // shoulder, both mitts on it at the chest, leaning into it; x0.75 pace, x0.35 in deep snow. Neither
 // climbs (refuse 'burden'). Kneeling to the work (wrapping them, hoisting, the rope): burden.job.
 //
+// The bear (slice 7, wildlife-bear.js / actors/hunt.js): walking away from a bear that's after them, they back
+// off slowly facing it (x0.55 pace, the stride run backwards; player.backing, which calms it). Mauled
+// (P.maul): thrown flat away from it and slow to get up; a fatal maul lays them out as a fatal fall does. The
+// rifle raised (hunt.aim): shouldered, turned onto the target, swaying with the cold and the wind; a flare
+// struck at the chest (hunt.strikeT) then held up high while it burns (hunt.held); kneeling at a carcass to
+// butcher it (hunt.job). Draws the rifle and the flare's stick; writes player.muzzleAt / player.flareAt.
+//
 // Conventions
 //   facing: radians in *ground* space, 0 = east, PI/2 = south (toward the camera).
 //   Ground depth (world y) is foreshortened by KY relative to x. Rig ground offsets are (f, r)
@@ -249,7 +256,9 @@ const hemS = { f: 0, r: 0, z: 0, vf: 0, vr: 0, vz: 0 };
 // and grab (the wind's got it: arms thrown up after the canvas).
 // Thirst (ui/pack.js): drink (a pull from the flask, standing; drinkT the seconds in) and snow
 // (kneeling, a mittful of snow scooped up and eaten; snowT the seconds in).
-const CP = { rum: 0, slot: 0, out: 0, pack: 0, flap: 0, kneel: 0, dig: 0, eat: 0, eatT: 0, job: 0, grab: 0, stage: 0, drink: 0, drinkT: 0, snow: 0, snowT: 0 };
+const CP = { rum: 0, slot: 0, out: 0, pack: 0, flap: 0, kneel: 0, dig: 0, eat: 0, eatT: 0, job: 0, grab: 0, stage: 0, drink: 0, drinkT: 0, snow: 0, snowT: 0, aim: 0, strike: 0, flare: 0 };
+let backW = 0;                                   // backing away from the bear (the stride runs backwards)
+const figOut = { muzzle: null, flare: null };    // drawFigure: where the muzzle and the flare's head were drawn
 function updateCompassPose(dt) {
   const st = state.compass, ph = st?.phase || 'idle', tgt = !!st?.target;
   const J = state.pup?.job, caught = !!(J && J.coll && J.coll.t < 1.15);
@@ -259,7 +268,12 @@ function updateCompassPose(dt) {
   CP.rum = approach(CP.rum, ph === 'rummage' && !tgt ? 1 : 0, ph === 'rummage' ? 4 : 5, dt);
   CP.slot = approach(CP.slot, ph === 'slot' ? 1 : 0, 5, dt);
   CP.out = approach(CP.out, ph === 'out' ? 1 : 0, 5, dt);
-  const BJ = state.burden?.job;   // wrapping the lost explorer, hoisting them, taking up the rope
+  const BJ = state.burden?.job || state.hunt?.job;   // wrapping the lost explorer, hoisting them, the rope; butchering
+  // the rifle raised (hunt.js aim), a flare being struck (strikeT) and held up burning (held)
+  const HU = state.hunt, aimOn = !!HU?.aim;
+  CP.aim = approach(CP.aim, aimOn ? 1 : 0, aimOn ? 7 : 6, dt);
+  CP.strike = approach(CP.strike, HU?.strikeT > 0 ? 1 : 0, 10, dt);
+  CP.flare = approach(CP.flare, HU?.held ? 1 : 0, HU?.held ? 5 : 7, dt);
   const kneel = (ph === 'rummage' && tgt) || ph === 'transfer' || ph === 'eat' || ph === 'snow' || !!J || !!BJ;
   CP.kneel = approach(CP.kneel, kneel ? 1 : 0, kneel ? 3.5 : 4.5, dt);
   CP.dig = approach(CP.dig, (ph === 'rummage' && tgt) || ph === 'transfer' || !!BJ ? 1 : 0, 4, dt);
@@ -301,6 +315,24 @@ export function init() {
   // fx/thirst.js: the Third Man, the figure as it is this moment drawn again elsewhere, grey and faint
   P.ghost = (ctx, x, y, a, slip, seed) => drawGhost(ctx, x, y, a, slip, seed);
   P.headache = (d = 3) => { headOn = headDur = d; headT = 20; };   // test hook: the thirst headache now (if standing about)
+  // the bear's maul (wildlife-bear.js): thrown flat away from it, lying stunned and slow to get up; fatal: laid
+  // out where they fall, as a fatal fall leaves them (body.js counts the death, cause 'bear')
+  P.maul = (fatal, bx, by) => {
+    if (injury() < 0.02) { badS = rand() < 0.5 ? -1 : 1; P.badLeg = badS; }
+    if (state.compass) state.compass.phase = 'idle';
+    snowBurst(P.x, P.y, 12);
+    if (fatal) {
+      // thrown down just clear of it (in front of its head, so the body reads), laid out there
+      startCrumple();
+      const dx = P.x - bx, dy = (P.y - by) / KY, d = Math.hypot(dx, dy) || 1, to = { x: bx + dx / d * 13.5, y: by + dy / d * 13.5 * KY };
+      if (passable(to.x, to.y) && !waterLevelAt(to.x, to.y)) { colFrom = { x: P.x, y: P.y }; colTo = to; }
+      return;
+    }
+    if (P.mode === 'down') { downT = 0.35; downSlow = 1.6; return; }
+    P.mode = 'walk'; route = null; cowerW = 0;
+    startFall(1.1, Math.atan2((P.y - by) / KY, P.x - bx));
+    downSlow = 1.6;
+  };
   setShelter('camp');
   // ui/pack.js: walk to a point (the sled, a body, a pile pressed from afar); pushes 'arrive'
   // there. Any input of the player's own cancels it. And leave the tent (a tap on its door).
@@ -420,6 +452,7 @@ export function update(dt) {
   envW = { wa, ws, gust, wEff, windPose, shelter };
 
   P.push = 0; P.headwind = 0;                    // how hard they're working (walking sets it)
+  P.backing = false;                             // (walking away from the bear, facing it: set below)
   P.resting = restT > 0;                         // a stop to get the breath back (body.js: only a gasp's worth)
   updatePant(dt);
   iceLoad(dt, ter);
@@ -548,7 +581,7 @@ export function update(dt) {
   const en = energy();
   const pushing = Math.hypot(ix, iy) > 0.05 && (P.mode === 'walk' || P.mode === 'approach');
   // (no stopping for breath in the water, or with the bear close)
-  const bear = state.bear, bearNear = !!bear && Math.hypot(bear.x - P.x, bear.y - P.y) < 60;
+  const bear = state.bear, bearNear = !!bear && !bear.dead && !bear.gone && Math.hypot(bear.x - P.x, bear.y - P.y) < 60;
   // A legible ramp, not a dice roll: one stop as energy passes 0.2, another at 0.12, another
   // at 0.06, then every ~7 s of pushing below that (~5 s near the end). They only catch the
   // breath they cost (body.js), so the slide to empty goes on: standing still on purpose is the
@@ -580,6 +613,15 @@ export function update(dt) {
   const active = mag > 0.05;
   const wantDir = active ? Math.atan2(iy / KY, ix) : P.facing;
   const into = Math.max(0, -Math.cos(wantDir - wa));
+  // the bear (slice 7): walking away from it while it's after them, they back off slowly, facing it, never
+  // turning their back (wildlife-bear.js reads player.backing: it loses interest). Not with a burden.
+  const bb = state.bear;
+  let backing = false, toBear = 0;
+  if (active && bb && bb.threat && !bb.dead && P.mode === 'walk' && !water.level && !spent && !state.burden?.mode) {
+    toBear = Math.atan2((bb.y - P.y) / KY, bb.x - P.x);
+    backing = Math.hypot(bb.x - P.x, bb.y - P.y) < 110 && Math.cos(wantDir - toBear) < -0.25;
+  }
+  backW = approach(backW, backing ? 1 : 0, 6, dt);
 
   // Pause at each foot plant on ice: |sin| is 0 at the plants.
   tentMod = 1 - pose.tent * (1 - Math.pow(Math.abs(Math.sin(phase * Math.PI * 2)), 0.6));
@@ -597,6 +639,7 @@ export function update(dt) {
   if (dz > 0.05 && dizzyPrev <= 0.05 && P.mode === 'walk' && staggerT <= 0) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
   dizzyPrev = dz;
   if (spent) spd = BASE_SPEED * sf * mag * 0.25 * smooth(0.6, 1, crawlW);   // crawling: a quarter pace
+  if (backing) spd *= 0.55;                          // backing off from the bear: slowly
   // a steady push back toward the interior, stronger the deeper in
   // (not while walking a planned route to a climb: the path already threads the rock)
   const drift = fa > 0 && P.mode !== 'approach' ? fa * (2.5 + 7 * fa) : 0;
@@ -634,6 +677,7 @@ export function update(dt) {
   P.x = nx; P.y = ny;
   P.speed = Math.hypot(P.x - ox, P.y - oy) / dt;
   P.moving = P.speed > 0.6;
+  P.backing = backing && P.moving;
   // the work of it, for body.js: pushing on and getting somewhere, and how much of it into the wind
   if (P.moving && active && !spent) { P.push = mag; P.headwind = into * wEff; }
   P.crawl = crawlW > 0.5;   // body.js: crawling spent neither costs nor gives back
@@ -644,8 +688,16 @@ export function update(dt) {
   // --- facing -----------------------------------------------------------------------------
   if (active) {
     const turnRate = (ter === 'ice' || ter === 'thin' ? 4 : 6.5) * dt;
-    const d = wrapPi(wantDir - P.facing);
+    const d = wrapPi((backing ? toBear : wantDir) - P.facing);
     P.facing = wrapPi(P.facing + clamp(d, -turnRate, turnRate));
+  } else if (CP.aim > 0.02 && state.hunt?.aim) {
+    // the rifle up: turned onto the target (hunt.js aim.dir, a ground angle)
+    P.facing = wrapPi(P.facing + clamp(wrapPi(state.hunt.aim.dir - P.facing), -5 * dt, 5 * dt));
+  } else if (state.hunt?.job) {
+    // butchering a carcass: turned to it (a little off straight-away from the camera)
+    const J = state.hunt.job, w0 = Math.atan2((J.y - P.y) / KY, J.x - P.x);
+    const want = Math.sin(w0) < -0.3 ? w0 + (Math.cos(w0) >= 0 ? 0.55 : -0.55) : w0;
+    P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -3 * dt, 3 * dt));
   } else if (state.pup?.job) {
     // pitching / striking the pup tent: turned to it (a little off straight-away from the camera)
     const J = state.pup.job, w0 = Math.atan2((J.y - P.y) / KY, J.x - P.x);
@@ -967,6 +1019,8 @@ function handleActions() {
     return;
   }
   if (P.mode !== 'walk' && P.mode !== 'cower') return;
+  // the rifle raised (hunt.js): Space fires it, nothing here
+  if (state.hunt?.aim) { if (tap) inp.tap = null; if (act) inp.action = null; return; }
   // the tent: a tap on it (or Space/E by its door) walks to the door and crawls in
   // (spent, only from close by: ~15 units, crawling)
   // (the pup tent once it's pitched, the same: puptent.js)
@@ -1839,7 +1893,7 @@ function startCollapse() {
 }
 function updateCollapse(dt) {
   colT += dt;
-  if (colTo) { const k = smooth(0, 1.4, colT); P.x = lerp(colFrom.x, colTo.x, k); P.y = lerp(colFrom.y, colTo.y, k); if (colT > 1.4) colTo = null; }
+  if (colTo) { const sl = colKind === 'fall' ? 0.35 : 1.4, k = smooth(0, sl, colT); P.x = lerp(colFrom.x, colTo.x, k); P.y = lerp(colFrom.y, colTo.y, k); if (colT > sl) colTo = null; }   // (thrown by the bear: quick)
   ovrW = approach(ovrW, 1, 5, dt);
   cowerW = approach(cowerW, 0, 4, dt); kneelW = approach(kneelW, 0, 4, dt);
   const K = colKind === 'fall' ? CRUMPLE_K : COLLAPSE_K, fall = colKind === 'fall';
@@ -2205,7 +2259,7 @@ function updateChips(dt) {
 
 
 function footDown(foot, prof, ter) {
-  const S = pose.stepEff * pose.gait * 0.5;
+  const S = pose.stepEff * pose.gait * 0.5 * (1 - 2 * backW);   // (backing off: the feet land behind)
   const s = foot === 'L' ? -1 : 1;
   const st = pose.stance + (slipT > 0 && s === slipSide ? 1.2 : 0);
   const c = Math.cos(P.facing), sn = Math.sin(P.facing);
@@ -2358,7 +2412,7 @@ const N = 32; // coat ring resolution
 function buildRig() {
   const t = state.time, g = pose.gait, idle = 1 - smooth(0.1, 0.5, g);
   const shoeW = shoesDrawn() ? 1 : 0;
-  const S = pose.stepEff * 0.5 * g;
+  const S = pose.stepEff * 0.5 * g * (1 - 2 * backW);   // (backing off from the bear: the stride runs backwards)
   const yaw = P.facing;
   const ph2 = phase * Math.PI * 2;
   const slip = slipT > 0 ? Math.sin(clamp(slipT / 0.9) * Math.PI) : 0;
@@ -2526,7 +2580,7 @@ function buildRig() {
     else hand = mix(hand, [0.9, s * 2.1, SPINE - 3.6], pose.shield * 0.5 * (1 - pose.spread));
     // carrying the ice axes: hands out by the thighs, a short swing; the reach to the pack
     // (taking them in or out) is a quick hand to the back of the shoulder
-    const axeW = axesOn() && !O ? clamp(1 - Math.max(pose.hug, pose.shield * (s === sh ? 1 : 0), pose.spread * 0.6, cw, CP.rum, CP.out, CP.slot, carryW, dragW)) : 0;
+    const axeW = axesOn() && !O ? clamp(1 - Math.max(pose.hug, pose.shield * (s === sh ? 1 : 0), pose.spread * 0.6, cw, CP.rum, CP.out, CP.slot, carryW, dragW, CP.aim, CP.strike, s > 0 ? CP.flare : 0)) : 0;
     if (axeW > 0) hand = mix(hand, [0.5 + armF * 0.55, s * 3.0, SPINE - 4.0 + Math.abs(armF) * 0.1], axeW);
     // (and the once, patting the pack: the same reach, tapping twice)
     const patK = patT > 0 && s > 0 ? Math.sin(clamp(1 - patT / PAT_S) * Math.PI) * (0.75 + 0.25 * Math.sin((1 - patT / PAT_S) * Math.PI * 6)) : 0;
@@ -2661,6 +2715,32 @@ function buildRig() {
       pole = mix(pole, torsoDir([-0.4, s * 1.1, -0.4], tf), stw);
       cpFull = Math.max(cpFull, stw);
     }
+    if (CP.aim > 0.001 && !O) {
+      // the rifle at the shoulder: the right mitt at the cheek on the grip, the left out along the fore-end,
+      // swaying (hunt.js aim.swayX / swayZ: the cold, the wind, the breath)
+      const A = state.hunt?.aim, sx = A ? A.swayX : 0, sz = A ? A.swayZ : 0;
+      const hT = s > 0 ? [0.85, 0.62, SPINE + 0.2] : [3.0 + sx * 0.2, 0.22 + sx * 0.55, SPINE + 0.34 + sz * 0.55];
+      handB = mix(handB, torsoToBody(hT, tf), CP.aim);
+      pole = mix(pole, torsoDir(s > 0 ? [-0.4, 1.2, -0.6] : [-0.2, -0.8, -1], tf), CP.aim);
+      cpFull = Math.max(cpFull, CP.aim);
+    }
+    if (CP.strike > 0.001 && !O) {
+      // striking a flare: both mitts at the chest, the right scraping the cap across the end of it
+      const sc = Math.sin(t * 22) * 0.35;
+      const hT = s > 0 ? [1.75 + sc, 0.35, SPINE - 1.2 + 0.2 * sc] : [1.65, -0.15, SPINE - 1.55];
+      handB = mix(handB, torsoToBody(hT, tf), CP.strike);
+      pole = mix(pole, torsoDir([-0.3, s * 1.2, -0.7], tf), CP.strike);
+      cpFull = Math.max(cpFull, CP.strike);
+    }
+    let flareArm = false;
+    if (CP.flare > 0.001 && s > 0 && !O) {
+      // the lit flare held up high and out to the side, the arm near straight, a slow sway
+      const wv = Math.sin(t * 1.3) * 0.15, k = CP.flare * (1 - CP.strike);
+      handB = mix(handB, torsoToBody([0.6 + wv, 3.3, SPINE + HEAD_UP + 1.2], tf), k);
+      pole = mix(pole, torsoDir([-0.5, 1.3, -0.2], tf), k);
+      cpFull = Math.max(cpFull, k);
+      flareArm = k > 0.4;
+    }
     if (CP.out > 0.001) {
       const shake = envW.wEff * 0.14;
       const hT = torsoToBody([1.55 + Math.sin(t * 27) * shake, s * 0.38 + Math.sin(t * 31 + 1) * shake, SPINE - 1.25 + Math.sin(t * 23 + 2) * shake], tf);
@@ -2676,7 +2756,8 @@ function buildRig() {
     const a = ik(shoulder, handB, UPPER_ARM, FOREARM, pole);
     const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4) || axeW > 0.5 || reachK > 0.3 || (!O && resW > 0.4) || (!O && (cyW > 0.5 || drW > 0.5));   // (sat: the arms stay inside the coat, wrapped round the knees)
     const active = full ? 1 : Math.max(spreadW, pose.hug, Math.max(0, pose.work - 0.3) * 1.4, shieldW, pose.creep);
-    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4, carry: axeW > 0.5 && reachK < 0.3, food: !O && s > 0 && CP.eat > 0.4 && CP.eatT > 0.2,
+    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead: overHead || flareArm, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4 && !flareArm, carry: axeW > 0.5 && reachK < 0.3, food: !O && s > 0 && CP.eat > 0.4 && CP.eatT > 0.2,
+      flareH: !O && s > 0 && (CP.flare > 0.3 || CP.strike > 0.3),
       flask: !O && s > 0 && CP.drink > 0.35 ? tipK : -1, snowball: !O && s > 0 && CP.snow > 0.4 && sT > 0.75 && sT < 2.3 ? 1 - smooth(1.5, 2.3, sT) : 0 });
   }
 
@@ -2800,7 +2881,14 @@ function buildRig() {
   // the lost explorer across the shoulders: head end to the right, sagging a little at both ends
   const bundle = cyW > 0.3 && !O ? CARRY_PTS.map(([f, r, z]) => torsoToBody([f + r * bS, r * bC, SPINE + z + upZ], tf)) : null;
   const rope = drW > 0.3 && !O ? [torsoToBody([-1.25, 1.0, SPINE - 0.35], tf), torsoToBody([-0.2, 1.25, SPINE + 0.15], tf), torsoToBody([0.9, 0.95, SPINE - 0.6], tf)] : null;
-  return { yaw, legs, arms, head, peak, drape, faceYaw, facePitch, top, hem, pack, shoulderC, hips: [hx, hr, hz], tf, sinkNow, hemC, twist, hemYaw, lying: O ? O.hemAttach * ow : 0, climbing: O && O.full && P.mode === 'climb' ? ow : 0, shadowOff, bundle, rope };
+  // the rifle (hunt.js aim): coming up from across the body, muzzle low, to the shoulder, level at the target
+  let rifle = null;
+  if (CP.aim > 0.02 && !O) {
+    const A = state.hunt?.aim, sx = A ? A.swayX : 0, sz = A ? A.swayZ : 0, k = smooth(0, 1, CP.aim);
+    rifle = [torsoToBody(mix([1.0, 0.3, SPINE - 2.6], [0.35, 0.8, SPINE + 0.05], k), tf),
+      torsoToBody(mix([3.6, -0.7, SPINE - 3.9], [7.2 + sx * 0.3, 0.14 + sx * 1.4, SPINE + 0.5 + sz * 1.4], k), tf)];
+  }
+  return { yaw, legs, arms, head, peak, drape, faceYaw, facePitch, top, hem, pack, shoulderC, hips: [hx, hr, hz], tf, sinkNow, hemC, twist, hemYaw, lying: O ? O.hemAttach * ow : 0, climbing: O && O.full && P.mode === 'climb' ? ow : 0, shadowOff, bundle, rope, rifle };
 }
 
 // The bundle across the shoulders, in torso coords [forward, right, up from the shoulders]: from the feet
@@ -3205,7 +3293,8 @@ function drawFigure(ctx, rig, X, Y) {
     limb(ctx, pts, 1.15, sleeveCol(pts[1]));
     if (A.axe > 0.3) drawAxe(ctx, A, pr);
     mitt(pts[2], pts[1]);
-    if (A.food) drawRation(ctx, pts[2]);
+    if (A.food) drawRation(ctx, pts[2], state.pack?.slots[state.compass?.eatI]?.id === 'meat');
+    if (A.flareH) figOut.flare = drawFlareStick(ctx, pts[2], pts[1]);
     if (A.flask >= 0) drawFlaskHeld(ctx, pts[2], pts[1], A.flask);
     if (A.snowball > 0.02) drawSnowball(ctx, pts[2], A.snowball);
   };
@@ -3227,6 +3316,10 @@ function drawFigure(ctx, rig, X, Y) {
   for (const A of arms) A.hidden = !A.full && (A.s !== nearS || A.d < -0.45 || (fromBehind && slipT <= 0));
   // carried axes: the far-side one is drawn under the coat only (never over the back)
   for (const A of arms) A.under = A.carry && A.s !== nearS;
+  // the rifle pointing away from the camera goes under the coat (only the barrel past it shows)
+  figOut.muzzle = null; figOut.flare = null;
+  const rifleBack = rig.rifle && depth(rig.rifle[1]) < depth(rig.shoulderC) - 0.3;
+  if (rifleBack) figOut.muzzle = drawRifle(ctx, rig.rifle, pr);
   for (const A of arms) {
     if (A.behind) { if (A.full && !(A.cp && fromBehind)) drawArm(A); continue; }   // never drawn on the back
     if (A.cp && fromBehind) continue;   // compass hands in front: hidden by the body from behind
@@ -3260,6 +3353,44 @@ function drawFigure(ctx, rig, X, Y) {
   drawHood(ctx, rig, pr);
   if (rig.bundle) { if (bundleSplit) drawCarried(ctx, rig, pr, depth, 'near'); else if (!bundleBack) drawCarried(ctx, rig, pr, depth, 'all'); }
   for (const A of out) if (A.overHead || A.dh > headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
+  if (rig.rifle && !rifleBack) {
+    figOut.muzzle = drawRifle(ctx, rig.rifle, pr);
+    // the mitts over it: the grip hand and the one under the fore-end
+    for (const A of arms) if (!A.behind && A.cp) { const h = pr(A.hand); ctx.beginPath(); ctx.ellipse(h[0], h[1], 0.5, 0.46, 0, 0, Math.PI * 2); ctx.fillStyle = C.mitt; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.15; ctx.stroke(); }
+  }
+}
+
+// The rifle (hunt.js): from the butt at the shoulder to the muzzle: a grey-brown wooden stock (butt, wrist,
+// fore-end), the dark steel barrel on past it, the bolt handle at the action. Returns the muzzle (world).
+function drawRifle(ctx, R, pr) {
+  const a = pr(R[0]), b = pr(R[1]);
+  const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+  const at = (k, w) => [a[0] + dx * k + nx * w, a[1] + dy * k + ny * w];
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (const [k, w] of [[0, 0.5], [0.3, 0.2], [0.66, 0.16], [0.66, -0.12], [0.3, -0.16], [0.02, -0.3]]) { const q = at(k, w); ctx.lineTo(q[0], q[1]); }
+  ctx.closePath();
+  ctx.fillStyle = '#6d604f'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.13; ctx.stroke();
+  const b0 = at(0.32, 0.12);
+  ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(b[0], b[1]);
+  ctx.strokeStyle = '#1f1f1f'; ctx.lineWidth = 0.26; ctx.stroke();
+  const h0 = at(0.36, 0.05), h1 = at(0.4, -0.55);
+  ctx.beginPath(); ctx.moveTo(h0[0], h0[1]); ctx.lineTo(h1[0], h1[1]); ctx.lineWidth = 0.14; ctx.stroke();
+  return { x: b[0], y: b[1] };
+}
+// The flare in the mitt: a short pale tube held up (out along the forearm, mostly upright), a dark band
+// below its burning end. Returns its head (world): hunt.js draws the fire and smoke there.
+function drawFlareStick(ctx, h, el) {
+  let ux = (h[0] - el[0]) * 0.4, uy = (h[1] - el[1]) * 0.4 - 1;
+  const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l;
+  const tip = [h[0] + ux * 1.7, h[1] + uy * 1.7];
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(h[0] - ux * 0.3, h[1] - uy * 0.3); ctx.lineTo(tip[0], tip[1]);
+  ctx.strokeStyle = INK; ctx.lineWidth = 0.55; ctx.stroke();
+  ctx.strokeStyle = '#d8d2c4'; ctx.lineWidth = 0.33; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(tip[0] - ux * 0.35, tip[1] - uy * 0.35); ctx.lineTo(tip[0], tip[1]);
+  ctx.strokeStyle = '#3a3630'; ctx.lineWidth = 0.38; ctx.stroke();
+  return { x: tip[0], y: tip[1] };
 }
 
 // A snowshoe under each boot: a long teardrop frame lying flat, its round toe ~1.2u ahead of
@@ -3355,7 +3486,14 @@ function drawSnowball(ctx, h, k) {
   ctx.beginPath(); ctx.ellipse(h[0] + 0.18, h[1] - 0.3, r * 0.8, r * 0.38, 0.2, 0, Math.PI); ctx.fill();
 }
 // Eating: a ship's biscuit held up in the mitt (pale, inked, a few docking holes).
-function drawRation(ctx, h) {
+function drawRation(ctx, h, meat = false) {
+  if (meat) {
+    // raw meat (hunt.js): a dark frozen chunk, a pale knuckle of bone at one end
+    ctx.beginPath(); ctx.ellipse(h[0] + 0.15, h[1] - 0.35, 0.68, 0.48, -0.3, 0, Math.PI * 2);
+    ctx.fillStyle = '#6e645c'; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.13; ctx.stroke();
+    ctx.beginPath(); ctx.arc(h[0] + 0.75, h[1] - 0.6, 0.2, 0, Math.PI * 2); ctx.fillStyle = '#e8e4da'; ctx.fill(); ctx.stroke();
+    return;
+  }
   ctx.beginPath(); ctx.ellipse(h[0] + 0.15, h[1] - 0.35, 0.62, 0.5, -0.3, 0, Math.PI * 2);
   ctx.fillStyle = '#e8e4da'; ctx.fill();
   ctx.strokeStyle = INK; ctx.lineWidth = 0.13; ctx.stroke();
@@ -3711,6 +3849,7 @@ export function drawables() {
       const front = p => !away && p.y > headY + 0.9;
       drawPuffs(ctx, puffs.filter(p => !front(p)));
       drawFigure(ctx, rig, X, Y);
+      P.muzzleAt = figOut.muzzle; P.flareAt = figOut.flare;   // (hunt.js: the muzzle flash, the flare's fire)
       drawPuffs(ctx, puffs.filter(front));
       drawKicks(ctx);
       drawDrips(ctx);
