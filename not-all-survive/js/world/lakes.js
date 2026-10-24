@@ -2,8 +2,8 @@
 // still apart from the white crack networks (icecracks.js).
 //
 // Open water (dark thin-ice / leads at the bottom centre):
-//   - an animated caustic cell network: baked Worley F2-F1 frames, cross-faded, drifting
-//     slowly downwind, squashed 0.8 vertically, masked to the painted water;
+//   - an animated caustic cell network: baked Worley F2-F1 frames, cross-faded in place,
+//     squashed 0.8 vertically, masked to the painted water;
 //   - wind waves above ~0.5 wind: small crescent whitecaps facing downwind that rise,
 //     curl, break into spray and fade to foam;
 //   - every white floe cut from the painting and laid crisply over the water effects, riding
@@ -483,11 +483,11 @@ export function drawLakes(ctx) {
   g.clearRect(0, 0, W, H);
   g.setTransform(sx, 0, 0, sy, -r.x0 * sx, -r.y0 * sy);
   g.imageSmoothingEnabled = true;
-  // Caustic cells: cross-fade two baked frames; the whole sheet drifts slowly downwind.
+  // Caustic cells: cross-fade two baked frames, in place. (The sheet used to drift with
+  // offset = time x wind, which lurched the whole sheet sideways whenever the wind changed.)
   const ph = ((t / CAUSTIC_LOOP) % 1) * CAUSTIC_FRAMES;
   const f0 = Math.floor(ph) % CAUSTIC_FRAMES, f1 = (f0 + 1) % CAUSTIC_FRAMES, fr = ph - Math.floor(ph);
-  const ws = Math.min(1.2, wind.speed + wind.gust * 0.6);
-  const dx = t * (1.5 + ws * 3) * Math.cos(wind.angle), dy = t * (1.5 + ws * 3) * Math.sin(wind.angle);
+  const dx = 0, dy = 0;
   const base = 0.5;
   patternFill(g, caustic[f0], r, 0, dx, dy, 1, base * (1 - fr), 0.8);
   patternFill(g, caustic[f1], r, 0, dx, dy, 1, base * fr, 0.8);

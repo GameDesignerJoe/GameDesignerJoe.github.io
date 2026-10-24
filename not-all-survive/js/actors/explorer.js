@@ -428,7 +428,11 @@ export function update(dt) {
     // the give-up clock runs at the pace they can manage, and not at all while stopped
     if (!halted) approachT += dt * paceK();
     // arrived (or about to step past it this frame, or pressed against the rock right by it)
-    if (route.kind === 'reach' && (inp.active || (inp.tap && inp.tap.t !== lastTapT))) { P.mode = 'walk'; route = null; }   // their own way instead
+    // Any input of their own after the walk began takes over: a new press, or keys/a hold that
+    // wasn't already down when the route was set (a hold that started it doesn't count until let go).
+    if (route.t0 === undefined) { route.t0 = state.time; route.held = !!inp.active; }
+    if (route.held && !inp.active) route.held = false;
+    if ((inp.active && !route.held) || (inp.tap && inp.tap.t > route.t0 + 0.05)) { P.mode = 'walk'; route = null; }   // their own way instead
     else if (route.kind === 'reach' && (dRoute < 2 || (approachT > 0.6 && dRoute < 6 && P.speed < 1))) {
       P.mode = 'walk'; route = null;
       state.events.push({ type: 'arrive', x: P.x, y: P.y });
