@@ -79,6 +79,18 @@ const HEAD_UP = 1.85, HOOD_R = 1.6, HOOD_RY = 1.9;
 const SH_R = 2.15, SH_F = 1.2;      // coat at the shoulders: half-width, half-depth
 const HEM_R = 2.9, HEM_F = 1.4;     // coat at the hem (just above the knee)
 const HEM_DROP = 1.9;              // hem height below the hips
+// The rucksack, in torso coords [forward, right, up from the hips]: 8 corners (0-3 against the back,
+// 4-7 the outer face; top-left, top-right, bottom-right, bottom-left), a little narrower than the
+// shoulders so it stays inside the silhouette from behind and bulges a good unit out at the side.
+const PACK_BOX = [[-1.2, -1.32, 4.3], [-1.2, 1.32, 4.3], [-1.45, 1.45, 0.3], [-1.45, -1.45, 0.3],
+  [-2.2, -1.32, 4.3], [-2.2, 1.32, 4.3], [-2.4, 1.45, 0.3], [-2.4, -1.45, 0.3]];
+const PACK_HINGE = [-1.82, 4.32];                                  // the flap's hinge line (f, z)
+const PACK_FLAP = [[-1.82, -1.36, 4.32], [-2.27, -1.38, 4.36], [-2.33, -1.4, 2.95], [-2.33, 1.4, 2.95], [-2.27, 1.38, 4.36], [-1.82, 1.36, 4.32]];
+const PACK_FLAP_OPEN = [[-2.3, -1.36, 4.36], [-2.3, -1.36, 4.36], [-2.44, -1.43, 2.45], [-2.44, 1.43, 2.45], [-2.3, 1.36, 4.36], [-2.3, 1.36, 4.36]];
+const PACK_MOUTH = [[-1.3, -1.15, 4.31], [-2.1, -1.15, 4.31], [-2.1, 1.15, 4.31], [-1.3, 1.15, 4.31]];
+const PACK_ROLL = [[-1.5, -1.8, 4.72], [-1.5, 1.8, 4.72]], ROLL_R = 0.46;
+// a shoulder strap (right side; mirrored): off the top of the pack, over the shoulder, down the chest
+const PACK_STRAP = [[-1.3, 1.0, 4.25], [-0.7, 1.02, 4.42], [0.2, 1.05, 4.42], [0.95, 1.02, 4.0], [1.22, 1.08, 3.0], [1.3, 1.22, 2.0], [1.15, 1.6, 1.25]];
 
 // Light: from the screen-left and a little toward the viewer (the painting's convention).
 // The terminator on a vertical body is where the ground normal is perpendicular to it.
@@ -230,7 +242,7 @@ const hemS = { f: 0, r: 0, z: 0, vf: 0, vr: 0, vz: 0 };
 // and grab (the wind's got it: arms thrown up after the canvas).
 // Thirst (ui/pack.js): drink (a pull from the flask, standing; drinkT the seconds in) and snow
 // (kneeling, a mittful of snow scooped up and eaten; snowT the seconds in).
-const CP = { rum: 0, slot: 0, out: 0, pack: 0, kneel: 0, dig: 0, eat: 0, eatT: 0, job: 0, grab: 0, stage: 0, drink: 0, drinkT: 0, snow: 0, snowT: 0 };
+const CP = { rum: 0, slot: 0, out: 0, pack: 0, flap: 0, kneel: 0, dig: 0, eat: 0, eatT: 0, job: 0, grab: 0, stage: 0, drink: 0, drinkT: 0, snow: 0, snowT: 0 };
 function updateCompassPose(dt) {
   const st = state.compass, ph = st?.phase || 'idle', tgt = !!st?.target;
   const J = state.pup?.job, caught = !!(J && J.coll && J.coll.t < 1.15);
@@ -252,6 +264,9 @@ function updateCompassPose(dt) {
   // the pack comes off one shoulder and round to the front over ~0.6 s, and back on after
   // (a ration comes out of it too)
   CP.pack = clamp(CP.pack + ((ph === 'rummage' && !tgt) || ph === 'eat' ? 1 : -1) * dt / 0.6);
+  // the flap thrown back while the pack is open (the slot screen, a transfer, a meal, a drink)
+  const open = ph === 'slot' || ph === 'transfer' || ph === 'eat' || ph === 'drink';
+  CP.flap = approach(CP.flap, open ? 1 : 0, open ? 7 : 5, dt);
 }
 const puffs = [], kicks = [];
 let rng = 1234567;
@@ -2715,16 +2730,27 @@ function buildRig() {
     hem.push([pf, pr, Math.max(0.12, pz)]);
   }
 
-  // Small rucksack on the back.
-  const pack = [];
-  for (const [f, r, z] of [[-1.0, -0.8, 2.4], [-1.0, 0.8, 2.4], [-1.0, 0.8, 0.8], [-1.0, -0.8, 0.8],
-    [-1.4, -0.72, 2.3], [-1.4, 0.72, 2.3], [-1.4, 0.72, 0.95], [-1.4, -0.72, 0.95]]) {
-    // rummaging: off one shoulder and round the side to the front, held low by the hands
-    const k = smooth(0, 1, CP.pack), th = Math.PI * k;
-    const c = Math.cos(th), sn = Math.sin(th);
-    const pf = (f * c - r * sn + 0.55 * k) * (1 - 0.35 * resW), prr = f * sn + r * c, pz = z - 1.5 * k + 0.5 * Math.sin(th) + 0.7 * resW;
-    pack.push(torsoToBody([pf, prr, pz], tf));
-  }
+  // The rucksack: a big framed canvas pack from the shoulder blades to the hips, a bedroll strapped
+  // across its top, the flap over the rest (lifted while the pack is open), shoulder straps over the coat.
+  // Rummaging it comes off one shoulder and round the side to the front, held low by the hands.
+  const pkK = smooth(0, 1, CP.pack), pth = Math.PI * pkK, pc = Math.cos(pth), psn = Math.sin(pth);
+  // (bent over, the back of the coat is kept down behind the hood: the pack settles with it, most at the top)
+  const bentDrop = Math.max(0, Math.sin(leanF)) * 1.5 * (1 - pkK);
+  const P2B = ([f, r, z]) => {
+    const v = torsoToBody([f * pc - r * psn + 0.55 * pkK, f * psn + r * pc, z - 1.5 * pkK + 0.5 * psn], tf);
+    v[2] -= bentDrop * (0.35 + 0.65 * clamp(z / 4.3));
+    return v;
+  };
+  const box = PACK_BOX.map(P2B);
+  // the flap: hinged just behind the bedroll, over the top and down the outer face; opened, it swings
+  // up about the hinge
+  // (thrown open, it's flung back over the outer face inside out: the pale lining down the back of
+  // the pack, the dark mouth open on top)
+  const fk = smooth(0, 1, CP.flap);
+  const flap = PACK_FLAP.map((v, i) => P2B(mix(v, PACK_FLAP_OPEN[i], fk)));
+  const roll = PACK_ROLL.map(P2B);
+  const straps = pkK > 0.3 ? [] : [-1, 1].map(s => PACK_STRAP.map(([f, r, z]) => torsoToBody([f, s * r, z], tf)));
+  const pack = { box, flap, roll, straps, mouth: PACK_MOUTH.map(P2B), c: P2B([-1.75, 0, 2.3]), cIn: P2B([-1.2, 0, 2.3]), up: P2B([-1.75, 0, 4.3]) };
 
   return { yaw, legs, arms, head, peak, drape, faceYaw, facePitch, top, hem, pack, shoulderC, hips: [hx, hr, hz], tf, sinkNow, hemC, twist, hemYaw, lying: O ? O.hemAttach * ow : 0, climbing: O && O.full && P.mode === 'climb' ? ow : 0, shadowOff };
 }
@@ -2876,7 +2902,7 @@ const C = {
   coat: SIGNAL.lit, panel: mixHex(SIGNAL.lit, '#f4efe4', 0.6), hood: SIGNAL.lit, rim: mixHex(SIGNAL.lit, '#f4efe4', 0.45),
   trousersL: '#2c2c2e', trousersD: '#1b1b1d', boot: '#151515', mitt: '#1e1e20',
   sleeveL: SIGNAL.lit, sleeveD: SIGNAL.shadow, face: '#121418', nose: '#7c7c7c',
-  pack: '#3e3e3c',
+  pack: '#6f6253', packHi: '#8f8171', packLo: '#4f4539', packFlap: '#5d5145', packRoll: '#9e8f79', packRollLo: '#7e715e', packStrap: '#2f2924', packLining: '#b5a892',
 };
 const DEEP = hexRGB(SIGNAL.deep).join(',');      // shading and creases on the yellow cloth
 
@@ -2962,7 +2988,7 @@ function drawFigure(ctx, rig, X, Y) {
   // soaked, the cloth goes a deeper, darker ochre (still warm in hue: not the cold grey)
   const wq = Math.round(clamp(state.body?.wet || 0) * 10) / 10;
   const base = wq ? wetCoat(dl, wq) : dl ? dullCoat(dl) : C0;
-  for (const k of ['coat', 'panel', 'hood', 'rim', 'sleeveL', 'sleeveD', 'pack']) C[k] = dk ? shade(base[k], dk) : base[k];
+  for (const k of ['coat', 'panel', 'hood', 'rim', 'sleeveL', 'sleeveD', 'pack', 'packHi', 'packLo', 'packFlap', 'packRoll', 'packRollLo', 'packStrap', 'packLining']) C[k] = dk ? shade(base[k], dk) : base[k];
   const pr = v => { const w = toWorld(v, yaw); return [X + w.x, Y + w.y - w.z]; };
   const depth = v => toWorld(v, yaw).g;
   const cxBody = pr(rig.hips)[0];
@@ -3098,13 +3124,16 @@ function drawFigure(ctx, rig, X, Y) {
     }
   }
 
-  const packD = depth(rig.pack[4]);
+  // the rucksack: behind the body it goes under the coat (only the bulge, the top and the bedroll
+  // show past it); on our side, over it. The shoulder straps always lie over the coat.
+  const packFront = depth(rig.pack.c) >= depth(rig.pack.cIn);
   const packOn = sitW < 0.5;   // (sat huddled: the rucksack is lost in the coat)
-  if (packD < 0 && packOn) drawPack(ctx, rig, pr);
+  if (!packFront && packOn) drawPack(ctx, rig, pr, depth);
 
   drawCoat(ctx, rig, pr, depth);
 
-  if (packD >= 0 && packOn) drawPack(ctx, rig, pr);
+  if (packOn) drawStraps(ctx, rig, pr);
+  if (packFront && packOn) drawPack(ctx, rig, pr, depth);
   const out = arms.filter(A => !A.behind && !A.hidden && !A.under && !(A.cp && fromBehind) && A.active > 0.3);
   for (const A of out) if (!A.overHead && A.dh <= headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
   drawHood(ctx, rig, pr);
@@ -3292,25 +3321,109 @@ function drawCoat(ctx, rig, pr, depth) {
   inkOutline(ctx, poly, 0.13, 0.36);
 }
 
-function drawPack(ctx, rig, pr) {
-  const c = rig.pack.map(pr);
+// The rucksack is a soft box: each visible face filled in a shade of weathered canvas by how it
+// turns to the light (upper left), then the flap, the buckled straps, the bedroll across the top.
+const PACK_FACES = [[4, 5, 6, 7], [1, 0, 3, 2], [0, 1, 5, 4], [3, 7, 6, 2], [0, 4, 7, 3], [5, 1, 2, 6]];   // outer, inner, top, bottom, left, right
+const PACK_INK = 'rgba(30,26,22,0.75)', PACK_MOUTH_C = '#1f1b18', PACK_BUCKLE = '#9a9a96';
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const avg3 = pts => pts.reduce((a, v) => [a[0] + v[0] / pts.length, a[1] + v[1] / pts.length, a[2] + v[2] / pts.length], [0, 0, 0]);
+// a world-space direction turned toward the camera (seen from ~55 degrees up): > 0 = facing us
+const camFacing = w => (w.g * 0.57 + w.z * 0.82) / (Math.hypot(w.x, w.g, w.z) || 1);
+function drawPack(ctx, rig, pr, depth) {
+  const K = rig.pack, yaw = rig.yaw, B = K.box, c = B.map(pr);
   const hull = dense(convexHull(c), null, 3);
   ctx.beginPath(); polyPath(ctx, hull); ctx.fillStyle = C.pack; ctx.fill();
-  const cx = hull.reduce((s, p) => s + p[0], 0) / hull.length;
-  darkSide(ctx, hull, [cx + 0.1, 0], [cx + 0.25, 1], 0.55, 0, '26,26,28');   // the pack stays neutral grey
-  const f0 = pr(mix(rig.pack[4], rig.pack[7], 0.35)), f1 = pr(mix(rig.pack[5], rig.pack[6], 0.35));
-  ctx.beginPath(); ctx.moveTo(f0[0], f0[1]); ctx.lineTo(f1[0], f1[1]);
-  ctx.strokeStyle = 'rgba(30,30,30,0.7)'; ctx.lineWidth = 0.15; ctx.stroke();
+  const ctr = avg3(B), vis = [];
+  ctx.save();
+  ctx.beginPath(); polyPath(ctx, hull); ctx.clip();
+  PACK_FACES.forEach((F, fi) => {
+    const w = toWorld(sub3(avg3(F.map(i => B[i])), ctr), yaw), v = camFacing(w);
+    vis[fi] = v > 0.02;
+    if (!vis[fi]) return;
+    const l = Math.hypot(w.x, w.g, w.z) || 1;
+    const lit = 0.5 + 0.55 * w.z / l - 0.5 * w.x / l - 0.15 * w.g / l;
+    ctx.beginPath(); polyPath(ctx, F.map(i => c[i]));
+    ctx.fillStyle = lit > 0.62 ? C.packHi : lit > 0.38 ? C.pack : C.packLo; ctx.fill();
+  });
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const seam = (a, b, wd = 0.1, col = PACK_INK) => { const p = pr(a), q = pr(b); ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.strokeStyle = col; ctx.lineWidth = wd; ctx.stroke(); };
+  // fine ink seams where the faces we see meet
+  if (vis[2] && vis[0]) seam(B[4], B[5]);
+  if (vis[2] && vis[4]) seam(B[0], B[4]);
+  if (vis[2] && vis[5]) seam(B[1], B[5]);
+  if (vis[0] && vis[4]) seam(B[4], B[7]);
+  if (vis[0] && vis[5]) seam(B[5], B[6]);
+  ctx.restore();
+
+  // the flap: shut, it lies over the top and down the outer face; open, it stands up off the
+  // dark mouth of the pack
+  const F = K.flap, f = F.map(pr);
+  const flapPart = (idx, col) => { const pts = idx.map(i => f[i]); ctx.beginPath(); polyPath(ctx, pts); ctx.fillStyle = col; ctx.fill(); inkOutline(ctx, pts, 0.06, 0.16); };
+  if (CP.flap > 0.05) {
+    if (vis[2]) { ctx.beginPath(); polyPath(ctx, K.mouth.map(pr)); ctx.fillStyle = PACK_MOUTH_C; ctx.globalAlpha = smooth(0.05, 0.5, CP.flap); ctx.fill(); ctx.globalAlpha = 1; }
+    if (vis[0] || CP.flap < 0.9) flapPart([0, 1, 2, 3, 4, 5], CP.flap > 0.5 ? C.packLining : C.packFlap);   // (the paler lining)
+  } else {
+    if (vis[2]) flapPart([0, 1, 4, 5], C.packFlap);
+    if (vis[0]) {
+      flapPart([1, 2, 3, 4], C.packFlap);
+      // two buckled straps down from under the flap
+      for (const t of [0.27, 0.73]) {
+        const a = mix(F[2], F[3], t), b = mix(B[7], B[6], t);
+        seam(mix(F[1], F[4], t), mix(a, b, 0.6), 0.24, C.packStrap);
+        const q = pr(mix(a, b, 0.1));
+        ctx.fillStyle = PACK_BUCKLE; ctx.fillRect(q[0] - 0.17, q[1] - 0.12, 0.34, 0.24);
+      }
+      seam(mix(B[7], B[4], 0.22), mix(B[6], B[5], 0.22), 0.09);   // the outer pocket, low down
+    }
+  }
   inkOutline(ctx, hull, 0.1, 0.28);
+
+  // the bedroll lashed across the top: a pale rolled tube shaded underneath, two ties, the spiral
+  // on the end toward us
+  const R = K.roll.map(pr);
+  limb(ctx, R, ROLL_R * 2, C.packRoll, 0.12);
+  const dx = R[1][0] - R[0][0], dy = R[1][1] - R[0][1], dl = Math.hypot(dx, dy) || 1;
+  let nx = -dy / dl, ny = dx / dl; if (nx + ny < 0) { nx = -nx; ny = -ny; }   // toward the lower right
+  const sh = ROLL_R * 0.5;
+  ctx.beginPath(); ctx.moveTo(R[0][0] + nx * sh, R[0][1] + ny * sh); ctx.lineTo(R[1][0] + nx * sh, R[1][1] + ny * sh);
+  ctx.lineCap = 'round'; ctx.lineWidth = ROLL_R * 0.9; ctx.strokeStyle = C.packRollLo; ctx.stroke();
+  ctx.strokeStyle = C.packStrap; ctx.lineWidth = 0.16;
+  for (const t of [0.22, 0.78]) {
+    const m = [lerp(R[0][0], R[1][0], t), lerp(R[0][1], R[1][1], t)];
+    ctx.beginPath(); ctx.moveTo(m[0] - nx * ROLL_R, m[1] - ny * ROLL_R); ctx.lineTo(m[0] + nx * ROLL_R, m[1] + ny * ROLL_R); ctx.stroke();
+  }
+  const ax = sub3(K.roll[1], K.roll[0]);
+  if (Math.abs(toWorld(ax, yaw).g) / (Math.hypot(...ax) || 1) > 0.45) {
+    const e = R[depth(K.roll[0]) > depth(K.roll[1]) ? 0 : 1];
+    ctx.beginPath(); ctx.arc(e[0], e[1], ROLL_R * 0.55, 0.3, 0.3 + Math.PI * 1.5);
+    ctx.strokeStyle = PACK_INK; ctx.lineWidth = 0.09; ctx.stroke();
+  }
+
   // ice axes carried but not in hand: strapped on the back of the pack, one diagonal, the head
   // up past its top
   if (CP.pack < 0.3 && state.pack?.slots.some(q => q && q.id === 'axes' && !q.worn)) {
-    const lo = rig.pack[6], hi = rig.pack[4];
-    const a = pr(mix(hi, lo, 1.05)), b = pr(mix(lo, hi, 1.3)), hd = pr(mix(lo, hi, 1.3).map((v, i) => v + [0, 0.7, -0.15][i]));
+    const lo = B[6], hi = mix(B[4], B[7], 0.08);
+    const a = pr(mix(hi, lo, 1.05)), b = pr(mix(lo, hi, 1.22)), hd = pr(mix(lo, hi, 1.22).map((v, i) => v + [0, 0.7, -0.15][i]));
     ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 0.3; ctx.stroke();
-    const hb = pr(mix(lo, hi, 1.3).map((v, i) => v + [0, -0.6, 0.1][i]));
+    const hb = pr(mix(lo, hi, 1.22).map((v, i) => v + [0, -0.6, 0.1][i]));
     ctx.beginPath(); ctx.moveTo(hb[0], hb[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(hd[0], hd[1]); ctx.lineWidth = 0.32; ctx.stroke();
+  }
+}
+// The shoulder straps over the coat: over the top of each shoulder (seen from any side, from
+// above) and down the chest where that side of the coat turns to us.
+function drawStraps(ctx, rig, pr) {
+  for (const S of rig.pack.straps) {
+    let run = [];
+    const flush = () => { if (run.length > 1) limb(ctx, run.map(pr), 0.42, C.packStrap, 0.07); run = []; };
+    for (let i = 0; i < S.length - 1; i++) {
+      const a = S[i], b = S[i + 1], m = mix(a, b, 0.5);
+      const onTop = PACK_STRAP[i][2] > 4.1 && PACK_STRAP[i + 1][2] > 4.1;
+      const v = Math.sin(rig.yaw + Math.atan2(m[1] - rig.shoulderC[1], m[0] - rig.shoulderC[0]));
+      if (onTop || v > 0.12) { if (!run.length) run.push(a); run.push(b); } else flush();
+    }
+    flush();
   }
 }
 
