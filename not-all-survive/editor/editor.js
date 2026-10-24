@@ -577,7 +577,7 @@ addEventListener('keydown', e => {
   if (k === 'Alt') { e.preventDefault(); altDown = true; render(); return; }
   if (mod && (k === 'z' || k === 'Z')) { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); scheduleSave(); return; }
   if (mod && (k === 'y' || k === 'Y')) { e.preventDefault(); doRedo(); scheduleSave(); return; }
-  if (mod && (k === 's' || k === 'S')) { e.preventDefault(); exportPng(); return; }
+  if (mod && (k === 's' || k === 'S')) { e.preventDefault(); e.shiftKey ? saveFile(true) : saveFile(false); return; }
   if (mod) return;
   if (k === 'Escape') { if (!ui.help.hidden) ui.help.hidden = true; shape = null; mode = null; render(); return; }
   if (k === '?' || (k === '/' && e.shiftKey)) { ui.help.hidden = !ui.help.hidden; return; }
@@ -643,6 +643,8 @@ function buildPanel() {
   $('helpBtn').onclick = () => (ui.help.hidden = false);
   ui.help.onclick = e => { if (e.target === ui.help || e.target.classList.contains('close')) ui.help.hidden = true; };
   $('export').onclick = exportPng;
+  $('save').onclick = () => saveFile(false);
+  $('saveAs').onclick = () => saveFile(true);
   $('import').onclick = () => $('importFile').click();
   $('importFile').onchange = importPng;
   $('reset').onclick = revertAll;
@@ -736,6 +738,43 @@ function exportPng() {
     count(); showStatus();
     toast('Downloaded terrain-edits.png: put it in not-all-survive/assets/ and commit', 4500);
   }, 'image/png');
+}
+
+// --- Save / Save As (Joe): straight to a file on disk, remembering where it went ----------
+// Chrome / Edge's File System Access API. The file handle is kept in IndexedDB, so Save goes
+// back to the same file next time (even after a reload; the browser may ask once to allow it),
+// and Save As opens its picker in the same folder. Browsers without it fall back to a download.
+const FS_OK = 'showSaveFilePicker' in window;
+const idb = (mode, fn) => new Promise((res, rej) => {
+  const r = indexedDB.open('nas-editor', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('kv');
+  r.onerror = () => rej(r.error);
+  r.onsuccess = () => { const tx = r.result.transaction('kv', mode), q = fn(tx.objectStore('kv')); tx.oncomplete = () => res(q?.result); tx.onerror = () => rej(tx.error); };
+});
+const getHandle = () => idb('readonly', st => st.get('saveHandle')).catch(() => null);
+const putHandle = h => idb('readwrite', st => st.put(h, 'saveHandle')).catch(() => {});
+async function saveFile(as) {
+  if (!FS_OK) return exportPng();
+  save();
+  try {
+    let h = as ? null : await getHandle();
+    if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
+    if (!h) {
+      const last = await getHandle();
+      h = await window.showSaveFilePicker({
+        suggestedName: last?.name || 'terrain-edits.png', ...(last ? { startIn: last } : {}),
+        types: [{ description: 'Terrain edits PNG', accept: { 'image/png': ['.png'] } }],
+      });
+      await putHandle(h);
+    }
+    const blob = await new Promise(r => encode(false).toBlob(r, 'image/png'));
+    const w = await h.createWritable(); await w.write(blob); await w.close();
+    exported.set(edit); exportedThisSession = true;
+    count(); showStatus();
+    toast(`Saved ${h.name}`, 2500);
+  } catch (e) {
+    if (e?.name !== 'AbortError') { console.warn('[editor] save failed', e); toast('Could not save there; downloading instead', 3000); exportPng(); }
+  }
 }
 
 async function importPng(e) {

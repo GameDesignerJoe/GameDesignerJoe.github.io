@@ -66,7 +66,11 @@
    </div>
     <footer class="files">
       <button id="playtest" class="primary" title="Open the game at the centre of this view with your edits (P)">Play-test here</button>
-      <button id="export" title="Download terrain-edits.png to drop into not-all-survive/assets/">Export terrain-edits.png</button>
+      <div class="pair">
+        <button id="save" title="Save terrain-edits.png to the same place as last time (Ctrl+S)">Save</button>
+        <button id="saveAs" title="Choose where to save terrain-edits.png; remembered for next time (Ctrl+Shift+S)">Save As…</button>
+      </div>
+      <button id="export" title="Download terrain-edits.png to your Downloads folder">Download terrain-edits.png</button>
       <div class="pair">
         <button id="import" title="Load an edits PNG">Import…</button>
         <button id="reset" title="Throw away browser edits and go back to the committed file">Revert…</button>
@@ -109,7 +113,7 @@
         <b>grey stipple</b> is ground he can’t reach at all. It updates a moment after you stop painting.</p>
       <h3>Saving</h3>
       <p>Your work saves itself in this browser as you paint, and the Play-test button uses it.
-        To make it permanent for everyone, click <b>Export terrain-edits.png</b>, put the file in
+        To make it permanent for everyone, click <b>Save As…</b> once and pick not-all-survive/assets/terrain-edits.png (after that, <b>Save</b> or Ctrl+S writes straight there), or download it and put the file in
         <code>not-all-survive/assets/</code> (replacing the old one) and commit it. The editor
         loads that file when it opens.</p>
     </div>
