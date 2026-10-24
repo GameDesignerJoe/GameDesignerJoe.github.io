@@ -12,7 +12,7 @@ let ctx = null, B = null, wind = null;
 let muteGain = null, fadeGain = null, dull = null, fire = null;
 let insideK = 0, popT = 0, dullF = 20000, dullSet = 20000;
 const bus = {};
-let muted = false, unlockedAt = -1e9;
+let muted = (() => { try { return localStorage.getItem('nas_muted') === '1'; } catch { return false; } })(), unlockedAt = -1e9;   // (remembered on this device)
 let time = 0, windTick = 0, tidyTick = 4;
 let echoProx = 0, rockNear = 0, echo = null;
 let shelter = 0, exertion = 0, nextBreath = 0, breathIn = true;
@@ -122,6 +122,7 @@ function build() {
 
 function setMuted(m) {
   muted = m;
+  try { localStorage.setItem('nas_muted', m ? '1' : '0'); } catch { /* private mode */ }
   if (!muteGain) return;
   const t = ctx.currentTime;
   muteGain.gain.cancelScheduledValues(t);
@@ -581,4 +582,5 @@ export function update(dt) {
 }
 
 // Console/test hook: NAS.audio.ctx etc.
-state.audio = { get ctx() { return ctx; }, get muted() { return muted; }, setMuted, voices };
+// out: the mute stage, for other modules' own graphs (the radio, the recorder hiss) so Sound: off silences them too
+state.audio = { get ctx() { return ctx; }, get muted() { return muted; }, get out() { return muteGain || null; }, setMuted, voices };

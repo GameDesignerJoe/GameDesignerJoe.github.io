@@ -105,7 +105,7 @@ export function initMenu() {
     const bf = state.lighting.brightForced;
     panel.querySelector('[data-act="bright"]').textContent = `Bright day: ${bf === null ? 'auto' : bf ? 'on' : 'off'}`;
     sel.value = state.quality.mode === 'auto' ? 'auto' : state.quality.level;
-    soundBtn.textContent = `Sound: ${state.audio?.muted ? 'off' : 'on'}`;
+    soundBtn.textContent = state.audio?.muted ? 'Sound: off (tap to unmute)' : 'Sound: on (tap to mute)';
     panel.querySelector('[data-act="tview"]').textContent = `Terrain view: ${state.terrainView ? 'on' : 'off'}`;
     panel.querySelector('[data-act="motion"]').textContent = `Reduce motion: ${state.reduceMotion ? 'on' : 'off'}`;
   };

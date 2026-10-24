@@ -43,7 +43,7 @@ function startNoise(c) {
   const src = c.createBufferSource(); src.buffer = buf; src.loop = true;
   const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.8;
   const g = c.createGain(); g.gain.value = 0;
-  src.connect(f).connect(g).connect(c.destination); src.start();
+  src.connect(f).connect(g).connect(state.audio?.out || c.destination); src.start();
   noise = { c, src, g };
 }
 function stopNoise() { try { noise?.src.stop(); } catch { /* done */ } noise = null; }
@@ -53,7 +53,7 @@ function tone(c, freq, dur, vol) {
   o.type = 'sine'; o.frequency.value = freq;
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.006);
   g.gain.setValueAtTime(vol, t + Math.max(0.008, dur - 0.012)); g.gain.linearRampToValueAtTime(0, t + dur);
-  o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+  o.connect(g).connect(state.audio?.out || c.destination); o.start(t); o.stop(t + dur + 0.02);
 }
 
 export function update(dt) {
@@ -67,7 +67,7 @@ export function update(dt) {
   R.near = Math.max(0, Math.min(1, 1 - (d - AREA) / (FAR - AREA)));
   const storm = Math.max(state.weather?.whiteout || 0, (state.wind?.speed || 0) - 0.4);
   const c = ac();
-  if (!c) return;
+  if (!c) { if (noise) noise.g.gain.value = 0; return; }   // muted (or audio not started): no static either
   startNoise(c);
   // static: always there, louder in a storm, quieter as the signal takes over
   noise.g.gain.value = (0.012 + 0.02 * Math.min(1, storm)) * (1 - 0.6 * R.near * R.near);

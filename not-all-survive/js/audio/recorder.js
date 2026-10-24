@@ -26,7 +26,7 @@ function startHiss() {
     const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
     const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3200; f.Q.value = 0.6;
     const gain = ctx.createGain(); gain.gain.value = 0.015 * duck();
-    src.connect(f).connect(gain).connect(ctx.destination); src.start();
+    src.connect(f).connect(gain).connect(state.audio?.out || ctx.destination); src.start();
     hiss = { ctx, src, gain };
   } catch { hiss = null; }
 }
