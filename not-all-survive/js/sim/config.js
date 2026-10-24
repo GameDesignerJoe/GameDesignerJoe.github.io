@@ -10,7 +10,24 @@ export const SIM = {
 
   // the radio: it's heard as how quick the blips come (radio.js: gap 0.25 + 2.95 x (1 - near)^1.4 s);
   // a little noise on each listen, as an ear would have
-  radio: { noise: 0.003, every: 0.5 },
+  // far / area: the radio's own calibration (radio.js FAR, AREA): the blip rate read as a distance, for triangulating
+  radio: { noise: 0.003, every: 0.5, far: 1800, area: 120 },
+  // map memory: ground already walked weighs this much more per visit on a search leg's path (up to 4 visits);
+  // freshK: how much fresh ground counts against turning further from the way the signal favours
+  memory: { cell: 24, revisit: 0.8, freshK: 0.6 },
+  // triangulating, once hot and cold goes in circles: the blip rate at 3+ spread-out spots, as distances
+  tri: {
+    loopLegs: 6, loopBox: 230, loopVisits: 2.5,  // circling: the last loopLegs legs ended within loopBox px, or over ground walked this often
+    afterLegs: 14,                // ...or this many legs without finding them
+    spacing: 40,                  // a reading kept for the fix every this many px
+    maxReadings: 40, minArea: 4000,   // px² of the widest triangle of readings (else they're on a line)
+    maxRms: 40,                   // a fix worse than this (px) isn't trusted in the loud patch
+    sideLeg: 150,                 // walk this far square to the line for a reading off it
+    refix: 45,                    // s walking toward a fix before reading it again
+    renote: 40,                   // log the fix again when it moves this far
+    climbRatio: 2,                // the way to the fix this many x straight (+200) and a wall in between: fetch the axes and crampons
+  },
+
 
   // hot and cold: walk a leg, compare the blips at its end with its start
   search: {
@@ -24,7 +41,7 @@ export const SIM = {
     zoneCross: 280,               // how far to walk across the loud zone looking for its edge
     listen: 2,                    // s standing still listening at the start
     maxRatio: 1.8,                // a leg whose way round is longer than this x straight: try another way
-    plateau: 200,                 // s with no better signal: the straight way is barred, take long legs the long way round
+    plateau: 200,                 // s with no better signal: going in circles (the straight way is barred), triangulate
   },
   // seeing the beacon blink: within this, on screen (less in a white-out, a little more at night)
   spot: { range: 75, whiteoutK: 0.6, nightK: 1.2 },
@@ -73,6 +90,7 @@ export const SIM = {
     goOnWarmth: 0.7, goOnMax: 0.6, // keep going through the night only this warm and this rested
     stormWind: 0.82,              // the sustained wind over this, or a storm spell: shelter
     shelterWarmth: 0.4,           // this cold: shelter
+    buildFrom: 110,               // clock: the wind building after this (late day) means a storm by dusk: shelter now
     wetShelter: 0.3,              // this wet (through the ice, wading): shelter at once, out again dry
     leaveWarmth: 0.85,            // ...out again once this warm
     calmWind: 0.6,                // storm over once the wind is under this
@@ -92,7 +110,7 @@ export const SIM = {
     { id: 'puptent', why: 'for a night or a storm far from base' },
     { id: 'sheet', learned: 'wrap', why: 'to wrap the body' },
     { id: 'rope', learned: 'wrap', why: 'to tie the wrapping' },
-    { id: 'flare', n: 1, why: 'scares a bear off' },
+    { id: 'flare', n: 2, why: 'scares a bear off (one for each time it comes)' },
     { id: 'axes', pair: 'crampons', why: 'climb a cliff instead of going round' },
     { id: 'crampons', needs: 'axes', why: 'the axes need them' },
     { id: 'rifle', pair: 'cartridges', why: 'if the bear charges' },

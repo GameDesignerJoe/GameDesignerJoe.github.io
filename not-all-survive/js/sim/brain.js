@@ -87,7 +87,7 @@ export function stormy() {
   const ph = state.weather?.phase, w = state.wind;
   return ph === 'stormIn' || ph === 'storm' || ph === 'blizzard' || w.speed > SIM.camp.stormWind;   // (the sustained wind, not a gust)
 }
-const calm = () => !stormy() && state.wind.speed < SIM.camp.calmWind;
+const calm = () => !stormy() && state.wind.speed < SIM.camp.calmWind && !(state.weather?.phase === 'build' && (state.lighting?.clock ?? 0) >= SIM.camp.buildFrom);
 
 // --- where things are (all of it what any member of the party knows) ----------------------------------
 function sledStand() {
@@ -113,7 +113,7 @@ export function* mission() {
     if (Bu?.home) { goal('home: they brought them home'); H.stop(); yield; continue; }
     if (inside()) { yield* leaveTent(); yield; continue; }
     if (!M.intro && !D.found && state.member === 0) { yield* intro(); yield; continue; }
-    if (M.packedFor !== state.member || M.needKit || M.resupply) { yield* restock(); M.resupply = false; yield; continue; }
+    if (M.packedFor !== state.member || M.needKit || M.resupply || M.wantClimb) { yield* restock(); M.resupply = false; yield; continue; }
     if (M.needFallen) { yield* fromFallen(M.needFallen); M.needFallen = null; yield; continue; }
     if (!D.found) {
       if (!M.body && !state.radio?.on) { const ok = yield* radioOn(); if (!ok) { yield* searchBlind(); yield; continue; } }
@@ -156,7 +156,7 @@ function* radioOn() {
 // Packing at the sled: SIM.pack in order, while there's room; a pair only if both fit.
 function* restock() {
   const M = S.mem;
-  goal(M.needKit ? 'back to the sled for the sheet and rope' : M.resupply ? 'back to the sled for food' : 'to the sled: packing');
+  goal(M.needKit ? 'back to the sled for the sheet and rope' : M.wantClimb ? 'back to the sled for the axes and crampons' : M.resupply ? 'back to the sled for food' : 'to the sled: packing');
   const st = sledStand();
   const ok = yield* H.goTo(st.x, st.y, 4, { climb: false });
   if (ok !== true) { note('Sled', 'could not reach the sled: try again'); yield* H.jiggle(1.5); return; }
@@ -172,6 +172,18 @@ function* restock() {
       if (free() >= need) break;
       if (H.inPack(id)) { yield* H.putBack(id); note('Pack', `leave the ${name(id)}: room for the sheet and rope`); }
     }
+  }
+  // the climbing gear, wanted for the way to the estimate: room for it first (the rifle, then the flares go back;
+  // never the tent, the food or the wrapping: a storm far out with no tent kills)
+  if (M.wantClimb) {
+    const need = (H.inPack('axes') ? 0 : 1) + (H.inPack('crampons') ? 0 : 1);
+    for (const id of ['cartridges', 'rifle', 'flare']) {
+      if (free() >= need) break;
+      if (H.inPack(id)) { yield* H.putBack(id); note('Pack', `leave the ${name(id)}: room for the axes and crampons`); }
+    }
+    if (free() >= need) { for (const id of ['axes', 'crampons']) if (!H.inPack(id) && (yield* H.takeFrom(id, 1))) note('Pack', `take the ${name(id)}: the way to the estimate goes over a wall`); }
+    else note('Pack', 'no room for the axes and crampons without leaving the tent or food: go the long way round');
+    M.wantClimb = false;
   }
   for (const it of SIM.pack) {
     if (it.learned && !(SIM.knowsWrap || M.learned.has(it.learned))) continue;
@@ -232,18 +244,111 @@ function* fromFallen(ids) {
   if (H.inPack('radio') && !state.radio?.on && !state.distress.found) yield* radioOn();
 }
 
-// --- hot and cold -----------------------------------------------------------------------------------
-function legTarget(h, len, bold = false) {
+// --- hot and cold; and when that goes in circles, triangulating ---------------------------------------
+// Map memory: sim.js counts visits to coarse cells as they walk (S.visit). Legs prefer fresh ground, and the
+// paths for them are weighted off ground already walked (SIM.memory.revisit).
+export function visitsAt(x, y) {
+  const V = S.visit;
+  if (!V) return 0;
+  const i = Math.floor(x / V.c), j = Math.floor(y / V.c);
+  return i < 0 || j < 0 || i >= V.w || j >= V.h ? 9 : V.a[j * V.w + i];
+}
+function lineVisits(a, b) {
+  const k = Math.max(1, Math.ceil(hyp(a, b) / (S.visit?.c || 24)));
+  let s = 0;
+  for (let q = 1; q <= k; q++) s += Math.min(6, visitsAt(a.x + (b.x - a.x) * q / k, a.y + (b.y - a.y) * q / k));
+  return s / k;
+}
+function memPenalty() {
+  const V = S.visit;
+  if (!V) return null;
+  const k = SIM.memory.revisit, r = N.G / V.c;
+  return (i, j) => 1 + k * Math.min(4, V.a[Math.floor(j * r) * V.w + Math.floor(i * r)] || 0);
+}
+const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
+// The radio's blip rate read as a distance (the radio's own calibration: radio.js FAR / AREA): what a player
+// learns with the set in their hands. Within AREA it's all the same loud SOS: no distance to read.
+export const distOf = n => SIM.radio.area + (1 - n) * (SIM.radio.far - SIM.radio.area);
+
+function legTarget(h, len) {
   let x = P.x + Math.cos(h) * len, y = P.y + Math.sin(h) * len;
   // not into the frontier storm
   x = clamp(x, BORDER.left + 30, MAP_W - BORDER.right - 30); y = clamp(y, BORDER.top + 30, MAP_H - BORDER.bottom - 30);
   const p = N.nearestFree(x, y, 14, P.x, P.y, now());
   if (!p || hyp(p, P) < len * 0.35) return null;
   // not into where the bear was just seen
-  if (!bold && S.bearSeen && now() - S.bearSeen.t < 240 && hyp(p, S.bearSeen) < SIM.cost.bear.r && hyp(P, S.bearSeen) > hyp(p, S.bearSeen)) return null;
+  if (S.bearSeen && now() - S.bearSeen.t < 240 && hyp(p, S.bearSeen) < SIM.cost.bear.r && hyp(P, S.bearSeen) > hyp(p, S.bearSeen)) return null;
   return p;
 }
+// The best of a few headings round h (within spread): a short way there, over ground not walked yet.
+function pickLeg(h, spread, len) {
+  const Z = SIM.search;
+  let best = null;
+  for (let k = 0; k < 10; k++) {
+    const a = h + (k === 0 ? 0 : rand(-spread, spread) * (k > 6 ? 2 : 1));
+    const c = legTarget(a, len);
+    if (!c) continue;
+    const p = H.path(P.x, P.y, c.x, c.y);
+    if (!p || p.len > Z.maxRatio * hyp(c, P) + 40) continue;   // not a long way round for a short look
+    const fresh = lineVisits(P, c);
+    const score = fresh * SIM.memory.freshK + Math.abs(wrapA(a - h)) + Math.random() * 0.2;
+    if (!best || score < best.score) best = { a, c, score, fresh };
+  }
+  return best;
+}
 const spottedOr = extra => () => { const s = spotBody(); if (s) { S.mem.body = s; return true; } return !!extra?.(); };
+const spotNote = () => note('Spotted', `the beacon blinking, ${Math.round(hyp(S.mem.body, P))} px off`);
+
+// Going in circles? The last legs ended close together, or over ground walked again and again, or the best
+// signal hasn't got better for a long while: then hot and cold is beaten; triangulate.
+function circling() {
+  const M = S.mem, T2 = SIM.tri, ends = M.legEnds;
+  if (M.best && now() - (M.bestT ?? now()) > SIM.search.plateau) return `no better than ${gapOf(M.best.n).toFixed(1)} s for ${Math.round((now() - M.bestT) / 60)} min`;
+  if (ends.length >= T2.loopLegs) {
+    const last = ends.slice(-T2.loopLegs);
+    const xs = last.map(e => e.x), ys = last.map(e => e.y);
+    const box = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    if (box < T2.loopBox) return `the last ${T2.loopLegs} legs all ended within ${Math.round(box)} px`;
+    const rev = last.reduce((a, e) => a + e.fresh, 0) / last.length;
+    if (rev >= T2.loopVisits) return `going over the same ground (walked ~${rev.toFixed(1)} times already)`;
+  }
+  if (M.legs >= T2.afterLegs) return `${M.legs} legs of hot and cold`;
+  return '';
+}
+
+// Where the readings put the source: the point whose distance to each reading best matches what the blips said
+// there (trilateration, least squares over a grid round the strongest reading). Needs three or more readings
+// spread out (not all on one line: a line leaves a mirror image either side of it).
+function triangulate() {
+  const M = S.mem, T2 = SIM.tri, Z = SIM.search;
+  const R = M.readings.filter(r => r.n < Z.zone - 0.002).slice(-T2.maxReadings);
+  if (R.length < 3) return { need: 'readings', n: R.length };
+  let area = 0, tri = null;
+  for (let i = 0; i < R.length; i++) for (let j = i + 1; j < R.length; j++) for (let k = j + 1; k < R.length; k++) {
+    const a = Math.abs((R[j].x - R[i].x) * (R[k].y - R[i].y) - (R[k].x - R[i].x) * (R[j].y - R[i].y)) / 2;
+    if (a > area) { area = a; tri = [R[i], R[j], R[k]]; }
+  }
+  if (area < T2.minArea) {
+    // all on a line: which way it runs, to walk off it square
+    const a = R[0], b = R.reduce((m, r) => (hyp(r, a) > hyp(m, a) ? r : m), R[0]);
+    return { need: 'side', n: R.length, line: Math.atan2(b.y - a.y, b.x - a.x) };
+  }
+  const D = R.map(r => distOf(r.n));
+  const cost = (x, y) => { let s = 0; for (let i = 0; i < R.length; i++) { const e = Math.hypot(x - R[i].x, y - R[i].y) - D[i]; s += e * e; } return s; };
+  const r0 = R.reduce((m, r) => (r.n > m.n ? r : m), R[0]), rad = distOf(r0.n) + 80;
+  let bx = r0.x, by = r0.y, bc = Infinity;
+  for (let y = r0.y - rad; y <= r0.y + rad; y += 12) for (let x = r0.x - rad; x <= r0.x + rad; x += 12) {
+    if (x < 0 || y < 0 || x > MAP_W || y > MAP_H) continue;
+    const c = cost(x, y);
+    if (c < bc) { bc = c; bx = x; by = y; }
+  }
+  for (let step = 4; step >= 1; step /= 2) {
+    const cx = bx, cy = by;
+    for (let dy = -12; dy <= 12; dy += step) for (let dx = -12; dx <= 12; dx += step) { const c = cost(cx + dx, cy + dy); if (c < bc) { bc = c; bx = cx + dx; by = cy + dy; } }
+  }
+  return { x: bx, y: by, rms: Math.sqrt(bc / R.length), n: R.length, area };
+}
+
 function* search() {
   const M = S.mem, Z = SIM.search;
   if (M.heading === null) {
@@ -255,42 +360,29 @@ function* search() {
   }
   const n0 = heard(1.5);
   if (n0 === null) { yield* wait(0.5); return; }
-  if (n0 >= Z.zone || M.zone) { M.leg = null; yield* zoneSearch(); return; }
-  // well below the best so far: back to it
-  if (!M.leg && M.best && n0 < M.best.n - Z.lost && hyp(P, M.best) > 40 && now() - (M.bestT ?? now()) < Z.plateau) {
-    note('Search', `lost it (${gapOf(n0).toFixed(1)} s vs ${gapOf(M.best.n).toFixed(1)} s at the best): back to the best spot`);
-    goal('back to the best spot');
-    const r = yield* H.goTo(M.best.x, M.best.y, 12, { until: spottedOr(() => heard(1) >= Z.zone), timeout: 240 });
-    if (S.mem.body) { note('Spotted', `the beacon blinking, ${Math.round(hyp(S.mem.body, P))} px off`); return; }
-    M.heading = M.best.h + (Math.random() < 0.5 ? -1 : 1) * Math.PI / 2;
-    M.best.n = heard(1.5) ?? M.best.n;   // (heard again there: the ear's best was a little hopeful)
-    if (r !== true) M.heading += Math.PI;
-    return;
+  if (M.mode !== 'tri') {
+    const why = circling();
+    if (why) { M.mode = 'tri'; M.leg = null; note('Strategy', `${why}: going in circles, triangulate from the readings (${M.readings.length} so far)`); if (S.stats) S.stats.triangulated = now() - S.stats.t0; }
   }
+  if (M.mode === 'tri') { yield* triSearch(n0); return; }
+  if (n0 >= Z.zone || M.zone) { M.leg = null; yield* zoneSearch(); return; }
   // a leg broken into (a meal, the snowshoes, the bear) carries on where it was, judged from its own start
   let L = M.leg && now() - M.leg.t < 150 ? M.leg : null;
   if (!L) {
-    // no better for a long while (the straight way is barred: water, cliffs, the bear's ground): go the long way round
-    const bold = M.best && now() - (M.bestT ?? now()) > Z.plateau;
-    if (bold && !M.boldSaid) { note('Search', `no better than ${gapOf(M.best.n).toFixed(1)} s for ${Math.round((now() - M.bestT) / 60)} min: the straight way must be barred, go the long way round`); M.boldSaid = true; }
-    const len = bold ? Z.legFar * 1.8 : lerp(Z.legFar, Z.legNear, clamp(n0));
-    let tgt = null;
-    for (let k = 0; !tgt && k < 8; k++) {
-      if (k) M.heading += rand(0.5, 1.6) * (Math.random() < 0.5 ? -1 : 1);
-      const c = legTarget(M.heading, len, bold);
-      if (!c) continue;
-      const p = H.path(P.x, P.y, c.x, c.y);
-      if (p && p.len <= (bold ? Z.maxRatio * 3 : Z.maxRatio) * hyp(c, P) + 40) tgt = c;   // not a long way round for a short look
-    }
-    if (!tgt) { note('Search', 'hemmed in: no short way on from here'); M.heading += Math.PI; yield* H.jiggle(2); return; }
+    const len = lerp(Z.legFar, Z.legNear, clamp(n0));
+    const pick = pickLeg(M.heading, Z.jitter * Math.PI / 180 * 2, len) || pickLeg(M.heading + Math.PI / 2, 1.2, len) || pickLeg(M.heading - Math.PI / 2, 1.2, len);
+    if (!pick) { note('Search', 'hemmed in: no short way on from here'); M.heading += Math.PI; yield* H.jiggle(2); return; }
+    M.heading = pick.a;
     M.legs++;
-    L = M.leg = { start: { x: P.x, y: P.y }, n0, tgt, len, t: now() };
+    L = M.leg = { start: { x: P.x, y: P.y }, n0, tgt: pick.c, len, t: now(), fresh: pick.fresh };
   }
   const { start, tgt, len } = L;
   goal(`searching: leg ${M.legs}, ${deg(M.heading)}°, ${hearing(L.n0)}`);
-  const r = yield* H.goTo(tgt.x, tgt.y, 8, { until: spottedOr(() => heard(1) >= Z.zone), timeout: len / 3 + 40, maxRatio: Z.maxRatio * 3.5 });
+  const r = yield* H.goTo(tgt.x, tgt.y, 8, { until: spottedOr(() => heard(1) >= Z.zone), timeout: len / 3 + 40, maxRatio: Z.maxRatio * 3.5, penalty: memPenalty() });
   M.leg = null;
-  if (S.mem.body) { note('Spotted', `the beacon blinking, ${Math.round(hyp(S.mem.body, P))} px off`); return; }
+  M.legEnds.push({ x: P.x, y: P.y, fresh: L.fresh });
+  if (M.legEnds.length > 20) M.legEnds.shift();
+  if (M.body) { spotNote(); return; }
   yield* wait(0.6);
   const n1 = heard(1.2), moved = hyp(P, start);
   if (n1 === null) return;
@@ -300,26 +392,92 @@ function* search() {
   const n0l = L.n0, dn = (n1 - n0l) * Math.min(1.6, len / moved);
   const g0 = gapOf(n0l).toFixed(1), g1 = gapOf(n1).toFixed(1);
   if (dn > Z.eps) {
-    M.heading += rand(-Z.jitter, Z.jitter) * Math.PI / 180;
     note('Warmer', `blips quicker (${g0} -> ${g1} s): keep on, ${deg(M.heading)}°`);
   } else if (dn < -Z.eps) {
     const t = rand(Z.turnMin, Z.turnMax) * (Math.random() < 0.5 ? -1 : 1);
     M.heading += t * Math.PI / 180;
-    note('Colder', `blips slower (${g0} -> ${g1} s): turn ${Math.round(t)}°`);
+    note('Colder', `blips slower (${g0} -> ${g1} s): turn ${Math.round(t)}° (toward fresh ground)`);
   } else {
     const t = Z.sameTurn * (Math.random() < 0.5 ? -1 : 1);
     M.heading += t * Math.PI / 180;
     note('Same', `no change (${g0} s): try across, turn ${t}°`);
   }
 }
-// Within ~120 px the SOS is loud everywhere: walk across the loud patch to find its edges; the body
-// lies on the line through the middle of that crossing, square to it.
+
+// Triangulating: read off a fix from the readings, walk to it, read again on the way, and close in.
+function* triSearch(n0) {
+  const M = S.mem, Z = SIM.search, T2 = SIM.tri;
+  const fix = triangulate();
+  if (fix.need) {
+    // too few readings, or all along one line: walk a leg square to the line, over fresh ground
+    const h = fix.need === 'side' ? fix.line + (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2 : M.heading + Math.PI / 2;
+    const pick = pickLeg(h, 0.5, T2.sideLeg) || pickLeg(h + Math.PI, 0.5, T2.sideLeg) || pickLeg(Math.random() * 6.28, 3, T2.sideLeg);
+    if (!M.sideSaid || now() - M.sideSaid > 60) { note('Strategy', fix.need === 'side' ? `the ${fix.n} readings lie on one line: walk off it square for one to the side` : `only ${fix.n} readings: walk on for more`); M.sideSaid = now(); }
+    goal('triangulating: a reading off to the side');
+    if (!pick) { yield* H.jiggle(2); return; }
+    M.heading = pick.a;
+    yield* H.goTo(pick.c.x, pick.c.y, 8, { until: spottedOr(), timeout: 80, penalty: memPenalty() });
+    if (M.body) spotNote();
+    return;
+  }
+  const tgt = N.nearestFree(fix.x, fix.y, 14, P.x, P.y, now()) || { x: fix.x, y: fix.y };
+  const moved = !M.est || hyp(M.est, fix) > T2.renote;
+  M.est = { x: fix.x, y: fix.y, rms: fix.rms };
+  S.est = M.est;
+  const p = H.path(P.x, P.y, tgt.x, tgt.y), straight = hyp(tgt, P);
+  if (moved) note('Estimate', `~(${Math.round(fix.x)}, ${Math.round(fix.y)}) ±${Math.round(fix.rms)} px from ${fix.n} readings: heading there (${Math.round(straight)} px straight, ${p ? Math.round(p.len) + ' px to walk' : 'no way on foot'})`);
+  // the way is a long way round a cliff: the axes and crampons would take it straight
+  if (!M.climbAsked && !(H.inPack('axes') && H.inPack('crampons')) && count(state.sled, 'axes') && count(state.sled, 'crampons')
+      && (!p || p.len > T2.climbRatio * straight + 200) && H.wallTowards(tgt.x, tgt.y)) {
+    M.climbAsked = true; M.wantClimb = true;
+    note('Pack', `the way to the estimate is ${p ? Math.round(p.len) + ' px round' : 'not on foot'}, a wall lies straight: back to the sled for the axes and crampons`);
+    return;
+  }
+  goal(`to the estimate ~(${Math.round(fix.x)}, ${Math.round(fix.y)}), ${Math.round(straight)} px`);
+  // walk a while, then read the fix again with what was heard on the way
+  const r = yield* H.goTo(tgt.x, tgt.y, 10, { until: spottedOr(), timeout: T2.refix });
+  if (M.body) { spotNote(); return; }
+  if (r === true) {
+    // at the fix and nothing to see: circle out round it a little
+    M.estMiss = (M.estMiss || 0) + 1;
+    note('Strategy', `at the estimate and no beacon in sight (${M.estMiss}): look round it`);
+    for (const rr of [40, 80]) for (let k = 0; k < 6; k++) {
+      const a = k / 6 * Math.PI * 2, c = N.nearestFree(fix.x + Math.cos(a) * rr, fix.y + Math.sin(a) * rr, 5, P.x, P.y, now());
+      if (!c) continue;
+      yield* H.goTo(c.x, c.y, 10, { until: spottedOr(), timeout: 30 });
+      if (M.body) { spotNote(); return; }
+    }
+    if (M.estMiss >= 2) { M.readings = M.readings.slice(-6); note('Strategy', 'the fix is off: start the readings afresh'); M.estMiss = 0; }
+  } else if (r === false) {
+    M.estFail = (M.estFail || 0) + 1;
+    if (M.estFail >= 2 && !M.climbAsked && count(state.sled, 'axes') && count(state.sled, 'crampons') && !(H.inPack('axes') && H.inPack('crampons'))) {
+      M.climbAsked = true; M.wantClimb = true;
+      note('Pack', 'can\'t find a way to the estimate on foot: back to the sled for the axes and crampons');
+    }
+  }
+}
+// Within ~120 px the SOS is loud everywhere: with a fix, straight to it; without one, walk across the loud patch
+// to find its edges (the body lies on the line through the middle of that crossing, square to it).
 function* zoneSearch() {
   const M = S.mem, Z = SIM.search, sp = spottedOr();
   const loud = () => (heard(0.8) ?? 0) >= Z.zone;
-  if (!M.zone) { M.zone = { entry: { x: P.x, y: P.y }, h: M.heading, stage: 1, last: { x: P.x, y: P.y }, tries: 0 }; note('Search', 'the SOS loud and clear: cross the loud patch to find its far edge'); }
+  if (!M.zone) {
+    const fix = triangulate();
+    M.zone = { entry: { x: P.x, y: P.y }, h: M.heading, stage: 1, last: { x: P.x, y: P.y }, tries: 0 };
+    if (!fix.need && fix.rms < SIM.tri.maxRms) {
+      M.zone.stage = 0; M.zone.mid = { x: fix.x, y: fix.y }; M.est = S.est = fix;
+      note('Search', `the SOS loud and clear: the readings put them at ~(${Math.round(fix.x)}, ${Math.round(fix.y)})`);
+    } else note('Search', 'the SOS loud and clear: cross the loud patch to find its far edge');
+  }
   const z = M.zone;
-  goal(`searching the loud patch (${z.stage === 1 ? 'crossing it' : z.stage === 2 ? 'across the middle' : 'circling'})`);
+  goal(`searching the loud patch (${z.stage === 0 ? 'to the fix' : z.stage === 1 ? 'crossing it' : z.stage === 2 ? 'across the middle' : 'circling'})`);
+  if (z.stage === 0) {
+    const t = N.nearestFree(z.mid.x, z.mid.y, 10, P.x, P.y, now()) || z.mid;
+    yield* H.goTo(t.x, t.y, 10, { until: sp, timeout: 120 });
+    if (M.body) { spotNote(); return; }
+    z.stage = 3; z.ring = 1; z.k = 0;
+    return;
+  }
   if (z.stage === 1) {
     // straight on until it fades again
     let walked = 0;
@@ -328,7 +486,7 @@ function* zoneSearch() {
       if (!tgt) break;
       const a = { x: P.x, y: P.y };
       yield* H.goTo(tgt.x, tgt.y, 6, { until: sp, timeout: 30 });
-      if (M.body) { note('Spotted', `the beacon blinking, ${Math.round(hyp(M.body, P))} px off`); return; }
+      if (M.body) { spotNote(); return; }
       walked += hyp(P, a);
       if (hyp(P, a) < 10) break;
       if (loud()) z.last = { x: P.x, y: P.y }; else break;
@@ -340,16 +498,16 @@ function* zoneSearch() {
   }
   if (z.stage === 2) {
     yield* H.goTo(z.mid.x, z.mid.y, 10, { until: sp, timeout: 90 });
-    if (M.body) { note('Spotted', `the beacon blinking, ${Math.round(hyp(M.body, P))} px off`); return; }
+    if (M.body) { spotNote(); return; }
     for (const sd of [1, -1]) {
       const h = z.h + sd * Math.PI / 2;
       let tgt = null;
       for (let len = Z.zoneCross / 2; len >= 40 && !tgt; len -= 30) tgt = legTarget(h, len);
       if (!tgt) continue;
       yield* H.goTo(tgt.x, tgt.y, 10, { until: sp, timeout: 90 });
-      if (M.body) { note('Spotted', `the beacon blinking, ${Math.round(hyp(M.body, P))} px off`); return; }
+      if (M.body) { spotNote(); return; }
       yield* H.goTo(z.mid.x, z.mid.y, 10, { until: sp, timeout: 90 });
-      if (M.body) { note('Spotted', `the beacon blinking, ${Math.round(hyp(M.body, P))} px off`); return; }
+      if (M.body) { spotNote(); return; }
     }
     z.stage = 3; z.ring = 1; z.k = 0;
     note('Search', 'not on that line: circle out round the middle');
@@ -361,9 +519,9 @@ function* zoneSearch() {
   const tgt = N.nearestFree(z.mid.x + Math.cos(a) * r, z.mid.y + Math.sin(a) * r, 6, P.x, P.y, now());
   z.k++;
   if (z.k >= n) { z.k = 0; z.ring++; }
-  if (z.ring > 5) { note('Search', 'lost the patch: back to hot and cold'); M.zone = null; M.heading = Math.random() * Math.PI * 2; return; }
+  if (z.ring > 5) { note('Strategy', 'lost the loud patch: triangulate again'); M.zone = null; M.mode = 'tri'; return; }
   if (tgt) yield* H.goTo(tgt.x, tgt.y, 10, { until: sp, timeout: 45 });
-  if (M.body) note('Spotted', `the beacon blinking, ${Math.round(hyp(M.body, P))} px off`);
+  if (M.body) spotNote();
 }
 // no radio at all (lost with a member, none on the sled): wander, looking
 function* searchBlind() {
@@ -580,7 +738,8 @@ export function* bear() {
     if (!b) break;
     const d = hyp(b, P), st = b.st, H2 = state.hunt;
     S.bearSeen = { x: b.x, y: b.y, t: now() };
-    if (state.burden.mode === 'carry' && (st === 'warn' || st === 'charge' || d < 70) && !state.burden.job) {
+    // (burdened there's no backing off facing it, and carrying no flare: hands free first)
+    if (state.burden.mode && (st === 'warn' || st === 'charge' || d < 70) && !state.burden.job) {
       say('down', `${st} ${Math.round(d)} away: set the body down, hands free`);
       if (yield* H.openRow(H.playerPt)) yield* H.actTap('down');
       yield* until(() => !state.burden.mode, 2);
@@ -617,8 +776,12 @@ export function* bear() {
     goal(`backing away from the bear (${Math.round(d)} px)`);
     let ax = P.x - b.x, ay = P.y - b.y;
     const al = Math.hypot(ax, ay) || 1; ax /= al; ay /= al;
-    // round any rock behind
-    if (!N.freeAt(P.x + ax * 8, P.y + ay * 8)) { const s = Math.random() < 0.5 ? 1 : -1; [ax, ay] = [ax * 0.3 - ay * s, ay * 0.3 + ax * s]; }
+    // a clear line to back along (no rock, open water or thin ice behind), as near straight away from it as there is
+    { const a0 = Math.atan2(ay, ax);
+      for (const da of [0, 0.26, -0.26, 0.52, -0.52, 0.79, -0.79, 1.05, -1.05, 1.31, -1.31, 1.57, -1.57]) {
+        const a = a0 + da, ok = [8, 16, 26].every(r => { const x = P.x + Math.cos(a) * r, y = P.y + Math.sin(a) * r; return N.freeAt(x, y) && N.terrainCode(x, y) !== 3; });
+        if (ok) { ax = Math.cos(a); ay = Math.sin(a); break; }
+      } }
     if (H.canSteer()) H.steer(ax, ay); else H.stop();
     yield;
   }
@@ -681,9 +844,12 @@ function* pitch() {
 }
 function* enterTent(kind) {
   const t0 = now();
-  for (let k = 0; k < 3 && !inside(); k++) {
-    let pt;
-    pt = kind === 'camp' ? H.tentPoint() : H.pupPoint();
+  for (let k = 0; k < 6 && !inside(); k++) {
+    // right up to the door first: in a gale the knockdowns break a long walk to it
+    const d = kind === 'camp' ? tentDoor() : pupDoor();
+    if (d && Math.hypot(P.x - d.fx, P.y - d.fy) > 8) yield* H.goTo(d.fx, d.fy, 4, { climb: false, timeout: 40 });
+    yield* until(() => P.mode === 'walk' || P.mode === 'cower', 6);
+    const pt = kind === 'camp' ? H.tentPoint() : H.pupPoint();
     if (!pt) return;
     H.stop();
     H.press(pt.x, pt.y, true); yield; H.release(); yield;

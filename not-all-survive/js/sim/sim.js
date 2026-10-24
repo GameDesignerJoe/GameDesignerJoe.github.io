@@ -22,6 +22,7 @@ import { count } from '../items.js';
 import * as T from '../world/terrain.js';
 import * as N from './nav.js';
 import { SIM, S } from './config.js';
+import { MAP_W, MAP_H } from '../state.js';
 import * as H from './hands.js';
 import * as Br from './brain.js';
 
@@ -29,8 +30,10 @@ const P = state.player;
 const RUNS_KEY = 'nas_sim_runs';
 const hyp = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 state.sim = S;
-S.on = true;
+S.on = state.params.has('sim');   // dormant otherwise: the gear menu's "Watch it play" turns it on and off live (S.toggle)
 S.loop = state.params.get('sim') === 'loop';
+try { S.hide = localStorage.getItem('nas_simPanel') === 'hidden'; } catch { S.hide = false; }
+const saveHide = () => { try { localStorage.setItem('nas_simPanel', S.hide ? 'hidden' : 'shown'); } catch { /* private mode */ } };
 try { S.runs = JSON.parse(sessionStorage.getItem(RUNS_KEY) || '[]'); } catch { S.runs = []; }
 S.dump = () => JSON.stringify({ runs: S.runs, current: { stats: S.stats, log: S.log } }, null, 1);
 S.samples = [];
@@ -42,13 +45,14 @@ const LEARN_KEY = 'nas_sim_learned';
 function newMemory() {
   let learned = [];
   if (SIM.rememberLearned) { try { learned = JSON.parse(sessionStorage.getItem(LEARN_KEY) || '[]'); } catch { learned = []; } }
-  return { intro: false, packedFor: -1, needKit: false, heading: null, best: null, legs: 0, zone: null, body: null, learned: new Set(learned), modeSaid: null };
+  return { intro: false, packedFor: -1, needKit: false, heading: null, best: null, legs: 0, zone: null, body: null, learned: new Set(learned), modeSaid: null,
+    mode: 'hot', readings: [], legEnds: [], est: null };
 }
 S.saveLearned = () => { if (SIM.rememberLearned) try { sessionStorage.setItem(LEARN_KEY, JSON.stringify([...S.mem.learned])); } catch { /* private mode */ } };
 function newStats() {
   return {
     run: S.runs.length + 1, t0: state.time, forecast: state.weather?.forecast?.label || '-', sos: state.params.get('sos') || 'random',
-    found: null, wrapped: null, home: null, deaths: [], rations: 0, drinks: 0, snow: 0, flares: 0, shots: 0, climbs: 0, climbsChosen: 0,
+    found: null, wrapped: null, home: null, triangulated: null, deaths: [], rations: 0, drinks: 0, snow: 0, flares: 0, shots: 0, climbs: 0, climbsChosen: 0,
     climbRefused: 0, falls: 0, detours: 0, pitches: 0, sleeps: 0, kitTrips: 0, stuck: 0, noPath: 0, decisions: 0, walked: 0,
     sledFood0: count(state.sled, 'food') + count(state.pack, 'food'),
   };
@@ -56,11 +60,43 @@ function newStats() {
 
 export function init() {
   addEventListener('keydown', e => {
+    if (!S.on) return;
     if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') stepSpeed(1);
     else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') stepSpeed(-1);
-    else if (e.code === 'KeyH') S.hide = !S.hide;
+    else if (e.code === 'KeyH') { S.hide = !S.hide; saveHide(); }
   });
+  // the panel's hide / show button: a press on it is the UI's (pack.js uiPress is wrapped), so it never walks,
+  // taps the world or starts the touch stick
+  const press0 = state.uiPress, release0 = state.uiRelease;
+  let mine = false;
+  state.uiPress = (sx, sy) => {
+    const b = S.on && begun ? toggleBox : null;
+    if (b && sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h) { mine = true; S.hide = !S.hide; saveHide(); return true; }
+    return press0 ? press0(sx, sy) : false;
+  };
+  state.uiRelease = () => { if (mine) { mine = false; return; } release0?.(); };
 }
+// Live on / off (the gear menu). Off: the task dropped, the input handed back (demoInput cleared), the pace back
+// to normal. On: a fresh run from wherever the game is.
+let speedBefore = 1;
+S.toggle = on => {
+  if (on === S.on) return;
+  const q = new URLSearchParams(location.search);
+  if (on) {
+    S.on = true; begun = false; finished = false; cur = null; S.recent = []; S.log = []; S.summary = null;
+    speedBefore = state.timeScale;
+    if (state.timeScale === 1) state.timeScale = 4;
+    q.set('sim', S.loop ? 'loop' : '');
+  } else {
+    abort();
+    if (state.compass && state.compass.phase !== 'idle') { state.uiPress?.(14, state.view.h - 14); state.uiRelease?.(); }
+    state.demoInput = null;
+    S.on = false; S.path = null; S.est = null;
+    state.timeScale = speedBefore === state.timeScale ? 1 : speedBefore;
+    q.delete('sim');
+  }
+  try { history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString().replace(/=(&|$)/g, '$1') : '') + location.hash); } catch { /* file:// */ }
+};
 function stepSpeed(d) {
   const L = SIM.speeds, cur = state.timeScale;
   let i = L.findIndex(v => v >= cur - 1e-6);
@@ -71,18 +107,23 @@ function stepSpeed(d) {
 
 // --- the loop ---------------------------------------------------------------------------------------
 export function update(dt) {
+  if (!S.on) return;
   if (finished) { H.stop(); return; }
   if (!begun) {
     if ((!state.begun && !state.params.has('autostart')) || !state.body || !state.distress?.ready || !T.mask()) return;
-    if (!N.build()) return;
+    if (!N.isReady() && !N.build()) return;
     begun = true;
     S.mem = newMemory();
+    { const c = SIM.memory.cell, w = Math.ceil(MAP_W / c), h = Math.ceil(MAP_H / c); S.visit = { c, w, h, a: new Uint8Array(w * h), last: -1 }; }
+    S.est = null;
     S.stats = newStats();
     S.day = 1; lastClock = state.lighting?.clock ?? 0;
     last = { x: P.x, y: P.y };
     state.demoInput = { x: 0, y: 0 };
     // Joe: "Character leaves tent": the first member crawls out of base camp's tent
-    if (state.member === 0 && P.mode === 'walk') P.respawn?.(false);
+    const fresh = state.time < 12;
+    if (fresh && state.member === 0 && P.mode === 'walk') P.respawn?.(false);
+    if (!fresh) S.mem.intro = true;   // (turned on mid-game: no setting-out beat)
     H.note('Start', `run ${S.stats.run}: ${state.party?.[state.member]?.name ?? 'the explorer'} sets out; today: ${S.stats.forecast}${S.mem.learned.size ? `; knows: ${[...S.mem.learned].join(', ')} (from a run before)` : ''}`);
   }
   const L = state.lighting;
@@ -91,6 +132,11 @@ export function update(dt) {
 
   handleEvents();
   if (finished) return;
+  // map memory: a visit counted each time they step into a cell
+  if (S.visit && P.mode === 'walk') {
+    const V = S.visit, i = Math.floor(P.x / V.c), j = Math.floor(P.y / V.c), k = j * V.w + i;
+    if (k !== V.last && i >= 0 && j >= 0 && i < V.w && j < V.h) { V.last = k; if (V.a[k] < 250) V.a[k]++; }
+  }
   // distance walked
   if (P.mode === 'walk' || P.mode === 'approach') S.stats.walked += hyp(P, last);
   last = { x: P.x, y: P.y };
@@ -103,6 +149,8 @@ export function update(dt) {
       S.samples.push({ t: state.time, x: P.x, y: P.y, n });
       if (S.samples.length > 300) S.samples.shift();
       const M = S.mem;
+      // a reading kept for triangulating, every SIM.tri.spacing px of fresh ground
+      if (!M.readings.some(r => Math.hypot(r.x - P.x, r.y - P.y) < SIM.tri.spacing)) { M.readings.push({ x: P.x, y: P.y, n }); if (M.readings.length > 80) M.readings.shift(); }
       if (!M.best || n > M.best.n) { if (!M.best || n > M.best.n + 0.01) { M.bestT = state.time; M.boldSaid = false; } M.best = { x: P.x, y: P.y, n, h: M.heading ?? 0 }; }
       S.best = M.best;
     }
@@ -237,6 +285,8 @@ function shelterNeed() {
   const b = state.body, L = state.lighting, clock = L?.clock ?? 0, C = SIM.camp;
   if (state.burden?.home) return '';
   if (Br.stormy()) return `a storm (${state.weather.phase}, wind ${state.wind.speed.toFixed(2)})`;
+  // the wind building late in the day: a storm's coming; under canvas before it hits (pitching in one takes many tries)
+  if (state.weather.phase === 'build' && clock >= C.buildFrom) return `the wind's building at dusk (${state.wind.speed.toFixed(2)}): a storm's coming`;
   if (b.warmth < C.shelterWarmth) return `cold: warmth ${b.warmth.toFixed(2)} < ${C.shelterWarmth}`;
   if ((b.wet || 0) > C.wetShelter) return `soaked: wet ${b.wet.toFixed(2)} (x4 the cold): get dry under canvas`;
   if (clock >= C.dusk && L.mode === 'cycle') {
@@ -324,7 +374,7 @@ function finish(outcome) {
   const sum = {
     run: st.run, outcome, at: new Date().toISOString(), forecast: st.forecast, sos: `${Math.round(D.x)},${Math.round(D.y)} (${st.sos})`,
     sosFromCamp: Math.round(Math.hypot(D.x - TENT.x, D.y - TENT.y)),
-    minutes: { firstFind: min(st.found), wrapped: min(st.wrapped), home: min(st.home), total: min(state.time - st.t0) },
+    minutes: { triangulated: min(st.triangulated), firstFind: min(st.found), wrapped: min(st.wrapped), home: min(st.home), total: min(state.time - st.t0) },
     days: S.day, deaths: st.deaths, membersLost: st.deaths.length,
     used: { rationsEaten: st.rations, rationsLeft: count(state.sled, 'food') + count(state.pack, 'food'), drinks: st.drinks, snow: st.snow, flares: st.flares, shots: st.shots },
     climbs: { chosen: st.climbsChosen, done: st.climbs, refused: st.climbRefused, falls: st.falls, detours: st.detours },
@@ -342,10 +392,21 @@ function finish(outcome) {
 }
 
 // --- on screen: the thoughts panel and the stats strip (a dev tool: plain text) ------------------------
+let toggleBox = null;   // the hide / show button, CSS px (hit-tested in the wrapped uiPress)
+function drawToggle(ctx, x, y, label) {
+  ctx.font = '12px ui-monospace, Menlo, Consolas, monospace';
+  const w = ctx.measureText(label).width + 18, h = 24;
+  ctx.fillStyle = 'rgba(20,22,26,0.62)'; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ctx.fillStyle = '#fff'; ctx.fillText(label, x + 9, y + 16);
+  toggleBox = { x: x - 6, y: y - 6, w: w + 12, h: h + 12 };   // (a finger's worth round it)
+  S.toggleBox = toggleBox;
+}
 export function drawOverlay(ctx) {
-  if (S.hide || !begun) return;
+  if (!S.on || !begun) { toggleBox = null; return; }
   const { dpr } = state.view;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (S.hide) { drawToggle(ctx, 8, 8, 'sim: show'); return; }
   const b = state.body, L = state.lighting || {}, st = S.stats;
   const fs = 12, lh = 15, pad = 8, w = Math.min(470, state.view.w - 16);
   const clock = L.clock ?? 0, night = clock >= 180;
@@ -375,13 +436,14 @@ export function drawOverlay(ctx) {
   ctx.fillStyle = 'rgba(20,22,26,0.62)';
   ctx.fillRect(8, 8, w, h);
   out.forEach((l, i) => { ctx.fillStyle = l.c; ctx.fillText(l.t, 8 + pad, 8 + pad + 10 + i * lh); });
+  drawToggle(ctx, 8, 8 + h + 4, 'hide');
   ctx.font = `${fs - 1}px ui-monospace, Menlo, Consolas, monospace`;
   ctx.fillStyle = 'rgba(20,22,26,0.55)';
-  ctx.fillText('+/- speed  H hide', 12, 8 + h + 13);
+  ctx.fillText('+/- speed  H hide', toggleBox.x + toggleBox.w + 4, 8 + h + 20);
 }
 // the planned path and the best spot so far, faint, in the world
 export function drawSky(ctx) {
-  if (!SIM.showPath || S.hide || !begun) return;
+  if (!S.on || !SIM.showPath || S.hide || !begun) return;
   const z = state.cam.zoom || 1;
   if (S.path && S.path.length > 1 && P.mode !== 'inside') {
     ctx.setLineDash([3 / z, 4 / z]);
@@ -392,6 +454,11 @@ export function drawSky(ctx) {
     for (const p of S.path) ctx.lineTo(p.x, p.y);
     ctx.stroke();
     ctx.setLineDash([]);
+  }
+  if (S.est && !state.distress?.found) {
+    ctx.lineWidth = 1.2 / z; ctx.strokeStyle = 'rgba(30,34,40,0.55)';
+    const e = S.est, r = 5;
+    ctx.beginPath(); ctx.moveTo(e.x - r, e.y - r); ctx.lineTo(e.x + r, e.y + r); ctx.moveTo(e.x + r, e.y - r); ctx.lineTo(e.x - r, e.y + r); ctx.stroke();
   }
   if (S.best && !state.distress?.found) {
     ctx.lineWidth = 1.2 / z; ctx.strokeStyle = 'rgba(30,34,40,0.5)';

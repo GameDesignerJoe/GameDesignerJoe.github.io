@@ -44,7 +44,7 @@ export function initMenu() {
     <button data-act="perf">Performance overlay</button>
     <button data-act="tview">Terrain view: off</button>
     <button data-act="motion">Reduce motion: off</button>
-    <button data-act="sim">Watch it play</button>
+    <button data-act="sim">Watch it play: off</button>
     <button data-act="simlog">Copy sim log</button>
     <div class="body-dbg">
       <pre data-act="bodyinfo"></pre>
@@ -108,6 +108,7 @@ export function initMenu() {
     soundBtn.textContent = state.audio?.muted ? 'Sound: off (tap to unmute)' : 'Sound: on (tap to mute)';
     panel.querySelector('[data-act="tview"]').textContent = `Terrain view: ${state.terrainView ? 'on' : 'off'}`;
     panel.querySelector('[data-act="motion"]').textContent = `Reduce motion: ${state.reduceMotion ? 'on' : 'off'}`;
+    panel.querySelector('[data-act="sim"]').textContent = `Watch it play: ${state.sim?.on ? 'on' : 'off'}`;
   };
 
   // Body debug readout (body.js): refreshed while the menu is open.
@@ -177,12 +178,8 @@ rifle: ${state.hunt?.aim ? 'up' : 'down'}, ${cart} cartridges${carc ? ` · carca
     if (act === 'camp') { returnToCamp(); panel.hidden = true; }
     if (act === 'sound') { state.audio?.setMuted?.(!state.audio.muted); sync(); }
     if (act === 'perf') showOverlay(!state.perfVisible);
-    // "watch it play" (js/sim): the game plays itself; ?sim=loop runs on, run after run
-    if (act === 'sim') {
-      const q = new URLSearchParams(location.search);
-      if (q.has('sim')) q.delete('sim'); else { q.set('sim', ''); q.set('autostart', ''); if (!q.has('speed')) q.set('speed', '4'); }
-      location.search = q.toString().replace(/=(&|$)/g, '$1');
-    }
+    // "watch it play" (js/sim): the game plays itself from here, or hands back control (live, no reload)
+    if (act === 'sim') { state.sim?.toggle?.(!state.sim.on); sync(); }
     if (act === 'simlog') copySimLog(e.target.closest('[data-act]'));
     if (act === 'tview') { state.terrainView = !state.terrainView; sync(); }
     // Reduce motion: no breathing camera when exhausted (remembered on this device)

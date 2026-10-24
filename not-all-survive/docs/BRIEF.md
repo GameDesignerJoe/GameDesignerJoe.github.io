@@ -59,7 +59,7 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - `?wind=0..1`, `?windAngle=<rad>`, `?whiteout=0..1`, `?snow=0..1` initial weather.
 - `?only=explorer,weather` load only those systems (map, terrain and ground always load).
 - Day/night cycles (3 min day, 2 min night). `?night` / `?day` pin it; the gear menu's Time button cycles cycle → day → night.
-- The goal, first stab (js/goal/distress.js, js/audio/radio.js): a lost explorer from an earlier party lies half-buried somewhere 650-1150 px from camp (random each run, reachable on foot, inside the safe area; `?sos=x,y` forces it; the console logs where). Their beacon blinks signal yellow. The radio (in the first member's pack, switched on at the start; a spare on the sled) plays faint blips far off, quicker and louder nearer, turning into the SOS in morse within the last stretch: hot and cold, no arrow. Hold on the body to recover their pack (food, a splint, a recorder with their last words: rec_sos). Once found, the beacon stops blinking and the radio goes quiet. Then (js/goal/burden.js) wrap them, carry or drag them home; see "Bringing them home" below. The shovel and digging them out come later (hook: a 'dig' act before 'wrap' in burden.js ACTS.body).
+- The goal, first stab (js/goal/distress.js, js/audio/radio.js): a lost explorer from an earlier party lies half-buried somewhere 650-1150 px from camp (random each run, reachable on foot by the sim's walking grid, inside the safe area; `?sos=x,y` forces it; the console logs where). Their beacon blinks signal yellow. The radio (in the first member's pack, switched on at the start; a spare on the sled) plays faint blips far off, quicker and louder nearer, turning into the SOS in morse within the last stretch: hot and cold, no arrow. Hold on the body to recover their pack (food, a splint, a recorder with their last words: rec_sos). Once found, the beacon stops blinking and the radio goes quiet. Then (js/goal/burden.js) wrap them, carry or drag them home; see "Bringing them home" below. The shovel and digging them out come later (hook: a 'dig' act before 'wrap' in burden.js ACTS.body).
 - `?goal=wrapped` (or the gear menu's "Wrapped body here", or `NAS.goal.wrapped()`) wraps the lost explorer and sets the bundle down beside the explorer. Hooks: `NAS.goal.carry()` / `NAS.goal.drag()` (take it up at once; `(false)` plays the kneel), `NAS.goal.down()`, `NAS.goal.switchMode()`, `NAS.goal.wrap()` (start wrapping, if by the body), `NAS.goal.home()` (carry it to the tent: the ending card), `NAS.goal.state` (`state.burden`); `NAS.actMenu('body'|'bundle'|'self')` opens a row, `NAS.actUI()` gives its slot positions.
 - Coats: each party member wears their own bright coat in the order they set out: yellow, orange, red, pink (palette.js COATS; explorer.js setCoat swaps it at the hand-over). The tents stay signal yellow.
 - Audio recorders (js/recordings.js, js/audio/recorder.js): one item per recording; tap in the pack to play, again to stop. Ducks under bad weather, stops at death or if the recorder leaves the pack. A real file plays from assets/recordings/ if present, else the placeholder text is spoken by the browser voice under tape hiss. Carrying one is hidden hope: warmth loss and energy drain x0.9 (body.js HOPE). One (the leader's message) starts on the sled.
@@ -69,15 +69,23 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - `?kit=all` starts the first member with the compass, snowshoes, axes, crampons and 3 rations (the gear comes out of the sled). `?food=0..1` starts them that hungry; hooks `NAS.starve(v?)` (food to v, or 0.25 lower), `NAS.feed(v = 1)`, `NAS.fillPack()`; the gear menu has Starve me / Feed me / Fill pack and shows food, its rate, the pack and the sled.
 - `?terrain=ice` forces `terrainAt()` to return that type everywhere (handy for animation tests).
 - `?debug` lets modules draw debug overlays.
-- "Watch it play" (`js/sim/`): `?sim` (or the gear menu's "Watch it play") and the game plays itself through the player's own
-  input (`state.demoInput`, presses via `NAS.uiPress` / `uiRelease` played between frames, world taps): it leaves the tent, hears the
-  radio, packs at the sled, searches hot and cold by the blip rate only (never `state.distress.x/y` until the beacon is on screen
-  and close), and decides as it goes (eat, drink, snow, splint, rest, snowshoes, climb or go round, camp or go on, the bear, carry
-  or drag), each logged with its reason in a thoughts panel (top left) and `state.sim.log`. `?sim=loop` starts another run when one
-  ends (home, all dead, or `SIM.maxRunMin`); `?speed=` and + / - set the pace, H hides the panel. Every number it decides by is in
-  `js/sim/config.js` (`SIM`); `?simset=climb.energyK:20,camp.dusk:150` overrides any for a run. A summary per run (times to find
-  and home, deaths and causes, rations, climbs, camps) goes to the console and `state.sim.runs` (kept across loop reloads); the gear
-  menu's "Copy sim log" copies them. It changes nothing in the game: it only reads and drives.
+- "Watch it play" (`js/sim/`): `?sim`, or the gear menu's "Watch it play: on/off" (live: off drops the task, clears
+  `state.demoInput` and hands control back; the module is always loaded, dormant until on), and the game plays itself through
+  the player's own input (`state.demoInput`, presses via `NAS.uiPress` / `uiRelease` played between frames, world taps): it
+  leaves the tent, hears the radio, packs at the sled, searches hot and cold by the blip rate only (never `state.distress.x/y`
+  until the beacon is on screen and close), remembering the ground it has walked (fresh ground preferred, re-walking weighed
+  against); if it goes in circles (legs ending close together, the same ground again, or no better signal for minutes) it
+  triangulates: the blip rate at three or more spread-out spots read as distances (the radio's own calibration), a least-squares
+  fix, and it walks there, reading again on the way (and fetches the axes and crampons if the fix lies past a wall). It decides
+  as it goes (eat, drink, snow, splint, rest, snowshoes, climb or go round, camp or go on, the bear, carry or drag), each
+  logged with its reason in a thoughts panel (top left; its "hide" button, or H, folds it to a "sim: show" tab, remembered on
+  the device) and `state.sim.log`. `?sim=loop` starts another run when one ends (home, all dead, or `SIM.maxRunMin`); `?speed=`
+  and + / - set the pace. Every number it decides by is in `js/sim/config.js` (`SIM`); `?simset=climb.energyK:20,camp.dusk:150`
+  overrides any for a run. A summary per run (times to triangulate, find and home, deaths and causes, rations, climbs, camps)
+  goes to the console and `state.sim.runs` (kept across loop reloads); the gear menu's "Copy sim log" copies them. It changes
+  nothing in the game: it only reads and drives. The one link the other way: distress.js only hides the lost explorer where
+  the sim's walking grid (`js/sim/nav.js walkDistances`: body-wide gaps, no open water, not through the frontier storm) can
+  reach from camp within 2600 px, so every site can be walked to.
 - `?wet=0..1`, `?frozen=0..1` start them soaked / rimed. Hooks `NAS.soak(v = 1)`, `NAS.dry()`;
   the gear menu has Soak me / Dry me and shows wet, rime and whether they're in the water.
 - `?warmth=0..1` starts the explorer that cold (body.js). Hooks: `NAS.body` (the values),

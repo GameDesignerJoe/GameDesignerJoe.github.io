@@ -294,8 +294,8 @@ function avoidList() {
   if (S.bearSeen && now() - S.bearSeen.t < 400) a.push({ x: S.bearSeen.x, y: S.bearSeen.y, r: SIM.cost.bear.r, k: SIM.cost.bear.k });
   return a;
 }
-export function path(x0, y0, x1, y1, mode = moveMode(), goalR = 10) {
-  return N.findPath(x0, y0, x1, y1, SIM.cost[mode], { avoid: avoidList(), now: now(), pup: state.pup?.pitched || null, goalR });
+export function path(x0, y0, x1, y1, mode = moveMode(), goalR = 10, penalty = null) {
+  return N.findPath(x0, y0, x1, y1, SIM.cost[mode], { avoid: avoidList(), now: now(), pup: state.pup?.pitched || null, goalR, penalty });
 }
 
 // A path's cost to walk, in time (s) and energy, at the measured paces (shoes on where there's snow).
@@ -353,9 +353,11 @@ function findClimb(x, y) {
   }
   return null;
 }
+// a climbable wall across the straight way to (x, y), whose top can be walked from? (brain.js: worth fetching the axes?)
+export const wallTowards = (x, y) => !!findClimb(x, y);
 // Plan the way to (x, y): legs of walking, and a climb if a wall is worth it.
 export function planRoute(x, y, o = {}) {
-  const mode = moveMode(), p = path(P.x, P.y, x, y, mode, o.goalR ?? 10);
+  const mode = moveMode(), p = path(P.x, P.y, x, y, mode, o.goalR ?? 10, o.penalty || null);
   const straight = Math.hypot(x - P.x, y - P.y);
   const walkOnly = p ? { legs: [{ kind: 'walk', path: p }], len: p.len } : null;
   if (o.climb === false || state.burden?.mode || !climbKit()) return walkOnly;

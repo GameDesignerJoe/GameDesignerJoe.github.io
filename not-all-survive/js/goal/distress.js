@@ -22,8 +22,10 @@ import { visibleRect } from '../camera.js';
 import { BORDER } from '../world/frontier.js';
 import { TENT } from '../actors/camp.js';
 import { SIGNAL } from '../palette.js';
+import * as NAV from '../sim/nav.js';
 
 const MIN_D = 650, MAX_D = 1150;          // world px from base camp
+const MAX_WALK = 2600;                    // ...and no further than this to walk there (round water and cliffs)
 const D = state.distress = { x: 0, y: 0, found: false, light: 0, ready: false };
 let entry = null;
 
@@ -33,10 +35,14 @@ function pickSite() {
   const W = m.w * m.scale, H = m.h * m.scale;
   const forced = state.params.get('sos')?.split(',').map(Number);
   if (forced && forced.length === 2 && forced.every(Number.isFinite)) { D.x = forced[0]; D.y = forced[1]; return true; }
+  // walkable from camp, by the same grid the sim walks on (js/sim/nav.js): body-wide gaps, no open water, not
+  // through the frontier storm; a site it can't walk to is picked again
+  const walkD = NAV.walkDistances(TENT.x + 20, TENT.y + 18);
   const ok = (x, y) => {
     const t = T.terrainAt(x, y);
     if (t !== 'snow' && t !== 'deep' && t !== 'path') return false;
     if (T.isWater(x, y) || !T.reachableOnFoot(x, y)) return false;
+    if (walkD && !(NAV.distAt(walkD, x, y) < MAX_WALK)) return false;
     // a little room round them (not wedged against rock)
     for (const [dx, dy] of [[6, 0], [-6, 0], [0, 5], [0, -5]]) if (!T.isWalkable(x + dx, y + dy)) return false;
     return true;

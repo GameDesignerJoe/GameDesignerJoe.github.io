@@ -130,6 +130,7 @@ export function findPath(x0, y0, x1, y1, cost, opts = {}) {
   const sk = sj * GW + si, tk = tj * GW + ti;
   const mult = TNAME.map(n => cost[n] ?? 1), minM = Math.min(...mult), edgeK = cost.edge ?? 3;
   const avoid = opts.avoid || [];
+  const pen = opts.penalty || null;   // (i, j) -> extra weight on a cell (the sim's map memory: ground already walked)
   const pupNear = opts.pup || null;
   gen++; heapN = 0;
   g[sk] = 0; stamp[sk] = gen; from[sk] = sk;
@@ -154,6 +155,7 @@ export function findPath(x0, y0, x1, y1, cost, opts = {}) {
       if (pupNear && Math.abs(ni * G - pupNear.x) < 24 && Math.abs(nj * G - pupNear.y) < 24 && pupHere(nk)) continue;
       let m = mult[ter[nk]];
       if (edge[nk]) m *= edgeK;
+      if (pen) m *= pen(ni, nj);
       if (avoid.length) {
         const cx = (ni + 0.5) * G, cy = (nj + 0.5) * G;
         for (const a of avoid) { const d = Math.hypot(cx - a.x, cy - a.y); if (d < a.r) m *= 1 + (a.k - 1) * (1 - d / a.r); }
@@ -176,6 +178,35 @@ export function findPath(x0, y0, x1, y1, cost, opts = {}) {
   for (let q = 1; q < pts.length; q++) len += Math.hypot(pts[q].x - pts[q - 1].x, pts[q].y - pts[q - 1].y);
   return { pts, len, cost: g[found], end: pts[pts.length - 1] };
 }
+
+// How far on foot (world px along the grid) every cell is from (x0, y0), never through the frontier storm's
+// band: Float32Array, Infinity where it can't be walked to. goal/distress.js checks a site with it, so the game
+// never hides the lost explorer where the sim (or a player) can't walk.
+export function walkDistances(x0, y0) {
+  if (!ready && !build()) return null;
+  const s = nearestFree(x0, y0, 6);
+  if (!s) return null;
+  const dist = new Float32Array(N).fill(Infinity);
+  const [si, sj] = cellOf(s.x, s.y), sk = sj * GW + si;
+  gen++; heapN = 0; dist[sk] = 0; push(sk, 0);
+  while (heapN) {
+    const k = pop();
+    if (closed[k] === gen) continue;
+    closed[k] = gen;
+    const i = k % GW, j = (k / GW) | 0, dk = dist[k];
+    for (const [di, dj, dl] of DIRS) {
+      const ni = i + di, nj = j + dj;
+      if (ni < 0 || nj < 0 || ni >= GW || nj >= GH) continue;
+      const nk = nj * GW + ni;
+      if (block[nk] || edge[nk] || closed[nk] === gen) continue;
+      if (di && dj && (block[j * GW + ni] || block[nj * GW + i])) continue;
+      const nd = dk + dl * G;
+      if (nd < dist[nk]) { dist[nk] = nd; push(nk, nd); }
+    }
+  }
+  return dist;
+}
+export function distAt(dist, x, y) { const [i, j] = cellOf(x, y); return !dist || i < 0 || j < 0 || i >= GW || j >= GH ? Infinity : dist[j * GW + i]; }
 
 // Is the straight line from a to b clear to walk (sampled finely against the real terrain, a body's
 // width either side)?
