@@ -80,16 +80,20 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
   `now` = true puts it up at once: the gear menu's "Pitch tent here"), `NAS.strike(now?)` (the menu's
   "Strike tent", at once), `NAS.pup` (`pitched`, `job`; `NAS.pup.force = true` makes the wind catch it at
   the next test), `NAS.player.tent('pup')` (walk to it and crawl in). The menu readout shows where it is.
+- Thirst: `?water=0..1` starts them that dry. Hooks `NAS.parch(v?)` (water to v, or 0.25 lower), `NAS.quench()` (water and
+  the flasks full), `NAS.drink()` (a pull from the first flask with a drink in it), `NAS.snowEat()` (a mittful of snow),
+  `NAS.player.headache(d?)` (the headache gesture now), `NAS.thirst` (`mirage` 0..1 shown, `man` the Third Man's state,
+  `show(on)` he comes at the next chance while walking / goes, `episode(on)` a mirage episode now at full strength). The
+  gear menu has Parch me / Quench me and shows water, its rate, the drinks in each flask, the mirage and the Third Man.
 
 ## Survival (man vs. environment) — no bars, no HUD
 The plan lives in Joe's survival plan (slices 1–7). Slices 1–6 are built: the body, the cold,
 the base camp tent, death handing over to the next expedition member; open water and wet;
 exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin ice; the pup tent
-(no fire: Joe cut it; a tent's glow implies the stove).
+(no fire: Joe cut it; a tent's glow implies the stove); thirst.
 
 - **The body** (`js/actors/body.js`): `state.body = { warmth, wet, energy, reserve, injury, food, water }`,
-  each 0–1, hidden. Warmth, wet, energy/reserve, food and injury are live; water waits for a
-  later slice.
+  each 0–1, hidden. All are live (water: the thirst slice).
   Warmth loss = `LOSS × (cold × (0.35 + 0.65 × wind exposure))^1.5`, more at night, less
   sheltered (cowering, hunkered in the lee); walking makes heat. Measured (headless, sped up):
   a dry explorer standing in a full blizzard dies in ~2¾–3 min, a wet one in ~45 s; walking in
@@ -472,6 +476,71 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     into the pack (no free slot: the canvas jerks and the full-pack knock, `full`). Keyboard: hold Space / E
     close to it (a quick press crawls in). The sled, a body or a pile in reach come first, and Space / E at
     base camp's door is always base camp's.
+- **Thirst** (after the pup tent; `body.js` water, `js/fx/thirst.js` the mind, `ui/pack.js` drinking). Joe's call: its own
+  stat, not hunger's. Hunger hits the body (sway, dim and doubled image, growl); thirst hits the mind (headache, confusion,
+  misperception, then hallucination).
+  - **The clock**: full to empty in ~13 min standing about outside (`WATER_REST` 1/800), faster than food so it's met first;
+    × (1 + 0.9 × push + 0.6 × panting) working (the breath carries the moisture off) and × (1 + 0.5 × cold × exposure) in a
+    cold dry wind, all told never more than ×2.2 (`WATER_MAX`). Inside a tent the stove melts snow: water comes back at
+    `shelter.water` (camp.js `CAMP_SHELTER.water` 1: empty → full in 25 s; puptent.js `PUP_SHELTER.water` 0.4: 62 s) and each
+    flask in the pack fills a drink every 4 s at base camp (10 s in the pup tent). A night's sleep wakes them watered with the
+    flasks full. A new member after a death starts at 0.8. `body.thirst` = (0.35 − water) / 0.35: energy comes back up to 25%
+    slower and the reserve wears up to ×1.4 faster; below 0.15 (`body.parched`) the reserve up to ×2 and the energy cap drops up
+    to −25%; below 0.1 they stumble now and then and every climbing move is slower (up to −30%); at 0 the cold gets in +25%, the
+    rest is slower again and they won't start a climb up (`refuse` reason `'parched'`: the long look up, then a mitt to the
+    temple). It never kills by itself.
+  - **The flask** (`flask` item, one a slot, `slot.drinks` 0–3 shown as pips, drunk ones hollow; the drinks travel with it
+    through every move, drop, body and pile): one in the first member's kit, one spare on the sled; after a death the next
+    member takes the sled's if it's still there (`items.js restock`). Tap it: standing, half round to the camera, they unscrew
+    the cap at the chest and tip it up to the mouth, head back, ~2 s (the slot's arc fills; cap ticks, wet gulps); +0.3
+    water, a drink gone. Walking off cancels it, the drink kept. Refused (the slot shakes) above 0.97 water; dimmed empty
+    or wading deep snow. **Freezing: skipped** (the snow already carries the cold-for-water trade, and a frost-rimmed icon that
+    only thaws in a tent would be a second rule to learn for little play).
+  - **Eating snow, anywhere**: opening the pack also shows one more round slot under the explorer's feet that isn't a pack
+    slot and holds nothing: a little heap of snow with three inked flakes falling on it, in a dashed ring (no grey fill, so
+    it doesn't read as an eleventh slot). Tap it (or Q) on snow, deep snow or a path: they kneel, bend right down and scoop a
+    mittful, kneel up and eat it (2.6 s; scoop crunch, chewing): +0.12 water for −0.05 warmth, up to −0.10 when already cold
+    (warmth 0.6 → 0.2). Dimmed off snow; not in a tent (the stove's melting it there), with a container open, or with the bear
+    alert or stalking within 60 (rations neither). The pack hold is taught the first time water (or food) drops below 0.35:
+    the glance and the pat at the pack.
+  - **The Fata Morgana** (water < 0.25, building as it falls: (0.25 − water) / 0.2, ^0.8): the map just beyond the top of
+    the view, to the north (never the frame on screen), read for its darks (rock and ink, thresholded) as a profile across;
+    where they cluster are the features, the heaviest 3–6 (wide runs split; none: only the horizon gleam and the haze). Each
+    becomes a mirage element in a thin band along the top (13–18% of the height by strength, never over 20%): a solid flat
+    grey silhouette (no texture: one of two soft sprites, a flat-topped mesa with rounded corners or a tapering tower,
+    feathered at the sides, fading toward the top) standing on a soft bright false horizon, stretched up; above it, across a
+    thin pale gap, its mirror hanging upside down (the stacked Fata Morgana shape); now and then a third shelf above that,
+    fading in and out (a split); a faint short reflection under the horizon. Pale sky haze under and over, so they read far
+    off; between them only haze. Each its own width, height and offset (fixed by where it is on the map, so they hold still
+    as the view creeps). They breathe slowly (the stretch grows and shrinks over several seconds) and drift a little;
+    Reduce motion holds them still. Seen alpha ~0.35–0.6 grey; no yellow (nothing is copied from the frame), the tents
+    feathered out. Episodic: 9–20 s episodes with gaps of 90 s at 0.25 down to 40 s at 0.05; below 0.05 long episodes (to
+    45 s) and short gaps (to 8 s). Weather: × calm × clear × sun (bright 1, plain day 0.6, ×0.15 at night, × weather.light).
+    On a blinding day the glare (bright.js, after it) washes the band as it does everything up there: the haze thins and
+    the shapes are laid on twice, but they stay faint. A phone held upright looks as far across as a wide screen would (the
+    source spans 1.6 × max(width, 0.8 × height)). Cost: the source (320 × 40) is redrawn from the map image and its features
+    extracted only as the view moves on (at most ~7 Hz); the band is composed offscreen at 30 Hz from a few sprite draws.
+  - **The Third Man** (water < 0.12): a faint grey figure, the explorer's own pose for pose (`explorer.js P.ghost`: greyed
+    by a saturation fill, a touch paled, the ink outline kept, alpha 0.55–0.7; no shadow, breath or prints), walking
+    parallel to them off to one side of the way they're going, near the edge of the view (never up in the mirage's band) and
+    a little ahead, only as far out as open ground on their own level runs (no walking through rock or across the sea).
+    Keeps pace. Comes only while they walk: about once in 80 s at 0.12, every ~12 s near 0, fading in over ~3 s, staying 9–18
+    s. Turn toward him or let him drift toward the middle of the view and he breaks into horizontal slices sliding apart
+    and is gone (~1 s, with a faint hush like a breath let go); stop walking and he fades. Never in a tent or busy with the
+    pack. While he's there, now and then a faint second footstep a beat behind their own, from where he walks.
+  - **Body**: thinner breath clouds (−32% size, −45% opacity, shorter-lived at full thirst); the headache standing about
+    below 0.3 (every 6–16 s, oftener the drier, ~3 s): both mitts to the temples, out at the sides of the hood, elbows out,
+    for the first ~1.1 s, then the one mitt stays and rubs slowly, the head tipped into it; never at the same time as the
+    hunger's mitt on the stomach (they take turns, so each reads as itself).
+  - **Sound**: the breath goes dry and rasping (a thin high hiss and a crackle over every breath, a little louder: × (1 +
+    0.6 × thirst)), a dry swallow every 7–20 s below 0.3, a faint high ring in the ears (6–8.6 kHz, beating, swelling in and
+    out over 3.5–9 s) below 0.25, near constant at 0, and a slow shaky breath out with the headache.
+  - Measured (headless, sped up): standing on a calm day −0.076/min (13.1 min to empty); walking on snow −0.145/min (6.9 min:
+    the mirage's 0.25 in ~5 min, the Third Man's 0.12 in ~6); cowering in a storm −0.10/min (9.9 min); worn out and walking
+    in a blizzard (panting 0.9, exposure 0.94) −0.164/min (6.1 min, the cap). Base camp empty → full 25 s, flask 0 → 3 in
+    12 s; pup tent 62.5 s, flask 30 s. Cost: the thirst module ~0.07 ms CPU a frame with the mirage up (0.3 on a frame that
+    rebuilds the source); frame time (1440p storm, GPU) 14.0 ms new / 14.0 HEAD in a clean pair; later pairs on a loaded
+    machine ran ~30 ms for both, new and HEAD within noise.
 - **Death and the party**: warmth 0 → collapse (kneel, slump, lie face down) → the ink iris
   closes onto the body, holds a beat, closes → cut to base camp: the next of the four crawls
   out of the tent as the iris opens. The body stays where it fell for the run

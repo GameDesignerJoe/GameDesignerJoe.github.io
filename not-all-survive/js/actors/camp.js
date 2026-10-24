@@ -25,8 +25,9 @@ export const TENT = { x: 1330, y: 1542, yaw: -0.72 };   // door faces south-east
 export const SLED = { x: 1299, y: 1573, yaw: 0.42 };     // front points east, at the dogs
 // The base camp tent as a shelter (body.js, audio.js read player.shelter): the measure the pup
 // tent is held to (puptent.js PUP_SHELTER). Full rates, no cold getting through, the stove and
-// the rest saving 40% of the food, an empty stomach no worse in here, the storm kept out.
-export const CAMP_SHELTER = { kind: 'camp', warm: 1, dry: 1, rest: 1, heal: 1, sleep: 1, storm: 0, leak: 0, food: 0.6, hunger: 0, muffle: 1 };
+// the rest saving 40% of the food, an empty stomach no worse in here, the storm kept out; water:
+// the stove melting snow, a drink always to hand (body.js: thirst gone in ~25 s, flasks filled).
+export const CAMP_SHELTER = { kind: 'camp', warm: 1, dry: 1, rest: 1, heal: 1, sleep: 1, storm: 0, leak: 0, food: 0.6, hunger: 0, muffle: 1, water: 1 };
 const PICKET = { ax: 1315, ay: 1569, bx: 1353, by: 1575 };
 const BOUNDS = { x0: 1222, y0: 1500, x1: 1400, y1: 1602 };
 

@@ -58,6 +58,10 @@ export function initMenu() {
         <button data-act="fill">Fill pack</button>
       </div>
       <div class="row">
+        <button data-act="parch">Parch me</button>
+        <button data-act="quench">Quench me</button>
+      </div>
+      <div class="row">
         <button data-act="pitch">Pitch tent here</button>
         <button data-act="strike">Strike tent</button>
       </div>
@@ -97,7 +101,8 @@ energy ${b.energy.toFixed(2)}/${(b.max ?? 1).toFixed(2)}  ${(b.drain > 0 ? '-' :
       + `reserve ${(b.reserve ?? 1).toFixed(2)}  in water ${P.water?.level ?? 0}
 injury ${b.injury.toFixed(2)}${b.splint ? ' splinted' : ''}  ice stress ${(P.iceStress || 0).toFixed(2)}${state.holes?.some(h => h.ro > 0) ? `  holes ${state.holes.filter(h => h.ro > 0).length}` : ''}
 `
-      + `food ${b.food.toFixed(2)}  -${((b.foodRate || 0) * 60).toFixed(3)}/min  water ${b.water.toFixed(2)}
+      + `food ${b.food.toFixed(2)}  -${((b.foodRate || 0) * 60).toFixed(3)}/min
+water ${b.water.toFixed(2)}  ${(b.waterRate || 0) > 0 ? '-' : '+'}${Math.abs((b.waterRate || 0) * 60).toFixed(3)}/min  flask ${flaskText()}${state.thirst ? `  mirage ${state.thirst.mirage.toFixed(2)}${state.thirst.man ? '  third man' : ''}` : ''}
 `
       + `pack ${packText(state.pack)}
 sled ${packText(state.sled)}
@@ -116,6 +121,11 @@ ${b.phase} · ${P.mode}${P.mode === 'inside' || P.mode === 'tent-in' || P.mode =
     if (u.pitched) return `pup tent: pitched at ${u.pitched.x.toFixed(0)},${u.pitched.y.toFixed(0)}`;
     const where = state.pack?.slots.some(q => q && q.id === 'puptent') ? 'in the pack' : state.sled?.slots.some(q => q && q.id === 'puptent') ? 'on the sled' : 'elsewhere';
     return `pup tent: ${where}`;
+  }
+  // the flasks in the pack: drinks left in each, e.g. "2/3"; "none" if there isn't one
+  function flaskText() {
+    const f = state.pack?.slots.filter(q => q && q.id === 'flask') || [];
+    return f.length ? f.map(q => `${q.drinks ?? 0}/3`).join(' ') : 'none';
   }
   // e.g. "compass* food3 food2 axes" (* = worn); ".." for each empty pack slot
   function packText(c) {
@@ -150,6 +160,8 @@ ${b.phase} · ${P.mode}${P.mode === 'inside' || P.mode === 'tent-in' || P.mode =
     if (act === 'starve') { state.starve?.(); showBody(); }
     if (act === 'feed') { state.feed?.(); showBody(); }
     if (act === 'fill') { state.fillPack?.(); showBody(); }
+    if (act === 'parch') { state.parch?.(); showBody(); }
+    if (act === 'quench') { state.quench?.(); showBody(); }
     if (act === 'pitch') { state.pitch?.(true); panel.hidden = true; }
     if (act === 'strike') { state.strike?.(true); showBody(); }
     // Bright day: auto (weather decides) -> on -> off -> auto.

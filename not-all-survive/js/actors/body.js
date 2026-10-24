@@ -2,8 +2,7 @@
 // screen carry it.
 //
 // state.body = { warmth, wet, energy, reserve, injury, food, water }, each 0..1 (wet and injury
-// start at 0, the rest at 1). Warmth, wet, energy, food and injury are live; water is a hook a
-// later slice fills in.
+// start at 0, the rest at 1). All of them are live.
 //   explorer.js        reads warmth for the cold poses (hug, hard shiver, stumble, kneel,
 //                      collapse) and dulls the coat toward grey ochre
 //   weather-screen.js  grows the frost with 1 - warmth
@@ -82,6 +81,21 @@
 // even there: a leaky shelter can be died in (warmth 0 inside it kills, as outside). Carrying the
 // pup tent costs ~10% more energy walking (PUP_DRAIN).
 //
+// Thirst (slice 6, after the pup tent): water is its own clock, faster than food so it's met first:
+// ~13 min standing about outside, faster working (x(1 + WATER_WORK x push)) and panting (the breath
+// carries the moisture off), and in a cold, dry wind (x(1 + WATER_WIND x cold x exposure)), at most
+// x WATER_MAX in all. Below 0.1 explorer.js stumbles now and then and climbs slower; at 0 it won't
+// start a climb up ('parched'). In a tent it comes back (the stove melting snow): base camp's in ~25 s, the pup
+// tent's at shelter.water (0.4) of that, and the flasks in the pack fill a drink at a time
+// (FLASK_FILL s each at base camp). A sleep wakes them watered. Drinking from the flask (+0.3) and
+// eating snow (+0.12, for warmth) are ui/pack.js. body.thirst is the 0..1 of it below 0.35: energy
+// comes back a little slower and the reserve wears faster; below 0.15 (body.parched) more so and
+// the energy cap drops (up to -25%); at 0 the cold gets in a little more (+25%) and the rest is
+// slower again. It never kills by itself. Hunger hits the body; thirst hits the mind: the mirage
+// and the Third Man (fx/thirst.js), the tinnitus and the dry swallow pushed here ('thirst'
+// { stage: 'ring' | 'swallow' }), the headache and the cracked-lip breath (explorer.js, audio.js).
+// body.waterRate: water / s now (negative: drinking it in, in a tent).
+//
 // state.party = [{ name, alive, x, y }] x 4, state.member = index of the one playing now.
 // The hand-over takes the dead member's pack off them (items.js takePack: it goes with the body
 // in the 'handover' event, unless the sea took them) and the next one starts with an empty pack,
@@ -89,10 +103,11 @@
 // Hooks: NAS.freeze(v?) (warmth to v, or 0.2 colder), NAS.warm(v = 1), NAS.kill(),
 //        NAS.soak(v = 1), NAS.dry(), NAS.tire(v?) (energy to v, or 0.25 lower), NAS.rest(),
 //        NAS.starve(v?) (food to v, or 0.25 lower), NAS.feed(v = 1),
-//        NAS.hurt(v?) (injury to v, or 0.25 worse, with the flinch), NAS.heal().
+//        NAS.hurt(v?) (injury to v, or 0.25 worse, with the flinch), NAS.heal(),
+//        NAS.parch(v?) (water to v, or 0.25 lower), NAS.quench() (water and the flasks full).
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
-import { takePack, restock, find, take, count } from '../items.js';
+import { takePack, restock, find, take, count, fillFlasks } from '../items.js';
 import { CAMP_SHELTER } from './camp.js';
 
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
@@ -141,8 +156,8 @@ const INJ_DRAIN = 0.7, INJ_TENT = 1 / 600, INJ_SLEEP = 0.3, HEAVE = 0.09, HEAVE_
 const PUP_DRAIN = 0.1;
 // kneeling at the pup tent pitching or striking it: hard work, about walking on snow (slice 6)
 const JOB_DRAIN = 0.9 / 360, JOB_FOOD = 0.8;
-// how high energy can come back: reserve, hunger, and (slice 5) injury
-const energyMax = () => (0.35 + 0.65 * B.reserve) * (1 - 0.5 * clamp(B.injury)) * (1 - 0.35 * hungerK());
+// how high energy can come back: reserve, hunger, (slice 5) injury and thirst (only parched)
+const energyMax = () => (0.35 + 0.65 * B.reserve) * (1 - 0.5 * clamp(B.injury)) * (1 - 0.35 * hungerK()) * (1 - 0.25 * parchK());
 
 // --- food ----------------------------------------------------------------------------------------
 // Food / s at rest in the open: full to empty in ~15 min (three days and nights). Work burns more
@@ -153,12 +168,23 @@ const HUNGRY = 0.3;               // below this it starts to tell
 const hungerK = () => clamp((HUNGRY - B.food) / HUNGRY);   // 0 fed .. 1 starving
 const starving = () => smooth(0.1, 0, B.food);              // the last of it: the cold gets in
 
+// --- water ---------------------------------------------------------------------------------------
+// Water / s at rest in the open: full to empty in ~13 min (2.7 days and nights). Work, panting and
+// a cold dry wind take more, all told never more than x WATER_MAX (~6 min at the worst). In a tent: back at WATER_TENT x shelter.water (base camp ~25 s from
+// empty), the flasks a drink each FLASK_FILL / shelter.water s.
+const WATER_REST = 1 / 800, WATER_WORK = 0.9, WATER_PANT = 0.6, WATER_WIND = 0.5, WATER_MAX = 2.2, WATER_TENT = 1 / 25, FLASK_FILL = 4;
+const THIRSTY = 0.35, PARCHED = 0.15;
+const thirstK = () => clamp((THIRSTY - B.water) / THIRSTY);   // 0 watered .. 1 dry
+const parchK = () => clamp((PARCHED - B.water) / PARCHED);    // the worst of it
+const dryOut = () => smooth(0.05, 0, B.water);               // at 0: the cold gets in a little more
+
 const NAMES = ['Halloran', 'Ashby', 'Teague', 'Marsh'];
 
 const B = state.body = {
   warmth: 1, wet: 0, energy: 1, reserve: 1, injury: 0, food: 1, water: 1,
   frozen: 0, shock: 0, splint: false,
   phase: 'alive', t: 0, sleepHold: 0, rate: 0, drain: 0, max: 1, hunger: 0, foodRate: 0, dizzy: 0,
+  thirst: 0, parched: 0, waterRate: 0,
   climbHalf: CLIMB_HALF, hang: HANG,   // per axe strike / per s hanging (explorer.js sizes up a wall)
 };
 state.party = NAMES.map(name => ({ name, alive: true, x: null, y: null }));
@@ -174,6 +200,7 @@ let stillT = 0, walkT = 0, restZoomOn = false, restZoomK = 0;
 let dizzyT = 0, dizzyCool = 0, stopT = 0;
 let joltT = 9, joltA = 0, flinch = null, echoCool = 0;
 let peel = null, vertT = 0;
+let flaskAcc = 0, swallowT = 6, ringT = 10;
 const PEEL_S = 0.8, VERT_S = 1.1;
 const DIZZY_S = 0.7;
 const PULSE = 0.006;   // the view's breath: at most 0.6% zoom at the top of a breath in
@@ -197,6 +224,9 @@ export function init() {
     B.injury = to;
   };
   state.heal = () => { B.injury = 0; B.splint = false; };
+  state.parch = v => { B.water = typeof v === 'number' ? clamp(v) : Math.max(0, B.water - 0.25); };
+  state.quench = () => { B.water = 1; if (state.pack) fillFlasks(state.pack, 99); };
+  if (state.params.has('water')) B.water = clamp(parseFloat(state.params.get('water')));
   if (state.params.has('injury')) B.injury = clamp(parseFloat(state.params.get('injury')));
   if (state.params.has('food')) B.food = clamp(parseFloat(state.params.get('food')));
   if (state.params.has('energy')) B.energy = clamp(parseFloat(state.params.get('energy')));
@@ -237,6 +267,7 @@ function warmthRate() {
   loss *= 1 - 0.6 * clamp(P.sheltered || 0);          // cowering, hunkered in the lee of rock
   loss *= 1 + 3 * clamp(B.wet);                        // wet: ~4x
   loss *= 1 + 0.6 * starving();                        // starving: up to +60% (slice 4)
+  loss *= 1 + 0.25 * dryOut();                         // no water left at all: +25% (thirst)
   // spent: sitting still in the snow with nothing left, the cold gets in (up to +30%)
   if (!P.moving) loss *= 1 + 0.3 * smooth(0.25, 0, B.energy);
   // in the water itself: the sea takes the heat straight out
@@ -283,7 +314,8 @@ let climbCost = 0;
 function updateEnergy(dt) {
   for (const e of state.events) if (e.type === 'axe') climbCost += CLIMB_HALF;
   const m = P.mode, lv = P.water?.level || 0, g = P.gear || {};
-  const hunger = 1 + 0.6 * hungerK();                         // slice 4: hungry, the reserve goes faster
+  // slice 4: hungry, the reserve goes faster (and thirsty: more so parched)
+  const hunger = (1 + 0.6 * hungerK()) * (1 + 0.4 * thirstK() + 0.6 * parchK());
   let drain = 0;
   if (m === 'inside' || B.phase === 'sleep') {
     const q = Q();
@@ -316,6 +348,7 @@ function updateEnergy(dt) {
       if (m === 'cower') k *= 0.6;                      // balled up against the storm: only a little
       if (lv) k *= 0.35;                                // standing in the sea
       k *= 1 - 0.5 * hungerK();                         // hungry: slower to come back
+      k *= (1 - 0.25 * thirstK()) * (1 - 0.25 * dryOut());   // thirsty a little slower, dry slower again
       if (P.resting) k *= 0.05;                         // a stop on the way: only the breath it cost
       drain = -(B.energy < 0.4 ? REST_LO : REST_HI) * k;
     }
@@ -352,6 +385,29 @@ function updateFood(dt) {
   B.food = Math.max(0, B.food - rate * dt);
   B.foodRate = rate;
   B.hunger = hungerK();
+}
+
+// Water: faster than food, faster working and panting and in a cold dry wind; back in a tent (the
+// stove melting snow), where the flasks in the pack fill too. (Drinking is ui/pack.js.)
+function updateWater(dt) {
+  const m = P.mode;
+  let rate = 0;
+  if (m === 'inside' || B.phase === 'sleep') {
+    const q = Q().water ?? 1;
+    rate = -WATER_TENT * q;
+    flaskAcc += dt * q / FLASK_FILL;
+    if (flaskAcc >= 1) { flaskAcc -= 1; if (state.pack) fillFlasks(state.pack, 1); }
+  } else if (B.phase === 'alive' || B.phase === 'open') {
+    flaskAcc = 0;
+    if (m !== 'tent-in' && m !== 'tent-out' && m !== 'gone' && m !== 'dead' && m !== 'collapse' && m !== 'sink') {
+      const work = m === 'swim' ? 1 : m === 'climb' ? 0.9 : P.water?.level ? 0.6 : state.pup?.job ? JOB_FOOD : clamp(P.push || 0);
+      const wind = clamp(state.weather.cold ?? 0.3) * clamp(P.exposure || 0) * (1 - 0.6 * clamp(P.sheltered || 0));
+      rate = WATER_REST * Math.min(WATER_MAX, (1 + WATER_WORK * work + WATER_PANT * clamp(P.pant || 0)) * (1 + WATER_WIND * wind));
+    } else rate = WATER_REST;
+  }
+  B.water = clamp(B.water - rate * dt);
+  B.waterRate = rate;
+  B.thirst = thirstK(); B.parched = parchK();
 }
 
 // Injury: what explorer.js reports (falls, knockdowns, slips), the impact cues, healing in the tent.
@@ -527,7 +583,7 @@ function handover() {
   const sprite = lost || inside ? null : P.snapshot?.(), kit = takePack();
   state.events.push({ type: 'handover', x: P.x, y: P.y, facing: P.facing, member: state.member, name: m.name, lost, inside, door: inside ? P.door?.() : null, sprite, pack: lost ? null : kit });
   const next = state.party.findIndex(q => q.alive);
-  Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, reserve: 1, injury: 0, splint: false, food: 0.8, sleepHold: 0, dizzy: 0 });
+  Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, reserve: 1, injury: 0, splint: false, food: 0.8, water: 0.8, sleepHold: 0, dizzy: 0 });
   flinch = null; joltA = 0; peel = null; vertT = 0;   // (a little hungry already)
   if (next < 0) {
     P.respawn?.(true);                                  // nobody left: the camera rests on the empty camp
@@ -556,7 +612,7 @@ export function update(dt) {
   for (const e of state.events) if (e.type === 'plunge') { B.shock = 1; flash = Math.max(flash, e.deep ? 1 : 0.7); }
   flash = Math.max(0, flash - dt * 1.8);
   updateInjury(dt);
-  if (B.phase !== 'over') { updateWet(dt); updateEnergy(dt); updateFood(dt); }
+  if (B.phase !== 'over') { updateWet(dt); updateEnergy(dt); updateFood(dt); updateWater(dt); }
 
   switch (B.phase) {
     case 'alive': case 'open': {
@@ -623,6 +679,9 @@ export function update(dt) {
         B.reserve = lerp(B.reserve, 1, k);
         B.energy = k >= 1 ? 1 : lerp(B.energy, Math.max(B.energy, energyMax()), k);
         B.food = Math.max(0, B.food - FOOD_SLEEP);   // and a little hungrier for it
+        // the stove melts snow all night: they wake watered (the pup tent's too, by morning), the flasks full
+        B.water = clamp(B.water + left * WATER_TENT * (q.water ?? 1));
+        if (state.pack) fillFlasks(state.pack, 99);
         B.injury = Math.max(0, B.injury - INJ_SLEEP * q.heal);   // and the leg a good deal better
         state.events.push({ type: 'tent', action: 'wake', x: P.x, y: P.y });
       }
@@ -685,6 +744,24 @@ export function update(dt) {
       state.events.push({ type: 'chatter', x: P.x, y: P.y, strength: 0.35 + 0.65 * ch, dur: 0.45 + Math.random() * 0.7 * ch + 0.2 * ch });
     }
   }
+  // Thirst, in the head: a dry swallow now and then (below 0.3, oftener the drier), and a faint high
+  // ring in the ears that comes and goes (below 0.25; near constant at 0). Not in a tent.
+  if (B.phase === 'alive' && outside()) {
+    const sk = smooth(0.3, 0.02, B.water), rk = smooth(0.25, 0.0, B.water);
+    swallowT -= dt; ringT -= dt;
+    if (sk > 0 && swallowT <= 0) {
+      swallowT = lerp(20, 7, sk) * (0.7 + Math.random() * 0.6);
+      state.events.push({ type: 'thirst', stage: 'swallow', x: P.x, y: P.y, strength: 0.4 + 0.6 * sk });
+    }
+    if (rk > 0 && ringT <= 0) {
+      const dur = lerp(3.5, 9, rk) * (0.8 + Math.random() * 0.4);
+      ringT = dur + lerp(38, 2, rk) * (0.6 + Math.random() * 0.8);
+      state.events.push({ type: 'thirst', stage: 'ring', x: P.x, y: P.y, strength: 0.35 + 0.65 * rk, dur });
+    }
+    if (sk <= 0) swallowT = Math.max(swallowT, 4);
+    if (rk <= 0) ringT = Math.max(ringT, 6);
+  }
+
   const hb = B.phase === 'dying' ? (1 - smooth(1.5, 4.5, B.t)) : (B.phase === 'alive' || B.phase === 'open') && outside() ? smooth(0.3, 0.06, w) : 0;
   if (hb > 0.03) {
     beatT -= dt;
@@ -929,5 +1006,5 @@ export function drawScreen(ctx) {
   if (vertT > 0) drawVertigo(ctx, Math.sin(Math.PI * (1 - vertT / VERT_S)));
   if (!state.debug) return;
   ctx.fillStyle = '#000'; ctx.font = '12px monospace';
-  ctx.fillText(`warmth ${B.warmth.toFixed(3)} rate ${(B.rate * 60).toFixed(3)}/min wet ${B.wet.toFixed(2)} rime ${B.frozen.toFixed(2)} food ${B.food.toFixed(3)} injury ${B.injury.toFixed(2)}${B.splint ? ' (splint)' : ''} ice ${(P.iceStress || 0).toFixed(2)} ${B.phase} member ${state.member}`, 10, 34);
+  ctx.fillText(`warmth ${B.warmth.toFixed(3)} rate ${(B.rate * 60).toFixed(3)}/min wet ${B.wet.toFixed(2)} rime ${B.frozen.toFixed(2)} food ${B.food.toFixed(3)} water ${B.water.toFixed(3)} injury ${B.injury.toFixed(2)}${B.splint ? ' (splint)' : ''} ice ${(P.iceStress || 0).toFixed(2)} ${B.phase} member ${state.member}`, 10, 34);
 }

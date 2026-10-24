@@ -57,12 +57,22 @@
 // and binds it for 4 s (explorer.js); moving cancels it and the splint isn't used. Injury -0.25 at
 // once, and the limp costs half the pace until the next injury (body.splint).
 //
-// state.compass = { phase: 'idle'|'rummage'|'slot'|'out'|'transfer'|'eat'|'splint', target, ... } (the
+// Thirst (slice 6): tap the flask: standing, the explorer unscrews it, tips it back and drinks (~2 s,
+// the slot's arc filling); +0.3 water, one of its three drinks (the pips) gone. Moving cancels it and
+// the drink stays in the flask. Empty, the flask is dimmed until a tent fills it (body.js). Not above
+// 0.97 water (the slot shakes). Under the explorer's feet, the pack shows one more round slot that
+// isn't a slot of the pack and holds nothing: the snow (a heap of it in a dashed ring). Tap it, on
+// snow, deep snow or a path, and they kneel, scoop a mittful and eat it (SNOW_S, the ring's arc filling):
+// +0.12 water for -0.05 warmth (up to twice that already cold): it quenches, and it chills. Off snow
+// (ice, rock) it's dimmed. Keyboard: Q. Not in a tent (the stove is melting it there).
+//
+// state.compass = { phase: 'idle'|'rummage'|'slot'|'out'|'transfer'|'eat'|'splint'|'drink'|'snow', target, ... } (the
 //   name is history: it's the pack UI's state). target = { kind: 'sled'|'fallen'|'ground', x, y }
 //   while rummaging in / transferring with a container; explorer.js kneels and faces it.
 // Pushes events: rummage, compass (taken out), stow (put away), gear { item, on, auto },
 //   transfer / pickup / drop { id, n, x, y }, eat { stage: 'start'|'chew'|'done'|'stop' },
-//   splint { stage: 'start'|'wrap'|'done'|'stop' },
+//   splint { stage: 'start'|'wrap'|'done'|'stop' }, drink { stage: 'start'|'gulp'|'done'|'stop' },
+//   snowEat { stage: 'start'|'scoop'|'chew'|'done'|'stop' },
 //   full { x, y } (refused: no room, can't drop here, too full to eat).
 import { state } from '../state.js';
 import { worldToScreenUI as worldToScreen, screenToWorld, visibleRect } from '../camera.js';   // (not the breathing pulse)
@@ -72,7 +82,7 @@ import { startPitch, startStrike, stopJob, pupInteract, pupDist, pupGlint, PUP_R
 import * as Terrain from '../world/terrain.js';
 import {
   ITEMS, PACK_SLOTS, wearSlot, worn, wear, take, add, room, find, isEmpty, dropAt, sweepGround,
-  shoesBlocked, drawNeedle, NORTH,
+  shoesBlocked, drawNeedle, NORTH, FLASK_DRINKS,
 } from '../items.js';
 
 const RUMMAGE_S = 2;              // time to dig in the pack (or the sled, or a body)
@@ -85,6 +95,9 @@ const MOVE_S = 0.6;               // ...a container slot (or the pack's, at a co
 const ARC_FROM = 0.3;             // the hold arc only shows after this (a tap never sees it)
 const EAT_S = 3, EAT_FOOD = 0.35, EAT_WARM = 0.04;
 const SPLINT_S = 4, SPLINT_HEAL = 0.25;
+const DRINK_S = 2, DRINK_WATER = 0.3;                 // a pull from the flask (thirst)
+const SNOW_S = 2.6, SNOW_WATER = 0.12, SNOW_CHILL = 0.05;   // a mittful of snow: quenches, and chills
+const SNOWY = new Set(['snow', 'deep', 'path']);      // where there's snow to scoop
 const REACH = { sled: 20, fallen: 16, ground: 12, pup: PUP_REACH };   // how close to rummage (world units; the sled and the pup tent from the edge, on its ground plane)
 const STRIKE_ARM = 0.9;           // a press on the pitched pup tent held this long strikes it (shorter: a tap, crawl in)
 const LEAVE = 6;                  // ...and how much further walking away closes it
@@ -96,19 +109,23 @@ const TAU = Math.PI * 2;
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 const P = state.player, pack = state.pack;
-const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, xferA: 0, angle: NORTH + 1.2, vel: 0, target: null, eatI: -1, splintI: -1 };
+const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, xferA: 0, angle: NORTH + 1.2, vel: 0, target: null, eatI: -1, splintI: -1, drinkI: -1 };
 let holding = false;              // pointer or key held on the explorer / a container
 let holdCode = null;              // which key is doing the holding ('auto': arrived at a container)
 let wasMoving = false;
 let press = null;                 // a press on a slot: { block: 'pack'|'cont', i, t, key?, done }
 let shownT = null, side = -1;     // the container drawn (kept through its fade), the pack's side
-let chewT = 0, wrapT = 0, doorPress = false, pending = null;
+let chewT = 0, wrapT = 0, doorPress = false, pending = null, gulpT = 0, scoopT = 0;
 const shakes = new Map();         // 'pack:3' -> time of the refusal
 const puffs = [];                 // snow kicked up by a move: { x, y, t }
 
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+const smooth01 = (a, b, v) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
 const zoom = () => state.cam.zoom || 1;
 const moving = () => P.moving && P.speed > 2;
+// the phases with the pack open beside them (busy eating, binding, drinking or eating snow included)
+const OPEN = new Set(['slot', 'transfer', 'eat', 'splint', 'drink', 'snow']);
+const BUSY = new Set(['eat', 'splint', 'drink', 'snow']);
 // in the tent (alive and awake): the pack opens at the door (by day; after dark a hold sleeps)
 const inTent = () => P.mode === 'inside' && (!state.body || state.body.phase === 'alive');
 const canSleep = () => { const L = state.lighting; return L.mode === 'cycle' && L.night > 0.5 && L.clock >= 180; };   // (as body.js)
@@ -230,7 +247,10 @@ function layouts() {
   const y0 = Math.max(8 + r, Math.min(f.y - 11 * z, h - 8 - r - 4 * sp));
   const packPos = [];
   for (let i = 0; i < PACK_SLOTS; i++) packPos.push({ x: xs[i < 5 ? 0 : 1] - over, y: y0 + (i % 5) * sp });
-  const out = { r, sp, side: s, pack: packPos, packOwner: { x: f.x, y: f.y - 8 * z }, cont: null, contOwner: null };
+  // the snow at their feet (thirst): one more round slot under the feet, a little to the far side
+  // of the columns, never off the bottom of the screen; not in a tent, nor with a container open
+  const snow = inTent() || C.phase === 'transfer' || C.xferA > 0.01 ? null : { x: f.x - s * r * 0.35, y: Math.min(f.y + r * 0.95 + 4 + 2 * z, h - r - 6) };
+  const out = { r, sp, side: s, pack: packPos, packOwner: { x: f.x, y: f.y - 8 * z }, cont: null, contOwner: null, snow };
   // the container: beside it on the far side from the explorer, centred on its height; if it
   // runs off the screen the whole block slides back on
   const t = C.phase === 'transfer' ? C.target : C.xferA > 0.01 ? shownT : null;
@@ -251,6 +271,7 @@ function slotAt(sx, sy) {
   let best = null, bd = 1e9;
   const L = layouts(), reach = L.r + 8;
   L.pack.forEach((p, i) => { const d = Math.hypot(sx - p.x, sy - p.y); if (d < reach && d < bd) { bd = d; best = { block: 'pack', i }; } });
+  if (L.snow && C.phase !== 'transfer') { const d = Math.hypot(sx - L.snow.x, sy - L.snow.y); if (d < reach * 0.9 && d < bd) { bd = d; best = { block: 'snow', i: 0 }; } }
   if (C.phase === 'transfer' && L.cont) for (const p of L.cont) { const d = Math.hypot(sx - p.x, sy - p.y); if (d < reach && d < bd) { bd = d; best = { block: 'cont', i: p.i }; } }
   return best;
 }
@@ -269,6 +290,8 @@ function startRummage(target = null) {
 function close() {
   if (C.phase === 'eat') state.events.push({ type: 'eat', stage: 'stop', x: P.x, y: P.y });
   if (C.phase === 'splint') state.events.push({ type: 'splint', stage: 'stop', x: P.x, y: P.y });
+  if (C.phase === 'drink') state.events.push({ type: 'drink', stage: 'stop', x: P.x, y: P.y });
+  if (C.phase === 'snow') state.events.push({ type: 'snowEat', stage: 'stop', x: P.x, y: P.y });
   C.phase = 'idle'; C.t = 0; C.target = null; press = null; doorPress = false;
 }
 function takeOut() {
@@ -283,8 +306,8 @@ function stow() {
   C.phase = 'idle'; C.t = 0;
 }
 function startEat(i) {
-  // (not when already full: no wasting a ration by accident)
-  if (state.body && state.body.food > 0.95) { shake('pack', i); return; }
+  // (not when already full: no wasting a ration by accident; not with the bear coming)
+  if ((state.body && state.body.food > 0.95) || bearClose()) { shake('pack', i); return; }
   C.phase = 'eat'; C.eatI = i; C.t = 0; chewT = 0.9;
   state.events.push({ type: 'eat', stage: 'start', x: P.x, y: P.y });
 }
@@ -293,6 +316,20 @@ function startSplint(i) {
   if (!state.body || !(state.body.injury > 0.02)) { shake('pack', i); return; }
   C.phase = 'splint'; C.splintI = i; C.t = 0; wrapT = 0.8;
   state.events.push({ type: 'splint', stage: 'start', x: P.x, y: P.y });
+}
+// Drink from the flask in slot i (not when already watered: no wasting it; not empty).
+function startDrink(i) {
+  const s = pack.slots[i];
+  if (!s || !(s.drinks > 0) || (state.body && state.body.water > 0.97)) { shake('pack', i); return; }
+  C.phase = 'drink'; C.drinkI = i; C.t = 0; gulpT = 0.75;
+  state.events.push({ type: 'drink', stage: 'start', x: P.x, y: P.y });
+}
+// Eat a mittful of snow: kneel, scoop, eat. Only on snow (deep snow too: there's plenty), never in a tent.
+const snowHere = () => !inTent() && SNOWY.has(P.terrain) && !(P.water?.level);
+function startSnow() {
+  if (!snowHere() || packBlocked() || bearClose() || (state.body && state.body.water > 0.97)) { shakes.set('snow:0', state.time); state.events.push({ type: 'full', x: P.x, y: P.y }); return; }
+  C.phase = 'snow'; C.t = 0; scoopT = 0.55;
+  state.events.push({ type: 'snowEat', stage: 'start', x: P.x, y: P.y });
 }
 // Pitch the pup tent in slot i: refused (the slot shakes) if the ground beside them won't take it;
 // otherwise the pack closes and the work plays out on the snow (puptent.js).
@@ -305,7 +342,7 @@ function useSlot(i) {
   const s = pack.slots[i];
   if (!s) return;
   const it = ITEMS[s.id];
-  const u = { i, slot: s, handsBlocked: blocked(), storm: stormy(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint, pitch: pitchSlot };
+  const u = { i, slot: s, handsBlocked: blocked(), storm: stormy(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint, pitch: pitchSlot, drink: startDrink };
   if (it.blocked(u)) { shakes.set('pack:' + i, state.time); return; }
   C.t = 0;
   it.use(u);
@@ -330,7 +367,7 @@ function dropSlot(i) {
   const spot = [[P.x + sd * 7, P.y + 1.5], [P.x - sd * 7, P.y + 1.5], [P.x, P.y + 3]].find(([x, y]) => ok(x, y));
   if (!spot) { shake('pack', i); return; }
   const got = takeFromPack(i, 1, false);
-  dropAt(spot[0], spot[1], got.id, got.n);
+  dropAt(spot[0], spot[1], got.id, got.n, got);
   puff(spot[0], spot[1]);
   state.events.push({ type: 'drop', id: got.id, n: got.n, x: spot[0], y: spot[1] });
   C.t = 0;
@@ -343,7 +380,7 @@ function moveItem(from, i, to, all, block) {
   if (fit < 1) { shake(block, i); return; }
   const n = Math.min(all ? s.n : 1, fit);
   const got = from === pack ? takeFromPack(i, n, true) : take(from, i, n);   // (already kneeling: a quick tug)
-  add(to, got.id, got.n);
+  add(to, got.id, got.n, got);
   const ground = t.kind === 'ground';
   const type = to === pack ? (ground ? 'pickup' : 'transfer') : (ground ? 'drop' : 'transfer');
   state.events.push({ type, id: got.id, n: got.n, to: to === pack ? 'pack' : t.kind, x: P.x, y: P.y });
@@ -355,6 +392,7 @@ function moveItem(from, i, to, all, block) {
 }
 // A finished press on a slot: a tap (released early) or a hold.
 function slotAction(p, held) {
+  if (p.block === 'snow') { if (C.phase === 'slot') startSnow(); return; }   // (held or tapped: the same)
   if (C.phase === 'slot') { if (p.block === 'pack') (held ? dropSlot : useSlot)(p.i); return; }
   if (C.phase === 'transfer' && C.target) {
     if (p.block === 'pack') moveItem(pack, p.i, C.target.ref, held, 'pack');
@@ -405,10 +443,10 @@ export function init() {
       const w = screenToWorld(sx, sy);
       if (pupInteract(w.x, w.y) && !onPlayer(sx, sy)) { pressPup(); return true; }
     }
-    const open = C.phase === 'slot' || C.phase === 'transfer' || C.phase === 'eat' || C.phase === 'splint';
+    const open = OPEN.has(C.phase);
     if (open) {
       const hit = slotAt(sx, sy);
-      if (hit && (C.phase === 'eat' || C.phase === 'splint')) return true;   // (busy eating / binding: swallow it)
+      if (hit && BUSY.has(C.phase)) return true;   // (busy eating / binding / drinking: swallow it)
       if (hit) { press = { ...hit, t: state.time, done: false }; return true; }
     }
     if (inTent()) {
@@ -421,8 +459,8 @@ export function init() {
       if (open) close();
       return false;
     }
-    if (C.phase === 'eat' || C.phase === 'splint') {
-      close();                     // walked off mid-meal (or mid-binding): the ration / splint goes back
+    if (BUSY.has(C.phase)) {
+      close();                     // walked off mid-meal (or mid-binding, mid-drink): the ration / splint / drink goes back
       return onPlayer(sx, sy);
     }
     // a pile: only a press on the pile itself, and nearer it than the explorer's middle
@@ -464,6 +502,8 @@ export function init() {
       } else press = { block: 'pack', i: n, t: state.time, key: e.code, done: false };
       return;
     }
+    // Q: a mittful of snow (the pack open)
+    if (e.code === 'KeyQ' && C.phase === 'slot') { startSnow(); return; }
     if (e.code === 'KeyC') {
       if (C.phase === 'slot') { if (!blocked() && !stormy()) takeOut(); }
       else if (C.phase === 'out') stow();
@@ -495,6 +535,9 @@ export function init() {
   window.NAS.openSled = () => { C.target = shownT = { kind: 'sled', ref: state.sled, x: SLED.x, y: SLED.y }; C.phase = 'transfer'; C.t = 0; side = feet().x >= worldToScreen(SLED.x, SLED.y).x ? 1 : -1; lay = null; };
   window.NAS.eat = () => { const i = find(pack, 'food'); if (i >= 0) startEat(i); };
   window.NAS.splint = () => { const i = find(pack, 'splint'); if (i >= 0) startSplint(i); };
+  // thirst: NAS.drink() drinks from the first flask with a drink in it; NAS.snowEat() eats a mittful of snow
+  window.NAS.drink = () => { const i = pack.slots.findIndex(q => q && q.id === 'flask' && q.drinks > 0); if (i >= 0) { if (C.phase === 'idle') { C.phase = 'slot'; C.t = 0; } startDrink(i); } };
+  window.NAS.snowEat = () => { if (C.phase === 'idle') { C.phase = 'slot'; C.t = 0; } startSnow(); };
   window.NAS.packUI = () => { lay = null; const L = layouts(); return { pack: L.pack, cont: L.cont || [], r: L.r }; };
 }
 
@@ -575,6 +618,43 @@ export function update(dt) {
         C.phase = 'slot'; C.t = 0;
       }
     }
+  } else if (C.phase === 'drink') {
+    const s = pack.slots[C.drinkI];
+    if (mv || (!inTent() && blocked()) || !s || s.id !== 'flask' || !(s.drinks > 0)) {
+      // walked off (or the weather got in): screwed back up, the drink still in it
+      state.events.push({ type: 'drink', stage: 'stop', x: P.x, y: P.y });
+      if (mv) { C.phase = 'idle'; C.t = 0; } else { C.phase = 'slot'; C.t = 0; }
+    } else {
+      gulpT -= dt;
+      if (gulpT <= 0 && C.t > 0.7 && C.t < DRINK_S - 0.35) { gulpT = 0.36 + Math.random() * 0.1; state.events.push({ type: 'drink', stage: 'gulp', x: P.x, y: P.y }); }
+      if (C.t >= DRINK_S) {
+        s.drinks = Math.max(0, s.drinks - 1);
+        const B = state.body;
+        if (B) B.water = Math.min(1, B.water + DRINK_WATER);
+        state.events.push({ type: 'drink', stage: 'done', x: P.x, y: P.y, left: s.drinks });
+        C.phase = 'slot'; C.t = 0;
+      }
+    }
+  } else if (C.phase === 'snow') {
+    if (mv || !snowHere() || packBlocked() || bearClose()) {
+      state.events.push({ type: 'snowEat', stage: 'stop', x: P.x, y: P.y });
+      if (mv) { C.phase = 'idle'; C.t = 0; } else { C.phase = 'slot'; C.t = 0; }
+    } else {
+      // the scoop (the mitt down in the snow ~0.5 s in), then the crunch of it at the mouth
+      scoopT -= dt;
+      if (scoopT <= 0 && C.t < SNOW_S - 0.3) { scoopT = C.t < 1.0 ? 0.42 + Math.random() * 0.1 : 0.34 + Math.random() * 0.12; state.events.push({ type: 'snowEat', stage: C.t < 1.0 ? 'scoop' : 'chew', x: P.x, y: P.y }); }
+      if (C.t >= SNOW_S) {
+        const B = state.body;
+        if (B) {
+          // snow takes the heat to melt it: more of it the colder they are already
+          const chill = SNOW_CHILL * (1 + smooth01(0.6, 0.2, B.warmth));
+          B.water = Math.min(1, B.water + SNOW_WATER);
+          B.warmth = Math.max(0.01, B.warmth - chill);
+        }
+        state.events.push({ type: 'snowEat', stage: 'done', x: P.x, y: P.y });
+        C.phase = 'slot'; C.t = 0;
+      }
+    }
   } else if (C.phase === 'out') {
     if (blocked() || stormy() || inTent() || C.t > OUT_S || find(pack, 'compass') < 0) stow();
   }
@@ -587,7 +667,7 @@ export function update(dt) {
 
   // Fades.
   const k = Math.min(1, dt * 8);
-  const open = C.phase === 'slot' || C.phase === 'transfer' || C.phase === 'eat' || C.phase === 'splint';
+  const open = OPEN.has(C.phase);
   C.slotA += ((open ? 1 : 0) - C.slotA) * k;
   C.xferA += ((C.phase === 'transfer' ? 1 : 0) - C.xferA) * k;
   if (C.phase === 'transfer') shownT = C.target;
@@ -748,16 +828,19 @@ function drawSlot(ctx, x, y, r, s, o) {
   }
   if (s) {
     ctx.save();
-    ctx.translate(x, y - (s.n > 1 ? r * 0.1 : 0));   // (up a touch to make room for the pips)
-    ITEMS[s.id].icon(ctx, s.n > 1 ? r * 0.92 : r, z);
+    const pips = s.n > 1 || s.drinks !== undefined;
+    ctx.translate(x, y - (pips ? r * 0.1 : 0));   // (up a touch to make room for the pips)
+    ITEMS[s.id].icon(ctx, pips ? r * 0.92 : r, z);
     ctx.restore();
-    if (s.n > 1) {
-      // the stack: an ink pip for each, along the bottom of the slot
-      const pr = Math.max(1.5, r * 0.09), gap = pr * 2.7;
-      for (let k = 0; k < s.n; k++) {
-        ctx.beginPath(); ctx.arc(x + (k - (s.n - 1) / 2) * gap, y + r * 0.72, pr, 0, TAU);
-        ctx.fillStyle = 'rgba(40,36,30,0.9)'; ctx.fill();
-        ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(236,235,230,0.9)'; ctx.stroke();
+    if (s.n > 1 || s.drinks !== undefined) {
+      // the stack: an ink pip for each, along the bottom of the slot (a flask: a pip a drink, the
+      // drunk ones hollow)
+      const pr = Math.max(1.5, r * 0.09), gap = pr * 2.7, n = s.drinks !== undefined ? FLASK_DRINKS : s.n;
+      for (let k = 0; k < n; k++) {
+        const full = s.drinks === undefined || k < s.drinks;
+        ctx.beginPath(); ctx.arc(x + (k - (n - 1) / 2) * gap, y + r * 0.72, pr, 0, TAU);
+        ctx.fillStyle = full ? 'rgba(40,36,30,0.9)' : 'rgba(236,235,230,0.55)'; ctx.fill();
+        ctx.lineWidth = 1; ctx.strokeStyle = full ? 'rgba(236,235,230,0.9)' : 'rgba(40,36,30,0.6)'; ctx.stroke();
       }
     }
     if (o.dim) {      // greyed out: can't use it here
@@ -774,6 +857,58 @@ function drawSlot(ctx, x, y, r, s, o) {
     ctx.lineWidth = Math.max(2, z * 0.6); ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.stroke();
     ctx.lineCap = 'butt';
   }
+}
+// The snow at their feet (thirst): not a slot of the pack, so not drawn like one: no grey fill, a
+// dashed white ring, and inside it a little heap of snow (white, inked, stippled, a scoop taken out
+// of its top). Dimmed off snow. hold: the arc (filling while they eat it).
+function drawSnowSlot(ctx, x, y, r, o) {
+  const z = zoom(), sh = shakes.get('snow:0');
+  if (sh !== undefined) {
+    const age = state.time - sh;
+    if (age > 0.5) shakes.delete('snow:0');
+    else x += Math.sin(age * 46) * Math.min(7, r * 0.42) * (1 - age / 0.5);
+  }
+  const a = o.a * (o.dim ? 0.45 : 1), lw = Math.max(1.2, z * 0.35);
+  ctx.globalAlpha = a;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
+  ctx.fillStyle = 'rgba(244,245,246,0.22)'; ctx.fill();
+  ctx.setLineDash([Math.max(2.5, r * 0.22), Math.max(2, r * 0.16)]);
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(40,40,44,0.28)'; ctx.stroke();
+  ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.stroke();
+  ctx.setLineDash([]);
+  // the heap: a low mound, its shaded underside, the scoop out of its top, stipple along its foot
+  const mw = r * 0.62, mh = r * 0.42, by = y + r * 0.3;
+  ctx.beginPath();
+  ctx.moveTo(x - mw, by);
+  ctx.bezierCurveTo(x - mw * 0.75, by - mh * 0.9, x - mw * 0.3, by - mh * 1.05, x - mw * 0.12, by - mh * 0.92);
+  ctx.quadraticCurveTo(x + mw * 0.08, by - mh * 0.55, x + mw * 0.3, by - mh * 0.9);   // the scoop
+  ctx.bezierCurveTo(x + mw * 0.6, by - mh * 0.95, x + mw * 0.85, by - mh * 0.5, x + mw, by);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(252,252,251,0.98)'; ctx.fill();
+  ctx.lineWidth = Math.max(1, z * 0.26); ctx.strokeStyle = 'rgba(40,40,44,0.85)'; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x + mw * 0.1, by - mh * 0.12, mw * 0.72, mh * 0.18, 0, 0, Math.PI);
+  ctx.fillStyle = 'rgba(176,182,190,0.6)'; ctx.fill();
+  ctx.fillStyle = 'rgba(40,40,44,0.75)';
+  for (const [u, v] of [[-0.8, -0.06], [-0.55, -0.3], [0.5, -0.2], [0.78, -0.08], [0.15, -0.5], [-0.2, -0.12]]) {
+    ctx.beginPath(); ctx.arc(x + u * mw, by + v * mh, Math.max(0.7, r * 0.035), 0, TAU); ctx.fill();
+  }
+  // three flakes falling onto it (so it's snow, not a loaf or a cloud): little inked six-armed stars
+  ctx.lineWidth = Math.max(0.8, z * 0.16); ctx.strokeStyle = 'rgba(40,40,44,0.8)'; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (const [u, v, k] of [[-0.42, -0.62, 1], [0.18, -0.86, 0.8], [0.55, -0.5, 0.9]]) {
+    const cx = x + u * r, cy = y + v * r * 0.75, fr = r * 0.11 * k;
+    for (let a = 0; a < 3; a++) { const ang = a * Math.PI / 3 + 0.3; ctx.moveTo(cx - Math.cos(ang) * fr, cy - Math.sin(ang) * fr); ctx.lineTo(cx + Math.cos(ang) * fr, cy + Math.sin(ang) * fr); }
+  }
+  ctx.stroke(); ctx.lineCap = 'butt';
+  if (o.hold > 0.01) {
+    ctx.globalAlpha = o.a;
+    ctx.beginPath(); ctx.arc(x, y, r + lw * 2.2, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, o.hold));
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(3.5, z * 1.0); ctx.strokeStyle = 'rgba(40,40,44,0.35)'; ctx.stroke();
+    ctx.lineWidth = Math.max(2, z * 0.6); ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+  ctx.globalAlpha = 1;
 }
 // The press held on the pitched pup tent, before the strike starts: a white, ink-edged arc round the
 // glint on its ridge (the slots' hold arc), filling to the arm time.
@@ -864,8 +999,10 @@ export function drawScreen(ctx) {
       let hold = holdK('pack', i);
       if (C.phase === 'eat' && i === C.eatI) hold = C.t / EAT_S;   // eating: the arc fills over the meal
       if (C.phase === 'splint' && i === C.splintI) hold = C.t / SPLINT_S;   // ...and over the binding
+      if (C.phase === 'drink' && i === C.drinkI) hold = C.t / DRINK_S;      // ...and over the drink
       drawSlot(ctx, p.x, p.y, L.r * pop, s, { a: C.slotA, key: 'pack:' + i, dim, hold });
     });
+    if (L.snow) drawSnowSlot(ctx, L.snow.x, L.snow.y, L.r * pop * 0.82, { a: C.slotA, dim: !snowHere() || (C.phase !== 'slot' && C.phase !== 'snow'), hold: C.phase === 'snow' ? C.t / SNOW_S : holdK('snow', 0) });
   }
 
   // The needle itself, over the explorer.

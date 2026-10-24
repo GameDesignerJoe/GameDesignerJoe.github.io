@@ -26,6 +26,7 @@ const MODULES = {
   camp: './actors/camp.js',
   puptent: './actors/puptent.js',    // after explorer (a pitch stops if they walk off) and camp: the pup tent
   fallen: './actors/fallen.js',      // after body: picks up 'handover' the same frame
+  thirst: './fx/thirst.js',          // after body (reads water) and camp: the mirage (drawSky, over every sky layer) and the Third Man
   wildlife: './actors/wildlife.js',
   audio: './audio/audio.js',
   night: './fx/night.js',            // grades the finished frame and adds warm lights

@@ -10,19 +10,24 @@
 // Food stacks to 3 in a slot, splints to 2; gear is one per slot. The pup tent (slice 6) is one
 // of a kind: one on the sled, heavy (body.js: carrying it costs ~10% more energy walking;
 // explorer.js: it weighs double on thin ice).
+// The flask (thirst): one per slot, and it holds drinks (slot.drinks 0..FLASK_DRINKS), shown as
+// pips. The drinks go with it wherever it's moved (take() hands them on, add() takes them: pass
+// what take() returned as add()'s `from`). It fills itself in a tent (body.js fillFlasks).
 //
 // state.player.gear = { snowshoes, axes, crampons } is a derived view of the pack (getters:
 // worn in the pack; setting one wears / takes it off), so explorer.js and body.js read it as
 // before.
 //
 // ITEMS is the registry: { id, name, stack, kind: 'tool' | 'gear' | 'food', wear (worn on the
-// body), icon(ctx, r, z) (drawn centred on 0,0 in a slot of radius r px at zoom z),
+// body), drinks (a vessel: how many it holds; a new one comes full), icon(ctx, r, z) (drawn centred
+// on 0,0 in a slot of radius r px at zoom z),
 // use(u) and blocked(u) }, where u is what the pack UI offers: { i, slot, handsBlocked, storm (a gale:
 // the compass can't be held nor gear strapped on or off; eating, splinting and pitching go on), inTent,
-// takeOut(), eat(i), splint(i), pitch(i) }. Add a new item here and the pack, the sled and the transfer UI take it.
+// takeOut(), eat(i), splint(i), pitch(i), drink(i) }. Add a new item here and the pack, the sled and the transfer UI take it.
 //
 // Hooks: NAS.give(id, n = 1) (into the pack; returns how many fitted), NAS.pack, NAS.sled.
 // ?kit=all starts the first member with the compass, snowshoes, axes, crampons and food x3.
+// (Without it the first member sets out with a compass, two rations and a full flask.)
 import { state } from './state.js';
 import { SIGNAL } from './palette.js';
 
@@ -62,6 +67,11 @@ item({ id: 'splint', name: 'Splint & bandage', kind: 'tool', stack: 2, icon: dra
 // (ice, water, rock, a slope's lip: refused, the slot shakes). Storms don't stop it: that's when
 // it's wanted.
 item({ id: 'puptent', name: 'Pup tent', kind: 'tool', icon: drawPupTent, blocked: u => u.inTent, use: u => u.pitch(u.i) });
+// the flask (thirst): three drinks of meltwater; a tap unscrews it and takes a pull (~2 s, ui/pack.js).
+// Empty, it's dimmed until a tent fills it again (body.js). (Not wading deep snow: hands full.)
+export const FLASK_DRINKS = 3;
+item({ id: 'flask', name: 'Flask', kind: 'tool', drinks: FLASK_DRINKS, icon: drawFlask,
+  blocked: u => u.handsBlocked || !(u.slot.drinks > 0), use: u => u.drink(u.i) });
 
 // --- containers -------------------------------------------------------------------------------------
 export const makeSlots = n => Array.from({ length: n }, () => null);
@@ -75,28 +85,30 @@ export function room(c, id) {
   return r;
 }
 // Put up to n of id in: topping up part stacks first, then the first empty slots. Returns how
-// many went in.
-export function add(c, id, n = 1) {
-  const st = stackOf(id);
+// many went in. A vessel (the flask) keeps the drinks it had (from: what take() returned), or
+// comes full.
+export function add(c, id, n = 1, from = null) {
+  const st = stackOf(id), cap = ITEMS[id]?.drinks;
   let left = n;
   for (const s of c.slots) if (left > 0 && s && s.id === id && s.n < st) { const k = Math.min(left, st - s.n); s.n += k; left -= k; }
   for (let i = 0; i < c.slots.length && left > 0; i++) {
     if (c.slots[i]) continue;
     const k = Math.min(left, st);
     c.slots[i] = { id, n: k };
+    if (cap) c.slots[i].drinks = from && typeof from.drinks === 'number' ? from.drinks : cap;
     left -= k;
   }
   return n - left;
 }
-// Take n (default all) out of slot i. Returns { id, n } taken, or null. (Worn things should be
-// taken off first: wear(id, false).)
+// Take n (default all) out of slot i. Returns { id, n } taken (and drinks, for a vessel), or null.
+// (Worn things should be taken off first: wear(id, false).)
 export function take(c, i, n = Infinity) {
   const s = c.slots[i];
   if (!s) return null;
   const k = Math.min(n, s.n);
   s.n -= k;
   if (s.n <= 0) c.slots[i] = null;
-  return { id: s.id, n: k };
+  return s.drinks !== undefined ? { id: s.id, n: k, drinks: s.drinks } : { id: s.id, n: k };
 }
 export const count = (c, id) => c.slots.reduce((a, s) => a + (s && s.id === id ? s.n : 0), 0);
 export const find = (c, id) => c.slots.findIndex(s => s && s.id === id);
@@ -107,15 +119,16 @@ export const used = c => c.slots.reduce((a, s) => a + (s ? 1 : 0), 0);
 const pack = state.pack = { slots: makeSlots(PACK_SLOTS) };
 const sled = state.sled = { slots: makeSlots(SLED_SLOTS) };
 state.ground = [];
-// the party's supply: 12 rations, a set of every bit of gear, a spare compass, two splints and
-// the pup tent
+// the party's supply: 12 rations, a set of every bit of gear, a spare compass, two splints, the
+// pup tent and a spare flask
 for (let i = 0; i < 4; i++) add(sled, 'food', 3);
 add(sled, 'splint', 2);
 add(sled, 'puptent', 1);
-for (const id of ['snowshoes', 'axes', 'crampons', 'compass']) add(sled, id, 1);
-// the first member sets out with a compass and two rations
+for (const id of ['snowshoes', 'axes', 'crampons', 'compass', 'flask']) add(sled, id, 1);
+// the first member sets out with a compass, two rations and a full flask
 add(pack, 'compass', 1);
 add(pack, 'food', 2);
+add(pack, 'flask', 1);
 if (state.params.get('kit') === 'all') {
   for (const id of ['snowshoes', 'axes', 'crampons']) moveOut(sled, id) || add(pack, id, 1);
   add(pack, 'food', 1);
@@ -124,7 +137,7 @@ if (state.params.get('kit') === 'all') {
 function moveOut(c, id) {
   const i = find(c, id);
   if (i < 0 || room(pack, id) < 1) return false;
-  take(c, i, 1); add(pack, id, 1);
+  const got = take(c, i, 1); add(pack, id, 1, got);
   return true;
 }
 
@@ -156,20 +169,30 @@ for (const id of ['snowshoes', 'axes', 'crampons']) {
 P.gear = gear;
 
 // The death hand-over (body.js): the dead member's pack goes with the body (a copy, nothing
-// worn), the pack is emptied, and the next one takes a compass from the sled if one is left.
+// worn), the pack is emptied, and the next one takes a compass and a flask from the sled, if
+// there are any left there.
 export function takePack() {
-  const out = pack.slots.map(s => s && { id: s.id, n: s.n });
+  const out = pack.slots.map(s => s && (s.drinks !== undefined ? { id: s.id, n: s.n, drinks: s.drinks } : { id: s.id, n: s.n }));
   for (let i = 0; i < pack.slots.length; i++) pack.slots[i] = null;
   return out;
 }
-export function restock() { moveOut(sled, 'compass'); }
+export function restock() { moveOut(sled, 'compass'); moveOut(sled, 'flask'); }
 
 // Drop a stack on the snow at x, y: into a pile already lying within ~6 units, or a new one.
-export function dropAt(x, y, id, n) {
+// (from: what take() returned, so a flask keeps its drinks)
+export function dropAt(x, y, id, n, from = null) {
   let g = state.ground.find(q => Math.hypot(q.x - x, q.y - y) < 6 && room(q, id) >= n);
   if (!g) { g = { x, y, slots: makeSlots(PACK_SLOTS), t: state.time }; state.ground.push(g); }
-  add(g, id, n);
+  add(g, id, n, from);
   return g;
+}
+// Flasks in a container: the drinks in all of them (the readout), and topping them up by k each
+// (a tent's stove, body.js). Returns how many weren't full.
+export const drinksIn = c => c.slots.reduce((a, s) => a + (s && s.id === 'flask' ? s.drinks || 0 : 0), 0);
+export function fillFlasks(c, k = 1) {
+  let n = 0;
+  for (const s of c.slots) if (s && s.id === 'flask' && s.drinks < FLASK_DRINKS) { s.drinks = Math.min(FLASK_DRINKS, s.drinks + k); n++; }
+  return n;
 }
 // Empty piles go.
 export function sweepGround() {
@@ -180,7 +203,7 @@ export function sweepGround() {
 state.give = (id, n = 1) => (ITEMS[id] ? add(pack, id, n) : 0);
 // Gear menu "Fill pack": the full kit, then rations into every slot left.
 state.fillPack = () => {
-  for (const id of ['compass', 'snowshoes', 'axes', 'crampons']) if (find(pack, id) < 0) add(pack, id, 1);
+  for (const id of ['compass', 'snowshoes', 'axes', 'crampons', 'flask']) if (find(pack, id) < 0) add(pack, id, 1);
   add(pack, 'food', room(pack, 'food'));
 };
 
@@ -391,4 +414,41 @@ function drawFood(ctx, r, z) {
   for (const [u, v] of [[0, 0], [-0.45, 0], [0.45, 0], [-0.22, -0.42], [0.22, -0.42], [-0.22, 0.42], [0.22, 0.42]]) {
     ctx.beginPath(); ctx.arc(u * rx, -th / 2 + v * ry, d, 0, Math.PI * 2); ctx.fill();
   }
+}
+
+// The flask: a flat-sided steel canteen, upright and a little tipped, its shoulders narrowing to a
+// screw cap on a short chain; a pale lit edge down one side and a felt band round its middle (the
+// cover that keeps the cold off the metal).
+function drawFlask(ctx, r, z) {
+  ctx.save();
+  ctx.rotate(-0.22);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const lw = Math.max(1.1, z * 0.28), w = r * 0.34, h = r * 0.5, top = -h, sh = -h * 0.5;
+  // the body: rounded shoulders up to a short neck
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.1, top);
+  ctx.lineTo(-r * 0.1, sh - r * 0.08);
+  ctx.quadraticCurveTo(-w, sh - r * 0.04, -w, sh + r * 0.14);
+  ctx.lineTo(-w, h - r * 0.12);
+  ctx.quadraticCurveTo(-w, h, -w + r * 0.12, h);
+  ctx.lineTo(w - r * 0.12, h);
+  ctx.quadraticCurveTo(w, h, w, h - r * 0.12);
+  ctx.lineTo(w, sh + r * 0.14);
+  ctx.quadraticCurveTo(w, sh - r * 0.04, r * 0.1, sh - r * 0.08);
+  ctx.lineTo(r * 0.1, top);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(160,162,166,0.98)'; ctx.fill();
+  ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+  // the lit edge
+  ctx.beginPath(); ctx.moveTo(-w + r * 0.09, sh + r * 0.18); ctx.lineTo(-w + r * 0.09, h - r * 0.14);
+  ctx.lineWidth = Math.max(1, z * 0.22); ctx.strokeStyle = PALE; ctx.stroke();
+  // the felt band
+  ctx.beginPath(); ctx.rect(-w, r * 0.02, 2 * w, r * 0.26);
+  ctx.fillStyle = 'rgba(88,84,78,0.97)'; ctx.fill(); ctx.lineWidth = Math.max(0.8, z * 0.16); ctx.strokeStyle = INK; ctx.stroke();
+  // the cap, and its chain looping down to the shoulder
+  ctx.beginPath(); ctx.rect(-r * 0.15, top - r * 0.14, r * 0.3, r * 0.15);
+  ctx.fillStyle = 'rgba(58,56,54,1)'; ctx.fill(); ctx.lineWidth = Math.max(0.8, z * 0.18); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(r * 0.15, top - r * 0.06); ctx.quadraticCurveTo(r * 0.36, top + r * 0.06, w * 0.8, sh + r * 0.06);
+  ctx.lineWidth = Math.max(0.6, z * 0.1); ctx.strokeStyle = 'rgba(40,36,30,0.7)'; ctx.stroke();
+  ctx.restore();
 }

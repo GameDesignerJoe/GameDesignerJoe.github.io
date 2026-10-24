@@ -384,6 +384,15 @@ export function breath(ctx, B, out, t, o = {}) {
     chain(lfo, lg); lg.connect(tr.gain);
     chain(s, hp, bp, tr, g, out);
   } else chain(s, hp, bp, g, out);
+  if (o.dry) {
+    // thirsty: cracked lips and a dry mouth: a thin, high hiss over the breath, crackling (the grit
+    // pulse train through a high band), so it rasps rather than sighs (dry 0..1)
+    const d = o.dry, hs = src(ctx, B.whiteM, t, len), hb = filt(ctx, 'bandpass', inh ? R(4200, 5600) : R(3400, 4600), 1.6), hg = gain(ctx);
+    const cr = src(ctx, B.grit, t, len, R(1.6, 2.4)), cb = filt(ctx, 'highpass', 2600), cg = gain(ctx);
+    chain(hs, hb, hg, out); chain(cr, cb, cg, out);
+    hg.gain.setValueAtTime(0, t); hg.gain.linearRampToValueAtTime(lvl * 0.42 * d, t + len * 0.3); hg.gain.linearRampToValueAtTime(0, t + len);
+    cg.gain.setValueAtTime(0, t); cg.gain.linearRampToValueAtTime(lvl * 0.3 * d, t + len * 0.25); cg.gain.linearRampToValueAtTime(0, t + len * 0.95);
+  }
   if (o.rasp) {
     // blown: a rough, lower layer in the throat under the air (rasp 0..1)
     const r = src(ctx, B.pinkM, t, len), rb = filt(ctx, 'bandpass', inh ? R(520, 700) : R(380, 520), 2.2), rg = gain(ctx);
@@ -913,6 +922,51 @@ export function chew(ctx, B, out, t, o = {}) {
   for (let i = 0; i < n; i++) noiseBurst(ctx, B, out, t + R(0, 0.08), 'bandpass', R(1800, 4200), 2.2, lvl * R(0.2, 0.45), 0.001, R(0.008, 0.024));
   return 0.2;
 }
+// ---------------------------------------------------------------- thirst
+// Tinnitus: a faint, high, thin ring in the ears that swells in slowly, holds, and fades (two sines
+// a few Hz apart, so it beats faintly; a slow wobble in level). Inside the head: never loud.
+export function tinnitus(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.5, 0, 1), dur = Math.max(1.5, o.dur ?? 5), f = R(6200, 8600);
+  const g = gain(ctx), wob = osc(ctx, 'sine', R(0.3, 0.7), t, dur), wg = gain(ctx, 0.25);
+  const a = osc(ctx, 'sine', f, t, dur), b = osc(ctx, 'sine', f + R(2, 5), t, dur), bg = gain(ctx, 0.6);
+  chain(a, g); chain(b, bg, g); g.connect(out);
+  const peak = 0.03 * lvl, att = Math.min(1.4, dur * 0.3), rel = Math.min(2, dur * 0.35);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + att);
+  g.gain.setValueAtTime(peak, t + dur - rel); g.gain.linearRampToValueAtTime(0, t + dur);
+  wob.connect(wg); wg.gain.value = peak * 0.3; wg.connect(g.gain);
+  return dur + 0.1;
+}
+// A dry swallow: the tongue unsticking (a small click), then the throat working on nothing (a short
+// low knock with a dull, falling tone), close and centred. wet: a real gulp of water (fuller, a
+// watery bubble on it).
+export function swallow(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1.2), wet = !!o.wet;
+  if (!wet) noiseBurst(ctx, B, out, t, 'bandpass', R(2400, 3400), 3, 0.18 * lvl, 0.001, 0.012);
+  const at = t + (wet ? 0 : R(0.05, 0.09)), d = wet ? R(0.13, 0.18) : R(0.09, 0.12);
+  noiseBurst(ctx, B, out, at, 'lowpass', R(240, 340), 1.2, (wet ? 0.9 : 0.6) * lvl, 0.006, d);
+  const tone = osc(ctx, 'sine', wet ? R(230, 280) : R(170, 210), at, d), tg = gain(ctx);
+  tone.frequency.exponentialRampToValueAtTime(wet ? R(120, 150) : R(95, 120), at + d);
+  chain(tone, tg, out); perc(tg.gain, at, (wet ? 0.16 : 0.09) * lvl, 0.01, d);
+  if (wet) noiseBurst(ctx, B, out, at + d * 0.4, 'bandpass', R(600, 900), 5, 0.22 * lvl, 0.004, 0.05);
+  return 0.35;
+}
+// The flask's cap turned: a few tiny metal-on-metal ticks and a squeak of the thread.
+export function unscrew(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1);
+  for (let i = 0; i < 4; i++) noiseBurst(ctx, B, out, t + i * R(0.06, 0.09), 'bandpass', R(3800, 5200), 6, lvl * R(0.12, 0.22), 0.001, R(0.01, 0.025));
+  noiseBurst(ctx, B, out, t + 0.12, 'bandpass', R(2400, 3000), 9, 0.14 * lvl, 0.03, 0.14);
+  return 0.5;
+}
+// A mittful of snow scooped up: a short, soft crunch of crystals.
+export function scoop(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1), dur = R(0.12, 0.2);
+  const s = src(ctx, B.whiteM, t, dur), bp = filt(ctx, 'bandpass', R(1800, 3000), 0.8), g = gain(ctx);
+  chain(s, bp, g, out);
+  g.gain.setValueCurveAtTime(grainCurve(dur, 26, 3, 0.5 * lvl), t, dur);
+  noiseBurst(ctx, B, out, t, 'lowpass', R(500, 700), 0.8, 0.25 * lvl, 0.01, dur);
+  return dur + 0.1;
+}
+
 // An empty stomach: a low, wet gurgle — a band of brown noise whose centre wanders and whose
 // level bubbles (a few uneven swells), over a faint low moan that slides down.
 export function growl(ctx, B, out, t, o = {}) {

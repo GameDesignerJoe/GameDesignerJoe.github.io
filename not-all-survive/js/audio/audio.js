@@ -285,7 +285,7 @@ function handle(e) {
       const len = clamp((e.len || 0.6) * (e.inhale ? 0.8 : 0.95), 0.25, 1.6) * R(0.9, 1.1);
       const level = (0.35 + 0.75 * k) * (e.inhale ? 0.85 : 1) * (1 + 0.5 * shelter);
       claim('breath', len);
-      S.breath(ctx, B, bus.breath, t, { inhale: !!e.inhale, len, level, shaky: 0.25 + 0.6 * k, rasp: k });
+      S.breath(ctx, B, bus.breath, t, { inhale: !!e.inhale, len, level, shaky: 0.25 + 0.6 * k, rasp: k, dry: state.body?.thirst || 0 });
       return;
     }
     case 'rest': case 'tired': {
@@ -355,6 +355,41 @@ function handle(e) {
       if (voices.body >= LIMIT.body) return;
       if (e.stage === 'chew') claim('body', S.chew(ctx, B, bus.head, t, { strength: 0.55 }));
       else if (e.stage === 'start') claim('body', S.rustle(ctx, B, bus.steps, t, { strength: 0.45 }));
+      return;
+    }
+    // Thirst: the flask's cap turned, the gulps of water; a mittful of snow scooped and crunched;
+    // in the head (not muffled), the dry swallow, the faint high ring, a slow pained breath out with
+    // the headache (explorer.js); and the Third Man's footstep a beat behind your own, faint, from
+    // where he walks (fx/thirst.js).
+    case 'drink': {
+      if (voices.body >= LIMIT.body) return;
+      if (e.stage === 'start') claim('body', S.unscrew(ctx, B, bus.steps, t, { strength: 0.6 }));
+      else if (e.stage === 'gulp') claim('body', S.swallow(ctx, B, bus.head, t, { strength: 0.8, wet: true }));
+      else if (e.stage === 'done') claim('body', S.unscrew(ctx, B, bus.steps, t + 0.1, { strength: 0.4 }));
+      return;
+    }
+    case 'snowEat': {
+      if (voices.body >= LIMIT.body) return;
+      if (e.stage === 'start') claim('body', S.rustle(ctx, B, bus.steps, t, { strength: 0.35 }));
+      else if (e.stage === 'scoop') claim('body', S.scoop(ctx, B, bus.steps, t, { strength: 0.7 }));
+      else if (e.stage === 'chew') claim('body', S.chew(ctx, B, bus.head, t, { strength: 0.4 }));
+      return;
+    }
+    case 'thirst': {
+      if (voices.body >= LIMIT.body + 1) return;
+      if (e.stage === 'ring') claim('body', Math.min(2, S.tinnitus(ctx, B, bus.head, t, e)));
+      else if (e.stage === 'swallow') claim('body', S.swallow(ctx, B, bus.head, t, e));
+      else if (e.stage === 'head' && claim('breath', 1.4)) S.breath(ctx, B, bus.breath, t + 0.3, { inhale: false, len: 1.3, level: 0.7 + 0.4 * (e.strength ?? 0.5), shaky: 0.6, dry: state.body?.thirst || 0 });
+      return;
+    }
+    case 'thirdman': {
+      // he comes apart as he's looked at: a faint hush, like a breath let go, from where he was
+      if (e.stage === 'out' && e.dissolved && claim('breath', 1.3)) { oneShot('breath', e.x, e.y, bus.breath, S.breath, { inhale: false, len: 1.2, level: 0.45 }, 0.6); return; }
+      if (e.stage !== 'step' || voices.step >= LIMIT.step) return;
+      const g = ctx.createGain(); g.gain.value = clamp(e.strength ?? 0.35, 0, 0.6);
+      g.connect(bus.steps);
+      claim('step', oneShot('step', e.x, e.y, g, S.footstep, { terrain: e.terrain || 'snow', weight: 0.35, cold: coldness() }, 0.5));
+      setTimeout(() => g.disconnect(), 3000);
       return;
     }
     case 'growl': {
@@ -431,7 +466,9 @@ function updateBreath(dt) {
   const level = (0.08 + 0.92 * exertion) * (1 + 0.8 * shelter);
   const shock = state.body?.shock || 0;               // the cold-water gasp: ragged for a while
   const shaky = Math.max(p.mode === 'cower' ? 0.8 : 0, shock);
-  if (claim('breath', len)) S.breath(ctx, B, bus.breath, ctx.currentTime + 0.01, { inhale: breathIn, len, level, shaky });
+  // thirsty: a dry, rasping breath, and nearer (heard over the wind once it's bad)
+  const dry = state.body?.thirst || 0;
+  if (claim('breath', len)) S.breath(ctx, B, bus.breath, ctx.currentTime + 0.01, { inhale: breathIn, len, level: level * (1 + 0.6 * dry), shaky, dry });
   nextBreath = time + (breathIn ? period * 0.42 : period * 0.58);
   breathIn = !breathIn;
 }

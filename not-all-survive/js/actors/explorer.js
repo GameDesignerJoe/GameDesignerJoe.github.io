@@ -198,7 +198,7 @@ const P = state.player;
 const pose = {
   ...PROFILES.snow, stepEff: PROFILES.snow.step, shield: 0, shieldSide: 1, hug: 0, brace: 0,
   windLeanF: 0, windLeanS: 0, torsoYaw: 0, headYaw: 0, windAmt: 0, gait: 0,
-  shift: 0, shiver: 0, gustKick: 0, coldShake: 0, stomach: 0,
+  shift: 0, shiver: 0, gustKick: 0, coldShake: 0, stomach: 0, head: 0,
 };
 let phase = 0, tentMod = 1;
 let slipT = 0, slipSide = 1, staggerT = 0, staggerSide = 1;
@@ -208,6 +208,10 @@ let shiftT = 2.5, shiftTarget = 1, lookT = 3, lookTarget = 0, shiverT = 4, shive
 let stampT = 8, stampOn = 0, stampSide = 1;
 // hunger (body.js food): a hand to the stomach now and then, standing about hungry
 let stomachT = 9, stomachOn = 0, dizzyPrev = 0;
+// thirst (body.js water): a headache. Standing about, now and then a mitt goes up to the side of the
+// hood, the head bowed and tipped into it (not the stomach: that's hunger)
+let headT = 7, headOn = 0, headDur = 1, headBoth = 0;
+const bodyWater = () => (state.body ? state.body.water ?? 1 : 1);
 // the once: the first time food drops below 0.35, a glance and a pat at the pack (teaching the
 // hold-to-open: ui/pack.js flashes the start of the dig bar over them while player.patHint > 0)
 const PAT_S = 1.6;
@@ -223,7 +227,9 @@ const hemS = { f: 0, r: 0, z: 0, vf: 0, vr: 0, vz: 0 };
 // Pitching or striking the pup tent (puptent.js state.pup.job): job (kneeling at it, working;
 // stage 0 spreading the canvas, 1 raising the poles, 2 driving the stakes, 3 a strike: pulling them)
 // and grab (the wind's got it: arms thrown up after the canvas).
-const CP = { rum: 0, slot: 0, out: 0, pack: 0, kneel: 0, dig: 0, eat: 0, eatT: 0, job: 0, grab: 0, stage: 0 };
+// Thirst (ui/pack.js): drink (a pull from the flask, standing; drinkT the seconds in) and snow
+// (kneeling, a mittful of snow scooped up and eaten; snowT the seconds in).
+const CP = { rum: 0, slot: 0, out: 0, pack: 0, kneel: 0, dig: 0, eat: 0, eatT: 0, job: 0, grab: 0, stage: 0, drink: 0, drinkT: 0, snow: 0, snowT: 0 };
 function updateCompassPose(dt) {
   const st = state.compass, ph = st?.phase || 'idle', tgt = !!st?.target;
   const J = state.pup?.job, caught = !!(J && J.coll && J.coll.t < 1.15);
@@ -233,11 +239,15 @@ function updateCompassPose(dt) {
   CP.rum = approach(CP.rum, ph === 'rummage' && !tgt ? 1 : 0, ph === 'rummage' ? 4 : 5, dt);
   CP.slot = approach(CP.slot, ph === 'slot' ? 1 : 0, 5, dt);
   CP.out = approach(CP.out, ph === 'out' ? 1 : 0, 5, dt);
-  const kneel = (ph === 'rummage' && tgt) || ph === 'transfer' || ph === 'eat' || !!J;
+  const kneel = (ph === 'rummage' && tgt) || ph === 'transfer' || ph === 'eat' || ph === 'snow' || !!J;
   CP.kneel = approach(CP.kneel, kneel ? 1 : 0, kneel ? 3.5 : 4.5, dt);
   CP.dig = approach(CP.dig, (ph === 'rummage' && tgt) || ph === 'transfer' ? 1 : 0, 4, dt);
   CP.eat = approach(CP.eat, ph === 'eat' ? 1 : 0, ph === 'eat' ? 4 : 6, dt);
   CP.eatT = ph === 'eat' ? st.t : 0;
+  CP.drink = approach(CP.drink, ph === 'drink' ? 1 : 0, ph === 'drink' ? 5 : 6, dt);
+  CP.drinkT = ph === 'drink' ? st.t : CP.drinkT + dt;   // (runs on after a drink, so the flask goes down, not off)
+  CP.snow = approach(CP.snow, ph === 'snow' ? 1 : 0, ph === 'snow' ? 4 : 6, dt);
+  CP.snowT = ph === 'snow' ? st.t : CP.snowT + dt;
   // the pack comes off one shoulder and round to the front over ~0.6 s, and back on after
   // (a ration comes out of it too)
   CP.pack = clamp(CP.pack + ((ph === 'rummage' && !tgt) || ph === 'eat' ? 1 : -1) * dt / 0.6);
@@ -264,6 +274,9 @@ export function init() {
   // ui/pack.js: a quick tap on the pitched pup tent from close by (a held one strikes it)
   P.pupTent = () => { if ((P.mode === 'walk' || P.mode === 'cower') && pupDoor() && (!spent || nearDoor('pup', 15))) goToTent('pup'); };
   P.door = () => door();                         // the door of the tent they're in (ui/pack.js hangs the pack there)
+  // fx/thirst.js: the Third Man, the figure as it is this moment drawn again elsewhere, grey and faint
+  P.ghost = (ctx, x, y, a, slip, seed) => drawGhost(ctx, x, y, a, slip, seed);
+  P.headache = (d = 3) => { headOn = headDur = d; headT = 20; };   // test hook: the thirst headache now (if standing about)
   setShelter('camp');
   // ui/pack.js: walk to a point (the sled, a body, a pile pressed from afar); pushes 'arrive'
   // there. Any input of the player's own cancels it. And leave the tent (a tap on its door).
@@ -615,8 +628,8 @@ export function update(dt) {
     // binding the leg: side-on to the camera, so the leg out in front shows
     const want = Math.cos(P.facing) >= 0 ? 0.2 : Math.PI - 0.2;
     P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -1.6 * dt, 1.6 * dt));
-  } else if (CP.eat > 0.3) {
-    // eating: half round toward the camera, so the meal reads (whichever side is nearer)
+  } else if (CP.eat > 0.3 || CP.drink > 0.3 || CP.snow > 0.3) {
+    // eating (or drinking, or eating snow): half round toward the camera, so it reads (whichever side is nearer)
     const want = Math.cos(P.facing) >= 0 ? Math.PI * 0.3 : Math.PI * 0.7;
     P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -1.6 * dt, 1.6 * dt));
   }
@@ -718,16 +731,33 @@ export function update(dt) {
       state.events.push({ type: 'growl', x: P.x, y: P.y, strength: 0.45 + 0.55 * smooth(0.35, 0, fd) });   // (audio ducks the wind under it)
     } else if (fd < 0.3 && (fd < 0.2 || rand() < 0.35)) state.events.push({ type: 'growl', x: P.x, y: P.y, strength: 0.4 + 0.5 * smooth(0.3, 0, fd) });   // walking, cowering...: just the sound (always, below 0.2)
   }
-  if (!patDone && fd < 0.35 && idle > 0.7 && P.mode === 'walk' && CP.kneel < 0.1 && CP.rum < 0.1 && CP.slot < 0.1 && CP.out < 0.1 && kneelW < 0.2 && !spent && restT <= 0 && !water.level && (state.compass?.phase || 'idle') === 'idle') {
+  if (!patDone && (fd < 0.35 || bodyWater() < 0.35) && idle > 0.7 && P.mode === 'walk' && CP.kneel < 0.1 && CP.rum < 0.1 && CP.slot < 0.1 && CP.out < 0.1 && kneelW < 0.2 && !spent && restT <= 0 && !water.level && (state.compass?.phase || 'idle') === 'idle') {
     patDone = true; patT = PAT_S; stomachOn = 0;
   }
   if (!(idle > 0.5) || fd >= 0.4) stomachOn = Math.min(stomachOn, 0);
   pose.stomach = approach(pose.stomach, stomachOn > 0 ? 1 : 0, stomachOn > 0 ? 3 : 4, dt);
+  // --- thirst: standing about thirsty (water < 0.3), now and then the headache: a mitt pressed to the
+  // side of the hood, the head bowed and tipped into it, for a few seconds; oftener the drier. Never
+  // with the hand on the stomach (hunger and thirst take turns, so each reads as itself).
+  const wt = bodyWater();
+  headT -= dt;
+  if (headOn > 0) headOn -= dt;
+  if (headT <= 0) {
+    headT = lerp(16, 6, smooth(0.3, 0.02, wt)) * (0.7 + rand() * 0.6);
+    if (wt < 0.3 && idle > 0.7 && pose.stomach < 0.1 && stomachOn <= 0 && CP.kneel < 0.1 && CP.rum < 0.1 && CP.out < 0.1 && CP.slot < 0.1 && CP.drink < 0.1 && cowerW < 0.2 && kneelW < 0.2 && !spent && restT <= 0 && !water.level && thighW < 0.3) {
+      headOn = headDur = 2.4 + rand() * 1.4;
+      state.events.push({ type: 'thirst', stage: 'head', x: P.x, y: P.y, strength: 0.4 + 0.6 * smooth(0.3, 0, wt) });
+    }
+  }
+  if (!(idle > 0.5) || wt >= 0.35 || stomachOn > 0) headOn = Math.min(headOn, 0);
+  pose.head = approach(pose.head || 0, headOn > 0 ? 1 : 0, headOn > 0 ? 3.2 : 3.5, dt);
+  // (the first ~1.1 s both mitts go to the temples, so it reads at any size; then the one rubs on)
+  headBoth = approach(headBoth, headOn > 0 && headDur - headOn < 1.1 ? 1 : 0, 5, dt);
   // badly hurt, standing about: a hand pressed on the bad thigh, the weight off that leg
   const thighOn = injury() > 0.45 && idle > 0.7 && pose.stomach < 0.3 && CP.kneel < 0.1 && CP.rum < 0.1 && CP.out < 0.1 && CP.slot < 0.1 && cowerW < 0.2 && kneelW < 0.2 && !spent && restT <= 0 && !water.level && splintW < 0.1;
   thighW = approach(thighW, thighOn ? 1 : 0, thighOn ? 2.5 : 5, dt);
   // --- numb feet: stumbles once the cold is deep (and starving: unsteady on the feet) ----------
-  if (P.mode === 'walk' && active && staggerT <= 0 && rand() < dt * (0.45 * smooth(0.36, 0.1, warm) + 0.2 * smooth(0.1, 0, fd))) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
+  if (P.mode === 'walk' && active && staggerT <= 0 && rand() < dt * (0.45 * smooth(0.36, 0.1, warm) + 0.2 * smooth(0.1, 0, fd) + 0.12 * smooth(0.1, 0, bodyWater()))) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
   // --- wind knockdowns: in a real storm, out in the open, now and then ------------------------
   // (kneeling at the pup tent: low, braced; but up off their knees grabbing at it as it goes, a gust can still have them over)
   if (P.mode === 'walk' && shoveT <= 0 && cowerW < 0.3 && !spent && !(state.pup?.job && !state.pup.job.coll)) {
@@ -1034,6 +1064,8 @@ function beginClimb() {
   // too badly hurt to climb: a look up the wall, then a hand to the bad thigh
   // (climbing down is allowed, slowly: a hurt explorer mustn't be stranded on a plateau)
   if (injury() > HURT_CLIMB && route.up) { startRefuse('hurt'); return; }
+  // parched dry (thirst): the head swims at the thought of it
+  if (bodyWater() <= 0.005 && route.up) { startRefuse('parched'); return; }
   // too worn out to start up a wall: look up at it, then hang the head
   // (not enough left for this wall: ~one axe strike per D of route, body.climbHalf each)
   const b = route.bottom, t = route.top;
@@ -1271,7 +1303,7 @@ function updateClimb(dt) {
   P.facing = wrapPi(P.facing + clamp(wrapPi(c.face - P.facing), -8 * dt, 8 * dt));
   if (c.slipT > 0) c.slipT -= dt;
   const tk = tiredK();
-  const slow = (1 - 0.3 * envW.windPose) * (1 - 0.4 * tk) * (1 - 0.35 * clamp(injury()));   // worn out (or hurt): every move slower
+  const slow = (1 - 0.3 * envW.windPose) * (1 - 0.4 * tk) * (1 - 0.35 * clamp(injury())) * (1 - 0.3 * smooth(0.1, 0, bodyWater()));   // worn out (or hurt, or parched): every move slower
   // nothing left: the arms shake, then the grip goes (~1 s) and they fall
   c.spentT = c.stage === 'cycle' && energy() <= 0.001 ? c.spentT + dt : 0;
   if (c.spentT > 1.0 && tearOff()) fallSpent = true;   // (and they stay down, spent, where they land)
@@ -1369,7 +1401,8 @@ function updateRefuse(dt) {
   // worn out ('tired'): no reach and no head shake; a long look up the wall, then the head
   // drops and the shoulders sag, and they turn away from it
   // hurt ('hurt'): the same long look up, then a hand goes to the bad thigh and they bend over it
-  const hurtR = refWhy === 'hurt', tired = refWhy === 'tired' || hurtR;
+  // parched ('parched'): the long look up, then a mitt to the temple, the head tipped into it
+  const hurtR = refWhy === 'hurt', parchR = refWhy === 'parched', tired = refWhy === 'tired' || hurtR || parchR;
   const reach = smooth(0.1, 0.5, refT) * (1 - smooth(0.85, 1.2, refT)) * (tired ? 0.25 : 1);
   const shake = !tired && refT > 1.1 && refT < 1.9 ? Math.sin((refT - 1.1) * 16) * 0.55 * Math.sin(clamp((refT - 1.1) / 0.8) * Math.PI) : 0;
   const sag = tired ? smooth(0.95, 1.35, refT) * (1 - smooth(2.2, 2.6, refT)) : 0;
@@ -1383,7 +1416,7 @@ function updateRefuse(dt) {
   ovr = {
     hz: 7.9 - 0.3 * reach - 0.15 * Math.abs(ph) - 0.5 * sag, leanF: 0.05 + 0.12 * reach + 0.12 * walkK + 0.3 * sag, leanS: envW.gust * 0.1,
     feet: [[0.3 * reach + 1.1 * ph, -1, Math.max(0, ph) * 0.6], [0.5 * reach - 1.1 * ph, 1, Math.max(0, -ph) * 0.6]],
-    hands: [mix([0.3, -1.9, 8.2], [1.2, -2.2, 10.6], reach * 0.5), mix([0.3, 1.9, 8.2], [2.0, 2.5, 15.2], reach)].map((h, i) => ((i ? 1 : -1) === badS && clutch > 0 ? mix(h, [1.0, badS * 1.0, 5.6], clutch) : h)),
+    hands: [mix([0.3, -1.9, 8.2], [1.2, -2.2, 10.6], reach * 0.5), mix([0.3, 1.9, 8.2], [2.0, 2.5, 15.2], reach)].map((h, i) => ((i ? 1 : -1) === badS && clutch > 0 ? mix(h, [1.0, badS * 1.0, 5.6], clutch) : i && parchR && sag > 0 ? mix(h, [1.0, 1.75, 14.4], sag) : h)),
     poleA: [[-0.5, -1, -0.5], [-0.5, 1, -0.5]], poleL: [[1, -0.15, 0.1], [1, 0.15, 0.1]],
     hemAttach: 0, facePitch: lerp(0.15, -0.5, smooth(0.2, 0.6, refT) * (1 - smooth(1.0, 1.4, refT))) + 0.2 * smooth(1.6, 2.0, refT) + 0.85 * sag, faceYaw: shake,
     full: reach > 0.2, axes: 0,
@@ -2167,6 +2200,8 @@ let breathX = 0, breathW = 0;
 function exhale(pk) {
   const cold = clamp(state.weather.cold ?? 0.4), exert = breathX * (1 - pk), wEff = breathW;
   const faint = smooth(0.3, 0.03, warmth());
+  // thirsty: a dry mouth, a thinner breath (smaller, fainter, quicker gone)
+  const dry = clamp(state.body?.thirst || 0);
   if (!(cold >= 0.3 || pk > 0.3 || rand() < 0.3)) return;
   // one plume per exhale (plus a second, thinner one when it's bitter), leaving the face
   // opening, stretching downwind and tearing into curls. Exerting: small and quick; standing
@@ -2174,14 +2209,14 @@ function exhale(pk) {
   const n = 1 + (cold > 0.75 || pk > 0.6 ? 1 : 0) + (cold > 0.88 ? 1 : 0);
   const fa = P.facing + pose.torsoYaw + pose.headYaw;
   const fc = Math.cos(fa), fs = Math.sin(fa);
-  const size = (0.55 + 0.9 * cold + smooth(0.85, 1, cold) * 0.5) * (1 - 0.4 * exert) * lerp(1, 0.6, faint) * (1 + 0.9 * pk);
+  const size = (0.55 + 0.9 * cold + smooth(0.85, 1, cold) * 0.5) * (1 - 0.4 * exert) * lerp(1, 0.6, faint) * (1 + 0.9 * pk) * (1 - 0.32 * dry);
   for (let i = 0; i < n; i++) {
     const v = (2.0 + exert * 3.5) * (1 + 0.8 * pk);
     puffs.push({
       x: faceWorld.x + fc * 0.9, y: faceWorld.y + fs * 0.9 * KY, z: faceWorld.z - 0.1 * i,
       vx: fc * v + P.vx * 0.6, vy: fs * v * KY + P.vy * 0.6, vz: 0.12 * cold,
-      age: -i * 0.12, life: (2.0 + rand() * 1.0) * (0.6 + 0.4 * smooth(0.3, 0.6, cold)) * (1 - 0.3 * exert) * (1 - wEff * 0.25) * (1 - 0.25 * pk),
-      r: (1.1 + rand() * 0.3) * size, a: Math.max(cold < 0.3 ? 0.12 : lerp(0.3, 0.7, smooth(0.3, 0.6, cold)), 0.55 * pk) * (i ? 0.6 : 1),
+      age: -i * 0.12, life: (2.0 + rand() * 1.0) * (0.6 + 0.4 * smooth(0.3, 0.6, cold)) * (1 - 0.3 * exert) * (1 - wEff * 0.25) * (1 - 0.25 * pk) * (1 - 0.3 * dry),
+      r: (1.1 + rand() * 0.3) * size, a: Math.max(cold < 0.3 ? 0.12 : lerp(0.3, 0.7, smooth(0.3, 0.6, cold)), 0.55 * pk) * (i ? 0.6 : 1) * (1 - 0.45 * dry),
       curls: 2 + Math.floor(rand() * 3), seed: rand() * 6.28,
     });
   }
@@ -2322,7 +2357,10 @@ function buildRig() {
   // (digging: right down, bent well over what's in front; eating: kneeling up)
   // (seen from behind, leaning over only lifts the head up the screen: lower, less bent)
   const toCam = clamp(0.5 + 0.5 * Math.sin(yaw));
-  const digK = Math.max(CP.dig, 0.75 * CP.job);   // (at the pup tent: down and leaning in to it too)
+  // eating snow: bent right down over it for the scoop, kneeling up again to eat it
+  const sT = CP.snowT, scoopK = CP.snow * smooth(0.12, 0.45, sT) * (1 - smooth(0.9, 1.25, sT));
+  const snowUp = CP.snow * smooth(1.0, 1.4, sT) * (1 - smooth(2.3, 2.6, sT));
+  const digK = Math.max(CP.dig, 0.75 * CP.job, 0.85 * scoopK);   // (at the pup tent: down and leaning in to it too)
   if (pkw > 0.001) { hz = lerp(hz, lerp(4.2, lerp(2.3, 3.0, toCam), digK), pkw); leanF = lerp(leanF, 0.2 + digK * lerp(0.15, 0.6, toCam), pkw); leanS = lerp(leanS, 0, pkw); twist = lerp(twist, 0, pkw); }
   // the wind's taken the pup tent: up off the knees, reaching after it
   if (CP.grab > 0.001) { hz += 2.2 * CP.grab; leanF -= 0.3 * CP.grab; }
@@ -2332,9 +2370,16 @@ function buildRig() {
   // hungry: hunched a little over a hand on the stomach
   const stw = pose.stomach;
   if (stw > 0.001) { leanF += 0.3 * stw; hz -= 0.35 * stw; }
-  // eating: a slight bob with each chew once the food is at the mouth
-  const eatK = CP.eat * smooth(0.35, 0.85, CP.eatT);
-  const chew = eatK * Math.sin(CP.eatT * 15) * (1 - smooth(2.6, 3.0, CP.eatT));
+  // thirsty, the headache: the head bowed and tipped into the mitt at the side of the hood, a slow
+  // rock with it (upright: it's in the head, not the gut)
+  const hdw = pose.head || 0;
+  if (hdw > 0.001) { leanF += 0.12 * hdw; leanS += (0.13 * hdw + 0.04 * hdw * Math.sin(t * 1.6)) * (1 - 0.7 * headBoth); }
+  // drinking: the flask unscrewed at the chest, then tipped up to the mouth, head and shoulders back
+  const dT = CP.drinkT, tipK = CP.drink * smooth(0.55, 0.85, dT) * (1 - smooth(1.7, 1.95, dT));
+  if (tipK > 0.001) leanF -= 0.16 * tipK;
+  // eating: a slight bob with each chew once the food is at the mouth (or the snow)
+  const eatK = Math.max(CP.eat * smooth(0.35, 0.85, CP.eatT), snowUp);
+  const chew = CP.eat > snowUp ? eatK * Math.sin(CP.eatT * 15) * (1 - smooth(2.6, 3.0, CP.eatT)) : snowUp * Math.sin(sT * 13) * smooth(1.4, 1.6, sT);
   // compass: bent over the pack while rummaging; braced and head bowed holding it out
   const rw = CP.rum, cow = CP.out;
   if (rw > 0.001 || cow > 0.001) {
@@ -2498,6 +2543,37 @@ function buildRig() {
       pole = mix(pole, torsoDir([-0.3, s * 1.2, -0.7], tf), CP.eat);
       cpFull = Math.max(cpFull, CP.eat);
     }
+    if (CP.drink > 0.001 && !O) {
+      // drinking: both mitts at the chest unscrewing the cap (the near one turning it), then the
+      // flask hand up to the mouth, tipped, the other low holding the cap
+      const unscrew = 1 - smooth(0.5, 0.7, dT), turn = Math.sin(dT * 22) * 0.18 * unscrew;
+      const chest = torsoToBody([1.55, s * 0.3 + (s < 0 ? turn : 0), SPINE - 1.7 + (s < 0 ? 0.35 + Math.abs(turn) : 0)], tf);
+      const mouth = s > 0 ? torsoToBody([1.15, 0.28, SPINE + HEAD_UP - 0.75 + 0.15 * tipK], tf) : torsoToBody([1.4, -0.6, SPINE - 2.2], tf);
+      handB = mix(handB, mix(chest, mouth, tipK), CP.drink);
+      pole = mix(pole, torsoDir([-0.3, s * 1.2, -0.7], tf), CP.drink);
+      cpFull = Math.max(cpFull, CP.drink);
+    }
+    if (CP.snow > 0.001 && !O) {
+      // eating snow: the near mitt down into the snow in front for a scoop (a little dig), then up
+      // to the mouth; the other on the thigh
+      if (s > 0) {
+        const dig = Math.sin(t * 8) * 0.3 * scoopK;
+        const low = [3.3 + dig, 0.8, 0.85 + 0.4 * Math.max(0, dig)];
+        const mouth = torsoToBody([1.3, 0.3, SPINE + HEAD_UP - 0.95 + 0.05 * chew], tf);
+        handB = mix(handB, snowUp > 0.01 ? mix(low, mouth, snowUp / Math.max(0.01, CP.snow)) : low, CP.snow);
+      } else handB = mix(handB, torsoToBody([1.6, -1.0, SPINE - 3.6], tf), CP.snow);
+      pole = mix(pole, torsoDir([-0.3, s * 1.2, -0.6], tf), CP.snow);
+      cpFull = Math.max(cpFull, CP.snow);
+    }
+    const hw = s > 0 ? hdw : hdw * headBoth;
+    if (hw > 0.001 && !O) {
+      // the headache: a mitt pressed to the temple, out at the side of the hood (a little forward,
+      // so it shows over it), the elbow out and down, a slow rub; at first both mitts at once
+      const rub = Math.sin(t * 1.6 + (s > 0 ? 0 : 1.2)) * 0.12;
+      handB = mix(handB, torsoToBody([0.95 + rub, s * 1.75, SPINE + HEAD_UP + 0.35 + rub * 0.5], tf), hw);
+      pole = mix(pole, torsoDir([-0.2, s * 1.4, -0.7], tf), hw);
+      cpFull = Math.max(cpFull, hw);
+    }
     if (thighW > 0.001 && s === badS && !O) {
       // badly hurt: the mitt pressed on the front of the bad thigh
       handB = mix(handB, [hx + 1.0, hr + s * 0.95, hz - 1.6], thighW);
@@ -2525,12 +2601,13 @@ function buildRig() {
     const a = ik(shoulder, handB, UPPER_ARM, FOREARM, pole);
     const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4) || carryW > 0.5 || reachK > 0.3 || (!O && resW > 0.4);   // (sat: the arms stay inside the coat, wrapped round the knees)
     const active = full ? 1 : Math.max(spreadW, pose.hug, Math.max(0, pose.work - 0.3) * 1.4, shieldW, pose.creep);
-    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4, carry: carryW > 0.5 && reachK < 0.3, food: !O && s > 0 && CP.eat > 0.4 && CP.eatT > 0.2 });
+    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4, carry: carryW > 0.5 && reachK < 0.3, food: !O && s > 0 && CP.eat > 0.4 && CP.eatT > 0.2,
+      flask: !O && s > 0 && CP.drink > 0.35 ? tipK : -1, snowball: !O && s > 0 && CP.snow > 0.4 && sT > 0.75 && sT < 2.3 ? 1 - smooth(1.5, 2.3, sT) : 0 });
   }
 
   // Head / hood. Thin ice: looking down at the feet.
   const hunch = pose.hunch + 0.45 * smooth(0.6, 0.15, warmth()) + 0.55 * droop;   // head sinks into the hood as they chill
-  const head = torsoToBody([0.4 + hunch * 0.6, jitR, SPINE + HEAD_UP - 0.1 - hunch * 0.45 + upZ * 1.1 + 0.07 * chew], tf);
+  const head = torsoToBody([0.4 + hunch * 0.6 - 0.3 * tipK, jitR + 0.35 * hdw * (1 - 0.7 * headBoth), SPINE + HEAD_UP - 0.1 - hunch * 0.45 + upZ * 1.1 + 0.07 * chew], tf);
   const peak = torsoToBody([-0.85 + hunch * 0.5 + wdF * gk * 0.8, wdR * gk * 0.8, SPINE + HEAD_UP + 1.15 + upZ], tf);
   const drape = torsoToBody([-1.1, 0, SPINE - 0.5], tf);
   // (patting the pack: a glance back over that shoulder)
@@ -2545,6 +2622,9 @@ function buildRig() {
   facePitch = lerp(facePitch, CP.stage === 1 ? 0.55 : 0.9, CP.job);   // at the pup tent: on the work (up at the pole)
   facePitch = lerp(facePitch, 0.05, CP.grab);              // ...and up after it as it goes
   facePitch = lerp(facePitch, 1.0, stw * 0.6);             // hungry: looking down at it
+  facePitch = lerp(facePitch, 1.05, hdw * 0.7);            // the headache: bowed into the mitt
+  facePitch = lerp(facePitch, 0.0, tipK);                  // drinking: the head tipped back
+  facePitch = lerp(facePitch, 1.1, scoopK);                // the scoop: looking down at the snow
   // thin ice creaking: a quick glance down at the feet
   if (glanceT > 0) facePitch = lerp(facePitch, 1.35, Math.sin(Math.PI * (1 - glanceT / GLANCE_S)));
   if (O) facePitch = lerp(facePitch, O.facePitch, ow);
@@ -2971,6 +3051,8 @@ function drawFigure(ctx, rig, X, Y) {
     if (A.axe > 0.3) drawAxe(ctx, A, pr);
     mitt(pts[2], pts[1]);
     if (A.food) drawRation(ctx, pts[2]);
+    if (A.flask >= 0) drawFlaskHeld(ctx, pts[2], pts[1], A.flask);
+    if (A.snowball > 0.02) drawSnowball(ctx, pts[2], A.snowball);
   };
   const drawForearm = A => {
     const from = mix(A.elbow, A.hand, A.spreadW > 0.5 ? 0.25 : lerp(0.45, 0.12, pose.hug));
@@ -3079,6 +3161,33 @@ function drawAxeCarry(ctx, A, pr) {
   ctx.beginPath(); ctx.moveTo(Pa[0], Pa[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(Pk[0], Pk[1]); ctx.lineWidth = 0.42; ctx.stroke();
 }
 
+// Drinking: the flask in the mitt (screen px of the hand and elbow; tip 0..1): upright at the chest,
+// tipped over toward the face at the mouth. A small grey steel bottle, inked, the felt band dark.
+function drawFlaskHeld(ctx, h, el, tip) {
+  const ux = h[0] - el[0], uy = h[1] - el[1], l = Math.hypot(ux, uy) || 1;
+  // upright (screen up), turning to lie along the forearm past the mitt as it's tipped up
+  const ang = lerp(-Math.PI / 2, Math.atan2(uy / l, ux / l) + Math.PI * 0.15 * Math.sign(ux || 1), tip);
+  ctx.save();
+  ctx.translate(h[0], h[1] - 0.2 * (1 - tip));
+  ctx.rotate(ang + Math.PI / 2);
+  ctx.beginPath();
+  ctx.moveTo(-0.38, 0.45); ctx.lineTo(-0.38, -0.55); ctx.quadraticCurveTo(-0.38, -0.85, -0.12, -0.9);
+  ctx.lineTo(-0.12, -1.1); ctx.lineTo(0.12, -1.1); ctx.lineTo(0.12, -0.9); ctx.quadraticCurveTo(0.38, -0.85, 0.38, -0.55);
+  ctx.lineTo(0.38, 0.45); ctx.closePath();
+  ctx.fillStyle = '#9fa1a5'; ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 0.12; ctx.lineJoin = 'round'; ctx.stroke();
+  ctx.fillStyle = '#56534e'; ctx.fillRect(-0.38, -0.25, 0.76, 0.3);
+  ctx.restore();
+}
+// Eating snow: a pale clump of it in the mitt, getting smaller as it's eaten (k 1..0).
+function drawSnowball(ctx, h, k) {
+  const r = 0.28 + 0.32 * k;
+  ctx.beginPath(); ctx.ellipse(h[0] + 0.1, h[1] - 0.38, r * 1.15, r, 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = '#fbfbfa'; ctx.fill();
+  ctx.strokeStyle = 'rgba(38,38,38,0.8)'; ctx.lineWidth = 0.1; ctx.stroke();
+  ctx.fillStyle = 'rgba(150,156,164,0.6)';
+  ctx.beginPath(); ctx.ellipse(h[0] + 0.18, h[1] - 0.3, r * 0.8, r * 0.38, 0.2, 0, Math.PI); ctx.fill();
+}
 // Eating: a ship's biscuit held up in the mitt (pale, inked, a few docking holes).
 function drawRation(ctx, h) {
   ctx.beginPath(); ctx.ellipse(h[0] + 0.15, h[1] - 0.35, 0.62, 0.5, -0.3, 0, Math.PI * 2);
@@ -3422,6 +3531,54 @@ function drawFaded(ctx, a, dark = 0, clip = null) {
   }
   ctx.globalAlpha *= a;
   ctx.drawImage(fadeCan, 0, 0, fw, fh, X + FADE_BOX.x0, Y + FADE_BOX.y0, fw / sc, fh / sc);
+}
+// The Third Man (fx/thirst.js): the explorer's own figure, pose for pose this moment, drawn again at
+// (x, y): the colour taken out of it (never signal yellow: yellow must not lie), paled, faint, no
+// shadow, no breath and no footprints (nothing is pushed). Drawn into a small offscreen at the
+// current scale, greyed there (a saturation fill, masked back to the figure's own outline by a
+// second canvas), then laid down at alpha a. slip 0..1 breaks it into horizontal slices sliding
+// apart, fainter as they go (he dissolves when looked at); seed varies the slices. The two canvases
+// are kept at least 256 px a side (so they stay on the GPU) and the figure is redrawn into them
+// every other frame (at 30 Hz a faint figure's pose can't be told from 60).
+let ghostA = null, ghostB = null, ghostTick = 0, ghostSc = 0;
+function drawGhost(ctx, x, y, a, slip = 0, seed = 0) {
+  if (a < 0.01) return;
+  const m = ctx.getTransform(), sc = Math.hypot(m.a, m.b) || 1;
+  const bw = FADE_BOX.x1 - FADE_BOX.x0, bh = FADE_BOX.y1 - FADE_BOX.y0;
+  const fw = Math.ceil(bw * sc), fh = Math.ceil(bh * sc);
+  if (!ghostA) { ghostA = document.createElement('canvas'); ghostB = document.createElement('canvas'); }
+  let fresh = (ghostTick++ & 1) === 0 || Math.abs(sc - ghostSc) > 1e-3;
+  for (const c of [ghostA, ghostB]) if (c.width < fw || c.height < fh) { c.width = Math.max(256, c.width, fw); c.height = Math.max(256, c.height, fh); fresh = true; }
+  const g = ghostA.getContext('2d'), q = ghostB.getContext('2d');
+  if (fresh) {
+  ghostSc = sc;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, fw + 2, fh + 2);
+  g.setTransform(sc, 0, 0, sc, -(x + FADE_BOX.x0) * sc, -(y + FADE_BOX.y0) * sc);
+  drawFigure(g, buildRig(), x, y);
+  // greyed: the colour out, then cut back to the figure, then paled toward the snow
+  q.setTransform(1, 0, 0, 1, 0, 0);
+  q.globalCompositeOperation = 'copy'; q.drawImage(ghostA, 0, 0);
+  q.globalCompositeOperation = 'saturation'; q.fillStyle = '#808080'; q.fillRect(0, 0, fw, fh);
+  q.globalCompositeOperation = 'destination-in'; q.drawImage(ghostA, 0, 0);
+  q.globalCompositeOperation = 'source-atop'; q.fillStyle = 'rgba(214,218,224,0.12)'; q.fillRect(0, 0, fw, fh);
+  q.globalCompositeOperation = 'source-over';
+  }
+  const X0 = x + FADE_BOX.x0, Y0 = y + FADE_BOX.y0;
+  ctx.save();
+  if (slip < 0.01) { ctx.globalAlpha *= a; ctx.drawImage(ghostB, 0, 0, fw, fh, X0, Y0, bw, bh); }
+  else {
+    // in slices: each slides sideways its own way, the furthest gone first
+    const n = 7, sh = fh / n, base = ctx.globalAlpha;
+    for (let k = 0; k < n; k++) {
+      const r = Math.sin((k + 1) * 12.9898 + seed * 78.233) * 43758.5453, u = r - Math.floor(r);
+      const sl = Math.pow(slip, 0.7), dx = ((u - 0.5) * 2 * 9 + (k % 2 ? 1 : -1) * 2.5) * sl;
+      ctx.globalAlpha = base * a * clamp(1 - Math.pow(slip, 1.6) * (0.7 + 0.6 * u));
+      if (ctx.globalAlpha < 0.005) continue;
+      ctx.drawImage(ghostB, 0, k * sh, fw, sh, X0 + dx, Y0 + k * sh / sc, bw, sh / sc);
+    }
+  }
+  ctx.restore();
 }
 function drawThroughDoor(ctx) {
   // the shadow stays outside, unclipped, fading as they go in

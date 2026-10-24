@@ -68,8 +68,9 @@ export const PUP_REACH = 5;            // strike from within this of its edge (u
 // storm (storm x how stormy) the warmth gain drops further; leak is the share of the outside
 // cold that still gets through the canvas; food drains at the open-air rate (base camp's stove
 // and rest save 40%); hunger: how much an empty stomach undoes it (body.js). muffle: how much of
-// the storm's noise it keeps out (audio.js).
-export const PUP_SHELTER = { kind: 'pup', warm: 0.33, dry: 0.33, rest: 0.7, heal: 0.5, sleep: 0.75, storm: 0.6, leak: 0.16, food: 1, hunger: 1, muffle: 0.72 };
+// the storm's noise it keeps out (audio.js). water: its little stove melts snow at this fraction of
+// base camp's (thirst, the flasks: body.js).
+export const PUP_SHELTER = { kind: 'pup', warm: 0.33, dry: 0.33, rest: 0.7, heal: 0.5, sleep: 0.75, storm: 0.6, leak: 0.16, food: 1, hunger: 1, muffle: 0.72, water: 0.4 };
 
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;

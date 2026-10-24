@@ -54,7 +54,7 @@ export const state = {
     // double), spent (energy gone: sat in the snow) and crawl (spent but crawling on),
     // badLeg (1 right / -1 left: the hurt one) and iceStress (thin-ice stress under the feet),
     // shelter: the tent they're in or making for (camp.js CAMP_SHELTER / puptent.js PUP_SHELTER: kind
-    // 'camp' | 'pup' and how good it is: warm, dry, rest, heal, sleep, storm, leak, food, hunger, muffle;
+    // 'camp' | 'pup' and how good it is: warm, dry, rest, heal, sleep, storm, leak, food, hunger, muffle, water;
     // body.js and audio.js read it) and door() (that tent's door: ui/pack.js)
   },
 
@@ -97,6 +97,9 @@ export const state = {
   // splint (the hurt leg is bound: the limp costs half the pace until the next injury),
   // hunger (0..1 below food 0.3), foodRate (food / s) and dizzy (0..1, a lightheaded moment), plus body.phase ('alive' | 'dying' | 'iris' | 'black' | 'open' | 'over' | 'sleep') and
   // body.sleepHold; state.party = [{ name, alive, x, y }] x 4 and state.member (who's playing).
+  // Thirst: body.thirst (0..1 below water 0.35), body.parched (0..1 below 0.15), body.waterRate (water / s).
+  // A flask's slot carries drinks (0..3). ui/pack.js adds compass.phase 'drink' | 'snow'.
+  // fx/thirst.js adds state.thirst = { mirage (0..1 shown), man (the Third Man: x, y, vis, slip...), show(on), episode(on) }.
   // wildlife.js adds state.bear (the polar bear: x, y, ...).
   // fallen.js adds state.fallen = [{ x, y, facing, name, snow, pack }]: the dead, where they lie,
   // with the pack they died with (pack = { slots }; none if the sea took them).
@@ -138,6 +141,13 @@ export const state = {
   //   full { x, y }                   refused: no room in the pack (or the sled); the slot shakes (pack -> audio)
   //   eat { x, y, stage: 'start'|'chew'|'done'|'stop' }   eating a ration; stop = walked off, not eaten (pack -> audio)
   //   growl { x, y, strength }        an empty stomach (explorer -> audio, which ducks the wind under it)
+  //   drink { x, y, stage: 'start'|'gulp'|'done'|'stop', left? }   a pull from the flask (pack -> audio)
+  //   snowEat { x, y, stage: 'start'|'scoop'|'chew'|'done'|'stop' }   a mittful of snow (pack -> audio)
+  //   thirst { x, y, stage: 'ring'|'swallow'|'head', strength, dur? }   the tinnitus, a dry swallow (body), the
+  //                                   headache gesture (explorer) -> audio
+  //   mirage { stage: 'start'|'end', strength }   a Fata Morgana episode (fx/thirst)
+  //   thirdman { x, y, stage: 'in'|'out'|'step', dissolved?, terrain?, strength? }   the Third Man comes, goes
+  //                                   (dissolved: looked at), his faint footstep (fx/thirst -> audio)
   //   dizzy { x, y, strength }        a lightheaded moment from hunger (body)
   //   arrive { x, y }                 walked to the container a press sent them to (explorer -> pack)
   //   tent { action: 'in'|'out'|'sleep'|'wake', x, y, shelter: 'camp'|'pup' }   crawled in / out, held
@@ -163,7 +173,7 @@ export const state = {
   //   step.wet                        0..1 on step events: soaked boots leave darker prints
   //   step.drag                       0..1 on step events: worn-out boots drag between prints
   //   step.limp, step.bad             0..1, and true on the hurt leg's steps: it drags, prints smear
-  //   refuse { x, y, reason }         won't start a climb: 'wind' | 'gear' | 'tired' | 'hurt' (explorer)
+  //   refuse { x, y, reason }         won't start a climb: 'wind' | 'gear' | 'tired' | 'hurt' | 'parched' (explorer)
   //   rest  { x, y }                  worn out: stopped, hands on knees, a heavy breath out (explorer -> audio)
   //   tired { x, y }                  energy gone: sat down in the snow until it comes back (explorer -> audio)
   //   pant  { x, y, inhale, len, strength }   one ragged breath while blown (explorer -> audio)
