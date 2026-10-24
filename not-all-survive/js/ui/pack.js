@@ -109,7 +109,7 @@ const TAU = Math.PI * 2;
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 const P = state.player, pack = state.pack;
-const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, xferA: 0, angle: NORTH + 1.2, vel: 0, target: null, eatI: -1, splintI: -1, drinkI: -1 };
+const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, xferA: 0, tentA: 0, angle: NORTH + 1.2, vel: 0, target: null, eatI: -1, splintI: -1, drinkI: -1 };
 let holding = false;              // pointer or key held on the explorer / a container
 let holdCode = null;              // which key is doing the holding ('auto': arrived at a container)
 let wasMoving = false;
@@ -287,6 +287,88 @@ function startRummage(target = null) {
   C.phase = 'rummage'; C.t = 0; C.target = target;
   state.events.push({ type: 'rummage', x: P.x, y: P.y, target: target?.kind });
 }
+// The tent menu (Joe): inside a tent, a tap brings up what you can do there, as a row of round
+// slots above the tent: leave, eat, drink, sleep (after dark), open the pack. A tap off it closes it.
+const TENT_ACTS = ['leave', 'eat', 'drink', 'sleep', 'pack'];
+const TENT_NAMES = { leave: 'Leave the tent', eat: 'Eat a ration', drink: 'Drink (snow melted on the stove)', sleep: 'Sleep till dawn', pack: 'Open the pack' };
+const TENT_DRINK = 0.35;
+function tentLayout() {
+  const f = feet(), z = zoom(), r = slotR(), sp = r * 2.5, { w } = state.view;
+  const tall = (P.shelter?.kind === 'pup' ? 22 : 38) * z;
+  const y = Math.max(r + 8, f.y - tall - r - 6), n = TENT_ACTS.length;
+  let x0 = f.x - (n - 1) * sp / 2;
+  x0 = Math.max(r + 6, Math.min(w - r - 6 - (n - 1) * sp, x0));
+  return { r, pos: TENT_ACTS.map((id, i) => ({ id, i, x: x0 + i * sp, y })) };
+}
+function tentActAt(sx, sy) {
+  const L = tentLayout();
+  return L.pos.find(p => Math.hypot(sx - p.x, sy - p.y) < L.r + 8) || null;
+}
+const tentFlask = () => pack.slots.findIndex(q => q && q.id === 'flask' && q.drinks > 0);
+function tentBlocked(id) {
+  const B = state.body;
+  if (id === 'eat') return find(pack, 'food') < 0 || (B && B.food > 0.95);
+  if (id === 'drink') return !!B && B.water > 0.95;
+  if (id === 'sleep') return !canSleep();
+  return false;
+}
+function tentAct(p) {
+  if (tentBlocked(p.id)) { shake('tent', p.i); return; }
+  const B = state.body;
+  if (p.id === 'leave') { close(); P.leaveTent?.(); }
+  else if (p.id === 'eat') startEat(find(pack, 'food'));
+  else if (p.id === 'drink') {
+    // from the flask if there's a drink in it (the stove tops it up); else a mug off the stove
+    const i = tentFlask();
+    if (i >= 0) startDrink(i);
+    else if (B) { B.water = Math.min(1, B.water + TENT_DRINK); state.events.push({ type: 'drink', stage: 'done', x: P.x, y: P.y }); close(); }
+  }
+  else if (p.id === 'sleep') { close(); state.events.push({ type: 'tent', action: 'sleep', x: P.x, y: P.y, shelter: P.shelter }); }
+  else if (p.id === 'pack') { C.phase = 'slot'; C.t = 0; C.target = null; lay = null; }
+}
+const INK_T = 'rgba(40,36,30,0.9)';
+const TENT_ICON = {
+  // a boot stepping out through the door flap
+  leave: (ctx, r) => {
+    ctx.strokeStyle = INK_T; ctx.lineWidth = Math.max(1.2, r * 0.09); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-r * 0.5, r * 0.45); ctx.lineTo(-r * 0.05, -r * 0.5); ctx.lineTo(r * 0.4, r * 0.45); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r * 0.0, r * 0.08); ctx.lineTo(r * 0.58, r * 0.08); ctx.moveTo(r * 0.42, -r * 0.1); ctx.lineTo(r * 0.58, r * 0.08); ctx.lineTo(r * 0.42, r * 0.26); ctx.stroke();
+    ctx.lineCap = 'butt';
+  },
+  eat: (ctx, r, z) => ITEMS.food.icon(ctx, r, z),
+  drink: (ctx, r, z) => ITEMS.flask.icon(ctx, r, z),
+  // a crescent moon
+  sleep: (ctx, r) => {
+    ctx.fillStyle = INK_T;
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.45, 0, TAU); ctx.arc(r * 0.2, -r * 0.12, r * 0.38, 0, TAU, true); ctx.fill('evenodd');
+  },
+  // the rucksack: a body, a flap and two straps
+  pack: (ctx, r) => {
+    ctx.strokeStyle = INK_T; ctx.lineWidth = Math.max(1, r * 0.07);
+    roundRect(ctx, -r * 0.38, -r * 0.32, r * 0.76, r * 0.78, r * 0.14); ctx.fillStyle = 'rgba(96,84,70,0.95)'; ctx.fill(); ctx.stroke();
+    roundRect(ctx, -r * 0.4, -r * 0.42, r * 0.8, r * 0.34, r * 0.12); ctx.fillStyle = 'rgba(122,108,90,1)'; ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r * 0.16, -r * 0.1); ctx.lineTo(-r * 0.16, r * 0.3); ctx.moveTo(r * 0.16, -r * 0.1); ctx.lineTo(r * 0.16, r * 0.3); ctx.stroke();
+  },
+};
+function drawTentMenu(ctx) {
+  const L = tentLayout(), pop = 0.7 + 0.3 * C.tentA, z = zoom();
+  for (const p of L.pos) {
+    const dim = tentBlocked(p.id);
+    let x = p.x;
+    const sh = shakes.get('tent:' + p.i);
+    if (sh !== undefined) { const age = state.time - sh; if (age > 0.5) shakes.delete('tent:' + p.i); else x += Math.sin(age * 46) * Math.min(7, L.r * 0.42) * (1 - age / 0.5); }
+    const r = L.r * pop, lw = Math.max(1.2, z * 0.35);
+    ctx.globalAlpha = C.tentA * (dim ? 0.4 : 1);
+    ctx.beginPath(); ctx.arc(x, p.y, r, 0, TAU);
+    ctx.fillStyle = 'rgba(150,152,158,0.42)'; ctx.fill();
+    ctx.lineWidth = lw; ctx.strokeStyle = dim ? 'rgba(170,170,174,0.7)' : 'rgba(255,255,255,0.85)'; ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(40,40,44,0.3)';
+    ctx.beginPath(); ctx.arc(x, p.y, r + lw, 0, TAU); ctx.stroke();
+    ctx.save(); ctx.translate(x, p.y); TENT_ICON[p.id](ctx, r, z); ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function close() {
   if (C.phase === 'eat') state.events.push({ type: 'eat', stage: 'stop', x: P.x, y: P.y });
   if (C.phase === 'splint') state.events.push({ type: 'splint', stage: 'stop', x: P.x, y: P.y });
@@ -435,6 +517,7 @@ const nearCampDoor = () => { try { const d = tentDoor(); return Math.hypot(P.x -
 // moment after the tap), shows the item's name in a small label just above it.
 let hoverPt = null, tipSlot = null, tipT = -9;
 function tipText(t) {
+  if (t.block === 'tent') { const id = TENT_ACTS[t.i]; return TENT_NAMES[id] + (id === 'sleep' && !canSleep() ? ' (after dark)' : ''); }
   if (t.block === 'snow') return snowHere() ? 'Eat snow' : 'Eat snow (no snow here)';
   const c = t.block === 'cont' ? shownT?.ref : pack;
   const s = c?.slots[t.i];
@@ -448,12 +531,13 @@ function tipText(t) {
 }
 function drawTip(ctx, L) {
   const fresh = state.time - tipT < 1.1;
-  const t = press ? { block: press.block, i: press.i } : hoverPt ? slotAt(hoverPt.x, hoverPt.y) : fresh ? tipSlot : null;
+  const ht = hoverPt && C.phase === 'tentmenu' ? tentActAt(hoverPt.x, hoverPt.y) : null;
+  const t = press ? { block: press.block, i: press.i } : ht ? { block: 'tent', i: ht.i } : hoverPt && C.phase !== 'tentmenu' ? slotAt(hoverPt.x, hoverPt.y) : fresh ? tipSlot : null;
   if (!t || t.block === undefined) return;
-  const p = t.block === 'snow' ? L.snow : t.block === 'cont' ? L.cont?.find(q => q.i === t.i) : L.pack[t.i];
+  const p = t.block === 'tent' ? (C.phase === 'tentmenu' ? tentLayout().pos[t.i] : null) : t.block === 'snow' ? L.snow : t.block === 'cont' ? L.cont?.find(q => q.i === t.i) : L.pack[t.i];
   const txt = p && tipText(t);
   if (!txt) return;
-  const a = t.block === 'cont' ? C.xferA : C.slotA;
+  const a = t.block === 'cont' ? C.xferA : t.block === 'tent' ? C.tentA : C.slotA;
   const fs = Math.max(12, Math.min(15, L.r * 0.62));
   ctx.font = `${fs}px Georgia, serif`;
   const w = ctx.measureText(txt).width + fs * 1.1, h = fs * 1.6;
@@ -487,14 +571,18 @@ export function init() {
       if (hit) { press = { ...hit, t: state.time, done: false }; tipSlot = hit; tipT = state.time; return true; }
     }
     if (inTent()) {
-      // in the tent: the door opens the pack; anywhere else goes to the tent (leave / sleep)
-      const f = feet();
-      // (after dark the door is the bed: the press goes on to explorer.js, a hold sleeps)
-      if (C.phase === 'idle' && !canSleep() && Math.hypot(sx - f.x, sy - (f.y - 3 * zoom())) < Math.max(28, 10 * zoom())) {
-        holding = true; holdCode = null; doorPress = true; startRummage(); return true;
+      // in the tent: a tap brings up the tent menu (leave, eat, drink, sleep, pack); a tap on one
+      // does it, a tap off the menu (or the open pack) closes it
+      if (C.phase === 'tentmenu') {
+        const a = tentActAt(sx, sy);
+        if (a) { tipSlot = { block: 'tent', i: a.i }; tipT = state.time; tentAct(a); }
+        else close();
+        return true;
       }
-      if (open) close();
-      return false;
+      if (BUSY.has(C.phase)) return true;
+      if (open) { close(); return true; }
+      if (C.phase === 'idle') { C.phase = 'tentmenu'; C.t = 0; }
+      return true;
     }
     if (BUSY.has(C.phase)) {
       close();                     // walked off mid-meal (or mid-binding, mid-drink): the ration / splint / drink goes back
@@ -575,6 +663,7 @@ export function init() {
   // thirst: NAS.drink() drinks from the first flask with a drink in it; NAS.snowEat() eats a mittful of snow
   window.NAS.drink = () => { const i = pack.slots.findIndex(q => q && q.id === 'flask' && q.drinks > 0); if (i >= 0) { if (C.phase === 'idle') { C.phase = 'slot'; C.t = 0; } startDrink(i); } };
   window.NAS.snowEat = () => { if (C.phase === 'idle') { C.phase = 'slot'; C.t = 0; } startSnow(); };
+  window.NAS.tentUI = () => tentLayout();   // the tent menu's slot positions (inside a tent)
   window.NAS.packUI = () => { lay = null; const L = layouts(); return { pack: L.pack, cont: L.cont || [], r: L.r }; };
 }
 
@@ -607,6 +696,7 @@ export function update(dt) {
   // an alerted bear close by: no kneeling over a pack
   if (C.phase !== 'idle' && C.phase !== 'out' && bearClose()) close();
 
+  if (C.phase === 'tentmenu' && !inTent()) close();
   if (C.phase === 'rummage') {
     const t = C.target;
     // Let go, start walking, or get caught out by the weather: the dig is abandoned.
@@ -707,6 +797,7 @@ export function update(dt) {
   const open = OPEN.has(C.phase);
   C.slotA += ((open ? 1 : 0) - C.slotA) * k;
   C.xferA += ((C.phase === 'transfer' ? 1 : 0) - C.xferA) * k;
+  C.tentA += ((C.phase === 'tentmenu' ? 1 : 0) - C.tentA) * k;
   if (C.phase === 'transfer') shownT = C.target;
   C.outA += ((C.phase === 'out' ? 1 : 0) - C.outA) * Math.min(1, dt * 6);
 
@@ -987,7 +1078,7 @@ export function drawScreen(ctx) {
   const J = pupJob(), strikeK = J && J.kind === 'strike' ? 1 - J.prog / 3 : -1;
   const armK = pupPress && !pupPress.struck ? Math.max(0, (state.time - pupPress.t - 0.12) / (STRIKE_ARM - 0.12)) : 0;
   if (armK > 0.01) drawPupArm(ctx, armK);
-  if (C.phase === 'idle' && C.slotA < 0.01 && C.outA < 0.01 && C.xferA < 0.01 && sleepK < 0.01 && hint <= 0 && strikeK < 0) return;
+  if (C.phase === 'idle' && C.slotA < 0.01 && C.outA < 0.01 && C.xferA < 0.01 && C.tentA < 0.01 && sleepK < 0.01 && hint <= 0 && strikeK < 0) return;
   const { dpr } = state.view;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   lay = null;
@@ -1042,7 +1133,8 @@ export function drawScreen(ctx) {
     if (L.snow) drawSnowSlot(ctx, L.snow.x, L.snow.y, L.r * pop * 0.82, { a: C.slotA, dim: !snowHere() || (C.phase !== 'slot' && C.phase !== 'snow'), hold: C.phase === 'snow' ? C.t / SNOW_S : holdK('snow', 0) });
   }
 
-  if (C.slotA > 0.3 || C.xferA > 0.3) drawTip(ctx, L);
+  if (C.tentA > 0.01) drawTentMenu(ctx);
+  if (C.slotA > 0.3 || C.xferA > 0.3 || C.tentA > 0.3) drawTip(ctx, L);
 
   // The needle itself, over the explorer.
   if (C.outA > 0.01) {

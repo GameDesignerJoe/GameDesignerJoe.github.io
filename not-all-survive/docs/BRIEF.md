@@ -271,10 +271,12 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     within 60 units, or a tap off it closes it. Keyboard: hold Space / E close to one; 1–0 from
     the pack, Shift + 1–0 from the container. At death the pack goes with the body (fallen.js);
     the sea keeps what it takes.
-  - **In the tent**: by day, press and hold the glowing door and the pack opens there (to eat; a
-    quick tap on the door leaves, as a tap anywhere does). After dark the door is the bed: a hold
-    there (or anywhere) sleeps, the dig bar filling over the door with it (~1 s). Going to sleep
-    hungry (food < 0.75) eats a ration from the pack, if there is one.
+  - **In the tent**: a tap brings up the tent menu, a row of round slots above the tent: leave,
+    eat a ration, drink (from the flask, or a mug of snow melted on the stove: +0.35 water), sleep
+    till dawn (after dark only; greyed by day), open the pack. Greyed when no use (full, no
+    rations, daytime); names on hover / press. A tap off it closes it. Space still leaves (and a
+    held Space after dark sleeps). Going to sleep hungry (food < 0.75) eats a ration from the
+    pack, if there is one.
   - **Hunger** (`body.js`): food runs down in ~15 min standing about (three days and nights),
     ~8 min walking at full push, ~9½ min standing shivering cold (warmth 0.35), ~25 min in the
     tent; sleeping the night costs 0.06. A new member after a death starts at 0.8. A ration: tap
