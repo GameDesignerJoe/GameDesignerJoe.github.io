@@ -1112,7 +1112,13 @@ function onScreen(m = 30) {
   return !(r.x1 < BOUNDS.x0 || r.x0 > BOUNDS.x1 || r.y1 < BOUNDS.y0 || r.y0 > BOUNDS.y1);
 }
 
+// The sled glows the first time out (Joe): a soft signal-yellow outline that breathes, until the
+// player first digs in it. Then never again (this run).
+let sledHint = !state.params.has('nohint'), sledHintA = 0;
+
 export function update(dt) {
+  if (sledHint && state.events.some(e => e.type === 'rummage' && e.target === 'sled')) sledHint = false;
+  sledHintA += ((sledHint && state.begun !== false ? 1 : 0) - sledHintA) * Math.min(1, dt * (sledHint ? 1.2 : 3));
   updateSledLoad(dt);
   const night = state.lighting?.night || 0;
   // Someone inside (explorer mode 'inside', or crawling through the door): the lamp is lit,
@@ -1232,7 +1238,17 @@ export function drawables() {
   const hz = HZ[state.quality?.level] || HZ.high;
   const out = [
     { x: TENT.x, y: TENT.y + 3, draw: ctx => drawCached(ctx, 'tent', TENT_BOX, hz[0], drawTent, 0, 0, tentNight + doorLit * 3) },
-    { x: SLED.x, y: SLED.y + 1, draw: ctx => drawCached(ctx, 'sled', SLED_BOX, hz[1], drawSled, 0, 0, sledStamp()) },
+    { x: SLED.x, y: SLED.y + 1, draw: ctx => {
+      if (sledHintA > 0.01) {
+        // the outline: the sled's own sprite drawn with a yellow blur round it, then the sled over it
+        const dpr = state.view.dpr || 1, k = sledHintA * (0.65 + 0.35 * Math.sin(state.time * 2.4));
+        ctx.save();
+        ctx.shadowColor = SIGNAL.glow; ctx.shadowBlur = (7 + 5 * k) * dpr;
+        for (let n = 0; n < 2; n++) { ctx.globalAlpha = k; drawCached(ctx, 'sled', SLED_BOX, hz[1], drawSled, 0, 0, sledStamp()); }
+        ctx.restore();
+      }
+      drawCached(ctx, 'sled', SLED_BOX, hz[1], drawSled, 0, 0, sledStamp());
+    } },
   ];
   for (const d of dogs) out.push({ x: d.x, y: d.y, draw: ctx => {
     drawChain(ctx, d);
