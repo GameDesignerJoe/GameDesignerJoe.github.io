@@ -52,7 +52,7 @@ export const state = {
     // this frame), headwind (0..1, how much of it into the wind), pant (0..1, how blown) and
     // breathPh (0..1, the panting clock: breath in from 0, out from 0.5), resting (stopped bent
     // double), spent (energy gone: sat in the snow) and crawl (spent but crawling on),
-    // badLeg (1 right / -1 left: the hurt one) and iceStress (thin-ice stress under the feet),
+    // badLeg (1 right / -1 left: the hurt one) and iceStress (stress of the ice under the feet, thin or a lake; 1 breaks),
     // shelter: the tent they're in or making for (camp.js CAMP_SHELTER / puptent.js PUP_SHELTER: kind
     // 'camp' | 'pup' and how good it is: warm, dry, rest, heal, sleep, storm, leak, food, hunger, muffle, water;
     // body.js and audio.js read it) and door() (that tent's door: ui/pack.js)
@@ -106,18 +106,19 @@ export const state = {
   // puptent.js adds state.pup = { pitched: { x, y, yaw, t, snow } | null, job: { kind: 'pitch'|'strike',
   // x, y, yaw, t, prog 0..3, coll: { t, from, to } | null, tries, ... } | null, nope, press } (the pup tent:
   // where it stands, the work on it; explorer.js kneels to the job and grabs at a collapse).
-  // thinice.js adds state.holes = [{ x, y, r, ro, age, freeze, ... }]: holes broken through thin
-  // ice (ro the open radius, shrinking to 0 as it refreezes); terrain.isWater / waterDepth read it.
+  // thinice.js adds state.holes = [{ x, y, r, ro, age, freeze, cls, ... }]: holes broken through thin
+  // ice or a frozen lake (ro the open radius, shrinking to 0 as it refreezes; cls the terrain class it
+  // broke in, 3 or 2); terrain.isWater / waterDepth read it (only over that class).
 
   // One-frame event bus. Push { type, x, y, ... } during update(); systems later in the
   // update order see it the same frame, then main.js clears it. Known types:
   //   step  { x, y, terrain, foot: 'L'|'R', weight }     (explorer -> footprints, audio)
   //   bark / howl / whine  { x, y }                       (camp dogs -> audio)
   //   penguin / bear       { x, y, kind }                 (wildlife -> audio)
-  //   crack { x, y, strength, stress? }  thin ice cracking under a weight (stress: the stress
+  //   crack { x, y, strength, stress? }  ice (thin or a lake) cracking under a weight (stress: the stress
   //                                   under the feet), or a hole's edge breaking off (thinice -> audio)
-  //   creak { x, y, strength }        thin ice starting to bear the weight (thinice -> audio)
-  //   breakthrough { x, y, r }        thin ice gave way: a hole (thinice -> audio; the plunge follows)
+  //   creak { x, y, strength }        ice starting to bear the weight (thinice -> audio)
+  //   breakthrough { x, y, r }        the ice gave way: a hole (thinice -> audio; the plunge follows)
   //   heave { x, y, stage: 'pull'|'break'|'slip'|'out', axes }   heaving out of a hole: a pull (costs
   //                                   energy), the edge breaking off, sliding back, out onto the ice
   //                                   (explorer -> body, audio)

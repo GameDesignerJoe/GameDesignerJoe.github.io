@@ -851,13 +851,15 @@ function updatePant(dt) {
   } else if (pantPh < prev) state.events.push({ type: 'pant', x: P.x, y: P.y, inhale: true, len, strength: pant });
 }
 
-// Thin ice (thinice.js): bear on it. How heavily: a full pack more, snowshoes far less (they
-// spread the weight), flat on it (knocked down, crawling) less; how hard: standing still is the
-// base, moving adds to it (k 1 at the creep's walking pace, more at a crampon march).
+// The ice (thinice.js: thin ice, and the frozen lakes, far stronger): bear on it. How heavily: a
+// full pack more, snowshoes far less (they spread the weight), flat on it (knocked down, crawling)
+// less; how hard: standing still is the base, moving adds to it (k 1 at the creep's walking pace,
+// more at a crampon march).
 const ICE_MODES = new Set(['walk', 'approach', 'cower', 'down', 'refuse']);
 function iceLoad(dt, ter) {
   // (frozen in the beat at the first crack: nothing builds while they decide)
-  if (ter !== 'thin' || water.level || !ICE_MODES.has(P.mode) || iceBeatT > 0) { P.iceStress = ter === 'thin' && !water.level ? ICE.stressAt(P.x, P.y) : 0; return; }
+  const onIce = ter === 'thin' || ter === 'ice';
+  if (!onIce || water.level || !ICE_MODES.has(P.mode) || iceBeatT > 0) { P.iceStress = onIce && !water.level ? ICE.stressAt(P.x, P.y) : 0; return; }
   let n = 0;
   if (state.pack) for (const q of state.pack.slots) if (q) n += q.id === 'puptent' ? 2 : 1;   // (the pup tent weighs double)
   let w = 1 + 0.35 * n / 10;
@@ -1475,7 +1477,7 @@ function startFall(strength, dir, drop = 0) {
   // thrown down on hard ice or rock: a knock (a little hurt, now and then more)
   else if (P.terrain === 'ice' || P.terrain === 'thin' || P.terrain === 'rock') {
     hurt(0.03 + rand() * 0.05, 'knock');
-    if (P.terrain === 'thin') ICE.slam(P.x, P.y, 0.12);   // thrown down on thin ice: a jolt to it
+    if (P.terrain !== 'rock') ICE.slam(P.x, P.y, 0.12);   // thrown down on the ice: a jolt to it (a lake hardly feels it)
   }
 }
 // Landing at the foot of a wall after a drop of h world px: a burst of snow, and by the height
@@ -1484,8 +1486,8 @@ function land(h) {
   const lv = waterLevelAt(P.x, P.y);
   if (lv) { splashDrops(P.x, P.y, 12, 0.5, 5); ring(P.x, P.y, 2, 10, 1.6); }
   else snowBurst(P.x, P.y, 5 + Math.min(9, h * 0.15));
-  // onto thin ice: the impact loads it, and a big drop goes straight through
-  if (!lv && T.terrainAt(P.x, P.y) === 'thin') ICE.slam(P.x, P.y, h / 40);
+  // onto the ice (thin, or a lake: far stronger): the impact loads it, and a big drop goes straight through
+  if (!lv) { const tt = T.terrainAt(P.x, P.y); if (tt === 'thin' || tt === 'ice') ICE.slam(P.x, P.y, h / 40); }
   if (h >= FATAL_H) {
     state.events.push({ type: 'impact', x: P.x, y: P.y, height: h, severity: 1, fatal: true });
     // into deep water: they go under (no body); else crumpled where they land

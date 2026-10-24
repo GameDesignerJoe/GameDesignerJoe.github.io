@@ -79,8 +79,8 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
   and shows energy / its cap, the drain per minute and the reserve.
 - `?injury=0..1` starts them hurt. Hooks `NAS.hurt(v?)` (injury to v, or 0.25 worse, with the
   flinch), `NAS.heal()`, `NAS.splint()` (bind the leg with a splint from the pack), `NAS.breakIce()`
-  (a hole in the ice at the explorer's feet, anywhere), `NAS.holes`; the gear menu has Hurt me /
-  Heal me / Break ice and shows the injury (splinted or not) and the thin-ice stress underfoot.
+  (a hole in the ice at the explorer's feet: thin ice or a frozen lake), `NAS.holes`; the gear menu has Hurt me /
+  Heal me / Break ice and shows the injury (splinted or not) and the ice stress underfoot (thin or lake).
 - Pup tent: `NAS.pitch(now?)` (start pitching it beside the explorer, putting one in the pack if need be;
   `now` = true puts it up at once: the gear menu's "Pitch tent here"), `NAS.strike(now?)` (the menu's
   "Strike tent", at once), `NAS.pup` (`pitched`, `job`; `NAS.pup.force = true` makes the wind catch it at
@@ -126,9 +126,9 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
   night: a fade to ink, the clock jumps to that dawn, fade back in. (No sleeping through a day
   storm.)
 - **Open water** (slice 2). `terrain.isWater(x, y)` (dark thin-ice class: the sea and its leads;
-  frozen lakes are ice class and stay safe; pale thin ice holds a while, then breaks: slice 5) and
+  frozen lakes are ice class and hold far longer; pale thin ice holds a while, then breaks: slice 5) and
   `terrain.waterDepth(x, y)` (world px from land; floes are snow, so they count as land to hop
-  between; a hole broken in thin ice is open water too, deep right to its edge). The first `terrain.WADE_DEPTH` (9) px from land is a wading shelf, beyond is deep,
+  between; a hole broken in thin ice or a lake is open water too, deep right to its edge). The first `terrain.WADE_DEPTH` (9) px from land is a wading shelf, beyond is deep,
   with ±1.5 px of hysteresis at the drop-off. lakes.js darkens open water a step and paints the
   shelf paler (a soft edge, from the depth field read bilinearly) with ink stipple scattered
   along the drop-off, so the player can see where it gets deep. Floes ride a slight swell in
@@ -373,7 +373,17 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     explorer stops dead 0.5 s looking down (once a spell on the ice, only when walking; no load builds
     during it, and pushing back the way they came ends it at once); more fractures at 0.55, then
     cross-cracks joining them round the feet at 0.7 and 0.85, louder cracks and single fractures
-    between; they stay ~40 s and fade over ~12 s.
+    between (a level's fracture isn't drawn again within ~7 px of one already showing, and the single
+    ones only while fewer than five show round the feet, so pacing over a few px doesn't bury the feet
+    in a nest); they stay ~40 s and fade over ~12 s.
+  - **Micro-cracks** (both kinds of ice, Joe's "little micro cracks"): at stress 0.04, 0.13 and 0.22
+    under the feet a tiny white hairline appears where they tread, a few px long (finer and far
+    shorter than the first crack: a main kinked line with a branch or two off it, more and longer at
+    each level), inked underneath, never under about a device pixel wide (so they stay white on a
+    phone). The cells round share the level, so they come about a stride apart: a walk across a lake
+    leaves a trail of them, going back over it thickens and lengthens them. Each fades as its cell's
+    stress eases (half its level: gone), and stays healed. A fixed pool of 160 drawn as vector strokes
+    batched by alpha (eight strokes a frame at most; ~0.03 ms CPU with 80 on screen and 18 fractures).
   - **Break** at 1: a crash of the slab breaking up and a shard burst, and they're in (the usual
     plunge: white flash, gasp, cold shock). The hole (`state.holes`; `terrain.isWater` / `waterDepth`
     read it: deep right to the edge and only over thin-ice class, so it never spreads onto land; the
@@ -392,6 +402,23 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     from the hole (hard work: energy drains, none comes back; the pack can't be opened), then up,
     soaked through (wet = 1): the race to the tent begins. Dying in the hole:
     they slip under the ice (the sea's sink, no body; fallen.js's dark rings at the hole).
+  - **Frozen lakes** (ice class 2, the big pale lakes with their painted crack networks): the same
+    stress, only far stronger: 3× the weakest thin ice (to 3.75× at the shore), and moving bears on it at
+    0.35 of thin ice's rate (standing at the full rate), so going about on it is ~3.5× thin ice and
+    standing ~3×. Snowshoes still spread the load (but come off on ice anyway: items.js) and creeping or
+    crawling still eases it. Its cells ease back after 2 s at 0.01 / s (thin: 1.5 s, 0.035 / s; about the
+    same pace relative to its strength). Walking straight across holds the stress under the feet at ~0.06
+    (a creep ~0.09): a trail of micro-cracks, no creak, never near a crack. Going back over the same ice or
+    standing about builds it to the same warnings as thin ice: creaks from 0.18, the first real crack and
+    the 0.5 s freeze beat at 0.4 (not at micro-cracks; pushing back the way they came still ends it), more
+    fractures, then the break at 1: the same hole (`cls` 2, clipped to the lake: `terrain.isWater` /
+    `waterDepth` count it only over lake ice), plunge, heave and refreeze. A lake's fractures (drawn with a
+    lighter ink underside, 0.5, so they read white on its paler ice) aren't timed: each is tied to the
+    stress of the cell it broke from and fades as that eases (gone at half its level, and stays healed), so
+    a crack still showing is ice still weak; at a break the ones round the hole go over to thin ice's
+    timed fade. Knockdowns (0.12) and landing from a fall (height / 40) load lake ice too (a lake hardly
+    feels a knock). For wildlife: `thinice.weigh(x, y, dt, w, k)` bears on the ice like the explorer's load
+    without the freeze beat (a bear would be w ~3); not wired yet (the bear has no plunge or swim: slice 7).
   - Where it is on the default map: one real patch, x ~776–880, y ~1730–1774 (about 100 × 40 px,
     with dark open-water spots in it), reachable on foot; a small strip at x 1268–1294, y 1834–1854
     on the bottom edge; the rest are specks of a few px. (Terrain is Joe's: paint more in the editor.)
@@ -404,6 +431,14 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     cold and energy: 2 heaves 27%, 3 55%, 4+ 18%); bare hands, 12 pulls with 5 edge breaks in 16.6 s,
     out with energy spent and warmth 0.28 (Monte Carlo: mean ~7 heaves, ~84% out if they heave without
     a pause). Frame time on the ice with two holes and cracks in view (1440p storm): ~10 ms.
+  - Measured on lake ice (headless, sped up, light pack; lakes at (1100, 1516), (1000, 1516), (1424, 1420);
+    back and forth on an 18 px track): walking straight across the 390 px lake at y 1516 never breaks it:
+    peak stress 0.06 walking, 0.09 creeping (half push), no creak. Pacing: first creak 7.2–7.7 s (thin
+    1.2–1.8), first real crack 16.7–18.3 s (thin 2.7–4.9), break 39–60 s (thin 13–15). Standing still:
+    51 s to break (crack at 20 s). Healing, from 0.62–0.72 stress and walking off: the fractures half gone
+    at ~20 s, the real cracks gone by ~45 s, the last micro-cracks ~60–80 s; a straight walk's micro trail
+    lasts ~5–8 s behind them. Heaving out of a lake hole works as on thin ice. Frame time (1440p storm,
+    GPU, pacing on the lake): within noise of HEAD (22–24 ms on a loaded machine both).
 - **The pup tent** (slice 6, `js/actors/puptent.js`). One in the world: on the sled (`puptent`, stack 1,
   slot icon a small yellow ridge tent with its door and guy lines). Heavy: walking with it in the pack
   costs 10% more energy (body.js `PUP_DRAIN`) and it weighs as two slots on thin ice. Pitched and left

@@ -22,21 +22,37 @@
 //   >= 1          it gives way: a hole (breakAt), a burst of shards, 'breakthrough'
 // Fractures stay drawn ~40 s and fade over ~12 s.
 //
-// Holes: state.holes = [{ x, y, r, ro, age, freeze, maxR, ... }]. terrain.isWater / waterDepth read
-// them (deep right to the edge, and only over thin ice), so the explorer plunges and swims, the
-// shore beat treats the hole as a wall, and the bear and the penguins keep off it. A hole only
-// breaks on thin ice and never spreads past it (maxR: the distance to its edge caps r and the
-// broken ring round it). It's dark water inside a jagged rim of broken ice, plates tipped along
-// the edge and a few flat grey shards afloat; it stays open OPEN_S, then skins over from the rim
-// inward over FREEZE_S (ro shrinks to 0) into darker new ice, drawn for the run. widen(h, a)
-// breaks a piece off its edge (a heave that fails without axes).
-// Hooks: NAS.breakIce() (a hole at the explorer's feet, if it's thin ice), NAS.holes.
+// Frozen lakes (terrain class 2, ICE) carry stress the same way, only far stronger (LAKE_STR, a
+// touch more at the shore, and moving on them bears at LAKE_MOVE of thin ice's rate), so walking straight across never comes near breaking it; going back
+// over the same ice, or standing about on it, builds it up just as on thin ice, only slower. Lake
+// cells ease back later and slower (LAKE_EASE_AFTER, LAKE_EASE); a lake's fractures aren't timed:
+// each is tied to the stress of the cell it broke from and fades away with it, so a crack still
+// showing is ice still weak (and once faded it stays healed: a fresh crossing breaks a fresh one).
+// Micro-cracks (on both kinds of ice): at MICRO levels under the feet, tiny white hairlines (a few
+// px, finer than the first crack) appear where they tread, a few more and longer at each level, so
+// a walk across a lake leaves a trail of them and going back over it thickens it. They fade with
+// their cell's stress too. Drawn as vector strokes from a fixed pool (MICRO_CAP, oldest reused),
+// batched by alpha into a few paths: cheap however many are on screen.
+//
+// Holes: state.holes = [{ x, y, r, ro, age, freeze, maxR, cls, ... }]. terrain.isWater / waterDepth
+// read them (deep right to the edge, and only over the ice class it broke in: cls, 3 thin or 2
+// lake), so the explorer plunges and swims, the shore beat treats the hole as a wall, and the bear
+// and the penguins keep off it. A hole only breaks on ice and never spreads past it (maxR: the
+// distance to its edge caps r and the broken ring round it). It's dark water inside a jagged rim of
+// broken ice, plates tipped along the edge and a few flat grey shards afloat; it stays open OPEN_S,
+// then skins over from the rim inward over FREEZE_S (ro shrinks to 0) into darker new ice, drawn
+// for the run. widen(h, a) breaks a piece off its edge (a heave that fails without axes).
+// Hooks: NAS.breakIce() (a hole at the explorer's feet, if it's ice), NAS.holes.
+// For wildlife: weigh(x, y, dt, w, k) bears on the ice like load() but never takes the explorer's
+// freeze beat (w: how heavy, 1 = the explorer with a light pack; a polar bear would be ~3). Not
+// wired yet: the bear has no plunge or swim, so its chase (slice 7) should call it every frame it's
+// on ice (wildlife.js) once it can fall in: if the result's broke is set, it's in the hole.
 import { state } from '../state.js';
 import { classAt, lumAt, WATER_LUM, mask } from './terrain.js';
 import { fracturePatch } from './icecracks.js';
 import { visibleRect } from '../camera.js';
 
-const THIN = 3, TAU = Math.PI * 2, KY = 0.8;
+const THIN = 3, LAKE = 2, TAU = Math.PI * 2, KY = 0.8;
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
 
@@ -56,17 +72,34 @@ const FRACTURE = [
   { n: 4, L: [10, 18], from: 1.5, ring: 7 },
   { n: 5, L: [8, 14], from: 1, ring: 4.5 },
 ];
-const cells = new Map();        // key -> { s, t (last loaded), lv (crack level reached), str }
+// frozen lakes: this much stronger than the weakest thin ice (up to LAKE_SHORE x more at the shore);
+// they ease back later and slower (in stress, which is 1 at the break: relative to their strength
+// it's about thin ice's pace)
+const LAKE_STR = 3, LAKE_SHORE = 1.25;
+const LAKE_EASE_AFTER = 2, LAKE_EASE = 0.01;
+// and moving on a lake bears on it less again than on thin ice (the sheet takes a walker's weight
+// in its stride: going about on it, it's ~3.5x thin ice's strength; standing ~2.5-3x)
+const LAKE_MOVE = 0.35;
+// micro-cracks: the levels under the feet at which a few more tiny hairlines appear
+const MICRO = [0.04, 0.13, 0.22];
+// on a lake the same, with a lighter ink underside (its ice is paler: they still read white)
+const LAKE_FRACTURE = FRACTURE.map(f => ({ ...f, inkA: 0.5 }));
+const cells = new Map();        // key -> { s, t (last loaded), lv (crack level reached), ml (micro level), lake, str }
 const key = (cx, cy) => cy * 2048 + cx;
 
 const onThin = (x, y) => classAt(x, y) === THIN && lumAt(x, y) >= WATER_LUM;
+const onLake = (x, y) => classAt(x, y) === LAKE;
+// the ice class at (x, y): THIN (pale thin ice), LAKE (a frozen lake) or 0 (not ice that bears)
+const iceClass = (x, y) => { const c = classAt(x, y); return c === LAKE || (c === THIN && lumAt(x, y) >= WATER_LUM) ? c : 0; };
+const ON = { [THIN]: onThin, [LAKE]: onLake };   // where a crack may run, by class
 export const isThin = (x, y) => onThin(x, y) && !holeAt(x, y);
-// how far into the thin ice a point is (sampled, up to 18 px): its thickness, roughly
-function depthIn(x, y, max = 18) {
+export const isIce = (x, y) => iceClass(x, y) > 0 && !holeAt(x, y);
+// how far into the ice of class cls a point is (sampled, up to max px): thin ice's thickness, roughly
+function depthIn(x, y, max = 18, cls = THIN) {
   for (let d = 3; d <= max; d += 3) {
     for (let k = 0; k < 8; k++) {
       const a = (k / 8) * TAU;
-      if (classAt(x + Math.cos(a) * d, y + Math.sin(a) * d * KY) !== THIN) return d - 3;
+      if (classAt(x + Math.cos(a) * d, y + Math.sin(a) * d * KY) !== cls) return d - 3;
     }
   }
   return max;
@@ -83,8 +116,10 @@ function cell(cx, cy, make) {
   const k = key(cx, cy);
   let c = cells.get(k);
   if (!c && make) {
-    const x = (cx + 0.5) * CELL, y = (cy + 0.5) * CELL;
-    c = { s: 0, t: state.time, lv: 0, str: (STRONG + (WEAK - STRONG) * smooth(2, 16, depthIn(x, y))) * (frozenHoleAt(x, y) ? REFROZEN : 1) };
+    const x = (cx + 0.5) * CELL, y = (cy + 0.5) * CELL, lake = classAt(x, y) === LAKE;
+    const str = lake ? LAKE_STR * (LAKE_SHORE + (1 - LAKE_SHORE) * smooth(2, 12, depthIn(x, y, 12, LAKE)))
+      : STRONG + (WEAK - STRONG) * smooth(2, 16, depthIn(x, y));
+    c = { s: 0, t: state.time, lv: 0, ml: 0, lake, str: str * (frozenHoleAt(x, y) ? REFROZEN : 1) };
     cells.set(k, c);
   }
   return c;
@@ -94,13 +129,14 @@ export function stressAt(x, y) {
   return c ? c.s : 0;
 }
 // add `amount` (at the weakest ice) round (x, y), spread by the kernel and divided by strength
+// (only over the same class of ice as under the feet)
 function deposit(x, y, amount) {
-  const r2 = LOAD_R * LOAD_R, inv = 1 / (2 * SIGMA * SIGMA);
+  const r2 = LOAD_R * LOAD_R, inv = 1 / (2 * SIGMA * SIGMA), k = classAt(x, y);
   const cx0 = Math.floor((x - LOAD_R) / CELL), cx1 = Math.floor((x + LOAD_R) / CELL);
   const cy0 = Math.floor((y - LOAD_R * KY) / CELL), cy1 = Math.floor((y + LOAD_R * KY) / CELL);
   for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
     const px = (cx + 0.5) * CELL, py = (cy + 0.5) * CELL, dx = px - x, dy = (py - y) / KY, d2 = dx * dx + dy * dy;
-    if (d2 > r2 || classAt(px, py) !== THIN) continue;
+    if (d2 > r2 || classAt(px, py) !== k) continue;
     const c = cell(cx, cy, true);
     c.s += amount * Math.exp(-d2 * inv) / c.str;
     c.t = state.time;
@@ -108,41 +144,66 @@ function deposit(x, y, amount) {
 }
 
 let creakT = 0, snapT = 0, spell = false;
-// Bear on the thin ice at (x, y) for dt: w = how heavily (1 = the explorer with a light pack), k =
-// how hard they move (0 standing, 1 walking pace); canBeat: they could stop for the beat at the
-// first crack (else the spell stays open for when they can). -> { s: stress under the feet,
-// creak: a creak this frame, first: the first real crack of this spell, broke: it gave way (the
-// hole is already there) }.
+// Bear on the ice (thin or a frozen lake) at (x, y) for dt: w = how heavily (1 = the explorer with a
+// light pack), k = how hard they move (0 standing, 1 walking pace); canBeat: they could stop for
+// the beat at the first crack (else the spell stays open for when they can). -> { s: stress under
+// the feet, creak: a creak this frame, first: the first real crack of this spell, broke: it gave
+// way (the hole is already there) }.
 const res = { s: 0, first: false, broke: false, creak: false };
 export function load(x, y, dt, w, k, canBeat = true) {
   res.s = 0; res.first = false; res.broke = false; res.creak = false;
-  if (!isThin(x, y) || dt <= 0) { if (stressAt(x, y) < 0.15) spell = false; res.s = stressAt(x, y); return res; }
-  deposit(x, y, w * (STAND + MOVE * k) * dt);
+  if (!isIce(x, y) || dt <= 0) { if (stressAt(x, y) < 0.15) spell = false; res.s = stressAt(x, y); return res; }
+  deposit(x, y, w * (STAND + MOVE * k * (classAt(x, y) === LAKE ? LAKE_MOVE : 1)) * dt);
   return judge(x, y, canBeat, dt);
+}
+// Anyone else bearing on the ice (wildlife: see the header): the same load, the same cracks and
+// break, but never the explorer's freeze beat or spell.
+export function weigh(x, y, dt, w, k = 1) {
+  res.s = 0; res.first = false; res.broke = false; res.creak = false;
+  if (!isIce(x, y) || dt <= 0) { res.s = stressAt(x, y); return res; }
+  deposit(x, y, w * (STAND + MOVE * k * (classAt(x, y) === LAKE ? LAKE_MOVE : 1)) * dt);
+  return judge(x, y, false, dt, true);
 }
 // A sudden load (landing on it from a fall): amount of stress at the weakest ice.
 export function slam(x, y, amount) {
   res.s = 0; res.first = false; res.broke = false; res.creak = false;
-  if (!isThin(x, y)) return res;
+  if (!isIce(x, y)) return res;
   deposit(x, y, amount);
   return judge(x, y, false, 0);
 }
-function judge(x, y, canBeat, dt) {
-  const c = cell(Math.floor(x / CELL), Math.floor(y / CELL), true), s = c.s;
+function judge(x, y, canBeat, dt, other = false) {
+  const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL), ck = key(cx, cy);
+  const c = cell(cx, cy, true), s = c.s, on = c.lake ? onLake : onThin;
   res.s = s;
-  if (s < 0.15) spell = false;
+  if (s < 0.15 && !other) spell = false;
   creakT -= dt; snapT -= dt;
+  // micro-cracks where they tread: a few tiny hairlines each level crossed (the cells round share
+  // the level, so they come about a stride apart)
+  if (c.ml < MICRO.length && s >= MICRO[c.ml]) {
+    while (c.ml < MICRO.length && s >= MICRO[c.ml]) { addMicro(x, y, c.ml, ck, MICRO[c.ml], on); c.ml++; }
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const n = (i || j) && cells.get(key(cx + i, cy + j));
+      if (n && n.ml < c.ml) n.ml = c.ml;
+    }
+  }
   // creaks, with a hairline flickering under the boots
   if (s >= CREAK && s < CRACK && creakT <= 0) {
     const q = (s - CREAK) / (CRACK - CREAK);
     creakT = (2.2 - 1.5 * q) * (0.7 + Math.random() * 0.6);
     state.events.push({ type: 'creak', x, y, strength: 0.35 + 0.5 * q });
     res.creak = true;
-    addPatch(fracturePatch(x, y + 0.6, { n: 2, L: [4, 7 + 4 * q], from: 0.8, ring: 0 }, (Math.random() * 1e9) | 0, onThin), 0.55, 0.65);
+    addPatch(fracturePatch(x, y + 0.6, { n: 2, L: [4, 7 + 4 * q], from: 0.8, ring: 0 }, (Math.random() * 1e9) | 0, on), 0.55, 0.65);
   }
-  // each level crossed under the feet once (per cell)
+  // each level crossed under the feet once (per cell; on a lake the fracture lasts as long as
+  // the cell's stress holds up)
+  // (not drawn again where that level's fracture already shows close by: going back and forth over
+  // the same few px would pile them into a nest)
   while (c.lv < LEVELS.length && s >= LEVELS[c.lv]) {
-    addPatch(fracturePatch(x, y + 0.6, FRACTURE[c.lv], (Math.random() * 1e9) | 0, onThin), 34 + 8 * c.lv + Math.random() * 8);
+    if (!levelNear(x, y, c.lv)) {
+      const p = fracturePatch(x, y + 0.6, (c.lake ? LAKE_FRACTURE : FRACTURE)[c.lv], (Math.random() * 1e9) | 0, on);
+      p.ox = x; p.oy = y; p.lvl = c.lv;
+      addPatch(p, 34 + 8 * c.lv + Math.random() * 8, 1, c.lake ? ck : -1, LEVELS[c.lv]);
+    }
     state.events.push({ type: 'crack', x, y, strength: 0.6 + 0.13 * c.lv, stress: s });
     c.lv++;
     snapT = 0.6 + Math.random() * 0.6;
@@ -152,19 +213,85 @@ function judge(x, y, canBeat, dt) {
   if (s >= CRACK && snapT <= 0 && s < 1) {
     snapT = (1.5 - 1.1 * smooth(CRACK, 1, s)) * (0.6 + Math.random() * 0.8);
     state.events.push({ type: 'crack', x: x + (Math.random() - 0.5) * 8, y: y + (Math.random() - 0.5) * 6, strength: 0.35 + 0.5 * smooth(CRACK, 1, s), stress: s });
-    if (Math.random() < 0.5) addPatch(fracturePatch(x, y + 0.6, { n: 1, L: [10, 18], from: 2, ring: 0 }, (Math.random() * 1e9) | 0, onThin), 30);
+    // (drawn only while few show round the feet: a slow back and forth would bury them in a nest)
+    if (Math.random() < 0.5 && crowd(x, y) < 5) {
+      const p = fracturePatch(x, y + 0.6, { n: 1, L: [10, 18], from: 2, ring: 0, inkA: c.lake ? 0.5 : 0.8 }, (Math.random() * 1e9) | 0, on);
+      p.ox = x; p.oy = y; p.lvl = -1;
+      addPatch(p, 30, 1, c.lake ? ck : -1, CRACK);
+    }
   }
   if (s >= 1) { res.broke = !!breakAt(x, y); }
   return res;
 }
 
 // --- crack lines -----------------------------------------------------------------------------------
-// life: seconds drawn at full strength (then a 12 s fade, or a quick one for a flicker); peak alpha
+// life: seconds drawn at full strength (then a 12 s fade, or a quick one for a flicker); peak alpha;
+// ck >= 0: a lake's fracture, tied instead to that cell's stress (it fades as that eases from th
+// toward half of it, and never comes back: vis only falls)
 const patches = [];
-function addPatch(p, life, peak = 1) {
-  p.age = 0; p.life = life; p.peak = peak; p.fade = life < 2 ? 0.4 : 12;
+function addPatch(p, life, peak = 1, ck = -1, th = 0) {
+  p.age = 0; p.life = life; p.peak = peak; p.fade = life < 2 ? 0.4 : 12; p.ck = ck; p.th = th; p.vis = 1;
   patches.push(p);
   if (patches.length > 18) patches.shift().c.width = 0;
+}
+// a fracture of crack level lv (or later) already showing within 7 px of (x, y)
+function levelNear(x, y, lv) {
+  for (const p of patches) if (p.lvl >= lv && p.vis > 0.5 && Math.abs(p.ox - x) < 7 && Math.abs(p.oy - y) < 6 && p.age < p.life) return true;
+  return false;
+}
+// how many fractures from under a weight (not flickers) show from within 9 px of (x, y)
+function crowd(x, y) {
+  let n = 0;
+  for (const p of patches) if (p.lvl !== undefined && p.vis > 0.3 && Math.abs(p.ox - x) < 9 && Math.abs(p.oy - y) < 7) n++;
+  return n;
+}
+const heldBy = (ck, th) => { const c = cells.get(ck); return c ? smooth(th * 0.5, th * 0.92, c.s) : 0; };
+
+// --- micro-cracks ----------------------------------------------------------------------------------
+// A fixed pool of tiny hairline sprays (objects and their point arrays reused, the oldest first):
+// up to MS strands of up to MP points each, in world space. Each fades with its cell's stress.
+const MICRO_CAP = 160, MS = 4, MP = 4;
+const micro = [];
+let microHead = 0;
+// strands per level, and their length range (world px): all far finer than the first real crack
+const MICRO_N = [3, 4, 5], MICRO_L = [[1.8, 3.2], [2.6, 4.6], [3.4, 6.2]];
+function addMicro(x, y, lvl, ck, th, on) {
+  let m;
+  if (micro.length < MICRO_CAP) { m = { pts: new Float32Array(MS * MP * 2), np: new Uint8Array(MS) }; micro.push(m); }
+  else { m = micro[microHead]; microHead = (microHead + 1) % MICRO_CAP; }
+  const ox = x + (Math.random() - 0.5) * 5, oy = y + 0.6 + (Math.random() - 0.5) * 3.5;
+  m.x = ox; m.y = oy; m.ck = ck; m.th = th; m.vis = 1; m.age = 0;
+  // not a star: one main hairline through the tread (both ways from it, unevenly), the rest branching
+  // off it (or off each other) at a slant, shorter; strand count varies a little
+  const L = MICRO_L[lvl], main = Math.random() * TAU;
+  m.ns = Math.max(2, MICRO_N[lvl] - (Math.random() < 0.4 ? 1 : 0));
+  for (let s = 0; s < m.ns; s++) {
+    let px, py, dir, len;
+    if (s < 2) {
+      // the main line: out from near the middle, the second half the other way and shorter
+      dir = main + (s ? Math.PI : 0) + (Math.random() - 0.5) * 0.5;
+      len = (L[0] + (L[1] - L[0]) * Math.random()) * (s ? 0.35 + Math.random() * 0.4 : 1);
+      px = ox; py = oy;
+    } else {
+      // a branch off a point along an earlier strand
+      const q = (Math.random() * s) | 0, qn = m.np[q], o2 = q * MP * 2, j = Math.min(qn - 1, 1 + ((Math.random() * (qn - 1)) | 0));
+      px = m.pts[o2 + j * 2]; py = m.pts[o2 + j * 2 + 1];
+      dir = (q < 2 ? main + (q ? Math.PI : 0) : Math.random() * TAU) + (Math.random() < 0.5 ? 1 : -1) * (0.6 + Math.random() * 0.8);
+      len = (L[0] + (L[1] - L[0]) * Math.random()) * (0.5 + Math.random() * 0.4);
+    }
+    const o = (s * MP) * 2;
+    let n = 1, d = 0;
+    m.pts[o] = px; m.pts[o + 1] = py;
+    while (n < MP && d < len) {
+      const st = len / (MP - 1) * (0.6 + Math.random() * 0.8);
+      d += st; dir += (Math.random() < 0.5 ? 1 : -1) * (0.25 + Math.random() * 0.45);   // a sharp kink at each joint
+      px += Math.cos(dir) * st; py += Math.sin(dir) * st * KY;
+      if (!on(px, py)) break;
+      m.pts[o + n * 2] = px; m.pts[o + n * 2 + 1] = py; n++;
+    }
+    m.np[s] = n;
+  }
+  m.r = L[1] + 1.5;
 }
 
 // --- holes ----------------------------------------------------------------------------------------
@@ -180,12 +307,12 @@ export function holeAt(x, y) {
   }
   return null;
 }
-// distance (ground plane) from (x, y) to the edge of the thin ice, sampled in 16 directions
-function edgeDist(x, y, max = 14) {
+// distance (ground plane) from (x, y) to the edge of the ice of class cls, sampled in 16 directions
+function edgeDist(x, y, max = 14, cls = THIN) {
   let best = max;
   for (let k = 0; k < 16; k++) {
     const a = (k / 16) * TAU, c = Math.cos(a), sn = Math.sin(a) * KY;
-    for (let d = 1; d < best; d += 1) if (classAt(x + c * d, y + sn * d) !== THIN) { best = d; break; }
+    for (let d = 1; d < best; d += 1) if (classAt(x + c * d, y + sn * d) !== cls) { best = d; break; }
   }
   return best;
 }
@@ -223,40 +350,43 @@ function burst(x, y, n, up = 7) {
   }
   if (shardsFly.length > 80) shardsFly.splice(0, shardsFly.length - 80);
 }
-// A hole through the thin ice at (x, y) (null if it isn't thin ice there). Never wider than the
-// thin ice round it.
+// A hole through the ice at (x, y) (null if it isn't thin ice or a frozen lake there). Never wider
+// than the ice round it.
 export function breakAt(x, y) {
-  if (!onThin(x, y) || holeAt(x, y)) return null;
-  const maxR = edgeDist(x, y);
-  const h = { x, y, r: Math.max(3.2, Math.min(5.2 + Math.random() * 0.8, maxR - 0.5)), ro: 0, age: 0, freeze: 0, t0: state.time, maxR, seed: 1 + ((Math.random() * 2e9) | 0) };
+  const cls = iceClass(x, y);
+  if (!cls || holeAt(x, y)) return null;
+  const maxR = edgeDist(x, y, 14, cls);
+  const h = { x, y, r: Math.max(3.2, Math.min(5.2 + Math.random() * 0.8, maxR - 0.5)), ro: 0, age: 0, freeze: 0, t0: state.time, maxR, cls, seed: 1 + ((Math.random() * 2e9) | 0) };
   h.ro = h.r;
   rimOf(h);
   holes.push(h);
   if (holes.length > 8) holes.shift();
   burst(x, y, 26, 8);
-  addPatch(fracturePatch(x, y, { n: 6, L: [12, 22], from: h.r * 0.9, ring: h.r + 4 }, (Math.random() * 1e9) | 0, onThin), 50);
+  addPatch(fracturePatch(x, y, { n: 6, L: [12, 22], from: h.r * 0.9, ring: h.r + 4 }, (Math.random() * 1e9) | 0, ON[cls]), 50);
   // the ice round it lets go of the stress it held (still cracked: get off it)
   for (const [k, c] of cells) {
     const cx = (k % 2048 + 0.5) * CELL, cy = (Math.floor(k / 2048) + 0.5) * CELL;
     if (Math.hypot(cx - x, (cy - y) / KY) < 20) { c.s = Math.min(c.s, 0.32); c.lv = Math.min(c.lv, 1); }
   }
+  // (a lake's fractures round it no longer follow that stress: they stay a while as thin ice's do)
+  for (const p of patches) if (p.ck >= 0 && Math.hypot(p.x + p.w / 2 - x, (p.y + p.h / 2 - y) / KY) < 30) { p.ck = -1; p.life = p.age + 30; p.fade = 12; }
   state.events.push({ type: 'breakthrough', x, y, r: h.r });
   return h;
 }
 // A piece of the edge breaks off toward angle a (ground plane): the hole widens (never past the
-// edge of the thin ice).
+// edge of the ice).
 export function widen(h, a) {
-  const R0 = h.r, cap = Math.min(10, edgeDist(h.x, h.y, 16) - 0.5);
+  const cls = h.cls || THIN, R0 = h.r, cap = Math.min(10, edgeDist(h.x, h.y, 16, cls) - 0.5);
   if (cap <= R0 + 0.3) { state.events.push({ type: 'crack', x: h.x, y: h.y, strength: 0.6, stress: 1 }); return; }
   h.r = Math.min(cap, h.r + 1.2 + Math.random() * 0.5);
   h.ro = h.r * (1 - h.freeze);
   h.x += Math.cos(a) * (h.r - R0) * 0.5; h.y += Math.sin(a) * (h.r - R0) * 0.5 * KY;
-  h.maxR = edgeDist(h.x, h.y, 16);
+  h.maxR = edgeDist(h.x, h.y, 16, cls);
   h.seed = (h.seed * 48271) % 2147483647;
   rimOf(h);
   const ex = h.x + Math.cos(a) * h.r, ey = h.y + Math.sin(a) * h.r * KY;
   burst(ex, ey, 10, 5);
-  addPatch(fracturePatch(ex, ey, { n: 2, L: [8, 14], from: 0.5, ring: 0 }, (Math.random() * 1e9) | 0, onThin), 40);
+  addPatch(fracturePatch(ex, ey, { n: 2, L: [8, 14], from: 0.5, ring: 0 }, (Math.random() * 1e9) | 0, ON[cls]), 40);
   state.events.push({ type: 'crack', x: ex, y: ey, strength: 0.8, stress: 1 });
 }
 
@@ -268,15 +398,28 @@ export function update(dt) {
   // unloaded cells ease back (backing off the way you came relieves it)
   const now = state.time;
   for (const [k, c] of cells) {
-    if (now - c.t < EASE_AFTER) continue;
-    c.s -= EASE * dt;
-    if (c.s < 0.25 && c.lv > 0) c.lv = 0;
+    if (now - c.t < (c.lake ? LAKE_EASE_AFTER : EASE_AFTER)) continue;
+    c.s -= (c.lake ? LAKE_EASE : EASE) * dt;
+    // a level eased well back under is open to be crossed again (a lake's, one at a time: its
+    // fracture there has faded by then)
+    if (c.lake) { while (c.lv > 0 && c.s < LEVELS[c.lv - 1] * 0.5) c.lv--; }
+    else if (c.s < 0.25 && c.lv > 0) c.lv = 0;
+    while (c.ml > 0 && c.s < MICRO[c.ml - 1] * 0.5) c.ml--;
     if (c.s <= 0) cells.delete(k);
   }
   for (let i = patches.length - 1; i >= 0; i--) {
     const p = patches[i];
     p.age += dt;
-    if (p.age > p.life + p.fade) { p.c.width = 0; patches.splice(i, 1); }
+    if (p.ck >= 0) {
+      if (p.age > 0.25) p.vis = Math.min(p.vis, heldBy(p.ck, p.th));
+      if (p.vis < 0.01) { p.c.width = 0; patches.splice(i, 1); }
+    } else if (p.age > p.life + p.fade) { p.c.width = 0; patches.splice(i, 1); }
+  }
+  for (const m of micro) {
+    if (m.vis <= 0) continue;
+    m.age += dt;
+    if (m.age > 0.2) m.vis = Math.min(m.vis, heldBy(m.ck, m.th));
+    if (m.vis < 0.02) m.vis = 0;
   }
   for (const h of holes) {
     h.age += dt;
@@ -433,11 +576,54 @@ export function drawGround(ctx) {
     ctx.imageSmoothingEnabled = true;
     for (const p of patches) {
       if (p.x > r.x1 || p.y > r.y1 || p.x + p.w < r.x0 || p.y + p.h < r.y0) continue;
-      ctx.globalAlpha = p.peak * Math.min(1, p.age / (p.life < 2 ? 0.08 : 0.2)) * clamp((p.life + p.fade - p.age) / p.fade);
+      ctx.globalAlpha = p.peak * p.vis * Math.min(1, p.age / (p.life < 2 ? 0.08 : 0.2)) * (p.ck >= 0 ? 1 : clamp((p.life + p.fade - p.age) / p.fade));
       ctx.drawImage(p.c, p.x, p.y, p.w, p.h);
     }
     ctx.restore();
   }
+  drawMicro(ctx, r);
+}
+// The micro-cracks: binned by alpha (MBINS steps), each bin one ink path and one white path.
+const MBINS = 4, binIdx = new Int16Array(MBINS * MICRO_CAP), binN = new Int16Array(MBINS);
+function microPath(ctx, b, dx, dy) {
+  ctx.beginPath();
+  for (let q = 0; q < binN[b]; q++) {
+    const m = micro[binIdx[b * MICRO_CAP + q]], P = m.pts;
+    for (let s = 0; s < m.ns; s++) {
+      const n = m.np[s], o = s * MP * 2;
+      if (n < 2) continue;
+      ctx.moveTo(P[o] + dx, P[o + 1] + dy);
+      for (let i = 1; i < n; i++) ctx.lineTo(P[o + i * 2] + dx, P[o + i * 2 + 1] + dy);
+    }
+  }
+}
+function drawMicro(ctx, r) {
+  binN.fill(0);
+  let any = false;
+  for (let i = 0; i < micro.length; i++) {
+    const m = micro[i];
+    if (m.vis <= 0 || m.x + m.r < r.x0 || m.x - m.r > r.x1 || m.y + m.r < r.y0 || m.y - m.r > r.y1) continue;
+    const a = m.vis * Math.min(1, m.age / 0.12);
+    const b = Math.min(MBINS - 1, Math.floor(a * MBINS));
+    if (a < 0.04) continue;
+    binIdx[b * MICRO_CAP + binN[b]++] = i; any = true;
+  }
+  if (!any) return;
+  ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+  // never under about a device pixel (zoomed out on a phone the hairline would melt into its ink
+  // and read grey)
+  const px = 1 / (Math.hypot(ctx.getTransform().a, ctx.getTransform().b) || 1);
+  const wW = Math.max(0.25, 1.05 * px), wI = Math.max(0.32, 1.2 * px), oy = Math.max(0.19, 0.8 * px), ox = oy * 0.47;
+  for (let b = 0; b < MBINS; b++) {
+    if (!binN[b]) continue;
+    const a = (b + 1) / MBINS;
+    // the inked underside (light from the upper left), then the white hairline
+    microPath(ctx, b, ox, oy);
+    ctx.globalAlpha = 0.42 * a; ctx.lineWidth = wI; ctx.strokeStyle = 'rgb(36,38,42)'; ctx.stroke();
+    microPath(ctx, b, 0, 0);
+    ctx.globalAlpha = 0.97 * a; ctx.lineWidth = wW; ctx.strokeStyle = 'rgb(248,250,251)'; ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
 }
 // Holes go over the footprints (footprints.js draws after this module's drawGround): drawn as a
 // drawable just under everything standing (keyed at the very top of the hole, so the explorer in
@@ -479,4 +665,4 @@ export function drawables() {
   return out;
 }
 
-export const _debug = { cells, patches, holes, shardsFly };
+export const _debug = { cells, patches, holes, shardsFly, micro };

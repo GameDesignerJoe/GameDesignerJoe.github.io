@@ -124,7 +124,7 @@ function network(cx, cy, R, r, opt = {}) {
 
 // ink: a thin dark underside under every white line (offset to the lower right, light from the
 // upper left), so the cracks still read white against pale thin ice (Joe: cracks are white)
-function render(segs, x0, y0, w, h, ink = false) {
+function render(segs, x0, y0, w, h, ink = false, inkA = 0.8) {
   const c = document.createElement('canvas');
   c.width = Math.ceil(w * PX); c.height = Math.ceil(h * PX);
   const g = c.getContext('2d');
@@ -140,7 +140,7 @@ function render(segs, x0, y0, w, h, ink = false) {
       g.stroke();
     }
   };
-  if (ink) stroke(0.12, 0.26, 'rgba(36,38,42,0.8)', 1.45);   // the inked underside
+  if (ink) stroke(0.12, 0.26, `rgba(36,38,42,${inkA})`, 1.45);   // the inked underside
   else stroke(0, 0.35, 'rgba(150,156,162,0.35)', 0.8);        // faint shadow-side hairline
   stroke(0, 0, 'rgba(246,248,250,0.97)', 1);                   // the white crack
   return c;
@@ -150,7 +150,8 @@ function render(segs, x0, y0, w, h, ink = false) {
 // Not a nest: a few long, decisive fractures shooting out from round the feet, straight runs with
 // a sharp kink now and then and the odd split; with opt.ring, short cross-cracks joining the
 // spokes at about that radius (the ice breaking round, the last warning). White with an ink
-// underside. opt = { n spokes, L: [min, max] length, from: start radius, ring: radius or 0 }.
+// underside. opt = { n spokes, L: [min, max] length, from: start radius, ring: radius or 0, inkA:
+// the underside's alpha (default 0.8; lighter on a frozen lake's paler ice, so they read white) }.
 // on(x, y): where a crack may run (it stops at the edge of the thin ice). -> { c, x, y, w, h }
 export function fracturePatch(cx, cy, opt, seed, on) {
   const r = rng(seed >>> 0), segs = [], spokes = [];
@@ -203,7 +204,7 @@ export function fracturePatch(cx, cy, opt, seed, on) {
     }
   }
   const x = x0 - 3, y = y0 - 3, w = x1 - x0 + 6, h = y1 - y0 + 6;
-  return { c: render(segs, x, y, w, h, true), x, y, w, h };
+  return { c: render(segs, x, y, w, h, true, opt.inkA ?? 0.8), x, y, w, h };
 }
 
 // --- static patches per tile ------------------------------------------------------------
