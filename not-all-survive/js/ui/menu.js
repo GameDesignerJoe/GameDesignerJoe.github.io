@@ -22,6 +22,17 @@ export function initMenu() {
     <button data-act="sound">Sound: on</button>
     <button data-act="night">Time: cycle</button>
     <button data-act="bright">Bright day: auto</button>
+    <label>Weather
+      <select data-act="forecast">
+        <option value="">(today's forecast)</option>
+        <option value="clear">Clear and calm</option>
+        <option value="bright">Bright, blinding midday</option>
+        <option value="breezy">Breezy</option>
+        <option value="overcast">Overcast, light snow</option>
+        <option value="eveningStorm">Storm at dusk</option>
+        <option value="blizzard">Blizzard all day</option>
+      </select>
+    </label>
     <label>Quality
       <select data-act="quality">
         <option value="auto">Auto</option>
@@ -75,7 +86,7 @@ export function initMenu() {
     for (const ev of ['pointerdown', 'pointerup', 'click', 'touchend']) el.addEventListener(ev, e => e.stopPropagation());
   }
 
-  const sel = panel.querySelector('select');
+  const sel = panel.querySelector('[data-act="quality"]');
   const soundBtn = panel.querySelector('[data-act="sound"]');
   const nightBtn = panel.querySelector('[data-act="night"]');
   const sync = () => {
@@ -110,7 +121,8 @@ sled ${packText(state.sled)}
       + `${pupText()}
 ${b.phase} · ${P.mode}${P.mode === 'inside' || P.mode === 'tent-in' || P.mode === 'tent-out' ? ` (${P.shelter?.kind ?? 'camp'})` : ''} · party ${alive}/${state.party?.length ?? 0}
 `
-      + `${state.weather.temp}°C cold ${state.weather.cold.toFixed(2)} wind ${(P.exposure || 0).toFixed(2)}`;
+      + `${state.weather.temp}°C cold ${state.weather.cold.toFixed(2)} wind ${(P.exposure || 0).toFixed(2)}
+weather: ${state.weather.forecast?.label ?? '-'} · now ${state.weather.phase ?? '-'}`;
   };
   setInterval(() => { if (!panel.hidden) showBody(); }, 250);
   // the pup tent: where it is, and the work on it
@@ -136,6 +148,9 @@ ${b.phase} · ${P.mode}${P.mode === 'inside' || P.mode === 'tent-in' || P.mode =
 
   gear.addEventListener('click', () => { panel.hidden = !panel.hidden; sync(); showBody(); });
   sel.addEventListener('change', () => setQuality(sel.value));
+  // Weather (debug): force today's forecast; '' goes back to the daily draw.
+  const fsel = panel.querySelector('[data-act="forecast"]');
+  fsel.addEventListener('change', () => { if (fsel.value) state.weather.ctl?.forecast(fsel.value); });
   panel.addEventListener('click', e => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'camp') { returnToCamp(); panel.hidden = true; }

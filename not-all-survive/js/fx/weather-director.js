@@ -37,20 +37,29 @@ const SPELLS = {
 
 // --- daily forecasts -------------------------------------------------------------------
 const DAY_S = 180, NIGHT_S = 120, CYCLE = DAY_S + NIGHT_S;
+// w = relative chance per day (they needn't add to 100). See docs/WEATHER.md.
+// Storms are events, not the weather (Joe): ~7% of days. Never on the first day, and never two
+// storm days running.
 const FORECASTS = {
-  clear:        { w: 30, label: 'Clear and calm', base: -18 },
-  bright:       { w: 25, label: 'Bright, blinding midday', base: -14 },
-  breezy:       { w: 20, label: 'Breezy, occasional gusts', base: -22 },
-  overcast:     { w: 12, label: 'Overcast, light snow', base: -15 },
-  eveningStorm: { w: 10, label: 'Calm day, storm at dusk', base: -20 },
-  blizzard:     { w: 3,  label: 'Blizzard all day', base: -28 },
+  clear:        { w: 32, label: 'Clear and calm', base: -18 },
+  bright:       { w: 26, label: 'Bright, blinding midday', base: -14 },
+  breezy:       { w: 22, label: 'Breezy, occasional gusts', base: -22 },
+  overcast:     { w: 13, label: 'Overcast, light snow', base: -15 },
+  eveningStorm: { w: 5,  label: 'Calm day, storm at dusk', base: -20 },
+  blizzard:     { w: 2,  label: 'Blizzard all day', base: -28 },
 };
+export { FORECASTS };
+const STORMY = new Set(['eveningStorm', 'blizzard']);
+let dayN = 0, lastId = null;
 function pickForecast(id) {
   if (!FORECASTS[id]) {
-    let r = Math.random() * 100;
+    const calmOnly = dayN === 0 || STORMY.has(lastId);
+    const pool = Object.entries(FORECASTS).filter(([k]) => !(calmOnly && STORMY.has(k)));
+    let r = Math.random() * pool.reduce((a, [, f]) => a + f.w, 0);
     id = 'clear';
-    for (const [k, f] of Object.entries(FORECASTS)) { if ((r -= f.w) < 0) { id = k; break; } }
+    for (const [k, f] of pool) { if ((r -= f.w) < 0) { id = k; break; } }
   }
+  dayN++; lastId = id;
   const f = { id, label: FORECASTS[id].label, base: FORECASTS[id].base };
   if (id === 'bright') { const len = rand(40, 90), mid = rand(80, 110); f.brightFrom = mid - len / 2; f.brightTo = mid + len / 2; }
   if (id === 'eveningStorm') {
