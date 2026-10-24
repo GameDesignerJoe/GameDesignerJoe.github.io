@@ -41,8 +41,12 @@ const MODULES = {
   stickhint: './ui/stickhint.js',   // touch: pulses the hidden thumbstick if a new player stands still
   sim: './sim/sim.js',              // last: "watch it play", dormant unless ?sim or the gear menu turns it on (sees every event of the frame; drives the input)
 };
+// ?trailer: the launch trailer's director (js/trailer/): scripted shots, a scripted camera and the motion
+// graphics over the frame, with time stepped by hand (NAS.trailer.step()) instead of by the clock.
+const TRAILER = state.params.has('trailer');
+if (TRAILER) MODULES.trailer = './trailer/director.js';
 const only = state.params.get('only')?.split(',');
-const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'bright', 'pack'];
+const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'bright', 'pack', 'trailer'];
 const names = Object.keys(MODULES).filter(n => !only || ALWAYS.includes(n) || only.includes(n));
 
 // Each module loads and runs in isolation: one broken module logs an error and is
@@ -102,7 +106,8 @@ function updateDemo() {
 
 let last = performance.now();
 function frame(now) {
-  const raw = Math.min(0.05, (now - last) / 1000);
+  // ?trailer steps a fixed slice of game time per call (state.fixedDt), however long the frame really took
+  const raw = TRAILER ? state.fixedDt ?? 1 / 30 : Math.min(0.05, (now - last) / 1000);
   last = now;
   beginFrame();
   const dt = raw * state.timeScale;
@@ -114,7 +119,15 @@ function frame(now) {
   for (const s of systems) safe(s, () => s.mod.update?.(dt));
   state.events.length = 0; // events live for exactly one update pass
   track('camera', () => updateCamera(dt));
+  state.camHook?.(dt);   // ?trailer: the director's scripted camera, over the follow
 
+  draw();
+  endFrame(now);
+  updateOverlay(now);
+  if (!TRAILER) requestAnimationFrame(frame);
+}
+
+function draw() {
   const { w, h, dpr } = state.view;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#e9e9e7';
@@ -145,10 +158,6 @@ function frame(now) {
   for (const s of systems) drawLayer(s, 'drawScreen');
   // Overlays sit on the lens, after the night grade: frost on the screen stays pale.
   for (const s of systems) drawLayer(s, 'drawOverlay');
-
-  endFrame(now);
-  updateOverlay(now);
-  requestAnimationFrame(frame);
 }
 
 function drawLayer(s, hook) {
@@ -178,5 +187,11 @@ if (state.started) {
 boot().then(() => {
   ready = true;
   document.getElementById('title').classList.add('ready');
+  if (TRAILER) {
+    // step(n): n frames of game time; redraw(): the same moment drawn again (map tiles that arrived late)
+    state.trailerStep = (n = 1) => { for (let i = 0; i < n; i++) frame(performance.now()); };
+    state.trailerRedraw = () => draw();
+    return;
+  }
   requestAnimationFrame(t => { last = t; frame(t); });
 });

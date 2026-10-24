@@ -1297,7 +1297,8 @@ export function drawScreen(ctx) {
   // The dig bar: transparent white with a white fill, over the explorer's head (the tent door).
   // The same bar fills over the door as a hold there sleeps (after dark), and its first fifth
   // flashes over the explorer as they pat the pack, the once (the hold, taught without words).
-  if (C.phase === 'rummage' || sleepK > 0.01 || hint > 0 || strikeK >= 0 || jobK >= 0) {
+  // (?trailer: state.trailerNoBar keeps the bar out of shot)
+  if (!state.trailerNoBar && (C.phase === 'rummage' || sleepK > 0.01 || hint > 0 || strikeK >= 0 || jobK >= 0)) {
     const w = BAR_W * z, h = Math.max(4, BAR_H * z), x = f.x - w / 2, y = f.y - BAR_Y * z - h / 2;
     const frac = jobK >= 0 ? jobK : strikeK >= 0 ? strikeK : C.phase === 'rummage' ? Math.min(1, C.t / (C.target?.kind === 'ground' ? PILE_S : RUMMAGE_S)) : sleepK > 0.01 ? sleepK : 0.2;
     ctx.globalAlpha = jobK >= 0 ? Math.min(1, BJ.t * 6) : strikeK >= 0 ? Math.min(1, J.t * 6) : C.phase === 'rummage' ? Math.min(1, C.t * 6) : sleepK > 0.01 ? Math.min(1, sleepK * 5) : Math.min(1, 1.6 * Math.sin(Math.PI * hint)) * (0.75 + 0.25 * Math.sin(state.time * 9));

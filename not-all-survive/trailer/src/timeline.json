@@ -1,0 +1,225 @@
+{
+ "fps": 30,
+ "shots": [
+  {
+   "id": "open",
+   "dur": 10,
+   "head": 0,
+   "tail": 0.5,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 0
+  },
+  {
+   "id": "camp",
+   "dur": 5,
+   "head": 0.5,
+   "tail": 0.5,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "dissolve",
+   "at": 10
+  },
+  {
+   "id": "crawl",
+   "dur": 4,
+   "head": 0.5,
+   "tail": 0.5,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 15
+  },
+  {
+   "id": "packing",
+   "dur": 3,
+   "head": 0,
+   "tail": 0.5,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "gust",
+   "at": 19
+  },
+  {
+   "id": "radio",
+   "dur": 6,
+   "head": 0.5,
+   "tail": 0.5,
+   "params": "day&weather=calm&sos=1700,1200&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 22
+  },
+  {
+   "id": "setout",
+   "dur": 3,
+   "head": 0,
+   "tail": 0.5,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 28
+  },
+  {
+   "id": "deep",
+   "dur": 2,
+   "head": 0,
+   "tail": 0.3,
+   "params": "day&weather=wind&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 31
+  },
+  {
+   "id": "climb",
+   "dur": 2.5,
+   "head": 0,
+   "tail": 0.3,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 33
+  },
+  {
+   "id": "glare",
+   "dur": 2,
+   "head": 0,
+   "tail": 0.3,
+   "params": "day&bright&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 35.5
+  },
+  {
+   "id": "lake",
+   "dur": 2,
+   "head": 0,
+   "tail": 0.3,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 37.5
+  },
+  {
+   "id": "thin",
+   "dur": 2.5,
+   "head": 0,
+   "tail": 0.3,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "white",
+   "at": 39.5
+  },
+  {
+   "id": "heave",
+   "dur": 2,
+   "head": 0.3,
+   "tail": 0.3,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 42
+  },
+  {
+   "id": "third",
+   "dur": 3,
+   "head": 0,
+   "tail": 0.5,
+   "params": "day&weather=calm&water=0.05&tx=1000&ty=1560&ta=0&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "gust",
+   "at": 44
+  },
+  {
+   "id": "storm",
+   "dur": 3,
+   "head": 0.5,
+   "tail": 0.3,
+   "params": "day&weather=storm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 47
+  },
+  {
+   "id": "pitch",
+   "dur": 4,
+   "head": 0,
+   "tail": 0.5,
+   "params": "day&weather=storm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "ink",
+   "at": 50
+  },
+  {
+   "id": "bear",
+   "dur": 5.5,
+   "head": 0.5,
+   "tail": 0,
+   "params": "night&weather=calm&bear=near&wxoff=frost&x=1480&y=1548",
+   "out": "black",
+   "at": 54
+  },
+  {
+   "id": "flare",
+   "dur": 4,
+   "head": 0,
+   "tail": 0.5,
+   "params": "night&weather=calm&bear=near&wxoff=frost&x=1480&y=1548",
+   "out": "dissolve",
+   "at": 59.5
+  },
+  {
+   "id": "beacon",
+   "dur": 3,
+   "head": 0.5,
+   "tail": 0.3,
+   "params": "night&weather=calm&sos=1200,1600&wxoff=frost&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "cut",
+   "at": 63.5
+  },
+  {
+   "id": "wrap",
+   "dur": 3,
+   "head": 0,
+   "tail": 0.5,
+   "params": "day&weather=calm&sos=1200,1600&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "dissolve",
+   "at": 66.5
+  },
+  {
+   "id": "drag",
+   "dur": 3.5,
+   "head": 0.5,
+   "tail": 0.5,
+   "params": "day&weather=calm&goal=wrapped&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "dissolve",
+   "at": 69.5
+  },
+  {
+   "id": "skis",
+   "dur": 3,
+   "head": 0.5,
+   "tail": 0.5,
+   "params": "day&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "ink",
+   "at": 73
+  },
+  {
+   "id": "pup",
+   "dur": 14,
+   "head": 0.5,
+   "tail": 0,
+   "params": "night&weather=calm&only=explorer,thinice,footprints,weather,body,camp,puptent,fallen,distress,burden,thirst,night,bright,pack,radio",
+   "out": "black",
+   "at": 76
+  }
+ ],
+ "cues": {
+  "blips": [
+   22.6,
+   23.9,
+   24.9,
+   25.6
+  ],
+  "sos": {
+   "start": 25.9,
+   "unit": 0.09
+  },
+  "beaconSos": {
+   "start": 64.1,
+   "unit": 0.16
+  },
+  "flare": 60.4,
+  "silence": [
+   59.5,
+   60.15
+  ],
+  "title": 82
+ }
+}

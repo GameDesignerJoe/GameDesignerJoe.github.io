@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Not All Will Survive: the score</title></head>
+<body>
+<p>Renders the trailer's score offline (render_score.js drives this headless). <button id="b">Render and play</button></p>
+<script type="module">
+import { render, wavBase64 } from './score.js';
+async function build() {
+  const tl = await (await fetch('timeline.json', { cache: 'no-store' })).json();
+  const events = {};
+  for (const s of tl.shots) {
+    try { const r = await fetch('events/' + s.id + '.json', { cache: 'no-store' }); events[s.id] = r.ok ? await r.json() : []; } catch { events[s.id] = []; }
+  }
+  return render({ timeline: tl, events });
+}
+window.go = async () => wavBase64(await build());
+document.getElementById('b').onclick = async () => {
+  const buf = await build(), ac = new AudioContext(), s = ac.createBufferSource();
+  s.buffer = buf; s.connect(ac.destination); s.start();
+};
+window.ready = true;
+</script>
+</body></html>

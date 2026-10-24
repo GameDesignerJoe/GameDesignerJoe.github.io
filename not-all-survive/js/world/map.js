@@ -18,7 +18,7 @@ const TILE_URL = (tx, ty) => `assets/tiles/${SCALE}/${tx}_${ty}.webp`;
 // Use tiles once a map px covers more than this many device px.
 const TILE_MIN_DEVICE_ZOOM = 1.6;
 const PREFETCH = 48;   // world units of margin loaded around the view
-const FADE_MS = 280;
+const FADE_MS = state.params.has('trailer') ? 0 : 280;   // ?trailer: frames are captured by hand, so a tile is either there or waited for
 const MAX_INFLIGHT = 6;
 const phone = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 700;
 // ~1.08 MB decoded per tile (520 x 520 x 4): phones ~52 MB, desktop ~104 MB.
