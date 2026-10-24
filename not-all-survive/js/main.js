@@ -32,6 +32,7 @@ const MODULES = {
   night: './fx/night.js',            // grades the finished frame and adds warm lights
   bright: './fx/bright.js',          // blinding clear days: glare, halo, lost detail
   pack: './ui/pack.js',              // after night, so the UI isn't tinted (the pack, the compass, containers)
+  terrainview: './ui/terrainview.js', // debug: the editor's terrain classes over the game (T, gear menu)
 };
 const only = state.params.get('only')?.split(',');
 const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'bright', 'pack'];

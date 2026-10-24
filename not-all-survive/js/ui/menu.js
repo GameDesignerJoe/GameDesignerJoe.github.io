@@ -42,6 +42,7 @@ export function initMenu() {
       </select>
     </label>
     <button data-act="perf">Performance overlay</button>
+    <button data-act="tview">Terrain view: off</button>
     <button data-act="motion">Reduce motion: off</button>
     <div class="body-dbg">
       <pre data-act="bodyinfo"></pre>
@@ -95,6 +96,7 @@ export function initMenu() {
     panel.querySelector('[data-act="bright"]').textContent = `Bright day: ${bf === null ? 'auto' : bf ? 'on' : 'off'}`;
     sel.value = state.quality.mode === 'auto' ? 'auto' : state.quality.level;
     soundBtn.textContent = `Sound: ${state.audio?.muted ? 'off' : 'on'}`;
+    panel.querySelector('[data-act="tview"]').textContent = `Terrain view: ${state.terrainView ? 'on' : 'off'}`;
     panel.querySelector('[data-act="motion"]').textContent = `Reduce motion: ${state.reduceMotion ? 'on' : 'off'}`;
   };
 
@@ -156,6 +158,7 @@ weather: ${state.weather.forecast?.label ?? '-'} · now ${state.weather.phase ??
     if (act === 'camp') { returnToCamp(); panel.hidden = true; }
     if (act === 'sound') { state.audio?.setMuted?.(!state.audio.muted); sync(); }
     if (act === 'perf') showOverlay(!state.perfVisible);
+    if (act === 'tview') { state.terrainView = !state.terrainView; sync(); }
     // Reduce motion: no breathing camera when exhausted (remembered on this device)
     if (act === 'motion') {
       state.reduceMotion = !state.reduceMotion;
