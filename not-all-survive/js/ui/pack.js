@@ -10,6 +10,8 @@
 //   press and hold a slot    (1 s; a white arc shows from 0.3 s, so taps never see it) drop ONE
 //                            of it on the snow beside the explorer: a small pile; hold on the pile
 //                            to pick it up again
+// It stays open until tapped off (a tap off only closes it; it doesn't walk), or walked off with
+// the keys. Things that can't be used here are greyed.
 // Keyboard: hold C to dig, then 1-9 and 0 (hold a digit to drop); C takes out the compass.
 //
 // The compass: tapped, a needle hangs over the explorer for 12 s, pointing north (screen
@@ -85,10 +87,8 @@ import {
   shoesBlocked, drawNeedle, NORTH, FLASK_DRINKS,
 } from '../items.js';
 
-const RUMMAGE_S = 2;              // time to dig in the pack (or the sled, or a body)
+const RUMMAGE_S = 0.45;           // a hold just long enough to be sure they mean it (pack, sled, body)
 const PILE_S = 1;                 // ...or to crouch to a pile on the snow
-const SLOT_TIMEOUT_S = 6;         // an ignored pack closes itself
-const XFER_TIMEOUT_S = 14;        // ...and an ignored container
 const OUT_S = 12;                 // the compass goes back in the pack after this long
 const DROP_S = 1.0;               // press and hold a pack slot this long: drop one on the snow
 const MOVE_S = 0.6;               // ...a container slot (or the pack's, at a container): move the stack
@@ -477,7 +477,7 @@ export function init() {
       return true;                  // never walk into yourself
     }
     if (t && t.kind !== 'ground' && pressContainer(t)) return true;
-    if (open) close();             // tapping elsewhere closes it (and walks)
+    if (open) { close(); return true; }   // tapping off it closes it (and only that: no walk)
     return false;
   };
   state.uiRelease = () => {
@@ -580,10 +580,10 @@ export function update(dt) {
       if (t) { side = feet().x >= worldToScreen(t.x, t.y).x ? 1 : -1; shownT = t; }
     }
   } else if (C.phase === 'slot') {
-    if ((C.t > SLOT_TIMEOUT_S && !press) || (mv && !wasMoving) || openBlocked()) close();
+    if ((mv && !wasMoving && !state.input.pointer) || openBlocked()) close();   // stays open till tapped off
   } else if (C.phase === 'transfer') {
     const t = C.target;
-    if (!t || (C.t > XFER_TIMEOUT_S && !press) || (mv && !wasMoving) || packBlocked() || dist(t) > REACH[t.kind] + LEAVE) close();
+    if (!t || (mv && !wasMoving && !state.input.pointer) || packBlocked() || dist(t) > REACH[t.kind] + LEAVE) close();
   } else if (C.phase === 'eat') {
     const s = pack.slots[C.eatI];
     if (mv || packBlocked() || !s || s.id !== 'food') {
@@ -809,13 +809,13 @@ function drawSlot(ctx, x, y, r, s, o) {
     else { no = 1 - age / 0.5; x += Math.sin(age * 46) * Math.min(7, r * 0.42) * no; }   // refused: a quick side-to-side shake
   }
   const lw = Math.max(1.2, z * 0.35);
-  ctx.globalAlpha = o.a * (s ? (o.dim ? 0.45 : 1) : 0.42);
+  ctx.globalAlpha = o.a * (s ? (o.dim ? 0.38 : 1) : 0.42);
   slotPath(ctx, x, y, r, o.sq);
   ctx.fillStyle = !s ? 'rgba(150,152,158,0.16)' : s.id === 'compass' && !o.sq ? 'rgba(255,255,255,0.28)' : o.sq ? 'rgba(140,138,134,0.5)' : 'rgba(150,152,158,0.42)';
   ctx.fill();
   ctx.lineWidth = s ? lw : Math.max(1, z * 0.2);
   // (the ring darkens to ink for a moment while it shakes its head)
-  ctx.strokeStyle = no > 0 ? `rgba(40,40,44,${0.4 + 0.5 * no})` : s && s.worn ? SIGNAL.lit : 'rgba(255,255,255,0.85)';
+  ctx.strokeStyle = no > 0 ? `rgba(40,40,44,${0.4 + 0.5 * no})` : s && s.worn ? SIGNAL.lit : o.dim ? 'rgba(170,170,174,0.7)' : 'rgba(255,255,255,0.85)';
   ctx.stroke();
   ctx.lineWidth = 1;
   ctx.strokeStyle = 'rgba(40,40,44,0.3)';
@@ -844,9 +844,9 @@ function drawSlot(ctx, x, y, r, s, o) {
       }
     }
     if (o.dim) {      // greyed out: can't use it here
-      ctx.globalAlpha = o.a * 0.55;
+      ctx.globalAlpha = o.a * 0.8;
       slotPath(ctx, x, y, r, o.sq);
-      ctx.fillStyle = 'rgba(200,200,204,0.6)'; ctx.fill();
+      ctx.fillStyle = 'rgba(206,206,210,0.72)'; ctx.fill();
     }
   }
   if (o.hold > 0.01) {
