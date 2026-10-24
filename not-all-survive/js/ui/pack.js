@@ -850,7 +850,7 @@ export function init() {
   // the lost explorer's row: NAS.actMenu('body' | 'bundle' | 'self') opens it; NAS.actUI() -> its slot positions
   window.NAS.actMenu = (kind, ref) => openAct(kind, kind === 'carcass' ? ref || (state.hunt?.carcasses || []).find(c => !c.done) : null);
   window.NAS.actUI = () => actLayout();
-  window.NAS.packUI = () => { lay = null; const L = layouts(); return { pack: L.pack, cont: L.cont || [], r: L.r }; };
+  window.NAS.packUI = () => { lay = null; const L = layouts(); return { pack: L.pack, cont: L.cont || [], r: L.r, snow: L.snow }; };
 }
 
 export function update(dt) {

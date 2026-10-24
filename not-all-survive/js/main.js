@@ -39,10 +39,11 @@ const MODULES = {
   terrainview: './ui/terrainview.js', // debug: the editor's terrain classes over the game (T, gear menu)
   radio: './audio/radio.js',        // after night (its little radio over the explorer isn't tinted): the beacon's blips / SOS
   stickhint: './ui/stickhint.js',   // touch: pulses the hidden thumbstick if a new player stands still
+  sim: './sim/sim.js',              // ?sim only, last: "watch it play" (sees every event of the frame; drives the input)
 };
 const only = state.params.get('only')?.split(',');
 const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'bright', 'pack'];
-const names = Object.keys(MODULES).filter(n => !only || ALWAYS.includes(n) || only.includes(n));
+const names = Object.keys(MODULES).filter(n => (!only || ALWAYS.includes(n) || only.includes(n)) && (n !== 'sim' || state.params.has('sim')));
 
 // Each module loads and runs in isolation: one broken module logs an error and is
 // switched off rather than taking the whole scene down.

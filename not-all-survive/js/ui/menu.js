@@ -44,6 +44,8 @@ export function initMenu() {
     <button data-act="perf">Performance overlay</button>
     <button data-act="tview">Terrain view: off</button>
     <button data-act="motion">Reduce motion: off</button>
+    <button data-act="sim">Watch it play</button>
+    <button data-act="simlog">Copy sim log</button>
     <div class="body-dbg">
       <pre data-act="bodyinfo"></pre>
       <div class="row">
@@ -175,6 +177,13 @@ rifle: ${state.hunt?.aim ? 'up' : 'down'}, ${cart} cartridges${carc ? ` · carca
     if (act === 'camp') { returnToCamp(); panel.hidden = true; }
     if (act === 'sound') { state.audio?.setMuted?.(!state.audio.muted); sync(); }
     if (act === 'perf') showOverlay(!state.perfVisible);
+    // "watch it play" (js/sim): the game plays itself; ?sim=loop runs on, run after run
+    if (act === 'sim') {
+      const q = new URLSearchParams(location.search);
+      if (q.has('sim')) q.delete('sim'); else { q.set('sim', ''); q.set('autostart', ''); if (!q.has('speed')) q.set('speed', '4'); }
+      location.search = q.toString().replace(/=(&|$)/g, '$1');
+    }
+    if (act === 'simlog') copySimLog(e.target.closest('[data-act]'));
     if (act === 'tview') { state.terrainView = !state.terrainView; sync(); }
     // Reduce motion: no breathing camera when exhausted (remembered on this device)
     if (act === 'motion') {
@@ -223,6 +232,24 @@ rifle: ${state.hunt?.aim ? 'up' : 'down'}, ${cart} cartridges${carc ? ` · carca
   addEventListener('pointerdown', () => { panel.hidden = true; });
 
   if (state.params.has('perf')) showOverlay(true);
+}
+
+// the sim's log (js/sim): this run's decisions and every run's summary (kept across ?sim=loop reloads)
+function copySimLog(btn) {
+  let text = state.sim?.dump?.();
+  if (!text) { try { text = JSON.stringify({ runs: JSON.parse(sessionStorage.getItem('nas_sim_runs') || '[]') }, null, 1); } catch { text = '{}'; } }
+  const done = ok => { btn.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(() => { btn.textContent = 'Copy sim log'; }, 1500); };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => done(fallbackCopy(text)));
+  else done(fallbackCopy(text));
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.append(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  ta.remove();
+  return ok;
 }
 
 export function returnToCamp() {
