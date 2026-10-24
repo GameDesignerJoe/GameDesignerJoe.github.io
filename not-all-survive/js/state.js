@@ -106,6 +106,11 @@ export const state = {
   // puptent.js adds state.pup = { pitched: { x, y, yaw, t, snow } | null, job: { kind: 'pitch'|'strike',
   // x, y, yaw, t, prog 0..3, coll: { t, from, to } | null, tries, ... } | null, nope, press } (the pup tent:
   // where it stands, the work on it; explorer.js kneels to the job and grabs at a collapse).
+  // goal/distress.js adds state.distress = { x, y, found (their pack opened), wrapped, wrapK (0..1 while being
+  // wrapped), light, ready }; goal/burden.js adds state.burden = { bundle: { hx, hy, fx, fy, snow, held } | null,
+  // mode: null | 'carry' | 'drag', job: { kind: 'wrap'|'hoist'|'rope'|'down', t, dur, x, y } | null, home, card }
+  // (explorer.js reads mode and job; body.js mode and job) and explorer.js writes player.ropeAt (the drag rope's
+  // end at the shoulder, world) while dragging.
   // thinice.js adds state.holes = [{ x, y, r, ro, age, freeze, cls, ... }]: holes broken through thin
   // ice or a frozen lake (ro the open radius, shrinking to 0 as it refreezes; cls the terrain class it
   // broke in, 3 or 2); terrain.isWater / waterDepth read it (only over that class).
@@ -174,7 +179,15 @@ export const state = {
   //   step.wet                        0..1 on step events: soaked boots leave darker prints
   //   step.drag                       0..1 on step events: worn-out boots drag between prints
   //   step.limp, step.bad             0..1, and true on the hurt leg's steps: it drags, prints smear
-  //   refuse { x, y, reason }         won't start a climb: 'wind' | 'gear' | 'tired' | 'hurt' | 'parched' (explorer)
+  //   refuse { x, y, reason }         won't start a climb: 'wind' | 'gear' | 'tired' | 'hurt' | 'parched' |
+  //                                   'burden' (carrying or dragging the lost explorer) (explorer)
+  //   distress { x, y, stage: 'found' }   the lost explorer's pack opened (goal/distress)
+  //   goal { x, y, stage: 'wrapped'|'carry'|'drag'|'down'|'home', lost? }   the lost explorer wrapped, taken up on
+  //                                   the back or the rope, set down, brought home to base camp (lost: the names
+  //                                   of the party who died on the way) (goal/burden)
+  //   wrap { x, y, stage: 'start'|'tie'|'done'|'stop' }   wrapping them in the sheet, a rope band tied (goal/burden)
+  //   snag { x, y }                   the dragged bundle caught on rock, the rope pulled taut (goal/burden)
+  //   radio { on }                    the radio switched on / off (audio/radio)
   //   rest  { x, y }                  worn out: stopped, hands on knees, a heavy breath out (explorer -> audio)
   //   tired { x, y }                  energy gone: sat down in the snow until it comes back (explorer -> audio)
   //   pant  { x, y, inhale, len, strength }   one ragged breath while blown (explorer -> audio)

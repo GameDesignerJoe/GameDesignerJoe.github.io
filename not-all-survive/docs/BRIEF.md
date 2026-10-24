@@ -59,7 +59,8 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - `?wind=0..1`, `?windAngle=<rad>`, `?whiteout=0..1`, `?snow=0..1` initial weather.
 - `?only=explorer,weather` load only those systems (map, terrain and ground always load).
 - Day/night cycles (3 min day, 2 min night). `?night` / `?day` pin it; the gear menu's Time button cycles cycle → day → night.
-- The goal, first stab (js/goal/distress.js, js/audio/radio.js): a lost explorer from an earlier party lies half-buried somewhere 650-1150 px from camp (random each run, reachable on foot, inside the safe area; `?sos=x,y` forces it; the console logs where). Their beacon blinks signal yellow. The radio (in the first member's pack, switched on at the start; a spare on the sled) plays faint blips far off, quicker and louder nearer, turning into the SOS in morse within the last stretch: hot and cold, no arrow. Hold on the body to recover their pack (food, a splint, a recorder with their last words: rec_sos). Next steps per Joe: shovel/dig, wrap, carry or drag home.
+- The goal, first stab (js/goal/distress.js, js/audio/radio.js): a lost explorer from an earlier party lies half-buried somewhere 650-1150 px from camp (random each run, reachable on foot, inside the safe area; `?sos=x,y` forces it; the console logs where). Their beacon blinks signal yellow. The radio (in the first member's pack, switched on at the start; a spare on the sled) plays faint blips far off, quicker and louder nearer, turning into the SOS in morse within the last stretch: hot and cold, no arrow. Hold on the body to recover their pack (food, a splint, a recorder with their last words: rec_sos). Once found, the beacon stops blinking and the radio goes quiet. Then (js/goal/burden.js) wrap them, carry or drag them home; see "Bringing them home" below. The shovel and digging them out come later (hook: a 'dig' act before 'wrap' in burden.js ACTS.body).
+- `?goal=wrapped` (or the gear menu's "Wrapped body here", or `NAS.goal.wrapped()`) wraps the lost explorer and sets the bundle down beside the explorer. Hooks: `NAS.goal.carry()` / `NAS.goal.drag()` (take it up at once; `(false)` plays the kneel), `NAS.goal.down()`, `NAS.goal.switchMode()`, `NAS.goal.wrap()` (start wrapping, if by the body), `NAS.goal.home()` (carry it to the tent: the ending card), `NAS.goal.state` (`state.burden`); `NAS.actMenu('body'|'bundle'|'self')` opens a row, `NAS.actUI()` gives its slot positions.
 - Coats: each party member wears their own bright coat in the order they set out: yellow, orange, red, pink (palette.js COATS; explorer.js setCoat swaps it at the hand-over). The tents stay signal yellow.
 - Audio recorders (js/recordings.js, js/audio/recorder.js): one item per recording; tap in the pack to play, again to stop. Ducks under bad weather, stops at death or if the recorder leaves the pack. A real file plays from assets/recordings/ if present, else the placeholder text is spoken by the browser voice under tape hiss. Carrying one is hidden hope: warmth loss and energy drain x0.9 (body.js HOPE). One (the leader's message) starts on the sled.
 - Touch controls: the bottom half of the screen is a hidden thumbstick (centred wherever the thumb lands; drag to walk). Touches higher up are taps (cliff, tent, sled), not walks. A faint stick pulses only if a touch player who has never used it stands still 10 s (js/ui/stickhint.js); `?stick` forces stick mode with a mouse, `?stickhint` shows the hint.
@@ -241,7 +242,7 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
   stack, kind, icon, `use`, `blocked`; add an item there and the pack, sled and transfer take it)
   and the containers: `state.pack` (10 slots, everything counts, the compass and gear too; worn
   things stay in their slot, ring signal yellow), `state.sled` (the party's supply: 12 rations in
-  stacks of 3, snowshoes, axes, crampons, a spare compass and two splints), `state.ground` (piles on the snow)
+  stacks of 3, snowshoes, axes, crampons, a spare compass, two splints, a canvas sheet and a rope), `state.ground` (piles on the snow)
   and each fallen member's `pack`. Food stacks to 3 a slot, splints 2, gear one. `player.gear` is a derived
   view (getters on the pack), so the explorer and body read it as before. The first member sets
   out with a compass and 2 rations; each one after a death starts empty bar a compass if the sled
@@ -394,8 +395,8 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     Drawn over the footprints. It stays open 150 s, then skins over from the rim
     inward over 100 s (the shards caught where they float) into darker new ice, drawn for the run.
   - **Self-rescue**: in the hole they swim (deep-water cold, ~23 s from full warmth). A tap (or
-    pushing at the edge) is one heave: to the edge, arms up onto the ice (with axes in the pack: swung
-    up and driven in), a pull up and forward, the chest onto the ice. Without axes the edge breaks off
+    pushing at the edge) is one heave: to the edge, arms up onto the ice (with axes in the pack: they go on
+    by themselves, swung up and driven in), a pull up and forward, the chest onto the ice. Without axes the edge breaks off
     40% of the time (the hole widens, they drop back and lose half the way they'd made) and each pull
     costs 0.09 energy; with axes 8% and 0.035. Each heave gets them further (0.34 bare / 0.48 axes ×
     their strength, ±20%) until one carries them out: belly-down onto the ice, wriggling flat away
@@ -583,6 +584,46 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     12 s; pup tent 62.5 s, flask 30 s. Cost: the thirst module ~0.07 ms CPU a frame with the mirage up (0.3 on a frame that
     rebuilds the source); frame time (1440p storm, GPU) 14.0 ms new / 14.0 HEAD in a clean pair; later pairs on a loaded
     machine ran ~30 ms for both, new and HEAD within noise.
+- **Bringing them home** (the goal, part 2: `js/goal/burden.js`; the rows drawn and routed by `ui/pack.js`).
+  - **Items**: a canvas sheet (`sheet`, a folded square of canvas) and a rope (`rope`, a coil) on the sled, one
+    of each. Wrapping takes both from the pack, so they have to be packed against the 10 slots.
+  - **The rows**: once the lost explorer's pack has been opened, a press on them (or Space / E by them) brings up
+    a row of round slots above them, the tent menu's kind: open their pack, wrap them (greyed without both, the
+    tip saying what's missing). On the wrapped bundle: carry on your back, drag behind you. While carrying or
+    dragging, a press on the explorer (or C) brings up a row over their head instead of the pack: set them down,
+    switch to dragging / carrying, open the pack. Pressed from further off, the explorer walks there first; a
+    tap off a row closes it, 1-n on the keyboard pick from it.
+  - **Wrapping**: the explorer kneels at them and works 5 s (the dig bar fills over them; walking off stops it and
+    nothing is used); the sheet comes over them and four rope bands are tied one after another; the raised arm is
+    laid down. The body becomes a bundle (~13 long): a pale canvas shroud in the painting's ink, the neck pinched
+    by a band, wide at the shoulders, tapering to the bound feet with the knot's tail, a shaded side, a soft
+    shadow, snow settling on it lying out. What was left in their pack is left beside it in a pile; the site
+    keeps the hollow they lay in and the dead beacon.
+  - **Carry**: hoisted (a 1.4 s kneel) across the shoulders, both mitts up holding it, bent under it; turned a
+    little across the back over one shoulder in a side view (end-on it read as a pole); the rucksack hidden under
+    it. x0.5 pace (6.5 px/s on snow), x1.9 energy, and deep snow is no worse than plain snow (pace and drain), the
+    advantage of carrying; on a path it costs half plain snow's drain (no rest). Doubled load on thin ice and lake
+    ice. No climbing (`refuse` reason `'burden'`, at once: the long look up, the sag). The pack opens only to eat,
+    drink, or play a recorder or the radio; no containers, no snow, no dropping.
+  - **Drag**: a rope from the right shoulder (over it to both mitts at the chest, leaning into it) to the head of
+    the bundle, 9 long. Slack, nothing moves; taut, the head is drawn after them and the feet follow the head's own
+    track, like a sled. x0.75 pace on snow, a path and ice, x0.55 (of deep snow's own pace, ~3 px/s) in deep snow; x1.4
+    energy. It ploughs a trench (a grey groove the bundle's width with a lit lip, a darker floor in deep snow,
+    filling in like the footprints). Never onto rock: the head stops there (snag) and the explorer is held at the
+    rope's length until they come back round. On thin ice and lake ice it bears its own weight where it lies
+    (0.7 of the explorer's), while dragged. No climbing.
+  - **Coming off**: set down from the row (carried: beside them; dragged: the rope let go where it lies); by itself
+    at death (left where it is, beside the body), deep water (at the last dry footing), knocked down (carried),
+    sat down spent, and crawling into a tent (at the door).
+  - **Home**: carried or dragged within 40 of base camp's tent (once it's been out past 120: the real one always
+    has), it's set down and a quiet card comes up in the ending's style: ink closing in from the edges, "THEY
+    BROUGHT THEM HOME", the party lost on the way (or "None of the party was lost."), "tap to go on"; a press
+    takes it away and play goes on. `goal { stage: 'home' }`. All in `drawOverlay` in burden.js, to replace.
+  - Measured (headless, calm day, full energy, `?terrain=` forced): plain snow, walking 13.1 px/s and 0.167
+    energy/min; carrying 6.5 px/s, 0.317/min (empty in ~3.2 min of walking); dragging 9.75 px/s, 0.233/min (~4.3
+    min). Deep snow, walking 5.8 px/s, 0.667/min; carrying 5.7 px/s, 0.317/min; dragging 1.8 px/s, 0.933/min
+    (~64 s). Frame time (1440p storm, GPU, dragging in view): 17.3 ms median, HEAD 16.8-17.0 at the same spot
+    (the module ~0.08 ms CPU).
 - **Death and the party**: warmth 0 → collapse (kneel, slump, lie face down) → the ink iris
   closes onto the body, holds a beat, closes → cut to base camp: the next of the four crawls
   out of the tent as the iris opens. The body stays where it fell for the run

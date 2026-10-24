@@ -25,6 +25,9 @@
 // the compass can't be held nor gear strapped on or off; eating, splinting and pitching go on), inTent,
 // takeOut(), eat(i), splint(i), pitch(i), drink(i) }. Add a new item here and the pack, the sled and the transfer UI take it.
 //
+// The canvas sheet and the rope (the goal, goal/burden.js): one of each on the sled; wrapping the lost
+// explorer takes both from the pack.
+//
 // Hooks: NAS.give(id, n = 1) (into the pack; returns how many fitted), NAS.pack, NAS.sled.
 // ?kit=all starts the first member with the compass, snowshoes, axes, crampons and food x3.
 // (Without it the first member sets out with a compass, two rations and a full flask.)
@@ -85,6 +88,10 @@ for (const r of RECORDINGS) {
 item({ id: 'radio', name: 'Radio', kind: 'tool', icon: drawRadio,
   blocked: u => u.handsBlocked || u.inTent, use: u => u.radio() });
 export const carryingRecorder = () => pack.slots.some(q => q && q.id.startsWith('rec_'));
+// the canvas sheet and the rope (the goal, goal/burden.js): wrapping the lost explorer takes one of each
+// from the pack (both used up). Nothing to do with them on their own: a tap only shows the name.
+item({ id: 'sheet', name: 'Canvas sheet', kind: 'tool', icon: drawSheet, use: () => {} });
+item({ id: 'rope', name: 'Rope', kind: 'tool', icon: drawRope, use: () => {} });
 
 // --- containers -------------------------------------------------------------------------------------
 export const makeSlots = n => Array.from({ length: n }, () => null);
@@ -139,6 +146,8 @@ add(sled, 'splint', 2);
 add(sled, 'puptent', 1);
 add(sled, 'rec_leader', 1);   // the leader's message (recordings.js)
 add(sled, 'radio', 1);        // a spare radio, for whoever goes out next
+add(sled, 'sheet', 1);        // a canvas sheet and a rope: to wrap the lost explorer and bring them home
+add(sled, 'rope', 1);
 for (const id of ['snowshoes', 'axes', 'crampons', 'compass', 'flask']) add(sled, id, 1);
 // the first member sets out with a compass, two rations and a full flask
 add(pack, 'compass', 1);
@@ -465,6 +474,58 @@ function drawRecorder(ctx, r) {
   ctx.beginPath();
   for (let k = -2; k <= 2; k++) { ctx.moveTo(k * w * 0.08, h * 0.26); ctx.lineTo(k * w * 0.08, h * 0.4); }
   ctx.stroke();
+}
+// The canvas sheet: folded into a square bundle, a little tipped, seen from above: the pale top
+// fold, the stacked folds showing as a darker edge down one side and along the bottom, a crease
+// across the middle and a corner turned back.
+function drawSheet(ctx, r, z) {
+  ctx.save();
+  ctx.rotate(-0.18);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const lw = Math.max(1.1, z * 0.28), w = r * 0.58, h = r * 0.48, th = r * 0.16;
+  // the folds' thickness (right side and bottom)
+  ctx.beginPath();
+  ctx.moveTo(w, -h); ctx.lineTo(w + th * 0.6, -h + th * 0.6); ctx.lineTo(w + th * 0.6, h + th); ctx.lineTo(-w + th * 0.6, h + th); ctx.lineTo(-w, h); ctx.lineTo(w, h); ctx.closePath();
+  ctx.fillStyle = 'rgba(170,164,148,0.98)'; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.lineWidth = Math.max(0.6, z * 0.1); ctx.strokeStyle = 'rgba(40,36,30,0.5)';
+  ctx.beginPath(); ctx.moveTo(-w + th * 0.3, h + th * 0.5); ctx.lineTo(w + th * 0.3, h + th * 0.5); ctx.stroke();
+  // the top fold
+  ctx.beginPath(); ctx.rect(-w, -h, 2 * w, 2 * h);
+  ctx.fillStyle = 'rgba(232,228,214,0.99)'; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+  // a crease across it, and the corner turned back (its underside a shade darker)
+  ctx.lineWidth = Math.max(0.6, z * 0.12); ctx.strokeStyle = 'rgba(40,36,30,0.45)';
+  ctx.beginPath(); ctx.moveTo(-w * 0.85, h * 0.05); ctx.lineTo(w * 0.85, -h * 0.05); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(w - r * 0.3, -h); ctx.lineTo(w - r * 0.36, -h + r * 0.34); ctx.lineTo(w, -h + r * 0.28); ctx.closePath();
+  ctx.fillStyle = 'rgba(196,190,174,1)'; ctx.fill(); ctx.lineWidth = Math.max(0.8, z * 0.16); ctx.strokeStyle = INK; ctx.stroke();
+  ctx.restore();
+}
+// A coil of rope: three loops lying stacked a little askew, the turns drawn in ink over a tan
+// cord, a loose end trailing off with its whipped tip.
+function drawRope(ctx, r, z) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  const cw = Math.max(2.2, r * 0.17), lw = Math.max(1, z * 0.24);
+  const loops = [[-r * 0.06, -r * 0.08, r * 0.5, r * 0.34], [r * 0.04, 0, r * 0.46, r * 0.32], [-r * 0.02, r * 0.08, r * 0.48, r * 0.33]];
+  // the loose end first, under the coil
+  ctx.beginPath(); ctx.moveTo(r * 0.3, r * 0.3); ctx.quadraticCurveTo(r * 0.55, r * 0.55, r * 0.7, r * 0.38);
+  ctx.lineWidth = cw + lw * 2; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.lineWidth = cw; ctx.strokeStyle = 'rgba(176,156,118,1)'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(r * 0.7, r * 0.38, cw * 0.55, 0, Math.PI * 2); ctx.fillStyle = INK; ctx.fill();
+  for (const [x, y, rx, ry] of loops) {
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, -0.12, 0, Math.PI * 2);
+    ctx.lineWidth = cw + lw * 2; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.lineWidth = cw; ctx.strokeStyle = 'rgba(190,170,130,1)'; ctx.stroke();
+  }
+  // the lay of the strands: short ink ticks round the top loop
+  ctx.lineWidth = Math.max(0.6, z * 0.1); ctx.strokeStyle = 'rgba(40,36,30,0.6)';
+  ctx.beginPath();
+  const [x, y, rx, ry] = loops[2];
+  for (let k = 0; k < 14; k++) {
+    const a = k / 14 * Math.PI * 2, px = x + Math.cos(a) * rx, py = y + Math.sin(a) * ry;
+    ctx.moveTo(px - cw * 0.35, py - cw * 0.35); ctx.lineTo(px + cw * 0.35, py + cw * 0.35);
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 function drawFlask(ctx, r, z) {
   ctx.save();

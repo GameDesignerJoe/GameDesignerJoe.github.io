@@ -109,6 +109,7 @@ import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
 import { takePack, restock, find, take, count, fillFlasks, carryingRecorder } from '../items.js';
 import { CAMP_SHELTER } from './camp.js';
+import { CARRY, DRAG } from '../goal/burden.js';
 
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -333,15 +334,22 @@ function updateEnergy(dt) {
     else if (P.crawl) drain = 0;                        // crawling on spent: no worse, no better
     else if (push > 0.05) {
       const ter = lv ? 'water' : P.terrain;
-      const base = g.snowshoes && ter in DRAIN_SHOE ? DRAIN_SHOE[ter] : g.crampons && ter in DRAIN_CRAMP ? DRAIN_CRAMP[ter] : DRAIN[ter] ?? DRAIN.snow;
+      let base = g.snowshoes && ter in DRAIN_SHOE ? DRAIN_SHOE[ter] : g.crampons && ter in DRAIN_CRAMP ? DRAIN_CRAMP[ter] : DRAIN[ter] ?? DRAIN.snow;
+      // the lost explorer on the back or behind on the rope (goal/burden.js): either way a path isn't
+      // free any more
+      const bm = state.burden?.mode;
+      if (bm && ter === 'path') base = DRAIN.snow * 0.5;
       // into a gale even a path costs something; hurt, every step costs more
       drain = (base * push * (1 + HEADWIND * hw) + push * hw / 500) * (1 + INJ_DRAIN * clamp(B.injury));
       if (carryingPup()) drain *= 1 + PUP_DRAIN;            // the pup tent on the back (slice 6)
       if (carryingRecorder()) drain *= HOPE;                 // ...and hope lightens the going
-      if (ter === 'path') drain -= PATH_REST * (1 - 0.5 * push) * (1 - smooth(0.2, 0.6, hw));
+      // (carried through deep snow: no worse than wading it unburdened, which is the point of carrying)
+      if (bm) drain *= bm === 'carry' ? (ter === 'deep' ? 1 : CARRY.drain) : DRAG.drain;
+      else if (ter === 'path') drain -= PATH_REST * (1 - 0.5 * push) * (1 - smooth(0.2, 0.6, hw));
     }
     // pitching or striking the pup tent: work, not rest (not while it's down and flapping: a gasp)
-    const job = !!state.pup?.job && !state.pup.job.coll;
+    // (wrapping the lost explorer, hoisting them, taking up the rope: the same, goal/burden.js)
+    const job = (!!state.pup?.job && !state.pup.job.coll) || !!state.burden?.job;
     if (job) drain = JOB_DRAIN * (1 + INJ_DRAIN * clamp(B.injury));
     else if (push <= 0.05 && m !== 'climb' && m !== 'swim' && m !== 'crawlout' && !P.crawl) {
       // getting the wind back: the body's own cold, the air's, wet clothes and a gale all slow it

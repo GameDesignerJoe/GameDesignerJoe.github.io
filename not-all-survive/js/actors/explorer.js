@@ -10,6 +10,12 @@
 // Locomotion reads the terrain under the feet and the wind, and blends pose parameters toward
 // per-terrain targets so nothing pops.
 //
+// The lost explorer (goal/burden.js state.burden.mode): carried, the wrapped bundle lies across the
+// shoulders, both mitts up holding it, bent under it (the rucksack hidden under it); x0.5 pace, deep snow
+// no slower than plain snow; double weight on the ice. Dragged, the rope runs back over the right
+// shoulder, both mitts on it at the chest, leaning into it; x0.75 pace, x0.35 in deep snow. Neither
+// climbs (refuse 'burden'). Kneeling to the work (wrapping them, hoisting, the rope): burden.job.
+//
 // Conventions
 //   facing: radians in *ground* space, 0 = east, PI/2 = south (toward the camera).
 //   Ground depth (world y) is foreshortened by KY relative to x. Rig ground offsets are (f, r)
@@ -23,6 +29,7 @@ import { pupDoor, pupDoorClip, pupBlocked, pupInteract, PUP_SHELTER } from './pu
 import { screenToWorld } from '../camera.js';
 import * as ICE from '../world/thinice.js';
 import { wear } from '../items.js';
+import { CARRY, DRAG } from '../goal/burden.js';
 
 const KY = 0.8;              // ground-depth foreshortening (rig, travel, footprints)
 const BASE_SPEED = 13;       // world units / s on plain snow
@@ -252,9 +259,10 @@ function updateCompassPose(dt) {
   CP.rum = approach(CP.rum, ph === 'rummage' && !tgt ? 1 : 0, ph === 'rummage' ? 4 : 5, dt);
   CP.slot = approach(CP.slot, ph === 'slot' ? 1 : 0, 5, dt);
   CP.out = approach(CP.out, ph === 'out' ? 1 : 0, 5, dt);
-  const kneel = (ph === 'rummage' && tgt) || ph === 'transfer' || ph === 'eat' || ph === 'snow' || !!J;
+  const BJ = state.burden?.job;   // wrapping the lost explorer, hoisting them, taking up the rope
+  const kneel = (ph === 'rummage' && tgt) || ph === 'transfer' || ph === 'eat' || ph === 'snow' || !!J || !!BJ;
   CP.kneel = approach(CP.kneel, kneel ? 1 : 0, kneel ? 3.5 : 4.5, dt);
-  CP.dig = approach(CP.dig, (ph === 'rummage' && tgt) || ph === 'transfer' ? 1 : 0, 4, dt);
+  CP.dig = approach(CP.dig, (ph === 'rummage' && tgt) || ph === 'transfer' || !!BJ ? 1 : 0, 4, dt);
   CP.eat = approach(CP.eat, ph === 'eat' ? 1 : 0, ph === 'eat' ? 4 : 6, dt);
   CP.eatT = ph === 'eat' ? st.t : 0;
   CP.drink = approach(CP.drink, ph === 'drink' ? 1 : 0, ph === 'drink' ? 5 : 6, dt);
@@ -384,6 +392,15 @@ export function update(dt) {
   if (cramp && ter === 'ice') sf = 0.92 * (stubTerrain ? PROFILES.snow.speed : (T.speedFactor('snow') ?? 1));
   if (cramp && ter === 'thin') sf = Math.max(sf, 0.6 * (stubTerrain ? PROFILES.snow.speed : (T.speedFactor('snow') ?? 1)));
   if (!(sf > 0)) sf = prof.speed;
+  // the lost explorer (goal/burden.js): carried, slow everywhere but deep snow no worse than plain snow;
+  // dragged, quicker on the flat and very slow in deep snow
+  const bmode = state.burden?.mode;
+  if (bmode === 'carry') {
+    if (ter === 'deep') sf = Math.max(sf, shoes && !stubTerrain ? sf / SHOE_SPEED.deep * SHOE_SPEED.snow : (stubTerrain ? PROFILES.snow.speed : (T.speedFactor('snow') ?? 1)));
+    sf *= CARRY.pace;
+  } else if (bmode === 'drag') sf *= ter === 'deep' ? DRAG.deep : DRAG.pace;
+  carryW = approach(carryW, bmode === 'carry' ? 1 : 0, 5, dt);
+  dragW = approach(dragW, bmode === 'drag' ? 1 : 0, 5, dt);
 
   // --- wind ---------------------------------------------------------------------------
   const wa = state.wind.angle ?? 0, ws = state.wind.speed ?? 0, gust = state.wind.gust ?? 0;
@@ -634,6 +651,11 @@ export function update(dt) {
     const J = state.pup.job, w0 = Math.atan2((J.y - P.y) / KY, J.x - P.x);
     const want = Math.sin(w0) < -0.3 ? w0 + (Math.cos(w0) >= 0 ? 0.55 : -0.55) : w0;
     P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -3 * dt, 3 * dt));
+  } else if (state.burden?.job) {
+    // kneeling at the lost explorer: turned to them (a little off straight-away from the camera)
+    const J = state.burden.job, w0 = Math.atan2((J.y - P.y) / KY, J.x - P.x);
+    const want = Math.sin(w0) < -0.3 ? w0 + (Math.cos(w0) >= 0 ? 0.55 : -0.55) : w0;
+    P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -3 * dt, 3 * dt));
   } else if (CP.out > 0.5) {
     // orienting by the compass: turn slowly to face north-west (screen up-left)
     const nw = Math.atan2(-1 / KY, -1);
@@ -863,6 +885,7 @@ function iceLoad(dt, ter) {
   let n = 0;
   if (state.pack) for (const q of state.pack.slots) if (q) n += q.id === 'puptent' ? 2 : 1;   // (the pup tent weighs double)
   let w = 1 + 0.35 * n / 10;
+  if (state.burden?.mode === 'carry') w *= CARRY.ice;   // the lost explorer on the back: twice the weight
   if (shoesOn()) w *= 0.35;
   if (P.mode === 'down' || crawlW > 0.5) w *= 0.45;
   else if (sitW > 0.5) w *= 0.7;
@@ -978,6 +1001,8 @@ function tapClimb(tap) {
 function setRoute(r) {
   const up = r.up !== false;
   route = { ...r, up, bottom: up ? r.start : r.end, top: up ? r.end : r.start, walkTo: r.walkTo || r.start };
+  // carrying or dragging the lost explorer: refused there and then (no walk to the foot of it first)
+  if (state.burden?.mode) { startRefuse('burden'); return; }
   route.avoid = crossesWater(P.x, P.y, route.walkTo.x, route.walkTo.y);   // round the water if it's in the way
   route.path = route.avoid ? findPath(P.x, P.y, route.walkTo.x, route.walkTo.y, true, 7, 150) : findPath(P.x, P.y, route.walkTo.x, route.walkTo.y);
   let len = 0, a = P;
@@ -1090,6 +1115,8 @@ function autoClimbGear() {
 }
 
 function beginClimb() {
+  // carrying or dragging the lost explorer: no wall with them (a long look up it, the shoulders sag)
+  if (state.burden?.mode) { startRefuse('burden'); return; }
   if (!hasClimbGear()) autoClimbGear();
   // no axes and crampons (or a gale): reach for the wall, look up, shake the head, back off
   if (climbWindy() || !hasClimbGear()) { startRefuse(!hasClimbGear() ? 'gear' : 'wind'); return; }
@@ -1434,7 +1461,8 @@ function updateRefuse(dt) {
   // drops and the shoulders sag, and they turn away from it
   // hurt ('hurt'): the same long look up, then a hand goes to the bad thigh and they bend over it
   // parched ('parched'): the long look up, then a mitt to the temple, the head tipped into it
-  const hurtR = refWhy === 'hurt', parchR = refWhy === 'parched', tired = refWhy === 'tired' || hurtR || parchR;
+  // burdened ('burden': the lost explorer on the back or the rope): the same long look up and the sag
+  const hurtR = refWhy === 'hurt', parchR = refWhy === 'parched', tired = refWhy === 'tired' || refWhy === 'burden' || hurtR || parchR;
   const reach = smooth(0.1, 0.5, refT) * (1 - smooth(0.85, 1.2, refT)) * (tired ? 0.25 : 1);
   const shake = !tired && refT > 1.1 && refT < 1.9 ? Math.sin((refT - 1.1) * 16) * 0.55 * Math.sin(clamp((refT - 1.1) / 0.8) * Math.PI) : 0;
   const sag = tired ? smooth(0.95, 1.35, refT) * (1 - smooth(2.2, 2.6, refT)) : 0;
@@ -1605,6 +1633,8 @@ function findRock(maxD) {
 
 // --- the deep cold: kneeling, faltering ------------------------------------------------------------
 let kneelW = 0, faltT = 0;
+// the lost explorer across the shoulders / on the rope behind (goal/burden.js), blended
+let carryW = 0, dragW = 0;
 
 // --- the tent: walk round to the door, crawl in and vanish; crawl out again ----------------------------
 // Inside, the explorer is hidden and the camera rests on the glowing tent (body.js warms them
@@ -1917,6 +1947,8 @@ function holeSwim(dt, h, k, mag, inp) {
   return true;
 }
 function startHeave(h, dir, k) {
+  // ice axes in the pack go on by themselves for it (as for a climb: autoClimbGear), and count
+  if (!axesOn() && state.pack?.slots.some(q => q && q.id === 'axes')) wear('axes', true, true);
   heave = { h, dir, t: 0, dur: axesOn() ? 1.15 : 1.3, axes: axesOn(), k, out: null, broke: false, zTop: 7.4, queued: null };
 }
 function updateHeave(dt, k) {
@@ -2394,6 +2426,13 @@ function buildRig() {
   const snowUp = CP.snow * smooth(1.0, 1.4, sT) * (1 - smooth(2.3, 2.6, sT));
   const digK = Math.max(CP.dig, 0.75 * CP.job, 0.85 * scoopK);   // (at the pup tent: down and leaning in to it too)
   if (pkw > 0.001) { hz = lerp(hz, lerp(4.2, lerp(2.3, 3.0, toCam), digK), pkw); leanF = lerp(leanF, 0.2 + digK * lerp(0.15, 0.6, toCam), pkw); leanS = lerp(leanS, 0, pkw); twist = lerp(twist, 0, pkw); }
+  // the lost explorer across the shoulders: bent under the weight, knees bent; on the rope: leaning into it
+  const cyW = carryW * (1 - pkw), drW = dragW * (1 - pkw);
+  // (turned a little across the back in a side view, over one shoulder: end-on to the camera it would read
+  // as a pole, not a body)
+  const bTh = 0.62 * Math.cos(yaw), bC = Math.cos(bTh), bS = Math.sin(bTh);
+  if (cyW > 0.001) { leanF += (0.16 + 0.1 * g) * cyW; hz -= 0.55 * cyW; twist = lerp(twist, 0, cyW); }
+  if (drW > 0.001) { leanF += (0.08 + 0.3 * g) * drW; hz -= 0.3 * g * drW; twist = lerp(twist, 0, drW); }
   // the wind's taken the pup tent: up off the knees, reaching after it
   if (CP.grab > 0.001) { hz += 2.2 * CP.grab; leanF -= 0.3 * CP.grab; }
   // lightheaded with hunger (body.dizzy): a slow sway from side to side, the head rolling with it
@@ -2487,12 +2526,16 @@ function buildRig() {
     else hand = mix(hand, [0.9, s * 2.1, SPINE - 3.6], pose.shield * 0.5 * (1 - pose.spread));
     // carrying the ice axes: hands out by the thighs, a short swing; the reach to the pack
     // (taking them in or out) is a quick hand to the back of the shoulder
-    const carryW = axesOn() && !O ? clamp(1 - Math.max(pose.hug, pose.shield * (s === sh ? 1 : 0), pose.spread * 0.6, cw, CP.rum, CP.out, CP.slot)) : 0;
-    if (carryW > 0) hand = mix(hand, [0.5 + armF * 0.55, s * 3.0, SPINE - 4.0 + Math.abs(armF) * 0.1], carryW);
+    const axeW = axesOn() && !O ? clamp(1 - Math.max(pose.hug, pose.shield * (s === sh ? 1 : 0), pose.spread * 0.6, cw, CP.rum, CP.out, CP.slot, carryW, dragW)) : 0;
+    if (axeW > 0) hand = mix(hand, [0.5 + armF * 0.55, s * 3.0, SPINE - 4.0 + Math.abs(armF) * 0.1], axeW);
     // (and the once, patting the pack: the same reach, tapping twice)
     const patK = patT > 0 && s > 0 ? Math.sin(clamp(1 - patT / PAT_S) * Math.PI) * (0.75 + 0.25 * Math.sin((1 - patT / PAT_S) * Math.PI * 6)) : 0;
     const reachK = Math.max(axeReachT > 0 && s > 0 ? Math.sin(clamp(1 - axeReachT / 0.5) * Math.PI) : 0, patK);
     if (reachK > 0) hand = mix(hand, [-0.9, s * 1.5, SPINE + 0.2], reachK);
+    // carrying the lost explorer: both mitts up at the shoulders gripping the bundle; dragging: both on
+    // the rope at the chest where it comes over the right shoulder
+    if (cyW > 0.001) hand = mix(hand, [0.25 + s * 2.5 * bS, s * 2.15 * bC, SPINE + 0.55 + 0.05 * Math.sin(ph2 * 2)], cyW);
+    if (drW > 0.001) hand = mix(hand, [1.05, 0.55 + s * 0.42, SPINE - 1.0 + (s > 0 ? 0.55 : 0) + 0.12 * g * Math.sin(ph2 * 2)], drW);
     const shoulder = torsoToBody(shoulderT, tf);
     let handB = torsoToBody(hand, tf);
     let pole = torsoDir([-1 + shieldW * 0.6 + pose.work * 1.0 + spreadW * 0.6 + pose.creep * 0.5, s * (0.8 + shieldW * 1.2 + spreadW * 0.5), -0.6 - spreadW * 0.6 - pose.work * 0.6], tf);
@@ -2631,9 +2674,9 @@ function buildRig() {
     if (sitK > 0.001 && !O) { handB = mix(handB, [kn[0] + 0.45, kn[1] * 0.2, kn[2] - 0.9], sitK); pole = mix(pole, torsoDir([0.2, s * 1, -0.4], tf), sitK); }
     if (O) { handB = mix(handB, O.hands[s < 0 ? 0 : 1], ow); pole = mix(pole, O.poleA[s < 0 ? 0 : 1], ow); }
     const a = ik(shoulder, handB, UPPER_ARM, FOREARM, pole);
-    const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4) || carryW > 0.5 || reachK > 0.3 || (!O && resW > 0.4);   // (sat: the arms stay inside the coat, wrapped round the knees)
+    const full = (O && ow > 0.5 && O.full) || cw > 0.4 || flung || (!O && cpFull > 0.4) || axeW > 0.5 || reachK > 0.3 || (!O && resW > 0.4) || (!O && (cyW > 0.5 || drW > 0.5));   // (sat: the arms stay inside the coat, wrapped round the knees)
     const active = full ? 1 : Math.max(spreadW, pose.hug, Math.max(0, pose.work - 0.3) * 1.4, shieldW, pose.creep);
-    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4, carry: carryW > 0.5 && reachK < 0.3, food: !O && s > 0 && CP.eat > 0.4 && CP.eatT > 0.2,
+    arms.push({ s, shoulder, elbow: a.joint, hand: a.end, active, spreadW, full, overHead, axe: O && O.axes ? O.axes * ow : 0, cp: !O && cpFull > 0.4, carry: axeW > 0.5 && reachK < 0.3, food: !O && s > 0 && CP.eat > 0.4 && CP.eatT > 0.2,
       flask: !O && s > 0 && CP.drink > 0.35 ? tipK : -1, snowball: !O && s > 0 && CP.snow > 0.4 && sT > 0.75 && sT < 2.3 ? 1 - smooth(1.5, 2.3, sT) : 0 });
   }
 
@@ -2754,7 +2797,63 @@ function buildRig() {
   const straps = pkK > 0.3 ? [] : [-1, 1].map(s => PACK_STRAP.map(([f, r, z]) => torsoToBody([f, s * r, z], tf)));
   const pack = { box, flap, roll, straps, mouth: PACK_MOUTH.map(P2B), c: P2B([-1.75, 0, 2.3]), cIn: P2B([-1.2, 0, 2.3]), up: P2B([-1.75, 0, 4.3]) };
 
-  return { yaw, legs, arms, head, peak, drape, faceYaw, facePitch, top, hem, pack, shoulderC, hips: [hx, hr, hz], tf, sinkNow, hemC, twist, hemYaw, lying: O ? O.hemAttach * ow : 0, climbing: O && O.full && P.mode === 'climb' ? ow : 0, shadowOff };
+  // the lost explorer across the shoulders: head end to the right, sagging a little at both ends
+  const bundle = cyW > 0.3 && !O ? CARRY_PTS.map(([f, r, z]) => torsoToBody([f + r * bS, r * bC, SPINE + z + upZ], tf)) : null;
+  const rope = drW > 0.3 && !O ? [torsoToBody([-1.25, 1.0, SPINE - 0.35], tf), torsoToBody([-0.2, 1.25, SPINE + 0.15], tf), torsoToBody([0.9, 0.95, SPINE - 0.6], tf)] : null;
+  return { yaw, legs, arms, head, peak, drape, faceYaw, facePitch, top, hem, pack, shoulderC, hips: [hx, hr, hz], tf, sinkNow, hemC, twist, hemYaw, lying: O ? O.hemAttach * ow : 0, climbing: O && O.full && P.mode === 'climb' ? ow : 0, shadowOff, bundle, rope };
+}
+
+// The bundle across the shoulders, in torso coords [forward, right, up from the shoulders]: from the feet
+// end (left) to the head end (right), resting on the shoulders and the top of the back.
+const CARRY_PTS = [[-0.85, -6.1, 0.05], [-0.95, -3.0, 0.75], [-0.95, 0, 0.95], [-0.95, 3.0, 0.8], [-0.85, 6.1, 0.2]];
+const CARRY_R = [0.9, 1.2, 1.35, 1.45, 1.35];        // its half-thickness along it (wider at the shoulders end)
+// The bundle on the back: a thick pale canvas roll (inked edge, a lit top edge, a shaded underside), the
+// rope bands across it, the knot's tail at the feet. half: 'far' / 'near' / 'all' (split at the middle so
+// a side view puts the near half over the figure and the far half behind it).
+function drawCarried(ctx, rig, pr, depth, which) {
+  const pts = rig.bundle, mid = 2;
+  const idx = which === 'far' || which === 'near'
+    ? (depth(pts[0]) < depth(pts[4]) ? (which === 'far' ? [0, 1, 2] : [2, 3, 4]) : (which === 'far' ? [2, 3, 4] : [0, 1, 2]))
+    : [0, 1, 2, 3, 4];
+  const P2 = idx.map(i => pr(pts[i])), R = idx.map(i => CARRY_R[i]);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const seg = (k, w, col) => { ctx.beginPath(); ctx.moveTo(P2[k][0], P2[k][1]); ctx.lineTo(P2[k + 1][0], P2[k + 1][1]); ctx.lineWidth = w; ctx.strokeStyle = col; ctx.stroke(); };
+  for (let k = 0; k < P2.length - 1; k++) seg(k, (R[k] + R[k + 1]) + 0.44, 'rgba(30,30,34,0.92)');
+  for (let k = 0; k < P2.length - 1; k++) seg(k, (R[k] + R[k + 1]) * 0.98, '#aeaba2');
+  // the lit upper part and the shade underneath, by offsetting the core up and down the screen
+  for (let k = 0; k < P2.length - 1; k++) {
+    const r = (R[k] + R[k + 1]) / 2;
+    ctx.beginPath(); ctx.moveTo(P2[k][0] - 0.15, P2[k][1] - r * 0.28); ctx.lineTo(P2[k + 1][0] - 0.15, P2[k + 1][1] - r * 0.28);
+    ctx.lineWidth = r * 1.35; ctx.strokeStyle = '#e8e5dc'; ctx.stroke();
+  }
+  // rope bands: short strokes across it (perpendicular on screen), and the knot's tail at the feet
+  const band = (a, b, t, r) => {
+    const x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t, dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const nx = -dy / l * r * 1.05, ny = dx / l * r * 1.05;
+    ctx.beginPath(); ctx.moveTo(x - nx, y - ny); ctx.quadraticCurveTo(x - 0.25, y - 0.35, x + nx, y + ny);
+    ctx.lineWidth = 0.6; ctx.strokeStyle = 'rgba(30,28,24,0.9)'; ctx.stroke();
+    ctx.lineWidth = 0.34; ctx.strokeStyle = '#a08f6c'; ctx.stroke();
+  };
+  const all = [0, 1, 2, 3, 4].map(i => pr(pts[i]));
+  for (const [k, t] of [[3, 0.75], [2, 0.6], [1, 0.45], [0, 0.4]]) {
+    if (!idx.includes(k) || !idx.includes(k + 1)) continue;
+    band(all[k], all[k + 1], t, (CARRY_R[k] + CARRY_R[k + 1]) / 2);
+  }
+  if (idx.includes(0)) {
+    const a = all[0], b = all[1], dx = a[0] - b[0], dy = a[1] - b[1], l = Math.hypot(dx, dy) || 1;
+    const ex = a[0] + dx / l * 1.4, ey = a[1] + dy / l * 1.4;
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(ex + 0.3, ey + 0.6); ctx.moveTo(a[0], a[1]); ctx.lineTo(ex - 0.2, ey + 0.9);
+    ctx.lineWidth = 0.5; ctx.strokeStyle = 'rgba(30,28,24,0.9)'; ctx.stroke();
+    ctx.lineWidth = 0.26; ctx.strokeStyle = '#a08f6c'; ctx.stroke();
+  }
+}
+// The drag rope where it runs over the right shoulder to the mitts at the chest.
+function drawRopeOn(ctx, rig, pr) {
+  const q = rig.rope.map(pr);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(q[0][0], q[0][1]); ctx.quadraticCurveTo(q[1][0], q[1][1], q[2][0], q[2][1]);
+  ctx.strokeStyle = 'rgba(30,28,24,0.85)'; ctx.lineWidth = 0.5; ctx.stroke();
+  ctx.strokeStyle = 'rgba(176,160,124,0.95)'; ctx.lineWidth = 0.26; ctx.stroke();
 }
 
 // --- drawing helpers -----------------------------------------------------------------------------
@@ -3142,16 +3241,24 @@ function drawFigure(ctx, rig, X, Y) {
   // the rucksack: behind the body it goes under the coat (only the bulge, the top and the bedroll
   // show past it); on our side, over it. The shoulder straps always lie over the coat.
   const packFront = depth(rig.pack.c) >= depth(rig.pack.cIn);
-  const packOn = sitW < 0.5;   // (sat huddled: the rucksack is lost in the coat)
+  // (sat huddled: the rucksack is lost in the coat; carrying the lost explorer: hidden under them)
+  const packOn = sitW < 0.5 && !rig.bundle;
   if (!packFront && packOn) drawPack(ctx, rig, pr, depth);
+  // the bundle on the shoulders: whichever half is behind the body goes under the coat
+  const bodyDB = depth(rig.shoulderC);
+  const bundleSplit = rig.bundle ? Math.abs(depth(rig.bundle[0]) - depth(rig.bundle[4])) > 3 : false;
+  const bundleBack = rig.bundle && depth(rig.bundle[2]) < bodyDB;
+  if (rig.bundle) { if (bundleSplit) drawCarried(ctx, rig, pr, depth, 'far'); else if (bundleBack) drawCarried(ctx, rig, pr, depth, 'all'); }
 
   drawCoat(ctx, rig, pr, depth);
 
   if (packOn) drawStraps(ctx, rig, pr);
   if (packFront && packOn) drawPack(ctx, rig, pr, depth);
+  if (rig.rope) { drawRopeOn(ctx, rig, pr); P.ropeAt = (() => { const q = pr(rig.rope[0]); return { x: q[0], y: q[1] }; })(); }
   const out = arms.filter(A => !A.behind && !A.hidden && !A.under && !(A.cp && fromBehind) && A.active > 0.3);
   for (const A of out) if (!A.overHead && A.dh <= headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
   drawHood(ctx, rig, pr);
+  if (rig.bundle) { if (bundleSplit) drawCarried(ctx, rig, pr, depth, 'near'); else if (!bundleBack) drawCarried(ctx, rig, pr, depth, 'all'); }
   for (const A of out) if (A.overHead || A.dh > headD + 0.6) (A.full ? drawArm(A) : drawForearm(A));
 }
 

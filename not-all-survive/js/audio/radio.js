@@ -8,6 +8,7 @@
 // No arrow, no map: walk, listen, and judge whether it's getting quicker or slower.
 // The first member starts with it on (Joe: "start with telling the players what they need to
 // do"). It goes quiet when the explorer dies, sleeps, or it leaves the pack; storms bury it in hiss.
+// Once the lost explorer is found their beacon stops and the radio goes quiet: only the hiss.
 // Over the explorer while it's on: a small radio with its aerial and a little signal arc that
 // pulses with each blip.
 // state.radio = { on, near 0..1 }. Events: radio { on }.
@@ -70,6 +71,8 @@ export function update(dt) {
   startNoise(c);
   // static: always there, louder in a storm, quieter as the signal takes over
   noise.g.gain.value = (0.012 + 0.02 * Math.min(1, storm)) * (1 - 0.6 * R.near * R.near);
+  // found (goal/distress.js D.found): the beacon has done its work and the radio goes quiet (only the hiss)
+  if (D.found) { R.near = 0; return; }
   const now = state.time, morse = Math.max(0, (R.near - 0.78) / 0.18);   // 0 -> 1 over the last stretch
   if (morse < 1) {
     // blips: gaps from ~3.2 s far off down to ~0.25 s close

@@ -68,7 +68,16 @@
 // +0.12 water for -0.05 warmth (up to twice that already cold): it quenches, and it chills. Off snow
 // (ice, rock) it's dimmed. Keyboard: Q. Not in a tent (the stove is melting it there).
 //
-// state.compass = { phase: 'idle'|'rummage'|'slot'|'out'|'transfer'|'eat'|'splint'|'drink'|'snow', target, ... } (the
+// The lost explorer (goal/burden.js says what's offered; this draws and routes it): once their pack has
+// been opened, a press on them (or Space / E by them) brings up a row of round slots above them, as the
+// tent menu does: open their pack, wrap them. A press on the wrapped bundle: carry on your back, drag
+// behind you. While carrying or dragging, a press on the explorer (or C) brings the row up over their head
+// instead of the pack: set them down, switch to dragging / carrying, open the pack. Greyed with a tip
+// saying why. Pressed from further off, the explorer walks there first. Carrying, the pack opens only to
+// eat, drink, or play a recorder or the radio (CARRY_OK); no containers, no snow eating. While the ending
+// card is up (burden.cardUp) a press only dismisses it. Keyboard: 1-n pick from the row.
+//
+// state.compass = { phase: 'idle'|'rummage'|'slot'|'out'|'transfer'|'eat'|'splint'|'drink'|'snow'|'tentmenu'|'actmenu', target, ... } (the
 //   name is history: it's the pack UI's state). target = { kind: 'sled'|'fallen'|'ground', x, y }
 //   while rummaging in / transferring with a container; explorer.js kneels and faces it.
 // Pushes events: rummage, compass (taken out), stow (put away), gear { item, on, auto },
@@ -85,6 +94,10 @@ import * as Terrain from '../world/terrain.js';
 import { toggle as playRecording, playing as recPlaying } from '../audio/recorder.js';
 import { toggle as toggleRadio } from '../audio/radio.js';
 import {
+  ACTS, actName, actWhy, doAct, ACT_ICON, bodyReady, bundleAt, bundleDist, bundleAnchor, BUNDLE_REACH, bundleWalkPoint,
+  busy as burdenBusy, cardUp, dismissCard,
+} from '../goal/burden.js';
+import {
   ITEMS, PACK_SLOTS, wearSlot, worn, wear, take, add, room, find, isEmpty, dropAt, sweepGround,
   shoesBlocked, drawNeedle, NORTH, FLASK_DRINKS,
 } from '../items.js';
@@ -100,7 +113,7 @@ const SPLINT_S = 4, SPLINT_HEAL = 0.25;
 const DRINK_S = 2, DRINK_WATER = 0.3;                 // a pull from the flask (thirst)
 const SNOW_S = 2.6, SNOW_WATER = 0.12, SNOW_CHILL = 0.05;   // a mittful of snow: quenches, and chills
 const SNOWY = new Set(['snow', 'deep', 'path']);      // where there's snow to scoop
-const REACH = { sled: 20, fallen: 16, ground: 12, pup: PUP_REACH };   // how close to rummage (world units; the sled and the pup tent from the edge, on its ground plane)
+const REACH = { sled: 20, fallen: 16, ground: 12, pup: PUP_REACH, bundle: BUNDLE_REACH };   // how close to rummage (world units; the sled and the pup tent from the edge, on its ground plane)
 const STRIKE_ARM = 0.9;           // a press on the pitched pup tent held this long strikes it (shorter: a tap, crawl in)
 const LEAVE = 6;                  // ...and how much further walking away closes it
 const BEAR_NEAR = 60;             // an alerted bear this close: no kneeling over a pack
@@ -111,7 +124,7 @@ const TAU = Math.PI * 2;
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 const P = state.player, pack = state.pack;
-const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, xferA: 0, tentA: 0, angle: NORTH + 1.2, vel: 0, target: null, eatI: -1, splintI: -1, drinkI: -1 };
+const C = state.compass = { phase: 'idle', t: 0, slotA: 0, outA: 0, xferA: 0, tentA: 0, actA: 0, angle: NORTH + 1.2, vel: 0, target: null, eatI: -1, splintI: -1, drinkI: -1 };
 let holding = false;              // pointer or key held on the explorer / a container
 let holdCode = null;              // which key is doing the holding ('auto': arrived at a container)
 let wasMoving = false;
@@ -168,6 +181,12 @@ const pupJob = () => state.pup?.job || null;
 // Can they hold something in their hands (the compass, a ration)? Not wading through deep snow either.
 // (The gale only stops the compass and the gear: stormy().)
 function blocked() { return !inTent() && (packBlocked() || P.terrain === 'deep'); }
+// carrying the lost explorer (goal/burden.js): the pack still opens, but only to eat, drink, or play a
+// recorder or the radio; no kneeling into a container, no snow
+const burdened = () => !!state.burden?.mode;
+const carrying = () => state.burden?.mode === 'carry';
+const CARRY_OK = new Set(['food', 'flask', 'radio']);
+const carryBlocked = s => carrying() && !!s && !CARRY_OK.has(s.id) && !s.id.startsWith('rec_');
 
 function onPlayer(sx, sy) {
   const f = feet(), z = zoom(), pad = 10;
@@ -180,6 +199,7 @@ const anchorOf = t => (t.kind === 'sled' ? { x: SLED.x, y: SLED.y - 4 } : t.kind
 // What a press at screen (sx, sy) lands on: a pile on the snow (only on the pile itself), a fallen
 // member with a pack, or the sled. { kind, ref (the container), x, y }.
 function containerAt(sx, sy) {
+  if (carrying()) return null;
   const w = screenToWorld(sx, sy), z = zoom();
   for (const g of state.ground) if (Math.hypot(w.x - g.x, (w.y - (g.y - 1)) * 1.4) < Math.max(3.2, 12 / z)) return { kind: 'ground', ref: g, x: g.x, y: g.y };
   for (const f of state.fallen || []) {
@@ -194,6 +214,7 @@ const SLED_C = Math.cos(SLED.yaw), SLED_S = Math.sin(SLED.yaw);
 function sledLocal(x, y) { const dx = x - SLED.x, dy = (y - SLED.y) / 0.72; return [dx * SLED_C + dy * SLED_S, -dx * SLED_S + dy * SLED_C]; }
 function dist(t) {
   if (t.kind === 'pup') return pupDist();
+  if (t.kind === 'bundle') return bundleDist();
   if (t.kind !== 'sled') return Math.hypot(P.x - t.x, P.y - t.y);
   const [lx, ly] = sledLocal(P.x, P.y);
   return Math.hypot(Math.max(0, Math.abs(lx) - 13), Math.max(0, Math.abs(ly) - 3.5));
@@ -215,7 +236,8 @@ function nearest(far = 1) {
   let best = null, bd = 1e9;
   const consider = t => { const d = dist(t); if (d < REACH[t.kind] * far && d / REACH[t.kind] < bd) { bd = d / REACH[t.kind]; best = t; } };
   consider({ kind: 'sled', ref: state.sled, x: SLED.x, y: SLED.y });
-  for (const f of state.fallen || []) if (f.pack && !f.lost && !isEmpty(f.pack)) consider({ kind: 'fallen', ref: f.pack, x: f.x, y: f.y });
+  for (const f of state.fallen || []) if (f.pack && !f.lost && (!isEmpty(f.pack) || (f.distress && bodyReady()))) consider({ kind: 'fallen', ref: f.pack, x: f.x, y: f.y, distress: !!f.distress });
+  if (!burdened() && bundleDist() < REACH.bundle * far) { const a = bundleAnchor(); consider({ kind: 'bundle', ref: null, x: a.x, y: a.y + 2 }); }
   for (const g of state.ground) consider({ kind: 'ground', ref: g, x: g.x, y: g.y });
   // the pitched pup tent only when nothing else is in reach (the sled, a body, a pile come first)
   const pp = state.pup?.pitched;
@@ -371,6 +393,66 @@ function drawTentMenu(ctx) {
   ctx.globalAlpha = 1;
 }
 
+// The lost explorer's row (goal/burden.js): over the body, the bundle or the explorer's own head; the same
+// round slots as the tent menu.
+let actKind = null;               // 'body' | 'bundle' | 'self' (kept through the fade)
+function actAnchor() {
+  const z = zoom();
+  if (actKind === 'self') { const f = feet(); return { x: f.x, y: f.y - 27 * z }; }
+  // (over the body or the bundle, high enough to clear the explorer standing beside it)
+  if (actKind === 'body') { const d = state.distress; const q = worldToScreen(d.x, d.y); return { x: q.x, y: q.y - 21 * z }; }
+  const a = bundleAnchor(); if (!a) return feet();
+  const q = worldToScreen(a.x, a.y); return { x: q.x, y: q.y - 20 * z };
+}
+function actLayout() {
+  const ids = ACTS[actKind] || [], r = slotR(), sp = r * 2.5, { w } = state.view, a = actAnchor();
+  const y = Math.max(r + 8, a.y - r - 4);
+  let x0 = a.x - (ids.length - 1) * sp / 2;
+  x0 = Math.max(r + 6, Math.min(w - r - 6 - (ids.length - 1) * sp, x0));
+  return { r, pos: ids.map((id, i) => ({ id, i, x: x0 + i * sp, y })) };
+}
+function actAt(sx, sy) { const L = actLayout(); return L.pos.find(p => Math.hypot(sx - p.x, sy - p.y) < L.r + 8) || null; }
+function openAct(kind) {
+  if (C.phase === 'out') stow();
+  else if (C.phase !== 'idle') close();
+  actKind = kind; C.phase = 'actmenu'; C.t = 0;
+}
+// where the lost explorer's row is tied: in reach of it still?
+function actInReach() {
+  if (actKind === 'self') return burdened();
+  if (actKind === 'body') { const d = state.distress; return bodyReady() && Math.hypot(P.x - d.x, P.y - d.y) < REACH.fallen + LEAVE; }
+  return !burdened() && bundleDist() < REACH.bundle + LEAVE;
+}
+function actDo(p) {
+  if (actWhy(p.id)) { shake('act', p.i); return; }
+  const kind = actKind, r = doAct(p.id);
+  close();
+  if (r === 'pack') { C.phase = 'slot'; C.t = 0; C.target = null; lay = null; }
+  else if (r === 'theirpack' && kind === 'body') {
+    const f = (state.fallen || []).find(q => q.distress);
+    if (f) { const t = { kind: 'fallen', ref: f.pack, x: f.x, y: f.y }; C.target = shownT = t; C.phase = 'transfer'; C.t = 0; side = feet().x >= worldToScreen(t.x, t.y).x ? 1 : -1; lay = null; state.events.push({ type: 'rummage', x: P.x, y: P.y, target: 'fallen' }); }
+  }
+}
+const PACK_ICON = (ctx, r, z) => TENT_ICON.pack(ctx, r, z);
+function drawActMenu(ctx) {
+  const L = actLayout(), pop = 0.7 + 0.3 * C.actA, z = zoom();
+  for (const p of L.pos) {
+    const dim = !!actWhy(p.id);
+    let x = p.x;
+    const sh = shakes.get('act:' + p.i);
+    if (sh !== undefined) { const age = state.time - sh; if (age > 0.5) shakes.delete('act:' + p.i); else x += Math.sin(age * 46) * Math.min(7, L.r * 0.42) * (1 - age / 0.5); }
+    const r = L.r * pop, lw = Math.max(1.2, z * 0.35);
+    ctx.globalAlpha = C.actA * (dim ? 0.4 : 1);
+    ctx.beginPath(); ctx.arc(x, p.y, r, 0, TAU);
+    ctx.fillStyle = 'rgba(150,152,158,0.42)'; ctx.fill();
+    ctx.lineWidth = lw; ctx.strokeStyle = dim ? 'rgba(170,170,174,0.7)' : 'rgba(255,255,255,0.85)'; ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(40,40,44,0.3)';
+    ctx.beginPath(); ctx.arc(x, p.y, r + lw, 0, TAU); ctx.stroke();
+    ctx.save(); ctx.translate(x, p.y); (ACT_ICON[p.id] || PACK_ICON)(ctx, r, z); ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function close() {
   if (C.phase === 'eat') state.events.push({ type: 'eat', stage: 'stop', x: P.x, y: P.y });
   if (C.phase === 'splint') state.events.push({ type: 'splint', stage: 'stop', x: P.x, y: P.y });
@@ -409,7 +491,7 @@ function startDrink(i) {
   state.events.push({ type: 'drink', stage: 'start', x: P.x, y: P.y });
 }
 // Eat a mittful of snow: kneel, scoop, eat. Only on snow (deep snow too: there's plenty), never in a tent.
-const snowHere = () => !inTent() && SNOWY.has(P.terrain) && !(P.water?.level);
+const snowHere = () => !inTent() && SNOWY.has(P.terrain) && !(P.water?.level) && !carrying();
 function startSnow() {
   if (!snowHere() || packBlocked() || bearClose() || (state.body && state.body.water > 0.97)) { shakes.set('snow:0', state.time); state.events.push({ type: 'full', x: P.x, y: P.y }); return; }
   C.phase = 'snow'; C.t = 0; scoopT = 0.55;
@@ -427,7 +509,7 @@ function useSlot(i) {
   if (!s) return;
   const it = ITEMS[s.id];
   const u = { i, slot: s, handsBlocked: blocked(), storm: stormy(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint, pitch: pitchSlot, drink: startDrink, play: playRecording, radio: () => toggleRadio() };
-  if (it.blocked(u)) { shakes.set('pack:' + i, state.time); return; }
+  if (it.blocked(u) || carryBlocked(s)) { shakes.set('pack:' + i, state.time); return; }
   C.t = 0;
   it.use(u);
   if (it.wear && !inTent()) close();   // putting gear on / off: the pack closes and the kneel plays
@@ -445,7 +527,7 @@ const puff = (x, y) => { puffs.push({ x, y, t: state.time }); if (puffs.length >
 function dropSlot(i) {
   const s = pack.slots[i];
   if (!s) return;
-  if (inTent()) { shake('pack', i); return; }
+  if (inTent() || carrying()) { shake('pack', i); return; }
   const ok = (x, y) => { try { return Terrain.isWalkable(x, y) !== false && !Terrain.isWater?.(x, y) && !campInteract(x, y); } catch { return true; } };
   const sd = layouts().side;
   const spot = [[P.x + sd * 7, P.y + 1.5], [P.x - sd * 7, P.y + 1.5], [P.x, P.y + 3]].find(([x, y]) => ok(x, y));
@@ -519,6 +601,7 @@ const nearCampDoor = () => { try { const d = tentDoor(); return Math.hypot(P.x -
 // moment after the tap), shows the item's name in a small label just above it.
 let hoverPt = null, tipSlot = null, tipT = -9;
 function tipText(t) {
+  if (t.block === 'act') { const id = (ACTS[actKind] || [])[t.i]; if (!id) return null; const why = actWhy(id); return actName(id) + (why ? ` (${why})` : ''); }
   if (t.block === 'tent') { const id = TENT_ACTS[t.i]; return TENT_NAMES[id] + (id === 'sleep' && !canSleep() ? ' (after dark)' : ''); }
   if (t.block === 'snow') return snowHere() ? 'Eat snow' : 'Eat snow (no snow here)';
   const c = t.block === 'cont' ? shownT?.ref : pack;
@@ -534,12 +617,13 @@ function tipText(t) {
 function drawTip(ctx, L) {
   const fresh = state.time - tipT < 1.1;
   const ht = hoverPt && C.phase === 'tentmenu' ? tentActAt(hoverPt.x, hoverPt.y) : null;
-  const t = press ? { block: press.block, i: press.i } : ht ? { block: 'tent', i: ht.i } : hoverPt && C.phase !== 'tentmenu' ? slotAt(hoverPt.x, hoverPt.y) : fresh ? tipSlot : null;
+  const ha = hoverPt && C.phase === 'actmenu' ? actAt(hoverPt.x, hoverPt.y) : null;
+  const t = press ? { block: press.block, i: press.i } : ht ? { block: 'tent', i: ht.i } : ha ? { block: 'act', i: ha.i } : hoverPt && C.phase !== 'tentmenu' && C.phase !== 'actmenu' ? slotAt(hoverPt.x, hoverPt.y) : fresh ? tipSlot : null;
   if (!t || t.block === undefined) return;
-  const p = t.block === 'tent' ? (C.phase === 'tentmenu' ? tentLayout().pos[t.i] : null) : t.block === 'snow' ? L.snow : t.block === 'cont' ? L.cont?.find(q => q.i === t.i) : L.pack[t.i];
+  const p = t.block === 'tent' ? (C.phase === 'tentmenu' ? tentLayout().pos[t.i] : null) : t.block === 'act' ? (C.actA > 0.3 ? actLayout().pos[t.i] : null) : t.block === 'snow' ? L.snow : t.block === 'cont' ? L.cont?.find(q => q.i === t.i) : L.pack[t.i];
   const txt = p && tipText(t);
   if (!txt) return;
-  const a = t.block === 'cont' ? C.xferA : t.block === 'tent' ? C.tentA : C.slotA;
+  const a = t.block === 'cont' ? C.xferA : t.block === 'tent' ? C.tentA : t.block === 'act' ? C.actA : C.slotA;
   const fs = Math.max(12, Math.min(15, L.r * 0.62));
   ctx.font = `${fs}px Georgia, serif`;
   const w = ctx.measureText(txt).width + fs * 1.1, h = fs * 1.6;
@@ -557,8 +641,19 @@ export function init() {
   addEventListener('pointermove', e => { hoverPt = e.pointerType === 'mouse' ? { x: e.clientX, y: e.clientY } : null; });
   state.uiPress = (sx, sy) => {
     if (!state.begun && !state.params.has('autostart')) return false;
+    if (cardUp()) { dismissCard(); return true; }   // the ending card: a press only takes it away
     if (away()) { close(); return false; }   // presses go to the tent / the hand-over
     pending = null;
+    // kneeling at the lost explorer (wrapping, hoisting, the rope): a press on the explorer is swallowed;
+    // anywhere else walks (and stops it)
+    if (burdenBusy()) return onPlayer(sx, sy);
+    // the lost explorer's row: a tap on one does it, a tap off it closes it (and only that)
+    if (C.phase === 'actmenu') {
+      const a = actAt(sx, sy);
+      if (a) { tipSlot = { block: 'act', i: a.i }; tipT = state.time; actDo(a); }
+      else close();
+      return true;
+    }
     // busy at the pup tent: a press on the explorer is swallowed; anywhere else walks (and stops it)
     if (pupJob()) return onPlayer(sx, sy);
     // a press on the pitched pup tent from close by: tap to crawl in, hold to strike it
@@ -599,11 +694,29 @@ export function init() {
     if (onPlayer(sx, sy)) {
       if (C.phase === 'out') { stow(); return true; }
       if (open) { close(); return true; }
+      // carrying or dragging the lost explorer: their row over the head instead of the pack
+      if (burdened()) { openAct('self'); return true; }
       holding = true; holdCode = null;
       if (C.phase === 'idle') startRummage();
       return true;                  // never walk into yourself
     }
+    // the lost explorer, found: their row (open their pack, wrap them), walking there first from further off
+    if (t && t.kind === 'fallen' && bodyReady() && (state.fallen || []).find(f => f.distress)?.pack === t.ref) {
+      if (open) close();
+      if (Math.hypot(P.x - t.x, P.y - t.y) < REACH.fallen) { openAct('body'); return true; }
+      const g = reachPoint(t);
+      if (P.reach?.(g.x, g.y)) { pending = { kind: 'fallen', ref: t.ref, x: t.x, y: t.y, menu: 'body' }; return true; }
+      return false;
+    }
     if (t && t.kind !== 'ground' && pressContainer(t)) return true;
+    // the wrapped bundle: carry or drag
+    { const w = screenToWorld(sx, sy);
+      if (!burdened() && bundleAt(w.x, w.y, zoom())) {
+        if (open) close();
+        if (bundleDist() < REACH.bundle) { openAct('bundle'); return true; }
+        const g = bundleWalkPoint(), a = bundleAnchor();
+        if (P.reach?.(g.x, g.y)) { pending = { kind: 'bundle', ref: null, x: a.x, y: a.y + 2, menu: 'bundle' }; return true; }
+      } }
     if (open) { close(); return true; }   // tapping off it closes it (and only that: no walk)
     return false;
   };
@@ -620,7 +733,10 @@ export function init() {
   addEventListener('keydown', e => {
     if (e.repeat) return;
     if (!state.begun && !state.params.has('autostart')) return;
+    if (cardUp()) { dismissCard(); return; }
     const d = /^Digit(\d)$/.exec(e.code);
+    // the lost explorer's row open: 1-n pick from it
+    if (d && C.phase === 'actmenu') { const p = actLayout().pos[(+d[1] + 9) % 10]; if (p) { tipSlot = { block: 'act', i: p.i }; tipT = state.time; actDo(p); } return; }
     if (d && (C.phase === 'slot' || C.phase === 'transfer')) {
       const n = (+d[1] + 9) % 10;   // 1 -> slot 0 ... 0 -> slot 9
       if (e.shiftKey && C.phase === 'transfer') {
@@ -631,6 +747,10 @@ export function init() {
     }
     // Q: a mittful of snow (the pack open)
     if (e.code === 'KeyQ' && C.phase === 'slot') { startSnow(); return; }
+    if (e.code === 'KeyC' && (burdened() || C.phase === 'actmenu')) {
+      if (C.phase === 'actmenu') close(); else if (!burdenBusy() && !away()) openAct('self');
+      return;
+    }
     if (e.code === 'KeyC') {
       if (C.phase === 'slot') { if (!blocked() && !stormy()) takeOut(); }
       else if (C.phase === 'out') stow();
@@ -639,10 +759,13 @@ export function init() {
     }
     // Space / E close to the sled, a body or a pile: hold to rummage in it (the pup tent: tap to
     // crawl in, hold to strike it)
+    if ((e.code === 'Space' || e.code === 'KeyE') && C.phase === 'actmenu') { close(); return; }
     if ((e.code === 'Space' || e.code === 'KeyE') && C.phase === 'idle' && !inTent() && !pupJob()) {
       const t = nearest();
       if (t && t.kind === 'pup') { if (!away() && !nearCampDoor()) pressPup(e.code); }
-      else if (t) { holding = true; holdCode = e.code; startRummage(t); }
+      else if (t && t.kind === 'bundle') { if (!away() && !burdenBusy()) openAct('bundle'); }
+      else if (t && t.distress && bodyReady()) { if (!away() && !burdenBusy()) openAct('body'); }
+      else if (t && !carrying()) { holding = true; holdCode = e.code; startRummage(t); }
     }
   });
   addEventListener('keyup', e => {
@@ -666,6 +789,9 @@ export function init() {
   window.NAS.drink = () => { const i = pack.slots.findIndex(q => q && q.id === 'flask' && q.drinks > 0); if (i >= 0) { if (C.phase === 'idle') { C.phase = 'slot'; C.t = 0; } startDrink(i); } };
   window.NAS.snowEat = () => { if (C.phase === 'idle') { C.phase = 'slot'; C.t = 0; } startSnow(); };
   window.NAS.tentUI = () => tentLayout();   // the tent menu's slot positions (inside a tent)
+  // the lost explorer's row: NAS.actMenu('body' | 'bundle' | 'self') opens it; NAS.actUI() -> its slot positions
+  window.NAS.actMenu = kind => openAct(kind);
+  window.NAS.actUI = () => actLayout();
   window.NAS.packUI = () => { lay = null; const L = layouts(); return { pack: L.pack, cont: L.cont || [], r: L.r }; };
 }
 
@@ -679,7 +805,8 @@ export function update(dt) {
   if (pending) {
     if (state.events.some(e => e.type === 'arrive')) pending.arrived = state.time;
     if (pending.arrived) {
-      if (!mv && C.phase === 'idle' && dist(pending) < REACH[pending.kind] + 2) { const t = pending; pending = null; holding = true; holdCode = 'auto'; startRummage(t); if (C.phase !== 'rummage') holdCode = null; }
+      if (!mv && C.phase === 'idle' && pending.menu && dist(pending) < REACH[pending.kind] + 2) { const k = pending.menu; pending = null; openAct(k); }
+      else if (!mv && C.phase === 'idle' && dist(pending) < REACH[pending.kind] + 2) { const t = pending; pending = null; holding = true; holdCode = 'auto'; startRummage(t); if (C.phase !== 'rummage') holdCode = null; }
       else if (state.time - pending.arrived > 1.5) pending = null;
     } else if (P.mode !== 'approach') pending = null;
   }
@@ -699,6 +826,9 @@ export function update(dt) {
   if (C.phase !== 'idle' && C.phase !== 'out' && bearClose()) close();
 
   if (C.phase === 'tentmenu' && !inTent()) close();
+  if (C.phase === 'actmenu' && (!actInReach() || packAway() || burdenBusy() || (mv && !wasMoving && !state.input.pointer))) close();
+  if (burdenBusy() && C.phase !== 'idle' && C.phase !== 'actmenu') close();
+  if (carrying() && (C.phase === 'transfer' || C.phase === 'rummage' && C.target)) close();
   if (C.phase === 'rummage') {
     const t = C.target;
     // Let go, start walking, or get caught out by the weather: the dig is abandoned.
@@ -800,6 +930,7 @@ export function update(dt) {
   C.slotA += ((open ? 1 : 0) - C.slotA) * k;
   C.xferA += ((C.phase === 'transfer' ? 1 : 0) - C.xferA) * k;
   C.tentA += ((C.phase === 'tentmenu' ? 1 : 0) - C.tentA) * k;
+  C.actA += ((C.phase === 'actmenu' ? 1 : 0) - C.actA) * k;
   if (C.phase === 'transfer') shownT = C.target;
   C.outA += ((C.phase === 'out' ? 1 : 0) - C.outA) * Math.min(1, dt * 6);
 
@@ -888,6 +1019,7 @@ function glintPoint(t) {
   if (t.kind === 'pup') return pupGlint() || { x: t.x, y: t.y - 6 };
   if (t.kind === 'sled') { const lx = -1.8, ly = 2.4, h = 5.6; return { x: SLED.x + lx * SLED_C - ly * SLED_S, y: SLED.y + (lx * SLED_S + ly * SLED_C) * 0.72 - h }; }
   if (t.kind === 'fallen') return { x: t.x - 0.5, y: t.y - 2.6 };
+  if (t.kind === 'bundle') return { x: t.x, y: t.y - 4.2 };
   return { x: t.x + 0.8, y: t.y - 2.2 };
 }
 const pileDraw = new WeakMap();
@@ -906,9 +1038,9 @@ export function drawables() {
   }
   if (puffs.length) { const p = puffs[puffs.length - 1]; puffItem.x = p.x; puffItem.y = p.y + 4; items.push(puffItem); }
   glintAt = null;
-  if (C.phase === 'idle' && !away() && !inTent() && !bearClose() && !pupJob()) {
+  if (C.phase === 'idle' && !away() && !inTent() && !bearClose() && !pupJob() && !burdenBusy() && !carrying()) {
     const t = nearest(2);
-    if (t) { const d = dist(t) / REACH[t.kind]; glintK = d <= 1 ? 1 : 0.35 + 0.65 * (1 - (d - 1)); glintAt = glintPoint(t); glintItem.x = t.x; glintItem.y = (t.kind === 'sled' ? SLED.y + 6 : t.y + 2); items.push(glintItem); }
+    if (t) { const d = dist(t) / REACH[t.kind]; glintK = d <= 1 ? 1 : 0.35 + 0.65 * (1 - (d - 1)); glintAt = glintPoint(t); glintItem.x = t.x; glintItem.y = (t.kind === 'sled' ? SLED.y + 6 : t.kind === 'bundle' ? t.y + 4 : t.y + 2); items.push(glintItem); }
   }
   return items;
 }
@@ -1087,7 +1219,9 @@ export function drawScreen(ctx) {
   const J = pupJob(), strikeK = J && J.kind === 'strike' ? 1 - J.prog / 3 : -1;
   const armK = pupPress && !pupPress.struck ? Math.max(0, (state.time - pupPress.t - 0.12) / (STRIKE_ARM - 0.12)) : 0;
   if (armK > 0.01) drawPupArm(ctx, armK);
-  if (C.phase === 'idle' && C.slotA < 0.01 && C.outA < 0.01 && C.xferA < 0.01 && C.tentA < 0.01 && sleepK < 0.01 && hint <= 0 && strikeK < 0) return;
+  // kneeling at the lost explorer (wrapping them, hoisting, the rope): the bar fills over them
+  const BJ = state.burden?.job, jobK = BJ ? BJ.t / BJ.dur : -1;
+  if (C.phase === 'idle' && C.slotA < 0.01 && C.outA < 0.01 && C.xferA < 0.01 && C.tentA < 0.01 && C.actA < 0.01 && sleepK < 0.01 && hint <= 0 && strikeK < 0 && jobK < 0) return;
   const { dpr } = state.view;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   lay = null;
@@ -1098,10 +1232,10 @@ export function drawScreen(ctx) {
   // The dig bar: transparent white with a white fill, over the explorer's head (the tent door).
   // The same bar fills over the door as a hold there sleeps (after dark), and its first fifth
   // flashes over the explorer as they pat the pack, the once (the hold, taught without words).
-  if (C.phase === 'rummage' || sleepK > 0.01 || hint > 0 || strikeK >= 0) {
+  if (C.phase === 'rummage' || sleepK > 0.01 || hint > 0 || strikeK >= 0 || jobK >= 0) {
     const w = BAR_W * z, h = Math.max(4, BAR_H * z), x = f.x - w / 2, y = f.y - BAR_Y * z - h / 2;
-    const frac = strikeK >= 0 ? strikeK : C.phase === 'rummage' ? Math.min(1, C.t / (C.target?.kind === 'ground' ? PILE_S : RUMMAGE_S)) : sleepK > 0.01 ? sleepK : 0.2;
-    ctx.globalAlpha = strikeK >= 0 ? Math.min(1, J.t * 6) : C.phase === 'rummage' ? Math.min(1, C.t * 6) : sleepK > 0.01 ? Math.min(1, sleepK * 5) : Math.min(1, 1.6 * Math.sin(Math.PI * hint)) * (0.75 + 0.25 * Math.sin(state.time * 9));
+    const frac = jobK >= 0 ? jobK : strikeK >= 0 ? strikeK : C.phase === 'rummage' ? Math.min(1, C.t / (C.target?.kind === 'ground' ? PILE_S : RUMMAGE_S)) : sleepK > 0.01 ? sleepK : 0.2;
+    ctx.globalAlpha = jobK >= 0 ? Math.min(1, BJ.t * 6) : strikeK >= 0 ? Math.min(1, J.t * 6) : C.phase === 'rummage' ? Math.min(1, C.t * 6) : sleepK > 0.01 ? Math.min(1, sleepK * 5) : Math.min(1, 1.6 * Math.sin(Math.PI * hint)) * (0.75 + 0.25 * Math.sin(state.time * 9));
     roundRect(ctx, x, y, w, h, h / 2);
     ctx.fillStyle = 'rgba(255,255,255,0.32)';
     ctx.fill();
@@ -1132,7 +1266,7 @@ export function drawScreen(ctx) {
     if (C.xferA > 0.01) tether(ctx, L.pack.slice(0, 5), L.r, L.packOwner, C.xferA);
     L.pack.forEach((p, i) => {
       const s = pack.slots[i];
-      const dim = !!s && C.phase !== 'transfer' && ITEMS[s.id].blocked({ i, slot: s, handsBlocked: hb, storm: sw, inTent: it });
+      const dim = !!s && C.phase !== 'transfer' && (ITEMS[s.id].blocked({ i, slot: s, handsBlocked: hb, storm: sw, inTent: it }) || carryBlocked(s));
       let hold = holdK('pack', i);
       if (C.phase === 'eat' && i === C.eatI) hold = C.t / EAT_S;   // eating: the arc fills over the meal
       if (C.phase === 'splint' && i === C.splintI) hold = C.t / SPLINT_S;   // ...and over the binding
@@ -1143,7 +1277,8 @@ export function drawScreen(ctx) {
   }
 
   if (C.tentA > 0.01) drawTentMenu(ctx);
-  if (C.slotA > 0.3 || C.xferA > 0.3 || C.tentA > 0.3) drawTip(ctx, L);
+  if (C.actA > 0.01) drawActMenu(ctx);
+  if (C.slotA > 0.3 || C.xferA > 0.3 || C.tentA > 0.3 || C.actA > 0.3) drawTip(ctx, L);
 
   // The needle itself, over the explorer.
   if (C.outA > 0.01) {

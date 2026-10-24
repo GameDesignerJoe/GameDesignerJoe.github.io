@@ -8,10 +8,14 @@
 // The body: half-buried in a drift, one arm up, the beacon in the snow by the hand with its short
 // aerial and a signal-yellow light that blinks while it still has charge.
 //
-// state.distress = { x, y, found, light } (found: their pack has been opened). Their pack goes in
-// state.fallen (flag distress: true; fallen.js leaves the drawing to this module).
+// state.distress = { x, y, found, wrapped, wrapK, light } (found: their pack has been opened; the beacon
+// stops blinking and the radio goes quiet). Their pack goes in state.fallen (flag distress: true; fallen.js
+// leaves the drawing to this module). Wrapped (goal/burden.js: wrapping them, carrying or dragging them home):
+// only the hollow they lay in and the dead beacon are left here; while being wrapped (wrapK) the raised arm
+// is laid down under the sheet.
 // Pushes events: distress { stage: 'found' }.
-// (Later, per Joe: dig them out with a shovel, wrap them, carry or drag them home.)
+// (Later, per Joe: dig them out with a shovel first. The hook for it: a 'dig' act before 'wrap' in
+// burden.js ACTS.body, with the drift drawn here shrinking as it goes.)
 import { state } from '../state.js';
 import * as T from '../world/terrain.js';
 import { visibleRect } from '../camera.js';
@@ -69,7 +73,8 @@ export function update(dt) {
     D.found = true;
     state.events.push({ type: 'distress', stage: 'found', x: D.x, y: D.y });
   }
-  D.light = (state.time % 1.6) < 0.18 ? 1 : 0;   // the beacon's blink
+  // the beacon's blink, until they're found (the signal has done its work: the radio goes quiet too)
+  D.light = !D.found && (state.time % 1.6) < 0.18 ? 1 : 0;
 }
 
 export function drawables() {
@@ -87,6 +92,7 @@ function drawSite(ctx) {
   ctx.translate(x, y);
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   const ink = 'rgba(28,30,34,0.9)';
+  if (D.wrapped) { drawEmpty(ctx, ink); ctx.restore(); return; }
   // shadow and the hollow the drift has scooped round them
   ctx.fillStyle = 'rgba(60,64,72,0.2)';
   ctx.beginPath(); ctx.ellipse(1, 1.4, 11, 3.6, 0, 0, Math.PI * 2); ctx.fill();
@@ -102,11 +108,13 @@ function drawSite(ctx) {
   ctx.beginPath(); ctx.ellipse(-7.4, -2.2, 2.2, 2.0, -0.3, 0, Math.PI * 2);
   ctx.fillStyle = '#434852'; ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.ellipse(-8.2, -1.7, 0.9, 1.0, -0.3, 0, Math.PI * 2); ctx.fillStyle = '#121418'; ctx.fill();
-  // the arm flung up and out, bent at the elbow, the mitt open
-  ctx.strokeStyle = '#2f333a'; ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.moveTo(-2.5, -3.6); ctx.lineTo(-1.2, -7.2); ctx.lineTo(1.8, -8.6); ctx.stroke();
-  ctx.fillStyle = '#1b1d21';
-  ctx.beginPath(); ctx.ellipse(2.6, -8.8, 1.1, 0.85, 0.3, 0, Math.PI * 2); ctx.fill();
+  // the arm flung up and out, bent at the elbow, the mitt open (being wrapped: laid down under the sheet)
+  if (!(D.wrapK > 0.35)) {
+    ctx.strokeStyle = '#2f333a'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-2.5, -3.6); ctx.lineTo(-1.2, -7.2); ctx.lineTo(1.8, -8.6); ctx.stroke();
+    ctx.fillStyle = '#1b1d21';
+    ctx.beginPath(); ctx.ellipse(2.6, -8.8, 1.1, 0.85, 0.3, 0, Math.PI * 2); ctx.fill();
+  }
   // snow settled along the top of the coat
   ctx.strokeStyle = 'rgba(246,247,245,0.95)'; ctx.lineWidth = 0.9;
   ctx.beginPath(); ctx.moveTo(-6, -3.5); ctx.bezierCurveTo(-3, -4.4, 1, -3.9, 3.5, -3); ctx.stroke();
@@ -130,5 +138,26 @@ function drawSite(ctx) {
     ctx.beginPath(); ctx.arc(6.1, -9.6, 0.6, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(6.1, -9.6, 1.8, 0, Math.PI * 2); ctx.fill();
   }
+  ctx.restore();
+}
+// Wrapped and taken (goal/burden.js draws the bundle): the hollow they lay in, scooped out of the drift,
+// and the dead beacon left lying in the snow.
+function drawEmpty(ctx, ink) {
+  ctx.fillStyle = 'rgba(150,156,166,0.3)';
+  ctx.beginPath(); ctx.ellipse(-0.5, -0.4, 8.5, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(120,126,136,0.22)';
+  ctx.beginPath(); ctx.ellipse(-1, -0.9, 6.5, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+  // the drift, broken open where the legs were
+  ctx.beginPath();
+  ctx.moveTo(2.5, 1.2);
+  ctx.bezierCurveTo(3.5, -0.8, 6, -2.2, 8, -1.8);
+  ctx.bezierCurveTo(9.8, -1.4, 10.8, -0.4, 11, 1.2);
+  ctx.closePath();
+  ctx.fillStyle = '#f4f5f3'; ctx.fill();
+  ctx.lineWidth = 0.35; ctx.strokeStyle = 'rgba(40,40,44,0.7)'; ctx.stroke();
+  ctx.fillStyle = '#4a4740'; ctx.strokeStyle = ink; ctx.lineWidth = 0.3;
+  ctx.save(); ctx.translate(4.2, -4.6); ctx.rotate(0.5);
+  ctx.beginPath(); ctx.rect(-1.2, -0.8, 2.4, 1.6); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = 0.35; ctx.beginPath(); ctx.moveTo(0.9, -0.8); ctx.lineTo(2.6, -2.2); ctx.stroke();
   ctx.restore();
 }

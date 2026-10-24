@@ -27,6 +27,7 @@ const MODULES = {
   puptent: './actors/puptent.js',    // after explorer (a pitch stops if they walk off) and camp: the pup tent
   fallen: './actors/fallen.js',      // after body: picks up 'handover' the same frame
   distress: './goal/distress.js',   // after fallen: the lost explorer and their beacon (the goal)
+  burden: './goal/burden.js',       // after distress and explorer: wrapping them, carrying or dragging them home
   thirst: './fx/thirst.js',          // after body (reads water) and camp: the mirage (drawSky, over every sky layer) and the Third Man
   wildlife: './actors/wildlife.js',
   audio: './audio/audio.js',

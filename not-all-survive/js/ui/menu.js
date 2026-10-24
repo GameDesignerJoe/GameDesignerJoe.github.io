@@ -77,6 +77,9 @@ export function initMenu() {
         <button data-act="pitch">Pitch tent here</button>
         <button data-act="strike">Strike tent</button>
       </div>
+      <div class="row">
+        <button data-act="bundle">Wrapped body here</button>
+      </div>
     </div>
     <a href="editor/" target="_blank" rel="noopener">Terrain editor ↗</a>`;
 
@@ -182,6 +185,8 @@ weather: ${state.weather.forecast?.label ?? '-'} · now ${state.weather.phase ??
     if (act === 'quench') { state.quench?.(); showBody(); }
     if (act === 'pitch') { state.pitch?.(true); panel.hidden = true; }
     if (act === 'strike') { state.strike?.(true); showBody(); }
+    // the goal (goal/burden.js): the lost explorer, wrapped, set down beside the explorer
+    if (act === 'bundle') { state.goal?.wrapped(); panel.hidden = true; }
     // Bright day: auto (weather decides) -> on -> off -> auto.
     if (act === 'bright') {
       const L = state.lighting;
