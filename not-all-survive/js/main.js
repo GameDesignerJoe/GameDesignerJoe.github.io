@@ -33,6 +33,7 @@ const MODULES = {
   bright: './fx/bright.js',          // blinding clear days: glare, halo, lost detail
   pack: './ui/pack.js',              // after night, so the UI isn't tinted (the pack, the compass, containers)
   terrainview: './ui/terrainview.js', // debug: the editor's terrain classes over the game (T, gear menu)
+  stickhint: './ui/stickhint.js',   // touch: pulses the hidden thumbstick if a new player stands still
 };
 const only = state.params.get('only')?.split(',');
 const ALWAYS = ['terrain', 'map', 'ground', 'frontier', 'night', 'bright', 'pack'];
