@@ -30,6 +30,7 @@
 // (Without it the first member sets out with a compass, two rations and a full flask.)
 import { state } from './state.js';
 import { SIGNAL } from './palette.js';
+import { RECORDINGS } from './recordings.js';
 
 export const PACK_SLOTS = 10, SLED_SLOTS = 20;
 const P = state.player;
@@ -72,6 +73,14 @@ item({ id: 'puptent', name: 'Pup tent', kind: 'tool', icon: drawPupTent, blocked
 export const FLASK_DRINKS = 3;
 item({ id: 'flask', name: 'Flask', kind: 'tool', drinks: FLASK_DRINKS, icon: drawFlask,
   blocked: u => u.handsBlocked || !(u.slot.drinks > 0), use: u => u.drink(u.i) });
+
+// audio recorders (recordings.js): one item per recording, so each travels like anything else. Tap:
+// play it (tap again: stop). Carrying one is quiet hope (body.js). Not wading deep snow: hands full.
+for (const r of RECORDINGS) {
+  item({ id: 'rec_' + r.id, name: `Audio recorder: ${r.title}`, kind: 'tool', icon: drawRecorder, rec: r,
+    blocked: u => u.handsBlocked, use: u => u.play(r) });
+}
+export const carryingRecorder = () => pack.slots.some(q => q && q.id.startsWith('rec_'));
 
 // --- containers -------------------------------------------------------------------------------------
 export const makeSlots = n => Array.from({ length: n }, () => null);
@@ -124,6 +133,7 @@ state.ground = [];
 for (let i = 0; i < 4; i++) add(sled, 'food', 3);
 add(sled, 'splint', 2);
 add(sled, 'puptent', 1);
+add(sled, 'rec_leader', 1);   // the leader's message (recordings.js)
 for (const id of ['snowshoes', 'axes', 'crampons', 'compass', 'flask']) add(sled, id, 1);
 // the first member sets out with a compass, two rations and a full flask
 add(pack, 'compass', 1);
@@ -419,6 +429,23 @@ function drawFood(ctx, r, z) {
 // The flask: a flat-sided steel canteen, upright and a little tipped, its shoulders narrowing to a
 // screw cap on a short chain; a pale lit edge down one side and a felt band round its middle (the
 // cover that keeps the cold off the metal).
+// A little tape recorder: a box, two reels, a grille.
+function drawRecorder(ctx, r) {
+  const w = r * 0.9, h = r * 0.62;
+  ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.rect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = 'rgba(70,64,56,0.95)'; ctx.fill();
+  ctx.lineWidth = Math.max(1, r * 0.07); ctx.strokeStyle = 'rgba(30,27,22,0.95)'; ctx.stroke();
+  for (const sx of [-1, 1]) {
+    ctx.beginPath(); ctx.arc(sx * w * 0.24, -h * 0.06, h * 0.22, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(236,235,230,0.92)'; ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(sx * w * 0.24, -h * 0.06, h * 0.06, 0, Math.PI * 2); ctx.fillStyle = 'rgba(30,27,22,0.95)'; ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(236,235,230,0.6)'; ctx.lineWidth = Math.max(0.6, r * 0.04);
+  ctx.beginPath();
+  for (let k = -2; k <= 2; k++) { ctx.moveTo(k * w * 0.08, h * 0.26); ctx.lineTo(k * w * 0.08, h * 0.4); }
+  ctx.stroke();
+}
 function drawFlask(ctx, r, z) {
   ctx.save();
   ctx.rotate(-0.22);

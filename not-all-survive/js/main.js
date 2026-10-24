@@ -29,6 +29,7 @@ const MODULES = {
   thirst: './fx/thirst.js',          // after body (reads water) and camp: the mirage (drawSky, over every sky layer) and the Third Man
   wildlife: './actors/wildlife.js',
   audio: './audio/audio.js',
+  recorder: './audio/recorder.js',  // the audio recorders: plays one, ducks it under weather, stops it at death
   night: './fx/night.js',            // grades the finished frame and adds warm lights
   bright: './fx/bright.js',          // blinding clear days: glare, halo, lost detail
   pack: './ui/pack.js',              // after night, so the UI isn't tinted (the pack, the compass, containers)

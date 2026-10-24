@@ -107,7 +107,7 @@
 //        NAS.parch(v?) (water to v, or 0.25 lower), NAS.quench() (water and the flasks full).
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
-import { takePack, restock, find, take, count, fillFlasks } from '../items.js';
+import { takePack, restock, find, take, count, fillFlasks, carryingRecorder } from '../items.js';
 import { CAMP_SHELTER } from './camp.js';
 
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
@@ -154,6 +154,7 @@ const RES_WORK = 0.1, RES_TIME = 1 / 800, RES_TENT = 1 / 300;
 const INJ_DRAIN = 0.7, INJ_TENT = 1 / 600, INJ_SLEEP = 0.3, HEAVE = 0.09, HEAVE_AXES = 0.035;
 // the pup tent on the back: walking costs this much more (slice 6)
 const PUP_DRAIN = 0.1;
+const HOPE = 0.9;             // a recorder in the pack: warmth and energy go ~10% slower (recordings.js)
 // kneeling at the pup tent pitching or striking it: hard work, about walking on snow (slice 6)
 const JOB_DRAIN = 0.9 / 360, JOB_FOOD = 0.8;
 // how high energy can come back: reserve, hunger, (slice 5) injury and thirst (only parched)
@@ -268,6 +269,7 @@ function warmthRate() {
   loss *= 1 + 3 * clamp(B.wet);                        // wet: ~4x
   loss *= 1 + 0.6 * starving();                        // starving: up to +60% (slice 4)
   loss *= 1 + 0.25 * dryOut();                         // no water left at all: +25% (thirst)
+  if (carryingRecorder()) loss *= HOPE;                // a recorder in the pack: hope (recordings.js)
   // spent: sitting still in the snow with nothing left, the cold gets in (up to +30%)
   if (!P.moving) loss *= 1 + 0.3 * smooth(0.25, 0, B.energy);
   // in the water itself: the sea takes the heat straight out
@@ -335,6 +337,7 @@ function updateEnergy(dt) {
       // into a gale even a path costs something; hurt, every step costs more
       drain = (base * push * (1 + HEADWIND * hw) + push * hw / 500) * (1 + INJ_DRAIN * clamp(B.injury));
       if (carryingPup()) drain *= 1 + PUP_DRAIN;            // the pup tent on the back (slice 6)
+      if (carryingRecorder()) drain *= HOPE;                 // ...and hope lightens the going
       if (ter === 'path') drain -= PATH_REST * (1 - 0.5 * push) * (1 - smooth(0.2, 0.6, hw));
     }
     // pitching or striking the pup tent: work, not rest (not while it's down and flapping: a gasp)
