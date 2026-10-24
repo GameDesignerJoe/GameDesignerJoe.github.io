@@ -7,7 +7,9 @@
 //   state.sled    the party's supply at base camp (SLED_SLOTS): what isn't carried stays here.
 //   state.ground  piles dropped on the snow: [{ x, y, slots, t }] (ui/pack.js draws them).
 //   fallen.js     each body keeps the pack the member died with (f.pack), to be recovered.
-// Food stacks to 3 in a slot, splints to 2; gear is one per slot.
+// Food stacks to 3 in a slot, splints to 2; gear is one per slot. The pup tent (slice 6) is one
+// of a kind: one on the sled, heavy (body.js: carrying it costs ~10% more energy walking;
+// explorer.js: it weighs double on thin ice).
 //
 // state.player.gear = { snowshoes, axes, crampons } is a derived view of the pack (getters:
 // worn in the pack; setting one wears / takes it off), so explorer.js and body.js read it as
@@ -15,8 +17,9 @@
 //
 // ITEMS is the registry: { id, name, stack, kind: 'tool' | 'gear' | 'food', wear (worn on the
 // body), icon(ctx, r, z) (drawn centred on 0,0 in a slot of radius r px at zoom z),
-// use(u) and blocked(u) }, where u is what the pack UI offers: { i, slot, handsBlocked, inTent,
-// takeOut(), eat(i) }. Add a new item here and the pack, the sled and the transfer UI take it.
+// use(u) and blocked(u) }, where u is what the pack UI offers: { i, slot, handsBlocked, storm (a gale:
+// the compass can't be held nor gear strapped on or off; eating, splinting and pitching go on), inTent,
+// takeOut(), eat(i), splint(i), pitch(i) }. Add a new item here and the pack, the sled and the transfer UI take it.
 //
 // Hooks: NAS.give(id, n = 1) (into the pack; returns how many fitted), NAS.pack, NAS.sled.
 // ?kit=all starts the first member with the compass, snowshoes, axes, crampons and food x3.
@@ -42,18 +45,23 @@ function item(def) { ITEMS[def.id] = { stack: 1, kind: 'gear', wear: false, bloc
 item({
   id: 'compass', name: 'Compass', kind: 'tool', icon: drawCompassIcon,
   // can't hold it in too much wind, climbing, deep snow, knocked down... (the pack UI knows)
-  blocked: u => u.handsBlocked || u.inTent,
+  blocked: u => u.handsBlocked || u.inTent || !!u.storm,
   use: u => u.takeOut(),
 });
-item({ id: 'snowshoes', name: 'Snowshoes', wear: true, icon: drawSnowshoes, blocked: () => shoesBlocked(), use: u => wearSlot(u.i, !u.slot.worn) });
-item({ id: 'axes', name: 'Ice axes', wear: true, icon: drawAxes, blocked: () => climbing(), use: u => wearSlot(u.i, !u.slot.worn) });
-item({ id: 'crampons', name: 'Crampons', wear: true, icon: drawCrampons, blocked: () => climbing(), use: u => wearSlot(u.i, !u.slot.worn) });
+item({ id: 'snowshoes', name: 'Snowshoes', wear: true, icon: drawSnowshoes, blocked: u => shoesBlocked() || !!u.storm, use: u => wearSlot(u.i, !u.slot.worn) });
+item({ id: 'axes', name: 'Ice axes', wear: true, icon: drawAxes, blocked: u => climbing() || !!u.storm, use: u => wearSlot(u.i, !u.slot.worn) });
+item({ id: 'crampons', name: 'Crampons', wear: true, icon: drawCrampons, blocked: u => climbing() || !!u.storm, use: u => wearSlot(u.i, !u.slot.worn) });
 // rations: pemmican and ship's biscuit, one item. Eating takes a while (ui/pack.js plays it).
 item({ id: 'food', name: 'Rations', kind: 'food', stack: 3, icon: drawFood, blocked: u => u.handsBlocked, use: u => u.eat(u.i) });
 // splint and bandage roll (slice 5): kneel and bind the hurt leg, ~4 s (ui/pack.js plays it); only
 // when hurt, never in the tent (it heals there anyway)
 item({ id: 'splint', name: 'Splint & bandage', kind: 'tool', stack: 2, icon: drawSplint,
   blocked: u => u.handsBlocked || u.inTent || !((state.body?.injury || 0) > 0.02), use: u => u.splint(u.i) });
+// the pup tent (slice 6, actors/puptent.js): pitched on the snow beside the explorer (~8 s, three
+// stages; the wind can bring it down); not in a tent, and the ground is checked when it's used
+// (ice, water, rock, a slope's lip: refused, the slot shakes). Storms don't stop it: that's when
+// it's wanted.
+item({ id: 'puptent', name: 'Pup tent', kind: 'tool', icon: drawPupTent, blocked: u => u.inTent, use: u => u.pitch(u.i) });
 
 // --- containers -------------------------------------------------------------------------------------
 export const makeSlots = n => Array.from({ length: n }, () => null);
@@ -99,9 +107,11 @@ export const used = c => c.slots.reduce((a, s) => a + (s ? 1 : 0), 0);
 const pack = state.pack = { slots: makeSlots(PACK_SLOTS) };
 const sled = state.sled = { slots: makeSlots(SLED_SLOTS) };
 state.ground = [];
-// the party's supply: 12 rations, a set of every bit of gear, a spare compass and two splints
+// the party's supply: 12 rations, a set of every bit of gear, a spare compass, two splints and
+// the pup tent
 for (let i = 0; i < 4; i++) add(sled, 'food', 3);
 add(sled, 'splint', 2);
+add(sled, 'puptent', 1);
 for (const id of ['snowshoes', 'axes', 'crampons', 'compass']) add(sled, id, 1);
 // the first member sets out with a compass and two rations
 add(pack, 'compass', 1);
@@ -322,6 +332,40 @@ function drawSplint(ctx, r, z) {
   ctx.beginPath();
   for (let k = 0; k <= 24; k++) { const a = k / 24 * Math.PI * 4, f = 0.15 + 0.75 * k / 24; const x = x0 + Math.cos(a) * rx * 0.45 * f, y = Math.sin(a) * ry * f; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
   ctx.lineWidth = Math.max(0.6, z * 0.1); ctx.strokeStyle = 'rgba(40,36,30,0.55)'; ctx.stroke();
+  ctx.restore();
+}
+
+// The pup tent: a small ridge tent a little from above and to one side: the front gable in signal
+// yellow with the dark door slit, the roof running back to the right, the ridge and eaves inked, a
+// pole tip at the peak and a guy line off each end to a stake.
+function drawPupTent(ctx, r, z) {
+  ctx.save();
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const lw = Math.max(1.1, z * 0.28);
+  const A = [-r * 0.2, -r * 0.42], L = [-r * 0.62, r * 0.32], R = [r * 0.22, r * 0.32];   // the front gable
+  const k = [r * 0.42, -r * 0.14];                                                         // back along the ridge
+  const A2 = [A[0] + k[0], A[1] + k[1]], R2 = [R[0] + k[0], R[1] + k[1]];
+  // the roof's lit side, then the front
+  ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(A2[0], A2[1]); ctx.lineTo(R2[0], R2[1]); ctx.lineTo(R[0], R[1]); ctx.closePath();
+  ctx.fillStyle = SIGNAL.base; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(R[0], R[1]); ctx.lineTo(L[0], L[1]); ctx.closePath();
+  ctx.fillStyle = SIGNAL.lit; ctx.fill(); ctx.stroke();
+  // the door
+  ctx.beginPath(); ctx.moveTo(A[0], A[1] + r * 0.2); ctx.lineTo(A[0] + r * 0.14, R[1]); ctx.lineTo(A[0] - r * 0.14, R[1]); ctx.closePath();
+  ctx.fillStyle = 'rgba(52,44,32,0.95)'; ctx.fill();
+  // pole tips, guy lines and stakes
+  ctx.lineWidth = Math.max(0.8, z * 0.16); ctx.strokeStyle = INK;
+  ctx.beginPath();
+  ctx.moveTo(A[0], A[1]); ctx.lineTo(A[0] - r * 0.02, A[1] - r * 0.14);
+  ctx.moveTo(A2[0], A2[1]); ctx.lineTo(A2[0] + r * 0.02, A2[1] - r * 0.12);
+  ctx.moveTo(A[0], A[1] - r * 0.05); ctx.lineTo(-r * 0.78, r * 0.12);
+  ctx.moveTo(A2[0], A2[1] - r * 0.04); ctx.lineTo(r * 0.8, r * 0.02);
+  ctx.stroke();
+  ctx.lineWidth = Math.max(1, z * 0.22);
+  ctx.beginPath(); ctx.moveTo(-r * 0.78, r * 0.12); ctx.lineTo(-r * 0.79, r * 0.2); ctx.moveTo(r * 0.8, r * 0.02); ctx.lineTo(r * 0.81, r * 0.1); ctx.stroke();
+  // the snow it stands on
+  ctx.beginPath(); ctx.moveTo(-r * 0.72, r * 0.34); ctx.lineTo(r * 0.68, r * 0.34);
+  ctx.lineWidth = Math.max(0.8, z * 0.14); ctx.strokeStyle = 'rgba(40,36,30,0.5)'; ctx.stroke();
   ctx.restore();
 }
 

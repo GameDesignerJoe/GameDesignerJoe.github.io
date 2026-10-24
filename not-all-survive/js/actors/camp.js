@@ -23,6 +23,10 @@ const LX = -0.55, LY = -0.45, LZ = 0.70; // light direction (towards the light)
 // ~(1280-1307, 1528-1555); the prevailing wind blows west -> east.
 export const TENT = { x: 1330, y: 1542, yaw: -0.72 };   // door faces south-east, towards spawn
 export const SLED = { x: 1299, y: 1573, yaw: 0.42 };     // front points east, at the dogs
+// The base camp tent as a shelter (body.js, audio.js read player.shelter): the measure the pup
+// tent is held to (puptent.js PUP_SHELTER). Full rates, no cold getting through, the stove and
+// the rest saving 40% of the food, an empty stomach no worse in here, the storm kept out.
+export const CAMP_SHELTER = { kind: 'camp', warm: 1, dry: 1, rest: 1, heal: 1, sleep: 1, storm: 0, leak: 0, food: 0.6, hunger: 0, muffle: 1 };
 const PICKET = { ax: 1315, ay: 1569, bx: 1353, by: 1575 };
 const BOUNDS = { x0: 1222, y0: 1500, x1: 1400, y1: 1602 };
 
@@ -1112,7 +1116,8 @@ export function update(dt) {
   const night = state.lighting?.night || 0;
   // Someone inside (explorer mode 'inside', or crawling through the door): the lamp is lit,
   // so the canvas glows by day too and brighter by night. Holding to sleep turns it down.
-  const m = state.player.mode;
+  // (not when it's the pup tent they're in: puptent.js lights that one)
+  const m = (state.player.shelter?.kind ?? 'camp') === 'camp' ? state.player.mode : 'walk';
   const occT = m === 'inside' ? 1 : m === 'tent-in' || m === 'tent-out' ? 0.6 : 0;
   occ += (occT - occ) * Math.min(1, dt * (occT > occ ? 1.2 : 0.8));
   const lamp = 1 - 0.7 * (state.body?.sleepHold || 0) - (state.body?.phase === 'sleep' ? 0.6 : 0);

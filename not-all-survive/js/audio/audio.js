@@ -323,6 +323,29 @@ function handle(e) {
       claim('body', S.rustle(ctx, B, bus.steps, t, { strength: 0.6, thud: e.type !== 'pickup' }));
       return;
     }
+    // The pup tent (puptent.js): canvas rustled out and spread, a pole stood up, the stakes driven in
+    // (a thud each), the wind taking it (the canvas cracking and flapping, the poles going over);
+    // a strike pulls the stakes; close by, a pitched one cracks in the wind (from inside: close and loud).
+    case 'pitch': case 'strike': {
+      if (voices.body >= LIMIT.body) return;
+      const st = e.stage;
+      let fn = null, o = {};
+      if (st === 'start' || st === 'stop') { fn = S.rustle; o = { strength: st === 'start' ? 0.55 : 0.35 }; }
+      else if (st === 'spread') { fn = S.rustle; o = { strength: 0.9, thud: true }; }
+      else if (st === 'poles') { fn = S.pole; o = { strength: 0.7 }; }
+      else if (st === 'stake') { fn = S.stake; o = { strength: R(0.5, 0.8) }; }
+      else if (st === 'collapse') { fn = S.canvas; o = { strength: 0.75 + 0.4 * (e.strength ?? 0.6), poles: true }; }
+      else if (st === 'pull') { fn = S.pull; o = { strength: 0.7 }; }
+      else if (st === 'done') { fn = e.type === 'pitch' ? S.stake : S.rustle; o = e.type === 'pitch' ? { strength: 0.9 } : { strength: 0.8, thud: true }; }
+      if (fn) claim('body', oneShot('body', e.x, e.y, bus.steps, fn, o, 0.12));
+      return;
+    }
+    case 'flap': {
+      if (voices.body >= LIMIT.body) return;
+      if (e.inside) claim('body', S.canvas(ctx, B, bus.steps, t, { strength: 0.55 * (e.strength ?? 0.5) }));
+      else claim('body', oneShot('body', e.x, e.y, bus.steps, S.canvas, { strength: 0.6 * (e.strength ?? 0.5) }, 0.2));
+      return;
+    }
     case 'full': {
       if (voices.body >= LIMIT.body) return;
       claim('body', S.refuse(ctx, B, bus.steps, t));
@@ -459,7 +482,8 @@ export function update(dt) {
   time += dt;
   // in the tent: the wind drops to a muffled roar on the canvas and the stove crackles
   const m = state.player.mode;
-  insideK += ((m === 'inside' ? 1 : 0) - insideK) * Math.min(1, dt * 1.2);
+  // (the pup tent keeps less of the storm out: player.shelter.muffle; its stove is smaller too)
+  insideK += ((m === 'inside' ? (state.player.shelter?.muffle ?? 1) : 0) - insideK) * Math.min(1, dt * 1.2);
   fire?.set(0.32 * insideK * (state.body?.phase === 'sleep' ? 0.3 : 1), ctx.currentTime);
   popT -= dt;
   if (insideK > 0.2 && popT <= 0) {

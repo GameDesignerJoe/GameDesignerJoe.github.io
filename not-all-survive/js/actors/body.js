@@ -72,6 +72,16 @@
 // clears it. Looking down past the fatal height ('vertigo'): the screen edges smear downward a
 // moment (drawScreen), as if the drop pulled at the eyes. Neither is the cold's steady soft edge.
 //
+// Shelters (slice 6): 'inside' is whichever tent they crawled into, and player.shelter says how
+// good it is (camp.js CAMP_SHELTER, all full rates; puptent.js PUP_SHELTER for the pup tent):
+// warm, dry, rest, heal and sleep scale the recovery; leak lets that share of the outside cold
+// through the canvas (and the stove's gain falls off in a storm by storm x how stormy); food is the
+// food clock's rate in there; hunger is how much an empty stomach undoes it (no heat from a body
+// with nothing to burn, energy slower back, a poorer night). So the pup tent warms and dries at a
+// third of base camp's rate, barely gains in a full blizzard, and with no food the cold gets in
+// even there: a leaky shelter can be died in (warmth 0 inside it kills, as outside). Carrying the
+// pup tent costs ~10% more energy walking (PUP_DRAIN).
+//
 // state.party = [{ name, alive, x, y }] x 4, state.member = index of the one playing now.
 // The hand-over takes the dead member's pack off them (items.js takePack: it goes with the body
 // in the 'handover' event, unless the sea took them) and the next one starts with an empty pack,
@@ -82,7 +92,8 @@
 //        NAS.hurt(v?) (injury to v, or 0.25 worse, with the flinch), NAS.heal().
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
-import { takePack, restock, find, take } from '../items.js';
+import { takePack, restock, find, take, count } from '../items.js';
+import { CAMP_SHELTER } from './camp.js';
 
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -126,6 +137,10 @@ const RES_WORK = 0.1, RES_TIME = 1 / 800, RES_TENT = 1 / 300;
 // injury: walking costs more hurt; heals only in the tent (from 1 to 0 in ~10 min there) and by a
 // night's sleep; a heave out of the ice (without axes; with them far less)
 const INJ_DRAIN = 0.7, INJ_TENT = 1 / 600, INJ_SLEEP = 0.3, HEAVE = 0.09, HEAVE_AXES = 0.035;
+// the pup tent on the back: walking costs this much more (slice 6)
+const PUP_DRAIN = 0.1;
+// kneeling at the pup tent pitching or striking it: hard work, about walking on snow (slice 6)
+const JOB_DRAIN = 0.9 / 360, JOB_FOOD = 0.8;
 // how high energy can come back: reserve, hunger, and (slice 5) injury
 const energyMax = () => (0.35 + 0.65 * B.reserve) * (1 - 0.5 * clamp(B.injury)) * (1 - 0.35 * hungerK());
 
@@ -133,7 +148,7 @@ const energyMax = () => (0.35 + 0.65 * B.reserve) * (1 - 0.5 * clamp(B.injury)) 
 // Food / s at rest in the open: full to empty in ~15 min (three days and nights). Work burns more
 // (x(1 + FOOD_WORK x push)), so does shivering (x(1 + FOOD_COLD) at the worst of it); in the tent
 // a little less. Sleeping the night through costs FOOD_SLEEP.
-const FOOD_REST = 1 / 900, FOOD_WORK = 0.8, FOOD_COLD = 0.6, FOOD_TENT = 0.6, FOOD_SLEEP = 0.06;
+const FOOD_REST = 1 / 900, FOOD_WORK = 0.8, FOOD_COLD = 0.6, FOOD_SLEEP = 0.06;   // (in a tent: x shelter.food)
 const HUNGRY = 0.3;               // below this it starts to tell
 const hungerK = () => clamp((HUNGRY - B.food) / HUNGRY);   // 0 fed .. 1 starving
 const starving = () => smooth(0.1, 0, B.food);              // the last of it: the cold gets in
@@ -193,9 +208,26 @@ export function init() {
 
 const P = state.player;
 const outside = () => P.mode !== 'inside' && P.mode !== 'tent-in' && P.mode !== 'gone';
+// the shelter they're in (or last crawled into): how good it is
+const Q = () => P.shelter || CAMP_SHELTER;
+
+// In a tent: the stove's warmth (base camp's brings them back from the edge in ~20 s), as good as
+// the shelter is, less in a storm if the canvas lets it in, and none from a starving body in a
+// poor one; minus the share of the outside cold that gets through (wet clothes and an empty
+// stomach let more of it in).
+function insideRate() {
+  const q = Q();
+  const storm = smooth(0.45, 0.95, clamp(state.wind.speed + 0.3 * (state.wind.gust || 0)));
+  let gain = INSIDE_GAIN * q.warm * (1 - q.storm * storm) * (1 - 0.8 * q.hunger * starving());
+  if (!q.leak) return gain;
+  const cold = clamp(state.weather.cold ?? 0.3), wind = clamp(state.wind.speed + 0.5 * (state.wind.gust || 0));
+  const chill = cold * (0.35 + 0.65 * wind);
+  const leak = q.leak * LOSS * Math.pow(chill, 1.5) * (1 + 0.3 * clamp(state.lighting?.night || 0)) * (1 + 3 * clamp(B.wet)) * (1 + 0.6 * starving());
+  return gain - leak;
+}
 
 function warmthRate() {
-  if (P.mode === 'inside') return INSIDE_GAIN;
+  if (P.mode === 'inside') return insideRate();
   if (P.mode === 'tent-in' || P.mode === 'tent-out') return 0;
   const cold = clamp(state.weather.cold ?? 0.3);
   const wind = clamp(P.exposure || 0);
@@ -231,7 +263,8 @@ function updateWet(dt) {
     B.frozen = Math.max(0, B.frozen - dt * 0.3);
   }
   else if (P.mode === 'inside' || B.phase === 'sleep') {
-    B.wet = Math.max(0, B.wet - DRY_TENT * dt); B.frozen = Math.max(0, B.frozen - THAW_TENT * dt);
+    const k = Q().dry;
+    B.wet = Math.max(0, B.wet - DRY_TENT * k * dt); B.frozen = Math.max(0, B.frozen - THAW_TENT * k * dt);
   } else {
     const L = state.lighting, cold = clamp(state.weather.cold ?? 0.3);
     // calm sun on a bright day dries a little faster; otherwise it mostly freezes
@@ -253,8 +286,9 @@ function updateEnergy(dt) {
   const hunger = 1 + 0.6 * hungerK();                         // slice 4: hungry, the reserve goes faster
   let drain = 0;
   if (m === 'inside' || B.phase === 'sleep') {
-    drain = -TENT_REST;
-    B.reserve = Math.min(1, B.reserve + RES_TENT * dt);
+    const q = Q();
+    drain = -TENT_REST * q.rest * (1 - 0.5 * q.hunger * hungerK());
+    B.reserve = Math.min(1, B.reserve + RES_TENT * q.rest * dt);
   } else if (m === 'tent-in' || m === 'tent-out' || m === 'gone' || m === 'dead' || m === 'collapse' || m === 'sink' || B.phase !== 'alive') {
     drain = 0;
   } else {
@@ -268,9 +302,13 @@ function updateEnergy(dt) {
       const base = g.snowshoes && ter in DRAIN_SHOE ? DRAIN_SHOE[ter] : g.crampons && ter in DRAIN_CRAMP ? DRAIN_CRAMP[ter] : DRAIN[ter] ?? DRAIN.snow;
       // into a gale even a path costs something; hurt, every step costs more
       drain = (base * push * (1 + HEADWIND * hw) + push * hw / 500) * (1 + INJ_DRAIN * clamp(B.injury));
+      if (carryingPup()) drain *= 1 + PUP_DRAIN;            // the pup tent on the back (slice 6)
       if (ter === 'path') drain -= PATH_REST * (1 - 0.5 * push) * (1 - smooth(0.2, 0.6, hw));
     }
-    if (push <= 0.05 && m !== 'climb' && m !== 'swim' && m !== 'crawlout' && !P.crawl) {
+    // pitching or striking the pup tent: work, not rest (not while it's down and flapping: a gasp)
+    const job = !!state.pup?.job && !state.pup.job.coll;
+    if (job) drain = JOB_DRAIN * (1 + INJ_DRAIN * clamp(B.injury));
+    else if (push <= 0.05 && m !== 'climb' && m !== 'swim' && m !== 'crawlout' && !P.crawl) {
       // getting the wind back: the body's own cold, the air's, wet clothes and a gale all slow it
       const chilled = smooth(0.8, 0.3, B.warmth), air = 0.3 * clamp(state.weather.cold ?? 0.3);
       const gale = smooth(0.35, 0.9, clamp(P.exposure || 0) * (1 - 0.7 * clamp(P.sheltered || 0)));
@@ -298,14 +336,16 @@ function updateEnergy(dt) {
   B.drain = drain;
 }
 
-// Food: a slow clock, faster working and shivering, slower in the tent. (Eating is ui/pack.js.)
+const carryingPup = () => !!state.pack && count(state.pack, 'puptent') > 0;
+
+// Food: a slow clock, faster working and shivering, slower in base camp's tent. (Eating is ui/pack.js.)
 function updateFood(dt) {
   const m = P.mode;
   let rate = 0;
-  if (m === 'inside' || B.phase === 'sleep') rate = FOOD_REST * FOOD_TENT;
+  if (m === 'inside' || B.phase === 'sleep') rate = FOOD_REST * Q().food;
   else if (B.phase === 'alive' || B.phase === 'open') {
     if (m !== 'tent-in' && m !== 'tent-out' && m !== 'gone' && m !== 'dead' && m !== 'collapse' && m !== 'sink') {
-      const work = m === 'swim' ? 1 : m === 'climb' ? 0.9 : P.water?.level ? 0.6 : clamp(P.push || 0);
+      const work = m === 'swim' ? 1 : m === 'climb' ? 0.9 : P.water?.level ? 0.6 : state.pup?.job ? JOB_FOOD : clamp(P.push || 0);
       rate = FOOD_REST * (1 + FOOD_WORK * work) * (1 + FOOD_COLD * smooth(0.8, 0.3, B.warmth));
     } else rate = FOOD_REST;
   }
@@ -347,7 +387,7 @@ function updateInjury(dt) {
     const k = peel.end !== null ? Math.max(0, 1 - (peel.t - peel.end) / 0.25) : 1;
     state.cam.shakeX += peel.side * k * (7 * Math.exp(-peel.t * 6) + 1.8 * Math.sin(peel.t * 31));
   }
-  if (P.mode === 'inside' || B.phase === 'sleep') B.injury = Math.max(0, B.injury - INJ_TENT * dt);
+  if (P.mode === 'inside' || B.phase === 'sleep') B.injury = Math.max(0, B.injury - INJ_TENT * Q().heal * dt);
   if (flinch) { flinch.t += dt; if (flinch.t > flinch.life) flinch = null; }
 }
 
@@ -482,8 +522,10 @@ function handover() {
   const lost = !!P.lostAtSea;
   // their pack stays with them (fallen.js), unless the sea took it; the next one starts empty
   // (the picture first, while they still wear what they wore)
-  const sprite = lost ? null : P.snapshot?.(), kit = takePack();
-  state.events.push({ type: 'handover', x: P.x, y: P.y, facing: P.facing, member: state.member, name: m.name, lost, sprite, pack: lost ? null : kit });
+  // (died in a tent: no picture; fallen.js leaves the body in there, the boots showing at the door)
+  const inside = P.deadInside ? (P.shelter?.kind || 'camp') : null;
+  const sprite = lost || inside ? null : P.snapshot?.(), kit = takePack();
+  state.events.push({ type: 'handover', x: P.x, y: P.y, facing: P.facing, member: state.member, name: m.name, lost, inside, door: inside ? P.door?.() : null, sprite, pack: lost ? null : kit });
   const next = state.party.findIndex(q => q.alive);
   Object.assign(B, { warmth: 1, wet: 0, frozen: 0, shock: 0, energy: 1, reserve: 1, injury: 0, splint: false, food: 0.8, sleepHold: 0, dizzy: 0 });
   flinch = null; joltA = 0; peel = null; vertT = 0;   // (a little hungry already)
@@ -521,7 +563,9 @@ export function update(dt) {
       B.rate = killed ? 0 : warmthRate();
       B.warmth = clamp(B.warmth + B.rate * dt);
       if (B.phase === 'open' && B.t >= OPEN) setPhase('alive');
-      if (B.phase === 'alive' && ((B.warmth <= 0 && outside()) || killed)) {
+      // (in a leaky shelter, the pup tent, the cold can finish them too)
+      const exposed = outside() || (P.mode === 'inside' && Q().leak > 0);
+      if (B.phase === 'alive' && ((B.warmth <= 0 && exposed) || killed)) {
         killed = false; B.warmth = 0;
         irisFrom = irisAlive(0);
         setPhase('dying'); B.cause = P.water?.level ? 'water' : 'cold';
@@ -557,16 +601,29 @@ export function update(dt) {
       }
       break;
     case 'sleep':
-      B.warmth = clamp(B.warmth + INSIDE_GAIN * dt);
+      B.warmth = clamp(B.warmth + insideRate() * dt);
       if (B.t >= SLEEP_FADE && !slept) {
         // the rest of the night passes: the clock jumps to the first light of the next day
         // (the same dawn the night would have reached; the director picks its forecast then)
         slept = true;
         const L = state.lighting;
+        // the night that's skipped is lived through: in a leaky shelter the cold that gets in over the
+        // hours left is counted (drying out as it goes); a freezing body isn't saved by sleeping, it
+        // dies in the night (and is found in the morning)
+        const left = Math.max(0, 300 - (L.clock || 0)), wet0 = B.wet;
+        let wN = B.warmth;
+        for (let s2 = 0; s2 < left && wN > 0; s2 += 10) { wN = clamp(wN + insideRate() * Math.min(10, left - s2)); B.wet = Math.max(0, B.wet - DRY_TENT * Q().dry * 10); }
+        B.wet = wet0;
         L.clock = 0; L.night = 0; L.nightTarget = 0;
-        B.warmth = 1; B.reserve = 1; B.energy = 1;   // a night's sleep: rested
+        // a night's sleep: rested (in base camp's tent fully; in the pup tent only most of the
+        // way, less again on an empty stomach)
+        const q = Q(), k = q.sleep * (1 - 0.6 * q.hunger * hungerK());
+        if (wN <= 0) { B.warmth = 0; killed = true; }
+        else B.warmth = Math.min(lerp(B.warmth, 1, k), wN);
+        B.reserve = lerp(B.reserve, 1, k);
+        B.energy = k >= 1 ? 1 : lerp(B.energy, Math.max(B.energy, energyMax()), k);
         B.food = Math.max(0, B.food - FOOD_SLEEP);   // and a little hungrier for it
-        B.injury = Math.max(0, B.injury - INJ_SLEEP);   // and the leg a good deal better
+        B.injury = Math.max(0, B.injury - INJ_SLEEP * q.heal);   // and the leg a good deal better
         state.events.push({ type: 'tent', action: 'wake', x: P.x, y: P.y });
       }
       if (B.t >= SLEEP_FADE + SLEEP_HOLD + SLEEP_WAKE) { slept = false; setPhase('alive'); }

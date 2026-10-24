@@ -44,6 +44,15 @@
 // Eating: tap a ration. The explorer kneels and eats for 3 s with the pack open (hands to the
 // face, a chewing bob); moving cancels it and the ration isn't used. +0.35 food, a little warmth.
 //
+// The pup tent (slice 6, actors/puptent.js): tap it in the pack and it's pitched beside the
+// explorer (refused with a shake if the ground won't take it); the pack closes and the work plays
+// out on the snow (walking off stops it, and the tent stays in the pack). The pack opens in a gale too:
+// then the compass and the gear are dimmed and refused (see stormy()); the rest goes on. Pitched, a quick
+// tap on it from close by crawls in, as anywhere on it does; press and hold it from right by it (within 5;
+// a white arc fills round its glint over 0.9 s) and the explorer kneels and strikes it (~4 s, the dig bar filling over them; letting go
+// stops it and it stays up), back into the pack (a full pack: it jerks, the knock). Within reach a
+// glint catches on its ridge. Keyboard: hold Space / E close to it.
+//
 // Splinting (slice 5): tap a splint while hurt. The explorer sits in the snow with the bad leg out
 // and binds it for 4 s (explorer.js); moving cancels it and the splint isn't used. Injury -0.25 at
 // once, and the limp costs half the pace until the next injury (body.splint).
@@ -59,6 +68,7 @@ import { state } from '../state.js';
 import { worldToScreenUI as worldToScreen, screenToWorld, visibleRect } from '../camera.js';   // (not the breathing pulse)
 import { SIGNAL } from '../palette.js';
 import { SLED, campInteract, tentDoor, sledNudge } from '../actors/camp.js';
+import { startPitch, startStrike, stopJob, pupInteract, pupDist, pupGlint, PUP_REACH } from '../actors/puptent.js';
 import * as Terrain from '../world/terrain.js';
 import {
   ITEMS, PACK_SLOTS, wearSlot, worn, wear, take, add, room, find, isEmpty, dropAt, sweepGround,
@@ -75,7 +85,8 @@ const MOVE_S = 0.6;               // ...a container slot (or the pack's, at a co
 const ARC_FROM = 0.3;             // the hold arc only shows after this (a tap never sees it)
 const EAT_S = 3, EAT_FOOD = 0.35, EAT_WARM = 0.04;
 const SPLINT_S = 4, SPLINT_HEAL = 0.25;
-const REACH = { sled: 20, fallen: 16, ground: 12 };   // how close to rummage (world units; the sled from its edge, on its ground plane)
+const REACH = { sled: 20, fallen: 16, ground: 12, pup: PUP_REACH };   // how close to rummage (world units; the sled and the pup tent from the edge, on its ground plane)
+const STRIKE_ARM = 0.9;           // a press on the pitched pup tent held this long strikes it (shorter: a tap, crawl in)
 const LEAVE = 6;                  // ...and how much further walking away closes it
 const BEAR_NEAR = 60;             // an alerted bear this close: no kneeling over a pack
 const BAR_W = 12, BAR_H = 1.3;    // world units: about twice the explorer's width
@@ -103,7 +114,7 @@ const inTent = () => P.mode === 'inside' && (!state.body || state.body.phase ===
 const canSleep = () => { const L = state.lighting; return L.mode === 'cycle' && L.night > 0.5 && L.clock >= 180; };   // (as body.js)
 // where the UI hangs from: the explorer's feet, or the tent door from inside
 function feet() {
-  if (inTent()) { try { const d = tentDoor(); return worldToScreen(d.fx, d.fy - 2); } catch { /* no camp */ } }
+  if (inTent()) { try { const d = P.door?.() || tentDoor(); return worldToScreen(d.fx, d.fy - 2); } catch { /* no camp */ } }
   return worldToScreen(P.x, P.y);
 }
 
@@ -116,13 +127,27 @@ function bearClose() {
   const b = state.bear;
   return !!b && (b.st === 'alert' || b.st === 'stalk') && Math.hypot(b.x - P.x, b.y - P.y) < BEAR_NEAR;
 }
+// No pack at all: busy elsewhere, in the water, on a wall, walking to one, knocked down.
+function packAway() {
+  return away() || P.terrain === 'water' || P.mode === 'climb' || P.mode === 'approach' || P.mode === 'down';
+}
+// Too much weather for fine work with the hands: cowering, a gale, the world's edge. (In a tent,
+// never.) The pack still opens in it, and eating, splinting, pitching the pup tent and moving things
+// to and from a container all go on; the compass (it can't be held) and putting gear on or taking it
+// off (the straps can't be worked) are dimmed and refused.
+function stormy() {
+  if (inTent()) return false;
+  const w = state.wind;
+  return P.mode === 'cower' || (w.speed + (w.gust || 0)) > 0.85 || (state.frontier?.amount || 0) > 0.4;
+}
 function packBlocked() {
   if (inTent()) return false;     // sheltered
-  const w = state.wind;
-  return away() || P.terrain === 'water' || P.mode === 'climb' || P.mode === 'approach' || P.mode === 'down' || P.mode === 'cower'
-    || (w.speed + (w.gust || 0)) > 0.85 || (state.frontier?.amount || 0) > 0.4;
+  return packAway();
 }
+const openBlocked = () => packBlocked();
+const pupJob = () => state.pup?.job || null;
 // Can they hold something in their hands (the compass, a ration)? Not wading through deep snow either.
+// (The gale only stops the compass and the gear: stormy().)
 function blocked() { return !inTent() && (packBlocked() || P.terrain === 'deep'); }
 
 function onPlayer(sx, sy) {
@@ -149,6 +174,7 @@ function containerAt(sx, sy) {
 const SLED_C = Math.cos(SLED.yaw), SLED_S = Math.sin(SLED.yaw);
 function sledLocal(x, y) { const dx = x - SLED.x, dy = (y - SLED.y) / 0.72; return [dx * SLED_C + dy * SLED_S, -dx * SLED_S + dy * SLED_C]; }
 function dist(t) {
+  if (t.kind === 'pup') return pupDist();
   if (t.kind !== 'sled') return Math.hypot(P.x - t.x, P.y - t.y);
   const [lx, ly] = sledLocal(P.x, P.y);
   return Math.hypot(Math.max(0, Math.abs(lx) - 13), Math.max(0, Math.abs(ly) - 3.5));
@@ -164,13 +190,17 @@ function reachPoint(t) {
   const d = Math.hypot(P.x - t.x, P.y - t.y) || 1, k = 6 / d;
   return { x: t.x + (P.x - t.x) * k, y: t.y + (P.y - t.y) * k };
 }
-// the nearest container within reach (Space / E); with far = 2, within twice that (the glint)
+// the nearest container within reach (Space / E); with far = 2, within twice that (the glint); the
+// pitched pup tent counts (its glint, and Space / E: tap to crawl in, hold to strike)
 function nearest(far = 1) {
   let best = null, bd = 1e9;
   const consider = t => { const d = dist(t); if (d < REACH[t.kind] * far && d / REACH[t.kind] < bd) { bd = d / REACH[t.kind]; best = t; } };
   consider({ kind: 'sled', ref: state.sled, x: SLED.x, y: SLED.y });
   for (const f of state.fallen || []) if (f.pack && !f.lost && !isEmpty(f.pack)) consider({ kind: 'fallen', ref: f.pack, x: f.x, y: f.y });
   for (const g of state.ground) consider({ kind: 'ground', ref: g, x: g.x, y: g.y });
+  // the pitched pup tent only when nothing else is in reach (the sled, a body, a pile come first)
+  const pp = state.pup?.pitched;
+  if (!best && pp) consider({ kind: 'pup', ref: null, x: pp.x, y: pp.y });
   return best;
 }
 // The slots a container shows: one empty slot first if there's room (where things go: nearest
@@ -232,7 +262,7 @@ function shake(block, i) {
   state.events.push({ type: 'full', x: P.x, y: P.y });
 }
 function startRummage(target = null) {
-  if (packBlocked() || (target && bearClose())) return;
+  if ((target ? packBlocked() : openBlocked()) || (target && bearClose()) || pupJob()) return;
   C.phase = 'rummage'; C.t = 0; C.target = target;
   state.events.push({ type: 'rummage', x: P.x, y: P.y, target: target?.kind });
 }
@@ -264,12 +294,18 @@ function startSplint(i) {
   C.phase = 'splint'; C.splintI = i; C.t = 0; wrapT = 0.8;
   state.events.push({ type: 'splint', stage: 'start', x: P.x, y: P.y });
 }
+// Pitch the pup tent in slot i: refused (the slot shakes) if the ground beside them won't take it;
+// otherwise the pack closes and the work plays out on the snow (puptent.js).
+function pitchSlot(i) {
+  if (!startPitch()) { shake('pack', i); return; }
+  close();
+}
 // Tap a pack slot (pack open): use what's in it.
 function useSlot(i) {
   const s = pack.slots[i];
   if (!s) return;
   const it = ITEMS[s.id];
-  const u = { i, slot: s, handsBlocked: blocked(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint };
+  const u = { i, slot: s, handsBlocked: blocked(), storm: stormy(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint, pitch: pitchSlot };
   if (it.blocked(u)) { shakes.set('pack:' + i, state.time); return; }
   C.t = 0;
   it.use(u);
@@ -336,11 +372,39 @@ function pressContainer(t) {
   return false;
 }
 
+// --- the pitched pup tent: a press on it ------------------------------------------------------------
+// Held STRIKE_ARM it strikes the tent (startStrike) for as long as it's held; let go sooner, it was a
+// tap: crawl in (explorer.js). state.pup.press is up while a press is on it (explorer.js leaves
+// Space / E alone then).
+let pupPress = null;              // { t, key, struck }
+function pressPup(key = null) {
+  pupPress = { t: state.time, key, struck: false };
+  if (state.pup) state.pup.press = true;
+}
+function releasePup() {
+  const pp = pupPress;
+  pupPress = null;
+  if (state.pup) state.pup.press = false;
+  if (!pp) return;
+  if (!pp.struck) P.pupTent?.();
+  else if (pupJob()?.kind === 'strike') stopJob();
+}
+const nearPup = () => !!state.pup?.pitched && pupDist() < REACH.pup;
+// (Space / E at base camp's door is always base camp's)
+const nearCampDoor = () => { try { const d = tentDoor(); return Math.hypot(P.x - d.fx, P.y - d.fy) < 15; } catch { return false; } };
+
 export function init() {
   state.uiPress = (sx, sy) => {
     if (!state.begun && !state.params.has('autostart')) return false;
     if (away()) { close(); return false; }   // presses go to the tent / the hand-over
     pending = null;
+    // busy at the pup tent: a press on the explorer is swallowed; anywhere else walks (and stops it)
+    if (pupJob()) return onPlayer(sx, sy);
+    // a press on the pitched pup tent from close by: tap to crawl in, hold to strike it
+    if (C.phase === 'idle' && !inTent() && nearPup()) {
+      const w = screenToWorld(sx, sy);
+      if (pupInteract(w.x, w.y) && !onPlayer(sx, sy)) { pressPup(); return true; }
+    }
     const open = C.phase === 'slot' || C.phase === 'transfer' || C.phase === 'eat' || C.phase === 'splint';
     if (open) {
       const hit = slotAt(sx, sy);
@@ -379,6 +443,7 @@ export function init() {
     return false;
   };
   state.uiRelease = () => {
+    if (pupPress && !pupPress.key) releasePup();
     if (holdCode === null) holding = false;
     // a quick tap on the tent door (the pack not yet open): leave, as any tap inside does
     if (doorPress && C.phase === 'rummage') { close(); P.leaveTent?.(); }
@@ -400,18 +465,21 @@ export function init() {
       return;
     }
     if (e.code === 'KeyC') {
-      if (C.phase === 'slot') { if (!blocked()) takeOut(); }
+      if (C.phase === 'slot') { if (!blocked() && !stormy()) takeOut(); }
       else if (C.phase === 'out') stow();
       else if (C.phase === 'idle' && !away()) { holding = true; holdCode = e.code; startRummage(); }
       return;
     }
-    // Space / E close to the sled, a body or a pile: hold to rummage in it
-    if ((e.code === 'Space' || e.code === 'KeyE') && C.phase === 'idle' && !inTent()) {
+    // Space / E close to the sled, a body or a pile: hold to rummage in it (the pup tent: tap to
+    // crawl in, hold to strike it)
+    if ((e.code === 'Space' || e.code === 'KeyE') && C.phase === 'idle' && !inTent() && !pupJob()) {
       const t = nearest();
-      if (t) { holding = true; holdCode = e.code; startRummage(t); }
+      if (t && t.kind === 'pup') { if (!away() && !nearCampDoor()) pressPup(e.code); }
+      else if (t) { holding = true; holdCode = e.code; startRummage(t); }
     }
   });
   addEventListener('keyup', e => {
+    if (pupPress && pupPress.key === e.code) releasePup();
     if (e.code === holdCode) { holding = false; holdCode = null; }
     if (press && press.key === e.code) { if (!press.done) slotAction(press, false); press = null; }
   });
@@ -445,6 +513,14 @@ export function update(dt) {
     } else if (P.mode !== 'approach') pending = null;
   }
 
+  // a press held on the pitched pup tent: long enough, and it's a strike (needs a slot free)
+  if (pupPress && !pupPress.struck && state.time - pupPress.t >= STRIKE_ARM) {
+    pupPress.struck = true;
+    if (!startStrike()) { pupPress = null; if (state.pup) state.pup.press = false; }
+  }
+  if (pupPress && pupPress.struck && !pupJob()) { pupPress = null; if (state.pup) state.pup.press = false; }   // done (or stopped)
+  if (pupJob() && C.phase !== 'idle') close();
+
   // a press held on a slot: once it's been held long enough, drop one / move the whole stack
   if (press && !press.done && state.time - press.t >= holdNeed() && (C.phase === 'slot' || C.phase === 'transfer')) { press.done = true; slotAction(press, true); }
 
@@ -454,14 +530,14 @@ export function update(dt) {
   if (C.phase === 'rummage') {
     const t = C.target;
     // Let go, start walking, or get caught out by the weather: the dig is abandoned.
-    if (!holding || mv || packBlocked() || (t && dist(t) > REACH[t.kind] + LEAVE)) { close(); holdCode = holdCode === 'auto' ? null : holdCode; }
+    if (!holding || mv || (t ? packBlocked() : openBlocked()) || (t && dist(t) > REACH[t.kind] + LEAVE)) { close(); holdCode = holdCode === 'auto' ? null : holdCode; }
     else if (C.t >= (t?.kind === 'ground' ? PILE_S : RUMMAGE_S)) {
       C.phase = t ? 'transfer' : 'slot'; C.t = 0; doorPress = false;
       if (holdCode === 'auto') { holding = false; holdCode = null; }
       if (t) { side = feet().x >= worldToScreen(t.x, t.y).x ? 1 : -1; shownT = t; }
     }
   } else if (C.phase === 'slot') {
-    if ((C.t > SLOT_TIMEOUT_S && !press) || (mv && !wasMoving) || packBlocked()) close();
+    if ((C.t > SLOT_TIMEOUT_S && !press) || (mv && !wasMoving) || openBlocked()) close();
   } else if (C.phase === 'transfer') {
     const t = C.target;
     if (!t || (C.t > XFER_TIMEOUT_S && !press) || (mv && !wasMoving) || packBlocked() || dist(t) > REACH[t.kind] + LEAVE) close();
@@ -500,7 +576,7 @@ export function update(dt) {
       }
     }
   } else if (C.phase === 'out') {
-    if (blocked() || inTent() || C.t > OUT_S || find(pack, 'compass') < 0) stow();
+    if (blocked() || stormy() || inTent() || C.t > OUT_S || find(pack, 'compass') < 0) stow();
   }
   if (C.phase !== 'rummage' && C.phase !== 'transfer') C.target = null;
   if (press && C.phase !== 'slot' && C.phase !== 'transfer') press = null;
@@ -599,6 +675,7 @@ function drawGlint(ctx) {
 // where the glint sits on each: the sled's middle lashing (near side, over the load), the body's
 // pack, the top of the pile
 function glintPoint(t) {
+  if (t.kind === 'pup') return pupGlint() || { x: t.x, y: t.y - 6 };
   if (t.kind === 'sled') { const lx = -1.8, ly = 2.4, h = 5.6; return { x: SLED.x + lx * SLED_C - ly * SLED_S, y: SLED.y + (lx * SLED_S + ly * SLED_C) * 0.72 - h }; }
   if (t.kind === 'fallen') return { x: t.x - 0.5, y: t.y - 2.6 };
   return { x: t.x + 0.8, y: t.y - 2.2 };
@@ -619,7 +696,7 @@ export function drawables() {
   }
   if (puffs.length) { const p = puffs[puffs.length - 1]; puffItem.x = p.x; puffItem.y = p.y + 4; items.push(puffItem); }
   glintAt = null;
-  if (C.phase === 'idle' && !away() && !inTent() && !bearClose()) {
+  if (C.phase === 'idle' && !away() && !inTent() && !bearClose() && !pupJob()) {
     const t = nearest(2);
     if (t) { const d = dist(t) / REACH[t.kind]; glintK = d <= 1 ? 1 : 0.35 + 0.65 * (1 - (d - 1)); glintAt = glintPoint(t); glintItem.x = t.x; glintItem.y = (t.kind === 'sled' ? SLED.y + 6 : t.y + 2); items.push(glintItem); }
   }
@@ -698,6 +775,20 @@ function drawSlot(ctx, x, y, r, s, o) {
     ctx.lineCap = 'butt';
   }
 }
+// The press held on the pitched pup tent, before the strike starts: a white, ink-edged arc round the
+// glint on its ridge (the slots' hold arc), filling to the arm time.
+function drawPupArm(ctx, k) {
+  const g = pupGlint();
+  if (!g) return;
+  const { dpr } = state.view, p = worldToScreen(g.x, g.y), r = Math.max(14, 3.5 * zoom());
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.globalAlpha = Math.min(1, k * 3);
+  ctx.beginPath(); ctx.arc(p.x, p.y, r, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, k));
+  ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(3.5, zoom()); ctx.strokeStyle = 'rgba(40,40,44,0.35)'; ctx.stroke();
+  ctx.lineWidth = Math.max(2, zoom() * 0.6); ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.stroke();
+  ctx.lineCap = 'butt'; ctx.globalAlpha = 1;
+}
 // A faint dashed ink tether from a block to its owner (from the block's nearest slot edge to just
 // short of the owner), with a pale halo so it reads on dark rock.
 function tether(ctx, pos, r, owner, a) {
@@ -719,7 +810,12 @@ function tether(ctx, pos, r, owner, a) {
 export function drawScreen(ctx) {
   const sleepK = inTent() && C.phase === 'idle' && canSleep() ? state.body?.sleepHold || 0 : 0;
   const hint = C.phase === 'idle' ? P.patHint || 0 : 0;
-  if (C.phase === 'idle' && C.slotA < 0.01 && C.outA < 0.01 && C.xferA < 0.01 && sleepK < 0.01 && hint <= 0) return;
+  // striking the pup tent: the bar fills over the explorer as it comes down; before that, the
+  // press's arc (only from the arm time on, as the slots': a tap never sees it)
+  const J = pupJob(), strikeK = J && J.kind === 'strike' ? 1 - J.prog / 3 : -1;
+  const armK = pupPress && !pupPress.struck ? Math.max(0, (state.time - pupPress.t - 0.12) / (STRIKE_ARM - 0.12)) : 0;
+  if (armK > 0.01) drawPupArm(ctx, armK);
+  if (C.phase === 'idle' && C.slotA < 0.01 && C.outA < 0.01 && C.xferA < 0.01 && sleepK < 0.01 && hint <= 0 && strikeK < 0) return;
   const { dpr } = state.view;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   lay = null;
@@ -730,10 +826,10 @@ export function drawScreen(ctx) {
   // The dig bar: transparent white with a white fill, over the explorer's head (the tent door).
   // The same bar fills over the door as a hold there sleeps (after dark), and its first fifth
   // flashes over the explorer as they pat the pack, the once (the hold, taught without words).
-  if (C.phase === 'rummage' || sleepK > 0.01 || hint > 0) {
+  if (C.phase === 'rummage' || sleepK > 0.01 || hint > 0 || strikeK >= 0) {
     const w = BAR_W * z, h = Math.max(4, BAR_H * z), x = f.x - w / 2, y = f.y - BAR_Y * z - h / 2;
-    const frac = C.phase === 'rummage' ? Math.min(1, C.t / (C.target?.kind === 'ground' ? PILE_S : RUMMAGE_S)) : sleepK > 0.01 ? sleepK : 0.2;
-    ctx.globalAlpha = C.phase === 'rummage' ? Math.min(1, C.t * 6) : sleepK > 0.01 ? Math.min(1, sleepK * 5) : Math.min(1, 1.6 * Math.sin(Math.PI * hint)) * (0.75 + 0.25 * Math.sin(state.time * 9));
+    const frac = strikeK >= 0 ? strikeK : C.phase === 'rummage' ? Math.min(1, C.t / (C.target?.kind === 'ground' ? PILE_S : RUMMAGE_S)) : sleepK > 0.01 ? sleepK : 0.2;
+    ctx.globalAlpha = strikeK >= 0 ? Math.min(1, J.t * 6) : C.phase === 'rummage' ? Math.min(1, C.t * 6) : sleepK > 0.01 ? Math.min(1, sleepK * 5) : Math.min(1, 1.6 * Math.sin(Math.PI * hint)) * (0.75 + 0.25 * Math.sin(state.time * 9));
     roundRect(ctx, x, y, w, h, h / 2);
     ctx.fillStyle = 'rgba(255,255,255,0.32)';
     ctx.fill();
@@ -760,11 +856,11 @@ export function drawScreen(ctx) {
   }
   // The pack, beside the explorer (tethered to them while a container is open too).
   if (C.slotA > 0.01) {
-    const hb = blocked(), it = inTent();
+    const hb = blocked(), it = inTent(), sw = stormy();
     if (C.xferA > 0.01) tether(ctx, L.pack.slice(0, 5), L.r, L.packOwner, C.xferA);
     L.pack.forEach((p, i) => {
       const s = pack.slots[i];
-      const dim = !!s && C.phase !== 'transfer' && ITEMS[s.id].blocked({ i, slot: s, handsBlocked: hb, inTent: it });
+      const dim = !!s && C.phase !== 'transfer' && ITEMS[s.id].blocked({ i, slot: s, handsBlocked: hb, storm: sw, inTent: it });
       let hold = holdK('pack', i);
       if (C.phase === 'eat' && i === C.eatI) hold = C.t / EAT_S;   // eating: the arc fills over the meal
       if (C.phase === 'splint' && i === C.splintI) hold = C.t / SPLINT_S;   // ...and over the binding

@@ -7,6 +7,9 @@
 // Lost at sea ('handover' with lost: true, no sprite): no body; slow dark rings where they went
 // under, fading over ~25 s, then nothing.
 //
+// Died in a tent (slice 6: the pup tent lets the cold in; 'handover' with inside: 'pup'|'camp', no
+// sprite): the body stays in there. The tent goes dark and unlit (nobody's lamp), and all that shows
+// is a pair of boot soles in the doorway, snowing over; the pack is recovered there like any other.
 // state.fallen = [{ x, y, facing, name, snow 0..1, pack, ... }] (sea: { lost: true, age }, no pack)
 // pack = { slots } is what they carried when they died (body.js puts it in the 'handover' event):
 // press and hold on the body, close by, and ui/pack.js opens it like the sled, to recover it.
@@ -26,6 +29,10 @@ function seeded(seed) {
 export function update(dt) {
   for (const e of state.events) {
     if (e.type === 'handover' && e.lost) { fallen.push({ x: e.x, y: e.y, name: e.name, lost: true, age: 0 }); continue; }
+    if (e.type === 'handover' && e.inside && e.door) {
+      fallen.push({ x: e.door.x, y: e.door.y, out: e.door.out, name: e.name, inside: e.inside, pack: { slots: e.pack || [] }, snow: 0 });
+      continue;
+    }
     if (e.type !== 'handover' || !e.sprite) continue;
     const r = seeded(1 + fallen.length * 7919 + Math.floor(e.x * 13 + e.y * 7));
     // snow patches, in sprite pixels: scattered over the figure, bigger toward the upwind
@@ -176,10 +183,28 @@ function drawSea(ctx, f) {
   }
 }
 
+// Died in a tent: two dark boot soles in the doorway, heels toward us, toes in, a little apart and
+// splayed, a dusting of snow building on them.
+function drawBoots(ctx, f) {
+  const ox = f.out.x, oy = f.out.y, px = -oy, py = ox;
+  const bx = f.x + ox * 2.0, by = f.y + oy * 2.0;
+  for (const sd of [-1, 1]) {
+    const cx = bx + px * sd * 0.75, cy = by + py * sd * 0.75 * 0.8;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.atan2(oy, ox) + sd * 0.25);
+    ctx.beginPath(); ctx.ellipse(0, 0, 0.95, 0.62, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#2b2b2d'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-0.12, 0, 0.62, 0.36, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#545456'; ctx.fill();                       // the worn sole
+    if (f.snow > 0.05) { ctx.beginPath(); ctx.ellipse(0.1, -0.12, 0.55 * f.snow + 0.1, 0.3 * f.snow + 0.05, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(248,248,246,0.9)'; ctx.fill(); }
+    ctx.restore();
+  }
+}
+
 // One drawable per body, made once.
 function drawableFor(f) {
   if (f.drawable) return f.drawable;
   if (f.lost) return (f.drawable = { x: f.x, y: f.y, draw: ctx => drawSea(ctx, f) });
+  if (f.inside) return (f.drawable = { x: f.x + f.out.x * 2.2, y: f.y + f.out.y * 2.2 + 0.5, draw: ctx => drawBoots(ctx, f) });
   return (f.drawable = {
     x: f.x, y: f.y,
     draw(ctx) {

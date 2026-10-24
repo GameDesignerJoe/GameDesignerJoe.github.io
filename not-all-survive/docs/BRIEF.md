@@ -76,11 +76,16 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
   flinch), `NAS.heal()`, `NAS.splint()` (bind the leg with a splint from the pack), `NAS.breakIce()`
   (a hole in the ice at the explorer's feet, anywhere), `NAS.holes`; the gear menu has Hurt me /
   Heal me / Break ice and shows the injury (splinted or not) and the thin-ice stress underfoot.
+- Pup tent: `NAS.pitch(now?)` (start pitching it beside the explorer, putting one in the pack if need be;
+  `now` = true puts it up at once: the gear menu's "Pitch tent here"), `NAS.strike(now?)` (the menu's
+  "Strike tent", at once), `NAS.pup` (`pitched`, `job`; `NAS.pup.force = true` makes the wind catch it at
+  the next test), `NAS.player.tent('pup')` (walk to it and crawl in). The menu readout shows where it is.
 
 ## Survival (man vs. environment) — no bars, no HUD
-The plan lives in Joe's survival plan (slices 1–7). Slices 1–5 are built: the body, the cold,
+The plan lives in Joe's survival plan (slices 1–7). Slices 1–6 are built: the body, the cold,
 the base camp tent, death handing over to the next expedition member; open water and wet;
-exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin ice.
+exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin ice; the pup tent
+(no fire: Joe cut it; a tent's glow implies the stove).
 
 - **The body** (`js/actors/body.js`): `state.body = { warmth, wet, energy, reserve, injury, food, water }`,
   each 0–1, hidden. Warmth, wet, energy/reserve, food and injury are live; water waits for a
@@ -243,7 +248,10 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     beside the explorer (a small pile, the icons laid flat, snowing over with time; piles within
     6 units merge; nowhere walkable: refused). Anything worn that leaves the pack is taken off
     first (the gear event plays). The compass works only while there's one in the pack. Blocked
-    uses, a full pack and "too full to eat" shake the slot (ring to ink, a muffled knock).
+    uses, a full pack and "too full to eat" shake the slot (ring to ink, a muffled knock). In a gale
+    (cowering, wind + gust over 0.85, the world's edge) the pack still opens: the compass and putting gear
+    on or off are dimmed and refused; eating, splinting, pitching and moving things to and from a
+    container go on (slice 6).
   - **Containers**: within reach of the sled (~20 units from its edge), a body (16) or a pile (12)
     a small signal-yellow glint twinkles on it (the sled's lashing, the body's pack, the pile),
     never under ~12 screen px across; fainter from twice the reach.
@@ -385,6 +393,85 @@ exhaustion; the sled, the 10-slot pack, food and hunger; falls, injury and thin 
     cold and energy: 2 heaves 27%, 3 55%, 4+ 18%); bare hands, 12 pulls with 5 edge breaks in 16.6 s,
     out with energy spent and warmth 0.28 (Monte Carlo: mean ~7 heaves, ~84% out if they heave without
     a pause). Frame time on the ice with two holes and cracks in view (1440p storm): ~10 ms.
+- **The pup tent** (slice 6, `js/actors/puptent.js`). One in the world: on the sled (`puptent`, stack 1,
+  slot icon a small yellow ridge tent with its door and guy lines). Heavy: walking with it in the pack
+  costs 10% more energy (body.js `PUP_DRAIN`) and it weighs as two slots on thin ice. Pitched and left
+  it stays for the run; a member who dies carrying it keeps it with the body (recover it there).
+  - **Pitching**: tap it in the pack. Refused with a shake of the slot where the ground won't take it
+    (ice, thin ice, water, rock, a slope's lip or a cliff: the footprint and a margin round it must be one
+    walkable level of snow, deep snow or path), within 25 of base camp's door or the sled, over a fallen
+    member or a pile, when spent, or with the bear alert or stalking within 60. The tent's back is to the
+    wind, its door turned up to 35° toward the camera so the doorway shows. The site is beside the
+    explorer: at a flank, or at a corner by a gable (beside it, not on it); off to one side on screen (a
+    kneeling figure in front of a tent this low hides it), the side they face first. They kneel and work
+    through three stages, ~2.7 s each: the canvas unrolled across the snow (a sweeping hand at a time),
+    the poles stood up (a hand up on the pole; the sheet rises sagging), six stakes driven (a fist
+    hammering, the guy lines going out one by one, the sag drawn out). Each stage is slower in deep snow
+    (×1.45), hurt (×(1 + 0.6 × injury)), numb (×1.5 below warmth 0.4) and in a gale (up to ×1.6). It's
+    work: energy and food go at about the rate of walking on snow (body.js `JOB_DRAIN`, `JOB_FOOD`), and no
+    walking heat: the cold gets in as it does standing still. Moving off stops it and the tent stays in the
+    pack. Cowering waits while they kneel at it, and so do the wind's knockdowns, except while it's down
+    and they're up grabbing at it (knocked over then, the try is over).
+  - **The wind**: once in each stage, at a random moment, a gust can catch it: chance
+    `0.56 × smooth(0.5, 1.2, w)`, w = wind + 0.6 × gust (halved in the lee of rock). Caught, the canvas
+    balloons (the lee side bellying furthest, its swell inked), the two poles go over downwind and lie on
+    the snow, the sheet slaps down flat and flaps (1.5 s), and the explorer comes up off their knees, arms
+    flung up after it; then they gather it up (0.55 s in a breeze, up to ~2.5 s in a blizzard) and go again
+    by themselves. Lost: the canvas only re-spread from the first stage; from the second or third the poles
+    must go up again (and 30% of the time the canvas half blows back into a bundle too). Sound: the cloth
+    cracking and a run of flaps, two wooden knocks of the poles, the sheet slumping (`pitch` collapse); a
+    rustle to spread, a pole's rattle, a thud for each stake.
+    Measured (headless, sped up, pitching over and over beside base camp, starting warm and rested; 15–20
+    runs each): calm, always first time, 8.2 s; a breeze (wind 0.5) always first time, 8.5 s; windy
+    (0.6–0.78) 1.3 tries (up to 3), 12 s; a real `?forecast=blizzard` 3.7 tries (1–9; 3 of 20 first time),
+    34 s, warmth −0.23 and energy −0.05 over it; the storm spell (`?weather=storm`) 3.9 tries, 37 s,
+    warmth −0.22.
+  - **The pitched tent**: a low ridge tent ~18 long (about 1.1 × the explorer lying down), ~12 across,
+    ridge 6.6 (base camp's ~12), in base camp's ink and signal yellow: guy lines from the ridge ends and the
+    eaves to stakes, a soft cast shadow, drift building on the windward skirt. The canvas ripples and
+    strains in the wind (the windward side pressed in, the lee bellied, more the stormier; the guys thrum)
+    and cracks now and then close by (`flap`). Solid (`pupBlocked`); tap it (or Space / E by its door) and
+    the explorer walks round and crawls in through its door exactly as at base camp (`tent-in`, `inside`,
+    `tent-out`; `player.shelter` is `PUP_SHELTER`). Inside: a tap leaves; after dark a hold sleeps; the
+    door's hold opens the pack. Someone in it: the stove lit, the canvas warms (less than base camp's) and
+    glows at night (a smaller, dimmer light, r 16–22, and dark when it's empty), the door slit lamp-lit
+    signal yellow by day too (as base camp's), stove smoke off the ridge's door end as base camp's (a touch
+    smaller); the storm still loud (it muffles 72% as much), a smaller stove. The bear still knows they're
+    in there (canvas isn't bear-proof; slice 7) and walks round it (`wildlife.js`).
+  - **Inside, against base camp** (body.js reads `player.shelter`: camp.js `CAMP_SHELTER` is all full
+    rates; the pup tent's are fractions of them): warmth at 1/3 the stove's rate, falling a further 60% in
+    a storm, and none from a starving body; 16% of the outside cold leaks through (more wet, more
+    starving); drying and thawing rime at 1/3; energy back at 0.7× (slower hungry); injury heals at half;
+    food drains at the open-air rate (base camp saves 40%). Sleep: the same after-dark hold, eating a
+    ration if hungry; it brings warmth, reserve and energy only 75% of the way back (less again on an
+    empty stomach) and takes 0.15 off the injury (base camp: all the way, 0.3). The skipped night is lived
+    through: the cold that gets in over the hours left is counted (drying as it goes), and warmth after
+    sleep is never more than that; a body losing to the cold dies in the night and is found in the morning.
+    Warmth 0 in it kills (a leaky shelter). Dying in a tent (either) they stay in there: the tent goes dark
+    and unlit, and a pair of boot soles shows in the doorway, snowing over (`fallen.js`); the pack is
+    recovered there like any body's. Frost from the body's own cold stays on the screen in the pup tent
+    (only the weather's melts).
+    Measured per minute, base camp / pup tent (calm day; storm in brackets where it differs): warmth
+    +2.73 / +0.89 (storm +0.17); drying 5.0 / 1.65; rime 7.5 / 2.5; energy 4.0 / 2.8; reserve 0.20 /
+    0.14; injury −0.10 / −0.05; food −0.040 / −0.067. Two days and nights in the field in steady wind
+    (0.6–0.78), out walking ~90 s each day, the rest in the pup tent, sleeping each night: fed (food 0.6
+    and three rations, a ration eaten at each supper) they wake both mornings at full warmth, energy and
+    reserve with food ~0.6; starting hungry (0.35) with no rations, food is gone by the first morning, the
+    second day's walk leaves them worn out (energy 0.08–0.13, warmth 0.38–0.68 over two runs), the tent
+    and the night bring back only part of it, and they die of the cold 150–190 s into the third day.
+    Soaked, starving and at warmth 0.3 in the pup tent in a blizzard night, a sleep doesn't save them:
+    they die in the night and are found inside in the morning.
+    Frame time (1440p storm, GPU, beside base camp): no tent 14.0–14.3 ms (HEAD 13.8–14.5 at the same
+    spot), pitched tent in view 14.3–15.1 ms, while being pitched 14.2–14.4, inside it 13.4 (drawn into a
+    sprite at 15 Hz, 21 Hz while the work is on, its mesh arrays reused).
+  - **Striking**: press and hold the pitched tent from right by it (within 5 of its edge; its glint, a
+    signal-yellow catch on the near ridge end, shows within reach, faint from twice that; further off a
+    press walks or taps in as anywhere). A tap crawls in; held 0.9 s (a white arc filling round the glint)
+    the explorer kneels and pulls the stakes, the tent
+    coming down in reverse over 4 s as the dig bar fills over them; let go and it stays up. Done: back
+    into the pack (no free slot: the canvas jerks and the full-pack knock, `full`). Keyboard: hold Space / E
+    close to it (a quick press crawls in). The sled, a body or a pile in reach come first, and Space / E at
+    base camp's door is always base camp's.
 - **Death and the party**: warmth 0 → collapse (kneel, slump, lie face down) → the ink iris
   closes onto the body, holds a beat, closes → cut to base camp: the next of the four crawls
   out of the tent as the iris opens. The body stays where it fell for the run

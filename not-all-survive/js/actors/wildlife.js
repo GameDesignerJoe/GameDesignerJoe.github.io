@@ -14,6 +14,7 @@ import * as terrain from '../world/terrain.js';
 import { makeBear, updateBear, drawBear, bearShadow } from './wildlife-bear.js';
 import { makeGroup, updateGroup, drawPenguin, penguinShadow, setBear } from './wildlife-penguin.js';
 import { pathOf } from './wildlife-rig.js';
+import { pupBlocked } from './puptent.js';
 
 // ---------------------------------------------------------------- walkability
 // Prefer the real terrain module once it exists (it exports findWalkable); until then
@@ -32,6 +33,7 @@ function maskAt(x, y) {
 const W = {
   walkable(x, y, bear = false) {
     if (x < 8 || y < 8 || x > MAP_W - 8 || y > MAP_H - 8) return false;
+    if (pupBlocked(x, y)) return false;               // the pitched pup tent is solid (slice 6)
     if (realTerrain()) {
       const t = terrain.terrainAt?.(x, y);
       if (t === 'rock') return false;

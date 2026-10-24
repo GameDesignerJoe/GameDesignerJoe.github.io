@@ -24,6 +24,7 @@ const MODULES = {
   weather: './fx/weather.js',        // after explorer: sees step events, draws drift over prints
   body: './actors/body.js',          // after weather (reads temp/cold): warmth, death, hand-over, sleep
   camp: './actors/camp.js',
+  puptent: './actors/puptent.js',    // after explorer (a pitch stops if they walk off) and camp: the pup tent
   fallen: './actors/fallen.js',      // after body: picks up 'handover' the same frame
   wildlife: './actors/wildlife.js',
   audio: './audio/audio.js',

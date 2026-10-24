@@ -39,7 +39,8 @@ export const state = {
     // 'collapse' / 'dead' (died of cold, or a fatal fall: crumpled) | 'swim' (out of their depth
     // in open water, or in a hole in the ice, heaving at its edge) | 'crawlout' (heaved out of a
     // hole: belly-down away from it) | 'sink' (died in the water: slips under, no body) |
-    // 'gone' (the expedition is over)
+    // 'gone' (the expedition is over). tent-in / inside / tent-out are the same for either tent: explorer.js
+    // sets shelter (below) to the one they're in.
     mode: 'walk',
     // explorer.js also adds water = { level: 0 land | 1 wading | 2 deep, depth, zW } and
     // lostAtSea (true once they've gone under)
@@ -51,7 +52,10 @@ export const state = {
     // this frame), headwind (0..1, how much of it into the wind), pant (0..1, how blown) and
     // breathPh (0..1, the panting clock: breath in from 0, out from 0.5), resting (stopped bent
     // double), spent (energy gone: sat in the snow) and crawl (spent but crawling on),
-    // badLeg (1 right / -1 left: the hurt one) and iceStress (thin-ice stress under the feet)
+    // badLeg (1 right / -1 left: the hurt one) and iceStress (thin-ice stress under the feet),
+    // shelter: the tent they're in or making for (camp.js CAMP_SHELTER / puptent.js PUP_SHELTER: kind
+    // 'camp' | 'pup' and how good it is: warm, dry, rest, heal, sleep, storm, leak, food, hunger, muffle;
+    // body.js and audio.js read it) and door() (that tent's door: ui/pack.js)
   },
 
   // weather.js owns these; everyone else reads them. It also adds weather.phase,
@@ -96,6 +100,9 @@ export const state = {
   // wildlife.js adds state.bear (the polar bear: x, y, ...).
   // fallen.js adds state.fallen = [{ x, y, facing, name, snow, pack }]: the dead, where they lie,
   // with the pack they died with (pack = { slots }; none if the sea took them).
+  // puptent.js adds state.pup = { pitched: { x, y, yaw, t, snow } | null, job: { kind: 'pitch'|'strike',
+  // x, y, yaw, t, prog 0..3, coll: { t, from, to } | null, tries, ... } | null, nope, press } (the pup tent:
+  // where it stands, the work on it; explorer.js kneels to the job and grabs at a collapse).
   // thinice.js adds state.holes = [{ x, y, r, ro, age, freeze, ... }]: holes broken through thin
   // ice (ro the open radius, shrinking to 0 as it refreezes); terrain.isWater / waterDepth read it.
 
@@ -133,8 +140,15 @@ export const state = {
   //   growl { x, y, strength }        an empty stomach (explorer -> audio, which ducks the wind under it)
   //   dizzy { x, y, strength }        a lightheaded moment from hunger (body)
   //   arrive { x, y }                 walked to the container a press sent them to (explorer -> pack)
-  //   tent { action: 'in'|'out'|'sleep'|'wake', x, y }   crawled in / out, held to sleep, morning
-  //                                   (explorer -> body; body pushes 'wake')
+  //   tent { action: 'in'|'out'|'sleep'|'wake', x, y, shelter: 'camp'|'pup' }   crawled in / out, held
+  //                                   to sleep, morning (explorer -> body; body pushes 'wake')
+  //   pitch { x, y, stage: 'start'|'spread'|'poles'|'stake'|'collapse'|'done'|'stop', strength?, tries?,
+  //                                   collapses? }   pitching the pup tent: the canvas spread, a pole up, a
+  //                                   stake in, the wind bringing it down (strength 0..1), up at last, given up
+  //                                   (puptent -> audio)
+  //   strike { x, y, stage: 'start'|'pull'|'done'|'stop' }   taking the pup tent down (a stake pulled; done:
+  //                                   back in the pack; stop: let go, it stays up) (puptent -> audio)
+  //   flap { x, y, strength, inside }  a pitched pup tent's canvas cracking in the wind, close by (puptent -> audio)
   //   death { x, y, cause: 'cold'|'water'|'fall', member }   the body gave out (body -> anyone)
   //   handover { x, y, facing, member, name, sprite, pack }    the next member takes over; sprite is the
   //                                   still of the body left behind, pack its slots (null: lost at sea) (body -> fallen)

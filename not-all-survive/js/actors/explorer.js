@@ -18,7 +18,8 @@
 import { state } from '../state.js';
 import * as T from '../world/terrain.js';
 import { SIGNAL } from '../palette.js';
-import { tentDoor, campInteract, campBlocked, tentDoorClip } from './camp.js';
+import { tentDoor, campInteract, campBlocked, tentDoorClip, CAMP_SHELTER } from './camp.js';
+import { pupDoor, pupDoorClip, pupBlocked, pupInteract, PUP_SHELTER } from './puptent.js';
 import { screenToWorld } from '../camera.js';
 import * as ICE from '../world/thinice.js';
 
@@ -219,13 +220,20 @@ const hemS = { f: 0, r: 0, z: 0, vf: 0, vr: 0, vz: 0 };
 // the slot, holding the compass out; kneeling (at the sled, a body or a pile, or to eat), digging
 // in a container in front (dig) and eating (eat, eatT the seconds into the meal); pack 0 = on the
 // back, 1 = swung round in front.
-const CP = { rum: 0, slot: 0, out: 0, pack: 0, kneel: 0, dig: 0, eat: 0, eatT: 0 };
+// Pitching or striking the pup tent (puptent.js state.pup.job): job (kneeling at it, working;
+// stage 0 spreading the canvas, 1 raising the poles, 2 driving the stakes, 3 a strike: pulling them)
+// and grab (the wind's got it: arms thrown up after the canvas).
+const CP = { rum: 0, slot: 0, out: 0, pack: 0, kneel: 0, dig: 0, eat: 0, eatT: 0, job: 0, grab: 0, stage: 0 };
 function updateCompassPose(dt) {
   const st = state.compass, ph = st?.phase || 'idle', tgt = !!st?.target;
+  const J = state.pup?.job, caught = !!(J && J.coll && J.coll.t < 1.15);
+  CP.job = approach(CP.job, J && !caught ? 1 : 0, J ? 3.5 : 4.5, dt);
+  CP.grab = approach(CP.grab, caught ? 1 : 0, caught ? 10 : 3, dt);
+  if (J) CP.stage = J.kind === 'strike' ? 3 : Math.min(2, Math.floor(J.prog));
   CP.rum = approach(CP.rum, ph === 'rummage' && !tgt ? 1 : 0, ph === 'rummage' ? 4 : 5, dt);
   CP.slot = approach(CP.slot, ph === 'slot' ? 1 : 0, 5, dt);
   CP.out = approach(CP.out, ph === 'out' ? 1 : 0, 5, dt);
-  const kneel = (ph === 'rummage' && tgt) || ph === 'transfer' || ph === 'eat';
+  const kneel = (ph === 'rummage' && tgt) || ph === 'transfer' || ph === 'eat' || !!J;
   CP.kneel = approach(CP.kneel, kneel ? 1 : 0, kneel ? 3.5 : 4.5, dt);
   CP.dig = approach(CP.dig, (ph === 'rummage' && tgt) || ph === 'transfer' ? 1 : 0, 4, dt);
   CP.eat = approach(CP.eat, ph === 'eat' ? 1 : 0, ph === 'eat' ? 4 : 6, dt);
@@ -252,7 +260,11 @@ export function init() {
   // with nobody left, gone; and a still of the figure for fallen.js
   P.respawn = gone => respawn(gone);
   P.snapshot = () => snapshot();
-  P.tent = () => goToTent();                     // test hook: walk to the tent and crawl in
+  P.tent = (kind = 'camp') => goToTent(kind);    // test hook: walk to the tent (or 'pup': the pup tent) and crawl in
+  // ui/pack.js: a quick tap on the pitched pup tent from close by (a held one strikes it)
+  P.pupTent = () => { if ((P.mode === 'walk' || P.mode === 'cower') && pupDoor() && (!spent || nearDoor('pup', 15))) goToTent('pup'); };
+  P.door = () => door();                         // the door of the tent they're in (ui/pack.js hangs the pack there)
+  setShelter('camp');
   // ui/pack.js: walk to a point (the sled, a body, a pile pressed from afar); pushes 'arrive'
   // there. Any input of the player's own cancels it. And leave the tent (a tap on its door).
   P.reach = (x, y) => goReach(x, y);
@@ -282,7 +294,7 @@ function resetTo(x, y) {
   for (const k in hemS) hemS[k] = 0;
   pose.gait = 0; pose.gustKick = 0; pose.stepEff = pose.step;
   P.x = x ?? P.x; P.y = y ?? P.y; P.vx = P.vy = 0; P.speed = 0; P.moving = false;
-  P.mode = 'walk'; P.climbStage = null; P.climbHold = false; P.sheltered = 0;
+  P.mode = 'walk'; P.climbStage = null; P.climbHold = false; P.sheltered = 0; P.deadInside = false;
   const inp = state.input;
   if (inp.tap) lastTapT = inp.tap.t;
   if (inp.action) lastActT = inp.action;
@@ -295,7 +307,7 @@ function walkable(x, y) {
 // Walkable ground that isn't blocked by the camp (tent footprint, sled, skis). Used for
 // moving and for planning routes; climbing and rock tests keep to the terrain alone.
 function passable(x, y) {
-  try { return walkable(x, y) && !campBlocked(x, y); } catch { return walkable(x, y); }
+  try { return walkable(x, y) && !campBlocked(x, y) && !pupBlocked(x, y); } catch { return walkable(x, y); }
 }
 
 export function update(dt) {
@@ -371,6 +383,7 @@ export function update(dt) {
   if (P.mode === 'inside') { updateInside(dt); return; }
   if (P.mode === 'tent-in' || P.mode === 'tent-out') { updateTent(dt); finishFrame(dt, ter, 0, wEff, wa); return; }
   if (P.mode === 'sink') { updateSink(dt); finishFrame(dt, ter, 0, wEff, wa); updateWaterFx(dt); return; }
+  if (P.deadInside) { P.exposure = 0; P.sheltered = 1; P.speed = 0; P.moving = false; P.vx = P.vy = 0; return; }   // died in a tent: lying in there, unseen
   if (P.mode === 'collapse' || P.mode === 'dead') { updateCollapse(dt); finishFrame(dt, ter, 0, wEff, wa); return; }
   if (P.mode === 'crawlout') { updateCrawlout(dt); finishFrame(dt, ter, 0, wEff, wa); updateWaterFx(dt); return; }
   // out of your depth: swimming (from walking, cowering, or a route that led in)
@@ -583,6 +596,11 @@ export function update(dt) {
     const turnRate = (ter === 'ice' || ter === 'thin' ? 4 : 6.5) * dt;
     const d = wrapPi(wantDir - P.facing);
     P.facing = wrapPi(P.facing + clamp(d, -turnRate, turnRate));
+  } else if (state.pup?.job) {
+    // pitching / striking the pup tent: turned to it (a little off straight-away from the camera)
+    const J = state.pup.job, w0 = Math.atan2((J.y - P.y) / KY, J.x - P.x);
+    const want = Math.sin(w0) < -0.3 ? w0 + (Math.cos(w0) >= 0 ? 0.55 : -0.55) : w0;
+    P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -3 * dt, 3 * dt));
   } else if (CP.out > 0.5) {
     // orienting by the compass: turn slowly to face north-west (screen up-left)
     const nw = Math.atan2(-1 / KY, -1);
@@ -711,7 +729,8 @@ export function update(dt) {
   // --- numb feet: stumbles once the cold is deep (and starving: unsteady on the feet) ----------
   if (P.mode === 'walk' && active && staggerT <= 0 && rand() < dt * (0.45 * smooth(0.36, 0.1, warm) + 0.2 * smooth(0.1, 0, fd))) { staggerT = 0.75; staggerSide = rand() < 0.5 ? -1 : 1; }
   // --- wind knockdowns: in a real storm, out in the open, now and then ------------------------
-  if (P.mode === 'walk' && shoveT <= 0 && cowerW < 0.3 && !spent) {
+  // (kneeling at the pup tent: low, braced; but up off their knees grabbing at it as it goes, a gust can still have them over)
+  if (P.mode === 'walk' && shoveT <= 0 && cowerW < 0.3 && !spent && !(state.pup?.job && !state.pup.job.coll)) {
     const storm = Math.max(smooth(0.62, 0.9, ws) * smooth(0.4, 0.85, gust) * (1 - smooth(0.25, 0.6, shelter)), smooth(0.55, 1, fa) * 1.6);
     const slickK = ter === 'ice' || ter === 'thin' ? 2 : 1;
     if (storm > 0 && rand() < storm * slickK * dt / 110) startFall(storm);
@@ -790,7 +809,7 @@ function iceLoad(dt, ter) {
   // (frozen in the beat at the first crack: nothing builds while they decide)
   if (ter !== 'thin' || water.level || !ICE_MODES.has(P.mode) || iceBeatT > 0) { P.iceStress = ter === 'thin' && !water.level ? ICE.stressAt(P.x, P.y) : 0; return; }
   let n = 0;
-  if (state.pack) for (const q of state.pack.slots) if (q) n++;
+  if (state.pack) for (const q of state.pack.slots) if (q) n += q.id === 'puptent' ? 2 : 1;   // (the pup tent weighs double)
   let w = 1 + 0.35 * n / 10;
   if (shoesOn()) w *= 0.35;
   if (P.mode === 'down' || crawlW > 0.5) w *= 0.45;
@@ -875,10 +894,15 @@ function handleActions() {
   if (P.mode !== 'walk' && P.mode !== 'cower') return;
   // the tent: a tap on it (or Space/E by its door) walks to the door and crawls in
   // (spent, only from close by: ~15 units, crawling)
-  const reachTent = !spent || Math.hypot(P.x - tentDoor().fx, P.y - tentDoor().fy) < 15;
-  if (tap && reachTent && campInteract(tap.x, tap.y) === 'tent') { goToTent(); inp.tap = null; return; }
+  // (the pup tent once it's pitched, the same: puptent.js)
+  const reachTent = !spent || nearDoor('camp', 15), reachPup = !spent || nearDoor('pup', 15);
+  if (tap && reachTent && campInteract(tap.x, tap.y) === 'tent') { goToTent('camp'); inp.tap = null; return; }
+  if (tap && reachPup && pupInteract(tap.x, tap.y)) { goToTent('pup'); inp.tap = null; return; }
   if (act && state.compass?.target) act = false;   // Space / E held at the sled / a body: rummaging (ui/pack.js)
-  if (act && reachTent && nearDoor()) { goToTent(); inp.action = null; return; }
+  if (act && state.pup?.press) act = false;         // ...or held on the pitched pup tent: striking it (ui/pack.js)
+  // (base camp's door first: the pup tent is never pitched close to it, puptent.js)
+  if (act && reachTent && nearDoor('camp')) { goToTent('camp'); inp.action = null; return; }
+  if (act && reachPup && nearDoor('pup')) { goToTent('pup'); inp.action = null; return; }
   if (spent) return;   // no climbing from sat in the snow
   if (tap && tapClimb(tap)) inp.tap = null;
   if (act && tryClimb(Math.cos(P.facing), Math.sin(P.facing) * KY)) inp.action = null;
@@ -1476,7 +1500,7 @@ function updateCower(dt, active) {
     const want = Math.PI / 2 + clamp(wrapPi(P.facing - Math.PI / 2), -0.7, 0.7);
     P.facing = wrapPi(P.facing + clamp(wrapPi(want - P.facing), -2.5 * dt, 2.5 * dt));
   }
-  const want = !active && idleT > 0.8 && storm && P.mode !== 'approach' && shoveT <= 0 && !kneel && !water.level && !spent && restT <= 0;
+  const want = !active && idleT > 0.8 && storm && P.mode !== 'approach' && shoveT <= 0 && !kneel && !water.level && !spent && restT <= 0 && !state.pup?.job;   // (not while pitching: kneeling at it)
   cowerW = approach(cowerW, want ? 1 : 0, want ? 1.4 : 4.5, dt);
   if (cowerW > 0.5 && P.mode === 'walk') P.mode = 'cower';
   if (cowerW < 0.3 && P.mode === 'cower') P.mode = 'walk';
@@ -1525,8 +1549,15 @@ let kneelW = 0, faltT = 0;
 const CRAWL_IN_S = 2.4, CRAWL_OUT_S = 2.3, HOLD_SLEEP_S = 1.0;
 let tentT = 0, tentFade = 1, tentFrom = { x: 0, y: 0 }, pressT = -1, pressPtr = false, keyHeld = false;
 let doorK = 0;   // 0 = clear of the door .. 1 = all the way in (drawn clipped by the gable)
-function goToTent() {
-  const d = tentDoor();
+// Which tent: base camp's, or the pup tent once it's pitched (puptent.js). The one being walked
+// to, crawled into and slept in; player.shelter tells body.js and audio.js how good it is.
+let shelter = 'camp';
+function door(kind = shelter) { return (kind === 'pup' && pupDoor()) || tentDoor(); }
+function setShelter(kind) { shelter = kind; P.shelter = kind === 'pup' ? PUP_SHELTER : CAMP_SHELTER; }
+function goToTent(kind = 'camp') {
+  if (kind === 'pup' && !pupDoor()) return;
+  setShelter(kind);
+  const d = door();
   const wet = crossesWater(P.x, P.y, d.fx, d.fy);   // water between: plan round it (else the shore stops them)
   const path = wet ? findPath(P.x, P.y, d.fx, d.fy, true, 7, 150) : [...d.around(P.x, P.y), { x: d.fx, y: d.fy }];
   let len = 0, a = P;
@@ -1551,8 +1582,12 @@ function goReach(x, y) {
 }
 // Sleep only skips the rest of a night (the cycle's night, not a pinned clock). Same test as body.js.
 function canSleep() { const L = state.lighting; return L.mode === 'cycle' && L.night > 0.5 && L.clock >= 180; }
-function nearDoor() { const d = tentDoor(); return Math.hypot(P.x - d.fx, P.y - d.fy) < 12; }
+function nearDoor(kind = 'camp', r = 12) {
+  if (kind === 'pup' && !pupDoor()) return false;
+  const d = door(kind); return Math.hypot(P.x - d.fx, P.y - d.fy) < r;
+}
 function beginTentIn() {
+  if (shelter === 'pup' && !pupDoor()) { route = null; P.mode = 'walk'; return; }   // (struck meanwhile)
   tentCrawl = crawlW > 0.5;   // crawled here: stay down, straight on in
   route = null; P.mode = 'tent-in'; tentT = 0; tentFrom = { x: P.x, y: P.y };
   P.vx = P.vy = 0;
@@ -1575,7 +1610,7 @@ function crawlPose(k, ph, moving) {
   };
 }
 function updateTent(dt) {
-  const d = tentDoor();
+  const d = door();
   tentT += dt;
   ovrW = approach(ovrW, 1, 8, dt);
   cowerW = approach(cowerW, 0, 5, dt); kneelW = approach(kneelW, 0, 5, dt);
@@ -1590,7 +1625,7 @@ function updateTent(dt) {
     ovr = crawlPose(k, tentT * 7, m > 0.02 && m < 0.98 ? 1 : 0);
     if (tentT >= CRAWL_IN_S) {
       P.mode = 'inside'; tentFade = 0; doorK = 0; puffs.length = 0; kicks.length = 0; pressT = -1;
-      state.events.push({ type: 'tent', action: 'in', x: d.x, y: d.y });
+      state.events.push({ type: 'tent', action: 'in', x: d.x, y: d.y, shelter });
     }
   } else {
     P.facing = wrapPi(inward + Math.PI);
@@ -1603,13 +1638,13 @@ function updateTent(dt) {
     ovr = crawlPose(k, tentT * 7, m > 0.02 && m < 0.98 ? 1 : 0);
     if (tentT >= CRAWL_OUT_S) {
       P.mode = 'walk'; tentFade = 1; doorK = 0;
-      state.events.push({ type: 'tent', action: 'out', x: P.x, y: P.y });
+      state.events.push({ type: 'tent', action: 'out', x: P.x, y: P.y, shelter });
     }
   }
   P.vx = P.vy = 0; P.sheltered = 0.6;
 }
 function updateInside(dt) {
-  const d = tentDoor(), B = state.body, inp = state.input;
+  const d = door(), B = state.body, inp = state.input;
   P.x = d.x; P.y = d.y; P.vx = P.vy = 0; P.speed = 0; P.moving = false;
   P.exposure = 0; P.sheltered = 1; tentFade = 0;
   if (B && B.phase === 'sleep') {
@@ -1629,14 +1664,15 @@ function updateInside(dt) {
     // by day a long hold just turns the lamp down a moment and back (no sleeping till dark)
     hold = night ? smooth(0.2, HOLD_SLEEP_S, dur) : 0.5 * smooth(0.3, 0.8, dur) * (1 - smooth(1.1, 1.7, dur));
     if (!held) { pressT = -1; hold = 0; P.mode = 'tent-out'; tentT = 0; }   // let go before sleep: leave
-    else if (night && dur >= HOLD_SLEEP_S) { pressT = -1; hold = 0; state.events.push({ type: 'tent', action: 'sleep', x: P.x, y: P.y }); }
+    else if (night && dur >= HOLD_SLEEP_S) { pressT = -1; hold = 0; state.events.push({ type: 'tent', action: 'sleep', x: P.x, y: P.y, shelter }); }
   }
   if (B) B.sleepHold = hold;
 }
 // body.js hand-over: the next member starts inside the tent and crawls out; with nobody left
 // the explorer is simply gone and the camera rests on the empty camp.
 function respawn(gone) {
-  const d = tentDoor();
+  setShelter('camp');
+  const d = door();
   resetTo(d.x, d.y);
   // (the dead member's kit stays with the body: body.js empties the pack, items.js)
   puffs.length = 0; kicks.length = 0;
@@ -1693,7 +1729,15 @@ function startCollapse() {
   }
   const fromDown = P.mode === 'down';
   colKind = 'cold'; heave = null;
-  if (P.mode === 'inside' || P.mode === 'tent-in' || P.mode === 'tent-out') { const d = tentDoor(); P.x = d.fx; P.y = d.fy; }
+  // in a tent (or in its doorway): they die in there, unseen; the tent goes dark (body.js / fallen.js
+  // leave the body inside, the boots showing at the door)
+  if (P.mode === 'inside' || P.mode === 'tent-in' || P.mode === 'tent-out') {
+    const d = door(); P.x = d.x; P.y = d.y;
+    climb = null; route = null; heave = null; tentFade = 0; doorK = 0; P.vx = P.vy = 0;
+    P.mode = 'dead'; P.deadInside = true; P.climbStage = null; P.climbHold = false;
+    if (state.compass) state.compass.phase = 'idle';
+    return;
+  }
   climb = null; route = null; shoveT = 0; slipT = 0; staggerT = 0; faltT = 0; tentFade = 1; doorK = 0;
   P.mode = 'collapse'; colT = fromDown ? 1.7 : 0; P.climbStage = null; P.climbHold = false; P.vx = P.vy = 0;   // already on the ground: just stay down
   if (state.compass) state.compass.phase = 'idle';
@@ -2278,7 +2322,10 @@ function buildRig() {
   // (digging: right down, bent well over what's in front; eating: kneeling up)
   // (seen from behind, leaning over only lifts the head up the screen: lower, less bent)
   const toCam = clamp(0.5 + 0.5 * Math.sin(yaw));
-  if (pkw > 0.001) { hz = lerp(hz, lerp(4.2, lerp(2.3, 3.0, toCam), CP.dig), pkw); leanF = lerp(leanF, 0.2 + CP.dig * lerp(0.15, 0.6, toCam), pkw); leanS = lerp(leanS, 0, pkw); twist = lerp(twist, 0, pkw); }
+  const digK = Math.max(CP.dig, 0.75 * CP.job);   // (at the pup tent: down and leaning in to it too)
+  if (pkw > 0.001) { hz = lerp(hz, lerp(4.2, lerp(2.3, 3.0, toCam), digK), pkw); leanF = lerp(leanF, 0.2 + digK * lerp(0.15, 0.6, toCam), pkw); leanS = lerp(leanS, 0, pkw); twist = lerp(twist, 0, pkw); }
+  // the wind's taken the pup tent: up off the knees, reaching after it
+  if (CP.grab > 0.001) { hz += 2.2 * CP.grab; leanF -= 0.3 * CP.grab; }
   // lightheaded with hunger (body.dizzy): a slow sway from side to side, the head rolling with it
   const dzy = state.body?.dizzy || 0;
   if (dzy > 0.001) { leanS += 0.2 * dzy * Math.sin(t * 5.2); leanF += 0.08 * dzy; }
@@ -2418,6 +2465,27 @@ function buildRig() {
       pole = mix(pole, torsoDir([-0.2, s, -0.5], tf), CP.dig);
       cpFull = Math.max(cpFull, CP.dig);
     }
+    if (CP.job > 0.001 && !O) {
+      // at the pup tent: sweeping the canvas flat, a hand at a time (stage 0); one hand up on a pole,
+      // the other steadying it (1); a fist hammering a stake in by the other hand holding it (2);
+      // tugging the stakes out for a strike (3)
+      const st = CP.stage;
+      let hT;
+      if (st === 3) { const pull = Math.max(0, Math.sin(t * 4.5 + (s > 0 ? 0 : 1.3))); hT = [3.1 - 0.9 * pull, s * 1.0, 0.7 + 1.1 * pull]; }
+      else if (st === 0) { const sw = Math.sin(t * 3.4 + (s > 0 ? 0 : Math.PI)); hT = [3.5 + 0.5 * Math.cos(t * 3.4), s * (1.5 + 1.3 * sw), 0.6 + 0.35 * Math.max(0, sw)]; }
+      else if (st === 1) hT = s > 0 ? [2.9, 0.8, 6.2 + 0.3 * Math.sin(t * 2)] : [2.7, -1.1, 3.0 + 0.3 * Math.sin(t * 2 + 1)];
+      else hT = s > 0 ? [3.1, 0.9, 0.9 + 1.7 * Math.max(0, Math.sin(t * 8))] : [3.4, -0.4, 0.55];
+      handB = mix(handB, hT, CP.job);
+      pole = mix(pole, torsoDir([-0.2, s, -0.5], tf), CP.job);
+      cpFull = Math.max(cpFull, CP.job);
+    }
+    if (CP.grab > 0.001 && !O) {
+      // the wind's got it: both arms flung up and out after the canvas, clutching at it
+      const cl = Math.sin(t * 13 + s * 2) * 0.35;
+      handB = mix(handB, torsoToBody([2.1 + cl, s * 2.6, SPINE + HEAD_UP + 1.6 + cl], tf), CP.grab);
+      pole = mix(pole, torsoDir([-0.3, s * 1.2, -0.2], tf), CP.grab);
+      cpFull = Math.max(cpFull, CP.grab);
+    }
     if (CP.eat > 0.001 && !O) {
       // eating: the ration out of the pack in both mitts (low, unwrapping it), then up to the
       // face, the mitts dipping a little with each bite
@@ -2474,6 +2542,8 @@ function buildRig() {
   facePitch = lerp(facePitch, 1.3, sitK);                  // sat spent: the hood down on the knees
   facePitch = lerp(facePitch, 0.95, Math.max(CP.rum, CP.out * 0.85, strK, CP.dig * 0.9));
   facePitch = lerp(facePitch, 0.4 + 0.06 * chew, eatK);    // eating: head up a little to the food
+  facePitch = lerp(facePitch, CP.stage === 1 ? 0.55 : 0.9, CP.job);   // at the pup tent: on the work (up at the pole)
+  facePitch = lerp(facePitch, 0.05, CP.grab);              // ...and up after it as it goes
   facePitch = lerp(facePitch, 1.0, stw * 0.6);             // hungry: looking down at it
   // thin ice creaking: a quick glance down at the feet
   if (glanceT > 0) facePitch = lerp(facePitch, 1.35, Math.sin(Math.PI * (1 - glanceT / GLANCE_S)));
@@ -3262,7 +3332,7 @@ export function drawables() {
   const lingering = rings.length || flotsam || bubbles.length;
   const ex0 = flotsam || rings[rings.length - 1] || bubbles[0];
   const extra = lingering && (!water.level || P.lostAtSea) ? [{ x: ex0.x, y: ex0.y, draw: drawRings }] : [];
-  if (P.lostAtSea || P.mode === 'inside' || P.mode === 'gone' || (tentFade <= 0.01 && doorK <= 0)) return extra;
+  if (P.lostAtSea || P.deadInside || P.mode === 'inside' || P.mode === 'gone' || (tentFade <= 0.01 && doorK <= 0)) return extra;
   if ((water.zW > 0.05 || water.level) && (P.mode === 'walk' || P.mode === 'swim' || P.mode === 'sink' || P.mode === 'crawlout')) return [{ x: P.x, y: P.y, draw: drawInWater }];
   return [...extra, {
     x: P.x, y: P.y,   // feet: main.js sorts by terrain.sortKey(x, y) (face foot on a cliff, + height on a plateau)
@@ -3356,7 +3426,7 @@ function drawFaded(ctx, a, dark = 0, clip = null) {
 function drawThroughDoor(ctx) {
   // the shadow stays outside, unclipped, fading as they go in
   if (doorK < 0.6) { ctx.save(); ctx.globalAlpha = 1 - doorK / 0.6; drawShadow(ctx, buildRig(), P.x, P.y); ctx.restore(); }
-  drawFaded(ctx, 1, 0.55 * smooth(0.25, 1, doorK), tentDoorClip());   // shadowed, not a cut-out
+  drawFaded(ctx, 1, 0.55 * smooth(0.25, 1, doorK), (shelter === 'pup' && pupDoorClip()) || tentDoorClip());   // shadowed, not a cut-out
 }
 
 // A still of the figure as it is now, for fallen.js: the figure and its cast shadow, each in

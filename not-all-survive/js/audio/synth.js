@@ -1000,3 +1000,50 @@ export function wrap(ctx, B, out, t, o = {}) {
   }
   return d + 0.05;
 }
+
+// ---------------------------------------------------------------- the pup tent (slice 6)
+// Canvas caught by the wind: a sharp crack of cloth snapping taut, then a run of hard flaps (each
+// a slap of mid noise) loosening and fading; with `poles` the poles going over (two dull wooden
+// knocks) and the sheet slumping onto the snow.
+export function canvas(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1.2);
+  noiseBurst(ctx, B, out, t, 'highpass', R(1600, 2400), 0.9, 1.0 * lvl, 0.0015, 0.05);
+  noiseBurst(ctx, B, out, t + 0.004, 'bandpass', R(700, 1000), 1.2, 0.9 * lvl, 0.002, 0.08);
+  const n = Math.round(2 + 6 * lvl);
+  let at = t + R(0.09, 0.14);
+  for (let i = 0; i < n; i++) {
+    const a = lvl * R(0.35, 0.75) * (1 - i / (n + 2));
+    noiseBurst(ctx, B, out, at, 'bandpass', R(450, 1100), 1.4, a, 0.003, R(0.03, 0.06));
+    noiseBurst(ctx, B, out, at + 0.002, 'highpass', R(2500, 3500), 1, a * 0.35, 0.001, 0.02);
+    at += R(0.06, 0.13) * (1 + i * 0.12);
+  }
+  if (o.poles) {
+    for (const d of [R(0.32, 0.4), R(0.5, 0.62)]) noiseBurst(ctx, B, out, t + d, 'bandpass', R(650, 900), 5, 0.55 * lvl, 0.002, 0.07);
+    noiseBurst(ctx, B, out, t + R(0.7, 0.8), 'lowpass', R(180, 260), 0.8, 0.9 * lvl, 0.02, 0.3);
+  }
+  return at - t + 0.4;
+}
+// A stake driven in: the dull thud of the mallet (a fist, a boot) on wood, and its knock.
+export function stake(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1);
+  noiseBurst(ctx, B, out, t, 'lowpass', R(160, 220), 0.9, 1.1 * lvl, 0.003, 0.09);
+  noiseBurst(ctx, B, out, t + 0.002, 'bandpass', R(800, 1100), 4.5, 0.45 * lvl, 0.001, 0.05);
+  return 0.2;
+}
+// A pole stood up: a short wooden rattle as its joints seat, and the canvas pulled up with it.
+export function pole(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1);
+  for (const d of [0, R(0.05, 0.08), R(0.12, 0.16)]) noiseBurst(ctx, B, out, t + d, 'bandpass', R(900, 1300), 5, R(0.3, 0.5) * lvl, 0.001, 0.04);
+  rustle(ctx, B, out, t + 0.1, { strength: 0.7 * lvl });
+  return 0.6;
+}
+// A stake worked loose and pulled: a creaking drag out of the frozen snow and a soft pop.
+export function pull(ctx, B, out, t, o = {}) {
+  const lvl = clamp(o.strength ?? 0.6, 0, 1), d = R(0.18, 0.28);
+  const n = src(ctx, B.whiteM, t, d), bp = filt(ctx, 'bandpass', R(500, 700), 3), g = gain(ctx);
+  bp.frequency.exponentialRampToValueAtTime(R(1200, 1600), t + d);
+  chain(n, bp, g, out);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.35 * lvl, t + d * 0.7); g.gain.linearRampToValueAtTime(0, t + d);
+  noiseBurst(ctx, B, out, t + d, 'lowpass', R(300, 420), 1, 0.5 * lvl, 0.002, 0.06);
+  return d + 0.15;
+}

@@ -57,6 +57,10 @@ export function initMenu() {
         <button data-act="feed">Feed me</button>
         <button data-act="fill">Fill pack</button>
       </div>
+      <div class="row">
+        <button data-act="pitch">Pitch tent here</button>
+        <button data-act="strike">Strike tent</button>
+      </div>
     </div>
     <a href="editor/" target="_blank" rel="noopener">Terrain editor ↗</a>`;
 
@@ -98,11 +102,21 @@ injury ${b.injury.toFixed(2)}${b.splint ? ' splinted' : ''}  ice stress ${(P.ice
       + `pack ${packText(state.pack)}
 sled ${packText(state.sled)}
 `
-      + `${b.phase} · ${P.mode} · party ${alive}/${state.party?.length ?? 0}
+      + `${pupText()}
+${b.phase} · ${P.mode}${P.mode === 'inside' || P.mode === 'tent-in' || P.mode === 'tent-out' ? ` (${P.shelter?.kind ?? 'camp'})` : ''} · party ${alive}/${state.party?.length ?? 0}
 `
       + `${state.weather.temp}°C cold ${state.weather.cold.toFixed(2)} wind ${(P.exposure || 0).toFixed(2)}`;
   };
   setInterval(() => { if (!panel.hidden) showBody(); }, 250);
+  // the pup tent: where it is, and the work on it
+  function pupText() {
+    const u = state.pup;
+    if (!u) return 'pup tent: -';
+    if (u.job) return `pup tent: ${u.job.kind} ${(u.job.prog ?? 0).toFixed(2)}/3${u.job.coll ? ' COLLAPSE' : ''}${u.job.kind === 'pitch' ? ` try ${u.job.tries}` : ''}`;
+    if (u.pitched) return `pup tent: pitched at ${u.pitched.x.toFixed(0)},${u.pitched.y.toFixed(0)}`;
+    const where = state.pack?.slots.some(q => q && q.id === 'puptent') ? 'in the pack' : state.sled?.slots.some(q => q && q.id === 'puptent') ? 'on the sled' : 'elsewhere';
+    return `pup tent: ${where}`;
+  }
   // e.g. "compass* food3 food2 axes" (* = worn); ".." for each empty pack slot
   function packText(c) {
     if (!c) return '-';
@@ -136,6 +150,8 @@ sled ${packText(state.sled)}
     if (act === 'starve') { state.starve?.(); showBody(); }
     if (act === 'feed') { state.feed?.(); showBody(); }
     if (act === 'fill') { state.fillPack?.(); showBody(); }
+    if (act === 'pitch') { state.pitch?.(true); panel.hidden = true; }
+    if (act === 'strike') { state.strike?.(true); showBody(); }
     // Bright day: auto (weather decides) -> on -> off -> auto.
     if (act === 'bright') {
       const L = state.lighting;
