@@ -17,7 +17,7 @@
 //   state.wind.angle is the direction the wind blows TOWARD (downwind).
 import { state } from '../state.js';
 import * as T from '../world/terrain.js';
-import { SIGNAL } from '../palette.js';
+import { SIGNAL, COATS } from '../palette.js';
 import { tentDoor, campInteract, campBlocked, tentDoorClip, CAMP_SHELTER } from './camp.js';
 import { pupDoor, pupDoorClip, pupBlocked, pupInteract, PUP_SHELTER } from './puptent.js';
 import { screenToWorld } from '../camera.js';
@@ -2904,9 +2904,21 @@ const C = {
   sleeveL: SIGNAL.lit, sleeveD: SIGNAL.shadow, face: '#121418', nose: '#7c7c7c',
   pack: '#6f6253', packHi: '#8f8171', packLo: '#4f4539', packFlap: '#5d5145', packRoll: '#9e8f79', packRollLo: '#7e715e', packStrap: '#2f2924', packLining: '#b5a892',
 };
-const DEEP = hexRGB(SIGNAL.deep).join(',');      // shading and creases on the yellow cloth
+let DEEP = hexRGB(SIGNAL.deep).join(',');        // shading and creases on the coat's cloth
 
 const C0 = { ...C };
+// Each member's own coat (palette.js COATS): the coat's colours (and its creases) swapped in, the
+// dulled / soaked versions re-derived from them.
+let coatOf = 0;
+function setCoat(m) {
+  const k = COATS[((m % COATS.length) + COATS.length) % COATS.length];
+  coatOf = m;
+  Object.assign(C0, { coat: k.lit, hood: k.lit, sleeveL: k.lit, sleeveD: k.shadow,
+    panel: mixHex(k.lit, '#f4efe4', 0.6), rim: mixHex(k.lit, '#f4efe4', 0.45) });
+  Object.assign(C, C0);
+  DEEP = hexRGB(k.deep).join(',');
+  dullCache.clear(); wetCache.clear();
+}
 const NOCLIP = state.params.get('noclip') === '1';   // debug: disable the arm clip
 // Coat colours drained toward a cool grey ochre (lightness kept, most of the hue gone), by
 // d = 0..1 in steps of 0.05, cached.
@@ -2984,6 +2996,7 @@ function drawFigure(ctx, rig, X, Y) {
   const yaw = rig.yaw;
   const dk = Math.round(6 * cowerW);       // cowering hump separates from the whiteout
   // the cold takes the colour out of the coat: signal yellow dulls toward a grey ochre
+  if ((state.member || 0) !== coatOf) setCoat(state.member || 0);
   const dl = Math.round(smooth(0.66, 0.0, warmth()) * 20) / 20;
   // soaked, the cloth goes a deeper, darker ochre (still warm in hue: not the cold grey)
   const wq = Math.round(clamp(state.body?.wet || 0) * 10) / 10;
