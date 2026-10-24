@@ -26,6 +26,7 @@ const MODULES = {
   camp: './actors/camp.js',
   puptent: './actors/puptent.js',    // after explorer (a pitch stops if they walk off) and camp: the pup tent
   fallen: './actors/fallen.js',      // after body: picks up 'handover' the same frame
+  distress: './goal/distress.js',   // after fallen: the lost explorer and their beacon (the goal)
   thirst: './fx/thirst.js',          // after body (reads water) and camp: the mirage (drawSky, over every sky layer) and the Third Man
   wildlife: './actors/wildlife.js',
   audio: './audio/audio.js',
@@ -34,6 +35,7 @@ const MODULES = {
   bright: './fx/bright.js',          // blinding clear days: glare, halo, lost detail
   pack: './ui/pack.js',              // after night, so the UI isn't tinted (the pack, the compass, containers)
   terrainview: './ui/terrainview.js', // debug: the editor's terrain classes over the game (T, gear menu)
+  radio: './audio/radio.js',        // after night (its little radio over the explorer isn't tinted): the beacon's blips / SOS
   stickhint: './ui/stickhint.js',   // touch: pulses the hidden thumbstick if a new player stands still
 };
 const only = state.params.get('only')?.split(',');

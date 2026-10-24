@@ -14,5 +14,10 @@ export const RECORDINGS = [
     // PLACEHOLDER words until Joe records it
     text: 'If you are hearing this, then you made it to the camp. Good. Rest. Eat. Then go and find them. We do not leave anyone out there. Not if we can help it.',
   },
+  {
+    id: 'sos', title: 'Found in the snow', src: 'assets/recordings/sos.mp3',
+    // PLACEHOLDER words until Joe records it
+    text: 'Day nine. The wind has not stopped. I cannot feel my hands. I have set the beacon going. If anyone hears it, I am sorry it took you this far. Tell them I tried.',
+  },
 ];
 export const RECORDING = Object.fromEntries(RECORDINGS.map(r => [r.id, r]));

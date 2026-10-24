@@ -50,7 +50,7 @@ export function update(dt) {
   const snowfall = clamp(state.weather.snowfall ?? 0.3), wind = clamp(state.wind.speed ?? 0.3);
   // ~1.5 min to drift over in a blizzard, many minutes on a calm day
   const rate = 0.0015 + 0.009 * snowfall * (0.4 + wind);
-  for (const f of fallen) { if (f.lost) f.age += dt; else f.snow = Math.min(SNOW_MAX, f.snow + rate * dt); }
+  for (const f of fallen) { if (f.distress) continue; if (f.lost) f.age += dt; else f.snow = Math.min(SNOW_MAX, f.snow + rate * dt); }
 }
 
 // Snow lying along the top edges of the silhouette: the figure minus itself shifted down by
@@ -226,7 +226,7 @@ export function drawables() {
   if (!fallen.length) return out;
   const r = visibleRect(30);
   for (const f of fallen) {
-    if (f.x < r.x0 || f.x > r.x1 || f.y < r.y0 || f.y > r.y1 || (f.lost && f.age > SEA_LIFE)) continue;
+    if (f.distress || f.x < r.x0 || f.x > r.x1 || f.y < r.y0 || f.y > r.y1 || (f.lost && f.age > SEA_LIFE)) continue;   // (the distress body: goal/distress.js draws it)
     out.push(drawableFor(f));
   }
   return out;

@@ -83,6 +83,7 @@ import { SLED, campInteract, tentDoor, sledNudge } from '../actors/camp.js';
 import { startPitch, startStrike, stopJob, pupInteract, pupDist, pupGlint, PUP_REACH } from '../actors/puptent.js';
 import * as Terrain from '../world/terrain.js';
 import { toggle as playRecording, playing as recPlaying } from '../audio/recorder.js';
+import { toggle as toggleRadio } from '../audio/radio.js';
 import {
   ITEMS, PACK_SLOTS, wearSlot, worn, wear, take, add, room, find, isEmpty, dropAt, sweepGround,
   shoesBlocked, drawNeedle, NORTH, FLASK_DRINKS,
@@ -425,7 +426,7 @@ function useSlot(i) {
   const s = pack.slots[i];
   if (!s) return;
   const it = ITEMS[s.id];
-  const u = { i, slot: s, handsBlocked: blocked(), storm: stormy(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint, pitch: pitchSlot, drink: startDrink, play: playRecording };
+  const u = { i, slot: s, handsBlocked: blocked(), storm: stormy(), inTent: inTent(), takeOut, eat: startEat, splint: startSplint, pitch: pitchSlot, drink: startDrink, play: playRecording, radio: () => toggleRadio() };
   if (it.blocked(u)) { shakes.set('pack:' + i, state.time); return; }
   C.t = 0;
   it.use(u);
@@ -978,7 +979,7 @@ function drawSlot(ctx, x, y, r, s, o) {
       ctx.fillStyle = 'rgba(206,206,210,0.72)'; ctx.fill();
     }
   }
-  if (s && ITEMS[s.id].rec && recPlaying() === ITEMS[s.id].rec.id) {
+  if (s && ((ITEMS[s.id].rec && recPlaying() === ITEMS[s.id].rec.id) || (s.id === 'radio' && state.radio?.on))) {
     const a0 = state.time * 2.2;
     ctx.globalAlpha = o.a; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(x, y, r + lw * 2.2, a0, a0 + 1.6);

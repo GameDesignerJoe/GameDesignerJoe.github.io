@@ -80,6 +80,10 @@ for (const r of RECORDINGS) {
   item({ id: 'rec_' + r.id, name: `Audio recorder: ${r.title}`, kind: 'tool', icon: drawRecorder, rec: r,
     blocked: u => u.handsBlocked, use: u => u.play(r) });
 }
+// the radio (audio/radio.js): tap to switch it on (listen for the distress beacon), again for off.
+// The first member sets out with it on. Not wading deep snow (hands full), not in a tent.
+item({ id: 'radio', name: 'Radio', kind: 'tool', icon: drawRadio,
+  blocked: u => u.handsBlocked || u.inTent, use: u => u.radio() });
 export const carryingRecorder = () => pack.slots.some(q => q && q.id.startsWith('rec_'));
 
 // --- containers -------------------------------------------------------------------------------------
@@ -134,11 +138,13 @@ for (let i = 0; i < 4; i++) add(sled, 'food', 3);
 add(sled, 'splint', 2);
 add(sled, 'puptent', 1);
 add(sled, 'rec_leader', 1);   // the leader's message (recordings.js)
+add(sled, 'radio', 1);        // a spare radio, for whoever goes out next
 for (const id of ['snowshoes', 'axes', 'crampons', 'compass', 'flask']) add(sled, id, 1);
 // the first member sets out with a compass, two rations and a full flask
 add(pack, 'compass', 1);
 add(pack, 'food', 2);
 add(pack, 'flask', 1);
+add(pack, 'radio', 1);        // listening for the beacon from the start (Joe)
 if (state.params.get('kit') === 'all') {
   for (const id of ['snowshoes', 'axes', 'crampons']) moveOut(sled, id) || add(pack, id, 1);
   add(pack, 'food', 1);
@@ -186,7 +192,7 @@ export function takePack() {
   for (let i = 0; i < pack.slots.length; i++) pack.slots[i] = null;
   return out;
 }
-export function restock() { moveOut(sled, 'compass'); moveOut(sled, 'flask'); }
+export function restock() { moveOut(sled, 'compass'); moveOut(sled, 'flask'); moveOut(sled, 'radio'); }
 
 // Drop a stack on the snow at x, y: into a pile already lying within ~6 units, or a new one.
 // (from: what take() returned, so a flask keeps its drinks)
@@ -429,6 +435,20 @@ function drawFood(ctx, r, z) {
 // The flask: a flat-sided steel canteen, upright and a little tipped, its shoulders narrowing to a
 // screw cap on a short chain; a pale lit edge down one side and a felt band round its middle (the
 // cover that keeps the cold off the metal).
+// A field radio: a box, a dial, a speaker grille, the aerial up.
+function drawRadio(ctx, r) {
+  const w = r * 0.62, h = r * 0.78;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(30,27,22,0.95)'; ctx.lineWidth = Math.max(1, r * 0.07);
+  ctx.beginPath(); ctx.moveTo(w * 0.25, -h * 0.45); ctx.lineTo(w * 0.55, -h * 0.95); ctx.stroke();
+  ctx.beginPath(); ctx.rect(-w / 2, -h * 0.45, w, h * 0.95);
+  ctx.fillStyle = 'rgba(78,72,62,0.96)'; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, -h * 0.12, w * 0.2, 0, Math.PI * 2); ctx.fillStyle = 'rgba(236,235,230,0.92)'; ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(236,235,230,0.6)'; ctx.lineWidth = Math.max(0.6, r * 0.04);
+  ctx.beginPath();
+  for (let k = 0; k < 3; k++) { ctx.moveTo(-w * 0.32, h * 0.18 + k * h * 0.08); ctx.lineTo(w * 0.32, h * 0.18 + k * h * 0.08); }
+  ctx.stroke();
+}
 // A little tape recorder: a box, two reels, a grille.
 function drawRecorder(ctx, r) {
   const w = r * 0.9, h = r * 0.62;
