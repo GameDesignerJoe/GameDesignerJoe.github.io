@@ -57,7 +57,7 @@ item({ id: 'snowshoes', name: 'Snowshoes', wear: true, icon: drawSnowshoes, bloc
 item({ id: 'axes', name: 'Ice axes', wear: true, icon: drawAxes, blocked: u => climbing() || !!u.storm, use: u => wearSlot(u.i, !u.slot.worn) });
 item({ id: 'crampons', name: 'Crampons', wear: true, icon: drawCrampons, blocked: u => climbing() || !!u.storm, use: u => wearSlot(u.i, !u.slot.worn) });
 // rations: pemmican and ship's biscuit, one item. Eating takes a while (ui/pack.js plays it).
-item({ id: 'food', name: 'Rations', kind: 'food', stack: 3, icon: drawFood, blocked: u => u.handsBlocked, use: u => u.eat(u.i) });
+item({ id: 'food', name: 'Rations', kind: 'food', stack: 3, icon: drawFood, blocked: u => u.handsBlocked || (state.body?.food ?? 0) > 0.95, use: u => u.eat(u.i) });
 // splint and bandage roll (slice 5): kneel and bind the hurt leg, ~4 s (ui/pack.js plays it); only
 // when hurt, never in the tent (it heals there anyway)
 item({ id: 'splint', name: 'Splint & bandage', kind: 'tool', stack: 2, icon: drawSplint,

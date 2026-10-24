@@ -22,6 +22,7 @@ import { tentDoor, campInteract, campBlocked, tentDoorClip, CAMP_SHELTER } from 
 import { pupDoor, pupDoorClip, pupBlocked, pupInteract, PUP_SHELTER } from './puptent.js';
 import { screenToWorld } from '../camera.js';
 import * as ICE from '../world/thinice.js';
+import { wear } from '../items.js';
 
 const KY = 0.8;              // ground-depth foreshortening (rig, travel, footprints)
 const BASE_SPEED = 13;       // world units / s on plain snow
@@ -1062,7 +1063,17 @@ const ROUTE_K = 1.3;        // route distance per half-cycle, relative to the bo
 
 const climbWindy = () => envW.ws + envW.gust > 0.8;
 
+// Climbing gear in the pack goes on by itself at the foot of a wall (Joe: no digging the axes and
+// crampons out by hand when they're right there in the pack). Swaps snowshoes off for crampons.
+function autoClimbGear() {
+  const inPack = id => !!state.pack?.slots.some(q => q && q.id === id);
+  if (!inPack('axes') || !inPack('crampons') || climbWindy()) return;
+  if (!axesOn()) wear('axes', true, true);
+  if (!crampOn()) wear('crampons', true, true);
+}
+
 function beginClimb() {
+  if (!hasClimbGear()) autoClimbGear();
   // no axes and crampons (or a gale): reach for the wall, look up, shake the head, back off
   if (climbWindy() || !hasClimbGear()) { startRefuse(!hasClimbGear() ? 'gear' : 'wind'); return; }
   // too badly hurt to climb: a look up the wall, then a hand to the bad thigh

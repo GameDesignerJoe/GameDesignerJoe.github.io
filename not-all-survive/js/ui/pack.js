@@ -1,5 +1,5 @@
-// The pack: the only UI, and only on demand. Press and hold the explorer to dig in it (a bar
-// fills over the head); when it fills, the pack's 10 round slots open beside them: two columns of
+// The pack: the only UI, and only on demand. Press and hold the explorer to dig in it (~0.45 s, a
+// bar over the head); when it fills, the pack's 10 round slots open beside them: two columns of
 // five, the first column nearest the explorer, slot 1 where the compass always sat (beside the
 // hood), slots 1-5 down that column and 6-0 down the far one. They open to the left, or to the
 // right when there's no room on the left. A faint dashed ink tether joins the block to its owner.
