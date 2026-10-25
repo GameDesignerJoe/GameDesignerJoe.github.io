@@ -30,7 +30,7 @@
 //   state.wind.angle is the direction the wind blows TOWARD (downwind).
 import { state } from '../state.js';
 import * as T from '../world/terrain.js';
-import { SIGNAL, COATS } from '../palette.js';
+import { SIGNAL, COATS, OTHER_COATS } from '../palette.js';
 import { tentDoor, campInteract, campBlocked, tentDoorClip, CAMP_SHELTER } from './camp.js';
 import { pupDoor, pupDoorClip, pupBlocked, pupInteract, PUP_SHELTER } from './puptent.js';
 import { screenToWorld } from '../camera.js';
@@ -308,6 +308,9 @@ export function init() {
   // with nobody left, gone; and a still of the figure for fallen.js
   P.respawn = gone => respawn(gone);
   P.snapshot = () => snapshot();
+  // goal/distress.js: the lost explorer, drawn as a fallen explorer is (the cold's collapse, laid still), in
+  // someone else's coat (Joe: "a dead version of the player character, the coat a random colour")
+  P.corpse = (x, y, facing, coat) => corpseSprite(x, y, facing, coat);
   P.tent = (kind = 'camp') => goToTent(kind);    // test hook: walk to the tent (or 'pup': the pup tent) and crawl in
   // ui/pack.js: a quick tap on the pitched pup tent from close by (a held one strikes it)
   P.pupTent = () => { if ((P.mode === 'walk' || P.mode === 'cower') && pupDoor() && (!spent || nearDoor('pup', 15))) goToTent('pup'); };
@@ -3098,9 +3101,9 @@ let DEEP = hexRGB(SIGNAL.deep).join(',');        // shading and creases on the c
 const C0 = { ...C };
 // Each member's own coat (palette.js COATS): the coat's colours (and its creases) swapped in, the
 // dulled / soaked versions re-derived from them.
-let coatOf = 0;
+let coatOf = 0, coatLock = false;   // (coatLock: a corpse's coat being drawn, corpseSprite)
 function setCoat(m) {
-  const k = COATS[((m % COATS.length) + COATS.length) % COATS.length];
+  const k = typeof m === 'object' ? m : COATS[((m % COATS.length) + COATS.length) % COATS.length];
   coatOf = m;
   Object.assign(C0, { coat: k.lit, hood: k.lit, sleeveL: k.lit, sleeveD: k.shadow,
     panel: mixHex(k.lit, '#f4efe4', 0.6), rim: mixHex(k.lit, '#f4efe4', 0.45) });
@@ -3185,7 +3188,7 @@ function drawFigure(ctx, rig, X, Y) {
   const yaw = rig.yaw;
   const dk = Math.round(6 * cowerW);       // cowering hump separates from the whiteout
   // the cold takes the colour out of the coat: signal yellow dulls toward a grey ochre
-  if ((state.member || 0) !== coatOf) setCoat(state.member || 0);
+  if (!coatLock && (state.member || 0) !== coatOf) setCoat(state.member || 0);
   const dl = Math.round(smooth(0.66, 0.0, warmth()) * 20) / 20;
   // soaked, the cloth goes a deeper, darker ochre (still warm in hue: not the cold grey)
   const wq = Math.round(clamp(state.body?.wet || 0) * 10) / 10;
@@ -3978,6 +3981,27 @@ function drawThroughDoor(ctx) {
 // A still of the figure as it is now, for fallen.js: the figure and its cast shadow, each in
 // a canvas at SNAP_S px per world unit covering x0..x0+w, y0..y0+h around the feet.
 const SNAP = { x0: -14, y0: -14, x1: 14, y1: 10 }, SNAP_S = 8;
+function corpseSprite(x, y, facing, coat) {
+  const keep = { x: P.x, y: P.y, facing: P.facing, ovr, ovrW, colKind, coat: coatOf };
+  const K = COLLAPSE_K, A = K[K.length - 2], Bk = K[K.length - 1];
+  P.x = x; P.y = y; P.facing = facing; colKind = 'cold';
+  ovr = {
+    hz: Bk.hz, leanF: Bk.lf, leanS: 0, feet: [Bk.fL, Bk.fR], hands: [Bk.hL, Bk.hR],
+    poleA: [[0.2, -1, -0.8], [0.2, 1, -0.8]], poleL: [[1, -0.2, 0.1], [1, 0.2, 0.1]],
+    hemAttach: Bk.hem ?? A.hem, facePitch: 0.4, faceYaw: 0, full: true, axes: 0,
+  };
+  ovrW = 1;
+  const pick = coat || OTHER_COATS[Math.floor(Math.random() * OTHER_COATS.length)];
+  setCoat(pick); coatLock = true;
+  let sp = null;
+  try { sp = snapshot(); } finally {
+    coatLock = false;
+    P.x = keep.x; P.y = keep.y; P.facing = keep.facing; ovr = keep.ovr; ovrW = keep.ovrW; colKind = keep.colKind;
+    setCoat(keep.coat);
+  }
+  return sp;
+}
+
 function snapshot() {
   const w = SNAP.x1 - SNAP.x0, h = SNAP.y1 - SNAP.y0;
   const mk = () => { const c = document.createElement('canvas'); c.width = w * SNAP_S; c.height = h * SNAP_S; const g = c.getContext('2d'); g.setTransform(SNAP_S, 0, 0, SNAP_S, -(P.x + SNAP.x0) * SNAP_S, -(P.y + SNAP.y0) * SNAP_S); return [c, g]; };

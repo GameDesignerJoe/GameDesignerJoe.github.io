@@ -26,6 +26,13 @@ function seeded(seed) {
   return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 }
 
+// snow patches for a body's picture (also goal/distress.js, for the lost explorer)
+export function snowBlobs(seed) {
+  const r = seeded(seed), blobs = [];
+  for (let i = 0; i < 40; i++) blobs.push({ u: 0.18 + 0.64 * r(), v: 0.25 + 0.6 * r(), r: 0.005 + 0.012 * r(), at: r() * 0.95, sq: 0.35 + 0.25 * r(), du: (r() - 0.5) * 1.6 });
+  return blobs;
+}
+
 export function update(dt) {
   for (const e of state.events) {
     if (e.type === 'handover' && e.lost) { fallen.push({ x: e.x, y: e.y, name: e.name, lost: true, age: 0 }); continue; }
@@ -226,7 +233,7 @@ export function drawables() {
   if (!fallen.length) return out;
   const r = visibleRect(30);
   for (const f of fallen) {
-    if (f.distress || f.x < r.x0 || f.x > r.x1 || f.y < r.y0 || f.y > r.y1 || (f.lost && f.age > SEA_LIFE)) continue;   // (the distress body: goal/distress.js draws it)
+    if ((f.distress && (!f.sprite || f.gone)) || f.x < r.x0 || f.x > r.x1 || f.y < r.y0 || f.y > r.y1 || (f.lost && f.age > SEA_LIFE)) continue;   // (the distress body: goal/distress.js draws it)
     out.push(drawableFor(f));
   }
   return out;

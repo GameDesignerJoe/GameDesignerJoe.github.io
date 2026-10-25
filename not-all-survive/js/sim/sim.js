@@ -98,6 +98,7 @@ S.toggle = on => {
   }
   try { history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString().replace(/=(&|$)/g, '$1') : '') + location.hash); } catch { /* file:// */ }
 };
+state.simSpeed = d => stepSpeed(d);   // (ui/infopanel.js: the slower / faster buttons)
 function stepSpeed(d) {
   const L = SIM.speeds, cur = state.timeScale;
   let i = L.findIndex(v => v >= cur - 1e-6);

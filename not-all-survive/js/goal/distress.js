@@ -22,6 +22,7 @@ import { visibleRect } from '../camera.js';
 import { BORDER } from '../world/frontier.js';
 import { TENT } from '../actors/camp.js';
 import { SIGNAL } from '../palette.js';
+import { snowBlobs } from '../actors/fallen.js';
 import * as NAV from '../sim/nav.js';
 
 const MIN_D = 650, MAX_D = 1150;          // world px from base camp
@@ -74,6 +75,14 @@ export function update(dt) {
     (state.fallen || (state.fallen = [])).push(entry);
     console.log(`[distress] the beacon is at ${D.x.toFixed(0)}, ${D.y.toFixed(0)}`);
   }
+  // their body: the explorer figure, fallen, in someone else's coat (explorer.js P.corpse; fallen.js draws it,
+  // drifted over like any of the fallen). Made once the explorer module is up.
+  if (entry && !entry.sprite && state.player.corpse) {
+    const f = -0.3 + Math.random() * 0.6;
+    entry.sprite = state.player.corpse(D.x, D.y, Math.PI + f);
+    if (entry.sprite) { entry.facing = Math.PI + f; entry.blobs = snowBlobs(7 + Math.floor(D.x * 13 + D.y * 7)); entry.cache = null; entry.cacheSnow = -1; entry.seed = (D.x * 0.37) % 100; entry.snow = 0.45; }
+  }
+  if (entry && D.wrapped) entry.gone = true;   // wrapped and taken: only the hollow and the dead beacon here
   // opened their pack: found
   if (!D.found && state.events.some(e => e.type === 'rummage' && e.target === 'fallen') && Math.hypot(state.player.x - D.x, state.player.y - D.y) < 30) {
     D.found = true;
@@ -99,6 +108,7 @@ function drawSite(ctx) {
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   const ink = 'rgba(28,30,34,0.9)';
   if (D.wrapped) { drawEmpty(ctx, ink); ctx.restore(); return; }
+  if (entry?.sprite) { drawBeacon(ctx, 7.5, 1.2); ctx.restore(); return; }   // (the body itself: fallen.js)
   // shadow and the hollow the drift has scooped round them
   ctx.fillStyle = 'rgba(60,64,72,0.2)';
   ctx.beginPath(); ctx.ellipse(1, 1.4, 11, 3.6, 0, 0, Math.PI * 2); ctx.fill();
@@ -145,6 +155,19 @@ function drawSite(ctx) {
     ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(6.1, -9.6, 1.8, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
+}
+// the beacon in the snow beside them: a small box, a stubby aerial, the light (blinking until they're found)
+function drawBeacon(ctx, bx, by) {
+  ctx.fillStyle = 'rgba(60,64,72,0.2)';
+  ctx.beginPath(); ctx.ellipse(bx + 1.6, by + 0.5, 2.2, 0.7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#4a4740'; ctx.strokeStyle = 'rgba(20,20,22,0.9)'; ctx.lineWidth = 0.3;
+  ctx.beginPath(); ctx.rect(bx, by - 1.6, 2.4, 1.6); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = 0.35; ctx.beginPath(); ctx.moveTo(bx + 1.9, by - 1.6); ctx.lineTo(bx + 2.7, by - 4.6); ctx.stroke();
+  if (D.light) {
+    ctx.fillStyle = SIGNAL.glow;
+    ctx.beginPath(); ctx.arc(bx + 2.7, by - 4.8, 0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(bx + 2.7, by - 4.8, 1.8, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  }
 }
 // Wrapped and taken (goal/burden.js draws the bundle): the hollow they lay in, scooped out of the drift,
 // and the dead beacon left lying in the snow.

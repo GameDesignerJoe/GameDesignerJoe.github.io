@@ -7,7 +7,7 @@
 // lines: [{ t: text, c: colour? }]; long lines wrap.
 import { state } from '../state.js';
 
-export const PANELS = { hidden: false, box: null, shown: false };
+export const PANELS = { hidden: false, box: null, boxes: [], shown: false };
 try { PANELS.hidden = localStorage.getItem('nas_infoHidden') === '1'; } catch { PANELS.hidden = false; }
 export function setHidden(h) {
   PANELS.hidden = h;
@@ -23,20 +23,28 @@ export function init() {
   const press0 = state.uiPress, release0 = state.uiRelease;
   let mine = false;
   state.uiPress = (sx, sy) => {
-    const b = PANELS.box;
-    if (b && sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h) { mine = true; setHidden(!PANELS.hidden); return true; }
+    // the buttons under the panels: hide / show, and (the sim running) slower / faster, for a phone
+    for (const b of PANELS.boxes) {
+      if (sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h) {
+        mine = true;
+        if (b.act === 'hide') setHidden(!PANELS.hidden);
+        else state.simSpeed?.(b.act === 'faster' ? 1 : -1);
+        return true;
+      }
+    }
     return press0 ? press0(sx, sy) : false;
   };
   state.uiRelease = () => { if (mine) { mine = false; return; } release0?.(); };
 }
 
-function button(ctx, x, y, label) {
+function button(ctx, x, y, label, act = 'hide') {
   ctx.font = FONT;
   const w = ctx.measureText(label).width + 18, h = 24;
   ctx.fillStyle = 'rgba(20,22,26,0.62)'; ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
   ctx.fillStyle = '#fff'; ctx.fillText(label, x + 9, y + 16);
-  PANELS.box = { x: x - 6, y: y - 6, w: w + 12, h: h + 12 };   // (a finger's worth round it)
+  PANELS.box = { x: x - 6, y: y - 6, w: w + 12, h: h + 12, act };   // (a finger's worth round it)
+  PANELS.boxes.push(PANELS.box);
   return w;
 }
 function wrap(ctx, lines, w) {
@@ -59,6 +67,7 @@ function wrap(ctx, lines, w) {
 export function drawOverlay(ctx) {
   const list = queue.splice(0);
   PANELS.shown = list.length > 0;
+  PANELS.boxes.length = 0;
   if (!list.length) { PANELS.box = null; return; }
   const { dpr, w: W } = state.view;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -76,8 +85,19 @@ export function drawOverlay(ctx) {
     out.forEach((l, i) => { ctx.fillStyle = l.c || '#e8e8e8'; ctx.fillText(l.t, x + PAD, top + PAD + 10 + i * LH); });
     if (!(side && k > 0)) { y = top + h + 6; bottom = top + h; }
   });
-  const bw = button(ctx, 8, bottom + 4, 'hide');
-  ctx.font = `${FS - 1}px ui-monospace, Menlo, Consolas, monospace`;
-  ctx.fillStyle = 'rgba(20,22,26,0.55)';
-  ctx.fillText(state.sim?.on ? '+/- speed  H hide' : 'H hide', 8 + bw + 10, bottom + 20);
+  let bx = 8 + button(ctx, 8, bottom + 4, 'hide') + 10;
+  // the sim running: real buttons for its speed (Joe: on a phone there's no + / - key), with the speed between
+  if (state.sim?.on) {
+    bx += button(ctx, bx, bottom + 4, '− slower', 'slower') + 6;
+    ctx.font = FONT; ctx.fillStyle = 'rgba(20,22,26,0.75)';
+    const lab = `×${state.timeScale}`;
+    ctx.fillText(lab, bx + 2, bottom + 20);
+    bx += ctx.measureText(lab).width + 10;
+    bx += button(ctx, bx, bottom + 4, '+ faster', 'faster') + 10;
+  }
+  if (!matchMedia('(pointer: coarse)').matches) {   // (the keys, for a keyboard)
+    ctx.font = `${FS - 1}px ui-monospace, Menlo, Consolas, monospace`;
+    ctx.fillStyle = 'rgba(20,22,26,0.55)';
+    ctx.fillText(state.sim?.on ? '+/- keys  H hide' : 'H hide', bx, bottom + 20);
+  }
 }

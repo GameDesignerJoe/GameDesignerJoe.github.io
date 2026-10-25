@@ -14,9 +14,10 @@
 // into FEEDBACK_FORM.
 import { state } from '../state.js';
 
+// The form is "Not All Will Survive feedback" on Joe's Google account (set up 2026-10-25).
 const FEEDBACK_FORM = {
-  action: '',   // 'https://docs.google.com/forms/d/e/<form id>/formResponse'
-  fields: { text: '', version: '', where: '', log: '', shot: '' },
+  action: 'https://docs.google.com/forms/d/e/1FAIpQLScy3pEpMa_X2osUWWYy_U89Hk1-0L_0Q_Qetw2XAOxDaK9sXA/formResponse',
+  fields: { text: 'entry.797005195', version: 'entry.1334796723', where: 'entry.299755428', log: 'entry.1577067527', shot: 'entry.362987115' },
 };
 
 const KEY = 'nas.feedback', SHOT_MAX = 40000, LOG_MAX = 30000;
@@ -48,7 +49,7 @@ export function update() {
 
 function version() {
   const d = new Date(document.lastModified);
-  return isNaN(d) ? '' : d.toISOString().slice(0, 16).replace('T', ' ');
+  return 'Not All Will Survive ' + (isNaN(d) ? '' : d.toISOString().slice(0, 16).replace('T', ' '));
 }
 function where() {
   const P = state.player, B = state.body || {}, W = state.weather || {}, L = state.lighting || {};
@@ -128,6 +129,9 @@ function send() {
   const item = { text, version: version(), where: where(), log: logText(), shot, at: new Date().toISOString() };
   const sent = post(item);
   if (!sent) keep(kept().concat([item]));
+  // a copy of the last few sent ones stays on the device too (a post is blind: if the form ever refuses it,
+  // nothing is lost; NAS.feedback.sent())
+  try { const old = JSON.parse(localStorage.getItem(KEY + '.sent') || '[]'); localStorage.setItem(KEY + '.sent', JSON.stringify(old.concat([{ ...item, shot: '' }]).slice(-20))); } catch { /* full */ }
   ta.value = '';
   box.querySelector('.fb-note').textContent = sent ? 'Thank you. Sent.' : 'Thank you. Kept on this device until the form is set up.';
   setTimeout(close, 1600);
@@ -148,5 +152,5 @@ export function init() {
     panel.prepend(b);
   };
   add();
-  window.NAS.feedback = { open, kept, where, log: logText };
+  window.NAS.feedback = { open, kept, where, log: logText, sent: () => { try { return JSON.parse(localStorage.getItem(KEY + '.sent') || '[]'); } catch { return []; } } };
 }
