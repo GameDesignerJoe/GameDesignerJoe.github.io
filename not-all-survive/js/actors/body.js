@@ -182,7 +182,10 @@ const thirstK = () => clamp((THIRSTY - B.water) / THIRSTY);   // 0 watered .. 1 
 const parchK = () => clamp((PARCHED - B.water) / PARCHED);    // the worst of it
 const dryOut = () => smooth(0.05, 0, B.water);               // at 0: the cold gets in a little more
 
-const NAMES = ['Halloran', 'Ashby', 'Teague', 'Marsh'];
+// One life (Joe): a single explorer; when they die, the expedition is over. (The four-member hand-over still
+// works: ?party=4 sets out the old party of four, for testing.)
+const PARTY = Math.max(1, Math.min(4, parseInt(state.params.get('party') || (state.params.has('trailer') ? '4' : '1'), 10) || 1));   // (the trailer tells the story of four)
+const NAMES = ['Halloran', 'Ashby', 'Teague', 'Marsh'].slice(0, PARTY);
 
 const B = state.body = {
   warmth: 1, wet: 0, energy: 1, reserve: 1, injury: 0, food: 1, water: 1,
@@ -1015,7 +1018,7 @@ export function drawOverlay(ctx) {
     ctx.textAlign = 'center';
     ctx.fillStyle = `rgba(233,233,231,${0.92 * a})`;
     ctx.font = `${Math.round(Math.max(22, s * 0.055))}px 'Playfair Display SC', Didot, Georgia, serif`;
-    ctx.fillText('NONE CAME HOME', w / 2, Math.max(s * 0.09, p.y - rr - s * 0.07));
+    ctx.fillText(state.party.length > 1 ? 'NONE CAME HOME' : 'THEY DID NOT COME HOME', w / 2, Math.max(s * 0.09, p.y - rr - s * 0.07));
     ctx.font = `italic ${Math.round(Math.max(12, s * 0.022))}px Georgia, serif`;
     ctx.fillStyle = `rgba(233,233,231,${0.6 * a})`;
     ctx.fillText(state.party.map(q => q.name).join('  ·  '), w / 2, Math.max(s * 0.09, p.y - rr - s * 0.07) + s * 0.045);
