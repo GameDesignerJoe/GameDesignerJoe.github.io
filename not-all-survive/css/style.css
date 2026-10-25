@@ -132,3 +132,14 @@ html, body {
   pointer-events: none;
   z-index: 9;
 }
+
+/* Feedback box (js/ui/feedback.js) */
+#feedback { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(20, 22, 26, 0.35); }
+#feedback[hidden] { display: none; }
+#feedback .fb-card { width: min(92vw, 440px); background: rgba(250, 250, 247, 0.97); border: 1px solid rgba(40, 40, 44, 0.25); border-radius: 10px; padding: 16px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25); font-family: Georgia, serif; color: #26241e; }
+#feedback .fb-title { font-family: 'Playfair Display SC', Georgia, serif; font-size: 20px; letter-spacing: 0.08em; margin-bottom: 10px; }
+#feedback textarea { width: 100%; box-sizing: border-box; font: 15px/1.4 Georgia, serif; padding: 8px; border: 1px solid rgba(40, 40, 44, 0.3); border-radius: 6px; resize: vertical; background: #fff; color: #26241e; }
+#feedback .fb-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+#feedback .fb-note { flex: 1; font-style: italic; font-size: 13px; color: #5a564e; }
+#feedback button { font: 14px Georgia, serif; padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(40, 40, 44, 0.3); background: #fff; color: #26241e; cursor: pointer; }
+#feedback .fb-send { background: #26241e; color: #fafaf7; }
