@@ -681,6 +681,9 @@ function drawTip(ctx, L) {
 
 export function init() {
   addEventListener('pointermove', e => { hoverPt = e.pointerType === 'mouse' ? { x: e.clientX, y: e.clientY } : null; });
+  // something of ours is open (the pack, a row of slots, a container, the compass, the ending card): input.js
+  // then hands even stick-half presses straight to us
+  state.uiOpen = () => C.phase !== 'idle' || cardUp();
   state.uiPress = (sx, sy) => {
     if (!state.begun && !state.params.has('autostart')) return false;
     if (cardUp()) { dismissCard(); return true; }   // the ending card: a press only takes it away

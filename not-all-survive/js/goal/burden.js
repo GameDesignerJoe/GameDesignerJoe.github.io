@@ -92,6 +92,16 @@ function axisPoint(b, x, y) {
 }
 // where to set it down beside the explorer: along their facing, at one side, else behind, else in front,
 // else at their feet
+// Home: where the lost explorer is laid to rest (Joe: somewhere dignified, not in among the skis): on clean
+// snow off the tent's far side from the skis, laid parallel to the tent, a ski planted at the head as a marker.
+function restSpot() {
+  const a = TENT.yaw + Math.PI / 2;
+  for (const [dx, dy] of [[-30, 6], [-34, -8], [-26, 20], [-40, 14], [-20, -22], [-46, 0]]) {
+    const x = TENT.x + dx, y = TENT.y + dy;
+    for (const aa of [a, a + 0.4, a - 0.4, TENT.yaw]) if (fits(x, y, aa)) return { x, y, a: aa };
+  }
+  return null;
+}
 function downSpot(px = P.x, py = P.y, f = P.facing) {
   const c = Math.cos(f), s = Math.sin(f), n = [-s, c];
   const cands = [[n[0] * 5, n[1] * 5], [-n[0] * 5, -n[1] * 5], [-c * 9, -s * 9], [c * 9, s * 9], [n[0] * 8, n[1] * 8], [-n[0] * 8, -n[1] * 8]];
@@ -236,33 +246,49 @@ function updateDrag(dt) {
   let d = gdist(ax, ay, b.hx, b.hy);
   const ox = b.hx, oy = b.hy;
   if (d > ROPE) {
-    const ux = (b.hx - ax) / d, uy = (b.hy - ay) / KY / d;
-    const tx = ax + ux * ROPE, ty = ay + uy * ROPE * KY;
-    if (okAt(tx, ty)) { b.hx = tx; b.hy = ty; }
-    else if (okAt(tx, b.hy)) b.hx = tx;
-    else if (okAt(b.hx, ty)) b.hy = ty;
+    // taut: the head is drawn after them along the rope. Blocked (rock, the camp's skis), it slides
+    // round the corner: the nearest free spot at the rope's length, swinging up to ~100 degrees either way.
+    const a0 = Math.atan2((b.hy - ay) / KY, b.hx - ax);
+    let moved = false;
+    for (let k = 0; k <= 10 && !moved; k++) {
+      for (const sgn of k ? [1, -1] : [1]) {
+        const a = a0 + sgn * k * 0.17, tx = ax + Math.cos(a) * ROPE, ty = ay + Math.sin(a) * ROPE * KY;
+        if (okAt(tx, ty)) { b.hx = tx; b.hy = ty; moved = true; break; }
+      }
+    }
   }
   d = gdist(ax, ay, b.hx, b.hy);
   if (d > ROPE + SLACK) {
-    // snagged: held at the rope's length (only ever back toward it: walking back to it is free)
+    // snagged hard: held at the rope's length for a moment (walking back toward it is free)...
     const bx = B.px - Math.cos(P.facing) * 1.4, by = B.py - Math.sin(P.facing) * 1.4 * KY;
     if (d > gdist(bx, by, b.hx, b.hy) - 0.01) { P.x = B.px; P.y = B.py; P.vx *= 0.3; P.vy *= 0.3; }
     if (B.snag <= 0) state.events.push({ type: 'snag', x: b.hx, y: b.hy });
     B.snag += dt;
+    // ...then a heave on the rope and it comes free (Joe: never pinned in place): the head jumps to
+    // the nearest free ground just behind them
+    if (B.snag > 0.9) {
+      for (let r = ROPE * 0.6; r <= ROPE * 1.6; r += 1.5) {
+        let done = false;
+        for (let a = 0; a < Math.PI * 2; a += 0.35) {
+          const ang = P.facing + Math.PI + a, tx = ax + Math.cos(ang) * r, ty = ay + Math.sin(ang) * r * KY;
+          if (okAt(tx, ty)) { b.hx = tx; b.hy = ty; done = true; break; }
+        }
+        if (done) break;
+      }
+      B.snag = 0;
+    }
   } else B.snag = 0;
-  // the feet along the head's track
-  const cr = b.crumbs || (b.crumbs = [{ x: b.fx, y: b.fy }, { x: b.hx, y: b.hy }]);
-  const last = cr[cr.length - 1];
-  if (gdist(last.x, last.y, b.hx, b.hy) > 0.8) cr.push({ x: b.hx, y: b.hy });
-  else { last.x = b.hx; last.y = b.hy; }
-  let need = LEN, i = cr.length - 1, fx = cr[0].x, fy = cr[0].y;
-  for (; i > 0; i--) {
-    const a = cr[i], q = cr[i - 1], l = gdist(a.x, a.y, q.x, q.y);
-    if (l >= need) { const k = need / l; fx = a.x + (q.x - a.x) * k; fy = a.y + (q.y - a.y) * k; break; }
-    need -= l;
-  }
-  if (i > 1) cr.splice(0, i - 1);
-  b.fx = fx; b.fy = fy;
+  // the body lies along the rope, feet trailing straight behind the head (Joe: always turned toward
+  // the way they're going), swinging round smoothly rather than snapping
+  const ua = Math.atan2((b.hy - ay) / KY, b.hx - ax);
+  const tfx = b.hx + Math.cos(ua) * LEN, tfy = b.hy + Math.sin(ua) * LEN * KY;
+  const k = Math.min(1, dt * 6);
+  let nfx = b.fx + (tfx - b.fx) * k, nfy = b.fy + (tfy - b.fy) * k;
+  // keep its length (the smoothing shortens it on a turn)
+  const L = gdist(b.hx, b.hy, nfx, nfy) || 1, s = LEN / L;
+  nfx = b.hx + (nfx - b.hx) * s; nfy = b.hy + (nfy - b.hy) * s;
+  if (okAt((nfx + b.hx) / 2, (nfy + b.hy) / 2)) { b.fx = nfx; b.fy = nfy; }
+  b.crumbs = null;
   // the trench it ploughs, and its weight on the ice
   const c = center(b), moved = Math.hypot(b.hx - ox, (b.hy - oy) / KY);
   const ter = T.terrainAt(c.x, c.y);
@@ -317,7 +343,9 @@ export function update(dt) {
     if (dc > AWAY_R) b.away = true;
     if (b.away && B.mode && dc < HOME_R) {
       B.home = true;
-      if (B.mode) setDown();
+      const rs = restSpot();
+      if (rs) { B.mode = 'carry'; b.held = true; setDown(rs); b.rest = true; }   // (laid out there, whichever way it came in)
+      else if (B.mode) setDown();
       const lost = (state.party || []).filter(q => !q.alive).map(q => q.name);
       B.card = { t: 0, lost };
       state.events.push({ type: 'goal', stage: 'home', x: c.x, y: c.y, lost });
@@ -386,10 +414,29 @@ export function drawables() {
   if (J && J.kind === 'wrap' && d) { wrapItem.x = d.x; wrapItem.y = d.y + 0.6; items.push(wrapItem); }
   return items;
 }
+// a single ski planted upright at the head, a short crosspiece lashed on: their marker at base camp
+function drawMarker(ctx, b) {
+  const ux = b.hx - b.fx, uy = (b.hy - b.fy) / KY, l = Math.hypot(ux, uy) || 1;
+  const x = b.hx + ux / l * 2.2, y = b.hy + uy / l * 2.2 * KY;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.fillStyle = 'rgba(60,64,72,0.18)';
+  ctx.beginPath(); ctx.ellipse(x + 2.2, y + 0.6, 3.2, 0.9, 0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(28,30,34,0.85)'; ctx.lineWidth = 1.1;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 0.4, y - 11); ctx.stroke();
+  ctx.strokeStyle = '#a9a6a0'; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(x, y - 0.3); ctx.lineTo(x + 0.4, y - 10.7); ctx.stroke();
+  ctx.strokeStyle = 'rgba(28,30,34,0.85)'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(x - 2.4, y - 7.6); ctx.lineTo(x + 2.8, y - 7.9); ctx.stroke();
+  ctx.fillStyle = '#f3f4f2';
+  ctx.beginPath(); ctx.ellipse(x, y + 0.2, 1.6, 0.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
 function drawLying(ctx) {
   const b = B.bundle;
   if (B.mode === 'drag') drawRope(ctx, b);
   drawBundle(ctx, b.hx, b.hy, b.fx, b.fy, b.snow, 1);
+  if (b.rest) drawMarker(ctx, b);
   if (B.mode === 'drag' && P.ropeAt && Math.sin(P.facing) < 0) drawRope(ctx, b, true);   // (walking away up the screen: the rope over the bundle's head end too)
 }
 // The wrapping, over the body where it lies: the sheet drawn over them as it goes on, then the bands

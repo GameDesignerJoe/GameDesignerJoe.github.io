@@ -23,6 +23,7 @@ const forceStick = state.params?.has?.('stick');
 let stick = null;          // { id, ox, oy, x, y }: the hidden stick, while a thumb is on it
 state.stick = { active: false, x: 0, y: 0, used: (() => { try { return localStorage.getItem('nas_stickUsed') === '1'; } catch { return false; } })() };
 const stickish = e => forceStick || e.pointerType === 'touch';
+const HOLD_UI = 0.3;       // s a thumb kept still on the stick half before it's a hold on whatever is there
 
 // UI elements can claim a press before it turns into walking or a climb tap:
 // state.uiPress(sx, sy) -> true to take it; state.uiRelease() is called when it ends.
@@ -55,13 +56,19 @@ export function initInput(canvas) {
       return;
     }
     if (touches.size > 2) return;
-    if (state.uiPress?.(e.clientX, e.clientY)) { claimedId = e.pointerId; return; }
+    // On the stick half of a touch screen a press is the stick first: a drag walks, even right over
+    // the explorer or the bundle (Joe: dragging the body, every thumb on the stick opened the menu
+    // over their head). It's handed to the UI only as a tap (let go quickly, never pushed) or a
+    // hold kept still (HOLD_UI: holding the explorer still opens the pack). An open menu, pack
+    // or card takes presses straight away, as before.
+    const stickZone = stickish(e) && e.clientY > innerHeight * (1 - STICK_ZONE) && !state.uiOpen?.();
+    if (!stickZone && state.uiPress?.(e.clientX, e.clientY)) { claimedId = e.pointerId; return; }
     if (stickish(e)) {
       const w = screenToWorld(e.clientX, e.clientY);
       if (e.clientY > innerHeight * (1 - STICK_ZONE)) {
         // the hidden stick: centred where the thumb landed. (Climbing, a thumb on it is the
         // next move, like Space.)
-        stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY, t0: state.time, moved: false };
+        stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY, t0: state.time, moved: false, ui: stickZone };
         if (state.player?.mode === 'climb') state.input.action = state.time;
       } else state.input.tap = { x: w.x, y: w.y, t: state.time };   // higher up: a tap, not a walk
       return;
@@ -89,8 +96,12 @@ export function initInput(canvas) {
     if (touches.size < 2) pinchDist = 0;
     if (e.pointerId === claimedId) { claimedId = null; state.uiRelease?.(); return; }
     if (stick && e.pointerId === stick.id) {
-      // a quick tap on the stick half that never pushed: a tap there (hunt.js: fires the raised rifle)
-      if (!stick.moved && state.time - stick.t0 < 0.35) state.input.stickTap = state.time;
+      // a quick tap on the stick half that never pushed: a tap there (hunt.js: fires the raised rifle),
+      // and a tap for the UI (the explorer's row, the bundle, a container...)
+      if (!stick.moved && state.time - stick.t0 < 0.35) {
+        state.input.stickTap = state.time;
+        if (stick.ui && state.uiPress?.(stick.ox, stick.oy)) state.uiRelease?.();
+      }
       stick = null; return;
     }
     if (e.pointerId !== pointerId) return;
@@ -130,6 +141,12 @@ export function updateInput() {
   // the hidden stick: direction and push from where the thumb went down
   const S = state.stick;
   S.active = false; S.x = S.y = 0;
+  // a thumb kept still: a hold on what's under it (the explorer: the pack), if the UI wants it
+  if (stick && stick.ui && !stick.moved && state.time - stick.t0 >= HOLD_UI
+      && Math.hypot(stick.x - stick.ox, stick.y - stick.oy) < STICK_MAX * STICK_DEAD) {
+    stick.ui = false;
+    if (state.uiPress?.(stick.ox, stick.oy)) { claimedId = stick.id; stick = null; }
+  }
   if (stick) {
     const dx = stick.x - stick.ox, dy = stick.y - stick.oy, len = Math.hypot(dx, dy);
     const k = Math.min(1, len / STICK_MAX);
