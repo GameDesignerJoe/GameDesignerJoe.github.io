@@ -61,8 +61,13 @@ export function update(dt) {
   // the first member sets out with it on, once the game has begun
   if (!autoOn && state.begun !== false && D?.ready && haveRadio() && state.member === 0 && P.mode === 'walk') { autoOn = true; toggle(true); }
   if (R.on && (!haveRadio() || !alive())) toggle(false);
+  // found (Joe): the beacon has done its work; a moment of hiss, then the radio is switched off and put
+  // away (its little radio over the explorer goes with it)
+  if (R.on && D?.found) { R.foundT = (R.foundT || 0) + dt; if (R.foundT > 2.5) toggle(false); } else R.foundT = 0;
   pulse = Math.max(0, pulse - dt * 3);
-  if (!R.on || !D?.ready) { R.near = 0; if (noise) noise.g.gain.value = 0; return; }
+  // (silent in a tent: Joe; the canvas and the stove's roar, nothing else)
+  const inTent = P.mode === 'inside' || P.mode === 'tent-in' || P.mode === 'tent-out';
+  if (!R.on || !D?.ready || inTent) { R.near = 0; if (noise) noise.g.gain.value = 0; return; }
   const d = Math.hypot(P.x - D.x, P.y - D.y);
   R.near = Math.max(0, Math.min(1, 1 - (d - AREA) / (FAR - AREA)));
   const storm = Math.max(state.weather?.whiteout || 0, (state.wind?.speed || 0) - 0.4);
@@ -100,7 +105,8 @@ export function update(dt) {
 
 // A small radio over the explorer while it's on, its aerial up, a signal arc pulsing with the blips.
 export function drawScreen(ctx) {
-  if (!R.on || !alive() || state.player.mode === 'inside') return;
+  const m = state.player.mode;
+  if (!R.on || !alive() || m === 'inside' || m === 'tent-in' || m === 'tent-out') return;
   const P = state.player, z = state.cam.zoom || 1, { dpr } = state.view;
   const s = worldToScreenUI(P.x, P.y), x = s.x + 5.5 * z, y = s.y - 19 * z, u = Math.max(1.2, z * 0.45);
   ctx.save();

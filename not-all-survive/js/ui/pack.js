@@ -330,8 +330,8 @@ function startRummage(target = null) {
 }
 // The tent menu (Joe): inside a tent, a tap brings up what you can do there, as a row of round
 // slots above the tent: leave, eat, drink, sleep (after dark), open the pack. A tap off it closes it.
-const TENT_ACTS = ['leave', 'eat', 'cook', 'drink', 'sleep', 'pack'];
-const TENT_NAMES = { leave: 'Leave the tent', eat: 'Eat a ration', cook: 'Cook meat on the stove', drink: 'Drink (snow melted on the stove)', sleep: 'Sleep till dawn', pack: 'Open the pack' };
+const TENT_ACTS = ['leave', 'eat', 'cook', 'drink', 'fill', 'sleep', 'pack'];
+const TENT_NAMES = { leave: 'Leave the tent', eat: 'Eat a ration', cook: 'Cook meat on the stove', drink: 'Drink (snow melted on the stove)', fill: 'Fill the flask from the stove', sleep: 'Sleep till dawn', pack: 'Open the pack' };
 const TENT_DRINK = 0.35;
 function tentLayout() {
   const f = feet(), z = zoom(), r = slotR(), sp = r * 2.5, { w } = state.view;
@@ -351,6 +351,7 @@ function tentBlocked(id) {
   if (id === 'eat') return find(pack, 'food') < 0 || (B && B.food > 0.95);
   if (id === 'cook') return find(pack, 'meat') < 0 || (B && B.food > 0.95);
   if (id === 'drink') return !!B && B.water > 0.95;
+  if (id === 'fill') return !pack.slots.some(q => q && q.id === 'flask' && q.drinks < FLASK_DRINKS);
   if (id === 'sleep') return !canSleep();
   return false;
 }
@@ -366,10 +367,24 @@ function tentAct(p) {
     if (i >= 0) startDrink(i);
     else if (B) { B.water = Math.min(1, B.water + TENT_DRINK); state.events.push({ type: 'drink', stage: 'done', x: P.x, y: P.y }); close(); }
   }
+  else if (p.id === 'fill') {
+    // the stove's meltwater poured into every flask in the pack (it also tops them up by itself, slowly)
+    for (const q of pack.slots) if (q && q.id === 'flask') q.drinks = FLASK_DRINKS;
+    state.events.push({ type: 'drink', stage: 'fill', x: P.x, y: P.y });
+  }
   else if (p.id === 'sleep') { close(); state.events.push({ type: 'tent', action: 'sleep', x: P.x, y: P.y, shelter: P.shelter }); }
   else if (p.id === 'pack') { C.phase = 'slot'; C.t = 0; C.target = null; lay = null; }
 }
 const INK_T = 'rgba(40,36,30,0.9)';
+// a steaming tin mug (drink, in the tent: the flask fills; the mug is drunk)
+function drawMug(ctx, r) {
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.fillStyle = 'rgba(206,204,198,0.95)'; ctx.strokeStyle = 'rgba(40,36,30,0.9)'; ctx.lineWidth = Math.max(1, r * 0.07);
+  ctx.beginPath(); ctx.rect(-r * 0.3, -r * 0.18, r * 0.5, r * 0.56); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(r * 0.24, r * 0.08, r * 0.14, -1.2, 1.2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(40,36,30,0.55)'; ctx.lineWidth = Math.max(0.8, r * 0.05);
+  for (const dx of [-0.14, 0.04]) { ctx.beginPath(); ctx.moveTo(r * dx, -r * 0.26); ctx.quadraticCurveTo(r * (dx + 0.1), -r * 0.42, r * dx, -r * 0.58); ctx.stroke(); }
+}
 const TENT_ICON = {
   // a boot stepping out through the door flap
   leave: (ctx, r) => {
@@ -392,7 +407,13 @@ const TENT_ICON = {
     for (const dx of [-0.25, 0, 0.25]) { ctx.moveTo(r * (dx - 0.08), -r * 0.05); ctx.quadraticCurveTo(r * (dx + 0.02), -r * 0.25, r * (dx - 0.08), -r * 0.42); }
     ctx.stroke();
   },
-  drink: (ctx, r, z) => ITEMS.flask.icon(ctx, r, z),
+  drink: (ctx, r) => drawMug(ctx, r),
+  // the flask with a falling drop over it
+  fill: (ctx, r, z) => {
+    ctx.save(); ctx.translate(0, r * 0.12); ITEMS.flask.icon(ctx, r * 0.82, z); ctx.restore();
+    ctx.fillStyle = 'rgba(40,36,30,0.9)';
+    ctx.beginPath(); ctx.moveTo(0, -r * 0.62); ctx.quadraticCurveTo(r * 0.12, -r * 0.42, 0, -r * 0.36); ctx.quadraticCurveTo(-r * 0.12, -r * 0.42, 0, -r * 0.62); ctx.fill();
+  },
   // a crescent moon
   sleep: (ctx, r) => {
     ctx.fillStyle = INK_T;
@@ -651,7 +672,7 @@ function tipText(t) {
   if (!s) return t.block === 'cont' ? null : 'Empty';
   const it = ITEMS[s.id];
   let txt = it.name;
-  if (s.drinks !== undefined) txt += ` (${s.drinks}/${FLASK_DRINKS})`;
+  if (s.drinks !== undefined) txt += ` (${s.drinks}/${FLASK_DRINKS})` + (s.drinks < FLASK_DRINKS ? ' · fill it in a tent' : '');
   else if (s.n > 1) txt += ` ×${s.n}`;
   if (s.worn) txt += ' · worn';
   return txt;
