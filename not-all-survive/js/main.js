@@ -40,7 +40,9 @@ const MODULES = {
   radio: './audio/radio.js',        // after night (its little radio over the explorer isn't tinted): the beacon's blips / SOS
   feedback: './ui/feedback.js',     // gear menu: Send feedback (a Google Form; kept on the device until it's set up)
   stickhint: './ui/stickhint.js',   // touch: pulses the hidden thumbstick if a new player stands still
-  sim: './sim/sim.js',              // last: "watch it play", dormant unless ?sim or the gear menu turns it on (sees every event of the frame; drives the input)
+  sim: './sim/sim.js',              // "watch it play", dormant unless ?sim or the gear menu turns it on (sees every event of the frame; drives the input)
+  debug: './ui/debug.js',           // the gear menu's "Debug info": the live state and the last events, in a panel
+  infopanel: './ui/infopanel.js',   // last: lays out and draws the sim's and the debug panels, one hide / show tab
 };
 // ?trailer: the launch trailer's director (js/trailer/): scripted shots, a scripted camera and the motion
 // graphics over the frame, with time stepped by hand (NAS.trailer.step()) instead of by the clock.

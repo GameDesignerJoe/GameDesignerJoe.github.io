@@ -45,9 +45,9 @@ export function initMenu() {
     <button data-act="tview">Terrain view: off</button>
     <button data-act="motion">Reduce motion: off</button>
     <button data-act="sim">Watch it play: off</button>
-    <button data-act="simlog">Copy sim log</button>
+    <button data-act="debuginfo">Debug info: off</button>
     <div class="body-dbg">
-      <pre data-act="bodyinfo"></pre>
+      <div class="row"><button data-act="simlog">Copy sim log</button><button data-act="simdl">Download sim log</button></div>
       <div class="row">
         <button data-act="freeze">Freeze me</button>
         <button data-act="warm">Warm me</button>
@@ -109,66 +109,10 @@ export function initMenu() {
     panel.querySelector('[data-act="tview"]').textContent = `Terrain view: ${state.terrainView ? 'on' : 'off'}`;
     panel.querySelector('[data-act="motion"]').textContent = `Reduce motion: ${state.reduceMotion ? 'on' : 'off'}`;
     panel.querySelector('[data-act="sim"]').textContent = `Watch it play: ${state.sim?.on ? 'on' : 'off'}`;
+    panel.querySelector('[data-act="debuginfo"]').textContent = `Debug info: ${state.debugInfo?.on ? 'on' : 'off'}`;
   };
 
-  // Body debug readout (body.js): refreshed while the menu is open.
-  const info = panel.querySelector('[data-act="bodyinfo"]');
-  const showBody = () => {
-    const b = state.body, P = state.player;
-    if (!b) { info.textContent = 'body: not loaded'; return; }
-    const alive = state.party ? state.party.filter(m => m.alive).length : 0;
-    info.textContent = `warmth ${b.warmth.toFixed(2)}  ${(b.rate * 60 >= 0 ? '+' : '')}${(b.rate * 60).toFixed(3)}/min
-`
-      + `wet ${b.wet.toFixed(2)}  rime ${(b.frozen || 0).toFixed(2)}  shock ${(b.shock || 0).toFixed(2)}
-energy ${b.energy.toFixed(2)}/${(b.max ?? 1).toFixed(2)}  ${(b.drain > 0 ? '-' : '+')}${Math.abs((b.drain || 0) * 60).toFixed(3)}/min
-`
-      + `reserve ${(b.reserve ?? 1).toFixed(2)}  in water ${P.water?.level ?? 0}
-injury ${b.injury.toFixed(2)}${b.splint ? ' splinted' : ''}  ice stress ${(P.iceStress || 0).toFixed(2)}${state.holes?.some(h => h.ro > 0) ? `  holes ${state.holes.filter(h => h.ro > 0).length}` : ''}
-`
-      + `food ${b.food.toFixed(2)}  -${((b.foodRate || 0) * 60).toFixed(3)}/min
-water ${b.water.toFixed(2)}  ${(b.waterRate || 0) > 0 ? '-' : '+'}${Math.abs((b.waterRate || 0) * 60).toFixed(3)}/min  flask ${flaskText()}${state.thirst ? `  mirage ${state.thirst.mirage.toFixed(2)}${state.thirst.man ? '  third man' : ''}` : ''}
-`
-      + `pack ${packText(state.pack)}
-sled ${packText(state.sled)}
-`
-      + `${pupText()}
-${b.phase} · ${P.mode}${P.mode === 'inside' || P.mode === 'tent-in' || P.mode === 'tent-out' ? ` (${P.shelter?.kind ?? 'camp'})` : ''} · party ${alive}/${state.party?.length ?? 0}
-`
-      + `${state.weather.temp}°C cold ${state.weather.cold.toFixed(2)} wind ${(P.exposure || 0).toFixed(2)}
-weather: ${state.weather.forecast?.label ?? '-'} · now ${state.weather.phase ?? '-'}
-${bearText()}`;
-  };
-  setInterval(() => { if (!panel.hidden) showBody(); }, 250);
-  // the bear (slice 7): what it's doing, how worked up, how far; the rifle's cartridges
-  function bearText() {
-    const md = window.NAS.bear?.mood?.();
-    const cart = state.pack?.slots.reduce((a, q) => a + (q && q.id === 'cartridges' ? q.n : 0), 0) ?? 0;
-    const carc = (state.hunt?.carcasses || []).filter(c => !c.done).map(c => c.kind).join(' ');
-    return md ? `bear: ${md.st} aggro ${md.aggro.toFixed(2)} (${md.rate >= 0 ? '+' : ''}${(md.rate * 60).toFixed(2)}/min) ${md.pd.toFixed(0)} away, hp ${md.hp}
-rifle: ${state.hunt?.aim ? 'up' : 'down'}, ${cart} cartridges${carc ? ` · carcasses: ${carc}` : ''}` : 'bear: -';
-  }
-  // the pup tent: where it is, and the work on it
-  function pupText() {
-    const u = state.pup;
-    if (!u) return 'pup tent: -';
-    if (u.job) return `pup tent: ${u.job.kind} ${(u.job.prog ?? 0).toFixed(2)}/3${u.job.coll ? ' COLLAPSE' : ''}${u.job.kind === 'pitch' ? ` try ${u.job.tries}` : ''}`;
-    if (u.pitched) return `pup tent: pitched at ${u.pitched.x.toFixed(0)},${u.pitched.y.toFixed(0)}`;
-    const where = state.pack?.slots.some(q => q && q.id === 'puptent') ? 'in the pack' : state.sled?.slots.some(q => q && q.id === 'puptent') ? 'on the sled' : 'elsewhere';
-    return `pup tent: ${where}`;
-  }
-  // the flasks in the pack: drinks left in each, e.g. "2/3"; "none" if there isn't one
-  function flaskText() {
-    const f = state.pack?.slots.filter(q => q && q.id === 'flask') || [];
-    return f.length ? f.map(q => `${q.drinks ?? 0}/3`).join(' ') : 'none';
-  }
-  // e.g. "compass* food3 food2 axes" (* = worn); ".." for each empty pack slot
-  function packText(c) {
-    if (!c) return '-';
-    const full = c.slots.filter(Boolean).map(q => q.id + (q.n > 1 ? q.n : '') + (q.worn ? '*' : ''));
-    return (full.join(' ') || 'empty') + (c === state.pack ? ` (${c.slots.length - full.length} free)` : '');
-  }
-
-  gear.addEventListener('click', () => { panel.hidden = !panel.hidden; sync(); showBody(); });
+  gear.addEventListener('click', () => { panel.hidden = !panel.hidden; sync() });
   sel.addEventListener('change', () => setQuality(sel.value));
   // Weather (debug): force today's forecast; '' goes back to the daily draw.
   const fsel = panel.querySelector('[data-act="forecast"]');
@@ -181,6 +125,9 @@ rifle: ${state.hunt?.aim ? 'up' : 'down'}, ${cart} cartridges${carc ? ` · carca
     // "watch it play" (js/sim): the game plays itself from here, or hands back control (live, no reload)
     if (act === 'sim') { state.sim?.toggle?.(!state.sim.on); sync(); }
     if (act === 'simlog') copySimLog(e.target.closest('[data-act]'));
+    if (act === 'simdl') downloadSimLog();
+    // the live state and the last events in a panel top left (ui/debug.js), remembered on this device
+    if (act === 'debuginfo') { state.debugInfo?.toggle?.(); sync(); }
     if (act === 'tview') { state.terrainView = !state.terrainView; sync(); }
     // Reduce motion: no breathing camera when exhausted (remembered on this device)
     if (act === 'motion') {
@@ -188,29 +135,29 @@ rifle: ${state.hunt?.aim ? 'up' : 'down'}, ${cart} cartridges${carc ? ` · carca
       try { localStorage.setItem('nas_reduceMotion', state.reduceMotion ? '1' : '0'); } catch { /* private mode */ }
       sync();
     }
-    if (act === 'freeze') { state.freeze?.(); showBody(); }
-    if (act === 'warm') { state.warm?.(); showBody(); }
+    if (act === 'freeze') { state.freeze?.() }
+    if (act === 'warm') { state.warm?.() }
     if (act === 'kill') { state.kill?.(); panel.hidden = true; }
-    if (act === 'soak') { state.soak?.(); showBody(); }
-    if (act === 'dry') { state.dry?.(); showBody(); }
-    if (act === 'tire') { state.tire?.(); showBody(); }
-    if (act === 'rest') { state.rest?.(); showBody(); }
-    if (act === 'hurt') { state.hurt?.(); showBody(); }
-    if (act === 'heal') { state.heal?.(); showBody(); }
+    if (act === 'soak') { state.soak?.() }
+    if (act === 'dry') { state.dry?.() }
+    if (act === 'tire') { state.tire?.() }
+    if (act === 'rest') { state.rest?.() }
+    if (act === 'hurt') { state.hurt?.() }
+    if (act === 'heal') { state.heal?.() }
     if (act === 'breakice') { state.breakIce?.(); panel.hidden = true; }
-    if (act === 'starve') { state.starve?.(); showBody(); }
-    if (act === 'feed') { state.feed?.(); showBody(); }
-    if (act === 'fill') { state.fillPack?.(); showBody(); }
-    if (act === 'parch') { state.parch?.(); showBody(); }
-    if (act === 'quench') { state.quench?.(); showBody(); }
+    if (act === 'starve') { state.starve?.() }
+    if (act === 'feed') { state.feed?.() }
+    if (act === 'fill') { state.fillPack?.() }
+    if (act === 'parch') { state.parch?.() }
+    if (act === 'quench') { state.quench?.() }
     if (act === 'pitch') { state.pitch?.(true); panel.hidden = true; }
-    if (act === 'strike') { state.strike?.(true); showBody(); }
+    if (act === 'strike') { state.strike?.(true) }
     // the goal (goal/burden.js): the lost explorer, wrapped, set down beside the explorer
     if (act === 'bundle') { state.goal?.wrapped(); panel.hidden = true; }
     // the bear slice: the bear comes (the warning, then the charge); the rifle (and five cartridges), a flare
     if (act === 'bearcharge') { window.NAS.bear?.charge(); panel.hidden = true; }
-    if (act === 'rifle') { window.NAS.giveRifle?.(); showBody(); }
-    if (act === 'flare') { window.NAS.giveFlare?.(); showBody(); }
+    if (act === 'rifle') { window.NAS.giveRifle?.() }
+    if (act === 'flare') { window.NAS.giveFlare?.() }
     // Bright day: auto (weather decides) -> on -> off -> auto.
     if (act === 'bright') {
       const L = state.lighting;
@@ -238,6 +185,15 @@ function copySimLog(btn) {
   const done = ok => { btn.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(() => { btn.textContent = 'Copy sim log'; }, 1500); };
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => done(fallbackCopy(text)));
   else done(fallbackCopy(text));
+}
+// ...or as a file, for the replay player (replay/index.html)
+function downloadSimLog() {
+  const text = state.sim?.dump?.() || JSON.stringify({ runs: JSON.parse(sessionStorage.getItem('nas_sim_runs') || '[]') });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.download = `nas-sim-run-${state.sim?.stats?.run ?? 0}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 function fallbackCopy(text) {
   const ta = document.createElement('textarea');

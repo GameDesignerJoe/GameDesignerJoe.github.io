@@ -70,6 +70,14 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
 - `?kit=all` starts the first member with the compass, snowshoes, axes, crampons and 3 rations (the gear comes out of the sled). `?food=0..1` starts them that hungry; hooks `NAS.starve(v?)` (food to v, or 0.25 lower), `NAS.feed(v = 1)`, `NAS.fillPack()`; the gear menu has Starve me / Feed me / Fill pack and shows food, its rate, the pack and the sled.
 - `?terrain=ice` forces `terrainAt()` to return that type everywhere (handy for animation tests).
 - `?debug` lets modules draw debug overlays.
+- Debug info (`js/ui/debug.js`): the gear menu's "Debug info: on/off" (remembered on the device; `?debuginfo` forces it) shows a
+  panel top left with the live state: the body (warmth, energy / cap, reserve, food, water, wet, rime, injury, with their rates), day
+  and time, forecast, spell, temperature and wind, the ground underfoot and ice stress, the radio (near, blip interval), the bear
+  (state, aggro, distance), the rifle, the body and burden, the pack, the pup tent and the sled, and the last 8 events in plain
+  words ("Ate a ration", "Pitched the pup tent (try 2)", "Ice cracked", "Bear warned", "Found the body": `js/ui/eventwords.js`). It
+  replaced the gear menu's old text readout (the debug buttons stay). The panels (this and the sim's thoughts) are laid out together
+  by `js/ui/infopanel.js` (`addPanel(lines)` each frame): top left, the second against the right edge on a wide screen, one under the
+  other on a narrow one; one "hide" button folds them to an "info: show" tab (H too), remembered; a press on it is the UI's.
 - "Watch it play" (`js/sim/`): `?sim`, or the gear menu's "Watch it play: on/off" (live: off drops the task, clears
   `state.demoInput` and hands control back; the module is always loaded, dormant until on), and the game plays itself through
   the player's own input (`state.demoInput`, presses via `NAS.uiPress` / `uiRelease` played between frames, world taps): it
@@ -79,11 +87,14 @@ Runs in desktop and mobile browsers. Plain ES modules, no build step, no npm dep
   triangulates: the blip rate at three or more spread-out spots read as distances (the radio's own calibration), a least-squares
   fix, and it walks there, reading again on the way (and fetches the axes and crampons if the fix lies past a wall). It decides
   as it goes (eat, drink, snow, splint, rest, snowshoes, climb or go round, camp or go on, the bear, carry or drag), each
-  logged with its reason in a thoughts panel (top left; its "hide" button, or H, folds it to a "sim: show" tab, remembered on
-  the device) and `state.sim.log`. `?sim=loop` starts another run when one ends (home, all dead, or `SIM.maxRunMin`); `?speed=`
+  logged with its reason in a thoughts panel (top left, laid out with the debug info by `js/ui/infopanel.js`) and `state.sim.log`. `?sim=loop` starts another run when one ends (home, all dead, or `SIM.maxRunMin`); `?speed=`
   and + / - set the pace. Every number it decides by is in `js/sim/config.js` (`SIM`); `?simset=climb.energyK:20,camp.dusk:150`
   overrides any for a run. A summary per run (times to triangulate, find and home, deaths and causes, rations, climbs, camps)
-  goes to the console and `state.sim.runs` (kept across loop reloads); the gear menu's "Copy sim log" copies them. It changes
+  goes to the console and `state.sim.runs` (kept across loop reloads); the gear menu's "Copy sim log" / "Download sim log" give them, with
+  this run's (and the run before's) recorded trace (`js/sim/trace.js`: position and mode every 0.25 s, the body every 1 s, weather,
+  the bear, the pup tent, the bundle, the events in words; ~90 KB for 12 game minutes) for the replay player,
+  `not-all-survive/replay/index.html` (drop, pick or paste a log, or `?log=<url>`: the run over the painted map, play / pause /
+  scrub at 1x-64x, the timeline of events, the decisions scrolling past, the body as graphs). It changes
   nothing in the game: it only reads and drives. The one link the other way: distress.js only hides the lost explorer where
   the sim's walking grid (`js/sim/nav.js walkDistances`: body-wide gaps, no open water, not through the frontier storm) can
   reach from camp within 2600 px, so every site can be walked to.

@@ -866,6 +866,12 @@ function* stayIn(why) {
     if (b.phase === 'sleep') { yield; continue; }
     if (b.food < SIM.eat.tentFood && (H.inPack('food') || H.inPack('meat')) && !canSleep()) { yield* eat(SIM.eat.tentFood); continue; }
     if (b.water < SIM.eat.tentWater) { note('Drink', `water ${b.water.toFixed(2)}: meltwater off the stove`); yield* H.tentMenu('drink'); yield* wait(2.5); yield* H.closeUI(); continue; }
+    // the flask topped up from the stove before going out again (the tent menu's Fill the flask)
+    if (pack().slots.some(q => q && q.id === 'flask' && q.drinks < 3) && (!S.mem.filledAt || now() - S.mem.filledAt > 30)) {
+      note('Drink', 'fill the flask from the stove');
+      S.mem.filledAt = now();
+      yield* H.tentMenu('fill'); yield* wait(0.8); yield* H.closeUI(); continue;
+    }
     if (canSleep() && !slept) {
       note('Sleep', `night: sleep till dawn (warmth ${b.warmth.toFixed(2)}, energy cap ${(b.max ?? 1).toFixed(2)})`);
       goal('asleep');

@@ -11,18 +11,21 @@
 //   ?speed=4        how fast (also the + / - keys); H hides the thoughts panel
 // The numbers it decides by: js/sim/config.js (SIM). The log: state.sim.log (each decision), and
 // state.sim.runs (a summary of each run, kept across ?sim=loop reloads in sessionStorage); the gear
-// menu's "Copy sim log" copies them.
+// menu's "Copy sim log" / "Download sim log" give them with the recorded trace (trace.js) for replay/.
 //
 // Files: sim.js (this: the loop, what to do next, the log and the panel), brain.js (the mission and the
-// needs), hands.js (walking, presses, climbing), nav.js (the map grid and the path planner), config.js.
+// needs), hands.js (walking, presses, climbing), nav.js (the map grid and the path planner), trace.js
+// (the recording), config.js. The panel is drawn by ui/infopanel.js, with the debug info's.
 import { state } from '../state.js';
 import { TENT } from '../actors/camp.js';
 import { worldToScreenUI } from '../camera.js';
 import { count } from '../items.js';
+import * as TR from './trace.js';
 import * as T from '../world/terrain.js';
 import * as N from './nav.js';
 import { SIM, S } from './config.js';
 import { MAP_W, MAP_H } from '../state.js';
+import { addPanel, PANELS } from '../ui/infopanel.js';
 import * as H from './hands.js';
 import * as Br from './brain.js';
 
@@ -32,10 +35,18 @@ const hyp = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 state.sim = S;
 S.on = state.params.has('sim');   // dormant otherwise: the gear menu's "Watch it play" turns it on and off live (S.toggle)
 S.loop = state.params.get('sim') === 'loop';
-try { S.hide = localStorage.getItem('nas_simPanel') === 'hidden'; } catch { S.hide = false; }
-const saveHide = () => { try { localStorage.setItem('nas_simPanel', S.hide ? 'hidden' : 'shown'); } catch { /* private mode */ } };
 try { S.runs = JSON.parse(sessionStorage.getItem(RUNS_KEY) || '[]'); } catch { S.runs = []; }
-S.dump = () => JSON.stringify({ runs: S.runs, current: { stats: S.stats, log: S.log } }, null, 1);
+// the log (decisions, the run summaries) and the recorded trace of the run (sim/trace.js): Copy / Download sim log in
+// the gear menu; replay/index.html plays it. The run before (kept across ?sim=loop reloads) goes too.
+S.dump = () => {
+  let previous = null;
+  let kept = [];
+  try { kept = JSON.parse(sessionStorage.getItem(TRACE_KEY) || '[]'); } catch { kept = []; }
+  if (!Array.isArray(kept)) kept = [kept];
+  previous = kept.filter(k => k && !(k.stats?.run === S.stats?.run && k.stats?.t0 === S.stats?.t0)).pop() || null;   // (not this one)
+  return JSON.stringify({ v: 1, runs: S.runs, current: S.stats ? { stats: S.stats, summary: S.summary || null, log: S.log, trace: TR.trace() } : null, previous });
+};
+const TRACE_KEY = 'nas_sim_lastTrace';
 S.samples = [];
 S.cool = {};
 
@@ -63,18 +74,8 @@ export function init() {
     if (!S.on) return;
     if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') stepSpeed(1);
     else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') stepSpeed(-1);
-    else if (e.code === 'KeyH') { S.hide = !S.hide; saveHide(); }
   });
-  // the panel's hide / show button: a press on it is the UI's (pack.js uiPress is wrapped), so it never walks,
-  // taps the world or starts the touch stick
-  const press0 = state.uiPress, release0 = state.uiRelease;
-  let mine = false;
-  state.uiPress = (sx, sy) => {
-    const b = S.on && begun ? toggleBox : null;
-    if (b && sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h) { mine = true; S.hide = !S.hide; saveHide(); return true; }
-    return press0 ? press0(sx, sy) : false;
-  };
-  state.uiRelease = () => { if (mine) { mine = false; return; } release0?.(); };
+  // (the panel and its hide / show tab, and H: ui/infopanel.js)
 }
 // Live on / off (the gear menu). Off: the task dropped, the input handed back (demoInput cleared), the pace back
 // to normal. On: a fresh run from wherever the game is.
@@ -117,6 +118,7 @@ export function update(dt) {
     { const c = SIM.memory.cell, w = Math.ceil(MAP_W / c), h = Math.ceil(MAP_H / c); S.visit = { c, w, h, a: new Uint8Array(w * h), last: -1 }; }
     S.est = null;
     S.stats = newStats();
+    TR.start();
     S.day = 1; lastClock = state.lighting?.clock ?? 0;
     last = { x: P.x, y: P.y };
     state.demoInput = { x: 0, y: 0 };
@@ -130,6 +132,7 @@ export function update(dt) {
   if ((L?.clock ?? 0) < lastClock - 1) S.day++;
   lastClock = L?.clock ?? 0;
 
+  TR.record();   // (before the events are handled: a run's last event, home or a death, ends it there)
   handleEvents();
   if (finished) return;
   // map memory: a visit counted each time they step into a cell
@@ -204,7 +207,7 @@ function handleEvents() {
         S.mem.zone = null;
         S.mem.modeSaid = null;
         break;
-      case 'expedition': finish('all dead'); return;
+      case 'expedition': finish((state.party?.length || 1) > 1 ? 'all dead' : 'died'); return;   // (one life by default: a death ends it)
       case 'goal':
         if (e.stage === 'home') { st.home = state.time - st.t0; finish('home'); return; }
         break;
@@ -383,8 +386,15 @@ function finish(outcome) {
   };
   S.summary = sum;
   S.runs.push(sum);
+  // the last two finished runs' traces kept across ?sim=loop reloads (Copy / Download sim log sends the one before too)
+  try {
+    let kept = JSON.parse(sessionStorage.getItem(TRACE_KEY) || '[]');
+    if (!Array.isArray(kept)) kept = [kept];
+    kept.push({ stats: S.stats, summary: sum, log: S.log, trace: TR.trace() });
+    sessionStorage.setItem(TRACE_KEY, JSON.stringify(kept.slice(-2)));
+  } catch { /* too big, or private mode */ }
   try { sessionStorage.setItem(RUNS_KEY, JSON.stringify(S.runs.slice(-40))); } catch { /* private mode */ }
-  H.goal(outcome === 'home' ? 'home: they brought them home' : outcome === 'all dead' ? 'none came home' : 'run called off (too long)');
+  H.goal(outcome === 'home' ? 'home: they brought them home' : outcome === 'all dead' ? 'none came home' : outcome === 'died' ? 'they did not come home' : 'run called off (too long)');
   H.note('End', `${outcome}: found ${sum.minutes.firstFind ?? '-'} min, home ${sum.minutes.home ?? '-'} min, ${sum.membersLost} lost, ${sum.used.rationsEaten} rations eaten, ${sum.decisions} decisions`);
   console.log('[sim] RUN SUMMARY ' + JSON.stringify(sum));
   if (S.loop) setTimeout(() => location.reload(), SIM.loopDelay * 1000);
@@ -392,58 +402,23 @@ function finish(outcome) {
 }
 
 // --- on screen: the thoughts panel and the stats strip (a dev tool: plain text) ------------------------
-let toggleBox = null;   // the hide / show button, CSS px (hit-tested in the wrapped uiPress)
-function drawToggle(ctx, x, y, label) {
-  ctx.font = '12px ui-monospace, Menlo, Consolas, monospace';
-  const w = ctx.measureText(label).width + 18, h = 24;
-  ctx.fillStyle = 'rgba(20,22,26,0.62)'; ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-  ctx.fillStyle = '#fff'; ctx.fillText(label, x + 9, y + 16);
-  toggleBox = { x: x - 6, y: y - 6, w: w + 12, h: h + 12 };   // (a finger's worth round it)
-  S.toggleBox = toggleBox;
-}
-export function drawOverlay(ctx) {
-  if (!S.on || !begun) { toggleBox = null; return; }
-  const { dpr } = state.view;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (S.hide) { drawToggle(ctx, 8, 8, 'sim: show'); return; }
+export function drawOverlay() {
+  if (!S.on || !begun) return;
   const b = state.body, L = state.lighting || {}, st = S.stats;
-  const fs = 12, lh = 15, pad = 8, w = Math.min(470, state.view.w - 16);
   const clock = L.clock ?? 0, night = clock >= 180;
-  const m = state.party?.[state.member];
+  const m = state.party?.[state.member], n = state.party?.length ?? 1;
   const lines = [];
   lines.push({ t: `SIM x${state.timeScale}${S.loop ? ' loop' : ''}  run ${st.run}  ${H.fmtTime(state.time - st.t0)}  day ${S.day} ${night ? 'night' : 'day'} ${H.fmtTime(night ? clock - 180 : clock)}`, c: '#fff' });
-  lines.push({ t: `${m?.name ?? '-'} (${(state.member ?? 0) + 1}/4)  deaths ${st.deaths.length}  walked ${Math.round(st.walked)} px  weather: ${state.weather?.phase ?? '-'}`, c: '#ddd' });
-  if (b) lines.push({ t: `warm ${b.warmth.toFixed(2)} energy ${b.energy.toFixed(2)}/${(b.max ?? 1).toFixed(2)} food ${b.food.toFixed(2)} water ${b.water.toFixed(2)}${b.wet > 0.05 ? ` wet ${b.wet.toFixed(2)}` : ''}${b.injury > 0.02 ? ` hurt ${b.injury.toFixed(2)}` : ''}`, c: '#ddd' });
+  lines.push({ t: `${m?.name ?? '-'}${n > 1 ? ` (${(state.member ?? 0) + 1}/${n})  deaths ${st.deaths.length}` : ''}  walked ${Math.round(st.walked)} px  weather: ${state.weather?.phase ?? '-'}`, c: '#ddd' });
+  // (the debug panel shows the body in full when it's on)
+  if (b && !state.debugInfo?.on) lines.push({ t: `warm ${b.warmth.toFixed(2)} energy ${b.energy.toFixed(2)}/${(b.max ?? 1).toFixed(2)} food ${b.food.toFixed(2)} water ${b.water.toFixed(2)}${b.wet > 0.05 ? ` wet ${b.wet.toFixed(2)}` : ''}${b.injury > 0.02 ? ` hurt ${b.injury.toFixed(2)}` : ''}`, c: '#ddd' });
   lines.push({ t: `GOAL: ${S.goal || '-'}`, c: '#ffffff' });
   for (const e of S.recent.slice(-6)) lines.push({ t: `${H.fmtTime(e.t - st.t0)} ${e.kind}: ${e.text}`, c: '#e8e8e8' });
-  ctx.font = `${fs}px ui-monospace, Menlo, Consolas, monospace`;
-  // wrap long lines
-  const out = [];
-  for (const l of lines) {
-    let s = l.t;
-    while (ctx.measureText(s).width > w - pad * 2 && s.length > 10) {
-      let k = s.length;
-      while (k > 10 && ctx.measureText(s.slice(0, k)).width > w - pad * 2) k--;
-      const sp = s.lastIndexOf(' ', k);
-      const cut = sp > 20 ? sp : k;
-      out.push({ t: s.slice(0, cut), c: l.c });
-      s = '   ' + s.slice(cut).trimStart();
-    }
-    out.push({ t: s, c: l.c });
-  }
-  const h = out.length * lh + pad * 2 - 3;
-  ctx.fillStyle = 'rgba(20,22,26,0.62)';
-  ctx.fillRect(8, 8, w, h);
-  out.forEach((l, i) => { ctx.fillStyle = l.c; ctx.fillText(l.t, 8 + pad, 8 + pad + 10 + i * lh); });
-  drawToggle(ctx, 8, 8 + h + 4, 'hide');
-  ctx.font = `${fs - 1}px ui-monospace, Menlo, Consolas, monospace`;
-  ctx.fillStyle = 'rgba(20,22,26,0.55)';
-  ctx.fillText('+/- speed  H hide', toggleBox.x + toggleBox.w + 4, 8 + h + 20);
+  addPanel(lines);
 }
 // the planned path and the best spot so far, faint, in the world
 export function drawSky(ctx) {
-  if (!S.on || !SIM.showPath || S.hide || !begun) return;
+  if (!S.on || !SIM.showPath || PANELS.hidden || !begun) return;
   const z = state.cam.zoom || 1;
   if (S.path && S.path.length > 1 && P.mode !== 'inside') {
     ctx.setLineDash([3 / z, 4 / z]);
