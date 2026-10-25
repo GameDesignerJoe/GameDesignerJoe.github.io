@@ -57,7 +57,7 @@ export function update(dt) {
 let glow = null, glowSize = 0;     // warm radial falloff
 let core = null;                   // optional additive core (lights with core: true)
 let lightMap = null, lmCtx = null, lmKey = '', lmTime = -1;
-let toneCanvas = null, tCtx = null;
+let toneCanvas = null, tCtx = null, softCanvas = null, sCtx = null, blurCanvas = null;
 let liftCanvas = null, lCtx = null;
 let aurora = null;
 let auroraAmt = -1;
@@ -120,6 +120,11 @@ function ensure() {
   lightMap = buffer(lightMap, Math.max(8, Math.ceil(w / div)), Math.max(8, Math.ceil(h / div)));
   toneCanvas = buffer(toneCanvas, Math.max(8, Math.ceil(w / tdiv)), Math.max(8, Math.ceil(h / tdiv)));
   liftCanvas = buffer(liftCanvas, toneCanvas.width, toneCanvas.height);
+  // the tone's source: a much smaller copy of the frame, smoothed back up. Read straight from the frame at 1/3
+  // the dark ink lines punched blocky dark steps into the tone, which stretched over a phone's screen looked
+  // pixelated along every line (Joe). The ink itself survives the multiply from the full-res frame anyway.
+  softCanvas = buffer(softCanvas, Math.max(8, Math.ceil(w / (low ? 4 : 3))), Math.max(8, Math.ceil(h / (low ? 4 : 3))));
+  sCtx = softCanvas.getContext('2d');
   lmCtx = lightMap.getContext('2d'); tCtx = toneCanvas.getContext('2d'); lCtx = liftCanvas.getContext('2d');
 }
 
@@ -194,11 +199,28 @@ export function drawScreen(ctx) {
   const tw = toneCanvas.width, th = toneCanvas.height, ts = tw / w;
   tCtx.globalAlpha = 1;
   tCtx.imageSmoothingEnabled = true;
+  // the frame small, then 'lighten'ed with itself nudged a pixel each way (twice): thin dark strokes (ink
+  // lines, the dogs, a sled) are eaten by the snow beside them, so the tone follows the land and the snow
+  // rather than the ink, with no dark halo round every line
+  const sw = softCanvas.width, sh = softCanvas.height;
+  sCtx.imageSmoothingEnabled = true; sCtx.imageSmoothingQuality = 'medium';
+  sCtx.globalCompositeOperation = 'copy';
+  sCtx.drawImage(ctx.canvas, 0, 0, sw, sh);
+  sCtx.globalCompositeOperation = 'lighten';
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) sCtx.drawImage(softCanvas, dx, dy);
+  // ...and softened (down to a third and back) so the square steps of that never show
+  if (!blurCanvas) blurCanvas = document.createElement('canvas');
+  const bw = Math.max(4, Math.ceil(sw / 2)), bh = Math.max(4, Math.ceil(sh / 2));
+  if (blurCanvas.width !== bw || blurCanvas.height !== bh) { blurCanvas.width = bw; blurCanvas.height = bh; }
+  const bCtx = blurCanvas.getContext('2d');
+  bCtx.imageSmoothingEnabled = true; bCtx.imageSmoothingQuality = 'medium';
+  bCtx.globalCompositeOperation = 'copy'; bCtx.drawImage(softCanvas, 0, 0, bw, bh);
+  sCtx.globalCompositeOperation = 'copy'; sCtx.drawImage(blurCanvas, 0, 0, sw, sh);
   tCtx.globalCompositeOperation = 'copy';
-  tCtx.drawImage(ctx.canvas, 0, 0, tw, th);
+  tCtx.drawImage(softCanvas, 0, 0, tw, th);
   tCtx.globalCompositeOperation = 'multiply';
-  tCtx.drawImage(ctx.canvas, 0, 0, tw, th);
-  tCtx.drawImage(ctx.canvas, 0, 0, tw, th);
+  tCtx.drawImage(softCanvas, 0, 0, tw, th);
+  tCtx.drawImage(softCanvas, 0, 0, tw, th);
 
   // --- lift: b^6 x periwinkle, plus the aurora ---
   const L = lCtx, llw = liftCanvas.width, llh = liftCanvas.height;
