@@ -1,0 +1,80 @@
+/* The replay player: the game's inked monochrome, paper and ink, signal yellow only for the explorer and
+   what matters most (the lost explorer found, home). */
+:root {
+  --paper: #f2f2f0; --paper2: #e9e9e7; --line: rgba(38, 38, 38, 0.22); --ink: #262626; --ink2: #555;
+  --faint: #8a8a8a; --signal: #e2a53b; --signal-deep: #8f5f1f;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--paper2); color: var(--ink); font: 14px/1.4 Georgia, serif; }
+body { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; overflow: hidden; }
+button { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 3px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--ink2); }
+button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+button.ghost { background: transparent; }
+code { font: 12px ui-monospace, Menlo, Consolas, monospace; }
+
+header { display: flex; align-items: baseline; gap: 18px; padding: 10px 18px 8px; border-bottom: 1px solid var(--line); background: var(--paper); }
+h1 { margin: 0; font: 400 22px 'Playfair Display SC', Didot, Georgia, serif; letter-spacing: 0.04em; white-space: nowrap; }
+h1 span { font-family: Georgia, serif; font-style: italic; font-size: 15px; color: var(--ink2); letter-spacing: 0; }
+#meta { flex: 1; font-style: italic; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#runpick { font: inherit; background: var(--paper); border: 1px solid var(--line); }
+
+main { display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
+#mapwrap { position: relative; min-height: 0; overflow: hidden; background: #dcdcd9; }
+#map { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
+#map.drag { cursor: grabbing; }
+#caption { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 5px 14px; background: rgba(242, 242, 240, 0.9); border: 1px solid var(--line); font-style: italic; pointer-events: none; opacity: 0; transition: opacity 0.4s; white-space: nowrap; }
+#caption.show { opacity: 1; }
+#legend { position: absolute; left: 12px; bottom: 10px; display: flex; gap: 12px; padding: 4px 10px; background: rgba(242, 242, 240, 0.85); border: 1px solid var(--line); font-size: 12px; color: var(--ink2); }
+#legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; border: 1.5px solid var(--ink); border-radius: 50%; }
+#legend .g-you { background: var(--signal); }
+#legend .g-tent { border-radius: 0; background: var(--signal); clip-path: polygon(50% 0, 100% 100%, 0 100%); border: 0; width: 12px; }
+#legend .g-sos { background: var(--paper); box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 5px var(--ink); }
+#legend .g-bear { background: var(--ink); }
+#legend .g-pup { border-radius: 0; background: var(--paper); clip-path: polygon(50% 0, 100% 100%, 0 100%); border: 0; background: var(--ink2); width: 12px; }
+#legend .g-death { border: 0; border-radius: 0; background: linear-gradient(var(--ink), var(--ink)) center/2px 100% no-repeat, linear-gradient(var(--ink), var(--ink)) center 30%/100% 2px no-repeat; }
+#mapctl { position: absolute; right: 12px; top: 12px; display: flex; gap: 6px; }
+
+aside { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--line); background: var(--paper); padding: 10px 14px 0; }
+aside h2 { margin: 12px 0 4px; font: 400 15px 'Playfair Display SC', Georgia, serif; letter-spacing: 0.05em; }
+aside h2 small { font: italic 12px Georgia, serif; color: var(--faint); letter-spacing: 0; margin-left: 6px; }
+#now { font: 12px/1.55 ui-monospace, Menlo, Consolas, monospace; color: var(--ink2); white-space: pre-wrap; min-height: 5.5em; }
+#stats { width: 100%; height: 150px; }
+#log { list-style: none; margin: 0; padding: 0 4px 12px 0; overflow-y: auto; flex: 1; min-height: 0; }
+#log li { padding: 3px 4px 3px 52px; text-indent: -48px; font-size: 13px; color: var(--faint); border-left: 2px solid transparent; cursor: pointer; }
+#log li .t { display: inline-block; width: 44px; text-indent: 0; font: 11px ui-monospace, Menlo, Consolas, monospace; color: var(--faint); }
+#log li .k { font-variant: small-caps; letter-spacing: 0.03em; margin-right: 4px; }
+#log li.past { color: var(--ink); }
+#log li.cur { background: rgba(226, 165, 59, 0.14); border-left-color: var(--signal); }
+#log li.k-strategy .k, #log li.k-estimate .k, #log li.k-found .k, #log li.k-spotted .k { color: var(--signal-deep); }
+#log li.k-death .k, #log li.k-end .k { color: #000; font-weight: bold; }
+#log li:hover { background: rgba(38, 38, 38, 0.05); }
+
+footer { border-top: 1px solid var(--line); background: var(--paper); padding: 6px 14px 10px; display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+#transport { display: flex; align-items: center; gap: 10px; }
+button.big { width: 42px; height: 42px; border-radius: 50%; font-size: 17px; padding: 0; background: var(--ink); color: var(--paper); border: 0; }
+#clock { font: 15px ui-monospace, Menlo, Consolas, monospace; min-width: 132px; }
+#speeds { display: flex; }
+#speeds button { border-radius: 0; margin-left: -1px; padding: 4px 9px; }
+#speeds button:first-child { border-radius: 3px 0 0 3px; }
+#speeds button:last-child { border-radius: 0 3px 3px 0; }
+#timeline { width: 100%; height: 56px; cursor: pointer; }
+
+#loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(233, 233, 231, 0.88); }
+#loader[hidden] { display: none; }
+#loader .card { width: min(560px, 92vw); padding: 22px 26px; background: var(--paper); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12); }
+#loader h2 { margin: 0 0 6px; font: 400 22px 'Playfair Display SC', Georgia, serif; }
+#loader p { color: var(--ink2); margin: 6px 0 12px; }
+#drop { border: 1.5px dashed var(--ink2); padding: 28px; text-align: center; font-style: italic; color: var(--ink2); margin-bottom: 12px; }
+#drop.over { background: rgba(226, 165, 59, 0.12); border-color: var(--signal-deep); }
+#loader .row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.filebtn { border: 1px solid var(--line); padding: 4px 10px; border-radius: 3px; cursor: pointer; background: var(--paper2); }
+.filebtn input { display: none; }
+.or { font-style: italic; color: var(--faint); }
+#paste { width: 100%; height: 70px; font: 11px ui-monospace, Menlo, Consolas, monospace; border: 1px solid var(--line); background: #fbfbfa; resize: vertical; }
+#loaderr { color: #8a2a1f; min-height: 1.2em; }
+@media (max-width: 860px) {
+  main { grid-template-columns: 1fr; grid-template-rows: 1fr 40%; }
+  aside { border-left: 0; border-top: 1px solid var(--line); }
+  #legend { display: none; }
+}

@@ -1,0 +1,336 @@
+// The weather director. Owns state.wind and state.weather.
+// "What's the weather for the day": at the start of each day/night cycle (and at load)
+// it picks today's forecast by weighted chance (clear, bright, breezy, overcast, evening
+// storm, rare blizzard) and plays it out against the cycle clock (state.lighting.clock:
+// DAY_S of day then NIGHT_S of night). Within a forecast the weather breathes (wind
+// wanders, gentle gusts) but there are no surprise storms.
+//   ?weather=cycle (default: forecasts) | calm | wind | storm (hold one spell, for captures)
+//   ?forecast=<id> forces a forecast; NAS.weather.ctl.forecast(id) switches mid-run.
+// Also writes state.weather.temp (deg C) and cold (0..1).
+//
+// Gust fronts are real things in the world: a line perpendicular to the wind that
+// travels downwind across the map. Spindrift, haze and the falling snow all read
+// gustAt(x, y), so you see the wave of blowing snow crossing the land before it hits.
+import { state } from '../state.js';
+import * as terrain from '../world/terrain.js';
+
+const P = state.params;
+export const mode = ['calm', 'wind', 'storm', 'cycle'].includes(P.get('weather')) ? P.get('weather') : 'cycle';
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp01 = v => Math.max(0, Math.min(1, v));
+
+// Targets for each spell. rate = how fast values chase targets (units / s).
+const SPELLS = {
+  calm:    { wind: [0.08, 0.2],  snow: [0.12, 0.3],  white: 0,    gustEvery: [16, 30], dur: [25, 45], rate: 0.04 },
+  build:   { wind: [0.4, 0.55],  snow: [0.3, 0.5],   white: 0,    gustEvery: [9, 14],  dur: [14, 22], rate: 0.035 },
+  windy:   { wind: [0.6, 0.78],  snow: [0.35, 0.55], white: 0.3,    gustEvery: [5, 9],   dur: [30, 50], rate: 0.05 },
+  stormIn: { wind: [0.9, 1],     snow: [0.9, 1],     white: 0.96,  gustEvery: [3, 5],   dur: [10, 11], rate: 0.1 },
+  storm:   { wind: [0.88, 1],    snow: [0.9, 1],     white: 0.98, gustEvery: [3, 6],   dur: [22, 38], rate: 0.1 },
+  clear:   { wind: [0.45, 0.6],  snow: [0.3, 0.45],  white: 0,    gustEvery: [6, 10],  dur: [12, 16], rate: 0.075 },
+  // Forecast weathers (held, not cycled):
+  still:    { wind: [0.06, 0.16], snow: [0.06, 0.16], white: 0,    gustEvery: [25, 45], dur: [999, 999], rate: 0.04 },
+  breezy:   { wind: [0.42, 0.56], snow: [0.22, 0.34], white: 0.06, gustEvery: [8, 14],  dur: [999, 999], rate: 0.04 },
+  overcast: { wind: [0.18, 0.28], snow: [0.42, 0.56], white: 0.12, gustEvery: [18, 30], dur: [999, 999], rate: 0.04 },
+  blizzard: { wind: [0.85, 1],    snow: [0.9, 1],     white: 0.92, gustEvery: [3, 6],   dur: [999, 999], rate: 0.08 },
+};
+
+// --- daily forecasts -------------------------------------------------------------------
+const DAY_S = 180, NIGHT_S = 120, CYCLE = DAY_S + NIGHT_S;
+// w = relative chance per day (they needn't add to 100). See docs/WEATHER.md.
+// Storms are events, not the weather (Joe): ~7% of days. Never on the first day, and never two
+// storm days running.
+const FORECASTS = {
+  clear:        { w: 32, label: 'Clear and calm', base: -18 },
+  bright:       { w: 26, label: 'Bright, blinding midday', base: -14 },
+  breezy:       { w: 22, label: 'Breezy, occasional gusts', base: -22 },
+  overcast:     { w: 13, label: 'Overcast, light snow', base: -15 },
+  eveningStorm: { w: 5,  label: 'Calm day, storm at dusk', base: -20 },
+  blizzard:     { w: 2,  label: 'Blizzard all day', base: -28 },
+};
+export { FORECASTS };
+const STORMY = new Set(['eveningStorm', 'blizzard']);
+let dayN = 0, lastId = null;
+function pickForecast(id) {
+  if (!FORECASTS[id]) {
+    const calmOnly = dayN === 0 || STORMY.has(lastId);
+    const pool = Object.entries(FORECASTS).filter(([k]) => !(calmOnly && STORMY.has(k)));
+    let r = Math.random() * pool.reduce((a, [, f]) => a + f.w, 0);
+    id = 'clear';
+    for (const [k, f] of pool) { if ((r -= f.w) < 0) { id = k; break; } }
+  }
+  dayN++; lastId = id;
+  const f = { id, label: FORECASTS[id].label, base: FORECASTS[id].base };
+  if (id === 'bright') { const len = rand(40, 90), mid = rand(80, 110); f.brightFrom = mid - len / 2; f.brightTo = mid + len / 2; }
+  if (id === 'eveningStorm') {
+    f.buildAt = DAY_S - rand(40, 60);       // wind builds in the last part of the day
+    f.stormAt = DAY_S - rand(2, 10);        // rolls in around dusk
+    f.clearAt = DAY_S + rand(45, 70);       // peaks early in the night
+    f.calmAt = CYCLE - rand(25, 35);        // gone before dawn
+  }
+  state.weather.forecast = f;
+  console.log(`[weather] today's forecast: ${f.label}`, f);
+  return f;
+}
+// Which weather the forecast calls for at clock c.
+function phaseAt(f, c) {
+  switch (f.id) {
+    case 'breezy': return 'breezy';
+    case 'overcast': return 'overcast';
+    case 'blizzard': return 'blizzard';
+    case 'eveningStorm':
+      if (c < f.buildAt) return 'still';
+      if (c < f.stormAt) return 'build';
+      if (c < f.stormAt + 10) return 'stormIn';
+      if (c < f.clearAt) return 'storm';
+      if (c < f.calmAt) return 'clear';
+      return 'still';
+    default: return 'still';
+  }
+}
+const clockNow = () => state.lighting?.clock ?? 0;
+const NEXT = { calm: () => 'build', build: () => 'windy', windy: () => (Math.random() < 0.6 ? 'stormIn' : 'calm'),
+  stormIn: () => 'storm', storm: () => 'clear', clear: () => (Math.random() < 0.5 ? 'windy' : 'calm') };
+const FIXED = { calm: 'calm', wind: 'windy', storm: 'storm' };
+
+const d = {
+  spell: 'windy', left: 30, target: { wind: 0.5, snow: 0.5, white: 0 }, rate: 0.05,
+  nextGust: 0.6, baseAngle: state.wind.angle, fronts: [],
+  shelter: 0,     // smoothed state.player.sheltered (relief arrives within ~1 s)
+  hitShake: 0,    // 1 -> 0 after a gust front hits the explorer
+  sweep: 1,       // 0..1 how far a rolling-in storm has swept across the screen
+  storminess: 0,  // smoothed 0..1 overall severity
+  forecast: null, lastClock: 0, manual: false, temp: null,
+  quality: state.params.has('wxq') ? Math.max(0.3, Math.min(1, parseFloat(state.params.get('wxq')) || 1)) : 1,
+};
+export const director = d;
+
+function enter(name, instant = false) {
+  const s = SPELLS[name];
+  d.spell = name;
+  d.left = rand(...s.dur);
+  d.rate = s.rate;
+  d.target = { wind: rand(...s.wind), snow: rand(...s.snow), white: s.white };
+  d.gustEvery = s.gustEvery;
+  if (name === 'stormIn') d.sweep = 0;
+  if (instant) {
+    state.wind.speed = d.target.wind;
+    state.weather.snowfall = d.target.snow;
+    state.weather.whiteout = d.target.white;
+    d.sweep = 1;
+  }
+  state.weather.phase = name;
+}
+
+export function init() {
+  const has = k => P.has(k);
+  if (mode !== 'cycle') {
+    enter(FIXED[mode], true);
+    // Explicit URL values win over the spell's defaults.
+    if (has('wind')) d.target.wind = state.wind.speed = clamp01(parseFloat(P.get('wind')));
+    if (has('snow')) d.target.snow = state.weather.snowfall = clamp01(parseFloat(P.get('snow')));
+    if (has('whiteout')) d.target.white = state.weather.whiteout = clamp01(parseFloat(P.get('whiteout')));
+  } else {
+    // Today's forecast; start in whatever it calls for right now (explicit URL weather
+    // values are kept as the starting point and eased away from).
+    d.forecast = pickForecast(P.get('forecast'));
+    d.lastClock = clockNow();
+    enter(phaseAt(d.forecast, d.lastClock), !(has('wind') || has('whiteout') || has('snow')));
+  }
+  d.storminess = severity();
+  state.weather.ctl = {
+    // For captures: NAS.weather.ctl.gust(60) puts a full-strength front 60px upwind of the explorer.
+    gust: (upwind = null) => { spawnFront(true, upwind); d.fronts[d.fronts.length - 1].age = 1; },
+    spell: name => { d.manual = true; enter(name); },
+    forecast: id => { d.manual = false; d.forecast = pickForecast(id); enter(phaseAt(d.forecast, clockNow())); },
+  };
+}
+
+function severity() {
+  return clamp01(Math.max(state.weather.whiteout, (state.wind.speed - 0.3) / 0.7 * 0.75 + state.weather.snowfall * 0.15));
+}
+
+// --- gust fronts ---------------------------------------------------------------------
+// Along-wind coordinate of a world point.
+const along = (x, y, c, s) => x * c + y * s;
+const across = (x, y, c, s) => -x * s + y * c;
+
+// upwind: optional distance (world px) upwind of the explorer to place the front at.
+function spawnFront(force = false, upwind = null) {
+  const a = state.wind.angle, c = Math.cos(a), s = Math.sin(a);
+  const { w, h } = state.view, z = state.cam.zoom || 1;
+  const reach = Math.hypot(w, h) / 2 / z;
+  const strength = force ? 1 : clamp01(rand(0.45, 1) * (0.5 + state.wind.speed * 0.7));
+  d.fronts.push({
+    pos: upwind !== null ? along(state.player.x, state.player.y, c, s) - upwind
+      : along(state.cam.x, state.cam.y, c, s) - reach - 40,  // just upwind of the screen
+    speed: rand(55, 85) * (0.75 + state.wind.speed * 0.5),
+    strength,
+    tail: rand(70, 140),
+    phase: Math.random() * 100,
+    bend: rand(10, 30),
+    age: 0,
+  });
+}
+
+// Along-wind position of a front's (bent, ragged) leading edge at across-wind coord v.
+export function frontU(f, v) {
+  return f.pos + Math.sin(v * 0.012 + f.phase) * f.bend + Math.sin(v * 0.031 + f.phase * 2) * f.bend * 0.4
+    + Math.sin(v * 0.11 + f.phase * 5) * 1.6;
+}
+export const frontFade = f => Math.min(1, f.age / 0.5) * (f.dying ? Math.max(0, 1 - f.dying) : 1);
+
+// 0..~1 gust intensity at a world point from all active fronts.
+export function gustAt(x, y) {
+  if (!d.fronts.length) return 0;
+  const a = state.wind.angle, c = Math.cos(a), s = Math.sin(a);
+  const u = along(x, y, c, s), v = across(x, y, c, s);
+  let g = 0;
+  for (const f of d.fronts) {
+    const k = frontU(f, v) - u; // >0: the front has already passed this point
+    // Hard leading edge (nothing, then everything), long trailing tail.
+    const shape = k < 0 ? Math.exp(-(k * k) / 25) : Math.exp(-k / f.tail);
+    const lateral = 0.65 + 0.35 * Math.sin(v * 0.02 + f.phase * 3);
+    g += f.strength * shape * lateral * fade(f);
+  }
+  return Math.min(1.2, g);
+}
+const fade = frontFade;
+
+// Effective wind 0..~1.4 at a point, before shelter.
+export function windAt(x, y) { return state.wind.speed + gustAt(x, y) * (0.35 + state.wind.speed * 0.4); }
+
+// gustAt() sampled once per frame on a 16x9 grid over the screen; particles read this.
+const GW = 16, GH = 9;
+const gg = new Float32Array(GW * GH);
+const ggR = { x0: 0, y0: 0, sx: 1, sy: 1 };
+function refreshGustGrid() {
+  const z = state.cam.zoom || 1, { w, h } = state.view;
+  const hw = w / 2 / z + 20, hh = h / 2 / z + 20;
+  ggR.x0 = state.cam.x - hw; ggR.y0 = state.cam.y - hh;
+  ggR.sx = (2 * hw) / (GW - 1); ggR.sy = (2 * hh) / (GH - 1);
+  for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++)
+    gg[j * GW + i] = d.fronts.length ? gustAt(ggR.x0 + i * ggR.sx, ggR.y0 + j * ggR.sy) : 0;
+}
+// Bilinear lookup of the gust grid at a world point.
+export function gustFast(x, y) {
+  if (!d.fronts.length) return 0;
+  let fx = (x - ggR.x0) / ggR.sx, fy = (y - ggR.y0) / ggR.sy;
+  fx = Math.max(0, Math.min(GW - 1.001, fx)); fy = Math.max(0, Math.min(GH - 1.001, fy));
+  const i = fx | 0, j = fy | 0, tx = fx - i, ty = fy - j, k = j * GW + i;
+  const a = gg[k] + (gg[k + 1] - gg[k]) * tx, b = gg[k + GW] + (gg[k + GW + 1] - gg[k + GW]) * tx;
+  return a + (b - a) * ty;
+}
+export function windFast(x, y) { return state.wind.speed + gustFast(x, y) * (0.35 + state.wind.speed * 0.4); }
+
+// --- update ---------------------------------------------------------------------------
+const approach = (v, t, r) => (v < t ? Math.min(t, v + r) : Math.max(t, v - r));
+let tAccum = 0;
+
+export function update(dt) {
+  tAccum += dt;
+  const W = state.wind, Wx = state.weather;
+  // The spell's own values live in d.base; what we publish may be blended toward the
+  // frontier storm (see below), so restore the unblended values before evolving them.
+  if (d.base) { W.speed = d.base.speed; Wx.snowfall = d.base.snow; Wx.whiteout = d.base.white; }
+
+  if (mode === 'cycle' && !d.manual) {
+    // New day: the clock wrapped round. Pick tomorrow's forecast.
+    const c = clockNow();
+    if (c < d.lastClock - 1) d.forecast = pickForecast(P.get('forecast'));
+    d.lastClock = c;
+    const ph = phaseAt(d.forecast, c);
+    if (ph !== d.spell) enter(ph);
+    // A blinding stretch in the middle of a bright day (unless pinned by the menu/URL).
+    const L = state.lighting;
+    if (L && L.brightForced == null) {
+      const f = d.forecast;
+      L.brightTarget = f.id === 'bright' && c >= f.brightFrom && c < f.brightTo ? 1 : 0;
+    }
+  } else if (mode === 'cycle') {
+    d.left -= dt;
+    if (d.left <= 0) enter(NEXT[d.spell]?.() || 'calm');
+  }
+
+  // Ease toward the spell's targets, with slow breathing so nothing is ever static.
+  const breathe = Math.sin(tAccum * 0.23) * 0.5 + Math.sin(tAccum * 0.071 + 1.7) * 0.5;
+  const tw = clamp01(d.target.wind + breathe * 0.06);
+  W.speed = approach(W.speed, tw, d.rate * dt);
+  Wx.snowfall = approach(Wx.snowfall, clamp01(d.target.snow + breathe * 0.05), d.rate * dt);
+  const tWhite = d.target.white > 0 ? clamp01(d.target.white + breathe * 0.05) : 0;
+  Wx.whiteout = approach(Wx.whiteout, tWhite, (d.spell === 'stormIn' ? 0.25 : d.spell === 'clear' ? 0.08 : 0.05) * dt);
+  d.sweep = d.spell === 'stormIn' ? Math.min(1, d.sweep + dt / 4) : 1;
+
+  // Direction wanders slowly around its base, a little more in storms.
+  W.angle = d.baseAngle + Math.sin(tAccum * 0.031) * 0.22 + Math.sin(tAccum * 0.013 + 2) * 0.15;
+
+  // The edge of the world: whatever the cycle is doing, deep in the border the weather
+  // ramps to a full whiteout, with heavy snow and the wind blowing in from the edge
+  // (toward the interior) so it pushes the explorer back.
+  d.base = { speed: W.speed, snow: Wx.snowfall, white: Wx.whiteout };
+  const fr = state.frontier, fa = fr ? clamp01(fr.amount) : 0;
+  d.frontier = fa;
+  // Over the first ~60 px of the border the weather hard-cuts toward the peak.
+  const e0 = Math.min(1, fa / 0.14);
+  d.frontierEsc = e0 * e0 * (3 - 2 * e0);
+  if (fa > 0.001) {
+    const k = Math.min(1, fa * 1.25);
+    if (fr.inX || fr.inY) {
+      const bx = Math.cos(W.angle) * (1 - k) + fr.inX * k, by = Math.sin(W.angle) * (1 - k) + fr.inY * k;
+      W.angle = Math.atan2(by, bx) + Math.sin(tAccum * 0.4) * 0.12 * k;
+    }
+    const esc = d.frontierEsc;
+    W.speed = W.speed + (1 - W.speed) * Math.max(esc * 0.9, Math.min(1, fa * 1.4));
+    Wx.snowfall = Wx.snowfall + (1 - Wx.snowfall) * Math.max(esc * 0.9, Math.min(1, fa * 1.6));
+    Wx.whiteout = Wx.whiteout + (1 - Wx.whiteout) * Math.max(esc * 0.86, Math.pow(fa, 0.85));
+    if (fa > 0.2) d.sweep = 1;
+  }
+
+  // Gust fronts.
+  d.nextGust -= dt;
+  if (d.nextGust <= 0) {
+    if (W.speed > 0.12 || Math.random() < 0.3) spawnFront();
+    d.nextGust = rand(...d.gustEvery);
+  }
+  const a = W.angle, c = Math.cos(a), s = Math.sin(a);
+  const { w, h } = state.view, z = state.cam.zoom || 1;
+  const reach = Math.hypot(w, h) / 2 / z;
+  const camU = along(state.cam.x, state.cam.y, c, s);
+  for (const f of d.fronts) {
+    f.age += dt;
+    f.pos += f.speed * dt;
+    if (f.pos - f.tail * 3 > camU + reach) f.dying = (f.dying || 0) + dt;
+  }
+  d.fronts = d.fronts.filter(f => !(f.dying > 1) && f.age < 40);
+
+  // A front hitting the explorer: a jolt of shake, and a burst of streamers (drift reads d.burst).
+  const pu = along(state.player.x, state.player.y, c, s), pv = across(state.player.x, state.player.y, c, s);
+  for (const f of d.fronts) {
+    if (!f.hit && frontU(f, pv) >= pu) { f.hit = true; d.hitShake = Math.max(d.hitShake, f.strength); }
+  }
+  d.hitShake = Math.max(0, d.hitShake - dt * 1.4);
+  // ?shelter=1 forces it (captures; the explorer normally writes player.sheltered).
+  const shT = Math.max(0, Math.min(1, P.has('shelter') ? parseFloat(P.get('shelter')) : state.player.sheltered || 0));
+  d.shelter += (shT - d.shelter) * Math.min(1, dt * (shT > d.shelter ? 4 : 1.5));
+  state.weather.shelter = d.shelter;
+  refreshGustGrid();
+
+  W.gust = clamp01(gustAt(state.player.x, state.player.y));
+
+  // Exposure at the explorer (the explorer may also write player.exposure).
+  const px = state.player.x, py = state.player.y;
+  const shelter = terrain.shelterAt?.(px, py) || 0;
+  const open = terrain.exposureAt ? terrain.exposureAt(px, py) : 0.75;
+  d.localExposure = clamp01(windAt(px, py) * (1 - shelter * 0.85) * (0.5 + 0.65 * open));
+
+  d.storminess = approach(d.storminess, severity(), dt * 0.3);
+
+  // Temperature: today's base, colder at night, wind chill on top.
+  const base = d.forecast?.base ?? (mode === 'storm' ? -26 : mode === 'wind' ? -22 : -18);
+  const night = state.lighting?.night || 0;
+  const tT = base - 15 * night - 12 * W.speed;
+  d.temp = d.temp == null ? tT : d.temp + (tT - d.temp) * Math.min(1, dt * 0.5);
+  Wx.temp = +d.temp.toFixed(1);
+  Wx.cold = clamp01((-10 - d.temp) / 35);
+  Wx.light = 1 - Math.max(0, d.storminess - 0.4) * 0.38 - Wx.whiteout * 0.08 - W.gust * 0.03;
+}

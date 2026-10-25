@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Not All Will Survive · replay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display+SC:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="replay.css">
+</head>
+<body>
+  <header>
+    <h1>Not All Will Survive <span>· replay</span></h1>
+    <div id="meta">no run loaded</div>
+    <select id="runpick" hidden></select>
+    <button id="openbtn" class="ghost">Load a log…</button>
+  </header>
+
+  <main>
+    <section id="mapwrap">
+      <canvas id="map"></canvas>
+      <div id="caption"></div>
+      <div id="legend">
+        <span><i class="g-you"></i>explorer</span>
+        <span><i class="g-tent"></i>camp</span>
+        <span><i class="g-sos"></i>lost explorer</span>
+        <span><i class="g-bear"></i>bear</span>
+        <span><i class="g-pup"></i>pup tent</span>
+        <span><i class="g-death"></i>death</span>
+      </div>
+      <div id="mapctl">
+        <button id="follow" class="toggle on" title="Keep the explorer in view (double-click the map)">follow</button>
+        <button id="fit" title="The whole run">fit</button>
+      </div>
+    </section>
+
+    <aside>
+      <div id="now"></div>
+      <h2>Body</h2>
+      <canvas id="stats"></canvas>
+      <h2>Thoughts <small>the sim's decisions, as it made them</small></h2>
+      <ol id="log"></ol>
+    </aside>
+  </main>
+
+  <footer>
+    <div id="transport">
+      <button id="play" class="big" title="Play / pause (space)">▶</button>
+      <div id="clock">0:00</div>
+      <div id="speeds">
+        <button data-speed="1">1×</button><button data-speed="4">4×</button><button data-speed="16" class="on">16×</button><button data-speed="64">64×</button>
+      </div>
+    </div>
+    <canvas id="timeline" title="Click or drag to scrub; the marks are what happened"></canvas>
+  </footer>
+
+  <div id="loader">
+    <div class="card">
+      <h2>Load a sim log</h2>
+      <p>In the game, turn on <em>Watch it play</em> in the gear menu, then <em>Download sim log</em> (or <em>Copy sim log</em>). Drop the file here, pick it, or paste it.</p>
+      <div id="drop">drop a <code>.json</code> log here</div>
+      <div class="row">
+        <label class="filebtn">choose a file…<input id="file" type="file" accept=".json,application/json"></label>
+        <span class="or">or</span>
+        <button id="pastebtn">paste from the box</button>
+      </div>
+      <textarea id="paste" placeholder="…or paste the copied log here"></textarea>
+      <p id="loaderr"></p>
+      <button id="closeload" class="ghost">close</button>
+    </div>
+  </div>
+
+  <script type="module" src="replay.js"></script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>NAWS audio test</title>
+<style>
+  body { margin: 0; background: #111; color: #ccc; font: 12px monospace; }
+  canvas { display: block; }
+</style></head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+// Offline structural check of every synthesised sound: renders each through an
+// OfflineAudioContext at its in-game bus level and draws waveform + log spectrogram,
+// with peak / RMS / DC readouts. Open: /not-all-survive/tools/audio-test.html
+import * as S from '../js/audio/synth.js';
+
+const SR = 44100, W = 1400, LABEL = 300, PLOT = W - LABEL - 20, WAVE_H = 46, SPEC_H = 70, ROW = WAVE_H + SPEC_H + 16;
+const M = S.MIX, DIST = 1 / (1 + Math.pow(120 / 70, 1.3)); // creature at ~120 world px
+
+const TESTS = [
+  ['wind sweep 0->1.2, gusts, shelter 9-11s, whiteout 12-16s', 16, M.wind, (c, B, o) => {
+    const w = S.createWind(c, B, o);
+    for (let t = 0; t < 16; t += 0.125) {
+      const I = Math.min(1.2, t / 7);
+      const gust = Math.max(0, Math.sin(t * 1.3)) ** 3 * (t > 3 ? 1 : 0);
+      const shelter = t > 9 && t < 11 ? 1 : 0, whiteout = t > 12 ? Math.min(1, (t - 12) / 2) : 0;
+      w.set({ intensity: I, speed: I, gust, pan: Math.sin(t * 0.4) * 0.7, shelter, whiteout, time: t }, t);
+    }
+  }],
+  ['wind calm (speed 0.15)', 6, M.wind, (c, B, o) => { const w = S.createWind(c, B, o); for (let t = 0; t < 6; t += 0.125) w.set({ intensity: 0.15, speed: 0.15, gust: 0, pan: -0.5, shelter: 0, whiteout: 0, time: t + 40 }, t); }],
+  ['wind default (speed 0.45, no gust: turbulence only)', 6, M.wind, (c, B, o) => { const w = S.createWind(c, B, o); for (let t = 0; t < 6; t += 0.125) w.set({ intensity: 0.45, speed: 0.45, gust: 0, pan: -0.5, shelter: 0, whiteout: 0, time: t + 80 }, t); }],
+  ['wind 0.45: one full gust 0->1->0 (game mapping; swing target 12-15 dB)', 8, M.wind, (c, B, o) => { const w = S.createWind(c, B, o); for (let t = 0; t < 8; t += 0.125) { const g = Math.max(0, Math.sin((t - 1.5) / 5 * Math.PI)) ** 2 * (t > 1.5 && t < 6.5 ? 1 : 0); w.set({ intensity: 0.45 + g * 0.35, speed: 0.45, gust: g, pan: -0.5, shelter: 0, whiteout: 0, time: t + 200 }, t); } }],
+  ['wind strong 0.85 + gusts every 7s (whistles, hood flutter)', 8, M.wind, (c, B, o) => { const w = S.createWind(c, B, o); for (let t = 0; t < 8; t += 0.125) w.set({ intensity: 0.9, speed: 0.85, gust: Math.max(0, Math.sin(t * 0.9)) ** 4, pan: 0.6, shelter: 0, whiteout: 0, time: t + 120 }, t); }],
+  ...['snow', 'deep', 'path', 'ice', 'thin', 'rock'].map(ter => [`steps: ${ter}`, 4, M.steps, (c, B, o) => {
+    const gap = ter === 'deep' ? 0.7 : 0.45;
+    for (let i = 0, t = 0.05; t < 3.6; i++, t += gap) S.footstep(c, B, o, t, { terrain: ter, weight: 0.5, foot: i % 2 ? 'R' : 'L', cold: 1 });
+  }]),
+  ['ice crack 0.3 @0s, crack 1.0 @2.5s, distant ice @5.5s', 8.5, M.ice, (c, B, o) => {
+    S.crack(c, B, o, 0.05, { strength: 0.3 }); S.crack(c, B, o, 2.5, { strength: 1 }); S.distantIce(c, B, o, 5.5, {});
+  }],
+  ['breath: calm x2 then heavy x3 (breath bus)', 13, M.breath, (c, B, o) => {
+    for (const t of [0.05, 4.25]) { S.breath(c, B, o, t, { inhale: true, len: 1.5, level: 0.2 }); S.breath(c, B, o, t + 1.75, { inhale: false, len: 1.9, level: 0.2 }); }
+    for (const t of [8.5, 10, 11.5]) { S.breath(c, B, o, t, { inhale: true, len: 0.55, level: 1 }); S.breath(c, B, o, t + 0.65, { inhale: false, len: 0.7, level: 1 }); }
+  }],
+  ['dogs @120px: bark, howl, group howl x4, whine', 14, M.creatures * DIST, (c, B, o) => {
+    S.bark(c, B, o, 0.05, { n: 3 }); S.howl(c, B, o, 1.5, { voices: 1 }); S.howl(c, B, o, 6.5, { voices: 4 }); S.whine(c, B, o, 12.6);
+  }],
+  ['penguins x2, bear huff, bear growl @120px', 8, M.creatures * DIST, (c, B, o) => {
+    S.penguin(c, B, o, 0.05); S.penguin(c, B, o, 1.9); S.bear(c, B, o, 4, { kind: 'huff' }); S.bear(c, B, o, 5.6, { kind: 'growl' });
+  }],
+  ['avalanche @400px (spatial lowpass + distance gain as in game)', 10, M.avalanche / (1 + Math.pow(400 / 70, 1.3)), (c, B, o) => {
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.max(450, 9000 / (1 + 400 / 110)); lp.connect(o);
+    S.avalanche(c, B, lp, 0.1);
+  }],
+  ['SHELTER CONTRAST wind .8: exposed 0-4s, hunkered 4-9s, exposed 9-12s', 12, M.wind, (c, B, o) => { const w = S.createWind(c, B, o); let sh = 0; for (let t = 0; t < 12; t += 0.125) { const tgt = t > 4 && t < 9 ? 1 : 0; sh += (tgt - sh) * (1 - Math.exp(-0.125 * 1.5)); w.set({ intensity: 0.85, speed: 0.8, gust: 0.3 * Math.max(0, Math.sin(t * 0.8)) ** 2, pan: -0.5, shelter: sh, whiteout: 0, time: t + 300 }, t); } }],
+  ['COWER wind .6 (enveloping, hood flutter) vs walk 0-3s', 8, M.wind, (c, B, o) => { const w = S.createWind(c, B, o); for (let t = 0; t < 8; t += 0.125) w.set({ cower: t > 3 ? 1 : 0, intensity: 0.6, speed: 0.6, gust: 0, pan: -0.6, shelter: 0, whiteout: 0, time: t + 400 }, t); }],
+  ['axe x4 (steps bus)', 4, M.steps, (c, B, o) => { for (let i = 0; i < 4; i++) S.axe(c, B, o, 0.05 + i * 0.9, { hand: i % 2 ? 'R' : 'L' }); }],
+  ['kick x4 (steps bus)', 3, M.steps, (c, B, o) => { for (let i = 0; i < 4; i++) S.kick(c, B, o, 0.05 + i * 0.7, { foot: i % 2 ? 'R' : 'L' }); }],
+  ['shove 0.6 @0s, fall 0.8 @2s (steps bus)', 5.5, M.steps, (c, B, o) => { S.shove(c, B, o, 0.05, { strength: 0.6 }); S.fall(c, B, o, 2, { strength: 0.8 }); }],
+  ['CALM COLD NIGHT wind .15: day 0-3s, still night 4-10s (air tone, distant boom @6s)', 10, M.wind, (c, B, o) => {
+    const w = S.createWind(c, B, o), air = S.createAir(c, B, c.destination); let st = 0;
+    for (let t = 0; t < 10; t += 0.125) { st += ((t > 3 ? 1 : 0) - st) * 0.08; w.set({ still: st, intensity: 0.15, speed: 0.15, gust: 0, pan: -0.4, shelter: 0, whiteout: 0, time: t + 500 }, t); air.set(st, t, t); }
+    const ice = c.createGain(); ice.gain.value = M.ice / (1 + Math.pow(350 / 70, 1.3)); const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9000 / (1 + 350 / 110); lp.connect(ice); ice.connect(c.destination);
+    S.distantIce(c, B, lp, 6, {});
+  }],
+  ['FULL MIX (master chain): wind .45, snow steps, howl @200px, crack', 10, 1, (c, B, o) => {
+    const sfx = c.createGain(), comp = c.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.3;
+    const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.15;
+    sfx.connect(comp); comp.connect(lim); lim.connect(o);
+    const rv = c.createConvolver(); rv.buffer = B.ir; const rr = c.createGain(); rr.gain.value = M.reverb; rv.connect(rr); rr.connect(sfx);
+    const bus = (k, send) => { const g = c.createGain(); g.gain.value = M[k]; if (k === 'wind') { const wc = S.windComp(c); g.connect(wc.input); wc.output.connect(lim); } else g.connect(sfx); const s = c.createGain(); s.gain.value = send; g.connect(s); s.connect(rv); return g; };
+    const wind = S.createWind(c, B, bus('wind', 0));
+    for (let t = 0; t < 10; t += 0.125) wind.set({ speed: 0.45, intensity: 0.45 + 0.25 * Math.max(0, Math.sin(t * 0.7)) ** 2, gust: Math.max(0, Math.sin(t * 0.7)) ** 2, pan: -0.6, shelter: 0, whiteout: 0, time: t }, t);
+    const steps = bus('steps', 0.08);
+    for (let i = 0, t = 0.3; t < 9.5; i++, t += 0.48) S.footstep(c, B, steps, t, { terrain: 'snow', weight: 0.5, foot: i % 2 ? 'R' : 'L', cold: 0.8 });
+    const cr = c.createGain(); cr.gain.value = 1 / (1 + Math.pow(200 / 70, 1.3)); cr.connect(bus('creatures', 0.6));
+    S.howl(c, B, cr, 2, { voices: 3 });
+    S.crack(c, B, bus('ice', M.iceSend), 7.5, { strength: 0.6 });
+  }],
+];
+
+const cv = document.getElementById('c');
+cv.width = W; cv.height = TESTS.length * ROW + 30;
+const g = cv.getContext('2d');
+g.fillStyle = '#111'; g.fillRect(0, 0, cv.width, cv.height);
+g.fillStyle = '#eee'; g.fillText('Not All Will Survive — offline audio render. Waveform: L (light) / R (dark), lines at 0 and -12 dBFS. Spectrogram: log 40 Hz - 16 kHz, -100..-20 dB.', 10, 18);
+
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) { let b = n >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+  for (let len = 2; len <= n; len <<= 1) {
+    const a = -2 * Math.PI / len, wr = Math.cos(a), wi = Math.sin(a);
+    for (let i = 0; i < n; i += len) { let cr = 1, ci = 0;
+      for (let k = 0; k < len / 2; k++) { const ur = re[i + k], ui = im[i + k], vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci, vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+        re[i + k] = ur + vr; im[i + k] = ui + vi; re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi; const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t; } }
+  }
+}
+const db = v => (20 * Math.log10(Math.max(1e-9, v))).toFixed(1);
+const results = [];
+
+for (let r = 0; r < TESTS.length; r++) {
+  const [name, dur, level, setup] = TESTS[r];
+  const c = new OfflineAudioContext(2, Math.round(SR * dur), SR);
+  const B = S.makeBuffers(c);
+  const out = c.createGain(); out.gain.value = level;
+  if (level === M.wind) { const wc = S.windComp(c); out.connect(wc.input); wc.output.connect(c.destination); } else out.connect(c.destination);
+  let err = null;
+  try { setup(c, B, out); } catch (e) { err = e; console.error(name, e); }
+  const buf = await c.startRendering();
+  const L = buf.getChannelData(0), Rc = buf.getChannelData(1), n = L.length;
+  let peak = 0, sum = 0, dc = 0, clip = 0;
+  for (let i = 0; i < n; i++) { const a = Math.max(Math.abs(L[i]), Math.abs(Rc[i])); peak = Math.max(peak, a); if (a >= 0.999) clip++; sum += L[i] * L[i] + Rc[i] * Rc[i]; dc += L[i] + Rc[i]; }
+  const rms = Math.sqrt(sum / (2 * n)); dc /= 2 * n;
+  // loudest 0.5 s window RMS
+  const win = SR >> 1; let best = 0;
+  for (let s = 0; s + win <= n; s += win >> 2) { let e = 0; for (let i = s; i < s + win; i += 4) e += L[i] * L[i] + Rc[i] * Rc[i]; best = Math.max(best, Math.sqrt(e / (win / 2))); }
+  // level swing: 0.25 s RMS windows after the first second (max - min, dB)
+  let wmin = 1e9, wmax = 0; const q = SR >> 2;
+  for (let s0 = SR; s0 + q <= n; s0 += q >> 1) { let e = 0; for (let i = s0; i < s0 + q; i += 2) e += L[i] * L[i] + Rc[i] * Rc[i]; e = Math.sqrt(e / q); wmin = Math.min(wmin, e); wmax = Math.max(wmax, e); }
+  const swing = (20 * Math.log10(wmax / Math.max(1e-9, wmin))).toFixed(1);
+  const y0 = 30 + r * ROW;
+  const seg = (a, b) => { let e = 0; const i0 = Math.floor(a * SR), i1 = Math.min(n, Math.floor(b * SR)); for (let i = i0; i < i1; i++) e += L[i] * L[i] + Rc[i] * Rc[i]; return db(Math.sqrt(e / (2 * Math.max(1, i1 - i0)))); };
+  const segs = /SHELTER/.test(name) ? `exposed ${seg(1, 4)} / lee ${seg(6, 9)} dB rms` : /COWER/.test(name) ? `walk ${seg(0.5, 3)} / cower ${seg(4, 8)} dB rms` : /NIGHT/.test(name) ? `day ${seg(0.5, 3)} / night ${seg(8, 10)} dB rms` : '';
+  const stats = { segs, swing, name, peak: db(peak), rms: db(rms), loud: db(best), dc: dc.toExponential(1), clip, err: err && String(err) };
+  results.push(stats);
+  g.fillStyle = err ? '#f66' : '#ddd';
+  const lines = [name.slice(0, 44), name.slice(44, 88), `peak ${stats.peak} dBFS  rms ${stats.rms}`, `loudest .5s ${stats.loud} dBFS`, `DC ${stats.dc}  clipped ${clip}  swing ${swing} dB`, err ? String(err).slice(0, 44) : segs];
+  lines.forEach((t, i) => g.fillText(t, 8, y0 + 12 + i * 14));
+  // waveform
+  const wx = LABEL, mid = y0 + WAVE_H / 2;
+  g.fillStyle = '#1c1c1c'; g.fillRect(wx, y0, PLOT, WAVE_H);
+  g.strokeStyle = '#533'; g.beginPath(); for (const v of [1, -1, 0.25, -0.25]) { g.moveTo(wx, mid - v * WAVE_H / 2); g.lineTo(wx + PLOT, mid - v * WAVE_H / 2); } g.stroke();
+  for (const [ch, col] of [[L, '#ddd'], [Rc, '#777']]) {
+    g.fillStyle = col;
+    for (let x = 0; x < PLOT; x++) { const a = Math.floor(x * n / PLOT), b = Math.floor((x + 1) * n / PLOT); let lo = 0, hi = 0; for (let i = a; i < b; i++) { lo = Math.min(lo, ch[i]); hi = Math.max(hi, ch[i]); } g.fillRect(wx + x, mid - hi * WAVE_H / 2, 1, Math.max(1, (hi - lo) * WAVE_H / 2)); }
+  }
+  // spectrogram
+  const sy = y0 + WAVE_H + 4, N = 2048, img = g.createImageData(PLOT, SPEC_H);
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let x = 0; x < PLOT; x++) {
+    const s0 = Math.floor(x * (n - N) / PLOT);
+    for (let i = 0; i < N; i++) { const wv = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N); re[i] = (L[s0 + i] + Rc[s0 + i]) * 0.5 * wv; im[i] = 0; }
+    fft(re, im);
+    for (let yy = 0; yy < SPEC_H; yy++) {
+      const f = 40 * Math.pow(16000 / 40, 1 - yy / (SPEC_H - 1)), k = Math.round(f * N / SR);
+      const m = Math.hypot(re[k], im[k]) / (N / 4), d = 20 * Math.log10(m + 1e-9);
+      const v = Math.max(0, Math.min(255, (d + 100) / 80 * 255)), p = (yy * PLOT + x) * 4;
+      img.data[p] = v; img.data[p + 1] = v * 0.9; img.data[p + 2] = Math.min(255, v * 0.8 + 30); img.data[p + 3] = 255;
+    }
+  }
+  g.putImageData(img, wx, sy);
+  g.fillStyle = '#888'; g.fillText(`${dur}s`, wx + PLOT + 2, y0 + 10);
+}
+window.audioResults = results;
+window.done = true;
+</script>
+</body></html>
