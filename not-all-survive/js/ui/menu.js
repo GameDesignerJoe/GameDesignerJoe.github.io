@@ -91,6 +91,15 @@ export function initMenu() {
     <a href="editor/" target="_blank" rel="noopener">Terrain editor ↗</a>`;
 
   document.body.append(gear, panel);
+  // Players see only the Send feedback button (Joe). The gear is a developer's: ?dev turns it on for this
+  // device (remembered), ?dev=0 turns it off again.
+  let dev = false;
+  try {
+    if (state.params.has('dev')) localStorage.setItem('nas_dev', state.params.get('dev') === '0' ? '0' : '1');
+    dev = localStorage.getItem('nas_dev') === '1';
+  } catch { dev = state.params.has('dev') && state.params.get('dev') !== '0'; }
+  state.dev = dev;
+  if (!dev) gear.hidden = true;
 
   // Keep menu taps from walking the explorer or starting the game behind it.
   for (const el of [gear, panel]) {

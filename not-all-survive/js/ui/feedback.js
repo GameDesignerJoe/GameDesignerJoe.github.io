@@ -152,5 +152,12 @@ export function init() {
     panel.prepend(b);
   };
   add();
+  // ...and the one button players see: bottom right, small and quiet until looked for
+  const fb = document.createElement('button');
+  fb.id = 'fbButton';
+  fb.textContent = 'Send feedback';
+  for (const ev of ['pointerdown', 'pointerup', 'touchend']) fb.addEventListener(ev, e => e.stopPropagation());
+  fb.addEventListener('click', e => { e.stopPropagation(); open(); });
+  document.body.append(fb);
   window.NAS.feedback = { open, kept, where, log: logText, sent: () => { try { return JSON.parse(localStorage.getItem(KEY + '.sent') || '[]'); } catch { return []; } } };
 }
