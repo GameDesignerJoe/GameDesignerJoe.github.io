@@ -41,22 +41,7 @@ main{padding:16px 20px 32px;max-width:1500px;margin:0 auto}
 .found.missed.useless .tag{color:#c9c1b3}
 .tip{margin-top:10px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .mobile-only{display:none}
-.modes{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.mode{height:34px;padding:0 14px;border:none;background:transparent;font-size:13px}
-.mode.on{background:var(--ink);color:var(--bg)}
-@media (max-width:980px), (pointer:coarse){
-  .desktop-only{display:none}.mobile-only{display:inline-flex}
-  header{padding:8px 12px;gap:8px}header .t{font-size:18px}header .btn.sm{height:30px;padding:0 10px;font-size:12px}.prog{font-size:11px}
-  main{padding:10px 12px 24px}
-  .layout{grid-template-columns:1fr;gap:10px}
-  .tl{padding:8px 10px}.years{grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:2px}.yr{height:22px;font-size:10px}
-  .rail{max-height:none;position:static}
-  /* selection / result card as a bottom sheet */
-  #sel:not(:empty){position:fixed;left:0;right:0;bottom:0;z-index:15;max-height:70vh;overflow:auto;background:var(--panel);border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -12px 32px rgba(0,0,0,.45);padding-bottom:env(safe-area-inset-bottom,0px)}
-  #sel .card{border:none;border-radius:0}
-  #sel .card .crop{aspect-ratio:16/8}
-  #sel .closesheet{display:flex}
-}
+.more{display:contents}
 .closesheet{display:none;position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:17px;border:none;background:rgba(27,25,22,.75);color:#f2ede2;align-items:center;justify-content:center;font-size:18px;z-index:2}
 /* right rail */
 .rail{display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 100px);overflow:auto;position:sticky;top:12px}
@@ -98,9 +83,9 @@ main{padding:16px 20px 32px;max-width:1500px;margin:0 auto}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,181,71,.6)}50%{box-shadow:0 0 0 8px rgba(255,181,71,0)}}
 @media (prefers-reduced-motion: reduce){.yr,.yr.win,.yr.shot{animation:none;transition:none;transform:none}.yr .sp{display:none}.card.researching .bar i{transition:none}}
 /* overlays */
-.ov{position:fixed;inset:0;background:rgba(20,17,14,.84);display:none;align-items:center;justify-content:center;padding:16px;z-index:20}
+.ov{position:fixed;inset:0;background:rgba(20,17,14,.84);display:none;align-items:flex-start;justify-content:center;padding:16px;z-index:20;overflow-y:auto;overscroll-behavior:contain}
 .ov.open{display:flex}
-.box{width:min(620px,100%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px;display:flex;flex-direction:column;gap:14px;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+.box{margin:auto;width:min(620px,100%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px;display:flex;flex-direction:column;gap:14px;box-shadow:0 24px 64px rgba(0,0,0,.5)}
 .box h2{font-family:var(--serif);font-weight:400;font-size:32px;margin:0;line-height:1.1}
 .box p{margin:0;font-size:15px;line-height:1.55;color:var(--muted)}
 .box .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint)}
@@ -109,25 +94,95 @@ main{padding:16px 20px 32px;max-width:1500px;margin:0 auto}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30;max-width:90%}
 .toast.show{opacity:1}
 :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.box details summary{cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--faint);padding:4px 0}
+.box details ul{margin-top:8px}
+/* phones and tablets: tap to investigate, sticky year bar, header actions in a menu. Kept last so it wins over the base rules above. */
+@media (max-width:980px), (pointer:coarse){
+  .desktop-only{display:none}.mobile-only{display:inline-flex}
+  body{font-size:16px;-webkit-text-size-adjust:100%;overflow-x:clip}
+  .topbar{overflow-x:clip}
+  button{touch-action:manipulation}
+  .topbar{position:sticky;top:0;z-index:12;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  header{padding:8px 12px;gap:8px;flex-wrap:nowrap;position:relative;border-bottom:none}
+  header>div:first-child{min-width:0}
+  header .t{font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header small{font-size:12px}
+  header .btn.sm{height:44px;padding:0 16px;font-size:16px;flex-shrink:0}
+  header>.prog{display:none}
+  .more{display:none;position:absolute;right:12px;top:calc(100% - 4px);z-index:13;flex-direction:column;gap:8px;padding:10px;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.4)}
+  .more.open{display:flex}
+  .more .btn.sm{height:52px;font-size:17px;border-color:var(--line)}
+  /* the timeline becomes a slim bar pinned under the header, so it's in view when the result sheet is up */
+  .tl{margin:0;padding:2px 12px 10px;border:none;border-radius:0;background:transparent}
+  .tl .th{margin-bottom:6px;flex-wrap:nowrap;align-items:center}
+  .tl .th .lbl{display:none}
+  .tl .th .left{font-size:16px;color:var(--ink)}
+  .tl .th .left b{font-size:18px}
+  .tl .th .prog{font-size:13px}
+  .years{grid-template-columns:repeat(var(--n,60),minmax(0,1fr));gap:1px;padding:2px;border-radius:4px;background:var(--band)}
+  .yr{height:16px;font-size:0;border:none;border-radius:1px;background:var(--ink)}
+  .yr.out{background:transparent;opacity:1}
+  .yr.win{background:var(--amber);transform:scaleY(1.5)}
+  main{padding:12px 12px 32px}
+  .layout{grid-template-columns:1fr;gap:16px}
+  .stage{border-radius:8px}
+  .zbtns{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:10px;font-size:15px;color:var(--muted)}
+  .zb{width:56px;height:48px;border-radius:10px;border:1px solid var(--ink);background:transparent;color:var(--ink);font-size:28px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
+  .zoomtag{font-size:13px}
+  .found .tag{font-size:12px}
+  .tip{font-size:16px;line-height:1.45;color:var(--ink)}
+  .rail{max-height:none;position:static}
+  .rail .lbl{font-size:12px!important}
+  .fitem{font-size:15px;padding:10px}
+  .fitem .fx{font-size:12px}
+  .empty{font-size:15px}
+  /* selection / result card as a bottom sheet */
+  #sel:not(:empty){position:fixed;left:0;right:0;bottom:0;z-index:15;max-height:62vh;overflow:auto;overscroll-behavior:contain;background:var(--panel);border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -12px 32px rgba(0,0,0,.45);padding-bottom:env(safe-area-inset-bottom,0px)}
+  #sel .card{border:none;border-radius:0}
+  #sel .card .crop{aspect-ratio:16/8;max-height:26vh;object-fit:cover}
+  #sel .closesheet{display:flex;width:44px;height:44px;border-radius:22px;font-size:24px}
+  .card .lbl{font-size:12px;order:-3}
+  .card h3{font-size:24px;order:-2}
+  .card .effect{order:-1;font-size:16px}
+  .card p{font-size:16px}
+  .card .btn{height:52px;font-size:17px;justify-content:center}
+  /* end screens: smaller type, and the buttons stay on screen while the lists scroll */
+  .ov{padding:10px}
+  .box{padding:20px;gap:12px}
+  .box h2{font-size:28px}
+  .box .big{font-size:56px}
+  .box p,.box ul{font-size:16px}
+  .box .lbl,.box details summary{font-size:12px}
+  .navrow{position:sticky;bottom:-10px;margin:4px -20px -20px;padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px));background:var(--panel);border-top:1px solid var(--line);border-radius:0 0 12px 12px}
+  .navrow .btn{height:50px;font-size:16px;flex:1 1 0;justify-content:center;white-space:nowrap}
+  .navrow #winNext{order:-1;flex-basis:100%}
+  #intro .btn{height:52px;font-size:17px;padding:0 28px}
+}
 </style>
 </head>
 <body>
+<div class="topbar" id="topbar">
 <header>
   <div><small id="caseNo">PHOTO 1 OF 1</small><div class="t">Photo Time Detective</div></div>
   <div class="sp"></div>
   <div class="prog" id="prog"></div>
   <button class="btn ghost sm" id="btnHint" type="button">Hint</button>
-  <button class="btn ghost sm" id="btnComplete" type="button">Complete</button>
+  <button class="btn ghost sm mobile-only" id="btnMenu" type="button" aria-expanded="false" aria-controls="more">Menu</button>
+  <div class="more" id="more">
+  <button class="btn ghost sm" id="btnComplete" type="button">Finish early</button>
   <button class="btn ghost sm" id="btnSound" type="button">Sound: on</button>
   <button class="btn ghost sm" id="btnReset" type="button">Start over</button>
+  </div>
 </header>
+</div>
 <main>
 <div class="layout">
-  <div>
+  <div id="stageCol">
     <div class="stage" id="stage"><canvas id="pc"></canvas><div class="marquee" id="mq"></div><div class="zoomtag" id="ztag">1.0×</div><div id="marks"></div></div>
-    <div class="tip"><span class="desktop-only">Drag a box around anything that might tell you when this was taken. Scroll to zoom; right-drag to move.</span><span class="mobile-only">Drag a box around anything that might carry a date. Pinch to zoom; two fingers to move.</span><div class="modes mobile-only"><button class="mode on" data-tmode="box" type="button">Select</button><button class="mode" data-tmode="pan" type="button">Move</button></div></div>
+    <div class="zbtns mobile-only"><button class="zb" type="button" data-zoom="0.625" aria-label="Zoom out">&minus;</button><span>Zoom</span><button class="zb" type="button" data-zoom="1.6" aria-label="Zoom in">+</button></div>
+    <div class="tip"><span class="desktop-only">Drag a box around anything that might tell you when this was taken. Scroll to zoom; right-drag to move.</span><span class="mobile-only">Tap anything that might give away the year. Pinch or press + to zoom in on small things, then drag to look around.</span></div>
     <div class="tl">
-      <div class="th"><div class="lbl">WHEN WAS THIS TAKEN?</div><div class="left"><b id="leftN"></b> <span id="leftT">years still possible</span></div></div>
+      <div class="th"><div class="lbl">WHEN WAS THIS TAKEN?</div><div class="left"><b id="leftN"></b> <span id="leftT">years still possible</span><span id="rangeT"></span></div><div class="prog mobile-only" id="prog2"></div></div>
       <div class="years" id="years"></div>
     </div>
   </div>
@@ -137,7 +192,7 @@ main{padding:16px 20px 32px;max-width:1500px;margin:0 auto}
   </aside>
 </div>
 </main>
-<div class="ov open" id="intro"><div class="box"><div class="lbl" id="introLbl">PHOTO 1</div><h2 id="introTitle">A parking lot, somewhere, sometime.</h2><p>This is a real photograph. Your job is to work out the year it was taken using only what's in the picture.</p><p>Box anything that looks like it might carry a date — a sign, a car, a license plate — and hit Research. Each thing you research will knock years off the timeline below the photo. Keep going until one year is left.</p><div style="display:flex;justify-content:flex-end"><button class="btn" id="introGo" type="button">Start</button></div></div></div>
+<div class="ov open" id="intro"><div class="box"><div class="lbl" id="introLbl">PHOTO 1</div><h2 id="introTitle">A parking lot, somewhere, sometime.</h2><p>This is a real photograph. Your job is to work out the year it was taken using only what's in the picture.</p><p class="desktop-only">Box anything that looks like it might carry a date — a sign, a car, a license plate — and hit Research. Each thing you research will knock years off the timeline below the photo. Keep going until one year is left.</p><p class="mobile-only">Tap anything that might give away the year — a sign, a car, a license plate — then press Research. Each clue crosses years off the bar at the top. Keep going until one year is left.</p><div style="display:flex;justify-content:flex-end"><button class="btn" id="introGo" type="button">Start</button></div></div></div>
 <div class="ov" id="win"><div class="box" id="winBox"></div></div>
 <div class="toast" id="toast"></div>
 <script src="js/cases.js"></script>
