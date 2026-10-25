@@ -256,6 +256,7 @@ export function drawScreen(ctx) {
 
   // --- optional cores (only lights that ask for one) ---
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawCampSprites(ctx, n, white);
   drawFigure(ctx, n, white);
   for (const l of lights) {
     if (!l.core) continue;
@@ -274,6 +275,9 @@ export function drawScreen(ctx) {
 let explorerMod = null, fig = null, figCtx = null;
 const onlyP = state.params.get('only');
 if (!onlyP || onlyP.split(',').includes('explorer')) import('../actors/explorer.js').then(m => { explorerMod = m; });
+let campMod = null;
+if (!onlyP || onlyP.split(',').includes('camp')) import('../actors/camp.js').then(m => { campMod = m; });
+let campCv = null;
 const FIG = { x0: -6, x1: 6, y0: -19, y1: 1 };   // world px box around the feet
 
 // Same test layers.js uses to decide an occluder covers the explorer: a real textured
@@ -295,6 +299,34 @@ function behindFace(x, y) {
     }
   }
   return false;
+}
+
+// The sled and the dogs: their own sprites laid back over the graded frame with a navy wash on their pixels
+// only (camp.js nightSprites), so they read as dark grey shapes in the moonlight rather than black smudges.
+function drawCampSprites(ctx, n, white) {
+  const list = campMod?.nightSprites?.();
+  if (!list || !list.length) return;
+  const a = n * (1 - 0.85 * white) * 0.92;
+  if (a < 0.02) return;
+  if (!campCv) campCv = document.createElement('canvas');
+  const g = campCv.getContext('2d');
+  for (const sp of list) {
+    const s = worldToScreen(sp.x, sp.y), e = worldToScreen(sp.x + sp.w, sp.y + sp.h);
+    const sw = e.x - s.x, sh = e.y - s.y;
+    if (sw < 1 || sh < 1 || e.x < 0 || e.y < 0 || s.x > state.view.w || s.y > state.view.h) continue;
+    if (campCv.width < sp.cv.width || campCv.height < sp.cv.height) { campCv.width = Math.max(campCv.width, sp.cv.width); campCv.height = Math.max(campCv.height, sp.cv.height); }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, sp.cv.width, sp.cv.height);
+    g.drawImage(sp.cv, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(14,22,58,0.42)';
+    g.fillRect(0, 0, sp.cv.width, sp.cv.height);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = a;
+    ctx.drawImage(campCv, 0, 0, sp.cv.width, sp.cv.height, s.x, s.y, sw, sh);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawFigure(ctx, n, white) {

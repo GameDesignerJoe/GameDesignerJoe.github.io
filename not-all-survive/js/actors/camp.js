@@ -1250,6 +1250,21 @@ const corners = (xs, ys, hs) => { const o = []; for (const x of xs) for (const y
 const TENT_BOX = boxOf(projT, corners([-21, 21], [-23.5, 23.5], [0, 14]), 2.5);
 const SLED_BOX = boxOf(projS, corners([-14.5, 16], [-4.5, 4.5], [0, 10]), 2);
 const sprites = new Map();
+// The sled and the dogs at night (fx/night.js): the night grade multiplies through a blurred low-res copy
+// of the frame, which crushed these small grey shapes to black smudges with a dark halo (Joe: "a weird
+// black blurring"). night.js lays their cached sprites back over the graded frame with their own gentle
+// navy wash, as it does the explorer. -> [{ cv, x, y, w, h }] in world units, back to front.
+export function nightSprites() {
+  if (!onScreen()) return [];
+  const out = [];
+  const add = (key, dx = 0, dy = 0) => {
+    const sp = sprites.get(key);
+    if (sp && sp.w) out.push({ cv: sp.cv, x: sp.x0 + dx - sp.dx, y: sp.y0 + dy - sp.dy, w: sp.w, h: sp.h, depth: sp.y0 + sp.h });
+  };
+  add('sled');
+  for (const d of dogs) if (!d.dead) add('dog' + d.i, d.x, d.y);
+  return out.sort((a, b) => a.depth - b.depth);
+}
 function drawCached(ctx, key, box, hz, render, dx = 0, dy = 0, stamp = 0) {
   const s = zoom() * (state.view.dpr || 1);
   let sp = sprites.get(key);
