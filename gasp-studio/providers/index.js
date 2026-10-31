@@ -22,7 +22,8 @@ async function falRun(endpoint, input) {
   const headers = { Authorization: `Key ${key}`, "Content-Type": "application/json" };
   const submit = await fetch(`https://queue.fal.run/${endpoint}`, { method: "POST", headers, body: JSON.stringify(input) });
   if (!submit.ok) throw new Error(`fal submit ${submit.status}: ${await submit.text()}`);
-  const { request_id, status_url, response_url } = await submit.json();
+  const sub = await submit.json(); if (sub.detail) throw new Error(`fal rejected the request: ${JSON.stringify(sub.detail).slice(0, 300)}`);
+  const { request_id, status_url, response_url } = sub;
   for (let i = 0; i < 600; i++) {
     await new Promise(r => setTimeout(r, 2000));
     const st = await fetch(status_url || `https://queue.fal.run/${endpoint}/requests/${request_id}/status`, { headers });
@@ -99,12 +100,13 @@ export async function generateStill({ prompt, refs = [], outFile, provider, aspe
 
 export async function generateVideo({ prompt, still, seconds, outFile, provider }) {
   const p = pick("video", provider);
-  const dur = Math.min(seconds, p.maxSeconds || 10);
+  let dur = Math.min(seconds, p.maxSeconds || 10);
+  if (p.durations) dur = p.durations.find(d => d >= seconds - 0.01) ?? p.durations[p.durations.length - 1];   // some models only take fixed lengths (Kling: 5 or 10)
   if (DRY) return { file: await placeholderVideo(outFile, still, dur), cost: 0, provider: p.key };
   const image_url = await falUpload(still);
   const out = await falRun(p.endpoint, { prompt, image_url, duration: String(Math.round(dur)), aspect_ratio: "9:16" });
   const url = out.video?.url;
-  if (!url) throw new Error("no video in response: " + JSON.stringify(out).slice(0, 300));
+  if (!url) throw new Error("no video in response: " + JSON.stringify(out.detail || out).slice(0, 300));
   await download(url, outFile);
   return { file: outFile, cost: (p.pricePerSecond || 0) * dur, provider: p.key };
 }

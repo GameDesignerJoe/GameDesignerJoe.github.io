@@ -25,12 +25,20 @@
     "fal-kling": {
       "endpoint": "fal-ai/kling-video/v2.1/standard/image-to-video",
       "pricePerSecond": 0.05,
-      "maxSeconds": 10
+      "maxSeconds": 10,
+      "durations": [
+        5,
+        10
+      ]
     },
     "fal-hailuo": {
       "endpoint": "fal-ai/minimax/hailuo-02/standard/image-to-video",
       "pricePerSecond": 0.045,
-      "maxSeconds": 10
+      "maxSeconds": 10,
+      "durations": [
+        6,
+        10
+      ]
     },
     "fal-wan": {
       "endpoint": "fal-ai/wan/v2.2-a14b/image-to-video",
