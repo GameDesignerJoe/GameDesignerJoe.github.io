@@ -78,7 +78,30 @@ export async function serve({ root, port = 4747, open = true }) {
     const body = () => new Promise(r => { let b = ""; req.on("data", d => b += d); req.on("end", () => { try { r(JSON.parse(b || "{}")); } catch { r({}); } }); });
     try {
       if (req.method === "OPTIONS") { res.writeHead(204, cors); return res.end(); }
-      if (url.pathname === "/") { res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(PANEL); }
+      if (url.pathname === "/" || url.pathname === "/index.html") { const app = path.join(root, "app", "index.html"); if (fs.existsSync(app)) { res.writeHead(200, { "Content-Type": MIME[".html"] }); return fs.createReadStream(app).pipe(res); } res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(PANEL); }
+      if (url.pathname === "/render") { res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(url.searchParams.get("embed") ? PANEL.replace("<header>", "<header style=\"display:none\">").replace("height:calc(100vh - 50px)", "height:100vh") : PANEL); }
+      if (url.pathname === "/gasp-shim.js") { res.writeHead(200, { "Content-Type": "text/javascript" }); return fs.createReadStream(path.join(root, "app", "gasp-shim.js")).pipe(res); }
+      if (url.pathname === "/api/info") return json({ anthropic: !!process.env.ANTHROPIC_API_KEY, fal: !!process.env.FAL_KEY, elevenlabs: !!process.env.ELEVENLABS_API_KEY, root });
+      // ---- story storage: /api/db?path=stories/<id>  → stories/<path>.json
+      if (url.pathname === "/api/db") {
+        const rel = String(url.searchParams.get("path") || (req.method === "POST" ? (await (async () => { const b = await body(); req._b = b; return b.path; })()) : "")).replace(/[^a-zA-Z0-9_\-\/]/g, "");
+        if (!rel) return json({ error: "path required" }, 400);
+        const f = path.join(root, "stories", rel + ".json");
+        if (req.method === "GET") return json({ data: fs.existsSync(f) ? readJSON(f) : null });
+        if (req.method === "POST") { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(req._b.data)); return json({ ok: true }); }
+        if (req.method === "DELETE") { if (fs.existsSync(f)) fs.unlinkSync(f); return json({ ok: true }); }
+      }
+      // ---- Claude proxy (key stays in .env)
+      if (url.pathname === "/api/claude" && req.method === "POST") {
+        const key = process.env.ANTHROPIC_API_KEY; if (!key) return json({ error: "ANTHROPIC_API_KEY missing in .env", code: "not_granted" }, 401);
+        const b = await body(); const model = b.tier === "quick" ? (process.env.CLAUDE_QUICK_MODEL || "claude-haiku-5-5") : (process.env.CLAUDE_MODEL || "claude-sonnet-5-5");
+        const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" }, body: JSON.stringify({ model, max_tokens: 4000, messages: b.messages }) });
+        const o = await r.json().catch(() => ({}));
+        if (!r.ok) return json({ error: o.error?.message || r.statusText, code: r.status === 401 ? "not_granted" : r.status === 429 ? "rate_limited" : "upstream_error" }, r.status);
+        return json({ text: (o.content || []).map(c => c.text || "").join("") });
+      }
+      // ---- exports → exports/<filename>
+      if (url.pathname === "/api/export" && req.method === "POST") { const b = await body(); const name = String(b.filename || "export.txt").replace(/[^a-zA-Z0-9._-]+/g, "-"); const dir = path.join(root, "exports"); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, name), b.data || ""); emit("log", `💾 exported ${name} → exports\\${name}`); return json({ ok: true, file: path.join(dir, name) }); }
       if (url.pathname === "/api/manifests") return json({ root, manifests: manifests(), running: !!job, dryDefault: !!process.env.STUDIO_DRY_RUN, keys: { fal: !!process.env.FAL_KEY, elevenlabs: !!process.env.ELEVENLABS_API_KEY } });
       if (url.pathname === "/api/output") return json(outputFor(url.searchParams.get("file"), url.searchParams.get("ep")));
       if (url.pathname === "/api/events") {
@@ -168,7 +191,7 @@ pre#log{margin:0;padding:14px 18px;overflow:auto;font:12px/1.5 Consolas,ui-monos
   <button class="btn" id="render">Render</button>
   <div class="row"><button class="btn ghost" id="stop" disabled>Stop</button><span class="spacer"></span><button class="btn ghost" id="refresh">Refresh</button></div>
   <div class="meta" id="castinfo"></div>
-  <div class="meta">In Gate Ten: Export → Production manifest JSON → <b>Save file</b>, then <b>Import manifest…</b> here (or drop the file anywhere on this page). Manifests live in this folder.</div>
+  <div class="meta" id="howto">In Gate Ten: Export → Production manifest JSON → <b>Save file</b>, then <b>Import manifest…</b> here (or drop the file anywhere on this page). Manifests live in this folder.</div>
 </aside>
 <section class="right">
   <div class="stage">
@@ -200,5 +223,6 @@ $('#file').onchange=onFile;$('#ep').onchange=onEp;$('#refresh').onclick=load;
 $('#render').onclick=async()=>{const steps=[...document.querySelectorAll('#steps input:checked')].map(i=>i.dataset.step);if(!steps.length)return alert('Pick at least one step.');if(!$('#dry').checked&&steps.some(s=>s==='stills'||s==='animate')&&!confirm('Stills / image-to-video spend real money on fal. Continue?'))return;$('#log').textContent='';const r=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({file:cur.file,ep:cur.ep,steps,dry:$('#dry').checked,force:$('#force').checked,path:pathArg()},scope()))})).json();if(r.error)alert(r.error)};
 $('#stop').onclick=()=>fetch('/api/stop',{method:'POST'});
 const es=new EventSource('/api/events');es.addEventListener('log',e=>log(JSON.parse(e.data)));es.addEventListener('status',e=>{const s=JSON.parse(e.data);$('#status').textContent=s.running?'running: '+s.step:'idle';$('#status').className='status'+(s.running?' run':'');$('#render').disabled=s.running;$('#stop').disabled=!s.running});es.addEventListener('done',e=>{const d=JSON.parse(e.data);log(d.ok?'✔ done':'■ stopped');output()});es.addEventListener('manifest',async e=>{await load();$('#file').value=JSON.parse(e.data).file;onFile()});
+if(location.search.includes('embed')){$('#howto').innerHTML='From any writing tab: <b>Export → Send to Render</b> hands the current story to this tab. Import is only for manifests saved elsewhere.'}
 load();
 </script></body></html>`;

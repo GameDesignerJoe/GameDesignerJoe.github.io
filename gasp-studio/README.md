@@ -2,8 +2,13 @@
 
 **G**ameplay · **A**nimatic · **S**cript · **P**roduction. The local half of Gate Ten: turns a production manifest into a voiced, captioned animatic, with SlapCut (the cutout compositor) for free stills and fal.ai for generated ones.
 
-## The easy way: the control panel
-Double-click `GASP.bat` (or run `node studio.js serve`). It opens http://localhost:4747 in your browser: pick the story and episode, choose how far to render (e.g. up to the first choice), tick the steps, press Render. The log streams in, the cut plays in the page, and clicking a shot lets you pick which take is approved. In Gate Ten, Export → **Send to GASP** drops the manifest straight into this folder while the panel is running.
+## One app
+Double-click `GASP.bat` (or run `node studio.js serve`). It opens http://localhost:4747: Gate Ten (write) with a **Render** tab (produce) in the same page.
+
+- Stories are saved as files in `stories/` on this machine (git-ignored). To bring a story over from the claude.ai version: there, Import / backup → *Save all stories as file*; here, Import / backup → *Load file*.
+- Claude features in the writing tabs need `ANTHROPIC_API_KEY` in `.env`, next to the fal and ElevenLabs keys.
+- **Export → Send to Render** hands the current story to the Render tab; no files to move. Exports you save land in `exports/`.
+- Render tab: pick episode and scope (whole episode, a block range, or one shot), a path through the choices, tick the steps, press Render. The log streams in, the cut plays in the page; click a shot to pick a take, play its clips, or re-render just that shot.
 
 ## Updating
 `git pull` in this folder. Your `.env` and `work/` are ignored by git and survive updates.
