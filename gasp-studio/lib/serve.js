@@ -45,7 +45,7 @@ export async function serve({ root, port = 4747, open = true }) {
     return { video: fs.existsSync(video) ? `/work/${slug(m.story?.title)}/ep${ep}/ep${ep}-animatic.mp4?t=${fs.statSync(video).mtimeMs}` : null, cost: fs.existsSync(cost) ? readJSON(cost).total : 0, shots };
   };
 
-  function runSteps({ file, ep, until, from, shot, steps, dry, force, thenAssemble, path: choicePath }) {
+  function runSteps({ file, ep, until, from, shot, steps, dry, force, thenAssemble, path: choicePath, approveLatest, segmentsOnly }) {
     if (job) throw new Error("a render is already running");
     if (thenAssemble) steps = [...steps, "animatic"];
     job = { steps, i: 0, cancelled: false };
@@ -59,7 +59,8 @@ export async function serve({ root, port = 4747, open = true }) {
       if (choicePath) argv.push("--path", String(choicePath));
       if (shot && step !== "animatic") argv.push("--shot", String(shot));
       if (step === "composite" || (force && (step === "vo" || step === "beds"))) argv.push("--force");
-      if (step === "stills") argv.push("--auto");
+      if (step === "stills") { argv.push("--auto"); if (approveLatest) argv.push("--approveLatest"); }
+      if (step === "animatic" && (segmentsOnly || (thenAssemble && shot))) argv.push("--segonly");
       emit("log", `\n▶ ${step}${from || until ? " (blocks " + (from || 1) + "–" + ((until || 0) - 1 || "end") + ")" : " (whole episode)"}`);
       emit("status", { running: true, step });
       const child = spawn(process.execPath, argv, { cwd: root, env: { ...process.env, STUDIO_DRY_RUN: dry ? "1" : "" } });
@@ -112,7 +113,18 @@ export async function serve({ root, port = 4747, open = true }) {
       }
       if (url.pathname === "/api/run" && req.method === "POST") { const b = await body(); try { runSteps(b); return json({ ok: true }); } catch (e) { return json({ error: e.message }, 409); } }
       if (url.pathname === "/api/stop" && req.method === "POST") { if (job) { job.cancelled = true; job.child?.kill(); } return json({ ok: true }); }
-      if (url.pathname === "/api/approve" && req.method === "POST") { const b = await body(); const m = readJSON(path.join(root, b.file)); const sd = path.join(root, "work", slug(m.story?.title), `ep${b.ep}`, `shot-${String(b.shot).padStart(2, "0")}`); const src = path.join(sd, b.take === "composite" ? "composite.png" : `take-${b.take}.png`); if (!fs.existsSync(src)) return json({ error: "no such take" }, 404); fs.copyFileSync(src, path.join(sd, "approved.png")); return json({ ok: true }); }
+      if (url.pathname === "/api/shots") {
+        const s = String(url.searchParams.get("slug") || "").replace(/[^a-z0-9-]/g, ""); const ep = String(+url.searchParams.get("ep") || 1); const dir = path.join(root, "work", s, `ep${ep}`); const shots = {};
+        if (fs.existsSync(dir)) for (const d of fs.readdirSync(dir).filter(d => /^shot-\d+$/.test(d))) {
+          const sd = path.join(dir, d); const n = +d.slice(5); const u = f => `/work/${s}/ep${ep}/${d}/${f}?t=${fs.statSync(path.join(sd, f)).mtimeMs}`;
+          const files = fs.readdirSync(sd); const ap = files.includes("approved.png") ? fs.readFileSync(path.join(sd, "approved.png")) : null; let approvedId = null;
+          const takes = files.filter(f => f === "composite.png" || /^take-\d+\.png$/.test(f)).map(f => { const id = f === "composite.png" ? "composite" : f.match(/\d+/)[0]; if (ap && fs.readFileSync(path.join(sd, f)).equals(ap)) approvedId = id; return { id, url: u(f) }; });
+          const segf = path.join(dir, `seg-${String(n).padStart(2, "0")}.mp4`);
+          shots[n] = { approved: ap ? u("approved.png") : null, approvedId, takes, clip: files.includes("clip-lipsync.mp4") || files.includes("clip.mp4"), segment: fs.existsSync(segf) ? `/work/${s}/ep${ep}/seg-${String(n).padStart(2, "0")}.mp4?t=${fs.statSync(segf).mtimeMs}` : null };
+        }
+        return json({ shots });
+      }
+      if (url.pathname === "/api/approve" && req.method === "POST") { const b = await body(); const sl = b.slug ? String(b.slug).replace(/[^a-z0-9-]/g, "") : slug(readJSON(path.join(root, b.file)).story?.title); const sd = path.join(root, "work", sl, `ep${b.ep}`, `shot-${String(b.shot).padStart(2, "0")}`); const src = path.join(sd, b.take === "composite" ? "composite.png" : `take-${b.take}.png`); if (!fs.existsSync(src)) return json({ error: "no such take" }, 404); fs.copyFileSync(src, path.join(sd, "approved.png")); return json({ ok: true }); }
       if (url.pathname === "/api/takes") { const m = readJSON(path.join(root, url.searchParams.get("file"))); const s = slug(m.story?.title); const ep = url.searchParams.get("ep"); const sd = path.join(root, "work", s, `ep${ep}`, `shot-${String(url.searchParams.get("shot")).padStart(2, "0")}`); const files = fs.existsSync(sd) ? fs.readdirSync(sd).filter(f => f === "composite.png" || /^take-\d+\.png$/.test(f)) : []; const segf = path.join(root, "work", s, `ep${ep}`, `seg-${String(url.searchParams.get("shot")).padStart(2, "0")}.mp4`); const ap = path.join(sd, "approved.png"); let approved = null; if (fs.existsSync(ap)) { const a = fs.readFileSync(ap); for (const f of files) if (fs.readFileSync(path.join(sd, f)).equals(a)) { approved = f === "composite.png" ? "composite" : f.match(/\d+/)[0]; break; } }
         const clips = ["clip-lipsync.mp4", "clip.mp4"].filter(f => fs.existsSync(path.join(sd, f))).map(f => ({ name: f === "clip.mp4" ? "generated clip (no lip-sync)" : "lip-synced clip", url: `/work/${s}/ep${ep}/shot-${String(url.searchParams.get("shot")).padStart(2, "0")}/${f}?t=${fs.statSync(path.join(sd, f)).mtimeMs}` }));
         return json({ approved, clips, segment: fs.existsSync(segf) ? `/work/${s}/ep${ep}/seg-${String(url.searchParams.get("shot")).padStart(2, "0")}.mp4?t=${fs.statSync(segf).mtimeMs}` : null, takes: files.map(f => ({ id: f === "composite.png" ? "composite" : f.match(/\d+/)[0], url: `/work/${s}/ep${ep}/shot-${String(url.searchParams.get("shot")).padStart(2, "0")}/${f}?t=${fs.statSync(path.join(sd, f)).mtimeMs}` })) }); }

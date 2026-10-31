@@ -297,11 +297,36 @@ details.card>.cbody{padding:0 14px 14px}
 .check3 span.ok{background:var(--good-soft);color:var(--good)}
 @media (prefers-reduced-motion:no-preference){.btn,.blk{transition:border-color .15s}}
 div[data-lastpass-icon-root],div[data-lastpass-root]{display:none!important}input,textarea{background-image:none!important}
+
+/* ---------- flow editor ---------- */
+.ephead summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px}.ephead summary::-webkit-details-marker{display:none}
+.flowwrap{display:grid;grid-template-columns:minmax(300px,1fr) minmax(380px,560px);gap:16px;align-items:start;margin-top:12px}
+.flow{display:flex;flex-direction:column;align-items:stretch;min-width:0}
+.node{display:grid;grid-template-columns:64px 1fr;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s;min-width:0}
+.node:hover{border-color:var(--muted)}.node.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.node.ix,.node.loose{grid-template-columns:1fr}.node.ix{border-color:var(--accent);background:linear-gradient(90deg,var(--accent-soft),var(--paper) 80px)}
+.node .thumb{width:64px;aspect-ratio:9/16;border-radius:8px;overflow:hidden;background:var(--bg);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);position:relative}
+.node .thumb img{width:100%;height:100%;object-fit:cover;display:block}.node .thumb .clip{position:absolute;right:3px;bottom:3px;font-style:normal;font-size:12px}
+.node .nb{min-width:0;display:grid;gap:4px}.node .nh{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:13px}.node .nh .idx{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.node .who{font-size:13px}.node .act{font-size:13px;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.node .nlines{margin:2px 0 0;padding:0;list-style:none;font-size:12.5px;display:grid;gap:3px}.node .nlines li{padding-left:8px;border-left:2px solid var(--line)}.node .nlines li b{font-family:var(--mono);font-size:11px;margin-right:4px}.node .nlines li.sfx{color:var(--muted);font-style:italic;border-left-style:dotted}
+.node .nopts{margin:4px 0 0;padding-left:18px;font-size:12.5px;display:grid;gap:3px}.node .nopts em{font-style:normal;color:var(--accent);margin-left:6px;font-size:11px}
+.node code.cond,.node .nopts code{font-family:var(--mono);font-size:10.5px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:6px;color:var(--muted)}
+.bd{font-size:10px;letter-spacing:.4px;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:1px 7px;color:var(--muted)}.bd.ok{border-color:var(--ok,#5fbf8a);color:var(--ok,#5fbf8a)}.bd.warn{border-color:var(--warn,#e0a63a);color:var(--warn,#e0a63a)}
+.ins{display:flex;align-items:center;justify-content:center;gap:6px;height:30px;opacity:.25;transition:opacity .15s}.ins:hover{opacity:1}.ins .ln{flex:1;height:1px;background:var(--line);max-width:80px}.ins .btn{padding:2px 8px;font-size:11px}
+.lanes{display:grid;gap:12px;align-items:start;padding:0 0 4px}.lane{display:flex;flex-direction:column;min-width:0;border-left:2px dashed var(--line);padding-left:10px}.lane .lh{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px}.lane .lh code{text-transform:none;letter-spacing:0;font-family:var(--mono);font-size:11px;color:var(--ink)}
+.fpanel{position:sticky;top:calc(var(--hh,60px) + 10px);max-height:calc(100vh - var(--hh,60px) - 20px);overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px;align-content:start}
+.fpanel .blocks .blk{grid-template-columns:40px 1fr;padding:8px}.fpanel .blocks .blk .ops{grid-column:1/-1;flex-direction:row}
+.fprev{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:start}.fprev img,.fprev video{width:150px;aspect-ratio:9/16;object-fit:cover;border-radius:10px;background:#000;border:1px solid var(--line)}.fprev .ph{width:150px;aspect-ratio:9/16;border-radius:10px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);text-align:center;padding:10px}
+.ftakes{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}.ftakes img{width:54px;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:2px solid transparent;cursor:pointer}.ftakes img.cur{border-color:var(--accent)}
+.facts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.flog{margin:0;font:11px/1.4 var(--mono);color:var(--muted);white-space:pre-wrap;max-height:84px;overflow:auto;background:var(--bg);border-radius:8px;padding:6px 8px}.flog:empty{display:none}
+.fops{display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px}
+@media(max-width:1100px){.flowwrap{grid-template-columns:1fr}.fpanel{position:static;max-height:none}}
 </style>
 
 <header class="top">
   <div>
-    <h1><span>GASP</span> Studio <small id="gtver" style="font-size:11px;font-weight:400;color:var(--mute);vertical-align:middle;letter-spacing:.4px">v43</small></h1>
+    <h1><span>GASP</span> Studio <small id="gtver" style="font-size:11px;font-weight:400;color:var(--mute);vertical-align:middle;letter-spacing:.4px">v44</small></h1>
     <div class="sub">Gameplay · Animatic · Script · Production · the paywall is episode <span id="g1lab">10</span></div>
   </div>
   <div class="spacer"></div>
@@ -670,7 +695,7 @@ function renderTabs(){
 }
 function addEpisode(){chatOpen=true;const num=(S.episodes.length?Math.max(...S.episodes.map(e=>e.num)):0)+1;const id=createEpisodeFromBeat(num);active=String(id);touch();render();renderChatPanel()}
 
-function render(){if(active==="idea")active="premise";renderTabs();if(active==="premise")renderPremise();else if(active==="season")renderSeason();else if(active==="game")renderGame();else if(active==="flow")renderFlow();else if(active==="render")renderRenderTab();else{const ep=S.episodes.find(e=>String(e.id)===active);if(!ep){active="premise";return render()}renderEpisode(ep)}}
+function render(){if(active==="idea")active="premise";window.flowActive=false;renderTabs();if(active==="premise")renderPremise();else if(active==="season")renderSeason();else if(active==="game")renderGame();else if(active==="flow")renderFlow();else if(active==="render")renderRenderTab();else{const ep=S.episodes.find(e=>String(e.id)===active);if(!ep){active="premise";return render()}renderEpisode(ep)}}
 function renderRenderTab(){$("#editor").innerHTML=`<iframe id="renderFrame" src="/render?embed=1" style="width:100%;height:calc(100vh - var(--hh,60px) - 24px);border:0;border-radius:12px;background:#141118"></iframe>`}
 async function sendToRender(epsSel,withImages){const m=productionManifest(epsSel&&epsSel.length?epsSel:S.episodes,withImages!==false);const base=(S.premise.title||"script").replace(/[^\w]+/g,"-")+(epsSel&&epsSel.length===1?"-ep"+epsSel[0].num:"");const r=await fetch("/api/manifest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:base+"-production",manifest:m})});const j=await r.json();if(j.error)throw new Error(j.error);return j.file}
 
@@ -1108,11 +1133,12 @@ function buildPrompt(ep,i){
   ];
   return parts.filter(Boolean).join(" ");
 }
-function renderBlocks(ep){
-  const host=$("#blocks");const tl=timeline(ep);const castNames=(S.premise.cast||[]).map(c=>c.name).filter(Boolean);
+function renderBlocks(ep,hostEl,only){
+  if(!hostEl&&window.flowActive)return flowRefresh();
+  const host=hostEl||$("#blocks");const tl=timeline(ep);const castNames=(S.premise.cast||[]).map(c=>c.name).filter(Boolean);
   if(!ep.blocks.length){host.innerHTML=`<div class="empty">No blocks yet. Add the opening shot: the image the ad will be cut from.</div>`;return}
   const beatSel=(b)=>`<select data-k="beat" class="beatsel">${BEATS.map(([v,l])=>`<option value="${v}" ${v===(b.beat||"")?"selected":""}>${l}</option>`).join("")}</select>`;
-  host.innerHTML=ep.blocks.map((b,i)=>{const r=tl[i];let body="";
+  host.innerHTML=ep.blocks.map((b,i)=>{if(only&&!only.has(i))return"";const r=tl[i];let body="";
     if(b.kind==="shot")body=`<div class="r4">
       <label class="f">Location<input data-k="loc" value="${esc(b.loc)}" list="locs"></label>
       <label class="f">Time<input data-k="time" value="${esc(b.time)}" placeholder="night" list="timelist"></label>
@@ -1174,7 +1200,7 @@ function renderBlocks(ep){
   growAll(host);
   host.querySelectorAll("[data-op]").forEach(bt=>bt.onclick=()=>{const i=+bt.closest(".blk").dataset.i;const op=bt.dataset.op;if(op==="del")ep.blocks.splice(i,1);else if(op==="dup")ep.blocks.splice(i+1,0,JSON.parse(JSON.stringify(ep.blocks[i])));else if(op==="up"&&i>0)[ep.blocks[i-1],ep.blocks[i]]=[ep.blocks[i],ep.blocks[i-1]];else if(op==="down"&&i<ep.blocks.length-1)[ep.blocks[i+1],ep.blocks[i]]=[ep.blocks[i],ep.blocks[i+1]];touch();renderBlocks(ep);renderDoctor()});
 }
-function refreshTimes(ep){const tl=timeline(ep);document.querySelectorAll("#blocks .blk [data-t]").forEach((el,i)=>{if(tl[i])el.textContent=fmt(tl[i].start)})}
+function refreshTimes(ep){const tl=timeline(ep);document.querySelectorAll("#blocks .blk [data-t]").forEach(el=>{const i=+el.closest(".blk").dataset.i;if(tl[i])el.textContent=fmt(tl[i].start)})}
 
 function tlSvg(tl,total,epNum){
   const W=330,H=46,max=Math.max(120,total);const x=s=>8+(s/max)*(W-16);
@@ -1205,7 +1231,7 @@ function renderDoctor(){
    <div class="tl">${tlSvg(tl,total,ep.num)}</div>
    <ul class="findings">${out.map(x=>`<li class="${x.level}"><span>${x.bi!=null?`<a data-goto="${x.bi}">`:""}${esc(x.text)}${x.bi!=null?"</a>":""}${x.at?`<span class="at">${esc(x.at)}</span>`:""}</span></li>`).join("")}</ul>
    <div class="doc-sec"><h3>Claude</h3><div class="row"><button class="btn small primary" id="askEp">Review this episode</button><button class="btn small" id="askPunch">Punch up dialogue</button><button class="btn small" id="askNext">Pitch next episode</button></div><div class="claude-out" id="cout"></div></div>`;
-  d.querySelectorAll("[data-goto]").forEach(a=>a.onclick=()=>{if(isMobile())setPane("write");const el=document.querySelector(`#blocks .blk[data-i="${a.dataset.goto}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("flag");setTimeout(()=>el.classList.remove("flag"),1800)}});
+  d.querySelectorAll("[data-goto]").forEach(a=>a.onclick=()=>{if(isMobile())setPane("write");if(window.flowActive){flowSelect(+a.dataset.goto)}const el=document.querySelector(`#blocks .blk[data-i="${a.dataset.goto}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("flag");setTimeout(()=>el.classList.remove("flag"),1800)}});
   d.querySelector("[data-docclose]").onclick=()=>isMobile()?setPane("write"):setDoc(false);wireClaude("episode",ep,idx);
 }
 function seasonMap(){const g=S.premise.gates||{};const total=+g.total||60;let rows="";for(let n=1;n<=total;n++){const b=getBeat(n);const gate=n===g.g1?"G1":n===g.g2?"G2":n===g.g3?"G3":"";let st="";if(b.ep){const a=analyzeEpisode(b.ep,S.episodes.indexOf(b.ep)).out;const bad=a.filter(x=>x.level==="bad"||x.level==="warn").length;st=`<span style="color:${a.some(x=>x.level==="bad")?"var(--bad)":bad?"var(--warn)":"var(--good)"}">${b.ep.blocks.length?(bad||"✓"):"·"}</span>`}
@@ -1547,6 +1573,108 @@ function setPane(p){pane=p;document.body.classList.toggle("pane-doctor",p==="doc
 document.querySelectorAll("#mbar button").forEach(b=>b.onclick=()=>setPane(b.dataset.pane===pane&&(pane==="lib"||pane==="chat")?"write":b.dataset.pane));
 function mbarCount(){const el=$("#mbarCnt");if(!el)return;let n=0;if(active==="game"||active==="flow")n=analyzeGame().filter(x=>x.level==="bad"||x.level==="warn").length;else if(active==="season")n=analyzeSeason().filter(x=>x.level==="bad"||x.level==="warn").length;else if(active==="premise")n=analyzePremise().filter(x=>x.level==="bad"||x.level==="warn").length;else{const ep=S.episodes.find(e=>String(e.id)===active);if(ep)n=analyzeEpisode(ep,S.episodes.indexOf(ep)).out.filter(x=>x.level==="bad"||x.level==="warn").length}el.hidden=!n;el.textContent=n}
 window.addEventListener("resize",()=>{const d=$("#doctor");if(!isMobile()){document.body.classList.remove("lib-open","pane-doctor");const sc=$("#scrim");if(sc)sc.remove();d.hidden=!docOpen}else d.hidden=false});
+/* ---------- flow editor (vertical): the episode as shot nodes, choices and branch lanes ---------- */
+window.flowActive=false;
+let flowSel=null, flowShots={}, flowES=null, flowRunning=null, flowLogTail=[];
+const flowSlug=()=>String(S.premise.title||"story").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+function flowEp(){return S.episodes.find(e=>String(e.id)===active)}
+function flowNodes(ep){const nodes=[];let cur=null;
+  ep.blocks.forEach((b,i)=>{
+    if(b.kind==="shot"){cur={type:"shot",i,blocks:[i],b};nodes.push(cur)}
+    else if(b.kind==="ix"){cur=null;nodes.push({type:"ix",i,blocks:[i],b})}
+    else if(cur)cur.blocks.push(i);
+    else{const last=nodes[nodes.length-1];if(last&&last.type==="loose")last.blocks.push(i);else nodes.push({type:"loose",i,blocks:[i],b})}});
+  return nodes}
+function nodeHash(ep,n){return JSON.stringify(n.blocks.map(i=>{const b=Object.assign({},ep.blocks[i]);delete b.vprompt;return b}))}
+function nodeFor(ep,i){return flowNodes(ep).find(n=>n.blocks.includes(i))}
+function flowLayout(nodes){ // runs of conditional nodes after a choice become parallel lanes keyed by their condition
+  const rows=[];let k=0;
+  while(k<nodes.length){const n=nodes[k];
+    if(n.type!=="ix"){rows.push({kind:"one",node:n});k++;continue}
+    rows.push({kind:"one",node:n});k++;
+    const lanes=new Map();let j=k;
+    while(j<nodes.length&&nodes[j].type!=="ix"&&(nodes[j].b.cond||"").trim()){const c=nodes[j].b.cond.trim();if(!lanes.has(c))lanes.set(c,[]);lanes.get(c).push(nodes[j]);j++}
+    if(j>k){rows.push({kind:"lanes",lanes:[...lanes.entries()]});k=j}}
+  return rows}
+function renderEpisode(ep){
+  window.flowActive=true;if(flowSel!=null&&!ep.blocks[flowSel])flowSel=null;
+  const idx=S.episodes.indexOf(ep);
+  $("#editor").innerHTML=`
+  <details class="card ephead"><summary><h2 style="display:inline">Episode ${ep.num}${ep.title?" · "+esc(ep.title):""}${ep.num===S.premise.gates?.g1?' <span class="tag">paywall</span>':""}${ep.num===S.premise.gates?.g2?' <span class="tag">gate 2</span>':""}${ep.num===S.premise.gates?.g3?' <span class="tag">gate 3</span>':""}</h2><span class="sub" style="margin-left:10px">${ep.blocks.filter(b=>b.kind==="shot").length} shots · ${ep.blocks.filter(b=>b.kind==="ix").length} interactions · ${fmt(timeline(ep).reduce((a,t)=>Math.max(a,t.end),0))}</span><span class="spacer"></span><span class="sub">episode details ▾</span></summary>
+   <div class="grid" style="margin-top:10px">
+    <label class="f" style="max-width:110px">Number<input type="number" id="e_num" value="${ep.num}"></label>
+    ${f("Episode title","e_title",ep.title)}
+    ${sel("End-hook type","e_hook",ep.hookType,HOOKS)}
+    ${f("Music cue","e_music",ep.music)}
+    ${f("Ambience override (optional)","e_ambience",ep.ambience)}
+    ${f("One-line outline (Villain does X to FL in front of Y; FL answers Z; cut on Q)","e_summary",ep.summary,"textarea",'rows="2" class="wide"')}
+   </div><div class="row" style="margin-top:8px"><button class="btn small" id="vpAll">Generate all video prompts</button><button class="btn small" id="vpCopyAll">Copy all prompts</button><span class="spacer"></span><button class="btn small ghost" id="delEp">Delete episode</button></div></details>
+  <div class="flowwrap"><div class="flow" id="flow"></div><div class="fpanel" id="fpanel"></div></div>`;
+  const bind=(id,key,num)=>{const el=$("#"+id);el.oninput=()=>{ep[key]=num?+el.value:el.value;touch();if(key==="num")renderTabs();renderDoctor()}};
+  bind("e_num","num",true);bind("e_title","title");bind("e_hook","hookType");bind("e_music","music");bind("e_ambience","ambience");bind("e_summary","summary");
+  $("#delEp").onclick=()=>{S.episodes.splice(idx,1);active="premise";window.flowActive=false;touch();render();renderChatPanel()};
+  $("#vpAll").onclick=()=>{ep.blocks.forEach((b,i)=>{if(b.kind==="shot")b.vprompt=buildPrompt(ep,i)});touch();flowRefresh();toast("Prompts generated")};
+  $("#vpCopyAll").onclick=()=>{const t=ep.blocks.map((b,i)=>b.kind==="shot"?`--- Ep ${ep.num} Shot #${i+1} (${b.dur||4}s) ---\n${b.vprompt||buildPrompt(ep,i)}`:null).filter(Boolean).join("\n\n");navigator.clipboard?.writeText(t).then(()=>toast("All prompts copied")).catch(()=>toast("Copy failed"))};
+  flowRefresh();renderDoctor();growAll($("#editor"));flowLoadShots();flowEvents();
+}
+function flowRefresh(){const ep=flowEp();if(!ep||!$("#flow"))return;renderFlow2(ep);renderFPanel(ep)}
+function flowSelect(i){const ep=flowEp();const n=nodeFor(ep,i);flowSel=n?n.i:null;flowRefresh();const el=document.querySelector(`.node[data-n="${flowSel}"]`);if(el)el.scrollIntoView({behavior:"smooth",block:"nearest"})}
+function nodeCard(ep,n){const b=n.b;const sh=flowShots[n.i+1]||{};const tl=timeline(ep);
+  if(n.type==="ix"){const M=MECH[b.mech]||MECH.choice;return`<div class="node ix ${flowSel===n.i?"sel":""}" data-n="${n.i}"><div class="nh"><span class="idx">#${n.i+1}</span><b>◆ ${esc(M.label)}${b.sub?" / "+esc(b.sub):""}</b><span class="sub">${fmt(tl[n.i].start)} · ${b.dur||0}s</span></div><div class="act">${esc(b.prompt||"")||'<i class="sub">no prompt yet</i>'}</div><ol class="nopts">${(b.opts||[]).map(o=>`<li><span>${esc(o.label||"—")}</span>${o.cost&&o.cost!=="free"?`<em>${o.amt||0} ${esc(o.cost)}</em>`:""}${o.flag?`<code>${esc(o.flag)}</code>`:""}</li>`).join("")}</ol></div>`}
+  if(n.type==="loose"){return`<div class="node loose ${flowSel===n.i?"sel":""}" data-n="${n.i}"><div class="nh"><span class="idx">#${n.i+1}</span><b>lines without a shot</b></div><ul class="nlines">${n.blocks.map(i=>{const x=ep.blocks[i];return x.kind==="line"?`<li><b>${esc(x.speaker||"?")}</b> ${esc(x.text||"")}</li>`:`<li class="sfx">♪ ${esc(x.text||"")}</li>`}).join("")}</ul></div>`}
+  const lines=n.blocks.slice(1).map(i=>ep.blocks[i]);const hash=nodeHash(ep,n);const rh=(ep.renderedHash||{})[n.i];
+  const badge=!sh.approved?`<span class="bd">not rendered</span>`:rh&&rh!==hash?`<span class="bd warn">edited since render</span>`:`<span class="bd ok">rendered</span>`;
+  const plan=renderPlan(ep,n.i);
+  return`<div class="node shot ${flowSel===n.i?"sel":""}" data-n="${n.i}"><div class="thumb">${sh.approved?`<img src="${sh.approved}" alt="">`:`<span>${esc(b.frame||"shot")}</span>`}${sh.clip?`<i class="clip">🎬</i>`:""}</div><div class="nb"><div class="nh"><span class="idx">#${n.i+1}</span><b>${esc(b.frame||"—")}</b><span class="sub">${esc(b.loc||"")}${b.time?", "+esc(b.time):""} · ${b.dur||4}s · ${plan}</span>${badge}${(b.cond||"").trim()?`<code class="cond">${esc(b.cond)}</code>`:""}</div>${b.chars?`<div class="who">${esc(b.chars)}${b.emotion?` <span class="sub">· ${esc(b.emotion)}</span>`:""}</div>`:""}<div class="act">${esc(b.action||"")||'<i class="sub">no action yet</i>'}</div>${lines.length?`<ul class="nlines">${lines.map(x=>x.kind==="line"?`<li${(x.cond||"").trim()?` title="only if ${esc(x.cond)}"`:""}><b>${esc(x.speaker||"?")}</b> ${esc(x.text||"")}${(x.cond||"").trim()?` <code class="cond">${esc(x.cond)}</code>`:""}</li>`:`<li class="sfx">♪ ${esc(x.text||"")}</li>`).join("")}</ul>`:""}</div></div>`}
+function renderFlow2(ep){const host=$("#flow");const nodes=flowNodes(ep);
+  if(!nodes.length){host.innerHTML=`<div class="empty">No shots yet.</div><div class="ins"><button class="btn small" data-ins="shot" data-after="-1">+ Shot</button><button class="btn small" data-ins="ix" data-after="-1">◆ Choice</button></div>`}
+  else{const rows=flowLayout(nodes);
+    const ins=after=>`<div class="ins"><span class="ln"></span><button class="btn small" data-ins="shot" data-after="${after}">+ Shot</button><button class="btn small" data-ins="ix" data-after="${after}">◆ Choice</button><span class="ln"></span></div>`;
+    host.innerHTML=rows.map(r=>{if(r.kind==="one"){const n=r.node;return nodeCard(ep,n)+ins(n.blocks[n.blocks.length-1])}
+      return`<div class="lanes" style="grid-template-columns:repeat(${r.lanes.length},minmax(0,1fr))">${r.lanes.map(([c,ns])=>`<div class="lane"><div class="lh">only if <code>${esc(c)}</code></div>${ns.map(n=>nodeCard(ep,n)+ins(n.blocks[n.blocks.length-1])).join("")}</div>`).join("")}</div>`}).join("")}
+  host.querySelectorAll(".node").forEach(el=>el.onclick=()=>{flowSel=+el.dataset.n;flowRefresh();if(window.matchMedia("(max-width:1100px)").matches)$("#fpanel").scrollIntoView({behavior:"smooth"})});
+  host.querySelectorAll("[data-ins]").forEach(bt=>bt.onclick=e=>{e.stopPropagation();const after=+bt.dataset.after;const k=bt.dataset.ins;const last=[...ep.blocks.slice(0,after+1)].reverse().find(x=>x.kind==="shot")||{};const nb=k==="shot"?{kind:"shot",loc:last.loc||"",time:last.time||"",frame:"",chars:"",action:"",emotion:"",beat:"",dur:4}:newIx("choice");ep.blocks.splice(after+1,0,nb);flowSel=after+1;touch();flowRefresh();renderDoctor();const first=$("#fpanel .blk input,#fpanel .blk select");if(first)first.focus()});
+}
+function renderFPanel(ep){const host=$("#fpanel");const n=flowSel!=null?nodeFor(ep,flowSel):null;
+  if(!n){host.innerHTML=`<div class="empty">Select a shot or a choice to edit it here.<br><span class="sub">Each card is one shot with its lines. Choices fan out into lanes; conditional shots sit in the lane of their flag.</span></div>`;return}
+  const sh=n.type==="shot"?(flowShots[n.i+1]||{}):{};const local=!!window.GASP_LOCAL;const busy=!!flowRunning;
+  const preview=n.type==="shot"?`<div class="fprev">${sh.segment?`<video src="${sh.segment}" controls playsinline></video>`:sh.approved?`<img src="${sh.approved}" alt="">`:`<div class="ph">${local?"Not rendered yet":"Rendering lives in the desktop app"}</div>`}
+      <div class="ftakes">${(sh.takes||[]).map(t=>`<img src="${t.url}" data-take="${t.id}" title="${t.id==="composite"?"composite":"take "+t.id}${t.id===sh.approvedId?" (approved)":""}" class="${t.id===sh.approvedId?"cur":""}">`).join("")}</div></div>`:"";
+  const actions=n.type==="shot"&&local?`<div class="facts">
+      <button class="btn small" data-act="composite" title="Cutouts over the setting plate — free">Composite</button>
+      <button class="btn small" data-act="stills" title="Generate a new still on fal (~$0.05–0.08); the newest take becomes approved">✨ Still</button>
+      <button class="btn small" data-act="vo" title="Re-record this shot's lines that changed">🎙 Voice</button>
+      <button class="btn small" data-act="animate" title="Image-to-video from the approved still, plus lip-sync if the plan says so ($)">🎬 Motion</button>
+      <button class="btn small primary" data-act="preview" title="Rebuild this shot's segment and play it">▶ Preview</button>
+      <span class="sub" id="fstatus">${busy?"running: "+flowRunning:""}</span></div><pre class="flog" id="flog">${esc(flowLogTail.slice(-5).join("\n"))}</pre>`:"";
+  const ops=`<div class="fops"><span class="sub">#${n.i+1} ${n.type==="ix"?"interaction":n.type==="shot"?"shot":"lines"}</span><span class="spacer"></span><button class="btn small ghost" data-nop="up" title="Move up">↑</button><button class="btn small ghost" data-nop="down" title="Move down">↓</button><button class="btn small ghost" data-nop="dup" title="Duplicate">⧉</button>${n.type==="shot"?`<button class="btn small ghost" data-nop="line">+ Line</button><button class="btn small ghost" data-nop="sfx">+ SFX</button>`:""}<button class="btn small ghost" data-nop="del" style="color:var(--bad)">Delete</button></div>`;
+  host.innerHTML=preview+actions+ops+`<div class="blocks" id="blocks"></div>`;
+  renderBlocks(ep,$("#blocks"),new Set(n.blocks));growAll(host);
+  host.querySelectorAll("[data-take]").forEach(im=>im.onclick=async()=>{if(!local)return;await fetch("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:flowSlug(),ep:ep.num,shot:n.i+1,take:im.dataset.take})});await flowLoadShots();toast("Approved · press Preview to rebuild the segment")});
+  host.querySelectorAll("[data-act]").forEach(bt=>bt.onclick=()=>flowRun(ep,n,bt.dataset.act));
+  host.querySelectorAll("[data-nop]").forEach(bt=>bt.onclick=()=>{const op=bt.dataset.nop;const nodes=flowNodes(ep);const k=nodes.indexOf(nodeFor(ep,n.i));const take=()=>ep.blocks.splice(n.blocks[0],n.blocks.length);
+    if(op==="del"){take();flowSel=null}
+    else if(op==="dup"){const copy=n.blocks.map(i=>JSON.parse(JSON.stringify(ep.blocks[i])));ep.blocks.splice(n.blocks[n.blocks.length-1]+1,0,...copy);flowSel=n.blocks[n.blocks.length-1]+1}
+    else if(op==="up"&&k>0){const prev=nodes[k-1];const mine=take();ep.blocks.splice(prev.blocks[0],0,...mine);flowSel=prev.blocks[0]}
+    else if(op==="down"&&k<nodes.length-1){const next=nodes[k+1];const mine=take();const at=next.blocks[next.blocks.length-1]+1-mine.length;ep.blocks.splice(at,0,...mine);flowSel=at}
+    else if(op==="line"){ep.blocks.splice(n.blocks[n.blocks.length-1]+1,0,{kind:"line",speaker:"",text:"",voice:"",intensity:7,beat:""})}
+    else if(op==="sfx"){ep.blocks.splice(n.blocks[n.blocks.length-1]+1,0,{kind:"sfx",text:"",dur:1})}
+    touch();flowRefresh();renderDoctor()});
+}
+async function flowLoadShots(){if(!window.GASP_LOCAL)return;const ep=flowEp();if(!ep)return;try{const r=await (await fetch(`/api/shots?slug=${encodeURIComponent(flowSlug())}&ep=${ep.num}`)).json();flowShots=r.shots||{};}catch(e){flowShots={}}if(window.flowActive)flowRefresh()}
+function flowEvents(){if(!window.GASP_LOCAL||flowES)return;flowES=new EventSource("/api/events");
+  flowES.addEventListener("log",e=>{flowLogTail.push(JSON.parse(e.data));if(flowLogTail.length>40)flowLogTail.shift();const el=$("#flog");if(el){el.textContent=flowLogTail.slice(-5).join("\n")}});
+  flowES.addEventListener("status",e=>{const s=JSON.parse(e.data);flowRunning=s.running?s.step:null;const el=$("#fstatus");if(el)el.textContent=flowRunning?"running: "+flowRunning:"";document.querySelectorAll("[data-act]").forEach(b=>b.disabled=!!flowRunning)});
+  flowES.addEventListener("done",()=>{flowLoadShots()})}
+async function flowRun(ep,n,act){if(flowRunning){toast("Still rendering the last request");return}
+  const sh=flowShots[n.i+1]||{};const steps=act==="composite"?["composite"]:act==="stills"?["stills"]:act==="vo"?["vo"]:act==="animate"?["animate"]:sh.approved?[]:["composite"];
+  if((act==="stills"||act==="animate")&&!confirm(act==="stills"?"Generate a new still on fal (~$0.05–0.08)?":"Image-to-video on fal costs roughly $0.25–0.50 per shot (plus lip-sync). Continue?"))return;
+  try{const file=await sendToRender([ep],true);ep.renderedHash=ep.renderedHash||{};flowNodes(ep).forEach(x=>{if(x.type==="shot")ep.renderedHash[x.i]=nodeHash(ep,x)});touch();
+    const i=n.i+1;const body={file,ep:ep.num,shot:i,from:i,until:i+1,steps,dry:false,force:true,thenAssemble:true,approveLatest:act==="stills",path:""};
+    if(act==="vo")body.force=false;
+    const r=await (await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json();if(r.error)throw new Error(r.error);
+    flowLogTail=[];toast(act==="preview"?"Rebuilding the segment…":"Rendering shot #"+i+"…");flowRefresh()}catch(e){toast("Couldn't render: "+e.message)}}
+
 /* ---------- boot ---------- */
 const setHH=()=>document.documentElement.style.setProperty("--hh",$("header.top").offsetHeight+"px");setHH();try{const cw=localStorage.getItem("gate-ten-cw");if(cw)document.documentElement.style.setProperty("--cw",cw)}catch(e){}window.addEventListener("resize",setHH);
 load();

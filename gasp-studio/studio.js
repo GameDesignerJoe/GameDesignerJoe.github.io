@@ -136,7 +136,7 @@ async function cmdStills() {
       const r = await generateStill({ prompt: prompt + (compRef.length ? " The first reference image is the blocking guide: keep its framing, pose and placement exactly; the other references give the face, wardrobe and set." : ""), refs: [...compRef, ...refsForShot(s, refs)], outFile: out, provider: args.image, label: s.action, labelTitle: `#${pad2(s.index)} ${s.frame || ""} · ${s.location}${s.time ? ", " + s.time : ""}${s.weather ? ", " + s.weather : ""}` });
       addCost(ep, "still", r.cost, `shot ${s.index} take ${existing + t} ${r.provider}`);
       log(`Ep ${ep.number} shot #${pad2(s.index)} take ${existing + t} → ${path.relative(ROOT, out)}`);
-      if (!exists(path.join(dir, "approved.png")) && (args.auto || takes === 1)) fs.copyFileSync(out, path.join(dir, "approved.png"));
+      if (args.approveLatest || (!exists(path.join(dir, "approved.png")) && (args.auto || takes === 1))) fs.copyFileSync(out, path.join(dir, "approved.png"));
     }
   }
 }
@@ -196,17 +196,18 @@ async function cmdAnimate() {
 
 async function cmdAnimatic() {
   for (const ep of eps) { const dir = epDir(manifest, ROOT, ep);
-    const final = await assembleEpisode({ manifest, ep, dir, captions: !args["no-captions"],
+    const final = await assembleEpisode({ manifest, ep, dir, captions: !args["no-captions"], segmentsOnly: !!args.segonly,
       getStill: async s => { const d = shotDir(manifest, ROOT, ep, s); const a = path.join(d, "approved.png"); if (exists(a)) return a; warn(`shot #${s.index}: no approved still, using placeholder`); const ph = path.join(d, "placeholder.png"); await generateStillPlaceholder(ph, s); return ph; },
       getClip: async s => { const d = shotDir(manifest, ROOT, ep, s); for (const f of ["clip-lipsync.mp4", "clip.mp4"]) if (exists(path.join(d, f))) return path.join(d, f); return null; },
       getVO: async l => { const f = path.join(dir, `line-${pad2(l.index)}.mp3`); if (exists(f)) return f; const ph = path.join(dir, `line-${pad2(l.index)}-silent.mp3`); await silent(ph, l.duration || 2); return ph; },
       ambienceFile: path.join(dir, "ambience.mp3"), musicFile: path.join(dir, "music.mp3"),
       onProgress: (s, kind) => log(`  seg #${pad2(s.index)} ${kind}`) });
+    if (!final) { log(`Ep ${ep.number}: segment(s) refreshed`); continue; }
     log(`Ep ${ep.number} → ${path.relative(ROOT, final)}`);
     const c = costFile(ep); if (exists(c)) log(`  spend so far: $${readJSON(c).total}`);
   }
 }
-async function generateStillPlaceholder(f, s) { const refs = loadRefs(); { const cuts = cutoutsForShot(s, refs, manifest); const setting = settingFileFor(s, refs); if (cuts.length || setting) { await composeShot({ setting, cutouts: cuts, frame: s.frame, outFile: f }); return; } } const { generateStill } = await import("./providers/index.js"); process.env.STUDIO_DRY_RUN = process.env.STUDIO_DRY_RUN || "1"; await generateStill({ prompt: s.videoPrompt, refs: refsForShot(s, refs), outFile: f, label: s.action, labelTitle: `#${pad2(s.index)} ${s.frame || ""} · ${s.location}` }); }
+async function generateStillPlaceholder(f, s) { const refs = loadRefs(); { const cuts = cutoutsForShot(s, refs, manifest); const setting = settingFileFor(s, refs); if (cuts.length || setting) { await composeShot({ setting, cutouts: cuts, frame: s.frame, outFile: f }); return; } } const { placeholderStill } = await import("./providers/index.js"); await placeholderStill(f, s.action || s.videoPrompt || "", refsForShot(s, refs), `#${pad2(s.index)} ${s.frame || ""} · ${s.location}`); }
 async function silent(f, sec) { const { execFileP } = await import("./lib/util.js"); await execFileP("ffmpeg", ["-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-t", String(sec), "-q:a", "9", "-acodec", "libmp3lame", f]); }
 
 const run = { plan: cmdPlan, composite: cmdComposite, refs: async () => { const m = writeRefs(); log(`refs: ${Object.keys(m.cast).length} cast, ${Object.values(m.cutouts || {}).reduce((a, c) => a + Object.keys(c).length, 0)} cutouts, ${Object.keys(m.locations).length} locations, ${Object.keys(m.settings).length} settings, ${Object.keys(m.items).length} items`); }, stills: cmdStills, approve: cmdApprove, vo: cmdVO, beds: cmdBeds, animate: cmdAnimate, animatic: cmdAnimatic,

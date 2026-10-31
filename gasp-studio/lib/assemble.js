@@ -81,7 +81,7 @@ async function renderShotSegment({ shot, still, clip, voFiles, outFile, captions
   return { file: outFile, seconds: total };
 }
 
-export async function assembleEpisode({ manifest, ep, dir, getStill, getClip, getVO, ambienceFile, musicFile, captions = true, onProgress }) {
+export async function assembleEpisode({ manifest, ep, dir, getStill, getClip, getVO, ambienceFile, musicFile, captions = true, onProgress, segmentsOnly = false }) {
   TXTDIR = path.join(dir, "captions"); fs.mkdirSync(TXTDIR, { recursive: true }); TXT = 0;
   const segs = [];
   for (const shot of ep.shots) {
@@ -109,6 +109,7 @@ export async function assembleEpisode({ manifest, ep, dir, getStill, getClip, ge
     await renderShotSegment({ shot, still, clip, voFiles: vo, outFile: out, captions });
     segs.push(out); onProgress?.(shot, clip ? "clip" : "still");
   }
+  if (segmentsOnly) return null;   // per-shot preview: segments refreshed, the episode cut left alone
   // concat segments
   const list = path.join(dir, "segments.txt");
   fs.writeFileSync(list, segs.map(s => `file '${path.resolve(s).replace(/'/g, "'\\''")}'`).join("\n"));

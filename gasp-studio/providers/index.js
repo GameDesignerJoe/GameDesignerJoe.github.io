@@ -81,6 +81,8 @@ async function placeholderVideo(file, still, seconds) {
   return file;
 }
 
+export const placeholderStill = (file, text, refs, label) => placeholderImage(file, text, 1080, 1920, refs, label);
+
 // ---------- public API ----------
 export async function generateStill({ prompt, refs = [], outFile, provider, aspect = "9:16", label, labelTitle }) {
   const p = pick("image", provider);
