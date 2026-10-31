@@ -111,7 +111,7 @@ async function cmdStills() {
     for (let t = 1; t <= takes; t++) {
       const out = path.join(dir, `take-${existing + t}.png`);
       const compRef = exists(path.join(dir, "composite.png")) ? [path.join(dir, "composite.png")] : [];
-      const r = await generateStill({ prompt: prompt + (compRef.length ? " Match the blocking and framing of the first reference image." : ""), refs: [...compRef, ...refsForShot(s, refs)], outFile: out, provider: args.image, label: s.action, labelTitle: `#${pad2(s.index)} ${s.frame || ""} · ${s.location}${s.time ? ", " + s.time : ""}${s.weather ? ", " + s.weather : ""}` });
+      const r = await generateStill({ prompt: prompt + (compRef.length ? " The first reference image is the blocking guide: keep its framing, pose and placement exactly; the other references give the face, wardrobe and set." : ""), refs: [...compRef, ...refsForShot(s, refs)], outFile: out, provider: args.image, label: s.action, labelTitle: `#${pad2(s.index)} ${s.frame || ""} · ${s.location}${s.time ? ", " + s.time : ""}${s.weather ? ", " + s.weather : ""}` });
       addCost(ep, "still", r.cost, `shot ${s.index} take ${existing + t} ${r.provider}`);
       log(`Ep ${ep.number} shot #${pad2(s.index)} take ${existing + t} → ${path.relative(ROOT, out)}`);
       if (!exists(path.join(dir, "approved.png")) && (args.auto || takes === 1)) fs.copyFileSync(out, path.join(dir, "approved.png"));
@@ -122,8 +122,10 @@ function stillPrompt(s) {
   // A still is the first frame of the shot: drop the motion/lip-sync language, keep the look.
   return s.videoPrompt.replace(/^Vertical 9:16 cinematic video, [^.]*\./, "Vertical 9:16 cinematic film still, photoreal, soap-opera drama lighting.")
     .replace(/Camera: [^.]*\./, "Composition: face in the upper two-thirds, lower third clear for captions.")
-    .replace(/Lip sync: [^.]*\./, "").replace(/No dialogue; silent reaction shot\./, "") + " Single frame, no motion blur.";
+    .replace(/Lip sync: [^.]*\./, "").replace(/No dialogue; silent reaction shot\./, "")
+    + ` ${FRAME_WORDS[s.frame] || ""} ONE single full-bleed 9:16 frame only: no split screen, no collage, no grid, no panels, no borders, no text.`;
 }
+const FRAME_WORDS = { "ECU": "Extreme close-up: eyes and mouth fill the frame.", "CU": "Close-up: head and shoulders fill the frame, face large.", "MCU": "Medium close-up: chest up.", "MS": "Medium shot: waist up.", "OTS": "Over-the-shoulder close-up.", "2-shot (depth)": "Two-shot with depth: one figure near, one further back.", "insert (prop)": "Insert: the object fills the frame, shallow focus." };
 
 function cmdApprove() {
   const ep = eps[0]; const s = ep.shots.find(x => x.index === +args.shot); if (!s) throw new Error("shot not found");
