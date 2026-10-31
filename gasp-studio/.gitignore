@@ -2,3 +2,5 @@ work/
 .env
 node_modules/
 *.log
+# production manifests carry embedded art; keep them out of the public repo
+*-production.json
