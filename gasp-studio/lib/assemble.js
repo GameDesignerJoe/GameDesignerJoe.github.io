@@ -1,7 +1,7 @@
 // Builds the animatic: approved stills (or clips) + VO + captions + ambience + music → MP4 9:16.
 import fs from "node:fs";
 import path from "node:path";
-import { execFileP, audioDuration, pad2, exists, log, fontArg } from "./util.js";
+import { execFileP, audioDuration, pad2, exists, log, fontArg, shotKey } from "./util.js";
 
 const W = 1080, H = 1920, FPS = 24;
 const LEAD = Math.max(0, parseFloat(process.env.STUDIO_LEAD ?? "0.6") || 0);   // seconds of picture before the first line of a shot
@@ -85,9 +85,9 @@ export async function assembleEpisode({ manifest, ep, dir, getStill, getClip, ge
   TXTDIR = path.join(dir, "captions"); fs.mkdirSync(TXTDIR, { recursive: true }); TXT = 0;
   const segs = [];
   for (const shot of ep.shots) {
-    const out = path.join(dir, `seg-${pad2(shot.index)}.mp4`);
+    const out = path.join(dir, `seg-${shotKey(shot)}.mp4`);
     if (shot.interaction) {
-      const card = path.join(dir, `seg-${pad2(shot.index)}-card.png`);
+      const card = path.join(dir, `seg-${shotKey(shot)}-card.png`);
       await execFileP("ffmpeg", ["-y", "-f", "lavfi", "-i", `color=c=0x17121a:s=${W}x${H}`, "-frames:v", "1", card]);
       await renderShotSegment({ shot: { ...shot, renderPlan: "still", lines: [] }, still: card, voFiles: [], outFile: out, captions });
       segs.push(out); onProgress?.(shot, "card"); continue;
@@ -95,7 +95,7 @@ export async function assembleEpisode({ manifest, ep, dir, getStill, getClip, ge
     if (shot.orphanLine || (!shot.location && !shot.action)) {
       // a line or sfx with no shot before it: carry on the previous picture if any, else a black card
       const prev = segs.length ? null : null;
-      const card = path.join(dir, `seg-${pad2(shot.index)}-card.png`);
+      const card = path.join(dir, `seg-${shotKey(shot)}-card.png`);
       await execFileP("ffmpeg", ["-y", "-f", "lavfi", "-i", `color=c=black:s=${W}x${H}`, "-frames:v", "1", card]);
       const vo = [];
       for (const l of shot.lines || []) { const f = await getVO(l); if (f) { l.measured = await audioDuration(f); vo.push(f); } }

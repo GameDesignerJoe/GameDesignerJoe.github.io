@@ -34,8 +34,9 @@ export function workDir(manifest, root) {
 export function epDir(manifest, root, ep) {
   return ensure(path.join(workDir(manifest, root), `ep${ep.number}`));
 }
+export const shotKey = s => s.id ? String(s.id).replace(/[^a-zA-Z0-9_-]/g, "") : pad2(s.index);
 export function shotDir(manifest, root, ep, shot) {
-  return ensure(path.join(epDir(manifest, root, ep), `shot-${pad2(shot.index)}`));
+  return ensure(path.join(epDir(manifest, root, ep), `shot-${shotKey(shot)}`));
 }
 
 export function pickEpisodes(manifest, args) {

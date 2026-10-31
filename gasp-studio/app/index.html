@@ -322,11 +322,27 @@ div[data-lastpass-icon-root],div[data-lastpass-root]{display:none!important}inpu
 .facts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.flog{margin:0;font:11px/1.4 var(--mono);color:var(--muted);white-space:pre-wrap;max-height:84px;overflow:auto;background:var(--bg);border-radius:8px;padding:6px 8px}.flog:empty{display:none}
 .fops{display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px}
 @media(max-width:1100px){.flowwrap{grid-template-columns:1fr}.fpanel{position:static;max-height:none}}
+
+/* ---------- play ---------- */
+.playwrap{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:18px;align-items:start;margin-top:12px}
+.phone{display:grid;gap:8px}.screen{width:100%;aspect-ratio:9/16;max-height:calc(100vh - var(--hh,60px) - 120px);margin:0 auto;background:#000;border-radius:22px;border:1px solid var(--line);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;color:#fff}
+.screen video{width:100%;height:100%;object-fit:contain;background:#000}
+.plcard{padding:24px;text-align:center}.plcard h2{color:#fff;margin:0 0 6px}.plcard .sub{color:#cbbfd0}.plsel{background:#222;color:#fff;border:1px solid #444;border-radius:8px;padding:6px 10px;font:inherit}
+.plstill{position:relative;width:100%;height:100%}.plstill img{width:100%;height:100%;object-fit:cover}.plph{padding:30px 22px;color:#ddd}.plph p{font-size:14px}
+.plcap{position:absolute;left:12px;right:12px;bottom:70px;display:grid;gap:6px}.plcap div{background:#0009;color:#fff;font-size:15px;line-height:1.35;padding:6px 10px;border-radius:8px;text-align:center}.plcap b{font-family:var(--mono);font-size:11px;margin-right:4px}
+.plnr{position:absolute;top:10px;right:10px;font-size:10px;letter-spacing:.5px;text-transform:uppercase;background:#0008;color:#fbbf24;padding:2px 8px;border-radius:999px}
+.plix{position:absolute;inset:0;background:linear-gradient(#000a,#000e);display:flex;flex-direction:column;justify-content:flex-end;padding:22px 18px 28px;gap:10px}.plixh{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--accent)}.plprompt{color:#fff;font-size:17px;line-height:1.35;margin:0 0 6px}
+.plopts{display:grid;gap:8px}.plopt{background:#fff;color:#111;border:0;border-radius:12px;padding:12px 14px;font:600 14px system-ui;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center}.plopt em{font-style:normal;color:var(--accent);font-size:12px}.plopt.locked{opacity:.55}.plopt:hover{background:#ffe4ea}
+.plbar{height:4px;background:#fff3;border-radius:2px;overflow:hidden}.plbar i{display:block;height:100%;width:100%;background:var(--accent)}
+.plres{position:absolute;inset:auto;font-size:22px;padding:14px 22px;border-radius:999px}
+.plhud{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:24px}.plhud .pill{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 10px}.plhud .pill.mute{color:var(--muted);font-family:var(--mono);font-size:10.5px}
+.plside h3{margin:0 0 6px}.pllog{font:12px/1.5 var(--mono);color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px;max-height:40vh;overflow:auto}.pllog div+div{margin-top:2px}
+@media(max-width:900px){.playwrap{grid-template-columns:1fr}}
 </style>
 
 <header class="top">
   <div>
-    <h1><span>GASP</span> Studio <small id="gtver" style="font-size:11px;font-weight:400;color:var(--mute);vertical-align:middle;letter-spacing:.4px">v45</small></h1>
+    <h1><span>GASP</span> Studio <small id="gtver" style="font-size:11px;font-weight:400;color:var(--mute);vertical-align:middle;letter-spacing:.4px">v47</small></h1>
     <div class="sub">Gameplay · Animatic · Script · Production · the paywall is episode <span id="g1lab">10</span></div>
   </div>
   <div class="spacer"></div>
@@ -687,7 +703,7 @@ document.addEventListener("input",e=>{if(e.target.tagName==="TEXTAREA")grow(e.ta
 /* ---------- rendering ---------- */
 function pipFor(ep,idx){const a=analyzeEpisode(ep,idx).out;if(a.some(f=>f.level==="bad"))return"var(--bad)";if(a.some(f=>f.level==="warn"))return"var(--warn)";return"var(--good)"}
 function renderTabs(){
-  const n=$("#tabs");let h=`<button class="${active==="premise"?"active":""}" data-tab="premise">Premise</button><button class="${active==="season"?"active":""}" data-tab="season">Season</button><button class="${active==="game"?"active":""}" data-tab="game">Gameplay</button><button class="${active==="flow"?"active":""}" data-tab="flow">Flow</button>${window.GASP_LOCAL?`<button class="${active==="render"?"active":""}" data-tab="render" style="border-color:var(--accent)">Render</button>`:""}`;
+  const n=$("#tabs");let h=`<button class="${active==="premise"?"active":""}" data-tab="premise">Premise</button><button class="${active==="season"?"active":""}" data-tab="season">Season</button><button class="${active==="game"?"active":""}" data-tab="game">Gameplay</button><button class="${active==="flow"?"active":""}" data-tab="flow">Flow</button>${window.GASP_LOCAL?`<button class="${active==="render"?"active":""}" data-tab="render" style="border-color:var(--accent)">Render</button><button class="${active==="play"?"active":""}" data-tab="play" style="border-color:var(--accent)">Play</button>`:""}`;
   S.episodes.forEach((ep,i)=>{h+=`<button class="ep ${active===String(ep.id)?"active":""}" data-tab="${ep.id}" title="${esc(ep.title||"")}">${ep.num}<span class="pip" style="background:${pipFor(ep,i)}"></span></button>`});
   h+=`<button class="add" data-tab="+">+ Episode</button>`;n.innerHTML=h;
   n.querySelectorAll("button").forEach(b=>b.onclick=()=>{const t=b.dataset.tab;if(t==="+"){addEpisode();return}active=t;render();renderChatPanel();if(isMobile()&&pane==="chat")setPane("write")});
@@ -695,7 +711,7 @@ function renderTabs(){
 }
 function addEpisode(){chatOpen=true;const num=(S.episodes.length?Math.max(...S.episodes.map(e=>e.num)):0)+1;const id=createEpisodeFromBeat(num);active=String(id);touch();render();renderChatPanel()}
 
-function render(){if(active==="idea")active="premise";window.flowActive=false;renderTabs();if(active==="premise")renderPremise();else if(active==="season")renderSeason();else if(active==="game")renderGame();else if(active==="flow")renderFlow();else if(active==="render")renderRenderTab();else{const ep=S.episodes.find(e=>String(e.id)===active);if(!ep){active="premise";return render()}renderEpisode(ep)}}
+function render(){if(active==="idea")active="premise";window.flowActive=false;renderTabs();if(active==="premise")renderPremise();else if(active==="season")renderSeason();else if(active==="game")renderGame();else if(active==="flow")renderFlow();else if(active==="render")renderRenderTab();else if(active==="play")renderPlayTab();else{const ep=S.episodes.find(e=>String(e.id)===active);if(!ep){active="premise";return render()}renderEpisode(ep)}}
 function renderRenderTab(){$("#editor").innerHTML=`<iframe id="renderFrame" src="/render?embed=1" style="width:100%;height:calc(100vh - var(--hh,60px) - 24px);border:0;border-radius:12px;background:#141118"></iframe>`}
 async function sendToRender(epsSel,withImages){const m=productionManifest(epsSel&&epsSel.length?epsSel:S.episodes,withImages!==false);const base=(S.premise.title||"script").replace(/[^\w]+/g,"-")+(epsSel&&epsSel.length===1?"-ep"+epsSel[0].num:"");const r=await fetch("/api/manifest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:base+"-production",manifest:m})});const j=await r.json();if(j.error)throw new Error(j.error);return j.file}
 
@@ -859,14 +875,14 @@ function renderGame(){
   $("#simExport").onclick=()=>{navigator.clipboard?.writeText(JSON.stringify(gameExport(),null,2)).then(()=>toast("Gameplay JSON copied")).catch(()=>toast("Copy failed"))};
   renderDoctor();growAll(ed);
 }
-function productionManifest(eps,withImages){const p=S.premise;const g=p.gates||{};const img=x=>withImages?x||"":(x?"(image omitted)":"");const galArr=a=>withImages?(a||[]):(a||[]).map(()=>"(image omitted)");
+function productionManifest(eps,withImages){(S.episodes||[]).forEach(ensureIds);const p=S.premise;const g=p.gates||{};const img=x=>withImages?x||"":(x?"(image omitted)":"");const galArr=a=>withImages?(a||[]):(a||[]).map(()=>"(image omitted)");
   const cast=(p.cast||[]).filter(c=>c.name.trim()).map(c=>({name:c.name,role:c.role,look:c.look,voiceDirection:c.voice,voice:{provider:c.voiceProvider||"",id:c.voiceId||"",settings:c.voiceSettings||""},costumes:(c.costumes||"").split(",").map(x=>x.trim()).filter(Boolean),cutouts:Object.fromEntries(Object.entries(c.cutouts||{}).map(([st,cu])=>[st,{full:img(cu.full),chest:img(cu.chest)}])),downfall:c.downfall||"",portrait:img(c.portrait),gallery:galArr(c.gallery),imagePrompt:c.portraitPrompt||""}));
   const locs=locList().map(n=>locData(n)).map(l=>({name:l.name,aliases:(l.aliases||"").split(",").map(x=>x.trim()).filter(Boolean),look:l.look,ambience:l.ambience||"",music:l.music||"",reference:img(l.main),gallery:galArr(l.gallery),imagePrompt:l.prompt||"",settings:Object.entries(l.settings||{}).map(([k,st])=>({key:k,sub:st.sub||"",time:st.time,weather:st.weather,ambience:st.ambience||l.ambience||"",reference:img(st.main),gallery:galArr(st.gallery),imagePrompt:st.prompt||""}))}));
   const items=(p.items||[]).filter(i=>i.name).map(i=>({name:i.name,look:i.desc,owner:i.owner||"",role:i.role||"",reference:img(i.main),gallery:galArr(i.gallery),imagePrompt:i.prompt||""}));
   const episodes=eps.map(ep=>{const tl=timeline(ep);const shots=[];let cur=null;
-    ep.blocks.forEach((b,i)=>{const t=tl[i];if(b.kind==="shot"){const mt=locMatch(b.loc);const st=mt&&mt.loc.settings&&mt.loc.settings[settingKey(b.time,b.weather,mt.sub)];cur={index:i+1,start:+t.start.toFixed(2),duration:+blockDur(b).toFixed(2),location:b.loc,locationRef:mt?mt.loc.name:"",subArea:mt?mt.sub:"",settingKey:mt?settingKey(b.time,b.weather,mt.sub):"",time:b.time,weather:b.weather||"",frame:b.frame,characters:(b.chars||"").split(/,|&| and /).map(x=>x.trim()).filter(Boolean),action:b.action,emotion:b.emotion,beat:b.beat,cond:b.cond||"",renderPlan:renderPlan(ep,i),renderOverride:b.render||"auto",audio:b.audio||"",costume:b.costume||"",ambience:(st&&st.ambience)||ep.ambience||(mt&&mt.loc.ambience)||"",videoPrompt:b.vprompt||buildPrompt(ep,i),lines:[],sfx:[],approvedStill:"",takes:[]};shots.push(cur)}
-      else if(b.kind==="line"){const c=castFor(p.cast,b.speaker);const line={index:i+1,start:+t.start.toFixed(2),duration:+blockDur(b).toFixed(2),speaker:b.speaker,text:b.text,direction:b.voice,intensity:b.intensity,beat:b.beat,cond:b.cond||"",voice:c?{provider:c.voiceProvider||"",id:c.voiceId||"",settings:c.voiceSettings||"",direction:c.voice||""}:null,caption:b.text};if(cur)cur.lines.push(line);else shots.push({index:i+1,start:+t.start.toFixed(2),duration:0,orphanLine:line,lines:[line],sfx:[]})}
-      else if(b.kind==="sfx"){const sfx={index:i+1,start:+t.start.toFixed(2),duration:+blockDur(b).toFixed(2),text:b.text};if(cur)cur.sfx.push(sfx);else shots.push({index:i+1,start:+t.start.toFixed(2),duration:0,sfx:[sfx],lines:[]})}
+    ep.blocks.forEach((b,i)=>{const t=tl[i];if(b.kind==="shot"){const mt=locMatch(b.loc);const st=mt&&mt.loc.settings&&mt.loc.settings[settingKey(b.time,b.weather,mt.sub)];cur={index:i+1,id:b.id,start:+t.start.toFixed(2),duration:+blockDur(b).toFixed(2),location:b.loc,locationRef:mt?mt.loc.name:"",subArea:mt?mt.sub:"",settingKey:mt?settingKey(b.time,b.weather,mt.sub):"",time:b.time,weather:b.weather||"",frame:b.frame,characters:(b.chars||"").split(/,|&| and /).map(x=>x.trim()).filter(Boolean),action:b.action,emotion:b.emotion,beat:b.beat,cond:b.cond||"",renderPlan:renderPlan(ep,i),renderOverride:b.render||"auto",audio:b.audio||"",costume:b.costume||"",ambience:(st&&st.ambience)||ep.ambience||(mt&&mt.loc.ambience)||"",videoPrompt:b.vprompt||buildPrompt(ep,i),lines:[],sfx:[],approvedStill:"",takes:[]};shots.push(cur)}
+      else if(b.kind==="line"){const c=castFor(p.cast,b.speaker);const line={index:i+1,id:b.id,start:+t.start.toFixed(2),duration:+blockDur(b).toFixed(2),speaker:b.speaker,text:b.text,direction:b.voice,intensity:b.intensity,beat:b.beat,cond:b.cond||"",voice:c?{provider:c.voiceProvider||"",id:c.voiceId||"",settings:c.voiceSettings||"",direction:c.voice||""}:null,caption:b.text};if(cur)cur.lines.push(line);else shots.push({index:i+1,id:b.id,start:+t.start.toFixed(2),duration:0,orphanLine:line,lines:[line],sfx:[]})}
+      else if(b.kind==="sfx"){const sfx={index:i+1,id:b.id,start:+t.start.toFixed(2),duration:+blockDur(b).toFixed(2),text:b.text};if(cur)cur.sfx.push(sfx);else shots.push({index:i+1,id:b.id,start:+t.start.toFixed(2),duration:0,sfx:[sfx],lines:[]})}
       else if(b.kind==="ix"){shots.push({index:i+1,start:+t.start.toFixed(2),duration:+blockDur(b).toFixed(2),interaction:{template:b.mech,type:b.sub,prompt:b.prompt,window:b.window,beat:b.beat,failForward:b.fail,design:b.design||designDefault(b),options:b.opts},lines:[],sfx:[]})}});
     return{number:ep.num,title:ep.title,summary:ep.summary,where:whereIn(ep.summary),hookType:ep.hookType,music:ep.music,ambience:ep.ambience||"",gate:ep.num===g.g1?"paywall":ep.num===g.g2?"gate2":ep.num===g.g3?"gate3":ep.num===g.total?"finale":"",runningTime:+(tl.length?tl[tl.length-1].end:0).toFixed(2),captions:true,shots}});
   return{format:"gate-ten-production",version:1,exported:new Date().toISOString(),story:{title:p.title,author:p.author||"",logline:p.logline,engine:p.engine,engine2:p.engine2,skin:p.skin,clock:p.clock,gates:g,cover:img(p.cover),heatLevel:"PG-13 steamy; cut at consummation"},cast,locations:locs,items,episodes,gameplay:gameExport(),renderRules:{auto:"dialogue in ECU/CU/MCU/OTS → lipsync; reveal/reversal/heat beats → animate; everything else → still + slow push",captions:"burn-in, lower third, from each line's text",aspect:"9:16",providersSuggested:{image:"fal (FLUX with reference images)",video:"fal (Kling / Hailuo / Wan / Seedance; per-shot choice)",lipsync:"fal lip-sync endpoint",tts:"per character voice.provider",music:"per episode cue",ambience:"per location/setting bed"}}}}
@@ -1198,7 +1214,7 @@ function renderBlocks(ep,hostEl,only){
     else if(op==="copy"){navigator.clipboard?.writeText(ta.value||buildPrompt(ep,i)).then(()=>toast("Prompt copied")).catch(()=>ta.select())}
     else if(op==="polish"&&sampleFn){bt.disabled=true;const base=ta.value||buildPrompt(ep,i);try{const {text}=await sampleFn(`Rewrite this AI video generation prompt for a 9:16 vertical drama shot. Keep every concrete fact (characters' locked looks, location, time, framing, action, expression, dialogue for lip sync, duration). Make it vivid and specific about light, lens, texture, blocking in depth, and the exact emotion on the face. One paragraph, under 140 words, no headers, no quotes around the whole thing.\n\nPROMPT:\n${base}`,{cache:false,modelTier:"quick"});b.vprompt=text.trim();ta.value=b.vprompt;grow(ta);touch()}catch(e){toast("Polish failed ("+e.code+")")}finally{bt.disabled=false}}});
   growAll(host);
-  host.querySelectorAll("[data-op]").forEach(bt=>bt.onclick=()=>{const i=+bt.closest(".blk").dataset.i;const op=bt.dataset.op;if(op==="del")ep.blocks.splice(i,1);else if(op==="dup")ep.blocks.splice(i+1,0,JSON.parse(JSON.stringify(ep.blocks[i])));else if(op==="up"&&i>0)[ep.blocks[i-1],ep.blocks[i]]=[ep.blocks[i],ep.blocks[i-1]];else if(op==="down"&&i<ep.blocks.length-1)[ep.blocks[i+1],ep.blocks[i]]=[ep.blocks[i],ep.blocks[i+1]];touch();renderBlocks(ep);renderDoctor()});
+  host.querySelectorAll("[data-op]").forEach(bt=>bt.onclick=()=>{const i=+bt.closest(".blk").dataset.i;const op=bt.dataset.op;if(op==="del")ep.blocks.splice(i,1);else if(op==="dup")ep.blocks.splice(i+1,0,Object.assign(JSON.parse(JSON.stringify(ep.blocks[i])),{id:newId()}));else if(op==="up"&&i>0)[ep.blocks[i-1],ep.blocks[i]]=[ep.blocks[i],ep.blocks[i-1]];else if(op==="down"&&i<ep.blocks.length-1)[ep.blocks[i+1],ep.blocks[i]]=[ep.blocks[i],ep.blocks[i+1]];touch();renderBlocks(ep);renderDoctor()});
 }
 function refreshTimes(ep){const tl=timeline(ep);document.querySelectorAll("#blocks .blk [data-t]").forEach(el=>{const i=+el.closest(".blk").dataset.i;if(tl[i])el.textContent=fmt(tl[i].start)})}
 
@@ -1452,7 +1468,9 @@ Rules: "engine"/"engine2" exactly from ${JSON.stringify(ENGINES)}; "skin" exactl
     const keys=Object.keys(v).filter(k=>k!=="notes");
     touch();render();renderChatPanel();toast(parts.length?parts.join(" · ")+(skipped.length?" · "+skipped.join("; "):""):keys.length?`Nothing applied. Reply contained: ${keys.join(", ")}${skipped.length?" · "+skipped.join("; "):""}`:"Nothing needed changing");if(isMobile()&&parts.length)setPane("write")}
   catch(e){toast(e.code==="invalid_json"?"Claude's reply did not parse. Try once more.":"Could not apply ("+(e.code||"error")+")");b.disabled=false;b.textContent="Apply changes →"}}
-function migrate(){if(!S.chats)S.chats={};if(S.premise&&S.premise.locs){Object.values(S.premise.locs).forEach((l,i)=>{if(l.order==null)l.order=i;if(l.aliases==null)l.aliases=""})}if(S.premise&&!S.premise.items)S.premise.items=[];game();S.episodes.forEach(e=>e.blocks.forEach(b=>{if(b.kind==="ix"&&!Array.isArray(b.opts))b.opts=[]}));if(S.premise&&S.premise.author==null)S.premise.author="J. Morrissey";if(S.premise&&!S.premise.locs)S.premise.locs={};if(S.premise&&!S.premise.coverGallery)S.premise.coverGallery=[];if(!S.chats.story){const old=["premise","season",...Object.keys(S.chats).filter(k=>k.startsWith("ep:"))].map(k=>S.chats[k]).filter(c=>c&&c.turns&&c.turns.length);if(old.length){S.chats.story={turns:old.flatMap(c=>c.turns),draft:""};Object.keys(S.chats).forEach(k=>{if(k!=="story")delete S.chats[k]})}}if(S.premise&&S.premise.coverPrompt==null)S.premise.coverPrompt="";if(!S.beats)S.beats={};if(!S.ui)S.ui={};if(S.premise&&S.premise.cover==null)S.premise.cover="";if(S.idea&&S.idea.turns&&S.idea.turns.length&&!S.chats.premise)S.chats.premise={turns:S.idea.turns,draft:S.idea.draft||""};delete S.idea}
+const newId=()=>"b"+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3);
+function ensureIds(ep){(ep.blocks||[]).forEach(b=>{if(!b.id)b.id=newId()})}
+function migrate(){(S.episodes||[]).forEach(ensureIds);if(!S.chats)S.chats={};if(S.premise&&S.premise.locs){Object.values(S.premise.locs).forEach((l,i)=>{if(l.order==null)l.order=i;if(l.aliases==null)l.aliases=""})}if(S.premise&&!S.premise.items)S.premise.items=[];game();S.episodes.forEach(e=>e.blocks.forEach(b=>{if(b.kind==="ix"&&!Array.isArray(b.opts))b.opts=[]}));if(S.premise&&S.premise.author==null)S.premise.author="J. Morrissey";if(S.premise&&!S.premise.locs)S.premise.locs={};if(S.premise&&!S.premise.coverGallery)S.premise.coverGallery=[];if(!S.chats.story){const old=["premise","season",...Object.keys(S.chats).filter(k=>k.startsWith("ep:"))].map(k=>S.chats[k]).filter(c=>c&&c.turns&&c.turns.length);if(old.length){S.chats.story={turns:old.flatMap(c=>c.turns),draft:""};Object.keys(S.chats).forEach(k=>{if(k!=="story")delete S.chats[k]})}}if(S.premise&&S.premise.coverPrompt==null)S.premise.coverPrompt="";if(!S.beats)S.beats={};if(!S.ui)S.ui={};if(S.premise&&S.premise.cover==null)S.premise.cover="";if(S.idea&&S.idea.turns&&S.idea.turns.length&&!S.chats.premise)S.chats.premise={turns:S.idea.turns,draft:S.idea.draft||""};delete S.idea}
 /* ---------- persistence ---------- */
 const dirty=new Set();
 function touch(){S.example=false;dirty.add(LIB.activeId);$("#saveState").textContent="saving…";clearTimeout(saveTimer);saveTimer=setTimeout(save,900)}
@@ -1617,9 +1635,9 @@ function renderEpisode(ep){
   $("#vpCopyAll").onclick=()=>{const t=ep.blocks.map((b,i)=>b.kind==="shot"?`--- Ep ${ep.num} Shot #${i+1} (${b.dur||4}s) ---\n${b.vprompt||buildPrompt(ep,i)}`:null).filter(Boolean).join("\n\n");navigator.clipboard?.writeText(t).then(()=>toast("All prompts copied")).catch(()=>toast("Copy failed"))};
   flowRefresh();renderDoctor();growAll($("#editor"));flowLoadShots();flowEvents();
 }
-function flowRefresh(){const ep=flowEp();if(!ep||!$("#flow"))return;renderFlow2(ep);renderFPanel(ep)}
+function flowRefresh(){const ep=flowEp();if(!ep||!$("#flow"))return;ensureIds(ep);renderFlow2(ep);renderFPanel(ep)}
 function flowSelect(i){const ep=flowEp();const n=nodeFor(ep,i);flowSel=n?n.i:null;flowRefresh();const el=document.querySelector(`.node[data-n="${flowSel}"]`);if(el)el.scrollIntoView({behavior:"smooth",block:"nearest"})}
-function nodeCard(ep,n){const b=n.b;const sh=flowShots[n.i+1]||{};const tl=timeline(ep);
+function nodeCard(ep,n){const b=n.b;const sh=flowShots[b.id]||flowShots[n.i+1]||{};const tl=timeline(ep);
   if(n.type==="ix"){const M=MECH[b.mech]||MECH.choice;return`<div class="node ix ${flowSel===n.i?"sel":""}" data-n="${n.i}"><div class="nh"><span class="idx">#${n.i+1}</span><b>◆ ${esc(M.label)}${b.sub?" / "+esc(b.sub):""}</b><span class="sub">${fmt(tl[n.i].start)} · ${b.dur||0}s</span></div><div class="act">${esc(b.prompt||"")||'<i class="sub">no prompt yet</i>'}</div><ol class="nopts">${(b.opts||[]).map(o=>`<li><span>${esc(o.label||"—")}</span>${o.cost&&o.cost!=="free"?`<em>${o.amt||0} ${esc(o.cost)}</em>`:""}${o.flag?`<code>${esc(o.flag)}</code>`:""}</li>`).join("")}</ol></div>`}
   if(n.type==="loose"){return`<div class="node loose ${flowSel===n.i?"sel":""}" data-n="${n.i}"><div class="nh"><span class="idx">#${n.i+1}</span><b>lines without a shot</b></div><ul class="nlines">${n.blocks.map(i=>{const x=ep.blocks[i];return x.kind==="line"?`<li><b>${esc(x.speaker||"?")}</b> ${esc(x.text||"")}</li>`:`<li class="sfx">♪ ${esc(x.text||"")}</li>`}).join("")}</ul></div>`}
   const lines=n.blocks.slice(1).map(i=>ep.blocks[i]);const hash=nodeHash(ep,n);const rh=(ep.renderedHash||{})[n.i];
@@ -1637,7 +1655,7 @@ function renderFlow2(ep){const host=$("#flow");const nodes=flowNodes(ep);
 }
 function renderFPanel(ep){const host=$("#fpanel");const n=flowSel!=null?nodeFor(ep,flowSel):null;
   if(!n){host.innerHTML=`<div class="empty">Select a shot or a choice to edit it here.<br><span class="sub">Each card is one shot with its lines. Choices fan out into lanes; conditional shots sit in the lane of their flag.</span></div>`;return}
-  const sh=n.type==="shot"?(flowShots[n.i+1]||{}):{};const local=!!window.GASP_LOCAL;const busy=!!flowRunning;
+  const sh=n.type==="shot"?(flowShots[n.b.id]||flowShots[n.i+1]||{}):{};const local=!!window.GASP_LOCAL;const busy=!!flowRunning;
   const preview=n.type==="shot"?`<div class="fprev">${sh.segment?`<video src="${sh.segment}" controls playsinline></video>`:sh.approved?`<img src="${sh.approved}" alt="">`:`<div class="ph">${local?"Not rendered yet":"Rendering lives in the desktop app"}</div>`}
       <div class="ftakes">${(sh.takes||[]).length?`<div class="hint">Takes — click one to use it in the cut</div>`:""}${(sh.takes||[]).map(t=>`<div class="tk ${t.id===sh.approvedId?"cur":""}" data-take="${t.id}"><img src="${t.url}" alt=""><span>${t.id==="composite"?"composite":"take "+t.id}${t.id===sh.approvedId?" ✓ in use":""}</span></div>`).join("")}</div></div>`:"";
   const actions=n.type==="shot"&&local?`<div class="facts">
@@ -1654,7 +1672,7 @@ function renderFPanel(ep){const host=$("#fpanel");const n=flowSel!=null?nodeFor(
   host.querySelectorAll("[data-act]").forEach(bt=>bt.onclick=()=>flowRun(ep,n,bt.dataset.act));
   host.querySelectorAll("[data-nop]").forEach(bt=>bt.onclick=()=>{const op=bt.dataset.nop;const nodes=flowNodes(ep);const k=nodes.indexOf(nodeFor(ep,n.i));const take=()=>ep.blocks.splice(n.blocks[0],n.blocks.length);
     if(op==="del"){take();flowSel=null}
-    else if(op==="dup"){const copy=n.blocks.map(i=>JSON.parse(JSON.stringify(ep.blocks[i])));ep.blocks.splice(n.blocks[n.blocks.length-1]+1,0,...copy);flowSel=n.blocks[n.blocks.length-1]+1}
+    else if(op==="dup"){const copy=n.blocks.map(i=>Object.assign(JSON.parse(JSON.stringify(ep.blocks[i])),{id:newId()}));ep.blocks.splice(n.blocks[n.blocks.length-1]+1,0,...copy);flowSel=n.blocks[n.blocks.length-1]+1}
     else if(op==="up"&&k>0){const prev=nodes[k-1];const mine=take();ep.blocks.splice(prev.blocks[0],0,...mine);flowSel=prev.blocks[0]}
     else if(op==="down"&&k<nodes.length-1){const next=nodes[k+1];const mine=take();const at=next.blocks[next.blocks.length-1]+1-mine.length;ep.blocks.splice(at,0,...mine);flowSel=at}
     else if(op==="line"){ep.blocks.splice(n.blocks[n.blocks.length-1]+1,0,{kind:"line",speaker:"",text:"",voice:"",intensity:7,beat:""})}
@@ -1667,13 +1685,68 @@ function flowEvents(){if(!window.GASP_LOCAL||flowES)return;flowES=new EventSourc
   flowES.addEventListener("status",e=>{const s=JSON.parse(e.data);flowRunning=s.running?s.step:null;const el=$("#fstatus");if(el)el.textContent=flowRunning?"running: "+flowRunning:"";document.querySelectorAll("[data-act]").forEach(b=>b.disabled=!!flowRunning)});
   flowES.addEventListener("done",()=>{setTimeout(flowLoadShots,300)});setInterval(()=>{if(window.flowActive&&flowRunning)flowLoadShots()},4000)}
 async function flowRun(ep,n,act){if(flowRunning){toast("Still rendering the last request");return}
-  const sh=flowShots[n.i+1]||{};const steps=act==="composite"?["composite"]:act==="stills"?["stills"]:act==="vo"?["vo"]:act==="animate"?["animate"]:sh.approved?[]:["composite"];
+  const sh=flowShots[n.b.id]||flowShots[n.i+1]||{};const steps=act==="composite"?["composite"]:act==="stills"?["stills"]:act==="vo"?["vo"]:act==="animate"?["animate"]:sh.approved?[]:["composite"];
   if((act==="stills"||act==="animate")&&!confirm(act==="stills"?"Generate a new still on fal (~$0.05–0.08)?":"Image-to-video on fal costs roughly $0.25–0.50 per shot (plus lip-sync). Continue?"))return;
   try{const file=await sendToRender([ep],true);ep.renderedHash=ep.renderedHash||{};flowNodes(ep).forEach(x=>{if(x.type==="shot")ep.renderedHash[x.i]=nodeHash(ep,x)});touch();
     const i=n.i+1;const body={file,ep:ep.num,shot:i,from:i,until:i+1,steps,dry:false,force:true,thenAssemble:true,approveLatest:act==="stills",path:""};
     if(act==="vo")body.force=false;
     const r=await (await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json();if(r.error)throw new Error(r.error);
     flowLogTail=[];toast(act==="preview"?"Rebuilding the segment…":"Rendering shot #"+i+"…");flowRefresh()}catch(e){toast("Couldn't render: "+e.message)}}
+
+/* ---------- Play: the interactive player on top of the rendered segments ---------- */
+let PL=null;
+function renderPlayTab(){
+  const eps=[...S.episodes].sort((a,b)=>a.num-b.num);const first=eps[0];
+  $("#editor").innerHTML=`<div class="playwrap">
+   <div class="phone"><div class="screen" id="plScreen"><div class="plcard"><h2>${esc(S.premise.title||"Untitled")}</h2><p class="sub">${esc(S.premise.logline||"")}</p><div class="row" style="justify-content:center;margin-top:14px"><select id="plEp" class="plsel">${eps.map(e=>`<option value="${e.id}">Ep ${e.num}${e.title?" · "+esc(e.title):""}</option>`).join("")}</select></div><button class="btn primary" id="plStart" style="margin-top:12px">▶ Play</button><p class="sub" style="margin-top:10px">Plays the rendered segments. Choices branch for real; flags, meters and gems are tracked.</p></div></div>
+    <div class="plhud" id="plHud"></div></div>
+   <div class="plside"><h3>Run log</h3><div id="plLog" class="pllog"><span class="sub">Nothing yet.</span></div><div class="row" style="margin-top:8px"><button class="btn small" id="plRestart">Restart</button><button class="btn small" id="plGems">+50 gems (dev)</button><label class="row" style="gap:6px;font-size:12px"><input type="checkbox" id="plCaps" checked> captions baked into segments</label></div><p class="sub" style="margin-top:10px">Shots without a rendered segment show their still (or a card) for the shot's length. Render from an episode tab or the Render tab to fill them in.</p></div></div>`;
+  $("#plStart").onclick=()=>playStart(S.episodes.find(e=>String(e.id)===$("#plEp").value));
+  $("#plRestart").onclick=()=>{if(PL)playStart(PL.ep);};
+  $("#plGems").onclick=()=>{if(PL){PL.gems+=50;plHud()}};
+}
+const plSlug=()=>flowSlug();
+function plGemsName(){const c=(game().currencies||[]).find(x=>/gem|coin|token/i.test(x.name))||(game().currencies||[])[0];return c?c.name:"gems"}
+function plHolds(c){if(!PL)return true;return String(c||"").split(/\s*(?:,|&&|\band\b)\s*/).filter(Boolean).every(t=>{t=t.trim();const m=t.match(/^([A-Za-z_][\w ]*?)\s*(>=|<=|>|<|==|=)\s*(-?\d+)$/);if(m){const v=PL.meters[m[1].trim()]??0,n=+m[3];return m[2]===">="?v>=n:m[2]==="<="?v<=n:m[2]===">"?v>n:m[2]==="<"?v<n:v===n}return t.startsWith("!")?!PL.flags.has(t.slice(1).trim()):PL.flags.has(t)})}
+async function playStart(ep){if(!ep)return;ensureIds(ep);PL={ep,i:0,flags:new Set(),meters:{},gems:100,log:[],segs:{},shots:{}};
+  (game().meters||[]).forEach(m=>{const lo=parseInt(String(m.range||"0").split(/[–-]/)[0])||0;PL.meters[m.name]=lo});
+  try{const r=await (await fetch(`/api/shots?slug=${encodeURIComponent(plSlug())}&ep=${ep.num}`)).json();PL.shots=r.shots||{};PL.segs=r.segments||{}}catch(e){}
+  plLog(`Ep ${ep.num} started`);plHud();plNext()}
+function plLog(t){if(!PL)return;PL.log.push(t);const el=$("#plLog");if(el){el.innerHTML=PL.log.map(x=>`<div>${esc(x)}</div>`).join("");el.scrollTop=el.scrollHeight}}
+function plHud(){const h=$("#plHud");if(!h||!PL)return;const ms=Object.entries(PL.meters).filter(([k])=>k);h.innerHTML=`<span class="pill">◆ ${PL.gems} ${esc(plGemsName())}</span>${ms.map(([k,v])=>`<span class="pill">${esc(k)} ${v}</span>`).join("")}${PL.flags.size?`<span class="pill mute">${[...PL.flags].join(" · ")}</span>`:""}`}
+function plNext(){if(!PL)return;const ep=PL.ep;const scr=$("#plScreen");if(!scr)return;
+  while(PL.i<ep.blocks.length){const b=ep.blocks[PL.i];
+    if(b.kind==="ix")return plChoice(b);
+    if(b.kind==="shot"){if(!plHolds(b.cond)){PL.i=plSkipShot(ep,PL.i);continue}return plShot(ep,PL.i)}
+    // loose line / sfx without a shot: its own segment if rendered, else a text card
+    if(b.kind==="line"||b.kind==="sfx"){if(!plHolds(b.cond)){PL.i++;continue}return plLoose(ep,PL.i)}
+    PL.i++}
+  plEnd()}
+function plSkipShot(ep,i){let j=i+1;while(j<ep.blocks.length&&ep.blocks[j].kind!=="shot"&&ep.blocks[j].kind!=="ix")j++;return j}
+function plSegURL(i){const b=PL.ep.blocks[i];return PL.segs[b.id]||PL.segs[i+1]||((PL.shots[b.id]||PL.shots[i+1]||{}).segment)||null}
+function plPlayVideo(url,after){const scr=$("#plScreen");scr.innerHTML=`<video src="${url}" playsinline autoplay></video>`;const v=scr.querySelector("video");v.onended=after;v.onerror=after;v.play().catch(()=>{scr.insertAdjacentHTML("beforeend",`<button class="btn primary plres">▶</button>`);scr.querySelector(".plres").onclick=()=>{scr.querySelector(".plres").remove();v.play()}})}
+function plShot(ep,i){const b=ep.blocks[i];const url=plSegURL(i);const next=()=>{PL.i=plSkipShot(ep,i);plNext()};
+  if(url)return plPlayVideo(url,next);
+  const still=((PL.shots[b.id]||PL.shots[i+1]||{})).approved;const lines=shotLines(ep,i).filter(l=>plHolds(l.cond));const dur=(b.dur||4)+lines.reduce((a,l)=>a+Math.max(1.2,words(l.text)/2.6+0.5),0);
+  $("#plScreen").innerHTML=`<div class="plstill">${still?`<img src="${still}" alt="">`:`<div class="plph"><b>#${i+1} ${esc(b.frame||"")}</b><p>${esc(b.action||"")}</p></div>`}<div class="plcap">${lines.map(l=>`<div><b>${esc((l.speaker||"").toUpperCase())}:</b> ${esc(l.text)}</div>`).join("")}</div><span class="plnr">not rendered</span></div>`;
+  PL.timer=setTimeout(next,dur*1000)}
+function plLoose(ep,i){const b=ep.blocks[i];const url=plSegURL(i);const next=()=>{PL.i=i+1;plNext()};if(url)return plPlayVideo(url,next);
+  $("#plScreen").innerHTML=`<div class="plstill"><div class="plcap">${b.kind==="line"?`<div><b>${esc((b.speaker||"").toUpperCase())}:</b> ${esc(b.text)}</div>`:`<div><i>♪ ${esc(b.text)}</i></div>`}</div></div>`;PL.timer=setTimeout(next,(b.kind==="line"?Math.max(1.2,words(b.text)/2.6+0.5):(b.dur||1))*1000)}
+function plChoice(b){const M=MECH[b.mech]||MECH.choice;const timed=/timed/i.test(b.sub||"")||/\b(\d+(?:\.\d+)?)\s*s\b/.test(b.window||"");const secs=+(String(b.window||"").match(/(\d+(?:\.\d+)?)\s*s/)||[])[1]||b.dur||8;const gems=plGemsName();
+  const opts=(b.opts||[]).map((o,j)=>{const cost=o.cost&&o.cost!=="free"?(o.amt||0):0;const can=!cost||PL.gems>=cost;return`<button class="plopt ${can?"":"locked"}" data-j="${j}">${esc(o.label||("Option "+(j+1)))}${cost?`<em>◆ ${cost} ${esc(o.cost)}</em>`:""}</button>`}).join("");
+  const scr=$("#plScreen");const v=scr.querySelector("video");if(v){v.pause()}else scr.innerHTML="";scr.querySelectorAll(".plix").forEach(x=>x.remove());scr.insertAdjacentHTML("beforeend",`<div class="plix"><div class="plixh">◆ ${esc(M.label)}${b.sub?" · "+esc(b.sub):""}</div><p class="plprompt">${esc(b.prompt||"")}</p>${b.mech!=="choice"?`<p class="sub">Mini-game stand-in: pick the outcome tier.</p>`:""}<div class="plopts">${opts}</div>${timed?`<div class="plbar"><i></i></div>`:""}</div>`);
+  const pick=j=>{clearTimeout(PL.timer);const o=b.opts[j];if(!o)return;const cost=o.cost&&o.cost!=="free"?(o.amt||0):0;if(cost&&PL.gems<cost){plLog(`Not enough ${gems} for "${o.label}"`);return}
+    if(cost){PL.gems-=cost}if(o.flag)o.flag.split(/[,\s]+/).forEach(f=>f&&PL.flags.add(f.trim().toUpperCase()));for(const m of String(o.outcome||"").matchAll(/(?:sets?|set branch|branch)\s+([A-Z][A-Z0-9_]+)/g))PL.flags.add(m[1]);
+    if(o.meter){PL.meters[o.meter]=(PL.meters[o.meter]||0)+(+o.delta||0)}
+    plLog(`#${PL.i+1} ${M.label}: "${o.label}"${cost?` (−${cost} ${gems})`:""}${o.flag?` → ${o.flag}`:""}${o.meter?` · ${o.meter} ${(+o.delta||0)>=0?"+":""}${+o.delta||0}`:""}`);plHud();PL.i++;plNext()};
+  $("#plScreen").querySelectorAll(".plopt").forEach(bt=>bt.onclick=()=>pick(+bt.dataset.j));
+  if(timed){const bar=$("#plScreen .plbar i");requestAnimationFrame(()=>{bar.style.transition=`width ${secs}s linear`;bar.style.width="0%"});PL.timer=setTimeout(()=>{plLog(`#${PL.i+1} timed out → option 1`);pick(0)},secs*1000)}}
+function plEnd(){const ep=PL.ep;const g=S.premise.gates||{};const nextEp=[...S.episodes].sort((a,b)=>a.num-b.num).find(e=>e.num>ep.num);const pay=nextEp&&nextEp.num===g.g1;
+  $("#plScreen").innerHTML=`<div class="plcard"><h2>End of Episode ${ep.num}</h2><p class="sub">${esc(ep.hookType?"Hook: "+ep.hookType:"")}</p>${nextEp?(pay?`<p>Episode ${nextEp.num} is behind the paywall.</p><button class="btn primary" id="plPay">Unlock for 60 ${esc(plGemsName())}</button>`:`<button class="btn primary" id="plGo">▶ Episode ${nextEp.num}</button>`):`<p class="sub">That's everything written so far.</p>`}<button class="btn small ghost" id="plAgain" style="margin-top:10px">Replay</button></div>`;
+  plLog(`Ep ${ep.num} ended`);
+  const go=()=>{const keep={flags:PL.flags,meters:PL.meters,gems:PL.gems,log:PL.log};playStart(nextEp).then(()=>{Object.assign(PL,{flags:keep.flags,meters:keep.meters,gems:keep.gems,log:keep.log});plHud()})};
+  const pb=$("#plPay");if(pb)pb.onclick=()=>{if(PL.gems<60){plLog("Not enough gems to unlock");return}PL.gems-=60;plLog(`Unlocked Ep ${nextEp.num} (−60)`);go()};
+  const gb=$("#plGo");if(gb)gb.onclick=go;$("#plAgain").onclick=()=>playStart(ep)}
 
 /* ---------- boot ---------- */
 const setHH=()=>document.documentElement.style.setProperty("--hh",$("header.top").offsetHeight+"px");setHH();try{const cw=localStorage.getItem("gate-ten-cw");if(cw)document.documentElement.style.setProperty("--cw",cw)}catch(e){}window.addEventListener("resize",setHH);
