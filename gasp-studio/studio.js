@@ -26,7 +26,7 @@ const HELP = `GASP Studio — Gameplay · Animatic · Script · Production  (Sla
   studio animate   <manifest.json> --ep 1 [--shot 3] [--video fal-kling]   image→video for animate/lipsync shots
   studio animatic  <manifest.json> --ep 1 [--no-captions]
   studio all       <manifest.json> --ep 1          stills (1 take, auto-approved) → vo → beds → animatic
-Filters: --shot 1,3,5 (block numbers, as shown by plan)   --until 12 (stop before block 12, e.g. the first choice)
+Filters: --shot 1,3,5 (block numbers, as shown by plan)   --from 6 --until 13 (blocks 6–12 only; the cut contains just that range)
 Env: FAL_KEY, ELEVENLABS_API_KEY, STUDIO_DRY_RUN=1 (placeholders, no network), STUDIO_FONT=/path/to/font.ttf`;
 
 if (cmd === "serve") { const { serve } = await import("./lib/serve.js"); await serve({ root: ROOT, port: +args.port || 4747, open: !args.noopen }); await new Promise(() => {}); }
@@ -36,9 +36,10 @@ if (manifest.format !== "gate-ten-production") { warn("Not a Gate Ten production
 const eps = pickEpisodes(manifest, args);
 // --shot 3  or  --shot 1,3,5   limits work to those block indexes;  --until 12  stops before block 12 (e.g. the first choice)
 const shotFilter = args.shot ? String(args.shot).split(",").map(Number) : null;
-const until = args.until ? +args.until : null;
-const wanted = s => (!shotFilter || shotFilter.includes(s.index)) && (!until || s.index < until);
-for (const ep of eps) if (until) ep.shots = ep.shots.filter(s => s.index < until);
+const until = args.until ? +args.until : null;   // stop before this block
+const from = args.from ? +args.from : null;      // start at this block
+const wanted = s => (!shotFilter || shotFilter.includes(s.index)) && (!until || s.index < until) && (!from || s.index >= from);
+for (const ep of eps) if (until || from) ep.shots = ep.shots.filter(s => (!until || s.index < until) && (!from || s.index >= from));
 const costFile = ep => path.join(epDir(manifest, ROOT, ep), `ep${ep.number}-cost.json`);
 const addCost = (ep, kind, amt, note) => { const f = costFile(ep); const c = exists(f) ? readJSON(f) : { items: [], total: 0 }; c.items.push({ kind, amt: +amt.toFixed(4), note, at: new Date().toISOString() }); c.total = +(c.total + amt).toFixed(4); writeJSON(f, c); };
 
