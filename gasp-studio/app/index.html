@@ -300,7 +300,7 @@ div[data-lastpass-icon-root],div[data-lastpass-root]{display:none!important}inpu
 
 /* ---------- flow editor ---------- */
 .ephead summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px}.ephead summary::-webkit-details-marker{display:none}
-.flowwrap{display:grid;grid-template-columns:minmax(300px,1fr) minmax(380px,560px);gap:16px;align-items:start;margin-top:12px}
+.flowwrap{display:grid;grid-template-columns:minmax(340px,1.25fr) minmax(380px,540px);gap:16px;align-items:start;margin-top:12px}
 .flow{display:flex;flex-direction:column;align-items:stretch;min-width:0}
 .node{display:grid;grid-template-columns:64px 1fr;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s;min-width:0}
 .node:hover{border-color:var(--muted)}.node.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
@@ -317,8 +317,8 @@ div[data-lastpass-icon-root],div[data-lastpass-root]{display:none!important}inpu
 .lanes{display:grid;gap:12px;align-items:start;padding:0 0 4px}.lane{display:flex;flex-direction:column;min-width:0;border-left:2px dashed var(--line);padding-left:10px}.lane .lh{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px}.lane .lh code{text-transform:none;letter-spacing:0;font-family:var(--mono);font-size:11px;color:var(--ink)}
 .fpanel{position:sticky;top:calc(var(--hh,60px) + 10px);max-height:calc(100vh - var(--hh,60px) - 20px);overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px;align-content:start}
 .fpanel .blocks .blk{grid-template-columns:40px 1fr;padding:8px}.fpanel .blocks .blk .ops{grid-column:1/-1;flex-direction:row}
-.fprev{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:start}.fprev img,.fprev video{width:150px;aspect-ratio:9/16;object-fit:cover;border-radius:10px;background:#000;border:1px solid var(--line)}.fprev .ph{width:150px;aspect-ratio:9/16;border-radius:10px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);text-align:center;padding:10px}
-.ftakes{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}.ftakes img{width:54px;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:2px solid transparent;cursor:pointer}.ftakes img.cur{border-color:var(--accent)}
+.fprev{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:start}.fprev img{width:150px;aspect-ratio:9/16;object-fit:cover;border-radius:10px;background:#000;border:1px solid var(--line)}.fprev video{width:150px;aspect-ratio:9/16;object-fit:contain;border-radius:10px;background:#000;border:1px solid var(--line)}.fprev .ph{width:150px;aspect-ratio:9/16;border-radius:10px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);text-align:center;padding:10px}
+.ftakes{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}.ftakes .tk{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--muted);cursor:pointer}.ftakes img{width:64px;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:2px solid transparent}.ftakes .tk.cur img{border-color:var(--accent)}.ftakes .tk.cur{color:var(--accent)}.ftakes .tk:hover img{border-color:var(--muted)}.ftakes .hint{width:100%;font-size:11px;color:var(--muted)}
 .facts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.flog{margin:0;font:11px/1.4 var(--mono);color:var(--muted);white-space:pre-wrap;max-height:84px;overflow:auto;background:var(--bg);border-radius:8px;padding:6px 8px}.flog:empty{display:none}
 .fops{display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px}
 @media(max-width:1100px){.flowwrap{grid-template-columns:1fr}.fpanel{position:static;max-height:none}}
@@ -326,14 +326,14 @@ div[data-lastpass-icon-root],div[data-lastpass-root]{display:none!important}inpu
 
 <header class="top">
   <div>
-    <h1><span>GASP</span> Studio <small id="gtver" style="font-size:11px;font-weight:400;color:var(--mute);vertical-align:middle;letter-spacing:.4px">v44</small></h1>
+    <h1><span>GASP</span> Studio <small id="gtver" style="font-size:11px;font-weight:400;color:var(--mute);vertical-align:middle;letter-spacing:.4px">v45</small></h1>
     <div class="sub">Gameplay · Animatic · Script · Production · the paywall is episode <span id="g1lab">10</span></div>
   </div>
   <div class="spacer"></div>
   <span class="save" id="saveState">unsaved</span>
   <button class="btn" id="btnExport">Export</button>
   <button class="btn" id="btnImport">Import / backup</button><button class="btn" id="btnGuide" title="The rules the doctor checks">? Guide</button><button class="btn" id="btnKey" hidden>API key</button>
-  <button class="btn primary" id="btnReview">Review with Claude</button><button class="btn" id="btnChat">✦ Chat</button><button class="btn" id="btnDoc">✚ Doctor</button>
+  <button class="btn" id="btnChat">✦ Chat</button><button class="btn" id="btnDoc">✚ Doctor <span class="cnt" id="docCntHdr"></span></button>
 </header>
 
 <div class="shell">
@@ -916,7 +916,7 @@ function renderSeason(){
    </div></div></details>
   <div class="card"><div class="row" style="justify-content:space-between;align-items:baseline"><h2>Beat sheet</h2><span class="sub">${filled}/${total} lines · a line per episode, ending on its hook</span></div>
    <p class="hint">Villain does X to FL in front of Y; FL answers Z; cut on Q. Rotate hooks; pay a slap every 2–3 episodes; biggest cliff on the paywall.</p>
-   <div class="row" style="margin-bottom:10px"><button class="btn small primary" id="beatsGen" ${sampleFn?"":"disabled"}>Generate beat sheet with Claude</button><button class="btn small" id="beatsFill" ${sampleFn?"":"disabled"}>Fill empty lines only</button><button class="btn small" id="beatsCreateAll">Create episodes for all lines</button></div>
+   <div class="row" style="margin-bottom:10px"><button class="btn small primary" id="beatsGen" ${sampleFn?"":"disabled"}>Generate beat sheet</button><button class="btn small" id="beatsFill" ${sampleFn?"":"disabled"}>Fill empty lines only</button><button class="btn small" id="beatsCreateAll">Create episodes for all lines</button></div>
    <div class="beats" id="beats">${rows.join("")}</div></div>`;
   document.querySelectorAll("details.card[data-sec]").forEach(d=>d.ontoggle=()=>{S.ui=S.ui||{};S.ui[d.dataset.sec]=d.open;touch()});
   ["g1","g2","g3","total"].forEach(k=>{const el=$("#g_"+k);el.onchange=()=>{g[k]=+el.value;touch();renderSeason();renderTabs()}});
@@ -928,7 +928,7 @@ function renderSeason(){
     try{const existing=[];for(let n=1;n<=total;n++){const b=getBeat(n);if(b.logline)existing.push(`${n}: ${b.logline}${b.hook?" ["+b.hook+"]":""}`)}
       const v=await sampleFn.json(`${RULEBOOK}\n\nWrite the season beat sheet for this vertical drama: one line per episode, episodes 1 to ${total}. Each line follows "Villain does X to FL in front of Y; FL (or ML) answers with Z; cut on Q" and ends on an unresolved hook. Rules: Ep 1 is the ad (outrageous image, both leads, inverting button). Ep ${g.g1} is the PAYWALL: the biggest cliff of the season, cut mid-motion. Ep ${g.g1+1} pays it fully and publicly. Ep ${g.g2} changes the board (gate 2). Ep ${g.g3} is all-is-lost (gate 3). Ep ${total} is the finale: every villain's public downfall in one arena, then the reward, one thread left open. A slap or reveal every 2-3 episodes; villains escalate; heat ladder (glance, touch, interrupted near-kiss by ep 5-7, kiss near the paywall, implied night by ep 15-25, consequence as a mid-season engine); villain downfalls on the episodes the cast bible schedules. Rotate "hook" so consecutive episodes differ; hook is one of ${HOOKS.join("|")}. ${onlyEmpty?"KEEP every existing line below exactly as written and write only the missing episode numbers.":"You may improve existing lines but keep their intent."}\n\nPREMISE:\n${premiseText()}\n\nEXISTING LINES:\n${existing.join("\n")||"(none)"}\n\nReply with only a JSON array of {"n":1,"logline":"","hook":""} objects covering ${onlyEmpty?"the missing episodes":"all "+total+" episodes"}, under 32 words per logline.`,{cache:false,modelTier:"complex"});
       if(!Array.isArray(v))throw{code:"invalid_json"};let w=0;v.forEach(r=>{const n=+r.n;if(!(n>=1&&n<=total))return;if(onlyEmpty&&getBeat(n).logline)return;setBeat(n,{logline:String(r.logline||""),hook:HOOKS.includes(r.hook)?r.hook:""});w++});touch();renderSeason();toast(`Wrote ${w} lines`)}
-    catch(e){toast(e.code==="invalid_json"?"Claude's reply did not parse. Try again.":"Failed ("+(e.code||"error")+")");renderSeason()}};
+    catch(e){toast(e.code==="invalid_json"?"The reply did not parse. Try again.":"Failed ("+(e.code||"error")+")");renderSeason()}};
   $("#beatsGen").onclick=()=>gen(false);$("#beatsFill").onclick=()=>gen(true);
   renderDoctor();growAll($("#editor"));requestAnimationFrame(()=>growAll(host));
 }
@@ -943,7 +943,7 @@ function renderPremise(){
     <div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:200px"><label class="f">Cover image (shown here and on the export title page)<input type="file" id="p_cover" accept="image/*"></label>
      <details class="vp" style="border-top:none;padding-top:0" ${p.coverPrompt?"open":""}><summary>Cover image prompt<span class="spacer"></span>${p.coverPromptAuto?`<span class="tag">auto</span>`:""}</summary>
       <textarea id="p_coverPrompt" rows="3" placeholder="Generate, then edit. Paste into your image generator.">${esc(p.coverPrompt||"")}</textarea>
-      <div class="row"><button class="btn small" id="cpGen">${p.coverPrompt?"Regenerate from premise":"Generate"}</button><button class="btn small" id="cpPolish" ${sampleFn?"":"disabled"}>Polish with Claude</button><button class="btn small" id="cpCopy">Copy</button>${p.cover?`<span class="spacer"></span><button class="btn small ghost" id="p_coverRm">Remove cover</button>`:""}</div></details>
+      <div class="row"><button class="btn small" id="cpGen">${p.coverPrompt?"Regenerate from premise":"Generate"}</button><button class="btn small" id="cpPolish" ${sampleFn?"":"disabled"}>Polish</button><button class="btn small" id="cpCopy">Copy</button>${p.cover?`<span class="spacer"></span><button class="btn small ghost" id="p_coverRm">Remove cover</button>`:""}</div></details>
      ${galleryHTML("cover",p.coverGallery)}</div></div>
    <div class="grid">
     <div class="wide">${f("Logline","p_logline",p.logline,"textarea",'rows="3"')}
@@ -1077,7 +1077,7 @@ function renderCast(){
         ${["full","chest"].map(kind=>`<div style="display:flex;align-items:center;gap:6px">${cu[kind]?`<img src="${cu[kind]}" alt="" style="height:72px;width:auto;border-radius:4px;background:repeating-conic-gradient(var(--line) 0 25%,transparent 0 50%) 0 0/12px 12px" data-view-main>`:`<span class="ph" style="width:48px;height:72px;font-size:9px">${kind}</span>`}<label style="font-size:11px;color:var(--accent);cursor:pointer">${cu[kind]?"Replace":"Upload"} ${kind==="full"?"full body":"chest-up"}<input type="file" accept="image/*" data-cutup="${kind}" style="display:none"></label>${cu[kind]?`<label data-cutrm="${kind}" style="font-size:11px;color:var(--muted);cursor:pointer">✕</label>`:""}</div>`).join("")}</div>`}).join("")||`<div class="sub">Add costume states above (comma-separated) to get cutout slots.</div>`}</div></details>
     <details class="vp" ${c.portraitPrompt&&!c.portrait?"open":""}><summary>Image prompt<span class="spacer"></span>${c.portraitPromptAuto?`<span class="tag">auto</span>`:""}</summary>
       <textarea data-k="portraitPrompt" rows="2" placeholder="Generate, then edit. Paste into your image generator.">${esc(c.portraitPrompt||"")}</textarea>
-      <div class="row"><button class="btn small" data-pgen="${i}">${c.portraitPrompt?"Regenerate":"Generate"}</button><button class="btn small" data-ppolish="${i}" ${sampleFn?"":"disabled"}>Polish with Claude</button><button class="btn small" data-pcopy="${i}">Copy</button></div></details>${galleryHTML("cast:"+i,c.gallery)}</div>
+      <div class="row"><button class="btn small" data-pgen="${i}">${c.portraitPrompt?"Regenerate":"Generate"}</button><button class="btn small" data-ppolish="${i}" ${sampleFn?"":"disabled"}>Polish</button><button class="btn small" data-pcopy="${i}">Copy</button></div></details>${galleryHTML("cast:"+i,c.gallery)}</div>
   </div>`).join("");
   host.querySelectorAll("[data-cutup]").forEach(inp=>inp.onchange=async e=>{const i=+inp.closest(".member").dataset.i;const state=inp.closest("[data-state]").dataset.state;const f=e.target.files[0];if(!f)return;const img=await readImagePNG(f,1400);if(!img)return;const c=cast[i];c.cutouts=c.cutouts||{};c.cutouts[state]=c.cutouts[state]||{};c.cutouts[state][inp.dataset.cutup]=img;touch();renderCast()});
   host.querySelectorAll("[data-cutrm]").forEach(l=>l.onclick=()=>{const i=+l.closest(".member").dataset.i;const state=l.closest("[data-state]").dataset.state;delete cast[i].cutouts[state][l.dataset.cutrm];touch();renderCast()});
@@ -1152,7 +1152,7 @@ function renderBlocks(ep,hostEl,only){
       <div class="r2"><label class="f">Emotion on screen (direction)<input data-k="emotion" value="${esc(b.emotion)}" placeholder="FL: frozen shock"></label><label class="f">Beat${beatSel(b)}</label></div>
       <details class="vp" ${b.vprompt?"open":""}><summary>Video prompt<span class="spacer"></span></summary>
        <textarea data-k="vprompt" rows="3" placeholder="Generate, then edit. Paste into your video generator.">${esc(b.vprompt||"")}</textarea>
-       <div class="row"><button class="btn small" data-vp="gen">Generate</button><button class="btn small" data-vp="polish" ${sampleFn?"":"disabled"}>Polish with Claude</button><button class="btn small" data-vp="copy">Copy</button></div></details>`;
+       <div class="row"><button class="btn small" data-vp="gen">Generate</button><button class="btn small" data-vp="polish" ${sampleFn?"":"disabled"}>Polish</button><button class="btn small" data-vp="copy">Copy</button></div></details>`;
     else if(b.kind==="line"){const w=words(b.text);body=`<div class="r3">
       <label class="f">Speaker<input data-k="speaker" value="${esc(b.speaker)}" list="castlist"></label>
       <label class="f">Voice direction<input data-k="voice" value="${esc(b.voice)}" placeholder="cold, shaking, triumphant"></label>
@@ -1179,7 +1179,7 @@ function renderBlocks(ep,hostEl,only){
       <label class="f">Fail-forward note (what plays when the player fails or skips; never a dead end)<input data-k="fail" value="${esc(b.fail||"")}"></label>
       <details class="vp" ${b.design?"open":""}><summary>Design spec (appendix)<span class="spacer"></span>${b.design?"":`<span class="tag">default</span>`}</summary>
        <textarea data-k="design" rows="4" placeholder="${esc(designDefault(b))}">${esc(b.design||"")}</textarea>
-       <div class="row"><button class="btn small" data-ds="default">Use default text</button><button class="btn small" data-ds="claude" ${sampleFn?"":"disabled"}>Write spec with Claude</button><span class="sub">Printed in the script appendix so the build tool knows exactly what to make.</span></div></details>`}
+       <div class="row"><button class="btn small" data-ds="default">Use default text</button><button class="btn small" data-ds="claude" ${sampleFn?"":"disabled"}>Write spec</button><span class="sub">Printed in the script appendix so the build tool knows exactly what to make.</span></div></details>`}
     else body=`<div class="r2"><label class="f">Sound / music<input data-k="text" value="${esc(b.text)}" placeholder="Glass shatters. Music cuts to silence."></label><label class="f">Seconds<input data-k="dur" type="number" min="0" step="0.5" value="${b.dur??1}"></label></div>`;
     const condRow=b.kind==="ix"?"":`<div class="cond"><span>only if</span><input data-k="cond" value="${esc(b.cond||"")}" placeholder="flag, !flag, or Kai>=6" list="flaglist"></div>`;
     return`<div class="blk ${b.kind}" data-i="${i}"><div class="t"><span class="kind">${b.kind==="sfx"?"sfx":b.kind}</span><b data-t>${fmt(r.start)}</b>#${i+1}</div><div class="body">${body}${condRow}</div><div class="ops"><button data-op="up" title="Move up">↑</button><button data-op="down" title="Move down">↓</button><button data-op="dup" title="Duplicate">⧉</button><button data-op="del" title="Delete">✕</button></div></div>`}).join("")+
@@ -1223,14 +1223,14 @@ function renderDoctor(){
   if(active==="premise"){const a=analyzePremise();d.innerHTML=`<div class="dochead"><h2>Script doctor <span class="score">${a.filter(x=>x.level==="bad").length} blocking · ${a.filter(x=>x.level==="warn").length} warnings</span></h2><button class="btn small ghost" data-docclose title="Close">✕</button></div>
     <ul class="findings">${a.length?a.map(x=>`<li class="${x.level}"><span>${esc(x.text)}</span></li>`).join(""):`<li class="good"><span>Premise passes every check. Go write Episode 1.</span></li>`}</ul>
     <div class="doc-sec"><h3>Season map</h3>${seasonMap()}</div>
-    <div class="doc-sec"><h3>Claude</h3><div class="row"><button class="btn small" id="askPremise">Review premise</button><button class="btn small" id="askPitch">Pitch 5 stronger loglines</button></div><div class="claude-out" id="cout"></div></div>`;
+    <div class="doc-sec"><h3>Review</h3><div class="row"><button class="btn small" id="askPremise">Review premise</button><button class="btn small" id="askPitch">Pitch 5 stronger loglines</button></div><div class="claude-out" id="cout"></div></div>`;
     d.querySelector("[data-docclose]").onclick=()=>isMobile()?setPane("write"):setDoc(false);wireClaude("premise");return}
   const ep=S.episodes.find(e=>String(e.id)===active);const idx=S.episodes.indexOf(ep);const {out,total,spoken,tl}=analyzeEpisode(ep,idx);
   const order={bad:0,warn:1,tip:2,good:3};out.sort((a,b)=>order[a.level]-order[b.level]);
   d.innerHTML=`<div class="dochead"><h2>Script doctor <span class="score">${fmt(total)} · ${spoken} words</span></h2><button class="btn small ghost" data-docclose title="Close">✕</button></div>
    <div class="tl">${tlSvg(tl,total,ep.num)}</div>
    <ul class="findings">${out.map(x=>`<li class="${x.level}"><span>${x.bi!=null?`<a data-goto="${x.bi}">`:""}${esc(x.text)}${x.bi!=null?"</a>":""}${x.at?`<span class="at">${esc(x.at)}</span>`:""}</span></li>`).join("")}</ul>
-   <div class="doc-sec"><h3>Claude</h3><div class="row"><button class="btn small primary" id="askEp">Review this episode</button><button class="btn small" id="askPunch">Punch up dialogue</button><button class="btn small" id="askNext">Pitch next episode</button></div><div class="claude-out" id="cout"></div></div>`;
+   <div class="doc-sec"><h3>Review</h3><div class="row"><button class="btn small primary" id="askEp">Review this episode</button><button class="btn small" id="askPunch">Punch up dialogue</button><button class="btn small" id="askNext">Pitch next episode</button></div><div class="claude-out" id="cout"></div></div>`;
   d.querySelectorAll("[data-goto]").forEach(a=>a.onclick=()=>{if(isMobile())setPane("write");if(window.flowActive){flowSelect(+a.dataset.goto)}const el=document.querySelector(`#blocks .blk[data-i="${a.dataset.goto}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("flag");setTimeout(()=>el.classList.remove("flag"),1800)}});
   d.querySelector("[data-docclose]").onclick=()=>isMobile()?setPane("write"):setDoc(false);wireClaude("episode",ep,idx);
 }
@@ -1326,8 +1326,8 @@ const RULEBOOK=`VERTICAL DRAMA RULEBOOK (ReelShort/DramaBox-style, 60-120s episo
 - PLAYABLE LAYER (Taplot-style interactive drama): interaction serves the loop. Stance choices sit on provocations and set FLAGS; QTEs and mini-games ARE the hidden power (fail-forward: failure is a different scene, never a retry wall); outfits, gifts and premium third options live on heat/status beats where gems buy MORE of the fantasy, never the plot; the biggest choice lands ~20s before the paywall cut. First interaction inside 20s and it is a choice. One hearts meter per love interest; thresholds change how a shared beat plays. Branch-and-bottleneck: flags swap a shot or a line, every branch rejoins at the gates. A flag set is echoed within 60s and paid in a later episode. Every premium option has a free sibling that sets the same story flag. Hidden collectible animals live on specific paths (silhouettes until found) and drive replay. Island tokens earned by playing/replaying buy gacha pulls (cosmetics, keepsakes, looping scenes). A between-episode sim is one fixed scene with timed hotspots.
 - Production is AI-generated video: faces in close-up (9:16), one speaker per shot for lip sync, props that read in close-up, locked character looks, 2-4 hub locations, under 5 costume states per character, burned-in captions (must read muted).`;
 function wireClaude(mode,ep,idx){
-  const outEl=$("#cout");if(!sampleFn){outEl.innerHTML=`<span class="sub">Claude review is unavailable in this view.</span>`;["askPremise","askPitch","askEp","askPunch","askNext"].forEach(id=>{const b=$("#"+id);if(b)b.disabled=true});return}
-  const run=async(btn,prompt,json,render)=>{const b=$("#"+btn);if(!b)return;b.onclick=async()=>{b.disabled=true;outEl.textContent="Thinking…";try{if(json){const v=await sampleFn.json(prompt,{cache:false});outEl.innerHTML=render(v)}else{const {text}=await sampleFn(prompt,{cache:false,onText:({text})=>{outEl.textContent=text}});outEl.textContent=text}}catch(e){outEl.textContent=e.code==="not_granted"?"Claude review was not allowed for this page.":e.code==="rate_limited"?"Rate limited. Try again in a minute.":e.code==="invalid_json"?"Claude's reply could not be parsed. Try again.":"Review failed ("+e.code+")."+(e.text?"\n"+e.text:"")}finally{b.disabled=false}}};
+  const outEl=$("#cout");if(!sampleFn){outEl.innerHTML=`<span class="sub">Review is unavailable in this view (no model key).</span>`;["askPremise","askPitch","askEp","askPunch","askNext"].forEach(id=>{const b=$("#"+id);if(b)b.disabled=true});return}
+  const run=async(btn,prompt,json,render)=>{const b=$("#"+btn);if(!b)return;b.onclick=async()=>{b.disabled=true;outEl.textContent="Thinking…";try{if(json){const v=await sampleFn.json(prompt,{cache:false});outEl.innerHTML=render(v)}else{const {text}=await sampleFn(prompt,{cache:false,onText:({text})=>{outEl.textContent=text}});outEl.textContent=text}}catch(e){outEl.textContent=e.code==="not_granted"?"Review was not allowed for this page.":e.code==="rate_limited"?"Rate limited. Try again in a minute.":e.code==="invalid_json"?"Claude's reply could not be parsed. Try again.":"Review failed ("+e.code+")."+(e.text?"\n"+e.text:"")}finally{b.disabled=false}}};
   const renderReview=v=>{if(!v||typeof v!=="object")return esc(String(v));return`<div><b>Score ${esc(v.score??"?")}/10</b> · hook ${esc(v.hook_strength??"?")}/10 · trope use ${esc(v.trope_use??"?")}/10</div>${v.best_moment?`<div style="margin:6px 0"><b>Best moment:</b> ${esc(v.best_moment)}</div>`:""}${(v.issues||[]).map(i=>`<div class="iss ${esc(i.severity)}"><b>${esc(i.where||"")}</b> ${esc(i.problem)}<br><i>Fix:</i> ${esc(i.fix)}</div>`).join("")}${(v.rewrites||[]).map(r=>`<div class="rw"><s>${esc(r.original)}</s><b>${esc(r.better)}</b></div>`).join("")}${v.next_episode_pitch?`<div style="margin-top:8px"><b>Next episode:</b> ${esc(v.next_episode_pitch)}</div>`:""}`};
   const JSONSHAPE=`Reply with only JSON: {"score":0-10,"hook_strength":0-10,"trope_use":0-10,"best_moment":"","issues":[{"severity":"high|med|low","where":"shot/line reference","problem":"","fix":""}],"rewrites":[{"original":"exact line","better":"rewritten line under 20 words"}],"next_episode_pitch":""}. Up to 8 issues, up to 5 rewrites. Be specific and blunt; this is a professional writer.`;
   if(mode==="premise"){
@@ -1362,8 +1362,8 @@ function contextText(){
 function renderChatPanel(){
   let panel=$("#chatPanel");
   if(!panel){panel=document.createElement("aside");panel.id="chatPanel";panel.className="chatpanel";document.body.appendChild(panel);
-    const fab=document.createElement("button");fab.id="chatFab";fab.className="chatfab";fab.innerHTML="✦ Chat";fab.onclick=()=>{chatOpen=!chatOpen;renderChatPanel()};document.body.appendChild(fab)}
-  panel.hidden=!chatOpen;document.body.classList.toggle("chat-open",chatOpen);$("#chatFab").hidden=chatOpen;
+    return}
+  panel.hidden=!chatOpen;document.body.classList.toggle("chat-open",chatOpen);const _cf=$("#chatFab");if(_cf)_cf.hidden=chatOpen;
   if(!chatOpen)return;
   const st=chatStore();const ep=currentEp();const viewing=active==="premise"?"Premise":active==="season"?"Season":active==="game"?"Gameplay":active==="flow"?"Flow":ep?"Episode "+ep.num:"Story";
   panel.innerHTML=`<div class="chatgrip" id="chatGrip" title="Drag to resize"></div><div class="chathead"><b>✦ ${esc(S.premise.title||"Story")} chat</b><span class="sub">one conversation for the whole story · sees the premise, the beat sheet and the open tab (${esc(viewing)})</span><button class="btn small ghost" id="chatClose" title="Close">✕</button></div>
@@ -1382,7 +1382,7 @@ function renderChatPanel(){
   box.oninput=()=>{st.draft=box.value;touch()};
   box.onkeydown=e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();$("#chatSend").click()}};
   $("#chatClear").onclick=()=>{st.turns=[];touch();draw();$("#chatApply").disabled=true};
-  if(!sampleFn){$("#chatSend").disabled=true;$("#chatApply").disabled=true;chat.insertAdjacentHTML("afterbegin",`<div class="sub">Claude is unavailable in this view.</div>`);return}
+  if(!sampleFn){$("#chatSend").disabled=true;$("#chatApply").disabled=true;chat.insertAdjacentHTML("afterbegin",`<div class="sub">Chat is unavailable in this view (no model key).</div>`);return}
   let ctl=null;$("#chatStop").onclick=()=>ctl?.abort();
   $("#chatSend").onclick=async()=>{const text=box.value.trim();if(!text)return;st.turns.push({role:"user",content:text});st.draft="";box.value="";grow(box);touch();draw();
     const live=document.createElement("div");live.className="msg assistant";live.innerHTML="<span>Thinking…</span>";chat.appendChild(live);chat.scrollTop=chat.scrollHeight;
@@ -1529,7 +1529,7 @@ const GUIDE=[
 $("#btnGuide").onclick=()=>{modal(`<h2>The rules the Doctor checks</h2><div style="display:flex;flex-direction:column;gap:6px">${GUIDE.map(([h,t])=>`<details class="card" style="margin:0"><summary><h2 style="font-size:14px">${esc(h)}</h2></summary><div class="cbody" style="font-size:13px;line-height:1.5">${esc(t)}</div></details>`).join("")}</div>`)};
 $("#btnChat").onclick=()=>{chatOpen=!chatOpen;renderChatPanel()};
 $("#btnDoc").onclick=()=>setDoc(!docOpen);
-$("#btnReview").onclick=()=>{if(isMobile())setPane("doctor");else setDoc(true);if(active==="season"||active==="game"||active==="flow")return;const b=active==="premise"?$("#askPremise"):$("#askEp");if(b&&!b.disabled)b.click();else toast("Claude review is unavailable here");$("#doctor").scrollIntoView({behavior:"smooth"})};
+const _noReview=()=>{if(isMobile())setPane("doctor");else setDoc(true);if(active==="season"||active==="game"||active==="flow")return;const b=active==="premise"?$("#askPremise"):$("#askEp");if(b&&!b.disabled)b.click();else toast("Review is unavailable here");$("#doctor").scrollIntoView({behavior:"smooth"})};
 
 /* ---------- standalone adapters (outside claude.ai) ---------- */
 const STANDALONE=!(window.claude&&window.claude.use);
@@ -1559,8 +1559,8 @@ if(STANDALONE){$("#btnKey").hidden=false;$("#btnKey").onclick=keyModal;
 /* ---------- doctor panel toggle (desktop) ---------- */
 let docOpen=false;
 function setDoc(open){docOpen=open;document.body.classList.toggle("doc-open",open);const d=$("#doctor");if(!isMobile())d.hidden=!open;const f=$("#docfab");if(f)f.hidden=open}
-function ensureDocFab(){if($("#docfab"))return;const f=document.createElement("button");f.id="docfab";f.className="docfab";f.innerHTML='✚ Doctor <span class="cnt" id="docCnt">0</span>';f.onclick=()=>setDoc(true);document.body.appendChild(f)}
-function docCount(){let n=0;if(active==="game"||active==="flow")n=analyzeGame().filter(x=>x.level==="bad"||x.level==="warn").length;else if(active==="season")n=analyzeSeason().filter(x=>x.level==="bad"||x.level==="warn").length;else if(active==="premise")n=analyzePremise().filter(x=>x.level==="bad"||x.level==="warn").length;else{const ep=S.episodes.find(e=>String(e.id)===active);if(ep)n=analyzeEpisode(ep,S.episodes.indexOf(ep)).out.filter(x=>x.level==="bad"||x.level==="warn").length}const c=$("#docCnt");if(c){c.textContent=n||"✓";c.classList.toggle("ok",!n)}}
+function ensureDocFab(){return;if($("#docfab"))return;const f=document.createElement("button");f.id="docfab";f.className="docfab";f.innerHTML='✚ Doctor <span class="cnt" id="docCnt">0</span>';f.onclick=()=>setDoc(true);document.body.appendChild(f)}
+function docCount(){let n=0;if(active==="game"||active==="flow")n=analyzeGame().filter(x=>x.level==="bad"||x.level==="warn").length;else if(active==="season")n=analyzeSeason().filter(x=>x.level==="bad"||x.level==="warn").length;else if(active==="premise")n=analyzePremise().filter(x=>x.level==="bad"||x.level==="warn").length;else{const ep=S.episodes.find(e=>String(e.id)===active);if(ep)n=analyzeEpisode(ep,S.episodes.indexOf(ep)).out.filter(x=>x.level==="bad"||x.level==="warn").length}const c=$("#docCnt");if(c){c.textContent=n||"✓";c.classList.toggle("ok",!n)}const h=$("#docCntHdr");if(h){h.textContent=n||"";h.hidden=!n}}
 /* ---------- mobile panes ---------- */
 const isMobile=()=>window.matchMedia("(max-width:900px)").matches;
 let pane="write";
@@ -1639,7 +1639,7 @@ function renderFPanel(ep){const host=$("#fpanel");const n=flowSel!=null?nodeFor(
   if(!n){host.innerHTML=`<div class="empty">Select a shot or a choice to edit it here.<br><span class="sub">Each card is one shot with its lines. Choices fan out into lanes; conditional shots sit in the lane of their flag.</span></div>`;return}
   const sh=n.type==="shot"?(flowShots[n.i+1]||{}):{};const local=!!window.GASP_LOCAL;const busy=!!flowRunning;
   const preview=n.type==="shot"?`<div class="fprev">${sh.segment?`<video src="${sh.segment}" controls playsinline></video>`:sh.approved?`<img src="${sh.approved}" alt="">`:`<div class="ph">${local?"Not rendered yet":"Rendering lives in the desktop app"}</div>`}
-      <div class="ftakes">${(sh.takes||[]).map(t=>`<img src="${t.url}" data-take="${t.id}" title="${t.id==="composite"?"composite":"take "+t.id}${t.id===sh.approvedId?" (approved)":""}" class="${t.id===sh.approvedId?"cur":""}">`).join("")}</div></div>`:"";
+      <div class="ftakes">${(sh.takes||[]).length?`<div class="hint">Takes — click one to use it in the cut</div>`:""}${(sh.takes||[]).map(t=>`<div class="tk ${t.id===sh.approvedId?"cur":""}" data-take="${t.id}"><img src="${t.url}" alt=""><span>${t.id==="composite"?"composite":"take "+t.id}${t.id===sh.approvedId?" ✓ in use":""}</span></div>`).join("")}</div></div>`:"";
   const actions=n.type==="shot"&&local?`<div class="facts">
       <button class="btn small" data-act="composite" title="Cutouts over the setting plate — free">Composite</button>
       <button class="btn small" data-act="stills" title="Generate a new still on fal (~$0.05–0.08); the newest take becomes approved">✨ Still</button>
@@ -1650,7 +1650,7 @@ function renderFPanel(ep){const host=$("#fpanel");const n=flowSel!=null?nodeFor(
   const ops=`<div class="fops"><span class="sub">#${n.i+1} ${n.type==="ix"?"interaction":n.type==="shot"?"shot":"lines"}</span><span class="spacer"></span><button class="btn small ghost" data-nop="up" title="Move up">↑</button><button class="btn small ghost" data-nop="down" title="Move down">↓</button><button class="btn small ghost" data-nop="dup" title="Duplicate">⧉</button>${n.type==="shot"?`<button class="btn small ghost" data-nop="line">+ Line</button><button class="btn small ghost" data-nop="sfx">+ SFX</button>`:""}<button class="btn small ghost" data-nop="del" style="color:var(--bad)">Delete</button></div>`;
   host.innerHTML=preview+actions+ops+`<div class="blocks" id="blocks"></div>`;
   renderBlocks(ep,$("#blocks"),new Set(n.blocks));growAll(host);
-  host.querySelectorAll("[data-take]").forEach(im=>im.onclick=async()=>{if(!local)return;await fetch("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:flowSlug(),ep:ep.num,shot:n.i+1,take:im.dataset.take})});await flowLoadShots();toast("Approved · press Preview to rebuild the segment")});
+  host.querySelectorAll("[data-take]").forEach(im=>im.onclick=async()=>{if(!local)return;await fetch("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:flowSlug(),ep:ep.num,shot:n.i+1,take:im.dataset.take})});await flowLoadShots();flowRun(ep,n,"preview")});
   host.querySelectorAll("[data-act]").forEach(bt=>bt.onclick=()=>flowRun(ep,n,bt.dataset.act));
   host.querySelectorAll("[data-nop]").forEach(bt=>bt.onclick=()=>{const op=bt.dataset.nop;const nodes=flowNodes(ep);const k=nodes.indexOf(nodeFor(ep,n.i));const take=()=>ep.blocks.splice(n.blocks[0],n.blocks.length);
     if(op==="del"){take();flowSel=null}
@@ -1661,11 +1661,11 @@ function renderFPanel(ep){const host=$("#fpanel");const n=flowSel!=null?nodeFor(
     else if(op==="sfx"){ep.blocks.splice(n.blocks[n.blocks.length-1]+1,0,{kind:"sfx",text:"",dur:1})}
     touch();flowRefresh();renderDoctor()});
 }
-async function flowLoadShots(){if(!window.GASP_LOCAL)return;const ep=flowEp();if(!ep)return;try{const r=await (await fetch(`/api/shots?slug=${encodeURIComponent(flowSlug())}&ep=${ep.num}`)).json();flowShots=r.shots||{};}catch(e){flowShots={}}if(window.flowActive)flowRefresh()}
+async function flowLoadShots(){if(!window.GASP_LOCAL)return;const ep=flowEp();if(!ep)return;try{const r=await (await fetch(`/api/shots?slug=${encodeURIComponent(flowSlug())}&ep=${ep.num}`)).json();const next=JSON.stringify(r.shots||{});if(next===JSON.stringify(flowShots))return;flowShots=r.shots||{};}catch(e){flowShots={}}if(window.flowActive&&!(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)))flowRefresh()}
 function flowEvents(){if(!window.GASP_LOCAL||flowES)return;flowES=new EventSource("/api/events");
   flowES.addEventListener("log",e=>{flowLogTail.push(JSON.parse(e.data));if(flowLogTail.length>40)flowLogTail.shift();const el=$("#flog");if(el){el.textContent=flowLogTail.slice(-5).join("\n")}});
   flowES.addEventListener("status",e=>{const s=JSON.parse(e.data);flowRunning=s.running?s.step:null;const el=$("#fstatus");if(el)el.textContent=flowRunning?"running: "+flowRunning:"";document.querySelectorAll("[data-act]").forEach(b=>b.disabled=!!flowRunning)});
-  flowES.addEventListener("done",()=>{flowLoadShots()})}
+  flowES.addEventListener("done",()=>{setTimeout(flowLoadShots,300)});setInterval(()=>{if(window.flowActive&&flowRunning)flowLoadShots()},4000)}
 async function flowRun(ep,n,act){if(flowRunning){toast("Still rendering the last request");return}
   const sh=flowShots[n.i+1]||{};const steps=act==="composite"?["composite"]:act==="stills"?["stills"]:act==="vo"?["vo"]:act==="animate"?["animate"]:sh.approved?[]:["composite"];
   if((act==="stills"||act==="animate")&&!confirm(act==="stills"?"Generate a new still on fal (~$0.05–0.08)?":"Image-to-video on fal costs roughly $0.25–0.50 per shot (plus lip-sync). Continue?"))return;

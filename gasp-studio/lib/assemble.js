@@ -30,7 +30,7 @@ async function renderShotSegment({ shot, still, clip, voFiles, outFile, captions
   let inputs = [];
   if (clip && exists(clip)) {
     inputs = ["-i", clip];
-    vf.push(`scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},tpad=stop_mode=clone:stop_duration=${Math.max(0, total - 0.01)}`);
+    vf.push(`scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1,tpad=stop_mode=clone:stop_duration=${Math.max(0, total - 0.01)}`);   // never crop a generated clip; letterbox if its aspect is off
   } else {
     inputs = ["-loop", "1", "-framerate", String(FPS), "-i", still];
     // slow push: zoompan over the segment
