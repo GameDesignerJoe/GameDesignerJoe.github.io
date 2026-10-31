@@ -117,10 +117,10 @@ export async function serve({ root, port = 4747, open = true }) {
         const clips = ["clip-lipsync.mp4", "clip.mp4"].filter(f => fs.existsSync(path.join(sd, f))).map(f => ({ name: f === "clip.mp4" ? "generated clip (no lip-sync)" : "lip-synced clip", url: `/work/${s}/ep${ep}/shot-${String(url.searchParams.get("shot")).padStart(2, "0")}/${f}?t=${fs.statSync(path.join(sd, f)).mtimeMs}` }));
         return json({ approved, clips, segment: fs.existsSync(segf) ? `/work/${s}/ep${ep}/seg-${String(url.searchParams.get("shot")).padStart(2, "0")}.mp4?t=${fs.statSync(segf).mtimeMs}` : null, takes: files.map(f => ({ id: f === "composite.png" ? "composite" : f.match(/\d+/)[0], url: `/work/${s}/ep${ep}/shot-${String(url.searchParams.get("shot")).padStart(2, "0")}/${f}?t=${fs.statSync(path.join(sd, f)).mtimeMs}` })) }); }
       if (url.pathname === "/api/manifest" && req.method === "POST") {
-        // "Send to GASP" from Gate Ten: { name, manifest }
+        // "Send to GASP" from the Write tabs: { name, manifest }
         const b = await body(); const m = b.manifest; if (!m || m.format !== "gate-ten-production") return json({ error: "not a production manifest" }, 400);
         const name = (b.name || `${slug(m.story?.title)}-production`).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/\.json$/, "") + ".json";
-        fs.writeFileSync(path.join(root, name), JSON.stringify(m)); emit("log", `📥 received ${name} from Gate Ten`); emit("manifest", { file: name }); return json({ ok: true, file: name });
+        fs.writeFileSync(path.join(root, name), JSON.stringify(m)); emit("log", `📥 received ${name} from the writing tabs`); emit("manifest", { file: name }); return json({ ok: true, file: name });
       }
       if (url.pathname.startsWith("/work/")) {
         const f = path.join(root, decodeURIComponent(url.pathname)); if (!f.startsWith(path.join(root, "work")) || !fs.existsSync(f)) { res.writeHead(404); return res.end(); }
@@ -191,7 +191,7 @@ pre#log{margin:0;padding:14px 18px;overflow:auto;font:12px/1.5 Consolas,ui-monos
   <button class="btn" id="render">Render</button>
   <div class="row"><button class="btn ghost" id="stop" disabled>Stop</button><span class="spacer"></span><button class="btn ghost" id="refresh">Refresh</button></div>
   <div class="meta" id="castinfo"></div>
-  <div class="meta" id="howto">In Gate Ten: Export → Production manifest JSON → <b>Save file</b>, then <b>Import manifest…</b> here (or drop the file anywhere on this page). Manifests live in this folder.</div>
+  <div class="meta" id="howto">From the writing tabs: Export → Production manifest JSON → <b>Save file</b>, then <b>Import manifest…</b> here (or drop the file anywhere on this page). Manifests live in this folder.</div>
 </aside>
 <section class="right">
   <div class="stage">
@@ -217,7 +217,7 @@ box.querySelectorAll('.t[data-id]').forEach(el=>el.onclick=async()=>{await fetch
 box.querySelector('#rebuild').onclick=async()=>{box.classList.remove('open');$('#log').textContent='';await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({file:cur.file,ep:cur.ep,steps:['animatic'],dry:$('#dry').checked,path:pathArg()},scope()))})};box.querySelector('#reshot').onclick=async()=>{box.classList.remove('open');$('#log').textContent='';const dry=$('#dry').checked;const r2=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({file:cur.file,ep:cur.ep,steps:['composite','vo','beds'],dry,force:true,thenAssemble:true,path:pathArg()},scope(),{shot}))})).json();if(r2.error)alert(r2.error)};box.onclick=e=>{if(e.target===box)box.classList.remove('open')}}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#takes').classList.remove('open')});
 function log(s){const el=$('#log');el.textContent+=s+'\\n';el.scrollTop=el.scrollHeight}
-async function importFile(f){if(!f)return;try{const m=JSON.parse(await f.text());const r=await (await fetch('/api/manifest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name.replace(/\.json$/,''),manifest:m})})).json();if(r.error)throw new Error(r.error);log('📥 imported '+r.file+' — '+(m.story?.title||'')+', '+(m.episodes||[]).length+' episode(s)');$('#importinfo').textContent='saved '+r.file+' into '+DATA.root+' ('+new Date().toLocaleTimeString()+')'}catch(e){alert('Not a Gate Ten production manifest: '+e.message)}}
+async function importFile(f){if(!f)return;try{const m=JSON.parse(await f.text());const r=await (await fetch('/api/manifest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name.replace(/\.json$/,''),manifest:m})})).json();if(r.error)throw new Error(r.error);log('📥 imported '+r.file+' — '+(m.story?.title||'')+', '+(m.episodes||[]).length+' episode(s)');$('#importinfo').textContent='saved '+r.file+' into '+DATA.root+' ('+new Date().toLocaleTimeString()+')'}catch(e){alert('Not a GASP production manifest: '+e.message)}}
 $('#import').onchange=e=>importFile(e.target.files[0]);document.addEventListener('dragover',e=>{e.preventDefault()});document.addEventListener('drop',e=>{e.preventDefault();importFile(e.dataTransfer.files[0])});
 $('#file').onchange=onFile;$('#ep').onchange=onEp;$('#refresh').onclick=load;
 $('#render').onclick=async()=>{const steps=[...document.querySelectorAll('#steps input:checked')].map(i=>i.dataset.step);if(!steps.length)return alert('Pick at least one step.');if(!$('#dry').checked&&steps.some(s=>s==='stills'||s==='animate')&&!confirm('Stills / image-to-video spend real money on fal. Continue?'))return;$('#log').textContent='';const r=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({file:cur.file,ep:cur.ep,steps,dry:$('#dry').checked,force:$('#force').checked,path:pathArg()},scope()))})).json();if(r.error)alert(r.error)};

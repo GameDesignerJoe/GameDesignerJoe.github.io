@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Gate Ten Studio — stills-first production pipeline for Gate Ten production manifests.
+// GASP Studio — stills-first production pipeline for GASP production manifests.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,7 +33,7 @@ Env: FAL_KEY, ELEVENLABS_API_KEY, STUDIO_DRY_RUN=1 (placeholders, no network), S
 if (cmd === "serve") { const { serve } = await import("./lib/serve.js"); await serve({ root: ROOT, port: +args.port || 4747, open: !args.noopen }); await new Promise(() => {}); }
 if (!cmd || !file || args.help) { console.log(HELP); process.exit(0); }
 const manifest = readJSON(file);
-if (manifest.format !== "gate-ten-production") { warn("Not a Gate Ten production manifest (format field missing). Continuing anyway."); }
+if (manifest.format !== "gate-ten-production") { warn("Not a GASP production manifest (format field missing). Continuing anyway."); }
 const eps = pickEpisodes(manifest, args);
 // --shot 3  or  --shot 1,3,5   limits work to those block indexes;  --until 12  stops before block 12 (e.g. the first choice)
 const shotFilter = args.shot ? String(args.shot).split(",").map(Number) : null;
@@ -114,7 +114,7 @@ async function cmdComposite() {
     const dir = shotDir(manifest, ROOT, ep, s); const out = path.join(dir, "composite.png");
     const cuts = cutoutsForShot(s, refs, manifest); const setting = settingFileFor(s, refs);
     if (!cuts.length && !setting) { warn(`shot #${pad2(s.index)}: no cutouts or setting image; skipped`); continue; }
-    if (!cuts.length) { const have = Object.keys(refs.cutouts || {}); warn(`shot #${pad2(s.index)}: no character cutouts matched. Shot characters: [${(s.characters || []).join(", ") || "none detected"}] · cutouts exist for: [${have.join(", ") || "nobody — add them in Gate Ten → Cast → Cutouts for compositing, then re-export"}]`); }
+    if (!cuts.length) { const have = Object.keys(refs.cutouts || {}); warn(`shot #${pad2(s.index)}: no character cutouts matched. Shot characters: [${(s.characters || []).join(", ") || "none detected"}] · cutouts exist for: [${have.join(", ") || "nobody — add them under Cast → Cutouts for compositing, then re-export"}]`); }
     await composeShot({ setting, cutouts: cuts, frame: s.frame, outFile: out });
     if (!exists(path.join(dir, "approved.png")) || args.force) fs.copyFileSync(out, path.join(dir, "approved.png"));
     log(`Ep ${ep.number} shot #${pad2(s.index)} composite: ${cuts.map(c => c.name + " (" + c.state + (c.chest ? ", chest" : ", full") + ")").join(" + ") || "setting only"}${setting ? " over " + path.basename(setting) : ""}`); n++;

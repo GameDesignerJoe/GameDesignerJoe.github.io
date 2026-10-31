@@ -1,9 +1,9 @@
 # GASP Studio
 
-**G**ameplay · **A**nimatic · **S**cript · **P**roduction. The local half of Gate Ten: turns a production manifest into a voiced, captioned animatic, with SlapCut (the cutout compositor) for free stills and fal.ai for generated ones.
+**G**ameplay · **A**nimatic · **S**cript · **P**roduction. Turns a production manifest into a voiced, captioned animatic, with SlapCut (the cutout compositor) for free stills and fal.ai for generated ones.
 
 ## One app
-Double-click `GASP.bat` (or run `node studio.js serve`). It opens http://localhost:4747: Gate Ten (write) with a **Render** tab (produce) in the same page.
+Double-click `GASP.bat` (or run `node studio.js serve`). It opens http://localhost:4747: the writing tabs (Premise, Season, Gameplay, episodes) with a **Render** tab in the same page.
 
 - Stories are saved as files in `stories/` on this machine (git-ignored). To bring a story over from the claude.ai version: there, Import / backup → *Save all stories as file*; here, Import / backup → *Load file*.
 - Claude features in the writing tabs need `ANTHROPIC_API_KEY` in `.env`, next to the fal and ElevenLabs keys.
@@ -13,7 +13,7 @@ Double-click `GASP.bat` (or run `node studio.js serve`). It opens http://localho
 ## Updating
 `git pull` in this folder. Your `.env` and `work/` are ignored by git and survive updates.
 
-A local, stills-first production pipeline for the JSON that Gate Ten exports
+A local, stills-first production pipeline for the JSON that the app exports
 (Export → Production manifest JSON). It runs on your machine with your own
 provider keys. Nothing here talks to Claude.
 
