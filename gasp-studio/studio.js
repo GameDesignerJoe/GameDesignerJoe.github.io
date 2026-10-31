@@ -15,6 +15,7 @@ const cmd = args._[0];
 const file = args._[1];
 
 const HELP = `GASP Studio — Gameplay · Animatic · Script · Production  (SlapCut compositor inside)
+  studio serve                                     open the control panel in your browser (no more commands)
   studio plan      <manifest.json> [--ep 1,2]
   studio refs      <manifest.json>                 write reference images to work/<story>/refs/
   studio composite <manifest.json> --ep 1 [--force]  cutouts over setting images → approved stills, no AI, free
@@ -28,6 +29,7 @@ const HELP = `GASP Studio — Gameplay · Animatic · Script · Production  (Sla
 Filters: --shot 1,3,5 (block numbers, as shown by plan)   --until 12 (stop before block 12, e.g. the first choice)
 Env: FAL_KEY, ELEVENLABS_API_KEY, STUDIO_DRY_RUN=1 (placeholders, no network), STUDIO_FONT=/path/to/font.ttf`;
 
+if (cmd === "serve") { const { serve } = await import("./lib/serve.js"); await serve({ root: ROOT, port: +args.port || 4747, open: !args.noopen }); await new Promise(() => {}); }
 if (!cmd || !file || args.help) { console.log(HELP); process.exit(0); }
 const manifest = readJSON(file);
 if (manifest.format !== "gate-ten-production") { warn("Not a Gate Ten production manifest (format field missing). Continuing anyway."); }

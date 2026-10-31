@@ -2,6 +2,9 @@
 
 **G**ameplay · **A**nimatic · **S**cript · **P**roduction. The local half of Gate Ten: turns a production manifest into a voiced, captioned animatic, with SlapCut (the cutout compositor) for free stills and fal.ai for generated ones.
 
+## The easy way: the control panel
+Double-click `GASP.bat` (or run `node studio.js serve`). It opens http://localhost:4747 in your browser: pick the story and episode, choose how far to render (e.g. up to the first choice), tick the steps, press Render. The log streams in, the cut plays in the page, and clicking a shot lets you pick which take is approved. In Gate Ten, Export → **Send to GASP** drops the manifest straight into this folder while the panel is running.
+
 ## Updating
 `git pull` in this folder. Your `.env` and `work/` are ignored by git and survive updates.
 
