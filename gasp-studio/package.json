@@ -1,0 +1,9 @@
+{
+  "name": "gasp-studio",
+  "version": "0.5.0",
+  "description": "GASP Studio: local production pipeline for Gate Ten manifests: stills → VO → captions → animatic MP4, with optional image-to-video per shot.",
+  "type": "module",
+  "bin": { "studio": "./studio.js" },
+  "scripts": { "start": "node studio.js" },
+  "engines": { "node": ">=18" }
+}

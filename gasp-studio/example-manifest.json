@@ -1,0 +1,499 @@
+{
+ "format": "gate-ten-production",
+ "version": 1,
+ "exported": "2026-10-31T07:29:29.088Z",
+ "story": {
+  "title": "Boss Fight: My Ex's Wedding",
+  "author": "J. Morrissey",
+  "logline": "A jilted bride hires a dangerous 'fixer' to pose as her new fiancé at her ex's wedding, not knowing he is the groom's estranged older brother and the real heir, and she has three days before the ceremony exposes them both in front of everyone.",
+  "engine": "Status reversal (the despised one is secretly powerful)",
+  "engine2": "Being chosen (the powerful one picks her over everyone)",
+  "skin": "Secret billionaire / CEO",
+  "clock": "The wedding is in 3 days.",
+  "gates": {
+   "g1": 10,
+   "g2": 30,
+   "g3": 55,
+   "total": 60
+  },
+  "cover": "",
+  "heatLevel": "PG-13 steamy; cut at consummation"
+ },
+ "cast": [
+  {
+   "name": "Mara",
+   "role": "FL",
+   "look": "28, dark curls, freckles, green eyes; thrifted emerald slip dress; always wears her grandmother's ring",
+   "voiceDirection": "low, steady, cracks when hurt",
+   "voice": {
+    "provider": "ElevenLabs",
+    "id": "Rachel",
+    "settings": ""
+   },
+   "costumes": [
+    "emerald dress",
+    "hotel robe",
+    "red gala gown"
+   ],
+   "downfall": "",
+   "portrait": "",
+   "gallery": [],
+   "imagePrompt": "Character reference portrait for a vertical drama, 3:4, photoreal cinematic headshot, chest-up. Mara: 28, dark curls, freckles, green eyes; thrifted emerald slip dress; always wears her grandmother's ring. Expression: chin up, eyes straight to camera, hurt but unbroken. Warm glamour key, soft fill, jewel-toned backdrop, 85mm lens, shallow depth of field, skin texture visible, consistent identity sheet quality. Plain backdrop, no text, no logos. --ar 3:4 --style raw"
+  },
+  {
+   "name": "Cole",
+   "role": "ML",
+   "look": "34, black hair, scar through left eyebrow, grey eyes; black suit no tie; silver lighter he never uses",
+   "voiceDirection": "quiet, amused, dangerous when soft",
+   "voice": {
+    "provider": "",
+    "id": "",
+    "settings": ""
+   },
+   "costumes": [
+    "black suit",
+    "open shirt",
+    "tux"
+   ],
+   "downfall": "",
+   "portrait": "",
+   "gallery": [],
+   "imagePrompt": "Character reference portrait for a vertical drama, 3:4, photoreal cinematic headshot, chest-up. Cole: 34, black hair, scar through left eyebrow, grey eyes; black suit no tie; silver lighter he never uses. Expression: three-quarter turn, steady gaze, quiet danger. Warm glamour key, soft fill, jewel-toned backdrop, 85mm lens, shallow depth of field, skin texture visible, consistent identity sheet quality. Plain backdrop, no text, no logos. --ar 3:4 --style raw"
+  },
+  {
+   "name": "Preston",
+   "role": "villain",
+   "look": "31, blond, tanned, veneers; navy suit, Vance crest pin",
+   "voiceDirection": "loud, smug, nasal when scared",
+   "voice": {
+    "provider": "",
+    "id": "",
+    "settings": ""
+   },
+   "costumes": [
+    "navy suit",
+    "tux"
+   ],
+   "downfall": "58",
+   "portrait": "",
+   "gallery": [],
+   "imagePrompt": "Character reference portrait for a vertical drama, 3:4, photoreal cinematic headshot, chest-up. Preston: 31, blond, tanned, veneers; navy suit, Vance crest pin. Expression: slight smirk, eyes narrowed, too pleased with themselves. Warm glamour key, soft fill, jewel-toned backdrop, 85mm lens, shallow depth of field, skin texture visible, consistent identity sheet quality. Plain backdrop, no text, no logos. --ar 3:4 --style raw"
+  },
+  {
+   "name": "Brielle",
+   "role": "villain",
+   "look": "26, platinum blowout, pink nails; white minidress",
+   "voiceDirection": "sweet, then shrill",
+   "voice": {
+    "provider": "",
+    "id": "",
+    "settings": ""
+   },
+   "costumes": [
+    "white minidress",
+    "wedding gown"
+   ],
+   "downfall": "52",
+   "portrait": "",
+   "gallery": [],
+   "imagePrompt": "Character reference portrait for a vertical drama, 3:4, photoreal cinematic headshot, chest-up. Brielle: 26, platinum blowout, pink nails; white minidress. Expression: slight smirk, eyes narrowed, too pleased with themselves. Warm glamour key, soft fill, jewel-toned backdrop, 85mm lens, shallow depth of field, skin texture visible, consistent identity sheet quality. Plain backdrop, no text, no logos. --ar 3:4 --style raw"
+  },
+  {
+   "name": "Dani",
+   "role": "witness",
+   "look": "28, braids, denim jacket, phone always up",
+   "voiceDirection": "fast, funny",
+   "voice": {
+    "provider": "",
+    "id": "",
+    "settings": ""
+   },
+   "costumes": [
+    "denim",
+    "bridesmaid lilac"
+   ],
+   "downfall": "",
+   "portrait": "",
+   "gallery": [],
+   "imagePrompt": "Character reference portrait for a vertical drama, 3:4, photoreal cinematic headshot, chest-up. Dani: 28, braids, denim jacket, phone always up. Expression: open, alert, about to react. Warm glamour key, soft fill, jewel-toned backdrop, 85mm lens, shallow depth of field, skin texture visible, consistent identity sheet quality. Plain backdrop, no text, no logos. --ar 3:4 --style raw"
+  }
+ ],
+ "locations": [
+  {
+   "name": "Grand ballroom",
+   "aliases": [],
+   "look": "",
+   "ambience": "string quartet, murmur",
+   "music": "",
+   "reference": "",
+   "gallery": [],
+   "imagePrompt": "Location reference for a vertical drama, 9:16 vertical cinematic still, photoreal, empty of people. Grand ballroom. Golden-hour glamour, warm practicals, deep jewel tones, 24mm lens, depth from foreground to background so faces can be staged in the near third, soap-opera production design, lower third uncluttered for captions. No text, no logos, no watermark. --ar 9:16 --style raw",
+   "settings": [
+    {
+     "key": "night",
+     "sub": "",
+     "time": "night",
+     "weather": "",
+     "ambience": "string quartet, murmur",
+     "reference": "",
+     "gallery": [],
+     "imagePrompt": "Location reference for a vertical drama, 9:16 vertical cinematic still, photoreal, empty of people. Grand ballroom. Condition: night; light and weather follow that condition, palette warm practicals, deep jewel tones. 24mm lens, depth from foreground to background so faces can be staged in the near third, soap-opera production design, lower third uncluttered for captions. Same architecture and dressing as the base reference. No text, no logos, no watermark. --ar 9:16 --style raw"
+    }
+   ]
+  },
+  {
+   "name": "bridal suite",
+   "aliases": [],
+   "look": "",
+   "ambience": "",
+   "music": "",
+   "reference": "",
+   "gallery": [],
+   "imagePrompt": "Location reference for a vertical drama, 9:16 vertical cinematic still, photoreal, empty of people. bridal suite. Golden-hour glamour, warm practicals, deep jewel tones, 24mm lens, depth from foreground to background so faces can be staged in the near third, soap-opera production design, lower third uncluttered for captions. No text, no logos, no watermark. --ar 9:16 --style raw",
+   "settings": [
+    {
+     "key": "night",
+     "sub": "",
+     "time": "night",
+     "weather": "",
+     "ambience": "",
+     "reference": "",
+     "gallery": [],
+     "imagePrompt": "Location reference for a vertical drama, 9:16 vertical cinematic still, photoreal, empty of people. bridal suite. Condition: night; light and weather follow that condition, palette warm practicals, deep jewel tones. 24mm lens, depth from foreground to background so faces can be staged in the near third, soap-opera production design, lower third uncluttered for captions. Same architecture and dressing as the base reference. No text, no logos, no watermark. --ar 9:16 --style raw"
+    }
+   ]
+  },
+  {
+   "name": "hotel rooftop bar",
+   "aliases": [],
+   "look": "",
+   "ambience": "",
+   "music": "",
+   "reference": "",
+   "gallery": [],
+   "imagePrompt": "Location reference for a vertical drama, 9:16 vertical cinematic still, photoreal, empty of people. hotel rooftop bar. Golden-hour glamour, warm practicals, deep jewel tones, 24mm lens, depth from foreground to background so faces can be staged in the near third, soap-opera production design, lower third uncluttered for captions. No text, no logos, no watermark. --ar 9:16 --style raw",
+   "settings": []
+  }
+ ],
+ "items": [],
+ "episodes": [
+  {
+   "number": 1,
+   "title": "That's my future wife",
+   "summary": "Brielle throws a drink in Mara's face at the rehearsal dinner; a stranger catches the glass and claims Mara as his fiancée.",
+   "where": "Where Brielle throws a drink in Mara's face at the rehearsal dinner; a stranger catches the glass and claims Mara as his fiancée.",
+   "hookType": "identity",
+   "music": "Sting on the drink; low pulse under Cole",
+   "ambience": "",
+   "gate": "",
+   "runningTime": 42.1,
+   "captions": true,
+   "shots": [
+    {
+     "index": 1,
+     "start": 0,
+     "duration": 3,
+     "location": "Grand ballroom",
+     "locationRef": "Grand ballroom",
+     "subArea": "",
+     "settingKey": "night",
+     "time": "night",
+     "weather": "",
+     "frame": "CU",
+     "characters": [
+      "Brielle",
+      "Mara"
+     ],
+     "action": "A glass of red wine hits Mara full in the face. Slow-motion drip down the emerald dress.",
+     "emotion": "Mara: frozen shock",
+     "beat": "provocation",
+     "cond": "",
+     "renderPlan": "lipsync",
+     "renderOverride": "auto",
+     "audio": "",
+     "ambience": "string quartet, murmur",
+     "videoPrompt": "Vertical 9:16 cinematic video, 3 seconds, photoreal, soap-opera drama lighting. CU of Brielle (26, platinum blowout, pink nails; white minidress) and Mara (28, dark curls, freckles, green eyes; thrifted emerald slip dress; always wears her grandmother's ring) in Grand ballroom, night. Action: A glass of red wine hits Mara full in the face. Slow-motion drip down the emerald dress. Expression: Mara: frozen shock. Camera: slow push-in, shallow depth of field, face centered in the upper two-thirds, lower third clear for captions. Lip sync: Brielle (sweet, then shrill) says \"That dress is from a thrift store. So are you.\" — sweet, cutting. Consistent character identity across shots. No text, no watermark, no extra people, no distorted hands.",
+     "lines": [
+      {
+       "index": 2,
+       "start": 3,
+       "duration": 4.45,
+       "speaker": "Brielle",
+       "text": "That dress is from a thrift store. So are you.",
+       "direction": "sweet, cutting",
+       "intensity": 8,
+       "beat": "provocation",
+       "cond": "",
+       "voice": {
+        "provider": "",
+        "id": "",
+        "settings": "",
+        "direction": "sweet, then shrill"
+       },
+       "caption": "That dress is from a thrift store. So are you."
+      }
+     ],
+     "sfx": [],
+     "approvedStill": "",
+     "takes": []
+    },
+    {
+     "index": 3,
+     "start": 7.45,
+     "duration": 3,
+     "location": "Grand ballroom",
+     "locationRef": "Grand ballroom",
+     "subArea": "",
+     "settingKey": "night",
+     "time": "night",
+     "weather": "",
+     "frame": "MCU",
+     "characters": [
+      "Preston",
+      "Mara"
+     ],
+     "action": "Preston smirks, arm around Brielle. Guests lift their phones.",
+     "emotion": "Preston: smug",
+     "beat": "provocation",
+     "cond": "",
+     "renderPlan": "lipsync",
+     "renderOverride": "auto",
+     "audio": "",
+     "ambience": "string quartet, murmur",
+     "videoPrompt": "Vertical 9:16 cinematic video, 3 seconds, photoreal, soap-opera drama lighting. MCU of Preston (31, blond, tanned, veneers; navy suit, Vance crest pin) and Mara (28, dark curls, freckles, green eyes; thrifted emerald slip dress; always wears her grandmother's ring) in Grand ballroom, night. Action: Preston smirks, arm around Brielle. Guests lift their phones. Expression: Preston: smug. Camera: static, slight handheld, shallow depth of field, face centered in the upper two-thirds, lower third clear for captions. Lip sync: Preston (loud, smug, nasal when scared) says \"Nobody invited you, Mara. Go home before you embarrass yourself again.\" — loud, performing for the room. Consistent character identity across shots. No text, no watermark, no extra people, no distorted hands.",
+     "lines": [
+      {
+       "index": 4,
+       "start": 10.45,
+       "duration": 4.83,
+       "speaker": "Preston",
+       "text": "Nobody invited you, Mara. Go home before you embarrass yourself again.",
+       "direction": "loud, performing for the room",
+       "intensity": 7,
+       "beat": "provocation",
+       "cond": "",
+       "voice": {
+        "provider": "",
+        "id": "",
+        "settings": "",
+        "direction": "loud, smug, nasal when scared"
+       },
+       "caption": "Nobody invited you, Mara. Go home before you embarrass yourself again."
+      },
+      {
+       "index": 5,
+       "start": 15.28,
+       "duration": 5.6,
+       "speaker": "Mara",
+       "text": "You invited me. You just forgot you were marrying someone else that week.",
+       "direction": "shaking but clear",
+       "intensity": 7,
+       "beat": "provocation",
+       "cond": "",
+       "voice": {
+        "provider": "ElevenLabs",
+        "id": "Rachel",
+        "settings": "",
+        "direction": "low, steady, cracks when hurt"
+       },
+       "caption": "You invited me. You just forgot you were marrying someone else that week."
+      }
+     ],
+     "sfx": [],
+     "approvedStill": "",
+     "takes": []
+    },
+    {
+     "index": 6,
+     "start": 20.88,
+     "duration": 3,
+     "location": "Grand ballroom",
+     "locationRef": "Grand ballroom",
+     "subArea": "",
+     "settingKey": "night",
+     "time": "night",
+     "weather": "",
+     "frame": "insert (prop)",
+     "characters": [
+      "Cole"
+     ],
+     "action": "A hand catches the second glass mid-air before it leaves Brielle's fingers. Silver lighter glints on the wrist.",
+     "emotion": "",
+     "beat": "hidden",
+     "cond": "",
+     "renderPlan": "push",
+     "renderOverride": "auto",
+     "audio": "",
+     "ambience": "string quartet, murmur",
+     "videoPrompt": "Vertical 9:16 cinematic video, 3 seconds, photoreal, soap-opera drama lighting. insert (prop) of Cole (34, black hair, scar through left eyebrow, grey eyes; black suit no tie; silver lighter he never uses) in Grand ballroom, night. Action: A hand catches the second glass mid-air before it leaves Brielle's fingers. Silver lighter glints on the wrist. Camera: static macro, shallow depth of field, face centered in the upper two-thirds, lower third clear for captions. Lip sync: Cole (quiet, amused, dangerous when soft) says \"That's my future wife you're talking to.\" — quiet, amused. Consistent character identity across shots. No text, no watermark, no extra people, no distorted hands.",
+     "lines": [
+      {
+       "index": 7,
+       "start": 23.88,
+       "duration": 3.29,
+       "speaker": "Cole",
+       "text": "That's my future wife you're talking to.",
+       "direction": "quiet, amused",
+       "intensity": 6,
+       "beat": "reversal",
+       "cond": "",
+       "voice": {
+        "provider": "",
+        "id": "",
+        "settings": "",
+        "direction": "quiet, amused, dangerous when soft"
+       },
+       "caption": "That's my future wife you're talking to."
+      }
+     ],
+     "sfx": [],
+     "approvedStill": "",
+     "takes": []
+    },
+    {
+     "index": 8,
+     "start": 27.17,
+     "duration": 3,
+     "location": "Grand ballroom",
+     "locationRef": "Grand ballroom",
+     "subArea": "",
+     "settingKey": "night",
+     "time": "night",
+     "weather": "",
+     "frame": "CU",
+     "characters": [
+      "Mara"
+     ],
+     "action": "Mara turns. She has never seen this man in her life.",
+     "emotion": "Mara: confusion, then she plays along",
+     "beat": "realize",
+     "cond": "",
+     "renderPlan": "lipsync",
+     "renderOverride": "auto",
+     "audio": "",
+     "ambience": "string quartet, murmur",
+     "videoPrompt": "Vertical 9:16 cinematic video, 3 seconds, photoreal, soap-opera drama lighting. CU of Mara (28, dark curls, freckles, green eyes; thrifted emerald slip dress; always wears her grandmother's ring) in Grand ballroom, night. Action: Mara turns. She has never seen this man in her life. Expression: Mara: confusion, then she plays along. Camera: slow push-in, shallow depth of field, face centered in the upper two-thirds, lower third clear for captions. Lip sync: Mara (low, steady, cracks when hurt) says \"Yes. He is. We're very happy.\" — too fast. Consistent character identity across shots. No text, no watermark, no extra people, no distorted hands.",
+     "lines": [
+      {
+       "index": 9,
+       "start": 30.17,
+       "duration": 2.91,
+       "speaker": "Mara",
+       "text": "Yes. He is. We're very happy.",
+       "direction": "too fast",
+       "intensity": 5,
+       "beat": "reversal",
+       "cond": "",
+       "voice": {
+        "provider": "ElevenLabs",
+        "id": "Rachel",
+        "settings": "",
+        "direction": "low, steady, cracks when hurt"
+       },
+       "caption": "Yes. He is. We're very happy."
+      },
+      {
+       "index": 10,
+       "start": 33.08,
+       "duration": 2.52,
+       "speaker": "Preston",
+       "text": "Who the hell are you?",
+       "direction": "nasal, scared",
+       "intensity": 8,
+       "beat": "threat",
+       "cond": "",
+       "voice": {
+        "provider": "",
+        "id": "",
+        "settings": "",
+        "direction": "loud, smug, nasal when scared"
+       },
+       "caption": "Who the hell are you?"
+      }
+     ],
+     "sfx": [],
+     "approvedStill": "",
+     "takes": []
+    },
+    {
+     "index": 11,
+     "start": 35.6,
+     "duration": 4,
+     "location": "Grand ballroom",
+     "locationRef": "Grand ballroom",
+     "subArea": "",
+     "settingKey": "night",
+     "time": "night",
+     "weather": "",
+     "frame": "ECU",
+     "characters": [
+      "Cole",
+      "Preston"
+     ],
+     "action": "Cole steps into the light. Preston's face goes white. The crest pin on his lapel is the same as the ring on Cole's hand.",
+     "emotion": "Preston: recognition, terror",
+     "beat": "reveal",
+     "cond": "",
+     "renderPlan": "lipsync",
+     "renderOverride": "auto",
+     "audio": "",
+     "ambience": "string quartet, murmur",
+     "videoPrompt": "Vertical 9:16 cinematic video, 4 seconds, photoreal, soap-opera drama lighting. ECU of Cole (34, black hair, scar through left eyebrow, grey eyes; black suit no tie; silver lighter he never uses) and Preston (31, blond, tanned, veneers; navy suit, Vance crest pin) in Grand ballroom, night. Action: Cole steps into the light. Preston's face goes white. The crest pin on his lapel is the same as the ring on Cole's hand. Expression: Preston: recognition, terror. Camera: slow push-in, shallow depth of field, face centered in the upper two-thirds, lower third clear for captions. Lip sync: Preston (loud, smug, nasal when scared) says \"...Brother?\" — whisper. Consistent character identity across shots. No text, no watermark, no extra people, no distorted hands.",
+     "lines": [
+      {
+       "index": 13,
+       "start": 40.6,
+       "duration": 1.5,
+       "speaker": "Preston",
+       "text": "...Brother?",
+       "direction": "whisper",
+       "intensity": 9,
+       "beat": "reveal",
+       "cond": "",
+       "voice": {
+        "provider": "",
+        "id": "",
+        "settings": "",
+        "direction": "loud, smug, nasal when scared"
+       },
+       "caption": "...Brother?"
+      }
+     ],
+     "sfx": [
+      {
+       "index": 12,
+       "start": 39.6,
+       "duration": 1,
+       "text": "Glass shatters off-screen. Music cuts to silence."
+      }
+     ],
+     "approvedStill": "",
+     "takes": []
+    }
+   ]
+  }
+ ],
+ "gameplay": {
+  "title": "Boss Fight: My Ex's Wedding",
+  "flags": {},
+  "meters": [],
+  "currencies": [],
+  "collectibles": [],
+  "sim": [],
+  "pricingNotes": "",
+  "interactions": []
+ },
+ "renderRules": {
+  "auto": "dialogue in ECU/CU/MCU/OTS → lipsync; reveal/reversal/heat beats → animate; everything else → still + slow push",
+  "captions": "burn-in, lower third, from each line's text",
+  "aspect": "9:16",
+  "providersSuggested": {
+   "image": "fal (FLUX with reference images)",
+   "video": "fal (Kling / Hailuo / Wan / Seedance; per-shot choice)",
+   "lipsync": "fal lip-sync endpoint",
+   "tts": "per character voice.provider",
+   "music": "per episode cue",
+   "ambience": "per location/setting bed"
+  }
+ }
+}

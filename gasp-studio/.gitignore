@@ -1,0 +1,4 @@
+work/
+.env
+node_modules/
+*.log

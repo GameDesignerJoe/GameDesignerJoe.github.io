@@ -1,0 +1,84 @@
+{
+  "_note": "Edit freely. Prices are USD approximations from mid-2026 for the cost estimate only; check the provider pages. Endpoint ids are fal.ai queue endpoints unless noted.",
+  "image": {
+    "default": "fal-flux-kontext",
+    "fal-flux-kontext": {
+      "endpoint": "fal-ai/flux-pro/kontext/max/multi",
+      "supportsRefs": true,
+      "pricePerImage": 0.08,
+      "note": "multi-image reference editing; good for keeping a face"
+    },
+    "fal-flux-dev": {
+      "endpoint": "fal-ai/flux/dev",
+      "supportsRefs": false,
+      "pricePerImage": 0.025
+    },
+    "fal-seedream": {
+      "endpoint": "fal-ai/bytedance/seedream/v4/edit",
+      "supportsRefs": true,
+      "pricePerImage": 0.03,
+      "note": "ByteDance; cheap, strong on portraits"
+    }
+  },
+  "video": {
+    "default": "fal-kling",
+    "fal-kling": {
+      "endpoint": "fal-ai/kling-video/v2.1/standard/image-to-video",
+      "pricePerSecond": 0.05,
+      "maxSeconds": 10
+    },
+    "fal-hailuo": {
+      "endpoint": "fal-ai/minimax/hailuo-02/standard/image-to-video",
+      "pricePerSecond": 0.045,
+      "maxSeconds": 10
+    },
+    "fal-wan": {
+      "endpoint": "fal-ai/wan/v2.2-a14b/image-to-video",
+      "pricePerSecond": 0.04,
+      "maxSeconds": 8,
+      "note": "open weights; self-hostable later"
+    },
+    "fal-seedance": {
+      "endpoint": "fal-ai/bytedance/seedance/v1/pro/image-to-video",
+      "pricePerSecond": 0.06,
+      "maxSeconds": 10
+    }
+  },
+  "lipsync": {
+    "default": "fal-sync",
+    "fal-sync": {
+      "endpoint": "fal-ai/sync-lipsync/v2",
+      "pricePerSecond": 0.08
+    }
+  },
+  "tts": {
+    "default": "elevenlabs",
+    "elevenlabs": {
+      "api": "https://api.elevenlabs.io/v1/text-to-speech/{voiceId}",
+      "pricePer1kChars": 0.3
+    },
+    "fal-minimax": {
+      "endpoint": "fal-ai/minimax/speech-02-hd",
+      "pricePer1kChars": 0.06
+    }
+  },
+  "music": {
+    "default": "elevenlabs-music",
+    "elevenlabs-music": {
+      "api": "https://api.elevenlabs.io/v1/music",
+      "pricePerTrack": 0.1,
+      "note": "Eleven Music; same key as the voices"
+    },
+    "fal-minimax-music": {
+      "endpoint": "fal-ai/minimax-music",
+      "pricePerTrack": 0.05
+    }
+  },
+  "sfx": {
+    "default": "elevenlabs-sfx",
+    "elevenlabs-sfx": {
+      "api": "https://api.elevenlabs.io/v1/sound-generation",
+      "pricePerClip": 0.02
+    }
+  }
+}
