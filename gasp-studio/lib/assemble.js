@@ -50,7 +50,7 @@ async function renderShotSegment({ shot, still, clip, voFiles, outFile, captions
   }
   if (shot.interaction) {
     const ix = shot.interaction;
-    const opts = (ix.options || []).map((o, j) => `${j + 1}) ${o.label}${o.cost === "free" || !o.cost ? "" : " \u25c6 " + (o.amt || 0) + " " + o.cost}`).join("   ");
+    const opts = (ix.options || []).map((o, j) => `${ix.chosen === j + 1 ? "\u25b6 " : ""}${j + 1}) ${o.label}${o.cost === "free" || !o.cost ? "" : " \u25c6 " + (o.amt || 0) + " " + o.cost}`).join("   ");
     vf.push(drawtext(`\u25c6 ${ix.template.toUpperCase()}${ix.type ? " / " + ix.type : ""}`, { size: 40, y: "h/2-260", box: false }));
     vf.push(drawtext(ix.prompt || "", { size: 46, y: "h/2-120", wrap: 30 }));
     vf.push(drawtext(opts, { size: 36, y: "h/2+120", wrap: 36 }));

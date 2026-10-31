@@ -27,6 +27,7 @@ const HELP = `GASP Studio — Gameplay · Animatic · Script · Production  (Sla
   studio animatic  <manifest.json> --ep 1 [--no-captions]
   studio all       <manifest.json> --ep 1          stills (1 take, auto-approved) → vo → beds → animatic
 Filters: --shot 1,3,5 (block numbers, as shown by plan)   --from 6 --until 13 (blocks 6–12 only; the cut contains just that range)
+       --path 5=2,16=1  take option 2 at the choice at block 5, option 1 at block 16 (default: option 1 everywhere); conditional shots/lines follow that path
 Env: FAL_KEY, ELEVENLABS_API_KEY, STUDIO_DRY_RUN=1 (placeholders, no network), STUDIO_FONT=/path/to/font.ttf`;
 
 if (cmd === "serve") { const { serve } = await import("./lib/serve.js"); await serve({ root: ROOT, port: +args.port || 4747, open: !args.noopen }); await new Promise(() => {}); }
@@ -36,6 +37,27 @@ if (manifest.format !== "gate-ten-production") { warn("Not a Gate Ten production
 const eps = pickEpisodes(manifest, args);
 // --shot 3  or  --shot 1,3,5   limits work to those block indexes;  --until 12  stops before block 12 (e.g. the first choice)
 const shotFilter = args.shot ? String(args.shot).split(",").map(Number) : null;
+// --path 5=1,16=2  → at the choice at block 5 take option 1, at block 16 take option 2 (1-based). Unlisted choices take option 1.
+// Conditional shots/lines (cond: FLAG, !FLAG, A and B, Meter>=N) are kept or dropped along that path; meter tests are assumed true.
+const pathChoice = Object.fromEntries(String(args.path || "").split(",").filter(Boolean).map(p => p.split("=").map(Number)));
+function applyPath(ep) {
+  const flags = new Set();
+  const holds = c => String(c || "").split(/\s*(?:,|&&|\band\b)\s*/).filter(Boolean).every(t => { t = t.trim(); if (/[<>=]/.test(t)) return true; return t.startsWith("!") ? !flags.has(t.slice(1).trim()) : flags.has(t); });
+  const out = [];
+  for (const s of ep.shots) {
+    if (s.interaction) {
+      const n = pathChoice[s.index] || 1; const opt = (s.interaction.options || [])[n - 1];
+      s.interaction.chosen = n;
+      if (opt) { for (const f of [opt.flag, opt.setFlag, opt.set]) if (f) String(f).split(/[,\s]+/).forEach(x => x && flags.add(x.trim())); for (const m of String(opt.outcome || "").matchAll(/(?:sets?|set branch|branch)\s+([A-Z][A-Z0-9_]+)/g)) flags.add(m[1]); }
+      out.push(s); continue;
+    }
+    if (!holds(s.cond)) continue;
+    s.lines = (s.lines || []).filter(l => holds(l.cond));
+    out.push(s);
+  }
+  ep.shots = out; ep.pathFlags = [...flags];
+}
+for (const ep of eps) applyPath(ep);
 const until = args.until ? +args.until : null;   // stop before this block
 const from = args.from ? +args.from : null;      // start at this block
 const wanted = s => (!shotFilter || shotFilter.includes(s.index)) && (!until || s.index < until) && (!from || s.index >= from);
@@ -72,7 +94,7 @@ const isPicture = s => !s.interaction && !s.orphanLine && (s.location || s.actio
 async function cmdPlan() {
   log(`${manifest.story.title} — ${manifest.cast.length} cast, ${manifest.locations.length} locations, ${manifest.items.length} items. DRY_RUN=${DRY ? "on" : "off"}`);
   for (const ep of eps) {
-    log(`\nEp ${ep.number} ${ep.title || ""} ${ep.gate ? "[" + ep.gate + "]" : ""} · ${ep.runningTime}s · music: ${ep.music || "—"}`);
+    log(`\nEp ${ep.number} ${ep.title || ""} ${ep.gate ? "[" + ep.gate + "]" : ""} · ${ep.runningTime}s · music: ${ep.music || "—"}${ep.pathFlags?.length ? " · path flags: " + ep.pathFlags.join(", ") : ""}`);
     for (const s of ep.shots) {
       if (!wanted(s)) continue;
       if (s.interaction) log(`  #${pad2(s.index)} ◆ ${s.interaction.template}${s.interaction.type ? "/" + s.interaction.type : ""}  ${s.interaction.prompt || ""}`);
