@@ -104,10 +104,12 @@ export async function serve({ root, port = 4747, open = true }) {
       res.writeHead(404); res.end("not found");
     } catch (e) { json({ error: e.message }, 500); }
   });
-  await new Promise(r => server.listen(port, "127.0.0.1", r));
   const addr = `http://localhost:${port}`;
+  const openBrowser = () => { if (!open) return; const cmd = process.platform === "win32" ? ["cmd", ["/c", "start", "", addr]] : process.platform === "darwin" ? ["open", [addr]] : ["xdg-open", [addr]]; try { spawn(cmd[0], cmd[1], { detached: true, stdio: "ignore" }).unref(); } catch {} };
+  const ok = await new Promise(r => { server.once("error", e => r(e.code === "EADDRINUSE" ? false : (() => { throw e; })())); server.listen(port, "127.0.0.1", () => r(true)); });
+  if (!ok) { console.log(`GASP Studio is already running (another window has it). Opening the panel: ${addr}`); openBrowser(); await new Promise(r => setTimeout(r, 1500)); process.exit(0); }
   console.log(`GASP Studio panel: ${addr}   (leave this window open; Ctrl+C to stop)`);
-  if (open) { const cmd = process.platform === "win32" ? ["cmd", ["/c", "start", "", addr]] : process.platform === "darwin" ? ["open", [addr]] : ["xdg-open", [addr]]; try { spawn(cmd[0], cmd[1], { detached: true, stdio: "ignore" }).unref(); } catch {} }
+  openBrowser();
 }
 
 const PANEL = `<!doctype html><html><head><meta charset="utf-8"><title>GASP Studio</title><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -150,9 +152,9 @@ pre#log{margin:0;padding:14px 18px;overflow:auto;font:12px/1.5 Consolas,ui-monos
   <div class="row"><label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="dry"> Dry run (no network, placeholders)</label></div>
   <div class="row"><label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="force"> Redo voices &amp; beds even if unchanged</label></div>
   <button class="btn" id="render">Render</button>
-  <div class="row"><button class="btn ghost" id="stop" disabled>Stop</button><span class="spacer"></span><button class="btn ghost" id="refresh">Refresh</button></div>
+  <div class="row"><button class="btn ghost" id="stop" disabled>Stop</button><span class="spacer"></span><label class="btn ghost" style="cursor:pointer">Import manifest…<input type="file" id="import" accept=".json" hidden></label><button class="btn ghost" id="refresh">Refresh</button></div>
   <div class="meta" id="castinfo"></div>
-  <div class="meta">Manifests are the JSON files in this folder. In Gate Ten, Export → <b>Send to GASP</b> drops one here directly while this window is open.</div>
+  <div class="meta">In Gate Ten: Export → Production manifest JSON → <b>Save file</b>, then <b>Import manifest…</b> here (or drop the file anywhere on this page). Manifests live in this folder.</div>
 </aside>
 <section class="right">
   <div class="stage">
@@ -173,6 +175,8 @@ async function output(){if(!cur.file)return;const o=await (await fetch('/api/out
 async function takes(shot){const r=await (await fetch('/api/takes?file='+encodeURIComponent(cur.file)+'&ep='+cur.ep+'&shot='+shot)).json();const box=$('#takes');if(!r.takes.length){alert('No takes for shot #'+shot+' yet.');return}box.innerHTML='<div style="width:100%;color:#fff;font-size:15px">Shot #'+shot+' — click a take to make it the approved still. <span style="color:var(--mute)">(Esc to close)</span></div>'+r.takes.map(t=>'<div class="t" data-id="'+t.id+'"><img src="'+t.url+'"><div>'+(t.id==='composite'?'composite (free)':'take '+t.id)+'</div></div>').join('');box.classList.add('open');box.querySelectorAll('.t').forEach(el=>el.onclick=async()=>{await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:cur.file,ep:cur.ep,shot,take:el.dataset.id})});box.classList.remove('open');log('approved shot #'+shot+' → '+el.dataset.id+'  (re-run Assemble to see it in the cut)');output()});box.onclick=e=>{if(e.target===box)box.classList.remove('open')}}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#takes').classList.remove('open')});
 function log(s){const el=$('#log');el.textContent+=s+'\\n';el.scrollTop=el.scrollHeight}
+async function importFile(f){if(!f)return;try{const m=JSON.parse(await f.text());const r=await (await fetch('/api/manifest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name.replace(/\.json$/,''),manifest:m})})).json();if(r.error)throw new Error(r.error);log('📥 imported '+r.file)}catch(e){alert('Not a Gate Ten production manifest: '+e.message)}}
+$('#import').onchange=e=>importFile(e.target.files[0]);document.addEventListener('dragover',e=>{e.preventDefault()});document.addEventListener('drop',e=>{e.preventDefault();importFile(e.dataTransfer.files[0])});
 $('#file').onchange=onFile;$('#ep').onchange=onEp;$('#refresh').onclick=load;
 $('#render').onclick=async()=>{const steps=[...document.querySelectorAll('#steps input:checked')].map(i=>i.dataset.step);if(!steps.length)return alert('Pick at least one step.');if(!$('#dry').checked&&steps.some(s=>s==='stills'||s==='animate')&&!confirm('Stills / image-to-video spend real money on fal. Continue?'))return;$('#log').textContent='';const r=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:cur.file,ep:cur.ep,until:$('#until').value||null,steps,dry:$('#dry').checked,force:$('#force').checked})})).json();if(r.error)alert(r.error)};
 $('#stop').onclick=()=>fetch('/api/stop',{method:'POST'});
