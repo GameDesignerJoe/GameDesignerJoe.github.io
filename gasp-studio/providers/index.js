@@ -84,10 +84,11 @@ async function placeholderVideo(file, still, seconds) {
 export const placeholderStill = (file, text, refs, label) => placeholderImage(file, text, 1080, 1920, refs, label);
 
 // ---------- public API ----------
-export async function generateStill({ prompt, refs = [], outFile, provider, aspect = "9:16", label, labelTitle }) {
+export async function generateStill({ prompt, refs = [], outFile, provider, aspect = "9:16", label, labelTitle, size }) {
   const p = pick("image", provider);
-  if (DRY) return { file: await placeholderImage(outFile, label || prompt.slice(0, 160), 1080, 1920, refs, labelTitle || ""), cost: 0, provider: p.key };
-  const input = { prompt, aspect_ratio: aspect, image_size: { width: 1080, height: 1920 }, num_images: 1 };
+  const dim = size || { width: 1080, height: 1920 };
+  if (DRY) return { file: await placeholderImage(outFile, label || prompt.slice(0, 160), dim.width, dim.height, refs, labelTitle || ""), cost: 0, provider: p.key };
+  const input = { prompt, aspect_ratio: aspect, image_size: dim, num_images: 1 };
   if (p.supportsRefs && refs.length) {
     const urls = [];
     for (const f of refs.slice(0, 4)) urls.push(await falUpload(f));
@@ -96,6 +97,17 @@ export async function generateStill({ prompt, refs = [], outFile, provider, aspe
   const out = await falRun(p.endpoint, input);
   const url = out.images?.[0]?.url || out.image?.url;
   if (!url) throw new Error("no image in response: " + JSON.stringify(out).slice(0, 300));
+  await download(url, outFile);
+  return { file: outFile, cost: p.pricePerImage || 0, provider: p.key };
+}
+
+// Background removal → PNG with alpha (for cutouts). DRY: copies the input.
+export async function removeBackground({ file, outFile, provider }) {
+  const p = pick("rembg", provider);
+  if (DRY) { fs.copyFileSync(file, outFile); return { file: outFile, cost: 0, provider: p.key }; }
+  const image_url = await falUpload(file);
+  const out = await falRun(p.endpoint, { image_url, output_format: "png" });
+  const url = out.image?.url || out.images?.[0]?.url; if (!url) throw new Error("no image in rembg response: " + JSON.stringify(out).slice(0, 200));
   await download(url, outFile);
   return { file: outFile, cost: p.pricePerImage || 0, provider: p.key };
 }

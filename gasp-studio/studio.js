@@ -68,9 +68,10 @@ const addCost = (ep, kind, amt, note) => { const f = costFile(ep); const c = exi
 // ---------- refs ----------
 function writeRefs() {
   const dir = path.join(workDir(manifest, ROOT), "refs"); fs.mkdirSync(dir, { recursive: true });
-  const map = { cast: {}, locations: {}, settings: {}, items: {}, cutouts: {} };
+  const map = { cast: {}, locations: {}, settings: {}, items: {}, cutouts: {}, faces: {} };
   const put = (uri, name) => { if (!uri || !uri.startsWith("data:")) return null; const ext = /^data:image\/png/.test(uri) ? ".png" : ".jpg"; const f = path.join(dir, name.replace(/\.(jpg|png)$/, "") + ext); return dataUriToFile(uri, f); };
   for (const c of manifest.cast) { const f = put(c.portrait, `cast-${slugify(c.name)}.jpg`); if (f) map.cast[c.name.toLowerCase()] = f; (c.gallery || []).forEach((g, i) => put(g, `cast-${slugify(c.name)}-${i + 1}.jpg`));
+    for (const [ex, uri] of Object.entries(c.faces || {})) { const f = put(uri, `face-${slugify(c.name)}-${slugify(ex)}.jpg`); if (f) (map.faces[c.name.toLowerCase()] = map.faces[c.name.toLowerCase()] || {})[ex.toLowerCase()] = f; }
     for (const [st, cu] of Object.entries(c.cutouts || {})) { const full = put(cu.full, `cut-${slugify(c.name)}-${slugify(st)}-full.png`); const chest = put(cu.chest, `cut-${slugify(c.name)}-${slugify(st)}-chest.png`); if (full || chest) { (map.cutouts[c.name.toLowerCase()] = map.cutouts[c.name.toLowerCase()] || {})[st] = { full, chest }; } } }
   for (const l of manifest.locations) { const f = put(l.reference, `loc-${slugify(l.name)}.jpg`); if (f) map.locations[l.name.toLowerCase()] = f; for (const st of l.settings || []) { const sf = put(st.reference, `loc-${slugify(l.name)}-${slugify(st.key)}.jpg`); if (sf) map.settings[`${l.name.toLowerCase()}|${st.key}`] = sf; } }
   for (const it of manifest.items) { const f = put(it.reference, `item-${slugify(it.name)}.jpg`); if (f) map.items[it.name.toLowerCase()] = f; }
@@ -81,7 +82,12 @@ const slugify = s => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").r
 function loadRefs() { return writeRefs(); }   // always rebuilt from the manifest so new cutouts are never missed
 function refsForShot(shot, refs) {
   const out = [];
-  for (const n of shot.characters || []) { const f = refs.cast[n.toLowerCase()] || Object.entries(refs.cast).find(([k]) => k.startsWith(n.toLowerCase().split(" ")[0]))?.[1]; if (f) out.push(f); }
+  for (const n of shot.characters || []) {
+    const key = n.toLowerCase(); const fullKey = Object.keys(refs.cast).find(k => k === key || k.split(" ")[0] === key.split(" ")[0]) || key;
+    const ex = (shot.expressions || {})[n] || Object.entries(shot.expressions || {}).find(([k]) => k.toLowerCase().split(" ")[0] === key.split(" ")[0])?.[1];
+    const face = ex && refs.faces?.[fullKey]?.[String(ex).toLowerCase()]; if (face) out.push(face);   // expression reference first: it carries the mood
+    const f = refs.cast[fullKey]; if (f) out.push(f);
+  }
   const loc = (shot.locationRef || shot.location || "").toLowerCase();
   const st = refs.settings[`${loc}|${shot.settingKey}`]; if (st) out.push(st); else if (refs.locations[loc]) out.push(refs.locations[loc]);
   for (const [name, f] of Object.entries(refs.items)) if ((shot.action || "").toLowerCase().includes(name.replace(/^the /, ""))) out.push(f);
@@ -145,6 +151,7 @@ function stillPrompt(s) {
   return s.videoPrompt.replace(/^Vertical 9:16 cinematic video, [^.]*\./, "Vertical 9:16 cinematic film still, photoreal, soap-opera drama lighting.")
     .replace(/Camera: [^.]*\./, "Composition: face in the upper two-thirds, lower third clear for captions.")
     .replace(/Lip sync: [^.]*\./, "").replace(/No dialogue; silent reaction shot\./, "")
+    + (s.expressions && Object.keys(s.expressions).length ? ` Expressions: ${Object.entries(s.expressions).map(([k, v]) => `${k} shows ${v}, matching that character's expression reference image`).join("; ")}.` : "")
     + ` ${FRAME_WORDS[s.frame] || ""} ONE single full-bleed 9:16 frame only: no split screen, no collage, no grid, no panels, no borders, no text.`;
 }
 const FRAME_WORDS = { "ECU": "Extreme close-up: eyes and mouth fill the frame.", "CU": "Close-up: head and shoulders fill the frame, face large.", "MCU": "Medium close-up: chest up.", "MS": "Medium shot: waist up.", "OTS": "Over-the-shoulder close-up.", "2-shot (depth)": "Two-shot with depth: one figure near, one further back.", "insert (prop)": "Insert: the object fills the frame, shallow focus." };

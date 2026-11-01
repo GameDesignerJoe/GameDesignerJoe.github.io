@@ -88,5 +88,13 @@
       "api": "https://api.elevenlabs.io/v1/sound-generation",
       "pricePerClip": 0.02
     }
+  },
+  "rembg": {
+    "default": "fal-birefnet",
+    "fal-birefnet": {
+      "endpoint": "fal-ai/birefnet",
+      "pricePerImage": 0.01,
+      "note": "background removal \u2192 PNG with alpha"
+    }
   }
 }

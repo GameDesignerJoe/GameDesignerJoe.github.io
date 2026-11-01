@@ -10,6 +10,8 @@ Double-click `GASP.bat` (or run `node studio.js serve`). It opens http://localho
 - **Export → Send to Render** hands the current story to the Render tab; no files to move. Exports you save land in `exports/`.
 - Episode tabs are a vertical flow editor: shot cards with their lines, choices fanning into branch lanes. Select a card to edit it and render just that shot (Composite / Still / Voice / Motion / Preview) in the side panel.
 - Play tab: the interactive player over the rendered segments — choices branch, gems and flags are tracked.
+- Make assets in the app: Generate portrait, Generate plate, cutouts with background removal, a 12-expression facial library per character; Auto-cast missing voices.
+- Shot cards have a Simple mode (who, where, what happens, lines, emotion) and Advanced (framing, weather, render plan, audio, costume, prompts). New shots inherit from the one above.
 - Cast → Browse: pick ElevenLabs voices (yours and the public library) with previews.
 - The header shows what the story has spent so far, with links to top up.
 - Render tab: pick episode and scope (whole episode, a block range, or one shot), a path through the choices, tick the steps, press Render. The log streams in, the cut plays in the page; click a shot to pick a take, play its clips, or re-render just that shot.

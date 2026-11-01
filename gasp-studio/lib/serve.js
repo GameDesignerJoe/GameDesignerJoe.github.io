@@ -5,7 +5,9 @@ import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { slug, readJSON } from "./util.js";
+import { slug, readJSON, dataUriToFile } from "./util.js";
+import { generateStill, removeBackground } from "../providers/index.js";
+import { execFileP } from "./util.js";
 
 const MIME = { ".html": "text/html; charset=utf-8", ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".json": "application/json", ".txt": "text/plain" };
 
@@ -62,7 +64,7 @@ export async function serve({ root, port = 4747, open = true }) {
     return { video: fs.existsSync(video) ? `/work/${sl}/ep${ep}/ep${ep}-animatic.mp4?t=${fs.statSync(video).mtimeMs}` : null, cost: fs.existsSync(cost) ? readJSON(cost).total : 0, shots };
   };
 
-  function runSteps({ file, ep, until, from, shot, steps, dry, force, thenAssemble, path: choicePath, approveLatest, segmentsOnly }) {
+  function runSteps({ file, ep, until, from, shot, steps, dry, force, thenAssemble, path: choicePath, approveLatest, segmentsOnly, takes }) {
     if (job) throw new Error("a render is already running");
     if (thenAssemble) steps = [...steps, "animatic"];
     job = { steps, i: 0, cancelled: false };
@@ -76,7 +78,7 @@ export async function serve({ root, port = 4747, open = true }) {
       if (choicePath) argv.push("--path", String(choicePath));
       if (shot && step !== "animatic") argv.push("--shot", String(shot));
       if (step === "composite" || (force && (step === "vo" || step === "beds"))) argv.push("--force");
-      if (step === "stills") { argv.push("--auto"); if (approveLatest) argv.push("--approveLatest"); }
+      if (step === "stills") { argv.push("--auto"); if (approveLatest) argv.push("--approveLatest"); if (takes && +takes > 1) argv.push("--takes", String(+takes)); }
       if (step === "animatic" && (segmentsOnly || (thenAssemble && shot))) argv.push("--segonly");
       emit("log", `\n▶ ${step}${from || until ? " (blocks " + (from || 1) + "–" + ((until || 0) - 1 || "end") + ")" : " (whole episode)"}`);
       emit("status", { running: true, step });
@@ -100,6 +102,42 @@ export async function serve({ root, port = 4747, open = true }) {
       if (url.pathname === "/render") { res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(url.searchParams.get("embed") ? PANEL.replace("<header>", "<header style=\"display:none\">").replace("height:calc(100vh - 50px)", "height:100vh") : PANEL); }
       if (url.pathname === "/gasp-shim.js") { res.writeHead(200, { "Content-Type": "text/javascript" }); return fs.createReadStream(path.join(root, "app", "gasp-shim.js")).pipe(res); }
       const shotFolder = (sl, ep, shot, file) => { const scan = scanEp(sl, ep, file ? path.join(root, file) : null); const i = scan.shots[shot] || scan.shots[+shot]; return i ? path.join(scan.dir, `shot-${i.key}`) : path.join(scan.dir, `shot-${String(shot).padStart(2, "0")}`); };
+      // ---- in-app asset generation: { prompt, refs:[dataURI], aspect:"3:4"|"9:16"|"1:1", rembg:bool, max:px, slug, kind, name }
+      if (url.pathname === "/api/gen/image" && req.method === "POST") {
+        const b = await body(); if (!b.prompt) return json({ error: "prompt required" }, 400);
+        if (!process.env.FAL_KEY && !process.env.STUDIO_DRY_RUN) return json({ error: "FAL_KEY missing in .env" }, 401);
+        const dir = path.join(root, "work", String(b.slug || "assets").replace(/[^a-z0-9-]/g, "") || "assets", "assets"); fs.mkdirSync(dir, { recursive: true });
+        const stamp = Date.now().toString(36); const base = path.join(dir, `${String(b.kind || "img").replace(/[^a-z0-9-]/g, "")}-${String(b.name || "x").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${stamp}`);
+        const refs = []; (b.refs || []).slice(0, 3).forEach((u, i) => { const f = dataUriToFile(u, `${base}-ref${i}.${/^data:image\/png/.test(u) ? "png" : "jpg"}`); if (f) refs.push(f); });
+        const dims = { "9:16": { width: 1080, height: 1920 }, "3:4": { width: 896, height: 1200 }, "1:1": { width: 1024, height: 1024 }, "2:3": { width: 832, height: 1248 } };
+        const aspect = dims[b.aspect] ? b.aspect : "3:4";
+        let cost = 0;
+        try {
+          const g = await generateStill({ prompt: b.prompt + (refs.length ? " Match the face and look of the reference image exactly." : ""), refs, outFile: base + ".jpg", aspect, size: dims[aspect], label: b.prompt.slice(0, 80), labelTitle: b.kind || "" }); cost += g.cost;
+          let file = g.file;
+          if (b.rembg) { const r = await removeBackground({ file, outFile: base + "-cut.png" }); cost += r.cost; file = r.file; }
+          // downscale for storage in the story (keeps alpha for png)
+          const max = Math.max(256, Math.min(1400, +b.max || 1000)); const isPng = file.endsWith(".png"); const small = base + (isPng ? "-small.png" : "-small.jpg");
+          await execFileP("ffmpeg", ["-y", "-i", file, "-vf", `scale='min(${max},iw)':-2`, ...(isPng ? [] : ["-q:v", "4"]), small]);
+          const buf = fs.readFileSync(small); const dataUri = `data:image/${isPng ? "png" : "jpeg"};base64,` + buf.toString("base64");
+          // log the spend against the story
+          if (cost) { const cf = path.join(root, "work", String(b.slug || "assets").replace(/[^a-z0-9-]/g, "") || "assets", "ep0", "ep0-cost.json"); fs.mkdirSync(path.dirname(cf), { recursive: true }); const c = fs.existsSync(cf) ? readJSON(cf) : { items: [], total: 0 }; c.items.push({ kind: b.kind || "asset", amt: +cost.toFixed(4), note: b.name || "", at: new Date().toISOString() }); c.total = +(c.total + cost).toFixed(4); fs.writeFileSync(cf, JSON.stringify(c, null, 2)); }
+          emit("log", `🖼 ${b.kind || "image"} for ${b.name || "?"} ($${cost.toFixed(2)})`);
+          return json({ dataUri, cost, file: path.relative(root, file) });
+        } catch (e) { return json({ error: e.message }, 500); }
+      }
+      if (url.pathname === "/api/voices/cast" && req.method === "POST") {
+        const key = process.env.ELEVENLABS_API_KEY; if (!key) return json({ error: "ELEVENLABS_API_KEY missing in .env" }, 401); const b = await body(); const H = { "xi-api-key": key };
+        const txt = `${b.look || ""} ${b.direction || ""} ${b.name || ""}`.toLowerCase();
+        const gender = /\b(she|her|woman|girl|female|actress|mother|sister|wife|daughter)\b/.test(txt) ? "female" : /\b(he|him|man|guy|male|father|brother|husband|son)\b/.test(txt) ? "male" : b.role === "FL" ? "female" : b.role === "ML" || b.role === "villain" ? "male" : "";
+        const age = /\b(teen|young|20s|twenties|girl|boy)\b/.test(txt) ? "young" : /\b(old|elderly|grandmother|grandfather|60s|70s)\b/.test(txt) ? "old" : "middle_aged";
+        const words = String(b.direction || "").split(/[^a-z]+/i).filter(w => w.length > 3).slice(0, 2).join(" ");
+        const tryQ = async (q) => { const p = new URLSearchParams({ page_size: "20" }); if (gender) p.set("gender", gender); if (age) p.set("age", age); if (q) p.set("search", q); const r = await fetch("https://api.elevenlabs.io/v1/shared-voices?" + p, { headers: H }).then(r => r.json()).catch(() => ({})); return (r.voices || []).filter(v => v.preview_url); };
+        let list = words ? await tryQ(words) : []; if (!list.length) list = await tryQ(""); if (!list.length) return json({ error: "no voice found for " + (gender || "any") + "/" + age }, 404);
+        const v = list[Math.floor(Math.random() * Math.min(5, list.length))];
+        const add = await fetch(`https://api.elevenlabs.io/v1/voices/add/${v.public_owner_id}/${v.voice_id}`, { method: "POST", headers: { "xi-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ new_name: `${b.name || v.name} (${v.name})` }) }).then(r => r.json()).catch(() => ({}));
+        return json({ voice_id: add.voice_id || v.voice_id, name: v.name, gender, age, preview_url: v.preview_url });
+      }
       if (url.pathname === "/api/voices") {
         const key = process.env.ELEVENLABS_API_KEY; if (!key) return json({ error: "ELEVENLABS_API_KEY missing in .env" }, 401);
         const q = (url.searchParams.get("q") || "").toLowerCase(); const H = { "xi-api-key": key };
