@@ -8,6 +8,10 @@ Double-click `GASP.bat` (or run `node studio.js serve`). It opens http://localho
 - Stories are saved as files in `stories/` on this machine (git-ignored). To bring a story over from the claude.ai version: there, Import / backup → *Save all stories as file*; here, Import / backup → *Load file*.
 - Claude features in the writing tabs need `ANTHROPIC_API_KEY` in `.env`, next to the fal and ElevenLabs keys.
 - **Export → Send to Render** hands the current story to the Render tab; no files to move. Exports you save land in `exports/`.
+- Episode tabs are a vertical flow editor: shot cards with their lines, choices fanning into branch lanes. Select a card to edit it and render just that shot (Composite / Still / Voice / Motion / Preview) in the side panel.
+- Play tab: the interactive player over the rendered segments — choices branch, gems and flags are tracked.
+- Cast → Browse: pick ElevenLabs voices (yours and the public library) with previews.
+- The header shows what the story has spent so far, with links to top up.
 - Render tab: pick episode and scope (whole episode, a block range, or one shot), a path through the choices, tick the steps, press Render. The log streams in, the cut plays in the page; click a shot to pick a take, play its clips, or re-render just that shot.
 
 ## Updating

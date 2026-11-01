@@ -99,6 +99,25 @@ export async function serve({ root, port = 4747, open = true }) {
       if (url.pathname === "/" || url.pathname === "/index.html") { const app = path.join(root, "app", "index.html"); if (fs.existsSync(app)) { res.writeHead(200, { "Content-Type": MIME[".html"] }); return fs.createReadStream(app).pipe(res); } res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(PANEL); }
       if (url.pathname === "/render") { res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(url.searchParams.get("embed") ? PANEL.replace("<header>", "<header style=\"display:none\">").replace("height:calc(100vh - 50px)", "height:100vh") : PANEL); }
       if (url.pathname === "/gasp-shim.js") { res.writeHead(200, { "Content-Type": "text/javascript" }); return fs.createReadStream(path.join(root, "app", "gasp-shim.js")).pipe(res); }
+      const shotFolder = (sl, ep, shot, file) => { const scan = scanEp(sl, ep, file ? path.join(root, file) : null); const i = scan.shots[shot] || scan.shots[+shot]; return i ? path.join(scan.dir, `shot-${i.key}`) : path.join(scan.dir, `shot-${String(shot).padStart(2, "0")}`); };
+      if (url.pathname === "/api/voices") {
+        const key = process.env.ELEVENLABS_API_KEY; if (!key) return json({ error: "ELEVENLABS_API_KEY missing in .env" }, 401);
+        const q = (url.searchParams.get("q") || "").toLowerCase(); const H = { "xi-api-key": key };
+        const mine = await fetch("https://api.elevenlabs.io/v1/voices", { headers: H }).then(r => r.json()).catch(() => ({}));
+        const p = new URLSearchParams({ page_size: "60" }); for (const k of ["gender", "age", "accent"]) if (url.searchParams.get(k)) p.set(k, url.searchParams.get(k)); if (q) p.set("search", q);
+        const lib = await fetch("https://api.elevenlabs.io/v1/shared-voices?" + p, { headers: H }).then(r => r.json()).catch(() => ({}));
+        const norm = (v, source) => ({ voice_id: v.voice_id, name: v.name, preview_url: v.preview_url, description: v.description || "", gender: v.labels?.gender || v.gender || "", age: v.labels?.age || v.age || "", accent: v.labels?.accent || v.accent || "", public_owner_id: v.public_owner_id, source });
+        const m = (mine.voices || []).map(v => norm(v, "mine")).filter(v => !q || (v.name + " " + v.description).toLowerCase().includes(q));
+        const l = (lib.voices || []).map(v => norm(v, "library")).filter(v => !m.some(x => x.voice_id === v.voice_id));
+        return json({ voices: [...m, ...l] });
+      }
+      if (url.pathname === "/api/voices/add" && req.method === "POST") {
+        const key = process.env.ELEVENLABS_API_KEY; if (!key) return json({ error: "ELEVENLABS_API_KEY missing" }, 401); const b = await body();
+        const r = await fetch(`https://api.elevenlabs.io/v1/voices/add/${b.public_owner_id}/${b.voice_id}`, { method: "POST", headers: { "xi-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ new_name: b.name }) });
+        const o = await r.json().catch(() => ({})); if (!r.ok) return json({ error: o.detail?.message || o.detail || r.statusText }, r.status); return json({ voice_id: o.voice_id || b.voice_id });
+      }
+      if (url.pathname === "/api/take" && req.method === "DELETE") { const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const sd = shotFolder(sl, b.ep, b.shot, null); const f = path.join(sd, b.take === "composite" ? "composite.png" : `take-${String(b.take).replace(/\D/g, "")}.png`); if (fs.existsSync(f)) { const ap = path.join(sd, "approved.png"); const wasApproved = fs.existsSync(ap) && fs.readFileSync(ap).equals(fs.readFileSync(f)); fs.unlinkSync(f); if (wasApproved) { const rest = fs.readdirSync(sd).filter(x => x === "composite.png" || /^take-\d+\.png$/.test(x)).sort(); if (rest.length) fs.copyFileSync(path.join(sd, rest[rest.length - 1]), ap); else fs.unlinkSync(ap); } } return json({ ok: true }); }
+      if (url.pathname === "/api/cost") { const sl = String(url.searchParams.get("slug") || "").replace(/[^a-z0-9-]/g, ""); const dir = path.join(root, "work", sl); const episodes = []; let total = 0; if (fs.existsSync(dir)) for (const d of fs.readdirSync(dir).filter(d => /^ep\d+$/.test(d))) { const f = path.join(dir, d, `${d}-cost.json`); if (fs.existsSync(f)) { const t = readJSON(f).total || 0; episodes.push({ episode: +d.slice(2), total: t }); total += t; } } return json({ total: +total.toFixed(2), episodes }); }
       if (url.pathname === "/api/info") return json({ anthropic: !!process.env.ANTHROPIC_API_KEY, fal: !!process.env.FAL_KEY, elevenlabs: !!process.env.ELEVENLABS_API_KEY, root });
       // ---- story storage: /api/db?path=stories/<id>  → stories/<path>.json
       if (url.pathname === "/api/db") {
@@ -131,7 +150,6 @@ export async function serve({ root, port = 4747, open = true }) {
       if (url.pathname === "/api/run" && req.method === "POST") { const b = await body(); try { runSteps(b); return json({ ok: true }); } catch (e) { return json({ error: e.message }, 409); } }
       if (url.pathname === "/api/stop" && req.method === "POST") { if (job) { job.cancelled = true; job.child?.kill(); } return json({ ok: true }); }
       if (url.pathname === "/api/shots") { const sl = String(url.searchParams.get("slug") || "").replace(/[^a-z0-9-]/g, ""); const ep = String(+url.searchParams.get("ep") || 1); const { shots, segments } = scanEp(sl, ep, null); return json({ shots, segments }); }
-      const shotFolder = (sl, ep, shot, file) => { const scan = scanEp(sl, ep, file ? path.join(root, file) : null); const i = scan.shots[shot] || scan.shots[+shot]; return i ? path.join(scan.dir, `shot-${i.key}`) : path.join(scan.dir, `shot-${String(shot).padStart(2, "0")}`); };
       if (url.pathname === "/api/approve" && req.method === "POST") { const b = await body(); const sl = b.slug ? String(b.slug).replace(/[^a-z0-9-]/g, "") : slug(readJSON(path.join(root, b.file)).story?.title); const sd = shotFolder(sl, b.ep, b.shot, b.file); const src = path.join(sd, b.take === "composite" ? "composite.png" : `take-${b.take}.png`); if (!fs.existsSync(src)) return json({ error: "no such take" }, 404); fs.copyFileSync(src, path.join(sd, "approved.png")); return json({ ok: true }); }
       if (url.pathname === "/api/takes") { const file = url.searchParams.get("file"); const m = readJSON(path.join(root, file)); const sl = slug(m.story?.title); const ep = url.searchParams.get("ep"); const scan = scanEp(sl, ep, path.join(root, file)); const i = scan.shots[+url.searchParams.get("shot")] || {}; return json({ approved: i.approvedId || null, clips: i.clips || [], segment: i.segment || null, takes: i.takes || [] }); }
       if (url.pathname === "/api/manifest" && req.method === "POST") {
@@ -185,7 +203,7 @@ pre#log{margin:0;padding:14px 18px;overflow:auto;font:12px/1.5 Consolas,ui-monos
 <header><h1><span>GASP</span> Studio</h1><span class="sub">Gameplay · Animatic · Script · Production</span><span class="spacer"></span><span id="keys"></span><span id="status" class="status">idle</span></header>
 <main>
 <aside>
-  <label class="f">Story / manifest<select id="file"></select></label><div class="meta" id="folder" style="margin:-6px 0 0;word-break:break-all"></div>
+  <label class="f">Story / manifest<select id="file"></select></label><div class="row" style="gap:8px;margin-top:-6px"><label class="btn ghost" style="cursor:pointer;white-space:nowrap;padding:5px 9px;font-size:12px">Import manifest…<input type="file" id="import" accept=".json" hidden></label><span class="meta" id="mdate" style="margin:0"></span></div><div class="meta" id="folder" style="margin:0;word-break:break-all"></div>
   <label class="f">Episode<select id="ep"></select></label>
   <div class="f">Scope
     <label class="row" style="gap:6px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--ink)"><input type="radio" name="scope" value="all" checked> Whole episode</label>
@@ -195,6 +213,7 @@ pre#log{margin:0;padding:14px 18px;overflow:auto;font:12px/1.5 Consolas,ui-monos
     <div class="range"><span></span><select id="one"></select></div>
   </div>
   <div class="f" id="pathbox" style="display:none">Path through the choices<div id="path" class="range" style="margin-left:0;grid-template-columns:44px 1fr"></div><span class="meta" style="margin:0;text-transform:none;letter-spacing:0">Shots and lines that depend on a choice follow this path; the others are left out of the cut.</span></div>
+  <label class="f">Preset<select id="preset"><option value="">custom</option><option value="free">Free animatic — composites, voices, beds, cut</option><option value="stills">Stills pass — generate stills, cut ($)</option><option value="motion">Motion pass — image-to-video + lip-sync, cut ($$)</option><option value="full">Everything ($$$)</option><option value="cut">Just re-cut</option></select></label>
   <div class="steps" id="steps">
     <label><input type="checkbox" data-step="composite" checked> Composite cutouts <small>free</small></label>
     <label><input type="checkbox" data-step="stills"> Generate stills <small>fal · ~$0.05–0.08 a shot</small></label>
@@ -205,7 +224,7 @@ pre#log{margin:0;padding:14px 18px;overflow:auto;font:12px/1.5 Consolas,ui-monos
   </div>
   <div class="row"><label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="dry"> Dry run (no network, placeholders)</label></div>
   <div class="row"><label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="force"> Redo voices &amp; beds even if unchanged</label></div>
-  <div class="row"><label class="btn ghost" style="cursor:pointer;white-space:nowrap">Import manifest…<input type="file" id="import" accept=".json" hidden></label><span class="meta" id="importinfo" style="margin:0"></span></div>
+  <span class="meta" id="importinfo" style="margin:0"></span>
   <button class="btn" id="render">Render</button>
   <div class="row"><button class="btn ghost" id="stop" disabled>Stop</button><span class="spacer"></span><button class="btn ghost" id="refresh">Refresh</button></div>
   <div class="meta" id="castinfo"></div>
@@ -224,7 +243,7 @@ pre#log{margin:0;padding:14px 18px;overflow:auto;font:12px/1.5 Consolas,ui-monos
 const $=s=>document.querySelector(s);let DATA={manifests:[]};let cur={file:null,ep:null};
 async function load(){DATA=await (await fetch('/api/manifests')).json();const fs=$('#file');const keep=fs.value;fs.innerHTML=DATA.manifests.map(m=>'<option value="'+m.file+'">'+m.title+' — '+m.file+'</option>').join('')||'<option value="">(no production manifests in this folder)</option>';if(keep&&[...fs.options].some(o=>o.value===keep))fs.value=keep;$('#folder').textContent='in '+DATA.root;$('#keys').innerHTML='<span class="pill '+(DATA.keys.elevenlabs?'on':'off')+'">ElevenLabs key</span> <span class="pill '+(DATA.keys.fal?'on':'off')+'">fal key</span> ';if(DATA.dryDefault)$('#dry').checked=true;onFile()}
 function m(){return DATA.manifests.find(x=>x.file===$('#file').value)}
-function onFile(){const mm=m();const es=$('#ep');es.innerHTML=mm?mm.episodes.map(e=>'<option value="'+e.number+'">Ep '+e.number+(e.title?' — '+e.title:'')+'</option>').join(''):'';$('#castinfo').innerHTML=mm?'<b>Cast:</b> '+mm.cast.map(c=>c.name+(c.voice?' 🎙':' <span style="color:var(--warn)">no voice</span>')+(c.cutouts?' ✂'+c.cutouts:'')).join(' · '):'';onEp()}
+function onFile(){const mm=m();$('#mdate').textContent=mm?'manifest from '+new Date(mm.mtime).toLocaleString():'';const es=$('#ep');es.innerHTML=mm?mm.episodes.map(e=>'<option value="'+e.number+'">Ep '+e.number+(e.title?' — '+e.title:'')+'</option>').join(''):'';$('#castinfo').innerHTML=mm?'<b>Cast:</b> '+mm.cast.map(c=>c.name+(c.voice?' 🎙':' <span style="color:var(--warn)">no voice</span>')+(c.cutouts?' ✂'+c.cutouts:'')).join(' · '):'';onEp()}
 function onEp(){const mm=m();if(!mm)return;const e=mm.episodes.find(x=>x.number==$('#ep').value);const blocks=e.blocks;const short=b=>b.kind==='ix'?'◆ choice':b.kind==='line'?'line':(b.label.split(' · ')[0].split(' ')[0]+(b.label.includes(' · ')?' · '+b.label.split(' · ')[1]:''));const opt=b=>'<option value="'+b.index+'">#'+b.index+'  '+short(b).slice(0,34)+'</option>';$('#from').innerHTML=blocks.map(opt).join('');$('#to').innerHTML=blocks.map(opt).join('');$('#to').value=blocks[blocks.length-1].index;$('#one').innerHTML=blocks.filter(b=>b.kind==='shot').map(opt).join('');const ixs=blocks.filter(b=>b.kind==='ix');$('#pathbox').style.display=ixs.length?'':'none';$('#path').innerHTML=ixs.map(b=>'<span>#'+b.index+'</span><select data-ix="'+b.index+'" title="'+b.label.replace(/"/g,'&quot;')+'">'+(b.options||[]).map((o,j)=>'<option value="'+(j+1)+'">'+(j+1)+') '+o+'</option>').join('')+'</select>').join('');cur={file:mm.file,ep:e.number};output()}
 function pathArg(){return [...document.querySelectorAll('#path select')].map(s=>s.dataset.ix+'='+s.value).join(',')}
 function scope(){const sc=document.querySelector('[name=scope]:checked').value;if(sc==='range'){const a=+$('#from').value,b=+$('#to').value;return{from:Math.min(a,b),until:Math.max(a,b)+1}}if(sc==='one'){const n=+$('#one').value;return{shot:n,from:n,until:n+2}}return{}}
@@ -237,6 +256,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#takes').classLis
 function log(s){const el=$('#log');el.textContent+=s+'\\n';el.scrollTop=el.scrollHeight}
 async function importFile(f){if(!f)return;try{const m=JSON.parse(await f.text());const r=await (await fetch('/api/manifest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name.replace(/\.json$/,''),manifest:m})})).json();if(r.error)throw new Error(r.error);log('📥 imported '+r.file+' — '+(m.story?.title||'')+', '+(m.episodes||[]).length+' episode(s)');$('#importinfo').textContent='saved '+r.file+' into '+DATA.root+' ('+new Date().toLocaleTimeString()+')'}catch(e){alert('Not a GASP production manifest: '+e.message)}}
 $('#import').onchange=e=>importFile(e.target.files[0]);document.addEventListener('dragover',e=>{e.preventDefault()});document.addEventListener('drop',e=>{e.preventDefault();importFile(e.dataTransfer.files[0])});
+const PRESETS={free:['composite','vo','beds','animatic'],stills:['stills','vo','beds','animatic'],motion:['animate','animatic'],full:['composite','stills','vo','beds','animate','animatic'],cut:['animatic']};
+$('#preset').onchange=()=>{const v=$('#preset').value;if(!PRESETS[v])return;document.querySelectorAll('#steps input').forEach(i=>i.checked=PRESETS[v].includes(i.dataset.step))};document.querySelectorAll('#steps input').forEach(i=>i.onchange=()=>{$('#preset').value=''});
 $('#file').onchange=onFile;$('#ep').onchange=onEp;$('#refresh').onclick=load;
 $('#render').onclick=async()=>{const steps=[...document.querySelectorAll('#steps input:checked')].map(i=>i.dataset.step);if(!steps.length)return alert('Pick at least one step.');if(!$('#dry').checked&&steps.some(s=>s==='stills'||s==='animate')&&!confirm('Stills / image-to-video spend real money on fal. Continue?'))return;$('#log').textContent='';const r=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({file:cur.file,ep:cur.ep,steps,dry:$('#dry').checked,force:$('#force').checked,path:pathArg()},scope()))})).json();if(r.error)alert(r.error)};
 $('#stop').onclick=()=>fetch('/api/stop',{method:'POST'});

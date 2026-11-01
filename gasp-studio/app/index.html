@@ -318,7 +318,7 @@ div[data-lastpass-icon-root],div[data-lastpass-root]{display:none!important}inpu
 .fpanel{position:sticky;top:calc(var(--hh,60px) + 10px);max-height:calc(100vh - var(--hh,60px) - 20px);overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px;align-content:start}
 .fpanel .blocks .blk{grid-template-columns:40px 1fr;padding:8px}.fpanel .blocks .blk .ops{grid-column:1/-1;flex-direction:row}
 .fprev{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:start}.fprev img{width:150px;aspect-ratio:9/16;object-fit:cover;border-radius:10px;background:#000;border:1px solid var(--line)}.fprev video{width:150px;aspect-ratio:9/16;object-fit:contain;border-radius:10px;background:#000;border:1px solid var(--line)}.fprev .ph{width:150px;aspect-ratio:9/16;border-radius:10px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);text-align:center;padding:10px}
-.ftakes{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}.ftakes .tk{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--muted);cursor:pointer}.ftakes img{width:64px;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:2px solid transparent}.ftakes .tk.cur img{border-color:var(--accent)}.ftakes .tk.cur{color:var(--accent)}.ftakes .tk:hover img{border-color:var(--muted)}.ftakes .hint{width:100%;font-size:11px;color:var(--muted)}
+.ftakes{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}.ftakes .tk{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--muted);cursor:pointer}.ftakes img{width:64px;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:2px solid transparent}.ftakes .tk.cur img{border-color:var(--accent)}.ftakes .tk.cur{color:var(--accent)}.ftakes .tk:hover img{border-color:var(--muted)}.ftakes .tk{position:relative}.tkdel{position:absolute;top:-4px;right:-4px;font-style:normal;font-size:10px;background:var(--paper);border:1px solid var(--line);border-radius:999px;width:16px;height:16px;line-height:14px;text-align:center;color:var(--muted);display:none}.ftakes .tk:hover .tkdel{display:block}.tkdel:hover{color:var(--bad);border-color:var(--bad)}.ftakes .hint{width:100%;font-size:11px;color:var(--muted)}
 .facts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.flog{margin:0;font:11px/1.4 var(--mono);color:var(--muted);white-space:pre-wrap;max-height:84px;overflow:auto;background:var(--bg);border-radius:8px;padding:6px 8px}.flog:empty{display:none}
 .fops{display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px}
 @media(max-width:1100px){.flowwrap{grid-template-columns:1fr}.fpanel{position:static;max-height:none}}
@@ -338,18 +338,19 @@ div[data-lastpass-icon-root],div[data-lastpass-root]{display:none!important}inpu
 .plhud{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:24px}.plhud .pill{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 10px}.plhud .pill.mute{color:var(--muted);font-family:var(--mono);font-size:10.5px}
 .plside h3{margin:0 0 6px}.pllog{font:12px/1.5 var(--mono);color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px;max-height:40vh;overflow:auto}.pllog div+div{margin-top:2px}
 @media(max-width:900px){.playwrap{grid-template-columns:1fr}}
+.vblist{display:grid;gap:6px;margin-top:10px;max-height:52vh;overflow:auto}.vb{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px 8px}.vb.cur{border-color:var(--accent)}.vbi{min-width:0}
 </style>
 
 <header class="top">
   <div>
-    <h1><span>GASP</span> Studio <small id="gtver" style="font-size:11px;font-weight:400;color:var(--mute);vertical-align:middle;letter-spacing:.4px">v47</small></h1>
+    <h1><span>GASP</span> Studio <small id="gtver" style="font-size:11px;font-weight:400;color:var(--mute);vertical-align:middle;letter-spacing:.4px">v48</small></h1>
     <div class="sub">Gameplay · Animatic · Script · Production · the paywall is episode <span id="g1lab">10</span></div>
   </div>
   <div class="spacer"></div>
   <span class="save" id="saveState">unsaved</span>
   <button class="btn" id="btnExport">Export</button>
   <button class="btn" id="btnImport">Import / backup</button><button class="btn" id="btnGuide" title="The rules the doctor checks">? Guide</button><button class="btn" id="btnKey" hidden>API key</button>
-  <button class="btn" id="btnChat">✦ Chat</button><button class="btn" id="btnDoc">✚ Doctor <span class="cnt" id="docCntHdr"></span></button>
+  <button class="btn ghost" id="btnCost" hidden title="What this story has spent on fal and ElevenLabs so far (from the render logs)">$0.00</button><button class="btn" id="btnChat">✦ Chat</button><button class="btn" id="btnDoc">✚ Doctor <span class="cnt" id="docCntHdr"></span></button>
 </header>
 
 <div class="shell">
@@ -1083,7 +1084,7 @@ function renderCast(){
       <label class="f">Downfall ep (villains)<input data-k="downfall" value="${esc(c.downfall)}" placeholder="e.g. 52"></label>
       <label class="f w2">Voice (direction)<input data-k="voice" value="${esc(c.voice)}" placeholder="low, steady, cracks when hurt"></label>
       <label class="f">TTS provider<select data-k="voiceProvider"><option value="">—</option>${VOICE_PROVIDERS.map(v=>`<option ${v===c.voiceProvider?"selected":""}>${v}</option>`).join("")}</select></label>
-      <label class="f">Voice id / name<input data-k="voiceId" value="${esc(c.voiceId||"")}" placeholder="e.g. Rachel, or a voice id"></label>
+      <label class="f">Voice id / name<span class="row" style="gap:6px"><input data-k="voiceId" value="${esc(c.voiceId||"")}" placeholder="e.g. Rachel, or a voice id" style="flex:1;min-width:0">${window.GASP_LOCAL?`<button class="btn small" data-voices="${i}" title="Browse ElevenLabs voices and hear them">Browse</button>`:""}</span></label>
       <label class="f w2">Voice settings (stability, style, speed, accent notes)<input data-k="voiceSettings" value="${esc(c.voiceSettings||"")}" placeholder="stability 0.5 · style 0.3 · speed 1.0 · soft American"></label>
       <label class="f w2">Costume states (comma-separated, max 5)<input data-k="costumes" value="${esc(c.costumes)}"></label>
       <label class="f w4">Locked look (face, hair, wardrobe, prop)<textarea data-k="look" rows="2">${esc(c.look)}</textarea></label>
@@ -1105,6 +1106,7 @@ function renderCast(){
   host.querySelectorAll("[data-pcopy]").forEach(b=>b.onclick=()=>{const i=+b.dataset.pcopy;navigator.clipboard?.writeText(cast[i].portraitPrompt||buildPortraitPrompt(cast[i])).then(()=>toast("Prompt copied")).catch(()=>toast("Copy failed"))});
   host.querySelectorAll("[data-ppolish]").forEach(b=>b.onclick=async()=>{if(!sampleFn)return;const i=+b.dataset.ppolish;b.disabled=true;const base=cast[i].portraitPrompt||buildPortraitPrompt(cast[i]);try{const {text}=await sampleFn(`Rewrite this as a single image-generation prompt for a character reference portrait (3:4) for a vertical drama. Keep every fact of the locked look. Make it specific about face shape, skin texture, hair, eye light, wardrobe fabric, the prop, and a neutral studio-style key light so the face reads clearly and can anchor every later shot. Photoreal, no text, end with "--ar 3:4 --style raw". Under 90 words, one paragraph, no quotes.\n\nPROMPT:\n${base}`,{cache:false,modelTier:"quick"});cast[i].portraitPrompt=text.trim();cast[i].portraitPromptAuto=false;touch();renderCast()}catch(e){toast("Polish failed ("+e.code+")");b.disabled=false}});
   host.querySelectorAll("[data-k]").forEach(el=>{el.oninput=()=>{const i=+el.closest(".member").dataset.i;cast[i][el.dataset.k]=el.value;if(el.dataset.k==="portraitPrompt")cast[i].portraitPromptAuto=false;touch();renderDoctor()}});
+  host.querySelectorAll("[data-voices]").forEach(bt=>bt.onclick=()=>voiceBrowser(cast[+bt.dataset.voices],()=>renderCast()));
   host.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{cast.splice(+b.dataset.del,1);touch();renderCast();renderDoctor()});growAll(host);
 }
 
@@ -1479,7 +1481,7 @@ async function save(){const st=LIB.stories.find(x=>x.id===LIB.activeId);if(st){c
   if(db){try{for(const id of [...dirty]){const s2=LIB.stories.find(x=>x.id===id);if(s2){await db.doc("stories/"+id).set({json:JSON.stringify(s2.data),name:s2.name,updated:s2.updated});dirty.delete(id)}}
       await db.doc("library/index").set({ids:LIB.stories.map(x=>x.id),activeId:LIB.activeId,updated:LIB.updated});$("#saveState").textContent="saved · synced"}catch(e){$("#saveState").textContent="saved locally"}}else $("#saveState").textContent="saved locally";renderLib()}
 function newStory(data,name){const id="s"+Date.now().toString(36);LIB.stories.push({id,name:name||(data.premise&&data.premise.title)||"Untitled",data,updated:Date.now()});return id}
-function openStory(id){const st=LIB.stories.find(x=>x.id===id);if(!st)return;LIB.activeId=id;S=st.data;migrate();active="premise";chatOpen=false;render();renderChatPanel();renderLib();if(isMobile())setPane("write");try{localStorage.setItem("gate-ten-lib",JSON.stringify(LIB))}catch(e){}}
+function openStory(id){const st=LIB.stories.find(x=>x.id===id);if(!st)return;LIB.activeId=id;S=st.data;migrate();setTimeout(refreshCost,0);active="premise";chatOpen=false;render();renderChatPanel();renderLib();if(isMobile())setPane("write");try{localStorage.setItem("gate-ten-lib",JSON.stringify(LIB))}catch(e){}}
 function renderLib(){const el=$("#lib");el.classList.toggle("closed",!libOpen);
   if(!libOpen){el.innerHTML=`<button class="btn small" id="libToggle" title="Show stories">☰</button>`;$("#libToggle").onclick=()=>{libOpen=true;renderLib()};return}
   const list=[...LIB.stories].sort((a,b)=>(b.updated||0)-(a.updated||0));
@@ -1657,7 +1659,7 @@ function renderFPanel(ep){const host=$("#fpanel");const n=flowSel!=null?nodeFor(
   if(!n){host.innerHTML=`<div class="empty">Select a shot or a choice to edit it here.<br><span class="sub">Each card is one shot with its lines. Choices fan out into lanes; conditional shots sit in the lane of their flag.</span></div>`;return}
   const sh=n.type==="shot"?(flowShots[n.b.id]||flowShots[n.i+1]||{}):{};const local=!!window.GASP_LOCAL;const busy=!!flowRunning;
   const preview=n.type==="shot"?`<div class="fprev">${sh.segment?`<video src="${sh.segment}" controls playsinline></video>`:sh.approved?`<img src="${sh.approved}" alt="">`:`<div class="ph">${local?"Not rendered yet":"Rendering lives in the desktop app"}</div>`}
-      <div class="ftakes">${(sh.takes||[]).length?`<div class="hint">Takes — click one to use it in the cut</div>`:""}${(sh.takes||[]).map(t=>`<div class="tk ${t.id===sh.approvedId?"cur":""}" data-take="${t.id}"><img src="${t.url}" alt=""><span>${t.id==="composite"?"composite":"take "+t.id}${t.id===sh.approvedId?" ✓ in use":""}</span></div>`).join("")}</div></div>`:"";
+      <div class="ftakes">${(sh.takes||[]).length?`<div class="hint">Stills — click one to use it in the cut</div>`:""}${[...(sh.takes||[])].sort((a,b)=>(a.id==="composite")-(b.id==="composite")||(+b.id||0)-(+a.id||0)).map(t=>`<div class="tk ${t.id===sh.approvedId?"cur":""}" data-take="${t.id}"><img src="${t.url}" alt=""><span>${t.id==="composite"?"composite":"take "+t.id}${t.id===sh.approvedId?" ✓ in use":""}</span>${t.id!=="composite"?`<i class="tkdel" data-del="${t.id}" title="Delete this take">✕</i>`:""}</div>`).join("")}${(sh.clips||[]).length?`<div class="hint">Motion</div>${sh.clips.map(cl=>`<div class="tk" style="cursor:default"><video src="${cl.url}" controls preload="metadata" style="width:64px;aspect-ratio:9/16;border-radius:6px;background:#000"></video><span>${esc(cl.name)}</span></div>`).join("")}`:""}</div></div>`:"";
   const actions=n.type==="shot"&&local?`<div class="facts">
       <button class="btn small" data-act="composite" title="Cutouts over the setting plate — free">Composite</button>
       <button class="btn small" data-act="stills" title="Generate a new still on fal (~$0.05–0.08); the newest take becomes approved">✨ Still</button>
@@ -1668,7 +1670,8 @@ function renderFPanel(ep){const host=$("#fpanel");const n=flowSel!=null?nodeFor(
   const ops=`<div class="fops"><span class="sub">#${n.i+1} ${n.type==="ix"?"interaction":n.type==="shot"?"shot":"lines"}</span><span class="spacer"></span><button class="btn small ghost" data-nop="up" title="Move up">↑</button><button class="btn small ghost" data-nop="down" title="Move down">↓</button><button class="btn small ghost" data-nop="dup" title="Duplicate">⧉</button>${n.type==="shot"?`<button class="btn small ghost" data-nop="line">+ Line</button><button class="btn small ghost" data-nop="sfx">+ SFX</button>`:""}<button class="btn small ghost" data-nop="del" style="color:var(--bad)">Delete</button></div>`;
   host.innerHTML=preview+actions+ops+`<div class="blocks" id="blocks"></div>`;
   renderBlocks(ep,$("#blocks"),new Set(n.blocks));growAll(host);
-  host.querySelectorAll("[data-take]").forEach(im=>im.onclick=async()=>{if(!local)return;await fetch("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:flowSlug(),ep:ep.num,shot:n.i+1,take:im.dataset.take})});await flowLoadShots();flowRun(ep,n,"preview")});
+  host.querySelectorAll("[data-del]").forEach(x=>x.onclick=async e=>{e.stopPropagation();if(!confirm("Delete this take?"))return;await fetch("/api/take",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:flowSlug(),ep:ep.num,shot:n.i+1,take:x.dataset.del})});await flowLoadShots();flowRefresh()});
+  host.querySelectorAll("[data-take]").forEach(im=>im.onclick=async e=>{if(!local||e.target.classList.contains("tkdel"))return;await fetch("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:flowSlug(),ep:ep.num,shot:n.i+1,take:im.dataset.take})});await flowLoadShots();flowRun(ep,n,"preview")});
   host.querySelectorAll("[data-act]").forEach(bt=>bt.onclick=()=>flowRun(ep,n,bt.dataset.act));
   host.querySelectorAll("[data-nop]").forEach(bt=>bt.onclick=()=>{const op=bt.dataset.nop;const nodes=flowNodes(ep);const k=nodes.indexOf(nodeFor(ep,n.i));const take=()=>ep.blocks.splice(n.blocks[0],n.blocks.length);
     if(op==="del"){take();flowSel=null}
@@ -1683,7 +1686,7 @@ async function flowLoadShots(){if(!window.GASP_LOCAL)return;const ep=flowEp();if
 function flowEvents(){if(!window.GASP_LOCAL||flowES)return;flowES=new EventSource("/api/events");
   flowES.addEventListener("log",e=>{flowLogTail.push(JSON.parse(e.data));if(flowLogTail.length>40)flowLogTail.shift();const el=$("#flog");if(el){el.textContent=flowLogTail.slice(-5).join("\n")}});
   flowES.addEventListener("status",e=>{const s=JSON.parse(e.data);flowRunning=s.running?s.step:null;const el=$("#fstatus");if(el)el.textContent=flowRunning?"running: "+flowRunning:"";document.querySelectorAll("[data-act]").forEach(b=>b.disabled=!!flowRunning)});
-  flowES.addEventListener("done",()=>{setTimeout(flowLoadShots,300)});setInterval(()=>{if(window.flowActive&&flowRunning)flowLoadShots()},4000)}
+  flowES.addEventListener("done",()=>{setTimeout(flowLoadShots,300);refreshCost()});setInterval(()=>{if(window.flowActive&&flowRunning)flowLoadShots()},4000)}
 async function flowRun(ep,n,act){if(flowRunning){toast("Still rendering the last request");return}
   const sh=flowShots[n.b.id]||flowShots[n.i+1]||{};const steps=act==="composite"?["composite"]:act==="stills"?["stills"]:act==="vo"?["vo"]:act==="animate"?["animate"]:sh.approved?[]:["composite"];
   if((act==="stills"||act==="animate")&&!confirm(act==="stills"?"Generate a new still on fal (~$0.05–0.08)?":"Image-to-video on fal costs roughly $0.25–0.50 per shot (plus lip-sync). Continue?"))return;
@@ -1748,9 +1751,27 @@ function plEnd(){const ep=PL.ep;const g=S.premise.gates||{};const nextEp=[...S.e
   const pb=$("#plPay");if(pb)pb.onclick=()=>{if(PL.gems<60){plLog("Not enough gems to unlock");return}PL.gems-=60;plLog(`Unlocked Ep ${nextEp.num} (−60)`);go()};
   const gb=$("#plGo");if(gb)gb.onclick=go;$("#plAgain").onclick=()=>playStart(ep)}
 
+
+/* ---------- ElevenLabs voice browser (local app) ---------- */
+let VB_AUDIO=null;
+function voiceBrowser(c,after){const h=modal(`<h2>Voices for ${esc(c.name||"this character")}</h2><p class="sub">Your ElevenLabs voices and the public library. Press ▶ to hear a sample; Use sets it on the character (library voices are added to your account first).</p>
+  <div class="row" style="gap:6px;flex-wrap:wrap"><input id="vbQ" placeholder="search name or description" style="flex:1;min-width:160px"><select id="vbG"><option value="">any gender</option><option>female</option><option>male</option><option>neutral</option></select><select id="vbA"><option value="">any age</option><option>young</option><option>middle_aged</option><option>old</option></select><input id="vbAcc" placeholder="accent (american, british…)" style="width:160px"><button class="btn small" id="vbGo">Search</button></div>
+  <div id="vbList" class="vblist"><span class="sub">Loading your voices…</span></div>`);
+  const list=$("#vbList");
+  const load=async()=>{list.innerHTML=`<span class="sub">Loading…</span>`;try{const q=new URLSearchParams({q:$("#vbQ").value,gender:$("#vbG").value,age:$("#vbA").value,accent:$("#vbAcc").value});const r=await (await fetch("/api/voices?"+q)).json();if(r.error)throw new Error(r.error);
+      list.innerHTML=(r.voices||[]).map((v,k)=>`<div class="vb ${v.voice_id===c.voiceId?"cur":""}"><button class="btn small" data-play="${k}" title="Preview">▶</button><div class="vbi"><b>${esc(v.name)}</b> <span class="sub">${esc([v.gender,v.age,v.accent].filter(Boolean).join(" · "))}${v.source==="mine"?" · yours":""}</span><div class="sub">${esc((v.description||"").slice(0,120))}</div></div><button class="btn small primary" data-use="${k}">${v.voice_id===c.voiceId?"In use":"Use"}</button></div>`).join("")||`<span class="sub">No voices matched.</span>`;
+      list.querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>{const v=r.voices[+b.dataset.play];if(!v.preview_url)return toast("No preview for this voice");if(VB_AUDIO){VB_AUDIO.pause()}VB_AUDIO=new Audio(v.preview_url);VB_AUDIO.play()});
+      list.querySelectorAll("[data-use]").forEach(b=>b.onclick=async()=>{const v=r.voices[+b.dataset.use];b.disabled=true;b.textContent="Adding…";try{if(v.source==="library"){const a=await (await fetch("/api/voices/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({public_owner_id:v.public_owner_id,voice_id:v.voice_id,name:v.name})})).json();if(a.error)throw new Error(a.error);c.voiceId=a.voice_id||v.voice_id}else c.voiceId=v.voice_id;c.voiceProvider="ElevenLabs";touch();if(VB_AUDIO)VB_AUDIO.pause();h.innerHTML="";after&&after();toast(`${c.name||"Character"} → ${v.name}`)}catch(e){toast("Couldn't use that voice: "+e.message);b.disabled=false;b.textContent="Use"}})}
+    catch(e){list.innerHTML=`<span class="sub">${esc(e.message)}</span>`}};
+  $("#vbGo").onclick=load;$("#vbQ").onkeydown=e=>{if(e.key==="Enter")load()};load()}
+
+
+/* ---------- spend tracker (local app) ---------- */
+async function refreshCost(){if(!window.GASP_LOCAL)return;const b=$("#btnCost");if(!b)return;try{const r=await (await fetch(`/api/cost?slug=${encodeURIComponent(flowSlug())}`)).json();b.hidden=false;b.textContent=`$${(r.total||0).toFixed(2)} spent`;b.onclick=()=>modal(`<h2>Spend on this story</h2><p class="sub">Summed from the cost logs in the work folder: stills, video, lip-sync, voices, music and SFX. Dry runs cost nothing.</p><table class="toc" style="width:100%">${(r.episodes||[]).map(e=>`<tr><td>Ep ${e.episode}</td><td style="text-align:right">$${e.total.toFixed(2)}</td></tr>`).join("")}<tr><td><b>Total</b></td><td style="text-align:right"><b>$${(r.total||0).toFixed(2)}</b></td></tr></table><div class="row" style="margin-top:12px;gap:8px"><a class="btn small" href="https://fal.ai/dashboard/billing" target="_blank" rel="noopener">fal billing ↗</a><a class="btn small" href="https://elevenlabs.io/app/subscription" target="_blank" rel="noopener">ElevenLabs plan ↗</a></div>`)}catch(e){}}
+
 /* ---------- boot ---------- */
 const setHH=()=>document.documentElement.style.setProperty("--hh",$("header.top").offsetHeight+"px");setHH();try{const cw=localStorage.getItem("gate-ten-cw");if(cw)document.documentElement.style.setProperty("--cw",cw)}catch(e){}window.addEventListener("resize",setHH);
-load();
+load();setTimeout(refreshCost,800);
 if(STANDALONE){sampleFn=makeApiSample();render();renderChatPanel();if(!sampleFn)setTimeout(()=>toast("Add your Claude API key (top right) to enable chat and review"),600)}
 else{use("sample").then(s=>{sampleFn=s;render();renderChatPanel()});use("downloads").then(d=>{downloads=d})}
 </script>
