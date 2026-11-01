@@ -3,6 +3,8 @@
 **G**ameplay · **A**nimatic · **S**cript · **P**roduction. Turns a production manifest into a voiced, captioned animatic, with SlapCut (the cutout compositor) for free stills and fal.ai for generated ones.
 
 ## One app
+Run `Create desktop shortcut.bat` once: it puts a **GASP Studio** icon on your Desktop. That icon starts the server silently and opens GASP in its own app window (no browser chrome, its own taskbar icon); closing the window stops the server. Updates are pulled on every launch. `GASP.bat` still works if you want the plain version with a visible log.
+
 Double-click `GASP.bat` (or run `node studio.js serve`). It opens http://localhost:4747: the writing tabs (Premise, Season, Gameplay, episodes) with a **Render** tab in the same page.
 
 - Stories are saved as files in `stories/` on this machine (git-ignored). To bring a story over from the claude.ai version: there, Import / backup → *Save all stories as file*; here, Import / backup → *Load file*.
