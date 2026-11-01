@@ -1,3 +1,2 @@
 @echo off
-cd /d "%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0gasp-app.ps1"
+wscript.exe "%~dp0gasp-app.vbs"
