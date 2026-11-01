@@ -18,6 +18,13 @@
       "supportsRefs": true,
       "pricePerImage": 0.03,
       "note": "ByteDance; cheap, strong on portraits"
+    },
+    "openai-gpt-image": {
+      "api": "https://api.openai.com/v1/images",
+      "model": "gpt-image-1",
+      "supportsRefs": true,
+      "pricePerImage": 0.07,
+      "note": "ChatGPT's image model; best when your references came from ChatGPT. Needs OPENAI_API_KEY in .env"
     }
   },
   "video": {

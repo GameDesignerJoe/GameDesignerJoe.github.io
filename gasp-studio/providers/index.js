@@ -88,6 +88,7 @@ export async function generateStill({ prompt, refs = [], outFile, provider, aspe
   const p = pick("image", provider);
   const dim = size || { width: 1080, height: 1920 };
   if (DRY) return { file: await placeholderImage(outFile, label || prompt.slice(0, 160), dim.width, dim.height, refs, labelTitle || ""), cost: 0, provider: p.key };
+  if (p.key.startsWith("openai")) return openaiImage({ p, prompt, refs, outFile, dim });
   const input = { prompt, aspect_ratio: aspect, image_size: dim, num_images: 1 };
   if (p.supportsRefs && refs.length) {
     const urls = [];
@@ -98,6 +99,25 @@ export async function generateStill({ prompt, refs = [], outFile, provider, aspe
   const url = out.images?.[0]?.url || out.image?.url;
   if (!url) throw new Error("no image in response: " + JSON.stringify(out).slice(0, 300));
   await download(url, outFile);
+  return { file: outFile, cost: p.pricePerImage || 0, provider: p.key };
+}
+
+// OpenAI gpt-image-1: generations without references, edits with them (identity carries over from the references).
+async function openaiImage({ p, prompt, refs, outFile, dim }) {
+  const key = process.env.OPENAI_API_KEY; if (!key) throw new Error("OPENAI_API_KEY missing in .env (needed for the openai-gpt-image model)");
+  const size = dim.width > dim.height ? "1536x1024" : dim.width < dim.height ? "1024x1536" : "1024x1024";
+  let r;
+  if (refs.length) {
+    const fd = new FormData(); fd.append("model", p.model || "gpt-image-1"); fd.append("prompt", prompt); fd.append("size", size); fd.append("quality", process.env.OPENAI_IMAGE_QUALITY || "medium"); fd.append("n", "1");
+    for (const f of refs.slice(0, 4)) { const buf = fs.readFileSync(f); fd.append("image[]", new Blob([buf], { type: f.endsWith(".png") ? "image/png" : "image/jpeg" }), path.basename(f)); }
+    r = await fetch(`${p.api}/edits`, { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: fd });
+  } else {
+    r = await fetch(`${p.api}/generations`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: p.model || "gpt-image-1", prompt, size, quality: process.env.OPENAI_IMAGE_QUALITY || "medium", n: 1 }) });
+  }
+  const o = await r.json().catch(() => ({})); if (!r.ok) throw new Error(`openai ${r.status}: ${o.error?.message || r.statusText}`);
+  const b64 = o.data?.[0]?.b64_json; if (!b64) throw new Error("no image in openai response");
+  const png = outFile.replace(/\.jpg$/, ".png"); fs.writeFileSync(png, Buffer.from(b64, "base64"));
+  if (png !== outFile) await execFileP("ffmpeg", ["-y", "-i", png, "-q:v", "3", outFile]);
   return { file: outFile, cost: p.pricePerImage || 0, provider: p.key };
 }
 
