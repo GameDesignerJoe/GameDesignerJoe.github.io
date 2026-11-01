@@ -91,29 +91,15 @@ export async function serve({ root, port = 4747, open = true }) {
     next();
   }
 
-  const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, `http://localhost:${port}`);
-    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Private-Network": "true" };
-    const json = (o, code = 200) => { res.writeHead(code, { "Content-Type": "application/json", ...cors }); res.end(JSON.stringify(o)); };
-    const body = () => new Promise(r => { let b = ""; req.on("data", d => b += d); req.on("end", () => { try { r(JSON.parse(b || "{}")); } catch { r({}); } }); });
-    try {
-      if (req.method === "OPTIONS") { res.writeHead(204, cors); return res.end(); }
-      if (url.pathname === "/" || url.pathname === "/index.html") { const app = path.join(root, "app", "index.html"); if (fs.existsSync(app)) { res.writeHead(200, { "Content-Type": MIME[".html"] }); return fs.createReadStream(app).pipe(res); } res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(PANEL); }
-      if (url.pathname === "/render") { res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(url.searchParams.get("embed") ? PANEL.replace("<header>", "<header style=\"display:none\">").replace("height:calc(100vh - 50px)", "height:100vh") : PANEL); }
-      if (url.pathname === "/gasp-shim.js") { res.writeHead(200, { "Content-Type": "text/javascript" }); return fs.createReadStream(path.join(root, "app", "gasp-shim.js")).pipe(res); }
-      const shotFolder = (sl, ep, shot, file) => { const scan = scanEp(sl, ep, file ? path.join(root, file) : null); const i = scan.shots[shot] || scan.shots[+shot]; return i ? path.join(scan.dir, `shot-${i.key}`) : path.join(scan.dir, `shot-${String(shot).padStart(2, "0")}`); };
-      // ---- in-app asset generation: { prompt, refs:[dataURI], aspect:"3:4"|"9:16"|"1:1", rembg:bool, max:px, slug, kind, name }
-      if (url.pathname === "/api/providers") { const { registry } = await import("../providers/index.js"); const list = Object.entries(registry.image).filter(([k]) => k !== "default").map(([k, v]) => ({ key: k, note: v.note || "", price: v.pricePerImage || 0, refs: !!v.supportsRefs, isDefault: registry.image.default === k })); return json({ image: list }); }
-      if (url.pathname === "/api/gen/image" && req.method === "POST") {
-        const b = await body(); if (!b.prompt) return json({ error: "prompt required" }, 400);
-        if (!process.env.FAL_KEY && !process.env.STUDIO_DRY_RUN) return json({ error: "FAL_KEY missing in .env" }, 401);
+
+  const genJobs = new Map();
+  async function genRun(b) {
         const dir = path.join(root, "work", String(b.slug || "assets").replace(/[^a-z0-9-]/g, "") || "assets", "assets"); fs.mkdirSync(dir, { recursive: true });
         const stamp = Date.now().toString(36); const base = path.join(dir, `${String(b.kind || "img").replace(/[^a-z0-9-]/g, "")}-${String(b.name || "x").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${stamp}`);
         const refs = []; (b.refs || []).slice(0, 3).forEach((u, i) => { const f = dataUriToFile(u, `${base}-ref${i}.${/^data:image\/png/.test(u) ? "png" : "jpg"}`); if (f) refs.push(f); });
         const dims = { "9:16": { width: 1080, height: 1920 }, "3:4": { width: 896, height: 1200 }, "1:1": { width: 1024, height: 1024 }, "2:3": { width: 832, height: 1248 } };
         const aspect = dims[b.aspect] ? b.aspect : "3:4";
         let cost = 0; const count = Math.max(1, Math.min(4, +b.count || 1)); const results = [];
-        try {
           for (let k = 0; k < count; k++) {
           const g = await generateStill({ prompt: b.prompt + (refs.length ? " Match the face and look of the reference image exactly." : ""), refs, outFile: `${base}-${k}.jpg`, aspect, size: dims[aspect], label: b.prompt.slice(0, 80), labelTitle: b.kind || "", provider: b.provider }); cost += g.cost;
           let file = g.file;
@@ -127,8 +113,28 @@ export async function serve({ root, port = 4747, open = true }) {
           // log the spend against the story
           if (cost) { const cf = path.join(root, "work", String(b.slug || "assets").replace(/[^a-z0-9-]/g, "") || "assets", "ep0", "ep0-cost.json"); fs.mkdirSync(path.dirname(cf), { recursive: true }); const c = fs.existsSync(cf) ? readJSON(cf) : { items: [], total: 0 }; c.items.push({ kind: b.kind || "asset", amt: +cost.toFixed(4), note: b.name || "", at: new Date().toISOString() }); c.total = +(c.total + cost).toFixed(4); fs.writeFileSync(cf, JSON.stringify(c, null, 2)); }
           emit("log", `🖼 ${b.kind || "image"} for ${b.name || "?"} ($${cost.toFixed(2)})`);
-          return json({ dataUri, results, cost });
-        } catch (e) { return json({ error: e.message }, 500); }
+          return { dataUri, results, cost };
+  }
+
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url, `http://localhost:${port}`);
+    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Private-Network": "true" };
+    const json = (o, code = 200) => { res.writeHead(code, { "Content-Type": "application/json", ...cors }); res.end(JSON.stringify(o)); };
+    const body = () => new Promise(r => { let b = ""; req.on("data", d => b += d); req.on("end", () => { try { r(JSON.parse(b || "{}")); } catch { r({}); } }); });
+    try {
+      if (req.method === "OPTIONS") { res.writeHead(204, cors); return res.end(); }
+      if (url.pathname === "/" || url.pathname === "/index.html") { const app = path.join(root, "app", "index.html"); if (fs.existsSync(app)) { res.writeHead(200, { "Content-Type": MIME[".html"] }); return fs.createReadStream(app).pipe(res); } res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(PANEL); }
+      if (url.pathname === "/render") { res.writeHead(200, { "Content-Type": MIME[".html"] }); return res.end(url.searchParams.get("embed") ? PANEL.replace("<header>", "<header style=\"display:none\">").replace("height:calc(100vh - 50px)", "height:100vh") : PANEL); }
+      if (url.pathname === "/gasp-shim.js") { res.writeHead(200, { "Content-Type": "text/javascript" }); return fs.createReadStream(path.join(root, "app", "gasp-shim.js")).pipe(res); }
+      const shotFolder = (sl, ep, shot, file) => { const scan = scanEp(sl, ep, file ? path.join(root, file) : null); const i = scan.shots[shot] || scan.shots[+shot]; return i ? path.join(scan.dir, `shot-${i.key}`) : path.join(scan.dir, `shot-${String(shot).padStart(2, "0")}`); };
+      // ---- in-app asset generation: { prompt, refs:[dataURI], aspect:"3:4"|"9:16"|"1:1", rembg:bool, max:px, slug, kind, name }
+      if (url.pathname === "/api/providers") { const { registry } = await import("../providers/index.js"); const list = Object.entries(registry.image).filter(([k]) => k !== "default").map(([k, v]) => ({ key: k, note: v.note || "", price: v.pricePerImage || 0, refs: !!v.supportsRefs, isDefault: registry.image.default === k })); return json({ image: list }); }
+      if (url.pathname === "/api/gen/jobs") { if (req.method === "DELETE") { const b = await body(); genJobs.delete(b.id); return json({ ok: true }); } return json({ jobs: [...genJobs.values()].map(j => ({ id: j.id, status: j.status, kind: j.kind, name: j.name, title: j.title, prompt: j.prompt, at: j.at, cost: j.cost, error: j.error, results: j.status === "done" ? j.results : undefined, count: j.count })) }); }
+      if (url.pathname === "/api/gen/image" && req.method === "POST") {
+        const b = await body(); if (!b.prompt) return json({ error: "prompt required" }, 400);
+        if (!process.env.FAL_KEY && !process.env.STUDIO_DRY_RUN) return json({ error: "FAL_KEY missing in .env" }, 401);
+        if (b.async) { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); const job = { id, status: "running", kind: b.kind, name: b.name, title: b.title || "", prompt: b.prompt, at: Date.now(), count: +b.count || 1, cost: 0 }; genJobs.set(id, job); emit("gen", { id, status: "running", title: job.title }); genRun(b).then(r => { Object.assign(job, { status: "done", results: r.results, cost: r.cost }); emit("gen", { id, status: "done", title: job.title }); }).catch(e => { Object.assign(job, { status: "failed", error: e.message }); emit("gen", { id, status: "failed", title: job.title, error: e.message }); }); return json({ jobId: id }); }
+        try { return json(await genRun(b)); } catch (e) { return json({ error: e.message }, 500); }
       }
       if (url.pathname === "/api/voices/cast" && req.method === "POST") {
         const key = process.env.ELEVENLABS_API_KEY; if (!key) return json({ error: "ELEVENLABS_API_KEY missing in .env" }, 401); const b = await body(); const H = { "xi-api-key": key };
