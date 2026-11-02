@@ -264,6 +264,16 @@ export async function serve({ root, port = 4747, open = true }) {
       if (url.pathname === "/api/stop" && req.method === "POST") { if (job) { job.cancelled = true; job.child?.kill(); } return json({ ok: true }); }
       if (url.pathname === "/api/shots") { const sl = String(url.searchParams.get("slug") || "").replace(/[^a-z0-9-]/g, ""); const ep = String(+url.searchParams.get("ep") || 1); const { shots, segments } = scanEp(sl, ep, null); return json({ shots, segments }); }
       // hand-staged composite from the app's stage editor: becomes composite.png (and the image in use); studio won't overwrite it
+      // a still made elsewhere: next take for the shot, in use, plus a copy in the story's assets\stills folder
+      if (url.pathname === "/api/take/upload" && req.method === "POST") {
+        const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const m = /^data:image\/png;base64,/.exec(b.png || "");
+        if (!sl || !m) return json({ error: "slug and png required" }, 400);
+        const sd = path.join(root, "work", sl, `ep${+b.ep || 1}`, `shot-${String(b.shot).replace(/[^A-Za-z0-9_-]/g, "")}`); fs.mkdirSync(sd, { recursive: true });
+        const nums = fs.readdirSync(sd).map(f => (f.match(/^take-(\d+)\.png$/) || [])[1]).filter(Boolean).map(Number); const take = (nums.length ? Math.max(...nums) : 0) + 1;
+        const buf = Buffer.from(b.png.slice(m[0].length), "base64"); fs.writeFileSync(path.join(sd, `take-${take}.png`), buf); fs.writeFileSync(path.join(sd, "approved.png"), buf);
+        try { const h = sha(b.png); if (!idxRead(sl)[h]) { const dir = path.join(assetsDir(sl), "stills"); fs.mkdirSync(dir, { recursive: true }); const f = path.join(dir, `${String(b.name || "still").replace(/[^a-z0-9-]+/gi, "-")}-${h.slice(0, 8)}.png`); fs.writeFileSync(f, buf); idxAdd(sl, { [h]: path.relative(assetsDir(sl), f).split(path.sep).join("/") }); } } catch {}
+        emit("log", `⤒ own still added to shot ${b.shot} as take ${take}`); return json({ ok: true, take });
+      }
       if (url.pathname === "/api/stage" && req.method === "POST") {
         const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const m = /^data:image\/png;base64,/.exec(b.png || "");
         if (!sl || !m) return json({ error: "slug and png required" }, 400);
