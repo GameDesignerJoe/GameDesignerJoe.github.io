@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadEnv, parseArgs, readJSON, writeJSON, exists, pad2, shotKey, dataUriToFile, workDir, epDir, shotDir, pickEpisodes, audioDuration, log, warn, fontArg } from "./lib/util.js";
+import { loadEnv, parseArgs, readJSON, writeJSON, exists, pad2, shotKey, dataUriToFile, workDir, epDir, shotDir, pickEpisodes, audioDuration, log, warn, fontArg , writeUse, clipInUse, archiveComposite } from "./lib/util.js";
 import { generateStill, generateVideo, lipsync, tts, music, sfx, estimate, registry, DRY } from "./providers/index.js";
 import { assembleEpisode } from "./lib/assemble.js";
 import { composeShot, cutoutsForShot } from "./lib/composite.js";
@@ -122,7 +122,7 @@ async function cmdComposite() {
     if (exists(path.join(dir, "staged.json")) && exists(out)) { if (!exists(path.join(dir, "approved.png"))) fs.copyFileSync(out, path.join(dir, "approved.png")); log(`Ep ${ep.number} shot #${pad2(s.index)} composite staged by hand in the app; kept`); n++; continue; }
     if (!cuts.length && !setting) { warn(`shot #${pad2(s.index)}: no cutouts or setting image; skipped`); continue; }
     if (!cuts.length) { const have = Object.keys(refs.cutouts || {}); warn(`shot #${pad2(s.index)}: no character cutouts matched. Shot characters: [${(s.characters || []).join(", ") || "none detected"}] · cutouts exist for: [${have.join(", ") || "nobody — add them under Cast → Cutouts for compositing, then re-export"}]`); }
-    await composeShot({ setting, cutouts: cuts, frame: s.frame, outFile: out });
+    archiveComposite(dir); await composeShot({ setting, cutouts: cuts, frame: s.frame, outFile: out });
     if (!exists(path.join(dir, "approved.png")) || args.force) fs.copyFileSync(out, path.join(dir, "approved.png"));
     log(`Ep ${ep.number} shot #${pad2(s.index)} composite: ${cuts.map(c => c.name + " (" + c.state + (c.chest ? ", chest" : ", full") + ")").join(" + ") || "setting only"}${setting ? " over " + path.basename(setting) : ""}`); n++;
   }
@@ -144,7 +144,7 @@ async function cmdStills() {
       const r = await generateStill({ prompt: prompt + (compRef.length ? " The first reference image is the blocking guide: keep its framing, pose and placement exactly; the other references give the face, wardrobe and set." : ""), refs: [...compRef, ...refsForShot(s, refs)], outFile: out, provider: args.image, label: s.action, labelTitle: `#${pad2(s.index)} ${s.frame || ""} · ${s.location}${s.time ? ", " + s.time : ""}${s.weather ? ", " + s.weather : ""}` });
       addCost(ep, "still", r.cost, `shot ${s.index} take ${existing + t} ${r.provider}`);
       log(`Ep ${ep.number} shot #${pad2(s.index)} take ${existing + t} → ${path.relative(ROOT, out)}`);
-      if (args.approveLatest || (!exists(path.join(dir, "approved.png")) && (args.auto || takes === 1))) fs.copyFileSync(out, path.join(dir, "approved.png"));
+      if (args.approveLatest || (!exists(path.join(dir, "approved.png")) && (args.auto || takes === 1))) { fs.copyFileSync(out, path.join(dir, "approved.png")); if (args.approveLatest) writeUse(dir, { kind: "still" }); }
     }
   }
 }
@@ -192,14 +192,15 @@ async function cmdAnimate() {
     if (!isPicture(s) || !["animate", "lipsync"].includes(s.renderPlan) || !wanted(s)) continue;
     const dir = shotDir(manifest, ROOT, ep, s); const still = path.join(dir, "approved.png"); if (!exists(still)) { warn(`shot #${s.index}: no approved still; run stills/approve first`); continue; }
     const secs = s.duration + (s.lines || []).reduce((a, l) => a + (l.duration || 0), 0);
-    const clip = path.join(dir, "clip.mp4");
+    const ver = Date.now().toString(36); const clip = path.join(dir, `clip-${ver}.mp4`); let inUse = path.basename(clip);
     const r = await generateVideo({ prompt: s.videoPrompt, still, seconds: secs, outFile: clip, provider: args.video });
     addCost(ep, "video", r.cost, `shot ${s.index} ${r.provider} ${secs}s`); log(`Ep ${ep.number} shot #${pad2(s.index)} clip (${r.provider})`);
     if (s.renderPlan === "lipsync" && (s.lines || []).length) {
       const vo = path.join(epDir(manifest, ROOT, ep), `line-${shotKey(s.lines[0])}.mp3`);
-      if (exists(vo)) { const r2 = await lipsync({ video: clip, audio: vo, outFile: path.join(dir, "clip-lipsync.mp4") }); addCost(ep, "lipsync", r2.cost, `shot ${s.index}`); log(`  lip-synced to line #${pad2(s.lines[0].index)}`); }
+      if (exists(vo)) { const r2 = await lipsync({ video: clip, audio: vo, outFile: path.join(dir, `clip-${ver}-lipsync.mp4`) }); inUse = `clip-${ver}-lipsync.mp4`; addCost(ep, "lipsync", r2.cost, `shot ${s.index}`); log(`  lip-synced to line #${pad2(s.lines[0].index)}`); }
       else warn(`shot #${s.index}: no VO for lip-sync yet (run vo)`);
     }
+    writeUse(dir, { kind: "clip", clip: inUse });
   }
 }
 
@@ -207,7 +208,7 @@ async function cmdAnimatic() {
   for (const ep of eps) { const dir = epDir(manifest, ROOT, ep);
     const final = await assembleEpisode({ manifest, ep, dir, captions: !args["no-captions"], segmentsOnly: !!args.segonly,
       getStill: async s => { const d = shotDir(manifest, ROOT, ep, s); const a = path.join(d, "approved.png"); if (exists(a)) return a; warn(`shot #${s.index}: no approved still, using placeholder`); const ph = path.join(d, "placeholder.png"); await generateStillPlaceholder(ph, s); return ph; },
-      getClip: async s => { const d = shotDir(manifest, ROOT, ep, s); for (const f of ["clip-lipsync.mp4", "clip.mp4"]) if (exists(path.join(d, f))) return path.join(d, f); return null; },
+      getClip: async s => clipInUse(shotDir(manifest, ROOT, ep, s)),
       getVO: async l => { const f = path.join(dir, `line-${shotKey(l)}.mp3`); if (exists(f)) return f; const ph = path.join(dir, `line-${shotKey(l)}-silent.mp3`); await silent(ph, l.duration || 2); return ph; },
       ambienceFile: path.join(dir, "ambience.mp3"), musicFile: path.join(dir, "music.mp3"),
       onProgress: (s, kind) => log(`  seg #${pad2(s.index)} ${kind}`) });

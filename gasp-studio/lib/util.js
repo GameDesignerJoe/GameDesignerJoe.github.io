@@ -36,6 +36,23 @@ export function workDir(manifest, root) {
 export function epDir(manifest, root, ep) {
   return ensure(path.join(workDir(manifest, root), `ep${ep.number}`));
 }
+// ---- per-shot media: stills (take-N.png), composites (composite.png + composite-<v>.png), motion (clip*.mp4)
+// use.json says what the cut uses: { kind: "still" } → approved.png, or { kind: "clip", clip: "<file>" }
+export const isClipFile = f => /^clip[A-Za-z0-9_-]*\.mp4$/.test(f);
+export const isStillFile = f => f === "composite.png" || /^composite-[a-z0-9]+\.png$/.test(f) || /^take-\d+\.png$/.test(f);
+export function readUse(dir) { try { return JSON.parse(fs.readFileSync(path.join(dir, "use.json"), "utf8")); } catch { return {}; } }
+export function writeUse(dir, o) { fs.writeFileSync(path.join(dir, "use.json"), JSON.stringify(o)); }
+// the clip the cut plays, or null when the shot uses its still
+export function clipInUse(dir) {
+  if (!fs.existsSync(dir)) return null; const use = readUse(dir); if (use.kind === "still") return null;
+  const files = fs.readdirSync(dir).filter(isClipFile); if (!files.length) return null;
+  if (use.clip && files.includes(use.clip)) return path.join(dir, use.clip);
+  for (const f of ["clip-lipsync.mp4", "clip.mp4"]) if (files.includes(f)) return path.join(dir, f);
+  const newest = files.filter(f => !/-loop\.mp4$/.test(f)).sort((a, b) => fs.statSync(path.join(dir, b)).mtimeMs - fs.statSync(path.join(dir, a)).mtimeMs)[0];
+  return newest ? path.join(dir, newest) : null;
+}
+// keep the previous composite as history before a new one is written
+export function archiveComposite(dir) { const f = path.join(dir, "composite.png"); if (fs.existsSync(f)) { try { fs.renameSync(f, path.join(dir, `composite-${Math.round(fs.statSync(f).mtimeMs).toString(36)}.png`)); } catch {} } }
 export const shotKey = s => s.id ? String(s.id).replace(/[^a-zA-Z0-9_-]/g, "") : pad2(s.index);
 export function shotDir(manifest, root, ep, shot) {
   return ensure(path.join(epDir(manifest, root, ep), `shot-${shotKey(shot)}`));

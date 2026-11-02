@@ -6,7 +6,7 @@ import path from "node:path";
 import http from "node:http";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
-import { slug, readJSON, dataUriToFile } from "./util.js";
+import { slug, readJSON, dataUriToFile, isClipFile, isStillFile, readUse, writeUse, clipInUse, archiveComposite } from "./util.js";
 import { generateStill, removeBackground } from "../providers/index.js";
 import { execFileP } from "./util.js";
 
@@ -55,7 +55,16 @@ export async function serve({ root, port = 4747, open = true }) {
       const takes = files.filter(f => f === "composite.png" || /^take-\d+\.png$/.test(f)).map(f => { const id = f === "composite.png" ? "composite" : f.match(/\d+/)[0]; if (ap && fs.readFileSync(path.join(sd, f)).equals(ap)) approvedId = id; return { id, url: u(f) }; });
       const clips = ["clip-lipsync.mp4", "clip.mp4", "clip-loop.mp4", "clip-lipsync-loop.mp4"].filter(f => files.includes(f)).map(f => ({ name: f === "clip.mp4" ? "generated clip (no lip-sync)" : f === "clip-lipsync.mp4" ? "lip-synced clip" : "seamless loop", url: u(f) }));
       const segf = path.join(dir, `seg-${key}.mp4`);
-      shots[/^\d+$/.test(key) ? +key : key] = { key, approved: ap ? u("approved.png") : null, approvedId, takes, clips, clip: clips.length > 0, segment: fs.existsSync(segf) ? `/work/${s}/ep${ep}/seg-${key}.mp4?t=${fs.statSync(segf).mtimeMs}` : null };
+      // everything this shot has made, newest first within each kind: motion, stills, composites
+      const at = f => fs.statSync(path.join(sd, f)).mtimeMs; const live = clipInUse(sd); const liveClip = live ? path.basename(live) : null;
+      const media = [
+        ...files.filter(isClipFile).map(f => ({ id: f, kind: "motion", label: /lipsync/.test(f) ? "motion · lip-synced" : /-loop/.test(f) ? "motion · loop" : "motion", url: u(f), at: at(f) })).sort((a, b) => b.at - a.at),
+        ...files.filter(f => /^take-\d+\.png$/.test(f)).map(f => ({ id: f.match(/\d+/)[0], kind: "still", label: "still " + f.match(/\d+/)[0], url: u(f), at: at(f) })).sort((a, b) => b.at - a.at),
+        ...files.filter(f => f === "composite.png" || /^composite-[a-z0-9]+\.png$/.test(f)).map(f => ({ id: f === "composite.png" ? "composite" : f.replace(/\.png$/, ""), kind: "composite", label: "composite", url: u(f), at: at(f) })).sort((a, b) => b.at - a.at)
+      ];
+      for (const x of media) { if (ap && x.kind !== "motion" && !approvedId) { try { if (fs.readFileSync(path.join(sd, x.id === "composite" ? "composite.png" : /^composite-/.test(x.id) ? x.id + ".png" : `take-${x.id}.png`)).equals(ap)) approvedId = x.id; } catch {} } }
+      const inUse = liveClip || approvedId; media.forEach(x => { x.inUse = x.id === inUse; });
+      shots[/^\d+$/.test(key) ? +key : key] = { key, media, inUse, mode: liveClip ? "motion" : "still", approved: ap ? u("approved.png") : null, approvedId, takes, clips, clip: clips.length > 0, segment: fs.existsSync(segf) ? `/work/${s}/ep${ep}/seg-${key}.mp4?t=${fs.statSync(segf).mtimeMs}` : null };
     }
     for (const f of fs.readdirSync(dir)) { const m = f.match(/^seg-([A-Za-z0-9_-]+)\.mp4$/); if (m) segments[/^\d+$/.test(m[1]) ? +m[1] : m[1]] = `/work/${s}/ep${ep}/${f}?t=${fs.statSync(path.join(dir, f)).mtimeMs}`; }
     // map ids → block numbers when a manifest is given (for the Render tab's numbered strip)
@@ -212,10 +221,11 @@ export async function serve({ root, port = 4747, open = true }) {
         const r = await fetch(`https://api.elevenlabs.io/v1/voices/add/${b.public_owner_id}/${b.voice_id}`, { method: "POST", headers: { "xi-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ new_name: b.name }) });
         const o = await r.json().catch(() => ({})); if (!r.ok) return json({ error: o.detail?.message || o.detail || r.statusText }, r.status); return json({ voice_id: o.voice_id || b.voice_id });
       }
-      if (url.pathname === "/api/loop" && req.method === "POST") { const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const sd = shotFolder(sl, b.ep, b.shot, null); const src = path.join(sd, b.file === "clip-lipsync.mp4" ? "clip-lipsync.mp4" : "clip.mp4"); if (!fs.existsSync(src)) return json({ error: "no clip to loop" }, 404); const out = src.replace(/\.mp4$/, "-loop.mp4");
+      if (url.pathname === "/api/loop" && req.method === "POST") { const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const sd = shotFolder(sl, b.ep, b.shot, null); const src = path.join(sd, isClipFile(path.basename(String(b.file || ""))) ? path.basename(String(b.file)) : "clip.mp4"); if (!fs.existsSync(src) || /-loop\.mp4$/.test(src)) return json({ error: "no clip to loop" }, 404); const out = src.replace(/\.mp4$/, "-loop.mp4");
         // ping-pong: forward then reversed, trimmed a few frames at the turn so the reversal doesn't stutter
         try { await execFileP("ffmpeg", ["-y", "-i", src, "-filter_complex", "[0:v]split[a][b];[b]reverse,trim=start_frame=2[r];[a][r]concat=n=2:v=1:a=0,format=yuv420p[v]", "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", out]); emit("log", `↻ loop made for shot ${b.shot}`); return json({ ok: true }); } catch (e) { return json({ error: e.message }, 500); } }
-      if (url.pathname === "/api/take" && req.method === "DELETE") { const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const sd = shotFolder(sl, b.ep, b.shot, null); const f = path.join(sd, b.take === "composite" ? "composite.png" : `take-${String(b.take).replace(/\D/g, "")}.png`); if (fs.existsSync(f)) { const ap = path.join(sd, "approved.png"); const wasApproved = fs.existsSync(ap) && fs.readFileSync(ap).equals(fs.readFileSync(f)); fs.unlinkSync(f); if (wasApproved) { const rest = fs.readdirSync(sd).filter(x => x === "composite.png" || /^take-\d+\.png$/.test(x)).sort(); if (rest.length) fs.copyFileSync(path.join(sd, rest[rest.length - 1]), ap); else fs.unlinkSync(ap); } } return json({ ok: true }); }
+      if (url.pathname === "/api/take" && req.method === "DELETE") { const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const sd = shotFolder(sl, b.ep, b.shot, null); const t = String(b.take); if (isClipFile(path.basename(t))) { const cf = path.join(sd, path.basename(t)); if (fs.existsSync(cf)) fs.unlinkSync(cf); const use = readUse(sd); if (use.clip === path.basename(t)) writeUse(sd, {}); return json({ ok: true }); }
+        const f = path.join(sd, t === "composite" ? "composite.png" : /^composite-[a-z0-9]+$/.test(t) ? t + ".png" : `take-${t.replace(/\D/g, "")}.png`); if (fs.existsSync(f)) { const ap = path.join(sd, "approved.png"); const wasApproved = fs.existsSync(ap) && fs.readFileSync(ap).equals(fs.readFileSync(f)); fs.unlinkSync(f); if (wasApproved) { const rest = fs.readdirSync(sd).filter(isStillFile).sort((a, c) => fs.statSync(path.join(sd, a)).mtimeMs - fs.statSync(path.join(sd, c)).mtimeMs); if (rest.length) fs.copyFileSync(path.join(sd, rest[rest.length - 1]), ap); else fs.unlinkSync(ap); } } return json({ ok: true }); }
       if (url.pathname === "/api/cost") { const sl = String(url.searchParams.get("slug") || "").replace(/[^a-z0-9-]/g, ""); const dir = path.join(root, "work", sl); const episodes = []; let total = 0; if (fs.existsSync(dir)) for (const d of fs.readdirSync(dir).filter(d => /^ep\d+$/.test(d))) { const f = path.join(dir, d, `${d}-cost.json`); if (fs.existsSync(f)) { const t = readJSON(f).total || 0; episodes.push({ episode: +d.slice(2), total: t }); total += t; } } return json({ total: +total.toFixed(2), episodes }); }
       // restart in place after an update: hand the port to a fresh copy of the server, then step aside
       if (url.pathname === "/api/restart" && req.method === "POST") {
@@ -270,7 +280,7 @@ export async function serve({ root, port = 4747, open = true }) {
         if (!sl || !m) return json({ error: "slug and png required" }, 400);
         const sd = path.join(root, "work", sl, `ep${+b.ep || 1}`, `shot-${String(b.shot).replace(/[^A-Za-z0-9_-]/g, "")}`); fs.mkdirSync(sd, { recursive: true });
         const nums = fs.readdirSync(sd).map(f => (f.match(/^take-(\d+)\.png$/) || [])[1]).filter(Boolean).map(Number); const take = (nums.length ? Math.max(...nums) : 0) + 1;
-        const buf = Buffer.from(b.png.slice(m[0].length), "base64"); fs.writeFileSync(path.join(sd, `take-${take}.png`), buf); fs.writeFileSync(path.join(sd, "approved.png"), buf);
+        const buf = Buffer.from(b.png.slice(m[0].length), "base64"); fs.writeFileSync(path.join(sd, `take-${take}.png`), buf); fs.writeFileSync(path.join(sd, "approved.png"), buf); writeUse(sd, { kind: "still" });
         try { const h = sha(b.png); if (!idxRead(sl)[h]) { const dir = path.join(assetsDir(sl), "stills"); fs.mkdirSync(dir, { recursive: true }); const f = path.join(dir, `${String(b.name || "still").replace(/[^a-z0-9-]+/gi, "-")}-${h.slice(0, 8)}.png`); fs.writeFileSync(f, buf); idxAdd(sl, { [h]: path.relative(assetsDir(sl), f).split(path.sep).join("/") }); } } catch {}
         emit("log", `⤒ own still added to shot ${b.shot} as take ${take}`); return json({ ok: true, take });
       }
@@ -279,12 +289,14 @@ export async function serve({ root, port = 4747, open = true }) {
         if (!sl || !m) return json({ error: "slug and png required" }, 400);
         const sd = path.join(root, "work", sl, `ep${+b.ep || 1}`, `shot-${String(b.shot).replace(/[^A-Za-z0-9_-]/g, "")}`); fs.mkdirSync(sd, { recursive: true });
         if (b.clear) { try { fs.unlinkSync(path.join(sd, "staged.json")); } catch {} return json({ ok: true }); }
-        fs.writeFileSync(path.join(sd, "composite.png"), Buffer.from(b.png.slice(m[0].length), "base64"));
-        fs.copyFileSync(path.join(sd, "composite.png"), path.join(sd, "approved.png"));
+        archiveComposite(sd); fs.writeFileSync(path.join(sd, "composite.png"), Buffer.from(b.png.slice(m[0].length), "base64"));
+        fs.copyFileSync(path.join(sd, "composite.png"), path.join(sd, "approved.png")); writeUse(sd, { kind: "still" });
         fs.writeFileSync(path.join(sd, "staged.json"), JSON.stringify({ at: new Date().toISOString(), layers: b.layers || [] }, null, 1));
         emit("log", `🎬 staged composite saved for shot ${b.shot}`); return json({ ok: true });
       }
-      if (url.pathname === "/api/approve" && req.method === "POST") { const b = await body(); const sl = b.slug ? String(b.slug).replace(/[^a-z0-9-]/g, "") : slug(readJSON(safe(b.file)).story?.title); const sd = shotFolder(sl, b.ep, b.shot, b.file); const src = path.join(sd, b.take === "composite" ? "composite.png" : `take-${b.take}.png`); if (!fs.existsSync(src)) return json({ error: "no such take" }, 404); fs.copyFileSync(src, path.join(sd, "approved.png")); return json({ ok: true }); }
+      if (url.pathname === "/api/approve" && req.method === "POST") { const b = await body(); const sl = b.slug ? String(b.slug).replace(/[^a-z0-9-]/g, "") : slug(readJSON(safe(b.file)).story?.title); const sd = shotFolder(sl, b.ep, b.shot, b.file); const t = String(b.take); const src = path.join(sd, t === "composite" ? "composite.png" : /^composite-[a-z0-9]+$/.test(t) ? t + ".png" : `take-${t.replace(/\D/g, "")}.png`); if (!fs.existsSync(src)) return json({ error: "no such take" }, 404); fs.copyFileSync(src, path.join(sd, "approved.png")); writeUse(sd, { kind: "still" }); return json({ ok: true }); }
+      // play a motion clip in the cut
+      if (url.pathname === "/api/use" && req.method === "POST") { const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const sd = shotFolder(sl, b.ep, b.shot, null); const f = path.basename(String(b.clip || "")); if (!isClipFile(f) || !fs.existsSync(path.join(sd, f))) return json({ error: "no such clip" }, 404); writeUse(sd, { kind: "clip", clip: f }); return json({ ok: true }); }
       if (url.pathname === "/api/takes") { const file = url.searchParams.get("file"); const m = readJSON(safe(file)); const sl = slug(m.story?.title); const ep = url.searchParams.get("ep"); const scan = scanEp(sl, ep, safe(file)); const i = scan.shots[+url.searchParams.get("shot")] || {}; return json({ approved: i.approvedId || null, clips: i.clips || [], segment: i.segment || null, takes: i.takes || [] }); }
       if (url.pathname === "/api/manifest" && req.method === "POST") {
         // "Send to GASP" from the Write tabs: { name, manifest }
