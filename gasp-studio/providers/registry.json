@@ -6,7 +6,8 @@
       "endpoint": "fal-ai/flux-pro/kontext/max/multi",
       "supportsRefs": true,
       "pricePerImage": 0.08,
-      "note": "multi-image reference editing; good for keeping a face"
+      "note": "multi-image reference editing; good for keeping a face",
+      "textEndpoint": "fal-ai/flux-pro/kontext/max/text-to-image"
     },
     "fal-flux-dev": {
       "endpoint": "fal-ai/flux/dev",
@@ -17,7 +18,8 @@
       "endpoint": "fal-ai/bytedance/seedream/v4/edit",
       "supportsRefs": true,
       "pricePerImage": 0.03,
-      "note": "ByteDance; cheap, strong on portraits"
+      "note": "ByteDance; cheap, strong on portraits",
+      "textEndpoint": "fal-ai/bytedance/seedream/v4/text-to-image"
     },
     "openai-gpt-image": {
       "api": "https://api.openai.com/v1/images",

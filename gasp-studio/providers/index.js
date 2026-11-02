@@ -95,7 +95,8 @@ export async function generateStill({ prompt, refs = [], outFile, provider, aspe
     for (const f of refs.slice(0, 4)) urls.push(await falUpload(f));
     input.image_urls = urls;
   }
-  const out = await falRun(p.endpoint, input);
+  // reference-editing models need at least one image; with none, use the model's text-to-image twin
+  const out = await falRun(input.image_urls ? p.endpoint : (p.textEndpoint || p.endpoint), input);
   const url = out.images?.[0]?.url || out.image?.url;
   if (!url) throw new Error("no image in response: " + JSON.stringify(out).slice(0, 300));
   await download(url, outFile);
