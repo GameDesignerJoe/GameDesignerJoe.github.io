@@ -32,7 +32,7 @@ Env: FAL_KEY, ELEVENLABS_API_KEY, STUDIO_DRY_RUN=1 (placeholders, no network), S
 
 if (cmd === "serve") { const { serve } = await import("./lib/serve.js"); await serve({ root: ROOT, port: +args.port || 4747, open: !args.noopen }); await new Promise(() => {}); }
 if (!cmd || !file || args.help) { console.log(HELP); process.exit(0); }
-const manifest = readJSON(file);
+const manifest = readJSON(path.isAbsolute(file) ? file : path.resolve(process.cwd(), file));
 if (manifest.format !== "gate-ten-production") { warn("Not a GASP production manifest (format field missing). Continuing anyway."); }
 const eps = pickEpisodes(manifest, args);
 // --shot 3  or  --shot 1,3,5   limits work to those block indexes;  --until 12  stops before block 12 (e.g. the first choice)

@@ -22,7 +22,12 @@ export async function serve({ root, port = 4747, open = true }) {
     for (const c of clients) c.write(line);
   };
 
-  const manifests = () => fs.readdirSync(root).filter(f => f.endsWith(".json")).map(f => {
+  const manifestFiles = () => {
+    const out = fs.readdirSync(root).filter(f => f.endsWith(".json"));   // legacy: loose files in the folder
+    const wd = path.join(root, "work"); if (fs.existsSync(wd)) for (const d of fs.readdirSync(wd)) { const md = path.join(wd, d, "manifests"); if (fs.existsSync(md)) for (const f of fs.readdirSync(md).filter(f => f.endsWith(".json"))) out.push(path.join("work", d, "manifests", f)); }
+    return out;
+  };
+  const manifests = () => manifestFiles().map(f => {
     try {
       const m = readJSON(path.join(root, f));
       if (m.format !== "gate-ten-production") return null;
@@ -56,10 +61,11 @@ export async function serve({ root, port = 4747, open = true }) {
     return { shots, segments, dir };
   };
 
+  const safe = f => { const p = path.resolve(root, String(f || "")); if (!p.startsWith(root)) throw new Error("bad path"); return p; };
   const outputFor = (file, ep) => {
-    const m = readJSON(path.join(root, file)); const sl = slug(m.story?.title); const dir = path.join(root, "work", sl, `ep${ep}`);
+    const m = readJSON(safe(file)); const sl = slug(m.story?.title); const dir = path.join(root, "work", sl, `ep${ep}`);
     const video = path.join(dir, `ep${ep}-animatic.mp4`); const cost = path.join(dir, `ep${ep}-cost.json`);
-    const scan = scanEp(sl, ep, path.join(root, file)); const e = (m.episodes || []).find(x => String(x.number) === String(ep));
+    const scan = scanEp(sl, ep, safe(file)); const e = (m.episodes || []).find(x => String(x.number) === String(ep));
     const shots = (e?.shots || []).filter(x => !x.interaction && (x.location || x.action)).map(x => { const i = scan.shots[x.id] || scan.shots[x.index] || {}; return { shot: x.index, approved: i.approved || null, takes: (i.takes || []).filter(t => t.id !== "composite").length, clip: !!i.clip }; });
     return { video: fs.existsSync(video) ? `/work/${sl}/ep${ep}/ep${ep}-animatic.mp4?t=${fs.statSync(video).mtimeMs}` : null, cost: fs.existsSync(cost) ? readJSON(cost).total : 0, shots };
   };
@@ -132,7 +138,7 @@ export async function serve({ root, port = 4747, open = true }) {
       if (/^\/(icon-\d+|favicon-\d+|logo)\.(png|jpg)$/.test(url.pathname)) { const f = path.join(root, "app", url.pathname.slice(1)); if (fs.existsSync(f)) { res.writeHead(200, { "Content-Type": MIME[path.extname(f)] }); return fs.createReadStream(f).pipe(res); } }
       if (url.pathname === "/favicon.ico") { const f = path.join(root, "app", "favicon-32.png"); if (fs.existsSync(f)) { res.writeHead(200, { "Content-Type": "image/png" }); return fs.createReadStream(f).pipe(res); } }
       if (url.pathname === "/gasp-shim.js") { res.writeHead(200, { "Content-Type": "text/javascript" }); return fs.createReadStream(path.join(root, "app", "gasp-shim.js")).pipe(res); }
-      const shotFolder = (sl, ep, shot, file) => { const scan = scanEp(sl, ep, file ? path.join(root, file) : null); const i = scan.shots[shot] || scan.shots[+shot]; return i ? path.join(scan.dir, `shot-${i.key}`) : path.join(scan.dir, `shot-${String(shot).padStart(2, "0")}`); };
+      const shotFolder = (sl, ep, shot, file) => { const scan = scanEp(sl, ep, file ? safe(file) : null); const i = scan.shots[shot] || scan.shots[+shot]; return i ? path.join(scan.dir, `shot-${i.key}`) : path.join(scan.dir, `shot-${String(shot).padStart(2, "0")}`); };
       // ---- in-app asset generation: { prompt, refs:[dataURI], aspect:"3:4"|"9:16"|"1:1", rembg:bool, max:px, slug, kind, name }
       if (url.pathname === "/api/providers") { const { registry } = await import("../providers/index.js"); const list = Object.entries(registry.image).filter(([k]) => k !== "default").map(([k, v]) => ({ key: k, note: v.note || "", price: v.pricePerImage || 0, refs: !!v.supportsRefs, isDefault: registry.image.default === k, available: k.startsWith("openai") ? !!process.env.OPENAI_API_KEY : (!!process.env.FAL_KEY || !!process.env.STUDIO_DRY_RUN) })); return json({ image: list }); }
       if (url.pathname === "/api/gen/jobs") { if (req.method === "DELETE") { const b = await body(); jobDrop(b.id); return json({ ok: true }); } return json({ jobs: [...genJobs.values()].sort((a, b) => a.at - b.at).map(j => ({ id: j.id, status: j.status, kind: j.kind, name: j.name, title: j.title, prompt: j.prompt, at: j.at, cost: j.cost, error: j.error, target: j.target, slug: j.slug, results: j.status === "done" ? j.results : undefined, count: j.count })) }); }
@@ -213,13 +219,14 @@ export async function serve({ root, port = 4747, open = true }) {
       if (url.pathname === "/api/run" && req.method === "POST") { const b = await body(); try { runSteps(b); return json({ ok: true }); } catch (e) { return json({ error: e.message }, 409); } }
       if (url.pathname === "/api/stop" && req.method === "POST") { if (job) { job.cancelled = true; job.child?.kill(); } return json({ ok: true }); }
       if (url.pathname === "/api/shots") { const sl = String(url.searchParams.get("slug") || "").replace(/[^a-z0-9-]/g, ""); const ep = String(+url.searchParams.get("ep") || 1); const { shots, segments } = scanEp(sl, ep, null); return json({ shots, segments }); }
-      if (url.pathname === "/api/approve" && req.method === "POST") { const b = await body(); const sl = b.slug ? String(b.slug).replace(/[^a-z0-9-]/g, "") : slug(readJSON(path.join(root, b.file)).story?.title); const sd = shotFolder(sl, b.ep, b.shot, b.file); const src = path.join(sd, b.take === "composite" ? "composite.png" : `take-${b.take}.png`); if (!fs.existsSync(src)) return json({ error: "no such take" }, 404); fs.copyFileSync(src, path.join(sd, "approved.png")); return json({ ok: true }); }
-      if (url.pathname === "/api/takes") { const file = url.searchParams.get("file"); const m = readJSON(path.join(root, file)); const sl = slug(m.story?.title); const ep = url.searchParams.get("ep"); const scan = scanEp(sl, ep, path.join(root, file)); const i = scan.shots[+url.searchParams.get("shot")] || {}; return json({ approved: i.approvedId || null, clips: i.clips || [], segment: i.segment || null, takes: i.takes || [] }); }
+      if (url.pathname === "/api/approve" && req.method === "POST") { const b = await body(); const sl = b.slug ? String(b.slug).replace(/[^a-z0-9-]/g, "") : slug(readJSON(safe(b.file)).story?.title); const sd = shotFolder(sl, b.ep, b.shot, b.file); const src = path.join(sd, b.take === "composite" ? "composite.png" : `take-${b.take}.png`); if (!fs.existsSync(src)) return json({ error: "no such take" }, 404); fs.copyFileSync(src, path.join(sd, "approved.png")); return json({ ok: true }); }
+      if (url.pathname === "/api/takes") { const file = url.searchParams.get("file"); const m = readJSON(safe(file)); const sl = slug(m.story?.title); const ep = url.searchParams.get("ep"); const scan = scanEp(sl, ep, safe(file)); const i = scan.shots[+url.searchParams.get("shot")] || {}; return json({ approved: i.approvedId || null, clips: i.clips || [], segment: i.segment || null, takes: i.takes || [] }); }
       if (url.pathname === "/api/manifest" && req.method === "POST") {
         // "Send to GASP" from the Write tabs: { name, manifest }
         const b = await body(); const m = b.manifest; if (!m || m.format !== "gate-ten-production") return json({ error: "not a production manifest" }, 400);
         const name = (b.name || `${slug(m.story?.title)}-production`).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/\.json$/, "") + ".json";
-        fs.writeFileSync(path.join(root, name), JSON.stringify(m)); emit("log", `📥 received ${name} from the writing tabs`); emit("manifest", { file: name }); return json({ ok: true, file: name });
+        const mdir = path.join(root, "work", slug(m.story?.title), "manifests"); fs.mkdirSync(mdir, { recursive: true }); const rel = path.join("work", slug(m.story?.title), "manifests", name);
+        fs.writeFileSync(path.join(root, rel), JSON.stringify(m)); emit("log", `📥 ${name} → ${path.dirname(rel)}`); emit("manifest", { file: rel }); return json({ ok: true, file: rel });
       }
       if (url.pathname.startsWith("/work/")) {
         const f = path.join(root, decodeURIComponent(url.pathname)); if (!f.startsWith(path.join(root, "work")) || !fs.existsSync(f)) { res.writeHead(404); return res.end(); }
@@ -305,7 +312,7 @@ pre#log{margin:0;padding:14px 18px;overflow:auto;font:12px/1.5 Consolas,ui-monos
 <script>
 const $=s=>document.querySelector(s);let DATA={manifests:[]};let cur={file:null,ep:null};
 const Q=new URLSearchParams(location.search);const ONLY=Q.get('slug')||'';
-async function load(){DATA=await (await fetch('/api/manifests')).json();if(ONLY)DATA.manifests=DATA.manifests.filter(m=>m.slug===ONLY);const fs=$('#file');const keep=fs.value;fs.innerHTML=DATA.manifests.map(m=>'<option value="'+m.file+'">'+m.title+' — '+m.file+'</option>').join('')||'<option value="">'+(ONLY?'(nothing rendered for “'+(Q.get('title')||ONLY)+'” yet — use Export → Send to Render)':'(no production manifests in this folder)')+'</option>';if(keep&&[...fs.options].some(o=>o.value===keep))fs.value=keep;$('#folder').textContent='in '+DATA.root;$('#keys').innerHTML='<span class="pill '+(DATA.keys.elevenlabs?'on':'off')+'">ElevenLabs key</span> <span class="pill '+(DATA.keys.fal?'on':'off')+'">fal key</span> ';if(DATA.dryDefault)$('#dry').checked=true;onFile()}
+async function load(){DATA=await (await fetch('/api/manifests')).json();if(ONLY)DATA.manifests=DATA.manifests.filter(m=>m.slug===ONLY);const fs=$('#file');const keep=fs.value;fs.innerHTML=DATA.manifests.map(m=>'<option value="'+m.file+'">'+m.title+' — '+m.file.split(/[\\/]/).pop()+'</option>').join('')||'<option value="">'+(ONLY?'(nothing rendered for “'+(Q.get('title')||ONLY)+'” yet — use Export → Send to Render)':'(no production manifests in this folder)')+'</option>';if(keep&&[...fs.options].some(o=>o.value===keep))fs.value=keep;$('#folder').textContent='in '+DATA.root;$('#keys').innerHTML='<span class="pill '+(DATA.keys.elevenlabs?'on':'off')+'">ElevenLabs key</span> <span class="pill '+(DATA.keys.fal?'on':'off')+'">fal key</span> ';if(DATA.dryDefault)$('#dry').checked=true;onFile()}
 function m(){return DATA.manifests.find(x=>x.file===$('#file').value)}
 function onFile(){const mm=m();$('#mdate').textContent=mm?'manifest from '+new Date(mm.mtime).toLocaleString():'';if(!mm){$('#ep').innerHTML='';$('#strip').innerHTML='';$('#outmeta').textContent='';const v=$('#video');v.removeAttribute('src');v.dataset.src='';$('#castinfo').innerHTML='';cur={file:null,ep:null};return}const es=$('#ep');es.innerHTML=mm?mm.episodes.map(e=>'<option value="'+e.number+'">Ep '+e.number+(e.title?' — '+e.title:'')+'</option>').join(''):'';$('#castinfo').innerHTML=mm?'<b>Cast:</b> '+mm.cast.map(c=>c.name+(c.voice?' 🎙':' <span style="color:var(--warn)">no voice</span>')+(c.cutouts?' ✂'+c.cutouts:'')).join(' · '):'';onEp()}
 function onEp(){const mm=m();if(!mm)return;const e=mm.episodes.find(x=>x.number==$('#ep').value);const blocks=e.blocks;const short=b=>b.kind==='ix'?'◆ choice':b.kind==='line'?'line':(b.label.split(' · ')[0].split(' ')[0]+(b.label.includes(' · ')?' · '+b.label.split(' · ')[1]:''));const opt=b=>'<option value="'+b.index+'">#'+b.index+'  '+short(b).slice(0,34)+'</option>';$('#from').innerHTML=blocks.map(opt).join('');$('#to').innerHTML=blocks.map(opt).join('');$('#to').value=blocks[blocks.length-1].index;$('#one').innerHTML=blocks.filter(b=>b.kind==='shot').map(opt).join('');const ixs=blocks.filter(b=>b.kind==='ix');$('#pathbox').style.display=ixs.length?'':'none';$('#path').innerHTML=ixs.map(b=>'<span>#'+b.index+'</span><select data-ix="'+b.index+'" title="'+b.label.replace(/"/g,'&quot;')+'">'+(b.options||[]).map((o,j)=>'<option value="'+(j+1)+'">'+(j+1)+') '+o+'</option>').join('')+'</select>').join('');cur={file:mm.file,ep:e.number};output()}
