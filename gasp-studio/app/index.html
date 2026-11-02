@@ -1539,7 +1539,7 @@ async function save(){const st=LIB.stories.find(x=>x.id===LIB.activeId);if(st){c
   try{localStorage.setItem("gate-ten-lib",JSON.stringify(LIB))}catch(e){}
   if(db){try{for(const id of [...dirty]){const s2=LIB.stories.find(x=>x.id===id);if(s2){await db.doc("stories/"+id).set({json:JSON.stringify(s2.data),name:s2.name,updated:s2.updated});dirty.delete(id)}}
       await db.doc("library/index").set({ids:LIB.stories.map(x=>x.id),activeId:LIB.activeId,updated:LIB.updated});$("#saveState").textContent="saved · synced"}catch(e){$("#saveState").textContent="saved locally"}}else $("#saveState").textContent="saved locally";renderLib()}
-function newStory(data,name){const id="s"+Date.now().toString(36);LIB.stories.push({id,name:name||(data.premise&&data.premise.title)||"Untitled",data,updated:Date.now()});return id}
+function newStory(data,name){const id="s"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);LIB.stories.push({id,name:name||(data.premise&&data.premise.title)||"Untitled",data,updated:Date.now()});return id}
 function openStory(id){const st=LIB.stories.find(x=>x.id===id);if(!st)return;LIB.activeId=id;storyOpened(id);S=st.data;migrate();setTimeout(refreshCost,0);assetsKeepSoon();active="premise";chatOpen=false;render();renderChatPanel();renderLib();if(isMobile())setPane("write");try{localStorage.setItem("gate-ten-lib",JSON.stringify(LIB))}catch(e){}}
 function renderLib(){const el=$("#lib");el.classList.toggle("closed",!libOpen);
   if(!libOpen){el.innerHTML=`<button class="btn small" id="libToggle" title="Show stories">☰</button>`;$("#libToggle").onclick=()=>{libOpen=true;renderLib()};return}
