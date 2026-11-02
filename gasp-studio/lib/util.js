@@ -3,7 +3,9 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-export const execFileP = promisify(execFile);
+const execFileRaw = promisify(execFile);
+// windowsHide: no console window pops up for ffmpeg / git on Windows
+export const execFileP = (cmd, args, opts = {}) => execFileRaw(cmd, args, { windowsHide: true, ...opts });
 
 export function loadEnv(dir) {
   const p = path.join(dir, ".env");

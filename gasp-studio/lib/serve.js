@@ -90,7 +90,7 @@ export async function serve({ root, port = 4747, open = true }) {
       if (step === "animatic" && (segmentsOnly || (thenAssemble && shot))) argv.push("--segonly");
       emit("log", `\n▶ ${step}${from || until ? " (blocks " + (from || 1) + "–" + ((until || 0) - 1 || "end") + ")" : " (whole episode)"}`);
       emit("status", { running: true, step });
-      const child = spawn(process.execPath, argv, { cwd: root, env: { ...process.env, STUDIO_DRY_RUN: dry ? "1" : "" } });
+      const child = spawn(process.execPath, argv, { cwd: root, windowsHide: true, env: { ...process.env, STUDIO_DRY_RUN: dry || process.env.STUDIO_DRY_FORCE ? "1" : "" } });
       job.child = child;
       const pipe = s => { let buf = ""; s.on("data", d => { buf += d.toString(); const parts = buf.split(/\r?\n/); buf = parts.pop(); for (const p of parts) if (p.trim()) emit("log", p); }); s.on("end", () => { if (buf.trim()) emit("log", buf); }); };
       pipe(child.stdout); pipe(child.stderr);
@@ -263,6 +263,17 @@ export async function serve({ root, port = 4747, open = true }) {
       if (url.pathname === "/api/run" && req.method === "POST") { const b = await body(); try { runSteps(b); return json({ ok: true }); } catch (e) { return json({ error: e.message }, 409); } }
       if (url.pathname === "/api/stop" && req.method === "POST") { if (job) { job.cancelled = true; job.child?.kill(); } return json({ ok: true }); }
       if (url.pathname === "/api/shots") { const sl = String(url.searchParams.get("slug") || "").replace(/[^a-z0-9-]/g, ""); const ep = String(+url.searchParams.get("ep") || 1); const { shots, segments } = scanEp(sl, ep, null); return json({ shots, segments }); }
+      // hand-staged composite from the app's stage editor: becomes composite.png (and the image in use); studio won't overwrite it
+      if (url.pathname === "/api/stage" && req.method === "POST") {
+        const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const m = /^data:image\/png;base64,/.exec(b.png || "");
+        if (!sl || !m) return json({ error: "slug and png required" }, 400);
+        const sd = path.join(root, "work", sl, `ep${+b.ep || 1}`, `shot-${String(b.shot).replace(/[^A-Za-z0-9_-]/g, "")}`); fs.mkdirSync(sd, { recursive: true });
+        if (b.clear) { try { fs.unlinkSync(path.join(sd, "staged.json")); } catch {} return json({ ok: true }); }
+        fs.writeFileSync(path.join(sd, "composite.png"), Buffer.from(b.png.slice(m[0].length), "base64"));
+        fs.copyFileSync(path.join(sd, "composite.png"), path.join(sd, "approved.png"));
+        fs.writeFileSync(path.join(sd, "staged.json"), JSON.stringify({ at: new Date().toISOString(), layers: b.layers || [] }, null, 1));
+        emit("log", `🎬 staged composite saved for shot ${b.shot}`); return json({ ok: true });
+      }
       if (url.pathname === "/api/approve" && req.method === "POST") { const b = await body(); const sl = b.slug ? String(b.slug).replace(/[^a-z0-9-]/g, "") : slug(readJSON(safe(b.file)).story?.title); const sd = shotFolder(sl, b.ep, b.shot, b.file); const src = path.join(sd, b.take === "composite" ? "composite.png" : `take-${b.take}.png`); if (!fs.existsSync(src)) return json({ error: "no such take" }, 404); fs.copyFileSync(src, path.join(sd, "approved.png")); return json({ ok: true }); }
       if (url.pathname === "/api/takes") { const file = url.searchParams.get("file"); const m = readJSON(safe(file)); const sl = slug(m.story?.title); const ep = url.searchParams.get("ep"); const scan = scanEp(sl, ep, safe(file)); const i = scan.shots[+url.searchParams.get("shot")] || {}; return json({ approved: i.approvedId || null, clips: i.clips || [], segment: i.segment || null, takes: i.takes || [] }); }
       if (url.pathname === "/api/manifest" && req.method === "POST") {

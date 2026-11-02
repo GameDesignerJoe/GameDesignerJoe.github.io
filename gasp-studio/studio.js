@@ -119,6 +119,7 @@ async function cmdComposite() {
     if (!isPicture(s) || !wanted(s)) continue;
     const dir = shotDir(manifest, ROOT, ep, s); const out = path.join(dir, "composite.png");
     const cuts = cutoutsForShot(s, refs, manifest); const setting = settingFileFor(s, refs);
+    if (exists(path.join(dir, "staged.json")) && exists(out)) { if (!exists(path.join(dir, "approved.png"))) fs.copyFileSync(out, path.join(dir, "approved.png")); log(`Ep ${ep.number} shot #${pad2(s.index)} composite staged by hand in the app; kept`); n++; continue; }
     if (!cuts.length && !setting) { warn(`shot #${pad2(s.index)}: no cutouts or setting image; skipped`); continue; }
     if (!cuts.length) { const have = Object.keys(refs.cutouts || {}); warn(`shot #${pad2(s.index)}: no character cutouts matched. Shot characters: [${(s.characters || []).join(", ") || "none detected"}] · cutouts exist for: [${have.join(", ") || "nobody — add them under Cast → Cutouts for compositing, then re-export"}]`); }
     await composeShot({ setting, cutouts: cuts, frame: s.frame, outFile: out });
@@ -132,7 +133,8 @@ async function cmdStills() {
   for (const ep of eps) for (const s of ep.shots) {
     if (!isPicture(s) || !wanted(s)) continue;
     const dir = shotDir(manifest, ROOT, ep, s);
-    if (s.renderPlan === "composite" || s.renderOverride === "composite") { const cuts = cutoutsForShot(s, refs, manifest); const setting = settingFileFor(s, refs); if (cuts.length || setting) { const out = path.join(dir, "composite.png"); await composeShot({ setting, cutouts: cuts, frame: s.frame, outFile: out }); if (!exists(path.join(dir, "approved.png"))) fs.copyFileSync(out, path.join(dir, "approved.png")); log(`Ep ${ep.number} shot #${pad2(s.index)} composite (no generation)`); continue; } }
+    if (!args.approveLatest && exists(path.join(dir, "staged.json")) && (s.renderPlan === "composite" || s.renderOverride === "composite")) { if (!exists(path.join(dir, "approved.png"))) fs.copyFileSync(path.join(dir, "composite.png"), path.join(dir, "approved.png")); continue; }
+    if (!args.approveLatest && (s.renderPlan === "composite" || s.renderOverride === "composite")) { const cuts = cutoutsForShot(s, refs, manifest); const setting = settingFileFor(s, refs); if (cuts.length || setting) { const out = path.join(dir, "composite.png"); await composeShot({ setting, cutouts: cuts, frame: s.frame, outFile: out }); if (!exists(path.join(dir, "approved.png"))) fs.copyFileSync(out, path.join(dir, "approved.png")); log(`Ep ${ep.number} shot #${pad2(s.index)} composite (no generation)`); continue; } }
     const prompt = stillPrompt(s);
     fs.writeFileSync(path.join(dir, "prompt.txt"), prompt);
     const existing = fs.readdirSync(dir).filter(f => /^take-\d+\.png$/.test(f)).length;
