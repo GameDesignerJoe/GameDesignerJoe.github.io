@@ -10,6 +10,7 @@ import { slug, readJSON, dataUriToFile } from "./util.js";
 import { generateStill, removeBackground } from "../providers/index.js";
 import { execFileP } from "./util.js";
 
+const STARTED = Date.now();
 const MIME = { ".html": "text/html; charset=utf-8", ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".mp3": "audio/mpeg", ".json": "application/json", ".txt": "text/plain" };
 
 export async function serve({ root, port = 4747, open = true }) {
@@ -216,13 +217,21 @@ export async function serve({ root, port = 4747, open = true }) {
         try { await execFileP("ffmpeg", ["-y", "-i", src, "-filter_complex", "[0:v]split[a][b];[b]reverse,trim=start_frame=2[r];[a][r]concat=n=2:v=1:a=0,format=yuv420p[v]", "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", out]); emit("log", `↻ loop made for shot ${b.shot}`); return json({ ok: true }); } catch (e) { return json({ error: e.message }, 500); } }
       if (url.pathname === "/api/take" && req.method === "DELETE") { const b = await body(); const sl = String(b.slug || "").replace(/[^a-z0-9-]/g, ""); const sd = shotFolder(sl, b.ep, b.shot, null); const f = path.join(sd, b.take === "composite" ? "composite.png" : `take-${String(b.take).replace(/\D/g, "")}.png`); if (fs.existsSync(f)) { const ap = path.join(sd, "approved.png"); const wasApproved = fs.existsSync(ap) && fs.readFileSync(ap).equals(fs.readFileSync(f)); fs.unlinkSync(f); if (wasApproved) { const rest = fs.readdirSync(sd).filter(x => x === "composite.png" || /^take-\d+\.png$/.test(x)).sort(); if (rest.length) fs.copyFileSync(path.join(sd, rest[rest.length - 1]), ap); else fs.unlinkSync(ap); } } return json({ ok: true }); }
       if (url.pathname === "/api/cost") { const sl = String(url.searchParams.get("slug") || "").replace(/[^a-z0-9-]/g, ""); const dir = path.join(root, "work", sl); const episodes = []; let total = 0; if (fs.existsSync(dir)) for (const d of fs.readdirSync(dir).filter(d => /^ep\d+$/.test(d))) { const f = path.join(dir, d, `${d}-cost.json`); if (fs.existsSync(f)) { const t = readJSON(f).total || 0; episodes.push({ episode: +d.slice(2), total: t }); total += t; } } return json({ total: +total.toFixed(2), episodes }); }
+      // restart in place after an update: hand the port to a fresh copy of the server, then step aside
+      if (url.pathname === "/api/restart" && req.method === "POST") {
+        json({ ok: true, pid: process.pid });
+        setTimeout(() => { try { server.close(); server.closeAllConnections && server.closeAllConnections(); } catch {}
+          spawn(process.execPath, [path.join(root, "studio.js"), "serve", "--noopen", "--port", String(port)], { cwd: root, detached: true, stdio: "ignore", windowsHide: true, env: { ...process.env, GASP_RESTART: "1" } }).unref();
+          setTimeout(() => process.exit(0), 300); }, 150);
+        return;
+      }
       if (url.pathname === "/api/update" && req.method === "POST") {
         try { const before = (await execFileP("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim(); const pull = await execFileP("git", ["pull", "--ff-only"], { cwd: root }); const after = (await execFileP("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
           if (before === after) return json({ changed: false }); const files = (await execFileP("git", ["diff", "--name-only", before, after], { cwd: root })).stdout.split("\n").filter(Boolean);
           const needsRestart = files.some(f => f.includes("gasp-studio/") && !f.includes("gasp-studio/app/")); emit("log", `⬆ updated ${before.slice(0, 7)} → ${after.slice(0, 7)} (${files.length} files)`); return json({ changed: true, needsRestart, files }); }
         catch (e) { return json({ error: (e.stderr || e.message || "").toString().trim().split("\n").pop() }, 500); }
       }
-      if (url.pathname === "/api/info") return json({ anthropic: !!process.env.ANTHROPIC_API_KEY, fal: !!process.env.FAL_KEY, elevenlabs: !!process.env.ELEVENLABS_API_KEY, root });
+      if (url.pathname === "/api/info") return json({ pid: process.pid, started: STARTED, anthropic: !!process.env.ANTHROPIC_API_KEY, fal: !!process.env.FAL_KEY, elevenlabs: !!process.env.ELEVENLABS_API_KEY, root });
       // ---- story storage: /api/db?path=stories/<id>  → stories/<path>.json
       if (url.pathname === "/api/db") {
         const rel = String(url.searchParams.get("path") || (req.method === "POST" ? (await (async () => { const b = await body(); req._b = b; return b.path; })()) : "")).replace(/[^a-zA-Z0-9_\-\/]/g, "");
@@ -275,7 +284,10 @@ export async function serve({ root, port = 4747, open = true }) {
   });
   const addr = `http://localhost:${port}`;
   const openBrowser = () => { if (!open) return; const cmd = process.platform === "win32" ? ["cmd", ["/c", "start", "", addr]] : process.platform === "darwin" ? ["open", [addr]] : ["xdg-open", [addr]]; try { spawn(cmd[0], cmd[1], { detached: true, stdio: "ignore" }).unref(); } catch {} };
-  const ok = await new Promise(r => { server.once("error", e => r(e.code === "EADDRINUSE" ? false : (() => { throw e; })())); server.listen(port, "127.0.0.1", () => r(true)); });
+  const tryListen = () => new Promise(r => { server.once("error", e => r(e.code === "EADDRINUSE" ? false : (() => { throw e; })())); server.listen(port, "127.0.0.1", () => r(true)); });
+  let ok = await tryListen();
+  // a restart hands the port over: wait for the old copy to let go
+  for (let i = 0; !ok && process.env.GASP_RESTART && i < 40; i++) { await new Promise(r => setTimeout(r, 250)); ok = await tryListen(); }
   if (!ok) { console.log(`GASP Studio is already running (another window has it). Opening the panel: ${addr}`); openBrowser(); await new Promise(r => setTimeout(r, 1500)); process.exit(0); }
   console.log(`GASP Studio panel: ${addr}   (leave this window open; Ctrl+C to stop)`);
   openBrowser();
