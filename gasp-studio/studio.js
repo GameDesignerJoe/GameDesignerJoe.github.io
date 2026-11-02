@@ -141,7 +141,10 @@ async function cmdStills() {
     for (let t = 1; t <= takes; t++) {
       const out = path.join(dir, `take-${existing + t}.png`);
       const compRef = exists(path.join(dir, "composite.png")) ? [path.join(dir, "composite.png")] : [];
-      const r = await generateStill({ prompt: prompt + (compRef.length ? " The first reference image is the blocking guide: keep its framing, pose and placement exactly; the other references give the face, wardrobe and set." : ""), refs: [...compRef, ...refsForShot(s, refs)], outFile: out, provider: args.image, label: s.action, labelTitle: `#${pad2(s.index)} ${s.frame || ""} · ${s.location}${s.time ? ", " + s.time : ""}${s.weather ? ", " + s.weather : ""}` });
+      // shot references: images attached to this one shot in the app, sent right after the blocking guide
+      const shotRefs = (s.shotRefs || []).map((u, k) => dataUriToFile(u, path.join(dir, `shotref-${k + 1}.${/^data:image\/png/.test(u) ? "png" : "jpg"}`))).filter(Boolean);
+      const refNote = shotRefs.length ? ` ${compRef.length ? "The next" : "The first"} ${shotRefs.length > 1 ? shotRefs.length + " reference images are" : "reference image is"} this shot's own reference${shotRefs.length > 1 ? "s" : ""}: match ${shotRefs.length > 1 ? "them" : "it"} closely${s.shotRefNote ? " (" + s.shotRefNote + ")" : ""}.` : "";
+      const r = await generateStill({ prompt: prompt + (compRef.length ? " The first reference image is the blocking guide: keep its framing, pose and placement exactly; the other references give the face, wardrobe and set." : "") + refNote, refs: [...compRef, ...shotRefs, ...refsForShot(s, refs)], outFile: out, provider: args.image, label: s.action, labelTitle: `#${pad2(s.index)} ${s.frame || ""} · ${s.location}${s.time ? ", " + s.time : ""}${s.weather ? ", " + s.weather : ""}` });
       addCost(ep, "still", r.cost, `shot ${s.index} take ${existing + t} ${r.provider}`);
       log(`Ep ${ep.number} shot #${pad2(s.index)} take ${existing + t} → ${path.relative(ROOT, out)}`);
       if (args.approveLatest || (!exists(path.join(dir, "approved.png")) && (args.auto || takes === 1))) { fs.copyFileSync(out, path.join(dir, "approved.png")); if (args.approveLatest) writeUse(dir, { kind: "still" }); }
