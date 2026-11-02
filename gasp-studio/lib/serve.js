@@ -4,12 +4,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
+import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { slug, readJSON, dataUriToFile } from "./util.js";
 import { generateStill, removeBackground } from "../providers/index.js";
 import { execFileP } from "./util.js";
 
-const MIME = { ".html": "text/html; charset=utf-8", ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".json": "application/json", ".txt": "text/plain" };
+const MIME = { ".html": "text/html; charset=utf-8", ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".mp3": "audio/mpeg", ".json": "application/json", ".txt": "text/plain" };
 
 export async function serve({ root, port = 4747, open = true }) {
   const clients = new Set();
@@ -103,23 +104,45 @@ export async function serve({ root, port = 4747, open = true }) {
   for (const f of fs.readdirSync(jobsDir).filter(f => f.endsWith(".json"))) { try { const j = readJSON(path.join(jobsDir, f)); if (j.status === "running") j.status = "lost"; genJobs.set(j.id, j); } catch {} }
   const jobSave = j => { try { fs.writeFileSync(path.join(jobsDir, j.id + ".json"), JSON.stringify(j)); } catch {} };
   const jobDrop = id => { genJobs.delete(id); try { fs.unlinkSync(path.join(jobsDir, id + ".json")); } catch {} };
+  // ---- per-story asset library: work/<slug>/assets/<folder>/ (cover, characters/<name>, locations/<name>, items)
+  const storyDir = sl => path.join(root, "work", String(sl || "assets").replace(/[^a-z0-9-]/g, "") || "assets");
+  const assetsDir = sl => path.join(storyDir(sl), "assets");
+  const cleanFolder = f => String(f || "").split(/[\\/]+/).map(x => x.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "")).filter(Boolean).slice(0, 3).join("/");
+  const idxFile = sl => path.join(assetsDir(sl), ".index.json");
+  const idxRead = sl => { try { return readJSON(idxFile(sl)); } catch { return {}; } };
+  const idxAdd = (sl, entries) => { const i = idxRead(sl); Object.assign(i, entries); fs.mkdirSync(assetsDir(sl), { recursive: true }); fs.writeFileSync(idxFile(sl), JSON.stringify(i)); };
+  const sha = s => crypto.createHash("sha1").update(s).digest("hex");
+  const IMG = /\.(png|jpe?g|webp)$/i;
+  function assetList(sl, folder) {
+    const base = assetsDir(sl); const folders = {}; const files = [];
+    const walk = (d, rel) => { let ents = []; try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+      for (const e of ents) { if (e.name.startsWith(".") || e.name.startsWith("_")) continue; const r = rel ? rel + "/" + e.name : e.name;
+        if (e.isDirectory()) { walk(path.join(d, e.name), r); continue; }
+        if (!IMG.test(e.name) || /-ref\d+\.|-small\./.test(e.name)) continue;
+        folders[rel] = (folders[rel] || 0) + 1;
+        if (folder == null || folder === "*" || rel === folder || rel.startsWith(folder + "/")) { const st = fs.statSync(path.join(d, e.name)); files.push({ rel: r, folder: rel, name: e.name, at: st.mtimeMs, url: "/work/" + path.relative(path.join(root, "work"), path.join(d, e.name)).split(path.sep).map(encodeURIComponent).join("/") }); } } };
+    walk(base, ""); files.sort((a, b) => b.at - a.at);
+    return { folders: Object.entries(folders).map(([f, n]) => ({ folder: f, count: n })).sort((a, b) => a.folder.localeCompare(b.folder)), files };
+  }
   async function genRun(b) {
-        const dir = path.join(root, "work", String(b.slug || "assets").replace(/[^a-z0-9-]/g, "") || "assets", "assets"); fs.mkdirSync(dir, { recursive: true });
-        const stamp = Date.now().toString(36); const base = path.join(dir, `${String(b.kind || "img").replace(/[^a-z0-9-]/g, "")}-${String(b.name || "x").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${stamp}`);
-        const refs = []; (b.refs || []).slice(0, 3).forEach((u, i) => { const f = dataUriToFile(u, `${base}-ref${i}.${/^data:image\/png/.test(u) ? "png" : "jpg"}`); if (f) refs.push(f); });
+        const dir = path.join(assetsDir(b.slug), cleanFolder(b.folder)); fs.mkdirSync(dir, { recursive: true });
+        const tmp = path.join(assetsDir(b.slug), "_work"); fs.mkdirSync(tmp, { recursive: true });
+        const stamp = Date.now().toString(36); const stem = `${String(b.kind || "img").replace(/[^a-z0-9-]/g, "")}-${String(b.name || "x").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${stamp}`; const base = path.join(dir, stem); const tbase = path.join(tmp, stem);
+        const refs = []; (b.refs || []).slice(0, 3).forEach((u, i) => { const f = dataUriToFile(u, `${tbase}-ref${i}.${/^data:image\/png/.test(u) ? "png" : "jpg"}`); if (f) refs.push(f); });
+        const idx = {};
         const dims = { "9:16": { width: 1080, height: 1920 }, "3:4": { width: 896, height: 1200 }, "1:1": { width: 1024, height: 1024 }, "2:3": { width: 832, height: 1248 } };
         const aspect = dims[b.aspect] ? b.aspect : "3:4";
         let cost = 0; const count = Math.max(1, Math.min(4, +b.count || 1)); const results = [];
           for (let k = 0; k < count; k++) {
           const g = await generateStill({ prompt: b.prompt + (refs.length ? " Match the face and look of the reference image exactly." : ""), refs, outFile: `${base}-${k}.jpg`, aspect, size: dims[aspect], label: b.prompt.slice(0, 80), labelTitle: b.kind || "", provider: b.provider }); cost += g.cost;
           let file = g.file;
-          if (b.rembg) { const r = await removeBackground({ file, outFile: `${base}-${k}-cut.png` }); cost += r.cost; file = r.file; }
+          if (b.rembg) { const raw = file; const r = await removeBackground({ file, outFile: `${base}-${k}-cut.png` }); cost += r.cost; file = r.file; try { fs.renameSync(raw, `${tbase}-${k}-raw.jpg`); } catch {} }
           // downscale for storage in the story (keeps alpha for png)
-          const max = Math.max(256, Math.min(1400, +b.max || 1000)); const isPng = file.endsWith(".png"); const small = `${base}-${k}` + (isPng ? "-small.png" : "-small.jpg");
+          const max = Math.max(256, Math.min(1400, +b.max || 1000)); const isPng = file.endsWith(".png"); const small = `${tbase}-${k}` + (isPng ? "-small.png" : "-small.jpg");
           await execFileP("ffmpeg", ["-y", "-i", file, "-vf", `scale='min(${max},iw)':-2`, ...(isPng ? [] : ["-q:v", "4"]), small]);
-          const buf = fs.readFileSync(small); results.push(`data:image/${isPng ? "png" : "jpeg"};base64,` + buf.toString("base64"));
+          const buf = fs.readFileSync(small); const du = `data:image/${isPng ? "png" : "jpeg"};base64,` + buf.toString("base64"); results.push(du); idx[sha(du)] = path.relative(assetsDir(b.slug), file).split(path.sep).join("/");
           }
-          const dataUri = results[0];
+          const dataUri = results[0]; try { idxAdd(b.slug, idx); } catch {}
           // log the spend against the story
           if (cost) { const cf = path.join(root, "work", String(b.slug || "assets").replace(/[^a-z0-9-]/g, "") || "assets", "ep0", "ep0-cost.json"); fs.mkdirSync(path.dirname(cf), { recursive: true }); const c = fs.existsSync(cf) ? readJSON(cf) : { items: [], total: 0 }; c.items.push({ kind: b.kind || "asset", amt: +cost.toFixed(4), note: b.name || "", at: new Date().toISOString() }); c.total = +(c.total + cost).toFixed(4); fs.writeFileSync(cf, JSON.stringify(c, null, 2)); }
           emit("log", `🖼 ${b.kind || "image"} for ${b.name || "?"} ($${cost.toFixed(2)})`);
@@ -141,6 +164,17 @@ export async function serve({ root, port = 4747, open = true }) {
       const shotFolder = (sl, ep, shot, file) => { const scan = scanEp(sl, ep, file ? safe(file) : null); const i = scan.shots[shot] || scan.shots[+shot]; return i ? path.join(scan.dir, `shot-${i.key}`) : path.join(scan.dir, `shot-${String(shot).padStart(2, "0")}`); };
       // ---- in-app asset generation: { prompt, refs:[dataURI], aspect:"3:4"|"9:16"|"1:1", rembg:bool, max:px, slug, kind, name }
       if (url.pathname === "/api/providers") { const { registry } = await import("../providers/index.js"); const list = Object.entries(registry.image).filter(([k]) => k !== "default").map(([k, v]) => ({ key: k, note: v.note || "", price: v.pricePerImage || 0, refs: !!v.supportsRefs, isDefault: registry.image.default === k, available: k.startsWith("openai") ? !!process.env.OPENAI_API_KEY : (!!process.env.FAL_KEY || !!process.env.STUDIO_DRY_RUN) })); return json({ image: list }); }
+      if (url.pathname === "/api/assets" && req.method === "GET") { const f = url.searchParams.get("folder"); return json(assetList(url.searchParams.get("slug"), f == null ? "*" : cleanFolder(f))); }
+      if (url.pathname === "/api/assets/have" && req.method === "POST") { const b = await body(); const i = idxRead(b.slug); return json({ missing: (b.hashes || []).filter(h => !i[h]) }); }
+      if (url.pathname === "/api/assets/keep" && req.method === "POST") {
+        const b = await body(); const out = []; const add = {};
+        for (const it of (b.items || [])) { const m = /^data:image\/(png|jpe?g|webp);base64,/.exec(it.dataUri || ""); if (!m) continue; const h = it.hash || sha(it.dataUri);
+          if (idxRead(b.slug)[h]) continue; const dir = path.join(assetsDir(b.slug), cleanFolder(it.folder)); fs.mkdirSync(dir, { recursive: true });
+          const f = path.join(dir, `${String(it.name || "image").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "image"}-${h.slice(0, 8)}.${m[1] === "jpeg" ? "jpg" : m[1]}`);
+          if (!fs.existsSync(f)) fs.writeFileSync(f, Buffer.from(it.dataUri.slice(m[0].length), "base64"));
+          add[h] = path.relative(assetsDir(b.slug), f).split(path.sep).join("/"); out.push(add[h]); }
+        if (out.length) idxAdd(b.slug, add); return json({ kept: out });
+      }
       if (url.pathname === "/api/gen/jobs/remove" && req.method === "POST") { const b = await body(); const j = genJobs.get(b.id); if (j && j.results) { j.results.splice(+b.index, 1); if (!j.results.length) jobDrop(b.id); else jobSave(j); } return json({ ok: true }); }
       if (url.pathname === "/api/gen/jobs") { if (req.method === "DELETE") { const b = await body(); jobDrop(b.id); return json({ ok: true }); } return json({ jobs: [...genJobs.values()].sort((a, b) => a.at - b.at).map(j => ({ id: j.id, status: j.status, kind: j.kind, name: j.name, title: j.title, prompt: j.prompt, at: j.at, cost: j.cost, error: j.error, target: j.target, slug: j.slug, results: j.status === "done" ? j.results : undefined, count: j.count })) }); }
       if (url.pathname === "/api/gen/image" && req.method === "POST") {
