@@ -90,6 +90,7 @@ export async function generateStill({ prompt, refs = [], outFile, provider, aspe
   if (DRY) return { file: await placeholderImage(outFile, label || prompt.slice(0, 160), dim.width, dim.height, refs, labelTitle || ""), cost: 0, provider: p.key };
   if (p.key.startsWith("openai")) return openaiImage({ p, prompt, refs, outFile, dim });
   const input = { prompt, aspect_ratio: aspect, image_size: dim, num_images: 1 };
+  Object.assign(input, p.params || {}); if (process.env.STUDIO_SAFETY_TOLERANCE && "safety_tolerance" in input) input.safety_tolerance = String(process.env.STUDIO_SAFETY_TOLERANCE);
   if (p.supportsRefs && refs.length) {
     const urls = [];
     for (const f of refs.slice(0, 4)) urls.push(await falUpload(f));
@@ -98,7 +99,9 @@ export async function generateStill({ prompt, refs = [], outFile, provider, aspe
   // reference-editing models need at least one image; with none, use the model's text-to-image twin
   const out = await falRun(input.image_urls ? p.endpoint : (p.textEndpoint || p.endpoint), input);
   const url = out.images?.[0]?.url || out.image?.url;
-  if (!url) throw new Error("no image in response: " + JSON.stringify(out).slice(0, 300));
+  if (!url) { const txt = JSON.stringify(out); const m = txt.match(/"loc":\["body","image_urls",(\d+)\][^}]*content_policy_violation/);
+    if (/content_policy_violation/.test(txt)) throw new Error(`${p.key} refused this on content grounds${m ? ` (reference image #${+m[1] + 1}${+m[1] === 0 && refs.length ? ", usually the composite" : ""})` : " (the result or the prompt)"}. Try another model, or untick that reference.`);
+    throw new Error("no image in response: " + txt.slice(0, 300)); }
   await download(url, outFile);
   return { file: outFile, cost: p.pricePerImage || 0, provider: p.key };
 }

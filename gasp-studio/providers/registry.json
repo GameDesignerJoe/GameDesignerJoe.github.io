@@ -7,12 +7,18 @@
       "supportsRefs": true,
       "pricePerImage": 0.08,
       "note": "multi-image reference editing; good for keeping a face",
-      "textEndpoint": "fal-ai/flux-pro/kontext/max/text-to-image"
+      "textEndpoint": "fal-ai/flux-pro/kontext/max/text-to-image",
+      "params": {
+        "safety_tolerance": "5"
+      }
     },
     "fal-flux-dev": {
       "endpoint": "fal-ai/flux/dev",
       "supportsRefs": false,
-      "pricePerImage": 0.025
+      "pricePerImage": 0.025,
+      "params": {
+        "enable_safety_checker": false
+      }
     },
     "fal-seedream": {
       "endpoint": "fal-ai/bytedance/seedream/v4/edit",
@@ -105,5 +111,6 @@
       "pricePerImage": 0.01,
       "note": "background removal \u2192 PNG with alpha"
     }
-  }
+  },
+  "_safety": "safety_tolerance 5 is the most permissive level fal documents for FLUX Kontext (default 2). Override with STUDIO_SAFETY_TOLERANCE=1..6 in .env. Seedream can only turn its checker off with account authorization from fal."
 }

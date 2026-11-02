@@ -72,7 +72,7 @@ export async function serve({ root, port = 4747, open = true }) {
     return { video: fs.existsSync(video) ? `/work/${sl}/ep${ep}/ep${ep}-animatic.mp4?t=${fs.statSync(video).mtimeMs}` : null, cost: fs.existsSync(cost) ? readJSON(cost).total : 0, shots };
   };
 
-  function runSteps({ file, ep, until, from, shot, steps, dry, force, thenAssemble, path: choicePath, approveLatest, segmentsOnly, takes }) {
+  function runSteps({ file, ep, until, from, shot, steps, dry, force, thenAssemble, path: choicePath, approveLatest, segmentsOnly, takes, image }) {
     if (job) throw new Error("a render is already running");
     if (thenAssemble) steps = [...steps, "animatic"];
     job = { steps, i: 0, cancelled: false };
@@ -86,7 +86,7 @@ export async function serve({ root, port = 4747, open = true }) {
       if (choicePath) argv.push("--path", String(choicePath));
       if (shot && step !== "animatic") argv.push("--shot", String(shot));
       if (step === "composite" || (force && (step === "vo" || step === "beds"))) argv.push("--force");
-      if (step === "stills") { argv.push("--auto"); if (approveLatest) argv.push("--approveLatest"); if (takes && +takes > 1) argv.push("--takes", String(+takes)); }
+      if (step === "stills") { argv.push("--auto"); if (approveLatest) argv.push("--approveLatest"); if (image && /^[a-z0-9-]+$/.test(image)) argv.push("--image", image); if (takes && +takes > 1) argv.push("--takes", String(+takes)); }
       if (step === "animatic" && (segmentsOnly || (thenAssemble && shot))) argv.push("--segonly");
       emit("log", `\n▶ ${step}${from || until ? " (blocks " + (from || 1) + "–" + ((until || 0) - 1 || "end") + ")" : " (whole episode)"}`);
       emit("status", { running: true, step });
