@@ -1,0 +1,570 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jungle Girl Adventures</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a phone-shaped stage (the game) beside a tuning column; stacks on narrow screens. Single dark look: sunset over wet sand. */
+:root{
+  --bg:#13100e; --panel:#1f1a16; --panel2:#2a231e; --line:#3a302a;
+  --fg:#f3e9dc; --mute:#a89480; --sand:#e9c89a; --sun:#ff9a4d; --sea:#4fc3c7; --ember:#ff5a3c; --gem:#c48cff; --good:#8fd97a;
+  --display:"Bricolage Grotesque",Georgia,serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:8px 12px;background:var(--panel2);color:var(--fg)}
+button:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.wrap{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:20px;max-width:1180px;margin:0 auto}
+@media (max-width:860px){.wrap{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;position:relative;min-height:720px;display:flex;flex-direction:column}
+.hud{display:flex;gap:8px;padding:10px 34px 10px 12px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;flex-wrap:wrap;position:relative;z-index:6;background:var(--panel)}
+.hud div{display:flex;align-items:center;gap:5px;font-size:13px}
+.hud b{font-family:var(--mono);font-weight:500}
+.bar{height:8px;background:var(--line);border-radius:4px;flex:1;min-width:44px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--sun);transition:width .3s}
+.scene{flex:0 0 auto;aspect-ratio:9/16;position:relative;background:#1a1210 url(art/beach.jpg) center/cover no-repeat}
+.hot{position:absolute;transform:translate(-50%,0);padding:7px 11px;background:rgba(19,16,14,.82);border:1px solid rgba(255,255,255,.28);border-radius:14px;text-align:center;font-size:13px;font-weight:600;line-height:1.2;color:var(--fg);backdrop-filter:blur(3px);white-space:nowrap;margin-top:16px}
+.hot::before{content:"";position:absolute;left:50%;top:-24px;width:16px;height:16px;transform:translateX(-50%);border-radius:50%;background:rgba(255,154,77,.9);border:3px solid #fff;box-shadow:0 0 0 6px rgba(255,154,77,.35)}
+.hot small{display:block;font-family:var(--mono);font-size:10px;font-weight:400;color:var(--sand);margin-top:3px}
+.hot.ready{border-color:var(--sun);box-shadow:0 0 0 3px rgba(255,154,77,.25)}
+.hot.ready::before{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 6px rgba(255,154,77,.35)}50%{box-shadow:0 0 0 12px rgba(255,154,77,.12)}}
+.hot:disabled{opacity:.55}.hot:disabled::before{background:#8a7a6a;box-shadow:none}
+#h_shop::before{display:none}
+.fire{position:absolute;left:37%;top:58%;transform:translate(-50%,-50%);width:0;height:0}
+/* Art behind an overlay screen: picture on top, text and buttons sit on a dark gradient at the bottom. */
+.overlay.art{background:linear-gradient(180deg,rgba(19,16,14,.25) 0%,rgba(19,16,14,.15) 35%,rgba(19,16,14,.88) 62%,rgba(19,16,14,.96) 100%),var(--art) center/var(--fit,cover) no-repeat #1a1210}
+.overlay.art.title{background:linear-gradient(180deg,rgba(19,16,14,0) 70%,rgba(19,16,14,.9) 100%),var(--art) center top/contain no-repeat #1a1210}
+.overlay.art>:first-child{margin-top:auto}
+.overlay.art .clip{background:rgba(19,16,14,.72);border-color:rgba(233,200,154,.55)}
+.overlay.art .line{text-shadow:0 2px 10px #000}
+.gh{display:flex;flex-direction:column;gap:4px}
+.overlay.art .gh{background:rgba(19,16,14,.74);padding:8px 10px;border-radius:10px;backdrop-filter:blur(3px)}
+.overlay.art .choice button{background:rgba(19,16,14,.82);border-color:rgba(255,255,255,.28)}
+.overlay.art .choice button.gem{border-color:var(--gem)}
+.shots{display:flex;gap:6px}.shots img{flex:1;min-width:0;aspect-ratio:9/16;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.flame{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:40px;height:40px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:radial-gradient(circle at 50% 80%,#ffd27a,var(--ember) 60%,transparent 70%);opacity:0}
+.overlay{position:absolute;inset:0;background:rgba(19,16,14,.94);display:flex;flex-direction:column;justify-content:safe center;gap:12px;padding:72px 18px 22px;z-index:5;overflow:auto}
+.overlay h2{font-size:26px}
+.clip{border:1px dashed var(--sand);border-radius:12px;padding:14px;font-family:var(--mono);font-size:12px;color:var(--sand);background:rgba(233,200,154,.06)}
+.clip b{display:block;color:var(--fg);font-size:14px;margin-bottom:4px}
+.line{font-family:var(--display);font-size:20px;line-height:1.25;color:var(--fg)}
+.choice{display:flex;flex-direction:column;gap:8px}
+.choice button{text-align:left;display:flex;justify-content:space-between;gap:10px;padding:12px 14px;border:1px solid var(--line)}
+.choice button span{font-family:var(--mono);font-size:12px;color:var(--mute)}
+.choice button.gem{border-color:var(--gem)}
+.log{font-family:var(--mono);font-size:11px;color:var(--mute);padding:10px 14px;border-top:1px solid var(--line);max-height:110px;overflow:auto}
+.log div+div{margin-top:3px}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h3{font-size:15px;margin-bottom:10px;color:var(--sand)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px;font-size:12px}
+.grid label{display:flex;justify-content:space-between;align-items:center;gap:6px;color:var(--mute)}
+.grid input,.grid select{width:64px;background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:3px 5px;font-family:var(--mono);font-size:12px;text-align:right}
+table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+td,th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mute);font-weight:500}
+td.n{text-align:right;font-family:var(--mono)}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tabs button.on{background:var(--sun);color:#1a0d05}
+.qte{height:22px;background:var(--line);border-radius:11px;position:relative;overflow:hidden;margin:6px 0}
+.qte .zone{position:absolute;top:0;bottom:0;background:var(--good);opacity:.5}
+.qte .mark{position:absolute;top:0;bottom:0;width:4px;background:#fff}
+.fish{transition:transform .15s}
+.clock{position:absolute;top:0;left:0;right:0;height:14px;background:var(--line);z-index:6;margin-top:0}
+.clock i{display:block;height:100%;width:100%;background:var(--sun)}
+.flash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-family:var(--display);font-size:64px;font-weight:800;letter-spacing:.02em;z-index:7;background:rgba(19,16,14,.55);pointer-events:none;text-align:center}
+.flash small{font-family:var(--body);font-size:16px;font-weight:500;color:var(--sand);letter-spacing:.1em}
+.flash.win{color:var(--good)} .flash.lose{color:var(--ember)} .flash.go{color:var(--sun)}
+.catalog{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.catalog div{aspect-ratio:3/4;border-radius:10px;border:1px solid var(--line);display:flex;align-items:flex-end;padding:8px;font-size:11px;background:var(--panel2);color:var(--mute)}
+.catalog div.have{border-color:var(--sand);color:var(--fg);background:linear-gradient(180deg,#2a231e,#4a3a2e)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--mute);font-size:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* Play mode (default): a centered phone, no tuning panel, no log, no production labels. The ⚙ in the HUD corner is almost invisible; tap it for the debug view. */
+body.play .wrap{grid-template-columns:minmax(0,420px);justify-content:center}
+body.play .side,body.play .log{display:none}
+body.play #hDebug{opacity:.06;background:transparent}
+body.play #hDebug:hover,body.play #hDebug:focus-visible{opacity:.6}
+body.play .clip{border:0;background:transparent;padding:0;font-family:var(--body);font-size:14px;color:var(--sand);font-style:italic}
+body.play .overlay.art .clip{background:transparent}
+body.play .clip b{display:none}
+body.play .clip:not(:has(> span)){display:none}
+body.play .overlay h2{text-shadow:0 2px 10px #000}
+.ovcat{display:flex;flex-direction:column;gap:12px}
+.ovcat .catalog div{background-size:cover;background-position:center}
+</style>
+
+<script src="story.js"></script>
+<div class="wrap">
+<div class="stage" id="stage">
+  <div class="hud">
+    <div>⚡ <b id="hEnergy">0</b>/<b id="hCap">10</b><span class="bar"><i id="eBar"></i></span></div>
+    <div>🪵 <b id="hWood">0</b></div>
+    <div>🐟 <b id="hFish">0</b></div>
+    <div>🪙 <b id="hTok">0</b></div>
+    <div style="color:var(--gem)">💎 <b id="hGem">0</b></div>
+    <div class="muted" id="hOutfit">Bikini</div><button id="hDebug" title="debug view" style="position:absolute;top:6px;right:6px;padding:2px 8px">⚙</button>
+  </div>
+  <div class="scene" id="scene">
+    <div class="fire"><div class="flame" id="flame"></div></div>
+    <button class="hot" style="left:37%;top:56%" id="h_fire">Feed the fire<small id="t_fire"></small></button>
+    <button class="hot" style="left:53%;top:39%" id="h_cook">Cook &amp; eat<small id="t_cook"></small></button>
+    <button class="hot" style="left:15%;top:65%" id="h_sun">Sunbathe<small id="t_sun"></small></button>
+    <button class="hot" style="left:80%;top:54%" id="h_chest">Sea chest<small id="t_chest"></small></button>
+    <button class="hot" style="left:17%;top:37%" id="h_cave">Cave · change<small id="t_cave"></small></button>
+    <button class="hot" style="left:76%;top:23%" id="h_path">Jungle path<small id="t_path"></small></button>
+    <button class="hot" style="left:50%;top:84%;margin-top:0" id="h_shop">💎 Shop</button>
+  </div>
+  <div class="log" id="log"></div>
+  <div class="overlay" id="ov" hidden></div>
+</div>
+
+<div class="side">
+  <div class="card">
+    <h1 style="font-size:22px">Jungle Girl Adventures · loop prototype</h1>
+    <p class="muted" style="margin:6px 0 10px">Debug view. Camp spends, the island earns. Generated stills stand in for the clips (the <code>art/</code> folder; swap a file to swap a screen). In play mode every clip card shows the ID Taplot needs to generate (<code>action × outfit</code>) above the shot description. Tune numbers below; they apply live. Time scale speeds the timers so you can feel an hour in a minute.</p>
+    <div class="row">
+      <button id="btnPlay" style="background:var(--sun);color:#1a0d05;font-weight:600">▶ Back to play mode</button>
+      <label class="muted">Time ×<select id="speed"><option>1</option><option selected>10</option><option>60</option><option>600</option></select></label>
+      <button id="btnGames">Mini-game tester</button>
+      <button id="btnOpening">Reset intro</button>
+      <button id="btnReset">Reset save</button>
+      <button id="btnFree">Free-path test (0 gems)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs"><button class="on" data-tab="tune">Tuning</button><button data-tab="odds">Exploration odds</button><button data-tab="chest">Chest table</button><button data-tab="clips">Clip manifest</button><button data-tab="cat">Catalogue</button></div>
+    <div id="tab_tune" class="grid"></div>
+    <div id="tab_odds" hidden></div>
+    <div id="tab_chest" hidden></div>
+    <div id="tab_clips" hidden></div>
+    <div id="tab_cat" hidden></div>
+  </div>
+</div>
+</div>
+
+<script>
+// ---------- CONFIG (everything tunable) ----------
+const C = {
+  energyCap:10, energyStart:5,
+  // Camp SPENDS: wood → fire, fish → energy, tokens → chest. Only the sun gives, slowly. Everything else comes from the island.
+  woodCap:10, fishCap:5,
+  fireMax:3, fireStart:1, fireDecay:15, relightCost:2,   // minutes per level lost; wood to relight from cold
+  fishEnergy:3,
+  sunEnergy:2, sunTimer:15,
+  depthCost:[1,2,3,4,5], maxDepth:5,           // energy to take step 1..5; the island ends at maxDepth
+  fruitEnergy:2, lagoonEnergy:2, boarMeatEnergy:3, qteWin:60,  // qteWin: assumed win % for the odds math only
+  wreckWood:[2,3,3,4,5], poolFish:[1,1,2,2,3], boarTokens:[0,1,1,2,2], altarTokens:[1,1,2,2,3], climbTokens:[1,1,2,3,4], // by depth
+  pullTokens:3, pullGems:30, pull10Gems:250, energyGems:20, energyPerBuy:5, dupTokens:1,
+  retryEnergy:2,
+};
+// Each path type promises its own table; SURPRISE% of the time a card from another path shows up.
+const SURPRISE=20;
+const PATHS = [ // weights by depth step 1..5
+  {key:'gentle', labels:['The pleasant path','Follow the stream','Along the shore'], odds:{lagoon:[20,20,20,15,15], pool:[30,30,30,25,25], wreck:[30,30,25,25,20], fruit:[20,20,15,15,10]}},
+  {key:'rocks',  labels:['The rocky trail','Up to the high ground','Over the ridge'],  odds:{climb:[30,40,50,55,60], altar:[50,45,40,35,30], deadend:[20,15,10,10,10]}},
+  {key:'dark',   labels:['Into the dark of the jungle','Through the brush','Where the birds went quiet'], odds:{boar:[30,40,50,55,60], altar:[30,30,30,30,30], fruit:[30,20,15,10,5], wreck:[10,10,5,5,5]}},
+];
+const ODDS=null; // kept for the tuning panel; see PATHS
+const CHEST = [ // weights after the guaranteed first story pull
+  {id:'story1',name:'Story · The push',type:'story',w:0,order:1},
+  {id:'story2',name:'Story · The water',type:'story',w:0,order:2},
+  {id:'story3',name:'Story · The horizon',type:'story',w:0,order:3},
+  {id:'silk',name:'Outfit · Silk two-piece (the party dress, remade)',type:'outfit',w:30},
+  {id:'hammock',name:'Moment · The hammock',type:'moment',w:20},
+  {id:'refund',name:'Tokens back',type:'token',w:10},
+];
+const STORY_W = 40;
+const OUTFITS = {bikini:'Bikini', silk:'Silk two-piece'};
+
+// Clip manifest: id -> {dur, prompt}. Rendered per outfit.
+const CLIPS = {
+  opening:{dur:27,outfits:['bikini'],prompt:'5 shots: wake on the beach in the torn party dress (5s) · yacht night party, the push, the call for help, the explosion, dark (8s) · out of the cave in the bikini (5s) · her habitat (5s) · walks into the sun and stretches, settles into the camp plate (4s)'},
+  fire:{dur:4,prompt:'Wren squats to feed the fire, firelight on skin, slow push-in'},
+  cook:{dur:5,prompt:'Fish on a stick over flame; cut to her first bite, eyes close, a slow smile'},
+  sun:{dur:5,prompt:'Slow pan along Wren on the flat rock, heat haze, hand shading her eyes'},
+  chest:{dur:4,prompt:'Wren kneels at the sea chest against the rocks, lifts the lid, light on her face'},
+  walk:{dur:4,prompt:'Tracking shot behind Wren on the jungle path, pushing fronds aside, to a fork (reused for every step deeper)'},
+  stumble:{dur:4,prompt:'Night. Wren stumbles back into the firelight empty-handed, drops to her knees, laughs it off (bust clip; stills in v1)'},
+  change:{dur:3,outfits:['silk'],prompt:'Wren steps out of the cave in the ivory silk two-piece cut from the party dress, ties the halter behind her neck, turns to camera'},
+  moment_hammock:{dur:5,outfits:['bikini'],prompt:'Wren in the hammock, one leg swinging, the long look at camera'},
+};
+const STILLS = ['camp plate (no Wren)','fork','dead-end vista','fruit tree','lagoon','wreckage on the rocks','tide pool','cliff base','summit vista','boar in the brush','stumble home (night)','story card 1 · the push','story card 2 · the water','story card 3 · the horizon','outfit portrait · bikini','outfit portrait · silk two-piece'];
+
+// ---------- STATE ----------
+const now=()=>Date.now();
+let S, speed=10;
+function fresh(){ return {energy:C.energyStart,wood:2,fish:1,fire:C.fireStart,tokens:0,gems:0,outfit:'bikini',owned:['bikini'],have:[],seen:[],pulls:0,freePath:false,
+  t:{sun:0,fireDecay:now()}, lastTick:now(), clipCount:{}, log:[], openingSeen:false}; }
+function load(){ try{const j=localStorage.getItem('wrenSim'); if(j){S=JSON.parse(j); S.lastTick=now(); return;}}catch(e){} S=fresh(); }
+function save(){ try{localStorage.setItem('wrenSim',JSON.stringify(S))}catch(e){} }
+const min=m=>m*60000; // game-minutes -> ms (before speed)
+function log(s){ S.log.unshift(s); S.log=S.log.slice(0,40); const el=document.getElementById('log'); el.innerHTML=S.log.map(x=>`<div>${x}</div>`).join(''); }
+function clipKey(id){ const c=CLIPS[id]; const o=(c.outfits||[S.outfit])[0]; return `${id} × ${c.outfits?c.outfits[0]:S.outfit}`; }
+function countClip(id){ const k=clipKey(id); S.clipCount[k]=(S.clipCount[k]||0)+1; }
+
+// Time: game clock advances speed× real time.
+let gameNow=now();
+function tick(){
+  const dt=(now()-S.lastTick)*speed; S.lastTick=now(); gameNow+=dt;
+  // fire decay
+  while(S.fire>0 && gameNow-S.t.fireDecay>=min(C.fireDecay)){ S.fire--; S.t.fireDecay+=min(C.fireDecay); if(S.fire===0) log('🔥 The fire went cold. Relight costs '+C.relightCost+' wood.'); }
+  if(S.fire===0) S.t.fireDecay=gameNow;
+  render();
+}
+function ready(key,timerMin){ return gameNow-S.t[key]>=min(timerMin); }
+function left(key,timerMin){ const r=min(timerMin)-(gameNow-S.t[key]); if(r<=0) return ''; const m=Math.ceil(r/60000); return m>=1?m+'m':Math.ceil(r/1000)+'s'; }
+
+// ---------- ART ----------
+// Generated stills, served from art/ next to this file. One key per screen; swap a file to swap a screen.
+const ART = {beach:'art/beach.jpg',path:'art/path.jpg',chest:'art/chest.jpg',climb:'art/climb.jpg',altar:'art/altar.jpg',tide:'art/tide.jpg',boar:'art/boar.jpg',wreck:'art/wreck.jpg',
+  fire:'art/fire.jpg',cave:'art/cave.jpg',hammock:'art/hammock.jpg',cook:'art/cook.jpg',sun:'art/sun.jpg',pool:'art/pool.jpg',skirt:'art/skirt.jpg',
+  s1:'art/s1.jpg',s2:'art/s2.jpg',s3:'art/s3.jpg',s4:'art/s4.jpg',s5:'art/s5.jpg',wake:'art/wake.jpg',cover:'art/cover.jpg'};
+// Which picture sits behind which screen. Clip ids, still names, performance beats and mini-game titles all map here.
+const ART_FOR = {
+  clip:{opening:'wake',fire:'fire',cook:'cook',sun:'sun',chest:'chest',walk:'path',stumble:'fire',change:'cave',moment_hammock:'hammock'},
+  still:{'sea chest · closed':'chest','chest · open':'chest','cave mouth':'cave','fork':'path',"island's end":'path','Story · The push':'s2','Story · The water':'s3','Story · The horizon':'s5','Moment · The hammock':'hammock','Outfit · Silk two-piece (the party dress, remade)':'skirt'},
+  beat:{deadend:'path',fruit:'path',lagoon:'pool',wreck:'wreck',altar_lose:'altar',altar:'altar',climb_win:'climb',climb_lose:'climb',pool_win:'tide',pool_lose:'tide',boar_win:'boar',boar_lose:'boar',exhausted:'path',stumble:'fire',bank:'beach'},
+  game:{wreckage:'wreck',altar:'altar','tide pool':'tide',cliff:'climb',boar:'boar'},
+};
+function setArt(key,fit){ const src=key&&ART[key]; ov.classList.toggle('art',!!src); ov.classList.toggle('title',fit==='title'); ov.style.setProperty('--fit',fit&&fit!=='title'?fit:'cover'); ov.style.setProperty('--art', src?`url(${src})`:'none'); }
+// Preload every picture so screens never flash while a file loads.
+Object.values(ART).forEach(u=>{ const i=new Image(); i.src=u; });
+
+// ---------- CLIP PLAYER ----------
+const ov=document.getElementById('ov');
+function playClip(id, line, after){
+  countClip(id); const c=CLIPS[id]; const o=c.outfits?c.outfits[0]:S.outfit;
+  setArt(ART_FOR.clip[id]);
+  ov.hidden=false; ov.innerHTML=`<div class="clip"><b>▶ CLIP ${id} × ${o} · ${c.dur}s</b><span>${c.prompt}</span></div><div class="line">${line||''}</div><div class="muted">clip plays ${c.dur}s · tap to skip</div>`;
+  const done=()=>{ ov.onclick=null; ov.hidden=true; after&&after(); render(); save(); };
+  ov.onclick=done; setTimeout(done, Math.min(c.dur*1000/ Math.max(1,speed/10), 2500));
+}
+function still(name, line, buttons){
+  setArt(ART_FOR.still[name]);
+  ov.hidden=false; ov.innerHTML=`<div class="clip"><b>🖼 STILL · ${name}</b></div><div class="line">${line}</div><div class="choice" id="ovc"></div>`;
+  const c=document.getElementById('ovc');
+  buttons.forEach(([label,sub,fn,cls])=>{ const b=document.createElement('button'); if(cls)b.className=cls; b.innerHTML=`${label}<span>${sub||''}</span>`; b.onclick=()=>{ov.hidden=true; fn&&fn(); render(); save();}; c.appendChild(b); });
+}
+
+// ---------- OPENING ----------
+// ---------- INTRO ----------
+// First launch only: title card, then Wren tells the backstory one picture at a time, and we land on the beach.
+// Taplot version: these are the 27 s opening shots; here each is a still with her line. Reset it from the debug view.
+const INTRO = window.INTRO || [{art:'cover',title:true},{art:'beach',line:'(story.js is missing next to this file)',last:true}];
+function opening(i=0){
+  const step=INTRO[i]; setArt(step.art, step.fit); ov.hidden=false;
+  if(step.title){ setArt(null); ov.innerHTML=`<img src="${ART[step.art]}" alt="" style="flex:1;min-height:0;width:100%;object-fit:cover;object-position:center top;border-radius:14px"><div class="choice"><button id="goNext" style="background:var(--sun);color:#1a0d05;font-weight:600;font-size:18px;padding:14px;justify-content:center">Start</button></div>`; }
+  else ov.innerHTML=`<div class="muted" style="font-family:var(--mono);letter-spacing:.1em">WREN</div><div class="line">${step.line}</div><div class="choice"><button id="goNext" style="background:var(--sun);color:#1a0d05;font-weight:600;justify-content:center">${step.last?'Begin':'Next'}</button></div><div class="muted" style="text-align:right"><a href="#" id="goSkip" style="color:var(--mute)">${step.last?'':'skip'}</a></div>`;
+  const done=()=>{ ov.hidden=true; S.openingSeen=true; log('▶ Intro played. The fire is glowing: that is the first tap. Then cook, then the path.'); save(); render(); };
+  $('goNext').onclick=()=>step.last?done():opening(i+1);
+  const sk=$('goSkip'); if(sk) sk.onclick=e=>{e.preventDefault(); done();};
+}
+
+// ---------- CAMP ACTIONS ----------
+const A = {
+  fire(){ const cost=S.fire===0?C.relightCost:1; S.wood-=cost; if(S.fire===0) S.t.fireDecay=gameNow; S.fire=Math.min(C.fireMax,S.fire+1);
+    playClip('fire', S.fire===1&&cost>1?'Relit. Keep it fed.':'Fire fed.', ()=>log(`🔥 fire ${S.fire}/${C.fireMax}, −${cost} wood`)); },
+  cook(){ S.fish--; playClip('cook', `+${C.fishEnergy} energy`, ()=>{S.energy=Math.min(C.energyCap,S.energy+C.fishEnergy); log(`🍽 ate fish, +${C.fishEnergy} ⚡`);}); },
+  sun(){ S.t.sun=gameNow; playClip('sun', `+${C.sunEnergy} energy`, ()=>{S.energy=Math.min(C.energyCap,S.energy+C.sunEnergy); log(`☀ sunbathed, +${C.sunEnergy} ⚡`);}); },
+  chest(){ const opts=[]; if(S.tokens>=C.pullTokens) opts.push([`Open · ${C.pullTokens} tokens`,'earned',()=>{S.tokens-=C.pullTokens; pull();}]);
+    if(!S.freePath){ opts.push([`Open · ${C.pullGems} gems`,'premium',()=>{ if(S.gems<C.pullGems){shop();return;} S.gems-=C.pullGems; pull();},'gem']);
+      opts.push([`10 pulls · ${C.pull10Gems} gems`,'premium, 1 story guaranteed',()=>{ if(S.gems<C.pull10Gems){shop();return;} S.gems-=C.pull10Gems; let n=10; const go=()=>{ if(n--<=0)return; pull(go); }; go(); },'gem']); }
+    opts.push(['Catalogue','what you are missing',catalogue]); opts.push(['Back','']);
+    still('sea chest · closed', `${S.tokens} tokens. ${missing().length} things still in the chest.`, opts); },
+  cave(){ const opts=S.owned.map(o=>[OUTFITS[o], o===S.outfit?'wearing':'', ()=>{ if(o!==S.outfit){ S.outfit=o; playClip('change', `Now wearing: ${OUTFITS[o]}. Every camp clip re-renders in this outfit.`);} }]); opts.push(['Back','']);
+    still('cave mouth', S.owned.length>1?'Pick an outfit.':'Only the bikini for now. The chest has more.', opts); },
+  path(){ explore(); },
+};
+function missing(){ return CHEST.filter(i=>i.type!=='token'&&!S.have.includes(i.id)); }
+// In-game catalogue: what you own, silhouettes for what you don't. Same data as the debug tab.
+function catalogue(){ const items=CHEST.filter(i=>i.type!=='token'); const vistas=['dead-end vista','lagoon','altar','summit vista']; const vArt={'dead-end vista':'path',lagoon:'pool',altar:'altar','summit vista':'climb'};
+  const pic=k=>ART[k]?` style="background:linear-gradient(180deg,rgba(19,16,14,0) 40%,rgba(19,16,14,.85)),url(${ART[k]}) center/cover"`:'';
+  setArt(null); ov.hidden=false;
+  ov.innerHTML=`<div class="ovcat"><h2>Collection</h2><div class="muted">Sea chest · ${S.have.length}/${items.length}</div><div class="catalog">${items.map(i=>`<div class="${S.have.includes(i.id)?'have':''}"${S.have.includes(i.id)?pic(ART_FOR.still[i.name]):''}>${S.have.includes(i.id)?i.name:'? · '+i.type}</div>`).join('')}</div>
+  <div class="muted">Places seen · ${S.seen.length}/${vistas.length}</div><div class="catalog">${vistas.map(v=>`<div class="${S.seen.includes(v)?'have':''}"${S.seen.includes(v)?pic(vArt[v]):''}>${S.seen.includes(v)?v:'?'}</div>`).join('')}</div>
+  <div class="choice"><button id="catBack">Back</button></div></div>`;
+  $('catBack').onclick=()=>{ ov.hidden=true; render(); }; }
+
+// ---------- CHEST ----------
+function pull(then){
+  S.pulls++; const stories=CHEST.filter(i=>i.type==='story'&&!S.have.includes(i.id)).sort((a,b)=>a.order-b.order);
+  let item;
+  if(S.pulls===1 && stories.length) item=stories[0];
+  else { const pool=[]; if(stories.length) pool.push({item:stories[0],w:STORY_W}); CHEST.filter(i=>i.type!=='story').forEach(i=>{ if(i.type==='token'||!S.have.includes(i.id)) pool.push({item:i,w:i.w}); });
+    const tot=pool.reduce((s,p)=>s+p.w,0); let r=Math.random()*tot; for(const p of pool){ r-=p.w; if(r<=0){item=p.item;break;} } item=item||pool[pool.length-1].item; }
+  playClip('chest','', ()=>{
+    let line;
+    if(item.type==='token'){ S.tokens+=C.dupTokens; line=`Empty this time. +${C.dupTokens} token back.`; }
+    else { S.have.push(item.id); line=`NEW · ${item.name}`; if(item.type==='outfit'){S.owned.push(item.id); line+=' · change at the cave';} if(item.type==='story') line+=' · story card plays now (still + VO)'; if(item.type==='moment'){ line+=' · plays now'; } }
+    log(`🧰 pull #${S.pulls}: ${item.name}`);
+    const btns=[['Continue','',then]];
+    if(item.type==='moment') { still(item.name, line, [['Watch · clip moment_hammock × bikini · 5s','', ()=>playClip('moment_hammock','', then)]]); return; }
+    still(item.type==='token'?'chest · open':item.name, line, btns);
+  });
+}
+
+// ---------- SHOP ----------
+function shop(){
+  still('shop', S.freePath?'Free-path test: shop disabled.':'Gem shop. Prototype: packs are free here.', S.freePath?[['Back','']]:[
+    ['100 gems · $0.99','smallest pack: one pull + change',()=>{S.gems+=100; log('💎 +100 gems (granted)')},'gem'],
+    [`+${C.energyPerBuy} energy · ${C.energyGems} gems`,'refill',()=>{ if(S.gems>=C.energyGems){S.gems-=C.energyGems; S.energy=Math.min(C.energyCap,S.energy+C.energyPerBuy); log(`⚡ bought ${C.energyPerBuy} energy`);} }],
+    ['Back','']]);
+}
+
+// ---------- EXPLORATION ----------
+// Performance beats: every win and every fail gets a shot and a line. Stills + VO in v1; clips when revenue allows.
+const PERF = {
+  deadend:   {shot:'Wren steps out onto a cliff edge, wind in her hair, nothing but sea. Hands on hips.', line:'Well. That\'s a view.'},
+  fruit:     {shot:'She pulls fruit down, bites, juice runs down her wrist, licks it.', line:'Island\'s got good taste.'},
+  lagoon:    {shot:'She wades in and sinks under; surfaces, pushes hair back, eyes closed.', line:'Okay. I needed that.'},
+  wreck:     {shot:'Planks with white paint. She pries one loose, pauses on a half-letter of the yacht\'s name, turns it face down.', line:'Thanks for the firewood, Sloane.'},
+  altar_lose:{shot:'The stones flicker and go dark. She presses one more time. Nothing.', line:'Fine. Keep your secrets.'},
+  altar:     {shot:'Carved stone, tokens in a bowl of rainwater. She lifts one to the light.', line:'Someone was here before me.'},
+  climb_win: {shot:'She hauls over the ledge, rolls onto her back, laughing at the sky.', line:'Still got it.'},
+  climb_lose:{shot:'Handhold crumbles. She drops, slides down scree, lands hard on her side.', line:'No no no—'},
+  pool_win:  {shot:'Spear comes up with a fish thrashing on it. She whoops, water everywhere.', line:'Dinner.'},
+  pool_lose: {shot:'She lunges, face-plants into the pool, surfaces spitting water.', line:'…Fine. Fine.'},
+  boar_win:  {shot:'She screams and charges. The boar bolts. She stands shaking, then the grin.', line:'Yeah. Run.'},
+  boar_lose: {shot:'The boar barrels through her. She goes down in the leaves.', line:'Oh—'},
+  exhausted: {shot:'She sinks to her knees on the path, the haul spilling out of her arms.', line:'I can\'t… I can\'t.'},
+  stumble:   {shot:'Night. Firelight. She crawls into camp empty-handed and lies down next to the fire.', line:'Tomorrow. Tomorrow.'},
+  bank:      {shot:'She walks into camp and dumps the haul by the fire. Hands on hips. Looks at it.', line:'Not bad, Calloway.'},
+};
+function beat(key, result, buttons){ const p=PERF[key]; setArt(ART_FOR.beat[key]); ov.hidden=false;
+  ov.innerHTML=`<div class="clip"><b>🎬 PERFORMANCE · ${key} × ${S.outfit} · still + VO (clip in v2)</b><span>${p.shot}</span></div><div class="line">“${p.line}”</div><div class="muted" style="font-size:14px;color:var(--sand)">${result}</div><div class="choice" id="ovc"></div>`;
+  const c=document.getElementById('ovc');
+  buttons.forEach(([label,sub,fn,cls])=>{ const b=document.createElement('button'); if(cls)b.className=cls; b.innerHTML=`${label}<span>${sub||''}</span>`; b.disabled=true; setTimeout(()=>b.disabled=false,700); b.onclick=()=>{ov.hidden=true; fn&&fn(); render(); save();}; c.appendChild(b); }); }
+
+// Push-your-luck: each step deeper costs more and pays more. Turn back banks the haul.
+// Hitting 0 energy on the walk, or failing a challenge, loses the whole haul.
+let X=null; // haul: {depth, tokens, wood, fish, vistas[]}
+function rollOutcome(d,b){ let p=b, surprise=false; if(Math.random()*100<SURPRISE){ p=(b+1+Math.floor(Math.random()*2))%3; surprise=true; } const pool=Object.entries(PATHS[p].odds).map(([k,v])=>[k,v[d]]); const tot=pool.reduce((s,x)=>s+x[1],0); let r=Math.random()*tot; let k='deadend'; for(const [kk,w] of pool){ r-=w; if(r<=0){k=kk;break;} } X.surprise=surprise; return k; }
+function explore(){ X={depth:0,tokens:0,wood:0,fish:0,vistas:[]}; playClip('walk','', fork); }
+function haulLine(){ const p=[]; if(X.tokens)p.push(X.tokens+' 🪙'); if(X.wood)p.push(X.wood+' 🪵'); if(X.fish)p.push(X.fish+' 🐟'); if(X.vistas.length)p.push(X.vistas.length+' new place'+(X.vistas.length>1?'s':'')); return p.length?'Carrying: '+p.join(', ')+'.':'Carrying nothing yet.'; }
+function fork(){
+  const d=X.depth; const atEnd=d>=C.maxDepth; const cost=atEnd?0:C.depthCost[d]; const can=!atEnd&&S.energy>=cost; const risky=can&&S.energy===cost;
+  const opts=[];
+  if(!atEnd) PATHS.forEach((b,i)=>opts.push([`${b.labels[(d+i*2)%3]} · ${cost} ⚡`, can?(risky?'⚠ takes you to 0: find food or drop the haul':''):'not enough energy', ()=>{ if(!can)return; S.energy-=cost; X.depth++; outcome(rollOutcome(d,i)); }]));
+  opts.push([d?'Turn back · bank the haul':'Turn back','', bank]);
+  still(atEnd?'island\'s end':'fork', (atEnd?'The island ends here. ':d?`Step ${d} of ${C.maxDepth}. `:'The path forks. ')+haulLine(), opts);
+}
+function bank(){ const had=X.tokens||X.wood||X.fish; const summary=`+${X.tokens} 🪙 · +${X.wood} 🪵 · +${X.fish} 🐟 · ${X.vistas.length} new place(s)`;
+  S.tokens+=X.tokens; S.wood=Math.min(C.woodCap,S.wood+X.wood); S.fish=Math.min(C.fishCap,S.fish+X.fish); X.vistas.forEach(v=>{ if(!S.seen.includes(v)){S.seen.push(v); log(`📷 collection: ${v}`);} }); if(had) log(`🏠 home from depth ${X.depth}: ${summary}`); const depth=X.depth; X=null;
+  if(had) beat('bank', `Banked from depth ${depth}: ${summary}`, [['Home','']]); }
+function bust(failKey){ const lost=haulLine(); log(`💀 bust (${failKey}). Lost: ${lost}`); X=null; S.energy=0;
+  beat(failKey, `LOST: ${lost.replace('Carrying: ','')} Energy → 0.`, [['Get up','',()=>beat('stumble','Fail-forward: camp and the fire are still yours. Nothing you banked earlier is touched.',[['Home','']])]]); }
+function after(){ if(S.energy<=0) bust('exhausted'); else fork(); }
+// Buttons after an outcome: push on to the next fork, or bank now.
+function onward(){ if(S.energy<=0) return [['Catch her breath','',after]]; const d=X.depth; const atEnd=d>=C.maxDepth; return [[atEnd?'The island ends here':'Push deeper',atEnd?'':`step ${d+1} costs ${C.depthCost[d]} ⚡ · you have ${S.energy}`,after],['Turn back · bank the haul',haulLine().replace('Carrying: ',''),bank]]; }
+function outcome(k){
+  const d=X.depth-1; const cost=C.depthCost[d]; const paid=`−${cost} ⚡ to get here.`+(X.surprise?' Not what the path promised.':'');
+  const seen=n=>{ if(!S.seen.includes(n)&&!X.vistas.includes(n)) X.vistas.push(n); };
+  const heal=n=>{S.energy=Math.min(C.energyCap,S.energy+n);};
+  if(k==='deadend'){ seen('dead-end vista'); beat('deadend',`${paid} Nothing here but the view (added to the collection).`,onward()); }
+  if(k==='fruit'){ heal(C.fruitEnergy); beat('fruit',`${paid} Fruit: +${C.fruitEnergy} ⚡ back.`,onward()); }
+  if(k==='lagoon'){ seen('lagoon'); heal(C.lagoonEnergy); beat('lagoon',`${paid} Swim: +${C.lagoonEnergy} ⚡ back. She goes on wet. Lagoon added to the collection.`,onward()); }
+  if(k==='wreck'){ whack({title:'wreckage',intro:'White planks in the surf, the swell dragging them out and shoving them back. She wades in to her thighs.',rule:'Tap each plank before it sinks.',line:`Yacht planks in the surf. Up to +${C.wreckWood[d]} 🪵.`,d,roundSub:a=>`+${a.round} 🪵 this round · ${a.total} so far`,winSub:a=>`you got ${a.total} 🪵`,loseSub:a=>`only ${a.total} 🪵 · need ${Math.ceil(C.wreckWood[d]/2)}`,
+      win:n=>{X.wood+=n; log(`🪵 pulled ${n} planks`); beat('wreck',`${paid} +${n} 🪵 in the haul. ${haulLine()}`,onward());},
+      lose:n=>{X.wood+=n; beat('wreck',`${paid} Tide won. Only +${n} 🪵. ${haulLine()}`,onward());}}); }
+  if(k==='altar'){ simon({title:'altar',intro:'Four carved stones in a ring, moss in the grooves. When she touches one, it glows. Then another.',rule:'Watch the stones light up, then press them in the same order.',line:`Carved stones. Get the pattern: +${C.altarTokens[d]} 🪙.`,d,
+      win:()=>{seen('altar'); X.tokens+=C.altarTokens[d]; log(`🪙 altar opened, +${C.altarTokens[d]}`); beat('altar',`${paid} +${C.altarTokens[d]} 🪙 in the haul. Altar added to the collection. ${haulLine()}`,onward());},
+      lose:()=>{seen('altar'); beat('altar_lose',`${paid} Wrong stone. +0 🪙 (would have been +${C.altarTokens[d]}). Haul unchanged: ${haulLine().replace('Carrying: ','')}`,onward());}}); }
+  if(k==='pool'){ spot({title:'tide pool',intro:'A pool left by the tide, a shoal turning in it like one animal. One of them is not like the others. Spear raised.',rule:'Find the one that is different before the bar runs out.',line:`Fish in the shallows. +${C.poolFish[d]} 🐟 if she picks right.`,d,
+      win:()=>{X.fish+=C.poolFish[d]; log(`🎣 speared ${C.poolFish[d]} fish`); beat('pool_win',`${paid} +${C.poolFish[d]} 🐟 in the haul. ${haulLine()}`,onward());},
+      lose:()=>{S.energy=Math.max(0,S.energy-1); beat('pool_lose',`${paid} Missed: −1 ⚡ more. Haul is safe.`,onward());}}); }
+  if(k==='climb'){ timing({title:'cliff',intro:'Wet rock, straight up. She chalks her hands with sand and looks for the first hold.',rule:'Tap when the marker is in the green.',line:`The cliff. +${C.climbTokens[d]} 🪙 at the top. Slip = drop the haul.`,d,
+      win:()=>{seen('summit vista'); X.tokens+=C.climbTokens[d]; log(`🧗 climb won, +${C.climbTokens[d]} 🪙`); beat('climb_win',`${paid} +${C.climbTokens[d]} 🪙 in the haul. Summit added to the collection. ${haulLine()}`,onward());},
+      lose:()=>bust('climb_lose')}); }
+  if(k==='boar'){ sling({title:'boar',intro:'Something big moving in the brush. She unhooks the sling from her hip and loads a stone.',rule:'Pull back toward you, aim, release. Shoot before the bar runs out.',line:`A boar in the brush. Hit it: +${C.boarTokens[d]} 🪙 and boar meat (+${C.boarMeatEnergy} ⚡). Miss = it charges, drop the haul.`,d,
+      win:()=>{X.tokens+=C.boarTokens[d]; heal(C.boarMeatEnergy); log(`🐗 boar hit, +${C.boarTokens[d]} 🪙 +${C.boarMeatEnergy} ⚡`); beat('boar_win',`${paid} +${C.boarTokens[d]} 🪙 in the haul, +${C.boarMeatEnergy} ⚡ now. ${haulLine()}`,onward());},
+      lose:()=>bust('boar_lose')}); }
+}
+
+// ---------- MINI-GAMES ----------
+// Every game is 3 rounds, easy → hard. lvl (0..6) = depth*0.75 + round. Lose any round = lose the game.
+let roundTag=''; const DEBUG={loop:false,game:null,d:0};
+function clockBar(id){ const hud=document.querySelector('.hud').offsetHeight; const b=document.createElement('div'); b.className='clock'; b.style.top=hud+'px'; b.innerHTML=`<i id="${id}"></i>`; ov.appendChild(b); return b; }
+function frame(kind,title,d,sub,line,body){ setArt(ART_FOR.game[title.split(' ')[0]==='tide'?'tide pool':title.split(' ')[0]]); ov.hidden=false; ov.innerHTML=(DEBUG.loop?`<button id="dbgBack" onclick="DEBUG.back&&DEBUG.back()" style="position:absolute;top:74px;right:14px;z-index:8;background:var(--ember);color:#fff">✕ Back</button>`:'')+`<div class="gh"><div class="row" style="justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--sand)"><span>${title.split(' ·')[0].toUpperCase()}${roundTag}</span><span class="muted">${kind}</span></div><div style="font-size:13px;color:var(--fg)">${sub}</div></div>${line?`<div class="line">${line}</div>`:''}${body}`; }
+function countdown(sub,cb,short){ if(DEBUG.loop){ cb(); return; } const f=document.createElement('div'); f.className='flash go'; ov.appendChild(f); const steps=short?[['GO!','']]:[['GET READY',sub],['3',''],['2',''],['1',''],['GO!','']]; let i=0;
+  const next=()=>{ if(i>=steps.length){ f.remove(); cb(); return; } f.innerHTML=`${steps[i][0]}<small>${steps[i][1]}</small>`; f.style.fontSize=i===0&&!short?'34px':'64px'; setTimeout(next, (i===0&&!short)?900:(i===steps.length-1?500:650)); i++; }; next(); }
+function flash(text,cls,sub,cb,ms){ if(DEBUG.loop) ms=450; const f=document.createElement('div'); f.className='flash '+cls; f.style.pointerEvents='auto'; f.innerHTML=`${text}<small>${sub||''}</small>`; ov.appendChild(f); setTimeout(()=>{ f.remove(); cb(); },ms||1100); }
+function staged(fn,winText,loseText,rounds=3){ return o=>{ let r=0; const lvlFor=rr=>Math.min(6,Math.round(o.d*0.75)+rr); const acc={total:0};
+  const play=()=>{ roundTag=` · round ${r+1}/${rounds}`; fn({...o, line:'', round:r, rounds, lvl:lvlFor(r), acc,
+    win:(...a)=>{ r++; if(r<rounds) flash(`ROUND ${r} CLEAR`,'go',o.roundSub?o.roundSub(acc):'',play,900); else flash(winText,'win',o.winSub?o.winSub(acc):'',()=>o.win(...a),1500); },
+    lose:(...a)=>flash(loseText,'lose',o.loseSub?o.loseSub(acc):'',()=>o.lose(...a),1500) }); };
+  // Intro: what she found and what's at stake, on its own screen. Then Next starts the game.
+  if(DEBUG.loop){ play(); return; }
+  setArt(ART_FOR.game[o.title.split(' (')[0]]);
+  ov.hidden=false; ov.innerHTML=`<div class="clip"><b>🎬 ${o.title}</b><span>${o.intro||''}</span></div><div class="line">${o.line}</div><div class="muted">${rounds} rounds, easy to hard. ${o.rule||''}</div><div class="choice"><button id="goGame" style="background:var(--sun);color:#1a0d05;font-weight:600">Next</button></div>`;
+  $('goGame').onclick=play; }; }
+// 1 · timing ("golf swing"). Window shrinks, marker speeds up.
+function timing({title,line,d,lvl,round,win,lose}){
+  frame('timing',title,d,'Tap when the marker is in the green.',line,`<div class="qte" style="height:34px"><div class="zone" id="zone"></div><div class="mark" id="mark"></div></div><button id="tap" style="background:var(--sun);color:#1a0d05;font-size:20px;padding:18px;width:100%">TAP</button>`);
+  const zone=$('zone'), mark=$('mark'); const zw=Math.max(6,32-lvl*4), zx=15+Math.random()*(75-zw); zone.style.left=zx+'%'; zone.style.width=zw+'%';
+  let x=0,dir=1,run=false; const step=()=>{ if(!run)return; x+=dir*(1.5+lvl*.35); if(x>=100||x<=0)dir*=-1; mark.style.left=x+'%'; requestAnimationFrame(step); };
+  countdown('tap in the green',()=>{ run=true; step(); $('tap').onclick=()=>{ if(!run)return; run=false; (x>=zx&&x<=zx+zw)?win():lose(); }; },round>0);
+}
+// 2 · simon. Four stones flash a pattern of 2 → 6 stones; repeat it. One wrong tap = fail.
+function simon({title,line,d,lvl,round,win,lose}){
+  const len=2+Math.ceil(lvl*0.7), cols=['#ff9a4d','#4fc3c7','#c48cff','#8fd97a']; const seq=Array.from({length:len},()=>Math.floor(Math.random()*4)); let i=0, listening=false;
+  frame('simon',title,d,`${len} stones will light up. Press them back in the same order.`,line,`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:340px;margin:0 auto">${cols.map((c,k)=>`<button class="stone" data-k="${k}" style="aspect-ratio:1;min-height:120px;border-radius:18px;background:${c};opacity:.35;border:3px solid transparent;padding:0"></button>`).join('')}</div><div class="muted" id="simonMsg" style="text-align:center;margin-top:8px;font-size:16px">Watch…</div>`);
+  const stones=[...document.querySelectorAll('.stone')]; const lit=(k,ms)=>new Promise(r=>{stones[k].style.opacity=1; setTimeout(()=>{stones[k].style.opacity=.35; setTimeout(r,120);},ms);});
+  countdown(`watch ${len} stones`,async()=>{ await new Promise(r=>setTimeout(r,300)); for(const k of seq) await lit(k,Math.max(320,520-lvl*30)); listening=true; $('simonMsg').textContent='YOUR TURN'; $('simonMsg').style.color='var(--sun)'; },round>0);
+  stones.forEach(b=>b.onclick=()=>{ if(!listening)return; const k=+b.dataset.k; lit(k,150); if(k!==seq[i]){ listening=false; lose(); return; } i++; $('simonMsg').textContent=`${i}/${len}`; if(i===len){ listening=false; setTimeout(win,300); } });
+}
+// 3 · whack-a-mole. Three 3-second rounds; planks surface faster and sink sooner each round. Planks add up across rounds; win if total ≥ half the depth's wood.
+function whack({title,line,d,lvl,round,rounds,acc,win,lose}){
+  const dur=3000, up=Math.max(300,900-lvl*90), maxWood=C.wreckWood[d]; let got=0, run=false;
+  frame('whack',title,d,`${dur/1000} seconds. Tap each plank before it sinks. Up to +${maxWood} 🪵 over ${rounds} rounds.`,line,`<div id="grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:340px;margin:0 auto">${Array.from({length:9},(_,k)=>`<button class="cell" data-k="${k}" style="aspect-ratio:1;border-radius:12px;background:var(--panel2);font-size:34px;padding:0"></button>`).join('')}</div><div style="text-align:center;margin-top:10px;font-size:18px;font-family:var(--mono)">🪵 <span id="whackN">${acc.total}</span>/${maxWood}</div>`); clockBar('whackT');
+  const cells=[...document.querySelectorAll('.cell')]; let t0=0;
+  const pop=()=>{ if(!run)return; const c=cells[Math.floor(Math.random()*9)]; if(c.textContent){ setTimeout(pop,80); return; } c.textContent='🪵'; c.dataset.live='1'; setTimeout(()=>{ c.textContent=''; c.dataset.live=''; },up); setTimeout(pop,Math.max(220,650-lvl*60)); };
+  cells.forEach(c=>c.onclick=()=>{ if(!run||!c.dataset.live)return; c.textContent='✓'; c.dataset.live=''; setTimeout(()=>{if(c.textContent==='✓')c.textContent='';},150); got++; $('whackN').textContent=Math.min(acc.total+got,maxWood); });
+  const tick=()=>{ if(!run)return; const left=Math.max(0,dur-(performance.now()-t0)); { const b=$('whackT'); b.style.width=(100*left/dur)+'%'; b.style.background=left/dur<.3?'var(--ember)':'var(--sun)'; } if(left<=0){ run=false; cells.forEach(c=>{c.textContent='';c.dataset.live='';}); acc.total=Math.min(maxWood,acc.total+got); acc.round=got; if(round<rounds-1) win(); else (acc.total>=Math.ceil(maxWood/2)?win(acc.total):lose(acc.total)); } else requestAnimationFrame(tick); };
+  countdown('tap the planks',()=>{ run=true; t0=performance.now(); pop(); tick(); },round>0);
+}
+// 4 · spot the difference. Each tile: a big back shape with a smaller front shape in another color. One tile differs in exactly one thing.
+// From lvl 2 the difference is a near-miss (rounded vs square corners, a shade off) instead of an obvious swap. Bar at the bottom is the clock.
+function spot({title,line,d,lvl,round,win,lose}){
+  const n=[9,9,12,12,16,16,16][lvl], cols=n>12?4:3, maxW=n>12?260:n>9?280:300, limit=Math.max(1500,4500-lvl*450); let run=false;
+  const SH={square:'<rect x="10" y="10" width="80" height="80" rx="6"/>',circle:'<circle cx="50" cy="50" r="42"/>',tri:'<polygon points="50,8 94,90 6,90"/>',diamond:'<polygon points="50,6 94,50 50,94 6,50"/>'};
+  const NEAR={square:'<rect x="10" y="10" width="80" height="80" rx="26"/>',circle:'<ellipse cx="50" cy="50" rx="42" ry="34"/>',tri:'<polygon points="50,8 90,90 10,90" transform="rotate(12 50 50)"/>',diamond:'<polygon points="50,6 84,50 50,94 16,50"/>'};
+  const COL=['#8fd97a','#c48cff','#ff9a4d','#4fc3c7','#ff5a3c','#e9c89a']; const NEARC={'#8fd97a':'#a9df6a','#c48cff':'#ad7bf2','#ff9a4d':'#ffb35a','#4fc3c7':'#5ad2cf','#ff5a3c':'#ff7a4a','#e9c89a':'#f0d6ad'};
+  const keys=Object.keys(SH); const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const base={bs:pick(keys),bc:pick(COL)}; base.fs=pick(keys.filter(k=>k!==base.bs)); base.fc=pick(COL.filter(c=>c!==base.bc));
+  const odd={...base}; const field=pick(['bs','bc','fs','fc']); const near=lvl>=2;
+  if(field==='bs') odd.bs=near?'~'+base.bs:pick(keys.filter(k=>k!==base.bs&&k!==base.fs));
+  if(field==='fs') odd.fs=near?'~'+base.fs:pick(keys.filter(k=>k!==base.fs&&k!==base.bs));
+  if(field==='bc') odd.bc=near?NEARC[base.bc]:pick(COL.filter(c=>c!==base.bc&&c!==base.fc));
+  if(field==='fc') odd.fc=near?NEARC[base.fc]:pick(COL.filter(c=>c!==base.fc&&c!==base.bc));
+  const shape=k=>k[0]==='~'?NEAR[k.slice(1)]:SH[k]; const oddI=Math.floor(Math.random()*n);
+  const tile=t=>`<svg viewBox="0 0 100 100" style="width:100%;height:100%"><g fill="${t.bc}">${shape(t.bs)}</g><g fill="${t.fc}" transform="translate(50 50) scale(.45) translate(-50 -50)">${shape(t.fs)}</g></svg>`;
+  frame('spot',title,d,`One tile is different. Tap it.${near?' Look close.':''}`,'',`<div id="shoal" style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:5px;width:100%;max-width:${maxW}px;margin:0 auto;visibility:hidden">${Array.from({length:n},(_,k)=>`<button class="fish" data-k="${k}" style="aspect-ratio:1;border-radius:10px;background:var(--panel2);padding:6px">${tile(k===oddI?odd:base)}</button>`).join('')}</div>`); clockBar('spotT');
+  const FIELD={bs:'back shape',bc:'back color',fs:'front shape',fc:'front color'};
+  // On a miss: dim the shoal, pulse the one that was different, name what was off, then the fail flash.
+  const reveal=picked=>{ const tiles=[...document.querySelectorAll('.fish')]; tiles.forEach((b,k)=>{ b.style.opacity=k===oddI?1:.25; if(k===picked&&k!==oddI) b.style.outline='3px solid var(--ember)'; });
+    const t=tiles[oddI]; t.style.outline='3px solid var(--good)'; t.style.boxShadow='0 0 0 6px rgba(143,217,122,.35)'; let on=true; const iv=setInterval(()=>{ on=!on; t.style.transform=on?'scale(1.12)':'scale(1)'; },220);
+    const m=document.createElement('div'); m.className='muted'; m.style.cssText='text-align:center;font-size:15px;color:var(--good);margin-top:8px'; m.textContent=`That one. The ${FIELD[field]} was off.`; $('shoal').after(m);
+    setTimeout(()=>{ clearInterval(iv); lose(); },1700); };
+  let t0=0; const tick=()=>{ if(!run)return; const left=Math.max(0,limit-(performance.now()-t0)); const bar=$('spotT'); bar.style.width=(100*left/limit)+'%'; bar.style.background=left/limit<.3?'var(--ember)':'var(--sun)'; if(left<=0){ run=false; reveal(-1); } else requestAnimationFrame(tick); };
+  countdown('find the odd one',()=>{ $('shoal').style.visibility='visible'; run=true; t0=performance.now(); tick(); },round>0);
+  document.querySelectorAll('.fish').forEach(b=>b.onclick=()=>{ if(!run)return; run=false; (+b.dataset.k===oddI)?win():reveal(+b.dataset.k); });
+}
+// 5 · slingshot, third person. Wren at the bottom, the boar up-field. Pull straight back (down) for power, sideways for aim; release fires up the field.
+// Plan coordinates: x lateral (−1..1), z distance (0..1). Perspective projection onto a portrait canvas.
+function sling({title,line,d,lvl,round,win,lose}){
+  frame('slingshot',title,d,'Drag the pouch back toward you and release. Pull farther to shoot farther; drag sideways to aim.',line,`<canvas id="cv" width="360" height="430" style="width:100%;max-width:340px;display:block;margin:0 auto;border-radius:12px;touch-action:none"></canvas><div class="muted" id="slingMsg" style="text-align:center;margin-top:6px">One shot.</div>`);
+  const cv=$('cv'), g=cv.getContext('2d'); const W=360,H=430, HOR=70, BOT=400, CX=180; const ax=CX, ay=372;
+  const bz=0.45+lvl*0.07+Math.random()*0.12, bx=(Math.random()*1.2-0.6), br=Math.max(0.05,0.14-lvl*0.014); // boar plan pos, hit radius
+  let drag=null, shot=null, done=true;
+  const aimOf=dr=>{ const pow=Math.min(1,(dr.y-ay)/110); const range=pow*1.25; return {z:range, x:-(dr.x-ax)/70*1.2*range}; };
+  const P=(x,z)=>{ const sc=1/(1+z*4); const sy=HOR+(BOT-HOR)*sc; return {x:CX+x*180*sc*2.2, y:sy, s:sc}; };
+  const pt=e=>{ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*W/r.width, y:(e.clientY-r.top)*H/r.height}; };
+  function draw(){ const sky=g.createLinearGradient(0,0,0,HOR); sky.addColorStop(0,'#ff8a3d'); sky.addColorStop(1,'#2f6f7a'); g.fillStyle=sky; g.fillRect(0,0,W,HOR);
+    const gr=g.createLinearGradient(0,HOR,0,H); gr.addColorStop(0,'#1f3a28'); gr.addColorStop(1,'#3b5a35'); g.fillStyle=gr; g.fillRect(0,HOR,W,H-HOR);
+    g.strokeStyle='rgba(255,255,255,.08)'; g.lineWidth=1; for(let i=-4;i<=4;i++){ const a=P(i*0.5,0), b2=P(i*0.5,1.4); g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b2.x,b2.y); g.stroke(); } for(let z=0;z<=1.4;z+=0.2){ const p=P(0,z); g.beginPath(); g.moveTo(0,p.y); g.lineTo(W,p.y); g.stroke(); }
+    const bp=P(bx,bz); g.strokeStyle='rgba(255,255,255,.35)'; g.lineWidth=2; g.beginPath(); g.ellipse(bp.x,bp.y,br*180*bp.s*2.2,br*180*bp.s*0.9,0,0,7); g.stroke();
+    g.fillStyle='#fff'; g.font=`${Math.round(56*bp.s*1.6)}px serif`; g.textAlign='center'; g.textBaseline='bottom'; g.fillText('🐗',bp.x,bp.y+2);
+    if(shot){ const sp=P(shot.x,shot.z); g.fillStyle='rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(sp.x,sp.y,6*sp.s*2,2.5*sp.s*2,0,0,7); g.fill(); g.fillStyle='#999'; g.beginPath(); g.arc(sp.x,sp.y-shot.h*90*sp.s*2,Math.max(2,5*sp.s*2),0,7); g.fill(); }
+    // Wren + slingshot, bottom
+    g.fillStyle='#e9c89a'; g.beginPath(); g.arc(CX,H-14,13,0,7); g.fill(); g.fillStyle='#2a1a10'; g.beginPath(); g.arc(CX,H-20,15,Math.PI,2*Math.PI); g.fill();
+    g.strokeStyle='#8b6a44'; g.lineWidth=5; g.beginPath(); g.moveTo(ax-16,ay+22); g.lineTo(ax,ay); g.moveTo(ax+16,ay+22); g.lineTo(ax,ay); g.moveTo(ax,ay+22); g.lineTo(ax,ay+40); g.stroke();
+    const px=drag?drag.x:ax, py=drag?drag.y:ay; g.strokeStyle='#c9a26e'; g.lineWidth=2; g.beginPath(); g.moveTo(ax-16,ay+22); g.lineTo(px,py); g.lineTo(ax+16,ay+22); g.stroke();
+    if(drag){ const pow=Math.min(1,(drag.y-ay)/110); const lp=P(aimOf(drag).x,aimOf(drag).z); g.strokeStyle='rgba(255,154,77,.55)'; g.setLineDash([4,5]); g.beginPath(); g.moveTo(ax,ay); g.lineTo(lp.x,lp.y); g.stroke(); g.setLineDash([]);
+      g.strokeStyle='#ff9a4d'; g.lineWidth=2; g.beginPath(); g.ellipse(lp.x,lp.y,10*lp.s*2.2+4,4*lp.s*2.2+2,0,0,7); g.stroke();
+      g.fillStyle='var(--sand)'; g.fillStyle='#e9c89a'; g.font='12px monospace'; g.textAlign='left'; g.fillText(`power ${(pow*100).toFixed(0)}%`,10,H-10); }
+    if(!shot){ g.fillStyle='#777'; g.beginPath(); g.arc(px,py,6,0,7); g.fill(); } }
+  const limit=Math.max(2500,5000-lvl*400); let t0=0, clock=false;
+  clockBar('slingT');
+  const tick=()=>{ if(!clock)return; const left=Math.max(0,limit-(performance.now()-t0)); const b=$('slingT'); b.style.width=(100*left/limit)+'%'; b.style.background=left/limit<.3?'var(--ember)':'var(--sun)'; if(left<=0){ clock=false; done=true; drag=null; $('slingMsg').textContent='Too slow. It charges.'; setTimeout(lose,500); } else requestAnimationFrame(tick); };
+  draw(); countdown('pull back, aim, release',()=>{ done=false; clock=true; t0=performance.now(); tick(); },round>0);
+  cv.onpointerdown=e=>{ if(done)return; cv.setPointerCapture(e.pointerId); drag=pt(e); draw(); };
+  cv.onpointermove=e=>{ if(!drag||done)return; const p=pt(e); drag={x:Math.max(ax-70,Math.min(ax+70,p.x)), y:Math.max(ay,Math.min(ay+110,p.y))}; draw(); };
+  cv.onpointerup=e=>{ if(!drag||done)return; done=true; clock=false; const pow=Math.min(1,(drag.y-ay)/110); if(pow<0.08){ done=false; clock=true; tick(); drag=null; draw(); return; }
+    const aim=aimOf(drag), range=aim.z, lat=aim.x/range; shot={x:0,z:0,h:0}; drag=null; let t=0;
+    const step=()=>{ t+=0.03; shot.z=range*t; shot.x=lat*range*t; shot.h=Math.sin(Math.min(1,t)*Math.PI)*0.9*range; draw();
+      if(t>=1){ const hit=Math.hypot(shot.x-bx,(shot.z-bz)*1.3)<br; $('slingMsg').textContent=hit?'HIT':`Miss · ${Math.abs(shot.z-bz)>Math.abs(shot.x-bx)?(shot.z<bz?'short':'long'):(shot.x<bx?'left':'right')}`; setTimeout(hit?win:lose,600); return; } requestAnimationFrame(step); }; step(); };
+}
+timing=staged(timing,'MADE IT','SLIPPED'); simon=staged(simon,'OPENED','WRONG STONE'); whack=staged(whack,'HAUL','TIDE TOOK IT'); spot=staged(spot,'GOT IT','MISSED'); sling=staged(sling,'HIT','MISS');
+// Debug: play any mini-game at any depth without finding it.
+function debugMenu(){
+  DEBUG.loop=false; const games={timing:'cliff',simon:'altar',whack:'wreckage',spot:'tide pool',sling:'boar'};
+  setArt(null); ov.hidden=false; ov.innerHTML=`<h2>⚙ Mini-game debug</h2><div class="row"><label class="muted">Depth <select id="dbgD">${[1,2,3,4,5].map(i=>`<option value="${i-1}" ${i-1===DEBUG.d?'selected':''}>${i}</option>`).join('')}</select></label>
+  <label class="muted"><input type="checkbox" id="dbgLoop" ${DEBUG.wantLoop?'checked':''}> Loop: no countdown, replay on finish</label></div><div class="choice" style="margin-top:10px">${Object.entries(games).map(([f,w])=>`<button data-f="${f}">${f}<span>${w}</span></button>`).join('')}<button data-f="close">Close</button></div><div class="muted" id="dbgRes" style="margin-top:8px">${DEBUG.last?'last result: '+DEBUG.last:''}</div>`;
+  $('dbgLoop').onchange=e=>DEBUG.wantLoop=e.target.checked;
+  const run=f=>{ const d=DEBUG.d; const keepX=X; X=X||{depth:d+1,tokens:0,wood:0,fish:0,vistas:[]};
+    const fin=r=>{ X=keepX; DEBUG.last=r; if(DEBUG.loop) run(f); else debugMenu(); };
+    ({timing,simon,whack,spot,sling})[f]({title:games[f]+' (debug)',line:DEBUG.loop?'Loop mode.':'No stakes. Nothing is saved.',d,win:n=>fin('WIN'+(n!==undefined?' '+n:'')),lose:n=>fin('LOSE'+(n!==undefined?' '+n:''))});
+    DEBUG.back=()=>{ X=keepX; DEBUG.loop=false; debugMenu(); }; };
+  ov.querySelectorAll('button[data-f]').forEach(b=>b.onclick=()=>{ const f=b.dataset.f; if(f==='close'){ ov.hidden=true; return; } DEBUG.d=+$('dbgD').value; DEBUG.loop=!!DEBUG.wantLoop; run(f); });
+}
+
+// ---------- RENDER ----------
+const $=id=>document.getElementById(id);
+function render(){
+  $('hEnergy').textContent=S.energy; $('hCap').textContent=C.energyCap; $('eBar').style.width=(100*S.energy/C.energyCap)+'%';
+  $('hWood').textContent=S.wood; $('hFish').textContent=S.fish; $('hTok').textContent=S.tokens; $('hGem').textContent=S.gems; $('hOutfit').textContent=OUTFITS[S.outfit];
+  $('flame').style.opacity=S.fire/C.fireMax; $('flame').style.transform=`translateX(-50%) scale(${.6+S.fire/C.fireMax})`;
+  const set=(id,ok,sub,glow)=>{ const b=$('h_'+id); b.disabled=!ok; $('t_'+id).textContent=sub; b.classList.toggle('ready',!!glow&&ok); };
+  set('fire', S.wood>=(S.fire===0?C.relightCost:1)&&S.fire<C.fireMax, S.fire===0?`cold · ${C.relightCost} wood`:S.wood===0?'no wood':`${S.fire}/${C.fireMax}`, S.fire<=1&&S.wood>0);
+  set('cook', S.fish>0&&S.fire>0, S.fire===0?'no fire':S.fish===0?'no fish':`+${C.fishEnergy} ⚡`, S.fish>0&&S.fire>0);
+  set('sun', ready('sun',C.sunTimer)&&S.energy<C.energyCap, left('sun',C.sunTimer)||`+${C.sunEnergy} ⚡`, false);
+  set('chest', true, S.tokens>=C.pullTokens?'open!':`${S.tokens}/${C.pullTokens} 🪙`, S.tokens>=C.pullTokens);
+  set('cave', true, S.owned.length>1?`${S.owned.length} outfits`:'1 outfit', false);
+  set('path', S.energy>C.depthCost[0], `explore · ${C.depthCost.join('/')} ⚡`, S.energy>=C.depthCost[0]+C.depthCost[1]+1);
+  save();
+}
+Object.keys(A).forEach(k=>$('h_'+k).onclick=A[k]); $('h_shop').onclick=shop;
+// Play mode vs debug view. Play is the default; the near-invisible ⚙ in the HUD opens the debug view.
+function setMode(play){ document.body.classList.toggle('play',play); try{localStorage.setItem('wrenSimMode',play?'play':'debug')}catch(e){} }
+$('hDebug').onclick=()=>setMode(false); $('btnPlay').onclick=()=>setMode(true); $('btnGames').onclick=debugMenu;
+setMode((()=>{ try{return localStorage.getItem('wrenSimMode')!=='debug'}catch(e){return true} })());
+
+// Tuning panel
+function buildTune(){
+  const g=$('tab_tune'); g.innerHTML='';
+  Object.entries(C).forEach(([k,v])=>{ if(Array.isArray(v)){ v.forEach((x,i)=>g.appendChild(field(`${k}[${i}]`,x,n=>C[k][i]=n))); return; } g.appendChild(field(k,v,n=>C[k]=n)); });
+}
+function field(label,val,set){ const l=document.createElement('label'); l.innerHTML=`<span>${label}</span>`; const i=document.createElement('input'); i.type='number'; i.value=val; i.id='f_'+label; i.oninput=()=>{set(+i.value); render();}; l.appendChild(i); return l; }
+function buildOdds(){ const D=[0,1,2,3,4]; const inp=(v,fn)=>`<input type="number" value="${v}" style="width:48px;background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:6px;font-family:var(--mono);font-size:12px;text-align:right" oninput="${fn}">`;
+  const bustOf={climb:1,boar:1};
+  const tables=PATHS.map((p,pi)=>{ const tot=i=>Object.values(p.odds).reduce((s,v)=>s+v[i],0); const bustP=i=>Object.entries(p.odds).reduce((s,[k,v])=>s+(bustOf[k]?v[i]:0),0)/tot(i)*(1-C.qteWin/100);
+    return `<h3 style="margin-top:12px">${p.key} · “${p.labels.join('” / “')}”</h3><div style="overflow-x:auto"><table><tr><th>step</th>${D.map(i=>`<th>${i+1}</th>`).join('')}</tr>
+    ${Object.entries(p.odds).map(([k,v])=>`<tr><td>${k}</td>${v.map((x,i)=>`<td class="n">${inp(x,`PATHS[${pi}].odds['${k}'][${i}]=+this.value`)}</td>`).join('')}</tr>`).join('')}
+    <tr><td class="muted">bust chance</td>${D.map(i=>`<td class="n">${(bustP(i)*100).toFixed(0)}%</td>`).join('')}</tr></table></div>`; }).join('');
+  $('tab_odds').innerHTML=`<div style="overflow-x:auto"><table><tr><th>step</th>${D.map(i=>`<th>${i+1}</th>`).join('')}</tr>
+  <tr><td>energy cost</td>${D.map(i=>`<td class="n">${inp(C.depthCost[i],`C.depthCost[${i}]=+this.value`)}</td>`).join('')}</tr>
+  <tr><td>altar 🪙</td>${D.map(i=>`<td class="n">${inp(C.altarTokens[i],`C.altarTokens[${i}]=+this.value`)}</td>`).join('')}</tr>
+  <tr><td>climb 🪙</td>${D.map(i=>`<td class="n">${inp(C.climbTokens[i],`C.climbTokens[${i}]=+this.value`)}</td>`).join('')}</tr>
+  <tr><td>boar 🪙</td>${D.map(i=>`<td class="n">${inp(C.boarTokens[i],`C.boarTokens[${i}]=+this.value`)}</td>`).join('')}</tr>
+  <tr><td>wreck 🪵</td>${D.map(i=>`<td class="n">${inp(C.wreckWood[i],`C.wreckWood[${i}]=+this.value`)}</td>`).join('')}</tr>
+  <tr><td>pool 🐟</td>${D.map(i=>`<td class="n">${inp(C.poolFish[i],`C.poolFish[${i}]=+this.value`)}</td>`).join('')}</tr></table></div>
+  <p class="muted">Each path draws from its own table; <b>${SURPRISE}%</b> of steps draw from another path's table instead (“not what the path promised”). Weights are relative per column. Mini-game win assumed ${C.qteWin}%. climb = timing (fail: bust) · altar = simon (fail: +0) · wreckage = whack-a-mole (score = wood) · tide pool = spot the difference (fail: −1 ⚡) · boar = slingshot (fail: bust). Fruit and lagoon are the breathers.</p>${tables}`; }
+function buildChest(){ $('tab_chest').innerHTML=`<table><tr><th>Item</th><th>Type</th><th class="n">Weight</th><th>Rule</th></tr>${CHEST.map(i=>`<tr><td>${i.name}</td><td>${i.type}</td><td class="n">${i.type==='story'?STORY_W+' (next in order)':i.w}</td><td class="muted">${i.type==='story'?'fixed order; pull #1 guaranteed':i.type==='token'?'consolation, +'+C.dupTokens+' token':'removed from pool once owned'}</td></tr>`).join('')}</table>
+<p class="muted">Pull: ${C.pullTokens} 🪙 or ${C.pullGems} 💎. 10-pull ${C.pull10Gems} 💎. Once story and cosmetics are all owned, every pull is a token refund; add more items with revenue.</p>`; }
+function buildClips(){ const rows=[]; Object.entries(CLIPS).forEach(([id,c])=>{ (c.outfits||['bikini','silk']).forEach(o=>rows.push({id:`${id} × ${o}`,dur:c.dur,prompt:c.prompt,n:S.clipCount[`${id} × ${o}`]||0})); });
+  const secs=rows.reduce((s,r)=>s+r.dur,0); const perf=Object.entries(PERF);
+  $('tab_clips').innerHTML=`<p class="muted">${rows.length} clips · ${secs}s of video · at ~$0.35/s ≈ $${(secs*0.35).toFixed(0)}. Plus ${STILLS.length} scene stills from ChatGPT: ${STILLS.join(', ')}.</p><table><tr><th>Clip</th><th class="n">s</th><th class="n">played</th><th>Prompt</th></tr>${rows.map(r=>`<tr><td style="font-family:var(--mono)">${r.id}</td><td class="n">${r.dur}</td><td class="n">${r.n}</td><td class="muted">${r.prompt}</td></tr>`).join('')}</table>
+  <h3 style="margin-top:14px">Performance beats · ${perf.length} · stills + VO in v1, 3–4 s clips in v2 (≈ $${(perf.length*3.5*0.35*2).toFixed(0)} for both outfits)</h3><table><tr><th>Beat</th><th>Shot</th><th>Line</th></tr>${perf.map(([k,p])=>`<tr><td style="font-family:var(--mono)">${k}</td><td class="muted">${p.shot}</td><td>“${p.line}”</td></tr>`).join('')}</table>`; }
+function buildCat(){ const items=CHEST.filter(i=>i.type!=='token'); const vistas=['dead-end vista','lagoon','altar','summit vista'];
+  const vArt={'dead-end vista':'path',lagoon:'pool',altar:'altar','summit vista':'climb'};
+  const pic=k=>ART[k]?` style="background:linear-gradient(180deg,rgba(19,16,14,0) 40%,rgba(19,16,14,.85)),url(${ART[k]}) center/cover"`:'';
+  $('tab_cat').innerHTML=`<h3>Sea chest · ${S.have.length}/${items.length}</h3><div class="catalog">${items.map(i=>`<div class="${S.have.includes(i.id)?'have':''}"${S.have.includes(i.id)?pic(ART_FOR.still[i.name]):''}>${S.have.includes(i.id)?i.name:'? · '+i.type}</div>`).join('')}</div><h3 style="margin-top:14px">Places seen · ${S.seen.length}/${vistas.length}</h3><div class="catalog">${vistas.map(v=>`<div class="${S.seen.includes(v)?'have':''}"${S.seen.includes(v)?pic(vArt[v]):''}>${S.seen.includes(v)?v:'?'}</div>`).join('')}</div><p class="muted">Silhouettes = what they are missing. This screen is the replay driver.</p>`; }
+function showTab(t){ document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t)); ['tune','odds','chest','clips','cat'].forEach(x=>$('tab_'+x).hidden=x!==t); ({tune:buildTune,odds:buildOdds,chest:buildChest,clips:buildClips,cat:buildCat})[t](); }
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+$('speed').onchange=e=>speed=+e.target.value;
+$('btnOpening').onclick=()=>{ S.openingSeen=false; save(); setMode(true); opening(); };
+$('btnReset').onclick=()=>{ try{localStorage.removeItem('wrenSim')}catch(e){} X=null; S=fresh(); gameNow=now(); S.lastTick=now(); $('log').innerHTML=''; log('🔄 New game. Everything reset.'); render(); save(); const on=document.querySelector('.tabs button.on'); if(on) showTab(on.dataset.tab); opening(); };
+$('btnFree').onclick=()=>{ S.freePath=!S.freePath; S.gems=0; log(S.freePath?'FREE-PATH TEST ON: shop and gem pulls disabled. Does anything feel withheld?':'free-path test off'); $('btnFree').style.background=S.freePath?'var(--good)':''; $('btnFree').style.color=S.freePath?'#0d1a0a':''; render(); };
+
+load(); gameNow=now(); buildTune(); S.log.length? log(S.log.shift()):0; render(); setInterval(tick,500);
+if(!S.openingSeen) opening();
+</script>
