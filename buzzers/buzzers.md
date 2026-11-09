@@ -8,7 +8,7 @@ Owner: Joe Morrissey. Game designer, not a full-time engineer. Works from iPhone
 
 - Repo: `GameDesignerJoe/GameDesignerJoe.github.io` (monorepo). This project lives in `buzzers/`.
 - Vercel project `buzzers`, Root Directory = `buzzers`, preset Other. Env var `GROQ_API_KEY` is set there (Production + Preview). Never commit the key. Every push to `main` redeploys every Vercel project tied to this repo.
-- Cloudflare Worker `buzzers` (in `buzzers/party/`) runs the room server: one Durable Object per room code, no runtime dependencies. (Hosted PartyKit shut down 23 Oct 2026. Its successor PartyServer would also work, but a plain Durable Object is ~60 lines and needs no library.) Deployed separately from Vercel — see "Deploying". Expected host: `buzzers.gamedesignerjoe.workers.dev` (needs the workers.dev subdomain `gamedesignerjoe`; set as `CLIENT.partyHost` in `index.html` and in `debug.html`).
+- Cloudflare Worker `buzzers` (in `buzzers/party/`) runs the room server: one Durable Object per room code, no runtime dependencies. (Hosted PartyKit shut down 23 Oct 2026. Its successor PartyServer would also work, but a plain Durable Object is ~60 lines and needs no library.) Deployed separately from Vercel — see "Deploying". Host: `buzzers.gamedesignerjoe.workers.dev` (Joe's personal Cloudflare account, workers.dev subdomain `gamedesignerjoe`; set as `CLIENT.partyHost` in `index.html` and in `debug.html`).
 
 | File | What it is |
 |---|---|
@@ -84,7 +84,7 @@ The game is one reducer over a single state object `S` (`game.js`). It runs in e
 ## Build plan — in order, each independently testable
 
 1. **Real clues** ✅ `/api/generate` → Groq.
-2. **Rooms** ✅ built and tested locally (2026-11-08): room server, join screen, redacted state per phone, refresh/rejoin, sim kept as `sim.html`. **Not yet deployed to Cloudflare or tried on real phones.** *Done when* a phone and a laptop tab in the same room both see the board change when one picks.
+2. **Rooms** ✅ built and tested locally (2026-11-08): room server, join screen, redacted state per phone, refresh/rejoin, sim kept as `sim.html`. Deployed 2026-11-09 to https://buzzers.gamedesignerjoe.workers.dev (scripted 4-phone test passes against it). **Not yet tried on real phones.** *Done when* a phone and a laptop tab in the same room both see the board change when one picks.
 3. **Fair buzzing** ✅ built, tested with scripted clients (a press that's earlier on the synced clock wins even when it arrives later). Debug page built. *Still to do on test night:* two people mashing ten times with `debug.html` open; check offsets look sane on real networks.
 4. **Memory** ✅ room-storage version (room code = group). Not built: a separate "group name" independent of room code, if that turns out to matter.
 5. **Sound** — partly: ding at synced open, stings for buzz/right/wrong/nobody/out-of-time (synthesised, no files), mute on every phone, iOS unlock on Join and on first tap. **Not built:** music bed on one phone (needs a music file and a "music phone" choice in the lobby).
