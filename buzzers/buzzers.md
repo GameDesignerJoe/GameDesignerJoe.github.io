@@ -53,6 +53,8 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 - **3+ players, Winner picks next:** whoever answers correctly picks next; if nobody gets it, same picker. **Round robin:** next in seat order every clue.
 - **2 players:** picking alternates every clue, right or wrong. (Joe, 2026-11-09.)
 - Clues are written by the engine WITH their answers. Players never author answers.
+- **Clues are plain questions** ("Which planet is known as the Red Planet?"), not Jeopardy-style statements. Every generated set is checked in code (`api/generate.js`): ends with "?", answer not in the question, five different answers, no answer that is just the category's name, nothing this group has already had. Bad ones get one repair round with the reasons spelled out; if there still aren't five clean ones, the category is refused. (Joe, 2026-11-09.)
+- **No made-up facts.** The model first decides whether it can name five real, checkable facts about the topic. Private people, small companies, local places and inside jokes get refused ("there aren't enough real, checkable facts…") with the pick-another screen, instead of invented questions. Web search, so those topics can work from real sources, is the planned next step (option 4, Joe 2026-11-09).
 
 **No game-show host, no generated audio**
 - There is no game-show host role: the reading/judging jobs are assigned per clue. (The room "host" only owns the settings.)
