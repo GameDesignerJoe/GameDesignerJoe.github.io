@@ -214,6 +214,11 @@ const VIEW = {
     return `
       <div class="eyebrow">${live} in the room</div>
       <div class="roster">${S.players.map(p => `<span class="pill ${p.connected ? '' : 'away'}">${dot(p.color, 8)} ${esc(p.name)}${S.ready.includes(p.id) ? ' ✓' : ''}${p.connected ? '' : `<button class="x" data-kick="${esc(p.id)}" aria-label="Clear ${esc(p.name)}'s seat">×</button>`}</span>`).join('')}</div>
+      <div class="eyebrow">Your color</div>
+      <div class="swatches small">${CONFIG.colors.map(c => {
+        const owner = S.players.find(p => p.id !== me.id && p.color === c);
+        return `<button class="swatch ${me.color === c ? 'on' : ''} ${owner ? 'taken' : ''}" data-pickcolor="${c}" style="background:${c}" ${owner ? 'disabled' : ''} aria-label="${owner ? `${esc(owner.name)} has this color` : me.color === c ? 'your color' : 'pick this color'}">${owner ? esc(owner.name[0].toUpperCase()) : ''}</button>`;
+      }).join('')}</div>
       ${settingsBlock}
       ${banner}
       ${canAdd ? `
@@ -236,6 +241,7 @@ const VIEW = {
     const cols = S.categories.length;
     return `
       <div class="eyebrow">${S.picker === me.id ? 'Your pick' : pickerAway ? `${esc(nameOf(S, S.picker))} is away · anyone can pick` : `${esc(nameOf(S, S.picker))} is picking`} · ${S.judge === me.id ? 'you judge this one' : `${esc(nameOf(S, S.judge))} judges`}</div>
+      ${cols > 6 ? '<div class="rotate-hint">↻ Turn your phone sideways for a bigger board</div>' : ''}
       <div class="board ${picking ? '' : 'passive'} ${cols > 6 ? 'dense' : ''}" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
         ${S.categories.map(c => `<div class="cat"><span>${esc(c.name)}</span></div>`).join('')}
         ${(S.categories[0]?.clues || []).map((_, i) => S.categories.map(c => `<button class="val ${c.clues[i].used ? 'used' : ''}" data-cat="${esc(c.id)}" data-idx="${i}" ${picking && !c.clues[i].used ? '' : 'disabled'}>${c.clues[i].value}</button>`).join('')).join('')}
@@ -299,6 +305,7 @@ export function wirePhone(root, S, meId, h) {
   on('[data-kick]', 'onclick', e => h.send({ type: 'kick', target: e.currentTarget.dataset.kick }));
   on('#ready', 'onclick', e => h.send({ type: 'ready', ready: e.currentTarget.dataset.ready === '1' }));
   wireSettings(root, (k, v) => h.send({ type: 'settings', settings: { [k]: v } }));
+  on('[data-pickcolor]', 'onclick', e => h.send({ type: 'color', color: e.currentTarget.dataset.pickcolor }));
   on('.board .val', 'onclick', e => h.send({ type: 'pickClue', catId: e.currentTarget.dataset.cat, idx: +e.currentTarget.dataset.idx }));
   const bz = $('#buzzer'); if (bz) bz.onpointerdown = e => { e.preventDefault(); h.press(); };
   const hold = $('#hold');

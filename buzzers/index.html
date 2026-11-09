@@ -50,7 +50,6 @@ const phone = $('#phone');
 // ============================ JOIN SCREEN ============================
 const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
 const randomCode = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join('');
-let joinColor = store.get('bz.color', CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)]);
 let joinError = '';
 // Settings you'd use as host. Sent with every join, but only applied if you're the first one into an empty room.
 let mySettings = (() => { try { return cleanSettings(JSON.parse(store.get('bz.settings', '{}'))); } catch { return cleanSettings({}); } })();
@@ -64,8 +63,6 @@ function showJoin() {
       <div class="alts">Everyone adds a category. The phones are the buzzers. Someone reads each clue out loud.</div>
       <div class="eyebrow">Your name</div>
       <input class="input" id="name" maxlength="${CONFIG.maxNameLen}" autocomplete="off" autocapitalize="words" value="${esc(store.get('bz.name'))}" placeholder="Name">
-      <div class="eyebrow">Your color</div>
-      <div class="swatches">${CONFIG.colors.map(c => `<button class="swatch ${c === joinColor ? 'on' : ''}" data-color="${c}" style="background:${c}" aria-label="color ${c}"></button>`).join('')}</div>
       <div class="eyebrow">Room code</div>
       <form class="field" id="joinform"><input class="input code" id="code" value="${esc(code)}" placeholder="ABCD" maxlength="12" autocomplete="off" autocapitalize="characters"><button class="btn gold" type="submit">Join</button></form>
       <button class="btn ghost wide" id="newroom">Start a new room</button>
@@ -73,13 +70,12 @@ function showJoin() {
       <div class="err" id="joinerr">${esc(joinError)}</div>
       <div class="foot">Use the same room code next time and the room remembers which clues your group has already seen.</div>
     </div>`;
-  phone.querySelectorAll('[data-color]').forEach(b => b.onclick = () => { joinColor = b.dataset.color; phone.querySelectorAll('.swatch').forEach(s => s.classList.toggle('on', s === b)); });
   const go = code => {
     const name = $('#name').value.trim();
     if (!name) { $('#joinerr').textContent = 'Pick a name first.'; $('#name').focus(); return; }
     if (!code) { $('#joinerr').textContent = 'Type a room code, or start a new room.'; $('#code').focus(); return; }
     sound.unlock(); // iOS: audio only unlocks inside a tap
-    store.set('bz.name', name); store.set('bz.color', joinColor);
+    store.set('bz.name', name);
     join(code);
   };
   $('#joinform').onsubmit = e => { e.preventDefault(); go(cleanCode($('#code').value)); };
@@ -155,6 +151,7 @@ function onMessage(m) {
     return toast(m.msg);
   }
   if (m.type === 'state') {
+    const meNow = m.S.players.find(p => p.id === pid); if (meNow) store.set('bz.color', meNow.color);
     if (!samples.length) offset = m.now - Date.now(); // rough until the first pong
     const first = !S; S = m.S; conn = 'live';
     if (S.phase !== 'reading') hold = false;

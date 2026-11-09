@@ -73,6 +73,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .swatch { width: 34px; height: 34px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; padding: 0; }
 .swatch.on { border-color: var(--ink); }
+.swatches.small { gap: 6px; }
+.swatches.small .swatch { width: 28px; height: 28px; border-width: 2px; }
+.swatch.taken { opacity: .35; cursor: default; color: #0b0d1c; font: 700 12px var(--body); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { border: 1.5px solid var(--line); background: transparent; color: var(--ink-dim); border-radius: 999px; padding: 5px 10px; font: 500 12px var(--body); cursor: pointer; }
 .catlist { display: flex; flex-direction: column; gap: 6px; }
@@ -106,6 +109,18 @@ details.joinset summary { padding: 4px 0; }
 .board.dense .cat { min-height: 96px; padding: 4px 0; font-size: 11px; }
 .board.dense .cat span { writing-mode: vertical-rl; transform: rotate(180deg); max-height: 92px; overflow: hidden; }
 .board.dense .val { font-size: 13px; min-height: 52px; padding: 0; border-radius: 4px; }
+.rotate-hint { font: 500 12px var(--body); color: var(--gold); text-align: center; }
+/* Sideways phone: the board gets the whole width (the 520px column is for portrait), headers go back to horizontal. */
+@media (orientation: landscape) and (max-height: 600px) {
+  body:has(.board) { max-width: none; }
+  .rotate-hint { display: none; }
+  .board .cat { min-height: 36px; }
+  .board .val { min-height: 38px; }
+  .board.dense .cat { min-height: 40px; font-size: 11px; padding: 3px 2px; }
+  .board.dense .cat span { writing-mode: horizontal-tb; transform: none; max-height: none; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .board.dense .val { font-size: 16px; min-height: 40px; }
+}
+@media (orientation: portrait) { .rotate-hint { display: block; } }
 .board.passive .val { opacity: .55; }
 .board.passive .val.used { opacity: .3; }
 .scores { display: flex; gap: 6px; flex-wrap: wrap; }

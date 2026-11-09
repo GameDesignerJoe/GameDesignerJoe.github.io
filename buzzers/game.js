@@ -253,7 +253,8 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
         const taken = S.players.filter(q => q.id !== a.by).map(q => q.color);
         const color = CONFIG.colors.includes(a.color) && !taken.includes(a.color) ? a.color : (CONFIG.colors.find(c => !taken.includes(c)) || CONFIG.colors[0]);
         const p = P(a.by);
-        if (p) { const back = !p.connected; Object.assign(p, { name, color, connected: true, key: a.key ?? p.key }); if (back) { log(`${name} is back`); rearmAway(); } }
+        // Coming back keeps the color you had; colors only change from the lobby picker.
+        if (p) { const back = !p.connected; Object.assign(p, { name, connected: true, key: a.key ?? p.key }); if (back) { log(`${name} is back`); rearmAway(); } return { color: p.color }; }
         else {
           if (S.players.length >= CONFIG.maxPlayers) return err('This room is full.');
           const first = !S.players.length && !S.host;
@@ -278,6 +279,16 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
         log(`${nameOf(a.by)} cleared ${p.name}'s empty seat`);
         lobbyCheck();
         return;
+      }
+      // Lobby color picker: any color nobody else has. Your old one frees up.
+      case 'color': {
+        const p = P(a.by); if (!p) return;
+        if (S.phase !== 'lobby') return err('Colors lock once the game starts.');
+        if (!CONFIG.colors.includes(a.color) || a.color === p.color) return;
+        const owner = S.players.find(q => q.id !== a.by && q.color === a.color);
+        if (owner) return err(`${owner.name} has that color.`);
+        p.color = a.color;
+        return { color: p.color };
       }
       case 'clock': {
         const p = P(a.by); if (p) p.clock = { offset: Math.round(num(a.offset, 0)), rtt: Math.round(num(a.rtt, 0)) };
