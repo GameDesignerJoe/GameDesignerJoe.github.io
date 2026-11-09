@@ -36,13 +36,15 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 - Three two-way toggles (defaults first):
   - **Scoring:** Misses cost points / No penalty.
   - **Who picks:** Winner picks next / Round robin (seat order, every clue).
-  - **Board:** 1 category each / Up to 6 total (anyone adds any number until the board has 6; no top-up to 5).
+  - **Big groups:** Max 6 categories / 1 per player. Only matters with 7+ players (see Core loop). Up to 6 players, both modes play the same.
 - **2-player games always alternate the pick**, even on Winner picks next (otherwise one person would judge the whole game).
 - Settings live in `SETTINGS` / `DEFAULT_SETTINGS` in `game.js`; add a toggle there and both the join screen and lobby pick it up.
 
 **Core loop** (as on the default settings)
 - Lobby: join by room code, pick name + color. **Everyone adds exactly one category** (anything, the sillier the better, or a past one), then taps **Ready**. The game can't start until everyone in the room is ready (a locked phone still counts; clear an empty seat with ×).
-- If the board has fewer than 5 categories once everyone is ready, random players take turns (cycling, nobody gets a second before everyone has had one) adding one more until there are 5. **The game starts by itself** once all clues are in. Board caps at 6; players after the 6th category just tap Ready. (Joe, 2026-11-09.)
+- If the board has fewer than **6** categories once everyone is ready, random players take turns (cycling, nobody gets a second before everyone has had one) adding one more until there are 6. Nobody can add a second category before that, so one person can't fill the board before others join. **The game starts by itself** once all clues are in. (Joe, 2026-11-09.)
+- **7+ players, Max 6 categories:** the board stops at 6; players after the 6th category don't add one, they just tap Ready. 6 × 5 rows = 30 questions.
+- **7+ players, 1 per player:** every player adds one, and the easiest rows are dropped so the board stays near 30 questions: rows = round(30 ÷ categories), kept between 3 and 5 (`rowsFor` in `game.js`). 7–8 players → 4 rows (400–1000), 9–12 → 3 rows (600–1000). 10 players = 30 questions, 12 = 36. **Rooms cap at 12 players.** Boards over 6 columns use sideways headers to fit a phone.
 - Each category gets 5 clues generated, ordered easy→hard, values 200/400/600/800/1000.
 - Random player picks first. The judge for that pick is chosen as the turn starts and shown on the board ("Joe picks · Griffin judges"). Everyone sees the board; only the picker's tiles are tappable, others see a dimmed "Sarah is picking" board.
 - **3+ players, Winner picks next:** whoever answers correctly picks next; if nobody gets it, same picker. **Round robin:** next in seat order every clue.
@@ -92,7 +94,7 @@ Ideas we want but haven't built. Not settled design: ask Joe before picking one 
 - Final round with secret bets.
 
 **Settings to consider**
-- Answer countdown length (5 s now), buzz timeout (6 s), number of categories to top up to (5).
+- Answer countdown length (5 s now), buzz timeout (6 s), number of categories to top up to (6).
 - A "picker can judge" option for very small games.
 
 **Sound and feel**
@@ -124,7 +126,7 @@ The game is one reducer over a single state object `S` (`game.js`). It runs in e
 3. **Fair buzzing** ✅ built, tested with scripted clients (a press that's earlier on the synced clock wins even when it arrives later). Debug page built. *Still to do on test night:* two people mashing ten times with `debug.html` open; check offsets look sane on real networks.
 4. **Memory** ✅ room-storage version (room code = group). Not built: a separate "group name" independent of room code, if that turns out to matter.
 5. **Sound** — partly: ding at synced open, stings for buzz/right/wrong/nobody/out-of-time (synthesised, no files), mute on every phone, iOS unlock on Join and on first tap. **Not built:** music bed on one phone (needs a music file and a "music phone" choice in the lobby).
-6. **Test-night hardening** — built: rejoin, re-read, standings game-over screen with Play again, End game button, away picker/judge handover. 2026-11-09 solo playtest (PC windows + phone) went well; changes from it: picker never judges, 2-player pick alternation, one-category-each + Ready lobby with top-up to 5. **Next:** a session with a few other people and the debug log open.
+6. **Test-night hardening** — built: rejoin, re-read, standings game-over screen with Play again, End game button, away picker/judge handover. 2026-11-09 solo playtest (PC windows + phone) went well; changes from it: picker never judges, 2-player pick alternation, one-category-each + Ready lobby with top-up to 6, host settings, big-group row trimming up to 12 players. **Next:** a session with a few other people and the debug log open.
 
 ## Known gaps / not verified
 

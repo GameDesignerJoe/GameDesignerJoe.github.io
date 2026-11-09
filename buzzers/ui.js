@@ -2,7 +2,7 @@
 // renderPhone(S, me, ctx) turns one phone's copy of the state into HTML; wirePhone hooks up its buttons.
 // Phone-local view state (clue held down, answer revealed, early lockout, mute) lives in ctx, not in S.
 
-import { CONFIG, SETTINGS, actingHostOf } from './game.js';
+import { CONFIG, SETTINGS, actingHostOf, rowsFor } from './game.js';
 
 // Two-way toggles for each room setting. Editable for the host (and on the join screen), read-only for everyone else.
 export function settingsControls(settings, editable) {
@@ -175,14 +175,15 @@ const VIEW = {
   // take turns adding one more → game starts by itself once every category's clues are ready.
   lobby(S, me) {
     const live = S.players.filter(p => p.connected).length;
-    const onePer = S.settings.catMode === 'onePerPlayer';
+    const cap = S.settings.catMode === 'onePerPlayer' ? CONFIG.maxPlayers : CONFIG.maxCategories;
     const host = actingHostOf(S);
     const mine = S.categories.some(c => c.by === me.id);
-    const full = S.categories.length >= CONFIG.maxCategories;
+    const full = S.categories.length >= cap;
     const turn = S.extra ? S.extra.queue[S.extra.i % S.extra.queue.length] : null;
-    const myTurn = onePer && turn === me.id && S.categories.length < CONFIG.targetCategories;
-    const canAdd = !full && (!onePer || !mine || myTurn);
-    const needCat = onePer && !mine && !full;
+    const myTurn = turn === me.id && S.categories.length < CONFIG.targetCategories;
+    const canAdd = !full && (!mine || myTurn);
+    const needCat = !mine && !full;
+    const rows = rowsFor(S.categories.length);
     const amReady = S.ready.includes(me.id);
     const allReady = S.players.every(p => S.ready.includes(p.id));
     const onBoard = n => S.categories.some(c => c.name.toLowerCase() === n.toLowerCase());
@@ -204,7 +205,7 @@ const VIEW = {
     if (live < CONFIG.minPlayers) hint = `Need ${CONFIG.minPlayers}+ players.`;
     else if (needCat) hint = 'Add one category, then tap Ready.';
     else if (amReady) hint = waitingOn.length ? `Waiting for ${waitingOn.map(p => esc(p.name)).join(', ')}` : !S.categories.length ? 'Add at least one category.' : '';
-    else hint = onePer ? 'Tap Ready when you\'re set. The game starts when everyone is.' : `Add as many as you like (up to ${CONFIG.maxCategories} total), then tap Ready.`;
+    else hint = full && !mine ? `The board is full (${cap}). Tap Ready when you're set.` : 'Tap Ready when you\'re set. The game starts when everyone is.';
     if (amReady) btn = `<button class="btn ghost wide" id="ready" data-ready="0">Ready ✓ (tap to undo)</button>`;
     else btn = `<button class="btn gold wide" id="ready" data-ready="1" ${needCat ? 'disabled' : ''}>Ready</button>`;
     const settingsBlock = `<div class="eyebrow">Game settings · ${host === me.id ? 'you\'re the host' : `${esc(nameOf(S, host))} is host`}</div>${settingsControls(S.settings, host === me.id)}`;
@@ -216,11 +217,11 @@ const VIEW = {
       ${settingsBlock}
       ${banner}
       ${canAdd ? `
-        <div class="eyebrow">${myTurn ? 'Your extra category' : onePer ? 'Your category' : 'Add a category'}</div>
+        <div class="eyebrow">${myTurn ? 'Your extra category' : 'Your category'}</div>
         <form class="field" id="catform"><input id="catname" placeholder="anything, the sillier the better" maxlength="${CONFIG.maxCategoryLen}" autocomplete="off"><button class="btn gold" type="submit">Add</button></form>
         ${past.length ? `<div class="eyebrow">Played before</div><div class="chips">${chips(past)}</div>` : ''}
         ${ideas.length ? `<div class="eyebrow">Ideas</div><div class="chips">${chips(ideas)}</div>` : ''}` : ''}
-      <div class="eyebrow">The board · ${S.categories.length}${onePer && S.categories.length < CONFIG.targetCategories ? ` of ${CONFIG.targetCategories}` : !onePer ? ` of ${CONFIG.maxCategories} max` : ''}</div>
+      <div class="eyebrow">The board · ${S.categories.length}${S.categories.length < CONFIG.targetCategories ? ` of ${CONFIG.targetCategories}` : ''}${rows < CONFIG.values.length ? ` · hardest ${rows} rows each (${S.categories.length * rows} questions)` : ''}</div>
       <div class="catlist">${S.categories.map(c => {
         const removable = c.by === me.id || !P(S, c.by)?.connected;
         return `<div class="catrow"><span class="who" style="background:${esc(P(S, c.by)?.color || '#888')}"></span><span class="name">${esc(c.name)}</span><span class="state ${c.status}">${c.status === 'ready' ? (c.source === 'canned' ? 'canned clues' : '5 clues ready') : 'searching…'}</span>${removable ? `<button class="x" data-remove="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">×</button>` : ''}</div>`;
@@ -235,9 +236,9 @@ const VIEW = {
     const cols = S.categories.length;
     return `
       <div class="eyebrow">${S.picker === me.id ? 'Your pick' : pickerAway ? `${esc(nameOf(S, S.picker))} is away · anyone can pick` : `${esc(nameOf(S, S.picker))} is picking`} · ${S.judge === me.id ? 'you judge this one' : `${esc(nameOf(S, S.judge))} judges`}</div>
-      <div class="board ${picking ? '' : 'passive'}" style="grid-template-columns:repeat(${cols},1fr)">
-        ${S.categories.map(c => `<div class="cat">${esc(c.name)}</div>`).join('')}
-        ${CONFIG.values.map((v, i) => S.categories.map(c => `<button class="val ${c.clues[i].used ? 'used' : ''}" data-cat="${esc(c.id)}" data-idx="${i}" ${picking && !c.clues[i].used ? '' : 'disabled'}>${v}</button>`).join('')).join('')}
+      <div class="board ${picking ? '' : 'passive'} ${cols > 6 ? 'dense' : ''}" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
+        ${S.categories.map(c => `<div class="cat"><span>${esc(c.name)}</span></div>`).join('')}
+        ${(S.categories[0]?.clues || []).map((_, i) => S.categories.map(c => `<button class="val ${c.clues[i].used ? 'used' : ''}" data-cat="${esc(c.id)}" data-idx="${i}" ${picking && !c.clues[i].used ? '' : 'disabled'}>${c.clues[i].value}</button>`).join('')).join('')}
       </div>
       ${scores(S, me)}
       <button class="btn ghost small" id="end" style="align-self:center">End game</button>`;

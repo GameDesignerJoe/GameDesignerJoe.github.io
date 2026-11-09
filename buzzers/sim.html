@@ -22,7 +22,7 @@
 <div class="tabs" id="tabs"></div>
 <div class="simrow">
   <label><input type="checkbox" id="bots" checked> Other phones play themselves</label>
-  <label>Players <select id="count"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
+  <label>Players <select id="count"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></select></label>
   <button class="btn ghost small" id="reset">New game</button>
 </div>
 <div class="phone" id="phone"></div>
@@ -38,7 +38,7 @@ const SIM = {
   botBuzzMs: [350, 1600],  // bot reaction after the open time
   botSkipChance: 0.25,     // bot doesn't buzz at all
   botRightChance: 0.65,    // bot judge rules Correct
-  names: [['Joe', '#f2c14e'], ['Sarah', '#4fc984'], ['Mike', '#5aa9ff'], ['Dana', '#e37fd1'], ['Ravi', '#ff8a4c'], ['Lou', '#b48cff']],
+  names: [['Joe', '#f2c14e'], ['Sarah', '#4fc984'], ['Mike', '#5aa9ff'], ['Dana', '#e37fd1'], ['Ravi', '#ff8a4c'], ['Lou', '#b48cff'], ['Ines', '#5fd8d0'], ['Kai', '#ff6b81'], ['Mo', '#c7d36f'], ['Tess', '#d9d9d9'], ['Abe', '#f2c14e'], ['Jun', '#4fc984']],
 };
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -49,7 +49,7 @@ const bt = (ms, fn) => botTimers.push(setTimeout(fn, ms));
 const S = () => game.state;
 
 function newGame() {
-  game?.stop(); botTimers.forEach(clearTimeout); botTimers = []; revealed = {}; generating = new Set();
+  game?.stop(); botTimers.forEach(clearTimeout); botTimers = []; busy = {}; revealed = {}; generating = new Set();
   game = createGame({ onChange: changed });
   if (memory) S().memory = memory;
   memory = S().memory;

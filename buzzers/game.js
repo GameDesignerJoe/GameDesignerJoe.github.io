@@ -6,9 +6,11 @@
 // Every timing and rule knob lives here (the server and the sim both read it).
 export const CONFIG = {
   values: [200, 400, 600, 800, 1000],
-  targetCategories: 5,       // fewer than this once everyone is ready → random players take turns adding one more
-  maxCategories: 6,          // board cap; players after the 6th category don't add one
-  maxPlayers: 10,
+  targetCategories: 6,       // fewer than this once everyone is ready → random players take turns adding one more
+  maxCategories: 6,          // board cap on 'Max 6'; players after the 6th category don't add one
+  maxPlayers: 12,            // room cap. On '1 per player' that's 12 categories × 3 rows = 36 questions
+  targetQuestions: 30,       // '1 per player' with 7+ players: drop the easiest rows to stay near this many questions
+  minRows: 3,                // …but always keep at least this many rows
   minPlayers: 2,
   maxNameLen: 14,
   maxCategoryLen: 40,
@@ -23,7 +25,7 @@ export const CONFIG = {
   memoryAnswers: 400,        // used clue ids kept for the life of the room
   memoryCats: 20,            // past categories kept for the "played before" chips
   logMax: 200,
-  colors: ['#f2c14e', '#4fc984', '#5aa9ff', '#e37fd1', '#ff8a4c', '#b48cff', '#5fd8d0', '#ff6b81', '#c7d36f', '#d9d9d9'],
+  colors: ['#f2c14e', '#4fc984', '#5aa9ff', '#e37fd1', '#ff8a4c', '#b48cff', '#5fd8d0', '#ff6b81', '#c7d36f', '#d9d9d9', '#ffb3c1', '#9ee493'],
 };
 
 // ============================ HELPERS ============================
@@ -39,9 +41,14 @@ const emptyBuzz = () => ({ openAt: null, presses: {}, lockedUntil: {}, guessed: 
 export const SETTINGS = {
   penalty:   { label: 'Scoring',  options: [[true, 'Misses cost points'], [false, 'No penalty']] },
   pickOrder: { label: 'Who picks', options: [['winner', 'Winner picks next'], ['roundRobin', 'Round robin']] },
-  catMode:   { label: 'Board',    options: [['onePerPlayer', '1 category each'], ['sixMax', 'Up to 6 total']] },
+  catMode:   { label: 'Big groups', options: [['sixMax', 'Max 6 categories'], ['onePerPlayer', '1 per player']] },
 };
-export const DEFAULT_SETTINGS = { penalty: true, pickOrder: 'winner', catMode: 'onePerPlayer' };
+export const DEFAULT_SETTINGS = { penalty: true, pickOrder: 'winner', catMode: 'sixMax' };
+// Rows of questions for a board of n categories: ~targetQuestions total, between minRows and all 5.
+// 2–6 → 5 rows, 7–8 → 4, 9–12 → 3. Rows are dropped from the easy end.
+export function rowsFor(n) {
+  return Math.max(CONFIG.minRows, Math.min(CONFIG.values.length, Math.round(CONFIG.targetQuestions / Math.max(1, n))));
+}
 export function cleanSettings(s, base = DEFAULT_SETTINGS) {
   const out = { ...base };
   for (const [k, def] of Object.entries(SETTINGS)) if (s && def.options.some(([v]) => v === s[k])) out[k] = s[k];
@@ -111,12 +118,14 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
   const actingHost = () => actingHostOf(S);
 
   // ---------- lobby ----------
-  // '1 category each': one each, everyone Ready, then random turns top up to targetCategories.
-  // 'Anyone adds, up to 6': add freely until the board is full; everyone Ready; start with what's there.
-  const onePer = () => S.settings.catMode === 'onePerPlayer';
+  // Both modes: everyone adds one, everyone taps Ready, then if the board has fewer than
+  // targetCategories (6) random players take turns adding one more until it does.
+  // They only differ with 7+ players: 'Max 6' stops the board at 6 (later players don't add);
+  // '1 per player' gives everyone one and drops the easiest rows at start (see rowsFor).
   const hasCat = pid => S.categories.some(c => c.by === pid);
-  const boardFull = () => S.categories.length >= CONFIG.maxCategories;
-  const canReady = pid => !onePer() || hasCat(pid) || boardFull();
+  const boardCap = () => (S.settings.catMode === 'onePerPlayer' ? CONFIG.maxPlayers : CONFIG.maxCategories);
+  const boardFull = () => S.categories.length >= boardCap();
+  const canReady = pid => hasCat(pid) || boardFull();
   const extraTurn = () => (S.extra ? S.extra.queue[S.extra.i % S.extra.queue.length] : null);
 
   // Runs after anything that could change who's ready or what's on the board. Starts the game when it can.
@@ -127,7 +136,7 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
     // Everyone in the room, not just who's connected: a locked phone shouldn't get skipped. (Empty seats can be cleared with ×.)
     if (!S.players.every(p => S.ready.includes(p.id) && canReady(p.id))) return;
     if (!S.categories.length) return;
-    if (onePer() && S.categories.length < CONFIG.targetCategories) {
+    if (S.categories.length < CONFIG.targetCategories) {
       if (!S.extra) {
         S.extra = { queue: live.map(p => p.id).sort(() => Math.random() - 0.5), i: 0 };
         log(`everyone's ready · ${CONFIG.targetCategories - S.categories.length} more categor${CONFIG.targetCategories - S.categories.length === 1 ? 'y' : 'ies'} needed`);
@@ -141,6 +150,12 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
   }
 
   function begin() {
+    // Big boards keep the hardest rows only, so the question count stays near targetQuestions.
+    const rows = rowsFor(S.categories.length);
+    if (rows < CONFIG.values.length) {
+      S.categories.forEach(c => { c.clues = c.clues.slice(c.clues.length - rows); });
+      log(`${S.categories.length} categories · keeping the ${rows} hardest rows (${S.categories.length * rows} questions)`);
+    }
     S.players.forEach(p => { p.score = 0; p.judged = 0; });
     S.ready = []; S.extra = null;
     S.phase = 'board';
@@ -273,10 +288,10 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
       case 'addCategory': {
         if (S.phase !== 'lobby') return;
         const name = clean(a.name, CONFIG.maxCategoryLen); if (!name) return;
-        const isTurn = onePer() && extraTurn() === a.by && S.categories.length < CONFIG.targetCategories;
-        if (onePer() && hasCat(a.by) && !isTurn) return err(S.extra ? `It's ${nameOf(extraTurn())}'s turn to add one.` : 'One category each. Tap Ready when you\'re set.');
+        const isTurn = extraTurn() === a.by && S.categories.length < CONFIG.targetCategories;
+        if (hasCat(a.by) && !isTurn) return err(S.extra ? `It's ${nameOf(extraTurn())}'s turn to add one.` : 'One category each. Tap Ready when you\'re set.');
         if (S.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) return err(`"${name}" is already on the board.`);
-        if (boardFull()) return err(`The board is full (${CONFIG.maxCategories} categories).`);
+        if (boardFull()) return err(`The board is full (${boardCap()} categories).`);
         const cat = { id: clean(a.id, 20) || newId('c'), name, by: a.by, status: 'generating', source: null, clues: [] };
         S.categories.push(cat);
         S.memory.cats = [name, ...S.memory.cats.filter(n => n.toLowerCase() !== name.toLowerCase())].slice(0, CONFIG.memoryCats);

@@ -101,6 +101,11 @@ details.joinset summary { padding: 4px 0; }
 .board .val { background: var(--tile); border: 0; border-radius: 6px; color: var(--gold); font-family: var(--display); font-weight: 800; font-size: 22px; min-height: 44px; cursor: pointer; }
 .board .val:disabled { cursor: default; }
 .board .val.used { background: var(--tile-dim); color: transparent; }
+/* 7–12 categories: sideways headers and smaller values so 12 columns still fit a phone */
+.board.dense { gap: 3px; }
+.board.dense .cat { min-height: 96px; padding: 4px 0; font-size: 11px; }
+.board.dense .cat span { writing-mode: vertical-rl; transform: rotate(180deg); max-height: 92px; overflow: hidden; }
+.board.dense .val { font-size: 13px; min-height: 52px; padding: 0; border-radius: 4px; }
 .board.passive .val { opacity: .55; }
 .board.passive .val.used { opacity: .3; }
 .scores { display: flex; gap: 6px; flex-wrap: wrap; }
