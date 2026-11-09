@@ -23,7 +23,8 @@ export const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;',
 export const dot = (color, size = 10) => `<span style="background:${esc(color)};width:${size}px;height:${size}px;display:inline-block;border-radius:50%;flex:none"></span>`;
 
 // ============================ CLUES ============================
-// Canned fallback when /api/generate isn't there (GitHub Pages, a local file server) or fails.
+// Our own categories with checked answers. Offered as chips, and used when live generation fails.
+// Keep at least CONFIG.targetCategories of them so a board can always be filled without Groq.
 export const BANK = {
   'Superheroes': [
     { clue: 'This billionaire funds his night job with Wayne Enterprises.', answer: 'Batman', alts: ['Bruce Wayne', 'the Dark Knight'] },
@@ -60,11 +61,76 @@ export const BANK = {
     { clue: 'Its secret menu includes "Animal Style".', answer: 'In-N-Out', alts: ['In-N-Out Burger'] },
     { clue: 'Colonel Sanders founded it.', answer: 'KFC', alts: ['Kentucky Fried Chicken'] },
   ],
+  'World Capitals': [
+    { clue: 'The Eiffel Tower stands in this capital.', answer: 'Paris', alts: [] },
+    { clue: 'Japan\'s capital, and one of the biggest cities on Earth.', answer: 'Tokyo', alts: [] },
+    { clue: 'Not Toronto: Canada\'s capital is this Ontario city.', answer: 'Ottawa', alts: [] },
+    { clue: 'Not Sydney: Australia built this city to be its capital.', answer: 'Canberra', alts: [] },
+    { clue: 'Kazakhstan\'s capital, which was called Nur-Sultan from 2019 to 2022.', answer: 'Astana', alts: ['Nur-Sultan'] },
+  ],
+  'Board Games': [
+    { clue: 'You can buy Boardwalk and Park Place in this game.', answer: 'Monopoly', alts: [] },
+    { clue: 'Colonel Mustard, Miss Scarlett and a candlestick turn up in this murder-mystery game.', answer: 'Clue', alts: ['Cluedo'] },
+    { clue: 'Players trade sheep and brick to build settlements in this 1995 German game.', answer: 'Catan', alts: ['Settlers of Catan'] },
+    { clue: 'In Scrabble, the Q and the Z are each worth this many points.', answer: '10', alts: ['ten'] },
+    { clue: 'This ancient game is played with black and white stones on a 19-by-19 grid.', answer: 'Go', alts: ['Weiqi', 'Baduk'] },
+  ],
+  'Disney Movies': [
+    { clue: 'This snowman in Frozen likes warm hugs.', answer: 'Olaf', alts: [] },
+    { clue: 'Simba\'s father in The Lion King.', answer: 'Mufasa', alts: [] },
+    { clue: 'This crab sings "Under the Sea" in The Little Mermaid.', answer: 'Sebastian', alts: [] },
+    { clue: 'Disney\'s first full-length animated feature, from 1937.', answer: 'Snow White and the Seven Dwarfs', alts: ['Snow White'] },
+    { clue: 'This 1940 film set animation to classical music, with Mickey as the Sorcerer\'s Apprentice.', answer: 'Fantasia', alts: [] },
+  ],
+  'The Human Body': [
+    { clue: 'This organ pumps blood around the body.', answer: 'The heart', alts: ['Heart'] },
+    { clue: 'The largest organ of the human body.', answer: 'Skin', alts: ['The skin'] },
+    { clue: 'An adult human skeleton usually has this many bones.', answer: '206', alts: [] },
+    { clue: 'The longest bone in the body, in the thigh.', answer: 'Femur', alts: ['Thigh bone', 'Thighbone'] },
+    { clue: 'The smallest bone in the body, in the middle ear.', answer: 'Stapes', alts: ['Stirrup'] },
+  ],
+  'Video Games': [
+    { clue: 'This plumber keeps rescuing Princess Peach.', answer: 'Mario', alts: ['Super Mario'] },
+    { clue: 'Link is the hero of this Nintendo series, named for a princess.', answer: 'The Legend of Zelda', alts: ['Zelda'] },
+    { clue: 'This block-building game is the best-selling video game of all time.', answer: 'Minecraft', alts: [] },
+    { clue: 'This franchise began in Japan in 1996 with Red and Green on the Game Boy.', answer: 'Pokémon', alts: ['Pokemon'] },
+    { clue: 'Hideo Kojima created this stealth series starring Solid Snake.', answer: 'Metal Gear', alts: ['Metal Gear Solid'] },
+  ],
+  'The Beatles': [
+    { clue: 'The Beatles came from this English port city.', answer: 'Liverpool', alts: [] },
+    { clue: 'This drummer replaced Pete Best in 1962.', answer: 'Ringo Starr', alts: ['Ringo'] },
+    { clue: 'In a 1966 song, "We all live in" one of these.', answer: 'A yellow submarine', alts: ['Yellow Submarine'] },
+    { clue: 'The band walks across a zebra crossing on the cover of this 1969 album.', answer: 'Abbey Road', alts: [] },
+    { clue: 'Before the Beatles, John Lennon\'s skiffle group went by this name.', answer: 'The Quarrymen', alts: ['Quarrymen', 'Quarry Men'] },
+  ],
+  'Breakfast': [
+    { clue: 'This griddled breakfast has a grid of little square pockets.', answer: 'Waffle', alts: ['Waffles'] },
+    { clue: 'Tony the Tiger says this cereal is "Gr-r-reat!"', answer: 'Frosted Flakes', alts: ['Frosties'] },
+    { clue: 'Poached eggs and hollandaise on an English muffin.', answer: 'Eggs Benedict', alts: [] },
+    { clue: 'This Mexican dish of fried eggs on tortillas with salsa means "ranch-style eggs".', answer: 'Huevos rancheros', alts: [] },
+    { clue: 'A croque madame is a croque monsieur with this on top.', answer: 'A fried egg', alts: ['Egg', 'An egg'] },
+  ],
 };
 
+// Turn a fetch failure into something a player can act on (and Joe can debug from the lobby).
+function failReason(msg) {
+  const m = String(msg || '');
+  if (/HTTP (40[45]|501)/.test(m)) return "The clue writer isn't on this site";
+  if (/HTTP 402/.test(m)) return 'The clue service is switched off (Vercel)';
+  if (/GROQ_API_KEY/.test(m)) return 'The clue service has no Groq key';
+  if (/Groq 429/.test(m)) return 'The clue writer is busy (rate limit)';
+  if (/Groq/.test(m)) return `The clue writer failed (${m})`;
+  if (/model returned/.test(m)) return 'The clue writer came back with too few clues';
+  if (/fetch|network|Failed/i.test(m)) return "Couldn't reach the clue writer";
+  return m || 'Unknown error';
+}
+export const bankName = name => Object.keys(BANK).find(k => k.toLowerCase() === String(name).trim().toLowerCase());
+
 // Ask /api/generate (Vercel → Groq). If any answer was already used by this group, ask again with
-// a longer avoid list (up to 2 retries) and say so in the note. Falls back to canned clues.
-export async function generateClues(category, avoid) {
+// a longer avoid list (up to 2 retries) and say so in the note. If generation fails, one of our BANK
+// categories falls back to its own clues; anything else comes back { failed, reason } so the lobby can
+// ask for a different category. `placeholders: true` (sim, local testing) fills in dummy clues instead.
+export async function generateClues(category, avoid, { placeholders = false } = {}) {
   const used = new Set(avoid.map(a => a.toLowerCase()));
   let avoidNow = [...avoid], note = '';
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -78,9 +144,11 @@ export async function generateClues(category, avoid) {
       if (attempt === 2) return { clues: data.clues, source: data.model, note: `still repeats after 3 tries: ${repeats.map(q => q.answer).join(', ')}` };
       avoidNow = [...new Set([...avoidNow, ...repeats.map(q => q.answer)])];
     } catch (e) {
-      const key = Object.keys(BANK).find(k => k.toLowerCase() === category.toLowerCase());
-      const clues = key ? BANK[key] : CONFIG.values.map((v, i) => ({ clue: `A ${['easy', 'gentle', 'medium', 'tough', 'brutal'][i]} placeholder clue about ${category}.`, answer: `${category} answer ${i + 1}`, alts: [] }));
-      return { clues, source: 'canned', note: `live generation failed (${e.message})` };
+      const key = bankName(category);
+      if (key) return { clues: BANK[key], source: 'canned', note: `live generation failed (${e.message})` };
+      if (!placeholders) return { failed: true, reason: failReason(e.message), error: String(e.message || e) };
+      const clues = CONFIG.values.map((v, i) => ({ clue: `A ${['easy', 'gentle', 'medium', 'tough', 'brutal'][i]} placeholder clue about ${category}.`, answer: `${category} answer ${i + 1}`, alts: [] }));
+      return { clues, source: 'placeholder', note: `live generation failed (${e.message})` };
     }
   }
 }
@@ -173,7 +241,7 @@ function judgePanel(S, ctx, canRule) {
 const VIEW = {
   // Lobby: one category each → everyone taps Ready → if under targetCategories, random players
   // take turns adding one more → game starts by itself once every category's clues are ready.
-  lobby(S, me) {
+  lobby(S, me, ctx = {}) {
     const live = S.players.filter(p => p.connected).length;
     const cap = S.settings.catMode === 'onePerPlayer' ? CONFIG.maxPlayers : CONFIG.maxCategories;
     const host = actingHostOf(S);
@@ -211,6 +279,9 @@ const VIEW = {
     const settingsBlock = `<div class="eyebrow">Game settings · ${host === me.id ? 'you\'re the host' : `${esc(nameOf(S, host))} is host`}</div>${settingsControls(S.settings, host === me.id)}`;
 
     const chips = list => list.map(n => `<button class="chip" data-addcat="${esc(n)}">${esc(n)}</button>`).join('');
+    const fail = canAdd ? ctx.genFail : null;
+    const ours = Object.keys(BANK).filter(n => !onBoard(n));
+    const failBox = fail ? `<div class="judgebox"><div class="eyebrow">No clues for that one</div><div class="big" style="font-size:24px">We couldn't write clues for “${esc(fail.name)}”</div><div class="alts">${esc(fail.reason)}. Try a different category, or pick one of ours below. Those always work.</div></div>` : '';
     return `
       <div class="eyebrow">${live} in the room</div>
       <div class="roster">${S.players.map(p => `<span class="pill ${p.connected ? '' : 'away'}">${dot(p.color, 8)} ${esc(p.name)}${S.ready.includes(p.id) ? ' ✓' : ''}${p.connected ? '' : `<button class="x" data-kick="${esc(p.id)}" aria-label="Clear ${esc(p.name)}'s seat">×</button>`}</span>`).join('')}</div>
@@ -221,15 +292,17 @@ const VIEW = {
       }).join('')}</div>
       ${settingsBlock}
       ${banner}
+      ${failBox}
       ${canAdd ? `
         <div class="eyebrow">${myTurn ? 'Your extra category' : 'Your category'}</div>
         <form class="field" id="catform"><input id="catname" placeholder="anything, the sillier the better" maxlength="${CONFIG.maxCategoryLen}" autocomplete="off"><button class="btn gold" type="submit">Add</button></form>
+        ${fail ? (ours.length ? `<div class="eyebrow">Ours · always ready</div><div class="chips">${chips(ours)}</div>` : '') : `
         ${past.length ? `<div class="eyebrow">Played before</div><div class="chips">${chips(past)}</div>` : ''}
-        ${ideas.length ? `<div class="eyebrow">Ideas</div><div class="chips">${chips(ideas)}</div>` : ''}` : ''}
+        ${ideas.length ? `<div class="eyebrow">Ideas</div><div class="chips">${chips(ideas)}</div>` : ''}`}` : ''}
       <div class="eyebrow">The board · ${S.categories.length}${S.categories.length < CONFIG.targetCategories ? ` of ${CONFIG.targetCategories}` : ''}${rows < CONFIG.values.length ? ` · hardest ${rows} rows each (${S.categories.length * rows} questions)` : ''}</div>
       <div class="catlist">${S.categories.map(c => {
         const removable = c.by === me.id || !P(S, c.by)?.connected;
-        return `<div class="catrow"><span class="who" style="background:${esc(P(S, c.by)?.color || '#888')}"></span><span class="name">${esc(c.name)}</span><span class="state ${c.status}">${c.status === 'ready' ? (c.source === 'canned' ? 'canned clues' : '5 clues ready') : 'searching…'}</span>${removable ? `<button class="x" data-remove="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">×</button>` : ''}</div>`;
+        return `<div class="catrow"><span class="who" style="background:${esc(P(S, c.by)?.color || '#888')}"></span><span class="name">${esc(c.name)}</span><span class="state ${c.status}">${c.status === 'ready' ? (c.source === 'placeholder' ? 'placeholder clues' : '5 clues ready') : 'searching…'}</span>${removable ? `<button class="x" data-remove="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">×</button>` : ''}</div>`;
       }).join('') || '<div class="alts">Everyone adds one category.</div>'}</div>
       <div class="grow"></div>
       ${hint ? `<div class="alts center">${hint}</div>` : ''}

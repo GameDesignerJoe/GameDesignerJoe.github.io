@@ -66,7 +66,7 @@ function changed() {
   s.categories.filter(c => c.status === 'generating' && !generating.has(c.id)).forEach(async c => {
     generating.add(c.id);
     const avoid = s.memory.used.filter(id => id.startsWith(c.name.toLowerCase() + '|')).map(id => id.slice(c.name.length + 1));
-    const r = await generateClues(c.name, avoid);
+    const r = await generateClues(c.name, avoid, { placeholders: true });
     game.dispatch({ type: 'generated', by: c.by, catId: c.id, clues: r.clues, source: r.source, note: r.note });
   });
   draw(); botTick();

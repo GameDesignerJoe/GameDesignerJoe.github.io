@@ -13,7 +13,7 @@ Owner: Joe Morrissey. Game designer, not a full-time engineer. Works from iPhone
 | File | What it is |
 |---|---|
 | `game.js` | The rules. `CONFIG` (every timing/rule knob), `createGame()` reducer, `viewFor()` per-phone redaction. Runs on the server and in the sim. No DOM. |
-| `ui.js` | Phone screens (`renderPhone`/`wirePhone`), WebAudio sounds, `/api/generate` call + canned fallback bank. |
+| `ui.js` | Phone screens (`renderPhone`/`wirePhone`), WebAudio sounds, `/api/generate` call, and `BANK`: our own 12 categories with checked answers. |
 | `style.css` | Shared look. |
 | `index.html` | **The real phone.** Join screen, WebSocket to the room, clock sync, sounds. |
 | `sim.html` | One-screen flow tester: same rules and screens, bots play the other phones, 2–12 players. |
@@ -21,13 +21,13 @@ Owner: Joe Morrissey. Game designer, not a full-time engineer. Works from iPhone
 | `party/server.js` | Worker + Durable Object room: owns state, runs the reducer, sends each phone its redacted view, persists to room storage. |
 | `api/generate.js` | Vercel function → Groq `openai/gpt-oss-120b`, 5 clues for a category. |
 
-GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no `/api`, so categories fall back to canned clues (the lobby row says "canned clues"). Use the Vercel URL.
+GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no `/api`, so only our own (`BANK`) categories work there; anything typed is bounced with "The clue writer isn't on this site". Use the Vercel URL. (Not yet written down here: what that URL is. `buzzers.vercel.app` answered 402 DEPLOYMENT_DISABLED on 2026-11-09, and it's unconfirmed whether that's Joe's project.)
 
 ## Deploying / running
 
 - **Pages + clue API:** push to `main` → Vercel.
 - **Room server:** from `buzzers\party` on the PC: `npm install` (first time), `npx wrangler login` (first time, Cloudflare sign-in), `npx wrangler deploy`. Only needed when `game.js` or `party/server.js` change. `game.js` is shared, so a rules change needs **both** a push and a wrangler deploy. `party/.npmrc` forces the HTTPS npm registry: the global npmrc (http registry + prefer-offline) serves stale package lists.
-- **Local, including real phones on the same Wi-Fi:** in `buzzers\party`: `npm run dev` (wrangler dev on :1999); in `buzzers`: `python -m http.server 8000`. Open `http://<PC LAN IP>:8000/` on phones; on localhost or a LAN IP the pages use that machine's `:1999` automatically. No `/api` locally → canned clues. Override the room server with `?party=host:port`.
+- **Local, including real phones on the same Wi-Fi:** in `buzzers\party`: `npm run dev` (wrangler dev on :1999); in `buzzers`: `python -m http.server 8000`. Open `http://<PC LAN IP>:8000/` on phones; on localhost or a LAN IP the pages use that machine's `:1999` automatically. No `/api` locally → typed categories get placeholder clues (labelled "placeholder clues"); add `&placeholders=0` to the page URL to test the real bounce-back instead. Override the room server with `?party=host:port`.
 
 ## Design decisions (settled — don't relitigate without asking Joe)
 
@@ -47,6 +47,7 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 - **7+ players, Max 6 categories:** the board stops at 6; players after the 6th category don't add one, they just tap Ready. 6 × 5 rows = 30 questions.
 - **7+ players, 1 per player:** every player adds one, and the easiest rows are dropped so the board stays near 30 questions: rows = round(30 ÷ categories), kept between 3 and 5 (`rowsFor` in `game.js`). 7–8 players → 4 rows (400–1000), 9–12 → 3 rows (600–1000). 10 players = 30 questions, 12 = 36. **Rooms cap at 12 players.** Boards over 6 columns use sideways headers to fit a phone in portrait and show "Turn your phone sideways for a bigger board"; in landscape the board uses the full screen width with normal headers (12 columns ≈ 60 px each on an iPhone). Pinch-zoom is deliberately not relied on.
 - Each category gets 5 clues generated, ordered easy→hard, values 200/400/600/800/1000.
+- **No category without real clues.** If the clue writer fails (Groq error, no `/api` on this site, Vercel off), the category comes off the board, the adder sees why, and is asked to type another or pick one of ours (`BANK`, 12 categories with checked answers, which always work). A failed extra category gives the same player the turn back. Never placeholder questions on the real site. Placeholders only exist in `sim.html` and local testing. (Joe, 2026-11-09.)
 - Random player picks first. The judge for that pick is chosen as the turn starts and shown on the board ("Joe picks · Griffin judges"). Everyone sees the board; only the picker's tiles are tappable, others see a dimmed "Sarah is picking" board.
 - **3+ players, Winner picks next:** whoever answers correctly picks next; if nobody gets it, same picker. **Round robin:** next in seat order every clue.
 - **2 players:** picking alternates every clue, right or wrong. (Joe, 2026-11-09.)
@@ -115,7 +116,7 @@ Ideas we want but haven't built. Not settled design: ask Joe before picking one 
 The game is one reducer over a single state object `S` (`game.js`). It runs in exactly one place per room — the Cloudflare Durable Object — and phones send actions up and get state back. `sim.html` runs the same reducer locally with bots. Keep the reducer free of DOM/network/sound so it stays portable.
 
 - Phones never see what they shouldn't: `viewFor(S, pid)` blanks unused clues, hides the current clue from non-judges until buzzers open and its answer until reveal. (The phone that *added* a category does fetch its clues from `/api/generate` and forwards them, so its devtools could see them. Accepted for now; moving generation server-side would need the Groq key as a wrangler secret.)
-- Server actions: `join` (first joiner becomes host; their `settings` apply), `presence` (server-only). Phone actions: `addCategory, generated, removeCategory, ready{ready}, settings{settings} (host, lobby), color{color} (lobby, must be free), kick, pickClue, holdStart, holdEnd{at}, reread, press{at}, rule{right}, end, again, clock`. Internal: lobbyCheck/begin, open, resolveBuzz, nobody, reveal, advance, away.
+- Server actions: `join` (first joiner becomes host; their `settings` apply), `presence` (server-only). Phone actions: `addCategory, generated, genFailed{catId, reason}, removeCategory, ready{ready}, settings{settings} (host, lobby), color{color} (lobby, must be free), kick, pickClue, holdStart, holdEnd{at}, reread, press{at}, rule{right}, end, again, clock`. Internal: lobbyCheck/begin, open, resolveBuzz, nobody, reveal, advance, away.
 - Phases: `lobby → board → reading → buzz → answering → reveal → board … → over`
 - `S.sfx = {n, kind}` bumps when a sting should play (buzz/right/wrong/nobody); phones play when `n` changes. The ding is scheduled locally at `buzz.openAt`.
 - All timings and rule knobs live in `CONFIG` at the top of `game.js`. Client-only knobs (`partyHost`, clock pings) in `CLIENT` in `index.html`; bot knobs in `SIM` in `sim.html`.

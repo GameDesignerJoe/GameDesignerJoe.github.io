@@ -303,7 +303,7 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
         if (hasCat(a.by) && !isTurn) return err(S.extra ? `It's ${nameOf(extraTurn())}'s turn to add one.` : 'One category each. Tap Ready when you\'re set.');
         if (S.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) return err(`"${name}" is already on the board.`);
         if (boardFull()) return err(`The board is full (${boardCap()} categories).`);
-        const cat = { id: clean(a.id, 20) || newId('c'), name, by: a.by, status: 'generating', source: null, clues: [] };
+        const cat = { id: clean(a.id, 20) || newId('c'), name, by: a.by, status: 'generating', source: null, clues: [], extra: isTurn };
         S.categories.push(cat);
         S.memory.cats = [name, ...S.memory.cats.filter(n => n.toLowerCase() !== name.toLowerCase())].slice(0, CONFIG.memoryCats);
         log(`${nameOf(a.by)} added "${name}"${isTurn ? ' (extra)' : ''} · searching…`);
@@ -318,6 +318,25 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
         cat.clues = clues.map((q, i) => ({ clue: clean(q.clue, 400), answer: clean(q.answer, 80), alts: (Array.isArray(q.alts) ? q.alts : []).map(x => clean(x, 80)).filter(Boolean).slice(0, 4), value: CONFIG.values[i], used: false }));
         cat.status = 'ready'; cat.source = clean(a.source, 60);
         log(`"${cat.name}" ready · ${cat.source}${a.note ? ' · ' + clean(a.note, 80) : ''}`);
+        lobbyCheck();
+        return;
+      }
+      case 'genFailed': {
+        // The adder's phone couldn't get real clues. The category comes off the board (no placeholder
+        // questions), and the adder gets to try again: un-readied for their own one, or the turn back for an extra.
+        if (S.phase !== 'lobby') return;
+        const cat = S.categories.find(c => c.id === a.catId); if (!cat || cat.by !== a.by || cat.status !== 'generating') return;
+        S.categories = S.categories.filter(c => c !== cat);
+        S.memory.cats = S.memory.cats.filter(n => n.toLowerCase() !== cat.name.toLowerCase());
+        const why = clean(a.reason, 80);
+        log(`no clues for "${cat.name}"${why ? ' · ' + why : ''} · ${nameOf(a.by)} picks another`);
+        if (cat.extra && S.extra) {
+          const q = S.extra.queue; S.extra.i %= q.length; q.splice(S.extra.i, 0, a.by);
+        } else if (cat.extra) {
+          S.extra = { queue: [a.by, ...connected().map(p => p.id).filter(id => id !== a.by).sort(() => Math.random() - 0.5)], i: 0 };
+        } else {
+          S.ready = S.ready.filter(id => id !== a.by);
+        }
         lobbyCheck();
         return;
       }

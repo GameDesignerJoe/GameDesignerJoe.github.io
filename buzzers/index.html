@@ -43,6 +43,7 @@ let offset = 0, samples = [], syncTimer = null, retryMs = CLIENT.reconnectMs[0],
 let hold = false, revealedRound = -1, lockUntil = 0;
 let lastSfx = null, dingFor = null, timeoutFor = null;
 const generating = new Set();
+let genFail = null; // { name, reason } after my category couldn't get real clues; shown in the lobby
 const syncedNow = () => Date.now() + offset;
 const $ = s => document.querySelector(s);
 const phone = $('#phone');
@@ -175,14 +176,16 @@ function effects(first) {
   S.categories.filter(c => c.by === pid && c.status === 'generating' && !generating.has(c.id)).forEach(async c => {
     generating.add(c.id);
     const avoid = S.memory.used.filter(id => id.startsWith(c.name.toLowerCase() + '|')).map(id => id.slice(c.name.length + 1));
-    const r = await generateClues(c.name, avoid);
+    // Local testing has no /api, so allow dummy clues there; on the real site a failure sends you back to pick another.
+    const r = await generateClues(c.name, avoid, { placeholders: isLocal && qs.get('placeholders') !== '0' });
+    if (r.failed) { genFail = { name: c.name, reason: r.reason }; act({ type: 'genFailed', catId: c.id, reason: r.error }); draw(); return; }
     act({ type: 'generated', catId: c.id, clues: r.clues, source: r.source, note: r.note });
   });
 }
 
 // ============================ RENDER ============================
 function ctx() {
-  return { now: syncedNow(), hold, revealed: S && revealedRound === S.round, lockUntil: Math.max(lockUntil, S?.buzz?.lockedUntil?.[pid] || 0), room, conn, muted: sound.muted, showLeave: true };
+  return { now: syncedNow(), hold, revealed: S && revealedRound === S.round, lockUntil: Math.max(lockUntil, S?.buzz?.lockedUntil?.[pid] || 0), room, conn, muted: sound.muted, showLeave: true, genFail: S?.phase === 'lobby' ? genFail : null };
 }
 function draw() {
   if (!room) return;
@@ -193,7 +196,7 @@ function draw() {
 
 const handlers = {
   send: act,
-  addCategory: name => act({ type: 'addCategory', id: newId('c'), name }),
+  addCategory: name => { genFail = null; act({ type: 'addCategory', id: newId('c'), name }); },
   press: () => {
     const at = syncedNow();
     // show the early lockout immediately; the server makes the real call
