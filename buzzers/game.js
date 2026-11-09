@@ -1,12 +1,13 @@
 // Buzzers — the rules. One reducer over one state object.
-// Runs on the PartyKit server (party/server.js) for real rooms, and in the browser for sim.html.
+// Runs on the room server (party/server.js, a Cloudflare Durable Object) and in the browser for sim.html.
 // No DOM, no network, no sound in here: phones are views, this is the game.
 
 // ============================ CONFIG ============================
 // Every timing and rule knob lives here (the server and the sim both read it).
 export const CONFIG = {
   values: [200, 400, 600, 800, 1000],
-  maxCategories: 6,
+  targetCategories: 5,       // fewer than this once everyone is ready → random players take turns adding one more
+  maxCategories: 6,          // board cap; players after the 6th category don't add one
   maxPlayers: 10,
   minPlayers: 2,
   maxNameLen: 14,
@@ -18,7 +19,6 @@ export const CONFIG = {
   answerSecs: 5,             // out-loud answer countdown. Hitting zero shows "Out of time"; the judge still rules.
   revealMs: 3500,            // how long the answer stays up before the board comes back
   awayGraceMs: 8000,         // a dropped picker/judge gets this long to come back before someone else takes over
-  pickerJudgesAtOrBelow: 3,  // with this many connected players or fewer, the picker reads and judges their own pick
   rereadBeforeFirstBuzz: true, // judge can take a clue back to "reading" if nobody has pressed yet
   memoryAnswers: 400,        // used clue ids kept for the life of the room
   memoryCats: 20,            // past categories kept for the "played before" chips
@@ -40,10 +40,12 @@ export function freshState(keep) {
     phase: 'lobby',            // lobby → board → reading → buzz → answering → reveal → board … → over
     players: [],               // { id, name, color, score, judged, connected, key, clock }
     categories: [],            // { id, name, by, status, source, clues:[{ clue, answer, alts, value, used }] }
+    ready: [],                 // lobby: players who tapped Ready
+    extra: null,               // lobby: { queue:[pid], i } while random players add categories up to targetCategories
     picker: null,
-    round: 0,                  // bumps on every pick; phones key per-clue view state on it
+    round: 0,                 // bumps on every pick; phones key per-clue view state on it
     current: null,             // { catId, idx }
-    judge: null,
+    judge: null,               // assigned when a picker's turn starts, so the board can show who'll judge
     holding: false,
     buzz: emptyBuzz(),
     answerDeadline: null,
@@ -75,13 +77,46 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
   const log = msg => { S.log.push({ t: now(), msg }); if (S.log.length > CONFIG.logMax) S.log.splice(0, S.log.length - CONFIG.logMax); };
   const sfx = kind => { S.sfx = { n: S.sfx.n + 1, kind }; };
 
-  // Judge = reader. Anyone connected but the picker, fewest judge turns first, tie random.
-  // Small games: the picker reads and judges their own pick so everyone else can play.
+  // Judge = reader. Never the picker: anyone else connected, fewest judge turns first, tie random.
+  // Chosen when a picker's turn starts (so the board can say who judges); counted when the clue is picked.
   function chooseJudge(picker) {
+    const cands = connected().filter(p => p.id !== picker).sort((x, y) => x.judged - y.judged || Math.random() - 0.5);
+    return cands[0]?.id ?? null;
+  }
+  function setPicker(pid) { S.picker = pid; S.judge = chooseJudge(pid); }
+
+  // ---------- lobby: one category each, everyone Ready, then top up to targetCategories ----------
+  const hasCat = pid => S.categories.some(c => c.by === pid);
+  const boardFull = () => S.categories.length >= CONFIG.maxCategories;
+  const canReady = pid => hasCat(pid) || boardFull();
+  const extraTurn = () => (S.extra ? S.extra.queue[S.extra.i % S.extra.queue.length] : null);
+
+  // Runs after anything that could change who's ready or what's on the board. Starts the game when it can.
+  function lobbyCheck() {
+    if (S.phase !== 'lobby') return;
     const live = connected();
-    if (live.length <= CONFIG.pickerJudgesAtOrBelow) { const p = P(picker); p.judged++; return picker; }
-    const cands = live.filter(p => p.id !== picker).sort((x, y) => x.judged - y.judged || Math.random() - 0.5);
-    cands[0].judged++; return cands[0].id;
+    if (live.length < CONFIG.minPlayers) return;
+    // Everyone in the room, not just who's connected: a locked phone shouldn't get skipped. (Empty seats can be cleared with ×.)
+    if (!S.players.every(p => S.ready.includes(p.id) && canReady(p.id))) return;
+    if (S.categories.length < CONFIG.targetCategories) {
+      if (!S.extra) {
+        S.extra = { queue: live.map(p => p.id).sort(() => Math.random() - 0.5), i: 0 };
+        log(`everyone's ready · ${CONFIG.targetCategories - S.categories.length} more categor${CONFIG.targetCategories - S.categories.length === 1 ? 'y' : 'ies'} needed`);
+      }
+      // skip anyone in the queue who isn't here
+      for (let n = 0; n < S.extra.queue.length && !P(extraTurn())?.connected; n++) S.extra.i++;
+      return;
+    }
+    if (S.extra) { S.extra = null; }
+    if (S.categories.every(c => c.status === 'ready')) begin();
+  }
+
+  function begin() {
+    S.players.forEach(p => { p.score = 0; p.judged = 0; });
+    S.ready = []; S.extra = null;
+    S.phase = 'board';
+    setPicker(pick(connected()).id);
+    log(`game start · ${nameOf(S.picker)} picks first, ${nameOf(S.judge)} judges`);
   }
 
   function open(at) {
@@ -107,12 +142,17 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
     later(CONFIG.revealMs, () => { if (S.phase === 'reveal' && S.round === round) advance(); });
   }
 
+  // Who picks next: in a two-player game it alternates every clue; otherwise the correct
+  // answerer (or the same picker if nobody got it).
   function advance() {
-    S.picker = P(S.nextPicker)?.connected ? S.nextPicker : (pick(connected())?.id ?? S.nextPicker);
+    const live = connected();
+    let next = live.length === 2 ? live.find(p => p.id !== S.picker)?.id : S.nextPicker;
+    if (!P(next)?.connected) next = pick(live)?.id ?? S.nextPicker;
     const left = S.categories.some(c => c.clues.some(q => !q.used));
     S.phase = left ? 'board' : 'over';
-    S.current = null; S.judge = null; S.answerDeadline = null;
-    log(left ? `${nameOf(S.picker)} picks next` : 'board cleared · game over');
+    S.current = null; S.answerDeadline = null;
+    if (left) { setPicker(next); log(`${nameOf(S.picker)} picks next · ${nameOf(S.judge)} judges`); }
+    else { S.judge = null; log('board cleared · game over'); }
   }
 
   function resolveBuzz() {
@@ -127,21 +167,23 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
     log(`${nameOf(winner)} wins the buzz (${entries.map(e => `${nameOf(e[0])} +${Math.round(e[1])}ms`).join(', ')}) · ${nameOf(S.judge)} judges`);
   }
 
-  // A picker or judge who dropped and didn't come back within the grace period.
-  // Someone is back: if the picker or judge is still missing, start their grace period again.
+  // Someone is back: if the picker, judge or category-adder is still missing, start their grace period again.
   function rearmAway() {
-    S.players.filter(q => !q.connected && (q.id === S.judge || q.id === S.picker)).forEach(q => later(CONFIG.awayGraceMs, () => away(q.id)));
+    S.players.filter(q => !q.connected && (q.id === S.judge || q.id === S.picker || q.id === extraTurn())).forEach(q => later(CONFIG.awayGraceMs, () => away(q.id)));
   }
 
+  // A picker, judge or category-adder who dropped and didn't come back within the grace period.
   // If nobody at all is connected (everyone's screen locked), do nothing: whoever comes back re-arms this.
   function away(pid) {
     const p = P(pid); if (!p || p.connected || !connected().length) return;
+    if (S.phase === 'lobby' && extraTurn() === pid) { S.extra.i++; log(`${p.name} is away · skipping their extra category`); lobbyCheck(); }
     if (S.phase === 'board' && S.picker === pid) {
-      const c = connected(); if (!c.length) return;
-      S.picker = pick(c).id; log(`${p.name} is away · ${nameOf(S.picker)} picks instead`);
+      setPicker(pick(connected()).id); log(`${p.name} is away · ${nameOf(S.picker)} picks instead`);
+    } else if (S.phase === 'board' && S.judge === pid) {
+      S.judge = chooseJudge(S.picker); log(`${p.name} is away · ${nameOf(S.judge)} judges instead`);
     }
     if (['reading', 'buzz', 'answering'].includes(S.phase) && S.judge === pid) {
-      const cands = connected().filter(q => q.id !== S.buzz.winner).sort((x, y) => x.judged - y.judged || Math.random() - 0.5);
+      const cands = connected().filter(q => q.id !== S.buzz.winner).sort((x, y) => (x.id === S.picker) - (y.id === S.picker) || x.judged - y.judged || Math.random() - 0.5);
       if (!cands.length) { log(`${p.name} (judge) is away and nobody can cover`); return nobody(); }
       const j = cands[0]; j.judged++;
       S.judge = j.id; S.holding = false;
@@ -180,7 +222,9 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
         if (S.phase !== 'lobby') return;
         const p = P(a.target); if (!p || p.connected) return;
         S.players = S.players.filter(q => q.id !== p.id);
+        S.ready = S.ready.filter(id => id !== p.id);
         log(`${nameOf(a.by)} cleared ${p.name}'s empty seat`);
+        lobbyCheck();
         return;
       }
       case 'clock': {
@@ -192,12 +236,16 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
       case 'addCategory': {
         if (S.phase !== 'lobby') return;
         const name = clean(a.name, CONFIG.maxCategoryLen); if (!name) return;
+        const isTurn = extraTurn() === a.by && S.categories.length < CONFIG.targetCategories;
+        if (hasCat(a.by) && !isTurn) return err(S.extra ? `It's ${nameOf(extraTurn())}'s turn to add one.` : 'One category each. Tap Ready when you\'re set.');
         if (S.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) return err(`"${name}" is already on the board.`);
-        if (S.categories.length >= CONFIG.maxCategories) return err(`The board is full (${CONFIG.maxCategories} categories).`);
+        if (boardFull()) return err(`The board is full (${CONFIG.maxCategories} categories).`);
         const cat = { id: clean(a.id, 20) || newId('c'), name, by: a.by, status: 'generating', source: null, clues: [] };
         S.categories.push(cat);
         S.memory.cats = [name, ...S.memory.cats.filter(n => n.toLowerCase() !== name.toLowerCase())].slice(0, CONFIG.memoryCats);
-        log(`${nameOf(a.by)} added "${name}" · searching…`);
+        log(`${nameOf(a.by)} added "${name}"${isTurn ? ' (extra)' : ''} · searching…`);
+        if (isTurn) S.extra.i++;
+        lobbyCheck();
         return { catId: cat.id };
       }
       case 'generated': {
@@ -207,24 +255,26 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
         cat.clues = clues.map((q, i) => ({ clue: clean(q.clue, 400), answer: clean(q.answer, 80), alts: (Array.isArray(q.alts) ? q.alts : []).map(x => clean(x, 80)).filter(Boolean).slice(0, 4), value: CONFIG.values[i], used: false }));
         cat.status = 'ready'; cat.source = clean(a.source, 60);
         log(`"${cat.name}" ready · ${cat.source}${a.note ? ' · ' + clean(a.note, 80) : ''}`);
+        lobbyCheck();
         return;
       }
       case 'removeCategory': {
         if (S.phase !== 'lobby') return;
         const cat = S.categories.find(c => c.id === a.catId); if (!cat) return;
+        // Only your own, or anyone's if they've left; removing yours un-readies you so you can add another.
+        if (cat.by !== a.by && P(cat.by)?.connected) return err(`That's ${nameOf(cat.by)}'s category.`);
         S.categories = S.categories.filter(c => c !== cat);
+        S.ready = S.ready.filter(id => id !== cat.by);
         log(`${nameOf(a.by)} removed "${cat.name}"`);
+        lobbyCheck();
         return;
       }
-      case 'start': {
+      case 'ready': {
         if (S.phase !== 'lobby') return;
-        if (!S.categories.some(c => c.status === 'ready')) return err('Wait for at least one category to be ready.');
-        if (connected().length < CONFIG.minPlayers) return err(`Need at least ${CONFIG.minPlayers} players.`);
-        S.categories = S.categories.filter(c => c.status === 'ready');
-        S.players.forEach(p => { p.score = 0; p.judged = 0; });
-        S.picker = pick(connected()).id;
-        S.phase = 'board';
-        log(`game start · ${nameOf(S.picker)} picks first`);
+        if (a.ready === false) { S.ready = S.ready.filter(id => id !== a.by); return; }
+        if (!canReady(a.by)) return err('Add your category first.');
+        if (!S.ready.includes(a.by)) { S.ready.push(a.by); log(`${nameOf(a.by)} is ready`); }
+        lobbyCheck();
         return;
       }
 
@@ -235,13 +285,15 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
         if (a.by !== S.picker && !pickerAway) return;
         const cat = S.categories.find(c => c.id === a.catId); const q = cat?.clues[a.idx];
         if (!q || q.used) return;
+        const judge = S.judge && S.judge !== a.by && P(S.judge)?.connected ? S.judge : chooseJudge(a.by);
+        if (!judge) return err('Need someone else here to judge.');
         q.used = true;
         S.memory.used = [...S.memory.used.filter(id => id !== clueId(cat.name, q.answer)), clueId(cat.name, q.answer)].slice(-CONFIG.memoryAnswers);
         S.picker = a.by;
+        S.judge = judge; P(judge).judged++;
         S.round++;
         S.current = { catId: cat.id, idx: a.idx };
         S.buzz = emptyBuzz();
-        S.judge = chooseJudge(a.by);
         S.holding = false; S.answerDeadline = null; S.lastResult = null;
         S.phase = 'reading';
         log(`${nameOf(a.by)} picks ${cat.name} for ${q.value} · ${nameOf(S.judge)} reads and judges`);

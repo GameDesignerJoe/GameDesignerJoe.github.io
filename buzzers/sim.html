@@ -73,7 +73,9 @@ function changed() {
 }
 
 function roleOf(s, id) {
+  if (s.phase === 'lobby') return s.ready.includes(id) ? 'ready' : '';
   if (s.phase === 'board' && s.picker === id) return 'picking';
+  if (s.phase === 'board' && s.judge === id) return 'judges next';
   if (s.phase === 'reading' && s.judge === id) return 'reading';
   if (['buzz', 'answering'].includes(s.phase) && s.judge === id) return 'judge';
   if (s.phase === 'answering' && s.buzz.winner === id) return 'answering';
@@ -107,7 +109,15 @@ function botTick() {
   const s = S();
   const others = s.players.filter(p => p.id !== held);
   const once = (key, ms, fn) => { if (busy[key]) return; busy[key] = true; bt(ms, () => { delete busy[key]; fn(); }); };
-  if (s.phase === 'lobby') others.forEach(p => { if (!s.categories.some(c => c.by === p.id)) once('lobby' + p.id, rnd(800, 2500), () => { const name = pickOne(Object.keys(BANK).filter(k => !S().categories.some(c => c.name === k))); if (name && S().phase === 'lobby' && !S().categories.some(c => c.by === p.id)) game.dispatch({ type: 'addCategory', by: p.id, id: newId('c'), name }); }); });
+  if (s.phase === 'lobby') {
+    const freeName = () => pickOne(Object.keys(BANK).filter(k => !S().categories.some(c => c.name === k))) || ('Bot pick ' + newId());
+    others.forEach(p => {
+      if (!s.categories.some(c => c.by === p.id)) once('lobby' + p.id, rnd(800, 2500), () => { if (S().phase === 'lobby' && !S().categories.some(c => c.by === p.id)) game.dispatch({ type: 'addCategory', by: p.id, id: newId('c'), name: freeName() }); });
+      else if (!s.ready.includes(p.id)) once('ready' + p.id, rnd(600, 1500), () => game.dispatch({ type: 'ready', by: p.id, ready: true }));
+    });
+    const turn = s.extra ? s.extra.queue[s.extra.i % s.extra.queue.length] : null;
+    if (turn && turn !== held) once('extra' + s.extra.i, rnd(900, 1800), () => game.dispatch({ type: 'addCategory', by: turn, id: newId('c'), name: freeName() }));
+  }
   if (s.phase === 'board' && s.picker !== held) once('pick' + s.round, rnd(1200, 2200), () => { const t = S(); if (t.phase !== 'board') return; const cat = pickOne(t.categories.filter(c => c.clues.some(q => !q.used))); if (!cat) return; game.dispatch({ type: 'pickClue', by: t.picker, catId: cat.id, idx: cat.clues.findIndex(q => !q.used) }); });
   if (s.phase === 'reading' && s.judge !== held) {
     const q = s.categories.find(c => c.id === s.current.catId).clues[s.current.idx];

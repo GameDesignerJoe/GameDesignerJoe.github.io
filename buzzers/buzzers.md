@@ -32,9 +32,12 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 ## Design decisions (settled — don't relitigate without asking Joe)
 
 **Core loop**
-- Lobby: join by room code, pick name + color, add a category (anything, the sillier the better) or re-pick a past one. Each category gets 5 clues generated, ordered easy→hard, values 200/400/600/800/1000.
-- Random player picks first. Everyone sees the board; only the picker's tiles are tappable, others see a dimmed "Sarah is picking" board.
-- Whoever answers correctly picks next. If nobody gets it, same picker.
+- Lobby: join by room code, pick name + color. **Everyone adds exactly one category** (anything, the sillier the better, or a past one), then taps **Ready**. The game can't start until everyone in the room is ready (a locked phone still counts; clear an empty seat with ×).
+- If the board has fewer than 5 categories once everyone is ready, random players take turns (cycling, nobody gets a second before everyone has had one) adding one more until there are 5. **The game starts by itself** once all clues are in. Board caps at 6; players after the 6th category just tap Ready. (Joe, 2026-11-09.)
+- Each category gets 5 clues generated, ordered easy→hard, values 200/400/600/800/1000.
+- Random player picks first. The judge for that pick is chosen as the turn starts and shown on the board ("Joe picks · Griffin judges"). Everyone sees the board; only the picker's tiles are tappable, others see a dimmed "Sarah is picking" board.
+- **3+ players:** whoever answers correctly picks next; if nobody gets it, same picker.
+- **2 players:** picking alternates every clue, right or wrong. (Joe, 2026-11-09.)
 - Clues are written by the engine WITH their answers. Players never author answers.
 
 **No host, no generated audio**
@@ -42,8 +45,7 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 - No TTS. A human reads each clue aloud so the game works in a restaurant and people control volume. Sounds: a "go" ding when buzzers open, short stings, optional music bed, mute toggle on every phone. One phone (set before the room opens) owns music.
 
 **Reader/judge (per clue)**
-- On pick, a judge is assigned: anyone but the picker, fewest judge turns so far, tie random. The judge sits out this clue.
-- **3 or fewer players: the picker reads and judges their own pick** (`CONFIG.pickerJudgesAtOrBelow`).
+- A judge is assigned when the picker's turn starts: **never the picker**, fewest judge turns so far, tie random. The judge sits out this clue; the picker plays (buzzes) like everyone else. In a 2-player game that means the non-picker always judges.
 - Judge's phone shows only a **Hold to reveal** button: clue text is visible only while held; **releasing** opens the buzzers and dings. The answer is **never** on screen before or while reading.
 - After release, the judge sees a **Reveal answer** button. Tapping it shows the accepted answer + alternates, with smaller **Correct** / **Incorrect** buttons inside that box (disabled until someone buzzes). Stays revealed through steals. "Revealed" is that phone's own view state, not reducer state.
 - Judge can **Re-read** (closes buzzers, back to Hold to reveal) until the first press.
@@ -76,7 +78,7 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 The game is one reducer over a single state object `S` (`game.js`). It runs in exactly one place per room — the Cloudflare Durable Object — and phones send actions up and get state back. `sim.html` runs the same reducer locally with bots. Keep the reducer free of DOM/network/sound so it stays portable.
 
 - Phones never see what they shouldn't: `viewFor(S, pid)` blanks unused clues, hides the current clue from non-judges until buzzers open and its answer until reveal. (The phone that *added* a category does fetch its clues from `/api/generate` and forwards them, so its devtools could see them. Accepted for now; moving generation server-side would need the Groq key as a wrangler secret.)
-- Server actions: `join`, `presence` (server-only). Phone actions: `addCategory, generated, removeCategory, kick, start, pickClue, holdStart, holdEnd{at}, reread, press{at}, rule{right}, end, again, clock`. Internal: open, resolveBuzz, nobody, reveal, advance, away.
+- Server actions: `join`, `presence` (server-only). Phone actions: `addCategory, generated, removeCategory, ready{ready}, kick, pickClue, holdStart, holdEnd{at}, reread, press{at}, rule{right}, end, again, clock`. Internal: lobbyCheck/begin, open, resolveBuzz, nobody, reveal, advance, away.
 - Phases: `lobby → board → reading → buzz → answering → reveal → board … → over`
 - `S.sfx = {n, kind}` bumps when a sting should play (buzz/right/wrong/nobody); phones play when `n` changes. The ding is scheduled locally at `buzz.openAt`.
 - All timings and rule knobs live in `CONFIG` at the top of `game.js`. Client-only knobs (`partyHost`, clock pings) in `CLIENT` in `index.html`; bot knobs in `SIM` in `sim.html`.
@@ -88,7 +90,7 @@ The game is one reducer over a single state object `S` (`game.js`). It runs in e
 3. **Fair buzzing** ✅ built, tested with scripted clients (a press that's earlier on the synced clock wins even when it arrives later). Debug page built. *Still to do on test night:* two people mashing ten times with `debug.html` open; check offsets look sane on real networks.
 4. **Memory** ✅ room-storage version (room code = group). Not built: a separate "group name" independent of room code, if that turns out to matter.
 5. **Sound** — partly: ding at synced open, stings for buzz/right/wrong/nobody/out-of-time (synthesised, no files), mute on every phone, iOS unlock on Join and on first tap. **Not built:** music bed on one phone (needs a music file and a "music phone" choice in the lobby).
-6. **Test-night hardening** — built: rejoin, re-read, three-player rule, standings game-over screen with Play again, End game button, away picker/judge handover. **Next:** a Friday with four humans and the debug log open.
+6. **Test-night hardening** — built: rejoin, re-read, standings game-over screen with Play again, End game button, away picker/judge handover. 2026-11-09 solo playtest (PC windows + phone) went well; changes from it: picker never judges, 2-player pick alternation, one-category-each + Ready lobby with top-up to 5. **Next:** a session with a few other people and the debug log open.
 
 ## Known gaps / not verified
 
