@@ -18,7 +18,7 @@ Owner: Joe Morrissey. Game designer, not a full-time engineer. Works from iPhone
 | `index.html` | **The real phone.** Join screen, WebSocket to the room, clock sync, sounds. |
 | `sim.html` | One-screen flow tester: same rules and screens, bots play the other phones, 2–12 players. |
 | `debug.html` | Watch-only view of a room: server log with ms timestamps, every press (synced ms + arrival ms + rtt), each phone's clock offset. `debug.html?room=ABCD`. |
-| `party/server.js` | Worker + Durable Object room: owns state, runs the reducer, sends each phone its redacted view, persists to room storage. |
+| `party/server.js` | Worker + Durable Object room: owns state, runs the reducer, sends each phone its redacted view, persists to room storage. Sockets use the **Hibernation API** (`ctx.acceptWebSocket`): an idle room costs nothing even with phones connected. Never go back to `ws.accept()`: that bills every second a tab is open, and a few left-open tabs blew the free plan's daily Durable Objects duration limit (13,000 GB-s, about 28 room-hours) on 2026-11-09. |
 | `api/generate.js` | Vercel function → Groq `openai/gpt-oss-120b`, 5 clues for a category. |
 
 GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no `/api`, so only our own (`BANK`) categories work there; anything typed is bounced with "The clue writer isn't on this site". **Play at https://buzzers-rho.vercel.app/** (the portfolio tile links there). Checked 2026-11-09: page and `/api/generate` → Groq both working.
