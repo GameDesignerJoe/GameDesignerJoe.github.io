@@ -16,7 +16,7 @@ Owner: Joe Morrissey. Game designer, not a full-time engineer. Works from iPhone
 | `ui.js` | Phone screens (`renderPhone`/`wirePhone`), WebAudio sounds, `/api/generate` call + canned fallback bank. |
 | `style.css` | Shared look. |
 | `index.html` | **The real phone.** Join screen, WebSocket to the room, clock sync, sounds. |
-| `sim.html` | One-screen flow tester: same rules and screens, bots play the other phones, 2–6 players. |
+| `sim.html` | One-screen flow tester: same rules and screens, bots play the other phones, 2–12 players. |
 | `debug.html` | Watch-only view of a room: server log with ms timestamps, every press (synced ms + arrival ms + rtt), each phone's clock offset. `debug.html?room=ABCD`. |
 | `party/server.js` | Worker + Durable Object room: owns state, runs the reducer, sends each phone its redacted view, persists to room storage. |
 | `api/generate.js` | Vercel function → Groq `openai/gpt-oss-120b`, 5 clues for a category. |
@@ -26,7 +26,7 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 ## Deploying / running
 
 - **Pages + clue API:** push to `main` → Vercel.
-- **Room server:** from `buzzersparty` on the PC: `npm install` (first time), `npx wrangler login` (first time, Cloudflare sign-in), `npx wrangler deploy`. Only needed when `game.js` or `party/server.js` change. `game.js` is shared, so a rules change needs **both** a push and a wrangler deploy. `party/.npmrc` forces the HTTPS npm registry: the global npmrc (http registry + prefer-offline) serves stale package lists.
+- **Room server:** from `buzzers\party` on the PC: `npm install` (first time), `npx wrangler login` (first time, Cloudflare sign-in), `npx wrangler deploy`. Only needed when `game.js` or `party/server.js` change. `game.js` is shared, so a rules change needs **both** a push and a wrangler deploy. `party/.npmrc` forces the HTTPS npm registry: the global npmrc (http registry + prefer-offline) serves stale package lists.
 - **Local, including real phones on the same Wi-Fi:** in `buzzers\party`: `npm run dev` (wrangler dev on :1999); in `buzzers`: `python -m http.server 8000`. Open `http://<PC LAN IP>:8000/` on phones; on localhost or a LAN IP the pages use that machine's `:1999` automatically. No `/api` locally → canned clues. Override the room server with `?party=host:port`.
 
 ## Design decisions (settled — don't relitigate without asking Joe)
@@ -36,13 +36,16 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 - Three two-way toggles (defaults first):
   - **Scoring:** Misses cost points / No penalty.
   - **Who picks:** Winner picks next / Round robin (seat order, every clue).
-  - **Board:** 1 category each / Up to 6 total (anyone adds any number until the board has 6; no top-up to 5).
+  - **Big groups:** Max 6 categories / 1 per player. Only matters with 7+ players (see Core loop). Up to 6 players, both modes play the same.
 - **2-player games always alternate the pick**, even on Winner picks next (otherwise one person would judge the whole game).
 - Settings live in `SETTINGS` / `DEFAULT_SETTINGS` in `game.js`; add a toggle there and both the join screen and lobby pick it up.
 
 **Core loop** (as on the default settings)
-- Lobby: join by room code, pick name + color. **Everyone adds exactly one category** (anything, the sillier the better, or a past one), then taps **Ready**. The game can't start until everyone in the room is ready (a locked phone still counts; clear an empty seat with ×).
-- If the board has fewer than 5 categories once everyone is ready, random players take turns (cycling, nobody gets a second before everyone has had one) adding one more until there are 5. **The game starts by itself** once all clues are in. Board caps at 6; players after the 6th category just tap Ready. (Joe, 2026-11-09.)
+- Join screen: name + room code only. **Color is picked in the lobby**, where colors other players hold are greyed out with their initial; tap any free one to switch, and your old one frees up. You arrive with your last-used color if it's free, otherwise the first free one. Returning to your seat keeps your color. Colors lock when the game starts. (Joe, 2026-11-09.)
+- Lobby: **Everyone adds exactly one category** (anything, the sillier the better, or a past one), then taps **Ready**. The game can't start until everyone in the room is ready (a locked phone still counts; clear an empty seat with ×).
+- If the board has fewer than **6** categories once everyone is ready, random players take turns (cycling, nobody gets a second before everyone has had one) adding one more until there are 6. Nobody can add a second category before that, so one person can't fill the board before others join. **The game starts by itself** once all clues are in. (Joe, 2026-11-09.)
+- **7+ players, Max 6 categories:** the board stops at 6; players after the 6th category don't add one, they just tap Ready. 6 × 5 rows = 30 questions.
+- **7+ players, 1 per player:** every player adds one, and the easiest rows are dropped so the board stays near 30 questions: rows = round(30 ÷ categories), kept between 3 and 5 (`rowsFor` in `game.js`). 7–8 players → 4 rows (400–1000), 9–12 → 3 rows (600–1000). 10 players = 30 questions, 12 = 36. **Rooms cap at 12 players.** Boards over 6 columns use sideways headers to fit a phone in portrait and show "Turn your phone sideways for a bigger board"; in landscape the board uses the full screen width with normal headers (12 columns ≈ 60 px each on an iPhone). Pinch-zoom is deliberately not relied on.
 - Each category gets 5 clues generated, ordered easy→hard, values 200/400/600/800/1000.
 - Random player picks first. The judge for that pick is chosen as the turn starts and shown on the board ("Joe picks · Griffin judges"). Everyone sees the board; only the picker's tiles are tappable, others see a dimmed "Sarah is picking" board.
 - **3+ players, Winner picks next:** whoever answers correctly picks next; if nobody gets it, same picker. **Round robin:** next in seat order every clue.
@@ -112,7 +115,7 @@ Ideas we want but haven't built. Not settled design: ask Joe before picking one 
 The game is one reducer over a single state object `S` (`game.js`). It runs in exactly one place per room — the Cloudflare Durable Object — and phones send actions up and get state back. `sim.html` runs the same reducer locally with bots. Keep the reducer free of DOM/network/sound so it stays portable.
 
 - Phones never see what they shouldn't: `viewFor(S, pid)` blanks unused clues, hides the current clue from non-judges until buzzers open and its answer until reveal. (The phone that *added* a category does fetch its clues from `/api/generate` and forwards them, so its devtools could see them. Accepted for now; moving generation server-side would need the Groq key as a wrangler secret.)
-- Server actions: `join` (first joiner becomes host; their `settings` apply), `presence` (server-only). Phone actions: `addCategory, generated, removeCategory, ready{ready}, settings{settings} (host, lobby), kick, pickClue, holdStart, holdEnd{at}, reread, press{at}, rule{right}, end, again, clock`. Internal: lobbyCheck/begin, open, resolveBuzz, nobody, reveal, advance, away.
+- Server actions: `join` (first joiner becomes host; their `settings` apply), `presence` (server-only). Phone actions: `addCategory, generated, removeCategory, ready{ready}, settings{settings} (host, lobby), color{color} (lobby, must be free), kick, pickClue, holdStart, holdEnd{at}, reread, press{at}, rule{right}, end, again, clock`. Internal: lobbyCheck/begin, open, resolveBuzz, nobody, reveal, advance, away.
 - Phases: `lobby → board → reading → buzz → answering → reveal → board … → over`
 - `S.sfx = {n, kind}` bumps when a sting should play (buzz/right/wrong/nobody); phones play when `n` changes. The ding is scheduled locally at `buzz.openAt`.
 - All timings and rule knobs live in `CONFIG` at the top of `game.js`. Client-only knobs (`partyHost`, clock pings) in `CLIENT` in `index.html`; bot knobs in `SIM` in `sim.html`.
@@ -120,15 +123,15 @@ The game is one reducer over a single state object `S` (`game.js`). It runs in e
 ## Build plan — in order, each independently testable
 
 1. **Real clues** ✅ `/api/generate` → Groq.
-2. **Rooms** ✅ built and tested locally (2026-11-08): room server, join screen, redacted state per phone, refresh/rejoin, sim kept as `sim.html`. Deployed 2026-11-09 to https://buzzers.gamedesignerjoe.workers.dev (scripted 4-phone test passes against it). **Not yet tried on real phones.** *Done when* a phone and a laptop tab in the same room both see the board change when one picks.
+2. **Rooms** ✅ built and tested locally (2026-11-08): room server, join screen, redacted state per phone, refresh/rejoin, sim kept as `sim.html`. Deployed 2026-11-09 to https://buzzers.gamedesignerjoe.workers.dev (scripted 4-phone test passes against it). 2026-11-09: Joe's phone and PC played in the same room through the hosted server. *Done.*
 3. **Fair buzzing** ✅ built, tested with scripted clients (a press that's earlier on the synced clock wins even when it arrives later). Debug page built. *Still to do on test night:* two people mashing ten times with `debug.html` open; check offsets look sane on real networks.
 4. **Memory** ✅ room-storage version (room code = group). Not built: a separate "group name" independent of room code, if that turns out to matter.
 5. **Sound** — partly: ding at synced open, stings for buzz/right/wrong/nobody/out-of-time (synthesised, no files), mute on every phone, iOS unlock on Join and on first tap. **Not built:** music bed on one phone (needs a music file and a "music phone" choice in the lobby).
-6. **Test-night hardening** — built: rejoin, re-read, standings game-over screen with Play again, End game button, away picker/judge handover. 2026-11-09 solo playtest (PC windows + phone) went well; changes from it: picker never judges, 2-player pick alternation, one-category-each + Ready lobby with top-up to 5. **Next:** a session with a few other people and the debug log open.
+6. **Test-night hardening** — built: rejoin, re-read, standings game-over screen with Play again, End game button, away picker/judge handover. 2026-11-09 solo playtest (PC windows + phone) went well; changes from it: picker never judges, 2-player pick alternation, one-category-each + Ready lobby with top-up to 6, host settings, big-group row trimming up to 12 players, lobby color picker, landscape board. **Next:** a session with a few other people and the debug log open.
 
 ## Known gaps / not verified
 
-- Nothing has run on an iPhone yet: audio unlock, socket recovery after screen lock, hold-button feel.
+- Only a solo phone + PC test so far (2026-11-09). Not yet checked with a group: audio unlock on every phone, socket recovery after screen lock, hold-button feel, buzz fairness on real networks.
 - Room server restart mid-clue: state restores from storage and timers re-arm (tested locally by killing `wrangler dev` mid-answer). Not tested on the hosted service.
 - If **everyone** drops at once (all screens locked), nothing is handed over until someone is back; then the missing picker/judge gets a fresh 8 s.
 - Judge disconnects mid-hold: holding resets; the 8 s handover only kicks in if they don't return.
