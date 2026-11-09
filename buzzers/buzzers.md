@@ -36,16 +36,13 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 - Three two-way toggles (defaults first):
   - **Scoring:** Misses cost points / No penalty.
   - **Who picks:** Winner picks next / Round robin (seat order, every clue).
-  - **Big groups:** Max 6 categories / 1 per player. Only matters with 7+ players (see Core loop). Up to 6 players, both modes play the same.
+  - **Board:** 1 category each / Up to 6 total (anyone adds any number until the board has 6; no top-up to 5).
 - **2-player games always alternate the pick**, even on Winner picks next (otherwise one person would judge the whole game).
 - Settings live in `SETTINGS` / `DEFAULT_SETTINGS` in `game.js`; add a toggle there and both the join screen and lobby pick it up.
 
 **Core loop** (as on the default settings)
-- Join screen: name + room code only. **Color is picked in the lobby**, where colors other players hold are greyed out with their initial; tap any free one to switch, and your old one frees up. You arrive with your last-used color if it's free, otherwise the first free one. Returning to your seat keeps your color. Colors lock when the game starts. (Joe, 2026-11-09.)
-- Lobby: **Everyone adds exactly one category** (anything, the sillier the better, or a past one), then taps **Ready**. The game can't start until everyone in the room is ready (a locked phone still counts; clear an empty seat with ×).
-- If the board has fewer than **6** categories once everyone is ready, random players take turns (cycling, nobody gets a second before everyone has had one) adding one more until there are 6. Nobody can add a second category before that, so one person can't fill the board before others join. **The game starts by itself** once all clues are in. (Joe, 2026-11-09.)
-- **7+ players, Max 6 categories:** the board stops at 6; players after the 6th category don't add one, they just tap Ready. 6 × 5 rows = 30 questions.
-- **7+ players, 1 per player:** every player adds one, and the easiest rows are dropped so the board stays near 30 questions: rows = round(30 ÷ categories), kept between 3 and 5 (`rowsFor` in `game.js`). 7–8 players → 4 rows (400–1000), 9–12 → 3 rows (600–1000). 10 players = 30 questions, 12 = 36. **Rooms cap at 12 players.** Boards over 6 columns use sideways headers to fit a phone in portrait and show "Turn your phone sideways for a bigger board"; in landscape the board uses the full screen width with normal headers (12 columns ≈ 60 px each on an iPhone). Pinch-zoom is deliberately not relied on.
+- Lobby: join by room code, pick name + color. **Everyone adds exactly one category** (anything, the sillier the better, or a past one), then taps **Ready**. The game can't start until everyone in the room is ready (a locked phone still counts; clear an empty seat with ×).
+- If the board has fewer than 5 categories once everyone is ready, random players take turns (cycling, nobody gets a second before everyone has had one) adding one more until there are 5. **The game starts by itself** once all clues are in. Board caps at 6; players after the 6th category just tap Ready. (Joe, 2026-11-09.)
 - Each category gets 5 clues generated, ordered easy→hard, values 200/400/600/800/1000.
 - Random player picks first. The judge for that pick is chosen as the turn starts and shown on the board ("Joe picks · Griffin judges"). Everyone sees the board; only the picker's tiles are tappable, others see a dimmed "Sarah is picking" board.
 - **3+ players, Winner picks next:** whoever answers correctly picks next; if nobody gets it, same picker. **Round robin:** next in seat order every clue.
@@ -88,35 +85,26 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 Ideas we want but haven't built. Not settled design: ask Joe before picking one up. Roughly grouped, not ordered.
 
 **Gameplay**
-- Hint button that halves the clue's points.
 - Daily-Double-style wagers on a hidden tile.
-- "Phone a friend" clue: buzzer names a helper, both score.
-- Underdog picks the difficulty for the leader; if the leader misses, the underdog gets the points.
-- Final round with secret bets.
+- "Phone a friend" When a question is drawn, this can get pulled once per game. The person who drew it picks another player to answer the question. Only they can answer it. If they get it right, both score. Judge can not be picked.
+- "Underdog" When a question is drawn, this can get pulled once per game. The person who drew the question, picks another player to answer the question. Only they can answer the question. If they get it right, that person they picked gets the points and it's their turn. If they get it wrong, the points they would have gotten go to the original player. 
+
 
 **Settings to consider**
-- Answer countdown length (5 s now), buzz timeout (6 s), number of categories to top up to (6).
-- A "picker can judge" option for very small games.
+- Remove countdown, x2 the countdown length.
+- Hard Mode: All questions are really hard to incredibly difficult.
 
 **Sound and feel**
 - Music bed on one "music phone" (needs a music file and a lobby choice of which phone).
 - Haptics where the platform allows (not iOS Safari).
 
-**Category library (Joe's big idea, 2026-11-09)**
-Every category any group creates is saved to one shared library on our server. When someone adds a category, we look in the library first and only call Groq on a miss, so popular categories start instantly and cost nothing, and the library grows with play. Pieces, roughly in build order:
-1. **Generate on the server and save everything.** The room server (not a phone) checks the library, calls Groq on a miss (key as a Cloudflare secret), and stores the category plus every question individually (difficulty tier, answer, alts, model, date). Reuse on exact or near-exact names ("Spy Movies" / "spy movie"). Groups still never repeat a question they've seen; once they've seen everything stored for a category, generate 5 more and add them, so busy categories deepen over time.
-2. **Suggest as you type.** The category box autocompletes from the library ("spy" → Spy Movies, Spy Novels…). Players steer themselves onto stored categories, which is the cheapest kind of "similar" match. The Ideas chips become "Popular" from the library.
-3. **Meaning-level matching.** Embeddings (e.g. Cloudflare Workers AI + Vectorize) so "espionage films" finds Spy Movies. Close matches reuse automatically; looser ones ask: "Use Spy Movies?"
-4. **Let play tune the library.** Track how often each question is answered right, wrong, or not at all, and re-rank difficulty from real results. A small "flag this question" on the reveal screen retires bad ones.
-5. **Seed it.** Pre-generate and check about 100 questions for each launch category so day one isn't empty.
-Things to decide before building: privacy (inside-joke categories about real people shouldn't surface for strangers; one idea is only suggesting categories used by several different rooms), content moderation for anything shown to other groups, wrong facts being reused instead of one-off (hence flagging), and time-sensitive categories going stale (store dates, refresh).
-
 **Groups and memory**
+- We store all categories across all players that we've generated in a db. A subset of these get pulled as possibble categories to pick from. 
+- Connected to the one above, but a bigger goal is I want to find a way to make money off of this. Right now, I'm spending money every time someone types in a new catergory. My thought is to create a fairly large list of topics that players can pick from, likely sorted into categories. Think Heads Up and what they do. These are free. However, you can type in your own categories as well, but this cost money. I would give the player a certain amount of catergories for like a $1. Something that would still return me x10-x100 on the dollar. "Five categories for $1. So it covers my Groq cost and still makes me some cash. I could also offer packs that I've already created for some amount of money as well. "$1 for 50 a scifi and fantasy" questions or something like that. So, I'd like us to think about how we could figure that side of things out here too. 
 - A group name that keeps memory across different room codes.
 - Game history / stats per group.
 
 **Tech**
-- Generate clues on the room server (Groq key as a Cloudflare secret) so no phone ever holds answers it shouldn't. (Step 1 of the category library.)
 - Let the deploy run without a human (permission rule for `npx wrangler deploy`).
 
 ## Architecture
@@ -136,7 +124,7 @@ The game is one reducer over a single state object `S` (`game.js`). It runs in e
 3. **Fair buzzing** ✅ built, tested with scripted clients (a press that's earlier on the synced clock wins even when it arrives later). Debug page built. *Still to do on test night:* two people mashing ten times with `debug.html` open; check offsets look sane on real networks.
 4. **Memory** ✅ room-storage version (room code = group). Not built: a separate "group name" independent of room code, if that turns out to matter.
 5. **Sound** — partly: ding at synced open, stings for buzz/right/wrong/nobody/out-of-time (synthesised, no files), mute on every phone, iOS unlock on Join and on first tap. **Not built:** music bed on one phone (needs a music file and a "music phone" choice in the lobby).
-6. **Test-night hardening** — built: rejoin, re-read, standings game-over screen with Play again, End game button, away picker/judge handover. 2026-11-09 solo playtest (PC windows + phone) went well; changes from it: picker never judges, 2-player pick alternation, one-category-each + Ready lobby with top-up to 6, host settings, big-group row trimming up to 12 players. **Next:** a session with a few other people and the debug log open.
+6. **Test-night hardening** — built: rejoin, re-read, standings game-over screen with Play again, End game button, away picker/judge handover. 2026-11-09 solo playtest (PC windows + phone) went well; changes from it: picker never judges, 2-player pick alternation, one-category-each + Ready lobby with top-up to 5. **Next:** a session with a few other people and the debug log open.
 
 ## Known gaps / not verified
 
