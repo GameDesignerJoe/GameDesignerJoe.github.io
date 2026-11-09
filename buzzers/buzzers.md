@@ -26,7 +26,7 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 ## Deploying / running
 
 - **Pages + clue API:** push to `main` → Vercel.
-- **Room server:** from `buzzers\party` on the PC: `npm install` (first time), `npx wrangler login` (first time, Cloudflare sign-in), `npx wrangler deploy`. Only needed when `game.js` or `party/server.js` change. `game.js` is shared, so a rules change needs **both** a push and a wrangler deploy. `party/.npmrc` forces the HTTPS npm registry: the global npmrc (http registry + prefer-offline) serves stale package lists.
+- **Room server:** from the repo root, `npm --prefix buzzers/party run deploy` (Claude may run this without asking: allow rule in `.claude/settings.json`, added 2026-11-09). First time on a new PC: `npm install` and `npx wrangler login` in `buzzers\party`. Only needed when `game.js` or `party/server.js` change. `game.js` is shared, so a rules change needs **both** a push and a wrangler deploy. `party/.npmrc` forces the HTTPS npm registry: the global npmrc (http registry + prefer-offline) serves stale package lists.
 - **Local, including real phones on the same Wi-Fi:** in `buzzers\party`: `npm run dev` (wrangler dev on :1999); in `buzzers`: `python -m http.server 8000`. Open `http://<PC LAN IP>:8000/` on phones; on localhost or a LAN IP the pages use that machine's `:1999` automatically. No `/api` locally → typed categories get placeholder clues (labelled "placeholder clues"); add `&placeholders=0` to the page URL to test the real bounce-back instead. Override the room server with `?party=host:port`.
 
 ## Design decisions (settled — don't relitigate without asking Joe)
@@ -107,9 +107,6 @@ Ideas we want but haven't built. Not settled design: ask Joe before picking one 
 - Connected to the one above, but a bigger goal is I want to find a way to make money off of this. Right now, I'm spending money every time someone types in a new catergory. My thought is to create a fairly large list of topics that players can pick from, likely sorted into categories. Think Heads Up and what they do. These are free. However, you can type in your own categories as well, but this cost money. I would give the player a certain amount of catergories for like a $1. Something that would still return me x10-x100 on the dollar. "Five categories for $1. So it covers my Groq cost and still makes me some cash. I could also offer packs that I've already created for some amount of money as well. "$1 for 50 a scifi and fantasy" questions or something like that. So, I'd like us to think about how we could figure that side of things out here too. 
 - A group name that keeps memory across different room codes.
 - Game history / stats per group.
-
-**Tech**
-- Let the deploy run without a human (permission rule for `npx wrangler deploy`).
 
 ## Architecture
 
