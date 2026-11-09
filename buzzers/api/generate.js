@@ -39,7 +39,11 @@ Respond with JSON only:
 {"verdict":"ok"|"unknown"|"not_ok","reason":"one short sentence","clues":[{"clue":"...?","answer":"...","alts":["..."]}]}`;
 
 const RESEARCH = cat => `Search the web for trivia material about this category: "${cat}".
-Read several reliable pages (encyclopedias, official sites, reputable databases and news). Then list up to 15 facts that could each become a trivia question with ONE short answer (a name, title, number or place). Spread them across the topic, from well known to obscure. Write every specific detail (years, names, studios, places, numbers) exactly as the page states it.
+Read several reliable pages (encyclopedias, official sites, reputable databases, fan wikis for fiction). Then list up to 15 facts that could each become a fun party trivia question with ONE short answer that players can shout out: a name, a title, a character, a place, a thing. 
+- Spread across the WHOLE category: many different subjects (different games, films, people, places), never more than 2 facts about the same one, and from at least 4 different pages.
+- Mix well known (most people at a party could get it) with a few for real fans.
+- Answers should NOT be budgets, sales figures, exact dates or long numbers. At most 2 facts whose answer is a year or number.
+- Write every specific detail (years, names, studios, places) exactly as the page states it.
 Only facts you actually read on a page during this search. Nothing from memory. If the search finds nothing reliable about this exact subject (for example a private person, a small local thing, or an inside joke), list nothing.
 Format, one fact per line, exactly:
 F1 | <the fact, one sentence> | <short answer> | <source URL>
@@ -54,6 +58,8 @@ STEP 1 — answer "not_ok" if the category is hateful, sexual, or targets a real
 STEP 2 — only if "ok", write exactly ${N} questions, easiest first, hardest last, using ONLY the fact sheet.
 - Each question is built from one fact and gives its number in "fact". Every detail in the question (years, names, numbers) must be stated in that fact. Never add details from memory, even ones you think are true.
 - The answer must be that fact's answer (or the same thing said differently).
+- Pick the ${N} most fun facts, about ${N} different subjects (never two questions about the same film, game, person, etc.).
+- At most one question whose answer is a year or number. Never a full date or an amount of money.
 ${RULES}
 
 Respond with JSON only:
@@ -75,6 +81,9 @@ export function problem(q, category, others = []) {
   if (inClue(answer) || (q.alts || []).some(inClue)) return 'answer is given away in the question';
   if (a === cat || (a.length >= 3 && ` ${cat} `.includes(` ${a} `))) return 'answer is just the category name';
   if (others.some(o => norm(o) === a)) return 'same answer as another question';
+  if (/[$£€¥]|(million|billion|thousand)/i.test(answer)) return 'money or big number as the answer (not fun to shout)';
+  if (/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d|\d\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(answer)) return 'full date as the answer (too hard to get exactly)';
+  if (/^[\d.,\s]+$/.test(answer) && others.some(o => /^[\d.,\s]+$/.test(String(o)))) return 'already have a number/year question';
   return '';
 }
 
@@ -92,7 +101,7 @@ export function clean(list) {
   return (Array.isArray(list) ? list : []).map(c => ({
     clue: String(c?.clue || '').trim(),
     answer: String(c?.answer || '').trim(),
-    alts: Array.isArray(c?.alts) ? c.alts.map(String).map(s => s.trim()).filter(Boolean).slice(0, 4) : [],
+    alts: Array.isArray(c?.alts) ? [...new Set(c.alts.map(String).map(s => s.trim()).filter(x => x && norm(x) !== norm(c?.answer)))].slice(0, 4) : [],
     ...(c?.fact != null ? { fact: Number(c.fact) } : {}),
   }));
 }
@@ -115,8 +124,8 @@ export function sift(list, category, avoid = [], facts = null) {
 export function parseSheet(text) {
   const facts = [];
   for (const line of String(text || '').split('\n')) {
-    const m = line.replace(/\*\*/g, '').match(/^\s*[-*]?\s*F(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*<?(https?:\/\/[^\s|>)\]]+)/i);
-    if (m) facts.push({ n: Number(m[1]), text: m[2], answer: m[3], url: m[4] });
+    const m = line.replace(/\*\*/g, '').match(/^\s*[-*]?\s*F(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*<?(https?:\/\/[^\s|>\]]+)/i);
+    if (m) { let url = m[4]; while (url.endsWith(')') && (url.match(/\(/g) || []).length < (url.match(/\)/g) || []).length) url = url.slice(0, -1); facts.push({ n: Number(m[1]), text: m[2], answer: m[3], url }); }
   }
   const v = String(text || '').match(/VERDICT:\s*(ok|unknown)\s*\|?\s*(.*)/i);
   return { facts, verdict: v ? v[1].toLowerCase() : (facts.length ? 'ok' : 'unknown'), why: v?.[2]?.trim() || '' };
