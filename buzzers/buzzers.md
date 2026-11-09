@@ -84,7 +84,7 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 - **Old rooms reset themselves.** If nobody has been connected to a room for 2 hours (`roomIdleResetMs`), the next person to join gets a fresh lobby: no leftover seats, categories or half-finished game. The room's memory (used clues, Played before) is kept. Rooms from before this existed reset on their next join. (Joe, 2026-11-09.)
 
 **Dropped phones**
-- Refresh/relock → same seat (per-tab id in sessionStorage). Lost tab → same name on the same device takes the seat back; same name from a different device is refused while the seat is live, allowed once it's empty.
+- Refresh/relock → same seat (per-tab id **and name** in sessionStorage, so several tabs in one browser stay separate players; `bz.name` in localStorage only pre-fills the join screen). A new tab opened on a room link shows the pre-filled join screen rather than auto-joining. Lost tab → same name on the same device takes the seat back; same name from a different device is refused while the seat is live, allowed once it's empty.
 - A dropped picker or judge gets 8 s (`awayGraceMs`) to return, then someone else picks / judges. Empty seats can be cleared in the lobby (× on the name).
 
 

@@ -38,6 +38,7 @@ const store = {
 };
 let deviceKey = store.get('bz.key'); if (!deviceKey) { deviceKey = newId('d') + newId(); store.set('bz.key', deviceKey); }
 let pid = store.sget('bz.pid') || newId('p');           // per tab: two tabs on one laptop = two players
+let myName = store.sget('bz.myname');                   // per tab too: bz.name (shared by all tabs) only pre-fills the join screen
 let room = null, ws = null, S = null, conn = 'offline';
 let offset = 0, samples = [], syncTimer = null, retryMs = CLIENT.reconnectMs[0], retryTimer = null;
 let hold = false, revealedRound = -1, lockUntil = 0;
@@ -76,7 +77,7 @@ function showJoin() {
     if (!name) { $('#joinerr').textContent = 'Pick a name first.'; $('#name').focus(); return; }
     if (!code) { $('#joinerr').textContent = 'Type a room code, or start a new room.'; $('#code').focus(); return; }
     sound.unlock(); // iOS: audio only unlocks inside a tap
-    store.set('bz.name', name);
+    store.set('bz.name', name); store.sset('bz.myname', name); myName = name;
     join(code);
   };
   $('#joinform').onsubmit = e => { e.preventDefault(); go(cleanCode($('#code').value)); };
@@ -112,7 +113,7 @@ function connect() {
   const sock = ws = new WebSocket(`${wsProto}://${CLIENT.partyHost}/parties/main/${encodeURIComponent(room)}`);
   sock.onopen = () => {
     retryMs = CLIENT.reconnectMs[0];
-    send({ type: 'hello', pid, key: deviceKey, name: store.get('bz.name'), color: store.get('bz.color'), settings: mySettings });
+    send({ type: 'hello', pid, key: deviceKey, name: myName, color: store.get('bz.color'), settings: mySettings });
     syncClock(CLIENT.clockPings);
     clearInterval(syncTimer); syncTimer = setInterval(() => syncClock(3), CLIENT.resyncEveryMs);
   };
@@ -235,7 +236,9 @@ window.addEventListener('pointerdown', () => sound.unlock(), { once: true });
 
 // Refresh or shared link with ?room= and a saved name → straight back in.
 const startCode = cleanCode(qs.get('room'));
-if (startCode && store.get('bz.name')) join(startCode); else showJoin();
+// Auto-join only a tab that already joined (a refresh). A new tab on a room link shows the join screen,
+// pre-filled, so it can't silently take another tab's seat under the last-used name.
+if (startCode && myName) join(startCode); else showJoin();
 </script>
 </body>
 </html>
