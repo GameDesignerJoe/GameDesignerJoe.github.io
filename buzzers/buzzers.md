@@ -21,7 +21,7 @@ Owner: Joe Morrissey. Game designer, not a full-time engineer. Works from iPhone
 | `party/server.js` | Worker + Durable Object room: owns state, runs the reducer, sends each phone its redacted view, persists to room storage. |
 | `api/generate.js` | Vercel function → Groq `openai/gpt-oss-120b`, 5 clues for a category. |
 
-GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no `/api`, so only our own (`BANK`) categories work there; anything typed is bounced with "The clue writer isn't on this site". Use the Vercel URL. (Not yet written down here: what that URL is. `buzzers.vercel.app` answered 402 DEPLOYMENT_DISABLED on 2026-11-09, and it's unconfirmed whether that's Joe's project.)
+GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no `/api`, so only our own (`BANK`) categories work there; anything typed is bounced with "The clue writer isn't on this site". **Play at https://buzzers-rho.vercel.app/** (the portfolio tile links there). Checked 2026-11-09: page and `/api/generate` → Groq both working.
 
 ## Deploying / running
 
