@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Buzzers Sim</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { flex: 1 1 auto; min-width: 0; border: 2px solid var(--line); background: var(--stage); color: var(--ink); border-radius: 8px; padding: 8px 6px; font: 600 13px var(--body); cursor: pointer; display: flex; flex-direction: column; gap: 2px; align-items: center; }
+.tab .role { font: 500 10px var(--mono); color: var(--ink-dim); letter-spacing: .04em; text-transform: uppercase; min-height: 12px; }
+.tab.on { border-color: var(--gold); background: var(--board); }
+.simrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--ink-dim); }
+.simrow label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.simrow select { background: var(--bg); color: var(--ink); border: 1.5px solid var(--line); border-radius: 6px; padding: 3px; }
+.simrow button { margin-left: auto; }
+</style>
+</head>
+<body>
+<h1>Buzzers <small>sim · one screen, bots play the other phones</small></h1>
+<div class="tabs" id="tabs"></div>
+<div class="simrow">
+  <label><input type="checkbox" id="bots" checked> Other phones play themselves</label>
+  <label>Players <select id="count"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
+  <button class="btn ghost small" id="reset">New game</button>
+</div>
+<div class="phone" id="phone"></div>
+<details open><summary>Event log</summary><div class="log" id="log"></div></details>
+<div class="foot">Same rules (<code>game.js</code>) and screens (<code>ui.js</code>) as the real game, run locally. Tap a tab to pick up that phone; each tab sees only what that phone would. The real game is <code>index.html</code>; the room's live log is <code>debug.html</code>.</div>
+
+<script type="module">
+import { CONFIG, createGame, viewFor, newId } from './game.js';
+import { renderPhone, wirePhone, paint, tickSig, generateClues, sound, BANK, esc } from './ui.js';
+
+const SIM = {
+  readMs: [2200, 3800],    // how long a bot judge holds while "reading", scaled by clue length
+  botBuzzMs: [350, 1600],  // bot reaction after the open time
+  botSkipChance: 0.25,     // bot doesn't buzz at all
+  botRightChance: 0.65,    // bot judge rules Correct
+  names: [['Joe', '#f2c14e'], ['Sarah', '#4fc984'], ['Mike', '#5aa9ff'], ['Dana', '#e37fd1'], ['Ravi', '#ff8a4c'], ['Lou', '#b48cff']],
+};
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
+const $ = s => document.querySelector(s);
+
+let game, held, revealed = {}, botTimers = [], memory = null, lastSfx = null, dingFor = null, generating = new Set();
+const bt = (ms, fn) => botTimers.push(setTimeout(fn, ms));
+const S = () => game.state;
+
+function newGame() {
+  game?.stop(); botTimers.forEach(clearTimeout); botTimers = []; revealed = {}; generating = new Set();
+  game = createGame({ onChange: changed });
+  if (memory) S().memory = memory;
+  memory = S().memory;
+  const n = +$('#count').value;
+  SIM.names.slice(0, n).forEach(([name, color], i) => game.dispatch({ type: 'join', by: 'p' + (i + 1), name, color }));
+  held = 'p1';
+  game.dispatch({ type: 'clock', by: 'p1', offset: 0, rtt: 0 });
+}
+
+function changed() {
+  const s = S();
+  if (lastSfx !== null && s.sfx.n !== lastSfx) sound.play(s.sfx.kind); lastSfx = s.sfx.n;
+  if (s.phase === 'buzz' && dingFor !== s.buzz.openAt) { dingFor = s.buzz.openAt; setTimeout(() => { sound.play('ding'); draw(); }, Math.max(0, s.buzz.openAt - Date.now())); }
+  s.categories.filter(c => c.status === 'generating' && !generating.has(c.id)).forEach(async c => {
+    generating.add(c.id);
+    const avoid = s.memory.used.filter(id => id.startsWith(c.name.toLowerCase() + '|')).map(id => id.slice(c.name.length + 1));
+    const r = await generateClues(c.name, avoid);
+    game.dispatch({ type: 'generated', by: c.by, catId: c.id, clues: r.clues, source: r.source, note: r.note });
+  });
+  draw(); botTick();
+}
+
+function roleOf(s, id) {
+  if (s.phase === 'board' && s.picker === id) return 'picking';
+  if (s.phase === 'reading' && s.judge === id) return 'reading';
+  if (['buzz', 'answering'].includes(s.phase) && s.judge === id) return 'judge';
+  if (s.phase === 'answering' && s.buzz.winner === id) return 'answering';
+  if (s.phase === 'buzz' && s.buzz.guessed.includes(id)) return 'out';
+  return '';
+}
+
+function ctx() { const s = S(); return { now: Date.now(), hold: s.phase === 'reading' && s.judge === held && s.holding, revealed: revealed[held] === s.round, lockUntil: s.buzz.lockedUntil[held] || 0, muted: sound.muted }; }
+function draw() {
+  const s = S();
+  $('#tabs').innerHTML = s.players.map(p => `<button class="tab ${p.id === held ? 'on' : ''}" data-id="${p.id}"><span style="background:${p.color};width:10px;height:10px;border-radius:50%"></span><span>${esc(p.name)}</span><span class="role">${roleOf(s, p.id)}</span></button>`).join('');
+  $('#tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { held = b.dataset.id; draw(); botTick(); });
+  $('#log').innerHTML = s.log.slice().reverse().map(l => `<div><span>${new Date(l.t).toLocaleTimeString([], { hour12: false })}.${String(l.t % 1000).padStart(3, '0')}</span> ${esc(l.msg)}</div>`).join('');
+  const view = viewFor(s, held);
+  if (paint($('#phone'), renderPhone(view, held, ctx()))) wirePhone($('#phone'), view, held, handlers);
+}
+
+const handlers = {
+  send: a => { const r = game.dispatch({ ...a, by: held }); if (r?.error) alert(r.error); },
+  addCategory: name => handlers.send({ type: 'addCategory', id: newId('c'), name }),
+  press: () => game.dispatch({ type: 'press', by: held, at: Date.now() }),
+  hold: down => game.dispatch(down ? { type: 'holdStart', by: held } : { type: 'holdEnd', by: held, at: Date.now() }),
+  reveal: () => { revealed[held] = S().round; draw(); },
+  mute: () => { sound.unlock(); sound.toggle(); draw(); },
+};
+
+// ============================ BOTS ============================
+let busy = {};
+function botTick() {
+  if (!$('#bots').checked) return;
+  const s = S();
+  const others = s.players.filter(p => p.id !== held);
+  const once = (key, ms, fn) => { if (busy[key]) return; busy[key] = true; bt(ms, () => { delete busy[key]; fn(); }); };
+  if (s.phase === 'lobby') others.forEach(p => { if (!s.categories.some(c => c.by === p.id)) once('lobby' + p.id, rnd(800, 2500), () => { const name = pickOne(Object.keys(BANK).filter(k => !S().categories.some(c => c.name === k))); if (name && S().phase === 'lobby' && !S().categories.some(c => c.by === p.id)) game.dispatch({ type: 'addCategory', by: p.id, id: newId('c'), name }); }); });
+  if (s.phase === 'board' && s.picker !== held) once('pick' + s.round, rnd(1200, 2200), () => { const t = S(); if (t.phase !== 'board') return; const cat = pickOne(t.categories.filter(c => c.clues.some(q => !q.used))); if (!cat) return; game.dispatch({ type: 'pickClue', by: t.picker, catId: cat.id, idx: cat.clues.findIndex(q => !q.used) }); });
+  if (s.phase === 'reading' && s.judge !== held) {
+    const q = s.categories.find(c => c.id === s.current.catId).clues[s.current.idx];
+    const ms = rnd(...SIM.readMs) * Math.max(0.6, Math.min(1.6, q.clue.length / 60));
+    const j = s.judge;
+    once('read' + s.round + '|' + s.buzz.openAt, rnd(500, 1200), () => { game.dispatch({ type: 'holdStart', by: j }); bt(ms, () => game.dispatch({ type: 'holdEnd', by: j, at: Date.now() })); });
+  }
+  if (s.phase === 'buzz') others.forEach(p => {
+    if (p.id === s.judge || s.buzz.guessed.includes(p.id)) return;
+    once('buzz' + s.buzz.openAt + p.id, 0, () => { if (Math.random() < SIM.botSkipChance) return; const at = S().buzz.openAt + rnd(...SIM.botBuzzMs); bt(at - Date.now(), () => game.dispatch({ type: 'press', by: p.id, at: Date.now() })); });
+  });
+  if (s.phase === 'answering' && s.judge !== held) once('judge' + s.round + s.buzz.winner, rnd(1200, 2600), () => game.dispatch({ type: 'rule', by: S().judge, right: Math.random() < SIM.botRightChance }));
+  if (s.phase === 'over' && !others.length) return;
+}
+
+setInterval(() => { const sig = tickSig(S(), held, ctx()); if (sig !== draw.sig) { draw.sig = sig; draw(); } }, 100);
+window.addEventListener('pointerdown', () => sound.unlock(), { once: true });
+$('#reset').onclick = () => { newGame(); draw(); botTick(); };
+$('#count').onchange = $('#reset').onclick;
+$('#bots').onchange = botTick;
+newGame(); draw(); botTick();
+</script>
+</body>
+</html>

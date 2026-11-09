@@ -1,590 +1,233 @@
-<title>Buzzers Flow Sim</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<style>
-/* Layout: a sim deck on top (which phone you're holding), one phone screen below, event log at the bottom. Single-theme: this is a lit stage, dark by choice. */
-:root {
-  --bg: #0b0d1c;
-  --stage: #141838;
-  --board: #1c2566;
-  --tile: #27309a;
-  --tile-dim: #1a2050;
-  --ink: #f1efe6;
-  --ink-dim: #9aa0c4;
-  --gold: #f2c14e;
-  --buzz: #e5473c;
-  --ok: #4fc984;
-  --line: #2b336f;
-  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
-  --body: "IBM Plex Sans", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, monospace;
-  color-scheme: dark;
-}
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body);
-  padding-block: 12px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: flex; flex-direction: column; gap: 12px; max-width: 520px; margin-inline: auto;
-}
-h1 { font-family: var(--display); font-weight: 800; font-size: 28px; letter-spacing: .02em; margin: 0; text-transform: uppercase; }
-h1 small { font-family: var(--body); font-weight: 400; font-size: 12px; color: var(--ink-dim); letter-spacing: 0; text-transform: none; margin-left: 8px; }
-.deck { display: flex; flex-direction: column; gap: 8px; }
-.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-.tab {
-  flex: 1 1 auto; min-width: 0; border: 2px solid var(--line); background: var(--stage); color: var(--ink);
-  border-radius: 8px; padding: 8px 6px; font: 600 13px var(--body); cursor: pointer; display: flex; flex-direction: column; gap: 2px; align-items: center;
-}
-.tab .dot { width: 10px; height: 10px; border-radius: 50%; }
-.tab .role { font: 500 10px var(--mono); color: var(--ink-dim); letter-spacing: .04em; text-transform: uppercase; min-height: 12px; }
-.tab.on { border-color: var(--gold); background: var(--board); }
-.tab:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.simrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--ink-dim); }
-.simrow label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.simrow button { margin-left: auto; }
-.btn {
-  border: 0; border-radius: 8px; padding: 10px 14px; font: 600 14px var(--body); cursor: pointer; background: var(--tile); color: var(--ink);
-}
-.btn.gold { background: var(--gold); color: #1a1500; }
-.btn.ghost { background: transparent; border: 1.5px solid var(--line); color: var(--ink-dim); }
-.btn.ok { background: var(--ok); color: #05200f; }
-.btn.bad { background: var(--buzz); color: #fff; }
-.btn:disabled { opacity: .4; cursor: default; }
-.btn.small { padding: 6px 10px; font-size: 12px; }
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0d1c">
+<title>Buzzers</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="phone full" id="phone"></div>
 
-/* The phone */
-.phone {
-  background: var(--stage); border: 2px solid var(--line); border-radius: 22px; padding: 14px; min-height: 520px;
-  display: flex; flex-direction: column; gap: 12px; position: relative; overflow: hidden;
-}
-.phone .status { display: flex; justify-content: space-between; align-items: center; font: 500 11px var(--mono); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .06em; }
-.phone .status b { color: var(--ink); font-weight: 600; }
-.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; background: var(--board); font: 500 11px var(--mono); }
-.pill .dot { width: 8px; height: 8px; border-radius: 50%; }
-.eyebrow { font: 500 11px var(--mono); color: var(--ink-dim); letter-spacing: .08em; text-transform: uppercase; }
-.big { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: .02em; line-height: .95; text-wrap: balance; }
-.clue { font-size: 20px; line-height: 1.3; font-weight: 500; }
-.answer { font-family: var(--display); font-size: 34px; font-weight: 800; color: var(--gold); text-transform: uppercase; line-height: 1; }
-.alts { color: var(--ink-dim); font-size: 13px; }
-.grow { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
-.center { text-align: center; align-items: center; }
+<script type="module">
+// Buzzers — the real phone. The game runs on the PartyKit room server; this page sends actions up,
+// gets its own copy of the state down, and renders it. Rules and timings: game.js. Views: ui.js.
+import { CONFIG, newId } from './game.js';
+import { renderPhone, wirePhone, paint, tickSig, generateClues, sound, esc } from './ui.js';
 
-/* Lobby */
-.field { display: flex; gap: 6px; }
-.field input { flex: 1; min-width: 0; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 10px; font: 500 14px var(--body); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { border: 1.5px solid var(--line); background: transparent; color: var(--ink-dim); border-radius: 999px; padding: 5px 10px; font: 500 12px var(--body); cursor: pointer; }
-.catlist { display: flex; flex-direction: column; gap: 6px; }
-.catrow { display: flex; align-items: center; gap: 8px; background: var(--board); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
-.catrow .who { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.catrow .name { flex: 1; min-width: 0; font-weight: 600; }
-.catrow .state { font: 500 11px var(--mono); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .04em; }
-.catrow .state.ready { color: var(--ok); }
-.roster { display: flex; gap: 6px; flex-wrap: wrap; }
-
-/* Board */
-.board { display: grid; gap: 4px; flex: 1; }
-.board .cat { background: var(--board); border-radius: 6px; padding: 6px 4px; font-family: var(--display); font-weight: 700; font-size: 13px; text-transform: uppercase; text-align: center; line-height: 1.05; display: flex; align-items: center; justify-content: center; min-height: 44px; overflow-wrap: anywhere; }
-.board .val { background: var(--tile); border: 0; border-radius: 6px; color: var(--gold); font-family: var(--display); font-weight: 800; font-size: 22px; min-height: 44px; cursor: pointer; }
-.board .val:disabled { cursor: default; }
-.board .val.used { background: var(--tile-dim); color: transparent; }
-.board.passive .val { opacity: .55; }
-.board.passive .val.used { opacity: .3; }
-.scores { display: flex; gap: 6px; flex-wrap: wrap; }
-.score { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 8px; border-radius: 8px; background: var(--board); flex: 1; min-width: 60px; }
-.score .n { font: 600 11px var(--body); color: var(--ink-dim); display: flex; gap: 5px; align-items: center; }
-.score .v { font: 800 20px var(--display); font-variant-numeric: tabular-nums; }
-.score .v.neg { color: var(--buzz); }
-.score.me { outline: 2px solid var(--gold); }
-
-/* Buzzer */
-.buzzer {
-  flex: 1; border: 0; border-radius: 18px; background: var(--tile-dim); color: var(--ink-dim);
-  font-family: var(--display); font-size: 44px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; min-height: 220px; cursor: pointer;
-  transition: background .08s;
-}
-.buzzer.armed { background: var(--buzz); color: #fff; box-shadow: 0 0 0 6px rgba(229,71,60,.25); }
-.buzzer.locked { background: #3a1a1a; color: #a56; }
-.buzzer.hold { background: var(--board); color: var(--gold); font-size: 30px; min-height: 180px; touch-action: none; user-select: none; -webkit-user-select: none; padding: 16px; }
-.buzzer.hold.armed { background: var(--tile); color: var(--ink); box-shadow: 0 0 0 6px rgba(242,193,78,.25); }
-.buzzer.hold .clue { font-family: var(--body); text-transform: none; letter-spacing: 0; font-size: 20px; display: block; }
-.buzzer:disabled { cursor: default; }
-.wave { display: flex; gap: 4px; align-items: center; height: 36px; justify-content: center; }
-.wave i { width: 5px; background: var(--gold); border-radius: 3px; animation: wave .9s ease-in-out infinite; display: block; }
-.wave i:nth-child(2) { animation-delay: .1s } .wave i:nth-child(3) { animation-delay: .2s } .wave i:nth-child(4) { animation-delay: .3s } .wave i:nth-child(5) { animation-delay: .4s }
-@keyframes wave { 0%,100% { height: 8px } 50% { height: 34px } }
-@media (prefers-reduced-motion: reduce) { .wave i { animation: none; height: 20px } }
-.timer { font: 800 56px var(--display); color: var(--gold); font-variant-numeric: tabular-nums; line-height: 1; }
-.timer.low { color: var(--buzz); }
-.judgebox { background: var(--bg); border: 1.5px dashed var(--gold); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-.row2 { display: flex; gap: 8px; }
-.row2 .btn { flex: 1; padding: 16px; font-size: 18px; }
-.revealbtn { padding: 22px; font-family: var(--display); font-weight: 800; font-size: 26px; text-transform: uppercase; letter-spacing: .04em; border-radius: 14px; }
-.judgebox .row2 .btn { padding: 10px; font-size: 15px; }
-
-/* Log */
-details { border-top: 1px solid var(--line); padding-top: 8px; }
-summary { cursor: pointer; font: 500 12px var(--mono); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .06em; }
-.log { font: 400 11px var(--mono); color: var(--ink-dim); max-height: 160px; overflow: auto; margin-top: 8px; display: flex; flex-direction: column-reverse; gap: 2px; }
-.log span { color: var(--ink); }
-.foot { font-size: 11px; color: var(--ink-dim); line-height: 1.4; }
-.foot code { font-family: var(--mono); }
-</style>
-
-<h1>Buzzers <small>v0.1 · one phone, real clues, humans read</small></h1>
-
-<div class="deck">
-  <div class="tabs" id="tabs"></div>
-  <div class="simrow">
-    <label><input type="checkbox" id="bots" checked> Other phones play themselves</label>
-    <label><input type="checkbox" id="sound" checked> Ding</label>
-    <button class="btn ghost small" id="reset">New game</button>
-  </div>
-</div>
-
-<div class="phone" id="phone"></div>
-
-<details>
-  <summary>Event log</summary>
-  <div class="log" id="log"></div>
-</details>
-<div class="foot">Tap a tab to pick up that phone. With the box checked, the phones you aren't holding buzz, pick and judge on their own. Everything in <code>CONFIG</code> is tunable; the game logic is one reducer (<code>dispatch</code>) that would move to the server unchanged.</div>
-
-<script>
-// ============================ CONFIG ============================
-const CONFIG = {
-  liveGeneration: true,          // call /api/generate (Groq). false = canned clues only
-  values: [200, 400, 600, 800, 1000],
-  genDelayMs: [1500, 3500],      // fake "go search for questions" time per category
-  readMs: [2200, 3800],          // how long a bot judge holds while "reading", scaled by clue length
-  earlyLockoutMs: 250,           // buzz before the light = frozen this long
-  collectWindowMs: 200,          // wait for stragglers after first press
-  buzzTimeoutMs: 6000,           // nobody buzzes
-  answerSecs: 5,                 // out-loud answer window
-  revealMs: 2800,
-  botBuzzMs: [350, 1600],        // how fast bots react, uniform
-  botSkipChance: 0.25,           // bot doesn't buzz at all
-  botRightChance: 0.65,          // judge-bot rules "right"
-  players: [
-    { id: 'p1', name: 'Joe',   color: '#f2c14e', speaker: true },
-    { id: 'p2', name: 'Sarah', color: '#4fc984' },
-    { id: 'p3', name: 'Mike',  color: '#5aa9ff' },
-    { id: 'p4', name: 'Dana',  color: '#e37fd1' },
-  ],
-  // Canned "search results". Real version: one model call per category returns this shape.
-  bank: {
-    'Superheroes': [
-      { clue: 'This billionaire funds his night job with Wayne Enterprises.', answer: 'Batman', alts: ['Bruce Wayne', 'the Dark Knight'] },
-      { clue: 'Peter Parker shoots webs as this hero.', answer: 'Spider-Man', alts: ['Spidey'] },
-      { clue: 'This Asgardian\'s hammer is named Mjölnir.', answer: 'Thor', alts: [] },
-      { clue: 'Diana Prince is the alter ego of this Amazon.', answer: 'Wonder Woman', alts: [] },
-      { clue: 'T\'Challa rules this hidden nation.', answer: 'Wakanda', alts: [] },
-    ],
-    '90s Movies': [
-      { clue: 'Rose let go of Jack in this 1997 blockbuster.', answer: 'Titanic', alts: [] },
-      { clue: 'Life is like a box of chocolates, says this title character.', answer: 'Forrest Gump', alts: [] },
-      { clue: 'Vincent and Jules discuss royales with cheese in this Tarantino film.', answer: 'Pulp Fiction', alts: [] },
-      { clue: 'Neo takes the red pill in this 1999 film.', answer: 'The Matrix', alts: [] },
-      { clue: 'Kevin Spacey keeps a rose-petal fantasy in this 1999 Best Picture.', answer: 'American Beauty', alts: [] },
-    ],
-    'Dogs': [
-      { clue: 'This breed is nicknamed the "wiener dog".', answer: 'Dachshund', alts: [] },
-      { clue: 'Lassie was this long-haired herding breed.', answer: 'Collie', alts: ['Rough Collie'] },
-      { clue: 'Famously sled-pulling, this breed has a wolf-like look and blue eyes.', answer: 'Siberian Husky', alts: ['Husky'] },
-      { clue: 'The world\'s tallest breed, often called a gentle giant.', answer: 'Great Dane', alts: [] },
-      { clue: 'This Hungarian breed has a corded "mop" coat.', answer: 'Komondor', alts: ['Puli'] },
-    ],
-    'Space': [
-      { clue: 'The red planet.', answer: 'Mars', alts: [] },
-      { clue: 'This planet has the most visible ring system.', answer: 'Saturn', alts: [] },
-      { clue: 'Our galaxy.', answer: 'The Milky Way', alts: ['Milky Way'] },
-      { clue: 'The first human in space, in 1961.', answer: 'Yuri Gagarin', alts: ['Gagarin'] },
-      { clue: 'This telescope launched in 2021 to replace Hubble\'s role in infrared.', answer: 'James Webb Space Telescope', alts: ['JWST', 'Webb'] },
-    ],
-    'Fast Food': [
-      { clue: 'Home of the Whopper.', answer: 'Burger King', alts: ['BK'] },
-      { clue: 'Its mascot is a red-headed girl in pigtails.', answer: 'Wendy\'s', alts: [] },
-      { clue: 'This chain is closed on Sundays.', answer: 'Chick-fil-A', alts: [] },
-      { clue: 'Its secret menu includes "Animal Style".', answer: 'In-N-Out', alts: ['In-N-Out Burger'] },
-      { clue: 'Colonel Sanders founded it.', answer: 'KFC', alts: ['Kentucky Fried Chicken'] },
-    ],
-  },
+// ============================ CLIENT CONFIG ============================
+const qs = new URLSearchParams(location.search);
+const isLocal = /^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname);
+const CLIENT = {
+  // Deployed PartyKit host. Override with ?party=host:port. On localhost or a LAN IP it uses that machine's :1999.
+  partyHost: qs.get('party') || (isLocal ? `${location.hostname}:1999` : 'buzzers.gamedesignerjoe.partykit.dev'),
+  clockPings: 6,          // pings per sync burst; the lowest round trip wins
+  resyncEveryMs: 15000,
+  reconnectMs: [400, 5000],
 };
+const wsProto = /^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)(:\d+)?$/.test(CLIENT.partyHost) ? 'ws' : 'wss';
 
-// ============================ STATE ============================
-// Everything below is what the server will own later. Phones are views.
-const rnd = (a, b) => a + Math.random() * (b - a);
-const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-const now = () => performance.now();
+// ============================ LOCAL STATE ============================
+const store = {
+  get: (k, d = '') => { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+  sget: k => { try { return sessionStorage.getItem(k) || ''; } catch { return ''; } },
+  sset: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} },
+};
+let deviceKey = store.get('bz.key'); if (!deviceKey) { deviceKey = newId('d') + newId(); store.set('bz.key', deviceKey); }
+let pid = store.sget('bz.pid') || newId('p');           // per tab: two tabs on one laptop = two players
+let room = null, ws = null, S = null, conn = 'offline';
+let offset = 0, samples = [], syncTimer = null, retryMs = CLIENT.reconnectMs[0], retryTimer = null;
+let hold = false, revealedRound = -1, lockUntil = 0;
+let lastSfx = null, dingFor = null, timeoutFor = null;
+const generating = new Set();
+const syncedNow = () => Date.now() + offset;
+const $ = s => document.querySelector(s);
+const phone = $('#phone');
 
-let S;           // game state
-let timers = []; // pending fake-world timeouts
-let heldPhone = CONFIG.players[0].id;
-let usedClues = new Set(); // "life of the game" no-repeat memory
-let pastCats = [];
-try { usedClues = new Set(JSON.parse(localStorage.getItem('bz.used') || '[]')); pastCats = JSON.parse(localStorage.getItem('bz.cats') || '[]'); } catch {}
-function persist() { try { localStorage.setItem('bz.used', JSON.stringify([...usedClues])); localStorage.setItem('bz.cats', JSON.stringify(pastCats)); } catch {} }
+// ============================ JOIN SCREEN ============================
+const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+const randomCode = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join('');
+let joinColor = store.get('bz.color', CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)]);
+let joinError = '';
 
-function after(ms, fn) { const t = setTimeout(fn, ms); timers.push(t); return t; }
-function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+function showJoin() {
+  phone._html = null;
+  const code = cleanCode(qs.get('room') || store.get('bz.lastRoom'));
+  phone.innerHTML = `
+    <div class="grow" style="justify-content:flex-start;padding-top:8vh">
+      <h1 style="font-size:56px;line-height:.9">Buzzers</h1>
+      <div class="alts">Everyone adds a category. The phones are the buzzers. Someone reads each clue out loud.</div>
+      <div class="eyebrow">Your name</div>
+      <input class="input" id="name" maxlength="${CONFIG.maxNameLen}" autocomplete="off" autocapitalize="words" value="${esc(store.get('bz.name'))}" placeholder="Name">
+      <div class="eyebrow">Your color</div>
+      <div class="swatches">${CONFIG.colors.map(c => `<button class="swatch ${c === joinColor ? 'on' : ''}" data-color="${c}" style="background:${c}" aria-label="color ${c}"></button>`).join('')}</div>
+      <div class="eyebrow">Room code</div>
+      <form class="field" id="joinform"><input class="input code" id="code" value="${esc(code)}" placeholder="ABCD" maxlength="12" autocomplete="off" autocapitalize="characters"><button class="btn gold" type="submit">Join</button></form>
+      <button class="btn ghost wide" id="newroom">Start a new room</button>
+      <div class="err" id="joinerr">${esc(joinError)}</div>
+      <div class="foot">Use the same room code next time and the room remembers which clues your group has already seen.</div>
+    </div>`;
+  phone.querySelectorAll('[data-color]').forEach(b => b.onclick = () => { joinColor = b.dataset.color; phone.querySelectorAll('.swatch').forEach(s => s.classList.toggle('on', s === b)); });
+  const go = code => {
+    const name = $('#name').value.trim();
+    if (!name) { $('#joinerr').textContent = 'Pick a name first.'; $('#name').focus(); return; }
+    if (!code) { $('#joinerr').textContent = 'Type a room code, or start a new room.'; $('#code').focus(); return; }
+    sound.unlock(); // iOS: audio only unlocks inside a tap
+    store.set('bz.name', name); store.set('bz.color', joinColor);
+    join(code);
+  };
+  $('#joinform').onsubmit = e => { e.preventDefault(); go(cleanCode($('#code').value)); };
+  $('#newroom').onclick = () => go(randomCode());
+}
 
-function freshState() {
-  return {
-    phase: 'lobby',
-    players: CONFIG.players.map(p => ({ ...p, score: 0, judged: 0 })),
-    categories: [],   // { id, name, by, status, clues:[{id, clue, answer, alts, value, used}] }
-    picker: null,
-    current: null,    // { catId, idx }
-    buzz: { openAt: null, presses: {}, lockedUntil: {}, guessed: [], winner: null },
-    judge: null,
-    answerDeadline: null,
-    lastResult: null,
-    log: [],
+function join(code) {
+  room = code; joinError = '';
+  store.set('bz.lastRoom', code);
+  const u = new URL(location.href); u.searchParams.set('room', code); history.replaceState(null, '', u);
+  connect();
+  draw();
+}
+
+function leave() {
+  room = null; S = null;
+  clearTimeout(retryTimer); clearInterval(syncTimer);
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+  const u = new URL(location.href); u.searchParams.delete('room'); history.replaceState(null, '', u);
+  conn = 'offline'; showJoin();
+}
+
+// ============================ SOCKET ============================
+function connect() {
+  clearTimeout(retryTimer);
+  if (ws) { ws.onclose = null; try { ws.close(); } catch {} }
+  conn = S ? 'reconnecting' : 'connecting';
+  const sock = ws = new WebSocket(`${wsProto}://${CLIENT.partyHost}/parties/main/${encodeURIComponent(room)}`);
+  sock.onopen = () => {
+    retryMs = CLIENT.reconnectMs[0];
+    send({ type: 'hello', pid, key: deviceKey, name: store.get('bz.name'), color: store.get('bz.color') });
+    syncClock(CLIENT.clockPings);
+    clearInterval(syncTimer); syncTimer = setInterval(() => syncClock(3), CLIENT.resyncEveryMs);
+  };
+  sock.onmessage = e => onMessage(JSON.parse(e.data));
+  sock.onclose = e => {
+    if (sock !== ws) return;
+    clearInterval(syncTimer);
+    if (e.code === 4000) { conn = 'opened elsewhere'; draw(); return; } // this seat was taken over by another tab
+    conn = 'reconnecting'; draw();
+    retryTimer = setTimeout(connect, retryMs);
+    retryMs = Math.min(retryMs * 2, CLIENT.reconnectMs[1]);
   };
 }
+function send(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+const act = action => send({ type: 'action', action });
 
-function log(msg) { S.log.push(`${new Date().toLocaleTimeString([], {hour12:false})} ${msg}`); if (S.log.length > 200) S.log.shift(); }
-const P = id => S.players.find(p => p.id === id);
-const nameOf = id => P(id)?.name ?? '?';
+// iPhones freeze the socket when the screen locks; come straight back when the page is visible.
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && room && (!ws || ws.readyState > 1)) connect(); });
+window.addEventListener('pageshow', e => { if (e.persisted && room) connect(); });
 
-// ============================ REDUCER ============================
-function dispatch(action) {
-  const a = action;
-  switch (a.type) {
-    case 'addCategory': {
-      const name = a.name.trim(); if (!name) return;
-      if (S.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) return;
-      const cat = { id: 'c' + Math.random().toString(36).slice(2, 7), name, by: a.by, status: 'generating', clues: [] };
-      S.categories.push(cat);
-      if (!pastCats.includes(name)) { pastCats.unshift(name); pastCats = pastCats.slice(0, 20); persist(); }
-      log(`${nameOf(a.by)} added "${name}" · generating…`);
-      generate(cat);
-      break;
-    }
-    case 'generated': {
-      const cat = S.categories.find(c => c.id === a.catId); if (!cat) return;
-      cat.clues = a.clues.map((q, i) => ({ ...q, id: clueId(cat.name, q.answer), value: CONFIG.values[i], used: false }));
-      cat.status = 'ready';
-      log(`"${cat.name}" ready · ${a.source}`);
-      break;
-    }
-    case 'start': {
-      if (!S.categories.some(c => c.status === 'ready')) return;
-      S.categories = S.categories.filter(c => c.status === 'ready');
-      S.picker = pick(S.players).id;
-      S.phase = 'board';
-      log(`Game start · ${nameOf(S.picker)} picks first`);
-      break;
-    }
-    case 'pickClue': {
-      if (S.phase !== 'board' || a.by !== S.picker) return;
-      const cat = S.categories.find(c => c.id === a.catId); const q = cat?.clues[a.idx];
-      if (!q || q.used) return;
-      q.used = true; usedClues.add(q.id); persist();
-      S.current = { catId: cat.id, idx: a.idx };
-      S.buzz = { openAt: null, presses: {}, lockedUntil: {}, guessed: [], winner: null };
-      S.judge = chooseJudge(a.by);
-      S.holding = false;
-      S.phase = 'reading';
-      log(`${nameOf(a.by)} picks ${cat.name} for ${q.value} · ${nameOf(S.judge)} reads and judges`);
-      break;
-    }
-    case 'holdStart': {
-      if (S.phase !== 'reading' || a.by !== S.judge) return;
-      S.holding = true; log(`${nameOf(a.by)} holds · reading`);
-      break;
-    }
-    case 'holdEnd': {
-      if (S.phase !== 'reading' || a.by !== S.judge || !S.holding) return;
-      S.holding = false;
-      dispatch({ type: 'open' });
-      return;
-    }
-    case 'open': {
-      S.phase = 'buzz';
-      S.buzz.openAt = now();
-      ding();
-      log('buzzers open');
-      after(CONFIG.buzzTimeoutMs, () => { if (S.phase === 'buzz' && !S.buzz.winner) dispatch({ type: 'nobody' }); });
-      break;
-    }
-    case 'press': {
-      const t = now(); const id = a.by;
-      const eligible = S.phase === 'buzz' || S.phase === 'reading';
-      if (!eligible) return;
-      if (id === S.judge || S.buzz.guessed.includes(id)) return;
-      if ((S.buzz.lockedUntil[id] || 0) > t) return;
-      if (S.phase !== 'buzz') { S.buzz.lockedUntil[id] = t + CONFIG.earlyLockoutMs; log(`${nameOf(id)} buzzed early · locked ${CONFIG.earlyLockoutMs}ms`); return; }
-      if (S.buzz.winner || S.buzz.presses[id] != null) return;
-      S.buzz.presses[id] = t - S.buzz.openAt;
-      log(`${nameOf(id)} pressed at +${Math.round(S.buzz.presses[id])}ms`);
-      if (Object.keys(S.buzz.presses).length === 1) after(CONFIG.collectWindowMs, () => dispatch({ type: 'resolveBuzz' }));
-      break;
-    }
-    case 'resolveBuzz': {
-      if (S.phase !== 'buzz' || S.buzz.winner) return;
-      const entries = Object.entries(S.buzz.presses).sort((x, y) => x[1] - y[1]);
-      if (!entries.length) return;
-      const winner = entries[0][0];
-      S.buzz.winner = winner; S.buzz.guessed.push(winner);
-      S.phase = 'answering';
-      S.answerDeadline = now() + CONFIG.answerSecs * 1000;
-      log(`${nameOf(winner)} wins the buzz (${entries.map(e => `${nameOf(e[0])} +${Math.round(e[1])}`).join(', ')}) · judge: ${nameOf(S.judge)}`);
-      after(CONFIG.answerSecs * 1000, () => { if (S.phase === 'answering' && S.buzz.winner === winner) dispatch({ type: 'rule', by: S.judge, right: false, timeout: true }); });
-      break;
-    }
-    case 'rule': {
-      if (S.phase !== 'answering' || a.by !== S.judge) return;
-      const q = cur(); const w = S.buzz.winner;
-      if (a.right) {
-        P(w).score += q.value; S.lastResult = { who: w, right: true };
-        log(`judge ${nameOf(S.judge)}: RIGHT · ${nameOf(w)} +${q.value}`);
-        dispatch({ type: 'reveal', nextPicker: w });
-      } else {
-        P(w).score -= q.value; S.lastResult = { who: w, right: false };
-        log(`judge ${nameOf(S.judge)}: ${a.timeout ? 'TIME' : 'WRONG'} · ${nameOf(w)} −${q.value}`);
-        const remaining = S.players.filter(p => p.id !== S.judge && !S.buzz.guessed.includes(p.id));
-        if (remaining.length) {
-          S.buzz.winner = null; S.buzz.presses = {}; S.phase = 'buzz'; S.buzz.openAt = now();
-          log(`steal · open for ${remaining.map(p => p.name).join(', ')}`);
-          after(CONFIG.buzzTimeoutMs, () => { if (S.phase === 'buzz' && !S.buzz.winner) dispatch({ type: 'nobody' }); });
-        } else dispatch({ type: 'nobody' });
-      }
-      break;
-    }
-    case 'nobody': {
-      log('nobody gets it');
-      S.lastResult = { who: null };
-      dispatch({ type: 'reveal', nextPicker: S.picker });
-      break;
-    }
-    case 'reveal': {
-      S.phase = 'reveal';
-      after(CONFIG.revealMs, () => {
-        S.picker = a.nextPicker;
-        const left = S.categories.some(c => c.clues.some(q => !q.used));
-        S.phase = left ? 'board' : 'over';
-        S.current = null;
-        if (!left) log('board cleared · game over');
-        else log(`${nameOf(S.picker)} picks next`);
-        render(); botTick();
-      });
-      break;
-    }
-  }
-  render(); botTick();
+// Clock sync: each ping measures round trip; keep the offset from the fastest recent sample.
+function syncClock(n) { for (let i = 0; i < n; i++) setTimeout(() => send({ type: 'ping', t0: Date.now() }), i * 120); }
+function onPong(m) {
+  const t1 = Date.now(), rtt = t1 - m.t0;
+  samples.push({ rtt, offset: m.ts + rtt / 2 - t1 });
+  samples = samples.slice(-12);
+  const best = samples.reduce((a, b) => (b.rtt < a.rtt ? b : a));
+  offset = best.offset;
+  if (samples.length % 3 === 0) act({ type: 'clock', offset: best.offset, rtt: best.rtt });
 }
 
-function cur() { const c = S.categories.find(c => c.id === S.current.catId); return c.clues[S.current.idx]; }
-
-// ============================ GENERATION ============================
-// Live: POST /api/generate (Vercel function → Groq). Falls back to the canned bank if that fails,
-// so the page still runs from a plain file or before the key is set.
-const clueId = (cat, answer) => `${cat.toLowerCase()}|${String(answer).toLowerCase()}`;
-async function generate(cat) {
-  const avoid = [...usedClues].filter(id => id.startsWith(cat.name.toLowerCase() + '|')).map(id => id.split('|')[1]);
-  if (CONFIG.liveGeneration) {
-    try {
-      const r = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: cat.name, avoid }) });
-      const data = await r.json();
-      if (!r.ok || !data.clues) throw new Error(data.error || `HTTP ${r.status}`);
-      return dispatch({ type: 'generated', catId: cat.id, clues: data.clues, source: data.model });
-    } catch (e) { log(`live generation failed (${e.message}) · using canned clues`); }
+function onMessage(m) {
+  if (m.type === 'pong') return onPong(m);
+  if (m.type === 'you') { pid = m.pid; store.sset('bz.pid', pid); return; }
+  if (m.type === 'err') {
+    if (m.fatal) { joinError = m.msg; leave(); return; }
+    return toast(m.msg);
   }
-  const bankKey = Object.keys(CONFIG.bank).find(k => k.toLowerCase() === cat.name.toLowerCase());
-  const src = bankKey ? CONFIG.bank[bankKey] : CONFIG.values.map((v, i) => ({ clue: `A ${['easy','gentle','medium','tough','brutal'][i]} clue about ${cat.name}, found by the engine.`, answer: `${cat.name} answer ${i + 1}`, alts: [] }));
-  after(rnd(...CONFIG.genDelayMs), () => dispatch({ type: 'generated', catId: cat.id, clues: src, source: 'canned' }));
-}
-
-// Judge = reader. Chosen at pick time: anyone but the picker, fewest judge turns first, tie random.
-// They sit out this clue. (Three-player games may want the picker to double as judge.)
-function chooseJudge(picker) {
-  const cands = S.players.filter(p => p.id !== picker);
-  cands.sort((x, y) => x.judged - y.judged || Math.random() - .5);
-  const j = cands[0]; j.judged++; return j.id;
-}
-
-// The one sound that earns its keep: a "go" ding from the reader's phone when buzzers open.
-let audioCtx = null;
-function ding() {
-  if (!$('#sound').checked) return;
-  try {
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.type = 'sine'; o.frequency.setValueAtTime(880, audioCtx.currentTime); o.frequency.setValueAtTime(1320, audioCtx.currentTime + .08);
-    g.gain.setValueAtTime(.001, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(.3, audioCtx.currentTime + .02); g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + .35);
-    o.connect(g).connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + .4);
-  } catch {}
-}
-
-// ============================ BOTS ============================
-// Phones you aren't holding act for themselves when the box is checked.
-let botArmedFor = null;
-function botsOn() { return document.getElementById('bots').checked; }
-function botTick() {
-  if (!botsOn()) return;
-  const others = S.players.filter(p => p.id !== heldPhone);
-  if (S.phase === 'lobby') {
-    others.forEach(p => { if (!S.categories.some(c => c.by === p.id) && !p._lobbied) { p._lobbied = true; after(rnd(800, 2500), () => dispatch({ type: 'addCategory', name: pick(Object.keys(CONFIG.bank).filter(k => !S.categories.some(c => c.name === k))) || 'Space', by: p.id })); } });
-  }
-  if (S.phase === 'board' && S.picker !== heldPhone && !S._botPicking) {
-    S._botPicking = true;
-    after(rnd(1200, 2200), () => { S._botPicking = false; const cat = pick(S.categories.filter(c => c.clues.some(q => !q.used))); if (!cat) return; const idx = cat.clues.findIndex(q => !q.used); dispatch({ type: 'pickClue', by: S.picker, catId: cat.id, idx }); });
-  }
-  if (S.phase === 'reading' && S.judge !== heldPhone && !S._botReading) {
-    S._botReading = true;
-    const ms = rnd(...CONFIG.readMs) * Math.max(0.6, Math.min(1.6, cur().clue.length / 60));
-    after(rnd(500, 1200), () => dispatch({ type: 'holdStart', by: S.judge }));
-    after(rnd(500, 1200) + ms, () => { S._botReading = false; dispatch({ type: 'holdEnd', by: S.judge }); });
-  }
-  if (S.phase === 'buzz' && botArmedFor !== S.buzz.openAt) {
-    botArmedFor = S.buzz.openAt;
-    others.forEach(p => { if (p.id === S.judge || S.buzz.guessed.includes(p.id)) return; if (Math.random() < CONFIG.botSkipChance) return; after(rnd(...CONFIG.botBuzzMs), () => dispatch({ type: 'press', by: p.id })); });
-  }
-  if (S.phase === 'answering' && S.judge !== heldPhone && !S._botJudging) {
-    S._botJudging = true;
-    after(rnd(1200, 2600), () => { S._botJudging = false; dispatch({ type: 'rule', by: S.judge, right: Math.random() < CONFIG.botRightChance }); });
+  if (m.type === 'state') {
+    if (!samples.length) offset = m.now - Date.now(); // rough until the first pong
+    const first = !S; S = m.S; conn = 'live';
+    if (S.phase !== 'reading') hold = false;
+    effects(first);
+    draw();
   }
 }
 
-// ============================ VIEWS ============================
-const $ = s => document.querySelector(s);
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const dot = (p, size = 10) => `<span class="dot" style="background:${p.color};width:${size}px;height:${size}px;display:inline-block;border-radius:50%"></span>`;
-
-function roleOf(id) {
-  if (S.phase === 'lobby') return P(id).speaker ? 'speaker' : '';
-  if (S.phase === 'board' && S.picker === id) return 'picking';
-  if (S.phase === 'reading' && S.judge === id) return 'reading';
-  if (['answering', 'buzz'].includes(S.phase) && S.judge === id) return 'judge';
-  if (S.phase === 'answering' && S.buzz.winner === id) return 'answering';
-  if (S.phase === 'buzz' && S.buzz.guessed.includes(id)) return 'out';
-  return '';
+// ============================ SIDE EFFECTS OF NEW STATE ============================
+function effects(first) {
+  // stings
+  if (lastSfx !== null && S.sfx.n !== lastSfx && S.sfx.kind) sound.play(S.sfx.kind);
+  lastSfx = S.sfx.n;
+  // the ding lands at the synced open time on every phone
+  if (S.phase === 'buzz' && S.buzz.openAt && dingFor !== S.buzz.openAt) {
+    dingFor = S.buzz.openAt;
+    const ms = S.buzz.openAt - syncedNow();
+    if (!first && ms > -400) setTimeout(() => { sound.play('ding'); draw(); }, Math.max(0, ms));
+  }
+  // my category: go get clues (also picks up a search interrupted by a refresh)
+  S.categories.filter(c => c.by === pid && c.status === 'generating' && !generating.has(c.id)).forEach(async c => {
+    generating.add(c.id);
+    const avoid = S.memory.used.filter(id => id.startsWith(c.name.toLowerCase() + '|')).map(id => id.slice(c.name.length + 1));
+    const r = await generateClues(c.name, avoid);
+    act({ type: 'generated', catId: c.id, clues: r.clues, source: r.source, note: r.note });
+  });
 }
 
-function render() {
-  $('#tabs').innerHTML = S.players.map(p => `<button class="tab ${p.id === heldPhone ? 'on' : ''}" data-id="${p.id}">${dot(p)}<span>${esc(p.name)}</span><span class="role">${roleOf(p.id)}</span></button>`).join('');
-  $('#tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { heldPhone = b.dataset.id; render(); botTick(); });
-  $('#log').innerHTML = S.log.slice().reverse().map(l => `<div><span>${esc(l.slice(0, 8))}</span> ${esc(l.slice(9))}</div>`).join('');
-  const me = P(heldPhone);
-  const ph = $('#phone');
-  const status = `<div class="status"><span class="pill">${dot(me, 8)} ${esc(me.name)}${me.speaker ? ' · speaker' : ''}</span><span>${esc(S.phase)}</span></div>`;
-  ph.innerHTML = status + view[S.phase](me);
-  wire(me);
+// ============================ RENDER ============================
+function ctx() {
+  return { now: syncedNow(), hold, revealed: S && revealedRound === S.round, lockUntil: Math.max(lockUntil, S?.buzz?.lockedUntil?.[pid] || 0), room, conn, muted: sound.muted, showLeave: true };
+}
+function draw() {
+  if (!room) return;
+  if (!S) { phone._html = null; phone.innerHTML = `<div class="grow center"><div class="eyebrow">Room ${esc(room)}</div><div class="big" style="font-size:34px">${conn === 'opened elsewhere' ? 'Opened in another tab' : 'Connecting…'}</div><div class="alts">${esc(CLIENT.partyHost)}</div><button class="btn ghost" id="back">Back</button></div>`; $('#back').onclick = leave; return; }
+  if (conn === 'opened elsewhere') { phone._html = null; phone.innerHTML = `<div class="grow center"><div class="big" style="font-size:34px">You opened this seat somewhere else</div><button class="btn gold" id="rejoin">Use it here</button></div>`; $('#rejoin').onclick = connect; return; }
+  if (paint(phone, renderPhone(S, pid, ctx()))) wirePhone(phone, S, pid, handlers);
 }
 
-const view = {
-  lobby(me) {
-    const mine = S.categories.filter(c => c.by === me.id).length;
-    return `
-      <div class="eyebrow">Room 4F7Q · ${S.players.length} in</div>
-      <div class="roster">${S.players.map(p => `<span class="pill">${dot(p, 8)} ${esc(p.name)}</span>`).join('')}</div>
-      <div class="eyebrow">Add a category${mine ? ` (you've added ${mine})` : ''}</div>
-      <form class="field" id="catform"><input id="catname" placeholder="anything, the sillier the better" maxlength="40" autocomplete="off"><button class="btn gold" type="submit">Add</button></form>
-      ${pastCats.length ? `<div class="eyebrow">Played before</div><div class="chips">${pastCats.slice(0, 8).map(n => `<button class="chip" data-cat="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : `<div class="chips">${Object.keys(CONFIG.bank).map(n => `<button class="chip" data-cat="${esc(n)}">${esc(n)}</button>`).join('')}</div>`}
-      <div class="catlist">${S.categories.map(c => `<div class="catrow"><span class="who" style="background:${P(c.by).color}"></span><span class="name">${esc(c.name)}</span><span class="state ${c.status}">${c.status === 'ready' ? '5 clues ready' : 'searching…'}</span></div>`).join('') || '<div class="alts">The board fills in as people add categories.</div>'}</div>
-      <div class="grow"></div>
-      <button class="btn gold" id="start" ${S.categories.some(c => c.status === 'ready') ? '' : 'disabled'}>Start game</button>`;
+const handlers = {
+  send: act,
+  addCategory: name => act({ type: 'addCategory', id: newId('c'), name }),
+  press: () => {
+    const at = syncedNow();
+    // show the early lockout immediately; the server makes the real call
+    if (S.phase === 'reading' || (S.phase === 'buzz' && at < S.buzz.openAt)) { if (lockUntil <= at) lockUntil = at + CONFIG.earlyLockoutMs; draw(); }
+    act({ type: 'press', at });
   },
-  board(me) {
-    const picking = S.picker === me.id;
-    const cols = S.categories.length;
-    return `
-      <div class="eyebrow">${picking ? 'Your pick' : `${esc(nameOf(S.picker))} is picking`}</div>
-      <div class="board ${picking ? '' : 'passive'}" style="grid-template-columns:repeat(${cols},1fr)">
-        ${S.categories.map(c => `<div class="cat">${esc(c.name)}</div>`).join('')}
-        ${CONFIG.values.map((v, i) => S.categories.map(c => `<button class="val ${c.clues[i].used ? 'used' : ''}" data-cat="${c.id}" data-idx="${i}" ${picking && !c.clues[i].used ? '' : 'disabled'}>${v}</button>`).join('')).join('')}
-      </div>
-      ${scores(me)}`;
+  hold: down => {
+    if (down === hold) return;
+    hold = down;
+    act(down ? { type: 'holdStart' } : { type: 'holdEnd', at: syncedNow() });
+    draw();
   },
-  reading(me) {
-    const c = S.categories.find(c => c.id === S.current.catId); const q = cur();
-    if (me.id === S.judge) return `
-      <div class="eyebrow">You read this one · ${esc(c.name)} for ${q.value}</div>
-      <div class="alts">Hold the button, read the clue out loud, let go on the last word. Letting go opens the buzzers.</div>
-      <button class="buzzer hold ${S.holding ? 'armed' : ''}" id="hold">${S.holding ? `<span class="clue">${esc(q.clue)}</span>` : 'Hold to reveal'}</button>`;
-    return `<div class="grow center"><div class="eyebrow">${esc(c.name)} for ${q.value}</div><div class="big" style="font-size:34px">${esc(nameOf(S.judge))} is reading</div><div class="alts">Listen. The ding means go.</div></div>${buzzerBtn(me, 'wait')}`;
-  },
-  buzz(me) {
-    const out = me.id === S.judge || S.buzz.guessed.includes(me.id);
-    const steal = S.buzz.guessed.length > 0;
-    if (me.id === S.judge) return `<div class="grow center"><div class="eyebrow">${steal ? 'Steal' : 'Buzzers open'} · you're judging</div><div class="clue">${esc(cur().clue)}</div></div>${judgePanel(false)}`;
-    return `<div class="grow center"><div class="eyebrow">${steal ? 'Steal' : 'Buzz'}</div><div class="clue">${esc(cur().clue)}</div>${out ? `<div class="alts">You already guessed.</div>` : ''}</div>${buzzerBtn(me, out ? 'out' : 'armed')}`;
-  },
-  answering(me) {
-    const w = P(S.buzz.winner); const q = cur();
-    const secs = Math.max(0, Math.ceil((S.answerDeadline - now()) / 1000));
-    if (me.id === S.judge) return `
-      <div class="eyebrow">You're the judge · ${esc(w.name)} is answering</div>
-      <div class="clue">${esc(q.clue)}</div>
-      <div class="timer ${secs <= 2 ? 'low' : ''}" id="timer">${secs}</div>
-      ${judgePanel(true)}`;
-    if (me.id === w.id) return `<div class="grow center"><div class="eyebrow">You're up</div><div class="big" style="font-size:40px">Say it out loud</div><div class="timer ${secs <= 2 ? 'low' : ''}" id="timer">${secs}</div><div class="alts">${esc(nameOf(S.judge))} is judging</div></div>`;
-    return `<div class="grow center"><div class="eyebrow">${esc(w.name)} buzzed in</div><div class="clue">${esc(q.clue)}</div><div class="timer ${secs <= 2 ? 'low' : ''}" id="timer">${secs}</div><div class="alts">${esc(nameOf(S.judge))} is judging</div></div>`;
-  },
-  reveal(me) {
-    const q = cur(); const r = S.lastResult;
-    return `<div class="grow center"><div class="eyebrow">${r.who ? `${esc(nameOf(r.who))} ${r.right ? 'got it' : 'missed it'}` : 'No one got it'}</div><div class="clue">${esc(q.clue)}</div><div class="answer">${esc(q.answer)}</div></div>${scores(me)}`;
-  },
-  over(me) {
-    const sorted = S.players.slice().sort((a, b) => b.score - a.score);
-    return `<div class="grow center"><div class="eyebrow">Final</div><div class="big" style="font-size:44px;color:var(--gold)">${esc(sorted[0].name)} wins</div></div>${scores(me)}<button class="btn gold" id="again">Play again</button>`;
-  },
+  reveal: () => { revealedRound = S.round; draw(); },
+  mute: () => { sound.unlock(); sound.toggle(); draw(); },
+  leave,
 };
 
-// Judge's answer panel. The answer stays hidden behind a "Reveal answer" button until the judge
-// taps it; Correct/Incorrect live inside the revealed box and only work once someone has buzzed.
-// Revealed-ness is this phone's private view state, not game state, so the reducer doesn't change.
-let revealedFor = new Set(); // `${phoneId}|${catId}:${idx}`
-const revealKey = () => `${heldPhone}|${S.current.catId}:${S.current.idx}`;
-function judgePanel(canRule) {
-  const q = cur();
-  if (!revealedFor.has(revealKey())) return `<button class="btn gold revealbtn" id="revealAns">Reveal answer</button>`;
-  return `<div class="judgebox">
-    <div class="eyebrow">Accept</div><div class="answer">${esc(q.answer)}</div>${q.alts.length ? `<div class="alts">also: ${esc(q.alts.join(' · '))}</div>` : ''}
-    <div class="row2"><button class="btn ok" data-rule="1" ${canRule ? '' : 'disabled'}>Correct</button><button class="btn bad" data-rule="0" ${canRule ? '' : 'disabled'}>Incorrect</button></div>
-    ${canRule ? '' : '<div class="alts">Waiting for someone to buzz in.</div>'}
-  </div>`;
-}
-
-function wave() { return `<div class="wave"><i></i><i></i><i></i><i></i><i></i></div>`; }
-function scores(me) { return `<div class="scores">${S.players.map(p => `<div class="score ${p.id === me.id ? 'me' : ''}"><div class="n">${dot(p, 8)} ${esc(p.name)}</div><div class="v ${p.score < 0 ? 'neg' : ''}">${p.score}</div></div>`).join('')}</div>`; }
-function buzzerBtn(me, mode) {
-  const locked = (S.buzz.lockedUntil[me.id] || 0) > now();
-  const cls = mode === 'armed' ? 'armed' : locked ? 'locked' : '';
-  const label = mode === 'out' ? 'Sit tight' : locked ? 'Too early' : mode === 'armed' ? 'Buzz' : 'Wait for it';
-  return `<button class="buzzer ${cls}" id="buzzer" ${mode === 'out' ? 'disabled' : ''}>${label}</button>`;
-}
-
-function wire(me) {
-  const form = $('#catform');
-  if (form) { form.onsubmit = e => { e.preventDefault(); dispatch({ type: 'addCategory', name: $('#catname').value, by: me.id }); }; }
-  document.querySelectorAll('[data-cat]').forEach(b => { if (b.classList.contains('chip')) b.onclick = () => dispatch({ type: 'addCategory', name: b.dataset.cat, by: me.id }); });
-  const start = $('#start'); if (start) start.onclick = () => dispatch({ type: 'start' });
-  document.querySelectorAll('.board .val').forEach(b => b.onclick = () => dispatch({ type: 'pickClue', by: me.id, catId: b.dataset.cat, idx: +b.dataset.idx }));
-  const bz = $('#buzzer'); if (bz) bz.onpointerdown = e => { e.preventDefault(); dispatch({ type: 'press', by: me.id }); };
-  const hold = $('#hold');
-  if (hold) {
-    hold.onpointerdown = e => { e.preventDefault(); hold.setPointerCapture(e.pointerId); dispatch({ type: 'holdStart', by: me.id }); };
-    const end = e => { e.preventDefault(); dispatch({ type: 'holdEnd', by: me.id }); };
-    hold.onpointerup = end; hold.onpointercancel = end;
-    hold.oncontextmenu = e => e.preventDefault();
-  }
-  const rev = $('#revealAns'); if (rev) rev.onclick = () => { revealedFor.add(revealKey()); render(); };
-  document.querySelectorAll('[data-rule]').forEach(b => b.onclick = () => dispatch({ type: 'rule', by: me.id, right: b.dataset.rule === '1' }));
-  const again = $('#again'); if (again) again.onclick = newGame;
-}
-
-// live timer + lockout repaint
+// 100 ms tick: countdown, buzzers arming at the open time, lockout ending, out-of-time sting.
+let lastSig = '';
 setInterval(() => {
-  if (S.phase === 'answering') { const t = $('#timer'); if (t) { const s = Math.max(0, Math.ceil((S.answerDeadline - now()) / 1000)); t.textContent = s; t.classList.toggle('low', s <= 2); } }
-  if (S.phase === 'reading') { const b = $('#buzzer'); if (b) { const locked = (S.buzz.lockedUntil[heldPhone] || 0) > now(); b.classList.toggle('locked', locked); b.textContent = locked ? 'Too early' : 'Wait for it'; } }
+  if (!S || !room) return;
+  const c = ctx();
+  if (S.phase === 'answering' && timeoutFor !== S.answerDeadline && c.now >= S.answerDeadline) { timeoutFor = S.answerDeadline; sound.play('timeout'); }
+  const sig = tickSig(S, pid, c);
+  if (sig !== lastSig) { lastSig = sig; draw(); }
 }, 100);
 
-function newGame() { clearTimers(); botArmedFor = null; revealedFor = new Set(); S = freshState(); log('new game'); render(); botTick(); }
-$('#reset').onclick = newGame;
-$('#bots').onchange = botTick;
-newGame();
+let toastTimer;
+function toast(msg) {
+  let t = $('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = msg; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), 3000);
+}
+
+// any tap unlocks audio (covers a refresh, where nobody tapped Join)
+window.addEventListener('pointerdown', () => sound.unlock(), { once: true });
+
+// Refresh or shared link with ?room= and a saved name → straight back in.
+const startCode = cleanCode(qs.get('room'));
+if (startCode && store.get('bz.name')) join(startCode); else showJoin();
 </script>
+</body>
+</html>

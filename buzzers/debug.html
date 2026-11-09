@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Buzzers Debug</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+body { max-width: 760px; }
+table { width: 100%; border-collapse: collapse; font: 400 12px var(--mono); }
+th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+th { color: var(--ink-dim); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.log { max-height: none; }
+.box { background: var(--stage); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+</style>
+</head>
+<body>
+<h1>Buzzers <small>room debug · watch-only, joins no seat</small></h1>
+<form class="field" id="f"><input class="input code" id="code" placeholder="ROOM" maxlength="12"><button class="btn gold">Watch</button></form>
+<div id="out"></div>
+<script type="module">
+// Connects as an observer: sees the room's server log (every press with ms on the synced clock,
+// the arrival time, and each phone's measured round trip) and each phone's clock offset.
+const qs = new URLSearchParams(location.search);
+const isLocal = /^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname);
+const host = qs.get('party') || (isLocal ? `${location.hostname}:1999` : 'buzzers.gamedesignerjoe.partykit.dev');
+const proto = /^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)(:\d+)?$/.test(host) ? 'ws' : 'wss';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const $ = s => document.querySelector(s);
+let ws, S, srvNow = 0, status = '';
+const fmt = t => { const d = new Date(t); return d.toLocaleTimeString([], { hour12: false }) + '.' + String(d.getMilliseconds()).padStart(3, '0'); };
+
+function watch(code) {
+  code = code.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (!code) return;
+  $('#code').value = code;
+  const u = new URL(location.href); u.searchParams.set('room', code); history.replaceState(null, '', u);
+  ws?.close();
+  ws = new WebSocket(`${proto}://${host}/parties/main/${code}`);
+  status = 'connecting'; draw();
+  ws.onopen = () => { ws.send(JSON.stringify({ type: 'hello', observer: true })); status = 'live'; draw(); };
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.type === 'state') { S = m.S; srvNow = m.now; draw(); } };
+  ws.onclose = () => { status = 'closed — tap Watch to reconnect'; draw(); };
+}
+
+function draw() {
+  if (!S) { $('#out').innerHTML = `<div class="alts">${esc(status)} · ${esc(host)}</div>`; return; }
+  const presses = Object.entries(S.buzz.presses || {}).sort((a, b) => a[1] - b[1]);
+  $('#out').innerHTML = `
+    <div class="alts">${esc(status)} · ${esc(host)} · phase <b>${esc(S.phase)}</b> · round ${S.round}</div>
+    <div class="box"><div class="eyebrow">Players</div>
+      <table><tr><th>name</th><th>on</th><th class="num">score</th><th class="num">judged</th><th class="num">rtt ms</th><th class="num">clock offset ms</th></tr>
+      ${S.players.map(p => `<tr><td><span style="color:${esc(p.color)}">●</span> ${esc(p.name)}${p.id === S.picker ? ' · picker' : ''}${p.id === S.judge ? ' · judge' : ''}</td><td>${p.connected ? 'yes' : '—'}</td><td class="num">${p.score}</td><td class="num">${p.judged}</td><td class="num">${p.clock?.rtt ?? '?'}</td><td class="num">${p.clock?.offset ?? '?'}</td></tr>`).join('')}</table></div>
+    ${presses.length ? `<div class="box"><div class="eyebrow">This buzz (ms after open, synced clock)</div><table>${presses.map(([id, ms]) => `<tr><td>${esc(S.players.find(p => p.id === id)?.name)}</td><td class="num">+${Math.round(ms)}</td></tr>`).join('')}</table></div>` : ''}
+    <div class="box"><div class="eyebrow">Server log (newest first)</div><div class="log">${S.log.slice().reverse().map(l => `<div><span>${fmt(l.t)}</span> ${esc(l.msg)}</div>`).join('')}</div></div>`;
+}
+$('#f').onsubmit = e => { e.preventDefault(); watch($('#code').value); };
+if (qs.get('room')) watch(qs.get('room'));
+</script>
+</body>
+</html>
