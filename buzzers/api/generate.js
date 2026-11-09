@@ -16,7 +16,7 @@ export const maxDuration = 60; // seconds; a search + write takes ~10-25 s
 
 const MODEL = 'openai/gpt-oss-120b';
 const N = 5;
-const SEARCH_DEFAULT = false; // flip once search mode is verified live
+const SEARCH_DEFAULT = true; // search:false in the request body uses the old memory-only mode
 
 const RULES = `- Each is a real question ending with "?" (e.g. "Which planet is known as the Red Planet?"), 6-25 words, easy to read aloud.
 - The answer must NOT appear anywhere in the question, not even partly.
@@ -39,7 +39,7 @@ Respond with JSON only:
 {"verdict":"ok"|"unknown"|"not_ok","reason":"one short sentence","clues":[{"clue":"...?","answer":"...","alts":["..."]}]}`;
 
 const RESEARCH = cat => `Search the web for trivia material about this category: "${cat}".
-Read several reliable pages (encyclopedias, official sites, reputable databases, fan wikis for fiction). Then list up to 15 facts that could each become a fun party trivia question with ONE short answer that players can shout out: a name, a title, a character, a place, a thing. 
+Read several reliable pages (encyclopedias, official sites, reputable databases, fan wikis for fiction), using at most 5 searches; a good overview or list page covers a lot. Then list up to 15 facts that could each become a fun party trivia question with ONE short answer that players can shout out: a name, a title, a character, a place, a thing. 
 - Spread across the WHOLE category: many different subjects (different games, films, people, places), never more than 2 facts about the same one, and from at least 4 different pages.
 - Mix well known (most people at a party could get it) with a few for real fans.
 - Answers should NOT be budgets, sales figures, exact dates or long numbers. At most 2 facts whose answer is a year or number.
@@ -81,8 +81,8 @@ export function problem(q, category, others = []) {
   if (inClue(answer) || (q.alts || []).some(inClue)) return 'answer is given away in the question';
   if (a === cat || (a.length >= 3 && ` ${cat} `.includes(` ${a} `))) return 'answer is just the category name';
   if (others.some(o => norm(o) === a)) return 'same answer as another question';
-  if (/[$£€¥]|(million|billion|thousand)/i.test(answer)) return 'money or big number as the answer (not fun to shout)';
-  if (/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d|\d\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(answer)) return 'full date as the answer (too hard to get exactly)';
+  if (/[$£€¥]|\b(million|billion|thousand)\b/i.test(answer)) return 'money or big number as the answer (not fun to shout)';
+  if (/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d|\d\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(answer)) return 'full date as the answer (too hard to get exactly)';
   if (/^[\d.,\s]+$/.test(answer) && others.some(o => /^[\d.,\s]+$/.test(String(o)))) return 'already have a number/year question';
   return '';
 }
@@ -125,7 +125,7 @@ export function parseSheet(text) {
   const facts = [];
   for (const line of String(text || '').split('\n')) {
     const m = line.replace(/\*\*/g, '').match(/^\s*[-*]?\s*F(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*<?(https?:\/\/[^\s|>\]]+)/i);
-    if (m) { let url = m[4]; while (url.endsWith(')') && (url.match(/\(/g) || []).length < (url.match(/\)/g) || []).length) url = url.slice(0, -1); facts.push({ n: Number(m[1]), text: m[2], answer: m[3], url }); }
+    if (m) { let url = m[4].replace(/【.*$/, ''); while (url.endsWith(')') && (url.match(/\(/g) || []).length < (url.match(/\)/g) || []).length) url = url.slice(0, -1); facts.push({ n: Number(m[1]), text: m[2], answer: m[3], url }); }
   }
   const v = String(text || '').match(/VERDICT:\s*(ok|unknown)\s*\|?\s*(.*)/i);
   return { facts, verdict: v ? v[1].toLowerCase() : (facts.length ? 'ok' : 'unknown'), why: v?.[2]?.trim() || '' };
