@@ -8,7 +8,7 @@ Owner: Joe Morrissey. Game designer, not a full-time engineer. Works from iPhone
 
 - Repo: `GameDesignerJoe/GameDesignerJoe.github.io` (monorepo). This project lives in `buzzers/`.
 - Vercel project `buzzers`, Root Directory = `buzzers`, preset Other. Env var `GROQ_API_KEY` is set there (Production + Preview). Never commit the key. Every push to `main` redeploys every Vercel project tied to this repo.
-- PartyKit project `buzzers` (in `buzzers/party/`) runs the room server. Deployed separately from Vercel — see "Deploying" below. Expected host: `buzzers.gamedesignerjoe.partykit.dev` (set as `CLIENT.partyHost` in `index.html` and in `debug.html`; confirm after the first deploy).
+- Cloudflare Worker `buzzers` (in `buzzers/party/`) runs the room server: one Durable Object per room code, no runtime dependencies. (Hosted PartyKit shut down 23 Oct 2026. Its successor PartyServer would also work, but a plain Durable Object is ~60 lines and needs no library.) Deployed separately from Vercel — see "Deploying". Expected host: `buzzers.gamedesignerjoe.workers.dev` (needs the workers.dev subdomain `gamedesignerjoe`; set as `CLIENT.partyHost` in `index.html` and in `debug.html`).
 
 | File | What it is |
 |---|---|
@@ -18,7 +18,7 @@ Owner: Joe Morrissey. Game designer, not a full-time engineer. Works from iPhone
 | `index.html` | **The real phone.** Join screen, WebSocket to the room, clock sync, sounds. |
 | `sim.html` | One-screen flow tester: same rules and screens, bots play the other phones, 2–6 players. |
 | `debug.html` | Watch-only view of a room: server log with ms timestamps, every press (synced ms + arrival ms + rtt), each phone's clock offset. `debug.html?room=ABCD`. |
-| `party/server.js` | PartyKit room: owns state, runs the reducer, sends each phone its redacted view, persists to room storage. |
+| `party/server.js` | Worker + Durable Object room: owns state, runs the reducer, sends each phone its redacted view, persists to room storage. |
 | `api/generate.js` | Vercel function → Groq `openai/gpt-oss-120b`, 5 clues for a category. |
 
 GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no `/api`, so categories fall back to canned clues (the lobby row says "canned clues"). Use the Vercel URL.
@@ -26,8 +26,8 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 ## Deploying / running
 
 - **Pages + clue API:** push to `main` → Vercel.
-- **Room server:** from `buzzers\party` on the PC: `npm install` (first time), `npx partykit login` (first time, GitHub sign-in), `npx partykit deploy`. Only needed when `game.js` or `party/server.js` change. `game.js` is shared, so a rules change needs **both** a push and a PartyKit deploy.
-- **Local, including real phones on the same Wi-Fi:** in `buzzers\party`: `npx partykit dev`; in `buzzers`: `python -m http.server 8000`. Open `http://<PC LAN IP>:8000/` on phones; on localhost or a LAN IP the pages use that machine's `:1999` automatically. No `/api` locally → canned clues. Override the room server with `?party=host:port`.
+- **Room server:** from `buzzersparty` on the PC: `npm install` (first time), `npx wrangler login` (first time, Cloudflare sign-in), `npx wrangler deploy`. Only needed when `game.js` or `party/server.js` change. `game.js` is shared, so a rules change needs **both** a push and a wrangler deploy. `party/.npmrc` forces the HTTPS npm registry: the global npmrc (http registry + prefer-offline) serves stale package lists.
+- **Local, including real phones on the same Wi-Fi:** in `buzzers\party`: `npm run dev` (wrangler dev on :1999); in `buzzers`: `python -m http.server 8000`. Open `http://<PC LAN IP>:8000/` on phones; on localhost or a LAN IP the pages use that machine's `:1999` automatically. No `/api` locally → canned clues. Override the room server with `?party=host:port`.
 
 ## Design decisions (settled — don't relitigate without asking Joe)
 
@@ -73,9 +73,9 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 
 ## Architecture
 
-The game is one reducer over a single state object `S` (`game.js`). It runs in exactly one place per room — the PartyKit server — and phones send actions up and get state back. `sim.html` runs the same reducer locally with bots. Keep the reducer free of DOM/network/sound so it stays portable.
+The game is one reducer over a single state object `S` (`game.js`). It runs in exactly one place per room — the Cloudflare Durable Object — and phones send actions up and get state back. `sim.html` runs the same reducer locally with bots. Keep the reducer free of DOM/network/sound so it stays portable.
 
-- Phones never see what they shouldn't: `viewFor(S, pid)` blanks unused clues, hides the current clue from non-judges until buzzers open and its answer until reveal. (The phone that *added* a category does fetch its clues from `/api/generate` and forwards them, so its devtools could see them. Accepted for now; moving generation server-side would need the Groq key in PartyKit env.)
+- Phones never see what they shouldn't: `viewFor(S, pid)` blanks unused clues, hides the current clue from non-judges until buzzers open and its answer until reveal. (The phone that *added* a category does fetch its clues from `/api/generate` and forwards them, so its devtools could see them. Accepted for now; moving generation server-side would need the Groq key as a wrangler secret.)
 - Server actions: `join`, `presence` (server-only). Phone actions: `addCategory, generated, removeCategory, kick, start, pickClue, holdStart, holdEnd{at}, reread, press{at}, rule{right}, end, again, clock`. Internal: open, resolveBuzz, nobody, reveal, advance, away.
 - Phases: `lobby → board → reading → buzz → answering → reveal → board … → over`
 - `S.sfx = {n, kind}` bumps when a sting should play (buzz/right/wrong/nobody); phones play when `n` changes. The ding is scheduled locally at `buzz.openAt`.
@@ -84,7 +84,7 @@ The game is one reducer over a single state object `S` (`game.js`). It runs in e
 ## Build plan — in order, each independently testable
 
 1. **Real clues** ✅ `/api/generate` → Groq.
-2. **Rooms** ✅ built and tested locally (2026-11-08): PartyKit server, join screen, redacted state per phone, refresh/rejoin, sim kept as `sim.html`. **Not yet deployed to PartyKit or tried on real phones.** *Done when* a phone and a laptop tab in the same room both see the board change when one picks.
+2. **Rooms** ✅ built and tested locally (2026-11-08): room server, join screen, redacted state per phone, refresh/rejoin, sim kept as `sim.html`. **Not yet deployed to Cloudflare or tried on real phones.** *Done when* a phone and a laptop tab in the same room both see the board change when one picks.
 3. **Fair buzzing** ✅ built, tested with scripted clients (a press that's earlier on the synced clock wins even when it arrives later). Debug page built. *Still to do on test night:* two people mashing ten times with `debug.html` open; check offsets look sane on real networks.
 4. **Memory** ✅ room-storage version (room code = group). Not built: a separate "group name" independent of room code, if that turns out to matter.
 5. **Sound** — partly: ding at synced open, stings for buzz/right/wrong/nobody/out-of-time (synthesised, no files), mute on every phone, iOS unlock on Join and on first tap. **Not built:** music bed on one phone (needs a music file and a "music phone" choice in the lobby).
@@ -93,13 +93,13 @@ The game is one reducer over a single state object `S` (`game.js`). It runs in e
 ## Known gaps / not verified
 
 - Nothing has run on an iPhone yet: audio unlock, socket recovery after screen lock, hold-button feel.
-- Room server restart mid-clue: state restores from storage and timers re-arm (tested locally by killing `partykit dev` mid-answer). Not tested on the hosted service.
+- Room server restart mid-clue: state restores from storage and timers re-arm (tested locally by killing `wrangler dev` mid-answer). Not tested on the hosted service.
 - If **everyone** drops at once (all screens locked), nothing is handed over until someone is back; then the missing picker/judge gets a fresh 8 s.
 - Judge disconnects mid-hold: holding resets; the 8 s handover only kicks in if they don't return.
 
 ## Conventions
 
-- No bundler for the pages: plain ES modules (`game.js`, `ui.js`) + `style.css`, loaded by the HTML pages. PartyKit bundles `party/server.js` itself on deploy.
+- No bundler for the pages: plain ES modules (`game.js`, `ui.js`) + `style.css`, loaded by the HTML pages. Wrangler bundles `party/server.js` (with `../game.js`) on deploy.
 - Game-specific visual identity, not generic app chrome. Dark stage, condensed display face, gold values, red buzzer. Keep it.
 - Joe tests on iOS Safari/WebKit (DuckDuckGo browser). No Vibration API; audio needs a tap; use `pointer` events; `touch-action: none` on hold/buzz buttons.
 - Terminal and path instructions for Windows.

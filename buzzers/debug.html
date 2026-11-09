@@ -25,7 +25,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 // the arrival time, and each phone's measured round trip) and each phone's clock offset.
 const qs = new URLSearchParams(location.search);
 const isLocal = /^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname);
-const host = qs.get('party') || (isLocal ? `${location.hostname}:1999` : 'buzzers.gamedesignerjoe.partykit.dev');
+const host = qs.get('party') || (isLocal ? `${location.hostname}:1999` : 'buzzers.gamedesignerjoe.workers.dev');
 const proto = /^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)(:\d+)?$/.test(host) ? 'ws' : 'wss';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const $ = s => document.querySelector(s);
