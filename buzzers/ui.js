@@ -276,7 +276,8 @@ const VIEW = {
     else hint = full && !mine ? `The board is full (${cap}). Tap Ready when you're set.` : 'Tap Ready when you\'re set. The game starts when everyone is.';
     if (amReady) btn = `<button class="btn ghost wide" id="ready" data-ready="0">Ready ✓ (tap to undo)</button>`;
     else btn = `<button class="btn gold wide" id="ready" data-ready="1" ${needCat ? 'disabled' : ''}>Ready</button>`;
-    const settingsBlock = `<div class="eyebrow">Game settings · ${host === me.id ? 'you\'re the host' : `${esc(nameOf(S, host))} is host`}</div>${settingsControls(S.settings, host === me.id)}`;
+    const chosen = Object.entries(SETTINGS).map(([k, def]) => def.options.find(([v]) => v === S.settings[k])?.[1]).filter(Boolean).join(' · ');
+    const settingsBlock = `<details class="lobbyset" ${settingsOpen ? 'open' : ''}><summary>Game settings · ${host === me.id ? 'you\'re the host' : `${esc(nameOf(S, host))} is host`}<span class="setsum">${esc(chosen)}</span></summary><div style="margin-top:8px">${settingsControls(S.settings, host === me.id)}</div></details>`;
 
     const chips = list => list.map(n => `<button class="chip" data-addcat="${esc(n)}">${esc(n)}</button>`).join('');
     const fail = canAdd ? ctx.genFail : null;
@@ -368,8 +369,10 @@ const VIEW = {
 };
 
 // h: { send(action), addCategory(name), press(), hold(down), reveal(), mute(), leave() }
+let settingsOpen = false; // lobby settings panel: closed by default, stays as the player left it across repaints
 export function wirePhone(root, S, meId, h) {
   const $ = s => root.querySelector(s);
+  const ls = $('details.lobbyset'); if (ls) ls.ontoggle = () => { settingsOpen = ls.open; };
   const on = (sel, ev, fn) => root.querySelectorAll(sel).forEach(el => el[ev] = fn);
   const form = $('#catform');
   if (form) form.onsubmit = e => { e.preventDefault(); const i = $('#catname'); if (i.value.trim()) { h.addCategory(i.value); i.value = ''; } };

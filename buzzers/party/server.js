@@ -6,7 +6,7 @@
 // Messages out: state {now, S} | you {pid, color} | err {msg} | pong {t0, ts}
 
 import { DurableObject } from 'cloudflare:workers';
-import { createGame, viewFor, newId } from '../game.js';
+import { createGame, viewFor, newId, freshState, CONFIG } from '../game.js';
 
 export default {
   fetch(request, env) {
@@ -24,6 +24,7 @@ export class BuzzersRoom extends DurableObject {
     this.saveTimer = null;
     ctx.blockConcurrencyWhile(async () => {
       const saved = await ctx.storage.get('state');
+      this.lastActive = (await ctx.storage.get('lastActive')) || 0; // 0 = a room from before this existed: treat as stale
       this.game = createGame({ state: saved || undefined, onChange: () => this.changed() });
       if (saved) this.game.resume();
     });
@@ -45,7 +46,24 @@ export class BuzzersRoom extends DurableObject {
   changed() {
     const now = Date.now();
     for (const conn of this.conns) this.sendState(conn, now);
-    if (!this.saveTimer) this.saveTimer = setTimeout(() => { this.saveTimer = null; this.ctx.storage.put('state', this.game.state); }, 250);
+    if (this.anyoneHere()) this.lastActive = now;
+    if (!this.saveTimer) this.saveTimer = setTimeout(() => { this.saveTimer = null; this.ctx.storage.put({ state: this.game.state, lastActive: this.lastActive }); }, 250);
+  }
+
+  anyoneHere(except) { for (const c of this.conns) if (c !== except && c.state.pid) return true; return false; }
+
+  // Old rooms: if nobody has been in the room for roomIdleResetMs, the next person in gets a fresh
+  // lobby instead of a half-finished game full of empty seats. The room's memory (clues and
+  // categories it has used) survives, so a group reusing its code still doesn't get repeats.
+  resetIfStale(conn) {
+    const S = this.game.state;
+    if (!S.players.length || this.anyoneHere(conn)) return;
+    const idle = Date.now() - this.lastActive;
+    if (idle < CONFIG.roomIdleResetMs) return;
+    this.game.stop();
+    const fresh = freshState({ memory: S.memory });
+    fresh.log = [{ t: Date.now(), msg: this.lastActive ? `room reset · empty for ${Math.round(idle / 60000)} min` : 'room reset · left over from an older version' }];
+    this.game = createGame({ state: fresh, onChange: () => this.changed() });
   }
 
   send(conn, msg) { try { conn.ws.send(JSON.stringify(msg)); } catch {} }
@@ -82,6 +100,7 @@ export class BuzzersRoom extends DurableObject {
     for (const other of this.conns) {
       if (other !== conn && other.state.pid === pid) { other.state = { replaced: true }; try { other.ws.close(4000, 'replaced'); } catch {} }
     }
+    this.resetIfStale(conn);
     conn.state = { pid };
     const r = this.game.dispatch({ type: 'join', by: pid, name: m.name, color: m.color, key: m.key, settings: m.settings });
     if (r?.error) { conn.state = {}; return this.send(conn, { type: 'err', msg: r.error, fatal: true }); }
@@ -92,6 +111,7 @@ export class BuzzersRoom extends DurableObject {
   left(conn) {
     const pid = conn.state.pid; if (!pid || conn.state.replaced) return;
     for (const other of this.conns) if (other.state.pid === pid) return;
+    this.lastActive = Date.now();
     this.game.dispatch({ type: 'presence', by: pid, connected: false });
   }
 }

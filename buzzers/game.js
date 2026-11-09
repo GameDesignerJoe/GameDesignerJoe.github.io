@@ -21,6 +21,7 @@ export const CONFIG = {
   answerSecs: 5,             // out-loud answer countdown. Hitting zero shows "Out of time"; the judge still rules.
   revealMs: 3500,            // how long the answer stays up before the board comes back
   awayGraceMs: 8000,         // a dropped picker/judge gets this long to come back before someone else takes over
+  roomIdleResetMs: 2 * 60 * 60 * 1000, // nobody connected this long → the next joiner gets a fresh lobby (memory of used clues is kept)
   rereadBeforeFirstBuzz: true, // judge can take a clue back to "reading" if nobody has pressed yet
   memoryAnswers: 400,        // used clue ids kept for the life of the room
   memoryCats: 20,            // past categories kept for the "played before" chips
