@@ -12,10 +12,10 @@
 <div class="phone full" id="phone"></div>
 
 <script type="module">
-// Buzzers — the real phone. The game runs on the PartyKit room server; this page sends actions up,
+// Buzzers — the real phone. The game runs on the room server (party/); this page sends actions up,
 // gets its own copy of the state down, and renders it. Rules and timings: game.js. Views: ui.js.
-import { CONFIG, newId } from './game.js';
-import { renderPhone, wirePhone, paint, tickSig, generateClues, sound, esc } from './ui.js';
+import { CONFIG, newId, cleanSettings } from './game.js';
+import { renderPhone, wirePhone, paint, tickSig, generateClues, sound, esc, settingsControls, wireSettings } from './ui.js';
 
 // ============================ CLIENT CONFIG ============================
 const qs = new URLSearchParams(location.search);
@@ -52,6 +52,8 @@ const cleanCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').s
 const randomCode = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join('');
 let joinColor = store.get('bz.color', CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)]);
 let joinError = '';
+// Settings you'd use as host. Sent with every join, but only applied if you're the first one into an empty room.
+let mySettings = (() => { try { return cleanSettings(JSON.parse(store.get('bz.settings', '{}'))); } catch { return cleanSettings({}); } })();
 
 function showJoin() {
   phone._html = null;
@@ -67,6 +69,7 @@ function showJoin() {
       <div class="eyebrow">Room code</div>
       <form class="field" id="joinform"><input class="input code" id="code" value="${esc(code)}" placeholder="ABCD" maxlength="12" autocomplete="off" autocapitalize="characters"><button class="btn gold" type="submit">Join</button></form>
       <button class="btn ghost wide" id="newroom">Start a new room</button>
+      <details class="joinset"><summary>Game settings (if you're starting the room)</summary><div id="joinsettings" style="margin-top:8px"></div></details>
       <div class="err" id="joinerr">${esc(joinError)}</div>
       <div class="foot">Use the same room code next time and the room remembers which clues your group has already seen.</div>
     </div>`;
@@ -81,6 +84,11 @@ function showJoin() {
   };
   $('#joinform').onsubmit = e => { e.preventDefault(); go(cleanCode($('#code').value)); };
   $('#newroom').onclick = () => go(randomCode());
+  const drawSettings = () => {
+    const box = $('#joinsettings'); box.innerHTML = settingsControls(mySettings, true);
+    wireSettings(box, (k, v) => { mySettings = cleanSettings({ ...mySettings, [k]: v }); store.set('bz.settings', JSON.stringify(mySettings)); drawSettings(); });
+  };
+  drawSettings();
 }
 
 function join(code) {
@@ -107,7 +115,7 @@ function connect() {
   const sock = ws = new WebSocket(`${wsProto}://${CLIENT.partyHost}/parties/main/${encodeURIComponent(room)}`);
   sock.onopen = () => {
     retryMs = CLIENT.reconnectMs[0];
-    send({ type: 'hello', pid, key: deviceKey, name: store.get('bz.name'), color: store.get('bz.color') });
+    send({ type: 'hello', pid, key: deviceKey, name: store.get('bz.name'), color: store.get('bz.color'), settings: mySettings });
     syncClock(CLIENT.clockPings);
     clearInterval(syncTimer); syncTimer = setInterval(() => syncClock(3), CLIENT.resyncEveryMs);
   };

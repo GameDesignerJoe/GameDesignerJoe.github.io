@@ -34,10 +34,32 @@ export const clueId = (cat, answer) => `${String(cat).toLowerCase()}|${String(an
 export const newId = (p = '') => p + Math.random().toString(36).slice(2, 9);
 const emptyBuzz = () => ({ openAt: null, presses: {}, lockedUntil: {}, guessed: [], winner: null });
 
+// ============================ ROOM SETTINGS ============================
+// The host picks these (join screen when creating a room, or in the lobby). Each is a two-way toggle.
+export const SETTINGS = {
+  penalty:   { label: 'Scoring',  options: [[true, 'Misses cost points'], [false, 'No penalty']] },
+  pickOrder: { label: 'Who picks', options: [['winner', 'Winner picks next'], ['roundRobin', 'Round robin']] },
+  catMode:   { label: 'Board',    options: [['onePerPlayer', '1 category each'], ['sixMax', 'Up to 6 total']] },
+};
+export const DEFAULT_SETTINGS = { penalty: true, pickOrder: 'winner', catMode: 'onePerPlayer' };
+export function cleanSettings(s, base = DEFAULT_SETTINGS) {
+  const out = { ...base };
+  for (const [k, def] of Object.entries(SETTINGS)) if (s && def.options.some(([v]) => v === s[k])) out[k] = s[k];
+  return out;
+}
+
+// The host is the room's first player; if they're not connected, the earliest connected player stands in.
+export function actingHostOf(S) {
+  const h = S.players.find(p => p.id === S.host);
+  return h?.connected ? h.id : (S.players.find(p => p.connected)?.id ?? S.host);
+}
+
 export function freshState(keep) {
   return {
-    v: 2,
+    v: 3,
     phase: 'lobby',            // lobby → board → reading → buzz → answering → reveal → board … → over
+    settings: keep?.settings || { ...DEFAULT_SETTINGS },
+    host: keep?.host ?? null,  // first player in the room; if they're away, the next connected player acts as host
     players: [],               // { id, name, color, score, judged, connected, key, clock }
     categories: [],            // { id, name, by, status, source, clues:[{ clue, answer, alts, value, used }] }
     ready: [],                 // lobby: players who tapped Ready
@@ -62,6 +84,7 @@ export function freshState(keep) {
 // dispatch returns { error } when an action is refused for a reason the player should see.
 export function createGame({ state, onChange = () => {}, now = () => Date.now() } = {}) {
   let S = state || freshState();
+  S.settings = cleanSettings(S.settings); // older saved rooms have none
   let timers = [];
   let depth = 0;
 
@@ -85,10 +108,15 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
   }
   function setPicker(pid) { S.picker = pid; S.judge = chooseJudge(pid); }
 
-  // ---------- lobby: one category each, everyone Ready, then top up to targetCategories ----------
+  const actingHost = () => actingHostOf(S);
+
+  // ---------- lobby ----------
+  // '1 category each': one each, everyone Ready, then random turns top up to targetCategories.
+  // 'Anyone adds, up to 6': add freely until the board is full; everyone Ready; start with what's there.
+  const onePer = () => S.settings.catMode === 'onePerPlayer';
   const hasCat = pid => S.categories.some(c => c.by === pid);
   const boardFull = () => S.categories.length >= CONFIG.maxCategories;
-  const canReady = pid => hasCat(pid) || boardFull();
+  const canReady = pid => !onePer() || hasCat(pid) || boardFull();
   const extraTurn = () => (S.extra ? S.extra.queue[S.extra.i % S.extra.queue.length] : null);
 
   // Runs after anything that could change who's ready or what's on the board. Starts the game when it can.
@@ -98,7 +126,8 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
     if (live.length < CONFIG.minPlayers) return;
     // Everyone in the room, not just who's connected: a locked phone shouldn't get skipped. (Empty seats can be cleared with ×.)
     if (!S.players.every(p => S.ready.includes(p.id) && canReady(p.id))) return;
-    if (S.categories.length < CONFIG.targetCategories) {
+    if (!S.categories.length) return;
+    if (onePer() && S.categories.length < CONFIG.targetCategories) {
       if (!S.extra) {
         S.extra = { queue: live.map(p => p.id).sort(() => Math.random() - 0.5), i: 0 };
         log(`everyone's ready · ${CONFIG.targetCategories - S.categories.length} more categor${CONFIG.targetCategories - S.categories.length === 1 ? 'y' : 'ies'} needed`);
@@ -142,11 +171,17 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
     later(CONFIG.revealMs, () => { if (S.phase === 'reveal' && S.round === round) advance(); });
   }
 
-  // Who picks next: in a two-player game it alternates every clue; otherwise the correct
-  // answerer (or the same picker if nobody got it).
+  // Who picks next. 'Round robin': the next connected player in seat (join) order, every clue.
+  // 'Winner picks next': the correct answerer, or the same picker if nobody got it. Two-player games
+  // always alternate, because the winner is always the picker and the other player would judge every clue.
+  function nextInSeat(pid) {
+    const seats = S.players; const i = seats.findIndex(p => p.id === pid);
+    for (let n = 1; n <= seats.length; n++) { const p = seats[(i + n) % seats.length]; if (p.connected) return p.id; }
+    return pid;
+  }
   function advance() {
     const live = connected();
-    let next = live.length === 2 ? live.find(p => p.id !== S.picker)?.id : S.nextPicker;
+    let next = S.settings.pickOrder === 'roundRobin' || live.length === 2 ? nextInSeat(S.picker) : S.nextPicker;
     if (!P(next)?.connected) next = pick(live)?.id ?? S.nextPicker;
     const left = S.categories.some(c => c.clues.some(q => !q.used));
     S.phase = left ? 'board' : 'over';
@@ -206,8 +241,10 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
         if (p) { const back = !p.connected; Object.assign(p, { name, color, connected: true, key: a.key ?? p.key }); if (back) { log(`${name} is back`); rearmAway(); } }
         else {
           if (S.players.length >= CONFIG.maxPlayers) return err('This room is full.');
+          const first = !S.players.length && !S.host;
           S.players.push({ id: a.by, name, color, score: 0, judged: 0, connected: true, key: a.key ?? null, clock: null });
-          log(`${name} joined`);
+          if (first) { S.host = a.by; if (a.settings) S.settings = cleanSettings(a.settings); }
+          log(`${name} joined${first ? ' · host' : ''}`);
         }
         return { color };
       }
@@ -236,8 +273,8 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
       case 'addCategory': {
         if (S.phase !== 'lobby') return;
         const name = clean(a.name, CONFIG.maxCategoryLen); if (!name) return;
-        const isTurn = extraTurn() === a.by && S.categories.length < CONFIG.targetCategories;
-        if (hasCat(a.by) && !isTurn) return err(S.extra ? `It's ${nameOf(extraTurn())}'s turn to add one.` : 'One category each. Tap Ready when you\'re set.');
+        const isTurn = onePer() && extraTurn() === a.by && S.categories.length < CONFIG.targetCategories;
+        if (onePer() && hasCat(a.by) && !isTurn) return err(S.extra ? `It's ${nameOf(extraTurn())}'s turn to add one.` : 'One category each. Tap Ready when you\'re set.');
         if (S.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) return err(`"${name}" is already on the board.`);
         if (boardFull()) return err(`The board is full (${CONFIG.maxCategories} categories).`);
         const cat = { id: clean(a.id, 20) || newId('c'), name, by: a.by, status: 'generating', source: null, clues: [] };
@@ -267,6 +304,18 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
         S.ready = S.ready.filter(id => id !== cat.by);
         log(`${nameOf(a.by)} removed "${cat.name}"`);
         lobbyCheck();
+        return;
+      }
+      case 'settings': {
+        if (S.phase !== 'lobby') return err('Settings lock once the game starts.');
+        if (a.by !== actingHost()) return err(`Only ${nameOf(actingHost())} (host) can change settings.`);
+        const next = cleanSettings(a.settings, S.settings);
+        const changed = Object.keys(SETTINGS).filter(k => next[k] !== S.settings[k]);
+        if (!changed.length) return;
+        S.settings = next;
+        // New rules → everyone re-confirms, and any top-up in progress restarts.
+        S.ready = []; S.extra = null;
+        log(`${nameOf(a.by)} set ${changed.map(k => SETTINGS[k].options.find(([v]) => v === next[k])[1]).join(', ')} · everyone re-tap Ready`);
         return;
       }
       case 'ready': {
@@ -346,9 +395,10 @@ export function createGame({ state, onChange = () => {}, now = () => Date.now() 
           log(`${nameOf(S.judge)} rules CORRECT${late ? ' (after time)' : ''} · ${nameOf(w)} +${q.value}`);
           reveal(w);
         } else {
-          P(w).score -= q.value; S.lastResult = { who: w, right: false };
+          if (S.settings.penalty) P(w).score -= q.value;
+          S.lastResult = { who: w, right: false };
           sfx('wrong');
-          log(`${nameOf(S.judge)} rules INCORRECT${late ? ' (out of time)' : ''} · ${nameOf(w)} −${q.value}`);
+          log(`${nameOf(S.judge)} rules INCORRECT${late ? ' (out of time)' : ''} · ${nameOf(w)} ${S.settings.penalty ? `−${q.value}` : '(no penalty)'}`);
           const remaining = connected().filter(p => p.id !== S.judge && !S.buzz.guessed.includes(p.id));
           S.answerDeadline = null;
           if (remaining.length) open(t + CONFIG.openDelayMs);

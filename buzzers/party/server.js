@@ -83,7 +83,7 @@ export class BuzzersRoom extends DurableObject {
       if (other !== conn && other.state.pid === pid) { other.state = { replaced: true }; try { other.ws.close(4000, 'replaced'); } catch {} }
     }
     conn.state = { pid };
-    const r = this.game.dispatch({ type: 'join', by: pid, name: m.name, color: m.color, key: m.key });
+    const r = this.game.dispatch({ type: 'join', by: pid, name: m.name, color: m.color, key: m.key, settings: m.settings });
     if (r?.error) { conn.state = {}; return this.send(conn, { type: 'err', msg: r.error, fatal: true }); }
     this.send(conn, { type: 'you', pid, color: r?.color });
     this.sendState(conn);

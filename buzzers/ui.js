@@ -2,7 +2,22 @@
 // renderPhone(S, me, ctx) turns one phone's copy of the state into HTML; wirePhone hooks up its buttons.
 // Phone-local view state (clue held down, answer revealed, early lockout, mute) lives in ctx, not in S.
 
-import { CONFIG } from './game.js';
+import { CONFIG, SETTINGS, actingHostOf } from './game.js';
+
+// Two-way toggles for each room setting. Editable for the host (and on the join screen), read-only for everyone else.
+export function settingsControls(settings, editable) {
+  return `<div class="settings">${Object.entries(SETTINGS).map(([k, def]) => `
+    <div class="setrow"><span class="eyebrow">${esc(def.label)}</span>
+      <div class="seg" role="group" aria-label="${esc(def.label)}">${def.options.map(([v, label]) =>
+        `<button type="button" class="${settings[k] === v ? 'on' : ''}" data-setting="${k}" data-val='${esc(JSON.stringify(v))}' ${editable ? '' : 'disabled'} aria-pressed="${settings[k] === v}">${esc(label)}</button>`).join('')}</div>
+    </div>`).join('')}
+    ${settings.pickOrder === 'winner' ? '<div class="alts">With 2 players the pick always alternates.</div>' : ''}
+  </div>`;
+}
+// Wire the toggles: onPick(key, value)
+export function wireSettings(root, onPick) {
+  root.querySelectorAll('[data-setting]').forEach(b => b.onclick = () => onPick(b.dataset.setting, JSON.parse(b.dataset.val)));
+}
 
 export const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export const dot = (color, size = 10) => `<span style="background:${esc(color)};width:${size}px;height:${size}px;display:inline-block;border-radius:50%;flex:none"></span>`;
@@ -160,11 +175,14 @@ const VIEW = {
   // take turns adding one more → game starts by itself once every category's clues are ready.
   lobby(S, me) {
     const live = S.players.filter(p => p.connected).length;
+    const onePer = S.settings.catMode === 'onePerPlayer';
+    const host = actingHostOf(S);
     const mine = S.categories.some(c => c.by === me.id);
     const full = S.categories.length >= CONFIG.maxCategories;
     const turn = S.extra ? S.extra.queue[S.extra.i % S.extra.queue.length] : null;
-    const myTurn = turn === me.id && S.categories.length < CONFIG.targetCategories;
-    const canAdd = !full && (!mine || myTurn);
+    const myTurn = onePer && turn === me.id && S.categories.length < CONFIG.targetCategories;
+    const canAdd = !full && (!onePer || !mine || myTurn);
+    const needCat = onePer && !mine && !full;
     const amReady = S.ready.includes(me.id);
     const allReady = S.players.every(p => S.ready.includes(p.id));
     const onBoard = n => S.categories.some(c => c.name.toLowerCase() === n.toLowerCase());
@@ -184,23 +202,25 @@ const VIEW = {
 
     let hint, btn;
     if (live < CONFIG.minPlayers) hint = `Need ${CONFIG.minPlayers}+ players.`;
-    else if (!mine && !full) hint = 'Add one category, then tap Ready.';
-    else if (amReady) hint = waitingOn.length ? `Waiting for ${waitingOn.map(p => esc(p.name)).join(', ')}` : '';
-    else hint = 'Tap Ready when you\'re set. The game starts when everyone is.';
+    else if (needCat) hint = 'Add one category, then tap Ready.';
+    else if (amReady) hint = waitingOn.length ? `Waiting for ${waitingOn.map(p => esc(p.name)).join(', ')}` : !S.categories.length ? 'Add at least one category.' : '';
+    else hint = onePer ? 'Tap Ready when you\'re set. The game starts when everyone is.' : `Add as many as you like (up to ${CONFIG.maxCategories} total), then tap Ready.`;
     if (amReady) btn = `<button class="btn ghost wide" id="ready" data-ready="0">Ready ✓ (tap to undo)</button>`;
-    else btn = `<button class="btn gold wide" id="ready" data-ready="1" ${!mine && !full ? 'disabled' : ''}>Ready</button>`;
+    else btn = `<button class="btn gold wide" id="ready" data-ready="1" ${needCat ? 'disabled' : ''}>Ready</button>`;
+    const settingsBlock = `<div class="eyebrow">Game settings · ${host === me.id ? 'you\'re the host' : `${esc(nameOf(S, host))} is host`}</div>${settingsControls(S.settings, host === me.id)}`;
 
     const chips = list => list.map(n => `<button class="chip" data-addcat="${esc(n)}">${esc(n)}</button>`).join('');
     return `
       <div class="eyebrow">${live} in the room</div>
       <div class="roster">${S.players.map(p => `<span class="pill ${p.connected ? '' : 'away'}">${dot(p.color, 8)} ${esc(p.name)}${S.ready.includes(p.id) ? ' ✓' : ''}${p.connected ? '' : `<button class="x" data-kick="${esc(p.id)}" aria-label="Clear ${esc(p.name)}'s seat">×</button>`}</span>`).join('')}</div>
+      ${settingsBlock}
       ${banner}
       ${canAdd ? `
-        <div class="eyebrow">${myTurn ? 'Your extra category' : 'Your category'}</div>
+        <div class="eyebrow">${myTurn ? 'Your extra category' : onePer ? 'Your category' : 'Add a category'}</div>
         <form class="field" id="catform"><input id="catname" placeholder="anything, the sillier the better" maxlength="${CONFIG.maxCategoryLen}" autocomplete="off"><button class="btn gold" type="submit">Add</button></form>
         ${past.length ? `<div class="eyebrow">Played before</div><div class="chips">${chips(past)}</div>` : ''}
         ${ideas.length ? `<div class="eyebrow">Ideas</div><div class="chips">${chips(ideas)}</div>` : ''}` : ''}
-      <div class="eyebrow">The board · ${S.categories.length}${S.categories.length < CONFIG.targetCategories ? ` of ${CONFIG.targetCategories}` : ''}</div>
+      <div class="eyebrow">The board · ${S.categories.length}${onePer && S.categories.length < CONFIG.targetCategories ? ` of ${CONFIG.targetCategories}` : !onePer ? ` of ${CONFIG.maxCategories} max` : ''}</div>
       <div class="catlist">${S.categories.map(c => {
         const removable = c.by === me.id || !P(S, c.by)?.connected;
         return `<div class="catrow"><span class="who" style="background:${esc(P(S, c.by)?.color || '#888')}"></span><span class="name">${esc(c.name)}</span><span class="state ${c.status}">${c.status === 'ready' ? (c.source === 'canned' ? 'canned clues' : '5 clues ready') : 'searching…'}</span>${removable ? `<button class="x" data-remove="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">×</button>` : ''}</div>`;
@@ -277,6 +297,7 @@ export function wirePhone(root, S, meId, h) {
   on('[data-remove]', 'onclick', e => h.send({ type: 'removeCategory', catId: e.currentTarget.dataset.remove }));
   on('[data-kick]', 'onclick', e => h.send({ type: 'kick', target: e.currentTarget.dataset.kick }));
   on('#ready', 'onclick', e => h.send({ type: 'ready', ready: e.currentTarget.dataset.ready === '1' }));
+  wireSettings(root, (k, v) => h.send({ type: 'settings', settings: { [k]: v } }));
   on('.board .val', 'onclick', e => h.send({ type: 'pickClue', catId: e.currentTarget.dataset.cat, idx: +e.currentTarget.dataset.idx }));
   const bz = $('#buzzer'); if (bz) bz.onpointerdown = e => { e.preventDefault(); h.press(); };
   const hold = $('#hold');
