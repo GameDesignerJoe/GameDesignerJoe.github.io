@@ -121,6 +121,8 @@ h1 small { font-family: var(--body); font-weight: 400; font-size: 12px; color: v
 .judgebox { background: var(--bg); border: 1.5px dashed var(--gold); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .row2 { display: flex; gap: 8px; }
 .row2 .btn { flex: 1; padding: 16px; font-size: 18px; }
+.revealbtn { padding: 22px; font-family: var(--display); font-weight: 800; font-size: 26px; text-transform: uppercase; letter-spacing: .04em; border-radius: 14px; }
+.judgebox .row2 .btn { padding: 10px; font-size: 15px; }
 
 /* Log */
 details { border-top: 1px solid var(--line); padding-top: 8px; }
@@ -502,14 +504,14 @@ const view = {
     if (me.id === S.judge) return `
       <div class="eyebrow">You read this one · ${esc(c.name)} for ${q.value}</div>
       <div class="alts">Hold the button, read the clue out loud, let go on the last word. Letting go opens the buzzers.</div>
-      <button class="buzzer hold ${S.holding ? 'armed' : ''}" id="hold">${S.holding ? `<span class="clue">${esc(q.clue)}</span>` : 'Hold to read'}</button>
-      <div class="judgebox"><div class="eyebrow">Accept</div><div class="answer">${esc(q.answer)}</div>${q.alts.length ? `<div class="alts">also: ${esc(q.alts.join(' · '))}</div>` : ''}</div>`;
+      <button class="buzzer hold ${S.holding ? 'armed' : ''}" id="hold">${S.holding ? `<span class="clue">${esc(q.clue)}</span>` : 'Hold to reveal'}</button>`;
     return `<div class="grow center"><div class="eyebrow">${esc(c.name)} for ${q.value}</div><div class="big" style="font-size:34px">${esc(nameOf(S.judge))} is reading</div><div class="alts">Listen. The ding means go.</div></div>${buzzerBtn(me, 'wait')}`;
   },
   buzz(me) {
     const out = me.id === S.judge || S.buzz.guessed.includes(me.id);
     const steal = S.buzz.guessed.length > 0;
-    return `<div class="grow center"><div class="eyebrow">${steal ? 'Steal' : 'Buzz'}</div><div class="clue">${esc(cur().clue)}</div>${out ? `<div class="alts">${me.id === S.judge ? 'You\'re judging this one.' : 'You already guessed.'}</div>` : ''}</div>${buzzerBtn(me, out ? 'out' : 'armed')}`;
+    if (me.id === S.judge) return `<div class="grow center"><div class="eyebrow">${steal ? 'Steal' : 'Buzzers open'} · you're judging</div><div class="clue">${esc(cur().clue)}</div></div>${judgePanel(false)}`;
+    return `<div class="grow center"><div class="eyebrow">${steal ? 'Steal' : 'Buzz'}</div><div class="clue">${esc(cur().clue)}</div>${out ? `<div class="alts">You already guessed.</div>` : ''}</div>${buzzerBtn(me, out ? 'out' : 'armed')}`;
   },
   answering(me) {
     const w = P(S.buzz.winner); const q = cur();
@@ -517,9 +519,8 @@ const view = {
     if (me.id === S.judge) return `
       <div class="eyebrow">You're the judge · ${esc(w.name)} is answering</div>
       <div class="clue">${esc(q.clue)}</div>
-      <div class="judgebox"><div class="eyebrow">Accept</div><div class="answer">${esc(q.answer)}</div>${q.alts.length ? `<div class="alts">also: ${esc(q.alts.join(' · '))}</div>` : ''}</div>
       <div class="timer ${secs <= 2 ? 'low' : ''}" id="timer">${secs}</div>
-      <div class="row2"><button class="btn ok" data-rule="1">Right</button><button class="btn bad" data-rule="0">Wrong</button></div>`;
+      ${judgePanel(true)}`;
     if (me.id === w.id) return `<div class="grow center"><div class="eyebrow">You're up</div><div class="big" style="font-size:40px">Say it out loud</div><div class="timer ${secs <= 2 ? 'low' : ''}" id="timer">${secs}</div><div class="alts">${esc(nameOf(S.judge))} is judging</div></div>`;
     return `<div class="grow center"><div class="eyebrow">${esc(w.name)} buzzed in</div><div class="clue">${esc(q.clue)}</div><div class="timer ${secs <= 2 ? 'low' : ''}" id="timer">${secs}</div><div class="alts">${esc(nameOf(S.judge))} is judging</div></div>`;
   },
@@ -532,6 +533,21 @@ const view = {
     return `<div class="grow center"><div class="eyebrow">Final</div><div class="big" style="font-size:44px;color:var(--gold)">${esc(sorted[0].name)} wins</div></div>${scores(me)}<button class="btn gold" id="again">Play again</button>`;
   },
 };
+
+// Judge's answer panel. The answer stays hidden behind a "Reveal answer" button until the judge
+// taps it; Correct/Incorrect live inside the revealed box and only work once someone has buzzed.
+// Revealed-ness is this phone's private view state, not game state, so the reducer doesn't change.
+let revealedFor = new Set(); // `${phoneId}|${catId}:${idx}`
+const revealKey = () => `${heldPhone}|${S.current.catId}:${S.current.idx}`;
+function judgePanel(canRule) {
+  const q = cur();
+  if (!revealedFor.has(revealKey())) return `<button class="btn gold revealbtn" id="revealAns">Reveal answer</button>`;
+  return `<div class="judgebox">
+    <div class="eyebrow">Accept</div><div class="answer">${esc(q.answer)}</div>${q.alts.length ? `<div class="alts">also: ${esc(q.alts.join(' · '))}</div>` : ''}
+    <div class="row2"><button class="btn ok" data-rule="1" ${canRule ? '' : 'disabled'}>Correct</button><button class="btn bad" data-rule="0" ${canRule ? '' : 'disabled'}>Incorrect</button></div>
+    ${canRule ? '' : '<div class="alts">Waiting for someone to buzz in.</div>'}
+  </div>`;
+}
 
 function wave() { return `<div class="wave"><i></i><i></i><i></i><i></i><i></i></div>`; }
 function scores(me) { return `<div class="scores">${S.players.map(p => `<div class="score ${p.id === me.id ? 'me' : ''}"><div class="n">${dot(p, 8)} ${esc(p.name)}</div><div class="v ${p.score < 0 ? 'neg' : ''}">${p.score}</div></div>`).join('')}</div>`; }
@@ -556,6 +572,7 @@ function wire(me) {
     hold.onpointerup = end; hold.onpointercancel = end;
     hold.oncontextmenu = e => e.preventDefault();
   }
+  const rev = $('#revealAns'); if (rev) rev.onclick = () => { revealedFor.add(revealKey()); render(); };
   document.querySelectorAll('[data-rule]').forEach(b => b.onclick = () => dispatch({ type: 'rule', by: me.id, right: b.dataset.rule === '1' }));
   const again = $('#again'); if (again) again.onclick = newGame;
 }
@@ -566,7 +583,7 @@ setInterval(() => {
   if (S.phase === 'reading') { const b = $('#buzzer'); if (b) { const locked = (S.buzz.lockedUntil[heldPhone] || 0) > now(); b.classList.toggle('locked', locked); b.textContent = locked ? 'Too early' : 'Wait for it'; } }
 }, 100);
 
-function newGame() { clearTimers(); botArmedFor = null; S = freshState(); log('new game'); render(); botTick(); }
+function newGame() { clearTimers(); botArmedFor = null; revealedFor = new Set(); S = freshState(); log('new game'); render(); botTick(); }
 $('#reset').onclick = newGame;
 $('#bots').onchange = botTick;
 newGame();
