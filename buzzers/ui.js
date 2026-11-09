@@ -1,6 +1,6 @@
 // Buzzers — phone views, sounds, clue generation. Shared by index.html (real phones) and sim.html.
 // renderPhone(S, me, ctx) turns one phone's copy of the state into HTML; wirePhone hooks up its buttons.
-// Phone-local view state (clue held down, answer revealed, early lockout, mute) lives in ctx, not in S.
+// Phone-local view state (clue held down, early lockout, mute) lives in ctx, not in S.
 
 import { CONFIG, SETTINGS, actingHostOf, rowsFor } from './game.js';
 
@@ -196,7 +196,7 @@ const nameOf = (S, id) => P(S, id)?.name ?? '?';
 const curCat = S => S.categories.find(c => c.id === S.current?.catId);
 const curQ = S => curCat(S)?.clues[S.current.idx];
 
-// ctx: { now (synced ms), hold (judge's finger is down), revealed (judge tapped Reveal answer this round),
+// ctx: { now (synced ms), hold (judge's finger is down),
 //        lockUntil (my early-buzz lockout, synced ms), room, conn ('live'|'reconnecting'), muted, showLeave }
 export function renderPhone(S, meId, ctx) {
   const me = P(S, meId);
@@ -229,10 +229,9 @@ export function timerText(S, ctx) {
 }
 function timer(S, ctx) { const t = timerText(S, ctx); return `<div class="timer ${t.cls}" id="timer">${t.text}</div>`; }
 
-// The answer hides behind "Reveal answer" until the judge taps it. Correct/Incorrect live inside.
+// The judge sees the answer as soon as they let go of Hold (never while reading). Correct/Incorrect live inside.
 function judgePanel(S, ctx, canRule) {
   const q = curQ(S);
-  if (!ctx.revealed) return `<button class="btn gold revealbtn" id="revealAns">Reveal answer</button>`;
   return `<div class="judgebox">
     <div class="eyebrow">Accept</div><div class="answer">${esc(q.answer)}</div>${q.alts?.length ? `<div class="alts">also: ${esc(q.alts.join(' · '))}</div>` : ''}
     <div class="row2"><button class="btn ok" data-rule="1" ${canRule ? '' : 'disabled'}>Correct</button><button class="btn bad" data-rule="0" ${canRule ? '' : 'disabled'}>Incorrect</button></div>
@@ -370,7 +369,7 @@ const VIEW = {
   },
 };
 
-// h: { send(action), addCategory(name), press(), hold(down), reveal(), mute(), leave() }
+// h: { send(action), addCategory(name), press(), hold(down), mute(), leave() }
 let settingsOpen = false; // lobby settings panel: closed by default, stays as the player left it across repaints
 export function wirePhone(root, S, meId, h) {
   const $ = s => root.querySelector(s);
@@ -393,7 +392,6 @@ export function wirePhone(root, S, meId, h) {
     hold.onpointerdown = e => { e.preventDefault(); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end); h.hold(true); };
     hold.oncontextmenu = e => e.preventDefault();
   }
-  on('#revealAns', 'onclick', () => h.reveal());
   on('[data-rule]', 'onclick', e => h.send({ type: 'rule', right: e.currentTarget.dataset.rule === '1' }));
   on('#reread', 'onclick', () => h.send({ type: 'reread' }));
   const end = $('#end');

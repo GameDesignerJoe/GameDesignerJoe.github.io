@@ -53,7 +53,7 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 - **3+ players, Winner picks next:** whoever answers correctly picks next; if nobody gets it, same picker. **Round robin:** next in seat order every clue.
 - **2 players:** picking alternates every clue, right or wrong. (Joe, 2026-11-09.)
 - Clues are written by the engine WITH their answers. Players never author answers.
-- **Clues are plain questions** ("Which planet is known as the Red Planet?"), not Jeopardy-style statements. Every generated set is checked in code (`api/generate.js`): ends with "?", answer not in the question, five different answers, no answer that is just the category's name, nothing this group has already had. Bad ones get one repair round with the reasons spelled out; if there still aren't five clean ones, the category is refused. (Joe, 2026-11-09.)
+- **Clues are plain questions** ("Which planet is known as the Red Planet?"), not Jeopardy-style statements. Every generated set is checked in code (`api/generate.js`): ends with "?", answer not in the question, five different answers, no answer that is just the category's name, nothing this group has already had. The prompt also demands **exactly one right answer** per question, pinned down with specific details (year, studio, character, number), and bans opinion words ("bad", "best", "famous") as the main clue, after a vague "bad shooter game" question (Joe, 2026-11-09). Bad ones get one repair round with the reasons spelled out; if there still aren't five clean ones, the category is refused. (Joe, 2026-11-09.)
 - **No made-up facts.** The model first decides whether it can name five real, checkable facts about the topic. Private people, small companies, local places and inside jokes get refused ("there aren't enough real, checkable facts…") with the pick-another screen, instead of invented questions. Web search, so those topics can work from real sources, is the planned next step (option 4, Joe 2026-11-09).
 
 **No game-show host, no generated audio**
@@ -63,7 +63,7 @@ GitHub Pages also serves these at gamedesignerjoe.github.io/buzzers/ but has no 
 **Reader/judge (per clue)**
 - A judge is assigned when the picker's turn starts: **never the picker**, fewest judge turns so far, tie random. The judge sits out this clue; the picker plays (buzzes) like everyone else. In a 2-player game that means the non-picker always judges.
 - Judge's phone shows only a **Hold to reveal** button: clue text is visible only while held; **releasing** opens the buzzers and dings. The answer is **never** on screen before or while reading.
-- After release, the judge sees a **Reveal answer** button. Tapping it shows the accepted answer + alternates, with smaller **Correct** / **Incorrect** buttons inside that box (disabled until someone buzzes). Stays revealed through steals. "Revealed" is that phone's own view state, not reducer state.
+- The moment the judge **lets go**, their phone shows the accepted answer + alternates, with smaller **Correct** / **Incorrect** buttons inside that box (disabled until someone buzzes). No extra Reveal tap. Stays up through steals. (Joe, 2026-11-09.)
 - Judge can **Re-read** (closes buzzers, back to Hold to reveal) until the first press.
 - Other phones show "X is reading" and a dead buzzer until the ding.
 

@@ -44,12 +44,12 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
 const $ = s => document.querySelector(s);
 
-let game, held, revealed = {}, botTimers = [], memory = null, lastSfx = null, dingFor = null, generating = new Set();
+let game, held, botTimers = [], memory = null, lastSfx = null, dingFor = null, generating = new Set();
 const bt = (ms, fn) => botTimers.push(setTimeout(fn, ms));
 const S = () => game.state;
 
 function newGame() {
-  game?.stop(); botTimers.forEach(clearTimeout); botTimers = []; busy = {}; revealed = {}; generating = new Set();
+  game?.stop(); botTimers.forEach(clearTimeout); botTimers = []; busy = {}; generating = new Set();
   game = createGame({ onChange: changed });
   if (memory) S().memory = memory;
   memory = S().memory;
@@ -83,7 +83,7 @@ function roleOf(s, id) {
   return '';
 }
 
-function ctx() { const s = S(); return { now: Date.now(), hold: s.phase === 'reading' && s.judge === held && s.holding, revealed: revealed[held] === s.round, lockUntil: s.buzz.lockedUntil[held] || 0, muted: sound.muted }; }
+function ctx() { const s = S(); return { now: Date.now(), hold: s.phase === 'reading' && s.judge === held && s.holding, lockUntil: s.buzz.lockedUntil[held] || 0, muted: sound.muted }; }
 function draw() {
   const s = S();
   $('#tabs').innerHTML = s.players.map(p => `<button class="tab ${p.id === held ? 'on' : ''}" data-id="${p.id}"><span style="background:${p.color};width:10px;height:10px;border-radius:50%"></span><span>${esc(p.name)}</span><span class="role">${roleOf(s, p.id)}</span></button>`).join('');
@@ -98,7 +98,6 @@ const handlers = {
   addCategory: name => handlers.send({ type: 'addCategory', id: newId('c'), name }),
   press: () => game.dispatch({ type: 'press', by: held, at: Date.now() }),
   hold: down => game.dispatch(down ? { type: 'holdStart', by: held } : { type: 'holdEnd', by: held, at: Date.now() }),
-  reveal: () => { revealed[held] = S().round; draw(); },
   mute: () => { sound.unlock(); sound.toggle(); draw(); },
 };
 

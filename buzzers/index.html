@@ -41,7 +41,7 @@ let pid = store.sget('bz.pid') || newId('p');           // per tab: two tabs on 
 let myName = store.sget('bz.myname');                   // per tab too: bz.name (shared by all tabs) only pre-fills the join screen
 let room = null, ws = null, S = null, conn = 'offline';
 let offset = 0, samples = [], syncTimer = null, retryMs = CLIENT.reconnectMs[0], retryTimer = null;
-let hold = false, revealedRound = -1, lockUntil = 0;
+let hold = false, lockUntil = 0;
 let lastSfx = null, dingFor = null, timeoutFor = null;
 const generating = new Set();
 let genFail = null; // { name, reason } after my category couldn't get real clues; shown in the lobby
@@ -186,7 +186,7 @@ function effects(first) {
 
 // ============================ RENDER ============================
 function ctx() {
-  return { now: syncedNow(), hold, revealed: S && revealedRound === S.round, lockUntil: Math.max(lockUntil, S?.buzz?.lockedUntil?.[pid] || 0), room, conn, muted: sound.muted, showLeave: true, genFail: S?.phase === 'lobby' ? genFail : null };
+  return { now: syncedNow(), hold, lockUntil: Math.max(lockUntil, S?.buzz?.lockedUntil?.[pid] || 0), room, conn, muted: sound.muted, showLeave: true, genFail: S?.phase === 'lobby' ? genFail : null };
 }
 function draw() {
   if (!room) return;
@@ -210,7 +210,6 @@ const handlers = {
     act(down ? { type: 'holdStart' } : { type: 'holdEnd', at: syncedNow() });
     draw();
   },
-  reveal: () => { revealedRound = S.round; draw(); },
   mute: () => { sound.unlock(); sound.toggle(); draw(); },
   leave,
 };

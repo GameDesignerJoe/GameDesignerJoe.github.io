@@ -18,6 +18,8 @@ STEP 2 — only if "ok", write exactly ${N} questions, easiest first, hardest la
 - The answer must NOT appear anywhere in the question, not even partly.
 - All ${N} answers must be different from each other, and none may be just the category's own name.
 - Short, unambiguous answers a judge can check: a name, a number, a place, a title.
+- Every question must have exactly ONE right answer. Pin it down with specific, checkable details: a year, a developer/studio/author, a character, a place, a number, a quote, a record. Before keeping a question, ask yourself "could someone who knows this topic name a different answer that also fits?" If yes, add details until they couldn't.
+- No opinion words as the main clue ("bad", "best", "worst", "famous", "popular", "iconic", "classic"). "Which bad shooter game came out in 2011?" is useless; "Which 2011 shooter, stuck in development for 14 years, was finished by Gearbox?" (Duke Nukem Forever) is good.
 - Only facts you are confident are true. If you can't reach ${N} you are confident about, use "unknown" instead.
 - Never reuse an answer from the avoid list.
 - "alts" are other spoken forms the judge should accept (nicknames, surname only, abbreviations). Empty array if none.

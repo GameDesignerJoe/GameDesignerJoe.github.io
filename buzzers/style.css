@@ -160,7 +160,6 @@ details.lobbyset[open] .setsum { display: none; }
 .judgebox { background: var(--bg); border: 1.5px dashed var(--gold); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .row2 { display: flex; gap: 8px; }
 .row2 .btn { flex: 1; padding: 16px; font-size: 18px; }
-.revealbtn { padding: 22px; font-family: var(--display); font-weight: 800; font-size: 26px; text-transform: uppercase; letter-spacing: .04em; border-radius: 14px; }
 .judgebox .row2 .btn { padding: 10px; font-size: 15px; }
 .foot { font-size: 11px; color: var(--ink-dim); line-height: 1.4; }
 .foot code { font-family: var(--mono); }
