@@ -65,9 +65,8 @@ function showJoin() {
       <div class="alts">Everyone adds a category. The phones are the buzzers. Someone reads each clue out loud.</div>
       <div class="eyebrow">Your name</div>
       <input class="input" id="name" maxlength="${CONFIG.maxNameLen}" autocomplete="off" autocapitalize="words" value="${esc(store.get('bz.name'))}" placeholder="Name">
-      <div class="eyebrow">Room code</div>
-      <form class="field" id="joinform"><input class="input code" id="code" value="${esc(code)}" placeholder="ABCD" maxlength="12" autocomplete="off" autocapitalize="characters"><button class="btn gold" type="submit">Join</button></form>
-      <button class="btn ghost wide" id="newroom">Start a new room</button>
+      <div class="eyebrow">Room code <span style="text-transform:none;letter-spacing:0;opacity:.7">· leave empty to start a new room</span></div>
+      <form id="joinform" style="display:flex;flex-direction:column;gap:10px"><input class="input code" id="code" value="${esc(code)}" placeholder="ABCD" maxlength="12" autocomplete="off" autocapitalize="characters"><button class="btn gold wide" type="submit" id="gobtn"></button></form>
       <details class="joinset"><summary>Game settings (if you're starting the room)</summary><div id="joinsettings" style="margin-top:8px"></div></details>
       <div class="err" id="joinerr">${esc(joinError)}</div>
       <div class="foot">Use the same room code next time and the room remembers which clues your group has already seen.</div>
@@ -75,13 +74,14 @@ function showJoin() {
   const go = code => {
     const name = $('#name').value.trim();
     if (!name) { $('#joinerr').textContent = 'Pick a name first.'; $('#name').focus(); return; }
-    if (!code) { $('#joinerr').textContent = 'Type a room code, or start a new room.'; $('#code').focus(); return; }
     sound.unlock(); // iOS: audio only unlocks inside a tap
     store.set('bz.name', name); store.sset('bz.myname', name); myName = name;
     join(code);
   };
-  $('#joinform').onsubmit = e => { e.preventDefault(); go(cleanCode($('#code').value)); };
-  $('#newroom').onclick = () => go(randomCode());
+  // One button: an empty box starts a new room with a random code; a typed code joins (or creates) that room.
+  const label = () => { const c = cleanCode($('#code').value); $('#gobtn').textContent = c ? `Join ${c}` : 'Start a new room'; };
+  $('#code').oninput = label; label();
+  $('#joinform').onsubmit = e => { e.preventDefault(); go(cleanCode($('#code').value) || randomCode()); };
   const drawSettings = () => {
     const box = $('#joinsettings'); box.innerHTML = settingsControls(mySettings, true);
     wireSettings(box, (k, v) => { mySettings = cleanSettings({ ...mySettings, [k]: v }); store.set('bz.settings', JSON.stringify(mySettings)); drawSettings(); });
