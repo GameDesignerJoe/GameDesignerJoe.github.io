@@ -46,6 +46,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .phone {
   background: var(--stage); border: 2px solid var(--line); border-radius: 22px; padding: 14px; min-height: 520px;
   display: flex; flex-direction: column; gap: 12px; position: relative; overflow: hidden;
+  container-type: inline-size; /* the board sizes itself from the phone's width (cqi), in the real game and in sim.html */
 }
 .phone.full { border: 0; border-radius: 0; background: transparent; padding: 0; min-height: calc(100dvh - 24px); }
 .phone .status { display: flex; justify-content: space-between; align-items: center; gap: 8px; font: 500 11px var(--mono); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .06em; }
@@ -102,29 +103,42 @@ details.lobbyset summary { padding: 2px 0; }
 details.lobbyset .setsum { display: block; margin-top: 3px; text-transform: none; letter-spacing: 0; font: 500 12px var(--body); color: var(--ink-dim); }
 details.lobbyset[open] .setsum { display: none; }
 
-/* Board */
-.board { display: grid; gap: 4px; flex: 1; }
-.board .cat { background: var(--board); border-radius: 6px; padding: 6px 4px; font-family: var(--display); font-weight: 700; font-size: 13px; text-transform: uppercase; text-align: center; line-height: 1.05; display: flex; align-items: center; justify-content: center; min-height: 44px; overflow-wrap: anywhere; }
-.board .val { background: var(--tile); border: 0; border-radius: 6px; color: var(--gold); font-family: var(--display); font-weight: 800; font-size: 22px; min-height: 44px; cursor: pointer; }
+/* Board: fills the screen. Column width comes from the phone's width (100cqi) and the column count
+   (--cols, set in ui.js); header text also shrinks so the longest word (--len) fits on one line. */
+body:has(.board) { max-width: none; }
+.board {
+  display: grid; gap: 4px; flex: 1; grid-template-rows: auto; grid-auto-rows: minmax(44px, 1fr);
+  --colw: calc(100cqi / var(--cols, 6) - 4px);
+  --valfs: clamp(18px, min(var(--colw) * .4, 9dvh), 72px);
+}
+.board .cat {
+  --catfs: clamp(12px, min(var(--colw) * .2, var(--colw) / (var(--len, 8) * .7 + 1), 4.5dvh), 40px); /* ~.7em per capital + the side padding */
+  background: var(--board); border-radius: 6px; padding: .45em .3em; font-family: var(--display); font-weight: 700; font-size: var(--catfs); text-transform: uppercase; text-align: center; line-height: 1.05; display: flex; align-items: center; justify-content: center; min-height: 44px; hyphens: auto; overflow-wrap: anywhere; /* a word too long for a narrow column gets a real hyphen */
+}
+.board .val { background: var(--tile); border: 0; border-radius: 6px; color: var(--gold); font-family: var(--display); font-weight: 800; font-size: var(--valfs); min-height: 44px; cursor: pointer; }
 .board .val:disabled { cursor: default; }
 .board .val.used { background: var(--tile-dim); color: transparent; }
-/* 7–12 categories: sideways headers and smaller values so 12 columns still fit a phone */
+/* 7–12 categories on a narrow phone: sideways headers and smaller values so 12 columns still fit */
 .board.dense { gap: 3px; }
 .board.dense .cat { min-height: 96px; padding: 4px 0; font-size: 11px; }
 .board.dense .cat span { writing-mode: vertical-rl; transform: rotate(180deg); max-height: 92px; overflow: hidden; }
 .board.dense .val { font-size: 13px; min-height: 52px; padding: 0; border-radius: 4px; }
 .rotate-hint { font: 500 12px var(--body); color: var(--gold); text-align: center; }
-/* Sideways phone: the board gets the whole width (the 520px column is for portrait), headers go back to horizontal. */
+@media (orientation: portrait) { .rotate-hint { display: block; } }
+/* Sideways phone (short screen): tighter rows. */
 @media (orientation: landscape) and (max-height: 600px) {
-  body:has(.board) { max-width: none; }
   .rotate-hint { display: none; }
+  .board { grid-auto-rows: minmax(38px, 1fr); }
   .board .cat { min-height: 36px; }
   .board .val { min-height: 38px; }
-  .board.dense .cat { min-height: 40px; font-size: 11px; padding: 3px 2px; }
-  .board.dense .cat span { writing-mode: horizontal-tb; transform: none; max-height: none; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-  .board.dense .val { font-size: 16px; min-height: 40px; }
 }
-@media (orientation: portrait) { .rotate-hint { display: block; } }
+/* Wide enough (sideways phone, tablet, laptop): dense headers go back to horizontal and everything scales. */
+@container (min-width: 640px) {
+  .rotate-hint { display: none; }
+  .board.dense .cat { min-height: 40px; font-size: var(--catfs); padding: .45em .3em; }
+  .board.dense .cat span { writing-mode: horizontal-tb; transform: none; max-height: none; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .board.dense .val { font-size: var(--valfs); min-height: 40px; }
+}
 .board.passive .val { opacity: .55; }
 .board.passive .val.used { opacity: .3; }
 .scores { display: flex; gap: 6px; flex-wrap: wrap; }

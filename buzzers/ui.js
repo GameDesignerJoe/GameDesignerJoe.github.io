@@ -317,8 +317,8 @@ const VIEW = {
     return `
       <div class="eyebrow">${S.picker === me.id ? 'Your pick' : pickerAway ? `${esc(nameOf(S, S.picker))} is away · anyone can pick` : `${esc(nameOf(S, S.picker))} is picking`} · ${S.judge === me.id ? 'you judge this one' : `${esc(nameOf(S, S.judge))} judges`}</div>
       ${cols > 6 ? '<div class="rotate-hint">↻ Turn your phone sideways for a bigger board</div>' : ''}
-      <div class="board ${picking ? '' : 'passive'} ${cols > 6 ? 'dense' : ''}" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
-        ${S.categories.map(c => `<div class="cat"><span>${esc(c.name)}</span></div>`).join('')}
+      <div class="board ${picking ? '' : 'passive'} ${cols > 6 ? 'dense' : ''}" style="--cols:${cols};grid-template-columns:repeat(${cols},minmax(0,1fr))">
+        ${S.categories.map(c => `<div class="cat" style="--len:${Math.max(4, ...c.name.split(/\s+/).map(w => w.length))}"><span>${esc(c.name)}</span></div>`).join('')}
         ${(S.categories[0]?.clues || []).map((_, i) => S.categories.map(c => `<button class="val ${c.clues[i].used ? 'used' : ''}" data-cat="${esc(c.id)}" data-idx="${i}" ${picking && !c.clues[i].used ? '' : 'disabled'}>${c.clues[i].value}</button>`).join('')).join('')}
       </div>
       ${scores(S, me)}
