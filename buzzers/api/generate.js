@@ -153,15 +153,53 @@ async function research(key, cat) {
   return { text: msg.content || '', searches: (msg.executed_tools || []).length, usage: data.usage };
 }
 
+// Abuse guards. Anyone can find this URL, and every call costs Groq money, so:
+//  - only pages served from this same site may call it (browsers always send Origin on a POST; a script
+//    can fake it, so this only stops other sites embedding us),
+//  - input is short (a category, not an essay to get a free chatbot),
+//  - every call first asks the room server's daily budget (party/server.js, BuzzersBudget). Over the
+//    search budget we fall back to memory mode; over the total we refuse with DAILY_LIMIT.
+//  - debug output only when BUZZERS_DEBUG=1 is set in Vercel.
+// The hard ceiling is the spend limit on the Groq account itself.
+const BUDGET_URL = 'https://buzzers.gamedesignerjoe.workers.dev/budget';
+
+export function sameSite(req) {
+  const origin = req.headers.origin;
+  if (!origin) return false;
+  try {
+    const o = new URL(origin).host, host = req.headers['x-forwarded-host'] || req.headers.host;
+    return o === host;
+  } catch { return false; }
+}
+
+// Fails open: if the room server can't be reached, the game keeps working (the Groq spend limit still caps it).
+async function askBudget(ip) {
+  try {
+    const r = await fetch(BUDGET_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip }), signal: AbortSignal.timeout(2500) });
+    if (!r.ok) throw new Error(`budget ${r.status}`);
+    return await r.json();
+  } catch { return { ok: true, search: true, unchecked: true }; }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  if (!sameSite(req)) return res.status(403).json({ error: 'FORBIDDEN: this endpoint only serves the Buzzers page' });
   const key = process.env.GROQ_API_KEY;
   if (!key) return res.status(500).json({ error: 'GROQ_API_KEY is not set in Vercel environment variables' });
 
-  const { category, avoid = [], search = SEARCH_DEFAULT, debug = false } = req.body || {};
+  const body = req.body || {};
+  const { category, avoid = [] } = body;
   if (!category || typeof category !== 'string') return res.status(400).json({ error: 'category required' });
+  if (category.length > 80) return res.status(400).json({ error: 'category too long' });
+  if (!Array.isArray(avoid) || avoid.length > 60) return res.status(400).json({ error: 'avoid list too long' });
+  const debug = process.env.BUZZERS_DEBUG === '1' && body.debug === true;
   const cat = category.trim().slice(0, 60);
-  const avoidList = (Array.isArray(avoid) ? avoid : []).map(String).slice(0, 40);
+  const avoidList = avoid.map(a => String(a).slice(0, 60)).slice(0, 40);
+
+  const ip = String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '?').split(',')[0].trim();
+  const budget = await askBudget(ip);
+  if (!budget.ok) return res.status(429).json({ error: `DAILY_LIMIT: ${budget.why || 'daily limit reached'}` });
+  const search = budget.search && body.search !== false && SEARCH_DEFAULT;
   const avoidLine = avoidList.length ? `\nAvoid these answers (already used): ${avoidList.join('; ')}` : '';
   const t0 = Date.now();
   let sheet = null;

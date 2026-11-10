@@ -15,6 +15,7 @@ import { createGame, viewFor, newId, freshState, CONFIG } from '../game.js';
 
 export default {
   fetch(request, env) {
+    if (new URL(request.url).pathname === '/budget') return env.Budget.get(env.Budget.idFromName('global')).fetch(request);
     const m = new URL(request.url).pathname.match(/^\/parties\/main\/([A-Za-z0-9]{1,12})\/?$/);
     if (!m) return new Response('Buzzers room server', { status: 404 });
     const room = m[1].toUpperCase();
@@ -126,5 +127,34 @@ export class BuzzersRoom extends DurableObject {
     for (const other of this.conns) if (other.ws !== conn.ws && other.state.pid === pid) return;
     this.lastActive = Date.now();
     this.game.dispatch({ type: 'presence', by: pid, connected: false });
+  }
+}
+
+// One global counter that /api/generate asks before every Groq call, so a script hammering the
+// endpoint can only burn one day's budget. POST /budget {ip} → {ok, search, why?}.
+//  search: true while the day's web-search budget lasts; after that clues come from memory (cheaper).
+//  ok: false once the day's total or this IP's share is used up. Counts reset at 00:00 UTC.
+// The caller's IP comes from Vercel and isn't authenticated, so someone could post here directly and
+// use up the day's budget. That blocks clue writing for a day but costs nothing.
+export const BUDGET = { searchPerDay: 300, totalPerDay: 600, perIpPerDay: 60 };
+
+export class BuzzersBudget extends DurableObject {
+  async fetch(request) {
+    if (request.method !== 'POST') return Response.json({ budget: BUDGET });
+    const { ip = '?' } = await request.json().catch(() => ({}));
+    const day = new Date().toISOString().slice(0, 10);
+    let d = await this.ctx.storage.get('day');
+    if (!d || d.day !== day) d = { day, total: 0, search: 0, ips: {} };
+    const key = String(ip).slice(0, 64), mine = d.ips[key] || 0;
+    let out;
+    if (d.total >= BUDGET.totalPerDay) out = { ok: false, why: 'daily limit reached for everyone' };
+    else if (mine >= BUDGET.perIpPerDay) out = { ok: false, why: 'daily limit reached for this network' };
+    else {
+      const search = d.search < BUDGET.searchPerDay;
+      d.total++; if (search) d.search++; d.ips[key] = mine + 1;
+      await this.ctx.storage.put('day', d);
+      out = { ok: true, search, used: d.total };
+    }
+    return Response.json(out);
   }
 }

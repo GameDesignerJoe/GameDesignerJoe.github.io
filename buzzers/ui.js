@@ -116,6 +116,7 @@ export const BANK = {
 function failReason(msg) {
   const m = String(msg || '');
   if (/^UNKNOWN_TOPIC/.test(m)) return "There aren't enough real, checkable facts about it to write fair questions (we won't make them up)";
+  if (/^DAILY_LIMIT/.test(m)) return 'Buzzers has written all the new categories it can for today. Pick a built-in category or try again tomorrow';
   if (/^NOT_ALLOWED/.test(m)) return "That one isn't allowed in Buzzers";
   if (/HTTP (40[45]|501)/.test(m)) return "The clue writer isn't on this site";
   if (/HTTP 402/.test(m)) return 'The clue service is switched off (Vercel)';
