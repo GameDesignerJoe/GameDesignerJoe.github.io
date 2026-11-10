@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --port 1999 --ip 0.0.0.0",
+    "dev": "wrangler dev --port 1999 --ip 0.0.0.0 --var DEV_PLACEHOLDERS:1",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {

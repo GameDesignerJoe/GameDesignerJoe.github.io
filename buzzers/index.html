@@ -15,7 +15,7 @@
 // Buzzers — the real phone. The game runs on the room server (party/); this page sends actions up,
 // gets its own copy of the state down, and renders it. Rules and timings: game.js. Views: ui.js.
 import { CONFIG, newId, cleanSettings } from './game.js';
-import { renderPhone, wirePhone, paint, tickSig, generateClues, sound, esc, settingsControls, wireSettings } from './ui.js';
+import { renderPhone, wirePhone, paint, tickSig, sound, esc, settingsControls, wireSettings } from './ui.js';
 
 // ============================ CLIENT CONFIG ============================
 const qs = new URLSearchParams(location.search);
@@ -43,7 +43,6 @@ let room = null, ws = null, S = null, conn = 'offline';
 let offset = 0, samples = [], syncTimer = null, retryMs = CLIENT.reconnectMs[0], retryTimer = null;
 let hold = false, lockUntil = 0;
 let lastSfx = null, dingFor = null, timeoutFor = null;
-const generating = new Set();
 let genFail = null; // { name, reason } after my category couldn't get real clues; shown in the lobby
 const syncedNow = () => Date.now() + offset;
 const $ = s => document.querySelector(s);
@@ -148,6 +147,8 @@ function onPong(m) {
 function onMessage(m) {
   if (m.type === 'pong') return onPong(m);
   if (m.type === 'you') { pid = m.pid; store.sset('bz.pid', pid); return; }
+  // The room server couldn't write clues for my category: it's off the board, say why in the lobby.
+  if (m.type === 'genFail') { genFail = { name: m.name, reason: m.reason }; return draw(); }
   if (m.type === 'err') {
     if (m.fatal) { joinError = m.msg; leave(); return; }
     return toast(m.msg);
@@ -173,15 +174,6 @@ function effects(first) {
     const ms = S.buzz.openAt - syncedNow();
     if (!first && ms > -400) setTimeout(() => { sound.play('ding'); draw(); }, Math.max(0, ms));
   }
-  // my category: go get clues (also picks up a search interrupted by a refresh)
-  S.categories.filter(c => c.by === pid && c.status === 'generating' && !generating.has(c.id)).forEach(async c => {
-    generating.add(c.id);
-    const avoid = S.memory.used.filter(id => id.startsWith(c.name.toLowerCase() + '|')).map(id => id.slice(c.name.length + 1));
-    // Local testing has no /api, so allow dummy clues there; on the real site a failure sends you back to pick another.
-    const r = await generateClues(c.name, avoid, { placeholders: isLocal && qs.get('placeholders') !== '0' });
-    if (r.failed) { genFail = { name: c.name, reason: r.reason }; act({ type: 'genFailed', catId: c.id, reason: r.error }); draw(); return; }
-    act({ type: 'generated', catId: c.id, clues: r.clues, source: r.source, note: r.note });
-  });
 }
 
 // ============================ RENDER ============================

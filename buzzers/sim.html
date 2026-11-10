@@ -31,7 +31,7 @@
 
 <script type="module">
 import { CONFIG, createGame, viewFor, newId } from './game.js';
-import { renderPhone, wirePhone, paint, tickSig, generateClues, sound, BANK, esc } from './ui.js';
+import { renderPhone, wirePhone, paint, tickSig, placeholderClues, sound, BANK, esc } from './ui.js';
 
 const SIM = {
   readMs: [2200, 3800],    // how long a bot judge holds while "reading", scaled by clue length
@@ -63,11 +63,9 @@ function changed() {
   const s = S();
   if (lastSfx !== null && s.sfx.n !== lastSfx) sound.play(s.sfx.kind); lastSfx = s.sfx.n;
   if (s.phase === 'buzz' && dingFor !== s.buzz.openAt) { dingFor = s.buzz.openAt; setTimeout(() => { sound.play('ding'); draw(); }, Math.max(0, s.buzz.openAt - Date.now())); }
-  s.categories.filter(c => c.status === 'generating' && !generating.has(c.id)).forEach(async c => {
+  s.categories.filter(c => c.status === 'generating' && !generating.has(c.id)).forEach(c => {
     generating.add(c.id);
-    const avoid = s.memory.used.filter(id => id.startsWith(c.name.toLowerCase() + '|')).map(id => id.slice(c.name.length + 1));
-    const r = await generateClues(c.name, avoid, { placeholders: true });
-    game.dispatch({ type: 'generated', by: c.by, catId: c.id, clues: r.clues, source: r.source, note: r.note });
+    setTimeout(() => { const r = placeholderClues(c.name); game.dispatch({ type: 'generated', by: c.by, catId: c.id, clues: r.clues, source: r.source }); }, 300);
   });
   draw(); botTick();
 }

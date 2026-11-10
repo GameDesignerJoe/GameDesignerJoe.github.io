@@ -1,8 +1,10 @@
-// Buzzers — phone views, sounds, clue generation. Shared by index.html (real phones) and sim.html.
+// Buzzers — phone views and sounds. Shared by index.html (real phones) and sim.html.
 // renderPhone(S, me, ctx) turns one phone's copy of the state into HTML; wirePhone hooks up its buttons.
 // Phone-local view state (clue held down, early lockout, mute) lives in ctx, not in S.
 
 import { CONFIG, SETTINGS, actingHostOf, rowsFor } from './game.js';
+import { BANK, bankName } from './clues.js';
+export { BANK, bankName };
 
 // Two-way toggles for each room setting. Editable for the host (and on the join screen), read-only for everyone else.
 export function settingsControls(settings, editable) {
@@ -23,137 +25,12 @@ export const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;',
 export const dot = (color, size = 10) => `<span style="background:${esc(color)};width:${size}px;height:${size}px;display:inline-block;border-radius:50%;flex:none"></span>`;
 
 // ============================ CLUES ============================
-// Our own categories with checked answers. Offered as chips, and used when live generation fails.
-// Keep at least CONFIG.targetCategories of them so a board can always be filled without Groq.
-export const BANK = {
-  'Superheroes': [
-    { clue: 'Which hero is secretly the billionaire Bruce Wayne?', answer: 'Batman', alts: ['the Dark Knight'] },
-    { clue: 'Peter Parker swings around New York as which hero?', answer: 'Spider-Man', alts: ['Spidey', 'Spiderman'] },
-    { clue: 'Which Asgardian god of thunder carries the hammer Mjölnir?', answer: 'Thor', alts: [] },
-    { clue: 'Diana Prince of Themyscira is better known as which hero?', answer: 'Wonder Woman', alts: [] },
-    { clue: 'T\'Challa is king of which hidden African nation?', answer: 'Wakanda', alts: [] },
-  ],
-  '90s Movies': [
-    { clue: 'In which 1997 blockbuster does Rose let go of Jack in the icy Atlantic?', answer: 'Titanic', alts: [] },
-    { clue: 'Which title character says life is like a box of chocolates?', answer: 'Forrest Gump', alts: ['Forrest'] },
-    { clue: 'In which Tarantino film do Vincent and Jules talk about a Royale with Cheese?', answer: 'Pulp Fiction', alts: [] },
-    { clue: 'In which 1999 film does Neo take the red pill?', answer: 'The Matrix', alts: ['Matrix'] },
-    { clue: 'Which 1999 Best Picture winner starred Kevin Spacey as Lester Burnham?', answer: 'American Beauty', alts: [] },
-  ],
-  'Dogs': [
-    { clue: 'Which long, short-legged breed is nicknamed the "wiener dog"?', answer: 'Dachshund', alts: [] },
-    { clue: 'What breed was the TV hero Lassie?', answer: 'Rough Collie', alts: ['Collie'] },
-    { clue: 'Which blue-eyed sled dog breed was made famous by the 1925 serum run to Nome?', answer: 'Siberian Husky', alts: ['Husky'] },
-    { clue: 'Which breed is usually the tallest in the world, nicknamed the gentle giant?', answer: 'Great Dane', alts: [] },
-    { clue: 'Which Hungarian guard dog has a white coat that hangs in long cords like a mop?', answer: 'Komondor', alts: [] },
-  ],
-  'Space': [
-    { clue: 'Which planet is known as the Red Planet?', answer: 'Mars', alts: [] },
-    { clue: 'Which planet has the biggest, brightest rings in our solar system?', answer: 'Saturn', alts: [] },
-    { clue: 'What is the name of the galaxy our solar system is in?', answer: 'The Milky Way', alts: ['Milky Way'] },
-    { clue: 'Who became the first human in space in 1961?', answer: 'Yuri Gagarin', alts: ['Gagarin'] },
-    { clue: 'Which infrared space telescope, launched in 2021, is named after a former NASA administrator?', answer: 'James Webb Space Telescope', alts: ['JWST', 'Webb'] },
-  ],
-  'Fast Food': [
-    { clue: 'Which chain sells the Whopper?', answer: 'Burger King', alts: ['BK'] },
-    { clue: 'Which chain founded by Colonel Sanders sells a secret recipe of 11 herbs and spices?', answer: 'KFC', alts: ['Kentucky Fried Chicken'] },
-    { clue: 'Which burger chain\'s logo is a red-haired girl with pigtails?', answer: 'Wendy\'s', alts: ['Wendys'] },
-    { clue: 'Which chicken chain is famously closed on Sundays?', answer: 'Chick-fil-A', alts: [] },
-    { clue: 'Which West Coast burger chain has a secret menu with "Animal Style" fries?', answer: 'In-N-Out', alts: ['In-N-Out Burger', 'In and Out'] },
-  ],
-  'World Capitals': [
-    { clue: 'Which capital city is home to the Eiffel Tower?', answer: 'Paris', alts: [] },
-    { clue: 'What is the capital of Japan?', answer: 'Tokyo', alts: [] },
-    { clue: 'Not Toronto, but which Ontario city is the capital of Canada?', answer: 'Ottawa', alts: [] },
-    { clue: 'Not Sydney, but which purpose-built city is the capital of Australia?', answer: 'Canberra', alts: [] },
-    { clue: 'Which Central Asian capital was called Nur-Sultan from 2019 to 2022?', answer: 'Astana', alts: [] },
-  ],
-  'Board Games': [
-    { clue: 'In which game can you buy Boardwalk and Park Place?', answer: 'Monopoly', alts: [] },
-    { clue: 'Which murder-mystery game features Colonel Mustard, Miss Scarlett and a candlestick?', answer: 'Clue', alts: ['Cluedo'] },
-    { clue: 'In which 1995 German game do players trade sheep and brick to build settlements?', answer: 'Catan', alts: ['Settlers of Catan'] },
-    { clue: 'In Scrabble, how many points is the Q tile worth?', answer: '10', alts: ['ten'] },
-    { clue: 'Which ancient strategy game is played with black and white stones on a 19-by-19 grid?', answer: 'Go', alts: ['Weiqi', 'Baduk'] },
-  ],
-  'Disney Movies': [
-    { clue: 'What is the name of the snowman in Frozen who loves warm hugs?', answer: 'Olaf', alts: [] },
-    { clue: 'Who is Simba\'s father in The Lion King?', answer: 'Mufasa', alts: [] },
-    { clue: 'Which crab sings "Under the Sea" in The Little Mermaid?', answer: 'Sebastian', alts: [] },
-    { clue: 'What was Disney\'s first full-length animated feature, released in 1937?', answer: 'Snow White and the Seven Dwarfs', alts: ['Snow White'] },
-    { clue: 'Which 1940 film set animation to classical music, with Mickey as the Sorcerer\'s Apprentice?', answer: 'Fantasia', alts: [] },
-  ],
-  'The Human Body': [
-    { clue: 'Which organ pumps blood around the body?', answer: 'The heart', alts: ['Heart'] },
-    { clue: 'What is the largest organ of the human body?', answer: 'Skin', alts: ['The skin'] },
-    { clue: 'How many bones does an adult human skeleton usually have?', answer: '206', alts: [] },
-    { clue: 'What is the longest bone in the body, found in the thigh?', answer: 'Femur', alts: [] },
-    { clue: 'What is the smallest bone in the body, found in the middle ear?', answer: 'Stapes', alts: ['Stirrup'] },
-  ],
-  'Video Games': [
-    { clue: 'Which plumber keeps rescuing Princess Peach?', answer: 'Mario', alts: ['Super Mario'] },
-    { clue: 'Link is the hero of which Nintendo series, named after a princess?', answer: 'The Legend of Zelda', alts: ['Zelda'] },
-    { clue: 'Which block-building game is the best-selling video game of all time?', answer: 'Minecraft', alts: [] },
-    { clue: 'Which franchise began in Japan in 1996 with Red and Green versions on the Game Boy?', answer: 'Pokémon', alts: ['Pokemon'] },
-    { clue: 'Which Hideo Kojima stealth series stars Solid Snake?', answer: 'Metal Gear', alts: ['Metal Gear Solid'] },
-  ],
-  'The Beatles': [
-    { clue: 'Which English port city did the Beatles come from?', answer: 'Liverpool', alts: [] },
-    { clue: 'Which drummer replaced Pete Best in 1962?', answer: 'Ringo Starr', alts: ['Ringo'] },
-    { clue: 'What colour is the submarine "we all live in", in the 1966 song?', answer: 'Yellow', alts: [] },
-    { clue: 'On which 1969 album cover does the band walk across a zebra crossing?', answer: 'Abbey Road', alts: [] },
-    { clue: 'What was John Lennon\'s skiffle group called before it became the Beatles?', answer: 'The Quarrymen', alts: ['Quarrymen', 'Quarry Men'] },
-  ],
-  'Breakfast': [
-    { clue: 'Which griddled breakfast has a grid of little square pockets?', answer: 'Waffle', alts: ['Waffles'] },
-    { clue: 'Which cereal does Tony the Tiger say is "Gr-r-reat!"?', answer: 'Frosted Flakes', alts: ['Frosties'] },
-    { clue: 'Which dish puts poached eggs and hollandaise sauce on an English muffin?', answer: 'Eggs Benedict', alts: [] },
-    { clue: 'Which Mexican dish of fried eggs on tortillas with salsa means "ranch-style eggs"?', answer: 'Huevos rancheros', alts: [] },
-    { clue: 'What does a croque madame have on top that a croque monsieur doesn\'t?', answer: 'A fried egg', alts: ['Egg', 'An egg'] },
-  ],
-};
-
-// Turn a fetch failure into something a player can act on (and Joe can debug from the lobby).
-function failReason(msg) {
-  const m = String(msg || '');
-  if (/^UNKNOWN_TOPIC/.test(m)) return "There aren't enough real, checkable facts about it to write fair questions (we won't make them up)";
-  if (/^DAILY_LIMIT/.test(m)) return 'Buzzers has written all the new categories it can for today. Pick a built-in category or try again tomorrow';
-  if (/^NOT_ALLOWED/.test(m)) return "That one isn't allowed in Buzzers";
-  if (/HTTP (40[45]|501)/.test(m)) return "The clue writer isn't on this site";
-  if (/HTTP 402/.test(m)) return 'The clue service is switched off (Vercel)';
-  if (/GROQ_API_KEY/.test(m)) return 'The clue service has no Groq key';
-  if (/Groq 429/.test(m)) return 'The clue writer is busy (rate limit)';
-  if (/Groq/.test(m)) return `The clue writer failed (${m})`;
-  if (/model returned/.test(m)) return 'The clue writer came back with too few clues';
-  if (/fetch|network|Failed/i.test(m)) return "Couldn't reach the clue writer";
-  return m || 'Unknown error';
-}
-export const bankName = name => Object.keys(BANK).find(k => k.toLowerCase() === String(name).trim().toLowerCase());
-
-// Ask /api/generate (Vercel → Groq). If any answer was already used by this group, ask again with
-// a longer avoid list (up to 2 retries) and say so in the note. If generation fails, one of our BANK
-// categories falls back to its own clues; anything else comes back { failed, reason } so the lobby can
-// ask for a different category. `placeholders: true` (sim, local testing) fills in dummy clues instead.
-export async function generateClues(category, avoid, { placeholders = false } = {}) {
-  const used = new Set(avoid.map(a => a.toLowerCase()));
-  let avoidNow = [...avoid], note = '';
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const r = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category, avoid: avoidNow }) });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok || !data.clues) throw new Error(data.error || `HTTP ${r.status}`);
-      const repeats = data.clues.filter(q => used.has(String(q.answer).toLowerCase()));
-      if (!repeats.length) return { clues: data.clues, source: data.model, note };
-      note = `regenerated after repeat: ${repeats.map(q => q.answer).join(', ')}`;
-      if (attempt === 2) return { clues: data.clues, source: data.model, note: `still repeats after 3 tries: ${repeats.map(q => q.answer).join(', ')}` };
-      avoidNow = [...new Set([...avoidNow, ...repeats.map(q => q.answer)])];
-    } catch (e) {
-      const key = bankName(category);
-      if (key) return { clues: BANK[key], source: 'canned', note: `live generation failed (${e.message})` };
-      if (!placeholders) return { failed: true, reason: failReason(e.message), error: String(e.message || e) };
-      const clues = CONFIG.values.map((v, i) => ({ clue: `A ${['easy', 'gentle', 'medium', 'tough', 'brutal'][i]} placeholder clue about ${category}.`, answer: `${category} answer ${i + 1}`, alts: [] }));
-      return { clues, source: 'placeholder', note: `live generation failed (${e.message})` };
-    }
-  }
+// Clues are written by the room server (clues.js). The sim has no server, so it uses the built-in
+// clues for BANK categories and dummy ones for anything else.
+export function placeholderClues(category) {
+  const key = bankName(category);
+  if (key) return { clues: BANK[key], source: 'canned' };
+  return { clues: CONFIG.values.map((v, i) => ({ clue: `A ${['easy', 'gentle', 'medium', 'tough', 'brutal'][i]} placeholder clue about ${category}?`, answer: `${category} answer ${i + 1}`, alts: [] })), source: 'placeholder' };
 }
 
 // ============================ SOUND ============================
