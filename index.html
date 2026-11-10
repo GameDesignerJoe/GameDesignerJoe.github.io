@@ -77,7 +77,11 @@
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         white-space: nowrap;
         width: 100%;
-        max-width: 250px;
+        /* Flex centering spreads any overflow evenly on both sides, so a title
+           longer than the tile stays centred over the image instead of
+           running off to the right. */
+        display: flex;
+        justify-content: center;
         margin-left: auto;
         margin-right: auto;
         padding: 0 15px;
@@ -776,7 +780,7 @@
         <h2 class="subhead">TALKS</h2>
         <div class="grid">
         <div>
-            <div class="game-title">SLICE 2026</div>
+            <div class="game-title">STORY STAR (SLICE'26)</div>
             <div class="box">
                 <a href="https://youtu.be/mQ1v5In_y2o" target="_blank" rel="noopener" data-video="mQ1v5In_y2o" data-title="SLICE 2026 - The Story Star">
                     <img src="art/videos/mQ1v5In_y2o.jpg" alt="SLICE 2026 - The Story Star">
@@ -789,7 +793,7 @@
             </div>
         </div>
         <div>
-            <div class="game-title">GDC 2025</div>
+            <div class="game-title">COLLECTIBLES (GDC'25)</div>
             <div class="box">
                 <a href="https://youtu.be/FZogd7Yy2ZY" target="_blank" rel="noopener" data-video="FZogd7Yy2ZY" data-title="GDC 2025 - Making Collectibles Count">
                     <img src="art/videos/FZogd7Yy2ZY.jpg" alt="GDC 2025 - Making Collectibles Count">
@@ -802,7 +806,7 @@
             </div>
         </div>
         <div>
-            <div class="game-title">GDC 2024</div>
+            <div class="game-title">STORY TREATMENT (GDC'24)</div>
             <div class="box">
                 <a href="https://youtu.be/9wiC46L1z3I" target="_blank" rel="noopener" data-video="9wiC46L1z3I" data-title="GDC 2024 - The Story Treatment">
                     <img src="art/videos/9wiC46L1z3I.jpg" alt="GDC 2024 - The Story Treatment">
