@@ -155,6 +155,157 @@
             border-radius: 20px;
         }
 
+        /* Tabs: title stays put, everything below swaps. */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            width: 90%;
+            max-width: 1000px;
+            margin: 20px auto;
+        }
+
+        .tab {
+            font-family: 'Roboto', sans-serif;
+            font-size: 1.1em;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #f1f1f1;
+            background-color: #23272a;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-radius: 20px;
+            padding: 10px 24px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .tab:hover { border-color: #ffffff; }
+
+        .tab[aria-selected="true"] {
+            background-color: #ffffff;
+            color: #23272a;
+            border-color: #ffffff;
+        }
+
+        .tab:focus-visible { outline: 3px solid #7aa7ff; outline-offset: 2px; }
+
+        .panel[hidden] { display: none; }
+
+        .subhead {
+            width: 90%;
+            max-width: 1000px;
+            margin: 60px auto 0;
+            text-align: left;
+            font-size: 1.2em;
+            letter-spacing: 3px;
+            color: #ffffff;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.25);
+            padding-bottom: 6px;
+        }
+
+        .subhead + .grid { margin-top: 20px; }
+
+        .intro-text + .subhead { margin-top: 30px; }
+
+        /* Play badge on video tiles */
+        .play-badge {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 64px;
+            height: 64px;
+            margin: -32px 0 0 -32px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #ffffff;
+            pointer-events: none;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        .play-badge::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin: -11px 0 0 -7px;
+            border-style: solid;
+            border-width: 11px 0 11px 19px;
+            border-color: transparent transparent transparent #ffffff;
+        }
+
+        .box:hover .play-badge { transform: scale(1.12); background: rgba(200, 0, 0, 0.85); }
+
+        /* Video player over the page */
+        .video-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .video-modal[hidden] { display: none; }
+
+        .video-modal-inner {
+            width: 100%;
+            max-width: 960px;
+            background: #23272a;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .video-modal-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            text-align: left;
+        }
+
+        .video-modal-title {
+            flex: 1;
+            min-width: 0;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .video-modal-yt {
+            white-space: nowrap;
+            font-size: 0.9em;
+            padding: 6px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 14px;
+        }
+
+        .video-modal-yt:hover { background: #ffffff; color: #23272a; }
+
+        .video-modal-close {
+            background: none;
+            border: none;
+            color: #f1f1f1;
+            font-size: 2em;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 6px;
+        }
+
+        .video-frame {
+            position: relative;
+            aspect-ratio: 16 / 9;
+            background: #000;
+        }
+
+        .video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
         /* Pull-to-refresh. The page is a PWA, so in standalone mode there is no
            address bar and no reload button — dragging down is the only way to
            get a fresh copy. */
@@ -227,376 +378,644 @@
         <h1>GAME DESIGNER JOE</h1>
     </div>
 
-    <div class="intro-text">
-        These are some prototypes for possible games or tools I've been working on. Nearly all of these I "vibe coded" my way through them using ChatGPT, Claud.ai, Kline, Copilot, VSCode, and Midjourney.
-    </div>
+    <nav class="tabs" role="tablist" aria-label="Portfolio sections">
+        <button class="tab" role="tab" id="tab-games" data-tab="games" aria-controls="panel-games" aria-selected="true">Games</button>
+        <button class="tab" role="tab" id="tab-tools" data-tab="tools" aria-controls="panel-tools" aria-selected="false">Tools &amp; Apps</button>
+        <button class="tab" role="tab" id="tab-videos" data-tab="videos" aria-controls="panel-videos" aria-selected="false">Videos</button>
+    </nav>
 
-    <div class="grid">
+    <section class="panel" id="panel-games" role="tabpanel" aria-labelledby="tab-games">
+        <div class="intro-text">
+            Over the last few years, I've been using AI, primarily Claude Code, to build out short prototypes of games. The most recent is at the top. I've found that every new creation I make is better, sometimes significantly so, than the previous.
+        </div>
+
+        <div class="grid">
+            <div>
+                <div class="game-title">BUZZERS</div>
+                <div class="box">
+                    <a href="https://buzzers-rho.vercel.app/" target="_blank">
+                        <img src="art/buzzers.png" alt="Buzzers">
+                        <div class="overlay">
+                            <h3>Buzzers</h3>
+                            <p>Party trivia where everyone's phone is the buzzer</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">NOT ALL SURVIVE</div>
+                <div class="box">
+                    <a href="not-all-survive/index.html">
+                        <img src="art/not-all-survive.png" alt="Not All Will Survive">
+                        <div class="overlay">
+                            <h3>Not All Will Survive</h3>
+                            <p>A lone explorer crosses a frozen, storm-swept wilderness</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">CATCH THE WOLF</div>
+                <div class="box">
+                    <a href="catch-the-wolf/index.html">
+                        <img src="art/catch-the-wolf.png" alt="Catch the Wolf">
+                        <div class="overlay">
+                            <h3>Catch the Wolf</h3>
+                            <p>Can you find the wolf in sheep's clothing?</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">PHOTO DETECTIVE</div>
+                <div class="box">
+                    <a href="photo-detective/index.html">
+                        <img src="art/photo-detective.png" alt="Photo Time Detective">
+                        <div class="overlay">
+                            <h3>Photo Time Detective</h3>
+                            <p>Date a real photo from clues inside it</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">UNSEEN</div>
+                <div class="box">
+                    <a href="stealth/index.html">
+                        <img src="art/unseen.png" alt="Unseen">
+                        <div class="overlay">
+                            <h3>Unseen</h3>
+                            <p>Climb the tower and stay out of the light</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">THE MAZE</div>
+                <div class="box">
+                    <a href="maze/maze-fp.html">
+                        <img src="art/maze-fp.png" alt="The Maze">
+                        <div class="overlay">
+                            <h3>The Maze</h3>
+                            <p>Find your way out, in first person</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">MAZE PROTOTYPE</div>
+                <div class="box">
+                    <a href="maze/maze-topdown.html">
+                        <img src="art/maze.png" alt="Maze Prototype">
+                        <div class="overlay">
+                            <h3>Maze Prototype</h3>
+                            <p>The only way out is through</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">TIDY ADVENTURES</div>
+                <div class="box">
+                    <a href="https://gamedesignerjoe.github.io/tidy-adventures/" target="_blank">
+                        <img src="art/tidy-adventures.png" alt="Tidy Adventures">
+                        <div class="overlay">
+                            <h3>Tidy Adventures</h3>
+                            <p>Tidy up a cluttered house</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">KILL.CODE</div>
+                <div class="box">
+                    <a href="killcode/index.html">
+                        <img src="art/killcode.png?v=2" alt="kill.code">
+                        <div class="overlay">
+                            <h3>kill.code</h3>
+                            <p>Crack the Code Before Lockdown.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">MURMUR</div>
+                <div class="box">
+                    <a href="https://gamedesignerjoe.github.io/murmur/" target="_blank">
+                        <img src="art/murmur.png" alt="Murmur">
+                        <div class="overlay">
+                            <h3>Murmur</h3>
+                            <p>An audio forward choose your own adventure experience</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">CARTOGRAPHER</div>
+                <div class="box">
+                    <a href="https://gamedesignerjoe.github.io/cartographer/index.html">
+                        <img src="art/cartographer.png" alt="Cartographer">
+                        <div class="overlay">
+                            <h3>Cartographer</h3>
+                            <p>Map islands in this chill cartographer game.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">PICTURE PUZZLER</div>
+                <div class="box">
+                    <a href="picture-puzzle/index.html">
+                        <img src="art/picturePuzzler.png" alt="Picture Puzzler">
+                        <div class="overlay">
+                            <h3>Picture Puzzler</h3>
+                            <p>Solve our puzzles or use your own.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">COLOR MATCH</div>
+                <div class="box">
+                    <a href="/color-match/">
+                        <svg width="100%" height="100%" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="512" height="512" fill="#111827"/>
+                            <circle cx="180" cy="180" r="60" fill="hsl(200, 70%, 80%)"/>
+                            <circle cx="332" cy="180" r="60" fill="hsl(200, 70%, 80%)"/>
+                            <circle cx="180" cy="332" r="60" fill="hsl(200, 70%, 30%)"/>
+                            <circle cx="332" cy="332" r="60" fill="hsl(200, 70%, 30%)"/>
+                        </svg>
+                        <div class="overlay">
+                            <h3>Color Match</h3>
+                            <p>Match color pairs and progress through challenging levels</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">STEAM GAME CLICKER</div>
+                <div class="box">
+                    <a href="https://steam-vault-escape.vercel.app/" target="_blank">
+                        <img src="art/steamGameClicker.png" alt="Steam Game Clicker">
+                        <div class="overlay">
+                            <h3>Steam Game Clicker</h3>
+                            <p>A clicker game that encourages you to play your unplayed steam games.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">ALIEN TRANSLATOR</div>
+                <div class="box">
+                    <a href="/langTrans/GuardianLanguageTranslation.html">
+                        <img src="art/LangTranslator.png" alt="Alien Translator">
+                        <div class="overlay">
+                            <h3>Alien Translator</h3>
+                            <p>A design idea revolving around learning an alien language over time.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">CIPHER FOX</div>
+                <div class="box">
+                    <a href="/cryptogram-quotes/">
+                        <img src="art/title_cipher_fox.png" alt="Cipher Fox">
+                        <div class="overlay">
+                            <h3>Cipher Fox</h3>
+                            <p>Unlock wisdom, one letter at a time</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">NOT ALL SURVIVE</div>
+                <div class="box">
+                    <a href="/nas-vite/index.html">
+                        <img src="art/nas_b_512.png" alt="NOT ALL WILL SURVIVE">
+                        <div class="overlay">
+                            <h3>NOT ALL WILL SURVIVE</h3>
+                            <p>An Antarctic Exploration Survival Game</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">TERRIBLE PARENT?</div>
+                <div class="box">
+                    <a href="/terribleParent/index.html">
+                        <img src="art/terribleParent_icon.png" alt="Project 3">
+                        <div class="overlay">
+                            <h3>Terrible Parent</h3>
+                            <p>Are you a terrible parent?</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
+        <div class="intro-text">
+            Often for work, but sometimes for personal use as well, I'll create a web interface tool that I find useful and worth sharing. There are many more that I've created for work that I can't share here. I often find that making the right tool at the right time, even if it'll only be used a couple of times, is the greatest strength of Claude.
+        </div>
+
+        <div class="grid">
+            <div>
+                <div class="game-title">WORK DELIVERABLES</div>
+                <div class="box">
+                    <a href="work-right/index.html">
+                        <img src="art/work-right.png" alt="Work Deliverables">
+                        <div class="overlay">
+                            <h3>Work Deliverables</h3>
+                            <p>Back-of-the-napkin planner for scoping features and staffing</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">DECK TEXT</div>
+                <div class="box">
+                    <a href="decktext/index.html">
+                        <img src="art/decktext.png" alt="Deck Text">
+                        <div class="overlay">
+                            <h3>Deck Text</h3>
+                            <p>Rewrite HTML deck copy without touching the layout</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">MEET MORSE</div>
+                <div class="box">
+                    <a href="meetMorse/index.html">
+                        <img src="art/meet-morse.png" alt="Meet Morse">
+                        <div class="overlay">
+                            <h3>Meet Morse</h3>
+                            <p>Learn Morse code on a telegraph key</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">WANNA WATCH</div>
+                <div class="box">
+                    <a href="https://myflickpick.vercel.app/" target="_blank">
+                        <img src="art/flickpick_thumb.png" alt="FlickPick">
+                        <div class="overlay">
+                            <h3>Wanna Watch</h3>
+                            <p>Pick the shows you wanna watch</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">LATTICE</div>
+                <div class="box">
+                    <a href="https://gamedesignerjoe.github.io/lattice/" target="_blank">
+                        <img src="art/lattice.png" alt="Lattice">
+                        <div class="overlay">
+                            <h3>Lattice</h3>
+                            <p>A voice and music visualizer</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">GUITAR SCALES</div>
+                <div class="box">
+                    <a href="https://gamedesignerjoe.github.io/guitar-scales/" target="_blank">
+                        <img src="art/guitar_scales.png" alt="Guitar Scales">
+                        <div class="overlay">
+                            <h3>Guitar Scales</h3>
+                            <p>An instructor tool for teaching guitar</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">INKWELLSCAN</div>
+                <div class="box">
+                    <a href="https://inkwellscan.vercel.app/" target="_blank">
+                        <img src="art/Inkwell_Scan.png" alt="InkwellScan">
+                        <div class="overlay">
+                            <h3>InkwellScan</h3>
+                            <p>Scan documents directly into Google Docs</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">ADDSCORE</div>
+                <div class="box">
+                    <a href="AddScore/index.html">
+                        <img src="art/addScore.png" alt="AddScore">
+                        <div class="overlay">
+                            <h3>AddScore</h3>
+                            <p>Easily track scores for your board or card games</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">PLAYBACK</div>
+                <div class="box">
+                    <a href="https://my-playback.vercel.app/" target="_blank">
+                        <img src="art/playbackPic.png" alt="Playback" style="object-position: top left;">
+                        <div class="overlay">
+                            <h3>Playback</h3>
+                            <p>Stream your local music like the pros</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">STEAM SCOUT</div>
+                <div class="box">
+                    <a href="https://never-played.vercel.app/" target="_blank">
+                        <img src="art/NeverPlayed.png" alt="Steam Scout">
+                        <div class="overlay">
+                            <h3>Steam Scout</h3>
+                            <p>Display your Steam game library. Shows which games you've never played!</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">EARNINGS TRACKER</div>
+                <div class="box">
+                    <a href="/EarningsTracker/">
+                        <img src="art/EarningsTracker.png" alt="Earnings Tracker">
+                        <div class="overlay">
+                            <h3>Earnings Tracker</h3>
+                            <p>A silly tracker to realize just what your time is worth</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="game-title">MAP VIZ TOOL</div>
+                <div class="box">
+                    <a href="/mapVisualizationTool/">
+                        <img src="art/MapVisTool.png" alt="Map Viz Tool">
+                        <div class="overlay">
+                            <h3>Map Viz Tool</h3>
+                            <p>A dev tool used for maping content.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel" id="panel-videos" role="tabpanel" aria-labelledby="tab-videos" hidden>
+        <div class="intro-text">
+            Through the years, I have created a number of videos: talks at GDC and SLICE, tone/vibe videos for the team to use as inspiration for the game, and songs where I write the lyrics and Suno AI takes care of the rest. Here are some of those videos.
+        </div>
+
+        <h2 class="subhead">TALKS</h2>
+        <div class="grid">
         <div>
-            <div class="game-title">BUZZERS</div>
+            <div class="game-title">SLICE 2026</div>
             <div class="box">
-                <a href="https://buzzers-rho.vercel.app/" target="_blank">
-                    <img src="art/buzzers.png" alt="Buzzers">
+                <a href="https://youtu.be/mQ1v5In_y2o" target="_blank" rel="noopener" data-video="mQ1v5In_y2o" data-title="SLICE 2026 - The Story Star">
+                    <img src="art/videos/mQ1v5In_y2o.jpg" alt="SLICE 2026 - The Story Star">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Buzzers</h3>
-                        <p>Party trivia where everyone's phone is the buzzer</p>
+                        <h3>SLICE 2026 - The Story Star</h3>
+                        <p>Talk: The Story Star</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">NOT ALL SURVIVE</div>
+            <div class="game-title">GDC 2025</div>
             <div class="box">
-                <a href="not-all-survive/index.html">
-                    <img src="art/not-all-survive.png" alt="Not All Will Survive">
+                <a href="https://youtu.be/FZogd7Yy2ZY" target="_blank" rel="noopener" data-video="FZogd7Yy2ZY" data-title="GDC 2025 - Making Collectibles Count">
+                    <img src="art/videos/FZogd7Yy2ZY.jpg" alt="GDC 2025 - Making Collectibles Count">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Not All Will Survive</h3>
-                        <p>A lone explorer crosses a frozen, storm-swept wilderness</p>
+                        <h3>GDC 2025 - Making Collectibles Count</h3>
+                        <p>Talk: Making Collectibles Count</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">CATCH THE WOLF</div>
+            <div class="game-title">GDC 2024</div>
             <div class="box">
-                <a href="catch-the-wolf/index.html">
-                    <img src="art/catch-the-wolf.png" alt="Catch the Wolf">
+                <a href="https://youtu.be/9wiC46L1z3I" target="_blank" rel="noopener" data-video="9wiC46L1z3I" data-title="GDC 2024 - The Story Treatment">
+                    <img src="art/videos/9wiC46L1z3I.jpg" alt="GDC 2024 - The Story Treatment">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Catch the Wolf</h3>
-                        <p>Can you find the wolf in sheep's clothing?</p>
+                        <h3>GDC 2024 - The Story Treatment</h3>
+                        <p>Talk: The Story Treatment</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+        </div>
+        <h2 class="subhead">TONE VIDEOS & PROOF OF CONCEPTS</h2>
+        <div class="grid">
+        <div>
+            <div class="game-title">THE QUIET GOODBYE</div>
+            <div class="box">
+                <a href="https://youtu.be/qg5KliTiA3o" target="_blank" rel="noopener" data-video="qg5KliTiA3o" data-title="The Quiet Goodbye">
+                    <img src="art/videos/qg5KliTiA3o.jpg" alt="The Quiet Goodbye">
+                    <span class="play-badge" aria-hidden="true"></span>
+                    <div class="overlay">
+                        <h3>The Quiet Goodbye</h3>
+                        <p>My attempt at a &#x27;trailer first&#x27; game pitch</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">PHOTO DETECTIVE</div>
+            <div class="game-title">ENDEAVOR TONE</div>
             <div class="box">
-                <a href="photo-detective/index.html">
-                    <img src="art/photo-detective.png" alt="Photo Time Detective">
+                <a href="https://youtu.be/sDxRg38F-sU" target="_blank" rel="noopener" data-video="sDxRg38F-sU" data-title="Endeavor Tone Video">
+                    <img src="art/videos/sDxRg38F-sU.jpg" alt="Endeavor Tone Video">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Photo Time Detective</h3>
-                        <p>Date a real photo from clues inside it</p>
+                        <h3>Endeavor Tone Video</h3>
+                        <p>Sets the tone and mood of the game for the team</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">UNSEEN</div>
+            <div class="game-title">BOWIE TONE</div>
             <div class="box">
-                <a href="stealth/index.html">
-                    <img src="art/unseen.png" alt="Unseen">
+                <a href="https://youtu.be/tqppcYlTvOY" target="_blank" rel="noopener" data-video="tqppcYlTvOY" data-title="Bowie Tone Video">
+                    <img src="art/videos/tqppcYlTvOY.jpg" alt="Bowie Tone Video">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Unseen</h3>
-                        <p>Climb the tower and stay out of the light</p>
+                        <h3>Bowie Tone Video</h3>
+                        <p>Sets the tone and mood of the game for the team</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">THE MAZE</div>
+            <div class="game-title">BOWIE NARRATIVE</div>
             <div class="box">
-                <a href="maze/maze-fp.html">
-                    <img src="art/maze-fp.png" alt="The Maze">
+                <a href="https://youtu.be/VgNmfdyA2Qo" target="_blank" rel="noopener" data-video="VgNmfdyA2Qo" data-title="Bowie Narrative Video">
+                    <img src="art/videos/VgNmfdyA2Qo.jpg" alt="Bowie Narrative Video">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>The Maze</h3>
-                        <p>Find your way out, in first person</p>
+                        <h3>Bowie Narrative Video</h3>
+                        <p>The story of Bowie, told as a video</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">MAZE PROTOTYPE</div>
+            <div class="game-title">BOWIE ANIMATIC</div>
             <div class="box">
-                <a href="maze/maze-topdown.html">
-                    <img src="art/maze.png" alt="Maze Prototype">
+                <a href="https://youtu.be/G6-ngkbvYFw" target="_blank" rel="noopener" data-video="G6-ngkbvYFw" data-title="Bowie Vertical Slice Animatic">
+                    <img src="art/videos/G6-ngkbvYFw.jpg" alt="Bowie Vertical Slice Animatic">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Maze Prototype</h3>
-                        <p>The only way out is through</p>
+                        <h3>Bowie Vertical Slice Animatic</h3>
+                        <p>An animatic of the Bowie vertical slice</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">WORK DELIVERABLES</div>
+            <div class="game-title">VILLAGE AUDIO</div>
             <div class="box">
-                <a href="work-right/index.html">
-                    <img src="art/work-right.png" alt="Work Deliverables">
+                <a href="https://youtu.be/O5_zmrBtaFI" target="_blank" rel="noopener" data-video="O5_zmrBtaFI" data-title="Village Audio Proof of Concept">
+                    <img src="art/videos/O5_zmrBtaFI.jpg" alt="Village Audio Proof of Concept">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Work Deliverables</h3>
-                        <p>Back-of-the-napkin planner for scoping features and staffing</p>
+                        <h3>Village Audio Proof of Concept</h3>
+                        <p>Proving out the sound of the village</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+        </div>
+        <h2 class="subhead">NARRATIVE FLOW</h2>
+        <div class="grid">
+        <div>
+            <div class="game-title">NARRATIVE MOCKUP</div>
+            <div class="box">
+                <a href="https://youtu.be/qrppWqvwLzk" target="_blank" rel="noopener" data-video="qrppWqvwLzk" data-title="Narrative Flow Mockup">
+                    <img src="art/videos/qrppWqvwLzk.jpg" alt="Narrative Flow Mockup">
+                    <span class="play-badge" aria-hidden="true"></span>
+                    <div class="overlay">
+                        <h3>Narrative Flow Mockup</h3>
+                        <p>A sample walkthrough of our game loop</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">DECK TEXT</div>
+            <div class="game-title">FLOW CREATOR</div>
             <div class="box">
-                <a href="decktext/index.html">
-                    <img src="art/decktext.png" alt="Deck Text">
+                <a href="https://youtu.be/CkYrWg76lWA" target="_blank" rel="noopener" data-video="CkYrWg76lWA" data-title="Narrative Flow Creator">
+                    <img src="art/videos/CkYrWg76lWA.jpg" alt="Narrative Flow Creator">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Deck Text</h3>
-                        <p>Rewrite HTML deck copy without touching the layout</p>
+                        <h3>Narrative Flow Creator</h3>
+                        <p>The tool used to create the narrative flow</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+        </div>
+        <h2 class="subhead">MUSIC</h2>
+        <div class="grid">
+        <div>
+            <div class="game-title">DESIGNOSAUR</div>
+            <div class="box">
+                <a href="https://youtu.be/2kKnBHAtSzI" target="_blank" rel="noopener" data-video="2kKnBHAtSzI" data-title="Designosaur">
+                    <img src="art/videos/2kKnBHAtSzI.jpg" alt="Designosaur">
+                    <span class="play-badge" aria-hidden="true"></span>
+                    <div class="overlay">
+                        <h3>Designosaur</h3>
+                        <p>Song</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">TIDY ADVENTURES</div>
+            <div class="game-title">DEAR MR. COULTON</div>
             <div class="box">
-                <a href="https://gamedesignerjoe.github.io/tidy-adventures/" target="_blank">
-                    <img src="art/tidy-adventures.png" alt="Tidy Adventures">
+                <a href="https://youtu.be/wQnX-zr7tCw" target="_blank" rel="noopener" data-video="wQnX-zr7tCw" data-title="Dear Mr. Coulton">
+                    <img src="art/videos/wQnX-zr7tCw.jpg" alt="Dear Mr. Coulton">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Tidy Adventures</h3>
-                        <p>Tidy up a cluttered house</p>
+                        <h3>Dear Mr. Coulton</h3>
+                        <p>Song</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">KILL.CODE</div>
+            <div class="game-title">THE MONEY&#x27;S GREAT</div>
             <div class="box">
-                <a href="killcode/index.html">
-                    <img src="art/killcode.png?v=2" alt="kill.code">
+                <a href="https://youtu.be/xUYpAr7Os6c" target="_blank" rel="noopener" data-video="xUYpAr7Os6c" data-title="The Money&#x27;s Great">
+                    <img src="art/videos/xUYpAr7Os6c.jpg" alt="The Money&#x27;s Great">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>kill.code</h3>
-                        <p>Crack the Code Before Lockdown.</p>
+                        <h3>The Money&#x27;s Great</h3>
+                        <p>Song</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">MEET MORSE</div>
+            <div class="game-title">FAND&#x27;S LAMENT</div>
             <div class="box">
-                <a href="meetMorse/index.html">
-                    <img src="art/meet-morse.png" alt="Meet Morse">
+                <a href="https://youtu.be/g45pXSi1c8U" target="_blank" rel="noopener" data-video="g45pXSi1c8U" data-title="Fand&#x27;s Lament">
+                    <img src="art/videos/g45pXSi1c8U.jpg" alt="Fand&#x27;s Lament">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Meet Morse</h3>
-                        <p>Learn Morse code on a telegraph key</p>
+                        <h3>Fand&#x27;s Lament</h3>
+                        <p>Song</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">WANNA WATCH</div>
+            <div class="game-title">THE OFFERING</div>
             <div class="box">
-                <a href="https://myflickpick.vercel.app/" target="_blank">
-                    <img src="art/flickpick_thumb.png" alt="FlickPick">
+                <a href="https://youtu.be/RSUsKMzdVYc" target="_blank" rel="noopener" data-video="RSUsKMzdVYc" data-title="The Offering">
+                    <img src="art/videos/RSUsKMzdVYc.jpg" alt="The Offering">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Wanna Watch</h3>
-                        <p>Pick the shows you wanna watch</p>
+                        <h3>The Offering</h3>
+                        <p>Song</p>
                     </div>
                 </a>
             </div>
         </div>
         <div>
-            <div class="game-title">MURMUR</div>
+            <div class="game-title">GHOST UPON MY SKIN</div>
             <div class="box">
-                <a href="https://gamedesignerjoe.github.io/murmur/" target="_blank">
-                    <img src="art/murmur.png" alt="Murmur">
+                <a href="https://youtu.be/FeTOVeoydwQ" target="_blank" rel="noopener" data-video="FeTOVeoydwQ" data-title="The Ghost Upon My Skin">
+                    <img src="art/videos/FeTOVeoydwQ.jpg" alt="The Ghost Upon My Skin">
+                    <span class="play-badge" aria-hidden="true"></span>
                     <div class="overlay">
-                        <h3>Murmur</h3>
-                        <p>An audio forward choose your own adventure experience</p>
+                        <h3>The Ghost Upon My Skin</h3>
+                        <p>Song</p>
                     </div>
                 </a>
             </div>
         </div>
-        <div>
-            <div class="game-title">LATTICE</div>
-            <div class="box">
-                <a href="https://gamedesignerjoe.github.io/lattice/" target="_blank">
-                    <img src="art/lattice.png" alt="Lattice">
-                    <div class="overlay">
-                        <h3>Lattice</h3>
-                        <p>A voice and music visualizer</p>
-                    </div>
-                </a>
-            </div>
         </div>
-        <div>
-            <div class="game-title">GUITAR SCALES</div>
-            <div class="box">
-                <a href="https://gamedesignerjoe.github.io/guitar-scales/" target="_blank">
-                    <img src="art/guitar_scales.png" alt="Guitar Scales">
-                    <div class="overlay">
-                        <h3>Guitar Scales</h3>
-                        <p>An instructor tool for teaching guitar</p>
-                    </div>
-                </a>
+    </section>
+
+    <div class="video-modal" id="video-modal" role="dialog" aria-modal="true" aria-label="Video player" hidden>
+        <div class="video-modal-inner">
+            <div class="video-modal-bar">
+                <span class="video-modal-title" id="video-modal-title"></span>
+                <a class="video-modal-yt" id="video-modal-yt" href="#" target="_blank" rel="noopener">Watch on YouTube &#8599;</a>
+                <button class="video-modal-close" id="video-modal-close" aria-label="Close video">&times;</button>
             </div>
-        </div>
-        <div>
-            <div class="game-title">INKWELLSCAN</div>
-            <div class="box">
-                <a href="https://inkwellscan.vercel.app/" target="_blank">
-                    <img src="art/Inkwell_Scan.png" alt="InkwellScan">
-                    <div class="overlay">
-                        <h3>InkwellScan</h3>
-                        <p>Scan documents directly into Google Docs</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">ADDSCORE</div>
-            <div class="box">
-                <a href="AddScore/index.html">
-                    <img src="art/addScore.png" alt="AddScore">
-                    <div class="overlay">
-                        <h3>AddScore</h3>
-                        <p>Easily track scores for your board or card games</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">CARTOGRAPHER</div>
-            <div class="box">
-                <a href="https://gamedesignerjoe.github.io/cartographer/index.html">
-                    <img src="art/cartographer.png" alt="Cartographer">
-                    <div class="overlay">
-                        <h3>Cartographer</h3>
-                        <p>Map islands in this chill cartographer game.</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">PLAYBACK</div>
-            <div class="box">
-                <a href="https://my-playback.vercel.app/" target="_blank">
-                    <img src="art/playbackPic.png" alt="Playback" style="object-position: top left;">
-                    <div class="overlay">
-                        <h3>Playback</h3>
-                        <p>Stream your local music like the pros</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">PICTURE PUZZLER</div>
-            <div class="box">
-                <a href="picture-puzzle/index.html">
-                    <img src="art/picturePuzzler.png" alt="Picture Puzzler">
-                    <div class="overlay">
-                        <h3>Picture Puzzler</h3>
-                        <p>Solve our puzzles or use your own.</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">COLOR MATCH</div>
-            <div class="box">
-                <a href="/color-match/">
-                    <svg width="100%" height="100%" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="512" height="512" fill="#111827"/>
-                        <circle cx="180" cy="180" r="60" fill="hsl(200, 70%, 80%)"/>
-                        <circle cx="332" cy="180" r="60" fill="hsl(200, 70%, 80%)"/>
-                        <circle cx="180" cy="332" r="60" fill="hsl(200, 70%, 30%)"/>
-                        <circle cx="332" cy="332" r="60" fill="hsl(200, 70%, 30%)"/>
-                    </svg>
-                    <div class="overlay">
-                        <h3>Color Match</h3>
-                        <p>Match color pairs and progress through challenging levels</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">STEAM GAME CLICKER</div>
-            <div class="box">
-                <a href="https://steam-vault-escape.vercel.app/" target="_blank">
-                    <img src="art/steamGameClicker.png" alt="Steam Game Clicker">
-                    <div class="overlay">
-                        <h3>Steam Game Clicker</h3>
-                        <p>A clicker game that encourages you to play your unplayed steam games.</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">STEAM SCOUT</div>
-            <div class="box">
-                <a href="https://never-played.vercel.app/" target="_blank">
-                    <img src="art/NeverPlayed.png" alt="Steam Scout">
-                    <div class="overlay">
-                        <h3>Steam Scout</h3>
-                        <p>Display your Steam game library. Shows which games you've never played!</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">ALIEN TRANSLATOR</div>
-            <div class="box">
-                <a href="/langTrans/GuardianLanguageTranslation.html">
-                    <img src="art/LangTranslator.png" alt="Alien Translator">
-                    <div class="overlay">
-                        <h3>Alien Translator</h3>
-                        <p>A design idea revolving around learning an alien language over time.</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">EARNINGS TRACKER</div>
-            <div class="box">
-                <a href="/EarningsTracker/">
-                    <img src="art/EarningsTracker.png" alt="Earnings Tracker">
-                    <div class="overlay">
-                        <h3>Earnings Tracker</h3>
-                        <p>A silly tracker to realize just what your time is worth</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">CIPHER FOX</div>
-            <div class="box">
-                <a href="/cryptogram-quotes/">
-                    <img src="art/title_cipher_fox.png" alt="Cipher Fox">
-                    <div class="overlay">
-                        <h3>Cipher Fox</h3>
-                        <p>Unlock wisdom, one letter at a time</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">MAP VIZ TOOL</div>
-            <div class="box">
-                <a href="/mapVisualizationTool/">
-                    <img src="art/MapVisTool.png" alt="Map Viz Tool">
-                    <div class="overlay">
-                        <h3>Map Viz Tool</h3>
-                        <p>A dev tool used for maping content.</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">NOT ALL SURVIVE</div>
-            <div class="box">
-                <a href="/nas-vite/index.html">
-                    <img src="art/nas_b_512.png" alt="NOT ALL WILL SURVIVE">
-                    <div class="overlay">
-                        <h3>NOT ALL WILL SURVIVE</h3>
-                        <p>An Antarctic Exploration Survival Game</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div>
-            <div class="game-title">TERRIBLE PARENT?</div>
-            <div class="box">
-                <a href="/terribleParent/index.html">
-                    <img src="art/terribleParent_icon.png" alt="Project 3">
-                    <div class="overlay">
-                        <h3>Terrible Parent</h3>
-                        <p>Are you a terrible parent?</p>
-                    </div>
-                </a>
-            </div>
+            <div class="video-frame" id="video-frame"></div>
         </div>
     </div>
 
@@ -605,6 +1024,70 @@
             <img src="art/linkedin-50.png" alt="LinkedIn Profile">
         </a>
     </div>
+<script>
+    // Tabs + video player.
+    (function () {
+        const tabs = Array.from(document.querySelectorAll('.tab'));
+        const names = tabs.map(t => t.dataset.tab);
+
+        function show(name, updateHash) {
+            if (!names.includes(name)) name = 'games';
+            tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+            names.forEach(n => { document.getElementById('panel-' + n).hidden = (n !== name); });
+            if (updateHash) history.replaceState(null, '', name === 'games' ? location.pathname + location.search : '#' + name);
+        }
+
+        tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab, true)));
+        window.addEventListener('hashchange', () => show(location.hash.slice(1), false));
+        show(location.hash.slice(1), false);
+
+        // Video modal. Tiles are real links to YouTube, so middle-click,
+        // ctrl-click and long-press still go straight there.
+        const modal = document.getElementById('video-modal');
+        const frame = document.getElementById('video-frame');
+        const titleEl = document.getElementById('video-modal-title');
+        const ytLink = document.getElementById('video-modal-yt');
+        let lastFocus = null;
+
+        function openVideo(id, title) {
+            lastFocus = document.activeElement;
+            titleEl.textContent = title;
+            ytLink.href = 'https://youtu.be/' + id;
+            frame.innerHTML = '';
+            const f = document.createElement('iframe');
+            f.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1';
+            f.title = title;
+            f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+            f.allowFullscreen = true;
+            frame.appendChild(f);
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+            document.getElementById('video-modal-close').focus();
+        }
+
+        function closeVideo() {
+            if (modal.hidden) return;
+            modal.hidden = true;
+            frame.innerHTML = '';   // removing the iframe stops playback
+            document.body.style.overflow = '';
+            if (lastFocus && lastFocus.focus) lastFocus.focus();
+        }
+
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a[data-video]');
+            if (link) {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                openVideo(link.dataset.video, link.dataset.title);
+                return;
+            }
+            if (e.target === modal) closeVideo();
+        });
+        document.getElementById('video-modal-close').addEventListener('click', closeVideo);
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeVideo(); });
+    })();
+</script>
+
 <script>
     if ('serviceWorker' in navigator) {
         // Whether a worker was already driving this page when it loaded. Used
