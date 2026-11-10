@@ -142,7 +142,7 @@ async function call(key, body) {
 }
 
 async function groq(key, messages) {
-  const data = await call(key, { temperature: 0.6, reasoning_effort: 'medium', response_format: { type: 'json_object' }, messages });
+  const data = await call(key, { temperature: 0.6, reasoning_effort: 'medium', max_completion_tokens: 6000, response_format: { type: 'json_object' }, messages });
   return { parsed: JSON.parse(data.choices[0].message.content), usage: data.usage };
 }
 
