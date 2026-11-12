@@ -1,0 +1,8 @@
+{
+  "name": "gasp2",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GASP 2.0: script to storyboard to video and sound. Local app; no dependencies beyond Node 18+ and ffmpeg.",
+  "scripts": { "start": "node server.js" }
+}

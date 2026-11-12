@@ -1,0 +1,12 @@
+{
+  "_note": "Video models on fal. image = the field that takes the keyframe URL; durFormat = how fal wants the length (string \"5\", \"5s\", or a number). Prices are USD per second of video, audio off, from fal's model pages (Nov 2026). Add a model by adding an entry; the app lists them all.",
+  "video": {
+    "kling-2.6-pro": { "label": "Kling 2.6 Pro", "endpoint": "fal-ai/kling-video/v2.6/pro/image-to-video", "image": "start_image_url", "durations": [5, 10], "durFormat": "string", "extra": { "generate_audio": false }, "pricePerSecond": 0.07 },
+    "veo-3.1-fast": { "label": "Veo 3.1 Fast", "endpoint": "fal-ai/veo3.1/fast/image-to-video", "image": "image_url", "durations": [4, 6, 8], "durFormat": "s", "extra": { "generate_audio": false, "aspect_ratio": "9:16", "resolution": "720p" }, "pricePerSecond": 0.10 },
+    "seedance-1-pro": { "label": "Seedance 1.0 Pro (720p)", "endpoint": "fal-ai/bytedance/seedance/v1/pro/image-to-video", "image": "image_url", "durations": [3, 4, 5, 6, 7, 8, 10, 12], "durFormat": "string", "extra": { "resolution": "720p", "aspect_ratio": "9:16" }, "pricePerSecond": 0.055, "priceNote": "billed by video tokens; about $0.055/s at 720p" },
+    "grok-imagine": { "label": "Grok Imagine (720p)", "endpoint": "xai/grok-imagine-video/image-to-video", "image": "image_url", "durations": [4, 6, 8, 10, 12, 15], "durFormat": "number", "extra": { "resolution": "720p", "aspect_ratio": "9:16" }, "pricePerSecond": 0.07, "perRequest": 0.002 },
+    "kling-2.1-std": { "label": "Kling 2.1 Standard (1.0 default)", "endpoint": "fal-ai/kling-video/v2.1/standard/image-to-video", "image": "image_url", "durations": [5, 10], "durFormat": "string", "extra": { "aspect_ratio": "9:16" }, "pricePerSecond": 0.05 },
+    "hailuo-02-std": { "label": "Hailuo 02 Standard", "endpoint": "fal-ai/minimax/hailuo-02/standard/image-to-video", "image": "image_url", "durations": [6, 10], "durFormat": "string", "extra": {}, "pricePerSecond": 0.045 }
+  },
+  "defaultVideo": "kling-2.6-pro"
+}

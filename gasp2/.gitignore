@@ -1,0 +1,7 @@
+# keys and machine-specific settings never go to GitHub
+.env
+settings.json
+node_modules/
+*.log
+# the app window's browser profile
+.appwindow/

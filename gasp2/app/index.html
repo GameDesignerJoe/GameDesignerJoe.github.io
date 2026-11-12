@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GASP 2</title>
+<link rel="icon" href="favicon-64.png">
+<style>
+:root{--bg:#141018;--panel:#1c1722;--panel2:#231d2a;--line:#33293b;--ink:#f1ebf4;--muted:#a197ab;--faint:#6f6578;--accent:#ff4d6d;--accent2:#ff8aa0;--good:#4cc38a;--warn:#f0b44c;--bad:#ff6b6b;--r:10px;--mono:ui-monospace,SFMono-Regular,Consolas,monospace}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}.btn.primary:hover{background:var(--accent2)}
+.btn.small{padding:3px 9px;font-size:12.5px}.btn.ghost{background:none}.btn:disabled{opacity:.45;cursor:not-allowed}
+input[type=text],input[type=password],select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+textarea{resize:vertical;min-height:70px;line-height:1.4}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+label.f{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 5px}
+.sub{color:var(--muted);font-size:12.5px}
+.row{display:flex;gap:8px;align-items:center}.spacer{flex:1}
+/* header */
+header{display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);flex:none}
+header .logo{height:40px;border-radius:8px}
+header .ver{font-size:11px;color:var(--faint);margin-left:-6px}
+#storySel{width:auto;max-width:280px;font-weight:600}
+.pill{border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:12.5px;background:none}
+.pill.live{border-color:var(--warn);color:var(--warn)}
+nav{display:flex;gap:4px;padding:8px 16px 0;border-bottom:1px solid var(--line);flex:none}
+nav button{background:none;border:0;border-bottom:2px solid transparent;padding:6px 14px 8px;color:var(--muted);font-weight:600}
+nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
+nav .soon{font-size:10px;color:var(--faint);font-weight:400;margin-left:4px}
+main{flex:1;min-height:0;display:flex}
+/* shots */
+.shots{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,34%);min-height:0}
+.left{min-height:0;overflow:auto;padding:14px 16px 40px}
+.epbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.ep{border:1px solid var(--line);background:none;border-radius:8px;padding:4px 10px;color:var(--muted);font-weight:600}
+.ep.on{border-color:var(--accent);color:var(--ink);background:rgba(255,77,109,.08)}
+#epTitle{width:260px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px}
+.grid.dropping{outline:2px dashed var(--accent);outline-offset:6px;border-radius:12px}
+.tile{position:relative;cursor:pointer;user-select:none}
+.tile .media{position:relative;aspect-ratio:9/16;border-radius:10px;overflow:hidden;background:var(--panel2);border:2px solid var(--line);display:flex;align-items:center;justify-content:center}
+.tile.sel .media{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,77,109,.25)}
+.tile .media img,.tile .media video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.tile .empty{padding:12px;font-size:12px;color:var(--muted);text-align:center}
+.tile .badge{position:absolute;left:6px;top:6px;width:24px;height:24px;border-radius:6px;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}
+.tile .badge svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.8}
+.tile .badge.video{background:var(--accent)}
+.tile .num{position:absolute;right:6px;top:6px;font:600 11px var(--mono);background:rgba(0,0,0,.6);color:#fff;border-radius:5px;padding:1px 5px}
+.tile .cap{margin-top:6px;font-size:12.5px;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tile .jobov{position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.72);color:#fff;font-size:11px;padding:6px 8px}
+.tile .jobov .bar{height:3px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden;margin-top:4px;position:relative}
+.tile .jobov .bar i,.prog .bar i{position:absolute;top:0;bottom:0;width:35%;background:var(--accent);border-radius:2px;animation:slide 1.3s ease-in-out infinite}
+@keyframes slide{0%{left:-35%}100%{left:100%}}
+.tile .ins{position:absolute;left:-12px;top:42%;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:14px;line-height:1;opacity:0;padding:0;z-index:2}
+.tile:hover .ins{opacity:1}.tile .ins:hover{color:#fff;background:var(--accent);border-color:var(--accent)}
+.tile.drag{opacity:.35}.tile.before .media{box-shadow:-5px 0 0 var(--accent)}.tile.after .media{box-shadow:5px 0 0 var(--accent)}
+.tile.filedrop .media{border-color:var(--good);border-style:dashed}
+.addtile .media{border-style:dashed;color:var(--muted);flex-direction:column;gap:6px;font-size:13px;text-align:center;padding:10px}
+.addtile:hover .media{border-color:var(--accent);color:var(--ink)}
+.hint{margin-top:22px;color:var(--faint);font-size:12px;max-width:760px}
+/* panel */
+.panel{border-left:1px solid var(--line);min-height:0;overflow:auto;padding:14px 16px 40px;background:var(--panel)}
+.panel h3{margin:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ptitle{font-size:16px;font-weight:600}
+.hero{display:grid;justify-items:center;gap:6px;margin:12px 0 4px}
+.hero img,.hero video{height:min(46vh,520px);aspect-ratio:9/16;width:auto;max-width:100%;object-fit:contain;background:#000;border-radius:12px;border:1px solid var(--line)}
+.hero .ph{height:min(30vh,320px);aspect-ratio:9/16;border:2px dashed var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:14px}
+.hero .ph.over{border-color:var(--good);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:none;border:0;padding:3px 10px;font-size:12px;color:var(--muted)}.seg button.on{background:var(--panel2);color:var(--ink)}
+.sec{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+.secrow{display:flex;align-items:center;gap:8px}
+.kthumb{width:54px;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:#000}
+.prog{margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:12.5px;background:rgba(255,77,109,.06)}
+.prog .bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;position:relative;margin-top:6px}
+.prog.err{background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.4);color:var(--bad)}
+.strip{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px}
+.take{position:relative;flex:none;width:64px;aspect-ratio:9/16;border-radius:7px;overflow:hidden;border:2px solid var(--line);cursor:zoom-in;background:#000}
+.take.use{border-color:var(--accent)}.take img,.take video{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.take .t{position:absolute;left:3px;top:3px;width:17px;height:17px;border-radius:4px;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}
+.take .t svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:2}
+.take .u{position:absolute;left:0;right:0;bottom:0;font-size:9.5px;text-align:center;background:var(--accent);color:#fff}
+.empty-state{margin:auto;text-align:center;max-width:460px;padding:40px}
+.empty-state h2{margin:0 0 6px}
+/* overlays */
+.ov{position:fixed;inset:0;background:rgba(8,6,10,.78);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;width:min(720px,100%);max-height:92vh;overflow:auto}
+.box h2{margin:0 0 4px;font-size:18px}
+.viewer{flex-direction:column;gap:10px}
+.viewer img,.viewer video{max-height:82vh;max-width:94vw;height:82vh;width:auto;object-fit:contain;border-radius:10px;background:#000}
+.viewer .vb{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+table.t th,table.t td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
+table.t th{color:var(--muted);font-weight:600}table.t td.n{text-align:right;font-variant-numeric:tabular-nums}
+.keyrow{display:grid;grid-template-columns:150px 1fr 90px;gap:8px;align-items:center;margin-top:6px}
+.keyrow .st{font-size:12px;color:var(--muted)}.keyrow .st.ok{color:var(--good)}
+#toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;z-index:80;pointer-events:none}
+.toast{background:var(--panel2);border:1px solid var(--line);padding:9px 16px;border-radius:999px;z-index:80;max-width:80vw;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.soonpage{margin:40px auto;max-width:620px;padding:0 20px}
+.soonpage h2{margin:0 0 8px}
+.soonpage li{margin:4px 0}
+code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:4px}
+@media (max-width:900px){.shots{grid-template-columns:1fr}.panel{border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header>
+  <img class="logo" src="logo.jpg" alt="GASP">
+  <span class="ver" id="ver">2.0</span>
+  <select id="storySel" title="Story"></select>
+  <button class="btn small" id="newStory">+ New story</button>
+  <span class="spacer"></span>
+  <button class="pill" id="jobsPill" hidden></button>
+  <button class="pill" id="spendBtn" title="What each generation cost">$0.00 spent</button>
+  <button class="btn small" id="gear" title="Settings">⚙</button>
+</header>
+<nav id="tabs">
+  <button data-tab="script">Script<span class="soon">step 3</span></button>
+  <button data-tab="reference">Reference<span class="soon">step 6</span></button>
+  <button data-tab="shots">Shots</button>
+  <button data-tab="sound">Sound<span class="soon">step 7</span></button>
+</nav>
+<main id="main"></main>
+
+<script>
+/* ============ GASP 2 app ============ */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ICON={image:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/></svg>',video:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg>'};
+const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let STATE=null,STORY=null,EP=null,SEL=null,TAB=ls.get("g2-tab","shots");const JOBS={};
+function toast(t,ms=3200){let h=$("#toasts");if(!h){h=document.createElement("div");h.id="toasts";document.body.appendChild(h)}const el=document.createElement("div");el.className="toast";el.textContent=t;h.appendChild(el);setTimeout(()=>el.remove(),ms)}
+async function api(path,body){if(body!==undefined&&path!=="/api/shot/update"&&typeof flushPending==="function"&&PENDING.shot)await flushPending();const r=await fetch(path,body===undefined?{}:{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const o=await r.json().catch(()=>({error:"The GASP 2 server didn't answer. Is it running?"}));if(!r.ok||o.error)throw new Error(o.error||r.statusText);return o}
+const money=v=>"$"+(+v||0).toFixed(2);
+
+/* ---------- boot ---------- */
+async function boot(){
+  try{STATE=await api("/api/state")}catch(e){$("#main").innerHTML=`<div class="empty-state"><h2>Can't reach the GASP 2 server</h2><p class="sub">${esc(e.message)}</p></div>`;return}
+  $("#ver").textContent="2.0"+(STATE.dry?" · dry run":"");
+  $("#spendBtn").textContent=money(STATE.spend)+" spent";
+  renderStorySel();
+  const want=ls.get("g2-story",null);const pick=STATE.stories.find(s=>s.id===want)||STATE.stories[0];
+  if(pick)await openStory(pick.id);else renderMain();
+  listenEvents();
+  if(!Object.values(STATE.keys).some(Boolean))setTimeout(()=>{toast("No keys yet: add your fal key in Settings (⚙) to generate video.",5000)},800);
+}
+function renderStorySel(){const sel=$("#storySel");sel.innerHTML=STATE.stories.length?STATE.stories.map(s=>`<option value="${s.id}">${esc(s.title)}</option>`).join(""):`<option value="">No stories yet</option>`;if(STORY)sel.value=STORY.id;sel.disabled=!STATE.stories.length}
+$("#storySel").onchange=e=>openStory(e.target.value);
+$("#newStory").onclick=async()=>{const t=prompt("Story title","New story");if(!t)return;try{const s=await api("/api/story/new",{title:t});STATE=await api("/api/state");setStory(s);renderStorySel();toast(`Made the folder for "${s.title}" in your library`)}catch(e){toast(e.message)}};
+async function openStory(id){try{setStory(await api("/api/story?id="+encodeURIComponent(id)))}catch(e){toast(e.message)}}
+function setStory(s){STORY=s;ls.set("g2-story",s.id);const keepEp=EP&&s.episodes.find(e=>e.id===EP.id);EP=keepEp||s.episodes.find(e=>e.id===ls.get("g2-ep-"+s.id,null))||s.episodes[0];if(SEL&&!EP.shots.find(x=>x.id===SEL))SEL=null;if(!SEL&&EP.shots[0])SEL=EP.shots[0].id;renderStorySel();renderMain()}
+async function reload(){if(STORY)setStory(await api("/api/story?id="+encodeURIComponent(STORY.id)))}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;ls.set("g2-tab",TAB);renderMain()});
+function renderMain(){
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===TAB));
+  const m=$("#main");
+  if(!STORY){m.innerHTML=`<div class="empty-state"><h2>Start a story</h2><p class="sub">Each story gets its own folder in your GASP Library, with episodes and shots inside it. Everything you make is kept there, so you can browse it without the app.</p><p><button class="btn primary" id="first">+ New story</button></p><p class="sub">Library: <code>${esc(STATE.library)}</code></p></div>`;$("#first").onclick=()=>$("#newStory").click();return}
+  if(TAB==="shots")return renderShots();
+  const soon={script:{h:"Script",step:3,items:["One text window, written like a screenplay or comic script","SHOT callouts that become tiles in Shots with Sync","Copy for Claude, and later the in-app chat that writes into it"],extra:`For now, the story's <code>script.txt</code> lives in its folder.`},reference:{h:"Reference",step:6,items:["Characters: full-body cutout, face close-up, one cutout per outfit, a voice","Locations: empty-set images","Props: transparent prop images, with background removal built in"],extra:"Stored once in <code>GASP Library\\Reference</code> and shared by every story."},sound:{h:"Sound",step:7,items:["Dialogue with voices and lip-sync","Ambience, effects and music in lanes under the shots","Works on stills first, so timing can be locked before video"],extra:""}}[TAB];
+  m.innerHTML=`<div class="soonpage"><h2>${soon.h}</h2><p class="sub">Arrives in step ${soon.step} of the build (see <code>gasp2/PLAN.md</code>). It will hold:</p><ul>${soon.items.map(x=>`<li>${x}</li>`).join("")}</ul><p class="sub">${soon.extra}</p><p><button class="btn" id="reveal">Show this story's folder</button></p></div>`;
+  $("#reveal").onclick=()=>reveal({})}
+async function reveal(o){try{const r=await api("/api/reveal",Object.assign({story:STORY.id},o));if(!/Windows/.test(navigator.userAgent))toast(r.path)}catch(e){toast(e.message)}}
+
+/* ---------- shots tab ---------- */
+const cur=()=>EP&&EP.shots.find(x=>x.id===SEL);
+function renderShots(){
+  const m=$("#main");
+  m.innerHTML=`<div class="shots"><div class="left" id="left"><div class="epbar">${STORY.episodes.map(e=>`<button class="ep ${e.id===EP.id?"on":""}" data-ep="${e.id}" title="${esc(e.title)}">Ep ${e.num}</button>`).join("")}<button class="btn small ghost" id="addEp">+ Episode</button><input type="text" id="epTitle" value="${esc(EP.title)}" title="Episode title (also its folder name)"><span class="spacer"></span><button class="btn small ghost" id="epFolder">Show folder</button></div><div class="grid" id="grid"></div><p class="hint">Drop images from ChatGPT or your desktop onto the grid: one new shot per image, in order. Drop an image on a tile to give it a new keyframe. Drag tiles to reorder; hover a tile's left edge for + to insert. <b>Ctrl+V</b> pastes a copied image into the selected shot.</p></div><div class="panel" id="panel"></div></div>`;
+  document.querySelectorAll("[data-ep]").forEach(b=>b.onclick=()=>{EP=STORY.episodes.find(e=>e.id===b.dataset.ep);ls.set("g2-ep-"+STORY.id,EP.id);SEL=EP.shots[0]?EP.shots[0].id:null;renderShots()});
+  $("#addEp").onclick=async()=>{const s=await api("/api/episode/new",{story:STORY.id});EP=s.episodes[s.episodes.length-1];SEL=null;setStory(s)};
+  $("#epTitle").onchange=async e=>{try{setStory(await api("/api/episode/rename",{story:STORY.id,ep:EP.id,title:e.target.value}))}catch(err){toast(err.message)}};
+  $("#epFolder").onclick=()=>reveal({ep:EP.id});
+  renderGrid();renderPanel();wireGridDrop()}
+function tileMedia(sh){const m=sh.media||{};if(sh.show==="video"&&m.video)return{type:"video",html:`<video src="${m.video}#t=0.1" muted loop playsinline preload="metadata"></video>`};if(m.keyframe)return{type:"image",html:`<img src="${m.keyframe}" alt="" loading="lazy">`};if(m.video)return{type:"video",html:`<video src="${m.video}#t=0.1" muted loop playsinline preload="metadata"></video>`};return null}
+function renderGrid(){
+  const g=$("#grid");if(!g)return;
+  g.innerHTML=EP.shots.map((sh,i)=>{const tm=tileMedia(sh);const j=JOBS_FOR(sh.id);return`<div class="tile ${sh.id===SEL?"sel":""}" draggable="true" data-id="${sh.id}"><button class="ins" data-ins="${sh.id}" title="Insert a shot before this one">+</button><div class="media">${tm?tm.html:`<div class="empty">${esc(sh.title)}<br><span style="color:var(--faint)">drop a keyframe</span></div>`}${tm?`<span class="badge ${tm.type}" title="${tm.type==="video"?"Showing the video":"Showing the keyframe"}">${ICON[tm.type]}</span>`:""}<span class="num">${String(i+1).padStart(2,"0")}</span>${j&&j.status!=="done"?`<div class="jobov">${j.status==="error"?"✕ failed":esc(j.phase||"working")}${j.status==="running"?`<div class="bar"><i></i></div>`:""}</div>`:""}</div><div class="cap">${esc(sh.title)}</div></div>`}).join("")+`<div class="tile addtile" id="addShot"><div class="media"><span style="font-size:26px;line-height:1">+</span>New shot<span class="sub" style="font-size:11px">or drop images here</span></div></div>`;
+  g.querySelectorAll(".tile[data-id]").forEach(t=>{
+    t.onclick=e=>{if(e.target.closest(".ins"))return;SEL=t.dataset.id;g.querySelectorAll(".tile").forEach(x=>x.classList.toggle("sel",x===t));renderPanel()};
+    const v=t.querySelector("video");if(v){t.onmouseenter=()=>v.play().catch(()=>{});t.onmouseleave=()=>{v.pause();v.currentTime=.1}}
+    t.ondragstart=e=>{e.dataTransfer.setData("text/gasp-shot",t.dataset.id);e.dataTransfer.effectAllowed="move";t.classList.add("drag")};
+    t.ondragend=()=>{t.classList.remove("drag");g.querySelectorAll(".tile").forEach(x=>x.classList.remove("before","after","filedrop"))};
+    t.ondragover=e=>{const files=e.dataTransfer.types.includes("Files");e.preventDefault();e.stopPropagation();g.querySelectorAll(".tile").forEach(x=>x.classList.remove("before","after","filedrop"));if(files){t.classList.add("filedrop");return}const r=t.getBoundingClientRect();t.classList.add(e.clientX<r.left+r.width/2?"before":"after")};
+    t.ondragleave=()=>t.classList.remove("before","after","filedrop");
+    t.ondrop=async e=>{e.preventDefault();e.stopPropagation();const files=[...e.dataTransfer.files].filter(f=>f.type.startsWith("image/"));g.querySelectorAll(".tile").forEach(x=>x.classList.remove("before","after","filedrop"));
+      if(files.length){await setKeyframe(t.dataset.id,files[0]);if(files.length>1)await addShotsFromFiles(files.slice(1),t.dataset.id);return}
+      const id=e.dataTransfer.getData("text/gasp-shot");if(!id||id===t.dataset.id)return;const r=t.getBoundingClientRect();const after=e.clientX>=r.left+r.width/2;
+      const order=EP.shots.map(x=>x.id).filter(x=>x!==id);order.splice(order.indexOf(t.dataset.id)+(after?1:0),0,id);
+      try{setStory(await api("/api/shot/move",{story:STORY.id,ep:EP.id,order}))}catch(err){toast(err.message)}}});
+  g.querySelectorAll("[data-ins]").forEach(b=>b.onclick=async e=>{e.stopPropagation();const r=await api("/api/shot/new",{story:STORY.id,ep:EP.id,before:b.dataset.ins});SEL=r.shot;setStory(r.story);focusTitle()});
+  $("#addShot").onclick=async()=>{const r=await api("/api/shot/new",{story:STORY.id,ep:EP.id});SEL=r.shot;setStory(r.story);focusTitle()};
+}
+function focusTitle(){const t=$("#pTitle");if(t){t.focus();t.select()}}
+function wireGridDrop(){
+  const left=$("#left"),g=$("#grid");
+  left.ondragover=e=>{if(e.dataTransfer.types.includes("Files")){e.preventDefault();g.classList.add("dropping")}};
+  left.ondragleave=e=>{if(!left.contains(e.relatedTarget))g.classList.remove("dropping")};
+  left.ondrop=async e=>{e.preventDefault();g.classList.remove("dropping");const files=[...e.dataTransfer.files].filter(f=>f.type.startsWith("image/"));if(files.length)await addShotsFromFiles(files)};
+}
+const fileData=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)});
+const nameOf=f=>(f.name||"image").replace(/\.[^.]+$/,"").replace(/[_-]+/g," ").replace(/\s+/g," ").trim().slice(0,50)||"New shot";
+async function addShotsFromFiles(files,after){files=[...files].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));let last=after||null,r=null;
+  for(const f of files){try{r=await api("/api/shot/new",{story:STORY.id,ep:EP.id,after:last,title:nameOf(f),image:await fileData(f),source:/chatgpt|dall|openai/i.test(f.name)?"chatgpt":"upload"});last=r.shot}catch(e){toast(e.message);break}}
+  if(r){SEL=r.shot;setStory(r.story);toast(`${files.length} shot${files.length>1?"s":""} added`)}}
+async function setKeyframe(shotId,file){try{setStory(await api("/api/keyframe",{story:STORY.id,ep:EP.id,shot:shotId,image:await fileData(file),source:/chatgpt|dall|openai/i.test(file.name||"")?"chatgpt":"upload"}));SEL=shotId;renderGrid();renderPanel();toast("Keyframe in place; the old one stays in History")}catch(e){toast(e.message)}}
+document.addEventListener("paste",async e=>{if(TAB!=="shots"||!cur())return;if(/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName))return;const f=[...(e.clipboardData||{}).files||[]].find(x=>x.type.startsWith("image/"));if(f){e.preventDefault();await setKeyframe(SEL,f)}});
+
+/* ---------- details panel ---------- */
+const JOBS_FOR=id=>Object.values(JOBS).filter(j=>j.shot===id).sort((a,b)=>b.started-a.started)[0]||null;
+function renderPanel(){
+  const p=$("#panel");if(!p)return;const sh=cur();
+  if(!sh){p.innerHTML=`<div class="empty-state" style="padding:30px 10px"><h3>No shot selected</h3><p class="sub">Add a shot, or drop ChatGPT images onto the grid to make one shot per image.</p></div>`;return}
+  const idx=EP.shots.indexOf(sh)+1,m=sh.media||{},hasV=!!m.video,hasK=!!m.keyframe,show=sh.show==="video"&&hasV?"video":hasK?"keyframe":hasV?"video":null;
+  const models=STATE.models,mk=sh.model&&models[sh.model]?sh.model:STATE.defaultVideo,model=models[mk];const secs=model.durations.includes(+sh.seconds)?+sh.seconds:model.durations.find(d=>d>=5)||model.durations[0];
+  const est=model.pricePerSecond*secs+(model.perRequest||0);const j=JOBS_FOR(sh.id);const busy=j&&j.status==="running";
+  p.innerHTML=`<div class="row"><h3>Shot ${String(idx).padStart(2,"0")}</h3><span class="spacer"></span><button class="btn small ghost" id="pDup" title="Duplicate this shot and its takes">Duplicate</button><button class="btn small ghost" id="pFolder" title="Open this shot's folder">Folder</button><button class="btn small ghost" id="pDel" title="Move this shot to _Trash">Delete</button></div>
+  <input type="text" id="pTitle" class="ptitle" value="${esc(sh.title)}" style="margin-top:8px" title="Shot title (also its folder name)">
+  <div class="hero" id="hero">${show==="video"?`<video src="${m.video}" controls playsinline loop></video>`:show==="keyframe"?`<img src="${m.keyframe}" alt="">`:`<div class="ph" id="heroDrop">Drop a keyframe here, paste one with Ctrl+V,<br>or <u>choose a file</u>.</div>`}${hasV&&hasK?`<div class="seg"><button data-show="keyframe" class="${show==="keyframe"?"on":""}">${ICON.image.replace("<svg",'<svg style="width:13px;height:13px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:1.8"')} Keyframe</button><button data-show="video" class="${show==="video"?"on":""}">${ICON.video.replace("<svg",'<svg style="width:13px;height:13px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:1.8"')} Video</button></div>`:""}</div>
+  <div class="sec"><div class="secrow"><h3>Keyframe</h3><span class="spacer"></span><label class="btn small">Replace from file<input type="file" accept="image/*" id="kfFile" hidden></label></div>
+    <label class="f">Image prompt</label><textarea id="pImg" rows="4" placeholder="What the keyframe shows. Copy it to ChatGPT, then drop the result back here.">${esc(sh.imagePrompt||"")}</textarea>
+    <div class="row" style="margin-top:6px"><button class="btn small" id="copyImg">Copy prompt</button><span class="sub">Generating keyframes in the app arrives in step 5.</span></div></div>
+  <div class="sec"><h3>Video</h3>
+    <label class="f">Motion prompt</label><textarea id="pMot" rows="3" placeholder="What moves: camera and action. e.g. slow push-in; she opens her eyes and smiles">${esc(sh.motionPrompt||"")}</textarea>
+    <div class="row" style="margin-top:8px;flex-wrap:wrap"><select id="pModel" style="flex:1;min-width:180px">${Object.entries(models).map(([k,v])=>`<option value="${k}" ${k===mk?"selected":""}>${esc(v.label)} · $${v.pricePerSecond.toFixed(3).replace(/0$/,"")}/s</option>`).join("")}</select><select id="pSecs" style="width:90px">${model.durations.map(d=>`<option value="${d}" ${d===secs?"selected":""}>${d}s</option>`).join("")}</select></div>
+    <div class="row" style="margin-top:8px"><button class="btn primary" id="genVid" ${!hasK||busy?"disabled":""}>${busy?"Generating…":"Generate video"}</button><span class="sub">≈ ${money(est)}${model.priceNote?` <span title="${esc(model.priceNote)}">ⓘ</span>`:""}${!hasK?" · needs a keyframe first":""}</span></div>
+    ${j?`<div class="prog ${j.status==="error"?"err":""}">${j.status==="running"?`${esc(models[j.model]?models[j.model].label:j.model)}: ${esc(j.phase||"working")} · <span id="jt">${elapsed(j)}</span> · usually 1–4 min<div class="bar"><i></i></div>`:j.status==="error"?`✕ ${esc(j.error)}`:`✓ Done in ${elapsed(j)}${j.cost?` · ${money(j.cost)}`:""}`}</div>`:""}</div>
+  <div class="sec"><div class="secrow"><h3>History</h3><span class="sub">${(m.takes||[]).length} · newest first · click to see it large</span></div>
+    ${(m.takes||[]).length?`<div class="strip">${m.takes.map((t,k)=>`<div class="take ${t.inUse?"use":""}" data-k="${k}" title="${esc(t.file)}">${t.kind==="video"?`<video src="${t.url}#t=0.1" muted preload="metadata"></video>`:`<img src="${t.url}" alt="" loading="lazy">`}<span class="t">${ICON[t.kind==="video"?"video":"image"]}</span>${t.inUse?`<span class="u">in use</span>`:""}</div>`).join("")}</div>`:`<p class="sub">Every keyframe and video this shot makes is kept here and in its <code>takes</code> folder.</p>`}</div>
+  <div class="sec"><h3>Notes</h3><textarea id="pNotes" rows="3" style="margin-top:6px" placeholder="Anything to remember, or to paste to Claude">${esc(sh.notes||"")}</textarea></div>`;
+  const save=(fields)=>{PENDING.shot=sh.id;Object.assign(PENDING.fields,fields);clearTimeout(PENDING.t);PENDING.t=setTimeout(flushPending,450)};
+  $("#pTitle").oninput=e=>save({title:e.target.value});
+  $("#pImg").oninput=e=>save({imagePrompt:e.target.value});
+  $("#pMot").oninput=e=>save({motionPrompt:e.target.value});
+  $("#pNotes").oninput=e=>save({notes:e.target.value});
+  $("#pModel").onchange=async e=>{await quick({model:e.target.value,seconds:null})};
+  $("#pSecs").onchange=async e=>{await quick({seconds:+e.target.value})};
+  $("#copyImg").onclick=()=>{navigator.clipboard.writeText($("#pImg").value).then(()=>toast("Prompt copied"),()=>toast("Couldn't reach the clipboard"))};
+  $("#kfFile").onchange=e=>{const f=e.target.files[0];if(f)setKeyframe(sh.id,f)};
+  const hd=$("#heroDrop");if(hd){hd.onclick=()=>$("#kfFile").click();hd.ondragover=e=>{e.preventDefault();hd.classList.add("over")};hd.ondragleave=()=>hd.classList.remove("over");hd.ondrop=e=>{e.preventDefault();hd.classList.remove("over");const f=[...e.dataTransfer.files].find(x=>x.type.startsWith("image/"));if(f)setKeyframe(sh.id,f)}}
+  p.querySelectorAll("[data-show]").forEach(b=>b.onclick=()=>quick({show:b.dataset.show}));
+  $("#genVid").onclick=async()=>{const mm=$("#pModel").value,ss=+$("#pSecs").value;try{await api("/api/shot/update",{story:STORY.id,ep:EP.id,shot:sh.id,fields:{motionPrompt:$("#pMot").value,model:mm,seconds:ss}});const job=await api("/api/gen/video",{story:STORY.id,ep:EP.id,shot:sh.id,model:mm,prompt:$("#pMot").value,seconds:ss});JOBS[job.id]=job;jobsPill();renderGrid();renderPanel()}catch(e){toast(e.message)}};
+  $("#pDup").onclick=async()=>{try{const r=await api("/api/shot/duplicate",{story:STORY.id,ep:EP.id,shot:sh.id});SEL=r.shot;setStory(r.story)}catch(e){toast(e.message)}};
+  $("#pFolder").onclick=()=>reveal({ep:EP.id,shot:sh.id});
+  $("#pDel").onclick=async()=>{if(!confirm(`Move "${sh.title}" and all its takes to _Trash?`))return;try{const i=EP.shots.indexOf(sh);const s=await api("/api/shot/delete",{story:STORY.id,ep:EP.id,shot:sh.id});const ep=s.episodes.find(e=>e.id===EP.id);SEL=(ep.shots[i]||ep.shots[i-1]||{}).id||null;setStory(s);toast("Moved to _Trash in your library")}catch(e){toast(e.message)}};
+  p.querySelectorAll("[data-k]").forEach(el=>el.onclick=()=>viewer(m.takes,+el.dataset.k,sh));
+  async function quick(fields){try{setStory(await api("/api/shot/update",{story:STORY.id,ep:EP.id,shot:sh.id,fields}))}catch(e){toast(e.message)}}
+}
+// typed edits are batched per shot and flushed before anything else touches the story
+const PENDING={shot:null,fields:{},t:0};
+async function flushPending(){clearTimeout(PENDING.t);if(!PENDING.shot||!Object.keys(PENDING.fields).length)return;const shot=PENDING.shot,fields=PENDING.fields;PENDING.fields={};try{const s=await api("/api/shot/update",{story:STORY.id,ep:EP.id,shot,fields});STORY=s;EP=s.episodes.find(e=>e.id===EP.id);if("title"in fields)renderGrid()}catch(e){toast(e.message)}}
+function elapsed(j){const t=Math.max(0,Math.round(((j.finished||Date.now())-j.started)/1000));return`${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`}
+setInterval(()=>{const el=$("#jt");if(el){const j=JOBS_FOR(SEL);if(j)el.textContent=elapsed(j)}},1000);
+
+/* ---------- viewer ---------- */
+function viewer(list,i,sh){const ov=document.createElement("div");ov.className="ov viewer";document.body.appendChild(ov);
+  const draw=()=>{const t=list[i];ov.innerHTML=`${t.kind==="video"?`<video src="${t.url}" controls autoplay loop playsinline></video>`:`<img src="${t.url}" alt="">`}<div class="vb">${list.length>1?`<button class="btn" data-v="prev">‹</button><span class="sub">${i+1} / ${list.length}</span><button class="btn" data-v="next">›</button>`:""}${t.inUse?`<span class="pill">in use</span>`:`<button class="btn primary" data-v="use">Use this</button>`}<a class="btn" href="${t.url}" download="${esc(t.file)}">⤓ Download</a><button class="btn" data-v="del">Move to Trash</button><button class="btn" data-v="close">Close</button></div><div class="sub">${esc(t.file)}</div>`};
+  const close=()=>{ov.remove();document.removeEventListener("keydown",key,true)};const step=d=>{i=(i+d+list.length)%list.length;draw()};
+  const key=e=>{if(e.key==="Escape")close();else if(e.key==="ArrowLeft")step(-1);else if(e.key==="ArrowRight")step(1)};document.addEventListener("keydown",key,true);
+  ov.onclick=async e=>{const v=e.target.dataset&&e.target.dataset.v;if(e.target===ov||v==="close")return close();if(v==="prev")step(-1);if(v==="next")step(1);
+    if(v==="use"){try{setStory(await api("/api/take/use",{story:STORY.id,ep:EP.id,shot:sh.id,take:list[i].file}));close()}catch(err){toast(err.message)}}
+    if(v==="del"){if(!confirm("Move this take to _Trash?"))return;try{setStory(await api("/api/take/delete",{story:STORY.id,ep:EP.id,shot:sh.id,take:list[i].file}));close()}catch(err){toast(err.message)}}};
+  draw()}
+
+/* ---------- jobs ---------- */
+function jobsPill(){const n=Object.values(JOBS).filter(j=>j.status==="running").length;const p=$("#jobsPill");p.hidden=!n;p.textContent=`${n} generating`;p.classList.toggle("live",!!n)}
+function listenEvents(){
+  api("/api/jobs").then(list=>{list.forEach(j=>JOBS[j.id]=j);jobsPill();if(TAB==="shots"){renderGrid();renderPanel()}}).catch(()=>{});
+  const es=new EventSource("/api/events");
+  es.addEventListener("job",async e=>{const j=JSON.parse(e.data);const was=JOBS[j.id];JOBS[j.id]=j;jobsPill();
+    if(j.status!=="running"&&(!was||was.status==="running")){if(j.status==="error")toast("Video failed: "+j.error,6000);else toast("Video ready"+(j.cost?` · ${money(j.cost)}`:""));if(STORY&&j.story===STORY.id)await reload();try{STATE=await api("/api/state");$("#spendBtn").textContent=money(STATE.spend)+" spent"}catch(_){}}
+    else if(TAB==="shots"){renderGrid();if(j.shot===SEL)renderPanel()}});
+}
+
+/* ---------- spend ---------- */
+$("#spendBtn").onclick=async()=>{let s;try{s=await api("/api/spend")}catch(e){return toast(e.message)}const ov=document.createElement("div");ov.className="ov";ov.innerHTML=`<div class="box"><div class="row"><h2>Spend</h2><span class="spacer"></span><b style="font-size:18px">${money(s.total)}</b></div><p class="sub">Every paid generation, from <code>spend-log.csv</code> in your library. Compare models by what a second of video really costs.</p>
+  <table class="t"><tr><th>Model</th><th class="n">Runs</th><th class="n">Seconds</th><th class="n">Total</th><th class="n">Per second</th></tr>${s.byModel.map(r=>`<tr><td>${esc(r.model)}</td><td class="n">${r.runs}</td><td class="n">${r.seconds}</td><td class="n">${money(r.cost)}</td><td class="n">${r.seconds?"$"+(r.cost/r.seconds).toFixed(3):"–"}</td></tr>`).join("")||`<tr><td colspan="5" class="sub">Nothing yet.</td></tr>`}</table>
+  <h3 style="margin:16px 0 0;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Recent</h3><table class="t"><tr><th>When</th><th>Story · shot</th><th>Model</th><th class="n">Sec</th><th class="n">Cost</th></tr>${s.recent.slice(0,40).map(r=>`<tr><td>${esc(new Date(r.when).toLocaleString())}</td><td>${esc(r.story)} · Ep${esc(r.episode)} #${esc(r.shot)}</td><td>${esc(r.model)}</td><td class="n">${r.seconds}</td><td class="n">${money(r.cost)}</td></tr>`).join("")}</table>
+  <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="btn" data-x>Close</button></div></div>`;document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.dataset.x!=null)ov.remove()}};
+
+/* ---------- settings ---------- */
+const KEYS=[["FAL_KEY","fal","Video, images, lip-sync, and Claude chat later"],["GROQ_API_KEY","Groq","Fast chat models (step 4)"],["ELEVENLABS_API_KEY","ElevenLabs","Voices, effects, music (step 7)"],["ANTHROPIC_API_KEY","Anthropic","Optional: Claude direct"],["OPENAI_API_KEY","OpenAI","Optional: ChatGPT images or chat"]];
+$("#gear").onclick=async()=>{STATE=await api("/api/state");const ov=document.createElement("div");ov.className="ov";
+  ov.innerHTML=`<div class="box"><h2>Settings</h2><p class="sub">Keys are saved in <code>gasp2\\.env</code> on this PC. That file is git-ignored, so keys never go to GitHub. A key marked "from 1.0" is borrowed from GASP 1.0's settings.</p>
+  <label class="f">Connections</label>${KEYS.map(([k,n,why])=>`<div class="keyrow"><div><b>${n}</b><div class="sub" style="font-size:11px">${why}</div></div><input type="password" data-key="${k}" placeholder="${STATE.keys[k]==="set"?"saved; type to replace":STATE.keys[k]?"using the key from 1.0; type to replace":"paste key"}" autocomplete="off"><span class="st ${STATE.keys[k]?"ok":""}">${STATE.keys[k]==="set"?"✓ set":STATE.keys[k]?"✓ from 1.0":"not set"}</span></div>`).join("")}
+  <label class="f">Default video model</label><select id="sDef">${Object.entries(STATE.models).map(([k,v])=>`<option value="${k}" ${k===STATE.defaultVideo?"selected":""}>${esc(v.label)} · $${v.pricePerSecond}/s</option>`).join("")}</select>
+  <label class="f">Library folder</label><input type="text" id="sLib" value="${esc(STATE.library)}"><p class="sub" style="margin:4px 0 0">Where every story, reference and take is kept. Changing it starts using the new folder; it doesn't move the old one.</p>
+  <div class="row" style="margin-top:16px"><button class="btn" id="sUpd">Check for updates</button><span class="sub" id="sUpdMsg"></span><span class="spacer"></span><button class="btn" data-x>Cancel</button><button class="btn primary" id="sSave">Save</button></div></div>`;
+  document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.dataset.x!=null)ov.remove()};
+  ov.querySelector("#sSave").onclick=async()=>{const keys={};ov.querySelectorAll("[data-key]").forEach(i=>{if(i.value.trim())keys[i.dataset.key]=i.value.trim()});try{await api("/api/settings",{keys,library:ov.querySelector("#sLib").value,defaultVideo:ov.querySelector("#sDef").value});ov.remove();STATE=await api("/api/state");renderStorySel();toast("Settings saved");if(STORY&&!STATE.stories.find(s=>s.id===STORY.id)){STORY=null;const f=STATE.stories[0];if(f)openStory(f.id);else renderMain()}else renderMain()}catch(e){toast(e.message)}};
+  ov.querySelector("#sUpd").onclick=async()=>{const m=ov.querySelector("#sUpdMsg");m.textContent="Checking…";try{const r=await api("/api/update",{});m.textContent=r.changed?"Updated. Close GASP 2 and open it again to finish.":"Already up to date."}catch(e){m.textContent=e.message}}};
+
+boot();
+</script>
+</body>
+</html>
