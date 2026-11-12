@@ -3,7 +3,7 @@
 The milestone checklist for GASP 2. **Whoever works on it ticks items as they land and adds a log line**, so any
 machine or session can see how far it got. Design: *GASP 2.0 — The Electric Bike* (link in `CLAUDE.md`).
 
-Status: **Steps 1 and 2 built (dry-run tested). Waiting on Joe's first real run on Windows.**
+Status: **Steps 1–3 built (dry-run tested). Waiting on Joe's first real run on Windows.**
 
 ## Step 1 — The shell and Settings
 - [x] `gasp2/` folder: Node server (port 4848), single-file app, no dependencies
@@ -30,11 +30,17 @@ Status: **Steps 1 and 2 built (dry-run tested). Waiting on Joe's first real run 
 - [ ] Multi-select tiles → generate videos for all (moved to step 8 if not needed sooner)
 
 ## Step 3 — Script tab
-- [ ] Screenplay-style editor: Enter/Tab step through scene, shot, action, character, dialogue, sound cue
-- [ ] Character and location names auto-complete from Reference
-- [ ] Shot callout format (see the design doc, "Chat") and **Sync to Shots**: creates/updates tiles, keeps generated media
-- [ ] Shot prompt edits in the panel write back to the script
-- [ ] Copy for Claude (whole script + status, or one shot)
+- [x] One script per episode: `EpNN - Title\script.txt`, autosaved; old versions kept in `script history\`
+- [x] Screenplay-style editor with colour for scenes, SHOT lines, fields, character names and dialogue
+- [x] Tab on an empty line cycles `SHOT:` → `IMAGE:` → `MOTION:` → `SFX:` → `NOTE:`; Enter after SHOT gives IMAGE, after IMAGE gives MOTION; Ctrl+S saves
+- [x] Tab completes a character name already used in the script (`WR` → `WREN: `)
+- [ ] Names also auto-complete from the Reference tab (needs step 6)
+- [x] Shot format + parser shared by app and server (`app/script.js`); format guide with Copy for Claude projects
+- [x] **Sync to Shots**: new SHOTs become tiles, linked ones update (title, framing, location, length, prompts, dialogue, SFX); keyframes and videos untouched; the link is a `[[#id]]` tag on each SHOT line
+- [x] Shots only in the grid after a sync: add them to the script, move them to Trash, or keep them
+- [x] Edits in Shots write back: title/length → SHOT line, image/motion prompts and notes → their lines, reorder → blocks move, delete → block removed, new/duplicate shot → block inserted
+- [x] Shot panel shows dialogue and SFX from the script, with Open in script
+- [x] Copy for Claude: whole episode (guide + shot status + script), or one shot from its panel
 
 ## Step 4 — In-app chat
 - [ ] Test Claude via fal's LLM router (`openrouter/router`, model e.g. `anthropic/claude-sonnet-...`): quality, speed, cost per session
@@ -63,6 +69,8 @@ Status: **Steps 1 and 2 built (dry-run tested). Waiting on Joe's first real run 
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-12 — Step 3 (Script tab) built and dry-run tested: paste a script → sync → 3 tiles; Tab/Enter helpers;
+  prompt edit, reorder, delete and image drop in Shots all wrote back to `script.txt`; script history kept.
 - 2026-11-12 — Steps 1 and 2 built in the cloud session and tested in dry-run mode (drop 3 images → 3 shots,
   generate video, reorder renames folders, history, Trash, Settings keys, spend log). Not yet run on Windows
   or against real fal.

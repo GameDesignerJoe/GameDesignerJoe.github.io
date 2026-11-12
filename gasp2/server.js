@@ -13,6 +13,8 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
 const PORT = +(argv[argv.indexOf("--port") + 1] || 0) || 4848;
 const MODELS = JSON.parse(fs.readFileSync(path.join(ROOT, "models.json"), "utf8"));
+// the script format is shared with the app (app/script.js defines one global)
+const SF = new Function(fs.readFileSync(path.join(ROOT, "app", "script.js"), "utf8") + "\nreturn GASPScript;")();
 
 // ---------- keys and settings ----------
 // Keys: gasp2/.env first; anything missing is borrowed from GASP 1.0's .env so existing keys just work.
@@ -73,7 +75,6 @@ function createStory(title) {
   ensureLibrary(); let dir = clean(title), k = 2; while (fs.existsSync(path.join(storiesDir(), dir))) dir = `${clean(title)} (${k++})`;
   fs.mkdirSync(path.join(storiesDir(), dir), { recursive: true });
   const s = { id: newId(), title: dir, created: Date.now(), opened: Date.now(), dir, episodes: [{ id: newId(), title: "Episode 1", shots: [] }] };
-  fs.writeFileSync(path.join(storiesDir(), dir, "script.txt"), `${dir}\n\n(The screenplay goes here. The Script tab arrives in step 3 of the build.)\n`);
   return saveStory(s);
 }
 const epOf = (s, epId) => { const e = s.episodes.find(x => x.id === epId); if (!e) throw httpErr(404, "episode not found"); return e; };
@@ -91,6 +92,37 @@ function shotMedia(s, ep, sh) {
   return { keyframe: kf, video: vid, takes };
 }
 function storyForApp(s) { return { ...s, episodes: s.episodes.map(ep => ({ ...ep, shots: ep.shots.map(sh => ({ ...sh, media: shotMedia(s, ep, sh), job: Object.values(JOBS).find(j => j.shot === sh.id && j.status === "running") || null })) })) }; }
+
+// ---------- scripts: one script.txt per episode folder; old versions kept in "script history" ----------
+const scriptPath = (s, ep) => path.join(storiesDir(), s.dir, ep.dir, "script.txt");
+function readScript(s, ep) { try { return fs.readFileSync(scriptPath(s, ep), "utf8").replace(/\r/g, ""); } catch { return ""; } }
+const SNAP = {};
+function writeScript(s, ep, text, snapshot) {
+  const f = scriptPath(s, ep); const old = readScript(s, ep); if (old === text) return;
+  const key = s.id + ep.id; if (old.trim() && (snapshot || Date.now() - (SNAP[key] || 0) > 10 * 60e3)) { const h = path.join(path.dirname(f), "script history"); fs.mkdirSync(h, { recursive: true }); fs.writeFileSync(path.join(h, `${stamp()}.txt`), old.replace(/\n/g, "\r\n")); SNAP[key] = Date.now(); }
+  fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, text.replace(/\r?\n/g, "\r\n"));
+}
+// keep the script in step with edits made in Shots (only once the script has linked shots)
+function scriptEdit(s, ep, fn) { const t = readScript(s, ep); if (!/\[\[#[a-z0-9]+\]\]/i.test(t)) return; const n = fn(t); if (n !== t) writeScript(s, ep, n, false); }
+function syncScript(s, ep, text, orphanMode) {
+  const p = SF.parse(text); const byId = Object.fromEntries(ep.shots.map(x => [x.id, x])); const seen = new Set(); let created = 0, updated = 0;
+  const ordered = [];
+  for (const b of p.blocks) {
+    let sh = b.id && byId[b.id] && !seen.has(b.id) ? byId[b.id] : null;
+    if (!sh) { sh = { id: newId(), show: "keyframe", notes: "" }; text = SF.stampId(text, b, sh.id); created++; } else updated++;
+    seen.add(sh.id);
+    Object.assign(sh, { title: b.title, frame: b.frame, location: b.location, scene: b.scene, imagePrompt: b.image, motionPrompt: b.motion, who: b.who, lines: b.lines, sfx: b.sfx, action: b.action });
+    if (b.notes) sh.notes = b.notes; if (b.seconds) sh.seconds = b.seconds;
+    ordered.push(sh);
+  }
+  let orphans = ep.shots.filter(x => !seen.has(x.id));
+  if (orphanMode === "trash") { for (const o of orphans) { try { toTrash(shotPath(s, ep, o), `${s.title} - ${ep.dir} - ${o.dir}`); } catch {} } orphans = []; }
+  // grid-only shots keep their place relative to their neighbours
+  const result = [...ordered];
+  for (const o of orphans) { const orig = ep.shots.indexOf(o); let prev = null; for (let k = orig - 1; k >= 0; k--) if (result.includes(ep.shots[k])) { prev = ep.shots[k]; break; } result.splice(prev ? result.indexOf(prev) + 1 : 0, 0, o); if (orphanMode === "add") text = SF.insertBlock(text, prev ? prev.id : null, o); }
+  ep.shots = result; text = SF.renumber(text);
+  return { text, created, updated, orphans: orphanMode === "add" ? [] : orphans.map(o => ({ id: o.id, title: o.title })) };
+}
 
 // The take in use is also copied to the top of the shot folder (keyframe.png / video.mp4), so browsing in Explorer shows it first.
 function setInUse(s, ep, sh, take) {
@@ -150,7 +182,7 @@ const json = (res, o, code = 200) => { res.writeHead(code, { "Content-Type": "ap
 const dataUri = (u) => { const m = /^data:image\/(png|jpe?g|webp);base64,/.exec(u || ""); if (!m) throw httpErr(400, "expected an image"); return { ext: m[1] === "jpeg" ? "jpg" : m[1], buf: Buffer.from(u.slice(m[0].length), "base64") }; };
 
 const routes = {
-  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { version: "2.0-step2", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
+  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { version: "2.0-step3", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
   "POST /api/settings": async (req) => { const b = await body(req); if (b.keys) saveKeys(b.keys); const patch = {}; if (b.library) patch.library = path.resolve(String(b.library)); if (b.defaultVideo && MODELS.video[b.defaultVideo]) patch.defaultVideo = b.defaultVideo; if (Object.keys(patch).length) saveSettings(patch); ensureLibrary(); return { ok: true }; },
   "GET /api/spend": () => readSpend(),
   "POST /api/story/new": async (req) => { const b = await body(req); return storyForApp(createStory(b.title || "New story")); },
@@ -162,14 +194,16 @@ const routes = {
     const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep);
     const sh = { id: newId(), title: b.title || "New shot", imagePrompt: "", motionPrompt: "", seconds: null, model: null, notes: "", show: "keyframe" };
     const at = b.after ? ep.shots.findIndex(x => x.id === b.after) + 1 : b.before ? ep.shots.findIndex(x => x.id === b.before) : ep.shots.length; ep.shots.splice(Math.max(0, at), 0, sh);
-    saveStory(s);
+    saveStory(s); const prev = ep.shots[ep.shots.indexOf(sh) - 1]; scriptEdit(s, ep, t => SF.insertBlock(t, prev ? prev.id : null, sh));
     if (b.image) { const { ext, buf } = dataUri(b.image); const take = `${stamp()} keyframe - ${clean(b.source || "upload")}.${ext}`; fs.writeFileSync(path.join(shotPath(s, ep, sh), "takes", take), buf); setInUse(s, ep, sh, take); saveStory(s); }
     return { story: storyForApp(s), shot: sh.id };
   },
-  "POST /api/shot/update": async (req) => { const b = await body(req); const s = loadStory(b.story); const sh = shotOf(epOf(s, b.ep), b.shot); for (const k of ["title", "imagePrompt", "motionPrompt", "notes", "model", "seconds", "show"]) if (k in (b.fields || {})) sh[k] = b.fields[k]; return storyForApp(saveStory(s)); },
-  "POST /api/shot/move": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const byId = Object.fromEntries(ep.shots.map(x => [x.id, x])); if (!Array.isArray(b.order) || b.order.length !== ep.shots.length || b.order.some(id => !byId[id])) throw httpErr(400, "order must list every shot"); ep.shots = b.order.map(id => byId[id]); return storyForApp(saveStory(s)); },
-  "POST /api/shot/duplicate": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const src = shotOf(ep, b.shot); const sh = { ...src, id: newId(), dir: null, title: src.title + " copy" }; ep.shots.splice(ep.shots.indexOf(src) + 1, 0, sh); saveStory(s); fs.cpSync(path.join(shotPath(s, ep, src), "takes"), path.join(shotPath(s, ep, sh), "takes"), { recursive: true }); if (sh.keyframeTake) setInUse(s, ep, sh, sh.keyframeTake); if (sh.videoTake) setInUse(s, ep, sh, sh.videoTake); sh.show = src.show; return { story: storyForApp(saveStory(s)), shot: sh.id }; },
-  "POST /api/shot/delete": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); if (Object.values(JOBS).some(j => j.shot === sh.id && j.status === "running")) throw httpErr(409, "a generation is still running for this shot"); toTrash(shotPath(s, ep, sh), `${s.title} - ${ep.dir} - ${sh.dir}`); ep.shots = ep.shots.filter(x => x !== sh); return storyForApp(saveStory(s)); },
+  "POST /api/shot/update": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); const f = b.fields || {}; for (const k of ["title", "imagePrompt", "motionPrompt", "notes", "model", "seconds", "show"]) if (k in f) sh[k] = f[k];
+    scriptEdit(s, ep, t => { if ("imagePrompt" in f) t = SF.setField(t, sh.id, "image", f.imagePrompt); if ("motionPrompt" in f) t = SF.setField(t, sh.id, "motion", f.motionPrompt); if ("notes" in f) t = SF.setField(t, sh.id, "note", f.notes); if ("title" in f || "seconds" in f) t = SF.setCallout(t, sh.id, { title: sh.title, seconds: sh.seconds || null }); return t; });
+    return storyForApp(saveStory(s)); },
+  "POST /api/shot/move": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const byId = Object.fromEntries(ep.shots.map(x => [x.id, x])); if (!Array.isArray(b.order) || b.order.length !== ep.shots.length || b.order.some(id => !byId[id])) throw httpErr(400, "order must list every shot"); ep.shots = b.order.map(id => byId[id]); scriptEdit(s, ep, t => SF.reorder(t, b.order)); return storyForApp(saveStory(s)); },
+  "POST /api/shot/duplicate": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const src = shotOf(ep, b.shot); const sh = { ...src, id: newId(), dir: null, title: src.title + " copy" }; ep.shots.splice(ep.shots.indexOf(src) + 1, 0, sh); saveStory(s); scriptEdit(s, ep, t => SF.insertBlock(t, src.id, sh)); fs.cpSync(path.join(shotPath(s, ep, src), "takes"), path.join(shotPath(s, ep, sh), "takes"), { recursive: true }); if (sh.keyframeTake) setInUse(s, ep, sh, sh.keyframeTake); if (sh.videoTake) setInUse(s, ep, sh, sh.videoTake); sh.show = src.show; return { story: storyForApp(saveStory(s)), shot: sh.id }; },
+  "POST /api/shot/delete": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); if (Object.values(JOBS).some(j => j.shot === sh.id && j.status === "running")) throw httpErr(409, "a generation is still running for this shot"); toTrash(shotPath(s, ep, sh), `${s.title} - ${ep.dir} - ${sh.dir}`); ep.shots = ep.shots.filter(x => x !== sh); scriptEdit(s, ep, t => SF.removeBlock(t, sh.id)); return storyForApp(saveStory(s)); },
   "POST /api/keyframe": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); const { ext, buf } = dataUri(b.image); const take = `${stamp()} keyframe - ${clean(b.source || "upload")}.${ext}`; fs.writeFileSync(path.join(shotPath(s, ep, sh), "takes", take), buf); setInUse(s, ep, sh, take); sh.show = "keyframe"; return storyForApp(saveStory(s)); },
   "POST /api/take/use": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); setInUse(s, ep, sh, path.basename(b.take)); return storyForApp(saveStory(s)); },
   "POST /api/take/delete": async (req) => {
@@ -181,6 +215,9 @@ const routes = {
     return storyForApp(saveStory(s));
   },
   "POST /api/gen/video": async (req) => { const b = await body(req); return await runVideoJob({ storyId: b.story, epId: b.ep, shotId: b.shot, modelKey: b.model || settings().defaultVideo, prompt: b.prompt, seconds: +b.seconds || 5 }); },
+  "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); return { text: readScript(s, ep), path: scriptPath(s, ep) }; },
+  "POST /api/script/save": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); writeScript(s, ep, String(b.text || "").replace(/\r/g, ""), false); return { ok: true }; },
+  "POST /api/script/sync": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const r = syncScript(s, ep, String(b.text ?? readScript(s, ep)).replace(/\r/g, ""), b.orphans); saveStory(s); writeScript(s, ep, r.text, true); return { story: storyForApp(s), text: r.text, created: r.created, updated: r.updated, orphans: r.orphans }; },
   "GET /api/jobs": () => Object.values(JOBS).filter(j => j.status === "running" || Date.now() - (j.finished || 0) < 10 * 60e3),
   "POST /api/reveal": async (req) => { const b = await body(req); const s = loadStory(b.story); let abs = path.join(storiesDir(), s.dir); if (b.ep) { const ep = epOf(s, b.ep); abs = path.join(abs, ep.dir); if (b.shot) abs = path.join(abs, shotOf(ep, b.shot).dir); }
     if (process.platform === "win32") spawn("explorer.exe", [abs], { detached: true, stdio: "ignore" }).unref(); else if (process.platform === "darwin") spawn("open", [abs], { detached: true, stdio: "ignore" }).unref(); return { ok: true, path: abs }; },

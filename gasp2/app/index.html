@@ -104,6 +104,29 @@ table.t th{color:var(--muted);font-weight:600}table.t td.n{text-align:right;font
 .soonpage h2{margin:0 0 8px}
 .soonpage li{margin:4px 0}
 code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:4px}
+/* script */
+.scriptwrap{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}
+.sleft{display:flex;flex-direction:column;min-height:0;padding:14px 16px 16px}
+.editor{position:relative;flex:1;min-height:0;max-width:860px;width:100%;margin:0 auto;border:1px solid var(--line);border-radius:12px;background:#0f0c12;overflow:hidden}
+.editor textarea,.editor .mirror{position:absolute;inset:0;margin:0;padding:24px 28px;font:14.5px/1.65 "Courier Prime","Courier New",Courier,var(--mono);white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:2;border:0;border-radius:0;overflow:auto;letter-spacing:0}
+.editor textarea{background:transparent;color:transparent;caret-color:var(--ink);resize:none;min-height:0;z-index:1}
+.editor textarea::selection{background:rgba(255,77,109,.35);color:transparent}
+.editor textarea::placeholder{color:var(--faint)}
+.editor .mirror{color:var(--ink);pointer-events:none;scrollbar-width:none}.editor .mirror::-webkit-scrollbar{display:none}
+.h-scene{font-weight:700;text-decoration:underline;color:#fff}
+.h-shot{font-weight:700;color:var(--accent2)}
+.h-lab{font-weight:700}.h-image{color:#7cc4ff}.h-motion{color:#b9a3ff}.h-sfx,.h-sound{color:#6fd3a4}.h-note{color:var(--warn)}.h-who,.h-frame,.h-location,.h-length{color:var(--muted)}
+.h-name{font-weight:700;color:#ffd27a}.h-dia{color:#f6e7c8}
+.h-id{color:var(--faint);font-weight:400}
+.sright{border-left:1px solid var(--line);background:var(--panel);padding:14px 16px;overflow:auto;min-height:0}
+h3.side{margin:18px 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.outline{display:grid;gap:2px}
+.ol{display:grid;grid-template-columns:24px 1fr auto auto;gap:6px;align-items:baseline;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:12.5px}
+.ol:hover{background:var(--panel2)}.ol .n{font:600 11px var(--mono);color:var(--faint)}.ol .tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ol .meta{color:var(--faint);font-size:11px}
+.ol .st{font-size:10.5px;border:1px solid var(--line);border-radius:999px;padding:0 6px;color:var(--warn)}.ol .st.ok{color:var(--good)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid var(--line);border-radius:999px;padding:1px 9px;font-size:12px;color:#ffd27a}
+pre.guide{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;font:12.5px/1.5 var(--mono);max-height:56vh;overflow:auto}
+.dl{font-size:13px;margin:3px 0}.dl.sfx{color:#6fd3a4}
 @media (max-width:900px){.shots{grid-template-columns:1fr}.panel{border-left:0;border-top:1px solid var(--line)}}
 </style>
 </head>
@@ -119,13 +142,14 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1
   <button class="btn small" id="gear" title="Settings">⚙</button>
 </header>
 <nav id="tabs">
-  <button data-tab="script">Script<span class="soon">step 3</span></button>
+  <button data-tab="script">Script</button>
   <button data-tab="reference">Reference<span class="soon">step 6</span></button>
   <button data-tab="shots">Shots</button>
   <button data-tab="sound">Sound<span class="soon">step 7</span></button>
 </nav>
 <main id="main"></main>
 
+<script src="script.js"></script>
 <script>
 /* ============ GASP 2 app ============ */
 const $=s=>document.querySelector(s);
@@ -152,17 +176,18 @@ function renderStorySel(){const sel=$("#storySel");sel.innerHTML=STATE.stories.l
 $("#storySel").onchange=e=>openStory(e.target.value);
 $("#newStory").onclick=async()=>{const t=prompt("Story title","New story");if(!t)return;try{const s=await api("/api/story/new",{title:t});STATE=await api("/api/state");setStory(s);renderStorySel();toast(`Made the folder for "${s.title}" in your library`)}catch(e){toast(e.message)}};
 async function openStory(id){try{setStory(await api("/api/story?id="+encodeURIComponent(id)))}catch(e){toast(e.message)}}
-function setStory(s){STORY=s;ls.set("g2-story",s.id);const keepEp=EP&&s.episodes.find(e=>e.id===EP.id);EP=keepEp||s.episodes.find(e=>e.id===ls.get("g2-ep-"+s.id,null))||s.episodes[0];if(SEL&&!EP.shots.find(x=>x.id===SEL))SEL=null;if(!SEL&&EP.shots[0])SEL=EP.shots[0].id;renderStorySel();renderMain()}
+function setStory(s){if(STORY&&STORY.id!==s.id)SCRIPT={ep:null,text:"",saved:"",t:0};STORY=s;ls.set("g2-story",s.id);const keepEp=EP&&s.episodes.find(e=>e.id===EP.id);EP=keepEp||s.episodes.find(e=>e.id===ls.get("g2-ep-"+s.id,null))||s.episodes[0];if(SEL&&!EP.shots.find(x=>x.id===SEL))SEL=null;if(!SEL&&EP.shots[0])SEL=EP.shots[0].id;renderStorySel();renderMain()}
 async function reload(){if(STORY)setStory(await api("/api/story?id="+encodeURIComponent(STORY.id)))}
 
 /* ---------- tabs ---------- */
-document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;ls.set("g2-tab",TAB);renderMain()});
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=async()=>{const from=TAB;if(from==="script")await saveScriptNow();await flushPending();TAB=b.dataset.tab;ls.set("g2-tab",TAB);if(from==="script"&&TAB!=="script")await reload();else renderMain()});
 function renderMain(){
   document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===TAB));
   const m=$("#main");
   if(!STORY){m.innerHTML=`<div class="empty-state"><h2>Start a story</h2><p class="sub">Each story gets its own folder in your GASP Library, with episodes and shots inside it. Everything you make is kept there, so you can browse it without the app.</p><p><button class="btn primary" id="first">+ New story</button></p><p class="sub">Library: <code>${esc(STATE.library)}</code></p></div>`;$("#first").onclick=()=>$("#newStory").click();return}
   if(TAB==="shots")return renderShots();
-  const soon={script:{h:"Script",step:3,items:["One text window, written like a screenplay or comic script","SHOT callouts that become tiles in Shots with Sync","Copy for Claude, and later the in-app chat that writes into it"],extra:`For now, the story's <code>script.txt</code> lives in its folder.`},reference:{h:"Reference",step:6,items:["Characters: full-body cutout, face close-up, one cutout per outfit, a voice","Locations: empty-set images","Props: transparent prop images, with background removal built in"],extra:"Stored once in <code>GASP Library\\Reference</code> and shared by every story."},sound:{h:"Sound",step:7,items:["Dialogue with voices and lip-sync","Ambience, effects and music in lanes under the shots","Works on stills first, so timing can be locked before video"],extra:""}}[TAB];
+  if(TAB==="script")return renderScript();
+  const soon={reference:{h:"Reference",step:6,items:["Characters: full-body cutout, face close-up, one cutout per outfit, a voice","Locations: empty-set images","Props: transparent prop images, with background removal built in"],extra:"Stored once in <code>GASP Library\\Reference</code> and shared by every story."},sound:{h:"Sound",step:7,items:["Dialogue with voices and lip-sync","Ambience, effects and music in lanes under the shots","Works on stills first, so timing can be locked before video"],extra:""}}[TAB];
   m.innerHTML=`<div class="soonpage"><h2>${soon.h}</h2><p class="sub">Arrives in step ${soon.step} of the build (see <code>gasp2/PLAN.md</code>). It will hold:</p><ul>${soon.items.map(x=>`<li>${x}</li>`).join("")}</ul><p class="sub">${soon.extra}</p><p><button class="btn" id="reveal">Show this story's folder</button></p></div>`;
   $("#reveal").onclick=()=>reveal({})}
 async function reveal(o){try{const r=await api("/api/reveal",Object.assign({story:STORY.id},o));if(!/Windows/.test(navigator.userAgent))toast(r.path)}catch(e){toast(e.message)}}
@@ -219,7 +244,7 @@ function renderPanel(){
   const idx=EP.shots.indexOf(sh)+1,m=sh.media||{},hasV=!!m.video,hasK=!!m.keyframe,show=sh.show==="video"&&hasV?"video":hasK?"keyframe":hasV?"video":null;
   const models=STATE.models,mk=sh.model&&models[sh.model]?sh.model:STATE.defaultVideo,model=models[mk];const secs=model.durations.includes(+sh.seconds)?+sh.seconds:model.durations.find(d=>d>=5)||model.durations[0];
   const est=model.pricePerSecond*secs+(model.perRequest||0);const j=JOBS_FOR(sh.id);const busy=j&&j.status==="running";
-  p.innerHTML=`<div class="row"><h3>Shot ${String(idx).padStart(2,"0")}</h3><span class="spacer"></span><button class="btn small ghost" id="pDup" title="Duplicate this shot and its takes">Duplicate</button><button class="btn small ghost" id="pFolder" title="Open this shot's folder">Folder</button><button class="btn small ghost" id="pDel" title="Move this shot to _Trash">Delete</button></div>
+  p.innerHTML=`<div class="row"><h3>Shot ${String(idx).padStart(2,"0")}</h3><span class="spacer"></span><button class="btn small ghost" id="pCopy" title="Copy this shot, its status and the format guide for Claude">Copy for Claude</button><button class="btn small ghost" id="pDup" title="Duplicate this shot and its takes">Duplicate</button><button class="btn small ghost" id="pFolder" title="Open this shot's folder">Folder</button><button class="btn small ghost" id="pDel" title="Move this shot to _Trash">Delete</button></div>
   <input type="text" id="pTitle" class="ptitle" value="${esc(sh.title)}" style="margin-top:8px" title="Shot title (also its folder name)">
   <div class="hero" id="hero">${show==="video"?`<video src="${m.video}" controls playsinline loop></video>`:show==="keyframe"?`<img src="${m.keyframe}" alt="">`:`<div class="ph" id="heroDrop">Drop a keyframe here, paste one with Ctrl+V,<br>or <u>choose a file</u>.</div>`}${hasV&&hasK?`<div class="seg"><button data-show="keyframe" class="${show==="keyframe"?"on":""}">${ICON.image.replace("<svg",'<svg style="width:13px;height:13px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:1.8"')} Keyframe</button><button data-show="video" class="${show==="video"?"on":""}">${ICON.video.replace("<svg",'<svg style="width:13px;height:13px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:1.8"')} Video</button></div>`:""}</div>
   <div class="sec"><div class="secrow"><h3>Keyframe</h3><span class="spacer"></span><label class="btn small">Replace from file<input type="file" accept="image/*" id="kfFile" hidden></label></div>
@@ -232,6 +257,7 @@ function renderPanel(){
     ${j?`<div class="prog ${j.status==="error"?"err":""}">${j.status==="running"?`${esc(models[j.model]?models[j.model].label:j.model)}: ${esc(j.phase||"working")} · <span id="jt">${elapsed(j)}</span> · usually 1–4 min<div class="bar"><i></i></div>`:j.status==="error"?`✕ ${esc(j.error)}`:`✓ Done in ${elapsed(j)}${j.cost?` · ${money(j.cost)}`:""}`}</div>`:""}</div>
   <div class="sec"><div class="secrow"><h3>History</h3><span class="sub">${(m.takes||[]).length} · newest first · click to see it large</span></div>
     ${(m.takes||[]).length?`<div class="strip">${m.takes.map((t,k)=>`<div class="take ${t.inUse?"use":""}" data-k="${k}" title="${esc(t.file)}">${t.kind==="video"?`<video src="${t.url}#t=0.1" muted preload="metadata"></video>`:`<img src="${t.url}" alt="" loading="lazy">`}<span class="t">${ICON[t.kind==="video"?"video":"image"]}</span>${t.inUse?`<span class="u">in use</span>`:""}</div>`).join("")}</div>`:`<p class="sub">Every keyframe and video this shot makes is kept here and in its <code>takes</code> folder.</p>`}</div>
+  ${(sh.lines&&sh.lines.length)||(sh.sfx&&sh.sfx.length)||sh.frame||sh.location||sh.who?`<div class="sec"><div class="secrow"><h3>From the script</h3><span class="spacer"></span><button class="btn small ghost" id="toScript">Open in script</button></div><p class="sub" style="margin:6px 0">${esc([sh.frame,sh.location,sh.who,sh.seconds?sh.seconds+"s":""].filter(Boolean).join(" · "))}</p>${(sh.lines||[]).map(l=>`<div class="dl"><b>${esc(l.who)}</b>${l.how?` <i>(${esc(l.how)})</i>`:""} ${esc(l.text)}</div>`).join("")}${(sh.sfx||[]).map(x=>`<div class="dl sfx">♪ ${esc(x)}</div>`).join("")}</div>`:""}
   <div class="sec"><h3>Notes</h3><textarea id="pNotes" rows="3" style="margin-top:6px" placeholder="Anything to remember, or to paste to Claude">${esc(sh.notes||"")}</textarea></div>`;
   const save=(fields)=>{PENDING.shot=sh.id;Object.assign(PENDING.fields,fields);clearTimeout(PENDING.t);PENDING.t=setTimeout(flushPending,450)};
   $("#pTitle").oninput=e=>save({title:e.target.value});
@@ -247,6 +273,8 @@ function renderPanel(){
   $("#genVid").onclick=async()=>{const mm=$("#pModel").value,ss=+$("#pSecs").value;try{await api("/api/shot/update",{story:STORY.id,ep:EP.id,shot:sh.id,fields:{motionPrompt:$("#pMot").value,model:mm,seconds:ss}});const job=await api("/api/gen/video",{story:STORY.id,ep:EP.id,shot:sh.id,model:mm,prompt:$("#pMot").value,seconds:ss});JOBS[job.id]=job;jobsPill();renderGrid();renderPanel()}catch(e){toast(e.message)}};
   $("#pDup").onclick=async()=>{try{const r=await api("/api/shot/duplicate",{story:STORY.id,ep:EP.id,shot:sh.id});SEL=r.shot;setStory(r.story)}catch(e){toast(e.message)}};
   $("#pFolder").onclick=()=>reveal({ep:EP.id,shot:sh.id});
+  $("#pCopy").onclick=async()=>{let blk="";try{const r=await api(`/api/script?story=${encodeURIComponent(STORY.id)}&ep=${encodeURIComponent(EP.id)}`);const p=GASPScript.parse(r.text).blocks.find(b=>b.id===sh.id);if(p)blk=r.text.replace(/\r/g,"").split("\n").slice(p.start,p.end+1).join("\n")}catch(e){}if(!blk)blk=[GASPScript.calloutLine(idx,sh),sh.imagePrompt?"IMAGE: "+sh.imagePrompt:"",sh.motionPrompt?"MOTION: "+sh.motionPrompt:""].filter(Boolean).join("\n");copyText(`${GASPScript.GUIDE}\n\n=== ${STORY.title} · Episode ${EP.num}, shot ${idx} ===\nStatus: ${shotStatus(sh,idx-1)}${sh.notes?"\nMy notes: "+sh.notes:""}\n\n${blk}`,"Shot copied for Claude")};
+  const ts=$("#toScript");if(ts)ts.onclick=async()=>{await flushPending();TAB="script";ls.set("g2-tab",TAB);await renderMain();setTimeout(()=>{const ta=$("#sc");if(!ta)return;const b=GASPScript.parse(ta.value).blocks.find(x=>x.id===sh.id);if(b)jumpTo(b.start)},50)};
   $("#pDel").onclick=async()=>{if(!confirm(`Move "${sh.title}" and all its takes to _Trash?`))return;try{const i=EP.shots.indexOf(sh);const s=await api("/api/shot/delete",{story:STORY.id,ep:EP.id,shot:sh.id});const ep=s.episodes.find(e=>e.id===EP.id);SEL=(ep.shots[i]||ep.shots[i-1]||{}).id||null;setStory(s);toast("Moved to _Trash in your library")}catch(e){toast(e.message)}};
   p.querySelectorAll("[data-k]").forEach(el=>el.onclick=()=>viewer(m.takes,+el.dataset.k,sh));
   async function quick(fields){try{setStory(await api("/api/shot/update",{story:STORY.id,ep:EP.id,shot:sh.id,fields}))}catch(e){toast(e.message)}}
@@ -256,6 +284,71 @@ const PENDING={shot:null,fields:{},t:0};
 async function flushPending(){clearTimeout(PENDING.t);if(!PENDING.shot||!Object.keys(PENDING.fields).length)return;const shot=PENDING.shot,fields=PENDING.fields;PENDING.fields={};try{const s=await api("/api/shot/update",{story:STORY.id,ep:EP.id,shot,fields});STORY=s;EP=s.episodes.find(e=>e.id===EP.id);if("title"in fields)renderGrid()}catch(e){toast(e.message)}}
 function elapsed(j){const t=Math.max(0,Math.round(((j.finished||Date.now())-j.started)/1000));return`${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`}
 setInterval(()=>{const el=$("#jt");if(el){const j=JOBS_FOR(SEL);if(j)el.textContent=elapsed(j)}},1000);
+
+/* ---------- script tab ---------- */
+let SCRIPT={ep:null,text:"",saved:"",t:0};
+const SFX=window.GASPScript;
+async function loadScript(){const r=await api(`/api/script?story=${encodeURIComponent(STORY.id)}&ep=${encodeURIComponent(EP.id)}`);SCRIPT={ep:EP.id,text:r.text,saved:r.text,path:r.path,t:0}}
+async function saveScriptNow(){clearTimeout(SCRIPT.t);if(!STORY||!SCRIPT.ep||SCRIPT.text===SCRIPT.saved)return;const text=SCRIPT.text;try{await api("/api/script/save",{story:STORY.id,ep:SCRIPT.ep,text});SCRIPT.saved=text;const st=$("#scSaved");if(st)st.textContent="saved"}catch(e){toast(e.message)}}
+function scriptStatusLine(){return SCRIPT.text===SCRIPT.saved?"saved":"saving…"}
+async function renderScript(){
+  await saveScriptNow();await loadScript();SCRIPT.story=STORY.id;
+  const m=$("#main");
+  m.innerHTML=`<div class="scriptwrap"><div class="sleft"><div class="epbar">${STORY.episodes.map(e=>`<button class="ep ${e.id===EP.id?"on":""}" data-ep="${e.id}" title="${esc(e.title)}">Ep ${e.num}</button>`).join("")}<button class="btn small ghost" id="addEp">+ Episode</button><span class="sub" style="margin-left:6px">${esc(EP.title)}</span><span class="spacer"></span><span class="sub" id="scSaved">${scriptStatusLine()}</span></div>
+    <div class="editor" id="ed"><pre class="mirror" id="mirror" aria-hidden="true"></pre><textarea id="sc" spellcheck="true" placeholder="Write the episode like a screenplay. Press Tab on an empty line for SHOT:, IMAGE:, MOTION:, SFX:, NOTE:. Or paste a script from Claude, then press Sync to Shots."></textarea></div></div>
+    <div class="sright"><button class="btn primary" id="sync" style="width:100%;justify-content:center">Sync to Shots</button><p class="sub" id="syncNote" style="margin:6px 0 0">Makes a tile for every SHOT, updates the ones already linked. Keyframes and videos are never touched.</p>
+      <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn small" id="copyClaude">Copy for Claude</button><button class="btn small ghost" id="guide">Format guide</button><button class="btn small ghost" id="scFolder">Folder</button></div>
+      <div id="orph"></div>
+      <h3 class="side">Shots in this script</h3><div id="outline" class="outline"></div>
+      <h3 class="side">Characters</h3><div id="chars" class="chips"></div></div></div>`;
+  document.querySelectorAll("[data-ep]").forEach(b=>b.onclick=async()=>{await saveScriptNow();EP=STORY.episodes.find(e=>e.id===b.dataset.ep);ls.set("g2-ep-"+STORY.id,EP.id);SEL=EP.shots[0]?EP.shots[0].id:null;renderScript()});
+  $("#addEp").onclick=async()=>{await saveScriptNow();const s=await api("/api/episode/new",{story:STORY.id});EP=s.episodes[s.episodes.length-1];SEL=null;STORY=s;renderScript()};
+  const ta=$("#sc"),mi=$("#mirror");ta.value=SCRIPT.text;
+  const refresh=()=>{mi.innerHTML=highlight(ta.value);mi.scrollTop=ta.scrollTop;outline()};
+  ta.oninput=()=>{SCRIPT.text=ta.value;$("#scSaved").textContent="saving…";clearTimeout(SCRIPT.t);SCRIPT.t=setTimeout(saveScriptNow,800);refresh()};
+  ta.onscroll=()=>{mi.scrollTop=ta.scrollTop};
+  ta.onkeydown=e=>smartKeys(e,ta,()=>ta.oninput());
+  $("#sync").onclick=()=>doSync();
+  $("#copyClaude").onclick=()=>copyText(forClaude(),"Script, shot status and format guide copied. Paste into Claude.");
+  $("#guide").onclick=()=>{const ov=document.createElement("div");ov.className="ov";ov.innerHTML=`<div class="box"><h2>Shot format</h2><p class="sub">Write shots this way, or ask Claude to. Paste this guide into your Claude project's instructions so every chat already knows it.</p><pre class="guide">${esc(SFX.GUIDE)}</pre><div class="row"><span class="spacer"></span><button class="btn" id="gCopy">Copy guide</button><button class="btn" data-x>Close</button></div></div>`;document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.dataset.x!=null)ov.remove()};ov.querySelector("#gCopy").onclick=()=>copyText(SFX.GUIDE,"Guide copied")};
+  $("#scFolder").onclick=()=>reveal({ep:EP.id});
+  refresh()}
+function highlight(t){const R=SFX.re;let cue=false;return t.split("\n").map(L=>{const s=L.trim();let h=esc(L);const idm=L.match(R.id);if(idm)h=esc(L.slice(0,idm.index))+`<span class="h-id">${esc(L.slice(idm.index))}</span>`;
+  if(R.scene.test(s)){cue=false;return`<span class="h-scene">${h}</span>`}
+  if(R.shot.test(s)&&!R.field.test(s)){cue=false;return`<span class="h-shot">${h}</span>`}
+  const f=L.match(/^(\s*)(IMAGE|MOTION|SFX|SOUND|NOTES?|WHO|FRAME|LOCATION|LENGTH)(\s*:)(.*)$/i);if(f){cue=false;return`${esc(f[1])}<span class="h-lab h-${f[2].toLowerCase().replace(/s$/,"")}">${esc(f[2]+f[3])}</span>${esc(f[4])}`}
+  const d=s.match(R.dialog);if(d&&!R.notNames.test(d[1])){cue=false;const i=L.indexOf(d[1]);return`${esc(L.slice(0,i))}<span class="h-name">${esc(d[1])}</span>${esc(L.slice(i+d[1].length))}`}
+  if(cue&&s){cue=/^\(.*\)$/.test(s);return`<span class="h-dia">${h}</span>`}
+  const c=s.match(R.cue);if(c&&!R.notNames.test(c[1])&&s.length>1){cue=true;return`<span class="h-name">${h}</span>`}
+  cue=false;return h}).join("\n")+"\n"}
+function outline(){const ta=$("#sc");if(!ta)return;const p=SFX.parse(ta.value);const ids=new Set(EP.shots.map(x=>x.id));
+  $("#outline").innerHTML=p.blocks.length?p.blocks.map(b=>{const linked=b.id&&ids.has(b.id);return`<div class="ol" data-line="${b.start}"><span class="n">${String(b.num).padStart(2,"0")}</span><span class="tt">${esc(b.title)}</span><span class="meta">${esc([b.frame,b.seconds?b.seconds+"s":""].filter(Boolean).join(" · "))}</span><span class="st ${linked?"ok":""}">${linked?"linked":"new"}</span></div>`}).join(""):`<p class="sub">No SHOT lines yet. Start one with <code>SHOT:</code> (Tab on an empty line).</p>`;
+  $("#outline").querySelectorAll("[data-line]").forEach(el=>el.onclick=()=>jumpTo(+el.dataset.line));
+  const known=p.characters;$("#chars").innerHTML=known.length?known.map(n=>`<span class="chip">${esc(n)}</span>`).join(""):`<span class="sub">Names in caps (WREN:) show up here and auto-complete with Tab.</span>`}
+function jumpTo(line){const ta=$("#sc");const L=ta.value.split("\n");let pos=0;for(let i=0;i<line;i++)pos+=L[i].length+1;ta.focus();ta.setSelectionRange(pos,pos+L[line].length);const lh=parseFloat(getComputedStyle(ta).lineHeight)||22;ta.scrollTop=Math.max(0,line*lh-120)}
+const PREFIX=["SHOT: ","IMAGE: ","MOTION: ","SFX: ","NOTE: "];
+function smartKeys(e,ta,changed){
+  const v=ta.value,a=ta.selectionStart,b=ta.selectionEnd;const ls0=v.lastIndexOf("\n",a-1)+1;let le=v.indexOf("\n",a);if(le<0)le=v.length;const line=v.slice(ls0,le);
+  const put=(start,end,str,caret)=>{ta.setRangeText(str,start,end,"end");if(caret!=null)ta.setSelectionRange(caret,caret);changed()};
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();saveScriptNow();return}
+  if(e.key==="Tab"&&a===b){
+    const known=SFX.parse(v).characters;const word=line.trim();
+    if(word&&/^[A-Za-z][A-Za-z .'-]*$/.test(word)&&a===le){const hit=known.find(n=>n.startsWith(word.toUpperCase())&&n!==word);if(hit||known.includes(word.toUpperCase())){e.preventDefault();put(ls0,le,(hit||word.toUpperCase())+": ");return}}
+    const i=PREFIX.findIndex(p=>line===p||line===p.trim());
+    if(!line.trim()||i>=0){e.preventDefault();const n=e.shiftKey?(i<=0?PREFIX.length-1:i-1):(i+1)%PREFIX.length;put(ls0,le,i<0&&!e.shiftKey?PREFIX[0]:PREFIX[n]);return}
+    e.preventDefault();put(a,b,"  ");return}
+  if(e.key==="Enter"&&!e.shiftKey&&a===b&&a===le){
+    if(SFX.re.shot.test(line.trim())&&!SFX.re.field.test(line)){e.preventDefault();put(a,a,"\nIMAGE: ");return}
+    if(/^\s*IMAGE\s*:\s*\S/i.test(line)){e.preventDefault();put(a,a,"\nMOTION: ");return}
+  }
+}
+async function doSync(orphans){await saveScriptNow();try{const r=await api("/api/script/sync",{story:STORY.id,ep:EP.id,text:$("#sc")?$("#sc").value:SCRIPT.text,orphans});SCRIPT.text=SCRIPT.saved=r.text;STORY=r.story;EP=STORY.episodes.find(e=>e.id===EP.id);const ta=$("#sc");if(ta){const pos=ta.selectionStart,top=ta.scrollTop;ta.value=r.text;ta.setSelectionRange(pos,pos);ta.scrollTop=top;ta.oninput();$("#scSaved").textContent="saved"}
+  toast(`Synced: ${r.created} new shot${r.created===1?"":"s"}, ${r.updated} updated`);
+  const o=$("#orph");if(o)o.innerHTML=r.orphans.length?`<div class="prog" style="margin-top:12px">${r.orphans.length} shot${r.orphans.length>1?"s are":" is"} in Shots but not in this script: ${r.orphans.map(x=>`<b>${esc(x.title)}</b>`).join(", ")}.<div class="row" style="margin-top:8px;gap:6px"><button class="btn small" id="oAdd">Add to the script</button><button class="btn small" id="oTrash">Move to Trash</button><button class="btn small ghost" id="oKeep">Keep as they are</button></div></div>`:"";
+  if(r.orphans.length){$("#oAdd").onclick=()=>doSync("add");$("#oTrash").onclick=()=>{if(confirm("Move those shots and their takes to _Trash?"))doSync("trash")};$("#oKeep").onclick=()=>{$("#orph").innerHTML=""}}}catch(e){toast(e.message)}}
+function shotStatus(sh,i){const m=sh.media||{};return`${String(i+1).padStart(2,"0")}. ${sh.title} — keyframe ${m.keyframe?"✓":"—"}, video ${m.video?"✓"+(sh.videoTake?` (${(sh.videoTake.match(/video - (.+)\.mp4$/)||[])[1]||""})`:""):"—"}`}
+function forClaude(){const t=$("#sc")?$("#sc").value:SCRIPT.text;return`${SFX.GUIDE}\n\n=== ${STORY.title} · Episode ${EP.num}: ${EP.title} ===\n\nWhere the shots stand in GASP:\n${EP.shots.map(shotStatus).join("\n")||"(no shots yet)"}\n\n=== Script ===\n${t}`}
+function copyText(t,msg){navigator.clipboard.writeText(t).then(()=>toast(msg),()=>{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast(msg)}catch(e){toast("Couldn't reach the clipboard")}ta.remove()})}
 
 /* ---------- viewer ---------- */
 function viewer(list,i,sh){const ov=document.createElement("div");ov.className="ov viewer";document.body.appendChild(ov);
