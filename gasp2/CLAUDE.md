@@ -35,6 +35,7 @@ few fields, a storyboard grid as home, everything regenerable in place.
 | --- | --- |
 | `server.js` | Local server on port 4848: API, library on disk, background jobs, spend log |
 | `lib/fal.js` | fal queue API, storage upload, image-to-video, dry-run placeholders |
+| `lib/chat.js` | Chat calls (fal LLM router or Groq, OpenAI format), the system prompt, ```gasp action blocks |
 | `models.json` | Video models on fal: endpoint, image field, allowed lengths, $/s. Add a model = add an entry |
 | `app/index.html` | The whole UI |
 | `app/script.js` | The shot format: parser and script edits, shared by app and server (one global, no build) |
@@ -53,7 +54,7 @@ few fields, a storyboard grid as home, everything regenerable in place.
 
 `GET /api/state` · `POST /api/settings` · `GET /api/spend` · `POST /api/story/new|rename` · `GET /api/story?id=` ·
 `POST /api/episode/new|rename` · `POST /api/shot/new|update|move|duplicate|delete` · `POST /api/keyframe` ·
-`POST /api/take/use|delete` · `GET /api/script` · `POST /api/script/save|sync` · `POST /api/gen/video` · `GET /api/jobs` · `GET /api/events` (SSE `job`) ·
+`POST /api/take/use|delete` · `GET /api/script` · `POST /api/script/save|sync` · `POST /api/gen/video` · `GET|POST /api/chat` · `POST /api/chat/act|clear` · `GET /api/update/check` · `POST /api/update|restart` · `GET /api/jobs` · `GET /api/events` (SSE `job`) ·
 `POST /api/reveal` (opens the folder in Explorer) · `POST /api/update` (git pull) · `GET /lib/<path>` (library files).
 Story data is `story.json` in each story folder; each episode's script is `script.txt` in its episode folder. The app never stores story data in the browser.
 Shot ↔ script links are `[[#<shot id>]]` tags at the end of SHOT lines; Shots edits are written back into the script only once it has linked shots.

@@ -125,14 +125,17 @@ var GASPScript = (function () {
     "",
     "SCENE: Beach camp, late morning          (optional scene heading; INT./EXT. also work)",
     "SHOT: Wren sunbathes on the rock · MS · Beach Rock · 5s",
-    "IMAGE: what the keyframe shows: who, pose, wardrobe, setting, light, lens. One paragraph.",
+    "WHO: Wren                                (which characters are in frame, so GASP attaches their reference images)",
+    "IMAGE: what the keyframe shows, described from scratch: \"a woman in her twenties with sun-streaked hair...\",",
+    "       pose, wardrobe, setting, light, lens. No character names: an image model doesn't know who Wren is.",
     "MOTION: what moves: camera move and action during the shot.",
     "WREN: \"Dialogue goes like this.\"          (or the name on its own line, then the line)",
     "SFX: surf, a gull, leather creaks",
     "NOTE: anything for the director",
     "",
     "Rules: one SHOT line per shot; the title comes first after SHOT:, then optional framing (ECU, CU, MCU, MS, WS, OTS),",
-    "location and length (5s). Keep IMAGE prompts self-contained so each works on its own in an image model.",
+    "location and length (5s). Keep IMAGE prompts self-contained so each works on its own in any image model:",
+    "describe people by look, never by name, and name them on the WHO: line instead. Frame for 9:16 vertical.",
     "Lines ending in [[#…]] are links GASP adds; keep them when you rewrite a shot.",
   ].join("\n");
 
@@ -176,6 +179,9 @@ var GASPScript = (function () {
       if (b.id) { if (ids[b.id]) issues.push({ line: b.start, level: "error", msg: "Two SHOT lines share the link [[#" + b.id + "]]. Delete it from the copy so Sync makes a new shot." }); ids[b.id] = 1; }
       if (!b.image) issues.push({ line: b.start, level: "error", msg: "No IMAGE (or action) for this shot, so its keyframe has nothing to go on." });
       else if (b.image.length > 1200) issues.push({ line: b.start, level: "info", msg: "Very long IMAGE prompt (" + b.image.length + " characters). Image models tend to drop details past a few sentences." });
+      var names = Object.keys(known).concat(String(b.who || "").split(/\s*,\s*|\s+and\s+/).map(function (x) { return x.trim().toUpperCase(); })).filter(function (n) { return n && n.length > 1; });
+      var hit = names.filter(function (n) { return new RegExp("\\b" + n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(b.image); });
+      if (hit.length) issues.push({ line: b.start, level: "warn", msg: "IMAGE names " + uniq(hit.map(titleCase)).join(", ") + ". Image models don't know who that is: describe them instead, and put the name on a WHO: line so GASP attaches the reference image." });
       if (!b.motion) issues.push({ line: b.start, level: "warn", msg: "No MOTION, so the video gets a generic \"subtle natural motion\"." });
       if (b.seconds && b.seconds > 15) issues.push({ line: b.start, level: "warn", msg: b.seconds + "s is longer than any video model makes in one go (most stop at 10–15s)." });
     });

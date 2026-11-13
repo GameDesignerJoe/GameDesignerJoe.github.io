@@ -8,6 +8,7 @@ import crypto from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { imageToVideo } from "./lib/fal.js";
+import { chatCall, splitActions, systemPrompt, dryReply, CHAT_MODELS } from "./lib/chat.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -105,11 +106,11 @@ function writeScript(s, ep, text, snapshot) {
 // keep the script in step with edits made in Shots (only once the script has linked shots)
 function scriptEdit(s, ep, fn) { const t = readScript(s, ep); if (!/\[\[#[a-z0-9]+\]\]/i.test(t)) return; const n = fn(t); if (n !== t) writeScript(s, ep, n, false); }
 function syncScript(s, ep, text, orphanMode) {
-  const p = SF.parse(text); const byId = Object.fromEntries(ep.shots.map(x => [x.id, x])); const seen = new Set(); let created = 0, updated = 0;
+  const p = SF.parse(text); const byId = Object.fromEntries(ep.shots.map(x => [x.id, x])); const seen = new Set(); let created = 0, updated = 0; const createdIds = [];
   const ordered = [];
   for (const b of p.blocks) {
     let sh = b.id && byId[b.id] && !seen.has(b.id) ? byId[b.id] : null;
-    if (!sh) { sh = { id: newId(), show: "keyframe", notes: "" }; text = SF.stampId(text, b, sh.id); created++; } else updated++;
+    if (!sh) { sh = { id: newId(), show: "keyframe", notes: "" }; text = SF.stampId(text, b, sh.id); created++; createdIds.push(sh.id); } else updated++;
     seen.add(sh.id);
     Object.assign(sh, { title: b.title, frame: b.frame, location: b.location, scene: b.scene, imagePrompt: b.image, motionPrompt: b.motion, who: b.who, lines: b.lines, sfx: b.sfx, action: b.action });
     if (b.notes) sh.notes = b.notes; if (b.seconds) sh.seconds = b.seconds;
@@ -121,7 +122,33 @@ function syncScript(s, ep, text, orphanMode) {
   const result = [...ordered];
   for (const o of orphans) { const orig = ep.shots.indexOf(o); let prev = null; for (let k = orig - 1; k >= 0; k--) if (result.includes(ep.shots[k])) { prev = ep.shots[k]; break; } result.splice(prev ? result.indexOf(prev) + 1 : 0, 0, o); if (orphanMode === "add") text = SF.insertBlock(text, prev ? prev.id : null, o); }
   ep.shots = result; text = SF.renumber(text);
-  return { text, created, updated, orphans: orphanMode === "add" ? [] : orphans.map(o => ({ id: o.id, title: o.title })) };
+  return { text, created, updated, createdIds, orphans: orphanMode === "add" ? [] : orphans.map(o => ({ id: o.id, title: o.title })) };
+}
+
+function updateShot(s, ep, sh, f) {
+  for (const k of ["title", "imagePrompt", "motionPrompt", "notes", "model", "seconds", "show"]) if (k in f) sh[k] = f[k];
+  scriptEdit(s, ep, t => { if ("imagePrompt" in f) t = SF.setField(t, sh.id, "image", f.imagePrompt); if ("motionPrompt" in f) t = SF.setField(t, sh.id, "motion", f.motionPrompt); if ("notes" in f) t = SF.setField(t, sh.id, "note", f.notes); if ("title" in f || "seconds" in f) t = SF.setCallout(t, sh.id, { title: sh.title, seconds: sh.seconds || null }); return t; });
+}
+
+// ---------- chat: one conversation per story, kept in its folder ----------
+const chatFile = s => path.join(storiesDir(), s.dir, "chat.json");
+function readChat(s) { try { return JSON.parse(fs.readFileSync(chatFile(s), "utf8")); } catch { return { messages: [] }; } }
+function writeChat(s, c) { fs.writeFileSync(chatFile(s), JSON.stringify(c, null, 1)); }
+function chatSetting() { const st = settings(); if (st.chat && st.chat.model) return st.chat; return process.env.FAL_KEY || !process.env.GROQ_API_KEY ? { provider: "fal", model: CHAT_MODELS[0].model } : { provider: "groq", model: "openai/gpt-oss-120b" }; }
+const chatForApp = c => ({ messages: c.messages.map((m, i) => ({ i, role: m.role, text: m.role === "assistant" ? splitActions(m.content).shown : m.content, actions: m.actions || [], at: m.at, model: m.model, cost: m.cost, error: m.error, ep: m.ep })) });
+function applyAction(s, ep, a) {
+  if (a.action === "update_shot") {
+    const sh = ep.shots.find(x => x.id === a.shot); if (!sh) throw httpErr(404, "That shot isn't in this episode any more.");
+    const f = {}; for (const k of ["title", "imagePrompt", "motionPrompt", "notes"]) if (a.fields && k in a.fields) f[k] = String(a.fields[k]);
+    const undo = Object.fromEntries(Object.keys(f).map(k => [k, sh[k] || ""])); updateShot(s, ep, sh, f); return { undo };
+  }
+  if (a.action === "replace_script" || a.action === "append_script") {
+    const old = readScript(s, ep); const add = String(a.text || "").replace(/\r/g, "");
+    const text = a.action === "replace_script" ? add : (old.trim() ? old.replace(/\s+$/, "") + "\n\n" + add : add);
+    writeScript(s, ep, text, true); const r = syncScript(s, ep, text, "keep"); writeScript(s, ep, r.text, false);
+    return { undoScript: old, createdIds: r.createdIds, created: r.created, updated: r.updated, orphans: r.orphans.length };
+  }
+  throw httpErr(400, "GASP can't apply that kind of change.");
 }
 
 // The take in use is also copied to the top of the shot folder (keyframe.png / video.mp4), so browsing in Explorer shows it first.
@@ -186,8 +213,8 @@ const json = (res, o, code = 200) => { res.writeHead(code, { "Content-Type": "ap
 const dataUri = (u) => { const m = /^data:image\/(png|jpe?g|webp);base64,/.exec(u || ""); if (!m) throw httpErr(400, "expected an image"); return { ext: m[1] === "jpeg" ? "jpg" : m[1], buf: Buffer.from(u.slice(m[0].length), "base64") }; };
 
 const routes = {
-  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { pid: process.pid, version: "2.0-step3", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
-  "POST /api/settings": async (req) => { const b = await body(req); if (b.keys) saveKeys(b.keys); const patch = {}; if (b.library) patch.library = path.resolve(String(b.library)); if (b.defaultVideo && MODELS.video[b.defaultVideo]) patch.defaultVideo = b.defaultVideo; if (Object.keys(patch).length) saveSettings(patch); ensureLibrary(); return { ok: true }; },
+  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { chatModels: CHAT_MODELS, chat: chatSetting(), pid: process.pid, version: "2.0-step4", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
+  "POST /api/settings": async (req) => { const b = await body(req); if (b.keys) saveKeys(b.keys); const patch = {}; if (b.library) patch.library = path.resolve(String(b.library)); if (b.defaultVideo && MODELS.video[b.defaultVideo]) patch.defaultVideo = b.defaultVideo; if (b.chat && b.chat.model && ["fal", "groq"].includes(b.chat.provider)) patch.chat = { provider: b.chat.provider, model: String(b.chat.model).trim() }; if (Object.keys(patch).length) saveSettings(patch); ensureLibrary(); return { ok: true }; },
   "GET /api/spend": () => readSpend(),
   "POST /api/story/new": async (req) => { const b = await body(req); return storyForApp(createStory(b.title || "New story")); },
   "GET /api/story": (req, url) => { const s = loadStory(url.searchParams.get("id")); s.opened = Date.now(); const out = { ...s }; delete out.dir; fs.writeFileSync(path.join(storiesDir(), s.dir, "story.json"), JSON.stringify(out, null, 2)); return storyForApp(s); },
@@ -202,9 +229,7 @@ const routes = {
     if (b.image) { const { ext, buf } = dataUri(b.image); const take = `${stamp()} keyframe - ${clean(b.source || "upload")}.${ext}`; fs.writeFileSync(path.join(shotPath(s, ep, sh), "takes", take), buf); setInUse(s, ep, sh, take); saveStory(s); }
     return { story: storyForApp(s), shot: sh.id };
   },
-  "POST /api/shot/update": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); const f = b.fields || {}; for (const k of ["title", "imagePrompt", "motionPrompt", "notes", "model", "seconds", "show"]) if (k in f) sh[k] = f[k];
-    scriptEdit(s, ep, t => { if ("imagePrompt" in f) t = SF.setField(t, sh.id, "image", f.imagePrompt); if ("motionPrompt" in f) t = SF.setField(t, sh.id, "motion", f.motionPrompt); if ("notes" in f) t = SF.setField(t, sh.id, "note", f.notes); if ("title" in f || "seconds" in f) t = SF.setCallout(t, sh.id, { title: sh.title, seconds: sh.seconds || null }); return t; });
-    return storyForApp(saveStory(s)); },
+  "POST /api/shot/update": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); updateShot(s, ep, shotOf(ep, b.shot), b.fields || {}); return storyForApp(saveStory(s)); },
   "POST /api/shot/move": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const byId = Object.fromEntries(ep.shots.map(x => [x.id, x])); if (!Array.isArray(b.order) || b.order.length !== ep.shots.length || b.order.some(id => !byId[id])) throw httpErr(400, "order must list every shot"); ep.shots = b.order.map(id => byId[id]); scriptEdit(s, ep, t => SF.reorder(t, b.order)); return storyForApp(saveStory(s)); },
   "POST /api/shot/duplicate": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const src = shotOf(ep, b.shot); const sh = { ...src, id: newId(), dir: null, title: src.title + " copy" }; ep.shots.splice(ep.shots.indexOf(src) + 1, 0, sh); saveStory(s); scriptEdit(s, ep, t => SF.insertBlock(t, src.id, sh)); fs.cpSync(path.join(shotPath(s, ep, src), "takes"), path.join(shotPath(s, ep, sh), "takes"), { recursive: true }); if (sh.keyframeTake) setInUse(s, ep, sh, sh.keyframeTake); if (sh.videoTake) setInUse(s, ep, sh, sh.videoTake); sh.show = src.show; return { story: storyForApp(saveStory(s)), shot: sh.id }; },
   "POST /api/shot/delete": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); if (Object.values(JOBS).some(j => j.shot === sh.id && j.status === "running")) throw httpErr(409, "a generation is still running for this shot"); toTrash(shotPath(s, ep, sh), `${s.title} - ${ep.dir} - ${sh.dir}`); ep.shots = ep.shots.filter(x => x !== sh); scriptEdit(s, ep, t => SF.removeBlock(t, sh.id)); return storyForApp(saveStory(s)); },
@@ -222,6 +247,45 @@ const routes = {
   "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); return { text: readScript(s, ep), path: scriptPath(s, ep) }; },
   "POST /api/script/save": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); writeScript(s, ep, String(b.text || "").replace(/\r/g, ""), false); return { ok: true }; },
   "POST /api/script/sync": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const r = syncScript(s, ep, String(b.text ?? readScript(s, ep)).replace(/\r/g, ""), b.orphans); saveStory(s); writeScript(s, ep, r.text, true); return { story: storyForApp(s), text: r.text, created: r.created, updated: r.updated, orphans: r.orphans }; },
+  "GET /api/chat": (req, url) => chatForApp(readChat(loadStory(url.searchParams.get("story")))),
+  "POST /api/chat": async (req) => {
+    const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const c = readChat(s);
+    const msg = String(b.message || "").trim(); if (!msg) throw httpErr(400, "empty message");
+    c.messages.push({ role: "user", content: msg, at: Date.now(), ep: ep.num }); writeChat(s, c);
+    const app = storyForApp(s); const epA = app.episodes.find(e => e.id === ep.id); const script = readScript(s, ep);
+    const sys = systemPrompt({ guide: SF.GUIDE, story: s, ep, script, shots: epA.shots, characters: SF.parse(script).characters });
+    const hist = c.messages.slice(-24).map(m => ({ role: m.role, content: m.role === "assistant" && (m.actions || []).some(a => a.state) ? m.content + "\n\n(" + m.actions.map((a, k) => `card ${k + 1}: ${a.state || "not acted on"}`).join("; ") + ")" : m.content }));
+    const cs = chatSetting(); let r;
+    try { r = process.env.GASP_DRY ? { text: dryReply(msg, epA.shots), tokensIn: 0, tokensOut: 0, cost: 0, ms: 600 } : await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: sys }, ...hist] }); }
+    catch (e) { c.messages.push({ role: "assistant", content: "", error: String(e.message || e), at: Date.now(), ep: ep.num }); writeChat(s, c); return chatForApp(c); }
+    const { actions } = splitActions(r.text);
+    c.messages.push({ role: "assistant", content: r.text, actions: actions.map(a => ({ ...a, state: a.action === "unreadable" ? "unreadable" : null })), at: Date.now(), model: cs.model, cost: r.cost, tokens: r.tokensIn + r.tokensOut, ep: ep.num });
+    writeChat(s, c);
+    logSpend({ story: s.title, episode: ep.num, shot: "", kind: "chat", model: cs.model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost ?? 0, file: `${r.tokensIn} in / ${r.tokensOut} out tokens${r.cost == null ? " (cost not reported)" : ""}` });
+    return chatForApp(c);
+  },
+  "POST /api/chat/act": async (req) => {
+    const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const c = readChat(s); const m = c.messages[b.msg]; const a = m && (m.actions || [])[b.action];
+    if (!a) throw httpErr(404, "That card isn't there any more.");
+    let note = "";
+    if (b.op === "apply") { if (a.state === "applied") throw httpErr(409, "Already applied."); const r = applyAction(s, ep, a); Object.assign(a, { state: "applied", undo: r.undo, undoScript: r.undoScript, createdIds: r.createdIds, appliedEp: ep.id }); if (r.created != null) note = `${r.created} new shot${r.created === 1 ? "" : "s"}, ${r.updated} updated${r.orphans ? `, ${r.orphans} only in Shots` : ""}`; }
+    else if (b.op === "dismiss") a.state = "dismissed";
+    else if (b.op === "undo") {
+      if (a.state !== "applied") throw httpErr(409, "Nothing to undo.");
+      const ep2 = s.episodes.find(e => e.id === a.appliedEp) || ep;
+      if (a.undo) { const sh = ep2.shots.find(x => x.id === a.shot); if (sh) updateShot(s, ep2, sh, a.undo); }
+      if (a.undoScript != null) {
+        // shots this card made go to _Trash (with anything generated for them since), then the old script comes back
+        for (const id of a.createdIds || []) { const sh = ep2.shots.find(x => x.id === id); if (sh) { try { toTrash(shotPath(s, ep2, sh), `${s.title} - ${ep2.dir} - ${sh.dir}`); } catch {} ep2.shots = ep2.shots.filter(x => x !== sh); } }
+        // an append is undone by taking its shots back out, so later edits survive; a full rewrite brings the old script back
+        let back = a.undoScript; if (a.action === "append_script") { back = readScript(s, ep2); for (const id of a.createdIds || []) back = SF.removeBlock(back, id); }
+        writeScript(s, ep2, back, true); const r = syncScript(s, ep2, back, "keep"); writeScript(s, ep2, r.text, false);
+      }
+      a.state = null; delete a.undo; delete a.undoScript; delete a.createdIds;
+    }
+    saveStory(s); writeChat(s, c); return { chat: chatForApp(c), story: storyForApp(s), note };
+  },
+  "POST /api/chat/clear": async (req) => { const b = await body(req); const s = loadStory(b.story); const c = readChat(s); if (c.messages.length) { const h = path.join(storiesDir(), s.dir, "chat history"); fs.mkdirSync(h, { recursive: true }); fs.writeFileSync(path.join(h, `${stamp()}.json`), JSON.stringify(c, null, 1)); } writeChat(s, { messages: [] }); return chatForApp({ messages: [] }); },
   "GET /api/jobs": () => Object.values(JOBS).filter(j => j.status === "running" || Date.now() - (j.finished || 0) < 10 * 60e3),
   "POST /api/reveal": async (req) => { const b = await body(req); const s = loadStory(b.story); let abs = path.join(storiesDir(), s.dir); if (b.ep) { const ep = epOf(s, b.ep); abs = path.join(abs, ep.dir); if (b.shot) abs = path.join(abs, shotOf(ep, b.shot).dir); }
     if (process.platform === "win32") spawn("explorer.exe", [abs], { detached: true, stdio: "ignore" }).unref(); else if (process.platform === "darwin") spawn("open", [abs], { detached: true, stdio: "ignore" }).unref(); return { ok: true, path: abs }; },

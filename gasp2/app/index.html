@@ -141,6 +141,30 @@ h3.side{margin:18px 0 6px;font-size:11px;letter-spacing:.06em;text-transform:upp
 .chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid var(--line);border-radius:999px;padding:1px 9px;font-size:12px;color:#ffd27a}
 pre.guide{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;font:12.5px/1.5 var(--mono);max-height:56vh;overflow:auto}
 .dl{font-size:13px;margin:3px 0}.dl.sfx{color:#6fd3a4}
+/* chat */
+#chatBtn.on{border-color:var(--accent)}
+body.chatopen main{margin-right:min(440px,40vw)}
+#chat{position:fixed;right:0;top:var(--hdr,57px);bottom:0;width:min(440px,40vw);background:var(--panel);border-left:1px solid var(--line);display:none;flex-direction:column;z-index:30}
+body.chatopen #chat{display:flex}
+.chead{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.cmsgs{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.cmsg{display:flex}.cmsg.u{justify-content:flex-end}
+.bub{max-width:92%;border-radius:12px;padding:8px 11px;font-size:13.5px;line-height:1.5;background:var(--panel2);border:1px solid var(--line)}
+.cmsg.u .bub{background:rgba(255,77,109,.14);border-color:rgba(255,77,109,.35)}
+.bub p{margin:0 0 8px}.bub p:last-child{margin-bottom:0}.bub ul,.bub ol{margin:4px 0 8px;padding-left:20px}
+.bub.err{border-color:rgba(255,107,107,.5);color:var(--bad)}
+.cpre{white-space:pre-wrap;font:12px/1.5 var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;max-height:260px;overflow:auto;margin:6px 0}
+.cmeta{font-size:10.5px;color:var(--faint);margin-top:6px}
+.card{border:1px solid var(--accent);border-radius:9px;padding:8px 10px;margin-top:8px;background:rgba(255,77,109,.05)}
+.card.applied{border-color:var(--good);background:rgba(76,195,138,.06)}.card.dismissed{border-color:var(--line);opacity:.7}
+.card .ck{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent2)}.card.applied .ck{color:var(--good)}
+.card .cs{margin-top:2px}.card .ok{color:var(--good);font-size:12.5px}
+.card details summary{cursor:pointer;color:var(--muted);font-size:12.5px;margin-top:4px}
+.cfield{font-size:12.5px;margin-top:4px}.cfield b{color:var(--muted);font-size:11px;margin-right:4px}
+.ccomp{border-top:1px solid var(--line);padding:10px;display:flex;gap:8px;align-items:flex-end}.ccomp textarea{min-height:44px;max-height:30vh}
+.cempty{color:var(--muted);font-size:13px}.cempty p{margin:0 0 10px}.cstarts{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.typing{display:flex;gap:4px;padding:12px 14px}.typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite}.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
 @media (max-width:900px){.shots{grid-template-columns:1fr}.panel{border-left:0;border-top:1px solid var(--line)}}
 </style>
 </head>
@@ -153,6 +177,7 @@ pre.guide{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line)
   <span class="spacer"></span>
   <button class="pill update" id="updPill" hidden title="Install the latest GASP 2 and restart">Update ready</button>
   <button class="pill" id="jobsPill" hidden></button>
+  <button class="btn small" id="chatBtn" title="Talk the story through; it can write into the script and shots">💬 Chat</button>
   <button class="pill" id="spendBtn" title="What each generation cost">$0.00 spent</button>
   <button class="btn small" id="gear" title="Settings">⚙</button>
 </header>
@@ -185,13 +210,15 @@ async function boot(){
   const want=ls.get("g2-story",null);const pick=STATE.stories.find(s=>s.id===want)||STATE.stories[0];
   if(pick)await openStory(pick.id);else renderMain();
   listenEvents();
+  const sizeHdr=()=>document.documentElement.style.setProperty("--hdr",$("header").offsetHeight+"px");sizeHdr();addEventListener("resize",sizeHdr);
+  $("#chatBtn").onclick=()=>toggleChat();if(CHAT.open)toggleChat(true);
   if(!Object.values(STATE.keys).some(Boolean))setTimeout(()=>{toast("No keys yet: add your fal key in Settings (⚙) to generate video.",5000)},800);
 }
 function renderStorySel(){const sel=$("#storySel");sel.innerHTML=STATE.stories.length?STATE.stories.map(s=>`<option value="${s.id}">${esc(s.title)}</option>`).join(""):`<option value="">No stories yet</option>`;if(STORY)sel.value=STORY.id;sel.disabled=!STATE.stories.length}
 $("#storySel").onchange=e=>openStory(e.target.value);
 $("#newStory").onclick=async()=>{const t=prompt("Story title","New story");if(!t)return;try{const s=await api("/api/story/new",{title:t});STATE=await api("/api/state");setStory(s);renderStorySel();toast(`Made the folder for "${s.title}" in your library`)}catch(e){toast(e.message)}};
 async function openStory(id){try{setStory(await api("/api/story?id="+encodeURIComponent(id)))}catch(e){toast(e.message)}}
-function setStory(s){if(STORY&&STORY.id!==s.id)SCRIPT={ep:null,text:"",saved:"",t:0};STORY=s;ls.set("g2-story",s.id);const keepEp=EP&&s.episodes.find(e=>e.id===EP.id);EP=keepEp||s.episodes.find(e=>e.id===ls.get("g2-ep-"+s.id,null))||s.episodes[0];if(SEL&&!EP.shots.find(x=>x.id===SEL))SEL=null;if(!SEL&&EP.shots[0])SEL=EP.shots[0].id;renderStorySel();renderMain()}
+function setStory(s){const prevEp=EP&&EP.id,prevStory=STORY&&STORY.id;setTimeout(()=>{if(CHAT.open&&STORY&&(STORY.id!==prevStory||(EP&&EP.id)!==prevEp))renderChat(STORY.id!==prevStory)},0);if(STORY&&STORY.id!==s.id)SCRIPT={ep:null,text:"",saved:"",t:0};STORY=s;ls.set("g2-story",s.id);const keepEp=EP&&s.episodes.find(e=>e.id===EP.id);EP=keepEp||s.episodes.find(e=>e.id===ls.get("g2-ep-"+s.id,null))||s.episodes[0];if(SEL&&!EP.shots.find(x=>x.id===SEL))SEL=null;if(!SEL&&EP.shots[0])SEL=EP.shots[0].id;renderStorySel();renderMain()}
 async function reload(){if(STORY)setStory(await api("/api/story?id="+encodeURIComponent(STORY.id)))}
 
 /* ---------- tabs ---------- */
@@ -337,13 +364,15 @@ async function renderScript(){
 const EXAMPLE=`SCENE: Beach camp, late morning
 
 SHOT: Wren sunbathes on the rock · MS · Beach Rock · 5s
-IMAGE: Wren lies on a flat, lichen-covered rock, arms behind her head, eyes closed. Leather-and-fur two-piece, sun-warmed skin, jungle behind her. Golden late-morning light, 35mm.
+WHO: Wren
+IMAGE: A woman in her twenties lies on a flat, lichen-covered rock, arms behind her head, eyes closed. Leather-and-fur two-piece, sun-warmed skin, jungle behind her. Golden late-morning light, 35mm, vertical frame.
 MOTION: slow push-in; she opens one eye and smiles without moving
 WREN: "You can stop pretending you're not looking."
 SFX: surf, a gull, leather creaks as she shifts
 
 SHOT: Declan freezes at the treeline · CU · Beach Rock · 4s
-IMAGE: Declan half-hidden in ferns, spear lowered, caught staring. Dappled shade, shallow focus.
+WHO: Declan
+IMAGE: A rugged man in his thirties half-hidden in ferns, spear lowered, caught staring. Dappled shade, shallow focus, vertical frame.
 MOTION: he straightens and looks away too fast
 DECLAN
 (caught)
@@ -354,7 +383,8 @@ function exampleHTML(){return`<aside class="example"><div class="row"><h3 class=
   <h3 class="side">How it reads</h3><ul class="exkeys">
   <li><span class="h-scene">SCENE:</span> a heading for where and when (INT./EXT. work too). Optional.</li>
   <li><span class="h-shot">SHOT:</span> starts a shot: a short title, then optional framing (CU, MS, WS…), location and length, split by <b>·</b></li>
-  <li><span class="h-lab h-image">IMAGE:</span> the keyframe prompt, written to stand on its own</li>
+  <li><span class="h-lab h-who">WHO:</span> who's in frame, by name, so GASP attaches their reference images</li>
+  <li><span class="h-lab h-image">IMAGE:</span> the keyframe prompt, written to stand on its own: describe people by look, not by name</li>
   <li><span class="h-lab h-motion">MOTION:</span> what moves during the shot</li>
   <li><span class="h-name">WREN:</span> dialogue, or the name alone on a line with the speech under it</li>
   <li><span class="h-lab h-sfx">SFX:</span> sounds for the Sound tab, <span class="h-lab h-note">NOTE:</span> notes to yourself</li>
@@ -429,6 +459,47 @@ function shotStatus(sh,i){const m=sh.media||{};return`${String(i+1).padStart(2,"
 function forClaude(){const t=$("#sc")?$("#sc").value:SCRIPT.text;return`${SFX.GUIDE}\n\n=== ${STORY.title} · Episode ${EP.num}: ${EP.title} ===\n\nWhere the shots stand in GASP:\n${EP.shots.map(shotStatus).join("\n")||"(no shots yet)"}\n\n=== Script ===\n${t}`}
 function copyText(t,msg){navigator.clipboard.writeText(t).then(()=>toast(msg),()=>{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast(msg)}catch(e){toast("Couldn't reach the clipboard")}ta.remove()})}
 
+/* ---------- chat drawer ---------- */
+let CHAT={open:ls.get("g2-chat",false),msgs:[],busy:false,story:null};
+function md(t){const blocks=[];t=String(t||"").replace(/```[a-z]*\n?([\s\S]*?)```/g,(m,c)=>{blocks.push(c);return`\u0000${blocks.length-1}\u0000`});
+  let h=esc(t).replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<i>$2</i>").replace(/`([^`]+)`/g,"<code>$1</code>");
+  h=h.split(/\n{2,}/).map(p=>{const L=p.split("\n");if(L.every(l=>/^\s*[-*•]\s+/.test(l)))return"<ul>"+L.map(l=>"<li>"+l.replace(/^\s*[-*•]\s+/,"")+"</li>").join("")+"</ul>";if(L.every(l=>/^\s*\d+[.)]\s+/.test(l)))return"<ol>"+L.map(l=>"<li>"+l.replace(/^\s*\d+[.)]\s+/,"")+"</li>").join("")+"</ol>";return"<p>"+L.map(l=>/^#{1,4}\s/.test(l)?"<b>"+l.replace(/^#+\s/,"")+"</b>":l).join("<br>")+"</p>"}).join("");
+  return h.replace(/\u0000(\d+)\u0000/g,(m,i)=>`<pre class="cpre">${esc(blocks[+i])}</pre>`)}
+function chatModelLabel(){const c=STATE.chat||{};const m=(STATE.chatModels||[]).find(x=>x.model===c.model&&x.provider===c.provider);return m?m.label:`${c.model} (${c.provider})`}
+function toggleChat(force){CHAT.open=force!=null?force:!CHAT.open;ls.set("g2-chat",CHAT.open);document.body.classList.toggle("chatopen",CHAT.open);$("#chatBtn").classList.toggle("on",CHAT.open);if(CHAT.open)renderChat(true)}
+async function loadChat(){if(!STORY)return;try{const r=await api("/api/chat?story="+encodeURIComponent(STORY.id));CHAT.msgs=r.messages;CHAT.story=STORY.id}catch(e){toast(e.message)}}
+async function renderChat(reload){
+  let d=$("#chat");if(!d){d=document.createElement("aside");d.id="chat";document.body.appendChild(d)}
+  if(!STORY){d.innerHTML=`<div class="chead"><b>Chat</b><span class="spacer"></span><button class="btn small ghost" id="cClose">✕</button></div><p class="sub" style="padding:16px">Make a story first.</p>`;$("#cClose").onclick=()=>toggleChat(false);return}
+  if(reload||CHAT.story!==STORY.id)await loadChat();
+  d.innerHTML=`<div class="chead"><div><b>Chat</b> <span class="sub">· ${esc(STORY.title)}, Ep ${EP.num}</span><div class="sub" style="font-size:11px">${esc(chatModelLabel())} · change in ⚙</div></div><span class="spacer"></span><button class="btn small ghost" id="cNew" title="Start over; the old chat is kept in the story folder">New chat</button><button class="btn small ghost" id="cClose" title="Close">✕</button></div>
+  <div class="cmsgs" id="cmsgs">${CHAT.msgs.length?CHAT.msgs.map(msgHTML).join(""):`<div class="cempty"><p><b>Talk the episode through.</b> The chat sees this episode's script and shots. Ask it to write or rewrite scenes, sharpen dialogue, plan shots, or tighten IMAGE and MOTION prompts.</p><p>When it suggests a change, it shows up as a card. Nothing changes until you press <b>Apply</b>, and Apply can be undone.</p><div class="cstarts">${["Pitch me three cold opens for this episode","Turn this idea into shots: ","Rewrite the IMAGE prompts so they don't use names","What's weak about this episode?"].map(x=>`<button class="btn small" data-start="${esc(x)}">${esc(x)}</button>`).join("")}</div></div>`}${CHAT.busy?`<div class="cmsg a"><div class="bub typing"><i></i><i></i><i></i></div></div>`:""}</div>
+  <div class="ccomp"><textarea id="cin" rows="3" placeholder="Message… (Enter sends, Shift+Enter for a new line)" ${CHAT.busy?"disabled":""}></textarea><button class="btn primary" id="csend" ${CHAT.busy?"disabled":""}>Send</button></div>`;
+  $("#cClose").onclick=()=>toggleChat(false);
+  $("#cNew").onclick=async()=>{if(CHAT.msgs.length&&!confirm("Start a new chat? This one is kept in the story's chat history folder."))return;const r=await api("/api/chat/clear",{story:STORY.id});CHAT.msgs=r.messages;renderChat()};
+  d.querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>{const i=$("#cin");i.value=b.dataset.start;i.focus();i.setSelectionRange(i.value.length,i.value.length)});
+  const cin=$("#cin");cin.value=CHAT.draft||"";cin.oninput=()=>{CHAT.draft=cin.value};cin.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}};$("#csend").onclick=sendChat;
+  d.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>actCard(+b.dataset.m,+b.dataset.a,b.dataset.act));
+  d.querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>{const prev=[...CHAT.msgs].reverse().find(m=>m.role==="user");if(prev){$("#cin").value=prev.text;sendChat()}});
+  const box=$("#cmsgs");box.scrollTop=box.scrollHeight;if(!CHAT.busy)cin.focus()}
+function msgHTML(m){
+  if(m.role==="user")return`<div class="cmsg u"><div class="bub">${esc(m.text).replace(/\n/g,"<br>")}</div></div>`;
+  if(m.error)return`<div class="cmsg a"><div class="bub err">${esc(m.error)}<div style="margin-top:6px"><button class="btn small" data-retry>Try again</button></div></div></div>`;
+  return`<div class="cmsg a"><div class="bub">${md(m.text)||"<p class='sub'>(only suggestions)</p>"}${(m.actions||[]).map((a,k)=>cardHTML(m,a,k)).join("")}<div class="cmeta">${esc(m.model||"")}${m.cost!=null?` · ${m.cost<0.01?"<$0.01":"$"+m.cost.toFixed(2)}`:""}</div></div></div>`}
+function cardHTML(m,a,k){
+  const kind={replace_script:"Rewrite the episode script",append_script:"Add to the end of the script",update_shot:"Change a shot",unreadable:"A suggestion GASP couldn't read"}[a.action]||a.action;
+  let body="";
+  if(a.action==="update_shot"){const sh=EP.shots.find(x=>x.id===a.shot);body=`<div class="sub">${sh?`Shot ${EP.shots.indexOf(sh)+1}: ${esc(sh.title)}`:"(a shot that isn't in this episode)"}</div>`+Object.entries(a.fields||{}).map(([f,v])=>`<div class="cfield"><b>${esc({imagePrompt:"IMAGE",motionPrompt:"MOTION",title:"Title",notes:"Note"}[f]||f)}</b> ${esc(v)}</div>`).join("")}
+  else if(a.text){const n=GASPScript.parse(a.text).blocks.length;body=`<details><summary>${n} shot${n===1?"":"s"} · show the text</summary><pre class="cpre">${esc(a.text)}</pre></details>`}
+  else if(a.raw)body=`<pre class="cpre">${esc(a.raw)}</pre>`;
+  const st=a.state;const btns=a.action==="unreadable"?"":st==="applied"?`<span class="ok">Applied ✓</span><button class="btn small ghost" data-act="undo" data-m="${m.i}" data-a="${k}">Undo</button>`:st==="dismissed"?`<span class="sub">Dismissed</span><button class="btn small ghost" data-act="apply" data-m="${m.i}" data-a="${k}">Apply anyway</button>`:`<button class="btn small primary" data-act="apply" data-m="${m.i}" data-a="${k}">Apply</button><button class="btn small ghost" data-act="dismiss" data-m="${m.i}" data-a="${k}">Dismiss</button>`;
+  return`<div class="card ${st||""}"><div class="ck">${esc(kind)}</div>${a.summary?`<div class="cs">${esc(a.summary)}</div>`:""}${body}<div class="row" style="margin-top:6px;gap:6px">${btns}</div></div>`}
+async function sendChat(){const cin=$("#cin");const t=(cin&&cin.value||"").trim();if(!t||CHAT.busy)return;await flushPending();if(typeof saveScriptNow==="function")await saveScriptNow();
+  CHAT.busy=true;CHAT.draft="";CHAT.msgs.push({role:"user",text:t,i:-1});renderChat();
+  try{const r=await api("/api/chat",{story:STORY.id,ep:EP.id,message:t});CHAT.msgs=r.messages}catch(e){CHAT.msgs.push({role:"assistant",error:e.message,i:-1})}
+  CHAT.busy=false;renderChat();api("/api/state").then(s=>{STATE=s;$("#spendBtn").textContent=money(s.spend)+" spent"}).catch(()=>{})}
+async function actCard(mi,ai,op){try{await flushPending();if(typeof saveScriptNow==="function")await saveScriptNow();const r=await api("/api/chat/act",{story:STORY.id,ep:EP.id,msg:mi,action:ai,op});CHAT.msgs=r.chat.messages;setStory(r.story);renderChat();if(op==="apply")toast("Applied"+(r.note?": "+r.note:""));if(op==="undo")toast("Undone")}catch(e){toast(e.message)}}
+
 /* ---------- viewer ---------- */
 function viewer(list,i,sh){const ov=document.createElement("div");ov.className="ov viewer";document.body.appendChild(ov);
   const draw=()=>{const t=list[i];ov.innerHTML=`${t.kind==="video"?`<video src="${t.url}" controls autoplay loop playsinline></video>`:`<img src="${t.url}" alt="">`}<div class="vb">${list.length>1?`<button class="btn" data-v="prev">‹</button><span class="sub">${i+1} / ${list.length}</span><button class="btn" data-v="next">›</button>`:""}${t.inUse?`<span class="pill">in use</span>`:`<button class="btn primary" data-v="use">Use this</button>`}<a class="btn" href="${t.url}" download="${esc(t.file)}">⤓ Download</a><button class="btn" data-v="del">Move to Trash</button><button class="btn" data-v="close">Close</button></div><div class="sub">${esc(t.file)}</div>`};
@@ -456,15 +527,18 @@ $("#spendBtn").onclick=async()=>{let s;try{s=await api("/api/spend")}catch(e){re
   <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="btn" data-x>Close</button></div></div>`;document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.dataset.x!=null)ov.remove()}};
 
 /* ---------- settings ---------- */
-const KEYS=[["FAL_KEY","fal","Video, images, lip-sync, and Claude chat later"],["GROQ_API_KEY","Groq","Fast chat models (step 4)"],["ELEVENLABS_API_KEY","ElevenLabs","Voices, effects, music (step 7)"],["ANTHROPIC_API_KEY","Anthropic","Optional: Claude direct"],["OPENAI_API_KEY","OpenAI","Optional: ChatGPT images or chat"]];
+const KEYS=[["FAL_KEY","fal","Video, images, lip-sync, and Claude chat"],["GROQ_API_KEY","Groq","Fast, cheap chat models"],["ELEVENLABS_API_KEY","ElevenLabs","Voices, effects, music (step 7)"],["ANTHROPIC_API_KEY","Anthropic","Optional: Claude direct"],["OPENAI_API_KEY","OpenAI","Optional: ChatGPT images or chat"]];
 $("#gear").onclick=async()=>{STATE=await api("/api/state");const ov=document.createElement("div");ov.className="ov";
   ov.innerHTML=`<div class="box"><h2>Settings</h2><p class="sub">Keys are saved in <code>gasp2\\.env</code> on this PC. That file is git-ignored, so keys never go to GitHub. A key marked "from 1.0" is borrowed from GASP 1.0's settings.</p>
   <label class="f">Connections</label>${KEYS.map(([k,n,why])=>`<div class="keyrow"><div><b>${n}</b><div class="sub" style="font-size:11px">${why}</div></div><input type="password" data-key="${k}" placeholder="${STATE.keys[k]==="set"?"saved; type to replace":STATE.keys[k]?"using the key from 1.0; type to replace":"paste key"}" autocomplete="off"><span class="st ${STATE.keys[k]?"ok":""}">${STATE.keys[k]==="set"?"✓ set":STATE.keys[k]?"✓ from 1.0":"not set"}</span></div>`).join("")}
+  <label class="f">Chat model</label><select id="sChat">${(STATE.chatModels||[]).map(m=>`<option value="${m.provider}|${esc(m.model)}" ${STATE.chat&&STATE.chat.model===m.model&&STATE.chat.provider===m.provider?"selected":""}>${esc(m.label)}${m.provider==="fal"&&!STATE.keys.FAL_KEY||m.provider==="groq"&&!STATE.keys.GROQ_API_KEY?" · needs key":""}</option>`).join("")}${STATE.chat&&!(STATE.chatModels||[]).some(m=>m.model===STATE.chat.model&&m.provider===STATE.chat.provider)?`<option value="${STATE.chat.provider}|${esc(STATE.chat.model)}" selected>${esc(STATE.chat.model)} (${STATE.chat.provider})</option>`:""}<option value="custom">Other model id…</option></select>
+  <div class="row" id="sChatCustom" style="margin-top:6px;display:none"><select id="sChatProv" style="width:110px"><option value="fal">fal</option><option value="groq">Groq</option></select><input type="text" id="sChatModel" placeholder="e.g. anthropic/claude-sonnet-5 or openai/gpt-oss-120b"></div>
   <label class="f">Default video model</label><select id="sDef">${Object.entries(STATE.models).map(([k,v])=>`<option value="${k}" ${k===STATE.defaultVideo?"selected":""}>${esc(v.label)} · $${v.pricePerSecond}/s</option>`).join("")}</select>
   <label class="f">Library folder</label><input type="text" id="sLib" value="${esc(STATE.library)}"><p class="sub" style="margin:4px 0 0">Where every story, reference and take is kept. Changing it starts using the new folder; it doesn't move the old one.</p>
   <div class="row" style="margin-top:16px"><button class="btn" id="sUpd">Check for updates</button><span class="sub" id="sUpdMsg"></span><span class="spacer"></span><button class="btn" data-x>Cancel</button><button class="btn primary" id="sSave">Save</button></div></div>`;
   document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.dataset.x!=null)ov.remove()};
-  ov.querySelector("#sSave").onclick=async()=>{const keys={};ov.querySelectorAll("[data-key]").forEach(i=>{if(i.value.trim())keys[i.dataset.key]=i.value.trim()});try{await api("/api/settings",{keys,library:ov.querySelector("#sLib").value,defaultVideo:ov.querySelector("#sDef").value});ov.remove();STATE=await api("/api/state");renderStorySel();toast("Settings saved");if(STORY&&!STATE.stories.find(s=>s.id===STORY.id)){STORY=null;const f=STATE.stories[0];if(f)openStory(f.id);else renderMain()}else renderMain()}catch(e){toast(e.message)}};
+  const sc=ov.querySelector("#sChat");sc.onchange=()=>{ov.querySelector("#sChatCustom").style.display=sc.value==="custom"?"flex":"none"};
+  ov.querySelector("#sSave").onclick=async()=>{const keys={};ov.querySelectorAll("[data-key]").forEach(i=>{if(i.value.trim())keys[i.dataset.key]=i.value.trim()});const cv=sc.value==="custom"?ov.querySelector("#sChatProv").value+"|"+ov.querySelector("#sChatModel").value.trim():sc.value;const [cp,...cm]=cv.split("|");try{await api("/api/settings",{keys,library:ov.querySelector("#sLib").value,defaultVideo:ov.querySelector("#sDef").value,chat:cm.join("|")?{provider:cp,model:cm.join("|")}:null});ov.remove();STATE=await api("/api/state");renderStorySel();toast("Settings saved");if(STORY&&!STATE.stories.find(s=>s.id===STORY.id)){STORY=null;const f=STATE.stories[0];if(f)openStory(f.id);else renderMain()}else renderMain()}catch(e){toast(e.message)}};
   ov.querySelector("#sUpd").onclick=async()=>{const m=ov.querySelector("#sUpdMsg");m.textContent="Checking…";const c=await api("/api/update/check").catch(e=>({error:e.message}));if(c.error){m.textContent=c.error;return}if(!c.behind){m.textContent="You're up to date.";return}m.textContent="Updating…";installUpdate(m)}};
 /* ---------- updates: checked on launch and every 30 minutes; one click installs and restarts ---------- */
 async function checkUpdate(){try{const c=await api("/api/update/check");const p=$("#updPill");p.hidden=!(c.behind&&c.gasp2)}catch(e){}}

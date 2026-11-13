@@ -3,7 +3,7 @@
 The milestone checklist for GASP 2. **Whoever works on it ticks items as they land and adds a log line**, so any
 machine or session can see how far it got. Design: *GASP 2.0 — The Electric Bike* (link in `CLAUDE.md`).
 
-Status: **Steps 1–3 built (dry-run tested). Waiting on Joe's first real run on Windows.**
+Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real message to confirm fal's chat endpoint.**
 
 ## Step 1 — The shell and Settings
 - [x] `gasp2/` folder: Node server (port 4848), single-file app, no dependencies
@@ -48,10 +48,14 @@ Status: **Steps 1–3 built (dry-run tested). Waiting on Joe's first real run on
 - [x] Copy for Claude: whole episode (guide + shot status + script), or one shot from its panel
 
 ## Step 4 — In-app chat
-- [ ] Test Claude via fal's LLM router (`openrouter/router`, model e.g. `anthropic/claude-sonnet-...`): quality, speed, cost per session
-- [ ] Test Groq (e.g. `openai/gpt-oss-120b`) as the fast option; pick defaults in Settings
-- [ ] Chat panel beside every tab; reads script, cards and shots; proposes edits as accept/undo cards
-- [ ] Chat cost goes in the spend log
+- [x] 💬 Chat drawer beside every tab; one conversation per story in `chat.json` (New chat archives to `chat history\`)
+- [x] Calls fal's OpenAI-style chat endpoint (`openrouter/router/openai/v1/chat/completions`) or Groq's; model picked in Settings (Claude Sonnet 5 default, Opus 5.5, Sonnet 4.6, GPT-OSS 120B, Kimi K2, Llama 3.3, or any model id)
+- [x] Each message carries the episode script, shot list with status, characters and the format guide (`lib/chat.js`)
+- [x] Proposals come back as ```gasp blocks → cards: rewrite script, add to script, change a shot. Apply / Dismiss / Undo (an add is undone by removing its shots, so later edits survive; a rewrite brings the old script back)
+- [x] Chat cost logged per message when the provider reports it (tokens always)
+- [ ] Joe: first real message on fal. If fal's chat endpoint rejects the format, fall back to `openrouter/router` (prompt + system_prompt) in `lib/chat.js`
+- [ ] Compare Claude on fal with a Groq model for quality and cost; pick the default
+- [ ] Image references in chat (paste a keyframe and ask about it): fal's endpoint accepts `image_urls`
 
 ## Step 5 — Keyframe generation
 - [ ] Image prompt + references (shot's characters, location, props, extras) + model picker + 1/2/4 results
@@ -74,6 +78,7 @@ Status: **Steps 1–3 built (dry-run tested). Waiting on Joe's first real run on
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-12 — Step 4 chat built and dry-run tested (two cards applied, undo of the add removed its shot and kept the later shot edit). IMAGE prompts no longer use names: WHO: line added to the format, example and Check format.
 - 2026-11-12 — Check format added. Joe expects to write mostly by talking to Claude, so no more time on the editor unless he asks.
 - 2026-11-12 — One-click updates (Joe hit a "diverging branches" error from the old fast-forward-only pull).
 - 2026-11-12 — Script tab helpers from Joe's first look: ghost suggestions, faint example page when empty, Example pane beside the editor.
