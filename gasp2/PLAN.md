@@ -59,7 +59,12 @@ Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real
 - [ ] Compare Claude on fal with a Groq model for quality and cost; pick the default
 - [ ] Image references in chat (paste a keyframe and ask about it): fal's endpoint accepts `image_urls`
 
-## Step 5 — Keyframe generation
+## From the Grim-at-the-Fence comparison (Nov 13)
+- [ ] **Clips**: group consecutive shots into one video generation for multi-shot models (Seedance 2.0 takes "Shot 1 (0–4 s) … Shot 2 …" in one prompt, up to 15 s). A `CLIP:` heading in the script; one Generate per clip in Shots
+- [ ] Model minimum lengths: Check format warns when a shot is shorter than the chosen video model makes (most start at 4–5 s); the cut trims longer clips down to the shot length
+- [ ] Format guide and chat: encourage a short brief above the first SHOT (tone, content rules, light and palette progression, camera rules); the chat keeps every shot consistent with it
+
+
 - [ ] Image prompt + references (shot's characters, location, props, extras) + model picker + 1/2/4 results
 - [ ] Results into the shot's History; Use / Download / Trash
 - [ ] Optional Compose: 1.0's stage editor as a layout guide
