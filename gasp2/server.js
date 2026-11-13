@@ -254,7 +254,7 @@ const routes = {
     const msg = String(b.message || "").trim(); if (!msg) throw httpErr(400, "empty message");
     c.messages.push({ role: "user", content: msg, at: Date.now(), ep: ep.num }); writeChat(s, c);
     const app = storyForApp(s); const epA = app.episodes.find(e => e.id === ep.id); const script = readScript(s, ep);
-    const sys = systemPrompt({ guide: SF.GUIDE, story: s, ep, script, shots: epA.shots, characters: SF.parse(script).characters });
+    const sys = systemPrompt({ guide: SF.GUIDE, story: s, ep, script, shots: epA.shots, characters: SF.parse(script).characters, videoModel: MODELS.video[settings().defaultVideo] });
     const hist = c.messages.slice(-24).map(m => ({ role: m.role, content: m.role === "assistant" && (m.actions || []).some(a => a.state) ? m.content + "\n\n(" + m.actions.map((a, k) => `card ${k + 1}: ${a.state || "not acted on"}`).join("; ") + ")" : m.content }));
     const cs = chatSetting(); let r;
     try { r = process.env.GASP_DRY ? { text: dryReply(msg, epA.shots), tokensIn: 0, tokensOut: 0, cost: 0, ms: 600 } : await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: sys }, ...hist] }); }

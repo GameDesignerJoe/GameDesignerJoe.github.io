@@ -357,29 +357,38 @@ async function renderScript(){
   const paint=()=>{GHOST=suggest(ta);mi.innerHTML=ta.value?highlight(ta.value,GHOST,LINT.open?LINT.flags:null):(GHOST?ghostAt(0,GHOST,"")+"\n\n":"")+`<span class="h-emptypage">${highlight(EXAMPLE)}</span>`;mi.scrollTop=ta.scrollTop};
   const refresh=()=>{paint();outline()};
   ["click","keyup","focus","blur"].forEach(ev=>ta.addEventListener(ev,e=>{if(ev==="keyup"&&!/^(Arrow|Home|End|Page)/.test(e.key))return;paint()}));
-  ta.oninput=()=>{if(LINT.open){clearTimeout(LINT.t);LINT.t=setTimeout(()=>showLint(GASPScript.lint(ta.value).issues,true),900)}SCRIPT.text=ta.value;$("#scSaved").textContent="saving…";clearTimeout(SCRIPT.t);SCRIPT.t=setTimeout(saveScriptNow,800);refresh()};
+  ta.oninput=()=>{if(LINT.open){clearTimeout(LINT.t);LINT.t=setTimeout(()=>showLint(GASPScript.lint(ta.value,lintOpt()).issues,true),900)}SCRIPT.text=ta.value;$("#scSaved").textContent="saving…";clearTimeout(SCRIPT.t);SCRIPT.t=setTimeout(saveScriptNow,800);refresh()};
   ta.onscroll=()=>{mi.scrollTop=ta.scrollTop};
   ta.onkeydown=e=>smartKeys(e,ta,()=>ta.oninput(),paint);
   $("#sync").onclick=()=>doSync();
   $("#lintBtn").onclick=()=>{const r=GASPScript.lint(ta.value);if(r.fixes.length&&r.text!==ta.value){ta.focus();ta.select();if(!document.execCommand("insertText",false,r.text))ta.value=r.text;ta.setSelectionRange(0,0);ta.scrollTop=0;ta.oninput()}LINT.open=true;LINT.fixed=r.fixes;showLint(r.issues)};
-  if(LINT.open)showLint(GASPScript.lint(ta.value).issues,true);
+  if(LINT.open)showLint(GASPScript.lint(ta.value,lintOpt()).issues,true);
   $("#copyClaude").onclick=()=>copyText(forClaude(),"Script, shot status and format guide copied. Paste into Claude.");
   $("#guide").onclick=async()=>{await saveScriptNow();ls.set("g2-example",!ls.get("g2-example",true));renderScript()};
   const gc=$("#gCopy");if(gc)gc.onclick=()=>copyText(SFX.GUIDE,"Format guide copied. Paste it into your Claude project's instructions.");
   $("#scFolder").onclick=()=>reveal({ep:EP.id});
   refresh()}
-const EXAMPLE=`SCENE: Beach camp, late morning
+const EXAMPLE=`FORMAT: 9:16
+STYLE: glossy soap-opera photoreal, warm film grain, shallow depth of field
+TONE: playful → charged
+RULES: suggestive, never explicit
+LIGHT: golden late morning throughout, sun-dappled under the trees
+CAMERA: slow push-ins and locked-off close-ups; no handheld
+CAST: Wren — woman in her twenties, sun-streaked hair, leather-and-fur two-piece
+CAST: Declan — rugged man in his thirties, stubble, linen shirt, carved spear
+
+SCENE: Beach camp, late morning
 
 SHOT: Wren sunbathes on the rock · MS · Beach Rock · 5s
 WHO: Wren
-IMAGE: A woman in her twenties lies on a flat, lichen-covered rock, arms behind her head, eyes closed. Leather-and-fur two-piece, sun-warmed skin, jungle behind her. Golden late-morning light, 35mm, vertical frame.
+IMAGE: A woman in her twenties with sun-streaked hair, in a leather-and-fur two-piece, lies on a flat, lichen-covered rock, arms behind her head, eyes closed. Jungle behind her. Golden late-morning light, 35mm.
 MOTION: slow push-in; she opens one eye and smiles without moving
 WREN: "You can stop pretending you're not looking."
 SFX: surf, a gull, leather creaks as she shifts
 
 SHOT: Declan freezes at the treeline · CU · Beach Rock · 4s
 WHO: Declan
-IMAGE: A rugged man in his thirties half-hidden in ferns, spear lowered, caught staring. Dappled shade, shallow focus, vertical frame.
+IMAGE: A rugged man in his thirties with stubble, in a linen shirt, half-hidden in ferns, carved spear lowered, caught staring. Sun-dappled shade, shallow focus.
 MOTION: he straightens and looks away too fast
 DECLAN
 (caught)
@@ -388,6 +397,7 @@ NOTE: hold a beat on his face before the cut`;
 function exampleHTML(){return`<aside class="example"><div class="row"><h3 class="side" style="margin:0">Example page</h3><span class="spacer"></span><button class="btn small ghost" id="gCopy" title="Copy the format guide, for a Claude project's instructions">Copy guide for Claude</button></div>
   <pre class="expage">${highlight(EXAMPLE)}</pre>
   <h3 class="side">How it reads</h3><ul class="exkeys">
+  <li><b>The brief</b>, above the first shot: <span class="h-lab h-style">FORMAT</span>, <span class="h-lab h-style">STYLE</span> (added to every IMAGE prompt), then TONE, RULES, LIGHT, CAMERA, CAST, AUDIO. CAST lines are the exact words to reuse for each character in every IMAGE.</li>
   <li><span class="h-scene">SCENE:</span> a heading for where and when (INT./EXT. work too). Optional.</li>
   <li><span class="h-shot">SHOT:</span> starts a shot: a short title, then optional framing (CU, MS, WS…), location and length, split by <b>·</b></li>
   <li><span class="h-lab h-who">WHO:</span> who's in frame, by name, so GASP attaches their reference images</li>
@@ -399,7 +409,7 @@ function exampleHTML(){return`<aside class="example"><div class="row"><h3 class=
   <h3 class="side">Keys</h3><ul class="exkeys"><li><b>Tab</b> or <b>→</b> takes the grey suggestion; <b>Esc</b> dismisses it</li><li><b>Tab</b> on an empty line cycles SHOT, IMAGE, MOTION, SFX, NOTE</li><li>Start typing a name or a keyword (<b>im</b>, <b>wr</b>) and Tab finishes it</li><li><b>Ctrl+S</b> saves (it also saves on its own)</li></ul></aside>`}
 function highlight(t,ghost,flags){const R=SFX.re;let cue=false;return t.split("\n").map((L,li)=>{const h=ghostAt(li,ghost,hl(L));const f=flags&&flags[li];return f?`<span class="h-flag ${f}">${h||" "}</span>`:h}).join("\n")+"\n";function hl(L){const s=L.trim();let h=esc(L);const idm=L.match(R.id);if(idm)h=esc(L.slice(0,idm.index))+`<span class="h-id">${esc(L.slice(idm.index))}</span>`;
   if(R.scene.test(s)){cue=false;return`<span class="h-scene">${h}</span>`}
-  const sf=L.match(/^(\s*)(STYLE|FORMAT)(\s*:)(.*)$/i);if(sf){cue=false;return`${esc(sf[1])}<span class="h-lab h-style">${esc(sf[2]+sf[3])}</span>${esc(sf[4])}`}
+  const sf=L.match(/^(\s*)(STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE)(\s*:)(.*)$/i);if(sf){cue=false;return`${esc(sf[1])}<span class="h-lab h-style">${esc(sf[2]+sf[3])}</span>${esc(sf[4])}`}
   if(R.shot.test(s)&&!R.field.test(s)){cue=false;return`<span class="h-shot">${h}</span>`}
   const f=L.match(/^(\s*)(IMAGE|MOTION|SFX|SOUND|NOTES?|WHO|FRAME|LOCATION|LENGTH)(\s*:)(.*)$/i);if(f){cue=false;return`${esc(f[1])}<span class="h-lab h-${f[2].toLowerCase().replace(/s$/,"")}">${esc(f[2]+f[3])}</span>${esc(f[4])}`}
   const d=s.match(R.dialog);if(d&&!R.notNames.test(d[1])){cue=false;const i=L.indexOf(d[1]);return`${esc(L.slice(0,i))}<span class="h-name">${esc(d[1])}</span>${esc(L.slice(i+d[1].length))}`}
@@ -415,6 +425,7 @@ function outline(){const ta=$("#sc");if(!ta)return;const p=SFX.parse(ta.value);c
 function jumpTo(line){const ta=$("#sc");const L=ta.value.split("\n");let pos=0;for(let i=0;i<line;i++)pos+=L[i].length+1;ta.focus();ta.setSelectionRange(pos,pos+L[line].length);const lh=parseFloat(getComputedStyle(ta).lineHeight)||22;ta.scrollTop=Math.max(0,line*lh-120)}
 const PREFIX=["SHOT: ","IMAGE: ","MOTION: ","SFX: ","NOTE: "];
 let GHOST=null;
+function lintOpt(){const m=STATE&&STATE.models&&STATE.models[STATE.defaultVideo];return m?{minSeconds:Math.min(...m.durations),modelLabel:m.label}:{}}
 // format check results: issues listed in the sidebar, their lines tinted in the editor until fixed
 const LINT={open:false,issues:[],flags:{},fixed:[],t:0};
 function showLint(issues,live){LINT.issues=issues;LINT.flags={};issues.forEach(x=>{if(!LINT.flags[x.line]||x.level==="error")LINT.flags[x.line]=x.level});

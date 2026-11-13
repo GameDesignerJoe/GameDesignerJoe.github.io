@@ -61,8 +61,9 @@ Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real
 
 ## From the Grim-at-the-Fence comparison (Nov 13)
 - [ ] **Clips**: group consecutive shots into one video generation for multi-shot models (Seedance 2.0 takes "Shot 1 (0–4 s) … Shot 2 …" in one prompt, up to 15 s). A `CLIP:` heading in the script; one Generate per clip in Shots
-- [ ] Model minimum lengths: Check format warns when a shot is shorter than the chosen video model makes (most start at 4–5 s); the cut trims longer clips down to the shot length
-- [ ] Format guide and chat: encourage a short brief above the first SHOT (tone, content rules, light and palette progression, camera rules); the chat keeps every shot consistent with it
+- [x] Model minimum lengths: Check format warns when a shot is shorter than the default video model makes; the chat sizes shots to that model's lengths
+- [ ] The cut trims longer clips down to the shot length (Sound tab / export)
+- [x] The method: the chat writes a brief above the first SHOT (FORMAT, STYLE, TONE, RULES, LIGHT, CAMERA, CAST, AUDIO), reuses CAST wording in every IMAGE, follows the light/palette progression and camera rules, stages violence so content filters pass (implied, victims and children off-frame or shielded, no gore words), and asks before writing when format/style/length/limits are missing. Guide, example page and Check format know the brief lines
 
 
 - [ ] Image prompt + references (shot's characters, location, props, extras) + model picker + 1/2/4 results
@@ -85,6 +86,7 @@ Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-13 — Compared GASP's first script with Joe's Taplot-made .md (~$50 video). Took the .md's method into how the chat writes every script; Joe will rerun the same prompt in a new story to compare.
 - 2026-11-13 — First real chat: works on fal. Fixed cut-off proposals; added FORMAT/STYLE (Joe's first project is 16:9, 1980s cartoon style).
 - 2026-11-12 — Step 4 chat built and dry-run tested (two cards applied, undo of the add removed its shot and kept the later shot edit). IMAGE prompts no longer use names: WHO: line added to the format, example and Check format.
 - 2026-11-12 — Check format added. Joe expects to write mostly by talking to Claude, so no more time on the editor unless he asks.

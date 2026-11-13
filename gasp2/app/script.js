@@ -16,7 +16,7 @@ var GASPScript = (function () {
   var reDialog = /^\s*([A-Z][A-Z0-9 .'\-]{0,28}[A-Z0-9.'])\s*(\([^)]*\))?\s*:\s*(.+)$/;
   var reCue = /^\s*([A-Z][A-Z0-9 .'\-]{0,28}[A-Z0-9.'])\s*(\([^)]*\))?\s*$/;
   var reId = /\s*\[\[#([a-z0-9]{6,16})\]\]\s*$/i;
-  var NOT_NAMES = /^(INT|EXT|SCENE|SHOT|CUT TO|FADE IN|FADE OUT|THE END|END|CONTINUED|TITLE|STYLE|FORMAT)\b/;
+  var NOT_NAMES = /^(INT|EXT|SCENE|SHOT|CUT TO|FADE IN|FADE OUT|THE END|END|CONTINUED|TITLE|STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE)\b/;
 
   function splitCallout(rest) {
     var id = null, m = rest.match(reId); if (m) { id = m[1]; rest = rest.replace(reId, ""); }
@@ -48,7 +48,7 @@ var GASPScript = (function () {
       if (!cur) {   // header lines above the first shot: FORMAT and STYLE
         if ((m = t.match(/^FORMAT\s*:\s*(\d+)\s*[:x×]\s*(\d+)/i))) { aspect = m[1] + ":" + m[2]; head = null; continue; }
         if ((m = t.match(/^STYLE\s*:\s*(.*)$/i))) { style = m[1].trim(); head = "style"; continue; }
-        if (head === "style" && t) { style += " " + t; continue; }
+        if (head === "style" && t && !/^[A-Z][A-Za-z ]{1,20}\s*:/.test(t)) { style += " " + t; continue; }
         head = null; continue;
       }
       if (!t) { field = null; cue = null; continue; }
@@ -130,6 +130,8 @@ var GASPScript = (function () {
     "",
     "FORMAT: 9:16                              (optional, above the first shot: 9:16 vertical is the default, or 16:9, 1:1)",
     "STYLE: 1980s cel-animated cartoon, bold ink outlines   (optional: the look, added in front of every IMAGE prompt)",
+    "TONE: playful → charged                  (optional brief lines above the first shot: TONE, RULES, LIGHT, CAMERA, CAST, AUDIO)",
+    "CAST: Wren — woman in her twenties, sun-streaked hair, leather-and-fur two-piece   (exact words to reuse in every IMAGE)",
     "SCENE: Beach camp, late morning          (optional scene heading; INT./EXT. also work)",
     "SHOT: Wren sunbathes on the rock · MS · Beach Rock · 5s",
     "WHO: Wren                                (which characters are in frame, so GASP attaches their reference images)",
@@ -148,11 +150,13 @@ var GASPScript = (function () {
 
   // ---- format check: fix what is certain, flag the rest (line numbers are 0-based) ----
   var SYN = { VISUAL: "IMAGE", PROMPT: "IMAGE", "IMAGE PROMPT": "IMAGE", KEYFRAME: "IMAGE", PICTURE: "IMAGE", FRAME_IMAGE: "IMAGE", CAMERA: "MOTION", MOVEMENT: "MOTION", ANIMATION: "MOTION", "VIDEO PROMPT": "MOTION", "MOTION PROMPT": "MOTION", AUDIO: "SFX", "SOUND EFFECTS": "SFX", "SOUND EFFECT": "SFX", FX: "SFX", SOUNDS: "SFX", NOTES: "NOTE", "DIRECTOR NOTE": "NOTE", DURATION: "LENGTH", TIME: "LENGTH" };
-  function lint(text) {
+  function lint(text, opt) {
+    opt = opt || {};
     var L = lines(text), fixes = [], issues = [];
     var fix = function (i, nv, msg) { if (nv !== L[i]) { L[i] = nv; fixes.push({ line: i, msg: msg }); } };
     // names used as speakers anywhere (WREN: or a cue line) count as characters, so "Wren:" can be fixed to "WREN:"
     var known = {}; L.forEach(function (x) { var m = x.trim().match(reDialog) || x.trim().match(reCue); if (m && !NOT_NAMES.test(m[1]) && !reField.test(x) && !reShot.test(x.trim())) known[m[1].trim().toUpperCase()] = 1; });
+    var inShots = false;
     L.forEach(function (x, i) {
       var t = x;
       t = t.replace(/^\s*(?:[-*•]\s+|#{1,6}\s+|>\s+)/, "");                         // bullets, markdown headings, quotes pasted from chat
@@ -163,14 +167,15 @@ var GASPScript = (function () {
       if ((m = t.match(/^\s*(scene|int\.|ext\.)\s*[:.\-–]?\s*(.*)$/i)) && !/^\s*(SCENE:|INT\.|EXT\.)/.test(t)) fix(i, (/scene/i.test(m[1]) ? "SCENE: " : m[1].toUpperCase() + " ") + m[2], "scene heading in caps");
       if ((m = t.match(/^\s*shot\b\s*#?\s*(\d*)\s*[:.\-–—·]?\s*(.*)$/i)) && !reField.test(t)) {
         var rest = m[2].replace(/\s*\|\s*/g, " · ").replace(/\s+[-–—]\s+/g, " · ").replace(/(\d+(?:\.\d+)?)\s*(?:sec|secs|second|seconds)\b/gi, "$1s");
-        var nv = "SHOT" + (m[1] ? " " + m[1] : "") + ": " + rest; if (!/^\s*SHOT\b/.test(t) || nv.replace(/\s/g, "") !== t.replace(/\s/g, "")) fix(i, nv, "SHOT line tidied");
+        inShots = true; var nv = "SHOT" + (m[1] ? " " + m[1] : "") + ": " + rest; if (!/^\s*SHOT\b/.test(t) || nv.replace(/\s/g, "") !== t.replace(/\s/g, "")) fix(i, nv, "SHOT line tidied");
         if (!splitCallout(rest).title) issues.push({ line: i, level: "warn", msg: "This SHOT has no title; the tile will be named from its first words." });
         return;
       }
       if ((m = t.match(/^\s*([A-Za-z][A-Za-z .'_\-]{1,28}?)\s*[:\-–]\s+(.+)$/))) {
         var lab = m[1].trim().toUpperCase().replace(/_/g, " ");
         if (FIELDS[lab] || FIELDS[lab.replace(/S$/, "")]) { var up = lab === "NOTES" ? "NOTE" : lab; if (t.indexOf(up + ": ") !== 0) fix(i, up + ": " + m[2], up + ": label fixed"); return; }
-        if (SYN[lab]) { fix(i, SYN[lab] + ": " + m[2], lab + " → " + SYN[lab]); return; }
+        if (!inShots && /^(STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE|EMOTION LINE)$/.test(lab)) { if (t.indexOf(lab + ": ") !== 0) fix(i, lab + ": " + m[2], "brief label in caps"); return; }   // the brief above the first shot
+        if (SYN[lab] && inShots) { fix(i, SYN[lab] + ": " + m[2], lab + " → " + SYN[lab]); return; }
         if (known[lab]) { if (t.indexOf(lab + ": ") !== 0 && t.indexOf(lab + " (") !== 0) fix(i, lab + ": " + m[2], "speaker name in caps"); return; }
         if (/^[A-Z][A-Z .'\-]+$/.test(m[1].trim()) && !NOT_NAMES.test(lab)) return;      // a new speaker in caps is fine
         if (/^[A-Z][a-z]+$/.test(m[1].trim()) && /^["“]/.test(m[2])) { fix(i, lab + ": " + m[2], "speaker name in caps"); return; }
@@ -181,8 +186,8 @@ var GASPScript = (function () {
     var firstShot = p.blocks.length ? p.blocks[0].start : -1; var OL = lines(out);
     OL.forEach(function (x, i) { if (/^\s*(#+\s*)?(reference|references|reference images?)\b/i.test(x)) issues.push({ line: i, level: "info", msg: "Reference images go in the Reference tab, not the script; GASP attaches them by the names on WHO: lines." }); });
     if (!p.blocks.length && out.trim()) issues.push({ line: 0, level: "error", msg: "No SHOT lines, so Sync has nothing to make. Start each shot with SHOT:" });
-    OL.forEach(function (x, i) { if (firstShot > 0 && i < firstShot && i > 0 && x.trim() && !reScene.test(x.trim()) && !/^\s*(STYLE|FORMAT)\s*:/i.test(x) && (reField.test(x) || reDialog.test(x.trim()))) issues.push({ line: i, level: "warn", msg: "This is above the first SHOT, so it won't reach any shot." }); });
-    OL.forEach(function (x, i) { var m = x.trim().match(/^([A-Za-z][A-Za-z ]{2,24})\s*:\s+\S/); if (m && !FIELDS[m[1].toUpperCase()] && !SYN[m[1].toUpperCase()] && !known[m[1].toUpperCase()] && !/^[A-Z][A-Z .'\-]+$/.test(m[1]) && !/^(SCENE|SHOT|Title|STYLE|FORMAT)$/i.test(m[1])) issues.push({ line: i, level: "info", msg: "\"" + m[1] + ":\" isn't a GASP label, so this line counts as action. Use IMAGE:, MOTION:, SFX:, NOTE: or a speaker NAME:." }); });
+    OL.forEach(function (x, i) { if (firstShot > 0 && i < firstShot && i > 0 && x.trim() && !reScene.test(x.trim()) && !/^\s*(STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE|EMOTION LINE)\s*:/i.test(x) && !/^\s*\S.*\s[—–-]\s/.test(x) && (reField.test(x) || reDialog.test(x.trim()))) issues.push({ line: i, level: "warn", msg: "This is above the first SHOT, so it won't reach any shot." }); });
+    OL.forEach(function (x, i) { var m = x.trim().match(/^([A-Za-z][A-Za-z ]{2,24})\s*:\s+\S/); if (m && !FIELDS[m[1].toUpperCase()] && !SYN[m[1].toUpperCase()] && !known[m[1].toUpperCase()] && !/^[A-Z][A-Z .'\-]+$/.test(m[1]) && !/^(SCENE|SHOT|Title|STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|LENGTH|TARGET|EMOTION LINE|PERFORMANCE)$/i.test(m[1])) issues.push({ line: i, level: "info", msg: "\"" + m[1] + ":\" isn't a GASP label, so this line counts as action. Use IMAGE:, MOTION:, SFX:, NOTE: or a speaker NAME:." }); });
     p.blocks.forEach(function (b) {
       if (b.id) { if (ids[b.id]) issues.push({ line: b.start, level: "error", msg: "Two SHOT lines share the link [[#" + b.id + "]]. Delete it from the copy so Sync makes a new shot." }); ids[b.id] = 1; }
       if (!b.image) issues.push({ line: b.start, level: "error", msg: "No IMAGE (or action) for this shot, so its keyframe has nothing to go on." });
@@ -191,6 +196,7 @@ var GASPScript = (function () {
       var hit = names.filter(function (n) { return new RegExp("\\b" + n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(b.image); });
       if (hit.length) issues.push({ line: b.start, level: "warn", msg: "IMAGE names " + uniq(hit.map(titleCase)).join(", ") + ". Image models don't know who that is: describe them instead, and put the name on a WHO: line so GASP attaches the reference image." });
       if (!b.motion) issues.push({ line: b.start, level: "warn", msg: "No MOTION, so the video gets a generic \"subtle natural motion\"." });
+      if (b.seconds && opt.minSeconds && b.seconds < opt.minSeconds) issues.push({ line: b.start, level: "warn", msg: b.seconds + "s is shorter than " + (opt.modelLabel || "the video model") + " makes (" + opt.minSeconds + "s at least). Fold this beat into a longer shot, or trim it in the edit." });
       if (b.seconds && b.seconds > 15) issues.push({ line: b.start, level: "warn", msg: b.seconds + "s is longer than any video model makes in one go (most stop at 10–15s)." });
     });
     if (fixes.length) out = renumber(out);
