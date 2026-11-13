@@ -16,7 +16,7 @@ var GASPScript = (function () {
   var reDialog = /^\s*([A-Z][A-Z0-9 .'\-]{0,28}[A-Z0-9.'])\s*(\([^)]*\))?\s*:\s*(.+)$/;
   var reCue = /^\s*([A-Z][A-Z0-9 .'\-]{0,28}[A-Z0-9.'])\s*(\([^)]*\))?\s*$/;
   var reId = /\s*\[\[#([a-z0-9]{6,16})\]\]\s*$/i;
-  var NOT_NAMES = /^(INT|EXT|SCENE|SHOT|CUT TO|FADE IN|FADE OUT|THE END|END|CONTINUED|TITLE)\b/;
+  var NOT_NAMES = /^(INT|EXT|SCENE|SHOT|CUT TO|FADE IN|FADE OUT|THE END|END|CONTINUED|TITLE|STYLE|FORMAT)\b/;
 
   function splitCallout(rest) {
     var id = null, m = rest.match(reId); if (m) { id = m[1]; rest = rest.replace(reId, ""); }
@@ -35,7 +35,7 @@ var GASPScript = (function () {
 
   function parse(text) {
     var lines = String(text || "").replace(/\r/g, "").split("\n");
-    var blocks = [], cur = null, field = null, cue = null, scene = "";
+    var blocks = [], cur = null, field = null, cue = null, scene = "", style = "", aspect = "", head = null;
     function close(i) { if (cur) { cur.end = i - 1; while (cur.end > cur.start && !lines[cur.end].trim()) cur.end--; blocks.push(cur); } cur = null; field = null; cue = null; }
     for (var i = 0; i < lines.length; i++) {
       var L = lines[i], t = L.trim(), m;
@@ -45,7 +45,12 @@ var GASPScript = (function () {
         cur = { start: i, end: i, id: c.id, title: c.title, frame: c.frame, location: c.location, seconds: c.seconds, scene: scene, image: "", motion: "", sfx: [], notes: "", who: "", action: "", lines: [] };
         continue;
       }
-      if (!cur) continue;
+      if (!cur) {   // header lines above the first shot: FORMAT and STYLE
+        if ((m = t.match(/^FORMAT\s*:\s*(\d+)\s*[:x×]\s*(\d+)/i))) { aspect = m[1] + ":" + m[2]; head = null; continue; }
+        if ((m = t.match(/^STYLE\s*:\s*(.*)$/i))) { style = m[1].trim(); head = "style"; continue; }
+        if (head === "style" && t) { style += " " + t; continue; }
+        head = null; continue;
+      }
       if (!t) { field = null; cue = null; continue; }
       if ((m = t.match(reField))) {
         var k = FIELDS[m[1].toUpperCase()], v = m[2].trim();
@@ -70,7 +75,7 @@ var GASPScript = (function () {
       if (!b.image && b.action) b.image = b.action;
       if (!b.who && b.lines.length) b.who = uniq(b.lines.map(function (l) { return l.who; })).join(", ");
     });
-    return { blocks: blocks, characters: characters(lines) };
+    return { blocks: blocks, characters: characters(lines), style: style, aspect: aspect };
   }
   function unquote(s) { s = s.trim(); return /^["“].*["”]$/.test(s) ? s.slice(1, -1) : s; }
   function titleCase(s) { return s.toLowerCase().replace(/(^|[\s'\-.])[a-z]/g, function (c) { return c.toUpperCase(); }); }
@@ -123,6 +128,8 @@ var GASPScript = (function () {
   var GUIDE = [
     "GASP shot format. Write the script as a screenplay; mark every shot like this:",
     "",
+    "FORMAT: 9:16                              (optional, above the first shot: 9:16 vertical is the default, or 16:9, 1:1)",
+    "STYLE: 1980s cel-animated cartoon, bold ink outlines   (optional: the look, added in front of every IMAGE prompt)",
     "SCENE: Beach camp, late morning          (optional scene heading; INT./EXT. also work)",
     "SHOT: Wren sunbathes on the rock · MS · Beach Rock · 5s",
     "WHO: Wren                                (which characters are in frame, so GASP attaches their reference images)",
@@ -135,7 +142,7 @@ var GASPScript = (function () {
     "",
     "Rules: one SHOT line per shot; the title comes first after SHOT:, then optional framing (ECU, CU, MCU, MS, WS, OTS),",
     "location and length (5s). Keep IMAGE prompts self-contained so each works on its own in any image model:",
-    "describe people by look, never by name, and name them on the WHO: line instead. Frame for 9:16 vertical.",
+    "describe people by look, never by name, and name them on the WHO: line instead. Frame for the episode's FORMAT.",
     "Lines ending in [[#…]] are links GASP adds; keep them when you rewrite a shot.",
   ].join("\n");
 
@@ -172,9 +179,10 @@ var GASPScript = (function () {
     // whole-shot checks on the cleaned text
     var out = L.join("\n").replace(/\n{3,}/g, "\n\n"); var p = parse(out), ids = {};
     var firstShot = p.blocks.length ? p.blocks[0].start : -1; var OL = lines(out);
+    OL.forEach(function (x, i) { if (/^\s*(#+\s*)?(reference|references|reference images?)\b/i.test(x)) issues.push({ line: i, level: "info", msg: "Reference images go in the Reference tab, not the script; GASP attaches them by the names on WHO: lines." }); });
     if (!p.blocks.length && out.trim()) issues.push({ line: 0, level: "error", msg: "No SHOT lines, so Sync has nothing to make. Start each shot with SHOT:" });
-    OL.forEach(function (x, i) { if (firstShot > 0 && i < firstShot && i > 0 && x.trim() && !reScene.test(x.trim()) && (reField.test(x) || reDialog.test(x.trim()))) issues.push({ line: i, level: "warn", msg: "This is above the first SHOT, so it won't reach any shot." }); });
-    OL.forEach(function (x, i) { var m = x.trim().match(/^([A-Za-z][A-Za-z ]{2,24})\s*:\s+\S/); if (m && !FIELDS[m[1].toUpperCase()] && !SYN[m[1].toUpperCase()] && !known[m[1].toUpperCase()] && !/^[A-Z][A-Z .'\-]+$/.test(m[1]) && !/^(SCENE|SHOT|Title)$/i.test(m[1])) issues.push({ line: i, level: "info", msg: "\"" + m[1] + ":\" isn't a GASP label, so this line counts as action. Use IMAGE:, MOTION:, SFX:, NOTE: or a speaker NAME:." }); });
+    OL.forEach(function (x, i) { if (firstShot > 0 && i < firstShot && i > 0 && x.trim() && !reScene.test(x.trim()) && !/^\s*(STYLE|FORMAT)\s*:/i.test(x) && (reField.test(x) || reDialog.test(x.trim()))) issues.push({ line: i, level: "warn", msg: "This is above the first SHOT, so it won't reach any shot." }); });
+    OL.forEach(function (x, i) { var m = x.trim().match(/^([A-Za-z][A-Za-z ]{2,24})\s*:\s+\S/); if (m && !FIELDS[m[1].toUpperCase()] && !SYN[m[1].toUpperCase()] && !known[m[1].toUpperCase()] && !/^[A-Z][A-Z .'\-]+$/.test(m[1]) && !/^(SCENE|SHOT|Title|STYLE|FORMAT)$/i.test(m[1])) issues.push({ line: i, level: "info", msg: "\"" + m[1] + ":\" isn't a GASP label, so this line counts as action. Use IMAGE:, MOTION:, SFX:, NOTE: or a speaker NAME:." }); });
     p.blocks.forEach(function (b) {
       if (b.id) { if (ids[b.id]) issues.push({ line: b.start, level: "error", msg: "Two SHOT lines share the link [[#" + b.id + "]]. Delete it from the copy so Sync makes a new shot." }); ids[b.id] = 1; }
       if (!b.image) issues.push({ line: b.start, level: "error", msg: "No IMAGE (or action) for this shot, so its keyframe has nothing to go on." });

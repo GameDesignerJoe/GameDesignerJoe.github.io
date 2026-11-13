@@ -53,7 +53,9 @@ Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real
 - [x] Each message carries the episode script, shot list with status, characters and the format guide (`lib/chat.js`)
 - [x] Proposals come back as ```gasp blocks → cards: rewrite script, add to script, change a shot. Apply / Dismiss / Undo (an add is undone by removing its shots, so later edits survive; a rewrite brings the old script back)
 - [x] Chat cost logged per message when the provider reports it (tokens always)
-- [ ] Joe: first real message on fal. If fal's chat endpoint rejects the format, fall back to `openrouter/router` (prompt + system_prompt) in `lib/chat.js`
+- [x] Joe's first real message worked on fal (Claude Sonnet 5, $0.06), but a 19-shot script hit the reply limit and its JSON proposal was cut off. Fixed: scripts are proposed in plain text (`replace_script` / `summary:` / `---` / script), reply limit raised to 16k tokens, a cut-off proposal shows a card with "Ask for it again, complete"
+- [x] Episode header lines `FORMAT: 16:9` (or 9:16, 1:1) and `STYLE: …` above the first SHOT: tiles and previews follow the format, video models that take an aspect ratio get it, Copy prompt adds the style and format, the chat writes them
+- [ ] Attach images and files to a chat message (Joe tried to attach a sample script and art in his first message)
 - [ ] Compare Claude on fal with a Groq model for quality and cost; pick the default
 - [ ] Image references in chat (paste a keyframe and ask about it): fal's endpoint accepts `image_urls`
 
@@ -78,6 +80,7 @@ Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-13 — First real chat: works on fal. Fixed cut-off proposals; added FORMAT/STYLE (Joe's first project is 16:9, 1980s cartoon style).
 - 2026-11-12 — Step 4 chat built and dry-run tested (two cards applied, undo of the add removed its shot and kept the later shot edit). IMAGE prompts no longer use names: WHO: line added to the format, example and Check format.
 - 2026-11-12 — Check format added. Joe expects to write mostly by talking to Claude, so no more time on the editor unless he asks.
 - 2026-11-12 — One-click updates (Joe hit a "diverging branches" error from the old fast-forward-only pull).

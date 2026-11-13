@@ -121,7 +121,7 @@ function syncScript(s, ep, text, orphanMode) {
   // grid-only shots keep their place relative to their neighbours
   const result = [...ordered];
   for (const o of orphans) { const orig = ep.shots.indexOf(o); let prev = null; for (let k = orig - 1; k >= 0; k--) if (result.includes(ep.shots[k])) { prev = ep.shots[k]; break; } result.splice(prev ? result.indexOf(prev) + 1 : 0, 0, o); if (orphanMode === "add") text = SF.insertBlock(text, prev ? prev.id : null, o); }
-  ep.shots = result; text = SF.renumber(text);
+  ep.shots = result; text = SF.renumber(text); ep.aspect = p.aspect || ""; ep.style = p.style || "";
   return { text, created, updated, createdIds, orphans: orphanMode === "add" ? [] : orphans.map(o => ({ id: o.id, title: o.title })) };
 }
 
@@ -135,7 +135,7 @@ const chatFile = s => path.join(storiesDir(), s.dir, "chat.json");
 function readChat(s) { try { return JSON.parse(fs.readFileSync(chatFile(s), "utf8")); } catch { return { messages: [] }; } }
 function writeChat(s, c) { fs.writeFileSync(chatFile(s), JSON.stringify(c, null, 1)); }
 function chatSetting() { const st = settings(); if (st.chat && st.chat.model) return st.chat; return process.env.FAL_KEY || !process.env.GROQ_API_KEY ? { provider: "fal", model: CHAT_MODELS[0].model } : { provider: "groq", model: "openai/gpt-oss-120b" }; }
-const chatForApp = c => ({ messages: c.messages.map((m, i) => ({ i, role: m.role, text: m.role === "assistant" ? splitActions(m.content).shown : m.content, actions: m.actions || [], at: m.at, model: m.model, cost: m.cost, error: m.error, ep: m.ep })) });
+const chatForApp = c => ({ messages: c.messages.map((m, i) => ({ i, cutOff: m.cutOff, role: m.role, text: m.role === "assistant" ? splitActions(m.content).shown : m.content, actions: m.actions || [], at: m.at, model: m.model, cost: m.cost, error: m.error, ep: m.ep })) });
 function applyAction(s, ep, a) {
   if (a.action === "update_shot") {
     const sh = ep.shots.find(x => x.id === a.shot); if (!sh) throw httpErr(404, "That shot isn't in this episode any more.");
@@ -185,7 +185,8 @@ async function runVideoJob({ storyId, epId, shotId, modelKey, prompt, seconds })
   (async () => {
     try {
       const d = shotPath(s, ep, sh); const out = path.join(d, "takes", `${stamp()} video - ${modelKey}.mp4`);
-      const r = await imageToVideo({ model, keyframe: path.join(d, "takes", sh.keyframeTake), prompt, seconds, outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? `in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
+      const mdl = model.extra && "aspect_ratio" in model.extra && ep.aspect ? { ...model, extra: { ...model.extra, aspect_ratio: ep.aspect } } : model;
+      const r = await imageToVideo({ model: mdl, keyframe: path.join(d, "takes", sh.keyframeTake), prompt, seconds, outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? `in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
       const s2 = loadStory(storyId); const ep2 = epOf(s2, epId); const sh2 = shotOf(ep2, shotId); setInUse(s2, ep2, sh2, path.basename(r.file)); saveStory(s2);
       logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "video", model: modelKey + (r.dry ? " (dry run)" : ""), seconds: r.seconds, cost: r.cost, file: rel(r.file) });
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, take: path.basename(r.file), finished: Date.now() });
@@ -259,7 +260,7 @@ const routes = {
     try { r = process.env.GASP_DRY ? { text: dryReply(msg, epA.shots), tokensIn: 0, tokensOut: 0, cost: 0, ms: 600 } : await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: sys }, ...hist] }); }
     catch (e) { c.messages.push({ role: "assistant", content: "", error: String(e.message || e), at: Date.now(), ep: ep.num }); writeChat(s, c); return chatForApp(c); }
     const { actions } = splitActions(r.text);
-    c.messages.push({ role: "assistant", content: r.text, actions: actions.map(a => ({ ...a, state: a.action === "unreadable" ? "unreadable" : null })), at: Date.now(), model: cs.model, cost: r.cost, tokens: r.tokensIn + r.tokensOut, ep: ep.num });
+    c.messages.push({ role: "assistant", cutOff: !!r.cutOff, content: r.text, actions: actions.map(a => ({ ...a, state: a.action === "unreadable" ? "unreadable" : null })), at: Date.now(), model: cs.model, cost: r.cost, tokens: r.tokensIn + r.tokensOut, ep: ep.num });
     writeChat(s, c);
     logSpend({ story: s.title, episode: ep.num, shot: "", kind: "chat", model: cs.model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost ?? 0, file: `${r.tokensIn} in / ${r.tokensOut} out tokens${r.cost == null ? " (cost not reported)" : ""}` });
     return chatForApp(c);

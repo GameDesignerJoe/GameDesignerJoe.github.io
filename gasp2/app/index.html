@@ -43,7 +43,7 @@ main{flex:1;min-height:0;display:flex}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px}
 .grid.dropping{outline:2px dashed var(--accent);outline-offset:6px;border-radius:12px}
 .tile{position:relative;cursor:pointer;user-select:none}
-.tile .media{position:relative;aspect-ratio:9/16;border-radius:10px;overflow:hidden;background:var(--panel2);border:2px solid var(--line);display:flex;align-items:center;justify-content:center}
+.tile .media{position:relative;aspect-ratio:var(--asp,9/16);border-radius:10px;overflow:hidden;background:var(--panel2);border:2px solid var(--line);display:flex;align-items:center;justify-content:center}
 .tile.sel .media{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,77,109,.25)}
 .tile .media img,.tile .media video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
 .tile .empty{padding:12px;font-size:12px;color:var(--muted);text-align:center}
@@ -68,8 +68,8 @@ main{flex:1;min-height:0;display:flex}
 .panel h3{margin:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .ptitle{font-size:16px;font-weight:600}
 .hero{display:grid;justify-items:center;gap:6px;margin:12px 0 4px}
-.hero img,.hero video{height:min(46vh,520px);aspect-ratio:9/16;width:auto;max-width:100%;object-fit:contain;background:#000;border-radius:12px;border:1px solid var(--line)}
-.hero .ph{height:min(30vh,320px);aspect-ratio:9/16;border:2px dashed var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:14px}
+.hero img,.hero video{height:min(46vh,520px);aspect-ratio:var(--asp,9/16);width:auto;max-width:100%;object-fit:contain;background:#000;border-radius:12px;border:1px solid var(--line)}
+.hero .ph{height:min(30vh,320px);aspect-ratio:var(--asp,9/16);max-width:100%;border:2px dashed var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;padding:14px}
 .hero .ph.over{border-color:var(--good);color:var(--ink)}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .seg button{background:none;border:0;padding:3px 10px;font-size:12px;color:var(--muted)}.seg button.on{background:var(--panel2);color:var(--ink)}
@@ -80,7 +80,7 @@ main{flex:1;min-height:0;display:flex}
 .prog .bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;position:relative;margin-top:6px}
 .prog.err{background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.4);color:var(--bad)}
 .strip{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px}
-.take{position:relative;flex:none;width:64px;aspect-ratio:9/16;border-radius:7px;overflow:hidden;border:2px solid var(--line);cursor:zoom-in;background:#000}
+.take{position:relative;flex:none;width:64px;aspect-ratio:var(--asp,9/16);border-radius:7px;overflow:hidden;border:2px solid var(--line);cursor:zoom-in;background:#000}
 .take.use{border-color:var(--accent)}.take img,.take video{width:100%;height:100%;object-fit:cover;pointer-events:none}
 .take .t{position:absolute;left:3px;top:3px;width:17px;height:17px;border-radius:4px;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}
 .take .t svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:2}
@@ -130,6 +130,7 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1
 .h-scene{font-weight:700;text-decoration:underline;color:#fff}
 .h-shot{font-weight:700;color:var(--accent2)}
 .h-lab{font-weight:700}.h-image{color:#7cc4ff}.h-motion{color:#b9a3ff}.h-sfx,.h-sound{color:#6fd3a4}.h-note{color:var(--warn)}.h-who,.h-frame,.h-location,.h-length{color:var(--muted)}
+.h-style{color:#ff9f6e}
 .h-name{font-weight:700;color:#ffd27a}.h-dia{color:#f6e7c8}
 .h-id{color:var(--faint);font-weight:400}
 .sright{border-left:1px solid var(--line);background:var(--panel);padding:14px 16px;overflow:auto;min-height:0}
@@ -165,6 +166,10 @@ body.chatopen #chat{display:flex}
 .cempty{color:var(--muted);font-size:13px}.cempty p{margin:0 0 10px}.cstarts{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .typing{display:flex;gap:4px;padding:12px 14px}.typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite}.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
 @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+html.wide .grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+html.wide .hero img,html.wide .hero video{height:auto;width:100%;max-height:46vh}
+html.wide .take{width:110px}
+html.wide .hero .ph{height:auto;width:100%}
 @media (max-width:900px){.shots{grid-template-columns:1fr}.panel{border-left:0;border-top:1px solid var(--line)}}
 </style>
 </head>
@@ -238,6 +243,7 @@ async function reveal(o){try{const r=await api("/api/reveal",Object.assign({stor
 const cur=()=>EP&&EP.shots.find(x=>x.id===SEL);
 function renderShots(){
   const m=$("#main");
+  const asp=(EP.aspect||"9:16").split(":").map(Number);document.documentElement.style.setProperty("--asp",`${asp[0]}/${asp[1]}`);document.documentElement.classList.toggle("wide",asp[0]>asp[1]);
   m.innerHTML=`<div class="shots"><div class="left" id="left"><div class="epbar">${STORY.episodes.map(e=>`<button class="ep ${e.id===EP.id?"on":""}" data-ep="${e.id}" title="${esc(e.title)}">Ep ${e.num}</button>`).join("")}<button class="btn small ghost" id="addEp">+ Episode</button><input type="text" id="epTitle" value="${esc(EP.title)}" title="Episode title (also its folder name)"><span class="spacer"></span><button class="btn small ghost" id="epFolder">Show folder</button></div><div class="grid" id="grid"></div><p class="hint">Drop images from ChatGPT or your desktop onto the grid: one new shot per image, in order. Drop an image on a tile to give it a new keyframe. Drag tiles to reorder; hover a tile's left edge for + to insert. <b>Ctrl+V</b> pastes a copied image into the selected shot.</p></div><div class="panel" id="panel"></div></div>`;
   document.querySelectorAll("[data-ep]").forEach(b=>b.onclick=()=>{EP=STORY.episodes.find(e=>e.id===b.dataset.ep);ls.set("g2-ep-"+STORY.id,EP.id);SEL=EP.shots[0]?EP.shots[0].id:null;renderShots()});
   $("#addEp").onclick=async()=>{const s=await api("/api/episode/new",{story:STORY.id});EP=s.episodes[s.episodes.length-1];SEL=null;setStory(s)};
@@ -291,7 +297,7 @@ function renderPanel(){
   <div class="hero" id="hero">${show==="video"?`<video src="${m.video}" controls playsinline loop></video>`:show==="keyframe"?`<img src="${m.keyframe}" alt="">`:`<div class="ph" id="heroDrop">Drop a keyframe here, paste one with Ctrl+V,<br>or <u>choose a file</u>.</div>`}${hasV&&hasK?`<div class="seg"><button data-show="keyframe" class="${show==="keyframe"?"on":""}">${ICON.image.replace("<svg",'<svg style="width:13px;height:13px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:1.8"')} Keyframe</button><button data-show="video" class="${show==="video"?"on":""}">${ICON.video.replace("<svg",'<svg style="width:13px;height:13px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:1.8"')} Video</button></div>`:""}</div>
   <div class="sec"><div class="secrow"><h3>Keyframe</h3><span class="spacer"></span><label class="btn small">Replace from file<input type="file" accept="image/*" id="kfFile" hidden></label></div>
     <label class="f">Image prompt</label><textarea id="pImg" rows="4" placeholder="What the keyframe shows. Copy it to ChatGPT, then drop the result back here.">${esc(sh.imagePrompt||"")}</textarea>
-    <div class="row" style="margin-top:6px"><button class="btn small" id="copyImg">Copy prompt</button><span class="sub">Generating keyframes in the app arrives in step 5.</span></div></div>
+    <div class="row" style="margin-top:6px"><button class="btn small" id="copyImg">Copy prompt</button><span class="sub">${EP.style?"Copies with the episode's STYLE. ":""}Generating keyframes in the app arrives in step 5.</span></div></div>
   <div class="sec"><h3>Video</h3>
     <label class="f">Motion prompt</label><textarea id="pMot" rows="3" placeholder="What moves: camera and action. e.g. slow push-in; she opens her eyes and smiles">${esc(sh.motionPrompt||"")}</textarea>
     <div class="row" style="margin-top:8px;flex-wrap:wrap"><select id="pModel" style="flex:1;min-width:180px">${Object.entries(models).map(([k,v])=>`<option value="${k}" ${k===mk?"selected":""}>${esc(v.label)} · $${v.pricePerSecond.toFixed(3).replace(/0$/,"")}/s</option>`).join("")}</select><select id="pSecs" style="width:90px">${model.durations.map(d=>`<option value="${d}" ${d===secs?"selected":""}>${d}s</option>`).join("")}</select></div>
@@ -308,7 +314,7 @@ function renderPanel(){
   $("#pNotes").oninput=e=>save({notes:e.target.value});
   $("#pModel").onchange=async e=>{await quick({model:e.target.value,seconds:null})};
   $("#pSecs").onchange=async e=>{await quick({seconds:+e.target.value})};
-  $("#copyImg").onclick=()=>{navigator.clipboard.writeText($("#pImg").value).then(()=>toast("Prompt copied"),()=>toast("Couldn't reach the clipboard"))};
+  $("#copyImg").onclick=()=>{const t=[EP.style?"Style: "+EP.style:"",$("#pImg").value,`Aspect ratio ${EP.aspect||"9:16"}${(EP.aspect||"9:16")==="9:16"?", vertical":""}.`].filter(Boolean).join("\n\n");copyText(t,EP.style?"Prompt copied, with the episode's style and format":"Prompt copied, with the format")};
   $("#kfFile").onchange=e=>{const f=e.target.files[0];if(f)setKeyframe(sh.id,f)};
   const hd=$("#heroDrop");if(hd){hd.onclick=()=>$("#kfFile").click();hd.ondragover=e=>{e.preventDefault();hd.classList.add("over")};hd.ondragleave=()=>hd.classList.remove("over");hd.ondrop=e=>{e.preventDefault();hd.classList.remove("over");const f=[...e.dataTransfer.files].find(x=>x.type.startsWith("image/"));if(f)setKeyframe(sh.id,f)}}
   p.querySelectorAll("[data-show]").forEach(b=>b.onclick=()=>quick({show:b.dataset.show}));
@@ -342,6 +348,7 @@ async function renderScript(){
       <button class="btn" id="lintBtn" style="width:100%;justify-content:center;margin-top:10px" title="Fix the format where it's certain, flag the rest">Check format</button><div id="lintOut"></div>
       <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn small" id="copyClaude">Copy for Claude</button><button class="btn small ${ls.get("g2-example",true)?"on":"ghost"}" id="guide">${ls.get("g2-example",true)?"Hide example":"Show example"}</button><button class="btn small ghost" id="scFolder">Folder</button></div>
       <div id="orph"></div>
+      <div id="look"></div>
       <h3 class="side">Shots in this script</h3><div id="outline" class="outline"></div>
       <h3 class="side">Characters</h3><div id="chars" class="chips"></div></div></div>`;
   document.querySelectorAll("[data-ep]").forEach(b=>b.onclick=async()=>{await saveScriptNow();EP=STORY.episodes.find(e=>e.id===b.dataset.ep);ls.set("g2-ep-"+STORY.id,EP.id);SEL=EP.shots[0]?EP.shots[0].id:null;renderScript()});
@@ -392,6 +399,7 @@ function exampleHTML(){return`<aside class="example"><div class="row"><h3 class=
   <h3 class="side">Keys</h3><ul class="exkeys"><li><b>Tab</b> or <b>→</b> takes the grey suggestion; <b>Esc</b> dismisses it</li><li><b>Tab</b> on an empty line cycles SHOT, IMAGE, MOTION, SFX, NOTE</li><li>Start typing a name or a keyword (<b>im</b>, <b>wr</b>) and Tab finishes it</li><li><b>Ctrl+S</b> saves (it also saves on its own)</li></ul></aside>`}
 function highlight(t,ghost,flags){const R=SFX.re;let cue=false;return t.split("\n").map((L,li)=>{const h=ghostAt(li,ghost,hl(L));const f=flags&&flags[li];return f?`<span class="h-flag ${f}">${h||" "}</span>`:h}).join("\n")+"\n";function hl(L){const s=L.trim();let h=esc(L);const idm=L.match(R.id);if(idm)h=esc(L.slice(0,idm.index))+`<span class="h-id">${esc(L.slice(idm.index))}</span>`;
   if(R.scene.test(s)){cue=false;return`<span class="h-scene">${h}</span>`}
+  const sf=L.match(/^(\s*)(STYLE|FORMAT)(\s*:)(.*)$/i);if(sf){cue=false;return`${esc(sf[1])}<span class="h-lab h-style">${esc(sf[2]+sf[3])}</span>${esc(sf[4])}`}
   if(R.shot.test(s)&&!R.field.test(s)){cue=false;return`<span class="h-shot">${h}</span>`}
   const f=L.match(/^(\s*)(IMAGE|MOTION|SFX|SOUND|NOTES?|WHO|FRAME|LOCATION|LENGTH)(\s*:)(.*)$/i);if(f){cue=false;return`${esc(f[1])}<span class="h-lab h-${f[2].toLowerCase().replace(/s$/,"")}">${esc(f[2]+f[3])}</span>${esc(f[4])}`}
   const d=s.match(R.dialog);if(d&&!R.notNames.test(d[1])){cue=false;const i=L.indexOf(d[1]);return`${esc(L.slice(0,i))}<span class="h-name">${esc(d[1])}</span>${esc(L.slice(i+d[1].length))}`}
@@ -400,6 +408,7 @@ function highlight(t,ghost,flags){const R=SFX.re;let cue=false;return t.split("\
   cue=false;return h}}
 function ghostAt(li,g,html){return g&&g.line===li?html+`<span class="h-ghost">${esc(g.text)}</span><span class="h-ghostkey">Tab</span>`:html}
 function outline(){const ta=$("#sc");if(!ta)return;const p=SFX.parse(ta.value);const ids=new Set(EP.shots.map(x=>x.id));
+  const lk=$("#look");if(lk)lk.innerHTML=`<h3 class="side">Look</h3><div class="sub"><b>Format</b> ${esc(p.aspect||"9:16 (default)")}${p.style?`<br><b>Style</b> ${esc(p.style)}`:`<br>Add <code>STYLE:</code> above the first SHOT to put a look in front of every IMAGE prompt.`}</div>`;
   $("#outline").innerHTML=p.blocks.length?p.blocks.map(b=>{const linked=b.id&&ids.has(b.id);return`<div class="ol" data-line="${b.start}"><span class="n">${String(b.num).padStart(2,"0")}</span><span class="tt">${esc(b.title)}</span><span class="meta">${esc([b.frame,b.seconds?b.seconds+"s":""].filter(Boolean).join(" · "))}</span><span class="st ${linked?"ok":""}">${linked?"linked":"new"}</span></div>`}).join(""):`<p class="sub">No SHOT lines yet. Start one with <code>SHOT:</code> (Tab on an empty line).</p>`;
   $("#outline").querySelectorAll("[data-line]").forEach(el=>el.onclick=()=>jumpTo(+el.dataset.line));
   const known=p.characters;$("#chars").innerHTML=known.length?known.map(n=>`<span class="chip">${esc(n)}</span>`).join(""):`<span class="sub">Names in caps (WREN:) show up here and auto-complete with Tab.</span>`}
@@ -480,6 +489,7 @@ async function renderChat(reload){
   d.querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>{const i=$("#cin");i.value=b.dataset.start;i.focus();i.setSelectionRange(i.value.length,i.value.length)});
   const cin=$("#cin");cin.value=CHAT.draft||"";cin.oninput=()=>{CHAT.draft=cin.value};cin.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}};$("#csend").onclick=sendChat;
   d.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>actCard(+b.dataset.m,+b.dataset.a,b.dataset.act));
+  d.querySelectorAll("[data-resend]").forEach(b=>b.onclick=()=>{$("#cin").value="Your last reply was cut off before the script finished. Send the whole script again as one replace_script block in plain text, with at most one line of explanation.";sendChat()});
   d.querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>{const prev=[...CHAT.msgs].reverse().find(m=>m.role==="user");if(prev){$("#cin").value=prev.text;sendChat()}});
   const box=$("#cmsgs");box.scrollTop=box.scrollHeight;if(!CHAT.busy)cin.focus()}
 function msgHTML(m){
@@ -487,7 +497,8 @@ function msgHTML(m){
   if(m.error)return`<div class="cmsg a"><div class="bub err">${esc(m.error)}<div style="margin-top:6px"><button class="btn small" data-retry>Try again</button></div></div></div>`;
   return`<div class="cmsg a"><div class="bub">${md(m.text)||"<p class='sub'>(only suggestions)</p>"}${(m.actions||[]).map((a,k)=>cardHTML(m,a,k)).join("")}<div class="cmeta">${esc(m.model||"")}${m.cost!=null?` · ${m.cost<0.01?"<$0.01":"$"+m.cost.toFixed(2)}`:""}</div></div></div>`}
 function cardHTML(m,a,k){
-  const kind={replace_script:"Rewrite the episode script",append_script:"Add to the end of the script",update_shot:"Change a shot",unreadable:"A suggestion GASP couldn't read"}[a.action]||a.action;
+  const kind={replace_script:"Rewrite the episode script",append_script:"Add to the end of the script",update_shot:"Change a shot",unreadable:"A suggestion GASP couldn't read",cut_off:"Cut off"}[a.action]||a.action;
+  if(a.action==="cut_off")return`<div class="card"><div class="ck">${kind}</div><div class="cs">The reply ran out of room before its proposal finished, so there's nothing to apply.</div><div class="row" style="margin-top:6px"><button class="btn small primary" data-resend>Ask for it again, complete</button></div></div>`;
   let body="";
   if(a.action==="update_shot"){const sh=EP.shots.find(x=>x.id===a.shot);body=`<div class="sub">${sh?`Shot ${EP.shots.indexOf(sh)+1}: ${esc(sh.title)}`:"(a shot that isn't in this episode)"}</div>`+Object.entries(a.fields||{}).map(([f,v])=>`<div class="cfield"><b>${esc({imagePrompt:"IMAGE",motionPrompt:"MOTION",title:"Title",notes:"Note"}[f]||f)}</b> ${esc(v)}</div>`).join("")}
   else if(a.text){const n=GASPScript.parse(a.text).blocks.length;body=`<details><summary>${n} shot${n===1?"":"s"} · show the text</summary><pre class="cpre">${esc(a.text)}</pre></details>`}

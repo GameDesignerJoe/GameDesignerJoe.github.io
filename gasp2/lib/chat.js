@@ -15,7 +15,7 @@ const ENDPOINTS = {
   groq: { url: "https://api.groq.com/openai/v1/chat/completions", key: () => process.env.GROQ_API_KEY, auth: k => `Bearer ${k}`, name: "Groq" },
 };
 
-export async function chatCall({ provider, model, messages, maxTokens = 6000 }) {
+export async function chatCall({ provider, model, messages, maxTokens = 16000 }) {
   const ep = ENDPOINTS[provider]; if (!ep) throw new Error("Unknown chat provider: " + provider);
   const key = ep.key(); if (!key) throw new Error(`No ${ep.name} key yet: add it in Settings (⚙).`);
   const t0 = Date.now();
@@ -33,42 +33,56 @@ export async function chatCall({ provider, model, messages, maxTokens = 6000 }) 
   const choice = (o.choices || [])[0] || {};
   const text = (choice.message && choice.message.content) || o.output || "";
   const u = o.usage || {};
-  return { text: Array.isArray(text) ? text.map(x => x.text || "").join("") : String(text), tokensIn: u.prompt_tokens || 0, tokensOut: u.completion_tokens || 0, cost: typeof u.cost === "number" ? u.cost : null, ms: Date.now() - t0 };
+  return { text: Array.isArray(text) ? text.map(x => x.text || "").join("") : String(text), cutOff: choice.finish_reason === "length", tokensIn: u.prompt_tokens || 0, tokensOut: u.completion_tokens || 0, cost: typeof u.cost === "number" ? u.cost : null, ms: Date.now() - t0 };
 }
 
-// pull ```gasp {...}``` blocks out of a reply
+// pull ```gasp blocks out of a reply. Two shapes:
+//   header form (scripts):  replace_script / append_script, then "summary: …", a line "---", then the raw script
+//   JSON form (anything):   {"action":"update_shot", …}
+// A block that never closes (the reply ran out of room) becomes a "cut_off" card instead of raw text.
 export function splitActions(text) {
-  const actions = []; const shown = String(text || "").replace(/```gasp\s*([\s\S]*?)```/g, (m, body) => {
-    const t = body.trim(); const parts = t.startsWith("[") ? [t] : t.split(/\n(?=\s*\{)/);
-    for (const p of parts) { try { const v = JSON.parse(p); (Array.isArray(v) ? v : [v]).forEach(a => a && a.action && actions.push(a)); } catch { actions.push({ action: "unreadable", raw: t.slice(0, 400) }); } }
-    return "";
-  }).replace(/\n{3,}/g, "\n\n").trim();
+  const actions = []; let t = String(text || "");
+  const open = t.lastIndexOf("```gasp"); if (open >= 0 && t.indexOf("```", open + 7) < 0) { actions.push({ action: "cut_off" }); t = t.slice(0, open); }
+  const shown = t.replace(/```gasp[ \t]*\n?([\s\S]*?)```/g, (m, body) => { parseBlock(body).forEach(a => actions.push(a)); return ""; }).replace(/\n{3,}/g, "\n\n").trim();
   return { shown, actions };
+}
+function parseBlock(body) {
+  const b = body.replace(/\r/g, ""); const head = b.match(/^\s*(replace_script|append_script)\s*\n([\s\S]*?)^-{3,}\s*$\n?([\s\S]*)$/m);
+  if (head) { const meta = {}; head[2].split("\n").forEach(l => { const m = l.match(/^\s*(\w+)\s*:\s*(.*)$/); if (m) meta[m[1].toLowerCase()] = m[2].trim(); }); return [{ action: head[1], summary: meta.summary || "", text: head[3].replace(/\s+$/, "") }]; }
+  const t = b.trim(); const parts = t.startsWith("[") ? [t] : t.split(/\n(?=\s*\{)/); const out = [];
+  for (const p of parts) { try { const v = JSON.parse(p); (Array.isArray(v) ? v : [v]).forEach(a => a && a.action && out.push(a)); } catch { out.push({ action: "unreadable", raw: t.slice(0, 400) }); } }
+  return out;
 }
 
 export function systemPrompt({ guide, story, ep, script, shots, characters }) {
   return `You are the writing partner inside GASP, a desktop app for making short AI-generated vertical dramas (9:16, mobile episodes of a few minutes, cut from 3-10 second shots). The person you're talking to is the writer-director. Talk with them like a sharp story collaborator: ideas, structure, dialogue, shot planning, prompts. Be direct and concise.
 
-How GASP works: each episode is a script in the shot format below. Each SHOT becomes a tile in the Shots tab. Its IMAGE prompt makes the keyframe (often pasted into ChatGPT or another image model by hand), and its MOTION prompt turns that keyframe into video. So IMAGE prompts must stand on their own in any image model: describe people by how they look, never by name, and name them on the WHO: line instead (GASP attaches their reference images by name). Write for vertical 9:16 framing.
+How GASP works: each episode is a script in the shot format below. Each SHOT becomes a tile in the Shots tab. Its IMAGE prompt makes the keyframe (often pasted into ChatGPT or another image model by hand), and its MOTION prompt turns that keyframe into video. So IMAGE prompts must stand on their own in any image model: describe people by how they look, never by name, and name them on the WHO: line instead (GASP attaches their reference images by name). Reference images live in GASP's Reference tab, so never add a reference-image section to a script.
+An episode can start with two header lines, above the first SHOT: "FORMAT: 16:9" (or 9:16, the default, or 1:1) and "STYLE: …", a look that GASP puts in front of every IMAGE prompt (so don't repeat the style in each IMAGE). Frame each shot for the episode's format.
 
 ${guide}
 
 CHANGING THE PROJECT
-When the writer asks you to write or change something, propose it with one or more fenced blocks tagged gasp. Each block is one JSON object. GASP shows each as a card the writer can Apply or Dismiss; nothing changes until they apply it. Available actions:
+When the writer asks you to write or change something, propose it in fenced blocks tagged gasp. GASP shows each block as a card the writer can Apply or Dismiss; nothing changes until they apply it. Scripts go in plain text (not JSON), like this:
 \`\`\`gasp
-{"action":"replace_script","summary":"what changed, in one line","text":"<the whole episode script, in the shot format>"}
+replace_script
+summary: what changed, in one line
+---
+FORMAT: 16:9
+STYLE: …
+SCENE: …
+SHOT: …
 \`\`\`
-\`\`\`gasp
-{"action":"append_script","summary":"…","text":"<new shots or scenes to add at the end>"}
-\`\`\`
+Use append_script instead of replace_script to add shots or scenes at the end. To change single shots, use one JSON object per block:
 \`\`\`gasp
 {"action":"update_shot","shot":"<shot id from the list below>","summary":"…","fields":{"title":"…","imagePrompt":"…","motionPrompt":"…","notes":"…"}}
 \`\`\`
+Keep explanations short when a reply carries a long script, so the script fits.
 Rules: use replace_script for rewrites of the episode and keep every existing [[#id]] tag on the SHOT lines you keep (that's how GASP keeps each shot's images and videos). Use update_shot for changes to one or a few shots' prompts. Only include the fields you change. Don't propose changes when the writer is only asking a question or brainstorming; talk first. Put a sentence of explanation outside the blocks, never inside them.
 
 CURRENT PROJECT
 Story: ${story.title}
-Episode ${ep.num}: ${ep.title}
+Episode ${ep.num}: ${ep.title} · format ${ep.aspect || "9:16"}${ep.style ? " · style: " + ep.style : ""}
 Characters named in the script: ${characters.length ? characters.join(", ") : "(none yet)"}
 
 Shots (id · number · title · what exists):
@@ -83,7 +97,12 @@ export function dryReply(message, shots) {
   const first = shots[0];
   return `(Dry run: no model was called.) You said: "${message.slice(0, 80)}". Here's what a proposal looks like.
 \`\`\`gasp
-{"action":"append_script","summary":"adds one shot at the end","text":"SHOT: A gull lands on driftwood · CU · 3s\\nIMAGE: A white gull lands on bleached driftwood at the water's edge, wings still spread, soft morning light, vertical frame.\\nMOTION: the gull settles and folds its wings"}
+append_script
+summary: adds one shot at the end
+---
+SHOT: A gull lands on driftwood · CU · 3s
+IMAGE: A white gull lands on bleached driftwood at the water's edge, wings still spread, soft morning light.
+MOTION: the gull settles and folds its wings
 \`\`\`${first ? `
 \`\`\`gasp
 {"action":"update_shot","shot":"${first.id}","summary":"sharper motion for shot 1","fields":{"motionPrompt":"slow push-in, then a small head turn toward camera"}}
