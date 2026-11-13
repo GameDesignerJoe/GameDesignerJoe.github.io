@@ -7,7 +7,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { imageToVideo, generateImages, removeBackground } from "./lib/fal.js";
+import { imageToVideo, generateImages, removeBackground, ffmpeg } from "./lib/fal.js";
 import { chatCall, splitActions, systemPrompt, dryReply, CHAT_MODELS } from "./lib/chat.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -99,6 +99,7 @@ const scriptPath = (s, ep) => path.join(storiesDir(), s.dir, ep.dir, "script.txt
 function readScript(s, ep) { try { return fs.readFileSync(scriptPath(s, ep), "utf8").replace(/\r/g, ""); } catch { return ""; } }
 const SNAP = {};
 function writeScript(s, ep, text, snapshot) {
+  text = SF.withHeader(text, s.title, ep.num, ep.title);
   const f = scriptPath(s, ep); const old = readScript(s, ep); if (old === text) return;
   const key = s.id + ep.id; if (old.trim() && (snapshot || Date.now() - (SNAP[key] || 0) > 10 * 60e3)) { const h = path.join(path.dirname(f), "script history"); fs.mkdirSync(h, { recursive: true }); fs.writeFileSync(path.join(h, `${stamp()}.txt`), old.replace(/\n/g, "\r\n")); SNAP[key] = Date.now(); }
   fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, text.replace(/\r?\n/g, "\r\n"));
@@ -135,7 +136,7 @@ const chatFile = s => path.join(storiesDir(), s.dir, "chat.json");
 function readChat(s) { try { return JSON.parse(fs.readFileSync(chatFile(s), "utf8")); } catch { return { messages: [] }; } }
 function writeChat(s, c) { fs.writeFileSync(chatFile(s), JSON.stringify(c, null, 1)); }
 function chatSetting() { const st = settings(); if (st.chat && st.chat.model) return st.chat; return process.env.FAL_KEY || !process.env.GROQ_API_KEY ? { provider: "fal", model: CHAT_MODELS[0].model } : { provider: "groq", model: "openai/gpt-oss-120b" }; }
-const chatForApp = c => ({ messages: c.messages.map((m, i) => ({ i, cutOff: m.cutOff, role: m.role, text: m.role === "assistant" ? splitActions(m.content).shown : m.content, actions: m.actions || [], at: m.at, model: m.model, cost: m.cost, error: m.error, ep: m.ep })) });
+const chatForApp = (c, s) => ({ messages: c.messages.map((m, i) => ({ i, cutOff: m.cutOff, role: m.role, text: m.role === "assistant" ? splitActions(m.content).shown : m.content, attachments: (m.attachments || []).map(x => ({ ...x, url: x.file && s ? fileUrl(path.join(chatFilesDir(s), x.file)) : null })), actions: m.actions || [], at: m.at, model: m.model, cost: m.cost, error: m.error, ep: m.ep })) });
 function applyAction(s, ep, a) {
   if (a.action === "update_shot") {
     const sh = ep.shots.find(x => x.id === a.shot); if (!sh) throw httpErr(404, "That shot isn't in this episode any more.");
@@ -243,6 +244,56 @@ function refLegend(refs, sameSubject) {
   return "Reference images: " + refs.map((r, i) => `image ${i + 1} is ${what(r)}`).join("; ") + ".";
 }
 
+
+// ---------- chat attachments: images, text (PDF text is pulled out in the app), and links found in the message ----------
+const chatFilesDir = s => path.join(storiesDir(), s.dir, "chat files");
+const MAX_TEXT = 60000;
+function saveAttachment(s, a) {
+  const dir = chatFilesDir(s); fs.mkdirSync(dir, { recursive: true }); const nm = clean(String(a.name || "attachment").replace(/\.[a-z0-9]+$/i, ""), 60);
+  if (a.data && /^data:image\//.test(a.data)) { const { ext, buf } = dataUri(a.data); const f = `${stamp()} ${nm}.${ext}`; fs.writeFileSync(path.join(dir, f), buf); return { kind: "image", name: a.name || f, file: f }; }
+  if (typeof a.text === "string") { const f = `${stamp()} ${nm}.txt`; const t = a.text.slice(0, MAX_TEXT); fs.writeFileSync(path.join(dir, f), t); return { kind: "text", name: a.name || f, file: f, chars: t.length, cut: a.text.length > MAX_TEXT, from: a.from || "file" }; }
+  throw httpErr(400, `GASP can't read ${a.name || "that file"} yet: attach images, PDFs or text files.`);
+}
+const URL_RE = /\bhttps?:\/\/[^\s<>"')\]]+/g;
+async function fetchLink(url) {
+  let u = url, label = "Web page"; const g = url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]+)/);
+  if (g) { label = { document: "Google Doc", spreadsheets: "Google Sheet", presentation: "Google Slides" }[g[1]]; u = `https://docs.google.com/${g[1]}/d/${g[2]}/export?format=${g[1] === "spreadsheets" ? "csv" : "txt"}`; if (g[1] === "presentation") u = `https://docs.google.com/presentation/d/${g[2]}/export/txt`; }
+  else if (/drive\.google\.com\/file\/d\//.test(url)) return { kind: "link", name: url, label: "Google Drive file", error: "GASP can't open Drive files from a link. Download it and attach it instead (📎)." };
+  if (process.env.GASP_DRY) return { kind: "link", name: url, label, text: `(dry run: ${label} not fetched)` };
+  let r; try { r = await fetch(u, { signal: AbortSignal.timeout(20000), redirect: "follow", headers: { "User-Agent": "Mozilla/5.0 GASP" } }); } catch (e) { return { kind: "link", name: url, label, error: `Couldn't open the link (${(e.cause && e.cause.code) || e.message}).` }; }
+  if (/accounts\.google\.com|ServiceLogin/.test(r.url) || (g && /text\/html/.test(r.headers.get("content-type") || ""))) return { kind: "link", name: url, label, error: `That ${label} isn't shared with "Anyone with the link", so GASP can't read it. Share it that way, or download it as a PDF and attach it.` };
+  if (!r.ok) return { kind: "link", name: url, label, error: `The link answered ${r.status} ${r.statusText}.` };
+  const type = r.headers.get("content-type") || ""; if (/pdf|image|octet-stream|zip/.test(type)) return { kind: "link", name: url, label, error: "That link is a file, not a page. Download it and attach it instead (📎)." };
+  let t = await r.text(); let title = "";
+  if (/html/.test(type)) { title = ((t.match(/<title[^>]*>([^<]*)/i) || [])[1] || "").trim(); t = t.replace(/<(script|style|noscript|svg)[\s\S]*?<\/\1>/gi, " ").replace(/<br\s*\/?>|<\/(p|div|li|h\d|tr)>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&rsquo;|&lsquo;/g, "'").replace(/[ \t]+/g, " ").replace(/\n\s*\n\s*/g, "\n\n").trim(); }
+  return { kind: "link", name: url, label, title, text: t };
+}
+async function linkAttachments(s, msg) {
+  const urls = [...new Set(msg.match(URL_RE) || [])].slice(0, 4); const out = [];
+  for (const url of urls) { const r = await fetchLink(url); if (r.text != null) { const a = saveAttachment(s, { name: r.title || r.label, text: r.text, from: url }); out.push({ ...a, kind: "link", label: r.label, url }); } else out.push({ kind: "link", name: url, label: r.label, url, error: r.error }); }
+  return out;
+}
+// smaller copies of images for the model (long side 1568px, JPEG), made once
+async function modelImage(s, file) {
+  const src = path.join(chatFilesDir(s), file), small = path.join(chatFilesDir(s), ".small", file.replace(/\.[a-z]+$/i, ".jpg"));
+  if (!fs.existsSync(small)) { fs.mkdirSync(path.dirname(small), { recursive: true }); try { await ffmpeg(["-i", src, "-vf", "scale='min(1568,iw)':'min(1568,ih)':force_original_aspect_ratio=decrease", "-q:v", "3", "-frames:v", "1", small]); } catch { fs.copyFileSync(src, small); } }
+  return "data:image/jpeg;base64," + fs.readFileSync(small).toString("base64");
+}
+// one user turn for the model: its text, the text of its attachments, and (for recent turns) its images
+async function userContent(s, m, withImages) {
+  const atts = m.attachments || []; if (!atts.length) return m.content;
+  let text = m.content;
+  for (const a of atts) {
+    if (a.kind === "image") { if (!withImages) text += `\n\n(An image was attached earlier: ${a.name}.)`; continue; }
+    if (a.error) { text += `\n\n(The link ${a.url} couldn't be read: ${a.error})`; continue; }
+    let body = ""; try { body = fs.readFileSync(path.join(chatFilesDir(s), a.file), "utf8"); } catch {}
+    text += `\n\n--- Attached ${a.kind === "link" ? (a.label || "page") + " " + a.url : "file " + a.name}${a.cut ? " (cut to the first " + MAX_TEXT + " characters)" : ""} ---\n${body}\n--- end of ${a.name} ---`;
+  }
+  const imgs = withImages ? atts.filter(a => a.kind === "image") : []; if (!imgs.length) return text;
+  const parts = [{ type: "text", text }]; for (const a of imgs) { try { parts.push({ type: "image_url", image_url: { url: await modelImage(s, a.file) } }); } catch {} }
+  return parts;
+}
+
 // ---------- spend log ----------
 const spendFile = () => path.join(LIB(), "spend-log.csv");
 const csv = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -339,9 +390,9 @@ const routes = {
   "GET /api/spend": () => readSpend(),
   "POST /api/story/new": async (req) => { const b = await body(req); return storyForApp(createStory(b.title || "New story")); },
   "GET /api/story": (req, url) => { const s = loadStory(url.searchParams.get("id")); s.opened = Date.now(); const out = { ...s }; delete out.dir; fs.writeFileSync(path.join(storiesDir(), s.dir, "story.json"), JSON.stringify(out, null, 2)); return storyForApp(s); },
-  "POST /api/story/rename": async (req) => { const b = await body(req); const s = loadStory(b.id); s.title = clean(b.title); return storyForApp(saveStory(s)); },
+  "POST /api/story/rename": async (req) => { const b = await body(req); const s = loadStory(b.id); s.title = clean(b.title); saveStory(s); for (const ep of s.episodes) { const t = readScript(s, ep); if (t.trim()) writeScript(s, ep, t, false); } return storyForApp(s); },
   "POST /api/episode/new": async (req) => { const b = await body(req); const s = loadStory(b.story); s.episodes.push({ id: newId(), title: b.title || `Episode ${s.episodes.length + 1}`, shots: [] }); return storyForApp(saveStory(s)); },
-  "POST /api/episode/rename": async (req) => { const b = await body(req); const s = loadStory(b.story); epOf(s, b.ep).title = String(b.title || "").slice(0, 80); return storyForApp(saveStory(s)); },
+  "POST /api/episode/rename": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); ep.title = String(b.title || "").slice(0, 80); saveStory(s); const t = readScript(s, ep); if (t.trim()) writeScript(s, ep, t, false); return storyForApp(s); },
   "POST /api/shot/new": async (req) => {
     const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep);
     const sh = { id: newId(), title: b.title || "New shot", imagePrompt: "", motionPrompt: "", seconds: null, model: null, notes: "", show: "keyframe" };
@@ -386,25 +437,33 @@ const routes = {
   "POST /api/gen/keyframe": async (req) => { const b = await body(req); return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
   "POST /api/gen/ref": async (req) => { const b = await body(req); return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1, sameSubject: true }); },
   "POST /api/gen/cutout": async (req) => { const b = await body(req); return runCutoutJob({ cardId: b.card, imageId: b.image, toolKey: b.tool || settings().defaultCutout }); },
-  "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); return { text: readScript(s, ep), path: scriptPath(s, ep) }; },
+  "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); const t = readScript(s, ep), h = SF.withHeader(t, s.title, ep.num, ep.title); if (h !== t) writeScript(s, ep, h, false); return { text: h, path: scriptPath(s, ep) }; },
   "POST /api/script/save": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); writeScript(s, ep, String(b.text || "").replace(/\r/g, ""), false); return { ok: true }; },
   "POST /api/script/sync": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const r = syncScript(s, ep, String(b.text ?? readScript(s, ep)).replace(/\r/g, ""), b.orphans); saveStory(s); writeScript(s, ep, r.text, true); return { story: storyForApp(s), text: r.text, created: r.created, updated: r.updated, orphans: r.orphans }; },
-  "GET /api/chat": (req, url) => chatForApp(readChat(loadStory(url.searchParams.get("story")))),
+  "GET /api/chat": (req, url) => { const s = loadStory(url.searchParams.get("story")); return chatForApp(readChat(s), s); },
   "POST /api/chat": async (req) => {
     const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const c = readChat(s);
-    const msg = String(b.message || "").trim(); if (!msg) throw httpErr(400, "empty message");
-    c.messages.push({ role: "user", content: msg, at: Date.now(), ep: ep.num }); writeChat(s, c);
+    const msg = String(b.message || "").trim(); if (!msg && !(b.attachments || []).length) throw httpErr(400, "empty message");
+    const attachments = (b.attachments || []).map(a => saveAttachment(s, a)).concat(await linkAttachments(s, msg));
+    c.messages.push({ role: "user", content: msg || "(see the attachments)", attachments: attachments.length ? attachments : undefined, at: Date.now(), ep: ep.num }); writeChat(s, c);
     const app = storyForApp(s); const epA = app.episodes.find(e => e.id === ep.id); const script = readScript(s, ep);
     const sys = systemPrompt({ guide: SF.GUIDE, story: s, ep, script, shots: epA.shots, characters: SF.parse(script).characters, videoModel: MODELS.video[settings().defaultVideo], cards: readCards().map(c => ({ kind: c.kind, name: c.name, aliases: c.aliases, look: c.look, images: c.images.filter(i => i.take).length })) });
-    const hist = c.messages.slice(-24).map(m => ({ role: m.role, content: m.role === "assistant" && (m.actions || []).some(a => a.state) ? m.content + "\n\n(" + m.actions.map((a, k) => `card ${k + 1}: ${a.state || "not acted on"}`).join("; ") + ")" : m.content }));
+    const recent = c.messages.slice(-24).filter(m => !m.error), imgTurns = new Set(recent.filter(m => m.role === "user" && (m.attachments || []).some(a => a.kind === "image")).slice(-3));
+    const hist = []; for (const m of recent) hist.push({ role: m.role, content: m.role === "user" ? await userContent(s, m, imgTurns.has(m)) : (m.actions || []).some(a => a.state) ? m.content + "\n\n(" + m.actions.map((a, k) => `card ${k + 1}: ${a.state || "not acted on"}`).join("; ") + ")" : m.content });
     const cs = chatSetting(); let r;
     try { r = process.env.GASP_DRY ? { text: dryReply(msg, epA.shots), tokensIn: 0, tokensOut: 0, cost: 0, ms: 600 } : await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: sys }, ...hist] }); }
-    catch (e) { c.messages.push({ role: "assistant", content: "", error: String(e.message || e), at: Date.now(), ep: ep.num }); writeChat(s, c); return chatForApp(c); }
+    catch (e) { c.messages.push({ role: "assistant", content: "", error: String(e.message || e), at: Date.now(), ep: ep.num }); writeChat(s, c); return chatForApp(c, s); }
     const { actions } = splitActions(r.text);
     c.messages.push({ role: "assistant", cutOff: !!r.cutOff, content: r.text, actions: actions.map(a => ({ ...a, state: a.action === "unreadable" ? "unreadable" : null })), at: Date.now(), model: cs.model, cost: r.cost, tokens: r.tokensIn + r.tokensOut, ep: ep.num });
     writeChat(s, c);
     logSpend({ story: s.title, episode: ep.num, shot: "", kind: "chat", model: cs.model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost ?? 0, file: `${r.tokensIn} in / ${r.tokensOut} out tokens${r.cost == null ? " (cost not reported)" : ""}` });
-    return chatForApp(c);
+    return chatForApp(c, s);
+  },
+  "POST /api/chat/test": async () => {
+    const cs = chatSetting(); const t0 = Date.now();
+    if (process.env.GASP_DRY) return { ok: true, ms: 5, provider: cs.provider, model: cs.model, dry: true };
+    try { await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "user", content: "Reply with the word OK." }], maxTokens: 5, timeoutMs: 30000 }); return { ok: true, ms: Date.now() - t0, provider: cs.provider, model: cs.model }; }
+    catch (e) { return { ok: false, error: String(e.message || e), provider: cs.provider, model: cs.model }; }
   },
   "POST /api/chat/act": async (req) => {
     const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const c = readChat(s); const m = c.messages[b.msg]; const a = m && (m.actions || [])[b.action];
@@ -426,7 +485,7 @@ const routes = {
       }
       a.state = null; delete a.undo; delete a.undoScript; delete a.undoRef; delete a.createdIds;
     }
-    saveStory(s); writeChat(s, c); return { chat: chatForApp(c), story: storyForApp(s), note };
+    saveStory(s); writeChat(s, c); return { chat: chatForApp(c, s), story: storyForApp(s), note };
   },
   "POST /api/chat/clear": async (req) => { const b = await body(req); const s = loadStory(b.story); const c = readChat(s); if (c.messages.length) { const h = path.join(storiesDir(), s.dir, "chat history"); fs.mkdirSync(h, { recursive: true }); fs.writeFileSync(path.join(h, `${stamp()}.json`), JSON.stringify(c, null, 1)); } writeChat(s, { messages: [] }); return chatForApp({ messages: [] }); },
   "GET /api/jobs": () => Object.values(JOBS).filter(j => j.status === "running" || Date.now() - (j.finished || 0) < 10 * 60e3),

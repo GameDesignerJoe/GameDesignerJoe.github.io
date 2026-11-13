@@ -16,7 +16,7 @@ var GASPScript = (function () {
   var reDialog = /^\s*([A-Z][A-Z0-9 .'\-]{0,28}[A-Z0-9.'])\s*(\([^)]*\))?\s*:\s*(.+)$/;
   var reCue = /^\s*([A-Z][A-Z0-9 .'\-]{0,28}[A-Z0-9.'])\s*(\([^)]*\))?\s*$/;
   var reId = /\s*\[\[#([a-z0-9]{6,16})\]\]\s*$/i;
-  var NOT_NAMES = /^(INT|EXT|SCENE|SHOT|CUT TO|FADE IN|FADE OUT|THE END|END|CONTINUED|TITLE|STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE)\b/;
+  var NOT_NAMES = /^(INT|EXT|SCENE|SHOT|CUT TO|FADE IN|FADE OUT|THE END|END|CONTINUED|TITLE|STORY|EPISODE|STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE)\b/;
 
   function splitCallout(rest) {
     var id = null, m = rest.match(reId); if (m) { id = m[1]; rest = rest.replace(reId, ""); }
@@ -178,7 +178,7 @@ var GASPScript = (function () {
       if ((m = t.match(/^\s*([A-Za-z][A-Za-z .'_\-]{1,28}?)\s*[:\-–]\s+(.+)$/))) {
         var lab = m[1].trim().toUpperCase().replace(/_/g, " ");
         if (FIELDS[lab] || FIELDS[lab.replace(/S$/, "")]) { var up = lab === "NOTES" ? "NOTE" : lab; if (t.indexOf(up + ": ") !== 0) fix(i, up + ": " + m[2], up + ": label fixed"); return; }
-        if (!inShots && /^(STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE|EMOTION LINE)$/.test(lab)) { if (t.indexOf(lab + ": ") !== 0) fix(i, lab + ": " + m[2], "brief label in caps"); return; }   // the brief above the first shot
+        if (!inShots && /^(STORY|EPISODE|STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE|EMOTION LINE)$/.test(lab)) { if (t.indexOf(lab + ": ") !== 0) fix(i, lab + ": " + m[2], "brief label in caps"); return; }   // the brief above the first shot
         if (SYN[lab] && inShots) { fix(i, SYN[lab] + ": " + m[2], lab + " → " + SYN[lab]); return; }
         if (known[lab]) { if (t.indexOf(lab + ": ") !== 0 && t.indexOf(lab + " (") !== 0) fix(i, lab + ": " + m[2], "speaker name in caps"); return; }
         if (/^[A-Z][A-Z .'\-]+$/.test(m[1].trim()) && !NOT_NAMES.test(lab)) return;      // a new speaker in caps is fine
@@ -190,8 +190,8 @@ var GASPScript = (function () {
     var firstShot = p.blocks.length ? p.blocks[0].start : -1; var OL = lines(out);
     OL.forEach(function (x, i) { if (/^\s*(#+\s*)?(reference|references|reference images?)\b/i.test(x)) issues.push({ line: i, level: "info", msg: "Reference images go in the Reference tab, not the script; GASP attaches them by the names on WHO: lines." }); });
     if (!p.blocks.length && out.trim()) issues.push({ line: 0, level: "error", msg: "No SHOT lines, so Sync has nothing to make. Start each shot with SHOT:" });
-    OL.forEach(function (x, i) { if (firstShot > 0 && i < firstShot && i > 0 && x.trim() && !reScene.test(x.trim()) && !/^\s*(STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE|EMOTION LINE)\s*:/i.test(x) && !/^\s*\S.*\s[—–-]\s/.test(x) && (reField.test(x) || reDialog.test(x.trim()))) issues.push({ line: i, level: "warn", msg: "This is above the first SHOT, so it won't reach any shot." }); });
-    OL.forEach(function (x, i) { var m = x.trim().match(/^([A-Za-z][A-Za-z ]{2,24})\s*:\s+\S/); if (m && !FIELDS[m[1].toUpperCase()] && !SYN[m[1].toUpperCase()] && !known[m[1].toUpperCase()] && !/^[A-Z][A-Z .'\-]+$/.test(m[1]) && !/^(SCENE|SHOT|Title|STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|LENGTH|TARGET|EMOTION LINE|PERFORMANCE)$/i.test(m[1])) issues.push({ line: i, level: "info", msg: "\"" + m[1] + ":\" isn't a GASP label, so this line counts as action. Use IMAGE:, MOTION:, SFX:, NOTE: or a speaker NAME:." }); });
+    OL.forEach(function (x, i) { if (firstShot > 0 && i < firstShot && i > 0 && x.trim() && !reScene.test(x.trim()) && !/^\s*(STORY|EPISODE|STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE|EMOTION LINE)\s*:/i.test(x) && !/^\s*\S.*\s[—–-]\s/.test(x) && (reField.test(x) || reDialog.test(x.trim()))) issues.push({ line: i, level: "warn", msg: "This is above the first SHOT, so it won't reach any shot." }); });
+    OL.forEach(function (x, i) { var m = x.trim().match(/^([A-Za-z][A-Za-z ]{2,24})\s*:\s+\S/); if (m && !FIELDS[m[1].toUpperCase()] && !SYN[m[1].toUpperCase()] && !known[m[1].toUpperCase()] && !/^[A-Z][A-Z .'\-]+$/.test(m[1]) && !/^(SCENE|SHOT|Title|STORY|EPISODE|STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|LENGTH|TARGET|EMOTION LINE|PERFORMANCE)$/i.test(m[1])) issues.push({ line: i, level: "info", msg: "\"" + m[1] + ":\" isn't a GASP label, so this line counts as action. Use IMAGE:, MOTION:, SFX:, NOTE: or a speaker NAME:." }); });
     p.blocks.forEach(function (b) {
       if (b.id) { if (ids[b.id]) issues.push({ line: b.start, level: "error", msg: "Two SHOT lines share the link [[#" + b.id + "]]. Delete it from the copy so Sync makes a new shot." }); ids[b.id] = 1; }
       if (!b.image) issues.push({ line: b.start, level: "error", msg: "No IMAGE (or action) for this shot, so its keyframe has nothing to go on." });
@@ -209,6 +209,15 @@ var GASPScript = (function () {
     return { text: out, fixes: fixes, issues: issues };
   }
 
-  return { parse: parse, lint: lint, setField: setField, setCallout: setCallout, reorder: reorder, removeBlock: removeBlock, insertBlock: insertBlock, renumber: renumber, stampId: stampId, calloutLine: calloutLine, GUIDE: GUIDE, re: { shot: reShot, scene: reScene, field: reField, dialog: reDialog, cue: reCue, id: reId, notNames: NOT_NAMES } };
+  // GASP keeps two lines at the top of every script: the story's name and the episode. They're rewritten on every save,
+  // so renaming the story or episode updates them, and the chat never has to write them.
+  function header(story, num, title) { return "STORY: " + story + "\nEPISODE: " + num + (title && !new RegExp("^Episode\\s*0*" + num + "$", "i").test(title) ? " · " + title : ""); }
+  function withHeader(text, story, num, title) {
+    var L = String(text || "").replace(/\r/g, "").split("\n"), i = 0;
+    while (i < L.length && (!L[i].trim() || /^\s*(STORY|EPISODE)\s*:/i.test(L[i]))) i++;
+    var body = L.slice(i).join("\n"); if (!body.trim()) return "";
+    return header(story, num, title) + "\n\n" + body;
+  }
+  return { withHeader: withHeader, parse: parse, lint: lint, setField: setField, setCallout: setCallout, reorder: reorder, removeBlock: removeBlock, insertBlock: insertBlock, renumber: renumber, stampId: stampId, calloutLine: calloutLine, GUIDE: GUIDE, re: { shot: reShot, scene: reScene, field: reField, dialog: reDialog, cue: reCue, id: reId, notNames: NOT_NAMES } };
 })();
 if (typeof module !== "undefined") module.exports = GASPScript;

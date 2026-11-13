@@ -55,9 +55,10 @@ Status: **Steps 1–6 built (dry-run tested). Steps 5–6 need Joe's first real 
 - [x] Chat cost logged per message when the provider reports it (tokens always)
 - [x] Joe's first real message worked on fal (Claude Sonnet 5, $0.06), but a 19-shot script hit the reply limit and its JSON proposal was cut off. Fixed: scripts are proposed in plain text (`replace_script` / `summary:` / `---` / script), reply limit raised to 16k tokens, a cut-off proposal shows a card with "Ask for it again, complete"
 - [x] Episode header lines `FORMAT: 16:9` (or 9:16, 1:1) and `STYLE: …` above the first SHOT: tiles and previews follow the format, video models that take an aspect ratio get it, Copy prompt adds the style and format, the chat writes them
-- [ ] Attach images and files to a chat message (Joe tried to attach a sample script and art in his first message)
+- [x] Attach to a chat message: 📎, paste or drop images, PDFs (text pulled out by pdf.js, bundled in `app/vendor`), text files; links in a message are read (Google Docs/Sheets/Slides shared as "Anyone with the link", web pages). Saved in the story's `chat files\`; images go to the model for the last 3 turns that had them
+- [x] Chat drawer: drag its left edge to resize (double-click resets), the message box grows as you type, a status line under the title (connected / checking / the error) with Test, clear messages for no key, no credit, rate limits, timeouts and a model that can't read images
 - [ ] Compare Claude on fal with a Groq model for quality and cost; pick the default
-- [ ] Image references in chat (paste a keyframe and ask about it): fal's endpoint accepts `image_urls`
+- [x] Image references in chat (paste a keyframe and ask about it)
 
 ## From the Grim-at-the-Fence comparison (Nov 13)
 - [ ] **Clips**: group consecutive shots into one video generation for multi-shot models (Seedance 2.0 takes "Shot 1 (0–4 s) … Shot 2 …" in one prompt, up to 15 s). A `CLIP:` heading in the script; one Generate per clip in Shots
@@ -92,6 +93,7 @@ Status: **Steps 1–6 built (dry-run tested). Steps 5–6 need Joe's first real 
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-13 — Joe's quality-of-life list (Google Doc "GASP 2"): chat attachments and links, resizable chat with a growing message box and a connection status line; Script tab: STORY/EPISODE header kept by GASP, "Episode 1" tabs (double-click to rename; title box removed), text size A−/A+, side panel can hide (Update Shots moves to the toolbar), "Sync to Shots" renamed "Update Shots" with a line saying what it would change, "Copy Script for Claude", editor fills the width with no scroll bar, example page shows STORY/EPISODE/FORMAT/STYLE and hides itself when there's no room.
 - 2026-11-13 — Steps 5 and 6 built and dry-run tested together (cards from files, generate face from full body, background removal, keyframes x2 with Mother + Farm Yard references matched from the script, "Mom" alias, previous-shot reference, chat card saving a look then undone, name completion from cards).
 - 2026-11-13 — Joe's second script (new method): brief, consistent cast, light arc, safe strikes, all shots 5s+ (~$7 of Kling vs $50). Fixed what it exposed: invented `[[#1]]` tags are dropped (only GASP's real link is kept), a `---` or REFERENCE IMAGES section after the last shot no longer joins that shot, the chat is told not to write either, and the "IMAGE names X" check ignores role words used as description ("a small child").
 - 2026-11-13 — Compared GASP's first script with Joe's Taplot-made .md (~$50 video). Took the .md's method into how the chat writes every script; Joe will rerun the same prompt in a new story to compare.

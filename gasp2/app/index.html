@@ -141,8 +141,11 @@ table.t th{color:var(--muted);font-weight:600}table.t td.n{text-align:right;font
 .soonpage li{margin:4px 0}
 code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:4px}
 /* script */
-.scriptwrap{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}
-.sleft{display:flex;flex-direction:column;min-height:0;padding:14px 16px 16px}
+.scriptwrap{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}.scriptwrap.noside{grid-template-columns:minmax(0,1fr)}.scriptwrap.noside .sright{display:none}
+.fsz{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.fsz button{border:0;background:none;color:var(--muted);padding:3px 9px;cursor:pointer;font:600 12px var(--sans,inherit)}.fsz button:hover{color:var(--ink);background:var(--panel2)}.fsz span{display:block;line-height:26px;padding:0 7px;font-size:12px;color:var(--faint);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.syncst{font-size:12px;color:var(--muted)}.syncst b{color:var(--warn)}
+.sleft{display:flex;flex-direction:column;min-height:0;padding:14px 16px 16px;container-type:inline-size}
+@container (max-width:860px){.example{display:none}}
 .pages{flex:1;min-height:0;display:flex;gap:16px;justify-content:center}
 .example{width:min(520px,40%);flex:none;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:14px 16px;overflow:auto}
 .expage{white-space:pre-wrap;font:12.5px/1.6 "Courier Prime","Courier New",Courier,var(--mono);background:#0f0c12;border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0 0;color:var(--ink)}
@@ -156,8 +159,9 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1
 .lint .error .ic{background:var(--bad);color:#000}.lint .warn .ic{background:var(--warn);color:#000}.lint .info .ic{background:#7cc4ff;color:#000}.lint .ok .ic{background:var(--good);color:#000}
 .h-ghost{color:var(--faint)}.h-ghostkey{font:600 10px var(--mono);color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:8px;vertical-align:1px}
 .btn.on{border-color:var(--accent);color:var(--ink)}
-.editor{position:relative;flex:1;min-height:0;max-width:860px;width:100%;margin:0;border:1px solid var(--line);border-radius:12px;background:#0f0c12;overflow:hidden}
-.editor textarea,.editor .mirror{position:absolute;inset:0;margin:0;padding:24px 28px;font:14.5px/1.65 "Courier Prime","Courier New",Courier,var(--mono);white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:2;border:0;border-radius:0;overflow:auto;letter-spacing:0}
+.editor{position:relative;flex:1;min-height:0;width:100%;margin:0;border:1px solid var(--line);border-radius:12px;background:#0f0c12;overflow:hidden}
+.editor textarea,.editor .mirror{position:absolute;inset:0;margin:0;padding:24px 28px;font:var(--scfont,14.5px)/1.65 "Courier Prime","Courier New",Courier,var(--mono);white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:2;border:0;border-radius:0;overflow:auto;letter-spacing:0;scrollbar-width:none}
+.editor textarea::-webkit-scrollbar{display:none}
 .editor textarea{background:transparent;color:transparent;caret-color:var(--ink);resize:none;min-height:0;z-index:1}
 .editor textarea::selection{background:rgba(255,77,109,.35);color:transparent}
 .editor textarea::placeholder{color:var(--faint)}
@@ -179,8 +183,8 @@ pre.guide{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line)
 .dl{font-size:13px;margin:3px 0}.dl.sfx{color:#6fd3a4}
 /* chat */
 #chatBtn.on{border-color:var(--accent)}
-body.chatopen main{margin-right:min(440px,40vw)}
-#chat{position:fixed;right:0;top:var(--hdr,57px);bottom:0;width:min(440px,40vw);background:var(--panel);border-left:1px solid var(--line);display:none;flex-direction:column;z-index:30}
+body.chatopen main{margin-right:var(--chatw,min(440px,40vw))}
+#chat{position:fixed;right:0;top:var(--hdr,57px);bottom:0;width:var(--chatw,min(440px,40vw));background:var(--panel);border-left:1px solid var(--line);display:none;flex-direction:column;z-index:30}
 body.chatopen #chat{display:flex}
 .chead{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
 .cmsgs{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
@@ -197,7 +201,21 @@ body.chatopen #chat{display:flex}
 .card .cs{margin-top:2px}.card .ok{color:var(--good);font-size:12.5px}
 .card details summary{cursor:pointer;color:var(--muted);font-size:12.5px;margin-top:4px}
 .cfield{font-size:12.5px;margin-top:4px}.cfield b{color:var(--muted);font-size:11px;margin-right:4px}
-.ccomp{border-top:1px solid var(--line);padding:10px;display:flex;gap:8px;align-items:flex-end}.ccomp textarea{min-height:44px;max-height:30vh}
+.ccomp{border-top:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:6px}.ccomp .crow{display:flex;gap:8px;align-items:flex-end}
+.ccomp textarea{min-height:42px;max-height:45vh;resize:none;overflow-y:auto;line-height:1.45}
+#chat.dropping{outline:2px dashed var(--accent);outline-offset:-6px}
+.cgrip{position:absolute;left:-4px;top:0;bottom:0;width:8px;cursor:col-resize;z-index:2}.cgrip:hover,.cgrip.drag{background:linear-gradient(90deg,transparent 3px,var(--accent) 3px,var(--accent) 5px,transparent 5px)}
+body.resizing{cursor:col-resize;user-select:none}body.resizing iframe,body.resizing video{pointer-events:none}
+.cstat{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);margin-top:2px}.cstat i{width:7px;height:7px;border-radius:50%;background:var(--faint);display:inline-block}
+.cstat.ok i{background:var(--good)}.cstat.bad{color:var(--bad)}.cstat.bad i{background:var(--bad)}.cstat.checking i{background:var(--warn)}
+.cstat a{color:var(--muted);text-decoration:underline;cursor:pointer}
+.atts{display:flex;flex-wrap:wrap;gap:6px}
+.att{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:3px 6px 3px 3px;font-size:12px;max-width:100%;background:var(--bg)}
+.att img{width:34px;height:34px;object-fit:cover;border-radius:5px}.att .ai{width:34px;height:34px;border-radius:5px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+.att .an{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}.att .as{color:var(--faint);font-size:11px}.att.err{border-color:rgba(255,107,107,.5)}.att.err .as{color:var(--bad);white-space:normal}
+.att button{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 2px;font-size:13px}
+.cmsg.u .atts{justify-content:flex-end;margin-bottom:4px}.cmsg.u{flex-direction:column;align-items:flex-end}
+.bub.typing .tw{font-size:11px;color:var(--faint);margin-left:8px}
 .cempty{color:var(--muted);font-size:13px}.cempty p{margin:0 0 10px}.cstarts{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .typing{display:flex;gap:4px;padding:12px 14px}.typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite}.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
 @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
@@ -280,10 +298,10 @@ const cur=()=>EP&&EP.shots.find(x=>x.id===SEL);
 function renderShots(){
   const m=$("#main");
   const asp=(EP.aspect||"9:16").split(":").map(Number);document.documentElement.style.setProperty("--asp",`${asp[0]}/${asp[1]}`);document.documentElement.classList.toggle("wide",asp[0]>asp[1]);
-  m.innerHTML=`<div class="shots"><div class="left" id="left"><div class="epbar">${STORY.episodes.map(e=>`<button class="ep ${e.id===EP.id?"on":""}" data-ep="${e.id}" title="${esc(e.title)}">Ep ${e.num}</button>`).join("")}<button class="btn small ghost" id="addEp">+ Episode</button><input type="text" id="epTitle" value="${esc(EP.title)}" title="Episode title (also its folder name)"><span class="spacer"></span><button class="btn small ghost" id="epFolder">Show folder</button></div><div class="grid" id="grid"></div><p class="hint">Drop images from ChatGPT or your desktop onto the grid: one new shot per image, in order. Drop an image on a tile to give it a new keyframe. Drag tiles to reorder; hover a tile's left edge for + to insert. <b>Ctrl+V</b> pastes a copied image into the selected shot.</p></div><div class="panel" id="panel"></div></div>`;
+  m.innerHTML=`<div class="shots"><div class="left" id="left"><div class="epbar">${epTabs()}<button class="btn small ghost" id="addEp">+ Episode</button><span class="spacer"></span><button class="btn small ghost" id="epFolder">Show folder</button></div><div class="grid" id="grid"></div><p class="hint">Drop images from ChatGPT or your desktop onto the grid: one new shot per image, in order. Drop an image on a tile to give it a new keyframe. Drag tiles to reorder; hover a tile's left edge for + to insert. <b>Ctrl+V</b> pastes a copied image into the selected shot.</p></div><div class="panel" id="panel"></div></div>`;
   document.querySelectorAll("[data-ep]").forEach(b=>b.onclick=()=>{EP=STORY.episodes.find(e=>e.id===b.dataset.ep);ls.set("g2-ep-"+STORY.id,EP.id);SEL=EP.shots[0]?EP.shots[0].id:null;renderShots()});
   $("#addEp").onclick=async()=>{const s=await api("/api/episode/new",{story:STORY.id});EP=s.episodes[s.episodes.length-1];SEL=null;setStory(s)};
-  $("#epTitle").onchange=async e=>{try{setStory(await api("/api/episode/rename",{story:STORY.id,ep:EP.id,title:e.target.value}))}catch(err){toast(err.message)}};
+  wireEpRename(()=>renderShots());
   $("#epFolder").onclick=()=>reveal({ep:EP.id});
   renderGrid();renderPanel();wireGridDrop()}
 function tileMedia(sh){const m=sh.media||{};if(sh.show==="video"&&m.video)return{type:"video",html:`<video src="${m.video}#t=0.1" muted loop playsinline preload="metadata"></video>`};if(m.keyframe)return{type:"image",html:`<img src="${m.keyframe}" alt="" loading="lazy">`};if(m.video)return{type:"video",html:`<video src="${m.video}#t=0.1" muted loop playsinline preload="metadata"></video>`};return null}
@@ -330,7 +348,7 @@ function renderPanel(){
   const models=STATE.models,mk=sh.model&&models[sh.model]?sh.model:STATE.defaultVideo,model=models[mk];const secs=model.durations.includes(+sh.seconds)?+sh.seconds:model.durations.find(d=>d>=5)||model.durations[0];
   const est=model.pricePerSecond*secs+(model.perRequest||0);const j=JOBS_FOR(sh.id,"video");const busy=j&&j.status==="running";
   const kj=JOBS_FOR(sh.id,"keyframe"),kbusy=kj&&kj.status==="running",IM=STATE.imageModels||{},imk=IM[sh.imageModel]?sh.imageModel:STATE.defaultImage,imm=IM[imk]||{pricePerImage:0,maxRefs:4},icount=[1,2,4].includes(+sh.imageCount)?+sh.imageCount:1,picks=refPicks(sh),fresh=kj&&kj.status==="done"?new Set(kj.takes||[]):new Set();
-  p.innerHTML=`<div class="row"><h3>Shot ${String(idx).padStart(2,"0")}</h3><span class="spacer"></span><button class="btn small ghost" id="pCopy" title="Copy this shot, its status and the format guide for Claude">Copy for Claude</button><button class="btn small ghost" id="pDup" title="Duplicate this shot and its takes">Duplicate</button><button class="btn small ghost" id="pFolder" title="Open this shot's folder">Folder</button><button class="btn small ghost" id="pDel" title="Move this shot to _Trash">Delete</button></div>
+  p.innerHTML=`<div class="row"><h3>Shot ${String(idx).padStart(2,"0")}</h3><span class="spacer"></span><button class="btn small ghost" id="pCopy" title="Copy this shot, its status and the format guide for Claude">Copy Shot for Claude</button><button class="btn small ghost" id="pDup" title="Duplicate this shot and its takes">Duplicate</button><button class="btn small ghost" id="pFolder" title="Open this shot's folder">Folder</button><button class="btn small ghost" id="pDel" title="Move this shot to _Trash">Delete</button></div>
   <input type="text" id="pTitle" class="ptitle" value="${esc(sh.title)}" style="margin-top:8px" title="Shot title (also its folder name)">
   <div class="hero" id="hero">${show==="video"?`<video src="${m.video}" controls playsinline loop></video>`:show==="keyframe"?`<img src="${m.keyframe}" alt="">`:`<div class="ph" id="heroDrop">Drop a keyframe here, paste one with Ctrl+V,<br>or <u>choose a file</u>.</div>`}${hasV&&hasK?`<div class="seg"><button data-show="keyframe" class="${show==="keyframe"?"on":""}">${ICON.image.replace("<svg",'<svg style="width:13px;height:13px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:1.8"')} Keyframe</button><button data-show="video" class="${show==="video"?"on":""}">${ICON.video.replace("<svg",'<svg style="width:13px;height:13px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:1.8"')} Video</button></div>`:""}</div>
   <div class="sec"><div class="secrow"><h3>Keyframe</h3><span class="spacer"></span><label class="btn small">Replace from file<input type="file" accept="image/*" id="kfFile" hidden></label></div>
@@ -495,14 +513,18 @@ const SFX=window.GASPScript;
 async function loadScript(){const r=await api(`/api/script?story=${encodeURIComponent(STORY.id)}&ep=${encodeURIComponent(EP.id)}`);SCRIPT={ep:EP.id,text:r.text,saved:r.text,path:r.path,t:0}}
 async function saveScriptNow(){clearTimeout(SCRIPT.t);if(!STORY||!SCRIPT.ep||SCRIPT.text===SCRIPT.saved)return;const text=SCRIPT.text;try{await api("/api/script/save",{story:STORY.id,ep:SCRIPT.ep,text});SCRIPT.saved=text;const st=$("#scSaved");if(st)st.textContent="saved"}catch(e){toast(e.message)}}
 function scriptStatusLine(){return SCRIPT.text===SCRIPT.saved?"saved":"saving…"}
+function epTabs(){return STORY.episodes.map(e=>`<button class="ep ${e.id===EP.id?"on":""}" data-ep="${e.id}" title="${esc(e.title)}${e.id===EP.id?" · double-click to rename":""}">Episode ${e.num}${e.title&&!/^Episode\s*\d+$/i.test(e.title)?`<span class="sub" style="font-weight:400"> · ${esc(e.title)}</span>`:""}</button>`).join("")}
+function wireEpRename(after){document.querySelectorAll("[data-ep]").forEach(b=>b.ondblclick=async()=>{const e=STORY.episodes.find(x=>x.id===b.dataset.ep);const t=prompt(`Title for Episode ${e.num} (also its folder name)`,e.title);if(t==null||!t.trim()||t===e.title)return;try{STORY=await api("/api/episode/rename",{story:STORY.id,ep:e.id,title:t.trim()});EP=STORY.episodes.find(x=>x.id===EP.id);after()}catch(err){toast(err.message)}})}
+const scFont=()=>+ls.get("g2-scfont",15);
 async function renderScript(){
   await saveScriptNow();await loadScript();SCRIPT.story=STORY.id;
   const m=$("#main");
-  m.innerHTML=`<div class="scriptwrap"><div class="sleft"><div class="epbar">${STORY.episodes.map(e=>`<button class="ep ${e.id===EP.id?"on":""}" data-ep="${e.id}" title="${esc(e.title)}">Ep ${e.num}</button>`).join("")}<button class="btn small ghost" id="addEp">+ Episode</button><span class="sub" style="margin-left:6px">${esc(EP.title)}</span><span class="spacer"></span><span class="sub" id="scSaved">${scriptStatusLine()}</span></div>
+  const side=ls.get("g2-side",true);document.documentElement.style.setProperty("--scfont",scFont()+"px");
+  m.innerHTML=`<div class="scriptwrap ${side?"":"noside"}"><div class="sleft"><div class="epbar">${epTabs()}<button class="btn small ghost" id="addEp">+ Episode</button><span class="spacer"></span><span class="sub" id="scSaved">${scriptStatusLine()}</span><div class="fsz" title="Script text size (just this editor)"><button id="fszDn">A−</button><span id="fszV">${scFont()}</span><button id="fszUp">A+</button></div>${side?"":`<button class="btn small" id="syncTop" title="Make tiles in Shots for new SHOTs and update the linked ones">Update Shots</button>`}<button class="btn small ghost" id="sideBtn" title="${side?"Hide":"Show"} the side panel (Update Shots, Check format, outline)">${side?"Hide panel ▸":"◂ Panel"}</button></div>
     <div class="pages"><div class="editor" id="ed"><pre class="mirror" id="mirror" aria-hidden="true"></pre><textarea id="sc" spellcheck="true" lang="en" autocorrect="on" autocapitalize="sentences"></textarea></div>${ls.get("g2-example",true)?exampleHTML():""}</div></div>
-    <div class="sright"><button class="btn primary" id="sync" style="width:100%;justify-content:center">Sync to Shots</button><p class="sub" id="syncNote" style="margin:6px 0 0">Makes a tile for every SHOT, updates the ones already linked. Keyframes and videos are never touched.</p>
+    <div class="sright"><button class="btn primary" id="sync" style="width:100%;justify-content:center" title="Copies the script's shots into the Shots tab: a new tile for each new SHOT, and new titles, lengths and prompts for the linked ones. Keyframes and videos are never touched.">Update Shots</button><p class="syncst" id="syncNote" style="margin:6px 0 0"></p>
       <button class="btn" id="lintBtn" style="width:100%;justify-content:center;margin-top:10px" title="Fix the format where it's certain, flag the rest">Check format</button><div id="lintOut"></div>
-      <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn small" id="copyClaude">Copy for Claude</button><button class="btn small ${ls.get("g2-example",true)?"on":"ghost"}" id="guide">${ls.get("g2-example",true)?"Hide example":"Show example"}</button><button class="btn small ghost" id="scFolder">Folder</button></div>
+      <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn small" id="copyClaude">Copy Script for Claude</button><button class="btn small ${ls.get("g2-example",true)?"on":"ghost"}" id="guide">${ls.get("g2-example",true)?"Hide example":"Show example"}</button><button class="btn small ghost" id="scFolder">Folder</button></div>
       <div id="orph"></div>
       <div id="look"></div>
       <h3 class="side">Shots in this script</h3><div id="outline" class="outline"></div>
@@ -516,7 +538,10 @@ async function renderScript(){
   ta.oninput=()=>{if(LINT.open){clearTimeout(LINT.t);LINT.t=setTimeout(()=>showLint(GASPScript.lint(ta.value,lintOpt()).issues,true),900)}SCRIPT.text=ta.value;$("#scSaved").textContent="saving…";clearTimeout(SCRIPT.t);SCRIPT.t=setTimeout(saveScriptNow,800);refresh()};
   ta.onscroll=()=>{mi.scrollTop=ta.scrollTop};
   ta.onkeydown=e=>smartKeys(e,ta,()=>ta.oninput(),paint);
-  $("#sync").onclick=()=>doSync();
+  $("#sync").onclick=()=>doSync();if($("#syncTop"))$("#syncTop").onclick=()=>doSync();
+  $("#sideBtn").onclick=async()=>{await saveScriptNow();ls.set("g2-side",!side);renderScript()};
+  const fz=d=>{const v=Math.max(11,Math.min(26,scFont()+d));ls.set("g2-scfont",v);document.documentElement.style.setProperty("--scfont",v+"px");$("#fszV").textContent=v;paint()};$("#fszDn").onclick=()=>fz(-1);$("#fszUp").onclick=()=>fz(1);
+  wireEpRename(async()=>{await saveScriptNow();renderScript()});
   $("#lintBtn").onclick=()=>{const r=GASPScript.lint(ta.value);if(r.fixes.length&&r.text!==ta.value){ta.focus();ta.select();if(!document.execCommand("insertText",false,r.text))ta.value=r.text;ta.setSelectionRange(0,0);ta.scrollTop=0;ta.oninput()}LINT.open=true;LINT.fixed=r.fixes;showLint(r.issues)};
   if(LINT.open)showLint(GASPScript.lint(ta.value,lintOpt()).issues,true);
   $("#copyClaude").onclick=()=>copyText(forClaude(),"Script, shot status and format guide copied. Paste into Claude.");
@@ -524,7 +549,9 @@ async function renderScript(){
   const gc=$("#gCopy");if(gc)gc.onclick=()=>copyText(SFX.GUIDE,"Format guide copied. Paste it into your Claude project's instructions.");
   $("#scFolder").onclick=()=>reveal({ep:EP.id});
   refresh()}
-const EXAMPLE=`FORMAT: 9:16
+const EXAMPLE=`STORY: Jungle Girl
+EPISODE: 1 · Shipwrecked
+FORMAT: 9:16
 STYLE: glossy soap-opera photoreal, warm film grain, shallow depth of field
 TONE: playful → charged
 RULES: suggestive, never explicit
@@ -553,7 +580,10 @@ NOTE: hold a beat on his face before the cut`;
 function exampleHTML(){return`<aside class="example"><div class="row"><h3 class="side" style="margin:0">Example page</h3><span class="spacer"></span><button class="btn small ghost" id="gCopy" title="Copy the format guide, for a Claude project's instructions">Copy guide for Claude</button></div>
   <pre class="expage">${highlight(EXAMPLE)}</pre>
   <h3 class="side">How it reads</h3><ul class="exkeys">
-  <li><b>The brief</b>, above the first shot: <span class="h-lab h-style">FORMAT</span>, <span class="h-lab h-style">STYLE</span> (added to every IMAGE prompt), then TONE, RULES, LIGHT, CAMERA, CAST, AUDIO. CAST lines are the exact words to reuse for each character in every IMAGE.</li>
+  <li><span class="h-lab h-style">STORY</span> and <span class="h-lab h-style">EPISODE</span>: GASP writes these two lines at the top and keeps them up to date when you rename the story or episode (double-click an episode tab).</li>
+  <li><span class="h-lab h-style">FORMAT</span>: the frame shape for every shot: 9:16 (vertical, the default), 16:9 or 1:1. Tiles, previews and video models follow it.</li>
+  <li><span class="h-lab h-style">STYLE</span>: the look (medium, era, line work, grain). GASP puts it in front of every IMAGE prompt, so don't repeat it there.</li>
+  <li><b>The rest of the brief</b>, above the first shot: <span class="h-lab h-style">FORMAT</span>, <span class="h-lab h-style">STYLE</span> (added to every IMAGE prompt), then TONE, RULES, LIGHT, CAMERA, CAST, AUDIO. CAST lines are the exact words to reuse for each character in every IMAGE.</li>
   <li><span class="h-scene">SCENE:</span> a heading for where and when (INT./EXT. work too). Optional.</li>
   <li><span class="h-shot">SHOT:</span> starts a shot: a short title, then optional framing (CU, MS, WS…), location and length, split by <b>·</b></li>
   <li><span class="h-lab h-who">WHO:</span> who's in frame, by name, so GASP attaches their reference images</li>
@@ -565,7 +595,7 @@ function exampleHTML(){return`<aside class="example"><div class="row"><h3 class=
   <h3 class="side">Keys</h3><ul class="exkeys"><li><b>Tab</b> or <b>→</b> takes the grey suggestion; <b>Esc</b> dismisses it</li><li><b>Tab</b> on an empty line cycles SHOT, IMAGE, MOTION, SFX, NOTE</li><li>Start typing a name or a keyword (<b>im</b>, <b>wr</b>) and Tab finishes it</li><li><b>Ctrl+S</b> saves (it also saves on its own)</li></ul></aside>`}
 function highlight(t,ghost,flags){const R=SFX.re;let cue=false;return t.split("\n").map((L,li)=>{const h=ghostAt(li,ghost,hl(L));const f=flags&&flags[li];return f?`<span class="h-flag ${f}">${h||" "}</span>`:h}).join("\n")+"\n";function hl(L){const s=L.trim();let h=esc(L);const idm=L.match(R.id);if(idm)h=esc(L.slice(0,idm.index))+`<span class="h-id">${esc(L.slice(idm.index))}</span>`;
   if(R.scene.test(s)){cue=false;return`<span class="h-scene">${h}</span>`}
-  const sf=L.match(/^(\s*)(STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE)(\s*:)(.*)$/i);if(sf){cue=false;return`${esc(sf[1])}<span class="h-lab h-style">${esc(sf[2]+sf[3])}</span>${esc(sf[4])}`}
+  const sf=L.match(/^(\s*)(STORY|EPISODE|STYLE|FORMAT|TONE|RULES|LIGHT|PALETTE|CAMERA|CAST|AUDIO|MUSIC|BRIEF|LOOK|TARGET|PERFORMANCE)(\s*:)(.*)$/i);if(sf){cue=false;return`${esc(sf[1])}<span class="h-lab h-style">${esc(sf[2]+sf[3])}</span>${esc(sf[4])}`}
   if(R.shot.test(s)&&!R.field.test(s)){cue=false;return`<span class="h-shot">${h}</span>`}
   const f=L.match(/^(\s*)(IMAGE|MOTION|SFX|SOUND|NOTES?|WHO|FRAME|LOCATION|LENGTH)(\s*:)(.*)$/i);if(f){cue=false;return`${esc(f[1])}<span class="h-lab h-${f[2].toLowerCase().replace(/s$/,"")}">${esc(f[2]+f[3])}</span>${esc(f[4])}`}
   const d=s.match(R.dialog);if(d&&!R.notNames.test(d[1])){cue=false;const i=L.indexOf(d[1]);return`${esc(L.slice(0,i))}<span class="h-name">${esc(d[1])}</span>${esc(L.slice(i+d[1].length))}`}
@@ -577,6 +607,13 @@ function outline(){const ta=$("#sc");if(!ta)return;const p=SFX.parse(ta.value);c
   const lk=$("#look");if(lk)lk.innerHTML=`<h3 class="side">Look</h3><div class="sub"><b>Format</b> ${esc(p.aspect||"9:16 (default)")}${p.style?`<br><b>Style</b> ${esc(p.style)}`:`<br>Add <code>STYLE:</code> above the first SHOT to put a look in front of every IMAGE prompt.`}</div>`;
   $("#outline").innerHTML=p.blocks.length?p.blocks.map(b=>{const linked=b.id&&ids.has(b.id);return`<div class="ol" data-line="${b.start}"><span class="n">${String(b.num).padStart(2,"0")}</span><span class="tt">${esc(b.title)}</span><span class="meta">${esc([b.frame,b.seconds?b.seconds+"s":""].filter(Boolean).join(" · "))}</span><span class="st ${linked?"ok":""}">${linked?"linked":"new"}</span></div>`}).join(""):`<p class="sub">No SHOT lines yet. Start one with <code>SHOT:</code> (Tab on an empty line).</p>`;
   $("#outline").querySelectorAll("[data-line]").forEach(el=>el.onclick=()=>jumpTo(+el.dataset.line));
+  // what Update Shots would do right now
+  const byId=Object.fromEntries(EP.shots.map(x=>[x.id,x])),same=(a,b)=>String(a||"").trim()===String(b||"").trim();let nw=0,ch=0;
+  p.blocks.forEach(b=>{const sh=b.id&&byId[b.id];if(!sh){nw++;return}if(!same(sh.title,b.title)||!same(sh.imagePrompt,b.image)||!same(sh.motionPrompt,b.motion)||(b.seconds&&+sh.seconds!==+b.seconds))ch++});
+  const linkedAny=p.blocks.some(b=>b.id&&byId[b.id]),gone=linkedAny?EP.shots.filter(x=>!p.blocks.some(b=>b.id===x.id)).length:0;
+  const msg=!p.blocks.length?"Write some SHOT lines, then press this to make their tiles in Shots.":nw||ch||gone?[nw?`<b>${nw} new</b> shot${nw===1?"":"s"} to add`:"",ch?`<b>${ch}</b> changed`:"",gone?`<b>${gone}</b> in Shots but not in the script`:""].filter(Boolean).join(" · ")+". Press to copy them into Shots.":"Shots matches the script.";
+  const sn=$("#syncNote");if(sn)sn.innerHTML=msg+` <span class="sub" style="display:block;margin-top:4px">Keyframes and videos are never touched.</span>`;
+  const st=$("#syncTop");if(st){st.classList.toggle("primary",!!(nw||ch||gone));st.textContent=nw||ch?`Update Shots (${nw+ch})`:"Update Shots"}
   const known=p.characters;$("#chars").innerHTML=known.length?known.map(n=>`<span class="chip">${esc(n)}</span>`).join(""):`<span class="sub">Names in caps (WREN:) show up here and auto-complete with Tab.</span>`}
 function jumpTo(line){const ta=$("#sc");const L=ta.value.split("\n");let pos=0;for(let i=0;i<line;i++)pos+=L[i].length+1;ta.focus();ta.setSelectionRange(pos,pos+L[line].length);const lh=parseFloat(getComputedStyle(ta).lineHeight)||22;ta.scrollTop=Math.max(0,line*lh-120)}
 const PREFIX=["SHOT: ","IMAGE: ","MOTION: ","SFX: ","NOTE: "];
@@ -628,7 +665,7 @@ function smartKeys(e,ta,changed,paint){
 
 }
 async function doSync(orphans){await saveScriptNow();try{const r=await api("/api/script/sync",{story:STORY.id,ep:EP.id,text:$("#sc")?$("#sc").value:SCRIPT.text,orphans});SCRIPT.text=SCRIPT.saved=r.text;STORY=r.story;EP=STORY.episodes.find(e=>e.id===EP.id);const ta=$("#sc");if(ta){const pos=ta.selectionStart,top=ta.scrollTop;ta.value=r.text;ta.setSelectionRange(pos,pos);ta.scrollTop=top;ta.oninput();$("#scSaved").textContent="saved"}
-  toast(`Synced: ${r.created} new shot${r.created===1?"":"s"}, ${r.updated} updated`);
+  toast(`Shots updated: ${r.created} new, ${r.updated} changed`);
   const o=$("#orph");if(o)o.innerHTML=r.orphans.length?`<div class="prog" style="margin-top:12px">${r.orphans.length} shot${r.orphans.length>1?"s are":" is"} in Shots but not in this script: ${r.orphans.map(x=>`<b>${esc(x.title)}</b>`).join(", ")}.<div class="row" style="margin-top:8px;gap:6px"><button class="btn small" id="oAdd">Add to the script</button><button class="btn small" id="oTrash">Move to Trash</button><button class="btn small ghost" id="oKeep">Keep as they are</button></div></div>`:"";
   if(r.orphans.length){$("#oAdd").onclick=()=>doSync("add");$("#oTrash").onclick=()=>{if(confirm("Move those shots and their takes to _Trash?"))doSync("trash")};$("#oKeep").onclick=()=>{$("#orph").innerHTML=""}}}catch(e){toast(e.message)}}
 function shotStatus(sh,i){const m=sh.media||{};return`${String(i+1).padStart(2,"0")}. ${sh.title} — keyframe ${m.keyframe?"✓":"—"}, video ${m.video?"✓"+(sh.videoTake?` (${(sh.videoTake.match(/video - (.+)\.mp4$/)||[])[1]||""})`:""):"—"}`}
@@ -636,7 +673,8 @@ function forClaude(){const t=$("#sc")?$("#sc").value:SCRIPT.text;return`${SFX.GU
 function copyText(t,msg){navigator.clipboard.writeText(t).then(()=>toast(msg),()=>{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast(msg)}catch(e){toast("Couldn't reach the clipboard")}ta.remove()})}
 
 /* ---------- chat drawer ---------- */
-let CHAT={open:ls.get("g2-chat",false),msgs:[],busy:false,story:null};
+let CHAT={open:ls.get("g2-chat",false),msgs:[],busy:false,story:null,att:[],stat:null};
+(()=>{const w=ls.get("g2-chatw",0);if(w)document.documentElement.style.setProperty("--chatw",w+"px")})();
 function md(t){const blocks=[];t=String(t||"").replace(/```[a-z]*\n?([\s\S]*?)```/g,(m,c)=>{blocks.push(c);return`\u0000${blocks.length-1}\u0000`});
   let h=esc(t).replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<i>$2</i>").replace(/`([^`]+)`/g,"<code>$1</code>");
   h=h.split(/\n{2,}/).map(p=>{const L=p.split("\n");if(L.every(l=>/^\s*[-*•]\s+/.test(l)))return"<ul>"+L.map(l=>"<li>"+l.replace(/^\s*[-*•]\s+/,"")+"</li>").join("")+"</ul>";if(L.every(l=>/^\s*\d+[.)]\s+/.test(l)))return"<ol>"+L.map(l=>"<li>"+l.replace(/^\s*\d+[.)]\s+/,"")+"</li>").join("")+"</ol>";return"<p>"+L.map(l=>/^#{1,4}\s/.test(l)?"<b>"+l.replace(/^#+\s/,"")+"</b>":l).join("<br>")+"</p>"}).join("");
@@ -648,19 +686,26 @@ async function renderChat(reload){
   let d=$("#chat");if(!d){d=document.createElement("aside");d.id="chat";document.body.appendChild(d)}
   if(!STORY){d.innerHTML=`<div class="chead"><b>Chat</b><span class="spacer"></span><button class="btn small ghost" id="cClose">✕</button></div><p class="sub" style="padding:16px">Make a story first.</p>`;$("#cClose").onclick=()=>toggleChat(false);return}
   if(reload||CHAT.story!==STORY.id)await loadChat();
-  d.innerHTML=`<div class="chead"><div><b>Chat</b> <span class="sub">· ${esc(STORY.title)}, Ep ${EP.num}</span><div class="sub" style="font-size:11px">${esc(chatModelLabel())} · change in ⚙</div></div><span class="spacer"></span><button class="btn small ghost" id="cNew" title="Start over; the old chat is kept in the story folder">New chat</button><button class="btn small ghost" id="cClose" title="Close">✕</button></div>
-  <div class="cmsgs" id="cmsgs">${CHAT.msgs.length?CHAT.msgs.map(msgHTML).join(""):`<div class="cempty"><p><b>Talk the episode through.</b> The chat sees this episode's script and shots. Ask it to write or rewrite scenes, sharpen dialogue, plan shots, or tighten IMAGE and MOTION prompts.</p><p>When it suggests a change, it shows up as a card. Nothing changes until you press <b>Apply</b>, and Apply can be undone.</p><div class="cstarts">${["Pitch me three cold opens for this episode","Turn this idea into shots: ","Rewrite the IMAGE prompts so they don't use names","What's weak about this episode?"].map(x=>`<button class="btn small" data-start="${esc(x)}">${esc(x)}</button>`).join("")}</div></div>`}${CHAT.busy?`<div class="cmsg a"><div class="bub typing"><i></i><i></i><i></i></div></div>`:""}</div>
-  <div class="ccomp"><textarea id="cin" rows="3" placeholder="Message… (Enter sends, Shift+Enter for a new line)" ${CHAT.busy?"disabled":""}></textarea><button class="btn primary" id="csend" ${CHAT.busy?"disabled":""}>Send</button></div>`;
+  d.innerHTML=`<div class="chead"><div><b>Chat</b> <span class="sub">· ${esc(STORY.title)}, Ep ${EP.num}</span><div class="cstat ${CHAT.stat?CHAT.stat.state:""}" id="cstat">${statHTML()}</div></div><span class="spacer"></span><button class="btn small ghost" id="cNew" title="Start over; the old chat is kept in the story folder">New chat</button><button class="btn small ghost" id="cClose" title="Close">✕</button></div>
+  <div class="cmsgs" id="cmsgs">${CHAT.msgs.length?CHAT.msgs.map(msgHTML).join(""):`<div class="cempty"><p><b>Talk the episode through.</b> The chat sees this episode's script and shots. Ask it to write or rewrite scenes, sharpen dialogue, plan shots, or tighten IMAGE and MOTION prompts.</p><p>When it suggests a change, it shows up as a card. Nothing changes until you press <b>Apply</b>, and Apply can be undone.</p><div class="cstarts">${["Pitch me three cold opens for this episode","Turn this idea into shots: ","Rewrite the IMAGE prompts so they don't use names","What's weak about this episode?"].map(x=>`<button class="btn small" data-start="${esc(x)}">${esc(x)}</button>`).join("")}</div></div>`}${CHAT.busy?`<div class="cmsg a"><div class="bub typing"><i></i><i></i><i></i><span class="tw" id="ctw"></span></div></div>`:""}</div>
+  <div class="ccomp">${CHAT.att.length?`<div class="atts">${CHAT.att.map((a,k)=>attHTML(a,k)).join("")}</div>`:""}<div class="crow"><label class="btn ghost" title="Attach images, PDFs or text files. You can also paste an image, drop files here, or paste a link (Google Docs shared as 'Anyone with the link' work)." style="padding:8px 10px">📎<input type="file" id="cfile" multiple accept="image/*,.pdf,.txt,.md,.fountain,.csv,.json,.html,.htm,text/*" hidden></label><textarea id="cin" rows="1" placeholder="Message… (Enter sends, Shift+Enter for a new line)" ${CHAT.busy?"disabled":""}></textarea><button class="btn primary" id="csend" ${CHAT.busy?"disabled":""}>Send</button></div></div><div class="cgrip" id="cgrip" title="Drag to resize"></div>`;
   $("#cClose").onclick=()=>toggleChat(false);
   $("#cNew").onclick=async()=>{if(CHAT.msgs.length&&!confirm("Start a new chat? This one is kept in the story's chat history folder."))return;const r=await api("/api/chat/clear",{story:STORY.id});CHAT.msgs=r.messages;renderChat()};
   d.querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>{const i=$("#cin");i.value=b.dataset.start;i.focus();i.setSelectionRange(i.value.length,i.value.length)});
-  const cin=$("#cin");cin.value=CHAT.draft||"";cin.oninput=()=>{CHAT.draft=cin.value};cin.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}};$("#csend").onclick=sendChat;
+  const cin=$("#cin");cin.value=CHAT.draft||"";const grow=()=>{cin.style.height="auto";cin.style.height=Math.min(cin.scrollHeight+2,window.innerHeight*.45)+"px"};grow();
+  cin.oninput=()=>{CHAT.draft=cin.value;grow()};cin.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}};$("#csend").onclick=sendChat;
+  cin.onpaste=e=>{const fs=[...(e.clipboardData||{}).files||[]];if(fs.length){e.preventDefault();addAttachments(fs)}};
+  $("#cfile").onchange=e=>{addAttachments([...e.target.files]);e.target.value=""};
+  d.querySelectorAll("[data-attx]").forEach(b=>b.onclick=()=>{CHAT.att.splice(+b.dataset.attx,1);renderChat()});
+  d.ondragover=e=>{if(e.dataTransfer.types.includes("Files")){e.preventDefault();d.classList.add("dropping")}};d.ondragleave=e=>{if(!d.contains(e.relatedTarget))d.classList.remove("dropping")};
+  d.ondrop=e=>{e.preventDefault();d.classList.remove("dropping");addAttachments([...e.dataTransfer.files])};
+  wireStat();wireGrip();if(!CHAT.stat)testChat();
   d.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>actCard(+b.dataset.m,+b.dataset.a,b.dataset.act));
   d.querySelectorAll("[data-resend]").forEach(b=>b.onclick=()=>{$("#cin").value="Your last reply was cut off before the script finished. Send the whole script again as one replace_script block in plain text, with at most one line of explanation.";sendChat()});
   d.querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>{const prev=[...CHAT.msgs].reverse().find(m=>m.role==="user");if(prev){$("#cin").value=prev.text;sendChat()}});
   const box=$("#cmsgs");box.scrollTop=box.scrollHeight;if(!CHAT.busy)cin.focus()}
 function msgHTML(m){
-  if(m.role==="user")return`<div class="cmsg u"><div class="bub">${esc(m.text).replace(/\n/g,"<br>")}</div></div>`;
+  if(m.role==="user")return`<div class="cmsg u">${(m.attachments||[]).length?`<div class="atts">${m.attachments.map(a=>attHTML(a)).join("")}</div>`:""}<div class="bub">${esc(m.text).replace(/\n/g,"<br>")}</div></div>`;
   if(m.error)return`<div class="cmsg a"><div class="bub err">${esc(m.error)}<div style="margin-top:6px"><button class="btn small" data-retry>Try again</button></div></div></div>`;
   return`<div class="cmsg a"><div class="bub">${md(m.text)||"<p class='sub'>(only suggestions)</p>"}${(m.actions||[]).map((a,k)=>cardHTML(m,a,k)).join("")}<div class="cmeta">${esc(m.model||"")}${m.cost!=null?` · ${m.cost<0.01?"<$0.01":"$"+m.cost.toFixed(2)}`:""}</div></div></div>`}
 function cardHTML(m,a,k){
@@ -673,12 +718,39 @@ function cardHTML(m,a,k){
   else if(a.raw)body=`<pre class="cpre">${esc(a.raw)}</pre>`;
   const st=a.state;const btns=a.action==="unreadable"?"":st==="applied"?`<span class="ok">Applied ✓</span><button class="btn small ghost" data-act="undo" data-m="${m.i}" data-a="${k}">Undo</button>`:st==="dismissed"?`<span class="sub">Dismissed</span><button class="btn small ghost" data-act="apply" data-m="${m.i}" data-a="${k}">Apply anyway</button>`:`<button class="btn small primary" data-act="apply" data-m="${m.i}" data-a="${k}">Apply</button><button class="btn small ghost" data-act="dismiss" data-m="${m.i}" data-a="${k}">Dismiss</button>`;
   return`<div class="card ${st||""}"><div class="ck">${esc(kind)}</div>${a.summary?`<div class="cs">${esc(a.summary)}</div>`:""}${body}<div class="row" style="margin-top:6px;gap:6px">${btns}</div></div>`}
-async function sendChat(){const cin=$("#cin");const t=(cin&&cin.value||"").trim();if(!t||CHAT.busy)return;await flushPending();if(typeof saveScriptNow==="function")await saveScriptNow();
-  CHAT.busy=true;CHAT.draft="";CHAT.msgs.push({role:"user",text:t,i:-1});renderChat();
-  try{const r=await api("/api/chat",{story:STORY.id,ep:EP.id,message:t});CHAT.msgs=r.messages}catch(e){CHAT.msgs.push({role:"assistant",error:e.message,i:-1})}
-  CHAT.busy=false;renderChat();api("/api/state").then(s=>{STATE=s;$("#spendBtn").textContent=money(s.spend)+" spent"}).catch(()=>{})}
+async function sendChat(){const cin=$("#cin");const t=(cin&&cin.value||"").trim();if((!t&&!CHAT.att.length)||CHAT.busy)return;if(CHAT.att.some(a=>a.loading))return toast("Still reading an attachment…");await flushPending();if(typeof saveScriptNow==="function")await saveScriptNow();
+  const att=CHAT.att.filter(a=>!a.error);CHAT.att=[];CHAT.busy=true;CHAT.draft="";CHAT.msgs.push({role:"user",text:t||"(see the attachments)",attachments:att.map(a=>({kind:a.data?"image":"text",name:a.name,url:a.data||null,chars:a.text?a.text.length:0})),i:-1});renderChat();
+  const t0=Date.now(),tick=setInterval(()=>{const el=$("#ctw");if(!el)return;const s=Math.round((Date.now()-t0)/1000);el.textContent=s<8?"":s<60?`${s}s`:`${Math.floor(s/60)}m ${String(s%60).padStart(2,"0")}s · whole scripts can take a couple of minutes`},1000);
+  try{const r=await api("/api/chat",{story:STORY.id,ep:EP.id,message:t,attachments:att.map(a=>a.data?{name:a.name,data:a.data}:{name:a.name,text:a.text})});CHAT.msgs=r.messages;const last=r.messages[r.messages.length-1];setStat(last&&last.error?{state:"bad",text:last.error}:{state:"ok",text:"Connected"})}
+  catch(e){CHAT.msgs.push({role:"assistant",error:e.message,i:-1});setStat({state:"bad",text:e.message})}
+  clearInterval(tick);CHAT.busy=false;renderChat();api("/api/state").then(s=>{STATE=s;$("#spendBtn").textContent=money(s.spend)+" spent"}).catch(()=>{})}
 async function actCard(mi,ai,op){try{await flushPending();if(typeof saveScriptNow==="function")await saveScriptNow();const r=await api("/api/chat/act",{story:STORY.id,ep:EP.id,msg:mi,action:ai,op});CHAT.msgs=r.chat.messages;await loadRefs();setStory(r.story);renderChat();if(op==="apply")toast("Applied"+(r.note?": "+r.note:""));if(op==="undo")toast("Undone")}catch(e){toast(e.message)}}
 
+
+/* ---------- chat: connection status, attachments, width ---------- */
+function statHTML(){const st=CHAT.stat;return`<i></i><span>${esc(chatModelLabel())}${!st?"":st.state==="checking"?" · checking…":st.state==="ok"?" · "+esc(st.text||"connected"):""}</span>${st&&st.state==="bad"?` · <span title="${esc(st.text)}">${esc(st.text.length>70?st.text.slice(0,70)+"…":st.text)}</span>`:""} · <a data-ctest>test</a> · <a data-cset>change</a>`}
+function setStat(st){CHAT.stat=st;const el=$("#cstat");if(el){el.className="cstat "+(st?st.state:"");el.innerHTML=statHTML();wireStat()}}
+function wireStat(){const el=$("#cstat");if(!el)return;const t=el.querySelector("[data-ctest]");if(t)t.onclick=()=>testChat();const c=el.querySelector("[data-cset]");if(c)c.onclick=()=>$("#gear").click()}
+async function testChat(){setStat({state:"checking"});try{const r=await api("/api/chat/test",{});setStat(r.ok?{state:"ok",text:r.dry?"dry run":`connected (${(r.ms/1000).toFixed(1)}s)`}:{state:"bad",text:r.error})}catch(e){setStat({state:"bad",text:/Failed to fetch|NetworkError|didn't answer/i.test(e.message)?"GASP's local server isn't answering. Close GASP 2 and open it again.":e.message})}}
+function wireGrip(){const g=$("#cgrip");if(!g)return;g.onmousedown=e=>{e.preventDefault();g.classList.add("drag");document.body.classList.add("resizing");
+  const mv=ev=>{const w=Math.max(320,Math.min(window.innerWidth*.75,window.innerWidth-ev.clientX));document.documentElement.style.setProperty("--chatw",w+"px")};
+  const up=()=>{g.classList.remove("drag");document.body.classList.remove("resizing");removeEventListener("mousemove",mv);removeEventListener("mouseup",up);ls.set("g2-chatw",parseInt(getComputedStyle(document.documentElement).getPropertyValue("--chatw"))||0)};
+  addEventListener("mousemove",mv);addEventListener("mouseup",up)};g.ondblclick=()=>{document.documentElement.style.removeProperty("--chatw");ls.set("g2-chatw",0)}}
+function attHTML(a,k){const isImg=a.kind==="image"||!!a.data,src=a.data||a.url;const size=a.loading?"reading…":a.error?a.error:isImg?"image":a.kind==="link"?`${a.label||"link"}${a.chars?" · "+chars(a.chars):""}`:`${a.pdf?"PDF text":"text"}${a.chars||a.text?" · "+chars(a.chars||a.text.length):""}${a.pages?` · ${a.pages} page${a.pages===1?"":"s"}`:""}`;
+  return`<span class="att ${a.error?"err":""}" title="${esc(a.url&&a.kind==="link"?a.url:a.name)}">${isImg&&src?`<img src="${src}" alt="">`:`<span class="ai">${a.kind==="link"?"🔗":a.pdf||/\.pdf$/i.test(a.name||"")?"📄":"📝"}</span>`}<span><span class="an">${esc(a.kind==="link"&&!a.error?(a.name||a.url):a.name)}</span><br><span class="as">${esc(size)}</span></span>${k!=null?`<button data-attx="${k}" title="Remove">✕</button>`:""}</span>`}
+let PDFJS=null;const chars=n=>n<1000?`${n} characters`:`${Math.round(n/1000)}k characters`;
+// pdf.js ships with GASP (app/vendor/pdfjs), so PDFs read offline
+function loadPdfJs(){if(PDFJS)return PDFJS;PDFJS=new Promise((ok,no)=>{const sc=document.createElement("script");sc.src="/vendor/pdfjs/pdf.min.js";sc.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="/vendor/pdfjs/pdf.worker.min.js";ok(window.pdfjsLib)};sc.onerror=()=>{PDFJS=null;no(new Error("Couldn't load the PDF reader. Update GASP 2 and try again."))};document.head.appendChild(sc)});return PDFJS}
+async function pdfText(f){const lib=await loadPdfJs();const doc=await lib.getDocument({data:await f.arrayBuffer()}).promise;let out=[];for(let i=1;i<=doc.numPages;i++){const pg=await doc.getPage(i);const tc=await pg.getTextContent();let line="",lines=[],lastY=null;for(const it of tc.items){const y=it.transform[5];if(lastY!==null&&Math.abs(y-lastY)>2){lines.push(line);line=""}line+=it.str;lastY=y}lines.push(line);out.push(lines.join("\n"))}return{text:out.join("\n\n").replace(/[ \t]+\n/g,"\n").trim(),pages:doc.numPages}}
+async function addAttachments(files){for(const f of files){const a={name:f.name||"pasted image",loading:true};CHAT.att.push(a);renderChat();
+  try{if(f.type.startsWith("image/"))a.data=await fileData(f);
+    else if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){const r=await pdfText(f);if(!r.text)throw new Error("this PDF has no text layer (a scan?): attach page images instead");a.text=r.text;a.pages=r.pages;a.pdf=true}
+    else if(/\.docx?$/i.test(f.name))throw new Error("Word files can't be read here: save as PDF and attach that");
+    else if(f.type.startsWith("text/")||/\.(txt|md|fountain|csv|json|html?)$/i.test(f.name))a.text=await f.text();
+    else throw new Error("GASP can read images, PDFs and text files");
+    if(f.size>12e6&&a.data)throw new Error("image is over 12 MB")}
+  catch(e){a.error=e.message||String(e)}
+  a.loading=false;renderChat();const cin=$("#cin");if(cin)cin.focus()}}
 /* ---------- viewer ---------- */
 const shotOps=sh=>({use:async t=>setStory(await api("/api/take/use",{story:STORY.id,ep:EP.id,shot:sh.id,take:t.file})),del:async t=>setStory(await api("/api/take/delete",{story:STORY.id,ep:EP.id,shot:sh.id,take:t.file}))});
 function viewer(list,i,ops){const ov=document.createElement("div");ov.className="ov viewer";document.body.appendChild(ov);

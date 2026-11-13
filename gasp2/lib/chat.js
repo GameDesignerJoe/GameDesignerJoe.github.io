@@ -15,19 +15,25 @@ const ENDPOINTS = {
   groq: { url: "https://api.groq.com/openai/v1/chat/completions", key: () => process.env.GROQ_API_KEY, auth: k => `Bearer ${k}`, name: "Groq" },
 };
 
-export async function chatCall({ provider, model, messages, maxTokens = 16000 }) {
+export async function chatCall({ provider, model, messages, maxTokens = 16000, timeoutMs = 300000 }) {
   const ep = ENDPOINTS[provider]; if (!ep) throw new Error("Unknown chat provider: " + provider);
   const key = ep.key(); if (!key) throw new Error(`No ${ep.name} key yet: add it in Settings (⚙).`);
   const t0 = Date.now();
   let r, o;
   try {
-    r = await fetch(ep.url, { method: "POST", headers: { Authorization: ep.auth(key), "Content-Type": "application/json" }, body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.8, usage: { include: true } }) });
+    r = await fetch(ep.url, { method: "POST", signal: AbortSignal.timeout(timeoutMs), headers: { Authorization: ep.auth(key), "Content-Type": "application/json" }, body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.8, usage: { include: true } }) });
     o = await r.json().catch(() => ({}));
-  } catch (e) { throw new Error(`Couldn't reach ${ep.name}: ${e.message}`); }
+  } catch (e) {
+    if (e.name === "TimeoutError" || e.name === "AbortError") throw new Error(`${ep.name} didn't answer within ${Math.round(timeoutMs / 60000)} minutes. Try again, or ask for less in one reply.`);
+    const c = e.cause && (e.cause.code || e.cause.message); throw new Error(`Couldn't reach ${ep.name} (${c || e.message}). Check the internet connection.`);
+  }
   if (!r.ok || o.error || o.detail) {
     const msg = (o.error && (o.error.message || o.error)) || (Array.isArray(o.detail) ? o.detail.map(d => d.msg).join("; ") : o.detail) || r.statusText;
     if (r.status === 401 || r.status === 403) throw new Error(`${ep.name} rejected the key. Check it in Settings (⚙).`);
     if (r.status === 404 && /model/i.test(String(msg))) throw new Error(`${ep.name} doesn't know the model "${model}". Pick another in Settings (⚙).`);
+    if (r.status === 402 || /balance|credit|billing|exhausted/i.test(String(msg))) throw new Error(`${ep.name} says the account is out of credit: ${String(msg).slice(0, 200)}`);
+    if (r.status === 429) throw new Error(`${ep.name} is rate-limiting (too many requests). Wait a minute and try again.`);
+    if (/image|vision|multimodal|content.*type/i.test(String(msg)) && JSON.stringify(messages).includes("image_url")) throw new Error(`This chat model can't read images (${String(msg).slice(0, 160)}). Pick a Claude model in Settings (⚙), or send without the image.`);
     throw new Error(`${ep.name} error ${r.status}: ${String(msg).slice(0, 300)}`);
   }
   const choice = (o.choices || [])[0] || {};
