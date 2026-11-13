@@ -136,6 +136,54 @@ var GASPScript = (function () {
     "Lines ending in [[#…]] are links GASP adds; keep them when you rewrite a shot.",
   ].join("\n");
 
-  return { parse: parse, setField: setField, setCallout: setCallout, reorder: reorder, removeBlock: removeBlock, insertBlock: insertBlock, renumber: renumber, stampId: stampId, calloutLine: calloutLine, GUIDE: GUIDE, re: { shot: reShot, scene: reScene, field: reField, dialog: reDialog, cue: reCue, id: reId, notNames: NOT_NAMES } };
+  // ---- format check: fix what is certain, flag the rest (line numbers are 0-based) ----
+  var SYN = { VISUAL: "IMAGE", PROMPT: "IMAGE", "IMAGE PROMPT": "IMAGE", KEYFRAME: "IMAGE", PICTURE: "IMAGE", FRAME_IMAGE: "IMAGE", CAMERA: "MOTION", MOVEMENT: "MOTION", ANIMATION: "MOTION", "VIDEO PROMPT": "MOTION", "MOTION PROMPT": "MOTION", AUDIO: "SFX", "SOUND EFFECTS": "SFX", "SOUND EFFECT": "SFX", FX: "SFX", SOUNDS: "SFX", NOTES: "NOTE", "DIRECTOR NOTE": "NOTE", DURATION: "LENGTH", TIME: "LENGTH" };
+  function lint(text) {
+    var L = lines(text), fixes = [], issues = [];
+    var fix = function (i, nv, msg) { if (nv !== L[i]) { L[i] = nv; fixes.push({ line: i, msg: msg }); } };
+    // names used as speakers anywhere (WREN: or a cue line) count as characters, so "Wren:" can be fixed to "WREN:"
+    var known = {}; L.forEach(function (x) { var m = x.trim().match(reDialog) || x.trim().match(reCue); if (m && !NOT_NAMES.test(m[1]) && !reField.test(x) && !reShot.test(x.trim())) known[m[1].trim().toUpperCase()] = 1; });
+    L.forEach(function (x, i) {
+      var t = x;
+      t = t.replace(/^\s*(?:[-*•]\s+|#{1,6}\s+|>\s+)/, "");                         // bullets, markdown headings, quotes pasted from chat
+      t = t.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1");        // markdown bold
+      t = t.replace(/\s+$/, "");
+      if (t !== x) fix(i, t, "removed chat formatting");
+      var m;
+      if ((m = t.match(/^\s*(scene|int\.|ext\.)\s*[:.\-–]?\s*(.*)$/i)) && !/^\s*(SCENE:|INT\.|EXT\.)/.test(t)) fix(i, (/scene/i.test(m[1]) ? "SCENE: " : m[1].toUpperCase() + " ") + m[2], "scene heading in caps");
+      if ((m = t.match(/^\s*shot\b\s*#?\s*(\d*)\s*[:.\-–—·]?\s*(.*)$/i)) && !reField.test(t)) {
+        var rest = m[2].replace(/\s*\|\s*/g, " · ").replace(/\s+[-–—]\s+/g, " · ").replace(/(\d+(?:\.\d+)?)\s*(?:sec|secs|second|seconds)\b/gi, "$1s");
+        var nv = "SHOT" + (m[1] ? " " + m[1] : "") + ": " + rest; if (!/^\s*SHOT\b/.test(t) || nv.replace(/\s/g, "") !== t.replace(/\s/g, "")) fix(i, nv, "SHOT line tidied");
+        if (!splitCallout(rest).title) issues.push({ line: i, level: "warn", msg: "This SHOT has no title; the tile will be named from its first words." });
+        return;
+      }
+      if ((m = t.match(/^\s*([A-Za-z][A-Za-z .'_\-]{1,28}?)\s*[:\-–]\s+(.+)$/))) {
+        var lab = m[1].trim().toUpperCase().replace(/_/g, " ");
+        if (FIELDS[lab] || FIELDS[lab.replace(/S$/, "")]) { var up = lab === "NOTES" ? "NOTE" : lab; if (t.indexOf(up + ": ") !== 0) fix(i, up + ": " + m[2], up + ": label fixed"); return; }
+        if (SYN[lab]) { fix(i, SYN[lab] + ": " + m[2], lab + " → " + SYN[lab]); return; }
+        if (known[lab]) { if (t.indexOf(lab + ": ") !== 0 && t.indexOf(lab + " (") !== 0) fix(i, lab + ": " + m[2], "speaker name in caps"); return; }
+        if (/^[A-Z][A-Z .'\-]+$/.test(m[1].trim()) && !NOT_NAMES.test(lab)) return;      // a new speaker in caps is fine
+        if (/^[A-Z][a-z]+$/.test(m[1].trim()) && /^["“]/.test(m[2])) { fix(i, lab + ": " + m[2], "speaker name in caps"); return; }
+      }
+    });
+    // whole-shot checks on the cleaned text
+    var out = L.join("\n").replace(/\n{3,}/g, "\n\n"); var p = parse(out), ids = {};
+    var firstShot = p.blocks.length ? p.blocks[0].start : -1; var OL = lines(out);
+    if (!p.blocks.length && out.trim()) issues.push({ line: 0, level: "error", msg: "No SHOT lines, so Sync has nothing to make. Start each shot with SHOT:" });
+    OL.forEach(function (x, i) { if (firstShot > 0 && i < firstShot && i > 0 && x.trim() && !reScene.test(x.trim()) && (reField.test(x) || reDialog.test(x.trim()))) issues.push({ line: i, level: "warn", msg: "This is above the first SHOT, so it won't reach any shot." }); });
+    OL.forEach(function (x, i) { var m = x.trim().match(/^([A-Za-z][A-Za-z ]{2,24})\s*:\s+\S/); if (m && !FIELDS[m[1].toUpperCase()] && !SYN[m[1].toUpperCase()] && !known[m[1].toUpperCase()] && !/^[A-Z][A-Z .'\-]+$/.test(m[1]) && !/^(SCENE|SHOT|Title)$/i.test(m[1])) issues.push({ line: i, level: "info", msg: "\"" + m[1] + ":\" isn't a GASP label, so this line counts as action. Use IMAGE:, MOTION:, SFX:, NOTE: or a speaker NAME:." }); });
+    p.blocks.forEach(function (b) {
+      if (b.id) { if (ids[b.id]) issues.push({ line: b.start, level: "error", msg: "Two SHOT lines share the link [[#" + b.id + "]]. Delete it from the copy so Sync makes a new shot." }); ids[b.id] = 1; }
+      if (!b.image) issues.push({ line: b.start, level: "error", msg: "No IMAGE (or action) for this shot, so its keyframe has nothing to go on." });
+      else if (b.image.length > 1200) issues.push({ line: b.start, level: "info", msg: "Very long IMAGE prompt (" + b.image.length + " characters). Image models tend to drop details past a few sentences." });
+      if (!b.motion) issues.push({ line: b.start, level: "warn", msg: "No MOTION, so the video gets a generic \"subtle natural motion\"." });
+      if (b.seconds && b.seconds > 15) issues.push({ line: b.start, level: "warn", msg: b.seconds + "s is longer than any video model makes in one go (most stop at 10–15s)." });
+    });
+    if (fixes.length) out = renumber(out);
+    issues.sort(function (a, b) { return a.line - b.line; });
+    return { text: out, fixes: fixes, issues: issues };
+  }
+
+  return { parse: parse, lint: lint, setField: setField, setCallout: setCallout, reorder: reorder, removeBlock: removeBlock, insertBlock: insertBlock, renumber: renumber, stampId: stampId, calloutLine: calloutLine, GUIDE: GUIDE, re: { shot: reShot, scene: reScene, field: reField, dialog: reDialog, cue: reCue, id: reId, notNames: NOT_NAMES } };
 })();
 if (typeof module !== "undefined") module.exports = GASPScript;

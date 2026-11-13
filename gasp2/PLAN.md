@@ -37,6 +37,7 @@ Status: **Steps 1–3 built (dry-run tested). Waiting on Joe's first real run on
 - [x] Tab completes a character name already used in the script (`WR` → `WREN: `)
 - [x] Ghost suggestions: grey text at the end of a line guesses the next element (SCENE → SHOT → IMAGE → MOTION → a character → SFX → NOTE) or finishes a keyword/name; Tab or → accepts, Esc dismisses
 - [x] Empty script shows a faint example page; an Example pane beside the page (format, how it reads, keys) replaces the pop-up guide
+- [x] **Check format**: fixes what is certain (chat formatting, label case and synonyms like Camera → MOTION, SHOT line tidy-up, speaker names in caps), flags the rest by line (no SHOT lines, text above the first shot, missing IMAGE/MOTION, untitled shot, unknown labels, duplicate links, lengths over 15s); Ctrl+Z undoes
 - [x] Spell check: the editor uses the app window's built-in spell check (red underline, right-click for suggestions)
 - [ ] Names also auto-complete from the Reference tab (needs step 6)
 - [x] Shot format + parser shared by app and server (`app/script.js`); format guide with Copy for Claude projects
@@ -73,6 +74,7 @@ Status: **Steps 1–3 built (dry-run tested). Waiting on Joe's first real run on
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-12 — Check format added. Joe expects to write mostly by talking to Claude, so no more time on the editor unless he asks.
 - 2026-11-12 — One-click updates (Joe hit a "diverging branches" error from the old fast-forward-only pull).
 - 2026-11-12 — Script tab helpers from Joe's first look: ghost suggestions, faint example page when empty, Example pane beside the editor.
 - 2026-11-12 — Step 3 (Script tab) built and dry-run tested: paste a script → sync → 3 tiles; Tab/Enter helpers;

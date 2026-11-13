@@ -113,6 +113,12 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1
 .expage{white-space:pre-wrap;font:12.5px/1.6 "Courier Prime","Courier New",Courier,var(--mono);background:#0f0c12;border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0 0;color:var(--ink)}
 .exkeys{margin:4px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted)}.exkeys li{margin:5px 0}
 .h-emptypage{opacity:.32}
+.h-flag{border-radius:3px}.h-flag.error{background:rgba(255,107,107,.16);box-shadow:inset 3px 0 0 var(--bad)}.h-flag.warn{background:rgba(240,180,76,.12);box-shadow:inset 3px 0 0 var(--warn)}.h-flag.info{background:rgba(124,196,255,.08)}
+.lint{margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12.5px;max-height:44vh;overflow:auto}
+.lint details{margin-bottom:6px;color:var(--good)}.lint details ul{margin:4px 0 0;padding-left:18px;color:var(--muted)}
+.lint .li{display:grid;grid-template-columns:18px 1fr;gap:6px;padding:5px 4px;border-radius:6px;cursor:pointer}.lint .li:hover{background:var(--panel2)}
+.lint .ic{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 10px var(--mono);margin-top:1px}
+.lint .error .ic{background:var(--bad);color:#000}.lint .warn .ic{background:var(--warn);color:#000}.lint .info .ic{background:#7cc4ff;color:#000}.lint .ok .ic{background:var(--good);color:#000}
 .h-ghost{color:var(--faint)}.h-ghostkey{font:600 10px var(--mono);color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:8px;vertical-align:1px}
 .btn.on{border-color:var(--accent);color:var(--ink)}
 .editor{position:relative;flex:1;min-height:0;max-width:860px;width:100%;margin:0;border:1px solid var(--line);border-radius:12px;background:#0f0c12;overflow:hidden}
@@ -306,6 +312,7 @@ async function renderScript(){
   m.innerHTML=`<div class="scriptwrap"><div class="sleft"><div class="epbar">${STORY.episodes.map(e=>`<button class="ep ${e.id===EP.id?"on":""}" data-ep="${e.id}" title="${esc(e.title)}">Ep ${e.num}</button>`).join("")}<button class="btn small ghost" id="addEp">+ Episode</button><span class="sub" style="margin-left:6px">${esc(EP.title)}</span><span class="spacer"></span><span class="sub" id="scSaved">${scriptStatusLine()}</span></div>
     <div class="pages"><div class="editor" id="ed"><pre class="mirror" id="mirror" aria-hidden="true"></pre><textarea id="sc" spellcheck="true" lang="en" autocorrect="on" autocapitalize="sentences"></textarea></div>${ls.get("g2-example",true)?exampleHTML():""}</div></div>
     <div class="sright"><button class="btn primary" id="sync" style="width:100%;justify-content:center">Sync to Shots</button><p class="sub" id="syncNote" style="margin:6px 0 0">Makes a tile for every SHOT, updates the ones already linked. Keyframes and videos are never touched.</p>
+      <button class="btn" id="lintBtn" style="width:100%;justify-content:center;margin-top:10px" title="Fix the format where it's certain, flag the rest">Check format</button><div id="lintOut"></div>
       <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn small" id="copyClaude">Copy for Claude</button><button class="btn small ${ls.get("g2-example",true)?"on":"ghost"}" id="guide">${ls.get("g2-example",true)?"Hide example":"Show example"}</button><button class="btn small ghost" id="scFolder">Folder</button></div>
       <div id="orph"></div>
       <h3 class="side">Shots in this script</h3><div id="outline" class="outline"></div>
@@ -313,13 +320,15 @@ async function renderScript(){
   document.querySelectorAll("[data-ep]").forEach(b=>b.onclick=async()=>{await saveScriptNow();EP=STORY.episodes.find(e=>e.id===b.dataset.ep);ls.set("g2-ep-"+STORY.id,EP.id);SEL=EP.shots[0]?EP.shots[0].id:null;renderScript()});
   $("#addEp").onclick=async()=>{await saveScriptNow();const s=await api("/api/episode/new",{story:STORY.id});EP=s.episodes[s.episodes.length-1];SEL=null;STORY=s;renderScript()};
   const ta=$("#sc"),mi=$("#mirror");ta.value=SCRIPT.text;
-  const paint=()=>{GHOST=suggest(ta);mi.innerHTML=ta.value?highlight(ta.value,GHOST):(GHOST?ghostAt(0,GHOST,"")+"\n\n":"")+`<span class="h-emptypage">${highlight(EXAMPLE)}</span>`;mi.scrollTop=ta.scrollTop};
+  const paint=()=>{GHOST=suggest(ta);mi.innerHTML=ta.value?highlight(ta.value,GHOST,LINT.open?LINT.flags:null):(GHOST?ghostAt(0,GHOST,"")+"\n\n":"")+`<span class="h-emptypage">${highlight(EXAMPLE)}</span>`;mi.scrollTop=ta.scrollTop};
   const refresh=()=>{paint();outline()};
   ["click","keyup","focus","blur"].forEach(ev=>ta.addEventListener(ev,e=>{if(ev==="keyup"&&!/^(Arrow|Home|End|Page)/.test(e.key))return;paint()}));
-  ta.oninput=()=>{SCRIPT.text=ta.value;$("#scSaved").textContent="saving…";clearTimeout(SCRIPT.t);SCRIPT.t=setTimeout(saveScriptNow,800);refresh()};
+  ta.oninput=()=>{if(LINT.open){clearTimeout(LINT.t);LINT.t=setTimeout(()=>showLint(GASPScript.lint(ta.value).issues,true),900)}SCRIPT.text=ta.value;$("#scSaved").textContent="saving…";clearTimeout(SCRIPT.t);SCRIPT.t=setTimeout(saveScriptNow,800);refresh()};
   ta.onscroll=()=>{mi.scrollTop=ta.scrollTop};
   ta.onkeydown=e=>smartKeys(e,ta,()=>ta.oninput(),paint);
   $("#sync").onclick=()=>doSync();
+  $("#lintBtn").onclick=()=>{const r=GASPScript.lint(ta.value);if(r.fixes.length&&r.text!==ta.value){ta.focus();ta.select();if(!document.execCommand("insertText",false,r.text))ta.value=r.text;ta.setSelectionRange(0,0);ta.scrollTop=0;ta.oninput()}LINT.open=true;LINT.fixed=r.fixes;showLint(r.issues)};
+  if(LINT.open)showLint(GASPScript.lint(ta.value).issues,true);
   $("#copyClaude").onclick=()=>copyText(forClaude(),"Script, shot status and format guide copied. Paste into Claude.");
   $("#guide").onclick=async()=>{await saveScriptNow();ls.set("g2-example",!ls.get("g2-example",true));renderScript()};
   const gc=$("#gCopy");if(gc)gc.onclick=()=>copyText(SFX.GUIDE,"Format guide copied. Paste it into your Claude project's instructions.");
@@ -351,7 +360,7 @@ function exampleHTML(){return`<aside class="example"><div class="row"><h3 class=
   <li><span class="h-lab h-sfx">SFX:</span> sounds for the Sound tab, <span class="h-lab h-note">NOTE:</span> notes to yourself</li>
   <li>Plain lines under a shot are action, and stand in for IMAGE if there isn't one</li></ul>
   <h3 class="side">Keys</h3><ul class="exkeys"><li><b>Tab</b> or <b>→</b> takes the grey suggestion; <b>Esc</b> dismisses it</li><li><b>Tab</b> on an empty line cycles SHOT, IMAGE, MOTION, SFX, NOTE</li><li>Start typing a name or a keyword (<b>im</b>, <b>wr</b>) and Tab finishes it</li><li><b>Ctrl+S</b> saves (it also saves on its own)</li></ul></aside>`}
-function highlight(t,ghost){const R=SFX.re;let cue=false;return t.split("\n").map((L,li)=>ghostAt(li,ghost,hl(L))).join("\n")+"\n";function hl(L){const s=L.trim();let h=esc(L);const idm=L.match(R.id);if(idm)h=esc(L.slice(0,idm.index))+`<span class="h-id">${esc(L.slice(idm.index))}</span>`;
+function highlight(t,ghost,flags){const R=SFX.re;let cue=false;return t.split("\n").map((L,li)=>{const h=ghostAt(li,ghost,hl(L));const f=flags&&flags[li];return f?`<span class="h-flag ${f}">${h||" "}</span>`:h}).join("\n")+"\n";function hl(L){const s=L.trim();let h=esc(L);const idm=L.match(R.id);if(idm)h=esc(L.slice(0,idm.index))+`<span class="h-id">${esc(L.slice(idm.index))}</span>`;
   if(R.scene.test(s)){cue=false;return`<span class="h-scene">${h}</span>`}
   if(R.shot.test(s)&&!R.field.test(s)){cue=false;return`<span class="h-shot">${h}</span>`}
   const f=L.match(/^(\s*)(IMAGE|MOTION|SFX|SOUND|NOTES?|WHO|FRAME|LOCATION|LENGTH)(\s*:)(.*)$/i);if(f){cue=false;return`${esc(f[1])}<span class="h-lab h-${f[2].toLowerCase().replace(/s$/,"")}">${esc(f[2]+f[3])}</span>${esc(f[4])}`}
@@ -367,6 +376,14 @@ function outline(){const ta=$("#sc");if(!ta)return;const p=SFX.parse(ta.value);c
 function jumpTo(line){const ta=$("#sc");const L=ta.value.split("\n");let pos=0;for(let i=0;i<line;i++)pos+=L[i].length+1;ta.focus();ta.setSelectionRange(pos,pos+L[line].length);const lh=parseFloat(getComputedStyle(ta).lineHeight)||22;ta.scrollTop=Math.max(0,line*lh-120)}
 const PREFIX=["SHOT: ","IMAGE: ","MOTION: ","SFX: ","NOTE: "];
 let GHOST=null;
+// format check results: issues listed in the sidebar, their lines tinted in the editor until fixed
+const LINT={open:false,issues:[],flags:{},fixed:[],t:0};
+function showLint(issues,live){LINT.issues=issues;LINT.flags={};issues.forEach(x=>{if(!LINT.flags[x.line]||x.level==="error")LINT.flags[x.line]=x.level});
+  const box=$("#lintOut");if(!box)return;const icon={error:"✕",warn:"!",info:"i"};
+  box.innerHTML=`<div class="lint">${!live&&LINT.fixed.length?`<details><summary>Fixed ${LINT.fixed.length} thing${LINT.fixed.length===1?"":"s"} (Ctrl+Z undoes)</summary><ul>${[...new Set(LINT.fixed.map(f=>f.msg))].map(m=>`<li>${esc(m)} ×${LINT.fixed.filter(f=>f.msg===m).length}</li>`).join("")}</ul></details>`:""}${issues.length?issues.map(x=>`<div class="li ${x.level}" data-line="${x.line}"><span class="ic">${icon[x.level]}</span><span><b>Line ${x.line+1}</b> ${esc(x.msg)}</span></div>`).join(""):`<div class="li ok"><span class="ic">✓</span><span>${live?"No format problems.":"Format looks right."}</span></div>`}<div class="row" style="margin-top:6px"><span class="spacer"></span><button class="btn small ghost" id="lintClose">Hide</button></div></div>`;
+  box.querySelectorAll("[data-line]").forEach(el=>el.onclick=()=>jumpTo(+el.dataset.line));
+  $("#lintClose").onclick=()=>{LINT.open=false;box.innerHTML="";const ta=$("#sc");if(ta)ta.dispatchEvent(new Event("click"))};
+  const ta=$("#sc"),mi=$("#mirror");if(ta&&mi&&ta.value)mi.innerHTML=highlight(ta.value,GHOST,LINT.flags)}
 // What probably comes next, shown as grey text at the caret (only at the end of a line). Tab or → accepts.
 function suggest(ta){
   const v=ta.value,a=ta.selectionStart;if(a!==ta.selectionEnd||document.activeElement!==ta)return null;
