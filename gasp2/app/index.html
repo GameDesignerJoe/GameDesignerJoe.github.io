@@ -107,7 +107,14 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1
 /* script */
 .scriptwrap{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}
 .sleft{display:flex;flex-direction:column;min-height:0;padding:14px 16px 16px}
-.editor{position:relative;flex:1;min-height:0;max-width:860px;width:100%;margin:0 auto;border:1px solid var(--line);border-radius:12px;background:#0f0c12;overflow:hidden}
+.pages{flex:1;min-height:0;display:flex;gap:16px;justify-content:center}
+.example{width:min(520px,40%);flex:none;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:14px 16px;overflow:auto}
+.expage{white-space:pre-wrap;font:12.5px/1.6 "Courier Prime","Courier New",Courier,var(--mono);background:#0f0c12;border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0 0;color:var(--ink)}
+.exkeys{margin:4px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted)}.exkeys li{margin:5px 0}
+.h-emptypage{opacity:.32}
+.h-ghost{color:var(--faint)}.h-ghostkey{font:600 10px var(--mono);color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:8px;vertical-align:1px}
+.btn.on{border-color:var(--accent);color:var(--ink)}
+.editor{position:relative;flex:1;min-height:0;max-width:860px;width:100%;margin:0;border:1px solid var(--line);border-radius:12px;background:#0f0c12;overflow:hidden}
 .editor textarea,.editor .mirror{position:absolute;inset:0;margin:0;padding:24px 28px;font:14.5px/1.65 "Courier Prime","Courier New",Courier,var(--mono);white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:2;border:0;border-radius:0;overflow:auto;letter-spacing:0}
 .editor textarea{background:transparent;color:transparent;caret-color:var(--ink);resize:none;min-height:0;z-index:1}
 .editor textarea::selection{background:rgba(255,77,109,.35);color:transparent}
@@ -295,39 +302,95 @@ async function renderScript(){
   await saveScriptNow();await loadScript();SCRIPT.story=STORY.id;
   const m=$("#main");
   m.innerHTML=`<div class="scriptwrap"><div class="sleft"><div class="epbar">${STORY.episodes.map(e=>`<button class="ep ${e.id===EP.id?"on":""}" data-ep="${e.id}" title="${esc(e.title)}">Ep ${e.num}</button>`).join("")}<button class="btn small ghost" id="addEp">+ Episode</button><span class="sub" style="margin-left:6px">${esc(EP.title)}</span><span class="spacer"></span><span class="sub" id="scSaved">${scriptStatusLine()}</span></div>
-    <div class="editor" id="ed"><pre class="mirror" id="mirror" aria-hidden="true"></pre><textarea id="sc" spellcheck="true" placeholder="Write the episode like a screenplay. Press Tab on an empty line for SHOT:, IMAGE:, MOTION:, SFX:, NOTE:. Or paste a script from Claude, then press Sync to Shots."></textarea></div></div>
+    <div class="pages"><div class="editor" id="ed"><pre class="mirror" id="mirror" aria-hidden="true"></pre><textarea id="sc" spellcheck="true" lang="en" autocorrect="on" autocapitalize="sentences"></textarea></div>${ls.get("g2-example",true)?exampleHTML():""}</div></div>
     <div class="sright"><button class="btn primary" id="sync" style="width:100%;justify-content:center">Sync to Shots</button><p class="sub" id="syncNote" style="margin:6px 0 0">Makes a tile for every SHOT, updates the ones already linked. Keyframes and videos are never touched.</p>
-      <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn small" id="copyClaude">Copy for Claude</button><button class="btn small ghost" id="guide">Format guide</button><button class="btn small ghost" id="scFolder">Folder</button></div>
+      <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn small" id="copyClaude">Copy for Claude</button><button class="btn small ${ls.get("g2-example",true)?"on":"ghost"}" id="guide">${ls.get("g2-example",true)?"Hide example":"Show example"}</button><button class="btn small ghost" id="scFolder">Folder</button></div>
       <div id="orph"></div>
       <h3 class="side">Shots in this script</h3><div id="outline" class="outline"></div>
       <h3 class="side">Characters</h3><div id="chars" class="chips"></div></div></div>`;
   document.querySelectorAll("[data-ep]").forEach(b=>b.onclick=async()=>{await saveScriptNow();EP=STORY.episodes.find(e=>e.id===b.dataset.ep);ls.set("g2-ep-"+STORY.id,EP.id);SEL=EP.shots[0]?EP.shots[0].id:null;renderScript()});
   $("#addEp").onclick=async()=>{await saveScriptNow();const s=await api("/api/episode/new",{story:STORY.id});EP=s.episodes[s.episodes.length-1];SEL=null;STORY=s;renderScript()};
   const ta=$("#sc"),mi=$("#mirror");ta.value=SCRIPT.text;
-  const refresh=()=>{mi.innerHTML=highlight(ta.value);mi.scrollTop=ta.scrollTop;outline()};
+  const paint=()=>{GHOST=suggest(ta);mi.innerHTML=ta.value?highlight(ta.value,GHOST):(GHOST?ghostAt(0,GHOST,"")+"\n\n":"")+`<span class="h-emptypage">${highlight(EXAMPLE)}</span>`;mi.scrollTop=ta.scrollTop};
+  const refresh=()=>{paint();outline()};
+  ["click","keyup","focus","blur"].forEach(ev=>ta.addEventListener(ev,e=>{if(ev==="keyup"&&!/^(Arrow|Home|End|Page)/.test(e.key))return;paint()}));
   ta.oninput=()=>{SCRIPT.text=ta.value;$("#scSaved").textContent="saving…";clearTimeout(SCRIPT.t);SCRIPT.t=setTimeout(saveScriptNow,800);refresh()};
   ta.onscroll=()=>{mi.scrollTop=ta.scrollTop};
-  ta.onkeydown=e=>smartKeys(e,ta,()=>ta.oninput());
+  ta.onkeydown=e=>smartKeys(e,ta,()=>ta.oninput(),paint);
   $("#sync").onclick=()=>doSync();
   $("#copyClaude").onclick=()=>copyText(forClaude(),"Script, shot status and format guide copied. Paste into Claude.");
-  $("#guide").onclick=()=>{const ov=document.createElement("div");ov.className="ov";ov.innerHTML=`<div class="box"><h2>Shot format</h2><p class="sub">Write shots this way, or ask Claude to. Paste this guide into your Claude project's instructions so every chat already knows it.</p><pre class="guide">${esc(SFX.GUIDE)}</pre><div class="row"><span class="spacer"></span><button class="btn" id="gCopy">Copy guide</button><button class="btn" data-x>Close</button></div></div>`;document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.dataset.x!=null)ov.remove()};ov.querySelector("#gCopy").onclick=()=>copyText(SFX.GUIDE,"Guide copied")};
+  $("#guide").onclick=async()=>{await saveScriptNow();ls.set("g2-example",!ls.get("g2-example",true));renderScript()};
+  const gc=$("#gCopy");if(gc)gc.onclick=()=>copyText(SFX.GUIDE,"Format guide copied. Paste it into your Claude project's instructions.");
   $("#scFolder").onclick=()=>reveal({ep:EP.id});
   refresh()}
-function highlight(t){const R=SFX.re;let cue=false;return t.split("\n").map(L=>{const s=L.trim();let h=esc(L);const idm=L.match(R.id);if(idm)h=esc(L.slice(0,idm.index))+`<span class="h-id">${esc(L.slice(idm.index))}</span>`;
+const EXAMPLE=`SCENE: Beach camp, late morning
+
+SHOT: Wren sunbathes on the rock · MS · Beach Rock · 5s
+IMAGE: Wren lies on a flat, lichen-covered rock, arms behind her head, eyes closed. Leather-and-fur two-piece, sun-warmed skin, jungle behind her. Golden late-morning light, 35mm.
+MOTION: slow push-in; she opens one eye and smiles without moving
+WREN: "You can stop pretending you're not looking."
+SFX: surf, a gull, leather creaks as she shifts
+
+SHOT: Declan freezes at the treeline · CU · Beach Rock · 4s
+IMAGE: Declan half-hidden in ferns, spear lowered, caught staring. Dappled shade, shallow focus.
+MOTION: he straightens and looks away too fast
+DECLAN
+(caught)
+I wasn't looking.
+NOTE: hold a beat on his face before the cut`;
+function exampleHTML(){return`<aside class="example"><div class="row"><h3 class="side" style="margin:0">Example page</h3><span class="spacer"></span><button class="btn small ghost" id="gCopy" title="Copy the format guide, for a Claude project's instructions">Copy guide for Claude</button></div>
+  <pre class="expage">${highlight(EXAMPLE)}</pre>
+  <h3 class="side">How it reads</h3><ul class="exkeys">
+  <li><span class="h-scene">SCENE:</span> a heading for where and when (INT./EXT. work too). Optional.</li>
+  <li><span class="h-shot">SHOT:</span> starts a shot: a short title, then optional framing (CU, MS, WS…), location and length, split by <b>·</b></li>
+  <li><span class="h-lab h-image">IMAGE:</span> the keyframe prompt, written to stand on its own</li>
+  <li><span class="h-lab h-motion">MOTION:</span> what moves during the shot</li>
+  <li><span class="h-name">WREN:</span> dialogue, or the name alone on a line with the speech under it</li>
+  <li><span class="h-lab h-sfx">SFX:</span> sounds for the Sound tab, <span class="h-lab h-note">NOTE:</span> notes to yourself</li>
+  <li>Plain lines under a shot are action, and stand in for IMAGE if there isn't one</li></ul>
+  <h3 class="side">Keys</h3><ul class="exkeys"><li><b>Tab</b> or <b>→</b> takes the grey suggestion; <b>Esc</b> dismisses it</li><li><b>Tab</b> on an empty line cycles SHOT, IMAGE, MOTION, SFX, NOTE</li><li>Start typing a name or a keyword (<b>im</b>, <b>wr</b>) and Tab finishes it</li><li><b>Ctrl+S</b> saves (it also saves on its own)</li></ul></aside>`}
+function highlight(t,ghost){const R=SFX.re;let cue=false;return t.split("\n").map((L,li)=>ghostAt(li,ghost,hl(L))).join("\n")+"\n";function hl(L){const s=L.trim();let h=esc(L);const idm=L.match(R.id);if(idm)h=esc(L.slice(0,idm.index))+`<span class="h-id">${esc(L.slice(idm.index))}</span>`;
   if(R.scene.test(s)){cue=false;return`<span class="h-scene">${h}</span>`}
   if(R.shot.test(s)&&!R.field.test(s)){cue=false;return`<span class="h-shot">${h}</span>`}
   const f=L.match(/^(\s*)(IMAGE|MOTION|SFX|SOUND|NOTES?|WHO|FRAME|LOCATION|LENGTH)(\s*:)(.*)$/i);if(f){cue=false;return`${esc(f[1])}<span class="h-lab h-${f[2].toLowerCase().replace(/s$/,"")}">${esc(f[2]+f[3])}</span>${esc(f[4])}`}
   const d=s.match(R.dialog);if(d&&!R.notNames.test(d[1])){cue=false;const i=L.indexOf(d[1]);return`${esc(L.slice(0,i))}<span class="h-name">${esc(d[1])}</span>${esc(L.slice(i+d[1].length))}`}
   if(cue&&s){cue=/^\(.*\)$/.test(s);return`<span class="h-dia">${h}</span>`}
   const c=s.match(R.cue);if(c&&!R.notNames.test(c[1])&&s.length>1){cue=true;return`<span class="h-name">${h}</span>`}
-  cue=false;return h}).join("\n")+"\n"}
+  cue=false;return h}}
+function ghostAt(li,g,html){return g&&g.line===li?html+`<span class="h-ghost">${esc(g.text)}</span><span class="h-ghostkey">Tab</span>`:html}
 function outline(){const ta=$("#sc");if(!ta)return;const p=SFX.parse(ta.value);const ids=new Set(EP.shots.map(x=>x.id));
   $("#outline").innerHTML=p.blocks.length?p.blocks.map(b=>{const linked=b.id&&ids.has(b.id);return`<div class="ol" data-line="${b.start}"><span class="n">${String(b.num).padStart(2,"0")}</span><span class="tt">${esc(b.title)}</span><span class="meta">${esc([b.frame,b.seconds?b.seconds+"s":""].filter(Boolean).join(" · "))}</span><span class="st ${linked?"ok":""}">${linked?"linked":"new"}</span></div>`}).join(""):`<p class="sub">No SHOT lines yet. Start one with <code>SHOT:</code> (Tab on an empty line).</p>`;
   $("#outline").querySelectorAll("[data-line]").forEach(el=>el.onclick=()=>jumpTo(+el.dataset.line));
   const known=p.characters;$("#chars").innerHTML=known.length?known.map(n=>`<span class="chip">${esc(n)}</span>`).join(""):`<span class="sub">Names in caps (WREN:) show up here and auto-complete with Tab.</span>`}
 function jumpTo(line){const ta=$("#sc");const L=ta.value.split("\n");let pos=0;for(let i=0;i<line;i++)pos+=L[i].length+1;ta.focus();ta.setSelectionRange(pos,pos+L[line].length);const lh=parseFloat(getComputedStyle(ta).lineHeight)||22;ta.scrollTop=Math.max(0,line*lh-120)}
 const PREFIX=["SHOT: ","IMAGE: ","MOTION: ","SFX: ","NOTE: "];
-function smartKeys(e,ta,changed){
+let GHOST=null;
+// What probably comes next, shown as grey text at the caret (only at the end of a line). Tab or → accepts.
+function suggest(ta){
+  const v=ta.value,a=ta.selectionStart;if(a!==ta.selectionEnd||document.activeElement!==ta)return null;
+  const ls0=v.lastIndexOf("\n",a-1)+1;let le=v.indexOf("\n",a);if(le<0)le=v.length;if(a!==le)return null;
+  const lines=v.slice(0,ls0).split("\n");lines.pop();const li=lines.length,line=v.slice(ls0,le);
+  const R=SFX.re,chars=SFX.parse(v).characters,prev=(lines[lines.length-1]||"").trim();
+  const kinds=["SCENE: ","SHOT: ","IMAGE: ","MOTION: ","SFX: ","NOTE: "].concat(chars.map(n=>n+": "));
+  if(line.trim()&&/^[A-Za-z][A-Za-z .'-]*$/.test(line)&&!/\s$/.test(line)){   // a word being typed at the start of a line
+    const hit=kinds.find(k=>k.toUpperCase().startsWith(line.toUpperCase())&&k.length>line.length);
+    return hit?{line:li,text:hit.slice(line.length),replace:hit}:null}
+  if(line.length)return null;
+  // empty line: guess the next element from the line above
+  let next;
+  if(!prev){const before=lines.map(x=>x.trim()).filter(Boolean);const last=before[before.length-1]||"";next=!before.length?"SCENE: ":(R.scene.test(last)?"SHOT: ":"SHOT: ")}
+  else if(R.scene.test(prev))next="SHOT: ";
+  else if(R.shot.test(prev)&&!R.field.test(prev))next="IMAGE: ";
+  else if(/^IMAGE\s*:/i.test(prev))next="MOTION: ";
+  else if(/^MOTION\s*:/i.test(prev))next=chars.length?chars[0]+": ":"SFX: ";
+  else if(R.dialog.test(prev))next="SFX: ";
+  else if(/^SFX\s*:/i.test(prev))next="NOTE: ";
+  else return null;
+  return{line:li,text:next,replace:next}}
+function acceptGhost(ta,changed){const g=GHOST;if(!g)return false;const v=ta.value,a=ta.selectionStart,ls0=v.lastIndexOf("\n",a-1)+1;ta.setRangeText(g.replace,ls0,a,"end");GHOST=null;changed();return true}
+function smartKeys(e,ta,changed,paint){
+  if(GHOST&&!e.shiftKey&&(e.key==="Tab"||(e.key==="ArrowRight"&&ta.selectionStart===ta.value.length||e.key==="ArrowRight"&&ta.value[ta.selectionStart]==="\n"))){e.preventDefault();acceptGhost(ta,changed);return}
+  if(e.key==="Escape"&&GHOST){GHOST=null;const mi=$("#mirror");if(mi)mi.innerHTML=highlight(ta.value);return}
   const v=ta.value,a=ta.selectionStart,b=ta.selectionEnd;const ls0=v.lastIndexOf("\n",a-1)+1;let le=v.indexOf("\n",a);if(le<0)le=v.length;const line=v.slice(ls0,le);
   const put=(start,end,str,caret)=>{ta.setRangeText(str,start,end,"end");if(caret!=null)ta.setSelectionRange(caret,caret);changed()};
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();saveScriptNow();return}
@@ -337,10 +400,7 @@ function smartKeys(e,ta,changed){
     const i=PREFIX.findIndex(p=>line===p||line===p.trim());
     if(!line.trim()||i>=0){e.preventDefault();const n=e.shiftKey?(i<=0?PREFIX.length-1:i-1):(i+1)%PREFIX.length;put(ls0,le,i<0&&!e.shiftKey?PREFIX[0]:PREFIX[n]);return}
     e.preventDefault();put(a,b,"  ");return}
-  if(e.key==="Enter"&&!e.shiftKey&&a===b&&a===le){
-    if(SFX.re.shot.test(line.trim())&&!SFX.re.field.test(line)){e.preventDefault();put(a,a,"\nIMAGE: ");return}
-    if(/^\s*IMAGE\s*:\s*\S/i.test(line)){e.preventDefault();put(a,a,"\nMOTION: ");return}
-  }
+
 }
 async function doSync(orphans){await saveScriptNow();try{const r=await api("/api/script/sync",{story:STORY.id,ep:EP.id,text:$("#sc")?$("#sc").value:SCRIPT.text,orphans});SCRIPT.text=SCRIPT.saved=r.text;STORY=r.story;EP=STORY.episodes.find(e=>e.id===EP.id);const ta=$("#sc");if(ta){const pos=ta.selectionStart,top=ta.scrollTop;ta.value=r.text;ta.setSelectionRange(pos,pos);ta.scrollTop=top;ta.oninput();$("#scSaved").textContent="saved"}
   toast(`Synced: ${r.created} new shot${r.created===1?"":"s"}, ${r.updated} updated`);
