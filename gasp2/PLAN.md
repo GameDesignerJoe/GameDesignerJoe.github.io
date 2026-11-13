@@ -86,6 +86,7 @@ Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-13 — Joe's second script (new method): brief, consistent cast, light arc, safe strikes, all shots 5s+ (~$7 of Kling vs $50). Fixed what it exposed: invented `[[#1]]` tags are dropped (only GASP's real link is kept), a `---` or REFERENCE IMAGES section after the last shot no longer joins that shot, the chat is told not to write either, and the "IMAGE names X" check ignores role words used as description ("a small child").
 - 2026-11-13 — Compared GASP's first script with Joe's Taplot-made .md (~$50 video). Took the .md's method into how the chat writes every script; Joe will rerun the same prompt in a new story to compare.
 - 2026-11-13 — First real chat: works on fal. Fixed cut-off proposals; added FORMAT/STYLE (Joe's first project is 16:9, 1980s cartoon style).
 - 2026-11-12 — Step 4 chat built and dry-run tested (two cards applied, undo of the add removed its shot and kept the later shot edit). IMAGE prompts no longer use names: WHO: line added to the format, example and Check format.

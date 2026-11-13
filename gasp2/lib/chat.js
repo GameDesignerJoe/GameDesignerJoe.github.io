@@ -95,7 +95,7 @@ HOW TO WRITE A SCRIPT (a new episode, or turning beats into shots)
 6. Fit the video model. Shot lengths must be ones the video model can make${videoModel ? ` (${videoModel.label}: ${videoModel.durations.join(", ")} seconds)` : " (most start at 4–5 seconds)"}. A beat that only needs a second or two goes inside a longer shot as an action in its MOTION, not into its own 2-second shot.
 7. Give each shot one emotional job. Use NOTE for the beat it lands (dread, release, devastation) when it isn't obvious.
 8. Ask before writing when something that changes the whole script is missing (format, style, target length, what must not be shown). Otherwise make sensible choices and say what you assumed in one line.
-Rules: use replace_script for rewrites of the episode and keep every existing [[#id]] tag on the SHOT lines you keep (that's how GASP keeps each shot's images and videos). Use update_shot for changes to one or a few shots' prompts. Only include the fields you change. Don't propose changes when the writer is only asking a question or brainstorming; talk first. Put a sentence of explanation outside the blocks, never inside them.
+Rules: never invent [[#…]] tags; GASP adds them. Never add a reference-image section or anything after the last shot. Use replace_script for rewrites of the episode and keep every existing [[#id]] tag on the SHOT lines you keep (that's how GASP keeps each shot's images and videos). Use update_shot for changes to one or a few shots' prompts. Only include the fields you change. Don't propose changes when the writer is only asking a question or brainstorming; talk first. Put a sentence of explanation outside the blocks, never inside them.
 
 CURRENT PROJECT
 Story: ${story.title}

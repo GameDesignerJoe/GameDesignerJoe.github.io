@@ -20,6 +20,7 @@ var GASPScript = (function () {
 
   function splitCallout(rest) {
     var id = null, m = rest.match(reId); if (m) { id = m[1]; rest = rest.replace(reId, ""); }
+    rest = rest.replace(/\s*\[\[#[^\]]*\]\]/g, "");   // tags GASP didn't make
     var parts = rest.split(/\s*[·|]\s*|\s+[-–—]\s+/).map(function (x) { return x.trim(); }).filter(Boolean);
     var o = { id: id, title: "", frame: "", location: "", seconds: null };
     parts.forEach(function (p) {
@@ -35,13 +36,15 @@ var GASPScript = (function () {
 
   function parse(text) {
     var lines = String(text || "").replace(/\r/g, "").split("\n");
-    var blocks = [], cur = null, field = null, cue = null, scene = "", style = "", aspect = "", head = null;
+    var blocks = [], cur = null, field = null, cue = null, scene = "", style = "", aspect = "", head = null, tail = false;
     function close(i) { if (cur) { cur.end = i - 1; while (cur.end > cur.start && !lines[cur.end].trim()) cur.end--; blocks.push(cur); } cur = null; field = null; cue = null; }
     for (var i = 0; i < lines.length; i++) {
       var L = lines[i], t = L.trim(), m;
       if (reScene.test(t)) { close(i); scene = t; continue; }
+      if (/^-{3,}$/.test(t) || /^(#+\s*)?(REFERENCE|REFERENCES|REFERENCE IMAGES?)\b/i.test(t)) { close(i); tail = true; continue; }
+      if (tail && !reShot.test(t)) continue;
       if ((m = t.match(reShot)) && !reField.test(t)) {
-        close(i); var c = splitCallout(m[1]);
+        close(i); tail = false; var c = splitCallout(m[1]);
         cur = { start: i, end: i, id: c.id, title: c.title, frame: c.frame, location: c.location, seconds: c.seconds, scene: scene, image: "", motion: "", sfx: [], notes: "", who: "", action: "", lines: [] };
         continue;
       }
@@ -123,7 +126,7 @@ var GASPScript = (function () {
     L.splice.apply(L, [at, 0].concat(chunk)); return renumber(L.join("\n").replace(/\n{3,}/g, "\n\n"));
   }
   function renumber(text) { var p = parse(text), L = lines(text); p.blocks.forEach(function (b, k) { L[b.start] = L[b.start].replace(/^(\s*SHOT)\s*#?\d*\s*[:.\-–—·]?\s*/i, "SHOT " + (k + 1) + ": "); }); return L.join("\n"); }
-  function stampId(text, block, id) { var L = lines(text); L[block.start] = L[block.start].replace(reId, "") + " [[#" + id + "]]"; return L.join("\n"); }
+  function stampId(text, block, id) { var L = lines(text); L[block.start] = L[block.start].replace(/\s*\[\[#[^\]]*\]\]/g, "") + " [[#" + id + "]]"; return L.join("\n"); }
 
   var GUIDE = [
     "GASP shot format. Write the script as a screenplay; mark every shot like this:",
@@ -166,8 +169,9 @@ var GASPScript = (function () {
       var m;
       if ((m = t.match(/^\s*(scene|int\.|ext\.)\s*[:.\-–]?\s*(.*)$/i)) && !/^\s*(SCENE:|INT\.|EXT\.)/.test(t)) fix(i, (/scene/i.test(m[1]) ? "SCENE: " : m[1].toUpperCase() + " ") + m[2], "scene heading in caps");
       if ((m = t.match(/^\s*shot\b\s*#?\s*(\d*)\s*[:.\-–—·]?\s*(.*)$/i)) && !reField.test(t)) {
-        var rest = m[2].replace(/\s*\|\s*/g, " · ").replace(/\s+[-–—]\s+/g, " · ").replace(/(\d+(?:\.\d+)?)\s*(?:sec|secs|second|seconds)\b/gi, "$1s");
-        inShots = true; var nv = "SHOT" + (m[1] ? " " + m[1] : "") + ": " + rest; if (!/^\s*SHOT\b/.test(t) || nv.replace(/\s/g, "") !== t.replace(/\s/g, "")) fix(i, nv, "SHOT line tidied");
+        var tags = m[2].match(/\[\[#[^\]]*\]\]/g) || [], real = tags.filter(function (g) { return /^\[\[#[a-z0-9]{6,16}\]\]$/i.test(g); }).pop();
+        var rest = m[2].replace(/\s*\[\[#[^\]]*\]\]/g, "").replace(/\s*\|\s*/g, " · ").replace(/\s+[-–—]\s+/g, " · ").replace(/(\d+(?:\.\d+)?)\s*(?:sec|secs|second|seconds)\b/gi, "$1s");
+        inShots = true; rest = rest + (real ? " " + real : ""); var nv = "SHOT" + (m[1] ? " " + m[1] : "") + ": " + rest; if (!/^\s*SHOT\b/.test(t) || nv.replace(/\s/g, "") !== t.replace(/\s/g, "")) fix(i, nv, "SHOT line tidied");
         if (!splitCallout(rest).title) issues.push({ line: i, level: "warn", msg: "This SHOT has no title; the tile will be named from its first words." });
         return;
       }
@@ -193,7 +197,8 @@ var GASPScript = (function () {
       if (!b.image) issues.push({ line: b.start, level: "error", msg: "No IMAGE (or action) for this shot, so its keyframe has nothing to go on." });
       else if (b.image.length > 1200) issues.push({ line: b.start, level: "info", msg: "Very long IMAGE prompt (" + b.image.length + " characters). Image models tend to drop details past a few sentences." });
       var names = Object.keys(known).concat(String(b.who || "").split(/\s*,\s*|\s+and\s+/).map(function (x) { return x.trim().toUpperCase(); })).filter(function (n) { return n && n.length > 1; });
-      var hit = names.filter(function (n) { return new RegExp("\\b" + n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(b.image); });
+      // a name counts only written as a name (Wren, WREN), so role names like "Child" don't trip on "a small child"
+      var hit = names.filter(function (n) { var e = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), tc = titleCase(n).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp("\\b(" + e + "|" + tc + ")\\b").test(b.image.replace(/(^|[.!?]\s+)\S/g, function (x) { return x.toLowerCase(); })); });
       if (hit.length) issues.push({ line: b.start, level: "warn", msg: "IMAGE names " + uniq(hit.map(titleCase)).join(", ") + ". Image models don't know who that is: describe them instead, and put the name on a WHO: line so GASP attaches the reference image." });
       if (!b.motion) issues.push({ line: b.start, level: "warn", msg: "No MOTION, so the video gets a generic \"subtle natural motion\"." });
       if (b.seconds && opt.minSeconds && b.seconds < opt.minSeconds) issues.push({ line: b.start, level: "warn", msg: b.seconds + "s is shorter than " + (opt.modelLabel || "the video model") + " makes (" + opt.minSeconds + "s at least). Fold this beat into a longer shot, or trim it in the edit." });
