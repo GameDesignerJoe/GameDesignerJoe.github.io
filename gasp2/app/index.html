@@ -26,6 +26,7 @@ header .logo{height:40px;border-radius:8px}
 header .ver{font-size:11px;color:var(--faint);margin-left:-6px}
 #storySel{width:auto;max-width:280px;font-weight:600}
 .pill{border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:12.5px;background:none}
+.pill.update{border-color:var(--good);color:var(--good);font-weight:600}.pill.update:hover{background:rgba(76,195,138,.12)}
 .pill.live{border-color:var(--warn);color:var(--warn)}
 nav{display:flex;gap:4px;padding:8px 16px 0;border-bottom:1px solid var(--line);flex:none}
 nav button{background:none;border:0;border-bottom:2px solid transparent;padding:6px 14px 8px;color:var(--muted);font-weight:600}
@@ -144,6 +145,7 @@ pre.guide{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line)
   <select id="storySel" title="Story"></select>
   <button class="btn small" id="newStory">+ New story</button>
   <span class="spacer"></span>
+  <button class="pill update" id="updPill" hidden title="Install the latest GASP 2 and restart">Update ready</button>
   <button class="pill" id="jobsPill" hidden></button>
   <button class="pill" id="spendBtn" title="What each generation cost">$0.00 spent</button>
   <button class="btn small" id="gear" title="Settings">⚙</button>
@@ -446,7 +448,19 @@ $("#gear").onclick=async()=>{STATE=await api("/api/state");const ov=document.cre
   <div class="row" style="margin-top:16px"><button class="btn" id="sUpd">Check for updates</button><span class="sub" id="sUpdMsg"></span><span class="spacer"></span><button class="btn" data-x>Cancel</button><button class="btn primary" id="sSave">Save</button></div></div>`;
   document.body.appendChild(ov);ov.onclick=e=>{if(e.target===ov||e.target.dataset.x!=null)ov.remove()};
   ov.querySelector("#sSave").onclick=async()=>{const keys={};ov.querySelectorAll("[data-key]").forEach(i=>{if(i.value.trim())keys[i.dataset.key]=i.value.trim()});try{await api("/api/settings",{keys,library:ov.querySelector("#sLib").value,defaultVideo:ov.querySelector("#sDef").value});ov.remove();STATE=await api("/api/state");renderStorySel();toast("Settings saved");if(STORY&&!STATE.stories.find(s=>s.id===STORY.id)){STORY=null;const f=STATE.stories[0];if(f)openStory(f.id);else renderMain()}else renderMain()}catch(e){toast(e.message)}};
-  ov.querySelector("#sUpd").onclick=async()=>{const m=ov.querySelector("#sUpdMsg");m.textContent="Checking…";try{const r=await api("/api/update",{});m.textContent=r.changed?"Updated. Close GASP 2 and open it again to finish.":"Already up to date."}catch(e){m.textContent=e.message}}};
+  ov.querySelector("#sUpd").onclick=async()=>{const m=ov.querySelector("#sUpdMsg");m.textContent="Checking…";const c=await api("/api/update/check").catch(e=>({error:e.message}));if(c.error){m.textContent=c.error;return}if(!c.behind){m.textContent="You're up to date.";return}m.textContent="Updating…";installUpdate(m)}};
+/* ---------- updates: checked on launch and every 30 minutes; one click installs and restarts ---------- */
+async function checkUpdate(){try{const c=await api("/api/update/check");const p=$("#updPill");p.hidden=!(c.behind&&c.gasp2)}catch(e){}}
+async function installUpdate(msgEl){const say=t=>{if(msgEl)msgEl.textContent=t;else toast(t)};
+  if(Object.values(JOBS).some(j=>j.status==="running"))return say("A generation is still running. Update when it finishes.");
+  await flushPending();if(typeof saveScriptNow==="function")await saveScriptNow();
+  say("Updating…");let r;try{r=await api("/api/update",{})}catch(e){return say(e.message)}
+  if(!r.changed){$("#updPill").hidden=true;return say("You're up to date.")}
+  say("Updated. Restarting GASP 2…");const was=STATE.pid;await api("/api/restart",{}).catch(()=>{});
+  for(let k=0;k<60;k++){await new Promise(z=>setTimeout(z,500));const s=await fetch("/api/state").then(x=>x.json()).catch(()=>null);if(s&&s.pid&&s.pid!==was){location.reload();return}}
+  say("Updated. Close GASP 2 and open it again to finish.")}
+$("#updPill").onclick=()=>installUpdate();
+setTimeout(checkUpdate,4000);setInterval(checkUpdate,30*60e3);
 
 boot();
 </script>

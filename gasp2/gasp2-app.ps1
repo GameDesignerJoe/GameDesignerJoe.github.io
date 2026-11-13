@@ -21,7 +21,7 @@ if ($edge) { $win = Start-Process -FilePath $edge -ArgumentList $winArgs -PassTh
 elseif ($chrome) { $win = Start-Process -FilePath $chrome -ArgumentList $winArgs -PassThru }
 else { Start-Process $url; $win = $null }
 
-Start-Process -FilePath "git" -ArgumentList "pull --ff-only --quiet" -WorkingDirectory $root -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+Start-Process -FilePath "git" -ArgumentList "pull --rebase --autostash --quiet" -WorkingDirectory $root -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
 
 if ($win) { $win.WaitForExit() }
 if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }

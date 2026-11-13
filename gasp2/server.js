@@ -168,6 +168,10 @@ async function runVideoJob({ storyId, epId, shotId, modelKey, prompt, seconds })
   return job;
 }
 
+// ---------- git ----------
+const git = args => new Promise((ok, no) => execFile("git", args, { cwd: ROOT, windowsHide: true }, (e, out, err) => e ? no(Object.assign(e, { stderr: String(err || "") })) : ok(String(out))));
+function friendlyGit(e) { const t = String(e.stderr || e.message || ""); if (/not a git repository/i.test(t)) return "This copy of GASP 2 isn't inside the git repo, so it can't update itself."; if (/could not resolve host|unable to access|network/i.test(t)) return "Couldn't reach GitHub. Check the internet connection and try again."; if (/conflict/i.test(t)) return "Your copy has a local change that clashes with the update. Nothing was changed; ask Claude to sort it out."; if (/no upstream|no tracking/i.test(t)) return "This copy isn't tracking GitHub's main branch."; return "Update failed: " + t.split(/\r?\n/).filter(l => l && !/^hint:/.test(l)).slice(0, 2).join(" ").slice(0, 200); }
+
 // ---------- http ----------
 function httpErr(code, msg) { const e = new Error(msg); e.code = code; return e; }
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".ico": "image/x-icon", ".mp4": "video/mp4", ".mp3": "audio/mpeg", ".wav": "audio/wav", ".txt": "text/plain; charset=utf-8", ".csv": "text/csv" };
@@ -182,7 +186,7 @@ const json = (res, o, code = 200) => { res.writeHead(code, { "Content-Type": "ap
 const dataUri = (u) => { const m = /^data:image\/(png|jpe?g|webp);base64,/.exec(u || ""); if (!m) throw httpErr(400, "expected an image"); return { ext: m[1] === "jpeg" ? "jpg" : m[1], buf: Buffer.from(u.slice(m[0].length), "base64") }; };
 
 const routes = {
-  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { version: "2.0-step3", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
+  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { pid: process.pid, version: "2.0-step3", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
   "POST /api/settings": async (req) => { const b = await body(req); if (b.keys) saveKeys(b.keys); const patch = {}; if (b.library) patch.library = path.resolve(String(b.library)); if (b.defaultVideo && MODELS.video[b.defaultVideo]) patch.defaultVideo = b.defaultVideo; if (Object.keys(patch).length) saveSettings(patch); ensureLibrary(); return { ok: true }; },
   "GET /api/spend": () => readSpend(),
   "POST /api/story/new": async (req) => { const b = await body(req); return storyForApp(createStory(b.title || "New story")); },
@@ -221,7 +225,13 @@ const routes = {
   "GET /api/jobs": () => Object.values(JOBS).filter(j => j.status === "running" || Date.now() - (j.finished || 0) < 10 * 60e3),
   "POST /api/reveal": async (req) => { const b = await body(req); const s = loadStory(b.story); let abs = path.join(storiesDir(), s.dir); if (b.ep) { const ep = epOf(s, b.ep); abs = path.join(abs, ep.dir); if (b.shot) abs = path.join(abs, shotOf(ep, b.shot).dir); }
     if (process.platform === "win32") spawn("explorer.exe", [abs], { detached: true, stdio: "ignore" }).unref(); else if (process.platform === "darwin") spawn("open", [abs], { detached: true, stdio: "ignore" }).unref(); return { ok: true, path: abs }; },
-  "POST /api/update": () => new Promise(ok => execFile("git", ["pull", "--ff-only"], { cwd: ROOT, windowsHide: true }, (e, out, err) => ok(e ? { error: String(err || e.message).trim().slice(0, 300) } : { ok: true, changed: !/Already up to date/i.test(out), log: out.trim().slice(-300) }))),
+  // updates: fetch, see if there's anything new, then pull with rebase (copes with a local commit) and restart in place
+  "GET /api/update/check": async () => { try { await git(["fetch", "--quiet"]); const n = +(await git(["rev-list", "--count", "HEAD..@{u}"])).trim() || 0; const files = n ? (await git(["diff", "--name-only", "HEAD", "@{u}", "--", "."])).trim().split(/\r?\n/).filter(Boolean) : []; return { behind: n, gasp2: files.length > 0 }; } catch (e) { return { behind: 0, error: friendlyGit(e) }; } },
+  "POST /api/update": async () => {
+    try { const before = (await git(["rev-parse", "HEAD"])).trim(); await git(["pull", "--rebase", "--autostash", "--quiet"]); const after = (await git(["rev-parse", "HEAD"])).trim(); return { ok: true, changed: before !== after }; }
+    catch (e) { try { await git(["rebase", "--abort"]); } catch {} return { error: friendlyGit(e) }; }
+  },
+  "POST /api/restart": (req, url, res) => { setTimeout(() => { try { server.close(); server.closeAllConnections && server.closeAllConnections(); } catch {} spawn(process.execPath, [path.join(ROOT, "server.js"), "--noopen", "--port", String(PORT)], { cwd: ROOT, detached: true, stdio: "ignore", windowsHide: true, env: { ...process.env, GASP_RESTART: "1" } }).unref(); setTimeout(() => process.exit(0), 300); }, 150); return { ok: true }; },
 };
 
 const server = http.createServer(async (req, res) => {
@@ -236,7 +246,8 @@ const server = http.createServer(async (req, res) => {
     return sendFile(req, res, abs);
   } catch (e) { json(res, { error: String(e.message || e) }, e.code && e.code >= 400 && e.code < 600 ? e.code : 500); }
 });
-server.on("error", e => { if (e.code === "EADDRINUSE") { console.log(`GASP 2 is already running at http://localhost:${PORT}`); process.exit(0); } throw e; });
+let tries = 0;
+server.on("error", e => { if (e.code === "EADDRINUSE" && process.env.GASP_RESTART && tries++ < 40) { setTimeout(() => server.listen(PORT, "127.0.0.1"), 250); return; } if (e.code === "EADDRINUSE") { console.log(`GASP 2 is already running at http://localhost:${PORT}`); process.exit(0); } throw e; });
 server.listen(PORT, "127.0.0.1", () => {
   ensureLibrary();
   console.log(`GASP 2 running at http://localhost:${PORT}${process.env.GASP_DRY ? "  (dry run: no fal calls)" : ""}\nLibrary: ${LIB()}`);
