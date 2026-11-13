@@ -13,6 +13,7 @@ Status: **Steps 1–3 built (dry-run tested). Waiting on Joe's first real run on
 - [x] Settings ⚙: keys for fal, Groq, ElevenLabs, Anthropic, OpenAI (saved to git-ignored `.env`; falls back to 1.0's keys)
 - [x] Settings: default video model, library folder, Check for updates
 - [x] Spend: header total, `spend-log.csv` per generation, Spend window with per-model totals and real $/second
+- [x] Updates from the app: checks GitHub on launch and every 30 min, **Update ready** button in the header, pulls with rebase (copes with a local commit), restarts itself and reloads
 - [ ] Test buttons per connection (cheap call to prove a key works)
 - [ ] Joe: first launch on Windows, desktop shortcut, keys picked up from 1.0
 
@@ -72,6 +73,7 @@ Status: **Steps 1–3 built (dry-run tested). Waiting on Joe's first real run on
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-12 — One-click updates (Joe hit a "diverging branches" error from the old fast-forward-only pull).
 - 2026-11-12 — Script tab helpers from Joe's first look: ghost suggestions, faint example page when empty, Example pane beside the editor.
 - 2026-11-12 — Step 3 (Script tab) built and dry-run tested: paste a script → sync → 3 tiles; Tab/Enter helpers;
   prompt edit, reorder, delete and image drop in Shots all wrote back to `script.txt`; script history kept.
