@@ -3,7 +3,7 @@
 The milestone checklist for GASP 2. **Whoever works on it ticks items as they land and adds a log line**, so any
 machine or session can see how far it got. Design: *GASP 2.0 — The Electric Bike* (link in `CLAUDE.md`).
 
-Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real message to confirm fal's chat endpoint.**
+Status: **Steps 1–6 built (dry-run tested). Steps 5–6 need Joe's first real keyframe and background removal on fal.**
 
 ## Step 1 — The shell and Settings
 - [x] `gasp2/` folder: Node server (port 4848), single-file app, no dependencies
@@ -39,7 +39,7 @@ Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real
 - [x] Empty script shows a faint example page; an Example pane beside the page (format, how it reads, keys) replaces the pop-up guide
 - [x] **Check format**: fixes what is certain (chat formatting, label case and synonyms like Camera → MOTION, SHOT line tidy-up, speaker names in caps), flags the rest by line (no SHOT lines, text above the first shot, missing IMAGE/MOTION, untitled shot, unknown labels, duplicate links, lengths over 15s); Ctrl+Z undoes
 - [x] Spell check: the editor uses the app window's built-in spell check (red underline, right-click for suggestions)
-- [ ] Names also auto-complete from the Reference tab (needs step 6)
+- [x] Names also auto-complete from the Reference tab (character cards and their "also called" names)
 - [x] Shot format + parser shared by app and server (`app/script.js`); format guide with Copy for Claude projects
 - [x] **Sync to Shots**: new SHOTs become tiles, linked ones update (title, framing, location, length, prompts, dialogue, SFX); keyframes and videos untouched; the link is a `[[#id]]` tag on each SHOT line
 - [x] Shots only in the grid after a sync: add them to the script, move them to Trash, or keep them
@@ -64,17 +64,23 @@ Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real
 - [x] Model minimum lengths: Check format warns when a shot is shorter than the default video model makes; the chat sizes shots to that model's lengths
 - [ ] The cut trims longer clips down to the shot length (Sound tab / export)
 - [x] The method: the chat writes a brief above the first SHOT (FORMAT, STYLE, TONE, RULES, LIGHT, CAMERA, CAST, AUDIO), reuses CAST wording in every IMAGE, follows the light/palette progression and camera rules, stages violence so content filters pass (implied, victims and children off-frame or shielded, no gore words), and asks before writing when format/style/length/limits are missing. Guide, example page and Check format know the brief lines
-
-
-- [ ] Image prompt + references (shot's characters, location, props, extras) + model picker + 1/2/4 results
-- [ ] Results into the shot's History; Use / Download / Trash
-- [ ] Optional Compose: 1.0's stage editor as a layout guide
+## Step 5 — Keyframe generation
+- [x] Shot panel: image prompt + references + image model + 1/2/4 results + Generate keyframe, cost estimate, background job
+- [x] References picked by name: WHO: characters (or their "also called" names), the SHOT line's location, props named in the image prompt; each is a chip to switch off, with a choice of which of the card's images; + Add for other cards or the previous shot's keyframe; "+ X card" for names with no card yet. Picks are saved per shot
+- [x] The prompt sent = STYLE + image prompt + a line saying what each reference image is for (never names) + the frame shape; "What was sent" shows it
+- [x] Results land in History marked "new"; the first is used only if the shot had no keyframe; spend logged per run
+- [x] Image models in `models.json`: Seedream 4.5 (default, $0.04), Nano Banana Pro ($0.15, looser content setting), Nano Banana ($0.039), FLUX Kontext Max ($0.08), Seedream 4.0 ($0.03). Default in Settings
+- [ ] Joe: first real keyframe with references (try Seedream 4.5, then Nano Banana Pro on the same shot)
+- [ ] Optional Compose: 1.0's stage editor as a layout guide (step 8)
 
 ## Step 6 — Reference tab
-- [ ] Character cards: full-body cutout, face close-up, a cutout per outfit, voice (no emotion images)
-- [ ] Location cards (empty-set images) and prop cards (transparent)
-- [ ] Background removal for non-ChatGPT images, choice of tool
-- [ ] Shared across stories in `GASP Library\Reference`; shots pick references by name
+- [x] Three rows of cards: Characters, Locations, Props. A card = name, "also called" names, a look (the words prompts reuse), a voice (characters), and named images
+- [x] Character starts with "full body"; + Face, + Outfit, + Image. Location starts with "set", prop with "prop"
+- [x] Each image: drop / paste / choose a file, or Generate (prompt written from the look and the label, the card's other images as references so it stays the same person, the story's STYLE optional, 1/2/4 results); every version kept in `takes\`; click to view, Use, Download, Trash
+- [x] Remove background (BiRefNet v2 default, Bria RMBG 2.0; pick in Settings): the cutout becomes a new take, the original stays
+- [x] Shared across stories in `GASP Library\Reference\<Kind>\<Name>\` (`card.json`, the in-use image on top, `takes\`); images dropped into a card folder from Explorer are picked up as new images; a new folder becomes a card
+- [x] The chat reads every card's look, copies it into CAST and IMAGE, and can propose `update_ref` (save a look, or make a card); Apply / Undo
+- [ ] Joe: make the Grim cast's cards from his art, write their looks, rerun the script prompt and see if the cast stops drifting
 
 ## Step 7 — Sound tab
 - [ ] Timeline under the shots: Dialogue, Ambience, Effects, Music lanes
@@ -86,6 +92,7 @@ Status: **Steps 1–4 built (dry-run tested). Step 4 chat needs Joe's first real
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-13 — Steps 5 and 6 built and dry-run tested together (cards from files, generate face from full body, background removal, keyframes x2 with Mother + Farm Yard references matched from the script, "Mom" alias, previous-shot reference, chat card saving a look then undone, name completion from cards).
 - 2026-11-13 — Joe's second script (new method): brief, consistent cast, light arc, safe strikes, all shots 5s+ (~$7 of Kling vs $50). Fixed what it exposed: invented `[[#1]]` tags are dropped (only GASP's real link is kept), a `---` or REFERENCE IMAGES section after the last shot no longer joins that shot, the chat is told not to write either, and the "IMAGE names X" check ignores role words used as description ("a small child").
 - 2026-11-13 — Compared GASP's first script with Joe's Taplot-made .md (~$50 video). Took the .md's method into how the chat writes every script; Joe will rerun the same prompt in a new story to compare.
 - 2026-11-13 — First real chat: works on fal. Fixed cut-off proposals; added FORMAT/STYLE (Joe's first project is 16:9, 1980s cartoon style).

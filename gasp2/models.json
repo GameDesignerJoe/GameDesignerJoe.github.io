@@ -1,12 +1,213 @@
 {
   "_note": "Video models on fal. image = the field that takes the keyframe URL; durFormat = how fal wants the length (string \"5\", \"5s\", or a number). Prices are USD per second of video, audio off, from fal's model pages (Nov 2026). Add a model by adding an entry; the app lists them all.",
   "video": {
-    "kling-2.6-pro": { "label": "Kling 2.6 Pro", "endpoint": "fal-ai/kling-video/v2.6/pro/image-to-video", "image": "start_image_url", "durations": [5, 10], "durFormat": "string", "extra": { "generate_audio": false }, "pricePerSecond": 0.07 },
-    "veo-3.1-fast": { "label": "Veo 3.1 Fast", "endpoint": "fal-ai/veo3.1/fast/image-to-video", "image": "image_url", "durations": [4, 6, 8], "durFormat": "s", "extra": { "generate_audio": false, "aspect_ratio": "9:16", "resolution": "720p" }, "pricePerSecond": 0.10 },
-    "seedance-1-pro": { "label": "Seedance 1.0 Pro (720p)", "endpoint": "fal-ai/bytedance/seedance/v1/pro/image-to-video", "image": "image_url", "durations": [3, 4, 5, 6, 7, 8, 10, 12], "durFormat": "string", "extra": { "resolution": "720p", "aspect_ratio": "9:16" }, "pricePerSecond": 0.055, "priceNote": "billed by video tokens; about $0.055/s at 720p" },
-    "grok-imagine": { "label": "Grok Imagine (720p)", "endpoint": "xai/grok-imagine-video/image-to-video", "image": "image_url", "durations": [4, 6, 8, 10, 12, 15], "durFormat": "number", "extra": { "resolution": "720p", "aspect_ratio": "9:16" }, "pricePerSecond": 0.07, "perRequest": 0.002 },
-    "kling-2.1-std": { "label": "Kling 2.1 Standard (1.0 default)", "endpoint": "fal-ai/kling-video/v2.1/standard/image-to-video", "image": "image_url", "durations": [5, 10], "durFormat": "string", "extra": { "aspect_ratio": "9:16" }, "pricePerSecond": 0.05 },
-    "hailuo-02-std": { "label": "Hailuo 02 Standard", "endpoint": "fal-ai/minimax/hailuo-02/standard/image-to-video", "image": "image_url", "durations": [6, 10], "durFormat": "string", "extra": {}, "pricePerSecond": 0.045 }
+    "kling-2.6-pro": {
+      "label": "Kling 2.6 Pro",
+      "endpoint": "fal-ai/kling-video/v2.6/pro/image-to-video",
+      "image": "start_image_url",
+      "durations": [
+        5,
+        10
+      ],
+      "durFormat": "string",
+      "extra": {
+        "generate_audio": false
+      },
+      "pricePerSecond": 0.07
+    },
+    "veo-3.1-fast": {
+      "label": "Veo 3.1 Fast",
+      "endpoint": "fal-ai/veo3.1/fast/image-to-video",
+      "image": "image_url",
+      "durations": [
+        4,
+        6,
+        8
+      ],
+      "durFormat": "s",
+      "extra": {
+        "generate_audio": false,
+        "aspect_ratio": "9:16",
+        "resolution": "720p"
+      },
+      "pricePerSecond": 0.1
+    },
+    "seedance-1-pro": {
+      "label": "Seedance 1.0 Pro (720p)",
+      "endpoint": "fal-ai/bytedance/seedance/v1/pro/image-to-video",
+      "image": "image_url",
+      "durations": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        12
+      ],
+      "durFormat": "string",
+      "extra": {
+        "resolution": "720p",
+        "aspect_ratio": "9:16"
+      },
+      "pricePerSecond": 0.055,
+      "priceNote": "billed by video tokens; about $0.055/s at 720p"
+    },
+    "grok-imagine": {
+      "label": "Grok Imagine (720p)",
+      "endpoint": "xai/grok-imagine-video/image-to-video",
+      "image": "image_url",
+      "durations": [
+        4,
+        6,
+        8,
+        10,
+        12,
+        15
+      ],
+      "durFormat": "number",
+      "extra": {
+        "resolution": "720p",
+        "aspect_ratio": "9:16"
+      },
+      "pricePerSecond": 0.07,
+      "perRequest": 0.002
+    },
+    "kling-2.1-std": {
+      "label": "Kling 2.1 Standard (1.0 default)",
+      "endpoint": "fal-ai/kling-video/v2.1/standard/image-to-video",
+      "image": "image_url",
+      "durations": [
+        5,
+        10
+      ],
+      "durFormat": "string",
+      "extra": {
+        "aspect_ratio": "9:16"
+      },
+      "pricePerSecond": 0.05
+    },
+    "hailuo-02-std": {
+      "label": "Hailuo 02 Standard",
+      "endpoint": "fal-ai/minimax/hailuo-02/standard/image-to-video",
+      "image": "image_url",
+      "durations": [
+        6,
+        10
+      ],
+      "durFormat": "string",
+      "extra": {},
+      "pricePerSecond": 0.045
+    }
   },
-  "defaultVideo": "kling-2.6-pro"
+  "defaultVideo": "kling-2.6-pro",
+  "_note_image": "Image models on fal for keyframes and reference art. endpoint takes reference images (image_urls); textEndpoint is used when no references are ticked. size: 'image_size' (pixel sizes per aspect) or 'aspect_ratio'. maxRefs: how many reference images the model reads. Prices USD per image (Nov 2026).",
+  "image": {
+    "seedream-4.5": {
+      "label": "Seedream 4.5",
+      "endpoint": "fal-ai/bytedance/seedream/v4.5/edit",
+      "textEndpoint": "fal-ai/bytedance/seedream/v4.5/text-to-image",
+      "size": "image_size",
+      "sizes": {
+        "9:16": {
+          "width": 1440,
+          "height": 2560
+        },
+        "16:9": {
+          "width": 2560,
+          "height": 1440
+        },
+        "1:1": {
+          "width": 2048,
+          "height": 2048
+        }
+      },
+      "maxRefs": 10,
+      "pricePerImage": 0.04,
+      "note": "cheap, sharp, good at keeping faces from references"
+    },
+    "nano-banana-pro": {
+      "label": "Nano Banana Pro (Gemini 3 image)",
+      "endpoint": "fal-ai/nano-banana-pro/edit",
+      "textEndpoint": "fal-ai/nano-banana-pro",
+      "size": "aspect_ratio",
+      "maxRefs": 14,
+      "pricePerImage": 0.15,
+      "extra": {
+        "resolution": "2K",
+        "output_format": "png",
+        "safety_tolerance": "6"
+      },
+      "note": "best at following long prompts and many references; looser content setting"
+    },
+    "nano-banana": {
+      "label": "Nano Banana (Gemini 2.5 image)",
+      "endpoint": "fal-ai/nano-banana/edit",
+      "textEndpoint": "fal-ai/nano-banana",
+      "size": "aspect_ratio",
+      "maxRefs": 6,
+      "pricePerImage": 0.039,
+      "extra": {
+        "output_format": "png"
+      }
+    },
+    "flux-kontext-max": {
+      "label": "FLUX Kontext Max",
+      "endpoint": "fal-ai/flux-pro/kontext/max/multi",
+      "textEndpoint": "fal-ai/flux-pro/kontext/max/text-to-image",
+      "size": "aspect_ratio",
+      "maxRefs": 4,
+      "pricePerImage": 0.08,
+      "extra": {
+        "safety_tolerance": "5",
+        "output_format": "png"
+      },
+      "note": "1.0's default; most permissive content setting"
+    },
+    "seedream-4": {
+      "label": "Seedream 4.0",
+      "endpoint": "fal-ai/bytedance/seedream/v4/edit",
+      "textEndpoint": "fal-ai/bytedance/seedream/v4/text-to-image",
+      "size": "image_size",
+      "sizes": {
+        "9:16": {
+          "width": 1152,
+          "height": 2048
+        },
+        "16:9": {
+          "width": 2048,
+          "height": 1152
+        },
+        "1:1": {
+          "width": 2048,
+          "height": 2048
+        }
+      },
+      "maxRefs": 10,
+      "pricePerImage": 0.03
+    }
+  },
+  "defaultImage": "seedream-4.5",
+  "cutout": {
+    "birefnet": {
+      "label": "BiRefNet v2 (sharp edges)",
+      "endpoint": "fal-ai/birefnet/v2",
+      "extra": {
+        "model": "General Use (Heavy)",
+        "operating_resolution": "2048x2048",
+        "output_format": "png",
+        "refine_foreground": true
+      },
+      "pricePerImage": 0.01,
+      "priceNote": "billed by compute time; about a cent"
+    },
+    "bria": {
+      "label": "Bria RMBG 2.0 (soft hair)",
+      "endpoint": "fal-ai/bria/background/remove",
+      "extra": {},
+      "pricePerImage": 0.018
+    }
+  },
+  "defaultCutout": "birefnet"
 }

@@ -7,7 +7,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { imageToVideo } from "./lib/fal.js";
+import { imageToVideo, generateImages, removeBackground } from "./lib/fal.js";
 import { chatCall, splitActions, systemPrompt, dryReply, CHAT_MODELS } from "./lib/chat.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -30,7 +30,7 @@ function saveKeys(updates) {
   loadKeys();
 }
 const SETTINGS_FILE = path.join(ROOT, "settings.json");
-function settings() { let s = {}; try { s = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")); } catch {} return { library: s.library || path.join(os.homedir(), "GASP Library"), defaultVideo: s.defaultVideo || MODELS.defaultVideo, ...s, library: s.library || path.join(os.homedir(), "GASP Library") }; }
+function settings() { let s = {}; try { s = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")); } catch {} return { ...s, library: s.library || path.join(os.homedir(), "GASP Library"), defaultVideo: MODELS.video[s.defaultVideo] ? s.defaultVideo : MODELS.defaultVideo, defaultImage: MODELS.image[s.defaultImage] ? s.defaultImage : MODELS.defaultImage, defaultCutout: MODELS.cutout[s.defaultCutout] ? s.defaultCutout : MODELS.defaultCutout }; }
 function saveSettings(patch) { const s = { ...settings(), ...patch }; fs.writeFileSync(SETTINGS_FILE, JSON.stringify(s, null, 2)); return s; }
 const LIB = () => settings().library;
 
@@ -126,7 +126,7 @@ function syncScript(s, ep, text, orphanMode) {
 }
 
 function updateShot(s, ep, sh, f) {
-  for (const k of ["title", "imagePrompt", "motionPrompt", "notes", "model", "seconds", "show"]) if (k in f) sh[k] = f[k];
+  for (const k of ["title", "imagePrompt", "motionPrompt", "notes", "model", "seconds", "show", "imageModel", "imageCount", "refPick"]) if (k in f) sh[k] = f[k];
   scriptEdit(s, ep, t => { if ("imagePrompt" in f) t = SF.setField(t, sh.id, "image", f.imagePrompt); if ("motionPrompt" in f) t = SF.setField(t, sh.id, "motion", f.motionPrompt); if ("notes" in f) t = SF.setField(t, sh.id, "note", f.notes); if ("title" in f || "seconds" in f) t = SF.setCallout(t, sh.id, { title: sh.title, seconds: sh.seconds || null }); return t; });
 }
 
@@ -148,6 +148,12 @@ function applyAction(s, ep, a) {
     writeScript(s, ep, text, true); const r = syncScript(s, ep, text, "keep"); writeScript(s, ep, r.text, false);
     return { undoScript: old, createdIds: r.createdIds, created: r.created, updated: r.updated, orphans: r.orphans.length };
   }
+  if (a.action === "update_ref") {
+    const kind = KINDS[a.kind] ? a.kind : "character"; const name = clean(a.name || ""); if (!a.name) throw httpErr(400, "The card has no name.");
+    const nm = name.toLowerCase(); let c = readCards().find(x => x.kind === kind && (x.name.toLowerCase() === nm || (x.aliases || []).some(y => y.toLowerCase() === nm)));
+    if (!c) { c = createCard(kind, name); c.look = String(a.look || ""); saveCard(c); return { undoRef: { card: c.id, created: true } }; }
+    const old = c.look || ""; c.look = String(a.look || ""); saveCard(c); return { undoRef: { card: c.id, look: old } };
+  }
   throw httpErr(400, "GASP can't apply that kind of change.");
 }
 
@@ -161,6 +167,80 @@ function toTrash(abs, label) {
   const t = path.join(LIB(), "_Trash", `${stamp()} ${clean(label, 150)}`); fs.mkdirSync(path.dirname(t), { recursive: true });
   try { fs.renameSync(abs, t); } catch { fs.cpSync(abs, t, { recursive: true }); fs.rmSync(abs, { recursive: true, force: true }); }
   return t;
+}
+
+
+// ---------- reference cards: Reference\<Characters|Locations|Props>\<Name>\ card.json, "<image label>.png" in use, takes\ ----------
+// A card = a name, a look (the exact words prompts reuse), a voice, and images ("full body", "face", "outfit - …", "night"…).
+// Each image keeps every version in takes\; the one in use is copied to the top of the card folder so Explorer shows it.
+const KINDS = { character: "Characters", location: "Locations", prop: "Props" };
+const FIRST_IMAGE = { character: "full body", location: "set", prop: "prop" };
+const IMG = /\.(png|jpe?g|webp)$/i;
+const kindDir = k => path.join(LIB(), "Reference", KINDS[k]);
+const cardPath = c => path.join(kindDir(c.kind), c.dir);
+function readCards() {
+  ensureLibrary(); const out = [];
+  for (const kind of Object.keys(KINDS)) for (const d of fs.readdirSync(kindDir(kind), { withFileTypes: true })) {
+    if (!d.isDirectory() || d.name === "takes") continue; const abs = path.join(kindDir(kind), d.name); let c = null, dirty = false;
+    try { c = JSON.parse(fs.readFileSync(path.join(abs, "card.json"), "utf8")); } catch { c = { id: newId(), name: d.name, aliases: [], look: "", voice: "", images: [], created: Date.now() }; dirty = true; }
+    c.kind = kind; c.dir = d.name; c.images = c.images || [];
+    // images put in the folder by hand (from Explorer or ChatGPT downloads) become images on the card
+    const inUse = new Set(c.images.map(im => im.take && topName(im)));
+    for (const f of fs.readdirSync(abs)) { if (!IMG.test(f) || inUse.has(f)) continue; fs.mkdirSync(path.join(abs, "takes"), { recursive: true }); const take = `${stamp()} ${clean(f.replace(IMG, ""))} - dropped in${path.extname(f).toLowerCase()}`; fs.renameSync(path.join(abs, f), path.join(abs, "takes", take)); const im = { id: newId(), label: clean(f.replace(IMG, ""), 40), takes: [take], take: null }; c.images.push(im); setImageInUse(c, im, take, abs); dirty = true; }
+    if (dirty) writeCard(c);
+    out.push(c);
+  }
+  return out;
+}
+const topName = im => `${clean(im.label || "image", 50)}${path.extname(im.take || ".png").toLowerCase()}`;
+function writeCard(c) { const abs = cardPath(c); fs.mkdirSync(path.join(abs, "takes"), { recursive: true }); const o = { ...c }; delete o.kind; delete o.dir; fs.writeFileSync(path.join(abs, "card.json"), JSON.stringify(o, null, 2)); }
+function findCard(id) { const c = readCards().find(x => x.id === id); if (!c) throw httpErr(404, "That reference card isn't there any more."); return c; }
+const imageOf = (c, id) => { const im = c.images.find(x => x.id === id); if (!im) throw httpErr(404, "That image isn't on the card any more."); return im; };
+function setImageInUse(c, im, take, abs = cardPath(c)) {
+  if (im.take) { const old = path.join(abs, topName(im)); try { fs.unlinkSync(old); } catch {} }
+  im.take = take; if (take) fs.copyFileSync(path.join(abs, "takes", take), path.join(abs, topName(im)));
+}
+function saveCard(c) {
+  const want = clean(c.name);
+  if (c.dir !== want && !fs.existsSync(path.join(kindDir(c.kind), want)) && tryRename(cardPath(c), path.join(kindDir(c.kind), want))) c.dir = want;
+  writeCard(c); return c;
+}
+function createCard(kind, name) {
+  if (!KINDS[kind]) throw httpErr(400, "kind must be character, location or prop"); ensureLibrary();
+  let dir = clean(name), k = 2; while (fs.existsSync(path.join(kindDir(kind), dir))) dir = `${clean(name)} (${k++})`;
+  const c = { id: newId(), kind, dir, name: dir, aliases: [], look: "", voice: "", images: [{ id: newId(), label: FIRST_IMAGE[kind], takes: [], take: null }], created: Date.now() };
+  fs.mkdirSync(path.join(kindDir(kind), dir, "takes"), { recursive: true }); writeCard(c); return c;
+}
+function addCardTake(c, im, buf, ext, source) {
+  const take = `${stamp()} ${clean(im.label, 40)} - ${clean(source || "upload", 40)}.${ext}`; fs.writeFileSync(path.join(cardPath(c), "takes", take), buf);
+  im.takes.push(take); return take;
+}
+function cardForApp(c) {
+  const abs = cardPath(c);
+  return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "",
+    images: c.images.map(im => ({ id: im.id, label: im.label, url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
+      takes: im.takes.filter(t => fs.existsSync(path.join(abs, "takes", t))).map(t => ({ file: t, url: fileUrl(path.join(abs, "takes", t)), inUse: t === im.take, kind: "image" })).reverse() })) };
+}
+const refsForApp = () => readCards().map(cardForApp).sort((a, b) => a.name.localeCompare(b.name));
+// reference picks → image files, in order. A pick is {card, image} or {shot} (another shot's keyframe in this episode)
+function resolveRefs(picks, s, ep) {
+  const cards = picks && picks.length ? readCards() : []; const out = [];
+  for (const p of picks || []) {
+    if (p.shot && s && ep) { const sh = ep.shots.find(x => x.id === p.shot); if (sh && sh.keyframeTake) out.push({ file: path.join(shotPath(s, ep, sh), "takes", sh.keyframeTake), kind: "shot" }); continue; }
+    const c = cards.find(x => x.id === p.card); if (!c) continue; const im = c.images.find(x => x.id === p.image) || c.images.find(x => x.take);
+    if (im && im.take) out.push({ file: path.join(cardPath(c), "takes", im.take), kind: c.kind, look: c.look, label: im.label });
+  }
+  return out;
+}
+// what each reference image is for, so the model knows which picture to copy what from (names never go in: image models don't know them)
+function refLegend(refs, sameSubject) {
+  if (!refs.length) return "";
+  const what = r => sameSubject ? "this same subject: keep it identical (face, build, colours, design)"
+    : r.kind === "character" ? `a character${r.look ? ` (${r.look})` : ""}: keep this person's face, hair, build and outfit exactly`
+    : r.kind === "location" ? "the location: match this place, its layout and its key details"
+    : r.kind === "prop" ? `a prop${r.look ? ` (${r.look})` : ""}: match it exactly`
+    : "the previous shot: match its lighting, palette and rendering style";
+  return "Reference images: " + refs.map((r, i) => `image ${i + 1} is ${what(r)}`).join("; ") + ".";
 }
 
 // ---------- spend log ----------
@@ -196,6 +276,46 @@ async function runVideoJob({ storyId, epId, shotId, modelKey, prompt, seconds })
   return job;
 }
 
+
+// keyframes for a shot, or images for a reference card. Every result is kept as a take; the first is put in use only if nothing is.
+function runImageJob({ target, modelKey, prompt, picks, count, sameSubject }) {
+  const model = MODELS.image[modelKey]; if (!model) throw httpErr(400, "unknown image model");
+  let s, ep, sh, c, im, aspect = "9:16", base, label;
+  if (target.shot) { s = loadStory(target.story); ep = epOf(s, target.ep); sh = shotOf(ep, target.shot); aspect = ep.aspect || "9:16"; base = path.join(shotPath(s, ep, sh), "takes", `${stamp()} keyframe - ${modelKey}`); label = "keyframe"; }
+  else { c = findCard(target.card); im = imageOf(c, target.image); aspect = target.aspect || (c.kind === "location" ? "16:9" : c.kind === "prop" ? "1:1" : "9:16"); base = path.join(cardPath(c), "takes", `${stamp()} ${clean(im.label, 40)} - ${modelKey}`); label = "reference"; }
+  if (!String(prompt || "").trim()) throw httpErr(400, "Write a prompt first.");
+  const refs = resolveRefs(picks, s, ep).slice(0, model.maxRefs || 4);
+  const full = [sh && ep.style ? `Style: ${ep.style}.` : "", String(prompt).trim(), refLegend(refs, sameSubject), `${aspect} ${aspect === "9:16" ? "vertical" : aspect === "16:9" ? "widescreen" : "square"} frame.`].filter(Boolean).join("\n\n");
+  const job = { id: newId(), kind: label, shot: sh ? sh.id : null, story: s ? s.id : null, card: c ? c.id : null, image: im ? im.id : null, model: modelKey, count: count || 1, refs: refs.length, prompt: full, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
+  (async () => {
+    try {
+      const r = await generateImages({ model, prompt: full, refs: refs.map(x => x.file), aspect, count, outBase: base, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? `in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
+      const takes = r.files.map(f => path.basename(f));
+      if (sh) { const s2 = loadStory(s.id); const ep2 = epOf(s2, ep.id); const sh2 = shotOf(ep2, sh.id); if (!sh2.keyframeTake) setInUse(s2, ep2, sh2, takes[0]); saveStory(s2); logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "keyframe", model: modelKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: r.files.map(rel).join(" | ") }); }
+      else { const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); im2.takes.push(...takes); if (!im2.take) setImageInUse(c2, im2, takes[0]); writeCard(c2); logSpend({ story: "Reference", episode: "", shot: `${c2.name} · ${im2.label}`, kind: "reference", model: modelKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: r.files.map(rel).join(" | ") }); }
+      Object.assign(job, { status: "done", phase: "done", cost: r.cost, takes, finished: Date.now() });
+    } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
+    emit("job", job);
+  })();
+  return job;
+}
+function runCutoutJob({ cardId, imageId, toolKey }) {
+  const tool = MODELS.cutout[toolKey]; if (!tool) throw httpErr(400, "unknown background-removal tool");
+  const c = findCard(cardId); const im = imageOf(c, imageId); if (!im.take) throw httpErr(400, "This image is empty: add or generate one first.");
+  const job = { id: newId(), kind: "cutout", card: c.id, image: im.id, model: toolKey, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
+  (async () => {
+    try {
+      const out = path.join(cardPath(c), "takes", `${stamp()} ${clean(im.label, 40)} - cutout ${toolKey}.png`);
+      const r = await removeBackground({ tool, file: path.join(cardPath(c), "takes", im.take), outFile: out, onStatus: st => { job.phase = st === "IN_PROGRESS" ? "removing the background" : String(st || "").toLowerCase().replace("_", " "); emit("job", job); } });
+      const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); const take = path.basename(r.file); im2.takes.push(take); setImageInUse(c2, im2, take); writeCard(c2);
+      logSpend({ story: "Reference", episode: "", shot: `${c2.name} · ${im2.label}`, kind: "cutout", model: toolKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: rel(r.file) });
+      Object.assign(job, { status: "done", phase: "done", cost: r.cost, takes: [take], finished: Date.now() });
+    } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
+    emit("job", job);
+  })();
+  return job;
+}
+
 // ---------- git ----------
 const git = args => new Promise((ok, no) => execFile("git", args, { cwd: ROOT, windowsHide: true }, (e, out, err) => e ? no(Object.assign(e, { stderr: String(err || "") })) : ok(String(out))));
 function friendlyGit(e) { const t = String(e.stderr || e.message || ""); if (/not a git repository/i.test(t)) return "This copy of GASP 2 isn't inside the git repo, so it can't update itself."; if (/could not resolve host|unable to access|network/i.test(t)) return "Couldn't reach GitHub. Check the internet connection and try again."; if (/conflict/i.test(t)) return "Your copy has a local change that clashes with the update. Nothing was changed; ask Claude to sort it out."; if (/no upstream|no tracking/i.test(t)) return "This copy isn't tracking GitHub's main branch."; return "Update failed: " + t.split(/\r?\n/).filter(l => l && !/^hint:/.test(l)).slice(0, 2).join(" ").slice(0, 200); }
@@ -214,8 +334,8 @@ const json = (res, o, code = 200) => { res.writeHead(code, { "Content-Type": "ap
 const dataUri = (u) => { const m = /^data:image\/(png|jpe?g|webp);base64,/.exec(u || ""); if (!m) throw httpErr(400, "expected an image"); return { ext: m[1] === "jpeg" ? "jpg" : m[1], buf: Buffer.from(u.slice(m[0].length), "base64") }; };
 
 const routes = {
-  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { chatModels: CHAT_MODELS, chat: chatSetting(), pid: process.pid, version: "2.0-step4", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
-  "POST /api/settings": async (req) => { const b = await body(req); if (b.keys) saveKeys(b.keys); const patch = {}; if (b.library) patch.library = path.resolve(String(b.library)); if (b.defaultVideo && MODELS.video[b.defaultVideo]) patch.defaultVideo = b.defaultVideo; if (b.chat && b.chat.model && ["fal", "groq"].includes(b.chat.provider)) patch.chat = { provider: b.chat.provider, model: String(b.chat.model).trim() }; if (Object.keys(patch).length) saveSettings(patch); ensureLibrary(); return { ok: true }; },
+  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { chatModels: CHAT_MODELS, chat: chatSetting(), pid: process.pid, version: "2.0-step6", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, defaultImage: s.defaultImage, defaultCutout: s.defaultCutout, imageModels: MODELS.image, cutoutTools: MODELS.cutout, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
+  "POST /api/settings": async (req) => { const b = await body(req); if (b.keys) saveKeys(b.keys); const patch = {}; if (b.library) patch.library = path.resolve(String(b.library)); if (b.defaultVideo && MODELS.video[b.defaultVideo]) patch.defaultVideo = b.defaultVideo; if (b.defaultImage && MODELS.image[b.defaultImage]) patch.defaultImage = b.defaultImage; if (b.defaultCutout && MODELS.cutout[b.defaultCutout]) patch.defaultCutout = b.defaultCutout; if (b.chat && b.chat.model && ["fal", "groq"].includes(b.chat.provider)) patch.chat = { provider: b.chat.provider, model: String(b.chat.model).trim() }; if (Object.keys(patch).length) saveSettings(patch); ensureLibrary(); return { ok: true }; },
   "GET /api/spend": () => readSpend(),
   "POST /api/story/new": async (req) => { const b = await body(req); return storyForApp(createStory(b.title || "New story")); },
   "GET /api/story": (req, url) => { const s = loadStory(url.searchParams.get("id")); s.opened = Date.now(); const out = { ...s }; delete out.dir; fs.writeFileSync(path.join(storiesDir(), s.dir, "story.json"), JSON.stringify(out, null, 2)); return storyForApp(s); },
@@ -245,6 +365,27 @@ const routes = {
     return storyForApp(saveStory(s));
   },
   "POST /api/gen/video": async (req) => { const b = await body(req); return await runVideoJob({ storyId: b.story, epId: b.ep, shotId: b.shot, modelKey: b.model || settings().defaultVideo, prompt: b.prompt, seconds: +b.seconds || 5 }); },
+  "GET /api/refs": () => refsForApp(),
+  "POST /api/ref/new": async (req) => { const b = await body(req); const c = createCard(b.kind, b.name || "New " + b.kind); if (b.image) { const { ext, buf } = dataUri(b.image); const im = c.images[0]; setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); writeCard(c); } return { refs: refsForApp(), card: c.id }; },
+  "POST /api/ref/update": async (req) => { const b = await body(req); const c = findCard(b.card); const f = b.fields || {};
+    if ("name" in f && String(f.name).trim()) c.name = clean(f.name); if ("look" in f) c.look = String(f.look); if ("voice" in f) c.voice = String(f.voice); if ("aliases" in f) c.aliases = (Array.isArray(f.aliases) ? f.aliases : String(f.aliases).split(",")).map(x => String(x).trim()).filter(Boolean);
+    saveCard(c); return refsForApp(); },
+  "POST /api/ref/delete": async (req) => { const b = await body(req); const c = findCard(b.card); if (Object.values(JOBS).some(j => j.card === c.id && j.status === "running")) throw httpErr(409, "a generation is still running for this card"); toTrash(cardPath(c), `Reference - ${KINDS[c.kind]} - ${c.dir}`); return refsForApp(); },
+  "POST /api/ref/image/new": async (req) => { const b = await body(req); const c = findCard(b.card); const im = { id: newId(), label: clean(b.label || "image " + (c.images.length + 1), 40), takes: [], take: null }; c.images.push(im);
+    if (b.image) { const { ext, buf } = dataUri(b.image); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); } writeCard(c); return { refs: refsForApp(), image: im.id }; },
+  "POST /api/ref/image/set": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const { ext, buf } = dataUri(b.image64); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); writeCard(c); return refsForApp(); },
+  "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const old = im.take ? path.join(cardPath(c), topName(im)) : null; im.label = clean(b.label, 40); if (old && fs.existsSync(old)) { try { fs.renameSync(old, path.join(cardPath(c), topName(im))); } catch {} } writeCard(c); return refsForApp(); },
+  "POST /api/ref/image/delete": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
+    for (const t of im.takes) { const abs = path.join(cardPath(c), "takes", t); if (fs.existsSync(abs)) toTrash(abs, `Reference - ${c.name} - ${t}`); } if (im.take) { try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} }
+    c.images = c.images.filter(x => x !== im); writeCard(c); return refsForApp(); },
+  "POST /api/ref/take/use": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const t = path.basename(b.take); if (!im.takes.includes(t)) throw httpErr(404, "take not found"); setImageInUse(c, im, t); writeCard(c); return refsForApp(); },
+  "POST /api/ref/take/delete": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const t = path.basename(b.take); const abs = path.join(cardPath(c), "takes", t);
+    if (fs.existsSync(abs)) toTrash(abs, `Reference - ${c.name} - ${t}`); im.takes = im.takes.filter(x => x !== t);
+    if (im.take === t) { const next = im.takes.filter(x => fs.existsSync(path.join(cardPath(c), "takes", x))).pop() || null; try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} im.take = null; if (next) setImageInUse(c, im, next); }
+    writeCard(c); return refsForApp(); },
+  "POST /api/gen/keyframe": async (req) => { const b = await body(req); return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
+  "POST /api/gen/ref": async (req) => { const b = await body(req); return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1, sameSubject: true }); },
+  "POST /api/gen/cutout": async (req) => { const b = await body(req); return runCutoutJob({ cardId: b.card, imageId: b.image, toolKey: b.tool || settings().defaultCutout }); },
   "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); return { text: readScript(s, ep), path: scriptPath(s, ep) }; },
   "POST /api/script/save": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); writeScript(s, ep, String(b.text || "").replace(/\r/g, ""), false); return { ok: true }; },
   "POST /api/script/sync": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const r = syncScript(s, ep, String(b.text ?? readScript(s, ep)).replace(/\r/g, ""), b.orphans); saveStory(s); writeScript(s, ep, r.text, true); return { story: storyForApp(s), text: r.text, created: r.created, updated: r.updated, orphans: r.orphans }; },
@@ -254,7 +395,7 @@ const routes = {
     const msg = String(b.message || "").trim(); if (!msg) throw httpErr(400, "empty message");
     c.messages.push({ role: "user", content: msg, at: Date.now(), ep: ep.num }); writeChat(s, c);
     const app = storyForApp(s); const epA = app.episodes.find(e => e.id === ep.id); const script = readScript(s, ep);
-    const sys = systemPrompt({ guide: SF.GUIDE, story: s, ep, script, shots: epA.shots, characters: SF.parse(script).characters, videoModel: MODELS.video[settings().defaultVideo] });
+    const sys = systemPrompt({ guide: SF.GUIDE, story: s, ep, script, shots: epA.shots, characters: SF.parse(script).characters, videoModel: MODELS.video[settings().defaultVideo], cards: readCards().map(c => ({ kind: c.kind, name: c.name, aliases: c.aliases, look: c.look, images: c.images.filter(i => i.take).length })) });
     const hist = c.messages.slice(-24).map(m => ({ role: m.role, content: m.role === "assistant" && (m.actions || []).some(a => a.state) ? m.content + "\n\n(" + m.actions.map((a, k) => `card ${k + 1}: ${a.state || "not acted on"}`).join("; ") + ")" : m.content }));
     const cs = chatSetting(); let r;
     try { r = process.env.GASP_DRY ? { text: dryReply(msg, epA.shots), tokensIn: 0, tokensOut: 0, cost: 0, ms: 600 } : await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: sys }, ...hist] }); }
@@ -269,12 +410,13 @@ const routes = {
     const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const c = readChat(s); const m = c.messages[b.msg]; const a = m && (m.actions || [])[b.action];
     if (!a) throw httpErr(404, "That card isn't there any more.");
     let note = "";
-    if (b.op === "apply") { if (a.state === "applied") throw httpErr(409, "Already applied."); const r = applyAction(s, ep, a); Object.assign(a, { state: "applied", undo: r.undo, undoScript: r.undoScript, createdIds: r.createdIds, appliedEp: ep.id }); if (r.created != null) note = `${r.created} new shot${r.created === 1 ? "" : "s"}, ${r.updated} updated${r.orphans ? `, ${r.orphans} only in Shots` : ""}`; }
+    if (b.op === "apply") { if (a.state === "applied") throw httpErr(409, "Already applied."); const r = applyAction(s, ep, a); Object.assign(a, { state: "applied", undo: r.undo, undoScript: r.undoScript, undoRef: r.undoRef, createdIds: r.createdIds, appliedEp: ep.id }); if (r.undoRef) note = r.undoRef.created ? `new ${a.kind || "character"} card in Reference` : "look saved to the card"; if (r.created != null) note = `${r.created} new shot${r.created === 1 ? "" : "s"}, ${r.updated} updated${r.orphans ? `, ${r.orphans} only in Shots` : ""}`; }
     else if (b.op === "dismiss") a.state = "dismissed";
     else if (b.op === "undo") {
       if (a.state !== "applied") throw httpErr(409, "Nothing to undo.");
       const ep2 = s.episodes.find(e => e.id === a.appliedEp) || ep;
       if (a.undo) { const sh = ep2.shots.find(x => x.id === a.shot); if (sh) updateShot(s, ep2, sh, a.undo); }
+      if (a.undoRef) { const c = readCards().find(x => x.id === a.undoRef.card); if (c) { if (a.undoRef.created && !c.images.some(i => i.take)) toTrash(cardPath(c), `Reference - ${KINDS[c.kind]} - ${c.dir}`); else { c.look = a.undoRef.look || ""; saveCard(c); } } }
       if (a.undoScript != null) {
         // shots this card made go to _Trash (with anything generated for them since), then the old script comes back
         for (const id of a.createdIds || []) { const sh = ep2.shots.find(x => x.id === id); if (sh) { try { toTrash(shotPath(s, ep2, sh), `${s.title} - ${ep2.dir} - ${sh.dir}`); } catch {} ep2.shots = ep2.shots.filter(x => x !== sh); } }
@@ -282,13 +424,15 @@ const routes = {
         let back = a.undoScript; if (a.action === "append_script") { back = readScript(s, ep2); for (const id of a.createdIds || []) back = SF.removeBlock(back, id); }
         writeScript(s, ep2, back, true); const r = syncScript(s, ep2, back, "keep"); writeScript(s, ep2, r.text, false);
       }
-      a.state = null; delete a.undo; delete a.undoScript; delete a.createdIds;
+      a.state = null; delete a.undo; delete a.undoScript; delete a.undoRef; delete a.createdIds;
     }
     saveStory(s); writeChat(s, c); return { chat: chatForApp(c), story: storyForApp(s), note };
   },
   "POST /api/chat/clear": async (req) => { const b = await body(req); const s = loadStory(b.story); const c = readChat(s); if (c.messages.length) { const h = path.join(storiesDir(), s.dir, "chat history"); fs.mkdirSync(h, { recursive: true }); fs.writeFileSync(path.join(h, `${stamp()}.json`), JSON.stringify(c, null, 1)); } writeChat(s, { messages: [] }); return chatForApp({ messages: [] }); },
   "GET /api/jobs": () => Object.values(JOBS).filter(j => j.status === "running" || Date.now() - (j.finished || 0) < 10 * 60e3),
-  "POST /api/reveal": async (req) => { const b = await body(req); const s = loadStory(b.story); let abs = path.join(storiesDir(), s.dir); if (b.ep) { const ep = epOf(s, b.ep); abs = path.join(abs, ep.dir); if (b.shot) abs = path.join(abs, shotOf(ep, b.shot).dir); }
+  "POST /api/reveal": async (req) => { const b = await body(req); let abs;
+    if (b.card) abs = cardPath(findCard(b.card)); else if (b.reference) { ensureLibrary(); abs = b.kind && KINDS[b.kind] ? kindDir(b.kind) : path.join(LIB(), "Reference"); }
+    else { const s = loadStory(b.story); abs = path.join(storiesDir(), s.dir); if (b.ep) { const ep = epOf(s, b.ep); abs = path.join(abs, ep.dir); if (b.shot) abs = path.join(abs, shotOf(ep, b.shot).dir); } }
     if (process.platform === "win32") spawn("explorer.exe", [abs], { detached: true, stdio: "ignore" }).unref(); else if (process.platform === "darwin") spawn("open", [abs], { detached: true, stdio: "ignore" }).unref(); return { ok: true, path: abs }; },
   // updates: fetch, see if there's anything new, then pull with rebase (copes with a local commit) and restart in place
   "GET /api/update/check": async () => { try { await git(["fetch", "--quiet"]); const n = +(await git(["rev-list", "--count", "HEAD..@{u}"])).trim() || 0; const files = n ? (await git(["diff", "--name-only", "HEAD", "@{u}", "--", "."])).trim().split(/\r?\n/).filter(Boolean) : []; return { behind: n, gasp2: files.length > 0 }; } catch (e) { return { behind: 0, error: friendlyGit(e) }; } },

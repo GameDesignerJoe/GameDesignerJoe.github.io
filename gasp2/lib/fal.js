@@ -79,3 +79,40 @@ export async function imageToVideo({ model, keyframe, prompt, seconds, outFile, 
   await download(v, outFile);
   return { file: outFile, cost, seconds: d };
 }
+
+const DRY_SIZE = { "9:16": "720x1280", "16:9": "1280x720", "1:1": "1024x1024" };
+const extOf = (url, type) => { const m = /\.(png|jpe?g|webp)(\?|$)/i.exec(url || ""); if (m) return "." + m[1].toLowerCase().replace("jpeg", "jpg"); return /jpe?g/.test(type || "") ? ".jpg" : /webp/.test(type || "") ? ".webp" : ".png"; };
+
+// Make images from a prompt and reference images. outBase gets " 1", " 2"… and the right extension.
+// Returns { files, cost }.
+export async function generateImages({ model, prompt, refs = [], aspect = "9:16", count = 1, outBase, onStatus }) {
+  const n = Math.max(1, Math.min(4, count | 0 || 1)); refs = refs.filter(f => f && fs.existsSync(f)).slice(0, model.maxRefs || 4);
+  const name = i => outBase + (n > 1 ? ` ${i + 1}` : "");
+  if (process.env.GASP_DRY) {
+    // placeholder: the first reference (or a colour) at the right shape, tinted differently per take
+    await new Promise(r => setTimeout(r, 1200)); const [w, h] = (DRY_SIZE[aspect] || DRY_SIZE["9:16"]).split("x"); const files = [];
+    for (let i = 0; i < n; i++) { const f = name(i) + ".png"; const hue = Math.round(Math.random() * 360);
+      if (refs[0]) await ffmpeg(["-i", refs[0], "-vf", `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=0x2a2230,hue=h=${hue}`, "-frames:v", "1", f]);
+      else await ffmpeg(["-f", "lavfi", "-i", `color=c=0x${(0x302040 + hue * 97).toString(16).slice(-6)}:s=${w}x${h}`, "-frames:v", "1", f]);
+      files.push(f); }
+    return { files, cost: 0, dry: true };
+  }
+  const input = { prompt, num_images: n, ...(model.extra || {}) };
+  if (model.size === "image_size") input.image_size = (model.sizes || {})[aspect] || (model.sizes || {})["9:16"]; else input.aspect_ratio = aspect;
+  if (refs.length) { input.image_urls = []; for (const f of refs) input.image_urls.push(await falUpload(f)); }
+  const out = await falRun(refs.length ? model.endpoint : (model.textEndpoint || model.endpoint), input, onStatus);
+  const imgs = out.images || (out.image ? [out.image] : []);
+  if (!imgs.length) throw new Error("fal returned no image: " + JSON.stringify(out).slice(0, 200));
+  const files = []; for (let i = 0; i < imgs.length; i++) { const f = name(i) + extOf(imgs[i].url, imgs[i].content_type); await download(imgs[i].url, f); files.push(f); }
+  return { files, cost: +((model.pricePerImage || 0) * imgs.length).toFixed(3) };
+}
+
+// Background removal → a PNG with transparency.
+export async function removeBackground({ tool, file, outFile, onStatus }) {
+  if (process.env.GASP_DRY) { await new Promise(r => setTimeout(r, 800)); await ffmpeg(["-i", file, "-vf", "format=rgba,colorkey=0xFFFFFF:0.3:0.1", "-frames:v", "1", outFile]); return { file: outFile, cost: 0, dry: true }; }
+  const image_url = await falUpload(file);
+  const out = await falRun(tool.endpoint, { image_url, ...(tool.extra || {}) }, onStatus);
+  const url = (out.image && out.image.url) || (out.images && out.images[0] && out.images[0].url);
+  if (!url) throw new Error("fal returned no image: " + JSON.stringify(out).slice(0, 200));
+  await download(url, outFile); return { file: outFile, cost: tool.pricePerImage || 0 };
+}
