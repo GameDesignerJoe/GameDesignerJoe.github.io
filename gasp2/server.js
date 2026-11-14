@@ -369,6 +369,24 @@ async function writeImagePrompt({ card, im, ask, prompt, refFiles, styleFiles = 
   return { prompt: r.text.replace(/^```\w*\n?|```$/g, "").trim(), cost: r.cost };
 }
 
+
+// Style pictures never go to the image model: shown a picture of Mother as "style only", models draw Mother.
+// Instead Claude looks at them and describes just the style in words, and that text joins the prompt. Cached per set of pictures.
+const STYLE_CACHE = () => path.join(LIB(), ".style-descriptions.json");
+const isStylePick = p => !!(p && (p.style || p.asStyle));
+async function styleText(picks) {
+  const refs = resolveRefs(picks.filter(isStylePick), null, null); if (!refs.length) return "";
+  const key = refs.map(r => { let m = 0; try { m = fs.statSync(r.file).mtimeMs | 0; } catch {} return path.basename(r.file) + ":" + m; }).sort().join("|");
+  let cache = {}; try { cache = JSON.parse(fs.readFileSync(STYLE_CACHE(), "utf8")); } catch {} if (cache[key]) return cache[key];
+  let text;
+  if (process.env.GASP_DRY) text = "(dry run) bold 2D cel style, clean ink outlines, warm rim light.";
+  else { const cs = chatSetting(); const parts = [{ type: "text", text: `Describe ONLY the art style of ${refs.length === 1 ? "this image" : "these images"}, so a different character or place can be drawn in exactly the same style: line work and outlines, shading method, colour palette and saturation, lighting, texture or grain, how realistic or stylised the proportions and faces are, 2D or 3D. 3 to 5 sentences. Never mention who or what is in ${refs.length === 1 ? "it" : "them"}: no people, clothes, hair, creatures or objects. Reply with the description only.` }];
+    for (const r of refs.slice(0, 4)) parts.push({ type: "image_url", image_url: { url: await smallImage(r.file) } });
+    const r = await chatCall({ provider: cs.provider, model: cs.model, maxTokens: 400, timeoutMs: 90000, messages: [{ role: "user", content: parts }] }); text = r.text.trim();
+    logSpend({ story: "Reference", episode: "", shot: "style description", kind: "prompt", model: cs.model, seconds: 0, cost: r.cost || 0, file: "" }); }
+  cache[key] = text; try { fs.writeFileSync(STYLE_CACHE(), JSON.stringify(cache, null, 1)); } catch {} return text;
+}
+
 // ---------- spend log ----------
 const spendFile = () => path.join(LIB(), "spend-log.csv");
 const csv = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -521,16 +539,18 @@ const routes = {
     if (im.take === t) { const next = im.takes.filter(x => fs.existsSync(path.join(cardPath(c), "takes", x))).pop() || null; try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} im.take = null; if (next) setImageInUse(c, im, next); }
     writeCard(c); return refsForApp(); },
   "POST /api/gen/keyframe": async (req) => { const b = await body(req); return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
-  "POST /api/gen/ref": async (req) => { const b = await body(req); return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect, cutout: !!b.cutout }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1, sameSubject: true, edit: !!b.edit }); },
+  "POST /api/gen/ref": async (req) => { const b = await body(req); const picks = b.refs || [], st = await styleText(picks);
+    const prompt = st ? `${String(b.prompt || "").trim()}\n\nDraw it in this art style: ${st}` : b.prompt;
+    return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect, cutout: !!b.cutout }, modelKey: b.model || settings().defaultImage, prompt, picks: picks.filter(p => !isStylePick(p)), count: +b.count || 1, sameSubject: true, edit: !!b.edit }); },
   // one turn of a Refine thread: edit a picture (the latest result by default) and keep the earlier asks that led to it
   "POST /api/gen/refine": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const th = im.thread || [];
     const want = b.base && path.basename(b.base), base = want && im.takes.includes(want) ? want : th.length ? th[th.length - 1].result : im.take;
     if (!base) throw httpErr(400, "Add or generate an image first."); const ask = String(b.ask || "").trim(); if (!ask) throw httpErr(400, "Say what to change.");
     const chain = []; let cur = base; for (let k = th.length - 1; k >= 0; k--) if (th[k].result === cur) { chain.unshift(th[k].ask.replace(/\.?\s*$/, "")); cur = th[k].base; }
-    const who = c.kind === "character" ? "person" : c.kind, style = (b.style || []).slice(0, 4), extras = [];
+    const who = c.kind === "character" ? (c.look ? SF.lookNoun(c.look) || "character" : "character") : c.kind, styleDesc = await styleText((b.style || []).slice(0, 4)), extras = [];
     for (const x of (b.extra || []).slice(0, 4)) { const { ext, buf } = dataUri(x.data); const dir = path.join(cardPath(c), "takes", "extras"); fs.mkdirSync(dir, { recursive: true }); const f = `${stamp()} ${clean(String(x.name || "picture").replace(/\.[a-z0-9]+$/i, ""), 40)}-${extras.length + 1}.${ext}`; fs.writeFileSync(path.join(dir, f), buf); extras.push(f); }
-    const prompt = `Change image 1: ${ask.replace(/\.?\s*$/, ".")}${chain.length ? ` Earlier changes, keep them: ${chain.join("; ")}.` : ""} Keep everything else exactly the same: the ${who}, the pose, the framing${style.length ? "" : ", the art style"} and the background.${style.length ? " Redraw it in the art style of the style reference image" + (style.length > 1 ? "s" : "") + " (line work, colouring, shading, lighting), keeping who it is." : ""}${extras.length ? ` ${extras.length === 1 ? "An extra picture is" : "Extra pictures are"} attached: use ${extras.length === 1 ? "it" : "them"} only as the change asks.` : ""}`;
-    return runImageJob({ target: { card: c.id, image: im.id, aspect: b.aspect, cutout: !!b.cutout, thread: { ask, base, extras } }, modelKey: b.model || settings().defaultImage, prompt, picks: [{ card: c.id, image: im.id, take: base }].concat(extras.map(f => ({ card: c.id, extra: f })), style), count: 1, sameSubject: true, edit: true }); },
+    const prompt = `Change image 1: ${ask.replace(/\.?\s*$/, ".")}${chain.length ? ` Earlier changes, keep them: ${chain.join("; ")}.` : ""} Keep everything else exactly the same: the same ${who} (it must still be this ${who}, not anyone else), the pose, the framing${styleDesc ? "" : ", the art style"} and the background.${styleDesc ? ` Redraw it in this art style, keeping who it is: ${styleDesc}` : ""}${extras.length ? ` ${extras.length === 1 ? "An extra picture is" : "Extra pictures are"} attached: use ${extras.length === 1 ? "it" : "them"} only as the change asks.` : ""}`;
+    return runImageJob({ target: { card: c.id, image: im.id, aspect: b.aspect, cutout: !!b.cutout, thread: { ask, base, extras } }, modelKey: b.model || settings().defaultImage, prompt, picks: [{ card: c.id, image: im.id, take: base }].concat(extras.map(f => ({ card: c.id, extra: f }))), count: 1, sameSubject: true, edit: true }); },
   "POST /api/ref/write": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
     const refFiles = (b.refs || []).map(id => { const x = c.images.find(y => y.id === id); return x && x.take ? path.join(cardPath(c), "takes", x.take) : null; }).filter(Boolean).slice(0, 6);
     const resultFile = b.withResult && im.take ? path.join(cardPath(c), "takes", im.take) : null;
