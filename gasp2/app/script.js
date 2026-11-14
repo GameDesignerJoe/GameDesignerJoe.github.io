@@ -147,7 +147,8 @@ var GASPScript = (function () {
     "",
     "Rules: one SHOT line per shot; the title comes first after SHOT:, then optional framing (ECU, CU, MCU, MS, WS, OTS),",
     "location and length (5s). Keep IMAGE prompts self-contained so each works on its own in any image model:",
-    "describe people by look, never by name, and name them on the WHO: line instead. Frame for the episode's FORMAT.",
+    "write characters, props and places that have a look (a Reference card or a CAST line) by NAME IN CAPS (MOTHER, TOY SOLDIER):",
+    "GASP swaps in the look when the image is made. Describe anyone else in full. Put who's in frame on the WHO: line. Frame for the episode's FORMAT.",
     "Lines ending in [[#…]] are links GASP adds; keep them when you rewrite a shot.",
   ].join("\n");
 
@@ -198,8 +199,8 @@ var GASPScript = (function () {
       else if (b.image.length > 1200) issues.push({ line: b.start, level: "info", msg: "Very long IMAGE prompt (" + b.image.length + " characters). Image models tend to drop details past a few sentences." });
       var names = Object.keys(known).concat(String(b.who || "").split(/\s*,\s*|\s+and\s+/).map(function (x) { return x.trim().toUpperCase(); })).filter(function (n) { return n && n.length > 1; });
       // a name counts only written as a name (Wren, WREN), so role names like "Child" don't trip on "a small child"
-      var hit = names.filter(function (n) { var e = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), tc = titleCase(n).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp("\\b(" + e + "|" + tc + ")\\b").test(b.image.replace(/(^|[.!?]\s+)\S/g, function (x) { return x.toLowerCase(); })); });
-      if (hit.length) issues.push({ line: b.start, level: "warn", msg: "IMAGE names " + uniq(hit.map(titleCase)).join(", ") + ". Image models don't know who that is: describe them instead, and put the name on a WHO: line so GASP attaches the reference image." });
+      var hit = names.filter(function (n) { var tc = titleCase(n).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return tc.toUpperCase() !== tc && new RegExp("\\b(" + tc + ")\\b").test(b.image.replace(/(^|[.!?]\s+)\S/g, function (x) { return x.toLowerCase(); })); });
+      if (hit.length) issues.push({ line: b.start, level: "warn", msg: "IMAGE names " + uniq(hit.map(titleCase)).join(", ") + ". Write " + (hit.length > 1 ? "names" : "the name") + " in caps (" + uniq(hit.map(function (n) { return n.toUpperCase(); })).join(", ") + ") so GASP swaps in the look from the Reference card or the CAST line. Image models don't know who " + titleCase(hit[0]) + " is." });
       if (!b.motion) issues.push({ line: b.start, level: "warn", msg: "No MOTION, so the video gets a generic \"subtle natural motion\"." });
       if (b.seconds && opt.minSeconds && b.seconds < opt.minSeconds) issues.push({ line: b.start, level: "warn", msg: b.seconds + "s is shorter than " + (opt.modelLabel || "the video model") + " makes (" + opt.minSeconds + "s at least). Fold this beat into a longer shot, or trim it in the edit." });
       if (b.seconds && b.seconds > 15) issues.push({ line: b.start, level: "warn", msg: b.seconds + "s is longer than any video model makes in one go (most stop at 10–15s)." });
@@ -218,6 +219,38 @@ var GASPScript = (function () {
     var body = L.slice(i).join("\n"); if (!body.trim()) return "";
     return header(story, num, title) + "\n\n" + body;
   }
-  return { withHeader: withHeader, parse: parse, lint: lint, setField: setField, setCallout: setCallout, reorder: reorder, removeBlock: removeBlock, insertBlock: insertBlock, renumber: renumber, stampId: stampId, calloutLine: calloutLine, GUIDE: GUIDE, re: { shot: reShot, scene: reScene, field: reField, dialog: reDialog, cue: reCue, id: reId, notNames: NOT_NAMES } };
+  // CAST: Mother — woman in her thirties, … Father — … (one or several per line) → [{name, look}]
+  function castOf(text) {
+    var out = [], seen = {};
+    String(text || "").replace(/\r/g, "").split("\n").forEach(function (line) {
+      var m = line.match(/^\s*CAST\s*:\s*(.+)$/i); if (!m) return;
+      m[1].split(/(?:^|[.;])\s+(?=[A-Z][\w'’ .-]{0,30}?\s+[—–-]\s)/).forEach(function (e) {
+        var x = e.match(/^\s*([A-Z][\w'’ .-]{0,30}?)\s+[—–-]\s+(.+?)\s*[.;]?\s*$/); if (x && !seen[x[1].toLowerCase()]) { seen[x[1].toLowerCase()] = 1; out.push({ name: x[1].trim(), look: x[2].trim() }); }
+      });
+    });
+    return out;
+  }
+  // "woman in her thirties, purple hair…" → "woman"; "small child in dungarees" → "small child"
+  function lookNoun(look) { var m = String(look || "").match(/^\s*(?:an?\s+|the\s+)?(.*?)(?=\s+(?:in|with|wearing|who|holding|clutching|carrying|of)\b|[,;.(]|$)/i); var n = m ? m[1].trim() : ""; return n.split(/\s+/).length <= 4 ? n : ""; }
+  // Names written in CAPS in a prompt (MOTHER, MOTHER'S, TOY SOLDIER) become the look they stand for:
+  // the first mention gets the whole look, later ones "the woman". looks = [{names:[…], look, kind}]. short: never the whole look (for MOTION).
+  function expandNames(text, looks, short) {
+    var list = []; (looks || []).forEach(function (l) { if (!l.look) return; (l.names || []).forEach(function (n) { if (n && n.trim()) list.push({ n: n.trim().toUpperCase(), l: l }); }); });
+    list.sort(function (a, b) { return b.n.length - a.n.length; });
+    var seen = [], used = [], out = String(text || "");
+    list.forEach(function (it) {
+      var re = new RegExp("(^|[^A-Za-z0-9])(" + it.n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")('S|’S)?(?![A-Za-z0-9])", "g");
+      out = out.replace(re, function (all, pre, name, poss, off, str) {
+        var l = it.l, isChar = l.kind === "character" || !l.kind, noun = isChar ? lookNoun(l.look) : it.n.toLowerCase(); if (!noun) noun = isChar ? "person" : it.n.toLowerCase();
+        var first = seen.indexOf(l) < 0; if (first) seen.push(l); if (used.indexOf(it.n) < 0) used.push(it.n);
+        var p = poss ? "'s" : "", look = l.look.replace(/\.\s*$/, ""), lead = new RegExp("^\\s*(?:an?\\s+|the\\s+)?" + noun.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b[,\\s]*", "i");
+        var rest = isChar && lead.test(look) ? look.replace(lead, "") : look;
+        var start = /(^|[.!?:]\s*)$/.test(str.slice(0, off) + pre);
+        return pre + (start ? "The " : "the ") + noun + p + (first && !short && rest ? " (" + rest + ")" : "");
+      });
+    });
+    return { text: out, used: used };
+  }
+  return { withHeader: withHeader, castOf: castOf, lookNoun: lookNoun, expandNames: expandNames, parse: parse, lint: lint, setField: setField, setCallout: setCallout, reorder: reorder, removeBlock: removeBlock, insertBlock: insertBlock, renumber: renumber, stampId: stampId, calloutLine: calloutLine, GUIDE: GUIDE, re: { shot: reShot, scene: reScene, field: reField, dialog: reDialog, cue: reCue, id: reId, notNames: NOT_NAMES } };
 })();
 if (typeof module !== "undefined") module.exports = GASPScript;

@@ -122,7 +122,7 @@ function syncScript(s, ep, text, orphanMode) {
   // grid-only shots keep their place relative to their neighbours
   const result = [...ordered];
   for (const o of orphans) { const orig = ep.shots.indexOf(o); let prev = null; for (let k = orig - 1; k >= 0; k--) if (result.includes(ep.shots[k])) { prev = ep.shots[k]; break; } result.splice(prev ? result.indexOf(prev) + 1 : 0, 0, o); if (orphanMode === "add") text = SF.insertBlock(text, prev ? prev.id : null, o); }
-  ep.shots = result; text = SF.renumber(text); ep.aspect = p.aspect || ""; ep.style = p.style || "";
+  ep.shots = result; text = SF.renumber(text); ep.aspect = p.aspect || ""; ep.style = p.style || ""; ep.cast = SF.castOf(text);
   return { text, created, updated, createdIds, orphans: orphanMode === "add" ? [] : orphans.map(o => ({ id: o.id, title: o.title })) };
 }
 
