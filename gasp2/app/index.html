@@ -15,7 +15,8 @@ button{cursor:pointer}
 .btn:hover{border-color:var(--muted)}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}.btn.primary:hover{background:var(--accent2)}
 .btn.small{padding:3px 9px;font-size:12.5px}.btn.ghost{background:none}.btn:disabled{opacity:.45;cursor:not-allowed}
 input[type=text],input[type=password],select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
-textarea{resize:vertical;min-height:70px;line-height:1.4}
+textarea{resize:none;min-height:44px;line-height:1.4;field-sizing:content;overflow:hidden}
+*{scrollbar-width:none}*::-webkit-scrollbar{display:none;width:0;height:0}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 label.f{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 5px}
 .sub{color:var(--muted);font-size:12.5px}
@@ -103,6 +104,8 @@ main{flex:1;min-height:0;display:flex}
 .rcard .mt{font-size:11px;color:var(--faint)}
 .rcard.sug .rimg{border-style:dashed;flex-direction:column;gap:6px;background:none;padding:8px}.rcard.sug .sgn{font-weight:600;color:var(--ink);font-size:14px}.rcard.sug .sgm{font-size:11px;color:var(--faint)}.rcard.sug{cursor:default}
 .rcard.add .rimg{border-style:dashed;flex-direction:column;gap:4px}.rcard.add:hover .rimg{border-color:var(--accent);color:var(--ink)}
+.ctabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:10px 0 12px}.ctabs button{border:0;background:none;color:var(--muted);padding:8px 14px;cursor:pointer;font:600 13px inherit;border-bottom:2px solid transparent;margin-bottom:-1px}.ctabs button:hover{color:var(--ink)}.ctabs button.on{color:var(--ink);border-bottom-color:var(--accent)}.ctabs .n{color:var(--faint);font-weight:400;margin-left:4px}
+.cname{font-size:20px;font-weight:700}
 .rib{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px;background:var(--panel2)}
 .rib.focus{border-color:var(--accent2)}
 .rib .lab{width:auto;flex:1;min-width:80px;font-weight:600;background:none;border-color:transparent;padding:3px 6px}
@@ -164,7 +167,7 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1
 .editor{position:relative;flex:1;min-height:0;width:100%;margin:0;border:1px solid var(--line);border-radius:12px;background:#0f0c12;overflow:hidden}
 .editor textarea,.editor .mirror{position:absolute;inset:0;margin:0;padding:24px 28px;font:var(--scfont,14.5px)/1.65 "Courier Prime","Courier New",Courier,var(--mono);white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:2;border:0;border-radius:0;overflow:auto;letter-spacing:0;scrollbar-width:none}
 .editor textarea::-webkit-scrollbar{display:none}
-.editor textarea{background:transparent;color:transparent;caret-color:var(--ink);resize:none;min-height:0;z-index:1}
+.editor textarea{background:transparent;color:transparent;caret-color:var(--ink);resize:none;min-height:0;z-index:1;field-sizing:fixed;overflow:auto}
 .editor textarea::selection{background:rgba(255,77,109,.35);color:transparent}
 .editor textarea::placeholder{color:var(--faint)}
 .editor .mirror{color:var(--ink);pointer-events:none;scrollbar-width:none}.editor .mirror::-webkit-scrollbar{display:none}
@@ -204,7 +207,7 @@ body.chatopen #chat{display:flex}
 .card details summary{cursor:pointer;color:var(--muted);font-size:12.5px;margin-top:4px}
 .cfield{font-size:12.5px;margin-top:4px}.cfield b{color:var(--muted);font-size:11px;margin-right:4px}
 .ccomp{border-top:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:6px}.ccomp .crow{display:flex;gap:8px;align-items:flex-end}
-.ccomp textarea{min-height:42px;max-height:45vh;resize:none;overflow-y:auto;line-height:1.45}
+.ccomp textarea{min-height:42px;max-height:45vh;resize:none;overflow-y:auto;line-height:1.45;field-sizing:fixed}
 #chat.dropping{outline:2px dashed var(--accent);outline-offset:-6px}
 .cgrip{position:absolute;left:-4px;top:0;bottom:0;width:8px;cursor:col-resize;z-index:2}.cgrip:hover,.cgrip.drag{background:linear-gradient(90deg,transparent 3px,var(--accent) 3px,var(--accent) 5px,transparent 5px)}
 body.resizing{cursor:col-resize;user-select:none}body.resizing iframe,body.resizing video{pointer-events:none}
@@ -406,6 +409,8 @@ function looksForEp(){const cards=REFS.filter(c=>c.look).map(c=>({names:[c.name]
   return cards.concat(((EP&&EP.cast)||[]).filter(x=>!have.has(lc(x.name))).map(x=>({names:[x.name],look:x.look,kind:"character"})))}
 const expandPrompt=(t,short)=>GASPScript.expandNames(t,looksForEp(),short).text;
 const kfSent=t=>[EP.style?"Style: "+EP.style+".":"",expandPrompt(t),`${EP.aspect||"9:16"} ${(EP.aspect||"9:16")==="9:16"?"vertical":(EP.aspect==="16:9"?"widescreen":"square")} frame.`].filter(Boolean).join("\n\n");
+if(!(window.CSS&&CSS.supports&&CSS.supports("field-sizing","content"))){const fit=t=>{if(t.closest(".editor")||t.id==="cin")return;t.style.height="auto";t.style.height=t.scrollHeight+2+"px"};
+  document.addEventListener("input",e=>{if(e.target.tagName==="TEXTAREA")fit(e.target)});new MutationObserver(()=>document.querySelectorAll("textarea").forEach(fit)).observe(document.body,{childList:true,subtree:true})}
 async function loadRefs(){try{REFS=await api("/api/refs")}catch(e){REFS=[]}}
 const refNames=()=>REFS.filter(c=>c.kind==="character").flatMap(c=>[c.name].concat(c.aliases||[])).map(n=>n.toUpperCase()).filter(n=>/^[A-Z][A-Z .'-]*$/.test(n));
 const lc=x=>String(x||"").trim().toLowerCase();
@@ -451,7 +456,7 @@ function renderReference(){
   m.querySelectorAll("[data-sugadd]").forEach(b=>b.onclick=e=>{e.stopPropagation();const x=RSUG.find(y=>y.kind+":"+lc(y.name)===b.dataset.sugadd);if(x)addSuggested([x])});
   m.querySelectorAll("[data-sugno]").forEach(b=>b.onclick=e=>{e.stopPropagation();const o=[...sugOff(),b.dataset.sugno];ls.set("g2-refignore-"+STORY.id,o);renderReference()});
   m.querySelectorAll("[data-addall]").forEach(b=>b.onclick=()=>addSuggested(sugFor(b.dataset.addall)));
-  m.querySelectorAll("[data-new]").forEach(b=>b.onclick=async()=>{const k=b.dataset.new;const n=prompt(`Name of the ${KLAB[k][1]}, as the script writes it`,"");if(!n)return;try{const r=await api("/api/ref/new",{kind:k,name:n});REFS=r.refs;RSEL=r.card;ls.set("g2-ref",RSEL);renderReference()}catch(e){toast(e.message)}});
+  m.querySelectorAll("[data-new]").forEach(b=>b.onclick=async()=>{const k=b.dataset.new;const n=prompt(`Name of the ${KLAB[k][1]}, as the script writes it`,"");if(!n)return;try{const r=await api("/api/ref/new",{kind:k,name:n});REFS=r.refs;RSEL=r.card;ls.set("g2-ref",RSEL);ls.set("g2-cardtab","card");renderReference()}catch(e){toast(e.message)}});
   m.querySelectorAll(".rcard[data-card]").forEach(t=>{
     t.onclick=()=>{RSEL=t.dataset.card;ls.set("g2-ref",RSEL);RGEN=null;m.querySelectorAll(".rcard").forEach(x=>x.classList.toggle("sel",x===t));renderCardPanel()};
     t.ondragover=e=>{if(e.dataTransfer.types.includes("Files")){e.preventDefault();e.stopPropagation();t.classList.add("filedrop")}};t.ondragleave=()=>t.classList.remove("filedrop");
@@ -487,7 +492,7 @@ function imageBlock(c,im){const j=JOBS_IMG(im.id),busy=j&&j.status==="running",o
   return`<div class="rib ${RFOCUS===im.id?"focus":""}" data-im="${im.id}"><div class="row" style="gap:4px;flex-wrap:wrap"><input type="text" class="lab" data-lab="${im.id}" value="${esc(im.label)}" title="Rename this image"><button class="btn small ${open?"":"primary"}" data-gen="${im.id}">${open?"Hide generate":"Generate…"}</button><button class="btn small" data-cut="${im.id}" ${!im.url||busy?"disabled":""} title="Make a transparent version with ${esc(cut.label||"")} (about $${cut.pricePerImage}). The original stays in its takes.">Remove background</button><label class="btn small" title="Choose an image file">File<input type="file" accept="image/*" data-file="${im.id}" hidden></label><button class="btn small ghost" data-imdel="${im.id}" title="Remove this image (its takes go to _Trash)">✕</button></div>
     <div class="rhero">${im.url?`<img src="${im.url}" class="chk" data-view="${im.id}" alt="" title="Click to see it large">`:`<div class="ph" data-drop="${im.id}"><div>Drop an image here, paste one with Ctrl+V,<br>or click to choose a file. Or Generate one.</div></div>`}</div>
     ${open?`<div class="gform">
-      <div class="sub" style="margin-bottom:4px">The prompt is ${EP&&EP.style?"the story's <b>STYLE</b> + ":""}the card's <b>Look</b> (above) + this <b>framing</b>:</div>
+      <div class="sub" style="margin-bottom:4px">The prompt is ${EP&&EP.style?"the story's <b>STYLE</b> + ":""}the card's <b>Look</b> (in its first tab) + this <b>framing</b>:</div>
       <textarea data-gp="${im.id}" rows="2" title="How this image is framed. Saved with the image.">${esc(framingOf(c,im))}</textarea>
       ${!c.look?`<p class="refwarn" style="margin-top:6px">⚠ Write the Look above first: without it the model only gets the framing.</p>`:""}
       ${EP&&EP.style?`<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" data-gs ${ls.get("g2-refstyle",true)?"checked":""} style="width:auto"> Add ${esc(STORY.title)}'s STYLE (leave it off for a card you'll use across stories in different styles)</label>`:""}
@@ -502,17 +507,24 @@ function imageBlock(c,im){const j=JOBS_IMG(im.id),busy=j&&j.status==="running",o
 function renderCardPanel(){const p=$("#rpanel");if(!p)return;const c=REFS.find(x=>x.id===RSEL);
   if(!c){p.innerHTML=`<div class="empty-state" style="padding:30px 10px"><h3>No card selected</h3><p class="sub">A card is a name, its look in words, and its images: a full body and a face for a character (plus one per outfit), the empty set for a location, the object on its own for a prop.</p></div>`;return}
   const isC=c.kind==="character";
-  p.innerHTML=`<div class="row"><h3>${KLAB[c.kind][1]}</h3><span class="spacer"></span><button class="btn small ghost" id="cFolder">Folder</button><button class="btn small ghost" id="cDel">Delete</button></div>
-    <input type="text" id="cName" class="ptitle" value="${esc(c.name)}" style="margin-top:8px" title="The name scripts use (also the folder name)">
+  const tabs=isC?[["card","Character"],["images","Images"],["voice","Voice"]]:[["card",KLAB[c.kind][1][0].toUpperCase()+KLAB[c.kind][1].slice(1)],["images","Images"]];
+  let tab=ls.get("g2-cardtab","images");if(!tabs.some(t=>t[0]===tab))tab="images";const nIm=c.images.filter(i=>i.url).length;
+  p.innerHTML=`<div class="row"><span class="sub" style="text-transform:uppercase;letter-spacing:.06em;font-weight:600">${KLAB[c.kind][1]}</span><span class="spacer"></span><button class="btn small ghost" id="cFolder">Folder</button><button class="btn small ghost" id="cDel">Delete</button></div>
+    <div class="cname">${esc(c.name)}</div>
+    <div class="ctabs">${tabs.map(([k,l])=>`<button data-ctab="${k}" class="${k===tab?"on":""}">${l}${k==="images"?`<span class="n">${nIm}</span>`:k==="card"&&!c.look?`<span class="n" style="color:var(--warn)">needs a look</span>`:k==="voice"&&!c.voice?`<span class="n">not set</span>`:""}</button>`).join("")}</div>
+    ${tab==="card"?`<label class="f" style="margin-top:0">Name</label><input type="text" id="cName" value="${esc(c.name)}" title="The name scripts use (also the folder name)">
     <label class="f">Also called</label><input type="text" id="cAka" value="${esc((c.aliases||[]).join(", "))}" placeholder="Other names the script uses, comma-separated${isC?": Mother, Mom":""}">
-    <label class="f">Look</label><textarea id="cLook" rows="3" placeholder="${esc({character:"How they look, in the exact words every prompt reuses: woman in her twenties, sun-streaked hair, leather-and-fur two-piece",location:"The place in a line: flat lichen-covered rock above a turquoise cove, palms behind",prop:"The object in a line: bone-handled hunting knife in a worn leather sheath"}[c.kind])}">${esc(c.look)}</textarea>
-    <p class="sub" style="margin:4px 0 0">Write it once here. Wherever a prompt says ${esc(c.name.toUpperCase())} in caps, GASP swaps in this look, and the chat copies it into the script's CAST line. It can't see the images, so describe what's in them.</p>
-    ${isC?`<label class="f">Voice</label><input type="text" id="cVoice" value="${esc(c.voice)}" placeholder="For the Sound tab: an ElevenLabs voice name or id, or a description">`:""}
-    <div class="sec"><div class="secrow"><h3>Images</h3><span class="spacer"></span>${isC&&!c.images.some(i=>/face/i.test(i.label))?`<button class="btn small" data-addim="face">+ Face</button>`:""}${isC&&!c.images.some(i=>/turn/i.test(i.label))?`<button class="btn small" data-addim="turnaround" title="Front, three-quarter, side and back views in one wide image">+ Turnaround</button>`:""}${isC?`<button class="btn small" data-addim="outfit">+ Outfit</button>`:""}<button class="btn small" data-addim="">+ Image</button></div>
-    ${c.images.map(im=>imageBlock(c,im)).join("")||`<p class="sub">No images yet.</p>`}</div>`;
+    <label class="f">Look</label><textarea id="cLook" placeholder="${esc({character:"How they look: woman in her twenties, sun-streaked hair, leather-and-fur two-piece",location:"The place in a line: flat lichen-covered rock above a turquoise cove, palms behind",prop:"The object in a line: bone-handled hunting knife in a worn leather sheath"}[c.kind])}">${esc(c.look)}</textarea>
+    <p class="sub" style="margin:4px 0 0">Written once, used everywhere: wherever a prompt says <b>${esc(c.name.toUpperCase())}</b>, GASP swaps in this look. The chat can't see images, so describe what's in them.</p>`:""}
+    ${tab==="voice"?`<label class="f" style="margin-top:0">Voice</label><input type="text" id="cVoice" value="${esc(c.voice)}" placeholder="An ElevenLabs voice name or id, or a description: warm, low, tired">
+    <p class="sub" style="margin:4px 0 0">Used by the Sound tab (step 7) for this character's dialogue.</p>`:""}
+    ${tab==="images"?`<div class="row" style="justify-content:flex-end;gap:6px;flex-wrap:wrap">${isC&&!c.images.some(i=>/face/i.test(i.label))?`<button class="btn small" data-addim="face">+ Face</button>`:""}${isC&&!c.images.some(i=>/turn/i.test(i.label))?`<button class="btn small" data-addim="turnaround" title="Front, three-quarter, side and back views in one wide image">+ Turnaround</button>`:""}${isC?`<button class="btn small" data-addim="outfit">+ Outfit</button>`:""}<button class="btn small" data-addim="">+ Image</button></div>
+    ${!c.look?`<p class="refwarn">⚠ This card has no Look yet, so generated images only get the framing. Write it in the ${tabs[0][1]} tab.</p>`:""}
+    ${c.images.map(im=>imageBlock(c,im)).join("")||`<p class="sub">No images yet.</p>`}`:""}`;
+  p.querySelectorAll("[data-ctab]").forEach(b=>b.onclick=()=>{ls.set("g2-cardtab",b.dataset.ctab);renderCardPanel()});
   const upd=async(fields,full)=>{try{REFS=await api("/api/ref/update",{card:c.id,fields});if(full)renderReference()}catch(e){toast(e.message)}};
-  $("#cName").onchange=e=>upd({name:e.target.value},true);$("#cAka").onchange=e=>upd({aliases:e.target.value});
-  let lt;$("#cLook").oninput=e=>{clearTimeout(lt);const v=e.target.value;c.look=v;p.querySelectorAll(".rib").forEach(el=>{const im=c.images.find(x=>x.id===el.dataset.im),pre=el.querySelector("[data-gfull]"),st=el.querySelector("[data-gs]");if(im&&pre)pre.textContent=refFull(c,im,st&&st.checked)});lt=setTimeout(()=>upd({look:v}).then(()=>{const t=document.querySelector(`.rcard[data-card="${c.id}"] .mt`);if(t)t.outerHTML=cardTile(REFS.find(x=>x.id===c.id)).match(/<div class="mt">.*?<\/div>/)[0]}),500)};
+  if($("#cName")){$("#cName").onchange=e=>upd({name:e.target.value},true);$("#cAka").onchange=e=>upd({aliases:e.target.value});
+  let lt;$("#cLook").oninput=e=>{clearTimeout(lt);const v=e.target.value;c.look=v;p.querySelectorAll(".rib").forEach(el=>{const im=c.images.find(x=>x.id===el.dataset.im),pre=el.querySelector("[data-gfull]"),st=el.querySelector("[data-gs]");if(im&&pre)pre.textContent=refFull(c,im,st&&st.checked)});lt=setTimeout(()=>upd({look:v}).then(()=>{const t=document.querySelector(`.rcard[data-card="${c.id}"] .mt`);if(t)t.outerHTML=cardTile(REFS.find(x=>x.id===c.id)).match(/<div class="mt">.*?<\/div>/)[0]}),500)}}
   const cv=$("#cVoice");if(cv)cv.onchange=e=>upd({voice:e.target.value});
   $("#cFolder").onclick=()=>reveal({card:c.id});
   $("#cDel").onclick=async()=>{if(!confirm(`Move the ${c.name} card and all its images to _Trash?`))return;try{REFS=await api("/api/ref/delete",{card:c.id});RSEL=null;await loadSuggest();renderReference();toast(`${c.name} moved to _Trash. It's back in the suggestions if the script still uses it.`,5000)}catch(e){toast(e.message)}};
