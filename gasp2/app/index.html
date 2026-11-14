@@ -108,7 +108,8 @@ main{flex:1;min-height:0;display:flex}
 .rcard .nm{margin-top:6px;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rcard .mt{font-size:11px;color:var(--faint)}
 .rcard.sug .rimg{border-style:dashed;flex-direction:column;gap:6px;background:none;padding:8px}.rcard.sug .sgn{font-weight:600;color:var(--ink);font-size:14px}.rcard.sug .sgm{font-size:11px;color:var(--faint)}.rcard.sug{cursor:default}
-.rcard.add .rimg{border-style:dashed;flex-direction:column;gap:4px}.rcard.add:hover .rimg{border-color:var(--accent);color:var(--ink)}
+.rcard.add .rimg{border:0!important;background:none!important;color:var(--faint);opacity:.55;flex-direction:column;gap:4px;transition:opacity .15s}.rcard.add:hover .rimg,.rsec.dropping .rcard.add .rimg{opacity:1}.rcard.add .rimg span:last-child{display:none}.rcard.add:hover .rimg span:last-child{display:inline}
+.rcard.add:hover .rimg{color:var(--ink)}
 .ctabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:10px 0 12px}.ctabs button{border:0;background:none;color:var(--muted);padding:8px 14px;cursor:pointer;font:600 13px inherit;border-bottom:2px solid transparent;margin-bottom:-1px}.ctabs button:hover{color:var(--ink)}.ctabs button.on{color:var(--ink);border-bottom-color:var(--accent)}.ctabs .n{color:var(--faint);font-weight:400;margin-left:4px}
 .cname{font-size:20px;font-weight:700}
 .artsec{margin-top:16px;border:1px dashed var(--line);border-radius:10px;padding:10px}.artsec.over{border-color:var(--good)}
