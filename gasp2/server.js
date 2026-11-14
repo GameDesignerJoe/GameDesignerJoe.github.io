@@ -219,7 +219,7 @@ function addCardTake(c, im, buf, ext, source) {
 function cardForApp(c) {
   const abs = cardPath(c);
   return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "",
-    images: c.images.map(im => ({ id: im.id, label: im.label, framing: im.framing, url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
+    images: c.images.map(im => ({ id: im.id, label: im.label, framing: im.framing, art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
       takes: im.takes.filter(t => fs.existsSync(path.join(abs, "takes", t))).map(t => ({ file: t, url: fileUrl(path.join(abs, "takes", t)), inUse: t === im.take, kind: "image" })).reverse() })) };
 }
 const refsForApp = () => readCards().map(cardForApp).sort((a, b) => a.name.localeCompare(b.name));
@@ -460,7 +460,7 @@ const routes = {
     if ("name" in f && String(f.name).trim()) c.name = clean(f.name); if ("look" in f) c.look = String(f.look); if ("voice" in f) c.voice = String(f.voice); if ("aliases" in f) c.aliases = (Array.isArray(f.aliases) ? f.aliases : String(f.aliases).split(",")).map(x => String(x).trim()).filter(Boolean);
     saveCard(c); return refsForApp(); },
   "POST /api/ref/delete": async (req) => { const b = await body(req); const c = findCard(b.card); if (Object.values(JOBS).some(j => j.card === c.id && j.status === "running")) throw httpErr(409, "a generation is still running for this card"); toTrash(cardPath(c), `Reference - ${KINDS[c.kind]} - ${c.dir}`); return refsForApp(); },
-  "POST /api/ref/image/new": async (req) => { const b = await body(req); const c = findCard(b.card); const im = { id: newId(), label: clean(b.label || "image " + (c.images.length + 1), 40), takes: [], take: null }; c.images.push(im);
+  "POST /api/ref/image/new": async (req) => { const b = await body(req); const c = findCard(b.card); const im = { id: newId(), label: clean(b.label || "image " + (c.images.length + 1), 40), takes: [], take: null, art: !!b.art || undefined }; c.images.push(im);
     if (b.image) { const { ext, buf } = dataUri(b.image); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); } writeCard(c); return { refs: refsForApp(), image: im.id }; },
   "POST /api/ref/image/set": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const { ext, buf } = dataUri(b.image64); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); writeCard(c); return refsForApp(); },
   "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); if ("framing" in b) { im.framing = String(b.framing || ""); writeCard(c); if (!("label" in b)) return refsForApp(); }
