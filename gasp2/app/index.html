@@ -117,6 +117,28 @@ main{flex:1;min-height:0;display:flex}
 .arttile{position:relative;aspect-ratio:1/1;border-radius:8px;overflow:hidden;cursor:zoom-in;border:1px solid var(--line)}.arttile img{width:100%;height:100%;object-fit:cover}
 .arttile button{position:absolute;top:4px;right:4px;border:0;border-radius:6px;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;padding:1px 6px;opacity:0}.arttile:hover button{opacity:1}
 .askrow{display:flex;gap:6px;margin-top:8px}.askrow input{flex:1}
+.soundpage{flex:1;display:grid;grid-template-columns:minmax(0,1fr) var(--pw-sound,minmax(340px,30%));min-height:0;position:relative}
+.stage{display:flex;justify-content:center;margin:10px 0 6px}
+.stage .scr{height:min(40vh,460px);aspect-ratio:var(--asp,9/16);max-width:100%;background:#000;border-radius:10px;overflow:hidden;position:relative;border:1px solid var(--line)}
+.stage .scr video,.stage .scr img{width:100%;height:100%;object-fit:contain;display:block}
+.stage .lbl{position:absolute;left:8px;top:8px;background:rgba(0,0,0,.65);color:#fff;font-size:12px;padding:2px 8px;border-radius:6px}
+.stage .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;text-align:center;padding:10px}
+.transport{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.transport .tc{font:600 13px ui-monospace,monospace;color:var(--muted);min-width:110px}
+.tl{display:grid;grid-template-columns:78px minmax(0,1fr);gap:5px 8px;margin-top:12px}
+.tl .ln{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;align-self:center;line-height:1.2}.tl .ln a{display:block;font-weight:400;text-transform:none;letter-spacing:0;color:var(--accent);cursor:pointer}
+.track{position:relative;height:46px;display:flex;border-radius:6px;background:rgba(255,255,255,.03);overflow:hidden}
+.track.ruler{height:18px;cursor:pointer;background:none;font:11px ui-monospace,monospace;color:var(--faint)}.track.ruler span{position:absolute;top:2px;transform:translateX(-50%)}
+.seg{flex:none;height:100%;border-right:2px solid var(--bg);overflow:hidden;cursor:pointer;position:relative;font-size:11px;padding:4px 6px;color:var(--muted);background:rgba(255,255,255,.04);white-space:nowrap;text-overflow:ellipsis;line-height:1.3}
+.track.pic .seg{background-size:cover;background-position:center;color:#fff;text-shadow:0 1px 3px #000;font-weight:700}
+.seg.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.track.fx .seg.has{background:rgba(111,211,164,.2);color:#c9f3df}.track.fx .seg.run{background:repeating-linear-gradient(45deg,rgba(111,211,164,.12) 0 8px,rgba(111,211,164,.22) 8px 16px)}
+.track.mu{display:block;height:36px}.cue{position:absolute;top:2px;bottom:2px;border-radius:6px;background:rgba(185,163,255,.14);border:1px dashed rgba(185,163,255,.6);font-size:11px;padding:4px 7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;color:#ddd3ff}
+.cue.has{background:rgba(185,163,255,.32);border-style:solid}.cue.sel{box-shadow:0 0 0 2px var(--accent)}
+.phd{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--accent);pointer-events:none;z-index:2}
+.mixer{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;align-items:center}.mixer label{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}.mixer input[type=range]{width:120px;accent-color:var(--accent)}
+.stake{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:12.5px}.stake:first-child{border-top:0}.stake .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.stake .u{color:var(--good);font-weight:600}
+
 .vplan{margin-top:6px;color:var(--ink);font-size:12.5px}
 .annot{position:absolute;cursor:crosshair;outline:2px solid var(--accent);border-radius:4px;z-index:3}
 .annot .bx{position:absolute;border:3px solid #ff3b3b;box-shadow:0 0 0 1px rgba(0,0,0,.5);pointer-events:none}
@@ -280,7 +302,7 @@ html.wide .hero .ph{height:auto;width:100%;max-height:240px}
   <button data-tab="script">Script</button>
   <button data-tab="reference">Reference</button>
   <button data-tab="shots">Shots</button>
-  <button data-tab="sound">Sound<span class="soon">step 7</span></button>
+  <button data-tab="sound">Sound</button>
 </nav>
 <main id="main"></main>
 
@@ -317,7 +339,7 @@ function setStory(s){const prevEp=EP&&EP.id,prevStory=STORY&&STORY.id;setTimeout
 async function reload(){if(STORY)setStory(await api("/api/story?id="+encodeURIComponent(STORY.id)))}
 
 /* ---------- tabs ---------- */
-document.querySelectorAll("#tabs button").forEach(b=>b.onclick=async()=>{const from=TAB;if(from==="script")await saveScriptNow();await flushPending();TAB=b.dataset.tab;ls.set("g2-tab",TAB);if(from==="script"&&TAB!=="script")await reload();else renderMain()});
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=async()=>{const from=TAB;if(from==="sound")soundPause();if(from==="script")await saveScriptNow();await flushPending();TAB=b.dataset.tab;ls.set("g2-tab",TAB);if(from==="script"&&TAB!=="script")await reload();else renderMain()});
 function renderMain(){
   document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===TAB));
   const m=$("#main");
@@ -325,6 +347,7 @@ function renderMain(){
   if(TAB==="shots")return renderShots();
   if(TAB==="script")return renderScript();
   if(TAB==="reference"){renderReference();loadSuggest().then(()=>{if(TAB==="reference")renderReference()});return}
+  if(TAB==="sound")return renderSound();
   const soon={sound:{h:"Sound",step:7,items:["Dialogue with voices and lip-sync","Ambience, effects and music in lanes under the shots","Works on stills first, so timing can be locked before video"],extra:""}}[TAB];
   m.innerHTML=`<div class="soonpage"><h2>${soon.h}</h2><p class="sub">Arrives in step ${soon.step} of the build (see <code>gasp2/PLAN.md</code>). It will hold:</p><ul>${soon.items.map(x=>`<li>${x}</li>`).join("")}</ul><p class="sub">${soon.extra}</p><p><button class="btn" id="reveal">Show this story's folder</button></p></div>`;
   $("#reveal").onclick=()=>reveal({})}
@@ -504,6 +527,99 @@ async function addNote(sh){const a=VANN;if(!a||a.shot!==sh.id)return;const text=
   try{if(v&&v.videoWidth){const sc=Math.min(1,1280/Math.max(v.videoWidth,v.videoHeight)),w=Math.round(v.videoWidth*sc),h=Math.round(v.videoHeight*sc),c=document.createElement("canvas");c.width=w;c.height=h;const g=c.getContext("2d");g.drawImage(v,0,0,w,h);
     if(a.box){g.lineWidth=Math.max(4,w/180);g.strokeStyle="#ff3b3b";g.strokeRect(a.box.x*w,a.box.y*h,a.box.w*w,a.box.h*h)}frame=c.toDataURL("image/jpeg",.88)}}catch(e){}
   try{const s=await api("/api/shot/note/add",{story:STORY.id,ep:EP.id,shot:sh.id,t:a.t,box:a.box,text,frame,pics:a.pics});VANN=null;setStory(s);toast("Note added. Add more, then Fix the video with Claude.")}catch(e){toast(e.message)}}
+
+/* ---------- sound tab: the episode as a timeline (picture, effects, music), played on stills or videos ---------- */
+let SSEL=null;   // {type:"shot"|"cue", id}
+const PLAY={t:0,on:false,raf:0,last:0,seg:-1},AUD={};   // AUD: audio elements by url, kept across renders
+const slen=sh=>+sh.seconds||5;
+const mmss=t=>`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,"0")}`;
+function segsOf(){let t=0;return EP.shots.map((sh,i)=>{const g={sh,i,start:t,len:slen(sh)};t+=g.len;return g})}
+function cueSpanOf(c,segs){const ids=EP.shots.map(x=>x.id);let a=ids.indexOf(c.from),b=ids.indexOf(c.to);if(a<0)a=0;if(b<0)b=ids.length-1;if(b<a)[a,b]=[b,a];const start=segs[a]?segs[a].start:0,end=segs[b]?segs[b].start+segs[b].len:0;return{a,b,start,len:end-start}}
+const aud=url=>AUD[url]||(AUD[url]=Object.assign(new Audio(url),{preload:"auto"}));
+const soundJob=id=>Object.values(JOBS).find(j=>j.kind==="sound"&&j.shot===id&&j.status==="running");
+const musicJob=id=>Object.values(JOBS).find(j=>j.kind==="music"&&j.cue===id&&j.status==="running");
+function renderSound(){
+  const m=$("#main"),asp=(EP.aspect||"9:16").split(":").map(Number);document.documentElement.style.setProperty("--asp",`${asp[0]}/${asp[1]}`);document.documentElement.classList.toggle("wide",asp[0]>asp[1]);
+  const segs=segsOf(),total=segs.reduce((a,g)=>a+g.len,0)||1,mix=EP.mix||{video:1,fx:.8,music:.45},pc=x=>(x/total*100)+"%";
+  const missing=EP.shots.filter(sh=>sh.sound&&sh.sound.prompt&&sh.sound.prompt.trim()&&!sh.sound.take&&!soundJob(sh.id)),missCost=missing.reduce((a,sh)=>a+Math.min(22,slen(sh))*.002,0);
+  if(!SSEL||(SSEL.type==="shot"&&!EP.shots.find(x=>x.id===SSEL.id))||(SSEL.type==="cue"&&!(EP.music||[]).find(x=>x.id===SSEL.id)))SSEL=EP.shots[0]?{type:"shot",id:EP.shots[0].id}:null;
+  const step=total>240?60:total>90?15:total>30?10:5,ticks=[];for(let x=0;x<=total;x+=step)ticks.push(x);
+  m.innerHTML=`<div class="soundpage"><div class="left"><div class="epbar">${epTabs()}<span class="spacer"></span><button class="btn small ghost" id="sFolder">Show folder</button></div>
+    ${EP.shots.length?`<div class="stage"><div class="scr" id="scr"></div></div>
+    <div class="transport"><button class="btn primary" id="sPlay">${PLAY.on?"❚❚ Pause":"▶ Play"}</button><button class="btn small ghost" id="sStart" title="Back to the start">⏮</button><span class="tc" id="sTc">${mmss(PLAY.t)} / ${mmss(total)}</span><span class="spacer"></span>
+      <button class="btn small" id="sSuggest" title="Claude reads the shots and writes a sound prompt for each one without a sound yet, plus music cues">Write sounds and music with Claude</button>${missing.length?`<button class="btn small" id="sAll">Generate ${missing.length} missing sound${missing.length>1?"s":""} · ≈ ${money(missCost)}</button>`:""}</div>
+    <div class="tl">
+      <div></div><div class="track ruler" id="sRuler">${ticks.map((x,k)=>`<span style="left:${pc(x)};${k===0?"transform:none":x>=total-step/3?"transform:translateX(-100%)":""}">${mmss(x)}</span>`).join("")}</div>
+      <div class="ln">Picture</div><div class="track pic" data-trk>${segs.map(g=>`<div class="seg ${SSEL&&SSEL.type==="shot"&&SSEL.id===g.sh.id?"sel":""}" data-sseg="${g.sh.id}" style="width:${pc(g.len)};${g.sh.media&&g.sh.media.keyframe?`background-image:url('${g.sh.media.keyframe}')`:""}" title="Shot ${g.i+1}: ${esc(g.sh.title)} · ${g.len}s${g.sh.media&&g.sh.media.video?" · video":g.sh.media&&g.sh.media.keyframe?" · still":""}">${g.i+1}${g.sh.media&&g.sh.media.video?" ▸":""}</div>`).join("")}<i class="phd"></i></div>
+      <div class="ln">Effects</div><div class="track fx" data-trk>${segs.map(g=>{const so=g.sh.sound||{},run=soundJob(g.sh.id);return`<div class="seg ${so.take?"has":""} ${run?"run":""} ${SSEL&&SSEL.type==="shot"&&SSEL.id===g.sh.id?"sel":""}" data-sseg="${g.sh.id}" style="width:${pc(g.len)}" title="${esc(so.prompt||"No sound yet")}">${run?"…":so.take?"♪ ":""}${esc(so.prompt||"—")}</div>`}).join("")}<i class="phd"></i></div>
+      <div class="ln">Music<a id="sAddCue">+ cue</a></div><div class="track mu" data-trk>${(EP.music||[]).map(c=>{const sp=cueSpanOf(c,segs);return`<div class="cue ${c.take?"has":""} ${SSEL&&SSEL.type==="cue"&&SSEL.id===c.id?"sel":""}" data-scue="${c.id}" style="left:${pc(sp.start)};width:${pc(sp.len)}" title="${esc(c.prompt||"No music yet")}">${musicJob(c.id)?"… ":c.take?"♫ ":""}${esc(c.prompt||"(say what it should be)")}</div>`}).join("")}<i class="phd"></i></div>
+    </div>
+    <div class="mixer"><label>Video sound <input type="range" min="0" max="1" step="0.05" value="${mix.video}" data-mix="video"></label><label>Effects <input type="range" min="0" max="1" step="0.05" value="${mix.fx}" data-mix="fx"></label><label>Music <input type="range" min="0" max="1" step="0.05" value="${mix.music}" data-mix="music"></label></div>
+    <p class="hint">Plays each shot's video, or its keyframe as a still when there's no video yet, for the shot's length, with its sound and the music under it. Click a shot or a music cue to work on it; click the time ruler to jump.</p>`
+    :`<div class="empty-state" style="padding:40px 10px"><h3>No shots yet</h3><p class="sub">Write the script and Update Shots, then come back to add sound.</p></div>`}</div>
+    <div class="panel" id="spanel"></div></div>`;
+  document.querySelectorAll("[data-ep]").forEach(b=>b.onclick=()=>{soundStop();EP=STORY.episodes.find(e=>e.id===b.dataset.ep);ls.set("g2-ep-"+STORY.id,EP.id);SSEL=null;PLAY.t=0;renderSound()});
+  wireEpRename(()=>renderSound());$("#sFolder").onclick=()=>reveal({ep:EP.id});
+  renderSoundPanel();if(!EP.shots.length)return;
+  $("#sPlay").onclick=()=>PLAY.on?soundPause():soundPlay();$("#sStart").onclick=()=>soundSeek(0);
+  $("#sRuler").onclick=e=>{const r=e.currentTarget.getBoundingClientRect();soundSeek(Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*total)};
+  document.querySelectorAll("[data-sseg]").forEach(el=>el.onclick=()=>{SSEL={type:"shot",id:el.dataset.sseg};const g=segs.find(x=>x.sh.id===el.dataset.sseg);if(!PLAY.on)PLAY.t=g.start;renderSound()});
+  document.querySelectorAll("[data-scue]").forEach(el=>el.onclick=()=>{SSEL={type:"cue",id:el.dataset.scue};renderSound()});
+  $("#sAddCue").onclick=async()=>{const sh=SSEL&&SSEL.type==="shot"?SSEL.id:null;try{const r=await api("/api/music/new",{story:STORY.id,ep:EP.id,from:sh||undefined,to:sh||undefined});SSEL={type:"cue",id:r.cue};setStory(r.story)}catch(e){toast(e.message)}};
+  document.querySelectorAll("[data-mix]").forEach(el=>{el.oninput=()=>{EP.mix=Object.assign({},EP.mix||mix,{[el.dataset.mix]:+el.value});soundVolumes()};el.onchange=()=>api("/api/sound/update",{story:STORY.id,ep:EP.id,mix:{[el.dataset.mix]:+el.value}}).catch(e=>toast(e.message))});
+  const sug=$("#sSuggest");sug.onclick=async()=>{sug.disabled=true;sug.textContent="Claude is listening…";try{const r=await api("/api/sound/suggest",{story:STORY.id,ep:EP.id});setStory(r.story);toast(`Claude wrote ${r.shots} sound prompt${r.shots===1?"":"s"}${r.cues?` and ${r.cues} music cue${r.cues===1?"":"s"}`:""}${r.cost?` · ${money(r.cost)}`:""}. Read them, then generate.`,6000)}catch(e){toast(e.message);sug.disabled=false;sug.textContent="Write sounds and music with Claude"}};
+  const all=$("#sAll");if(all)all.onclick=async()=>{all.disabled=true;for(const sh of missing){try{const j=await api("/api/gen/sound",{story:STORY.id,ep:EP.id,shot:sh.id});JOBS[j.id]=j}catch(e){toast(e.message);break}}jobsPill();renderSound()};
+  soundShow(true)}
+function renderSoundPanel(){const p=$("#spanel");if(!p)return;const segs=segsOf();
+  if(!SSEL){p.innerHTML=`<p class="sub">Pick a shot or a music cue.</p>`;return}
+  const takesHTML=(list,cur)=>list.length?list.slice().reverse().map(t=>`<div class="stake"><button class="btn small ghost" data-pl="${esc(t.url)}">▶</button><span class="nm" title="${esc(t.file)}">${esc(t.file)}</span>${t.file===cur?`<span class="u">in use</span>`:`<button class="btn small ghost" data-use="${esc(t.file)}">Use</button>`}</div>`).join(""):`<p class="sub">Nothing made yet.</p>`;
+  if(SSEL.type==="shot"){const sh=EP.shots.find(x=>x.id===SSEL.id);if(!sh){p.innerHTML="";return}const i=EP.shots.indexOf(sh),so=sh.sound||{},run=soundJob(sh.id),len=Math.min(22,slen(sh));
+    p.innerHTML=`<div class="row"><h3>Shot ${String(i+1).padStart(2,"0")}</h3><span class="sub">${esc(sh.title)} · ${slen(sh)}s</span></div>
+      <div class="sec"><h3>Sound</h3><label class="f">What it sounds like <span style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--faint)">· ambience and effects, no music</span></label><textarea id="soP" rows="2" placeholder="e.g. steady wind through tall grass, distant crows, a metal hoe striking dry soil">${esc(so.prompt||"")}</textarea>
+      ${(sh.sfx||[]).length?`<p class="sub" style="margin:4px 0 0">Script SFX: ${esc(sh.sfx.join("; "))}</p>`:""}
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="soGen" ${run?"disabled":""}>${run?"Generating…":so.take?"Make another":"Generate sound"}</button><span class="sub">≈ ${money(len*.002)} · ${len}s${slen(sh)>22?" (the sound model makes 22s at most)":""}</span></div>
+      ${run?`<div class="prog">ElevenLabs: ${esc(run.phase||"working")}<div class="bar"><i></i></div></div>`:""}</div>
+      <div class="sec"><h3>Takes</h3>${takesHTML(so.takes||[],so.take)}</div>
+      <p class="sub">Shot length comes from the script (LENGTH, or the SHOT line). Dialogue and lip-sync come in the next pass.</p>`;
+    const ta=$("#soP");let t0;ta.oninput=()=>{(sh.sound=sh.sound||{}).prompt=ta.value;clearTimeout(t0);t0=setTimeout(()=>api("/api/sound/update",{story:STORY.id,ep:EP.id,shot:sh.id,prompt:ta.value}).then(s=>{STORY=s;EP=s.episodes.find(e=>e.id===EP.id);const fx=document.querySelector(`.track.fx [data-sseg="${sh.id}"]`);if(fx&&!(sh.sound||{}).take)fx.textContent=ta.value||"—"}).catch(e=>toast(e.message)),500)};
+    $("#soGen").onclick=async()=>{clearTimeout(t0);try{await api("/api/sound/update",{story:STORY.id,ep:EP.id,shot:sh.id,prompt:ta.value});const j=await api("/api/gen/sound",{story:STORY.id,ep:EP.id,shot:sh.id});JOBS[j.id]=j;jobsPill();renderSound()}catch(e){toast(e.message)}};
+    p.querySelectorAll("[data-use]").forEach(b=>b.onclick=async()=>{try{setStory(await api("/api/sound/update",{story:STORY.id,ep:EP.id,shot:sh.id,take:b.dataset.use}))}catch(e){toast(e.message)}});
+  }else{const c=(EP.music||[]).find(x=>x.id===SSEL.id);if(!c){p.innerHTML="";return}const sp=cueSpanOf(c,segs),run=musicJob(c.id),opts=sel=>EP.shots.map((x,k)=>`<option value="${x.id}" ${x.id===sel?"selected":""}>Shot ${k+1}: ${esc(x.title)}</option>`).join("");
+    p.innerHTML=`<div class="row"><h3>Music</h3><span class="sub">shots ${sp.a+1}–${sp.b+1} · ${Math.ceil(sp.len)}s</span><span class="spacer"></span><button class="btn small ghost" id="muDel">Delete cue</button></div>
+      <div class="sec"><label class="f">From</label><select id="muFrom">${opts(EP.shots[sp.a]&&EP.shots[sp.a].id)}</select><label class="f">To</label><select id="muTo">${opts(EP.shots[sp.b]&&EP.shots[sp.b].id)}</select>
+      <label class="f">What the music is <span style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--faint)">· instrumental; instruments, tempo, mood, how it builds</span></label><textarea id="muP" rows="3" placeholder="e.g. gentle folk strings and wooden flute, slow and warm, a quiet hint of unease toward the end">${esc(c.prompt||"")}</textarea>
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="muGen" ${run?"disabled":""}>${run?"Composing…":c.take?"Make another":"Generate music"}</button><span class="sub">≈ ${money(Math.ceil(Math.max(3,sp.len)/60)*.6)} · ${Math.ceil(sp.len)}s (billed per started minute)</span></div>
+      ${run?`<div class="prog">ElevenLabs Music: ${esc(run.phase||"working")}<div class="bar"><i></i></div></div>`:""}</div>
+      <div class="sec"><h3>Takes</h3>${takesHTML(c.takes||[],c.take)}</div><p class="sub">If you change the shots it covers, make it again so it fits the new length.</p>`;
+    const save=f=>api("/api/music/update",Object.assign({story:STORY.id,ep:EP.id,cue:c.id},f));
+    $("#muFrom").onchange=async e=>{try{setStory(await save({from:e.target.value}))}catch(x){toast(x.message)}};$("#muTo").onchange=async e=>{try{setStory(await save({to:e.target.value}))}catch(x){toast(x.message)}};
+    const ta=$("#muP");let t0;ta.oninput=()=>{c.prompt=ta.value;clearTimeout(t0);t0=setTimeout(()=>save({prompt:ta.value}).then(s=>{STORY=s;EP=s.episodes.find(e=>e.id===EP.id)}).catch(e=>toast(e.message)),500)};
+    $("#muGen").onclick=async()=>{clearTimeout(t0);try{await save({prompt:ta.value});const j=await api("/api/gen/music",{story:STORY.id,ep:EP.id,cue:c.id});JOBS[j.id]=j;jobsPill();renderSound()}catch(e){toast(e.message)}};
+    $("#muDel").onclick=async()=>{if(!confirm("Delete this music cue? Its files stay in the episode's Music folder."))return;try{SSEL=null;setStory(await api("/api/music/delete",{story:STORY.id,ep:EP.id,cue:c.id}))}catch(e){toast(e.message)}};
+    p.querySelectorAll("[data-use]").forEach(b=>b.onclick=async()=>{try{setStory(await save({take:b.dataset.use}))}catch(e){toast(e.message)}});
+  }
+  p.querySelectorAll("[data-pl]").forEach(b=>b.onclick=()=>{soundPause();Object.values(AUD).forEach(a=>a.pause());const a=aud(b.dataset.pl);a.currentTime=0;a.volume=1;a.play().catch(()=>{})});
+}
+// ---- playback: one clock; picture, effects and music follow it ----
+function soundSegAt(t,segs){for(let k=0;k<segs.length;k++)if(t<segs[k].start+segs[k].len)return k;return-1}
+function soundVolumes(){const mx=EP.mix||{video:1,fx:.8,music:.45},v=document.querySelector("#scr video");if(v)v.volume=mx.video;EP.shots.forEach(sh=>{const u=sh.sound&&sh.sound.url;if(u&&AUD[u])AUD[u].volume=mx.fx});(EP.music||[]).forEach(c=>{if(c.url&&AUD[c.url])AUD[c.url].volume=mx.music})}
+function soundShow(force){const scr=$("#scr");if(!scr)return;const segs=segsOf(),total=segs.reduce((a,g)=>a+g.len,0),k=soundSegAt(PLAY.t,segs),mx=EP.mix||{video:1,fx:.8,music:.45};
+  document.querySelectorAll(".phd").forEach(el=>el.style.left=(total?PLAY.t/total*100:0)+"%");const tc=$("#sTc");if(tc)tc.textContent=`${mmss(PLAY.t)} / ${mmss(total)}`;
+  if(k<0){soundStop();return}const g=segs[k],off=PLAY.t-g.start,md=g.sh.media||{};
+  if(force||k!==PLAY.seg){PLAY.seg=k;scr.innerHTML=(md.video?`<video src="${md.video}" playsinline preload="auto"></video>`:md.keyframe?`<img src="${md.keyframe}" alt="">`:`<div class="empty">Shot ${k+1}: ${esc(g.sh.title)}<br>(no keyframe yet)</div>`)+`<span class="lbl">${k+1} · ${esc(g.sh.title)}</span>`;
+    const v=scr.querySelector("video");if(v){v.volume=mx.video;const go=()=>{try{v.currentTime=Math.min(off,(v.duration||99)-.05)}catch(e){}if(PLAY.on)v.play().catch(()=>{})};if(v.readyState>=1)go();else v.addEventListener("loadedmetadata",go,{once:true})}
+    // effects: only this shot's sound plays
+    EP.shots.forEach(sh=>{const u=sh.sound&&sh.sound.url;if(u&&AUD[u]&&sh.id!==g.sh.id)AUD[u].pause()});
+    const fu=g.sh.sound&&g.sh.sound.url;if(fu){const a=aud(fu);a.volume=mx.fx;try{a.currentTime=off}catch(e){}if(PLAY.on)a.play().catch(()=>{})}}
+  else{const v=scr.querySelector("video");if(v&&PLAY.on&&v.readyState>=1&&!v.ended&&Math.abs(v.currentTime-off)>.4&&off<v.duration)v.currentTime=off}
+  // music cues
+  (EP.music||[]).forEach(c=>{if(!c.url)return;const sp=cueSpanOf(c,segs),a=aud(c.url),inside=PLAY.t>=sp.start&&PLAY.t<sp.start+sp.len;a.volume=mx.music;
+    if(inside&&PLAY.on){const o=PLAY.t-sp.start;if(a.paused){try{a.currentTime=o}catch(e){}a.play().catch(()=>{})}else if(Math.abs(a.currentTime-o)>.5)a.currentTime=o}else if(!a.paused)a.pause()})}
+function soundTick(now){if(!PLAY.on)return;PLAY.t+=(now-PLAY.last)/1000;PLAY.last=now;soundShow(false);if(PLAY.on)PLAY.raf=requestAnimationFrame(soundTick)}
+function soundPlay(){const segs=segsOf(),total=segs.reduce((a,g)=>a+g.len,0);if(PLAY.t>=total-.05)PLAY.t=0;Object.values(AUD).forEach(a=>a.pause());PLAY.on=true;PLAY.last=performance.now();soundShow(true);const b=$("#sPlay");if(b)b.textContent="❚❚ Pause";PLAY.raf=requestAnimationFrame(soundTick)}
+function soundPause(){PLAY.on=false;cancelAnimationFrame(PLAY.raf);Object.values(AUD).forEach(a=>a.pause());const v=document.querySelector("#scr video");if(v)v.pause();const b=$("#sPlay");if(b)b.textContent="▶ Play"}
+function soundStop(){soundPause();PLAY.t=0;PLAY.seg=-1;const segs=segsOf();if($("#scr")&&segs.length)soundShow(true)}
+function soundSeek(t){const was=PLAY.on,total=segsOf().reduce((a,g)=>a+g.len,0);soundPause();PLAY.t=Math.max(0,Math.min(t,total-.05));soundShow(true);if(was)soundPlay()}
 
 /* ---------- references: shared cards, and how shots pick them ---------- */
 // looks for CAPS names in prompts: reference cards first, then the episode's CAST lines
@@ -991,7 +1107,7 @@ async function actCard(mi,ai,op){try{await flushPending();if(typeof saveScriptNo
 
 
 /* ---------- details panels: drag their left edge to resize, like the chat (double-click resets) ---------- */
-const PANELS=[[".shots","#panel","shots"],[".refpage","#rpanel","ref"],[".scriptwrap",".sright","script"]];
+const PANELS=[[".shots","#panel","shots"],[".soundpage","#spanel","sound"],[".refpage","#rpanel","ref"],[".scriptwrap",".sright","script"]];
 const setPW=(k,w)=>document.documentElement.style.setProperty("--pw-"+k,`min(${w}px, calc(100% - 280px))`);
 PANELS.forEach(([,,k])=>{const w=ls.get("g2-pw-"+k,0);if(w)setPW(k,w)});
 function placeGrips(){PANELS.forEach(([c,pn])=>{const box=$("#main").querySelector(c),panel=box&&box.querySelector(pn),g=box&&box.querySelector(":scope > .pgrip");if(g&&panel)g.style.left=panel.offsetLeft+"px"})}
@@ -1048,9 +1164,9 @@ function listenEvents(){
   api("/api/jobs").then(list=>{list.forEach(j=>JOBS[j.id]=j);jobsPill();if(TAB==="shots"){renderGrid();renderPanel()}}).catch(()=>{});
   const es=new EventSource("/api/events");
   es.addEventListener("job",async e=>{const j=JSON.parse(e.data);const was=JOBS[j.id];JOBS[j.id]=j;jobsPill();
-    const what={video:"Video",keyframe:(j.takes||[]).length>1?(j.takes||[]).length+" keyframes":"Keyframe",reference:"Reference image"+((j.takes||[]).length>1?"s":""),cutout:"Background removal"}[j.kind]||"Generation";
+    const what={sound:"Sound",music:"Music",video:"Video",keyframe:(j.takes||[]).length>1?(j.takes||[]).length+" keyframes":"Keyframe",reference:"Reference image"+((j.takes||[]).length>1?"s":""),cutout:"Background removal"}[j.kind]||"Generation";
     if(j.status!=="running"&&(!was||was.status==="running")){if(j.status==="error")toast(what+" failed: "+j.error,7000);else toast(what+(j.kind==="cutout"?" done":" ready")+(j.cost?` · ${money(j.cost)}`:""));if(j.card){await loadRefs();if(TAB==="reference")renderReference();else if(TAB==="shots")renderPanel()}else if(STORY&&j.story===STORY.id)await reload();try{STATE=await api("/api/state");$("#spendBtn").textContent=money(STATE.spend)+" spent"}catch(_){}}
-    else if(TAB==="shots"&&j.shot){renderGrid();if(j.shot===SEL)renderPanel()}else if(TAB==="reference"&&j.card&&j.card===RSEL)renderCardPanel()});
+    else if(TAB==="shots"&&j.shot){renderGrid();if(j.shot===SEL)renderPanel()}else if(TAB==="reference"&&j.card&&j.card===RSEL)renderCardPanel();else if(TAB==="sound"&&(j.kind==="sound"||j.kind==="music"))renderSoundPanel()});
 }
 
 /* ---------- spend ---------- */

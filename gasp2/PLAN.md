@@ -85,16 +85,20 @@ Status: **Steps 1–6 built (dry-run tested). Steps 5–6 need Joe's first real 
 - [ ] Joe: make the Grim cast's cards from his art, write their looks, rerun the script prompt and see if the cast stops drifting
 
 ## Step 7 — Sound tab
-- [ ] Timeline under the shots: Dialogue, Ambience, Effects, Music lanes
-- [ ] Works on stills first (animatic), so timing is locked before video; shot length follows its sound
-- [ ] Voices and lip-sync; ambience/effects/music generation; model pick per job in Settings
-- [ ] Mixer row per lane, Play the whole cut, Export MP4 into the episode folder
+- [x] Timeline: Picture, Effects (ambience + effects per shot) and Music lanes, widths by shot length, ruler to jump
+- [x] Works on stills first (animatic): Play shows each shot's video, or its keyframe as a still, for its length
+- [x] Effects per shot (ElevenLabs Sound Effects, $0.002/s, up to 22s) from the script's SFX lines; music cues across a run of shots (ElevenLabs Music, $0.60 per started minute, instrumental); takes kept, Use any
+- [x] "Write sounds and music with Claude": a sound prompt per shot without a sound yet, plus music cues; Generate all missing
+- [x] Mixer: video sound, effects and music levels per episode
+- [ ] Pass 1: Dialogue lane: a voice per character card, every script line voiced, shot length follows its lines
+- [ ] Pass 3: lip-sync for talking shots (Kling LipSync or Sync), Export MP4 into the episode folder
 
 ## Step 8 — Batch and polish
 - [ ] **Gauntlet polish pass** (backlog; write-up in `docs/gauntlet-loop.md`). Make an episode's shots come together. Bar: the story's style images, the reference cards and Joe's approved keyframes. Piece: one shot at a time, keyframe first (cheap), video last (expensive). Builder: Write with Claude + generate. Critic: a separate Claude call with fresh context that never sees the builder's prompt; it judges blind (A/B against the current best, and against the neighbouring shots for style and character continuity), names the biggest gap, and sends it back. Ratchet: a take replaces the in-use one only when it wins. Live progress on the Shots grid, hard caps on dollars, rounds and time, and Joe as the brake. Split along truly independent seams: light and palette across the episode are one coupled concern, so they get one owner.
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-14 — Sound tab, pass 2 (ambience, effects, music): timeline with Picture / Effects / Music lanes and a mixer; Play runs the episode on videos or stills with each shot's sound and the music under it. Sounds live in each shot's `sound\` folder, music in the episode's `Music\` folder; prompts and in-use takes in story.json (`sh.sound`, `ep.music`, `ep.mix`). Claude writes the sound prompts and music cues from the shots in one call. Dialogue (pass 1) and lip-sync + export (pass 3) next; Joe will add a couple of lines to test lip-sync.
 - 2026-11-14 — Keyframes now use the story's style images too, in words (Claude's cached style description, like reference images), never as pictures. ★ Style image works on shot keyframes in the viewer, so an approved keyframe (shot 1) can anchor the episode's look. The grid tile shows the video whenever a shot has one; the Image/Video tab is per panel only. Gauntlet Loop write-up saved to `docs/gauntlet-loop.md` and added to Step 8 as a backlog item.
 - 2026-11-13 — Video notes (Video tab, under the video): pause, ✎ Annotate a frame, drag a box, type a note (Enter adds; paste/drop pictures). Notes keep the time, the box and a snapshot of the frame with the box drawn on it (`takes\notes\`). "Fix the video with Claude": Claude sees the keyframe, five frames sampled from the video, each marked frame and picture, the notes and any general comment; replies with a plan, a new MOTION prompt (with timing and what must stay still) and, only when the problem is in the first frame, a keyframe edit. The keyframe fix runs first (default image model, edit), then the video is made again; each round is kept on the shot (`vthread`) with its notes, Claude's plan, the motion prompt and the result. Not yet: true video editing of the existing clip (Kling 4.0 Video Edit on fal, $0.094/s at 720p billed on input + output) for local fixes to a take you mostly like.
 - 2026-11-13 — Shot panel has Image | Video tabs under the title (they replace the Keyframe/Video toggle on the picture): each tab shows its own picture, its own controls and its own History, so the video settings sit right under the video. Next proposed: a Video notes thread with on-frame annotations (pause, draw a box, type a note) that Claude turns into a regenerate or a video edit.

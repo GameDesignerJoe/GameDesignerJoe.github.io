@@ -209,5 +209,21 @@
       "pricePerImage": 0.018
     }
   },
-  "defaultCutout": "birefnet"
+  "defaultCutout": "birefnet",
+  "_note_sound": "Sound on fal (Nov 2026). sfx: ElevenLabs sound effects, $0.002 per second, 0.5-22s per clip. music: ElevenLabs music, $0.60 per output minute, partial minutes rounded up, 3s-10min.",
+  "sound": {
+    "elevenlabs-sfx": {
+      "label": "ElevenLabs Sound Effects",
+      "endpoint": "fal-ai/elevenlabs/sound-effects",
+      "pricePerSecond": 0.002,
+      "maxSeconds": 22
+    }
+  },
+  "music": {
+    "elevenlabs-music": {
+      "label": "ElevenLabs Music",
+      "endpoint": "fal-ai/elevenlabs/music",
+      "pricePerMinute": 0.6
+    }
+  }
 }

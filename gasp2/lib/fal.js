@@ -116,3 +116,18 @@ export async function removeBackground({ tool, file, outFile, onStatus }) {
   if (!url) throw new Error("fal returned no image: " + JSON.stringify(out).slice(0, 200));
   await download(url, outFile); return { file: outFile, cost: tool.pricePerImage || 0 };
 }
+
+// Sound effects or music → an mp3. kind "sfx" uses duration_seconds; "music" uses music_length_ms and stays instrumental.
+export async function generateAudio({ model, kind, prompt, seconds, outFile, onStatus }) {
+  const secs = Math.max(kind === "music" ? 3 : 0.5, Math.min(kind === "music" ? 600 : (model.maxSeconds || 22), +seconds || 5));
+  const cost = kind === "music" ? +(Math.ceil(secs / 60) * (model.pricePerMinute || 0)).toFixed(3) : +(secs * (model.pricePerSecond || 0)).toFixed(3);
+  if (process.env.GASP_DRY) {
+    await new Promise(r => setTimeout(r, 900));
+    const src = kind === "music" ? `sine=frequency=220:duration=${secs}` : `anoisesrc=color=pink:amplitude=0.08:duration=${secs}`;
+    await ffmpeg(["-f", "lavfi", "-i", src, "-q:a", "6", outFile]); return { file: outFile, cost: 0, seconds: secs, dry: true };
+  }
+  const input = kind === "music" ? { prompt, music_length_ms: Math.round(secs * 1000), force_instrumental: true } : { text: prompt, duration_seconds: secs, prompt_influence: 0.5 };
+  const out = await falRun(model.endpoint, input, onStatus);
+  const url = out.audio && out.audio.url; if (!url) throw new Error("fal returned no audio: " + JSON.stringify(out).slice(0, 200));
+  await download(url, outFile); return { file: outFile, cost, seconds: secs };
+}
