@@ -97,8 +97,12 @@ main{flex:1;min-height:0;display:flex}
 .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px 12px;margin-top:10px}
 .rcard{cursor:pointer;user-select:none}
 .rcard .rimg,.chk{background-color:#2a2230;background-image:linear-gradient(45deg,#332a3a 25%,transparent 25%,transparent 75%,#332a3a 75%),linear-gradient(45deg,#332a3a 25%,transparent 25%,transparent 75%,#332a3a 75%);background-size:16px 16px;background-position:0 0,8px 8px}
-.rcard .rimg{aspect-ratio:3/4;border-radius:10px;border:2px solid var(--line);overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;text-align:center;padding:0}
+.rcard .rimg{aspect-ratio:9/16;border-radius:10px;border:2px solid var(--line);overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;text-align:center;padding:0}
 .rcard .rimg img{width:100%;height:100%;object-fit:contain;pointer-events:none}
+/* tiles take the shape the images come out in: characters 9:16, locations 16:9, props square */
+.rsec[data-kind=location] .rgrid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.rsec[data-kind=location] .rimg{aspect-ratio:16/9}
+.rsec[data-kind=prop] .rimg{aspect-ratio:1/1}
+.rcard .rimg:has(img){background:var(--panel2)}
 .rcard.sel .rimg{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,77,109,.25)}
 .rcard.filedrop .rimg{border-color:var(--good);border-style:dashed}
 .rcard .nm{margin-top:6px;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
