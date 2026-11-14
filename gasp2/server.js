@@ -219,7 +219,7 @@ function addCardTake(c, im, buf, ext, source) {
 function cardForApp(c) {
   const abs = cardPath(c);
   return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "",
-    images: c.images.map(im => ({ id: im.id, label: im.label, framing: im.framing, notes: im.notes, change: im.change, thread: im.thread || [], art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
+    images: c.images.map(im => ({ id: im.id, label: im.label, prompt: im.prompt, framing: im.framing, notes: im.notes, change: im.change, thread: im.thread || [], art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
       takes: im.takes.filter(t => fs.existsSync(path.join(abs, "takes", t))).map(t => ({ file: t, url: fileUrl(path.join(abs, "takes", t)), inUse: t === im.take, kind: "image" })).reverse() })) };
 }
 const refsForApp = () => readCards().map(cardForApp).sort((a, b) => a.name.localeCompare(b.name));
@@ -324,6 +324,35 @@ function suggestRefs(s) {
   for (const [k, c] of chars) if (!have("character", c.name)) out.push({ kind: "character", name: c.name, look: (cast.get(k) || {}).look || "", shots: c.shots, eps: [...c.eps] });
   for (const [, c] of places) if (!have("location", c.name)) out.push({ kind: "location", name: c.name, look: "", shots: c.shots, eps: [...c.eps] });
   return out.sort((a, b) => b.shots - a.shots);
+}
+
+
+// ---------- Claude writes image prompts (it can see the reference images and the last result) ----------
+async function smallImage(abs) {
+  const small = path.join(path.dirname(abs), ".small", path.basename(abs).replace(/\.[a-z]+$/i, ".jpg"));
+  if (!fs.existsSync(small)) { fs.mkdirSync(path.dirname(small), { recursive: true }); try { await ffmpeg(["-i", abs, "-vf", "scale='min(1024,iw)':'min(1024,ih)':force_original_aspect_ratio=decrease", "-q:v", "3", "-frames:v", "1", small]); } catch { fs.copyFileSync(abs, small); } }
+  return "data:image/jpeg;base64," + fs.readFileSync(small).toString("base64");
+}
+const PROMPT_WRITER = `You write prompts for AI image models (Seedream, Nano Banana, FLUX) inside GASP, an app for AI-made animated shorts.
+Write ONE complete image prompt in plain text, in these sections, each a short paragraph: CHARACTER, CLOTHING, POSE AND EXPRESSION, ART DIRECTION, LIGHTING, COMPOSITION. (For a place or an object, use SUBJECT instead of CHARACTER and CLOTHING.)
+How to write it:
+- Be concrete and visual. Describe faces precisely (eye shape and colour, brows, jaw, nose, proportions, how stylised) so the model doesn't fall back on a generic face.
+- When reference images are attached, describe what they show in words: hair, face, build, colours, costume, and their art style. Leave out anything the writer says to drop (say so plainly: "no helmet"), and change what they ask to change.
+- Never use the character's name: image models don't know it.
+- Art direction: say exactly how it's drawn (2D or 3D, line weight, shading, colour) and what to avoid. If the story's art direction is given, follow it.
+- Composition: follow the image type (full body: head to shoes all in frame, plain white background; face: head and shoulders; turnaround: front, three-quarter, side and back views side by side; location: the empty set, no people; prop: the object alone on white). No text, no logos.
+- Never contradict yourself (one expression, one outfit, one art style).
+- When you're asked to change an existing prompt, keep everything the writer didn't ask to change. When a result image is attached, it's what the current prompt produced: use it to see what went wrong.
+Reply with the prompt only: no preamble, no quotes, no markdown fences.`;
+async function writeImagePrompt({ card, im, ask, prompt, refFiles, resultFile, story }) {
+  const cs = chatSetting();
+  const intro = [`Image type: ${im.label} (${card.kind}).`, card.look ? `The card's look: ${card.look}` : "", story && story.artDirection ? `The story's art direction:\n${story.artDirection}` : "", story && story.styleLine ? `The story's style line: ${story.styleLine}` : "",
+    prompt && prompt.trim() ? `Current prompt:\n${prompt}` : "There's no prompt yet: write one.", refFiles.length ? `Attached first: ${refFiles.length} reference image${refFiles.length === 1 ? "" : "s"} of this ${card.kind}.` : "No reference images.", resultFile ? "Attached last: the latest result from the current prompt." : "",
+    `The writer says: ${ask && ask.trim() ? ask : (prompt && prompt.trim() ? "Improve this prompt." : "Write the prompt.")}`].filter(Boolean).join("\n\n");
+  if (process.env.GASP_DRY) return { prompt: `CHARACTER:\n(dry run) ${card.look || "a character"} — ${ask || "first draft"}.\n\nART DIRECTION:\n2D animated feature style.\n\nCOMPOSITION:\n${im.label}, plain white background, no text.`, cost: 0 };
+  const parts = [{ type: "text", text: intro }]; for (const f of refFiles) parts.push({ type: "image_url", image_url: { url: await smallImage(f) } }); if (resultFile) parts.push({ type: "image_url", image_url: { url: await smallImage(resultFile) } });
+  const r = await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: PROMPT_WRITER }, { role: "user", content: parts }], maxTokens: 1800, timeoutMs: 120000 });
+  return { prompt: r.text.replace(/^```\w*\n?|```$/g, "").trim(), cost: r.cost };
 }
 
 // ---------- spend log ----------
@@ -467,7 +496,7 @@ const routes = {
   "POST /api/ref/image/new": async (req) => { const b = await body(req); const c = findCard(b.card); const im = { id: newId(), label: clean(b.label || "image " + (c.images.length + 1), 40), takes: [], take: null, art: !!b.art || undefined }; c.images.push(im);
     if (b.image) { const { ext, buf } = dataUri(b.image); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); } writeCard(c); return { refs: refsForApp(), image: im.id }; },
   "POST /api/ref/image/set": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const { ext, buf } = dataUri(b.image64); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); writeCard(c); return refsForApp(); },
-  "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); if ("framing" in b || "notes" in b || "change" in b) { if ("framing" in b) im.framing = String(b.framing || ""); if ("notes" in b) im.notes = String(b.notes || ""); if ("change" in b) im.change = String(b.change || ""); writeCard(c); if (!("label" in b)) return refsForApp(); }
+  "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); if ("framing" in b || "notes" in b || "change" in b || "prompt" in b) { if ("prompt" in b) im.prompt = String(b.prompt || ""); if ("framing" in b) im.framing = String(b.framing || ""); if ("notes" in b) im.notes = String(b.notes || ""); if ("change" in b) im.change = String(b.change || ""); writeCard(c); if (!("label" in b)) return refsForApp(); }
     const old = im.take ? path.join(cardPath(c), topName(im)) : null; im.label = clean(b.label, 40); if (old && fs.existsSync(old)) { try { fs.renameSync(old, path.join(cardPath(c), topName(im))); } catch {} } writeCard(c); return refsForApp(); },
   "POST /api/ref/image/delete": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
     for (const t of im.takes) { const abs = path.join(cardPath(c), "takes", t); if (fs.existsSync(abs)) toTrash(abs, `Reference - ${c.name} - ${t}`); } if (im.take) { try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} }
@@ -487,6 +516,14 @@ const routes = {
     const who = c.kind === "character" ? "person" : c.kind;
     const prompt = `Change image 1: ${ask.replace(/\.?\s*$/, ".")}${chain.length ? ` Earlier changes, keep them: ${chain.join("; ")}.` : ""} Keep everything else exactly the same: the ${who}, the pose, the framing, the art style and the background.`;
     return runImageJob({ target: { card: c.id, image: im.id, aspect: b.aspect, cutout: !!b.cutout, thread: { ask, base } }, modelKey: b.model || settings().defaultImage, prompt, picks: [{ card: c.id, image: im.id, take: base }], count: 1, sameSubject: true, edit: true }); },
+  "POST /api/ref/write": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
+    const refFiles = (b.refs || []).map(id => { const x = c.images.find(y => y.id === id); return x && x.take ? path.join(cardPath(c), "takes", x.take) : null; }).filter(Boolean).slice(0, 6);
+    const resultFile = b.withResult && im.take ? path.join(cardPath(c), "takes", im.take) : null;
+    let story = null; if (b.story) { try { const s = loadStory(b.story); const ep = b.ep ? s.episodes.find(e => e.id === b.ep) : null; story = { artDirection: s.artDirection || "", styleLine: ep && ep.style || "" }; } catch {} }
+    const r = await writeImagePrompt({ card: c, im, ask: b.ask, prompt: b.prompt, refFiles, resultFile, story });
+    im.prompt = r.prompt; writeCard(c); logSpend({ story: "Reference", episode: "", shot: `${c.name} · ${im.label}`, kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost || 0, file: "" });
+    return { prompt: r.prompt, cost: r.cost, refs: refsForApp() }; },
+  "POST /api/story/art": async (req) => { const b = await body(req); const s = loadStory(b.story); s.artDirection = String(b.text || ""); saveStory(s); return storyForApp(s); },
   "POST /api/ref/thread/clear": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); im.thread = []; writeCard(c); return refsForApp(); },
   "POST /api/gen/cutout": async (req) => { const b = await body(req); return runCutoutJob({ cardId: b.card, imageId: b.image, toolKey: b.tool || settings().defaultCutout }); },
   "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); const t = readScript(s, ep), h = SF.withHeader(t, s.title, ep.num, ep.title); if (h !== t) writeScript(s, ep, h, false); return { text: h, path: scriptPath(s, ep) }; },
