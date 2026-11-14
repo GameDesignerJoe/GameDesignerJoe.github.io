@@ -219,7 +219,7 @@ function addCardTake(c, im, buf, ext, source) {
 function cardForApp(c) {
   const abs = cardPath(c);
   return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "",
-    images: c.images.map(im => ({ id: im.id, label: im.label, framing: im.framing, notes: im.notes, art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
+    images: c.images.map(im => ({ id: im.id, label: im.label, framing: im.framing, notes: im.notes, change: im.change, art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
       takes: im.takes.filter(t => fs.existsSync(path.join(abs, "takes", t))).map(t => ({ file: t, url: fileUrl(path.join(abs, "takes", t)), inUse: t === im.take, kind: "image" })).reverse() })) };
 }
 const refsForApp = () => readCards().map(cardForApp).sort((a, b) => a.name.localeCompare(b.name));
@@ -234,8 +234,9 @@ function resolveRefs(picks, s, ep) {
   return out;
 }
 // what each reference image is for, so the model knows which picture to copy what from (names never go in: image models don't know them)
-function refLegend(refs, sameSubject) {
+function refLegend(refs, sameSubject, edit) {
   if (!refs.length) return "";
+  if (edit) return "Reference images: image 1 is the image to change: keep everything the instructions don't mention (the person, pose, framing, art style, background)" + (refs.length > 1 ? "; " + refs.slice(1).map((r, i) => `image ${i + 2} shows the same subject, for its look`).join("; ") : "") + ".";
   const what = r => sameSubject ? "the same subject: keep who or what it is (face, hair and build for a person; shape and design for a place or object)"
     : r.kind === "character" ? `a character${r.look ? ` (${r.look})` : ""}: keep this person's face, hair, build and outfit exactly`
     : r.kind === "location" ? "the location: match this place, its layout and its key details"
@@ -359,14 +360,14 @@ async function runVideoJob({ storyId, epId, shotId, modelKey, prompt, seconds })
 
 
 // keyframes for a shot, or images for a reference card. Every result is kept as a take; the first is put in use only if nothing is.
-function runImageJob({ target, modelKey, prompt, picks, count, sameSubject }) {
+function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit }) {
   const model = MODELS.image[modelKey]; if (!model) throw httpErr(400, "unknown image model");
   let s, ep, sh, c, im, aspect = "9:16", base, label;
   if (target.shot) { s = loadStory(target.story); ep = epOf(s, target.ep); sh = shotOf(ep, target.shot); aspect = ep.aspect || "9:16"; base = path.join(shotPath(s, ep, sh), "takes", `${stamp()} keyframe - ${modelKey}`); label = "keyframe"; }
   else { c = findCard(target.card); im = imageOf(c, target.image); aspect = target.aspect || (c.kind === "location" ? "16:9" : c.kind === "prop" ? "1:1" : "9:16"); base = path.join(cardPath(c), "takes", `${stamp()} ${clean(im.label, 40)} - ${modelKey}`); label = "reference"; }
   if (!String(prompt || "").trim()) throw httpErr(400, "Write a prompt first.");
   const refs = resolveRefs(picks, s, ep).slice(0, model.maxRefs || 4);
-  const full = [sh && ep.style ? `Style: ${ep.style}.` : "", String(prompt).trim(), refLegend(refs, sameSubject), `${aspect} ${aspect === "9:16" ? "vertical" : aspect === "16:9" ? "widescreen" : "square"} frame.`].filter(Boolean).join("\n\n");
+  const full = [sh && ep.style ? `Style: ${ep.style}.` : "", String(prompt).trim(), refLegend(refs, sameSubject, edit), `${aspect} ${aspect === "9:16" ? "vertical" : aspect === "16:9" ? "widescreen" : "square"} frame.`].filter(Boolean).join("\n\n");
   const job = { id: newId(), kind: label, shot: sh ? sh.id : null, story: s ? s.id : null, card: c ? c.id : null, image: im ? im.id : null, model: modelKey, count: count || 1, refs: refs.length, prompt: full, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try {
@@ -463,7 +464,7 @@ const routes = {
   "POST /api/ref/image/new": async (req) => { const b = await body(req); const c = findCard(b.card); const im = { id: newId(), label: clean(b.label || "image " + (c.images.length + 1), 40), takes: [], take: null, art: !!b.art || undefined }; c.images.push(im);
     if (b.image) { const { ext, buf } = dataUri(b.image); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); } writeCard(c); return { refs: refsForApp(), image: im.id }; },
   "POST /api/ref/image/set": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const { ext, buf } = dataUri(b.image64); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); writeCard(c); return refsForApp(); },
-  "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); if ("framing" in b || "notes" in b) { if ("framing" in b) im.framing = String(b.framing || ""); if ("notes" in b) im.notes = String(b.notes || ""); writeCard(c); if (!("label" in b)) return refsForApp(); }
+  "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); if ("framing" in b || "notes" in b || "change" in b) { if ("framing" in b) im.framing = String(b.framing || ""); if ("notes" in b) im.notes = String(b.notes || ""); if ("change" in b) im.change = String(b.change || ""); writeCard(c); if (!("label" in b)) return refsForApp(); }
     const old = im.take ? path.join(cardPath(c), topName(im)) : null; im.label = clean(b.label, 40); if (old && fs.existsSync(old)) { try { fs.renameSync(old, path.join(cardPath(c), topName(im))); } catch {} } writeCard(c); return refsForApp(); },
   "POST /api/ref/image/delete": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
     for (const t of im.takes) { const abs = path.join(cardPath(c), "takes", t); if (fs.existsSync(abs)) toTrash(abs, `Reference - ${c.name} - ${t}`); } if (im.take) { try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} }
@@ -474,7 +475,7 @@ const routes = {
     if (im.take === t) { const next = im.takes.filter(x => fs.existsSync(path.join(cardPath(c), "takes", x))).pop() || null; try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} im.take = null; if (next) setImageInUse(c, im, next); }
     writeCard(c); return refsForApp(); },
   "POST /api/gen/keyframe": async (req) => { const b = await body(req); return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
-  "POST /api/gen/ref": async (req) => { const b = await body(req); return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect, cutout: !!b.cutout }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1, sameSubject: true }); },
+  "POST /api/gen/ref": async (req) => { const b = await body(req); return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect, cutout: !!b.cutout }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1, sameSubject: true, edit: !!b.edit }); },
   "POST /api/gen/cutout": async (req) => { const b = await body(req); return runCutoutJob({ cardId: b.card, imageId: b.image, toolKey: b.tool || settings().defaultCutout }); },
   "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); const t = readScript(s, ep), h = SF.withHeader(t, s.title, ep.num, ep.title); if (h !== t) writeScript(s, ep, h, false); return { text: h, path: scriptPath(s, ep) }; },
   "POST /api/script/save": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); writeScript(s, ep, String(b.text || "").replace(/\r/g, ""), false); return { ok: true }; },
