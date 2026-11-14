@@ -246,7 +246,7 @@ function resolveRefs(picks, s, ep) {
 // what each reference image is for, so the model knows which picture to copy what from (names never go in: image models don't know them)
 function refLegend(refs, sameSubject, edit) {
   if (!refs.length) return "";
-  if (edit) return "Reference images: image 1 is the image to change: keep everything the instructions don't mention (the person, pose, framing, art style, background)" + (refs.length > 1 ? "; " + refs.slice(1).map((r, i) => `image ${i + 2} shows the same subject, for its look`).join("; ") : "") + ".";
+  if (edit) return "Reference images: image 1 is the image to change: keep everything the instructions don't mention (the person, pose, framing, background)" + (refs.length > 1 ? "; " + refs.slice(1).map((r, k) => `image ${k + 2} ${r.kind === "style" ? "is a style reference: redraw image 1 in its drawing, colouring and lighting style, without copying who or what is in it" : "shows the same subject, for its look"}`).join("; ") : "") + ".";
   const what = r => r.kind === "style" ? "a style reference: copy only how it's drawn, coloured and lit, not who or what is in it" : sameSubject ? "the same subject: keep who or what it is (face, hair and build for a person; shape and design for a place or object)"
     : r.kind === "character" ? `a character${r.look ? ` (${r.look})` : ""}: keep this person's face, hair, build and outfit exactly`
     : r.kind === "location" ? "the location: match this place, its layout and its key details"
@@ -525,9 +525,9 @@ const routes = {
     const want = b.base && path.basename(b.base), base = want && im.takes.includes(want) ? want : th.length ? th[th.length - 1].result : im.take;
     if (!base) throw httpErr(400, "Add or generate an image first."); const ask = String(b.ask || "").trim(); if (!ask) throw httpErr(400, "Say what to change.");
     const chain = []; let cur = base; for (let k = th.length - 1; k >= 0; k--) if (th[k].result === cur) { chain.unshift(th[k].ask.replace(/\.?\s*$/, "")); cur = th[k].base; }
-    const who = c.kind === "character" ? "person" : c.kind;
-    const prompt = `Change image 1: ${ask.replace(/\.?\s*$/, ".")}${chain.length ? ` Earlier changes, keep them: ${chain.join("; ")}.` : ""} Keep everything else exactly the same: the ${who}, the pose, the framing, the art style and the background.`;
-    return runImageJob({ target: { card: c.id, image: im.id, aspect: b.aspect, cutout: !!b.cutout, thread: { ask, base } }, modelKey: b.model || settings().defaultImage, prompt, picks: [{ card: c.id, image: im.id, take: base }], count: 1, sameSubject: true, edit: true }); },
+    const who = c.kind === "character" ? "person" : c.kind, style = (b.style || []).slice(0, 4);
+    const prompt = `Change image 1: ${ask.replace(/\.?\s*$/, ".")}${chain.length ? ` Earlier changes, keep them: ${chain.join("; ")}.` : ""} Keep everything else exactly the same: the ${who}, the pose, the framing${style.length ? "" : ", the art style"} and the background.${style.length ? " Redraw it in the art style of the style reference image" + (style.length > 1 ? "s" : "") + " (line work, colouring, shading, lighting), keeping who it is." : ""}`;
+    return runImageJob({ target: { card: c.id, image: im.id, aspect: b.aspect, cutout: !!b.cutout, thread: { ask, base } }, modelKey: b.model || settings().defaultImage, prompt, picks: [{ card: c.id, image: im.id, take: base }].concat(style), count: 1, sameSubject: true, edit: true }); },
   "POST /api/ref/write": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
     const refFiles = (b.refs || []).map(id => { const x = c.images.find(y => y.id === id); return x && x.take ? path.join(cardPath(c), "takes", x.take) : null; }).filter(Boolean).slice(0, 6);
     const resultFile = b.withResult && im.take ? path.join(cardPath(c), "takes", im.take) : null;
