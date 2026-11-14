@@ -95,7 +95,7 @@ function shotMedia(s, ep, sh) {
 const fileOr = abs => { try { return fs.existsSync(abs) ? fileUrl(abs) : null; } catch { return null; } };
 const notesDir = (s, ep, sh) => path.join(shotPath(s, ep, sh), "takes", "notes");
 function noteForApp(s, ep, sh, n) { const d = notesDir(s, ep, sh); return { ...n, frameUrl: n.frame ? fileOr(path.join(d, n.frame)) : null, picUrls: (n.pics || []).map(f => fileOr(path.join(d, f))).filter(Boolean) }; }
-function storyForApp(s) { return { ...s, styleImages: (s.styleRefs || []).filter(f => fs.existsSync(path.join(storiesDir(), s.dir, "Style", f))).map(f => ({ file: f, url: fileUrl(path.join(storiesDir(), s.dir, "Style", f)) })), episodes: s.episodes.map(ep => ({ ...ep, shots: ep.shots.map(sh => ({ ...sh, vnotes: (sh.vnotes || []).map(n => noteForApp(s, ep, sh, n)), vthread: (sh.vthread || []).map(r => ({ ...r, notes: (r.notes || []).map(n => noteForApp(s, ep, sh, n)), resultUrl: fileOr(path.join(shotPath(s, ep, sh), "takes", r.result || "-")), keyframeUrl: r.keyframe ? fileOr(path.join(shotPath(s, ep, sh), "takes", r.keyframe)) : null })), media: shotMedia(s, ep, sh), job: Object.values(JOBS).find(j => j.shot === sh.id && j.status === "running") || null })) })) }; }
+function storyForApp(s) { return { ...s, styleDesc: styleCached(storyStylePicks(s)), styleImages: (s.styleRefs || []).filter(f => fs.existsSync(path.join(storiesDir(), s.dir, "Style", f))).map(f => ({ file: f, url: fileUrl(path.join(storiesDir(), s.dir, "Style", f)) })), episodes: s.episodes.map(ep => ({ ...ep, shots: ep.shots.map(sh => ({ ...sh, vnotes: (sh.vnotes || []).map(n => noteForApp(s, ep, sh, n)), vthread: (sh.vthread || []).map(r => ({ ...r, notes: (r.notes || []).map(n => noteForApp(s, ep, sh, n)), resultUrl: fileOr(path.join(shotPath(s, ep, sh), "takes", r.result || "-")), keyframeUrl: r.keyframe ? fileOr(path.join(shotPath(s, ep, sh), "takes", r.keyframe)) : null })), media: shotMedia(s, ep, sh), job: Object.values(JOBS).find(j => j.shot === sh.id && j.status === "running") || null })) })) }; }
 
 // ---------- scripts: one script.txt per episode folder; old versions kept in "script history" ----------
 const scriptPath = (s, ep) => path.join(storiesDir(), s.dir, ep.dir, "script.txt");
@@ -427,9 +427,12 @@ async function writeShotPrompt({ s, ep, sh, ask, prompt, picks, withResult, fiel
 // Instead Claude looks at them and describes just the style in words, and that text joins the prompt. Cached per set of pictures.
 const STYLE_CACHE = () => path.join(LIB(), ".style-descriptions.json");
 const isStylePick = p => !!(p && (p.style || p.asStyle));
+function styleCacheKey(refs) { return refs.map(r => { let m = 0; try { m = fs.statSync(r.file).mtimeMs | 0; } catch {} return path.basename(r.file) + ":" + m; }).sort().join("|"); }
+const storyStylePicks = s => (s.styleRefs || []).map(f => ({ story: s.id, style: f })).slice(0, 4);
+function styleCached(picks) { const refs = resolveRefs(picks.filter(isStylePick), null, null); if (!refs.length) return ""; try { return JSON.parse(fs.readFileSync(STYLE_CACHE(), "utf8"))[styleCacheKey(refs)] || ""; } catch { return ""; } }
 async function styleText(picks) {
   const refs = resolveRefs(picks.filter(isStylePick), null, null); if (!refs.length) return "";
-  const key = refs.map(r => { let m = 0; try { m = fs.statSync(r.file).mtimeMs | 0; } catch {} return path.basename(r.file) + ":" + m; }).sort().join("|");
+  const key = styleCacheKey(refs);
   let cache = {}; try { cache = JSON.parse(fs.readFileSync(STYLE_CACHE(), "utf8")); } catch {} if (cache[key]) return cache[key];
   let text;
   if (process.env.GASP_DRY) text = "(dry run) bold 2D cel style, clean ink outlines, warm rim light.";
@@ -576,7 +579,7 @@ function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit
   else { c = findCard(target.card); im = imageOf(c, target.image); aspect = target.aspect || (c.kind === "location" ? "16:9" : c.kind === "prop" ? "1:1" : "9:16"); base = path.join(cardPath(c), "takes", `${stamp()} ${clean(im.label, 40)} - ${modelKey}`); label = "reference"; }
   if (!String(prompt || "").trim()) throw httpErr(400, "Write a prompt first.");
   const refs = resolveRefs(picks, s, ep).slice(0, model.maxRefs || 4);
-  const full = [String(prompt).trim(), sh ? storyLookText(s, ep) : "", refLegend(refs, sameSubject, edit), `${aspect} ${aspect === "9:16" ? "vertical" : aspect === "16:9" ? "widescreen" : "square"} frame.`].filter(Boolean).join("\n\n");
+  const full = [String(prompt).trim(), sh && target.styleDesc ? `Draw it in this art style: ${target.styleDesc}` : "", sh ? storyLookText(s, ep) : "", refLegend(refs, sameSubject, edit), `${aspect} ${aspect === "9:16" ? "vertical" : aspect === "16:9" ? "widescreen" : "square"} frame.`].filter(Boolean).join("\n\n");
   const job = { id: newId(), kind: label, shot: sh ? sh.id : null, story: s ? s.id : null, card: c ? c.id : null, image: im ? im.id : null, thread: target.thread || undefined, model: modelKey, count: count || 1, refs: refs.length, prompt: full, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try {
@@ -699,7 +702,8 @@ const routes = {
     const s2 = loadStory(b.story); const ep2 = epOf(s2, b.ep); updateShot(s2, ep2, shotOf(ep2, b.shot), { [field === "motion" ? "motionPrompt" : "imagePrompt"]: r.prompt });
     logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.findIndex(x => x.id === b.shot) + 1, kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost || 0, file: "" });
     return { prompt: r.prompt, cost: r.cost, story: storyForApp(saveStory(s2)) }; },
-  "POST /api/gen/keyframe": async (req) => { const b = await body(req); return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
+  "POST /api/gen/keyframe": async (req) => { const b = await body(req); let styleDesc = ""; try { styleDesc = await styleText(storyStylePicks(loadStory(b.story))); } catch {}
+    return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot, styleDesc }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
   "POST /api/gen/ref": async (req) => { const b = await body(req); const picks = b.refs || [], st = await styleText(picks);
     const prompt = st ? `${String(b.prompt || "").trim()}\n\nDraw it in this art style: ${st}` : b.prompt;
     return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect, cutout: !!b.cutout }, modelKey: b.model || settings().defaultImage, prompt, picks: picks.filter(p => !isStylePick(p)), count: +b.count || 1, sameSubject: true, edit: !!b.edit }); },
@@ -722,7 +726,9 @@ const routes = {
     return { prompt: r.prompt, cost: r.cost, refs: refsForApp() }; },
   "POST /api/story/art": async (req) => { const b = await body(req); const s = loadStory(b.story); if ("text" in b) s.artDirection = String(b.text || ""); if ("world" in b) s.world = String(b.world || ""); saveStory(s); return storyForApp(s); },
   "POST /api/story/style/add": async (req) => { const b = await body(req); const s = loadStory(b.story); const dir = path.join(storiesDir(), s.dir, "Style"); fs.mkdirSync(dir, { recursive: true });
-    let ext, buf; if (b.card) { const c = findCard(b.card); const im = imageOf(c, b.fromImage); const take = b.take && im.takes.includes(path.basename(b.take)) ? path.basename(b.take) : im.take; if (!take) throw httpErr(400, "That picture is empty.");
+    let ext, buf; if (b.shot) { const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); const take = path.basename(b.take || sh.keyframeTake || ""); const abs = path.join(shotPath(s, ep, sh), "takes", take);
+      if (!take || !fs.existsSync(abs) || /\.mp4$/i.test(take)) throw httpErr(400, "Pick a keyframe."); buf = fs.readFileSync(abs); ext = path.extname(take).slice(1) || "png"; b.name = `Shot ${ep.shots.indexOf(sh) + 1} ${sh.title}`; }
+    else if (b.card) { const c = findCard(b.card); const im = imageOf(c, b.fromImage); const take = b.take && im.takes.includes(path.basename(b.take)) ? path.basename(b.take) : im.take; if (!take) throw httpErr(400, "That picture is empty.");
       buf = fs.readFileSync(path.join(cardPath(c), "takes", take)); ext = path.extname(take).slice(1) || "png"; b.name = `${c.name} ${im.label}`; } else ({ ext, buf } = dataUri(b.image));
     const f = `${stamp()} ${clean(String(b.name || "style").replace(/\.[a-z0-9]+$/i, ""), 50)}.${ext}`; fs.writeFileSync(path.join(dir, f), buf); s.styleRefs = (s.styleRefs || []).concat(f); saveStory(s); return storyForApp(s); },
   "POST /api/story/style/delete": async (req) => { const b = await body(req); const s = loadStory(b.story); const f = path.basename(b.file); const abs = path.join(storiesDir(), s.dir, "Style", f); if (fs.existsSync(abs)) toTrash(abs, `${s.dir} - Style - ${f}`); s.styleRefs = (s.styleRefs || []).filter(x => x !== f); saveStory(s); return storyForApp(s); },
