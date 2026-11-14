@@ -432,15 +432,15 @@ function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit
   })();
   return job;
 }
-function runCutoutJob({ cardId, imageId, toolKey }) {
+function runCutoutJob({ cardId, imageId, toolKey, take }) {
   const tool = MODELS.cutout[toolKey]; if (!tool) throw httpErr(400, "unknown background-removal tool");
-  const c = findCard(cardId); const im = imageOf(c, imageId); if (!im.take) throw httpErr(400, "This image is empty: add or generate one first.");
+  const c = findCard(cardId); const im = imageOf(c, imageId); const src = take && im.takes.includes(path.basename(take)) ? path.basename(take) : im.take; if (!src) throw httpErr(400, "This image is empty: add or generate one first.");
   const job = { id: newId(), kind: "cutout", card: c.id, image: im.id, model: toolKey, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try {
       const out = path.join(cardPath(c), "takes", `${stamp()} ${clean(im.label, 40)} - cutout ${toolKey}.png`);
-      const r = await removeBackground({ tool, file: path.join(cardPath(c), "takes", im.take), outFile: out, onStatus: st => { job.phase = st === "IN_PROGRESS" ? "removing the background" : String(st || "").toLowerCase().replace("_", " "); emit("job", job); } });
-      const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); const take = path.basename(r.file); im2.takes.push(take); setImageInUse(c2, im2, take); writeCard(c2);
+      const r = await removeBackground({ tool, file: path.join(cardPath(c), "takes", src), outFile: out, onStatus: st => { job.phase = st === "IN_PROGRESS" ? "removing the background" : String(st || "").toLowerCase().replace("_", " "); emit("job", job); } });
+      const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); const take = path.basename(r.file); im2.takes.push(take); if (!im2.take || im2.take === src) setImageInUse(c2, im2, take); writeCard(c2);
       logSpend({ story: "Reference", episode: "", shot: `${c2.name} · ${im2.label}`, kind: "cutout", model: toolKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: rel(r.file) });
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, takes: [take], finished: Date.now() });
     } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
@@ -547,7 +547,7 @@ const routes = {
     else { const cs = chatSetting(); const r = await chatCall({ provider: cs.provider, model: cs.model, maxTokens: 200, timeoutMs: 60000, messages: [{ role: "user", content: [{ type: "text", text: `Describe this ${c.kind} in ONE line of comma-separated phrases, for reuse in image prompts: ${c.kind === "character" ? "who they are (age, build), face, hair, and what they're wearing" : "what it is, its shape, materials and colours"}. Start with a plain noun (${c.kind === "character" ? "woman, man, girl, old farmer…" : "stone well, hunting knife…"}). No name, no art style, no lighting, no background. ${world ? "The world: " + world + "." : ""} Reply with the line only.` }, { type: "image_url", image_url: { url: await smallImage(path.join(cardPath(c), "takes", im.take)) } }] }] }); look = r.text.trim().replace(/^["'`]+|["'`]+$/g, "").split("\n")[0]; logSpend({ story: "Reference", episode: "", shot: `${c.name} · look`, kind: "prompt", model: cs.model, seconds: 0, cost: r.cost || 0, file: "" }); }
     c.look = look; writeCard(c); return { look, refs: refsForApp() }; },
   "POST /api/ref/thread/clear": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); im.thread = []; writeCard(c); return refsForApp(); },
-  "POST /api/gen/cutout": async (req) => { const b = await body(req); return runCutoutJob({ cardId: b.card, imageId: b.image, toolKey: b.tool || settings().defaultCutout }); },
+  "POST /api/gen/cutout": async (req) => { const b = await body(req); return runCutoutJob({ cardId: b.card, imageId: b.image, toolKey: b.tool || settings().defaultCutout, take: b.take }); },
   "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); const t = readScript(s, ep), h = SF.withHeader(t, s.title, ep.num, ep.title); if (h !== t) writeScript(s, ep, h, false); return { text: h, path: scriptPath(s, ep) }; },
   "POST /api/script/save": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); writeScript(s, ep, String(b.text || "").replace(/\r/g, ""), false); return { ok: true }; },
   "POST /api/script/sync": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const r = syncScript(s, ep, String(b.text ?? readScript(s, ep)).replace(/\r/g, ""), b.orphans); saveStory(s); writeScript(s, ep, r.text, true); return { story: storyForApp(s), text: r.text, created: r.created, updated: r.updated, orphans: r.orphans }; },
