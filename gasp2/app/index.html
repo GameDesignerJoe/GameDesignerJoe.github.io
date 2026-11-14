@@ -36,7 +36,7 @@ nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
 nav .soon{font-size:10px;color:var(--faint);font-weight:400;margin-left:4px}
 main{flex:1;min-height:0;display:flex}
 /* shots */
-.shots{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,34%);min-height:0}
+.shots{flex:1;display:grid;grid-template-columns:minmax(0,1fr) var(--pw-shots,minmax(380px,34%));min-height:0;position:relative}
 .left{min-height:0;overflow:auto;padding:14px 16px 40px}
 .epbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .ep{border:1px solid var(--line);background:none;border-radius:8px;padding:4px 10px;color:var(--muted);font-weight:600}
@@ -90,7 +90,7 @@ main{flex:1;min-height:0;display:flex}
 .empty-state{margin:auto;text-align:center;max-width:460px;padding:40px}
 .empty-state h2{margin:0 0 6px}
 /* reference */
-.refpage{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(400px,36%);min-height:0}
+.refpage{flex:1;display:grid;grid-template-columns:minmax(0,1fr) var(--pw-ref,minmax(400px,36%));min-height:0;position:relative}
 .rsec{margin-bottom:26px;border-radius:12px;padding:4px}
 .rsec.dropping{outline:2px dashed var(--accent);outline-offset:4px}
 .rsec h3{margin:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
@@ -151,7 +151,7 @@ table.t th{color:var(--muted);font-weight:600}table.t td.n{text-align:right;font
 .soonpage li{margin:4px 0}
 code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:4px}
 /* script */
-.scriptwrap{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}.scriptwrap.noside{grid-template-columns:minmax(0,1fr)}.scriptwrap.noside .sright{display:none}
+.scriptwrap{flex:1;display:grid;grid-template-columns:minmax(0,1fr) var(--pw-script,300px);min-height:0;position:relative}.scriptwrap.noside .pgrip{display:none}.scriptwrap.noside{grid-template-columns:minmax(0,1fr)}.scriptwrap.noside .sright{display:none}
 .fsz{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.fsz button{border:0;background:none;color:var(--muted);padding:3px 9px;cursor:pointer;font:600 12px var(--sans,inherit)}.fsz button:hover{color:var(--ink);background:var(--panel2)}.fsz span{display:block;line-height:26px;padding:0 7px;font-size:12px;color:var(--faint);border-left:1px solid var(--line);border-right:1px solid var(--line)}
 .syncst{font-size:12px;color:var(--muted)}.syncst b{color:var(--warn)}
 .sleft{display:flex;flex-direction:column;min-height:0;padding:14px 16px 16px;container-type:inline-size}
@@ -215,6 +215,8 @@ body.chatopen #chat{display:flex}
 .ccomp textarea{min-height:42px;max-height:45vh;resize:none;overflow-y:auto;line-height:1.45;field-sizing:fixed}
 #chat.dropping{outline:2px dashed var(--accent);outline-offset:-6px}
 .cgrip{position:absolute;left:-4px;top:0;bottom:0;width:8px;cursor:col-resize;z-index:2}.cgrip:hover,.cgrip.drag{background:linear-gradient(90deg,transparent 3px,var(--accent) 3px,var(--accent) 5px,transparent 5px)}
+.pgrip{position:absolute;top:0;bottom:0;width:8px;margin-left:-4px;cursor:col-resize;z-index:5}.pgrip:hover,.pgrip.drag{background:linear-gradient(90deg,transparent 3px,var(--accent) 3px,var(--accent) 5px,transparent 5px)}
+@media (max-width:900px){.pgrip{display:none}}
 body.resizing{cursor:col-resize;user-select:none}body.resizing iframe,body.resizing video{pointer-events:none}
 .cstat{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);margin-top:2px}.cstat i{width:7px;height:7px;border-radius:50%;background:var(--faint);display:inline-block}
 .cstat.ok i{background:var(--good)}.cstat.bad{color:var(--bad)}.cstat.bad i{background:var(--bad)}.cstat.checking i{background:var(--warn)}
@@ -788,6 +790,21 @@ async function sendChat(){const cin=$("#cin");const t=(cin&&cin.value||"").trim(
 async function actCard(mi,ai,op){try{await flushPending();if(typeof saveScriptNow==="function")await saveScriptNow();const r=await api("/api/chat/act",{story:STORY.id,ep:EP.id,msg:mi,action:ai,op});CHAT.msgs=r.chat.messages;await loadRefs();setStory(r.story);renderChat();if(op==="apply")toast("Applied"+(r.note?": "+r.note:""));if(op==="undo")toast("Undone")}catch(e){toast(e.message)}}
 
 
+
+/* ---------- details panels: drag their left edge to resize, like the chat (double-click resets) ---------- */
+const PANELS=[[".shots","#panel","shots"],[".refpage","#rpanel","ref"],[".scriptwrap",".sright","script"]];
+const setPW=(k,w)=>document.documentElement.style.setProperty("--pw-"+k,`min(${w}px, calc(100% - 280px))`);
+PANELS.forEach(([,,k])=>{const w=ls.get("g2-pw-"+k,0);if(w)setPW(k,w)});
+function placeGrips(){PANELS.forEach(([c,pn])=>{const box=$("#main").querySelector(c),panel=box&&box.querySelector(pn),g=box&&box.querySelector(":scope > .pgrip");if(g&&panel)g.style.left=panel.offsetLeft+"px"})}
+function gripPanels(){PANELS.forEach(([c,pn,k])=>{const box=$("#main").querySelector(c);if(!box||box.querySelector(":scope > .pgrip"))return;const panel=box.querySelector(pn);if(!panel)return;
+  const g=document.createElement("div");g.className="pgrip";g.title="Drag to resize (double-click resets)";box.appendChild(g);
+  g.onmousedown=e=>{e.preventDefault();g.classList.add("drag");document.body.classList.add("resizing");const r=box.getBoundingClientRect();
+    let w=0;const mv=ev=>{w=Math.round(Math.max(260,Math.min(r.width-280,r.right-ev.clientX)));setPW(k,w);placeGrips()};
+    const up=()=>{g.classList.remove("drag");document.body.classList.remove("resizing");removeEventListener("mousemove",mv);removeEventListener("mouseup",up);if(w)ls.set("g2-pw-"+k,w);if(typeof paint==="function"&&TAB==="script")paint()};
+    addEventListener("mousemove",mv);addEventListener("mouseup",up)};
+  g.ondblclick=()=>{document.documentElement.style.removeProperty("--pw-"+k);ls.set("g2-pw-"+k,0);placeGrips()}});placeGrips()}
+new MutationObserver(()=>requestAnimationFrame(gripPanels)).observe(document.getElementById("main"),{childList:true,subtree:true});
+new ResizeObserver(()=>placeGrips()).observe(document.getElementById("main"));
 /* ---------- chat: connection status, attachments, width ---------- */
 function statHTML(){const st=CHAT.stat;return`<i></i><span>${esc(chatModelLabel())}${!st?"":st.state==="checking"?" · checking…":st.state==="ok"?" · "+esc(st.text||"connected"):""}</span>${st&&st.state==="bad"?` · <span title="${esc(st.text)}">${esc(st.text.length>70?st.text.slice(0,70)+"…":st.text)}</span>`:""} · <a data-ctest>test</a> · <a data-cset>change</a>`}
 function setStat(st){CHAT.stat=st;const el=$("#cstat");if(el){el.className="cstat "+(st?st.state:"");el.innerHTML=statHTML();wireStat()}}
