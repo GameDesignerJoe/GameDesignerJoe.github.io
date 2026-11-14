@@ -219,7 +219,7 @@ function addCardTake(c, im, buf, ext, source) {
 function cardForApp(c) {
   const abs = cardPath(c);
   return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "",
-    images: c.images.map(im => ({ id: im.id, label: im.label, framing: im.framing, notes: im.notes, change: im.change, art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
+    images: c.images.map(im => ({ id: im.id, label: im.label, framing: im.framing, notes: im.notes, change: im.change, thread: im.thread || [], art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
       takes: im.takes.filter(t => fs.existsSync(path.join(abs, "takes", t))).map(t => ({ file: t, url: fileUrl(path.join(abs, "takes", t)), inUse: t === im.take, kind: "image" })).reverse() })) };
 }
 const refsForApp = () => readCards().map(cardForApp).sort((a, b) => a.name.localeCompare(b.name));
@@ -229,7 +229,8 @@ function resolveRefs(picks, s, ep) {
   for (const p of picks || []) {
     if (p.shot && s && ep) { const sh = ep.shots.find(x => x.id === p.shot); if (sh && sh.keyframeTake) out.push({ file: path.join(shotPath(s, ep, sh), "takes", sh.keyframeTake), kind: "shot" }); continue; }
     const c = cards.find(x => x.id === p.card); if (!c) continue; const im = c.images.find(x => x.id === p.image) || c.images.find(x => x.take);
-    if (im && im.take) out.push({ file: path.join(cardPath(c), "takes", im.take), kind: c.kind, look: c.look, label: im.label });
+    const take = im && (p.take && im.takes.includes(path.basename(p.take)) ? path.basename(p.take) : im.take);
+    if (take) out.push({ file: path.join(cardPath(c), "takes", take), kind: c.kind, look: c.look, label: im.label });
   }
   return out;
 }
@@ -368,7 +369,7 @@ function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit
   if (!String(prompt || "").trim()) throw httpErr(400, "Write a prompt first.");
   const refs = resolveRefs(picks, s, ep).slice(0, model.maxRefs || 4);
   const full = [sh && ep.style ? `Style: ${ep.style}.` : "", String(prompt).trim(), refLegend(refs, sameSubject, edit), `${aspect} ${aspect === "9:16" ? "vertical" : aspect === "16:9" ? "widescreen" : "square"} frame.`].filter(Boolean).join("\n\n");
-  const job = { id: newId(), kind: label, shot: sh ? sh.id : null, story: s ? s.id : null, card: c ? c.id : null, image: im ? im.id : null, model: modelKey, count: count || 1, refs: refs.length, prompt: full, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
+  const job = { id: newId(), kind: label, shot: sh ? sh.id : null, story: s ? s.id : null, card: c ? c.id : null, image: im ? im.id : null, thread: target.thread || undefined, model: modelKey, count: count || 1, refs: refs.length, prompt: full, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try {
       const r = await generateImages({ model, prompt: full, refs: refs.map(x => x.file), aspect, count, outBase: base, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? `in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
@@ -380,7 +381,9 @@ function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit
         if (tool) { job.phase = "removing the background"; emit("job", job); const cuts = [];
           for (const f of r.files) { const out = f.replace(/\.[a-z]+$/i, "") + ` - cutout ${settings().defaultCutout}.png`; try { const x = await removeBackground({ tool, file: f, outFile: out }); cuts.push(path.basename(out)); r.cost += x.cost; logSpend({ story: "Reference", episode: "", shot: `${c.name} · ${im.label}`, kind: "cutout", model: settings().defaultCutout + (x.dry ? " (dry run)" : ""), seconds: 0, cost: x.cost, file: rel(out) }); } catch (e) { job.cutoutError = String(e.message || e); } }
           takes.push(...cuts); }
-        const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); im2.takes.push(...takes); if (!im2.take) setImageInUse(c2, im2, takes.find(t => / - cutout /.test(t)) || takes[0]); writeCard(c2);
+        const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); im2.takes.push(...takes); if (!im2.take) setImageInUse(c2, im2, takes.find(t => / - cutout /.test(t)) || takes[0]);
+        if (target.thread) im2.thread = (im2.thread || []).concat({ ask: target.thread.ask, base: target.thread.base, result: takes.find(t => / - cutout /.test(t)) || takes[0], model: modelKey, at: Date.now() });
+        writeCard(c2);
       }
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, takes, finished: Date.now() });
     } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
@@ -476,6 +479,15 @@ const routes = {
     writeCard(c); return refsForApp(); },
   "POST /api/gen/keyframe": async (req) => { const b = await body(req); return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
   "POST /api/gen/ref": async (req) => { const b = await body(req); return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect, cutout: !!b.cutout }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1, sameSubject: true, edit: !!b.edit }); },
+  // one turn of a Refine thread: edit a picture (the latest result by default) and keep the earlier asks that led to it
+  "POST /api/gen/refine": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const th = im.thread || [];
+    const want = b.base && path.basename(b.base), base = want && im.takes.includes(want) ? want : th.length ? th[th.length - 1].result : im.take;
+    if (!base) throw httpErr(400, "Add or generate an image first."); const ask = String(b.ask || "").trim(); if (!ask) throw httpErr(400, "Say what to change.");
+    const chain = []; let cur = base; for (let k = th.length - 1; k >= 0; k--) if (th[k].result === cur) { chain.unshift(th[k].ask.replace(/\.?\s*$/, "")); cur = th[k].base; }
+    const who = c.kind === "character" ? "person" : c.kind;
+    const prompt = `Change image 1: ${ask.replace(/\.?\s*$/, ".")}${chain.length ? ` Earlier changes, keep them: ${chain.join("; ")}.` : ""} Keep everything else exactly the same: the ${who}, the pose, the framing, the art style and the background.`;
+    return runImageJob({ target: { card: c.id, image: im.id, aspect: b.aspect, cutout: !!b.cutout, thread: { ask, base } }, modelKey: b.model || settings().defaultImage, prompt, picks: [{ card: c.id, image: im.id, take: base }], count: 1, sameSubject: true, edit: true }); },
+  "POST /api/ref/thread/clear": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); im.thread = []; writeCard(c); return refsForApp(); },
   "POST /api/gen/cutout": async (req) => { const b = await body(req); return runCutoutJob({ cardId: b.card, imageId: b.image, toolKey: b.tool || settings().defaultCutout }); },
   "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); const t = readScript(s, ep), h = SF.withHeader(t, s.title, ep.num, ep.title); if (h !== t) writeScript(s, ep, h, false); return { text: h, path: scriptPath(s, ep) }; },
   "POST /api/script/save": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); writeScript(s, ep, String(b.text || "").replace(/\r/g, ""), false); return { ok: true }; },
