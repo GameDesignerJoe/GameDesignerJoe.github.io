@@ -61,7 +61,7 @@ function parseBlock(body) {
 }
 
 // models sometimes put real line breaks or tabs inside JSON strings (long prompts); escape them and try again
-function lenientJSON(t) {
+export function lenientJSON(t) {
   try { return JSON.parse(t); } catch (e) {
     let out = "", inStr = false, esc = false;
     for (const ch of t) { if (inStr) { if (esc) { esc = false; out += ch; continue; } if (ch === "\\") { esc = true; out += ch; continue; } if (ch === '"') inStr = false; else if (ch === "\n") { out += "\\n"; continue; } else if (ch === "\r") continue; else if (ch === "\t") { out += "\\t"; continue; } } else if (ch === '"') inStr = true; out += ch; }

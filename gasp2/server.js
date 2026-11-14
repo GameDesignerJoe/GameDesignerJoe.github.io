@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { imageToVideo, generateImages, removeBackground, ffmpeg } from "./lib/fal.js";
-import { chatCall, splitActions, systemPrompt, dryReply, CHAT_MODELS } from "./lib/chat.js";
+import { chatCall, splitActions, systemPrompt, dryReply, CHAT_MODELS, lenientJSON } from "./lib/chat.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -92,7 +92,10 @@ function shotMedia(s, ep, sh) {
   const vid = sh.videoTake && fs.existsSync(path.join(takesDir, sh.videoTake)) ? fileUrl(path.join(takesDir, sh.videoTake)) : null;
   return { keyframe: kf, video: vid, takes };
 }
-function storyForApp(s) { return { ...s, styleImages: (s.styleRefs || []).filter(f => fs.existsSync(path.join(storiesDir(), s.dir, "Style", f))).map(f => ({ file: f, url: fileUrl(path.join(storiesDir(), s.dir, "Style", f)) })), episodes: s.episodes.map(ep => ({ ...ep, shots: ep.shots.map(sh => ({ ...sh, media: shotMedia(s, ep, sh), job: Object.values(JOBS).find(j => j.shot === sh.id && j.status === "running") || null })) })) }; }
+const fileOr = abs => { try { return fs.existsSync(abs) ? fileUrl(abs) : null; } catch { return null; } };
+const notesDir = (s, ep, sh) => path.join(shotPath(s, ep, sh), "takes", "notes");
+function noteForApp(s, ep, sh, n) { const d = notesDir(s, ep, sh); return { ...n, frameUrl: n.frame ? fileOr(path.join(d, n.frame)) : null, picUrls: (n.pics || []).map(f => fileOr(path.join(d, f))).filter(Boolean) }; }
+function storyForApp(s) { return { ...s, styleImages: (s.styleRefs || []).filter(f => fs.existsSync(path.join(storiesDir(), s.dir, "Style", f))).map(f => ({ file: f, url: fileUrl(path.join(storiesDir(), s.dir, "Style", f)) })), episodes: s.episodes.map(ep => ({ ...ep, shots: ep.shots.map(sh => ({ ...sh, vnotes: (sh.vnotes || []).map(n => noteForApp(s, ep, sh, n)), vthread: (sh.vthread || []).map(r => ({ ...r, notes: (r.notes || []).map(n => noteForApp(s, ep, sh, n)), resultUrl: fileOr(path.join(shotPath(s, ep, sh), "takes", r.result || "-")), keyframeUrl: r.keyframe ? fileOr(path.join(shotPath(s, ep, sh), "takes", r.keyframe)) : null })), media: shotMedia(s, ep, sh), job: Object.values(JOBS).find(j => j.shot === sh.id && j.status === "running") || null })) })) }; }
 
 // ---------- scripts: one script.txt per episode folder; old versions kept in "script history" ----------
 const scriptPath = (s, ep) => path.join(storiesDir(), s.dir, ep.dir, "script.txt");
@@ -492,6 +495,79 @@ function storyLookText(s, ep) {
     world ? `World and era: ${world.replace(/\.?\s*$/, ".")} Everything in the picture belongs to this world: clothes, tools, buildings and materials; nothing modern.` : ""].filter(Boolean).join("\n\n");
 }
 
+// ---------- video notes: the writer pins notes on frames; Claude turns them into a new MOTION prompt and, if needed, a keyframe fix ----------
+const VIDEO_FIXER = `You fix AI video shots inside GASP, an app for AI-made animated shorts. An image-to-video model made the shot's video from its keyframe and its MOTION prompt. The writer watched it and left notes. Some are pinned to a moment, with a red box drawn on that frame around what they mean; some come with pictures they added.
+Attached, in order: the keyframe (the video's first frame), a few frames sampled from the video (labelled with their times), then each pinned note's marked frame and pictures.
+Decide how to fix every note:
+- Movement, timing, speed, the camera, what moves and what must not (a toy walking by itself, a face morphing, a hand going wrong): rewrite the MOTION prompt. Keep what worked. Answer each note concretely: use timing ("in the first two seconds", "around 0:03") when a note is pinned to a moment, and say plainly what must stay still or stable ("the TOY SOLDIER never moves by itself; only CHILD's hand moves it"). Write it the GASP way: the camera first, then each action by NAME IN CAPS (exactly as the current prompt or the cards name them) with its pace and where it ends, then the ambient motion and the overall pace. 40 to 100 words, one paragraph. Never re-describe looks, clothes or the setting.
+- Something wrong in the picture itself that is already wrong in the keyframe (a face, an object, a colour, something missing or extra in the first frame): also write a short edit instruction for the keyframe, in plain words ("remove the second sword from the toy soldier's hand"). The video is then made again from the fixed keyframe. Leave it empty when the keyframe is fine: most notes are about motion.
+Reply with JSON only, no markdown: {"plan":"one or two plain sentences to the writer saying what you'll change","motion":"the full new MOTION prompt","keyframe":"the keyframe edit, or an empty string"}`;
+const fmtT = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}${t % 1 >= 0.05 ? "." + Math.round((t % 1) * 10) : ""}`;
+function looksFor(ep) { const cards = readCards().filter(c => c.look).map(c => ({ names: [c.name].concat(c.aliases || []), look: c.look, kind: c.kind })); const have = new Set(cards.flatMap(c => c.names.map(n => n.toLowerCase())));
+  return cards.concat((ep.cast || []).filter(x => !have.has(String(x.name).toLowerCase())).map(x => ({ names: [x.name], look: x.look, kind: "character" }))); }
+async function videoFrames(file, seconds) { const out = [], dir = path.join(path.dirname(file), ".small"); fs.mkdirSync(dir, { recursive: true });
+  for (const f of [0.2, 0.4, 0.6, 0.8, 0.97]) { const t = Math.max(0, (seconds || 5) * f), o = path.join(dir, path.basename(file).replace(/\.[a-z0-9]+$/i, "") + ` @${t.toFixed(1)}.jpg`);
+    if (!fs.existsSync(o)) { try { await ffmpeg(["-ss", String(t), "-i", file, "-frames:v", "1", "-vf", "scale='min(640,iw)':-2", "-q:v", "5", o]); } catch { continue; } }
+    if (fs.existsSync(o)) out.push({ t, file: o }); }
+  return out; }
+async function planVideoFix({ s, ep, sh, notes, ask }) {
+  const d = shotPath(s, ep, sh), vfile = sh.videoTake && path.join(d, "takes", sh.videoTake), kfile = sh.keyframeTake && path.join(d, "takes", sh.keyframeTake), nd = notesDir(s, ep, sh);
+  const names = readCards().map(c => c.name.toUpperCase()).join(", ");
+  const text = [`Shot: "${sh.title}"${sh.seconds ? `, ${sh.seconds}s` : ""}. Frame: ${ep.aspect || "9:16"}.`, sh.who ? `WHO: ${sh.who}` : "", `IMAGE prompt (what the keyframe shows): ${sh.imagePrompt || "(none)"}`, `Current MOTION prompt: ${sh.motionPrompt || "(none)"}`, names ? `Card names: ${names}` : "",
+    notes.length ? "The writer's notes on the video:\n" + notes.map((n, k) => `${k + 1}. ${n.t != null ? `at ${fmtT(n.t)}${n.box ? ", red box on that frame" : ""}: ` : ""}${n.text || "(no words: see the box)"}${(n.pics || []).length ? ` (+${n.pics.length} picture${n.pics.length > 1 ? "s" : ""})` : ""}`).join("\n") : "",
+    ask && ask.trim() ? `The writer also says: ${ask.trim()}` : ""].filter(Boolean).join("\n\n");
+  if (process.env.GASP_DRY) return { plan: `(dry run) I'll slow the motion and address ${notes.length} note${notes.length === 1 ? "" : "s"}${ask ? " and your comment" : ""}.`, motion: `Locked-off static camera, no cuts. (dry run, fixed) ${sh.motionPrompt || ""}`.trim(), keyframe: notes.some(n => /keyframe|first frame|remove/i.test(n.text || "")) ? "(dry run) remove what the box marks" : "", cost: 0 };
+  const parts = [{ type: "text", text }];
+  if (kfile && fs.existsSync(kfile)) parts.push({ type: "text", text: "The keyframe:" }, { type: "image_url", image_url: { url: await smallImage(kfile, 768) } });
+  if (vfile && fs.existsSync(vfile)) for (const f of await videoFrames(vfile, sh.seconds)) parts.push({ type: "text", text: `The video at ${fmtT(f.t)}:` }, { type: "image_url", image_url: { url: "data:image/jpeg;base64," + fs.readFileSync(f.file).toString("base64") } });
+  for (const [k, n] of notes.entries()) { if (n.frame && fs.existsSync(path.join(nd, n.frame))) parts.push({ type: "text", text: `Note ${k + 1}'s frame (at ${fmtT(n.t || 0)}), red box marks what it means:` }, { type: "image_url", image_url: { url: await smallImage(path.join(nd, n.frame), 768) } });
+    for (const f of n.pics || []) if (fs.existsSync(path.join(nd, f))) parts.push({ type: "text", text: `A picture the writer added to note ${k + 1}:` }, { type: "image_url", image_url: { url: await smallImage(path.join(nd, f), 768) } }); }
+  const cs = chatSetting(); const r = await chatCall({ provider: cs.provider, model: cs.model, maxTokens: 1500, timeoutMs: 120000, messages: [{ role: "system", content: VIDEO_FIXER }, { role: "user", content: parts }] });
+  let j; try { j = lenientJSON((r.text.match(/\{[\s\S]*\}/) || [r.text])[0]); } catch { throw new Error("Claude's fix plan came back unreadable. Try again."); }
+  if (!j || !String(j.motion || "").trim()) throw new Error("Claude didn't write a new motion prompt. Try again.");
+  return { plan: String(j.plan || "").trim(), motion: String(j.motion).replace(/\s*\n+\s*/g, " ").trim(), keyframe: String(j.keyframe || "").trim(), cost: r.cost || 0 };
+}
+// one round: Claude plans, the keyframe is fixed if needed, then the video is made again. Shows as the shot's video job.
+function runVideoFix({ storyId, epId, shotId, modelKey, seconds, ask }) {
+  const s = loadStory(storyId); const ep = epOf(s, epId); const sh = shotOf(ep, shotId);
+  const model = MODELS.video[modelKey]; if (!model) throw httpErr(400, "unknown video model");
+  if (!sh.keyframeTake) throw httpErr(400, "this shot needs a keyframe first");
+  const notes = (sh.vnotes || []).slice(); if (!notes.length && !String(ask || "").trim()) throw httpErr(400, "Add a note or say what to change first.");
+  const job = { id: newId(), shot: sh.id, story: s.id, kind: "video", fix: true, model: modelKey, status: "running", phase: "Claude is reading your notes", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
+  const status = (st, q, what) => { job.phase = st === "IN_QUEUE" ? `${what}: in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? what : String(st || "").toLowerCase(); emit("job", job); };
+  (async () => {
+    let cost = 0;
+    try {
+      const plan = await planVideoFix({ s, ep, sh, notes, ask }); cost += plan.cost;
+      logSpend({ story: s.title, episode: ep.num, shot: ep.shots.indexOf(sh) + 1, kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: plan.cost, file: "" });
+      job.plan = plan.plan; const d = shotPath(s, ep, sh); let kf = sh.keyframeTake, kfNew = null;
+      if (plan.keyframe) {
+        const imk = sh.imageModel && MODELS.image[sh.imageModel] ? sh.imageModel : settings().defaultImage, im = MODELS.image[imk]; job.phase = "fixing the keyframe"; emit("job", job);
+        const pics = notes.flatMap(n => (n.pics || []).map(f => path.join(notesDir(s, ep, sh), f)));
+        const p = `Change image 1: ${plan.keyframe.replace(/\.?\s*$/, ".")} Keep everything else exactly the same: the same people, poses, framing, art style, light and background.${pics.length ? " The other images are pictures the writer added: use them only as the change asks." : ""}`;
+        const r = await generateImages({ model: im, prompt: p, refs: [path.join(d, "takes", kf)].concat(pics), aspect: ep.aspect || "9:16", count: 1, outBase: path.join(d, "takes", `${stamp()} keyframe fix - ${imk}`), onStatus: (st, q) => status(st, q, "fixing the keyframe") });
+        cost += r.cost; kfNew = kf = path.basename(r.files[0]);
+        logSpend({ story: s.title, episode: ep.num, shot: ep.shots.indexOf(sh) + 1, kind: "keyframe", model: imk + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: rel(r.files[0]) });
+        const s1 = loadStory(storyId); const ep1 = epOf(s1, epId); setInUse(s1, ep1, shotOf(ep1, shotId), kf); saveStory(s1); emit("job", job);
+      }
+      job.phase = "making the video"; emit("job", job);
+      const out = path.join(d, "takes", `${stamp()} video fix - ${modelKey}.mp4`);
+      const mdl = model.extra && "aspect_ratio" in model.extra && ep.aspect ? { ...model, extra: { ...model.extra, aspect_ratio: ep.aspect } } : model;
+      const v = await imageToVideo({ model: mdl, keyframe: path.join(d, "takes", kf), prompt: SF.expandNames(plan.motion, looksFor(ep), true).text, seconds, outFile: out, onStatus: (st, q) => status(st, q, "making the video") });
+      cost += v.cost;
+      const s2 = loadStory(storyId); const ep2 = epOf(s2, epId); const sh2 = shotOf(ep2, shotId);
+      logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "video", model: modelKey + (v.dry ? " (dry run)" : ""), seconds: v.seconds, cost: v.cost, file: rel(v.file) });
+      setInUse(s2, ep2, sh2, path.basename(v.file));
+      const used = new Set(notes.map(n => n.id)); sh2.vnotes = (sh2.vnotes || []).filter(n => !used.has(n.id));
+      sh2.vthread = (sh2.vthread || []).concat({ id: newId(), at: Date.now(), notes, ask: String(ask || "").trim(), plan: plan.plan, motionBefore: sh2.motionPrompt || "", motion: plan.motion, keyframeFix: plan.keyframe || "", keyframe: kfNew, base: sh.videoTake || null, result: path.basename(v.file), model: modelKey, seconds: v.seconds, cost: +cost.toFixed(3) });
+      updateShot(s2, ep2, sh2, { motionPrompt: plan.motion, model: modelKey, seconds: v.seconds }); sh2.show = "video"; saveStory(s2);
+      Object.assign(job, { status: "done", phase: "done", cost: +cost.toFixed(3), take: path.basename(v.file), finished: Date.now() });
+    } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), cost, finished: Date.now() }); }
+    emit("job", job);
+  })();
+  return job;
+}
+
 // keyframes for a shot, or images for a reference card. Every result is kept as a take; the first is put in use only if nothing is.
 function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit }) {
   const model = MODELS.image[modelKey]; if (!model) throw httpErr(400, "unknown image model");
@@ -588,6 +664,14 @@ const routes = {
     if (sh.keyframeTake === take) { sh.keyframeTake = null; for (const f of fs.readdirSync(d)) if (/^keyframe\./i.test(f)) fs.unlinkSync(path.join(d, f)); const next = fs.readdirSync(path.join(d, "takes")).filter(f => /\.(png|jpe?g|webp)$/i.test(f)).sort().pop(); if (next) setInUse(s, ep, sh, next); }
     return storyForApp(saveStory(s));
   },
+  "POST /api/shot/note/add": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); const d = notesDir(s, ep, sh); fs.mkdirSync(d, { recursive: true });
+    const id = newId(), n = { id, t: b.t != null ? Math.max(0, +b.t || 0) : null, box: b.box && ["x", "y", "w", "h"].every(k => isFinite(+b.box[k])) ? { x: +b.box.x, y: +b.box.y, w: +b.box.w, h: +b.box.h } : null, text: String(b.text || "").trim(), pics: [] };
+    if (b.frame) { const { ext, buf } = dataUri(b.frame); n.frame = `${stamp()} note ${id.slice(0, 5)}.${ext}`; fs.writeFileSync(path.join(d, n.frame), buf); }
+    for (const [k, x] of (b.pics || []).slice(0, 4).entries()) { const { ext, buf } = dataUri(x); const f = `${stamp()} note ${id.slice(0, 5)} picture ${k + 1}.${ext}`; fs.writeFileSync(path.join(d, f), buf); n.pics.push(f); }
+    if (!n.text && !n.box && !n.pics.length) throw httpErr(400, "Type a note, or draw a box on the frame.");
+    sh.vnotes = (sh.vnotes || []).concat(n); return storyForApp(saveStory(s)); },
+  "POST /api/shot/note/delete": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot); sh.vnotes = (sh.vnotes || []).filter(n => n.id !== b.note); return storyForApp(saveStory(s)); },
+  "POST /api/gen/vfix": async (req) => { const b = await body(req); return runVideoFix({ storyId: b.story, epId: b.ep, shotId: b.shot, modelKey: b.model || settings().defaultVideo, seconds: +b.seconds || 5, ask: b.ask }); },
   "POST /api/gen/video": async (req) => { const b = await body(req); return await runVideoJob({ storyId: b.story, epId: b.ep, shotId: b.shot, modelKey: b.model || settings().defaultVideo, prompt: b.prompt, seconds: +b.seconds || 5 }); },
   "GET /api/refs": () => refsForApp(),
   "GET /api/refs/suggest": (req, url) => suggestRefs(loadStory(url.searchParams.get("story"))),
