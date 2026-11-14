@@ -92,7 +92,7 @@ function shotMedia(s, ep, sh) {
   const vid = sh.videoTake && fs.existsSync(path.join(takesDir, sh.videoTake)) ? fileUrl(path.join(takesDir, sh.videoTake)) : null;
   return { keyframe: kf, video: vid, takes };
 }
-function storyForApp(s) { return { ...s, episodes: s.episodes.map(ep => ({ ...ep, shots: ep.shots.map(sh => ({ ...sh, media: shotMedia(s, ep, sh), job: Object.values(JOBS).find(j => j.shot === sh.id && j.status === "running") || null })) })) }; }
+function storyForApp(s) { return { ...s, styleImages: (s.styleRefs || []).filter(f => fs.existsSync(path.join(storiesDir(), s.dir, "Style", f))).map(f => ({ file: f, url: fileUrl(path.join(storiesDir(), s.dir, "Style", f)) })), episodes: s.episodes.map(ep => ({ ...ep, shots: ep.shots.map(sh => ({ ...sh, media: shotMedia(s, ep, sh), job: Object.values(JOBS).find(j => j.shot === sh.id && j.status === "running") || null })) })) }; }
 
 // ---------- scripts: one script.txt per episode folder; old versions kept in "script history" ----------
 const scriptPath = (s, ep) => path.join(storiesDir(), s.dir, ep.dir, "script.txt");
@@ -219,7 +219,7 @@ function addCardTake(c, im, buf, ext, source) {
 function cardForApp(c) {
   const abs = cardPath(c);
   return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "",
-    images: c.images.map(im => ({ id: im.id, label: im.label, prompt: im.prompt, framing: im.framing, notes: im.notes, change: im.change, thread: im.thread || [], art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
+    images: c.images.map(im => ({ id: im.id, label: im.label, prompt: im.prompt, framing: im.framing, notes: im.notes, change: im.change, xrefs: im.xrefs || [], thread: im.thread || [], art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
       takes: im.takes.filter(t => fs.existsSync(path.join(abs, "takes", t))).map(t => ({ file: t, url: fileUrl(path.join(abs, "takes", t)), inUse: t === im.take, kind: "image" })).reverse() })) };
 }
 const refsForApp = () => readCards().map(cardForApp).sort((a, b) => a.name.localeCompare(b.name));
@@ -227,10 +227,11 @@ const refsForApp = () => readCards().map(cardForApp).sort((a, b) => a.name.local
 function resolveRefs(picks, s, ep) {
   const cards = picks && picks.length ? readCards() : []; const out = [];
   for (const p of picks || []) {
+    if (p.style && p.story) { try { const st = loadStory(p.story); const f = path.join(storiesDir(), st.dir, "Style", path.basename(p.style)); if (fs.existsSync(f)) out.push({ file: f, kind: "style" }); } catch {} continue; }
     if (p.shot && s && ep) { const sh = ep.shots.find(x => x.id === p.shot); if (sh && sh.keyframeTake) out.push({ file: path.join(shotPath(s, ep, sh), "takes", sh.keyframeTake), kind: "shot" }); continue; }
     const c = cards.find(x => x.id === p.card); if (!c) continue; const im = c.images.find(x => x.id === p.image) || c.images.find(x => x.take);
     const take = im && (p.take && im.takes.includes(path.basename(p.take)) ? path.basename(p.take) : im.take);
-    if (take) out.push({ file: path.join(cardPath(c), "takes", take), kind: c.kind, look: c.look, label: im.label });
+    if (take) out.push({ file: path.join(cardPath(c), "takes", take), kind: p.asStyle ? "style" : c.kind, look: c.look, label: im.label });
   }
   return out;
 }
@@ -238,7 +239,7 @@ function resolveRefs(picks, s, ep) {
 function refLegend(refs, sameSubject, edit) {
   if (!refs.length) return "";
   if (edit) return "Reference images: image 1 is the image to change: keep everything the instructions don't mention (the person, pose, framing, art style, background)" + (refs.length > 1 ? "; " + refs.slice(1).map((r, i) => `image ${i + 2} shows the same subject, for its look`).join("; ") : "") + ".";
-  const what = r => sameSubject ? "the same subject: keep who or what it is (face, hair and build for a person; shape and design for a place or object)"
+  const what = r => r.kind === "style" ? "a style reference: copy only how it's drawn, coloured and lit, not who or what is in it" : sameSubject ? "the same subject: keep who or what it is (face, hair and build for a person; shape and design for a place or object)"
     : r.kind === "character" ? `a character${r.look ? ` (${r.look})` : ""}: keep this person's face, hair, build and outfit exactly`
     : r.kind === "location" ? "the location: match this place, its layout and its key details"
     : r.kind === "prop" ? `a prop${r.look ? ` (${r.look})` : ""}: match it exactly`
@@ -333,6 +334,9 @@ async function smallImage(abs) {
   if (!fs.existsSync(small)) { fs.mkdirSync(path.dirname(small), { recursive: true }); try { await ffmpeg(["-i", abs, "-vf", "scale='min(1024,iw)':'min(1024,ih)':force_original_aspect_ratio=decrease", "-q:v", "3", "-frames:v", "1", small]); } catch { fs.copyFileSync(abs, small); } }
   return "data:image/jpeg;base64," + fs.readFileSync(small).toString("base64");
 }
+const PROMPT_WRITER_WORLD = `
+WORLD AND ERA: when the story's world is given, everything you write must belong to it: clothes, materials, hairstyles, tools, buildings. Nothing from another era or from modern life (no jeans, zips, sneakers, plastic, printed logos) unless the world says so. Name the period-correct version ("hand-woven linen tunic", "leather lace-up boots") rather than leaving it vague, and add one line to the prompt saying what to avoid.
+STYLE IMAGES: images marked as style references show how the story is drawn. Describe their drawing, colouring and lighting in ART DIRECTION and LIGHTING; never copy who or what is in them.`;
 const PROMPT_WRITER = `You write prompts for AI image models (Seedream, Nano Banana, FLUX) inside GASP, an app for AI-made animated shorts.
 Write ONE complete image prompt in plain text, in these sections, each a short paragraph: CHARACTER, CLOTHING, POSE AND EXPRESSION, ART DIRECTION, LIGHTING, COMPOSITION. (For a place or an object, use SUBJECT instead of CHARACTER and CLOTHING.)
 How to write it:
@@ -344,14 +348,14 @@ How to write it:
 - Never contradict yourself (one expression, one outfit, one art style).
 - When you're asked to change an existing prompt, keep everything the writer didn't ask to change. When a result image is attached, it's what the current prompt produced: use it to see what went wrong.
 Reply with the prompt only: no preamble, no quotes, no markdown fences.`;
-async function writeImagePrompt({ card, im, ask, prompt, refFiles, resultFile, story }) {
+async function writeImagePrompt({ card, im, ask, prompt, refFiles, styleFiles = [], resultFile, story }) {
   const cs = chatSetting();
-  const intro = [`Image type: ${im.label} (${card.kind}).`, card.look ? `The card's look: ${card.look}` : "", story && story.artDirection ? `The story's art direction:\n${story.artDirection}` : "", story && story.styleLine ? `The story's style line: ${story.styleLine}` : "",
-    prompt && prompt.trim() ? `Current prompt:\n${prompt}` : "There's no prompt yet: write one.", refFiles.length ? `Attached first: ${refFiles.length} reference image${refFiles.length === 1 ? "" : "s"} of this ${card.kind}.` : "No reference images.", resultFile ? "Attached last: the latest result from the current prompt." : "",
+  const intro = [`Image type: ${im.label} (${card.kind}).`, card.look ? `The card's look: ${card.look}` : "", story && story.world ? `The story's world and era:\n${story.world}` : "", story && story.artDirection ? `The story's art direction:\n${story.artDirection}` : "", story && story.styleLine ? `The story's style line: ${story.styleLine}` : "",
+    prompt && prompt.trim() ? `Current prompt:\n${prompt}` : "There's no prompt yet: write one.", refFiles.length ? `Attached first: ${refFiles.length} reference image${refFiles.length === 1 ? "" : "s"} of this ${card.kind}.` : "No reference images of this " + card.kind + ".", styleFiles.length ? `Attached next: ${styleFiles.length} style reference image${styleFiles.length === 1 ? "" : "s"} (how the story is drawn; ignore who or what is in them).` : "", resultFile ? "Attached last: the latest result from the current prompt." : "",
     `The writer says: ${ask && ask.trim() ? ask : (prompt && prompt.trim() ? "Improve this prompt." : "Write the prompt.")}`].filter(Boolean).join("\n\n");
   if (process.env.GASP_DRY) return { prompt: `CHARACTER:\n(dry run) ${card.look || "a character"} — ${ask || "first draft"}.\n\nART DIRECTION:\n2D animated feature style.\n\nCOMPOSITION:\n${im.label}, plain white background, no text.`, cost: 0 };
-  const parts = [{ type: "text", text: intro }]; for (const f of refFiles) parts.push({ type: "image_url", image_url: { url: await smallImage(f) } }); if (resultFile) parts.push({ type: "image_url", image_url: { url: await smallImage(resultFile) } });
-  const r = await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: PROMPT_WRITER }, { role: "user", content: parts }], maxTokens: 1800, timeoutMs: 120000 });
+  const parts = [{ type: "text", text: intro }]; for (const f of refFiles.concat(styleFiles)) parts.push({ type: "image_url", image_url: { url: await smallImage(f) } }); if (resultFile) parts.push({ type: "image_url", image_url: { url: await smallImage(resultFile) } });
+  const r = await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: PROMPT_WRITER + PROMPT_WRITER_WORLD }, { role: "user", content: parts }], maxTokens: 1800, timeoutMs: 120000 });
   return { prompt: r.text.replace(/^```\w*\n?|```$/g, "").trim(), cost: r.cost };
 }
 
@@ -496,7 +500,7 @@ const routes = {
   "POST /api/ref/image/new": async (req) => { const b = await body(req); const c = findCard(b.card); const im = { id: newId(), label: clean(b.label || "image " + (c.images.length + 1), 40), takes: [], take: null, art: !!b.art || undefined }; c.images.push(im);
     if (b.image) { const { ext, buf } = dataUri(b.image); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); } writeCard(c); return { refs: refsForApp(), image: im.id }; },
   "POST /api/ref/image/set": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const { ext, buf } = dataUri(b.image64); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); writeCard(c); return refsForApp(); },
-  "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); if ("framing" in b || "notes" in b || "change" in b || "prompt" in b) { if ("prompt" in b) im.prompt = String(b.prompt || ""); if ("framing" in b) im.framing = String(b.framing || ""); if ("notes" in b) im.notes = String(b.notes || ""); if ("change" in b) im.change = String(b.change || ""); writeCard(c); if (!("label" in b)) return refsForApp(); }
+  "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); if ("framing" in b || "notes" in b || "change" in b || "prompt" in b || "xrefs" in b) { if ("prompt" in b) im.prompt = String(b.prompt || ""); if ("xrefs" in b) im.xrefs = (b.xrefs || []).filter(x => x && x.card && x.image).slice(0, 6); if ("framing" in b) im.framing = String(b.framing || ""); if ("notes" in b) im.notes = String(b.notes || ""); if ("change" in b) im.change = String(b.change || ""); writeCard(c); if (!("label" in b)) return refsForApp(); }
     const old = im.take ? path.join(cardPath(c), topName(im)) : null; im.label = clean(b.label, 40); if (old && fs.existsSync(old)) { try { fs.renameSync(old, path.join(cardPath(c), topName(im))); } catch {} } writeCard(c); return refsForApp(); },
   "POST /api/ref/image/delete": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
     for (const t of im.takes) { const abs = path.join(cardPath(c), "takes", t); if (fs.existsSync(abs)) toTrash(abs, `Reference - ${c.name} - ${t}`); } if (im.take) { try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} }
@@ -519,11 +523,21 @@ const routes = {
   "POST /api/ref/write": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
     const refFiles = (b.refs || []).map(id => { const x = c.images.find(y => y.id === id); return x && x.take ? path.join(cardPath(c), "takes", x.take) : null; }).filter(Boolean).slice(0, 6);
     const resultFile = b.withResult && im.take ? path.join(cardPath(c), "takes", im.take) : null;
-    let story = null; if (b.story) { try { const s = loadStory(b.story); const ep = b.ep ? s.episodes.find(e => e.id === b.ep) : null; story = { artDirection: s.artDirection || "", styleLine: ep && ep.style || "" }; } catch {} }
-    const r = await writeImagePrompt({ card: c, im, ask: b.ask, prompt: b.prompt, refFiles, resultFile, story });
+    let story = null; if (b.story) { try { const s = loadStory(b.story); const ep = b.ep ? s.episodes.find(e => e.id === b.ep) : null; story = { world: s.world || "", artDirection: s.artDirection || "", styleLine: ep && ep.style || "" }; } catch {} }
+    const styleFiles = resolveRefs(b.style || [], null, null).map(x => x.file).slice(0, 4);
+    const r = await writeImagePrompt({ card: c, im, ask: b.ask, prompt: b.prompt, refFiles, styleFiles, resultFile, story });
     im.prompt = r.prompt; writeCard(c); logSpend({ story: "Reference", episode: "", shot: `${c.name} · ${im.label}`, kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost || 0, file: "" });
     return { prompt: r.prompt, cost: r.cost, refs: refsForApp() }; },
-  "POST /api/story/art": async (req) => { const b = await body(req); const s = loadStory(b.story); s.artDirection = String(b.text || ""); saveStory(s); return storyForApp(s); },
+  "POST /api/story/art": async (req) => { const b = await body(req); const s = loadStory(b.story); if ("text" in b) s.artDirection = String(b.text || ""); if ("world" in b) s.world = String(b.world || ""); saveStory(s); return storyForApp(s); },
+  "POST /api/story/style/add": async (req) => { const b = await body(req); const s = loadStory(b.story); const dir = path.join(storiesDir(), s.dir, "Style"); fs.mkdirSync(dir, { recursive: true });
+    const { ext, buf } = dataUri(b.image); const f = `${stamp()} ${clean(String(b.name || "style").replace(/\.[a-z0-9]+$/i, ""), 50)}.${ext}`; fs.writeFileSync(path.join(dir, f), buf); s.styleRefs = (s.styleRefs || []).concat(f); saveStory(s); return storyForApp(s); },
+  "POST /api/story/style/delete": async (req) => { const b = await body(req); const s = loadStory(b.story); const f = path.basename(b.file); const abs = path.join(storiesDir(), s.dir, "Style", f); if (fs.existsSync(abs)) toTrash(abs, `${s.dir} - Style - ${f}`); s.styleRefs = (s.styleRefs || []).filter(x => x !== f); saveStory(s); return storyForApp(s); },
+  // Claude writes a card's Look (one line) from its picture
+  "POST /api/ref/look": async (req) => { const b = await body(req); const c = findCard(b.card); const im = c.images.find(x => x.id === b.image && x.take) || c.images.find(x => !x.art && x.take && /full/i.test(x.label)) || c.images.find(x => !x.art && x.take) || c.images.find(x => x.take);
+    if (!im) throw httpErr(400, "Add or generate an image of this card first."); let world = ""; if (b.story) { try { world = loadStory(b.story).world || ""; } catch {} }
+    let look; if (process.env.GASP_DRY) look = `(dry run) ${c.kind} as seen in ${im.label}`;
+    else { const cs = chatSetting(); const r = await chatCall({ provider: cs.provider, model: cs.model, maxTokens: 200, timeoutMs: 60000, messages: [{ role: "user", content: [{ type: "text", text: `Describe this ${c.kind} in ONE line of comma-separated phrases, for reuse in image prompts: ${c.kind === "character" ? "who they are (age, build), face, hair, and what they're wearing" : "what it is, its shape, materials and colours"}. Start with a plain noun (${c.kind === "character" ? "woman, man, girl, old farmer…" : "stone well, hunting knife…"}). No name, no art style, no lighting, no background. ${world ? "The world: " + world + "." : ""} Reply with the line only.` }, { type: "image_url", image_url: { url: await smallImage(path.join(cardPath(c), "takes", im.take)) } }] }] }); look = r.text.trim().replace(/^["'`]+|["'`]+$/g, "").split("\n")[0]; logSpend({ story: "Reference", episode: "", shot: `${c.name} · look`, kind: "prompt", model: cs.model, seconds: 0, cost: r.cost || 0, file: "" }); }
+    c.look = look; writeCard(c); return { look, refs: refsForApp() }; },
   "POST /api/ref/thread/clear": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); im.thread = []; writeCard(c); return refsForApp(); },
   "POST /api/gen/cutout": async (req) => { const b = await body(req); return runCutoutJob({ cardId: b.card, imageId: b.image, toolKey: b.tool || settings().defaultCutout }); },
   "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); const t = readScript(s, ep), h = SF.withHeader(t, s.title, ep.num, ep.title); if (h !== t) writeScript(s, ep, h, false); return { text: h, path: scriptPath(s, ep) }; },

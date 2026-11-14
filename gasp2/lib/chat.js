@@ -109,7 +109,7 @@ HOW TO WRITE A SCRIPT (a new episode, or turning beats into shots)
 Rules: never invent [[#…]] tags; GASP adds them. Never add a reference-image section or anything after the last shot. Use replace_script for rewrites of the episode and keep every existing [[#id]] tag on the SHOT lines you keep (that's how GASP keeps each shot's images and videos). Use update_shot for changes to one or a few shots' prompts. Only include the fields you change. Don't propose changes when the writer is only asking a question or brainstorming; talk first. Put a sentence of explanation outside the blocks, never inside them.
 
 CURRENT PROJECT
-Story: ${story.title}
+Story: ${story.title}${story.world ? "\nWorld and era (everything you write must fit it: clothes, objects, places, speech): " + story.world : ""}${story.artDirection ? "\nArt direction: " + story.artDirection : ""}
 Episode ${ep.num}: ${ep.title} · format ${ep.aspect || "9:16"}${ep.style ? " · style: " + ep.style : ""}
 Video model for this project: ${videoModel ? videoModel.label + " (makes " + videoModel.durations.join(", ") + " s clips)" : "not set"}
 Characters named in the script: ${characters.length ? characters.join(", ") : "(none yet)"}
