@@ -381,7 +381,20 @@ How to write it:
 - Frame it for the given aspect. No text, captions or logos in the image.
 - Never contradict yourself. When you're asked to change an existing prompt, keep everything the writer didn't ask to change. When the current keyframe is attached, it's what the current prompt produced: use it to see what went wrong.
 - About 120 to 220 words. Reply with the paragraph only: no preamble, no quotes, no markdown, no line breaks.`;
-async function writeShotPrompt({ s, ep, sh, ask, prompt, picks, withResult }) {
+const MOTION_WRITER = `You write the MOTION prompt for one shot inside GASP, an app for AI-made animated shorts. A video model (Kling, Seedance, Veo and the like) animates the shot's keyframe (attached) using your prompt.
+Write ONE paragraph of plain text, in this order:
+1. The camera: "Locked-off static camera, no cuts." or one named move ("slow push-in on her face", "gentle pan left"). Follow the shot's frame and any camera rule in the script. One move at most.
+2. Each character's action in order, by NAME IN CAPS exactly as listed (MOTHER, TOY SOLDIER): what they do, how it moves (pace, weight, rhythm), and where it ends. One or two actions per person for the shot's length; never more than fits. Dialogue lines in the shot: say who speaks and how ("MOTHER looks up and speaks softly"), never the words.
+3. The ambient motion (wind in grass, dust, smoke, light flicker), then the overall pace ("calm, unhurried, natural movement").
+How to write it:
+- The keyframe already shows who and where: never describe looks, clothes, art style or the setting again. Only describe movement and change.
+- Every action must start from what's in the keyframe and stay possible in it (no one walks in from nowhere unless the beat says so).
+- Concrete physical verbs, no feelings without a visible action. No text on screen, no cuts, no new characters.
+- Set up the next shot when it matters (end on the look or pose it cuts to).
+- When you're asked to change an existing prompt, keep what the writer didn't ask to change.
+- About 40 to 90 words. Reply with the paragraph only: no preamble, no quotes, no markdown, no line breaks.`;
+async function writeShotPrompt({ s, ep, sh, ask, prompt, picks, withResult, field = "image" }) {
+  const motion = field === "motion";
   const cs = chatSetting(), i = ep.shots.indexOf(sh), aspect = ep.aspect || "9:16", cards = readCards(), pics = [];
   for (const p of picks || []) {
     if (p.shot) { const o = ep.shots.find(x => x.id === p.shot); if (o && o.keyframeTake) pics.push({ label: `the previous shot's keyframe (shot ${ep.shots.indexOf(o) + 1}): match its light, palette and how it's drawn`, file: path.join(shotPath(s, ep, o), "takes", o.keyframeTake) }); continue; }
@@ -396,12 +409,14 @@ async function writeShotPrompt({ s, ep, sh, ask, prompt, picks, withResult }) {
     names.length ? `Cards (use these NAMES IN CAPS):\n${names.join("\n")}` : "No cards yet: describe everyone in full.",
     `The episode, shot by shot:\n${ep.shots.map((o, k) => `${k + 1}. ${o.title}${k === i ? "   <- this shot" : ""}`).join("\n")}`,
     [near(i - 1, "The shot before"), near(i + 1, "The shot after")].filter(Boolean).join("\n"), `This shot:\n${beat}`,
-    prompt && prompt.trim() ? `Current IMAGE prompt:\n${prompt}` : "There's no IMAGE prompt yet: write one.",
-    pics.length ? `Attached, in order: ${pics.map((x, k) => `${k + 1}) ${x.label}`).join("; ")}.` : "", result ? "Attached last: the current keyframe, made from the current prompt." : "",
-    `The writer says: ${ask && ask.trim() ? ask : prompt && prompt.trim() ? "Rewrite this prompt to the standard above: cards by NAME IN CAPS with no looks, and a strong camera, pose, light and composition for this beat." : "Write the prompt."}`].filter(Boolean).join("\n\n");
+    motion ? (sh.imagePrompt ? `The shot's IMAGE prompt (what the keyframe shows):\n${sh.imagePrompt}` : "") : "",
+    prompt && prompt.trim() ? `Current ${motion ? "MOTION" : "IMAGE"} prompt:\n${prompt}` : `There's no ${motion ? "MOTION" : "IMAGE"} prompt yet: write one.`,
+    motion ? (result ? "Attached: the shot's keyframe, the first frame of the video." : "There's no keyframe yet: work from the IMAGE prompt.") : pics.length ? `Attached, in order: ${pics.map((x, k) => `${k + 1}) ${x.label}`).join("; ")}.` : "", !motion && result ? "Attached last: the current keyframe, made from the current prompt." : "",
+    `The writer says: ${ask && ask.trim() ? ask : motion ? (prompt && prompt.trim() ? "Rewrite this to the standard above: camera first, each action by NAME IN CAPS with its pace and end point, then the ambient motion and pace." : "Write the prompt.") : prompt && prompt.trim() ? "Rewrite this prompt to the standard above: cards by NAME IN CAPS with no looks, and a strong camera, pose, light and composition for this beat." : "Write the prompt."}`].filter(Boolean).join("\n\n");
+  if (process.env.GASP_DRY && motion) return { prompt: `Locked-off static camera, no cuts. (dry run) ${sh.who ? sh.who.split(/\s*,\s*/)[0].toUpperCase() : "Someone"} ${ask || "moves slowly"}. A light breeze moves the grass. Calm, unhurried, natural movement.`, cost: 0 };
   if (process.env.GASP_DRY) return { prompt: `Camera: (dry run) medium shot for "${sh.title}". Action: ${sh.who ? sh.who.toUpperCase() : "someone"} ${ask || "at work"}. Setting: ${sh.location || "the place"}. Lighting: warm afternoon light. Composition: subject on the left third.`, cost: 0 };
-  const parts = [{ type: "text", text: intro }]; for (const x of pics.slice(0, 6)) parts.push({ type: "image_url", image_url: { url: await smallImage(x.file, 768) } }); if (result) parts.push({ type: "image_url", image_url: { url: await smallImage(result, 768) } });
-  const r = await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: SHOT_WRITER }, { role: "user", content: parts }], maxTokens: 1200, timeoutMs: 120000 });
+  const parts = [{ type: "text", text: intro }]; for (const x of motion ? [] : pics.slice(0, 6)) parts.push({ type: "image_url", image_url: { url: await smallImage(x.file, 768) } }); if (result) parts.push({ type: "image_url", image_url: { url: await smallImage(result, 768) } });
+  const r = await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: motion ? MOTION_WRITER : SHOT_WRITER }, { role: "user", content: parts }], maxTokens: 1200, timeoutMs: 120000 });
   return { prompt: r.text.replace(/^```\w*\n?|```$/g, "").replace(/\s*\n+\s*/g, " ").trim(), cost: r.cost };
 }
 
@@ -595,8 +610,9 @@ const routes = {
     if (im.take === t) { const next = im.takes.filter(x => fs.existsSync(path.join(cardPath(c), "takes", x))).pop() || null; try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} im.take = null; if (next) setImageInUse(c, im, next); }
     writeCard(c); return refsForApp(); },
   "POST /api/shot/write": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot);
-    const r = await writeShotPrompt({ s, ep, sh, ask: b.ask, prompt: b.prompt != null ? b.prompt : sh.imagePrompt, picks: b.refs || [], withResult: !!b.withResult });
-    const s2 = loadStory(b.story); const ep2 = epOf(s2, b.ep); updateShot(s2, ep2, shotOf(ep2, b.shot), { imagePrompt: r.prompt });
+    const field = b.field === "motion" ? "motion" : "image";
+    const r = await writeShotPrompt({ s, ep, sh, field, ask: b.ask, prompt: b.prompt != null ? b.prompt : field === "motion" ? sh.motionPrompt : sh.imagePrompt, picks: b.refs || [], withResult: field === "motion" || !!b.withResult });
+    const s2 = loadStory(b.story); const ep2 = epOf(s2, b.ep); updateShot(s2, ep2, shotOf(ep2, b.shot), { [field === "motion" ? "motionPrompt" : "imagePrompt"]: r.prompt });
     logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.findIndex(x => x.id === b.shot) + 1, kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost || 0, file: "" });
     return { prompt: r.prompt, cost: r.cost, story: storyForApp(saveStory(s2)) }; },
   "POST /api/gen/keyframe": async (req) => { const b = await body(req); return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
