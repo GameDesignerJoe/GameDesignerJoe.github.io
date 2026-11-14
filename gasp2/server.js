@@ -371,6 +371,40 @@ async function writeImagePrompt({ card, im, ask, prompt, refFiles, styleFiles = 
 }
 
 
+// ---------- Claude writes a shot's IMAGE prompt (it sees the shot's reference pictures, the script beat and the episode around it) ----------
+const SHOT_WRITER = `You write the IMAGE prompt for one keyframe inside GASP, an app for AI-made animated shorts. The keyframe is the first frame of a video shot: one frozen moment that the MOTION prompt then animates.
+Write ONE paragraph of plain text in these labelled parts, in this order: "Camera:" (shot size, angle, lens feel), "Action:" (who is where, doing what, their pose and expression at this exact moment), "Setting:" (the place at this moment, the props, the weather), "Lighting:" (time of day, the light and colour for this point in the episode), "Composition:" (where things sit in the frame, foreground and background, depth, what draws the eye).
+How to write it:
+- Write every character, place and prop that has a card by its NAME IN CAPS exactly as listed (MOTHER, FARM YARD, TOY SOLDIER). GASP swaps in their looks and attaches their pictures, so NEVER describe their face, hair, build or usual clothes. Describe only what is different in this shot (mud on the dress, a torn sleeve, soaked hair). Anyone or anything without a card: describe them in full.
+- Never write the art style or the world and era: GASP adds the story's art direction and world to every keyframe. But everything you write must belong to that world (no modern objects or clothes).
+- Make it specific to this shot: precise poses and expressions that carry the beat's emotion, a real camera choice, and the light at this point in the story's arc so the episode reads as one film. Set up the pose that the MOTION starts from.
+- Frame it for the given aspect. No text, captions or logos in the image.
+- Never contradict yourself. When you're asked to change an existing prompt, keep everything the writer didn't ask to change. When the current keyframe is attached, it's what the current prompt produced: use it to see what went wrong.
+- About 120 to 220 words. Reply with the paragraph only: no preamble, no quotes, no markdown, no line breaks.`;
+async function writeShotPrompt({ s, ep, sh, ask, prompt, picks, withResult }) {
+  const cs = chatSetting(), i = ep.shots.indexOf(sh), aspect = ep.aspect || "9:16", cards = readCards(), pics = [];
+  for (const p of picks || []) {
+    if (p.shot) { const o = ep.shots.find(x => x.id === p.shot); if (o && o.keyframeTake) pics.push({ label: `the previous shot's keyframe (shot ${ep.shots.indexOf(o) + 1}): match its light, palette and how it's drawn`, file: path.join(shotPath(s, ep, o), "takes", o.keyframeTake) }); continue; }
+    const c = cards.find(x => x.id === p.card); if (!c) continue; const im = c.images.find(x => x.id === p.image && x.take) || c.images.find(x => x.take); if (!im) continue;
+    pics.push({ label: `${c.kind} ${c.name.toUpperCase()} (picture "${im.label}")`, file: path.join(cardPath(c), "takes", im.take) }); }
+  const result = withResult && sh.keyframeTake ? path.join(shotPath(s, ep, sh), "takes", sh.keyframeTake) : null;
+  const names = cards.filter(c => c.look || c.images.some(x => x.take)).map(c => `- ${c.name.toUpperCase()}${(c.aliases || []).length ? ` (also ${c.aliases.map(a => a.toUpperCase()).join(", ")})` : ""}, ${c.kind}${c.look ? ": " + c.look : ""}`);
+  const near = (k, what) => { const o = ep.shots[k]; return o ? `${what} (shot ${k + 1}, "${o.title}"): ${o.imagePrompt || "(no image prompt)"}${o.motionPrompt ? " | MOTION: " + o.motionPrompt : ""}` : ""; };
+  const beat = [`Shot ${i + 1} of ${ep.shots.length}: "${sh.title}"`, sh.frame ? `Frame: ${sh.frame}` : "", sh.location ? `Location: ${sh.location}` : "", sh.who ? `WHO: ${sh.who}` : "", sh.seconds ? `Length: ${sh.seconds}s` : "",
+    sh.motionPrompt ? `MOTION: ${sh.motionPrompt}` : "", (sh.lines || []).length ? "Dialogue:\n" + sh.lines.map(l => `${l.who.toUpperCase()}${l.how ? ` (${l.how})` : ""}: ${l.text}`).join("\n") : "", (sh.sfx || []).length ? `Sound: ${sh.sfx.join("; ")}` : "", sh.notes ? `Writer's notes: ${sh.notes}` : ""].filter(Boolean).join("\n");
+  const intro = [s.world ? `The story's world and era:\n${s.world}` : "", s.artDirection ? `The story's art direction (GASP adds it; don't repeat it):\n${s.artDirection}` : ep.style ? `The episode's style line (GASP adds it; don't repeat it): ${ep.style}` : "", `Frame: ${aspect} ${aspect === "9:16" ? "vertical" : aspect === "16:9" ? "widescreen" : "square"}.`,
+    names.length ? `Cards (use these NAMES IN CAPS):\n${names.join("\n")}` : "No cards yet: describe everyone in full.",
+    `The episode, shot by shot:\n${ep.shots.map((o, k) => `${k + 1}. ${o.title}${k === i ? "   <- this shot" : ""}`).join("\n")}`,
+    [near(i - 1, "The shot before"), near(i + 1, "The shot after")].filter(Boolean).join("\n"), `This shot:\n${beat}`,
+    prompt && prompt.trim() ? `Current IMAGE prompt:\n${prompt}` : "There's no IMAGE prompt yet: write one.",
+    pics.length ? `Attached, in order: ${pics.map((x, k) => `${k + 1}) ${x.label}`).join("; ")}.` : "", result ? "Attached last: the current keyframe, made from the current prompt." : "",
+    `The writer says: ${ask && ask.trim() ? ask : prompt && prompt.trim() ? "Rewrite this prompt to the standard above: cards by NAME IN CAPS with no looks, and a strong camera, pose, light and composition for this beat." : "Write the prompt."}`].filter(Boolean).join("\n\n");
+  if (process.env.GASP_DRY) return { prompt: `Camera: (dry run) medium shot for "${sh.title}". Action: ${sh.who ? sh.who.toUpperCase() : "someone"} ${ask || "at work"}. Setting: ${sh.location || "the place"}. Lighting: warm afternoon light. Composition: subject on the left third.`, cost: 0 };
+  const parts = [{ type: "text", text: intro }]; for (const x of pics.slice(0, 6)) parts.push({ type: "image_url", image_url: { url: await smallImage(x.file, 768) } }); if (result) parts.push({ type: "image_url", image_url: { url: await smallImage(result, 768) } });
+  const r = await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: SHOT_WRITER }, { role: "user", content: parts }], maxTokens: 1200, timeoutMs: 120000 });
+  return { prompt: r.text.replace(/^```\w*\n?|```$/g, "").replace(/\s*\n+\s*/g, " ").trim(), cost: r.cost };
+}
+
 // Style pictures never go to the image model: shown a picture of Mother as "style only", models draw Mother.
 // Instead Claude looks at them and describes just the style in words, and that text joins the prompt. Cached per set of pictures.
 const STYLE_CACHE = () => path.join(LIB(), ".style-descriptions.json");
@@ -436,6 +470,13 @@ async function runVideoJob({ storyId, epId, shotId, modelKey, prompt, seconds })
 }
 
 
+// what every keyframe gets from the story: its art direction (or the script's STYLE line when there's none yet) and its world and era
+function storyLookText(s, ep) {
+  const art = String(s.artDirection || "").trim(), world = String(s.world || "").trim(), style = String(ep && ep.style || "").trim();
+  return [art ? `Art direction: ${art.replace(/\.?\s*$/, ".")}` : style ? `Style: ${style.replace(/\.?\s*$/, ".")}` : "",
+    world ? `World and era: ${world.replace(/\.?\s*$/, ".")} Everything in the picture belongs to this world: clothes, tools, buildings and materials; nothing modern.` : ""].filter(Boolean).join("\n\n");
+}
+
 // keyframes for a shot, or images for a reference card. Every result is kept as a take; the first is put in use only if nothing is.
 function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit }) {
   const model = MODELS.image[modelKey]; if (!model) throw httpErr(400, "unknown image model");
@@ -444,7 +485,7 @@ function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit
   else { c = findCard(target.card); im = imageOf(c, target.image); aspect = target.aspect || (c.kind === "location" ? "16:9" : c.kind === "prop" ? "1:1" : "9:16"); base = path.join(cardPath(c), "takes", `${stamp()} ${clean(im.label, 40)} - ${modelKey}`); label = "reference"; }
   if (!String(prompt || "").trim()) throw httpErr(400, "Write a prompt first.");
   const refs = resolveRefs(picks, s, ep).slice(0, model.maxRefs || 4);
-  const full = [sh && ep.style ? `Style: ${ep.style}.` : "", String(prompt).trim(), refLegend(refs, sameSubject, edit), `${aspect} ${aspect === "9:16" ? "vertical" : aspect === "16:9" ? "widescreen" : "square"} frame.`].filter(Boolean).join("\n\n");
+  const full = [String(prompt).trim(), sh ? storyLookText(s, ep) : "", refLegend(refs, sameSubject, edit), `${aspect} ${aspect === "9:16" ? "vertical" : aspect === "16:9" ? "widescreen" : "square"} frame.`].filter(Boolean).join("\n\n");
   const job = { id: newId(), kind: label, shot: sh ? sh.id : null, story: s ? s.id : null, card: c ? c.id : null, image: im ? im.id : null, thread: target.thread || undefined, model: modelKey, count: count || 1, refs: refs.length, prompt: full, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try {
@@ -553,6 +594,11 @@ const routes = {
     if (fs.existsSync(abs)) toTrash(abs, `Reference - ${c.name} - ${t}`); im.takes = im.takes.filter(x => x !== t);
     if (im.take === t) { const next = im.takes.filter(x => fs.existsSync(path.join(cardPath(c), "takes", x))).pop() || null; try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} im.take = null; if (next) setImageInUse(c, im, next); }
     writeCard(c); return refsForApp(); },
+  "POST /api/shot/write": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const sh = shotOf(ep, b.shot);
+    const r = await writeShotPrompt({ s, ep, sh, ask: b.ask, prompt: b.prompt != null ? b.prompt : sh.imagePrompt, picks: b.refs || [], withResult: !!b.withResult });
+    const s2 = loadStory(b.story); const ep2 = epOf(s2, b.ep); updateShot(s2, ep2, shotOf(ep2, b.shot), { imagePrompt: r.prompt });
+    logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.findIndex(x => x.id === b.shot) + 1, kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost || 0, file: "" });
+    return { prompt: r.prompt, cost: r.cost, story: storyForApp(saveStory(s2)) }; },
   "POST /api/gen/keyframe": async (req) => { const b = await body(req); return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
   "POST /api/gen/ref": async (req) => { const b = await body(req); const picks = b.refs || [], st = await styleText(picks);
     const prompt = st ? `${String(b.prompt || "").trim()}\n\nDraw it in this art style: ${st}` : b.prompt;
