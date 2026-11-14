@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>Vye Micro</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: a game table. Header with tabs, then one working surface per tab: Setup (config panels), Play (board + side rail), Simulate (controls + results). */
+:root {
+  --bg: #E6E9EC; --surface: #F5F6F7; --sunk: #DADFE4; --ink: #1A2027; --muted: #5A6470; --line: #C4CBD3;
+  --brass: #8E6610; --brass-soft: #F1E2BC;
+  --blue: #2C5AA5; --blue-soft: #D7E2F4; --red: #B13939; --red-soft: #F4DADA;
+  --good: #2F7A4C; --warn: #A3641A;
+  --display: "Alegreya SC", "Palatino Linotype", Georgia, serif;
+  --body: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+  --cell: 72px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161B; --surface: #1B2128; --sunk: #232B34; --ink: #E5E8EC; --muted: #98A2AE; --line: #303A45;
+  --brass: #D6A642; --brass-soft: #3A3020; --blue: #6F99E2; --blue-soft: #1E2D47; --red: #E27474; --red-soft: #452525;
+  --good: #63BE86; --warn: #E0A050; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161B; --surface: #1B2128; --sunk: #232B34; --ink: #E5E8EC; --muted: #98A2AE; --line: #303A45;
+  --brass: #D6A642; --brass-soft: #3A3020; --blue: #6F99E2; --blue-soft: #1E2D47; --red: #E27474; --red-soft: #452525;
+  --good: #63BE86; --warn: #E0A050; color-scheme: dark }
+
+* { box-sizing: border-box; scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--body); font-size: 15px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+button { font: inherit; color: inherit; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: .01em; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; }
+
+/* header */
+header.top { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding-block: 18px 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+.mark { display: flex; align-items: baseline; gap: 10px; }
+.mark h1 { font-size: 30px; line-height: 1; }
+.mark .ed { font-size: 13px; color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; background: var(--sunk); padding: 4px; border-radius: 10px; }
+nav.tabs button { border: 0; background: transparent; padding: 7px 16px; border-radius: 7px; cursor: pointer; font-weight: 500; color: var(--muted); }
+nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.spacer { flex: 1; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.primary:hover { opacity: .9; }
+.btn:disabled { opacity: .45; cursor: default; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+/* panels */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.panel h2 { font-size: 19px; margin-bottom: 4px; }
+.panel .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 12px; }
+.grid-setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+.row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); }
+.row:first-of-type { border-top: 0; }
+.row .lbl { flex: 1; min-width: 0; }
+.row .lbl b { font-weight: 500; }
+.row .lbl small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+.chip { display: inline-block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--sunk); color: var(--muted); vertical-align: 2px; margin-left: 4px; }
+.chip.new { background: var(--brass-soft); color: var(--brass); }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none; }
+.stepper button { width: 30px; height: 30px; border: 0; background: var(--sunk); cursor: pointer; font-size: 17px; line-height: 1; }
+.stepper button:disabled { opacity: .35; cursor: default; }
+.stepper output { min-width: 32px; text-align: center; font-weight: 700; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none; flex-wrap: wrap; }
+.seg button { border: 0; background: var(--surface); padding: 5px 11px; cursor: pointer; font-size: 13.5px; border-left: 1px solid var(--line); }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.check input { width: 17px; height: 17px; accent-color: var(--brass); }
+.fam-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.fam-cols h3 { font-size: 15px; display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.dot.p0 { background: var(--blue); } .dot.p1 { background: var(--red); }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 4px; }
+.stat { background: var(--sunk); border-radius: 8px; padding: 10px 12px; }
+.stat .v { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.stat .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.note { font-size: 13.5px; padding: 8px 12px; border-radius: 8px; margin-top: 10px; }
+.note.warn { background: var(--brass-soft); color: var(--warn); }
+.note.ok { background: var(--sunk); color: var(--muted); }
+.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+.presets .k { color: var(--muted); font-size: 13px; margin-right: 4px; }
+
+/* play */
+.play { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .play { grid-template-columns: 1fr; } .fam-cols { grid-template-columns: 1fr; } }
+.table { background: var(--sunk); border-radius: 14px; padding: 18px; position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; }
+.prompt { min-height: 36px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 14.5px; text-align: center; }
+.prompt .who { font-family: var(--display); font-weight: 700; font-size: 17px; }
+.prompt .who.p0 { color: var(--blue); } .prompt .who.p1 { color: var(--red); }
+.board { display: grid; gap: 5px; }
+.cell { width: var(--cell); height: var(--cell); border-radius: 9px; position: relative; }
+.cell.empty { border: 1px dashed transparent; }
+.cell.empty.open { border-color: var(--line); }
+.cell.target { cursor: pointer; }
+.cell.empty.target { border: 2px dashed var(--brass); background: color-mix(in srgb, var(--brass) 10%, transparent); }
+.cell.target:not(.empty) { outline: 3px solid var(--brass); outline-offset: 2px; }
+.cell.target:hover { filter: brightness(1.08); }
+.tile { position: absolute; inset: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: #fff; text-align: center; user-select: none; }
+.tile .g { font-size: calc(var(--cell) * .38); line-height: 1; }
+.tile .n { font-size: calc(var(--cell) * .135); line-height: 1.05; margin-top: 3px; font-weight: 500; padding: 0 3px; }
+.tile.land { background: var(--lc); }
+.tile.fam, .tile.spec, .tile.start { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.tile.spec .g { color: var(--brass); }
+.tile.start .g { color: var(--muted); }
+.tile.sinkhole { background: #3A3F46; color: #C9CED4; border-color: #3A3F46; }
+.tile.sinkhole .g { color: #C9CED4; }
+.pat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; width: calc(var(--cell) * .38); height: calc(var(--cell) * .38); }
+.pat i { border-radius: 2px; background: var(--line); }
+.pat i.on { background: var(--brass); }
+.pat i.me { background: var(--ink); }
+.pat i.opt { background: color-mix(in srgb, var(--brass) 40%, transparent); }
+/* ownership: outline frame + sigil */
+.own { position: absolute; inset: 0; border-radius: 9px; pointer-events: none; }
+.own.p0 { box-shadow: inset 0 0 0 4px var(--blue); }
+.own.p1 { box-shadow: inset 0 0 0 4px var(--red); }
+.own.both { box-shadow: inset 0 0 0 4px var(--blue), inset 0 0 0 7px var(--red); }
+.sig { position: absolute; top: 4px; right: 4px; width: calc(var(--cell) * .27); height: calc(var(--cell) * .27); border-radius: 50%; display: grid; place-items: center; font-size: calc(var(--cell) * .17); color: #fff; line-height: 1; }
+.sig.p0 { background: var(--blue); } .sig.p1 { background: var(--red); }
+.sig.both { background: linear-gradient(90deg, var(--blue) 50%, var(--red) 50%); }
+.stack { position: absolute; bottom: 3px; left: 4px; font-size: 11px; font-weight: 700; background: rgba(0,0,0,.55); color: #fff; padding: 0 5px; border-radius: 4px; }
+.cell.stacked::before { content: ""; position: absolute; inset: 0; transform: translate(3px, 3px); border-radius: 9px; background: var(--line); }
+.cell.last .tile { animation: pop .35s ease-out; }
+.cell.flipped .tile { animation: flip .5s ease-out; }
+.cell.last::after { content: ""; position: absolute; inset: -4px; border-radius: 12px; border: 2px solid var(--ink); opacity: .55; pointer-events: none; }
+.cell.ghost .tile { opacity: .65; }
+@keyframes pop { from { transform: scale(.7); opacity: .2; } to { transform: none; opacity: 1; } }
+@keyframes flip { 0% { transform: rotateY(0); } 50% { transform: rotateY(90deg); } 100% { transform: rotateY(0); } }
+@media (prefers-reduced-motion: reduce) { .cell .tile { animation: none !important; } }
+
+.hand-area { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.hand-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; display: flex; gap: 8px; align-items: center; }
+.hand { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.hcard { width: 78px; height: 78px; border-radius: 10px; position: relative; cursor: pointer; border: 0; padding: 0; background: none; --cell: 78px; }
+.hcard.sel { outline: 3px solid var(--brass); outline-offset: 3px; }
+.hcard.dead { opacity: .4; cursor: not-allowed; }
+.hcard.back { background: repeating-linear-gradient(45deg, var(--line) 0 6px, var(--sunk) 6px 12px); cursor: default; border: 1px solid var(--line); }
+.cardinfo { font-size: 13.5px; color: var(--muted); text-align: center; max-width: 520px; min-height: 20px; }
+.choices { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+.rail { display: flex; flex-direction: column; gap: 14px; }
+.score { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pscore { border-radius: 10px; padding: 10px 12px; border: 2px solid transparent; }
+.pscore.p0 { background: var(--blue-soft); } .pscore.p1 { background: var(--red-soft); }
+.pscore.active.p0 { border-color: var(--blue); } .pscore.active.p1 { border-color: var(--red); }
+.pscore .nm { font-weight: 700; font-size: 14px; display: flex; gap: 6px; align-items: center; }
+.pscore .big { font-size: 30px; font-weight: 700; line-height: 1.1; }
+.pscore .sm { font-size: 12.5px; color: var(--muted); }
+.seat { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; }
+select { font: inherit; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-width: 0; }
+.seed { width: 92px; font: inherit; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.log { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.log .e { display: flex; gap: 8px; align-items: baseline; }
+.log .e .t { color: var(--muted); width: 22px; flex: none; text-align: right; font-size: 12px; }
+.log .e .sw { margin-left: auto; font-weight: 700; flex: none; }
+.p0c { color: var(--blue); } .p1c { color: var(--red); }
+.endcard { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 70%, transparent); border-radius: 14px; z-index: 5; }
+.endcard .box { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; text-align: center; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.18); max-width: 90%; }
+.endcard h2 { font-size: 26px; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); justify-content: center; }
+
+/* simulate */
+.simgrid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .simgrid { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.field label { font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.persona-blurb { font-size: 12.5px; color: var(--muted); }
+.progress { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; margin: 10px 0; }
+.progress i { display: block; height: 100%; background: var(--brass); width: 0; transition: width .15s; }
+.results { display: flex; flex-direction: column; gap: 16px; }
+.winbar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; font-size: 12.5px; font-weight: 700; color: #fff; }
+.winbar span { display: grid; place-items: center; min-width: 0; white-space: nowrap; overflow: hidden; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+td.rng { text-align: left; }
+.flag { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+.flag.hot { background: var(--red-soft); color: var(--red); }
+.flag.flat { background: var(--sunk); color: var(--muted); }
+pre.report { background: var(--sunk); border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; margin: 8px 0 0; }
+details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
+.matrix td, .matrix th { text-align: center; }
+.empty-results { color: var(--muted); padding: 30px 10px; text-align: center; }
+.tray { display: contents; }
+.tray .prompt { order: -1; }
+.mscore { display: none; }
+button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+@media (max-width: 700px) {
+  header.top { gap: 10px; padding-block: 10px; margin-bottom: 12px; }
+  .mark h1 { font-size: 24px; } .mark .ed { display: none; }
+  nav.tabs { order: 3; width: 100%; } nav.tabs button { flex: 1; padding: 9px 8px; }
+  #copy-config { padding: 5px 10px; font-size: 13px; }
+  .wrap { padding-block: 0 24px; }
+  .table { padding: 8px 6px 0; gap: 10px; border-radius: 12px; }
+  .board { gap: 4px; }
+  .mscore { display: flex; width: 100%; align-items: stretch; gap: 6px; }
+  .mchip { flex: 1; display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 9px; border: 2px solid transparent; }
+  .mchip.p0 { background: var(--blue-soft); } .mchip.p1 { background: var(--red-soft); flex-direction: row-reverse; text-align: right; }
+  .mchip.active.p0 { border-color: var(--blue); } .mchip.active.p1 { border-color: var(--red); }
+  .mchip .sig { position: static; width: 22px; height: 22px; font-size: 13px; flex: none; }
+  .mchip b { font-size: 22px; line-height: 1; }
+  .mchip small { font-size: 11px; color: var(--muted); line-height: 1.2; }
+  .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; }
+  .rail .score { display: none; }
+  .tray { display: flex; flex-direction: column; gap: 6px; position: sticky; bottom: 0; z-index: 4; width: calc(100% + 12px); margin: 0 -6px;
+    background: var(--sunk); border-top: 1px solid var(--line); box-shadow: 0 -8px 18px rgba(0,0,0,.10);
+    padding: 8px max(8px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); border-radius: 12px 12px 0 0; }
+  .tray .prompt { min-height: 0; font-size: 14px; gap: 6px; }
+  .tray .prompt .who { font-size: 15px; }
+  .tray .prompt .btn { padding: 6px 12px; }
+  .tray .cardinfo { font-size: 12.5px; min-height: 0; }
+  .tray .cardinfo.idle { display: none; }
+  .tray .hand-label { display: none; }
+  .hand { flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; gap: 6px; padding: 3px; }
+  .hcard { width: 58px; height: 58px; --cell: 58px; flex: none; }
+  .hand-area.other { padding-bottom: 10px; }
+  .hand-area.other .hand { display: none; }
+  .tile .n { font-size: max(8.5px, calc(var(--cell) * .135)); }
+  .cell.last::after { inset: -3px; }
+  .endcard .box { padding: 18px; }
+}
+@media (max-width: 380px) { .hcard { width: 50px; height: 50px; --cell: 50px; } }
+.toast { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: 14px; z-index: 20; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="mark"><h1>Vye Micro</h1><span class="ed">two-player prototype</span></div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tab-setup" aria-selected="false">Setup</button>
+      <button role="tab" id="tab-play" aria-selected="true">Play</button>
+      <button role="tab" id="tab-sim" aria-selected="false">Simulate</button>
+    </nav>
+    <div class="spacer"></div>
+    <button class="btn" id="copy-config">Copy config</button>
+  </header>
+
+  <section id="view-setup" hidden></section>
+  <section id="view-play"></section>
+  <section id="view-sim" hidden></section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script id="vye-engine">
+/* Vye Micro — rules engine, AI personas and batch simulator.
+   Runs in the browser (global VyeEngine) and in Node (module.exports). */
+(function (root) {
+  'use strict';
+
+  // ---------- coordinates ----------
+  const SIZE = 64, OFF = 32;
+  const key = (x, y) => (x + OFF) * SIZE + (y + OFF);
+  const kx = k => Math.floor(k / SIZE) - OFF;
+  const ky = k => (k % SIZE) - OFF;
+  const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const DIAG = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+  const ALL8 = ORTHO.concat(DIAG);
+  const ORTHO_D = ORTHO.map(([dx, dy]) => dx * SIZE + dy);
+  const DIAG_D = DIAG.map(([dx, dy]) => dx * SIZE + dy);
+  const ALL8_D = ORTHO_D.concat(DIAG_D);
+
+  // ---------- content ----------
+  const LANDS = [
+    { name: 'Forest', glyph: '♣', color: '#3E7B4F' },
+    { name: 'Peaks', glyph: '▲', color: '#6E7380' },
+    { name: 'Lake', glyph: '≈', color: '#3B78A6' },
+    { name: 'Desert', glyph: '☼', color: '#C2913A' },
+    { name: 'Marsh', glyph: '✱', color: '#5E7F6A' },
+    { name: 'Crystal', glyph: '◆', color: '#7A5AA6' },
+    { name: 'Hills', glyph: '●', color: '#8C7A3E' },
+    { name: 'Fields', glyph: '■', color: '#A8A23A' },
+    { name: 'Crossing', glyph: '✚', color: '#9A5B3C' },
+    { name: 'Tundra', glyph: '❄', color: '#6F9DB5' },
+    { name: 'Thicket', glyph: '♠', color: '#2F5E44' },
+    { name: 'Village', glyph: '⌂', color: '#A0673F' },
+    { name: 'Starfall', glyph: '✦', color: '#4A4F8C' },
+    { name: 'Moonvale', glyph: '◐', color: '#5C6E8E' },
+    { name: 'Ruby Coast', glyph: '♦', color: '#A3445A' },
+    { name: 'Orchard', glyph: '✿', color: '#7D8F3A' }
+  ];
+
+  const MEMBERS = {
+    advisor: { name: 'Advisor', dirs: ALL8_D, rule: 'Flips all 8 surrounding tiles.' },
+    king: { name: 'King', dirs: ORTHO_D, rule: 'Flips the 4 adjacent tiles.' },
+    queen: { name: 'Queen', dirs: DIAG_D, rule: 'Flips the 4 diagonal tiles.' },
+    heir: { name: 'Heir', dirs: null, rule: 'Flips 1 surrounding tile of your choice.' }
+  };
+  const MEMBER_ORDER = ['advisor', 'king', 'queen', 'heir'];
+
+  const HOUSES = [
+    { name: 'House Midnight', short: 'Midnight', sigil: '☾', color: 'blue' },
+    { name: 'House of a Thousand Roses', short: 'Roses', sigil: '✿', color: 'red' }
+  ];
+
+  // mode: place = goes in an empty space, cover = stacks on a tile, replace = swaps a tile out
+  const SPECIALS = {
+    ancient: { name: 'Ancient Passage', mode: 'cover', origin: 'Original',
+      rule: 'Cover a tile you don’t own that joins two of your kingdoms. It becomes yours.' },
+    lostcity: { name: 'Lost City', mode: 'cover', origin: 'Original',
+      rule: 'Cover a Land you own. Worth 2 points in your kingdom.' },
+    sinkhole: { name: 'Sinkhole', mode: 'cover', origin: 'Original',
+      rule: 'Cover any tile. Nobody owns it, ever. Breaks connections.' },
+    sanctuary: { name: 'Sanctuary', mode: 'cover', origin: 'Original',
+      rule: 'Cover any tile. Owned by both players. Can’t be flipped, covered or moved.' },
+    wild: { name: 'Wild Land', mode: 'cover', origin: 'Adapted',
+      rule: 'Cover a Land and become an adjacent Land type, then match from there.' },
+    underminers: { name: 'Underminers', mode: 'place', origin: 'Adapted',
+      rule: 'Place it, then flip the tile on the far side of an adjacent tile.' },
+    earthquake: { name: 'Earthquake', mode: 'place', origin: 'Original',
+      rule: 'Place it, then swap any two tiles (not Sanctuary). Nothing triggers.' },
+    waystone: { name: 'Waystone', mode: 'place', origin: 'Original',
+      rule: 'Place it and take another turn. Flipping it also grants an extra turn.' },
+    watchtower: { name: 'Watchtower', mode: 'cover', origin: 'New',
+      rule: 'Cover a tile you own. That space can’t be flipped.' },
+    pretender: { name: 'Pretender', mode: 'cover', origin: 'New',
+      rule: 'Cover an opponent’s Family tile. Take it and fire its capture as yours.' },
+    usurp: { name: 'Usurp', mode: 'replace', origin: 'New',
+      rule: 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the deck.' }
+  };
+  const SPECIAL_ORDER = ['ancient', 'lostcity', 'sinkhole', 'sanctuary', 'wild', 'watchtower', 'pretender', 'usurp', 'underminers', 'earthquake', 'waystone'];
+
+  function defaultConfig() {
+    return {
+      landSets: 7,
+      landCopies: 3,
+      specials: { ancient: 1, lostcity: 1, sinkhole: 1, sanctuary: 0, wild: 1, watchtower: 1, pretender: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
+      family: [{ advisor: 0, king: 1, queen: 1, heir: 1 }, { advisor: 0, king: 1, queen: 1, heir: 1 }],
+      gridW: 5, gridH: 5,
+      handSize: 3,
+      start: 'neutral',      // neutral | none
+      stacking: 'once',      // once | unlimited
+      wildMode: 'cover',     // cover | place | either
+      colorCapture: true,
+      end: { boardFull: true, deckEmpty: false, noValidPlay: true },
+      tiebreak: 'none'       // none | total
+    };
+  }
+
+  // ---------- rng ----------
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(arr, rng) {
+    for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+    return arr;
+  }
+
+  // ---------- cards ----------
+  function cardLabel(c) {
+    if (c.kind === 'land') return 'Land';
+    if (c.kind === 'family') return MEMBERS[c.member].name;
+    if (c.kind === 'special') return SPECIALS[c.special].name;
+    return 'Start';
+  }
+  function cardTitle(c) {
+    if (c.kind === 'land') return LANDS[c.land].name;
+    if (c.kind === 'family') return HOUSES[c.house].short + ' ' + MEMBERS[c.member].name;
+    if (c.kind === 'special') return SPECIALS[c.special].name;
+    return 'Crossroads';
+  }
+
+  function newGame(cfg, seed) {
+    cfg = JSON.parse(JSON.stringify(cfg));
+    const rng = mulberry32(seed >>> 0);
+    let id = 1;
+    const deck = [];
+    for (let l = 0; l < cfg.landSets; l++)
+      for (let c = 0; c < cfg.landCopies; c++) deck.push({ id: id++, kind: 'land', land: l });
+    for (const s of SPECIAL_ORDER) {
+      const n = (cfg.specials && cfg.specials[s]) | 0;
+      for (let i = 0; i < n; i++) deck.push({ id: id++, kind: 'special', special: s });
+    }
+    shuffle(deck, rng);
+    const players = [0, 1].map(p => {
+      const side = [];
+      for (const m of MEMBER_ORDER) {
+        const n = (cfg.family[p] && cfg.family[p][m]) | 0;
+        for (let i = 0; i < n; i++) side.push({ id: id++, kind: 'family', member: m, house: p });
+      }
+      return { hand: [], side };
+    });
+    for (let i = 0; i < cfg.handSize; i++) for (const pl of players) if (deck.length) pl.hand.push(deck.pop());
+    const board = new Map();
+    if (cfg.start === 'neutral') board.set(key(0, 0), [{ id: id++, kind: 'start', owner: null }]);
+    const state = {
+      cfg, rng, seed, board, deck, players, discard: [],
+      turn: 0, turnNo: 0, passes: 0, over: false, endReason: null, winner: null,
+      plays: [], log: [], lastMove: null, initialDeck: deck.length
+    };
+    state.moves = legalMoves(state, 0);
+    if (!state.moves.length) checkEnd(state, true);
+    return state;
+  }
+
+  // ---------- board helpers ----------
+  const top = (board, k) => { const s = board.get(k); return s ? s[s.length - 1] : null; };
+  const landOf = t => !t ? -1 : t.kind === 'land' ? t.land : (t.special === 'wild' ? t.wildAs : -1);
+  const ownedBy = (t, p) => t && (t.owner === p || t.owner === 'both');
+  function canFlip(t) {
+    if (!t || (t.owner !== 0 && t.owner !== 1)) return false;
+    if (t.kind === 'start') return false;
+    return t.special !== 'watchtower' && t.special !== 'sanctuary' && t.special !== 'sinkhole';
+  }
+  function setTop(board, k, tile) { const s = board.get(k).slice(); s[s.length - 1] = tile; board.set(k, s); }
+  function pushTile(board, k, tile) { const s = board.get(k); board.set(k, s ? s.concat([tile]) : [tile]); }
+
+  function bbox(board) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const k of board.keys()) { const x = kx(k), y = ky(k); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    return { x0, x1, y0, y1 };
+  }
+  function placeCells(state) {
+    const { board, cfg } = state;
+    if (board.size === 0) return [key(0, 0)];
+    const b = bbox(board);
+    const out = new Set();
+    for (const k of board.keys()) {
+      for (const d of ORTHO_D) {
+        const n = k + d;
+        if (board.has(n) || out.has(n)) continue;
+        const x = kx(n), y = ky(n);
+        if (Math.max(b.x1, x) - Math.min(b.x0, x) + 1 > cfg.gridW) continue;
+        if (Math.max(b.y1, y) - Math.min(b.y0, y) + 1 > cfg.gridH) continue;
+        out.add(n);
+      }
+    }
+    return [...out];
+  }
+  function coverable(state, k) {
+    const s = state.board.get(k);
+    if (!s) return false;
+    if (s[s.length - 1].special === 'sanctuary') return false;
+    if (state.cfg.stacking === 'once' && s.length > 1) return false;
+    return true;
+  }
+  function components(board, p, skip) {
+    const comp = new Map(); let n = 0;
+    for (const k of board.keys()) {
+      if (k === skip || comp.has(k) || !ownedBy(top(board, k), p)) continue;
+      const q = [k]; comp.set(k, n);
+      while (q.length) { const c = q.pop(); for (const d of ORTHO_D) { const m = c + d; if (m !== skip && !comp.has(m) && board.has(m) && ownedBy(top(board, m), p)) { comp.set(m, n); q.push(m); } } }
+      n++;
+    }
+    return comp;
+  }
+  function score(board) {
+    const largest = [0, 0], total = [0, 0];
+    for (const p of [0, 1]) {
+      const seen = new Set();
+      for (const k of board.keys()) {
+        const t = top(board, k);
+        if (!ownedBy(t, p)) continue;
+        total[p] += t.special === 'lostcity' ? 2 : 1;
+        if (seen.has(k)) continue;
+        let v = 0; const q = [k]; seen.add(k);
+        while (q.length) {
+          const c = q.pop(); const tc = top(board, c); v += tc.special === 'lostcity' ? 2 : 1;
+          for (const d of ORTHO_D) { const m = c + d; if (!seen.has(m) && board.has(m) && ownedBy(top(board, m), p)) { seen.add(m); q.push(m); } }
+        }
+        if (v > largest[p]) largest[p] = v;
+      }
+    }
+    return { largest, total };
+  }
+
+  // ---------- move generation ----------
+  function flipTargets(board, k, p, dirs) {
+    const out = [];
+    for (const d of dirs) { const t = top(board, k + d); if (canFlip(t) && t.owner !== p) out.push(k + d); }
+    return out;
+  }
+  function wildChoices(state, k) {
+    const { board, cfg } = state;
+    const types = new Set();
+    for (const d of ORTHO_D) { const L = landOf(top(board, k + d)); if (L >= 0) types.add(L); }
+    const ok = [];
+    for (const L of types) {
+      // union of type-L chains touching k (k itself excluded)
+      const seen = new Set([k]); const q = []; let size = 0, hasWild = false;
+      for (const d of ORTHO_D) { const n = k + d; if (landOf(top(board, n)) === L && !seen.has(n)) { seen.add(n); q.push(n); } }
+      while (q.length) {
+        const c = q.pop(); size++; if (top(board, c).special === 'wild') hasWild = true;
+        for (const d of ORTHO_D) { const n = c + d; if (!seen.has(n) && landOf(top(board, n)) === L) { seen.add(n); q.push(n); } }
+      }
+      if (!hasWild && size < cfg.landCopies) ok.push(L);
+    }
+    return ok;
+  }
+
+  // All moves for one card. opts.prune limits Earthquake enumeration for the AI.
+  function cardMoves(state, p, card, src, opts) {
+    const { board } = state;
+    const moves = [];
+    const add = (k, choice) => moves.push({ cardId: card.id, src, pos: k, choice: choice === undefined ? null : choice });
+    const occupied = [...board.keys()];
+    if (card.kind === 'land') { for (const k of placeCells(state)) add(k); return moves; }
+    if (card.kind === 'family') {
+      for (const k of placeCells(state)) {
+        if (card.member === 'heir') { const t = flipTargets(board, k, p, ALL8_D); if (t.length) t.forEach(c => add(k, c)); else add(k); }
+        else add(k);
+      }
+      return moves;
+    }
+    const s = card.special;
+    switch (s) {
+      case 'ancient':
+        for (const k of occupied) {
+          if (!coverable(state, k)) continue;
+          const t = top(board, k); if (t.owner === p || t.owner === 'both') continue;
+          const comp = components(board, p, k); const ids = new Set();
+          for (const d of ORTHO_D) if (comp.has(k + d)) ids.add(comp.get(k + d));
+          if (ids.size >= 2) add(k);
+        }
+        break;
+      case 'lostcity':
+        for (const k of occupied) { const t = top(board, k); if (coverable(state, k) && landOf(t) >= 0 && t.owner === p) add(k); }
+        break;
+      case 'sinkhole':
+        for (const k of occupied) if (coverable(state, k) && top(board, k).special !== 'sinkhole') add(k);
+        break;
+      case 'sanctuary':
+        for (const k of occupied) if (coverable(state, k)) add(k);
+        break;
+      case 'watchtower':
+        for (const k of occupied) { const t = top(board, k); if (coverable(state, k) && t.owner === p && t.special !== 'watchtower') add(k); }
+        break;
+      case 'pretender':
+        for (const k of occupied) {
+          const t = top(board, k);
+          if (!coverable(state, k) || t.kind !== 'family' || t.owner === p) continue;
+          if (t.member === 'heir') {
+            // capture happens after covering; the covered tile itself is no longer a target
+            const tg = flipTargets(board, k, p, ALL8_D); if (tg.length) tg.forEach(c => add(k, c)); else add(k);
+          } else add(k);
+        }
+        break;
+      case 'wild': {
+        const mode = state.cfg.wildMode;
+        if (mode === 'cover' || mode === 'either')
+          for (const k of occupied) if (coverable(state, k) && landOf(top(board, k)) >= 0) wildChoices(state, k).forEach(L => add(k, L));
+        if (mode === 'place' || mode === 'either')
+          for (const k of placeCells(state)) wildChoices(state, k).forEach(L => add(k, L));
+        break;
+      }
+      case 'usurp': {
+        const hand = state.players[p].hand.filter(c => c.kind === 'land' && c.id !== card.id);
+        const byType = new Map(); hand.forEach(c => { if (!byType.has(c.land)) byType.set(c.land, c); });
+        if (!byType.size) break;
+        for (const k of occupied) {
+          const st = board.get(k); if (st.length !== 1 || st[0].kind !== 'land') continue;
+          for (const c of byType.values()) if (!(c.land === st[0].land && st[0].owner === p)) add(k, { cardId: c.id, land: c.land });
+        }
+        break;
+      }
+      case 'underminers':
+        for (const k of placeCells(state)) {
+          const tg = [];
+          for (const d of ORTHO_D) { if (!board.has(k + d)) continue; const t = top(board, k + 2 * d); if (canFlip(t) && t.owner !== p) tg.push(k + 2 * d); }
+          if (tg.length) tg.forEach(c => add(k, c)); else add(k);
+        }
+        break;
+      case 'earthquake': {
+        let cells = placeCells(state);
+        if (opts && opts.prune && cells.length > 3) cells = shuffle(cells.slice(), state.rng || Math.random).slice(0, 3);
+        for (const k of cells) {
+          add(k, null);
+          const all = occupied.concat([k]).filter(c => c === k || top(board, c).special !== 'sanctuary');
+          for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+            const a = all[i] === k ? null : top(board, all[i]), b = all[j] === k ? null : top(board, all[j]);
+            if (opts && opts.prune) { // skip swaps that can't change ownership layout
+              const oa = a ? a.owner : p, ob = b ? b.owner : p; if (oa === ob) continue;
+            }
+            add(k, [all[i], all[j]]);
+          }
+        }
+        break;
+      }
+      case 'waystone':
+        for (const k of placeCells(state)) add(k);
+        break;
+    }
+    return moves;
+  }
+
+  function legalMoves(state, p, opts) {
+    const pl = state.players[p];
+    const out = [];
+    const seen = new Set();
+    for (const c of pl.hand) {
+      const sig = c.kind + (c.land ?? '') + (c.special ?? '');
+      if (opts && opts.dedupe && seen.has(sig)) continue; seen.add(sig);
+      out.push(...cardMoves(state, p, c, 'hand', opts));
+    }
+    const seenSide = new Set();
+    for (const c of pl.side) {
+      if (opts && opts.dedupe && seenSide.has(c.member)) continue; seenSide.add(c.member);
+      out.push(...cardMoves(state, p, c, 'side', opts));
+    }
+    return out;
+  }
+
+  // ---------- effects (board only) ----------
+  function findCard(state, p, id) {
+    const pl = state.players[p];
+    return pl.hand.find(c => c.id === id) || pl.side.find(c => c.id === id);
+  }
+  function applyEffect(board, cfg, p, card, k, choice) {
+    const res = { flips: [], extra: false, removed: null, placed: k };
+    const flip = n => { const t = top(board, n); if (canFlip(t) && t.owner !== p) { setTop(board, n, Object.assign({}, t, { owner: p })); res.flips.push(n); if (t.special === 'waystone') res.extra = true; } };
+    const landMatch = (start, L) => {
+      const seen = new Set([start]); const q = [start];
+      while (q.length) { const c = q.pop(); for (const d of ORTHO_D) { const n = c + d; if (!seen.has(n) && landOf(top(board, n)) === L) { seen.add(n); flip(n); q.push(n); } } }
+    };
+    const familyCapture = (member, house, heirChoice, color) => {
+      if (member === 'heir') { if (heirChoice != null) flip(heirChoice); }
+      else for (const d of MEMBERS[member].dirs) flip(k + d);
+      if (color && cfg.colorCapture) for (const d of ORTHO_D) { const t = top(board, k + d); if (t && t.kind === 'family' && t.house === house) flip(k + d); }
+    };
+    const base = { id: card.id, kind: card.kind, owner: p };
+    if (card.kind === 'land') { pushTile(board, k, Object.assign(base, { land: card.land })); landMatch(k, card.land); return res; }
+    if (card.kind === 'family') { pushTile(board, k, Object.assign(base, { member: card.member, house: card.house })); familyCapture(card.member, card.house, choice, true); return res; }
+    const s = card.special; base.special = s;
+    switch (s) {
+      case 'ancient': case 'lostcity': case 'watchtower': pushTile(board, k, base); break;
+      case 'sinkhole': base.owner = null; pushTile(board, k, base); break;
+      case 'sanctuary': base.owner = 'both'; pushTile(board, k, base); break;
+      case 'pretender': { const cov = top(board, k); base.member = cov.member; base.house = cov.house; pushTile(board, k, base); familyCapture(cov.member, cov.house, choice, false); break; }
+      case 'wild': base.wildAs = choice; pushTile(board, k, base); landMatch(k, choice); break;
+      case 'usurp': {
+        res.removed = board.get(k)[0]; board.delete(k);
+        pushTile(board, k, { id: choice.cardId, kind: 'land', land: choice.land, owner: p });
+        landMatch(k, choice.land); break;
+      }
+      case 'underminers': pushTile(board, k, base); if (choice != null) flip(choice); break;
+      case 'earthquake': pushTile(board, k, base); if (choice) { const a = board.get(choice[0]), b = board.get(choice[1]); board.set(choice[0], b); board.set(choice[1], a); } break;
+      case 'waystone': pushTile(board, k, base); res.extra = true; break;
+    }
+    return res;
+  }
+
+  // ---------- turn flow ----------
+  function playMove(state, move) {
+    if (state.over) return null;
+    const p = state.turn, o = 1 - p, pl = state.players[p];
+    const card = findCard(state, p, move.cardId);
+    if (!card) throw new Error('card not in hand');
+    const before = score(state.board);
+    const res = applyEffect(state.board, state.cfg, p, card, move.pos, move.choice);
+    const after = score(state.board);
+    // remove card(s) from hand
+    const rm = id => { let i = pl.hand.findIndex(c => c.id === id); if (i >= 0) return pl.hand.splice(i, 1)[0]; i = pl.side.findIndex(c => c.id === id); return i >= 0 ? pl.side.splice(i, 1)[0] : null; };
+    rm(card.id);
+    if (card.special === 'usurp') { rm(move.choice.cardId); state.discard.push(card); }
+    if (res.removed) state.deck.unshift({ id: res.removed.id, kind: 'land', land: res.removed.land });
+    const swing = (after.largest[p] - after.largest[o]) - (before.largest[p] - before.largest[o]);
+    const play = { p, turn: state.turnNo, label: cardLabel(card), title: cardTitle(card), swing,
+      mine: after.largest[p] - before.largest[p], theirs: after.largest[o] - before.largest[o], flips: res.flips.length };
+    state.plays.push(play);
+    state.lastMove = { p, pos: move.pos, flips: res.flips, card, choice: move.choice };
+    state.log.push(play);
+    while (pl.hand.length < state.cfg.handSize && state.deck.length) pl.hand.push(state.deck.pop());
+    state.turnNo++;
+    state.passes = 0;
+    state.turn = res.extra ? p : o;
+    checkEnd(state, false);
+    return play;
+  }
+
+  function cardsLeft(state, p) { const pl = state.players[p]; return pl.hand.length + pl.side.length; }
+
+  function checkEnd(state, initial) {
+    const { cfg } = state;
+    const end = r => { state.over = true; state.endReason = r; state.moves = []; finish(state); };
+    if (!initial) {
+      if (cfg.end.boardFull && state.board.size >= cfg.gridW * cfg.gridH) return end('Board full');
+      if (cfg.end.deckEmpty && state.deck.length === 0) return end('Deck empty');
+    }
+    if (!state.deck.length && !cardsLeft(state, 0) && !cardsLeft(state, 1)) return end('Out of cards');
+    for (let tries = 0; tries < 2; tries++) {
+      state.moves = legalMoves(state, state.turn);
+      if (state.moves.length) return;
+      if (cfg.end.noValidPlay) return end('No valid play');
+      state.log.push({ p: state.turn, pass: true, turn: state.turnNo });
+      state.turn = 1 - state.turn;
+    }
+    end('Neither player can play');
+  }
+
+  function finish(state) {
+    const s = score(state.board);
+    state.final = s;
+    let w = s.largest[0] > s.largest[1] ? 0 : s.largest[1] > s.largest[0] ? 1 : -1;
+    if (w === -1 && state.cfg.tiebreak === 'total') w = s.total[0] > s.total[1] ? 0 : s.total[1] > s.total[0] ? 1 : -1;
+    state.winner = w;
+  }
+
+  // ---------- AI ----------
+  const PERSONAS = {
+    greedy: { name: 'Greedy', blurb: 'Takes the biggest immediate swing every turn.', a: 0, keep: 0, look: 0, noise: 0.01 },
+    builder: { name: 'Builder', blurb: 'Grows total territory and saves Family for late.', a: 0.35, keep: 0.8, look: 0, noise: 0.02 },
+    cautious: { name: 'Cautious', blurb: 'Weighs the best reply the opponent could make.', a: 0.2, keep: 0.4, look: 1, noise: 0.01 },
+    hoarder: { name: 'Hoarder', blurb: 'Holds Family cards as long as possible.', a: 0.2, keep: 2.0, look: 0, noise: 0.02 },
+    chaotic: { name: 'Chaotic', blurb: 'Plays decent moves with a lot of randomness.', a: 0.1, keep: 0, look: 0, noise: 1.5 },
+    random: { name: 'Random', blurb: 'Any legal move. Baseline for sanity checks.', random: true }
+  };
+
+  function evalBoard(board, p, a) {
+    const s = score(board), o = 1 - p;
+    return (s.largest[p] - s.largest[o]) + a * (s.total[p] - s.total[o]);
+  }
+
+  // Opponent reply estimate uses only public info: their Family sideboard plus one Land of each type not yet seen.
+  function oppProxyCards(state, p) {
+    const o = 1 - p, cards = [];
+    const seenFam = new Set();
+    for (const c of state.players[o].side) if (!seenFam.has(c.member)) { seenFam.add(c.member); cards.push(c); }
+    const count = new Array(state.cfg.landSets).fill(state.cfg.landCopies);
+    for (const st of state.board.values()) for (const t of st) if (t.kind === 'land') count[t.land]--;
+    for (const c of state.players[p].hand) if (c.kind === 'land') count[c.land]--;
+    count.forEach((n, L) => { if (n > 0) cards.push({ id: -1 - L, kind: 'land', land: L }); });
+    return cards;
+  }
+
+  function chooseMove(state, personaKey) {
+    const per = PERSONAS[personaKey] || PERSONAS.greedy;
+    const p = state.turn, rng = state.rng;
+    const moves = legalMoves(state, p, { prune: true, dedupe: true });
+    if (!moves.length) return null;
+    if (per.random) return moves[Math.floor(rng() * moves.length)];
+    const base = evalBoard(state.board, p, per.a);
+    const progress = state.initialDeck ? state.deck.length / state.initialDeck : 0;
+    const scored = moves.map(m => {
+      const card = findCard(state, p, m.cardId);
+      const b = new Map(state.board);
+      const r = applyEffect(b, state.cfg, p, card, m.pos, m.choice);
+      let v = evalBoard(b, p, per.a) - base;
+      if (r.extra) v += 0.8;
+      if (card.kind === 'family') v -= per.keep * progress;
+      if (card.special === 'usurp') v -= 0.3; // costs two cards
+      v += per.noise * (rng() - 0.5);
+      return { m, v, b };
+    });
+    scored.sort((x, y) => y.v - x.v);
+    if (per.look) {
+      const proxy = oppProxyCards(state, p), o = 1 - p;
+      const K = Math.min(5, scored.length);
+      for (let i = 0; i < K; i++) {
+        const sc = scored[i];
+        const fake = { cfg: state.cfg, board: sc.b, players: state.players };
+        const before = evalBoard(sc.b, o, 0);
+        let best = 0;
+        for (const c of proxy) {
+          for (const om of cardMoves(fake, o, c, 'x', { prune: true })) {
+            const b2 = new Map(sc.b);
+            applyEffect(b2, state.cfg, o, c, om.pos, om.choice);
+            const sw = evalBoard(b2, o, 0) - before;
+            if (sw > best) best = sw;
+          }
+        }
+        sc.v -= per.look * 0.6 * best;
+      }
+      scored.sort((x, y) => y.v - x.v);
+    }
+    return scored[0].m;
+  }
+
+  // ---------- simulation ----------
+  function playOut(cfg, seed, personas, maxTurns) {
+    const st = newGame(cfg, seed);
+    let guard = 0;
+    while (!st.over && guard++ < (maxTurns || 400)) {
+      const m = chooseMove(st, personas[st.turn]);
+      if (!m) break;
+      playMove(st, m);
+    }
+    if (!st.over) { st.over = true; st.endReason = 'Turn limit'; finish(st); }
+    return st;
+  }
+
+  function newStats() {
+    return { games: 0, wins: {}, ties: 0, seatWins: [0, 0], endReasons: {}, turns: [], margins: [], scores: {}, cards: {}, unplayedFamily: 0, seconds: 0 };
+  }
+  function addCardStat(cs, label, play, won) {
+    let c = cs[label];
+    if (!c) c = cs[label] = { plays: 0, sum: 0, sq: 0, min: Infinity, max: -Infinity, flips: 0, mine: 0, theirs: 0, games: 0, gamesWon: 0, hist: {} };
+    c.plays++; c.sum += play.swing; c.sq += play.swing * play.swing; c.flips += play.flips; c.mine += play.mine; c.theirs += play.theirs;
+    if (play.swing < c.min) c.min = play.swing; if (play.swing > c.max) c.max = play.swing;
+    c.hist[play.swing] = (c.hist[play.swing] || 0) + 1;
+  }
+
+  // personas: [keyA, keyB]. alternate = swap seats every other game.
+  function runBatch(cfg, personas, n, seed, alternate, onProgress) {
+    const S = newStats(); const t0 = Date.now();
+    S.personas = personas.slice();
+    if (personas[0] !== personas[1]) for (const k of personas) { S.wins[k] = 0; S.scores[k] = []; }
+    if (personas[0] === personas[1]) { S.wins = { [personas[0] + ' (A)']: 0, [personas[1] + ' (B)']: 0 }; }
+    const nameOf = idx => personas[0] === personas[1] ? personas[idx] + (idx ? ' (B)' : ' (A)') : personas[idx];
+    for (let g = 0; g < n; g++) {
+      const swap = alternate && g % 2 === 1;
+      const seats = swap ? [personas[1], personas[0]] : [personas[0], personas[1]];
+      const who = swap ? [1, 0] : [0, 1]; // seat -> persona index
+      const st = playOut(cfg, (seed + g * 7919) >>> 0, seats);
+      S.games++;
+      S.endReasons[st.endReason] = (S.endReasons[st.endReason] || 0) + 1;
+      S.turns.push(st.turnNo);
+      S.margins.push(Math.abs(st.final.largest[0] - st.final.largest[1]));
+      for (const seat of [0, 1]) { const nm = nameOf(who[seat]); (S.scores[nm] = S.scores[nm] || []).push(st.final.largest[seat]); }
+      if (st.winner === -1) S.ties++; else { S.seatWins[st.winner]++; const nm = nameOf(who[st.winner]); S.wins[nm] = (S.wins[nm] || 0) + 1; }
+      const playedBy = [new Set(), new Set()];
+      for (const pl of st.plays) { addCardStat(S.cards, pl.label, pl); playedBy[pl.p].add(pl.label); }
+      for (const seat of [0, 1]) for (const lab of playedBy[seat]) { const c = S.cards[lab]; c.games++; if (st.winner === seat) c.gamesWon++; }
+      S.unplayedFamily += st.players[0].side.length + st.players[1].side.length;
+      if (onProgress && (g % 20 === 19 || g === n - 1)) onProgress(g + 1, n);
+    }
+    S.seconds = (Date.now() - t0) / 1000;
+    return S;
+  }
+
+  function summarize(S) {
+    const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+    const cards = Object.entries(S.cards).map(([label, c]) => {
+      const m = c.sum / c.plays; const sd = Math.sqrt(Math.max(0, c.sq / c.plays - m * m));
+      return { label, plays: c.plays, perGame: c.plays / S.games, mean: m, sd, min: c.min, max: c.max, flips: c.flips / c.plays,
+        mine: c.mine / c.plays, theirs: c.theirs / c.plays, winWhenPlayed: c.games ? c.gamesWon / c.games : 0, hist: c.hist };
+    }).sort((a, b) => b.mean - a.mean);
+    const scores = {}; for (const [k, v] of Object.entries(S.scores)) scores[k] = { mean: mean(v), min: Math.min(...v), max: Math.max(...v) };
+    const marginHist = {}; S.margins.forEach(m => marginHist[m] = (marginHist[m] || 0) + 1);
+    return {
+      games: S.games, seconds: S.seconds, wins: S.wins, ties: S.ties,
+      firstSeatWinRate: S.seatWins[0] / S.games, secondSeatWinRate: S.seatWins[1] / S.games, tieRate: S.ties / S.games,
+      endReasons: S.endReasons, turns: { mean: mean(S.turns), min: Math.min(...S.turns), max: Math.max(...S.turns) },
+      margin: { mean: mean(S.margins), hist: marginHist }, scores, cards,
+      unplayedFamilyPerGame: S.unplayedFamily / S.games
+    };
+  }
+
+  function reportText(sum, cfg, personas) {
+    const pct = x => (100 * x).toFixed(1) + '%';
+    const f = x => (x >= 0 ? '+' : '') + x.toFixed(2);
+    const L = [];
+    L.push(`Vye Micro simulation — ${sum.games} games, ${personas.join(' vs ')}, ${sum.seconds.toFixed(1)}s`);
+    L.push(`Config: ${cfg.landSets} land sets × ${cfg.landCopies}, grid ${cfg.gridW}×${cfg.gridH}, hand ${cfg.handSize}, stacking ${cfg.stacking}, start ${cfg.start}`);
+    L.push(`Family Blue: ${famStr(cfg.family[0])} | Red: ${famStr(cfg.family[1])}`);
+    L.push(`Specials: ${Object.entries(cfg.specials).filter(([, n]) => n > 0).map(([k, n]) => SPECIALS[k].name + '×' + n).join(', ') || 'none'}`);
+    L.push(`End on: ${Object.entries(cfg.end).filter(([, v]) => v).map(([k]) => k).join(', ')}`);
+    L.push('');
+    L.push(`Wins: ${Object.entries(sum.wins).map(([k, v]) => `${k} ${pct(v / sum.games)}`).join(', ')}, ties ${pct(sum.tieRate)}`);
+    L.push(`First player wins ${pct(sum.firstSeatWinRate)}, second ${pct(sum.secondSeatWinRate)}`);
+    L.push(`Turns: mean ${sum.turns.mean.toFixed(1)} (min ${sum.turns.min}, max ${sum.turns.max}). Margin mean ${sum.margin.mean.toFixed(2)}`);
+    L.push(`End reasons: ${Object.entries(sum.endReasons).map(([k, v]) => `${k} ${pct(v / sum.games)}`).join(', ')}`);
+    L.push(`Final kingdom: ${Object.entries(sum.scores).map(([k, v]) => `${k} ${v.mean.toFixed(1)} (${v.min}–${v.max})`).join(', ')}`);
+    L.push('');
+    L.push('Card            plays/g   mean    sd    min   max  flips  win%');
+    for (const c of sum.cards) L.push(`${c.label.padEnd(16)}${c.perGame.toFixed(2).padStart(6)}  ${f(c.mean).padStart(6)} ${c.sd.toFixed(2).padStart(5)} ${String(c.min).padStart(5)} ${String(c.max).padStart(5)} ${c.flips.toFixed(2).padStart(6)} ${pct(c.winWhenPlayed).padStart(6)}`);
+    L.push('');
+    L.push('Swing = change in (your largest kingdom − opponent’s largest kingdom) caused by that one play.');
+    return L.join('\n');
+  }
+  function famStr(f) { return MEMBER_ORDER.filter(m => f[m] > 0).map(m => (f[m] > 1 ? f[m] + '×' : '') + MEMBERS[m].name).join(', ') || 'none'; }
+
+  const api = { key, kx, ky, LANDS, MEMBERS, MEMBER_ORDER, HOUSES, SPECIALS, SPECIAL_ORDER, PERSONAS, defaultConfig,
+    newGame, legalMoves, cardMoves, playMove, chooseMove, score, top, landOf, canFlip, bbox, placeCells, cardLabel, cardTitle,
+    findCard, playOut, runBatch, summarize, reportText, mulberry32 };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.VyeEngine = api;
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+(function () {
+'use strict';
+const E = VyeEngine;
+const $ = (s, el = document) => el.querySelector(s);
+const h = (tag, attrs, ...kids) => {
+  const el = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v; else if (k === 'style') el.setAttribute('style', v);
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(k));
+  return el;
+};
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 1800); }
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Copied'); return true; }
+  catch (e) { toast('Copy blocked. Select the text below instead.'); return false; }
+}
+
+// ---------- config ----------
+function mergeCfg(saved) {
+  const d = E.defaultConfig(); if (!saved) return d;
+  const c = Object.assign(d, saved);
+  c.specials = Object.assign(E.defaultConfig().specials, saved.specials || {});
+  c.end = Object.assign(E.defaultConfig().end, saved.end || {});
+  c.family = (saved.family && saved.family.length === 2) ? saved.family : d.family;
+  for (const s of Object.keys(c.specials)) if (!E.SPECIALS[s]) delete c.specials[s];
+  return c;
+}
+let cfg = mergeCfg(store.get('vyeMicro.cfg', null));
+let mirror = store.get('vyeMicro.mirror', true);
+function saveCfg() { store.set('vyeMicro.cfg', cfg); store.set('vyeMicro.mirror', mirror); }
+
+const PRESETS = {
+  'Default micro': () => E.defaultConfig(),
+  'Pairs': () => Object.assign(E.defaultConfig(), { landSets: 10, landCopies: 2 }),
+  'Two Family each': () => Object.assign(E.defaultConfig(), { landSets: 8, family: [{ advisor: 0, king: 1, queen: 0, heir: 1 }, { advisor: 0, king: 1, queen: 0, heir: 1 }] }),
+  'Asymmetric': () => Object.assign(E.defaultConfig(), { family: [{ advisor: 1, king: 0, queen: 0, heir: 1 }, { advisor: 0, king: 1, queen: 1, heir: 1 }] }),
+  'Lands only': () => Object.assign(E.defaultConfig(), { landSets: 9, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 0])) }),
+  'Every special': () => Object.assign(E.defaultConfig(), { landSets: 6, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 1])), stacking: 'unlimited' })
+};
+
+function stepper(val, min, max, onChange, id) {
+  const out = h('output', { id }, String(val));
+  const dec = h('button', { 'aria-label': 'Decrease', disabled: val <= min, onclick: () => onChange(val - 1) }, '−');
+  const inc = h('button', { 'aria-label': 'Increase', disabled: val >= max, onclick: () => onChange(val + 1) }, '+');
+  return h('span', { class: 'stepper' }, dec, out, inc);
+}
+function seg(options, val, onChange) {
+  return h('span', { class: 'seg' }, options.map(([v, label]) =>
+    h('button', { 'aria-pressed': String(v === val), onclick: () => onChange(v) }, label)));
+}
+function row(label, help, control) {
+  return h('div', { class: 'row' }, h('div', { class: 'lbl' }, h('b', null, label), help ? h('small', null, help) : null), control);
+}
+
+function deckNumbers(c) {
+  const lands = c.landSets * c.landCopies;
+  let specials = 0, placeSpecials = 0;
+  for (const s of E.SPECIAL_ORDER) { const n = c.specials[s] | 0; specials += n; const mode = s === 'wild' ? (c.wildMode === 'cover' ? 'cover' : 'place') : E.SPECIALS[s].mode; if (mode === 'place') placeSpecials += n; }
+  const fam = c.family.map(f => E.MEMBER_ORDER.reduce((a, m) => a + (f[m] | 0), 0));
+  const spaces = c.gridW * c.gridH;
+  const fillers = lands + placeSpecials + fam[0] + fam[1] + (c.start === 'neutral' ? 1 : 0);
+  return { lands, specials, fam, spaces, fillers, deck: lands + specials };
+}
+
+function renderSetup() {
+  const v = $('#view-setup'); v.textContent = '';
+  const set = (fn) => { fn(); saveCfg(); renderSetup(); };
+  const presets = h('div', { class: 'presets' }, h('span', { class: 'k' }, 'Presets'),
+    Object.keys(PRESETS).map(name => h('button', { class: 'btn', onclick: () => set(() => { cfg = PRESETS[name](); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); }) }, name)));
+
+  const deck = h('div', { class: 'panel' }, h('h2', null, 'Lands'), h('p', { class: 'sub' }, 'Each Land type comes in a matching set. Matching an adjacent Land flips the whole connected chain.'),
+    row('Land types', 'How many different Lands go in the deck.', stepper(cfg.landSets, 2, 16, n => set(() => cfg.landSets = n), 'st-landsets')),
+    row('Copies of each Land', 'Pairs keep chains short. Triples allow 2-tile captures.', seg([[2, 'Pairs'], [3, 'Triples'], [4, 'Fours']], cfg.landCopies, n => set(() => cfg.landCopies = n))));
+
+  const specials = h('div', { class: 'panel' }, h('h2', null, 'Specials'), h('p', { class: 'sub' }, 'Token cards are gone. Everything here works with flip-for-ownership tiles.'),
+    E.SPECIAL_ORDER.map(s => {
+      const S = E.SPECIALS[s];
+      const mode = s === 'wild' ? (cfg.wildMode === 'cover' ? 'covers' : cfg.wildMode === 'place' ? 'placed' : 'covers or placed') : ({ place: 'placed', cover: 'covers', replace: 'replaces' })[S.mode];
+      return row(h('span', null, S.name, h('span', { class: 'chip' + (S.origin !== 'Original' ? ' new' : '') }, S.origin), h('span', { class: 'chip' }, mode)), S.rule,
+        stepper(cfg.specials[s] | 0, 0, 3, n => set(() => cfg.specials[s] = n), 'st-sp-' + s));
+    }));
+
+  const famCol = (p) => h('div', null,
+    h('h3', null, h('span', { class: 'dot p' + p }), E.HOUSES[p].short + (p === 0 ? ' (Blue, first)' : ' (Red)')),
+    E.MEMBER_ORDER.map(m => row(E.MEMBERS[m].name, null, stepper(cfg.family[p][m] | 0, 0, 2, n => set(() => {
+      cfg.family[p][m] = n; if (mirror) cfg.family[1 - p][m] = n;
+    }), 'st-fam-' + p + m))));
+  const fam = h('div', { class: 'panel' }, h('h2', null, 'Family sideboard'),
+    h('p', { class: 'sub' }, 'Family tiles start face up beside each player and can be played instead of a hand card. Advisor flips all 8 surrounding tiles, King the 4 adjacent, Queen the 4 diagonal, Heir 1 of your choice.'),
+    h('label', { class: 'check', style: 'margin-bottom:10px' }, h('input', { type: 'checkbox', id: 'mirror', checked: mirror, onchange: e => set(() => { mirror = e.target.checked; if (mirror) cfg.family[1] = Object.assign({}, cfg.family[0]); }) }), 'Same Family for both players'),
+    h('div', { class: 'fam-cols' }, famCol(0), famCol(1)),
+    row('Color Capture', 'Playing a Family tile next to a same-house Family tile flips it back.', h('input', { type: 'checkbox', id: 'colorcap', checked: cfg.colorCapture, onchange: e => set(() => cfg.colorCapture = e.target.checked) })));
+
+  const board = h('div', { class: 'panel' }, h('h2', null, 'Board and turns'),
+    h('p', { class: 'sub' }, 'The play area floats. It can grow in any direction until it hits the width or height limit.'),
+    row('Width limit', null, stepper(cfg.gridW, 3, 8, n => set(() => cfg.gridW = n), 'st-w')),
+    row('Height limit', null, stepper(cfg.gridH, 3, 8, n => set(() => cfg.gridH = n), 'st-h')),
+    row('Hand size', null, stepper(cfg.handSize, 1, 6, n => set(() => cfg.handSize = n), 'st-hand')),
+    row('Opening tile', 'A neutral Crossroads that nobody can own, or an empty table.', seg([['neutral', 'Crossroads'], ['none', 'Empty']], cfg.start, x => set(() => cfg.start = x))),
+    row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: stacks keep growing.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))),
+    row('Wild Land', 'Covers a Land (adapted) or is placed in an empty space (original).', seg([['cover', 'Covers'], ['place', 'Placed'], ['either', 'Either']], cfg.wildMode, x => set(() => cfg.wildMode = x))));
+
+  const endKeys = [['boardFull', 'Board is full', 'Every space inside the width × height limit is filled.'], ['deckEmpty', 'Deck is empty', 'Ends the moment the last card is drawn.'], ['noValidPlay', 'A player can’t play', 'If off, that player passes instead. The game ends when neither can play.']];
+  const end = h('div', { class: 'panel' }, h('h2', null, 'Game end'),
+    h('p', { class: 'sub' }, 'Any checked condition ends the game. The largest connected kingdom wins.'),
+    endKeys.map(([k, l, help]) => row(l, help, h('input', { type: 'checkbox', id: 'end-' + k, checked: cfg.end[k], onchange: e => set(() => cfg.end[k] = e.target.checked) }))),
+    row('Ties', 'Leave as a tie, or break it on total tiles owned.', seg([['none', 'Tie'], ['total', 'Total tiles']], cfg.tiebreak, x => set(() => cfg.tiebreak = x))));
+
+  const n = deckNumbers(cfg);
+  const fillNote = n.fillers < n.spaces
+    ? h('div', { class: 'note warn' }, `Only ${n.fillers} tiles can fill a space but the grid has ${n.spaces}. The board can’t fill, so another condition must end the game.`)
+    : h('div', { class: 'note ok' }, `${n.fillers} space-filling tiles for ${n.spaces} spaces, so about ${n.fillers - n.spaces} stay unplayed. Cover cards don’t use up spaces.`);
+  const summary = h('div', { class: 'panel', style: 'grid-column: 1 / -1' }, h('h2', null, 'This build'),
+    h('div', { class: 'summary' },
+      [[n.deck, 'Deck tiles'], [n.lands, 'Lands'], [n.specials, 'Specials'], [n.fam[0] + ' / ' + n.fam[1], 'Family Blue / Red'], [n.spaces, 'Board spaces']].map(([val, k]) => h('div', { class: 'stat' }, h('div', { class: 'v' }, String(val)), h('div', { class: 'k' }, k)))),
+    fillNote,
+    h('div', { style: 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap' },
+      h('button', { class: 'btn primary', onclick: () => { selectTab('play'); newGame(); } }, 'Play this build'),
+      h('button', { class: 'btn', onclick: () => selectTab('sim') }, 'Simulate this build')));
+
+  v.append(presets, h('div', { class: 'grid-setup' }, summary, deck, board, end, fam, specials));
+}
+
+// ---------- tiles ----------
+const SPEC_GLYPH = { ancient: '∩', lostcity: '♜', sinkhole: '◎', sanctuary: '✧', wild: '✳', watchtower: '♖', pretender: '♛', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
+function patEl(member) {
+  const on = { advisor: [0,1,2,3,5,6,7,8], king: [1,3,5,7], queen: [0,2,6,8], heir: [] }[member];
+  return h('span', { class: 'pat' }, [...Array(9)].map((_, i) => h('i', { class: i === 4 ? 'me' : on.includes(i) ? 'on' : member === 'heir' ? 'opt' : '' })));
+}
+function tileEl(t, owner) {
+  let el;
+  if (t.kind === 'land' || (t.special === 'wild' && t.wildAs != null)) {
+    const L = E.LANDS[t.kind === 'land' ? t.land : t.wildAs];
+    el = h('div', { class: 'tile land', style: '--lc:' + L.color }, h('span', { class: 'g' }, t.special === 'wild' ? '✳' : L.glyph), h('span', { class: 'n' }, t.special === 'wild' ? 'Wild ' + L.name : L.name));
+  } else if (t.kind === 'family') {
+    el = h('div', { class: 'tile fam' }, patEl(t.member), h('span', { class: 'n' }, E.MEMBERS[t.member].name), h('span', { class: 'n', style: 'opacity:.6;margin-top:0' }, E.HOUSES[t.house].short));
+  } else if (t.kind === 'special') {
+    const S = E.SPECIALS[t.special];
+    if (t.special === 'pretender' && t.member) el = h('div', { class: 'tile spec' }, patEl(t.member), h('span', { class: 'n' }, 'Pretender ' + E.MEMBERS[t.member].name));
+    else el = h('div', { class: 'tile spec ' + t.special }, h('span', { class: 'g' }, SPEC_GLYPH[t.special]), h('span', { class: 'n' }, S.name));
+  } else el = h('div', { class: 'tile start' }, h('span', { class: 'g' }, '✣'), h('span', { class: 'n' }, 'Crossroads'));
+  const o = owner === undefined ? t.owner : owner;
+  if (o === 0 || o === 1 || o === 'both') {
+    const c = o === 'both' ? 'both' : 'p' + o;
+    el.append(h('span', { class: 'own ' + c }), h('span', { class: 'sig ' + c }, o === 'both' ? '' : E.HOUSES[o].sigil));
+  }
+  return el;
+}
+function cardDesc(c) {
+  if (c.kind === 'land') return `${E.LANDS[c.land].name}: matches adjacent ${E.LANDS[c.land].name} and flips the whole chain.`;
+  if (c.kind === 'family') return `${E.MEMBERS[c.member].name}: ${E.MEMBERS[c.member].rule}` + (cfg.colorCapture ? ' Also flips adjacent same-house Family.' : '');
+  return `${E.SPECIALS[c.special].name}: ${E.SPECIALS[c.special].rule}`;
+}
+
+// ---------- play ----------
+const seats = store.get('vyeMicro.seats', ['human', 'cautious']);
+let speed = store.get('vyeMicro.speed', 600);
+let reveal = false;
+let G = null;            // game state
+let history = [];        // snapshots before human moves
+let ui = { sel: null, pos: null, phase: null, eqA: null };
+let aiTimer = null, paused = false;
+let gameSeed = Math.floor(Math.random() * 1e6);
+
+function snapshot(s) {
+  return { board: new Map(s.board), deck: s.deck.slice(), players: s.players.map(p => ({ hand: p.hand.slice(), side: p.side.slice() })), discard: s.discard.slice(),
+    turn: s.turn, turnNo: s.turnNo, passes: s.passes, over: s.over, endReason: s.endReason, winner: s.winner, final: s.final, plays: s.plays.slice(), log: s.log.slice(), lastMove: s.lastMove, moves: s.moves };
+}
+function restore(s, snap) { Object.assign(s, snap, { board: new Map(snap.board), deck: snap.deck.slice(), players: snap.players.map(p => ({ hand: p.hand.slice(), side: p.side.slice() })) }); }
+
+function newGame(seed) {
+  clearTimeout(aiTimer); paused = false;
+  gameSeed = seed != null ? seed : Math.floor(Math.random() * 1e6);
+  G = E.newGame(cfg, gameSeed); history = []; ui = { sel: null, pos: null, phase: null, eqA: null };
+  renderPlay(); scheduleAI();
+}
+const isHuman = p => seats[p] === 'human';
+function scheduleAI() {
+  clearTimeout(aiTimer);
+  if (!G || G.over || isHuman(G.turn) || paused) return;
+  aiTimer = setTimeout(() => {
+    if (!G || G.over || isHuman(G.turn) || paused) return;
+    const m = E.chooseMove(G, seats[G.turn]);
+    if (m) E.playMove(G, m);
+    renderPlay(); scheduleAI();
+  }, speed);
+}
+function humanPlay(move) {
+  history.push(snapshot(G));
+  E.playMove(G, move);
+  ui = { sel: null, pos: null, phase: null, eqA: null };
+  renderPlay(); scheduleAI();
+}
+function undo() {
+  if (!history.length) return;
+  clearTimeout(aiTimer);
+  restore(G, history.pop());
+  ui = { sel: null, pos: null, phase: null, eqA: null };
+  renderPlay();
+}
+
+function selCard() { if (!ui.sel || !G) return null; return E.findCard(G, G.turn, ui.sel); }
+function movesFor() { return G.moves.filter(m => m.cardId === ui.sel); }
+
+function clickCell(k) {
+  if (!ui.sel) return;
+  const card = selCard(); const ms = movesFor();
+  if (ui.phase === null) {
+    const pm = ms.filter(m => m.pos === k); if (!pm.length) return;
+    if (pm.length === 1) return humanPlay(pm[0]);
+    ui.pos = k;
+    if (card.special === 'wild') ui.phase = 'wild';
+    else if (card.special === 'usurp') ui.phase = 'usurp';
+    else if (card.special === 'earthquake') ui.phase = 'eqA';
+    else ui.phase = 'cell';
+    return renderPlay();
+  }
+  const pm = ms.filter(m => m.pos === ui.pos);
+  if (ui.phase === 'cell') { const m = pm.find(m => m.choice === k); if (m) humanPlay(m); return; }
+  if (ui.phase === 'eqA') { if (pm.some(m => m.choice && m.choice.includes(k))) { ui.eqA = k; ui.phase = 'eqB'; renderPlay(); } return; }
+  if (ui.phase === 'eqB') { const m = pm.find(m => m.choice && m.choice.includes(ui.eqA) && m.choice.includes(k) && k !== ui.eqA); if (m) humanPlay(m); return; }
+}
+
+function targetsNow() {
+  if (!G || G.over || !isHuman(G.turn) || !ui.sel) return new Set();
+  const ms = movesFor();
+  if (ui.phase === null) return new Set(ms.map(m => m.pos));
+  const pm = ms.filter(m => m.pos === ui.pos);
+  if (ui.phase === 'cell') return new Set(pm.map(m => m.choice).filter(c => c != null));
+  if (ui.phase === 'eqA') { const s = new Set(); pm.forEach(m => m.choice && m.choice.forEach(c => s.add(c))); return s; }
+  if (ui.phase === 'eqB') { const s = new Set(); pm.forEach(m => { if (m.choice && m.choice.includes(ui.eqA)) m.choice.forEach(c => { if (c !== ui.eqA) s.add(c); }); }); return s; }
+  return new Set();
+}
+
+function renderBoard() {
+  const b = G.board;
+  const cs = b.size ? E.bbox(b) : { x0: 0, x1: 0, y0: 0, y1: 0 };
+  const open = new Set(G.over ? [] : E.placeCells(G));
+  let x0 = cs.x0, x1 = cs.x1, y0 = cs.y0, y1 = cs.y1;
+  for (const k of open) { x0 = Math.min(x0, E.kx(k)); x1 = Math.max(x1, E.kx(k)); y0 = Math.min(y0, E.ky(k)); y1 = Math.max(y1, E.ky(k)); }
+  if (ui.pos != null) { x0 = Math.min(x0, E.kx(ui.pos)); x1 = Math.max(x1, E.kx(ui.pos)); y0 = Math.min(y0, E.ky(ui.pos)); y1 = Math.max(y1, E.ky(ui.pos)); }
+  const cols = x1 - x0 + 1, rows = y1 - y0 + 1;
+  const phone = window.innerWidth <= 700, gap = phone ? 4 : 5;
+  const vw = ($('#view-play') || document.body).clientWidth;
+  const avail = phone ? vw - 12 : Math.min(vw - (window.innerWidth > 900 ? 380 : 40), 720);
+  const cell = Math.max(34, Math.min(86, Math.floor((avail - gap * (cols - 1)) / cols)));
+  const tg = targetsNow();
+  const lm = G.lastMove; const flipped = new Set(lm ? lm.flips : []);
+  const grid = h('div', { class: 'board', style: `grid-template-columns: repeat(${cols}, ${cell}px); --cell:${cell}px` });
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const k = E.key(x, y); const st = b.get(k);
+    const cls = ['cell'];
+    if (!st) cls.push('empty'); if (!st && open.has(k)) cls.push('open');
+    if (tg.has(k)) cls.push('target');
+    if (st && st.length > 1) cls.push('stacked');
+    if (lm && lm.pos === k) cls.push('last');
+    if (flipped.has(k)) cls.push('flipped');
+    const c = h('div', { class: cls.join(' '), onclick: () => clickCell(k), title: st ? st.slice().reverse().map(E.cardTitle).join(' over ') : null });
+    if (st) {
+      c.append(tileEl(st[st.length - 1]));
+      if (st.length > 1) c.append(h('span', { class: 'stack' }, '×' + st.length));
+    } else if (ui.pos === k && ui.phase) {
+      c.classList.add('ghost'); c.append(tileEl(selCard(), G.turn));
+    }
+    grid.append(c);
+  }
+  return grid;
+}
+
+function promptEl() {
+  if (G.over) return h('div', { class: 'prompt' }, `Game over · ${G.winner === -1 ? 'Tie' : E.HOUSES[G.winner].short + ' wins'} ${G.final.largest[0]}–${G.final.largest[1]}`, h('button', { class: 'btn', onclick: () => { ui.hideEnd = false; renderPlay(); } }, 'Show result'));
+  const p = G.turn; const who = h('span', { class: 'who p' + p }, E.HOUSES[p].short);
+  if (!isHuman(p)) return h('div', { class: 'prompt' }, h('span', null, who, paused ? ' is paused.' : ' is thinking…'));
+  const card = selCard();
+  if (!card) return h('div', { class: 'prompt' }, h('span', null, who, ' to play. Pick a tile from your hand or sideboard.'));
+  const cancel = h('button', { class: 'btn', onclick: () => { ui = { sel: null, pos: null, phase: null, eqA: null }; renderPlay(); } }, 'Cancel');
+  const back = h('button', { class: 'btn', onclick: () => { ui.pos = null; ui.phase = null; ui.eqA = null; renderPlay(); } }, 'Back');
+  const pm = movesFor().filter(m => m.pos === ui.pos);
+  if (ui.phase === 'wild') return h('div', { class: 'prompt' }, 'Wild Land becomes', h('span', { class: 'choices' },
+    [...new Set(pm.map(m => m.choice))].map(L => h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === L)) }, E.LANDS[L].glyph + ' ' + E.LANDS[L].name))), back);
+  if (ui.phase === 'usurp') return h('div', { class: 'prompt' }, 'Put which Land in its place?', h('span', { class: 'choices' },
+    pm.map(m => h('button', { class: 'btn', onclick: () => humanPlay(m) }, E.LANDS[m.choice.land].glyph + ' ' + E.LANDS[m.choice.land].name))), back);
+  if (ui.phase === 'cell') return h('div', { class: 'prompt' }, 'Choose the tile to flip.', back);
+  if (ui.phase === 'eqA') return h('div', { class: 'prompt' }, 'Earthquake: pick the first tile to swap.', h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === null)) }, 'No swap'), back);
+  if (ui.phase === 'eqB') return h('div', { class: 'prompt' }, 'Pick the second tile.', back);
+  return h('div', { class: 'prompt' }, h('span', null, who, ' · ', E.cardTitle(card), ': choose a highlighted space.'), cancel);
+}
+
+function handEl(p, other) {
+  const pl = G.players[p];
+  const mine = isHuman(p) && G.turn === p && !G.over;
+  const show = isHuman(p) || reveal || G.over;
+  const playable = new Set(mine ? G.moves.map(m => m.cardId) : []);
+  const cardBtn = c => {
+    const ok = playable.has(c.id);
+    const b = h('button', { class: 'hcard' + (ui.sel === c.id ? ' sel' : '') + (mine && !ok ? ' dead' : ''), title: cardDesc(c), 'aria-label': E.cardTitle(c),
+      onclick: () => { if (!mine || !ok) return; ui = { sel: ui.sel === c.id ? null : c.id, pos: null, phase: null, eqA: null }; renderPlay(); } });
+    b.append(tileEl(c, p)); return b;
+  };
+  return h('div', { class: 'hand-area' + (other ? ' other' : '') },
+    h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`, !show ? ` (${pl.hand.length} hidden)` : ''),
+    h('div', { class: 'hand' }, show ? pl.hand.map(cardBtn) : pl.hand.map(() => h('span', { class: 'hcard back' })),
+      pl.side.length ? h('span', { style: 'width:14px' }) : null, pl.side.map(cardBtn)));
+}
+
+function renderPlay() {
+  const v = $('#view-play'); v.textContent = '';
+  if (!G) return;
+  const sc = E.score(G.board);
+  const table = h('div', { class: 'table' });
+  const mchip = p => h('span', { class: 'mchip p' + p + (G.turn === p && !G.over ? ' active' : '') },
+    h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p])), h('small', null, `${sc.total[p]} owned · ${G.players[p].hand.length + G.players[p].side.length} cards`));
+  table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, `Deck ${G.deck.length}`), mchip(1)));
+  table.append(renderBoard());
+  const card = selCard();
+  const hp = [0, 1].filter(p => isHuman(p));
+  const order = hp.length === 2 ? [G.turn, 1 - G.turn] : hp.length === 1 ? [hp[0], 1 - hp[0]] : [0, 1];
+  table.append(h('div', { class: 'tray' }, promptEl(),
+    h('div', { class: 'cardinfo' + (card ? '' : ' idle') }, card ? cardDesc(card) : 'Ownership is the outline and sigil: blue moon for Midnight, red rose for Roses.'),
+    handEl(order[0])));
+  table.append(handEl(order[1], true));
+  if (G.over && !ui.hideEnd) {
+    const w = G.winner;
+    table.append(h('div', { class: 'endcard' }, h('div', { class: 'box' },
+      h('h2', { class: w === -1 ? '' : 'p' + w + 'c' }, w === -1 ? 'A tie' : E.HOUSES[w].short + ' wins'),
+      h('div', null, `Kingdoms ${G.final.largest[0]} – ${G.final.largest[1]} · ${G.endReason} · ${G.turnNo} turns`),
+      h('div', { style: 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap' },
+        h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
+        h('button', { class: 'btn', onclick: () => newGame(gameSeed) }, 'Replay seed'),
+        h('button', { class: 'btn', onclick: () => { ui.hideEnd = true; renderPlay(); } }, 'Look at the board')))));
+  }
+
+  const pscore = p => h('div', { class: 'pscore p' + p + (G.turn === p && !G.over ? ' active' : '') },
+    h('div', { class: 'nm' }, h('span', { class: 'dot p' + p }), E.HOUSES[p].sigil + ' ' + E.HOUSES[p].short),
+    h('div', { class: 'big' }, String(sc.largest[p])),
+    h('div', { class: 'sm' }, `largest kingdom · ${sc.total[p]} owned`));
+  const personaOpts = (p) => h('select', { id: 'seat-' + p, onchange: e => { seats[p] = e.target.value; store.set('vyeMicro.seats', seats); renderPlay(); scheduleAI(); } },
+    h('option', { value: 'human', selected: seats[p] === 'human' }, 'Human'),
+    Object.entries(E.PERSONAS).map(([k, P]) => h('option', { value: k, selected: seats[p] === k }, 'AI · ' + P.name)));
+  const bothAI = !isHuman(0) && !isHuman(1);
+  const rail = h('div', { class: 'rail' },
+    h('div', { class: 'score' }, pscore(0), pscore(1)),
+    h('div', { class: 'panel' },
+      h('div', { class: 'seat' },
+        h('span', { class: 'dot p0' }), personaOpts(0), h('span', { class: 'dot p1' }), personaOpts(1)),
+      h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center' },
+        h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
+        h('button', { class: 'btn', onclick: undo, disabled: !history.length }, 'Undo'),
+        bothAI ? h('button', { class: 'btn', onclick: () => { paused = !paused; renderPlay(); scheduleAI(); } }, paused ? 'Resume' : 'Pause') : null),
+      h('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;font-size:13.5px' },
+        h('span', { style: 'color:var(--muted)' }, 'AI speed'),
+        seg([[150, 'Fast'], [600, 'Normal'], [1400, 'Slow']], speed, x => { speed = x; store.set('vyeMicro.speed', x); renderPlay(); })),
+      h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
+        h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`))),
+    h('div', { class: 'panel' },
+      h('div', { style: 'display:flex;justify-content:space-between;font-size:13.5px;color:var(--muted);margin-bottom:8px' },
+        h('span', null, `Deck ${G.deck.length}`), h('span', null, `Turn ${G.turnNo + 1}`), h('span', null, `Spaces ${G.board.size}/${cfg.gridW * cfg.gridH}`)),
+      h('h3', { style: 'font-size:15px;margin-bottom:6px' }, 'Log'),
+      h('div', { class: 'log' }, G.log.length ? G.log.slice(-14).reverse().map(e => e.pass
+        ? h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), 'passes')
+        : h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), h('span', null, e.title + (e.flips ? ` · flipped ${e.flips}` : '')),
+          h('span', { class: 'sw', title: 'Change in kingdom lead' }, (e.swing >= 0 ? '+' : '') + e.swing))) : h('div', { style: 'color:var(--muted)' }, 'No moves yet.'))));
+  v.append(h('div', { class: 'play' }, table, rail));
+}
+
+// ---------- simulate ----------
+let simState = store.get('vyeMicro.sim', { a: 'cautious', b: 'greedy', n: 500, alt: true });
+let simResult = null, simWorker = null, matrixResult = null;
+function workerSrc() {
+  return $('#vye-engine').textContent + `
+self.onmessage = e => {
+  const d = e.data;
+  if (d.type === 'batch') {
+    const S = VyeEngine.runBatch(d.cfg, d.personas, d.n, d.seed, d.alt, (i, n) => self.postMessage({ type: 'progress', i, n }));
+    const sum = VyeEngine.summarize(S);
+    self.postMessage({ type: 'done', sum, text: VyeEngine.reportText(sum, d.cfg, d.personas) });
+  } else if (d.type === 'matrix') {
+    const keys = d.keys, out = {}; let done = 0, total = keys.length * (keys.length - 1) / 2;
+    for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) {
+      const S = VyeEngine.runBatch(d.cfg, [keys[i], keys[j]], d.n, d.seed, true);
+      out[keys[i] + '|' + keys[j]] = { a: S.wins[keys[i]] / S.games, b: S.wins[keys[j]] / S.games };
+      self.postMessage({ type: 'progress', i: ++done, n: total });
+    }
+    self.postMessage({ type: 'matrix', out, keys });
+  }
+};`;
+}
+function startWorker(msg) {
+  if (simWorker) simWorker.terminate();
+  try {
+    simWorker = new Worker(URL.createObjectURL(new Blob([workerSrc()], { type: 'text/javascript' })));
+  } catch (e) { simWorker = null; }
+  const bar = $('#sim-bar'), lbl = $('#sim-status');
+  const onMsg = d => {
+    if (d.type === 'progress') { bar.style.width = (100 * d.i / d.n) + '%'; lbl.textContent = `${d.i} of ${d.n}`; }
+    if (d.type === 'done') { simResult = { sum: d.sum, text: d.text, cfg: JSON.parse(JSON.stringify(cfg)), personas: msg.personas }; simWorker = null; renderSim(); }
+    if (d.type === 'matrix') { matrixResult = d; simWorker = null; renderSim(); }
+  };
+  if (simWorker) { simWorker.onmessage = e => onMsg(e.data); simWorker.postMessage(msg); }
+  else { // fallback: run on the main thread
+    setTimeout(() => {
+      if (msg.type === 'batch') { const S = E.runBatch(msg.cfg, msg.personas, msg.n, msg.seed, msg.alt); const sum = E.summarize(S); onMsg({ type: 'done', sum, text: E.reportText(sum, msg.cfg, msg.personas) }); }
+    }, 30);
+  }
+  renderSimRunning();
+}
+function renderSimRunning() { const b = $('#sim-run'), m = $('#sim-matrix'); if (b) b.disabled = true; if (m) m.disabled = true; $('#sim-status').textContent = 'Starting…'; }
+
+function swingBar(c, lo, hi) {
+  const W = 170, H = 18, x = v => 6 + (W - 12) * (v - lo) / Math.max(1, hi - lo);
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg'); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const mk = (tag, attrs) => { const e = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); svg.append(e); };
+  mk('line', { x1: x(0), x2: x(0), y1: 1, y2: H - 1, stroke: 'var(--line)', 'stroke-width': 1 });
+  mk('line', { x1: x(c.min), x2: x(c.max), y1: H / 2, y2: H / 2, stroke: 'var(--muted)', 'stroke-width': 1.5 });
+  mk('rect', { x: x(Math.max(c.min, c.mean - c.sd)), y: H / 2 - 4, width: Math.max(2, x(Math.min(c.max, c.mean + c.sd)) - x(Math.max(c.min, c.mean - c.sd))), height: 8, rx: 2, fill: 'color-mix(in srgb, var(--brass) 35%, transparent)' });
+  mk('circle', { cx: x(c.mean), cy: H / 2, r: 4, fill: 'var(--brass)' });
+  return svg;
+}
+
+function renderSim() {
+  const v = $('#view-sim'); v.textContent = '';
+  const pick = (id, val, on) => h('select', { id, onchange: e => on(e.target.value) }, Object.entries(E.PERSONAS).map(([k, P]) => h('option', { value: k, selected: val === k }, P.name)));
+  const save = () => store.set('vyeMicro.sim', simState);
+  const running = !!simWorker;
+  const controls = h('div', { class: 'panel' },
+    h('h2', null, 'Run games'), h('p', { class: 'sub' }, 'Uses the current Setup. Two AI players play it out as fast as possible.'),
+    h('div', { class: 'field' }, h('label', { for: 'sim-a' }, 'Player A'), pick('sim-a', simState.a, x => { simState.a = x; save(); renderSim(); }), h('span', { class: 'persona-blurb' }, E.PERSONAS[simState.a].blurb)),
+    h('div', { class: 'field' }, h('label', { for: 'sim-b' }, 'Player B'), pick('sim-b', simState.b, x => { simState.b = x; save(); renderSim(); }), h('span', { class: 'persona-blurb' }, E.PERSONAS[simState.b].blurb)),
+    h('div', { class: 'field' }, h('label', null, 'Games'), seg([[100, '100'], [500, '500'], [1000, '1k'], [3000, '3k']], simState.n, x => { simState.n = x; save(); renderSim(); })),
+    h('label', { class: 'check', style: 'margin-bottom:12px;font-size:14px' }, h('input', { type: 'checkbox', id: 'sim-alt', checked: simState.alt, onchange: e => { simState.alt = e.target.checked; save(); } }), 'Swap who goes first every game'),
+    h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+      h('button', { class: 'btn primary', id: 'sim-run', disabled: running, onclick: () => startWorker({ type: 'batch', cfg, personas: [simState.a, simState.b], n: simState.n, seed: Math.floor(Math.random() * 1e9), alt: simState.alt }) }, 'Run'),
+      h('button', { class: 'btn', id: 'sim-matrix', disabled: running, title: 'Every persona against every other, 200 games each', onclick: () => startWorker({ type: 'matrix', cfg, keys: Object.keys(E.PERSONAS).filter(k => k !== 'random'), n: 200, seed: Math.floor(Math.random() * 1e9) }) }, 'All matchups')),
+    h('div', { class: 'progress' }, h('i', { id: 'sim-bar' })),
+    h('div', { id: 'sim-status', style: 'font-size:13px;color:var(--muted)' }, running ? 'Running…' : ' '));
+
+  const res = h('div', { class: 'results' });
+  if (!simResult && !matrixResult) res.append(h('div', { class: 'panel empty-results' }, 'Results appear here: win rates, first-player advantage, how games end, and every card’s swing range. Pick two personas and press Run.'));
+  if (simResult) {
+    const s = simResult.sum, P = simResult.personas;
+    const names = Object.keys(s.wins);
+    const pct = x => Math.round(100 * x) + '%';
+    const colors = ['var(--blue)', 'var(--red)'];
+    res.append(h('div', { class: 'panel' },
+      h('h2', null, names.map(n => n.replace(/^\w/, c => c.toUpperCase())).join(' vs ')),
+      h('p', { class: 'sub' }, `${s.games} games in ${s.seconds.toFixed(1)}s` + (JSON.stringify(simResult.cfg) !== JSON.stringify(cfg) ? ' · Setup has changed since this run' : '')),
+      h('div', { class: 'winbar' }, names.map((n, i) => h('span', { style: `flex:${s.wins[n]};background:${colors[i]}` }, `${n} ${pct(s.wins[n] / s.games)}`)),
+        s.ties ? h('span', { style: `flex:${s.ties};background:var(--muted)` }, `tie ${pct(s.tieRate)}`) : null),
+      h('div', { class: 'summary', style: 'margin-top:12px' },
+        [[pct(s.firstSeatWinRate), 'First player wins'], [pct(s.tieRate), 'Ties'], [s.turns.mean.toFixed(1), 'Turns per game'], [s.margin.mean.toFixed(1), 'Average margin'],
+          [Object.entries(s.scores).map(([, x]) => x.mean.toFixed(1)).join(' / '), 'Avg kingdom']].map(([val, k]) => h('div', { class: 'stat' }, h('div', { class: 'v' }, val), h('div', { class: 'k' }, k)))),
+      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Ended by: ' + Object.entries(s.endReasons).map(([k, n]) => `${k} ${pct(n / s.games)}`).join(' · '))));
+
+    const lo = Math.min(0, ...s.cards.map(c => c.min)), hi = Math.max(1, ...s.cards.map(c => c.max));
+    const landMean = (s.cards.find(c => c.label === 'Land') || { mean: 1 }).mean;
+    res.append(h('div', { class: 'panel' },
+      h('h2', null, 'Card swing'),
+      h('p', { class: 'sub' }, 'Swing is how much one play changes the kingdom lead: (your largest kingdom − theirs) after, minus before. The bar runs min to max, the band is ±1 standard deviation, the dot is the mean.'),
+      h('div', { class: 'tbl-wrap' }, h('table', null,
+        h('thead', null, h('tr', null, ['Card', 'Plays/game', 'Mean', 'SD', 'Min', 'Max', 'Range', 'Flips', 'Win% when played'].map(t => h('th', null, t)))),
+        h('tbody', null, s.cards.map(c => h('tr', null,
+          h('td', null, c.label, c.mean > landMean * 2.5 && c.mean > 3.5 ? h('span', { class: 'flag hot', title: 'Mean swing is far above a plain Land' }, 'hot') : null,
+            c.sd > 2.5 ? h('span', { class: 'flag hot', title: 'Very wide spread of outcomes' }, 'swingy') : null,
+            c.max - c.min === 0 ? h('span', { class: 'flag flat', title: 'Same result every play; swing may not capture its value' }, 'flat') : null),
+          h('td', null, c.perGame.toFixed(2)), h('td', null, (c.mean >= 0 ? '+' : '') + c.mean.toFixed(2)), h('td', null, c.sd.toFixed(2)),
+          h('td', null, String(c.min)), h('td', null, String(c.max)), h('td', { class: 'rng' }, swingBar(c, lo, hi)), h('td', null, c.flips.toFixed(2)), h('td', null, pct(c.winWhenPlayed))))))),
+      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Watchtower and Sanctuary mostly protect value rather than gain it, so their swing reads low. Win% when played is a better signal for defensive cards.')));
+
+    const pre = h('pre', { class: 'report', id: 'sim-report' }, simResult.text);
+    res.append(h('div', { class: 'panel' }, h('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
+      h('h2', { style: 'flex:1' }, 'Report'), h('button', { class: 'btn', onclick: () => copyText(simResult.text + '\n\nCONFIG ' + JSON.stringify(simResult.cfg)) }, 'Copy report')),
+      h('details', null, h('summary', null, 'Show plain-text report'), pre)));
+  }
+  if (matrixResult) {
+    const { out, keys } = matrixResult;
+    const cell = (a, b) => { if (a === b) return h('td', null, '—'); const r = out[a + '|' + b]; if (r) return h('td', null, Math.round(100 * r.a) + '%'); const r2 = out[b + '|' + a]; return h('td', null, Math.round(100 * r2.b) + '%'); };
+    res.append(h('div', { class: 'panel' }, h('h2', null, 'Persona matchups'), h('p', { class: 'sub' }, 'Row persona’s win rate against the column persona, 200 games each, seats swapped every game.'),
+      h('div', { class: 'tbl-wrap' }, h('table', { class: 'matrix' }, h('thead', null, h('tr', null, h('th', null, ''), keys.map(k => h('th', null, E.PERSONAS[k].name)))),
+        h('tbody', null, keys.map(a => h('tr', null, h('th', { style: 'text-align:left' }, E.PERSONAS[a].name), keys.map(b => cell(a, b)))))))));
+  }
+  v.append(h('div', { class: 'simgrid' }, controls, res));
+}
+
+// ---------- tabs ----------
+function selectTab(name) {
+  for (const t of ['setup', 'play', 'sim']) { $('#tab-' + t).setAttribute('aria-selected', String(t === name)); $('#view-' + t).hidden = t !== name; }
+  if (name === 'setup') renderSetup();
+  if (name === 'play') { if (!G) newGame(); else renderPlay(); }
+  if (name === 'sim') { if (!simWorker) renderSim(); }
+  store.set('vyeMicro.tab', name);
+}
+for (const t of ['setup', 'play', 'sim']) $('#tab-' + t).addEventListener('click', () => selectTab(t));
+$('#copy-config').addEventListener('click', () => copyText(JSON.stringify(cfg)));
+window.addEventListener('resize', () => { if (!$('#view-play').hidden && G) renderPlay(); });
+selectTab(store.get('vyeMicro.tab', 'play'));
+})();
+</script>
+
+</body>
+</html>
