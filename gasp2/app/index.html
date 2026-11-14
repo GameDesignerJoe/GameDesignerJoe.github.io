@@ -452,7 +452,7 @@ function wireRefChips(sh,quick){const p=$("#panel"),pk=()=>JSON.parse(JSON.strin
   const ad=$("#refAdd");if(ad)ad.onchange=()=>{if(!ad.value)return;const o=pk();o.add=(o.add||[]).filter(x=>x!==ad.value).concat(ad.value);o.off=(o.off||[]).filter(x=>x!==ad.value);quick({refPick:o})}}
 
 /* ---------- reference tab ---------- */
-let RSEL=ls.get("g2-ref",null),RFOCUS=null,RGEN=null;const RPROMPT={},RSHUT=new Set(),ROPEN=new Set(),RREFOFF=new Set();let RSUG=[];
+let RSEL=ls.get("g2-ref",null),RFOCUS=null,RGEN=null;const RNOTES={},RPROMPT={},RSHUT=new Set(),ROPEN=new Set(),RREFOFF=new Set();let RSUG=[];
 const KLAB={character:["Characters","character"],location:["Locations","location"],prop:["Props","prop"]};
 function renderReference(){
   const m=$("#main");if(RSEL&&!REFS.find(c=>c.id===RSEL))RSEL=null;
@@ -493,22 +493,37 @@ function refFraming(c,im){const L=lc(im.label);
   return"The object on its own, centred, whole object in frame, plain white background, product-shot lighting."}
 const framingOf=(c,im)=>RPROMPT[im.id]??(im.framing||refFraming(c,im));
 // the prompt exactly as it's sent: the story's STYLE (if ticked) + the card's Look + this image's framing
-const refFull=(c,im,withStyle)=>[withStyle&&EP&&EP.style?`Style: ${EP.style}.`:"",c.look?c.look.replace(/\.?\s*$/,"."):"",framingOf(c,im)].filter(Boolean).join(" ");
+// art style for reference images: the story's STYLE, the look of the reference art, or nothing
+const styleMode=()=>{const m=ls.get("g2-refstylemode",null);if(m==="story"&&!(EP&&EP.style))return"refs";return m||(EP&&EP.style?"story":"refs")};
+const notesOf=im=>RNOTES[im.id]??(im.notes||"");
+const styleLine=m=>m==="story"&&EP&&EP.style?`Style: ${EP.style}.`:m==="refs"?"Art style: match the reference images exactly (line work, colours, shading, rendering).":"";
+const refFull=(c,im,mode)=>{const n=notesOf(im).trim();return[styleLine(mode),c.look?c.look.replace(/\.?\s*$/,"."):"",framingOf(c,im),n?`For this image: ${n.replace(/\.?\s*$/,".")} Where this differs from the description above, follow this.`:""].filter(Boolean).join(" ")};
+// the same prompt, worded the way ChatGPT likes it; attach the reference images by hand
+function chatgptPrompt(c,im,mode,nRefs){const n=notesOf(im).trim(),who=c.kind==="character"?"character":c.kind,asp=refAspect(c,im);
+  return[nRefs?`I've attached ${nRefs} reference image${nRefs===1?"":"s"} of the same ${who}. Use them for ${c.kind==="character"?"their face, hair and build":"its shape and design"}, and keep ${c.kind==="character"?"them":"it"} recognisably the same ${who}.${mode==="refs"?" Keep the art style of the reference images.":""}`:"",
+    `Create an image of this ${who}:`,
+    mode==="story"&&EP&&EP.style?`- Style: ${EP.style}`:"",
+    c.look?`- ${c.kind==="character"?"Who":"What"}: ${c.look}`:"",
+    `- Framing: ${framingOf(c,im)}`,
+    n?`- For this image (this wins over anything above): ${n}`:"",
+    `- ${asp==="9:16"?"Vertical 9:16":asp==="16:9"?"Wide 16:9":"Square"} image, ${c.kind==="location"?"":"transparent background, "}no text or labels.`].filter(Boolean).join("\n")}
 const refAspect=(c,im)=>/turn/i.test(im.label)?"16:9":c.kind==="location"?(EP&&EP.aspect==="9:16"?"9:16":"16:9"):c.kind==="prop"||/face|head|portrait/i.test(im.label)?"1:1":"9:16";
 function imageBlock(c,im){const j=JOBS_IMG(im.id),busy=j&&j.status==="running",open=ROPEN.has(im.id)||RGEN===im.id||(!im.url&&!RSHUT.has(im.id)),IM=STATE.imageModels||{},mk0=ls.get("g2-refmodel",STATE.defaultImage),mk=IM[mk0]?mk0:STATE.defaultImage,cnt=ls.get("g2-refcount",1),others=c.images.filter(x=>x.id!==im.id&&x.url),cut=(STATE.cutoutTools||{})[STATE.defaultCutout]||{};
   return`<div class="rib ${RFOCUS===im.id?"focus":""}" data-im="${im.id}"><div class="row" style="gap:4px;flex-wrap:wrap"><input type="text" class="lab" data-lab="${im.id}" value="${esc(im.label)}" title="Rename this image"><button class="btn small ${open?"":"primary"}" data-gen="${im.id}">${open?"Hide generate":"Generate…"}</button><button class="btn small" data-cut="${im.id}" ${!im.url||busy?"disabled":""} title="Make a transparent version with ${esc(cut.label||"")} (about $${cut.pricePerImage}). The original stays in its takes.">Remove background</button><label class="btn small" title="Choose an image file">File<input type="file" accept="image/*" data-file="${im.id}" hidden></label><button class="btn small ghost" data-imdel="${im.id}" title="Remove this image (its takes go to _Trash)">✕</button></div>
     <div class="rhero">${im.url?`<img src="${im.url}" class="chk" data-view="${im.id}" alt="" title="Click to see it large">`:`<div class="ph" data-drop="${im.id}"><div>Drop an image here, paste one with Ctrl+V,<br>or click to choose a file. Or Generate one.</div></div>`}</div>
     ${open?`<div class="gform">
-      <div class="sub" style="margin-bottom:4px">The prompt is ${EP&&EP.style?"the story's <b>STYLE</b> + ":""}the card's <b>Look</b> (in its first tab) + this <b>framing</b>:</div>
+      <div class="sub" style="margin-bottom:4px">The prompt is the <b>art style</b> + the card's <b>Look</b> (in its first tab) + this <b>framing</b> + your <b>notes</b>:</div>
       <textarea data-gp="${im.id}" rows="2" title="How this image is framed. Saved with the image.">${esc(framingOf(c,im))}</textarea>
       ${!c.look?`<p class="refwarn" style="margin-top:6px">⚠ Write the Look above first: without it the model only gets the framing.</p>`:""}
-      ${EP&&EP.style?`<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" data-gs ${ls.get("g2-refstyle",true)?"checked":""} style="width:auto"> Add ${esc(STORY.title)}'s STYLE (leave it off for a card you'll use across stories in different styles)</label>`:""}
+      <label class="f" style="margin-top:8px">Notes for this image <span style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--faint)">· saved with it; never changes the Look</span></label>
+      <textarea data-gn placeholder="Direction just for this image: out of her armor, in a simple green muslin dress, hair unbound, happy and smiling">${esc(notesOf(im))}</textarea>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap"><span class="sub">Art style</span><div class="seg">${[["story",EP&&EP.style?esc(STORY.title)+"'s STYLE":"","The story's STYLE line"],["refs","Match my art","Copy the look of the reference images"],["none","None","No style direction"]].filter(x=>x[1]).map(([k,l,t])=>`<button data-gsm="${k}" class="${styleMode()===k?"on":""}" title="${t}">${l}</button>`).join("")}</div></div>
       <div class="sub" style="margin-top:8px">References <span style="color:var(--faint)">· images the model copies the ${c.kind==="character"?"person":c.kind} from; click to switch off</span></div>
       <div class="refs">${others.map(o=>`<span class="rchip ${RREFOFF.has(im.id+":"+o.id)?"off":"on"}" data-gref="${o.id}"><img src="${o.url}" alt="">${esc(o.label)}</span>`).join("")}<label class="rchip missing" title="Drop in your own art (from ChatGPT, a sketch, a photo) to guide this one. It's added to the card as its own image.">+ Your own image<input type="file" accept="image/*" data-gown multiple hidden></label></div>
       ${c.kind!=="location"?`<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" data-gx ${ls.get("g2-refcut",true)?"checked":""} style="width:auto"> Then remove the background (about $${cut.pricePerImage} each), so it's a transparent cutout</label>`:""}
-      <details style="margin-top:6px" open><summary class="sub" style="cursor:pointer">What gets sent</summary><pre class="cpre" data-gfull>${esc(refFull(c,im,EP&&EP.style&&ls.get("g2-refstyle",true)))}</pre></details>
+      <details style="margin-top:6px" open><summary class="sub" style="cursor:pointer">What gets sent</summary><pre class="cpre" data-gfull>${esc(refFull(c,im,styleMode()))}</pre></details>
       <div class="row" style="margin-top:6px;flex-wrap:wrap"><select data-gm style="flex:1;min-width:160px">${Object.entries(IM).map(([k,v])=>`<option value="${k}" ${k===mk?"selected":""}>${esc(v.label)} · $${v.pricePerImage}</option>`).join("")}</select><div class="seg" title="How many to make">${[1,2,4].map(n=>`<button data-gc="${n}" class="${n===cnt?"on":""}">${n}</button>`).join("")}</div></div>
-      <div class="row" style="margin-top:8px"><button class="btn primary small" data-gogen="${im.id}" ${busy?"disabled":""}>${busy?"Generating…":"Generate "+esc(im.label)}</button><span class="sub">≈ ${money(((IM[mk]||{pricePerImage:0}).pricePerImage+(c.kind!=="location"&&ls.get("g2-refcut",true)?cut.pricePerImage||0:0))*cnt)} · ${refAspect(c,im)}</span></div></div>`:""}
+      <div class="row" style="margin-top:8px"><button class="btn primary small" data-gogen="${im.id}" ${busy?"disabled":""}>${busy?"Generating…":"Generate "+esc(im.label)}</button><span class="sub">≈ ${money(((IM[mk]||{pricePerImage:0}).pricePerImage+(c.kind!=="location"&&ls.get("g2-refcut",true)?cut.pricePerImage||0:0))*cnt)} · ${refAspect(c,im)}</span><span class="spacer"></span><button class="btn small" data-gcgpt title="Copy this prompt worded for ChatGPT. Attach the reference images yourself, then drop the result back on this image.">Copy for ChatGPT</button></div></div>`:""}
     ${j?`<div class="prog ${j.status==="error"?"err":""}">${j.status==="running"?`${esc(j.kind==="cutout"?"Removing the background":(IM[j.model]||{}).label||j.model)}: ${esc(j.phase||"working")} · <span class="jt" data-j="${j.id}">${elapsed(j)}</span><div class="bar"><i></i></div>`:j.status==="error"?`✕ ${esc(j.error)}`:`✓ Done${j.cost?` · ${money(j.cost)}`:""}${(j.takes||[]).length>1?" · click a new one below to use it":""}`}</div>`:""}
     ${im.takes.length>1?`<div class="strip" style="margin-top:6px">${im.takes.map((t,k)=>`<div class="take rtake chk ${t.inUse?"use":""} ${j&&j.status==="done"&&(j.takes||[]).includes(t.file)?"new":""}" data-tk="${im.id}" data-k="${k}" title="${esc(t.file)}"><img src="${t.url}" alt="" loading="lazy">${j&&j.status==="done"&&(j.takes||[]).includes(t.file)?`<span class="nw">new</span>`:""}${t.inUse?`<span class="u">in use</span>`:""}</div>`).join("")}</div>`:""}</div>`}
 function renderCardPanel(){const p=$("#rpanel");if(!p)return;const c=REFS.find(x=>x.id===RSEL);
@@ -538,7 +553,7 @@ function renderCardPanel(){const p=$("#rpanel");if(!p)return;const c=REFS.find(x
     as.querySelectorAll("[data-artx]").forEach(b=>b.onclick=async()=>{if(!confirm("Remove this art? It goes to _Trash."))return;try{REFS=await api("/api/ref/image/delete",{card:c.id,image:b.dataset.artx});renderReference()}catch(err){toast(err.message)}})}
   const upd=async(fields,full)=>{try{REFS=await api("/api/ref/update",{card:c.id,fields});if(full)renderReference()}catch(e){toast(e.message)}};
   if($("#cName")){$("#cName").onchange=e=>upd({name:e.target.value},true);$("#cAka").onchange=e=>upd({aliases:e.target.value});
-  let lt;$("#cLook").oninput=e=>{clearTimeout(lt);const v=e.target.value;c.look=v;p.querySelectorAll(".rib").forEach(el=>{const im=c.images.find(x=>x.id===el.dataset.im),pre=el.querySelector("[data-gfull]"),st=el.querySelector("[data-gs]");if(im&&pre)pre.textContent=refFull(c,im,st&&st.checked)});lt=setTimeout(()=>upd({look:v}).then(()=>{const t=document.querySelector(`.rcard[data-card="${c.id}"] .mt`);if(t)t.outerHTML=cardTile(REFS.find(x=>x.id===c.id)).match(/<div class="mt">.*?<\/div>/)[0]}),500)}}
+  let lt;$("#cLook").oninput=e=>{clearTimeout(lt);const v=e.target.value;c.look=v;p.querySelectorAll(".rib").forEach(el=>{const im=c.images.find(x=>x.id===el.dataset.im),pre=el.querySelector("[data-gfull]"),st=null;if(im&&pre)pre.textContent=refFull(c,im,styleMode())});lt=setTimeout(()=>upd({look:v}).then(()=>{const t=document.querySelector(`.rcard[data-card="${c.id}"] .mt`);if(t)t.outerHTML=cardTile(REFS.find(x=>x.id===c.id)).match(/<div class="mt">.*?<\/div>/)[0]}),500)}}
   const cv=$("#cVoice");if(cv)cv.onchange=e=>upd({voice:e.target.value});
   $("#cFolder").onclick=()=>reveal({card:c.id});
   $("#cDel").onclick=async()=>{if(!confirm(`Move the ${c.name} card and all its images to _Trash?`))return;try{REFS=await api("/api/ref/delete",{card:c.id});RSEL=null;await loadSuggest();renderReference();toast(`${c.name} moved to _Trash. It's back in the suggestions if the script still uses it.`,5000)}catch(e){toast(e.message)}};
@@ -558,14 +573,17 @@ function renderCardPanel(){const p=$("#rpanel");if(!p)return;const c=REFS.find(x
     const ph=q("[data-drop]");if(ph)ph.onclick=()=>q("[data-file]").click();
     const hv=q("[data-view]");if(hv)hv.onclick=()=>viewer(im.takes,Math.max(0,im.takes.findIndex(t=>t.inUse)),refOps(c,im));
     el.querySelectorAll("[data-tk]").forEach(t=>t.onclick=()=>viewer(im.takes,+t.dataset.k,refOps(c,im)));
-    const gp=q("[data-gp]");if(gp){const st=q("[data-gs]"),go=q("[data-go]"),gx=q("[data-gx]"),full=()=>{const el=q("[data-gfull]");if(el)el.textContent=refFull(c,im,st&&st.checked)};
+    const gp=q("[data-gp]");if(gp){const go=q("[data-go]"),gx=q("[data-gx]"),gn=q("[data-gn]"),full=()=>{const el=q("[data-gfull]");if(el)el.textContent=refFull(c,im,styleMode())};
+      let nt;gn.oninput=()=>{RNOTES[im.id]=gn.value;full();clearTimeout(nt);nt=setTimeout(()=>api("/api/ref/image/rename",{card:c.id,image:im.id,notes:gn.value}).then(r=>{REFS=r}).catch(()=>{}),600)};
+      el.querySelectorAll("[data-gsm]").forEach(b=>b.onclick=()=>{ls.set("g2-refstylemode",b.dataset.gsm);renderCardPanel()});
+      const onRefs=()=>(REFS.find(x=>x.id===c.id)||c).images.filter(x=>x.id!==im.id&&x.url&&!RREFOFF.has(im.id+":"+x.id));
+      q("[data-gcgpt]").onclick=()=>copyText(chatgptPrompt(REFS.find(x=>x.id===c.id)||c,im,styleMode(),onRefs().length),`Copied for ChatGPT${onRefs().length?`: attach the ${onRefs().length} reference image${onRefs().length===1?"":"s"} (the card's Folder has them)`:""}`);
       let ft;gp.oninput=()=>{RPROMPT[im.id]=gp.value;full();clearTimeout(ft);ft=setTimeout(()=>api("/api/ref/image/rename",{card:c.id,image:im.id,framing:gp.value}).then(r=>{REFS=r}).catch(()=>{}),600)};
-      if(st)st.onchange=()=>{ls.set("g2-refstyle",st.checked);full()};
       el.querySelectorAll("[data-gref]").forEach(ch=>ch.onclick=()=>{const k=im.id+":"+ch.dataset.gref;RREFOFF.has(k)?RREFOFF.delete(k):RREFOFF.add(k);renderCardPanel()});
       q("[data-gown]").onchange=async e=>{ROPEN.add(im.id);let n=c.images.filter(x=>x.art).length;for(const f of[...e.target.files]){try{const r=await api("/api/ref/image/new",{card:c.id,label:"my art "+(++n),art:true,image:await fileData(f),source:"upload"});REFS=r.refs}catch(err){toast(err.message)}}RFOCUS=im.id;renderCardPanel()};if(gx)gx.onchange=()=>{ls.set("g2-refcut",gx.checked);renderCardPanel()};
       q("[data-gm]").onchange=e=>{ls.set("g2-refmodel",e.target.value);renderCardPanel()};
       el.querySelectorAll("[data-gc]").forEach(b=>b.onclick=()=>{ls.set("g2-refcount",+b.dataset.gc);renderCardPanel()});
-      q("[data-gogen]").onclick=async()=>{const cc=REFS.find(x=>x.id===c.id)||c;const prompt=refFull(cc,im,st&&st.checked);if(!gp.value.trim()&&!cc.look)return toast("Write the Look or the framing first.");
+      q("[data-gogen]").onclick=async()=>{const cc=REFS.find(x=>x.id===c.id)||c;const prompt=refFull(cc,im,styleMode());if(!gp.value.trim()&&!cc.look)return toast("Write the Look or the framing first.");
         const refs=cc.images.filter(x=>x.id!==im.id&&x.url&&!RREFOFF.has(im.id+":"+x.id)).map(x=>({card:c.id,image:x.id}));ROPEN.add(im.id);
         try{const job=await api("/api/gen/ref",{card:c.id,image:im.id,prompt,refs,model:q("[data-gm]").value,count:ls.get("g2-refcount",1),aspect:refAspect(c,im),cutout:!!(gx&&gx.checked)});JOBS[job.id]=job;jobsPill();renderCardPanel()}catch(e){toast(e.message)}}}});
 }
