@@ -81,6 +81,7 @@ Status: **Steps 1–6 built (dry-run tested). Steps 5–6 need Joe's first real 
 - [x] Remove background (BiRefNet v2 default, Bria RMBG 2.0; pick in Settings): the cutout becomes a new take, the original stays
 - [x] Shared across stories in `GASP Library\Reference\<Kind>\<Name>\` (`card.json`, the in-use image on top, `takes\`); images dropped into a card folder from Explorer are picked up as new images; a new folder becomes a card
 - [x] The chat reads every card's look, copies it into CAST and IMAGE, and can propose `update_ref` (save a look, or make a card); Apply / Undo
+- [x] Suggested cards from the script (not real until Add)
 - [ ] Joe: make the Grim cast's cards from his art, write their looks, rerun the script prompt and see if the cast stops drifting
 
 ## Step 7 — Sound tab
@@ -93,6 +94,7 @@ Status: **Steps 1–6 built (dry-run tested). Steps 5–6 need Joe's first real 
 - [ ] Multi-select generate; keyboard shortcuts; interactive choices back on (engine parked, not removed)
 
 ## Log
+- 2026-11-13 — Reference from Joe's first look: suggested cards from the story's scripts (WHO names and speakers, CAST entries with their looks, SHOT-line locations; Add, Add all, or ✕ to hide); the Generate panel shows the prompt as STYLE + Look + framing with "What gets sent", opens by itself on an empty image, saves the framing per image, and can remove the background right after (on by default for characters and props); Generate is pink. Shots: amber warning when a shot's characters or place have no reference images.
 - 2026-11-13 — Joe's quality-of-life list (Google Doc "GASP 2"): chat attachments and links, resizable chat with a growing message box and a connection status line; Script tab: STORY/EPISODE header kept by GASP, "Episode 1" tabs (double-click to rename; title box removed), text size A−/A+, side panel can hide (Update Shots moves to the toolbar), "Sync to Shots" renamed "Update Shots" with a line saying what it would change, "Copy Script for Claude", editor fills the width with no scroll bar, example page shows STORY/EPISODE/FORMAT/STYLE and hides itself when there's no room.
 - 2026-11-13 — Steps 5 and 6 built and dry-run tested together (cards from files, generate face from full body, background removal, keyframes x2 with Mother + Farm Yard references matched from the script, "Mom" alias, previous-shot reference, chat card saving a look then undone, name completion from cards).
 - 2026-11-13 — Joe's second script (new method): brief, consistent cast, light arc, safe strikes, all shots 5s+ (~$7 of Kling vs $50). Fixed what it exposed: invented `[[#1]]` tags are dropped (only GASP's real link is kept), a `---` or REFERENCE IMAGES section after the last shot no longer joins that shot, the chat is told not to write either, and the "IMAGE names X" check ignores role words used as description ("a small child").

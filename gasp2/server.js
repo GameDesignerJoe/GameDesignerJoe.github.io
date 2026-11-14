@@ -219,7 +219,7 @@ function addCardTake(c, im, buf, ext, source) {
 function cardForApp(c) {
   const abs = cardPath(c);
   return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "",
-    images: c.images.map(im => ({ id: im.id, label: im.label, url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
+    images: c.images.map(im => ({ id: im.id, label: im.label, framing: im.framing, url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
       takes: im.takes.filter(t => fs.existsSync(path.join(abs, "takes", t))).map(t => ({ file: t, url: fileUrl(path.join(abs, "takes", t)), inUse: t === im.take, kind: "image" })).reverse() })) };
 }
 const refsForApp = () => readCards().map(cardForApp).sort((a, b) => a.name.localeCompare(b.name));
@@ -294,6 +294,36 @@ async function userContent(s, m, withImages) {
   return parts;
 }
 
+
+// cards the story's scripts seem to need: names on WHO: lines and speakers, CAST entries in the brief, SHOT-line locations.
+// Nothing is made until the writer clicks Add.
+const FRAMING = /\b(E?CU|M?CU|MS|WS|E?LS|LA|HA|OTS|POV|two[- ]shot|insert|silhouette|tracking|cutaway|close[- ]?up|wide|medium|low[- ]angle|high[- ]angle|overhead|aerial|dolly|pan|tilt|establishing)\b/i;
+const TIME = /^(late |early |mid[- ]?)?(morning|noon|midday|afternoon|evening|dusk|dawn|sunset|sunrise|night|midnight|day|twilight|golden hour)$/i;
+function placeOf(loc) { const parts = String(loc || "").split(/\s*,\s*/).map(x => x.trim()).filter(x => x && !FRAMING.test(x) && !TIME.test(x) && !/^\d+s$/.test(x)); return parts[0] || ""; }
+const PERSON = /\b(man|woman|boy|girl|child|kid|baby|person|people|creature|figure|monster|he|she|his|her|old|young|teen|thirties|twenties|forties|years|elderly|lady|guy|reaper|beast|animal|dog|cat|horse|bird)\b/i;
+function suggestRefs(s) {
+  const cards = readCards(), have = (kind, n) => { const l = n.toLowerCase(); return cards.some(c => c.kind === kind && [c.name].concat(c.aliases || []).some(a => a.toLowerCase() === l || (kind === "location" && l.includes(a.toLowerCase())))); };
+  const chars = new Map(), places = new Map(), cast = new Map();
+  const bump = (m, k, ep, extra) => { const key = k.toLowerCase(); const o = m.get(key) || { name: k, shots: 0, eps: new Set(), ...extra }; o.shots++; o.eps.add(ep); m.set(key, o); };
+  for (const ep of s.episodes) {
+    const t = readScript(s, ep).replace(/\r/g, ""); if (!t.trim()) continue; const p = SF.parse(t);
+    for (const b of p.blocks) {
+      const names = new Set(String(b.who || "").split(/\s*,\s*|\s+and\s+|\s*&\s*|\s*\/\s*/).map(x => x.trim()).filter(Boolean));
+      for (const l of b.lines || []) if (l.who) names.add(l.who.replace(/\s*\(.*\)$/, "").trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase()));
+      for (const n of names) if (n.length < 40 && !/REFERENCE/i.test(n)) bump(chars, n, ep.num);
+      const pl = placeOf(b.location); if (pl) bump(places, pl, ep.num);
+    }
+    // CAST: Name — description. (several per line allowed)
+    for (const line of t.split("\n")) { const m = line.match(/^\s*CAST\s*:\s*(.+)$/i); if (!m) continue;
+      for (const e of m[1].split(/(?<=[.;])\s+(?=[A-Z][\w'’ .-]{0,30}?\s+[—–-]\s)/)) { const x = e.match(/^\s*([A-Z][\w'’ .-]{0,30}?)\s+[—–-]\s+(.+?)\s*[.;]?\s*$/); if (x && !cast.has(x[1].toLowerCase())) cast.set(x[1].toLowerCase(), { name: x[1].trim(), look: x[2].trim() }); } }
+  }
+  const out = [];
+  for (const [k, c] of cast) { if (!chars.has(k) && !PERSON.test(c.look)) { if (!have("prop", c.name)) out.push({ kind: "prop", name: c.name, look: c.look, shots: 0, eps: [] }); } else if (!chars.has(k)) chars.set(k, { name: c.name, shots: 0, eps: new Set() }); }
+  for (const [k, c] of chars) if (!have("character", c.name)) out.push({ kind: "character", name: c.name, look: (cast.get(k) || {}).look || "", shots: c.shots, eps: [...c.eps] });
+  for (const [, c] of places) if (!have("location", c.name)) out.push({ kind: "location", name: c.name, look: "", shots: c.shots, eps: [...c.eps] });
+  return out.sort((a, b) => b.shots - a.shots);
+}
+
 // ---------- spend log ----------
 const spendFile = () => path.join(LIB(), "spend-log.csv");
 const csv = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -343,7 +373,14 @@ function runImageJob({ target, modelKey, prompt, picks, count, sameSubject }) {
       const r = await generateImages({ model, prompt: full, refs: refs.map(x => x.file), aspect, count, outBase: base, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? `in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
       const takes = r.files.map(f => path.basename(f));
       if (sh) { const s2 = loadStory(s.id); const ep2 = epOf(s2, ep.id); const sh2 = shotOf(ep2, sh.id); if (!sh2.keyframeTake) setInUse(s2, ep2, sh2, takes[0]); saveStory(s2); logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "keyframe", model: modelKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: r.files.map(rel).join(" | ") }); }
-      else { const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); im2.takes.push(...takes); if (!im2.take) setImageInUse(c2, im2, takes[0]); writeCard(c2); logSpend({ story: "Reference", episode: "", shot: `${c2.name} · ${im2.label}`, kind: "reference", model: modelKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: r.files.map(rel).join(" | ") }); }
+      else {
+        logSpend({ story: "Reference", episode: "", shot: `${c.name} · ${im.label}`, kind: "reference", model: modelKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: r.files.map(rel).join(" | ") });
+        const tool = target.cutout && MODELS.cutout[settings().defaultCutout];
+        if (tool) { job.phase = "removing the background"; emit("job", job); const cuts = [];
+          for (const f of r.files) { const out = f.replace(/\.[a-z]+$/i, "") + ` - cutout ${settings().defaultCutout}.png`; try { const x = await removeBackground({ tool, file: f, outFile: out }); cuts.push(path.basename(out)); r.cost += x.cost; logSpend({ story: "Reference", episode: "", shot: `${c.name} · ${im.label}`, kind: "cutout", model: settings().defaultCutout + (x.dry ? " (dry run)" : ""), seconds: 0, cost: x.cost, file: rel(out) }); } catch (e) { job.cutoutError = String(e.message || e); } }
+          takes.push(...cuts); }
+        const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); im2.takes.push(...takes); if (!im2.take) setImageInUse(c2, im2, takes.find(t => / - cutout /.test(t)) || takes[0]); writeCard(c2);
+      }
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, takes, finished: Date.now() });
     } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
     emit("job", job);
@@ -417,7 +454,8 @@ const routes = {
   },
   "POST /api/gen/video": async (req) => { const b = await body(req); return await runVideoJob({ storyId: b.story, epId: b.ep, shotId: b.shot, modelKey: b.model || settings().defaultVideo, prompt: b.prompt, seconds: +b.seconds || 5 }); },
   "GET /api/refs": () => refsForApp(),
-  "POST /api/ref/new": async (req) => { const b = await body(req); const c = createCard(b.kind, b.name || "New " + b.kind); if (b.image) { const { ext, buf } = dataUri(b.image); const im = c.images[0]; setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); writeCard(c); } return { refs: refsForApp(), card: c.id }; },
+  "GET /api/refs/suggest": (req, url) => suggestRefs(loadStory(url.searchParams.get("story"))),
+  "POST /api/ref/new": async (req) => { const b = await body(req); const c = createCard(b.kind, b.name || "New " + b.kind); if (b.look) { c.look = String(b.look); writeCard(c); } if (b.image) { const { ext, buf } = dataUri(b.image); const im = c.images[0]; setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); writeCard(c); } return { refs: refsForApp(), card: c.id }; },
   "POST /api/ref/update": async (req) => { const b = await body(req); const c = findCard(b.card); const f = b.fields || {};
     if ("name" in f && String(f.name).trim()) c.name = clean(f.name); if ("look" in f) c.look = String(f.look); if ("voice" in f) c.voice = String(f.voice); if ("aliases" in f) c.aliases = (Array.isArray(f.aliases) ? f.aliases : String(f.aliases).split(",")).map(x => String(x).trim()).filter(Boolean);
     saveCard(c); return refsForApp(); },
@@ -425,7 +463,8 @@ const routes = {
   "POST /api/ref/image/new": async (req) => { const b = await body(req); const c = findCard(b.card); const im = { id: newId(), label: clean(b.label || "image " + (c.images.length + 1), 40), takes: [], take: null }; c.images.push(im);
     if (b.image) { const { ext, buf } = dataUri(b.image); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); } writeCard(c); return { refs: refsForApp(), image: im.id }; },
   "POST /api/ref/image/set": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const { ext, buf } = dataUri(b.image64); setImageInUse(c, im, addCardTake(c, im, buf, ext, b.source)); writeCard(c); return refsForApp(); },
-  "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); const old = im.take ? path.join(cardPath(c), topName(im)) : null; im.label = clean(b.label, 40); if (old && fs.existsSync(old)) { try { fs.renameSync(old, path.join(cardPath(c), topName(im))); } catch {} } writeCard(c); return refsForApp(); },
+  "POST /api/ref/image/rename": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image); if ("framing" in b) { im.framing = String(b.framing || ""); writeCard(c); if (!("label" in b)) return refsForApp(); }
+    const old = im.take ? path.join(cardPath(c), topName(im)) : null; im.label = clean(b.label, 40); if (old && fs.existsSync(old)) { try { fs.renameSync(old, path.join(cardPath(c), topName(im))); } catch {} } writeCard(c); return refsForApp(); },
   "POST /api/ref/image/delete": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
     for (const t of im.takes) { const abs = path.join(cardPath(c), "takes", t); if (fs.existsSync(abs)) toTrash(abs, `Reference - ${c.name} - ${t}`); } if (im.take) { try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} }
     c.images = c.images.filter(x => x !== im); writeCard(c); return refsForApp(); },
@@ -435,7 +474,7 @@ const routes = {
     if (im.take === t) { const next = im.takes.filter(x => fs.existsSync(path.join(cardPath(c), "takes", x))).pop() || null; try { fs.unlinkSync(path.join(cardPath(c), topName(im))); } catch {} im.take = null; if (next) setImageInUse(c, im, next); }
     writeCard(c); return refsForApp(); },
   "POST /api/gen/keyframe": async (req) => { const b = await body(req); return runImageJob({ target: { story: b.story, ep: b.ep, shot: b.shot }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1 }); },
-  "POST /api/gen/ref": async (req) => { const b = await body(req); return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1, sameSubject: true }); },
+  "POST /api/gen/ref": async (req) => { const b = await body(req); return runImageJob({ target: { card: b.card, image: b.image, aspect: b.aspect, cutout: !!b.cutout }, modelKey: b.model || settings().defaultImage, prompt: b.prompt, picks: b.refs, count: +b.count || 1, sameSubject: true }); },
   "POST /api/gen/cutout": async (req) => { const b = await body(req); return runCutoutJob({ cardId: b.card, imageId: b.image, toolKey: b.tool || settings().defaultCutout }); },
   "GET /api/script": (req, url) => { const s = loadStory(url.searchParams.get("story")); const ep = epOf(s, url.searchParams.get("ep")); const t = readScript(s, ep), h = SF.withHeader(t, s.title, ep.num, ep.title); if (h !== t) writeScript(s, ep, h, false); return { text: h, path: scriptPath(s, ep) }; },
   "POST /api/script/save": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); writeScript(s, ep, String(b.text || "").replace(/\r/g, ""), false); return { ok: true }; },

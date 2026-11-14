@@ -101,6 +101,7 @@ main{flex:1;min-height:0;display:flex}
 .rcard.filedrop .rimg{border-color:var(--good);border-style:dashed}
 .rcard .nm{margin-top:6px;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rcard .mt{font-size:11px;color:var(--faint)}
+.rcard.sug .rimg{border-style:dashed;flex-direction:column;gap:6px;background:none;padding:8px}.rcard.sug .sgn{font-weight:600;color:var(--ink);font-size:14px}.rcard.sug .sgm{font-size:11px;color:var(--faint)}.rcard.sug{cursor:default}
 .rcard.add .rimg{border-style:dashed;flex-direction:column;gap:4px}.rcard.add:hover .rimg{border-color:var(--accent);color:var(--ink)}
 .rib{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px;background:var(--panel2)}
 .rib.focus{border-color:var(--accent2)}
@@ -288,7 +289,7 @@ function renderMain(){
   if(!STORY){m.innerHTML=`<div class="empty-state"><h2>Start a story</h2><p class="sub">Each story gets its own folder in your GASP Library, with episodes and shots inside it. Everything you make is kept there, so you can browse it without the app.</p><p><button class="btn primary" id="first">+ New story</button></p><p class="sub">Library: <code>${esc(STATE.library)}</code></p></div>`;$("#first").onclick=()=>$("#newStory").click();return}
   if(TAB==="shots")return renderShots();
   if(TAB==="script")return renderScript();
-  if(TAB==="reference")return renderReference();
+  if(TAB==="reference"){renderReference();loadSuggest().then(()=>{if(TAB==="reference")renderReference()});return}
   const soon={sound:{h:"Sound",step:7,items:["Dialogue with voices and lip-sync","Ambience, effects and music in lanes under the shots","Works on stills first, so timing can be locked before video"],extra:""}}[TAB];
   m.innerHTML=`<div class="soonpage"><h2>${soon.h}</h2><p class="sub">Arrives in step ${soon.step} of the build (see <code>gasp2/PLAN.md</code>). It will hold:</p><ul>${soon.items.map(x=>`<li>${x}</li>`).join("")}</ul><p class="sub">${soon.extra}</p><p><button class="btn" id="reveal">Show this story's folder</button></p></div>`;
   $("#reveal").onclick=()=>reveal({})}
@@ -431,13 +432,16 @@ function wireRefChips(sh,quick){const p=$("#panel"),pk=()=>JSON.parse(JSON.strin
   const ad=$("#refAdd");if(ad)ad.onchange=()=>{if(!ad.value)return;const o=pk();o.add=(o.add||[]).filter(x=>x!==ad.value).concat(ad.value);o.off=(o.off||[]).filter(x=>x!==ad.value);quick({refPick:o})}}
 
 /* ---------- reference tab ---------- */
-let RSEL=ls.get("g2-ref",null),RFOCUS=null,RGEN=null;const RPROMPT={};
+let RSEL=ls.get("g2-ref",null),RFOCUS=null,RGEN=null;const RPROMPT={},RSHUT=new Set();let RSUG=[];
 const KLAB={character:["Characters","character"],location:["Locations","location"],prop:["Props","prop"]};
 function renderReference(){
   const m=$("#main");if(RSEL&&!REFS.find(c=>c.id===RSEL))RSEL=null;
   m.innerHTML=`<div class="refpage"><div class="left" id="rleft"><div class="row" style="margin-bottom:16px;align-items:flex-start"><span class="sub" style="max-width:760px">Shared by every story, in <code>GASP Library\\Reference</code>. Shots pick these up by name: a character on a <b>WHO:</b> line, the location on the <b>SHOT</b> line, a prop named in the image prompt. Drop images on a row to make cards, or on a card to add to it.</span><span class="spacer"></span><button class="btn small" id="rFolder">Folder</button></div>
-    ${["character","location","prop"].map(k=>{const cs=REFS.filter(c=>c.kind===k);return`<div class="rsec" data-kind="${k}"><div class="secrow"><h3>${KLAB[k][0]}</h3><span class="sub">${cs.length||""}</span></div><div class="rgrid">${cs.map(cardTile).join("")}<div class="rcard add" data-new="${k}"><div class="rimg"><span style="font-size:24px;line-height:1">+</span>New ${KLAB[k][1]}<span style="font-size:11px;color:var(--faint)">or drop images here</span></div></div></div></div>`}).join("")}</div><div class="panel" id="rpanel"></div></div>`;
+    ${["character","location","prop"].map(k=>{const cs=REFS.filter(c=>c.kind===k),sg=sugFor(k);return`<div class="rsec" data-kind="${k}"><div class="secrow"><h3>${KLAB[k][0]}</h3><span class="sub">${cs.length||""}</span>${sg.length?`<span class="spacer"></span><span class="sub">${sg.length} suggested from ${esc(STORY?STORY.title:"the script")}</span><button class="btn small" data-addall="${k}">Add all ${sg.length}</button>`:""}</div><div class="rgrid">${cs.map(cardTile).join("")}${sg.map(sugTile).join("")}<div class="rcard add" data-new="${k}"><div class="rimg"><span style="font-size:24px;line-height:1">+</span>New ${KLAB[k][1]}<span style="font-size:11px;color:var(--faint)">or drop images here</span></div></div></div></div>`}).join("")}</div><div class="panel" id="rpanel"></div></div>`;
   $("#rFolder").onclick=()=>reveal({reference:true});
+  m.querySelectorAll("[data-sugadd]").forEach(b=>b.onclick=e=>{e.stopPropagation();const x=RSUG.find(y=>y.kind+":"+lc(y.name)===b.dataset.sugadd);if(x)addSuggested([x])});
+  m.querySelectorAll("[data-sugno]").forEach(b=>b.onclick=e=>{e.stopPropagation();const o=[...sugOff(),b.dataset.sugno];ls.set("g2-refignore-"+STORY.id,o);renderReference()});
+  m.querySelectorAll("[data-addall]").forEach(b=>b.onclick=()=>addSuggested(sugFor(b.dataset.addall)));
   m.querySelectorAll("[data-new]").forEach(b=>b.onclick=async()=>{const k=b.dataset.new;const n=prompt(`Name of the ${KLAB[k][1]}, as the script writes it`,"");if(!n)return;try{const r=await api("/api/ref/new",{kind:k,name:n});REFS=r.refs;RSEL=r.card;ls.set("g2-ref",RSEL);renderReference()}catch(e){toast(e.message)}});
   m.querySelectorAll(".rcard[data-card]").forEach(t=>{
     t.onclick=()=>{RSEL=t.dataset.card;ls.set("g2-ref",RSEL);RGEN=null;m.querySelectorAll(".rcard").forEach(x=>x.classList.toggle("sel",x===t));renderCardPanel()};
@@ -447,6 +451,11 @@ function renderReference(){
     sec.ondrop=async e=>{e.preventDefault();sec.classList.remove("dropping");const files=[...e.dataTransfer.files].filter(f=>f.type.startsWith("image/"));let last=null;for(const f of files){try{const r=await api("/api/ref/new",{kind:sec.dataset.kind,name:nameOf(f),image:await fileData(f),source:"upload"});REFS=r.refs;last=r.card}catch(err){toast(err.message)}}
       if(last){RSEL=last;ls.set("g2-ref",RSEL);renderReference();toast(files.length>1?`${files.length} cards made: rename them to the names the script uses`:"Card made: rename it to the name the script uses")}}});
   renderCardPanel()}
+const sugOff=()=>new Set(STORY?ls.get("g2-refignore-"+STORY.id,[]):[]);
+const sugFor=k=>RSUG.filter(x=>x.kind===k&&!sugOff().has(x.kind+":"+lc(x.name)));
+async function loadSuggest(){RSUG=[];if(!STORY)return;try{RSUG=await api("/api/refs/suggest?story="+encodeURIComponent(STORY.id))}catch(e){}}
+function sugTile(x){const key=x.kind+":"+lc(x.name);return`<div class="rcard sug" data-sug="${esc(key)}" title="Suggested from the script${x.look?": "+esc(x.look):""}. Not a card until you add it."><div class="rimg"><span class="sgn">${esc(x.name)}</span><span class="sgm">${x.shots?`in ${x.shots} shot${x.shots===1?"":"s"}`:"in the CAST line"}${x.look?" · look from CAST":""}</span><span class="row" style="gap:4px;justify-content:center"><button class="btn small primary" data-sugadd="${esc(key)}">Add</button><button class="btn small ghost" data-sugno="${esc(key)}" title="Not needed: hide this suggestion">✕</button></span></div><div class="nm" style="color:var(--muted)">${esc(x.name)}</div><div class="mt">suggested</div></div>`}
+async function addSuggested(list){let last=null;for(const x of list){try{const r=await api("/api/ref/new",{kind:x.kind,name:x.name,look:x.look||""});REFS=r.refs;last=r.card}catch(e){toast(e.message)}}await loadSuggest();if(last){RSEL=last;ls.set("g2-ref",RSEL)}renderReference();if(list.length>1)toast(`${list.length} cards added. Each needs its images next.`)}
 function cardTile(c){const ims=c.images.filter(i=>i.url),j=Object.values(JOBS).some(x=>x.card===c.id&&x.status==="running");
   return`<div class="rcard ${c.id===RSEL?"sel":""}" data-card="${c.id}"><div class="rimg">${ims[0]?`<img src="${ims[0].url}" alt="" loading="lazy">`:"no images yet"}</div><div class="nm">${esc(c.name)}</div><div class="mt">${ims.length} image${ims.length===1?"":"s"}${c.look?" · look ✓":" · no look yet"}${j?" · working…":""}</div></div>`}
 function rerenderRef(){if(TAB==="reference")renderReference();else if(TAB==="shots")renderPanel()}
@@ -454,21 +463,29 @@ async function addRefImage(c,f,label){if(!c)return;const empty=!label&&c.images.
 async function setRefImage(c,im,f){try{REFS=await api("/api/ref/image/set",{card:c.id,image:im.id,image64:await fileData(f),source:"upload"});RFOCUS=im.id;rerenderRef()}catch(e){toast(e.message)}}
 const refOps=(c,im)=>({use:async t=>{REFS=await api("/api/ref/take/use",{card:c.id,image:im.id,take:t.file});rerenderRef()},del:async t=>{REFS=await api("/api/ref/take/delete",{card:c.id,image:im.id,take:t.file});rerenderRef()}});
 // a starting prompt for a reference image, from the card's look and the image's label (never the name: image models don't know it)
-function refPrompt(c,im){const look=c.look||(c.kind==="character"?"a character (write the card's look first)":c.name),L=lc(im.label);
-  if(c.kind==="character"){if(/face|head|portrait|close/.test(L))return`${look}. Face close-up, head and shoulders, facing the camera, neutral expression, plain white background, even soft light.`;
-    if(/outfit|costume|wear/.test(L))return`${look}, wearing ${im.label.replace(/^(outfit|costume)\s*[-–:]?\s*/i,"")||"a new outfit"}. Full body head to toe, standing, facing the camera, plain white background, even soft light.`;
-    return`${look}. Full body head to toe, standing, facing the camera, arms relaxed, neutral expression, plain white background, even soft light.`}
-  if(c.kind==="location")return`${look}${/^(set|wide|day)$/.test(L)?"":`, ${im.label}`}. The empty set with no people in it, wide establishing view, the whole layout readable.`;
-  return`${look}. The object on its own, centred, whole object in frame, plain white background, product-shot lighting.`}
+function refFraming(c,im){const L=lc(im.label);
+  if(c.kind==="character"){if(/face|head|portrait|close/.test(L))return"Face close-up, head and shoulders, facing the camera, neutral expression, plain white background, even soft light.";
+    if(/outfit|costume|wear/.test(L))return`Wearing ${im.label.replace(/^(outfit|costume)\s*[-–:]?\s*/i,"")||"a new outfit"}. Full body head to toe, standing, facing the camera, plain white background, even soft light.`;
+    return"Full body head to toe, standing, facing the camera, arms relaxed, neutral expression, plain white background, even soft light."}
+  if(c.kind==="location")return`${/^(set|wide|day)$/.test(L)?"":im.label+". "}The empty set with no people in it, wide establishing view, the whole layout readable.`;
+  return"The object on its own, centred, whole object in frame, plain white background, product-shot lighting."}
+const framingOf=(c,im)=>RPROMPT[im.id]??(im.framing||refFraming(c,im));
+// the prompt exactly as it's sent: the story's STYLE (if ticked) + the card's Look + this image's framing
+const refFull=(c,im,withStyle)=>[withStyle&&EP&&EP.style?`Style: ${EP.style}.`:"",c.look?c.look.replace(/\.?\s*$/,"."):"",framingOf(c,im)].filter(Boolean).join(" ");
 const refAspect=(c,im)=>c.kind==="location"?(EP&&EP.aspect==="9:16"?"9:16":"16:9"):c.kind==="prop"||/face|head|portrait/i.test(im.label)?"1:1":"9:16";
-function imageBlock(c,im){const j=JOBS_IMG(im.id),busy=j&&j.status==="running",open=RGEN===im.id,IM=STATE.imageModels||{},mk0=ls.get("g2-refmodel",STATE.defaultImage),mk=IM[mk0]?mk0:STATE.defaultImage,cnt=ls.get("g2-refcount",1),others=c.images.filter(x=>x.id!==im.id&&x.url),cut=(STATE.cutoutTools||{})[STATE.defaultCutout]||{};
-  return`<div class="rib ${RFOCUS===im.id?"focus":""}" data-im="${im.id}"><div class="row" style="gap:4px;flex-wrap:wrap"><input type="text" class="lab" data-lab="${im.id}" value="${esc(im.label)}" title="Rename this image"><button class="btn small ${open?"on":""}" data-gen="${im.id}">Generate…</button><button class="btn small" data-cut="${im.id}" ${!im.url||busy?"disabled":""} title="Make a transparent version with ${esc(cut.label||"")} (about $${cut.pricePerImage}). The original stays in its takes.">Remove background</button><label class="btn small" title="Choose an image file">File<input type="file" accept="image/*" data-file="${im.id}" hidden></label><button class="btn small ghost" data-imdel="${im.id}" title="Remove this image (its takes go to _Trash)">✕</button></div>
+function imageBlock(c,im){const j=JOBS_IMG(im.id),busy=j&&j.status==="running",open=RGEN===im.id||(!im.url&&!RSHUT.has(im.id)),IM=STATE.imageModels||{},mk0=ls.get("g2-refmodel",STATE.defaultImage),mk=IM[mk0]?mk0:STATE.defaultImage,cnt=ls.get("g2-refcount",1),others=c.images.filter(x=>x.id!==im.id&&x.url),cut=(STATE.cutoutTools||{})[STATE.defaultCutout]||{};
+  return`<div class="rib ${RFOCUS===im.id?"focus":""}" data-im="${im.id}"><div class="row" style="gap:4px;flex-wrap:wrap"><input type="text" class="lab" data-lab="${im.id}" value="${esc(im.label)}" title="Rename this image"><button class="btn small ${open?"":"primary"}" data-gen="${im.id}">${open?"Hide generate":"Generate…"}</button><button class="btn small" data-cut="${im.id}" ${!im.url||busy?"disabled":""} title="Make a transparent version with ${esc(cut.label||"")} (about $${cut.pricePerImage}). The original stays in its takes.">Remove background</button><label class="btn small" title="Choose an image file">File<input type="file" accept="image/*" data-file="${im.id}" hidden></label><button class="btn small ghost" data-imdel="${im.id}" title="Remove this image (its takes go to _Trash)">✕</button></div>
     <div class="rhero">${im.url?`<img src="${im.url}" class="chk" data-view="${im.id}" alt="" title="Click to see it large">`:`<div class="ph" data-drop="${im.id}"><div>Drop an image here, paste one with Ctrl+V,<br>or click to choose a file. Or Generate one.</div></div>`}</div>
-    ${open?`<div class="gform"><textarea data-gp="${im.id}" rows="3">${esc(RPROMPT[im.id]??refPrompt(c,im))}</textarea>
+    ${open?`<div class="gform">
+      <div class="sub" style="margin-bottom:4px">The prompt is ${EP&&EP.style?"the story's <b>STYLE</b> + ":""}the card's <b>Look</b> (above) + this <b>framing</b>:</div>
+      <textarea data-gp="${im.id}" rows="2" title="How this image is framed. Saved with the image.">${esc(framingOf(c,im))}</textarea>
+      ${!c.look?`<p class="refwarn" style="margin-top:6px">⚠ Write the Look above first: without it the model only gets the framing.</p>`:""}
+      ${EP&&EP.style?`<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" data-gs ${ls.get("g2-refstyle",true)?"checked":""} style="width:auto"> Add ${esc(STORY.title)}'s STYLE (leave it off for a card you'll use across stories in different styles)</label>`:""}
+      ${others.length?`<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" data-go checked style="width:auto"> Use the card's other images (${others.map(o=>esc(o.label)).join(", ")}) so it stays the same ${c.kind==="character"?"person":c.kind}</label>`:""}
+      ${c.kind!=="location"?`<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" data-gx ${ls.get("g2-refcut",true)?"checked":""} style="width:auto"> Then remove the background (about $${cut.pricePerImage} each), so it's a transparent cutout</label>`:""}
+      <details style="margin-top:6px" open><summary class="sub" style="cursor:pointer">What gets sent</summary><pre class="cpre" data-gfull>${esc(refFull(c,im,EP&&EP.style&&ls.get("g2-refstyle",true)))}</pre></details>
       <div class="row" style="margin-top:6px;flex-wrap:wrap"><select data-gm style="flex:1;min-width:160px">${Object.entries(IM).map(([k,v])=>`<option value="${k}" ${k===mk?"selected":""}>${esc(v.label)} · $${v.pricePerImage}</option>`).join("")}</select><div class="seg" title="How many to make">${[1,2,4].map(n=>`<button data-gc="${n}" class="${n===cnt?"on":""}">${n}</button>`).join("")}</div></div>
-      ${others.length?`<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" data-go checked style="width:auto"> Use the card's other images (${others.map(o=>esc(o.label)).join(", ")}) so it stays the same ${c.kind==="character"?"person":c.kind}</label>`:""}
-      ${EP&&EP.style?`<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" data-gs checked style="width:auto"> Add ${esc(STORY.title)}'s STYLE: ${esc(EP.style.slice(0,70))}${EP.style.length>70?"…":""}</label>`:""}
-      <div class="row" style="margin-top:8px"><button class="btn primary small" data-gogen="${im.id}" ${busy?"disabled":""}>${busy?"Generating…":"Generate"}</button><span class="sub">≈ ${money((IM[mk]||{pricePerImage:0}).pricePerImage*cnt)} · ${refAspect(c,im)}</span></div></div>`:""}
+      <div class="row" style="margin-top:8px"><button class="btn primary small" data-gogen="${im.id}" ${busy?"disabled":""}>${busy?"Generating…":"Generate "+esc(im.label)}</button><span class="sub">≈ ${money(((IM[mk]||{pricePerImage:0}).pricePerImage+(c.kind!=="location"&&ls.get("g2-refcut",true)?cut.pricePerImage||0:0))*cnt)} · ${refAspect(c,im)}</span></div></div>`:""}
     ${j?`<div class="prog ${j.status==="error"?"err":""}">${j.status==="running"?`${esc(j.kind==="cutout"?"Removing the background":(IM[j.model]||{}).label||j.model)}: ${esc(j.phase||"working")} · <span class="jt" data-j="${j.id}">${elapsed(j)}</span><div class="bar"><i></i></div>`:j.status==="error"?`✕ ${esc(j.error)}`:`✓ Done${j.cost?` · ${money(j.cost)}`:""}${(j.takes||[]).length>1?" · click a new one below to use it":""}`}</div>`:""}
     ${im.takes.length>1?`<div class="strip" style="margin-top:6px">${im.takes.map((t,k)=>`<div class="take rtake chk ${t.inUse?"use":""} ${j&&j.status==="done"&&(j.takes||[]).includes(t.file)?"new":""}" data-tk="${im.id}" data-k="${k}" title="${esc(t.file)}"><img src="${t.url}" alt="" loading="lazy">${j&&j.status==="done"&&(j.takes||[]).includes(t.file)?`<span class="nw">new</span>`:""}${t.inUse?`<span class="u">in use</span>`:""}</div>`).join("")}</div>`:""}</div>`}
 function renderCardPanel(){const p=$("#rpanel");if(!p)return;const c=REFS.find(x=>x.id===RSEL);
@@ -484,7 +501,7 @@ function renderCardPanel(){const p=$("#rpanel");if(!p)return;const c=REFS.find(x
     ${c.images.map(im=>imageBlock(c,im)).join("")||`<p class="sub">No images yet.</p>`}</div>`;
   const upd=async(fields,full)=>{try{REFS=await api("/api/ref/update",{card:c.id,fields});if(full)renderReference()}catch(e){toast(e.message)}};
   $("#cName").onchange=e=>upd({name:e.target.value},true);$("#cAka").onchange=e=>upd({aliases:e.target.value});
-  let lt;$("#cLook").oninput=e=>{clearTimeout(lt);const v=e.target.value;lt=setTimeout(()=>upd({look:v}).then(()=>{const t=document.querySelector(`.rcard[data-card="${c.id}"] .mt`);if(t)t.outerHTML=cardTile(REFS.find(x=>x.id===c.id)).match(/<div class="mt">.*?<\/div>/)[0]}),500)};
+  let lt;$("#cLook").oninput=e=>{clearTimeout(lt);const v=e.target.value;c.look=v;p.querySelectorAll(".rib").forEach(el=>{const im=c.images.find(x=>x.id===el.dataset.im),pre=el.querySelector("[data-gfull]"),st=el.querySelector("[data-gs]");if(im&&pre)pre.textContent=refFull(c,im,st&&st.checked)});lt=setTimeout(()=>upd({look:v}).then(()=>{const t=document.querySelector(`.rcard[data-card="${c.id}"] .mt`);if(t)t.outerHTML=cardTile(REFS.find(x=>x.id===c.id)).match(/<div class="mt">.*?<\/div>/)[0]}),500)};
   const cv=$("#cVoice");if(cv)cv.onchange=e=>upd({voice:e.target.value});
   $("#cFolder").onclick=()=>reveal({card:c.id});
   $("#cDel").onclick=async()=>{if(!confirm(`Move the ${c.name} card and all its images to _Trash?`))return;try{REFS=await api("/api/ref/delete",{card:c.id});RSEL=null;renderReference()}catch(e){toast(e.message)}};
@@ -497,19 +514,21 @@ function renderCardPanel(){const p=$("#rpanel");if(!p)return;const c=REFS.find(x
     el.ondrop=e=>{e.preventDefault();const f=[...e.dataTransfer.files].find(f=>f.type.startsWith("image/"));if(f)setRefImage(c,im,f)};
     const q=s=>el.querySelector(s);
     q("[data-lab]").onchange=async e=>{try{REFS=await api("/api/ref/image/rename",{card:c.id,image:im.id,label:e.target.value});renderCardPanel()}catch(err){toast(err.message)}};
-    q("[data-gen]").onclick=()=>{RGEN=RGEN===im.id?null:im.id;renderCardPanel()};
+    q("[data-gen]").onclick=()=>{const isOpen=!!q(".gform");if(isOpen){RSHUT.add(im.id);if(RGEN===im.id)RGEN=null}else{RSHUT.delete(im.id);RGEN=im.id}renderCardPanel()};
     q("[data-cut]").onclick=async()=>{try{const job=await api("/api/gen/cutout",{card:c.id,image:im.id});JOBS[job.id]=job;jobsPill();renderCardPanel()}catch(e){toast(e.message)}};
     q("[data-file]").onchange=e=>{const f=e.target.files[0];if(f)setRefImage(c,im,f)};
     q("[data-imdel]").onclick=async()=>{if(!confirm(`Remove "${im.label}"? Its takes go to _Trash.`))return;try{REFS=await api("/api/ref/image/delete",{card:c.id,image:im.id});renderReference()}catch(e){toast(e.message)}};
     const ph=q("[data-drop]");if(ph)ph.onclick=()=>q("[data-file]").click();
     const hv=q("[data-view]");if(hv)hv.onclick=()=>viewer(im.takes,Math.max(0,im.takes.findIndex(t=>t.inUse)),refOps(c,im));
     el.querySelectorAll("[data-tk]").forEach(t=>t.onclick=()=>viewer(im.takes,+t.dataset.k,refOps(c,im)));
-    const gp=q("[data-gp]");if(gp){gp.oninput=()=>{RPROMPT[im.id]=gp.value};
+    const gp=q("[data-gp]");if(gp){const st=q("[data-gs]"),go=q("[data-go]"),gx=q("[data-gx]"),full=()=>{const el=q("[data-gfull]");if(el)el.textContent=refFull(c,im,st&&st.checked)};
+      let ft;gp.oninput=()=>{RPROMPT[im.id]=gp.value;full();clearTimeout(ft);ft=setTimeout(()=>api("/api/ref/image/rename",{card:c.id,image:im.id,framing:gp.value}).then(r=>{REFS=r}).catch(()=>{}),600)};
+      if(st)st.onchange=()=>{ls.set("g2-refstyle",st.checked);full()};if(gx)gx.onchange=()=>{ls.set("g2-refcut",gx.checked);renderCardPanel()};
       q("[data-gm]").onchange=e=>{ls.set("g2-refmodel",e.target.value);renderCardPanel()};
       el.querySelectorAll("[data-gc]").forEach(b=>b.onclick=()=>{ls.set("g2-refcount",+b.dataset.gc);renderCardPanel()});
-      q("[data-gogen]").onclick=async()=>{const base=gp.value.trim();if(!base)return toast("Write a prompt first.");const st=q("[data-gs]"),go=q("[data-go]");const prompt=(st&&st.checked?`Style: ${EP.style}.\n\n`:"")+base;
-        const refs=go&&go.checked?c.images.filter(x=>x.id!==im.id&&x.url).map(x=>({card:c.id,image:x.id})):[];
-        try{const job=await api("/api/gen/ref",{card:c.id,image:im.id,prompt,refs,model:q("[data-gm]").value,count:ls.get("g2-refcount",1),aspect:refAspect(c,im)});JOBS[job.id]=job;jobsPill();renderCardPanel()}catch(e){toast(e.message)}}}});
+      q("[data-gogen]").onclick=async()=>{const cc=REFS.find(x=>x.id===c.id)||c;const prompt=refFull(cc,im,st&&st.checked);if(!gp.value.trim()&&!cc.look)return toast("Write the Look or the framing first.");
+        const refs=go&&go.checked?cc.images.filter(x=>x.id!==im.id&&x.url).map(x=>({card:c.id,image:x.id})):[];
+        try{const job=await api("/api/gen/ref",{card:c.id,image:im.id,prompt,refs,model:q("[data-gm]").value,count:ls.get("g2-refcount",1),aspect:refAspect(c,im),cutout:!!(gx&&gx.checked)});JOBS[job.id]=job;jobsPill();renderCardPanel()}catch(e){toast(e.message)}}}});
 }
 
 /* ---------- script tab ---------- */
