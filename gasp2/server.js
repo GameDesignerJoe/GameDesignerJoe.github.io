@@ -7,7 +7,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { imageToVideo, generateImages, removeBackground, generateAudio, ffmpeg } from "./lib/fal.js";
+import { imageToVideo, generateImages, removeBackground, generateAudio, ffmpeg, checkCancel } from "./lib/fal.js";
 import { chatCall, splitActions, systemPrompt, dryReply, CHAT_MODELS, lenientJSON } from "./lib/chat.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -486,11 +486,11 @@ async function runVideoJob({ storyId, epId, shotId, modelKey, prompt, seconds })
     try {
       const d = shotPath(s, ep, sh); const out = path.join(d, "takes", `${stamp()} video - ${modelKey}.mp4`);
       const mdl = model.extra && "aspect_ratio" in model.extra && ep.aspect ? { ...model, extra: { ...model.extra, aspect_ratio: ep.aspect } } : model;
-      const r = await imageToVideo({ model: mdl, keyframe: path.join(d, "takes", sh.keyframeTake), prompt, seconds, outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? `in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
+      const r = await imageToVideo({ ctl: job, model: mdl, keyframe: path.join(d, "takes", sh.keyframeTake), prompt, seconds, outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? `in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
       const s2 = loadStory(storyId); const ep2 = epOf(s2, epId); const sh2 = shotOf(ep2, shotId); setInUse(s2, ep2, sh2, path.basename(r.file)); saveStory(s2);
       logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "video", model: modelKey + (r.dry ? " (dry run)" : ""), seconds: r.seconds, cost: r.cost, file: rel(r.file) });
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, take: path.basename(r.file), finished: Date.now() });
-    } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
+    } catch (e) { Object.assign(job, { ...(e && e.cancelled ? { status: "cancelled", phase: "cancelled" } : { status: "error", phase: "failed", error: String(e.message || e) }), finished: Date.now() }); }
     emit("job", job);
   })();
   return job;
@@ -549,20 +549,20 @@ function runVideoFix({ storyId, epId, shotId, modelKey, seconds, ask }) {
     try {
       const plan = await planVideoFix({ s, ep, sh, notes, ask }); cost += plan.cost;
       logSpend({ story: s.title, episode: ep.num, shot: ep.shots.indexOf(sh) + 1, kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: plan.cost, file: "" });
-      job.plan = plan.plan; const d = shotPath(s, ep, sh); let kf = sh.keyframeTake, kfNew = null;
+      checkCancel(job); job.plan = plan.plan; const d = shotPath(s, ep, sh); let kf = sh.keyframeTake, kfNew = null;
       if (plan.keyframe) {
         const imk = sh.imageModel && MODELS.image[sh.imageModel] ? sh.imageModel : settings().defaultImage, im = MODELS.image[imk]; job.phase = "fixing the keyframe"; emit("job", job);
         const pics = notes.flatMap(n => (n.pics || []).map(f => path.join(notesDir(s, ep, sh), f)));
         const p = `Change image 1: ${plan.keyframe.replace(/\.?\s*$/, ".")} Keep everything else exactly the same: the same people, poses, framing, art style, light and background.${pics.length ? " The other images are pictures the writer added: use them only as the change asks." : ""}`;
-        const r = await generateImages({ model: im, prompt: p, refs: [path.join(d, "takes", kf)].concat(pics), aspect: ep.aspect || "9:16", count: 1, outBase: path.join(d, "takes", `${stamp()} keyframe fix - ${imk}`), onStatus: (st, q) => status(st, q, "fixing the keyframe") });
+        const r = await generateImages({ ctl: job, model: im, prompt: p, refs: [path.join(d, "takes", kf)].concat(pics), aspect: ep.aspect || "9:16", count: 1, outBase: path.join(d, "takes", `${stamp()} keyframe fix - ${imk}`), onStatus: (st, q) => status(st, q, "fixing the keyframe") });
         cost += r.cost; kfNew = kf = path.basename(r.files[0]);
         logSpend({ story: s.title, episode: ep.num, shot: ep.shots.indexOf(sh) + 1, kind: "keyframe", model: imk + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: rel(r.files[0]) });
         const s1 = loadStory(storyId); const ep1 = epOf(s1, epId); setInUse(s1, ep1, shotOf(ep1, shotId), kf); saveStory(s1); emit("job", job);
       }
-      job.phase = "making the video"; emit("job", job);
+      checkCancel(job); job.phase = "making the video"; emit("job", job);
       const out = path.join(d, "takes", `${stamp()} video fix - ${modelKey}.mp4`);
       const mdl = model.extra && "aspect_ratio" in model.extra && ep.aspect ? { ...model, extra: { ...model.extra, aspect_ratio: ep.aspect } } : model;
-      const v = await imageToVideo({ model: mdl, keyframe: path.join(d, "takes", kf), prompt: SF.expandNames(plan.motion, looksFor(ep), true).text, seconds, outFile: out, onStatus: (st, q) => status(st, q, "making the video") });
+      const v = await imageToVideo({ ctl: job, model: mdl, keyframe: path.join(d, "takes", kf), prompt: SF.expandNames(plan.motion, looksFor(ep), true).text, seconds, outFile: out, onStatus: (st, q) => status(st, q, "making the video") });
       cost += v.cost;
       const s2 = loadStory(storyId); const ep2 = epOf(s2, epId); const sh2 = shotOf(ep2, shotId);
       logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "video", model: modelKey + (v.dry ? " (dry run)" : ""), seconds: v.seconds, cost: v.cost, file: rel(v.file) });
@@ -571,7 +571,7 @@ function runVideoFix({ storyId, epId, shotId, modelKey, seconds, ask }) {
       sh2.vthread = (sh2.vthread || []).concat({ id: newId(), at: Date.now(), notes, ask: String(ask || "").trim(), plan: plan.plan, motionBefore: sh2.motionPrompt || "", motion: plan.motion, keyframeFix: plan.keyframe || "", keyframe: kfNew, base: sh.videoTake || null, result: path.basename(v.file), model: modelKey, seconds: v.seconds, cost: +cost.toFixed(3) });
       updateShot(s2, ep2, sh2, { motionPrompt: plan.motion, model: modelKey, seconds: v.seconds }); sh2.show = "video"; saveStory(s2);
       Object.assign(job, { status: "done", phase: "done", cost: +cost.toFixed(3), take: path.basename(v.file), finished: Date.now() });
-    } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), cost, finished: Date.now() }); }
+    } catch (e) { Object.assign(job, { ...(e && e.cancelled ? { status: "cancelled", phase: "cancelled" } : { status: "error", phase: "failed", error: String(e.message || e) }), cost, finished: Date.now() }); }
     emit("job", job);
   })();
   return job;
@@ -586,12 +586,12 @@ function runSoundJob({ storyId, epId, shotId }) {
   const job = { id: newId(), kind: "sound", shot: sh.id, story: s.id, model: "elevenlabs-sfx", status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try { const d = soundDir(s, ep, sh); fs.mkdirSync(d, { recursive: true }); const out = path.join(d, `${stamp()} sound.mp3`);
-      const r = await generateAudio({ model, kind: "sfx", prompt: `${prompt.replace(/\.?\s*$/, ".")} No music.`, seconds: secs, outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? "in fal's queue" : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
+      const r = await generateAudio({ ctl: job, model, kind: "sfx", prompt: `${prompt.replace(/\.?\s*$/, ".")} No music.`, seconds: secs, outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? "in fal's queue" : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
       const s2 = loadStory(storyId); const ep2 = epOf(s2, epId); const sh2 = shotOf(ep2, shotId); const so = sh2.sound = sh2.sound || {}; if (so.prompt == null) so.prompt = prompt;
       so.takes = (so.takes || []).concat(path.basename(out)); so.take = path.basename(out); saveStory(s2);
       logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "sound", model: "elevenlabs-sfx" + (r.dry ? " (dry run)" : ""), seconds: r.seconds, cost: r.cost, file: rel(out) });
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, finished: Date.now() });
-    } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
+    } catch (e) { Object.assign(job, { ...(e && e.cancelled ? { status: "cancelled", phase: "cancelled" } : { status: "error", phase: "failed", error: String(e.message || e) }), finished: Date.now() }); }
     emit("job", job);
   })();
   return job;
@@ -605,20 +605,44 @@ function runMusicJob({ storyId, epId, cueId }) {
   const job = { id: newId(), kind: "music", cue: c.id, story: s.id, model: "elevenlabs-music", status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try { const d = musicDir(s, ep); fs.mkdirSync(d, { recursive: true }); const out = path.join(d, `${stamp()} music shots ${span.a + 1}-${span.b + 1}.mp3`);
-      const r = await generateAudio({ model, kind: "music", prompt: c.prompt, seconds: Math.ceil(span.len), outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? "in fal's queue" : st === "IN_PROGRESS" ? "composing" : String(st || "").toLowerCase(); emit("job", job); } });
+      const r = await generateAudio({ ctl: job, model, kind: "music", prompt: c.prompt, seconds: Math.ceil(span.len), outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? "in fal's queue" : st === "IN_PROGRESS" ? "composing" : String(st || "").toLowerCase(); emit("job", job); } });
       const s2 = loadStory(storyId); const ep2 = epOf(s2, epId); const c2 = (ep2.music || []).find(x => x.id === cueId);
       if (c2) { c2.takes = (c2.takes || []).concat(path.basename(out)); c2.take = path.basename(out); } saveStory(s2);
       logSpend({ story: s2.title, episode: ep2.num, shot: `music ${span.a + 1}-${span.b + 1}`, kind: "music", model: "elevenlabs-music" + (r.dry ? " (dry run)" : ""), seconds: r.seconds, cost: r.cost, file: rel(out) });
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, finished: Date.now() });
-    } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
+    } catch (e) { Object.assign(job, { ...(e && e.cancelled ? { status: "cancelled", phase: "cancelled" } : { status: "error", phase: "failed", error: String(e.message || e) }), finished: Date.now() }); }
     emit("job", job);
   })();
   return job;
 }
 // Claude writes sound prompts for every shot and suggests music cues, from the script
-const SOUND_WRITER = `You are the sound designer for an AI-made animated short inside GASP. For each shot, write ONE prompt for a sound-effects model (ElevenLabs): the ambience bed plus the specific sounds of that shot, concrete and physical ("steady wind through tall grass, distant crows, rhythmic metal hoe striking dry soil, a soft grunt of effort"), 10 to 30 words, no music, no dialogue words. Keep ambience continuous between shots in the same place so the cut doesn't jump; change it when the place, weather or mood changes. Use the shot's SFX notes when it has them.
-Then suggest music cues: each cue covers a run of shots (by number) with one mood. One to four cues for the episode; leave stretches without music when silence is stronger. Each cue's prompt describes instrumentation, tempo, mood and how it develops, for an instrumental score (ElevenLabs Music), 15 to 40 words, never naming a real composer, artist or song.
+const SOUND_CRAFT = `HOW TO WRITE A SHOT'S EFFECTS PROMPT (ElevenLabs sound effects; it makes one clip as long as the shot):
+- Layer it, in this order: (1) the ambience bed: the place, weather and distance ("open farmland in a light breeze, larks high overhead"); (2) foley for what visibly happens in the shot, tied to the MOTION and its rhythm ("an iron hoe biting into dry soil about once a second", "boots shifting on packed earth"); (3) at most one accent that lands on the beat ("a crow takes off with a sharp flap").
+- Be physical and specific: materials, perspective (close, mid, distant), intensity and texture. No music, no spoken words; people only as non-verbal sounds (a grunt, a short laugh, a child humming).
+- Everything belongs to the story's world: no engines, phones or electric hum in a medieval village.
+- Keep the ambience continuous with the shots either side when they're in the same place, so the cut doesn't jump; change it when the place, weather or mood changes.
+- 15 to 45 words.
+HOW TO WRITE A MUSIC CUE PROMPT (ElevenLabs Music, instrumental, one continuous track across the cue's shots):
+- Instruments (period-true when the world calls for it: lute, fiddle, wooden flute, frame drum), tempo in BPM, key or mode, and mood.
+- How it develops across the cue in time markers that follow the story beats ("0-15s sparse plucked strings over a soft drone; from 15s a low pulse builds as the sky darkens; ends on an unresolved chord").
+- Leave room for effects and dialogue: say "sparse" or "under dialogue" where it matters. Never name a real composer, artist, film or song.
+- 25 to 70 words.`;
+const SOUND_WRITER = `You are the sound designer for an AI-made animated short inside GASP. For each shot, write ONE effects prompt. Use the shot's SFX notes when it has them.
+Then suggest music cues: each cue covers a run of shots (by number) with one mood and plays as one continuous track. One to four cues for the episode; leave stretches without music when silence is stronger.
+${SOUND_CRAFT}
 Reply with JSON only: {"shots":[{"n":1,"sound":"…"}],"music":[{"from":1,"to":4,"prompt":"…"}]}`;
+// Claude writes (or rewrites) one shot's effects prompt or one music cue, seeing the keyframe and the shots around it
+async function writeSoundPrompt({ s, ep, sh, cue, ask, prompt }) {
+  const i = ep.shots.indexOf(sh), music = !!cue, segs = ep.shots, near = k => { const o = segs[k]; return o ? `shot ${k + 1} "${o.title}"${o.location ? " at " + o.location : ""}: effects: ${soundPromptOf(o) || "(none)"}` : ""; };
+  const span = cue ? cueSpan(ep, cue) : null;
+  const beat = (o, k) => `${k + 1}. "${o.title}" (${shotLen(o)}s)${o.location ? ` at ${o.location}` : ""}${(o.sfx || []).length ? ` | SFX: ${o.sfx.join("; ")}` : ""} | picture: ${String(o.imagePrompt || "").slice(0, 300)}${o.motionPrompt ? ` | motion: ${o.motionPrompt.slice(0, 240)}` : ""}${(o.lines || []).length ? ` | dialogue: ${o.lines.map(l => l.who + ": " + l.text).join(" / ")}` : ""}`;
+  const text = [s.world ? `World and era: ${s.world}` : "", music ? `This music cue covers shots ${span.a + 1} to ${span.b + 1}, ${Math.ceil(span.len)} seconds in all:\n${segs.slice(span.a, span.b + 1).map((o, k) => beat(o, span.a + k)).join("\n")}` : `This shot:\n${beat(sh, i)}\nAround it:\n${[near(i - 1), near(i + 1)].filter(Boolean).join("\n") || "(nothing)"}`,
+    prompt && prompt.trim() ? `Current ${music ? "music" : "effects"} prompt: ${prompt}` : `No ${music ? "music" : "effects"} prompt yet: write one.`, `The writer says: ${ask && ask.trim() ? ask : prompt && prompt.trim() ? "Make this prompt stronger, to the standard above." : "Write it."}`].filter(Boolean).join("\n\n");
+  if (process.env.GASP_DRY) return { prompt: music ? `(dry run) 0-10s sparse plucked lute at 70 BPM; ${ask || "builds gently"}` : `(dry run) open farmland, light breeze; ${ask || "an iron hoe biting dry soil once a second"}`, cost: 0 };
+  const parts = [{ type: "text", text }]; const kf = !music && sh.keyframeTake && path.join(shotPath(s, ep, sh), "takes", sh.keyframeTake); if (kf && fs.existsSync(kf)) parts.push({ type: "text", text: "The shot's keyframe:" }, { type: "image_url", image_url: { url: await smallImage(kf, 768) } });
+  const cs = chatSetting(); const r = await chatCall({ provider: cs.provider, model: cs.model, maxTokens: 800, timeoutMs: 90000, messages: [{ role: "system", content: `You are the sound designer for an AI-made animated short inside GASP. Write ONE ${music ? "music cue" : "effects"} prompt.\n${SOUND_CRAFT}\nReply with the prompt only: one paragraph, no preamble, no quotes, no markdown.` }, { role: "user", content: parts }] });
+  return { prompt: r.text.replace(/^```\w*\n?|```$/g, "").replace(/\s*\n+\s*/g, " ").replace(/^["']|["']$/g, "").trim(), cost: r.cost || 0 };
+}
 async function suggestSound(s, ep) {
   const shots = ep.shots.map((sh, i) => `${i + 1}. "${sh.title}" (${shotLen(sh)}s)${sh.location ? ` at ${sh.location}` : ""}${sh.scene ? ` [${sh.scene}]` : ""}${(sh.sfx || []).length ? ` | SFX: ${sh.sfx.join("; ")}` : ""}${(sh.lines || []).length ? ` | dialogue: ${sh.lines.map(l => l.who + ": " + l.text).join(" / ")}` : ""} | picture: ${String(sh.imagePrompt || "").slice(0, 260)}${sh.motionPrompt ? ` | motion: ${sh.motionPrompt.slice(0, 200)}` : ""}`).join("\n");
   const text = [s.world ? `World: ${s.world}` : "", `Story: ${s.title}, episode ${ep.num || 1}.`, `Shots:\n${shots}`].filter(Boolean).join("\n\n");
@@ -640,21 +664,21 @@ function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit
   const job = { id: newId(), kind: label, shot: sh ? sh.id : null, story: s ? s.id : null, card: c ? c.id : null, image: im ? im.id : null, thread: target.thread || undefined, model: modelKey, count: count || 1, refs: refs.length, prompt: full, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try {
-      const r = await generateImages({ model, prompt: full, refs: refs.map(x => x.file), aspect, count, outBase: base, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? `in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
+      const r = await generateImages({ ctl: job, model, prompt: full, refs: refs.map(x => x.file), aspect, count, outBase: base, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? `in fal's queue${q != null ? " (#" + (q + 1) + ")" : ""}` : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
       const takes = r.files.map(f => path.basename(f));
       if (sh) { const s2 = loadStory(s.id); const ep2 = epOf(s2, ep.id); const sh2 = shotOf(ep2, sh.id); if (!sh2.keyframeTake) setInUse(s2, ep2, sh2, takes[0]); saveStory(s2); logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "keyframe", model: modelKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: r.files.map(rel).join(" | ") }); }
       else {
         logSpend({ story: "Reference", episode: "", shot: `${c.name} · ${im.label}`, kind: "reference", model: modelKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: r.files.map(rel).join(" | ") });
         const tool = target.cutout && MODELS.cutout[settings().defaultCutout];
         if (tool) { job.phase = "removing the background"; emit("job", job); const cuts = [];
-          for (const f of r.files) { const out = f.replace(/\.[a-z]+$/i, "") + ` - cutout ${settings().defaultCutout}.png`; try { const x = await removeBackground({ tool, file: f, outFile: out }); cuts.push(path.basename(out)); r.cost += x.cost; logSpend({ story: "Reference", episode: "", shot: `${c.name} · ${im.label}`, kind: "cutout", model: settings().defaultCutout + (x.dry ? " (dry run)" : ""), seconds: 0, cost: x.cost, file: rel(out) }); } catch (e) { job.cutoutError = String(e.message || e); } }
+          for (const f of r.files) { const out = f.replace(/\.[a-z]+$/i, "") + ` - cutout ${settings().defaultCutout}.png`; try { const x = await removeBackground({ ctl: job, tool, file: f, outFile: out }); cuts.push(path.basename(out)); r.cost += x.cost; logSpend({ story: "Reference", episode: "", shot: `${c.name} · ${im.label}`, kind: "cutout", model: settings().defaultCutout + (x.dry ? " (dry run)" : ""), seconds: 0, cost: x.cost, file: rel(out) }); } catch (e) { job.cutoutError = String(e.message || e); } }
           takes.push(...cuts); }
         const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); im2.takes.push(...takes); if (!im2.take) setImageInUse(c2, im2, takes.find(t => / - cutout /.test(t)) || takes[0]);
         if (target.thread) im2.thread = (im2.thread || []).concat({ ask: target.thread.ask, base: target.thread.base, extras: target.thread.extras && target.thread.extras.length ? target.thread.extras : undefined, result: takes.find(t => / - cutout /.test(t)) || takes[0], model: modelKey, at: Date.now() });
         writeCard(c2);
       }
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, takes, finished: Date.now() });
-    } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
+    } catch (e) { Object.assign(job, { ...(e && e.cancelled ? { status: "cancelled", phase: "cancelled" } : { status: "error", phase: "failed", error: String(e.message || e) }), finished: Date.now() }); }
     emit("job", job);
   })();
   return job;
@@ -666,11 +690,11 @@ function runCutoutJob({ cardId, imageId, toolKey, take }) {
   (async () => {
     try {
       const out = path.join(cardPath(c), "takes", `${stamp()} ${clean(im.label, 40)} - cutout ${toolKey}.png`);
-      const r = await removeBackground({ tool, file: path.join(cardPath(c), "takes", src), outFile: out, onStatus: st => { job.phase = st === "IN_PROGRESS" ? "removing the background" : String(st || "").toLowerCase().replace("_", " "); emit("job", job); } });
+      const r = await removeBackground({ ctl: job, tool, file: path.join(cardPath(c), "takes", src), outFile: out, onStatus: st => { job.phase = st === "IN_PROGRESS" ? "removing the background" : String(st || "").toLowerCase().replace("_", " "); emit("job", job); } });
       const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); const take = path.basename(r.file); im2.takes.push(take); if (!im2.take || im2.take === src) setImageInUse(c2, im2, take); writeCard(c2);
       logSpend({ story: "Reference", episode: "", shot: `${c2.name} · ${im2.label}`, kind: "cutout", model: toolKey + (r.dry ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: rel(r.file) });
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, takes: [take], finished: Date.now() });
-    } catch (e) { Object.assign(job, { status: "error", phase: "failed", error: String(e.message || e), finished: Date.now() }); }
+    } catch (e) { Object.assign(job, { ...(e && e.cancelled ? { status: "cancelled", phase: "cancelled" } : { status: "error", phase: "failed", error: String(e.message || e) }), finished: Date.now() }); }
     emit("job", job);
   })();
   return job;
@@ -750,6 +774,13 @@ const routes = {
     if (r.music.length) { ep2.music = kept.concat(r.music.filter(c => String(c.prompt || "").trim()).map(c => ({ id: newId(), from: at(c.from), to: at(c.to), prompt: String(c.prompt).trim(), take: null, takes: [] }))); m = ep2.music.length - kept.length; }
     logSpend({ story: s2.title, episode: ep2.num, shot: "sound plan", kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: "" });
     return { story: storyForApp(saveStory(s2)), shots: n, cues: m, cost: r.cost }; },
+  "POST /api/job/cancel": async (req) => { const b = await body(req); const j = JOBS[b.id]; if (!j) throw httpErr(404, "job not found"); if (j.status === "running") { j.cancel = true; j.phase = "cancelling…"; emit("job", j); } return j; },
+  "POST /api/sound/write": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const cue = b.cue ? (ep.music || []).find(x => x.id === b.cue) : null; if (b.cue && !cue) throw httpErr(404, "music cue not found");
+    const sh = cue ? ep.shots[cueSpan(ep, cue).a] : shotOf(ep, b.shot); const r = await writeSoundPrompt({ s, ep, sh, cue, ask: b.ask, prompt: b.prompt != null ? b.prompt : cue ? cue.prompt : soundPromptOf(sh) });
+    const s2 = loadStory(b.story); const ep2 = epOf(s2, b.ep);
+    if (cue) { const c2 = (ep2.music || []).find(x => x.id === cue.id); if (c2) c2.prompt = r.prompt; } else { const sh2 = shotOf(ep2, sh.id); sh2.sound = { ...(sh2.sound || {}), prompt: r.prompt }; }
+    logSpend({ story: s2.title, episode: ep2.num, shot: cue ? "music prompt" : ep2.shots.findIndex(x => x.id === sh.id) + 1, kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: "" });
+    return { prompt: r.prompt, cost: r.cost, story: storyForApp(saveStory(s2)) }; },
   "POST /api/gen/video": async (req) => { const b = await body(req); return await runVideoJob({ storyId: b.story, epId: b.ep, shotId: b.shot, modelKey: b.model || settings().defaultVideo, prompt: b.prompt, seconds: +b.seconds || 5 }); },
   "GET /api/refs": () => refsForApp(),
   "GET /api/refs/suggest": (req, url) => suggestRefs(loadStory(url.searchParams.get("story"))),

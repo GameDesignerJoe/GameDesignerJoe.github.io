@@ -6,16 +6,23 @@ import { promisify } from "node:util";
 const run = promisify(execFile);
 export const ffmpeg = (args) => run("ffmpeg", ["-y", "-loglevel", "error", ...args], { windowsHide: true, maxBuffer: 1 << 26 });
 
-export async function falRun(endpoint, input, onStatus) {
+// ctl: the job; when ctl.cancel is set, the queued request is cancelled at fal and this throws "Cancelled".
+// fal only drops the charge if the request hadn't started; once a model is running it may still bill.
+export class Cancelled extends Error { constructor() { super("Cancelled"); this.cancelled = true; } }
+export const checkCancel = ctl => { if (ctl && ctl.cancel) throw new Cancelled(); };
+const dryWait = async (ms, ctl) => { for (let t = 0; t < ms; t += 100) { checkCancel(ctl); await new Promise(r => setTimeout(r, 100)); } checkCancel(ctl); };
+export async function falRun(endpoint, input, onStatus, ctl) {
+  checkCancel(ctl);
   const key = process.env.FAL_KEY;
   if (!key) throw new Error("No fal key yet: add it in Settings (⚙).");
   const headers = { Authorization: `Key ${key}`, "Content-Type": "application/json" };
   const submit = await fetch(`https://queue.fal.run/${endpoint}`, { method: "POST", headers, body: JSON.stringify(input) });
   const sub = await submit.json().catch(() => ({}));
   if (!submit.ok || sub.detail) throw new Error(readable(sub, submit.status));
-  const { request_id, status_url, response_url } = sub;
+  const { request_id, status_url, response_url, cancel_url } = sub;
   for (let i = 0; i < 900; i++) {
-    await new Promise(r => setTimeout(r, 2000));
+    for (let k = 0; k < 8 && !(ctl && ctl.cancel); k++) await new Promise(r => setTimeout(r, 250));
+    if (ctl && ctl.cancel) { try { await fetch(cancel_url || `https://queue.fal.run/${endpoint}/requests/${request_id}/cancel`, { method: "PUT", headers }); } catch {} throw new Cancelled(); }
     const st = await fetch(status_url || `https://queue.fal.run/${endpoint}/requests/${request_id}/status`, { headers });
     const j = await st.json().catch(() => ({}));
     if (onStatus) onStatus(j.status, j.queue_position);
@@ -63,17 +70,17 @@ export async function download(url, file) {
 const fmtDur = (m, d) => m.durFormat === "s" ? `${d}s` : m.durFormat === "number" ? d : String(d);
 
 // Animate a keyframe. Returns { file, cost, seconds }.
-export async function imageToVideo({ model, keyframe, prompt, seconds, outFile, onStatus }) {
+export async function imageToVideo({ model, keyframe, prompt, seconds, outFile, onStatus, ctl }) {
   const d = model.durations.includes(seconds) ? seconds : (model.durations.find(x => x >= seconds) ?? model.durations[model.durations.length - 1]);
   const cost = +(model.pricePerSecond * d + (model.perRequest || 0)).toFixed(3);
   if (process.env.GASP_DRY) {
     // placeholder: a slow push-in on the keyframe, so the whole flow can be tried without spending
-    await new Promise(r => setTimeout(r, 1500));
+    await dryWait(1500, ctl);
     await ffmpeg(["-loop", "1", "-i", keyframe, "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,zoompan=z='min(zoom+0.0012,1.15)':d=1:s=720x1280:fps=24,format=yuv420p", "-t", String(d), "-c:v", "libx264", "-preset", "veryfast", outFile]);
     return { file: outFile, cost: 0, seconds: d, dry: true };
   }
   const url = await falUpload(keyframe);
-  const out = await falRun(model.endpoint, { prompt: prompt || "subtle natural motion", [model.image]: url, duration: fmtDur(model, d), ...(model.extra || {}) }, onStatus);
+  const out = await falRun(model.endpoint, { prompt: prompt || "subtle natural motion", [model.image]: url, duration: fmtDur(model, d), ...(model.extra || {}) }, onStatus, ctl);
   const v = out.video && out.video.url;
   if (!v) throw new Error("fal returned no video: " + JSON.stringify(out).slice(0, 200));
   await download(v, outFile);
@@ -85,12 +92,12 @@ const extOf = (url, type) => { const m = /\.(png|jpe?g|webp)(\?|$)/i.exec(url ||
 
 // Make images from a prompt and reference images. outBase gets " 1", " 2"… and the right extension.
 // Returns { files, cost }.
-export async function generateImages({ model, prompt, refs = [], aspect = "9:16", count = 1, outBase, onStatus }) {
+export async function generateImages({ model, prompt, refs = [], aspect = "9:16", count = 1, outBase, onStatus, ctl }) {
   const n = Math.max(1, Math.min(4, count | 0 || 1)); refs = refs.filter(f => f && fs.existsSync(f)).slice(0, model.maxRefs || 4);
   const name = i => outBase + (n > 1 ? ` ${i + 1}` : "");
   if (process.env.GASP_DRY) {
     // placeholder: the first reference (or a colour) at the right shape, tinted differently per take
-    await new Promise(r => setTimeout(r, 1200)); const [w, h] = (DRY_SIZE[aspect] || DRY_SIZE["9:16"]).split("x"); const files = [];
+    await dryWait(1200, ctl); const [w, h] = (DRY_SIZE[aspect] || DRY_SIZE["9:16"]).split("x"); const files = [];
     for (let i = 0; i < n; i++) { const f = name(i) + ".png"; const hue = Math.round(Math.random() * 360);
       if (refs[0]) await ffmpeg(["-i", refs[0], "-vf", `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=0x2a2230,hue=h=${hue}`, "-frames:v", "1", f]);
       else await ffmpeg(["-f", "lavfi", "-i", `color=c=0x${(0x302040 + hue * 97).toString(16).slice(-6)}:s=${w}x${h}`, "-frames:v", "1", f]);
@@ -100,7 +107,7 @@ export async function generateImages({ model, prompt, refs = [], aspect = "9:16"
   const input = { prompt, num_images: n, ...(model.extra || {}) };
   if (model.size === "image_size") input.image_size = (model.sizes || {})[aspect] || (model.sizes || {})["9:16"]; else input.aspect_ratio = aspect;
   if (refs.length) { input.image_urls = []; for (const f of refs) input.image_urls.push(await falUpload(f)); }
-  const out = await falRun(refs.length ? model.endpoint : (model.textEndpoint || model.endpoint), input, onStatus);
+  const out = await falRun(refs.length ? model.endpoint : (model.textEndpoint || model.endpoint), input, onStatus, ctl);
   const imgs = out.images || (out.image ? [out.image] : []);
   if (!imgs.length) throw new Error("fal returned no image: " + JSON.stringify(out).slice(0, 200));
   const files = []; for (let i = 0; i < imgs.length; i++) { const f = name(i) + extOf(imgs[i].url, imgs[i].content_type); await download(imgs[i].url, f); files.push(f); }
@@ -108,26 +115,26 @@ export async function generateImages({ model, prompt, refs = [], aspect = "9:16"
 }
 
 // Background removal → a PNG with transparency.
-export async function removeBackground({ tool, file, outFile, onStatus }) {
-  if (process.env.GASP_DRY) { await new Promise(r => setTimeout(r, 800)); await ffmpeg(["-i", file, "-vf", "format=rgba,colorkey=0xFFFFFF:0.3:0.1", "-frames:v", "1", outFile]); return { file: outFile, cost: 0, dry: true }; }
+export async function removeBackground({ tool, file, outFile, onStatus, ctl }) {
+  if (process.env.GASP_DRY) { await dryWait(800, ctl); await ffmpeg(["-i", file, "-vf", "format=rgba,colorkey=0xFFFFFF:0.3:0.1", "-frames:v", "1", outFile]); return { file: outFile, cost: 0, dry: true }; }
   const image_url = await falUpload(file);
-  const out = await falRun(tool.endpoint, { image_url, ...(tool.extra || {}) }, onStatus);
+  const out = await falRun(tool.endpoint, { image_url, ...(tool.extra || {}) }, onStatus, ctl);
   const url = (out.image && out.image.url) || (out.images && out.images[0] && out.images[0].url);
   if (!url) throw new Error("fal returned no image: " + JSON.stringify(out).slice(0, 200));
   await download(url, outFile); return { file: outFile, cost: tool.pricePerImage || 0 };
 }
 
 // Sound effects or music → an mp3. kind "sfx" uses duration_seconds; "music" uses music_length_ms and stays instrumental.
-export async function generateAudio({ model, kind, prompt, seconds, outFile, onStatus }) {
+export async function generateAudio({ model, kind, prompt, seconds, outFile, onStatus, ctl }) {
   const secs = Math.max(kind === "music" ? 3 : 0.5, Math.min(kind === "music" ? 600 : (model.maxSeconds || 22), +seconds || 5));
   const cost = kind === "music" ? +(Math.ceil(secs / 60) * (model.pricePerMinute || 0)).toFixed(3) : +(secs * (model.pricePerSecond || 0)).toFixed(3);
   if (process.env.GASP_DRY) {
-    await new Promise(r => setTimeout(r, 900));
+    await dryWait(900, ctl);
     const src = kind === "music" ? `sine=frequency=220:duration=${secs}` : `anoisesrc=color=pink:amplitude=0.08:duration=${secs}`;
     await ffmpeg(["-f", "lavfi", "-i", src, "-q:a", "6", outFile]); return { file: outFile, cost: 0, seconds: secs, dry: true };
   }
   const input = kind === "music" ? { prompt, music_length_ms: Math.round(secs * 1000), force_instrumental: true } : { text: prompt, duration_seconds: secs, prompt_influence: 0.5 };
-  const out = await falRun(model.endpoint, input, onStatus);
+  const out = await falRun(model.endpoint, input, onStatus, ctl);
   const url = out.audio && out.audio.url; if (!url) throw new Error("fal returned no audio: " + JSON.stringify(out).slice(0, 200));
   await download(url, outFile); return { file: outFile, cost, seconds: secs };
 }

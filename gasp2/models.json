@@ -214,7 +214,7 @@
   "sound": {
     "elevenlabs-sfx": {
       "label": "ElevenLabs Sound Effects",
-      "endpoint": "fal-ai/elevenlabs/sound-effects",
+      "endpoint": "fal-ai/elevenlabs/sound-effects/v2",
       "pricePerSecond": 0.002,
       "maxSeconds": 22
     }
