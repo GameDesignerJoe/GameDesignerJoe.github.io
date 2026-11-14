@@ -227,7 +227,7 @@ function addCardTake(c, im, buf, ext, source) {
 function cardForApp(c) {
   const abs = cardPath(c);
   return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "",
-    images: c.images.map(im => ({ id: im.id, label: im.label, prompt: im.prompt, framing: im.framing, notes: im.notes, change: im.change, xrefs: im.xrefs || [], thread: im.thread || [], art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
+    images: c.images.map(im => ({ id: im.id, label: im.label, prompt: im.prompt, framing: im.framing, notes: im.notes, change: im.change, xrefs: im.xrefs || [], thread: (im.thread || []).map(t => ({ ...t, extraUrls: (t.extras || []).map(f => fileUrl(path.join(abs, "takes", "extras", f))) })), art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
       takes: im.takes.filter(t => fs.existsSync(path.join(abs, "takes", t))).map(t => ({ file: t, url: fileUrl(path.join(abs, "takes", t)), inUse: t === im.take, kind: "image" })).reverse() })) };
 }
 const refsForApp = () => readCards().map(cardForApp).sort((a, b) => a.name.localeCompare(b.name));
@@ -237,7 +237,9 @@ function resolveRefs(picks, s, ep) {
   for (const p of picks || []) {
     if (p.style && p.story) { try { const st = loadStory(p.story); const f = path.join(storiesDir(), st.dir, "Style", path.basename(p.style)); if (fs.existsSync(f)) out.push({ file: f, kind: "style" }); } catch {} continue; }
     if (p.shot && s && ep) { const sh = ep.shots.find(x => x.id === p.shot); if (sh && sh.keyframeTake) out.push({ file: path.join(shotPath(s, ep, sh), "takes", sh.keyframeTake), kind: "shot" }); continue; }
-    const c = cards.find(x => x.id === p.card); if (!c) continue; const im = c.images.find(x => x.id === p.image) || c.images.find(x => x.take);
+    const c = cards.find(x => x.id === p.card); if (!c) continue;
+    if (p.extra) { const f = path.join(cardPath(c), "takes", "extras", path.basename(p.extra)); if (fs.existsSync(f)) out.push({ file: f, kind: "extra" }); continue; }
+    const im = c.images.find(x => x.id === p.image) || c.images.find(x => x.take);
     const take = im && (p.take && im.takes.includes(path.basename(p.take)) ? path.basename(p.take) : im.take);
     if (take) out.push({ file: path.join(cardPath(c), "takes", take), kind: p.asStyle ? "style" : c.kind, look: c.look, label: im.label });
   }
@@ -246,7 +248,7 @@ function resolveRefs(picks, s, ep) {
 // what each reference image is for, so the model knows which picture to copy what from (names never go in: image models don't know them)
 function refLegend(refs, sameSubject, edit) {
   if (!refs.length) return "";
-  if (edit) return "Reference images: image 1 is the image to change: keep everything the instructions don't mention (the person, pose, framing, background)" + (refs.length > 1 ? "; " + refs.slice(1).map((r, k) => `image ${k + 2} ${r.kind === "style" ? "is a style reference: redraw image 1 in its drawing, colouring and lighting style, without copying who or what is in it" : "shows the same subject, for its look"}`).join("; ") : "") + ".";
+  if (edit) return "Reference images: image 1 is the image to change: keep everything the instructions don't mention (the person, pose, framing, background)" + (refs.length > 1 ? "; " + refs.slice(1).map((r, k) => `image ${k + 2} ${r.kind === "extra" ? "is an extra picture the instructions refer to: take from it only what they say" : r.kind === "style" ? "is a style reference: redraw image 1 in its drawing, colouring and lighting style, without copying who or what is in it" : "shows the same subject, for its look"}`).join("; ") : "") + ".";
   const what = r => r.kind === "style" ? "a style reference: copy only how it's drawn, coloured and lit, not who or what is in it" : sameSubject ? "the same subject: keep who or what it is (face, hair and build for a person; shape and design for a place or object)"
     : r.kind === "character" ? `a character${r.look ? ` (${r.look})` : ""}: keep this person's face, hair, build and outfit exactly`
     : r.kind === "location" ? "the location: match this place, its layout and its key details"
@@ -423,7 +425,7 @@ function runImageJob({ target, modelKey, prompt, picks, count, sameSubject, edit
           for (const f of r.files) { const out = f.replace(/\.[a-z]+$/i, "") + ` - cutout ${settings().defaultCutout}.png`; try { const x = await removeBackground({ tool, file: f, outFile: out }); cuts.push(path.basename(out)); r.cost += x.cost; logSpend({ story: "Reference", episode: "", shot: `${c.name} · ${im.label}`, kind: "cutout", model: settings().defaultCutout + (x.dry ? " (dry run)" : ""), seconds: 0, cost: x.cost, file: rel(out) }); } catch (e) { job.cutoutError = String(e.message || e); } }
           takes.push(...cuts); }
         const c2 = findCard(c.id); const im2 = imageOf(c2, im.id); im2.takes.push(...takes); if (!im2.take) setImageInUse(c2, im2, takes.find(t => / - cutout /.test(t)) || takes[0]);
-        if (target.thread) im2.thread = (im2.thread || []).concat({ ask: target.thread.ask, base: target.thread.base, result: takes.find(t => / - cutout /.test(t)) || takes[0], model: modelKey, at: Date.now() });
+        if (target.thread) im2.thread = (im2.thread || []).concat({ ask: target.thread.ask, base: target.thread.base, extras: target.thread.extras && target.thread.extras.length ? target.thread.extras : undefined, result: takes.find(t => / - cutout /.test(t)) || takes[0], model: modelKey, at: Date.now() });
         writeCard(c2);
       }
       Object.assign(job, { status: "done", phase: "done", cost: r.cost, takes, finished: Date.now() });
@@ -525,9 +527,10 @@ const routes = {
     const want = b.base && path.basename(b.base), base = want && im.takes.includes(want) ? want : th.length ? th[th.length - 1].result : im.take;
     if (!base) throw httpErr(400, "Add or generate an image first."); const ask = String(b.ask || "").trim(); if (!ask) throw httpErr(400, "Say what to change.");
     const chain = []; let cur = base; for (let k = th.length - 1; k >= 0; k--) if (th[k].result === cur) { chain.unshift(th[k].ask.replace(/\.?\s*$/, "")); cur = th[k].base; }
-    const who = c.kind === "character" ? "person" : c.kind, style = (b.style || []).slice(0, 4);
-    const prompt = `Change image 1: ${ask.replace(/\.?\s*$/, ".")}${chain.length ? ` Earlier changes, keep them: ${chain.join("; ")}.` : ""} Keep everything else exactly the same: the ${who}, the pose, the framing${style.length ? "" : ", the art style"} and the background.${style.length ? " Redraw it in the art style of the style reference image" + (style.length > 1 ? "s" : "") + " (line work, colouring, shading, lighting), keeping who it is." : ""}`;
-    return runImageJob({ target: { card: c.id, image: im.id, aspect: b.aspect, cutout: !!b.cutout, thread: { ask, base } }, modelKey: b.model || settings().defaultImage, prompt, picks: [{ card: c.id, image: im.id, take: base }].concat(style), count: 1, sameSubject: true, edit: true }); },
+    const who = c.kind === "character" ? "person" : c.kind, style = (b.style || []).slice(0, 4), extras = [];
+    for (const x of (b.extra || []).slice(0, 4)) { const { ext, buf } = dataUri(x.data); const dir = path.join(cardPath(c), "takes", "extras"); fs.mkdirSync(dir, { recursive: true }); const f = `${stamp()} ${clean(String(x.name || "picture").replace(/\.[a-z0-9]+$/i, ""), 40)}-${extras.length + 1}.${ext}`; fs.writeFileSync(path.join(dir, f), buf); extras.push(f); }
+    const prompt = `Change image 1: ${ask.replace(/\.?\s*$/, ".")}${chain.length ? ` Earlier changes, keep them: ${chain.join("; ")}.` : ""} Keep everything else exactly the same: the ${who}, the pose, the framing${style.length ? "" : ", the art style"} and the background.${style.length ? " Redraw it in the art style of the style reference image" + (style.length > 1 ? "s" : "") + " (line work, colouring, shading, lighting), keeping who it is." : ""}${extras.length ? ` ${extras.length === 1 ? "An extra picture is" : "Extra pictures are"} attached: use ${extras.length === 1 ? "it" : "them"} only as the change asks.` : ""}`;
+    return runImageJob({ target: { card: c.id, image: im.id, aspect: b.aspect, cutout: !!b.cutout, thread: { ask, base, extras } }, modelKey: b.model || settings().defaultImage, prompt, picks: [{ card: c.id, image: im.id, take: base }].concat(extras.map(f => ({ card: c.id, extra: f })), style), count: 1, sameSubject: true, edit: true }); },
   "POST /api/ref/write": async (req) => { const b = await body(req); const c = findCard(b.card); const im = imageOf(c, b.image);
     const refFiles = (b.refs || []).map(id => { const x = c.images.find(y => y.id === id); return x && x.take ? path.join(cardPath(c), "takes", x.take) : null; }).filter(Boolean).slice(0, 6);
     const resultFile = b.withResult && im.take ? path.join(cardPath(c), "takes", im.take) : null;
