@@ -234,6 +234,7 @@ var GASPScript = (function () {
   function lookNoun(look) { var m = String(look || "").match(/^\s*(?:an?\s+|the\s+)?(.*?)(?=\s+(?:in|with|wearing|who|holding|clutching|carrying|of)\b|[,;.(]|$)/i); var n = m ? m[1].trim() : ""; return n.split(/\s+/).length <= 4 ? n : ""; }
   // Names written in CAPS in a prompt (MOTHER, MOTHER'S, TOY SOLDIER) become the look they stand for:
   // the first mention gets the whole look, later ones "the woman". looks = [{names:[…], look, kind}]. short: never the whole look (for MOTION).
+  var ROLE = /^(?:(?:old|young|little|big|first|second|older|younger)\s+)?(mother|mom|mum|father|dad|child|kid|baby|son|daughter|brother|sister|grandmother|grandma|grandfather|grandpa|granny|uncle|aunt|cousin|wife|husband|widow|bride|groom|boy|girl|man|woman|lady|gentleman|king|queen|prince|princess|knight|soldier|guard|sheriff|priest|nun|doctor|nurse|teacher|farmer|stranger|hunter|captain|sailor|pirate|witch|wizard|reaper|ghost|monster|servant|maid|butler|chef|driver|pilot|detective|officer|boss|neighbour|neighbor|villager|elder|chief|mayor|baker|blacksmith|merchant|thief|twin|twins|family)$/i;
   function expandNames(text, looks, short) {
     var list = []; (looks || []).forEach(function (l) { if (!l.look) return; (l.names || []).forEach(function (n) { if (n && n.trim()) list.push({ n: n.trim().toUpperCase(), l: l }); }); });
     list.sort(function (a, b) { return b.n.length - a.n.length; });
@@ -241,7 +242,8 @@ var GASPScript = (function () {
     list.forEach(function (it) {
       var re = new RegExp("(^|[^A-Za-z0-9])(" + it.n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")('S|’S)?(?![A-Za-z0-9])", "g");
       out = out.replace(re, function (all, pre, name, poss, off, str) {
-        var l = it.l, isChar = l.kind === "character" || !l.kind, noun = isChar ? lookNoun(l.look) : it.n.toLowerCase(); if (!noun) noun = isChar ? "person" : it.n.toLowerCase();
+        // a name that's an everyday word (MOTHER, FATHER, CHILD, THE KING) stays as that word; a made-up name (WREN, GRIM) becomes the noun its look starts with
+        var l = it.l, isChar = l.kind === "character" || !l.kind, word = it.n.toLowerCase().replace(/^the\s+/, ""), noun = isChar && !ROLE.test(word) ? lookNoun(l.look) : word; if (!noun) noun = isChar ? "person" : word;
         var first = seen.indexOf(l) < 0; if (first) seen.push(l); if (used.indexOf(it.n) < 0) used.push(it.n);
         var p = poss ? "'s" : "", look = l.look.replace(/\.\s*$/, ""), lead = new RegExp("^\\s*(?:an?\\s+|the\\s+)?" + noun.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b[,\\s]*", "i");
         var rest = isChar && lead.test(look) ? look.replace(lead, "") : look;
