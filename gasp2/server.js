@@ -339,9 +339,9 @@ function suggestRefs(s) {
 
 
 // ---------- Claude writes image prompts (it can see the reference images and the last result) ----------
-async function smallImage(abs) {
-  const small = path.join(path.dirname(abs), ".small", path.basename(abs).replace(/\.[a-z]+$/i, ".jpg"));
-  if (!fs.existsSync(small)) { fs.mkdirSync(path.dirname(small), { recursive: true }); try { await ffmpeg(["-i", abs, "-vf", "scale='min(1024,iw)':'min(1024,ih)':force_original_aspect_ratio=decrease", "-q:v", "3", "-frames:v", "1", small]); } catch { fs.copyFileSync(abs, small); } }
+async function smallImage(abs, size = 1024) {
+  const small = path.join(path.dirname(abs), ".small", path.basename(abs).replace(/\.[a-z]+$/i, size === 1024 ? ".jpg" : `-${size}.jpg`));
+  if (!fs.existsSync(small)) { fs.mkdirSync(path.dirname(small), { recursive: true }); try { await ffmpeg(["-i", abs, "-vf", `scale='min(${size},iw)':'min(${size},ih)':force_original_aspect_ratio=decrease`, "-q:v", "4", "-frames:v", "1", small]); } catch { fs.copyFileSync(abs, small); } }
   return "data:image/jpeg;base64," + fs.readFileSync(small).toString("base64");
 }
 const PROMPT_WRITER_WORLD = `
@@ -385,6 +385,20 @@ async function styleText(picks) {
     const r = await chatCall({ provider: cs.provider, model: cs.model, maxTokens: 400, timeoutMs: 90000, messages: [{ role: "user", content: parts }] }); text = r.text.trim();
     logSpend({ story: "Reference", episode: "", shot: "style description", kind: "prompt", model: cs.model, seconds: 0, cost: r.cost || 0, file: "" }); }
   cache[key] = text; try { fs.writeFileSync(STYLE_CACHE(), JSON.stringify(cache, null, 1)); } catch {} return text;
+}
+
+
+// pictures for a chat message, only the ones it talks about: the style images when it mentions the style image/picture,
+// a card's picture in use when it names the card (or its other names), every character for "the cast"
+async function chatPictures(s, msg) {
+  const out = [], m = String(msg || ""), low = m.toLowerCase(), wants = n => n && new RegExp("(^|[^a-z0-9])" + n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "('?s)?(?![a-z0-9])").test(low);
+  const style = /\bstyle\b/.test(low) && /\b(image|images|picture|pictures|pic|ref|reference|frame|art)\b/.test(low), cast = /\b(the cast|everyone|all (of )?the characters|all characters|each character)\b/.test(low);
+  if (style) for (const f of (s.styleRefs || []).slice(0, 3)) { const abs = path.join(storiesDir(), s.dir, "Style", f); if (fs.existsSync(abs)) out.push({ label: `${s.title}'s style image (how the story is drawn)`, file: abs }); }
+  for (const c of readCards()) { if (!((cast && c.kind === "character") || [c.name].concat(c.aliases || []).some(wants))) continue;
+    const ims = c.images.filter(i => !i.art && i.take); const im = ims.find(i => /full/i.test(i.label)) || ims[0]; if (!im) continue;
+    const abs = path.join(cardPath(c), "takes", im.take); if (fs.existsSync(abs)) out.push({ label: `${c.kind} card "${c.name}", picture "${im.label}" (the one in use)`, file: abs }); }
+  const parts = []; for (const x of out.slice(0, 12)) { try { parts.push({ type: "text", text: x.label + ":" }, { type: "image_url", image_url: { url: await smallImage(x.file, 512) } }); } catch {} }
+  return { parts, count: parts.length / 2 };
 }
 
 // ---------- spend log ----------
@@ -586,6 +600,10 @@ const routes = {
     const sys = systemPrompt({ guide: SF.GUIDE, story: s, ep, script, shots: epA.shots, characters: SF.parse(script).characters, videoModel: MODELS.video[settings().defaultVideo], cards: readCards().map(c => ({ kind: c.kind, name: c.name, aliases: c.aliases, look: c.look, images: c.images.filter(i => i.take).length, prompts: c.images.filter(i => !i.art).map(i => ({ label: i.label, made: !!i.take, prompt: i.prompt || "" })) })) });
     const recent = c.messages.slice(-24).filter(m => !m.error), imgTurns = new Set(recent.filter(m => m.role === "user" && (m.attachments || []).some(a => a.kind === "image")).slice(-3));
     const hist = []; for (const m of recent) hist.push({ role: m.role, content: m.role === "user" ? await userContent(s, m, imgTurns.has(m)) : (m.actions || []).some(a => a.state) ? m.content + "\n\n(" + m.actions.map((a, k) => `card ${k + 1}: ${a.state || "not acted on"}`).join("; ") + ")" : m.content });
+    // the latest message carries the pictures it talks about (style images, named cards), so the chat can see them
+    if (hist.length && hist[hist.length - 1].role === "user") { const pics = await chatPictures(s, msg);
+      if (pics.count) { const last = hist[hist.length - 1]; const head = Array.isArray(last.content) ? last.content : [{ type: "text", text: last.content }];
+        last.content = head.concat({ type: "text", text: `\n(GASP attached the pictures this message mentions, ${pics.count}, each labelled. You can see them: describe and match them when writing looks and image prompts.)` }, pics.parts); } }
     const cs = chatSetting(); let r;
     try { r = process.env.GASP_DRY ? { text: dryReply(msg, epA.shots), tokensIn: 0, tokensOut: 0, cost: 0, ms: 600 } : await chatCall({ provider: cs.provider, model: cs.model, messages: [{ role: "system", content: sys }, ...hist] }); }
     catch (e) { c.messages.push({ role: "assistant", content: "", error: String(e.message || e), at: Date.now(), ep: ep.num }); writeChat(s, c); return chatForApp(c, s); }
