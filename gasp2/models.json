@@ -225,5 +225,12 @@
       "endpoint": "fal-ai/elevenlabs/music",
       "pricePerMinute": 0.6
     }
+  },
+  "_note_eleven": "Used instead of fal for effects, music and voices whenever an ElevenLabs key is set in Settings. Model ids are ElevenLabs' own (eleven_text_to_sound_v2 retires 2027-03-01, music_v1 2027-01-31). Billed in credits on Joe's plan; the spend log estimates dollars with Settings' $ per 1,000 credits.",
+  "eleven": {
+    "sfxModel": "eleven_text_to_sound_v3",
+    "sfxMaxSeconds": 30,
+    "musicModel": "music_v2_5",
+    "ttsModel": "eleven_multilingual_v2"
   }
 }

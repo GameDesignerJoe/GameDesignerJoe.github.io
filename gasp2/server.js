@@ -8,6 +8,7 @@ import crypto from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { imageToVideo, generateImages, removeBackground, generateAudio, ffmpeg, checkCancel } from "./lib/fal.js";
+import * as eleven from "./lib/eleven.js";
 import { chatCall, splitActions, systemPrompt, dryReply, CHAT_MODELS, lenientJSON } from "./lib/chat.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -235,7 +236,7 @@ function addCardTake(c, im, buf, ext, source) {
 }
 function cardForApp(c) {
   const abs = cardPath(c);
-  return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "",
+  return { id: c.id, kind: c.kind, name: c.name, aliases: c.aliases || [], look: c.look || "", voice: c.voice || "", voiceId: c.voiceId || null, voiceInfo: c.voiceInfo || null,
     images: c.images.map(im => ({ id: im.id, label: im.label, prompt: im.prompt, framing: im.framing, notes: im.notes, change: im.change, xrefs: im.xrefs || [], thread: (im.thread || []).map(t => ({ ...t, extraUrls: (t.extras || []).map(f => fileUrl(path.join(abs, "takes", "extras", f))) })), art: !!(im.art || /^my art\b/i.test(im.label)), url: im.take && fs.existsSync(path.join(abs, "takes", im.take)) ? fileUrl(path.join(abs, "takes", im.take)) : null,
       takes: im.takes.filter(t => fs.existsSync(path.join(abs, "takes", t))).map(t => ({ file: t, url: fileUrl(path.join(abs, "takes", t)), inUse: t === im.take, kind: "image" })).reverse() })) };
 }
@@ -582,34 +583,41 @@ const SOUND_MODEL = () => Object.values(MODELS.sound)[0], MUSIC_MODEL = () => Ob
 function runSoundJob({ storyId, epId, shotId }) {
   const s = loadStory(storyId); const ep = epOf(s, epId); const sh = shotOf(ep, shotId); const prompt = soundPromptOf(sh).trim();
   if (!prompt) throw httpErr(400, "Say what this shot sounds like first.");
-  const model = SOUND_MODEL(), secs = Math.min(model.maxSeconds || 22, shotLen(sh));
-  const job = { id: newId(), kind: "sound", shot: sh.id, story: s.id, model: "elevenlabs-sfx", status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
+  const direct = eleven.hasEleven(), model = SOUND_MODEL(), secs = Math.min(direct ? MODELS.eleven.sfxMaxSeconds || 30 : model.maxSeconds || 22, shotLen(sh));
+  const job = { id: newId(), kind: "sound", shot: sh.id, story: s.id, model: direct ? "elevenlabs" : "elevenlabs-sfx", direct, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try { const d = soundDir(s, ep, sh); fs.mkdirSync(d, { recursive: true }); const out = path.join(d, `${stamp()} sound.mp3`);
-      const r = await generateAudio({ ctl: job, model, kind: "sfx", prompt: `${prompt.replace(/\.?\s*$/, ".")} No music.`, seconds: secs, outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? "in fal's queue" : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
+      const text = `${prompt.replace(/\.?\s*$/, ".")} No music.`;
+      const r = direct ? await elevenRun(job, "generating", () => eleven.soundEffect({ ctl: job, model: { modelId: MODELS.eleven.sfxModel, maxSeconds: MODELS.eleven.sfxMaxSeconds }, prompt: text, seconds: secs, outFile: out }))
+        : await generateAudio({ ctl: job, model, kind: "sfx", prompt: text, seconds: secs, outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? "in fal's queue" : st === "IN_PROGRESS" ? "generating" : String(st || "").toLowerCase(); emit("job", job); } });
       const s2 = loadStory(storyId); const ep2 = epOf(s2, epId); const sh2 = shotOf(ep2, shotId); const so = sh2.sound = sh2.sound || {}; if (so.prompt == null) so.prompt = prompt;
       so.takes = (so.takes || []).concat(path.basename(out)); so.take = path.basename(out); saveStory(s2);
-      logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "sound", model: "elevenlabs-sfx" + (r.dry ? " (dry run)" : ""), seconds: r.seconds, cost: r.cost, file: rel(out) });
-      Object.assign(job, { status: "done", phase: "done", cost: r.cost, finished: Date.now() });
+      logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "sound", model: (direct ? `elevenlabs direct ${MODELS.eleven.sfxModel}${r.credits != null ? ` (${r.credits} credits)` : ""}` : "elevenlabs-sfx") + (r.dry ? " (dry run)" : ""), seconds: r.seconds, cost: r.cost, file: rel(out) });
+      Object.assign(job, { status: "done", phase: "done", cost: r.cost, credits: r.credits, finished: Date.now() });
     } catch (e) { Object.assign(job, { ...(e && e.cancelled ? { status: "cancelled", phase: "cancelled" } : { status: "error", phase: "failed", error: String(e.message || e) }), finished: Date.now() }); }
     emit("job", job);
   })();
   return job;
 }
+// direct ElevenLabs: run it, then price the credits it used at Joe's rate (Settings: $ per 1,000 credits)
+const elevenRate = () => { const v = settings().elevenPer1k; return v != null && isFinite(+v) ? +v : 0.22; };
+async function elevenRun(job, phase, fn) { job.phase = phase + " (ElevenLabs, your plan)"; emit("job", job); const r = await fn(); return { ...r, cost: r.credits != null ? +((r.credits / 1000) * elevenRate()).toFixed(4) : 0 }; }
+
 function cueSpan(ep, c) { const ids = ep.shots.map(x => x.id); let a = ids.indexOf(c.from), b = ids.indexOf(c.to); if (a < 0) a = 0; if (b < 0) b = ids.length - 1; if (b < a) [a, b] = [b, a];
   const start = ep.shots.slice(0, a).reduce((t, x) => t + shotLen(x), 0), len = ep.shots.slice(a, b + 1).reduce((t, x) => t + shotLen(x), 0); return { a, b, start, len }; }
 function runMusicJob({ storyId, epId, cueId }) {
   const s = loadStory(storyId); const ep = epOf(s, epId); const c = (ep.music || []).find(x => x.id === cueId); if (!c) throw httpErr(404, "music cue not found");
   if (!String(c.prompt || "").trim()) throw httpErr(400, "Say what the music should be first.");
-  const span = cueSpan(ep, c), model = MUSIC_MODEL();
-  const job = { id: newId(), kind: "music", cue: c.id, story: s.id, model: "elevenlabs-music", status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
+  const span = cueSpan(ep, c), model = MUSIC_MODEL(), direct = eleven.hasEleven();
+  const job = { id: newId(), kind: "music", cue: c.id, story: s.id, model: direct ? "elevenlabs" : "elevenlabs-music", direct, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
     try { const d = musicDir(s, ep); fs.mkdirSync(d, { recursive: true }); const out = path.join(d, `${stamp()} music shots ${span.a + 1}-${span.b + 1}.mp3`);
-      const r = await generateAudio({ ctl: job, model, kind: "music", prompt: c.prompt, seconds: Math.ceil(span.len), outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? "in fal's queue" : st === "IN_PROGRESS" ? "composing" : String(st || "").toLowerCase(); emit("job", job); } });
+      const r = direct ? await elevenRun(job, "composing", () => eleven.music({ ctl: job, model: { modelId: MODELS.eleven.musicModel }, prompt: c.prompt, seconds: Math.ceil(span.len), outFile: out }))
+        : await generateAudio({ ctl: job, model, kind: "music", prompt: c.prompt, seconds: Math.ceil(span.len), outFile: out, onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? "in fal's queue" : st === "IN_PROGRESS" ? "composing" : String(st || "").toLowerCase(); emit("job", job); } });
       const s2 = loadStory(storyId); const ep2 = epOf(s2, epId); const c2 = (ep2.music || []).find(x => x.id === cueId);
       if (c2) { c2.takes = (c2.takes || []).concat(path.basename(out)); c2.take = path.basename(out); } saveStory(s2);
-      logSpend({ story: s2.title, episode: ep2.num, shot: `music ${span.a + 1}-${span.b + 1}`, kind: "music", model: "elevenlabs-music" + (r.dry ? " (dry run)" : ""), seconds: r.seconds, cost: r.cost, file: rel(out) });
-      Object.assign(job, { status: "done", phase: "done", cost: r.cost, finished: Date.now() });
+      logSpend({ story: s2.title, episode: ep2.num, shot: `music ${span.a + 1}-${span.b + 1}`, kind: "music", model: (direct ? `elevenlabs direct ${MODELS.eleven.musicModel}${r.credits != null ? ` (${r.credits} credits)` : ""}` : "elevenlabs-music") + (r.dry ? " (dry run)" : ""), seconds: r.seconds, cost: r.cost, file: rel(out) });
+      Object.assign(job, { status: "done", phase: "done", cost: r.cost, credits: r.credits, finished: Date.now() });
     } catch (e) { Object.assign(job, { ...(e && e.cancelled ? { status: "cancelled", phase: "cancelled" } : { status: "error", phase: "failed", error: String(e.message || e) }), finished: Date.now() }); }
     emit("job", job);
   })();
@@ -718,8 +726,8 @@ const json = (res, o, code = 200) => { res.writeHead(code, { "Content-Type": "ap
 const dataUri = (u) => { const m = /^data:image\/(png|jpe?g|webp);base64,/.exec(u || ""); if (!m) throw httpErr(400, "expected an image"); return { ext: m[1] === "jpeg" ? "jpg" : m[1], buf: Buffer.from(u.slice(m[0].length), "base64") }; };
 
 const routes = {
-  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { chatModels: CHAT_MODELS, chat: chatSetting(), pid: process.pid, version: "2.0-step6", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, defaultImage: s.defaultImage, defaultCutout: s.defaultCutout, imageModels: MODELS.image, cutoutTools: MODELS.cutout, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
-  "POST /api/settings": async (req) => { const b = await body(req); if (b.keys) saveKeys(b.keys); const patch = {}; if (b.library) patch.library = path.resolve(String(b.library)); if (b.defaultVideo && MODELS.video[b.defaultVideo]) patch.defaultVideo = b.defaultVideo; if (b.defaultImage && MODELS.image[b.defaultImage]) patch.defaultImage = b.defaultImage; if (b.defaultCutout && MODELS.cutout[b.defaultCutout]) patch.defaultCutout = b.defaultCutout; if (b.chat && b.chat.model && ["fal", "groq"].includes(b.chat.provider)) patch.chat = { provider: b.chat.provider, model: String(b.chat.model).trim() }; if (Object.keys(patch).length) saveSettings(patch); ensureLibrary(); return { ok: true }; },
+  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { eleven: eleven.hasEleven(), elevenPer1k: elevenRate(), chatModels: CHAT_MODELS, chat: chatSetting(), pid: process.pid, version: "2.0-step6", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, defaultImage: s.defaultImage, defaultCutout: s.defaultCutout, imageModels: MODELS.image, cutoutTools: MODELS.cutout, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
+  "POST /api/settings": async (req) => { const b = await body(req); if (b.keys) saveKeys(b.keys); const patch = {}; if (b.library) patch.library = path.resolve(String(b.library)); if (b.defaultVideo && MODELS.video[b.defaultVideo]) patch.defaultVideo = b.defaultVideo; if (b.defaultImage && MODELS.image[b.defaultImage]) patch.defaultImage = b.defaultImage; if (b.defaultCutout && MODELS.cutout[b.defaultCutout]) patch.defaultCutout = b.defaultCutout; if (b.elevenPer1k != null && isFinite(+b.elevenPer1k) && +b.elevenPer1k >= 0) patch.elevenPer1k = +b.elevenPer1k; if (b.chat && b.chat.model && ["fal", "groq"].includes(b.chat.provider)) patch.chat = { provider: b.chat.provider, model: String(b.chat.model).trim() }; if (Object.keys(patch).length) saveSettings(patch); ensureLibrary(); return { ok: true }; },
   "GET /api/spend": () => readSpend(),
   "POST /api/story/new": async (req) => { const b = await body(req); return storyForApp(createStory(b.title || "New story")); },
   "GET /api/story": (req, url) => { const s = loadStory(url.searchParams.get("id")); s.opened = Date.now(); const out = { ...s }; delete out.dir; fs.writeFileSync(path.join(storiesDir(), s.dir, "story.json"), JSON.stringify(out, null, 2)); return storyForApp(s); },
@@ -781,6 +789,18 @@ const routes = {
     if (cue) { const c2 = (ep2.music || []).find(x => x.id === cue.id); if (c2) c2.prompt = r.prompt; } else { const sh2 = shotOf(ep2, sh.id); sh2.sound = { ...(sh2.sound || {}), prompt: r.prompt }; }
     logSpend({ story: s2.title, episode: ep2.num, shot: cue ? "music prompt" : ep2.shots.findIndex(x => x.id === sh.id) + 1, kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: "" });
     return { prompt: r.prompt, cost: r.cost, story: storyForApp(saveStory(s2)) }; },
+  "GET /api/voices": async (req, url) => { const q = Object.fromEntries(url.searchParams); return eleven.voices({ src: q.src, search: q.search, gender: q.gender, age: q.age, accent: q.accent, language: q.language, useCase: q.useCase, page: +q.page || 0, token: q.token }); },
+  "GET /api/eleven/plan": async () => eleven.hasEleven() || process.env.GASP_DRY ? { ...(await eleven.plan()), rate: elevenRate() } : { none: true },
+  "POST /api/ref/voice": async (req) => { const b = await body(req); const c = findCard(b.card);
+    if (!b.id) { delete c.voiceId; delete c.voiceInfo; saveCard(c); return refsForApp(); }
+    let id = String(b.id); if (b.owner) id = (await eleven.addShared({ owner: b.owner, id, name: `${clean(b.name || "voice", 40)} (GASP ${c.name})` })).id;
+    c.voiceId = id; c.voiceInfo = { name: String(b.name || ""), gender: b.gender || "", age: b.age || "", accent: b.accent || "", descriptive: b.descriptive || "", preview: b.preview || "" }; saveCard(c); return refsForApp(); },
+  "POST /api/voice/say": async (req) => { const b = await body(req); const c = b.card ? findCard(b.card) : null; const id = b.id || (c && c.voiceId); const text = String(b.text || "").trim().slice(0, 400);
+    if (!id) throw httpErr(400, "Pick a voice first."); if (!text) throw httpErr(400, "Type a line for it to say."); if (!eleven.hasEleven() && !process.env.GASP_DRY) throw httpErr(400, "Add your ElevenLabs key in Settings (⚙) first.");
+    const d = path.join(c ? cardPath(c) : path.join(settings().library, "_Voice tests"), "voice"); fs.mkdirSync(d, { recursive: true }); const out = path.join(d, `${stamp()} ${clean(text, 30)}.mp3`);
+    const r = await eleven.speak({ voiceId: id, text, modelId: MODELS.eleven.ttsModel, outFile: out }); const cost = r.credits != null ? +((r.credits / 1000) * elevenRate()).toFixed(4) : 0;
+    logSpend({ story: "", episode: "", shot: c ? `voice test: ${c.name}` : "voice test", kind: "voice", model: `elevenlabs direct ${MODELS.eleven.ttsModel}${r.credits != null ? ` (${r.credits} credits)` : ""}${r.dry ? " (dry run)" : ""}`, seconds: 0, cost, file: rel(out) });
+    return { url: fileUrl(out), credits: r.credits, cost }; },
   "POST /api/gen/video": async (req) => { const b = await body(req); return await runVideoJob({ storyId: b.story, epId: b.ep, shotId: b.shot, modelKey: b.model || settings().defaultVideo, prompt: b.prompt, seconds: +b.seconds || 5 }); },
   "GET /api/refs": () => refsForApp(),
   "GET /api/refs/suggest": (req, url) => suggestRefs(loadStory(url.searchParams.get("story"))),
