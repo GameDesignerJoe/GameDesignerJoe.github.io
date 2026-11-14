@@ -152,8 +152,16 @@ function applyAction(s, ep, a) {
   if (a.action === "update_ref") {
     const kind = KINDS[a.kind] ? a.kind : "character"; const name = clean(a.name || ""); if (!a.name) throw httpErr(400, "The card has no name.");
     const nm = name.toLowerCase(); let c = readCards().find(x => x.kind === kind && (x.name.toLowerCase() === nm || (x.aliases || []).some(y => y.toLowerCase() === nm)));
-    if (!c) { c = createCard(kind, name); c.look = String(a.look || ""); saveCard(c); return { undoRef: { card: c.id, created: true } }; }
-    const old = c.look || ""; c.look = String(a.look || ""); saveCard(c); return { undoRef: { card: c.id, look: old } };
+    let created = false; if (!c) { c = createCard(kind, name); created = true; }
+    const undo = { card: c.id, created }; if ("look" in a && a.look != null) { undo.look = c.look || ""; c.look = String(a.look); }
+    if (a.prompt) { const want = String(a.image || "").trim().toLowerCase(); let im = (want && c.images.find(x => !x.art && x.label.toLowerCase() === want)) || (!want && c.images.find(x => !x.art));
+      if (!im) { im = { id: newId(), label: clean(a.image || FIRST_IMAGE[kind], 40), takes: [], take: null }; c.images.push(im); undo.newImage = im.id; }
+      undo.image = im.id; undo.prompt = im.prompt; im.prompt = String(a.prompt); }
+    saveCard(c); return { undoRef: undo };
+  }
+  if (a.action === "update_look") {
+    const undoLook = { world: s.world || "", artDirection: s.artDirection || "" };
+    if (a.world != null) s.world = String(a.world); if (a.artDirection != null) s.artDirection = String(a.artDirection); saveStory(s); return { undoLook };
   }
   throw httpErr(400, "GASP can't apply that kind of change.");
 }
@@ -550,7 +558,7 @@ const routes = {
     const attachments = (b.attachments || []).map(a => saveAttachment(s, a)).concat(await linkAttachments(s, msg));
     c.messages.push({ role: "user", content: msg || "(see the attachments)", attachments: attachments.length ? attachments : undefined, at: Date.now(), ep: ep.num }); writeChat(s, c);
     const app = storyForApp(s); const epA = app.episodes.find(e => e.id === ep.id); const script = readScript(s, ep);
-    const sys = systemPrompt({ guide: SF.GUIDE, story: s, ep, script, shots: epA.shots, characters: SF.parse(script).characters, videoModel: MODELS.video[settings().defaultVideo], cards: readCards().map(c => ({ kind: c.kind, name: c.name, aliases: c.aliases, look: c.look, images: c.images.filter(i => i.take).length })) });
+    const sys = systemPrompt({ guide: SF.GUIDE, story: s, ep, script, shots: epA.shots, characters: SF.parse(script).characters, videoModel: MODELS.video[settings().defaultVideo], cards: readCards().map(c => ({ kind: c.kind, name: c.name, aliases: c.aliases, look: c.look, images: c.images.filter(i => i.take).length, prompts: c.images.filter(i => !i.art).map(i => ({ label: i.label, made: !!i.take, prompt: i.prompt || "" })) })) });
     const recent = c.messages.slice(-24).filter(m => !m.error), imgTurns = new Set(recent.filter(m => m.role === "user" && (m.attachments || []).some(a => a.kind === "image")).slice(-3));
     const hist = []; for (const m of recent) hist.push({ role: m.role, content: m.role === "user" ? await userContent(s, m, imgTurns.has(m)) : (m.actions || []).some(a => a.state) ? m.content + "\n\n(" + m.actions.map((a, k) => `card ${k + 1}: ${a.state || "not acted on"}`).join("; ") + ")" : m.content });
     const cs = chatSetting(); let r;
@@ -572,13 +580,16 @@ const routes = {
     const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const c = readChat(s); const m = c.messages[b.msg]; const a = m && (m.actions || [])[b.action];
     if (!a) throw httpErr(404, "That card isn't there any more.");
     let note = "";
-    if (b.op === "apply") { if (a.state === "applied") throw httpErr(409, "Already applied."); const r = applyAction(s, ep, a); Object.assign(a, { state: "applied", undo: r.undo, undoScript: r.undoScript, undoRef: r.undoRef, createdIds: r.createdIds, appliedEp: ep.id }); if (r.undoRef) note = r.undoRef.created ? `new ${a.kind || "character"} card in Reference` : "look saved to the card"; if (r.created != null) note = `${r.created} new shot${r.created === 1 ? "" : "s"}, ${r.updated} updated${r.orphans ? `, ${r.orphans} only in Shots` : ""}`; }
+    if (b.op === "apply") { if (a.state === "applied") throw httpErr(409, "Already applied."); const r = applyAction(s, ep, a); Object.assign(a, { state: "applied", undo: r.undo, undoScript: r.undoScript, undoRef: r.undoRef, undoLook: r.undoLook, createdIds: r.createdIds, appliedEp: ep.id }); if (r.undoRef) note = r.undoRef.created ? `new ${a.kind || "character"} card in Reference` : a.prompt ? "prompt saved to the card" : "look saved to the card"; if (r.undoLook) note = "saved to the look of the story"; if (r.created != null) note = `${r.created} new shot${r.created === 1 ? "" : "s"}, ${r.updated} updated${r.orphans ? `, ${r.orphans} only in Shots` : ""}`; }
     else if (b.op === "dismiss") a.state = "dismissed";
     else if (b.op === "undo") {
       if (a.state !== "applied") throw httpErr(409, "Nothing to undo.");
       const ep2 = s.episodes.find(e => e.id === a.appliedEp) || ep;
       if (a.undo) { const sh = ep2.shots.find(x => x.id === a.shot); if (sh) updateShot(s, ep2, sh, a.undo); }
-      if (a.undoRef) { const c = readCards().find(x => x.id === a.undoRef.card); if (c) { if (a.undoRef.created && !c.images.some(i => i.take)) toTrash(cardPath(c), `Reference - ${KINDS[c.kind]} - ${c.dir}`); else { c.look = a.undoRef.look || ""; saveCard(c); } } }
+      if (a.undoRef) { const u = a.undoRef, c = readCards().find(x => x.id === u.card); if (c) { if (u.created && !c.images.some(i => i.take)) toTrash(cardPath(c), `Reference - ${KINDS[c.kind]} - ${c.dir}`); else {
+        if ("look" in u) c.look = u.look || ""; const im = u.image && c.images.find(x => x.id === u.image);
+        if (im) { if (u.newImage === im.id && !im.take) c.images = c.images.filter(x => x !== im); else im.prompt = u.prompt; } saveCard(c); } } }
+      if (a.undoLook) { s.world = a.undoLook.world; s.artDirection = a.undoLook.artDirection; saveStory(s); }
       if (a.undoScript != null) {
         // shots this card made go to _Trash (with anything generated for them since), then the old script comes back
         for (const id of a.createdIds || []) { const sh = ep2.shots.find(x => x.id === id); if (sh) { try { toTrash(shotPath(s, ep2, sh), `${s.title} - ${ep2.dir} - ${sh.dir}`); } catch {} ep2.shots = ep2.shots.filter(x => x !== sh); } }
@@ -586,7 +597,7 @@ const routes = {
         let back = a.undoScript; if (a.action === "append_script") { back = readScript(s, ep2); for (const id of a.createdIds || []) back = SF.removeBlock(back, id); }
         writeScript(s, ep2, back, true); const r = syncScript(s, ep2, back, "keep"); writeScript(s, ep2, r.text, false);
       }
-      a.state = null; delete a.undo; delete a.undoScript; delete a.undoRef; delete a.createdIds;
+      a.state = null; delete a.undo; delete a.undoScript; delete a.undoRef; delete a.undoLook; delete a.createdIds;
     }
     saveStory(s); writeChat(s, c); return { chat: chatForApp(c, s), story: storyForApp(s), note };
   },

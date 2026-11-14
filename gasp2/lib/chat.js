@@ -56,8 +56,17 @@ function parseBlock(body) {
   const b = body.replace(/\r/g, ""); const head = b.match(/^\s*(replace_script|append_script)\s*\n([\s\S]*?)^-{3,}\s*$\n?([\s\S]*)$/m);
   if (head) { const meta = {}; head[2].split("\n").forEach(l => { const m = l.match(/^\s*(\w+)\s*:\s*(.*)$/); if (m) meta[m[1].toLowerCase()] = m[2].trim(); }); return [{ action: head[1], summary: meta.summary || "", text: head[3].replace(/\s+$/, "") }]; }
   const t = b.trim(); const parts = t.startsWith("[") ? [t] : t.split(/\n(?=\s*\{)/); const out = [];
-  for (const p of parts) { try { const v = JSON.parse(p); (Array.isArray(v) ? v : [v]).forEach(a => a && a.action && out.push(a)); } catch { out.push({ action: "unreadable", raw: t.slice(0, 400) }); } }
+  for (const p of parts) { try { const v = lenientJSON(p); (Array.isArray(v) ? v : [v]).forEach(a => a && a.action && out.push(a)); } catch { out.push({ action: "unreadable", raw: t.slice(0, 400) }); } }
   return out;
+}
+
+// models sometimes put real line breaks or tabs inside JSON strings (long prompts); escape them and try again
+function lenientJSON(t) {
+  try { return JSON.parse(t); } catch (e) {
+    let out = "", inStr = false, esc = false;
+    for (const ch of t) { if (inStr) { if (esc) { esc = false; out += ch; continue; } if (ch === "\\") { esc = true; out += ch; continue; } if (ch === '"') inStr = false; else if (ch === "\n") { out += "\\n"; continue; } else if (ch === "\r") continue; else if (ch === "\t") { out += "\\t"; continue; } } else if (ch === '"') inStr = true; out += ch; }
+    return JSON.parse(out);
+  }
 }
 
 export function systemPrompt({ guide, story, ep, script, shots, characters, videoModel, cards = [] }) {
@@ -88,6 +97,15 @@ To save a look to a reference card (it makes the card if there isn't one), use:
 {"action":"update_ref","kind":"character","name":"Wren","summary":"…","look":"woman in her twenties, sun-streaked hair, leather-and-fur two-piece"}
 \`\`\`
 kind is character, location or prop. Propose this when you invent a look for a character, place or prop that has no card yet, or when the writer changes one.
+To write a card's image prompt (what GASP sends to the image model for that picture), add "image" and "prompt" to update_ref. "image" is the picture's name on the card ("full body", "face", "turnaround", "outfit - green dress", "set", "prop"); a new name adds that picture to the card. Write the prompt in sections: CHARACTER, CLOTHING, POSE AND EXPRESSION, ART DIRECTION, LIGHTING, COMPOSITION (SUBJECT instead of CHARACTER and CLOTHING for places and objects). Be concrete (faces, materials, period-correct clothes), never use the name, follow the story's world and art direction, and frame it for the picture (full body: head to shoes on plain white; face: head and shoulders; set: the empty place, no people; prop: the object alone on white). No text or logos. Use one block per picture:
+\`\`\`gasp
+{"action":"update_ref","kind":"character","name":"Father","image":"full body","summary":"…","prompt":"CHARACTER: …\nCLOTHING: …"}
+\`\`\`
+To set the story's world and era, or its art direction (both used for every image), use:
+\`\`\`gasp
+{"action":"update_look","summary":"…","world":"medieval fantasy farming village; hand-made linen, wool and leather; nothing modern","artDirection":"premium 2D feature animation, varied line weight; warm golden key light"}
+\`\`\`
+Leave out a field to keep it as it is.
 Keep explanations short when a reply carries a long script, so the script fits.
 
 HOW TO WRITE A SCRIPT (a new episode, or turning beats into shots)
@@ -109,13 +127,15 @@ HOW TO WRITE A SCRIPT (a new episode, or turning beats into shots)
 Rules: never invent [[#…]] tags; GASP adds them. Never add a reference-image section or anything after the last shot. Use replace_script for rewrites of the episode and keep every existing [[#id]] tag on the SHOT lines you keep (that's how GASP keeps each shot's images and videos). Use update_shot for changes to one or a few shots' prompts. Only include the fields you change. Don't propose changes when the writer is only asking a question or brainstorming; talk first. Put a sentence of explanation outside the blocks, never inside them.
 
 CURRENT PROJECT
-Story: ${story.title}${story.world ? "\nWorld and era (everything you write must fit it: clothes, objects, places, speech): " + story.world : ""}${story.artDirection ? "\nArt direction: " + story.artDirection : ""}
+Story: ${story.title}
+World and era (everything you write must fit it: clothes, objects, places, speech): ${story.world || "(not set yet: if the script implies one, propose it with update_look)"}
+Art direction (how every image is drawn and lit): ${story.artDirection || "(not set yet)"}
 Episode ${ep.num}: ${ep.title} · format ${ep.aspect || "9:16"}${ep.style ? " · style: " + ep.style : ""}
 Video model for this project: ${videoModel ? videoModel.label + " (makes " + videoModel.durations.join(", ") + " s clips)" : "not set"}
 Characters named in the script: ${characters.length ? characters.join(", ") : "(none yet)"}
 
 Reference cards (the writer's art, shared by every story; GASP attaches their images by name):
-${cards.length ? cards.map(c => `- ${c.kind}: ${c.name}${c.aliases && c.aliases.length ? " (also " + c.aliases.join(", ") + ")" : ""}${c.look ? " · look: " + c.look : " · no look written yet"}${c.images ? ` · ${c.images} image${c.images === 1 ? "" : "s"}` : " · no images yet"}`).join("\n") : "(none yet)"}
+${cards.length ? cards.map(c => `- ${c.kind}: ${c.name}${c.aliases && c.aliases.length ? " (also " + c.aliases.join(", ") + ")" : ""}${c.look ? " · look: " + c.look : " · no look written yet"}${c.images ? ` · ${c.images} image${c.images === 1 ? "" : "s"}` : " · no images yet"}${(c.prompts || []).length ? "\n  pictures: " + c.prompts.map(p => `${p.label}${p.made ? "" : " (not made yet)"}${p.prompt ? ": prompt starts \"" + p.prompt.replace(/\s+/g, " ").slice(0, 140) + "…\"" : ": no prompt yet"}`).join("; ") : ""}`).join("\n") : "(none yet)"}
 A card's look is the truth about how that character, place or prop appears: copy its exact words into the CAST line (IMAGE prompts just use the NAME IN CAPS), and never contradict it (hair colour, outfit, build). Put the card's name on WHO: lines and use the location card's name as the SHOT line's location, so the right images attach. If a card has images but no look, ask the writer to describe it (you can't see images) rather than inventing a look.
 
 Shots (id · number · title · what exists):
@@ -138,7 +158,10 @@ IMAGE: A white gull lands on bleached driftwood at the water's edge, wings still
 MOTION: the gull settles and folds its wings
 \`\`\`
 \`\`\`gasp
-{"action":"update_ref","kind":"character","name":"Gull","summary":"saves the gull's look","look":"white gull with a grey back and a yellow beak"}
+{"action":"update_ref","kind":"character","name":"Gull","summary":"saves the gull's look and its full-body prompt","look":"white gull with a grey back and a yellow beak","image":"full body","prompt":"CHARACTER: a white gull with a grey back.\nCOMPOSITION: whole bird on plain white."}
+\`\`\`
+\`\`\`gasp
+{"action":"update_look","summary":"sets the world","world":"windswept fishing coast, 1890s; nothing modern"}
 \`\`\`${first ? `
 \`\`\`gasp
 {"action":"update_shot","shot":"${first.id}","summary":"sharper motion for shot 1","fields":{"motionPrompt":"slow push-in, then a small head turn toward camera"}}
