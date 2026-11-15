@@ -91,7 +91,7 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 
 /* play */
 .play { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
-@media (max-width: 900px) { .play { grid-template-columns: 1fr; } .fam-cols { grid-template-columns: 1fr; } }
+@media (max-width: 900px), (pointer: coarse) and (max-height: 600px) { .play { grid-template-columns: 1fr; } .fam-cols { grid-template-columns: 1fr; } }
 .table { background: var(--sunk); border-radius: 14px; padding: 18px; position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; }
 .prompt { min-height: 36px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 14.5px; text-align: center; }
 .prompt .who { font-family: var(--display); font-weight: 700; font-size: 17px; }
@@ -189,7 +189,8 @@ select { font: inherit; padding: 5px 8px; border-radius: 7px; border: 1px solid 
 
 /* simulate */
 .simgrid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 18px; align-items: start; }
-@media (max-width: 900px) { .simgrid { grid-template-columns: 1fr; } }
+/* phones in landscape are wide but short: keep them in one column like portrait */
+@media (max-width: 900px), (pointer: coarse) and (max-height: 600px) { .simgrid { grid-template-columns: 1fr; } .grid-setup { grid-template-columns: 1fr; } }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .field label { font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .persona-blurb { font-size: 12.5px; color: var(--muted); }
@@ -590,7 +591,8 @@ function renderBoard() {
   const cols = x1 - x0 + 1, rows = y1 - y0 + 1;
   const phone = window.innerWidth <= 700, gap = phone ? 4 : 5;
   const vw = ($('#view-play') || document.body).clientWidth;
-  const avail = phone ? vw - 12 : Math.min(vw - (window.innerWidth > 900 ? 380 : 40), 720);
+  const oneCol = window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches;
+  const avail = phone ? vw - 12 : Math.min(vw - (oneCol ? 40 : 380), 720);
   const cell = Math.max(34, Math.min(86, Math.floor((avail - gap * (cols - 1)) / cols)));
   const tg = targetsNow();
   const lm = G.lastMove; const flipped = new Set(lm ? lm.flips : []);
