@@ -376,11 +376,11 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
 
   function defaultConfig() {
     return {
-      landSets: 7,
+      landSets: 6,
       landCopies: 3,
       specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
       family: [{ advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }, { advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }],
-      gridW: 5, gridH: 5,
+      gridW: 4, gridH: 5,
       handSize: 2,
       start: 'neutral',      // neutral | none
       stacking: 'unlimited', // once | unlimited (unlimited: any tile can be covered, Sanctuary and Sinkhole included)
@@ -1025,7 +1025,7 @@ function crossroads(o) {
 // The tile list for the default build: [label, frontSVG, backSVG]
 function tileSet() {
   const out = [];
-  for (const L of LANDS.slice(0, 7)) for (let i = 0; i < 3; i++) out.push({ label: L.name, front: land(L, 'b'), back: land(L, 'r') });
+  for (const L of LANDS.slice(0, 6)) for (let i = 0; i < 3; i++) out.push({ label: L.name, front: land(L, 'b'), back: land(L, 'r') });
   for (const [house, h] of [['Midnight', 'b'], ['Roses', 'r']]) for (const m of ['king', 'knave'])
     out.push({ label: `${m[0].toUpperCase() + m.slice(1)} of ${house}`, front: family(m, h, 'b'), back: family(m, h, 'r') });
   out.push({ label: 'Usurp', front: special('usurp', 'b'), back: special('usurp', 'r') });
@@ -1137,7 +1137,7 @@ function renderSetup() {
       h('span', { class: 'sub', style: 'margin:0' }, cur ? `You\u2019re on: ${cur === 'Default micro' ? 'the default build' : cur}` : 'You\u2019re on: a custom build (you changed settings by hand)')),
     h('p', { class: 'sub' }, 'A preset changes several settings at once. Your current game isn\u2019t affected until you start a new one.'),
     h('div', { class: 'preset-grid' },
-      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the second player wins ties.',
+      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 6 Lands \u00d7 3 on a 4 \u00d7 5 board, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the second player wins ties.',
         cur === 'Default micro', () => set(() => { cfg = E.defaultConfig(); mirror = true; }), cur === 'Default micro'),
       Object.keys(PRESETS).filter(n => n !== 'Default micro').map(name => presetCard(name, PRESET_INFO[name], cur === name,
         () => set(() => { cfg = normFam(PRESETS[name]()); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));

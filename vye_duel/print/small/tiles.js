@@ -104,7 +104,7 @@ function crossroads(o) {
 // The tile list for the default build: [label, frontSVG, backSVG]
 function tileSet() {
   const out = [];
-  for (const L of LANDS.slice(0, 7)) for (let i = 0; i < 3; i++) out.push({ label: L.name, front: land(L, 'b'), back: land(L, 'r') });
+  for (const L of LANDS.slice(0, 6)) for (let i = 0; i < 3; i++) out.push({ label: L.name, front: land(L, 'b'), back: land(L, 'r') });
   for (const [house, h] of [['Midnight', 'b'], ['Roses', 'r']]) for (const m of ['king', 'knave'])
     out.push({ label: `${m[0].toUpperCase() + m.slice(1)} of ${house}`, front: family(m, h, 'b'), back: family(m, h, 'r') });
   out.push({ label: 'Usurp', front: special('usurp', 'b'), back: special('usurp', 'r') });

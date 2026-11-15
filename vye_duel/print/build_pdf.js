@@ -18,7 +18,7 @@ const url = p => pathToFileURL(path.join(HERE, p)).href;
 const OWNED = ['b', 'r'], NEUTRAL = ['n', 'n'];
 const LANDS = [
   ['Birchwood', 'birchwood'], ['Wolf Hollow', 'wolf-hollow'], ['Violet Peaks', 'violet-peaks'], ['Golden Fields', 'golden-fields'],
-  ['Ice Cliffs', 'ice-cliffs'], ['Spire Isle', 'spire-isle'], ['Night Thicket', 'night-thicket']
+  ['Ice Cliffs', 'ice-cliffs'], ['Spire Isle', 'spire-isle']
 ];
 const FAMILY_RULE = {
   king: 'Flips the 4 tiles beside it.',

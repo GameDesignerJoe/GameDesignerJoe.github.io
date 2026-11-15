@@ -1,5 +1,5 @@
 // Vye Duel print and play, small-tile edition: 0.7 in (Scrabble-size) icon tiles.
-// 2 rules pages + 1 double-sided sheet holding 2 full sets of 30 tiles.
+// 2 rules pages + 1 double-sided sheet holding 2 full sets of 27 tiles.
 //
 // Windows, from vye_duel\print\small:  node build_small_pdf.js   (needs playwright, see ..\build_pdf.js)
 const fs = require('fs'), path = require('path');
@@ -9,9 +9,9 @@ const HERE = __dirname, PRINT = path.join(HERE, '..');
 const url = p => pathToFileURL(p).href;
 
 T.setCorner(4); // nearly square corners so a slightly off cut still looks clean
-const SET = T.tileSet();            // 30 tiles: { label, front, back }
+const SET = T.tileSet();            // 27 tiles: { label, front, back }
 const tiles = SET.concat(SET);      // two sets
-const S = 0.7, COLS = 10, ROWS = Math.ceil(tiles.length / COLS);
+const S = 0.7, COLS = 9, ROWS = Math.ceil(tiles.length / COLS);
 const X0 = (8.5 - COLS * S) / 2, Y0 = 0.75;
 
 function sheet(side) {
@@ -27,14 +27,14 @@ function sheet(side) {
   }
   const grid = side === 0 ? `<div class="sgrid" style="left:${X0}in;top:${Y0}in;width:${COLS * S}in;height:${ROWS * S}in"></div>` : '';
   const note = side === 0 ? `<div class="snote" style="top:${Y0 + ROWS * S + 0.55}in">
-      <h2>Two full sets</h2><p>The top three rows are one complete game (30 tiles); the bottom three rows are a spare set. Print this sheet double-sided, flip on long edge, at actual size, then cut on the lines.
+      <h2>Two full sets</h2><p>The top three rows are one complete game (27 tiles); the bottom three rows are a spare set. Print this sheet double-sided, flip on long edge, at actual size, then cut on the lines.
       To make sturdy tiles, print on sticker paper instead and stick the front and back onto blank 0.7 inch tiles.</p></div>` : '';
   return `<section class="page sheet">${grid}${cells}${marks}${note}<div class="foot">${side === 0 ? 'Front · cut on the lines' : 'Back of the previous page'}</div></section>`;
 }
 
 // tile key for the rules page
 const mini = (svg, label) => `<figure class="key"><div class="ki">${svg}</div><figcaption>${label}</figcaption></figure>`;
-const L = T.LANDS.slice(0, 7);
+const L = T.LANDS.slice(0, 6);
 const KEY = `<div class="box keybox">
   <div class="krow">${L.map(l => mini(T.land(l, 'b'), l.name)).join('')}</div>
   <div class="krow">${mini(T.family('king', 'b', 'b'), 'King')}${mini(T.family('knave', 'r', 'r'), 'Knave')}${mini(T.special('usurp', 'b'), 'Usurp')}${mini(T.special('lostcity', 'r'), 'Lost City')}${mini(T.special('sinkhole', 'n'), 'Sinkhole')}${mini(T.crossroads('n'), 'Crossroads')}${mini(T.crossroads('b'), 'Captured')}</div>
@@ -58,7 +58,7 @@ rules = swap(rules, '1 of 8', '1 of 4'); rules = swap(rules, '2 of 8', '2 of 4')
 rules = swap(rules, 'US Letter paper. Light cardstock works best.', 'US Letter paper. Cardstock, or sticker paper to put on blank tiles.');
 rules = swap(rules, 'Print pages 3&ndash;8', 'Print pages 3&ndash;4');
 rules = swap(rules, 'Cut on the lines on the front of each sheet. Tiles are 2.5 inches, the width of a playing card.', 'Cut on the lines on the front. Tiles are 0.7 inch, the size of a Scrabble tile.');
-rules = rules.replace(/<table class="counts">[\s\S]*?<\/table>/, '<table class="counts"><tr><td>One sheet</td><td>2 full sets of 30 tiles</td></tr></table>');
+rules = rules.replace(/<table class="counts">[\s\S]*?<\/table>/, '<table class="counts"><tr><td>One sheet</td><td>2 full sets of 27 tiles</td></tr></table>');
 rules = rules.replace(/{{MOON}}/g, MOON).replace(/{{ROSE}}/g, ROSE).replace(/{{(KING|KNAVE|QUEEN|HEIR)}}/g, (_, k) => PAT[k]);
 
 const css = fs.readFileSync(path.join(PRINT, 'print.css'), 'utf8').replace(/url\(fonts\//g, `url(${url(path.join(PRINT, 'fonts'))}/`) + `

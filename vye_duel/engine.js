@@ -70,11 +70,11 @@
 
   function defaultConfig() {
     return {
-      landSets: 7,
+      landSets: 6,
       landCopies: 3,
       specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
       family: [{ advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }, { advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }],
-      gridW: 5, gridH: 5,
+      gridW: 4, gridH: 5,
       handSize: 2,
       start: 'neutral',      // neutral | none
       stacking: 'unlimited', // once | unlimited (unlimited: any tile can be covered, Sanctuary and Sinkhole included)
