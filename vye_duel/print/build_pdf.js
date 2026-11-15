@@ -35,12 +35,6 @@ tiles.push({ kind: 'special', name: 'Lost City', art: 'art/lostcity.jpg', rule: 
 tiles.push({ kind: 'special', name: 'Sinkhole', art: 'art/sinkhole.jpg', rule: 'Cover any tile but the Crossroads. No one owns it.', own: NEUTRAL });
 tiles.push({ kind: 'start', name: 'Crossroads', glyph: 'crossroads', rule: 'Start tile. Can’t be covered. A Family capture takes it: swap in the captured Crossroads.', own: NEUTRAL });
 tiles.push({ kind: 'start', name: 'Crossroads', glyph: 'crossroads', rule: 'Captured. Swap this in when a Family capture takes the Crossroads.', own: OWNED, captured: true });
-// six free slots on the last sheet: optional tiles
-for (const house of ['Midnight', 'Roses']) for (const m of ['queen', 'heir'])
-  tiles.push({ kind: 'family', member: m, name: `${cap(m)} of ${house}`, house, rule: FAMILY_RULE[m], art: `art/${house === 'Midnight' ? 'blue' : 'red'}-${m}.jpg`, own: OWNED, optional: true });
-tiles.push({ kind: 'special', name: 'Underminers', art: 'art/underminers.jpg', rule: 'Place it, then flip the tile behind any tile beside it.', own: OWNED, optional: true });
-tiles.push({ kind: 'special', name: 'Earthquake', art: 'art/earthquake.jpg', rule: 'Place it, then swap any two tiles. Nothing is captured.', own: OWNED, optional: true });
-
 function cap(s) { return s[0].toUpperCase() + s.slice(1); }
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
@@ -84,13 +78,13 @@ function sheet(list, side) {
     const col = side === 0 ? c : COLS - 1 - c; // backs are mirrored for long-edge flip
     cells.push(`<div class="slot" style="left:${0.5 + col * 2.5}in;top:${0.5 + r * 2.5}in">${face(t, side)}</div>`);
   }
-  const marks = [];
+  const marks = [], rows = Math.ceil(list.length / COLS);
   if (side === 0) {
-    for (let c = 0; c <= COLS; c++) marks.push(`<div class="mk v" style="left:${0.5 + c * 2.5}in;top:0.12in"></div><div class="mk v" style="left:${0.5 + c * 2.5}in;top:10.6in"></div>`);
-    for (let r = 0; r <= 4; r++) marks.push(`<div class="mk h" style="top:${0.5 + r * 2.5}in;left:0.12in"></div><div class="mk h" style="top:${0.5 + r * 2.5}in;left:8.1in"></div>`);
+    for (let c = 0; c <= COLS; c++) marks.push(`<div class="mk v" style="left:${0.5 + c * 2.5}in;top:0.12in"></div><div class="mk v" style="left:${0.5 + c * 2.5}in;top:${0.6 + rows * 2.5}in"></div>`);
+    for (let r = 0; r <= rows; r++) marks.push(`<div class="mk h" style="top:${0.5 + r * 2.5}in;left:0.12in"></div><div class="mk h" style="top:${0.5 + r * 2.5}in;left:8.1in"></div>`);
   }
   return `<section class="page sheet ${side ? 'back' : 'front'}">${cells.join('')}${marks.join('')}
-    ${side === 0 ? '<div class="cutgrid"></div>' : ''}
+    ${side === 0 ? `<div class="cutgrid" style="height:${rows * 2.5}in"></div>` : ''}
     <div class="foot">${side === 0 ? 'Front · cut on the lines' : 'Back of the previous page'}</div></section>`;
 }
 
