@@ -7,7 +7,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { spawn, execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { imageToVideo, generateImages, removeBackground, generateAudio, ffmpeg, checkCancel } from "./lib/fal.js";
+import { imageToVideo, generateImages, removeBackground, generateAudio, videoToAudio, ffmpeg, checkCancel } from "./lib/fal.js";
 import * as eleven from "./lib/eleven.js";
 import { chatCall, splitActions, systemPrompt, dryReply, CHAT_MODELS, lenientJSON } from "./lib/chat.js";
 
@@ -101,7 +101,7 @@ const musicDir = (s, ep) => path.join(storiesDir(), s.dir, ep.dir, "Music");
 const shotLen = sh => +sh.seconds || 5;
 const mixOf = ep => ({ video: 1, fx: 0.8, music: 0.45, ...(ep.mix || {}) });
 const soundPromptOf = sh => sh.sound && sh.sound.prompt != null ? sh.sound.prompt : (sh.sfx || []).join("; ");
-function soundForApp(s, ep, sh) { const so = sh.sound || {}, d = soundDir(s, ep, sh); return { prompt: soundPromptOf(sh), take: so.take || null, url: so.take ? fileOr(path.join(d, so.take)) : null, takes: (so.takes || []).map(f => ({ file: f, url: fileOr(path.join(d, f)) })).filter(t => t.url) }; }
+function soundForApp(s, ep, sh) { const so = sh.sound || {}, d = soundDir(s, ep, sh); return { prompt: soundPromptOf(sh), fromVideo: so.fromVideo || null, stale: !!(so.fromVideo && sh.videoTake && so.fromVideo !== sh.videoTake), take: so.take || null, url: so.take ? fileOr(path.join(d, so.take)) : null, takes: (so.takes || []).map(f => ({ file: f, url: fileOr(path.join(d, f)) })).filter(t => t.url) }; }
 function storyForApp(s) { return { ...s, styleDesc: styleCached(storyStylePicks(s)), styleImages: (s.styleRefs || []).filter(f => fs.existsSync(path.join(storiesDir(), s.dir, "Style", f))).map(f => ({ file: f, url: fileUrl(path.join(storiesDir(), s.dir, "Style", f)) })), episodes: s.episodes.map(ep => ({ ...ep, mix: mixOf(ep), music: (ep.music || []).map(c => ({ ...c, url: c.take ? fileOr(path.join(musicDir(s, ep), c.take)) : null, takes: (c.takes || []).map(f => ({ file: f, url: fileOr(path.join(musicDir(s, ep), f)) })).filter(t => t.url) })), shots: ep.shots.map(sh => ({ ...sh, sound: soundForApp(s, ep, sh), vnotes: (sh.vnotes || []).map(n => noteForApp(s, ep, sh, n)), vthread: (sh.vthread || []).map(r => ({ ...r, notes: (r.notes || []).map(n => noteForApp(s, ep, sh, n)), resultUrl: fileOr(path.join(shotPath(s, ep, sh), "takes", r.result || "-")), keyframeUrl: r.keyframe ? fileOr(path.join(shotPath(s, ep, sh), "takes", r.keyframe)) : null })), media: shotMedia(s, ep, sh), job: Object.values(JOBS).find(j => j.shot === sh.id && j.status === "running") || null })) })) }; }
 
 // ---------- scripts: one script.txt per episode folder; old versions kept in "script history" ----------
@@ -580,9 +580,11 @@ function runVideoFix({ storyId, epId, shotId, modelKey, seconds, ask }) {
 
 // ---------- sound: effects per shot, music cues across shots ----------
 const SOUND_MODEL = () => Object.values(MODELS.sound)[0], MUSIC_MODEL = () => Object.values(MODELS.music)[0];
-function runSoundJob({ storyId, epId, shotId }) {
+function runSoundJob({ storyId, epId, shotId, textOnly }) {
   const s = loadStory(storyId); const ep = epOf(s, epId); const sh = shotOf(ep, shotId); const prompt = soundPromptOf(sh).trim();
-  if (!prompt) throw httpErr(400, "Say what this shot sounds like first.");
+  const vfile = sh.videoTake && path.join(shotPath(s, ep, sh), "takes", sh.videoTake);
+  if (vfile && fs.existsSync(vfile) && !textOnly) return runFoleyJob({ s, ep, sh, vfile, prompt });
+  if (!prompt) throw httpErr(400, "This shot has no video yet, so say what it sounds like first.");
   const direct = eleven.hasEleven(), model = SOUND_MODEL(), secs = Math.min(direct ? MODELS.eleven.sfxMaxSeconds || 30 : model.maxSeconds || 22, shotLen(sh));
   const job = { id: newId(), kind: "sound", shot: sh.id, story: s.id, model: direct ? "elevenlabs" : "elevenlabs-sfx", direct, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
   (async () => {
@@ -602,6 +604,24 @@ function runSoundJob({ storyId, epId, shotId }) {
 // direct ElevenLabs: run it, then price the credits it used at Joe's rate (Settings: $ per 1,000 credits)
 const elevenRate = () => { const v = settings().elevenPer1k; return v != null && isFinite(+v) ? +v : 0.22; };
 async function elevenRun(job, phase, fn) { job.phase = phase + " (ElevenLabs, your plan)"; emit("job", job); const r = await fn(); return { ...r, cost: r.credits != null ? +((r.credits / 1000) * elevenRate()).toFixed(4) : 0 }; }
+
+// foley: a model watches the shot's video and makes sound synced to it (two versions to pick from)
+function runFoleyJob({ s, ep, sh, vfile, prompt }) {
+  const [key, model] = Object.entries(MODELS.foley)[0], secs = shotLen(sh);
+  const job = { id: newId(), kind: "sound", shot: sh.id, story: s.id, model: key, foley: true, status: "running", phase: "starting", started: Date.now() }; JOBS[job.id] = job; emit("job", job);
+  (async () => {
+    try { const d = soundDir(s, ep, sh); fs.mkdirSync(d, { recursive: true });
+      const r = await videoToAudio({ ctl: job, model, video: vfile, prompt, negative: "music, singing, speech", seconds: secs, samples: model.samples || 2, outBase: path.join(d, `${stamp()} sound from video`),
+        onStatus: (st, q) => { job.phase = st === "IN_QUEUE" ? "in fal's queue" : st === "IN_PROGRESS" ? "watching the video and making the sound" : String(st || "").toLowerCase(); emit("job", job); } });
+      const s2 = loadStory(s.id); const ep2 = epOf(s2, ep.id); const sh2 = shotOf(ep2, sh.id); const so = sh2.sound = sh2.sound || {};
+      const names = r.files.map(f => path.basename(f)); so.takes = (so.takes || []).concat(names); so.take = names[0]; so.fromVideo = sh.videoTake; saveStory(s2);
+      logSpend({ story: s2.title, episode: ep2.num, shot: ep2.shots.indexOf(sh2) + 1, kind: "sound", model: key + ` x${names.length}` + (r.dry ? " (dry run)" : ""), seconds: r.seconds, cost: r.cost, file: rel(r.files[0]) });
+      Object.assign(job, { status: "done", phase: "done", cost: r.cost, versions: names.length, finished: Date.now() });
+    } catch (e) { Object.assign(job, e && e.cancelled ? { status: "cancelled", phase: "cancelled" } : { status: "error", phase: "failed", error: String(e.message || e) }, { finished: Date.now() }); }
+    emit("job", job);
+  })();
+  return job;
+}
 
 function cueSpan(ep, c) { const ids = ep.shots.map(x => x.id); let a = ids.indexOf(c.from), b = ids.indexOf(c.to); if (a < 0) a = 0; if (b < 0) b = ids.length - 1; if (b < a) [a, b] = [b, a];
   const start = ep.shots.slice(0, a).reduce((t, x) => t + shotLen(x), 0), len = ep.shots.slice(a, b + 1).reduce((t, x) => t + shotLen(x), 0); return { a, b, start, len }; }
@@ -726,7 +746,7 @@ const json = (res, o, code = 200) => { res.writeHead(code, { "Content-Type": "ap
 const dataUri = (u) => { const m = /^data:image\/(png|jpe?g|webp);base64,/.exec(u || ""); if (!m) throw httpErr(400, "expected an image"); return { ext: m[1] === "jpeg" ? "jpg" : m[1], buf: Buffer.from(u.slice(m[0].length), "base64") }; };
 
 const routes = {
-  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { eleven: eleven.hasEleven(), elevenPer1k: elevenRate(), chatModels: CHAT_MODELS, chat: chatSetting(), pid: process.pid, version: "2.0-step6", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, defaultImage: s.defaultImage, defaultCutout: s.defaultCutout, imageModels: MODELS.image, cutoutTools: MODELS.cutout, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
+  "GET /api/state": () => { const s = settings(); const { own, old } = loadKeys(); return { foley: Object.values(MODELS.foley)[0], eleven: eleven.hasEleven(), elevenPer1k: elevenRate(), chatModels: CHAT_MODELS, chat: chatSetting(), pid: process.pid, version: "2.0-step6", dry: !!process.env.GASP_DRY, library: s.library, defaultVideo: s.defaultVideo, defaultImage: s.defaultImage, defaultCutout: s.defaultCutout, imageModels: MODELS.image, cutoutTools: MODELS.cutout, keys: Object.fromEntries(KEY_NAMES.map(k => [k, own[k] ? "set" : old[k] ? "from 1.0" : ""])), models: MODELS.video, stories: listStories(), spend: readSpend().total }; },
   "POST /api/settings": async (req) => { const b = await body(req); if (b.keys) saveKeys(b.keys); const patch = {}; if (b.library) patch.library = path.resolve(String(b.library)); if (b.defaultVideo && MODELS.video[b.defaultVideo]) patch.defaultVideo = b.defaultVideo; if (b.defaultImage && MODELS.image[b.defaultImage]) patch.defaultImage = b.defaultImage; if (b.defaultCutout && MODELS.cutout[b.defaultCutout]) patch.defaultCutout = b.defaultCutout; if (b.elevenPer1k != null && isFinite(+b.elevenPer1k) && +b.elevenPer1k >= 0) patch.elevenPer1k = +b.elevenPer1k; if (b.chat && b.chat.model && ["fal", "groq"].includes(b.chat.provider)) patch.chat = { provider: b.chat.provider, model: String(b.chat.model).trim() }; if (Object.keys(patch).length) saveSettings(patch); ensureLibrary(); return { ok: true }; },
   "GET /api/spend": () => readSpend(),
   "POST /api/story/new": async (req) => { const b = await body(req); return storyForApp(createStory(b.title || "New story")); },
@@ -773,11 +793,11 @@ const routes = {
   "POST /api/music/update": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); const c = (ep.music || []).find(x => x.id === b.cue); if (!c) throw httpErr(404, "music cue not found");
     for (const k of ["from", "to", "prompt"]) if (k in b) c[k] = String(b[k] || ""); if (b.take && (c.takes || []).includes(path.basename(b.take))) c.take = path.basename(b.take); return storyForApp(saveStory(s)); },
   "POST /api/music/delete": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); ep.music = (ep.music || []).filter(x => x.id !== b.cue); return storyForApp(saveStory(s)); },
-  "POST /api/gen/sound": async (req) => { const b = await body(req); return runSoundJob({ storyId: b.story, epId: b.ep, shotId: b.shot }); },
+  "POST /api/gen/sound": async (req) => { const b = await body(req); return runSoundJob({ storyId: b.story, epId: b.ep, shotId: b.shot, textOnly: !!b.textOnly }); },
   "POST /api/gen/music": async (req) => { const b = await body(req); return runMusicJob({ storyId: b.story, epId: b.ep, cueId: b.cue }); },
   "POST /api/sound/suggest": async (req) => { const b = await body(req); const s = loadStory(b.story); const ep = epOf(s, b.ep); if (!ep.shots.length) throw httpErr(400, "Add shots first.");
     const r = await suggestSound(s, ep); const s2 = loadStory(b.story); const ep2 = epOf(s2, b.ep); let n = 0, m = 0;
-    for (const x of r.shots) { const sh = ep2.shots[(+x.n || 0) - 1]; if (!sh || !String(x.sound || "").trim() || (sh.sound && sh.sound.take)) continue; sh.sound = { ...(sh.sound || {}), prompt: String(x.sound).trim() }; n++; }
+    if (!b.musicOnly) for (const x of r.shots) { const sh = ep2.shots[(+x.n || 0) - 1]; if (!sh || !String(x.sound || "").trim() || (sh.sound && sh.sound.take)) continue; sh.sound = { ...(sh.sound || {}), prompt: String(x.sound).trim() }; n++; }
     const kept = (ep2.music || []).filter(c => (c.takes || []).length); const at = k => (ep2.shots[Math.max(0, Math.min(ep2.shots.length - 1, (+k || 1) - 1))] || {}).id;
     if (r.music.length) { ep2.music = kept.concat(r.music.filter(c => String(c.prompt || "").trim()).map(c => ({ id: newId(), from: at(c.from), to: at(c.to), prompt: String(c.prompt).trim(), take: null, takes: [] }))); m = ep2.music.length - kept.length; }
     logSpend({ story: s2.title, episode: ep2.num, shot: "sound plan", kind: "prompt", model: chatSetting().model + (process.env.GASP_DRY ? " (dry run)" : ""), seconds: 0, cost: r.cost, file: "" });

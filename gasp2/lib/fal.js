@@ -138,3 +138,19 @@ export async function generateAudio({ model, kind, prompt, seconds, outFile, onS
   const url = out.audio && out.audio.url; if (!url) throw new Error("fal returned no audio: " + JSON.stringify(out).slice(0, 200));
   await download(url, outFile); return { file: outFile, cost, seconds: secs };
 }
+
+// Sound from a video (foley): the model watches the clip and makes sound synced to it. prompt adds off-screen sounds or ambience.
+// Returns { files, cost, seconds }; one file per version.
+export async function videoToAudio({ model, video, prompt, negative, seconds, samples = 2, outBase, onStatus, ctl }) {
+  const secs = Math.max(1, Math.min(600, +seconds || 5)), n = Math.max(1, Math.min(4, samples | 0 || 1));
+  if (process.env.GASP_DRY) { await dryWait(1000, ctl); const files = [];
+    for (let i = 0; i < n; i++) { const f = `${outBase} ${i + 1}.mp3`; await ffmpeg(["-f", "lavfi", "-i", `anoisesrc=color=brown:amplitude=0.1:duration=${secs}`, "-q:a", "6", f]); files.push(f); }
+    return { files, cost: 0, seconds: secs, dry: true }; }
+  const video_url = await falUpload(video);
+  const out = await falRun(model.endpoint, { video_url, text_prompt: prompt || undefined, negative_prompt: negative || undefined, duration: secs, num_samples: n, preserve_speech: true, upload_audio_format: "mp3" }, onStatus, ctl);
+  const list = Array.isArray(out.audio) ? out.audio : out.audio ? [out.audio] : [];
+  if (!list.length) throw new Error("fal returned no audio: " + JSON.stringify(out).slice(0, 200));
+  const files = []; for (let i = 0; i < list.length; i++) { const f = `${outBase} ${i + 1}${extAudio(list[i].url)}`; await download(list[i].url, f); files.push(f); }
+  return { files, cost: +((model.pricePerSecond || 0) * secs * files.length).toFixed(3), seconds: secs };
+}
+const extAudio = url => { const m = /\.(mp3|wav|aac|flac|m4a)(\?|$)/i.exec(url || ""); return m ? "." + m[1].toLowerCase() : ".mp3"; };

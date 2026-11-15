@@ -37,7 +37,7 @@ few fields, a storyboard grid as home, everything regenerable in place.
 | `lib/fal.js` | fal queue API, storage upload, image-to-video, image generation with references, background removal, sound effects and music, dry-run placeholders |
 | `lib/eleven.js` | ElevenLabs direct (Joe's key): voices list and Voice Library, add a shared voice, speech, sound effects, music, plan usage; used instead of fal when the key is set |
 | `lib/chat.js` | Chat calls (fal LLM router or Groq, OpenAI format), the system prompt, ```gasp action blocks |
-| `models.json` | Models on fal: video (endpoint, image field, lengths, $/s), image (edit + text endpoints, size field, max references, $/image), cutout (background removal), sound (effects) and music. Add a model = add an entry |
+| `models.json` | Models on fal: video (endpoint, image field, lengths, $/s), image (edit + text endpoints, size field, max references, $/image), cutout (background removal), sound (effects), foley (sound from a video) and music. Add a model = add an entry |
 | `app/index.html` | The whole UI |
 | `app/script.js` | The shot format: parser and script edits, shared by app and server (one global, no build) |
 | `gasp2-app.ps1` / `.vbs`, `*.bat` | Windows launchers (hidden server, app window, background `git pull`) |
