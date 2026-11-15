@@ -130,8 +130,6 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .sig.both { background: linear-gradient(90deg, var(--blue) 50%, var(--red) 50%); }
 .stack { position: absolute; bottom: 3px; left: 4px; font-size: 11px; font-weight: 700; background: rgba(0,0,0,.55); color: #fff; padding: 0 5px; border-radius: 4px; }
 .cell.stacked::before { content: ""; position: absolute; inset: 0; transform: translate(3px, 3px); border-radius: 9px; background: var(--line); }
-.cell.last .tile { animation: pop .35s ease-out; }
-.cell.flipped .tile { animation: flip .5s ease-out; }
 .cell.last::after { content: ""; position: absolute; inset: -4px; border-radius: 12px; border: 2px solid var(--ink); opacity: .55; pointer-events: none; }
 .cell.ghost .tile { opacity: .65; }
 @keyframes pop { from { transform: scale(.7); opacity: .2; } to { transform: none; opacity: 1; } }
@@ -159,6 +157,10 @@ img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: c
 .tile.fam.has-art > .pat { display: grid; position: absolute; left: 4px; bottom: 4px; width: calc(var(--cell) * .3); height: calc(var(--cell) * .3); padding: 2px; gap: 1px; background: rgba(250,247,240,.92); border-radius: 4px; }
 .tile.fam.has-art > .pat i { background: #CFC8B8; } .tile.fam.has-art > .pat i.on { background: #8E6610; } .tile.fam.has-art > .pat i.me { background: #1A2027; } .tile.fam.has-art > .pat i.opt { background: #D9BE80; }
 .bonus { font-size: 12px; font-weight: 700; vertical-align: super; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: var(--red); color: #fff; cursor: help; letter-spacing: 0; }
+.flyer { position: fixed; z-index: 40; pointer-events: none; border-radius: 9px; }
+.flyer .tile { box-shadow: 0 14px 30px rgba(0,0,0,.35); }
+.cell .tile.under { z-index: 0; }
+.cell.incoming > .tile:not(.under) { visibility: hidden; }
 .counts { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 12px; font-size: 13.5px; margin-bottom: 12px; }
 .counts .hd { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .counts .num { text-align: right; }
@@ -236,7 +238,7 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .mchip.active.p0 { border-color: var(--blue); } .mchip.active.p1 { border-color: var(--red); }
   .mchip .sig { position: static; width: 22px; height: 22px; font-size: 13px; flex: none; }
   .mchip b { font-size: 22px; line-height: 1; }
-  .mchip small { font-size: 11px; color: var(--muted); line-height: 1.2; }
+  .mchip small { font-size: 11px; color: var(--muted); line-height: 1.2; white-space: nowrap; }
   .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; display: flex; flex-direction: column; line-height: 1.1; }
   .mdeck b { font-size: 18px; color: var(--ink); }
   .bag { display: none; }
@@ -389,7 +391,7 @@ function renderSetup() {
       h('span', { class: 'sub', style: 'margin:0' }, cur ? `You\u2019re on: ${cur === 'Default micro' ? 'the default build' : cur}` : 'You\u2019re on: a custom build (you changed settings by hand)')),
     h('p', { class: 'sub' }, 'A preset changes several settings at once. Your current game isn\u2019t affected until you start a new one.'),
     h('div', { class: 'preset-grid' },
-      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, King, Queen and Heir each, Usurp, Sinkhole and Lost City, and the first player must win by 2.',
+      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the first player must win by 2.',
         cur === 'Default micro', () => set(() => { cfg = E.defaultConfig(); mirror = true; }), cur === 'Default micro'),
       Object.keys(PRESETS).filter(n => n !== 'Default micro').map(name => presetCard(name, PRESET_INFO[name], cur === name,
         () => set(() => { cfg = normFam(PRESETS[name]()); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));
@@ -403,9 +405,11 @@ function renderSetup() {
     E.SPECIAL_ORDER.map(s => {
       const S = E.SPECIALS[s];
       const mode = ({ place: 'placed', cover: 'covers', replace: 'replaces' })[S.mode];
-      return row(h('span', null, S.name, h('span', { class: 'chip' + (S.origin !== 'Original' ? ' new' : '') }, S.origin), h('span', { class: 'chip' }, mode)), S.rule,
+      return row(h('span', null, S.name, h('span', { class: 'chip' + (S.origin !== 'Original' ? ' new' : '') }, S.origin), h('span', { class: 'chip' }, mode)), specialRule(s),
         stepper(cfg.specials[s] | 0, 0, 3, n => set(() => cfg.specials[s] = n), 'st-sp-' + s));
-    }));
+    }),
+    row('Lost City points', 'What one Lost City is worth inside your kingdom at the end of the game. A normal tile is worth 1.', stepper(cfg.lostCityValue ?? 2, 1, 6, n => set(() => cfg.lostCityValue = n), 'st-lcv')),
+    row('Usurp triggers matching', 'On: the Land you swap in matches its neighbors like a normal Land play. Off: Usurp only takes over that one space.', h('input', { type: 'checkbox', id: 'usurpmatch', checked: cfg.usurpMatch !== false, onchange: e => set(() => cfg.usurpMatch = e.target.checked) })));
 
   const famCol = (p) => h('div', null,
     h('h3', null, h('span', { class: 'dot p' + p }), E.HOUSES[p].short + (p === 0 ? ' (Blue, first)' : ' (Red)')),
@@ -424,7 +428,9 @@ function renderSetup() {
     row('Height limit', null, stepper(cfg.gridH, 3, 8, n => set(() => cfg.gridH = n), 'st-h')),
     row('Hand size', null, stepper(cfg.handSize, 1, 6, n => set(() => cfg.handSize = n), 'st-hand')),
     row('Opening tile', 'A neutral Crossroads that nobody can own, or an empty table.', seg([['neutral', 'Crossroads'], ['none', 'Empty']], cfg.start, x => set(() => cfg.start = x))),
-    row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: stacks keep growing.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))));
+    row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: anything can be covered again and again, including Sinkholes, Sanctuaries and Lost Cities.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))),
+    row('Family can capture the Crossroads', 'A Family capture that reaches the Crossroads takes it, like any other tile.', h('input', { type: 'checkbox', id: 'xcap', checked: !!cfg.crossroadsCapture, onchange: e => set(() => cfg.crossroadsCapture = e.target.checked) })),
+    row('Cards can stack on the Crossroads', 'Off by default, so nobody can drop a Lost City on the center tile late in the game for free points.', h('input', { type: 'checkbox', id: 'xcover', checked: !!cfg.crossroadsCover, onchange: e => set(() => cfg.crossroadsCover = e.target.checked) })));
 
   const endKeys = [['boardFull', 'Board is full', 'Every space inside the width × height limit is filled.'], ['deckEmpty', 'Bag is empty', 'Ends the moment the last tile is drawn from the bag.'], ['noValidPlay', 'A player can’t play', 'If off, that player passes instead. The game ends when neither can play.']];
   const end = h('div', { class: 'panel' }, h('h2', null, 'Game end'),
@@ -503,7 +509,12 @@ function tileEl(t, owner) {
 function cardDesc(c) {
   if (c.kind === 'land') return `${E.LANDS[c.land].name}: matches adjacent ${E.LANDS[c.land].name} and flips the whole chain.`;
   if (c.kind === 'family') return `${E.MEMBERS[c.member].name}: ${E.MEMBERS[c.member].rule}` + (cfg.colorCapture ? ' Also flips adjacent same-house Family.' : '');
-  return `${E.SPECIALS[c.special].name}: ${E.SPECIALS[c.special].rule}`;
+  return `${E.SPECIALS[c.special].name}: ${specialRule(c.special)}`;
+}
+function specialRule(s) {
+  if (s === 'lostcity') return `Cover a Land you own. Worth ${cfg.lostCityValue ?? 2} points in your kingdom.`;
+  if (s === 'usurp') return cfg.usurpMatch === false ? 'Swap a Land on the board for a Land from your hand. It takes that space only, with no matching. Old Land goes under the bag.' : 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the bag.';
+  return E.SPECIALS[s].rule;
 }
 
 // ---------- play ----------
@@ -526,7 +537,7 @@ function restore(s, snap) { Object.assign(s, snap, { board: new Map(snap.board),
 function newGame(seed) {
   clearTimeout(aiTimer); paused = false;
   gameSeed = seed != null ? seed : Math.floor(Math.random() * 1e6);
-  G = E.newGame(cfg, gameSeed); history = []; ui = { sel: null, pos: null, phase: null, eqA: null };
+  G = E.newGame(cfg, gameSeed); history = []; ui = { sel: null, pos: null, phase: null, eqA: null }; animatedN = -1; animBusyUntil = 0;
   renderPlay(); scheduleAI();
 }
 const isHuman = p => seats[p] === 'human';
@@ -536,11 +547,12 @@ function scheduleAI() {
   aiTimer = setTimeout(() => {
     if (!G || G.over || isHuman(G.turn) || paused) return;
     const m = E.chooseMove(G, seats[G.turn]);
-    if (m) E.playMove(G, m);
+    if (m) { animFrom = sourceRect(G.turn, m.cardId); E.playMove(G, m); }
     renderPlay(); scheduleAI();
-  }, speed);
+  }, Math.max(speed, animBusyUntil - performance.now() + 150));
 }
 function humanPlay(move) {
+  animFrom = sourceRect(G.turn, move.cardId);
   history.push(snapshot(G));
   E.playMove(G, move);
   ui = { sel: null, pos: null, phase: null, eqA: null };
@@ -549,7 +561,7 @@ function humanPlay(move) {
 function undo() {
   if (!history.length) return;
   clearTimeout(aiTimer);
-  restore(G, history.pop());
+  restore(G, history.pop()); animatedN = G.lastMove ? G.lastMove.n : -1;
   ui = { sel: null, pos: null, phase: null, eqA: null };
   renderPlay();
 }
@@ -653,11 +665,11 @@ function handEl(p, other) {
     const picking = mine && ui.phase === 'usurp';
     const pickable = picking && c.kind === 'land' && movesFor().some(m => m.pos === ui.pos && m.choice && m.choice.land === c.land);
     const ok = picking ? pickable || ui.sel === c.id : playable.has(c.id);
-    const b = h('button', { class: 'hcard' + (ui.sel === c.id ? ' sel' : '') + (pickable ? ' pick' : '') + (mine && !ok ? ' dead' : ''), title: cardDesc(c), 'aria-label': E.cardTitle(c),
+    const b = h('button', { 'data-cid': c.id, class: 'hcard' + (ui.sel === c.id ? ' sel' : '') + (pickable ? ' pick' : '') + (mine && !ok ? ' dead' : ''), title: cardDesc(c), 'aria-label': E.cardTitle(c),
       onclick: () => { if (!mine || !ok) return; if (pickable) return usurpPick(c); ui = { sel: ui.sel === c.id ? null : c.id, pos: null, phase: null, eqA: null }; renderPlay(); } });
     b.append(tileEl(c, p)); return b;
   };
-  return h('div', { class: 'hand-area' + (other ? ' other' : '') },
+  return h('div', { class: 'hand-area' + (other ? ' other' : ''), 'data-p': p },
     h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`, !show ? ` (${pl.hand.length} hidden)` : ''),
     h('div', { class: 'hand' }, show ? pl.hand.map(cardBtn) : pl.hand.map(() => h('span', { class: 'hcard back' })),
       pl.side.length ? h('span', { style: 'width:14px' }) : null, pl.side.map(cardBtn)));
@@ -716,13 +728,85 @@ function countsEl() {
     row(`Total · turn ${G.turnNo + 1}`, String(total), '', 'tot'));
 }
 
+// ---------- play animations ----------
+let animOn = store.get('vyeMicro.anim', true) && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+let animatedN = -1, animFrom = null, animBusyUntil = 0;
+const visible = el => el && el.getClientRects().length && el.offsetParent !== null;
+// Where a played card comes from: the card itself if it's on screen, else that player's hand or score.
+function sourceRect(p, cardId) {
+  const cands = [document.querySelector(`.hcard[data-cid="${cardId}"]`), document.querySelector(`.hand-area[data-p="${p}"] .hand`),
+    document.querySelector(`.mchip.p${p}`), document.querySelector(`.pscore.p${p}`)];
+  const el = cands.find(visible); return el ? el.getBoundingClientRect() : null;
+}
+function cellEl(k) { return document.querySelector(`.cell[data-k="${k}"]`); }
+function runAnim(lm, from) {
+  const D = speed <= 150 ? 280 : speed >= 1400 ? 760 : 500;
+  const cell = cellEl(lm.pos); if (!cell) return;
+  const st = G.board.get(lm.pos) || [];
+  const topTile = cell.querySelector('.tile:not(.under)');
+  const card = lm.card, removed = lm.removed;
+  // what sits in the space while the card is in the air: the tile it covers, or the Land Usurp replaces
+  const underTile = removed ? removed : (st.length > 1 && card.kind === 'special' && card.special !== 'usurp' ? st[st.length - 2] : null);
+  let under = null;
+  if (underTile) { under = tileEl(underTile); under.classList.add('under'); cell.prepend(under); }
+  // tiles about to flip show their old owner until their turn comes
+  const flips = lm.flips || [];
+  for (const k of flips) { const c = cellEl(k), t = E.top(G.board, k); if (c && t) { const old = c.querySelector('.tile'); old.replaceWith(tileEl(t, lm.from ? lm.from[k] : null)); } }
+  // Earthquake swaps: show the two tiles in their old places until the card lands
+  const eq = card.special === 'earthquake' && lm.choice ? lm.choice : null;
+  cell.classList.add('incoming');
+  const to = cell.getBoundingClientRect();
+  const fly = h('div', { class: 'flyer', style: `left:${to.left}px;top:${to.top}px;width:${to.width}px;height:${to.height}px` });
+  const ghost = (topTile || tileEl(E.top(G.board, lm.pos))).cloneNode(true); ghost.style.visibility = 'visible'; fly.append(ghost);
+  document.body.append(fly);
+  const src = from || { left: to.left, top: to.top - 120, width: to.width, height: to.height };
+  const dx = (src.left + src.width / 2) - (to.left + to.width / 2), dy = (src.top + src.height / 2) - (to.top + to.height / 2);
+  const sc = Math.max(.5, Math.min(1.4, src.width / to.width));
+  const covering = !!underTile;
+  fly.animate([
+    { transform: `translate(${dx}px, ${dy}px) scale(${sc})`, opacity: .9 },
+    { transform: `translate(${dx * .35}px, ${dy * .35 - 26}px) scale(${covering ? 1.25 : 1.15}) rotate(-3deg)`, opacity: 1, offset: .6 },
+    { transform: 'translate(0, 0) scale(1)', opacity: 1 }], { duration: D, easing: 'cubic-bezier(.2,.75,.25,1)' });
+  let t = D;
+  setTimeout(() => {
+    fly.remove(); cell.classList.remove('incoming');
+    const landed = cell.querySelector('.tile:not(.under)');
+    if (landed) landed.animate([{ transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' });
+    if (under && removed) { // Usurp: the old Land goes back to the bag
+      const bag = [document.querySelector('.bag'), document.querySelector('.mdeck')].find(visible);
+      const r0 = cell.getBoundingClientRect(), r1 = bag ? bag.getBoundingClientRect() : { left: r0.left, top: r0.top - 200, width: 10, height: 10 };
+      const out = h('div', { class: 'flyer', style: `left:${r0.left}px;top:${r0.top}px;width:${r0.width}px;height:${r0.height}px` }); out.append(under); document.body.append(out);
+      out.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${r1.left + r1.width / 2 - r0.left - r0.width / 2}px, ${r1.top + r1.height / 2 - r0.top - r0.height / 2}px) scale(.3)`, opacity: 0 }], { duration: D, easing: 'ease-in' }).onfinish = () => out.remove();
+    } else if (under) under.remove();
+  }, D);
+  if (eq) {
+    const [a, b] = eq.map(cellEl);
+    if (a && b) {
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const ta = a.querySelector('.tile'), tb = b.querySelector('.tile');
+      if (ta) ta.animate([{ transform: `translate(${rb.left - ra.left}px, ${rb.top - ra.top}px)` }, { transform: 'none' }], { duration: D, delay: D, fill: 'backwards', easing: 'ease-in-out' });
+      if (tb) tb.animate([{ transform: `translate(${ra.left - rb.left}px, ${ra.top - rb.top}px)` }, { transform: 'none' }], { duration: D, delay: D, fill: 'backwards', easing: 'ease-in-out' });
+      t += D;
+    }
+  }
+  // flips turn over one at a time once the card has landed
+  flips.forEach((k, i) => setTimeout(() => {
+    const c = cellEl(k), tt = E.top(G.board, k); if (!c || !tt) return;
+    const old = c.querySelector('.tile');
+    const a1 = old.animate([{ transform: 'rotateY(0)' }, { transform: 'rotateY(90deg)' }], { duration: 140, easing: 'ease-in', fill: 'forwards' });
+    a1.onfinish = () => { const nu = tileEl(tt); old.replaceWith(nu); nu.animate([{ transform: 'rotateY(90deg)' }, { transform: 'rotateY(0)' }], { duration: 160, easing: 'ease-out' }); };
+  }, t + 80 + i * 120));
+  t += flips.length ? 80 + flips.length * 120 + 300 : 150;
+  animBusyUntil = performance.now() + t;
+}
+
 function renderPlay() {
   const v = $('#view-play'); v.textContent = '';
   if (!G) return;
   const sc = E.score(G.board);
   const table = h('div', { class: 'table' });
   const mchip = p => h('span', { class: 'mchip p' + p + (G.turn === p && !G.over ? ' active' : '') },
-    h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, `${sc.total[p]} owned`, h('br'), (n => `${n} card${n === 1 ? '' : 's'} left`)(G.players[p].hand.length + G.players[p].side.length)));
+    h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, `${sc.total[p]} owned`, h('br'), (n => `${n} card${n === 1 ? '' : 's'}`)(G.players[p].hand.length + G.players[p].side.length)));
   table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, 'Bag', h('b', null, String(G.deck.length))), mchip(1)));
   table.append(bagEl());
   if (cfgChanged()) table.append(h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
@@ -769,6 +853,7 @@ function renderPlay() {
         h('span', { style: 'color:var(--muted)' }, 'AI speed'),
         seg([[150, 'Fast'], [600, 'Normal'], [1400, 'Slow']], speed, x => { speed = x; store.set('vyeMicro.speed', x); renderPlay(); })),
       h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'showart', checked: showArt, onchange: e => { showArt = e.target.checked; store.set('vyeMicro.art', showArt); renderPlay(); } }), 'Card art'),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'revealbag', checked: revealBag, onchange: e => { revealBag = e.target.checked; renderPlay(); } }), 'Show what\u2019s in the bag'),
@@ -781,6 +866,8 @@ function renderPlay() {
         : h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), h('span', null, e.title + (e.flips ? ` · flipped ${e.flips}` : '')),
           h('span', { class: 'sw', title: 'Change in kingdom lead' }, (e.swing >= 0 ? '+' : '') + e.swing))) : h('div', { style: 'color:var(--muted)' }, 'No moves yet.'))));
   v.append(h('div', { class: 'play' }, table, rail));
+  if (G.lastMove && G.lastMove.n !== animatedN) { animatedN = G.lastMove.n; if (animOn) runAnim(G.lastMove, animFrom); }
+  animFrom = null;
 }
 
 // ---------- simulate ----------

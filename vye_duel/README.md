@@ -9,6 +9,11 @@ ownership, so no tokens are needed. The page has three tabs:
 
 Play it at https://gamedesignerjoe.github.io/vye_duel/
 
+## Default build
+
+7 Land types × 3, a King and a Knave for each player, a hand of 2, one each of Usurp, Sinkhole and Lost City,
+unlimited stacking (anything but the Crossroads can be covered), and Family captures can take the Crossroads.
+
 ## House rule
 
 The first player must win by 2: the second player gets +1 point and wins ties.

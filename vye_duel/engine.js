@@ -52,11 +52,11 @@
   // mode: place = goes in an empty space, cover = stacks on a tile, replace = swaps a tile out
   const SPECIALS = {
     lostcity: { name: 'Lost City', mode: 'cover', origin: 'Original',
-      rule: 'Cover a Land you own. Worth 2 points in your kingdom.' },
+      rule: 'Cover a Land you own. Worth extra points in your kingdom (set below).' },
     sinkhole: { name: 'Sinkhole', mode: 'cover', origin: 'Original',
       rule: 'Cover any tile. Nobody owns it, ever. Breaks connections.' },
     sanctuary: { name: 'Sanctuary', mode: 'cover', origin: 'Original',
-      rule: 'Cover any tile. Owned by both players. Can’t be flipped, covered or moved.' },
+      rule: 'Cover any tile. Owned by both players. Can’t be flipped or moved, and can only be covered when stacking is Unlimited.' },
     underminers: { name: 'Underminers', mode: 'place', origin: 'Adapted',
       rule: 'Place it, then flip the tile on the far side of an adjacent tile.' },
     earthquake: { name: 'Earthquake', mode: 'place', origin: 'Original',
@@ -73,11 +73,15 @@
       landSets: 7,
       landCopies: 3,
       specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
-      family: [{ advisor: 0, king: 1, queen: 1, heir: 1, knave: 0 }, { advisor: 0, king: 1, queen: 1, heir: 1, knave: 0 }],
+      family: [{ advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }, { advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }],
       gridW: 5, gridH: 5,
-      handSize: 3,
+      handSize: 2,
       start: 'neutral',      // neutral | none
-      stacking: 'once',      // once | unlimited
+      stacking: 'unlimited', // once | unlimited (unlimited: any tile can be covered, Sanctuary and Sinkhole included)
+      crossroadsCover: false,   // can cover cards be played on the Crossroads?
+      crossroadsCapture: true,  // can Family captures take the Crossroads?
+      lostCityValue: 2,      // points a Lost City is worth in your kingdom
+      usurpMatch: true,      // does the Land put down by Usurp trigger matching?
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
       tiebreak: 'second',    // none | total | second  (default + bonus 1 = first player must win by 2)
@@ -157,6 +161,11 @@
     if (t.kind === 'start') return false;
     return t.special !== 'sanctuary' && t.special !== 'sinkhole';
   }
+  // Family captures may also take the neutral Crossroads when the rule is on.
+  function canTake(t, p, fam, cfg) {
+    if (t && t.kind === 'start' && fam && cfg && cfg.crossroadsCapture) return t.owner !== p;
+    return canFlip(t) && t.owner !== p;
+  }
   function setTop(board, k, tile) { const s = board.get(k).slice(); s[s.length - 1] = tile; board.set(k, s); }
   function pushTile(board, k, tile) { const s = board.get(k); board.set(k, s ? s.concat([tile]) : [tile]); }
 
@@ -185,8 +194,10 @@
   function coverable(state, k) {
     const s = state.board.get(k);
     if (!s) return false;
-    if (s[s.length - 1].special === 'sanctuary') return false;
-    if (state.cfg.stacking === 'once' && s.length > 1) return false;
+    const t = s[s.length - 1], unl = state.cfg.stacking === 'unlimited';
+    if (t.kind === 'start' && !state.cfg.crossroadsCover) return false;
+    if (t.special === 'sanctuary' && !unl) return false;
+    if (!unl && s.length > 1) return false;
     return true;
   }
   function components(board, p, skip) {
@@ -199,18 +210,19 @@
     }
     return comp;
   }
-  function score(board) {
+  function score(board, cfg) {
+    const lc = cfg && cfg.lostCityValue != null ? cfg.lostCityValue : 2;
     const largest = [0, 0], total = [0, 0];
     for (const p of [0, 1]) {
       const seen = new Set();
       for (const k of board.keys()) {
         const t = top(board, k);
         if (!ownedBy(t, p)) continue;
-        total[p] += t.special === 'lostcity' ? 2 : 1;
+        total[p] += t.special === 'lostcity' ? lc : 1;
         if (seen.has(k)) continue;
         let v = 0; const q = [k]; seen.add(k);
         while (q.length) {
-          const c = q.pop(); const tc = top(board, c); v += tc.special === 'lostcity' ? 2 : 1;
+          const c = q.pop(); const tc = top(board, c); v += tc.special === 'lostcity' ? lc : 1;
           for (const d of ORTHO_D) { const m = c + d; if (!seen.has(m) && board.has(m) && ownedBy(top(board, m), p)) { seen.add(m); q.push(m); } }
         }
         if (v > largest[p]) largest[p] = v;
@@ -220,15 +232,15 @@
   }
 
   // ---------- move generation ----------
-  function flipTargets(board, k, p, dirs) {
+  function flipTargets(board, k, p, dirs, cfg) {
     const out = [];
-    for (const d of dirs) { const t = top(board, k + d); if (canFlip(t) && t.owner !== p) out.push(k + d); }
+    for (const d of dirs) { const t = top(board, k + d); if (canTake(t, p, true, cfg)) out.push(k + d); }
     return out;
   }
   // Tiles two spaces away, past an occupied neighbour (Underminers and the Knave).
-  function jumpTargets(board, k, p) {
+  function jumpTargets(board, k, p, fam, cfg) {
     const tg = [];
-    for (const d of ORTHO_D) { if (!board.has(k + d)) continue; const t = top(board, k + 2 * d); if (canFlip(t) && t.owner !== p) tg.push(k + 2 * d); }
+    for (const d of ORTHO_D) { if (!board.has(k + d)) continue; const t = top(board, k + 2 * d); if (canTake(t, p, fam, cfg)) tg.push(k + 2 * d); }
     return tg;
   }
 
@@ -241,8 +253,8 @@
     if (card.kind === 'land') { for (const k of placeCells(state)) add(k); return moves; }
     if (card.kind === 'family') {
       for (const k of placeCells(state)) {
-        if (card.member === 'heir') { const t = flipTargets(board, k, p, ALL8_D); if (t.length) t.forEach(c => add(k, c)); else add(k); }
-        else if (card.member === 'knave') { const t = jumpTargets(board, k, p); if (t.length) t.forEach(c => add(k, c)); else add(k); }
+        if (card.member === 'heir') { const t = flipTargets(board, k, p, ALL8_D, state.cfg); if (t.length) t.forEach(c => add(k, c)); else add(k); }
+        else if (card.member === 'knave') { const t = jumpTargets(board, k, p, true, state.cfg); if (t.length) t.forEach(c => add(k, c)); else add(k); }
         else add(k);
       }
       return moves;
@@ -253,7 +265,7 @@
         for (const k of occupied) { const t = top(board, k); if (coverable(state, k) && landOf(t) >= 0 && t.owner === p) add(k); }
         break;
       case 'sinkhole':
-        for (const k of occupied) if (coverable(state, k) && top(board, k).special !== 'sinkhole') add(k);
+        for (const k of occupied) if (coverable(state, k) && (state.cfg.stacking === 'unlimited' || top(board, k).special !== 'sinkhole')) add(k);
         break;
       case 'sanctuary':
         for (const k of occupied) if (coverable(state, k)) add(k);
@@ -270,7 +282,7 @@
       }
       case 'underminers':
         for (const k of placeCells(state)) {
-          const tg = jumpTargets(board, k, p);
+          const tg = jumpTargets(board, k, p, false, state.cfg);
           if (tg.length) tg.forEach(c => add(k, c)); else add(k);
         }
         break;
@@ -320,16 +332,16 @@
     return pl.hand.find(c => c.id === id) || pl.side.find(c => c.id === id);
   }
   function applyEffect(board, cfg, p, card, k, choice) {
-    const res = { flips: [], extra: false, removed: null, placed: k };
-    const flip = n => { const t = top(board, n); if (canFlip(t) && t.owner !== p) { setTop(board, n, Object.assign({}, t, { owner: p })); res.flips.push(n); if (t.special === 'waystone') res.extra = true; } };
+    const res = { flips: [], from: {}, extra: false, removed: null, placed: k };
+    const flip = (n, fam) => { const t = top(board, n); if (canTake(t, p, fam, cfg)) { setTop(board, n, Object.assign({}, t, { owner: p })); res.flips.push(n); res.from[n] = t.owner; if (t.special === 'waystone') res.extra = true; } };
     const landMatch = (start, L) => {
       const seen = new Set([start]); const q = [start];
       while (q.length) { const c = q.pop(); for (const d of ORTHO_D) { const n = c + d; if (!seen.has(n) && landOf(top(board, n)) === L) { seen.add(n); flip(n); q.push(n); } } }
     };
     const familyCapture = (member, house, heirChoice, color) => {
-      if (member === 'heir' || member === 'knave') { if (heirChoice != null) flip(heirChoice); }
-      else for (const d of MEMBERS[member].dirs) flip(k + d);
-      if (color && cfg.colorCapture) for (const d of ORTHO_D) { const t = top(board, k + d); if (t && t.kind === 'family' && t.house === house) flip(k + d); }
+      if (member === 'heir' || member === 'knave') { if (heirChoice != null) flip(heirChoice, true); }
+      else for (const d of MEMBERS[member].dirs) flip(k + d, true);
+      if (color && cfg.colorCapture) for (const d of ORTHO_D) { const t = top(board, k + d); if (t && t.kind === 'family' && t.house === house) flip(k + d, true); }
     };
     const base = { id: card.id, kind: card.kind, owner: p };
     if (card.kind === 'land') { pushTile(board, k, Object.assign(base, { land: card.land })); landMatch(k, card.land); return res; }
@@ -342,7 +354,7 @@
       case 'usurp': {
         res.removed = board.get(k)[0]; board.delete(k);
         pushTile(board, k, { id: choice.cardId, kind: 'land', land: choice.land, owner: p });
-        landMatch(k, choice.land); break;
+        if (cfg.usurpMatch !== false) landMatch(k, choice.land); break;
       }
       case 'underminers': pushTile(board, k, base); if (choice != null) flip(choice); break;
       case 'earthquake': pushTile(board, k, base); if (choice) { const a = board.get(choice[0]), b = board.get(choice[1]); board.set(choice[0], b); board.set(choice[1], a); } break;
@@ -357,9 +369,9 @@
     const p = state.turn, o = 1 - p, pl = state.players[p];
     const card = findCard(state, p, move.cardId);
     if (!card) throw new Error('card not in hand');
-    const before = score(state.board);
+    const before = score(state.board, state.cfg);
     const res = applyEffect(state.board, state.cfg, p, card, move.pos, move.choice);
-    const after = score(state.board);
+    const after = score(state.board, state.cfg);
     // remove card(s) from hand
     const rm = id => { let i = pl.hand.findIndex(c => c.id === id); if (i >= 0) return pl.hand.splice(i, 1)[0]; i = pl.side.findIndex(c => c.id === id); return i >= 0 ? pl.side.splice(i, 1)[0] : null; };
     rm(card.id);
@@ -369,7 +381,7 @@
     const play = { p, turn: state.turnNo, label: cardLabel(card), title: cardTitle(card), swing,
       mine: after.largest[p] - before.largest[p], theirs: after.largest[o] - before.largest[o], flips: res.flips.length };
     state.plays.push(play);
-    state.lastMove = { p, pos: move.pos, flips: res.flips, card, choice: move.choice };
+    state.lastMove = { n: state.turnNo, p, pos: move.pos, flips: res.flips, from: res.from, removed: res.removed, card, choice: move.choice };
     state.log.push(play);
     while (pl.hand.length < state.cfg.handSize && state.deck.length) pl.hand.push(state.deck.pop());
     state.turnNo++;
@@ -400,7 +412,7 @@
   }
 
   function finish(state) {
-    const s = score(state.board);
+    const s = score(state.board, state.cfg);
     state.final = s;
     const a = s.largest[0], b = s.largest[1] + (state.cfg.secondBonus | 0);
     s.adjusted = [a, b];
@@ -421,8 +433,8 @@
     random: { name: 'Random', blurb: 'Any legal move. Baseline for sanity checks.', random: true }
   };
 
-  function evalBoard(board, p, a) {
-    const s = score(board), o = 1 - p;
+  function evalBoard(board, p, a, cfg) {
+    const s = score(board, cfg), o = 1 - p;
     return (s.largest[p] - s.largest[o]) + a * (s.total[p] - s.total[o]);
   }
 
@@ -448,13 +460,13 @@
     const moves = legalMoves(state, p, { prune: true, dedupe: true });
     if (!moves.length) return null;
     if (per.random) return moves[Math.floor(rng() * moves.length)];
-    const base = evalBoard(state.board, p, per.a);
+    const base = evalBoard(state.board, p, per.a, state.cfg);
     const progress = state.initialDeck ? state.deck.length / state.initialDeck : 0;
     const scored = moves.map(m => {
       const card = findCard(state, p, m.cardId);
       const b = new Map(state.board);
       const r = applyEffect(b, state.cfg, p, card, m.pos, m.choice);
-      let v = evalBoard(b, p, per.a) - base;
+      let v = evalBoard(b, p, per.a, state.cfg) - base;
       if (r.extra) v += 0.8;
       // Spending a capture card costs what it could have done later; late in the game that cost fades so cards get used.
       v -= (per.hold || 0) * holdValue(card) * Math.min(1, progress * 1.3);
@@ -470,13 +482,13 @@
       for (let i = 0; i < K; i++) {
         const sc = scored[i];
         const fake = { cfg: state.cfg, board: sc.b, players: state.players };
-        const before = evalBoard(sc.b, o, 0);
+        const before = evalBoard(sc.b, o, 0, state.cfg);
         let best = 0;
         for (const c of proxy) {
           for (const om of cardMoves(fake, o, c, 'x', { prune: true })) {
             const b2 = new Map(sc.b);
             applyEffect(b2, state.cfg, o, c, om.pos, om.choice);
-            const sw = evalBoard(b2, o, 0) - before;
+            const sw = evalBoard(b2, o, 0, state.cfg) - before;
             if (sw > best) best = sw;
           }
         }
