@@ -907,6 +907,15 @@ const PRESETS = {
   'Every special': () => Object.assign(E.defaultConfig(), { landSets: 6, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 1])), stacking: 'unlimited' })
 };
 
+// Setup undo: every change (including presets) can be stepped back. Kept in this browser between visits.
+let setupHistory = store.get('vyeMicro.setupHistory', []);
+function pushSetupHistory(snap) { setupHistory.push(snap); if (setupHistory.length > 50) setupHistory.shift(); store.set('vyeMicro.setupHistory', setupHistory); }
+function undoSetup() {
+  const snap = setupHistory.pop(); if (!snap) return;
+  const o = JSON.parse(snap); cfg = mergeCfg(o.cfg); mirror = o.mirror;
+  store.set('vyeMicro.setupHistory', setupHistory); saveCfg(); renderSetup(); toast('Undid last change');
+}
+
 // Which preset (if any) matches the current Setup, and whether the game on the table was dealt with different rules.
 function presetName() { const cur = JSON.stringify(cfg); return Object.keys(PRESETS).find(n => JSON.stringify(Object.assign(E.defaultConfig(), PRESETS[n]())) === cur) || null; }
 function cfgChanged() { return !!G && JSON.stringify(G.cfg) !== JSON.stringify(cfg); }
@@ -937,10 +946,13 @@ function deckNumbers(c) {
 
 function renderSetup() {
   const v = $('#view-setup'); v.textContent = '';
-  const set = (fn) => { fn(); saveCfg(); renderSetup(); };
+  const set = (fn) => { const before = JSON.stringify({ cfg, mirror }); fn(); if (JSON.stringify({ cfg, mirror }) !== before) pushSetupHistory(before); saveCfg(); renderSetup(); };
   const presets = h('div', { class: 'presets' }, h('span', { class: 'k' }, 'Presets'),
     Object.keys(PRESETS).map(name => h('button', { class: 'btn' + (presetName() === name ? ' on' : ''), 'aria-pressed': String(presetName() === name), onclick: () => set(() => { cfg = PRESETS[name](); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); }) }, name)),
-    h('span', { class: 'k', style: 'margin-left:6px' }, presetName() ? '' : 'Custom build'));
+    h('span', { class: 'k', style: 'margin-left:6px' }, presetName() ? '' : 'Custom build'),
+    h('span', { class: 'spacer' }),
+    h('button', { class: 'btn', id: 'setup-undo', disabled: !setupHistory.length, title: setupHistory.length ? 'Step back one change' : 'Nothing to undo yet', onclick: undoSetup }, '\u21B6 Undo'),
+    h('button', { class: 'btn', id: 'setup-reset', disabled: presetName() === 'Default micro', onclick: () => set(() => { cfg = E.defaultConfig(); mirror = true; }) }, 'Reset to default'));
   const stale = G && !G.over && cfgChanged();
 
   const deck = h('div', { class: 'panel' }, h('h2', null, 'Lands'), h('p', { class: 'sub' }, 'Each Land type comes in a matching set. Matching an adjacent Land flips the whole connected chain.'),
@@ -997,7 +1009,7 @@ function renderSetup() {
 
   v.append(presets,
     stale ? h('div', { class: 'note warn', style: 'margin:0 0 14px' }, 'A game is in progress with the old settings. Changes here apply when you start a new game. ',
-      h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => { selectTab('play'); newGame(); } }, 'Start a new game now')) : null,
+      h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => { selectTab('play'); newGame(); } }, 'Start a new game now')) : '',
     h('div', { class: 'grid-setup' }, summary, deck, board, end, fam, specials));
 }
 
