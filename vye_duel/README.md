@@ -23,6 +23,8 @@ You can change this in Setup → Game end.
 ## Print and play
 
 `print/vye-duel-print-and-play.pdf`: 2 pages of rules and 3 double-sided sheets of 2.5-inch tiles (US Letter, print pages 3–8 double-sided, flip on long edge).
+`print/vye-duel-print-and-play-67mm.pdf` is the same game with 67 mm tiles for 70 mm square card sleeves (9 per page, 4 sheets); build it with `node build_pdf.js 67mm`.
+
 To rebuild it after changing tiles or rules (`print/rules.html`, `print/print.css`, the tile list in `print/build_pdf.js`):
 
 ```

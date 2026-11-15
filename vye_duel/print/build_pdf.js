@@ -3,7 +3,8 @@
 // Windows, from the vye_duel\print folder:
 //   npm i playwright   (once)
 //   npx playwright install chromium   (once)
-//   node build_pdf.js
+//   node build_pdf.js          (2.5 in tiles)
+//   node build_pdf.js 67mm     (tiles for 70 mm square sleeves)
 //
 // Tiles are 2.5 in (playing-card width), 3 × 4 per US Letter sheet.
 // Every even page is the back of the page before it, mirrored left-to-right
@@ -67,31 +68,52 @@ function face(t, side) {
 }
 
 // ---------- pages ----------
-const PER = 12, COLS = 3;
+// Tile size: default 2.5 in (playing-card width). `node build_pdf.js 67mm` makes tiles for 70 mm square sleeves.
+const arg = process.argv[2] || '';
+const SIZE = /mm$/.test(arg) ? parseFloat(arg) / 25.4 : /in$/.test(arg) ? parseFloat(arg) : 2.5;
+const K = SIZE / 2.5;                                 // tiles are drawn at 2.5 in and scaled
+const COLS = Math.floor(8.0 / SIZE), ROWS = Math.floor(10.3 / SIZE), PER = COLS * ROWS;
+const X0 = (8.5 - COLS * SIZE) / 2, Y0 = Math.min(0.5, (11 - ROWS * SIZE) / 2);
+const OUT = SIZE === 2.5 ? 'vye-duel-print-and-play.pdf' : `vye-duel-print-and-play-${Math.round(SIZE * 25.4)}mm.pdf`;
 const sheets = [];
 for (let i = 0; i < tiles.length; i += PER) sheets.push(tiles.slice(i, i + PER));
+const PAGES = 2 + sheets.length * 2;
 function sheet(list, side) {
   const cells = [];
   for (let slot = 0; slot < PER; slot++) {
     const r = Math.floor(slot / COLS), c = slot % COLS;
     const t = list[slot]; if (!t) continue;
     const col = side === 0 ? c : COLS - 1 - c; // backs are mirrored for long-edge flip
-    cells.push(`<div class="slot" style="left:${0.5 + col * 2.5}in;top:${0.5 + r * 2.5}in">${face(t, side)}</div>`);
+    cells.push(`<div class="cellbox" style="left:${X0 + col * SIZE}in;top:${Y0 + r * SIZE}in;width:${SIZE}in;height:${SIZE}in"><div class="slot" style="left:0;top:0;transform:scale(${K});transform-origin:0 0">${face(t, side)}</div></div>`);
   }
   const marks = [], rows = Math.ceil(list.length / COLS);
   if (side === 0) {
-    for (let c = 0; c <= COLS; c++) marks.push(`<div class="mk v" style="left:${0.5 + c * 2.5}in;top:0.12in"></div><div class="mk v" style="left:${0.5 + c * 2.5}in;top:${0.6 + rows * 2.5}in"></div>`);
-    for (let r = 0; r <= rows; r++) marks.push(`<div class="mk h" style="top:${0.5 + r * 2.5}in;left:0.12in"></div><div class="mk h" style="top:${0.5 + r * 2.5}in;left:8.1in"></div>`);
+    for (let c = 0; c <= COLS; c++) marks.push(`<div class="mk v" style="left:${X0 + c * SIZE}in;top:${Y0 - 0.36}in"></div><div class="mk v" style="left:${X0 + c * SIZE}in;top:${Y0 + rows * SIZE + 0.08}in"></div>`);
+    for (let r = 0; r <= rows; r++) marks.push(`<div class="mk h" style="top:${Y0 + r * SIZE}in;left:${X0 - 0.36}in"></div><div class="mk h" style="top:${Y0 + r * SIZE}in;left:${X0 + COLS * SIZE + 0.08}in"></div>`);
   }
   return `<section class="page sheet ${side ? 'back' : 'front'}">${cells.join('')}${marks.join('')}
-    ${side === 0 ? `<div class="cutgrid" style="height:${rows * 2.5}in"></div>` : ''}
+    ${side === 0 ? `<div class="cutgrid" style="left:${X0}in;top:${Y0}in;width:${COLS * SIZE}in;height:${rows * SIZE}in;background-size:${SIZE}in ${SIZE}in"></div>` : ''}
     <div class="foot">${side === 0 ? 'Front · cut on the lines' : 'Back of the previous page'}</div></section>`;
 }
+// what is on each sheet, for the printing box in the rules
+function sheetSummary(list) {
+  const n = k => list.filter(t => t.kind === k).length, parts = [];
+  if (n('land')) parts.push(`${n('land')} Lands`);
+  if (n('family')) parts.push(`${n('family')} Family`);
+  list.filter(t => t.kind === 'special').forEach(t => parts.push(t.name));
+  if (n('start')) parts.push(`${n('start')} Crossroads`);
+  return parts.join(', ');
+}
+const sizeText = SIZE === 2.5 ? 'Tiles are 2.5 inches, the width of a playing card.' : `Tiles are ${Math.round(SIZE * 25.4)} mm (${SIZE.toFixed(2)} in), sized for 70 mm square card sleeves.`;
 
 const rules = fs.readFileSync(path.join(HERE, 'rules.html'), 'utf8')
   .replace(/{{MOON}}/g, MOON).replace(/{{ROSE}}/g, ROSE)
   .replace(/{{SAMPLE}}/g, () => { const t = tiles[3]; return `<div class="sample"><figure><div class="mini"><div class="slot">${face(t, 0)}</div></div>Midnight side</figure><figure><div class="mini"><div class="slot">${face(t, 1)}</div></div>Roses side</figure></div>`; })
-  .replace(/{{KING}}/g, pattern('king')).replace(/{{KNAVE}}/g, pattern('knave')).replace(/{{QUEEN}}/g, pattern('queen')).replace(/{{HEIR}}/g, pattern('heir'));
+  .replace(/{{KING}}/g, pattern('king')).replace(/{{KNAVE}}/g, pattern('knave')).replace(/{{QUEEN}}/g, pattern('queen')).replace(/{{HEIR}}/g, pattern('heir'))
+  .replace('Print pages 3&ndash;8', `Print pages 3&ndash;${PAGES}`)
+  .replace('Tiles are 2.5 inches, the width of a playing card.', sizeText)
+  .replace(/(\d) of 8</g, `$1 of ${PAGES}<`)
+  .replace(/<table class="counts">[\s\S]*?<\/table>/, '<table class="counts">' + sheets.map((s, i) => `<tr><td>Sheet ${i + 1}</td><td>${sheetSummary(s)}</td></tr>`).join('') + '</table>');
 
 const css = fs.readFileSync(path.join(HERE, 'print.css'), 'utf8').replace(/url\(fonts\//g, `url(${url('fonts')}/`);
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>Vye Duel – Print and Play</title><style>${css}</style></head><body>
@@ -106,7 +128,7 @@ fs.writeFileSync(path.join(HERE, 'print.html'), html);
   const page = await browser.newPage();
   await page.goto(url('print.html'), { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
-  await page.pdf({ path: path.join(HERE, 'vye-duel-print-and-play.pdf'), format: 'Letter', printBackground: true, preferCSSPageSize: true });
+  await page.pdf({ path: path.join(HERE, OUT), format: 'Letter', printBackground: true, preferCSSPageSize: true });
   await browser.close();
-  console.log(`PDF written: ${tiles.length} tiles on ${sheets.length} double-sided sheets, ${2 + sheets.length * 2} pages`);
+  console.log(`${OUT}: ${tiles.length} tiles at ${(SIZE * 25.4).toFixed(1)} mm on ${sheets.length} double-sided sheets, ${PAGES} pages`);
 })();
