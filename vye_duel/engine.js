@@ -50,8 +50,6 @@
 
   // mode: place = goes in an empty space, cover = stacks on a tile, replace = swaps a tile out
   const SPECIALS = {
-    ancient: { name: 'Ancient Passage', mode: 'cover', origin: 'Original',
-      rule: 'Cover a tile you don’t own that joins two of your kingdoms. It becomes yours.' },
     lostcity: { name: 'Lost City', mode: 'cover', origin: 'Original',
       rule: 'Cover a Land you own. Worth 2 points in your kingdom.' },
     sinkhole: { name: 'Sinkhole', mode: 'cover', origin: 'Original',
@@ -64,20 +62,18 @@
       rule: 'Place it, then swap any two tiles (not Sanctuary). Nothing triggers.' },
     waystone: { name: 'Waystone', mode: 'place', origin: 'Original',
       rule: 'Place it and take another turn. Flipping it also grants an extra turn.' },
-    watchtower: { name: 'Watchtower', mode: 'cover', origin: 'New',
-      rule: 'Cover a tile you own. That space can’t be flipped.' },
     pretender: { name: 'Pretender', mode: 'cover', origin: 'New',
       rule: 'Cover an opponent’s Family tile. Take it and fire its capture as yours.' },
     usurp: { name: 'Usurp', mode: 'replace', origin: 'New',
       rule: 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the deck.' }
   };
-  const SPECIAL_ORDER = ['ancient', 'lostcity', 'sinkhole', 'sanctuary', 'watchtower', 'pretender', 'usurp', 'underminers', 'earthquake', 'waystone'];
+  const SPECIAL_ORDER = ['lostcity', 'sinkhole', 'sanctuary', 'pretender', 'usurp', 'underminers', 'earthquake', 'waystone'];
 
   function defaultConfig() {
     return {
       landSets: 7,
       landCopies: 3,
-      specials: { ancient: 1, lostcity: 1, sinkhole: 1, sanctuary: 0, watchtower: 1, pretender: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
+      specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, pretender: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
       family: [{ advisor: 0, king: 1, queen: 1, heir: 1 }, { advisor: 0, king: 1, queen: 1, heir: 1 }],
       gridW: 5, gridH: 5,
       handSize: 3,
@@ -160,7 +156,7 @@
   function canFlip(t) {
     if (!t || (t.owner !== 0 && t.owner !== 1)) return false;
     if (t.kind === 'start') return false;
-    return t.special !== 'watchtower' && t.special !== 'sanctuary' && t.special !== 'sinkhole';
+    return t.special !== 'sanctuary' && t.special !== 'sinkhole';
   }
   function setTop(board, k, tile) { const s = board.get(k).slice(); s[s.length - 1] = tile; board.set(k, s); }
   function pushTile(board, k, tile) { const s = board.get(k); board.set(k, s ? s.concat([tile]) : [tile]); }
@@ -246,15 +242,6 @@
     }
     const s = card.special;
     switch (s) {
-      case 'ancient':
-        for (const k of occupied) {
-          if (!coverable(state, k)) continue;
-          const t = top(board, k); if (t.owner === p || t.owner === 'both') continue;
-          const comp = components(board, p, k); const ids = new Set();
-          for (const d of ORTHO_D) if (comp.has(k + d)) ids.add(comp.get(k + d));
-          if (ids.size >= 2) add(k);
-        }
-        break;
       case 'lostcity':
         for (const k of occupied) { const t = top(board, k); if (coverable(state, k) && landOf(t) >= 0 && t.owner === p) add(k); }
         break;
@@ -263,9 +250,6 @@
         break;
       case 'sanctuary':
         for (const k of occupied) if (coverable(state, k)) add(k);
-        break;
-      case 'watchtower':
-        for (const k of occupied) { const t = top(board, k); if (coverable(state, k) && t.owner === p && t.special !== 'watchtower') add(k); }
         break;
       case 'pretender':
         for (const k of occupied) {
@@ -356,7 +340,7 @@
     if (card.kind === 'family') { pushTile(board, k, Object.assign(base, { member: card.member, house: card.house })); familyCapture(card.member, card.house, choice, true); return res; }
     const s = card.special; base.special = s;
     switch (s) {
-      case 'ancient': case 'lostcity': case 'watchtower': pushTile(board, k, base); break;
+      case 'lostcity': pushTile(board, k, base); break;
       case 'sinkhole': base.owner = null; pushTile(board, k, base); break;
       case 'sanctuary': base.owner = 'both'; pushTile(board, k, base); break;
       case 'pretender': { const cov = top(board, k); base.member = cov.member; base.house = cov.house; pushTile(board, k, base); familyCapture(cov.member, cov.house, choice, false); break; }

@@ -396,7 +396,7 @@ function renderSetup() {
 }
 
 // ---------- tiles ----------
-const SPEC_GLYPH = { ancient: '∩', lostcity: '♜', sinkhole: '◎', sanctuary: '✧', watchtower: '♖', pretender: '♛', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
+const SPEC_GLYPH = { lostcity: '♜', sinkhole: '◎', sanctuary: '✧', pretender: '♛', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
 function patEl(member) {
   const on = { advisor: [0,1,2,3,5,6,7,8], king: [1,3,5,7], queen: [0,2,6,8], heir: [] }[member];
   return h('span', { class: 'pat' }, [...Array(9)].map((_, i) => h('i', { class: i === 4 ? 'me' : on.includes(i) ? 'on' : member === 'heir' ? 'opt' : '' })));
@@ -777,7 +777,6 @@ function buildReview(s, c, personas) {
     'Advisor': 'drop the Advisor, or have it flip only up to 4 of its 8 neighbors',
     'Pretender': 'have it take the Family tile without firing its capture',
     'Usurp': 'stop the new Land from matching, so it only swaps',
-    'Ancient Passage': 'make it cost a card from your hand, or allow it only on Lands',
     'Sinkhole': 'only allow it on a tile next to one of yours',
     'Earthquake': 'limit swaps to two adjacent tiles',
     'Underminers': 'limit it to flipping Lands',
@@ -883,7 +882,7 @@ function renderSim() {
             c.max - c.min === 0 ? h('span', { class: 'flag flat' }, 'flat') : null),
           h('td', null, c.perGame.toFixed(2)), h('td', null, (c.mean >= 0 ? '+' : '') + c.mean.toFixed(2)), h('td', null, c.sd.toFixed(2)),
           h('td', null, String(c.min)), h('td', null, String(c.max)), h('td', { class: 'rng' }, swingBar(c, lo, hi)), h('td', null, c.flips.toFixed(2)), h('td', null, pct(c.winWhenPlayed))))))),
-      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Watchtower and Sanctuary mostly protect value rather than gain it, so their swing reads low. Win% when played is a better signal for defensive cards.')));
+      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Sanctuary mostly protects value rather than gaining it, so its swing reads low. Win% when played is a better signal for it.')));
 
     const rv = buildReview(s, simResult.cfg, simResult.personas);
     res.append(h('div', { class: 'panel review' }, h('h2', null, 'Review'),
