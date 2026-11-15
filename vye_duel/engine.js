@@ -82,6 +82,7 @@
       crossroadsCapture: true,  // can Family captures take the Crossroads?
       lostCityValue: 2,      // points a Lost City is worth in your kingdom
       usurpMatch: true,      // does the Land put down by Usurp trigger matching?
+      secondApart: false,    // second player's first tile can't go on or next to a first-player tile
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
       tiebreak: 'second',    // none | total | second  (default + bonus 1 = first player must win by 2)
@@ -310,6 +311,16 @@
   }
 
   function legalMoves(state, p, opts) {
+    const out = legalMovesAll(state, p, opts);
+    // Optional opening rule: the second player's first tile keeps its distance from the first player.
+    if (p === 1 && state.cfg.secondApart && state.plays && !state.plays.some(x => x.p === 1)) {
+      const near = k => [k].concat(ORTHO_D.map(d => k + d)).some(n => { const t = top(state.board, n); return t && t.owner === 0; });
+      const ok = out.filter(m => !near(m.pos));
+      if (ok.length) return ok;
+    }
+    return out;
+  }
+  function legalMovesAll(state, p, opts) {
     const pl = state.players[p];
     const out = [];
     const seen = new Set();
