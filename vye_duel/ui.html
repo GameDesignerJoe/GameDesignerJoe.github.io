@@ -117,6 +117,8 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .pat i { border-radius: 2px; background: var(--line); }
 .pat i.on { background: var(--brass); }
 .pat i.me { background: var(--ink); }
+.pat.pat5 { grid-template-columns: repeat(5, 1fr); gap: 1px; }
+.pat i.skip { background: color-mix(in srgb, var(--line) 50%, transparent); }
 .pat i.opt { background: color-mix(in srgb, var(--brass) 40%, transparent); }
 /* ownership: outline frame + sigil */
 .own { position: absolute; inset: 0; border-radius: 9px; pointer-events: none; }
@@ -314,7 +316,10 @@ async function copyText(text) {
 }
 
 // ---------- config ----------
-function mergeCfg(saved) {
+// Every Family sideboard lists every member, so older saved builds and presets compare cleanly.
+function normFam(c) { c.family = c.family.map(f => Object.fromEntries(E.MEMBER_ORDER.map(m => [m, (f && f[m]) | 0]))); return c; }
+function mergeCfg(saved) { return normFam(mergeCfg0(saved)); }
+function mergeCfg0(saved) {
   const d = E.defaultConfig(); if (!saved) return d;
   const c = Object.assign(d, saved);
   c.specials = Object.assign(E.defaultConfig().specials, saved.specials || {});
@@ -345,7 +350,7 @@ const PRESETS = {
 };
 
 // Which preset (if any) matches the current Setup, and whether the game on the table was dealt with different rules.
-function presetName() { const cur = JSON.stringify(cfg); return Object.keys(PRESETS).find(n => JSON.stringify(Object.assign(E.defaultConfig(), PRESETS[n]())) === cur) || null; }
+function presetName() { const cur = JSON.stringify(normFam(cfg)); return Object.keys(PRESETS).find(n => JSON.stringify(normFam(Object.assign(E.defaultConfig(), PRESETS[n]()))) === cur) || null; }
 function cfgChanged() { return !!G && JSON.stringify(G.cfg) !== JSON.stringify(cfg); }
 
 function stepper(val, min, max, onChange, id) {
@@ -387,7 +392,7 @@ function renderSetup() {
       presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, King, Queen and Heir each, Usurp, Sinkhole and Lost City, and the first player must win by 2.',
         cur === 'Default micro', () => set(() => { cfg = E.defaultConfig(); mirror = true; }), cur === 'Default micro'),
       Object.keys(PRESETS).filter(n => n !== 'Default micro').map(name => presetCard(name, PRESET_INFO[name], cur === name,
-        () => set(() => { cfg = PRESETS[name](); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));
+        () => set(() => { cfg = normFam(PRESETS[name]()); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));
   const stale = G && !G.over && cfgChanged();
 
   const deck = h('div', { class: 'panel' }, h('h2', null, 'Lands'), h('p', { class: 'sub' }, 'Each Land type comes in a matching set. Matching an adjacent Land flips the whole connected chain.'),
@@ -408,7 +413,7 @@ function renderSetup() {
       cfg.family[p][m] = n; if (mirror) cfg.family[1 - p][m] = n;
     }), 'st-fam-' + p + m))));
   const fam = h('div', { class: 'panel' }, h('h2', null, 'Family sideboard'),
-    h('p', { class: 'sub' }, 'Family tiles start face up beside each player and can be played instead of a hand card. Advisor flips all 8 surrounding tiles, King the 4 adjacent, Queen the 4 diagonal, Heir 1 of your choice.'),
+    h('p', { class: 'sub' }, 'Family tiles start face up beside each player and can be played instead of a hand card. Advisor flips all 8 surrounding tiles, King the 4 adjacent, Queen the 4 diagonal, Heir 1 of your choice. The Knave slips past an adjacent tile and flips the one behind it, like Underminers.'),
     h('label', { class: 'check', style: 'margin-bottom:10px' }, h('input', { type: 'checkbox', id: 'mirror', checked: mirror, onchange: e => set(() => { mirror = e.target.checked; if (mirror) cfg.family[1] = Object.assign({}, cfg.family[0]); }) }), 'Same Family for both players'),
     h('div', { class: 'fam-cols' }, famCol(0), famCol(1)),
     row('Color Capture', 'Playing a Family tile next to a same-house Family tile flips it back.', h('input', { type: 'checkbox', id: 'colorcap', checked: cfg.colorCapture, onchange: e => set(() => cfg.colorCapture = e.target.checked) })));
@@ -451,6 +456,8 @@ function renderSetup() {
 // ---------- tiles ----------
 const SPEC_GLYPH = { lostcity: '♜', sinkhole: '◎', sanctuary: '✧', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
 function patEl(member) {
+  if (member === 'knave') // 5×5: jumps past a neighbour to the tile two spaces away
+    return h('span', { class: 'pat pat5' }, [...Array(25)].map((_, i) => h('i', { class: i === 12 ? 'me' : [2, 10, 14, 22].includes(i) ? 'opt' : [7, 11, 13, 17].includes(i) ? 'skip' : '' })));
   const on = { advisor: [0,1,2,3,5,6,7,8], king: [1,3,5,7], queen: [0,2,6,8], heir: [] }[member];
   return h('span', { class: 'pat' }, [...Array(9)].map((_, i) => h('i', { class: i === 4 ? 'me' : on.includes(i) ? 'on' : member === 'heir' ? 'opt' : '' })));
 }
@@ -606,7 +613,7 @@ function renderBoard() {
     if (st && st.length > 1) cls.push('stacked');
     if (lm && lm.pos === k) cls.push('last');
     if (flipped.has(k)) cls.push('flipped');
-    const c = h('div', { class: cls.join(' '), onclick: () => clickCell(k), title: st ? st.slice().reverse().map(E.cardTitle).join(' over ') : null });
+    const c = h('div', { class: cls.join(' '), 'data-k': k, onclick: () => clickCell(k), title: st ? st.slice().reverse().map(E.cardTitle).join(' over ') : null });
     if (st) {
       c.append(tileEl(st[st.length - 1]));
       if (st.length > 1) c.append(h('span', { class: 'stack' }, '×' + st.length));
@@ -906,6 +913,7 @@ function buildReview(s, c, personas) {
     'Earthquake': 'limit swaps to two adjacent tiles',
     'Underminers': 'limit it to flipping Lands',
     'Heir': 'limit its pick to the 4 adjacent tiles',
+    'Knave': 'let it only flip Lands, or only jump over your own tiles',
     'King': 'leave it alone; the King is a good baseline Family tile'
   };
   if (hot.length) {

@@ -39,9 +39,10 @@
     advisor: { name: 'Advisor', dirs: ALL8_D, rule: 'Flips all 8 surrounding tiles.' },
     king: { name: 'King', dirs: ORTHO_D, rule: 'Flips the 4 adjacent tiles.' },
     queen: { name: 'Queen', dirs: DIAG_D, rule: 'Flips the 4 diagonal tiles.' },
-    heir: { name: 'Heir', dirs: null, rule: 'Flips 1 surrounding tile of your choice.' }
+    heir: { name: 'Heir', dirs: null, rule: 'Flips 1 surrounding tile of your choice.' },
+    knave: { name: 'Knave', dirs: null, rule: 'Does the family\u2019s dirty work: slips past an adjacent tile and flips the tile on its far side.' }
   };
-  const MEMBER_ORDER = ['advisor', 'king', 'queen', 'heir'];
+  const MEMBER_ORDER = ['advisor', 'king', 'queen', 'heir', 'knave'];
 
   const HOUSES = [
     { name: 'House Midnight', short: 'Midnight', sigil: '☾', color: 'blue', art: 'blue' },
@@ -72,7 +73,7 @@
       landSets: 7,
       landCopies: 3,
       specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
-      family: [{ advisor: 0, king: 1, queen: 1, heir: 1 }, { advisor: 0, king: 1, queen: 1, heir: 1 }],
+      family: [{ advisor: 0, king: 1, queen: 1, heir: 1, knave: 0 }, { advisor: 0, king: 1, queen: 1, heir: 1, knave: 0 }],
       gridW: 5, gridH: 5,
       handSize: 3,
       start: 'neutral',      // neutral | none
@@ -224,6 +225,13 @@
     for (const d of dirs) { const t = top(board, k + d); if (canFlip(t) && t.owner !== p) out.push(k + d); }
     return out;
   }
+  // Tiles two spaces away, past an occupied neighbour (Underminers and the Knave).
+  function jumpTargets(board, k, p) {
+    const tg = [];
+    for (const d of ORTHO_D) { if (!board.has(k + d)) continue; const t = top(board, k + 2 * d); if (canFlip(t) && t.owner !== p) tg.push(k + 2 * d); }
+    return tg;
+  }
+
   // All moves for one card. opts.prune limits Earthquake enumeration for the AI.
   function cardMoves(state, p, card, src, opts) {
     const { board } = state;
@@ -234,6 +242,7 @@
     if (card.kind === 'family') {
       for (const k of placeCells(state)) {
         if (card.member === 'heir') { const t = flipTargets(board, k, p, ALL8_D); if (t.length) t.forEach(c => add(k, c)); else add(k); }
+        else if (card.member === 'knave') { const t = jumpTargets(board, k, p); if (t.length) t.forEach(c => add(k, c)); else add(k); }
         else add(k);
       }
       return moves;
@@ -261,8 +270,7 @@
       }
       case 'underminers':
         for (const k of placeCells(state)) {
-          const tg = [];
-          for (const d of ORTHO_D) { if (!board.has(k + d)) continue; const t = top(board, k + 2 * d); if (canFlip(t) && t.owner !== p) tg.push(k + 2 * d); }
+          const tg = jumpTargets(board, k, p);
           if (tg.length) tg.forEach(c => add(k, c)); else add(k);
         }
         break;
@@ -319,7 +327,7 @@
       while (q.length) { const c = q.pop(); for (const d of ORTHO_D) { const n = c + d; if (!seen.has(n) && landOf(top(board, n)) === L) { seen.add(n); flip(n); q.push(n); } } }
     };
     const familyCapture = (member, house, heirChoice, color) => {
-      if (member === 'heir') { if (heirChoice != null) flip(heirChoice); }
+      if (member === 'heir' || member === 'knave') { if (heirChoice != null) flip(heirChoice); }
       else for (const d of MEMBERS[member].dirs) flip(k + d);
       if (color && cfg.colorCapture) for (const d of ORTHO_D) { const t = top(board, k + d); if (t && t.kind === 'family' && t.house === house) flip(k + d); }
     };
