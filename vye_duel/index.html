@@ -359,9 +359,9 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
       wildLimit: false,      // true: Wild Land can't join a chain that already holds a full set
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
-      tiebreak: 'none',      // none | total | second
+      tiebreak: 'second',    // none | total | second  (default + bonus 1 = first player must win by 2)
       secondExtraCards: 0,   // second player starts with this many extra cards
-      secondBonus: 0         // points added to the second player's kingdom at the end
+      secondBonus: 1         // points added to the second player's kingdom at the end
     };
   }
 
@@ -935,6 +935,7 @@ function mergeCfg(saved) {
   c.end = Object.assign(E.defaultConfig().end, saved.end || {});
   c.family = (saved.family && saved.family.length === 2) ? saved.family : d.family;
   for (const s of Object.keys(c.specials)) if (!E.SPECIALS[s]) delete c.specials[s];
+  if (!('secondBonus' in saved)) { c.secondBonus = 1; c.tiebreak = 'second'; } // builds saved before "must win by 2" became the rule
   return c;
 }
 let cfg = mergeCfg(store.get('vyeMicro.cfg', null));

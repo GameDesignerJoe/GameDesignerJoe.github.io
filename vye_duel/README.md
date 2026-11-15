@@ -9,6 +9,12 @@ ownership, so no tokens are needed. The page has three tabs:
 
 Play it at https://gamedesignerjoe.github.io/vye_duel/
 
+## House rule
+
+The first player must win by 2: the second player gets +1 point and wins ties.
+Simulations showed careful players won about 55% going first without it, and about 49% with it.
+You can change this in Setup → Game end.
+
 ## Files
 
 | File | What it is |

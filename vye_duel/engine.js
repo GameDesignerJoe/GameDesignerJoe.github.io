@@ -89,9 +89,9 @@
       wildLimit: false,      // true: Wild Land can't join a chain that already holds a full set
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
-      tiebreak: 'none',      // none | total | second
+      tiebreak: 'second',    // none | total | second  (default + bonus 1 = first player must win by 2)
       secondExtraCards: 0,   // second player starts with this many extra cards
-      secondBonus: 0         // points added to the second player's kingdom at the end
+      secondBonus: 1         // points added to the second player's kingdom at the end
     };
   }
 
