@@ -32,6 +32,11 @@ npx playwright install chromium
 node build_pdf.js
 ```
 
+### Small-tile edition
+
+`print/small/vye-duel-small-tiles-print-and-play.pdf`: the same rules plus one double-sided sheet with two full sets of 0.7 inch (Scrabble-size) icon tiles.
+The icons live in `print/small/tiles.js`, which the game also uses for its **Icons** tile style. Rebuild with `node build_small_pdf.js` in `print/small`.
+
 ## Card art
 
 Tile art lives in `art/`, one square image per card:

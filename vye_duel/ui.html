@@ -157,11 +157,13 @@ img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: c
 .tile.has-art > .g, .tile.has-art > .n, .tile.has-art > .pat { display: none; }
 .tile.fam.has-art > .pat { display: grid; position: absolute; left: 4px; bottom: 4px; width: calc(var(--cell) * .3); height: calc(var(--cell) * .3); padding: 2px; gap: 1px; background: rgba(250,247,240,.92); border-radius: 4px; }
 .tile.fam.has-art > .pat i { background: #CFC8B8; } .tile.fam.has-art > .pat i.on { background: #8E6610; } .tile.fam.has-art > .pat i.me { background: #1A2027; } .tile.fam.has-art > .pat i.opt { background: #D9BE80; }
-.bonus { font-size: 12px; font-weight: 700; vertical-align: super; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: var(--red); color: #fff; cursor: help; letter-spacing: 0; }
+.bonus { white-space: nowrap; font-size: 12px; font-weight: 700; vertical-align: super; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: var(--red); color: #fff; cursor: help; letter-spacing: 0; }
 .flyer { position: fixed; z-index: 40; pointer-events: none; border-radius: 9px; }
 .flyer .tile { box-shadow: 0 14px 30px rgba(0,0,0,.35); }
 .cell .tile.under { z-index: 0; }
 .cell.incoming > .tile:not(.under) { visibility: hidden; }
+.tile.icon { background: none; border: 0; padding: 0; }
+.tile.icon svg { width: 100%; height: 100%; display: block; }
 .counts { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 12px; font-size: 13.5px; margin-bottom: 12px; }
 .counts .hd { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .counts .num { text-align: right; }
@@ -229,7 +231,7 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   header.top { gap: 10px; padding-block: 10px; margin-bottom: 12px; }
   .mark h1 { font-size: 24px; } .mark .ed { display: none; }
   nav.tabs { order: 3; width: 100%; } nav.tabs button { flex: 1; padding: 9px 8px; }
-  #copy-config, #pnp { padding: 5px 10px; font-size: 13px; }
+  #copy-config, #pnp, #pnp-small { padding: 5px 10px; font-size: 13px; }
   .wrap { padding-block: 0 24px; }
   .table { padding: 8px 6px 0; gap: 10px; border-radius: 12px; }
   .board { gap: 4px; }
@@ -283,6 +285,7 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
     </nav>
     <div class="spacer"></div>
     <a class="btn" id="pnp" href="print/vye-duel-print-and-play.pdf" target="_blank" rel="noopener">Print &amp; play PDF</a>
+    <a class="btn" id="pnp-small" href="print/small/vye-duel-small-tiles-print-and-play.pdf" target="_blank" rel="noopener">Small-tile PDF</a>
     <button class="btn" id="copy-config">Copy config</button>
   </header>
 
@@ -295,6 +298,9 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
 
 <script id="vye-engine">
 /*ENGINE*/
+</script>
+<script id="vye-tiles">
+/*TILES*/
 </script>
 <script>
 (function () {
@@ -475,7 +481,19 @@ function patEl(member) {
 }
 // Card art lives in art/ next to this page. Replace a file with one of the same name to change the art.
 const ART_SPECIALS = new Set(['lostcity', 'sinkhole', 'sanctuary', 'underminers', 'earthquake', 'waystone']);
-let showArt = store.get('vyeMicro.art', true);
+// Tile style: 'art' (card art), 'icons' (the simple small-tile set), 'symbols' (plain glyphs)
+let tileStyle = store.get('vyeMicro.tileStyle', store.get('vyeMicro.art', true) === false ? 'symbols' : 'art');
+let showArt = tileStyle === 'art';
+function iconTile(t, owner) {
+  const o0 = owner === undefined ? t.owner : owner;
+  const o = o0 === 0 ? 'b' : o0 === 1 ? 'r' : o0 === 'both' ? 'both' : 'n';
+  let svg;
+  if (t.kind === 'land') svg = VyeTiles.land(VyeTiles.LANDS[t.land], o);
+  else if (t.kind === 'family') svg = VyeTiles.family(t.member, t.house === 0 ? 'b' : 'r', o);
+  else if (t.kind === 'special') svg = VyeTiles.special(t.special, o);
+  else svg = VyeTiles.crossroads(o);
+  const el = h('div', { class: 'tile icon', title: E.cardTitle(t) }); el.innerHTML = svg; return el;
+}
 function artSrc(t) {
   if (t.kind === 'land') return `art/lands/${E.LANDS[t.land].art}.jpg`;
   if (t.kind === 'family') return `art/family/${E.HOUSES[t.house].art}-${t.member}.jpg`;
@@ -490,6 +508,7 @@ function addArt(el, t) {
   el.classList.add('has-art'); el.prepend(img);
 }
 function tileEl(t, owner) {
+  if (tileStyle === 'icons' && window.VyeTiles) return iconTile(t, owner);
   let el;
   if (t.kind === 'land') {
     const L = E.LANDS[t.land];
@@ -857,7 +876,8 @@ function renderPlay() {
         seg([[150, 'Fast'], [600, 'Normal'], [1400, 'Slow']], speed, x => { speed = x; store.set('vyeMicro.speed', x); renderPlay(); })),
       h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
-        h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'showart', checked: showArt, onchange: e => { showArt = e.target.checked; store.set('vyeMicro.art', showArt); renderPlay(); } }), 'Card art'),
+        h('span', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Tiles'),
+          seg([['art', 'Art'], ['icons', 'Icons'], ['symbols', 'Symbols']], tileStyle, x => { tileStyle = x; showArt = x === 'art'; store.set('vyeMicro.tileStyle', x); renderPlay(); })),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'revealbag', checked: revealBag, onchange: e => { revealBag = e.target.checked; renderPlay(); } }), 'Show what\u2019s in the bag'),
         h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`))),
