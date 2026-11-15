@@ -171,6 +171,14 @@ img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: c
 .cell.incoming > .tile:not(.under) { visibility: hidden; }
 .tile.icon { background: none; border: 0; padding: 0; }
 .tile.icon svg { width: 100%; height: 100%; display: block; }
+.cbgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 700px) { .cbgrid { grid-template-columns: 1fr; } }
+.cbgrid h3 { font-size: 14px; margin: 0 0 8px; }
+.cbrow { display: grid; grid-template-columns: 9.5em 1fr 3em; gap: 10px; align-items: center; padding: 4px 0; cursor: help; font-size: 13.5px; }
+.cbrow b { text-align: right; }
+.cbtrack { position: relative; height: 12px; background: var(--sunk); border-radius: 6px; overflow: hidden; }
+.cbtrack i:first-child { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brass); border-radius: 6px; }
+.cbtrack i.mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1.5px; background: var(--muted); }
 .counts { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 12px; font-size: 13.5px; margin-bottom: 12px; }
 .counts .hd { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .counts .num { text-align: right; }
@@ -452,7 +460,7 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
     const state = {
       cfg, rng, seed, board, deck, players, discard: [],
       turn: 0, turnNo: 0, passes: 0, over: false, endReason: null, winner: null,
-      plays: [], log: [], lastMove: null, initialDeck: deck.length
+      plays: [], log: [], lastMove: null, initialDeck: deck.length, leads: []
     };
     state.moves = legalMoves(state, 0);
     if (!state.moves.length) checkEnd(state, true);
@@ -698,6 +706,7 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
     const play = { p, turn: state.turnNo, label: cardLabel(card), title: cardTitle(card), swing,
       mine: after.largest[p] - before.largest[p], theirs: after.largest[o] - before.largest[o], flips: res.flips.length };
     state.plays.push(play);
+    if (state.leads) state.leads.push(after.largest[0] - after.largest[1]); // Midnight's kingdom lead after every play
     state.lastMove = { n: state.turnNo, p, pos: move.pos, flips: res.flips, from: res.from, removed: res.removed, card, choice: move.choice };
     state.log.push(play);
     while (pl.hand.length < state.cfg.handSize && state.deck.length) pl.hand.push(state.deck.pop());
@@ -829,6 +838,48 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
     return st;
   }
 
+  // ---------- comebacks and runaway leads ----------
+  const CHECKS = [0.25, 0.5, 0.75];
+  function addLeadStats(S, st) {
+    const L = S.lead || (S.lead = { checks: CHECKS.map(() => ({ led: 0, leaderWon: 0, even: 0, gap: 0 })), bySize: [[0, 0], [0, 0], [0, 0]], changes: 0, decided: [], fromHalf: 0, halfBehindGames: 0, from3: 0, decidedGames: 0, maxDeficit: {} });
+    const h = st.leads || [], n = h.length, w = st.winner;
+    if (!n) return;
+    CHECKS.forEach((f, i) => {
+      const d = h[Math.max(0, Math.ceil(f * n) - 1)], c = L.checks[i];
+      if (d === 0) { c.even++; return; }
+      c.led++; c.gap += Math.abs(d);
+      if (w === (d > 0 ? 0 : 1)) c.leaderWon++;
+    });
+    // at halfway, does the size of the lead matter? buckets: ahead by 1-2, 3-4, 5+
+    const dh = h[Math.max(0, Math.ceil(0.5 * n) - 1)];
+    if (dh) { const b = Math.abs(dh) <= 2 ? 0 : Math.abs(dh) <= 4 ? 1 : 2; L.bySize[b][0]++; if (w === (dh > 0 ? 0 : 1)) L.bySize[b][1]++; }
+    let last = 0; for (const d of h) { const s = Math.sign(d); if (s && last && s !== last) L.changes++; if (s) last = s; }
+    if (w === -1) return;
+    const sgn = w === 0 ? 1 : -1;
+    L.decidedGames++;
+    let k = n - 1; while (k >= 0 && sgn * h[k] > 0) k--;      // last moment the eventual winner wasn't ahead
+    L.decided.push((k + 1) / n);
+    const half = h[Math.max(0, Math.ceil(0.5 * n) - 1)] * sgn;
+    if (half < 0) L.fromHalf++;
+    const worst = Math.min(0, ...h.map(d => d * sgn));
+    if (worst <= -3) L.from3++;
+    L.maxDeficit[-worst] = (L.maxDeficit[-worst] || 0) + 1;
+  }
+  function summarizeLeads(S) {
+    const L = S.lead; if (!L) return null;
+    const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+    return {
+      checks: L.checks.map((c, i) => ({ at: CHECKS[i], leaderWins: c.led ? c.leaderWon / c.led : 0, even: c.even / S.games, avgLead: c.led ? c.gap / c.led : 0 })),
+      leadChanges: L.changes / S.games,
+      halfwayBySize: ['1\u20132', '3\u20134', '5+'].map((label, i) => ({ label, games: L.bySize[i][0] / S.games, leaderWins: L.bySize[i][0] ? L.bySize[i][1] / L.bySize[i][0] : 0 })),
+      decidedAt: mean(L.decided),
+      decidedLate: L.decided.filter(x => x >= 0.75).length / Math.max(1, L.decidedGames),
+      comebackFromHalf: L.fromHalf / Math.max(1, L.decidedGames),
+      comebackFrom3: L.from3 / Math.max(1, L.decidedGames),
+      maxDeficit: L.maxDeficit
+    };
+  }
+
   function newStats() {
     return { games: 0, wins: {}, ties: 0, seatWins: [0, 0], endReasons: {}, turns: [], margins: [], scores: {}, cards: {}, unplayedFamily: 0, seconds: 0 };
   }
@@ -862,6 +913,7 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
       for (const pl of st.plays) { addCardStat(S.cards, pl.label, pl); playedBy[pl.p].add(pl.label); }
       for (const seat of [0, 1]) for (const lab of playedBy[seat]) { const c = S.cards[lab]; c.games++; if (st.winner === seat) c.gamesWon++; }
       S.unplayedFamily += st.players[0].side.length + st.players[1].side.length;
+      addLeadStats(S, st);
       if (onProgress && (g % 20 === 19 || g === n - 1)) onProgress(g + 1, n);
     }
     S.seconds = (Date.now() - t0) / 1000;
@@ -882,7 +934,8 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
       firstSeatWinRate: S.seatWins[0] / S.games, secondSeatWinRate: S.seatWins[1] / S.games, tieRate: S.ties / S.games,
       endReasons: S.endReasons, turns: { mean: mean(S.turns), min: Math.min(...S.turns), max: Math.max(...S.turns) },
       margin: { mean: mean(S.margins), hist: marginHist }, scores, cards,
-      unplayedFamilyPerGame: S.unplayedFamily / S.games
+      unplayedFamilyPerGame: S.unplayedFamily / S.games,
+      comeback: summarizeLeads(S)
     };
   }
 
@@ -901,6 +954,11 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
     L.push(`First player wins ${pct(sum.firstSeatWinRate)}, second ${pct(sum.secondSeatWinRate)}`);
     L.push(`Turns: mean ${sum.turns.mean.toFixed(1)} (min ${sum.turns.min}, max ${sum.turns.max}). Margin mean ${sum.margin.mean.toFixed(2)}`);
     L.push(`End reasons: ${Object.entries(sum.endReasons).map(([k, v]) => `${k} ${pct(v / sum.games)}`).join(', ')}`);
+    if (sum.comeback) {
+      const cb = sum.comeback;
+      L.push(`Leader wins: ${cb.checks.map(c => `ahead at ${Math.round(c.at * 100)}% \u2192 wins ${pct(c.leaderWins)}`).join(', ')}`);
+      L.push(`Comebacks: behind at halfway and won ${pct(cb.comebackFromHalf)}, won after being 3+ behind ${pct(cb.comebackFrom3)}. Lead changes per game ${cb.leadChanges.toFixed(1)}. Winner takes the lead for good at ${pct(cb.decidedAt)} of the game on average.`);
+    }
     L.push(`Final kingdom: ${Object.entries(sum.scores).map(([k, v]) => `${k} ${v.mean.toFixed(1)} (${v.min}–${v.max})`).join(', ')}`);
     L.push('');
     L.push('Card            plays/g   mean    sd    min   max  flips  win%');
@@ -1783,6 +1841,12 @@ function buildReview(s, c, personas) {
   if (stuck > 0.04) { status.push(`${pct(stuck)} of games ended because a player had no legal play.`); suggest.push('Players are getting stuck holding cover cards with nothing to cover. Turn off “A player can’t play” so they pass instead, or raise the hand size.'); }
   if (s.unplayedFamilyPerGame > 1) suggest.push(`About ${s.unplayedFamilyPerGame.toFixed(1)} Family tiles go unplayed each game. The board fills before they come out, so add a space or remove a Family member.`);
   status.push(`Games last about ${Math.round(s.turns.mean)} turns (${Math.round(s.turns.mean / 2)} each).`);
+  if (s.comeback) {
+    const cb = s.comeback, half = cb.checks[1].leaderWins;
+    status.push(`Comebacks: the player ahead at halfway wins ${pct(half)} of the time, and ${pct(cb.comebackFromHalf)} of games are won from behind. The lead changes about ${cb.leadChanges.toFixed(1)} times a game.`);
+    if (half >= 0.85) suggest.push('The leader at halfway almost always wins. Add a catch-up lever: let the player who is behind draw an extra tile, or make captures stronger against bigger kingdoms.');
+    else if (cb.halfwayBySize[2].games * N >= 80 && cb.halfwayBySize[2].leaderWins >= 0.9) suggest.push('A 5+ tile lead at halfway is nearly decisive. Cards that cut kingdoms apart (Sinkhole) or steal tiles (Usurp) are the natural catch-up tools; an extra copy could help.');
+  }
   return { status, suggest };
 }
 
@@ -1801,6 +1865,14 @@ function wireTips() {
   document.addEventListener('focusin', e => { const el = e.target.closest('[data-tip]'); if (el && el.matches(':focus-visible')) show(el); });
   document.addEventListener('focusout', hide);
   window.addEventListener('scroll', hide, { passive: true });
+}
+
+function runawayVerdict(cb, games) {
+  const half = cb.checks[1].leaderWins, big = cb.halfwayBySize[2];
+  if (half >= 0.85) return `Runaway risk: whoever is ahead at halfway wins ${Math.round(100 * half)}% of the time, so the second half often doesn’t matter.`;
+  if (big.games * games >= 80 && big.leaderWins >= 0.9) return `Mostly healthy, but a lead of 5 or more at halfway is close to decisive (${Math.round(100 * big.leaderWins)}%).`;
+  if (half <= 0.55) return 'Very swingy: being ahead at halfway barely matters. Good for comebacks, but skill and early play may feel unrewarded.';
+  return `Healthy: being ahead helps (${Math.round(100 * half)}% at halfway), but ${Math.round(100 * cb.comebackFromHalf)}% of games are still won from behind.`;
 }
 
 function swingBar(c, lo, hi) {
@@ -1850,6 +1922,27 @@ function renderSim() {
           [Object.entries(s.scores).map(([, x]) => x.mean.toFixed(1)).join(' / '), 'Avg kingdom', TIPS.kingdom]].map(([val, k, tip]) => h('div', { class: 'stat', 'data-tip': tip, tabindex: '0' }, h('div', { class: 'v' }, val), h('div', { class: 'k' }, k, h('span', { class: 'q' }, '?'))))),
       h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Ended by: ' + Object.entries(s.endReasons).map(([k, n]) => `${k} ${pct(n / s.games)}`).join(' · '))));
 
+    if (s.comeback) {
+      const cb = s.comeback;
+      const bar = (label, p, tip) => h('div', { class: 'cbrow', 'data-tip': tip, tabindex: '0' }, h('span', { class: 'cbl' }, label),
+        h('span', { class: 'cbtrack' }, h('i', { style: `width:${Math.round(100 * p)}%` }), h('i', { class: 'mid' })), h('b', null, pct(p)));
+      res.append(h('div', { class: 'panel' },
+        h('h2', null, 'Comebacks and runaway leads'),
+        h('p', { class: 'sub' }, 'Does the player in front always win? 50% would mean being ahead doesn’t matter at all; 100% would mean the leader never loses. Somewhere in between is the sweet spot.'),
+        h('div', { class: 'cbgrid' },
+          h('div', null, h('h3', null, 'If you’re ahead at…'),
+            ...cb.checks.map(c => bar({ 0.25: 'a quarter of the way', 0.5: 'halfway', 0.75: 'three quarters' }[c.at], c.leaderWins,
+              `When someone was ahead ${({ 0.25: 'a quarter of the way through', 0.5: 'at halfway', 0.75: 'three quarters of the way through' })[c.at]}, they went on to win ${pct(c.leaderWins)} of the time. Their lead was ${c.avgLead.toFixed(1)} tiles on average. In ${pct(c.even)} of games nobody was ahead at that point.`))),
+          h('div', null, h('h3', null, 'Ahead at halfway by…'),
+            ...cb.halfwayBySize.map(b => bar(`${b.label} tiles`, b.leaderWins, `${pct(b.games)} of games had a ${b.label} tile lead at halfway. That player won ${pct(b.leaderWins)} of those.`)))),
+        h('div', { class: 'summary', style: 'margin-top:14px' },
+          [[pct(cb.comebackFromHalf), 'Won from behind at halfway', 'Games won by the player who was behind at the halfway point.'],
+            [pct(cb.comebackFrom3), 'Won after trailing by 3+', 'Games where the winner was 3 or more tiles behind at some point.'],
+            [cb.leadChanges.toFixed(1), 'Lead changes per game', 'How many times the lead switched sides in a typical game. More means more back and forth.'],
+            [pct(cb.decidedAt), 'Decided, on average', 'How far into the game the eventual winner took the lead for good. Later means the outcome stays open longer.']]
+            .map(([v, k, tip]) => h('div', { class: 'stat', 'data-tip': tip, tabindex: '0' }, h('div', { class: 'v' }, v), h('div', { class: 'k' }, k, h('span', { class: 'q' }, '?'))))),
+        h('p', { class: 'sub', style: 'margin:10px 0 0' }, runawayVerdict(cb, s.games))));
+    }
     const lo = Math.min(0, ...s.cards.map(c => c.min)), hi = Math.max(1, ...s.cards.map(c => c.max));
     const landMean = (s.cards.find(c => c.label === 'Land') || { mean: 1 }).mean;
     res.append(h('div', { class: 'panel' },

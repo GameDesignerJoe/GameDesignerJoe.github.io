@@ -146,7 +146,7 @@
     const state = {
       cfg, rng, seed, board, deck, players, discard: [],
       turn: 0, turnNo: 0, passes: 0, over: false, endReason: null, winner: null,
-      plays: [], log: [], lastMove: null, initialDeck: deck.length
+      plays: [], log: [], lastMove: null, initialDeck: deck.length, leads: []
     };
     state.moves = legalMoves(state, 0);
     if (!state.moves.length) checkEnd(state, true);
@@ -392,6 +392,7 @@
     const play = { p, turn: state.turnNo, label: cardLabel(card), title: cardTitle(card), swing,
       mine: after.largest[p] - before.largest[p], theirs: after.largest[o] - before.largest[o], flips: res.flips.length };
     state.plays.push(play);
+    if (state.leads) state.leads.push(after.largest[0] - after.largest[1]); // Midnight's kingdom lead after every play
     state.lastMove = { n: state.turnNo, p, pos: move.pos, flips: res.flips, from: res.from, removed: res.removed, card, choice: move.choice };
     state.log.push(play);
     while (pl.hand.length < state.cfg.handSize && state.deck.length) pl.hand.push(state.deck.pop());
@@ -523,6 +524,48 @@
     return st;
   }
 
+  // ---------- comebacks and runaway leads ----------
+  const CHECKS = [0.25, 0.5, 0.75];
+  function addLeadStats(S, st) {
+    const L = S.lead || (S.lead = { checks: CHECKS.map(() => ({ led: 0, leaderWon: 0, even: 0, gap: 0 })), bySize: [[0, 0], [0, 0], [0, 0]], changes: 0, decided: [], fromHalf: 0, halfBehindGames: 0, from3: 0, decidedGames: 0, maxDeficit: {} });
+    const h = st.leads || [], n = h.length, w = st.winner;
+    if (!n) return;
+    CHECKS.forEach((f, i) => {
+      const d = h[Math.max(0, Math.ceil(f * n) - 1)], c = L.checks[i];
+      if (d === 0) { c.even++; return; }
+      c.led++; c.gap += Math.abs(d);
+      if (w === (d > 0 ? 0 : 1)) c.leaderWon++;
+    });
+    // at halfway, does the size of the lead matter? buckets: ahead by 1-2, 3-4, 5+
+    const dh = h[Math.max(0, Math.ceil(0.5 * n) - 1)];
+    if (dh) { const b = Math.abs(dh) <= 2 ? 0 : Math.abs(dh) <= 4 ? 1 : 2; L.bySize[b][0]++; if (w === (dh > 0 ? 0 : 1)) L.bySize[b][1]++; }
+    let last = 0; for (const d of h) { const s = Math.sign(d); if (s && last && s !== last) L.changes++; if (s) last = s; }
+    if (w === -1) return;
+    const sgn = w === 0 ? 1 : -1;
+    L.decidedGames++;
+    let k = n - 1; while (k >= 0 && sgn * h[k] > 0) k--;      // last moment the eventual winner wasn't ahead
+    L.decided.push((k + 1) / n);
+    const half = h[Math.max(0, Math.ceil(0.5 * n) - 1)] * sgn;
+    if (half < 0) L.fromHalf++;
+    const worst = Math.min(0, ...h.map(d => d * sgn));
+    if (worst <= -3) L.from3++;
+    L.maxDeficit[-worst] = (L.maxDeficit[-worst] || 0) + 1;
+  }
+  function summarizeLeads(S) {
+    const L = S.lead; if (!L) return null;
+    const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+    return {
+      checks: L.checks.map((c, i) => ({ at: CHECKS[i], leaderWins: c.led ? c.leaderWon / c.led : 0, even: c.even / S.games, avgLead: c.led ? c.gap / c.led : 0 })),
+      leadChanges: L.changes / S.games,
+      halfwayBySize: ['1\u20132', '3\u20134', '5+'].map((label, i) => ({ label, games: L.bySize[i][0] / S.games, leaderWins: L.bySize[i][0] ? L.bySize[i][1] / L.bySize[i][0] : 0 })),
+      decidedAt: mean(L.decided),
+      decidedLate: L.decided.filter(x => x >= 0.75).length / Math.max(1, L.decidedGames),
+      comebackFromHalf: L.fromHalf / Math.max(1, L.decidedGames),
+      comebackFrom3: L.from3 / Math.max(1, L.decidedGames),
+      maxDeficit: L.maxDeficit
+    };
+  }
+
   function newStats() {
     return { games: 0, wins: {}, ties: 0, seatWins: [0, 0], endReasons: {}, turns: [], margins: [], scores: {}, cards: {}, unplayedFamily: 0, seconds: 0 };
   }
@@ -556,6 +599,7 @@
       for (const pl of st.plays) { addCardStat(S.cards, pl.label, pl); playedBy[pl.p].add(pl.label); }
       for (const seat of [0, 1]) for (const lab of playedBy[seat]) { const c = S.cards[lab]; c.games++; if (st.winner === seat) c.gamesWon++; }
       S.unplayedFamily += st.players[0].side.length + st.players[1].side.length;
+      addLeadStats(S, st);
       if (onProgress && (g % 20 === 19 || g === n - 1)) onProgress(g + 1, n);
     }
     S.seconds = (Date.now() - t0) / 1000;
@@ -576,7 +620,8 @@
       firstSeatWinRate: S.seatWins[0] / S.games, secondSeatWinRate: S.seatWins[1] / S.games, tieRate: S.ties / S.games,
       endReasons: S.endReasons, turns: { mean: mean(S.turns), min: Math.min(...S.turns), max: Math.max(...S.turns) },
       margin: { mean: mean(S.margins), hist: marginHist }, scores, cards,
-      unplayedFamilyPerGame: S.unplayedFamily / S.games
+      unplayedFamilyPerGame: S.unplayedFamily / S.games,
+      comeback: summarizeLeads(S)
     };
   }
 
@@ -595,6 +640,11 @@
     L.push(`First player wins ${pct(sum.firstSeatWinRate)}, second ${pct(sum.secondSeatWinRate)}`);
     L.push(`Turns: mean ${sum.turns.mean.toFixed(1)} (min ${sum.turns.min}, max ${sum.turns.max}). Margin mean ${sum.margin.mean.toFixed(2)}`);
     L.push(`End reasons: ${Object.entries(sum.endReasons).map(([k, v]) => `${k} ${pct(v / sum.games)}`).join(', ')}`);
+    if (sum.comeback) {
+      const cb = sum.comeback;
+      L.push(`Leader wins: ${cb.checks.map(c => `ahead at ${Math.round(c.at * 100)}% \u2192 wins ${pct(c.leaderWins)}`).join(', ')}`);
+      L.push(`Comebacks: behind at halfway and won ${pct(cb.comebackFromHalf)}, won after being 3+ behind ${pct(cb.comebackFrom3)}. Lead changes per game ${cb.leadChanges.toFixed(1)}. Winner takes the lead for good at ${pct(cb.decidedAt)} of the game on average.`);
+    }
     L.push(`Final kingdom: ${Object.entries(sum.scores).map(([k, v]) => `${k} ${v.mean.toFixed(1)} (${v.min}–${v.max})`).join(', ')}`);
     L.push('');
     L.push('Card            plays/g   mean    sd    min   max  flips  win%');
