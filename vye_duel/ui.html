@@ -1,4 +1,4 @@
-<title>Vye Micro</title>
+<title>Vye Duel</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
@@ -137,6 +137,13 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .cell.chosen::after { content: ""; position: absolute; inset: -5px; border-radius: 13px; border: 3px solid var(--brass); pointer-events: none; }
 .hcard.pick { outline: 3px dashed var(--brass); outline-offset: 3px; animation: nudge 1.2s ease-in-out infinite; }
 @keyframes nudge { 50% { transform: translateY(-3px); } }
+.bag { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 13.5px; color: var(--muted); cursor: help; }
+.bag-label { font-weight: 500; }
+.bag.low .bag-label { color: var(--warn); }
+.pips { display: flex; flex-wrap: wrap; gap: 3px; max-width: 360px; }
+.pips i { width: 7px; height: 11px; border-radius: 2px; border: 1px solid var(--line); }
+.pips i.on { background: var(--brass); border-color: var(--brass); }
+.bag.low .pips i.on { background: var(--warn); border-color: var(--warn); }
 .counts { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 12px; font-size: 13.5px; margin-bottom: 12px; }
 .counts .hd { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .counts .num { text-align: right; }
@@ -210,7 +217,9 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .mchip .sig { position: static; width: 22px; height: 22px; font-size: 13px; flex: none; }
   .mchip b { font-size: 22px; line-height: 1; }
   .mchip small { font-size: 11px; color: var(--muted); line-height: 1.2; }
-  .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; }
+  .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; display: flex; flex-direction: column; line-height: 1.1; }
+  .mdeck b { font-size: 18px; color: var(--ink); }
+  .bag { display: none; }
   .rail .score { display: none; }
   .tray { display: flex; flex-direction: column; gap: 6px; position: sticky; bottom: 0; z-index: 4; width: calc(100% + 12px); margin: 0 -6px;
     background: var(--sunk); border-top: 1px solid var(--line); box-shadow: 0 -8px 18px rgba(0,0,0,.10);
@@ -243,7 +252,7 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
 
 <div class="wrap">
   <header class="top">
-    <div class="mark"><h1>Vye Micro</h1><span class="ed">two-player prototype</span></div>
+    <div class="mark"><h1>Vye Duel</h1><span class="ed">two-player prototype</span></div>
     <nav class="tabs" role="tablist">
       <button role="tab" id="tab-setup" aria-selected="false">Setup</button>
       <button role="tab" id="tab-play" aria-selected="true">Play</button>
@@ -371,7 +380,7 @@ function renderSetup() {
     row('Opening tile', 'A neutral Crossroads that nobody can own, or an empty table.', seg([['neutral', 'Crossroads'], ['none', 'Empty']], cfg.start, x => set(() => cfg.start = x))),
     row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: stacks keep growing.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))));
 
-  const endKeys = [['boardFull', 'Board is full', 'Every space inside the width × height limit is filled.'], ['deckEmpty', 'Deck is empty', 'Ends the moment the last card is drawn.'], ['noValidPlay', 'A player can’t play', 'If off, that player passes instead. The game ends when neither can play.']];
+  const endKeys = [['boardFull', 'Board is full', 'Every space inside the width × height limit is filled.'], ['deckEmpty', 'Bag is empty', 'Ends the moment the last tile is drawn from the bag.'], ['noValidPlay', 'A player can’t play', 'If off, that player passes instead. The game ends when neither can play.']];
   const end = h('div', { class: 'panel' }, h('h2', null, 'Game end'),
     h('p', { class: 'sub' }, 'Any checked condition ends the game. The largest connected kingdom wins.'),
     endKeys.map(([k, l, help]) => row(l, help, h('input', { type: 'checkbox', id: 'end-' + k, checked: cfg.end[k], onchange: e => set(() => cfg.end[k] = e.target.checked) }))),
@@ -386,7 +395,7 @@ function renderSetup() {
     : h('div', { class: 'note ok' }, `${n.fillers} space-filling tiles for ${n.spaces} spaces, so about ${n.fillers - n.spaces} stay unplayed. Cover cards don’t use up spaces.`);
   const summary = h('div', { class: 'panel', style: 'grid-column: 1 / -1' }, h('h2', null, 'This build'),
     h('div', { class: 'summary' },
-      [[n.deck, 'Deck tiles'], [n.lands, 'Lands'], [n.specials, 'Specials'], [n.fam[0] + ' / ' + n.fam[1], 'Family Blue / Red'], [n.spaces, 'Board spaces']].map(([val, k]) => h('div', { class: 'stat' }, h('div', { class: 'v' }, String(val)), h('div', { class: 'k' }, k)))),
+      [[n.deck, 'Tiles in the bag'], [n.lands, 'Lands'], [n.specials, 'Specials'], [n.fam[0] + ' / ' + n.fam[1], 'Family Blue / Red'], [n.spaces, 'Board spaces']].map(([val, k]) => h('div', { class: 'stat' }, h('div', { class: 'v' }, String(val)), h('div', { class: 'k' }, k)))),
     fillNote,
     h('div', { style: 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap' },
       h('button', { class: 'btn primary', onclick: () => { selectTab('play'); newGame(); } }, 'Play this build'),
@@ -396,7 +405,7 @@ function renderSetup() {
 }
 
 // ---------- tiles ----------
-const SPEC_GLYPH = { lostcity: '♜', sinkhole: '◎', sanctuary: '✧', pretender: '♛', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
+const SPEC_GLYPH = { lostcity: '♜', sinkhole: '◎', sanctuary: '✧', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
 function patEl(member) {
   const on = { advisor: [0,1,2,3,5,6,7,8], king: [1,3,5,7], queen: [0,2,6,8], heir: [] }[member];
   return h('span', { class: 'pat' }, [...Array(9)].map((_, i) => h('i', { class: i === 4 ? 'me' : on.includes(i) ? 'on' : member === 'heir' ? 'opt' : '' })));
@@ -410,8 +419,7 @@ function tileEl(t, owner) {
     el = h('div', { class: 'tile fam' }, patEl(t.member), h('span', { class: 'n' }, E.MEMBERS[t.member].name), h('span', { class: 'n', style: 'opacity:.6;margin-top:0' }, E.HOUSES[t.house].short));
   } else if (t.kind === 'special') {
     const S = E.SPECIALS[t.special];
-    if (t.special === 'pretender' && t.member) el = h('div', { class: 'tile spec' }, patEl(t.member), h('span', { class: 'n' }, 'Pretender ' + E.MEMBERS[t.member].name));
-    else el = h('div', { class: 'tile spec ' + t.special }, h('span', { class: 'g' }, SPEC_GLYPH[t.special]), h('span', { class: 'n' }, S.name));
+    el = h('div', { class: 'tile spec ' + t.special }, h('span', { class: 'g' }, SPEC_GLYPH[t.special]), h('span', { class: 'n' }, S.name));
   } else el = h('div', { class: 'tile start' }, h('span', { class: 'g' }, '✣'), h('span', { class: 'n' }, 'Crossroads'));
   const o = owner === undefined ? t.owner : owner;
   if (o === 0 || o === 1 || o === 'both') {
@@ -430,6 +438,7 @@ function cardDesc(c) {
 const seats = store.get('vyeMicro.seats', ['human', 'cautious']);
 let speed = store.get('vyeMicro.speed', 600);
 let reveal = false;
+let revealBag = false;
 let G = null;            // game state
 let history = [];        // snapshots before human moves
 let ui = { sel: null, pos: null, phase: null, eqA: null };
@@ -581,6 +590,17 @@ function handEl(p, other) {
       pl.side.length ? h('span', { style: 'width:14px' }) : null, pl.side.map(cardBtn)));
 }
 
+// The draw bag: one pip per tile it started with, filled while still in the bag.
+function bagEl() {
+  const left = G.deck.length, start = Math.max(G.initialDeck || 0, left);
+  const lands = G.deck.filter(c => c.kind === 'land').length;
+  const label = left === 0 ? 'The bag is empty. Play out your hand.' : left <= 4 ? `Only ${left} left in the bag` : `${left} tiles left in the bag`;
+  return h('div', { class: 'bag' + (left <= 4 ? ' low' : ''), 'data-tip': `${left} of ${start} tiles left to draw` + (revealBag ? ` (${lands} Lands, ${left - lands} Specials)` : '') + '. Hands refill from the bag after every play.', tabindex: '0' },
+    h('span', { class: 'bag-label' }, label),
+    revealBag && left ? h('span', null, `${lands} Land${lands === 1 ? '' : 's'}` + (left - lands ? ' · ' + G.deck.filter(c => c.kind !== 'land').map(c => E.SPECIALS[c.special].name).join(', ') : '')) : null,
+    h('span', { class: 'pips' }, [...Array(start)].map((_, i) => h('i', { class: i < left ? 'on' : '' }))));
+}
+
 function countsEl() {
   let tiles = 0; for (const st of G.board.values()) tiles += st.length;
   const P = G.players, row = (label, a, b, cls) => [h('span', { class: cls }, label), h('span', { class: 'num ' + (cls || '') }, a), h('span', { class: 'num ' + (cls || '') }, b)];
@@ -590,7 +610,7 @@ function countsEl() {
     row('Tiles', h('span', { class: 'p0c' }, '☾'), h('span', { class: 'p1c' }, '✿'), 'hd'),
     row(covered ? `On board (${covered} covered)` : 'On board', String(tiles), '', ''),
     row('Spaces filled', `${G.board.size} of ${cfg.gridW * cfg.gridH}`, '', ''),
-    row('Deck', String(G.deck.length), '', ''),
+    row('In the bag', String(G.deck.length), '', ''),
     row('In hand', h('span', { class: 'p0c' }, String(P[0].hand.length)), h('span', { class: 'p1c' }, String(P[1].hand.length))),
     row('Sideboard', h('span', { class: 'p0c' }, String(P[0].side.length)), h('span', { class: 'p1c' }, String(P[1].side.length))),
     G.discard.length ? row('Discarded', String(G.discard.length), '', '') : [],
@@ -604,7 +624,8 @@ function renderPlay() {
   const table = h('div', { class: 'table' });
   const mchip = p => h('span', { class: 'mchip p' + p + (G.turn === p && !G.over ? ' active' : '') },
     h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p])), h('small', null, `${sc.total[p]} owned · ${G.players[p].hand.length + G.players[p].side.length} cards`));
-  table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, `Deck ${G.deck.length}`), mchip(1)));
+  table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, 'Bag', h('b', null, String(G.deck.length))), mchip(1)));
+  table.append(bagEl());
   table.append(renderBoard());
   const card = selCard();
   const hp = [0, 1].filter(p => isHuman(p));
@@ -646,6 +667,7 @@ function renderPlay() {
         seg([[150, 'Fast'], [600, 'Normal'], [1400, 'Slow']], speed, x => { speed = x; store.set('vyeMicro.speed', x); renderPlay(); })),
       h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'revealbag', checked: revealBag, onchange: e => { revealBag = e.target.checked; renderPlay(); } }), 'Show what\u2019s in the bag'),
         h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`))),
     h('div', { class: 'panel' },
       countsEl(),
@@ -775,7 +797,6 @@ function buildReview(s, c, personas) {
   const FIX = {
     'Queen': 'take the Queen out of the sideboards, or replace it with a second King',
     'Advisor': 'drop the Advisor, or have it flip only up to 4 of its 8 neighbors',
-    'Pretender': 'have it take the Family tile without firing its capture',
     'Usurp': 'stop the new Land from matching, so it only swaps',
     'Sinkhole': 'only allow it on a tile next to one of yours',
     'Earthquake': 'limit swaps to two adjacent tiles',

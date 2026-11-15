@@ -1,4 +1,4 @@
-/* Vye Micro — rules engine, AI personas and batch simulator.
+/* Vye Duel — rules engine, AI personas and batch simulator.
    Runs in the browser (global VyeEngine) and in Node (module.exports). */
 (function (root) {
   'use strict';
@@ -62,18 +62,16 @@
       rule: 'Place it, then swap any two tiles (not Sanctuary). Nothing triggers.' },
     waystone: { name: 'Waystone', mode: 'place', origin: 'Original',
       rule: 'Place it and take another turn. Flipping it also grants an extra turn.' },
-    pretender: { name: 'Pretender', mode: 'cover', origin: 'New',
-      rule: 'Cover an opponent’s Family tile. Take it and fire its capture as yours.' },
     usurp: { name: 'Usurp', mode: 'replace', origin: 'New',
       rule: 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the deck.' }
   };
-  const SPECIAL_ORDER = ['lostcity', 'sinkhole', 'sanctuary', 'pretender', 'usurp', 'underminers', 'earthquake', 'waystone'];
+  const SPECIAL_ORDER = ['lostcity', 'sinkhole', 'sanctuary', 'usurp', 'underminers', 'earthquake', 'waystone'];
 
   function defaultConfig() {
     return {
       landSets: 7,
       landCopies: 3,
-      specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, pretender: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
+      specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
       family: [{ advisor: 0, king: 1, queen: 1, heir: 1 }, { advisor: 0, king: 1, queen: 1, heir: 1 }],
       gridW: 5, gridH: 5,
       handSize: 3,
@@ -251,16 +249,6 @@
       case 'sanctuary':
         for (const k of occupied) if (coverable(state, k)) add(k);
         break;
-      case 'pretender':
-        for (const k of occupied) {
-          const t = top(board, k);
-          if (!coverable(state, k) || t.kind !== 'family' || t.owner === p) continue;
-          if (t.member === 'heir') {
-            // capture happens after covering; the covered tile itself is no longer a target
-            const tg = flipTargets(board, k, p, ALL8_D); if (tg.length) tg.forEach(c => add(k, c)); else add(k);
-          } else add(k);
-        }
-        break;
       case 'usurp': {
         const hand = state.players[p].hand.filter(c => c.kind === 'land' && c.id !== card.id);
         const byType = new Map(); hand.forEach(c => { if (!byType.has(c.land)) byType.set(c.land, c); });
@@ -343,7 +331,6 @@
       case 'lostcity': pushTile(board, k, base); break;
       case 'sinkhole': base.owner = null; pushTile(board, k, base); break;
       case 'sanctuary': base.owner = 'both'; pushTile(board, k, base); break;
-      case 'pretender': { const cov = top(board, k); base.member = cov.member; base.house = cov.house; pushTile(board, k, base); familyCapture(cov.member, cov.house, choice, false); break; }
       case 'usurp': {
         res.removed = board.get(k)[0]; board.delete(k);
         pushTile(board, k, { id: choice.cardId, kind: 'land', land: choice.land, owner: p });
@@ -391,7 +378,7 @@
     const end = r => { state.over = true; state.endReason = r; state.moves = []; finish(state); };
     if (!initial) {
       if (cfg.end.boardFull && state.board.size >= cfg.gridW * cfg.gridH) return end('Board full');
-      if (cfg.end.deckEmpty && state.deck.length === 0) return end('Deck empty');
+      if (cfg.end.deckEmpty && state.deck.length === 0) return end('Bag empty');
     }
     if (!state.deck.length && !cardsLeft(state, 0) && !cardsLeft(state, 1)) return end('Out of cards');
     for (let tries = 0; tries < 2; tries++) {
@@ -559,7 +546,7 @@
     const pct = x => (100 * x).toFixed(1) + '%';
     const f = x => (x >= 0 ? '+' : '') + x.toFixed(2);
     const L = [];
-    L.push(`Vye Micro simulation — ${sum.games} games, ${personas.join(' vs ')}, ${sum.seconds.toFixed(1)}s`);
+    L.push(`Vye Duel simulation — ${sum.games} games, ${personas.join(' vs ')}, ${sum.seconds.toFixed(1)}s`);
     L.push(`Config: ${cfg.landSets} land sets × ${cfg.landCopies}, grid ${cfg.gridW}×${cfg.gridH}, hand ${cfg.handSize}, stacking ${cfg.stacking}, start ${cfg.start}`);
     L.push(`Family Blue: ${famStr(cfg.family[0])} | Red: ${famStr(cfg.family[1])}`);
     L.push(`Specials: ${Object.entries(cfg.specials).filter(([, n]) => n > 0).map(([k, n]) => SPECIALS[k].name + '×' + n).join(', ') || 'none'}`);
