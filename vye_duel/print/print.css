@@ -1,0 +1,90 @@
+/* Vye Duel print-and-play. Letter pages, 2.5in tiles. */
+@font-face { font-family: 'Alegreya SC'; font-weight: 500; src: url(fonts/alegreya-sc-latin-500-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Alegreya SC'; font-weight: 700; src: url(fonts/alegreya-sc-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Alegreya SC'; font-weight: 800; src: url(fonts/alegreya-sc-latin-800-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Alegreya Sans'; font-weight: 400; src: url(fonts/alegreya-sans-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Alegreya Sans'; font-weight: 400; font-style: italic; src: url(fonts/alegreya-sans-latin-400-italic.woff2) format('woff2'); }
+@font-face { font-family: 'Alegreya Sans'; font-weight: 500; src: url(fonts/alegreya-sans-latin-500-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Alegreya Sans'; font-weight: 700; src: url(fonts/alegreya-sans-latin-700-normal.woff2) format('woff2'); }
+
+:root { --ink: #1D2329; --muted: #5A6470; --rule: #CFC7B4; --brass: #8E6610; --blue: #2C5AA5; --red: #B13939; --grey: #7D8288; --parch: #EDE5D0; }
+@page { size: 8.5in 11in; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: 'Alegreya Sans', sans-serif; }
+.page { width: 8.5in; height: 11in; position: relative; overflow: hidden; break-after: page; page-break-after: always; }
+
+/* ---------- tile sheets ---------- */
+.slot { position: absolute; width: 2.5in; height: 2.5in; z-index: 1; }
+.tile { position: absolute; inset: 0.05in; border-radius: 0.16in; background: var(--parch); overflow: hidden; }
+.tile::after { content: ""; position: absolute; inset: 0; border-radius: 0.16in; pointer-events: none; z-index: 3; }
+.own-b::after { box-shadow: inset 0 0 0 0.11in var(--blue), inset 0 0 0 0.13in rgba(255,255,255,.75); }
+.own-r::after { box-shadow: inset 0 0 0 0.11in var(--red), inset 0 0 0 0.13in rgba(255,255,255,.75); }
+.own-n::after { box-shadow: inset 0 0 0 0.11in var(--grey), inset 0 0 0 0.13in rgba(255,255,255,.75); }
+.art { position: absolute; overflow: hidden; }
+.art img { width: 100%; height: 100%; display: block; }
+.art.full { inset: 0.11in; }
+.art.full img { object-fit: cover; }
+.art.part { left: 0.13in; right: 0.13in; top: 0.13in; height: 1.5in; }
+.art.part img { object-fit: contain; -webkit-mask-image: radial-gradient(closest-side, #000 86%, transparent 100%); mask-image: radial-gradient(closest-side, #000 86%, transparent 100%); }
+.art.part img.portrait { -webkit-mask-image: none; mask-image: none; }
+.art.part img.portrait { object-fit: cover; object-position: center 12%; }
+.lname { position: absolute; left: 50%; bottom: 0.2in; transform: translateX(-50%); z-index: 2; white-space: nowrap;
+  font: 700 9.5pt/1 'Alegreya SC', serif; letter-spacing: .02em; padding: 0.04in 0.11in 0.05in; border-radius: 1in; background: rgba(237,229,208,.93); color: var(--ink); }
+.label { position: absolute; left: 0.2in; right: 0.2in; top: 1.62in; bottom: 0.16in; text-align: center; display: flex; flex-direction: column; justify-content: center; gap: 0.02in; z-index: 2; }
+.label b { font: 700 10.5pt/1.05 'Alegreya SC', serif; letter-spacing: .02em; }
+.label span { font: 400 7.6pt/1.18 'Alegreya Sans', sans-serif; color: #333A41; }
+.sig { position: absolute; top: 0.02in; right: 0.02in; width: 0.44in; height: 0.44in; border-radius: 50%; z-index: 4; display: grid; place-items: center; border: 0.025in solid #fff; }
+.own-b .sig { background: var(--blue); } .own-r .sig { background: var(--red); }
+.sig svg { width: 0.27in; height: 0.27in; }
+.glyph { position: absolute; inset: 0.08in 0.25in 0.02in; display: grid; place-items: center; }
+.glyph svg { width: 1.15in; height: 1.15in; }
+.pat { display: grid; gap: 0.012in; background: rgba(250,247,240,.95); padding: 0.025in; border-radius: 0.04in; }
+.pat.n3 { grid-template-columns: repeat(3, 1fr); } .pat.n5 { grid-template-columns: repeat(5, 1fr); }
+.pat i { border-radius: 0.012in; background: #D3CCBC; aspect-ratio: 1; }
+.pat i.on { background: var(--brass); } .pat i.opt { background: #D9B865; } .pat i.me { background: var(--ink); } .pat i.skip { background: #E6E0D2; }
+.art .pat { position: absolute; left: 0.04in; bottom: 0.04in; width: 0.4in; z-index: 2; }
+.glyph.big .pat { width: 1.15in; padding: 0.05in; gap: 0.03in; background: transparent; }
+.opt-tag { position: absolute; top: 0.17in; left: 0.17in; z-index: 4; font: 700 6.5pt/1 'Alegreya Sans', sans-serif; letter-spacing: .08em; text-transform: uppercase; background: var(--ink); color: #fff; padding: 0.03in 0.06in; border-radius: 0.03in; }
+.cutgrid { position: absolute; left: 0.5in; top: 0.5in; width: 7.5in; height: 10in; z-index: 0;
+  background-image: linear-gradient(to right, #B9B2A2 0.6pt, transparent 0.6pt), linear-gradient(to bottom, #B9B2A2 0.6pt, transparent 0.6pt);
+  background-size: 2.5in 2.5in; border-right: 0.6pt solid #B9B2A2; border-bottom: 0.6pt solid #B9B2A2; }
+.mk { position: absolute; background: #777; }
+.mk.v { width: 0.6pt; height: 0.28in; } .mk.h { height: 0.6pt; width: 0.28in; }
+.foot { position: absolute; bottom: 0.14in; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; letter-spacing: .05em; }
+
+/* ---------- rules ---------- */
+.rules { padding: 0.5in 0.55in 0.45in; }
+.masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.3in; border-bottom: 2pt solid var(--ink); padding-bottom: 0.08in; margin-bottom: 0.14in; }
+.masthead h1 { font: 800 38pt/0.9 'Alegreya SC', serif; margin: 0; letter-spacing: .01em; }
+.masthead .tag { font: italic 400 12pt/1.2 'Alegreya Sans', sans-serif; color: var(--muted); margin-top: 0.05in; }
+.masthead .meta { text-align: right; font: 500 9.5pt/1.45 'Alegreya Sans', sans-serif; color: var(--muted); white-space: nowrap; }
+.cols { column-count: 2; column-gap: 0.34in; font-size: 11pt; line-height: 1.38; }
+.cols h2 { font: 700 14pt/1.1 'Alegreya SC', serif; color: var(--brass); margin: 0.14in 0 0.05in; letter-spacing: .02em; break-after: avoid; }
+.cols h2:first-child { margin-top: 0; }
+.cols p { margin: 0 0 0.06in; }
+.cols ul, .cols ol { margin: 0 0 0.06in; padding-left: 0.18in; }
+.cols li { margin-bottom: 0.025in; }
+.box { break-inside: avoid; border: 0.8pt solid var(--rule); border-radius: 0.07in; padding: 0.07in 0.1in; margin: 0.06in 0 0.08in; background: #FBF9F4; }
+.side { display: inline-grid; place-items: center; width: 0.19in; height: 0.19in; border-radius: 50%; vertical-align: -0.035in; margin: 0 0.02in; }
+.side svg { width: 0.13in; height: 0.13in; }
+.side.b { background: var(--blue); } .side.r { background: var(--red); }
+.fam-row { display: grid; grid-template-columns: 0.42in 1fr; gap: 0.04in 0.1in; align-items: center; break-inside: avoid; margin: 0.05in 0; }
+.fam-row .pat { width: 0.42in; background: #EFEADF; }
+.fam-row .pat.n5 { width: 0.5in; }
+.chain { display: flex; gap: 0.03in; margin: 0.05in 0 0.03in; align-items: center; }
+.chain i { width: 0.3in; height: 0.3in; border-radius: 0.04in; display: grid; place-items: center; font: 700 8pt/1 'Alegreya Sans', sans-serif; color: #fff; font-style: normal; }
+.chain i.A { background: #7A5AA6; } .chain i.B { background: #B5834C; } .chain i.N { background: transparent; border: 1pt dashed #999; color: #999; }
+.chain i.b { box-shadow: inset 0 0 0 2.2pt var(--blue); } .chain i.r { box-shadow: inset 0 0 0 2.2pt var(--red); }
+.chain .arrow { font-size: 12pt; color: var(--muted); margin: 0 0.04in; }
+.caption { font-size: 9pt; color: var(--muted); line-height: 1.25; }
+.print-box { break-inside: avoid; border: 1.2pt solid var(--ink); border-radius: 0.07in; padding: 0.08in 0.11in; margin-top: 0.08in; }
+.print-box h2 { color: var(--ink) !important; margin-top: 0 !important; }
+.small { font-size: 9.6pt; }
+.counts { width: 100%; border-collapse: collapse; font-size: 9.6pt; margin: 0.03in 0 0.06in; }
+.counts td { padding: 0.012in 0; border-bottom: 0.5pt solid #E3DDCF; } .counts td:last-child { text-align: right; font-weight: 700; }
+.sample { display: flex; gap: 0.16in; align-items: flex-start; margin: 0.06in 0 0.08in; break-inside: avoid; }
+.sample figure { margin: 0; text-align: center; font-size: 8.6pt; color: var(--muted); }
+.sample .mini { width: 1.1in; height: 1.1in; position: relative; }
+.sample .mini .slot { position: absolute; left: 0; top: 0; transform: scale(0.44); transform-origin: top left; }
+.pagefoot { position: absolute; bottom: 0.25in; left: 0.55in; right: 0.55in; display: flex; justify-content: space-between; font-size: 7.5pt; color: #999; }

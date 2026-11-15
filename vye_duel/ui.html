@@ -41,6 +41,7 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .spacer { flex: 1; }
 .btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; }
 .btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; color: inherit; display: inline-block; }
 .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .btn.primary:hover { opacity: .9; }
 .btn:disabled { opacity: .45; cursor: default; }
@@ -228,7 +229,7 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   header.top { gap: 10px; padding-block: 10px; margin-bottom: 12px; }
   .mark h1 { font-size: 24px; } .mark .ed { display: none; }
   nav.tabs { order: 3; width: 100%; } nav.tabs button { flex: 1; padding: 9px 8px; }
-  #copy-config { padding: 5px 10px; font-size: 13px; }
+  #copy-config, #pnp { padding: 5px 10px; font-size: 13px; }
   .wrap { padding-block: 0 24px; }
   .table { padding: 8px 6px 0; gap: 10px; border-radius: 12px; }
   .board { gap: 4px; }
@@ -281,6 +282,7 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
       <button role="tab" id="tab-sim" aria-selected="false">Simulate</button>
     </nav>
     <div class="spacer"></div>
+    <a class="btn" id="pnp" href="print/vye-duel-print-and-play.pdf" target="_blank" rel="noopener">Print &amp; play PDF</a>
     <button class="btn" id="copy-config">Copy config</button>
   </header>
 
@@ -391,7 +393,7 @@ function renderSetup() {
       h('span', { class: 'sub', style: 'margin:0' }, cur ? `You\u2019re on: ${cur === 'Default micro' ? 'the default build' : cur}` : 'You\u2019re on: a custom build (you changed settings by hand)')),
     h('p', { class: 'sub' }, 'A preset changes several settings at once. Your current game isn\u2019t affected until you start a new one.'),
     h('div', { class: 'preset-grid' },
-      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the first player must win by 2.',
+      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the second player wins ties.',
         cur === 'Default micro', () => set(() => { cfg = E.defaultConfig(); mirror = true; }), cur === 'Default micro'),
       Object.keys(PRESETS).filter(n => n !== 'Default micro').map(name => presetCard(name, PRESET_INFO[name], cur === name,
         () => set(() => { cfg = normFam(PRESETS[name]()); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));
@@ -440,7 +442,7 @@ function renderSetup() {
     row('Second player bonus', 'Points added to the second player\u2019s kingdom at the end. +1 with ties to the second player means the first player must win by 2.', stepper(cfg.secondBonus | 0, 0, 3, n => set(() => cfg.secondBonus = n), 'st-bonus')),
     row('Second player keeps apart', 'On the second player\u2019s first turn, their tile can\u2019t go on or next to (side by side) any of the first player\u2019s tiles. Diagonal is fine.', h('input', { type: 'checkbox', id: 'secondapart', checked: !!cfg.secondApart, onchange: e => set(() => cfg.secondApart = e.target.checked) })),
     row('Second player extra cards', 'The second player starts with this many more cards in hand.', stepper(cfg.secondExtraCards | 0, 0, 2, n => set(() => cfg.secondExtraCards = n), 'st-extra')),
-    h('div', { style: 'margin-top:8px' }, h('button', { class: 'btn', onclick: () => set(() => { cfg.secondBonus = 1; cfg.tiebreak = 'second'; }) }, 'Use \u201cfirst player must win by 2\u201d')));
+    h('div', { style: 'margin-top:8px' }, h('button', { class: 'btn', onclick: () => set(() => { cfg.secondBonus = 0; cfg.tiebreak = 'second'; }) }, 'Use \u201csecond player wins ties\u201d')));
 
   const n = deckNumbers(cfg);
   const fillNote = n.fillers < n.spaces
@@ -961,7 +963,7 @@ function buildReview(s, c, personas) {
     const tieWord = { none: 'stay ties', total: 'go to whoever owns more tiles', second: 'go to the second player' }[T] || 'stay ties';
     const now = `Right now the second player gets +${B} and ties ${tieWord}.`;
     if (gap > 0) {
-      if (B === 0 && T !== 'second') suggest.push(`${now} Turn on \u201cfirst player must win by 2\u201d: in Setup \u2192 Game end, set Second player bonus from 0 to 1 and Ties to Second player. In testing that brought careful play to about 50/50.`);
+      if (B === 0 && T !== 'second') suggest.push(`${now} Give ties to the second player: in Setup \u2192 Game end, set Ties to Second player. In testing that brought careful play to about 50/50.`);
       else suggest.push(`${now} The first player is still ahead, so give the second player a little more: in Setup \u2192 Game end, raise Second player bonus from ${B} to ${B + 1}${T !== 'second' ? ', or set Ties to Second player' : ''}.`);
     } else if (careless) {
       status.push('Careless players (Greedy, Chaotic, Random) always lean toward the second player, because the first player\u2019s early moves get punished.');

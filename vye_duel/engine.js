@@ -85,9 +85,9 @@
       secondApart: false,    // second player's first tile can't go on or next to a first-player tile
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
-      tiebreak: 'second',    // none | total | second  (default + bonus 1 = first player must win by 2)
+      tiebreak: 'second',    // none | total | second  (default: the second player wins ties)
       secondExtraCards: 0,   // second player starts with this many extra cards
-      secondBonus: 1         // points added to the second player's kingdom at the end
+      secondBonus: 0         // points added to the second player's kingdom at the end
     };
   }
 

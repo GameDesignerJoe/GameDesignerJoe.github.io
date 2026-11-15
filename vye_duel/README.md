@@ -16,9 +16,21 @@ unlimited stacking (anything but the Crossroads can be covered), and Family capt
 
 ## House rule
 
-The first player must win by 2: the second player gets +1 point and wins ties.
-Simulations showed careful players won about 55% going first without it, and about 49% with it.
+The second player wins ties. With careful players this comes out close to 50/50.
+(An earlier "first player must win by 2" rule, +1 point for the second player, tipped things to the second player once the AI got smarter.)
 You can change this in Setup → Game end.
+
+## Print and play
+
+`print/vye-duel-print-and-play.pdf`: 2 pages of rules and 3 double-sided sheets of 2.5-inch tiles (US Letter, print pages 3–8 double-sided, flip on long edge).
+To rebuild it after changing tiles or rules (`print/rules.html`, `print/print.css`, the tile list in `print/build_pdf.js`):
+
+```
+cd print
+npm i playwright
+npx playwright install chromium
+node build_pdf.js
+```
 
 ## Card art
 
