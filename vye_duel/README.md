@@ -11,7 +11,7 @@ Play it at https://gamedesignerjoe.github.io/vye_duel/
 
 ## Default build
 
-6 Land types × 3 on a 4 × 5 board (27 tiles in all), a King and a Knave for each player, a hand of 2, one each of Usurp, Sinkhole and Lost City,
+7 Land types × 3, a King and a Knave for each player, a hand of 2, one each of Usurp, Sinkhole and Lost City,
 unlimited stacking (anything but the Crossroads can be covered), and Family captures can take the Crossroads.
 
 ## House rule

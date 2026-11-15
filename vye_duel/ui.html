@@ -399,7 +399,7 @@ function renderSetup() {
       h('span', { class: 'sub', style: 'margin:0' }, cur ? `You\u2019re on: ${cur === 'Default micro' ? 'the default build' : cur}` : 'You\u2019re on: a custom build (you changed settings by hand)')),
     h('p', { class: 'sub' }, 'A preset changes several settings at once. Your current game isn\u2019t affected until you start a new one.'),
     h('div', { class: 'preset-grid' },
-      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 6 Lands \u00d7 3 on a 4 \u00d7 5 board, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the second player wins ties.',
+      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the second player wins ties.',
         cur === 'Default micro', () => set(() => { cfg = E.defaultConfig(); mirror = true; }), cur === 'Default micro'),
       Object.keys(PRESETS).filter(n => n !== 'Default micro').map(name => presetCard(name, PRESET_INFO[name], cur === name,
         () => set(() => { cfg = normFam(PRESETS[name]()); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));
