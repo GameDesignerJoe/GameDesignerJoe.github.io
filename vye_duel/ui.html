@@ -127,13 +127,20 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .cell.ghost .tile { opacity: .65; }
 @keyframes pop { from { transform: scale(.7); opacity: .2; } to { transform: none; opacity: 1; } }
 @keyframes flip { 0% { transform: rotateY(0); } 50% { transform: rotateY(90deg); } 100% { transform: rotateY(0); } }
-@media (prefers-reduced-motion: reduce) { .cell .tile { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .cell .tile, .hcard.pick { animation: none !important; } }
 
 .hand-area { width: 100%; display: flex; flex-direction: column; gap: 8px; }
 .hand-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; display: flex; gap: 8px; align-items: center; }
 .hand { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .hcard { width: 78px; height: 78px; border-radius: 10px; position: relative; cursor: pointer; border: 0; padding: 0; background: none; --cell: 78px; }
 .hcard.sel { outline: 3px solid var(--brass); outline-offset: 3px; }
+.cell.chosen::after { content: ""; position: absolute; inset: -5px; border-radius: 13px; border: 3px solid var(--brass); pointer-events: none; }
+.hcard.pick { outline: 3px dashed var(--brass); outline-offset: 3px; animation: nudge 1.2s ease-in-out infinite; }
+@keyframes nudge { 50% { transform: translateY(-3px); } }
+.counts { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 12px; font-size: 13.5px; margin-bottom: 12px; }
+.counts .hd { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.counts .num { text-align: right; }
+.counts .tot { border-top: 1px solid var(--line); padding-top: 3px; font-weight: 700; }
 .hcard.dead { opacity: .4; cursor: not-allowed; }
 .hcard.back { background: repeating-linear-gradient(45deg, var(--line) 0 6px, var(--sunk) 6px 12px); cursor: default; border: 1px solid var(--line); }
 .cardinfo { font-size: 13.5px; color: var(--muted); text-align: center; max-width: 520px; min-height: 20px; }
@@ -353,7 +360,8 @@ function renderSetup() {
     row('Hand size', null, stepper(cfg.handSize, 1, 6, n => set(() => cfg.handSize = n), 'st-hand')),
     row('Opening tile', 'A neutral Crossroads that nobody can own, or an empty table.', seg([['neutral', 'Crossroads'], ['none', 'Empty']], cfg.start, x => set(() => cfg.start = x))),
     row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: stacks keep growing.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))),
-    row('Wild Land', 'Covers a Land (adapted) or is placed in an empty space (original).', seg([['cover', 'Covers'], ['place', 'Placed'], ['either', 'Either']], cfg.wildMode, x => set(() => cfg.wildMode = x))));
+    row('Wild Land', 'Covers a Land (adapted) or is placed in an empty space (original).', seg([['cover', 'Covers'], ['place', 'Placed'], ['either', 'Either']], cfg.wildMode, x => set(() => cfg.wildMode = x))),
+    row('Wild Land set limit', 'Original rule: Wild Land can\u2019t join a chain that already has a full set. One Wild Land per chain always applies.', h('input', { type: 'checkbox', id: 'wildlimit', checked: !!cfg.wildLimit, onchange: e => set(() => cfg.wildLimit = e.target.checked) })));
 
   const endKeys = [['boardFull', 'Board is full', 'Every space inside the width × height limit is filled.'], ['deckEmpty', 'Deck is empty', 'Ends the moment the last card is drawn.'], ['noValidPlay', 'A player can’t play', 'If off, that player passes instead. The game ends when neither can play.']];
   const end = h('div', { class: 'panel' }, h('h2', null, 'Game end'),
@@ -404,6 +412,7 @@ function tileEl(t, owner) {
 function cardDesc(c) {
   if (c.kind === 'land') return `${E.LANDS[c.land].name}: matches adjacent ${E.LANDS[c.land].name} and flips the whole chain.`;
   if (c.kind === 'family') return `${E.MEMBERS[c.member].name}: ${E.MEMBERS[c.member].rule}` + (cfg.colorCapture ? ' Also flips adjacent same-house Family.' : '');
+  if (c.special === 'wild') return `Wild Land: ${E.SPECIALS.wild.rule} Lands light up only if they touch a Land it can copy.`;
   return `${E.SPECIALS[c.special].name}: ${E.SPECIALS[c.special].rule}`;
 }
 
@@ -462,7 +471,7 @@ function clickCell(k) {
   const card = selCard(); const ms = movesFor();
   if (ui.phase === null) {
     const pm = ms.filter(m => m.pos === k); if (!pm.length) return;
-    if (pm.length === 1) return humanPlay(pm[0]);
+    if (!pm.some(m => m.choice != null)) return humanPlay(pm[0]);
     ui.pos = k;
     if (card.special === 'wild') ui.phase = 'wild';
     else if (card.special === 'usurp') ui.phase = 'usurp';
@@ -472,6 +481,7 @@ function clickCell(k) {
   }
   const pm = ms.filter(m => m.pos === ui.pos);
   if (ui.phase === 'cell') { const m = pm.find(m => m.choice === k); if (m) humanPlay(m); return; }
+  if (ui.phase === 'wild') { const L = E.landOf(E.top(G.board, k)); if (wildSources().has(k)) humanPlay(pm.find(m => m.choice === L)); return; }
   if (ui.phase === 'eqA') { if (pm.some(m => m.choice && m.choice.includes(k))) { ui.eqA = k; ui.phase = 'eqB'; renderPlay(); } return; }
   if (ui.phase === 'eqB') { const m = pm.find(m => m.choice && m.choice.includes(ui.eqA) && m.choice.includes(k) && k !== ui.eqA); if (m) humanPlay(m); return; }
 }
@@ -482,9 +492,25 @@ function targetsNow() {
   if (ui.phase === null) return new Set(ms.map(m => m.pos));
   const pm = ms.filter(m => m.pos === ui.pos);
   if (ui.phase === 'cell') return new Set(pm.map(m => m.choice).filter(c => c != null));
+  if (ui.phase === 'wild') return wildSources();
   if (ui.phase === 'eqA') { const s = new Set(); pm.forEach(m => m.choice && m.choice.forEach(c => s.add(c))); return s; }
   if (ui.phase === 'eqB') { const s = new Set(); pm.forEach(m => { if (m.choice && m.choice.includes(ui.eqA)) m.choice.forEach(c => { if (c !== ui.eqA) s.add(c); }); }); return s; }
   return new Set();
+}
+
+// Adjacent Land tiles Wild Land can copy, for the current target space.
+function wildSources() {
+  const types = new Set(movesFor().filter(m => m.pos === ui.pos).map(m => m.choice));
+  const out = new Set();
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const n = E.key(E.kx(ui.pos) + dx, E.ky(ui.pos) + dy);
+    if (n !== ui.pos && types.has(E.landOf(E.top(G.board, n)))) out.add(n);
+  }
+  return out;
+}
+function usurpPick(c) {
+  const m = movesFor().find(m => m.pos === ui.pos && m.choice && m.choice.land === c.land);
+  if (m) humanPlay(Object.assign({}, m, { choice: { cardId: c.id, land: c.land } }));
 }
 
 function renderBoard() {
@@ -507,6 +533,7 @@ function renderBoard() {
     const cls = ['cell'];
     if (!st) cls.push('empty'); if (!st && open.has(k)) cls.push('open');
     if (tg.has(k)) cls.push('target');
+    if (ui.phase && ui.pos === k && st) cls.push('chosen');
     if (st && st.length > 1) cls.push('stacked');
     if (lm && lm.pos === k) cls.push('last');
     if (flipped.has(k)) cls.push('flipped');
@@ -531,10 +558,8 @@ function promptEl() {
   const cancel = h('button', { class: 'btn', onclick: () => { ui = { sel: null, pos: null, phase: null, eqA: null }; renderPlay(); } }, 'Cancel');
   const back = h('button', { class: 'btn', onclick: () => { ui.pos = null; ui.phase = null; ui.eqA = null; renderPlay(); } }, 'Back');
   const pm = movesFor().filter(m => m.pos === ui.pos);
-  if (ui.phase === 'wild') return h('div', { class: 'prompt' }, 'Wild Land becomes', h('span', { class: 'choices' },
-    [...new Set(pm.map(m => m.choice))].map(L => h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === L)) }, E.LANDS[L].glyph + ' ' + E.LANDS[L].name))), back);
-  if (ui.phase === 'usurp') return h('div', { class: 'prompt' }, 'Put which Land in its place?', h('span', { class: 'choices' },
-    pm.map(m => h('button', { class: 'btn', onclick: () => humanPlay(m) }, E.LANDS[m.choice.land].glyph + ' ' + E.LANDS[m.choice.land].name))), back);
+  if (ui.phase === 'wild') return h('div', { class: 'prompt' }, h('span', null, 'Wild Land: tap the adjacent Land it should copy.'), back);
+  if (ui.phase === 'usurp') return h('div', { class: 'prompt' }, h('span', null, 'Usurp: tap the Land from your hand to put in its place.'), back);
   if (ui.phase === 'cell') return h('div', { class: 'prompt' }, 'Choose the tile to flip.', back);
   if (ui.phase === 'eqA') return h('div', { class: 'prompt' }, 'Earthquake: pick the first tile to swap.', h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === null)) }, 'No swap'), back);
   if (ui.phase === 'eqB') return h('div', { class: 'prompt' }, 'Pick the second tile.', back);
@@ -547,15 +572,33 @@ function handEl(p, other) {
   const show = isHuman(p) || reveal || G.over;
   const playable = new Set(mine ? G.moves.map(m => m.cardId) : []);
   const cardBtn = c => {
-    const ok = playable.has(c.id);
-    const b = h('button', { class: 'hcard' + (ui.sel === c.id ? ' sel' : '') + (mine && !ok ? ' dead' : ''), title: cardDesc(c), 'aria-label': E.cardTitle(c),
-      onclick: () => { if (!mine || !ok) return; ui = { sel: ui.sel === c.id ? null : c.id, pos: null, phase: null, eqA: null }; renderPlay(); } });
+    const picking = mine && ui.phase === 'usurp';
+    const pickable = picking && c.kind === 'land' && movesFor().some(m => m.pos === ui.pos && m.choice && m.choice.land === c.land);
+    const ok = picking ? pickable || ui.sel === c.id : playable.has(c.id);
+    const b = h('button', { class: 'hcard' + (ui.sel === c.id ? ' sel' : '') + (pickable ? ' pick' : '') + (mine && !ok ? ' dead' : ''), title: cardDesc(c), 'aria-label': E.cardTitle(c),
+      onclick: () => { if (!mine || !ok) return; if (pickable) return usurpPick(c); ui = { sel: ui.sel === c.id ? null : c.id, pos: null, phase: null, eqA: null }; renderPlay(); } });
     b.append(tileEl(c, p)); return b;
   };
   return h('div', { class: 'hand-area' + (other ? ' other' : '') },
     h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`, !show ? ` (${pl.hand.length} hidden)` : ''),
     h('div', { class: 'hand' }, show ? pl.hand.map(cardBtn) : pl.hand.map(() => h('span', { class: 'hcard back' })),
       pl.side.length ? h('span', { style: 'width:14px' }) : null, pl.side.map(cardBtn)));
+}
+
+function countsEl() {
+  let tiles = 0; for (const st of G.board.values()) tiles += st.length;
+  const P = G.players, row = (label, a, b, cls) => [h('span', { class: cls }, label), h('span', { class: 'num ' + (cls || '') }, a), h('span', { class: 'num ' + (cls || '') }, b)];
+  const total = tiles + G.deck.length + G.discard.length + P[0].hand.length + P[1].hand.length + P[0].side.length + P[1].side.length;
+  const covered = tiles - G.board.size;
+  return h('div', { class: 'counts' },
+    row('Tiles', h('span', { class: 'p0c' }, '☾'), h('span', { class: 'p1c' }, '✿'), 'hd'),
+    row(covered ? `On board (${covered} covered)` : 'On board', String(tiles), '', ''),
+    row('Spaces filled', `${G.board.size} of ${cfg.gridW * cfg.gridH}`, '', ''),
+    row('Deck', String(G.deck.length), '', ''),
+    row('In hand', h('span', { class: 'p0c' }, String(P[0].hand.length)), h('span', { class: 'p1c' }, String(P[1].hand.length))),
+    row('Sideboard', h('span', { class: 'p0c' }, String(P[0].side.length)), h('span', { class: 'p1c' }, String(P[1].side.length))),
+    G.discard.length ? row('Discarded', String(G.discard.length), '', '') : [],
+    row(`Total · turn ${G.turnNo + 1}`, String(total), '', 'tot'));
 }
 
 function renderPlay() {
@@ -609,8 +652,7 @@ function renderPlay() {
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
         h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`))),
     h('div', { class: 'panel' },
-      h('div', { style: 'display:flex;justify-content:space-between;font-size:13.5px;color:var(--muted);margin-bottom:8px' },
-        h('span', null, `Deck ${G.deck.length}`), h('span', null, `Turn ${G.turnNo + 1}`), h('span', null, `Spaces ${G.board.size}/${cfg.gridW * cfg.gridH}`)),
+      countsEl(),
       h('h3', { style: 'font-size:15px;margin-bottom:6px' }, 'Log'),
       h('div', { class: 'log' }, G.log.length ? G.log.slice(-14).reverse().map(e => e.pass
         ? h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), 'passes')
@@ -750,5 +792,6 @@ for (const t of ['setup', 'play', 'sim']) $('#tab-' + t).addEventListener('click
 $('#copy-config').addEventListener('click', () => copyText(JSON.stringify(cfg)));
 window.addEventListener('resize', () => { if (!$('#view-play').hidden && G) renderPlay(); });
 selectTab(store.get('vyeMicro.tab', 'play'));
+window.__vye = { get G() { return G; }, render: () => renderPlay() }; // debug hook for tests
 })();
 </script>

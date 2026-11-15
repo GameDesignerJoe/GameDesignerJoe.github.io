@@ -86,6 +86,7 @@
       start: 'neutral',      // neutral | none
       stacking: 'once',      // once | unlimited
       wildMode: 'cover',     // cover | place | either
+      wildLimit: false,      // true: Wild Land can't join a chain that already holds a full set
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
       tiebreak: 'none'       // none | total
@@ -243,7 +244,7 @@
         const c = q.pop(); size++; if (top(board, c).special === 'wild') hasWild = true;
         for (const d of ORTHO_D) { const n = c + d; if (!seen.has(n) && landOf(top(board, n)) === L) { seen.add(n); q.push(n); } }
       }
-      if (!hasWild && size < cfg.landCopies) ok.push(L);
+      if (!hasWild && (!cfg.wildLimit || size < cfg.landCopies)) ok.push(L);
     }
     return ok;
   }
