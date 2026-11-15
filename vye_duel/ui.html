@@ -204,6 +204,10 @@ th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12px; 
 td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 td.rng { text-align: left; }
+th, td { padding-inline: 6px; }
+th.col-range { text-align: left; }
+@media (max-width: 1250px) { .col-range { display: none; } }
+@media (max-width: 560px) { .col-flips, .col-plays { display: none; } th .q { display: none; } }
 .flag { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
 .flag.hot { background: var(--red-soft); color: var(--red); }
 .flag.flat { background: var(--sunk); color: var(--muted); }
@@ -853,13 +857,23 @@ function buildReview(s, c, personas) {
   else {
     const who = gap > 0 ? 'first' : 'second', size = Math.abs(gap) > 0.1 ? 'a big' : Math.abs(gap) > 0.05 ? 'a clear' : 'a small';
     status.push(`The ${who} player has ${size} edge: first wins ${pct(f)}, second wins ${pct(sc)}, ties ${pct(s.tieRate)}.`);
+    const B = c.secondBonus | 0, T = c.tiebreak;
+    const tieWord = { none: 'stay ties', total: 'go to whoever owns more tiles', second: 'go to the second player' }[T] || 'stay ties';
+    const now = `Right now the second player gets +${B} and ties ${tieWord}.`;
     if (gap > 0) {
-      if (!(c.secondBonus >= 1 && c.tiebreak === 'second')) suggest.push('Even out the first-player edge with “first player must win by 2” (Second player bonus 1, ties go to the second player). In testing that brought careful play to about 49/51 on the default build.');
-      else if (c.secondBonus < 2) suggest.push('The first player still leads even with the +1 bonus. Try a bonus of 2, or give the second player 1 extra starting card as well.');
+      if (B === 0 && T !== 'second') suggest.push(`${now} Turn on \u201cfirst player must win by 2\u201d: in Setup \u2192 Game end, set Second player bonus from 0 to 1 and Ties to Second player. In testing that brought careful play to about 50/50.`);
+      else suggest.push(`${now} The first player is still ahead, so give the second player a little more: in Setup \u2192 Game end, raise Second player bonus from ${B} to ${B + 1}${T !== 'second' ? ', or set Ties to Second player' : ''}.`);
+    } else if (careless) {
+      status.push('Careless players (Greedy, Chaotic, Random) always lean toward the second player, because the first player\u2019s early moves get punished.');
+      suggest.push(`Don\u2019t change the seat rules based on this run. Run Cautious against Cautious first; that\u2019s closer to how people play. ${now}`);
+    } else if (B > 0 && T === 'second') {
+      suggest.push(`${now} That\u2019s a little too generous for these players. Try setting Second player bonus from ${B} to ${B - 1} and keep Ties on Second player. ${B - 1 === 0 ? 'Then the first player only has to win, and the second player just gets the ties.' : ''}`);
+    } else if (B > 0) {
+      suggest.push(`${now} Try setting Second player bonus from ${B} to ${B - 1}.`);
+    } else if (T === 'second') {
+      suggest.push(`${now} Try setting Ties back to Tie.`);
     } else {
-      if (c.secondBonus > 0 || c.tiebreak === 'second') suggest.push('The second player is now ahead, so the bonus is too generous for these players. Try lowering the Second player bonus by 1.');
-      else if (careless) suggest.push('With greedy or random players the second player tends to win. Careful players flip that, so check this again with Cautious or Builder before changing rules.');
-      else suggest.push('The second player is ahead. Try giving ties to the first player’s side by leaving ties as ties, or let the first player start with an extra card.');
+      suggest.push(`${now} The second player is ahead even with no help. Try a larger hand size, which softens the first move\u2019s weakness.`);
     }
   }
   if (!mirror) {
@@ -983,15 +997,15 @@ function renderSim() {
       h('div', { class: 'legend', style: 'justify-content:flex-start;margin-bottom:6px' },
         h('span', null, h('span', { class: 'flag hot' }, 'hot'), ' far stronger than a Land'), h('span', null, h('span', { class: 'flag hot' }, 'swingy'), ' unpredictable'), h('span', null, h('span', { class: 'flag flat' }, 'flat'), ' same result every time')),
       h('div', { class: 'tbl-wrap' }, h('table', null,
-        h('thead', null, h('tr', null, [['Card', TIPS.card], ['Plays/game', TIPS.plays], ['Typical', TIPS.mean], ['Spread', TIPS.sd], ['Worst', TIPS.min], ['Best', TIPS.max], ['Range', TIPS.range], ['Flips', TIPS.flips], ['Win% when played', TIPS.win]]
-          .map(([t, tip]) => h('th', { 'data-tip': tip, tabindex: '0' }, t, h('span', { class: 'q' }, '?'))))),
+        h('thead', null, h('tr', null, [['Card', TIPS.card], ['Plays/game', TIPS.plays, 'col-plays'], ['Typical', TIPS.mean], ['Spread', TIPS.sd], ['Worst to best', TIPS.min + ' ' + TIPS.max], ['Range', TIPS.range, 'col-range'], ['Flips', TIPS.flips, 'col-flips'], ['Win%', TIPS.win]]
+          .map(([t, tip, cls]) => h('th', { 'data-tip': tip, tabindex: '0', class: cls }, t, h('span', { class: 'q' }, '?'))))),
         h('tbody', null, s.cards.map(c => h('tr', { 'data-tip': rowTip(c, landMean), tabindex: '0' },
           h('td', null, c.label, c.mean > landMean * 2.5 && c.mean > 3.5 ? h('span', { class: 'flag hot' }, 'hot') : null,
             c.sd > 2.5 ? h('span', { class: 'flag hot' }, 'swingy') : null,
             c.max - c.min === 0 ? h('span', { class: 'flag flat' }, 'flat') : null),
-          h('td', null, c.perGame.toFixed(2)), h('td', null, (c.mean >= 0 ? '+' : '') + c.mean.toFixed(2)), h('td', null, c.sd.toFixed(2)),
-          h('td', null, String(c.min)), h('td', null, String(c.max)), h('td', { class: 'rng' }, swingBar(c, lo, hi)), h('td', null, c.flips.toFixed(2)), h('td', null, pct(c.winWhenPlayed))))))),
-      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Sanctuary mostly protects value rather than gaining it, so its swing reads low. Win% when played is a better signal for it.')));
+          h('td', { class: 'col-plays' }, c.perGame.toFixed(2)), h('td', null, (c.mean >= 0 ? '+' : '') + c.mean.toFixed(1)), h('td', null, c.sd.toFixed(1)),
+          h('td', null, `${c.min} to ${c.max}`), h('td', { class: 'rng col-range' }, swingBar(c, lo, hi)), h('td', { class: 'col-flips' }, c.flips.toFixed(1)), h('td', null, pct(c.winWhenPlayed))))))),
+      s.cards.some(c => c.label === 'Sanctuary') ? h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Sanctuary mostly protects value rather than gaining it, so its swing reads low. Win% is a better signal for it.') : ''));
 
     const rv = buildReview(s, simResult.cfg, simResult.personas);
     res.append(h('div', { class: 'panel review' }, h('h2', null, 'Review'),
