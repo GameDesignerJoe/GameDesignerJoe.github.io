@@ -17,22 +17,22 @@
 
   // ---------- content ----------
   const LANDS = [
-    { name: 'Forest', glyph: '♣', color: '#3E7B4F' },
-    { name: 'Peaks', glyph: '▲', color: '#6E7380' },
-    { name: 'Lake', glyph: '≈', color: '#3B78A6' },
-    { name: 'Desert', glyph: '☼', color: '#C2913A' },
-    { name: 'Marsh', glyph: '✱', color: '#5E7F6A' },
-    { name: 'Crystal', glyph: '◆', color: '#7A5AA6' },
-    { name: 'Hills', glyph: '●', color: '#8C7A3E' },
-    { name: 'Fields', glyph: '■', color: '#A8A23A' },
-    { name: 'Crossing', glyph: '✚', color: '#9A5B3C' },
-    { name: 'Tundra', glyph: '❄', color: '#6F9DB5' },
-    { name: 'Thicket', glyph: '♠', color: '#2F5E44' },
-    { name: 'Village', glyph: '⌂', color: '#A0673F' },
-    { name: 'Starfall', glyph: '✦', color: '#4A4F8C' },
-    { name: 'Moonvale', glyph: '◐', color: '#5C6E8E' },
-    { name: 'Ruby Coast', glyph: '♦', color: '#A3445A' },
-    { name: 'Orchard', glyph: '✿', color: '#7D8F3A' }
+    { name: 'Birchwood', art: 'birchwood', glyph: '♣', color: '#7A6554' },
+    { name: 'Wolf Hollow', art: 'wolf-hollow', glyph: '◐', color: '#8A9289' },
+    { name: 'Violet Peaks', art: 'violet-peaks', glyph: '▲', color: '#8C5D88' },
+    { name: 'Golden Fields', art: 'golden-fields', glyph: '☼', color: '#B5834C' },
+    { name: 'Ice Cliffs', art: 'ice-cliffs', glyph: '❄', color: '#7E8E9E' },
+    { name: 'Spire Isle', art: 'spire-isle', glyph: '⌂', color: '#79A08A' },
+    { name: 'Night Thicket', art: 'night-thicket', glyph: '●', color: '#AB9764' },
+    { name: 'High Peaks', art: 'high-peaks', glyph: '▲', color: '#664D36' },
+    { name: 'Whale Sea', art: 'whale-sea', glyph: '≈', color: '#275B5E' },
+    { name: 'Stag Forest', art: 'stag-forest', glyph: '♠', color: '#4F3D28' },
+    { name: 'Green Hills', art: 'green-hills', glyph: '■', color: '#B5A172' },
+    { name: 'Dragon Keep', art: 'dragon-keep', glyph: '✦', color: '#866440' },
+    { name: 'Raven Moor', art: 'raven-moor', glyph: '✶', color: '#84776A' },
+    { name: 'Owl Marsh', art: 'owl-marsh', glyph: '✱', color: '#527582' },
+    { name: 'Longship', art: 'longship', glyph: '♦', color: '#39819E' },
+    { name: 'Firelands', art: 'firelands', glyph: '✹', color: '#A25A16' }
   ];
 
   const MEMBERS = {
@@ -44,8 +44,8 @@
   const MEMBER_ORDER = ['advisor', 'king', 'queen', 'heir'];
 
   const HOUSES = [
-    { name: 'House Midnight', short: 'Midnight', sigil: '☾', color: 'blue' },
-    { name: 'House of a Thousand Roses', short: 'Roses', sigil: '✿', color: 'red' }
+    { name: 'House Midnight', short: 'Midnight', sigil: '☾', color: 'blue', art: 'blue' },
+    { name: 'House of a Thousand Roses', short: 'Roses', sigil: '✿', color: 'red', art: 'red' }
   ];
 
   // mode: place = goes in an empty space, cover = stacks on a tile, replace = swaps a tile out
