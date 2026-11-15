@@ -230,6 +230,14 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .endcard .box { padding: 18px; }
 }
 @media (max-width: 380px) { .hcard { width: 50px; height: 50px; --cell: 50px; } }
+th[data-tip], .stat[data-tip] { cursor: help; }
+tbody tr[data-tip] { cursor: help; }
+tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--sunk); }
+.q { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--line); color: var(--muted); font-size: 10px; font-weight: 700; margin-left: 4px; vertical-align: 1px; text-transform: none; letter-spacing: 0; }
+#tip { position: fixed; z-index: 30; max-width: 290px; background: var(--ink); color: var(--bg); font-size: 13.5px; line-height: 1.4; padding: 9px 12px; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.25); pointer-events: none; text-transform: none; letter-spacing: 0; font-weight: 400; white-space: normal; text-align: left; }
+.review h3 { font-size: 16px; margin: 12px 0 4px; }
+.review ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.review li { max-width: 72ch; }
 .toast { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: 14px; z-index: 20; }
 </style>
 
@@ -250,6 +258,7 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   <section id="view-sim" hidden></section>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div id="tip" role="tooltip" hidden></div>
 
 <script id="vye-engine">
 /*ENGINE*/
@@ -367,7 +376,10 @@ function renderSetup() {
   const end = h('div', { class: 'panel' }, h('h2', null, 'Game end'),
     h('p', { class: 'sub' }, 'Any checked condition ends the game. The largest connected kingdom wins.'),
     endKeys.map(([k, l, help]) => row(l, help, h('input', { type: 'checkbox', id: 'end-' + k, checked: cfg.end[k], onchange: e => set(() => cfg.end[k] = e.target.checked) }))),
-    row('Ties', 'Leave as a tie, or break it on total tiles owned.', seg([['none', 'Tie'], ['total', 'Total tiles']], cfg.tiebreak, x => set(() => cfg.tiebreak = x))));
+    row('Ties', 'Leave as a tie, break it on total tiles owned, or give it to the second player.', seg([['none', 'Tie'], ['total', 'Total tiles'], ['second', 'Second player']], cfg.tiebreak, x => set(() => cfg.tiebreak = x))),
+    row('Second player bonus', 'Points added to the second player\u2019s kingdom at the end. +1 with ties to the second player means the first player must win by 2.', stepper(cfg.secondBonus | 0, 0, 3, n => set(() => cfg.secondBonus = n), 'st-bonus')),
+    row('Second player extra cards', 'The second player starts with this many more cards in hand.', stepper(cfg.secondExtraCards | 0, 0, 2, n => set(() => cfg.secondExtraCards = n), 'st-extra')),
+    h('div', { style: 'margin-top:8px' }, h('button', { class: 'btn', onclick: () => set(() => { cfg.secondBonus = 1; cfg.tiebreak = 'second'; }) }, 'Use \u201cfirst player must win by 2\u201d')));
 
   const n = deckNumbers(cfg);
   const fillNote = n.fillers < n.spaces
@@ -621,7 +633,7 @@ function renderPlay() {
     const w = G.winner;
     table.append(h('div', { class: 'endcard' }, h('div', { class: 'box' },
       h('h2', { class: w === -1 ? '' : 'p' + w + 'c' }, w === -1 ? 'A tie' : E.HOUSES[w].short + ' wins'),
-      h('div', null, `Kingdoms ${G.final.largest[0]} – ${G.final.largest[1]} · ${G.endReason} · ${G.turnNo} turns`),
+      h('div', null, `Kingdoms ${G.final.largest[0]} – ${G.final.largest[1]}` + (cfg.secondBonus ? ` (+${cfg.secondBonus} Roses bonus)` : '') + ` · ${G.endReason} · ${G.turnNo} turns`),
       h('div', { style: 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap' },
         h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
         h('button', { class: 'btn', onclick: () => newGame(gameSeed) }, 'Replay seed'),
@@ -704,6 +716,127 @@ function startWorker(msg) {
 }
 function renderSimRunning() { const b = $('#sim-run'), m = $('#sim-matrix'); if (b) b.disabled = true; if (m) m.disabled = true; $('#sim-status').textContent = 'Starting…'; }
 
+const TIPS = {
+  first: 'How often the player who went first won. In a fair game this sits near the second player’s number.',
+  second: 'How often the player who went second won.',
+  ties: 'Games where both kingdoms ended the same size.',
+  turns: 'Average number of turns in a game, counting both players.',
+  margin: 'How many tiles the winner usually won by. Small means close games. Big means blowouts.',
+  kingdom: 'Average size of each side’s biggest connected group at the end.',
+  card: 'The card that was played. Hover a row for a plain-English summary of that card.',
+  plays: 'How often this card got played per game, counting both players. 2.00 means each player played it about once.',
+  mean: 'The typical result. On average, one play of this card moved the race this many tiles your way. A plain Land is about +1.',
+  sd: 'Spread (standard deviation): how predictable it is. Under 1 means it does about the same thing every time. Over 2 means it’s a gamble: sometimes huge, sometimes nothing.',
+  min: 'The worst single play of this card across all the games.',
+  max: 'The best single play of this card across all the games.',
+  range: 'The line runs from worst to best play. The shaded band is where most plays landed. The dot is the typical play.',
+  flips: 'How many of the opponent’s tiles it flipped on an average play.',
+  win: 'How often the player who played this card went on to win. Near 50% is neutral. Well above 55% means it tends to decide games. Well below 45% means it isn’t pulling its weight.'
+};
+function rowTip(c, landMean) {
+  const x = landMean > 0 ? c.mean / landMean : 0;
+  const strength = c.label === 'Land' ? 'This is the yardstick everything else is compared to.'
+    : x >= 3 ? `That’s about ${x.toFixed(1)}× a plain Land, which is a lot.`
+    : x >= 1.6 ? `That’s about ${x.toFixed(1)}× a plain Land.`
+    : x >= 0.7 ? 'About the same as a plain Land.' : 'Less than a plain Land, at least in the race for the biggest kingdom.';
+  const pred = c.sd < 0.6 ? 'It does nearly the same thing every time.' : c.sd < 1.5 ? 'It’s fairly predictable.' : c.sd < 2.5 ? 'Results vary a fair bit.' : 'It’s a gamble: results vary wildly.';
+  const win = c.winWhenPlayed >= 0.56 ? 'Players who used it won more often than not.' : c.winWhenPlayed <= 0.44 ? 'Players who used it usually lost.' : 'Using it doesn’t change who wins much.';
+  return `${c.label}: a typical play moves the race ${c.mean >= 0 ? '+' : ''}${c.mean.toFixed(1)} tiles your way. ${strength} ${pred} Worst play ${c.min}, best play ${c.max}. ${win} (${Math.round(100 * c.winWhenPlayed)}% win)`;
+}
+
+// Turns a summary into plain-English findings and suggestions.
+function buildReview(s, c, personas) {
+  const status = [], suggest = [];
+  const pct = x => Math.round(100 * x) + '%';
+  const N = s.games, f = s.firstSeatWinRate, sc = s.secondSeatWinRate, decided = f + sc;
+  const share = decided ? f / decided : 0.5;
+  const moe = decided ? 1.96 * Math.sqrt(share * (1 - share) / (decided * N)) : 1;
+  const mirror = personas[0] === personas[1];
+  const careless = personas.every(p => p === 'greedy' || p === 'chaotic' || p === 'random');
+  // seat balance
+  const gap = share - 0.5;
+  if (Math.abs(gap) <= Math.max(moe, 0.025)) status.push(`Going first or second makes no real difference here (first ${pct(f)}, second ${pct(sc)}). That’s within the noise for ${N} games.`);
+  else {
+    const who = gap > 0 ? 'first' : 'second', size = Math.abs(gap) > 0.1 ? 'a big' : Math.abs(gap) > 0.05 ? 'a clear' : 'a small';
+    status.push(`The ${who} player has ${size} edge: first wins ${pct(f)}, second wins ${pct(sc)}, ties ${pct(s.tieRate)}.`);
+    if (gap > 0) {
+      if (!(c.secondBonus >= 1 && c.tiebreak === 'second')) suggest.push('Even out the first-player edge with “first player must win by 2” (Second player bonus 1, ties go to the second player). In testing that brought careful play to about 49/51 on the default build.');
+      else if (c.secondBonus < 2) suggest.push('The first player still leads even with the +1 bonus. Try a bonus of 2, or give the second player 1 extra starting card as well.');
+    } else {
+      if (c.secondBonus > 0 || c.tiebreak === 'second') suggest.push('The second player is now ahead, so the bonus is too generous for these players. Try lowering the Second player bonus by 1.');
+      else if (careless) suggest.push('With greedy or random players the second player tends to win. Careful players flip that, so check this again with Cautious or Builder before changing rules.');
+      else suggest.push('The second player is ahead. Try giving ties to the first player’s side by leaving ties as ties, or let the first player start with an extra card.');
+    }
+  }
+  if (!mirror) {
+    const [a, b] = personas, wa = s.wins[a] / N, wb = s.wins[b] / N;
+    const nm = k => E.PERSONAS[k].name;
+    if (Math.abs(wa - wb) > 0.08) status.push(`${nm(wa > wb ? a : b)} beat ${nm(wa > wb ? b : a)} ${pct(Math.max(wa, wb))} to ${pct(Math.min(wa, wb))}, so skill matters in this build${Math.max(wa, wb) > 0.85 ? ', maybe too much: the weaker player rarely gets a win' : ''}.`);
+    else status.push(`${nm(a)} and ${nm(b)} finished close (${pct(wa)} vs ${pct(wb)}). Either the build rewards luck, or these two styles are evenly matched.`);
+  }
+  // ties and margins
+  if (s.tieRate > 0.08 && c.tiebreak === 'none') { status.push(`Ties are common (${pct(s.tieRate)}).`); suggest.push('Pick a tiebreak in Setup → Game end. Total tiles owned is the most neutral; giving ties to the second player also helps seat balance.'); }
+  const avgK = Object.values(s.scores).reduce((a, x) => a + x.mean, 0) / Math.max(1, Object.keys(s.scores).length);
+  const ratio = avgK ? s.margin.mean / avgK : 0;
+  if (ratio > 0.6) { status.push(`Games are often one-sided: the winner leads by ${s.margin.mean.toFixed(1)} tiles on average when kingdoms are about ${avgK.toFixed(1)}.`); suggest.push('Blowouts usually come from big swing cards. Toning down the hottest card below is the quickest way to keep games close.'); }
+  else if (ratio < 0.3) status.push(`Games are close: the average winning margin is ${s.margin.mean.toFixed(1)} tiles.`);
+  else status.push(`Winning margins are moderate (${s.margin.mean.toFixed(1)} tiles on kingdoms of about ${avgK.toFixed(1)}).`);
+  // cards
+  const land = s.cards.find(x => x.label === 'Land'), lm = land ? land.mean : 1;
+  const others = s.cards.filter(x => x.label !== 'Land' && x.plays >= Math.max(20, N * 0.2));
+  const hot = others.filter(x => x.mean > lm * 3 && x.mean > 3).sort((a, b) => b.mean - a.mean);
+  const swingy = others.filter(x => x.sd > 2).sort((a, b) => b.sd - a.sd);
+  const deciders = others.filter(x => x.winWhenPlayed > 0.58).sort((a, b) => b.winWhenPlayed - a.winWhenPlayed);
+  const weak = others.filter(x => x.winWhenPlayed < 0.42).sort((a, b) => a.winWhenPlayed - b.winWhenPlayed);
+  const FIX = {
+    'Wild Land': 'turn on the Wild Land set limit, or let it cover only your own Land',
+    'Queen': 'take the Queen out of the sideboards, or replace it with a second King',
+    'Advisor': 'drop the Advisor, or have it flip only up to 4 of its 8 neighbors',
+    'Pretender': 'have it take the Family tile without firing its capture',
+    'Usurp': 'stop the new Land from matching, so it only swaps',
+    'Ancient Passage': 'make it cost a card from your hand, or allow it only on Lands',
+    'Sinkhole': 'only allow it on a tile next to one of yours',
+    'Earthquake': 'limit swaps to two adjacent tiles',
+    'Underminers': 'limit it to flipping Lands',
+    'Heir': 'limit its pick to the 4 adjacent tiles',
+    'King': 'leave it alone; the King is a good baseline Family tile'
+  };
+  if (hot.length) {
+    status.push(`Strongest cards: ${hot.map(x => `${x.label} (about ${(x.mean / lm).toFixed(1)}× a Land)`).join(', ')}.`);
+    hot.slice(0, 2).forEach(x => suggest.push(`${x.label} is doing ${(x.mean / lm).toFixed(1)}× the work of a Land. To tighten it, ${FIX[x.label] || 'make it rarer (fewer copies) or weaker'}.`));
+  } else status.push('No card is wildly stronger than the others. That’s what you want for a tight game.');
+  if (swingy.length) { status.push(`Least predictable: ${swingy.slice(0, 3).map(x => `${x.label} (anywhere from ${x.min} to ${x.max})`).join(', ')}.`);
+    suggest.push(`${swingy[0].label} is the most luck-dependent card. If you want less swing, cap what it can capture or cut a copy.`); }
+  if (deciders.length) status.push(`Cards that tend to decide games: ${deciders.slice(0, 3).map(x => `${x.label} (${pct(x.winWhenPlayed)} win when played)`).join(', ')}.`);
+  if (weak.length) { status.push(`Cards that don’t seem to help: ${weak.slice(0, 3).map(x => `${x.label} (${pct(x.winWhenPlayed)} win when played)`).join(', ')}.`);
+    suggest.push(`${weak[0].label} rarely leads to a win. It may be too weak, or the AI may be playing it badly. Try it yourself before cutting it.`); }
+  const unused = Object.keys(c.specials || {}).filter(k => c.specials[k] > 0 && !s.cards.some(x => x.label === E.SPECIALS[k].name && x.plays >= N * 0.1));
+  if (unused.length) { status.push(`Rarely or never played: ${unused.map(k => E.SPECIALS[k].name).join(', ')}.`); suggest.push(`${unused.map(k => E.SPECIALS[k].name).join(', ')} hardly ever gets a legal or useful moment. Loosen what it can target, or drop it.`); }
+  // ends
+  const stuck = (s.endReasons['No valid play'] || 0) / N;
+  if (stuck > 0.04) { status.push(`${pct(stuck)} of games ended because a player had no legal play.`); suggest.push('Players are getting stuck holding cover cards with nothing to cover. Turn off “A player can’t play” so they pass instead, or raise the hand size.'); }
+  if (s.unplayedFamilyPerGame > 1) suggest.push(`About ${s.unplayedFamilyPerGame.toFixed(1)} Family tiles go unplayed each game. The board fills before they come out, so add a space or remove a Family member.`);
+  status.push(`Games last about ${Math.round(s.turns.mean)} turns (${Math.round(s.turns.mean / 2)} each).`);
+  return { status, suggest };
+}
+
+function wireTips() {
+  const tip = $('#tip'); let cur = null;
+  const show = el => {
+    cur = el; tip.textContent = el.getAttribute('data-tip'); tip.hidden = false;
+    const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+    let x = Math.min(Math.max(8, r.left + r.width / 2 - tw / 2), window.innerWidth - tw - 8);
+    let y = r.top - th - 8; if (y < 8) y = r.bottom + 8;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  };
+  const hide = () => { cur = null; tip.hidden = true; };
+  document.addEventListener('pointerover', e => { if (e.pointerType === 'touch') return; const el = e.target.closest('[data-tip]'); if (el) show(el); else if (cur) hide(); });
+  document.addEventListener('click', e => { const el = e.target.closest('[data-tip]'); if (el && el !== cur) show(el); else hide(); });
+  document.addEventListener('focusin', e => { const el = e.target.closest('[data-tip]'); if (el && el.matches(':focus-visible')) show(el); });
+  document.addEventListener('focusout', hide);
+  window.addEventListener('scroll', hide, { passive: true });
+}
+
 function swingBar(c, lo, hi) {
   const W = 170, H = 18, x = v => 6 + (W - 12) * (v - lo) / Math.max(1, hi - lo);
   const ns = 'http://www.w3.org/2000/svg';
@@ -746,25 +879,35 @@ function renderSim() {
       h('div', { class: 'winbar' }, names.map((n, i) => h('span', { style: `flex:${s.wins[n]};background:${colors[i]}` }, `${n} ${pct(s.wins[n] / s.games)}`)),
         s.ties ? h('span', { style: `flex:${s.ties};background:var(--muted)` }, `tie ${pct(s.tieRate)}`) : null),
       h('div', { class: 'summary', style: 'margin-top:12px' },
-        [[pct(s.firstSeatWinRate), 'First player wins'], [pct(s.tieRate), 'Ties'], [s.turns.mean.toFixed(1), 'Turns per game'], [s.margin.mean.toFixed(1), 'Average margin'],
-          [Object.entries(s.scores).map(([, x]) => x.mean.toFixed(1)).join(' / '), 'Avg kingdom']].map(([val, k]) => h('div', { class: 'stat' }, h('div', { class: 'v' }, val), h('div', { class: 'k' }, k)))),
+        [[pct(s.firstSeatWinRate), 'First player wins', TIPS.first], [pct(s.secondSeatWinRate), 'Second player wins', TIPS.second], [pct(s.tieRate), 'Ties', TIPS.ties],
+          [s.turns.mean.toFixed(1), 'Turns per game', TIPS.turns], [s.margin.mean.toFixed(1), 'Average margin', TIPS.margin],
+          [Object.entries(s.scores).map(([, x]) => x.mean.toFixed(1)).join(' / '), 'Avg kingdom', TIPS.kingdom]].map(([val, k, tip]) => h('div', { class: 'stat', 'data-tip': tip, tabindex: '0' }, h('div', { class: 'v' }, val), h('div', { class: 'k' }, k, h('span', { class: 'q' }, '?'))))),
       h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Ended by: ' + Object.entries(s.endReasons).map(([k, n]) => `${k} ${pct(n / s.games)}`).join(' · '))));
 
     const lo = Math.min(0, ...s.cards.map(c => c.min)), hi = Math.max(1, ...s.cards.map(c => c.max));
     const landMean = (s.cards.find(c => c.label === 'Land') || { mean: 1 }).mean;
     res.append(h('div', { class: 'panel' },
       h('h2', null, 'Card swing'),
-      h('p', { class: 'sub' }, 'Swing is how much one play changes the kingdom lead: (your largest kingdom − theirs) after, minus before. The bar runs min to max, the band is ±1 standard deviation, the dot is the mean.'),
+      h('p', { class: 'sub' }, 'Swing means how far one play moves the race in your favor. If you were behind by 3 and after your play you\u2019re ahead by 1, that play swung 4. A plain Land usually swings about 1. Hover or tap any row or heading for a plain-English read.'),
+      h('div', { class: 'legend', style: 'justify-content:flex-start;margin-bottom:6px' },
+        h('span', null, h('span', { class: 'flag hot' }, 'hot'), ' far stronger than a Land'), h('span', null, h('span', { class: 'flag hot' }, 'swingy'), ' unpredictable'), h('span', null, h('span', { class: 'flag flat' }, 'flat'), ' same result every time')),
       h('div', { class: 'tbl-wrap' }, h('table', null,
-        h('thead', null, h('tr', null, ['Card', 'Plays/game', 'Mean', 'SD', 'Min', 'Max', 'Range', 'Flips', 'Win% when played'].map(t => h('th', null, t)))),
-        h('tbody', null, s.cards.map(c => h('tr', null,
-          h('td', null, c.label, c.mean > landMean * 2.5 && c.mean > 3.5 ? h('span', { class: 'flag hot', title: 'Mean swing is far above a plain Land' }, 'hot') : null,
-            c.sd > 2.5 ? h('span', { class: 'flag hot', title: 'Very wide spread of outcomes' }, 'swingy') : null,
-            c.max - c.min === 0 ? h('span', { class: 'flag flat', title: 'Same result every play; swing may not capture its value' }, 'flat') : null),
+        h('thead', null, h('tr', null, [['Card', TIPS.card], ['Plays/game', TIPS.plays], ['Typical', TIPS.mean], ['Spread', TIPS.sd], ['Worst', TIPS.min], ['Best', TIPS.max], ['Range', TIPS.range], ['Flips', TIPS.flips], ['Win% when played', TIPS.win]]
+          .map(([t, tip]) => h('th', { 'data-tip': tip, tabindex: '0' }, t, h('span', { class: 'q' }, '?'))))),
+        h('tbody', null, s.cards.map(c => h('tr', { 'data-tip': rowTip(c, landMean), tabindex: '0' },
+          h('td', null, c.label, c.mean > landMean * 2.5 && c.mean > 3.5 ? h('span', { class: 'flag hot' }, 'hot') : null,
+            c.sd > 2.5 ? h('span', { class: 'flag hot' }, 'swingy') : null,
+            c.max - c.min === 0 ? h('span', { class: 'flag flat' }, 'flat') : null),
           h('td', null, c.perGame.toFixed(2)), h('td', null, (c.mean >= 0 ? '+' : '') + c.mean.toFixed(2)), h('td', null, c.sd.toFixed(2)),
           h('td', null, String(c.min)), h('td', null, String(c.max)), h('td', { class: 'rng' }, swingBar(c, lo, hi)), h('td', null, c.flips.toFixed(2)), h('td', null, pct(c.winWhenPlayed))))))),
       h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Watchtower and Sanctuary mostly protect value rather than gain it, so their swing reads low. Win% when played is a better signal for defensive cards.')));
 
+    const rv = buildReview(s, simResult.cfg, simResult.personas);
+    res.append(h('div', { class: 'panel review' }, h('h2', null, 'Review'),
+      h('p', { class: 'sub' }, 'A plain-English read of this run, written from the numbers above.'),
+      h('h3', null, 'Where things stand'), h('ul', null, rv.status.map(x => h('li', null, x))),
+      h('h3', null, 'Suggestions'), rv.suggest.length ? h('ul', null, rv.suggest.map(x => h('li', null, x))) : h('p', null, 'Nothing stands out. This build looks healthy for these players.'),
+      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'These are computer players. They\u2019re good at spotting lopsided cards and seat advantages, but people will find tricks the AI misses. Treat this as a starting point for playtests.')));
     const pre = h('pre', { class: 'report', id: 'sim-report' }, simResult.text);
     res.append(h('div', { class: 'panel' }, h('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
       h('h2', { style: 'flex:1' }, 'Report'), h('button', { class: 'btn', onclick: () => copyText(simResult.text + '\n\nCONFIG ' + JSON.stringify(simResult.cfg)) }, 'Copy report')),
@@ -791,6 +934,7 @@ function selectTab(name) {
 for (const t of ['setup', 'play', 'sim']) $('#tab-' + t).addEventListener('click', () => selectTab(t));
 $('#copy-config').addEventListener('click', () => copyText(JSON.stringify(cfg)));
 window.addEventListener('resize', () => { if (!$('#view-play').hidden && G) renderPlay(); });
+wireTips();
 selectTab(store.get('vyeMicro.tab', 'play'));
 window.__vye = { get G() { return G; }, render: () => renderPlay() }; // debug hook for tests
 })();

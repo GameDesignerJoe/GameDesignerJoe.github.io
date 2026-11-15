@@ -89,7 +89,9 @@
       wildLimit: false,      // true: Wild Land can't join a chain that already holds a full set
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
-      tiebreak: 'none'       // none | total
+      tiebreak: 'none',      // none | total | second
+      secondExtraCards: 0,   // second player starts with this many extra cards
+      secondBonus: 0         // points added to the second player's kingdom at the end
     };
   }
 
@@ -142,6 +144,7 @@
       return { hand: [], side };
     });
     for (let i = 0; i < cfg.handSize; i++) for (const pl of players) if (deck.length) pl.hand.push(deck.pop());
+    for (let i = 0; i < (cfg.secondExtraCards | 0); i++) if (deck.length) players[1].hand.push(deck.pop());
     const board = new Map();
     if (cfg.start === 'neutral') board.set(key(0, 0), [{ id: id++, kind: 'start', owner: null }]);
     const state = {
@@ -451,8 +454,11 @@
   function finish(state) {
     const s = score(state.board);
     state.final = s;
-    let w = s.largest[0] > s.largest[1] ? 0 : s.largest[1] > s.largest[0] ? 1 : -1;
+    const a = s.largest[0], b = s.largest[1] + (state.cfg.secondBonus | 0);
+    s.adjusted = [a, b];
+    let w = a > b ? 0 : b > a ? 1 : -1;
     if (w === -1 && state.cfg.tiebreak === 'total') w = s.total[0] > s.total[1] ? 0 : s.total[1] > s.total[0] ? 1 : -1;
+    if (w === -1 && state.cfg.tiebreak === 'second') w = 1;
     state.winner = w;
   }
 
@@ -605,6 +611,7 @@
     L.push(`Family Blue: ${famStr(cfg.family[0])} | Red: ${famStr(cfg.family[1])}`);
     L.push(`Specials: ${Object.entries(cfg.specials).filter(([, n]) => n > 0).map(([k, n]) => SPECIALS[k].name + '×' + n).join(', ') || 'none'}`);
     L.push(`End on: ${Object.entries(cfg.end).filter(([, v]) => v).map(([k]) => k).join(', ')}`);
+    if (cfg.secondBonus || cfg.secondExtraCards || cfg.tiebreak !== 'none') L.push(`Balance: second player +${cfg.secondBonus | 0} points, +${cfg.secondExtraCards | 0} cards, ties → ${cfg.tiebreak}`);
     L.push('');
     L.push(`Wins: ${Object.entries(sum.wins).map(([k, v]) => `${k} ${pct(v / sum.games)}`).join(', ')}, ties ${pct(sum.tieRate)}`);
     L.push(`First player wins ${pct(sum.firstSeatWinRate)}, second ${pct(sum.secondSeatWinRate)}`);
