@@ -15,6 +15,26 @@ The first player must win by 2: the second player gets +1 point and wins ties.
 Simulations showed careful players won about 55% going first without it, and about 49% with it.
 You can change this in Setup → Game end.
 
+## Card art
+
+Tile art lives in `art/`, one square image per card:
+
+| Folder | Files |
+|---|---|
+| `art/lands/` | `birchwood.jpg`, `wolf-hollow.jpg`, `violet-peaks.jpg`, `golden-fields.jpg`, `ice-cliffs.jpg`, `spire-isle.jpg`, `night-thicket.jpg`, `high-peaks.jpg`, `whale-sea.jpg`, `stag-forest.jpg`, `green-hills.jpg`, `dragon-keep.jpg`, `raven-moor.jpg`, `owl-marsh.jpg`, `longship.jpg`, `firelands.jpg` |
+| `art/specials/` | `lostcity.jpg`, `sinkhole.jpg`, `sanctuary.jpg`, `underminers.jpg`, `earthquake.jpg`, `waystone.jpg` (Usurp has no art yet; add `usurp.jpg` and list it in `ART_SPECIALS` in `ui.html`) |
+| `art/family/` | `<house>-<member>.jpg` for house `blue`, `red`, `green`, `orange`, `black` and member `king`, `queen`, `heir`, `advisor`. Midnight uses `blue`, Roses uses `red`. |
+
+To change a picture, replace the file with a square image of the same name (around 320×320 px).
+To crop a full card face down to just its illustration:
+
+```
+pip install pillow numpy
+python tools\crop_art.py path\to\card.jpg art\lands\birchwood.jpg
+```
+
+If a file is missing, the tile falls back to a simple symbol. The **Card art** checkbox on the Play tab turns art off.
+
 ## Files
 
 | File | What it is |
