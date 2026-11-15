@@ -80,6 +80,7 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .note.warn { background: var(--brass-soft); color: var(--warn); }
 .note.ok { background: var(--sunk); color: var(--muted); }
 .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+.presets .btn.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .presets .k { color: var(--muted); font-size: 13px; margin-right: 4px; }
 
 /* play */
@@ -325,6 +326,10 @@ const PRESETS = {
   'Every special': () => Object.assign(E.defaultConfig(), { landSets: 6, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 1])), stacking: 'unlimited' })
 };
 
+// Which preset (if any) matches the current Setup, and whether the game on the table was dealt with different rules.
+function presetName() { const cur = JSON.stringify(cfg); return Object.keys(PRESETS).find(n => JSON.stringify(Object.assign(E.defaultConfig(), PRESETS[n]())) === cur) || null; }
+function cfgChanged() { return !!G && JSON.stringify(G.cfg) !== JSON.stringify(cfg); }
+
 function stepper(val, min, max, onChange, id) {
   const out = h('output', { id }, String(val));
   const dec = h('button', { 'aria-label': 'Decrease', disabled: val <= min, onclick: () => onChange(val - 1) }, '−');
@@ -353,7 +358,9 @@ function renderSetup() {
   const v = $('#view-setup'); v.textContent = '';
   const set = (fn) => { fn(); saveCfg(); renderSetup(); };
   const presets = h('div', { class: 'presets' }, h('span', { class: 'k' }, 'Presets'),
-    Object.keys(PRESETS).map(name => h('button', { class: 'btn', onclick: () => set(() => { cfg = PRESETS[name](); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); }) }, name)));
+    Object.keys(PRESETS).map(name => h('button', { class: 'btn' + (presetName() === name ? ' on' : ''), 'aria-pressed': String(presetName() === name), onclick: () => set(() => { cfg = PRESETS[name](); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); }) }, name)),
+    h('span', { class: 'k', style: 'margin-left:6px' }, presetName() ? '' : 'Custom build'));
+  const stale = G && !G.over && cfgChanged();
 
   const deck = h('div', { class: 'panel' }, h('h2', null, 'Lands'), h('p', { class: 'sub' }, 'Each Land type comes in a matching set. Matching an adjacent Land flips the whole connected chain.'),
     row('Land types', 'How many different Lands go in the deck.', stepper(cfg.landSets, 2, 16, n => set(() => cfg.landSets = n), 'st-landsets')),
@@ -407,7 +414,10 @@ function renderSetup() {
       h('button', { class: 'btn primary', onclick: () => { selectTab('play'); newGame(); } }, 'Play this build'),
       h('button', { class: 'btn', onclick: () => selectTab('sim') }, 'Simulate this build')));
 
-  v.append(presets, h('div', { class: 'grid-setup' }, summary, deck, board, end, fam, specials));
+  v.append(presets,
+    stale ? h('div', { class: 'note warn', style: 'margin:0 0 14px' }, 'A game is in progress with the old settings. Changes here apply when you start a new game. ',
+      h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => { selectTab('play'); newGame(); } }, 'Start a new game now')) : null,
+    h('div', { class: 'grid-setup' }, summary, deck, board, end, fam, specials));
 }
 
 // ---------- tiles ----------
@@ -676,6 +686,9 @@ function renderPlay() {
     h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, `${sc.total[p]} owned`, h('br'), (n => `${n} card${n === 1 ? '' : 's'} left`)(G.players[p].hand.length + G.players[p].side.length)));
   table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, 'Bag', h('b', null, String(G.deck.length))), mchip(1)));
   table.append(bagEl());
+  if (cfgChanged()) table.append(h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
+    'Setup has changed since this game started. This game keeps the rules it was dealt with. ',
+    h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => newGame() }, 'New game with current Setup')));
   table.append(renderBoard());
   const card = selCard();
   const hp = [0, 1].filter(p => isHuman(p));
