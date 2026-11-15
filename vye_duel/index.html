@@ -87,6 +87,12 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .note.warn { background: var(--brass-soft); color: var(--warn); }
 .note.ok { background: var(--sunk); color: var(--muted); }
 .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.preset { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 10px; background: var(--sunk); border: 2px solid transparent; }
+.preset.on { border-color: var(--ink); }
+.preset .btn { align-self: flex-start; }
+.preset .btn.on, .preset .btn.on:disabled { background: var(--ink); color: var(--bg); border-color: var(--ink); opacity: 1; }
+.preset small { font-size: 13px; color: var(--muted); line-height: 1.4; }
 .presets .btn.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .presets .k { color: var(--muted); font-size: 13px; margin-right: 4px; }
 
@@ -898,6 +904,13 @@ let cfg = mergeCfg(store.get('vyeMicro.cfg', null));
 let mirror = store.get('vyeMicro.mirror', true);
 function saveCfg() { store.set('vyeMicro.cfg', cfg); store.set('vyeMicro.mirror', mirror); }
 
+const PRESET_INFO = {
+  'Pairs': 'Only 2 of each Land instead of 3, with 10 Land types. Chains stay short, so Land plays are steadier.',
+  'Two Family each': 'Each player gets just a King and an Heir (no Queen). Family matters less; Lands matter more.',
+  'Asymmetric': 'Uneven sides for testing: Midnight gets an Advisor and an Heir, Roses get a King, Queen and Heir.',
+  'Lands only': 'No Specials at all, just Lands and Family. The bare core game.',
+  'Every special': 'One of every Special in the bag, 6 Land types, and stacks can keep growing. The chaos test.'
+};
 const PRESETS = {
   'Default micro': () => E.defaultConfig(),
   'Pairs': () => Object.assign(E.defaultConfig(), { landSets: 10, landCopies: 2 }),
@@ -906,15 +919,6 @@ const PRESETS = {
   'Lands only': () => Object.assign(E.defaultConfig(), { landSets: 9, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 0])) }),
   'Every special': () => Object.assign(E.defaultConfig(), { landSets: 6, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 1])), stacking: 'unlimited' })
 };
-
-// Setup undo: every change (including presets) can be stepped back. Kept in this browser between visits.
-let setupHistory = store.get('vyeMicro.setupHistory', []);
-function pushSetupHistory(snap) { setupHistory.push(snap); if (setupHistory.length > 50) setupHistory.shift(); store.set('vyeMicro.setupHistory', setupHistory); }
-function undoSetup() {
-  const snap = setupHistory.pop(); if (!snap) return;
-  const o = JSON.parse(snap); cfg = mergeCfg(o.cfg); mirror = o.mirror;
-  store.set('vyeMicro.setupHistory', setupHistory); saveCfg(); renderSetup(); toast('Undid last change');
-}
 
 // Which preset (if any) matches the current Setup, and whether the game on the table was dealt with different rules.
 function presetName() { const cur = JSON.stringify(cfg); return Object.keys(PRESETS).find(n => JSON.stringify(Object.assign(E.defaultConfig(), PRESETS[n]())) === cur) || null; }
@@ -946,13 +950,20 @@ function deckNumbers(c) {
 
 function renderSetup() {
   const v = $('#view-setup'); v.textContent = '';
-  const set = (fn) => { const before = JSON.stringify({ cfg, mirror }); fn(); if (JSON.stringify({ cfg, mirror }) !== before) pushSetupHistory(before); saveCfg(); renderSetup(); };
-  const presets = h('div', { class: 'presets' }, h('span', { class: 'k' }, 'Presets'),
-    Object.keys(PRESETS).map(name => h('button', { class: 'btn' + (presetName() === name ? ' on' : ''), 'aria-pressed': String(presetName() === name), onclick: () => set(() => { cfg = PRESETS[name](); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); }) }, name)),
-    h('span', { class: 'k', style: 'margin-left:6px' }, presetName() ? '' : 'Custom build'),
-    h('span', { class: 'spacer' }),
-    h('button', { class: 'btn', id: 'setup-undo', disabled: !setupHistory.length, title: setupHistory.length ? 'Step back one change' : 'Nothing to undo yet', onclick: undoSetup }, '\u21B6 Undo'),
-    h('button', { class: 'btn', id: 'setup-reset', disabled: presetName() === 'Default micro', onclick: () => set(() => { cfg = E.defaultConfig(); mirror = true; }) }, 'Reset to default'));
+  const set = (fn) => { fn(); saveCfg(); renderSetup(); };
+  const cur = presetName();
+  const presetCard = (label, desc, active, onclick, disabled) => h('div', { class: 'preset' + (active ? ' on' : '') },
+    h('button', { class: 'btn' + (active ? ' on' : ''), 'aria-pressed': String(!!active), disabled: !!disabled, onclick }, label),
+    h('small', null, desc));
+  const presets = h('div', { class: 'panel', style: 'margin-bottom:16px' },
+    h('div', { style: 'display:flex;align-items:baseline;gap:10px;flex-wrap:wrap' }, h('h2', null, 'Presets'),
+      h('span', { class: 'sub', style: 'margin:0' }, cur ? `You\u2019re on: ${cur === 'Default micro' ? 'the default build' : cur}` : 'You\u2019re on: a custom build (you changed settings by hand)')),
+    h('p', { class: 'sub' }, 'A preset changes several settings at once. Your current game isn\u2019t affected until you start a new one.'),
+    h('div', { class: 'preset-grid' },
+      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, King, Queen and Heir each, Usurp, Sinkhole and Lost City, and the first player must win by 2.',
+        cur === 'Default micro', () => set(() => { cfg = E.defaultConfig(); mirror = true; }), cur === 'Default micro'),
+      Object.keys(PRESETS).filter(n => n !== 'Default micro').map(name => presetCard(name, PRESET_INFO[name], cur === name,
+        () => set(() => { cfg = PRESETS[name](); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));
   const stale = G && !G.over && cfgChanged();
 
   const deck = h('div', { class: 'panel' }, h('h2', null, 'Lands'), h('p', { class: 'sub' }, 'Each Land type comes in a matching set. Matching an adjacent Land flips the whole connected chain.'),
