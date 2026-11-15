@@ -441,7 +441,10 @@ function renderSetup() {
     : h('div', { class: 'note ok' }, `${n.fillers} space-filling tiles for ${n.spaces} spaces, so about ${n.fillers - n.spaces} stay unplayed. Cover cards don’t use up spaces.`);
   const summary = h('div', { class: 'panel', style: 'grid-column: 1 / -1' }, h('h2', null, 'This build'),
     h('div', { class: 'summary' },
-      [[n.deck, 'Tiles in the bag'], [n.lands, 'Lands'], [n.specials, 'Specials'], [n.fam[0] + ' / ' + n.fam[1], 'Family Blue / Red'], [n.spaces, 'Board spaces']].map(([val, k]) => h('div', { class: 'stat' }, h('div', { class: 'v' }, String(val)), h('div', { class: 'k' }, k)))),
+      [[n.deck + n.fam[0] + n.fam[1] + (cfg.start === 'neutral' ? 1 : 0), 'Total tiles', `${n.deck} in the bag + ${n.fam[0] + n.fam[1]} Family tiles in the sideboards` + (cfg.start === 'neutral' ? ' + 1 Crossroads starting tile' : '')],
+        [n.deck, 'Tiles in the bag', 'Lands and Specials. Each player draws from these.'], [n.lands, 'Lands'], [n.specials, 'Specials'],
+        [n.fam[0] + ' / ' + n.fam[1], 'Family Blue / Red', 'Face-up sideboard tiles for each player.'], [n.spaces, 'Board spaces']]
+        .map(([val, k, tip]) => h('div', { class: 'stat', 'data-tip': tip || null, tabindex: tip ? '0' : null }, h('div', { class: 'v' }, String(val)), h('div', { class: 'k' }, k, tip ? h('span', { class: 'q' }, '?') : null)))),
     fillNote,
     h('div', { style: 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap' },
       h('button', { class: 'btn primary', onclick: () => { selectTab('play'); newGame(); } }, 'Play this build'),
