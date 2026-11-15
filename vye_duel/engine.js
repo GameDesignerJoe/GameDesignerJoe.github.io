@@ -412,11 +412,12 @@
 
   // ---------- AI ----------
   const PERSONAS = {
-    greedy: { name: 'Greedy', blurb: 'Takes the biggest immediate swing every turn.', a: 0, keep: 0, look: 0, noise: 0.01 },
-    builder: { name: 'Builder', blurb: 'Grows total territory and saves Family for late.', a: 0.35, keep: 0.8, look: 0, noise: 0.02 },
-    cautious: { name: 'Cautious', blurb: 'Weighs the best reply the opponent could make.', a: 0.2, keep: 0.4, look: 1, noise: 0.01 },
-    hoarder: { name: 'Hoarder', blurb: 'Holds Family cards as long as possible.', a: 0.2, keep: 2.0, look: 0, noise: 0.02 },
-    chaotic: { name: 'Chaotic', blurb: 'Plays decent moves with a lot of randomness.', a: 0.1, keep: 0, look: 0, noise: 1.5 },
+    // hold: how much a persona values saving a capture card for a turn where it actually captures something
+    greedy: { name: 'Greedy', blurb: 'Takes the biggest immediate swing every turn.', a: 0, hold: 0, look: 0, noise: 0.01 },
+    builder: { name: 'Builder', blurb: 'Grows total territory and saves capture cards for big turns.', a: 0.35, hold: 0.8, look: 0, noise: 0.02 },
+    cautious: { name: 'Cautious', blurb: 'Weighs the best reply the opponent could make, and doesn\u2019t waste capture cards.', a: 0.2, hold: 1.0, look: 1, noise: 0.01 },
+    hoarder: { name: 'Hoarder', blurb: 'Holds Family and Specials until they can make a big play.', a: 0.2, hold: 1.8, look: 0, noise: 0.02 },
+    chaotic: { name: 'Chaotic', blurb: 'Plays decent moves with a lot of randomness.', a: 0.1, hold: 0.3, look: 0, noise: 1.5 },
     random: { name: 'Random', blurb: 'Any legal move. Baseline for sanity checks.', random: true }
   };
 
@@ -437,6 +438,10 @@
     return cards;
   }
 
+  // Rough extra value of a card over a plain Land, from simulation averages.
+  const HOLD = { advisor: 4, king: 2, queen: 2.5, heir: 2, knave: 2.5, usurp: 2, sinkhole: 1.5, underminers: 2, earthquake: 2, sanctuary: 1, waystone: 0.5, lostcity: 0.3 };
+  function holdValue(card) { return card.kind === 'family' ? HOLD[card.member] || 2 : card.kind === 'special' ? HOLD[card.special] || 1 : 0; }
+
   function chooseMove(state, personaKey) {
     const per = PERSONAS[personaKey] || PERSONAS.greedy;
     const p = state.turn, rng = state.rng;
@@ -451,7 +456,9 @@
       const r = applyEffect(b, state.cfg, p, card, m.pos, m.choice);
       let v = evalBoard(b, p, per.a) - base;
       if (r.extra) v += 0.8;
-      if (card.kind === 'family') v -= per.keep * progress;
+      // Spending a capture card costs what it could have done later; late in the game that cost fades so cards get used.
+      v -= (per.hold || 0) * holdValue(card) * Math.min(1, progress * 1.3);
+      if (per.keep && card.kind === 'family') v -= per.keep * progress;
       if (card.special === 'usurp') v -= 0.3; // costs two cards
       v += per.noise * (rng() - 0.5);
       return { m, v, b };
