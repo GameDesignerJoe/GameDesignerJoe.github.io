@@ -156,6 +156,7 @@ img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: c
 .tile.has-art > .g, .tile.has-art > .n, .tile.has-art > .pat { display: none; }
 .tile.fam.has-art > .pat { display: grid; position: absolute; left: 4px; bottom: 4px; width: calc(var(--cell) * .3); height: calc(var(--cell) * .3); padding: 2px; gap: 1px; background: rgba(250,247,240,.92); border-radius: 4px; }
 .tile.fam.has-art > .pat i { background: #CFC8B8; } .tile.fam.has-art > .pat i.on { background: #8E6610; } .tile.fam.has-art > .pat i.me { background: #1A2027; } .tile.fam.has-art > .pat i.opt { background: #D9BE80; }
+.bonus { font-size: 12px; font-weight: 700; vertical-align: super; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: var(--red); color: #fff; cursor: help; letter-spacing: 0; }
 .counts { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 12px; font-size: 13.5px; margin-bottom: 12px; }
 .counts .hd { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .counts .num { text-align: right; }
@@ -1160,7 +1161,7 @@ function renderBoard() {
 }
 
 function promptEl() {
-  if (G.over) return h('div', { class: 'prompt' }, `Game over · ${G.winner === -1 ? 'Tie' : E.HOUSES[G.winner].short + ' wins'} ${G.final.largest[0]}–${G.final.largest[1]}`, h('button', { class: 'btn', onclick: () => { ui.hideEnd = false; renderPlay(); } }, 'Show result'));
+  if (G.over) return h('div', { class: 'prompt' }, h('span', null, 'Game over · ' + resultLine()), h('button', { class: 'btn', onclick: () => { ui.hideEnd = false; renderPlay(); } }, 'Show result'));
   const p = G.turn; const who = h('span', { class: 'who p' + p }, E.HOUSES[p].short);
   if (!isHuman(p)) return h('div', { class: 'prompt' }, h('span', null, who, paused ? ' is paused.' : ' is thinking…'));
   const card = selCard();
@@ -1205,6 +1206,32 @@ function bagEl() {
     h('span', { class: 'pips' }, [...Array(start)].map((_, i) => h('i', { class: i < left ? 'on' : '' }))));
 }
 
+// Second-player bonus ("first player must win by 2") shown next to Roses' score.
+function bonusTag() {
+  const b = cfg.secondBonus | 0, tie = cfg.tiebreak === 'second';
+  if (!b && !tie) return null;
+  const tip = `Roses went second, so ${b ? `Roses get +${b} at the end` : ''}${b && tie ? ' and ' : ''}${tie ? 'win ties' : ''}. Midnight has to win by ${b + (tie ? 1 : 0) + (b || tie ? 0 : 1)} or more.`;
+  return h('span', { class: 'bonus', 'data-tip': tip, tabindex: '0' }, b ? `+${b}` : 'wins ties');
+}
+function resultLine() {
+  const [a, b] = G.final.largest, w = G.winner;
+  if (w === -1) return `Tie at ${a}`;
+  return `${E.HOUSES[w].short} wins (${a} to ${b}` + ((cfg.secondBonus | 0) ? `, Roses +${cfg.secondBonus}` : '') + ')';
+}
+function resultWhy() {
+  const [a, b] = G.final.largest, bonus = cfg.secondBonus | 0, adj = b + bonus, w = G.winner;
+  const tie = cfg.tiebreak === 'second';
+  let s = `Midnight ${a}, Roses ${b}`;
+  if (bonus) s += ` + ${bonus} second-player bonus = ${adj}`;
+  s += '. ';
+  if (w === 1 && a > b) s += a === adj ? 'That\u2019s a tie, and ties go to the second player, so Roses win. Midnight needed to win by 2.' : 'The bonus puts Roses ahead. Midnight needed to win by 2.';
+  else if (w === 1 && a === b && tie) s += 'Ties go to the second player.';
+  else if (w === 0 && bonus) s += 'Midnight won by enough to beat the bonus.';
+  else if (w === -1 && cfg.tiebreak === 'total') s += 'Still tied on total tiles.';
+  else if (w !== -1 && a === adj && cfg.tiebreak === 'total') s += 'Tied, so it went to whoever owns more tiles in total.';
+  return s;
+}
+
 function countsEl() {
   let tiles = 0; for (const st of G.board.values()) tiles += st.length;
   const P = G.players, row = (label, a, b, cls) => [h('span', { class: cls }, label), h('span', { class: 'num ' + (cls || '') }, a), h('span', { class: 'num ' + (cls || '') }, b)];
@@ -1227,7 +1254,7 @@ function renderPlay() {
   const sc = E.score(G.board);
   const table = h('div', { class: 'table' });
   const mchip = p => h('span', { class: 'mchip p' + p + (G.turn === p && !G.over ? ' active' : '') },
-    h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p])), h('small', null, `${sc.total[p]} owned · ${G.players[p].hand.length + G.players[p].side.length} cards`));
+    h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, `${sc.total[p]} owned`, h('br'), (n => `${n} card${n === 1 ? '' : 's'} left`)(G.players[p].hand.length + G.players[p].side.length)));
   table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, 'Bag', h('b', null, String(G.deck.length))), mchip(1)));
   table.append(bagEl());
   table.append(renderBoard());
@@ -1242,7 +1269,8 @@ function renderPlay() {
     const w = G.winner;
     table.append(h('div', { class: 'endcard' }, h('div', { class: 'box' },
       h('h2', { class: w === -1 ? '' : 'p' + w + 'c' }, w === -1 ? 'A tie' : E.HOUSES[w].short + ' wins'),
-      h('div', null, `Kingdoms ${G.final.largest[0]} – ${G.final.largest[1]}` + (cfg.secondBonus ? ` (+${cfg.secondBonus} Roses bonus)` : '') + ` · ${G.endReason} · ${G.turnNo} turns`),
+      h('div', null, resultWhy()),
+      h('div', { style: 'color:var(--muted);font-size:13.5px' }, `${G.endReason} · ${G.turnNo} turns`),
       h('div', { style: 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap' },
         h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
         h('button', { class: 'btn', onclick: () => newGame(gameSeed) }, 'Replay seed'),
@@ -1251,7 +1279,7 @@ function renderPlay() {
 
   const pscore = p => h('div', { class: 'pscore p' + p + (G.turn === p && !G.over ? ' active' : '') },
     h('div', { class: 'nm' }, h('span', { class: 'dot p' + p }), E.HOUSES[p].sigil + ' ' + E.HOUSES[p].short),
-    h('div', { class: 'big' }, String(sc.largest[p])),
+    h('div', { class: 'big' }, String(sc.largest[p]), p === 1 ? bonusTag() : null),
     h('div', { class: 'sm' }, `largest kingdom · ${sc.total[p]} owned`));
   const personaOpts = (p) => h('select', { id: 'seat-' + p, onchange: e => { seats[p] = e.target.value; store.set('vyeMicro.seats', seats); renderPlay(); scheduleAI(); } },
     h('option', { value: 'human', selected: seats[p] === 'human' }, 'Human'),
