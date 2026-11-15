@@ -58,8 +58,6 @@
       rule: 'Cover any tile. Nobody owns it, ever. Breaks connections.' },
     sanctuary: { name: 'Sanctuary', mode: 'cover', origin: 'Original',
       rule: 'Cover any tile. Owned by both players. Can’t be flipped, covered or moved.' },
-    wild: { name: 'Wild Land', mode: 'cover', origin: 'Adapted',
-      rule: 'Cover a Land and become an adjacent Land type, then match from there.' },
     underminers: { name: 'Underminers', mode: 'place', origin: 'Adapted',
       rule: 'Place it, then flip the tile on the far side of an adjacent tile.' },
     earthquake: { name: 'Earthquake', mode: 'place', origin: 'Original',
@@ -73,20 +71,18 @@
     usurp: { name: 'Usurp', mode: 'replace', origin: 'New',
       rule: 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the deck.' }
   };
-  const SPECIAL_ORDER = ['ancient', 'lostcity', 'sinkhole', 'sanctuary', 'wild', 'watchtower', 'pretender', 'usurp', 'underminers', 'earthquake', 'waystone'];
+  const SPECIAL_ORDER = ['ancient', 'lostcity', 'sinkhole', 'sanctuary', 'watchtower', 'pretender', 'usurp', 'underminers', 'earthquake', 'waystone'];
 
   function defaultConfig() {
     return {
       landSets: 7,
       landCopies: 3,
-      specials: { ancient: 1, lostcity: 1, sinkhole: 1, sanctuary: 0, wild: 1, watchtower: 1, pretender: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
+      specials: { ancient: 1, lostcity: 1, sinkhole: 1, sanctuary: 0, watchtower: 1, pretender: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
       family: [{ advisor: 0, king: 1, queen: 1, heir: 1 }, { advisor: 0, king: 1, queen: 1, heir: 1 }],
       gridW: 5, gridH: 5,
       handSize: 3,
       start: 'neutral',      // neutral | none
       stacking: 'once',      // once | unlimited
-      wildMode: 'cover',     // cover | place | either
-      wildLimit: false,      // true: Wild Land can't join a chain that already holds a full set
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
       tiebreak: 'second',    // none | total | second  (default + bonus 1 = first player must win by 2)
@@ -159,7 +155,7 @@
 
   // ---------- board helpers ----------
   const top = (board, k) => { const s = board.get(k); return s ? s[s.length - 1] : null; };
-  const landOf = t => !t ? -1 : t.kind === 'land' ? t.land : (t.special === 'wild' ? t.wildAs : -1);
+  const landOf = t => !t ? -1 : t.kind === 'land' ? t.land : -1;
   const ownedBy = (t, p) => t && (t.owner === p || t.owner === 'both');
   function canFlip(t) {
     if (!t || (t.owner !== 0 && t.owner !== 1)) return false;
@@ -234,24 +230,6 @@
     for (const d of dirs) { const t = top(board, k + d); if (canFlip(t) && t.owner !== p) out.push(k + d); }
     return out;
   }
-  function wildChoices(state, k) {
-    const { board, cfg } = state;
-    const types = new Set();
-    for (const d of ORTHO_D) { const L = landOf(top(board, k + d)); if (L >= 0) types.add(L); }
-    const ok = [];
-    for (const L of types) {
-      // union of type-L chains touching k (k itself excluded)
-      const seen = new Set([k]); const q = []; let size = 0, hasWild = false;
-      for (const d of ORTHO_D) { const n = k + d; if (landOf(top(board, n)) === L && !seen.has(n)) { seen.add(n); q.push(n); } }
-      while (q.length) {
-        const c = q.pop(); size++; if (top(board, c).special === 'wild') hasWild = true;
-        for (const d of ORTHO_D) { const n = c + d; if (!seen.has(n) && landOf(top(board, n)) === L) { seen.add(n); q.push(n); } }
-      }
-      if (!hasWild && (!cfg.wildLimit || size < cfg.landCopies)) ok.push(L);
-    }
-    return ok;
-  }
-
   // All moves for one card. opts.prune limits Earthquake enumeration for the AI.
   function cardMoves(state, p, card, src, opts) {
     const { board } = state;
@@ -299,14 +277,6 @@
           } else add(k);
         }
         break;
-      case 'wild': {
-        const mode = state.cfg.wildMode;
-        if (mode === 'cover' || mode === 'either')
-          for (const k of occupied) if (coverable(state, k) && landOf(top(board, k)) >= 0) wildChoices(state, k).forEach(L => add(k, L));
-        if (mode === 'place' || mode === 'either')
-          for (const k of placeCells(state)) wildChoices(state, k).forEach(L => add(k, L));
-        break;
-      }
       case 'usurp': {
         const hand = state.players[p].hand.filter(c => c.kind === 'land' && c.id !== card.id);
         const byType = new Map(); hand.forEach(c => { if (!byType.has(c.land)) byType.set(c.land, c); });
@@ -390,7 +360,6 @@
       case 'sinkhole': base.owner = null; pushTile(board, k, base); break;
       case 'sanctuary': base.owner = 'both'; pushTile(board, k, base); break;
       case 'pretender': { const cov = top(board, k); base.member = cov.member; base.house = cov.house; pushTile(board, k, base); familyCapture(cov.member, cov.house, choice, false); break; }
-      case 'wild': base.wildAs = choice; pushTile(board, k, base); landMatch(k, choice); break;
       case 'usurp': {
         res.removed = board.get(k)[0]; board.delete(k);
         pushTile(board, k, { id: choice.cardId, kind: 'land', land: choice.land, owner: p });

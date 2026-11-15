@@ -328,8 +328,6 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
       rule: 'Cover any tile. Nobody owns it, ever. Breaks connections.' },
     sanctuary: { name: 'Sanctuary', mode: 'cover', origin: 'Original',
       rule: 'Cover any tile. Owned by both players. Can’t be flipped, covered or moved.' },
-    wild: { name: 'Wild Land', mode: 'cover', origin: 'Adapted',
-      rule: 'Cover a Land and become an adjacent Land type, then match from there.' },
     underminers: { name: 'Underminers', mode: 'place', origin: 'Adapted',
       rule: 'Place it, then flip the tile on the far side of an adjacent tile.' },
     earthquake: { name: 'Earthquake', mode: 'place', origin: 'Original',
@@ -343,20 +341,18 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
     usurp: { name: 'Usurp', mode: 'replace', origin: 'New',
       rule: 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the deck.' }
   };
-  const SPECIAL_ORDER = ['ancient', 'lostcity', 'sinkhole', 'sanctuary', 'wild', 'watchtower', 'pretender', 'usurp', 'underminers', 'earthquake', 'waystone'];
+  const SPECIAL_ORDER = ['ancient', 'lostcity', 'sinkhole', 'sanctuary', 'watchtower', 'pretender', 'usurp', 'underminers', 'earthquake', 'waystone'];
 
   function defaultConfig() {
     return {
       landSets: 7,
       landCopies: 3,
-      specials: { ancient: 1, lostcity: 1, sinkhole: 1, sanctuary: 0, wild: 1, watchtower: 1, pretender: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
+      specials: { ancient: 1, lostcity: 1, sinkhole: 1, sanctuary: 0, watchtower: 1, pretender: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
       family: [{ advisor: 0, king: 1, queen: 1, heir: 1 }, { advisor: 0, king: 1, queen: 1, heir: 1 }],
       gridW: 5, gridH: 5,
       handSize: 3,
       start: 'neutral',      // neutral | none
       stacking: 'once',      // once | unlimited
-      wildMode: 'cover',     // cover | place | either
-      wildLimit: false,      // true: Wild Land can't join a chain that already holds a full set
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
       tiebreak: 'second',    // none | total | second  (default + bonus 1 = first player must win by 2)
@@ -429,7 +425,7 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
 
   // ---------- board helpers ----------
   const top = (board, k) => { const s = board.get(k); return s ? s[s.length - 1] : null; };
-  const landOf = t => !t ? -1 : t.kind === 'land' ? t.land : (t.special === 'wild' ? t.wildAs : -1);
+  const landOf = t => !t ? -1 : t.kind === 'land' ? t.land : -1;
   const ownedBy = (t, p) => t && (t.owner === p || t.owner === 'both');
   function canFlip(t) {
     if (!t || (t.owner !== 0 && t.owner !== 1)) return false;
@@ -504,24 +500,6 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
     for (const d of dirs) { const t = top(board, k + d); if (canFlip(t) && t.owner !== p) out.push(k + d); }
     return out;
   }
-  function wildChoices(state, k) {
-    const { board, cfg } = state;
-    const types = new Set();
-    for (const d of ORTHO_D) { const L = landOf(top(board, k + d)); if (L >= 0) types.add(L); }
-    const ok = [];
-    for (const L of types) {
-      // union of type-L chains touching k (k itself excluded)
-      const seen = new Set([k]); const q = []; let size = 0, hasWild = false;
-      for (const d of ORTHO_D) { const n = k + d; if (landOf(top(board, n)) === L && !seen.has(n)) { seen.add(n); q.push(n); } }
-      while (q.length) {
-        const c = q.pop(); size++; if (top(board, c).special === 'wild') hasWild = true;
-        for (const d of ORTHO_D) { const n = c + d; if (!seen.has(n) && landOf(top(board, n)) === L) { seen.add(n); q.push(n); } }
-      }
-      if (!hasWild && (!cfg.wildLimit || size < cfg.landCopies)) ok.push(L);
-    }
-    return ok;
-  }
-
   // All moves for one card. opts.prune limits Earthquake enumeration for the AI.
   function cardMoves(state, p, card, src, opts) {
     const { board } = state;
@@ -569,14 +547,6 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
           } else add(k);
         }
         break;
-      case 'wild': {
-        const mode = state.cfg.wildMode;
-        if (mode === 'cover' || mode === 'either')
-          for (const k of occupied) if (coverable(state, k) && landOf(top(board, k)) >= 0) wildChoices(state, k).forEach(L => add(k, L));
-        if (mode === 'place' || mode === 'either')
-          for (const k of placeCells(state)) wildChoices(state, k).forEach(L => add(k, L));
-        break;
-      }
       case 'usurp': {
         const hand = state.players[p].hand.filter(c => c.kind === 'land' && c.id !== card.id);
         const byType = new Map(); hand.forEach(c => { if (!byType.has(c.land)) byType.set(c.land, c); });
@@ -660,7 +630,6 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
       case 'sinkhole': base.owner = null; pushTile(board, k, base); break;
       case 'sanctuary': base.owner = 'both'; pushTile(board, k, base); break;
       case 'pretender': { const cov = top(board, k); base.member = cov.member; base.house = cov.house; pushTile(board, k, base); familyCapture(cov.member, cov.house, choice, false); break; }
-      case 'wild': base.wildAs = choice; pushTile(board, k, base); landMatch(k, choice); break;
       case 'usurp': {
         res.removed = board.get(k)[0]; board.delete(k);
         pushTile(board, k, { id: choice.cardId, kind: 'land', land: choice.land, owner: p });
@@ -968,7 +937,7 @@ function row(label, help, control) {
 function deckNumbers(c) {
   const lands = c.landSets * c.landCopies;
   let specials = 0, placeSpecials = 0;
-  for (const s of E.SPECIAL_ORDER) { const n = c.specials[s] | 0; specials += n; const mode = s === 'wild' ? (c.wildMode === 'cover' ? 'cover' : 'place') : E.SPECIALS[s].mode; if (mode === 'place') placeSpecials += n; }
+  for (const s of E.SPECIAL_ORDER) { const n = c.specials[s] | 0; specials += n; const mode = E.SPECIALS[s].mode; if (mode === 'place') placeSpecials += n; }
   const fam = c.family.map(f => E.MEMBER_ORDER.reduce((a, m) => a + (f[m] | 0), 0));
   const spaces = c.gridW * c.gridH;
   const fillers = lands + placeSpecials + fam[0] + fam[1] + (c.start === 'neutral' ? 1 : 0);
@@ -988,7 +957,7 @@ function renderSetup() {
   const specials = h('div', { class: 'panel' }, h('h2', null, 'Specials'), h('p', { class: 'sub' }, 'Token cards are gone. Everything here works with flip-for-ownership tiles.'),
     E.SPECIAL_ORDER.map(s => {
       const S = E.SPECIALS[s];
-      const mode = s === 'wild' ? (cfg.wildMode === 'cover' ? 'covers' : cfg.wildMode === 'place' ? 'placed' : 'covers or placed') : ({ place: 'placed', cover: 'covers', replace: 'replaces' })[S.mode];
+      const mode = ({ place: 'placed', cover: 'covers', replace: 'replaces' })[S.mode];
       return row(h('span', null, S.name, h('span', { class: 'chip' + (S.origin !== 'Original' ? ' new' : '') }, S.origin), h('span', { class: 'chip' }, mode)), S.rule,
         stepper(cfg.specials[s] | 0, 0, 3, n => set(() => cfg.specials[s] = n), 'st-sp-' + s));
     }));
@@ -1010,9 +979,7 @@ function renderSetup() {
     row('Height limit', null, stepper(cfg.gridH, 3, 8, n => set(() => cfg.gridH = n), 'st-h')),
     row('Hand size', null, stepper(cfg.handSize, 1, 6, n => set(() => cfg.handSize = n), 'st-hand')),
     row('Opening tile', 'A neutral Crossroads that nobody can own, or an empty table.', seg([['neutral', 'Crossroads'], ['none', 'Empty']], cfg.start, x => set(() => cfg.start = x))),
-    row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: stacks keep growing.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))),
-    row('Wild Land', 'Covers a Land (adapted) or is placed in an empty space (original).', seg([['cover', 'Covers'], ['place', 'Placed'], ['either', 'Either']], cfg.wildMode, x => set(() => cfg.wildMode = x))),
-    row('Wild Land set limit', 'Original rule: Wild Land can\u2019t join a chain that already has a full set. One Wild Land per chain always applies.', h('input', { type: 'checkbox', id: 'wildlimit', checked: !!cfg.wildLimit, onchange: e => set(() => cfg.wildLimit = e.target.checked) })));
+    row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: stacks keep growing.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))));
 
   const endKeys = [['boardFull', 'Board is full', 'Every space inside the width × height limit is filled.'], ['deckEmpty', 'Deck is empty', 'Ends the moment the last card is drawn.'], ['noValidPlay', 'A player can’t play', 'If off, that player passes instead. The game ends when neither can play.']];
   const end = h('div', { class: 'panel' }, h('h2', null, 'Game end'),
@@ -1039,16 +1006,16 @@ function renderSetup() {
 }
 
 // ---------- tiles ----------
-const SPEC_GLYPH = { ancient: '∩', lostcity: '♜', sinkhole: '◎', sanctuary: '✧', wild: '✳', watchtower: '♖', pretender: '♛', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
+const SPEC_GLYPH = { ancient: '∩', lostcity: '♜', sinkhole: '◎', sanctuary: '✧', watchtower: '♖', pretender: '♛', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
 function patEl(member) {
   const on = { advisor: [0,1,2,3,5,6,7,8], king: [1,3,5,7], queen: [0,2,6,8], heir: [] }[member];
   return h('span', { class: 'pat' }, [...Array(9)].map((_, i) => h('i', { class: i === 4 ? 'me' : on.includes(i) ? 'on' : member === 'heir' ? 'opt' : '' })));
 }
 function tileEl(t, owner) {
   let el;
-  if (t.kind === 'land' || (t.special === 'wild' && t.wildAs != null)) {
-    const L = E.LANDS[t.kind === 'land' ? t.land : t.wildAs];
-    el = h('div', { class: 'tile land', style: '--lc:' + L.color }, h('span', { class: 'g' }, t.special === 'wild' ? '✳' : L.glyph), h('span', { class: 'n' }, t.special === 'wild' ? 'Wild ' + L.name : L.name));
+  if (t.kind === 'land') {
+    const L = E.LANDS[t.land];
+    el = h('div', { class: 'tile land', style: '--lc:' + L.color }, h('span', { class: 'g' }, L.glyph), h('span', { class: 'n' }, L.name));
   } else if (t.kind === 'family') {
     el = h('div', { class: 'tile fam' }, patEl(t.member), h('span', { class: 'n' }, E.MEMBERS[t.member].name), h('span', { class: 'n', style: 'opacity:.6;margin-top:0' }, E.HOUSES[t.house].short));
   } else if (t.kind === 'special') {
@@ -1066,7 +1033,6 @@ function tileEl(t, owner) {
 function cardDesc(c) {
   if (c.kind === 'land') return `${E.LANDS[c.land].name}: matches adjacent ${E.LANDS[c.land].name} and flips the whole chain.`;
   if (c.kind === 'family') return `${E.MEMBERS[c.member].name}: ${E.MEMBERS[c.member].rule}` + (cfg.colorCapture ? ' Also flips adjacent same-house Family.' : '');
-  if (c.special === 'wild') return `Wild Land: ${E.SPECIALS.wild.rule} Lands light up only if they touch a Land it can copy.`;
   return `${E.SPECIALS[c.special].name}: ${E.SPECIALS[c.special].rule}`;
 }
 
@@ -1127,15 +1093,13 @@ function clickCell(k) {
     const pm = ms.filter(m => m.pos === k); if (!pm.length) return;
     if (!pm.some(m => m.choice != null)) return humanPlay(pm[0]);
     ui.pos = k;
-    if (card.special === 'wild') ui.phase = 'wild';
-    else if (card.special === 'usurp') ui.phase = 'usurp';
+    if (card.special === 'usurp') ui.phase = 'usurp';
     else if (card.special === 'earthquake') ui.phase = 'eqA';
     else ui.phase = 'cell';
     return renderPlay();
   }
   const pm = ms.filter(m => m.pos === ui.pos);
   if (ui.phase === 'cell') { const m = pm.find(m => m.choice === k); if (m) humanPlay(m); return; }
-  if (ui.phase === 'wild') { const L = E.landOf(E.top(G.board, k)); if (wildSources().has(k)) humanPlay(pm.find(m => m.choice === L)); return; }
   if (ui.phase === 'eqA') { if (pm.some(m => m.choice && m.choice.includes(k))) { ui.eqA = k; ui.phase = 'eqB'; renderPlay(); } return; }
   if (ui.phase === 'eqB') { const m = pm.find(m => m.choice && m.choice.includes(ui.eqA) && m.choice.includes(k) && k !== ui.eqA); if (m) humanPlay(m); return; }
 }
@@ -1146,22 +1110,11 @@ function targetsNow() {
   if (ui.phase === null) return new Set(ms.map(m => m.pos));
   const pm = ms.filter(m => m.pos === ui.pos);
   if (ui.phase === 'cell') return new Set(pm.map(m => m.choice).filter(c => c != null));
-  if (ui.phase === 'wild') return wildSources();
   if (ui.phase === 'eqA') { const s = new Set(); pm.forEach(m => m.choice && m.choice.forEach(c => s.add(c))); return s; }
   if (ui.phase === 'eqB') { const s = new Set(); pm.forEach(m => { if (m.choice && m.choice.includes(ui.eqA)) m.choice.forEach(c => { if (c !== ui.eqA) s.add(c); }); }); return s; }
   return new Set();
 }
 
-// Adjacent Land tiles Wild Land can copy, for the current target space.
-function wildSources() {
-  const types = new Set(movesFor().filter(m => m.pos === ui.pos).map(m => m.choice));
-  const out = new Set();
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const n = E.key(E.kx(ui.pos) + dx, E.ky(ui.pos) + dy);
-    if (n !== ui.pos && types.has(E.landOf(E.top(G.board, n)))) out.add(n);
-  }
-  return out;
-}
 function usurpPick(c) {
   const m = movesFor().find(m => m.pos === ui.pos && m.choice && m.choice.land === c.land);
   if (m) humanPlay(Object.assign({}, m, { choice: { cardId: c.id, land: c.land } }));
@@ -1212,7 +1165,6 @@ function promptEl() {
   const cancel = h('button', { class: 'btn', onclick: () => { ui = { sel: null, pos: null, phase: null, eqA: null }; renderPlay(); } }, 'Cancel');
   const back = h('button', { class: 'btn', onclick: () => { ui.pos = null; ui.phase = null; ui.eqA = null; renderPlay(); } }, 'Back');
   const pm = movesFor().filter(m => m.pos === ui.pos);
-  if (ui.phase === 'wild') return h('div', { class: 'prompt' }, h('span', null, 'Wild Land: tap the adjacent Land it should copy.'), back);
   if (ui.phase === 'usurp') return h('div', { class: 'prompt' }, h('span', null, 'Usurp: tap the Land from your hand to put in its place.'), back);
   if (ui.phase === 'cell') return h('div', { class: 'prompt' }, 'Choose the tile to flip.', back);
   if (ui.phase === 'eqA') return h('div', { class: 'prompt' }, 'Earthquake: pick the first tile to swap.', h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === null)) }, 'No swap'), back);
@@ -1431,7 +1383,6 @@ function buildReview(s, c, personas) {
   const deciders = others.filter(x => x.winWhenPlayed > 0.58).sort((a, b) => b.winWhenPlayed - a.winWhenPlayed);
   const weak = others.filter(x => x.winWhenPlayed < 0.42).sort((a, b) => a.winWhenPlayed - b.winWhenPlayed);
   const FIX = {
-    'Wild Land': 'turn on the Wild Land set limit, or let it cover only your own Land',
     'Queen': 'take the Queen out of the sideboards, or replace it with a second King',
     'Advisor': 'drop the Advisor, or have it flip only up to 4 of its 8 neighbors',
     'Pretender': 'have it take the Family tile without firing its capture',
