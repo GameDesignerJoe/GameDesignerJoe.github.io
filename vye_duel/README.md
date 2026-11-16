@@ -55,7 +55,7 @@ To redo all the art from the 3rd-edition card exports (it also writes the larger
 
 ```
 pip install pillow numpy
-python tools\crop_art3.py path\to\card-exports path\to\folder-with-red-knave.jpg-and-blue-knave.jpg
+python tools\crop_art3.py path\to\card-exports art\knave-cards
 ```
 
 It covers the card-type logo in the top-left with paper and keeps the whole picture. Rebuild the PDFs afterwards.
