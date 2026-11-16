@@ -66,6 +66,8 @@ a.btn { text-decoration: none; color: inherit; display: inline-block; }
 .row .lbl small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.35; }
 .chip { display: inline-block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--sunk); color: var(--muted); vertical-align: 2px; margin-left: 4px; }
 .chip.new { background: var(--brass-soft); color: var(--brass); }
+.numbox { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 13.5px; color: var(--muted); }
+.numbox input { width: 6ch; box-sizing: content-box; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card, transparent); color: var(--ink); font: inherit; font-weight: 700; text-align: right; }
 .stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none; }
 .stepper button { width: 30px; height: 30px; border: 0; background: var(--sunk); cursor: pointer; font-size: 17px; line-height: 1; }
 .stepper button:disabled { opacity: .35; cursor: default; }
@@ -1265,10 +1267,16 @@ function renderSetup() {
       h('button', { class: 'btn primary', onclick: () => { selectTab('play'); newGame(); } }, 'Play this build'),
       h('button', { class: 'btn', onclick: () => selectTab('sim') }, 'Simulate this build')));
 
+  const aiPanel = h('div', { class: 'panel' }, h('h2', null, 'AI players'),
+    h('p', { class: 'sub' }, 'Saved in this browser only. It isn\u2019t part of the build and doesn\u2019t change the rules.'),
+    row('Pause before each AI move', 'Seconds the AI waits before it plays, counted from when the last move finishes animating. 0 plays instantly.',
+      h('span', { class: 'numbox' }, h('input', { type: 'number', id: 'aipause', min: '0', max: '10', step: '0.1', value: String(aiPause), inputmode: 'decimal',
+        onchange: e => { const x = parseFloat(e.target.value); aiPause = isFinite(x) ? Math.min(10, Math.max(0, Math.round(x * 10) / 10)) : 1.5; e.target.value = String(aiPause); store.set('vyeMicro.aiPause', aiPause); } }),
+        h('span', null, 'seconds'))));
   v.append(presets,
     stale ? h('div', { class: 'note warn', style: 'margin:0 0 14px' }, 'A game is in progress with the old settings. Changes here apply when you start a new game. ',
       h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => { selectTab('play'); newGame(); } }, 'Start a new game now')) : '',
-    h('div', { class: 'grid-setup' }, summary, deck, board, end, fam, specials));
+    h('div', { class: 'grid-setup' }, summary, deck, board, end, fam, specials, aiPanel));
 }
 
 // ---------- tiles ----------
@@ -1347,7 +1355,9 @@ function specialRule(s) {
 
 // ---------- play ----------
 const seats = store.get('vyeMicro.seats', ['human', 'cautious']);
-let speed = store.get('vyeMicro.speed', 600);
+// Seconds the AI waits before each move (after any animation). Set on the Setup tab; kept per browser, not part of the rules config.
+let aiPause = +store.get('vyeMicro.aiPause', 1.5);
+if (!(aiPause >= 0)) aiPause = 1.5;
 let reveal = false;
 let revealBag = false;
 let G = null;            // game state
@@ -1369,7 +1379,6 @@ function newGame(seed) {
   renderPlay(); scheduleAI();
 }
 const isHuman = p => seats[p] === 'human';
-const AI_PAUSE = 2000;   // ms the AI waits before playing against a human
 function scheduleAI() {
   clearTimeout(aiTimer);
   if (!G || G.over || isHuman(G.turn) || paused) return;
@@ -1378,7 +1387,7 @@ function scheduleAI() {
     const m = E.chooseMove(G, seats[G.turn]);
     if (m) { animFrom = sourceRect(G.turn, m.cardId); E.playMove(G, m); }
     renderPlay(); scheduleAI();
-  }, isHuman(0) || isHuman(1) ? Math.max(0, animBusyUntil - performance.now()) + AI_PAUSE : Math.max(speed, animBusyUntil - performance.now() + 150));
+  }, Math.max(0, animBusyUntil - performance.now()) + aiPause * 1000);
 }
 function humanPlay(move) {
   animFrom = sourceRect(G.turn, move.cardId);
@@ -1560,7 +1569,7 @@ function sourceRect(p, cardId) {
 }
 function cellEl(k) { return document.querySelector(`.cell[data-k="${k}"]`); }
 function runAnim(lm, from) {
-  const D = speed <= 150 ? 280 : speed >= 1400 ? 760 : 500;
+  const D = aiPause < 0.5 ? 280 : 500;
   const cell = cellEl(lm.pos); if (!cell) return;
   const st = G.board.get(lm.pos) || [];
   const topTile = cell.querySelector('.tile:not(.under)');
@@ -1669,9 +1678,6 @@ function renderPlay() {
         h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
         h('button', { class: 'btn', onclick: undo, disabled: !history.length }, 'Undo'),
         bothAI ? h('button', { class: 'btn', onclick: () => { paused = !paused; renderPlay(); scheduleAI(); } }, paused ? 'Resume' : 'Pause') : null),
-      bothAI ? h('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;font-size:13.5px' },
-        h('span', { style: 'color:var(--muted)' }, 'AI speed'),
-        seg([[150, 'Fast'], [600, 'Normal'], [1400, 'Slow']], speed, x => { speed = x; store.set('vyeMicro.speed', x); renderPlay(); })) : null,
       h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
         h('span', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Tiles'),
