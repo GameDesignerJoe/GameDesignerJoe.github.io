@@ -5,6 +5,7 @@
 //   npx playwright install chromium   (once)
 //   node build_pdf.js          (2.5 in tiles)
 //   node build_pdf.js 67mm     (tiles for 70 mm square sleeves)
+//   node build_pdf.js single   (one-sided: fronts then backs, packed together, for sticker sheets; works with 67mm too)
 //
 // Tiles are 2.5 in (playing-card width), 3 × 4 per US Letter sheet.
 // Every even page is the back of the page before it, mirrored left-to-right
@@ -73,15 +74,35 @@ function face(t, side) {
 
 // ---------- pages ----------
 // Tile size: default 2.5 in (playing-card width). `node build_pdf.js 67mm` makes tiles for 70 mm square sleeves.
-const arg = process.argv[2] || '';
+// Add `single` for a one-sided version (fronts, then backs, packed together: good for sticker sheets).
+const ARGS = process.argv.slice(2), SINGLE = ARGS.includes('single');
+const arg = ARGS.find(a => /(mm|in)$/.test(a)) || '';
 const SIZE = /mm$/.test(arg) ? parseFloat(arg) / 25.4 : /in$/.test(arg) ? parseFloat(arg) : 2.5;
 const K = SIZE / 2.5;                                 // tiles are drawn at 2.5 in and scaled
 const COLS = Math.floor(8.0 / SIZE), ROWS = Math.floor(10.3 / SIZE), PER = COLS * ROWS;
 const X0 = (8.5 - COLS * SIZE) / 2, Y0 = Math.min(0.5, (11 - ROWS * SIZE) / 2);
-const OUT = SIZE === 2.5 ? 'vye-duel-print-and-play.pdf' : `vye-duel-print-and-play-${Math.round(SIZE * 25.4)}mm.pdf`;
+const OUT = 'vye-duel-print-and-play' + (SIZE === 2.5 ? '' : `-${Math.round(SIZE * 25.4)}mm`) + (SINGLE ? '-single-sided' : '') + '.pdf';
 const sheets = [];
 for (let i = 0; i < tiles.length; i += PER) sheets.push(tiles.slice(i, i + PER));
-const PAGES = 2 + sheets.length * 2;
+// single-sided: every front in order, then every back in the same order, filling each page
+const faces = tiles.map((t, i) => ({ t, side: 0, n: i + 1 })).concat(tiles.map((t, i) => ({ t, side: 1, n: i + 1 })));
+const singlePages = [];
+for (let i = 0; i < faces.length; i += PER) singlePages.push(faces.slice(i, i + PER));
+const PAGES = 2 + (SINGLE ? singlePages.length : sheets.length * 2);
+function singleSheet(list) {
+  const cells = list.map((f, slot) => `<div class="cellbox" style="left:${X0 + (slot % COLS) * SIZE}in;top:${Y0 + Math.floor(slot / COLS) * SIZE}in;width:${SIZE}in;height:${SIZE}in"><div class="slot" style="left:0;top:0;transform:scale(${K});transform-origin:0 0">${face(f.t, f.side)}</div></div>`);
+  const marks = [], rows = Math.ceil(list.length / COLS);
+  for (let c = 0; c <= COLS; c++) marks.push(`<div class="mk v" style="left:${X0 + c * SIZE}in;top:${Y0 - 0.36}in"></div><div class="mk v" style="left:${X0 + c * SIZE}in;top:${Y0 + rows * SIZE + 0.08}in"></div>`);
+  for (let r = 0; r <= rows; r++) marks.push(`<div class="mk h" style="top:${Y0 + r * SIZE}in;left:${X0 - 0.36}in"></div><div class="mk h" style="top:${Y0 + r * SIZE}in;left:${X0 + COLS * SIZE + 0.08}in"></div>`);
+  return `<section class="page sheet front">${cells.join('')}${marks.join('')}
+    <div class="cutgrid" style="left:${X0}in;top:${Y0}in;width:${COLS * SIZE}in;height:${rows * SIZE}in;background-size:${SIZE}in ${SIZE}in"></div>
+    <div class="foot">${pageWhat(list)} · cut on the lines</div></section>`;
+}
+function pageWhat(list) {
+  const part = s => { const f = list.filter(x => x.side === s); return f.length ? `${s ? 'backs' : 'fronts'} ${f[0].n}&ndash;${f[f.length - 1].n}` : ''; };
+  const t = [part(0), part(1)].filter(Boolean).join(', then ');
+  return t[0].toUpperCase() + t.slice(1);
+}
 function sheet(list, side) {
   const cells = [];
   for (let slot = 0; slot < PER; slot++) {
@@ -117,12 +138,19 @@ const rules = fs.readFileSync(path.join(HERE, 'rules.html'), 'utf8')
   .replace('Print pages 3&ndash;8', `Print pages 3&ndash;${PAGES}`)
   .replace('Tiles are 2.5 inches, the width of a playing card.', sizeText)
   .replace(/(\d) of 8</g, `$1 of ${PAGES}<`)
-  .replace(/<table class="counts">[\s\S]*?<\/table>/, '<table class="counts">' + sheets.map((s, i) => `<tr><td>Sheet ${i + 1}</td><td>${sheetSummary(s)}</td></tr>`).join('') + '</table>');
+  .replace(/<table class="counts">[\s\S]*?<\/table>/, '<table class="counts">' + (SINGLE
+    ? singlePages.map((p, i) => `<tr><td>Page ${i + 3}</td><td>${pageWhat(p)}</td></tr>`).join('')
+    : sheets.map((s, i) => `<tr><td>Sheet ${i + 1}</td><td>${sheetSummary(s)}</td></tr>`).join('')) + '</table>');
+const rulesOut = !SINGLE ? rules : rules
+  .replace('US Letter paper. Light cardstock works best.', 'US Letter paper or sticker sheets.')
+  .replace(/<li>Print pages 3&ndash;\d+ <b>double-sided, flip on long edge<\/b>\. Each even page is the back of the page before it\.<\/li>/,
+    `<li>Print pages 3&ndash;${PAGES} <b>single-sided</b>. First come the ${tiles.length} tile fronts, then the ${tiles.length} backs in the same order.</li><li>Both sides of a tile show the same picture, so match each back to its front and glue or stick them together (or stick both onto a blank tile).</li>`)
+  .replace('Cut on the lines on the front of each sheet.', 'Cut on the lines.');
 
 const css = fs.readFileSync(path.join(HERE, 'print.css'), 'utf8').replace(/url\(fonts\//g, `url(${url('fonts')}/`);
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>Vye Duel – Print and Play</title><style>${css}</style></head><body>
-${rules}
-${sheets.map(s => sheet(s, 0) + sheet(s, 1)).join('\n')}
+${rulesOut}
+${SINGLE ? singlePages.map(singleSheet).join('\n') : sheets.map(s => sheet(s, 0) + sheet(s, 1)).join('\n')}
 </body></html>`;
 fs.writeFileSync(path.join(HERE, 'print.html'), html);
 
@@ -134,5 +162,5 @@ fs.writeFileSync(path.join(HERE, 'print.html'), html);
   await page.evaluate(() => document.fonts.ready);
   await page.pdf({ path: path.join(HERE, OUT), format: 'Letter', printBackground: true, preferCSSPageSize: true });
   await browser.close();
-  console.log(`${OUT}: ${tiles.length} tiles at ${(SIZE * 25.4).toFixed(1)} mm on ${sheets.length} double-sided sheets, ${PAGES} pages`);
+  console.log(`${OUT}: ${tiles.length} tiles at ${(SIZE * 25.4).toFixed(1)} mm on ${SINGLE ? singlePages.length + ' single-sided' : sheets.length + ' double-sided'} sheets, ${PAGES} pages`);
 })();
