@@ -147,7 +147,9 @@ a.btn { text-decoration: none; color: inherit; display: inline-block; }
 @keyframes flip { 0% { transform: rotateY(0); } 50% { transform: rotateY(90deg); } 100% { transform: rotateY(0); } }
 @media (prefers-reduced-motion: reduce) { .cell .tile, .hcard.pick { animation: none !important; } }
 
-.hand-area { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+/* the player whose turn it is gets a gold border around their hand */
+.hand-area { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 2px solid transparent; border-radius: 14px; transition: border-color .25s, box-shadow .25s; }
+.hand-area.turn { border-color: var(--brass); box-shadow: 0 0 0 4px var(--brass-soft); }
 .hand-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; display: flex; gap: 8px; align-items: center; }
 .hand { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .hcard { width: 78px; height: 78px; border-radius: 10px; position: relative; cursor: pointer; border: 0; padding: 0; background: none; --cell: 78px; }
@@ -155,13 +157,6 @@ a.btn { text-decoration: none; color: inherit; display: inline-block; }
 .cell.chosen::after { content: ""; position: absolute; inset: -5px; border-radius: 13px; border: 3px solid var(--brass); pointer-events: none; }
 .hcard.pick { outline: 3px dashed var(--brass); outline-offset: 3px; animation: nudge 1.2s ease-in-out infinite; }
 @keyframes nudge { 50% { transform: translateY(-3px); } }
-.bag { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 13.5px; color: var(--muted); cursor: help; }
-.bag-label { font-weight: 500; }
-.bag.low .bag-label { color: var(--warn); }
-.pips { display: flex; flex-wrap: wrap; gap: 3px; max-width: 360px; }
-.pips i { width: 7px; height: 11px; border-radius: 2px; border: 1px solid var(--line); }
-.pips i.on { background: var(--brass); border-color: var(--brass); }
-.bag.low .pips i.on { background: var(--warn); border-color: var(--warn); }
 img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 9px; pointer-events: none; }
 .tile.has-art { background: #F9F1E4; }
 .tile.has-art > .g, .tile.has-art > .n, .tile.has-art > .pat { display: none; }
@@ -183,6 +178,7 @@ img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: c
 .counts { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 12px; font-size: 13.5px; margin-bottom: 12px; }
 .counts .hd { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .counts .num { text-align: right; }
+.counts .sub { font-size: 12px; color: var(--muted); padding-left: 10px; }
 .counts .tot { border-top: 1px solid var(--line); padding-top: 3px; font-weight: 700; }
 .hcard.dead { opacity: .4; cursor: not-allowed; }
 .hcard.back { background: repeating-linear-gradient(45deg, var(--line) 0 6px, var(--sunk) 6px 12px); cursor: default; border: 1px solid var(--line); }
@@ -240,7 +236,6 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .matrix td, .matrix th { text-align: center; }
 .empty-results { color: var(--muted); padding: 30px 10px; text-align: center; }
 .tray { display: contents; }
-.tray .prompt { order: -1; }
 .mscore { display: none; }
 button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 @media (max-width: 700px) {
@@ -260,7 +255,6 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .mchip small { font-size: 11px; color: var(--muted); line-height: 1.2; white-space: nowrap; }
   .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; display: flex; flex-direction: column; line-height: 1.1; }
   .mdeck b { font-size: 18px; color: var(--ink); }
-  .bag { display: none; }
   .rail .score { display: none; }
   .tray { display: flex; flex-direction: column; gap: 6px; position: sticky; bottom: 0; z-index: 4; width: calc(100% + 12px); margin: 0 -6px;
     background: var(--sunk); border-top: 1px solid var(--line); box-shadow: 0 -8px 18px rgba(0,0,0,.10);
@@ -273,7 +267,8 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .tray .hand-label { display: none; }
   .hand { flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; gap: 6px; padding: 3px; }
   .hcard { width: 58px; height: 58px; --cell: 58px; flex: none; }
-  .hand-area.other { padding-bottom: 10px; }
+  .hand-area { padding: 6px 8px; }
+  .hand-area.other { padding-block: 6px; }
   .hand-area.other .hand { display: none; }
   .tile .n { font-size: max(8.5px, calc(var(--cell) * .135)); }
   .cell.last::after { inset: -3px; }
@@ -1374,6 +1369,7 @@ function newGame(seed) {
   renderPlay(); scheduleAI();
 }
 const isHuman = p => seats[p] === 'human';
+const AI_PAUSE = 2000;   // ms the AI waits before playing against a human
 function scheduleAI() {
   clearTimeout(aiTimer);
   if (!G || G.over || isHuman(G.turn) || paused) return;
@@ -1382,7 +1378,7 @@ function scheduleAI() {
     const m = E.chooseMove(G, seats[G.turn]);
     if (m) { animFrom = sourceRect(G.turn, m.cardId); E.playMove(G, m); }
     renderPlay(); scheduleAI();
-  }, Math.max(speed, animBusyUntil - performance.now() + 150));
+  }, isHuman(0) || isHuman(1) ? Math.max(0, animBusyUntil - performance.now()) + AI_PAUSE : Math.max(speed, animBusyUntil - performance.now() + 150));
 }
 function humanPlay(move) {
   animFrom = sourceRect(G.turn, move.cardId);
@@ -1476,9 +1472,10 @@ function renderBoard() {
 function promptEl() {
   if (G.over) return h('div', { class: 'prompt' }, h('span', null, 'Game over · ' + resultLine()), h('button', { class: 'btn', onclick: () => { ui.hideEnd = false; renderPlay(); } }, 'Show result'));
   const p = G.turn; const who = h('span', { class: 'who p' + p }, E.HOUSES[p].short);
-  if (!isHuman(p)) return h('div', { class: 'prompt' }, h('span', null, who, paused ? ' is paused.' : ' is thinking…'));
+  // whose turn it is shows as the gold border on their hand; the prompt only gives instructions mid-play
+  if (!isHuman(p)) return h('div', { class: 'prompt' });
   const card = selCard();
-  if (!card) return h('div', { class: 'prompt' }, h('span', null, who, ' to play. Pick a tile from your hand or sideboard.'));
+  if (!card) return h('div', { class: 'prompt' });
   const cancel = h('button', { class: 'btn', onclick: () => { ui = { sel: null, pos: null, phase: null, eqA: null }; renderPlay(); } }, 'Cancel');
   const back = h('button', { class: 'btn', onclick: () => { ui.pos = null; ui.phase = null; ui.eqA = null; renderPlay(); } }, 'Back');
   const pm = movesFor().filter(m => m.pos === ui.pos);
@@ -1502,21 +1499,10 @@ function handEl(p, other) {
       onclick: () => { if (!mine || !ok) return; if (pickable) return usurpPick(c); ui = { sel: ui.sel === c.id ? null : c.id, pos: null, phase: null, eqA: null }; renderPlay(); } });
     b.append(tileEl(c, p)); return b;
   };
-  return h('div', { class: 'hand-area' + (other ? ' other' : ''), 'data-p': p },
+  return h('div', { class: 'hand-area' + (other ? ' other' : '') + (G.turn === p && !G.over ? ' turn' : ''), 'data-p': p },
     h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`, !show ? ` (${pl.hand.length} hidden)` : ''),
     h('div', { class: 'hand' }, show ? pl.hand.map(cardBtn) : pl.hand.map(() => h('span', { class: 'hcard back' })),
       pl.side.length ? h('span', { style: 'width:14px' }) : null, pl.side.map(cardBtn)));
-}
-
-// The draw bag: one pip per tile it started with, filled while still in the bag.
-function bagEl() {
-  const left = G.deck.length, start = Math.max(G.initialDeck || 0, left);
-  const lands = G.deck.filter(c => c.kind === 'land').length;
-  const label = left === 0 ? 'The bag is empty. Play out your hand.' : left <= 4 ? `Only ${left} left in the bag` : `${left} tiles left in the bag`;
-  return h('div', { class: 'bag' + (left <= 4 ? ' low' : ''), 'data-tip': `${left} of ${start} tiles left to draw` + (revealBag ? ` (${lands} Lands, ${left - lands} Specials)` : '') + '. Hands refill from the bag after every play.', tabindex: '0' },
-    h('span', { class: 'bag-label' }, label),
-    revealBag && left ? h('span', null, `${lands} Land${lands === 1 ? '' : 's'}` + (left - lands ? ' · ' + G.deck.filter(c => c.kind !== 'land').map(c => E.SPECIALS[c.special].name).join(', ') : '')) : null,
-    h('span', { class: 'pips' }, [...Array(start)].map((_, i) => h('i', { class: i < left ? 'on' : '' }))));
 }
 
 // Second-player bonus ("first player must win by 2") shown next to Roses' score.
@@ -1555,6 +1541,7 @@ function countsEl() {
     row(covered ? `On board (${covered} covered)` : 'On board', String(tiles), '', ''),
     row('Spaces filled', `${G.board.size} of ${cfg.gridW * cfg.gridH}`, '', ''),
     row('In the bag', String(G.deck.length), '', ''),
+    revealBag && G.deck.length ? row((n => `${n} Land${n === 1 ? '' : 's'}`)(G.deck.filter(c => c.kind === 'land').length) + G.deck.filter(c => c.kind !== 'land').map(c => ', ' + E.SPECIALS[c.special].name).join(''), '', '', 'sub') : [],
     row('In hand', h('span', { class: 'p0c' }, String(P[0].hand.length)), h('span', { class: 'p1c' }, String(P[1].hand.length))),
     row('Sideboard', h('span', { class: 'p0c' }, String(P[0].side.length)), h('span', { class: 'p1c' }, String(P[1].side.length))),
     G.discard.length ? row('Discarded', String(G.discard.length), '', '') : [],
@@ -1606,7 +1593,7 @@ function runAnim(lm, from) {
     const landed = cell.querySelector('.tile:not(.under)');
     if (landed) landed.animate([{ transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' });
     if (under && removed) { // Usurp: the old Land goes back to the bag
-      const bag = [document.querySelector('.bag'), document.querySelector('.mdeck')].find(visible);
+      const bag = [document.querySelector('.counts')].find(visible);
       const r0 = cell.getBoundingClientRect(), r1 = bag ? bag.getBoundingClientRect() : { left: r0.left, top: r0.top - 200, width: 10, height: 10 };
       const out = h('div', { class: 'flyer', style: `left:${r0.left}px;top:${r0.top}px;width:${r0.width}px;height:${r0.height}px` }); out.append(under); document.body.append(out);
       out.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${r1.left + r1.width / 2 - r0.left - r0.width / 2}px, ${r1.top + r1.height / 2 - r0.top - r0.height / 2}px) scale(.3)`, opacity: 0 }], { duration: D, easing: 'ease-in' }).onfinish = () => out.remove();
@@ -1640,19 +1627,19 @@ function renderPlay() {
   const table = h('div', { class: 'table' });
   const mchip = p => h('span', { class: 'mchip p' + p + (G.turn === p && !G.over ? ' active' : '') },
     sigEl('sig p' + p, p), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, `${sc.total[p]} owned`, h('br'), (n => `${n} card${n === 1 ? '' : 's'}`)(G.players[p].hand.length + G.players[p].side.length)));
-  table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, 'Bag', h('b', null, String(G.deck.length))), mchip(1)));
-  table.append(bagEl());
+  table.append(h('div', { class: 'mscore' }, mchip(0), mchip(1)));
   if (cfgChanged()) table.append(h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
     'Setup has changed since this game started. This game keeps the rules it was dealt with. ',
     h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => newGame() }, 'New game with current Setup')));
+  // the AI sits at the top of the board, the human at the bottom (two humans or two AIs: Roses top, Midnight bottom)
+  const hp = [0, 1].filter(p => isHuman(p));
+  const bottom = hp.length === 1 ? hp[0] : 0;
+  table.append(handEl(1 - bottom, true));
   table.append(renderBoard());
   const card = selCard();
-  const hp = [0, 1].filter(p => isHuman(p));
-  const order = hp.length === 2 ? [G.turn, 1 - G.turn] : hp.length === 1 ? [hp[0], 1 - hp[0]] : [0, 1];
   table.append(h('div', { class: 'tray' }, promptEl(),
     h('div', { class: 'cardinfo' + (card ? '' : ' idle') }, card ? cardDesc(card) : 'Ownership is the outline and sigil: blue owl for Midnight, red rose for Roses.'),
-    handEl(order[0])));
-  table.append(handEl(order[1], true));
+    handEl(bottom)));
   if (G.over && !ui.hideEnd) {
     const w = G.winner;
     table.append(h('div', { class: 'endcard' }, h('div', { class: 'box' },
@@ -1682,9 +1669,9 @@ function renderPlay() {
         h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
         h('button', { class: 'btn', onclick: undo, disabled: !history.length }, 'Undo'),
         bothAI ? h('button', { class: 'btn', onclick: () => { paused = !paused; renderPlay(); scheduleAI(); } }, paused ? 'Resume' : 'Pause') : null),
-      h('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;font-size:13.5px' },
+      bothAI ? h('div', { style: 'display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;font-size:13.5px' },
         h('span', { style: 'color:var(--muted)' }, 'AI speed'),
-        seg([[150, 'Fast'], [600, 'Normal'], [1400, 'Slow']], speed, x => { speed = x; store.set('vyeMicro.speed', x); renderPlay(); })),
+        seg([[150, 'Fast'], [600, 'Normal'], [1400, 'Slow']], speed, x => { speed = x; store.set('vyeMicro.speed', x); renderPlay(); })) : null,
       h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
         h('span', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Tiles'),
