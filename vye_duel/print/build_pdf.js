@@ -17,9 +17,10 @@ const url = p => pathToFileURL(path.join(HERE, p)).href;
 // ---------- the tiles ----------
 // owner: [front, back]  b = Midnight (blue), r = Roses (red), n = nobody
 const OWNED = ['b', 'r'], NEUTRAL = ['n', 'n'];
+const T = require('./small/tiles.js');
 const LANDS = [
-  ['Birchwood', 'birchwood'], ['Wolf Hollow', 'wolf-hollow'], ['Violet Peaks', 'violet-peaks'], ['Golden Fields', 'golden-fields'],
-  ['Ice Cliffs', 'ice-cliffs'], ['Spire Isle', 'spire-isle'], ['Night Thicket', 'night-thicket']
+  ['Dragon Keep', 'dragon-keep'], ['Longship', 'longship'], ['Owl Marsh', 'owl-marsh'], ['Raven Moor', 'raven-moor'],
+  ['Firelands', 'firelands'], ['Violet Peaks', 'violet-peaks'], ['Green Hills', 'green-hills']
 ];
 const FAMILY_RULE = {
   king: 'Flips the 4 tiles beside it.',
@@ -40,8 +41,7 @@ function cap(s) { return s[0].toUpperCase() + s.slice(1); }
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 // ---------- drawing ----------
-const MOON = '<svg viewBox="0 0 24 24"><path d="M15.5 3.2A9 9 0 1 0 20.8 15 7.2 7.2 0 0 1 15.5 3.2Z" fill="#fff"/></svg>';
-const ROSE = '<svg viewBox="0 0 24 24"><g fill="#fff">' + [0, 72, 144, 216, 288].map(a => `<ellipse cx="12" cy="6.4" rx="3.6" ry="5" transform="rotate(${a} 12 12)"/>`).join('') + '</g><circle cx="12" cy="12" r="2.8" fill="#B13939"/></svg>';
+const MOON = T.sigilSvg('b'), ROSE = T.sigilSvg('r');   // names kept from the old moon/rose badges: Midnight owl, Roses rose
 const CROWN = '<svg viewBox="0 0 24 18"><path d="M3 16 1.5 5l6 4.5L12 2l4.5 7.5 6-4.5L21 16Z" fill="#fff"/><circle cx="1.5" cy="4.6" r="1.6" fill="#fff"/><circle cx="12" cy="2" r="1.6" fill="#fff"/><circle cx="22.5" cy="4.6" r="1.6" fill="#fff"/></svg>';
 const GLYPH = {
   usurp: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="none" stroke="#8E6610" stroke-width="5"/><path d="M36 74V28M36 28 24 41M36 28 48 41M64 26v46M64 72 52 59M64 72 76 59" stroke="#8E6610" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -58,11 +58,12 @@ function face(t, side) {
   const o = t.own[side];
   const sig = o === 'b' ? MOON : o === 'r' ? ROSE : '';
   let body;
-  if (t.kind === 'land') {
-    body = `<div class="art full"><img src="${url(t.art)}"></div><div class="lname">${esc(t.name)}</div>`;
+  if (t.kind === 'land' || t.kind === 'family') {
+    // Lands and Family: the whole picture, nothing else on the tile (the rules page explains each one)
+    body = `<div class="art whole ${t.kind}"><img src="${url(t.art)}" alt="${esc(t.name)}"></div>`;
   } else {
-    const pic = t.art ? `<img src="${url(t.art)}" class="${t.kind === 'family' ? 'portrait' : ''}">` : t.glyph ? `<div class="glyph">${GLYPH[t.glyph]}</div>` : `<div class="glyph big">${pattern(t.member)}</div>`;
-    body = `<div class="art part">${pic}${t.kind === 'family' && t.art ? pattern(t.member) : ''}</div>
+    const pic = t.art ? `<img src="${url(t.art)}">` : t.glyph ? `<div class="glyph">${GLYPH[t.glyph]}</div>` : `<div class="glyph big">${pattern(t.member)}</div>`;
+    body = `<div class="art part">${pic}</div>
       <div class="label"><b>${esc(t.name)}</b><span>${esc(t.rule)}</span></div>`;
   }
   // Tiles that never go in the bag (Family and the Crossroads) get a crown badge top-left, matching the house badge.

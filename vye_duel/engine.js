@@ -17,22 +17,24 @@
 
   // ---------- content ----------
   const LANDS = [
-    { name: 'Birchwood', art: 'birchwood', glyph: '♣', color: '#7A6554' },
-    { name: 'Wolf Hollow', art: 'wolf-hollow', glyph: '◐', color: '#8A9289' },
+    // The first 7 are the ones in play by default and in the print and play (landSets: 7 takes them in order).
+    { name: 'Dragon Keep', art: 'dragon-keep', glyph: '♜', color: '#9C3D2E' },
+    { name: 'Longship', art: 'longship', glyph: '♦', color: '#2F6FA0' },
+    { name: 'Owl Marsh', art: 'owl-marsh', glyph: '✱', color: '#3E8E7E' },
+    { name: 'Raven Moor', art: 'raven-moor', glyph: '✶', color: '#4A4458' },
+    { name: 'Firelands', art: 'firelands', glyph: '✹', color: '#D9792B' },
     { name: 'Violet Peaks', art: 'violet-peaks', glyph: '▲', color: '#8C5D88' },
-    { name: 'Golden Fields', art: 'golden-fields', glyph: '☼', color: '#B5834C' },
-    { name: 'Ice Cliffs', art: 'ice-cliffs', glyph: '❄', color: '#7E8E9E' },
+    { name: 'Green Hills', art: 'green-hills', glyph: '■', color: '#7FA44A' },
+    // the other nine, used when more than 7 Land types are switched on in Setup
+    { name: 'Wolf Hollow', art: 'wolf-hollow', glyph: '◐', color: '#8A9289' },
     { name: 'Spire Isle', art: 'spire-isle', glyph: '⌂', color: '#79A08A' },
+    { name: 'Ice Cliffs', art: 'ice-cliffs', glyph: '❄', color: '#7E8E9E' },
+    { name: 'Golden Fields', art: 'golden-fields', glyph: '☼', color: '#B5834C' },
     { name: 'Night Thicket', art: 'night-thicket', glyph: '●', color: '#AB9764' },
-    { name: 'High Peaks', art: 'high-peaks', glyph: '▲', color: '#664D36' },
+    { name: 'Birchwood', art: 'birchwood', glyph: '♣', color: '#7A6554' },
+    { name: 'High Peaks', art: 'high-peaks', glyph: '△', color: '#664D36' },
     { name: 'Whale Sea', art: 'whale-sea', glyph: '≈', color: '#275B5E' },
-    { name: 'Stag Forest', art: 'stag-forest', glyph: '♠', color: '#4F3D28' },
-    { name: 'Green Hills', art: 'green-hills', glyph: '■', color: '#B5A172' },
-    { name: 'Dragon Keep', art: 'dragon-keep', glyph: '✦', color: '#866440' },
-    { name: 'Raven Moor', art: 'raven-moor', glyph: '✶', color: '#84776A' },
-    { name: 'Owl Marsh', art: 'owl-marsh', glyph: '✱', color: '#527582' },
-    { name: 'Longship', art: 'longship', glyph: '♦', color: '#39819E' },
-    { name: 'Firelands', art: 'firelands', glyph: '✹', color: '#A25A16' }
+    { name: 'Stag Forest', art: 'stag-forest', glyph: '♠', color: '#4F3D28' }
   ];
 
   const MEMBERS = {

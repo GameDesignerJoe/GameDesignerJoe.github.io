@@ -38,11 +38,10 @@ const L = T.LANDS.slice(0, 7);
 const KEY = `<div class="box keybox">
   <div class="krow">${L.map(l => mini(T.land(l, 'b'), l.name)).join('')}</div>
   <div class="krow">${mini(T.family('king', 'b', 'b'), 'King')}${mini(T.family('knave', 'r', 'r'), 'Knave')}${mini(T.special('usurp', 'b'), 'Usurp')}${mini(T.special('lostcity', 'r'), 'Lost City')}${mini(T.special('sinkhole', 'n'), 'Sinkhole')}${mini(T.crossroads('n'), 'Crossroads')}${mini(T.crossroads('b'), 'Captured')}</div>
-  <div class="caption">Circle = Land, square = Family, hexagon = Special. Blue with a moon = Midnight owns it, red with a rose = Roses, grey = nobody. On a Family tile the dark squares show what it flips, and the mark in the middle shows its house.</div>
+  <div class="caption">Circle = Land, square = Family, hexagon = Special. Blue with an owl = Midnight owns it, red with a rose = Roses, grey = nobody. On a Family tile the dark squares show what it flips, and the mark in the middle shows its house.</div>
 </div>`;
 
-const MOON = '<svg viewBox="0 0 24 24"><path d="M15.5 3.2A9 9 0 1 0 20.8 15 7.2 7.2 0 0 1 15.5 3.2Z" fill="#fff"/></svg>';
-const ROSE = '<svg viewBox="0 0 24 24"><g fill="#fff">' + [0, 72, 144, 216, 288].map(a => `<ellipse cx="12" cy="6.4" rx="3.6" ry="5" transform="rotate(${a} 12 12)"/>`).join('') + '</g><circle cx="12" cy="12" r="2.8" fill="#B13939"/></svg>';
+const MOON = T.sigilSvg('b'), ROSE = T.sigilSvg('r');   // Midnight owl, Roses rose
 const pat = (n, cls) => `<span class="pat n${n}">` + Array.from({ length: n * n }, (_, i) => `<i class="${cls(i)}"></i>`).join('') + '</span>';
 const PAT = {
   KING: pat(3, i => i === 4 ? 'me' : [1, 3, 5, 7].includes(i) ? 'on' : ''),
@@ -53,7 +52,7 @@ const PAT = {
 const swap = (s, a, b) => { if (!s.includes(a)) throw new Error('rules text changed: ' + a); return s.split(a).join(b); };
 let rules = fs.readFileSync(path.join(PRINT, 'rules.html'), 'utf8');
 rules = swap(rules, '{{SAMPLE}}', KEY);
-rules = swap(rules, '(same house name on the tile)', '(same house mark in the middle of the tile)');
+rules = swap(rules, '(blue art for Midnight, red art for Roses)', '(same house mark in the middle of the tile)');
 rules = swap(rules, ': every tile without a crown in the corner.', '.');
 rules = swap(rules, '1 of 8', '1 of 4'); rules = swap(rules, '2 of 8', '2 of 4');
 rules = swap(rules, 'US Letter paper. Light cardstock works best.', 'US Letter paper. Cardstock, or sticker paper to put on blank tiles.');

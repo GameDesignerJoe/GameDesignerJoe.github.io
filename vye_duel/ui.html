@@ -129,6 +129,9 @@ a.btn { text-decoration: none; color: inherit; display: inline-block; }
 .sig { position: absolute; top: 4px; right: 4px; width: calc(var(--cell) * .27); height: calc(var(--cell) * .27); border-radius: 50%; display: grid; place-items: center; font-size: calc(var(--cell) * .17); color: #fff; line-height: 1; }
 .sig.p0 { background: var(--blue); } .sig.p1 { background: var(--red); }
 .sig.both { background: linear-gradient(90deg, var(--blue) 50%, var(--red) 50%); }
+.sig svg { width: 72%; height: 72%; display: block; }
+.sigi { display: inline-block; width: 1.05em; height: 1.05em; vertical-align: -.15em; }
+.sigi svg { width: 100%; height: 100%; display: block; }
 .stack { position: absolute; bottom: 3px; left: 4px; font-size: 11px; font-weight: 700; background: rgba(0,0,0,.55); color: #fff; padding: 0 5px; border-radius: 4px; }
 .cell.stacked::before { content: ""; position: absolute; inset: 0; transform: translate(3px, 3px); border-radius: 9px; background: var(--line); }
 .cell.last::after { content: ""; position: absolute; inset: -4px; border-radius: 12px; border: 2px solid var(--ink); opacity: .55; pointer-events: none; }
@@ -153,10 +156,8 @@ a.btn { text-decoration: none; color: inherit; display: inline-block; }
 .pips i.on { background: var(--brass); border-color: var(--brass); }
 .bag.low .pips i.on { background: var(--warn); border-color: var(--warn); }
 img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 9px; pointer-events: none; }
-.tile.has-art { background: #E7DFCB; }
+.tile.has-art { background: #F9F1E4; }
 .tile.has-art > .g, .tile.has-art > .n, .tile.has-art > .pat { display: none; }
-.tile.fam.has-art > .pat { display: grid; position: absolute; left: 4px; bottom: 4px; width: calc(var(--cell) * .3); height: calc(var(--cell) * .3); padding: 2px; gap: 1px; background: rgba(250,247,240,.92); border-radius: 4px; }
-.tile.fam.has-art > .pat i { background: #CFC8B8; } .tile.fam.has-art > .pat i.on { background: #8E6610; } .tile.fam.has-art > .pat i.me { background: #1A2027; } .tile.fam.has-art > .pat i.opt { background: #D9BE80; }
 .bonus { white-space: nowrap; font-size: 12px; font-weight: 700; vertical-align: super; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: var(--red); color: #fff; cursor: help; letter-spacing: 0; }
 .flyer { position: fixed; z-index: 40; pointer-events: none; border-radius: 9px; }
 .flyer .tile { box-shadow: 0 14px 30px rgba(0,0,0,.35); }
@@ -515,6 +516,12 @@ function addArt(el, t) {
   img.addEventListener('error', () => { img.remove(); el.classList.remove('has-art'); });
   el.classList.add('has-art'); el.prepend(img);
 }
+// House sigil (owl or rose) as an inline SVG. o: 0 Midnight, 1 Roses, 'both' = none
+function sigEl(cls, o) {
+  const el = h('span', { class: cls });
+  if (o === 0 || o === 1) el.innerHTML = VyeTiles.sigilSvg(o === 0 ? 'b' : 'r', 'currentColor');
+  return el;
+}
 function tileEl(t, owner) {
   if (tileStyle === 'icons' && window.VyeTiles) return iconTile(t, owner);
   let el;
@@ -532,7 +539,7 @@ function tileEl(t, owner) {
   const o = owner === undefined ? t.owner : owner;
   if (o === 0 || o === 1 || o === 'both') {
     const c = o === 'both' ? 'both' : 'p' + o;
-    el.append(h('span', { class: 'own ' + c }), h('span', { class: 'sig ' + c }, o === 'both' ? '' : E.HOUSES[o].sigil));
+    el.append(h('span', { class: 'own ' + c }), sigEl('sig ' + c, o));
   }
   return el;
 }
@@ -748,7 +755,7 @@ function countsEl() {
   const total = tiles + G.deck.length + G.discard.length + P[0].hand.length + P[1].hand.length + P[0].side.length + P[1].side.length;
   const covered = tiles - G.board.size;
   return h('div', { class: 'counts' },
-    row('Tiles', h('span', { class: 'p0c' }, '☾'), h('span', { class: 'p1c' }, '✿'), 'hd'),
+    row('Tiles', sigEl('sigi p0c', 0), sigEl('sigi p1c', 1), 'hd'),
     row(covered ? `On board (${covered} covered)` : 'On board', String(tiles), '', ''),
     row('Spaces filled', `${G.board.size} of ${cfg.gridW * cfg.gridH}`, '', ''),
     row('In the bag', String(G.deck.length), '', ''),
@@ -836,7 +843,7 @@ function renderPlay() {
   const sc = E.score(G.board);
   const table = h('div', { class: 'table' });
   const mchip = p => h('span', { class: 'mchip p' + p + (G.turn === p && !G.over ? ' active' : '') },
-    h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, `${sc.total[p]} owned`, h('br'), (n => `${n} card${n === 1 ? '' : 's'}`)(G.players[p].hand.length + G.players[p].side.length)));
+    sigEl('sig p' + p, p), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, `${sc.total[p]} owned`, h('br'), (n => `${n} card${n === 1 ? '' : 's'}`)(G.players[p].hand.length + G.players[p].side.length)));
   table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, 'Bag', h('b', null, String(G.deck.length))), mchip(1)));
   table.append(bagEl());
   if (cfgChanged()) table.append(h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
@@ -847,7 +854,7 @@ function renderPlay() {
   const hp = [0, 1].filter(p => isHuman(p));
   const order = hp.length === 2 ? [G.turn, 1 - G.turn] : hp.length === 1 ? [hp[0], 1 - hp[0]] : [0, 1];
   table.append(h('div', { class: 'tray' }, promptEl(),
-    h('div', { class: 'cardinfo' + (card ? '' : ' idle') }, card ? cardDesc(card) : 'Ownership is the outline and sigil: blue moon for Midnight, red rose for Roses.'),
+    h('div', { class: 'cardinfo' + (card ? '' : ' idle') }, card ? cardDesc(card) : 'Ownership is the outline and sigil: blue owl for Midnight, red rose for Roses.'),
     handEl(order[0])));
   table.append(handEl(order[1], true));
   if (G.over && !ui.hideEnd) {
@@ -863,7 +870,7 @@ function renderPlay() {
   }
 
   const pscore = p => h('div', { class: 'pscore p' + p + (G.turn === p && !G.over ? ' active' : '') },
-    h('div', { class: 'nm' }, h('span', { class: 'dot p' + p }), E.HOUSES[p].sigil + ' ' + E.HOUSES[p].short),
+    h('div', { class: 'nm' }, h('span', { class: 'dot p' + p }), sigEl('sigi', p), ' ' + E.HOUSES[p].short),
     h('div', { class: 'big' }, String(sc.largest[p]), p === 1 ? bonusTag() : null),
     h('div', { class: 'sm' }, `largest kingdom · ${sc.total[p]} owned`));
   const personaOpts = (p) => h('select', { id: 'seat-' + p, onchange: e => { seats[p] = e.target.value; store.set('vyeMicro.seats', seats); renderPlay(); scheduleAI(); } },

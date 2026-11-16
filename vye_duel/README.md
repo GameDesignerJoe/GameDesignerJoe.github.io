@@ -11,7 +11,7 @@ Play it at https://gamedesignerjoe.github.io/vye_duel/
 
 ## Default build
 
-7 Land types × 3, a King and a Knave for each player, a hand of 2, one each of Usurp, Sinkhole and Lost City,
+7 Land types × 3 (Dragon Keep, Longship, Owl Marsh, Raven Moor, Firelands, Violet Peaks, Green Hills), a King and a Knave for each player, a hand of 2, one each of Usurp, Sinkhole and Lost City,
 unlimited stacking (anything but the Crossroads can be covered), and Family captures can take the Crossroads.
 
 ## House rule
@@ -41,21 +41,25 @@ The icons live in `print/small/tiles.js`, which the game also uses for its **Ico
 
 ## Card art
 
-Tile art lives in `art/`, one square image per card:
+Tile art lives in `art/`, one square image per card: the whole 3rd-edition picture, nothing cut off, on plain card paper (#F9F1E4).
+All 16 Lands are in the game; the first 7 in `LANDS` (engine.js, same order in `print/small/tiles.js`) are the default set and the only ones in the print and play.
 
 | Folder | Files |
 |---|---|
-| `art/lands/` | `birchwood.jpg`, `wolf-hollow.jpg`, `violet-peaks.jpg`, `golden-fields.jpg`, `ice-cliffs.jpg`, `spire-isle.jpg`, `night-thicket.jpg`, `high-peaks.jpg`, `whale-sea.jpg`, `stag-forest.jpg`, `green-hills.jpg`, `dragon-keep.jpg`, `raven-moor.jpg`, `owl-marsh.jpg`, `longship.jpg`, `firelands.jpg` |
+| `art/lands/` | `dragon-keep.jpg`, `longship.jpg`, `owl-marsh.jpg`, `raven-moor.jpg`, `firelands.jpg`, `violet-peaks.jpg`, `green-hills.jpg`, then `wolf-hollow.jpg`, `spire-isle.jpg`, `ice-cliffs.jpg`, `golden-fields.jpg`, `night-thicket.jpg`, `birchwood.jpg` (the desert fox art for now), `high-peaks.jpg`, `whale-sea.jpg`, `stag-forest.jpg` |
 | `art/specials/` | `lostcity.jpg`, `sinkhole.jpg`, `sanctuary.jpg`, `underminers.jpg`, `earthquake.jpg`, `waystone.jpg` (Usurp has no art yet; add `usurp.jpg` and list it in `ART_SPECIALS` in `ui.html`) |
-| `art/family/` | `<house>-<member>.jpg` for house `blue`, `red`, `green`, `orange`, `black` and member `king`, `queen`, `heir`, `advisor` (`knave` is a copy of the Heir art until Knave art exists). Midnight uses `blue`, Roses uses `red`. |
+| `art/family/` | `<house>-<member>.jpg` for house `blue`, `red`, `green`, `orange`, `black` and member `king`, `queen`, `heir`, `advisor` plus `blue-knave.jpg` and `red-knave.jpg` (cropped from your full Knave cards, kept in `art/knave-cards/`). Midnight uses `blue`, Roses uses `red`. |
 
 To change a picture, replace the file with a square image of the same name (around 320×320 px).
-To crop a full card face down to just its illustration:
+To redo all the art from the 3rd-edition card exports (it also writes the larger print copies to `print/art/`):
 
 ```
 pip install pillow numpy
-python tools\crop_art.py path\to\card.jpg art\lands\birchwood.jpg
+python tools\crop_art3.py path\to\card-exports path\to\folder-with-red-knave.jpg-and-blue-knave.jpg
 ```
+
+It covers the card-type logo in the top-left with paper and keeps the whole picture. Rebuild the PDFs afterwards.
+The house badges (Midnight owl, Roses rose) are traced from the crests and live in `SIGIL` in `print/small/tiles.js`.
 
 If a file is missing, the tile falls back to a simple symbol. The **Card art** checkbox on the Play tab turns art off.
 
