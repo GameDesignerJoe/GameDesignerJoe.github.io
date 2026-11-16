@@ -89,3 +89,7 @@ body { font-family: 'Alegreya Sans', sans-serif; }
 .sample .mini { width: 1.1in; height: 1.1in; position: relative; }
 .sample .mini .slot { position: absolute; left: 0; top: 0; transform: scale(0.44); transform-origin: top left; }
 .pagefoot { position: absolute; bottom: 0.25in; left: 0.55in; right: 0.55in; display: flex; justify-content: space-between; font-size: 7.5pt; color: #999; }
+
+/* crown badge, top-left: this tile never goes in the bag. Same size and style as the house badge. */
+.crownb { position: absolute; top: 0.02in; left: 0.02in; width: 0.44in; height: 0.44in; border-radius: 50%; z-index: 4; display: grid; place-items: center; border: 0.025in solid #fff; background: #B08419; }
+.crownb svg { width: 0.26in; height: 0.2in; margin-top: -0.02in; }

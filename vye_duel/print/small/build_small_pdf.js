@@ -54,6 +54,7 @@ const swap = (s, a, b) => { if (!s.includes(a)) throw new Error('rules text chan
 let rules = fs.readFileSync(path.join(PRINT, 'rules.html'), 'utf8');
 rules = swap(rules, '{{SAMPLE}}', KEY);
 rules = swap(rules, '(same house name on the tile)', '(same house mark in the middle of the tile)');
+rules = swap(rules, ': every tile without a crown in the corner.', '.');
 rules = swap(rules, '1 of 8', '1 of 4'); rules = swap(rules, '2 of 8', '2 of 4');
 rules = swap(rules, 'US Letter paper. Light cardstock works best.', 'US Letter paper. Cardstock, or sticker paper to put on blank tiles.');
 rules = swap(rules, 'Print pages 3&ndash;8', 'Print pages 3&ndash;4');

@@ -47,7 +47,7 @@ Tile art lives in `art/`, one square image per card:
 |---|---|
 | `art/lands/` | `birchwood.jpg`, `wolf-hollow.jpg`, `violet-peaks.jpg`, `golden-fields.jpg`, `ice-cliffs.jpg`, `spire-isle.jpg`, `night-thicket.jpg`, `high-peaks.jpg`, `whale-sea.jpg`, `stag-forest.jpg`, `green-hills.jpg`, `dragon-keep.jpg`, `raven-moor.jpg`, `owl-marsh.jpg`, `longship.jpg`, `firelands.jpg` |
 | `art/specials/` | `lostcity.jpg`, `sinkhole.jpg`, `sanctuary.jpg`, `underminers.jpg`, `earthquake.jpg`, `waystone.jpg` (Usurp has no art yet; add `usurp.jpg` and list it in `ART_SPECIALS` in `ui.html`) |
-| `art/family/` | `<house>-<member>.jpg` for house `blue`, `red`, `green`, `orange`, `black` and member `king`, `queen`, `heir`, `advisor` (and `knave` once there's art for it). Midnight uses `blue`, Roses uses `red`. |
+| `art/family/` | `<house>-<member>.jpg` for house `blue`, `red`, `green`, `orange`, `black` and member `king`, `queen`, `heir`, `advisor` (`knave` is a copy of the Heir art until Knave art exists). Midnight uses `blue`, Roses uses `red`. |
 
 To change a picture, replace the file with a square image of the same name (around 320×320 px).
 To crop a full card face down to just its illustration:
