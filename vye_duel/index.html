@@ -188,13 +188,6 @@ img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: c
 .choices { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 
 .rail { display: flex; flex-direction: column; gap: 14px; }
-.score { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.pscore { border-radius: 10px; padding: 10px 12px; border: 2px solid transparent; }
-.pscore.p0 { background: var(--blue-soft); } .pscore.p1 { background: var(--red-soft); }
-.pscore.active.p0 { border-color: var(--blue); } .pscore.active.p1 { border-color: var(--red); }
-.pscore .nm { font-weight: 700; font-size: 14px; display: flex; gap: 6px; align-items: center; }
-.pscore .big { font-size: 30px; font-weight: 700; line-height: 1.1; }
-.pscore .sm { font-size: 12.5px; color: var(--muted); }
 .seat { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; }
 select { font: inherit; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-width: 0; }
 .seed { width: 92px; font: inherit; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
@@ -238,26 +231,35 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .matrix td, .matrix th { text-align: center; }
 .empty-results { color: var(--muted); padding: 30px 10px; text-align: center; }
 .tray { display: contents; }
-.mscore { display: none; }
+/* score: one chip per player across the top of the board */
+.mscore { display: flex; width: 100%; align-items: stretch; gap: 10px; }
+.mchip { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; }
+.mchip.p0 { background: var(--blue-soft); } .mchip.p1 { background: var(--red-soft); flex-direction: row-reverse; text-align: right; }
+.mchip .sig { position: static; width: 30px; height: 30px; flex: none; }
+.mchip b { font-size: 30px; line-height: 1; }
+.mchip small { font-size: 12.5px; color: var(--muted); line-height: 1.25; white-space: nowrap; }
+/* the side panel folds away; closed, only its toggle button shows */
+.play.rail-closed { grid-template-columns: minmax(0, 1fr) auto; }
+.rail-toggle { align-self: flex-end; white-space: nowrap; }
+.play.rail-closed .rail > :not(.rail-toggle) { display: none; }
+@media (max-width: 900px), (pointer: coarse) and (max-height: 600px) { .play.rail-closed { grid-template-columns: minmax(0, 1fr); } .rail-toggle { align-self: stretch; } }
 button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 @media (max-width: 700px) {
   header.top { gap: 10px; padding-block: 10px; margin-bottom: 12px; }
   .mark h1 { font-size: 24px; } .mark .ed { display: none; }
   nav.tabs { order: 3; width: 100%; } nav.tabs button { flex: 1; padding: 9px 8px; }
-  #copy-config, #pnp, #pnp-small { padding: 5px 10px; font-size: 13px; }
+  #copy-config, #pnp { padding: 5px 10px; font-size: 13px; }
   .wrap { padding-block: 0 24px; }
   .table { padding: 8px 6px 0; gap: 10px; border-radius: 12px; }
   .board { gap: 4px; }
-  .mscore { display: flex; width: 100%; align-items: stretch; gap: 6px; }
-  .mchip { flex: 1; display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 9px; border: 2px solid transparent; }
-  .mchip.p0 { background: var(--blue-soft); } .mchip.p1 { background: var(--red-soft); flex-direction: row-reverse; text-align: right; }
-  .mchip.active.p0 { border-color: var(--blue); } .mchip.active.p1 { border-color: var(--red); }
-  .mchip .sig { position: static; width: 22px; height: 22px; font-size: 13px; flex: none; }
-  .mchip b { font-size: 22px; line-height: 1; }
-  .mchip small { font-size: 11px; color: var(--muted); line-height: 1.2; white-space: nowrap; }
+  .mscore { gap: 6px; }
+  .mchip { padding: 6px 9px; gap: 7px; }
+  .mchip .sig { width: 22px; height: 22px; }
+  .mchip b { font-size: 22px; }
+  .mchip small { font-size: 11px; }
+  .mchip .kw { display: none; }
   .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; display: flex; flex-direction: column; line-height: 1.1; }
   .mdeck b { font-size: 18px; color: var(--ink); }
-  .rail .score { display: none; }
   .tray { display: flex; flex-direction: column; gap: 6px; position: sticky; bottom: 0; z-index: 4; width: calc(100% + 12px); margin: 0 -6px;
     background: var(--sunk); border-top: 1px solid var(--line); box-shadow: 0 -8px 18px rgba(0,0,0,.10);
     padding: 8px max(8px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); border-radius: 12px 12px 0 0; }
@@ -298,7 +300,6 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
     </nav>
     <div class="spacer"></div>
     <a class="btn" id="pnp" href="print/vye-duel-print-and-play.pdf" target="_blank" rel="noopener">Print &amp; play PDF</a>
-    <a class="btn" id="pnp-small" href="print/small/vye-duel-small-tiles-print-and-play.pdf" target="_blank" rel="noopener">Small-tile PDF</a>
     <button class="btn" id="copy-config">Copy config</button>
   </header>
 
@@ -1629,13 +1630,14 @@ function runAnim(lm, from) {
   animBusyUntil = performance.now() + t;
 }
 
+let railOpen = false;   // side panel (seats, buttons, tile counts, log) starts folded away
 function renderPlay() {
   const v = $('#view-play'); v.textContent = '';
   if (!G) return;
   const sc = E.score(G.board);
   const table = h('div', { class: 'table' });
-  const mchip = p => h('span', { class: 'mchip p' + p + (G.turn === p && !G.over ? ' active' : '') },
-    sigEl('sig p' + p, p), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, `${sc.total[p]} owned`, h('br'), (n => `${n} card${n === 1 ? '' : 's'}`)(G.players[p].hand.length + G.players[p].side.length)));
+  const mchip = p => h('span', { class: 'mchip p' + p, 'data-tip': `${E.HOUSES[p].short}: largest kingdom ${sc.largest[p]} (that\u2019s the score), ${sc.total[p]} tiles owned in all.`, tabindex: '0' },
+    sigEl('sig p' + p, p), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, h('strong', null, E.HOUSES[p].short), h('br'), h('span', { class: 'kw' }, 'largest kingdom · '), `${sc.total[p]} owned`));
   table.append(h('div', { class: 'mscore' }, mchip(0), mchip(1)));
   if (cfgChanged()) table.append(h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
     'Setup has changed since this game started. This game keeps the rules it was dealt with. ',
@@ -1661,16 +1663,12 @@ function renderPlay() {
         h('button', { class: 'btn', onclick: () => { ui.hideEnd = true; renderPlay(); } }, 'Look at the board')))));
   }
 
-  const pscore = p => h('div', { class: 'pscore p' + p + (G.turn === p && !G.over ? ' active' : '') },
-    h('div', { class: 'nm' }, h('span', { class: 'dot p' + p }), sigEl('sigi', p), ' ' + E.HOUSES[p].short),
-    h('div', { class: 'big' }, String(sc.largest[p]), p === 1 ? bonusTag() : null),
-    h('div', { class: 'sm' }, `largest kingdom · ${sc.total[p]} owned`));
   const personaOpts = (p) => h('select', { id: 'seat-' + p, onchange: e => { seats[p] = e.target.value; store.set('vyeMicro.seats', seats); renderPlay(); scheduleAI(); } },
     h('option', { value: 'human', selected: seats[p] === 'human' }, 'Human'),
     Object.entries(E.PERSONAS).map(([k, P]) => h('option', { value: k, selected: seats[p] === k }, 'AI · ' + P.name)));
   const bothAI = !isHuman(0) && !isHuman(1);
   const rail = h('div', { class: 'rail' },
-    h('div', { class: 'score' }, pscore(0), pscore(1)),
+    h('button', { class: 'btn rail-toggle', 'aria-expanded': String(railOpen), onclick: () => { railOpen = !railOpen; renderPlay(); } }, railOpen ? 'Hide panel \u203a' : '\u2039 Game panel'),
     h('div', { class: 'panel' },
       h('div', { class: 'seat' },
         h('span', { class: 'dot p0' }), personaOpts(0), h('span', { class: 'dot p1' }), personaOpts(1)),
@@ -1692,7 +1690,7 @@ function renderPlay() {
         ? h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), 'passes')
         : h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), h('span', null, e.title + (e.flips ? ` · flipped ${e.flips}` : '')),
           h('span', { class: 'sw', title: 'Change in kingdom lead' }, (e.swing >= 0 ? '+' : '') + e.swing))) : h('div', { style: 'color:var(--muted)' }, 'No moves yet.'))));
-  v.append(h('div', { class: 'play' }, table, rail));
+  v.append(h('div', { class: 'play' + (railOpen ? '' : ' rail-closed') }, table, rail));
   if (G.lastMove && G.lastMove.n !== animatedN) { animatedN = G.lastMove.n; if (animOn) runAnim(G.lastMove, animFrom); }
   animFrom = null;
 }
