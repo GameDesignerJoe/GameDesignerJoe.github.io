@@ -1,4 +1,4 @@
-<title>Vye Micro</title>
+<title>Vye Duel</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
@@ -41,6 +41,7 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .spacer { flex: 1; }
 .btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; }
 .btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; color: inherit; display: inline-block; }
 .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .btn.primary:hover { opacity: .9; }
 .btn:disabled { opacity: .45; cursor: default; }
@@ -80,11 +81,18 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .note.warn { background: var(--brass-soft); color: var(--warn); }
 .note.ok { background: var(--sunk); color: var(--muted); }
 .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.preset { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 10px; background: var(--sunk); border: 2px solid transparent; }
+.preset.on { border-color: var(--ink); }
+.preset .btn { align-self: flex-start; }
+.preset .btn.on, .preset .btn.on:disabled { background: var(--ink); color: var(--bg); border-color: var(--ink); opacity: 1; }
+.preset small { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.presets .btn.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .presets .k { color: var(--muted); font-size: 13px; margin-right: 4px; }
 
 /* play */
 .play { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
-@media (max-width: 900px) { .play { grid-template-columns: 1fr; } .fam-cols { grid-template-columns: 1fr; } }
+@media (max-width: 900px), (pointer: coarse) and (max-height: 600px) { .play { grid-template-columns: 1fr; } .fam-cols { grid-template-columns: 1fr; } }
 .table { background: var(--sunk); border-radius: 14px; padding: 18px; position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; }
 .prompt { min-height: 36px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 14.5px; text-align: center; }
 .prompt .who { font-family: var(--display); font-weight: 700; font-size: 17px; }
@@ -110,6 +118,8 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .pat i { border-radius: 2px; background: var(--line); }
 .pat i.on { background: var(--brass); }
 .pat i.me { background: var(--ink); }
+.pat.pat5 { grid-template-columns: repeat(5, 1fr); gap: 1px; }
+.pat i.skip { background: color-mix(in srgb, var(--line) 50%, transparent); }
 .pat i.opt { background: color-mix(in srgb, var(--brass) 40%, transparent); }
 /* ownership: outline frame + sigil */
 .own { position: absolute; inset: 0; border-radius: 9px; pointer-events: none; }
@@ -121,8 +131,6 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .sig.both { background: linear-gradient(90deg, var(--blue) 50%, var(--red) 50%); }
 .stack { position: absolute; bottom: 3px; left: 4px; font-size: 11px; font-weight: 700; background: rgba(0,0,0,.55); color: #fff; padding: 0 5px; border-radius: 4px; }
 .cell.stacked::before { content: ""; position: absolute; inset: 0; transform: translate(3px, 3px); border-radius: 9px; background: var(--line); }
-.cell.last .tile { animation: pop .35s ease-out; }
-.cell.flipped .tile { animation: flip .5s ease-out; }
 .cell.last::after { content: ""; position: absolute; inset: -4px; border-radius: 12px; border: 2px solid var(--ink); opacity: .55; pointer-events: none; }
 .cell.ghost .tile { opacity: .65; }
 @keyframes pop { from { transform: scale(.7); opacity: .2; } to { transform: none; opacity: 1; } }
@@ -137,6 +145,33 @@ nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(-
 .cell.chosen::after { content: ""; position: absolute; inset: -5px; border-radius: 13px; border: 3px solid var(--brass); pointer-events: none; }
 .hcard.pick { outline: 3px dashed var(--brass); outline-offset: 3px; animation: nudge 1.2s ease-in-out infinite; }
 @keyframes nudge { 50% { transform: translateY(-3px); } }
+.bag { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 13.5px; color: var(--muted); cursor: help; }
+.bag-label { font-weight: 500; }
+.bag.low .bag-label { color: var(--warn); }
+.pips { display: flex; flex-wrap: wrap; gap: 3px; max-width: 360px; }
+.pips i { width: 7px; height: 11px; border-radius: 2px; border: 1px solid var(--line); }
+.pips i.on { background: var(--brass); border-color: var(--brass); }
+.bag.low .pips i.on { background: var(--warn); border-color: var(--warn); }
+img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 9px; pointer-events: none; }
+.tile.has-art { background: #E7DFCB; }
+.tile.has-art > .g, .tile.has-art > .n, .tile.has-art > .pat { display: none; }
+.tile.fam.has-art > .pat { display: grid; position: absolute; left: 4px; bottom: 4px; width: calc(var(--cell) * .3); height: calc(var(--cell) * .3); padding: 2px; gap: 1px; background: rgba(250,247,240,.92); border-radius: 4px; }
+.tile.fam.has-art > .pat i { background: #CFC8B8; } .tile.fam.has-art > .pat i.on { background: #8E6610; } .tile.fam.has-art > .pat i.me { background: #1A2027; } .tile.fam.has-art > .pat i.opt { background: #D9BE80; }
+.bonus { white-space: nowrap; font-size: 12px; font-weight: 700; vertical-align: super; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: var(--red); color: #fff; cursor: help; letter-spacing: 0; }
+.flyer { position: fixed; z-index: 40; pointer-events: none; border-radius: 9px; }
+.flyer .tile { box-shadow: 0 14px 30px rgba(0,0,0,.35); }
+.cell .tile.under { z-index: 0; }
+.cell.incoming > .tile:not(.under) { visibility: hidden; }
+.tile.icon { background: none; border: 0; padding: 0; }
+.tile.icon svg { width: 100%; height: 100%; display: block; }
+.cbgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 700px) { .cbgrid { grid-template-columns: 1fr; } }
+.cbgrid h3 { font-size: 14px; margin: 0 0 8px; }
+.cbrow { display: grid; grid-template-columns: 9.5em 1fr 3em; gap: 10px; align-items: center; padding: 4px 0; cursor: help; font-size: 13.5px; }
+.cbrow b { text-align: right; }
+.cbtrack { position: relative; height: 12px; background: var(--sunk); border-radius: 6px; overflow: hidden; }
+.cbtrack i:first-child { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brass); border-radius: 6px; }
+.cbtrack i.mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1.5px; background: var(--muted); }
 .counts { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 12px; font-size: 13.5px; margin-bottom: 12px; }
 .counts .hd { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .counts .num { text-align: right; }
@@ -169,7 +204,8 @@ select { font: inherit; padding: 5px 8px; border-radius: 7px; border: 1px solid 
 
 /* simulate */
 .simgrid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 18px; align-items: start; }
-@media (max-width: 900px) { .simgrid { grid-template-columns: 1fr; } }
+/* phones in landscape are wide but short: keep them in one column like portrait */
+@media (max-width: 900px), (pointer: coarse) and (max-height: 600px) { .simgrid { grid-template-columns: 1fr; } .grid-setup { grid-template-columns: 1fr; } }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .field label { font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .persona-blurb { font-size: 12.5px; color: var(--muted); }
@@ -184,6 +220,10 @@ th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12px; 
 td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 td.rng { text-align: left; }
+th, td { padding-inline: 6px; }
+th.col-range { text-align: left; }
+@media (max-width: 1250px) { .col-range { display: none; } }
+@media (max-width: 560px) { .col-flips, .col-plays { display: none; } th .q { display: none; } }
 .flag { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
 .flag.hot { background: var(--red-soft); color: var(--red); }
 .flag.flat { background: var(--sunk); color: var(--muted); }
@@ -199,7 +239,7 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   header.top { gap: 10px; padding-block: 10px; margin-bottom: 12px; }
   .mark h1 { font-size: 24px; } .mark .ed { display: none; }
   nav.tabs { order: 3; width: 100%; } nav.tabs button { flex: 1; padding: 9px 8px; }
-  #copy-config { padding: 5px 10px; font-size: 13px; }
+  #copy-config, #pnp, #pnp-small { padding: 5px 10px; font-size: 13px; }
   .wrap { padding-block: 0 24px; }
   .table { padding: 8px 6px 0; gap: 10px; border-radius: 12px; }
   .board { gap: 4px; }
@@ -209,8 +249,10 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .mchip.active.p0 { border-color: var(--blue); } .mchip.active.p1 { border-color: var(--red); }
   .mchip .sig { position: static; width: 22px; height: 22px; font-size: 13px; flex: none; }
   .mchip b { font-size: 22px; line-height: 1; }
-  .mchip small { font-size: 11px; color: var(--muted); line-height: 1.2; }
-  .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; }
+  .mchip small { font-size: 11px; color: var(--muted); line-height: 1.2; white-space: nowrap; }
+  .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; display: flex; flex-direction: column; line-height: 1.1; }
+  .mdeck b { font-size: 18px; color: var(--ink); }
+  .bag { display: none; }
   .rail .score { display: none; }
   .tray { display: flex; flex-direction: column; gap: 6px; position: sticky; bottom: 0; z-index: 4; width: calc(100% + 12px); margin: 0 -6px;
     background: var(--sunk); border-top: 1px solid var(--line); box-shadow: 0 -8px 18px rgba(0,0,0,.10);
@@ -230,18 +272,28 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .endcard .box { padding: 18px; }
 }
 @media (max-width: 380px) { .hcard { width: 50px; height: 50px; --cell: 50px; } }
+th[data-tip], .stat[data-tip] { cursor: help; }
+tbody tr[data-tip] { cursor: help; }
+tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--sunk); }
+.q { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--line); color: var(--muted); font-size: 10px; font-weight: 700; margin-left: 4px; vertical-align: 1px; text-transform: none; letter-spacing: 0; }
+#tip { position: fixed; z-index: 30; max-width: 290px; background: var(--ink); color: var(--bg); font-size: 13.5px; line-height: 1.4; padding: 9px 12px; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.25); pointer-events: none; text-transform: none; letter-spacing: 0; font-weight: 400; white-space: normal; text-align: left; }
+.review h3 { font-size: 16px; margin: 12px 0 4px; }
+.review ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.review li { max-width: 72ch; }
 .toast { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: 14px; z-index: 20; }
 </style>
 
 <div class="wrap">
   <header class="top">
-    <div class="mark"><h1>Vye Micro</h1><span class="ed">two-player prototype</span></div>
+    <div class="mark"><h1>Vye Duel</h1><span class="ed">two-player prototype</span></div>
     <nav class="tabs" role="tablist">
       <button role="tab" id="tab-setup" aria-selected="false">Setup</button>
       <button role="tab" id="tab-play" aria-selected="true">Play</button>
       <button role="tab" id="tab-sim" aria-selected="false">Simulate</button>
     </nav>
     <div class="spacer"></div>
+    <a class="btn" id="pnp" href="print/vye-duel-print-and-play.pdf" target="_blank" rel="noopener">Print &amp; play PDF</a>
+    <a class="btn" id="pnp-small" href="print/small/vye-duel-small-tiles-print-and-play.pdf" target="_blank" rel="noopener">Small-tile PDF</a>
     <button class="btn" id="copy-config">Copy config</button>
   </header>
 
@@ -250,9 +302,13 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   <section id="view-sim" hidden></section>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div id="tip" role="tooltip" hidden></div>
 
 <script id="vye-engine">
 /*ENGINE*/
+</script>
+<script id="vye-tiles">
+/*TILES*/
 </script>
 <script>
 (function () {
@@ -278,19 +334,30 @@ async function copyText(text) {
 }
 
 // ---------- config ----------
-function mergeCfg(saved) {
+// Every Family sideboard lists every member, so older saved builds and presets compare cleanly.
+function normFam(c) { c.family = c.family.map(f => Object.fromEntries(E.MEMBER_ORDER.map(m => [m, (f && f[m]) | 0]))); return c; }
+function mergeCfg(saved) { return normFam(mergeCfg0(saved)); }
+function mergeCfg0(saved) {
   const d = E.defaultConfig(); if (!saved) return d;
   const c = Object.assign(d, saved);
   c.specials = Object.assign(E.defaultConfig().specials, saved.specials || {});
   c.end = Object.assign(E.defaultConfig().end, saved.end || {});
   c.family = (saved.family && saved.family.length === 2) ? saved.family : d.family;
   for (const s of Object.keys(c.specials)) if (!E.SPECIALS[s]) delete c.specials[s];
+  if (!('secondBonus' in saved)) { c.secondBonus = 1; c.tiebreak = 'second'; } // builds saved before "must win by 2" became the rule
   return c;
 }
 let cfg = mergeCfg(store.get('vyeMicro.cfg', null));
 let mirror = store.get('vyeMicro.mirror', true);
 function saveCfg() { store.set('vyeMicro.cfg', cfg); store.set('vyeMicro.mirror', mirror); }
 
+const PRESET_INFO = {
+  'Pairs': 'Only 2 of each Land instead of 3, with 10 Land types. Chains stay short, so Land plays are steadier.',
+  'Two Family each': 'Each player gets just a King and an Heir (no Queen). Family matters less; Lands matter more.',
+  'Asymmetric': 'Uneven sides for testing: Midnight gets an Advisor and an Heir, Roses get a King, Queen and Heir.',
+  'Lands only': 'No Specials at all, just Lands and Family. The bare core game.',
+  'Every special': 'One of every Special in the bag, 6 Land types, and stacks can keep growing. The chaos test.'
+};
 const PRESETS = {
   'Default micro': () => E.defaultConfig(),
   'Pairs': () => Object.assign(E.defaultConfig(), { landSets: 10, landCopies: 2 }),
@@ -299,6 +366,10 @@ const PRESETS = {
   'Lands only': () => Object.assign(E.defaultConfig(), { landSets: 9, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 0])) }),
   'Every special': () => Object.assign(E.defaultConfig(), { landSets: 6, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 1])), stacking: 'unlimited' })
 };
+
+// Which preset (if any) matches the current Setup, and whether the game on the table was dealt with different rules.
+function presetName() { const cur = JSON.stringify(normFam(cfg)); return Object.keys(PRESETS).find(n => JSON.stringify(normFam(Object.assign(E.defaultConfig(), PRESETS[n]()))) === cur) || null; }
+function cfgChanged() { return !!G && JSON.stringify(G.cfg) !== JSON.stringify(cfg); }
 
 function stepper(val, min, max, onChange, id) {
   const out = h('output', { id }, String(val));
@@ -317,7 +388,7 @@ function row(label, help, control) {
 function deckNumbers(c) {
   const lands = c.landSets * c.landCopies;
   let specials = 0, placeSpecials = 0;
-  for (const s of E.SPECIAL_ORDER) { const n = c.specials[s] | 0; specials += n; const mode = s === 'wild' ? (c.wildMode === 'cover' ? 'cover' : 'place') : E.SPECIALS[s].mode; if (mode === 'place') placeSpecials += n; }
+  for (const s of E.SPECIAL_ORDER) { const n = c.specials[s] | 0; specials += n; const mode = E.SPECIALS[s].mode; if (mode === 'place') placeSpecials += n; }
   const fam = c.family.map(f => E.MEMBER_ORDER.reduce((a, m) => a + (f[m] | 0), 0));
   const spaces = c.gridW * c.gridH;
   const fillers = lands + placeSpecials + fam[0] + fam[1] + (c.start === 'neutral' ? 1 : 0);
@@ -327,8 +398,20 @@ function deckNumbers(c) {
 function renderSetup() {
   const v = $('#view-setup'); v.textContent = '';
   const set = (fn) => { fn(); saveCfg(); renderSetup(); };
-  const presets = h('div', { class: 'presets' }, h('span', { class: 'k' }, 'Presets'),
-    Object.keys(PRESETS).map(name => h('button', { class: 'btn', onclick: () => set(() => { cfg = PRESETS[name](); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); }) }, name)));
+  const cur = presetName();
+  const presetCard = (label, desc, active, onclick, disabled) => h('div', { class: 'preset' + (active ? ' on' : '') },
+    h('button', { class: 'btn' + (active ? ' on' : ''), 'aria-pressed': String(!!active), disabled: !!disabled, onclick }, label),
+    h('small', null, desc));
+  const presets = h('div', { class: 'panel', style: 'margin-bottom:16px' },
+    h('div', { style: 'display:flex;align-items:baseline;gap:10px;flex-wrap:wrap' }, h('h2', null, 'Presets'),
+      h('span', { class: 'sub', style: 'margin:0' }, cur ? `You\u2019re on: ${cur === 'Default micro' ? 'the default build' : cur}` : 'You\u2019re on: a custom build (you changed settings by hand)')),
+    h('p', { class: 'sub' }, 'A preset changes several settings at once. Your current game isn\u2019t affected until you start a new one.'),
+    h('div', { class: 'preset-grid' },
+      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the second player wins ties.',
+        cur === 'Default micro', () => set(() => { cfg = E.defaultConfig(); mirror = true; }), cur === 'Default micro'),
+      Object.keys(PRESETS).filter(n => n !== 'Default micro').map(name => presetCard(name, PRESET_INFO[name], cur === name,
+        () => set(() => { cfg = normFam(PRESETS[name]()); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));
+  const stale = G && !G.over && cfgChanged();
 
   const deck = h('div', { class: 'panel' }, h('h2', null, 'Lands'), h('p', { class: 'sub' }, 'Each Land type comes in a matching set. Matching an adjacent Land flips the whole connected chain.'),
     row('Land types', 'How many different Lands go in the deck.', stepper(cfg.landSets, 2, 16, n => set(() => cfg.landSets = n), 'st-landsets')),
@@ -337,10 +420,12 @@ function renderSetup() {
   const specials = h('div', { class: 'panel' }, h('h2', null, 'Specials'), h('p', { class: 'sub' }, 'Token cards are gone. Everything here works with flip-for-ownership tiles.'),
     E.SPECIAL_ORDER.map(s => {
       const S = E.SPECIALS[s];
-      const mode = s === 'wild' ? (cfg.wildMode === 'cover' ? 'covers' : cfg.wildMode === 'place' ? 'placed' : 'covers or placed') : ({ place: 'placed', cover: 'covers', replace: 'replaces' })[S.mode];
-      return row(h('span', null, S.name, h('span', { class: 'chip' + (S.origin !== 'Original' ? ' new' : '') }, S.origin), h('span', { class: 'chip' }, mode)), S.rule,
+      const mode = ({ place: 'placed', cover: 'covers', replace: 'replaces' })[S.mode];
+      return row(h('span', null, S.name, h('span', { class: 'chip' + (S.origin !== 'Original' ? ' new' : '') }, S.origin), h('span', { class: 'chip' }, mode)), specialRule(s),
         stepper(cfg.specials[s] | 0, 0, 3, n => set(() => cfg.specials[s] = n), 'st-sp-' + s));
-    }));
+    }),
+    row('Lost City points', 'What one Lost City is worth inside your kingdom at the end of the game. A normal tile is worth 1.', stepper(cfg.lostCityValue ?? 2, 1, 6, n => set(() => cfg.lostCityValue = n), 'st-lcv')),
+    row('Usurp triggers matching', 'On: the Land you swap in matches its neighbors like a normal Land play. Off: Usurp only takes over that one space.', h('input', { type: 'checkbox', id: 'usurpmatch', checked: cfg.usurpMatch !== false, onchange: e => set(() => cfg.usurpMatch = e.target.checked) })));
 
   const famCol = (p) => h('div', null,
     h('h3', null, h('span', { class: 'dot p' + p }), E.HOUSES[p].short + (p === 0 ? ' (Blue, first)' : ' (Red)')),
@@ -348,7 +433,7 @@ function renderSetup() {
       cfg.family[p][m] = n; if (mirror) cfg.family[1 - p][m] = n;
     }), 'st-fam-' + p + m))));
   const fam = h('div', { class: 'panel' }, h('h2', null, 'Family sideboard'),
-    h('p', { class: 'sub' }, 'Family tiles start face up beside each player and can be played instead of a hand card. Advisor flips all 8 surrounding tiles, King the 4 adjacent, Queen the 4 diagonal, Heir 1 of your choice.'),
+    h('p', { class: 'sub' }, 'Family tiles start face up beside each player and can be played instead of a hand card. Advisor flips all 8 surrounding tiles, King the 4 adjacent, Queen the 4 diagonal, Heir 1 of your choice. The Knave slips past an adjacent tile and flips the one behind it, like Underminers.'),
     h('label', { class: 'check', style: 'margin-bottom:10px' }, h('input', { type: 'checkbox', id: 'mirror', checked: mirror, onchange: e => set(() => { mirror = e.target.checked; if (mirror) cfg.family[1] = Object.assign({}, cfg.family[0]); }) }), 'Same Family for both players'),
     h('div', { class: 'fam-cols' }, famCol(0), famCol(1)),
     row('Color Capture', 'Playing a Family tile next to a same-house Family tile flips it back.', h('input', { type: 'checkbox', id: 'colorcap', checked: cfg.colorCapture, onchange: e => set(() => cfg.colorCapture = e.target.checked) })));
@@ -359,15 +444,19 @@ function renderSetup() {
     row('Height limit', null, stepper(cfg.gridH, 3, 8, n => set(() => cfg.gridH = n), 'st-h')),
     row('Hand size', null, stepper(cfg.handSize, 1, 6, n => set(() => cfg.handSize = n), 'st-hand')),
     row('Opening tile', 'A neutral Crossroads that nobody can own, or an empty table.', seg([['neutral', 'Crossroads'], ['none', 'Empty']], cfg.start, x => set(() => cfg.start = x))),
-    row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: stacks keep growing.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))),
-    row('Wild Land', 'Covers a Land (adapted) or is placed in an empty space (original).', seg([['cover', 'Covers'], ['place', 'Placed'], ['either', 'Either']], cfg.wildMode, x => set(() => cfg.wildMode = x))),
-    row('Wild Land set limit', 'Original rule: Wild Land can\u2019t join a chain that already has a full set. One Wild Land per chain always applies.', h('input', { type: 'checkbox', id: 'wildlimit', checked: !!cfg.wildLimit, onchange: e => set(() => cfg.wildLimit = e.target.checked) })));
+    row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: anything can be covered again and again, including Sinkholes, Sanctuaries and Lost Cities.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))),
+    row('Family can capture the Crossroads', 'A Family capture that reaches the Crossroads takes it, like any other tile.', h('input', { type: 'checkbox', id: 'xcap', checked: !!cfg.crossroadsCapture, onchange: e => set(() => cfg.crossroadsCapture = e.target.checked) })),
+    row('Cards can stack on the Crossroads', 'Off by default, so nobody can drop a Lost City on the center tile late in the game for free points.', h('input', { type: 'checkbox', id: 'xcover', checked: !!cfg.crossroadsCover, onchange: e => set(() => cfg.crossroadsCover = e.target.checked) })));
 
-  const endKeys = [['boardFull', 'Board is full', 'Every space inside the width × height limit is filled.'], ['deckEmpty', 'Deck is empty', 'Ends the moment the last card is drawn.'], ['noValidPlay', 'A player can’t play', 'If off, that player passes instead. The game ends when neither can play.']];
+  const endKeys = [['boardFull', 'Board is full', 'Every space inside the width × height limit is filled.'], ['deckEmpty', 'Bag is empty', 'Ends the moment the last tile is drawn from the bag.'], ['noValidPlay', 'A player can’t play', 'If off, that player passes instead. The game ends when neither can play.']];
   const end = h('div', { class: 'panel' }, h('h2', null, 'Game end'),
     h('p', { class: 'sub' }, 'Any checked condition ends the game. The largest connected kingdom wins.'),
     endKeys.map(([k, l, help]) => row(l, help, h('input', { type: 'checkbox', id: 'end-' + k, checked: cfg.end[k], onchange: e => set(() => cfg.end[k] = e.target.checked) }))),
-    row('Ties', 'Leave as a tie, or break it on total tiles owned.', seg([['none', 'Tie'], ['total', 'Total tiles']], cfg.tiebreak, x => set(() => cfg.tiebreak = x))));
+    row('Ties', 'Leave as a tie, break it on total tiles owned, or give it to the second player.', seg([['none', 'Tie'], ['total', 'Total tiles'], ['second', 'Second player']], cfg.tiebreak, x => set(() => cfg.tiebreak = x))),
+    row('Second player bonus', 'Points added to the second player\u2019s kingdom at the end. +1 with ties to the second player means the first player must win by 2.', stepper(cfg.secondBonus | 0, 0, 3, n => set(() => cfg.secondBonus = n), 'st-bonus')),
+    row('Second player keeps apart', 'On the second player\u2019s first turn, their tile can\u2019t go on or next to (side by side) any of the first player\u2019s tiles. Diagonal is fine.', h('input', { type: 'checkbox', id: 'secondapart', checked: !!cfg.secondApart, onchange: e => set(() => cfg.secondApart = e.target.checked) })),
+    row('Second player extra cards', 'The second player starts with this many more cards in hand.', stepper(cfg.secondExtraCards | 0, 0, 2, n => set(() => cfg.secondExtraCards = n), 'st-extra')),
+    h('div', { style: 'margin-top:8px' }, h('button', { class: 'btn', onclick: () => set(() => { cfg.secondBonus = 0; cfg.tiebreak = 'second'; }) }, 'Use \u201csecond player wins ties\u201d')));
 
   const n = deckNumbers(cfg);
   const fillNote = n.fillers < n.spaces
@@ -375,33 +464,71 @@ function renderSetup() {
     : h('div', { class: 'note ok' }, `${n.fillers} space-filling tiles for ${n.spaces} spaces, so about ${n.fillers - n.spaces} stay unplayed. Cover cards don’t use up spaces.`);
   const summary = h('div', { class: 'panel', style: 'grid-column: 1 / -1' }, h('h2', null, 'This build'),
     h('div', { class: 'summary' },
-      [[n.deck, 'Deck tiles'], [n.lands, 'Lands'], [n.specials, 'Specials'], [n.fam[0] + ' / ' + n.fam[1], 'Family Blue / Red'], [n.spaces, 'Board spaces']].map(([val, k]) => h('div', { class: 'stat' }, h('div', { class: 'v' }, String(val)), h('div', { class: 'k' }, k)))),
+      [[n.deck + n.fam[0] + n.fam[1] + (cfg.start === 'neutral' ? 1 : 0), 'Total tiles', `${n.deck} in the bag + ${n.fam[0] + n.fam[1]} Family tiles in the sideboards` + (cfg.start === 'neutral' ? ' + 1 Crossroads starting tile' : '')],
+        [n.deck, 'Tiles in the bag', 'Lands and Specials. Each player draws from these.'], [n.lands, 'Lands'], [n.specials, 'Specials'],
+        [n.fam[0] + ' / ' + n.fam[1], 'Family Blue / Red', 'Face-up sideboard tiles for each player.'], [n.spaces, 'Board spaces']]
+        .map(([val, k, tip]) => h('div', { class: 'stat', 'data-tip': tip || null, tabindex: tip ? '0' : null }, h('div', { class: 'v' }, String(val)), h('div', { class: 'k' }, k, tip ? h('span', { class: 'q' }, '?') : null)))),
     fillNote,
     h('div', { style: 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap' },
       h('button', { class: 'btn primary', onclick: () => { selectTab('play'); newGame(); } }, 'Play this build'),
       h('button', { class: 'btn', onclick: () => selectTab('sim') }, 'Simulate this build')));
 
-  v.append(presets, h('div', { class: 'grid-setup' }, summary, deck, board, end, fam, specials));
+  v.append(presets,
+    stale ? h('div', { class: 'note warn', style: 'margin:0 0 14px' }, 'A game is in progress with the old settings. Changes here apply when you start a new game. ',
+      h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => { selectTab('play'); newGame(); } }, 'Start a new game now')) : '',
+    h('div', { class: 'grid-setup' }, summary, deck, board, end, fam, specials));
 }
 
 // ---------- tiles ----------
-const SPEC_GLYPH = { ancient: '∩', lostcity: '♜', sinkhole: '◎', sanctuary: '✧', wild: '✳', watchtower: '♖', pretender: '♛', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
+const SPEC_GLYPH = { lostcity: '♜', sinkhole: '◎', sanctuary: '✧', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
 function patEl(member) {
+  if (member === 'knave') // 5×5: jumps past a neighbour to the tile two spaces away
+    return h('span', { class: 'pat pat5' }, [...Array(25)].map((_, i) => h('i', { class: i === 12 ? 'me' : [2, 10, 14, 22].includes(i) ? 'opt' : [7, 11, 13, 17].includes(i) ? 'skip' : '' })));
   const on = { advisor: [0,1,2,3,5,6,7,8], king: [1,3,5,7], queen: [0,2,6,8], heir: [] }[member];
   return h('span', { class: 'pat' }, [...Array(9)].map((_, i) => h('i', { class: i === 4 ? 'me' : on.includes(i) ? 'on' : member === 'heir' ? 'opt' : '' })));
 }
+// Card art lives in art/ next to this page. Replace a file with one of the same name to change the art.
+const ART_SPECIALS = new Set(['lostcity', 'sinkhole', 'sanctuary', 'underminers', 'earthquake', 'waystone']);
+// Tile style: 'art' (card art), 'icons' (the simple small-tile set), 'symbols' (plain glyphs)
+let tileStyle = store.get('vyeMicro.tileStyle', store.get('vyeMicro.art', true) === false ? 'symbols' : 'art');
+let showArt = tileStyle === 'art';
+function iconTile(t, owner) {
+  const o0 = owner === undefined ? t.owner : owner;
+  const o = o0 === 0 ? 'b' : o0 === 1 ? 'r' : o0 === 'both' ? 'both' : 'n';
+  let svg;
+  if (t.kind === 'land') svg = VyeTiles.land(VyeTiles.LANDS[t.land], o);
+  else if (t.kind === 'family') svg = VyeTiles.family(t.member, t.house === 0 ? 'b' : 'r', o);
+  else if (t.kind === 'special') svg = VyeTiles.special(t.special, o);
+  else svg = VyeTiles.crossroads(o);
+  const el = h('div', { class: 'tile icon', title: E.cardTitle(t) }); el.innerHTML = svg; return el;
+}
+function artSrc(t) {
+  if (t.kind === 'land') return `art/lands/${E.LANDS[t.land].art}.jpg`;
+  if (t.kind === 'family') return `art/family/${E.HOUSES[t.house].art}-${t.member}.jpg`;
+  if (t.kind === 'special' && ART_SPECIALS.has(t.special)) return `art/specials/${t.special}.jpg`;
+  return null;
+}
+function addArt(el, t) {
+  const src = showArt ? artSrc(t) : null;
+  if (!src) return;
+  const img = h('img', { class: 'art', src, alt: '', draggable: 'false' });
+  img.addEventListener('error', () => { img.remove(); el.classList.remove('has-art'); });
+  el.classList.add('has-art'); el.prepend(img);
+}
 function tileEl(t, owner) {
+  if (tileStyle === 'icons' && window.VyeTiles) return iconTile(t, owner);
   let el;
-  if (t.kind === 'land' || (t.special === 'wild' && t.wildAs != null)) {
-    const L = E.LANDS[t.kind === 'land' ? t.land : t.wildAs];
-    el = h('div', { class: 'tile land', style: '--lc:' + L.color }, h('span', { class: 'g' }, t.special === 'wild' ? '✳' : L.glyph), h('span', { class: 'n' }, t.special === 'wild' ? 'Wild ' + L.name : L.name));
+  if (t.kind === 'land') {
+    const L = E.LANDS[t.land];
+    el = h('div', { class: 'tile land', style: '--lc:' + L.color }, h('span', { class: 'g' }, L.glyph), h('span', { class: 'n' }, L.name));
   } else if (t.kind === 'family') {
     el = h('div', { class: 'tile fam' }, patEl(t.member), h('span', { class: 'n' }, E.MEMBERS[t.member].name), h('span', { class: 'n', style: 'opacity:.6;margin-top:0' }, E.HOUSES[t.house].short));
   } else if (t.kind === 'special') {
     const S = E.SPECIALS[t.special];
-    if (t.special === 'pretender' && t.member) el = h('div', { class: 'tile spec' }, patEl(t.member), h('span', { class: 'n' }, 'Pretender ' + E.MEMBERS[t.member].name));
-    else el = h('div', { class: 'tile spec ' + t.special }, h('span', { class: 'g' }, SPEC_GLYPH[t.special]), h('span', { class: 'n' }, S.name));
+    el = h('div', { class: 'tile spec ' + t.special }, h('span', { class: 'g' }, SPEC_GLYPH[t.special]), h('span', { class: 'n' }, S.name));
   } else el = h('div', { class: 'tile start' }, h('span', { class: 'g' }, '✣'), h('span', { class: 'n' }, 'Crossroads'));
+  addArt(el, t);
+  el.title = E.cardTitle(t);
   const o = owner === undefined ? t.owner : owner;
   if (o === 0 || o === 1 || o === 'both') {
     const c = o === 'both' ? 'both' : 'p' + o;
@@ -412,14 +539,19 @@ function tileEl(t, owner) {
 function cardDesc(c) {
   if (c.kind === 'land') return `${E.LANDS[c.land].name}: matches adjacent ${E.LANDS[c.land].name} and flips the whole chain.`;
   if (c.kind === 'family') return `${E.MEMBERS[c.member].name}: ${E.MEMBERS[c.member].rule}` + (cfg.colorCapture ? ' Also flips adjacent same-house Family.' : '');
-  if (c.special === 'wild') return `Wild Land: ${E.SPECIALS.wild.rule} Lands light up only if they touch a Land it can copy.`;
-  return `${E.SPECIALS[c.special].name}: ${E.SPECIALS[c.special].rule}`;
+  return `${E.SPECIALS[c.special].name}: ${specialRule(c.special)}`;
+}
+function specialRule(s) {
+  if (s === 'lostcity') return `Cover a Land you own. Worth ${cfg.lostCityValue ?? 2} points in your kingdom.`;
+  if (s === 'usurp') return cfg.usurpMatch === false ? 'Swap a Land on the board for a Land from your hand. It takes that space only, with no matching. Old Land goes under the bag.' : 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the bag.';
+  return E.SPECIALS[s].rule;
 }
 
 // ---------- play ----------
 const seats = store.get('vyeMicro.seats', ['human', 'cautious']);
 let speed = store.get('vyeMicro.speed', 600);
 let reveal = false;
+let revealBag = false;
 let G = null;            // game state
 let history = [];        // snapshots before human moves
 let ui = { sel: null, pos: null, phase: null, eqA: null };
@@ -435,7 +567,7 @@ function restore(s, snap) { Object.assign(s, snap, { board: new Map(snap.board),
 function newGame(seed) {
   clearTimeout(aiTimer); paused = false;
   gameSeed = seed != null ? seed : Math.floor(Math.random() * 1e6);
-  G = E.newGame(cfg, gameSeed); history = []; ui = { sel: null, pos: null, phase: null, eqA: null };
+  G = E.newGame(cfg, gameSeed); history = []; ui = { sel: null, pos: null, phase: null, eqA: null }; animatedN = -1; animBusyUntil = 0;
   renderPlay(); scheduleAI();
 }
 const isHuman = p => seats[p] === 'human';
@@ -445,11 +577,12 @@ function scheduleAI() {
   aiTimer = setTimeout(() => {
     if (!G || G.over || isHuman(G.turn) || paused) return;
     const m = E.chooseMove(G, seats[G.turn]);
-    if (m) E.playMove(G, m);
+    if (m) { animFrom = sourceRect(G.turn, m.cardId); E.playMove(G, m); }
     renderPlay(); scheduleAI();
-  }, speed);
+  }, Math.max(speed, animBusyUntil - performance.now() + 150));
 }
 function humanPlay(move) {
+  animFrom = sourceRect(G.turn, move.cardId);
   history.push(snapshot(G));
   E.playMove(G, move);
   ui = { sel: null, pos: null, phase: null, eqA: null };
@@ -458,7 +591,7 @@ function humanPlay(move) {
 function undo() {
   if (!history.length) return;
   clearTimeout(aiTimer);
-  restore(G, history.pop());
+  restore(G, history.pop()); animatedN = G.lastMove ? G.lastMove.n : -1;
   ui = { sel: null, pos: null, phase: null, eqA: null };
   renderPlay();
 }
@@ -473,15 +606,13 @@ function clickCell(k) {
     const pm = ms.filter(m => m.pos === k); if (!pm.length) return;
     if (!pm.some(m => m.choice != null)) return humanPlay(pm[0]);
     ui.pos = k;
-    if (card.special === 'wild') ui.phase = 'wild';
-    else if (card.special === 'usurp') ui.phase = 'usurp';
+    if (card.special === 'usurp') ui.phase = 'usurp';
     else if (card.special === 'earthquake') ui.phase = 'eqA';
     else ui.phase = 'cell';
     return renderPlay();
   }
   const pm = ms.filter(m => m.pos === ui.pos);
   if (ui.phase === 'cell') { const m = pm.find(m => m.choice === k); if (m) humanPlay(m); return; }
-  if (ui.phase === 'wild') { const L = E.landOf(E.top(G.board, k)); if (wildSources().has(k)) humanPlay(pm.find(m => m.choice === L)); return; }
   if (ui.phase === 'eqA') { if (pm.some(m => m.choice && m.choice.includes(k))) { ui.eqA = k; ui.phase = 'eqB'; renderPlay(); } return; }
   if (ui.phase === 'eqB') { const m = pm.find(m => m.choice && m.choice.includes(ui.eqA) && m.choice.includes(k) && k !== ui.eqA); if (m) humanPlay(m); return; }
 }
@@ -492,22 +623,11 @@ function targetsNow() {
   if (ui.phase === null) return new Set(ms.map(m => m.pos));
   const pm = ms.filter(m => m.pos === ui.pos);
   if (ui.phase === 'cell') return new Set(pm.map(m => m.choice).filter(c => c != null));
-  if (ui.phase === 'wild') return wildSources();
   if (ui.phase === 'eqA') { const s = new Set(); pm.forEach(m => m.choice && m.choice.forEach(c => s.add(c))); return s; }
   if (ui.phase === 'eqB') { const s = new Set(); pm.forEach(m => { if (m.choice && m.choice.includes(ui.eqA)) m.choice.forEach(c => { if (c !== ui.eqA) s.add(c); }); }); return s; }
   return new Set();
 }
 
-// Adjacent Land tiles Wild Land can copy, for the current target space.
-function wildSources() {
-  const types = new Set(movesFor().filter(m => m.pos === ui.pos).map(m => m.choice));
-  const out = new Set();
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const n = E.key(E.kx(ui.pos) + dx, E.ky(ui.pos) + dy);
-    if (n !== ui.pos && types.has(E.landOf(E.top(G.board, n)))) out.add(n);
-  }
-  return out;
-}
 function usurpPick(c) {
   const m = movesFor().find(m => m.pos === ui.pos && m.choice && m.choice.land === c.land);
   if (m) humanPlay(Object.assign({}, m, { choice: { cardId: c.id, land: c.land } }));
@@ -523,7 +643,8 @@ function renderBoard() {
   const cols = x1 - x0 + 1, rows = y1 - y0 + 1;
   const phone = window.innerWidth <= 700, gap = phone ? 4 : 5;
   const vw = ($('#view-play') || document.body).clientWidth;
-  const avail = phone ? vw - 12 : Math.min(vw - (window.innerWidth > 900 ? 380 : 40), 720);
+  const oneCol = window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches;
+  const avail = phone ? vw - 12 : Math.min(vw - (oneCol ? 40 : 380), 720);
   const cell = Math.max(34, Math.min(86, Math.floor((avail - gap * (cols - 1)) / cols)));
   const tg = targetsNow();
   const lm = G.lastMove; const flipped = new Set(lm ? lm.flips : []);
@@ -537,7 +658,7 @@ function renderBoard() {
     if (st && st.length > 1) cls.push('stacked');
     if (lm && lm.pos === k) cls.push('last');
     if (flipped.has(k)) cls.push('flipped');
-    const c = h('div', { class: cls.join(' '), onclick: () => clickCell(k), title: st ? st.slice().reverse().map(E.cardTitle).join(' over ') : null });
+    const c = h('div', { class: cls.join(' '), 'data-k': k, onclick: () => clickCell(k), title: st ? st.slice().reverse().map(E.cardTitle).join(' over ') : null });
     if (st) {
       c.append(tileEl(st[st.length - 1]));
       if (st.length > 1) c.append(h('span', { class: 'stack' }, '×' + st.length));
@@ -550,7 +671,7 @@ function renderBoard() {
 }
 
 function promptEl() {
-  if (G.over) return h('div', { class: 'prompt' }, `Game over · ${G.winner === -1 ? 'Tie' : E.HOUSES[G.winner].short + ' wins'} ${G.final.largest[0]}–${G.final.largest[1]}`, h('button', { class: 'btn', onclick: () => { ui.hideEnd = false; renderPlay(); } }, 'Show result'));
+  if (G.over) return h('div', { class: 'prompt' }, h('span', null, 'Game over · ' + resultLine()), h('button', { class: 'btn', onclick: () => { ui.hideEnd = false; renderPlay(); } }, 'Show result'));
   const p = G.turn; const who = h('span', { class: 'who p' + p }, E.HOUSES[p].short);
   if (!isHuman(p)) return h('div', { class: 'prompt' }, h('span', null, who, paused ? ' is paused.' : ' is thinking…'));
   const card = selCard();
@@ -558,7 +679,6 @@ function promptEl() {
   const cancel = h('button', { class: 'btn', onclick: () => { ui = { sel: null, pos: null, phase: null, eqA: null }; renderPlay(); } }, 'Cancel');
   const back = h('button', { class: 'btn', onclick: () => { ui.pos = null; ui.phase = null; ui.eqA = null; renderPlay(); } }, 'Back');
   const pm = movesFor().filter(m => m.pos === ui.pos);
-  if (ui.phase === 'wild') return h('div', { class: 'prompt' }, h('span', null, 'Wild Land: tap the adjacent Land it should copy.'), back);
   if (ui.phase === 'usurp') return h('div', { class: 'prompt' }, h('span', null, 'Usurp: tap the Land from your hand to put in its place.'), back);
   if (ui.phase === 'cell') return h('div', { class: 'prompt' }, 'Choose the tile to flip.', back);
   if (ui.phase === 'eqA') return h('div', { class: 'prompt' }, 'Earthquake: pick the first tile to swap.', h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === null)) }, 'No swap'), back);
@@ -575,14 +695,51 @@ function handEl(p, other) {
     const picking = mine && ui.phase === 'usurp';
     const pickable = picking && c.kind === 'land' && movesFor().some(m => m.pos === ui.pos && m.choice && m.choice.land === c.land);
     const ok = picking ? pickable || ui.sel === c.id : playable.has(c.id);
-    const b = h('button', { class: 'hcard' + (ui.sel === c.id ? ' sel' : '') + (pickable ? ' pick' : '') + (mine && !ok ? ' dead' : ''), title: cardDesc(c), 'aria-label': E.cardTitle(c),
+    const b = h('button', { 'data-cid': c.id, class: 'hcard' + (ui.sel === c.id ? ' sel' : '') + (pickable ? ' pick' : '') + (mine && !ok ? ' dead' : ''), title: cardDesc(c), 'aria-label': E.cardTitle(c),
       onclick: () => { if (!mine || !ok) return; if (pickable) return usurpPick(c); ui = { sel: ui.sel === c.id ? null : c.id, pos: null, phase: null, eqA: null }; renderPlay(); } });
     b.append(tileEl(c, p)); return b;
   };
-  return h('div', { class: 'hand-area' + (other ? ' other' : '') },
+  return h('div', { class: 'hand-area' + (other ? ' other' : ''), 'data-p': p },
     h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`, !show ? ` (${pl.hand.length} hidden)` : ''),
     h('div', { class: 'hand' }, show ? pl.hand.map(cardBtn) : pl.hand.map(() => h('span', { class: 'hcard back' })),
       pl.side.length ? h('span', { style: 'width:14px' }) : null, pl.side.map(cardBtn)));
+}
+
+// The draw bag: one pip per tile it started with, filled while still in the bag.
+function bagEl() {
+  const left = G.deck.length, start = Math.max(G.initialDeck || 0, left);
+  const lands = G.deck.filter(c => c.kind === 'land').length;
+  const label = left === 0 ? 'The bag is empty. Play out your hand.' : left <= 4 ? `Only ${left} left in the bag` : `${left} tiles left in the bag`;
+  return h('div', { class: 'bag' + (left <= 4 ? ' low' : ''), 'data-tip': `${left} of ${start} tiles left to draw` + (revealBag ? ` (${lands} Lands, ${left - lands} Specials)` : '') + '. Hands refill from the bag after every play.', tabindex: '0' },
+    h('span', { class: 'bag-label' }, label),
+    revealBag && left ? h('span', null, `${lands} Land${lands === 1 ? '' : 's'}` + (left - lands ? ' · ' + G.deck.filter(c => c.kind !== 'land').map(c => E.SPECIALS[c.special].name).join(', ') : '')) : null,
+    h('span', { class: 'pips' }, [...Array(start)].map((_, i) => h('i', { class: i < left ? 'on' : '' }))));
+}
+
+// Second-player bonus ("first player must win by 2") shown next to Roses' score.
+function bonusTag() {
+  const b = cfg.secondBonus | 0, tie = cfg.tiebreak === 'second';
+  if (!b && !tie) return null;
+  const tip = `Roses went second, so ${b ? `Roses get +${b} at the end` : ''}${b && tie ? ' and ' : ''}${tie ? 'win ties' : ''}. Midnight has to win by ${b + (tie ? 1 : 0) + (b || tie ? 0 : 1)} or more.`;
+  return h('span', { class: 'bonus', 'data-tip': tip, tabindex: '0' }, b ? `+${b}` : 'wins ties');
+}
+function resultLine() {
+  const [a, b] = G.final.largest, w = G.winner;
+  if (w === -1) return `Tie at ${a}`;
+  return `${E.HOUSES[w].short} wins (${a} to ${b}` + ((cfg.secondBonus | 0) ? `, Roses +${cfg.secondBonus}` : '') + ')';
+}
+function resultWhy() {
+  const [a, b] = G.final.largest, bonus = cfg.secondBonus | 0, adj = b + bonus, w = G.winner;
+  const tie = cfg.tiebreak === 'second';
+  let s = `Midnight ${a}, Roses ${b}`;
+  if (bonus) s += ` + ${bonus} second-player bonus = ${adj}`;
+  s += '. ';
+  if (w === 1 && a > b) s += a === adj ? 'That\u2019s a tie, and ties go to the second player, so Roses win. Midnight needed to win by 2.' : 'The bonus puts Roses ahead. Midnight needed to win by 2.';
+  else if (w === 1 && a === b && tie) s += 'Ties go to the second player.';
+  else if (w === 0 && bonus) s += 'Midnight won by enough to beat the bonus.';
+  else if (w === -1 && cfg.tiebreak === 'total') s += 'Still tied on total tiles.';
+  else if (w !== -1 && a === adj && cfg.tiebreak === 'total') s += 'Tied, so it went to whoever owns more tiles in total.';
+  return s;
 }
 
 function countsEl() {
@@ -594,11 +751,83 @@ function countsEl() {
     row('Tiles', h('span', { class: 'p0c' }, '☾'), h('span', { class: 'p1c' }, '✿'), 'hd'),
     row(covered ? `On board (${covered} covered)` : 'On board', String(tiles), '', ''),
     row('Spaces filled', `${G.board.size} of ${cfg.gridW * cfg.gridH}`, '', ''),
-    row('Deck', String(G.deck.length), '', ''),
+    row('In the bag', String(G.deck.length), '', ''),
     row('In hand', h('span', { class: 'p0c' }, String(P[0].hand.length)), h('span', { class: 'p1c' }, String(P[1].hand.length))),
     row('Sideboard', h('span', { class: 'p0c' }, String(P[0].side.length)), h('span', { class: 'p1c' }, String(P[1].side.length))),
     G.discard.length ? row('Discarded', String(G.discard.length), '', '') : [],
     row(`Total · turn ${G.turnNo + 1}`, String(total), '', 'tot'));
+}
+
+// ---------- play animations ----------
+let animOn = store.get('vyeMicro.anim', true) && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+let animatedN = -1, animFrom = null, animBusyUntil = 0;
+const visible = el => el && el.getClientRects().length && el.offsetParent !== null;
+// Where a played card comes from: the card itself if it's on screen, else that player's hand or score.
+function sourceRect(p, cardId) {
+  const cands = [document.querySelector(`.hcard[data-cid="${cardId}"]`), document.querySelector(`.hand-area[data-p="${p}"] .hand`),
+    document.querySelector(`.mchip.p${p}`), document.querySelector(`.pscore.p${p}`)];
+  const el = cands.find(visible); return el ? el.getBoundingClientRect() : null;
+}
+function cellEl(k) { return document.querySelector(`.cell[data-k="${k}"]`); }
+function runAnim(lm, from) {
+  const D = speed <= 150 ? 280 : speed >= 1400 ? 760 : 500;
+  const cell = cellEl(lm.pos); if (!cell) return;
+  const st = G.board.get(lm.pos) || [];
+  const topTile = cell.querySelector('.tile:not(.under)');
+  const card = lm.card, removed = lm.removed;
+  // what sits in the space while the card is in the air: the tile it covers, or the Land Usurp replaces
+  const underTile = removed ? removed : (st.length > 1 && card.kind === 'special' && card.special !== 'usurp' ? st[st.length - 2] : null);
+  let under = null;
+  if (underTile) { under = tileEl(underTile); under.classList.add('under'); cell.prepend(under); }
+  // tiles about to flip show their old owner until their turn comes
+  const flips = lm.flips || [];
+  for (const k of flips) { const c = cellEl(k), t = E.top(G.board, k); if (c && t) { const old = c.querySelector('.tile'); old.replaceWith(tileEl(t, lm.from ? lm.from[k] : null)); } }
+  // Earthquake swaps: show the two tiles in their old places until the card lands
+  const eq = card.special === 'earthquake' && lm.choice ? lm.choice : null;
+  cell.classList.add('incoming');
+  const to = cell.getBoundingClientRect();
+  const fly = h('div', { class: 'flyer', style: `left:${to.left}px;top:${to.top}px;width:${to.width}px;height:${to.height}px` });
+  const ghost = (topTile || tileEl(E.top(G.board, lm.pos))).cloneNode(true); ghost.style.visibility = 'visible'; fly.append(ghost);
+  document.body.append(fly);
+  const src = from || { left: to.left, top: to.top - 120, width: to.width, height: to.height };
+  const dx = (src.left + src.width / 2) - (to.left + to.width / 2), dy = (src.top + src.height / 2) - (to.top + to.height / 2);
+  const sc = Math.max(.5, Math.min(1.4, src.width / to.width));
+  const covering = !!underTile;
+  fly.animate([
+    { transform: `translate(${dx}px, ${dy}px) scale(${sc})`, opacity: .9 },
+    { transform: `translate(${dx * .35}px, ${dy * .35 - 26}px) scale(${covering ? 1.25 : 1.15}) rotate(-3deg)`, opacity: 1, offset: .6 },
+    { transform: 'translate(0, 0) scale(1)', opacity: 1 }], { duration: D, easing: 'cubic-bezier(.2,.75,.25,1)' });
+  let t = D;
+  setTimeout(() => {
+    fly.remove(); cell.classList.remove('incoming');
+    const landed = cell.querySelector('.tile:not(.under)');
+    if (landed) landed.animate([{ transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' });
+    if (under && removed) { // Usurp: the old Land goes back to the bag
+      const bag = [document.querySelector('.bag'), document.querySelector('.mdeck')].find(visible);
+      const r0 = cell.getBoundingClientRect(), r1 = bag ? bag.getBoundingClientRect() : { left: r0.left, top: r0.top - 200, width: 10, height: 10 };
+      const out = h('div', { class: 'flyer', style: `left:${r0.left}px;top:${r0.top}px;width:${r0.width}px;height:${r0.height}px` }); out.append(under); document.body.append(out);
+      out.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${r1.left + r1.width / 2 - r0.left - r0.width / 2}px, ${r1.top + r1.height / 2 - r0.top - r0.height / 2}px) scale(.3)`, opacity: 0 }], { duration: D, easing: 'ease-in' }).onfinish = () => out.remove();
+    } else if (under) under.remove();
+  }, D);
+  if (eq) {
+    const [a, b] = eq.map(cellEl);
+    if (a && b) {
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const ta = a.querySelector('.tile'), tb = b.querySelector('.tile');
+      if (ta) ta.animate([{ transform: `translate(${rb.left - ra.left}px, ${rb.top - ra.top}px)` }, { transform: 'none' }], { duration: D, delay: D, fill: 'backwards', easing: 'ease-in-out' });
+      if (tb) tb.animate([{ transform: `translate(${ra.left - rb.left}px, ${ra.top - rb.top}px)` }, { transform: 'none' }], { duration: D, delay: D, fill: 'backwards', easing: 'ease-in-out' });
+      t += D;
+    }
+  }
+  // flips turn over one at a time once the card has landed
+  flips.forEach((k, i) => setTimeout(() => {
+    const c = cellEl(k), tt = E.top(G.board, k); if (!c || !tt) return;
+    const old = c.querySelector('.tile');
+    const a1 = old.animate([{ transform: 'rotateY(0)' }, { transform: 'rotateY(90deg)' }], { duration: 140, easing: 'ease-in', fill: 'forwards' });
+    a1.onfinish = () => { const nu = tileEl(tt); old.replaceWith(nu); nu.animate([{ transform: 'rotateY(90deg)' }, { transform: 'rotateY(0)' }], { duration: 160, easing: 'ease-out' }); };
+  }, t + 80 + i * 120));
+  t += flips.length ? 80 + flips.length * 120 + 300 : 150;
+  animBusyUntil = performance.now() + t;
 }
 
 function renderPlay() {
@@ -607,8 +836,12 @@ function renderPlay() {
   const sc = E.score(G.board);
   const table = h('div', { class: 'table' });
   const mchip = p => h('span', { class: 'mchip p' + p + (G.turn === p && !G.over ? ' active' : '') },
-    h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p])), h('small', null, `${sc.total[p]} owned · ${G.players[p].hand.length + G.players[p].side.length} cards`));
-  table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, `Deck ${G.deck.length}`), mchip(1)));
+    h('span', { class: 'sig p' + p }, E.HOUSES[p].sigil), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, `${sc.total[p]} owned`, h('br'), (n => `${n} card${n === 1 ? '' : 's'}`)(G.players[p].hand.length + G.players[p].side.length)));
+  table.append(h('div', { class: 'mscore' }, mchip(0), h('span', { class: 'mdeck' }, 'Bag', h('b', null, String(G.deck.length))), mchip(1)));
+  table.append(bagEl());
+  if (cfgChanged()) table.append(h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
+    'Setup has changed since this game started. This game keeps the rules it was dealt with. ',
+    h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => newGame() }, 'New game with current Setup')));
   table.append(renderBoard());
   const card = selCard();
   const hp = [0, 1].filter(p => isHuman(p));
@@ -621,7 +854,8 @@ function renderPlay() {
     const w = G.winner;
     table.append(h('div', { class: 'endcard' }, h('div', { class: 'box' },
       h('h2', { class: w === -1 ? '' : 'p' + w + 'c' }, w === -1 ? 'A tie' : E.HOUSES[w].short + ' wins'),
-      h('div', null, `Kingdoms ${G.final.largest[0]} – ${G.final.largest[1]} · ${G.endReason} · ${G.turnNo} turns`),
+      h('div', null, resultWhy()),
+      h('div', { style: 'color:var(--muted);font-size:13.5px' }, `${G.endReason} · ${G.turnNo} turns`),
       h('div', { style: 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap' },
         h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
         h('button', { class: 'btn', onclick: () => newGame(gameSeed) }, 'Replay seed'),
@@ -630,7 +864,7 @@ function renderPlay() {
 
   const pscore = p => h('div', { class: 'pscore p' + p + (G.turn === p && !G.over ? ' active' : '') },
     h('div', { class: 'nm' }, h('span', { class: 'dot p' + p }), E.HOUSES[p].sigil + ' ' + E.HOUSES[p].short),
-    h('div', { class: 'big' }, String(sc.largest[p])),
+    h('div', { class: 'big' }, String(sc.largest[p]), p === 1 ? bonusTag() : null),
     h('div', { class: 'sm' }, `largest kingdom · ${sc.total[p]} owned`));
   const personaOpts = (p) => h('select', { id: 'seat-' + p, onchange: e => { seats[p] = e.target.value; store.set('vyeMicro.seats', seats); renderPlay(); scheduleAI(); } },
     h('option', { value: 'human', selected: seats[p] === 'human' }, 'Human'),
@@ -649,7 +883,11 @@ function renderPlay() {
         h('span', { style: 'color:var(--muted)' }, 'AI speed'),
         seg([[150, 'Fast'], [600, 'Normal'], [1400, 'Slow']], speed, x => { speed = x; store.set('vyeMicro.speed', x); renderPlay(); })),
       h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
+        h('span', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Tiles'),
+          seg([['art', 'Art'], ['icons', 'Icons'], ['symbols', 'Symbols']], tileStyle, x => { tileStyle = x; showArt = x === 'art'; store.set('vyeMicro.tileStyle', x); renderPlay(); })),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'revealbag', checked: revealBag, onchange: e => { revealBag = e.target.checked; renderPlay(); } }), 'Show what\u2019s in the bag'),
         h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`))),
     h('div', { class: 'panel' },
       countsEl(),
@@ -659,6 +897,8 @@ function renderPlay() {
         : h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), h('span', null, e.title + (e.flips ? ` · flipped ${e.flips}` : '')),
           h('span', { class: 'sw', title: 'Change in kingdom lead' }, (e.swing >= 0 ? '+' : '') + e.swing))) : h('div', { style: 'color:var(--muted)' }, 'No moves yet.'))));
   v.append(h('div', { class: 'play' }, table, rail));
+  if (G.lastMove && G.lastMove.n !== animatedN) { animatedN = G.lastMove.n; if (animOn) runAnim(G.lastMove, animFrom); }
+  animFrom = null;
 }
 
 // ---------- simulate ----------
@@ -704,6 +944,149 @@ function startWorker(msg) {
 }
 function renderSimRunning() { const b = $('#sim-run'), m = $('#sim-matrix'); if (b) b.disabled = true; if (m) m.disabled = true; $('#sim-status').textContent = 'Starting…'; }
 
+const TIPS = {
+  first: 'How often the player who went first won. In a fair game this sits near the second player’s number.',
+  second: 'How often the player who went second won.',
+  ties: 'Games where both kingdoms ended the same size.',
+  turns: 'Average number of turns in a game, counting both players.',
+  margin: 'How many tiles the winner usually won by. Small means close games. Big means blowouts.',
+  kingdom: 'Average size of each side’s biggest connected group at the end.',
+  card: 'The card that was played. Hover a row for a plain-English summary of that card.',
+  plays: 'How often this card got played per game, counting both players. 2.00 means each player played it about once.',
+  mean: 'The typical result. On average, one play of this card moved the race this many tiles your way. A plain Land is about +1.',
+  sd: 'Spread (standard deviation): how predictable it is. Under 1 means it does about the same thing every time. Over 2 means it’s a gamble: sometimes huge, sometimes nothing.',
+  min: 'The worst single play of this card across all the games.',
+  max: 'The best single play of this card across all the games.',
+  range: 'The line runs from worst to best play. The shaded band is where most plays landed. The dot is the typical play.',
+  flips: 'How many of the opponent’s tiles it flipped on an average play.',
+  win: 'How often the player who played this card went on to win. Near 50% is neutral. Well above 55% means it tends to decide games. Well below 45% means it isn’t pulling its weight.'
+};
+function rowTip(c, landMean) {
+  const x = landMean > 0 ? c.mean / landMean : 0;
+  const strength = c.label === 'Land' ? 'This is the yardstick everything else is compared to.'
+    : x >= 3 ? `That’s about ${x.toFixed(1)}× a plain Land, which is a lot.`
+    : x >= 1.6 ? `That’s about ${x.toFixed(1)}× a plain Land.`
+    : x >= 0.7 ? 'About the same as a plain Land.' : 'Less than a plain Land, at least in the race for the biggest kingdom.';
+  const pred = c.sd < 0.6 ? 'It does nearly the same thing every time.' : c.sd < 1.5 ? 'It’s fairly predictable.' : c.sd < 2.5 ? 'Results vary a fair bit.' : 'It’s a gamble: results vary wildly.';
+  const win = c.winWhenPlayed >= 0.56 ? 'Players who used it won more often than not.' : c.winWhenPlayed <= 0.44 ? 'Players who used it usually lost.' : 'Using it doesn’t change who wins much.';
+  return `${c.label}: a typical play moves the race ${c.mean >= 0 ? '+' : ''}${c.mean.toFixed(1)} tiles your way. ${strength} ${pred} Worst play ${c.min}, best play ${c.max}. ${win} (${Math.round(100 * c.winWhenPlayed)}% win)`;
+}
+
+// Turns a summary into plain-English findings and suggestions.
+function buildReview(s, c, personas) {
+  const status = [], suggest = [];
+  const pct = x => Math.round(100 * x) + '%';
+  const N = s.games, f = s.firstSeatWinRate, sc = s.secondSeatWinRate, decided = f + sc;
+  const share = decided ? f / decided : 0.5;
+  const moe = decided ? 1.96 * Math.sqrt(share * (1 - share) / (decided * N)) : 1;
+  const mirror = personas[0] === personas[1];
+  const careless = personas.every(p => p === 'greedy' || p === 'chaotic' || p === 'random');
+  // seat balance
+  const gap = share - 0.5;
+  if (Math.abs(gap) <= Math.max(moe, 0.025)) status.push(`Going first or second makes no real difference here (first ${pct(f)}, second ${pct(sc)}). That’s within the noise for ${N} games.`);
+  else {
+    const who = gap > 0 ? 'first' : 'second', size = Math.abs(gap) > 0.1 ? 'a big' : Math.abs(gap) > 0.05 ? 'a clear' : 'a small';
+    status.push(`The ${who} player has ${size} edge: first wins ${pct(f)}, second wins ${pct(sc)}, ties ${pct(s.tieRate)}.`);
+    const B = c.secondBonus | 0, T = c.tiebreak;
+    const tieWord = { none: 'stay ties', total: 'go to whoever owns more tiles', second: 'go to the second player' }[T] || 'stay ties';
+    const now = `Right now the second player gets +${B} and ties ${tieWord}.`;
+    if (gap > 0) {
+      if (B === 0 && T !== 'second') suggest.push(`${now} Give ties to the second player: in Setup \u2192 Game end, set Ties to Second player. In testing that brought careful play to about 50/50.`);
+      else suggest.push(`${now} The first player is still ahead, so give the second player a little more: in Setup \u2192 Game end, raise Second player bonus from ${B} to ${B + 1}${T !== 'second' ? ', or set Ties to Second player' : ''}.`);
+    } else if (careless) {
+      status.push('Careless players (Greedy, Chaotic, Random) always lean toward the second player, because the first player\u2019s early moves get punished.');
+      suggest.push(`Don\u2019t change the seat rules based on this run. Run Cautious against Cautious first; that\u2019s closer to how people play. ${now}`);
+    } else if (B > 0 && T === 'second') {
+      suggest.push(`${now} That\u2019s a little too generous for these players. Try setting Second player bonus from ${B} to ${B - 1} and keep Ties on Second player. ${B - 1 === 0 ? 'Then the first player only has to win, and the second player just gets the ties.' : ''}`);
+    } else if (B > 0) {
+      suggest.push(`${now} Try setting Second player bonus from ${B} to ${B - 1}.`);
+    } else if (T === 'second') {
+      suggest.push(`${now} Try setting Ties back to Tie.`);
+    } else {
+      suggest.push(`${now} The second player is ahead even with no help. Try a larger hand size, which softens the first move\u2019s weakness.`);
+    }
+  }
+  if (!mirror) {
+    const [a, b] = personas, wa = s.wins[a] / N, wb = s.wins[b] / N;
+    const nm = k => E.PERSONAS[k].name;
+    if (Math.abs(wa - wb) > 0.08) status.push(`${nm(wa > wb ? a : b)} beat ${nm(wa > wb ? b : a)} ${pct(Math.max(wa, wb))} to ${pct(Math.min(wa, wb))}, so skill matters in this build${Math.max(wa, wb) > 0.85 ? ', maybe too much: the weaker player rarely gets a win' : ''}.`);
+    else status.push(`${nm(a)} and ${nm(b)} finished close (${pct(wa)} vs ${pct(wb)}). Either the build rewards luck, or these two styles are evenly matched.`);
+  }
+  // ties and margins
+  if (s.tieRate > 0.08 && c.tiebreak === 'none') { status.push(`Ties are common (${pct(s.tieRate)}).`); suggest.push('Pick a tiebreak in Setup → Game end. Total tiles owned is the most neutral; giving ties to the second player also helps seat balance.'); }
+  const avgK = Object.values(s.scores).reduce((a, x) => a + x.mean, 0) / Math.max(1, Object.keys(s.scores).length);
+  const ratio = avgK ? s.margin.mean / avgK : 0;
+  if (ratio > 0.6) { status.push(`Games are often one-sided: the winner leads by ${s.margin.mean.toFixed(1)} tiles on average when kingdoms are about ${avgK.toFixed(1)}.`); suggest.push('Blowouts usually come from big swing cards. Toning down the hottest card below is the quickest way to keep games close.'); }
+  else if (ratio < 0.3) status.push(`Games are close: the average winning margin is ${s.margin.mean.toFixed(1)} tiles.`);
+  else status.push(`Winning margins are moderate (${s.margin.mean.toFixed(1)} tiles on kingdoms of about ${avgK.toFixed(1)}).`);
+  // cards
+  const land = s.cards.find(x => x.label === 'Land'), lm = land ? land.mean : 1;
+  const others = s.cards.filter(x => x.label !== 'Land' && x.plays >= Math.max(20, N * 0.2));
+  const hot = others.filter(x => x.mean > lm * 3 && x.mean > 3).sort((a, b) => b.mean - a.mean);
+  const swingy = others.filter(x => x.sd > 2).sort((a, b) => b.sd - a.sd);
+  const deciders = others.filter(x => x.winWhenPlayed > 0.58).sort((a, b) => b.winWhenPlayed - a.winWhenPlayed);
+  const weak = others.filter(x => x.winWhenPlayed < 0.42).sort((a, b) => a.winWhenPlayed - b.winWhenPlayed);
+  const FIX = {
+    'Queen': 'take the Queen out of the sideboards, or replace it with a second King',
+    'Advisor': 'drop the Advisor, or have it flip only up to 4 of its 8 neighbors',
+    'Usurp': 'stop the new Land from matching, so it only swaps',
+    'Sinkhole': 'only allow it on a tile next to one of yours',
+    'Earthquake': 'limit swaps to two adjacent tiles',
+    'Underminers': 'limit it to flipping Lands',
+    'Heir': 'limit its pick to the 4 adjacent tiles',
+    'Knave': 'let it only flip Lands, or only jump over your own tiles',
+    'King': 'leave it alone; the King is a good baseline Family tile'
+  };
+  if (hot.length) {
+    status.push(`Strongest cards: ${hot.map(x => `${x.label} (about ${(x.mean / lm).toFixed(1)}× a Land)`).join(', ')}.`);
+    hot.slice(0, 2).forEach(x => suggest.push(`${x.label} is doing ${(x.mean / lm).toFixed(1)}× the work of a Land. To tighten it, ${FIX[x.label] || 'make it rarer (fewer copies) or weaker'}.`));
+  } else status.push('No card is wildly stronger than the others. That’s what you want for a tight game.');
+  if (swingy.length) { status.push(`Least predictable: ${swingy.slice(0, 3).map(x => `${x.label} (anywhere from ${x.min} to ${x.max})`).join(', ')}.`);
+    suggest.push(`${swingy[0].label} is the most luck-dependent card. If you want less swing, cap what it can capture or cut a copy.`); }
+  if (deciders.length) status.push(`Cards that tend to decide games: ${deciders.slice(0, 3).map(x => `${x.label} (${pct(x.winWhenPlayed)} win when played)`).join(', ')}.`);
+  if (weak.length) { status.push(`Cards that don’t seem to help: ${weak.slice(0, 3).map(x => `${x.label} (${pct(x.winWhenPlayed)} win when played)`).join(', ')}.`);
+    suggest.push(`${weak[0].label} rarely leads to a win. It may be too weak, or the AI may be playing it badly. Try it yourself before cutting it.`); }
+  const unused = Object.keys(c.specials || {}).filter(k => c.specials[k] > 0 && !s.cards.some(x => x.label === E.SPECIALS[k].name && x.plays >= N * 0.1));
+  if (unused.length) { status.push(`Rarely or never played: ${unused.map(k => E.SPECIALS[k].name).join(', ')}.`); suggest.push(`${unused.map(k => E.SPECIALS[k].name).join(', ')} hardly ever gets a legal or useful moment. Loosen what it can target, or drop it.`); }
+  // ends
+  const stuck = (s.endReasons['No valid play'] || 0) / N;
+  if (stuck > 0.04) { status.push(`${pct(stuck)} of games ended because a player had no legal play.`); suggest.push('Players are getting stuck holding cover cards with nothing to cover. Turn off “A player can’t play” so they pass instead, or raise the hand size.'); }
+  if (s.unplayedFamilyPerGame > 1) suggest.push(`About ${s.unplayedFamilyPerGame.toFixed(1)} Family tiles go unplayed each game. The board fills before they come out, so add a space or remove a Family member.`);
+  status.push(`Games last about ${Math.round(s.turns.mean)} turns (${Math.round(s.turns.mean / 2)} each).`);
+  if (s.comeback) {
+    const cb = s.comeback, half = cb.checks[1].leaderWins;
+    status.push(`Comebacks: the player ahead at halfway wins ${pct(half)} of the time, and ${pct(cb.comebackFromHalf)} of games are won from behind. The lead changes about ${cb.leadChanges.toFixed(1)} times a game.`);
+    if (half >= 0.85) suggest.push('The leader at halfway almost always wins. Add a catch-up lever: let the player who is behind draw an extra tile, or make captures stronger against bigger kingdoms.');
+    else if (cb.halfwayBySize[2].games * N >= 80 && cb.halfwayBySize[2].leaderWins >= 0.9) suggest.push('A 5+ tile lead at halfway is nearly decisive. Cards that cut kingdoms apart (Sinkhole) or steal tiles (Usurp) are the natural catch-up tools; an extra copy could help.');
+  }
+  return { status, suggest };
+}
+
+function wireTips() {
+  const tip = $('#tip'); let cur = null;
+  const show = el => {
+    cur = el; tip.textContent = el.getAttribute('data-tip'); tip.hidden = false;
+    const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+    let x = Math.min(Math.max(8, r.left + r.width / 2 - tw / 2), window.innerWidth - tw - 8);
+    let y = r.top - th - 8; if (y < 8) y = r.bottom + 8;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  };
+  const hide = () => { cur = null; tip.hidden = true; };
+  document.addEventListener('pointerover', e => { if (e.pointerType === 'touch') return; const el = e.target.closest('[data-tip]'); if (el) show(el); else if (cur) hide(); });
+  document.addEventListener('click', e => { const el = e.target.closest('[data-tip]'); if (el && el !== cur) show(el); else hide(); });
+  document.addEventListener('focusin', e => { const el = e.target.closest('[data-tip]'); if (el && el.matches(':focus-visible')) show(el); });
+  document.addEventListener('focusout', hide);
+  window.addEventListener('scroll', hide, { passive: true });
+}
+
+function runawayVerdict(cb, games) {
+  const half = cb.checks[1].leaderWins, big = cb.halfwayBySize[2];
+  if (half >= 0.85) return `Runaway risk: whoever is ahead at halfway wins ${Math.round(100 * half)}% of the time, so the second half often doesn’t matter.`;
+  if (big.games * games >= 80 && big.leaderWins >= 0.9) return `Mostly healthy, but a lead of 5 or more at halfway is close to decisive (${Math.round(100 * big.leaderWins)}%).`;
+  if (half <= 0.55) return 'Very swingy: being ahead at halfway barely matters. Good for comebacks, but skill and early play may feel unrewarded.';
+  return `Healthy: being ahead helps (${Math.round(100 * half)}% at halfway), but ${Math.round(100 * cb.comebackFromHalf)}% of games are still won from behind.`;
+}
+
 function swingBar(c, lo, hi) {
   const W = 170, H = 18, x = v => 6 + (W - 12) * (v - lo) / Math.max(1, hi - lo);
   const ns = 'http://www.w3.org/2000/svg';
@@ -746,25 +1129,56 @@ function renderSim() {
       h('div', { class: 'winbar' }, names.map((n, i) => h('span', { style: `flex:${s.wins[n]};background:${colors[i]}` }, `${n} ${pct(s.wins[n] / s.games)}`)),
         s.ties ? h('span', { style: `flex:${s.ties};background:var(--muted)` }, `tie ${pct(s.tieRate)}`) : null),
       h('div', { class: 'summary', style: 'margin-top:12px' },
-        [[pct(s.firstSeatWinRate), 'First player wins'], [pct(s.tieRate), 'Ties'], [s.turns.mean.toFixed(1), 'Turns per game'], [s.margin.mean.toFixed(1), 'Average margin'],
-          [Object.entries(s.scores).map(([, x]) => x.mean.toFixed(1)).join(' / '), 'Avg kingdom']].map(([val, k]) => h('div', { class: 'stat' }, h('div', { class: 'v' }, val), h('div', { class: 'k' }, k)))),
+        [[pct(s.firstSeatWinRate), 'First player wins', TIPS.first], [pct(s.secondSeatWinRate), 'Second player wins', TIPS.second], [pct(s.tieRate), 'Ties', TIPS.ties],
+          [s.turns.mean.toFixed(1), 'Turns per game', TIPS.turns], [s.margin.mean.toFixed(1), 'Average margin', TIPS.margin],
+          [Object.entries(s.scores).map(([, x]) => x.mean.toFixed(1)).join(' / '), 'Avg kingdom', TIPS.kingdom]].map(([val, k, tip]) => h('div', { class: 'stat', 'data-tip': tip, tabindex: '0' }, h('div', { class: 'v' }, val), h('div', { class: 'k' }, k, h('span', { class: 'q' }, '?'))))),
       h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Ended by: ' + Object.entries(s.endReasons).map(([k, n]) => `${k} ${pct(n / s.games)}`).join(' · '))));
 
+    if (s.comeback) {
+      const cb = s.comeback;
+      const bar = (label, p, tip) => h('div', { class: 'cbrow', 'data-tip': tip, tabindex: '0' }, h('span', { class: 'cbl' }, label),
+        h('span', { class: 'cbtrack' }, h('i', { style: `width:${Math.round(100 * p)}%` }), h('i', { class: 'mid' })), h('b', null, pct(p)));
+      res.append(h('div', { class: 'panel' },
+        h('h2', null, 'Comebacks and runaway leads'),
+        h('p', { class: 'sub' }, 'Does the player in front always win? 50% would mean being ahead doesn’t matter at all; 100% would mean the leader never loses. Somewhere in between is the sweet spot.'),
+        h('div', { class: 'cbgrid' },
+          h('div', null, h('h3', null, 'If you’re ahead at…'),
+            ...cb.checks.map(c => bar({ 0.25: 'a quarter of the way', 0.5: 'halfway', 0.75: 'three quarters' }[c.at], c.leaderWins,
+              `When someone was ahead ${({ 0.25: 'a quarter of the way through', 0.5: 'at halfway', 0.75: 'three quarters of the way through' })[c.at]}, they went on to win ${pct(c.leaderWins)} of the time. Their lead was ${c.avgLead.toFixed(1)} tiles on average. In ${pct(c.even)} of games nobody was ahead at that point.`))),
+          h('div', null, h('h3', null, 'Ahead at halfway by…'),
+            ...cb.halfwayBySize.map(b => bar(`${b.label} tiles`, b.leaderWins, `${pct(b.games)} of games had a ${b.label} tile lead at halfway. That player won ${pct(b.leaderWins)} of those.`)))),
+        h('div', { class: 'summary', style: 'margin-top:14px' },
+          [[pct(cb.comebackFromHalf), 'Won from behind at halfway', 'Games won by the player who was behind at the halfway point.'],
+            [pct(cb.comebackFrom3), 'Won after trailing by 3+', 'Games where the winner was 3 or more tiles behind at some point.'],
+            [cb.leadChanges.toFixed(1), 'Lead changes per game', 'How many times the lead switched sides in a typical game. More means more back and forth.'],
+            [pct(cb.decidedAt), 'Decided, on average', 'How far into the game the eventual winner took the lead for good. Later means the outcome stays open longer.']]
+            .map(([v, k, tip]) => h('div', { class: 'stat', 'data-tip': tip, tabindex: '0' }, h('div', { class: 'v' }, v), h('div', { class: 'k' }, k, h('span', { class: 'q' }, '?'))))),
+        h('p', { class: 'sub', style: 'margin:10px 0 0' }, runawayVerdict(cb, s.games))));
+    }
     const lo = Math.min(0, ...s.cards.map(c => c.min)), hi = Math.max(1, ...s.cards.map(c => c.max));
     const landMean = (s.cards.find(c => c.label === 'Land') || { mean: 1 }).mean;
     res.append(h('div', { class: 'panel' },
       h('h2', null, 'Card swing'),
-      h('p', { class: 'sub' }, 'Swing is how much one play changes the kingdom lead: (your largest kingdom − theirs) after, minus before. The bar runs min to max, the band is ±1 standard deviation, the dot is the mean.'),
+      h('p', { class: 'sub' }, 'Swing means how far one play moves the race in your favor. If you were behind by 3 and after your play you\u2019re ahead by 1, that play swung 4. A plain Land usually swings about 1. Hover or tap any row or heading for a plain-English read.'),
+      h('div', { class: 'legend', style: 'justify-content:flex-start;margin-bottom:6px' },
+        h('span', null, h('span', { class: 'flag hot' }, 'hot'), ' far stronger than a Land'), h('span', null, h('span', { class: 'flag hot' }, 'swingy'), ' unpredictable'), h('span', null, h('span', { class: 'flag flat' }, 'flat'), ' same result every time')),
       h('div', { class: 'tbl-wrap' }, h('table', null,
-        h('thead', null, h('tr', null, ['Card', 'Plays/game', 'Mean', 'SD', 'Min', 'Max', 'Range', 'Flips', 'Win% when played'].map(t => h('th', null, t)))),
-        h('tbody', null, s.cards.map(c => h('tr', null,
-          h('td', null, c.label, c.mean > landMean * 2.5 && c.mean > 3.5 ? h('span', { class: 'flag hot', title: 'Mean swing is far above a plain Land' }, 'hot') : null,
-            c.sd > 2.5 ? h('span', { class: 'flag hot', title: 'Very wide spread of outcomes' }, 'swingy') : null,
-            c.max - c.min === 0 ? h('span', { class: 'flag flat', title: 'Same result every play; swing may not capture its value' }, 'flat') : null),
-          h('td', null, c.perGame.toFixed(2)), h('td', null, (c.mean >= 0 ? '+' : '') + c.mean.toFixed(2)), h('td', null, c.sd.toFixed(2)),
-          h('td', null, String(c.min)), h('td', null, String(c.max)), h('td', { class: 'rng' }, swingBar(c, lo, hi)), h('td', null, c.flips.toFixed(2)), h('td', null, pct(c.winWhenPlayed))))))),
-      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Watchtower and Sanctuary mostly protect value rather than gain it, so their swing reads low. Win% when played is a better signal for defensive cards.')));
+        h('thead', null, h('tr', null, [['Card', TIPS.card], ['Plays/game', TIPS.plays, 'col-plays'], ['Typical', TIPS.mean], ['Spread', TIPS.sd], ['Worst to best', TIPS.min + ' ' + TIPS.max], ['Range', TIPS.range, 'col-range'], ['Flips', TIPS.flips, 'col-flips'], ['Win%', TIPS.win]]
+          .map(([t, tip, cls]) => h('th', { 'data-tip': tip, tabindex: '0', class: cls }, t, h('span', { class: 'q' }, '?'))))),
+        h('tbody', null, s.cards.map(c => h('tr', { 'data-tip': rowTip(c, landMean), tabindex: '0' },
+          h('td', null, c.label, c.mean > landMean * 2.5 && c.mean > 3.5 ? h('span', { class: 'flag hot' }, 'hot') : null,
+            c.sd > 2.5 ? h('span', { class: 'flag hot' }, 'swingy') : null,
+            c.max - c.min === 0 ? h('span', { class: 'flag flat' }, 'flat') : null),
+          h('td', { class: 'col-plays' }, c.perGame.toFixed(2)), h('td', null, (c.mean >= 0 ? '+' : '') + c.mean.toFixed(1)), h('td', null, c.sd.toFixed(1)),
+          h('td', null, `${c.min} to ${c.max}`), h('td', { class: 'rng col-range' }, swingBar(c, lo, hi)), h('td', { class: 'col-flips' }, c.flips.toFixed(1)), h('td', null, pct(c.winWhenPlayed))))))),
+      s.cards.some(c => c.label === 'Sanctuary') ? h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Sanctuary mostly protects value rather than gaining it, so its swing reads low. Win% is a better signal for it.') : ''));
 
+    const rv = buildReview(s, simResult.cfg, simResult.personas);
+    res.append(h('div', { class: 'panel review' }, h('h2', null, 'Review'),
+      h('p', { class: 'sub' }, 'A plain-English read of this run, written from the numbers above.'),
+      h('h3', null, 'Where things stand'), h('ul', null, rv.status.map(x => h('li', null, x))),
+      h('h3', null, 'Suggestions'), rv.suggest.length ? h('ul', null, rv.suggest.map(x => h('li', null, x))) : h('p', null, 'Nothing stands out. This build looks healthy for these players.'),
+      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'These are computer players. They\u2019re good at spotting lopsided cards and seat advantages, but people will find tricks the AI misses. Treat this as a starting point for playtests.')));
     const pre = h('pre', { class: 'report', id: 'sim-report' }, simResult.text);
     res.append(h('div', { class: 'panel' }, h('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
       h('h2', { style: 'flex:1' }, 'Report'), h('button', { class: 'btn', onclick: () => copyText(simResult.text + '\n\nCONFIG ' + JSON.stringify(simResult.cfg)) }, 'Copy report')),
@@ -791,6 +1205,7 @@ function selectTab(name) {
 for (const t of ['setup', 'play', 'sim']) $('#tab-' + t).addEventListener('click', () => selectTab(t));
 $('#copy-config').addEventListener('click', () => copyText(JSON.stringify(cfg)));
 window.addEventListener('resize', () => { if (!$('#view-play').hidden && G) renderPlay(); });
+wireTips();
 selectTab(store.get('vyeMicro.tab', 'play'));
 window.__vye = { get G() { return G; }, render: () => renderPlay() }; // debug hook for tests
 })();

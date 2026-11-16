@@ -232,5 +232,14 @@
     "sfxMaxSeconds": 30,
     "musicModel": "music_v2_5",
     "ttsModel": "eleven_multilingual_v2"
+  },
+  "foley": {
+    "mirelo-sfx2": {
+      "label": "Mirelo SFX 2.0 (sound from the video)",
+      "endpoint": "mirelo-ai/sfx2.0/video-to-audio",
+      "pricePerSecond": 0.01,
+      "samples": 2,
+      "note": "$0.010 per second per version until 2026-12-13, then $0.015"
+    }
   }
 }

@@ -1,4 +1,4 @@
-/* Vye Micro — rules engine, AI personas and batch simulator.
+/* Vye Duel — rules engine, AI personas and batch simulator.
    Runs in the browser (global VyeEngine) and in Node (module.exports). */
 (function (root) {
   'use strict';
@@ -17,79 +17,77 @@
 
   // ---------- content ----------
   const LANDS = [
-    { name: 'Forest', glyph: '♣', color: '#3E7B4F' },
-    { name: 'Peaks', glyph: '▲', color: '#6E7380' },
-    { name: 'Lake', glyph: '≈', color: '#3B78A6' },
-    { name: 'Desert', glyph: '☼', color: '#C2913A' },
-    { name: 'Marsh', glyph: '✱', color: '#5E7F6A' },
-    { name: 'Crystal', glyph: '◆', color: '#7A5AA6' },
-    { name: 'Hills', glyph: '●', color: '#8C7A3E' },
-    { name: 'Fields', glyph: '■', color: '#A8A23A' },
-    { name: 'Crossing', glyph: '✚', color: '#9A5B3C' },
-    { name: 'Tundra', glyph: '❄', color: '#6F9DB5' },
-    { name: 'Thicket', glyph: '♠', color: '#2F5E44' },
-    { name: 'Village', glyph: '⌂', color: '#A0673F' },
-    { name: 'Starfall', glyph: '✦', color: '#4A4F8C' },
-    { name: 'Moonvale', glyph: '◐', color: '#5C6E8E' },
-    { name: 'Ruby Coast', glyph: '♦', color: '#A3445A' },
-    { name: 'Orchard', glyph: '✿', color: '#7D8F3A' }
+    { name: 'Birchwood', art: 'birchwood', glyph: '♣', color: '#7A6554' },
+    { name: 'Wolf Hollow', art: 'wolf-hollow', glyph: '◐', color: '#8A9289' },
+    { name: 'Violet Peaks', art: 'violet-peaks', glyph: '▲', color: '#8C5D88' },
+    { name: 'Golden Fields', art: 'golden-fields', glyph: '☼', color: '#B5834C' },
+    { name: 'Ice Cliffs', art: 'ice-cliffs', glyph: '❄', color: '#7E8E9E' },
+    { name: 'Spire Isle', art: 'spire-isle', glyph: '⌂', color: '#79A08A' },
+    { name: 'Night Thicket', art: 'night-thicket', glyph: '●', color: '#AB9764' },
+    { name: 'High Peaks', art: 'high-peaks', glyph: '▲', color: '#664D36' },
+    { name: 'Whale Sea', art: 'whale-sea', glyph: '≈', color: '#275B5E' },
+    { name: 'Stag Forest', art: 'stag-forest', glyph: '♠', color: '#4F3D28' },
+    { name: 'Green Hills', art: 'green-hills', glyph: '■', color: '#B5A172' },
+    { name: 'Dragon Keep', art: 'dragon-keep', glyph: '✦', color: '#866440' },
+    { name: 'Raven Moor', art: 'raven-moor', glyph: '✶', color: '#84776A' },
+    { name: 'Owl Marsh', art: 'owl-marsh', glyph: '✱', color: '#527582' },
+    { name: 'Longship', art: 'longship', glyph: '♦', color: '#39819E' },
+    { name: 'Firelands', art: 'firelands', glyph: '✹', color: '#A25A16' }
   ];
 
   const MEMBERS = {
     advisor: { name: 'Advisor', dirs: ALL8_D, rule: 'Flips all 8 surrounding tiles.' },
     king: { name: 'King', dirs: ORTHO_D, rule: 'Flips the 4 adjacent tiles.' },
     queen: { name: 'Queen', dirs: DIAG_D, rule: 'Flips the 4 diagonal tiles.' },
-    heir: { name: 'Heir', dirs: null, rule: 'Flips 1 surrounding tile of your choice.' }
+    heir: { name: 'Heir', dirs: null, rule: 'Flips 1 surrounding tile of your choice.' },
+    knave: { name: 'Knave', dirs: null, rule: 'Does the family\u2019s dirty work: slips past an adjacent tile and flips the tile on its far side.' }
   };
-  const MEMBER_ORDER = ['advisor', 'king', 'queen', 'heir'];
+  const MEMBER_ORDER = ['advisor', 'king', 'queen', 'heir', 'knave'];
 
   const HOUSES = [
-    { name: 'House Midnight', short: 'Midnight', sigil: '☾', color: 'blue' },
-    { name: 'House of a Thousand Roses', short: 'Roses', sigil: '✿', color: 'red' }
+    { name: 'House Midnight', short: 'Midnight', sigil: '☾', color: 'blue', art: 'blue' },
+    { name: 'House of a Thousand Roses', short: 'Roses', sigil: '✿', color: 'red', art: 'red' }
   ];
 
   // mode: place = goes in an empty space, cover = stacks on a tile, replace = swaps a tile out
   const SPECIALS = {
-    ancient: { name: 'Ancient Passage', mode: 'cover', origin: 'Original',
-      rule: 'Cover a tile you don’t own that joins two of your kingdoms. It becomes yours.' },
     lostcity: { name: 'Lost City', mode: 'cover', origin: 'Original',
-      rule: 'Cover a Land you own. Worth 2 points in your kingdom.' },
+      rule: 'Cover a Land you own. Worth extra points in your kingdom (set below).' },
     sinkhole: { name: 'Sinkhole', mode: 'cover', origin: 'Original',
       rule: 'Cover any tile. Nobody owns it, ever. Breaks connections.' },
     sanctuary: { name: 'Sanctuary', mode: 'cover', origin: 'Original',
-      rule: 'Cover any tile. Owned by both players. Can’t be flipped, covered or moved.' },
-    wild: { name: 'Wild Land', mode: 'cover', origin: 'Adapted',
-      rule: 'Cover a Land and become an adjacent Land type, then match from there.' },
+      rule: 'Cover any tile. Owned by both players. Can’t be flipped or moved, and can only be covered when stacking is Unlimited.' },
     underminers: { name: 'Underminers', mode: 'place', origin: 'Adapted',
       rule: 'Place it, then flip the tile on the far side of an adjacent tile.' },
     earthquake: { name: 'Earthquake', mode: 'place', origin: 'Original',
       rule: 'Place it, then swap any two tiles (not Sanctuary). Nothing triggers.' },
     waystone: { name: 'Waystone', mode: 'place', origin: 'Original',
       rule: 'Place it and take another turn. Flipping it also grants an extra turn.' },
-    watchtower: { name: 'Watchtower', mode: 'cover', origin: 'New',
-      rule: 'Cover a tile you own. That space can’t be flipped.' },
-    pretender: { name: 'Pretender', mode: 'cover', origin: 'New',
-      rule: 'Cover an opponent’s Family tile. Take it and fire its capture as yours.' },
     usurp: { name: 'Usurp', mode: 'replace', origin: 'New',
       rule: 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the deck.' }
   };
-  const SPECIAL_ORDER = ['ancient', 'lostcity', 'sinkhole', 'sanctuary', 'wild', 'watchtower', 'pretender', 'usurp', 'underminers', 'earthquake', 'waystone'];
+  const SPECIAL_ORDER = ['lostcity', 'sinkhole', 'sanctuary', 'usurp', 'underminers', 'earthquake', 'waystone'];
 
   function defaultConfig() {
     return {
       landSets: 7,
       landCopies: 3,
-      specials: { ancient: 1, lostcity: 1, sinkhole: 1, sanctuary: 0, wild: 1, watchtower: 1, pretender: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
-      family: [{ advisor: 0, king: 1, queen: 1, heir: 1 }, { advisor: 0, king: 1, queen: 1, heir: 1 }],
+      specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
+      family: [{ advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }, { advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }],
       gridW: 5, gridH: 5,
-      handSize: 3,
+      handSize: 2,
       start: 'neutral',      // neutral | none
-      stacking: 'once',      // once | unlimited
-      wildMode: 'cover',     // cover | place | either
-      wildLimit: false,      // true: Wild Land can't join a chain that already holds a full set
+      stacking: 'unlimited', // once | unlimited (unlimited: any tile can be covered, Sanctuary and Sinkhole included)
+      crossroadsCover: false,   // can cover cards be played on the Crossroads?
+      crossroadsCapture: true,  // can Family captures take the Crossroads?
+      lostCityValue: 2,      // points a Lost City is worth in your kingdom
+      usurpMatch: true,      // does the Land put down by Usurp trigger matching?
+      secondApart: false,    // second player's first tile can't go on or next to a first-player tile
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
-      tiebreak: 'none'       // none | total
+      tiebreak: 'second',    // none | total | second  (default: the second player wins ties)
+      secondExtraCards: 0,   // second player starts with this many extra cards
+      secondBonus: 0         // points added to the second player's kingdom at the end
     };
   }
 
@@ -142,12 +140,13 @@
       return { hand: [], side };
     });
     for (let i = 0; i < cfg.handSize; i++) for (const pl of players) if (deck.length) pl.hand.push(deck.pop());
+    for (let i = 0; i < (cfg.secondExtraCards | 0); i++) if (deck.length) players[1].hand.push(deck.pop());
     const board = new Map();
     if (cfg.start === 'neutral') board.set(key(0, 0), [{ id: id++, kind: 'start', owner: null }]);
     const state = {
       cfg, rng, seed, board, deck, players, discard: [],
       turn: 0, turnNo: 0, passes: 0, over: false, endReason: null, winner: null,
-      plays: [], log: [], lastMove: null, initialDeck: deck.length
+      plays: [], log: [], lastMove: null, initialDeck: deck.length, leads: []
     };
     state.moves = legalMoves(state, 0);
     if (!state.moves.length) checkEnd(state, true);
@@ -156,12 +155,17 @@
 
   // ---------- board helpers ----------
   const top = (board, k) => { const s = board.get(k); return s ? s[s.length - 1] : null; };
-  const landOf = t => !t ? -1 : t.kind === 'land' ? t.land : (t.special === 'wild' ? t.wildAs : -1);
+  const landOf = t => !t ? -1 : t.kind === 'land' ? t.land : -1;
   const ownedBy = (t, p) => t && (t.owner === p || t.owner === 'both');
   function canFlip(t) {
     if (!t || (t.owner !== 0 && t.owner !== 1)) return false;
     if (t.kind === 'start') return false;
-    return t.special !== 'watchtower' && t.special !== 'sanctuary' && t.special !== 'sinkhole';
+    return t.special !== 'sanctuary' && t.special !== 'sinkhole';
+  }
+  // Family captures may also take the neutral Crossroads when the rule is on.
+  function canTake(t, p, fam, cfg) {
+    if (t && t.kind === 'start' && fam && cfg && cfg.crossroadsCapture) return t.owner !== p;
+    return canFlip(t) && t.owner !== p;
   }
   function setTop(board, k, tile) { const s = board.get(k).slice(); s[s.length - 1] = tile; board.set(k, s); }
   function pushTile(board, k, tile) { const s = board.get(k); board.set(k, s ? s.concat([tile]) : [tile]); }
@@ -191,8 +195,10 @@
   function coverable(state, k) {
     const s = state.board.get(k);
     if (!s) return false;
-    if (s[s.length - 1].special === 'sanctuary') return false;
-    if (state.cfg.stacking === 'once' && s.length > 1) return false;
+    const t = s[s.length - 1], unl = state.cfg.stacking === 'unlimited';
+    if (t.kind === 'start' && !state.cfg.crossroadsCover) return false;
+    if (t.special === 'sanctuary' && !unl) return false;
+    if (!unl && s.length > 1) return false;
     return true;
   }
   function components(board, p, skip) {
@@ -205,18 +211,19 @@
     }
     return comp;
   }
-  function score(board) {
+  function score(board, cfg) {
+    const lc = cfg && cfg.lostCityValue != null ? cfg.lostCityValue : 2;
     const largest = [0, 0], total = [0, 0];
     for (const p of [0, 1]) {
       const seen = new Set();
       for (const k of board.keys()) {
         const t = top(board, k);
         if (!ownedBy(t, p)) continue;
-        total[p] += t.special === 'lostcity' ? 2 : 1;
+        total[p] += t.special === 'lostcity' ? lc : 1;
         if (seen.has(k)) continue;
         let v = 0; const q = [k]; seen.add(k);
         while (q.length) {
-          const c = q.pop(); const tc = top(board, c); v += tc.special === 'lostcity' ? 2 : 1;
+          const c = q.pop(); const tc = top(board, c); v += tc.special === 'lostcity' ? lc : 1;
           for (const d of ORTHO_D) { const m = c + d; if (!seen.has(m) && board.has(m) && ownedBy(top(board, m), p)) { seen.add(m); q.push(m); } }
         }
         if (v > largest[p]) largest[p] = v;
@@ -226,27 +233,16 @@
   }
 
   // ---------- move generation ----------
-  function flipTargets(board, k, p, dirs) {
+  function flipTargets(board, k, p, dirs, cfg) {
     const out = [];
-    for (const d of dirs) { const t = top(board, k + d); if (canFlip(t) && t.owner !== p) out.push(k + d); }
+    for (const d of dirs) { const t = top(board, k + d); if (canTake(t, p, true, cfg)) out.push(k + d); }
     return out;
   }
-  function wildChoices(state, k) {
-    const { board, cfg } = state;
-    const types = new Set();
-    for (const d of ORTHO_D) { const L = landOf(top(board, k + d)); if (L >= 0) types.add(L); }
-    const ok = [];
-    for (const L of types) {
-      // union of type-L chains touching k (k itself excluded)
-      const seen = new Set([k]); const q = []; let size = 0, hasWild = false;
-      for (const d of ORTHO_D) { const n = k + d; if (landOf(top(board, n)) === L && !seen.has(n)) { seen.add(n); q.push(n); } }
-      while (q.length) {
-        const c = q.pop(); size++; if (top(board, c).special === 'wild') hasWild = true;
-        for (const d of ORTHO_D) { const n = c + d; if (!seen.has(n) && landOf(top(board, n)) === L) { seen.add(n); q.push(n); } }
-      }
-      if (!hasWild && (!cfg.wildLimit || size < cfg.landCopies)) ok.push(L);
-    }
-    return ok;
+  // Tiles two spaces away, past an occupied neighbour (Underminers and the Knave).
+  function jumpTargets(board, k, p, fam, cfg) {
+    const tg = [];
+    for (const d of ORTHO_D) { if (!board.has(k + d)) continue; const t = top(board, k + 2 * d); if (canTake(t, p, fam, cfg)) tg.push(k + 2 * d); }
+    return tg;
   }
 
   // All moves for one card. opts.prune limits Earthquake enumeration for the AI.
@@ -258,52 +254,23 @@
     if (card.kind === 'land') { for (const k of placeCells(state)) add(k); return moves; }
     if (card.kind === 'family') {
       for (const k of placeCells(state)) {
-        if (card.member === 'heir') { const t = flipTargets(board, k, p, ALL8_D); if (t.length) t.forEach(c => add(k, c)); else add(k); }
+        if (card.member === 'heir') { const t = flipTargets(board, k, p, ALL8_D, state.cfg); if (t.length) t.forEach(c => add(k, c)); else add(k); }
+        else if (card.member === 'knave') { const t = jumpTargets(board, k, p, true, state.cfg); if (t.length) t.forEach(c => add(k, c)); else add(k); }
         else add(k);
       }
       return moves;
     }
     const s = card.special;
     switch (s) {
-      case 'ancient':
-        for (const k of occupied) {
-          if (!coverable(state, k)) continue;
-          const t = top(board, k); if (t.owner === p || t.owner === 'both') continue;
-          const comp = components(board, p, k); const ids = new Set();
-          for (const d of ORTHO_D) if (comp.has(k + d)) ids.add(comp.get(k + d));
-          if (ids.size >= 2) add(k);
-        }
-        break;
       case 'lostcity':
         for (const k of occupied) { const t = top(board, k); if (coverable(state, k) && landOf(t) >= 0 && t.owner === p) add(k); }
         break;
       case 'sinkhole':
-        for (const k of occupied) if (coverable(state, k) && top(board, k).special !== 'sinkhole') add(k);
+        for (const k of occupied) if (coverable(state, k) && (state.cfg.stacking === 'unlimited' || top(board, k).special !== 'sinkhole')) add(k);
         break;
       case 'sanctuary':
         for (const k of occupied) if (coverable(state, k)) add(k);
         break;
-      case 'watchtower':
-        for (const k of occupied) { const t = top(board, k); if (coverable(state, k) && t.owner === p && t.special !== 'watchtower') add(k); }
-        break;
-      case 'pretender':
-        for (const k of occupied) {
-          const t = top(board, k);
-          if (!coverable(state, k) || t.kind !== 'family' || t.owner === p) continue;
-          if (t.member === 'heir') {
-            // capture happens after covering; the covered tile itself is no longer a target
-            const tg = flipTargets(board, k, p, ALL8_D); if (tg.length) tg.forEach(c => add(k, c)); else add(k);
-          } else add(k);
-        }
-        break;
-      case 'wild': {
-        const mode = state.cfg.wildMode;
-        if (mode === 'cover' || mode === 'either')
-          for (const k of occupied) if (coverable(state, k) && landOf(top(board, k)) >= 0) wildChoices(state, k).forEach(L => add(k, L));
-        if (mode === 'place' || mode === 'either')
-          for (const k of placeCells(state)) wildChoices(state, k).forEach(L => add(k, L));
-        break;
-      }
       case 'usurp': {
         const hand = state.players[p].hand.filter(c => c.kind === 'land' && c.id !== card.id);
         const byType = new Map(); hand.forEach(c => { if (!byType.has(c.land)) byType.set(c.land, c); });
@@ -316,8 +283,7 @@
       }
       case 'underminers':
         for (const k of placeCells(state)) {
-          const tg = [];
-          for (const d of ORTHO_D) { if (!board.has(k + d)) continue; const t = top(board, k + 2 * d); if (canFlip(t) && t.owner !== p) tg.push(k + 2 * d); }
+          const tg = jumpTargets(board, k, p, false, state.cfg);
           if (tg.length) tg.forEach(c => add(k, c)); else add(k);
         }
         break;
@@ -345,6 +311,16 @@
   }
 
   function legalMoves(state, p, opts) {
+    const out = legalMovesAll(state, p, opts);
+    // Optional opening rule: the second player's first tile keeps its distance from the first player.
+    if (p === 1 && state.cfg.secondApart && state.plays && !state.plays.some(x => x.p === 1)) {
+      const near = k => [k].concat(ORTHO_D.map(d => k + d)).some(n => { const t = top(state.board, n); return t && t.owner === 0; });
+      const ok = out.filter(m => !near(m.pos));
+      if (ok.length) return ok;
+    }
+    return out;
+  }
+  function legalMovesAll(state, p, opts) {
     const pl = state.players[p];
     const out = [];
     const seen = new Set();
@@ -367,31 +343,29 @@
     return pl.hand.find(c => c.id === id) || pl.side.find(c => c.id === id);
   }
   function applyEffect(board, cfg, p, card, k, choice) {
-    const res = { flips: [], extra: false, removed: null, placed: k };
-    const flip = n => { const t = top(board, n); if (canFlip(t) && t.owner !== p) { setTop(board, n, Object.assign({}, t, { owner: p })); res.flips.push(n); if (t.special === 'waystone') res.extra = true; } };
+    const res = { flips: [], from: {}, extra: false, removed: null, placed: k };
+    const flip = (n, fam) => { const t = top(board, n); if (canTake(t, p, fam, cfg)) { setTop(board, n, Object.assign({}, t, { owner: p })); res.flips.push(n); res.from[n] = t.owner; if (t.special === 'waystone') res.extra = true; } };
     const landMatch = (start, L) => {
       const seen = new Set([start]); const q = [start];
       while (q.length) { const c = q.pop(); for (const d of ORTHO_D) { const n = c + d; if (!seen.has(n) && landOf(top(board, n)) === L) { seen.add(n); flip(n); q.push(n); } } }
     };
     const familyCapture = (member, house, heirChoice, color) => {
-      if (member === 'heir') { if (heirChoice != null) flip(heirChoice); }
-      else for (const d of MEMBERS[member].dirs) flip(k + d);
-      if (color && cfg.colorCapture) for (const d of ORTHO_D) { const t = top(board, k + d); if (t && t.kind === 'family' && t.house === house) flip(k + d); }
+      if (member === 'heir' || member === 'knave') { if (heirChoice != null) flip(heirChoice, true); }
+      else for (const d of MEMBERS[member].dirs) flip(k + d, true);
+      if (color && cfg.colorCapture) for (const d of ORTHO_D) { const t = top(board, k + d); if (t && t.kind === 'family' && t.house === house) flip(k + d, true); }
     };
     const base = { id: card.id, kind: card.kind, owner: p };
     if (card.kind === 'land') { pushTile(board, k, Object.assign(base, { land: card.land })); landMatch(k, card.land); return res; }
     if (card.kind === 'family') { pushTile(board, k, Object.assign(base, { member: card.member, house: card.house })); familyCapture(card.member, card.house, choice, true); return res; }
     const s = card.special; base.special = s;
     switch (s) {
-      case 'ancient': case 'lostcity': case 'watchtower': pushTile(board, k, base); break;
+      case 'lostcity': pushTile(board, k, base); break;
       case 'sinkhole': base.owner = null; pushTile(board, k, base); break;
       case 'sanctuary': base.owner = 'both'; pushTile(board, k, base); break;
-      case 'pretender': { const cov = top(board, k); base.member = cov.member; base.house = cov.house; pushTile(board, k, base); familyCapture(cov.member, cov.house, choice, false); break; }
-      case 'wild': base.wildAs = choice; pushTile(board, k, base); landMatch(k, choice); break;
       case 'usurp': {
         res.removed = board.get(k)[0]; board.delete(k);
         pushTile(board, k, { id: choice.cardId, kind: 'land', land: choice.land, owner: p });
-        landMatch(k, choice.land); break;
+        if (cfg.usurpMatch !== false) landMatch(k, choice.land); break;
       }
       case 'underminers': pushTile(board, k, base); if (choice != null) flip(choice); break;
       case 'earthquake': pushTile(board, k, base); if (choice) { const a = board.get(choice[0]), b = board.get(choice[1]); board.set(choice[0], b); board.set(choice[1], a); } break;
@@ -406,9 +380,9 @@
     const p = state.turn, o = 1 - p, pl = state.players[p];
     const card = findCard(state, p, move.cardId);
     if (!card) throw new Error('card not in hand');
-    const before = score(state.board);
+    const before = score(state.board, state.cfg);
     const res = applyEffect(state.board, state.cfg, p, card, move.pos, move.choice);
-    const after = score(state.board);
+    const after = score(state.board, state.cfg);
     // remove card(s) from hand
     const rm = id => { let i = pl.hand.findIndex(c => c.id === id); if (i >= 0) return pl.hand.splice(i, 1)[0]; i = pl.side.findIndex(c => c.id === id); return i >= 0 ? pl.side.splice(i, 1)[0] : null; };
     rm(card.id);
@@ -418,7 +392,8 @@
     const play = { p, turn: state.turnNo, label: cardLabel(card), title: cardTitle(card), swing,
       mine: after.largest[p] - before.largest[p], theirs: after.largest[o] - before.largest[o], flips: res.flips.length };
     state.plays.push(play);
-    state.lastMove = { p, pos: move.pos, flips: res.flips, card, choice: move.choice };
+    if (state.leads) state.leads.push(after.largest[0] - after.largest[1]); // Midnight's kingdom lead after every play
+    state.lastMove = { n: state.turnNo, p, pos: move.pos, flips: res.flips, from: res.from, removed: res.removed, card, choice: move.choice };
     state.log.push(play);
     while (pl.hand.length < state.cfg.handSize && state.deck.length) pl.hand.push(state.deck.pop());
     state.turnNo++;
@@ -435,7 +410,7 @@
     const end = r => { state.over = true; state.endReason = r; state.moves = []; finish(state); };
     if (!initial) {
       if (cfg.end.boardFull && state.board.size >= cfg.gridW * cfg.gridH) return end('Board full');
-      if (cfg.end.deckEmpty && state.deck.length === 0) return end('Deck empty');
+      if (cfg.end.deckEmpty && state.deck.length === 0) return end('Bag empty');
     }
     if (!state.deck.length && !cardsLeft(state, 0) && !cardsLeft(state, 1)) return end('Out of cards');
     for (let tries = 0; tries < 2; tries++) {
@@ -449,25 +424,29 @@
   }
 
   function finish(state) {
-    const s = score(state.board);
+    const s = score(state.board, state.cfg);
     state.final = s;
-    let w = s.largest[0] > s.largest[1] ? 0 : s.largest[1] > s.largest[0] ? 1 : -1;
+    const a = s.largest[0], b = s.largest[1] + (state.cfg.secondBonus | 0);
+    s.adjusted = [a, b];
+    let w = a > b ? 0 : b > a ? 1 : -1;
     if (w === -1 && state.cfg.tiebreak === 'total') w = s.total[0] > s.total[1] ? 0 : s.total[1] > s.total[0] ? 1 : -1;
+    if (w === -1 && state.cfg.tiebreak === 'second') w = 1;
     state.winner = w;
   }
 
   // ---------- AI ----------
   const PERSONAS = {
-    greedy: { name: 'Greedy', blurb: 'Takes the biggest immediate swing every turn.', a: 0, keep: 0, look: 0, noise: 0.01 },
-    builder: { name: 'Builder', blurb: 'Grows total territory and saves Family for late.', a: 0.35, keep: 0.8, look: 0, noise: 0.02 },
-    cautious: { name: 'Cautious', blurb: 'Weighs the best reply the opponent could make.', a: 0.2, keep: 0.4, look: 1, noise: 0.01 },
-    hoarder: { name: 'Hoarder', blurb: 'Holds Family cards as long as possible.', a: 0.2, keep: 2.0, look: 0, noise: 0.02 },
-    chaotic: { name: 'Chaotic', blurb: 'Plays decent moves with a lot of randomness.', a: 0.1, keep: 0, look: 0, noise: 1.5 },
+    // hold: how much a persona values saving a capture card for a turn where it actually captures something
+    greedy: { name: 'Greedy', blurb: 'Takes the biggest immediate swing every turn.', a: 0, hold: 0, look: 0, noise: 0.01 },
+    builder: { name: 'Builder', blurb: 'Grows total territory and saves capture cards for big turns.', a: 0.35, hold: 0.8, look: 0, noise: 0.02 },
+    cautious: { name: 'Cautious', blurb: 'Weighs the best reply the opponent could make, and doesn\u2019t waste capture cards.', a: 0.2, hold: 1.0, look: 1, noise: 0.01 },
+    hoarder: { name: 'Hoarder', blurb: 'Holds Family and Specials until they can make a big play.', a: 0.2, hold: 1.8, look: 0, noise: 0.02 },
+    chaotic: { name: 'Chaotic', blurb: 'Plays decent moves with a lot of randomness.', a: 0.1, hold: 0.3, look: 0, noise: 1.5 },
     random: { name: 'Random', blurb: 'Any legal move. Baseline for sanity checks.', random: true }
   };
 
-  function evalBoard(board, p, a) {
-    const s = score(board), o = 1 - p;
+  function evalBoard(board, p, a, cfg) {
+    const s = score(board, cfg), o = 1 - p;
     return (s.largest[p] - s.largest[o]) + a * (s.total[p] - s.total[o]);
   }
 
@@ -483,21 +462,27 @@
     return cards;
   }
 
+  // Rough extra value of a card over a plain Land, from simulation averages.
+  const HOLD = { advisor: 4, king: 2, queen: 2.5, heir: 2, knave: 2.5, usurp: 2, sinkhole: 1.5, underminers: 2, earthquake: 2, sanctuary: 1, waystone: 0.5, lostcity: 0.3 };
+  function holdValue(card) { return card.kind === 'family' ? HOLD[card.member] || 2 : card.kind === 'special' ? HOLD[card.special] || 1 : 0; }
+
   function chooseMove(state, personaKey) {
     const per = PERSONAS[personaKey] || PERSONAS.greedy;
     const p = state.turn, rng = state.rng;
     const moves = legalMoves(state, p, { prune: true, dedupe: true });
     if (!moves.length) return null;
     if (per.random) return moves[Math.floor(rng() * moves.length)];
-    const base = evalBoard(state.board, p, per.a);
+    const base = evalBoard(state.board, p, per.a, state.cfg);
     const progress = state.initialDeck ? state.deck.length / state.initialDeck : 0;
     const scored = moves.map(m => {
       const card = findCard(state, p, m.cardId);
       const b = new Map(state.board);
       const r = applyEffect(b, state.cfg, p, card, m.pos, m.choice);
-      let v = evalBoard(b, p, per.a) - base;
+      let v = evalBoard(b, p, per.a, state.cfg) - base;
       if (r.extra) v += 0.8;
-      if (card.kind === 'family') v -= per.keep * progress;
+      // Spending a capture card costs what it could have done later; late in the game that cost fades so cards get used.
+      v -= (per.hold || 0) * holdValue(card) * Math.min(1, progress * 1.3);
+      if (per.keep && card.kind === 'family') v -= per.keep * progress;
       if (card.special === 'usurp') v -= 0.3; // costs two cards
       v += per.noise * (rng() - 0.5);
       return { m, v, b };
@@ -509,13 +494,13 @@
       for (let i = 0; i < K; i++) {
         const sc = scored[i];
         const fake = { cfg: state.cfg, board: sc.b, players: state.players };
-        const before = evalBoard(sc.b, o, 0);
+        const before = evalBoard(sc.b, o, 0, state.cfg);
         let best = 0;
         for (const c of proxy) {
           for (const om of cardMoves(fake, o, c, 'x', { prune: true })) {
             const b2 = new Map(sc.b);
             applyEffect(b2, state.cfg, o, c, om.pos, om.choice);
-            const sw = evalBoard(b2, o, 0) - before;
+            const sw = evalBoard(b2, o, 0, state.cfg) - before;
             if (sw > best) best = sw;
           }
         }
@@ -537,6 +522,48 @@
     }
     if (!st.over) { st.over = true; st.endReason = 'Turn limit'; finish(st); }
     return st;
+  }
+
+  // ---------- comebacks and runaway leads ----------
+  const CHECKS = [0.25, 0.5, 0.75];
+  function addLeadStats(S, st) {
+    const L = S.lead || (S.lead = { checks: CHECKS.map(() => ({ led: 0, leaderWon: 0, even: 0, gap: 0 })), bySize: [[0, 0], [0, 0], [0, 0]], changes: 0, decided: [], fromHalf: 0, halfBehindGames: 0, from3: 0, decidedGames: 0, maxDeficit: {} });
+    const h = st.leads || [], n = h.length, w = st.winner;
+    if (!n) return;
+    CHECKS.forEach((f, i) => {
+      const d = h[Math.max(0, Math.ceil(f * n) - 1)], c = L.checks[i];
+      if (d === 0) { c.even++; return; }
+      c.led++; c.gap += Math.abs(d);
+      if (w === (d > 0 ? 0 : 1)) c.leaderWon++;
+    });
+    // at halfway, does the size of the lead matter? buckets: ahead by 1-2, 3-4, 5+
+    const dh = h[Math.max(0, Math.ceil(0.5 * n) - 1)];
+    if (dh) { const b = Math.abs(dh) <= 2 ? 0 : Math.abs(dh) <= 4 ? 1 : 2; L.bySize[b][0]++; if (w === (dh > 0 ? 0 : 1)) L.bySize[b][1]++; }
+    let last = 0; for (const d of h) { const s = Math.sign(d); if (s && last && s !== last) L.changes++; if (s) last = s; }
+    if (w === -1) return;
+    const sgn = w === 0 ? 1 : -1;
+    L.decidedGames++;
+    let k = n - 1; while (k >= 0 && sgn * h[k] > 0) k--;      // last moment the eventual winner wasn't ahead
+    L.decided.push((k + 1) / n);
+    const half = h[Math.max(0, Math.ceil(0.5 * n) - 1)] * sgn;
+    if (half < 0) L.fromHalf++;
+    const worst = Math.min(0, ...h.map(d => d * sgn));
+    if (worst <= -3) L.from3++;
+    L.maxDeficit[-worst] = (L.maxDeficit[-worst] || 0) + 1;
+  }
+  function summarizeLeads(S) {
+    const L = S.lead; if (!L) return null;
+    const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+    return {
+      checks: L.checks.map((c, i) => ({ at: CHECKS[i], leaderWins: c.led ? c.leaderWon / c.led : 0, even: c.even / S.games, avgLead: c.led ? c.gap / c.led : 0 })),
+      leadChanges: L.changes / S.games,
+      halfwayBySize: ['1\u20132', '3\u20134', '5+'].map((label, i) => ({ label, games: L.bySize[i][0] / S.games, leaderWins: L.bySize[i][0] ? L.bySize[i][1] / L.bySize[i][0] : 0 })),
+      decidedAt: mean(L.decided),
+      decidedLate: L.decided.filter(x => x >= 0.75).length / Math.max(1, L.decidedGames),
+      comebackFromHalf: L.fromHalf / Math.max(1, L.decidedGames),
+      comebackFrom3: L.from3 / Math.max(1, L.decidedGames),
+      maxDeficit: L.maxDeficit
+    };
   }
 
   function newStats() {
@@ -572,6 +599,7 @@
       for (const pl of st.plays) { addCardStat(S.cards, pl.label, pl); playedBy[pl.p].add(pl.label); }
       for (const seat of [0, 1]) for (const lab of playedBy[seat]) { const c = S.cards[lab]; c.games++; if (st.winner === seat) c.gamesWon++; }
       S.unplayedFamily += st.players[0].side.length + st.players[1].side.length;
+      addLeadStats(S, st);
       if (onProgress && (g % 20 === 19 || g === n - 1)) onProgress(g + 1, n);
     }
     S.seconds = (Date.now() - t0) / 1000;
@@ -592,7 +620,8 @@
       firstSeatWinRate: S.seatWins[0] / S.games, secondSeatWinRate: S.seatWins[1] / S.games, tieRate: S.ties / S.games,
       endReasons: S.endReasons, turns: { mean: mean(S.turns), min: Math.min(...S.turns), max: Math.max(...S.turns) },
       margin: { mean: mean(S.margins), hist: marginHist }, scores, cards,
-      unplayedFamilyPerGame: S.unplayedFamily / S.games
+      unplayedFamilyPerGame: S.unplayedFamily / S.games,
+      comeback: summarizeLeads(S)
     };
   }
 
@@ -600,16 +629,22 @@
     const pct = x => (100 * x).toFixed(1) + '%';
     const f = x => (x >= 0 ? '+' : '') + x.toFixed(2);
     const L = [];
-    L.push(`Vye Micro simulation — ${sum.games} games, ${personas.join(' vs ')}, ${sum.seconds.toFixed(1)}s`);
+    L.push(`Vye Duel simulation — ${sum.games} games, ${personas.join(' vs ')}, ${sum.seconds.toFixed(1)}s`);
     L.push(`Config: ${cfg.landSets} land sets × ${cfg.landCopies}, grid ${cfg.gridW}×${cfg.gridH}, hand ${cfg.handSize}, stacking ${cfg.stacking}, start ${cfg.start}`);
     L.push(`Family Blue: ${famStr(cfg.family[0])} | Red: ${famStr(cfg.family[1])}`);
     L.push(`Specials: ${Object.entries(cfg.specials).filter(([, n]) => n > 0).map(([k, n]) => SPECIALS[k].name + '×' + n).join(', ') || 'none'}`);
     L.push(`End on: ${Object.entries(cfg.end).filter(([, v]) => v).map(([k]) => k).join(', ')}`);
+    if (cfg.secondBonus || cfg.secondExtraCards || cfg.tiebreak !== 'none') L.push(`Balance: second player +${cfg.secondBonus | 0} points, +${cfg.secondExtraCards | 0} cards, ties → ${cfg.tiebreak}`);
     L.push('');
     L.push(`Wins: ${Object.entries(sum.wins).map(([k, v]) => `${k} ${pct(v / sum.games)}`).join(', ')}, ties ${pct(sum.tieRate)}`);
     L.push(`First player wins ${pct(sum.firstSeatWinRate)}, second ${pct(sum.secondSeatWinRate)}`);
     L.push(`Turns: mean ${sum.turns.mean.toFixed(1)} (min ${sum.turns.min}, max ${sum.turns.max}). Margin mean ${sum.margin.mean.toFixed(2)}`);
     L.push(`End reasons: ${Object.entries(sum.endReasons).map(([k, v]) => `${k} ${pct(v / sum.games)}`).join(', ')}`);
+    if (sum.comeback) {
+      const cb = sum.comeback;
+      L.push(`Leader wins: ${cb.checks.map(c => `ahead at ${Math.round(c.at * 100)}% \u2192 wins ${pct(c.leaderWins)}`).join(', ')}`);
+      L.push(`Comebacks: behind at halfway and won ${pct(cb.comebackFromHalf)}, won after being 3+ behind ${pct(cb.comebackFrom3)}. Lead changes per game ${cb.leadChanges.toFixed(1)}. Winner takes the lead for good at ${pct(cb.decidedAt)} of the game on average.`);
+    }
     L.push(`Final kingdom: ${Object.entries(sum.scores).map(([k, v]) => `${k} ${v.mean.toFixed(1)} (${v.min}–${v.max})`).join(', ')}`);
     L.push('');
     L.push('Card            plays/g   mean    sd    min   max  flips  win%');
