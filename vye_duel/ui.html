@@ -224,6 +224,13 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .matrix td, .matrix th { text-align: center; }
 .empty-results { color: var(--muted); padding: 30px 10px; text-align: center; }
 .tray { display: contents; }
+/* Table background picture (Game panel > Background). Cover keeps any picture's shape: it fills the play area
+   and trims the overflow evenly from the edges; a dark vignette hides where it's been trimmed. */
+.table.has-bg { background-color: #241713; background-position: center; background-size: cover; background-repeat: no-repeat;
+  box-shadow: inset 0 0 80px 18px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.35); }
+.table.has-bg .hand-label, .table.has-bg .cardinfo, .table.has-bg .prompt { color: #F4EADB; text-shadow: 0 1px 3px rgba(0,0,0,.75); }
+.table.has-bg .cell.empty.open { border-color: rgba(255,240,222,.32); background: rgba(0,0,0,.12); }
+.table.has-bg .mchip { box-shadow: 0 2px 8px rgba(0,0,0,.35); }
 /* score: one chip per player across the top of the board */
 .mscore { display: flex; width: 100%; align-items: stretch; gap: 10px; }
 .mchip { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; }
@@ -262,6 +269,7 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .tray .cardinfo { font-size: 12.5px; min-height: 0; }
   .tray .cardinfo.idle { display: none; }
   .tray .hand-label { display: none; }
+  .table.has-bg .tray { background: rgba(28,18,15,.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-color: rgba(255,255,255,.12); }
   .hand { flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; gap: 6px; padding: 3px; }
   .hcard { width: 58px; height: 58px; --cell: 58px; flex: none; }
   .hand-area { padding: 6px 8px; }
@@ -495,6 +503,14 @@ function patEl(member) {
 // Card art lives in art/ next to this page. Replace a file with one of the same name to change the art.
 const ART_SPECIALS = new Set(['lostcity', 'sinkhole', 'sanctuary', 'underminers', 'earthquake', 'waystone']);
 // Tile style: 'art' (card art), 'icons' (the simple small-tile set), 'symbols' (plain glyphs)
+// Background pictures for the play area. Add more here: { id, name, url } (url relative to this page).
+const BACKGROUNDS = [
+  { id: 'wood', name: 'Wood', url: 'art/backgrounds/wood.jpg' },
+  { id: 'none', name: 'None' }
+];
+let bgChoice = store.get('vyeMicro.bg', 'wood');
+if (!BACKGROUNDS.some(b => b.id === bgChoice)) bgChoice = 'wood';
+const bgUrl = () => (BACKGROUNDS.find(b => b.id === bgChoice) || {}).url;
 let tileStyle = store.get('vyeMicro.tileStyle', store.get('vyeMicro.art', true) === false ? 'symbols' : 'art');
 let showArt = tileStyle === 'art';
 function iconTile(t, owner) {
@@ -839,7 +855,8 @@ function renderPlay() {
   const v = $('#view-play'); v.textContent = '';
   if (!G) return;
   const sc = E.score(G.board);
-  const table = h('div', { class: 'table' });
+  const table = h('div', { class: 'table' + (bgUrl() ? ' has-bg' : '') });
+  if (bgUrl()) table.style.backgroundImage = `url("${bgUrl()}")`;
   const mchip = p => h('span', { class: 'mchip p' + p, 'data-tip': `${E.HOUSES[p].short}: largest kingdom ${sc.largest[p]} (that\u2019s the score), ${sc.total[p]} tiles owned in all.`, tabindex: '0' },
     sigEl('sig p' + p, p), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, h('strong', null, E.HOUSES[p].short), h('br'), h('span', { class: 'kw' }, 'largest kingdom · '), `${sc.total[p]} owned`));
   table.append(h('div', { class: 'mscore' }, mchip(0), mchip(1)));
@@ -884,6 +901,8 @@ function renderPlay() {
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
         h('span', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Tiles'),
           seg([['art', 'Art'], ['icons', 'Icons'], ['symbols', 'Symbols']], tileStyle, x => { tileStyle = x; showArt = x === 'art'; store.set('vyeMicro.tileStyle', x); renderPlay(); })),
+        h('span', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Background'),
+          seg(BACKGROUNDS.map(b => [b.id, b.name]), bgChoice, x => { bgChoice = x; store.set('vyeMicro.bg', x); renderPlay(); })),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'revealbag', checked: revealBag, onchange: e => { revealBag = e.target.checked; renderPlay(); } }), 'Show what\u2019s in the bag'),
         h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`))),
