@@ -252,9 +252,15 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .table.stage .stage-bot .hand-area { max-width: calc(100% - 104px); }
 .table.stage .hcard { width: var(--hc); height: var(--hc); --cell: var(--hc); flex: none; }
 /* instructions while you place a tile: a pill at the top of the picture, between the scores, so it never covers the board */
-.stage-tip { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 150px); z-index: 5;
+.stage-tip { position: absolute; left: 50%; top: 26px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 180px); z-index: 5;
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 12px;
   background: rgba(18,12,28,.82); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.stage-tip.tp0 { background: color-mix(in srgb, #2C5AA5 84%, transparent); } .stage-tip.tp1 { background: color-mix(in srgb, #B13939 84%, transparent); }
+.stage-tip { padding: 7px 12px 7px 20px; }
+.tip-sig { position: absolute; left: 0; top: 0; width: 30px; height: 30px; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.tip-sig.p0 { background: #2C5AA5; } .tip-sig.p1 { background: #B13939; }
+.tip-sig svg { width: 70%; height: 70%; display: block; }
+.table.stage .stage-tip .cardinfo { color: #fff; }
 .stage-tip[hidden] { display: none; }
 .table.stage .stage-tip .prompt { min-height: 0; font-size: 13.5px; gap: 6px; }
 .table.stage .stage-tip .prompt:empty { display: none; }
@@ -319,7 +325,6 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .hcard { width: 58px; height: 58px; --cell: 58px; flex: none; }
   .hand-area { padding: 6px 8px; }
   .hand-area.other { padding-block: 6px; }
-  .hand-area.other .hand { display: none; }
   .tile .n { font-size: max(8.5px, calc(var(--cell) * .135)); }
   .cell.last::after { inset: -3px; }
   .endcard .box { padding: 18px; }
@@ -562,7 +567,7 @@ const bgUrl = () => bgNow().url;
 let tileStyle = 'art';   // tiles always show their art
 let showArt = true;
 // Card borders: off leaves just the corner sigil to show who owns a tile
-let cardBorders = store.get('vyeMicro.borders', true) !== false;
+let cardBorders = store.get('vyeMicro.borders', false) === true;
 document.documentElement.classList.toggle('no-borders', !cardBorders);
 function iconTile(t, owner) {
   const o0 = owner === undefined ? t.owner : owner;
@@ -767,14 +772,13 @@ function promptEl() {
   if (!isHuman(p)) return h('div', { class: 'prompt' });
   const card = selCard();
   if (!card) return h('div', { class: 'prompt' });
-  const cancel = h('button', { class: 'btn', onclick: () => { ui = { sel: null, pos: null, phase: null, eqA: null }; renderPlay(); } }, 'Cancel');
-  const back = h('button', { class: 'btn', onclick: () => { ui.pos = null; ui.phase = null; ui.eqA = null; renderPlay(); } }, 'Back');
+  // no Cancel / Back: tapping the chosen tile in your hand again puts it back
   const pm = movesFor().filter(m => m.pos === ui.pos);
-  if (ui.phase === 'usurp') return h('div', { class: 'prompt' }, h('span', null, 'Usurp: tap the Land from your hand to put in its place.'), back);
-  if (ui.phase === 'cell') return h('div', { class: 'prompt' }, 'Choose the tile to flip.', back);
-  if (ui.phase === 'eqA') return h('div', { class: 'prompt' }, 'Earthquake: pick the first tile to swap.', h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === null)) }, 'No swap'), back);
-  if (ui.phase === 'eqB') return h('div', { class: 'prompt' }, 'Pick the second tile.', back);
-  return h('div', { class: 'prompt' }, h('span', null, who, ' · ', E.cardTitle(card), ': choose a highlighted space.'), cancel);
+  if (ui.phase === 'usurp') return h('div', { class: 'prompt' }, h('span', null, 'Usurp: tap the Land from your hand to put in its place.'));
+  if (ui.phase === 'cell') return h('div', { class: 'prompt' }, 'Choose the tile to flip.');
+  if (ui.phase === 'eqA') return h('div', { class: 'prompt' }, 'Earthquake: pick the first tile to swap.', h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === null)) }, 'No swap'));
+  if (ui.phase === 'eqB') return h('div', { class: 'prompt' }, 'Pick the second tile.');
+  return h('div', { class: 'prompt' });   // the card's rules (shown with it) are enough here
 }
 
 function handEl(p, other) {
@@ -954,7 +958,7 @@ function renderPlay() {
     table.append(h('div', { class: 'tray' }, promptEl(), info, handEl(bottom)));
   } else {
     // picture stage: scores and the top hand on the art above the play area, the board inside it, your hand below
-    const pr = promptEl(), tip = h('div', { class: 'stage-tip' }, pr, card ? info : null);
+    const pr = promptEl(), tip = h('div', { class: 'stage-tip tp' + G.turn }, G.over ? null : sigEl('tip-sig p' + G.turn, G.turn), pr, card ? info : null);
     if (!pr.childNodes.length && !card) tip.hidden = true;
     table.append(
       h('div', { class: 'stage-top', style: `height:${S.top}px` }, scoreRow, handEl(1 - bottom, true), tip),
