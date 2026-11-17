@@ -177,7 +177,7 @@ img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: c
 .counts .tot { border-top: 1px solid var(--line); padding-top: 3px; font-weight: 700; }
 .hcard.dead { opacity: .4; cursor: not-allowed; }
 .hcard.back { background: repeating-linear-gradient(45deg, var(--line) 0 6px, var(--sunk) 6px 12px); cursor: default; border: 1px solid var(--line); }
-.cardinfo { font-size: 13.5px; color: var(--muted); text-align: center; max-width: 520px; min-height: 20px; }
+.cardinfo { font-size: 13.5px; color: var(--muted); text-align: center; max-width: 520px; min-height: 2.6em; display: grid; place-items: center; }
 .choices { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 
 .rail { display: flex; flex-direction: column; gap: 14px; }
@@ -231,6 +231,34 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .table.has-bg .hand-label, .table.has-bg .cardinfo, .table.has-bg .prompt { color: #F4EADB; text-shadow: 0 1px 3px rgba(0,0,0,.75); }
 .table.has-bg .cell.empty.open { border-color: rgba(255,240,222,.32); background: rgba(0,0,0,.12); }
 .table.has-bg .mchip { box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.boardbox { display: grid; place-items: center; flex: none; max-width: 100%; }
+/* Picture stage (portrait backgrounds): the whole picture shows, nothing trimmed; the board sits in its play area */
+.stage-col { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+.table.stage { display: block; padding: 0; flex: none; background-size: 100% 100%; background-color: #1d1530; max-width: 100%;
+  box-shadow: 0 10px 30px rgba(0,0,0,.28); border-radius: 16px; overflow: hidden; }
+.stage-top, .stage-bot { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 8px 10px; }
+.stage-top { top: 0; justify-content: flex-start; padding-top: 10px; }
+.stage-bot { bottom: 0; justify-content: flex-end; padding-bottom: 10px; }
+.stage-board { position: absolute; display: grid; place-items: center; }
+.table.stage .mscore { gap: 8px; }
+.table.stage .mchip { padding: 5px 10px; gap: 8px; }
+.table.stage .mchip b { font-size: 24px; } .table.stage .mchip .sig { width: 24px; height: 24px; }
+.table.stage .mchip small { font-size: 11px; } .table.stage .mchip .kw { display: none; }
+.table.stage .hand-area { width: auto; max-width: 100%; padding: 6px 10px; gap: 4px; background: rgba(18,12,28,.5); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); border-color: rgba(255,255,255,.08); }
+.table.stage .hand-area.turn { border-color: var(--brass); }
+.table.stage .hand-label { font-size: 10.5px; justify-content: center; }
+.table.stage .hand { gap: 6px; flex-wrap: nowrap; }
+.table.stage .hcard { width: var(--hc); height: var(--hc); --cell: var(--hc); flex: none; }
+/* instructions while you place a tile: a pill on the art just above the play area, so it never covers the board */
+.stage-tip { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); width: max-content; max-width: 94%; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 12px;
+  background: rgba(18,12,28,.82); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.stage-tip[hidden] { display: none; }
+.table.stage .stage-tip .prompt { min-height: 0; font-size: 13.5px; gap: 6px; }
+.table.stage .stage-tip .prompt:empty { display: none; }
+.table.stage .stage-tip .cardinfo { font-size: 12px; min-height: 0; max-width: 46ch; }
+.table.stage .stage-tip .btn { padding: 3px 10px; font-size: 12.5px; background: #F4EADB; color: #1d1530; border-color: transparent; }
+.table.stage .stage-tip .prompt .who { font-size: 14px; }
 /* score: one chip per player across the top of the board */
 .mscore { display: flex; width: 100%; align-items: stretch; gap: 10px; }
 .mchip { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; }
@@ -269,6 +297,8 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .tray .cardinfo { font-size: 12.5px; min-height: 0; }
   .tray .cardinfo.idle { display: none; }
   .tray .hand-label { display: none; }
+  .table.stage .stage-top, .table.stage .stage-bot { padding: 6px; gap: 5px; }
+  .table.stage .hand-area { padding: 4px 8px; }
   .table.has-bg .tray { background: rgba(28,18,15,.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-color: rgba(255,255,255,.12); }
   .hand { flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; gap: 6px; padding: 3px; }
   .hcard { width: 58px; height: 58px; --cell: 58px; flex: none; }
@@ -504,13 +534,21 @@ function patEl(member) {
 const ART_SPECIALS = new Set(['lostcity', 'sinkhole', 'sanctuary', 'underminers', 'earthquake', 'waystone']);
 // Tile style: 'art' (card art), 'icons' (the simple small-tile set), 'symbols' (plain glyphs)
 // Background pictures for the play area. Add more here: { id, name, url } (url relative to this page).
+// Portrait pictures (made for phones) also give `play`: the open area in the middle of the picture, as fractions of
+// its width and height [left, top, right, bottom]. Those turn the table into a picture-shaped stage: the board sits
+// inside the play area and the hands sit on the picture above and below it.
 const BACKGROUNDS = [
   { id: 'wood', name: 'Wood', url: 'art/backgrounds/wood.jpg' },
+  { id: 'river', name: 'Moonlit river', url: 'art/backgrounds/river.jpg', ratio: 941 / 1672, play: [0.05, 0.29, 0.95, 0.79] },
+  { id: 'arena', name: 'Wolf moon arena', url: 'art/backgrounds/arena.jpg', ratio: 941 / 1672, play: [0.05, 0.37, 0.95, 0.80] },
+  { id: 'ruins', name: 'Moonrise ruins', url: 'art/backgrounds/ruins.jpg', ratio: 941 / 1672, play: [0.04, 0.29, 0.96, 0.81] },
+  { id: 'indigo', name: 'Indigo frame', url: 'art/backgrounds/indigo.jpg', ratio: 941 / 1672, play: [0.06, 0.27, 0.94, 0.82] },
   { id: 'none', name: 'None' }
 ];
 let bgChoice = store.get('vyeMicro.bg', 'wood');
 if (!BACKGROUNDS.some(b => b.id === bgChoice)) bgChoice = 'wood';
-const bgUrl = () => (BACKGROUNDS.find(b => b.id === bgChoice) || {}).url;
+const bgNow = () => BACKGROUNDS.find(b => b.id === bgChoice) || {};
+const bgUrl = () => bgNow().url;
 let tileStyle = store.get('vyeMicro.tileStyle', store.get('vyeMicro.art', true) === false ? 'symbols' : 'art');
 let showArt = tileStyle === 'art';
 function iconTile(t, owner) {
@@ -662,7 +700,9 @@ function usurpPick(c) {
   if (m) humanPlay(Object.assign({}, m, { choice: { cardId: c.id, land: c.land } }));
 }
 
-function renderBoard() {
+// The board always takes the room of the biggest board it can show (limit + 1 each way, since a board one short of
+// the limit can still grow on either side), so nothing around it moves as tiles go down. fit: {w, h} box in px (stage).
+function renderBoard(fit) {
   const b = G.board;
   const cs = b.size ? E.bbox(b) : { x0: 0, x1: 0, y0: 0, y1: 0 };
   const open = new Set(G.over ? [] : E.placeCells(G));
@@ -671,10 +711,18 @@ function renderBoard() {
   if (ui.pos != null) { x0 = Math.min(x0, E.kx(ui.pos)); x1 = Math.max(x1, E.kx(ui.pos)); y0 = Math.min(y0, E.ky(ui.pos)); y1 = Math.max(y1, E.ky(ui.pos)); }
   const cols = x1 - x0 + 1, rows = y1 - y0 + 1;
   const phone = window.innerWidth <= 700, gap = phone ? 4 : 5;
-  const vw = ($('#view-play') || document.body).clientWidth;
-  const oneCol = window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches;
-  const avail = phone ? vw - 12 : Math.min(vw - (oneCol ? 40 : 380), 720);
-  const cell = Math.max(34, Math.min(86, Math.floor((avail - gap * (cols - 1)) / cols)));
+  const NX = Math.max(cols, (G.cfg.gridW | 0) + 1), NY = Math.max(rows, (G.cfg.gridH | 0) + 1);
+  let cell;
+  if (fit) cell = Math.max(24, Math.min(96, Math.floor(Math.min((fit.w - gap * (NX - 1)) / NX, (fit.h - gap * (NY - 1)) / NY))));
+  else {
+    const vw = ($('#view-play') || document.body).clientWidth;
+    const oneCol = window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches;
+    const avail = phone ? vw - 12 : Math.min(vw - (oneCol ? 40 : (railOpen ? 380 : 160)), 720);
+    // also fit the window's height (the hands, scores and help line take about 480px), so the whole table shows at once
+    const vt = Math.max(0, ($('#view-play') || document.body).getBoundingClientRect().top);
+    const availH = phone ? Infinity : window.innerHeight - vt - 480;
+    cell = Math.max(phone ? 30 : 44, Math.min(86, Math.floor((avail - gap * (NX - 1)) / NX), Math.floor((availH - gap * (NY - 1)) / NY)));
+  }
   const tg = targetsNow();
   const lm = G.lastMove; const flipped = new Set(lm ? lm.flips : []);
   const grid = h('div', { class: 'board', style: `grid-template-columns: repeat(${cols}, ${cell}px); --cell:${cell}px` });
@@ -696,7 +744,7 @@ function renderBoard() {
     }
     grid.append(c);
   }
-  return grid;
+  return h('div', { class: 'boardbox', style: `width:${NX * cell + gap * (NX - 1)}px;height:${NY * cell + gap * (NY - 1)}px` }, grid);
 }
 
 function promptEl() {
@@ -855,23 +903,47 @@ function renderPlay() {
   const v = $('#view-play'); v.textContent = '';
   if (!G) return;
   const sc = E.score(G.board);
-  const table = h('div', { class: 'table' + (bgUrl() ? ' has-bg' : '') });
-  if (bgUrl()) table.style.backgroundImage = `url("${bgUrl()}")`;
+  const bg = bgNow(), stage = !!bg.play;
+  const viewTop = v.getBoundingClientRect().top + window.scrollY;
+  const table = h('div', { class: 'table' + (bg.url ? ' has-bg' : '') + (stage ? ' stage' : '') });
+  if (bg.url) table.style.backgroundImage = `url("${bg.url}")`;
+  let S = null;   // stage geometry (px)
+  if (stage) {
+    // as big as fits both the column and the window (below the header), in the picture's own shape
+    const colW = v.clientWidth - (window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches ? 0 : (railOpen ? 338 : 160));
+    const availH = Math.max(520, window.innerHeight - Math.max(0, viewTop - window.scrollY) - 14);
+    const W = Math.floor(Math.min(colW, availH * bg.ratio, 760)), H = Math.round(W / bg.ratio);
+    const [l, t, r, b] = bg.play;
+    S = { W, H, top: t * H, bot: (1 - b) * H, box: { x: l * W, y: t * H, w: (r - l) * W, h: (b - t) * H } };
+    table.style.width = W + 'px'; table.style.height = H + 'px';
+    table.style.setProperty('--hc', Math.round(Math.max(44, Math.min(76, W * 0.14))) + 'px');
+  }
   const mchip = p => h('span', { class: 'mchip p' + p, 'data-tip': `${E.HOUSES[p].short}: largest kingdom ${sc.largest[p]} (that\u2019s the score), ${sc.total[p]} tiles owned in all.`, tabindex: '0' },
     sigEl('sig p' + p, p), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, h('strong', null, E.HOUSES[p].short), h('br'), h('span', { class: 'kw' }, 'largest kingdom · '), `${sc.total[p]} owned`));
-  table.append(h('div', { class: 'mscore' }, mchip(0), mchip(1)));
-  if (cfgChanged()) table.append(h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
+  const scoreRow = h('div', { class: 'mscore' }, mchip(0), mchip(1));
+  if (!stage) table.append(scoreRow);
+  const warn = !cfgChanged() ? null : (h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
     'Setup has changed since this game started. This game keeps the rules it was dealt with. ',
     h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => newGame() }, 'New game with current Setup')));
+  if (warn && !stage) table.append(warn);
   // the AI sits at the top of the board, the human at the bottom (two humans or two AIs: Roses top, Midnight bottom)
   const hp = [0, 1].filter(p => isHuman(p));
   const bottom = hp.length === 1 ? hp[0] : 0;
-  table.append(handEl(1 - bottom, true));
-  table.append(renderBoard());
   const card = selCard();
-  table.append(h('div', { class: 'tray' }, promptEl(),
-    h('div', { class: 'cardinfo' + (card ? '' : ' idle') }, card ? cardDesc(card) : 'Ownership is the outline and sigil: blue owl for Midnight, red rose for Roses.'),
-    handEl(bottom)));
+  const info = h('div', { class: 'cardinfo' + (card ? '' : ' idle') }, card ? cardDesc(card) : 'Ownership is the outline and sigil: blue owl for Midnight, red rose for Roses.');
+  if (!stage) {
+    table.append(handEl(1 - bottom, true));
+    table.append(renderBoard());
+    table.append(h('div', { class: 'tray' }, promptEl(), info, handEl(bottom)));
+  } else {
+    // picture stage: scores and the top hand on the art above the play area, the board inside it, your hand below
+    const pr = promptEl(), tip = h('div', { class: 'stage-tip' }, pr, card ? info : null);
+    if (!pr.childNodes.length && !card) tip.hidden = true;
+    table.append(
+      h('div', { class: 'stage-top', style: `height:${S.top}px` }, scoreRow, handEl(1 - bottom, true), tip),
+      h('div', { class: 'stage-board', style: `left:${S.box.x}px;top:${S.box.y}px;width:${S.box.w}px;height:${S.box.h}px` }, renderBoard({ w: S.box.w - 8, h: S.box.h - 8 })),
+      h('div', { class: 'stage-bot', style: `height:${S.bot}px` }, handEl(bottom)));
+  }
   if (G.over && !ui.hideEnd) {
     const w = G.winner;
     table.append(h('div', { class: 'endcard' }, h('div', { class: 'box' },
@@ -901,8 +973,9 @@ function renderPlay() {
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
         h('span', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Tiles'),
           seg([['art', 'Art'], ['icons', 'Icons'], ['symbols', 'Symbols']], tileStyle, x => { tileStyle = x; showArt = x === 'art'; store.set('vyeMicro.tileStyle', x); renderPlay(); })),
-        h('span', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Background'),
-          seg(BACKGROUNDS.map(b => [b.id, b.name]), bgChoice, x => { bgChoice = x; store.set('vyeMicro.bg', x); renderPlay(); })),
+        h('label', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Background'),
+          h('select', { id: 'bgpick', style: 'width:auto', onchange: e => { bgChoice = e.target.value; store.set('vyeMicro.bg', bgChoice); renderPlay(); } },
+            BACKGROUNDS.map(b => h('option', { value: b.id, selected: b.id === bgChoice }, b.name)))),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'revealbag', checked: revealBag, onchange: e => { revealBag = e.target.checked; renderPlay(); } }), 'Show what\u2019s in the bag'),
         h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`))),
@@ -913,7 +986,8 @@ function renderPlay() {
         ? h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), 'passes')
         : h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), h('span', null, e.title + (e.flips ? ` · flipped ${e.flips}` : '')),
           h('span', { class: 'sw', title: 'Change in kingdom lead' }, (e.swing >= 0 ? '+' : '') + e.swing))) : h('div', { style: 'color:var(--muted)' }, 'No moves yet.'))));
-  v.append(h('div', { class: 'play' + (railOpen ? '' : ' rail-closed') }, table, rail));
+  const col = stage ? h('div', { class: 'stage-col' }, warn, table) : table;
+  v.append(h('div', { class: 'play' + (railOpen ? '' : ' rail-closed') }, col, rail));
   if (G.lastMove && G.lastMove.n !== animatedN) { animatedN = G.lastMove.n; if (animOn) runAnim(G.lastMove, animFrom); }
   animFrom = null;
 }
