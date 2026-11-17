@@ -337,6 +337,15 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .endcard .box { padding: 18px; }
 }
 @media (max-width: 380px) { .hcard { width: 50px; height: 50px; --cell: 50px; } }
+/* the top (opponent / AI) hand is 20% smaller than yours: tiles, label and padding */
+.hand-area.other { padding: 6px 10px; gap: 5px; }
+.hand-area.other .hand-label { font-size: 10px; }
+.hand-area.other .hand { gap: 5px; }
+.hand-area.other .hcard { width: 62px; height: 62px; --cell: 62px; }
+@media (max-width: 700px) { .hand-area.other .hcard { width: 46px; height: 46px; --cell: 46px; } }
+.table.stage .hand-area.other { padding: 4px 8px; gap: 3px; }
+.table.stage .hand-area.other .hand-label { font-size: 8.5px; }
+.table.stage .hand-area.other .hcard { width: calc(var(--hc) * .8); height: calc(var(--hc) * .8); --cell: calc(var(--hc) * .8); }
 th[data-tip], .stat[data-tip] { cursor: help; }
 tbody tr[data-tip] { cursor: help; }
 tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--sunk); }
