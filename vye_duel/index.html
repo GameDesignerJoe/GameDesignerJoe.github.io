@@ -269,6 +269,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .tip-sig svg { width: 70%; height: 70%; display: block; }
 .table.stage .stage-tip .cardinfo { color: #fff; }
 .stage-tip[hidden] { display: none; }
+.table:not(.stage) > .note-pill { top: 84px; max-width: min(460px, calc(100% - 60px)); }
+.note-pill .cardinfo { color: #fff; font-size: 13px; min-height: 0; max-width: 46ch; text-shadow: none; display: block; }
 .table.stage .stage-tip .prompt { min-height: 0; font-size: 13.5px; gap: 6px; }
 .table.stage .stage-tip .prompt:empty { display: none; }
 .table.stage .stage-tip .cardinfo { font-size: 12px; min-height: 0; max-width: 46ch; }
@@ -1683,11 +1685,38 @@ function runAnim(lm, from) {
   const dx = (src.left + src.width / 2) - (to.left + to.width / 2), dy = (src.top + src.height / 2) - (to.top + to.height / 2);
   const sc = Math.max(.5, Math.min(1.4, src.width / to.width));
   const covering = !!underTile;
-  fly.animate([
+  // Covers, Usurp swaps and Earthquakes get a showcase: the card(s) hover big above the board long enough to see
+  // what's going on, then drop in. Everything else just flies in.
+  const showcase = card.kind === 'special' && (covering || !!removed || !!eq);
+  const HOLD = showcase ? 1300 : 0, LIFT = Math.max(54, to.height * 1.05), BIG = 1.7;
+  const ox = removed ? -to.width * 0.95 : 0;           // Usurp: new Land on the left, the one it replaces on the right
+  const total = showcase ? D + HOLD + D : D;
+  if (showcase) {
+    fly.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(${sc})`, opacity: .9, offset: 0 },
+      { transform: `translate(${ox}px, ${-LIFT}px) scale(${BIG}) rotate(-2deg)`, opacity: 1, offset: D / total },
+      { transform: `translate(${ox}px, ${-LIFT - 8}px) scale(${BIG}) rotate(2deg)`, opacity: 1, offset: (D + HOLD) / total },
+      { transform: 'translate(0, 0) scale(1)', opacity: 1, offset: 1 }], { duration: total, easing: 'cubic-bezier(.3,.7,.3,1)' });
+    // the tile being covered glows while the card hangs over it
+    if (covering && under) under.animate([{ boxShadow: '0 0 0 0 rgba(214,166,66,0)' }, { boxShadow: '0 0 0 4px rgba(214,166,66,.95), 0 0 18px 4px rgba(214,166,66,.6)' }, { boxShadow: '0 0 0 0 rgba(214,166,66,0)' }],
+      { duration: D + HOLD, delay: D * .5, easing: 'ease-in-out' });
+    // Usurp: the old Land rises out of its space, hangs beside the new one, then goes back in the bag
+    if (removed && under) {
+      under.remove();
+      const out = h('div', { class: 'flyer', style: `left:${to.left}px;top:${to.top}px;width:${to.width}px;height:${to.height}px` }); out.append(under); under.classList.remove('under');
+      document.body.append(out);
+      out.animate([
+        { transform: 'none', opacity: 1, offset: 0 },
+        { transform: `translate(${-ox}px, ${-LIFT}px) scale(${BIG * .85}) rotate(3deg)`, opacity: 1, offset: D / total },
+        { transform: `translate(${-ox}px, ${-LIFT - 8}px) scale(${BIG * .85}) rotate(-2deg)`, opacity: 1, offset: (D + HOLD) / total },
+        { transform: `translate(${-ox * 2.4}px, ${-LIFT * 2.2}px) scale(.5) rotate(18deg)`, opacity: 0, offset: 1 }], { duration: total, easing: 'ease-in-out' }).onfinish = () => out.remove();
+      under = null;
+    }
+  } else fly.animate([
     { transform: `translate(${dx}px, ${dy}px) scale(${sc})`, opacity: .9 },
     { transform: `translate(${dx * .35}px, ${dy * .35 - 26}px) scale(${covering ? 1.25 : 1.15}) rotate(-3deg)`, opacity: 1, offset: .6 },
     { transform: 'translate(0, 0) scale(1)', opacity: 1 }], { duration: D, easing: 'cubic-bezier(.2,.75,.25,1)' });
-  let t = D;
+  let t = total;
   setTimeout(() => {
     fly.remove(); cell.classList.remove('incoming');
     const landed = cell.querySelector('.tile:not(.under)');
@@ -1698,15 +1727,19 @@ function runAnim(lm, from) {
       const out = h('div', { class: 'flyer', style: `left:${r0.left}px;top:${r0.top}px;width:${r0.width}px;height:${r0.height}px` }); out.append(under); document.body.append(out);
       out.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${r1.left + r1.width / 2 - r0.left - r0.width / 2}px, ${r1.top + r1.height / 2 - r0.top - r0.height / 2}px) scale(.3)`, opacity: 0 }], { duration: D, easing: 'ease-in' }).onfinish = () => out.remove();
     } else if (under) under.remove();
-  }, D);
+  }, total);
   if (eq) {
     const [a, b] = eq.map(cellEl);
     if (a && b) {
       const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
       const ta = a.querySelector('.tile'), tb = b.querySelector('.tile');
-      if (ta) ta.animate([{ transform: `translate(${rb.left - ra.left}px, ${rb.top - ra.top}px)` }, { transform: 'none' }], { duration: D, delay: D, fill: 'backwards', easing: 'ease-in-out' });
-      if (tb) tb.animate([{ transform: `translate(${ra.left - rb.left}px, ${ra.top - rb.top}px)` }, { transform: 'none' }], { duration: D, delay: D, fill: 'backwards', easing: 'ease-in-out' });
-      t += D;
+      const swap = (el, x, y) => el && el.animate([
+        { transform: `translate(${x}px, ${y}px)`, zIndex: 5 },
+        { transform: `translate(${x}px, ${y - 22}px) scale(1.3)`, boxShadow: '0 16px 30px rgba(0,0,0,.45)', zIndex: 5, offset: .25 },
+        { transform: `translate(0, -22px) scale(1.3)`, boxShadow: '0 16px 30px rgba(0,0,0,.45)', zIndex: 5, offset: .75 },
+        { transform: 'none', zIndex: 5 }], { duration: D * 3, delay: total, fill: 'backwards', easing: 'ease-in-out' });
+      swap(ta, rb.left - ra.left, rb.top - ra.top); swap(tb, ra.left - rb.left, ra.top - rb.top);
+      t += D * 3;
     }
   }
   // flips turn over one at a time once the card has landed
@@ -1717,13 +1750,40 @@ function runAnim(lm, from) {
     a1.onfinish = () => { const nu = tileEl(tt); old.replaceWith(nu); nu.animate([{ transform: 'rotateY(90deg)' }, { transform: 'rotateY(0)' }], { duration: 160, easing: 'ease-out' }); };
   }, t + 80 + i * 120));
   t += flips.length ? 80 + flips.length * 120 + 300 : 150;
+  if (aiNote && !isHuman(0) && !isHuman(1)) t += 2200;
   animBusyUntil = performance.now() + t;
+}
+
+// When an AI plays anything but a Land, a pill in its colour says what happened, for a few seconds.
+const NOTE_MS = 5000;
+let aiNote = null, notedN = -1;
+function aiNoteText(lm) {
+  const who = E.HOUSES[lm.p].short, c = lm.card, n = (lm.flips || []).length;
+  const st = G.board.get(lm.pos) || [], below = st.length > 1 ? st[st.length - 2] : null;
+  const name = t => t ? E.cardTitle(t) : 'a tile';
+  const flipped = n ? ` and flipped ${n} tile${n === 1 ? '' : 's'}` : '';
+  if (c.kind === 'family') return `${who} played their ${E.MEMBERS[c.member].name}${n ? flipped : ', but there was nothing to flip'}.`;
+  if (c.special === 'lostcity') return `${who} built a Lost City on their ${name(below)}. That space now counts ${cfg.lostCityValue ?? 2} in their kingdom.`;
+  if (c.special === 'sinkhole') return `${who} opened a Sinkhole on ${name(below)}. Nobody owns that space now, and it can\u2019t be captured.`;
+  if (c.special === 'usurp') return `${who} used Usurp: ${name(lm.removed)} goes back in the bag and their ${name(E.top(G.board, lm.pos))} takes its place${flipped}.`;
+  if (c.special === 'earthquake') return lm.choice ? `${who} set off an Earthquake and swapped two tiles${flipped}.` : `${who} set off an Earthquake but swapped nothing.`;
+  return `${who} played ${E.SPECIALS[c.special].name}${below ? ` on ${name(below)}` : ''}${flipped}. ${specialRule(c.special)}`;
+}
+function notePill(note) {
+  return h('div', { class: 'stage-tip note-pill tp' + note.p }, sigEl('tip-sig p' + note.p, note.p), h('div', { class: 'cardinfo' }, note.text));
 }
 
 let railOpen = false;   // Game panel (opened with the gear on the board) starts closed
 function renderPlay() {
   const v = $('#view-play'); v.textContent = '';
   if (!G) return;
+  if (G.lastMove && G.lastMove.n !== notedN) {
+    notedN = G.lastMove.n; const lm = G.lastMove;
+    if (!isHuman(lm.p) && lm.card.kind !== 'land') {
+      const note = aiNote = { p: lm.p, text: aiNoteText(lm) };
+      setTimeout(() => { if (aiNote === note) { aiNote = null; document.querySelectorAll('.note-pill').forEach(e => e.remove()); } }, NOTE_MS);
+    } else aiNote = null;
+  }
   const sc = E.score(G.board);
   const bg = bgNow(), stage = !!bg.play;
   const viewTop = v.getBoundingClientRect().top + window.scrollY;
@@ -1761,10 +1821,12 @@ function renderPlay() {
     table.append(handEl(1 - bottom, true));
     table.append(renderBoard());
     table.append(h('div', { class: 'tray' }, promptEl(), info, handEl(bottom)));
+    if (aiNote && !card && !G.over) table.append(notePill(aiNote));
   } else {
     // picture stage: scores and the top hand on the art above the play area, the board inside it, your hand below
-    const pr = promptEl(), tip = h('div', { class: 'stage-tip tp' + G.turn }, G.over ? null : sigEl('tip-sig p' + G.turn, G.turn), pr, card ? info : null);
-    if (!pr.childNodes.length && !card) tip.hidden = true;
+    const pr = promptEl();
+    let tip = h('div', { class: 'stage-tip tp' + G.turn }, G.over ? null : sigEl('tip-sig p' + G.turn, G.turn), pr, card ? info : null);
+    if (!pr.childNodes.length && !card) { if (aiNote && !G.over) tip = notePill(aiNote); else tip.hidden = true; }
     table.append(
       h('div', { class: 'stage-top', style: `height:${S.top}px` }, scoreRow, handEl(1 - bottom, true), tip),
       h('div', { class: 'stage-board', style: `left:${S.box.x}px;top:${S.box.y}px;width:${S.box.w}px;height:${S.box.h}px` }, renderBoard({ w: S.box.w - 8, h: S.box.h - 8 })),
