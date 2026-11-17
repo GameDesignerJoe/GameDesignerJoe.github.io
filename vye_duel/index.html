@@ -35,7 +35,7 @@ html, body { background: var(--bg); color: var(--ink); }
 body { font-family: var(--body); font-size: 15px; line-height: 1.45; font-variant-numeric: tabular-nums; }
 button { font: inherit; color: inherit; }
 h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: .01em; }
-.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 24px; }
 
 /* header */
 header.top { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding-block: 18px 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
@@ -44,6 +44,8 @@ header.top { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; pad
 .mark .ed { font-size: 13px; color: var(--muted); }
 nav.tabs { display: flex; gap: 4px; background: var(--sunk); padding: 4px; border-radius: 10px; }
 nav.tabs button { border: 0; background: transparent; padding: 7px 16px; border-radius: 7px; cursor: pointer; font-weight: 500; color: var(--muted); }
+nav.tabs[hidden] { display: none; }
+nav.tabs { margin: 10px auto 12px; max-width: 520px; }
 nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 .spacer { flex: 1; }
 .btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; }
@@ -135,6 +137,8 @@ a.btn { text-decoration: none; color: inherit; display: inline-block; }
 .own.p0 { box-shadow: inset 0 0 0 4px var(--blue); }
 .own.p1 { box-shadow: inset 0 0 0 4px var(--red); }
 .own.both { box-shadow: inset 0 0 0 4px var(--blue), inset 0 0 0 7px var(--red); }
+.no-borders .own { display: none; }
+.no-borders .sig { width: calc(var(--cell) * .3); height: calc(var(--cell) * .3); box-shadow: 0 0 0 2px #fff, 0 1px 3px rgba(0,0,0,.4); }
 .sig { position: absolute; top: 4px; right: 4px; width: calc(var(--cell) * .27); height: calc(var(--cell) * .27); border-radius: 50%; display: grid; place-items: center; font-size: calc(var(--cell) * .17); color: #fff; line-height: 1; }
 .sig.p0 { background: var(--blue); } .sig.p1 { background: var(--red); }
 .sig.both { background: linear-gradient(90deg, var(--blue) 50%, var(--red) 50%); }
@@ -236,28 +240,26 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .table.has-bg { background-color: #241713; background-position: center; background-size: cover; background-repeat: no-repeat;
   box-shadow: inset 0 0 80px 18px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.35); }
 .table.has-bg .hand-label, .table.has-bg .cardinfo, .table.has-bg .prompt { color: #F4EADB; text-shadow: 0 1px 3px rgba(0,0,0,.75); }
+.table.has-bg .prompt .btn { background: #F4EADB; color: #1d1530; border-color: transparent; text-shadow: none; }
 .table.has-bg .cell.empty.open { border-color: rgba(255,240,222,.32); background: rgba(0,0,0,.12); }
-.table.has-bg .mchip { box-shadow: 0 2px 8px rgba(0,0,0,.35); }
 .boardbox { display: grid; place-items: center; flex: none; max-width: 100%; }
 /* Picture stage (portrait backgrounds): the whole picture shows, nothing trimmed; the board sits in its play area */
 .stage-col { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
 .table.stage { display: block; padding: 0; flex: none; background-size: 100% 100%; background-color: #1d1530; max-width: 100%;
   box-shadow: 0 10px 30px rgba(0,0,0,.28); border-radius: 16px; overflow: hidden; }
 .stage-top, .stage-bot { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 8px 10px; }
-.stage-top { top: 0; justify-content: flex-start; padding-top: 10px; }
+.stage-top { top: 0; justify-content: space-between; padding-top: 10px; padding-bottom: 6px; }
 .stage-bot { bottom: 0; justify-content: flex-end; padding-bottom: 10px; }
 .stage-board { position: absolute; display: grid; place-items: center; }
-.table.stage .mscore { gap: 8px; }
-.table.stage .mchip { padding: 5px 10px; gap: 8px; }
-.table.stage .mchip b { font-size: 24px; } .table.stage .mchip .sig { width: 24px; height: 24px; }
-.table.stage .mchip small { font-size: 11px; } .table.stage .mchip .kw { display: none; }
-.table.stage .hand-area { width: auto; max-width: 100%; padding: 6px 10px; gap: 4px; background: rgba(18,12,28,.5); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); border-color: rgba(255,255,255,.08); }
+.table.stage .mscore { padding: 0 4px; }
+.table.stage .hand-area { width: auto; max-width: 100%; padding: 6px 10px; gap: 4px; background: rgba(18,12,28,.375); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); border-color: rgba(255,255,255,.08); }
 .table.stage .hand-area.turn { border-color: var(--brass); }
 .table.stage .hand-label { font-size: 10.5px; justify-content: center; }
 .table.stage .hand { gap: 6px; flex-wrap: nowrap; }
+.table.stage .stage-bot .hand-area { max-width: calc(100% - 104px); }
 .table.stage .hcard { width: var(--hc); height: var(--hc); --cell: var(--hc); flex: none; }
-/* instructions while you place a tile: a pill on the art just above the play area, so it never covers the board */
-.stage-tip { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); width: max-content; max-width: 94%; z-index: 5;
+/* instructions while you place a tile: a pill at the top of the picture, between the scores, so it never covers the board */
+.stage-tip { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 150px); z-index: 5;
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 12px;
   background: rgba(18,12,28,.82); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
 .stage-tip[hidden] { display: none; }
@@ -267,32 +269,42 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .table.stage .stage-tip .btn { padding: 3px 10px; font-size: 12.5px; background: #F4EADB; color: #1d1530; border-color: transparent; }
 .table.stage .stage-tip .prompt .who { font-size: 14px; }
 /* score: one chip per player across the top of the board */
-.mscore { display: flex; width: 100%; align-items: stretch; gap: 10px; }
-.mchip { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; }
-.mchip.p0 { background: var(--blue-soft); } .mchip.p1 { background: var(--red-soft); flex-direction: row-reverse; text-align: right; }
-.mchip .sig { position: static; width: 30px; height: 30px; flex: none; }
-.mchip b { font-size: 30px; line-height: 1; }
-.mchip small { font-size: 12.5px; color: var(--muted); line-height: 1.25; white-space: nowrap; }
-/* the side panel folds away; closed, only its toggle button shows */
-.play.rail-closed { grid-template-columns: minmax(0, 1fr) auto; }
-.rail-toggle { align-self: flex-end; white-space: nowrap; }
-.play.rail-closed .rail > :not(.rail-toggle) { display: none; }
-@media (max-width: 900px), (pointer: coarse) and (max-height: 600px) { .play.rail-closed { grid-template-columns: minmax(0, 1fr); } .rail-toggle { align-self: stretch; } }
+.mscore { display: flex; width: 100%; gap: 10px; }
+.play.solo { display: block; }
+.stage-col > .table:not(.stage) { width: 100%; max-width: 900px; }
+/* scores: big house sigils with the number on them */
+.mscore { justify-content: space-between; align-items: flex-start; }
+.sbadge-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.sbadge { position: relative; width: var(--sb, 58px); height: var(--sb, 58px); border-radius: 50%; display: grid; place-items: center; border: 3px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,.4); cursor: help; }
+.sbadge.p0 { background: var(--blue); } .sbadge.p1 { background: var(--red); }
+.sbadge .sbsig { position: absolute; inset: 13%; color: #fff; opacity: .38; }
+.sbadge .sbsig svg { width: 100%; height: 100%; display: block; }
+.sbadge b { position: relative; font-size: calc(var(--sb, 58px) * .5); line-height: 1; color: #fff; text-shadow: 0 2px 5px rgba(0,0,0,.55); font-variant-numeric: tabular-nums; }
+.sbadge-wrap .bonus { margin: 0; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+/* the Game panel opens over the board from the gear in its bottom-right corner */
+.gear { position: absolute; right: 10px; bottom: 10px; z-index: 26; width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35);
+  background: rgba(18,12,28,.42); color: #fff; display: grid; place-items: center; cursor: pointer; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); opacity: .8; transition: opacity .15s, transform .25s; }
+.gear:hover, .gear.on { opacity: 1; } .gear.on { transform: rotate(60deg); }
+.gear svg { width: 24px; height: 24px; }
+.gpanel { position: absolute; right: 10px; bottom: 60px; top: 10px; z-index: 25; width: min(400px, calc(100% - 20px)); display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; scrollbar-width: none; padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 12px 34px rgba(0,0,0,.45); text-shadow: none; }
+.gpanel::-webkit-scrollbar { display: none; }
+.gpanel[hidden] { display: none; }
+.gpanel .panel { padding: 12px; }
+.gp-head { display: flex; align-items: center; justify-content: space-between; }
+.gp-head h2 { font-size: 17px; margin: 0; }
+.gp-close { padding: 2px 10px; font-size: 18px; line-height: 1.2; }
 button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 @media (max-width: 700px) {
   header.top { gap: 10px; padding-block: 10px; margin-bottom: 12px; }
   .mark h1 { font-size: 24px; } .mark .ed { display: none; }
   nav.tabs { order: 3; width: 100%; } nav.tabs button { flex: 1; padding: 9px 8px; }
   #copy-config, #pnp { padding: 5px 10px; font-size: 13px; }
-  .wrap { padding-block: 0 24px; }
+  .wrap { padding-block: 6px 12px; padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
   .table { padding: 8px 6px 0; gap: 10px; border-radius: 12px; }
   .board { gap: 4px; }
-  .mscore { gap: 6px; }
-  .mchip { padding: 6px 9px; gap: 7px; }
-  .mchip .sig { width: 22px; height: 22px; }
-  .mchip b { font-size: 22px; }
-  .mchip small { font-size: 11px; }
-  .mchip .kw { display: none; }
+  .sbadge { --sb: 48px; }
   .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; display: flex; flex-direction: column; line-height: 1.1; }
   .mdeck b { font-size: 18px; color: var(--ink); }
   .tray { display: flex; flex-direction: column; gap: 6px; position: sticky; bottom: 0; z-index: 4; width: calc(100% + 12px); margin: 0 -6px;
@@ -306,6 +318,9 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .tray .hand-label { display: none; }
   .table.stage .stage-top, .table.stage .stage-bot { padding: 6px; gap: 5px; }
   .table.stage .hand-area { padding: 4px 8px; }
+  .tray { padding-inline: 50px !important; }
+  .tray .hcard { width: 52px; height: 52px; --cell: 52px; }
+  .tray .hand-area { padding-inline: 4px; }
   .table.has-bg .tray { background: rgba(28,18,15,.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-color: rgba(255,255,255,.12); }
   .hand { flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; gap: 6px; padding: 3px; }
   .hcard { width: 58px; height: 58px; --cell: 58px; flex: none; }
@@ -329,17 +344,11 @@ tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--s
 </style>
 
 <div class="wrap">
-  <header class="top">
-    <div class="mark"><h1>Vye Duel</h1><span class="ed">two-player prototype</span></div>
-    <nav class="tabs" role="tablist">
+  <nav class="tabs" role="tablist" id="tabsbar" hidden>
       <button role="tab" id="tab-setup" aria-selected="false">Setup</button>
       <button role="tab" id="tab-play" aria-selected="true">Play</button>
       <button role="tab" id="tab-sim" aria-selected="false">Simulate</button>
-    </nav>
-    <div class="spacer"></div>
-    <a class="btn" id="pnp" href="print/vye-duel-print-and-play.pdf" target="_blank" rel="noopener">Print &amp; play PDF</a>
-    <button class="btn" id="copy-config">Copy config</button>
-  </header>
+  </nav>
 
   <section id="view-setup" hidden></section>
   <section id="view-play"></section>
@@ -1335,6 +1344,7 @@ const ART_SPECIALS = new Set(['lostcity', 'sinkhole', 'sanctuary', 'underminers'
 // inside the play area and the hands sit on the picture above and below it.
 const BACKGROUNDS = [
   { id: 'wood', name: 'Wood', url: 'art/backgrounds/wood.jpg' },
+  { id: 'logo', name: 'Vye Duel crest', url: 'art/backgrounds/logo.jpg', ratio: 941 / 1672, play: [0.05, 0.30, 0.95, 0.83] },
   { id: 'river', name: 'Moonlit river', url: 'art/backgrounds/river.jpg', ratio: 941 / 1672, play: [0.05, 0.29, 0.95, 0.79] },
   { id: 'arena', name: 'Wolf moon arena', url: 'art/backgrounds/arena.jpg', ratio: 941 / 1672, play: [0.05, 0.37, 0.95, 0.80] },
   { id: 'ruins', name: 'Moonrise ruins', url: 'art/backgrounds/ruins.jpg', ratio: 941 / 1672, play: [0.04, 0.29, 0.96, 0.81] },
@@ -1345,8 +1355,11 @@ let bgChoice = store.get('vyeMicro.bg', 'wood');
 if (!BACKGROUNDS.some(b => b.id === bgChoice)) bgChoice = 'wood';
 const bgNow = () => BACKGROUNDS.find(b => b.id === bgChoice) || {};
 const bgUrl = () => bgNow().url;
-let tileStyle = store.get('vyeMicro.tileStyle', store.get('vyeMicro.art', true) === false ? 'symbols' : 'art');
-let showArt = tileStyle === 'art';
+let tileStyle = 'art';   // tiles always show their art
+let showArt = true;
+// Card borders: off leaves just the corner sigil to show who owns a tile
+let cardBorders = store.get('vyeMicro.borders', true) !== false;
+document.documentElement.classList.toggle('no-borders', !cardBorders);
 function iconTile(t, owner) {
   const o0 = owner === undefined ? t.owner : owner;
   const o = o0 === 0 ? 'b' : o0 === 1 ? 'r' : o0 === 'both' ? 'both' : 'n';
@@ -1513,10 +1526,10 @@ function renderBoard(fit) {
   else {
     const vw = ($('#view-play') || document.body).clientWidth;
     const oneCol = window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches;
-    const avail = phone ? vw - 12 : Math.min(vw - (oneCol ? 40 : (railOpen ? 380 : 160)), 720);
+    const avail = phone ? vw - 12 : Math.min(vw - 40, 720);
     // also fit the window's height (the hands, scores and help line take about 480px), so the whole table shows at once
     const vt = Math.max(0, ($('#view-play') || document.body).getBoundingClientRect().top);
-    const availH = phone ? Infinity : window.innerHeight - vt - 480;
+    const availH = phone ? Infinity : window.innerHeight - vt - 500;
     cell = Math.max(phone ? 30 : 44, Math.min(86, Math.floor((avail - gap * (NX - 1)) / NX), Math.floor((availH - gap * (NY - 1)) / NY)));
   }
   const tg = targetsNow();
@@ -1574,7 +1587,7 @@ function handEl(p, other) {
     b.append(tileEl(c, p)); return b;
   };
   return h('div', { class: 'hand-area' + (other ? ' other' : '') + (G.turn === p && !G.over ? ' turn' : ''), 'data-p': p },
-    h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`, !show ? ` (${pl.hand.length} hidden)` : ''),
+    h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`),
     h('div', { class: 'hand' }, show ? pl.hand.map(cardBtn) : pl.hand.map(() => h('span', { class: 'hcard back' })),
       pl.side.length ? h('span', { style: 'width:14px' }) : null, pl.side.map(cardBtn)));
 }
@@ -1629,7 +1642,7 @@ const visible = el => el && el.getClientRects().length && el.offsetParent !== nu
 // Where a played card comes from: the card itself if it's on screen, else that player's hand or score.
 function sourceRect(p, cardId) {
   const cands = [document.querySelector(`.hcard[data-cid="${cardId}"]`), document.querySelector(`.hand-area[data-p="${p}"] .hand`),
-    document.querySelector(`.mchip.p${p}`), document.querySelector(`.pscore.p${p}`)];
+    document.querySelector(`.sbadge.p${p}`)];
   const el = cands.find(visible); return el ? el.getBoundingClientRect() : null;
 }
 function cellEl(k) { return document.querySelector(`.cell[data-k="${k}"]`); }
@@ -1694,7 +1707,7 @@ function runAnim(lm, from) {
   animBusyUntil = performance.now() + t;
 }
 
-let railOpen = false;   // side panel (seats, buttons, tile counts, log) starts folded away
+let railOpen = false;   // Game panel (opened with the gear on the board) starts closed
 function renderPlay() {
   const v = $('#view-play'); v.textContent = '';
   if (!G) return;
@@ -1706,16 +1719,20 @@ function renderPlay() {
   let S = null;   // stage geometry (px)
   if (stage) {
     // as big as fits both the column and the window (below the header), in the picture's own shape
-    const colW = v.clientWidth - (window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches ? 0 : (railOpen ? 338 : 160));
+    const colW = v.clientWidth;
     const availH = Math.max(520, window.innerHeight - Math.max(0, viewTop - window.scrollY) - 14);
     const W = Math.floor(Math.min(colW, availH * bg.ratio, 760)), H = Math.round(W / bg.ratio);
     const [l, t, r, b] = bg.play;
     S = { W, H, top: t * H, bot: (1 - b) * H, box: { x: l * W, y: t * H, w: (r - l) * W, h: (b - t) * H } };
     table.style.width = W + 'px'; table.style.height = H + 'px';
-    table.style.setProperty('--hc', Math.round(Math.max(44, Math.min(76, W * 0.14))) + 'px');
+    // hand tiles: as big as fits beside the gear (4 tiles: 2 in hand + 2 on the sideboard)
+    table.style.setProperty('--hc', Math.round(Math.max(40, Math.min(72, (W - 104 - 52) / 4))) + 'px');
   }
-  const mchip = p => h('span', { class: 'mchip p' + p, 'data-tip': `${E.HOUSES[p].short}: largest kingdom ${sc.largest[p]} (that\u2019s the score), ${sc.total[p]} tiles owned in all.`, tabindex: '0' },
-    sigEl('sig p' + p, p), h('b', null, String(sc.largest[p]), p === 1 ? bonusTag() : null), h('small', null, h('strong', null, E.HOUSES[p].short), h('br'), h('span', { class: 'kw' }, 'largest kingdom · '), `${sc.total[p]} owned`));
+  // score: the house sigil, big, with the score (largest kingdom) on it; Roses' tie-break tag underneath
+  const mchip = p => h('span', { class: 'sbadge-wrap p' + p },
+    h('span', { class: 'sbadge p' + p, 'data-tip': `${E.HOUSES[p].short}: largest kingdom ${sc.largest[p]} (that\u2019s the score). ${sc.total[p]} tiles owned in all.`, tabindex: '0' },
+      sigEl('sbsig', p), h('b', null, String(sc.largest[p]))),
+    p === 1 ? bonusTag() : null);
   const scoreRow = h('div', { class: 'mscore' }, mchip(0), mchip(1));
   if (!stage) table.append(scoreRow);
   const warn = !cfgChanged() ? null : (h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
@@ -1756,25 +1773,28 @@ function renderPlay() {
     h('option', { value: 'human', selected: seats[p] === 'human' }, 'Human'),
     Object.entries(E.PERSONAS).map(([k, P]) => h('option', { value: k, selected: seats[p] === k }, 'AI · ' + P.name)));
   const bothAI = !isHuman(0) && !isHuman(1);
-  const rail = h('div', { class: 'rail' },
-    h('button', { class: 'btn rail-toggle', 'aria-expanded': String(railOpen), onclick: () => { railOpen = !railOpen; renderPlay(); } }, railOpen ? 'Hide panel \u203a' : '\u2039 Game panel'),
+  const check = (id, on, label, fn) => h('label', { class: 'check' }, h('input', { type: 'checkbox', id, checked: on, onchange: e => fn(e.target.checked) }), label);
+  const rail = h('div', { class: 'gpanel', hidden: !railOpen, role: 'dialog', 'aria-label': 'Game panel' },
+    h('div', { class: 'gp-head' }, h('h2', null, 'Game panel'), h('button', { class: 'btn gp-close', 'aria-label': 'Close', onclick: () => { railOpen = false; renderPlay(); } }, '\u00d7')),
     h('div', { class: 'panel' },
       h('div', { class: 'seat' },
         h('span', { class: 'dot p0' }), personaOpts(0), h('span', { class: 'dot p1' }), personaOpts(1)),
       h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center' },
         h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
-        h('button', { class: 'btn', onclick: undo, disabled: !history.length }, 'Undo'),
         bothAI ? h('button', { class: 'btn', onclick: () => { paused = !paused; renderPlay(); scheduleAI(); } }, paused ? 'Resume' : 'Pause') : null),
       h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
-        h('span', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Tiles'),
-          seg([['art', 'Art'], ['icons', 'Icons'], ['symbols', 'Symbols']], tileStyle, x => { tileStyle = x; showArt = x === 'art'; store.set('vyeMicro.tileStyle', x); renderPlay(); })),
+        check('borders', cardBorders, 'Card borders', on => { cardBorders = on; store.set('vyeMicro.borders', on); document.documentElement.classList.toggle('no-borders', !on); }),
+        check('showtabs', showTabs, 'Setup & Simulate tabs', on => { showTabs = on; store.set('vyeMicro.tabs', on); applyTabsBar(); renderPlay(); }),
         h('label', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Background'),
           h('select', { id: 'bgpick', style: 'width:auto', onchange: e => { bgChoice = e.target.value; store.set('vyeMicro.bg', bgChoice); renderPlay(); } },
             BACKGROUNDS.map(b => h('option', { value: b.id, selected: b.id === bgChoice }, b.name)))),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'revealbag', checked: revealBag, onchange: e => { revealBag = e.target.checked; renderPlay(); } }), 'Show what\u2019s in the bag'),
-        h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`))),
+        h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`)),
+      h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px' },
+        h('a', { class: 'btn', href: 'print/vye-duel-print-and-play.pdf', target: '_blank', rel: 'noopener' }, 'Print & play PDF'),
+        h('button', { class: 'btn', onclick: () => copyText(JSON.stringify(cfg)) }, 'Copy config'))),
     h('div', { class: 'panel' },
       countsEl(),
       h('h3', { style: 'font-size:15px;margin-bottom:6px' }, 'Log'),
@@ -1782,8 +1802,12 @@ function renderPlay() {
         ? h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), 'passes')
         : h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), h('span', null, e.title + (e.flips ? ` · flipped ${e.flips}` : '')),
           h('span', { class: 'sw', title: 'Change in kingdom lead' }, (e.swing >= 0 ? '+' : '') + e.swing))) : h('div', { style: 'color:var(--muted)' }, 'No moves yet.'))));
-  const col = stage ? h('div', { class: 'stage-col' }, warn, table) : table;
-  v.append(h('div', { class: 'play' + (railOpen ? '' : ' rail-closed') }, col, rail));
+  const GEAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.3 0 1.9l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a6 6 0 0 1 0-1.9l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9L10.3 2Zm1.7 6.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" transform="translate(0 1)"/></svg>';
+  const gear = h('button', { class: 'gear' + (railOpen ? ' on' : ''), 'aria-label': 'Game panel', 'aria-expanded': String(railOpen), onclick: () => { railOpen = !railOpen; renderPlay(); } });
+  gear.innerHTML = GEAR;
+  table.append(rail, gear);
+  const col = stage ? h('div', { class: 'stage-col' }, warn, table) : h('div', { class: 'stage-col' }, warn && !table.contains(warn) ? warn : null, table);
+  v.append(h('div', { class: 'play solo' }, col));
   if (G.lastMove && G.lastMove.n !== animatedN) { animatedN = G.lastMove.n; if (animOn) runAnim(G.lastMove, animFrom); }
   animFrom = null;
 }
@@ -2082,6 +2106,9 @@ function renderSim() {
 }
 
 // ---------- tabs ----------
+// The Setup / Play / Simulate bar is hidden unless turned on in the Game panel.
+let showTabs = store.get('vyeMicro.tabs', false) === true;
+function applyTabsBar() { $('#tabsbar').hidden = !showTabs; if (!showTabs && $('#view-play').hidden) selectTab('play'); }
 function selectTab(name) {
   for (const t of ['setup', 'play', 'sim']) { $('#tab-' + t).setAttribute('aria-selected', String(t === name)); $('#view-' + t).hidden = t !== name; }
   if (name === 'setup') renderSetup();
@@ -2090,10 +2117,10 @@ function selectTab(name) {
   store.set('vyeMicro.tab', name);
 }
 for (const t of ['setup', 'play', 'sim']) $('#tab-' + t).addEventListener('click', () => selectTab(t));
-$('#copy-config').addEventListener('click', () => copyText(JSON.stringify(cfg)));
 window.addEventListener('resize', () => { if (!$('#view-play').hidden && G) renderPlay(); });
 wireTips();
-selectTab(store.get('vyeMicro.tab', 'play'));
+applyTabsBar();
+selectTab(showTabs ? store.get('vyeMicro.tab', 'play') : 'play');
 window.__vye = { get G() { return G; }, render: () => renderPlay() }; // debug hook for tests
 })();
 </script>
