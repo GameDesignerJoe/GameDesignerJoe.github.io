@@ -571,8 +571,8 @@ const BACKGROUNDS = [
   { id: 'indigo', name: 'Indigo frame', url: 'art/backgrounds/indigo.jpg', ratio: 941 / 1672, play: [0.06, 0.27, 0.94, 0.82] },
   { id: 'none', name: 'None' }
 ];
-let bgChoice = store.get('vyeMicro.bg', 'wood');
-if (!BACKGROUNDS.some(b => b.id === bgChoice)) bgChoice = 'wood';
+let bgChoice = store.get('vyeMicro.bg', 'logo');
+if (!BACKGROUNDS.some(b => b.id === bgChoice)) bgChoice = 'logo';
 const bgNow = () => BACKGROUNDS.find(b => b.id === bgChoice) || {};
 const bgUrl = () => bgNow().url;
 let tileStyle = 'art';   // tiles always show their art

@@ -1367,8 +1367,8 @@ const BACKGROUNDS = [
   { id: 'indigo', name: 'Indigo frame', url: 'art/backgrounds/indigo.jpg', ratio: 941 / 1672, play: [0.06, 0.27, 0.94, 0.82] },
   { id: 'none', name: 'None' }
 ];
-let bgChoice = store.get('vyeMicro.bg', 'wood');
-if (!BACKGROUNDS.some(b => b.id === bgChoice)) bgChoice = 'wood';
+let bgChoice = store.get('vyeMicro.bg', 'logo');
+if (!BACKGROUNDS.some(b => b.id === bgChoice)) bgChoice = 'logo';
 const bgNow = () => BACKGROUNDS.find(b => b.id === bgChoice) || {};
 const bgUrl = () => bgNow().url;
 let tileStyle = 'art';   // tiles always show their art
@@ -1460,7 +1460,7 @@ function newGame(seed) {
   clearTimeout(aiTimer); paused = false;
   gameSeed = seed != null ? seed : Math.floor(Math.random() * 1e6);
   G = E.newGame(cfg, gameSeed); history = []; ui = { sel: null, pos: null, phase: null, eqA: null }; animatedN = -1; animBusyUntil = 0;
-  renderPlay(); scheduleAI();
+  sfx('shuffle'); renderPlay(); scheduleAI();
 }
 const isHuman = p => seats[p] === 'human';
 function scheduleAI() {
@@ -1501,11 +1501,11 @@ function clickCell(k) {
     if (card.special === 'usurp') ui.phase = 'usurp';
     else if (card.special === 'earthquake') ui.phase = 'eqA';
     else ui.phase = 'cell';
-    return renderPlay();
+    sfx('tick'); return renderPlay();
   }
   const pm = ms.filter(m => m.pos === ui.pos);
   if (ui.phase === 'cell') { const m = pm.find(m => m.choice === k); if (m) humanPlay(m); return; }
-  if (ui.phase === 'eqA') { if (pm.some(m => m.choice && m.choice.includes(k))) { ui.eqA = k; ui.phase = 'eqB'; renderPlay(); } return; }
+  if (ui.phase === 'eqA') { if (pm.some(m => m.choice && m.choice.includes(k))) { ui.eqA = k; ui.phase = 'eqB'; sfx('tick'); renderPlay(); } return; }
   if (ui.phase === 'eqB') { const m = pm.find(m => m.choice && m.choice.includes(ui.eqA) && m.choice.includes(k) && k !== ui.eqA); if (m) humanPlay(m); return; }
 }
 
@@ -1598,7 +1598,7 @@ function handEl(p, other) {
     const pickable = picking && c.kind === 'land' && movesFor().some(m => m.pos === ui.pos && m.choice && m.choice.land === c.land);
     const ok = picking ? pickable || ui.sel === c.id : playable.has(c.id);
     const b = h('button', { 'data-cid': c.id, class: 'hcard' + (ui.sel === c.id ? ' sel' : '') + (pickable ? ' pick' : '') + (mine && !ok ? ' dead' : ''), title: cardDesc(c), 'aria-label': E.cardTitle(c),
-      onclick: () => { if (!mine || !ok) return; if (pickable) return usurpPick(c); ui = { sel: ui.sel === c.id ? null : c.id, pos: null, phase: null, eqA: null }; renderPlay(); } });
+      onclick: () => { if (!mine || !ok) return; if (pickable) return usurpPick(c); sfx(ui.sel === c.id ? 'put' : 'pick'); ui = { sel: ui.sel === c.id ? null : c.id, pos: null, phase: null, eqA: null }; renderPlay(); } });
     b.append(tileEl(c, p)); return b;
   };
   return h('div', { class: 'hand-area' + (other ? ' other' : '') + (G.turn === p && !G.over ? ' turn' : ''), 'data-p': p },
@@ -1651,6 +1651,91 @@ function countsEl() {
 }
 
 // ---------- play animations ----------
+// ---------- sound ----------
+// All synthesized with Web Audio (no files). The context wakes on the first tap or key press, as browsers require.
+let soundOn = store.get('vyeMicro.sound', true);
+const sfx = (() => {
+  let ac = null, master = null, noiseBuf = null;
+  const ctx = () => {
+    if (!soundOn) return null;
+    if (!ac) {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+      ac = new AC(); master = ac.createGain(); master.gain.value = .45; master.connect(ac.destination);
+      noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  };
+  // one pitched blip: from freq f0 to f1 over dur seconds, starting `at` seconds from now
+  const tone = (f0, f1, dur, vol = .3, type = 'sine', at = 0) => {
+    const a = ctx(); if (!a) return;
+    const t = a.currentTime + at, o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .02);
+  };
+  // filtered noise: a whoosh (bandpass sweep f0 -> f1) or a rumble (lowpass)
+  const noise = (dur, f0, f1, vol = .25, kind = 'bandpass', at = 0) => {
+    const a = ctx(); if (!a) return;
+    const t = a.currentTime + at, s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    s.buffer = noiseBuf; s.loop = true; f.type = kind; f.Q.value = kind === 'bandpass' ? 1.2 : .7;
+    f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * .35); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + dur + .02);
+  };
+  const N = { C4: 262, D4: 294, E4: 330, G4: 392, A4: 440, C5: 523, D5: 587, E5: 659, G5: 784, A5: 880, C6: 1047 };
+  const S = {
+    pick: () => tone(620, 880, .07, .22, 'sine'),
+    put: () => tone(760, 520, .07, .18, 'sine'),
+    tick: () => tone(520, 520, .045, .18, 'triangle'),
+    swish: () => noise(.2, 500, 2200, .22),
+    land: () => { tone(150, 55, .12, .5, 'sine'); noise(.05, 1800, 900, .18, 'bandpass'); },
+    flip: (i = 0) => { const f = [N.C5, N.D5, N.E5, N.G5, N.A5, N.C6][i % 6]; tone(f, f * 1.02, .09, .2, 'triangle'); noise(.04, 3000, 1500, .06); },
+    cover: () => { tone(N.G4, N.G4, .18, .16, 'triangle'); tone(N.C5, N.C5, .3, .16, 'triangle', .1); },
+    usurp: () => { tone(N.E5, N.E5, .12, .2, 'square', 0); tone(N.C5, N.C5, .12, .2, 'square', .1); tone(N.G5, N.G5, .2, .2, 'square', .2); },
+    lostcity: () => [N.C4, N.E4, N.G4, N.C5].forEach((f, i) => tone(f, f, .5, .18, 'sine', i * .09)),
+    sinkhole: () => { tone(320, 45, .7, .4, 'sine'); noise(.7, 700, 80, .3, 'lowpass'); },
+    quake: () => { noise(1.1, 140, 40, .55, 'lowpass'); for (let i = 0; i < 6; i++) tone(70 + (i % 2) * 8, 45, .14, .3, 'sine', i * .17); },
+    shuffle: () => [0, .07, .14, .21].forEach(d => noise(.06, 1500, 3500, .12, 'bandpass', d)),
+    win: () => [N.C5, N.E5, N.G5, N.C6].forEach((f, i) => tone(f, f, .45, .25, 'triangle', i * .13)),
+    lose: () => [N.G4, N.E4, N.D4, N.C4].forEach((f, i) => tone(f, f * .99, .5, .22, 'sine', i * .18)),
+    tie: () => { tone(N.E5, N.E5, .4, .2, 'triangle'); tone(N.G4, N.G4, .6, .2, 'triangle', .2); }
+  };
+  const play = (name, ...args) => { try { S[name](...args); } catch (e) {} };
+  // browsers want a user gesture before audio can start
+  const wake = () => { if (soundOn) ctx(); };
+  addEventListener('pointerdown', wake, { once: true }); addEventListener('keydown', wake, { once: true });
+  return play;
+})();
+// Sounds for the move just played, timed to match runAnim (same timings; with animations off they all land at once).
+function moveSounds(lm) {
+  if (!soundOn) return;
+  const D = animOn ? (aiPause < 0.5 ? 280 : 500) : 0;
+  const card = lm.card, removed = lm.removed, flips = lm.flips || [];
+  const st = G.board.get(lm.pos) || [];
+  const covering = !removed && st.length > 1 && card.kind === 'special' && card.special !== 'usurp';
+  const eq = card.special === 'earthquake' && lm.choice;
+  const showcase = animOn && card.kind === 'special' && (covering || !!removed || !!eq);
+  const total = showcase ? D + 1300 + D : D;
+  const at = (ms, fn) => ms <= 0 ? fn() : setTimeout(fn, ms);
+  if (animOn) sfx('swish');
+  if (showcase) at(D, () => sfx(removed ? 'usurp' : 'cover'));
+  at(total, () => {
+    sfx('land');
+    if (card.special === 'lostcity') sfx('lostcity');
+    else if (card.special === 'sinkhole') sfx('sinkhole');
+  });
+  let t = total;
+  if (eq) { at(total, () => sfx('quake')); if (animOn) t += D * 3; }
+  flips.forEach((k, i) => at(t + 80 + i * 120 + 70, () => sfx('flip', i)));
+  if (G.over) at(t + (flips.length ? 80 + flips.length * 120 + 300 : 150) + 250, () => {
+    const hp = [0, 1].filter(isHuman);
+    if (G.winner === -1) sfx('tie');
+    else if (hp.length === 1 && hp[0] !== G.winner) sfx('lose');
+    else sfx('win');
+  });
+}
 let animOn = store.get('vyeMicro.anim', true) && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 let animatedN = -1, animFrom = null, animBusyUntil = 0;
 const visible = el => el && el.getClientRects().length && el.offsetParent !== null;
@@ -1859,6 +1944,7 @@ function renderPlay() {
         bothAI ? h('button', { class: 'btn', onclick: () => { paused = !paused; renderPlay(); scheduleAI(); } }, paused ? 'Resume' : 'Pause') : null),
       h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
+        check('soundon', soundOn, 'Sound', on => { soundOn = on; store.set('vyeMicro.sound', on); if (on) sfx('tick'); }),
         check('borders', cardBorders, 'Card borders', on => { cardBorders = on; store.set('vyeMicro.borders', on); document.documentElement.classList.toggle('no-borders', !on); }),
         check('showtabs', showTabs, 'Setup & Simulate tabs', on => { showTabs = on; store.set('vyeMicro.tabs', on); applyTabsBar(); renderPlay(); }),
         h('label', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Background'),
@@ -1883,7 +1969,7 @@ function renderPlay() {
   table.append(rail, gear);
   const col = stage ? h('div', { class: 'stage-col' }, warn, table) : h('div', { class: 'stage-col' }, warn && !table.contains(warn) ? warn : null, table);
   v.append(h('div', { class: 'play solo' }, col));
-  if (G.lastMove && G.lastMove.n !== animatedN) { animatedN = G.lastMove.n; if (animOn) runAnim(G.lastMove, animFrom); }
+  if (G.lastMove && G.lastMove.n !== animatedN) { animatedN = G.lastMove.n; moveSounds(G.lastMove); if (animOn) runAnim(G.lastMove, animFrom); }
   animFrom = null;
 }
 
