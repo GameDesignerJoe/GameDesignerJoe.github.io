@@ -247,12 +247,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .stage-col { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
 .table.stage { display: block; padding: 0; flex: none; background-size: 100% 100%; background-color: #1d1530; max-width: 100%;
   box-shadow: 0 10px 30px rgba(0,0,0,.28); border-radius: 16px; overflow: hidden; }
-.stage-top { position: absolute; left: 0; right: 0; top: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 10px 10px 6px; }
-.stage-art { position: absolute; left: 0; right: 0; }
-.stage-band { position: absolute; left: 0; right: 0; background-repeat: no-repeat; }
-.stage-strip { position: absolute; left: 0; right: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 6px 10px; }
-.stage-strip.top { top: 0; align-items: flex-end; }
-.stage-strip.bot { bottom: 0; align-items: flex-start; }
+.stage-top, .stage-bot { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 8px 10px; }
+.stage-top { top: 0; justify-content: space-between; padding-top: 10px; padding-bottom: 6px; }
+.stage-bot { bottom: 0; justify-content: flex-end; padding-bottom: 10px; }
 .table.stage .gear { bottom: calc(10px + var(--safeb, 0px)); }
 .stage-board { position: absolute; display: grid; place-items: center; }
 .table.stage .mscore { padding: 0 4px; }
@@ -260,7 +257,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
 .table.stage .hand-area.turn { border-color: var(--brass); }
 .table.stage .hand-label { font-size: 10.5px; justify-content: center; }
 .table.stage .hand { gap: 6px; flex-wrap: nowrap; }
-.table.stage .stage-strip.bot .hand-area { max-width: calc(100% - 104px); }
+.table.stage .stage-bot .hand-area { max-width: calc(100% - 104px); }
 .table.stage .hcard { width: var(--hc); height: var(--hc); --cell: var(--hc); flex: none; }
 /* instructions while you place a tile: a pill at the top of the picture, between the scores, so it never covers the board */
 .stage-tip { position: absolute; left: 50%; top: 26px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 180px); z-index: 5;
@@ -1375,34 +1372,6 @@ let bgChoice = store.get('vyeMicro.bg', 'logo');
 if (!BACKGROUNDS.some(b => b.id === bgChoice)) bgChoice = 'logo';
 const bgNow = () => BACKGROUNDS.find(b => b.id === bgChoice) || {};
 const bgUrl = () => bgNow().url;
-// The picture stage puts the hands on flat strips above and below the picture. To make a strip look like part of the
-// picture, its colour is read off the picture's own top / bottom edge (16 samples across), for every background.
-const edgeCache = {};
-function bgEdges(bg) {
-  if (!bg || !bg.url) return null;
-  const hit = edgeCache[bg.url];
-  if (hit) return hit.top ? hit : null;
-  edgeCache[bg.url] = {};   // loading (or failed: stays empty and the strips fall back to a dark colour)
-  const img = new Image();
-  img.onload = () => {
-    try {
-      const N = 16, c = document.createElement('canvas'); c.width = N; c.height = 1;
-      const g = c.getContext('2d', { willReadFrequently: true });
-      const band = (sy, sh) => {
-        g.clearRect(0, 0, N, 1); g.drawImage(img, 0, sy, img.naturalWidth, sh, 0, 0, N, 1);
-        const d = g.getImageData(0, 0, N, 1).data, out = [];
-        for (let i = 0; i < N; i++) out.push(`rgb(${d[i * 4]},${d[i * 4 + 1]},${d[i * 4 + 2]})`);
-        return out;
-      };
-      const rows = Math.max(2, Math.round(img.naturalHeight * .004));
-      edgeCache[bg.url] = { top: band(0, rows), bot: band(img.naturalHeight - rows, rows) };
-      if (bgNow().url === bg.url && G && !$('#view-play').hidden) renderPlay();
-    } catch (e) { /* canvas blocked (e.g. opened from a file): keep the fallback colour */ }
-  };
-  img.src = bg.url;
-  return null;
-}
-const stripFill = (cols) => cols ? `linear-gradient(to right, ${cols.join(',')})` : '#1d1530';
 let safeProbe = null;
 function safeInsets() {
   if (!safeProbe) { safeProbe = document.createElement('div'); safeProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)'; document.body.append(safeProbe); }
@@ -1911,38 +1880,23 @@ function renderPlay() {
   const bg = bgNow(), stage = !!bg.play;
   const viewTop = v.getBoundingClientRect().top + window.scrollY;
   const table = h('div', { class: 'table' + (bg.url ? ' has-bg' : '') + (stage ? ' stage' : '') });
-  if (bg.url && !stage) table.style.backgroundImage = `url("${bg.url}")`;
+  if (bg.url) table.style.backgroundImage = `url("${bg.url}")`;
   let S = null;   // stage geometry (px)
   if (stage) {
-    // Layout, top to bottom: a strip (the opponent's hand) coloured from the picture's top edge, the picture, then a strip
-    // (your hand) coloured from its bottom edge. The picture keeps its top and bottom art as drawn; only the play area
-    // in the middle stretches (or squeezes, up to 25%) so the whole thing fills the screen height.
+    // On a phone the whole picture is stretched to fill the screen (it is close to the picture's own shape anyway).
+    // On a wide screen it keeps its shape and is as big as fits the column and the window.
     const colW = v.clientWidth, [l, t, r, b] = bg.play, ins = safeInsets();
     const onScreenTop = Math.max(0, viewTop - window.scrollY);
     const availH = Math.max(520, window.innerHeight - onScreenTop - 12);
-    // Phones draw the clock / camera over the page, and many browsers report no safe area for it, so on a phone the
-    // opponent's hand always starts at least 64px from the top of the screen (home bar: 18px at the bottom).
     const phone = window.innerWidth <= 700 || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
-    const padTop = Math.max(0, Math.round(Math.max(ins.top, phone ? 64 : 0) - onScreenTop)), padBot = Math.round(Math.max(ins.bottom, phone ? 18 : 0));
-    const SQUEEZE = .25;
-    const dims = W => {
-      const hc = Math.round(Math.max(40, Math.min(72, (W - 104 - 52) / 4)));
-      const Hn = W / bg.ratio, Rh = Math.round(hc * .8 + 40) + padTop, Bh = Math.round(hc + 50) + padBot;
-      return { hc, Hn, Rh, Bh, Hart: availH - Rh - Bh };
-    };
-    let W = Math.floor(Math.min(colW, 760)), D = dims(W);
-    for (let i = 0; i < 3 && D.Hart < D.Hn * (1 - SQUEEZE * (b - t)); i++) {   // too short even squeezed: narrow the picture
-      W = Math.floor(D.Hart * bg.ratio / (1 - SQUEEZE * (b - t))); D = dims(W);
-    }
-    const { hc, Hn, Rh, Bh } = D;
-    const topH = Math.round(t * Hn), botH = Math.round((1 - b) * Hn);
-    const Hart = Math.max(topH + botH + 60, Math.round(D.Hart)), midH = Hart - topH - botH, midNat = (b - t) * Hn;
-    S = { W, Hn, Rh, Bh, Hart, topH, botH, midH, midNat, hc, edges: bgEdges(bg),
-      box: { x: l * W, y: topH, w: (r - l) * W, h: midH } };   // y is within the picture
-    table.style.width = W + 'px'; table.style.height = (Rh + Hart + Bh) + 'px';
+    const W = Math.floor(phone ? Math.min(colW, 760) : Math.min(colW, availH * bg.ratio, 760));
+    const H = phone ? Math.round(availH) : Math.round(W / bg.ratio);
+    const padTop = Math.max(0, Math.round(ins.top - onScreenTop)), padBot = Math.round(ins.bottom);
+    S = { W, H, top: t * H, bot: (1 - b) * H, padTop, padBot, box: { x: l * W, y: t * H, w: (r - l) * W, h: (b - t) * H } };
+    table.style.width = W + 'px'; table.style.height = H + 'px';
     table.style.setProperty('--safeb', padBot + 'px');
     // hand tiles: as big as fits beside the gear (4 tiles: 2 in hand + 2 on the sideboard)
-    table.style.setProperty('--hc', hc + 'px');
+    table.style.setProperty('--hc', Math.round(Math.max(40, Math.min(72, (W - 104 - 52) / 4))) + 'px');
   }
   // score: the house sigil, big, with the score (largest kingdom) on it; Roses' tie-break tag underneath
   const mchip = p => h('span', { class: 'sbadge-wrap p' + p },
@@ -1970,17 +1924,10 @@ function renderPlay() {
     const pr = promptEl();
     let tip = h('div', { class: 'stage-tip tp' + G.turn }, G.over ? null : sigEl('tip-sig p' + G.turn, G.turn), pr, card ? info : null);
     if (!pr.childNodes.length && !card) { if (aiNote && !G.over) tip = notePill(aiNote); else tip.hidden = true; }
-    const url = `url("${bg.url}")`, k = S.midH / S.midNat;
-    const band = (top, height, size, pos) => h('div', { class: 'stage-band', style: `top:${top}px;height:${height}px;background-image:${url};background-size:${size};background-position:${pos}` });
     table.append(
-      h('div', { class: 'stage-strip top', style: `height:${S.Rh}px;background:${stripFill(S.edges && S.edges.top)}` }, handEl(1 - bottom, true)),
-      h('div', { class: 'stage-art', style: `top:${S.Rh}px;height:${S.Hart}px` },
-        band(0, S.topH + 1, `${S.W}px ${S.Hn}px`, '0 0'),
-        band(S.topH, S.midH + 1, `${S.W}px ${S.Hn * k}px`, `0 ${-bg.play[1] * S.Hn * k}px`),
-        band(S.Hart - S.botH, S.botH, `${S.W}px ${S.Hn}px`, '0 100%'),
-        h('div', { class: 'stage-top', style: `height:${S.topH}px` }, scoreRow, tip),
-        h('div', { class: 'stage-board', style: `left:${S.box.x}px;top:${S.box.y}px;width:${S.box.w}px;height:${S.box.h}px` }, renderBoard({ w: S.box.w - 8, h: S.box.h - 8 }))),
-      h('div', { class: 'stage-strip bot', style: `height:${S.Bh}px;padding-bottom:var(--safeb);background:${stripFill(S.edges && S.edges.bot)}` }, handEl(bottom)));
+      h('div', { class: 'stage-top', style: `height:${S.top}px;padding-top:${10 + S.padTop}px` }, scoreRow, handEl(1 - bottom, true), tip),
+      h('div', { class: 'stage-board', style: `left:${S.box.x}px;top:${S.box.y}px;width:${S.box.w}px;height:${S.box.h}px` }, renderBoard({ w: S.box.w - 8, h: S.box.h - 8 })),
+      h('div', { class: 'stage-bot', style: `height:${S.bot}px;padding-bottom:${10 + S.padBot}px` }, handEl(bottom)));
   }
   if (G.over && !ui.hideEnd) {
     const w = G.winner;
