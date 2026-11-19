@@ -1,0 +1,1405 @@
+<title>Vye Duel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: a game table. Header with tabs, then one working surface per tab: Setup (config panels), Play (board + side rail), Simulate (controls + results). */
+:root {
+  --bg: #E6E9EC; --surface: #F5F6F7; --sunk: #DADFE4; --ink: #1A2027; --muted: #5A6470; --line: #C4CBD3;
+  --brass: #8E6610; --brass-soft: #F1E2BC;
+  --blue: #2C5AA5; --blue-soft: #D7E2F4; --red: #B13939; --red-soft: #F4DADA;
+  --good: #2F7A4C; --warn: #A3641A;
+  --display: "Alegreya SC", "Palatino Linotype", Georgia, serif;
+  --body: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+  --cell: 72px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161B; --surface: #1B2128; --sunk: #232B34; --ink: #E5E8EC; --muted: #98A2AE; --line: #303A45;
+  --brass: #D6A642; --brass-soft: #3A3020; --blue: #6F99E2; --blue-soft: #1E2D47; --red: #E27474; --red-soft: #452525;
+  --good: #63BE86; --warn: #E0A050; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161B; --surface: #1B2128; --sunk: #232B34; --ink: #E5E8EC; --muted: #98A2AE; --line: #303A45;
+  --brass: #D6A642; --brass-soft: #3A3020; --blue: #6F99E2; --blue-soft: #1E2D47; --red: #E27474; --red-soft: #452525;
+  --good: #63BE86; --warn: #E0A050; color-scheme: dark }
+
+* { box-sizing: border-box; scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--body); font-size: 15px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+button { font: inherit; color: inherit; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: .01em; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 24px; }
+
+/* header */
+header.top { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding-block: 18px 14px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+.mark { display: flex; align-items: baseline; gap: 10px; }
+.mark h1 { font-size: 30px; line-height: 1; }
+.mark .ed { font-size: 13px; color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; background: var(--sunk); padding: 4px; border-radius: 10px; }
+nav.tabs button { border: 0; background: transparent; padding: 7px 16px; border-radius: 7px; cursor: pointer; font-weight: 500; color: var(--muted); }
+nav.tabs[hidden] { display: none; }
+nav.tabs { margin: 10px auto 12px; max-width: 520px; }
+nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.spacer { flex: 1; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; color: inherit; display: inline-block; }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.primary:hover { opacity: .9; }
+.btn:disabled { opacity: .45; cursor: default; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+/* panels */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.panel h2 { font-size: 19px; margin-bottom: 4px; }
+.panel .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 12px; }
+.grid-setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+.row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); }
+.row:first-of-type { border-top: 0; }
+.row .lbl { flex: 1; min-width: 0; }
+.row .lbl b { font-weight: 500; }
+.row .lbl small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+.chip { display: inline-block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--sunk); color: var(--muted); vertical-align: 2px; margin-left: 4px; }
+.chip.new { background: var(--brass-soft); color: var(--brass); }
+.numbox { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 13.5px; color: var(--muted); }
+.numbox input { width: 6ch; box-sizing: content-box; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card, transparent); color: var(--ink); font: inherit; font-weight: 700; text-align: right; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none; }
+.stepper button { width: 30px; height: 30px; border: 0; background: var(--sunk); cursor: pointer; font-size: 17px; line-height: 1; }
+.stepper button:disabled { opacity: .35; cursor: default; }
+.stepper output { min-width: 32px; text-align: center; font-weight: 700; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: none; flex-wrap: wrap; }
+.seg button { border: 0; background: var(--surface); padding: 5px 11px; cursor: pointer; font-size: 13.5px; border-left: 1px solid var(--line); }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.check input { width: 17px; height: 17px; accent-color: var(--brass); }
+.fam-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.fam-cols h3 { font-size: 15px; display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.dot.p0 { background: var(--blue); } .dot.p1 { background: var(--red); }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 4px; }
+.stat { background: var(--sunk); border-radius: 8px; padding: 10px 12px; }
+.stat .v { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.stat .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.note { font-size: 13.5px; padding: 8px 12px; border-radius: 8px; margin-top: 10px; }
+.note.warn { background: var(--brass-soft); color: var(--warn); }
+.note.ok { background: var(--sunk); color: var(--muted); }
+.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.preset { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 10px; background: var(--sunk); border: 2px solid transparent; }
+.preset.on { border-color: var(--ink); }
+.preset .btn { align-self: flex-start; }
+.preset .btn.on, .preset .btn.on:disabled { background: var(--ink); color: var(--bg); border-color: var(--ink); opacity: 1; }
+.preset small { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.presets .btn.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.presets .k { color: var(--muted); font-size: 13px; margin-right: 4px; }
+
+/* play */
+.play { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+@media (max-width: 900px), (pointer: coarse) and (max-height: 600px) { .play { grid-template-columns: 1fr; } .fam-cols { grid-template-columns: 1fr; } }
+.table { background: var(--sunk); border-radius: 14px; padding: 18px; position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; }
+.prompt { min-height: 36px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 14.5px; text-align: center; }
+.prompt .who { font-family: var(--display); font-weight: 700; font-size: 17px; }
+.prompt .who.p0 { color: var(--blue); } .prompt .who.p1 { color: var(--red); }
+.board { display: grid; gap: 5px; }
+.cell { width: var(--cell); height: var(--cell); border-radius: 9px; position: relative; }
+.cell.empty { border: 1px dashed transparent; }
+.cell.empty.open { border-color: var(--line); }
+.cell.target { cursor: pointer; }
+.cell.empty.target { border: 2px dashed var(--brass); background: color-mix(in srgb, var(--brass) 10%, transparent); }
+.cell.target:not(.empty) { outline: 3px solid var(--brass); outline-offset: 2px; }
+.cell.target:hover { filter: brightness(1.08); }
+.tile { position: absolute; inset: 0; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: #fff; text-align: center; user-select: none; }
+.tile .g { font-size: calc(var(--cell) * .38); line-height: 1; }
+.tile .n { font-size: calc(var(--cell) * .135); line-height: 1.05; margin-top: 3px; font-weight: 500; padding: 0 3px; }
+.tile.land { background: var(--lc); }
+.tile.fam, .tile.spec, .tile.start { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.tile.spec .g { color: var(--brass); }
+.tile.start .g { color: var(--muted); }
+.tile.sinkhole { background: #3A3F46; color: #C9CED4; border-color: #3A3F46; }
+.tile.sinkhole .g { color: #C9CED4; }
+.pat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; width: calc(var(--cell) * .38); height: calc(var(--cell) * .38); }
+.pat i { border-radius: 2px; background: var(--line); }
+.pat i.on { background: var(--brass); }
+.pat i.me { background: var(--ink); }
+.pat.pat5 { grid-template-columns: repeat(5, 1fr); gap: 1px; }
+.pat i.skip { background: color-mix(in srgb, var(--line) 50%, transparent); }
+.pat i.opt { background: color-mix(in srgb, var(--brass) 40%, transparent); }
+/* ownership: outline frame + sigil */
+.own { position: absolute; inset: 0; border-radius: 9px; pointer-events: none; }
+.own.p0 { box-shadow: inset 0 0 0 4px var(--blue); }
+.own.p1 { box-shadow: inset 0 0 0 4px var(--red); }
+.own.both { box-shadow: inset 0 0 0 4px var(--blue), inset 0 0 0 7px var(--red); }
+.no-borders .own { display: none; }
+.no-borders .sig { width: calc(var(--cell) * .3); height: calc(var(--cell) * .3); box-shadow: 0 0 0 2px #fff, 0 1px 3px rgba(0,0,0,.4); }
+.sig { position: absolute; top: 4px; right: 4px; width: calc(var(--cell) * .27); height: calc(var(--cell) * .27); border-radius: 50%; display: grid; place-items: center; font-size: calc(var(--cell) * .17); color: #fff; line-height: 1; }
+.sig.p0 { background: var(--blue); } .sig.p1 { background: var(--red); }
+.sig.both { background: linear-gradient(90deg, var(--blue) 50%, var(--red) 50%); }
+.sig svg { width: 72%; height: 72%; display: block; }
+.sigi { display: inline-block; width: 1.05em; height: 1.05em; vertical-align: -.15em; }
+.sigi svg { width: 100%; height: 100%; display: block; }
+.stack { position: absolute; bottom: 3px; left: 4px; font-size: 11px; font-weight: 700; background: rgba(0,0,0,.55); color: #fff; padding: 0 5px; border-radius: 4px; }
+.cell.stacked::before { content: ""; position: absolute; inset: 0; transform: translate(3px, 3px); border-radius: 9px; background: var(--line); }
+.cell.last::after { content: ""; position: absolute; inset: -4px; border-radius: 12px; border: 2px solid var(--ink); opacity: .55; pointer-events: none; }
+.cell.ghost .tile { opacity: .65; }
+@keyframes pop { from { transform: scale(.7); opacity: .2; } to { transform: none; opacity: 1; } }
+@keyframes flip { 0% { transform: rotateY(0); } 50% { transform: rotateY(90deg); } 100% { transform: rotateY(0); } }
+@media (prefers-reduced-motion: reduce) { .cell .tile, .hcard.pick { animation: none !important; } }
+
+/* the player whose turn it is gets a gold border around their hand */
+.hand-area { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 2px solid transparent; border-radius: 14px; transition: border-color .25s, box-shadow .25s; }
+.hand-area.turn { border-color: var(--brass); box-shadow: 0 0 0 4px var(--brass-soft); }
+.hand-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; display: flex; gap: 8px; align-items: center; }
+.hand { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.hcard { width: 78px; height: 78px; border-radius: 10px; position: relative; cursor: pointer; border: 0; padding: 0; background: none; --cell: 78px; }
+.hcard.sel { outline: 3px solid var(--brass); outline-offset: 3px; }
+.cell.chosen::after { content: ""; position: absolute; inset: -5px; border-radius: 13px; border: 3px solid var(--brass); pointer-events: none; }
+.hcard.pick { outline: 3px dashed var(--brass); outline-offset: 3px; animation: nudge 1.2s ease-in-out infinite; }
+@keyframes nudge { 50% { transform: translateY(-3px); } }
+img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 9px; pointer-events: none; }
+.tile.has-art { background: #F9F1E4; }
+.tile.has-art > .g, .tile.has-art > .n, .tile.has-art > .pat { display: none; }
+.bonus { white-space: nowrap; font-size: 12px; font-weight: 700; vertical-align: super; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: var(--red); color: #fff; cursor: help; letter-spacing: 0; }
+.flyer { position: fixed; z-index: 40; pointer-events: none; border-radius: 9px; }
+.flyer .tile { box-shadow: 0 14px 30px rgba(0,0,0,.35); }
+.cell .tile.under { z-index: 0; }
+.cell.incoming > .tile:not(.under) { visibility: hidden; }
+.tile.icon { background: none; border: 0; padding: 0; }
+.tile.icon svg { width: 100%; height: 100%; display: block; }
+.cbgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 700px) { .cbgrid { grid-template-columns: 1fr; } }
+.cbgrid h3 { font-size: 14px; margin: 0 0 8px; }
+.cbrow { display: grid; grid-template-columns: 9.5em 1fr 3em; gap: 10px; align-items: center; padding: 4px 0; cursor: help; font-size: 13.5px; }
+.cbrow b { text-align: right; }
+.cbtrack { position: relative; height: 12px; background: var(--sunk); border-radius: 6px; overflow: hidden; }
+.cbtrack i:first-child { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brass); border-radius: 6px; }
+.cbtrack i.mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1.5px; background: var(--muted); }
+.counts { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 12px; font-size: 13.5px; margin-bottom: 12px; }
+.counts .hd { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.counts .num { text-align: right; }
+.counts .sub { font-size: 12px; color: var(--muted); padding-left: 10px; }
+.counts .tot { border-top: 1px solid var(--line); padding-top: 3px; font-weight: 700; }
+.hcard.dead { opacity: .4; cursor: not-allowed; }
+.hcard.back { background: repeating-linear-gradient(45deg, var(--line) 0 6px, var(--sunk) 6px 12px); cursor: default; border: 1px solid var(--line); }
+.cardinfo { font-size: 13.5px; color: var(--muted); text-align: center; max-width: 520px; min-height: 2.6em; display: grid; place-items: center; }
+.choices { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+.rail { display: flex; flex-direction: column; gap: 14px; }
+.seat { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; }
+select { font: inherit; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-width: 0; }
+.seed { width: 92px; font: inherit; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.log { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.log .e { display: flex; gap: 8px; align-items: baseline; }
+.log .e .t { color: var(--muted); width: 22px; flex: none; text-align: right; font-size: 12px; }
+.log .e .sw { margin-left: auto; font-weight: 700; flex: none; }
+.p0c { color: var(--blue); } .p1c { color: var(--red); }
+.endcard { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 70%, transparent); border-radius: 14px; z-index: 5; }
+.endcard .box { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; text-align: center; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.18); max-width: 90%; }
+.endcard h2 { font-size: 26px; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); justify-content: center; }
+
+/* simulate */
+.simgrid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 18px; align-items: start; }
+/* phones in landscape are wide but short: keep them in one column like portrait */
+@media (max-width: 900px), (pointer: coarse) and (max-height: 600px) { .simgrid { grid-template-columns: 1fr; } .grid-setup { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.field label { font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.persona-blurb { font-size: 12.5px; color: var(--muted); }
+.progress { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; margin: 10px 0; }
+.progress i { display: block; height: 100%; background: var(--brass); width: 0; transition: width .15s; }
+.results { display: flex; flex-direction: column; gap: 16px; }
+.winbar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; font-size: 12.5px; font-weight: 700; color: #fff; }
+.winbar span { display: grid; place-items: center; min-width: 0; white-space: nowrap; overflow: hidden; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+td.rng { text-align: left; }
+th, td { padding-inline: 6px; }
+th.col-range { text-align: left; }
+@media (max-width: 1250px) { .col-range { display: none; } }
+@media (max-width: 560px) { .col-flips, .col-plays { display: none; } th .q { display: none; } }
+.flag { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+.flag.hot { background: var(--red-soft); color: var(--red); }
+.flag.flat { background: var(--sunk); color: var(--muted); }
+pre.report { background: var(--sunk); border-radius: 8px; padding: 12px; font-size: 12px; overflow-x: auto; margin: 8px 0 0; }
+details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; }
+.matrix td, .matrix th { text-align: center; }
+.empty-results { color: var(--muted); padding: 30px 10px; text-align: center; }
+.tray { display: contents; }
+/* Table background picture (Game panel > Background). Cover keeps any picture's shape: it fills the play area
+   and trims the overflow evenly from the edges; a dark vignette hides where it's been trimmed. */
+.table.has-bg { background-color: #241713; background-position: center; background-size: cover; background-repeat: no-repeat;
+  box-shadow: inset 0 0 80px 18px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.35); }
+.table.has-bg .hand-label, .table.has-bg .cardinfo, .table.has-bg .prompt { color: #F4EADB; text-shadow: 0 1px 3px rgba(0,0,0,.75); }
+.table.has-bg .prompt .btn { background: #F4EADB; color: #1d1530; border-color: transparent; text-shadow: none; }
+.table.has-bg .cell.empty.open { border-color: rgba(255,240,222,.32); background: rgba(0,0,0,.12); }
+.boardbox { display: grid; place-items: center; flex: none; max-width: 100%; }
+/* Picture stage (portrait backgrounds): the whole picture shows, nothing trimmed; the board sits in its play area */
+.stage-col { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+.table.stage { display: block; padding: 0; flex: none; background-size: 100% 100%; background-color: #1d1530; max-width: 100%;
+  box-shadow: 0 10px 30px rgba(0,0,0,.28); border-radius: 16px; overflow: hidden; }
+.stage-top, .stage-bot { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 8px 10px; }
+.stage-top { top: 0; justify-content: space-between; padding-top: 10px; padding-bottom: 6px; }
+.stage-bot { bottom: 0; justify-content: flex-end; padding-bottom: 10px; }
+.stage-board { position: absolute; display: grid; place-items: center; }
+.table.stage .mscore { padding: 0 4px; }
+.table.stage .hand-area { width: auto; max-width: 100%; padding: 6px 10px; gap: 4px; background: rgba(18,12,28,.375); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); border-color: rgba(255,255,255,.08); }
+.table.stage .hand-area.turn { border-color: var(--brass); }
+.table.stage .hand-label { font-size: 10.5px; justify-content: center; }
+.table.stage .hand { gap: 6px; flex-wrap: nowrap; }
+.table.stage .stage-bot .hand-area { max-width: calc(100% - 104px); }
+.table.stage .hcard { width: var(--hc); height: var(--hc); --cell: var(--hc); flex: none; }
+/* instructions while you place a tile: a pill at the top of the picture, between the scores, so it never covers the board */
+.stage-tip { position: absolute; left: 50%; top: 26px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 180px); z-index: 5;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 12px;
+  background: rgba(18,12,28,.82); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.stage-tip.tp0 { background: color-mix(in srgb, #2C5AA5 84%, transparent); } .stage-tip.tp1 { background: color-mix(in srgb, #B13939 84%, transparent); }
+.stage-tip { padding: 7px 12px 7px 20px; }
+.tip-sig { position: absolute; left: 0; top: 0; width: 30px; height: 30px; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.tip-sig.p0 { background: #2C5AA5; } .tip-sig.p1 { background: #B13939; }
+.tip-sig svg { width: 70%; height: 70%; display: block; }
+.table.stage .stage-tip .cardinfo { color: #fff; }
+.stage-tip[hidden] { display: none; }
+.table:not(.stage) > .note-pill { top: 84px; max-width: min(460px, calc(100% - 60px)); }
+.note-pill .cardinfo { color: #fff; font-size: 13px; min-height: 0; max-width: 46ch; text-shadow: none; display: block; }
+.table.stage .stage-tip .prompt { min-height: 0; font-size: 13.5px; gap: 6px; }
+.table.stage .stage-tip .prompt:empty { display: none; }
+.table.stage .stage-tip .cardinfo { font-size: 12px; min-height: 0; max-width: 46ch; }
+.table.stage .stage-tip .btn { padding: 3px 10px; font-size: 12.5px; background: #F4EADB; color: #1d1530; border-color: transparent; }
+.table.stage .stage-tip .prompt .who { font-size: 14px; }
+/* score: one chip per player across the top of the board */
+.mscore { display: flex; width: 100%; gap: 10px; }
+.play.solo { display: block; }
+.stage-col > .table:not(.stage) { width: 100%; max-width: 900px; }
+/* scores: big house sigils with the number on them */
+.mscore { justify-content: space-between; align-items: flex-start; }
+.sbadge-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.sbadge { position: relative; width: var(--sb, 58px); height: var(--sb, 58px); border-radius: 50%; display: grid; place-items: center; border: 3px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,.4); cursor: help; }
+.sbadge.p0 { background: var(--blue); } .sbadge.p1 { background: var(--red); }
+.sbadge .sbsig { position: absolute; inset: 13%; color: #fff; opacity: .38; }
+.sbadge .sbsig svg { width: 100%; height: 100%; display: block; }
+.sbadge b { position: relative; font-size: calc(var(--sb, 58px) * .5); line-height: 1; color: #fff; text-shadow: 0 2px 5px rgba(0,0,0,.55); font-variant-numeric: tabular-nums; }
+.sbadge-wrap .bonus { margin: 0; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+/* the Game panel opens over the board from the gear in its bottom-right corner */
+.gear { position: absolute; right: 10px; bottom: 10px; z-index: 26; width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35);
+  background: rgba(18,12,28,.42); color: #fff; display: grid; place-items: center; cursor: pointer; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); opacity: .8; transition: opacity .15s, transform .25s; }
+.gear:hover, .gear.on { opacity: 1; } .gear.on { transform: rotate(60deg); }
+.gear svg { width: 24px; height: 24px; }
+.gpanel { position: absolute; right: 10px; bottom: 60px; top: 10px; z-index: 25; width: min(400px, calc(100% - 20px)); display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; scrollbar-width: none; padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 12px 34px rgba(0,0,0,.45); text-shadow: none; }
+.gpanel::-webkit-scrollbar { display: none; }
+.gpanel[hidden] { display: none; }
+.gpanel .panel { padding: 12px; }
+.gp-head { display: flex; align-items: center; justify-content: space-between; }
+.gp-head h2 { font-size: 17px; margin: 0; }
+.gp-close { padding: 2px 10px; font-size: 18px; line-height: 1.2; }
+button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+@media (max-width: 700px) {
+  header.top { gap: 10px; padding-block: 10px; margin-bottom: 12px; }
+  .mark h1 { font-size: 24px; } .mark .ed { display: none; }
+  nav.tabs { order: 3; width: 100%; } nav.tabs button { flex: 1; padding: 9px 8px; }
+  #copy-config, #pnp { padding: 5px 10px; font-size: 13px; }
+  .wrap { padding-block: 6px 12px; padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
+  .table { padding: 8px 6px 0; gap: 10px; border-radius: 12px; }
+  .board { gap: 4px; }
+  .sbadge { --sb: 48px; }
+  .mdeck { align-self: center; font-size: 11px; color: var(--muted); text-align: center; width: 38px; flex: none; display: flex; flex-direction: column; line-height: 1.1; }
+  .mdeck b { font-size: 18px; color: var(--ink); }
+  .tray { display: flex; flex-direction: column; gap: 6px; position: sticky; bottom: 0; z-index: 4; width: calc(100% + 12px); margin: 0 -6px;
+    background: var(--sunk); border-top: 1px solid var(--line); box-shadow: 0 -8px 18px rgba(0,0,0,.10);
+    padding: 8px max(8px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); border-radius: 12px 12px 0 0; }
+  .tray .prompt { min-height: 0; font-size: 14px; gap: 6px; }
+  .tray .prompt .who { font-size: 15px; }
+  .tray .prompt .btn { padding: 6px 12px; }
+  .tray .cardinfo { font-size: 12.5px; min-height: 0; }
+  .tray .cardinfo.idle { display: none; }
+  .tray .hand-label { display: none; }
+  .table.stage .stage-top, .table.stage .stage-bot { padding: 6px; gap: 5px; }
+  .table.stage .hand-area { padding: 4px 8px; }
+  .tray { padding-inline: 50px !important; }
+  .tray .hcard { width: 52px; height: 52px; --cell: 52px; }
+  .tray .hand-area { padding-inline: 4px; }
+  .table.has-bg .tray { background: rgba(28,18,15,.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-color: rgba(255,255,255,.12); }
+  .hand { flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; gap: 6px; padding: 3px; }
+  .hcard { width: 58px; height: 58px; --cell: 58px; flex: none; }
+  .hand-area { padding: 6px 8px; }
+  .hand-area.other { padding-block: 6px; }
+  .tile .n { font-size: max(8.5px, calc(var(--cell) * .135)); }
+  .cell.last::after { inset: -3px; }
+  .endcard .box { padding: 18px; }
+}
+@media (max-width: 380px) { .hcard { width: 50px; height: 50px; --cell: 50px; } }
+/* the top (opponent / AI) hand is 20% smaller than yours: tiles, label and padding */
+.hand-area.other { padding: 6px 10px; gap: 5px; }
+.hand-area.other .hand-label { font-size: 10px; }
+.hand-area.other .hand { gap: 5px; }
+.hand-area.other .hcard { width: 62px; height: 62px; --cell: 62px; }
+@media (max-width: 700px) { .hand-area.other .hcard { width: 46px; height: 46px; --cell: 46px; } }
+.table.stage .hand-area.other { padding: 4px 8px; gap: 3px; }
+.table.stage .hand-area.other .hand-label { font-size: 8.5px; }
+.table.stage .hand-area.other .hcard { width: calc(var(--hc) * .8); height: calc(var(--hc) * .8); --cell: calc(var(--hc) * .8); }
+th[data-tip], .stat[data-tip] { cursor: help; }
+tbody tr[data-tip] { cursor: help; }
+tbody tr[data-tip]:hover, tbody tr[data-tip]:focus-visible { background: var(--sunk); }
+.q { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--line); color: var(--muted); font-size: 10px; font-weight: 700; margin-left: 4px; vertical-align: 1px; text-transform: none; letter-spacing: 0; }
+#tip { position: fixed; z-index: 30; max-width: 290px; background: var(--ink); color: var(--bg); font-size: 13.5px; line-height: 1.4; padding: 9px 12px; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.25); pointer-events: none; text-transform: none; letter-spacing: 0; font-weight: 400; white-space: normal; text-align: left; }
+.review h3 { font-size: 16px; margin: 12px 0 4px; }
+.review ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.review li { max-width: 72ch; }
+.toast { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: 14px; z-index: 20; }
+</style>
+
+<div class="wrap">
+  <nav class="tabs" role="tablist" id="tabsbar" hidden>
+      <button role="tab" id="tab-setup" aria-selected="false">Setup</button>
+      <button role="tab" id="tab-play" aria-selected="true">Play</button>
+      <button role="tab" id="tab-sim" aria-selected="false">Simulate</button>
+  </nav>
+
+  <section id="view-setup" hidden></section>
+  <section id="view-play"></section>
+  <section id="view-sim" hidden></section>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div id="tip" role="tooltip" hidden></div>
+
+<script id="vye-engine">
+/*ENGINE*/
+</script>
+<script id="vye-tiles">
+/*TILES*/
+</script>
+<script>
+(function () {
+'use strict';
+const E = VyeEngine;
+const $ = (s, el = document) => el.querySelector(s);
+const h = (tag, attrs, ...kids) => {
+  const el = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v; else if (k === 'style') el.setAttribute('style', v);
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(k));
+  return el;
+};
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 1800); }
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Copied'); return true; }
+  catch (e) { toast('Copy blocked. Select the text below instead.'); return false; }
+}
+
+// ---------- config ----------
+// Every Family sideboard lists every member, so older saved builds and presets compare cleanly.
+function normFam(c) { c.family = c.family.map(f => Object.fromEntries(E.MEMBER_ORDER.map(m => [m, (f && f[m]) | 0]))); return c; }
+function mergeCfg(saved) { return normFam(mergeCfg0(saved)); }
+function mergeCfg0(saved) {
+  const d = E.defaultConfig(); if (!saved) return d;
+  const c = Object.assign(d, saved);
+  c.specials = Object.assign(E.defaultConfig().specials, saved.specials || {});
+  c.end = Object.assign(E.defaultConfig().end, saved.end || {});
+  c.family = (saved.family && saved.family.length === 2) ? saved.family : d.family;
+  for (const s of Object.keys(c.specials)) if (!E.SPECIALS[s]) delete c.specials[s];
+  if (!('secondBonus' in saved)) { c.secondBonus = 1; c.tiebreak = 'second'; } // builds saved before "must win by 2" became the rule
+  return c;
+}
+let cfg = mergeCfg(store.get('vyeMicro.cfg', null));
+let mirror = store.get('vyeMicro.mirror', true);
+function saveCfg() { store.set('vyeMicro.cfg', cfg); store.set('vyeMicro.mirror', mirror); }
+
+const PRESET_INFO = {
+  'Pairs': 'Only 2 of each Land instead of 3, with 10 Land types. Chains stay short, so Land plays are steadier.',
+  'Two Family each': 'Each player gets just a King and an Heir (no Queen). Family matters less; Lands matter more.',
+  'Asymmetric': 'Uneven sides for testing: Midnight gets an Advisor and an Heir, Roses get a King, Queen and Heir.',
+  'Lands only': 'No Specials at all, just Lands and Family. The bare core game.',
+  'Every special': 'One of every Special in the bag, 6 Land types, and stacks can keep growing. The chaos test.'
+};
+const PRESETS = {
+  'Default micro': () => E.defaultConfig(),
+  'Pairs': () => Object.assign(E.defaultConfig(), { landSets: 10, landCopies: 2 }),
+  'Two Family each': () => Object.assign(E.defaultConfig(), { landSets: 8, family: [{ advisor: 0, king: 1, queen: 0, heir: 1 }, { advisor: 0, king: 1, queen: 0, heir: 1 }] }),
+  'Asymmetric': () => Object.assign(E.defaultConfig(), { family: [{ advisor: 1, king: 0, queen: 0, heir: 1 }, { advisor: 0, king: 1, queen: 1, heir: 1 }] }),
+  'Lands only': () => Object.assign(E.defaultConfig(), { landSets: 9, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 0])) }),
+  'Every special': () => Object.assign(E.defaultConfig(), { landSets: 6, specials: Object.fromEntries(E.SPECIAL_ORDER.map(s => [s, 1])), stacking: 'unlimited' })
+};
+
+// Which preset (if any) matches the current Setup, and whether the game on the table was dealt with different rules.
+function presetName() { const cur = JSON.stringify(normFam(cfg)); return Object.keys(PRESETS).find(n => JSON.stringify(normFam(Object.assign(E.defaultConfig(), PRESETS[n]()))) === cur) || null; }
+function cfgChanged() { return !!G && JSON.stringify(G.cfg) !== JSON.stringify(cfg); }
+
+function stepper(val, min, max, onChange, id) {
+  const out = h('output', { id }, String(val));
+  const dec = h('button', { 'aria-label': 'Decrease', disabled: val <= min, onclick: () => onChange(val - 1) }, '−');
+  const inc = h('button', { 'aria-label': 'Increase', disabled: val >= max, onclick: () => onChange(val + 1) }, '+');
+  return h('span', { class: 'stepper' }, dec, out, inc);
+}
+function seg(options, val, onChange) {
+  return h('span', { class: 'seg' }, options.map(([v, label]) =>
+    h('button', { 'aria-pressed': String(v === val), onclick: () => onChange(v) }, label)));
+}
+function row(label, help, control) {
+  return h('div', { class: 'row' }, h('div', { class: 'lbl' }, h('b', null, label), help ? h('small', null, help) : null), control);
+}
+
+function deckNumbers(c) {
+  const lands = c.landSets * c.landCopies;
+  let specials = 0, placeSpecials = 0;
+  for (const s of E.SPECIAL_ORDER) { const n = c.specials[s] | 0; specials += n; const mode = E.SPECIALS[s].mode; if (mode === 'place') placeSpecials += n; }
+  const fam = c.family.map(f => E.MEMBER_ORDER.reduce((a, m) => a + (f[m] | 0), 0));
+  const spaces = c.gridW * c.gridH;
+  const fillers = lands + placeSpecials + fam[0] + fam[1] + (c.start === 'neutral' ? 1 : 0);
+  return { lands, specials, fam, spaces, fillers, deck: lands + specials };
+}
+
+function renderSetup() {
+  const v = $('#view-setup'); v.textContent = '';
+  const set = (fn) => { fn(); saveCfg(); renderSetup(); };
+  const cur = presetName();
+  const presetCard = (label, desc, active, onclick, disabled) => h('div', { class: 'preset' + (active ? ' on' : '') },
+    h('button', { class: 'btn' + (active ? ' on' : ''), 'aria-pressed': String(!!active), disabled: !!disabled, onclick }, label),
+    h('small', null, desc));
+  const presets = h('div', { class: 'panel', style: 'margin-bottom:16px' },
+    h('div', { style: 'display:flex;align-items:baseline;gap:10px;flex-wrap:wrap' }, h('h2', null, 'Presets'),
+      h('span', { class: 'sub', style: 'margin:0' }, cur ? `You\u2019re on: ${cur === 'Default micro' ? 'the default build' : cur}` : 'You\u2019re on: a custom build (you changed settings by hand)')),
+    h('p', { class: 'sub' }, 'A preset changes several settings at once. Your current game isn\u2019t affected until you start a new one.'),
+    h('div', { class: 'preset-grid' },
+      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the second player wins ties.',
+        cur === 'Default micro', () => set(() => { cfg = E.defaultConfig(); mirror = true; }), cur === 'Default micro'),
+      Object.keys(PRESETS).filter(n => n !== 'Default micro').map(name => presetCard(name, PRESET_INFO[name], cur === name,
+        () => set(() => { cfg = normFam(PRESETS[name]()); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));
+  const stale = G && !G.over && cfgChanged();
+
+  const deck = h('div', { class: 'panel' }, h('h2', null, 'Lands'), h('p', { class: 'sub' }, 'Each Land type comes in a matching set. Matching an adjacent Land flips the whole connected chain.'),
+    row('Land types', 'How many different Lands go in the deck.', stepper(cfg.landSets, 2, 16, n => set(() => cfg.landSets = n), 'st-landsets')),
+    row('Copies of each Land', 'Pairs keep chains short. Triples allow 2-tile captures.', seg([[2, 'Pairs'], [3, 'Triples'], [4, 'Fours']], cfg.landCopies, n => set(() => cfg.landCopies = n))));
+
+  const specials = h('div', { class: 'panel' }, h('h2', null, 'Specials'), h('p', { class: 'sub' }, 'Token cards are gone. Everything here works with flip-for-ownership tiles.'),
+    E.SPECIAL_ORDER.map(s => {
+      const S = E.SPECIALS[s];
+      const mode = ({ place: 'placed', cover: 'covers', replace: 'replaces' })[S.mode];
+      return row(h('span', null, S.name, h('span', { class: 'chip' + (S.origin !== 'Original' ? ' new' : '') }, S.origin), h('span', { class: 'chip' }, mode)), specialRule(s),
+        stepper(cfg.specials[s] | 0, 0, 3, n => set(() => cfg.specials[s] = n), 'st-sp-' + s));
+    }),
+    row('Lost City points', 'What one Lost City is worth inside your kingdom at the end of the game. A normal tile is worth 1.', stepper(cfg.lostCityValue ?? 2, 1, 6, n => set(() => cfg.lostCityValue = n), 'st-lcv')),
+    row('Usurp triggers matching', 'On: the Land you swap in matches its neighbors like a normal Land play. Off: Usurp only takes over that one space.', h('input', { type: 'checkbox', id: 'usurpmatch', checked: cfg.usurpMatch !== false, onchange: e => set(() => cfg.usurpMatch = e.target.checked) })));
+
+  const famCol = (p) => h('div', null,
+    h('h3', null, h('span', { class: 'dot p' + p }), E.HOUSES[p].short + (p === 0 ? ' (Blue, first)' : ' (Red)')),
+    E.MEMBER_ORDER.map(m => row(E.MEMBERS[m].name, null, stepper(cfg.family[p][m] | 0, 0, 2, n => set(() => {
+      cfg.family[p][m] = n; if (mirror) cfg.family[1 - p][m] = n;
+    }), 'st-fam-' + p + m))));
+  const fam = h('div', { class: 'panel' }, h('h2', null, 'Family sideboard'),
+    h('p', { class: 'sub' }, 'Family tiles start face up beside each player and can be played instead of a hand card. Advisor flips all 8 surrounding tiles, King the 4 adjacent, Queen the 4 diagonal, Heir 1 of your choice. The Knave slips past an adjacent tile and flips the one behind it, like Underminers.'),
+    h('label', { class: 'check', style: 'margin-bottom:10px' }, h('input', { type: 'checkbox', id: 'mirror', checked: mirror, onchange: e => set(() => { mirror = e.target.checked; if (mirror) cfg.family[1] = Object.assign({}, cfg.family[0]); }) }), 'Same Family for both players'),
+    h('div', { class: 'fam-cols' }, famCol(0), famCol(1)),
+    row('Color Capture', 'Playing a Family tile next to a same-house Family tile flips it back.', h('input', { type: 'checkbox', id: 'colorcap', checked: cfg.colorCapture, onchange: e => set(() => cfg.colorCapture = e.target.checked) })));
+
+  const board = h('div', { class: 'panel' }, h('h2', null, 'Board and turns'),
+    h('p', { class: 'sub' }, 'The play area floats. It can grow in any direction until it hits the width or height limit.'),
+    row('Width limit', null, stepper(cfg.gridW, 3, 8, n => set(() => cfg.gridW = n), 'st-w')),
+    row('Height limit', null, stepper(cfg.gridH, 3, 8, n => set(() => cfg.gridH = n), 'st-h')),
+    row('Hand size', null, stepper(cfg.handSize, 1, 6, n => set(() => cfg.handSize = n), 'st-hand')),
+    row('Opening tile', 'A neutral Crossroads that nobody can own, or an empty table.', seg([['neutral', 'Crossroads'], ['none', 'Empty']], cfg.start, x => set(() => cfg.start = x))),
+    row('Stacking', 'Once: a covered space can’t be covered again. Unlimited: anything can be covered again and again, including Sinkholes, Sanctuaries and Lost Cities.', seg([['once', 'Once'], ['unlimited', 'Unlimited']], cfg.stacking, x => set(() => cfg.stacking = x))),
+    row('Family can capture the Crossroads', 'A Family capture that reaches the Crossroads takes it, like any other tile.', h('input', { type: 'checkbox', id: 'xcap', checked: !!cfg.crossroadsCapture, onchange: e => set(() => cfg.crossroadsCapture = e.target.checked) })),
+    row('Cards can stack on the Crossroads', 'Off by default, so nobody can drop a Lost City on the center tile late in the game for free points.', h('input', { type: 'checkbox', id: 'xcover', checked: !!cfg.crossroadsCover, onchange: e => set(() => cfg.crossroadsCover = e.target.checked) })));
+
+  const endKeys = [['boardFull', 'Board is full', 'Every space inside the width × height limit is filled.'], ['deckEmpty', 'Bag is empty', 'Ends the moment the last tile is drawn from the bag.'], ['noValidPlay', 'A player can’t play', 'If off, that player passes instead. The game ends when neither can play.']];
+  const end = h('div', { class: 'panel' }, h('h2', null, 'Game end'),
+    h('p', { class: 'sub' }, 'Any checked condition ends the game. The largest connected kingdom wins.'),
+    endKeys.map(([k, l, help]) => row(l, help, h('input', { type: 'checkbox', id: 'end-' + k, checked: cfg.end[k], onchange: e => set(() => cfg.end[k] = e.target.checked) }))),
+    row('Ties', 'Leave as a tie, break it on total tiles owned, or give it to the second player.', seg([['none', 'Tie'], ['total', 'Total tiles'], ['second', 'Second player']], cfg.tiebreak, x => set(() => cfg.tiebreak = x))),
+    row('Second player bonus', 'Points added to the second player\u2019s kingdom at the end. +1 with ties to the second player means the first player must win by 2.', stepper(cfg.secondBonus | 0, 0, 3, n => set(() => cfg.secondBonus = n), 'st-bonus')),
+    row('Second player keeps apart', 'On the second player\u2019s first turn, their tile can\u2019t go on or next to (side by side) any of the first player\u2019s tiles. Diagonal is fine.', h('input', { type: 'checkbox', id: 'secondapart', checked: !!cfg.secondApart, onchange: e => set(() => cfg.secondApart = e.target.checked) })),
+    row('Second player extra cards', 'The second player starts with this many more cards in hand.', stepper(cfg.secondExtraCards | 0, 0, 2, n => set(() => cfg.secondExtraCards = n), 'st-extra')),
+    h('div', { style: 'margin-top:8px' }, h('button', { class: 'btn', onclick: () => set(() => { cfg.secondBonus = 0; cfg.tiebreak = 'second'; }) }, 'Use \u201csecond player wins ties\u201d')));
+
+  const n = deckNumbers(cfg);
+  const fillNote = n.fillers < n.spaces
+    ? h('div', { class: 'note warn' }, `Only ${n.fillers} tiles can fill a space but the grid has ${n.spaces}. The board can’t fill, so another condition must end the game.`)
+    : h('div', { class: 'note ok' }, `${n.fillers} space-filling tiles for ${n.spaces} spaces, so about ${n.fillers - n.spaces} stay unplayed. Cover cards don’t use up spaces.`);
+  const summary = h('div', { class: 'panel', style: 'grid-column: 1 / -1' }, h('h2', null, 'This build'),
+    h('div', { class: 'summary' },
+      [[n.deck + n.fam[0] + n.fam[1] + (cfg.start === 'neutral' ? 1 : 0), 'Total tiles', `${n.deck} in the bag + ${n.fam[0] + n.fam[1]} Family tiles in the sideboards` + (cfg.start === 'neutral' ? ' + 1 Crossroads starting tile' : '')],
+        [n.deck, 'Tiles in the bag', 'Lands and Specials. Each player draws from these.'], [n.lands, 'Lands'], [n.specials, 'Specials'],
+        [n.fam[0] + ' / ' + n.fam[1], 'Family Blue / Red', 'Face-up sideboard tiles for each player.'], [n.spaces, 'Board spaces']]
+        .map(([val, k, tip]) => h('div', { class: 'stat', 'data-tip': tip || null, tabindex: tip ? '0' : null }, h('div', { class: 'v' }, String(val)), h('div', { class: 'k' }, k, tip ? h('span', { class: 'q' }, '?') : null)))),
+    fillNote,
+    h('div', { style: 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap' },
+      h('button', { class: 'btn primary', onclick: () => { selectTab('play'); newGame(); } }, 'Play this build'),
+      h('button', { class: 'btn', onclick: () => selectTab('sim') }, 'Simulate this build')));
+
+  const aiPanel = h('div', { class: 'panel' }, h('h2', null, 'AI players'),
+    h('p', { class: 'sub' }, 'Saved in this browser only. It isn\u2019t part of the build and doesn\u2019t change the rules.'),
+    row('Pause before each AI move', 'Seconds the AI waits before it plays, counted from when the last move finishes animating. 0 plays instantly.',
+      h('span', { class: 'numbox' }, h('input', { type: 'number', id: 'aipause', min: '0', max: '10', step: '0.1', value: String(aiPause), inputmode: 'decimal',
+        onchange: e => { const x = parseFloat(e.target.value); aiPause = isFinite(x) ? Math.min(10, Math.max(0, Math.round(x * 10) / 10)) : 1.5; e.target.value = String(aiPause); store.set('vyeMicro.aiPause', aiPause); } }),
+        h('span', null, 'seconds'))));
+  v.append(presets,
+    stale ? h('div', { class: 'note warn', style: 'margin:0 0 14px' }, 'A game is in progress with the old settings. Changes here apply when you start a new game. ',
+      h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => { selectTab('play'); newGame(); } }, 'Start a new game now')) : '',
+    h('div', { class: 'grid-setup' }, summary, deck, board, end, fam, specials, aiPanel));
+}
+
+// ---------- tiles ----------
+const SPEC_GLYPH = { lostcity: '♜', sinkhole: '◎', sanctuary: '✧', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
+function patEl(member) {
+  if (member === 'knave') // 5×5: jumps past a neighbour to the tile two spaces away
+    return h('span', { class: 'pat pat5' }, [...Array(25)].map((_, i) => h('i', { class: i === 12 ? 'me' : [2, 10, 14, 22].includes(i) ? 'opt' : [7, 11, 13, 17].includes(i) ? 'skip' : '' })));
+  const on = { advisor: [0,1,2,3,5,6,7,8], king: [1,3,5,7], queen: [0,2,6,8], heir: [] }[member];
+  return h('span', { class: 'pat' }, [...Array(9)].map((_, i) => h('i', { class: i === 4 ? 'me' : on.includes(i) ? 'on' : member === 'heir' ? 'opt' : '' })));
+}
+// Card art lives in art/ next to this page. Replace a file with one of the same name to change the art.
+const ART_SPECIALS = new Set(['lostcity', 'sinkhole', 'sanctuary', 'underminers', 'earthquake', 'waystone']);
+// Tile style: 'art' (card art), 'icons' (the simple small-tile set), 'symbols' (plain glyphs)
+// Background pictures for the play area. Add more here: { id, name, url } (url relative to this page).
+// Portrait pictures (made for phones) also give `play`: the open area in the middle of the picture, as fractions of
+// its width and height [left, top, right, bottom]. Those turn the table into a picture-shaped stage: the board sits
+// inside the play area and the hands sit on the picture above and below it.
+const BACKGROUNDS = [
+  { id: 'wood', name: 'Wood', url: 'art/backgrounds/wood.jpg' },
+  { id: 'logo', name: 'Vye Duel crest', url: 'art/backgrounds/logo.jpg', ratio: 941 / 1672, play: [0.05, 0.30, 0.95, 0.83] },
+  { id: 'river', name: 'Moonlit river', url: 'art/backgrounds/river.jpg', ratio: 941 / 1672, play: [0.05, 0.29, 0.95, 0.79] },
+  { id: 'arena', name: 'Wolf moon arena', url: 'art/backgrounds/arena.jpg', ratio: 941 / 1672, play: [0.05, 0.37, 0.95, 0.80] },
+  { id: 'ruins', name: 'Moonrise ruins', url: 'art/backgrounds/ruins.jpg', ratio: 941 / 1672, play: [0.04, 0.29, 0.96, 0.81] },
+  { id: 'indigo', name: 'Indigo frame', url: 'art/backgrounds/indigo.jpg', ratio: 941 / 1672, play: [0.06, 0.27, 0.94, 0.82] },
+  { id: 'none', name: 'None' }
+];
+let bgChoice = store.get('vyeMicro.bg', 'logo');
+if (!BACKGROUNDS.some(b => b.id === bgChoice)) bgChoice = 'logo';
+const bgNow = () => BACKGROUNDS.find(b => b.id === bgChoice) || {};
+const bgUrl = () => bgNow().url;
+let tileStyle = 'art';   // tiles always show their art
+let showArt = true;
+// Card borders: off leaves just the corner sigil to show who owns a tile
+let cardBorders = store.get('vyeMicro.borders', false) === true;
+document.documentElement.classList.toggle('no-borders', !cardBorders);
+function iconTile(t, owner) {
+  const o0 = owner === undefined ? t.owner : owner;
+  const o = o0 === 0 ? 'b' : o0 === 1 ? 'r' : o0 === 'both' ? 'both' : 'n';
+  let svg;
+  if (t.kind === 'land') svg = VyeTiles.land(VyeTiles.LANDS[t.land], o);
+  else if (t.kind === 'family') svg = VyeTiles.family(t.member, t.house === 0 ? 'b' : 'r', o);
+  else if (t.kind === 'special') svg = VyeTiles.special(t.special, o);
+  else svg = VyeTiles.crossroads(o);
+  const el = h('div', { class: 'tile icon', title: E.cardTitle(t) }); el.innerHTML = svg; return el;
+}
+function artSrc(t) {
+  if (t.kind === 'land') return `art/lands/${E.LANDS[t.land].art}.jpg`;
+  if (t.kind === 'family') return `art/family/${E.HOUSES[t.house].art}-${t.member}.jpg`;
+  if (t.kind === 'special' && ART_SPECIALS.has(t.special)) return `art/specials/${t.special}.jpg`;
+  return null;
+}
+function addArt(el, t) {
+  const src = showArt ? artSrc(t) : null;
+  if (!src) return;
+  const img = h('img', { class: 'art', src, alt: '', draggable: 'false' });
+  img.addEventListener('error', () => { img.remove(); el.classList.remove('has-art'); });
+  el.classList.add('has-art'); el.prepend(img);
+}
+// House sigil (owl or rose) as an inline SVG. o: 0 Midnight, 1 Roses, 'both' = none
+function sigEl(cls, o) {
+  const el = h('span', { class: cls });
+  if (o === 0 || o === 1) el.innerHTML = VyeTiles.sigilSvg(o === 0 ? 'b' : 'r', 'currentColor');
+  return el;
+}
+function tileEl(t, owner) {
+  if (tileStyle === 'icons' && window.VyeTiles) return iconTile(t, owner);
+  let el;
+  if (t.kind === 'land') {
+    const L = E.LANDS[t.land];
+    el = h('div', { class: 'tile land', style: '--lc:' + L.color }, h('span', { class: 'g' }, L.glyph), h('span', { class: 'n' }, L.name));
+  } else if (t.kind === 'family') {
+    el = h('div', { class: 'tile fam' }, patEl(t.member), h('span', { class: 'n' }, E.MEMBERS[t.member].name), h('span', { class: 'n', style: 'opacity:.6;margin-top:0' }, E.HOUSES[t.house].short));
+  } else if (t.kind === 'special') {
+    const S = E.SPECIALS[t.special];
+    el = h('div', { class: 'tile spec ' + t.special }, h('span', { class: 'g' }, SPEC_GLYPH[t.special]), h('span', { class: 'n' }, S.name));
+  } else el = h('div', { class: 'tile start' }, h('span', { class: 'g' }, '✣'), h('span', { class: 'n' }, 'Crossroads'));
+  addArt(el, t);
+  el.title = E.cardTitle(t);
+  const o = owner === undefined ? t.owner : owner;
+  if (o === 0 || o === 1 || o === 'both') {
+    const c = o === 'both' ? 'both' : 'p' + o;
+    el.append(h('span', { class: 'own ' + c }), sigEl('sig ' + c, o));
+  }
+  return el;
+}
+function cardDesc(c) {
+  if (c.kind === 'land') return `${E.LANDS[c.land].name}: matches adjacent ${E.LANDS[c.land].name} and flips the whole chain.`;
+  if (c.kind === 'family') return `${E.MEMBERS[c.member].name}: ${E.MEMBERS[c.member].rule}` + (cfg.colorCapture ? ' Also flips adjacent same-house Family.' : '');
+  return `${E.SPECIALS[c.special].name}: ${specialRule(c.special)}`;
+}
+function specialRule(s) {
+  if (s === 'lostcity') return `Cover a Land you own. Worth ${cfg.lostCityValue ?? 2} points in your kingdom.`;
+  if (s === 'usurp') return cfg.usurpMatch === false ? 'Swap a Land on the board for a Land from your hand. It takes that space only, with no matching. Old Land goes under the bag.' : 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the bag.';
+  return E.SPECIALS[s].rule;
+}
+
+// ---------- play ----------
+const seats = store.get('vyeMicro.seats', ['human', 'cautious']);
+// Seconds the AI waits before each move (after any animation). Set on the Setup tab; kept per browser, not part of the rules config.
+let aiPause = +store.get('vyeMicro.aiPause', 1.5);
+if (!(aiPause >= 0)) aiPause = 1.5;
+let reveal = false;
+let revealBag = false;
+let G = null;            // game state
+let history = [];        // snapshots before human moves
+let ui = { sel: null, pos: null, phase: null, eqA: null };
+let aiTimer = null, paused = false;
+let gameSeed = Math.floor(Math.random() * 1e6);
+
+function snapshot(s) {
+  return { board: new Map(s.board), deck: s.deck.slice(), players: s.players.map(p => ({ hand: p.hand.slice(), side: p.side.slice() })), discard: s.discard.slice(),
+    turn: s.turn, turnNo: s.turnNo, passes: s.passes, over: s.over, endReason: s.endReason, winner: s.winner, final: s.final, plays: s.plays.slice(), log: s.log.slice(), lastMove: s.lastMove, moves: s.moves };
+}
+function restore(s, snap) { Object.assign(s, snap, { board: new Map(snap.board), deck: snap.deck.slice(), players: snap.players.map(p => ({ hand: p.hand.slice(), side: p.side.slice() })) }); }
+
+function newGame(seed) {
+  clearTimeout(aiTimer); paused = false;
+  gameSeed = seed != null ? seed : Math.floor(Math.random() * 1e6);
+  G = E.newGame(cfg, gameSeed); history = []; ui = { sel: null, pos: null, phase: null, eqA: null }; animatedN = -1; animBusyUntil = 0;
+  renderPlay(); scheduleAI();
+}
+const isHuman = p => seats[p] === 'human';
+function scheduleAI() {
+  clearTimeout(aiTimer);
+  if (!G || G.over || isHuman(G.turn) || paused) return;
+  aiTimer = setTimeout(() => {
+    if (!G || G.over || isHuman(G.turn) || paused) return;
+    const m = E.chooseMove(G, seats[G.turn]);
+    if (m) { animFrom = sourceRect(G.turn, m.cardId); E.playMove(G, m); }
+    renderPlay(); scheduleAI();
+  }, Math.max(0, animBusyUntil - performance.now()) + aiPause * 1000);
+}
+function humanPlay(move) {
+  animFrom = sourceRect(G.turn, move.cardId);
+  history.push(snapshot(G));
+  E.playMove(G, move);
+  ui = { sel: null, pos: null, phase: null, eqA: null };
+  renderPlay(); scheduleAI();
+}
+function undo() {
+  if (!history.length) return;
+  clearTimeout(aiTimer);
+  restore(G, history.pop()); animatedN = G.lastMove ? G.lastMove.n : -1;
+  ui = { sel: null, pos: null, phase: null, eqA: null };
+  renderPlay();
+}
+
+function selCard() { if (!ui.sel || !G) return null; return E.findCard(G, G.turn, ui.sel); }
+function movesFor() { return G.moves.filter(m => m.cardId === ui.sel); }
+
+function clickCell(k) {
+  if (!ui.sel) return;
+  const card = selCard(); const ms = movesFor();
+  if (ui.phase === null) {
+    const pm = ms.filter(m => m.pos === k); if (!pm.length) return;
+    if (!pm.some(m => m.choice != null)) return humanPlay(pm[0]);
+    ui.pos = k;
+    if (card.special === 'usurp') ui.phase = 'usurp';
+    else if (card.special === 'earthquake') ui.phase = 'eqA';
+    else ui.phase = 'cell';
+    return renderPlay();
+  }
+  const pm = ms.filter(m => m.pos === ui.pos);
+  if (ui.phase === 'cell') { const m = pm.find(m => m.choice === k); if (m) humanPlay(m); return; }
+  if (ui.phase === 'eqA') { if (pm.some(m => m.choice && m.choice.includes(k))) { ui.eqA = k; ui.phase = 'eqB'; renderPlay(); } return; }
+  if (ui.phase === 'eqB') { const m = pm.find(m => m.choice && m.choice.includes(ui.eqA) && m.choice.includes(k) && k !== ui.eqA); if (m) humanPlay(m); return; }
+}
+
+function targetsNow() {
+  if (!G || G.over || !isHuman(G.turn) || !ui.sel) return new Set();
+  const ms = movesFor();
+  if (ui.phase === null) return new Set(ms.map(m => m.pos));
+  const pm = ms.filter(m => m.pos === ui.pos);
+  if (ui.phase === 'cell') return new Set(pm.map(m => m.choice).filter(c => c != null));
+  if (ui.phase === 'eqA') { const s = new Set(); pm.forEach(m => m.choice && m.choice.forEach(c => s.add(c))); return s; }
+  if (ui.phase === 'eqB') { const s = new Set(); pm.forEach(m => { if (m.choice && m.choice.includes(ui.eqA)) m.choice.forEach(c => { if (c !== ui.eqA) s.add(c); }); }); return s; }
+  return new Set();
+}
+
+function usurpPick(c) {
+  const m = movesFor().find(m => m.pos === ui.pos && m.choice && m.choice.land === c.land);
+  if (m) humanPlay(Object.assign({}, m, { choice: { cardId: c.id, land: c.land } }));
+}
+
+// The board always takes the room of the biggest board it can show (limit + 1 each way, since a board one short of
+// the limit can still grow on either side), so nothing around it moves as tiles go down. fit: {w, h} box in px (stage).
+function renderBoard(fit) {
+  const b = G.board;
+  const cs = b.size ? E.bbox(b) : { x0: 0, x1: 0, y0: 0, y1: 0 };
+  const open = new Set(G.over ? [] : E.placeCells(G));
+  let x0 = cs.x0, x1 = cs.x1, y0 = cs.y0, y1 = cs.y1;
+  for (const k of open) { x0 = Math.min(x0, E.kx(k)); x1 = Math.max(x1, E.kx(k)); y0 = Math.min(y0, E.ky(k)); y1 = Math.max(y1, E.ky(k)); }
+  if (ui.pos != null) { x0 = Math.min(x0, E.kx(ui.pos)); x1 = Math.max(x1, E.kx(ui.pos)); y0 = Math.min(y0, E.ky(ui.pos)); y1 = Math.max(y1, E.ky(ui.pos)); }
+  const cols = x1 - x0 + 1, rows = y1 - y0 + 1;
+  const phone = window.innerWidth <= 700, gap = phone ? 4 : 5;
+  const NX = Math.max(cols, (G.cfg.gridW | 0) + 1), NY = Math.max(rows, (G.cfg.gridH | 0) + 1);
+  let cell;
+  if (fit) cell = Math.max(24, Math.min(96, Math.floor(Math.min((fit.w - gap * (NX - 1)) / NX, (fit.h - gap * (NY - 1)) / NY))));
+  else {
+    const vw = ($('#view-play') || document.body).clientWidth;
+    const oneCol = window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 600px)').matches;
+    const avail = phone ? vw - 12 : Math.min(vw - 40, 720);
+    // also fit the window's height (the hands, scores and help line take about 480px), so the whole table shows at once
+    const vt = Math.max(0, ($('#view-play') || document.body).getBoundingClientRect().top);
+    const availH = phone ? Infinity : window.innerHeight - vt - 500;
+    cell = Math.max(phone ? 30 : 44, Math.min(86, Math.floor((avail - gap * (NX - 1)) / NX), Math.floor((availH - gap * (NY - 1)) / NY)));
+  }
+  const tg = targetsNow();
+  const lm = G.lastMove; const flipped = new Set(lm ? lm.flips : []);
+  const grid = h('div', { class: 'board', style: `grid-template-columns: repeat(${cols}, ${cell}px); --cell:${cell}px` });
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const k = E.key(x, y); const st = b.get(k);
+    const cls = ['cell'];
+    if (!st) cls.push('empty'); if (!st && open.has(k)) cls.push('open');
+    if (tg.has(k)) cls.push('target');
+    if (ui.phase && ui.pos === k && st) cls.push('chosen');
+    if (st && st.length > 1) cls.push('stacked');
+    if (lm && lm.pos === k) cls.push('last');
+    if (flipped.has(k)) cls.push('flipped');
+    const c = h('div', { class: cls.join(' '), 'data-k': k, onclick: () => clickCell(k), title: st ? st.slice().reverse().map(E.cardTitle).join(' over ') : null });
+    if (st) {
+      c.append(tileEl(st[st.length - 1]));
+      if (st.length > 1) c.append(h('span', { class: 'stack' }, '×' + st.length));
+    } else if (ui.pos === k && ui.phase) {
+      c.classList.add('ghost'); c.append(tileEl(selCard(), G.turn));
+    }
+    grid.append(c);
+  }
+  return h('div', { class: 'boardbox', style: `width:${NX * cell + gap * (NX - 1)}px;height:${NY * cell + gap * (NY - 1)}px` }, grid);
+}
+
+function promptEl() {
+  if (G.over) return h('div', { class: 'prompt' }, h('span', null, 'Game over · ' + resultLine()), h('button', { class: 'btn', onclick: () => { ui.hideEnd = false; renderPlay(); } }, 'Show result'));
+  const p = G.turn; const who = h('span', { class: 'who p' + p }, E.HOUSES[p].short);
+  // whose turn it is shows as the gold border on their hand; the prompt only gives instructions mid-play
+  if (!isHuman(p)) return h('div', { class: 'prompt' });
+  const card = selCard();
+  if (!card) return h('div', { class: 'prompt' });
+  // no Cancel / Back: tapping the chosen tile in your hand again puts it back
+  const pm = movesFor().filter(m => m.pos === ui.pos);
+  if (ui.phase === 'usurp') return h('div', { class: 'prompt' }, h('span', null, 'Usurp: tap the Land from your hand to put in its place.'));
+  if (ui.phase === 'cell') return h('div', { class: 'prompt' }, 'Choose the tile to flip.');
+  if (ui.phase === 'eqA') return h('div', { class: 'prompt' }, 'Earthquake: pick the first tile to swap.', h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === null)) }, 'No swap'));
+  if (ui.phase === 'eqB') return h('div', { class: 'prompt' }, 'Pick the second tile.');
+  return h('div', { class: 'prompt' });   // the card's rules (shown with it) are enough here
+}
+
+function handEl(p, other) {
+  const pl = G.players[p];
+  const mine = isHuman(p) && G.turn === p && !G.over;
+  const show = isHuman(p) || reveal || G.over;
+  const playable = new Set(mine ? G.moves.map(m => m.cardId) : []);
+  const cardBtn = c => {
+    const picking = mine && ui.phase === 'usurp';
+    const pickable = picking && c.kind === 'land' && movesFor().some(m => m.pos === ui.pos && m.choice && m.choice.land === c.land);
+    const ok = picking ? pickable || ui.sel === c.id : playable.has(c.id);
+    const b = h('button', { 'data-cid': c.id, class: 'hcard' + (ui.sel === c.id ? ' sel' : '') + (pickable ? ' pick' : '') + (mine && !ok ? ' dead' : ''), title: cardDesc(c), 'aria-label': E.cardTitle(c),
+      onclick: () => { if (!mine || !ok) return; if (pickable) return usurpPick(c); ui = { sel: ui.sel === c.id ? null : c.id, pos: null, phase: null, eqA: null }; renderPlay(); } });
+    b.append(tileEl(c, p)); return b;
+  };
+  return h('div', { class: 'hand-area' + (other ? ' other' : '') + (G.turn === p && !G.over ? ' turn' : ''), 'data-p': p },
+    h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`),
+    h('div', { class: 'hand' }, show ? pl.hand.map(cardBtn) : pl.hand.map(() => h('span', { class: 'hcard back' })),
+      pl.side.length ? h('span', { style: 'width:14px' }) : null, pl.side.map(cardBtn)));
+}
+
+// Second-player bonus ("first player must win by 2") shown next to Roses' score.
+function bonusTag() {
+  const b = cfg.secondBonus | 0, tie = cfg.tiebreak === 'second';
+  if (!b && !tie) return null;
+  const tip = `Roses went second, so ${b ? `Roses get +${b} at the end` : ''}${b && tie ? ' and ' : ''}${tie ? 'win ties' : ''}. Midnight has to win by ${b + (tie ? 1 : 0) + (b || tie ? 0 : 1)} or more.`;
+  return h('span', { class: 'bonus', 'data-tip': tip, tabindex: '0' }, b ? `+${b}` : 'wins ties');
+}
+function resultLine() {
+  const [a, b] = G.final.largest, w = G.winner;
+  if (w === -1) return `Tie at ${a}`;
+  return `${E.HOUSES[w].short} wins (${a} to ${b}` + ((cfg.secondBonus | 0) ? `, Roses +${cfg.secondBonus}` : '') + ')';
+}
+function resultWhy() {
+  const [a, b] = G.final.largest, bonus = cfg.secondBonus | 0, adj = b + bonus, w = G.winner;
+  const tie = cfg.tiebreak === 'second';
+  let s = `Midnight ${a}, Roses ${b}`;
+  if (bonus) s += ` + ${bonus} second-player bonus = ${adj}`;
+  s += '. ';
+  if (w === 1 && a > b) s += a === adj ? 'That\u2019s a tie, and ties go to the second player, so Roses win. Midnight needed to win by 2.' : 'The bonus puts Roses ahead. Midnight needed to win by 2.';
+  else if (w === 1 && a === b && tie) s += 'Ties go to the second player.';
+  else if (w === 0 && bonus) s += 'Midnight won by enough to beat the bonus.';
+  else if (w === -1 && cfg.tiebreak === 'total') s += 'Still tied on total tiles.';
+  else if (w !== -1 && a === adj && cfg.tiebreak === 'total') s += 'Tied, so it went to whoever owns more tiles in total.';
+  return s;
+}
+
+function countsEl() {
+  let tiles = 0; for (const st of G.board.values()) tiles += st.length;
+  const P = G.players, row = (label, a, b, cls) => [h('span', { class: cls }, label), h('span', { class: 'num ' + (cls || '') }, a), h('span', { class: 'num ' + (cls || '') }, b)];
+  const total = tiles + G.deck.length + G.discard.length + P[0].hand.length + P[1].hand.length + P[0].side.length + P[1].side.length;
+  const covered = tiles - G.board.size;
+  return h('div', { class: 'counts' },
+    row('Tiles', sigEl('sigi p0c', 0), sigEl('sigi p1c', 1), 'hd'),
+    row(covered ? `On board (${covered} covered)` : 'On board', String(tiles), '', ''),
+    row('Spaces filled', `${G.board.size} of ${cfg.gridW * cfg.gridH}`, '', ''),
+    row('In the bag', String(G.deck.length), '', ''),
+    revealBag && G.deck.length ? row((n => `${n} Land${n === 1 ? '' : 's'}`)(G.deck.filter(c => c.kind === 'land').length) + G.deck.filter(c => c.kind !== 'land').map(c => ', ' + E.SPECIALS[c.special].name).join(''), '', '', 'sub') : [],
+    row('In hand', h('span', { class: 'p0c' }, String(P[0].hand.length)), h('span', { class: 'p1c' }, String(P[1].hand.length))),
+    row('Sideboard', h('span', { class: 'p0c' }, String(P[0].side.length)), h('span', { class: 'p1c' }, String(P[1].side.length))),
+    G.discard.length ? row('Discarded', String(G.discard.length), '', '') : [],
+    row(`Total · turn ${G.turnNo + 1}`, String(total), '', 'tot'));
+}
+
+// ---------- play animations ----------
+let animOn = store.get('vyeMicro.anim', true) && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+let animatedN = -1, animFrom = null, animBusyUntil = 0;
+const visible = el => el && el.getClientRects().length && el.offsetParent !== null;
+// Where a played card comes from: the card itself if it's on screen, else that player's hand or score.
+function sourceRect(p, cardId) {
+  const cands = [document.querySelector(`.hcard[data-cid="${cardId}"]`), document.querySelector(`.hand-area[data-p="${p}"] .hand`),
+    document.querySelector(`.sbadge.p${p}`)];
+  const el = cands.find(visible); return el ? el.getBoundingClientRect() : null;
+}
+function cellEl(k) { return document.querySelector(`.cell[data-k="${k}"]`); }
+function runAnim(lm, from) {
+  const D = aiPause < 0.5 ? 280 : 500;
+  const cell = cellEl(lm.pos); if (!cell) return;
+  const st = G.board.get(lm.pos) || [];
+  const topTile = cell.querySelector('.tile:not(.under)');
+  const card = lm.card, removed = lm.removed;
+  // what sits in the space while the card is in the air: the tile it covers, or the Land Usurp replaces
+  const underTile = removed ? removed : (st.length > 1 && card.kind === 'special' && card.special !== 'usurp' ? st[st.length - 2] : null);
+  let under = null;
+  if (underTile) { under = tileEl(underTile); under.classList.add('under'); cell.prepend(under); }
+  // tiles about to flip show their old owner until their turn comes
+  const flips = lm.flips || [];
+  for (const k of flips) { const c = cellEl(k), t = E.top(G.board, k); if (c && t) { const old = c.querySelector('.tile'); old.replaceWith(tileEl(t, lm.from ? lm.from[k] : null)); } }
+  // Earthquake swaps: show the two tiles in their old places until the card lands
+  const eq = card.special === 'earthquake' && lm.choice ? lm.choice : null;
+  cell.classList.add('incoming');
+  const to = cell.getBoundingClientRect();
+  const fly = h('div', { class: 'flyer', style: `left:${to.left}px;top:${to.top}px;width:${to.width}px;height:${to.height}px` });
+  const ghost = (topTile || tileEl(E.top(G.board, lm.pos))).cloneNode(true); ghost.style.visibility = 'visible'; fly.append(ghost);
+  document.body.append(fly);
+  const src = from || { left: to.left, top: to.top - 120, width: to.width, height: to.height };
+  const dx = (src.left + src.width / 2) - (to.left + to.width / 2), dy = (src.top + src.height / 2) - (to.top + to.height / 2);
+  const sc = Math.max(.5, Math.min(1.4, src.width / to.width));
+  const covering = !!underTile;
+  // Covers, Usurp swaps and Earthquakes get a showcase: the card(s) hover big above the board long enough to see
+  // what's going on, then drop in. Everything else just flies in.
+  const showcase = card.kind === 'special' && (covering || !!removed || !!eq);
+  const HOLD = showcase ? 1300 : 0, LIFT = Math.max(54, to.height * 1.05), BIG = 1.7;
+  const ox = removed ? -to.width * 0.95 : 0;           // Usurp: new Land on the left, the one it replaces on the right
+  const total = showcase ? D + HOLD + D : D;
+  if (showcase) {
+    fly.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(${sc})`, opacity: .9, offset: 0 },
+      { transform: `translate(${ox}px, ${-LIFT}px) scale(${BIG}) rotate(-2deg)`, opacity: 1, offset: D / total },
+      { transform: `translate(${ox}px, ${-LIFT - 8}px) scale(${BIG}) rotate(2deg)`, opacity: 1, offset: (D + HOLD) / total },
+      { transform: 'translate(0, 0) scale(1)', opacity: 1, offset: 1 }], { duration: total, easing: 'cubic-bezier(.3,.7,.3,1)' });
+    // the tile being covered glows while the card hangs over it
+    if (covering && under) under.animate([{ boxShadow: '0 0 0 0 rgba(214,166,66,0)' }, { boxShadow: '0 0 0 4px rgba(214,166,66,.95), 0 0 18px 4px rgba(214,166,66,.6)' }, { boxShadow: '0 0 0 0 rgba(214,166,66,0)' }],
+      { duration: D + HOLD, delay: D * .5, easing: 'ease-in-out' });
+    // Usurp: the old Land rises out of its space, hangs beside the new one, then goes back in the bag
+    if (removed && under) {
+      under.remove();
+      const out = h('div', { class: 'flyer', style: `left:${to.left}px;top:${to.top}px;width:${to.width}px;height:${to.height}px` }); out.append(under); under.classList.remove('under');
+      document.body.append(out);
+      out.animate([
+        { transform: 'none', opacity: 1, offset: 0 },
+        { transform: `translate(${-ox}px, ${-LIFT}px) scale(${BIG * .85}) rotate(3deg)`, opacity: 1, offset: D / total },
+        { transform: `translate(${-ox}px, ${-LIFT - 8}px) scale(${BIG * .85}) rotate(-2deg)`, opacity: 1, offset: (D + HOLD) / total },
+        { transform: `translate(${-ox * 2.4}px, ${-LIFT * 2.2}px) scale(.5) rotate(18deg)`, opacity: 0, offset: 1 }], { duration: total, easing: 'ease-in-out' }).onfinish = () => out.remove();
+      under = null;
+    }
+  } else fly.animate([
+    { transform: `translate(${dx}px, ${dy}px) scale(${sc})`, opacity: .9 },
+    { transform: `translate(${dx * .35}px, ${dy * .35 - 26}px) scale(${covering ? 1.25 : 1.15}) rotate(-3deg)`, opacity: 1, offset: .6 },
+    { transform: 'translate(0, 0) scale(1)', opacity: 1 }], { duration: D, easing: 'cubic-bezier(.2,.75,.25,1)' });
+  let t = total;
+  setTimeout(() => {
+    fly.remove(); cell.classList.remove('incoming');
+    const landed = cell.querySelector('.tile:not(.under)');
+    if (landed) landed.animate([{ transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' });
+    if (under && removed) { // Usurp: the old Land goes back to the bag
+      const bag = [document.querySelector('.counts')].find(visible);
+      const r0 = cell.getBoundingClientRect(), r1 = bag ? bag.getBoundingClientRect() : { left: r0.left, top: r0.top - 200, width: 10, height: 10 };
+      const out = h('div', { class: 'flyer', style: `left:${r0.left}px;top:${r0.top}px;width:${r0.width}px;height:${r0.height}px` }); out.append(under); document.body.append(out);
+      out.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${r1.left + r1.width / 2 - r0.left - r0.width / 2}px, ${r1.top + r1.height / 2 - r0.top - r0.height / 2}px) scale(.3)`, opacity: 0 }], { duration: D, easing: 'ease-in' }).onfinish = () => out.remove();
+    } else if (under) under.remove();
+  }, total);
+  if (eq) {
+    const [a, b] = eq.map(cellEl);
+    if (a && b) {
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const ta = a.querySelector('.tile'), tb = b.querySelector('.tile');
+      const swap = (el, x, y) => el && el.animate([
+        { transform: `translate(${x}px, ${y}px)`, zIndex: 5 },
+        { transform: `translate(${x}px, ${y - 22}px) scale(1.3)`, boxShadow: '0 16px 30px rgba(0,0,0,.45)', zIndex: 5, offset: .25 },
+        { transform: `translate(0, -22px) scale(1.3)`, boxShadow: '0 16px 30px rgba(0,0,0,.45)', zIndex: 5, offset: .75 },
+        { transform: 'none', zIndex: 5 }], { duration: D * 3, delay: total, fill: 'backwards', easing: 'ease-in-out' });
+      swap(ta, rb.left - ra.left, rb.top - ra.top); swap(tb, ra.left - rb.left, ra.top - rb.top);
+      t += D * 3;
+    }
+  }
+  // flips turn over one at a time once the card has landed
+  flips.forEach((k, i) => setTimeout(() => {
+    const c = cellEl(k), tt = E.top(G.board, k); if (!c || !tt) return;
+    const old = c.querySelector('.tile');
+    const a1 = old.animate([{ transform: 'rotateY(0)' }, { transform: 'rotateY(90deg)' }], { duration: 140, easing: 'ease-in', fill: 'forwards' });
+    a1.onfinish = () => { const nu = tileEl(tt); old.replaceWith(nu); nu.animate([{ transform: 'rotateY(90deg)' }, { transform: 'rotateY(0)' }], { duration: 160, easing: 'ease-out' }); };
+  }, t + 80 + i * 120));
+  t += flips.length ? 80 + flips.length * 120 + 300 : 150;
+  if (aiNote && !isHuman(0) && !isHuman(1)) t += 2200;
+  animBusyUntil = performance.now() + t;
+}
+
+// When an AI plays anything but a Land, a pill in its colour says what happened, for a few seconds.
+const NOTE_MS = 5000;
+let aiNote = null, notedN = -1;
+function aiNoteText(lm) {
+  const who = E.HOUSES[lm.p].short, c = lm.card, n = (lm.flips || []).length;
+  const st = G.board.get(lm.pos) || [], below = st.length > 1 ? st[st.length - 2] : null;
+  const name = t => t ? E.cardTitle(t) : 'a tile';
+  const flipped = n ? ` and flipped ${n} tile${n === 1 ? '' : 's'}` : '';
+  if (c.kind === 'family') return `${who} played their ${E.MEMBERS[c.member].name}${n ? flipped : ', but there was nothing to flip'}.`;
+  if (c.special === 'lostcity') return `${who} built a Lost City on their ${name(below)}. That space now counts ${cfg.lostCityValue ?? 2} in their kingdom.`;
+  if (c.special === 'sinkhole') return `${who} opened a Sinkhole on ${name(below)}. Nobody owns that space now, and it can\u2019t be captured.`;
+  if (c.special === 'usurp') return `${who} used Usurp: ${name(lm.removed)} goes back in the bag and their ${name(E.top(G.board, lm.pos))} takes its place${flipped}.`;
+  if (c.special === 'earthquake') return lm.choice ? `${who} set off an Earthquake and swapped two tiles${flipped}.` : `${who} set off an Earthquake but swapped nothing.`;
+  return `${who} played ${E.SPECIALS[c.special].name}${below ? ` on ${name(below)}` : ''}${flipped}. ${specialRule(c.special)}`;
+}
+function notePill(note) {
+  return h('div', { class: 'stage-tip note-pill tp' + note.p }, sigEl('tip-sig p' + note.p, note.p), h('div', { class: 'cardinfo' }, note.text));
+}
+
+let railOpen = false;   // Game panel (opened with the gear on the board) starts closed
+function renderPlay() {
+  const v = $('#view-play'); v.textContent = '';
+  if (!G) return;
+  if (G.lastMove && G.lastMove.n !== notedN) {
+    notedN = G.lastMove.n; const lm = G.lastMove;
+    if (!isHuman(lm.p) && lm.card.kind !== 'land') {
+      const note = aiNote = { p: lm.p, text: aiNoteText(lm) };
+      setTimeout(() => { if (aiNote === note) { aiNote = null; document.querySelectorAll('.note-pill').forEach(e => e.remove()); } }, NOTE_MS);
+    } else aiNote = null;
+  }
+  const sc = E.score(G.board);
+  const bg = bgNow(), stage = !!bg.play;
+  const viewTop = v.getBoundingClientRect().top + window.scrollY;
+  const table = h('div', { class: 'table' + (bg.url ? ' has-bg' : '') + (stage ? ' stage' : '') });
+  if (bg.url) table.style.backgroundImage = `url("${bg.url}")`;
+  let S = null;   // stage geometry (px)
+  if (stage) {
+    // as big as fits both the column and the window (below the header), in the picture's own shape
+    const colW = v.clientWidth;
+    const availH = Math.max(520, window.innerHeight - Math.max(0, viewTop - window.scrollY) - 14);
+    const W = Math.floor(Math.min(colW, availH * bg.ratio, 760)), H = Math.round(W / bg.ratio);
+    const [l, t, r, b] = bg.play;
+    S = { W, H, top: t * H, bot: (1 - b) * H, box: { x: l * W, y: t * H, w: (r - l) * W, h: (b - t) * H } };
+    table.style.width = W + 'px'; table.style.height = H + 'px';
+    // hand tiles: as big as fits beside the gear (4 tiles: 2 in hand + 2 on the sideboard)
+    table.style.setProperty('--hc', Math.round(Math.max(40, Math.min(72, (W - 104 - 52) / 4))) + 'px');
+  }
+  // score: the house sigil, big, with the score (largest kingdom) on it; Roses' tie-break tag underneath
+  const mchip = p => h('span', { class: 'sbadge-wrap p' + p },
+    h('span', { class: 'sbadge p' + p, 'data-tip': `${E.HOUSES[p].short}: largest kingdom ${sc.largest[p]} (that\u2019s the score). ${sc.total[p]} tiles owned in all.`, tabindex: '0' },
+      sigEl('sbsig', p), h('b', null, String(sc.largest[p]))),
+    p === 1 ? bonusTag() : null);
+  const scoreRow = h('div', { class: 'mscore' }, mchip(0), mchip(1));
+  if (!stage) table.append(scoreRow);
+  const warn = !cfgChanged() ? null : (h('div', { class: 'note warn', style: 'margin:0;text-align:center' },
+    'Setup has changed since this game started. This game keeps the rules it was dealt with. ',
+    h('button', { class: 'btn', style: 'margin-left:6px', onclick: () => newGame() }, 'New game with current Setup')));
+  if (warn && !stage) table.append(warn);
+  // the AI sits at the top of the board, the human at the bottom (two humans or two AIs: Roses top, Midnight bottom)
+  const hp = [0, 1].filter(p => isHuman(p));
+  const bottom = hp.length === 1 ? hp[0] : 0;
+  const card = selCard();
+  const info = h('div', { class: 'cardinfo' + (card ? '' : ' idle') }, card ? cardDesc(card) : 'Ownership is the outline and sigil: blue owl for Midnight, red rose for Roses.');
+  if (!stage) {
+    table.append(handEl(1 - bottom, true));
+    table.append(renderBoard());
+    table.append(h('div', { class: 'tray' }, promptEl(), info, handEl(bottom)));
+    if (aiNote && !card && !G.over) table.append(notePill(aiNote));
+  } else {
+    // picture stage: scores and the top hand on the art above the play area, the board inside it, your hand below
+    const pr = promptEl();
+    let tip = h('div', { class: 'stage-tip tp' + G.turn }, G.over ? null : sigEl('tip-sig p' + G.turn, G.turn), pr, card ? info : null);
+    if (!pr.childNodes.length && !card) { if (aiNote && !G.over) tip = notePill(aiNote); else tip.hidden = true; }
+    table.append(
+      h('div', { class: 'stage-top', style: `height:${S.top}px` }, scoreRow, handEl(1 - bottom, true), tip),
+      h('div', { class: 'stage-board', style: `left:${S.box.x}px;top:${S.box.y}px;width:${S.box.w}px;height:${S.box.h}px` }, renderBoard({ w: S.box.w - 8, h: S.box.h - 8 })),
+      h('div', { class: 'stage-bot', style: `height:${S.bot}px` }, handEl(bottom)));
+  }
+  if (G.over && !ui.hideEnd) {
+    const w = G.winner;
+    table.append(h('div', { class: 'endcard' }, h('div', { class: 'box' },
+      h('h2', { class: w === -1 ? '' : 'p' + w + 'c' }, w === -1 ? 'A tie' : E.HOUSES[w].short + ' wins'),
+      h('div', null, resultWhy()),
+      h('div', { style: 'color:var(--muted);font-size:13.5px' }, `${G.endReason} · ${G.turnNo} turns`),
+      h('div', { style: 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap' },
+        h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
+        h('button', { class: 'btn', onclick: () => newGame(gameSeed) }, 'Replay seed'),
+        h('button', { class: 'btn', onclick: () => { ui.hideEnd = true; renderPlay(); } }, 'Look at the board')))));
+  }
+
+  const personaOpts = (p) => h('select', { id: 'seat-' + p, onchange: e => { seats[p] = e.target.value; store.set('vyeMicro.seats', seats); renderPlay(); scheduleAI(); } },
+    h('option', { value: 'human', selected: seats[p] === 'human' }, 'Human'),
+    Object.entries(E.PERSONAS).map(([k, P]) => h('option', { value: k, selected: seats[p] === k }, 'AI · ' + P.name)));
+  const bothAI = !isHuman(0) && !isHuman(1);
+  const check = (id, on, label, fn) => h('label', { class: 'check' }, h('input', { type: 'checkbox', id, checked: on, onchange: e => fn(e.target.checked) }), label);
+  const rail = h('div', { class: 'gpanel', hidden: !railOpen, role: 'dialog', 'aria-label': 'Game panel' },
+    h('div', { class: 'gp-head' }, h('h2', null, 'Game panel'), h('button', { class: 'btn gp-close', 'aria-label': 'Close', onclick: () => { railOpen = false; renderPlay(); } }, '\u00d7')),
+    h('div', { class: 'panel' },
+      h('div', { class: 'seat' },
+        h('span', { class: 'dot p0' }), personaOpts(0), h('span', { class: 'dot p1' }), personaOpts(1)),
+      h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center' },
+        h('button', { class: 'btn primary', onclick: () => newGame() }, 'New game'),
+        bothAI ? h('button', { class: 'btn', onclick: () => { paused = !paused; renderPlay(); scheduleAI(); } }, paused ? 'Resume' : 'Pause') : null),
+      h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
+        check('borders', cardBorders, 'Card borders', on => { cardBorders = on; store.set('vyeMicro.borders', on); document.documentElement.classList.toggle('no-borders', !on); }),
+        check('showtabs', showTabs, 'Setup & Simulate tabs', on => { showTabs = on; store.set('vyeMicro.tabs', on); applyTabsBar(); renderPlay(); }),
+        h('label', { style: 'display:inline-flex;gap:8px;align-items:center' }, h('span', { style: 'color:var(--muted)' }, 'Background'),
+          h('select', { id: 'bgpick', style: 'width:auto', onchange: e => { bgChoice = e.target.value; store.set('vyeMicro.bg', bgChoice); renderPlay(); } },
+            BACKGROUNDS.map(b => h('option', { value: b.id, selected: b.id === bgChoice }, b.name)))),
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'reveal', checked: reveal, onchange: e => { reveal = e.target.checked; renderPlay(); } }), 'Show AI hands'),
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'revealbag', checked: revealBag, onchange: e => { revealBag = e.target.checked; renderPlay(); } }), 'Show what\u2019s in the bag'),
+        h('span', { style: 'color:var(--muted)' }, `Seed ${gameSeed}`)),
+      h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px' },
+        h('a', { class: 'btn', href: 'print/vye-duel-print-and-play.pdf', target: '_blank', rel: 'noopener' }, 'Print & play PDF'),
+        h('button', { class: 'btn', onclick: () => copyText(JSON.stringify(cfg)) }, 'Copy config'))),
+    h('div', { class: 'panel' },
+      countsEl(),
+      h('h3', { style: 'font-size:15px;margin-bottom:6px' }, 'Log'),
+      h('div', { class: 'log' }, G.log.length ? G.log.slice(-14).reverse().map(e => e.pass
+        ? h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), 'passes')
+        : h('div', { class: 'e' }, h('span', { class: 't' }, String(e.turn + 1)), h('span', { class: 'p' + e.p + 'c' }, E.HOUSES[e.p].short), h('span', null, e.title + (e.flips ? ` · flipped ${e.flips}` : '')),
+          h('span', { class: 'sw', title: 'Change in kingdom lead' }, (e.swing >= 0 ? '+' : '') + e.swing))) : h('div', { style: 'color:var(--muted)' }, 'No moves yet.'))));
+  const GEAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M10.3 2h3.4l.5 2.6c.6.2 1.2.5 1.7.9l2.5-.9 1.7 2.9-2 1.7c.1.6.1 1.3 0 1.9l2 1.7-1.7 2.9-2.5-.9c-.5.4-1.1.7-1.7.9l-.5 2.6h-3.4l-.5-2.6c-.6-.2-1.2-.5-1.7-.9l-2.5.9-1.7-2.9 2-1.7a6 6 0 0 1 0-1.9l-2-1.7 1.7-2.9 2.5.9c.5-.4 1.1-.7 1.7-.9L10.3 2Zm1.7 6.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" transform="translate(0 1)"/></svg>';
+  const gear = h('button', { class: 'gear' + (railOpen ? ' on' : ''), 'aria-label': 'Game panel', 'aria-expanded': String(railOpen), onclick: () => { railOpen = !railOpen; renderPlay(); } });
+  gear.innerHTML = GEAR;
+  table.append(rail, gear);
+  const col = stage ? h('div', { class: 'stage-col' }, warn, table) : h('div', { class: 'stage-col' }, warn && !table.contains(warn) ? warn : null, table);
+  v.append(h('div', { class: 'play solo' }, col));
+  if (G.lastMove && G.lastMove.n !== animatedN) { animatedN = G.lastMove.n; if (animOn) runAnim(G.lastMove, animFrom); }
+  animFrom = null;
+}
+
+// ---------- simulate ----------
+let simState = store.get('vyeMicro.sim', { a: 'cautious', b: 'greedy', n: 500, alt: true });
+let simResult = null, simWorker = null, matrixResult = null;
+function workerSrc() {
+  return $('#vye-engine').textContent + `
+self.onmessage = e => {
+  const d = e.data;
+  if (d.type === 'batch') {
+    const S = VyeEngine.runBatch(d.cfg, d.personas, d.n, d.seed, d.alt, (i, n) => self.postMessage({ type: 'progress', i, n }));
+    const sum = VyeEngine.summarize(S);
+    self.postMessage({ type: 'done', sum, text: VyeEngine.reportText(sum, d.cfg, d.personas) });
+  } else if (d.type === 'matrix') {
+    const keys = d.keys, out = {}; let done = 0, total = keys.length * (keys.length - 1) / 2;
+    for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) {
+      const S = VyeEngine.runBatch(d.cfg, [keys[i], keys[j]], d.n, d.seed, true);
+      out[keys[i] + '|' + keys[j]] = { a: S.wins[keys[i]] / S.games, b: S.wins[keys[j]] / S.games };
+      self.postMessage({ type: 'progress', i: ++done, n: total });
+    }
+    self.postMessage({ type: 'matrix', out, keys });
+  }
+};`;
+}
+function startWorker(msg) {
+  if (simWorker) simWorker.terminate();
+  try {
+    simWorker = new Worker(URL.createObjectURL(new Blob([workerSrc()], { type: 'text/javascript' })));
+  } catch (e) { simWorker = null; }
+  const bar = $('#sim-bar'), lbl = $('#sim-status');
+  const onMsg = d => {
+    if (d.type === 'progress') { bar.style.width = (100 * d.i / d.n) + '%'; lbl.textContent = `${d.i} of ${d.n}`; }
+    if (d.type === 'done') { simResult = { sum: d.sum, text: d.text, cfg: JSON.parse(JSON.stringify(cfg)), personas: msg.personas }; simWorker = null; renderSim(); }
+    if (d.type === 'matrix') { matrixResult = d; simWorker = null; renderSim(); }
+  };
+  if (simWorker) { simWorker.onmessage = e => onMsg(e.data); simWorker.postMessage(msg); }
+  else { // fallback: run on the main thread
+    setTimeout(() => {
+      if (msg.type === 'batch') { const S = E.runBatch(msg.cfg, msg.personas, msg.n, msg.seed, msg.alt); const sum = E.summarize(S); onMsg({ type: 'done', sum, text: E.reportText(sum, msg.cfg, msg.personas) }); }
+    }, 30);
+  }
+  renderSimRunning();
+}
+function renderSimRunning() { const b = $('#sim-run'), m = $('#sim-matrix'); if (b) b.disabled = true; if (m) m.disabled = true; $('#sim-status').textContent = 'Starting…'; }
+
+const TIPS = {
+  first: 'How often the player who went first won. In a fair game this sits near the second player’s number.',
+  second: 'How often the player who went second won.',
+  ties: 'Games where both kingdoms ended the same size.',
+  turns: 'Average number of turns in a game, counting both players.',
+  margin: 'How many tiles the winner usually won by. Small means close games. Big means blowouts.',
+  kingdom: 'Average size of each side’s biggest connected group at the end.',
+  card: 'The card that was played. Hover a row for a plain-English summary of that card.',
+  plays: 'How often this card got played per game, counting both players. 2.00 means each player played it about once.',
+  mean: 'The typical result. On average, one play of this card moved the race this many tiles your way. A plain Land is about +1.',
+  sd: 'Spread (standard deviation): how predictable it is. Under 1 means it does about the same thing every time. Over 2 means it’s a gamble: sometimes huge, sometimes nothing.',
+  min: 'The worst single play of this card across all the games.',
+  max: 'The best single play of this card across all the games.',
+  range: 'The line runs from worst to best play. The shaded band is where most plays landed. The dot is the typical play.',
+  flips: 'How many of the opponent’s tiles it flipped on an average play.',
+  win: 'How often the player who played this card went on to win. Near 50% is neutral. Well above 55% means it tends to decide games. Well below 45% means it isn’t pulling its weight.'
+};
+function rowTip(c, landMean) {
+  const x = landMean > 0 ? c.mean / landMean : 0;
+  const strength = c.label === 'Land' ? 'This is the yardstick everything else is compared to.'
+    : x >= 3 ? `That’s about ${x.toFixed(1)}× a plain Land, which is a lot.`
+    : x >= 1.6 ? `That’s about ${x.toFixed(1)}× a plain Land.`
+    : x >= 0.7 ? 'About the same as a plain Land.' : 'Less than a plain Land, at least in the race for the biggest kingdom.';
+  const pred = c.sd < 0.6 ? 'It does nearly the same thing every time.' : c.sd < 1.5 ? 'It’s fairly predictable.' : c.sd < 2.5 ? 'Results vary a fair bit.' : 'It’s a gamble: results vary wildly.';
+  const win = c.winWhenPlayed >= 0.56 ? 'Players who used it won more often than not.' : c.winWhenPlayed <= 0.44 ? 'Players who used it usually lost.' : 'Using it doesn’t change who wins much.';
+  return `${c.label}: a typical play moves the race ${c.mean >= 0 ? '+' : ''}${c.mean.toFixed(1)} tiles your way. ${strength} ${pred} Worst play ${c.min}, best play ${c.max}. ${win} (${Math.round(100 * c.winWhenPlayed)}% win)`;
+}
+
+// Turns a summary into plain-English findings and suggestions.
+function buildReview(s, c, personas) {
+  const status = [], suggest = [];
+  const pct = x => Math.round(100 * x) + '%';
+  const N = s.games, f = s.firstSeatWinRate, sc = s.secondSeatWinRate, decided = f + sc;
+  const share = decided ? f / decided : 0.5;
+  const moe = decided ? 1.96 * Math.sqrt(share * (1 - share) / (decided * N)) : 1;
+  const mirror = personas[0] === personas[1];
+  const careless = personas.every(p => p === 'greedy' || p === 'chaotic' || p === 'random');
+  // seat balance
+  const gap = share - 0.5;
+  if (Math.abs(gap) <= Math.max(moe, 0.025)) status.push(`Going first or second makes no real difference here (first ${pct(f)}, second ${pct(sc)}). That’s within the noise for ${N} games.`);
+  else {
+    const who = gap > 0 ? 'first' : 'second', size = Math.abs(gap) > 0.1 ? 'a big' : Math.abs(gap) > 0.05 ? 'a clear' : 'a small';
+    status.push(`The ${who} player has ${size} edge: first wins ${pct(f)}, second wins ${pct(sc)}, ties ${pct(s.tieRate)}.`);
+    const B = c.secondBonus | 0, T = c.tiebreak;
+    const tieWord = { none: 'stay ties', total: 'go to whoever owns more tiles', second: 'go to the second player' }[T] || 'stay ties';
+    const now = `Right now the second player gets +${B} and ties ${tieWord}.`;
+    if (gap > 0) {
+      if (B === 0 && T !== 'second') suggest.push(`${now} Give ties to the second player: in Setup \u2192 Game end, set Ties to Second player. In testing that brought careful play to about 50/50.`);
+      else suggest.push(`${now} The first player is still ahead, so give the second player a little more: in Setup \u2192 Game end, raise Second player bonus from ${B} to ${B + 1}${T !== 'second' ? ', or set Ties to Second player' : ''}.`);
+    } else if (careless) {
+      status.push('Careless players (Greedy, Chaotic, Random) always lean toward the second player, because the first player\u2019s early moves get punished.');
+      suggest.push(`Don\u2019t change the seat rules based on this run. Run Cautious against Cautious first; that\u2019s closer to how people play. ${now}`);
+    } else if (B > 0 && T === 'second') {
+      suggest.push(`${now} That\u2019s a little too generous for these players. Try setting Second player bonus from ${B} to ${B - 1} and keep Ties on Second player. ${B - 1 === 0 ? 'Then the first player only has to win, and the second player just gets the ties.' : ''}`);
+    } else if (B > 0) {
+      suggest.push(`${now} Try setting Second player bonus from ${B} to ${B - 1}.`);
+    } else if (T === 'second') {
+      suggest.push(`${now} Try setting Ties back to Tie.`);
+    } else {
+      suggest.push(`${now} The second player is ahead even with no help. Try a larger hand size, which softens the first move\u2019s weakness.`);
+    }
+  }
+  if (!mirror) {
+    const [a, b] = personas, wa = s.wins[a] / N, wb = s.wins[b] / N;
+    const nm = k => E.PERSONAS[k].name;
+    if (Math.abs(wa - wb) > 0.08) status.push(`${nm(wa > wb ? a : b)} beat ${nm(wa > wb ? b : a)} ${pct(Math.max(wa, wb))} to ${pct(Math.min(wa, wb))}, so skill matters in this build${Math.max(wa, wb) > 0.85 ? ', maybe too much: the weaker player rarely gets a win' : ''}.`);
+    else status.push(`${nm(a)} and ${nm(b)} finished close (${pct(wa)} vs ${pct(wb)}). Either the build rewards luck, or these two styles are evenly matched.`);
+  }
+  // ties and margins
+  if (s.tieRate > 0.08 && c.tiebreak === 'none') { status.push(`Ties are common (${pct(s.tieRate)}).`); suggest.push('Pick a tiebreak in Setup → Game end. Total tiles owned is the most neutral; giving ties to the second player also helps seat balance.'); }
+  const avgK = Object.values(s.scores).reduce((a, x) => a + x.mean, 0) / Math.max(1, Object.keys(s.scores).length);
+  const ratio = avgK ? s.margin.mean / avgK : 0;
+  if (ratio > 0.6) { status.push(`Games are often one-sided: the winner leads by ${s.margin.mean.toFixed(1)} tiles on average when kingdoms are about ${avgK.toFixed(1)}.`); suggest.push('Blowouts usually come from big swing cards. Toning down the hottest card below is the quickest way to keep games close.'); }
+  else if (ratio < 0.3) status.push(`Games are close: the average winning margin is ${s.margin.mean.toFixed(1)} tiles.`);
+  else status.push(`Winning margins are moderate (${s.margin.mean.toFixed(1)} tiles on kingdoms of about ${avgK.toFixed(1)}).`);
+  // cards
+  const land = s.cards.find(x => x.label === 'Land'), lm = land ? land.mean : 1;
+  const others = s.cards.filter(x => x.label !== 'Land' && x.plays >= Math.max(20, N * 0.2));
+  const hot = others.filter(x => x.mean > lm * 3 && x.mean > 3).sort((a, b) => b.mean - a.mean);
+  const swingy = others.filter(x => x.sd > 2).sort((a, b) => b.sd - a.sd);
+  const deciders = others.filter(x => x.winWhenPlayed > 0.58).sort((a, b) => b.winWhenPlayed - a.winWhenPlayed);
+  const weak = others.filter(x => x.winWhenPlayed < 0.42).sort((a, b) => a.winWhenPlayed - b.winWhenPlayed);
+  const FIX = {
+    'Queen': 'take the Queen out of the sideboards, or replace it with a second King',
+    'Advisor': 'drop the Advisor, or have it flip only up to 4 of its 8 neighbors',
+    'Usurp': 'stop the new Land from matching, so it only swaps',
+    'Sinkhole': 'only allow it on a tile next to one of yours',
+    'Earthquake': 'limit swaps to two adjacent tiles',
+    'Underminers': 'limit it to flipping Lands',
+    'Heir': 'limit its pick to the 4 adjacent tiles',
+    'Knave': 'let it only flip Lands, or only jump over your own tiles',
+    'King': 'leave it alone; the King is a good baseline Family tile'
+  };
+  if (hot.length) {
+    status.push(`Strongest cards: ${hot.map(x => `${x.label} (about ${(x.mean / lm).toFixed(1)}× a Land)`).join(', ')}.`);
+    hot.slice(0, 2).forEach(x => suggest.push(`${x.label} is doing ${(x.mean / lm).toFixed(1)}× the work of a Land. To tighten it, ${FIX[x.label] || 'make it rarer (fewer copies) or weaker'}.`));
+  } else status.push('No card is wildly stronger than the others. That’s what you want for a tight game.');
+  if (swingy.length) { status.push(`Least predictable: ${swingy.slice(0, 3).map(x => `${x.label} (anywhere from ${x.min} to ${x.max})`).join(', ')}.`);
+    suggest.push(`${swingy[0].label} is the most luck-dependent card. If you want less swing, cap what it can capture or cut a copy.`); }
+  if (deciders.length) status.push(`Cards that tend to decide games: ${deciders.slice(0, 3).map(x => `${x.label} (${pct(x.winWhenPlayed)} win when played)`).join(', ')}.`);
+  if (weak.length) { status.push(`Cards that don’t seem to help: ${weak.slice(0, 3).map(x => `${x.label} (${pct(x.winWhenPlayed)} win when played)`).join(', ')}.`);
+    suggest.push(`${weak[0].label} rarely leads to a win. It may be too weak, or the AI may be playing it badly. Try it yourself before cutting it.`); }
+  const unused = Object.keys(c.specials || {}).filter(k => c.specials[k] > 0 && !s.cards.some(x => x.label === E.SPECIALS[k].name && x.plays >= N * 0.1));
+  if (unused.length) { status.push(`Rarely or never played: ${unused.map(k => E.SPECIALS[k].name).join(', ')}.`); suggest.push(`${unused.map(k => E.SPECIALS[k].name).join(', ')} hardly ever gets a legal or useful moment. Loosen what it can target, or drop it.`); }
+  // ends
+  const stuck = (s.endReasons['No valid play'] || 0) / N;
+  if (stuck > 0.04) { status.push(`${pct(stuck)} of games ended because a player had no legal play.`); suggest.push('Players are getting stuck holding cover cards with nothing to cover. Turn off “A player can’t play” so they pass instead, or raise the hand size.'); }
+  if (s.unplayedFamilyPerGame > 1) suggest.push(`About ${s.unplayedFamilyPerGame.toFixed(1)} Family tiles go unplayed each game. The board fills before they come out, so add a space or remove a Family member.`);
+  status.push(`Games last about ${Math.round(s.turns.mean)} turns (${Math.round(s.turns.mean / 2)} each).`);
+  if (s.comeback) {
+    const cb = s.comeback, half = cb.checks[1].leaderWins;
+    status.push(`Comebacks: the player ahead at halfway wins ${pct(half)} of the time, and ${pct(cb.comebackFromHalf)} of games are won from behind. The lead changes about ${cb.leadChanges.toFixed(1)} times a game.`);
+    if (half >= 0.85) suggest.push('The leader at halfway almost always wins. Add a catch-up lever: let the player who is behind draw an extra tile, or make captures stronger against bigger kingdoms.');
+    else if (cb.halfwayBySize[2].games * N >= 80 && cb.halfwayBySize[2].leaderWins >= 0.9) suggest.push('A 5+ tile lead at halfway is nearly decisive. Cards that cut kingdoms apart (Sinkhole) or steal tiles (Usurp) are the natural catch-up tools; an extra copy could help.');
+  }
+  return { status, suggest };
+}
+
+function wireTips() {
+  const tip = $('#tip'); let cur = null;
+  const show = el => {
+    cur = el; tip.textContent = el.getAttribute('data-tip'); tip.hidden = false;
+    const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+    let x = Math.min(Math.max(8, r.left + r.width / 2 - tw / 2), window.innerWidth - tw - 8);
+    let y = r.top - th - 8; if (y < 8) y = r.bottom + 8;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  };
+  const hide = () => { cur = null; tip.hidden = true; };
+  document.addEventListener('pointerover', e => { if (e.pointerType === 'touch') return; const el = e.target.closest('[data-tip]'); if (el) show(el); else if (cur) hide(); });
+  document.addEventListener('click', e => { const el = e.target.closest('[data-tip]'); if (el && el !== cur) show(el); else hide(); });
+  document.addEventListener('focusin', e => { const el = e.target.closest('[data-tip]'); if (el && el.matches(':focus-visible')) show(el); });
+  document.addEventListener('focusout', hide);
+  window.addEventListener('scroll', hide, { passive: true });
+}
+
+function runawayVerdict(cb, games) {
+  const half = cb.checks[1].leaderWins, big = cb.halfwayBySize[2];
+  if (half >= 0.85) return `Runaway risk: whoever is ahead at halfway wins ${Math.round(100 * half)}% of the time, so the second half often doesn’t matter.`;
+  if (big.games * games >= 80 && big.leaderWins >= 0.9) return `Mostly healthy, but a lead of 5 or more at halfway is close to decisive (${Math.round(100 * big.leaderWins)}%).`;
+  if (half <= 0.55) return 'Very swingy: being ahead at halfway barely matters. Good for comebacks, but skill and early play may feel unrewarded.';
+  return `Healthy: being ahead helps (${Math.round(100 * half)}% at halfway), but ${Math.round(100 * cb.comebackFromHalf)}% of games are still won from behind.`;
+}
+
+function swingBar(c, lo, hi) {
+  const W = 170, H = 18, x = v => 6 + (W - 12) * (v - lo) / Math.max(1, hi - lo);
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg'); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const mk = (tag, attrs) => { const e = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); svg.append(e); };
+  mk('line', { x1: x(0), x2: x(0), y1: 1, y2: H - 1, stroke: 'var(--line)', 'stroke-width': 1 });
+  mk('line', { x1: x(c.min), x2: x(c.max), y1: H / 2, y2: H / 2, stroke: 'var(--muted)', 'stroke-width': 1.5 });
+  mk('rect', { x: x(Math.max(c.min, c.mean - c.sd)), y: H / 2 - 4, width: Math.max(2, x(Math.min(c.max, c.mean + c.sd)) - x(Math.max(c.min, c.mean - c.sd))), height: 8, rx: 2, fill: 'color-mix(in srgb, var(--brass) 35%, transparent)' });
+  mk('circle', { cx: x(c.mean), cy: H / 2, r: 4, fill: 'var(--brass)' });
+  return svg;
+}
+
+function renderSim() {
+  const v = $('#view-sim'); v.textContent = '';
+  const pick = (id, val, on) => h('select', { id, onchange: e => on(e.target.value) }, Object.entries(E.PERSONAS).map(([k, P]) => h('option', { value: k, selected: val === k }, P.name)));
+  const save = () => store.set('vyeMicro.sim', simState);
+  const running = !!simWorker;
+  const controls = h('div', { class: 'panel' },
+    h('h2', null, 'Run games'), h('p', { class: 'sub' }, 'Uses the current Setup. Two AI players play it out as fast as possible.'),
+    h('div', { class: 'field' }, h('label', { for: 'sim-a' }, 'Player A'), pick('sim-a', simState.a, x => { simState.a = x; save(); renderSim(); }), h('span', { class: 'persona-blurb' }, E.PERSONAS[simState.a].blurb)),
+    h('div', { class: 'field' }, h('label', { for: 'sim-b' }, 'Player B'), pick('sim-b', simState.b, x => { simState.b = x; save(); renderSim(); }), h('span', { class: 'persona-blurb' }, E.PERSONAS[simState.b].blurb)),
+    h('div', { class: 'field' }, h('label', null, 'Games'), seg([[100, '100'], [500, '500'], [1000, '1k'], [3000, '3k']], simState.n, x => { simState.n = x; save(); renderSim(); })),
+    h('label', { class: 'check', style: 'margin-bottom:12px;font-size:14px' }, h('input', { type: 'checkbox', id: 'sim-alt', checked: simState.alt, onchange: e => { simState.alt = e.target.checked; save(); } }), 'Swap who goes first every game'),
+    h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+      h('button', { class: 'btn primary', id: 'sim-run', disabled: running, onclick: () => startWorker({ type: 'batch', cfg, personas: [simState.a, simState.b], n: simState.n, seed: Math.floor(Math.random() * 1e9), alt: simState.alt }) }, 'Run'),
+      h('button', { class: 'btn', id: 'sim-matrix', disabled: running, title: 'Every persona against every other, 200 games each', onclick: () => startWorker({ type: 'matrix', cfg, keys: Object.keys(E.PERSONAS).filter(k => k !== 'random'), n: 200, seed: Math.floor(Math.random() * 1e9) }) }, 'All matchups')),
+    h('div', { class: 'progress' }, h('i', { id: 'sim-bar' })),
+    h('div', { id: 'sim-status', style: 'font-size:13px;color:var(--muted)' }, running ? 'Running…' : ' '));
+
+  const res = h('div', { class: 'results' });
+  if (!simResult && !matrixResult) res.append(h('div', { class: 'panel empty-results' }, 'Results appear here: win rates, first-player advantage, how games end, and every card’s swing range. Pick two personas and press Run.'));
+  if (simResult) {
+    const s = simResult.sum, P = simResult.personas;
+    const names = Object.keys(s.wins);
+    const pct = x => Math.round(100 * x) + '%';
+    const colors = ['var(--blue)', 'var(--red)'];
+    res.append(h('div', { class: 'panel' },
+      h('h2', null, names.map(n => n.replace(/^\w/, c => c.toUpperCase())).join(' vs ')),
+      h('p', { class: 'sub' }, `${s.games} games in ${s.seconds.toFixed(1)}s` + (JSON.stringify(simResult.cfg) !== JSON.stringify(cfg) ? ' · Setup has changed since this run' : '')),
+      h('div', { class: 'winbar' }, names.map((n, i) => h('span', { style: `flex:${s.wins[n]};background:${colors[i]}` }, `${n} ${pct(s.wins[n] / s.games)}`)),
+        s.ties ? h('span', { style: `flex:${s.ties};background:var(--muted)` }, `tie ${pct(s.tieRate)}`) : null),
+      h('div', { class: 'summary', style: 'margin-top:12px' },
+        [[pct(s.firstSeatWinRate), 'First player wins', TIPS.first], [pct(s.secondSeatWinRate), 'Second player wins', TIPS.second], [pct(s.tieRate), 'Ties', TIPS.ties],
+          [s.turns.mean.toFixed(1), 'Turns per game', TIPS.turns], [s.margin.mean.toFixed(1), 'Average margin', TIPS.margin],
+          [Object.entries(s.scores).map(([, x]) => x.mean.toFixed(1)).join(' / '), 'Avg kingdom', TIPS.kingdom]].map(([val, k, tip]) => h('div', { class: 'stat', 'data-tip': tip, tabindex: '0' }, h('div', { class: 'v' }, val), h('div', { class: 'k' }, k, h('span', { class: 'q' }, '?'))))),
+      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Ended by: ' + Object.entries(s.endReasons).map(([k, n]) => `${k} ${pct(n / s.games)}`).join(' · '))));
+
+    if (s.comeback) {
+      const cb = s.comeback;
+      const bar = (label, p, tip) => h('div', { class: 'cbrow', 'data-tip': tip, tabindex: '0' }, h('span', { class: 'cbl' }, label),
+        h('span', { class: 'cbtrack' }, h('i', { style: `width:${Math.round(100 * p)}%` }), h('i', { class: 'mid' })), h('b', null, pct(p)));
+      res.append(h('div', { class: 'panel' },
+        h('h2', null, 'Comebacks and runaway leads'),
+        h('p', { class: 'sub' }, 'Does the player in front always win? 50% would mean being ahead doesn’t matter at all; 100% would mean the leader never loses. Somewhere in between is the sweet spot.'),
+        h('div', { class: 'cbgrid' },
+          h('div', null, h('h3', null, 'If you’re ahead at…'),
+            ...cb.checks.map(c => bar({ 0.25: 'a quarter of the way', 0.5: 'halfway', 0.75: 'three quarters' }[c.at], c.leaderWins,
+              `When someone was ahead ${({ 0.25: 'a quarter of the way through', 0.5: 'at halfway', 0.75: 'three quarters of the way through' })[c.at]}, they went on to win ${pct(c.leaderWins)} of the time. Their lead was ${c.avgLead.toFixed(1)} tiles on average. In ${pct(c.even)} of games nobody was ahead at that point.`))),
+          h('div', null, h('h3', null, 'Ahead at halfway by…'),
+            ...cb.halfwayBySize.map(b => bar(`${b.label} tiles`, b.leaderWins, `${pct(b.games)} of games had a ${b.label} tile lead at halfway. That player won ${pct(b.leaderWins)} of those.`)))),
+        h('div', { class: 'summary', style: 'margin-top:14px' },
+          [[pct(cb.comebackFromHalf), 'Won from behind at halfway', 'Games won by the player who was behind at the halfway point.'],
+            [pct(cb.comebackFrom3), 'Won after trailing by 3+', 'Games where the winner was 3 or more tiles behind at some point.'],
+            [cb.leadChanges.toFixed(1), 'Lead changes per game', 'How many times the lead switched sides in a typical game. More means more back and forth.'],
+            [pct(cb.decidedAt), 'Decided, on average', 'How far into the game the eventual winner took the lead for good. Later means the outcome stays open longer.']]
+            .map(([v, k, tip]) => h('div', { class: 'stat', 'data-tip': tip, tabindex: '0' }, h('div', { class: 'v' }, v), h('div', { class: 'k' }, k, h('span', { class: 'q' }, '?'))))),
+        h('p', { class: 'sub', style: 'margin:10px 0 0' }, runawayVerdict(cb, s.games))));
+    }
+    const lo = Math.min(0, ...s.cards.map(c => c.min)), hi = Math.max(1, ...s.cards.map(c => c.max));
+    const landMean = (s.cards.find(c => c.label === 'Land') || { mean: 1 }).mean;
+    res.append(h('div', { class: 'panel' },
+      h('h2', null, 'Card swing'),
+      h('p', { class: 'sub' }, 'Swing means how far one play moves the race in your favor. If you were behind by 3 and after your play you\u2019re ahead by 1, that play swung 4. A plain Land usually swings about 1. Hover or tap any row or heading for a plain-English read.'),
+      h('div', { class: 'legend', style: 'justify-content:flex-start;margin-bottom:6px' },
+        h('span', null, h('span', { class: 'flag hot' }, 'hot'), ' far stronger than a Land'), h('span', null, h('span', { class: 'flag hot' }, 'swingy'), ' unpredictable'), h('span', null, h('span', { class: 'flag flat' }, 'flat'), ' same result every time')),
+      h('div', { class: 'tbl-wrap' }, h('table', null,
+        h('thead', null, h('tr', null, [['Card', TIPS.card], ['Plays/game', TIPS.plays, 'col-plays'], ['Typical', TIPS.mean], ['Spread', TIPS.sd], ['Worst to best', TIPS.min + ' ' + TIPS.max], ['Range', TIPS.range, 'col-range'], ['Flips', TIPS.flips, 'col-flips'], ['Win%', TIPS.win]]
+          .map(([t, tip, cls]) => h('th', { 'data-tip': tip, tabindex: '0', class: cls }, t, h('span', { class: 'q' }, '?'))))),
+        h('tbody', null, s.cards.map(c => h('tr', { 'data-tip': rowTip(c, landMean), tabindex: '0' },
+          h('td', null, c.label, c.mean > landMean * 2.5 && c.mean > 3.5 ? h('span', { class: 'flag hot' }, 'hot') : null,
+            c.sd > 2.5 ? h('span', { class: 'flag hot' }, 'swingy') : null,
+            c.max - c.min === 0 ? h('span', { class: 'flag flat' }, 'flat') : null),
+          h('td', { class: 'col-plays' }, c.perGame.toFixed(2)), h('td', null, (c.mean >= 0 ? '+' : '') + c.mean.toFixed(1)), h('td', null, c.sd.toFixed(1)),
+          h('td', null, `${c.min} to ${c.max}`), h('td', { class: 'rng col-range' }, swingBar(c, lo, hi)), h('td', { class: 'col-flips' }, c.flips.toFixed(1)), h('td', null, pct(c.winWhenPlayed))))))),
+      s.cards.some(c => c.label === 'Sanctuary') ? h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Sanctuary mostly protects value rather than gaining it, so its swing reads low. Win% is a better signal for it.') : ''));
+
+    const rv = buildReview(s, simResult.cfg, simResult.personas);
+    res.append(h('div', { class: 'panel review' }, h('h2', null, 'Review'),
+      h('p', { class: 'sub' }, 'A plain-English read of this run, written from the numbers above.'),
+      h('h3', null, 'Where things stand'), h('ul', null, rv.status.map(x => h('li', null, x))),
+      h('h3', null, 'Suggestions'), rv.suggest.length ? h('ul', null, rv.suggest.map(x => h('li', null, x))) : h('p', null, 'Nothing stands out. This build looks healthy for these players.'),
+      h('p', { class: 'sub', style: 'margin:10px 0 0' }, 'These are computer players. They\u2019re good at spotting lopsided cards and seat advantages, but people will find tricks the AI misses. Treat this as a starting point for playtests.')));
+    const pre = h('pre', { class: 'report', id: 'sim-report' }, simResult.text);
+    res.append(h('div', { class: 'panel' }, h('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
+      h('h2', { style: 'flex:1' }, 'Report'), h('button', { class: 'btn', onclick: () => copyText(simResult.text + '\n\nCONFIG ' + JSON.stringify(simResult.cfg)) }, 'Copy report')),
+      h('details', null, h('summary', null, 'Show plain-text report'), pre)));
+  }
+  if (matrixResult) {
+    const { out, keys } = matrixResult;
+    const cell = (a, b) => { if (a === b) return h('td', null, '—'); const r = out[a + '|' + b]; if (r) return h('td', null, Math.round(100 * r.a) + '%'); const r2 = out[b + '|' + a]; return h('td', null, Math.round(100 * r2.b) + '%'); };
+    res.append(h('div', { class: 'panel' }, h('h2', null, 'Persona matchups'), h('p', { class: 'sub' }, 'Row persona’s win rate against the column persona, 200 games each, seats swapped every game.'),
+      h('div', { class: 'tbl-wrap' }, h('table', { class: 'matrix' }, h('thead', null, h('tr', null, h('th', null, ''), keys.map(k => h('th', null, E.PERSONAS[k].name)))),
+        h('tbody', null, keys.map(a => h('tr', null, h('th', { style: 'text-align:left' }, E.PERSONAS[a].name), keys.map(b => cell(a, b)))))))));
+  }
+  v.append(h('div', { class: 'simgrid' }, controls, res));
+}
+
+// ---------- tabs ----------
+// The Setup / Play / Simulate bar is hidden unless turned on in the Game panel.
+let showTabs = store.get('vyeMicro.tabs', false) === true;
+function applyTabsBar() { $('#tabsbar').hidden = !showTabs; if (!showTabs && $('#view-play').hidden) selectTab('play'); }
+function selectTab(name) {
+  for (const t of ['setup', 'play', 'sim']) { $('#tab-' + t).setAttribute('aria-selected', String(t === name)); $('#view-' + t).hidden = t !== name; }
+  if (name === 'setup') renderSetup();
+  if (name === 'play') { if (!G) newGame(); else renderPlay(); }
+  if (name === 'sim') { if (!simWorker) renderSim(); }
+  store.set('vyeMicro.tab', name);
+}
+for (const t of ['setup', 'play', 'sim']) $('#tab-' + t).addEventListener('click', () => selectTab(t));
+window.addEventListener('resize', () => { if (!$('#view-play').hidden && G) renderPlay(); });
+wireTips();
+applyTabsBar();
+selectTab(showTabs ? store.get('vyeMicro.tab', 'play') : 'play');
+window.__vye = { get G() { return G; }, render: () => renderPlay() }; // debug hook for tests
+})();
+</script>

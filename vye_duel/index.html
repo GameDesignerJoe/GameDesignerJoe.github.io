@@ -345,6 +345,14 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
 @media (max-width: 380px) { .hcard { width: 50px; height: 50px; --cell: 50px; } }
 /* the top (opponent / AI) hand is 20% smaller than yours: tiles, label and padding */
 .hand-area.other { padding: 6px 10px; gap: 5px; }
+/* pass and play: face-down hand with a tap-to-look button */
+.peek { width: calc(var(--hc, 76px) * 2 + 6px); height: var(--hc, 76px); border-radius: 10px; border: 2px dashed rgba(255,255,255,.55); cursor: pointer;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.14) 0 6px, rgba(255,255,255,.05) 6px 12px), rgba(18,12,28,.55); color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: inherit; line-height: 1.15; padding: 4px; }
+.peek b { font-size: 12.5px; white-space: nowrap; } .peek span { font-size: 10.5px; opacity: .85; white-space: nowrap; }
+.hand-area.other .peek b { font-size: 11px; } .hand-area.other .peek span { font-size: 9.5px; }
+.hand-area.other .peek { width: calc(var(--hc, 76px) * 1.6 + 5px); height: calc(var(--hc, 76px) * .8); }
+.peek-hide { margin-left: 8px; font: inherit; font-size: 10px; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,.5); background: rgba(0,0,0,.3); color: #fff; cursor: pointer; }
 .hand-area.other .hand-label { font-size: 10px; }
 .hand-area.other .hand { gap: 5px; }
 .hand-area.other .hcard { width: 62px; height: 62px; --cell: 62px; }
@@ -1469,7 +1477,7 @@ function restore(s, snap) { Object.assign(s, snap, { board: new Map(snap.board),
 function newGame(seed) {
   clearTimeout(aiTimer); paused = false;
   gameSeed = seed != null ? seed : Math.floor(Math.random() * 1e6);
-  G = E.newGame(cfg, gameSeed); history = []; ui = { sel: null, pos: null, phase: null, eqA: null }; animatedN = -1; animBusyUntil = 0;
+  G = E.newGame(cfg, gameSeed); history = []; hotSeen = -1; ui = { sel: null, pos: null, phase: null, eqA: null }; animatedN = -1; animBusyUntil = 0;
   sfx('shuffle'); renderPlay(); scheduleAI();
 }
 const isHuman = p => seats[p] === 'human';
@@ -1601,7 +1609,11 @@ function promptEl() {
 function handEl(p, other) {
   const pl = G.players[p];
   const mine = isHuman(p) && G.turn === p && !G.over;
-  const show = isHuman(p) || reveal || G.over;
+  // Pass and play (two humans): hands stay face down; the player whose turn it is taps to look, and their hand
+  // goes face down again as soon as their move is made. Sideboards are public either way.
+  const hot = isHuman(0) && isHuman(1) && !reveal && !G.over;
+  const show = G.over || reveal || (isHuman(p) && (!hot || (p === G.turn && hotSeen === G.turnNo)));
+  const peek = hot && mine && !show && pl.hand.length;
   const playable = new Set(mine ? G.moves.map(m => m.cardId) : []);
   const cardBtn = c => {
     const picking = mine && ui.phase === 'usurp';
@@ -1612,8 +1624,11 @@ function handEl(p, other) {
     b.append(tileEl(c, p)); return b;
   };
   return h('div', { class: 'hand-area' + (other ? ' other' : '') + (G.turn === p && !G.over ? ' turn' : ''), 'data-p': p },
-    h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`),
-    h('div', { class: 'hand' }, show ? pl.hand.map(cardBtn) : pl.hand.map(() => h('span', { class: 'hcard back' })),
+    h('div', { class: 'hand-label' }, h('span', { class: 'dot p' + p }), `${E.HOUSES[p].short} hand`,
+      hot && mine && show ? h('button', { class: 'peek-hide', onclick: () => { hotSeen = -1; ui = { sel: null, pos: null, phase: null, eqA: null }; renderPlay(); } }, 'Hide') : null),
+    h('div', { class: 'hand' }, show ? pl.hand.map(cardBtn)
+      : peek ? h('button', { class: 'peek', onclick: () => { hotSeen = G.turnNo; sfx('pick'); renderPlay(); } }, h('b', null, 'Tap to look'), h('span', null, `${E.HOUSES[p].short} only`))
+      : pl.hand.map(() => h('span', { class: 'hcard back' })),
       pl.side.length ? h('span', { style: 'width:14px' }) : null, pl.side.map(cardBtn)));
 }
 
@@ -1868,6 +1883,7 @@ function notePill(note) {
   return h('div', { class: 'stage-tip note-pill tp' + note.p }, sigEl('tip-sig p' + note.p, note.p), h('div', { class: 'cardinfo' }, note.text));
 }
 
+let hotSeen = -1;   // pass and play: the turn number on which the current player tapped to see their hand
 let railOpen = false;   // Game panel (opened with the gear on the board) starts closed
 function renderPlay() {
   const v = $('#view-play'); v.textContent = '';
