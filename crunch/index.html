@@ -1,0 +1,1943 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12141a">
+<title>Crunch</title>
+<meta name="description" content="Crunch: a cooperative press-your-luck micro game about shipping a video game. Playtest build.">
+<style>
+:root {
+  --bg: #12141a;
+  --panel: #1b1f28;
+  --panel2: #242a36;
+  --line: #2f3645;
+  --ink: #ecebe4;
+  --muted: #9aa1ae;
+  --accent: #ffb224;
+  --accent-ink: #1a1300;
+  --good: #5fd38d;
+  --bad: #ff6b5e;
+  --b0: #5fd38d;
+  --b1: #e8d44d;
+  --b2: #ff9a3c;
+  --b3: #ff5a4e;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; width: 0; height: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { max-width: 560px; margin: 0 auto; padding: 12px 16px calc(84px + env(safe-area-inset-bottom)); min-height: 100vh; }
+header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0 12px; }
+.wordmark { font-family: var(--mono); font-weight: 800; letter-spacing: 0.18em; font-size: 20px; color: var(--accent); }
+.tagline { color: var(--muted); font-size: 12px; text-align: right; }
+h2 { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; font-weight: 700; }
+h3 { font-size: 16px; margin: 0 0 4px; }
+p { margin: 0 0 10px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.view { display: none; }
+.view.on { display: block; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.panel + .panel { margin-top: 10px; }
+
+/* tabs */
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; background: rgba(18, 20, 26, 0.96); border-top: 1px solid var(--line);
+  padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); z-index: 20;
+}
+nav.tabs .in { max-width: 560px; margin: 0 auto; display: flex; padding: 0 12px; gap: 6px; }
+nav.tabs button {
+  flex: 1; background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 14px 4px; border-radius: 10px; cursor: pointer;
+}
+nav.tabs button.on { color: var(--accent-ink); background: var(--accent); }
+
+/* buttons */
+button { font-family: inherit; }
+.btn {
+  display: block; width: 100%; text-align: left; background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 10px; padding: 12px 14px; font-size: 16px; font-weight: 600; cursor: pointer; min-height: 48px;
+}
+.btn + .btn { margin-top: 8px; }
+.btn .sub { display: block; font-size: 12.5px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary .sub { color: #5c4300; }
+.btn.danger { border-color: #6b2f2a; color: #ffb3ab; }
+.btn.center { text-align: center; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.5; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row > * { flex: 1; }
+.linkbtn { background: none; border: 0; color: var(--accent); font: inherit; font-size: 14px; padding: 8px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* segmented */
+.seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
+.seg button { background: none; border: 0; color: var(--muted); font-size: 13px; font-weight: 700; padding: 8px 11px; border-radius: 7px; cursor: pointer; min-height: 38px; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+
+/* setup */
+.proj { display: block; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; color: var(--ink); cursor: pointer; }
+.proj + .proj { margin-top: 8px; }
+.proj.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.proj .nm { font-weight: 700; }
+.proj .tw { font-size: 13px; color: var(--muted); }
+.proj .tg { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 3px; }
+.rolerow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.rolerow:first-child { border-top: 0; }
+.rolerow .nm { font-weight: 700; }
+details { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; margin-top: 10px; }
+details summary { cursor: pointer; padding: 13px 0; font-weight: 700; list-style: none; }
+details summary::-webkit-details-marker { display: none; }
+details summary::after { content: '+'; float: right; color: var(--accent); font-family: var(--mono); }
+details[open] summary::after { content: '\2212'; }
+details .body { padding-bottom: 12px; font-size: 14.5px; }
+details .body li { margin-bottom: 6px; }
+details .body ul, details .body ol { padding-left: 20px; margin: 6px 0 10px; }
+.cardref { border-top: 1px solid var(--line); padding: 8px 0; font-size: 14px; }
+.cardref b { display: block; }
+.tool { color: var(--good); }
+.trouble { color: var(--bad); }
+
+/* game header */
+.ghead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ghead .pn { font-weight: 800; font-size: 17px; }
+.months { display: flex; gap: 4px; margin: 8px 0 10px; }
+.months .m { flex: 1; height: 22px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--line); font-family: var(--mono); font-size: 11px; display: flex; align-items: center; justify-content: center; color: var(--muted); position: relative; }
+.months .m.past { opacity: 0.35; }
+.months .m.now { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 800; }
+.months .m.due::after { content: ''; position: absolute; right: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); border: 2px solid var(--bg); }
+.ms { display: flex; gap: 6px; }
+.ms .s { flex: 1; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+.ms .s.cur { border-color: var(--accent); }
+.ms .s .t { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); display: flex; justify-content: space-between; }
+.ms .s .v { font-family: var(--mono); font-weight: 800; font-size: 15px; white-space: nowrap; }
+.ms .s.done .v { color: var(--good); }
+.ms .s .du { font-size: 11px; color: var(--muted); }
+.ms .s.missed .du { color: var(--bad); }
+.ms .s.done .du { color: var(--good); }
+.bar { height: 6px; background: #0e1015; border-radius: 3px; overflow: hidden; margin-top: 5px; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.25s; }
+.ms .s.done .bar i { background: var(--good); }
+
+/* players */
+.players { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.pl { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 9px; min-width: 0; border-left-width: 4px; }
+.pl.active { border-color: var(--accent); background: #232015; }
+.pl.out { opacity: 0.4; }
+.pl .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.pl .nm { font-weight: 800; font-size: 14.5px; }
+.pl .who { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.pl .bo { font-size: 12.5px; font-weight: 700; margin-top: 2px; }
+.pl .bo span { font-weight: 400; color: var(--muted); }
+.pl.b0 { border-left-color: var(--b0); } .pl.b0 .bo { color: var(--b0); }
+.pl.b1 { border-left-color: var(--b1); } .pl.b1 .bo { color: var(--b1); }
+.pl.b2 { border-left-color: var(--b2); } .pl.b2 .bo { color: var(--b2); }
+.pl.b3 { border-left-color: var(--b3); } .pl.b3 .bo { color: var(--b3); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; min-height: 24px; }
+.chip { font-size: 11.5px; background: var(--panel2); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 4px 6px; cursor: pointer; }
+.chip.on { border-color: var(--accent); color: var(--accent); }
+.chips .none { font-size: 11.5px; color: var(--muted); padding: 4px 0; }
+.cardinfo { margin-top: 8px; font-size: 13.5px; background: var(--panel2); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; }
+
+/* dice */
+.tray { margin-top: 10px; background: #0e1015; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 96px; }
+.tray .tl { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.tray .tot { font-family: var(--mono); font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: 0; text-transform: none; }
+.dice { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.die { width: 46px; text-align: center; }
+.die .face {
+  width: 46px; height: 46px; border-radius: 9px; background: #f2efe6; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  padding: 7px; gap: 2px; position: relative; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+}
+.die .face i { border-radius: 50%; }
+.die .face i.p { background: #1a1c22; }
+.die .pt { font-family: var(--mono); font-size: 12px; font-weight: 700; margin-top: 3px; color: var(--muted); }
+.die.boost .face { background: #ffd778; box-shadow: 0 0 0 2px var(--accent), inset 0 -3px 0 rgba(0, 0, 0, 0.18); }
+.die.boost .pt { color: var(--accent); }
+.die.dead .face { background: #5a5f6b; }
+.die.dead .pt { color: var(--muted); }
+.die.wasted .face { background: #7b2f29; }
+.die.wasted .face::after { content: ''; position: absolute; left: 4px; right: 4px; top: 50%; height: 3px; background: #ffb3ab; transform: rotate(-45deg); border-radius: 2px; }
+.die.wasted .pt { color: var(--bad); }
+.die.pending .face { box-shadow: 0 0 0 3px var(--bad), inset 0 -3px 0 rgba(0, 0, 0, 0.18); }
+.die.new .face { animation: pop 0.22s ease-out; }
+@keyframes pop { from { transform: scale(0.6) rotate(-12deg); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .die.new .face { animation: none; } .bar i { transition: none; } }
+
+/* prompt */
+.prompt { margin-top: 10px; background: var(--panel); border: 1px solid var(--accent); border-radius: 12px; padding: 12px; }
+.prompt.wait { border-color: var(--line); }
+.prompt .q { font-weight: 700; margin-bottom: 10px; }
+.prompt .q .who { color: var(--accent); }
+.result { margin-top: 10px; border-radius: 12px; padding: 14px; border: 1px solid var(--line); }
+.result.win { background: #14291d; border-color: var(--good); }
+.result.lose { background: #2b1614; border-color: var(--bad); }
+.result .big { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+
+/* log */
+.log { margin-top: 10px; font-size: 13.5px; }
+.log .e { padding: 3px 0; color: var(--muted); }
+.log .e.turn, .log .e.month, .log .e.head { color: var(--ink); font-weight: 700; margin-top: 4px; }
+.log .e.good, .log .e.win { color: var(--good); }
+.log .e.bad, .log .e.lose { color: var(--bad); }
+.log .e.score { color: var(--accent); }
+.gctl { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
+
+/* sim */
+.headline { font-size: 22px; font-weight: 800; line-height: 1.2; }
+.headline .num { color: var(--accent); }
+.prog { height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden; margin-top: 10px; }
+.prog i { display: block; height: 100%; background: var(--accent); width: 0; }
+.hb { display: grid; grid-template-columns: minmax(84px, 34%) 1fr auto; gap: 8px; align-items: center; font-size: 13.5px; padding: 4px 0; }
+.hb .tr { height: 12px; background: #0e1015; border-radius: 3px; overflow: hidden; }
+.hb .tr i { display: block; height: 100%; background: var(--accent); border-radius: 0 3px 3px 0; }
+.hb .tr i.g { background: var(--good); } .hb .tr i.r { background: var(--bad); } .hb .tr i.m { background: #6f7786; }
+.hb .val { font-family: var(--mono); font-size: 13px; min-width: 44px; text-align: right; }
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th, table.t td { padding: 6px 4px; text-align: right; border-top: 1px solid var(--line); font-family: var(--mono); }
+table.t th { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-top: 0; }
+table.t td:first-child, table.t th:first-child { text-align: left; font-family: var(--sans); color: var(--ink); }
+.notes li { margin-bottom: 8px; }
+.notes { padding-left: 20px; margin: 0; font-size: 14.5px; }
+
+/* settings */
+.set { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
+.set:first-child { border-top: 0; }
+.set .lb { min-width: 0; }
+.set .lb b { display: block; font-size: 15px; font-weight: 600; }
+.set .lb span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+.set.changed .lb b::after { content: ' \2022'; color: var(--accent); }
+.set.stack { display: block; }
+.set.stack select { margin-top: 8px; width: 100%; }
+.step { display: inline-flex; align-items: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; flex: none; }
+.step button { width: 42px; height: 42px; background: none; border: 0; color: var(--accent); font-size: 22px; font-weight: 700; cursor: pointer; }
+.step .v { min-width: 44px; text-align: center; font-family: var(--mono); font-weight: 700; }
+select {
+  font: inherit; font-size: 15px; color: var(--ink); background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 11px 34px 11px 12px;
+  appearance: none; -webkit-appearance: none; max-width: 100%;
+  background-image: linear-gradient(45deg, transparent 50%, var(--accent) 50%), linear-gradient(135deg, var(--accent) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.sw { position: relative; width: 52px; height: 32px; flex: none; }
+.sw input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
+.sw i { position: absolute; inset: 0; background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; transition: background 0.15s; }
+.sw i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+.sw input:checked + i { background: var(--accent); border-color: var(--accent); }
+.sw input:checked + i::after { transform: translateX(20px); background: var(--accent-ink); }
+.sw input:focus-visible + i, .btn:focus-visible, .seg button:focus-visible, select:focus-visible, .chip:focus-visible, nav.tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.tgt { font-family: var(--mono); font-size: 12.5px; color: var(--muted); padding: 3px 0; display: flex; justify-content: space-between; gap: 8px; }
+.tgt b { color: var(--ink); font-weight: 600; font-family: var(--sans); }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top"><div class="wordmark">CRUNCH</div><div class="tagline">playtest build 0.1<br>ship it before it ships you</div></header>
+  <main>
+    <section class="view on" id="v-play"></section>
+    <section class="view" id="v-sim"></section>
+    <section class="view" id="v-settings"></section>
+  </main>
+</div>
+<nav class="tabs" aria-label="Sections"><div class="in">
+  <button data-tab="play" class="on">Play</button>
+  <button data-tab="sim">Simulate</button>
+  <button data-tab="settings">Settings</button>
+</div></nav>
+<noscript><p style="padding:16px">Crunch needs JavaScript to run.</p></noscript>
+<script>
+/* Crunch — rules engine, AI players and simulator.
+   One file, no dependencies. Runs in the browser (window.Crunch) and in node. */
+(function (root) {
+  'use strict';
+
+  // ---------------------------------------------------------------- data
+
+  const ROLE_ORDER = ['producer', 'artist', 'engineer', 'designer'];
+
+  const ROLES = {
+    producer: {
+      name: 'Producer', short: 'PRD',
+      dice: 'Take the Hit: when a teammate busts, you may take the Burnout for them.',
+      card: 'Holds more cards. Once per turn (anyone\'s), may move one card between any two hands.'
+    },
+    artist: {
+      name: 'Artist', short: 'ART',
+      dice: 'Inspiration: your low rolls count for more.',
+      card: 'Kill Your Darlings: once per turn, discard a card to reroll one of your dice.'
+    },
+    engineer: {
+      name: 'Engineer', short: 'ENG',
+      dice: 'Clean Code: dice in a run (3-4, or 2-3-4) count for more.',
+      card: 'Reuse: once per turn, take the top Tool of the discard pile instead of drawing.'
+    },
+    designer: {
+      name: 'Designer', short: 'DES',
+      dice: 'Tuning Pass: once per turn, nudge a die up or down by 1.',
+      card: 'Design Doc: before you draw, peek at the top card and you may bury it.'
+    }
+  };
+
+  // Which numbers go dead at Tired / Fried / Toast when "per role" is on.
+  const ROLE_DEAD = {
+    producer: [1, 2, 3],
+    artist: [6, 5, 4],
+    engineer: [6, 5, 4],
+    designer: [6, 5, 4]
+  };
+
+  const BURNOUT_NAMES = ['Fresh', 'Tired', 'Fried', 'Toast'];
+
+  const CARDS = {
+    vacation: { name: 'Vacation', type: 'tool', gain: 'Remove all your Burnout.', cost: 'Skip your roll this turn.' },
+    quickie: { name: 'Quickie in the Bathroom', type: 'tool', gain: 'Ignore one bust: no Burnout, keep rolling.', cost: 'No crunching on your next turn.' },
+    asset: { name: 'Asset Store', type: 'tool', gain: 'Gain dev points right now.', cost: 'No crunching this turn.' },
+    coffee: { name: 'Coffee', type: 'tool', gain: 'Reroll one of your dice, even a bust.', cost: 'Draw an extra card this turn.' },
+    scope: { name: 'Scope Cut', type: 'tool', gain: 'Lower the current milestone target.', cost: 'Take a Burnout.' },
+    pizza: { name: 'Pizza Night', type: 'tool', gain: 'Every player removes one Burnout.', cost: 'Discard the rest of your hand.' },
+    slip: { name: 'Slip the Date', type: 'tool', gain: 'Add one month to the schedule.', cost: 'Every player takes a Burnout.' },
+    creep: { name: 'Feature Creep', type: 'trouble', text: 'The current milestone target goes up.' },
+    engine: { name: 'Engine Update', type: 'trouble', text: 'Lose dev points.' },
+    reorg: { name: 'Reorg', type: 'trouble', text: 'Everyone passes their hand to the left.' },
+    overtime: { name: 'Mandatory Overtime', type: 'trouble', text: 'The next player must crunch at least once.' },
+    press: { name: 'Bad Press', type: 'trouble', text: 'You take a Burnout.' },
+    broken: { name: "Build's Broken", type: 'trouble', text: 'The next player cannot crunch.' }
+  };
+  const CARD_KEYS = Object.keys(CARDS);
+
+  // weights = share of effort per milestone; diff = overall difficulty multiplier (tuned by simulation)
+  const PROJECTS = {
+    flappy: { name: 'Flappy Nerd', twistName: 'Starter project', twist: 'No special rules. A good first game.', weights: [1, 1, 1], diff: 0.92 },
+    starblo: { name: 'Starblo', twistName: 'Loot Drop', twist: 'When a milestone is completed, every player draws a card. Trouble drawn this way is thrown away.', weights: [1, 1, 1], diff: 1.0, loot: true },
+    dookie: { name: 'Call of Dookie', twistName: 'Annual Release', twist: 'One month less on the schedule.', weights: [1, 1, 1], diff: 0.98, monthsDelta: -1 },
+    gtu: { name: 'Grand Theft Unicycle', twistName: 'Open World', twist: 'Gold is huge, but Scope Cut counts double.', weights: [0.75, 0.95, 1.3], diff: 1.02, scopeDouble: true },
+    crossfit: { name: 'Animal Crossfit', twistName: 'Cozy', twist: 'Hit a milestone on time and every player removes one Burnout.', weights: [1, 1, 1], diff: 1.03, cozy: true }
+  };
+  const PROJECT_KEYS = Object.keys(PROJECTS);
+  const MILESTONE_NAMES = ['Prototype', 'Alpha', 'Gold'];
+
+  const DEFAULTS = {
+    // schedule and difficulty
+    months: 6,
+    pace: 11.5,             // dev points the game demands per player turn (before project difficulty)
+    targetScale: 100,      // % applied on top
+    overflowCarries: true,
+    missPenalty: 'burnout', // 'burnout' | 'none' | 'lose'
+    // dice and burnout
+    bustKeepsPoints: true,
+    bustDieWasted: true,
+    deadMode: 'role',       // 'role' (Producer loses 1,2,3; others 6,5,4) | 'top' (everyone 6,5,4)
+    toastBust: 'lose',      // 'lose' | 'out' | 'floor'
+    cardBurnoutCanQuit: false,
+    // roles
+    artistFaces: 'low',     // 'low' (1,2) | 'one' (1) | 'high' (5,6) | 'odd'
+    artistMult: 2,
+    engMinRun: 3,
+    engMult: 2,
+    designerTeamNudge: 'card', // 'card' | 'free' | 'off'
+    producerHit: true,
+    producerHitContinues: false, // if true, a bust the Producer absorbs does not end the turn
+    producerPass: true,
+    producerHandLimit: 5,
+    producerSteady: false,   // Producer's dice never go dead from Burnout
+    producerDraw: 0,          // extra cards the Producer draws each turn
+    // cards
+    handLimit: 3,
+    startHand: 1,
+    drawPerTurn: 1,
+    assetPts: 4,
+    scopeCut: 5,
+    creepAmt: 4,
+    engineLoss: 4,
+    slipOneShot: true,      // Slip the Date leaves the game after it is played
+    counts: { vacation: 2, quickie: 2, asset: 2, coffee: 2, scope: 1, pizza: 1, slip: 1, creep: 2, engine: 1, reorg: 1, overtime: 1, press: 1, broken: 1 },
+    // AI
+    aiRisk: 'balanced'      // 'cautious' | 'balanced' | 'reckless'
+  };
+
+  function mergeSettings(over) {
+    const S = JSON.parse(JSON.stringify(DEFAULTS));
+    if (over) {
+      for (const k in over) {
+        if (k === 'counts') { for (const c in over.counts) if (c in S.counts) S.counts[c] = over.counts[c]; }
+        else if (k in S) S[k] = over[k];
+      }
+    }
+    return S;
+  }
+
+  // ---------------------------------------------------------------- helpers
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(arr, rng) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function artistFaces(S) {
+    switch (S.artistFaces) {
+      case 'one': return [1];
+      case 'high': return [5, 6];
+      case 'odd': return [1, 3, 5];
+      default: return [1, 2];
+    }
+  }
+  function deadFaces(S, role, burnout) {
+    if (burnout <= 0) return [];
+    if (role === 'producer' && S.producerSteady) return [];
+    const order = S.deadMode === 'role' ? ROLE_DEAD[role] : [6, 5, 4];
+    return order.slice(0, Math.min(burnout, 3));
+  }
+  function handLimit(st, pi) {
+    return st.players[pi].role === 'producer' ? st.S.producerHandLimit : st.S.handLimit;
+  }
+  function liveDice(dice) { return dice.filter(d => !d.wasted); }
+
+  // Score a set of dice for a player. Returns {total, per:[{pts,dead,boost}]} aligned with dice.
+  function scoreDetail(st, pi, dice, burnout) {
+    const S = st.S, p = st.players[pi];
+    const b = burnout == null ? p.burnout : burnout;
+    const dead = deadFaces(S, p.role, b);
+    const inRun = new Set();
+    if (p.role === 'engineer') {
+      const set = new Set();
+      for (const d of dice) if (!d.wasted) set.add(d.v);
+      for (const v of set) {
+        let lo = v, hi = v;
+        while (set.has(lo - 1)) lo--;
+        while (set.has(hi + 1)) hi++;
+        if (hi - lo + 1 >= S.engMinRun) inRun.add(v);
+      }
+    }
+    const af = p.role === 'artist' ? artistFaces(S) : null;
+    let total = 0;
+    const per = [];
+    for (const d of dice) {
+      if (d.wasted) { per.push({ pts: 0, dead: false, boost: false, wasted: true }); continue; }
+      const isDead = dead.indexOf(d.v) >= 0;
+      let x = isDead ? 0 : d.v, boost = false;
+      if (x > 0 && af && af.indexOf(d.v) >= 0) { x *= S.artistMult; boost = true; }
+      if (x > 0 && inRun.has(d.v)) { x *= S.engMult; boost = true; }
+      total += x;
+      per.push({ pts: x, dead: isDead, boost: boost, wasted: false });
+    }
+    return { total: total, per: per };
+  }
+  function scoreDice(st, pi, dice, burnout) { return scoreDetail(st, pi, dice, burnout).total; }
+
+  // how much each role is expected to produce relative to the average (measured by simulation)
+  const ROLE_PACE = { producer: 0.66, artist: 1.02, engineer: 1.22, designer: 1.10 };
+  const TEAM_SIZE = { 1: 0.7, 2: 0.8, 3: 0.92, 4: 1 };
+  function teamWeight(roleIds) {
+    let w = 0;
+    for (const r of roleIds) w += ROLE_PACE[r] || 1;
+    return w * (TEAM_SIZE[roleIds.length] || 1);
+  }
+  function computeMilestones(S, proj, roleIds) {
+    if (typeof roleIds === 'number') roleIds = ROLE_ORDER.slice(0, roleIds);
+    const tw = teamWeight(roleIds);
+    const months = Math.max(3, S.months + (proj.monthsDelta || 0));
+    const dues = [];
+    for (let i = 1; i <= 3; i++) dues.push(Math.max(i, Math.round(months * i / 3)));
+    dues[2] = months;
+    const ms = [];
+    let prev = 0;
+    for (let i = 0; i < 3; i++) {
+      const turns = (dues[i] - prev) * tw;
+      const target = Math.max(4, Math.round(S.pace * turns * proj.weights[i] * proj.diff * S.targetScale / 100));
+      ms.push({ name: MILESTONE_NAMES[i], target: target, due: dues[i], done: false, missed: false, doneMonth: 0, onTime: false });
+      prev = dues[i];
+    }
+    return { months: months, milestones: ms };
+  }
+
+  function log(st, text, kind) {
+    st.log.push({ text: text, kind: kind || '', month: st.month });
+  }
+  function pname(st, pi) { return ROLES[st.players[pi].role].name; }
+  function roleIndex(st, role) {
+    for (let i = 0; i < st.players.length; i++) if (st.players[i].role === role && !st.players[i].out) return i;
+    return -1;
+  }
+  function cardName(c) { return CARDS[c.key].name; }
+
+  // ---------------------------------------------------------------- game setup
+
+  function newGame(settings, opts) {
+    opts = opts || {};
+    const S = mergeSettings(settings);
+    const seed = opts.seed == null ? (Math.random() * 0x7fffffff) | 0 : opts.seed;
+    const rng = mulberry32(seed);
+    let roles = opts.roles;
+    if (!roles || !roles.length) roles = ROLE_ORDER.map(r => ({ role: r, human: false }));
+    const projectKey = opts.project && PROJECTS[opts.project] ? opts.project : PROJECT_KEYS[Math.floor(rng() * PROJECT_KEYS.length)];
+    const proj = PROJECTS[projectKey];
+    const cm = computeMilestones(S, proj, roles.map(r => r.role));
+    const deck = [];
+    let uid = 1;
+    for (const k of CARD_KEYS) for (let i = 0; i < (S.counts[k] || 0); i++) deck.push({ key: k, uid: uid++ });
+    shuffle(deck, rng);
+    const st = {
+      S: S, seed: seed, rng: rng, projectKey: projectKey, project: proj,
+      months: cm.months, month: 1, milestones: cm.milestones, ms: 0, progress: 0,
+      players: roles.map(r => ({ role: r.role, human: !!r.human, burnout: 0, hand: [], out: false, noCrunchNext: false })),
+      deck: deck, discard: [], turn: null,
+      flags: { mustCrunchNext: false, cantCrunchNext: false },
+      pending: [], log: [], over: false, won: false, reason: '', quitter: -1,
+      stats: newStats(roles)
+    };
+    // starting hands: Tools only, Trouble goes back in
+    for (let pi = 0; pi < st.players.length; pi++) {
+      let need = Math.min(S.startHand, handLimit(st, pi)), guard = 0;
+      while (need > 0 && st.deck.length && guard++ < 200) {
+        const c = st.deck.pop();
+        if (CARDS[c.key].type === 'tool') { st.players[pi].hand.push(c); need--; }
+        else st.deck.unshift(c);
+      }
+    }
+    shuffle(st.deck, rng);
+    log(st, proj.name + ' is greenlit. ' + st.months + ' months to ship.', 'head');
+    return st;
+  }
+
+  function newStats(roles) {
+    const s = { role: {}, cards: {}, diceHist: [0, 0, 0, 0, 0, 0, 0], turns: 0, msOnTime: [0, 0, 0], msDone: [0, 0, 0] };
+    for (const r of roles) s.role[r.role] = { turns: 0, points: 0, rolls: 0, busts: 0, burnoutGained: 0, vacations: 0, powerUses: 0 };
+    for (const k of CARD_KEYS) s.cards[k] = { drawn: 0, played: 0 };
+    return s;
+  }
+
+  // ---------------------------------------------------------------- state changes
+
+  function endGame(st, won, reason, who) {
+    if (st.over) return;
+    st.over = true; st.won = won; st.reason = reason; st.quitter = who == null ? -1 : who;
+    if (won) log(st, st.project.name + ' ships! The team made it.', 'win');
+    else if (reason === 'quit') log(st, pname(st, who) + ' quits. The project collapses.', 'lose');
+    else if (reason === 'milestone') log(st, 'The publisher pulls the plug after a missed milestone.', 'lose');
+    else log(st, 'Out of time. ' + st.project.name + ' is cancelled.', 'lose');
+  }
+
+  function checkMilestone(st) {
+    while (!st.over && st.ms < 3 && st.progress >= st.milestones[st.ms].target) {
+      const m = st.milestones[st.ms];
+      m.done = true; m.doneMonth = st.month; m.onTime = !m.missed;
+      st.stats.msDone[st.ms]++;
+      if (m.onTime) st.stats.msOnTime[st.ms]++;
+      const over = st.progress - m.target;
+      log(st, m.name + ' complete' + (m.onTime ? ', on time.' : ', late.'), 'good');
+      if (m.onTime && st.project.cozy) {
+        for (const p of st.players) if (!p.out && p.burnout > 0) p.burnout--;
+        log(st, 'Cozy: everyone removes one Burnout.', 'good');
+      }
+      if (st.project.loot) st.pending.push('loot');
+      st.ms++;
+      if (st.ms >= 3) { st.progress = over; endGame(st, true, 'shipped'); return; }
+      st.progress = st.S.overflowCarries ? over : 0;
+    }
+  }
+  function addPoints(st, n) {
+    st.progress = Math.max(0, st.progress + n);
+    checkMilestone(st);
+  }
+
+  function giveBurnout(st, pi, fromBust) {
+    const p = st.players[pi], S = st.S;
+    if (p.out) return;
+    if (p.burnout >= 3) {
+      if (fromBust || S.cardBurnoutCanQuit) {
+        if (S.toastBust === 'lose') endGame(st, false, 'quit', pi);
+        else if (S.toastBust === 'out') {
+          p.out = true;
+          while (p.hand.length) st.discard.push(p.hand.pop());
+          log(st, pname(st, pi) + ' quits. The team carries on without them.', 'bad');
+          if (st.players.every(q => q.out)) endGame(st, false, 'quit', pi);
+        }
+      }
+      return;
+    }
+    p.burnout++;
+    st.stats.role[p.role].burnoutGained++;
+    log(st, pname(st, pi) + ' is now ' + BURNOUT_NAMES[p.burnout] + '.', 'bad');
+  }
+
+  function ensureDeck(st) {
+    if (!st.deck.length && st.discard.length) {
+      st.deck = shuffle(st.discard, st.rng);
+      st.discard = [];
+      log(st, 'The discard pile is reshuffled into the deck.');
+    }
+  }
+  function rollDie(st) { return 1 + Math.floor(st.rng() * 6); }
+  function matchesOther(dice, idx) {
+    const v = dice[idx].v;
+    for (let i = 0; i < dice.length; i++) if (i !== idx && !dice[i].wasted && dice[i].v === v) return true;
+    return false;
+  }
+  function validNudges(dice, idx) {
+    const out = [];
+    for (const dir of [-1, 1]) {
+      const nv = dice[idx].v + dir;
+      if (nv < 1 || nv > 6) continue;
+      let clash = false;
+      for (let i = 0; i < dice.length; i++) if (i !== idx && !dice[i].wasted && dice[i].v === nv) clash = true;
+      if (!clash) out.push(nv);
+    }
+    return out;
+  }
+  function removeFromHand(st, pi, uid) {
+    const h = st.players[pi].hand;
+    for (let i = 0; i < h.length; i++) if (h[i].uid === uid) return h.splice(i, 1)[0];
+    return null;
+  }
+
+  // ---------------------------------------------------------------- the game, as a generator
+  // The generator yields "decisions" ({type, player, options}) and "beats" (pauses for the UI).
+  // The driver answers a decision by sending back one of its options.
+
+  function* beat(st, kind) { yield { type: 'beat', kind: kind || '' }; }
+
+  function* pickDiscard(st, pi, excludeUid, why) {
+    const cards = st.players[pi].hand.filter(c => c.uid !== excludeUid);
+    if (!cards.length) return null;
+    let choice;
+    if (cards.length === 1) choice = { uid: cards[0].uid };
+    else choice = yield { type: 'pickDiscard', player: pi, why: why || 'Discard a card', options: cards.map(c => ({ id: 'card', uid: c.uid, key: c.key, label: cardName(c) })) };
+    const c = removeFromHand(st, pi, choice.uid);
+    st.discard.push(c);
+    log(st, pname(st, pi) + ' discards ' + cardName(c) + '.');
+    return c;
+  }
+
+  function* enforceLimit(st, pi) {
+    const p = st.players[pi];
+    while (!p.out && p.hand.length > handLimit(st, pi)) {
+      yield* pickDiscard(st, pi, -1, 'Over the hand limit: discard a card');
+    }
+  }
+
+  function* flush(st) {
+    while (st.pending.length && !st.over) {
+      const what = st.pending.shift();
+      if (what === 'loot') {
+        log(st, 'Loot Drop: everyone draws a card.', 'good');
+        for (let pi = 0; pi < st.players.length; pi++) {
+          const p = st.players[pi];
+          if (p.out) continue;
+          ensureDeck(st);
+          if (!st.deck.length) break;
+          const c = st.deck.pop();
+          st.stats.cards[c.key].drawn++;
+          if (CARDS[c.key].type === 'tool') { p.hand.push(c); log(st, pname(st, pi) + ' loots ' + cardName(c) + '.'); yield* enforceLimit(st, pi); }
+          else { st.discard.push(c); log(st, pname(st, pi) + ' loots ' + cardName(c) + ' and throws it away.'); }
+        }
+      }
+    }
+  }
+
+  function* producerWindow(st) {
+    const S = st.S;
+    if (!S.producerPass) return;
+    const pz = roleIndex(st, 'producer');
+    if (pz < 0) return;
+    const movable = [];
+    for (let i = 0; i < st.players.length; i++) {
+      const p = st.players[i];
+      if (p.out) continue;
+      for (const c of p.hand) {
+        let room = false;
+        for (let j = 0; j < st.players.length; j++) if (j !== i && !st.players[j].out && st.players[j].hand.length < handLimit(st, j)) room = true;
+        if (room) movable.push({ from: i, card: c });
+      }
+    }
+    if (!movable.length) return;
+    const c1 = yield { type: 'producerPass', player: pz, options: [{ id: 'skip', label: 'No, carry on' }, { id: 'move', label: 'Move a card' }] };
+    if (c1.id !== 'move') return;
+    const c2 = yield {
+      type: 'passCard', player: pz,
+      options: movable.map(m => ({ id: 'card', from: m.from, uid: m.card.uid, key: m.card.key, label: cardName(m.card) + ' (from ' + pname(st, m.from) + ')' })).concat([{ id: 'skip', label: 'Never mind' }])
+    };
+    if (c2.id !== 'card') return;
+    const targets = [];
+    for (let j = 0; j < st.players.length; j++) if (j !== c2.from && !st.players[j].out && st.players[j].hand.length < handLimit(st, j)) targets.push(j);
+    const c3 = yield {
+      type: 'passTarget', player: pz, from: c2.from, uid: c2.uid,
+      options: targets.map(j => ({ id: 'to', to: j, label: 'Give to ' + pname(st, j) })).concat([{ id: 'skip', label: 'Never mind' }])
+    };
+    if (c3.id !== 'to') return;
+    const card = removeFromHand(st, c2.from, c2.uid);
+    st.players[c3.to].hand.push(card);
+    st.stats.role.producer.powerUses++;
+    log(st, 'Producer moves ' + cardName(card) + ' from ' + pname(st, c2.from) + ' to ' + pname(st, c3.to) + '.');
+    yield* beat(st, 'card');
+  }
+
+  // options for Tool cards the active player may play right now
+  function cardOptions(st, pi, phase) {
+    const p = st.players[pi], t = st.turn, out = [];
+    const seen = {};
+    for (const c of p.hand) {
+      if (seen[c.key]) continue;
+      let ok = false;
+      switch (c.key) {
+        case 'vacation': ok = phase === 'pre' && p.burnout > 0; break;
+        case 'asset': ok = phase === 'pre'; break;
+        case 'scope': ok = p.burnout < 3; break;
+        case 'pizza': ok = st.players.some(q => !q.out && q.burnout > 0); break;
+        case 'slip': ok = true; break;
+        case 'coffee': ok = phase === 'mid' && liveDice(t.dice).length > 0; break;
+        default: ok = false;
+      }
+      if (ok) { seen[c.key] = true; out.push({ id: 'card', uid: c.uid, key: c.key, label: 'Play ' + cardName(c) }); }
+    }
+    return out;
+  }
+
+  function* rerollDie(st, di, how) {
+    const t = st.turn, pi = t.pi;
+    const old = t.dice[di].v;
+    t.dice[di].v = rollDie(st);
+    t.dice[di].wasted = false;
+    log(st, pname(st, pi) + ' rerolls the ' + old + ' (' + how + ') and gets a ' + t.dice[di].v + '.');
+    yield* beat(st, 'roll');
+  }
+
+  function* playCard(st, pi, uid) {
+    const p = st.players[pi], t = st.turn, S = st.S;
+    const card = removeFromHand(st, pi, uid);
+    if (!card) return;
+    if (!(card.key === 'slip' && S.slipOneShot)) st.discard.push(card);
+    t.playedUids.push(card.uid);
+    st.stats.cards[card.key].played++;
+    switch (card.key) {
+      case 'vacation':
+        p.burnout = 0; t.vacation = true; t.scoreBurnout = 0;
+        st.stats.role[p.role].vacations++;
+        log(st, pname(st, pi) + ' takes a Vacation: all Burnout gone, no roll this turn.', 'good');
+        break;
+      case 'asset':
+        t.noCrunch = true; t.mustCrunch = false;
+        log(st, pname(st, pi) + ' hits the Asset Store: +' + S.assetPts + ' dev points, no crunching this turn.', 'good');
+        addPoints(st, S.assetPts);
+        break;
+      case 'scope': {
+        const amt = S.scopeCut * (st.project.scopeDouble ? 2 : 1);
+        const m = st.milestones[st.ms];
+        m.target = Math.max(0, m.target - amt);
+        log(st, pname(st, pi) + ' cuts scope: ' + m.name + ' target drops by ' + amt + '.', 'good');
+        giveBurnout(st, pi, false);
+        checkMilestone(st);
+        break;
+      }
+      case 'pizza':
+        for (const q of st.players) if (!q.out && q.burnout > 0) q.burnout--;
+        t.scoreBurnout = Math.min(t.scoreBurnout, p.burnout);
+        while (p.hand.length) st.discard.push(p.hand.pop());
+        log(st, pname(st, pi) + ' orders Pizza Night: everyone removes one Burnout.', 'good');
+        break;
+      case 'slip':
+        st.months++;
+        for (const m of st.milestones) if (!m.done && !m.missed) m.due++;
+        log(st, pname(st, pi) + ' slips the date: one more month, and everyone pays for it.', 'bad');
+        for (let i = 0; i < st.players.length; i++) giveBurnout(st, i, false);
+        break;
+      case 'coffee': {
+        const live = [];
+        t.dice.forEach((d, i) => { if (!d.wasted) live.push(i); });
+        let di = live[0];
+        if (live.length > 1) {
+          const c = yield { type: 'pickDie', player: pi, why: 'Coffee: reroll which die?', options: live.map(i => ({ id: 'die', di: i, label: 'Reroll the ' + t.dice[i].v })) };
+          di = c.di;
+        }
+        t.extraDraw++;
+        yield* rerollDie(st, di, 'Coffee');
+        if (matchesOther(t.dice, di)) yield* resolveBust(st, di);
+        break;
+      }
+    }
+    yield* flush(st);
+    yield* beat(st, 'card');
+  }
+
+  function* resolveBust(st, di) {
+    const t = st.turn, pi = t.pi, p = st.players[pi], S = st.S;
+    const die = t.dice[di];
+    log(st, pname(st, pi) + ' rolls a second ' + die.v + '. Bust!', 'bad');
+    t.bustPending = di;
+    yield* beat(st, 'bust');
+    // 1. the active player's own outs
+    while (true) {
+      const opts = [{ id: 'accept', label: 'Take the bust' }];
+      const q = p.hand.find(c => c.key === 'quickie');
+      if (q) opts.push({ id: 'quickie', uid: q.uid, key: 'quickie', label: 'Play Quickie in the Bathroom' });
+      const cf = p.hand.find(c => c.key === 'coffee');
+      if (cf) opts.push({ id: 'coffee', uid: cf.uid, key: 'coffee', label: 'Play Coffee: reroll it' });
+      if (p.role === 'artist' && !t.kydUsed && p.hand.length >= 1) opts.push({ id: 'kyd', label: 'Kill Your Darlings: discard a card, reroll it' });
+      if (p.role === 'designer' && !t.nudgeUsed) for (const nv of validNudges(t.dice, di)) opts.push({ id: 'nudgeTo', v: nv, label: 'Tuning Pass: make it a ' + nv });
+      const c = opts.length === 1 ? opts[0] : yield { type: 'bust', player: pi, di: di, options: opts };
+      if (c.id === 'accept') break;
+      if (c.id === 'quickie') {
+        const card = removeFromHand(st, pi, c.uid); st.discard.push(card); t.playedUids.push(card.uid);
+        st.stats.cards.quickie.played++;
+        die.wasted = true; p.noCrunchNext = true; t.bustPending = -1;
+        log(st, pname(st, pi) + ' slips off for a Quickie in the Bathroom. Bust ignored.', 'good');
+        yield* beat(st, 'card');
+        return;
+      }
+      if (c.id === 'coffee') {
+        const card = removeFromHand(st, pi, c.uid); st.discard.push(card); t.playedUids.push(card.uid);
+        st.stats.cards.coffee.played++;
+        t.extraDraw++;
+        yield* rerollDie(st, di, 'Coffee');
+        if (!matchesOther(t.dice, di)) { t.bustPending = -1; return; }
+        log(st, 'Still a match.', 'bad');
+        continue;
+      }
+      if (c.id === 'kyd') {
+        t.kydUsed = true; st.stats.role.artist.powerUses++;
+        yield* pickDiscard(st, pi, -1, 'Kill Your Darlings: discard a card');
+        yield* rerollDie(st, di, 'Kill Your Darlings');
+        if (!matchesOther(t.dice, di)) { t.bustPending = -1; return; }
+        log(st, 'Still a match.', 'bad');
+        continue;
+      }
+      if (c.id === 'nudgeTo') {
+        t.nudgeUsed = true; st.stats.role.designer.powerUses++;
+        log(st, 'Designer tunes the ' + die.v + ' into a ' + c.v + '. Bust avoided.', 'good');
+        die.v = c.v; t.bustPending = -1;
+        yield* beat(st, 'roll');
+        return;
+      }
+    }
+    // 2. a teammate Designer may tune it away
+    const dz = roleIndex(st, 'designer');
+    if (dz >= 0 && dz !== pi && !t.nudgeUsed && S.designerTeamNudge !== 'off') {
+      const needCard = S.designerTeamNudge === 'card';
+      const nvs = validNudges(t.dice, di);
+      if (nvs.length && (!needCard || st.players[dz].hand.length > 0)) {
+        const opts = [{ id: 'pass', label: "Don't step in" }];
+        for (const nv of nvs) opts.push({ id: 'nudgeTo', v: nv, label: 'Tune it into a ' + nv + (needCard ? ' (costs a card)' : '') });
+        const c = yield { type: 'assistBust', player: dz, di: di, options: opts };
+        if (c.id === 'nudgeTo') {
+          if (needCard) yield* pickDiscard(st, dz, -1, 'Tuning a teammate costs a card: discard one');
+          t.nudgeUsed = true; st.stats.role.designer.powerUses++;
+          log(st, 'Designer tunes ' + pname(st, pi) + "'s " + die.v + ' into a ' + c.v + '. Bust avoided.', 'good');
+          die.v = c.v; t.bustPending = -1;
+          yield* beat(st, 'roll');
+          return;
+        }
+      }
+    }
+    // 3. the bust stands
+    t.busted = true; t.bustPending = -1;
+    die.bust = true;
+    if (S.bustDieWasted) die.wasted = true;
+    if (!S.bustKeepsPoints) for (const d of t.dice) d.wasted = true;
+    st.stats.role[p.role].busts++;
+    let victim = pi;
+    const pz = roleIndex(st, 'producer');
+    if (pz >= 0 && pz !== pi && S.producerHit && st.players[pz].burnout < 3) {
+      const c = yield { type: 'takeHit', player: pz, victim: pi, options: [{ id: 'no', label: 'Let ' + pname(st, pi) + ' take it' }, { id: 'yes', label: 'Take the Hit' }] };
+      if (c.id === 'yes') {
+        victim = pz; st.stats.role.producer.powerUses++; log(st, 'Producer takes the hit for ' + pname(st, pi) + '.', 'good');
+        if (S.producerHitContinues) { t.busted = false; die.wasted = true; }
+      }
+    }
+    giveBurnout(st, victim, true);
+    yield* beat(st, 'bust');
+  }
+
+  function nudgeGainOptions(st, pi, t, costNote) {
+    const base = scoreDice(st, pi, t.dice, t.scoreBurnout);
+    const opts = [];
+    t.dice.forEach((d, i) => {
+      if (d.wasted) return;
+      for (const nv of validNudges(t.dice, i)) {
+        const old = d.v; d.v = nv;
+        const gain = scoreDice(st, pi, t.dice, t.scoreBurnout) - base;
+        d.v = old;
+        if (gain > 0) opts.push({ id: 'nudgeTo', di: i, v: nv, gain: gain, label: 'Tune the ' + old + ' into a ' + nv + ' (+' + gain + ')' + (costNote || '') });
+      }
+    });
+    opts.sort((a, b) => b.gain - a.gain);
+    return opts;
+  }
+
+  function* designerAssist(st) {
+    const t = st.turn, pi = t.pi, S = st.S;
+    const dz = roleIndex(st, 'designer');
+    if (dz < 0 || dz === pi || t.nudgeUsed || S.designerTeamNudge === 'off' || t.vacation) return;
+    const needCard = S.designerTeamNudge === 'card';
+    if (needCard && !st.players[dz].hand.length) return;
+    const opts = nudgeGainOptions(st, pi, t, needCard ? ', costs a card' : '');
+    if (!opts.length) return;
+    const c = yield { type: 'assist', player: dz, target: pi, options: [{ id: 'pass', label: "Don't step in" }].concat(opts) };
+    if (c.id !== 'nudgeTo') return;
+    if (needCard) yield* pickDiscard(st, dz, -1, 'Tuning a teammate costs a card: discard one');
+    t.nudgeUsed = true; st.stats.role.designer.powerUses++;
+    log(st, 'Designer tunes ' + pname(st, pi) + "'s " + t.dice[c.di].v + ' into a ' + c.v + '.', 'good');
+    t.dice[c.di].v = c.v;
+    yield* beat(st, 'roll');
+  }
+
+  function* resolveTrouble(st, pi, card) {
+    const S = st.S;
+    log(st, pname(st, pi) + ' draws Trouble: ' + cardName(card) + '.', 'bad');
+    switch (card.key) {
+      case 'creep': {
+        const m = st.milestones[st.ms];
+        m.target += S.creepAmt;
+        log(st, m.name + ' target goes up by ' + S.creepAmt + '.', 'bad');
+        break;
+      }
+      case 'engine':
+        st.progress = Math.max(0, st.progress - S.engineLoss);
+        log(st, 'The team loses ' + S.engineLoss + ' dev points.', 'bad');
+        break;
+      case 'reorg': {
+        const act = [];
+        for (let i = 0; i < st.players.length; i++) if (!st.players[i].out) act.push(i);
+        const hands = act.map(i => st.players[i].hand);
+        for (let k = 0; k < act.length; k++) st.players[act[(k + 1) % act.length]].hand = hands[k];
+        log(st, 'Everyone passes their hand to the left.');
+        for (const i of act) yield* enforceLimit(st, i);
+        break;
+      }
+      case 'overtime': st.flags.mustCrunchNext = true; break;
+      case 'press': giveBurnout(st, pi, false); break;
+      case 'broken': st.flags.cantCrunchNext = true; break;
+    }
+  }
+
+  function* drawPhase(st, pi) {
+    const p = st.players[pi], t = st.turn, S = st.S;
+    const n = S.drawPerTurn + t.extraDraw + (p.role === 'producer' ? S.producerDraw : 0);
+    for (let i = 0; i < n && !st.over && !p.out; i++) {
+      if (p.role === 'engineer' && !t.reuseUsed && st.discard.length) {
+        const top = st.discard[st.discard.length - 1];
+        if (CARDS[top.key].type === 'tool' && t.playedUids.indexOf(top.uid) < 0) {
+          const c = yield { type: 'reuse', player: pi, card: top, options: [{ id: 'deck', label: 'Draw from the deck' }, { id: 'take', label: 'Reuse: take ' + cardName(top) }] };
+          if (c.id === 'take') {
+            t.reuseUsed = true; st.stats.role.engineer.powerUses++;
+            st.discard.pop(); p.hand.push(top);
+            log(st, 'Engineer reuses ' + cardName(top) + ' from the discard pile.', 'good');
+            yield* enforceLimit(st, pi);
+            yield* beat(st, 'card');
+            continue;
+          }
+        }
+      }
+      ensureDeck(st);
+      if (!st.deck.length) break;
+      if (p.role === 'designer' && !t.docUsed) {
+        t.docUsed = true;
+        const top = st.deck[st.deck.length - 1];
+        const c = yield { type: 'peek', player: pi, card: top, options: [{ id: 'keep', label: 'Leave it on top' }, { id: 'bury', label: 'Bury it' }] };
+        if (c.id === 'bury') {
+          st.deck.unshift(st.deck.pop()); st.stats.role.designer.powerUses++;
+          log(st, 'Designer checks the design doc and buries a card.');
+        }
+      }
+      const card = st.deck.pop();
+      st.stats.cards[card.key].drawn++;
+      if (CARDS[card.key].type === 'tool') {
+        p.hand.push(card);
+        log(st, pname(st, pi) + ' draws ' + cardName(card) + '.');
+        yield* enforceLimit(st, pi);
+      } else {
+        st.discard.push(card);
+        yield* resolveTrouble(st, pi, card);
+      }
+      yield* beat(st, 'card');
+    }
+  }
+
+  function* takeTurn(st, pi) {
+    const p = st.players[pi], S = st.S;
+    const t = st.turn = {
+      pi: pi, dice: [], busted: false, bustPending: -1, nudgeUsed: false, kydUsed: false, reuseUsed: false, docUsed: false,
+      extraDraw: 0, crunches: 0, vacation: false, points: 0, scored: false, playedUids: [],
+      noCrunch: p.noCrunchNext || st.flags.cantCrunchNext, mustCrunch: st.flags.mustCrunchNext, scoreBurnout: p.burnout
+    };
+    if (t.noCrunch) t.mustCrunch = false;
+    p.noCrunchNext = false; st.flags.cantCrunchNext = false; st.flags.mustCrunchNext = false;
+    st.stats.turns++; st.stats.role[p.role].turns++;
+    log(st, pname(st, pi) + "'s turn.", 'turn');
+    yield* beat(st, 'turn');
+    yield* producerWindow(st);
+
+    // before rolling: play cards
+    while (!st.over) {
+      const opts = [{ id: 'roll', label: 'Roll' }].concat(cardOptions(st, pi, 'pre'));
+      const c = opts.length === 1 ? opts[0] : yield { type: 'preRoll', player: pi, options: opts };
+      if (c.id === 'roll') break;
+      yield* playCard(st, pi, c.uid);
+      if (t.vacation) break;
+    }
+    if (st.over) return;
+
+    if (!t.vacation) {
+      t.dice.push({ v: rollDie(st), wasted: false });
+      st.stats.role[p.role].rolls++;
+      log(st, pname(st, pi) + ' rolls a ' + t.dice[0].v + '.');
+      yield* beat(st, 'roll');
+      while (!st.over && !t.busted) {
+        const live = liveDice(t.dice);
+        const canRoll = !t.noCrunch && live.length < 6;
+        const opts = [];
+        if (canRoll) opts.push({ id: 'crunch', label: 'Crunch: roll again', pBust: new Set(live.map(d => d.v)).size / 6 });
+        if (!(t.mustCrunch && t.crunches === 0 && canRoll)) opts.push({ id: 'stop', label: 'Stop and bank it' });
+        if (p.role === 'designer' && !t.nudgeUsed) for (const o of nudgeGainOptions(st, pi, t, '')) opts.push(o);
+        if (p.role === 'artist' && !t.kydUsed && p.hand.length >= 1) opts.push({ id: 'kyd', label: 'Kill Your Darlings: discard a card, reroll a die' });
+        for (const o of cardOptions(st, pi, 'mid')) opts.push(o);
+        const c = opts.length === 1 ? opts[0] : yield { type: 'crunch', player: pi, options: opts };
+        if (c.id === 'stop') break;
+        if (c.id === 'crunch') {
+          t.crunches++;
+          st.stats.role[p.role].rolls++;
+          t.dice.push({ v: rollDie(st), wasted: false });
+          const di = t.dice.length - 1;
+          if (matchesOther(t.dice, di)) yield* resolveBust(st, di);
+          else { log(st, pname(st, pi) + ' crunches and rolls a ' + t.dice[di].v + '.'); yield* beat(st, 'roll'); }
+        } else if (c.id === 'card') {
+          yield* playCard(st, pi, c.uid);
+        } else if (c.id === 'nudgeTo') {
+          t.nudgeUsed = true; st.stats.role.designer.powerUses++;
+          log(st, 'Designer tunes the ' + t.dice[c.di].v + ' into a ' + c.v + '.', 'good');
+          t.dice[c.di].v = c.v;
+          yield* beat(st, 'roll');
+        } else if (c.id === 'kyd') {
+          const liveIdx = [];
+          t.dice.forEach((d, i) => { if (!d.wasted) liveIdx.push(i); });
+          let di = liveIdx[0];
+          if (liveIdx.length > 1) {
+            const c2 = yield { type: 'pickDie', player: pi, why: 'Kill Your Darlings: reroll which die?', options: liveIdx.map(i => ({ id: 'die', di: i, label: 'Reroll the ' + t.dice[i].v })) };
+            di = c2.di;
+          }
+          t.kydUsed = true; st.stats.role.artist.powerUses++;
+          yield* pickDiscard(st, pi, -1, 'Kill Your Darlings: discard a card');
+          yield* rerollDie(st, di, 'Kill Your Darlings');
+          if (matchesOther(t.dice, di)) yield* resolveBust(st, di);
+        }
+      }
+      if (st.over) return;
+      yield* designerAssist(st);
+      const pts = scoreDice(st, pi, t.dice, t.scoreBurnout);
+      t.points = pts; t.scored = true;
+      st.stats.role[p.role].points += pts;
+      st.stats.diceHist[Math.min(6, t.dice.length)]++;
+      log(st, pname(st, pi) + ' banks ' + pts + ' dev point' + (pts === 1 ? '' : 's') + '.', 'score');
+      addPoints(st, pts);
+      yield* flush(st);
+      yield* beat(st, 'score');
+    }
+    if (st.over) return;
+    yield* drawPhase(st, pi);
+  }
+
+  function endOfMonth(st) {
+    for (let i = 0; i < 3; i++) {
+      const m = st.milestones[i];
+      if (m.done || m.missed || m.due !== st.month) continue;
+      if (i === 2) { endGame(st, false, 'deadline'); return; }
+      m.missed = true;
+      log(st, m.name + ' milestone missed.', 'bad');
+      if (st.S.missPenalty === 'lose') { endGame(st, false, 'milestone'); return; }
+      if (st.S.missPenalty === 'burnout') {
+        log(st, 'The publisher is furious. Everyone takes a Burnout.', 'bad');
+        for (let pi = 0; pi < st.players.length; pi++) giveBurnout(st, pi, false);
+        if (st.over) return;
+      }
+    }
+    if (st.month >= st.months && !st.over) endGame(st, false, 'deadline');
+  }
+
+  function* runGame(st) {
+    while (!st.over) {
+      log(st, 'Month ' + st.month + ' of ' + st.months + '.', 'month');
+      for (let pi = 0; pi < st.players.length && !st.over; pi++) {
+        if (st.players[pi].out) continue;
+        yield* takeTurn(st, pi);
+      }
+      if (st.over) break;
+      endOfMonth(st);
+      if (!st.over) { st.month++; yield* beat(st, 'month'); }
+    }
+    yield { type: 'over' };
+  }
+
+  // ---------------------------------------------------------------- AI players
+
+  const RISK = { cautious: 1.7, balanced: 1.0, reckless: 0.5 };
+
+  function estTurn(st, pi) {
+    const p = st.players[pi];
+    if (p.out) return 0;
+    if (p.role === 'producer' && st.S.producerSteady) return 6.5;
+    if (p.role === 'producer' && st.S.deadMode === 'role') return 6.5 - 0.5 * p.burnout;
+    return Math.max(1.5, 7.5 - 1.6 * p.burnout);
+  }
+  function turnsLeft(st) { return st.months - st.month; }
+
+  // rough cost, in dev points, of this player taking one more Burnout
+  function burnoutCost(st, pi) {
+    const p = st.players[pi], S = st.S;
+    const rem = turnsLeft(st);
+    if (p.burnout >= 3) {
+      if (S.toastBust === 'lose') return 1e6;
+      if (S.toastBust === 'out') return 6 + rem * 4;
+      return 0;
+    }
+    const order = S.deadMode === 'role' ? ROLE_DEAD[p.role] : [6, 5, 4];
+    const face = (p.role === 'producer' && S.producerSteady) ? 0 : order[p.burnout];
+    let c = rem * (2.6 * face / 6);
+    if (p.burnout === 2) c += 2 + rem * 1.2;
+    else if (p.burnout === 1) c += rem * 0.4;
+    return c * (RISK[S.aiRisk] || 1);
+  }
+  function effectiveBustCost(st, pi) {
+    let c = burnoutCost(st, pi);
+    const pz = roleIndex(st, 'producer');
+    if (pz >= 0 && pz !== pi && st.S.producerHit && st.players[pz].burnout < 3) c = Math.min(c, burnoutCost(st, pz) + 0.5);
+    return c;
+  }
+  // total points still needed to ship
+  function neededToShip(st) {
+    let need = -st.progress;
+    for (let i = st.ms; i < 3; i++) need += st.milestones[i].target;
+    return need;
+  }
+  function restOfMonthEst(st, afterPi) {
+    let e = 0;
+    for (let i = afterPi + 1; i < st.players.length; i++) e += estTurn(st, i);
+    return e;
+  }
+  function predictMiss(st, pi, mineNow) {
+    const m = st.milestones[st.ms];
+    if (!m || m.missed) return false;
+    let e = (mineNow == null ? estTurn(st, pi) : mineNow) + restOfMonthEst(st, pi);
+    let all = 0;
+    for (let i = 0; i < st.players.length; i++) all += estTurn(st, i);
+    e += (m.due - st.month) * all;
+    return st.progress + e * 0.9 < m.target;
+  }
+  function cardValue(st, pi, c) {
+    const p = st.players[pi];
+    const maxB = Math.max.apply(null, st.players.map(q => q.out ? 0 : q.burnout));
+    switch (c.key) {
+      case 'vacation': return maxB >= 2 ? 7 : (p.burnout >= 1 ? 5 : 3.5);
+      case 'quickie': return 5 + p.burnout;
+      case 'asset': return p.burnout >= 2 ? 5 : 3.5;
+      case 'scope': return p.burnout >= 2 ? 2 : 4;
+      case 'coffee': return 4;
+      case 'pizza': return 1.5 + st.players.filter(q => !q.out && q.burnout > 0).length;
+      case 'slip': return st.month >= st.months - 1 ? 5 : 2;
+      default: return 1;
+    }
+  }
+  function lowestCard(st, pi, options) {
+    let best = null, bv = 1e9;
+    for (const o of options) { const v = cardValue(st, pi, o); if (v < bv) { bv = v; best = o; } }
+    return best;
+  }
+  function byId(options, id) { for (const o of options) if (o.id === id) return o; return null; }
+  function byKey(options, key) { for (const o of options) if (o.key === key) return o; return null; }
+
+  function producerPlan(st) {
+    const active = st.turn.pi;
+    const ps = st.players, n = ps.length;
+    const room = j => !ps[j].out && ps[j].hand.length < handLimit(st, j);
+    const has = (j, key) => ps[j].hand.some(x => x.key === key);
+    const find = (j, key) => ps[j].hand.find(x => x.key === key);
+    // holders, the one whose next turn is furthest away first
+    const order = [];
+    for (let k = n - 1; k >= 1; k--) { const j = (active + k) % n; if (!ps[j].out) order.push(j); }
+    // 1. Vacation to whoever is most burned out
+    let best = null;
+    for (const h of order.concat([active])) {
+      const c = find(h, 'vacation');
+      if (!c) continue;
+      for (let r = 0; r < n; r++) {
+        if (r === h || !room(r) || has(r, 'vacation')) continue;
+        if (ps[r].burnout >= 2 && ps[r].burnout > ps[h].burnout) {
+          if (!best || ps[r].burnout > ps[best.to].burnout) best = { from: h, uid: c.uid, to: r };
+        }
+      }
+    }
+    if (best) return best;
+    const A = ps[active];
+    if (!room(active)) return null;
+    // 2. Asset Store to someone who can't crunch anyway
+    if ((A.burnout >= 2 || st.turn.noCrunch) && !has(active, 'asset')) {
+      for (const h of order) { const c = find(h, 'asset'); if (c && ps[h].burnout < 2) return { from: h, uid: c.uid, to: active }; }
+    }
+    return null;
+  }
+
+  function aiChoose(st, d) {
+    const S = st.S, t = st.turn, opts = d.options;
+    const me = d.player;
+    switch (d.type) {
+      case 'producerPass': {
+        st._plan = producerPlan(st);
+        return st._plan ? byId(opts, 'move') : byId(opts, 'skip');
+      }
+      case 'passCard': {
+        const pl = st._plan;
+        for (const o of opts) if (pl && o.uid === pl.uid) return o;
+        return byId(opts, 'skip');
+      }
+      case 'passTarget': {
+        const pl = st._plan;
+        for (const o of opts) if (pl && o.to === pl.to) return o;
+        return byId(opts, 'skip');
+      }
+      case 'preRoll': {
+        const p = st.players[me];
+        const rem = turnsLeft(st);
+        let o;
+        if ((o = byKey(opts, 'slip')) && st.milestones[st.ms].due === st.month && predictMiss(st, me)) return o;
+        if ((o = byKey(opts, 'asset')) && (t.noCrunch || p.burnout >= 2)) return o;
+        if ((o = byKey(opts, 'pizza'))) {
+          const helped = st.players.filter(q => !q.out && q.burnout > 0).length;
+          if (helped >= 3 || (helped >= 2 && p.hand.length <= 2)) return o;
+        }
+        if ((o = byKey(opts, 'scope'))) {
+          const amt = S.scopeCut * (st.project.scopeDouble ? 2 : 1);
+          if (amt > burnoutCost(st, me) + 1) return o;
+        }
+        if ((o = byKey(opts, 'vacation'))) {
+          if ((p.burnout >= 3 && rem >= 1) || (p.burnout === 2 && rem >= 2)) return o;
+        }
+        return byId(opts, 'roll');
+      }
+      case 'crunch': {
+        const p = st.players[me];
+        const roll = byId(opts, 'crunch'), stop = byId(opts, 'stop');
+        const nudges = opts.filter(o => o.id === 'nudgeTo');
+        const cur = scoreDice(st, me, t.dice, t.scoreBurnout);
+        let wantRoll = false;
+        if (roll) {
+          if (!stop) wantRoll = true;
+          else {
+            const live = new Set(liveDice(t.dice).map(x => x.v));
+            let gain = 0;
+            for (let f = 1; f <= 6; f++) {
+              if (live.has(f)) continue;
+              t.dice.push({ v: f, wasted: false });
+              gain += scoreDice(st, me, t.dice, t.scoreBurnout) - cur;
+              t.dice.pop();
+            }
+            const pB = live.size / 6, ev = gain / 6;
+            let cost;
+            const hasQ = p.hand.some(c => c.key === 'quickie'), hasC = p.hand.some(c => c.key === 'coffee');
+            if (p.burnout >= 3 && S.toastBust !== 'floor') cost = hasQ ? 3 : effectiveBustCost(st, me);
+            else if (p.role === 'designer' && !t.nudgeUsed) cost = 0.8;
+            else if (hasC) cost = Math.min(effectiveBustCost(st, me), 1.5 + effectiveBustCost(st, me) * 0.4);
+            else if (hasQ) cost = Math.min(effectiveBustCost(st, me), 3);
+            else if (p.role === 'artist' && !t.kydUsed && p.hand.length >= 1) cost = Math.min(effectiveBustCost(st, me), 3.5);
+            else cost = effectiveBustCost(st, me);
+            const need = neededToShip(st);
+            if (cur >= need) wantRoll = false;
+            else if (st.month >= st.months && st.progress + cur + restOfMonthEst(st, me) < need) wantRoll = true; // nothing to lose
+            else {
+              let urgency = 1;
+              const m = st.milestones[st.ms];
+              if (m.due === st.month && !m.missed && predictMiss(st, me, cur) && cost < 1e5) urgency = 0.6;
+              wantRoll = ev - pB * cost * urgency > 0;
+            }
+          }
+        }
+        if (wantRoll) return roll;
+        if (nudges.length) return nudges[0];
+        return stop || roll;
+      }
+      case 'bust': {
+        const p = st.players[me];
+        const nud = opts.filter(o => o.id === 'nudgeTo');
+        if (nud.length) {
+          let best = nud[0], bs = -1;
+          for (const o of nud) { const old = t.dice[d.di].v; t.dice[d.di].v = o.v; const s = scoreDice(st, me, t.dice, t.scoreBurnout); t.dice[d.di].v = old; if (s > bs) { bs = s; best = o; } }
+          return best;
+        }
+        const bc = effectiveBustCost(st, me);
+        let o;
+        if ((o = byId(opts, 'coffee')) && bc > 1.5) return o;
+        if ((o = byId(opts, 'kyd')) && bc > 2.5) return o;
+        if ((o = byId(opts, 'quickie')) && bc > 4) return o;
+        return byId(opts, 'accept');
+      }
+      case 'assistBust': {
+        const bc = effectiveBustCost(st, t.pi);
+        const nud = opts.filter(o => o.id === 'nudgeTo');
+        if (!nud.length) return byId(opts, 'pass');
+        if (S.designerTeamNudge === 'free' || bc > 3.5) {
+          let best = nud[0], bs = -1;
+          for (const o of nud) { const old = t.dice[d.di].v; t.dice[d.di].v = o.v; const s = scoreDice(st, t.pi, t.dice, t.scoreBurnout); t.dice[d.di].v = old; if (s > bs) { bs = s; best = o; } }
+          return best;
+        }
+        return byId(opts, 'pass');
+      }
+      case 'assist': {
+        const nud = opts.filter(o => o.id === 'nudgeTo');
+        if (!nud.length) return byId(opts, 'pass');
+        const need = S.designerTeamNudge === 'free' ? 1 : 4;
+        return nud[0].gain >= need ? nud[0] : byId(opts, 'pass');
+      }
+      case 'takeHit': {
+        const v = d.victim;
+        if (st.players[v].burnout >= 3) return byId(opts, 'yes');
+        const mine = st.players[me].burnout;
+        if (mine >= 2 && !st.players[me].hand.some(c => c.key === 'vacation')) return byId(opts, 'no');
+        return burnoutCost(st, me) + 0.5 < burnoutCost(st, v) ? byId(opts, 'yes') : byId(opts, 'no');
+      }
+      case 'pickDiscard': return lowestCard(st, me, opts);
+      case 'pickDie': {
+        let best = opts[0], bv = 1e9;
+        const det = scoreDetail(st, me, t.dice, t.scoreBurnout);
+        for (const o of opts) if (det.per[o.di].pts < bv) { bv = det.per[o.di].pts; best = o; }
+        return best;
+      }
+      case 'reuse': return cardValue(st, me, d.card) >= 3 ? byId(opts, 'take') : byId(opts, 'deck');
+      case 'peek': return CARDS[d.card.key].type === 'trouble' ? byId(opts, 'bury') : byId(opts, 'keep');
+      default: return opts[0];
+    }
+  }
+
+  // ---------------------------------------------------------------- simulator
+
+  function playOut(settings, opts) {
+    const st = newGame(settings, opts);
+    const g = runGame(st);
+    let r = g.next(), guard = 0;
+    while (!r.done && guard++ < 100000) {
+      const d = r.value;
+      if (d.type === 'over') break;
+      if (d.type === 'beat') r = g.next();
+      else r = g.next(aiChoose(st, d));
+    }
+    return st;
+  }
+
+  function newAgg() {
+    const a = {
+      games: 0, wins: 0, reasons: { deadline: 0, quit: 0, milestone: 0 }, projects: {}, role: {}, cards: {},
+      diceHist: [0, 0, 0, 0, 0, 0, 0], turns: 0, msOnTime: [0, 0, 0], msDone: [0, 0, 0],
+      shortfallSum: 0, shortfallN: 0, close: 0, winMonthSlack: 0, finalBurnout: 0, finalBurnoutN: 0, quitters: {}
+    };
+    for (const r of ROLE_ORDER) { a.role[r] = { turns: 0, points: 0, rolls: 0, busts: 0, burnoutGained: 0, vacations: 0, powerUses: 0, finalBurnout: 0, games: 0 }; a.quitters[r] = 0; }
+    for (const k of CARD_KEYS) a.cards[k] = { drawn: 0, played: 0 };
+    for (const k of PROJECT_KEYS) a.projects[k] = { games: 0, wins: 0 };
+    return a;
+  }
+  function addToAgg(a, st) {
+    a.games++;
+    const pj = a.projects[st.projectKey]; pj.games++;
+    if (st.won) { a.wins++; pj.wins++; a.winMonthSlack += st.months - st.month; if (st.month >= st.months) a.close++; }
+    else {
+      a.reasons[st.reason] = (a.reasons[st.reason] || 0) + 1;
+      if (st.reason === 'deadline') { const sf = neededToShip(st); a.shortfallSum += sf; a.shortfallN++; if (sf <= 10) a.close++; }
+      if (st.reason === 'quit' && st.quitter >= 0) a.quitters[st.players[st.quitter].role]++;
+    }
+    for (const p of st.players) {
+      const s = st.stats.role[p.role], r = a.role[p.role];
+      for (const k in s) r[k] += s[k];
+      r.finalBurnout += p.burnout; r.games++;
+      a.finalBurnout += p.burnout; a.finalBurnoutN++;
+    }
+    for (const k of CARD_KEYS) { a.cards[k].drawn += st.stats.cards[k].drawn; a.cards[k].played += st.stats.cards[k].played; }
+    for (let i = 0; i < 7; i++) a.diceHist[i] += st.stats.diceHist[i];
+    for (let i = 0; i < 3; i++) { a.msOnTime[i] += st.stats.msOnTime[i]; a.msDone[i] += st.stats.msDone[i]; }
+    a.turns += st.stats.turns;
+  }
+  // run games i = from..to-1 into an aggregate; opts: {project:'all'|key, roles, seed}
+  function simulateInto(a, settings, from, to, opts) {
+    opts = opts || {};
+    const base = opts.seed == null ? 12345 : opts.seed;
+    for (let i = from; i < to; i++) {
+      const project = !opts.project || opts.project === 'all' ? PROJECT_KEYS[i % PROJECT_KEYS.length] : opts.project;
+      addToAgg(a, playOut(settings, { project: project, roles: opts.roles, seed: base + i * 7919 }));
+    }
+    return a;
+  }
+  function simulate(settings, n, opts) { return simulateInto(newAgg(), settings, 0, n, opts); }
+
+  const api = {
+    ROLE_ORDER: ROLE_ORDER, ROLES: ROLES, ROLE_DEAD: ROLE_DEAD, CARDS: CARDS, CARD_KEYS: CARD_KEYS, PROJECTS: PROJECTS, PROJECT_KEYS: PROJECT_KEYS,
+    BURNOUT_NAMES: BURNOUT_NAMES, DEFAULTS: DEFAULTS,
+    mergeSettings: mergeSettings, newGame: newGame, runGame: runGame, aiChoose: aiChoose, scoreDetail: scoreDetail, scoreDice: scoreDice,
+    deadFaces: deadFaces, artistFaces: artistFaces, handLimit: handLimit, computeMilestones: computeMilestones, neededToShip: neededToShip,
+    playOut: playOut, newAgg: newAgg, simulateInto: simulateInto, simulate: simulate
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.Crunch = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* Crunch — interface: Play, Simulate, Settings */
+(function () {
+  'use strict';
+  const C = window.Crunch;
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
+  const f1 = x => (Math.round(x * 10) / 10).toFixed(1);
+
+  // ------------------------------------------------------------ storage
+  function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } }
+
+  let settings = C.mergeSettings(lsGet('crunch.settings.v1', null));
+  let setup = lsGet('crunch.setup.v1', null) || { project: 'random', roles: { producer: 'ai', artist: 'ai', engineer: 'human', designer: 'ai' }, speed: 'normal' };
+  let view = 'play';
+
+  // ------------------------------------------------------------ tabs
+  function showView(v) {
+    view = v;
+    document.querySelectorAll('.view').forEach(el => el.classList.toggle('on', el.id === 'v-' + v));
+    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === v));
+    if (v === 'settings') renderSettings();
+    if (v === 'sim') renderSimControls();
+    if (v === 'play') { renderPlay(); if (held) { const h = held; held = null; h(); } }
+    window.scrollTo(0, 0);
+  }
+  document.querySelector('nav.tabs').addEventListener('click', e => {
+    const b = e.target.closest('button[data-tab]');
+    if (b) showView(b.dataset.tab);
+  });
+
+  // ============================================================ PLAY
+  let st = null, gen = null, cur = null, token = 0, held = null, infoUid = null, logOpen = false, lastDice = 0;
+
+  function roleList() {
+    return C.ROLE_ORDER.filter(r => setup.roles[r] !== 'off').map(r => ({ role: r, human: setup.roles[r] === 'human' }));
+  }
+  function startGame() {
+    const roles = roleList();
+    if (!roles.length) return;
+    token++;
+    st = C.newGame(settings, { project: setup.project === 'random' ? null : setup.project, roles: roles });
+    gen = C.runGame(st);
+    cur = null; held = null; infoUid = null; logOpen = false; lastDice = 0;
+    advance(token);
+  }
+  function quitGame() { token++; st = null; gen = null; cur = null; held = null; renderPlay(); }
+
+  function delayFor(kind) {
+    const fast = setup.speed === 'fast';
+    const humanTurn = st.turn && st.players[st.turn.pi].human;
+    let ms = fast ? 180 : 620;
+    if (kind === 'turn') ms = fast ? 120 : 420;
+    if (kind === 'bust') ms = fast ? 320 : 900;
+    if (kind === 'month') ms = fast ? 200 : 700;
+    if (humanTurn && kind !== 'bust') ms = Math.min(ms, 260);
+    return ms;
+  }
+  function later(fn, ms, tk) {
+    setTimeout(() => {
+      if (tk !== token) return;
+      if (view !== 'play') { held = fn; return; }
+      fn();
+    }, ms);
+  }
+  function advance(tk, answer) {
+    if (tk !== token || !gen) return;
+    const r = gen.next(answer);
+    const d = r.value;
+    if (r.done || !d || d.type === 'over') { cur = null; renderPlay(); return; }
+    if (d.type === 'beat') { cur = null; renderPlay(); later(() => advance(tk), delayFor(d.kind), tk); return; }
+    if (st.players[d.player].human) { cur = d; renderPlay(); focusPrompt(); return; }
+    const ch = C.aiChoose(st, d);
+    const quiet = ['skip', 'pass', 'keep', 'no', 'deck', 'roll', 'accept'].indexOf(ch.id) >= 0 || d.type === 'passCard' || d.type === 'passTarget' || d.type === 'pickDiscard' || d.type === 'pickDie';
+    if (quiet) { advance(tk, ch); return; }
+    cur = null;
+    later(() => advance(tk, ch), setup.speed === 'fast' ? 120 : 380, tk);
+  }
+  function focusPrompt() {
+    const p = $('#prompt');
+    if (p && p.scrollIntoView) { try { p.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { p.scrollIntoView(); } }
+  }
+
+  const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  function dieHtml(v, cls, pts) {
+    let cells = '';
+    for (let i = 0; i < 9; i++) cells += '<i' + (PIPS[v].indexOf(i) >= 0 ? ' class="p"' : '') + '></i>';
+    return '<div class="die ' + cls + '" aria-label="die showing ' + v + '"><div class="face">' + cells + '</div><div class="pt">' + pts + '</div></div>';
+  }
+
+  function questionFor(d) {
+    const who = '<span class="who">' + C.ROLES[st.players[d.player].role].name + '</span>';
+    const t = st.turn, act = t ? C.ROLES[st.players[t.pi].role].name : '';
+    switch (d.type) {
+      case 'preRoll': return who + ': play a card first, or roll?';
+      case 'crunch': return who + ': crunch, or stop?';
+      case 'bust': return who + ': you rolled a second ' + t.dice[d.di].v + '. That\'s a bust.';
+      case 'assistBust': return who + ': ' + act + ' just busted on a ' + t.dice[d.di].v + '. Tune it away?';
+      case 'assist': return who + ': tune one of ' + act + '\'s dice before they bank?';
+      case 'takeHit': return who + ': ' + act + ' busted. Take the Burnout for them?';
+      case 'producerPass': return who + ': move a card before ' + act + ' goes?';
+      case 'passCard': return who + ': which card?';
+      case 'passTarget': return who + ': who gets it?';
+      case 'pickDiscard': return who + ': ' + esc(d.why) + '.';
+      case 'pickDie': return who + ': ' + esc(d.why);
+      case 'reuse': return who + ': ' + C.CARDS[d.card.key].name + ' is on top of the discard pile. Take it instead of drawing?';
+      case 'peek': {
+        const c = C.CARDS[d.card.key];
+        return who + ': the next card is <b class="' + c.type + '">' + c.name + '</b> (' + (c.type === 'tool' ? 'Tool' : 'Trouble') + '). Bury it?';
+      }
+      default: return who;
+    }
+  }
+  function subFor(d, o) {
+    if (o.key && C.CARDS[o.key]) {
+      const c = C.CARDS[o.key];
+      if (c.type === 'tool') return cardGain(o.key) + ' Cost: ' + c.cost.charAt(0).toLowerCase() + c.cost.slice(1);
+    }
+    if (o.id === 'crunch') {
+      const k = Math.round(o.pBust * 6);
+      return 'Busts on ' + k + ' of the 6 faces.';
+    }
+    if (o.id === 'stop') return 'Bank ' + C.scoreDice(st, st.turn.pi, st.turn.dice, st.turn.scoreBurnout) + ' dev points.';
+    if (o.id === 'accept') return 'The die is wasted and someone takes a Burnout.';
+    if (o.id === 'yes' && d.type === 'takeHit') return 'You become ' + C.BURNOUT_NAMES[Math.min(3, st.players[d.player].burnout + 1)] + ' instead.';
+    return '';
+  }
+  function cardGain(key) {
+    const S = st ? st.S : settings;
+    if (key === 'asset') return 'Gain ' + S.assetPts + ' dev points.';
+    if (key === 'scope') return 'Lower the current milestone target by ' + S.scopeCut + '.';
+    return C.CARDS[key].gain;
+  }
+  function cardText(key) {
+    const c = C.CARDS[key], S = st ? st.S : settings;
+    if (c.type === 'tool') return cardGain(key) + ' Cost: ' + c.cost.charAt(0).toLowerCase() + c.cost.slice(1);
+    if (key === 'creep') return 'The current milestone target goes up by ' + S.creepAmt + '.';
+    if (key === 'engine') return 'Lose ' + S.engineLoss + ' dev points.';
+    return c.text;
+  }
+
+  function renderPlay() {
+    const el = $('#v-play');
+    if (!st) { el.innerHTML = setupHtml(); return; }
+    el.innerHTML = gameHtml();
+  }
+
+  function setupHtml() {
+    let h = '<h2>Project</h2>';
+    h += '<button class="proj' + (setup.project === 'random' ? ' on' : '') + '" data-proj="random"><div class="nm">Surprise me</div><div class="tw">Pick a project at random.</div></button>';
+    const roles = roleList().map(r => r.role);
+    for (const k of C.PROJECT_KEYS) {
+      const p = C.PROJECTS[k];
+      const cm = C.computeMilestones(settings, p, roles.length ? roles : C.ROLE_ORDER);
+      h += '<button class="proj' + (setup.project === k ? ' on' : '') + '" data-proj="' + k + '"><div class="nm">' + esc(p.name) + '</div>' +
+        '<div class="tw"><b>' + esc(p.twistName) + '.</b> ' + esc(p.twist) + '</div>' +
+        '<div class="tg">' + cm.months + ' months &middot; ' + cm.milestones.map(m => m.target).join(' / ') + ' dev points</div></button>';
+    }
+    h += '<h2>Team</h2><div class="panel">';
+    for (const r of C.ROLE_ORDER) {
+      const v = setup.roles[r];
+      h += '<div class="rolerow"><div class="nm">' + C.ROLES[r].name + '</div><div class="seg" role="group" aria-label="' + C.ROLES[r].name + '">' +
+        ['human', 'ai', 'off'].map(x => '<button data-role="' + r + '" data-val="' + x + '" class="' + (v === x ? 'on' : '') + '">' + (x === 'human' ? 'Human' : x === 'ai' ? 'AI' : 'Off') + '</button>').join('') + '</div></div>';
+    }
+    h += '</div>';
+    if (roles.length < 4) h += '<p class="small muted" style="margin-top:8px">The balance is tuned for all four roles. Smaller teams work, but the difficulty swings a lot depending on who is missing.</p>';
+    h += '<div style="margin-top:14px"><button class="btn primary center" data-act="start"' + (roles.length ? '' : ' disabled') + '>Start the project</button></div>';
+    h += howToHtml();
+    return h;
+  }
+
+  function howToHtml() {
+    const S = settings;
+    let h = '<details><summary>How to play</summary><div class="body">' +
+      '<p>You are a game studio. Bank enough dev points to hit three milestones (Prototype, Alpha, Gold) before the months run out. Everyone wins or loses together, and you can talk freely.</p>' +
+      '<p><b>Your turn</b></p><ol>' +
+      '<li><b>Roll one die.</b> That is your normal work week. It is always safe.</li>' +
+      '<li><b>Crunch if you dare.</b> Roll another die and add it. If it matches a number you already rolled this turn, you bust: that die is wasted and you take a Burnout. You keep the rest.</li>' +
+      '<li><b>Bank</b> your total toward the current milestone.</li>' +
+      '<li><b>Draw a card.</b> Tools go to your hand. Trouble happens right away.</li></ol>' +
+      '<p><b>Burnout</b> turns your role card: Fresh, Tired, Fried, Toast. Each step kills one of your numbers (it scores nothing but can still cause a bust). Most roles lose 6, then 5, then 4. The Producer loses 1, then 2, then 3. Bust while Toast and you quit, and the team loses.</p>' +
+      '<p><b>Milestones</b> have due months. Miss one and everyone takes a Burnout. Miss Gold and the game is cancelled.</p>' +
+      '<p><b>Cards</b> are played on your own turn. Every Tool has a price.</p>' +
+      '<p><b>Roles</b></p>';
+    for (const r of C.ROLE_ORDER) h += '<div class="cardref"><b>' + C.ROLES[r].name + '</b>' + esc(roleDice(r, S)) + '<br>' + esc(roleCard(r, S)) + '</div>';
+    h += '<p style="margin-top:12px"><b>Tools</b></p>';
+    for (const k of C.CARD_KEYS) if (C.CARDS[k].type === 'tool') h += '<div class="cardref"><b class="tool">' + esc(C.CARDS[k].name) + '</b>' + esc(cardText(k)) + '</div>';
+    h += '<p style="margin-top:12px"><b>Trouble</b></p>';
+    for (const k of C.CARD_KEYS) if (C.CARDS[k].type === 'trouble') h += '<div class="cardref"><b class="trouble">' + esc(C.CARDS[k].name) + '</b>' + esc(cardText(k)) + '</div>';
+    h += '</div></details>';
+    return h;
+  }
+  function roleDice(r, S) {
+    if (r === 'artist') {
+      const f = { low: '1s and 2s', one: '1s', high: '5s and 6s', odd: 'odd numbers' }[S.artistFaces];
+      return 'Inspiration: your ' + f + ' count ' + (S.artistMult === 3 ? 'triple' : S.artistMult === 1 ? 'as normal' : 'double') + '.';
+    }
+    if (r === 'engineer') return 'Clean Code: dice in a run of ' + S.engMinRun + ' or more (like ' + (S.engMinRun === 2 ? '3-4' : '2-3-4') + ') count ' + (S.engMult === 3 ? 'triple' : S.engMult === 1 ? 'as normal' : 'double') + '.';
+    if (r === 'designer') return 'Tuning Pass: once per turn, nudge a die up or down by 1. Your own dice are free' + (S.designerTeamNudge === 'card' ? '; a teammate\'s costs you a discarded card.' : S.designerTeamNudge === 'free' ? ', and so are a teammate\'s.' : '; you cannot tune a teammate\'s.');
+    return S.producerHit ? 'Take the Hit: when a teammate busts, you may take the Burnout for them.' + (S.producerHitContinues ? ' They keep rolling.' : '') : 'No dice power (Take the Hit is switched off).';
+  }
+  function roleCard(r, S) {
+    if (r === 'artist') return 'Kill Your Darlings: once per turn, discard a card to reroll one of your dice.';
+    if (r === 'engineer') return 'Reuse: once per turn, take the top Tool of the discard pile instead of drawing.';
+    if (r === 'designer') return 'Design Doc: before you draw, peek at the top card and you may bury it.';
+    return 'Holds ' + S.producerHandLimit + ' cards (others hold ' + S.handLimit + ').' + (S.producerPass ? ' Once per turn, anyone\'s, may move one card between any two hands.' : '');
+  }
+
+  function gameHtml() {
+    const S = st.S, t = st.turn;
+    let h = '<div class="ghead"><div class="pn">' + esc(st.project.name) + '</div><div class="small muted">' + esc(st.project.twistName) + '</div></div>';
+    h += '<div class="small muted">' + esc(st.project.twist) + '</div>';
+    // months
+    h += '<div class="months" aria-label="Month ' + st.month + ' of ' + st.months + '">';
+    for (let m = 1; m <= st.months; m++) {
+      const due = st.milestones.some(x => x.due === m);
+      h += '<div class="m' + (m < st.month ? ' past' : m === st.month && !st.over ? ' now' : '') + (due ? ' due' : '') + '">' + m + '</div>';
+    }
+    h += '</div>';
+    // milestones
+    h += '<div class="ms">';
+    st.milestones.forEach((m, i) => {
+      const isCur = i === st.ms && !st.over;
+      const prog = m.done ? m.target : (i === st.ms ? Math.min(st.progress, m.target) : 0);
+      const cls = m.done ? 'done' : (m.missed ? 'missed' : '') + (isCur ? ' cur' : '');
+      const tag = m.done ? (m.onTime ? 'done' : 'late') : (m.missed ? 'missed' : 'due ' + m.due);
+      h += '<div class="s ' + cls + '"><div class="t"><span>' + m.name + '</span></div><div class="du">' + tag + '</div>' +
+        '<div class="v">' + (m.done ? '&#10003; ' + m.target : (i === st.ms ? st.progress : 0) + ' / ' + m.target) + '</div>' +
+        '<div class="bar"><i style="width:' + (m.target ? Math.round(100 * prog / m.target) : 100) + '%"></i></div></div>';
+    });
+    h += '</div>';
+    // players
+    h += '<div class="players">';
+    st.players.forEach((p, i) => {
+      const dead = C.deadFaces(S, p.role, p.burnout);
+      const active = t && t.pi === i && !st.over;
+      h += '<div class="pl b' + p.burnout + (active ? ' active' : '') + (p.out ? ' out' : '') + '"><div class="hd"><span class="nm">' + C.ROLES[p.role].name + '</span><span class="who">' + (p.human ? 'You' : 'AI') + '</span></div>' +
+        '<div class="bo">' + (p.out ? 'Quit' : C.BURNOUT_NAMES[p.burnout]) + (dead.length ? ' <span>dead: ' + dead.join(', ') + '</span>' : '') + '</div><div class="chips">';
+      if (!p.hand.length) h += '<span class="none">no cards</span>';
+      for (const c of p.hand) h += '<button class="chip' + (infoUid === c.uid ? ' on' : '') + '" data-chip="' + c.uid + '" data-key="' + c.key + '">' + esc(C.CARDS[c.key].name) + '</button>';
+      h += '</div></div>';
+    });
+    h += '</div>';
+    if (infoUid != null) {
+      let key = null;
+      for (const p of st.players) for (const c of p.hand) if (c.uid === infoUid) key = c.key;
+      if (key) h += '<div class="cardinfo"><b>' + esc(C.CARDS[key].name) + '.</b> ' + esc(cardText(key)) + '</div>';
+    }
+    // dice tray
+    if (t) {
+      const det = C.scoreDetail(st, t.pi, t.dice, t.scoreBurnout);
+      h += '<div class="tray"><div class="tl"><span>' + C.ROLES[st.players[t.pi].role].name + (t.vacation ? ' is on vacation' : t.noCrunch && !t.scored ? ' &middot; no crunching' : t.mustCrunch && !t.crunches && !t.scored ? ' &middot; must crunch' : '') + '</span><span class="tot">' + (t.vacation ? '&mdash;' : det.total) + '</span></div><div class="dice">';
+      t.dice.forEach((d, i) => {
+        const x = det.per[i];
+        let cls = x.wasted ? 'wasted' : x.dead ? 'dead' : x.boost ? 'boost' : '';
+        if (t.bustPending === i) cls += ' pending';
+        if (i === t.dice.length - 1 && t.dice.length > lastDice) cls += ' new';
+        h += dieHtml(d.v, cls, x.wasted ? 'bust' : x.dead ? 'dead' : '+' + x.pts);
+      });
+      if (!t.dice.length && !t.vacation) h += '<span class="small muted">About to roll.</span>';
+      h += '</div></div>';
+      lastDice = t.dice.length;
+    }
+    // prompt / result
+    if (st.over) {
+      h += '<div class="result ' + (st.won ? 'win' : 'lose') + '"><div class="big">' + (st.won ? esc(st.project.name) + ' shipped!' : st.reason === 'quit' ? C.ROLES[st.players[st.quitter].role].name + ' quit. Project cancelled.' : st.reason === 'milestone' ? 'Milestone missed. Project cancelled.' : 'Out of time. Project cancelled.') + '</div>';
+      const need = C.neededToShip(st);
+      h += '<div class="small">' + (st.won ? 'Finished in month ' + st.month + ' of ' + st.months + '.' : 'You were ' + Math.max(0, need) + ' dev points short of shipping.') + ' Team burnout at the end: ' + st.players.map(p => C.ROLES[p.role].short + ' ' + C.BURNOUT_NAMES[p.burnout]).join(', ') + '.</div>';
+      h += '<div class="small muted" style="margin-top:6px">' + st.players.map(p => { const s = st.stats.role[p.role]; return C.ROLES[p.role].name + ' banked ' + s.points + ' over ' + s.turns + ' turns (' + s.busts + (s.busts === 1 ? ' bust)' : ' busts)'); }).join('. ') + '.</div>';
+      h += '<div style="margin-top:12px"><button class="btn primary center" data-act="again">Play again</button><button class="btn center" data-act="setup">Change the setup</button></div></div>';
+    } else if (cur) {
+      h += '<div class="prompt" id="prompt"><div class="q">' + questionFor(cur) + '</div>';
+      cur.options.forEach((o, i) => {
+        const primary = o.id === 'roll' || o.id === 'crunch';
+        const sub = subFor(cur, o);
+        h += '<button class="btn' + (primary ? ' primary' : '') + '" data-opt="' + i + '">' + esc(o.label) + (sub ? '<span class="sub">' + esc(sub) + '</span>' : '') + '</button>';
+      });
+      h += '</div>';
+    } else {
+      h += '<div class="prompt wait" id="prompt"><div class="q muted" style="margin:0">' + (t ? C.ROLES[st.players[t.pi].role].name + (st.players[t.pi].human ? '' : ' (AI)') + ' is working&hellip;' : 'Setting up&hellip;') + '</div></div>';
+    }
+    // log
+    const entries = st.log.slice().reverse();
+    const shown = logOpen ? entries : entries.slice(0, 7);
+    h += '<div class="log">' + shown.map(e => '<div class="e ' + e.kind + '">' + esc(e.text) + '</div>').join('') + '</div>';
+    h += '<div class="gctl"><button class="linkbtn" data-act="log">' + (logOpen ? 'Show less' : 'Show the whole log') + '</button>' +
+      '<div class="seg" role="group" aria-label="AI speed"><button data-speed="normal" class="' + (setup.speed !== 'fast' ? 'on' : '') + '">Normal</button><button data-speed="fast" class="' + (setup.speed === 'fast' ? 'on' : '') + '">Fast</button></div></div>';
+    if (!st.over) h += '<div style="margin-top:10px"><button class="btn danger center" data-act="quit">Abandon this project</button></div>';
+    return h;
+  }
+
+  $('#v-play').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.opt != null && cur) {
+      const o = cur.options[+b.dataset.opt];
+      cur = null; infoUid = null;
+      advance(token, o);
+      return;
+    }
+    if (b.dataset.chip) { const u = +b.dataset.chip; infoUid = infoUid === u ? null : u; renderPlay(); return; }
+    if (b.dataset.proj) { setup.project = b.dataset.proj; lsSet('crunch.setup.v1', setup); renderPlay(); return; }
+    if (b.dataset.role) { setup.roles[b.dataset.role] = b.dataset.val; lsSet('crunch.setup.v1', setup); renderPlay(); return; }
+    if (b.dataset.speed) { setup.speed = b.dataset.speed; lsSet('crunch.setup.v1', setup); renderPlay(); return; }
+    switch (b.dataset.act) {
+      case 'start': case 'again': startGame(); window.scrollTo(0, 0); break;
+      case 'setup': case 'quit': quitGame(); window.scrollTo(0, 0); break;
+      case 'log': logOpen = !logOpen; renderPlay(); break;
+    }
+  });
+
+  // ============================================================ SIMULATE
+  let simN = 500, simProject = 'all', simRunning = false, simLast = null, simPrev = null, simToken = 0;
+
+  function renderSimControls() {
+    const el = $('#v-sim');
+    let h = '<h2>Simulate</h2><div class="panel"><p class="small muted">Four AI players run the game over and over with your current Settings. Use it to see what a rule change does before you playtest it.</p>' +
+      '<div class="set"><div class="lb"><b>Games</b></div><div class="seg" role="group" aria-label="Games">' + [100, 500, 1000, 5000].map(n => '<button data-n="' + n + '" class="' + (simN === n ? 'on' : '') + '">' + (n >= 1000 ? n / 1000 + 'k' : n) + '</button>').join('') + '</div></div>' +
+      '<div class="set stack"><div class="lb"><b>Project</b></div><select id="simproj"><option value="all">All projects, evenly</option>' + C.PROJECT_KEYS.map(k => '<option value="' + k + '"' + (simProject === k ? ' selected' : '') + '>' + esc(C.PROJECTS[k].name) + '</option>').join('') + '</select></div>' +
+      '<div style="margin-top:10px"><button class="btn primary center" data-act="run"' + (simRunning ? ' disabled' : '') + '>' + (simRunning ? 'Running&hellip;' : 'Run ' + simN.toLocaleString() + ' games') + '</button></div>' +
+      '<div class="prog" id="simprog" style="' + (simRunning ? '' : 'display:none') + '"><i></i></div></div>';
+    h += '<div id="simout">' + (simLast ? simResultHtml(simLast, simPrev) : '') + '</div>';
+    el.innerHTML = h;
+  }
+
+  function runSim() {
+    if (simRunning) return;
+    simRunning = true;
+    const tk = ++simToken, n = simN, project = simProject, S = JSON.parse(JSON.stringify(settings));
+    const agg = C.newAgg();
+    const seed = (Math.random() * 1e9) | 0;
+    let done = 0;
+    renderSimControls();
+    const chunk = () => {
+      if (tk !== simToken) return;
+      const to = Math.min(n, done + 40);
+      try { C.simulateInto(agg, S, done, to, { project: project, seed: seed }); }
+      catch (err) { simRunning = false; renderSimControls(); $('#simout').innerHTML = '<div class="panel">The simulation hit an error: ' + esc(err.message) + '</div>'; return; }
+      done = to;
+      const bar = document.querySelector('#simprog i');
+      if (bar) bar.style.width = Math.round(100 * done / n) + '%';
+      if (done < n) setTimeout(chunk, 0);
+      else { simRunning = false; simPrev = simLast; simLast = { agg: agg, project: project, n: n }; renderSimControls(); }
+    };
+    setTimeout(chunk, 30);
+  }
+
+  function hb(label, value, max, text, cls) {
+    return '<div class="hb"><span>' + esc(label) + '</span><span class="tr"><i class="' + (cls || '') + '" style="width:' + (max ? Math.max(0, Math.min(100, 100 * value / max)) : 0) + '%"></i></span><span class="val">' + text + '</span></div>';
+  }
+
+  function simResultHtml(res, prev) {
+    const a = res.agg, g = a.games;
+    const wr = pct(a.wins, g);
+    let h = '<h2>Result</h2><div class="panel"><div class="headline">Shipped <span class="num">' + a.wins.toLocaleString() + '</span> of ' + g.toLocaleString() + ' games (<span class="num">' + wr + '%</span>).</div>';
+    let verdict;
+    if (wr >= 45 && wr <= 55) verdict = 'That is the coin-flip difficulty we are aiming for.';
+    else if (wr > 55 && wr <= 70) verdict = 'A bit easy. Raise Pace in Settings to tighten it.';
+    else if (wr > 70) verdict = 'Much too easy. The team ships almost every time.';
+    else if (wr >= 30) verdict = 'A bit hard. Lower Pace in Settings to loosen it.';
+    else verdict = 'Much too hard. The team rarely ships.';
+    h += '<p class="small muted" style="margin-top:6px">' + verdict + (prev ? ' The run before this one shipped ' + pct(prev.agg.wins, prev.agg.games) + '%.' : '') + (g < 500 ? ' With only ' + g + ' games, expect this to wobble by several points between runs.' : '') + '</p></div>';
+
+    h += '<h2>How games ended</h2><div class="panel">' +
+      hb('Shipped', a.wins, g, pct(a.wins, g) + '%', 'g') +
+      hb('Ran out of time', a.reasons.deadline, g, pct(a.reasons.deadline, g) + '%', 'r') +
+      hb('Someone quit', a.reasons.quit, g, pct(a.reasons.quit, g) + '%', 'r') +
+      (a.reasons.milestone ? hb('Missed a milestone', a.reasons.milestone, g, pct(a.reasons.milestone, g) + '%', 'r') : '') +
+      '<p class="small muted" style="margin:8px 0 0">When the clock ran out, the team was ' + Math.round(a.shortfallSum / Math.max(1, a.shortfallN)) + ' dev points short on average. Winning teams finished with ' + f1(a.winMonthSlack / Math.max(1, a.wins)) + ' months to spare. Average burnout at the end: ' + f1(a.finalBurnout / Math.max(1, a.finalBurnoutN)) + ' steps per player.</p></div>';
+
+    const pk = C.PROJECT_KEYS.filter(k => a.projects[k].games);
+    if (pk.length > 1) {
+      h += '<h2>By project</h2><div class="panel">';
+      for (const k of pk) h += hb(C.PROJECTS[k].name, a.projects[k].wins, a.projects[k].games, pct(a.projects[k].wins, a.projects[k].games) + '%');
+      h += '</div>';
+    }
+    h += '<h2>Milestones hit on time</h2><div class="panel">' + ['Prototype', 'Alpha', 'Gold'].map((nm, i) => hb(nm, a.msOnTime[i], g, pct(a.msOnTime[i], g) + '%')).join('') + '</div>';
+
+    const roles = C.ROLE_ORDER.filter(r => a.role[r].turns);
+    h += '<h2>Roles</h2><div class="panel"><table class="t"><tr><th></th>' + roles.map(r => '<th>' + C.ROLES[r].short + '</th>').join('') + '</tr>';
+    const row = (label, fn) => '<tr><td>' + label + '</td>' + roles.map(r => '<td>' + fn(a.role[r], r) + '</td>').join('') + '</tr>';
+    h += row('Points per turn', x => f1(x.points / x.turns));
+    h += row('Dice per turn', x => f1(x.rolls / x.turns));
+    h += row('Turns that bust', x => pct(x.busts, x.turns) + '%');
+    h += row('Burnout taken per game', x => f1(x.burnoutGained / x.games));
+    h += row('Burnout at the end', x => f1(x.finalBurnout / x.games));
+    h += row('Vacations per game', x => f1(x.vacations / x.games));
+    h += row('Power uses per game', x => f1(x.powerUses / x.games));
+    h += row('Games they quit', (x, r) => pct(a.quitters[r], g) + '%');
+    h += '</table></div>';
+
+    const dt = a.diceHist.reduce((s, v) => s + v, 0);
+    h += '<h2>Dice rolled in a turn</h2><div class="panel">';
+    for (let i = 1; i <= 6; i++) h += hb(i + (i === 1 ? ' die' : ' dice'), a.diceHist[i], dt, pct(a.diceHist[i], dt) + '%', 'm');
+    h += '</div>';
+
+    h += '<h2>Cards, per game</h2><div class="panel"><table class="t"><tr><th>Card</th><th>Drawn</th><th>Played</th></tr>';
+    for (const k of C.CARD_KEYS) {
+      const c = a.cards[k];
+      if (!c.drawn && !c.played) continue;
+      h += '<tr><td class="' + C.CARDS[k].type + '">' + esc(C.CARDS[k].name) + '</td><td>' + f1(c.drawn / g) + '</td><td>' + (C.CARDS[k].type === 'tool' ? f1(c.played / g) : '&mdash;') + '</td></tr>';
+    }
+    h += '</table></div>';
+
+    // plain-English notes
+    const notes = [];
+    if (roles.length > 1) {
+      const sorted = roles.slice().sort((x, y) => a.role[y].points / a.role[y].turns - a.role[x].points / a.role[x].turns);
+      const top = sorted[0], bot = sorted[sorted.length - 1];
+      const ratio = (a.role[top].points / a.role[top].turns) / Math.max(0.1, a.role[bot].points / a.role[bot].turns);
+      notes.push('The ' + C.ROLES[top].name + ' banks the most (' + f1(a.role[top].points / a.role[top].turns) + ' a turn) and the ' + C.ROLES[bot].name + ' the least (' + f1(a.role[bot].points / a.role[bot].turns) + '). That is ' + f1(ratio) + ' times as much.');
+      const sponge = roles.slice().sort((x, y) => a.role[y].burnoutGained / a.role[y].games - a.role[x].burnoutGained / a.role[x].games)[0];
+      notes.push('The ' + C.ROLES[sponge].name + ' soaks up the most Burnout: ' + f1(a.role[sponge].burnoutGained / a.role[sponge].games) + ' steps a game.');
+    }
+    const unplayed = C.CARD_KEYS.filter(k => C.CARDS[k].type === 'tool' && a.cards[k].drawn > g * 0.2 && a.cards[k].played < a.cards[k].drawn * 0.5);
+    if (unplayed.length) notes.push('The AI plays ' + unplayed.map(k => C.CARDS[k].name).join(' and ') + ' less than half the time it draws ' + (unplayed.length > 1 ? 'them' : 'it') + '. Either the price is too high or the card is too situational.');
+    if (pct(a.reasons.quit, g) >= 20) notes.push('A lot of losses come from someone quitting. If that feels cheap at the table, try the gentler Toast rule in Settings.');
+    if (a.msOnTime[0] < g * 0.5) notes.push('Prototype is missed more often than it is hit, so most teams start the game already burned out.');
+    notes.push('The AI is a decent but not expert player. A table that talks well will probably beat these numbers by a few points.');
+    h += '<h2>What stands out</h2><div class="panel"><ul class="notes">' + notes.map(n => '<li>' + esc(n) + '</li>').join('') + '</ul></div>';
+    return h;
+  }
+
+  $('#v-sim').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.n) { simN = +b.dataset.n; renderSimControls(); return; }
+    if (b.dataset.act === 'run') runSim();
+  });
+  $('#v-sim').addEventListener('change', e => { if (e.target.id === 'simproj') simProject = e.target.value; });
+
+  // ============================================================ SETTINGS
+  const SCHEMA = [
+    { group: 'Schedule and difficulty', items: [
+      { k: 'pace', t: 'num', min: 6, max: 16, step: 0.5, label: 'Pace', help: 'Dev points the game demands per turn. This is the main difficulty dial. Half a point moves the win rate by about ten.' },
+      { k: 'months', t: 'num', min: 3, max: 8, step: 1, label: 'Months to ship', help: 'Milestones fall a third, two thirds and all the way through.' },
+      { k: 'missPenalty', t: 'sel', label: 'When a milestone is missed', opts: [['burnout', 'Everyone takes a Burnout'], ['none', 'Nothing happens'], ['lose', 'The game is over']] },
+      { k: 'overflowCarries', t: 'bool', label: 'Extra points carry over', help: 'Points past a milestone count toward the next one.' }
+    ] },
+    { group: 'Dice and burnout', items: [
+      { k: 'bustKeepsPoints', t: 'bool', label: 'A bust keeps your points', help: 'Off: a bust wipes the whole turn.' },
+      { k: 'bustDieWasted', t: 'bool', label: 'The die that busts is wasted', help: 'Off: the matching die still scores.' },
+      { k: 'deadMode', t: 'sel', label: 'Which numbers go dead', opts: [['role', 'Producer loses 1, 2, 3; others lose 6, 5, 4'], ['top', 'Everyone loses 6, 5, 4']] },
+      { k: 'toastBust', t: 'sel', label: 'Busting while Toast', opts: [['lose', 'They quit and the team loses'], ['out', 'They quit; the team plays on'], ['floor', 'Nothing more happens']] },
+      { k: 'cardBurnoutCanQuit', t: 'bool', label: 'Cards can make someone quit', help: 'Off: only a bust can push a Toast player out.' }
+    ] },
+    { group: 'Artist', items: [
+      { k: 'artistFaces', t: 'sel', label: 'Inspiration counts on', opts: [['low', '1s and 2s'], ['one', '1s only'], ['high', '5s and 6s'], ['odd', 'Odd numbers']] },
+      { k: 'artistMult', t: 'num', min: 1, max: 3, step: 1, label: 'Inspiration multiplier', help: '1 switches the power off.' }
+    ] },
+    { group: 'Engineer', items: [
+      { k: 'engMinRun', t: 'num', min: 2, max: 4, step: 1, label: 'Shortest run that counts', help: '2 means 3-4 is a run. 3 means it takes 2-3-4.' },
+      { k: 'engMult', t: 'num', min: 1, max: 3, step: 1, label: 'Run multiplier', help: '1 switches the power off.' }
+    ] },
+    { group: 'Designer', items: [
+      { k: 'designerTeamNudge', t: 'sel', label: 'Tuning a teammate\'s die', opts: [['card', 'Costs the Designer a card'], ['free', 'Free'], ['off', 'Not allowed']] }
+    ] },
+    { group: 'Producer', items: [
+      { k: 'producerHit', t: 'bool', label: 'Take the Hit', help: 'May take a teammate\'s Burnout when they bust.' },
+      { k: 'producerHitContinues', t: 'bool', label: 'Take the Hit keeps them rolling', help: 'The bust does not end the teammate\'s turn.' },
+      { k: 'producerPass', t: 'bool', label: 'Move cards between hands', help: 'One card per turn, on anyone\'s turn.' },
+      { k: 'producerHandLimit', t: 'num', min: 1, max: 8, step: 1, label: 'Producer hand limit' },
+      { k: 'producerSteady', t: 'bool', label: 'Producer\'s dice never go dead', help: 'Burnout still counts toward quitting.' },
+      { k: 'producerDraw', t: 'num', min: 0, max: 2, step: 1, label: 'Extra cards the Producer draws' }
+    ] },
+    { group: 'Cards', items: [
+      { k: 'handLimit', t: 'num', min: 1, max: 6, step: 1, label: 'Hand limit' },
+      { k: 'startHand', t: 'num', min: 0, max: 3, step: 1, label: 'Starting Tools each' },
+      { k: 'drawPerTurn', t: 'num', min: 0, max: 3, step: 1, label: 'Cards drawn per turn' },
+      { k: 'assetPts', t: 'num', min: 1, max: 12, step: 1, label: 'Asset Store points' },
+      { k: 'scopeCut', t: 'num', min: 1, max: 20, step: 1, label: 'Scope Cut size' },
+      { k: 'creepAmt', t: 'num', min: 0, max: 15, step: 1, label: 'Feature Creep size' },
+      { k: 'engineLoss', t: 'num', min: 0, max: 15, step: 1, label: 'Engine Update loss' },
+      { k: 'slipOneShot', t: 'bool', label: 'Slip the Date is single-use', help: 'It leaves the game once played.' }
+    ] },
+    { group: 'AI players', items: [
+      { k: 'aiRisk', t: 'sel', label: 'How much the AI gambles', opts: [['cautious', 'Cautious'], ['balanced', 'Balanced'], ['reckless', 'Reckless']] }
+    ] }
+  ];
+
+  function saveSettings() { lsSet('crunch.settings.v1', settings); }
+  function findItem(k) { for (const g of SCHEMA) for (const it of g.items) if (it.k === k) return it; return null; }
+
+  function renderSettings() {
+    const el = $('#v-settings'), D = C.DEFAULTS;
+    let h = '<h2>Settings</h2><p class="small muted">These are the rules we are still arguing about. Changes apply to the next game you start and the next simulation you run. A dot marks anything you have changed.</p>';
+    // targets preview
+    h += '<div class="panel"><div class="small" style="font-weight:700;margin-bottom:4px">Milestone targets with these settings</div>';
+    for (const k of C.PROJECT_KEYS) {
+      const cm = C.computeMilestones(settings, C.PROJECTS[k], C.ROLE_ORDER);
+      h += '<div class="tgt"><b>' + esc(C.PROJECTS[k].name) + '</b><span>' + cm.milestones.map(m => m.target).join(' / ') + ' in ' + cm.months + ' mo</span></div>';
+    }
+    h += '</div>';
+    for (const g of SCHEMA) {
+      h += '<h2>' + esc(g.group) + '</h2><div class="panel">';
+      for (const it of g.items) {
+        const v = settings[it.k], changed = v !== D[it.k];
+        const lb = '<div class="lb"><b>' + esc(it.label) + '</b>' + (it.help ? '<span>' + esc(it.help) + '</span>' : '') + '</div>';
+        if (it.t === 'bool') h += '<div class="set' + (changed ? ' changed' : '') + '">' + lb + '<label class="sw"><input type="checkbox" data-k="' + it.k + '"' + (v ? ' checked' : '') + ' aria-label="' + esc(it.label) + '"><i></i></label></div>';
+        else if (it.t === 'num') h += '<div class="set' + (changed ? ' changed' : '') + '">' + lb + '<div class="step"><button data-k="' + it.k + '" data-d="-1" aria-label="Less">&minus;</button><span class="v">' + v + '</span><button data-k="' + it.k + '" data-d="1" aria-label="More">+</button></div></div>';
+        else h += '<div class="set stack' + (changed ? ' changed' : '') + '">' + lb + '<select data-k="' + it.k + '" aria-label="' + esc(it.label) + '">' + it.opts.map(o => '<option value="' + o[0] + '"' + (v === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select></div>';
+      }
+      h += '</div>';
+    }
+    // deck
+    let tools = 0, trouble = 0;
+    for (const k of C.CARD_KEYS) { if (C.CARDS[k].type === 'tool') tools += settings.counts[k]; else trouble += settings.counts[k]; }
+    h += '<h2>The deck</h2><div class="panel"><p class="small muted">' + (tools + trouble) + ' cards: ' + tools + ' Tools and ' + trouble + ' Trouble. With four role cards and five project cards that is ' + (tools + trouble + 9) + ' cards to print.</p>';
+    for (const k of C.CARD_KEYS) {
+      const c = C.CARDS[k], v = settings.counts[k];
+      h += '<div class="set' + (v !== D.counts[k] ? ' changed' : '') + '"><div class="lb"><b class="' + c.type + '">' + esc(c.name) + '</b><span>' + esc(cardText(k)) + '</span></div><div class="step"><button data-c="' + k + '" data-d="-1" aria-label="Fewer">&minus;</button><span class="v">' + v + '</span><button data-c="' + k + '" data-d="1" aria-label="More">+</button></div></div>';
+    }
+    h += '</div><div style="margin-top:16px"><button class="btn center" data-act="reset">Put everything back to the tuned defaults</button></div>';
+    el.innerHTML = h;
+  }
+
+  $('#v-settings').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const y = window.scrollY;
+    if (b.dataset.act === 'reset') { settings = C.mergeSettings(null); saveSettings(); renderSettings(); return; }
+    if (b.dataset.k) {
+      const it = findItem(b.dataset.k);
+      let v = settings[it.k] + (+b.dataset.d) * it.step;
+      v = Math.max(it.min, Math.min(it.max, Math.round(v * 100) / 100));
+      settings[it.k] = v;
+    } else if (b.dataset.c) {
+      settings.counts[b.dataset.c] = Math.max(0, Math.min(6, settings.counts[b.dataset.c] + (+b.dataset.d)));
+    } else return;
+    saveSettings(); renderSettings(); window.scrollTo(0, y);
+  });
+  $('#v-settings').addEventListener('change', e => {
+    const k = e.target.dataset.k;
+    if (!k) return;
+    const y = window.scrollY;
+    settings[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    saveSettings(); renderSettings(); window.scrollTo(0, y);
+  });
+
+  // ------------------------------------------------------------ go
+  showView('play');
+  window.__crunchUI = { state: () => st, current: () => cur };
+})();
+
+</script>
+</body>
+</html>
