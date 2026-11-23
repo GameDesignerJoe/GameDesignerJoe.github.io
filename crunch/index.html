@@ -254,7 +254,7 @@ select {
 </head>
 <body>
 <div id="app">
-  <header class="top"><div class="wordmark">CRUNCH</div><div class="tagline">playtest build 0.2.1<br>ship it before it ships you</div></header>
+  <header class="top"><div class="wordmark">CRUNCH</div><div class="tagline">playtest build 0.3<br>ship it before it ships you</div></header>
   <main>
     <section class="view on" id="v-play"></section>
     <section class="view" id="v-sim"></section>
@@ -318,6 +318,7 @@ select {
     scope: { name: 'Scope Cut', type: 'tool', gain: 'Lower the current milestone target.', cost: 'Take a Burnout.' },
     pizza: { name: 'Pizza Night', type: 'tool', gain: 'Every player removes one Burnout.', cost: 'Discard the rest of your hand.' },
     slip: { name: 'Slip the Date', type: 'tool', gain: 'Add one month to the schedule.', cost: 'Every player takes a Burnout.' },
+    worth: { name: 'Worth It!', type: 'tool', gain: 'When you bust, bank the whole roll anyway, busted die included.', cost: 'You still take the Burnout.' },
     creep: { name: 'Feature Creep', type: 'trouble', text: 'The current milestone target goes up.' },
     engine: { name: 'Engine Update', type: 'trouble', text: 'Lose dev points.' },
     reorg: { name: 'Reorg', type: 'trouble', text: 'Everyone passes their hand to the left.' },
@@ -373,8 +374,9 @@ select {
     scopeCut: 5,
     creepAmt: 4,
     engineLoss: 4,
+    playAnytime: true,      // Tools may be played after banking and drawing, not only before and between rolls
     slipOneShot: true,      // Slip the Date leaves the game after it is played
-    counts: { vacation: 2, quickie: 2, asset: 2, coffee: 2, scope: 1, pizza: 1, slip: 1, creep: 2, engine: 1, reorg: 1, overtime: 1, press: 1, broken: 1 },
+    counts: { vacation: 2, quickie: 2, asset: 2, coffee: 1, scope: 1, pizza: 1, slip: 1, worth: 1, creep: 2, engine: 1, reorg: 1, overtime: 1, press: 1, broken: 1 },
     // AI
     aiRisk: 'balanced',     // 'cautious' | 'balanced' | 'reckless'
     aiRest: 2               // how readily the AI rests: 0 never .. 3 often
@@ -727,6 +729,7 @@ select {
       let ok = false;
       switch (c.key) {
         case 'vacation': ok = phase === 'pre' && p.burnout > 0; break;
+        case 'worth': ok = false; break;
         case 'asset': ok = phase === 'pre'; break;
         case 'scope': ok = p.burnout < 3; break;
         case 'pizza': ok = st.players.some(q => !q.out && q.burnout > 0); break;
@@ -816,11 +819,23 @@ select {
       const opts = [{ id: 'accept', label: 'Take the bust' }];
       const q = p.hand.find(c => c.key === 'quickie');
       if (q) opts.push({ id: 'quickie', uid: q.uid, key: 'quickie', label: 'Play Energy Drink: ignore the bust' });
+      const wi = p.hand.find(c => c.key === 'worth');
+      if (wi) opts.push({ id: 'worth', uid: wi.uid, key: 'worth', label: 'Play Worth It!: bank it all anyway' });
       const cf = p.hand.find(c => c.key === 'coffee');
       if (cf) opts.push({ id: 'coffee', uid: cf.uid, key: 'coffee', label: 'Play Coffee: reroll the die' });
       if (p.role === 'designer' && !t.nudgeUsed) for (const nv of validNudges(t.dice, di)) opts.push({ id: 'nudgeTo', v: nv, label: 'Tuning Pass: make it a ' + nv });
       const c = yield { type: 'bust', player: pi, di: di, options: opts };
       if (c.id === 'accept') break;
+      if (c.id === 'worth') {
+        const card = removeFromHand(st, pi, c.uid); st.discard.push(card); t.playedUids.push(card.uid);
+        st.stats.cards.worth.played++;
+        t.busted = true; t.bustPending = -1; die.bust = true;
+        st.stats.role[p.role].busts++;
+        log(st, pname(st, pi) + ' says Worth It! The whole roll counts, bust and all.', 'good');
+        giveBurnout(st, pi, true);
+        yield* beat(st, 'bust');
+        return;
+      }
       if (c.id === 'quickie') {
         const card = removeFromHand(st, pi, c.uid); st.discard.push(card); t.playedUids.push(card.uid);
         st.stats.cards.quickie.played++;
@@ -1098,6 +1113,14 @@ select {
     }
     if (st.over) return;
     yield* drawPhase(st, pi);
+    while (!st.over && !p.out && S.playAnytime) {
+      const extra = cardOptions(st, pi, 'post');
+      if (!extra.length) break;
+      t.ending = true;
+      const c = yield { type: 'postTurn', player: pi, options: [{ id: 'end', label: 'End your turn' }].concat(extra) };
+      if (c.id !== 'card') break;
+      yield* playCard(st, pi, c.uid);
+    }
   }
 
   function endOfMonth(st) {
@@ -1195,6 +1218,7 @@ select {
       case 'asset': return p.burnout >= 2 ? 5 : 3.5;
       case 'scope': return p.burnout >= 2 ? 2 : 4;
       case 'coffee': return 4;
+      case 'worth': return 4.5;
       case 'pizza': return 1.5 + st.players.filter(q => !q.out && q.burnout > 0).length;
       case 'slip': return st.month >= st.months - 1 ? 5 : 2;
       default: return 1;
@@ -1262,7 +1286,7 @@ select {
         if (byId(opts, 'move')) { st._plan = producerPlan(st); if (st._plan) return byId(opts, 'move'); }
         const rem = turnsLeft(st);
         let o;
-        if ((o = byKey(opts, 'slip')) && st.milestones[st.ms].due === st.month && predictMiss(st, me)) return o;
+        if (!S.playAnytime && (o = byKey(opts, 'slip')) && st.milestones[st.ms].due === st.month && predictMiss(st, me)) return o;
         if ((o = byKey(opts, 'asset')) && (t.noCrunch || p.burnout >= 2)) return o;
         if ((o = byKey(opts, 'pizza'))) {
           const helped = st.players.filter(q => !q.out && q.burnout > 0).length;
@@ -1312,7 +1336,8 @@ select {
               const dz = roleIndex(st, 'designer');
               if (dz >= 0 && dz !== me && !t.nudgeUsed && S.designerTeamNudge !== 'off' && (S.designerTeamNudge === 'free' || st.players[dz].hand.length > 0)) { save = 0.8; saveCost = S.designerTeamNudge === 'free' ? 0 : 3; }
             }
-            const cost = save * saveCost + (1 - save) * (bc + lose);
+            let cost = save * saveCost + (1 - save) * (bc + lose);
+            if (p.hand.some(c => c.key === 'worth') && p.burnout < 3) cost = Math.min(cost, save * saveCost + (1 - save) * (bc + 0.5));
             const need = neededToShip(st);
             if (cur >= need) wantRoll = false;
             else if (st.month >= st.months && st.progress + cur + restOfMonthEst(st, me) < need && bc < 1e5) wantRoll = ev - pB * lose * (1 - save) * 0.5 > 0; // little left to lose
@@ -1348,6 +1373,7 @@ select {
         let o;
         if ((o = byId(opts, 'coffee')) && bc > 1.5) return o;
         if ((o = byId(opts, 'quickie')) && bc > 4) return o;
+        if ((o = byId(opts, 'worth')) && p.burnout < 3 && scoreDice(st, me, t.dice, t.scoreBurnout) >= 6) return o;
         return byId(opts, 'accept');
       }
       case 'assistBust': {
@@ -1373,6 +1399,22 @@ select {
         const mine = st.players[me].burnout;
         if (mine >= 2 && !st.players[me].hand.some(c => c.key === 'vacation')) return byId(opts, 'no');
         return burnoutCost(st, me) + 0.5 < burnoutCost(st, v) ? byId(opts, 'yes') : byId(opts, 'no');
+      }
+      case 'postTurn': {
+        const p = st.players[me], m = st.milestones[st.ms];
+        let o;
+        if ((o = byKey(opts, 'scope')) && m) {
+          const amt = S.scopeCut * (st.project.scopeDouble ? 2 : 1);
+          const bcst = burnoutCost(st, me);
+          if (st.progress >= m.target - amt && bcst < 1e5) return o;
+          if (amt > bcst + 1) return o;
+        }
+        if ((o = byKey(opts, 'slip')) && m && m.due === st.month && !m.missed && st.progress + restOfMonthEst(st, me) * 0.9 < m.target) return o;
+        if ((o = byKey(opts, 'pizza'))) {
+          const helped = st.players.filter(q => !q.out && q.burnout > 0).length;
+          if (helped >= 3 || (helped >= 2 && p.hand.length <= 2)) return o;
+        }
+        return byId(opts, 'end');
       }
       case 'pickDiscard': return lowestCard(st, me, opts);
       case 'pickDie': {
@@ -1471,7 +1513,7 @@ select {
   function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } }
 
-  let settings = C.mergeSettings(lsGet('crunch.settings.v1', null));
+  let settings = C.mergeSettings(lsGet('crunch.settings.v3', null));
   let setup = lsGet('crunch.setup.v1', null) || { project: 'random', roles: { producer: 'ai', artist: 'ai', engineer: 'human', designer: 'ai' }, speed: 'normal' };
   let view = 'play';
 
@@ -1492,7 +1534,7 @@ select {
 
   // ============================================================ PLAY
   let st = null, gen = null, cur = null, token = 0, held = null, infoUid = null, logOpen = false, lastDice = 0, resultHidden = false, copyMsg = '';
-  const BUILD = '0.2.1';
+  const BUILD = '0.3';
 
   function roleList() {
     return C.ROLE_ORDER.filter(r => setup.roles[r] !== 'off').map(r => ({ role: r, human: setup.roles[r] === 'human' }));
@@ -1534,7 +1576,7 @@ select {
     if (st.players[d.player].human) { cur = d; renderPlay(); focusPrompt(); return; }
     const ch = C.aiChoose(st, d);
     recordChoice(d, ch);
-    const quiet = ['skip', 'pass', 'keep', 'no', 'deck', 'roll', 'accept', 'ok'].indexOf(ch.id) >= 0 || d.type === 'passCard' || d.type === 'passTarget' || d.type === 'pickDiscard' || d.type === 'pickDie';
+    const quiet = ['skip', 'pass', 'keep', 'no', 'deck', 'roll', 'accept', 'ok', 'end'].indexOf(ch.id) >= 0 || d.type === 'passCard' || d.type === 'passTarget' || d.type === 'pickDiscard' || d.type === 'pickDie';
     if (quiet) { advance(tk, ch); return; }
     cur = null;
     later(() => advance(tk, ch), setup.speed === 'fast' ? 120 : 380, tk);
@@ -1573,6 +1615,7 @@ select {
         return who + ': crunch, or stop?';
       }
       case 'bust': return who + ': you rolled a second ' + t.dice[d.di].v + '. That\'s a bust.' + (st.S.bustKeepsPoints ? '' : ' You lose everything from this turn unless something saves it.');
+      case 'postTurn': return who + ': your turn is nearly over. Play a card before it ends?';
       case 'notice': {
         const c = C.CARDS[d.key];
         if (c.type === 'tool') return who + ' drew a Tool: <b class="tool">' + esc(c.name) + '</b>. It goes into your hand.<div class="note">' + esc(cardText(d.key)) + '</div>';
@@ -1668,7 +1711,7 @@ select {
       (S.restAction ? '<p><b>Rest.</b> Instead of rolling, you can skip your roll to remove one Burnout. You still draw a card.</p>' : '') +
       '<p><b>Burnout</b> turns your role card: Fresh, Tired, Fried, Toast. Each step kills one of your numbers (it scores nothing but can still cause a bust). Most roles lose 6, then 5, then 4. The Producer loses 1, then 2, then 3. Bust while Toast and you quit, and the team loses.</p>' +
       '<p><b>Milestones</b> have due months. Miss one and everyone takes a Burnout. Miss Gold and the game is cancelled.</p>' +
-      '<p><b>Cards</b> are played on your own turn. Every Tool has a price.</p>' +
+      '<p><b>Cards</b> are played on your own turn' + (S.playAnytime ? ', at any point in it, even after you bank and draw, as long as you can still pay the price.' : ', before you roll or between rolls.') + ' Every Tool has a price.</p>' +
       '<p><b>Roles</b></p>';
     for (const r of C.ROLE_ORDER) h += '<div class="cardref"><b>' + C.ROLES[r].name + '</b>' + esc(roleDice(r, S)) + '<br>' + esc(roleCard(r, S)) + '</div>';
     h += '<p style="margin-top:12px"><b>Tools</b></p>';
@@ -2027,6 +2070,7 @@ select {
       { k: 'scopeCut', t: 'num', min: 1, max: 20, step: 1, label: 'Scope Cut size' },
       { k: 'creepAmt', t: 'num', min: 0, max: 15, step: 1, label: 'Feature Creep size' },
       { k: 'engineLoss', t: 'num', min: 0, max: 15, step: 1, label: 'Engine Update loss' },
+      { k: 'playAnytime', t: 'bool', label: 'Play Tools any time on your turn', help: 'Off: only before you roll or between rolls.' },
       { k: 'slipOneShot', t: 'bool', label: 'Slip the Date is single-use', help: 'It leaves the game once played.' }
     ] },
     { group: 'AI players', items: [
@@ -2034,7 +2078,7 @@ select {
     ] }
   ];
 
-  function saveSettings() { lsSet('crunch.settings.v1', settings); }
+  function saveSettings() { lsSet('crunch.settings.v3', settings); }
   function findItem(k) { for (const g of SCHEMA) for (const it of g.items) if (it.k === k) return it; return null; }
 
   function renderSettings() {
