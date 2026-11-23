@@ -254,7 +254,7 @@ select {
 </head>
 <body>
 <div id="app">
-  <header class="top"><div class="wordmark">CRUNCH</div><div class="tagline">playtest build 0.2<br>ship it before it ships you</div></header>
+  <header class="top"><div class="wordmark">CRUNCH</div><div class="tagline">playtest build 0.2.1<br>ship it before it ships you</div></header>
   <main>
     <section class="view on" id="v-play"></section>
     <section class="view" id="v-sim"></section>
@@ -679,7 +679,7 @@ select {
     }
   }
 
-  function* producerWindow(st) {
+  function* producerWindow(st, direct) {
     const S = st.S;
     if (!S.producerPass) return;
     const pz = roleIndex(st, 'producer');
@@ -695,8 +695,10 @@ select {
       }
     }
     if (!movable.length) return;
-    const c1 = yield { type: 'producerPass', player: pz, options: [{ id: 'skip', label: 'No, carry on' }, { id: 'move', label: 'Move a card' }] };
-    if (c1.id !== 'move') return;
+    if (!direct) {
+      const c1 = yield { type: 'producerPass', player: pz, options: [{ id: 'skip', label: 'No, carry on' }, { id: 'move', label: 'Move a card' }] };
+      if (c1.id !== 'move') return;
+    }
     const c2 = yield {
       type: 'passCard', player: pz,
       options: movable.map(m => ({ id: 'card', from: m.from, uid: m.card.uid, key: m.card.key, label: cardName(m.card) + ' (from ' + pname(st, m.from) + ')' })).concat([{ id: 'skip', label: 'Never mind' }])
@@ -1016,14 +1018,16 @@ select {
     if (t.noCrunch) log(st, t.noCrunchWhy + ': ' + pname(st, pi) + ' cannot crunch this turn.', 'bad');
     if (t.mustCrunch) log(st, 'Mandatory Overtime: ' + pname(st, pi) + ' must crunch at least once this turn.', 'bad');
     yield* beat(st, 'turn');
-    yield* producerWindow(st);
+    if (p.role !== 'producer') yield* producerWindow(st);
 
     // before rolling: play cards
     while (!st.over) {
       const opts = [{ id: 'roll', label: 'Roll' }];
       if (S.restAction && p.burnout > 0 && !t.playedUids.length) opts.push({ id: 'rest', label: 'Rest: skip your roll, remove one Burnout' });
       for (const o of cardOptions(st, pi, 'pre')) opts.push(o);
+      if (p.role === 'producer' && S.producerPass && !t.passUsed && st.players.some(q => !q.out && q.hand.length)) opts.push({ id: 'move', label: 'Move a card between hands' });
       const c = yield { type: 'preRoll', player: pi, options: opts };
+      if (c.id === 'move') { t.passUsed = true; yield* producerWindow(st, true); continue; }
       if (c.id === 'roll') break;
       if (c.id === 'rest') {
         p.burnout--; t.vacation = true; t.rested = true; t.scoreBurnout = p.burnout;
@@ -1255,6 +1259,7 @@ select {
       }
       case 'preRoll': {
         const p = st.players[me];
+        if (byId(opts, 'move')) { st._plan = producerPlan(st); if (st._plan) return byId(opts, 'move'); }
         const rem = turnsLeft(st);
         let o;
         if ((o = byKey(opts, 'slip')) && st.milestones[st.ms].due === st.month && predictMiss(st, me)) return o;
@@ -1487,7 +1492,7 @@ select {
 
   // ============================================================ PLAY
   let st = null, gen = null, cur = null, token = 0, held = null, infoUid = null, logOpen = false, lastDice = 0, resultHidden = false, copyMsg = '';
-  const BUILD = '0.2';
+  const BUILD = '0.2.1';
 
   function roleList() {
     return C.ROLE_ORDER.filter(r => setup.roles[r] !== 'off').map(r => ({ role: r, human: setup.roles[r] === 'human' }));
@@ -1603,6 +1608,7 @@ select {
     if (o.id === 'stop') return 'Bank ' + C.scoreDice(st, st.turn.pi, st.turn.dice, st.turn.scoreBurnout) + ' dev points.';
     if (o.id === 'accept') return (st.S.bustKeepsPoints ? 'That die is wasted' : 'You bank nothing this turn') + (st.S.bustBurnout ? ' and someone takes a Burnout.' : '.');
     if (o.id === 'rest') return 'You roll nothing, but you still draw a card.';
+    if (o.id === 'move') return 'Your Producer power, once per turn. Any card, any two hands.';
     if (o.id === 'yes' && d.type === 'takeHit') return 'You become ' + C.BURNOUT_NAMES[Math.min(3, st.players[d.player].burnout + 1)] + ' instead.';
     return '';
   }
