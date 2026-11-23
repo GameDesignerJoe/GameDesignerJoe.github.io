@@ -2,314 +2,187 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#12141a">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1512">
 <title>Crunch</title>
-<meta name="description" content="Crunch: a cooperative press-your-luck micro game about shipping a video game. Playtest build.">
+<meta name="description" content="Crunch: a cooperative micro card game about shipping a video game. Table playtest build.">
 <style>
 :root {
-  --bg: #12141a;
-  --panel: #1b1f28;
-  --panel2: #242a36;
-  --line: #2f3645;
-  --ink: #ecebe4;
-  --muted: #9aa1ae;
-  --accent: #ffb224;
-  --accent-ink: #1a1300;
-  --good: #5fd38d;
-  --bad: #ff6b5e;
-  --b0: #5fd38d;
-  --b1: #e8d44d;
-  --b2: #ff9a3c;
-  --b3: #ff5a4e;
+  --bg: #0b1512; --felt1: #1f5a47; --felt2: #0f3328; --rail: #08100e;
+  --panel: rgba(8, 18, 15, 0.82); --panel2: #16241f; --line: rgba(255, 255, 255, 0.14);
+  --ink: #f1efe6; --muted: #a9b5ae; --accent: #ffb224; --accent-ink: #1a1300; --good: #6fe09a; --bad: #ff6b5e;
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+.d-prod { --dc: #e8b84a; } .d-art { --dc: #ec6fae; } .d-code { --dc: #5cb8ff; } .d-design { --dc: #7ddc8a; } .d-event { --dc: #ff6b5e; }
 * { box-sizing: border-box; scrollbar-width: none; -ms-overflow-style: none; }
 *::-webkit-scrollbar { display: none; width: 0; height: 0; }
-html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.4;
-  -webkit-tap-highlight-color: transparent;
-}
-#app { max-width: 560px; margin: 0 auto; padding: 12px 16px calc(84px + env(safe-area-inset-bottom)); min-height: 100vh; }
-header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0 12px; }
-.wordmark { font-family: var(--mono); font-weight: 800; letter-spacing: 0.18em; font-size: 20px; color: var(--accent); }
-.tagline { color: var(--muted); font-size: 12px; text-align: right; }
-h2 { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; font-weight: 700; }
-h3 { font-size: 16px; margin: 0 0 4px; }
-p { margin: 0 0 10px; }
-.muted { color: var(--muted); }
-.small { font-size: 13px; }
-.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.view { display: none; }
-.view.on { display: block; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+button { font-family: inherit; }
+#wrap { position: fixed; inset: 0; overflow: hidden; touch-action: none; }
+#stage { position: absolute; left: 0; top: 0; width: 1000px; height: 460px; transform-origin: 0 0; border-radius: 22px; background: radial-gradient(ellipse at 50% 42%, var(--felt1), var(--felt2) 78%); box-shadow: inset 0 0 0 6px var(--rail), inset 0 0 60px rgba(0, 0, 0, 0.55); user-select: none; -webkit-user-select: none; }
+#hud, #cards { position: absolute; inset: 0; }
+#hud { pointer-events: none; }
+#hud > * { pointer-events: auto; }
 
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
-.panel + .panel { margin-top: 10px; }
-
-/* tabs */
-nav.tabs {
-  position: fixed; left: 0; right: 0; bottom: 0; background: rgba(18, 20, 26, 0.96); border-top: 1px solid var(--line);
-  padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); z-index: 20;
-}
-nav.tabs .in { max-width: 560px; margin: 0 auto; display: flex; padding: 0 12px; gap: 6px; }
-nav.tabs button {
-  flex: 1; background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; padding: 14px 4px; border-radius: 10px; cursor: pointer;
-}
-nav.tabs button.on { color: var(--accent-ink); background: var(--accent); }
+/* panels on the table */
+.zone { position: absolute; border: 1.5px dashed rgba(255, 255, 255, 0.22); border-radius: 10px; }
+.zone .zl { position: absolute; left: 6px; top: -17px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.zone .zl b { color: var(--ink); font-family: var(--mono); }
+.zone.hot { border-color: var(--accent); background: rgba(255, 178, 36, 0.12); }
+.zone.danger { border-color: var(--bad); } .zone.danger .zl b { color: var(--bad); }
+#dir { position: absolute; left: 12px; top: 10px; width: 214px; height: 116px; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--accent); border-radius: 10px; padding: 7px 9px; cursor: pointer; overflow: hidden; }
+#dir .t { font-weight: 800; font-size: 14px; line-height: 1.15; }
+#dir .p { font-size: 11px; color: var(--muted); margin: 2px 0 4px; line-height: 1.2; }
+#dir .r { font-size: 11px; line-height: 1.3; }
+#dir .r b { color: var(--accent); }
+#ship { position: absolute; left: 716px; top: 10px; width: 272px; height: 124px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+#ship.hot { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+#ship .hd { position: absolute; right: 8px; top: 3px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+#ship .hd b { font-family: var(--mono); color: var(--ink); font-size: 12px; }
+#ship .row { position: absolute; left: 6px; font-size: 10.5px; font-weight: 800; color: var(--dc); letter-spacing: 0.04em; text-transform: uppercase; }
+.seat { position: absolute; width: 118px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; cursor: pointer; }
+.seat.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.seat .n { font-weight: 800; font-size: 13.5px; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.seat .n span { font-size: 9.5px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; }
+.seat .s { font-size: 11.5px; font-weight: 700; color: var(--good); }
+.seat.burned .s { color: var(--bad); }
+#die { position: absolute; left: 156px; top: 186px; width: 48px; text-align: center; }
+#die .f { width: 48px; height: 48px; border-radius: 10px; background: #f2efe6; color: #1a1c22; font-family: var(--mono); font-weight: 800; font-size: 28px; line-height: 48px; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18), 0 3px 8px rgba(0, 0, 0, 0.4); }
+#die.idle .f { opacity: 0.35; }
+#die.fail .f { background: #ffb3ab; } #die.ok .f { background: #b9f3cf; }
+#die .l { font-size: 10.5px; color: var(--muted); margin-top: 3px; font-weight: 700; white-space: nowrap; }
+#die.shake .f { animation: shake 0.6s ease-out; }
+@keyframes shake { 0% { transform: rotate(-200deg) scale(0.6); } 60% { transform: rotate(20deg) scale(1.15); } 100% { transform: none; } }
+#ticker { position: absolute; left: 150px; right: 150px; top: 293px; text-align: center; font-size: 13px; font-weight: 600; color: var(--ink); text-shadow: 0 1px 2px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ticker.good { color: var(--good); } #ticker.bad, #ticker.lose { color: #ffb3ab; } #ticker.score { color: var(--accent); }
+#title { position: absolute; left: 300px; right: 300px; top: 439px; text-align: center; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); white-space: nowrap; }
+#title span { color: var(--muted); font-weight: 700; letter-spacing: 0.04em; }
+#prompt { position: absolute; left: 14px; top: 318px; width: 300px; font-size: 13px; line-height: 1.35; color: var(--ink); text-shadow: 0 1px 2px #000; }
+#prompt b { color: var(--accent); }
+#prompt .me { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+#actions { position: absolute; right: 14px; top: 326px; width: 282px; display: flex; flex-direction: column; gap: 7px; align-items: stretch; }
+#menu { position: absolute; left: 240px; top: 10px; width: 40px; height: 36px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); font-size: 19px; cursor: pointer; }
+#roundtag { position: absolute; left: 290px; top: 14px; font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+#roundtag b { color: var(--ink); font-family: var(--mono); }
 
 /* buttons */
-button { font-family: inherit; }
-.btn {
-  display: block; width: 100%; text-align: left; background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
-  border-radius: 10px; padding: 12px 14px; font-size: 16px; font-weight: 600; cursor: pointer; min-height: 48px;
-}
-.btn + .btn { margin-top: 8px; }
+.btn { display: block; width: 100%; text-align: left; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px 13px; font-size: 15px; font-weight: 700; cursor: pointer; min-height: 44px; }
 .btn .sub { display: block; font-size: 12.5px; font-weight: 400; color: var(--muted); margin-top: 2px; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn.primary .sub { color: #5c4300; }
-.btn.danger { border-color: #6b2f2a; color: #ffb3ab; }
 .btn.center { text-align: center; }
-.btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.5; }
-.row { display: flex; gap: 8px; align-items: center; }
-.row > * { flex: 1; }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible, .seg button:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .linkbtn { background: none; border: 0; color: var(--accent); font: inherit; font-size: 14px; padding: 8px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
-/* segmented */
-.seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
-.seg button { background: none; border: 0; color: var(--muted); font-size: 13px; font-weight: 700; padding: 8px 11px; border-radius: 7px; cursor: pointer; min-height: 38px; }
-.seg button.on { background: var(--accent); color: var(--accent-ink); }
+/* cards */
+.card { position: absolute; left: 0; top: 0; width: 96px; height: 134px; transform-origin: 50% 50%; transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s; border-radius: 9px; cursor: pointer; touch-action: none; }
+.card.drag { transition: none; z-index: 999 !important; box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55); }
+.card .front, .card .back { position: absolute; inset: 0; border-radius: 9px; overflow: hidden; }
+.card .front { background: #f4f1e8; color: #1a1c22; border: 1px solid rgba(0, 0, 0, 0.35); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; }
+.card .back { background: repeating-linear-gradient(45deg, #2b3350, #2b3350 6px, #343d60 6px, #343d60 12px); border: 3px solid #e9e6dc; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); display: none; align-items: center; justify-content: center; color: var(--accent); font-family: var(--mono); font-weight: 800; font-size: 11px; letter-spacing: 0.14em; }
+.card.down .front { display: none; } .card.down .back { display: flex; }
+.card .band { background: var(--dc); color: #111; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 6px; white-space: nowrap; overflow: hidden; }
+.card .nm { font-size: 13px; font-weight: 800; line-height: 1.12; padding: 6px 6px 0; }
+.card .ow { margin-top: auto; padding: 0 6px 6px; font-size: 9.5px; color: #555; line-height: 1.2; }
+.card .pl { position: absolute; right: 4px; bottom: 4px; font-size: 8.5px; font-weight: 800; background: #1a1c22; color: var(--accent); border-radius: 4px; padding: 1px 4px; letter-spacing: 0.06em; }
+.card.event .front { background: #2b1614; color: #ffe1dc; }
+.card.event .add { margin-top: auto; padding: 0 6px 8px; font-size: 12px; font-weight: 800; color: var(--bad); }
+.card.side .front { background: #d9d4c4; }
+.card.side .front::after { content: 'HALF-ASSED'; position: absolute; left: 0; right: 0; top: 46%; text-align: center; font-size: 11px; font-weight: 900; color: rgba(160, 30, 20, 0.75); transform: rotate(-18deg); letter-spacing: 0.06em; }
+.card.mini .nm, .card.mini .ow, .card.mini .pl, .card.mini .front::after { display: none; }
+.card.mini .band { height: 100%; font-size: 0; }
+.card.mini.side .band { opacity: 0.45; background: repeating-linear-gradient(45deg, var(--dc), var(--dc) 10px, #333 10px, #333 20px); }
+.card.glow .front, .card.glow .back { box-shadow: 0 0 0 3px var(--accent), 0 0 18px 4px rgba(255, 178, 36, 0.65); }
+.card.glow { animation: bob 1.4s ease-in-out infinite; }
+@keyframes bob { 50% { margin-top: -4px; } }
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } .card.glow { animation: none; } #die.shake .f { animation: none; } }
 
-/* setup */
-.proj { display: block; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; color: var(--ink); cursor: pointer; }
-.proj + .proj { margin-top: 8px; }
-.proj.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.proj .nm { font-weight: 700; }
-.proj .tw { font-size: 13px; color: var(--muted); }
-.proj .tg { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 3px; }
-.rolerow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+/* overlays (real pixels, not stage pixels) */
+.ov { position: fixed; inset: 0; background: rgba(4, 8, 7, 0.72); display: none; align-items: center; justify-content: center; padding: 12px; z-index: 50; }
+.ov.on { display: flex; }
+.box { background: #131d1a; border: 1px solid var(--line); border-radius: 14px; padding: 14px; width: 100%; max-width: 560px; max-height: 100%; overflow: auto; }
+.box.wide { max-width: 860px; }
+.box h1 { font-family: var(--mono); letter-spacing: 0.18em; color: var(--accent); font-size: 20px; margin: 0 0 2px; }
+.box h2 { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; font-weight: 700; }
+.box p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.4; }
+.small { font-size: 13px; } .muted { color: var(--muted); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 620px) { .cols { grid-template-columns: 1fr; } }
+.pick { display: block; width: 100%; text-align: left; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; color: var(--ink); cursor: pointer; margin-bottom: 6px; }
+.pick.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.pick .nm { font-weight: 800; font-size: 14.5px; } .pick .tw { font-size: 12.5px; color: var(--muted); } .pick .tg { font-size: 11.5px; color: var(--accent); font-family: var(--mono); margin-top: 2px; }
+.rolerow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
 .rolerow:first-child { border-top: 0; }
-.rolerow .nm { font-weight: 700; }
-details { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; margin-top: 10px; }
-details summary { cursor: pointer; padding: 13px 0; font-weight: 700; list-style: none; }
-details summary::-webkit-details-marker { display: none; }
-details summary::after { content: '+'; float: right; color: var(--accent); font-family: var(--mono); }
-details[open] summary::after { content: '\2212'; }
-details .body { padding-bottom: 12px; font-size: 14.5px; }
-details .body li { margin-bottom: 6px; }
-details .body ul, details .body ol { padding-left: 20px; margin: 6px 0 10px; }
-.cardref { border-top: 1px solid var(--line); padding: 8px 0; font-size: 14px; }
-.cardref b { display: block; }
-.tool { color: var(--good); }
-.trouble { color: var(--bad); }
-
-/* game header */
-.ghead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.ghead .pn { font-weight: 800; font-size: 17px; }
-.months { display: flex; gap: 4px; margin: 8px 0 10px; }
-.months .m { flex: 1; height: 22px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--line); font-family: var(--mono); font-size: 11px; display: flex; align-items: center; justify-content: center; color: var(--muted); position: relative; }
-.months .m.past { opacity: 0.35; }
-.months .m.now { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 800; }
-.months .m.due::after { content: ''; position: absolute; right: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); border: 2px solid var(--bg); }
-.ms { display: flex; gap: 6px; }
-.ms .s { flex: 1; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; min-width: 0; }
-.ms .s.cur { border-color: var(--accent); }
-.ms .s .t { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); display: flex; justify-content: space-between; }
-.ms .s .v { font-family: var(--mono); font-weight: 800; font-size: 15px; white-space: nowrap; }
-.ms .s.done .v { color: var(--good); }
-.ms .s .du { font-size: 11px; color: var(--muted); }
-.ms .s.missed .du { color: var(--bad); }
-.ms .s.done .du { color: var(--good); }
-.bar { height: 6px; background: #0e1015; border-radius: 3px; overflow: hidden; margin-top: 5px; }
-.bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.25s; }
-.ms .s.done .bar i { background: var(--good); }
-
-/* players */
-.players { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.pl { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 9px; min-width: 0; border-left-width: 4px; }
-.pl.active { border-color: var(--accent); background: #232015; }
-.pl.out { opacity: 0.4; }
-.pl .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
-.pl .nm { font-weight: 800; font-size: 14.5px; }
-.pl .who { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.pl .bo { font-size: 12.5px; font-weight: 700; margin-top: 2px; }
-.pl .bo span { font-weight: 400; color: var(--muted); }
-.pl.b0 { border-left-color: var(--b0); } .pl.b0 .bo { color: var(--b0); }
-.pl.b1 { border-left-color: var(--b1); } .pl.b1 .bo { color: var(--b1); }
-.pl.b2 { border-left-color: var(--b2); } .pl.b2 .bo { color: var(--b2); }
-.pl.b3 { border-left-color: var(--b3); } .pl.b3 .bo { color: var(--b3); }
-.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; min-height: 24px; }
-.chip { font-size: 11.5px; background: var(--panel2); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 4px 6px; cursor: pointer; }
-.chip.on { border-color: var(--accent); color: var(--accent); }
-.chips .none { font-size: 11.5px; color: var(--muted); padding: 4px 0; }
-.cardinfo { margin-top: 8px; font-size: 13.5px; background: var(--panel2); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; }
-
-/* dice */
-.tray { margin-top: 10px; background: #0e1015; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 96px; }
-.tray .tl { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-.tray .tot { font-family: var(--mono); font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: 0; text-transform: none; }
-.dice { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.die { width: 46px; text-align: center; }
-.die .face {
-  width: 46px; height: 46px; border-radius: 9px; background: #f2efe6; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-  padding: 7px; gap: 2px; position: relative; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
-}
-.die .face i { border-radius: 50%; }
-.die .face i.p { background: #1a1c22; }
-.die .pt { font-family: var(--mono); font-size: 12px; font-weight: 700; margin-top: 3px; color: var(--muted); }
-.die.boost .face { background: #ffd778; box-shadow: 0 0 0 2px var(--accent), inset 0 -3px 0 rgba(0, 0, 0, 0.18); }
-.die.boost .pt { color: var(--accent); }
-.die.dead .face { background: #5a5f6b; }
-.die.dead .pt { color: var(--muted); }
-.die.wasted .face { background: #7b2f29; }
-.die.wasted .face::after { content: ''; position: absolute; left: 4px; right: 4px; top: 50%; height: 3px; background: #ffb3ab; transform: rotate(-45deg); border-radius: 2px; }
-.die.wasted .pt { color: var(--bad); }
-.die.pending .face { box-shadow: 0 0 0 3px var(--bad), inset 0 -3px 0 rgba(0, 0, 0, 0.18); }
-.die.new .face { animation: pop 0.22s ease-out; }
-@keyframes pop { from { transform: scale(0.6) rotate(-12deg); } to { transform: none; } }
-@media (prefers-reduced-motion: reduce) { .die.new .face { animation: none; } .bar i { transition: none; } }
-
-/* prompt */
-.prompt { margin-top: 10px; background: var(--panel); border: 1px solid var(--accent); border-radius: 12px; padding: 12px; }
-.prompt.wait { border-color: var(--line); }
-.prompt .q { font-weight: 700; margin-bottom: 10px; }
-.prompt .q .who { color: var(--accent); }
-.result { margin-top: 10px; border-radius: 12px; padding: 14px; border: 1px solid var(--line); }
-.result.win { background: #14291d; border-color: var(--good); }
-.result.lose { background: #2b1614; border-color: var(--bad); }
-.result .big { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
-
-/* log */
-.log { margin-top: 10px; font-size: 13.5px; }
-.log .e { padding: 3px 0; color: var(--muted); }
+.rolerow .nm { font-weight: 800; } .rolerow .pw { font-size: 12px; color: var(--muted); }
+.seg { display: inline-flex; background: #0c1512; border: 1px solid var(--line); border-radius: 9px; padding: 2px; flex: none; }
+.seg button { background: none; border: 0; color: var(--muted); font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 7px; cursor: pointer; min-height: 36px; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.big { border-radius: 12px; background: #f4f1e8; color: #1a1c22; overflow: hidden; margin-bottom: 10px; }
+.big.event { background: #2b1614; color: #ffe1dc; }
+.big .band { background: var(--dc); color: #111; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 12px; }
+.big .in { padding: 10px 12px 12px; }
+.big .nm { font-size: 22px; font-weight: 800; line-height: 1.15; }
+.big .ln { font-size: 14.5px; margin-top: 6px; line-height: 1.3; }
+.big .ln b { font-weight: 800; }
+.big .pts { font-size: 13px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0, 0, 0, 0.18); font-weight: 600; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btns { display: flex; flex-direction: column; gap: 7px; }
+.note { font-size: 13.5px; background: var(--panel2); border-radius: 8px; padding: 8px 10px; margin: 8px 0; border-left: 3px solid var(--accent); }
+.note.bad { border-left-color: var(--bad); }
+.bigscore { font-family: var(--mono); font-size: 54px; font-weight: 800; line-height: 1; color: var(--accent); }
+.quote { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--accent); background: rgba(0, 0, 0, 0.3); border-radius: 0 8px 8px 0; font-size: 14px; font-style: italic; }
+.quote span { display: block; font-style: normal; font-size: 12px; color: var(--muted); margin-top: 3px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.tabs button { flex: 1; background: var(--panel2); border: 1px solid var(--line); color: var(--muted); font-size: 12.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 11px 4px; border-radius: 9px; cursor: pointer; }
+.tabs button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.log .e { padding: 2px 0; font-size: 13.5px; color: var(--muted); }
 .log .e.turn, .log .e.month, .log .e.head { color: var(--ink); font-weight: 700; margin-top: 4px; }
-.log .e.good, .log .e.win { color: var(--good); }
-.log .e.bad, .log .e.lose { color: var(--bad); }
-.log .e.score { color: var(--accent); }
-.gctl { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
-
-/* sim */
-.headline { font-size: 22px; font-weight: 800; line-height: 1.2; }
-.headline .num { color: var(--accent); }
-.prog { height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden; margin-top: 10px; }
-.prog i { display: block; height: 100%; background: var(--accent); width: 0; }
-.hb { display: grid; grid-template-columns: minmax(84px, 34%) 1fr auto; gap: 8px; align-items: center; font-size: 13.5px; padding: 4px 0; }
-.hb .tr { height: 12px; background: #0e1015; border-radius: 3px; overflow: hidden; }
-.hb .tr i { display: block; height: 100%; background: var(--accent); border-radius: 0 3px 3px 0; }
-.hb .tr i.g { background: var(--good); } .hb .tr i.r { background: var(--bad); } .hb .tr i.m { background: #6f7786; }
-.hb .val { font-family: var(--mono); font-size: 13px; min-width: 44px; text-align: right; }
-table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
-table.t th, table.t td { padding: 6px 4px; text-align: right; border-top: 1px solid var(--line); font-family: var(--mono); }
-table.t th { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-top: 0; }
-table.t td:first-child, table.t th:first-child { text-align: left; font-family: var(--sans); color: var(--ink); }
-.notes li { margin-bottom: 8px; }
-.notes { padding-left: 20px; margin: 0; font-size: 14.5px; }
-
-/* settings */
-.set { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
+.log .e.good, .log .e.win { color: var(--good); } .log .e.bad, .log .e.lose { color: var(--bad); } .log .e.score { color: var(--accent); }
+.set { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
 .set:first-child { border-top: 0; }
-.set .lb { min-width: 0; }
-.set .lb b { display: block; font-size: 15px; font-weight: 600; }
-.set .lb span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+.set .lb b { display: block; font-size: 14.5px; font-weight: 600; } .set .lb span { display: block; font-size: 12.5px; color: var(--muted); }
 .set.changed .lb b::after { content: ' \2022'; color: var(--accent); }
-.set.stack { display: block; }
-.set.stack select { margin-top: 8px; width: 100%; }
-.step { display: inline-flex; align-items: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; flex: none; }
-.step button { width: 42px; height: 42px; background: none; border: 0; color: var(--accent); font-size: 22px; font-weight: 700; cursor: pointer; }
-.step .v { min-width: 44px; text-align: center; font-family: var(--mono); font-weight: 700; }
-select {
-  font: inherit; font-size: 15px; color: var(--ink); background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 11px 34px 11px 12px;
-  appearance: none; -webkit-appearance: none; max-width: 100%;
-  background-image: linear-gradient(45deg, transparent 50%, var(--accent) 50%), linear-gradient(135deg, var(--accent) 50%, transparent 50%);
-  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%; background-size: 5px 5px; background-repeat: no-repeat;
-}
-.sw { position: relative; width: 52px; height: 32px; flex: none; }
+.set.stack { display: block; } .set.stack select { margin-top: 8px; width: 100%; }
+.step { display: inline-flex; align-items: center; background: #0c1512; border: 1px solid var(--line); border-radius: 9px; flex: none; }
+.step button { width: 40px; height: 40px; background: none; border: 0; color: var(--accent); font-size: 21px; font-weight: 700; cursor: pointer; }
+.step .v { min-width: 40px; text-align: center; font-family: var(--mono); font-weight: 700; }
+select { font: inherit; font-size: 14.5px; color: var(--ink); background: #0c1512; border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; appearance: none; -webkit-appearance: none; max-width: 100%; }
+.sw { position: relative; width: 50px; height: 30px; flex: none; }
 .sw input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
-.sw i { position: absolute; inset: 0; background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; transition: background 0.15s; }
-.sw i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+.sw i { position: absolute; inset: 0; background: #0c1512; border: 1px solid var(--line); border-radius: 15px; }
+.sw i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--muted); transition: transform 0.15s; }
 .sw input:checked + i { background: var(--accent); border-color: var(--accent); }
 .sw input:checked + i::after { transform: translateX(20px); background: var(--accent-ink); }
-.sw input:focus-visible + i, .btn:focus-visible, .seg button:focus-visible, select:focus-visible, .chip:focus-visible, nav.tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.tgt { font-family: var(--mono); font-size: 12.5px; color: var(--muted); padding: 3px 0; display: flex; justify-content: space-between; gap: 8px; }
-.tgt b { color: var(--ink); font-weight: 600; font-family: var(--sans); }
+.hb { display: grid; grid-template-columns: minmax(96px, 36%) 1fr auto; gap: 8px; align-items: center; font-size: 13.5px; padding: 3px 0; }
+.hb .tr { height: 12px; background: #0c1512; border-radius: 3px; overflow: hidden; }
+.hb .tr i { display: block; height: 100%; background: var(--accent); }
+.hb .tr i.g { background: var(--good); } .hb .tr i.r { background: var(--bad); } .hb .tr i.m { background: #6f7786; }
+.hb .val { font-family: var(--mono); font-size: 13px; min-width: 40px; text-align: right; }
+.headline { font-size: 20px; font-weight: 800; line-height: 1.2; } .headline .num { color: var(--accent); font-family: var(--mono); }
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th, table.t td { padding: 5px 4px; text-align: right; border-top: 1px solid var(--line); font-family: var(--mono); }
+table.t th { font-family: var(--sans); font-size: 11px; text-transform: uppercase; color: var(--muted); border-top: 0; }
+table.t td:first-child, table.t th:first-child { text-align: left; font-family: var(--sans); }
+.prog { height: 8px; background: #0c1512; border-radius: 4px; overflow: hidden; margin-top: 8px; } .prog i { display: block; height: 100%; background: var(--accent); width: 0; }
+.rules li { margin-bottom: 6px; } .rules ol, .rules ul { padding-left: 20px; margin: 4px 0 10px; font-size: 14.5px; line-height: 1.4; }
+#rotate { z-index: 80; text-align: center; }
+#rotate .box { max-width: 320px; }
 
-/* build 0.2 */
-.note { font-weight: 400; font-size: 14px; color: var(--ink); background: var(--panel2); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
-.note.bad { border-left: 3px solid var(--bad); }
-.ord { display: inline-block; font-family: var(--mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-right: 5px; vertical-align: 1px; }
-.phases { display: flex; gap: 4px; margin-top: 10px; }
-.phases span { flex: 1; text-align: center; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 2px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
-.phases span.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.phases span.done { opacity: 0.45; }
-.phases + .tray { margin-top: 6px; }
-.pw { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
-.die .tag { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.1; }
-.result.slim { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 14px; }
-.row .btn + .btn { margin-top: 0; }
-
-/* ---- card version ---- */
-.d-prod { --dc: #e8b84a; } .d-art { --dc: #e86aa6; } .d-code { --dc: #5cb8ff; } .d-design { --dc: #7ddc8a; }
-.pips { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0 2px; }
-.pips i { width: 14px; height: 20px; border-radius: 3px; background: var(--panel2); border: 1px solid var(--line); }
-.pips i.in { background: var(--accent); border-color: var(--accent); }
-.zone { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
-.zone .zt { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-.zone .zt b { color: var(--ink); font-family: var(--mono); font-size: 14px; letter-spacing: 0; }
-.zone.danger { border-color: var(--bad); }
-.zone.danger .zt b { color: var(--bad); }
-.minis { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; min-height: 28px; }
-.mini { font-size: 12px; padding: 4px 7px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); border-left: 4px solid var(--dc); color: var(--ink); cursor: pointer; font-family: inherit; }
-.mini.side { border-style: dashed; border-left-style: solid; opacity: 0.75; font-style: italic; }
-.mini.on { outline: 2px solid var(--accent); }
-.minis .none, .slot { font-size: 12px; color: var(--muted); padding: 4px 0; }
-.slot { border: 1px dashed var(--line); border-radius: 6px; padding: 4px 10px; }
-.shiprow { display: grid; grid-template-columns: 86px 1fr; gap: 8px; align-items: start; padding: 5px 0; border-top: 1px solid var(--line); }
-.shiprow:first-of-type { border-top: 0; }
-.shiprow .dn { font-size: 12.5px; font-weight: 700; color: var(--dc); padding-top: 4px; }
-.shiprow .minis { margin-top: 0; }
-.tcard { background: var(--panel2); border: 1px solid var(--line); border-left: 6px solid var(--dc); border-radius: 10px; padding: 9px 11px; margin-top: 8px; }
-.tcard .th { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.tcard .tn { font-weight: 800; font-size: 16px; }
-.tcard .td { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dc); font-weight: 700; white-space: nowrap; }
-.tcard .cl { font-size: 13px; color: var(--muted); margin-top: 4px; }
-.tcard .cl b { color: var(--ink); font-weight: 600; }
-.tcard .cl.me { color: var(--ink); }
-.tcard .you { font-size: 12.5px; font-weight: 700; margin-top: 6px; }
-.tcard .you.r { color: var(--good); } .tcard .you.c { color: var(--accent); } .tcard .you.n { color: var(--muted); }
-.tcard .ck { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
-.pl .plate { margin-top: 6px; min-height: 26px; }
-.pl .pwr { font-size: 11.5px; color: var(--muted); margin-top: 5px; line-height: 1.3; }
-.pl.burned { border-left-color: var(--b3); } .pl.burned .bo { color: var(--b3); }
-.pl.fresh { border-left-color: var(--b0); } .pl.fresh .bo { color: var(--b0); }
-.review { font-family: var(--mono); font-weight: 800; }
-.bigscore { font-family: var(--mono); font-size: 44px; font-weight: 800; line-height: 1; }
-
-.tcard .orig { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; margin-bottom: 3px; }
-.quote { margin-top: 10px; padding: 8px 10px; border-left: 3px solid var(--accent); background: rgba(0,0,0,0.25); border-radius: 0 8px 8px 0; font-size: 14.5px; font-style: italic; }
-.quote span { display: block; font-style: normal; font-size: 12px; color: var(--muted); margin-top: 3px; }
-
+#zoom { z-index: 55; } #sheet { z-index: 60; }
 </style>
 </head>
 <body>
-<div id="app">
-  <header class="top"><div class="wordmark">CRUNCH</div><div class="tagline">card build 0.4<br>ship it before it ships you</div></header>
-  <main>
-    <section class="view on" id="v-play"></section>
-    <section class="view" id="v-sim"></section>
-    <section class="view" id="v-settings"></section>
-  </main>
-</div>
-<nav class="tabs" aria-label="Sections"><div class="in">
-  <button data-tab="play" class="on">Play</button>
-  <button data-tab="sim">Simulate</button>
-  <button data-tab="settings">Settings</button>
-</div></nav>
+<div id="wrap"><div id="stage"><div id="cards"></div><div id="hud"></div></div></div>
+<div class="ov" id="modal"></div>
+<div class="ov" id="zoom"></div>
+<div class="ov" id="sheet"></div>
+<div class="ov" id="rotate"><div class="box"><p><b>Turn your phone sideways.</b></p><p class="small muted">Crunch is laid out like a table, so it plays in landscape.</p><button class="btn center" data-act="rotateok">Play this way anyway</button></div></div>
 <noscript><p style="padding:16px">Crunch needs JavaScript to run.</p></noscript>
 <script>
-/* Crunch (card version) — rules engine, AI players and simulator. No dependencies. */
+/* Crunch (table version) — rules engine, AI players and simulator. No dependencies. */
 (function (root) {
   'use strict';
 
@@ -321,105 +194,51 @@ select {
     code: { name: 'Code', role: 'engineer' }, design: { name: 'Design', role: 'designer' }
   };
   const ROLES = { producer: { name: 'Producer', short: 'PRD' }, artist: { name: 'Artist', short: 'ART' }, engineer: { name: 'Engineer', short: 'ENG' }, designer: { name: 'Designer', short: 'DES' } };
-
-  // comp: how each other discipline would fake it. no: the discipline that cannot touch this card when cards list two compromises.
-  const T = (name, disc, comp, no) => ({ name: name, disc: disc, comp: comp, no: no });
-  const TASKS = [
-    T('Hit the Milestone', 'prod', { art: 'A trailer so gorgeous nobody asks questions.', code: 'Hard-code the demo. It only has to work once.', design: 'Redefine "milestone" in the design doc.' }, 'art'),
-    T('Hire a QA Team', 'prod', { art: 'Pretty bugs are features.', code: 'Automated tests. Probably fine.', design: 'Make the bugs canon.' }, 'code'),
-    T('Budget Review', 'prod', { art: 'Reuse the rock. Everything is the rock.', code: 'Switch to the free engine.', design: 'Cut the third act.' }, 'design'),
-    T('Publisher Demo', 'prod', { art: 'A vertical slice made entirely of concept art.', code: 'Smoke, mirrors and a debug menu.', design: 'Play it for them. Never hand over the controller.' }, 'art'),
-    T('Negotiate the Ship Date', 'prod', { art: 'Launch the art book first.', code: 'Day-one patch.', design: 'Call it "episodic".' }, 'code'),
-
-    T('Character Models', 'art', { code: 'Procedural faces. Mostly faces.', design: 'First person. No mirrors.', prod: "Outsource it and don't look too closely." }, 'prod'),
-    T('Open World Vistas', 'art', { code: 'Fog. Lots of fog.', design: "It's set in a cave.", prod: 'Buy the asset pack.' }, 'code'),
-    T('Animation Pass', 'art', { code: 'Ragdolls for everything.', design: "Everyone's a robot. Robots move like that.", prod: 'Mocap the interns.' }, 'design'),
-    T('UI Polish', 'art', { code: 'Default font, but bold.', design: 'No HUD. "Immersive."', prod: 'License a UI kit.' }, 'prod'),
-    T('Cinematic Trailer', 'art', { code: 'Actual in-engine footage.', design: 'The gameplay speaks for itself.', prod: "Hire the studio that makes everyone's trailers." }, 'design'),
-
-    T('Next-Gen Graphics', 'code', { art: 'A stylized look that hides the old tech.', design: 'Gameplay so good nobody checks the engine.', prod: "Cut the budget so it doesn't need to look expensive." }, 'prod'),
-    T('Netcode', 'code', { art: 'A really nice loading spinner.', design: "It's single-player now.", prod: "Rent someone else's servers." }, 'art'),
-    T('Save System', 'code', { art: 'A beautiful password screen.', design: 'Roguelike. You start over anyway.', prod: 'Ship it in the first patch.' }, 'design'),
-    T('Fix the Frame Rate', 'code', { art: 'Motion blur.', design: 'A "cinematic" 24 frames per second.', prod: 'Raise the minimum spec.' }, 'prod'),
-    T('Enemy AI', 'code', { art: 'Give them scary helmets.', design: 'The enemies are zombies. Zombies are dumb.', prod: 'More enemies, not smarter ones.' }, 'art'),
-
-    T('Core Loop', 'design', { art: "It's so pretty you'll wander for hours.", code: 'Add numbers that go up.', prod: "Copy last year's hit." }, 'art'),
-    T('Tutorial', 'design', { art: 'A lovely diagram on the loading screen.', code: 'Pop-ups. So many pop-ups.', prod: 'Players will watch a video.' }, 'code'),
-    T('Boss Fight', 'design', { art: 'Make it huge. Huge is hard.', code: 'Triple its health.', prod: 'Cut it. Add a cutscene.' }, 'prod'),
-    T('Balance Pass', 'design', { art: 'Make the overpowered gun ugly.', code: 'Randomize the stats. Call it variety.', prod: 'Let the community sort it out.' }, 'code'),
-    T('Story', 'design', { art: 'Environmental storytelling.', code: 'Audio logs.', prod: 'Hire a novelist for a weekend.' }, 'art')
-  ];
-  // Game Direction cards: two pillars (done right counts double, a compromise counts nothing)
-  // and one discipline nobody cares about (a compromise counts as done right).
-  const DIRECTIONS = [
-    { key: 'gtu', name: 'Grand Theft Unicycle', pitch: 'A huge open world. On a unicycle.', pillars: ['art', 'code'], free: 'design' },
-    { key: 'starblo', name: 'Starblo', pitch: 'A sci-fi loot treadmill. The numbers go up forever.', pillars: ['design', 'code'], free: 'art' },
-    { key: 'dookie', name: 'Call of Dookie', pitch: "This year's shooter. Same as last year's, but on time.", pillars: ['prod', 'art'], free: 'design' },
-    { key: 'pinch', name: 'Whatever Happened to Edith Pinch', pitch: 'A quiet walk through a sad, beautiful house.', pillars: ['art', 'design'], free: 'code' },
-    { key: 'crossfit', name: 'Animal Crossfit', pitch: 'Cozy village life. With burpees.', pillars: ['design', 'prod'], free: 'art' }
+  const DATA = {"TASKS":[{"name":"Hit the Milestone","disc":"prod","comp":{"art":"A trailer so gorgeous nobody asks questions.","code":"Hard-code the demo. It only has to work once.","design":"Redefine \"milestone\" in the design doc."}},{"name":"Hire a QA Team","disc":"prod","comp":{"art":"Pretty bugs are features.","code":"Automated tests. Probably fine.","design":"Make the bugs canon."}},{"name":"Budget Review","disc":"prod","comp":{"art":"Reuse the rock. Everything is the rock.","code":"Switch to the free engine.","design":"Cut the third act."}},{"name":"Publisher Demo","disc":"prod","comp":{"art":"A vertical slice made entirely of concept art.","code":"Smoke, mirrors and a debug menu.","design":"Play it for them. Never hand over the controller."}},{"name":"Negotiate the Ship Date","disc":"prod","comp":{"art":"Launch the art book first.","code":"Day-one patch.","design":"Call it \"episodic\"."}},{"name":"Character Models","disc":"art","comp":{"code":"Procedural faces. Mostly faces.","design":"First person. No mirrors.","prod":"Outsource it and don't look too closely."}},{"name":"Open World Vistas","disc":"art","comp":{"code":"Fog. Lots of fog.","design":"It's set in a cave.","prod":"Buy the asset pack."}},{"name":"Animation Pass","disc":"art","comp":{"code":"Ragdolls for everything.","design":"Everyone's a robot. Robots move like that.","prod":"Mocap the interns."}},{"name":"UI Polish","disc":"art","comp":{"code":"Default font, but bold.","design":"No HUD. \"Immersive.\"","prod":"License a UI kit."}},{"name":"Cinematic Trailer","disc":"art","comp":{"code":"Actual in-engine footage.","design":"The gameplay speaks for itself.","prod":"Hire the studio that makes everyone's trailers."}},{"name":"Next-Gen Graphics","disc":"code","comp":{"art":"A stylized look that hides the old tech.","design":"Gameplay so good nobody checks the engine.","prod":"Cut the budget so it doesn't need to look expensive."}},{"name":"Netcode","disc":"code","comp":{"art":"A really nice loading spinner.","design":"It's single-player now.","prod":"Rent someone else's servers."}},{"name":"Save System","disc":"code","comp":{"art":"A beautiful password screen.","design":"Roguelike. You start over anyway.","prod":"Ship it in the first patch."}},{"name":"Fix the Frame Rate","disc":"code","comp":{"art":"Motion blur.","design":"A \"cinematic\" 24 frames per second.","prod":"Raise the minimum spec."}},{"name":"Enemy AI","disc":"code","comp":{"art":"Give them scary helmets.","design":"The enemies are zombies. Zombies are dumb.","prod":"More enemies, not smarter ones."}},{"name":"Core Loop","disc":"design","comp":{"art":"It's so pretty you'll wander for hours.","code":"Add numbers that go up.","prod":"Copy last year's hit."}},{"name":"Tutorial","disc":"design","comp":{"art":"A lovely diagram on the loading screen.","code":"Pop-ups. So many pop-ups.","prod":"Players will watch a video."}},{"name":"Boss Fight","disc":"design","comp":{"art":"Make it huge. Huge is hard.","code":"Triple its health.","prod":"Cut it. Add a cutscene."}},{"name":"Balance Pass","disc":"design","comp":{"art":"Make the overpowered gun ugly.","code":"Randomize the stats. Call it variety.","prod":"Let the community sort it out."}},{"name":"Story","disc":"design","comp":{"art":"Environmental storytelling.","code":"Audio logs.","prod":"Hire a novelist for a weekend."}}],"DIRECTIONS":[{"key":"gtu","name":"Grand Theft Unicycle","pitch":"A huge open world. On a unicycle.","pillars":["art","code"],"free":"design"},{"key":"starblo","name":"Starblo","pitch":"A sci-fi loot treadmill. The numbers go up forever.","pillars":["design","code"],"free":"art"},{"key":"dookie","name":"Call of Dookie","pitch":"This year's shooter. Same as last year's, but on time.","pillars":["prod","art"],"free":"design"},{"key":"pinch","name":"Whatever Happened to Edith Pinch","pitch":"A quiet walk through a sad, beautiful house.","pillars":["art","design"],"free":"code"},{"key":"crossfit","name":"Animal Crossfit","pitch":"Cozy village life. With burpees.","pillars":["design","prod"],"free":"art"}]};
+  const TASKS = DATA.TASKS, DIRECTIONS = DATA.DIRECTIONS;
+  const EVENTS = [
+    { key: 'child', name: "Publisher's Idiot Child Takes Over", text: 'They want more. So much more!', add: 3 },
+    { key: 'noidea', name: 'We Have No Idea What We Are Doing', text: 'Blame anyone you want, but stuff is piling up.', add: 2 },
+    { key: 'artiste', name: "There's an Artiste in the Studio", text: "Some people just aren't happy if it's not perfect.", add: 1 }
   ];
 
   const DEFAULTS = {
-    perDisc: 5,            // tasks per discipline in the deck (max 5)
-    compPerCard: 3,        // how many other disciplines can compromise on each task (2 or 3)
-    skullsPerDisc: 2,      // cards per discipline that burn you out when flipped for a crunch
-    plateSize: 1,
-    behindLimit: 4,        // this many cards Behind Schedule cancels the project
-    monthSlip: 2,          // after everyone has had a turn, this many tasks slide straight Behind Schedule
+    perDisc: 5,            // tasks per discipline (max 5)
+    events: 3,             // how many of the three event cards are shuffled in
+    monthSlip: 0,          // tasks that slide Behind Schedule after each round
+    behindLimit: 4,        // this many cards Behind Schedule cancels the project (0 = never)
+    cancelCheck: 'round',  // 'round': the publisher only checks at the end of each round; 'instant': the moment the pile is that big
     crunch: true,
-    crunchFromBehind: true,
-    crunchFlip: 'bottomBehind', // crunch check: 'bottomBehind' (bottom card of the deck, then Behind Schedule), 'top' (top card, put back), 'behind' (top card, then Behind Schedule)
-    crunchCheck: 'die',    // 'die': roll a d6 against a number that climbs; 'card': flip a card and look for a skull
-    roundRamp: 1,          // die check: how much harder each round makes it
     crunchChain: true,     // keep crunching for as long as you dare
-    crunchAnyway: true,    // you may crunch even if you did no task first
     crunchRedo: true,      // crunch can redo one of your own discipline's compromised tasks
-    stressLimit: 1,        // skulls before you are Burned Out
-    burnoutQuits: true,    // a skull while Burned Out: you quit and the project is cancelled
-    directions: true,      // Game Direction cards change what scores
-    drawCount: 1,          // tasks drawn each turn
-    startBehind: 0,        // tasks dealt Behind Schedule before the first turn
-    burnWeight: 9,       // AI: how many points the AI thinks a burnout costs
+    roundRamp: 1,          // crunch check gets this much harder every round
+    stressLimit: 1,        // failed checks before you are Burned Out
+    burnoutQuits: true,    // fail a check while Burned Out: you quit and the project is cancelled
     restAction: true,
     finalRound: true,
-    producerSend: true,
+    directions: true,
     producerPeek: 2,       // 0 = off
     engLook: true,
     artistPolish: true,
-    desBacklog: true,
+    designerFree: true,    // Designer's first crunch each turn needs no check
     ptsRight: 4, ptsComp: 2, ptsFeature: 4,
     target: 85,
-    ai: 'thoughtful'       // 'thoughtful' | 'random'
+    burnWeight: 9,         // AI: how many points the AI thinks a burnout costs
+    ai: 'thoughtful'       // 'thoughtful' | 'obvious' | 'random'
   };
-  function mergeSettings(over) {
-    const S = JSON.parse(JSON.stringify(DEFAULTS));
-    if (over) for (const k in over) if (k in S) S[k] = over[k];
-    return S;
-  }
+  function mergeSettings(over) { const S = JSON.parse(JSON.stringify(DEFAULTS)); if (over) for (const k in over) if (k in S) S[k] = over[k]; return S; }
 
-  function mulberry32(a) {
-    return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  }
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function shuffle(arr, rng) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); const t = arr[i]; arr[i] = arr[j]; arr[j] = t; } return arr; }
 
   function buildDeck(S) {
     const deck = []; let uid = 1;
-    for (const d of DISC_KEYS) {
-      const mine = TASKS.filter(t => t.disc === d).slice(0, Math.max(1, Math.min(5, S.perDisc)));
-      mine.forEach((t, i) => deck.push({ uid: uid++, name: t.name, disc: t.disc, comp: t.comp, no: t.no, skull: i < S.skullsPerDisc }));
-    }
+    for (const d of DISC_KEYS) for (const t of TASKS.filter(x => x.disc === d).slice(0, Math.max(1, Math.min(5, S.perDisc)))) deck.push({ uid: uid++, name: t.name, disc: t.disc, comp: t.comp });
+    for (const e of EVENTS.slice(0, Math.max(0, Math.min(3, S.events)))) deck.push({ uid: uid++, name: e.name, event: e.key, text: e.text, add: e.add });
     return deck;
   }
-  function compDiscs(S, card) {
-    const others = DISC_KEYS.filter(d => d !== card.disc);
-    return S.compPerCard >= 3 ? others : others.filter(d => d !== card.no);
-  }
-  // 'right', 'comp' or null
-  function canDo(st, pi, card) {
-    const p = st.players[pi], mine = ROLE_DISC[p.role];
-    if (card.disc === mine) return p.burned ? 'comp' : 'right';
-    return compDiscs(st.S, card).indexOf(mine) >= 0 ? 'comp' : null;
-  }
+  // 'right' or 'comp'. Anyone can compromise on anything; only the owner can do it right.
+  function canDo(st, pi, card) { const p = st.players[pi]; return card.disc === ROLE_DISC[p.role] && !p.burned ? 'right' : 'comp'; }
   function pname(st, pi) { return ROLES[st.players[pi].role].name; }
   function log(st, text, kind) { st.log.push({ text: text, kind: kind || '' }); }
 
@@ -432,18 +251,19 @@ select {
     if (!roles || !roles.length) roles = ROLE_ORDER.map(r => ({ role: r, human: false }));
     const deck = shuffle(buildDeck(S), rng);
     const st = {
-      S: S, seed: seed, rng: rng, dir: null, title: '',
-      total: deck.length, month: 1, deck: deck, behind: [], shipped: [], turn: null, final: false,
-      players: roles.map(r => ({ role: r.role, human: !!r.human, plate: [], burned: false, stress: 0 })),
-      log: [], over: false, won: false, cancelled: false, result: null,
-      stats: { turns: 0, role: {} }
+      S: S, seed: seed, rng: rng, dir: null, title: '', cards: deck.slice(),
+      total: deck.filter(c => !c.event).length, round: 1, deck: deck, behind: [], shipped: [], gone: [], turn: null, final: false,
+      players: roles.map(r => ({ role: r.role, human: !!r.human, burned: false, stress: 0 })),
+      log: [], over: false, won: false, cancelled: false, quit: null, result: null, maxPts: 0,
+      stats: { turns: 0, events: 0, role: {} }
     };
     for (const r of roles) st.stats.role[r.role] = { turns: 0, right: 0, comp: 0, crunches: 0, burnouts: 0, rests: 0, power: 0, idle: 0 };
     st.dir = DIRECTIONS.find(d => d.key === opts.direction) || DIRECTIONS[Math.floor(rng() * DIRECTIONS.length)];
     st.title = st.dir.name;
     if (!S.directions) st.dir = { key: 'none', name: st.title, pitch: '', pillars: [], free: null };
-    for (let k = 0; k < Math.min(S.startBehind, S.behindLimit - 1) && st.deck.length > 1; k++) st.behind.push(st.deck.pop());
-    log(st, st.title + ' is greenlit. ' + deck.length + ' tasks in the deck. When it runs out, you ship.', 'head');
+    for (const c of st.cards) if (!c.event) st.maxPts += cardPts(st, c, 'right');
+    st.maxPts += Math.floor(st.total / 4) * S.ptsFeature;
+    log(st, st.title + ' is greenlit. ' + deck.length + ' cards in the deck. When it runs out, you ship.', 'head');
     return st;
   }
 
@@ -453,141 +273,92 @@ select {
     if (how === 'comp') return pillar ? 0 : (d.free === card.disc ? S.ptsRight : S.ptsComp);
     return 0;
   }
-  function allCards(st) { const a = st.deck.concat(st.behind, st.shipped.map(x => x.card)); for (const p of st.players) for (const c of p.plate) a.push(c); if (st.turn) for (const c of st.turn.cands) a.push(c); return a; }
   function score(st) {
     const S = st.S, up = { prod: 0, art: 0, code: 0, design: 0 };
     let right = 0, comp = 0, pts = 0;
     for (const x of st.shipped) { if (x.how === 'right') { right++; up[x.card.disc]++; } else comp++; pts += cardPts(st, x.card, x.how); }
     const features = Math.min(up.prod, up.art, up.code, up.design);
     pts += features * S.ptsFeature;
-    if (!st.maxPts) { let m = 0; for (const c of allCards(st)) m += cardPts(st, c, 'right'); st.maxPts = m + Math.floor(st.total / 4) * S.ptsFeature; }
     return { right: right, comp: comp, unfinished: st.total - right - comp, features: features, up: up, pts: pts, max: st.maxPts, score: Math.round(100 * pts / st.maxPts) };
   }
   function verdict(sc) { return sc >= 90 ? 'Game of the Year' : sc >= 80 ? 'A hit' : sc >= 70 ? 'Solid' : sc >= 55 ? 'Mixed reviews' : sc >= 40 ? 'A flop' : 'Studio closed'; }
-
   function stateLine(st) {
     const r = score(st);
-    return 'State: deck ' + st.deck.length + ', Behind Schedule ' + st.behind.length + '/' + st.S.behindLimit + ' [' + (st.behind.map(c => c.name).join(', ') || 'empty') + ']. Shipped ' + r.right + ' right, ' + r.comp + ' compromised, ' + r.features + ' Features, review ' + r.score + '. ' +
-      st.players.map(p => ROLES[p.role].name + (p.burned ? ' BURNED OUT' : ' stress ' + p.stress) + ' plate [' + (p.plate.map(c => c.name).join(', ') || 'empty') + ']').join('; ') + '.';
+    return 'State: round ' + st.round + ', deck ' + st.deck.length + ', Behind Schedule ' + st.behind.length + (st.S.behindLimit ? '/' + st.S.behindLimit : '') + ' [' + (st.behind.map(c => c.name).join(', ') || 'empty') + ']. Shipped ' + r.right + ' right, ' + r.comp + ' compromised, ' + r.features + ' Features, review ' + r.score + '. ' +
+      st.players.map(p => ROLES[p.role].name + (p.burned ? ' BURNED OUT' : '')).join(', ') + '.';
   }
+  function cancel(st, why) { st.over = true; st.cancelled = true; st.won = false; st.result = score(st); st.result.score = 0; log(st, why, 'lose'); }
   function toBehind(st, card, why) {
     st.behind.push(card);
-    log(st, card.name + ' goes Behind Schedule' + (why ? ' ' + why : '') + ' (' + st.behind.length + ' of ' + st.S.behindLimit + ').', 'bad');
-    if (st.behind.length >= st.S.behindLimit && !st.over) {
-      st.over = true; st.cancelled = true; st.won = false; st.result = score(st); st.result.score = 0;
-      log(st, 'Too far behind schedule. The publisher cancels ' + st.title + '.', 'lose');
+    log(st, card.name + ' goes Behind Schedule' + (why ? ' ' + why : '') + ' (' + st.behind.length + (st.S.behindLimit ? ' of ' + st.S.behindLimit : '') + ').', 'bad');
+    if (st.S.cancelCheck === 'instant') publisherCheck(st);
+  }
+  function publisherCheck(st) {
+    if (st.S.behindLimit && st.behind.length >= st.S.behindLimit && !st.over) cancel(st, 'Too far behind schedule (' + st.behind.length + ' tasks). The publisher cancels ' + st.title + '.');
+  }
+  // pull n task cards from the bottom of the deck into Behind Schedule
+  function pile(st, n, why) {
+    for (let k = 0; k < n && st.deck.length && !st.over; k++) {
+      const c = st.deck.shift();
+      if (c.event) { st.gone.push(c); log(st, c.name + ' gets lost in the chaos and never happens.'); k--; continue; }
+      toBehind(st, c, why);
     }
   }
-  function finish(st) {
-    st.over = true; st.result = score(st); st.won = st.result.score >= st.S.target;
-    log(st, st.title + ' ships. Review score: ' + st.result.score + ' (' + verdict(st.result.score) + ').', st.won ? 'win' : 'lose');
-  }
+  function finish(st) { st.over = true; st.result = score(st); st.won = st.result.score >= st.S.target; log(st, st.title + ' ships. Review score: ' + st.result.score + ' (' + verdict(st.result.score) + ').', st.won ? 'win' : 'lose'); }
   function ship(st, pi, card, how) {
     const p = st.players[pi], rs = st.stats.role[p.role], mine = ROLE_DISC[p.role];
     st.shipped.push({ card: card, how: how, by: p.role });
     if (how === 'right') { rs.right++; log(st, pname(st, pi) + ' does ' + card.name + ' right.', 'good'); }
-    else { rs.comp++; log(st, pname(st, pi) + ' compromises on ' + card.name + ': "' + (card.disc === mine ? 'It ships. Technically.' : card.comp[mine]) + '"', 'score'); }
+    else { rs.comp++; log(st, pname(st, pi) + ' half-asses ' + card.name + ': "' + (card.disc === mine ? 'It ships. Technically.' : card.comp[mine]) + '"', 'score'); }
   }
-  function perms(a) { if (a.length <= 1) return [a.slice()]; const out = []; a.forEach((x, i) => { for (const r of perms(a.slice(0, i).concat(a.slice(i + 1)))) out.push([x].concat(r)); }); return out; }
-
   function* beat(kind) { yield { type: 'beat', kind: kind || '' }; }
+  function crunchNeed(st, nth) { return (st.round - 1) * st.S.roundRamp + nth; }
 
-  function crunchNeed(st, nth) { return (st.month - 1) * st.S.roundRamp + nth; }
   function* crunchCheck(st, pi) {
     const S = st.S, p = st.players[pi], t = st.turn, rs = st.stats.role[p.role];
-    if (S.crunchCheck === 'die') {
-      const need = crunchNeed(st, t.crunches), roll = 1 + Math.floor(st.rng() * 6), safe = roll > need;
-      t.roll = { roll: roll, need: need, safe: safe };
-      const head = 'Crunch check: needs more than ' + need + ', rolls a ' + roll + '. ';
-      if (safe) log(st, head + pname(st, pi) + ' gets away with it.', 'good');
-      else if (p.burned && S.burnoutQuits) {
-        log(st, head + pname(st, pi) + ' was already Burned Out, and quits.', 'bad');
-        st.over = true; st.cancelled = true; st.quit = pi; st.won = false; st.result = score(st); st.result.score = 0;
-        log(st, 'Without a ' + pname(st, pi) + ', ' + st.title + ' is cancelled.', 'lose');
-      } else {
-        p.stress++;
-        if (p.stress >= S.stressLimit) { p.burned = true; rs.burnouts++; log(st, head + pname(st, pi) + ' is Burned Out.', 'bad'); }
-        else log(st, head + pname(st, pi) + ' takes Stress (' + p.stress + ' of ' + S.stressLimit + ').', 'bad');
-      }
-      yield* beat('flip'); return;
-    }
-    if (!st.deck.length) return;
-    const fromBottom = S.crunchFlip === 'bottomBehind';
-    const f = fromBottom ? st.deck[0] : st.deck[st.deck.length - 1];
-    t.flip = f;
-    if (f.skull) {
-      if (p.burned && S.burnoutQuits) {
-        log(st, 'Crunch check: ' + f.name + ' shows a skull. ' + pname(st, pi) + ' was already Burned Out, and quits.', 'bad');
-        st.over = true; st.cancelled = true; st.quit = pi; st.won = false; st.result = score(st); st.result.score = 0;
-        log(st, 'Without a ' + pname(st, pi) + ', ' + st.title + ' is cancelled.', 'lose');
-        yield* beat('flip'); return;
-      }
+    if (p.role === 'designer' && S.designerFree && t.crunches === 1) { t.roll = null; rs.power++; log(st, "Designer's first crunch of the turn needs no check.", 'good'); return; }
+    const need = crunchNeed(st, t.crunches), roll = 1 + Math.floor(st.rng() * 6), safe = roll > need;
+    t.roll = { roll: roll, need: need, safe: safe, n: (t.rollN = (t.rollN || 0) + 1) };
+    const head = 'Crunch check: needs more than ' + need + ', rolls a ' + roll + '. ';
+    if (safe) log(st, head + pname(st, pi) + ' gets away with it.', 'good');
+    else if (p.burned && S.burnoutQuits) { log(st, head + pname(st, pi) + ' was already Burned Out, and quits.', 'bad'); st.quit = pi; cancel(st, 'Without a ' + pname(st, pi) + ', ' + st.title + ' is cancelled.'); }
+    else {
       p.stress++;
-      if (p.stress >= S.stressLimit && !p.burned) { p.burned = true; rs.burnouts++; log(st, 'Crunch check: ' + f.name + ' shows a skull. ' + pname(st, pi) + ' is Burned Out.', 'bad'); }
-      else log(st, 'Crunch check: ' + f.name + ' shows a skull. ' + pname(st, pi) + ' takes Stress (' + p.stress + ' of ' + S.stressLimit + ').', 'bad');
-    } else log(st, 'Crunch check: ' + f.name + ' shows a coffee. ' + pname(st, pi) + ' gets away with it.', 'good');
-    if (S.crunchFlip === 'top') log(st, f.name + ' goes back on top of the deck.');
-    else { if (fromBottom) st.deck.shift(); else st.deck.pop(); toBehind(st, f, 'as the price of crunching'); }
-    yield* beat('flip');
+      if (p.stress >= S.stressLimit) { p.burned = true; rs.burnouts++; log(st, head + pname(st, pi) + ' is Burned Out.', 'bad'); }
+      else log(st, head + pname(st, pi) + ' takes Stress (' + p.stress + ' of ' + S.stressLimit + ').', 'bad');
+    }
+    yield* beat('roll');
   }
-
-  function* doOne(st, pi, kind) {
-    const S = st.S, p = st.players[pi], t = st.turn, rs = st.stats.role[p.role];
-    const pool = t.cands.map(c => ({ c: c, src: 'hand' }));
-    if (kind === 'crunch' && S.crunchFromBehind) for (const c of st.behind) pool.push({ c: c, src: 'behind' });
-    const opts = [];
-    for (const x of pool) {
-      const how = canDo(st, pi, x.c);
-      if (how) opts.push({ id: 'do', uid: x.c.uid, how: how, src: x.src, label: (how === 'right' ? 'Do it right: ' : 'Compromise on ') + x.c.name + (x.src === 'behind' ? ' (from Behind Schedule)' : '') });
-    }
-    if (kind === 'crunch' && S.crunchRedo && !p.burned) {
-      for (const x of st.shipped) if (x.how === 'comp' && x.card.disc === ROLE_DISC[p.role]) opts.push({ id: 'redo', uid: x.card.uid, label: 'Redo ' + x.card.name + ' properly' });
-    }
-    if (kind === 'crunch') { if (!opts.length) return false; opts.unshift({ id: 'no', label: 'No crunch' }); }
-    else opts.push({ id: 'none', label: opts.length ? 'Do neither' : 'Nothing you can do with ' + (t.cands.length > 1 ? 'these' : 'this') });
-    const c = yield { type: kind, player: pi, options: opts };
-    if (c.id === 'redo') {
-      const x = st.shipped.find(y => y.card.uid === c.uid);
-      rs.crunches++; t.crunches++; log(st, pname(st, pi) + ' crunches.', 'turn2');
-      x.how = 'right'; x.redone = true; rs.right++; rs.comp--;
-      log(st, pname(st, pi) + ' redoes ' + x.card.name + ' properly. It now counts as done right.', 'good');
-      yield* beat('ship');
-      yield* crunchCheck(st, pi);
-      return true;
-    }
-    if (c.id !== 'do') { if (kind === 'act') rs.idle++; return false; }
-    let card;
-    if (c.src === 'behind') { const i = st.behind.findIndex(x => x.uid === c.uid); card = st.behind.splice(i, 1)[0]; }
-    else { const i = t.cands.findIndex(x => x.uid === c.uid); card = t.cands.splice(i, 1)[0]; }
-    if (kind === 'crunch') { rs.crunches++; t.crunches++; log(st, pname(st, pi) + ' crunches.', 'turn2'); }
-    ship(st, pi, card, c.how);
-    t.did.push(card.uid);
-    if (c.how === 'right' && p.role === 'artist' && S.artistPolish) {
-      const side = st.shipped.filter(x => x.how === 'comp');
-      if (side.length) {
-        const d = yield { type: 'polish', player: pi, options: side.map(x => ({ id: 'polish', uid: x.card.uid, label: 'Polish ' + x.card.name })).concat([{ id: 'none', label: 'Leave them' }]) };
-        if (d.id === 'polish') { const x = st.shipped.find(y => y.card.uid === d.uid); x.how = 'right'; x.polished = true; rs.power++; log(st, 'Artist polishes ' + x.card.name + '. It now counts as done right.', 'good'); }
-      }
-    }
-    yield* beat('ship');
-    if (kind === 'crunch') yield* crunchCheck(st, pi);
-    return true;
+  function* maybePolish(st, pi, how) {
+    const S = st.S, p = st.players[pi], rs = st.stats.role[p.role];
+    if (!(how === 'right' && p.role === 'artist' && S.artistPolish)) return;
+    const side = st.shipped.filter(x => x.how === 'comp');
+    if (!side.length) return;
+    const d = yield { type: 'polish', player: pi, options: side.map(x => ({ id: 'polish', uid: x.card.uid, label: 'Polish ' + x.card.name })).concat([{ id: 'none', label: 'Leave them' }]) };
+    if (d.id === 'polish') { const x = st.shipped.find(y => y.card.uid === d.uid); x.how = 'right'; x.fixed = 'polished'; rs.power++; log(st, 'Artist polishes ' + x.card.name + '. It now counts as done right.', 'good'); yield* beat('ship'); }
+  }
+  function doOptions(st, pi, withHand) {
+    const t = st.turn, opts = [];
+    const add = (c, src) => { const how = canDo(st, pi, c); opts.push({ id: 'do', uid: c.uid, how: how, src: src, label: (how === 'right' ? 'Do it right: ' : 'Half-ass it: ') + c.name }); };
+    if (withHand && t.hand) add(t.hand, 'hand');
+    for (const c of st.behind) add(c, 'behind');
+    return opts;
   }
 
   function* takeTurn(st, pi, fin) {
     const S = st.S, p = st.players[pi], n = st.players.length, rs = st.stats.role[p.role];
-    const t = st.turn = { pi: pi, cands: [], did: [], final: fin, flip: null, roll: null, crunches: 0, drawn: null, peek: null };
+    const t = st.turn = { pi: pi, hand: null, acted: false, crunches: 0, roll: null, final: fin, peek: null, event: null, phase: 'start' };
     st.stats.turns++; rs.turns++;
     log(st, pname(st, pi) + "'s turn.", 'turn');
     log(st, stateLine(st), 'state');
     yield* beat('turn');
-    if ((p.burned || (p.stress > 0 && S.stressLimit > 1)) && S.restAction && !fin && st.deck.length > 0) {
+    if (p.burned && S.restAction && !fin && st.deck.length > 0) {
       const c = yield { type: 'rest', player: pi, options: [{ id: 'work', label: 'Work through it' }, { id: 'rest', label: 'Rest: skip this turn and recover' }] };
       if (c.id === 'rest') {
         p.burned = false; p.stress = 0; rs.rests++;
-        log(st, pname(st, pi) + ' rests and shakes off the Stress.', 'good');
+        log(st, pname(st, pi) + ' rests and is no longer Burned Out.', 'good');
         const card = st.deck.pop();
-        if (card) toBehind(st, card, 'while ' + pname(st, pi) + ' rests');
+        if (card.event) yield* resolveEvent(st, pi, card); else toBehind(st, card, 'while ' + pname(st, pi) + ' rests');
         yield* beat('rest');
         return;
       }
@@ -595,62 +366,95 @@ select {
     if (p.role === 'producer' && S.producerPeek >= 2 && st.deck.length >= 2 && !fin) {
       const k = Math.min(S.producerPeek, st.deck.length);
       const top = st.deck.slice(-k).reverse(); // top[0] is the next card drawn
-      t.peek = top;
-      const options = perms(top).map((o, i) => ({ id: 'order', order: o.map(c => c.uid), label: (i === 0 ? 'Leave it: ' : '') + o.map(c => c.name).join(', then ') }));
+      t.peek = top; t.phase = 'schedule';
+      const perms = k === 2 ? [[top[0], top[1]], [top[1], top[0]]] : [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]].map(o => o.map(i => top[i]));
+      const options = perms.map((o, i) => ({ id: 'order', order: o.map(c => c.uid), label: (i === 0 ? 'Leave it: ' : '') + o.map(c => c.name).join(', then ') }));
       const c = yield { type: 'schedule', player: pi, cards: top, options: options };
       const ordered = c.order.map(u => top.find(x => x.uid === u));
-      if (c !== options[0]) { rs.power++; log(st, 'Producer reschedules the next ' + k + ' tasks.'); }
+      if (c !== options[0]) { rs.power++; log(st, 'Producer reschedules the next ' + k + ' cards.'); }
       st.deck.splice(st.deck.length - k, k, ...ordered.slice().reverse());
       t.peek = null;
     }
-    let drawn = null; const extra = [];
-    if (!fin) {
+    if (!fin && st.deck.length) {
+      let drawn;
       const len = st.deck.length;
+      t.phase = 'draw';
       if (p.role === 'engineer' && S.engLook && len >= 2) {
         const a = st.deck[len - 1], b = st.deck[len - 2];
         t.peek = [a, b];
         const c = yield { type: 'pick', player: pi, cards: [a, b], options: [{ id: 'take', uid: a.uid, label: 'Take ' + a.name }, { id: 'take', uid: b.uid, label: 'Take ' + b.name }] };
         t.peek = null;
         if (c.uid === b.uid) { st.deck.splice(len - 2, 1); drawn = b; rs.power++; } else { st.deck.pop(); drawn = a; }
-        log(st, 'Engineer looks at the top two tasks and takes ' + drawn.name + '. The other goes back on top.');
-      } else if (p.role === 'designer' && S.desBacklog && st.behind.length) {
-        const c = yield { type: 'draw', player: pi, options: [{ id: 'deck', label: 'Draw from the deck' }].concat(st.behind.map(x => ({ id: 'behind', uid: x.uid, label: 'Take ' + x.name + ' from Behind Schedule' }))) };
-        if (c.id === 'behind') { drawn = st.behind.splice(st.behind.findIndex(x => x.uid === c.uid), 1)[0]; drawn.fromBehind = true; rs.power++; log(st, 'Designer takes ' + drawn.name + ' from Behind Schedule. The clock does not move.', 'good'); }
-        else { drawn = st.deck.pop(); log(st, pname(st, pi) + ' draws ' + drawn.name + '.'); }
-      } else { drawn = st.deck.pop(); log(st, pname(st, pi) + ' draws ' + drawn.name + '.'); }
-      for (let k = 1; k < S.drawCount && st.deck.length; k++) { const x = st.deck.pop(); extra.push(x); log(st, pname(st, pi) + ' also draws ' + x.name + '.'); }
-    } else if (st.behind.length && p.plate.length < Math.max(1, S.plateSize) + 1) {
-      const c = yield { type: 'draw', player: pi, options: [{ id: 'none', label: 'Take nothing' }].concat(st.behind.map(x => ({ id: 'behind', uid: x.uid, label: 'Take ' + x.name + ' from Behind Schedule' }))) };
-      if (c.id === 'behind') { drawn = st.behind.splice(st.behind.findIndex(x => x.uid === c.uid), 1)[0]; log(st, pname(st, pi) + ' grabs ' + drawn.name + ' from Behind Schedule.'); }
+        log(st, 'Engineer looks at the top two cards and takes ' + drawn.name + '. The other goes back on top.');
+      } else {
+        yield { type: 'draw', player: pi, options: [{ id: 'draw', label: 'Draw a card' }] };
+        drawn = st.deck.pop();
+        log(st, pname(st, pi) + ' draws ' + drawn.name + '.');
+      }
+      if (drawn.event) { yield* resolveEvent(st, pi, drawn); if (st.over) return; }
+      else t.hand = drawn;
     }
-    if (drawn) drawn.note = fin || (p.role === 'designer' && st.behind.indexOf(drawn) < 0 && drawn.fromBehind) ? 'taken from Behind Schedule' : 'just drawn';
-    for (const x of extra) x.note = 'just drawn';
-    t.drawn = drawn;
-    t.cands = p.plate.slice().concat(drawn ? [drawn] : [], extra);
-    p.plate = [];
+    t.phase = 'act';
     yield* beat('draw');
-    let did = false;
-    if (t.cands.length) did = yield* doOne(st, pi, 'act');
-    while (S.crunch && !st.over && (did || S.crunchAnyway) && (!p.burned || S.burnoutQuits) && (S.crunchCheck === 'die' || st.deck.length > 0) && t.crunches < 6) {
-      const more = yield* doOne(st, pi, 'crunch');
-      if (!more || !S.crunchChain) break;
+    // one task: the card you drew. In the last rounds, with nothing to draw, one task from Behind Schedule instead.
+    const opts = doOptions(st, pi, true).filter(o => o.src === 'hand' || fin);
+    if (opts.length) {
+      opts.push({ id: 'none', label: t.hand ? 'Not now: put ' + t.hand.name + ' Behind Schedule' : 'Do nothing' });
+      const c = yield { type: 'act', player: pi, options: opts };
+      if (c.id === 'do') {
+        let card;
+        if (c.src === 'hand') { card = t.hand; t.hand = null; } else card = st.behind.splice(st.behind.findIndex(x => x.uid === c.uid), 1)[0];
+        ship(st, pi, card, c.how); t.acted = true;
+        yield* beat('ship');
+        yield* maybePolish(st, pi, c.how);
+      } else rs.idle++;
     }
-    for (const card of t.cands.slice()) {
-      if (st.over) break;
-      const opts = [];
-      if (p.plate.length < S.plateSize) opts.push({ id: 'keep', label: 'Keep ' + card.name + ' on your plate' });
-      const targets = [];
-      if (n > 1) { if (p.role === 'producer' && S.producerSend) { for (let k = 1; k < n; k++) targets.push((pi + k) % n); } else targets.push((pi + 1) % n); }
-      for (const tg of targets) if (st.players[tg].plate.length < S.plateSize) opts.push({ id: 'pass', to: tg, label: 'Pass ' + card.name + ' to ' + pname(st, tg) });
-      opts.push({ id: 'behind', label: 'Put ' + card.name + ' Behind Schedule' });
-      const c = yield { type: 'leftover', player: pi, card: card, options: opts };
-      t.cands.splice(t.cands.indexOf(card), 1);
-      card.fromBehind = false;
-      if (c.id === 'keep') { card.note = 'on your plate since last turn'; p.plate.push(card); log(st, pname(st, pi) + ' keeps ' + card.name + ' on their plate.'); }
-      else if (c.id === 'pass') { card.note = 'passed to you by ' + pname(st, pi); st.players[c.to].plate.push(card); if (p.role === 'producer' && c.to !== (pi + 1) % n) rs.power++; log(st, pname(st, pi) + ' passes ' + card.name + ' to ' + pname(st, c.to) + '.'); }
-      else toBehind(st, card, '');
+    if (t.hand) { const h = t.hand; t.hand = null; toBehind(st, h, ''); yield* beat('behind'); if (st.over) return; }
+    // crunch
+    t.phase = 'crunch';
+    while (S.crunch && !st.over && (!p.burned || S.burnoutQuits) && t.crunches < 6) {
+      const co = doOptions(st, pi, false);
+      if (S.crunchRedo && !p.burned) for (const x of st.shipped) if (x.how === 'comp' && x.card.disc === ROLE_DISC[p.role]) co.push({ id: 'redo', uid: x.card.uid, label: 'Fix ' + x.card.name + ' properly' });
+      if (!co.length) break;
+      co.unshift({ id: 'no', label: 'End turn' });
+      const c = yield { type: 'crunch', player: pi, options: co };
+      if (c.id === 'no') break;
+      rs.crunches++; t.crunches++;
+      log(st, pname(st, pi) + ' crunches.', 'turn2');
+      if (c.id === 'redo') {
+        const x = st.shipped.find(y => y.card.uid === c.uid);
+        x.how = 'right'; x.fixed = 'fixed by ' + pname(st, pi); rs.right++;
+        log(st, pname(st, pi) + ' fixes ' + x.card.name + ' properly. It now counts as done right.', 'good');
+        yield* beat('ship');
+      } else {
+        const card = st.behind.splice(st.behind.findIndex(x => x.uid === c.uid), 1)[0];
+        ship(st, pi, card, c.how);
+        yield* beat('ship');
+        yield* maybePolish(st, pi, c.how);
+      }
+      yield* crunchCheck(st, pi);
+      if (!S.crunchChain) break;
     }
+    t.phase = 'end';
     yield* beat('end');
+  }
+  function* resolveEvent(st, pi, card) {
+    st.turn.event = card; st.stats.events++;
+    log(st, 'EVENT: ' + card.name + '. ' + card.text + ' ' + card.add + ' more ' + (card.add === 1 ? 'task goes' : 'tasks go') + ' Behind Schedule.', 'bad');
+    yield { type: 'event', player: pi, card: card, options: [{ id: 'ok', label: 'Ugh. OK' }] };
+    st.gone.push(card);
+    pile(st, card.add, 'thanks to ' + card.name);
+    yield* beat('event');
+  }
+
+  function* roundEnd(st) {
+    if (st.S.cancelCheck === 'round' && st.S.behindLimit) {
+      const ok = st.behind.length < st.S.behindLimit;
+      log(st, 'End of round ' + st.round + '. The publisher checks in: ' + st.behind.length + ' Behind Schedule' + (ok ? ', under the limit of ' + st.S.behindLimit + '.' : '.'), ok ? 'month' : 'bad');
+      publisherCheck(st);
+      yield* beat('month');
+    }
+    st.round++;
   }
 
   function* runGame(st) {
@@ -659,20 +463,20 @@ select {
     while (!st.over && st.deck.length > 0 && guard++ < 400) {
       yield* takeTurn(st, pi, false); pi = (pi + 1) % n;
       if (pi === 0 && !st.over) {
-        st.month++;
-        if (st.S.monthSlip > 0 && st.deck.length > 0) log(st, 'End of month ' + (st.month - 1) + '. Time passes whether you are ready or not.', 'month');
-        for (let k = 0; k < st.S.monthSlip && st.deck.length > 0 && !st.over; k++) { const c = st.deck.shift(); toBehind(st, c, 'untouched'); }
-        if (st.S.monthSlip > 0) yield* beat('month');
+        if (st.S.monthSlip > 0 && st.deck.length > 0) { log(st, 'End of round ' + st.round + '. Time passes whether you are ready or not.', 'month'); pile(st, st.S.monthSlip, 'untouched'); }
+        yield* roundEnd(st);
       }
     }
     if (!st.over && pi !== 0) {
       st.final = true;
       log(st, 'The deck is empty. The rest of the team finish the round without drawing.', 'month');
       for (; pi < n && !st.over; pi++) yield* takeTurn(st, pi, true);
+      if (!st.over) yield* roundEnd(st);
     }
     if (!st.over && st.S.finalRound) {
       st.final = true;
-      log(st, 'Launch week: one last turn each, starting with ' + pname(st, 0) + '. No new tasks.', 'month');
+      st.launch = true;
+      log(st, 'Launch week: one last turn each, starting with ' + pname(st, 0) + '. No new cards.', 'month');
       for (let k = 0; k < n && !st.over; k++) yield* takeTurn(st, k, true);
     }
     if (!st.over) finish(st);
@@ -680,113 +484,83 @@ select {
   }
 
   // ------------------------------------------------------------ AI
-  function val(st, how, card) {
-    const S = st.S;
-    if (!how) return 0;
-    if (!card) return how === 'right' ? S.ptsRight * 1.4 : S.ptsComp;
-    let v = cardPts(st, card, how);
-    if (how === 'right') v += S.ptsFeature / 4;
-    else if (v < cardPts(st, card, 'right')) v += 0.4; // someone may fix it later
-    return v;
+  function val(st, how, card) { let v = cardPts(st, card, how); if (how === 'right') v += st.S.ptsFeature / 4; return v; }
+  function pressure(st, count) {
+    const L = st.S.behindLimit;
+    if (!L) return 0.35 * count;
+    if (st.S.cancelCheck === 'instant') { const room = L - count; return room <= 0 ? 1000 : room === 1 ? 6 : room === 2 ? 2.5 : 4 / room; }
+    if (st.final && st.turn && st.turn.final && st.deck.length === 0 && st.launch) return 0.35 * count;
+    const after = st.players.length - 1 - st.turn.pi; // turns left in this round after mine
+    const over = count - (L - 1);
+    return 0.5 * count + (over > after ? 40 * (over - after) : over > 0 ? 1.5 * over : 0);
   }
-  function behindCost(st) { const room = st.S.behindLimit - st.behind.length - 1; return room <= 0 ? 1000 : 4 / room; }
-  function leftoverValue(st, pi, card, o) {
-    if (o.id === 'keep') return 0.6 * val(st, canDo(st, pi, card), card);
-    if (o.id === 'pass') { const n = st.players.length, dist = (o.to - pi + n) % n; return (0.85 - 0.1 * dist) * val(st, canDo(st, o.to, card), card) - 0.05; }
-    return -behindCost(st) + (st.S.desBacklog && st.players.some(p => p.role === 'designer') ? 0.5 : 0);
-  }
-  function bestLeftover(st, pi, card) {
-    const p = st.players[pi], n = st.players.length, S = st.S;
-    let best = leftoverValue(st, pi, card, { id: 'behind' });
-    if (p.plate.length < S.plateSize) best = Math.max(best, leftoverValue(st, pi, card, { id: 'keep' }));
-    for (let k = 1; k < n; k++) {
-      const tg = (pi + k) % n;
-      if (k > 1 && !(p.role === 'producer' && S.producerSend)) break;
-      if (st.players[tg].plate.length < S.plateSize) best = Math.max(best, leftoverValue(st, pi, card, { id: 'pass', to: tg }));
-    }
-    return best;
+  // what doing this card is worth to the team, allowing for someone else doing it better later
+  function worth(st, pi, card, how) {
+    const mine = val(st, how, card);
+    if (how === 'right') return mine;
+    const ownerHere = st.players.some((q, i) => i !== pi && ROLE_DISC[q.role] === card.disc && !q.burned);
+    const best = ownerHere ? val(st, 'right', card) : mine;
+    const turnsLeft = st.deck.length / st.players.length;
+    return mine - (turnsLeft >= 1 ? 0.55 : 0.15) * (best - mine);
   }
   function aiChoose(st, d) {
     const opts = d.options, S = st.S, me = d.player, t = st.turn, n = st.players.length, p = st.players[me];
     if (S.ai === 'random') return opts[Math.floor(st.rng() * opts.length)];
-    if (S.ai === 'obvious') { // no planning: do your own work, fake the rest, hand leftovers along, never gamble
-      if (d.type === 'act') return opts.find(o => o.how === 'right') || opts[0];
-      if (d.type === 'leftover') return opts.find(o => o.id === 'pass') || opts.find(o => o.id === 'keep') || opts[0];
-      if (d.type === 'crunch') return (!p.burned && opts.find(o => o.src === 'behind')) || opts[0];
+    const find = uid => st.cards.find(c => c.uid === uid);
+    if (S.ai === 'obvious') { // no planning: do what is in front of you, never gamble unless the pile is about to cancel you
+      if (d.type === 'act') return opts.find(o => o.src === 'hand') || opts.find(o => o.how === 'right') || opts[0];
+      if (d.type === 'crunch') return (!p.burned && S.behindLimit && st.behind.length >= S.behindLimit - 2 && opts.find(o => o.id === 'do')) || opts[0];
       return opts[0];
     }
-    const card = uid => t.cands.find(c => c.uid === uid) || st.behind.find(c => c.uid === uid) || (t.peek || []).find(c => c.uid === uid);
     switch (d.type) {
-      case 'rest': {
-        if (!p.burned) return opts[0];
-        const myTurnsLeft = Math.floor(st.deck.length / (n * S.drawCount));
-        return (myTurnsLeft >= 1 && behindCost(st) <= 2) ? opts[1] : opts[0];
-      }
+      case 'rest': return (st.deck.length >= n && pressure(st, st.behind.length + 1) <= 2.5) ? opts[1] : opts[0];
       case 'schedule': {
         let best = opts[0], bv = -1e9;
         for (const o of opts) {
           let v = 0;
-          o.order.forEach((u, k) => { const c = d.cards.find(x => x.uid === u); const who = (me + Math.floor(k / S.drawCount)) % n; v += val(st, canDo(st, who, c), c); });
+          o.order.forEach((u, k) => { const c = find(u), who = (me + k) % n; v += c.event ? (k === 0 ? -0.3 : 0) : val(st, canDo(st, who, c), c); });
           if (v > bv + 1e-9) { bv = v; best = o; }
         }
         return best;
       }
       case 'pick': {
-        const nx = (me + 1) % n;
         let best = opts[0], bv = -1e9;
-        for (const o of opts) {
-          const mineC = d.cards.find(c => c.uid === o.uid), other = d.cards.find(c => c.uid !== o.uid);
-          const v = val(st, canDo(st, me, mineC), mineC) + 0.5 * val(st, canDo(st, nx, other), other);
-          if (v > bv) { bv = v; best = o; }
-        }
+        for (const o of opts) { const c = find(o.uid), other = d.cards.find(x => x.uid !== o.uid); const v = (c.event ? -1 : val(st, canDo(st, me, c), c)) + (other.event ? 0 : 0.5 * val(st, canDo(st, (me + 1) % n, other), other)); if (v > bv) { bv = v; best = o; } }
         return best;
-      }
-      case 'draw': {
-        let best = null, bv = 0;
-        for (const o of opts) if (o.id === 'behind') { const c = card(o.uid), v = val(st, canDo(st, me, c), c); if (v > bv) { bv = v; best = o; } }
-        if (!best) return opts[0];
-        if (st.final) return best;
-        if (bv >= S.ptsRight || st.behind.length >= S.behindLimit - 2) return best;
-        return opts[0];
       }
       case 'act': {
         let best = null, bv = -1e9;
         for (const o of opts) {
-          let v = 0;
-          if (o.id === 'do') v += val(st, o.how, card(o.uid));
-          for (const c of t.cands) if (!(o.id === 'do' && c.uid === o.uid)) v += bestLeftover(st, me, c);
+          let v;
+          if (o.id === 'do') v = val(st, o.how, find(o.uid)) + (o.src === 'behind' ? pressure(st, st.behind.length) - pressure(st, st.behind.length - 1) : 0);
+          else if (t.hand) {
+            const c = t.hand, owner = st.players.find((q, i) => i !== me && ROLE_DISC[q.role] === c.disc);
+            const later = owner ? (owner.role === 'designer' && S.designerFree ? 0.8 : 0.5) * val(st, 'right', c) : 0.3 * val(st, 'comp', c);
+            v = later * Math.min(1, st.deck.length / (2 * n)) - (pressure(st, st.behind.length + 1) - pressure(st, st.behind.length));
+          } else v = 0;
           if (v > bv) { bv = v; best = o; }
         }
         return best;
       }
       case 'crunch': {
-        let best = null, bv = 0;
+        let best = null, bv = -1e9;
         for (const o of opts) {
-          let v = 0;
-          if (o.id === 'redo') { const x = st.shipped.find(y => y.card.uid === o.uid); v = cardPts(st, x.card, 'right') - cardPts(st, x.card, 'comp') + S.ptsFeature / 4; }
-          else if (o.id === 'do') { const c = card(o.uid); v = val(st, o.how, c); if (o.src === 'behind') v += 1; else v -= Math.max(0, bestLeftover(st, me, c)); }
+          if (o.id === 'no') continue;
+          let v;
+          if (o.id === 'redo') { const c = find(o.uid); v = cardPts(st, c, 'right') - cardPts(st, c, 'comp') + S.ptsFeature / 4; }
+          else v = worth(st, me, find(o.uid), o.how) + pressure(st, st.behind.length) - pressure(st, st.behind.length - 1);
           if (v > bv) { bv = v; best = o; }
         }
         if (!best) return opts[0];
-        let pSkull, bc = 0;
-        if (S.crunchCheck === 'die') pSkull = Math.min(1, Math.max(0, crunchNeed(st, t.crunches + 1)) / 6);
-        else pSkull = st.deck.filter(c => c.skull).length / st.deck.length;
-        if (S.crunchCheck !== 'die' && S.crunchFlip !== 'top') { const freed = best.src === 'behind' ? 1 : 0; const room = S.behindLimit - (st.behind.length - freed) - 1; if (room <= 0) return opts[0]; bc = 4 / room + 2; }
-        const myTurns = Math.ceil(st.deck.length / (n * S.drawCount));
-        let stressCost;
-        if (p.burned) stressCost = 1000;
-        else if (p.stress + 1 >= S.stressLimit) stressCost = myTurns <= 0 ? 0.5 : S.burnWeight;
-        else stressCost = S.burnWeight * 0.35;
-        return bv > pSkull * stressCost + bc ? best : opts[0];
+        const free = p.role === 'designer' && S.designerFree && t.crunches === 0;
+        const pFail = free ? 0 : Math.min(1, Math.max(0, crunchNeed(st, t.crunches + 1)) / 6);
+        const lastTurn = st.final || st.deck.length < n;
+        const cost = p.burned ? 1000 : (p.stress + 1 >= S.stressLimit ? (lastTurn ? 0.5 : S.burnWeight) : S.burnWeight * 0.35);
+        return bv > pFail * cost ? best : opts[0];
       }
       case 'polish': {
-        let best = opts[0], bv = -1;
-        for (const o of opts) if (o.id === 'polish') { const x = st.shipped.find(y => y.card.uid === o.uid); const v = cardPts(st, x.card, 'right') - cardPts(st, x.card, 'comp'); if (v > bv) { bv = v; best = o; } }
-        return bv > 0 ? best : opts[opts.length - 1];
-      }
-      case 'leftover': {
-        let best = opts[0], bv = -1e9;
-        for (const o of opts) { const v = leftoverValue(st, me, d.card, o); if (v > bv) { bv = v; best = o; } }
+        let best = opts[opts.length - 1], bv = 0;
+        for (const o of opts) if (o.id === 'polish') { const c = find(o.uid), v = cardPts(st, c, 'right') - cardPts(st, c, 'comp'); if (v > bv) { bv = v; best = o; } }
         return best;
       }
       default: return opts[0];
@@ -801,19 +575,19 @@ select {
     return st;
   }
   function newAgg() {
-    const a = { games: 0, wins: 0, cancelled: 0, scoreSum: 0, shipSum: 0, bands: [0, 0, 0, 0, 0, 0], right: 0, comp: 0, unfinished: 0, features: 0, turns: 0, role: {}, hist: new Array(21).fill(0) };
+    const a = { games: 0, wins: 0, cancelled: 0, quits: 0, scoreSum: 0, shipSum: 0, bands: [0, 0, 0, 0, 0, 0], right: 0, comp: 0, unfinished: 0, features: 0, turns: 0, role: {}, dirs: {} };
     for (const r of ROLE_ORDER) a.role[r] = { turns: 0, right: 0, comp: 0, crunches: 0, burnouts: 0, rests: 0, power: 0, idle: 0, games: 0 };
+    for (const d of DIRECTIONS) a.dirs[d.key] = { games: 0, wins: 0 };
     return a;
   }
   function addToAgg(a, st) {
-    const r = st.result;
+    const r = st.result, sc = r.score;
     a.games++; a.turns += st.stats.turns;
-    if (st.cancelled) a.cancelled++; else { a.shipSum += r.score; }
+    if (st.cancelled) { a.cancelled++; if (st.quit != null) a.quits++; } else a.shipSum += sc;
     if (st.won) a.wins++;
-    a.scoreSum += r.score;
-    const sc = r.score;
+    if (a.dirs[st.dir.key]) { a.dirs[st.dir.key].games++; if (st.won) a.dirs[st.dir.key].wins++; }
+    a.scoreSum += sc;
     a.bands[st.cancelled ? 5 : sc >= 90 ? 0 : sc >= 80 ? 1 : sc >= 70 ? 2 : sc >= 55 ? 3 : 4]++;
-    a.hist[Math.min(20, Math.floor(sc / 5))]++;
     a.right += r.right; a.comp += r.comp; a.unfinished += r.unfinished; a.features += r.features;
     for (const p of st.players) { const s = st.stats.role[p.role], x = a.role[p.role]; for (const k in s) x[k] += s[k]; x.games++; }
   }
@@ -825,17 +599,16 @@ select {
   }
   function simulate(settings, n, opts) { return simulateInto(newAgg(), settings, 0, n, opts); }
 
-  const api = { DIRECTIONS, cardPts, crunchNeed, ROLE_ORDER, ROLE_DISC, DISC_KEYS, DISC, ROLES, TASKS, DEFAULTS, mergeSettings, newGame, runGame, aiChoose, canDo, compDiscs, score, verdict, playOut, newAgg, simulateInto, simulate };
-  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CrunchCards = api;
+  const api = { ROLE_ORDER, ROLE_DISC, DISC_KEYS, DISC, ROLES, TASKS, DIRECTIONS, EVENTS, DEFAULTS, mergeSettings, newGame, runGame, aiChoose, canDo, cardPts, crunchNeed, score, verdict, playOut, newAgg, simulateInto, simulate };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CrunchTable = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
 <script>
-/* Crunch (card version) — interface: Play, Simulate, Settings */
+/* Crunch (table version) — a top-down table you play at: tap cards, drag cards, roll the die. */
 (function () {
   'use strict';
-  const C = window.CrunchCards;
-  const BUILD = 'cards 0.4';
+  const C = window.CrunchTable, BUILD = 'table 0.1';
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
@@ -843,271 +616,285 @@ select {
   function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } }
 
-  let settings = C.mergeSettings(lsGet('crunchcards.settings.v4', null));
-  settings.ai = 'thoughtful';
-  let setup = lsGet('crunchcards.setup.v1', null) || { roles: { producer: 'ai', artist: 'ai', engineer: 'human', designer: 'ai' }, speed: 'normal' };
-  let view = 'play';
-
-  function showView(v) {
-    view = v;
-    document.querySelectorAll('.view').forEach(el => el.classList.toggle('on', el.id === 'v-' + v));
-    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === v));
-    if (v === 'settings') renderSettings();
-    if (v === 'sim') renderSim();
-    if (v === 'play') { renderPlay(); if (held) { const h = held; held = null; h(); } }
-    window.scrollTo(0, 0);
-  }
-  document.querySelector('nav.tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) showView(b.dataset.tab); });
-
-  // ============================================================ PLAY
-  let st = null, gen = null, cur = null, token = 0, held = null, infoUid = null, logOpen = false, resultHidden = false, copyMsg = '';
+  const W = 1000, H = 460, CW = 96, CH = 134;
+  let settings = C.mergeSettings(lsGet('crunchtable.settings.v1', null)); settings.ai = 'thoughtful';
+  let setup = lsGet('crunchtable.setup.v1', null) || { direction: 'random', roles: { producer: 'ai', artist: 'ai', engineer: 'human', designer: 'ai' }, speed: 'normal' };
+  let st = null, gen = null, cur = null, token = 0, viewer = 0, zoomUid = null, sheet = null, sheetTab = 'rules', resultHidden = false, dirOpen = false, info = '', copyMsg = '', lastRollN = 0, scale = 1, ox = 0, oy = 0, drag = null, rotateOk = false;
+  const stage = $('#stage'), hud = $('#hud'), cardsEl = $('#cards');
   const rname = pi => C.ROLES[st.players[pi].role].name;
   const myDisc = pi => C.ROLE_DISC[st.players[pi].role];
+  const cardBy = uid => st.cards.find(c => c.uid === uid);
 
+  function fit() {
+    scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+    ox = (window.innerWidth - W * scale) / 2; oy = (window.innerHeight - H * scale) / 2;
+    stage.style.transform = 'translate(' + ox + 'px,' + oy + 'px) scale(' + scale + ')';
+    $('#rotate').classList.toggle('on', !rotateOk && window.innerHeight > window.innerWidth && window.innerWidth < 720);
+  }
+  window.addEventListener('resize', fit); window.addEventListener('orientationchange', fit);
+
+  // ------------------------------------------------------------ game flow
   function roleList() { return C.ROLE_ORDER.filter(r => setup.roles[r] !== 'off').map(r => ({ role: r, human: setup.roles[r] === 'human' })); }
   function startGame() {
     const roles = roleList(); if (!roles.length) return;
     token++;
-    st = C.newGame(settings, { roles: roles, direction: setup.direction && setup.direction !== 'random' ? setup.direction : null });
+    st = C.newGame(settings, { roles: roles, direction: setup.direction !== 'random' ? setup.direction : null });
     gen = C.runGame(st);
-    cur = null; held = null; infoUid = null; logOpen = false; resultHidden = false; copyMsg = '';
+    cur = null; zoomUid = null; sheet = null; resultHidden = false; dirOpen = false; info = ''; copyMsg = ''; lastRollN = 0;
+    viewer = Math.max(0, st.players.findIndex(p => p.human));
+    cardsEl.innerHTML = '';
+    for (const c of st.cards) {
+      const el = document.createElement('div');
+      el.className = 'card down ' + (c.event ? 'event d-event' : 'd-' + c.disc);
+      el.id = 'c-' + c.uid; el.dataset.uid = c.uid;
+      el.innerHTML = c.event
+        ? '<div class="front"><div class="band">Event</div><div class="nm">' + esc(c.name) + '</div><div class="add">+' + c.add + ' Behind Schedule</div></div><div class="back">CRUNCH</div>'
+        : '<div class="front"><div class="band">' + C.DISC[c.disc].name + '</div><div class="nm">' + esc(c.name) + '</div><div class="ow">' + C.ROLES[C.DISC[c.disc].role].name + ' does it right</div>' + (st.dir.pillars.indexOf(c.disc) >= 0 ? '<div class="pl">PILLAR</div>' : '') + '</div><div class="back">CRUNCH</div>';
+      cardsEl.appendChild(el);
+    }
+    render();
     advance(token);
   }
-  function quitGame() { token++; st = null; gen = null; cur = null; held = null; renderPlay(); }
-  function later(fn, ms, tk) { setTimeout(() => { if (tk !== token) return; if (view !== 'play') { held = fn; return; } fn(); }, ms); }
+  function quitGame() { token++; st = null; gen = null; cur = null; zoomUid = null; sheet = null; cardsEl.innerHTML = ''; render(); }
   function delayFor(kind) {
-    const fast = setup.speed === 'fast';
-    const human = st.turn && st.players[st.turn.pi].human;
-    let ms = fast ? 160 : 700;
-    if (kind === 'turn') ms = fast ? 100 : 380;
-    if (kind === 'flip' || kind === 'month') ms = fast ? 300 : 1000;
-    if (human && kind !== 'flip') ms = Math.min(ms, 240);
-    return ms;
+    const base = { turn: 420, draw: 620, ship: 680, behind: 620, roll: 950, event: 900, month: 950, rest: 700, end: 220 }[kind] || 400;
+    return setup.speed === 'fast' ? Math.round(base * 0.3) : base;
   }
   function recordChoice(d, ch) {
-    if (!st || !ch) return;
+    if (!st || !ch || d.type === 'draw' || d.type === 'event') return;
     const p = st.players[d.player];
-    st.log.push({ kind: 'choice', text: C.ROLES[p.role].name + (p.human ? ' (human)' : ' (AI)') + ' chose "' + ch.label + '"' + (d.options.length > 1 ? ' out of: ' + d.options.map(o => o.label).join(' | ') : ' (only option)') + '  [' + d.type + ']' });
+    st.log.push({ kind: 'choice', text: C.ROLES[p.role].name + (p.human ? ' (human)' : ' (AI)') + ' chose "' + ch.label + '"' + (d.options.length > 1 ? ' out of: ' + d.options.map(o => o.label).join(' | ') : '') + '  [' + d.type + ']' });
   }
   function advance(tk, answer) {
     if (tk !== token || !gen) return;
     const r = gen.next(answer), d = r.value;
-    if (r.done || !d || d.type === 'over') { cur = null; renderPlay(); return; }
-    if (d.type === 'beat') { cur = null; renderPlay(); later(() => advance(tk), delayFor(d.kind), tk); return; }
-    if (st.players[d.player].human) { cur = d; renderPlay(); const p = $('#prompt'); if (p) { try { p.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { p.scrollIntoView(); } } return; }
+    if (r.done || !d || d.type === 'over') { cur = null; render(); return; }
+    if (d.type === 'beat') { cur = null; render(); setTimeout(() => advance(tk), delayFor(d.kind)); return; }
+    if (st.players[d.player].human) { cur = d; viewer = d.player; render(); return; }
     const ch = C.aiChoose(st, d);
     recordChoice(d, ch);
+    if (d.type === 'event') { cur = null; render(); setTimeout(() => advance(tk, ch), delayFor('event')); return; }
     advance(tk, ch);
   }
+  function answer(o) { if (!cur || !o) return; const d = cur; recordChoice(d, o); cur = null; zoomUid = null; info = ''; advance(token, o); }
 
-  function howText(how) { return how === 'right' ? 'can do it right' : how === 'comp' ? 'can compromise on it' : "can't do it at all"; }
-  function dirLine(d) {
-    if (!d || !d.pillars.length) return '';
-    return 'Pillars: ' + d.pillars.map(x => C.DISC[x].name).join(' and ') + ' (done right counts double, a compromise counts for nothing). Nobody cares about ' + C.DISC[d.free].name + ' (a compromise counts in full).';
+  // ------------------------------------------------------------ layout
+  function seatSide(i) {
+    const n = st.players.length, rel = (i - viewer + n) % n;
+    if (rel === 0) return 'bottom';
+    if (n === 2) return 'top';
+    if (n === 3) return rel === 1 ? 'left' : 'right';
+    return ['bottom', 'left', 'top', 'right'][rel];
   }
-  function mini(card, cls, extra) {
-    return '<button class="mini d-' + card.disc + ' ' + (cls || '') + (infoUid === card.uid ? ' on' : '') + '" data-info="' + card.uid + '">' + esc(card.name) + (extra || '') + '</button>';
+  const SEAT = { left: { x: 12, y: 160 }, top: { x: 440, y: 8 }, right: { x: 870, y: 160 } };
+  const HAND = { bottom: { x: 456, y: 310, s: 0.92 }, left: { x: 30, y: 222, s: 0.6 }, top: { x: 566, y: 4, s: 0.44 }, right: { x: 900, y: 222, s: 0.6 } };
+  const DECK = { x: 300, y: 158 }, BEHIND = { x: 414, y: 158, w: 440 }, SHIP = { x: 716, y: 10, w: 272, h: 124 }, GONE = { x: 226, y: 170 };
+  function place(el, x, y, s, r, z) {
+    const tx = x - (1 - s) * CW / 2, ty = y - (1 - s) * CH / 2;
+    el.style.transform = 'translate(' + tx + 'px,' + ty + 'px) rotate(' + r + 'deg) scale(' + s + ')';
+    el.style.zIndex = z;
   }
-  function findCard(uid) {
-    const all = st.deck.concat(st.behind, st.shipped.map(x => x.card));
-    for (const p of st.players) for (const c of p.plate) all.push(c);
-    if (st.turn) for (const c of st.turn.cands) all.push(c);
-    return all.find(c => c.uid === uid);
-  }
-  function cardHtml(card, forPi) {
-    const S = st.S, discs = C.compDiscs(S, card);
-    let h = '<div class="tcard d-' + card.disc + '">' + (forPi != null && card.note && st.turn && st.turn.cands.indexOf(card) >= 0 ? '<div class="orig">' + esc(card.note) + '</div>' : '') + '<div class="th"><span class="tn">' + esc(card.name) + '</span><span class="td">' + C.DISC[card.disc].name + (st.dir.pillars.indexOf(card.disc) >= 0 ? ' &middot; PILLAR' : st.dir.free === card.disc ? ' &middot; nobody cares' : '') + '</span></div>';
-    h += '<div class="cl"><b>' + C.ROLES[C.DISC[card.disc].role].name + '</b> does it right.</div>';
-    for (const d of discs) h += '<div class="cl' + (forPi != null && myDisc(forPi) === d ? ' me' : '') + '"><b>' + C.ROLES[C.DISC[d].role].name + ':</b> ' + esc(card.comp[d]) + '</div>';
-    if (forPi != null) {
-      const how = C.canDo(st, forPi, card);
-      h += '<div class="you ' + (how === 'right' ? 'r' : how === 'comp' ? 'c' : 'n') + '">' + rname(forPi) + ' ' + howText(how) + (how === 'comp' && card.disc === myDisc(forPi) ? ' (Burned Out)' : '') + '.</div>';
-    }
-    h += (S.crunchCheck === 'die' ? '' : '<div class="ck">Corner icon: ' + (card.skull ? 'skull' : 'coffee') + '</div>') + '</div>';
-    return h;
-  }
-  function powerText(role, S) {
-    if (role === 'producer') return [S.producerPeek >= 2 ? 'Schedule: looks at the next ' + S.producerPeek + ' tasks and reorders them.' : '', S.producerSend ? 'Staffing: can pass a task to anyone.' : ''].filter(Boolean).join(' ') || 'No power switched on.';
-    if (role === 'artist') return S.artistPolish ? 'Polish: after doing Art right, turns one compromised task into done-right.' : 'No power switched on.';
-    if (role === 'engineer') return S.engLook ? 'Looks at the top two tasks and takes one.' : 'No power switched on.';
-    return S.desBacklog ? 'May draw from Behind Schedule instead of the deck. The clock does not move.' : 'No power switched on.';
-  }
-
-  function question(d) {
-    const who = '<span class="who">' + rname(d.player) + '</span>', n = st.players.length, S = st.S, t = st.turn;
-    switch (d.type) {
-      case 'rest': return who + ': ' + (st.players[d.player].burned ? 'you are Burned Out. Anything you ship is a compromise until you rest.' : 'you are carrying Stress. Rest now, or keep going?');
-      case 'schedule': return who + ': these are the next ' + d.cards.length + ' tasks. Choose the order they come out in.';
-      case 'pick': return who + ': take one. The other goes back on top for ' + rname((d.player + 1) % n) + '.';
-      case 'draw': return who + ': ' + (st.final ? 'launch week. Grab something from Behind Schedule?' : 'draw from the deck, or pull a task out of Behind Schedule?');
-      case 'act': return who + ': ' + (d.options.length > 1 ? 'do one task.' : "you can't do " + (st.turn.cands.length > 1 ? 'either of these' : 'this one') + ". Next you choose where " + (st.turn.cands.length > 1 ? 'they go.' : 'it goes.'));
-      case 'crunch': {
-        const P = st.players[d.player], first = t.crunches === 0;
-        const fail = P.burned ? 'You are Burned Out: fail and you quit, and the project is cancelled.' : P.stress + 1 >= S.stressLimit ? 'Fail and you are Burned Out.' : 'Fail and you take Stress (' + (P.stress + 1) + ' of ' + S.stressLimit + ').';
-        let risk;
-        if (S.crunchCheck === 'die') {
-          const need = C.crunchNeed(st, t.crunches + 1), safe = Math.max(0, 6 - Math.max(0, need));
-          risk = 'Afterwards you roll one die and need more than ' + need + ' (round ' + st.month + ', crunch ' + (t.crunches + 1) + ' this turn). That is safe on ' + Math.min(6, safe) + ' of the 6 faces. ' + fail;
-        } else {
-          const sk = st.deck.filter(c => c.skull).length, from = S.crunchFlip === 'bottomBehind' ? 'bottom' : 'top';
-          risk = 'Afterwards you turn over the ' + from + ' card of the deck' + (S.crunchFlip === 'top' ? '.' : ', and it goes Behind Schedule.') + ' A skull is a fail. ' + sk + ' of the ' + st.deck.length + ' cards left are skulls. ' + fail;
-        }
-        return who + ': ' + (first ? 'crunch for an extra job?' : 'keep crunching?') + '<div class="note bad">' + risk + '</div>';
-      }
-      case 'polish': return who + ': Polish. Pick one compromised task to count as done right.';
-      case 'leftover': return who + ': you still have <b>' + esc(d.card.name) + '</b>. Where does it go?';
-      default: return who;
-    }
-  }
-  function sub(d, o) {
-    const S = st.S, n = st.players.length;
-    if (d.type === 'schedule') return o.order.map((u, k) => rname((d.player + k) % n) + ' ' + howText(C.canDo(st, (d.player + k) % n, d.cards.find(c => c.uid === u)))).join('; ') + '.';
-    if (d.type === 'rest') return o.id === 'rest' ? 'The task you would have drawn goes Behind Schedule.' : 'Take your turn as normal.';
-    if (o.id === 'redo') return 'Your own discipline, so it turns upright and counts as done right.';
-    if (o.id === 'do') { const c = findCard(o.uid); return o.how === 'right' ? 'Ships upright. Counts toward a Feature.' : '"' + (c.disc === myDisc(d.player) ? 'It ships. Technically.' : c.comp[myDisc(d.player)]) + '" Ships sideways.' + (st.dir.pillars.indexOf(c.disc) >= 0 ? ' This is a Pillar, so a compromise scores nothing.' : st.dir.free === c.disc ? ' Nobody cares about ' + C.DISC[c.disc].name + ' here, so it scores in full.' : ''); }
-    if (o.id === 'pass') return rname(o.to) + ' ' + howText(C.canDo(st, o.to, d.card)) + '. It waits on their plate and does not count as Behind Schedule.';
-    if (o.id === 'behind' && d.type === 'leftover') return 'That makes ' + (st.behind.length + 1) + ' of ' + S.behindLimit + (st.behind.length + 1 >= S.behindLimit ? '. The project is cancelled.' : '. Anyone can crunch it back out later.');
-    if (o.id === 'behind' && d.type === 'draw') return 'The clock does not move.';
-    if (o.id === 'deck') return 'Uses up one card of the calendar.';
-    if (o.id === 'keep') return 'You will have it next turn, along with whatever you draw.';
-    if (o.id === 'take') { const c = d.cards.find(x => x.uid === o.uid), how = C.canDo(st, d.player, c); return 'You ' + howText(how) + (how ? '.' : ', so you would have to pass it on or put it Behind Schedule.'); }
-    return '';
-  }
-
-  function renderPlay() { $('#v-play').innerHTML = st ? gameHtml() : setupHtml(); }
-
-  function setupHtml() {
-    const S = settings, roles = roleList();
-    let h = '<h2>Game direction</h2>';
-    const dsel = setup.direction || 'random';
-    h += '<button class="proj' + (dsel === 'random' ? ' on' : '') + '" data-dir="random"><div class="nm">Surprise me</div><div class="tw">Draw a direction card at random.</div></button>';
-    if (S.directions) for (const d of C.DIRECTIONS) h += '<button class="proj' + (dsel === d.key ? ' on' : '') + '" data-dir="' + d.key + '"><div class="nm">' + esc(d.name) + '</div><div class="tw">' + esc(d.pitch) + '</div><div class="tg">Pillars: ' + d.pillars.map(x => C.DISC[x].name).join(' + ') + ' &middot; nobody cares: ' + C.DISC[d.free].name + '</div></button>';
-    h += '<h2>Team</h2><div class="panel">';
-    for (const r of C.ROLE_ORDER) {
-      const v = setup.roles[r];
-      h += '<div class="rolerow"><div><div class="nm">' + C.ROLES[r].name + '</div><div class="small muted">' + esc(powerText(r, S)) + '</div></div><div class="seg" role="group" aria-label="' + C.ROLES[r].name + '">' +
-        ['human', 'ai', 'off'].map(x => '<button data-role="' + r + '" data-val="' + x + '" class="' + (v === x ? 'on' : '') + '">' + (x === 'human' ? 'Human' : x === 'ai' ? 'AI' : 'Off') + '</button>').join('') + '</div></div>';
-    }
-    h += '</div>';
-    if (roles.length < 4) h += '<p class="small muted" style="margin-top:8px">The balance is tuned for all four roles.</p>';
-    h += '<div style="margin-top:14px"><button class="btn primary center" data-act="start"' + (roles.length ? '' : ' disabled') + '>Start the project</button></div>';
-    h += '<details open><summary>How to play</summary><div class="body">' +
-      '<p>You are a studio. The deck is ' + (S.perDisc * 4) + ' tasks, and it is also your calendar: when it runs out, the game ships and gets reviewed. Talk freely.</p>' +
-      (S.directions ? '<p><b>The Game Direction card</b> says what this game is. Two disciplines are its Pillars: done right they count double, compromised they count for nothing. One discipline nobody cares about: a compromise there counts as if it were done right.</p>' : '') +
-      '<p><b>Your turn</b></p><ol>' +
-      '<li><b>Draw a task.</b> With whatever is on your plate, that gives you up to ' + (S.plateSize + S.drawCount) + '.</li>' +
-      '<li><b>Do one.</b> Your own discipline: you do it right and it ships upright. Your role is named on the card: you can compromise and it ships sideways. Neither: you cannot do it, and it has to go somewhere in step 4.</li>' +
-      (S.crunch ? '<li><b>Crunch if you dare.</b> Take on an extra job: another task from your hand' + (S.crunchFromBehind ? ' or from Behind Schedule' : '') + (S.crunchRedo ? ', or redo one of your own discipline&rsquo;s compromised tasks properly' : '') + '. Then make a crunch check. ' +
-        (S.crunchCheck === 'die' ? 'Roll one die: you need more than the number of crunches you have done this turn' + (S.roundRamp ? ', plus ' + (S.roundRamp === 1 ? 'one' : S.roundRamp) + ' for every round already finished' : '') + '. So the first crunch of the game is safe on a 2 or better, and it gets harder every crunch and every round.' : 'Turn over a card from the deck: a skull in its corner is a fail.') +
-        (S.crunchChain ? ' You can keep crunching for as long as you dare.' : '') + '</li>' : '') +
-      '<li><b>Place what is left.</b> Keep it on your plate (room for ' + S.plateSize + '), pass it to the player on your left if their plate has room, or put it Behind Schedule.</li></ol>' +
-      '<p><b>Burnout.</b> ' + (S.stressLimit === 1 ? 'Fail a crunch check' : 'Fail ' + S.stressLimit + ' crunch checks') + ' and you are Burned Out: everything you ship is a compromise, even your own discipline.' + (S.burnoutQuits ? ' Crunch while Burned Out and fail again, and you quit. The project is cancelled.' : '') + (S.restAction ? ' Rest (skip a turn) to clear it; the task you would have drawn goes Behind Schedule.' : '') + '</p>' +
-      '<p><b>Behind Schedule</b> is the pile of work nobody has got to. It holds ' + (S.behindLimit - 1) + '; if it ever reaches ' + S.behindLimit + ', the publisher cancels the project. A task you pass to a teammate is not Behind Schedule: it sits on their plate for their next turn. Tasks only come back out of Behind Schedule through a crunch' + (S.desBacklog ? ', the Designer' : '') + ' or launch week.' + (S.monthSlip ? ' After everyone has had a turn, ' + (S.monthSlip === 1 ? 'the bottom card of the deck slides' : 'the bottom ' + S.monthSlip + ' cards of the deck slide') + ' in. The cards the Producer has arranged on top are not disturbed.' : '') + '</p>' +
-      (S.finalRound ? '<p><b>Launch week.</b> When the deck is empty, the round is finished without drawing, then everyone gets one last turn and may take one task from Behind Schedule.</p>' : '') +
-      '<p><b>The review.</b> Count once, at the end. Done right is worth ' + S.ptsRight + ', a compromise ' + S.ptsComp + ', unfinished nothing, adjusted by the Direction card. Four done-right tasks, one from each discipline, make a Feature worth ' + S.ptsFeature + ' more. The total becomes a review score out of 100. ' + S.target + ' or better is a win.</p>' +
-      '</div></details>';
-    h += '<p class="small muted" style="margin-top:14px">This is the card version. The earlier dice version is still at <a href="dice/" style="color:var(--accent)">dice/</a>.</p>';
-    return h;
-  }
-
-  function gameHtml() {
-    const S = st.S, t = st.turn, r = C.score(st), n = st.players.length;
-    let h = '<div class="ghead"><div class="pn">' + esc(st.title) + '</div><div class="small muted">' + (st.final ? 'Launch week' : 'Round ' + st.month) + '</div></div>';
-    if (st.dir.pitch) h += '<div class="small" style="margin-top:2px">' + esc(st.dir.pitch) + '</div><div class="small muted">' + esc(dirLine(st.dir)) + '</div>';
-    // calendar
-    h += '<div class="zone"><div class="zt"><span>Calendar</span><b>' + st.deck.length + ' left</b></div><div class="pips" aria-label="' + st.deck.length + ' tasks left in the deck">';
-    for (let i = 0; i < st.total; i++) h += '<i class="' + (i < st.deck.length ? 'in' : '') + '"></i>';
-    h += '</div>' + (S.monthSlip && !st.final ? '<div class="small muted">After ' + rname(n - 1) + "'s turn, " + (S.monthSlip === 1 ? 'the bottom card slides' : 'the bottom ' + S.monthSlip + ' cards slide') + ' Behind Schedule.</div>' : '') + '</div>';
-    // behind schedule
-    h += '<div class="zone' + (st.behind.length >= S.behindLimit - 1 ? ' danger' : '') + '"><div class="zt"><span>Behind Schedule</span><b>' + st.behind.length + ' / ' + S.behindLimit + '</b></div><div class="minis">';
-    for (const c of st.behind) h += mini(c);
-    for (let i = st.behind.length; i < S.behindLimit - 1; i++) h += '<span class="slot">open</span>';
-    h += '<span class="slot" style="border-color:var(--bad);color:var(--bad)">cancelled</span></div></div>';
-    // shipped
-    h += '<div class="zone"><div class="zt"><span>Shipped</span><b>review ' + (st.cancelled ? 0 : r.score) + '</b></div>';
-    for (const d of C.DISC_KEYS) {
-      h += '<div class="shiprow d-' + d + '"><span class="dn">' + C.DISC[d].name + '</span><div class="minis">';
-      const mine = st.shipped.filter(x => x.card.disc === d);
-      if (!mine.length) h += '<span class="none">nothing yet</span>';
-      for (const x of mine) h += mini(x.card, x.how === 'comp' ? 'side' : '', x.how === 'comp' ? ' ~' : ' &#10003;');
-      h += '</div></div>';
-    }
-    h += '<div class="small muted" style="margin-top:6px">' + r.right + ' done right, ' + r.comp + ' compromised (dashed), ' + r.features + ' Feature' + (r.features === 1 ? '' : 's') + '.</div></div>';
-    // players
-    h += '<div class="players">';
-    st.players.forEach((p, i) => {
-      const active = t && t.pi === i && !st.over;
-      h += '<div class="pl ' + (p.burned ? 'burned' : 'fresh') + (active ? ' active' : '') + '"><div class="hd"><span class="nm"><span class="ord">' + (i + 1) + '</span>' + C.ROLES[p.role].name + '</span><span class="who">' + (p.human ? 'You' : 'AI') + '</span></div>' +
-        '<div class="bo">' + (p.burned ? 'Burned Out' : p.stress ? 'Stress ' + p.stress + ' of ' + S.stressLimit : 'Fresh') + '</div><div class="plate minis">';
-      const plate = active ? [] : p.plate;
-      if (active && t.cands.length) h += '<span class="none">working (see below)</span>';
-      else if (!plate.length) h += '<span class="none">plate empty</span>';
-      for (const c of plate) h += mini(c);
-      h += '</div><div class="pwr">' + esc(powerText(p.role, S)) + '</div></div>';
+  function layoutCards(glow) {
+    const pos = {};
+    st.deck.forEach((c, i) => { pos[c.uid] = { x: DECK.x - Math.min(i, 12) * 0.5, y: DECK.y - Math.min(i, 12) * 0.5, s: 1, r: 0, z: 10 + i, down: true }; });
+    const nb = st.behind.length, step = nb > 1 ? Math.min(100, (BEHIND.w - CW) / (nb - 1)) : 0;
+    st.behind.forEach((c, i) => { pos[c.uid] = { x: BEHIND.x + i * step, y: BEHIND.y, s: 1, r: 0, z: 100 + i }; });
+    st.gone.forEach((c, i) => { pos[c.uid] = { x: GONE.x - i * 3, y: GONE.y + i * 3, s: 0.5, r: -8 + i * 6, z: 5 + i }; });
+    const per = { prod: 0, art: 0, code: 0, design: 0 };
+    st.shipped.forEach(x => {
+      const row = C.DISC_KEYS.indexOf(x.card.disc), k = per[x.card.disc]++;
+      pos[x.card.uid] = { x: SHIP.x + 62 + k * 34, y: SHIP.y + 15 + row * 27, s: 0.2, r: x.how === 'comp' ? 90 : 0, z: 50 + k, mini: true, side: x.how === 'comp' };
     });
-    h += '</div>';
-    if (infoUid != null) { const c = findCard(infoUid); if (c) h += cardHtml(c, null); }
-    // the active turn
-    if (t && !st.over) {
-      const peek = cur && (cur.type === 'schedule' || cur.type === 'pick') ? cur.cards : null;
-      h += '<div class="tray"><div class="tl"><span>' + rname(t.pi) + (peek ? ' is looking at the deck' : "'s hand") + '</span></div>';
-      const show = peek || t.cands;
-      if (!show.length) h += '<div class="small muted" style="margin-top:8px">' + (t.did.length ? 'Hand empty: this turn&rsquo;s task is done.' : 'Nothing in hand.') + '</div>';
-      for (const c of show) h += cardHtml(c, t.pi);
-      if (cur && (cur.type === 'crunch' || cur.type === 'draw')) {
-        const seen = {}; let any = false;
-        for (const o of cur.options) if ((o.src === 'behind' || o.id === 'behind') && !seen[o.uid]) { seen[o.uid] = 1; const c = findCard(o.uid); if (c) { if (!any) { h += '<div class="tl" style="margin-top:12px"><span>Sitting in Behind Schedule</span></div>'; any = true; } h += cardHtml(c, t.pi); } }
-      }
-      if (t.roll) h += '<div class="note ' + (t.roll.safe ? '' : 'bad') + '">Last crunch check: needed more than ' + t.roll.need + ', rolled a ' + t.roll.roll + '. ' + (t.roll.safe ? 'Safe.' : 'Failed.') + '</div>';
-      else if (t.flip) h += '<div class="note ' + (t.flip.skull ? 'bad' : '') + '">Crunch check: ' + esc(t.flip.name) + ' showed a ' + (t.flip.skull ? 'skull. Failed.' : 'coffee. Safe.') + '</div>';
-      h += '</div><div class="small muted" style="margin-top:6px">Up next: ' + rname((t.pi + 1) % n) + '.</div>';
+    if (st.turn && st.turn.hand) { const h = HAND[seatSide(st.turn.pi)]; pos[st.turn.hand.uid] = { x: h.x, y: h.y, s: h.s, r: 0, z: 200 }; }
+    for (const c of st.cards) {
+      const el = document.getElementById('c-' + c.uid), p = pos[c.uid] || { x: DECK.x, y: DECK.y, s: 1, r: 0, z: 1, down: true };
+      if (drag && drag.uid === c.uid && drag.moved) continue;
+      place(el, p.x, p.y, p.s, p.r, p.z);
+      el.classList.toggle('down', !!p.down); el.classList.toggle('mini', !!p.mini); el.classList.toggle('side', !!p.side);
+      el.classList.toggle('glow', !!glow[c.uid]);
     }
-    // prompt / result
-    if (st.over && resultHidden) {
-      h += '<div class="result slim ' + (st.won ? 'win' : 'lose') + '"><b>' + (st.cancelled ? 'Cancelled' : 'Review ' + st.result.score) + '</b><button class="linkbtn" data-act="showres">Show the result</button></div>';
-    } else if (st.over) {
-      const x = st.result;
-      h += '<div class="result ' + (st.won ? 'win' : 'lose') + '">';
-      if (st.cancelled) h += '<div class="big">Cancelled.</div><div class="small">' + (st.quit != null ? rname(st.quit) + ' crunched while Burned Out and quit.' : 'Behind Schedule hit ' + S.behindLimit + ' and the publisher pulled the plug.') + '</div>';
-      else h += '<div class="bigscore">' + x.score + '</div><div class="big" style="margin-top:6px">' + esc(st.title) + ': ' + C.verdict(x.score) + '</div><div class="small">' + (st.won ? 'That clears the ' + S.target + ' you needed.' : 'You needed ' + S.target + '.') + '</div>';
-      h += '<div class="small muted" style="margin-top:6px">' + x.right + ' done right, ' + x.comp + ' compromised, ' + x.unfinished + ' unfinished, ' + x.features + ' Feature' + (x.features === 1 ? '' : 's') + '.</div>';
-      for (const q of reviews()) h += '<div class="quote">' + esc(q.text) + '<span>' + esc(q.by) + '</span></div>';
-      h += '<div style="margin-top:12px"><button class="btn primary center" data-act="again">Play again</button><button class="btn center" data-act="setup">Change the team</button><button class="btn center" data-act="copylog">Copy the full log</button><button class="btn center" data-act="hideres">Look at the board</button></div></div>';
-    } else if (cur) {
-      h += '<div class="prompt" id="prompt"><div class="q">' + question(cur) + '</div>';
-      cur.options.forEach((o, i) => { const s = sub(cur, o); h += '<button class="btn' + (o.how === 'right' ? ' primary' : '') + '" data-opt="' + i + '">' + esc(o.id === 'no' && st.turn.crunches > 0 ? 'Stop there' : o.label) + (s ? '<span class="sub">' + esc(s) + '</span>' : '') + '</button>'; });
-      h += '</div>';
-    } else {
-      h += '<div class="prompt wait" id="prompt"><div class="q muted" style="margin:0">' + (t ? rname(t.pi) + (st.players[t.pi].human ? '' : ' (AI)') + ' is working&hellip;' : 'Setting up&hellip;') + '</div></div>';
-    }
-    const entries = st.log.filter(e => e.kind !== 'state' && e.kind !== 'choice').reverse();
-    h += '<div class="log">' + (logOpen ? entries : entries.slice(0, 8)).map(e => '<div class="e ' + e.kind + '">' + esc(e.text) + '</div>').join('') + '</div>';
-    h += '<div class="gctl"><button class="linkbtn" data-act="log">' + (logOpen ? 'Show less' : 'Show the whole log') + '</button><div class="seg" role="group" aria-label="AI speed"><button data-speed="normal" class="' + (setup.speed !== 'fast' ? 'on' : '') + '">Normal</button><button data-speed="fast" class="' + (setup.speed === 'fast' ? 'on' : '') + '">Fast</button></div></div>';
-    h += '<div class="row" style="margin-top:10px"><button class="btn center" data-act="copylog">Copy full log</button><button class="btn center" data-act="savelog">Save log file</button></div>';
-    h += '<div class="small muted" style="margin-top:6px;min-height:18px" aria-live="polite">' + (copyMsg ? esc(copyMsg) : 'Tap any task to read it. The full log has every draw, choice and hand, oldest first.') + '</div>';
-    if (!st.over) h += '<div style="margin-top:10px"><button class="btn danger center" data-act="quit">Abandon this project</button></div>';
+  }
+  function optsFor(uid) { return cur ? cur.options.filter(o => o.uid === uid) : []; }
+  function glowSet() {
+    const g = {};
+    if (!cur || !st.players[cur.player].human) return g;
+    if (cur.type === 'draw') { if (st.deck.length) g[st.deck[st.deck.length - 1].uid] = 1; return g; }
+    if (cur.type === 'act' || cur.type === 'crunch' || cur.type === 'polish') for (const o of cur.options) if (o.uid != null) g[o.uid] = 1;
+    return g;
+  }
+
+  // ------------------------------------------------------------ text helpers
+  function powerText(role, S) {
+    if (role === 'producer') return S.producerPeek >= 2 ? 'Schedule: looks at the next ' + S.producerPeek + ' cards and puts them in any order.' : 'No power switched on.';
+    if (role === 'artist') return S.artistPolish ? 'Polish: after doing Art right, fixes one half-assed task for free.' : 'No power switched on.';
+    if (role === 'engineer') return S.engLook ? 'Looks at the top two cards and takes one.' : 'No power switched on.';
+    return S.designerFree ? 'The first crunch each turn needs no die roll.' : 'No power switched on.';
+  }
+  function dirRule(d) { return d.pillars.length ? 'Pillars: ' + d.pillars.map(x => C.DISC[x].name).join(' and ') + '. Done right counts double; half-assed counts for nothing. Nobody cares about ' + C.DISC[d.free].name + ': half-assed counts in full.' : ''; }
+  function needText() {
+    const t = st.turn, p = st.players[t.pi], S = st.S;
+    if (p.role === 'designer' && S.designerFree && t.crunches === 0) return { free: true, text: 'The Designer’s first crunch each turn needs no roll.' };
+    const need = C.crunchNeed(st, t.crunches + 1), safe = Math.max(0, Math.min(6, 6 - Math.max(0, need)));
+    const fail = p.burned ? 'Fail and you quit: the project is cancelled.' : p.stress + 1 >= S.stressLimit ? 'Fail and you are Burned Out.' : 'Fail and you take Stress.';
+    return { need: need, safe: safe, text: 'The die must beat ' + need + ' (safe on ' + safe + ' of 6 faces). ' + fail };
+  }
+  function optButton(o, i) {
+    let label = o.label, sub = '', cls = '';
+    const c = o.uid != null ? cardBy(o.uid) : null, crunch = cur.type === 'crunch';
+    if (o.id === 'do') {
+      const pts = C.cardPts(st, c, o.how);
+      if (o.how === 'right') { label = (crunch ? 'Crunch: do it right' : 'Do it right'); sub = 'Worth ' + pts + ' points.'; cls = ' primary'; }
+      else { label = (crunch ? 'Crunch: half-ass it' : 'Half-ass it'); sub = '"' + (c.disc === myDisc(cur.player) ? 'It ships. Technically.' : c.comp[myDisc(cur.player)]) + '" Worth ' + pts + (pts === 1 ? ' point' : ' points') + (st.dir.pillars.indexOf(c.disc) >= 0 ? ' (a Pillar).' : '.') + ' The ' + C.ROLES[C.DISC[c.disc].role].name + ' can fix it later with a crunch.'; }
+      if (crunch) sub += ' ' + needText().text;
+    } else if (o.id === 'none') { label = st.turn.hand ? 'Not now: put it Behind Schedule' : 'Do nothing'; sub = st.turn.hand ? 'It waits there until someone crunches it.' + (st.S.behindLimit ? ' The publisher cancels the project if ' + st.S.behindLimit + ' are there at the end of a round.' : '') : ''; }
+    else if (o.id === 'redo') { label = 'Crunch: fix it properly'; sub = 'It becomes done right, worth ' + C.cardPts(st, c, 'right') + ' points. ' + needText().text; cls = ' primary'; }
+    else if (o.id === 'polish') { label = 'Polish it'; sub = 'Free. It becomes done right, worth ' + C.cardPts(st, c, 'right') + ' points.'; cls = ' primary'; }
+    return '<button class="btn' + cls + '" data-opt="' + i + '">' + esc(label) + (sub ? '<span class="sub">' + esc(sub) + '</span>' : '') + '</button>';
+  }
+  function bigCard(c, forPi) {
+    if (c.event) return '<div class="big event d-event"><div class="band">Event</div><div class="in"><div class="nm">' + esc(c.name) + '</div><div class="ln">' + esc(c.text) + '</div><div class="ln"><b>Add ' + c.add + (c.add === 1 ? ' task' : ' tasks') + ' from the bottom of the deck to Behind Schedule.</b></div></div></div>';
+    const pillar = st.dir.pillars.indexOf(c.disc) >= 0, free = st.dir.free === c.disc;
+    let h = '<div class="big d-' + c.disc + '"><div class="band">' + C.DISC[c.disc].name + (pillar ? ' &middot; Pillar' : free ? ' &middot; nobody cares' : '') + '</div><div class="in"><div class="nm">' + esc(c.name) + '</div>';
+    h += '<div class="ln"><b>' + C.ROLES[C.DISC[c.disc].role].name + '</b> does it right.</div>';
+    for (const d of C.DISC_KEYS) if (d !== c.disc) h += '<div class="ln"><b>' + C.ROLES[C.DISC[d].role].name + (forPi != null && myDisc(forPi) === d ? ' (you)' : '') + ':</b> ' + esc(c.comp[d]) + '</div>';
+    h += '<div class="pts">Done right: ' + C.cardPts(st, c, 'right') + ' points. Half-assed: ' + C.cardPts(st, c, 'comp') + '.</div></div></div>';
     return h;
   }
 
-  $('#v-play').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.opt != null && cur) { const d = cur, o = d.options[+b.dataset.opt]; recordChoice(d, o); cur = null; infoUid = null; advance(token, o); return; }
-    if (b.dataset.info) { const u = +b.dataset.info; infoUid = infoUid === u ? null : u; renderPlay(); return; }
-    if (b.dataset.dir) { setup.direction = b.dataset.dir; lsSet('crunchcards.setup.v1', setup); renderPlay(); return; }
-    if (b.dataset.role) { setup.roles[b.dataset.role] = b.dataset.val; lsSet('crunchcards.setup.v1', setup); renderPlay(); return; }
-    if (b.dataset.speed) { setup.speed = b.dataset.speed; lsSet('crunchcards.setup.v1', setup); renderPlay(); return; }
-    switch (b.dataset.act) {
-      case 'start': case 'again': startGame(); window.scrollTo(0, 0); break;
-      case 'setup': case 'quit': quitGame(); window.scrollTo(0, 0); break;
-      case 'log': logOpen = !logOpen; renderPlay(); break;
-      case 'hideres': resultHidden = true; renderPlay(); break;
-      case 'showres': resultHidden = false; renderPlay(); break;
-      case 'copylog': copyText(exportText(), ok => flash(ok ? 'Copied. Paste it anywhere.' : 'Could not copy on this browser. Use Save log file instead.')); break;
-      case 'savelog': saveLog(); break;
-    }
-  });
+  // ------------------------------------------------------------ render
+  function render() {
+    fit();
+    if (!st) { hud.innerHTML = ''; renderOverlays(); return; }
+    const S = st.S, t = st.turn, n = st.players.length, r = C.score(st), glow = glowSet();
+    const human = cur && st.players[cur.player].human;
+    let h = '';
+    // direction card
+    h += '<div id="dir" data-act="dir"><div class="t">' + esc(st.title) + '</div><div class="p">' + esc(st.dir.pitch || 'Ship the best game you can.') + '</div>' +
+      (st.dir.pillars.length ? '<div class="r"><b>Pillars:</b> ' + st.dir.pillars.map(x => C.DISC[x].name).join(', ') + '<br><b>Nobody cares:</b> ' + C.DISC[st.dir.free].name + '</div>' : '') + '</div>';
+    h += '<button id="menu" data-act="menu" aria-label="Menu">&#9776;</button><div id="roundtag">' + (st.launch ? 'Launch week' : 'Round <b>' + st.round + '</b>') + '</div>';
+    // shipped board
+    h += '<div id="ship" class="' + (drag && drag.moved && drag.ship ? 'hot' : '') + '"><div class="hd">Shipped &middot; review <b>' + (st.cancelled ? 0 : r.score) + '</b></div>';
+    C.DISC_KEYS.forEach((d, i) => { h += '<div class="row d-' + d + '" style="top:' + (21 + i * 27) + 'px">' + ({ prod: 'Prod', art: 'Art', code: 'Code', design: 'Design' })[d] + '</div>'; });
+    h += '</div>';
+    // deck and behind schedule zones
+    h += '<div class="zone" style="left:' + (DECK.x - 6) + 'px;top:' + (DECK.y - 6) + 'px;width:' + (CW + 12) + 'px;height:' + (CH + 12) + 'px"><div class="zl">Deck <b>' + st.deck.length + '</b></div></div>';
+    const danger = S.behindLimit && st.behind.length >= S.behindLimit - 1;
+    h += '<div id="zbehind" class="zone' + (danger ? ' danger' : '') + (drag && drag.moved && drag.behind ? ' hot' : '') + '" style="left:' + (BEHIND.x - 6) + 'px;top:' + (BEHIND.y - 6) + 'px;width:' + (BEHIND.w + 12) + 'px;height:' + (CH + 12) + 'px"><div class="zl">Behind Schedule <b>' + st.behind.length + (S.behindLimit ? ' / ' + S.behindLimit : '') + '</b>' + '</div></div>';
+    // seats
+    st.players.forEach((p, i) => {
+      const side = seatSide(i); if (side === 'bottom') return;
+      const pos = SEAT[side], active = t && t.pi === i && !st.over;
+      h += '<div class="seat' + (active ? ' active' : '') + (p.burned ? ' burned' : '') + '" data-seat="' + i + '" style="left:' + pos.x + 'px;top:' + pos.y + 'px"><div class="n">' + C.ROLES[p.role].name + '<span>' + (p.human ? 'HUMAN' : 'AI') + '</span></div><div class="s">' + (p.burned ? 'Burned Out' : p.stress ? 'Stress ' + p.stress : 'Fresh') + '</div></div>';
+    });
+    // die
+    const roll = t && t.roll;
+    const fresh = roll && roll.n !== lastRollN;
+    h += '<div id="die" class="' + (roll ? (roll.safe ? 'ok' : 'fail') : 'idle') + (fresh ? ' shake' : '') + '"><div class="f">' + (roll ? roll.roll : '&middot;') + '</div><div class="l">' + (roll ? 'needed over ' + roll.need : 'crunch die') + '</div></div>';
+    if (fresh) lastRollN = roll.n; if (!roll) lastRollN = 0;
+    // ticker
+    const vis = st.log.filter(e => e.kind !== 'state' && e.kind !== 'choice'), last = vis[vis.length - 1];
+    h += '<div id="ticker" class="' + (info ? '' : last ? last.kind : '') + '">' + esc(info || (last ? last.text : '')) + '</div>';
+    // whose turn, prompt, actions
+    const me = st.players[viewer];
+    if (t && !st.over) h += '<div id="title">' + rname(t.pi) + '’s turn <span>&middot; ' + (st.players[t.pi].human ? 'you' : 'AI') + '</span></div>';
+    let prompt = '', actions = '';
+    if (st.over) { prompt = st.cancelled ? '<b>Cancelled.</b>' : '<b>Shipped.</b> Review ' + st.result.score + '.'; if (resultHidden) actions = '<button class="btn primary center" data-act="showres">Show the result</button>'; }
+    else if (human) {
+      if (cur.type === 'draw') prompt = '<b>Draw.</b> Tap the deck.';
+      else if (cur.type === 'act') prompt = t.hand ? '<b>Your one task.</b> Tap your card to choose, or drag it: onto Shipped to do it, onto Behind Schedule to leave it for later.' : '<b>Launch week.</b> One free task: tap anything Behind Schedule.';
+      else if (cur.type === 'crunch') { const nt = needText(); prompt = '<b>Crunch?</b> Tap a Behind Schedule task' + (cur.options.some(o => o.id === 'redo') ? ', or one of your half-assed tasks in Shipped,' : '') + ' to take it on. ' + esc(nt.text); }
+      else if (cur.type === 'polish') prompt = '<b>Polish.</b> Tap a half-assed task in Shipped to fix it for free.';
+      cur.options.forEach((o, i) => { if (o.uid == null && (cur.type === 'act' || cur.type === 'crunch' || cur.type === 'polish')) actions += '<button class="btn center' + (o.id === 'no' ? ' primary' : '') + '" data-opt="' + i + '">' + esc(o.id === 'none' && t.hand ? 'Not now: Behind Schedule' : o.label) + '</button>'; });
+    } else if (t) prompt = rname(t.pi) + ' is working&hellip;';
+    h += '<div id="prompt">' + prompt + '<div class="me">You are the ' + C.ROLES[me.role].name + (me.burned ? ' (Burned Out: everything you do is half-assed)' : '') + '. ' + esc(powerText(me.role, S)) + '</div></div>';
+    h += '<div id="actions">' + actions + '</div>';
+    hud.innerHTML = h;
+    layoutCards(glow);
+    renderOverlays();
+  }
 
-  // ------------------------------------------------------------ review quotes
+  function renderOverlays() {
+    const m = $('#modal'), z = $('#zoom'), sh = $('#sheet');
+    let mh = '';
+    if (!st) mh = setupHtml();
+    else if (st.over && !resultHidden) mh = resultHtml();
+    else if (dirOpen) mh = '<div class="box"><h2 style="margin-top:0">Game direction</h2><div class="big"><div class="band" style="background:var(--accent)">' + esc(st.title) + '</div><div class="in"><div class="ln">' + esc(st.dir.pitch) + '</div><div class="ln">' + esc(dirRule(st.dir)) + '</div><div class="pts">A Feature is four done-right tasks, one from each discipline: ' + st.S.ptsFeature + ' extra points each. You need a review of ' + st.S.target + '.</div></div></div><button class="btn center" data-act="closedir">Back to the table</button></div>';
+    else if (cur && st.players[cur.player].human) {
+      const who = rname(cur.player);
+      if (cur.type === 'rest') mh = '<div class="box"><h2 style="margin-top:0">' + who + '</h2><p>You are Burned Out. Everything you do is half-assed until you rest.</p><div class="btns"><button class="btn" data-opt="0">Work through it<span class="sub">Take your turn as normal.</span></button><button class="btn primary" data-opt="1">Rest<span class="sub">Skip this turn and recover. The card you would have drawn goes Behind Schedule.</span></button></div></div>';
+      else if (cur.type === 'event') mh = '<div class="box"><h2 style="margin-top:0">' + who + ' drew an event</h2>' + bigCard(cur.card) + '<p class="small muted">An event uses up your draw. You can still crunch this turn.</p><button class="btn primary center" data-opt="0">Ugh. OK</button></div>';
+      else if (cur.type === 'pick') mh = '<div class="box wide"><h2 style="margin-top:0">' + who + ': take one. The other goes back on top for ' + rname((cur.player + 1) % st.players.length) + '</h2><div class="pair">' + cur.cards.map((c, i) => '<div>' + bigCard(c, cur.player) + '<button class="btn primary center" data-opt="' + i + '">Take this one</button></div>').join('') + '</div></div>';
+      else if (cur.type === 'schedule') {
+        const n = st.players.length;
+        mh = '<div class="box wide"><h2 style="margin-top:0">' + who + ': schedule the next ' + cur.cards.length + ' cards</h2><p class="small muted">You draw the first one. ' + rname((cur.player + 1) % n) + ' draws the next.</p><div class="btns">' +
+          cur.options.map((o, i) => '<button class="btn' + (i === 0 ? '' : ' primary') + '" data-opt="' + i + '">' + o.order.map((u, k) => (k === 0 ? 'You' : rname((cur.player + k) % n)) + ': ' + cardBy(u).name).join(' &rarr; ') + '<span class="sub">' + (i === 0 ? 'Leave them as they are.' : 'Swap them.') + '</span></button>').join('') + '</div>' +
+          '<div class="pair" style="margin-top:10px">' + cur.cards.map(c => bigCard(c, cur.player)).join('') + '</div></div>';
+      }
+    }
+    m.innerHTML = mh; m.classList.toggle('on', !!mh);
+    let zh = '';
+    if (st && zoomUid != null && !mh) {
+      const c = cardBy(zoomUid), mine = optsFor(zoomUid), shipped = st.shipped.find(x => x.card.uid === zoomUid);
+      zh = '<div class="box">' + bigCard(c, cur && st.players[cur.player].human ? cur.player : viewer);
+      if (shipped) zh += '<p class="small muted">' + (shipped.how === 'right' ? 'Done right' + (shipped.fixed ? ' (' + shipped.fixed + ')' : '') : 'Half-assed') + ' by the ' + C.ROLES[shipped.by].name + '.</p>';
+      zh += '<div class="btns">';
+      if (cur && mine.length) { cur.options.forEach((o, i) => { if (o.uid === zoomUid) zh += optButton(o, i); }); if (cur.type === 'act' && st.turn.hand && st.turn.hand.uid === zoomUid) cur.options.forEach((o, i) => { if (o.id === 'none') zh += optButton(o, i); }); }
+      zh += '<button class="btn center" data-act="closezoom">' + (mine.length ? 'Put it back' : 'Close') + '</button></div></div>';
+    }
+    z.innerHTML = zh; z.classList.toggle('on', !!zh);
+    sh.innerHTML = sheet ? sheetHtml() : ''; sh.classList.toggle('on', !!sheet);
+  }
+
+  // ------------------------------------------------------------ setup, result, sheet
+  function setupHtml() {
+    const S = settings, roles = roleList(), dsel = setup.direction || 'random';
+    let h = '<div class="box wide"><h1>CRUNCH</h1><p class="small muted">Table build ' + BUILD.split(' ')[1] + '. Ship the game before it ships you.</p><div class="cols"><div><h2>Game direction</h2>';
+    h += '<button class="pick' + (dsel === 'random' ? ' on' : '') + '" data-dir="random"><div class="nm">Surprise me</div></button>';
+    for (const d of C.DIRECTIONS) h += '<button class="pick' + (dsel === d.key ? ' on' : '') + '" data-dir="' + d.key + '"><div class="nm">' + esc(d.name) + '</div><div class="tw">' + esc(d.pitch) + '</div><div class="tg">Pillars: ' + d.pillars.map(x => C.DISC[x].name).join(' + ') + ' &middot; nobody cares: ' + C.DISC[d.free].name + '</div></button>';
+    h += '</div><div><h2>Team</h2>';
+    for (const r of C.ROLE_ORDER) h += '<div class="rolerow"><div><div class="nm">' + C.ROLES[r].name + '</div><div class="pw">' + esc(powerText(r, S)) + '</div></div><div class="seg">' + ['human', 'ai', 'off'].map(x => '<button data-role="' + r + '" data-val="' + x + '" class="' + (setup.roles[r] === x ? 'on' : '') + '">' + (x === 'human' ? 'Human' : x === 'ai' ? 'AI' : 'Off') + '</button>').join('') + '</div></div>';
+    h += '<div style="margin-top:12px" class="btns"><button class="btn primary center" data-act="start"' + (roles.length ? '' : ' disabled') + '>Deal the cards</button><button class="btn center" data-sheet="rules">How to play</button><button class="btn center" data-sheet="sim">Simulate and Settings</button></div>';
+    h += '<p class="small muted" style="margin-top:10px">Earlier versions: <a href="cards/" style="color:var(--accent)">cards with passing</a>, <a href="dice/" style="color:var(--accent)">dice</a>.</p></div></div></div>';
+    return h;
+  }
+  function resultHtml() {
+    const x = st.result, S = st.S;
+    let h = '<div class="box">';
+    if (st.cancelled) h += '<div class="bigscore" style="color:var(--bad);font-size:34px">CANCELLED</div><p style="margin-top:8px">' + (st.quit != null ? rname(st.quit) + ' crunched while Burned Out, failed, and quit.' : 'The publisher found ' + st.behind.length + ' tasks Behind Schedule and pulled the plug.') + '</p>';
+    else h += '<div class="bigscore">' + x.score + '</div><p style="margin-top:6px"><b>' + esc(st.title) + ': ' + C.verdict(x.score) + '.</b> ' + (st.won ? 'That clears the ' + S.target + ' you needed.' : 'You needed ' + S.target + '.') + '</p>';
+    h += '<p class="small muted">' + x.right + ' done right, ' + x.comp + ' half-assed, ' + x.unfinished + ' unfinished, ' + x.features + ' Feature' + (x.features === 1 ? '' : 's') + '.</p>';
+    for (const q of reviews()) h += '<div class="quote">' + esc(q.text) + '<span>' + esc(q.by) + '</span></div>';
+    h += '<div class="btns" style="margin-top:12px"><button class="btn primary center" data-act="start">Play again</button><button class="btn center" data-act="quit">Change the setup</button><button class="btn center" data-act="copylog">' + (copyMsg || 'Copy the full log') + '</button><button class="btn center" data-act="hideres">Look at the table</button></div></div>';
+    return h;
+  }
+  function rulesHtml() {
+    const S = st ? st.S : settings;
+    return '<div class="rules"><p>You are a studio. The deck is your work and your calendar: when it runs out, the game ships and gets reviewed. Everyone wins or loses together. Talk freely.</p>' +
+      '<p><b>The Game Direction card</b> says what kind of game this is. Its two Pillars count double when done right and nothing when half-assed. One discipline nobody cares about: half-assing it counts in full.</p>' +
+      '<p><b>Your turn</b></p><ol>' +
+      '<li><b>Draw a card.</b></li>' +
+      '<li><b>Deal with it.</b> If it is your discipline, do it right. If not, you can half-ass it (your excuse is on the card), or put it Behind Schedule for someone better.</li>' +
+      (S.crunch ? '<li><b>Crunch if you dare.</b> Take any task from Behind Schedule and do it' + (S.crunchRedo ? ', or fix one of your own discipline&rsquo;s half-assed tasks properly' : '') + '. Then roll the die: it must beat the number of crunches you have made this turn' + (S.roundRamp ? ', plus ' + (S.roundRamp === 1 ? 'one' : S.roundRamp) + ' for each round already played' : '') + '.' + (S.crunchChain ? ' Keep going for as long as you dare.' : '') + '</li>' : '') + '</ol>' +
+      '<p><b>Fail the roll</b> and you are Burned Out: everything you do is half-assed, even your own discipline.' + (S.restAction ? ' Skip a turn to recover.' : '') + (S.burnoutQuits ? ' Crunch while Burned Out and fail again, and you quit. The project is cancelled.' : '') + '</p>' +
+      (S.events ? '<p><b>Events</b> are in the deck. Drawing one uses up your draw and dumps more tasks Behind Schedule.</p>' : '') +
+      (S.behindLimit ? '<p><b>The publisher</b> ' + (S.cancelCheck === 'round' ? 'checks in at the end of every round. If ' + S.behindLimit + ' or more tasks are Behind Schedule at that moment' : 'cancels the project the moment ' + S.behindLimit + ' tasks are Behind Schedule') + ', the project is cancelled.</p>' : '') +
+      (S.finalRound ? '<p><b>Launch week.</b> When the deck is empty, everyone gets one last turn: one free task from Behind Schedule, and any crunching you dare.</p>' : '') +
+      '<p><b>The review.</b> Done right is worth ' + S.ptsRight + ', half-assed ' + S.ptsComp + ', unfinished nothing. Four done-right tasks, one from each discipline, make a Feature worth ' + S.ptsFeature + ' more. The total becomes a score out of 100. You need ' + S.target + '.</p>' +
+      '<p><b>Roles</b></p><ul>' + C.ROLE_ORDER.map(r => '<li><b>' + C.ROLES[r].name + '.</b> ' + esc(powerText(r, S)) + '</li>').join('') + '</ul></div>';
+  }
+  function sheetHtml() {
+    let h = '<div class="box wide"><div class="tabs">' + [['rules', 'Rules'], ['log', 'Log'], ['sim', 'Simulate'], ['settings', 'Settings']].map(x => '<button data-tab="' + x[0] + '" class="' + (sheetTab === x[0] ? 'on' : '') + '">' + x[1] + '</button>').join('') + '</div>';
+    if (sheetTab === 'rules') h += rulesHtml();
+    else if (sheetTab === 'log') {
+      if (!st) h += '<p class="muted">No game in progress.</p>';
+      else h += '<div class="pair"><button class="btn center" data-act="copylog">' + (copyMsg || 'Copy full log') + '</button><button class="btn center" data-act="savelog">Save log file</button></div><p class="small muted" style="margin-top:6px">The full log adds every choice and the table state at the start of each turn.</p><div class="log">' + st.log.filter(e => e.kind !== 'state' && e.kind !== 'choice').slice().reverse().map(e => '<div class="e ' + e.kind + '">' + esc(e.text) + '</div>').join('') + '</div>';
+    } else if (sheetTab === 'sim') h += simPanel();
+    else h += settingsPanel();
+    h += '<div class="btns" style="margin-top:12px">' + (st ? '<div class="set"><div class="lb"><b>AI speed</b></div><div class="seg"><button data-speed="normal" class="' + (setup.speed !== 'fast' ? 'on' : '') + '">Normal</button><button data-speed="fast" class="' + (setup.speed === 'fast' ? 'on' : '') + '">Fast</button></div></div><button class="btn center" data-act="quit">Abandon this game</button>' : '') + '<button class="btn primary center" data-act="closesheet">' + (st ? 'Back to the table' : 'Back') + '</button></div></div>';
+    return h;
+  }
+
+  // ------------------------------------------------------------ review quotes and log export
   const OUTLETS = ['IGM', 'GameSpotty', 'Polygoon', 'Kotakoo', 'Eurogamist', 'PC Gamut', 'Destructible', 'Rock Paper Shogun', 'Game Informant'];
   const HEAD = [
     [90, ['A masterpiece. We have no notes, and we tried.', 'Clear your calendar. Then clear it again.', 'The rare game that ships finished.']],
@@ -1130,32 +917,30 @@ select {
     if (!st || !st.over) return [];
     const seed = Math.abs(st.seed), pick = (a, k) => a[(seed + k) % a.length], by = (k, sc) => pick(OUTLETS, k * 3) + (sc == null ? '' : ', ' + Math.max(1, Math.min(100, sc)) + '/100');
     if (st.cancelled) return [{ text: pick(CANCELLED, 0), by: by(0) }, { text: pick(CANCELLED, 1), by: by(1) }];
-    const sc = st.result.score, out = [];
+    const sc = st.result.score, out = [], comp = {}, right = {};
     out.push({ text: pick(HEAD.find(h => sc >= h[0])[1], 0), by: by(0, sc + 2) });
-    const comp = {}, right = {};
-    for (const x of st.shipped) (x.how === 'comp' ? comp : right)[x.card.disc] = ((x.how === 'comp' ? comp : right)[x.card.disc] || 0) + 1;
+    for (const x of st.shipped) { const m = x.how === 'comp' ? comp : right; m[x.card.disc] = (m[x.card.disc] || 0) + 1; }
     const pillarsBad = st.dir.pillars.reduce((s, d) => s + (comp[d] || 0), 0);
     if (DIRQ[st.dir.key]) out.push({ text: DIRQ[st.dir.key][pillarsBad >= 2 ? 1 : 0], by: by(1, sc - 3) });
     const fakes = st.shipped.filter(x => x.how === 'comp' && x.card.disc !== C.ROLE_DISC[x.by]);
     const worst = C.DISC_KEYS.filter(d => d !== st.dir.free).sort((a, b) => (comp[b] || 0) - (comp[a] || 0))[0];
     const best = C.DISC_KEYS.slice().sort((a, b) => (right[b] || 0) - (right[a] || 0))[0];
-    if (fakes.length && sc < 90) { const x = pick(fakes, 2), line = x.card.comp[C.ROLE_DISC[x.by]]; out.push(line ? { text: 'Asked about ' + x.card.name + ', the studio said: "' + line + '" We respect the honesty.', by: by(2, sc) } : { text: WEAK[worst], by: by(2, sc) }); }
+    if (fakes.length && sc < 90) { const x = pick(fakes, 2); out.push({ text: 'Asked about ' + x.card.name + ', the studio said: "' + x.card.comp[C.ROLE_DISC[x.by]] + '" We respect the honesty.', by: by(2, sc) }); }
     else if ((comp[worst] || 0) >= 2) out.push({ text: WEAK[worst], by: by(2, sc - 1) });
     else out.push({ text: STRONG[best], by: by(2, sc + 1) });
     return out;
   }
-
-  function flash(msg) { copyMsg = msg; renderPlay(); const tk = token; setTimeout(() => { if (tk === token && copyMsg === msg) { copyMsg = ''; if (view === 'play' && !cur) renderPlay(); } }, 4000); }
   function exportText() {
     const L = [], S = st.S, D = C.DEFAULTS, ch = [];
-    L.push('CRUNCH playtest log, build ' + BUILD, 'Saved: ' + new Date().toString(), 'Project: ' + st.title + (st.dir.pitch ? ' (' + st.dir.pitch + ') ' + dirLine(st.dir) : ''), 'Seed: ' + st.seed);
+    L.push('CRUNCH playtest log, build ' + BUILD, 'Saved: ' + new Date().toString(), 'Project: ' + st.title + ' (' + st.dir.pitch + ') ' + dirRule(st.dir), 'Seed: ' + st.seed);
     L.push('Team, in turn order: ' + st.players.map((p, i) => (i + 1) + ' ' + C.ROLES[p.role].name + (p.human ? ' (human)' : ' (AI)')).join(', '));
     for (const k in D) if (k !== 'ai' && S[k] !== D[k]) ch.push(k + '=' + S[k]);
     L.push('Settings changed from default: ' + (ch.length ? ch.join(', ') : 'none'));
     const r = st.result || C.score(st);
-    L.push('Status: ' + (st.over ? (st.cancelled ? 'CANCELLED' : 'SHIPPED, review ' + r.score + ' (' + C.verdict(r.score) + '), target ' + S.target) : 'in progress') + '. ' + r.right + ' right, ' + r.comp + ' compromised, ' + r.unfinished + ' unfinished, ' + r.features + ' Features.');
+    L.push('Status: ' + (st.over ? (st.cancelled ? 'CANCELLED' : 'SHIPPED, review ' + r.score + ' (' + C.verdict(r.score) + '), target ' + S.target) : 'in progress, round ' + st.round) + '. ' + r.right + ' right, ' + r.comp + ' half-assed, ' + r.unfinished + ' unfinished, ' + r.features + ' Features.');
     for (const q of reviews()) L.push('Review: "' + q.text + '" (' + q.by + ')');
-    L.push('Shipped: ' + (st.shipped.map(x => x.card.name + (x.how === 'right' ? (x.polished ? ' [right, polished]' : x.redone ? ' [right, redone]' : ' [right]') : ' [compromise]') + ' by ' + C.ROLES[x.by].name).join('; ') || 'nothing'), '');
+    L.push('Shipped: ' + (st.shipped.map(x => x.card.name + (x.how === 'right' ? (x.fixed ? ' [right, ' + x.fixed + ']' : ' [right]') : ' [half-assed]') + ' by ' + C.ROLES[x.by].name).join('; ') || 'nothing'));
+    L.push('Still Behind Schedule: ' + (st.behind.map(c => c.name).join(', ') || 'nothing'), '');
     for (const e of st.log) {
       if (e.kind === 'month' || e.kind === 'head') L.push('', '===== ' + e.text + ' =====');
       else if (e.kind === 'turn') L.push('', '--- ' + e.text);
@@ -1164,33 +949,41 @@ select {
       else L.push('    ' + e.text);
     }
     L.push('', 'Totals:');
-    for (const p of st.players) { const x = st.stats.role[p.role]; L.push('  ' + C.ROLES[p.role].name + ': ' + x.turns + ' turns, ' + x.right + ' right, ' + x.comp + ' compromised, ' + x.idle + ' turns with nothing done, ' + x.crunches + ' crunches, ' + x.burnouts + ' burnouts, ' + x.rests + ' rests, ' + x.power + ' power uses.'); }
+    for (const p of st.players) { const x = st.stats.role[p.role]; L.push('  ' + C.ROLES[p.role].name + ': ' + x.turns + ' turns, ' + x.right + ' right, ' + x.comp + ' half-assed, ' + x.idle + ' turns with no task done, ' + x.crunches + ' crunches, ' + x.burnouts + ' burnouts, ' + x.rests + ' rests, ' + x.power + ' power uses.'); }
     return L.join('\n');
   }
-  function copyText(txt, done) {
-    const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } document.body.removeChild(ta); done(ok); };
-    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(txt).then(() => done(true), fallback); else fallback();
+  function flash(msg) { copyMsg = msg; renderOverlays(); setTimeout(() => { if (copyMsg === msg) { copyMsg = ''; renderOverlays(); } }, 3000); }
+  function copyLog() {
+    const txt = exportText();
+    const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } document.body.removeChild(ta); flash(ok ? 'Copied' : 'Could not copy'); };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(txt).then(() => flash('Copied'), fallback); else fallback();
   }
   function saveLog() {
     try {
-      const d = new Date(), z = n => String(n).padStart(2, '0');
-      const name = 'crunch-cards-log-' + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()) + '.txt';
-      const url = URL.createObjectURL(new Blob([exportText()], { type: 'text/plain' }));
-      const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      flash('Saved ' + name + ' to your downloads.');
-    } catch (e) { flash('Could not save a file on this browser. Use Copy full log instead.'); }
+      const d = new Date(), z = n => String(n).padStart(2, '0'), name = 'crunch-log-' + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()) + '.txt';
+      const url = URL.createObjectURL(new Blob([exportText()], { type: 'text/plain' })), a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) { flash('Could not save'); }
   }
 
-  // ============================================================ SIMULATE
+  // ------------------------------------------------------------ simulate
   let simN = 500, simRunning = false, simLast = null, simToken = 0;
-  function renderSim() {
-    let h = '<h2>Simulate</h2><div class="panel"><p class="small muted">Four AI players run the game over and over with your current Settings. It runs twice: once with careful players, and once with players who just do the obvious thing. The gap between the two is how much your choices matter.</p>' +
-      '<div class="set"><div class="lb"><b>Games</b></div><div class="seg" role="group" aria-label="Games">' + [100, 500, 1000, 5000].map(n => '<button data-n="' + n + '" class="' + (simN === n ? 'on' : '') + '">' + (n >= 1000 ? n / 1000 + 'k' : n) + '</button>').join('') + '</div></div>' +
-      '<div style="margin-top:10px"><button class="btn primary center" data-act="run"' + (simRunning ? ' disabled' : '') + '>' + (simRunning ? 'Running&hellip;' : 'Run ' + simN.toLocaleString() + ' games') + '</button></div>' +
-      '<div class="prog" id="simprog" style="' + (simRunning ? '' : 'display:none') + '"><i></i></div></div>';
-    h += '<div id="simout">' + (simLast ? simHtml(simLast) : '') + '</div>';
-    $('#v-sim').innerHTML = h;
+  function hb(label, value, max, text, cls) { return '<div class="hb"><span>' + esc(label) + '</span><span class="tr"><i class="' + (cls || '') + '" style="width:' + (max ? Math.max(0, Math.min(100, 100 * value / max)) : 0) + '%"></i></span><span class="val">' + text + '</span></div>'; }
+  function simPanel() {
+    let h = '<p class="small muted">Four AI players play the game over and over with your current Settings, once playing carefully and once just doing the obvious thing. The gap between the two is how much your choices matter.</p>' +
+      '<div class="set"><div class="lb"><b>Games</b></div><div class="seg">' + [100, 500, 1000, 5000].map(n => '<button data-n="' + n + '" class="' + (simN === n ? 'on' : '') + '">' + (n >= 1000 ? n / 1000 + 'k' : n) + '</button>').join('') + '</div></div>' +
+      '<button class="btn primary center" data-act="run"' + (simRunning ? ' disabled' : '') + '>' + (simRunning ? 'Running&hellip;' : 'Run ' + simN.toLocaleString() + ' games') + '</button><div class="prog" id="simprog" style="' + (simRunning ? '' : 'display:none') + '"><i></i></div>';
+    if (simLast) {
+      const a = simLast.a, b = simLast.b, g = a.games, avg = x => x.shipSum / Math.max(1, x.games - x.cancelled), gap = avg(a) - avg(b);
+      h += '<h2>Result</h2><div class="headline">Careful teams hit the target in <span class="num">' + pct(a.wins, g) + '%</span> of ' + g.toLocaleString() + ' games.</div><p class="small muted" style="margin-top:6px">The target is a review of ' + simLast.target + '. Shipped games averaged ' + Math.round(avg(a)) + '. ' + pct(a.cancelled, g) + '% of projects were cancelled (' + pct(a.quits, g) + '% because someone quit).</p>';
+      h += '<h2>Do choices matter?</h2>' + hb('Careful play', avg(a), 100, Math.round(avg(a)), 'g') + hb('Obvious play', avg(b), 100, Math.round(avg(b)), 'm') + '<p class="small muted">"Obvious" players deal with whatever they draw and only crunch when cancellation is close. Careful players beat them by ' + Math.round(gap) + ' review points. Obvious teams hit the target ' + pct(b.wins, b.games) + '% of the time and were cancelled ' + pct(b.cancelled, b.games) + '%.</p>';
+      h += '<h2>How careful games ended</h2>' + ['Game of the Year (90+)', 'A hit (80s)', 'Solid (70s)', 'Mixed (55 to 69)', 'A flop (under 55)', 'Cancelled'].map((nm, i) => hb(nm, a.bands[i], g, pct(a.bands[i], g) + '%', i < 2 ? 'g' : i >= 4 ? 'r' : '')).join('');
+      h += '<h2>Hit the target, by direction</h2>' + C.DIRECTIONS.map(d => hb(d.name, a.dirs[d.key].wins, a.dirs[d.key].games, pct(a.dirs[d.key].wins, a.dirs[d.key].games) + '%')).join('');
+      h += '<h2>Tasks, per game</h2>' + hb('Done right', a.right / g, 20, f1(a.right / g), 'g') + hb('Half-assed', a.comp / g, 20, f1(a.comp / g)) + hb('Unfinished', a.unfinished / g, 20, f1(a.unfinished / g), 'r') + hb('Features', a.features / g, 5, f1(a.features / g), 'g');
+      const roles = C.ROLE_ORDER.filter(r => a.role[r].games), row = (label, k) => '<tr><td>' + label + '</td>' + roles.map(r => '<td>' + f1(a.role[r][k] / a.role[r].games) + '</td>').join('') + '</tr>';
+      h += '<h2>Roles, per game</h2><table class="t"><tr><th></th>' + roles.map(r => '<th>' + C.ROLES[r].short + '</th>').join('') + '</tr>' + row('Done right', 'right') + row('Half-assed', 'comp') + row('Crunches', 'crunches') + row('Burnouts', 'burnouts') + row('Rests', 'rests') + row('Power uses', 'power') + '</table>';
+    }
+    return h;
   }
   function runSim() {
     if (simRunning) return;
@@ -1198,120 +991,152 @@ select {
     const tk = ++simToken, n = simN, base = JSON.parse(JSON.stringify(settings)), seed = (Math.random() * 1e9) | 0;
     const runs = [{ ai: 'thoughtful', agg: C.newAgg() }, { ai: 'obvious', agg: C.newAgg() }];
     let done = 0;
-    renderSim();
+    renderOverlays();
     const chunk = () => {
       if (tk !== simToken) return;
       const which = done < n ? 0 : 1, from = done % n, to = Math.min(n, from + 50);
-      try { C.simulateInto(runs[which].agg, Object.assign({}, base, { ai: runs[which].ai }), from, to, { seed: seed }); }
-      catch (err) { simRunning = false; renderSim(); $('#simout').innerHTML = '<div class="panel">The simulation hit an error: ' + esc(err.message) + '</div>'; return; }
+      try { C.simulateInto(runs[which].agg, Object.assign({}, base, { ai: runs[which].ai }), from, to, { seed: seed }); } catch (err) { simRunning = false; info = 'Simulation error: ' + err.message; renderOverlays(); return; }
       done += to - from;
       const bar = document.querySelector('#simprog i'); if (bar) bar.style.width = Math.round(100 * done / (2 * n)) + '%';
-      if (done < 2 * n) setTimeout(chunk, 0); else { simRunning = false; simLast = { a: runs[0].agg, b: runs[1].agg, target: base.target }; renderSim(); }
+      if (done < 2 * n) setTimeout(chunk, 0); else { simRunning = false; simLast = { a: runs[0].agg, b: runs[1].agg, target: base.target }; renderOverlays(); }
     };
     setTimeout(chunk, 30);
   }
-  function hb(label, value, max, text, cls) { return '<div class="hb"><span>' + esc(label) + '</span><span class="tr"><i class="' + (cls || '') + '" style="width:' + (max ? Math.max(0, Math.min(100, 100 * value / max)) : 0) + '%"></i></span><span class="val">' + text + '</span></div>'; }
-  function simHtml(res) {
-    const a = res.a, b = res.b, g = a.games, avg = x => x.shipSum / Math.max(1, x.games - x.cancelled);
-    let h = '<h2>Result</h2><div class="panel"><div class="headline">Careful teams hit the target in <span class="num">' + pct(a.wins, g) + '%</span> of ' + g.toLocaleString() + ' games.</div>' +
-      '<p class="small muted" style="margin-top:6px">The target is a review of ' + res.target + '. The average shipped game reviewed at ' + Math.round(avg(a)) + ', and ' + pct(a.cancelled, g) + '% of projects were cancelled.' + (g < 500 ? ' With only ' + g + ' games, expect this to wobble by several points.' : '') + '</p></div>';
-    const gap = avg(a) - avg(b);
-    h += '<h2>Do choices matter?</h2><div class="panel">' + hb('Careful play', avg(a), 100, Math.round(avg(a)), 'g') + hb('Obvious play', avg(b), 100, Math.round(avg(b)), 'm') +
-      '<p class="small muted" style="margin:8px 0 0">"Obvious" players do their own work, fake everything else, pass leftovers along and only crunch to clear Behind Schedule. They never plan. Careful players beat them by ' + Math.round(gap) + ' review points' + (gap >= 12 ? ', so planning is doing real work.' : gap >= 5 ? ', a modest edge.' : ', which is not much. The game is mostly the luck of the draw at these settings.') + ' Obvious teams were cancelled ' + pct(b.cancelled, b.games) + '% of the time and hit the target ' + pct(b.wins, b.games) + '%.</p></div>';
-    h += '<h2>How careful games ended</h2><div class="panel">' + ['Game of the Year (90+)', 'A hit (80s)', 'Solid (70s)', 'Mixed (55 to 69)', 'A flop (under 55)', 'Cancelled'].map((nm, i) => hb(nm, a.bands[i], g, pct(a.bands[i], g) + '%', i < 2 ? 'g' : i >= 4 ? 'r' : '')).join('') + '</div>';
-    h += '<h2>Tasks, per game</h2><div class="panel">' + hb('Done right', a.right / g, 20, f1(a.right / g), 'g') + hb('Compromised', a.comp / g, 20, f1(a.comp / g)) + hb('Unfinished', a.unfinished / g, 20, f1(a.unfinished / g), 'r') + hb('Features', a.features / g, 5, f1(a.features / g), 'g') + '</div>';
-    const roles = C.ROLE_ORDER.filter(r => a.role[r].games);
-    h += '<h2>Roles, per game</h2><div class="panel"><table class="t"><tr><th></th>' + roles.map(r => '<th>' + C.ROLES[r].short + '</th>').join('') + '</tr>';
-    const row = (label, k) => '<tr><td>' + label + '</td>' + roles.map(r => '<td>' + f1(a.role[r][k] / a.role[r].games) + '</td>').join('') + '</tr>';
-    h += row('Turns', 'turns') + row('Done right', 'right') + row('Compromised', 'comp') + row('Turns with nothing to do', 'idle') + row('Crunches', 'crunches') + row('Burnouts', 'burnouts') + row('Rests', 'rests') + row('Power uses', 'power') + '</table></div>';
-    return h;
-  }
-  $('#v-sim').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.n) { simN = +b.dataset.n; renderSim(); return; } if (b.dataset.act === 'run') runSim(); });
 
-  // ============================================================ SETTINGS
+  // ------------------------------------------------------------ settings
   const SCHEMA = [
-    { group: 'The deck and the clock', items: [
-      { k: 'perDisc', t: 'num', min: 2, max: 5, step: 1, label: 'Tasks per discipline', help: 'Four disciplines, so 5 makes a 20-card deck.' },
-      { k: 'directions', t: 'bool', label: 'Game Direction cards', help: 'Pillars count double done right and nothing compromised. One discipline nobody cares about.' },
-      { k: 'drawCount', t: 'num', min: 1, max: 2, step: 1, label: 'Tasks drawn per turn' },
-      { k: 'monthSlip', t: 'num', min: 0, max: 4, step: 1, label: 'Tasks that slide after each round', help: 'After everyone has had a turn, this many go from the bottom of the deck straight Behind Schedule. 0 is off.' },
-      { k: 'behindLimit', t: 'num', min: 2, max: 9, step: 1, label: 'Behind Schedule limit', help: 'Reaching this cancels the project.' },
+    { group: 'The deck', items: [
+      { k: 'perDisc', t: 'num', min: 2, max: 5, step: 1, label: 'Tasks per discipline', help: 'Four disciplines, so 5 makes 20 tasks.' },
+      { k: 'events', t: 'num', min: 0, max: 3, step: 1, label: 'Event cards', help: 'They add 3, 2 and 1 tasks to Behind Schedule.' },
+      { k: 'directions', t: 'bool', label: 'Game Direction cards' },
       { k: 'finalRound', t: 'bool', label: 'Launch week', help: 'One last turn each after the deck runs out.' }
     ] },
-    { group: 'Tasks and plates', items: [
-      { k: 'compPerCard', t: 'num', min: 2, max: 3, step: 1, label: 'Compromises per task', help: '2 means one role cannot touch each task. 3 means anyone can fake anything.' },
-      { k: 'plateSize', t: 'num', min: 0, max: 3, step: 1, label: 'Plate size', help: 'Tasks you can hold between turns.' }
+    { group: 'The publisher', items: [
+      { k: 'behindLimit', t: 'num', min: 0, max: 9, step: 1, label: 'Behind Schedule limit', help: 'This many cancels the project. 0 means the project can never be cancelled this way.' },
+      { k: 'cancelCheck', t: 'sel', label: 'The publisher checks', opts: [['round', 'At the end of each round'], ['instant', 'All the time (instant cancel)']] },
+      { k: 'monthSlip', t: 'num', min: 0, max: 3, step: 1, label: 'Tasks that slide in after each round', help: 'From the bottom of the deck, straight Behind Schedule.' }
     ] },
     { group: 'Crunch and burnout', items: [
-      { k: 'crunch', t: 'bool', label: 'Crunch', help: 'Do a second task, then flip a card to see if you burn out.' },
-      { k: 'crunchFromBehind', t: 'bool', label: 'Crunch can clear Behind Schedule', help: 'Off: the second task must come from your hand.' },
-      { k: 'crunchRedo', t: 'bool', label: 'Crunch can redo a compromise', help: 'Your own discipline only.' },
+      { k: 'crunch', t: 'bool', label: 'Crunch' },
       { k: 'crunchChain', t: 'bool', label: 'Keep crunching', help: 'Off: one crunch per turn.' },
-      { k: 'crunchAnyway', t: 'bool', label: 'Crunch without doing a task first' },
-      { k: 'crunchCheck', t: 'sel', label: 'Crunch check', opts: [['die', 'Roll a die against a climbing number'], ['card', 'Flip a card and look for a skull']] },
-      { k: 'roundRamp', t: 'num', min: 0, max: 2, step: 1, label: 'Die check: harder each round by', help: '0 means only crunches in the same turn raise the number.' },
-      { k: 'stressLimit', t: 'num', min: 1, max: 4, step: 1, label: 'Failed checks before Burned Out' },
-      { k: 'burnoutQuits', t: 'bool', label: 'Burned Out players can crunch', help: 'A skull then makes them quit, which cancels the project. Off: no crunching while Burned Out.' },
-      { k: 'skullsPerDisc', t: 'num', min: 0, max: 5, step: 1, label: 'Skulls per discipline', help: 'Card-flip check only.' },
-      { k: 'crunchFlip', t: 'sel', label: 'Card-flip check: the card comes', opts: [['bottomBehind', 'From the bottom of the deck to Behind Schedule'], ['top', 'From the top, then back on top'], ['behind', 'From the top to Behind Schedule']] },
-      { k: 'restAction', t: 'bool', label: 'Rest', help: 'Skip a turn to recover from Burned Out.' }
+      { k: 'crunchRedo', t: 'bool', label: 'Crunch can fix a half-assed task', help: 'Your own discipline only.' },
+      { k: 'roundRamp', t: 'num', min: 0, max: 2, step: 1, label: 'Die gets harder each round by' },
+      { k: 'stressLimit', t: 'num', min: 1, max: 3, step: 1, label: 'Failed rolls before Burned Out' },
+      { k: 'burnoutQuits', t: 'bool', label: 'Burned Out players can crunch', help: 'Fail again and they quit, which cancels the project.' },
+      { k: 'restAction', t: 'bool', label: 'Rest', help: 'Skip a turn to recover.' }
     ] },
     { group: 'Role powers', items: [
-      { k: 'producerPeek', t: 'num', min: 0, max: 3, step: 1, label: 'Producer: tasks to schedule', help: 'Looks at this many and reorders them. 0 or 1 switches it off. 3 is very strong.' },
-      { k: 'producerSend', t: 'bool', label: 'Producer: pass to anyone' },
+      { k: 'producerPeek', t: 'num', min: 0, max: 3, step: 1, label: 'Producer: cards to schedule', help: '0 or 1 switches it off.' },
       { k: 'engLook', t: 'bool', label: 'Engineer: look at two, take one' },
       { k: 'artistPolish', t: 'bool', label: 'Artist: Polish' },
-      { k: 'desBacklog', t: 'bool', label: 'Designer: draw from Behind Schedule' }
+      { k: 'designerFree', t: 'bool', label: 'Designer: first crunch needs no roll' }
     ] },
     { group: 'The review', items: [
       { k: 'ptsRight', t: 'num', min: 1, max: 8, step: 1, label: 'Points for done right' },
-      { k: 'ptsComp', t: 'num', min: 0, max: 8, step: 1, label: 'Points for a compromise' },
+      { k: 'ptsComp', t: 'num', min: 0, max: 8, step: 1, label: 'Points for half-assed' },
       { k: 'ptsFeature', t: 'num', min: 0, max: 12, step: 1, label: 'Points for a Feature' },
       { k: 'target', t: 'num', min: 40, max: 95, step: 5, label: 'Review score to win' }
     ] }
   ];
-  function findItem(k) { for (const g of SCHEMA) for (const it of g.items) if (it.k === k) return it; return null; }
-  function saveSettings() { lsSet('crunchcards.settings.v4', settings); }
-  function renderSettings() {
+  const findItem = k => { for (const g of SCHEMA) for (const it of g.items) if (it.k === k) return it; return null; };
+  function settingsPanel() {
     const D = C.DEFAULTS;
-    let h = '<h2>Settings</h2><p class="small muted">Changes apply to the next game you start and the next simulation you run. A dot marks anything you have changed.</p>';
+    let h = '<p class="small muted">Changes apply to the next game you deal and the next simulation you run. A dot marks anything you have changed.</p>';
     for (const g of SCHEMA) {
-      h += '<h2>' + esc(g.group) + '</h2><div class="panel">';
+      h += '<h2>' + esc(g.group) + '</h2>';
       for (const it of g.items) {
-        const v = settings[it.k], changed = v !== D[it.k];
-        const lb = '<div class="lb"><b>' + esc(it.label) + '</b>' + (it.help ? '<span>' + esc(it.help) + '</span>' : '') + '</div>';
+        const v = settings[it.k], changed = v !== D[it.k], lb = '<div class="lb"><b>' + esc(it.label) + '</b>' + (it.help ? '<span>' + esc(it.help) + '</span>' : '') + '</div>';
         if (it.t === 'bool') h += '<div class="set' + (changed ? ' changed' : '') + '">' + lb + '<label class="sw"><input type="checkbox" data-k="' + it.k + '"' + (v ? ' checked' : '') + ' aria-label="' + esc(it.label) + '"><i></i></label></div>';
         else if (it.t === 'num') h += '<div class="set' + (changed ? ' changed' : '') + '">' + lb + '<div class="step"><button data-k="' + it.k + '" data-d="-1" aria-label="Less">&minus;</button><span class="v">' + v + '</span><button data-k="' + it.k + '" data-d="1" aria-label="More">+</button></div></div>';
         else h += '<div class="set stack' + (changed ? ' changed' : '') + '">' + lb + '<select data-k="' + it.k + '" aria-label="' + esc(it.label) + '">' + it.opts.map(o => '<option value="' + o[0] + '"' + (v === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select></div>';
       }
-      h += '</div>';
     }
-    h += '<h2>The task cards</h2><div class="panel">';
-    for (const tk of C.TASKS) {
-      h += '<div class="cardref d-' + tk.disc + '"><b style="color:var(--dc)">' + esc(tk.name) + ' <span class="muted" style="font-weight:400">(' + C.DISC[tk.disc].name + ')</span></b>' +
-        C.DISC_KEYS.filter(d => d !== tk.disc && (settings.compPerCard >= 3 || d !== tk.no)).map(d => '<span class="muted">' + C.DISC[d].name + ':</span> ' + esc(tk.comp[d])).join('<br>') + '</div>';
-    }
-    h += '</div><div style="margin-top:16px"><button class="btn center" data-act="reset">Put everything back to the tuned defaults</button></div>';
-    $('#v-settings').innerHTML = h;
+    return h + '<button class="btn center" style="margin-top:12px" data-act="reset">Put everything back to the tuned defaults</button>';
   }
-  $('#v-settings').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    const y = window.scrollY;
-    if (b.dataset.act === 'reset') { settings = C.mergeSettings(null); saveSettings(); renderSettings(); return; }
-    if (!b.dataset.k) return;
-    const it = findItem(b.dataset.k);
-    settings[it.k] = Math.max(it.min, Math.min(it.max, settings[it.k] + (+b.dataset.d) * it.step));
-    saveSettings(); renderSettings(); window.scrollTo(0, y);
+
+  // ------------------------------------------------------------ input
+  function onButton(b) {
+    if (b.dataset.opt != null && cur) { answer(cur.options[+b.dataset.opt]); return; }
+    if (b.dataset.dir) { setup.direction = b.dataset.dir; lsSet('crunchtable.setup.v1', setup); renderOverlays(); return; }
+    if (b.dataset.role) { setup.roles[b.dataset.role] = b.dataset.val; lsSet('crunchtable.setup.v1', setup); renderOverlays(); return; }
+    if (b.dataset.speed) { setup.speed = b.dataset.speed; lsSet('crunchtable.setup.v1', setup); renderOverlays(); return; }
+    if (b.dataset.sheet) { sheet = true; sheetTab = b.dataset.sheet; renderOverlays(); return; }
+    if (b.dataset.tab) { sheetTab = b.dataset.tab; renderOverlays(); return; }
+    if (b.dataset.n) { simN = +b.dataset.n; renderOverlays(); return; }
+    if (b.dataset.k && b.dataset.d) { const it = findItem(b.dataset.k); settings[it.k] = Math.max(it.min, Math.min(it.max, settings[it.k] + (+b.dataset.d) * it.step)); lsSet('crunchtable.settings.v1', settings); const box = b.closest('.box'), y = box.scrollTop; renderOverlays(); $('#sheet .box').scrollTop = y; return; }
+    if (b.dataset.seat != null) { const p = st.players[+b.dataset.seat]; info = C.ROLES[p.role].name + ': ' + powerText(p.role, st.S); render(); return; }
+    switch (b.dataset.act) {
+      case 'start': startGame(); break;
+      case 'quit': quitGame(); break;
+      case 'menu': sheet = true; sheetTab = st ? 'log' : 'rules'; renderOverlays(); break;
+      case 'closesheet': sheet = null; renderOverlays(); break;
+      case 'dir': dirOpen = true; renderOverlays(); break;
+      case 'closedir': dirOpen = false; renderOverlays(); break;
+      case 'closezoom': zoomUid = null; renderOverlays(); break;
+      case 'hideres': resultHidden = true; render(); break;
+      case 'showres': resultHidden = false; render(); break;
+      case 'copylog': copyLog(); break;
+      case 'savelog': saveLog(); break;
+      case 'run': runSim(); break;
+      case 'reset': settings = C.mergeSettings(null); lsSet('crunchtable.settings.v1', settings); renderOverlays(); break;
+      case 'rotateok': rotateOk = true; fit(); break;
+    }
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('button, [data-act], [data-seat]');
+    if (b && !b.closest('.card')) { onButton(b); return; }
+    if (e.target.classList && e.target.classList.contains('ov') && e.target.id === 'zoom') { zoomUid = null; renderOverlays(); }
   });
-  $('#v-settings').addEventListener('change', e => {
-    const k = e.target.dataset.k; if (!k) return;
-    const y = window.scrollY;
+  document.addEventListener('change', e => {
+    const k = e.target.dataset && e.target.dataset.k; if (!k) return;
     settings[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    saveSettings(); renderSettings(); window.scrollTo(0, y);
+    lsSet('crunchtable.settings.v1', settings);
+    const y = $('#sheet .box').scrollTop; renderOverlays(); $('#sheet .box').scrollTop = y;
   });
 
-  showView('play');
-  window.__crunchUI = { state: () => st, current: () => cur, exportText: () => exportText() };
+  // tap and drag on cards
+  function stagePt(e) { return { x: (e.clientX - ox) / scale, y: (e.clientY - oy) / scale }; }
+  function inRect(p, x, y, w, h) { return p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h; }
+  function tapCard(uid) {
+    if (!st) return;
+    const c = cardBy(uid);
+    if (cur && cur.type === 'draw' && st.players[cur.player].human && st.deck.indexOf(c) >= 0) { answer(cur.options[0]); return; }
+    if (st.deck.indexOf(c) >= 0) { info = st.deck.length + ' cards left in the deck.'; render(); return; }
+    zoomUid = uid; renderOverlays();
+  }
+  cardsEl.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.card'); if (!el || !st) return;
+    const uid = +el.dataset.uid, p = stagePt(e);
+    const can = cur && st.players[cur.player].human && (optsFor(uid).length > 0 || (cur.type === 'draw' && st.deck.length && st.deck[st.deck.length - 1].uid === uid));
+    drag = { uid: uid, el: el, sx: p.x, sy: p.y, moved: false, can: can, ship: false, behind: false };
+    try { el.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+  });
+  cardsEl.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const p = stagePt(e);
+    if (!drag.moved && Math.hypot(p.x - drag.sx, p.y - drag.sy) < 9) return;
+    if (!drag.can) return;
+    if (!drag.moved) { drag.moved = true; drag.el.classList.add('drag'); }
+    drag.el.style.transform = 'translate(' + (p.x - CW / 2) + 'px,' + (p.y - CH / 2) + 'px) scale(1.05)';
+    const ship = inRect(p, SHIP.x - 20, SHIP.y - 10, SHIP.w + 40, SHIP.h + 30), behind = inRect(p, BEHIND.x - 20, BEHIND.y - 20, BEHIND.w + 40, CH + 40);
+    if (ship !== drag.ship || behind !== drag.behind) { drag.ship = ship; drag.behind = behind; const s = $('#ship'), z = $('#zbehind'); if (s) s.classList.toggle('hot', ship); if (z) z.classList.toggle('hot', behind); }
+  });
+  function endDrag(e) {
+    if (!drag) return;
+    const d = drag; drag = null;
+    d.el.classList.remove('drag');
+    if (!d.moved) { tapCard(d.uid); return; }
+    const mine = optsFor(d.uid);
+    if (cur && cur.type === 'draw') { answer(cur.options[0]); return; }
+    if (d.ship) { const o = mine.find(x => x.id === 'do' || x.id === 'redo' || x.id === 'polish'); if (o) { if (cur.type === 'crunch') { zoomUid = d.uid; render(); return; } answer(o); return; } }
+    if (d.behind && cur && cur.type === 'act' && st.turn.hand && st.turn.hand.uid === d.uid) { answer(cur.options.find(o => o.id === 'none')); return; }
+    render();
+  }
+  cardsEl.addEventListener('pointerup', endDrag);
+  cardsEl.addEventListener('pointercancel', () => { if (drag) { drag.el.classList.remove('drag'); drag = null; render(); } });
+
+  render();
+  window.__crunchUI = { state: () => st, current: () => cur, exportText: () => exportText(), answer: i => answer(cur.options[i]) };
 })();
 
 </script>
