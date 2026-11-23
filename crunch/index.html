@@ -291,7 +291,7 @@ select {
 </head>
 <body>
 <div id="app">
-  <header class="top"><div class="wordmark">CRUNCH</div><div class="tagline">card build 0.2<br>ship it before it ships you</div></header>
+  <header class="top"><div class="wordmark">CRUNCH</div><div class="tagline">card build 0.3<br>ship it before it ships you</div></header>
   <main>
     <section class="view on" id="v-play"></section>
     <section class="view" id="v-sim"></section>
@@ -360,8 +360,8 @@ select {
     compPerCard: 2,        // how many other disciplines can compromise on each task (2 or 3)
     skullsPerDisc: 2,      // cards per discipline that burn you out when flipped for a crunch
     plateSize: 1,
-    behindLimit: 4,        // this many cards Behind Schedule cancels the project
-    monthSlip: 0,          // after everyone has had a turn, this many tasks slide straight Behind Schedule
+    behindLimit: 3,        // this many cards Behind Schedule cancels the project
+    monthSlip: 1,          // after everyone has had a turn, this many tasks slide straight Behind Schedule
     crunch: true,
     crunchFromBehind: true,
     crunchFlip: 'bottomBehind', // crunch check: 'bottomBehind' (bottom card of the deck, then Behind Schedule), 'top' (top card, put back), 'behind' (top card, then Behind Schedule)
@@ -370,6 +370,7 @@ select {
     burnoutQuits: true,    // a skull while Burned Out: you quit and the project is cancelled
     directions: true,      // Game Direction cards change what scores
     drawCount: 1,          // tasks drawn each turn
+    startBehind: 0,        // tasks dealt Behind Schedule before the first turn
     burnWeight: 4.5,       // AI: how many points the AI thinks a burnout costs
     restAction: true,
     finalRound: true,
@@ -433,6 +434,7 @@ select {
     st.dir = DIRECTIONS.find(d => d.key === opts.direction) || DIRECTIONS[Math.floor(rng() * DIRECTIONS.length)];
     st.title = st.dir.name;
     if (!S.directions) st.dir = { key: 'none', name: st.title, pitch: '', pillars: [], free: null };
+    for (let k = 0; k < Math.min(S.startBehind, S.behindLimit - 1) && st.deck.length > 1; k++) st.behind.push(st.deck.pop());
     log(st, st.title + ' is greenlit. ' + deck.length + ' tasks in the deck. When it runs out, you ship.', 'head');
     return st;
   }
@@ -629,7 +631,7 @@ select {
       if (pi === 0 && !st.over) {
         st.month++;
         if (st.S.monthSlip > 0 && st.deck.length > 0) log(st, 'End of month ' + (st.month - 1) + '. Time passes whether you are ready or not.', 'month');
-        for (let k = 0; k < st.S.monthSlip && st.deck.length > 0 && !st.over; k++) { const c = st.deck.pop(); toBehind(st, c, 'untouched'); }
+        for (let k = 0; k < st.S.monthSlip && st.deck.length > 0 && !st.over; k++) { const c = st.deck.shift(); toBehind(st, c, 'untouched'); }
         if (st.S.monthSlip > 0) yield* beat('month');
       }
     }
@@ -802,7 +804,7 @@ select {
 (function () {
   'use strict';
   const C = window.CrunchCards;
-  const BUILD = 'cards 0.2';
+  const BUILD = 'cards 0.3';
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
@@ -810,7 +812,7 @@ select {
   function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } }
 
-  let settings = C.mergeSettings(lsGet('crunchcards.settings.v2', null));
+  let settings = C.mergeSettings(lsGet('crunchcards.settings.v3', null));
   settings.ai = 'thoughtful';
   let setup = lsGet('crunchcards.setup.v1', null) || { roles: { producer: 'ai', artist: 'ai', engineer: 'human', designer: 'ai' }, speed: 'normal' };
   let view = 'play';
@@ -960,7 +962,7 @@ select {
       (S.crunch ? '<li><b>Crunch if you dare.</b> Do a second job: another task from your hand' + (S.crunchFromBehind ? ' or from Behind Schedule' : '') + (S.crunchRedo ? ', or redo one of your own discipline&rsquo;s compromised tasks properly' : '') + '. Then turn over the ' + (S.crunchFlip === 'bottomBehind' ? 'bottom' : 'top') + ' card of the deck' + (S.crunchFlip === 'top' ? '' : ', which goes Behind Schedule') + '. A skull in its corner gives you Stress.</li>' : '') +
       '<li><b>Place what is left.</b> Keep it on your plate (room for ' + S.plateSize + '), pass it to the player on your left if their plate has room, or put it Behind Schedule.</li></ol>' +
       '<p><b>Stress and burnout.</b> ' + S.stressLimit + ' Stress and you are Burned Out: everything you ship is a compromise, even your own discipline.' + (S.burnoutQuits ? ' Crunch while Burned Out and hit a skull, and you quit. The project is cancelled.' : '') + (S.restAction ? ' Rest (skip a turn) to clear it; the task you would have drawn goes Behind Schedule.' : '') + '</p>' +
-      '<p><b>Behind Schedule</b> holds ' + (S.behindLimit - 1) + '. If it ever reaches ' + S.behindLimit + ', the publisher cancels the project.' + (S.monthSlip ? ' After everyone has had a turn, ' + S.monthSlip + ' more slide in from the deck.' : '') + '</p>' +
+      '<p><b>Behind Schedule</b> holds ' + (S.behindLimit - 1) + '. If it ever reaches ' + S.behindLimit + ', the publisher cancels the project.' + (S.monthSlip ? ' After everyone has had a turn, ' + (S.monthSlip === 1 ? 'the bottom card of the deck slides' : 'the bottom ' + S.monthSlip + ' cards of the deck slide') + ' in. The cards the Producer has arranged on top are not disturbed.' : '') + '</p>' +
       (S.finalRound ? '<p><b>Launch week.</b> When the deck is empty, the round is finished without drawing, then everyone gets one last turn and may take one task from Behind Schedule.</p>' : '') +
       '<p><b>The review.</b> Count once, at the end. Done right is worth ' + S.ptsRight + ', a compromise ' + S.ptsComp + ', unfinished nothing, adjusted by the Direction card. Four done-right tasks, one from each discipline, make a Feature worth ' + S.ptsFeature + ' more. The total becomes a review score out of 100. ' + S.target + ' or better is a win.</p>' +
       '</div></details>';
@@ -975,7 +977,7 @@ select {
     // calendar
     h += '<div class="zone"><div class="zt"><span>Calendar</span><b>' + st.deck.length + ' left</b></div><div class="pips" aria-label="' + st.deck.length + ' tasks left in the deck">';
     for (let i = 0; i < st.total; i++) h += '<i class="' + (i < st.deck.length ? 'in' : '') + '"></i>';
-    h += '</div>' + (S.monthSlip && !st.final ? '<div class="small muted">' + S.monthSlip + ' slide Behind Schedule after ' + rname(n - 1) + "'s turn.</div>" : '') + '</div>';
+    h += '</div>' + (S.monthSlip && !st.final ? '<div class="small muted">After ' + rname(n - 1) + "'s turn, " + (S.monthSlip === 1 ? 'the bottom card slides' : 'the bottom ' + S.monthSlip + ' cards slide') + ' Behind Schedule.</div>' : '') + '</div>';
     // behind schedule
     h += '<div class="zone' + (st.behind.length >= S.behindLimit - 1 ? ' danger' : '') + '"><div class="zt"><span>Behind Schedule</span><b>' + st.behind.length + ' / ' + S.behindLimit + '</b></div><div class="minis">';
     for (const c of st.behind) h += mini(c);
@@ -1151,7 +1153,7 @@ select {
       { k: 'perDisc', t: 'num', min: 2, max: 5, step: 1, label: 'Tasks per discipline', help: 'Four disciplines, so 5 makes a 20-card deck.' },
       { k: 'directions', t: 'bool', label: 'Game Direction cards', help: 'Pillars count double done right and nothing compromised. One discipline nobody cares about.' },
       { k: 'drawCount', t: 'num', min: 1, max: 2, step: 1, label: 'Tasks drawn per turn' },
-      { k: 'monthSlip', t: 'num', min: 0, max: 4, step: 1, label: 'Tasks that slide after each round', help: 'After everyone has had a turn, this many go straight Behind Schedule. 0 is off.' },
+      { k: 'monthSlip', t: 'num', min: 0, max: 4, step: 1, label: 'Tasks that slide after each round', help: 'After everyone has had a turn, this many go from the bottom of the deck straight Behind Schedule. 0 is off.' },
       { k: 'behindLimit', t: 'num', min: 2, max: 9, step: 1, label: 'Behind Schedule limit', help: 'Reaching this cancels the project.' },
       { k: 'finalRound', t: 'bool', label: 'Launch week', help: 'One last turn each after the deck runs out.' }
     ] },
@@ -1184,7 +1186,7 @@ select {
     ] }
   ];
   function findItem(k) { for (const g of SCHEMA) for (const it of g.items) if (it.k === k) return it; return null; }
-  function saveSettings() { lsSet('crunchcards.settings.v2', settings); }
+  function saveSettings() { lsSet('crunchcards.settings.v3', settings); }
   function renderSettings() {
     const D = C.DEFAULTS;
     let h = '<h2>Settings</h2><p class="small muted">Changes apply to the next game you start and the next simulation you run. A dot marks anything you have changed.</p>';
