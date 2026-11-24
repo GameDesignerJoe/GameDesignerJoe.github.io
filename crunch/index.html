@@ -215,7 +215,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     events: 3,             // how many event cards are shuffled in, drawn at random from the six
     checkins: 2,           // Publisher Check-In cards in the deck
     monthSlip: 0,          // tasks that slide Behind Schedule after each round
-    behindLimit: 3,        // this many cards Behind Schedule cancels the project (0 = never)
+    behindLimit: 4,        // this many cards Behind Schedule cancels the project (0 = never)
     cancelCheck: 'card',   // 'card': when a Publisher Check-In is drawn; 'round': at the end of each round; 'instant': the moment the pile is that big
     crunch: true,
     crunchChain: true,     // keep crunching for as long as you dare
@@ -228,6 +228,8 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     restAction: true,
     finalRound: true,
     directions: true,
+    powers: false,         // master switch for the role powers below
+    crunchDraw: true,      // crunch by drawing another card from the deck
     producerPeek: 2,       // 0 = off
     producerDelegate: true, // Producer's crunch: a teammate does the task, the Producer rolls
     engReroll: true,       // Engineer may reroll one failed crunch die per turn
@@ -237,12 +239,15 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     designerFree: false,   // Designer's first crunch each turn needs no check
     desBacklog: false,     // Designer may take a task from Behind Schedule instead of drawing
     ptsRight: 4, ptsComp: 2, ptsFeature: 4,
-    target: 85,
+    target: 75,
     burnWeight: 9,         // AI: how many points the AI thinks a burnout costs
+    drawCost: 1.2,         // AI: how much the AI thinks using up a card of the calendar costs
     ai: 'thoughtful'       // 'thoughtful' | 'obvious' | 'random'
   };
   function mergeSettings(over) { const S = JSON.parse(JSON.stringify(DEFAULTS)); if (over) for (const k in over) if (k in S) S[k] = over[k]; return S; }
 
+  const POWER_OFF = { producerPeek: 0, producerDelegate: false, artistPolish: false, engReroll: false, engLook: false, desCut: false, desBacklog: false, designerFree: false };
+  function effective(S) { return S.powers ? S : Object.assign({}, S, POWER_OFF); }
   function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function shuffle(arr, rng) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); const t = arr[i]; arr[i] = arr[j]; arr[j] = t; } return arr; }
 
@@ -267,7 +272,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     if (!roles || !roles.length) roles = ROLE_ORDER.map(r => ({ role: r, human: false }));
     const deck = shuffle(buildDeck(S, rng), rng);
     const st = {
-      S: S, seed: seed, rng: rng, dir: null, title: '', cards: deck.slice(),
+      S: S, P: effective(S), seed: seed, rng: rng, dir: null, title: '', cards: deck.slice(),
       total: deck.filter(c => !c.event).length, round: 1, deck: deck, behind: [], shipped: [], gone: [], cut: [], turn: null, final: false,
       players: roles.map(r => ({ role: r.role, human: !!r.human, burned: false, stress: 0 })),
       log: [], over: false, won: false, cancelled: false, quit: null, result: null, maxPts: 0,
@@ -335,11 +340,11 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
 
   function* crunchCheck(st, pi) {
     const S = st.S, p = st.players[pi], t = st.turn, rs = st.stats.role[p.role];
-    if (p.role === 'designer' && S.designerFree && t.crunches === 1) { t.roll = null; rs.power++; log(st, "Designer's first crunch of the turn needs no check.", 'good'); return; }
+    if (p.role === 'designer' && st.P.designerFree && t.crunches === 1) { t.roll = null; rs.power++; log(st, "Designer's first crunch of the turn needs no check.", 'good'); return; }
     const need = crunchNeed(st, t.crunches);
     let roll = 1 + Math.floor(st.rng() * 6), safe = roll > need;
     t.roll = { roll: roll, need: need, safe: safe, n: (t.rollN = (t.rollN || 0) + 1) };
-    if (!safe && p.role === 'engineer' && S.engReroll && !t.rerolled) {
+    if (!safe && p.role === 'engineer' && st.P.engReroll && !t.rerolled) {
       log(st, 'Crunch check: needs more than ' + need + ', rolls a ' + roll + '.', 'bad');
       yield* beat('roll');
       const c = yield { type: 'reroll', player: pi, options: [{ id: 'reroll', label: 'Reroll it (your Tools)' }, { id: 'keep', label: 'Take the result' }] };
@@ -363,7 +368,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
   }
   function* maybePolish(st, pi, how) {
     const S = st.S, p = st.players[pi], rs = st.stats.role[p.role];
-    if (!(how === 'right' && p.role === 'artist' && S.artistPolish)) return;
+    if (!(how === 'right' && p.role === 'artist' && st.P.artistPolish)) return;
     const side = st.shipped.filter(x => x.how === 'comp');
     if (!side.length) return;
     const d = yield { type: 'polish', player: pi, options: side.map(x => ({ id: 'polish', uid: x.card.uid, label: 'Polish ' + x.card.name })).concat([{ id: 'none', label: 'Leave them' }]) };
@@ -378,7 +383,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
   }
   function extraCrunchOptions(st, pi) {
     const S = st.S, p = st.players[pi], t = st.turn, opts = [];
-    if (p.role === 'producer' && S.producerDelegate && !p.burned) for (const c of st.behind) {
+    if (p.role === 'producer' && st.P.producerDelegate && !p.burned) for (const c of st.behind) {
       const q = st.players.findIndex((x, i) => i !== pi && ROLE_DISC[x.role] === c.disc && !x.burned);
       if (q >= 0) opts.push({ id: 'do', uid: c.uid, how: 'right', src: 'behind', by: q, label: 'Delegate to ' + pname(st, q) + ': ' + c.name + ' done right' });
     }
@@ -403,8 +408,8 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
         return;
       }
     }
-    if (p.role === 'producer' && S.producerPeek >= 2 && st.deck.length >= 2 && !fin) {
-      const k = Math.min(S.producerPeek, st.deck.length);
+    if (p.role === 'producer' && st.P.producerPeek >= 2 && st.deck.length >= 2 && !fin) {
+      const k = Math.min(st.P.producerPeek, st.deck.length);
       const top = st.deck.slice(-k).reverse(); // top[0] is the next card drawn
       t.peek = top; t.phase = 'schedule';
       const perms = k === 2 ? [[top[0], top[1]], [top[1], top[0]]] : [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]].map(o => o.map(i => top[i]));
@@ -419,7 +424,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
       let drawn;
       const len = st.deck.length;
       t.phase = 'draw';
-      if (p.role === 'engineer' && S.engLook && len >= 2) {
+      if (p.role === 'engineer' && st.P.engLook && len >= 2) {
         const a = st.deck[len - 1], b = st.deck[len - 2];
         t.peek = [a, b];
         const c = yield { type: 'pick', player: pi, cards: [a, b], options: [{ id: 'take', uid: a.uid, label: 'Take ' + a.name }, { id: 'take', uid: b.uid, label: 'Take ' + b.name }] };
@@ -428,7 +433,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
         log(st, 'Engineer looks at the top two cards and takes ' + drawn.name + '. The other goes back on top.');
       } else {
         const dopts = [{ id: 'draw', label: 'Draw a card' }];
-        if (p.role === 'designer' && S.desBacklog) for (const x of st.behind) dopts.push({ id: 'behind', uid: x.uid, label: 'Take ' + x.name + ' from Behind Schedule' });
+        if (p.role === 'designer' && st.P.desBacklog) for (const x of st.behind) dopts.push({ id: 'behind', uid: x.uid, label: 'Take ' + x.name + ' from Behind Schedule' });
         const c = yield { type: 'draw', player: pi, options: dopts };
         if (c.id === 'behind') { drawn = st.behind.splice(st.behind.findIndex(x => x.uid === c.uid), 1)[0]; rs.power++; log(st, 'Designer takes ' + drawn.name + ' from Behind Schedule instead of drawing. The deck does not move.', 'good'); }
         else { drawn = st.deck.pop(); log(st, pname(st, pi) + ' draws ' + drawn.name + '.'); }
@@ -458,7 +463,8 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
       const canCrunch = !p.burned || S.burnoutQuits;
       const co = canCrunch ? doOptions(st, pi, false).concat(extraCrunchOptions(st, pi)) : [];
       if (canCrunch && S.crunchRedo && !p.burned) for (const x of st.shipped) if (x.how === 'comp' && x.card.disc === ROLE_DISC[p.role]) co.push({ id: 'redo', uid: x.card.uid, label: 'Fix ' + x.card.name + ' properly' });
-      if (p.role === 'designer' && S.desCut && !t.cutUsed) for (const x of st.behind) co.push({ id: 'cut', uid: x.uid, label: 'Cut ' + x.name + ' from the game' });
+      if (p.role === 'designer' && st.P.desCut && !t.cutUsed) for (const x of st.behind) co.push({ id: 'cut', uid: x.uid, label: 'Cut ' + x.name + ' from the game' });
+      if (canCrunch && S.crunchDraw && st.deck.length > 0 && !fin) co.push({ id: 'more', label: 'Crunch: draw another card' });
       if (!co.length) break;
       co.unshift({ id: 'no', label: 'End turn' });
       const c = yield { type: 'crunch', player: pi, options: co };
@@ -472,7 +478,20 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
       }
       rs.crunches++; t.crunches++;
       log(st, pname(st, pi) + ' crunches.', 'turn2');
-      if (c.id === 'redo') {
+      if (c.id === 'more') {
+        const card = st.deck.pop();
+        log(st, pname(st, pi) + ' draws ' + card.name + '.');
+        if (card.event) { yield* resolveEvent(st, pi, card); if (st.over) return; }
+        else {
+          t.hand = card;
+          yield* beat('draw');
+          const how = canDo(st, pi, card);
+          const a = yield { type: 'act', player: pi, options: [{ id: 'do', uid: card.uid, how: how, src: 'hand', label: (how === 'right' ? 'Do it right: ' : 'Half-ass it: ') + card.name }, { id: 'none', label: 'Not now: put ' + card.name + ' Behind Schedule' }] };
+          t.hand = null;
+          if (a.id === 'do') { ship(st, pi, card, how); yield* beat('ship'); yield* maybePolish(st, pi, how); }
+          else { toBehind(st, card, ''); yield* beat('behind'); if (st.over) return; }
+        }
+      } else if (c.id === 'redo') {
         const x = st.shipped.find(y => y.card.uid === c.uid);
         x.how = 'right'; x.fixed = 'fixed by ' + pname(st, pi); rs.right++;
         log(st, pname(st, pi) + ' fixes ' + x.card.name + ' properly. It now counts as done right.', 'good');
@@ -611,7 +630,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
           if (o.id === 'do') v = val(st, o.how, find(o.uid)) + (o.src === 'behind' ? pressure(st, st.behind.length) - pressure(st, st.behind.length - 1) : 0);
           else if (t.hand) {
             const c = t.hand, owner = st.players.find((q, i) => i !== me && ROLE_DISC[q.role] === c.disc);
-            const later = owner ? (owner.role === 'designer' && S.designerFree ? 0.8 : 0.5) * val(st, 'right', c) : 0.3 * val(st, 'comp', c);
+            const later = owner ? (owner.role === 'designer' && st.P.designerFree ? 0.8 : 0.5) * val(st, 'right', c) : 0.3 * val(st, 'comp', c);
             v = later * Math.min(1, st.deck.length / (2 * n)) - (pressure(st, st.behind.length + 1) - pressure(st, st.behind.length));
           } else v = 0;
           if (v > bv) { bv = v; best = o; }
@@ -624,6 +643,17 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
           if (o.id === 'no') continue;
           let v;
           if (o.id === 'cut') continue;
+          if (o.id === 'more') {
+            let sum = 0;
+            for (const c of st.deck) {
+              if (c.check) sum += (S.behindLimit && st.behind.length >= S.behindLimit) ? -200 : 0;
+              else if (c.event) sum += -(pressure(st, st.behind.length + c.add) - pressure(st, st.behind.length)) - 1;
+              else { const how = canDo(st, me, c); sum += Math.max(val(st, how, c) - (how === 'comp' ? 0.5 * (val(st, 'right', c) - val(st, 'comp', c)) : 0), 0.3 * val(st, 'right', c) - (pressure(st, st.behind.length + 1) - pressure(st, st.behind.length))); }
+            }
+            v = sum / st.deck.length - (S.drawCost == null ? 1.2 : S.drawCost);
+            if (v > bv) { bv = v; best = o; }
+            continue;
+          }
           if (o.id === 'redo') { const c = find(o.uid); v = cardPts(st, c, 'right') - cardPts(st, c, 'comp') + S.ptsFeature / 4; }
           else if (o.by != null) v = val(st, 'right', find(o.uid)) + pressure(st, st.behind.length) - pressure(st, st.behind.length - 1);
           else v = worth(st, me, find(o.uid), o.how) + pressure(st, st.behind.length) - pressure(st, st.behind.length - 1);
@@ -638,9 +668,9 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
           return relief > bl ? bc : null;
         };
         if (!best) return tryCut() || opts[0];
-        const free = p.role === 'designer' && S.designerFree && t.crunches === 0;
+        const free = p.role === 'designer' && st.P.designerFree && t.crunches === 0;
         let pFail = free ? 0 : Math.min(1, Math.max(0, crunchNeed(st, t.crunches + 1)) / 6);
-        if (p.role === 'engineer' && S.engReroll && !t.rerolled) pFail = pFail * pFail;
+        if (p.role === 'engineer' && st.P.engReroll && !t.rerolled) pFail = pFail * pFail;
         const lastTurn = st.final || st.deck.length < n;
         const cost = p.burned ? 1000 : (p.stress + 1 >= S.stressLimit ? (lastTurn ? 0.5 : S.burnWeight) : S.burnWeight * 0.35);
         return bv > pFail * cost ? best : (tryCut() || opts[0]);
@@ -686,7 +716,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
   }
   function simulate(settings, n, opts) { return simulateInto(newAgg(), settings, 0, n, opts); }
 
-  const api = { CHECKIN, ROLE_ORDER, ROLE_DISC, DISC_KEYS, DISC, ROLES, TASKS, DIRECTIONS, EVENTS, DEFAULTS, mergeSettings, newGame, runGame, aiChoose, canDo, cardPts, crunchNeed, score, verdict, playOut, newAgg, simulateInto, simulate };
+  const api = { effective, CHECKIN, ROLE_ORDER, ROLE_DISC, DISC_KEYS, DISC, ROLES, TASKS, DIRECTIONS, EVENTS, DEFAULTS, mergeSettings, newGame, runGame, aiChoose, canDo, cardPts, crunchNeed, score, verdict, playOut, newAgg, simulateInto, simulate };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CrunchTable = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -695,7 +725,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
 /* Crunch (table version) — a top-down table you play at: tap cards, drag cards, roll the die. */
 (function () {
   'use strict';
-  const C = window.CrunchTable, BUILD = 'table 0.3';
+  const C = window.CrunchTable, BUILD = 'table 0.4';
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
@@ -704,7 +734,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } }
 
   const W = 1000, H = 460, CW = 96, CH = 134;
-  let settings = C.mergeSettings(lsGet('crunchtable.settings.v3', null)); settings.ai = 'thoughtful';
+  let settings = C.mergeSettings(lsGet('crunchtable.settings.v4', null)); settings.ai = 'thoughtful';
   let setup = lsGet('crunchtable.setup.v1', null) || { direction: 'random', roles: { producer: 'ai', artist: 'ai', engineer: 'human', designer: 'ai' }, speed: 'normal' };
   let st = null, gen = null, cur = null, token = 0, viewer = 0, zoomUid = null, sheet = null, sheetTab = 'rules', resultHidden = false, dirOpen = false, info = '', copyMsg = '', lastRollN = 0, scale = 1, ox = 0, oy = 0, drag = null, rotateOk = false;
   const stage = $('#stage'), hud = $('#hud'), cardsEl = $('#cards');
@@ -808,17 +838,18 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     if (!cur || !st.players[cur.player].human) return g;
     if (cur.type === 'draw') { if (st.deck.length) g[st.deck[st.deck.length - 1].uid] = 1; for (const o of cur.options) if (o.uid != null) g[o.uid] = 1; return g; }
     if (cur.type === 'act' || cur.type === 'crunch' || cur.type === 'polish') for (const o of cur.options) if (o.uid != null) g[o.uid] = 1;
+    if (cur.type === 'crunch' && st.deck.length && cur.options.some(o => o.id === 'more')) g[st.deck[st.deck.length - 1].uid] = 1;
     return g;
   }
 
   // ------------------------------------------------------------ text helpers
-  function powerText(role, S) {
-    const out = [];
+  function powerText(role, S0) {
+    const S = C.effective(S0), out = ['Does ' + C.DISC[C.ROLE_DISC[role]].name + ' right.'];
     if (role === 'producer') { if (S.producerDelegate) out.push('Delegate: when you crunch, a teammate can do the task right while you roll the die.'); if (S.producerPeek >= 2) out.push('Schedule: look at the next ' + S.producerPeek + ' cards and put them in any order.'); }
     if (role === 'artist') { if (S.artistPolish) out.push('Polish: when you do Art right, fix one half-assed task for free.'); }
     if (role === 'engineer') { if (S.engReroll) out.push('Tools: once per turn, reroll a failed crunch die.'); if (S.engLook) out.push('Look at the top two cards and take one.'); }
     if (role === 'designer') { if (S.desCut) out.push('Cut Scope: once per turn, cut a Behind Schedule task from the game. No roll.'); if (S.desBacklog) out.push('May take a task from Behind Schedule instead of drawing.'); if (S.designerFree) out.push('First crunch each turn needs no roll.'); }
-    return out.join(' ') || 'No power switched on.';
+    return out.join(' ');
   }
   function dieBaseCount() { const S = st.S; return S.dieBase === 'round' ? st.round - 1 : st.gone.filter(c => S.dieBase === 'red' || !c.check).length; }
   function dieBaseWord(S) { return S.dieBase === 'round' ? 'round already played' : S.dieBase === 'red' ? 'event or check-in card already out' : 'event card already out'; }
@@ -830,9 +861,14 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     const fail = p.burned ? 'You are Burned Out: fail and you quit, and the project is cancelled.' : p.stress + 1 >= S.stressLimit ? 'Fail and you are Burned Out' + (S.burnEndsTurn ? ', and your turn ends.' : '.') : 'Fail and you take Stress.';
     return { need: need, safe: safe, text: 'The die must beat ' + need + ' (safe on ' + safe + ' of 6 faces). ' + fail };
   }
+  function needTextNow() { // for a crunch already under way
+    const t = st.turn, need = C.crunchNeed(st, t.crunches), safe = Math.max(0, Math.min(6, 6 - Math.max(0, need)));
+    return 'the die must beat ' + need + ' (safe on ' + safe + ' of 6 faces).';
+  }
   function optButton(o, i) {
     let label = o.label, sub = '', cls = '';
     const c = o.uid != null ? cardBy(o.uid) : null, crunch = cur.type === 'crunch';
+    if (o.id === 'none' && st.turn.crunches > 0) return '<button class="btn" data-opt="' + i + '">Not now: put it Behind Schedule<span class="sub">You still roll the die for this crunch.</span></button>';
     if (o.id === 'do' && o.by != null) { label = 'Crunch: delegate it to the ' + rname(o.by); sub = 'Your Producer power. They do it right, worth ' + C.cardPts(st, c, 'right') + ' points. You roll the die.'; cls = ' primary'; }
     else if (o.id === 'cut') { label = 'Cut it from the game'; sub = 'Your Designer power, once per turn. No roll. It will never ship and scores nothing, but it is off the schedule.'; }
     else if (o.id === 'do') {
@@ -899,8 +935,9 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     if (st.over) { prompt = st.cancelled ? '<b>Cancelled.</b>' : '<b>Shipped.</b> Review ' + st.result.score + '.'; if (resultHidden) actions = '<button class="btn primary center" data-act="showres">Show the result</button>'; }
     else if (human) {
       if (cur.type === 'draw') prompt = '<b>Draw.</b> Tap the deck' + (cur.options.length > 1 ? ', or tap a Behind Schedule task to take that instead (your Designer power).' : '.');
+      else if (cur.type === 'act' && t.crunches > 0) prompt = '<b>Crunch card.</b> Tap it to choose, or drag it onto Shipped or Behind Schedule. Then you roll: ' + esc(needTextNow());
       else if (cur.type === 'act') prompt = t.hand ? '<b>Your one task.</b> Tap your card to choose, or drag it: onto Shipped to do it, onto Behind Schedule to leave it for later.' : '<b>Launch week.</b> One free task: tap anything Behind Schedule.';
-      else if (cur.type === 'crunch') { const nt = needText(), can = cur.options.some(o => o.id === 'do' || o.id === 'redo'); prompt = can ? '<b>Crunch?</b> Tap a Behind Schedule task' + (cur.options.some(o => o.id === 'redo') ? ', or one of your half-assed tasks in Shipped,' : '') + ' to take it on. ' + esc(nt.text) : '<b>Cut Scope?</b> You cannot crunch, but you can still tap a Behind Schedule task to cut it.'; }
+      else if (cur.type === 'crunch') { const nt = needText(), can = cur.options.some(o => o.id === 'do' || o.id === 'redo'), more = cur.options.some(o => o.id === 'more'); prompt = can || more ? '<b>Want to work more?</b> ' + [more ? 'Tap the deck to draw another card' : '', cur.options.some(o => o.id === 'do') ? 'tap a Behind Schedule task' : '', cur.options.some(o => o.id === 'redo') ? 'tap one of your half-assed tasks in Shipped' : ''].filter(Boolean).join(', or ') + '. That is a crunch: ' + esc(nt.text) : '<b>Cut Scope?</b> You cannot crunch, but you can still tap a Behind Schedule task to cut it.'; }
       else if (cur.type === 'polish') prompt = '<b>Polish.</b> Tap a half-assed task in Shipped to fix it for free.';
       cur.options.forEach((o, i) => { if (o.uid == null && (cur.type === 'act' || cur.type === 'crunch' || cur.type === 'polish')) actions += '<button class="btn center' + (o.id === 'no' ? ' primary' : '') + '" data-opt="' + i + '">' + esc(o.id === 'none' && t.hand ? 'Not now: Behind Schedule' : o.label) + '</button>'; });
     } else if (t) prompt = rname(t.pi) + ' is working&hellip;';
@@ -980,13 +1017,13 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
       '<p><b>Your turn</b></p><ol>' +
       '<li><b>Draw a card.</b></li>' +
       '<li><b>Deal with it.</b> If it is your discipline, do it right. If not, you can half-ass it (your excuse is on the card), or put it Behind Schedule for someone better.</li>' +
-      (S.crunch ? '<li><b>Crunch if you dare.</b> Take any task from Behind Schedule and do it' + (S.crunchRedo ? ', or fix one of your own discipline&rsquo;s half-assed tasks properly' : '') + '. Then roll the die: it must beat the number of crunches you have made this turn' + (S.roundRamp ? ', plus ' + (S.roundRamp === 1 ? 'one' : S.roundRamp) + ' for each ' + dieBaseWord(S) : '') + '.' + (S.crunchChain ? ' Keep going for as long as you dare.' : '') + '</li>' : '') + '</ol>' +
+      (S.crunch ? '<li><b>Want to work more? Crunch.</b> ' + (S.crunchDraw ? 'Draw another card and deal with it, or take' : 'Take') + ' any task from Behind Schedule and do it' + (S.crunchRedo ? ', or fix one of your own discipline&rsquo;s half-assed tasks properly' : '') + '. Then roll the die: it must beat the number of crunches you have made this turn' + (S.roundRamp ? ', plus ' + (S.roundRamp === 1 ? 'one' : S.roundRamp) + ' for each ' + dieBaseWord(S) : '') + '.' + (S.crunchChain ? ' Keep going for as long as you dare.' : '') + '</li>' : '') + '</ol>' +
       '<p><b>Fail the roll</b> and you are Burned Out' + (S.burnEndsTurn ? ', and your turn ends' : '') + '. While Burned Out, everything you do is half-assed, even your own discipline' + (S.burnoutQuits ? '. You can still crunch, but fail again and you quit, and the project is cancelled.' : ', and you cannot crunch.') + (S.restAction ? ' Skip a turn to recover.' : '') + '</p>' +
       (S.events ? '<p><b>Events.</b> ' + S.events + ' are shuffled into the deck. Drawing one uses up your draw and dumps more tasks Behind Schedule.</p>' : '') +
       (S.behindLimit ? '<p><b>The publisher.</b> ' + (S.cancelCheck === 'card' ? S.checkins + ' Publisher Check-In cards are in the deck. When one is drawn, the publisher counts Behind Schedule: ' + S.behindLimit + ' or more and the project is cancelled. It uses up your draw.' : S.cancelCheck === 'round' ? 'At the end of every round the publisher counts Behind Schedule: ' + S.behindLimit + ' or more and the project is cancelled.' : 'The moment ' + S.behindLimit + ' tasks are Behind Schedule, the project is cancelled.') + '</p>' : '') +
       (S.finalRound ? '<p><b>Launch week.</b> When the deck is empty, everyone gets one last turn: one free task from Behind Schedule, and any crunching you dare.</p>' : '') +
       '<p><b>The review.</b> Done right is worth ' + S.ptsRight + ', half-assed ' + S.ptsComp + ', unfinished nothing. Four done-right tasks, one from each discipline, make a Feature worth ' + S.ptsFeature + ' more. The total becomes a score out of 100. You need ' + S.target + '.</p>' +
-      '<p><b>Roles</b></p><ul>' + C.ROLE_ORDER.map(r => '<li><b>' + C.ROLES[r].name + '.</b> ' + esc(powerText(r, S)) + '</li>').join('') + '</ul></div>';
+      '<p><b>Roles.</b> Each role does its own discipline right and half-asses everything else.' + (S.powers ? '' : ' Special powers are switched off for now; turn them on in Settings.') + '</p><ul>' + C.ROLE_ORDER.map(r => '<li><b>' + C.ROLES[r].name + '.</b> ' + esc(powerText(r, S)) + '</li>').join('') + '</ul></div>';
   }
   function sheetHtml() {
     let h = '<div class="box wide"><div class="tabs">' + [['rules', 'Rules'], ['log', 'Log'], ['sim', 'Simulate'], ['settings', 'Settings']].map(x => '<button data-tab="' + x[0] + '" class="' + (sheetTab === x[0] ? 'on' : '') + '">' + x[1] + '</button>').join('') + '</div>';
@@ -1126,6 +1163,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     { group: 'Crunch and burnout', items: [
       { k: 'crunch', t: 'bool', label: 'Crunch' },
       { k: 'crunchChain', t: 'bool', label: 'Keep crunching', help: 'Off: one crunch per turn.' },
+      { k: 'crunchDraw', t: 'bool', label: 'Crunch by drawing another card', help: 'Off: crunching only works on Behind Schedule.' },
       { k: 'crunchRedo', t: 'bool', label: 'Crunch can fix a half-assed task', help: 'Your own discipline only.' },
       { k: 'dieBase', t: 'sel', label: 'The crunch die gets harder with', opts: [['events', 'Each event card out'], ['red', 'Each event or check-in out'], ['round', 'Each round played']] },
       { k: 'roundRamp', t: 'num', min: 0, max: 2, step: 1, label: 'By how much each time' },
@@ -1135,6 +1173,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
       { k: 'restAction', t: 'bool', label: 'Rest', help: 'Skip a turn to recover.' }
     ] },
     { group: 'Role powers', items: [
+      { k: 'powers', t: 'bool', label: 'Special powers', help: 'Master switch. Off: every role just does its own discipline right. The switches below only matter when this is on.' },
       { k: 'producerDelegate', t: 'bool', label: 'Producer: Delegate', help: 'A teammate does the crunch task; the Producer rolls.' },
       { k: 'producerPeek', t: 'num', min: 0, max: 3, step: 1, label: 'Producer: cards to schedule', help: '0 or 1 switches it off.' },
       { k: 'artistPolish', t: 'bool', label: 'Artist: Polish' },
@@ -1176,7 +1215,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     if (b.dataset.sheet) { sheet = true; sheetTab = b.dataset.sheet; renderOverlays(); return; }
     if (b.dataset.tab) { sheetTab = b.dataset.tab; renderOverlays(); return; }
     if (b.dataset.n) { simN = +b.dataset.n; renderOverlays(); return; }
-    if (b.dataset.k && b.dataset.d) { const it = findItem(b.dataset.k); settings[it.k] = Math.max(it.min, Math.min(it.max, settings[it.k] + (+b.dataset.d) * it.step)); lsSet('crunchtable.settings.v3', settings); const box = b.closest('.box'), y = box.scrollTop; renderOverlays(); $('#sheet .box').scrollTop = y; return; }
+    if (b.dataset.k && b.dataset.d) { const it = findItem(b.dataset.k); settings[it.k] = Math.max(it.min, Math.min(it.max, settings[it.k] + (+b.dataset.d) * it.step)); lsSet('crunchtable.settings.v4', settings); const box = b.closest('.box'), y = box.scrollTop; renderOverlays(); $('#sheet .box').scrollTop = y; return; }
     if (b.dataset.seat != null) { const p = st.players[+b.dataset.seat]; info = C.ROLES[p.role].name + ': ' + powerText(p.role, st.S); render(); return; }
     switch (b.dataset.act) {
       case 'start': startGame(); break;
@@ -1191,7 +1230,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
       case 'copylog': copyLog(); break;
       case 'savelog': saveLog(); break;
       case 'run': runSim(); break;
-      case 'reset': settings = C.mergeSettings(null); lsSet('crunchtable.settings.v3', settings); renderOverlays(); break;
+      case 'reset': settings = C.mergeSettings(null); lsSet('crunchtable.settings.v4', settings); renderOverlays(); break;
       case 'rotateok': rotateOk = true; fit(); break;
     }
   }
@@ -1203,7 +1242,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
   document.addEventListener('change', e => {
     const k = e.target.dataset && e.target.dataset.k; if (!k) return;
     settings[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    lsSet('crunchtable.settings.v3', settings);
+    lsSet('crunchtable.settings.v4', settings);
     const y = $('#sheet .box').scrollTop; renderOverlays(); $('#sheet .box').scrollTop = y;
   });
 
@@ -1214,13 +1253,14 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     if (!st) return;
     const c = cardBy(uid);
     if (cur && cur.type === 'draw' && st.players[cur.player].human && st.deck.indexOf(c) >= 0) { answer(cur.options[0]); return; }
+    if (cur && cur.type === 'crunch' && st.players[cur.player].human && st.deck.indexOf(c) >= 0 && cur.options.some(o => o.id === 'more')) { answer(cur.options.find(o => o.id === 'more')); return; }
     if (st.deck.indexOf(c) >= 0) { info = st.deck.length + ' cards left in the deck.'; render(); return; }
     zoomUid = uid; renderOverlays();
   }
   cardsEl.addEventListener('pointerdown', e => {
     const el = e.target.closest('.card'); if (!el || !st) return;
     const uid = +el.dataset.uid, p = stagePt(e);
-    const can = cur && st.players[cur.player].human && (optsFor(uid).length > 0 || (cur.type === 'draw' && st.deck.length && st.deck[st.deck.length - 1].uid === uid));
+    const can = cur && st.players[cur.player].human && (optsFor(uid).length > 0 || ((cur.type === 'draw' || (cur.type === 'crunch' && cur.options.some(o => o.id === 'more'))) && st.deck.length && st.deck[st.deck.length - 1].uid === uid));
     drag = { uid: uid, el: el, sx: p.x, sy: p.y, moved: false, can: can, ship: false, behind: false };
     try { el.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
   });
@@ -1241,6 +1281,7 @@ table.t td:first-child, table.t th:first-child { text-align: left; font-family: 
     if (!d.moved) { tapCard(d.uid); return; }
     const mine = optsFor(d.uid);
     if (cur && cur.type === 'draw' && st.deck.indexOf(cardBy(d.uid)) >= 0) { answer(cur.options[0]); return; }
+    if (cur && cur.type === 'crunch' && st.deck.indexOf(cardBy(d.uid)) >= 0) { answer(cur.options.find(o => o.id === 'more')); return; }
     if (d.ship) { const o = mine.find(x => x.id === 'do' || x.id === 'redo' || x.id === 'polish'); if (o) { if (cur.type === 'crunch') { zoomUid = d.uid; render(); return; } answer(o); return; } }
     if (cur && cur.type === 'draw' && mine.length) { zoomUid = d.uid; render(); return; }
     if (d.behind && cur && cur.type === 'act' && st.turn.hand && st.turn.hand.uid === d.uid) { answer(cur.options.find(o => o.id === 'none')); return; }
