@@ -22,3 +22,10 @@ Adding or re-ordering an app on `index.html` has its own skill:
 `.claude/skills/add-portfolio-entry/`. Use it rather than hand-editing the grid; it
 covers the screenshot capture, the tile markup, and the CSS constraints that clip
 silently (the 18-character grid title, most notably).
+
+## Trailhead
+
+`trailhead/` is Joe's tracker for every app in this repo, and `trailhead/projects.json`
+is its source of truth. When you finish work on any app, update that app's entry
+there in the same push (where he left off, status, finished to-dos). The `trailhead`
+skill and `trailhead/README.md` have the details.
