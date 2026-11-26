@@ -263,7 +263,9 @@ li.done .tx{color:var(--muted); text-decoration:line-through}
 .jtask{font:600 21px/1.25 var(--display) !important; text-wrap:balance}
 .jump .btn svg{width:18px; height:18px}
 .shot{display:block; flex:none; position:relative; border-radius:var(--r-md); overflow:hidden; background:var(--sunk); text-decoration:none}
-.shot img{display:block; width:100%; height:auto; max-height:340px; object-fit:cover; object-position:top}
+.shot{align-self:center; max-width:min(100%, 300px)}
+.shot.wide{max-width:100%}
+.shot img{display:block; width:100%; height:auto}
 .shot span{position:absolute; left:10px; bottom:10px; background:rgba(20,20,22,.72); color:#fff; font:600 12.5px var(--display); padding:5px 10px; border-radius:999px}
 .more summary{cursor:pointer; list-style:none; min-height:28px; display:flex; align-items:center}
 .more summary::-webkit-details-marker{display:none}

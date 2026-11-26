@@ -370,7 +370,7 @@ function jumpBlock(p){
   return '<div class="block jump"><span class="label">Jump back in</span>'+
     (first?'<p class="jtask">'+esc(first.t)+'</p>':'')+
     (p.left?'<p class="hint">Last time, '+ago(n)+': '+esc(p.left)+'</p>':'')+
-    '<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(jumpPrompt(p, first&&first.t)))+'" target="_blank" rel="noopener" data-act="jump" data-id="'+p.id+'">'+I.arrow+'Start with Claude</a>'+(first?'<button class="btn line" data-act="tick" data-k="'+first.k+'">Did it</button>':'')+'</div></div>';
+    '<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(jumpPrompt(p, first&&first.t)))+'" target="_blank" rel="noopener" data-act="jump" data-id="'+p.id+'">'+I.arrow+'Let\'s do it!</a>'+(first?'<button class="btn line" data-act="tick" data-k="'+first.k+'">Did it</button>':'')+'</div></div>';
 }
 function todoBlock(p){
   var all=items(p,"todos"), open=all.filter(function(o){ return !S.done[o.k]; }), ticked=all.filter(function(o){ return S.done[o.k]; });
@@ -412,7 +412,7 @@ function renderSheet(){
      act("button","",I.hide,"Hide",'data-act="hide" data-id="'+p.id+'"')+
    '</div></div>'+
    jumpBlock(p)+
-   (shot?'<a class="shot" '+(h?'href="'+esc(h)+'" target="_blank" rel="noopener"':'')+'><img src="'+esc(shot.src)+'" alt="'+esc(p.name)+' as it looks now"><span>How it looks now'+(shot.on?" · "+esc(shot.on):"")+'</span></a>':'')+
+   (shot?'<a class="shot'+(p.shot==="landscape"?" wide":"")+'" '+(h?'href="'+esc(h)+'" target="_blank" rel="noopener"':'')+'><img src="'+esc(shot.src)+'" alt="'+esc(p.name)+' as it looks now"><span>How it looks now'+(shot.on?" · "+esc(shot.on):"")+'</span></a>':'')+
    docBlock(p)+
    todoBlock(p)+
    listBlock(p,"ideas","Cool ideas")+
