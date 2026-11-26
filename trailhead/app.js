@@ -361,20 +361,23 @@ function appContext(){
 }
 function contextFor(id){ return id==="_app" ? appContext() : prompt(BY[id]).replace(/\n\nHelp me start with that one small thing[\s\S]*$/,""); }
 function transcript(id){ return thread(id).filter(function(m){ return !m.err; }).map(function(m){ return (m.r==="u"?"Joe: ":"Assistant: ")+m.t; }).join("\n\n"); }
+// Claude Code can read the repo, so the hand-off only carries what the repo doesn't have: what Joe just said.
 function handoff(id){
-  var t=transcript(id);
-  return contextFor(id)+(t?"\n\nWhat I've talked through so far in Trailhead:\n\n"+t:"")+"\n\n"+(id==="_app"?"Pick this up with me. If I'm asking for changes to Trailhead itself, help me spec them.":"Pick this up with me from here. Start with one small thing I can do now.");
+  var p=BY[id], said=thread(id).filter(function(m){ return m.r==="u"; }).map(function(m){ return "- "+m.t; }).join("\n");
+  return "Trailhead chat"+(p?" about "+p.name+" ("+p.folder+"/)":"")+". Context is in trailhead/projects.json and trailhead/README.md."+
+    (said?"\n\nWhat I said:\n"+said:"")+
+    "\n\nPick this up with me. If I'm asking for changes to a project's to-dos or to Trailhead itself, make them.";
 }
 function chatHtml(){
   var id=UI.chat, p=BY[id], th=thread(id), has=!!getKey();
-  var ho=handoff(id), link="https://claude.ai/new?q="+encodeURIComponent(ho.length>6000?ho.slice(0,6000)+"\n\n(The rest is on my clipboard. I'll paste it.)":ho);
+  var link=codeLink(handoff(id));
   return '<div class="sheet" role="dialog" aria-modal="true" aria-label="Chat">'+
    '<div class="shead">'+(p?tile(p):'<span class="tile" aria-hidden="true">'+I.chat+'</span>')+'<div class="t"><h2>'+(p?esc(p.name):"Trailhead")+'</h2><p>'+(p?"Flesh this one out":"Talk about your projects, or about changes to this app")+'</p></div><button class="round" data-act="chatclose" aria-label="Close">'+I.x+'</button></div>'+
    (th.length?'<div class="msgs">'+th.map(function(m,i){ return '<div class="msg '+(m.r==="u"?"me":"ai")+(m.err?" err":"")+'">'+esc(m.t).replace(/\n/g,"<br>")+(m.r==="a"&&!m.err&&!m.wait&&p?'<button class="keep" data-act="keep" data-i="'+i+'">Save as an idea</button>':'')+'</div>'; }).join("")+'</div>'
-     :'<div class="block"><p>'+(has?"Say what's on your mind. The reply knows where this "+(p?"project":"app")+" stands.":"There's no chat key on this device, so nothing answers here yet. You can still write your thoughts down, then carry all of it into Claude with one tap.")+'</p></div>')+
+     :'<div class="block"><p>'+(has?"Say what's on your mind. The reply knows where this "+(p?"project":"app")+" stands.":"There's no chat key on this device, so nothing answers here yet. You can still write your thoughts down, then carry them into Claude Code with one tap.")+'</p></div>')+
    '<form class="chatform" data-form="chat"><textarea class="fit" id="chatin" rows="1" placeholder="'+(has?"Message":"Write a note to yourself")+'" aria-label="Message">'+esc(UI.seed||"")+'</textarea><button class="round sendbtn" aria-label="Send">'+I.send+'</button></form>'+
-   '<div class="chatacts"><a class="btn solid" href="'+esc(link)+'" target="_blank" rel="noopener" data-act="handoff">'+I.arrow+'Continue in Claude</a>'+(th.length?'<button class="btn line" data-act="chatclear">Clear</button>':'')+'</div>'+
-   '<p class="src">Continue in Claude opens a new chat with this project\'s status and everything written here already in the box. It is also copied, in case the box comes up empty.'+(has?"":" To get answers here, add a fal key in the menu.")+'</p>'+
+   '<div class="chatacts"><a class="btn solid" href="'+esc(link)+'" target="_blank" rel="noopener" data-act="handoff">'+I.arrow+'Continue in Claude Code</a>'+(th.length?'<button class="btn line" data-act="chatclear">Clear</button>':'')+'</div>'+
+   '<p class="src">Continue in Claude Code opens a session on your repo with what you wrote here. It can read where every project stands, and it can change to-dos, the app, or a game.'+(has?"":" To get answers here, add a fal key in the menu.")+'</p>'+
   '</div>';
 }
 function sendChat(){
@@ -383,7 +386,7 @@ function sendChat(){
   var key=getKey();
   if(!key){ save(); renderSheet(); return; }
   var hist=transcript(id), wait={r:"a", t:"…", wait:1}; th.push(wait); renderSheet();
-  var sys="You are a thinking partner inside Trailhead, Joe's own tracker for his side projects. He gets heavily invested in a project and then drifts to the next one, so your job is to help him get back in and keep going. Be warm and brief: a few sentences, plain words, no headers. Ask one question at a time. Push toward the next small concrete step. "+(id==="_app"?"He may also want to talk about improving Trailhead itself. You cannot change the app, so help him get clear on what he wants and tell him to use Continue in Claude to have it built.":"You cannot edit files or the app. If he needs building done, tell him to use Continue in Claude.")+"\n\nContext:\n"+contextFor(id);
+  var sys="You are a thinking partner inside Trailhead, Joe's own tracker for his side projects. He gets heavily invested in a project and then drifts to the next one, so your job is to help him get back in and keep going. Be warm and brief: a few sentences, plain words, no headers. Ask one question at a time. Push toward the next small concrete step. "+(id==="_app"?"He may also want to talk about improving Trailhead itself. You cannot change the app, so help him get clear on what he wants and tell him to press Continue in Claude Code, which can make the change.":"You cannot edit files or the app. If he wants a to-do added or something built, tell him to press Continue in Claude Code, which can do it.")+"\n\nContext:\n"+contextFor(id);
   fetch("https://fal.run/openrouter/router",{method:"POST", headers:{"Authorization":"Key "+key, "Content-Type":"application/json"},
     body:JSON.stringify({model:S.model||MODEL_DEFAULT, system_prompt:sys, prompt:hist+"\n\nAssistant:", max_tokens:900, temperature:0.7})})
   .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, status:r.status, j:j}; }, function(){ return {ok:r.ok, status:r.status, j:{}}; }); })
@@ -451,7 +454,7 @@ document.addEventListener("click", function(e){
   else if(a==="chat"){ UI.chat=id; UI.menu=false; UI.seed=t.dataset.step?"Help me start: "+t.dataset.step:""; renderSheet(); }
   else if(a==="chatclose"){ UI.chat=null; UI.seed=""; renderAll(); }
   else if(a==="chatclear"){ S.chat[UI.chat]=[]; save(); renderSheet(); }
-  else if(a==="handoff"){ var pend=(document.getElementById("chatin")||{}).value; if(pend&&pend.trim()){ thread(UI.chat).push({r:"u",t:pend.trim()}); UI.seed=""; save(); t.href="https://claude.ai/new?q="+encodeURIComponent(handoff(UI.chat).slice(0,6000)); } copy(handoff(UI.chat), "Copied too. Opening Claude."); }
+  else if(a==="handoff"){ var pend=(document.getElementById("chatin")||{}).value; if(pend&&pend.trim()){ thread(UI.chat).push({r:"u",t:pend.trim()}); UI.seed=""; save(); t.href=codeLink(handoff(UI.chat)); } copy(handoff(UI.chat), "Copied too. Opening Claude Code."); }
   else if(a==="keep"){ var m=thread(UI.chat)[+t.dataset.i], pid=UI.chat; if(m&&BY[pid]){ S.added[pid]=S.added[pid]||{}; (S.added[pid].ideas=S.added[pid].ideas||[]).push(m.t.length>280?m.t.slice(0,277)+"…":m.t); save(); toast("Saved to "+BY[pid].name+"'s ideas."); } }
   else if(a==="savekey"){ var kv=document.getElementById("falkey").value.trim(), mv=document.getElementById("falmodel").value.trim(); if(kv) setKey(kv); S.model=mv||MODEL_DEFAULT; save(); renderSheet(); toast(kv?"Key saved on this device.":"Saved."); }
   else if(a==="rmkey"){ setKey(""); renderSheet(); toast("Key removed."); }
