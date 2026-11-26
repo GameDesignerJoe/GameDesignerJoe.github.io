@@ -935,7 +935,7 @@
    "commits": 48,
    "stage": 4,
    "tag": "Tidy up a cluttered house",
-   "status": "Campaign, free play, clients, talents, a helper and themes are built. It has one of the longest design docs in the repo.",
+   "status": "Whole: 34 campaign jobs, free play, store, talents, helper and themes, all loading cleanly on a phone. Still in Alpha until someone else plays it and you play it through to the end.",
    "left": "\"Showing cluster\" on Aug 29.",
    "love": "Everything is on the floor, and every item belongs in one specific piece of furniture. Toss things in, open them up, sort the rows.",
    "star": false,
@@ -945,6 +945,26 @@
    "checklist": [
     {
      "t": "Play campaign 1-1 through 1-3 on your phone",
+     "done": false
+    },
+    {
+     "t": "Check pinch zoom on your phone: no container opens by accident when the second finger lifts",
+     "done": false
+    },
+    {
+     "t": "Play the campaign through to the last job (ASH-3) on your phone",
+     "done": false
+    },
+    {
+     "t": "Hand it to one person and watch them play the first three jobs without helping",
+     "done": false
+    },
+    {
+     "t": "Write down what they said and where they got stuck",
+     "done": false
+    },
+    {
+     "t": "No known blockers: fix anything from those plays that stops play",
      "done": false
     },
     {
@@ -958,26 +978,14 @@
      "k": "notch"
     },
     {
-     "t": "Saves progress",
+     "t": "Saves progress (Continue)",
      "done": true,
      "k": "saves"
     },
     {
-     "t": "Has sound",
+     "t": "Has sound: music and effects",
      "done": true,
      "k": "sound"
-    },
-    {
-     "t": "Someone else has played it",
-     "done": false
-    },
-    {
-     "t": "Their feedback is written in the notes",
-     "done": false
-    },
-    {
-     "t": "No known blockers",
-     "done": false
     },
     {
      "t": "On the portfolio",
@@ -985,13 +993,20 @@
      "k": "tile"
     },
     {
-     "t": "Has notes in the repo or a doc",
-     "done": true,
+     "t": "Has a notes doc for playtest feedback (docs/CLAUDE.md covers how it's built, not what players said)",
+     "done": false,
      "k": "notes"
+    },
+    {
+     "t": "Decide: is the feature list done? The last work (Aug 29) was still adding talent animations",
+     "done": false
     }
    ],
-   "backlog": [],
-   "nfp": false
+   "backlog": [
+    "For Beta: icons (192, 512) and a manifest already exist; check it installs and works offline"
+   ],
+   "nfp": false,
+   "checked": "2026-11-26"
   },
   {
    "id": "killcode",
