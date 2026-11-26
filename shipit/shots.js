@@ -5,8 +5,8 @@ const SHOTS={
   "on": "2026-11-25"
  },
  "vye": {
-  "src": "shots/vye.webp?v=2026-11-25",
-  "on": "2026-11-25"
+  "src": "shots/vye.webp?v=2026-11-26",
+  "on": "2026-11-26"
  },
  "jga": {
   "src": "shots/jga.webp?v=2026-11-25",
