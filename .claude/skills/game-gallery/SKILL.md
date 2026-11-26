@@ -1,6 +1,6 @@
 ---
 name: game-gallery
-description: Take a set of about ten varied screenshots of one of Joe's games by playing through it in a headless browser, and save them to that game's media/ folder, which Trailhead shows as the game's gallery. Use when Joe asks for gallery shots, screenshots or "a gallery" for a named game, asks to refresh a game's shots, or when a game's Beta checklist item "Gallery shots taken" is being worked. Only for the games he names, never all of them at once.
+description: Take a set of about ten varied screenshots of one of Joe's games by playing through it in a headless browser, and save them to that game's media/ folder, which Ship It! shows as the game's gallery. Use when Joe asks for gallery shots, screenshots or "a gallery" for a named game, asks to refresh a game's shots, or when a game's Beta checklist item "Gallery shots taken" is being worked. Only for the games he names, never all of them at once.
 ---
 
 # Game gallery
@@ -10,7 +10,7 @@ about ten shots that are **as different from each other as possible** and that s
 the game's real features. A title screen and nine near-identical gameplay frames is a
 failure.
 
-Trailhead reads whatever is in `<game folder>/media/` and shows it as a swipeable
+Ship It! reads whatever is in `<game folder>/media/` and shows it as a swipeable
 gallery, in filename order. There is no index to update.
 
 ## Rules for the media folder
@@ -35,7 +35,7 @@ gallery, in filename order. There is no index to update.
 2. **Drive it with Playwright** (already installed; `chromium.launch()` needs no
    options). Serve the repo root with `python3 -m http.server` and open the game at
    phone size: viewport 390 x 844, `device_scale_factor` 2. For a game played sideways
-   (its Trailhead entry has `"shot": "landscape"`), use 844 x 390.
+   (its Ship It! entry has `"shot": "landscape"`), use 844 x 390.
 3. Reach each moment through the game's own hooks where they exist, and by real taps
    and key presses where they don't. Wait for animations to settle before each shot.
    Catch action moments mid-motion on purpose (a reveal, a hit, an explosion).
@@ -45,9 +45,9 @@ gallery, in filename order. There is no index to update.
 5. If part of the game can't be reached headlessly (needs a network service, a second
    player, a microphone), say which moments you couldn't get. Don't pad with
    duplicates to reach ten.
-6. Save to `<game folder>/media/`, then also refresh the single Trailhead shot:
-   `python3 trailhead/tools/shoot.py <project id>`.
-7. In `trailhead/projects.json`, tick "Gallery shots taken" on the game's checklist if
+6. Save to `<game folder>/media/`, then also refresh the single Ship It! shot:
+   `python3 shipit/tools/shoot.py <project id>`.
+7. In `shipit/projects.json`, tick "Gallery shots taken" on the game's checklist if
    it has that item. Commit to `main` and push.
 
 ## Report

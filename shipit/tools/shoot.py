@@ -1,13 +1,12 @@
-"""Take a phone-sized screenshot of each project so Trailhead can show how it looks now.
+"""Take a phone-sized screenshot of each project so Ship It! can show how it looks now.
 
 Run from the repo root:
-    python3 trailhead/tools/shoot.py            # every project with a page in this repo
-    python3 trailhead/tools/shoot.py wolf vye   # just these project ids
+    python3 shipit/tools/shoot.py            # every project with a page in this repo
+    python3 shipit/tools/shoot.py wolf vye   # just these project ids
 
 Needs Python's playwright and Pillow. It serves the repo on a local port, opens each
-project's page at phone size (sideways if its entry has "shot": "landscape"), waits
-for it to settle, and writes
-trailhead/shots/<id>.webp plus trailhead/shots.js. Projects hosted elsewhere (a full
+project's page at phone size, waits for it to settle, and writes
+shipit/shots/<id>.webp plus shipit/shots.js. Projects hosted elsewhere (a full
 https:// url) are skipped unless --remote is passed.
 """
 import datetime, io, json, pathlib, subprocess, sys, time
@@ -15,7 +14,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-TH = ROOT / "trailhead"
+TH = ROOT / "shipit"
 PORT = 8791
 
 def main():
@@ -42,8 +41,7 @@ def main():
                 if not url or (url.startswith("http") and not remote):
                     continue
                 full = url if url.startswith("http") else f"http://localhost:{PORT}/{url}"
-                wide = p.get("shot") == "landscape"
-                page = browser.new_page(viewport={"width": 760, "height": 390} if wide else {"width": 390, "height": 700}, device_scale_factor=2)
+                page = browser.new_page(viewport={"width": 390, "height": 700}, device_scale_factor=2)
                 try:
                     page.goto(full, wait_until="load", timeout=20000)
                     page.wait_for_timeout(3000)
@@ -52,7 +50,7 @@ def main():
                     print("skipped", p["id"], str(e)[:80]); page.close(); continue
                 page.close()
                 im = Image.open(io.BytesIO(png)).convert("RGB")
-                if len(im.resize((16, 16)).getcolors(256) or [0] * 9) < 3:
+                if len(set(im.resize((16, 16)).getdata())) < 3:
                     print("skipped", p["id"], "(blank page)"); continue
                 im.save(TH / "shots" / f"{p['id']}.webp", "WEBP", quality=62, method=6)
                 shots[p["id"]] = {"src": f"shots/{p['id']}.webp?v={today}", "on": today}

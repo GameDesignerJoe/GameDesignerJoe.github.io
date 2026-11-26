@@ -1,21 +1,21 @@
 ---
 name: gate-check
-description: Work out which dev-plan gate one of Joe's games is really in and write the checklist of what it needs to get through that gate, by reading the game's code, its notes and its existing lists, then agreeing the result with Joe. Use when a prompt starts with "Trailhead gate check", when Joe asks where a game really stands, what it needs to ship, or to redo or rewrite a game's checklist, and after a notes pass or other work that changes what a game still needs.
+description: Work out which dev-plan gate one of Joe's games is really in and write the checklist of what it needs to get through that gate, by reading the game's code, its notes and its existing lists, then agreeing the result with Joe. Use when a prompt starts with "Ship It gate check" or "Trailhead gate check", when Joe asks where a game really stands, what it needs to ship, or to redo or rewrite a game's checklist, and after a notes pass or other work that changes what a game still needs.
 ---
 
 # Gate check
 
-Each game in `trailhead/projects.json` sits on one gate of the dev plan and carries a
+Each game in `shipit/projects.json` sits on one gate of the dev plan and carries a
 `checklist` of what it needs to get through that gate. Joe's problem is a stack of
 games that are "nearly there" with no clear list of what's left. This skill produces
 that list for one game, from evidence, and gets his agreement on it.
 
-Read `trailhead/README.md` first for the gates and the fields. The gates' "through it
-when" lines and starting items are in `trailhead/config.js`.
+Read `shipit/README.md` first for the gates and the fields. The gates' "through it
+when" lines and starting items are in `shipit/config.js`.
 
 ## For one game
 
-1. **Gather.** Read the game's Trailhead entry, its code, and every list it has: the
+1. **Gather.** Read the game's Ship It! entry, its code, and every list it has: the
    notes doc or file in `notes`, any to-do, plan, milestone or design doc in its
    folder, and its `backlog`. Open the game and play it in a headless browser far
    enough to see what works.

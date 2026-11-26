@@ -1,4 +1,4 @@
-// Trailhead settings that rarely change. Project data lives in projects.json.
+// Ship It! settings that rarely change. Project data lives in projects.json.
 // STAGES are the gates of the dev plan. Each gate's items are the starting checklist a project gets when it enters that gate.
 const SITE="https://gamedesignerjoe.github.io/";
 const REPO="GameDesignerJoe/GameDesignerJoe.github.io";
@@ -45,10 +45,6 @@ const STAGES=[
    },
    {
     "t": "Choose the look and feel"
-   },
-   {
-    "t": "Decide the sound and music: made-in-code sounds, or real sound effects and music from other sources",
-    "k": "audioplan"
    },
    {
     "t": "Set up its notes doc",
@@ -100,7 +96,7 @@ const STAGES=[
     "k": "saves"
    },
    {
-    "t": "Has sound and music: as much of the real thing as you can, a few made-in-code sounds are OK for now",
+    "t": "Has sound",
     "k": "sound"
    },
    {
@@ -130,10 +126,6 @@ const STAGES=[
   "items": [
    {
     "t": "Feature list frozen: fixes only from here"
-   },
-   {
-    "t": "All sound and music is the real thing: no made-in-code placeholder sounds left",
-    "k": "audioreal"
    },
    {
     "t": "Clean out debug text, test fields and dev shortcuts",
@@ -272,5 +264,13 @@ const LINE_END={"game":9,"tabletop":6,"tool":5};
 var GOALS=["Get my games out into the world on the Apple App Store.","Make something uniquely mine that others want to play.","Create a source of income that gives me the freedom to choose my jobs."];
 const PLAN_SRC={"title":"Publishing web games to app stores","date":"Nov 15","url":"https://claude.ai/chat/bfe6cdb1-4a80-4c4e-977e-ac53ce5fc708"};
 var LEAD="wolf";
-const BASICS=[["icon","App icon","A real icon at 192 and 512, plus an Apple touch icon"],["favicon","Tab icon","The small icon in the browser tab"],["install","Add to home screen","A web manifest, so it installs like an app"],["phone","Phone layout","Sized for a phone screen"],["notch","Clears the notch","Respects the phone's safe areas"],["offline","Works offline","A service worker that caches the game"],["saves","Saves progress","Picks up where you left off"],["share","Link preview","An image and title when the link is shared"],["describe","One-line description","What search results and stores show"],["tile","On the portfolio","A tile on your site's front page"],["notes","Notes in the repo","A doc that says where it stands"],["clean","Debug cleaned up","No debug text, test fields or dev shortcuts left in"],["sound","Sound and music","Real sound effects and music; made-in-code sounds only as a stopgap before Beta"],["haptics","Haptics","A buzz on touch, one of the native touches Apple looks for"]];
+const BASICS=[["icon","App icon","A real icon at 192 and 512, plus an Apple touch icon"],["favicon","Tab icon","The small icon in the browser tab"],["install","Add to home screen","A web manifest, so it installs like an app"],["phone","Phone layout","Sized for a phone screen"],["notch","Clears the notch","Respects the phone's safe areas"],["offline","Works offline","A service worker that caches the game"],["saves","Saves progress","Picks up where you left off"],["share","Link preview","An image and title when the link is shared"],["describe","One-line description","What search results and stores show"],["tile","On the portfolio","A tile on your site's front page"],["notes","Notes in the repo","A doc that says where it stands"],["clean","Debug cleaned up","No debug text, test fields or dev shortcuts left in"],["sound","Sound","Any audio at all"],["haptics","Haptics","A buzz on touch, one of the native touches Apple looks for"]];
 const NOT_TRACKED="art, audio, songs, cd, catchTheWolf (the GameMaker original), asciiExplore, json-editor, game-doc-system";
+// The skills in .claude/skills that this page can launch. "per" ones show under More on a project's page.
+const SKILLS=[
+ {"key":"gate-check","name":"Gate check","per":true,"kinds":["game","tabletop"],"button":"Check against the gate","all":"Check them all","what":"Works out which gate a game is really in, from its code, its notes and a few questions to you, and writes the checklist for getting through it.","say":"gate check Buzzers"},
+ {"key":"game-gallery","name":"Game gallery","per":true,"kinds":["game","tabletop"],"button":"Take gallery shots","what":"Plays through a game and takes about ten deliberately different screenshots into its media folder. Leaves your own files alone.","say":"take gallery shots for Vye Duel"},
+ {"key":"maze-task","name":"Maze task","per":true,"only":"maze","button":"Work the Maze doc","all":"Work the Maze doc","what":"Works The Maze's backlog from its Google Doc: reads it, groups the items, builds a group, checks it, ships it.","say":"there are new tasks in the Maze doc"},
+ {"key":"ship-it","name":"Ship It","what":"Keeps this page's data in step with the repo. It runs whenever a button here opens Claude Code, and after any work on one of your apps.","say":"star Buzzers, or add a multiplayer test to Buzzers' checklist"},
+ {"key":"add-portfolio-entry","name":"Add portfolio entry","what":"Adds a finished app to the front page of your site, with a screenshot and a tile.","say":"add Crunch to the portfolio"}
+];

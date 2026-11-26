@@ -1,8 +1,8 @@
 (function(){
 "use strict";
-// Trailhead. Reads projects.json (the truth, in the repo) and shows where every project is on the dev plan.
+// Ship It! Reads projects.json (the truth, in the repo) and shows where every project is on the dev plan.
 // The page never writes to the repo. Ticks, stars and links made here wait on this device until "Send to repo".
-var KEY="trailhead.v1", mem={};
+var KEY="trailhead.v1", mem={};   // the old name stays here so nothing saved on a device is lost
 function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||"{}")||{}; }catch(e){ return mem; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ mem=S; } }
 var S=load();
@@ -96,20 +96,24 @@ function pendingCount(){ return pending().reduce(function(a,c){ return a+c.n; },
 function codeLink(text){ return "https://claude.ai/code/new?q="+encodeURIComponent(text.slice(0,9000))+"&repo="+encodeURIComponent(REPO)+"&branch=main"; }
 function syncPrompt(){
   var p=pending().map(function(c){ var o={}; Object.keys(c).forEach(function(k){ if(k!=="n") o[k]=c[k]; }); return o; });
-  return "Trailhead sync. Follow trailhead/README.md.\n\nApply these changes from my device to trailhead/projects.json, then commit to main and push. For each project: \"set\" replaces those fields, \"check\" marks those checklist items done, \"uncheck\" marks them not done. Change nothing else.\n\n"+JSON.stringify(p,null,1);
+  return "Ship It sync. Follow shipit/README.md.\n\nApply these changes from my device to shipit/projects.json, then commit to main and push. For each project: \"set\" replaces those fields, \"check\" marks those checklist items done, \"uncheck\" marks them not done. Change nothing else.\n\n"+JSON.stringify(p,null,1);
 }
 function goPrompt(p, t){
-  return "Trailhead: let's work on "+p.name+" ("+p.folder+"/). It's in "+gate(p).name+". Its entry in trailhead/projects.json has the checklist for this gate."+(p.left?"\n\nWhere I left off: "+p.left:"")+(t?"\n\nNext on the list: "+t:"")+"\n\nHelp me do that now. If it needs me to play, decide or record something, walk me through it. If you can build it, build it. Tick it off when it's really done, then tell me what's next.";
+  return "Ship It: let's work on "+p.name+" ("+p.folder+"/). It's in "+gate(p).name+". Its entry in shipit/projects.json has the checklist for this gate."+(p.left?"\n\nWhere I left off: "+p.left:"")+(t?"\n\nNext on the list: "+t:"")+"\n\nHelp me do that now. If it needs me to play, decide or record something, walk me through it. If you can build it, build it. Tick it off when it's really done, then tell me what's next.";
 }
 function notesPrompt(p){
   var n=notesOf(p);
-  return "Trailhead notes pass for "+p.name+" ("+p.folder+"/). There are new notes in "+(docId(n)?"its Google Doc: "+n:"its notes file: "+n)+"\n\nFollow \"Working a project's notes\" in trailhead/README.md.";
+  return "Ship It notes pass for "+p.name+" ("+p.folder+"/). There are new notes in "+(docId(n)?"its Google Doc: "+n:"its notes file: "+n)+"\n\nFollow \"Working a project's notes\" in shipit/README.md.";
 }
-function checkPrompt(p){ return "Trailhead gate check for "+p.name+" ("+p.folder+"/). Use the gate-check skill."; }
-function checkAllPrompt(){ return "Trailhead gate check for every game that is for publish and not hidden. Use the gate-check skill, one game at a time, most recently touched first. Stop after each one and show me its gate and checklist before going on."; }
+function checkPrompt(p){ return "Ship It gate check for "+p.name+" ("+p.folder+"/). Use the gate-check skill."; }
+function checkAllPrompt(){ return "Ship It gate check for every game that is for publish and not hidden. Use the gate-check skill, one game at a time, most recently touched first. Stop after each one and show me its gate and checklist before going on."; }
+function galleryPrompt(p){ return "Ship It: take gallery shots for "+p.name+" ("+p.folder+"/). Use the game-gallery skill."; }
+function skillPrompt(k, p){
+  return k==="gate-check" ? (p?checkPrompt(p):checkAllPrompt()) : k==="game-gallery" ? galleryPrompt(p) : k==="maze-task" ? "There are new tasks in the Maze doc. Use the maze-task skill." : "";
+}
 function gatePrompt(p){
   var nx=STAGES[p.stage];
-  return "Trailhead: "+p.name+" ("+p.folder+"/) has everything ticked for "+gate(p).name+". Follow \"Moving through a gate\" in trailhead/README.md: check it honestly"+(nx?", and if it holds, move it to "+nx.name+" and write that gate's checklist for this game.":".");
+  return "Ship It: "+p.name+" ("+p.folder+"/) has everything ticked for "+gate(p).name+". Follow \"Moving through a gate\" in shipit/README.md: check it honestly"+(nx?", and if it holds, move it to "+nx.name+" and write that gate's checklist for this game.":".");
 }
 
 // what to surface when nothing is starred: warm, invested, and close to clearing its gate
@@ -353,7 +357,7 @@ function renderSheet(){
      act("button",isStar(p.id)?"on":"",I.star,isStar(p.id)?"Starred":"Star",'data-act="star" data-id="'+p.id+'" aria-pressed="'+isStar(p.id)+'"')+
      act("button",UI.more?"on":"",I.dots,"More",'data-act="more2" aria-expanded="'+UI.more+'"')+
    '</div>'+
-   (UI.more?'<div class="moreacts"><button class="btn" data-act="nfp" data-id="'+p.id+'" aria-pressed="'+nfp+'">'+(nfp?"Not for publish: on":"Not for publish")+'</button><button class="btn" data-act="hide" data-id="'+p.id+'">Hide</button><a class="btn" href="'+esc(codeLink(checkPrompt(p)))+'" target="_blank" rel="noopener" data-act="check" data-id="'+p.id+'">Check against the gate</a></div>':'')+
+   (UI.more?'<div class="moreacts"><button class="btn" data-act="nfp" data-id="'+p.id+'" aria-pressed="'+nfp+'">'+(nfp?"Not for publish: on":"Not for publish")+'</button><button class="btn" data-act="hide" data-id="'+p.id+'">Hide</button>'+SKILLS.filter(function(k){ return k.per && (!k.kinds || k.kinds.indexOf(p.kind)>=0) && (!k.only || k.only===p.id); }).map(function(k){ return '<a class="btn" href="'+esc(codeLink(skillPrompt(k.key,p)))+'" target="_blank" rel="noopener" data-act="skill" data-k="'+k.key+'" data-id="'+p.id+'">'+esc(k.button)+'</a>'; }).join("")+'</div>':'')+
    '</div>'+
    '<div id="gallery" class="gallery" data-id="'+p.id+'" hidden></div>'+
    '<div class="block jump"><span class="label">'+esc(g.name)+' · '+pr.done+' of '+pr.of+(nfp?" · not for publish":"")+'</span>'+
@@ -382,10 +386,11 @@ function renderSheet(){
 }
 function menuHtml(){
   return '<div class="sheet" role="dialog" aria-modal="true" aria-label="Menu">'+
-   '<div class="shead"><div class="t"><h2>Trailhead</h2><p>'+PROJECTS.length+' projects. projects.json last updated '+esc(UPDATED)+'</p></div><button class="round" data-act="close" aria-label="Close">'+I.x+'</button></div>'+
+   '<div class="shead"><div class="t"><h2>Ship It!</h2><p>'+PROJECTS.length+' projects. projects.json last updated '+esc(UPDATED)+'</p></div><button class="round" data-act="close" aria-label="Close">'+I.x+'</button></div>'+
    '<div class="block"><span class="label">Fresh dates</span><p>Ask GitHub when each project last changed.</p><button class="btn solid" data-act="github">Check GitHub now</button><span class="hint" id="ghmsg">'+(S.liveAt?"Last checked "+new Date(S.liveAt).toLocaleString():"Not checked yet")+'</span></div>'+
-   '<div class="block"><span class="label">Gate check</span><p>Have Claude Code go through every for-publish game, work out which gate it is really in, and write its checklist.</p><a class="btn solid" href="'+esc(codeLink(checkAllPrompt()))+'" target="_blank" rel="noopener" data-act="checkall">Check them all</a></div>'+
-   '<div class="block"><span class="label">How this saves</span><p>Everything lives in your repo, in trailhead/projects.json, so every device shows the same thing. A tick, a star or a new link made here waits on this device until you press Send to repo.</p></div>'+
+   '<div class="block"><span class="label">Skills</span><p class="hint">Things Claude Code knows how to do in your repo. The ones marked per project are also under More on each project\'s page.</p>'+
+     SKILLS.map(function(k){ return '<div class="skill"><b>'+esc(k.name)+'</b>'+(k.per?'<span class="pill">per project</span>':'')+'<p>'+esc(k.what)+'</p><p class="hint">Say: “'+esc(k.say)+'”</p>'+(k.all?'<a class="btn line" href="'+esc(codeLink(skillPrompt(k.key,null)))+'" target="_blank" rel="noopener" data-act="skill" data-k="'+k.key+'">'+esc(k.all)+'</a>':'')+'</div>'; }).join("")+'</div>'+
+   '<div class="block"><span class="label">How this saves</span><p>Everything lives in your repo, in shipit/projects.json, so every device shows the same thing. A tick, a star or a new link made here waits on this device until you press Send to repo.</p></div>'+
    '<div class="block"><span class="label">Not tracked</span><p class="hint">Folders left out because they hold assets, originals or one-off pages: '+esc(NOT_TRACKED)+'.</p></div>'+
   '</div>';
 }
@@ -424,7 +429,7 @@ document.addEventListener("click", function(e){
   else if(a==="gate"){ copy(gatePrompt(p), "Opening Claude Code. The request is copied too."); }
   else if(a==="notespass"){ copy(notesPrompt(p), "Opening Claude Code. The request is copied too."); }
   else if(a==="check"){ copy(checkPrompt(p), "Opening Claude Code. The request is copied too."); }
-  else if(a==="checkall"){ copy(checkAllPrompt(), "Opening Claude Code. The request is copied too."); }
+  else if(a==="skill"){ copy(skillPrompt(t.dataset.k, p), "Opening Claude Code. The request is copied too."); }
   else if(a==="sync"){ copy(syncPrompt(), "Opening Claude Code. The changes are copied too."); S.sentAt=Date.now(); S.sentN=pendingCount(); save(); setTimeout(renderGoal,400); }
   else if(a==="github"){ checkGitHub(true); }
 });
@@ -466,7 +471,7 @@ function refresh(first){
     if(!d||!Array.isArray(d.projects)) throw 0;
     var typing=document.activeElement&&/^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName);
     setData(d); if(typing) renderGoal(); else keepScroll(renderAll);
-  }).catch(function(){ if(first&&!LOADED) document.getElementById("now").innerHTML='<span class="label">One thing right now</span><p class="task">Couldn\'t load projects.json.</p><p class="why">It should sit next to this page in the trailhead folder.</p>'; });
+  }).catch(function(){ if(first&&!LOADED) document.getElementById("now").innerHTML='<span class="label">One thing right now</span><p class="task">Couldn\'t load projects.json.</p><p class="why">It should sit next to this page in the shipit folder.</p>'; });
 }
 if(window.TRAILHEAD_DATA){ setData(window.TRAILHEAD_DATA); renderAll(); }
 else document.getElementById("now").innerHTML='<span class="label">One thing right now</span><p class="why">Loading your projects…</p>';

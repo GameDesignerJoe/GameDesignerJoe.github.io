@@ -23,9 +23,9 @@ Adding or re-ordering an app on `index.html` has its own skill:
 covers the screenshot capture, the tile markup, and the CSS constraints that clip
 silently (the 18-character grid title, most notably).
 
-## Trailhead
+## Ship It!
 
-`trailhead/` is Joe's tracker for every app in this repo, and `trailhead/projects.json`
+`shipit/` is Joe's tracker for every app in this repo, and `shipit/projects.json`
 is its source of truth. When you finish work on any app, update that app's entry
-there in the same push (where he left off, status, checklist items that are now true). The `trailhead`
-skill and `trailhead/README.md` have the details.
+there in the same push (where he left off, status, checklist items that are now true). The `ship-it`
+skill and `shipit/README.md` have the details.

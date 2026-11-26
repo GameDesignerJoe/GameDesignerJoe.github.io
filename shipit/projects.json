@@ -1,11 +1,71 @@
 {
- "about": "Source of truth for Trailhead (trailhead/index.html). Edited by Joe through Claude Code. See trailhead/README.md.",
- "updated": "2026-11-26",
+ "about": "Source of truth for Ship It! (shipit/index.html). Edited by Joe through Claude Code. See shipit/README.md.",
+ "updated": "2026-11-25",
  "goals": [
-  "To make something uniquely my own that others want to play, while providing a source of income that gives me freedom."
+  "Make something only I could make, that people want to play, and let it buy my freedom."
  ],
  "lead": "wolf",
  "projects": [
+  {
+   "id": "shipit",
+   "name": "Ship It!",
+   "emoji": "🚢",
+   "kind": "tool",
+   "folder": "shipit",
+   "url": "shipit/",
+   "first": "2026-11-25",
+   "last": "2026-11-25",
+   "commits": 19,
+   "stage": 3,
+   "tag": "Every side project on one dev plan",
+   "status": "Built over two days. The dev plan, per-project checklists, notes links, galleries and the Claude Code hand-offs all work. Most checklists are still first drafts.",
+   "left": "Renamed from Trailhead to Ship It!, with a skills list and this entry for itself.",
+   "love": "Every game I'm making on one plan, with the next thing to do one tap away.",
+   "star": false,
+   "hidden": false,
+   "nfp": true,
+   "done": [],
+   "docs": "shipit/README.md",
+   "checklist": [
+    {
+     "t": "Run a gate check on your two most active games and see if the lists feel right",
+     "done": false
+    },
+    {
+     "t": "Make an icon for it",
+     "done": false
+    },
+    {
+     "t": "Gate check the rest of the for-publish games",
+     "done": false
+    },
+    {
+     "t": "Try Google Doc tabs on one doc and see if they read through",
+     "done": false
+    },
+    {
+     "t": "Use it for a week without changing it",
+     "done": false
+    },
+    {
+     "t": "Everything on the locked feature list is built",
+     "done": false
+    },
+    {
+     "t": "Playable from first screen to last",
+     "done": true
+    },
+    {
+     "t": "No placeholder art or text left",
+     "done": false
+    }
+   ],
+   "backlog": [
+    "A way to add a new project from the page",
+    "Gallery shots for more games",
+    "A local PC version that can queue several tasks and run them unattended"
+   ]
+  },
   {
    "id": "crunch",
    "name": "Crunch",

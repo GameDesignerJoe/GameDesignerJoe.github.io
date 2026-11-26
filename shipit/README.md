@@ -1,6 +1,9 @@
-# Trailhead
+# Ship It!
 
-Joe's tracker for his side projects. Live at https://gamedesignerjoe.github.io/trailhead/
+(Called Trailhead until Nov 25, 2026. Older prompts that say "Trailhead" mean this. The
+folder moved from `trailhead/` to `shipit/`; the old address redirects.)
+
+Joe's tracker for his side projects. Live at https://gamedesignerjoe.github.io/shipit/
 
 The point of it is getting back in, and getting things across the finish line. Joe
 gets deep into a project and then drifts to the next one, so every entry is written to
@@ -14,7 +17,7 @@ What it's all for, in his words, is the one line in `goals` at the top of `proje
 - `projects.json` is the source of truth. The page reads it on every load, so every
   device shows the same thing.
 - Notes are written in each project's Google Doc (or a notes file in the repo), not in
-  Trailhead. The page only shows them.
+  Ship It!. The page only shows them.
 - The page cannot write to the repo. A tick, a star, the razor line or a notes link
   changed on a device waits in that browser until Joe presses **Send to repo**, which
   opens Claude Code with the changes as a prompt.
@@ -23,7 +26,7 @@ What it's all for, in his words, is the one line in `goals` at the top of `proje
   finishing, not a separate chore.
 
 Files: `index.html` (shell), `app.js`, `app.css`, `config.js` (the gates and their
-starting checklists), `icons.js` (generated thumbnails and header colours), `shots.js`
+starting checklists, and the list of skills the page can launch), `icons.js` (generated thumbnails and header colours), `shots.js`
 and `shots/` (one current screenshot per project, from `tools/shoot.py`),
 `projects.json`. No build step.
 
@@ -72,7 +75,7 @@ Each project:
 | `checked` | Date of the last gate check, when the checklist was written from the game itself (the `gate-check` skill). Missing means the list is still a first draft. |
 | `docs` | Where the project's own design notes live. |
 
-## Working on a project ("Trailhead: let's work on X")
+## Working on a project ("Ship It: let's work on X")
 
 1. Read the project's entry first. The razor says what matters; don't build against it.
 2. Do the named checklist item in the project's folder. Check that it works.
@@ -105,7 +108,7 @@ When every item is ticked, Joe presses "Move it to <next gate>".
    becomes checklist items; what's out is deleted or kept under a cut list in `status`.
 4. A `nfp` project stops at Beta.
 
-## Working a project's notes ("Trailhead notes pass", or "doc pass")
+## Working a project's notes ("Ship It notes pass", or "doc pass")
 
 Joe's normal way of working: he plays the game, writes notes in that project's Google
 Doc from his phone, then says "new things in the doc for you" and goes back to
@@ -134,7 +137,7 @@ project:
     or done. Mark finished items done in the file the way it already does.
 11. Update the entry: `left`, `status`, `last`, `done`, `docOpen`, `docSeen`.
 
-## Applying a "Trailhead sync" prompt
+## Applying a "Ship It sync" prompt
 
 The prompt carries a JSON list of changes per project. `set` replaces those fields,
 `check` marks those checklist items done, `uncheck` marks them not done. Apply exactly
@@ -144,13 +147,19 @@ those, set `updated`, commit and push. Don't tidy anything else in the same comm
 
 - **One current shot per project** lives in `shots/<id>.webp`, listed in `shots.js`.
   After you change how an app looks, retake it in the same push:
-  `python3 trailhead/tools/shoot.py <project id>`. Look at the result; if it caught a
+  `python3 shipit/tools/shoot.py <project id>`. Look at the result; if it caught a
   loading screen or a blank page, delete that shot and its line in `shots.js`.
 - **The gallery** is whatever is in `<game folder>/media/`: images, short videos, and
   `videos.txt` with one YouTube link per line. The page lists the folder itself, so
   adding or deleting a file is all it takes. Use the `game-gallery` skill to take a
   set of varied shots for a game Joe names. Never touch files there that don't start
   with `auto-`; those are his.
+
+## Skills
+
+`config.js` has a `SKILLS` list. The page shows it in its menu, and shows the
+per-project ones under More on each project's page. When you add a skill to
+`.claude/skills` that Joe would run from here, add it to that list too.
 
 ## Writing style
 
