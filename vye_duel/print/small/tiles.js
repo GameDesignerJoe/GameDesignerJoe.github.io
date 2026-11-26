@@ -92,6 +92,7 @@ function family(member, house, o) {
 
 const HEX = '<path d="M50 15 81 32.5v35L50 85 19 67.5v-35Z" fill="' + PAPER + '" stroke="#fff" stroke-width="2.4"/>';
 const SPECIAL = {
+  rally: `<path d="M38 72V28" stroke="${INK}" stroke-width="4.6" fill="none" stroke-linecap="round"/><path d="M40 30h26l-7 9 7 9H40Z" fill="${INK}"/>`,
   usurp: `<path d="M41 66V35M41 35l-8 9M41 35l8 9M59 34v31M59 65l-8-9M59 65l8-9" stroke="${INK}" stroke-width="5.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
   lostcity: `<path d="M33 63V45h5v-5h5v5h5v-9l4-6 4 6v9h5v-5h5v5h4v18Z" fill="${INK}"/><circle cx="44" cy="71" r="3.3" fill="${INK}"/><circle cx="56" cy="71" r="3.3" fill="${INK}"/>`,
   sinkhole: `<circle cx="50" cy="50" r="22" fill="none" stroke="${INK}" stroke-width="4"/><circle cx="50" cy="50" r="13.5" fill="none" stroke="${INK}" stroke-width="4"/><circle cx="50" cy="50" r="5.5" fill="${INK}"/>`,

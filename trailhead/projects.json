@@ -1,6 +1,6 @@
 {
  "about": "Source of truth for Trailhead (trailhead/index.html). Edited by Joe through Claude Code. See trailhead/README.md.",
- "updated": "2026-11-25",
+ "updated": "2026-11-26",
  "goals": [
   "Get my games out into the world on the Apple App Store.",
   "Make something uniquely mine that others want to play.",
@@ -53,28 +53,48 @@
    "folder": "vye_duel",
    "url": "vye_duel/",
    "first": "2026-11-14",
-   "last": "2026-11-18",
-   "commits": 46,
+   "last": "2026-11-26",
+   "commits": 47,
    "stage": 5,
    "tag": "Two-player micro version of Vye",
-   "status": "Plays against AI, hotseat or pass-and-play, with a balance simulator and print-and-play PDFs in three tile sizes.",
-   "left": "Pass and play for two humans: hands face down, tap to look.",
+   "status": "Plays against AI, hotseat or pass-and-play, with a balance simulator and print-and-play PDFs. Now a hand of 3, with new card ideas (Rally, a reworked Usurp, Earthquake variants) to switch on in Setup.",
+   "left": "Hand of 3 by default. Usurp can now just take a Land (Setup → How Usurp works). New Rally card and two new Earthquake swaps, all off by default for testing.",
    "love": "A tight, less swingy Vye in 30 tiles or fewer. Tiles flip to show who owns them, so there are no tokens.",
    "dream": null,
    "dreamHint": "Printed and on a table. You've talked about Scrabble-size tiles.",
    "star": false,
    "hidden": false,
    "todos": [
+    "Play a game with Usurp on Take and a Rally in the bag (Setup → Specials)",
     "Play one pass-and-play game with another person",
     "Print the one-page small-tile sheet and cut it out",
     "Usurp has no card art yet (art/specials/usurp.jpg)",
     "Birchwood is still using the desert fox art"
    ],
    "ideas": [],
-   "done": [],
+   "done": [
+    {
+     "t": "Start with a hand of 3, not 2",
+     "on": "2026-11-26"
+    },
+    {
+     "t": "Usurp redo: take a Land and make it yours, no matching (option)",
+     "on": "2026-11-26"
+    },
+    {
+     "t": "New card to try: Rally, covers a Land and matches its colour again",
+     "on": "2026-11-26"
+    },
+    {
+     "t": "Earthquake variants: a tile two away with any Land, or two neighboring Lands",
+     "on": "2026-11-26"
+    }
+   ],
    "basics": {},
    "docs": "vye_duel/README.md",
-   "notes": "https://docs.google.com/document/d/1CX58cJRkARROLAbLDqQBt7Zi_SANeXGhOoIl9psPkPU/edit"
+   "notes": "https://docs.google.com/document/d/1CX58cJRkARROLAbLDqQBt7Zi_SANeXGhOoIl9psPkPU/edit",
+   "docOpen": 1,
+   "docSeen": "2026-11-26"
   },
   {
    "id": "buzzers",

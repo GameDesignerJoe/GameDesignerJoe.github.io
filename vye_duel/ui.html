@@ -162,6 +162,7 @@ img.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: c
 .bonus { white-space: nowrap; font-size: 12px; font-weight: 700; vertical-align: super; margin-left: 3px; padding: 0 4px; border-radius: 4px; background: var(--red); color: #fff; cursor: help; letter-spacing: 0; }
 .flyer { position: fixed; z-index: 40; pointer-events: none; border-radius: 9px; }
 .flyer .tile { box-shadow: 0 14px 30px rgba(0,0,0,.35); }
+.rally-flag { position: absolute; left: 3px; top: 2px; z-index: 2; font-size: calc(var(--cell) * .22); line-height: 1; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.8); pointer-events: none; }
 .cell .tile.under { z-index: 0; }
 .cell.incoming > .tile:not(.under) { visibility: hidden; }
 .tile.icon { background: none; border: 0; padding: 0; }
@@ -416,6 +417,7 @@ function mergeCfg0(saved) {
   c.family = (saved.family && saved.family.length === 2) ? saved.family : d.family;
   for (const s of Object.keys(c.specials)) if (!E.SPECIALS[s]) delete c.specials[s];
   if (!('secondBonus' in saved)) { c.secondBonus = 1; c.tiebreak = 'second'; } // builds saved before "must win by 2" became the rule
+  if (!('usurpMode' in saved) && saved.handSize === 2) c.handSize = 3; // builds saved before the hand of 3 became the default
   return c;
 }
 let cfg = mergeCfg(store.get('vyeMicro.cfg', null));
@@ -478,7 +480,7 @@ function renderSetup() {
       h('span', { class: 'sub', style: 'margin:0' }, cur ? `You\u2019re on: ${cur === 'Default micro' ? 'the default build' : cur}` : 'You\u2019re on: a custom build (you changed settings by hand)')),
     h('p', { class: 'sub' }, 'A preset changes several settings at once. Your current game isn\u2019t affected until you start a new one.'),
     h('div', { class: 'preset-grid' },
-      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, a King and a Knave each, a hand of 2, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the second player wins ties.',
+      presetCard('Reset to default', 'Puts every setting back to the standard Vye Duel build: 7 Lands \u00d7 3, a King and a Knave each, a hand of 3, Usurp, Sinkhole and Lost City, unlimited stacking, Family can capture the Crossroads, and the second player wins ties.',
         cur === 'Default micro', () => set(() => { cfg = E.defaultConfig(); mirror = true; }), cur === 'Default micro'),
       Object.keys(PRESETS).filter(n => n !== 'Default micro').map(name => presetCard(name, PRESET_INFO[name], cur === name,
         () => set(() => { cfg = normFam(PRESETS[name]()); mirror = JSON.stringify(cfg.family[0]) === JSON.stringify(cfg.family[1]); })))));
@@ -496,7 +498,13 @@ function renderSetup() {
         stepper(cfg.specials[s] | 0, 0, 3, n => set(() => cfg.specials[s] = n), 'st-sp-' + s));
     }),
     row('Lost City points', 'What one Lost City is worth inside your kingdom at the end of the game. A normal tile is worth 1.', stepper(cfg.lostCityValue ?? 2, 1, 6, n => set(() => cfg.lostCityValue = n), 'st-lcv')),
-    row('Usurp triggers matching', 'On: the Land you swap in matches its neighbors like a normal Land play. Off: Usurp only takes over that one space.', h('input', { type: 'checkbox', id: 'usurpmatch', checked: cfg.usurpMatch !== false, onchange: e => set(() => cfg.usurpMatch = e.target.checked) })));
+    row('How Usurp works', 'Swap: trade a Land from your hand for one on the board. Take: flip any of your opponent\u2019s Lands to your side, with no matching and no second card.',
+      seg([['swap', 'Swap'], ['take', 'Take']], cfg.usurpMode || 'swap', x => set(() => cfg.usurpMode = x))),
+    (cfg.usurpMode || 'swap') === 'swap' ? row('Usurp triggers matching', 'On: the Land you swap in matches its neighbors like a normal Land play. Off: Usurp only takes over that one space.', h('input', { type: 'checkbox', id: 'usurpmatch', checked: cfg.usurpMatch !== false, onchange: e => set(() => cfg.usurpMatch = e.target.checked) })) : null,
+    row('Rally reach', 'Own colour: the covered Land matches again. Every colour: Rally also takes each adjacent Land and matches its colour too.',
+      seg([['own', 'Own colour'], ['all', 'Every colour']], cfg.rallyReach || 'own', x => set(() => cfg.rallyReach = x))),
+    row('Earthquake swaps', 'Any two: any two tiles. Two away: a tile two spaces from the Earthquake (past a neighbor, like the Knave) with any Land. Neighbors: two Lands next to each other.',
+      seg([['any', 'Any two'], ['far', 'Two away'], ['adjacent', 'Neighbors']], cfg.quakeMode || 'any', x => set(() => cfg.quakeMode = x))));
 
   const famCol = (p) => h('div', null,
     h('h3', null, h('span', { class: 'dot p' + p }), E.HOUSES[p].short + (p === 0 ? ' (Blue, first)' : ' (Red)')),
@@ -557,7 +565,7 @@ function renderSetup() {
 }
 
 // ---------- tiles ----------
-const SPEC_GLYPH = { lostcity: '♜', sinkhole: '◎', sanctuary: '✧', usurp: '⇅', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
+const SPEC_GLYPH = { lostcity: '♜', sinkhole: '◎', sanctuary: '✧', usurp: '⇅', rally: '⚑', underminers: '⇥', earthquake: '≋', waystone: '⊕' };
 function patEl(member) {
   if (member === 'knave') // 5×5: jumps past a neighbour to the tile two spaces away
     return h('span', { class: 'pat pat5' }, [...Array(25)].map((_, i) => h('i', { class: i === 12 ? 'me' : [2, 10, 14, 22].includes(i) ? 'opt' : [7, 11, 13, 17].includes(i) ? 'skip' : '' })));
@@ -601,13 +609,17 @@ function iconTile(t, owner) {
   let svg;
   if (t.kind === 'land') svg = VyeTiles.land(VyeTiles.LANDS[t.land], o);
   else if (t.kind === 'family') svg = VyeTiles.family(t.member, t.house === 0 ? 'b' : 'r', o);
+  else if (t.kind === 'special' && t.special === 'rally' && t.land != null) svg = VyeTiles.land(VyeTiles.LANDS[t.land], o);
   else if (t.kind === 'special') svg = VyeTiles.special(t.special, o);
   else svg = VyeTiles.crossroads(o);
-  const el = h('div', { class: 'tile icon', title: E.cardTitle(t) }); el.innerHTML = svg; return el;
+  const el = h('div', { class: 'tile icon', title: E.cardTitle(t) }); el.innerHTML = svg;
+  if (t.special === 'rally' && t.land != null) el.append(h('span', { class: 'rally-flag' }, SPEC_GLYPH.rally));
+  return el;
 }
 function artSrc(t) {
   if (t.kind === 'land') return `art/lands/${E.LANDS[t.land].art}.jpg`;
   if (t.kind === 'family') return `art/family/${E.HOUSES[t.house].art}-${t.member}.jpg`;
+  if (t.special === 'rally' && t.land != null) return `art/lands/${E.LANDS[t.land].art}.jpg`;
   if (t.kind === 'special' && ART_SPECIALS.has(t.special)) return `art/specials/${t.special}.jpg`;
   return null;
 }
@@ -632,12 +644,16 @@ function tileEl(t, owner) {
     el = h('div', { class: 'tile land', style: '--lc:' + L.color }, h('span', { class: 'g' }, L.glyph), h('span', { class: 'n' }, L.name));
   } else if (t.kind === 'family') {
     el = h('div', { class: 'tile fam' }, patEl(t.member), h('span', { class: 'n' }, E.MEMBERS[t.member].name), h('span', { class: 'n', style: 'opacity:.6;margin-top:0' }, E.HOUSES[t.house].short));
+  } else if (t.special === 'rally' && t.land != null) { // a Rally on the board is that Land, flying a flag
+    const L = E.LANDS[t.land];
+    el = h('div', { class: 'tile land', style: '--lc:' + L.color }, h('span', { class: 'g' }, L.glyph), h('span', { class: 'n' }, 'Rally · ' + L.name));
   } else if (t.kind === 'special') {
     const S = E.SPECIALS[t.special];
     el = h('div', { class: 'tile spec ' + t.special }, h('span', { class: 'g' }, SPEC_GLYPH[t.special]), h('span', { class: 'n' }, S.name));
   } else el = h('div', { class: 'tile start' }, h('span', { class: 'g' }, '✣'), h('span', { class: 'n' }, 'Crossroads'));
   addArt(el, t);
-  el.title = E.cardTitle(t);
+  if (t.special === 'rally' && t.land != null) el.append(h('span', { class: 'rally-flag' }, SPEC_GLYPH.rally));
+  el.title = E.cardTitle(t) + (t.special === 'rally' && t.land != null ? ' (' + E.LANDS[t.land].name + ')' : '');
   const o = owner === undefined ? t.owner : owner;
   if (o === 0 || o === 1 || o === 'both') {
     const c = o === 'both' ? 'both' : 'p' + o;
@@ -652,6 +668,10 @@ function cardDesc(c) {
 }
 function specialRule(s) {
   if (s === 'lostcity') return `Cover a Land you own. Worth ${cfg.lostCityValue ?? 2} points in your kingdom.`;
+  if (s === 'usurp' && cfg.usurpMode === 'take') return 'Flip one of your opponent\u2019s Lands to your side. No matching. Usurp leaves the game.';
+  if (s === 'rally') return cfg.rallyReach === 'all' ? 'Cover any Land. It becomes yours and keeps its colour. Then it takes every adjacent Land and matches each colour.' : 'Cover any Land. It becomes yours, keeps its colour, and matches again.';
+  if (s === 'earthquake' && cfg.quakeMode === 'far') return 'Place it, then swap a tile two spaces away (past a neighbor, like the Knave) with any Land. Nothing triggers.';
+  if (s === 'earthquake' && cfg.quakeMode === 'adjacent') return 'Place it, then swap two Lands that sit next to each other. Nothing triggers.';
   if (s === 'usurp') return cfg.usurpMatch === false ? 'Swap a Land on the board for a Land from your hand. It takes that space only, with no matching. Old Land goes under the bag.' : 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the bag.';
   return E.SPECIALS[s].rule;
 }
@@ -802,7 +822,7 @@ function promptEl() {
   const pm = movesFor().filter(m => m.pos === ui.pos);
   if (ui.phase === 'usurp') return h('div', { class: 'prompt' }, h('span', null, 'Usurp: tap the Land from your hand to put in its place.'));
   if (ui.phase === 'cell') return h('div', { class: 'prompt' }, 'Choose the tile to flip.');
-  if (ui.phase === 'eqA') return h('div', { class: 'prompt' }, 'Earthquake: pick the first tile to swap.', h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === null)) }, 'No swap'));
+  if (ui.phase === 'eqA') return h('div', { class: 'prompt' }, G.cfg.quakeMode === 'far' ? 'Earthquake: pick a tile two spaces away.' : G.cfg.quakeMode === 'adjacent' ? 'Earthquake: pick the first Land to swap.' : 'Earthquake: pick the first tile to swap.', h('button', { class: 'btn', onclick: () => humanPlay(pm.find(m => m.choice === null)) }, 'No swap'));
   if (ui.phase === 'eqB') return h('div', { class: 'prompt' }, 'Pick the second tile.');
   return h('div', { class: 'prompt' });   // the card's rules (shown with it) are enough here
 }
@@ -942,11 +962,12 @@ function moveSounds(lm) {
   const st = G.board.get(lm.pos) || [];
   const covering = !removed && st.length > 1 && card.kind === 'special' && card.special !== 'usurp';
   const eq = card.special === 'earthquake' && lm.choice;
-  const showcase = animOn && card.kind === 'special' && (covering || !!removed || !!eq);
+  const takeOver = card.special === 'usurp' && !removed;
+  const showcase = animOn && card.kind === 'special' && (covering || !!removed || !!eq || takeOver);
   const total = showcase ? D + 1300 + D : D;
   const at = (ms, fn) => ms <= 0 ? fn() : setTimeout(fn, ms);
   if (animOn) sfx('swish');
-  if (showcase) at(D, () => sfx(removed ? 'usurp' : 'cover'));
+  if (showcase) at(D, () => sfx(removed || takeOver ? 'usurp' : 'cover'));
   at(total, () => {
     sfx('land');
     if (card.special === 'lostcity') sfx('lostcity');
@@ -987,10 +1008,12 @@ function runAnim(lm, from) {
   for (const k of flips) { const c = cellEl(k), t = E.top(G.board, k); if (c && t) { const old = c.querySelector('.tile'); old.replaceWith(tileEl(t, lm.from ? lm.from[k] : null)); } }
   // Earthquake swaps: show the two tiles in their old places until the card lands
   const eq = card.special === 'earthquake' && lm.choice ? lm.choice : null;
-  cell.classList.add('incoming');
+  // Usurp in take mode: the Usurp card flies over the Land and fades; the Land underneath then flips
+  const takeOver = card.special === 'usurp' && !removed;
+  if (!takeOver) cell.classList.add('incoming');
   const to = cell.getBoundingClientRect();
   const fly = h('div', { class: 'flyer', style: `left:${to.left}px;top:${to.top}px;width:${to.width}px;height:${to.height}px` });
-  const ghost = (topTile || tileEl(E.top(G.board, lm.pos))).cloneNode(true); ghost.style.visibility = 'visible'; fly.append(ghost);
+  const ghost = takeOver ? tileEl({ kind: 'special', special: 'usurp', owner: lm.p }) : (topTile || tileEl(E.top(G.board, lm.pos))).cloneNode(true); ghost.style.visibility = 'visible'; fly.append(ghost);
   document.body.append(fly);
   const src = from || { left: to.left, top: to.top - 120, width: to.width, height: to.height };
   const dx = (src.left + src.width / 2) - (to.left + to.width / 2), dy = (src.top + src.height / 2) - (to.top + to.height / 2);
@@ -998,7 +1021,7 @@ function runAnim(lm, from) {
   const covering = !!underTile;
   // Covers, Usurp swaps and Earthquakes get a showcase: the card(s) hover big above the board long enough to see
   // what's going on, then drop in. Everything else just flies in.
-  const showcase = card.kind === 'special' && (covering || !!removed || !!eq);
+  const showcase = card.kind === 'special' && (covering || !!removed || !!eq || takeOver);
   const HOLD = showcase ? 1300 : 0, LIFT = Math.max(54, to.height * 1.05), BIG = 1.7;
   const ox = removed ? -to.width * 0.95 : 0;           // Usurp: new Land on the left, the one it replaces on the right
   const total = showcase ? D + HOLD + D : D;
@@ -1007,9 +1030,10 @@ function runAnim(lm, from) {
       { transform: `translate(${dx}px, ${dy}px) scale(${sc})`, opacity: .9, offset: 0 },
       { transform: `translate(${ox}px, ${-LIFT}px) scale(${BIG}) rotate(-2deg)`, opacity: 1, offset: D / total },
       { transform: `translate(${ox}px, ${-LIFT - 8}px) scale(${BIG}) rotate(2deg)`, opacity: 1, offset: (D + HOLD) / total },
-      { transform: 'translate(0, 0) scale(1)', opacity: 1, offset: 1 }], { duration: total, easing: 'cubic-bezier(.3,.7,.3,1)' });
+      { transform: takeOver ? 'translate(0, -10px) scale(1.1)' : 'translate(0, 0) scale(1)', opacity: takeOver ? 0 : 1, offset: 1 }], { duration: total, easing: 'cubic-bezier(.3,.7,.3,1)' });
     // the tile being covered glows while the card hangs over it
-    if (covering && under) under.animate([{ boxShadow: '0 0 0 0 rgba(214,166,66,0)' }, { boxShadow: '0 0 0 4px rgba(214,166,66,.95), 0 0 18px 4px rgba(214,166,66,.6)' }, { boxShadow: '0 0 0 0 rgba(214,166,66,0)' }],
+    const glowEl = covering ? under : takeOver ? cell.querySelector('.tile') : null;
+    if (glowEl) glowEl.animate([{ boxShadow: '0 0 0 0 rgba(214,166,66,0)' }, { boxShadow: '0 0 0 4px rgba(214,166,66,.95), 0 0 18px 4px rgba(214,166,66,.6)' }, { boxShadow: '0 0 0 0 rgba(214,166,66,0)' }],
       { duration: D + HOLD, delay: D * .5, easing: 'ease-in-out' });
     // Usurp: the old Land rises out of its space, hangs beside the new one, then goes back in the bag
     if (removed && under) {
@@ -1076,6 +1100,8 @@ function aiNoteText(lm) {
   if (c.kind === 'family') return `${who} played their ${E.MEMBERS[c.member].name}${n ? flipped : ', but there was nothing to flip'}.`;
   if (c.special === 'lostcity') return `${who} built a Lost City on their ${name(below)}. That space now counts ${cfg.lostCityValue ?? 2} in their kingdom.`;
   if (c.special === 'sinkhole') return `${who} opened a Sinkhole on ${name(below)}. Nobody owns that space now, and it can\u2019t be captured.`;
+  if (c.special === 'usurp' && !lm.removed) return `${who} used Usurp and took ${name(E.top(G.board, lm.pos))}.`;
+  if (c.special === 'rally') return `${who} raised a Rally on ${name(below)}${flipped}.`;
   if (c.special === 'usurp') return `${who} used Usurp: ${name(lm.removed)} goes back in the bag and their ${name(E.top(G.board, lm.pos))} takes its place${flipped}.`;
   if (c.special === 'earthquake') return lm.choice ? `${who} set off an Earthquake and swapped two tiles${flipped}.` : `${who} set off an Earthquake but swapped nothing.`;
   return `${who} played ${E.SPECIALS[c.special].name}${below ? ` on ${name(below)}` : ''}${flipped}. ${specialRule(c.special)}`;

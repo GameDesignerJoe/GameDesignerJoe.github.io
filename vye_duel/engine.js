@@ -66,24 +66,29 @@
     waystone: { name: 'Waystone', mode: 'place', origin: 'Original',
       rule: 'Place it and take another turn. Flipping it also grants an extra turn.' },
     usurp: { name: 'Usurp', mode: 'replace', origin: 'New',
-      rule: 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the deck.' }
+      rule: 'Swap a Land on the board for a Land from your hand, then match. Old Land goes under the deck.' },
+    rally: { name: 'Rally', mode: 'cover', origin: 'New',
+      rule: 'Cover any Land. It becomes yours, keeps that Land\u2019s colour, and matches again.' }
   };
-  const SPECIAL_ORDER = ['lostcity', 'sinkhole', 'sanctuary', 'usurp', 'underminers', 'earthquake', 'waystone'];
+  const SPECIAL_ORDER = ['lostcity', 'sinkhole', 'sanctuary', 'usurp', 'rally', 'underminers', 'earthquake', 'waystone'];
 
   function defaultConfig() {
     return {
       landSets: 7,
       landCopies: 3,
-      specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, usurp: 1, underminers: 0, earthquake: 0, waystone: 0 },
+      specials: { lostcity: 1, sinkhole: 1, sanctuary: 0, usurp: 1, rally: 0, underminers: 0, earthquake: 0, waystone: 0 },
       family: [{ advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }, { advisor: 0, king: 1, queen: 0, heir: 0, knave: 1 }],
       gridW: 5, gridH: 5,
-      handSize: 2,
+      handSize: 3,
       start: 'neutral',      // neutral | none
       stacking: 'unlimited', // once | unlimited (unlimited: any tile can be covered, Sanctuary and Sinkhole included)
       crossroadsCover: false,   // can cover cards be played on the Crossroads?
       crossroadsCapture: true,  // can Family captures take the Crossroads?
       lostCityValue: 2,      // points a Lost City is worth in your kingdom
-      usurpMatch: true,      // does the Land put down by Usurp trigger matching?
+      usurpMode: 'swap',     // swap = trade a Land from your hand for one on the board | take = flip any opponent Land to you, no matching
+      usurpMatch: true,      // swap mode: does the Land put down by Usurp trigger matching?
+      quakeMode: 'any',      // Earthquake: any = swap any two tiles | far = a tile two spaces away with any other Land | adjacent = two Lands next to each other
+      rallyReach: 'own',     // Rally: own = rematch the covered Land's colour | all = also take every adjacent Land and match its colour
       secondApart: false,    // second player's first tile can't go on or next to a first-player tile
       colorCapture: true,
       end: { boardFull: true, deckEmpty: false, noValidPlay: true },
@@ -157,7 +162,8 @@
 
   // ---------- board helpers ----------
   const top = (board, k) => { const s = board.get(k); return s ? s[s.length - 1] : null; };
-  const landOf = t => !t ? -1 : t.kind === 'land' ? t.land : -1;
+  // A Rally keeps the colour of the Land it covers, so it matches and chains like that Land.
+  const landOf = t => !t ? -1 : t.kind === 'land' ? t.land : t.special === 'rally' && t.land != null ? t.land : -1;
   const ownedBy = (t, p) => t && (t.owner === p || t.owner === 'both');
   function canFlip(t) {
     if (!t || (t.owner !== 0 && t.owner !== 1)) return false;
@@ -273,7 +279,14 @@
       case 'sanctuary':
         for (const k of occupied) if (coverable(state, k)) add(k);
         break;
+      case 'rally':
+        for (const k of occupied) if (coverable(state, k) && landOf(top(board, k)) >= 0) add(k);
+        break;
       case 'usurp': {
+        if (state.cfg.usurpMode === 'take') {
+          for (const k of occupied) { const t = top(board, k); if (landOf(t) >= 0 && canTake(t, p, false, state.cfg)) add(k); }
+          break;
+        }
         const hand = state.players[p].hand.filter(c => c.kind === 'land' && c.id !== card.id);
         const byType = new Map(); hand.forEach(c => { if (!byType.has(c.land)) byType.set(c.land, c); });
         if (!byType.size) break;
@@ -292,6 +305,27 @@
       case 'earthquake': {
         let cells = placeCells(state);
         if (opts && opts.prune && cells.length > 3) cells = shuffle(cells.slice(), state.rng || Math.random).slice(0, 3);
+        const qm = state.cfg.quakeMode || 'any';
+        const swappable = c => { const t = top(board, c); return t && t.special !== 'sanctuary'; };
+        const isLand = c => landOf(top(board, c)) >= 0;
+        const pair = (k, a, b) => {
+          if (opts && opts.prune) { const oa = top(board, a).owner, ob = top(board, b).owner; if (oa === ob) return; }
+          add(k, [a, b]);
+        };
+        if (qm === 'far' || qm === 'adjacent') {
+          const lands = occupied.filter(isLand);
+          for (const k of cells) {
+            add(k, null);
+            if (qm === 'adjacent') {
+              for (const a of lands) for (const d of [ORTHO_D[0], ORTHO_D[2]]) if (isLand(a + d)) pair(k, a, a + d);
+            } else {
+              // like the Knave: past an occupied neighbour to the tile two spaces away, then swap it with any other Land
+              const far = ORTHO_D.filter(d => board.has(k + d) && board.has(k + 2 * d) && swappable(k + 2 * d)).map(d => k + 2 * d);
+              for (const a of far) for (const b of lands) if (b !== a && !(isLand(a) && far.includes(b) && b < a)) pair(k, a, b);
+            }
+          }
+          break;
+        }
         for (const k of cells) {
           add(k, null);
           const all = occupied.concat([k]).filter(c => c === k || top(board, c).special !== 'sanctuary');
@@ -364,7 +398,18 @@
       case 'lostcity': pushTile(board, k, base); break;
       case 'sinkhole': base.owner = null; pushTile(board, k, base); break;
       case 'sanctuary': base.owner = 'both'; pushTile(board, k, base); break;
+      case 'rally': {
+        const L = landOf(top(board, k));
+        pushTile(board, k, Object.assign(base, { land: L }));
+        landMatch(k, L);
+        if (cfg.rallyReach === 'all') for (const d of ORTHO_D) {
+          const n = k + d, L2 = landOf(top(board, n));
+          if (L2 >= 0 && L2 !== L) { flip(n); landMatch(n, L2); }
+        }
+        break;
+      }
       case 'usurp': {
+        if (cfg.usurpMode === 'take') { flip(k); break; }
         res.removed = board.get(k)[0]; board.delete(k);
         pushTile(board, k, { id: choice.cardId, kind: 'land', land: choice.land, owner: p });
         if (cfg.usurpMatch !== false) landMatch(k, choice.land); break;
@@ -388,7 +433,7 @@
     // remove card(s) from hand
     const rm = id => { let i = pl.hand.findIndex(c => c.id === id); if (i >= 0) return pl.hand.splice(i, 1)[0]; i = pl.side.findIndex(c => c.id === id); return i >= 0 ? pl.side.splice(i, 1)[0] : null; };
     rm(card.id);
-    if (card.special === 'usurp') { rm(move.choice.cardId); state.discard.push(card); }
+    if (card.special === 'usurp') { if (move.choice) rm(move.choice.cardId); state.discard.push(card); }
     if (res.removed) state.deck.unshift({ id: res.removed.id, kind: 'land', land: res.removed.land });
     const swing = (after.largest[p] - after.largest[o]) - (before.largest[p] - before.largest[o]);
     const play = { p, turn: state.turnNo, label: cardLabel(card), title: cardTitle(card), swing,
@@ -465,7 +510,7 @@
   }
 
   // Rough extra value of a card over a plain Land, from simulation averages.
-  const HOLD = { advisor: 4, king: 2, queen: 2.5, heir: 2, knave: 2.5, usurp: 2, sinkhole: 1.5, underminers: 2, earthquake: 2, sanctuary: 1, waystone: 0.5, lostcity: 0.3 };
+  const HOLD = { advisor: 4, king: 2, queen: 2.5, heir: 2, knave: 2.5, usurp: 2, rally: 2, sinkhole: 1.5, underminers: 2, earthquake: 2, sanctuary: 1, waystone: 0.5, lostcity: 0.3 };
   function holdValue(card) { return card.kind === 'family' ? HOLD[card.member] || 2 : card.kind === 'special' ? HOLD[card.special] || 1 : 0; }
 
   function chooseMove(state, personaKey) {
@@ -485,7 +530,7 @@
       // Spending a capture card costs what it could have done later; late in the game that cost fades so cards get used.
       v -= (per.hold || 0) * holdValue(card) * Math.min(1, progress * 1.3);
       if (per.keep && card.kind === 'family') v -= per.keep * progress;
-      if (card.special === 'usurp') v -= 0.3; // costs two cards
+      if (card.special === 'usurp' && m.choice) v -= 0.3; // the swap costs two cards
       v += per.noise * (rng() - 0.5);
       return { m, v, b };
     });
