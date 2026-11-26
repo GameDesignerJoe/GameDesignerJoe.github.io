@@ -281,7 +281,7 @@ function renderList(){
     var g=gapText(p);
     return '<div class="card"><button class="main" data-act="open" data-id="'+p.id+'">'+tile(p)+
      '<span class="txt"><b>'+esc(p.name)+'</b><span class="tag">'+esc(p.tag)+'</span>'+
-     '<span class="meta"><span class="st">'+esc(stageName(p.stage))+'</span><span>'+ago(days(p))+'</span>'+(g?'<span>'+esc(g)+'</span>':(!dream(p)?'<span>No dream yet</span>':''))+'</span></span></button>'+
+     '<span class="meta"><span class="st">'+esc(stageName(p.stage))+'</span><span>'+ago(days(p))+'</span>'+""+'</span></span></button>'+
      '<button class="starbtn'+(isStar(p.id)?" on":"")+'" data-act="star" data-id="'+p.id+'" aria-label="'+(isStar(p.id)?"Remove star from ":"Star ")+esc(p.name)+'" aria-pressed="'+isStar(p.id)+'">'+I.star+'</button></div>';
   }).join("");
   var more=document.getElementById("more"); more.hidden=UI.showAll||vis.length<=10; more.textContent="Show all "+vis.length;
@@ -327,18 +327,26 @@ function paintDoc(p){
   var d=DOCS[docId(p.notes)]||{};
   if(d.state==="ok"){
     el.innerHTML = d.items.length
-      ? '<p><b>'+d.items.length+'</b> open '+(d.items.length===1?"note":"notes")+' in the doc right now.</p><details class="how"><summary>Read them</summary><ul>'+d.items.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join("")+'</ul></details>'
-      : '<p>No open notes in the doc right now.</p>';
+      ? '<details class="how"><summary>'+d.items.length+' open in your doc</summary><ul>'+d.items.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join("")+'</ul></details>'
+      : '<p class="hint">Nothing open in your doc.</p>';
   } else if(d.state==="blocked"){
-    el.innerHTML='<p class="hint">'+(p.docOpen!=null?esc(String(p.docOpen))+" open notes when Claude Code last read it"+(p.docSeen?" ("+esc(p.docSeen)+")":"")+". ":"")+'This page couldn\'t read the doc live from here.</p>';
+    el.innerHTML='<p class="hint">'+(p.docOpen!=null?esc(String(p.docOpen))+" open "+(p.docOpen===1?"note":"notes")+" when Claude Code last read it"+(p.docSeen?" ("+esc(p.docSeen)+")":"")+". ":"")+'This page couldn\'t read the doc live from here.</p>';
   } else el.innerHTML='<p class="hint">Checking the doc…</p>';
 }
 function docPrompt(p){ return "Trailhead doc pass for "+p.name+" ("+p.folder+"/). There are new notes in its Google Doc: "+p.notes+"\n\nFollow \"Working a project's doc\" in trailhead/README.md."; }
 function docBlock(p){
   if(!p.notes) return "";
-  return '<div class="block"><span class="label">Notes doc</span><div id="docbody" data-id="'+p.id+'"></div>'+
-    '<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(docPrompt(p)))+'" target="_blank" rel="noopener" data-act="docpass" data-id="'+p.id+'">'+I.arrow+'Work the doc</a><a class="btn line" href="'+esc(p.notes)+'" target="_blank" rel="noopener">Open the doc</a></div>'+
-    '<span class="hint">Write notes in the doc while you play. Work the doc sends Claude Code to do everything above the first "Old Notes" heading.</span></div>';
+  return '<div class="block"><span class="label">Notes</span><div id="docbody" data-id="'+p.id+'"></div></div>';
+}
+function jumpPrompt(p, t){
+  return "Trailhead: I'm jumping back into "+p.name+" ("+p.folder+"/). Its entry in trailhead/projects.json has where it stands."+(p.left?"\n\nWhere I left off: "+p.left:"")+(t?"\n\nThe easy first thing: "+t:"")+"\n\nHelp me do that now. If it needs me to play, decide or record something, walk me through it. If it's something you can build, build it. Then tell me the next small step.";
+}
+function jumpBlock(p){
+  var first=openTodos(p)[0], n=days(p);
+  return '<div class="block jump"><span class="label">Jump back in</span>'+
+    (first?'<p class="jtask">'+esc(first.t)+'</p>':'')+
+    (p.left?'<p class="hint">Last time, '+ago(n)+': '+esc(p.left)+'</p>':'')+
+    '<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(jumpPrompt(p, first&&first.t)))+'" target="_blank" rel="noopener" data-act="jump" data-id="'+p.id+'">'+I.arrow+'Start with Claude</a>'+(first?'<button class="btn line" data-act="tick" data-k="'+first.k+'">Did it</button>':'')+'</div></div>';
 }
 function todoBlock(p){
   var all=items(p,"todos"), open=all.filter(function(o){ return !S.done[o.k]; }), ticked=all.filter(function(o){ return S.done[o.k]; });
@@ -353,8 +361,7 @@ function todoBlock(p){
   return '<div class="block"><span class="label">To-do</span>'+
    (now.length?'<span class="grp rn">Right now</span><ul class="list">'+now.map(function(o,i){ return row(o,i,true); }).join("")+'</ul>':'')+
    (later.length||ticked.length?'<span class="grp">Later</span><ul class="list">'+later.concat(ticked).map(function(o,i){ return row(o,i,false); }).join("")+'</ul>':'')+
-   '<form class="add" data-form="add" data-id="'+p.id+'" data-kind="todos"><input id="add-todos" placeholder="Add a to-do" autocomplete="off" aria-label="Add a to-do"><button aria-label="Add">+</button></form>'+
-   '<span class="hint">The top three are the small things to do right now, and they feed the one-thing pane. The up arrow moves a task there. The slanted arrow hands it to Claude Code to build.</span></div>';
+   '<form class="add" data-form="add" data-id="'+p.id+'" data-kind="todos"><input id="add-todos" placeholder="Add a to-do" autocomplete="off" aria-label="Add a to-do"><button aria-label="Add">+</button></form></div>';
 }
 function renderSheet(){
   var sc=document.getElementById("scrim");
@@ -369,27 +376,30 @@ function renderSheet(){
   var hc=COLORS[p.id]||({game:"#8a2c26",tabletop:"#1c4f80",tool:"#6f5500"})[p.kind];
   var dq='<div class="block dreamq"><span class="label">The dream</span><textarea class="fit" id="dream" rows="1" data-id="'+p.id+'" placeholder="If '+esc(p.name)+' went as well as it possibly could, what exists?">'+esc(d)+'</textarea>'+(!d&&p.dreamHint?'<button class="hintfill" data-act="usehint" data-id="'+p.id+'">From your notes: '+esc(p.dreamHint)+' <u>Use this</u></button>':'')+'</div>';
   sc.hidden=false; document.body.style.overflow="hidden";
+  var shot=(typeof SHOTS!=="undefined"&&SHOTS[p.id])?SHOTS[p.id]:"";
   sc.innerHTML='<div class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(p.name)+'">'+
    '<div class="hero" style="--hc:'+hc+'">'+
    '<div class="shead">'+tile(p,"lg")+'<div class="t"><h2>'+esc(p.name)+'</h2><p>'+esc(p.tag)+'</p></div><button class="round" data-act="close" aria-label="Close">'+I.x+'</button></div>'+
+   '<div class="quote"><span aria-hidden="true">“</span><textarea class="fit" id="love" rows="1" data-id="'+p.id+'" aria-label="What you love about '+esc(p.name)+'" placeholder="What do you love about '+esc(p.name)+'?">'+esc(love)+'</textarea></div>'+
    '<div class="acts">'+
      (h?act("a","",I.open,p.kind==="tool"?"Open":"Play",'href="'+esc(h)+'" target="_blank" rel="noopener"'):'')+
      act("button","",I.chat,"Chat",'data-act="chat" data-id="'+p.id+'"')+
      (p.notes?act("a","",I.doc,"Notes",'href="'+esc(p.notes)+'" target="_blank" rel="noopener"'):'')+
+     (p.notes?act("a","",I.arrow,"Work",'href="'+esc(codeLink(docPrompt(p)))+'" target="_blank" rel="noopener" data-act="docpass" data-id="'+p.id+'"'):'')+
      act("button",isStar(p.id)?"on":"",I.star,isStar(p.id)?"Starred":"Star",'data-act="star" data-id="'+p.id+'" aria-pressed="'+isStar(p.id)+'"')+
      act("button","",I.hide,"Hide",'data-act="hide" data-id="'+p.id+'"')+
    '</div></div>'+
-   '<div class="block"><div class="mini">'+mini+'</div><div class="minicap"><span>Now: <b>'+esc(stageName(p.stage))+'</b></span><span>Stop '+p.stage+' of '+STAGES.length+'</span></div><p>'+esc(p.status)+'</p></div>'+
-   (p.left?'<div class="block"><span class="label">Where you left off · '+ago(n)+'</span><p>'+esc(p.left)+'</p></div>':'')+
-   '<div class="block"><span class="label">What you love about it</span><textarea class="fit" id="love" rows="1" data-id="'+p.id+'" placeholder="What pulled you into this one? Write it down so it can pull you back.">'+esc(love)+'</textarea>'+(p.love&&S.love[p.id]==null?'<span class="hint">Pulled from your own docs and notes. Fix it if it\'s off.</span>':'')+'</div>'+
-   dq+
+   jumpBlock(p)+
+   (shot?'<a class="shot" '+(h?'href="'+esc(h)+'" target="_blank" rel="noopener"':'')+'><img src="'+esc(shot.src)+'" alt="'+esc(p.name)+' as it looks now"><span>How it looks now'+(shot.on?" · "+esc(shot.on):"")+'</span></a>':'')+
    docBlock(p)+
    todoBlock(p)+
    listBlock(p,"ideas","Cool ideas","",false,"Add an idea")+
-   ((p.done||[]).length?'<details class="block donebox"><summary><span class="label">Done · '+p.done.length+'</span></summary><ul class="list">'+p.done.slice().reverse().map(function(x){ return '<li class="done"><span class="check">'+I.check+'</span><span class="tx" style="text-decoration:none">'+esc(x.t)+(x.on?' <span class="hint">'+esc(x.on)+'</span>':'')+'</span></li>'; }).join("")+'</ul></details>':'')+
-   (bs.length?'<div class="block"><span class="label">The basics · '+basicsCount(p)+'</span><span class="hint">'+(missing.length?"Still to add: "+missing.map(function(x){ return x.name.toLowerCase(); }).join(", ")+".":"All in.")+" Tap one to correct it."+(ik&&ik!=="app icon"?" The picture shown for this project is its "+ik+", not a real app icon.":(!ik?" No icon found, so it shows an emoji.":""))+'</span><div class="bgrid">'+
-     bs.map(function(x){ return '<button class="bitem'+(x.ok?" ok":"")+'" data-act="basic" data-id="'+p.id+'" data-k="'+x.k+'" title="'+esc(x.desc)+'" aria-pressed="'+x.ok+'"><i>'+I.check+'</i>'+esc(x.name)+'</button>'; }).join("")+'</div></div>':'')+
-   '<p class="src">'+p.commits+" commits · started "+p.first+" · last commit "+lastOf(p)+" · "+esc(p.folder)+"/<br>Read from: "+esc(p.docs)+'</p>'+
+   '<details class="block more"><summary><span class="label">More · '+esc(stageName(p.stage))+', stop '+p.stage+' of '+STAGES.length+'</span></summary>'+
+     '<p>'+esc(p.status)+'</p>'+
+     ((p.done||[]).length?'<span class="grp">Done · '+p.done.length+'</span><ul class="list">'+p.done.slice().reverse().map(function(x){ return '<li class="done"><span class="check">'+I.check+'</span><span class="tx" style="text-decoration:none">'+esc(x.t)+(x.on?' <span class="hint">'+esc(x.on)+'</span>':'')+'</span></li>'; }).join("")+'</ul>':'')+
+     (bs.length?'<span class="grp">The basics · '+basicsCount(p)+'</span><div class="bgrid">'+bs.map(function(x){ return '<button class="bitem'+(x.ok?" ok":"")+'" data-act="basic" data-id="'+p.id+'" data-k="'+x.k+'" title="'+esc(x.desc)+'" aria-pressed="'+x.ok+'"><i>'+I.check+'</i>'+esc(x.name)+'</button>'; }).join("")+'</div>':'')+
+     '<p class="src">'+p.commits+" commits · started "+p.first+" · last commit "+lastOf(p)+" · "+esc(p.folder)+'/</p>'+
+   '</details>'+
   '</div>';
   fitAll(); if(p.notes) loadDoc(p);
 }
@@ -508,6 +518,7 @@ document.addEventListener("click", function(e){
   else if(a==="nownext"){ UI.nowIdx++; UI.justDone=0; renderNow(); }
   else if(a==="top"){ var cur=items(p,"todos").map(function(o){ return o.t; }).filter(function(x){ return x!==t.dataset.t; }); S.order[id]=[t.dataset.t].concat(cur); save(); var tp2=document.querySelector(".sheet").scrollTop; renderAll(); document.querySelector(".sheet").scrollTop=tp2; }
   else if(a==="usehint"){ S.dream[id]=p.dreamHint; save(); renderAll(); }
+  else if(a==="jump"){ copy(jumpPrompt(p, (openTodos(p)[0]||{}).t), "Opening Claude Code. The request is copied too."); }
   else if(a==="docpass"){ copy(docPrompt(p), "Opening Claude Code. The request is copied too."); }
   else if(a==="doit"){ copy(taskPrompt(p, t.dataset.t), "Opening Claude Code. The task is copied too."); }
   else if(a==="sync"){ copy(syncPrompt(), "Opening Claude Code. The changes are copied too."); }

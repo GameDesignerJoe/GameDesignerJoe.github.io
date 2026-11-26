@@ -19,7 +19,8 @@ the next one, so every entry is written to make returning easy.
   current is part of finishing a task, not a separate chore.
 
 Files: `index.html` (shell), `app.js`, `app.css`, `config.js` (the path's stops, the
-basics list), `icons.js` (generated thumbnails and the basics audit), `projects.json`.
+basics list), `icons.js` (generated thumbnails and the basics audit), `shots.js` and
+`shots/` (current screenshots, from `tools/shoot.py`), `projects.json`.
 No build step.
 
 ## projects.json
@@ -37,9 +38,10 @@ Each project:
 | `stage` | 1 Spark, 2 Playable, 3 Finding the fun, 4 Shareable, 5 Polished, 6 On itch.io, 7 Money plan, 8 Google Play, 9 Apple App Store. Tools stop at 5, tabletop at 6. What each stop takes is in `config.js`. |
 | `tag` | One line saying what it is. |
 | `status` | Where it stands now, two sentences at most. |
-| `left` | Where Joe left off: the last thing that changed. |
-| `love` | What Joe loves about it, in his words. Only change it when he says so. |
-| `dream` | Joe's dream for it, as plain text, or `null`. Only Joe sets this. `dreamHint` is a suggestion shown before he has answered. |
+| `left` | Where Joe left off: the last thing that changed. Shown under "Jump back in", next to the first to-do, so write it as one plain sentence. |
+| `love` | What Joe loves about it, in his words. Shown as the quote at the top of the project's page. Only change it when he says so. |
+| `dream`, `dreamHint` | No longer shown on the page. Leave them as they are. |
+| `shot` | Set to `"landscape"` for a game that is played sideways, so its screenshot is taken that way. |
 | `star`, `hidden` | At most two projects are starred. |
 | `todos` | One ordered list. The first three are "right now": small things, fifteen minutes or less, that Joe can do himself. They feed the "one thing right now" pane, so keep three good ones at the top. Everything after is later work, in plain words. |
 | `ideas` | Cool ideas, not commitments. |
@@ -61,7 +63,9 @@ Each project:
    - refresh `status` if it's now out of date, and `stage` if it earned a move
    - set `last` to today, add to `commits`, set the top-level `updated`
    - if the work added one of the basics, record it in `basics`
-   - make sure the top three `todos` are still small, obvious next things
+   - make sure the top three `todos` are still small, obvious next things. The first
+     one is what "Jump back in" shows, so it should be the easiest way back in
+   - retake the screenshot if the app looks different (see Screenshots)
 5. If the task needs Joe (playing it, deciding, recording, an account or a payment),
    don't fake it. Say exactly what you need and leave the task where it is.
 
@@ -75,9 +79,9 @@ it stays the backlog. Don't copy its notes into `todos`.
 **The Maze is the exception: use the `maze-task` skill for it.** For every other
 project:
 
-1. **Read the doc.** If it is shared by link, fetch
-   `https://docs.google.com/document/d/<id>/export?format=txt`. Otherwise use the
-   Google Drive connector. If you can't read it, say so and stop.
+1. **Read the doc** with the Google Docs or Google Drive connector. (Fetching the
+   doc's `export?format=txt` link also works where the network allows it; cloud
+   sessions usually block it.) If you can't read it, say so and stop.
 2. **The live list is everything above the first `Old Notes` or `DONE?` heading.**
    Nothing below it. Those are notes he has already moved out of the way.
 3. If the doc opens with a rules block for Claude, it wins over anything here.
@@ -102,6 +106,17 @@ The prompt carries a JSON list of changes per project. `set` replaces those fiel
 (`basics` merges; a `todos` list there is the whole list in its new order), `add` appends to those lists, `complete` moves items into `done`
 with today's date, `remove` deletes them. Apply exactly those, set `updated`, commit
 and push. Don't tidy anything else in the same commit.
+
+## Screenshots
+
+Each project page shows one current screenshot, from `shots/<id>.webp`, listed in
+`shots.js`. After you change how an app looks, retake its shot in the same push:
+
+    python3 trailhead/tools/shoot.py <project id>
+
+With no ids it retakes every project that has a page in this repo. Look at the
+result before committing; if it caught a loading screen or a blank page, delete that
+shot and its line in `shots.js` instead of shipping it.
 
 ## Getting a game store-ready
 

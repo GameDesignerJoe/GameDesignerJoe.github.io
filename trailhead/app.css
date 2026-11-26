@@ -249,3 +249,22 @@ li.done .tx{color:var(--muted); text-decoration:line-through}
 #docbody p{font-size:15.5px}
 .acts .act span{white-space:nowrap}
 @media (max-width:380px){ .hero .act i{width:46px; height:46px} }
+
+.hero{gap:14px}
+.quote{display:flex; gap:6px; align-items:flex-start; font:500 16.5px/1.4 var(--display); font-style:italic}
+.quote > span{font-size:34px; line-height:.9; opacity:.6; font-style:normal}
+.quote textarea{color:#fff; font:inherit; line-height:1.4}
+.quote textarea::placeholder{color:rgba(255,255,255,.6)}
+.hero .acts{gap:2px}
+.hero .act i{width:46px; height:46px}
+.hero .act svg{width:20px; height:20px}
+.hero .act{font-size:12px}
+.jump{border-left:8px solid var(--red)}
+.jtask{font:600 21px/1.25 var(--display) !important; text-wrap:balance}
+.jump .btn svg{width:18px; height:18px}
+.shot{display:block; flex:none; position:relative; border-radius:var(--r-md); overflow:hidden; background:var(--sunk); text-decoration:none}
+.shot img{display:block; width:100%; height:auto; max-height:340px; object-fit:cover; object-position:top}
+.shot span{position:absolute; left:10px; bottom:10px; background:rgba(20,20,22,.72); color:#fff; font:600 12.5px var(--display); padding:5px 10px; border-radius:999px}
+.more summary{cursor:pointer; list-style:none; min-height:28px; display:flex; align-items:center}
+.more summary::-webkit-details-marker{display:none}
+.more[open] summary{margin-bottom:4px}
