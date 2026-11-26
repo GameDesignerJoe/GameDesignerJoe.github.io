@@ -78,7 +78,7 @@
    "commits": 15,
    "stage": 2,
    "tag": "Co-op card game about shipping a video game",
-   "status": "The card-only table build is at 0.7 and plays on your phone. The dice version is shelved in crunch/dice.",
+   "status": "Still in Preproduction: table build 0.7 plays start to finish, but the rules change every build and it isn't proven fun yet. Your last three games were cancelled; the simulator's careful team wins half.",
    "left": "Three table builds in one day (0.5 to 0.7): one free task plus free card moves, task perks, draw one more.",
    "love": "One group half-assing a task and someone coming in later to fix it. Everyone burned out near ship, just trying to get the game out the door. It's funny when things go sideways.",
    "star": true,
@@ -97,40 +97,60 @@
      "done": false
     },
     {
-     "t": "One more digital revision, then play a whole game and understand it",
+     "t": "Check that 0.7 fixed your last notes: taking a card from Behind Schedule into your hand, and half-assing your own Design work",
      "done": false
     },
     {
-     "t": "Move to a print-and-play version",
+     "t": "Get a game to ship instead of being cancelled when you play the way people naturally do (the obvious move wins 0% of simulated games)",
      "done": false
     },
     {
-     "t": "More event cards for variety",
+     "t": "Decide: do role powers need a cost? (e.g. Code can fix other people's tasks but takes a burnout point)",
      "done": false
     },
     {
-     "t": "Great review quotes for the shipped game at the end",
+     "t": "Decide: does the game start with some tasks already Behind Schedule?",
+     "done": false
+    },
+    {
+     "t": "Decide: are six event cards, three per game, enough variety, or do you write more?",
+     "done": false
+    },
+    {
+     "t": "Decide: is the real-time variant in or out?",
+     "done": false
+    },
+    {
+     "t": "Decide: is the flipped burnout-mode role card in or out?",
      "done": false
     },
     {
      "t": "The core loop is playable start to end",
+     "done": true
+    },
+    {
+     "t": "The core loop is fun: you'd play it again without being asked",
      "done": false
     },
     {
-     "t": "The core loop is fun: you'd play it again unprompted",
+     "t": "Print a rough paper deck and play it at a real table",
      "done": false
     },
     {
-     "t": "Lock the feature list: what's in",
+     "t": "Lock the feature list: write down the rules of the build you settle on",
      "done": false
     },
     {
-     "t": "Write the cut list: what's out, and stays out",
+     "t": "Write the cut list: what's out and stays out (the dice version, direction cards, passing cards)",
      "done": false
     },
     {
-     "t": "Choose the look and feel",
+     "t": "Choose the look and feel of the printed cards",
      "done": false
+    },
+    {
+     "t": "Review quotes for the shipped game at the end",
+     "done": true
     },
     {
      "t": "Set up its notes doc",
@@ -140,10 +160,11 @@
    ],
    "backlog": [
     "Real-time variant: one-minute timer, no turn order",
-    "Final score as a Metacritic score",
-    "A flipped burnout-mode role card with its own rules"
+    "A flipped burnout-mode role card with its own rules",
+    "For Production: a one-page rules sheet for the print-and-play"
    ],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-26"
   },
   {
    "id": "vye",
@@ -270,9 +291,9 @@
    "first": "2026-11-08",
    "last": "2026-11-10",
    "commits": 31,
-   "stage": 3,
+   "stage": 2,
    "tag": "Party trivia where everyone's phone is the buzzer",
-   "status": "Live and playable. Rooms, fair buzzing, sound and host settings are built. So far it has only had a solo phone-plus-PC test.",
+   "status": "Back in Preproduction: the core game is built, but solo play, a category vote and bigger avatars are open asks. At dinner clues hung on \"searching\" and the built-in categories were too few and dull, so the group never played.",
    "left": "Step 7a: the room server writes the clues, and the Groq key is a server secret.",
    "love": "Players type their own categories, the clues get written on the spot, and humans read them out loud. No host and no TV, just phones.",
    "star": false,
@@ -281,56 +302,65 @@
    "docs": "buzzers/buzzers.md",
    "checklist": [
     {
-     "t": "Text a few friends and pick a test night",
+     "t": "Fix: clue writing gives up after a set time and offers \"pick another\", so the lobby never sits on \"searching\"",
      "done": false
     },
     {
-     "t": "Open debug.html for a room on your PC, join from your phone, and watch the press log",
+     "t": "Play a full game with at least three other people, debug.html open",
      "done": false
     },
     {
-     "t": "Play a session with other people, debug log open",
+     "t": "Decide after that game: would that group play it again without being asked?",
      "done": false
     },
     {
-     "t": "Step 7b: shared clue library and reuse",
+     "t": "Decide: is solo play in or out? If in, roughly what is it?",
      "done": false
     },
     {
-     "t": "Step 8: free catalogue of about 30 checked topics",
+     "t": "Decide: is the thumbs up/down vote on categories in or out?",
      "done": false
     },
     {
-     "t": "Step 9: flag-this-question and a review page",
+     "t": "Decide: are bigger player avatars in or out?",
      "done": false
     },
     {
-     "t": "Music bed on one \"music phone\"",
+     "t": "Decide: is the music bed on one \"music phone\" in or out for the first release?",
      "done": false
     },
     {
-     "t": "Decide how many brand-new categories are free",
+     "t": "Decide: which of steps 7b, 9 and 10 have to be in before itch.io? (Step 8, a bigger and better free catalogue, is in: the built-in ones fell flat at dinner)",
      "done": false
     },
     {
-     "t": "Everything on the locked feature list is built",
+     "t": "Lock the feature list: add what's in to the build plan in buzzers.md",
      "done": false
     },
     {
-     "t": "All content is in: levels, cards, cases, whatever it's made of",
+     "t": "Write the cut list: what's out and stays out",
      "done": false
     },
     {
-     "t": "Playable from first screen to last",
+     "t": "The core loop is playable start to end",
+     "done": true
+    },
+    {
+     "t": "Look and feel chosen: dark stage, gold values, red buzzer",
+     "done": true
+    },
+    {
+     "t": "Set up its notes doc",
+     "done": true,
+     "k": "notesdoc"
+    },
+    {
+     "t": "Dry run: open debug.html for a room on your PC, join from your phone, and watch the press log",
      "done": false
     },
     {
-     "t": "Win, lose and restart all work",
-     "done": false
-    },
-    {
-     "t": "No placeholder art or text left",
-     "done": false
+     "t": "Get a group together to play (dinner counts)",
+     "done": true
     }
    ],
    "backlog": [
@@ -339,9 +369,20 @@
     "Underdog: hand the question to someone else",
     "18+ rooms where a single No turns it off",
     "A group name that remembers across room codes",
-    "Game history and stats per group"
+    "Game history and stats per group",
+    "For Production: step 7b, shared clue library and reuse",
+    "For Production: step 8, free catalogue of about 30 interesting topics with 25+ checked questions each",
+    "For Production: step 9, flag-this-question and a review page",
+    "For Production: step 10, suggest existing categories while typing",
+    "For Alpha: check audio on every phone, reconnecting after screen lock, and the hosted room server recovering from a restart",
+    "For Beta: delete the unused GROQ_API_KEY on Vercel",
+    "For Release II: decide how many brand-new categories are free, and whether it resets daily"
    ],
-   "nfp": false
+   "nfp": false,
+   "notes": "https://docs.google.com/document/d/1_-522Q4I9SOXw16VyPMlE0heE_ohlt-YdtQWl2EfHcg/edit",
+   "docOpen": 4,
+   "docSeen": "2026-11-26",
+   "checked": "2026-11-26"
   },
   {
    "id": "gasp",
