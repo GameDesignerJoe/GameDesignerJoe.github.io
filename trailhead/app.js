@@ -356,11 +356,28 @@ function appContext(){
   var L=["Trailhead is my personal tracker for my side projects. It reads from my "+REPO+" repo and puts every project on one path: "+STAGES.map(function(s){return s.name;}).join(" > ")+"."];
   L.push("What I'm reaching for: "+GOALS.join(" "));
   L.push(""); L.push("My projects right now:");
-  visible().forEach(function(p){ var d=dream(p); L.push("- "+p.name+" ("+p.kind+", "+stageName(p.stage)+", last touched "+ago(days(p))+(isStar(p.id)?", starred":"")+"): "+p.tag+(d?" Dream: "+d:"")); });
+  visible().forEach(function(p){ var d=dream(p); L.push("- "+p.name+" [id: "+p.id+"] ("+p.kind+", "+stageName(p.stage)+", last touched "+ago(days(p))+(isStar(p.id)?", starred":"")+"): "+p.tag+(d?" Dream: "+d:"")); });
   return L.join("\n");
 }
-function contextFor(id){ return id==="_app" ? appContext() : prompt(BY[id]).replace(/\n\nHelp me start with that one small thing[\s\S]*$/,""); }
-function transcript(id){ return thread(id).filter(function(m){ return !m.err; }).map(function(m){ return (m.r==="u"?"Joe: ":"Assistant: ")+m.t; }).join("\n\n"); }
+function contextFor(id){ return id==="_app" ? appContext() : "Project id: "+id+"\n"+prompt(BY[id]).replace(/\n\nHelp me start with that one small thing[\s\S]*$/,""); }
+// The chat may add to-dos and ideas, and nothing else. It asks by ending a reply with [[todo: id | text]] or [[idea: id | text]].
+function takeActions(text, fallbackId){
+  var adds=[];
+  var clean=String(text).replace(/\[\[\s*(todo|idea)\s*:\s*([^\]|]*?)\s*\|\s*([^\]]+?)\s*\]\]/gi, function(_, kind, pid, t){
+    pid=pid.trim(); var p=BY[pid]||BY[fallbackId]; t=t.replace(/\s+/g," ").trim().slice(0,200);
+    if(!p||!t) return "";
+    var k=kind.toLowerCase()==="todo"?"todos":"ideas";
+    if(inFile(p,t) || (((S.added[p.id]||{})[k])||[]).indexOf(t)>=0) return "";
+    S.added[p.id]=S.added[p.id]||{}; (S.added[p.id][k]=S.added[p.id][k]||[]).push(t);
+    adds.push({id:p.id, k:k, t:t}); return "";
+  }).replace(/\n{3,}/g,"\n\n").trim();
+  return {text:clean, adds:adds};
+}
+function addsHtml(m, i){
+  return (m.adds||[]).map(function(a, j){ var p=BY[a.id]; if(!p) return "";
+    return '<span class="added'+(a.undone?" undone":"")+'">'+(a.undone?"Removed: ":"Added to "+esc(p.name)+"'s "+(a.k==="todos"?"to-dos":"ideas")+": ")+esc(a.t)+(a.undone?"":' <button data-act="undoadd" data-i="'+i+'" data-j="'+j+'">Undo</button>')+'</span>'; }).join("");
+}
+function transcript(id){ return thread(id).filter(function(m){ return !m.err; }).map(function(m){ return (m.r==="u"?"Joe: ":"Assistant: ")+m.t+(m.r==="a"&&m.adds?" (added: "+m.adds.filter(function(a){ return !a.undone; }).map(function(a){ return a.t; }).join("; ")+")":""); }).join("\n\n"); }
 // Claude Code can read the repo, so the hand-off only carries what the repo doesn't have: what Joe just said.
 function handoff(id){
   var p=BY[id], said=thread(id).filter(function(m){ return m.r==="u"; }).map(function(m){ return "- "+m.t; }).join("\n");
@@ -373,7 +390,7 @@ function chatHtml(){
   var link=codeLink(handoff(id));
   return '<div class="sheet" role="dialog" aria-modal="true" aria-label="Chat">'+
    '<div class="shead">'+(p?tile(p):'<span class="tile" aria-hidden="true">'+I.chat+'</span>')+'<div class="t"><h2>'+(p?esc(p.name):"Trailhead")+'</h2><p>'+(p?"Flesh this one out":"Talk about your projects, or about changes to this app")+'</p></div><button class="round" data-act="chatclose" aria-label="Close">'+I.x+'</button></div>'+
-   (th.length?'<div class="msgs">'+th.map(function(m,i){ return '<div class="msg '+(m.r==="u"?"me":"ai")+(m.err?" err":"")+'">'+esc(m.t).replace(/\n/g,"<br>")+(m.r==="a"&&!m.err&&!m.wait&&p?'<button class="keep" data-act="keep" data-i="'+i+'">Save as an idea</button>':'')+'</div>'; }).join("")+'</div>'
+   (th.length?'<div class="msgs">'+th.map(function(m,i){ return '<div class="msg '+(m.r==="u"?"me":"ai")+(m.err?" err":"")+'">'+esc(m.t).replace(/\n/g,"<br>")+addsHtml(m,i)+(m.r==="u"&&p&&!(m.adds||[]).length?'<button class="keep" data-act="keeptodo" data-i="'+i+'">Add as a to-do</button>':'')+(m.r==="a"&&!m.err&&!m.wait&&p&&m.t?'<button class="keep" data-act="keep" data-i="'+i+'">Save as an idea</button>':'')+'</div>'; }).join("")+'</div>'
      :'<div class="block"><p>'+(has?"Say what's on your mind. The reply knows where this "+(p?"project":"app")+" stands.":"There's no chat key on this device, so nothing answers here yet. You can still write your thoughts down, then carry them into Claude Code with one tap.")+'</p></div>')+
    '<form class="chatform" data-form="chat"><textarea class="fit" id="chatin" rows="1" placeholder="'+(has?"Message":"Write a note to yourself")+'" aria-label="Message">'+esc(UI.seed||"")+'</textarea><button class="round sendbtn" aria-label="Send">'+I.send+'</button></form>'+
    '<div class="chatacts"><a class="btn solid" href="'+esc(link)+'" target="_blank" rel="noopener" data-act="handoff">'+I.arrow+'Continue in Claude Code</a>'+(th.length?'<button class="btn line" data-act="chatclear">Clear</button>':'')+'</div>'+
@@ -386,16 +403,16 @@ function sendChat(){
   var key=getKey();
   if(!key){ save(); renderSheet(); return; }
   var hist=transcript(id), wait={r:"a", t:"…", wait:1}; th.push(wait); renderSheet();
-  var sys="You are a thinking partner inside Trailhead, Joe's own tracker for his side projects. He gets heavily invested in a project and then drifts to the next one, so your job is to help him get back in and keep going. Be warm and brief: a few sentences, plain words, no headers. Ask one question at a time. Push toward the next small concrete step. "+(id==="_app"?"He may also want to talk about improving Trailhead itself. You cannot change the app, so help him get clear on what he wants and tell him to press Continue in Claude Code, which can make the change.":"You cannot edit files or the app. If he wants a to-do added or something built, tell him to press Continue in Claude Code, which can do it.")+"\n\nContext:\n"+contextFor(id);
+  var sys="You are a thinking partner inside Trailhead, Joe's own tracker for his side projects. He gets heavily invested in a project and then drifts to the next one, so your job is to help him get back in and keep going. Be warm and brief: a few sentences, plain words, no headers. Ask one question at a time. Push toward the next small concrete step. "+"You can add to-dos and ideas to a project, and that is the only thing you can change. When Joe asks you to add something, or says yes to something you offered to add, end your reply with one line per item in exactly this form: [[todo: project-id | the task]] or [[idea: project-id | the idea]]. Use the project id from the context. Write each one short and plain, starting with a verb, in his words where you can. If he gives you several notes, add each as its own line. Never add anything he didn't ask for, and if it's unclear which project he means, ask first. Say in a few words what you added. What you add is saved on this device and shows on the project's page straight away; it reaches his other devices after he presses Send to repo. You cannot tick things off, change a dream or status, edit the app, or touch a game's code. For any of those, tell him to press Continue in Claude Code."+"\n\nContext:\n"+contextFor(id);
   fetch("https://fal.run/openrouter/router",{method:"POST", headers:{"Authorization":"Key "+key, "Content-Type":"application/json"},
     body:JSON.stringify({model:S.model||MODEL_DEFAULT, system_prompt:sys, prompt:hist+"\n\nAssistant:", max_tokens:900, temperature:0.7})})
   .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, status:r.status, j:j}; }, function(){ return {ok:r.ok, status:r.status, j:{}}; }); })
   .then(function(o){
     delete wait.wait;
-    if(o.ok && o.j && o.j.output){ wait.t=String(o.j.output).replace(/^\s*Assistant:\s*/,"").trim(); }
+    if(o.ok && o.j && o.j.output){ var res=takeActions(String(o.j.output).replace(/^\s*Assistant:\s*/,"").trim(), BY[id]?id:null); wait.t=res.text||(res.adds.length?"Done.":""); if(res.adds.length) wait.adds=res.adds; }
     else { wait.err=1; wait.t = o.status===401||o.status===403 ? "fal turned the key down. Check it in the menu." : "fal answered with an error"+(o.j&&(o.j.error||o.j.detail)?": "+String(typeof (o.j.error||o.j.detail)==="string"?(o.j.error||o.j.detail):JSON.stringify(o.j.error||o.j.detail)).slice(0,200):" ("+o.status+")")+"."; }
     if(th.length>60) th.splice(0, th.length-60);
-    save(); if(UI.chat===id) renderSheet();
+    save(); if(UI.chat===id) renderSheet(); if(wait.adds){ renderGoal(); toast("Added "+wait.adds.length+(wait.adds.length===1?" item.":" items.")); }
   })
   .catch(function(){ delete wait.wait; wait.err=1; wait.t="Couldn't reach fal from this page. That happens inside Claude, where outside calls are blocked. It should work from your own site or a local file."; save(); if(UI.chat===id) renderSheet(); });
 }
@@ -455,6 +472,8 @@ document.addEventListener("click", function(e){
   else if(a==="chatclose"){ UI.chat=null; UI.seed=""; renderAll(); }
   else if(a==="chatclear"){ S.chat[UI.chat]=[]; save(); renderSheet(); }
   else if(a==="handoff"){ var pend=(document.getElementById("chatin")||{}).value; if(pend&&pend.trim()){ thread(UI.chat).push({r:"u",t:pend.trim()}); UI.seed=""; save(); t.href=codeLink(handoff(UI.chat)); } copy(handoff(UI.chat), "Copied too. Opening Claude Code."); }
+  else if(a==="undoadd"){ var mm=thread(UI.chat)[+t.dataset.i], ad=mm&&mm.adds&&mm.adds[+t.dataset.j]; if(ad&&!ad.undone){ var arr=((S.added[ad.id]||{})[ad.k])||[], ix2=arr.indexOf(ad.t); if(ix2>=0) arr.splice(ix2,1); ad.undone=1; save(); renderSheet(); renderGoal(); } }
+  else if(a==="keeptodo"){ var um=thread(UI.chat)[+t.dataset.i], up=BY[UI.chat]; if(um&&up){ var tx=um.t.replace(/\s+/g," ").trim().slice(0,200); S.added[up.id]=S.added[up.id]||{}; (S.added[up.id].todos=S.added[up.id].todos||[]).push(tx); um.adds=[{id:up.id,k:"todos",t:tx}]; save(); renderSheet(); renderGoal(); } }
   else if(a==="keep"){ var m=thread(UI.chat)[+t.dataset.i], pid=UI.chat; if(m&&BY[pid]){ S.added[pid]=S.added[pid]||{}; (S.added[pid].ideas=S.added[pid].ideas||[]).push(m.t.length>280?m.t.slice(0,277)+"…":m.t); save(); toast("Saved to "+BY[pid].name+"'s ideas."); } }
   else if(a==="savekey"){ var kv=document.getElementById("falkey").value.trim(), mv=document.getElementById("falmodel").value.trim(); if(kv) setKey(kv); S.model=mv||MODEL_DEFAULT; save(); renderSheet(); toast(kv?"Key saved on this device.":"Saved."); }
   else if(a==="rmkey"){ setKey(""); renderSheet(); toast("Key removed."); }
