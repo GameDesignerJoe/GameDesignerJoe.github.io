@@ -1,8 +1,8 @@
 // Written by tools/shoot.py. One current screenshot per project.
 const SHOTS={
  "crunch": {
-  "src": "shots/crunch.webp?v=2026-11-25",
-  "on": "2026-11-25"
+  "src": "shots/crunch.webp?v=2026-11-26",
+  "on": "2026-11-26"
  },
  "vye": {
   "src": "shots/vye.webp?v=2026-11-26",
