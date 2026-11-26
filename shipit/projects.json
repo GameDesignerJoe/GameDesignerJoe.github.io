@@ -1213,9 +1213,9 @@
    "first": "2026-02-28",
    "last": "2026-04-15",
    "commits": 23,
-   "stage": 3,
+   "stage": 2,
    "tag": "Map islands in a chill cartographer game",
-   "status": "Playable on the portfolio. Your priority list has a blocker: a badly placed sextant mark can lock you out of finishing the map.",
+   "status": "Playable on the portfolio, but back in Preproduction: the to-do is mostly new mechanics, and a badly placed sextant mark can still lock you out of finishing the map.",
    "left": "Fixed measure on mobile in March. The April commits only moved audio files.",
    "love": "The game is the map. Blank parchment fills with hand-drawn terrain as you explore, and the final zoom-out is the reward. No combat, no timer, no death.",
    "star": false,
@@ -1235,53 +1235,67 @@
      "done": false
     },
     {
-     "t": "Sextant Stones, or a debug view of valid survey spots",
+     "t": "Decide and fix the sextant blocker: Sextant Stones at fixed spots, or \"you've found enough\"",
      "done": false
     },
     {
-     "t": "Restyle quest-complete and menu popups to match the location popup",
+     "t": "Fix one-tile islands you can't reach (one had a collectible)",
      "done": false
     },
     {
-     "t": "Unreachable one-tile islands (one had a collectible)",
+     "t": "Decide: what makes each island play differently?",
      "done": false
     },
     {
-     "t": "PC controls: left click moves, double click surveys, right click sextant, wheel measures",
+     "t": "Decide: which of these are in: treasure maps, survey by tracing a circle, sextant over the sun, measuring by sighting a marker, cliffs?",
      "done": false
     },
     {
-     "t": "Virtual stick on mobile",
+     "t": "Decide: are the new controls in (PC mouse scheme, virtual stick on mobile)?",
      "done": false
     },
     {
-     "t": "Everything on the locked feature list is built",
+     "t": "Decide: are Found Journals (milestone 6) in or out?",
      "done": false
     },
     {
-     "t": "All content is in: levels, cards, cases, whatever it's made of",
+     "t": "The core loop is playable start to end on every island",
      "done": false
     },
     {
-     "t": "Playable from first screen to last",
+     "t": "The core loop is fun: you'd chart another island without being asked",
      "done": false
     },
     {
-     "t": "Win, lose and restart all work",
+     "t": "Lock the feature list: what's in",
      "done": false
     },
     {
-     "t": "No placeholder art or text left",
+     "t": "Write the cut list: what's out and stays out",
+     "done": false
+    },
+    {
+     "t": "Look and feel chosen: ink on parchment, a map that draws itself",
+     "done": true
+    },
+    {
+     "t": "Has a notes file (docs/cartographer_todo.md)",
+     "done": true,
+     "k": "notesdoc"
+    },
+    {
+     "t": "Tick what's built in MILESTONES.md so it matches the game",
      "done": false
     }
    ],
    "backlog": [
-    "Treasure maps: two measured lines cross at an X",
-    "Survey by dragging clockwise around a circle",
-    "Sextant: drag a ring over the sun to take a reading",
-    "Cliffs you have to find a way around"
+    "For Production: restyle the quest-complete, menu and discovered-locations popups to match the location popup",
+    "For Production: fix the mobile UI (clipping at the top, button bar too high, text over buttons, WASD help on a phone, smaller quest text)",
+    "For Production: let you sail back to the ship and leave the island",
+    "For Alpha: music and sound play even when the phone is muted"
    ],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-26"
   },
   {
    "id": "wayward",
