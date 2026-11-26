@@ -479,7 +479,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "murmur/ref/murmur_todo.md and Murmur-DESIGN.md"
+   "docs": "murmur/ref/murmur_todo.md and Murmur-DESIGN.md",
+   "notes": "murmur/ref/murmur_todo.md"
   },
   {
    "id": "carto",
@@ -517,7 +518,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "cartographer/docs/cartographer_todo.md, DESIGN.md, MILESTONES.md"
+   "docs": "cartographer/docs/cartographer_todo.md, DESIGN.md, MILESTONES.md",
+   "notes": "cartographer/docs/cartographer_todo.md"
   },
   {
    "id": "wayward",
@@ -549,7 +551,8 @@
    "ideas": [],
    "done": [],
    "basics": {},
-   "docs": "wayward/docs/wayward_todo.md and wayward-spec.md"
+   "docs": "wayward/docs/wayward_todo.md and wayward-spec.md",
+   "notes": "wayward/docs/wayward_todo.md"
   },
   {
    "id": "watch",
@@ -581,7 +584,8 @@
    "ideas": [],
    "done": [],
    "basics": {},
-   "docs": "the-watch/brain/todo.md and README.md"
+   "docs": "the-watch/brain/todo.md and README.md",
+   "notes": "the-watch/brain/todo.md"
   },
   {
    "id": "puzzle",
@@ -615,7 +619,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "picture-puzzle/todo.txt"
+   "docs": "picture-puzzle/todo.txt",
+   "notes": "picture-puzzle/todo.txt"
   },
   {
    "id": "vault",
@@ -650,7 +655,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "steam-vault-escape/src/docs/vault_todo.txt"
+   "docs": "steam-vault-escape/src/docs/vault_todo.txt",
+   "notes": "steam-vault-escape/src/docs/vault_todo.txt"
   },
   {
    "id": "color",
@@ -681,7 +687,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "color-match/todo.txt"
+   "docs": "color-match/todo.txt",
+   "notes": "color-match/todo.txt"
   },
   {
    "id": "cipher",
@@ -849,7 +856,8 @@
    "ideas": [],
    "done": [],
    "basics": {},
-   "docs": "flickpick/flickpick_todo.md (written before the last few commits, so it may be out of date)"
+   "docs": "flickpick/flickpick_todo.md (written before the last few commits, so it may be out of date)",
+   "notes": "flickpick/flickpick_todo.md"
   },
   {
    "id": "playback",
@@ -887,7 +895,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "personal-music-player/docs/playback_todo.md"
+   "docs": "personal-music-player/docs/playback_todo.md",
+   "notes": "personal-music-player/docs/playback_todo.md"
   },
   {
    "id": "scout",
@@ -921,7 +930,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "never-played/brain/never_played_todo.txt"
+   "docs": "never-played/brain/never_played_todo.txt",
+   "notes": "never-played/brain/never_played_todo.txt"
   },
   {
    "id": "guitar",
@@ -950,7 +960,8 @@
    "ideas": [],
    "done": [],
    "basics": {},
-   "docs": "guitar-scales/docs/todo_guitar_scales.md"
+   "docs": "guitar-scales/docs/todo_guitar_scales.md",
+   "notes": "guitar-scales/docs/todo_guitar_scales.md"
   },
   {
    "id": "inkwell",

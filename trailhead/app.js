@@ -6,7 +6,7 @@ function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||"{}")||{}; }c
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ mem=S; } }
 var S=load();
 ["star","hidden","skip"].forEach(function(k){ if(!Array.isArray(S[k])) S[k]=[]; });
-["dream","love","done","added","removed","live","basics","chat","order"].forEach(function(k){ if(!S[k]||typeof S[k]!=="object") S[k]={}; });
+["dream","love","done","added","removed","live","basics","chat","order","notes"].forEach(function(k){ if(!S[k]||typeof S[k]!=="object") S[k]={}; });
 var KKEY="trailhead.key", memKey="";
 function getKey(){ try{ return localStorage.getItem(KKEY)||""; }catch(e){ return memKey; } }
 function setKey(v){ memKey=v; try{ if(v) localStorage.setItem(KKEY,v); else localStorage.removeItem(KKEY); }catch(e){} }
@@ -47,6 +47,7 @@ function reconcile(){
   PROJECTS.forEach(function(p){
     if(S.dream[p.id]!=null && S.dream[p.id]===(p.dream||"")) delete S.dream[p.id];
     if(S.love[p.id]!=null && S.love[p.id]===(p.love||"")) delete S.love[p.id];
+    if(S.notes[p.id]!=null && S.notes[p.id]===(p.notes||"")) delete S.notes[p.id];
     var a=S.added[p.id]; if(a) Object.keys(a).forEach(function(k){ a[k]=a[k].filter(function(t){ return !inFile(p,t); }); });
     var b=S.basics[p.id]; if(b) Object.keys(b).forEach(function(k){ if(p.basics && (k in p.basics) && !!p.basics[k]===!!b[k]) delete b[k]; });
     var live={}; ["todos","ideas"].forEach(function(k){ (p[k]||[]).concat((S.added[p.id]||{})[k]||[]).forEach(function(t){ live[p.id+":"+k+":"+hash(t)]=1; }); });
@@ -63,6 +64,7 @@ function pending(){
     var c={project:p.id, name:p.name}, n=0, set={};
     if(S.dream[p.id]!=null){ set.dream=S.dream[p.id]||null; n++; }
     if(S.love[p.id]!=null){ set.love=S.love[p.id]; n++; }
+    if(S.notes[p.id]!=null){ set.notes=S.notes[p.id]; n++; }
     if(S.starSet && isStar(p.id)!==!!p.star){ set.star=isStar(p.id); n++; }
     if(S.hidSet && isHidden(p.id)!==!!p.hidden){ set.hidden=isHidden(p.id); n++; }
     var b=S.basics[p.id]; if(b&&Object.keys(b).length){ set.basics={}; Object.keys(b).forEach(function(k){ set.basics[k]=!!b[k]; }); n+=Object.keys(b).length; }
@@ -110,6 +112,8 @@ function ago(n){ if(n<=0) return "today"; if(n===1) return "yesterday"; if(n<14)
 function stageName(n){ return STAGES[n-1].name; }
 function href(p){ return !p.url ? "" : (/^https?:/.test(p.url) ? p.url : SITE+p.url); }
 function isStar(id){ return S.star.indexOf(id)>=0; }
+function notesOf(p){ return S.notes[p.id]!=null ? S.notes[p.id] : (p.notes||""); }
+function notesHref(p){ var n=notesOf(p); return !n ? "" : /^https?:/.test(n) ? n : "https://github.com/"+REPO+"/blob/main/"+n.split("/").map(encodeURIComponent).join("/"); }
 function loveOf(p){ return S.love[p.id]!=null ? S.love[p.id] : (p.love||""); }
 function isHidden(id){ return S.hidden.indexOf(id)>=0; }
 function visible(){ return PROJECTS.filter(function(p){ return !isHidden(p.id); }); }
@@ -162,7 +166,7 @@ function prompt(p, step){
   var st=step||(openSteps(p)[0]||{}).t; if(st){ L.push(""); L.push("The one small thing I want to do right now: "+st); }
   var td=openTodos(p).slice(0,8);
   if(td.length){ L.push(""); L.push("Open to-dos:"); td.forEach(function(o){ L.push("- "+o.t); }); }
-  if(p.notes) L.push("Its notes doc: "+p.notes);
+  if(notesOf(p)) L.push("Its notes: "+notesOf(p));
   var miss=basicsOf(p).filter(function(x){ return !x.ok; }).map(function(x){ return x.name; });
   if(miss.length){ L.push(""); L.push("Basics it's still missing: "+miss.join(", ")+"."); }
   L.push("My bigger goal: "+GOALS.join(" "));
@@ -291,17 +295,10 @@ function renderList(){
   hb.innerHTML='<summary>Hidden ('+hid.length+')</summary>'+hid.map(function(p){ return '<div class="hrow">'+tile(p,"sm")+'<span class="nm">'+esc(p.name)+'</span><button class="btn line" style="min-height:38px;align-self:center" data-act="unhide" data-id="'+p.id+'">Bring back</button></div>'; }).join("");
 }
 
-function listBlock(p, kind, title, hint, checkable, ph){
-  var its=items(p,kind);
-  var rows=its.map(function(o){
-    return '<li class="'+(S.done[o.k]?"done":"")+'">'+(checkable?'<button class="check" data-act="tick" data-k="'+o.k+'" aria-label="Mark done">'+I.check+'</button>':'<span class="dot"></span>')+
-      '<span class="tx">'+esc(o.t)+'</span>'+(checkable&&!S.done[o.k]?'<a class="doit" href="'+esc(codeLink(taskPrompt(p,o.t)))+'" target="_blank" rel="noopener" data-act="doit" data-id="'+p.id+'" data-t="'+esc(o.t)+'" aria-label="Build this in Claude Code" title="Build this in Claude Code">'+I.arrow+'</a>':'')+'<button class="x" data-act="rm" data-id="'+p.id+'" data-k="'+o.k+'" data-kind="'+kind+'" data-t="'+esc(o.t)+'" aria-label="Remove">×</button></li>';
-  }).join("");
-  return '<div class="block"><span class="label">'+title+'</span>'+(hint?'<span class="hint">'+hint+'</span>':'')+
-   (rows?'<ul class="list">'+rows+'</ul>':'')+
-   '<form class="add" data-form="add" data-id="'+p.id+'" data-kind="'+kind+'"><input id="add-'+kind+'" placeholder="'+ph+'" autocomplete="off" aria-label="'+ph+'"><button aria-label="Add">+</button></form></div>';
+function listBlock(p, kind, title){
+  var its=items(p,kind); if(!its.length) return "";
+  return '<div class="block"><span class="label">'+title+'</span><ul class="list">'+its.map(function(o){ return '<li><span class="dot"></span><span class="tx">'+esc(o.t)+'</span></li>'; }).join("")+'</ul></div>';
 }
-
 // A project's Google Doc of notes. Claude Code works from it; the page shows it live when Google allows.
 var DOCS={};
 function docId(u){ var m=/\/document\/d\/([A-Za-z0-9_-]+)/.exec(u||""); return m?m[1]:""; }
@@ -314,28 +311,55 @@ function parseDoc(txt){
   }
   return live;
 }
+// A to-do or notes file in the repo: top-level bullets, leaving out anything ticked and any section that is ideas, research or done.
+function parseFile(txt){
+  var out=[], skipLevel=0, SKIP=/idea|long.?term|research|thought|future|someday|done|complete|shipped|fixed|old notes|archive|maybe/i;
+  String(txt).replace(/\r/g,"").split("\n").forEach(function(raw){
+    var l=raw.replace(/\s+$/,""), t=l.trim(); if(!t) return;
+    var m=/^(#{1,6})\s+(.*)$/.exec(t), c=!m && !/^[-*•\d]/.test(t) && /^(.{2,48}):$/.exec(t);
+    if(m||c){ var lvl=m?m[1].length:7, title=m?m[2]:c[1];
+      if(skipLevel && lvl>skipLevel) return;            // a sub-heading inside a skipped section stays skipped
+      skipLevel=SKIP.test(title)?lvl:0; return; }
+    if(skipLevel) return;
+    var indent=l.length-l.replace(/^\s+/,"").length, b=/^(?:[-*•]|\d+[.)])\s+(.*)$/.exec(t);
+    if(!b||indent>1) return;
+    var x=b[1];
+    if(/^\[[xX]\]/.test(x)||/✅|~~/.test(x)||/^[\[(]?done\b/i.test(x)) return;
+    x=x.replace(/^\[\s?\]\s*/,"").replace(/\*\*/g,"").trim();
+    if(x.length>2) out.push(x.length>200?x.slice(0,197)+"…":x);
+  });
+  return out;
+}
 function loadDoc(p){
-  var id=docId(p.notes); if(!id) return;
-  if(DOCS[id]){ paintDoc(p); return; }
-  DOCS[id]={state:"loading"};
-  fetch("https://docs.google.com/document/d/"+id+"/export?format=txt").then(function(r){ if(!r.ok) throw 0; return r.text(); })
-   .then(function(t){ if(/<html/i.test(t.slice(0,300))) throw 0; DOCS[id]={state:"ok", items:parseDoc(t)}; paintDoc(p); })
-   .catch(function(){ DOCS[id]={state:"blocked"}; paintDoc(p); });
+  var n=notesOf(p); if(!n) return;
+  if(DOCS[n]){ paintDoc(p); return; }
+  DOCS[n]={state:"loading"};
+  var id=docId(n), url=id ? "https://docs.google.com/document/d/"+id+"/export?format=txt" : (/^https?:/.test(n) ? "" : "../"+n+"?t="+Date.now());
+  if(!url){ DOCS[n]={state:"blocked"}; paintDoc(p); return; }
+  fetch(url).then(function(r){ if(!r.ok) throw 0; return r.text(); })
+   .then(function(t){ if(/<html/i.test(t.slice(0,300))) throw 0; DOCS[n]={state:"ok", items:id?parseDoc(t):parseFile(t)}; paintDoc(p); })
+   .catch(function(){ DOCS[n]={state:"blocked"}; paintDoc(p); });
 }
 function paintDoc(p){
   var el=document.getElementById("docbody"); if(!el||el.dataset.id!==p.id) return;
-  var d=DOCS[docId(p.notes)]||{};
+  var n=notesOf(p), d=DOCS[n]||{}, where=docId(n)?"your doc":n.split("/").pop();
   if(d.state==="ok"){
     el.innerHTML = d.items.length
-      ? '<details class="how"><summary>'+d.items.length+' open in your doc</summary><ul>'+d.items.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join("")+'</ul></details>'
-      : '<p class="hint">Nothing open in your doc.</p>';
+      ? '<details class="how"><summary>'+d.items.length+' open in '+esc(where)+'</summary><ul>'+d.items.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join("")+'</ul></details>'
+      : '<p class="hint">Nothing open in '+esc(where)+'.</p>';
   } else if(d.state==="blocked"){
-    el.innerHTML='<p class="hint">'+(p.docOpen!=null?esc(String(p.docOpen))+" open "+(p.docOpen===1?"note":"notes")+" when Claude Code last read it"+(p.docSeen?" ("+esc(p.docSeen)+")":"")+". ":"")+'This page couldn\'t read the doc live from here.</p>';
-  } else el.innerHTML='<p class="hint">Checking the doc…</p>';
+    el.innerHTML='<p class="hint">'+(p.docOpen!=null&&S.notes[p.id]==null?esc(String(p.docOpen))+" open "+(p.docOpen===1?"note":"notes")+" when Claude Code last read it"+(p.docSeen?" ("+esc(p.docSeen)+")":"")+". ":"")+'This page couldn\'t read '+esc(where)+' from here.</p>';
+  } else el.innerHTML='<p class="hint">Checking '+esc(where)+'…</p>';
 }
-function docPrompt(p){ return "Trailhead doc pass for "+p.name+" ("+p.folder+"/). There are new notes in its Google Doc: "+p.notes+"\n\nFollow \"Working a project's doc\" in trailhead/README.md."; }
+function docPrompt(p){
+  var n=notesOf(p);
+  return "Trailhead notes pass for "+p.name+" ("+p.folder+"/). There are new notes in "+(docId(n)?"its Google Doc: "+n:"its notes file: "+n)+"\n\nFollow \"Working a project's notes\" in trailhead/README.md.";
+}
+function linkForm(p, label){
+  return '<form class="add" data-form="link" data-id="'+p.id+'"><input id="notelink" placeholder="'+label+'" autocomplete="off" inputmode="url" aria-label="'+label+'"><button aria-label="Save">+</button></form>';
+}
 function docBlock(p){
-  if(!p.notes) return "";
+  if(!notesOf(p)) return '<div class="block"><span class="label">Notes</span><p class="hint">No notes doc linked yet.</p>'+linkForm(p,"Paste a Google Doc link")+'</div>';
   return '<div class="block"><span class="label">Notes</span><div id="docbody" data-id="'+p.id+'"></div></div>';
 }
 function jumpPrompt(p, t){
@@ -353,15 +377,13 @@ function todoBlock(p){
   function row(o,i,now){
     var done=!!S.done[o.k];
     return '<li class="'+(done?"done":"")+'"><button class="check" data-act="tick" data-k="'+o.k+'" aria-label="Mark done">'+I.check+'</button><span class="tx">'+esc(o.t)+'</span>'+
-      (!done&&!now?'<button class="mini-btn" data-act="top" data-id="'+p.id+'" data-t="'+esc(o.t)+'" aria-label="Move to right now" title="Move to right now">'+I.up+'</button>':'')+
-      (!done?'<a class="mini-btn" href="'+esc(codeLink(taskPrompt(p,o.t)))+'" target="_blank" rel="noopener" data-act="doit" data-id="'+p.id+'" data-t="'+esc(o.t)+'" aria-label="Build this in Claude Code" title="Build this in Claude Code">'+I.arrow+'</a>':'')+
-      '<button class="x" data-act="rm" data-id="'+p.id+'" data-k="'+o.k+'" data-kind="todos" data-t="'+esc(o.t)+'" aria-label="Remove">×</button></li>';
+      (!done?'<a class="mini-btn" href="'+esc(codeLink(taskPrompt(p,o.t)))+'" target="_blank" rel="noopener" data-act="doit" data-id="'+p.id+'" data-t="'+esc(o.t)+'" aria-label="Build this in Claude Code" title="Build this in Claude Code">'+I.arrow+'</a>':'')+'</li>';
   }
   var now=open.slice(0,3), later=open.slice(3);
   return '<div class="block"><span class="label">To-do</span>'+
    (now.length?'<span class="grp rn">Right now</span><ul class="list">'+now.map(function(o,i){ return row(o,i,true); }).join("")+'</ul>':'')+
    (later.length||ticked.length?'<span class="grp">Later</span><ul class="list">'+later.concat(ticked).map(function(o,i){ return row(o,i,false); }).join("")+'</ul>':'')+
-   '<form class="add" data-form="add" data-id="'+p.id+'" data-kind="todos"><input id="add-todos" placeholder="Add a to-do" autocomplete="off" aria-label="Add a to-do"><button aria-label="Add">+</button></form></div>';
+   '</div>';
 }
 function renderSheet(){
   var sc=document.getElementById("scrim");
@@ -384,8 +406,8 @@ function renderSheet(){
    '<div class="acts">'+
      (h?act("a","",I.open,p.kind==="tool"?"Open":"Play",'href="'+esc(h)+'" target="_blank" rel="noopener"'):'')+
      act("button","",I.chat,"Chat",'data-act="chat" data-id="'+p.id+'"')+
-     (p.notes?act("a","",I.doc,"Notes",'href="'+esc(p.notes)+'" target="_blank" rel="noopener"'):'')+
-     (p.notes?act("a","",I.arrow,"Work",'href="'+esc(codeLink(docPrompt(p)))+'" target="_blank" rel="noopener" data-act="docpass" data-id="'+p.id+'"'):'')+
+     (notesOf(p)?act("a","",I.doc,"Notes",'href="'+esc(notesHref(p))+'" target="_blank" rel="noopener"'):'')+
+     (notesOf(p)?act("a","",I.arrow,"Work",'href="'+esc(codeLink(docPrompt(p)))+'" target="_blank" rel="noopener" data-act="docpass" data-id="'+p.id+'"'):'')+
      act("button",isStar(p.id)?"on":"",I.star,isStar(p.id)?"Starred":"Star",'data-act="star" data-id="'+p.id+'" aria-pressed="'+isStar(p.id)+'"')+
      act("button","",I.hide,"Hide",'data-act="hide" data-id="'+p.id+'"')+
    '</div></div>'+
@@ -393,15 +415,16 @@ function renderSheet(){
    (shot?'<a class="shot" '+(h?'href="'+esc(h)+'" target="_blank" rel="noopener"':'')+'><img src="'+esc(shot.src)+'" alt="'+esc(p.name)+' as it looks now"><span>How it looks now'+(shot.on?" · "+esc(shot.on):"")+'</span></a>':'')+
    docBlock(p)+
    todoBlock(p)+
-   listBlock(p,"ideas","Cool ideas","",false,"Add an idea")+
+   listBlock(p,"ideas","Cool ideas")+
    '<details class="block more"><summary><span class="label">More · '+esc(stageName(p.stage))+', stop '+p.stage+' of '+STAGES.length+'</span></summary>'+
      '<p>'+esc(p.status)+'</p>'+
      ((p.done||[]).length?'<span class="grp">Done · '+p.done.length+'</span><ul class="list">'+p.done.slice().reverse().map(function(x){ return '<li class="done"><span class="check">'+I.check+'</span><span class="tx" style="text-decoration:none">'+esc(x.t)+(x.on?' <span class="hint">'+esc(x.on)+'</span>':'')+'</span></li>'; }).join("")+'</ul>':'')+
      (bs.length?'<span class="grp">The basics · '+basicsCount(p)+'</span><div class="bgrid">'+bs.map(function(x){ return '<button class="bitem'+(x.ok?" ok":"")+'" data-act="basic" data-id="'+p.id+'" data-k="'+x.k+'" title="'+esc(x.desc)+'" aria-pressed="'+x.ok+'"><i>'+I.check+'</i>'+esc(x.name)+'</button>'; }).join("")+'</div>':'')+
+     (notesOf(p)?'<span class="grp">Notes link</span><p class="src" style="overflow-wrap:anywhere">'+esc(notesOf(p))+'</p>'+linkForm(p,"Paste a different Google Doc link"):'')+
      '<p class="src">'+p.commits+" commits · started "+p.first+" · last commit "+lastOf(p)+" · "+esc(p.folder)+'/</p>'+
    '</details>'+
   '</div>';
-  fitAll(); if(p.notes) loadDoc(p);
+  fitAll(); if(notesOf(p)) loadDoc(p);
 }
 function thread(id){ return S.chat[id]||(S.chat[id]=[]); }
 function appContext(){
@@ -442,8 +465,8 @@ function chatHtml(){
   var link=codeLink(handoff(id));
   return '<div class="sheet" role="dialog" aria-modal="true" aria-label="Chat">'+
    '<div class="shead">'+(p?tile(p):'<span class="tile" aria-hidden="true">'+I.chat+'</span>')+'<div class="t"><h2>'+(p?esc(p.name):"Trailhead")+'</h2><p>'+(p?"Flesh this one out":"Talk about your projects, or about changes to this app")+'</p></div><button class="round" data-act="chatclose" aria-label="Close">'+I.x+'</button></div>'+
-   (th.length?'<div class="msgs">'+th.map(function(m,i){ return '<div class="msg '+(m.r==="u"?"me":"ai")+(m.err?" err":"")+'">'+esc(m.t).replace(/\n/g,"<br>")+addsHtml(m,i)+(m.r==="u"&&p&&!(m.adds||[]).length?'<button class="keep" data-act="keeptodo" data-i="'+i+'">Add as a to-do</button>':'')+(m.r==="a"&&!m.err&&!m.wait&&p&&m.t?'<button class="keep" data-act="keep" data-i="'+i+'">Save as an idea</button>':'')+'</div>'; }).join("")+'</div>'
-     :'<div class="block"><p>'+(has?"Say what's on your mind. The reply knows where this "+(p?"project":"app")+" stands.":"There's no chat key on this device, so nothing answers here yet. You can still write your thoughts down, then carry them into Claude Code with one tap.")+'</p></div>')+
+   (th.length?'<div class="msgs">'+th.map(function(m,i){ return '<div class="msg '+(m.r==="u"?"me":"ai")+(m.err?" err":"")+'">'+esc(m.t).replace(/\n/g,"<br>")+addsHtml(m,i)+'</div>'; }).join("")+'</div>'
+     :'<div class="block"><p>'+(has?"Say what's on your mind. The reply knows where this "+(p?"project":"app")+" stands.":"There's no chat key on this device, so nothing answers here yet. You can still write here, then carry it into Claude Code with one tap.")+'</p></div>')+
    '<form class="chatform" data-form="chat"><textarea class="fit" id="chatin" rows="1" placeholder="'+(has?"Message":"Write a note to yourself")+'" aria-label="Message">'+esc(UI.seed||"")+'</textarea><button class="round sendbtn" aria-label="Send">'+I.send+'</button></form>'+
    '<div class="chatacts"><a class="btn solid" href="'+esc(link)+'" target="_blank" rel="noopener" data-act="handoff">'+I.arrow+'Continue in Claude Code</a>'+(th.length?'<button class="btn line" data-act="chatclear">Clear</button>':'')+'</div>'+
    '<p class="src">Continue in Claude Code opens a session on your repo with what you wrote here. It can read where every project stands, and it can change to-dos, the app, or a game.'+(has?"":" To get answers here, add a fal key in the menu.")+'</p>'+
@@ -455,13 +478,13 @@ function sendChat(){
   var key=getKey();
   if(!key){ save(); renderSheet(); return; }
   var hist=transcript(id), wait={r:"a", t:"…", wait:1}; th.push(wait); renderSheet();
-  var sys="You are a thinking partner inside Trailhead, Joe's own tracker for his side projects. He gets heavily invested in a project and then drifts to the next one, so your job is to help him get back in and keep going. Be warm and brief: a few sentences, plain words, no headers. Ask one question at a time. Push toward the next small concrete step. "+"You can add to-dos and ideas to a project, and that is the only thing you can change. When Joe asks you to add something, or says yes to something you offered to add, end your reply with one line per item in exactly this form: [[todo: project-id | the task]] or [[idea: project-id | the idea]]. Use the project id from the context. Write each one short and plain, starting with a verb, in his words where you can. If he gives you several notes, add each as its own line. Never add anything he didn't ask for, and if it's unclear which project he means, ask first. Say in a few words what you added. What you add is saved on this device and shows on the project's page straight away; it reaches his other devices after he presses Send to repo. You cannot tick things off, change a dream or status, edit the app, or touch a game's code. For any of those, tell him to press Continue in Claude Code."+"\n\nContext:\n"+contextFor(id);
+  var sys="You are a thinking partner inside Trailhead, Joe's own tracker for his side projects. He gets heavily invested in a project and then drifts to the next one, so your job is to help him get back in and keep going. Be warm and brief: a few sentences, plain words, no headers. Ask one question at a time. Push toward the next small concrete step. "+"You cannot change anything: not to-dos, not the app, not a game's code. Notes and to-dos live in each project's notes doc, so if he wants something written down, tell him to put it in the doc with the Notes button. If he wants something built or changed, tell him to press Continue in Claude Code."+"\n\nContext:\n"+contextFor(id);
   fetch("https://fal.run/openrouter/router",{method:"POST", headers:{"Authorization":"Key "+key, "Content-Type":"application/json"},
     body:JSON.stringify({model:S.model||MODEL_DEFAULT, system_prompt:sys, prompt:hist+"\n\nAssistant:", max_tokens:900, temperature:0.7})})
   .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, status:r.status, j:j}; }, function(){ return {ok:r.ok, status:r.status, j:{}}; }); })
   .then(function(o){
     delete wait.wait;
-    if(o.ok && o.j && o.j.output){ var res=takeActions(String(o.j.output).replace(/^\s*Assistant:\s*/,"").trim(), BY[id]?id:null); wait.t=res.text||(res.adds.length?"Done.":""); if(res.adds.length) wait.adds=res.adds; }
+    if(o.ok && o.j && o.j.output){ wait.t=String(o.j.output).replace(/^\s*Assistant:\s*/,"").replace(/\[\[[^\]]*\]\]/g,"").trim(); }
     else { wait.err=1; wait.t = o.status===401||o.status===403 ? "fal turned the key down. Check it in the menu." : "fal answered with an error"+(o.j&&(o.j.error||o.j.detail)?": "+String(typeof (o.j.error||o.j.detail)==="string"?(o.j.error||o.j.detail):JSON.stringify(o.j.error||o.j.detail)).slice(0,200):" ("+o.status+")")+"."; }
     if(th.length>60) th.splice(0, th.length-60);
     save(); if(UI.chat===id) renderSheet(); if(wait.adds){ renderGoal(); toast("Added "+wait.adds.length+(wait.adds.length===1?" item.":" items.")); }
@@ -541,13 +564,18 @@ document.addEventListener("click", function(e){
   }
   else if(a==="backup"){ copy(JSON.stringify(S), "Backup copied."); }
   else if(a==="restore"){
-    try{ var o=JSON.parse(document.getElementById("restore").value); if(!o||typeof o!=="object"||!Array.isArray(o.star)) throw 0; S=o; ["hidden","skip"].forEach(function(k){ if(!Array.isArray(S[k])) S[k]=[]; }); ["dream","love","done","added","removed","live","basics","chat","order"].forEach(function(k){ if(!S[k]) S[k]={}; }); S.v=S.v||2; migrate(); reconcile(); save(); UI.menu=false; renderAll(); toast("Restored."); }
+    try{ var o=JSON.parse(document.getElementById("restore").value); if(!o||typeof o!=="object"||!Array.isArray(o.star)) throw 0; S=o; ["hidden","skip"].forEach(function(k){ if(!Array.isArray(S[k])) S[k]=[]; }); ["dream","love","done","added","removed","live","basics","chat","order","notes"].forEach(function(k){ if(!S[k]) S[k]={}; }); S.v=S.v||2; migrate(); reconcile(); save(); UI.menu=false; renderAll(); toast("Restored."); }
     catch(err){ toast("That doesn't look like a Trailhead backup."); }
   }
   else if(a==="github"){ checkGitHub(true); }
 });
 document.addEventListener("submit", function(e){
   if(e.target.closest('[data-form="chat"]')){ e.preventDefault(); sendChat(); return; }
+  var lf=e.target.closest('[data-form="link"]');
+  if(lf){ e.preventDefault(); var lv=lf.querySelector("input").value.trim(), lp=BY[lf.dataset.id];
+    if(!lv) return;
+    if(!docId(lv)){ toast("That doesn't look like a Google Doc link."); return; }
+    S.notes[lp.id]="https://docs.google.com/document/d/"+docId(lv)+"/edit"; save(); renderAll(); toast("Linked. Send to repo to keep it on every device."); return; }
   var f=e.target.closest('[data-form="add"]'); if(!f) return; e.preventDefault();
   var inp=f.querySelector("input"), v=inp.value.trim(); if(!v) return;
   var id=f.dataset.id, kind=f.dataset.kind; S.added[id]=S.added[id]||{}; (S.added[id][kind]=S.added[id][kind]||[]).push(v);

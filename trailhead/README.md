@@ -11,8 +11,10 @@ the next one, so every entry is written to make returning easy.
 
 - `projects.json` is the source of truth. The page reads it on every load, so every
   device shows the same thing.
-- The page cannot write to the repo. Changes Joe makes on a device (stars, dreams,
-  to-dos, ticks) wait in that browser until he presses **Send to repo**, which opens
+- Notes and to-dos are written in each project's notes doc or file, not in Trailhead.
+  The page only shows them.
+- The page cannot write to the repo. Changes Joe makes on a device (stars, ticks, the
+  quote, a notes link) wait in that browser until he presses **Send to repo**, which opens
   Claude Code with the changes as a prompt.
 - Each to-do has an arrow that opens Claude Code with that task as a prompt.
 - Claude Code does the work and then updates `projects.json`. Keeping the file
@@ -47,7 +49,7 @@ Each project:
 | `ideas` | Cool ideas, not commitments. |
 | `done` | `[{ "t": "the task text", "on": "YYYY-MM-DD" }]`, oldest first. |
 | `basics` | Corrections to the basics audit, e.g. `{ "offline": true }`. Set one when you add or remove that basic. Keys are in `config.js`. |
-| `notes` | Link to the project's Google Doc of notes, if it has one. See "Working a project's doc". |
+| `notes` | Where Joe's notes for the project live: a Google Doc link, or the path of a to-do or notes file in this repo (for example `cartographer/docs/cartographer_todo.md`). He is moving everything to Google Docs over time, so a doc link replaces a file path. See "Working a project's notes". |
 | `docOpen`, `docSeen` | How many open notes the doc had when a session last read it, and the date. Update both whenever you read the doc. |
 | `docs` | Where the project's own notes live. |
 
@@ -69,11 +71,13 @@ Each project:
 5. If the task needs Joe (playing it, deciding, recording, an account or a payment),
    don't fake it. Say exactly what you need and leave the task where it is.
 
-## Working a project's doc
+## Working a project's notes
+
+(Older prompts call this "Working a project's doc". Same thing.)
 
 Joe's normal way of working: he plays the game, writes notes in that project's Google
 Doc from his phone, then says "new things in the doc for you" and goes back to
-playing. A "Trailhead doc pass" prompt is that message. The doc is where he thinks;
+playing. A "Trailhead notes pass" (or "doc pass") prompt is that message. The doc is where he thinks;
 it stays the backlog. Don't copy its notes into `todos`.
 
 **The Maze is the exception: use the `maze-task` skill for it.** For every other
@@ -97,7 +101,12 @@ project:
 9. **Report at the end:** what you did for each note, what you skipped and why, and
    which notes he can now move under `Old Notes`. Don't edit the doc yourself unless
    he asks.
-10. Update the project's entry: `left`, `status`, `last`, add the finished notes to
+10. **If the notes are a file in this repo** and not a Google Doc: the open list is
+    its top-level bullets, leaving out anything ticked or marked done and any section
+    headed ideas, long-term, research or done. When you finish an item, mark it done
+    in the file the way that file already does (`[x]`, `[DONE]`, or moved under its
+    done heading), in the same push. The Trailhead page reads the file the same way.
+11. Update the project's entry: `left`, `status`, `last`, add the finished notes to
     `done`, and set `docOpen` (notes still open) and `docSeen` (today).
 
 ## Applying a "Trailhead sync" prompt
