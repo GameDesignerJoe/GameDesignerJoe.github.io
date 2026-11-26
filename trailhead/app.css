@@ -245,3 +245,7 @@ li.done .tx{color:var(--muted); text-decoration:line-through}
 .added button{font:600 13px var(--display); text-decoration:underline; margin-left:6px; min-height:24px}
 .msg.me .keep{color:inherit; opacity:.75}
 .msg.me .added{background:transparent; color:inherit; border:1.5px solid currentColor; border-left-width:5px}
+
+#docbody p{font-size:15.5px}
+.acts .act span{white-space:nowrap}
+@media (max-width:380px){ .hero .act i{width:46px; height:46px} }

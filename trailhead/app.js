@@ -94,6 +94,7 @@ var I={
  open:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
  arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>',
  sort:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5v14l-3-3M17 19V5l3 3"/></svg>',
+ doc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/></svg>',
  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6M6 12l6-6 6 6"/></svg>',
  swap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
  hide:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M10.6 6.2A9.7 9.7 0 0112 6c5 0 8.5 4 9.5 6a13 13 0 01-2.6 3.4M6.3 7.7A13 13 0 002.5 12c1 2 4.500 6 9.500 6 1.300 0 2.500-.3 3.600-.7"/></svg>',
@@ -161,6 +162,7 @@ function prompt(p, step){
   var st=step||(openSteps(p)[0]||{}).t; if(st){ L.push(""); L.push("The one small thing I want to do right now: "+st); }
   var td=openTodos(p).slice(0,8);
   if(td.length){ L.push(""); L.push("Open to-dos:"); td.forEach(function(o){ L.push("- "+o.t); }); }
+  if(p.notes) L.push("Its notes doc: "+p.notes);
   var miss=basicsOf(p).filter(function(x){ return !x.ok; }).map(function(x){ return x.name; });
   if(miss.length){ L.push(""); L.push("Basics it's still missing: "+miss.join(", ")+"."); }
   L.push("My bigger goal: "+GOALS.join(" "));
@@ -300,6 +302,44 @@ function listBlock(p, kind, title, hint, checkable, ph){
    '<form class="add" data-form="add" data-id="'+p.id+'" data-kind="'+kind+'"><input id="add-'+kind+'" placeholder="'+ph+'" autocomplete="off" aria-label="'+ph+'"><button aria-label="Add">+</button></form></div>';
 }
 
+// A project's Google Doc of notes. Claude Code works from it; the page shows it live when Google allows.
+var DOCS={};
+function docId(u){ var m=/\/document\/d\/([A-Za-z0-9_-]+)/.exec(u||""); return m?m[1]:""; }
+function parseDoc(txt){
+  var lines=String(txt).replace(/\r/g,"").split("\n").map(function(l){ return l.trim(); }), live=[], stop=/^#*\s*(old notes?|done\??)\s*:?\s*$/i;
+  for(var i=0;i<lines.length;i++){
+    var l=lines[i]; if(stop.test(l)) break;
+    if(!l) continue;
+    var b=/^[*\-•]\s+(.*)$/.exec(l); if(b){ if(b[1] && !/^!?\[/.test(b[1])) live.push(b[1].replace(/\\([!.\-_*#()\[\]])/g,"$1")); }
+  }
+  return live;
+}
+function loadDoc(p){
+  var id=docId(p.notes); if(!id) return;
+  if(DOCS[id]){ paintDoc(p); return; }
+  DOCS[id]={state:"loading"};
+  fetch("https://docs.google.com/document/d/"+id+"/export?format=txt").then(function(r){ if(!r.ok) throw 0; return r.text(); })
+   .then(function(t){ if(/<html/i.test(t.slice(0,300))) throw 0; DOCS[id]={state:"ok", items:parseDoc(t)}; paintDoc(p); })
+   .catch(function(){ DOCS[id]={state:"blocked"}; paintDoc(p); });
+}
+function paintDoc(p){
+  var el=document.getElementById("docbody"); if(!el||el.dataset.id!==p.id) return;
+  var d=DOCS[docId(p.notes)]||{};
+  if(d.state==="ok"){
+    el.innerHTML = d.items.length
+      ? '<p><b>'+d.items.length+'</b> open '+(d.items.length===1?"note":"notes")+' in the doc right now.</p><details class="how"><summary>Read them</summary><ul>'+d.items.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join("")+'</ul></details>'
+      : '<p>No open notes in the doc right now.</p>';
+  } else if(d.state==="blocked"){
+    el.innerHTML='<p class="hint">'+(p.docOpen!=null?esc(String(p.docOpen))+" open notes when Claude Code last read it"+(p.docSeen?" ("+esc(p.docSeen)+")":"")+". ":"")+'This page couldn\'t read the doc live from here.</p>';
+  } else el.innerHTML='<p class="hint">Checking the doc…</p>';
+}
+function docPrompt(p){ return "Trailhead doc pass for "+p.name+" ("+p.folder+"/). There are new notes in its Google Doc: "+p.notes+"\n\nFollow \"Working a project's doc\" in trailhead/README.md."; }
+function docBlock(p){
+  if(!p.notes) return "";
+  return '<div class="block"><span class="label">Notes doc</span><div id="docbody" data-id="'+p.id+'"></div>'+
+    '<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(docPrompt(p)))+'" target="_blank" rel="noopener" data-act="docpass" data-id="'+p.id+'">'+I.arrow+'Work the doc</a><a class="btn line" href="'+esc(p.notes)+'" target="_blank" rel="noopener">Open the doc</a></div>'+
+    '<span class="hint">Write notes in the doc while you play. Work the doc sends Claude Code to do everything above the first "Old Notes" heading.</span></div>';
+}
 function todoBlock(p){
   var all=items(p,"todos"), open=all.filter(function(o){ return !S.done[o.k]; }), ticked=all.filter(function(o){ return S.done[o.k]; });
   function row(o,i,now){
@@ -335,6 +375,7 @@ function renderSheet(){
    '<div class="acts">'+
      (h?act("a","",I.open,p.kind==="tool"?"Open":"Play",'href="'+esc(h)+'" target="_blank" rel="noopener"'):'')+
      act("button","",I.chat,"Chat",'data-act="chat" data-id="'+p.id+'"')+
+     (p.notes?act("a","",I.doc,"Notes",'href="'+esc(p.notes)+'" target="_blank" rel="noopener"'):'')+
      act("button",isStar(p.id)?"on":"",I.star,isStar(p.id)?"Starred":"Star",'data-act="star" data-id="'+p.id+'" aria-pressed="'+isStar(p.id)+'"')+
      act("button","",I.hide,"Hide",'data-act="hide" data-id="'+p.id+'"')+
    '</div></div>'+
@@ -342,6 +383,7 @@ function renderSheet(){
    (p.left?'<div class="block"><span class="label">Where you left off · '+ago(n)+'</span><p>'+esc(p.left)+'</p></div>':'')+
    '<div class="block"><span class="label">What you love about it</span><textarea class="fit" id="love" rows="1" data-id="'+p.id+'" placeholder="What pulled you into this one? Write it down so it can pull you back.">'+esc(love)+'</textarea>'+(p.love&&S.love[p.id]==null?'<span class="hint">Pulled from your own docs and notes. Fix it if it\'s off.</span>':'')+'</div>'+
    dq+
+   docBlock(p)+
    todoBlock(p)+
    listBlock(p,"ideas","Cool ideas","",false,"Add an idea")+
    ((p.done||[]).length?'<details class="block donebox"><summary><span class="label">Done · '+p.done.length+'</span></summary><ul class="list">'+p.done.slice().reverse().map(function(x){ return '<li class="done"><span class="check">'+I.check+'</span><span class="tx" style="text-decoration:none">'+esc(x.t)+(x.on?' <span class="hint">'+esc(x.on)+'</span>':'')+'</span></li>'; }).join("")+'</ul></details>':'')+
@@ -349,7 +391,7 @@ function renderSheet(){
      bs.map(function(x){ return '<button class="bitem'+(x.ok?" ok":"")+'" data-act="basic" data-id="'+p.id+'" data-k="'+x.k+'" title="'+esc(x.desc)+'" aria-pressed="'+x.ok+'"><i>'+I.check+'</i>'+esc(x.name)+'</button>'; }).join("")+'</div></div>':'')+
    '<p class="src">'+p.commits+" commits · started "+p.first+" · last commit "+lastOf(p)+" · "+esc(p.folder)+"/<br>Read from: "+esc(p.docs)+'</p>'+
   '</div>';
-  fitAll();
+  fitAll(); if(p.notes) loadDoc(p);
 }
 function thread(id){ return S.chat[id]||(S.chat[id]=[]); }
 function appContext(){
@@ -466,6 +508,7 @@ document.addEventListener("click", function(e){
   else if(a==="nownext"){ UI.nowIdx++; UI.justDone=0; renderNow(); }
   else if(a==="top"){ var cur=items(p,"todos").map(function(o){ return o.t; }).filter(function(x){ return x!==t.dataset.t; }); S.order[id]=[t.dataset.t].concat(cur); save(); var tp2=document.querySelector(".sheet").scrollTop; renderAll(); document.querySelector(".sheet").scrollTop=tp2; }
   else if(a==="usehint"){ S.dream[id]=p.dreamHint; save(); renderAll(); }
+  else if(a==="docpass"){ copy(docPrompt(p), "Opening Claude Code. The request is copied too."); }
   else if(a==="doit"){ copy(taskPrompt(p, t.dataset.t), "Opening Claude Code. The task is copied too."); }
   else if(a==="sync"){ copy(syncPrompt(), "Opening Claude Code. The changes are copied too."); }
   else if(a==="chat"){ UI.chat=id; UI.menu=false; UI.seed=t.dataset.step?"Help me start: "+t.dataset.step:""; renderSheet(); }

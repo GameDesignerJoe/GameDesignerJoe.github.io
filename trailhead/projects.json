@@ -42,7 +42,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "Your design chats with Claude, and your Google Doc \"Crunch Video Game Notes\""
+   "docs": "Your design chats with Claude, and your Google Doc \"Crunch Video Game Notes\"",
+   "notes": "https://docs.google.com/document/d/1UueL-eUYqguaParyySbBksBgv0kkZiYz1OlXr-EREcA/edit"
   },
   {
    "id": "vye",
@@ -72,7 +73,8 @@
    "ideas": [],
    "done": [],
    "basics": {},
-   "docs": "vye_duel/README.md"
+   "docs": "vye_duel/README.md",
+   "notes": "https://docs.google.com/document/d/1CX58cJRkARROLAbLDqQBt7Zi_SANeXGhOoIl9psPkPU/edit"
   },
   {
    "id": "buzzers",
@@ -149,7 +151,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "gasp2/PLAN.md and gasp2/CLAUDE.md. Commit count covers 1.0 and 2."
+   "docs": "gasp2/PLAN.md and gasp2/CLAUDE.md. Commit count covers 1.0 and 2.",
+   "notes": "https://docs.google.com/document/d/1u5jlqF3Xi7RYD8k5Jn8f8bKEF3VGe9HySxjrlxxNgVI/edit"
   },
   {
    "id": "jga",
@@ -289,7 +292,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "catch-the-wolf/docs/DESIGN.md"
+   "docs": "catch-the-wolf/docs/DESIGN.md",
+   "notes": "https://docs.google.com/document/d/1HWe-siEpDABglwKyClH5bdbzHNZ3CkZJHwn7adMZYJk/edit"
   },
   {
    "id": "maze",
@@ -329,7 +333,8 @@
    ],
    "done": [],
    "basics": {},
-   "docs": "maze/docs/HANDOFF.md and NOTES.md. Your live to-do list for this one is in your Google Doc, not in the repo."
+   "docs": "maze/docs/HANDOFF.md and NOTES.md. Your live to-do list for this one is in your Google Doc, not in the repo.",
+   "notes": "https://docs.google.com/document/d/14pOj9HLuiGyPlaTVYo7sLt7xNAokqSFCk1d7hOKDqrs/edit"
   },
   {
    "id": "unseen",

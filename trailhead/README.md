@@ -45,6 +45,8 @@ Each project:
 | `ideas` | Cool ideas, not commitments. |
 | `done` | `[{ "t": "the task text", "on": "YYYY-MM-DD" }]`, oldest first. |
 | `basics` | Corrections to the basics audit, e.g. `{ "offline": true }`. Set one when you add or remove that basic. Keys are in `config.js`. |
+| `notes` | Link to the project's Google Doc of notes, if it has one. See "Working a project's doc". |
+| `docOpen`, `docSeen` | How many open notes the doc had when a session last read it, and the date. Update both whenever you read the doc. |
 | `docs` | Where the project's own notes live. |
 
 ## Doing a Trailhead task
@@ -62,6 +64,37 @@ Each project:
    - make sure the top three `todos` are still small, obvious next things
 5. If the task needs Joe (playing it, deciding, recording, an account or a payment),
    don't fake it. Say exactly what you need and leave the task where it is.
+
+## Working a project's doc
+
+Joe's normal way of working: he plays the game, writes notes in that project's Google
+Doc from his phone, then says "new things in the doc for you" and goes back to
+playing. A "Trailhead doc pass" prompt is that message. The doc is where he thinks;
+it stays the backlog. Don't copy its notes into `todos`.
+
+**The Maze is the exception: use the `maze-task` skill for it.** For every other
+project:
+
+1. **Read the doc.** If it is shared by link, fetch
+   `https://docs.google.com/document/d/<id>/export?format=txt`. Otherwise use the
+   Google Drive connector. If you can't read it, say so and stop.
+2. **The live list is everything above the first `Old Notes` or `DONE?` heading.**
+   Nothing below it. Those are notes he has already moved out of the way.
+3. If the doc opens with a rules block for Claude, it wins over anything here.
+4. Never work sections headed Thoughts, Ideas or Notes to Remember unless he asks.
+5. He dictates from his phone, so read for intent and say which reading you took. A
+   bare bullet or an image bullet is a screenshot you cannot see. Say so; don't guess.
+6. Skip anything already shipped unless he has added to it. A note that is listed
+   again is not done, it is still wrong.
+7. **Group by what the notes touch and say the order before you start.** Rules
+   changes, feel and animation, UI, and bugs are different batches. If a note is a
+   question or a design worry and not a request, answer it; don't build something.
+8. Build one group, check it works, commit to `main`, push. Then the next group.
+9. **Report at the end:** what you did for each note, what you skipped and why, and
+   which notes he can now move under `Old Notes`. Don't edit the doc yourself unless
+   he asks.
+10. Update the project's entry: `left`, `status`, `last`, add the finished notes to
+    `done`, and set `docOpen` (notes still open) and `docSeen` (today).
 
 ## Applying a "Trailhead sync" prompt
 
