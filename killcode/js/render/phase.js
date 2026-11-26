@@ -40,7 +40,9 @@ export function renderPhase(state, root){
       : '> Load and deploy a program to proceed';
   } else {
     ph.className = 'phase';
-    ph.textContent = '> Input injection sequence and execute';
+    ph.textContent = state.hand.length
+      ? '> Input injection sequence and execute'
+      : '> No programs left — input injection sequence and execute';
   }
 
   const submitDisabled = state.phase !== 'guess'

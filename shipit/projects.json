@@ -1,6 +1,6 @@
 {
  "about": "Source of truth for Ship It! (shipit/index.html). Edited by Joe through Claude Code. See shipit/README.md.",
- "updated": "2026-11-25",
+ "updated": "2026-11-26",
  "goals": [
   "To give myself the freedom to make something only I can make that people want to play."
  ],
@@ -1034,21 +1034,38 @@
    "folder": "killcode",
    "url": "killcode/",
    "first": "2026-05-08",
-   "last": "2026-05-11",
+   "last": "2026-11-26",
    "commits": 8,
    "stage": 4,
    "tag": "Crack the code before lockdown",
-   "status": "Mastermind with cards: breach a 4-key hash inside five cycles. Playable, with narrative scenes and characters.",
-   "left": "\"Now with invading ICE\" on May 11.",
+   "status": "Mastermind with cards: breach a 4-key hash within ten cycles, with story scenes, characters and invading ICE. The last-cycle soft-lock is fixed; it still needs someone else to play it.",
+   "left": "Fixed the soft-lock when you run out of programs (Nov 26).",
    "love": "Mastermind as a hacker game, where you deploy programs as cards to gain intel.",
    "star": false,
    "hidden": false,
-   "done": [],
+   "done": [
+    {
+     "t": "Fixed the soft-lock on the last cycle when no programs are left",
+     "on": "2026-11-26"
+    }
+   ],
    "docs": "killcode/docs/CLAUDE.md. No to-do list in the repo.",
    "checklist": [
     {
-     "t": "Play one breach",
+     "t": "Play one breach on your phone",
      "done": false
+    },
+    {
+     "t": "Fix: the LOCKDOWN banner is cut off at both edges on a phone (it reads \"OCKDOW\")",
+     "done": false
+    },
+    {
+     "t": "Fix: with no programs left, the cycle can still be played instead of waiting forever",
+     "done": true
+    },
+    {
+     "t": "Losing a breach shows the lockdown screen",
+     "done": true
     },
     {
      "t": "Lays out properly on a phone",
@@ -1061,12 +1078,12 @@
      "k": "notch"
     },
     {
-     "t": "Saves progress",
+     "t": "Saves your stats and sound settings (a run is one breach)",
      "done": true,
      "k": "saves"
     },
     {
-     "t": "Has sound",
+     "t": "Has sound: four music tracks and effects",
      "done": true,
      "k": "sound"
     },
@@ -1075,8 +1092,9 @@
      "done": false
     },
     {
-     "t": "Their feedback is written in the notes",
-     "done": false
+     "t": "Their feedback is written in a notes doc (docs/CLAUDE.md covers how it's built, not what players said)",
+     "done": false,
+     "k": "notes"
     },
     {
      "t": "No known blockers",
@@ -1088,13 +1106,13 @@
      "k": "tile"
     },
     {
-     "t": "Has notes in the repo or a doc",
-     "done": true,
-     "k": "notes"
+     "t": "Decide: is the feature list done? The last work (May 11) added the invading ICE",
+     "done": false
     }
    ],
    "backlog": [],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-26"
   },
   {
    "id": "murmur",

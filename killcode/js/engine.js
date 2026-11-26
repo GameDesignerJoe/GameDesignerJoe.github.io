@@ -81,15 +81,21 @@ export function startTurn({ firstTurn = false } = {}){
   if(hadIce){
     enterPhase('ice-resolving');
     resolveIceSequence(state, fx, () => {
-      enterPhase('play-card');
+      enterPhase(restingPhase());
       bus.emit('turn.started', { rowIndex: state.rows.length });
     });
     return;
   }
 
-  enterPhase('play-card');                                          // resting phase BEFORE any narrative
+  enterPhase(restingPhase());                                       // resting phase BEFORE any narrative
   if(firstTurn) bus.emit('game.started', { secret: state.secret }); // narrative captures returnTo='play-card'
   bus.emit('turn.started', { rowIndex: state.rows.length });
+}
+
+// With no programs left there is nothing to deploy: the cycle goes straight to
+// the guess, so the run can still end in a breach or a lockdown.
+function restingPhase(){
+  return state.hand.length ? 'play-card' : 'guess';
 }
 
 // ── Hand interaction ─────────────────────────────
