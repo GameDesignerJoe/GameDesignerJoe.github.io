@@ -528,7 +528,7 @@
    "commits": 220,
    "stage": 2,
    "tag": "A lone explorer crosses a frozen, storm-swept wilderness",
-   "status": "You've come back to this one three times: the 2025 hex-map version, the October visual proof of concept, and Not All Will Survive Online, which is at milestone 0.",
+   "status": "The proof of concept is now a whole loop: follow the radio to a lost explorer and bring them home, with the cold, water, exhaustion and the bear all live. Still in Preproduction until you pick which version is the game: this one or Online.",
    "left": "Online milestone 0: seeded world, shared world clock, player identity. Checked in two browsers, not yet on a phone.",
    "love": "A lone explorer, small against a vast, cold, indifferent landscape. Wind you can see and hear, snow that fights you. No bars, no HUD.",
    "star": false,
@@ -537,27 +537,39 @@
    "docs": "not-all-survive/docs/BRIEF.md, nas-online/docs/ONLINE.md, nas-vite todo lists. Commit count covers all three folders.",
    "checklist": [
     {
-     "t": "Open nas-online with ?debuginfo on your phone and check the ground checksum reads 3e55f747",
-     "done": false
-    },
-    {
      "t": "Walk the proof of concept for five minutes with the sound on",
      "done": false
     },
     {
-     "t": "Milestone 1: the multiplayer test (database setup is in docs/SUPABASE.md)",
+     "t": "Play one full expedition: follow the radio, wrap the lost explorer and bring them home",
      "done": false
     },
     {
-     "t": "Check the checksum and world clock on iOS Safari",
+     "t": "Decide: which is the game, the single-player proof of concept or Online? (The 2025 hex-map version is cut either way)",
      "done": false
     },
     {
-     "t": "The core loop is playable start to end",
+     "t": "Decide: is \"They brought them home\" the end of a game, or one stop on a longer trip (the pole)?",
      "done": false
     },
     {
-     "t": "The core loop is fun: you'd play it again unprompted",
+     "t": "Decide: are these in or out: the view pulling out on a summit, gear vs. terrain, ice caves, a resilience meter?",
+     "done": false
+    },
+    {
+     "t": "If it's Online: open nas-online with ?debuginfo on your phone and check the ground checksum reads 3e55f747 and the world clock matches your PC",
+     "done": false
+    },
+    {
+     "t": "If it's Online: milestone 1, the multiplayer test (database setup is in docs/SUPABASE.md)",
+     "done": false
+    },
+    {
+     "t": "The core loop is playable start to end: find them, bring them home, and death ends the run",
+     "done": true
+    },
+    {
+     "t": "The core loop is fun: you'd play it again without being asked",
      "done": false
     },
     {
@@ -565,15 +577,15 @@
      "done": false
     },
     {
-     "t": "Write the cut list: what's out, and stays out",
+     "t": "Write the cut list: what's out and stays out",
      "done": false
     },
     {
-     "t": "Choose the look and feel",
-     "done": false
+     "t": "Look and feel chosen: monochrome inked illustration with signal yellow, no HUD",
+     "done": true
     },
     {
-     "t": "Set up its notes doc",
+     "t": "Set up its notes doc (the in-game Send feedback form already collects players' notes)",
      "done": false,
      "k": "notesdoc"
     }
@@ -582,9 +594,14 @@
     "Climb a mountain and the view pulls out",
     "Gear vs. terrain: the way to the pole might not be the way home",
     "Ice caves",
-    "A resilience meter that drops if you stall or backtrack"
+    "A resilience meter that drops if you stall or backtrack",
+    "For Production: replace the placeholder ending card (burden.js drawOverlay)",
+    "For Production: record real audio for the recorders (the browser voice reads placeholder text)",
+    "For Production: fix the walkable path strip across the lead at about x 1305-1345, y 1738",
+    "For Alpha: check how it runs on a phone"
    ],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-26"
   },
   {
    "id": "photo",
