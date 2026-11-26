@@ -27,6 +27,8 @@ var I={
  arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>',
  sort:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5v14l-3-3M17 19V5l3 3"/></svg>',
  doc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/></svg>',
+ prev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+ next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
  swap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
  dots:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
@@ -103,6 +105,8 @@ function notesPrompt(p){
   var n=notesOf(p);
   return "Trailhead notes pass for "+p.name+" ("+p.folder+"/). There are new notes in "+(docId(n)?"its Google Doc: "+n:"its notes file: "+n)+"\n\nFollow \"Working a project's notes\" in trailhead/README.md.";
 }
+function checkPrompt(p){ return "Trailhead gate check for "+p.name+" ("+p.folder+"/). Use the gate-check skill."; }
+function checkAllPrompt(){ return "Trailhead gate check for every game that is for publish and not hidden. Use the gate-check skill, one game at a time, most recently touched first. Stop after each one and show me its gate and checklist before going on."; }
 function gatePrompt(p){
   var nx=STAGES[p.stage];
   return "Trailhead: "+p.name+" ("+p.folder+"/) has everything ticked for "+gate(p).name+". Follow \"Moving through a gate\" in trailhead/README.md: check it honestly"+(nx?", and if it holds, move it to "+nx.name+" and write that gate's checklist for this game.":".");
@@ -307,8 +311,16 @@ function paintMedia(p){
     return '<div class="frame">'+(it.type==="img" ? '<img src="'+esc(it.src)+'" alt="'+esc(p.name)+' screenshot">'
       : it.type==="video" ? '<video src="'+esc(it.src)+'" controls playsinline preload="metadata"></video>'
       : '<a href="'+esc(it.href)+'" target="_blank" rel="noopener" class="yt"><img src="https://img.youtube.com/vi/'+esc(it.id)+'/hqdefault.jpg" alt="Video"><span>Watch on YouTube</span></a>')+(it.cap?'<span class="cap">'+esc(it.cap)+'</span>':'')+'</div>'; }).join("")+'</div>'+
-    (items.length>1?'<p class="reelnote"><span id="reelpos">1</span> of '+items.length+'</p>':'');
+    (items.length>1?'<div class="reelnav"><button class="round" data-reel="-1" aria-label="Previous">'+I.prev+'</button><p class="reelnote"><span id="reelpos">1</span> of '+items.length+'</p><button class="round" data-reel="1" aria-label="Next">'+I.next+'</button></div>':'');
   var reel=el.querySelector(".reel"), pos=document.getElementById("reelpos");
+  function step(){ var f=reel.querySelector(".frame"); return f ? f.getBoundingClientRect().width+10 : 260; }
+  el.querySelectorAll("[data-reel]").forEach(function(b){ b.addEventListener("click", function(){ reel.scrollBy({left:(+b.dataset.reel)*step(), behavior:"smooth"}); }); });
+  // dragging with a mouse, since a desktop has no swipe
+  var drag=null;
+  reel.addEventListener("pointerdown", function(e){ if(e.pointerType!=="mouse"||e.target.closest("video")) return; drag={x:e.clientX, left:reel.scrollLeft, moved:false}; reel.classList.add("dragging"); });
+  window.addEventListener("pointermove", function(e){ if(!drag) return; var dx=e.clientX-drag.x; if(Math.abs(dx)>4) drag.moved=true; reel.scrollLeft=drag.left-dx; });
+  window.addEventListener("pointerup", function(){ if(!drag) return; var d=drag; drag=null; reel.classList.remove("dragging"); if(d.moved){ swallow=true; setTimeout(function(){ swallow=false; },80); reel.scrollTo({left:Math.round(reel.scrollLeft/step())*step(), behavior:"smooth"}); } });
+  reel.addEventListener("dragstart", function(e){ e.preventDefault(); });
   if(pos) reel.addEventListener("scroll", function(){ var f=reel.querySelector(".frame"); if(!f) return; pos.textContent=Math.min(items.length, Math.round(reel.scrollLeft/(f.getBoundingClientRect().width+10))+1); }, {passive:true});
 }
 
@@ -335,12 +347,12 @@ function renderSheet(){
    '</div>'+
    (UI.more?'<div class="moreacts"><button class="btn" data-act="nfp" data-id="'+p.id+'" aria-pressed="'+nfp+'">'+(nfp?"Not for publish: on":"Not for publish")+'</button><button class="btn" data-act="hide" data-id="'+p.id+'">Hide</button></div>':'')+
    '</div>'+
+   '<div id="gallery" class="gallery" data-id="'+p.id+'" hidden></div>'+
    '<div class="block jump"><span class="label">'+esc(g.name)+' · '+pr.done+' of '+pr.of+(nfp?" · not for publish":"")+'</span>'+
      (nx?'<p class="jtask">'+esc(nx.t)+'</p>':'<p class="jtask">Everything for '+esc(g.name)+' is ticked.</p>')+
      (p.left?'<p class="hint">Last time, '+ago(n)+': '+esc(p.left)+'</p>':'')+
      (nx?'<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(goPrompt(p,nx.t)))+'" target="_blank" rel="noopener" data-act="go" data-id="'+p.id+'">'+I.arrow+'Let\'s do it!</a></div>'
         :(canAdvance?'<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(gatePrompt(p)))+'" target="_blank" rel="noopener" data-act="gate" data-id="'+p.id+'">'+I.arrow+'Move it to '+esc(nxt.name)+'</a></div>':''))+'</div>'+
-   '<div id="gallery" class="gallery" data-id="'+p.id+'" hidden></div>'+
    '<div class="block"><span class="label">To get through '+esc(g.name)+'</span><p class="hint">'+esc(g.desc)+'</p>'+
      '<div class="bar big"><i style="width:'+(pr.of?Math.round(pr.done/pr.of*100):0)+'%"></i></div>'+
      (open.length?'<ul class="list">'+open.map(row).join("")+'</ul>':'')+
@@ -354,6 +366,7 @@ function renderSheet(){
      ((p.done||[]).length?'<span class="grp">Shipped · '+p.done.length+'</span><ul class="list">'+p.done.slice().reverse().map(function(x){ return '<li><span class="dot"></span><span class="tx">'+esc(x.t)+(x.on?' <span class="hint">'+esc(x.on)+'</span>':'')+'</span></li>'; }).join("")+'</ul>':'')+
      (canAdvance?'<span class="grp">Next gate: '+esc(nxt.name)+'</span><p class="hint">'+esc(nxt.desc)+'</p>':'')+
      (notesOf(p)?'<span class="grp">Notes link</span><p class="src" style="overflow-wrap:anywhere">'+esc(notesOf(p))+'</p>'+linkForm(p,"Paste a different Google Doc link"):'')+
+     '<span class="grp">This checklist</span><p class="hint">'+(p.checked?"Last checked against the game on "+esc(p.checked)+".":"A first draft. It hasn't been checked against the game yet.")+'</p><div class="chatacts"><a class="btn line" href="'+esc(codeLink(checkPrompt(p)))+'" target="_blank" rel="noopener" data-act="check" data-id="'+p.id+'">Check it against the game</a></div>'+
      '<p class="src">'+p.commits+" commits · started "+p.first+" · last commit "+lastOf(p)+" · "+esc(p.folder)+'/</p>'+
    '</details>'+
   '</div>';
@@ -363,6 +376,7 @@ function menuHtml(){
   return '<div class="sheet" role="dialog" aria-modal="true" aria-label="Menu">'+
    '<div class="shead"><div class="t"><h2>Trailhead</h2><p>'+PROJECTS.length+' projects. projects.json last updated '+esc(UPDATED)+'</p></div><button class="round" data-act="close" aria-label="Close">'+I.x+'</button></div>'+
    '<div class="block"><span class="label">Fresh dates</span><p>Ask GitHub when each project last changed.</p><button class="btn solid" data-act="github">Check GitHub now</button><span class="hint" id="ghmsg">'+(S.liveAt?"Last checked "+new Date(S.liveAt).toLocaleString():"Not checked yet")+'</span></div>'+
+   '<div class="block"><span class="label">Gate check</span><p>Have Claude Code go through every for-publish game, work out which gate it is really in, and write its checklist.</p><a class="btn solid" href="'+esc(codeLink(checkAllPrompt()))+'" target="_blank" rel="noopener" data-act="checkall">Check them all</a></div>'+
    '<div class="block"><span class="label">How this saves</span><p>Everything lives in your repo, in trailhead/projects.json, so every device shows the same thing. A tick, a star or a new link made here waits on this device until you press Send to repo.</p></div>'+
    '<div class="block"><span class="label">Not tracked</span><p class="hint">Folders left out because they hold assets, originals or one-off pages: '+esc(NOT_TRACKED)+'.</p></div>'+
   '</div>';
@@ -372,7 +386,9 @@ function fitAll(){ document.querySelectorAll("textarea.fit").forEach(fit); }
 function renderAll(){ if(!LOADED) return; renderGoal(); renderNow(); renderFocus(); renderPath(); renderList(); renderSheet(); }
 function keepScroll(fn){ var sh=document.querySelector(".sheet"), t=sh?sh.scrollTop:0; fn(); sh=document.querySelector(".sheet"); if(sh) sh.scrollTop=t; }
 
+var swallow=false;   // the click a browser fires at the end of a mouse drag
 document.addEventListener("click", function(e){
+  if(swallow){ swallow=false; e.preventDefault(); return; }
   var t=e.target.closest("[data-act]");
   if(!t){ if(e.target.id==="scrim"){ UI.open=null; UI.menu=false; UI.more=false; renderSheet(); } return; }
   var a=t.dataset.act, id=t.dataset.id, p=BY[id];
@@ -399,6 +415,8 @@ document.addEventListener("click", function(e){
   else if(a==="go"){ copy(goPrompt(p,(nextItem(p)||{}).t), "Opening Claude Code. The request is copied too."); }
   else if(a==="gate"){ copy(gatePrompt(p), "Opening Claude Code. The request is copied too."); }
   else if(a==="notespass"){ copy(notesPrompt(p), "Opening Claude Code. The request is copied too."); }
+  else if(a==="check"){ copy(checkPrompt(p), "Opening Claude Code. The request is copied too."); }
+  else if(a==="checkall"){ copy(checkAllPrompt(), "Opening Claude Code. The request is copied too."); }
   else if(a==="sync"){ copy(syncPrompt(), "Opening Claude Code. The changes are copied too."); }
   else if(a==="github"){ checkGitHub(true); }
 });

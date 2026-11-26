@@ -295,3 +295,8 @@ li.done .tx{color:var(--muted); text-decoration:line-through}
 .frame .cap, .yt span{position:absolute; left:8px; bottom:8px; background:rgba(20,20,22,.72); color:#fff; font:600 12px var(--display); padding:4px 9px; border-radius:999px}
 .yt{display:block}
 .reelnote{font:600 12.5px var(--display); color:var(--muted); text-align:center; font-variant-numeric:tabular-nums}
+
+.reel{cursor:grab} .reel.dragging{cursor:grabbing; scroll-snap-type:none; user-select:none}
+.reel img{-webkit-user-drag:none; user-select:none}
+.reelnav{display:flex; align-items:center; justify-content:center; gap:14px}
+.reelnav .round{width:36px; height:36px} .reelnav .round svg{width:16px; height:16px}

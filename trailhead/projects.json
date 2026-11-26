@@ -567,9 +567,9 @@
    "first": "2026-10-19",
    "last": "2026-10-21",
    "commits": 14,
-   "stage": 5,
+   "stage": 4,
    "tag": "Find the wolf in sheep's clothing",
-   "status": "Your lead game for the stores. A full remake of your GameMaker original: seasons, weather, a farm, Wolf Stampede, Wolf Pack, midnight torch rounds, achievements and sound.",
+   "status": "Your lead game for the stores. It plays like a finished game, but the doc has seven open notes, one of them a new mode, so the feature list is not locked yet.",
    "left": "Wolf Pack rounds, streak milestones, colour hint, night torch, lamb pranks.",
    "love": "Press your luck: every pelt you hold is at risk until you bank it. And the farm, where sheep nap, get zoomies and hold grudges.",
    "star": false,
@@ -583,72 +583,72 @@
      "done": false
     },
     {
-     "t": "Add it to your home screen and check the icon",
+     "t": "Decide in or out for each of the 7 open notes in the doc. That locks the feature list",
      "done": false
     },
     {
-     "t": "Self-host the fonts (the only network dependency)",
+     "t": "Decide: is the many-wolves mode (4 to 8 wolves, few sheep) in or out?",
      "done": false
     },
     {
-     "t": "Feature list frozen: fixes only from here",
+     "t": "Make the wool-colour tell easier to see (noted twice in the doc)",
      "done": false
     },
     {
-     "t": "Clean out debug text, test fields and dev shortcuts",
-     "done": false,
-     "k": "clean"
-    },
-    {
-     "t": "Real app icon at 192 and 512",
-     "done": true,
-     "k": "icon"
-    },
-    {
-     "t": "Tab icon",
-     "done": true,
-     "k": "favicon"
-    },
-    {
-     "t": "Installs to the home screen",
-     "done": true,
-     "k": "install"
-    },
-    {
-     "t": "Works offline",
-     "done": false,
-     "k": "offline"
-    },
-    {
-     "t": "Link preview image and title",
-     "done": false,
-     "k": "share"
-    },
-    {
-     "t": "One-line description",
-     "done": true,
-     "k": "describe"
-    },
-    {
-     "t": "Haptics on the touches that matter",
-     "done": true,
-     "k": "haptics"
-    },
-    {
-     "t": "Orientation locked",
+     "t": "Make night rounds feel like night on the ground, not day under a dark screen",
      "done": false
     },
     {
-     "t": "Name checked in the App Store and Google Play",
+     "t": "Wolf Stampede: fix the missed taps, or slow the wolves a little",
      "done": false
     },
     {
-     "t": "Gallery shots taken",
+     "t": "Someone else has played it start to finish",
+     "done": false
+    },
+    {
+     "t": "Their feedback is written in the notes doc",
+     "done": false
+    },
+    {
+     "t": "Lays out properly on a phone",
      "done": true,
-     "k": "gallery"
+     "k": "phone"
+    },
+    {
+     "t": "Clears the notch and the home bar",
+     "done": true,
+     "k": "notch"
+    },
+    {
+     "t": "Saves progress",
+     "done": true,
+     "k": "saves"
+    },
+    {
+     "t": "Has sound",
+     "done": true,
+     "k": "sound"
+    },
+    {
+     "t": "On the portfolio",
+     "done": true,
+     "k": "tile"
+    },
+    {
+     "t": "Has notes in the repo or a doc",
+     "done": true,
+     "k": "notes"
     }
    ],
    "backlog": [
+    "For Beta: remove the window.ctw debug handle and the #farm, #shop, #play test links",
+    "For Beta: keep tools/ and gallery.html out of the shipped build",
+    "For Beta: lock the orientation to portrait (the manifest says \"any\")",
+    "For Beta: make it work offline",
+    "For Beta: add a link preview image and title",
+    "For Beta: self-host the two fonts (the only network dependency)",
+    "For Beta: check the name in the App Store and Google Play",
     "Record a 10-second clip of a wolf reveal for the itch.io page",
     "Publish on itch.io with a strong thumbnail and the GIF",
     "Submit to Poki or CrazyGames, and post on Newgrounds",
@@ -659,7 +659,8 @@
     "Farm upgrades: a bigger paddock, a barn, hats for sheep",
     "Wolf collection: a bestiary of every tell you've caught"
    ],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-25"
   },
   {
    "id": "maze",

@@ -23,6 +23,8 @@ rules.
   `last`, `status` if stale, tick what's now true). A new app gets a new entry at
   Incubation.
 - **Gallery shots for a game**: use the `game-gallery` skill.
+- **"Trailhead gate check"**, or Joe asking where a game really stands or to redo its
+  checklist: use the `gate-check` skill.
 
 Always validate the file still parses (`node -e "JSON.parse(require('fs').readFileSync('trailhead/projects.json','utf8'))"`)
 before committing. The live page breaks if it doesn't.

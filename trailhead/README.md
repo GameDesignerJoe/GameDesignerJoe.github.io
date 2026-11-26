@@ -69,6 +69,7 @@ Each project:
 | `notes` | Where Joe's notes live: a Google Doc link, or the path of a notes file in this repo. See "Working a project's notes". |
 | `docOpen`, `docSeen` | How many open notes there were when a session last read them, and the date. |
 | `shot` | `"landscape"` for a game played sideways, so screenshots are taken that way. |
+| `checked` | Date of the last gate check, when the checklist was written from the game itself (the `gate-check` skill). Missing means the list is still a first draft. |
 | `docs` | Where the project's own design notes live. |
 
 ## Working on a project ("Trailhead: let's work on X")
@@ -82,6 +83,13 @@ Each project:
    `updated`, add what shipped to `done`, and retake the screenshot if the app looks
    different (see Screenshots).
 5. Tell him what's next on the checklist.
+
+## Gate check
+
+The `gate-check` skill works out which gate a game is really in and writes its
+checklist from the code, the notes and a conversation with Joe. A checklist goes
+stale as the game changes, so keep it true in the same push as any work: tick what is
+now true, add what the work revealed, remove what no longer applies.
 
 ## Moving through a gate
 
