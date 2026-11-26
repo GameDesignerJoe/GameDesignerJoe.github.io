@@ -570,10 +570,10 @@
    "first": "2026-10-19",
    "last": "2026-10-21",
    "commits": 14,
-   "stage": 4,
+   "stage": 2,
    "tag": "Find the wolf in sheep's clothing",
-   "status": "Your lead game for the stores. It plays like a finished game, but the doc has seven open notes, one of them a new mode, so the feature list is not locked yet.",
-   "left": "Wolf Pack rounds, streak milestones, colour hint, night torch, lamb pranks.",
+   "status": "Your lead game for the stores. Every note in the doc is built and it plays like a finished game, but the feature list, sound and art haven't been decided yet.",
+   "left": "All 7 doc notes are built: Wolf Pack, streak popups, colour hint, night field, lamb pranks, easier Stampede taps.",
    "love": "Press your luck: every pelt you hold is at risk until you bank it. And the farm, where sheep nap, get zoomies and hold grudges.",
    "star": false,
    "hidden": false,
@@ -582,69 +582,60 @@
    "notes": "https://docs.google.com/document/d/1HWe-siEpDABglwKyClH5bdbzHNZ3CkZJHwn7adMZYJk/edit",
    "checklist": [
     {
-     "t": "Play to a 12 streak on your phone and trigger a Wolf Stampede",
+     "t": "Play on your phone until you hit a Wolf Pack and a Stampede, and check the 7 doc notes feel fixed (then move them under Old Notes)",
      "done": false
     },
     {
-     "t": "Decide in or out for each of the 7 open notes in the doc. That locks the feature list",
+     "t": "Decide: rule rounds at high tiers (“the wolf is the only one with X”): in or out?",
      "done": false
     },
     {
-     "t": "Decide: is the many-wolves mode (4 to 8 wolves, few sheep) in or out?",
+     "t": "Decide: daily flock, the same seeded round for everyone, shareable: in or out?",
      "done": false
     },
     {
-     "t": "Make the wool-colour tell easier to see (noted twice in the doc)",
+     "t": "Decide: farm upgrades (bigger paddock, barn, hats for sheep): in or out?",
      "done": false
     },
     {
-     "t": "Make night rounds feel like night on the ground, not day under a dark screen",
+     "t": "Decide: wolf collection, a bestiary of every tell you've caught: in or out?",
      "done": false
     },
     {
-     "t": "Wolf Stampede: fix the missed taps, or slow the wolves a little",
+     "t": "Decide the sound and music: keep the made-in-code sounds or get real ones, and what music it has",
+     "done": false,
+     "k": "audioplan"
+    },
+    {
+     "t": "Decide the art: find and buy the assets the current look comes from, or make your own",
      "done": false
     },
     {
-     "t": "Someone else has played it start to finish",
+     "t": "Write the cut list in the notes doc: what's out and stays out",
      "done": false
     },
     {
-     "t": "Their feedback is written in the notes doc",
-     "done": false
+     "t": "The core loop is fun: you'd play it again unprompted",
+     "done": true
     },
     {
-     "t": "Lays out properly on a phone",
+     "t": "The core loop is playable start to end",
+     "done": true
+    },
+    {
+     "t": "Look and feel chosen: cartoon sheep with ink outlines, four seasons, day and night",
+     "done": true
+    },
+    {
+     "t": "Notes doc set up",
      "done": true,
-     "k": "phone"
-    },
-    {
-     "t": "Clears the notch and the home bar",
-     "done": true,
-     "k": "notch"
-    },
-    {
-     "t": "Saves progress",
-     "done": true,
-     "k": "saves"
-    },
-    {
-     "t": "Has sound",
-     "done": true,
-     "k": "sound"
-    },
-    {
-     "t": "On the portfolio",
-     "done": true,
-     "k": "tile"
-    },
-    {
-     "t": "Has notes in the repo or a doc",
-     "done": true,
-     "k": "notes"
+     "k": "notesdoc"
     }
    ],
    "backlog": [
+    "For Production: replace the borrowed art with bought or your own art, as decided",
+    "For Production: the sound and music decided on are built in",
+    "For Alpha: someone else plays it start to finish and their feedback goes in the doc",
     "For Beta: remove the window.ctw debug handle and the #farm, #shop, #play test links",
     "For Beta: keep tools/ and gallery.html out of the shipped build",
     "For Beta: lock the orientation to portrait (the manifest says \"any\")",
@@ -656,14 +647,10 @@
     "Publish on itch.io with a strong thumbnail and the GIF",
     "Submit to Poki or CrazyGames, and post on Newgrounds",
     "Decide after itch.io: do people play and share it?",
-    "Pick the money model: rewarded ads, or a one-time remove-ads purchase",
-    "Rule rounds at high tiers: the wolf is the only one with X",
-    "Daily flock: the same seeded round for everyone, shareable",
-    "Farm upgrades: a bigger paddock, a barn, hats for sheep",
-    "Wolf collection: a bestiary of every tell you've caught"
+    "Pick the money model: rewarded ads, or a one-time remove-ads purchase"
    ],
    "nfp": false,
-   "checked": "2026-11-25"
+   "checked": "2026-11-26"
   },
   {
    "id": "maze",
