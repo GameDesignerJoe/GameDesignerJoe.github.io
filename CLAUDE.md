@@ -27,5 +27,5 @@ silently (the 18-character grid title, most notably).
 
 `trailhead/` is Joe's tracker for every app in this repo, and `trailhead/projects.json`
 is its source of truth. When you finish work on any app, update that app's entry
-there in the same push (where he left off, status, finished to-dos). The `trailhead`
+there in the same push (where he left off, status, checklist items that are now true). The `trailhead`
 skill and `trailhead/README.md` have the details.

@@ -1,85 +1,262 @@
 // Trailhead settings that rarely change. Project data lives in projects.json.
+// STAGES are the gates of the dev plan. Each gate's items are the starting checklist a project gets when it enters that gate.
 const SITE="https://gamedesignerjoe.github.io/";
 const REPO="GameDesignerJoe/GameDesignerJoe.github.io";
 const STAGES=[
  {
   "n": 1,
-  "name": "Spark",
-  "desc": "An idea, notes, maybe a mockup"
+  "key": "inc",
+  "name": "Incubation",
+  "desc": "Is this worth building? A line that sells it and a toy you can touch",
+  "items": [
+   {
+    "t": "Write the razor: the one line you'd say in an elevator",
+    "k": "razor"
+   },
+   {
+    "t": "Build a toy you can touch",
+    "k": "toy"
+   },
+   {
+    "t": "Give it a name"
+   },
+   {
+    "t": "Decide it's worth a real prototype"
+   }
+  ]
  },
  {
   "n": 2,
-  "name": "Playable",
-  "desc": "A first build you can touch"
+  "key": "pre",
+  "name": "Preproduction",
+  "desc": "Prove the core is fun, then lock what's in and what's out",
+  "items": [
+   {
+    "t": "The core loop is playable start to end"
+   },
+   {
+    "t": "The core loop is fun: you'd play it again unprompted"
+   },
+   {
+    "t": "Lock the feature list: what's in"
+   },
+   {
+    "t": "Write the cut list: what's out, and stays out"
+   },
+   {
+    "t": "Choose the look and feel"
+   },
+   {
+    "t": "Set up its notes doc",
+    "k": "notesdoc"
+   }
+  ]
  },
  {
   "n": 3,
-  "name": "Finding the fun",
-  "desc": "Playtesting, reworking, tuning"
+  "key": "prod",
+  "name": "Production",
+  "desc": "Build everything on the locked list",
+  "items": [
+   {
+    "t": "Everything on the locked feature list is built"
+   },
+   {
+    "t": "All content is in: levels, cards, cases, whatever it's made of",
+    "g": 1
+   },
+   {
+    "t": "Playable from first screen to last"
+   },
+   {
+    "t": "Win, lose and restart all work",
+    "g": 1
+   },
+   {
+    "t": "No placeholder art or text left"
+   }
+  ]
  },
  {
   "n": 4,
-  "name": "Shareable",
-  "desc": "On the portfolio. You'd send someone the link"
+  "key": "alpha",
+  "name": "Alpha",
+  "desc": "Whole and playable on a phone, and other people have played it",
+  "items": [
+   {
+    "t": "Lays out properly on a phone",
+    "k": "phone"
+   },
+   {
+    "t": "Clears the notch and the home bar",
+    "k": "notch"
+   },
+   {
+    "t": "Saves progress",
+    "k": "saves"
+   },
+   {
+    "t": "Has sound",
+    "k": "sound"
+   },
+   {
+    "t": "Someone else has played it"
+   },
+   {
+    "t": "Their feedback is written in the notes"
+   },
+   {
+    "t": "No known blockers"
+   },
+   {
+    "t": "On the portfolio",
+    "k": "tile"
+   },
+   {
+    "t": "Has notes in the repo or a doc",
+    "k": "notes"
+   }
+  ]
  },
  {
   "n": 5,
-  "name": "Polished",
-  "desc": "Feels finished, cleaned up, with the basics in place",
-  "how": [
-   "Clean out the build leftovers: debug text, test fields, dev shortcuts and placeholder copy",
-   "Orientation locked, and touch controls that feel native",
-   "Works offline and saves progress",
-   "Sound that unlocks on the first tap",
-   "An app icon, a splash screen, and a name check in the stores",
-   "Haptics and other native touches"
+  "key": "beta",
+  "name": "Beta",
+  "desc": "Fixes only. Cleaned up and store-ready",
+  "items": [
+   {
+    "t": "Feature list frozen: fixes only from here"
+   },
+   {
+    "t": "Clean out debug text, test fields and dev shortcuts",
+    "k": "clean"
+   },
+   {
+    "t": "Real app icon at 192 and 512",
+    "k": "icon"
+   },
+   {
+    "t": "Tab icon",
+    "k": "favicon"
+   },
+   {
+    "t": "Installs to the home screen",
+    "k": "install"
+   },
+   {
+    "t": "Works offline",
+    "k": "offline"
+   },
+   {
+    "t": "Link preview image and title",
+    "k": "share"
+   },
+   {
+    "t": "One-line description",
+    "k": "describe"
+   },
+   {
+    "t": "Haptics on the touches that matter",
+    "k": "haptics"
+   },
+   {
+    "t": "Orientation locked",
+    "g": 1
+   },
+   {
+    "t": "Name checked in the App Store and Google Play",
+    "g": 1
+   },
+   {
+    "t": "Gallery shots taken",
+    "k": "gallery"
+   }
   ]
  },
  {
   "n": 6,
-  "name": "On itch.io",
+  "key": "r1",
+  "name": "Release I: itch.io",
   "desc": "Free, instant, and the first place strangers play it",
-  "how": [
-   "Make the itch.io page: a strong thumbnail, a 10-second GIF, and a short pitch",
-   "Upload the web build and set it to play in the browser",
-   "For tabletop, post the print-and-play PDF here",
-   "Then submit to Poki or CrazyGames (review takes a few weeks) and post on Newgrounds",
-   "Watch what people finish and share",
-   "Decision point: if people play and share it, keep going. If not, improve the game before spending money"
+  "items": [
+   {
+    "t": "Make the itch.io page: a strong thumbnail, a 10-second GIF, and a short pitch"
+   },
+   {
+    "t": "Upload the web build and set it to play in the browser"
+   },
+   {
+    "t": "Then submit to Poki or CrazyGames (review takes a few weeks) and post on Newgrounds"
+   },
+   {
+    "t": "Watch what people finish and share"
+   },
+   {
+    "t": "Decision point: if people play and share it, keep going. If not, improve the game before spending money"
+   }
   ]
  },
  {
   "n": 7,
-  "name": "Money plan",
+  "key": "r2",
+  "name": "Release II: Money plan",
   "desc": "Decide how it earns before it goes to a store",
-  "how": [
-   "Pick one model: free with rewarded ads, free with a one-time remove-ads or full-game purchase, or paid up front ($1 to $5 on mobile)",
-   "Short, replayable arcade games usually do better free with ads or a remove-ads purchase than paid up front",
-   "The web portals pay through ad revenue share, so that income can start before the stores",
-   "Build the paid parts in: the ad or purchase plugin, and what a paying player gets",
-   "Write down what counts as working, so you know whether to push on or move to the next game"
+  "items": [
+   {
+    "t": "Pick one model: free with rewarded ads, free with a one-time remove-ads or full-game purchase, or paid up front ($1 to $5 on mobile)"
+   },
+   {
+    "t": "Short, replayable arcade games usually do better free with ads or a remove-ads purchase than paid up front"
+   },
+   {
+    "t": "The web portals pay through ad revenue share, so that income can start before the stores"
+   },
+   {
+    "t": "Build the paid parts in: the ad or purchase plugin, and what a paying player gets"
+   },
+   {
+    "t": "Write down what counts as working, so you know whether to push on or move to the next game"
+   }
   ]
  },
  {
   "n": 8,
-  "name": "Google Play",
+  "key": "r3",
+  "name": "Release III: Google Play",
   "desc": "The first store",
-  "how": [
-   "$25 once for the Play Console",
-   "Capacitor wraps the web game, and it builds on Windows",
-   "New personal accounts run a closed test with testers for a couple of weeks",
-   "Ship it with the money model from the stop before"
+  "items": [
+   {
+    "t": "$25 once for the Play Console"
+   },
+   {
+    "t": "Capacitor wraps the web game, and it builds on Windows"
+   },
+   {
+    "t": "New personal accounts run a closed test with testers for a couple of weeks"
+   },
+   {
+    "t": "Ship it with the money model from the stop before"
+   }
   ]
  },
  {
   "n": 9,
-  "name": "Apple App Store",
+  "key": "r4",
+  "name": "Release IV: App Store",
   "desc": "The goal",
-  "how": [
-   "$99 a year for the Apple Developer Program",
-   "The same Capacitor wrapper. A cloud Mac service such as Codemagic builds and signs it, so you don't need a Mac",
-   "Screenshots, a privacy label and an age rating",
-   "Apple rejects apps that feel like a website in a box (review rule 4.2), so offline play, haptics, saves and an app-like launch all have to be in"
+  "items": [
+   {
+    "t": "$99 a year for the Apple Developer Program"
+   },
+   {
+    "t": "The same Capacitor wrapper. A cloud Mac service such as Codemagic builds and signs it, so you don't need a Mac"
+   },
+   {
+    "t": "Screenshots, a privacy label and an age rating"
+   },
+   {
+    "t": "Apple rejects apps that feel like a website in a box (review rule 4.2), so offline play, haptics, saves and an app-like launch all have to be in"
+   }
   ]
  }
 ];

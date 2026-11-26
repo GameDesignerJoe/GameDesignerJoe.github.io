@@ -270,3 +270,28 @@ li.done .tx{color:var(--muted); text-decoration:line-through}
 .more summary{cursor:pointer; list-style:none; min-height:28px; display:flex; align-items:center}
 .more summary::-webkit-details-marker{display:none}
 .more[open] summary{margin-bottom:4px}
+
+/* gates */
+.ring.nfp{background:repeating-linear-gradient(45deg,var(--line) 0 4px,var(--muted) 4px 8px)}
+.legend i.nfpkey{background:repeating-linear-gradient(45deg,var(--line) 0 3px,var(--muted) 3px 6px)}
+.act.go i{background:var(--ink); border-color:var(--ink); color:var(--bg)}
+.moreacts{display:flex; flex-wrap:wrap; gap:8px}
+.moreacts .btn{background:rgba(255,255,255,.14); color:#fff; border:2px solid rgba(255,255,255,.8); min-height:40px; align-self:auto}
+.moreacts .btn[aria-pressed="true"]{background:var(--yellow); border-color:var(--yellow); color:var(--on-yellow)}
+.bar.big{height:10px; border-radius:5px; margin:2px 0 4px}
+.bar.big i{border-radius:5px}
+.doneitems summary{cursor:pointer; list-style:none; font:600 13.5px var(--display); color:var(--muted); min-height:36px; display:flex; align-items:center; gap:6px; border-top:1.5px solid var(--sunk)}
+.doneitems summary::-webkit-details-marker{display:none}
+.doneitems summary::before{content:"+"; width:18px; height:18px; border-radius:50%; border:2px solid var(--muted); display:grid; place-items:center; font-size:13px; line-height:1}
+.doneitems[open] summary::before{content:"–"}
+.check{cursor:pointer}
+/* gallery */
+.gallery{display:flex; flex-direction:column; gap:6px; flex:none}
+.reel{display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; padding:2px 0; margin:0 calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-inline:max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); scroll-padding-inline:16px}
+.reel.one{justify-content:center}
+.frame{flex:none; width:min(62vw, 250px); scroll-snap-align:start; position:relative; border-radius:var(--r-md); overflow:hidden; background:var(--sunk)}
+.reel.wide .frame{width:min(86vw, 520px)}
+.frame img, .frame video{display:block; width:100%; height:auto}
+.frame .cap, .yt span{position:absolute; left:8px; bottom:8px; background:rgba(20,20,22,.72); color:#fff; font:600 12px var(--display); padding:4px 9px; border-radius:999px}
+.yt{display:block}
+.reelnote{font:600 12.5px var(--display); color:var(--muted); text-align:center; font-variant-numeric:tabular-nums}

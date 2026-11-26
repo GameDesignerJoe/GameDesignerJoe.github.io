@@ -1,35 +1,54 @@
 # Trailhead
 
-Joe's tracker for his side projects: where each one stands, what he loves about it,
-his dream for it, and what to do next. Live at
-https://gamedesignerjoe.github.io/trailhead/
+Joe's tracker for his side projects. Live at https://gamedesignerjoe.github.io/trailhead/
 
-The point of it is getting back in. Joe gets deep into a project and then drifts to
-the next one, so every entry is written to make returning easy.
+The point of it is getting back in, and getting things across the finish line. Joe
+gets deep into a project and then drifts to the next one, so every entry is written to
+make returning easy and to say plainly what stands between the project and its next
+gate.
+
+His goals, in his words, are at the top of `projects.json`.
 
 ## How it fits together
 
 - `projects.json` is the source of truth. The page reads it on every load, so every
   device shows the same thing.
-- Notes and to-dos are written in each project's notes doc or file, not in Trailhead.
-  The page only shows them.
-- The page cannot write to the repo. Changes Joe makes on a device (stars, ticks, the
-  quote, a notes link) wait in that browser until he presses **Send to repo**, which opens
-  Claude Code with the changes as a prompt.
-- Each to-do has an arrow that opens Claude Code with that task as a prompt.
-- Claude Code does the work and then updates `projects.json`. Keeping the file
-  current is part of finishing a task, not a separate chore.
+- Notes are written in each project's Google Doc (or a notes file in the repo), not in
+  Trailhead. The page only shows them.
+- The page cannot write to the repo. A tick, a star, the razor line or a notes link
+  changed on a device waits in that browser until Joe presses **Send to repo**, which
+  opens Claude Code with the changes as a prompt.
+- Every button that does work opens Claude Code with a short prompt. Claude Code does
+  the work and then updates `projects.json`. Keeping the file current is part of
+  finishing, not a separate chore.
 
-Files: `index.html` (shell), `app.js`, `app.css`, `config.js` (the path's stops, the
-basics list), `icons.js` (generated thumbnails and the basics audit), `shots.js` and
-`shots/` (current screenshots, from `tools/shoot.py`), `projects.json`.
-No build step.
+Files: `index.html` (shell), `app.js`, `app.css`, `config.js` (the gates and their
+starting checklists), `icons.js` (generated thumbnails and header colours), `shots.js`
+and `shots/` (one current screenshot per project, from `tools/shoot.py`),
+`projects.json`. No build step.
+
+## The dev plan: nine gates
+
+| # | Gate | Through it when |
+|---|---|---|
+| 1 | Incubation | There's a razor line and a toy you can touch |
+| 2 | Preproduction | The core loop is fun and the feature list is locked |
+| 3 | Production | Everything on the locked list is built |
+| 4 | Alpha | Whole and playable on a phone, and other people have played it |
+| 5 | Beta | Fixes only. Cleaned up and store-ready |
+| 6 | Release I: itch.io | It's public and strangers are playing it |
+| 7 | Release II: Money plan | He has decided how it earns, and that's built in |
+| 8 | Release III: Google Play | It's on the first store |
+| 9 | Release IV: App Store | The goal |
+
+`config.js` holds each gate's starting checklist. A project marked **not for publish**
+(`nfp`) stays in the group and moves through the gates up to Beta, but is never pushed
+toward release. Tabletop games release as a print-and-play on itch.io.
 
 ## projects.json
 
-Top level: `updated` (YYYY-MM-DD, change it whenever you edit the file), `goals`
-(Joe's three goals, in his words), `lead` (id of the game headed to the stores first),
-`projects`.
+Top level: `updated` (YYYY-MM-DD, change it whenever you edit the file), `goals`,
+`lead` (id of the game headed to the stores first), `projects`.
 
 Each project:
 
@@ -37,102 +56,93 @@ Each project:
 |---|---|
 | `id`, `name`, `emoji`, `kind`, `folder`, `url` | Identity. `kind` is `game`, `tabletop` or `tool`. `url` is relative to the site, a full URL, or empty. Don't change `id`. |
 | `first`, `last`, `commits` | Dates and commit count for the folder. Set `last` to today when you work on it. |
-| `stage` | 1 Spark, 2 Playable, 3 Finding the fun, 4 Shareable, 5 Polished, 6 On itch.io, 7 Money plan, 8 Google Play, 9 Apple App Store. Tools stop at 5, tabletop at 6. What each stop takes is in `config.js`. |
+| `stage` | Which gate it is in, 1 to 9. |
+| `checklist` | What this project needs to get through its current gate: `[{ "t": "...", "done": false }]`. **At most 20 items.** Specific beats generic: write them for this game. Items that came from the gate's template carry a `k`; keep it. The first unticked item is what "Let's do it!" offers, so put the easiest way back in first. |
+| `backlog` | Bigger work and ideas, as one list. Joe doesn't separate the two until a gate forces a choice (see Preproduction). Not shown as to-dos. |
+| `nfp` | `true` if this is not for publish. |
 | `tag` | One line saying what it is. |
+| `love` | **The razor**: the one line Joe would say in an elevator about why this is cool. Shown as the quote at the top of the project's page. Only change it when he says so. |
 | `status` | Where it stands now, two sentences at most. |
-| `left` | Where Joe left off: the last thing that changed. Shown under "Jump back in", next to the first to-do, so write it as one plain sentence. |
-| `love` | What Joe loves about it, in his words. Shown as the quote at the top of the project's page. Only change it when he says so. |
-| `dream`, `dreamHint` | No longer shown on the page. Leave them as they are. |
-| `shot` | Set to `"landscape"` for a game that is played sideways, so its screenshot is taken that way. |
+| `left` | Where Joe left off, as one plain sentence. Shown beside the next item. |
 | `star`, `hidden` | At most two projects are starred. |
-| `todos` | One ordered list. The first three are "right now": small things, fifteen minutes or less, that Joe can do himself. They feed the "one thing right now" pane, so keep three good ones at the top. Everything after is later work, in plain words. |
-| `ideas` | Cool ideas, not commitments. |
-| `done` | `[{ "t": "the task text", "on": "YYYY-MM-DD" }]`, oldest first. |
-| `basics` | Corrections to the basics audit, e.g. `{ "offline": true }`. Set one when you add or remove that basic. Keys are in `config.js`. |
-| `notes` | Where Joe's notes for the project live: a Google Doc link, or the path of a to-do or notes file in this repo (for example `cartographer/docs/cartographer_todo.md`). He is moving everything to Google Docs over time, so a doc link replaces a file path. See "Working a project's notes". |
-| `docOpen`, `docSeen` | How many open notes the doc had when a session last read it, and the date. Update both whenever you read the doc. |
-| `docs` | Where the project's own notes live. |
+| `done` | Shipped work: `[{ "t": "...", "on": "YYYY-MM-DD" }]`, oldest first. |
+| `notes` | Where Joe's notes live: a Google Doc link, or the path of a notes file in this repo. See "Working a project's notes". |
+| `docOpen`, `docSeen` | How many open notes there were when a session last read them, and the date. |
+| `shot` | `"landscape"` for a game played sideways, so screenshots are taken that way. |
+| `docs` | Where the project's own design notes live. |
 
-## Doing a Trailhead task
+## Working on a project ("Trailhead: let's work on X")
 
-1. Read the project's entry first. `love` and `dream` say what matters; don't build
-   against them.
-2. Do the task in the project's folder. Check that it works.
-3. Commit to `main` and push (see the repo's CLAUDE.md).
-4. Update the entry in the same push:
-   - move the task from `todos` into `done` with today's date
-   - rewrite `left` to say what just changed
-   - refresh `status` if it's now out of date, and `stage` if it earned a move
-   - set `last` to today, add to `commits`, set the top-level `updated`
-   - if the work added one of the basics, record it in `basics`
-   - make sure the top three `todos` are still small, obvious next things. The first
-     one is what "Jump back in" shows, so it should be the easiest way back in
-   - retake the screenshot if the app looks different (see Screenshots)
-5. If the task needs Joe (playing it, deciding, recording, an account or a payment),
-   don't fake it. Say exactly what you need and leave the task where it is.
+1. Read the project's entry first. The razor says what matters; don't build against it.
+2. Do the named checklist item in the project's folder. Check that it works.
+3. If it needs Joe (playing it, deciding, recording, an account or a payment), don't
+   fake it. Walk him through it, and leave the item unticked until he says it's done.
+4. Commit to `main` and push (see the repo's CLAUDE.md). In the same push, update the
+   entry: tick the item, rewrite `left`, refresh `status`, set `last` and the top-level
+   `updated`, add what shipped to `done`, and retake the screenshot if the app looks
+   different (see Screenshots).
+5. Tell him what's next on the checklist.
 
-## Working a project's notes
+## Moving through a gate
 
-(Older prompts call this "Working a project's doc". Same thing.)
+When every item is ticked, Joe presses "Move it to <next gate>".
+
+1. **Check it honestly.** Open the game and confirm the gate's "through it when" line
+   is really true. If it isn't, say what's missing, add it to the checklist, and stop.
+2. If it holds, set `stage` to the next gate and write the new `checklist`: start from
+   that gate's items in `config.js`, tick the ones already true, reword them for this
+   game, and add the game's own items from `backlog` and its notes. Stay under 20.
+3. **Entering Preproduction or leaving it** is where the feature list gets locked. Go
+   through `backlog` with Joe and sort each item into in, out, or later. What's in
+   becomes checklist items; what's out is deleted or kept under a cut list in `status`.
+4. A `nfp` project stops at Beta.
+
+## Working a project's notes ("Trailhead notes pass", or "doc pass")
 
 Joe's normal way of working: he plays the game, writes notes in that project's Google
 Doc from his phone, then says "new things in the doc for you" and goes back to
-playing. A "Trailhead notes pass" (or "doc pass") prompt is that message. The doc is where he thinks;
-it stays the backlog. Don't copy its notes into `todos`.
+playing. The doc is where he thinks. Don't copy its running notes into the checklist.
 
 **The Maze is the exception: use the `maze-task` skill for it.** For every other
 project:
 
-1. **Read the doc** with the Google Docs or Google Drive connector. (Fetching the
-   doc's `export?format=txt` link also works where the network allows it; cloud
-   sessions usually block it.) If you can't read it, say so and stop.
+1. **Read the notes** with the Google Docs or Google Drive connector, or from the repo
+   if `notes` is a file path. If you can't read them, say so and stop.
 2. **The live list is everything above the first `Old Notes` or `DONE?` heading.**
-   Nothing below it. Those are notes he has already moved out of the way.
 3. If the doc opens with a rules block for Claude, it wins over anything here.
-4. Never work sections headed Thoughts, Ideas or Notes to Remember unless he asks.
+4. A section or tab called **Bigger work**, Ideas or Thoughts is not the fix-it list.
+   Don't build from it. Do copy anything new there into the project's `backlog`.
 5. He dictates from his phone, so read for intent and say which reading you took. A
    bare bullet or an image bullet is a screenshot you cannot see. Say so; don't guess.
-6. Skip anything already shipped unless he has added to it. A note that is listed
-   again is not done, it is still wrong.
-7. **Group by what the notes touch and say the order before you start.** Rules
-   changes, feel and animation, UI, and bugs are different batches. If a note is a
-   question or a design worry and not a request, answer it; don't build something.
+6. Skip anything already shipped unless he has added to it. A note listed again is
+   not done, it is still wrong.
+7. **Group by what the notes touch and say the order before you start.** If a note is
+   a question or a design worry and not a request, answer it; don't build something.
 8. Build one group, check it works, commit to `main`, push. Then the next group.
 9. **Report at the end:** what you did for each note, what you skipped and why, and
-   which notes he can now move under `Old Notes`. Don't edit the doc yourself unless
-   he asks.
-10. **If the notes are a file in this repo** and not a Google Doc: the open list is
-    its top-level bullets, leaving out anything ticked or marked done and any section
-    headed ideas, long-term, research or done. When you finish an item, mark it done
-    in the file the way that file already does (`[x]`, `[DONE]`, or moved under its
-    done heading), in the same push. The Trailhead page reads the file the same way.
-11. Update the project's entry: `left`, `status`, `last`, add the finished notes to
-    `done`, and set `docOpen` (notes still open) and `docSeen` (today).
+   which notes he can now move under `Old Notes`. Don't edit the doc unless he asks.
+10. If the notes are a repo file: the open list is its top-level bullets, leaving out
+    anything ticked or marked done and any section headed ideas, long-term, research
+    or done. Mark finished items done in the file the way it already does.
+11. Update the entry: `left`, `status`, `last`, `done`, `docOpen`, `docSeen`.
 
 ## Applying a "Trailhead sync" prompt
 
-The prompt carries a JSON list of changes per project. `set` replaces those fields
-(`basics` merges; a `todos` list there is the whole list in its new order), `add` appends to those lists, `complete` moves items into `done`
-with today's date, `remove` deletes them. Apply exactly those, set `updated`, commit
-and push. Don't tidy anything else in the same commit.
+The prompt carries a JSON list of changes per project. `set` replaces those fields,
+`check` marks those checklist items done, `uncheck` marks them not done. Apply exactly
+those, set `updated`, commit and push. Don't tidy anything else in the same commit.
 
-## Screenshots
+## Screenshots and the gallery
 
-Each project page shows one current screenshot, from `shots/<id>.webp`, listed in
-`shots.js`. After you change how an app looks, retake its shot in the same push:
-
-    python3 trailhead/tools/shoot.py <project id>
-
-With no ids it retakes every project that has a page in this repo. Look at the
-result before committing; if it caught a loading screen or a blank page, delete that
-shot and its line in `shots.js` instead of shipping it.
-
-## Getting a game store-ready
-
-Moving a game to stage 5 (Polished) includes cleaning out what was left in from
-building it: debug text, test fields, dev shortcuts, placeholder copy. When that is
-done, set `"clean": true` in its `basics`. Stage 7 (Money plan) means Joe has picked
-how the game earns; record his choice in `status`.
+- **One current shot per project** lives in `shots/<id>.webp`, listed in `shots.js`.
+  After you change how an app looks, retake it in the same push:
+  `python3 trailhead/tools/shoot.py <project id>`. Look at the result; if it caught a
+  loading screen or a blank page, delete that shot and its line in `shots.js`.
+- **The gallery** is whatever is in `<game folder>/media/`: images, short videos, and
+  `videos.txt` with one YouTube link per line. The page lists the folder itself, so
+  adding or deleting a file is all it takes. Use the `game-gallery` skill to take a
+  set of varied shots for a game Joe names. Never touch files there that don't start
+  with `auto-`; those are his.
 
 ## Writing style
 
