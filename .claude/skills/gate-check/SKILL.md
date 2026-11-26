@@ -30,6 +30,10 @@ when" lines and starting items are in `shipit/config.js`.
      and first-person builds, Cartographer and Terrible Parent are his examples).
      Prototype is where he finds the fun. It is through the gate when the fun is found
      and he can say what game this becomes.
+   - **No Google Doc, no Preproduction.** If `notes` is empty, the game does not
+     leave Prototype: "Has a Google Doc linked for its notes" stays unticked. If it
+     is clearly past Prototype anyway, keep its gate and make linking a doc the first
+     item on the list.
    - **Preproduction** starts only after that. It is where he works out everything he
      will need to make for this to be a real game, and locks what's in and out.
    - Signs of a prototype: the notes are still asking what the game is or what makes
@@ -63,12 +67,21 @@ when" lines and starting items are in `shipit/config.js`.
 7. Write it: `stage`, `checklist`, `backlog`, `status`, and `checked` set to today.
    Validate the JSON, commit to `main`, push.
 
+## Things every check looks for
+
+- **Kept as a prototype** (`proto` is true): don't check it and don't move it.
+- **Alpha: the feedback button.** A button in the game that opens Joe's Google Form.
+  Look for a forms.gle or docs.google.com/forms link in the code and tick it only if
+  it's there.
+- **Alpha: the money plan is written.** Beta: it is built in. There is no money gate.
+  Each release gate carries its own money check for that platform.
+
 ## Check them all (several games)
 
 Joe ran this once with a stop after every game and it took an hour of answering
 questions. So in this mode: **do not stop, do not ask, do not wait for approval.**
 
-- Games that are for publish (`nfp` is not true) and not hidden, unless Joe names
+- Games that are for publish (`nfp` is not true), not hidden and not kept as a prototype (`proto`), unless Joe names
   others. Most recently touched first.
 - For each one do steps 1 to 5, skip step 6, and write it (step 7). Commit and push
   after each game so nothing is lost if the session ends, then go straight to the next.

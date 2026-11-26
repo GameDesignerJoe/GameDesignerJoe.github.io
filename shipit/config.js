@@ -48,6 +48,10 @@ const STAGES=[
    },
    {
     "t": "Write the full idea of the game it becomes in a few lines"
+   },
+   {
+    "t": "Has a Google Doc linked for its notes",
+    "k": "notesdoc"
    }
   ]
  },
@@ -68,10 +72,6 @@ const STAGES=[
    },
    {
     "t": "Choose the look and feel"
-   },
-   {
-    "t": "Set up its notes doc",
-    "k": "notesdoc"
    }
   ]
  },
@@ -123,6 +123,10 @@ const STAGES=[
     "k": "sound"
    },
    {
+    "t": "Feedback button in the game that opens your Google Form",
+    "k": "feedback"
+   },
+   {
     "t": "Someone else has played it"
    },
    {
@@ -138,6 +142,9 @@ const STAGES=[
    {
     "t": "Has notes in the repo or a doc",
     "k": "notes"
+   },
+   {
+    "t": "Write the money plan: how this earns, or that it stays free"
    }
   ]
  },
@@ -193,6 +200,9 @@ const STAGES=[
    {
     "t": "Gallery shots taken",
     "k": "gallery"
+   },
+   {
+    "t": "Build the money plan in (at the latest, during Release I)"
    }
   ]
  },
@@ -209,33 +219,16 @@ const STAGES=[
     "t": "Upload the web build and set it to play in the browser"
    },
    {
-    "t": "Then submit to Poki or CrazyGames (review takes a few weeks) and post on Newgrounds"
+    "t": "Money check for itch.io: set the page to free with donations, pay what you want, or a minimum price"
    },
    {
-    "t": "Watch what people finish and share"
+    "t": "Then submit to Poki or CrazyGames (review takes a few weeks) and post on Newgrounds. The portals pay through ad revenue share"
+   },
+   {
+    "t": "Watch what people finish and share, and read what comes in through the feedback form"
    },
    {
     "t": "Decision point: if people play and share it, keep going. If not, improve the game before spending money"
-   }
-  ]
- },
- {
-  "n": 8,
-  "key": "r2",
-  "name": "Release II: Money plan",
-  "desc": "Decide how it earns before it goes to a store",
-  "items": [
-   {
-    "t": "Pick one model: free with rewarded ads, free with a one-time remove-ads or full-game purchase, or paid up front ($1 to $5 on mobile)"
-   },
-   {
-    "t": "Short, replayable arcade games usually do better free with ads or a remove-ads purchase than paid up front"
-   },
-   {
-    "t": "The web portals pay through ad revenue share, so that income can start before the stores"
-   },
-   {
-    "t": "Build the paid parts in: the ad or purchase plugin, and what a paying player gets"
    },
    {
     "t": "Write down what counts as working, so you know whether to push on or move to the next game"
@@ -243,9 +236,9 @@ const STAGES=[
   ]
  },
  {
-  "n": 9,
-  "key": "r3",
-  "name": "Release III: Google Play",
+  "n": 8,
+  "key": "r2",
+  "name": "Release II: Google Play",
   "desc": "The first store",
   "items": [
    {
@@ -258,14 +251,14 @@ const STAGES=[
     "t": "New personal accounts run a closed test with testers for a couple of weeks"
    },
    {
-    "t": "Ship it with the money model from the stop before"
+    "t": "Money check for Google Play: free with rewarded ads, a one-time remove-ads or full-game purchase, or paid up front. Add the ad or billing plugin for the one you picked"
    }
   ]
  },
  {
-  "n": 10,
-  "key": "r4",
-  "name": "Release IV: App Store",
+  "n": 9,
+  "key": "r3",
+  "name": "Release III: App Store",
   "desc": "The goal",
   "items": [
    {
@@ -279,15 +272,18 @@ const STAGES=[
    },
    {
     "t": "Apple rejects apps that feel like a website in a box (review rule 4.2), so offline play, haptics, saves and an app-like launch all have to be in"
+   },
+   {
+    "t": "Money check for the App Store: the same plan, sold through Apple's in-app purchase, with the price set in App Store Connect"
    }
   ]
  }
 ];
-const LINE_END={"game":10,"tabletop":7,"tool":6};
+const LINE_END={"game":9,"tabletop":7,"tool":6};
 var GOALS=["Get my games out into the world on the Apple App Store.","Make something uniquely mine that others want to play.","Create a source of income that gives me the freedom to choose my jobs."];
 const PLAN_SRC={"title":"Publishing web games to app stores","date":"Nov 15","url":"https://claude.ai/chat/bfe6cdb1-4a80-4c4e-977e-ac53ce5fc708"};
 var LEAD="wolf";
-const BASICS=[["icon","App icon","A real icon at 192 and 512, plus an Apple touch icon"],["favicon","Tab icon","The small icon in the browser tab"],["install","Add to home screen","A web manifest, so it installs like an app"],["phone","Phone layout","Sized for a phone screen"],["notch","Clears the notch","Respects the phone's safe areas"],["offline","Works offline","A service worker that caches the game"],["saves","Saves progress","Picks up where you left off"],["share","Link preview","An image and title when the link is shared"],["describe","One-line description","What search results and stores show"],["tile","On the portfolio","A tile on your site's front page"],["notes","Notes in the repo","A doc that says where it stands"],["clean","Debug cleaned up","No debug text, test fields or dev shortcuts left in"],["sound","Sound","Any audio at all"],["haptics","Haptics","A buzz on touch, one of the native touches Apple looks for"]];
+const BASICS=[["icon","App icon","A real icon at 192 and 512, plus an Apple touch icon"],["favicon","Tab icon","The small icon in the browser tab"],["install","Add to home screen","A web manifest, so it installs like an app"],["phone","Phone layout","Sized for a phone screen"],["notch","Clears the notch","Respects the phone's safe areas"],["offline","Works offline","A service worker that caches the game"],["saves","Saves progress","Picks up where you left off"],["share","Link preview","An image and title when the link is shared"],["describe","One-line description","What search results and stores show"],["tile","On the portfolio","A tile on your site's front page"],["notes","Notes in the repo","A doc that says where it stands"],["clean","Debug cleaned up","No debug text, test fields or dev shortcuts left in"],["sound","Sound","Any audio at all"],["feedback","Feedback button","A button in the game that opens a form whose answers reach Joe"],["haptics","Haptics","A buzz on touch, one of the native touches Apple looks for"]];
 const NOT_TRACKED="art, audio, songs, cd, catchTheWolf (the GameMaker original), asciiExplore, json-editor, game-doc-system";
 // The skills in .claude/skills that this page can launch. "per" ones show under More on a project's page.
 const SKILLS=[

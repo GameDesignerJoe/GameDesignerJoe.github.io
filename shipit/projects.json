@@ -19,7 +19,7 @@
    "stage": 4,
    "tag": "Every side project on one dev plan",
    "status": "Built over two days. The dev plan, per-project checklists, notes links, galleries and the Claude Code hand-offs all work. Most checklists are still first drafts.",
-   "left": "Added the Prototype gate between Incubation and Preproduction; check-them-all no longer stops to ask.",
+   "left": "Money plan folded into the gates, feedback button added to Alpha, a Prototype mark under More, and a red flag for no linked doc.",
    "love": "Every game I'm making on one plan, with the next thing to do one tap away.",
    "star": false,
    "hidden": false,
@@ -545,6 +545,11 @@
    "docs": "not-all-survive/docs/BRIEF.md, nas-online/docs/ONLINE.md, nas-vite todo lists. Commit count covers all three folders.",
    "checklist": [
     {
+     "t": "Link a Google Doc for its notes. It should have had one before leaving Prototype",
+     "done": false,
+     "k": "notesdoc"
+    },
+    {
      "t": "Walk the proof of concept for five minutes with the sound on",
      "done": false
     },
@@ -591,11 +596,6 @@
     {
      "t": "Look and feel chosen: monochrome inked illustration with signal yellow, no HUD",
      "done": true
-    },
-    {
-     "t": "Set up its notes doc (the in-game Send feedback form already collects players' notes)",
-     "done": false,
-     "k": "notesdoc"
     }
    ],
    "backlog": [
@@ -634,6 +634,11 @@
    "done": [],
    "docs": "photo-detective/README.md and your notes with Claude",
    "checklist": [
+    {
+     "t": "Link a Google Doc for its notes. It should have had one before leaving Prototype",
+     "done": false,
+     "k": "notesdoc"
+    },
     {
      "t": "Find one new candidate photo and save it",
      "done": false
@@ -689,11 +694,6 @@
     {
      "t": "Write the cut list: what's out and stays out",
      "done": false
-    },
-    {
-     "t": "Set up its notes doc",
-     "done": false,
-     "k": "notesdoc"
     }
    ],
    "backlog": [
@@ -809,7 +809,7 @@
    "commits": 247,
    "stage": 2,
    "tag": "A man wakes in a maze he put himself in",
-   "status": "v0.182.0, and your most-worked project by far. Both builds are prototypes: the top-down maze came first, the first-person one is the current one, and both are launch pads for a bigger game.",
+   "status": "v0.182.0, the first-person build and your most-worked project by far. Still a prototype: the launch pad for a bigger game. The top-down build that came first is tracked on its own.",
    "left": "The game starts in the school look, and Feedback sends a picture of the view.",
    "love": "Every traveller whose pages he finds is himself at another stage of life. The feeling of being truly lost and using what you find to get out. \"What's the mazest thing we can do? We do that.\"",
    "star": false,
@@ -843,6 +843,11 @@
     {
      "t": "Write the full idea of the game it becomes in a few lines",
      "done": false
+    },
+    {
+     "t": "Has a Google Doc linked for its notes",
+     "done": true,
+     "k": "notesdoc"
     }
    ],
    "backlog": [
@@ -864,6 +869,61 @@
    "videos": [
     "maze/trailer/trailer.mp4"
    ]
+  },
+  {
+   "id": "mazetd",
+   "name": "The Maze: Top-Down",
+   "emoji": "🌀",
+   "iconOf": "maze",
+   "kind": "game",
+   "folder": "maze",
+   "url": "maze/maze-topdown.html",
+   "first": "2026-09-04",
+   "last": "2026-11-24",
+   "commits": 1,
+   "stage": 2,
+   "proto": true,
+   "nfp": true,
+   "tag": "The first maze, seen from above",
+   "love": "",
+   "status": "The original top-down prototype. It did its job: it led to the first-person Maze.",
+   "left": "",
+   "star": false,
+   "hidden": false,
+   "notes": [],
+   "checklist": [
+    {
+     "t": "There's a bit of gameplay you can play",
+     "done": true
+    },
+    {
+     "t": "A simple version of the game loop runs start to end",
+     "done": true
+    },
+    {
+     "t": "Find the fun: name the part you'd play again unprompted",
+     "done": false
+    },
+    {
+     "t": "Write down what the prototype taught you: what worked, what didn't",
+     "done": false
+    },
+    {
+     "t": "Decide: is this the game, or the launch pad for a bigger, better one?",
+     "done": false
+    },
+    {
+     "t": "Write the full idea of the game it becomes in a few lines",
+     "done": false
+    },
+    {
+     "t": "Has a Google Doc linked for its notes",
+     "done": false,
+     "k": "notesdoc"
+    }
+   ],
+   "backlog": [],
+   "done": []
   },
   {
    "id": "unseen",
@@ -998,6 +1058,15 @@
     {
      "t": "Decide: is the feature list done? The last work (Aug 29) was still adding talent animations",
      "done": false
+    },
+    {
+     "t": "Feedback button in the game that opens your Google Form",
+     "done": false,
+     "k": "feedback"
+    },
+    {
+     "t": "Write the money plan: how this earns, or that it stays free",
+     "done": false
     }
    ],
    "backlog": [
@@ -1068,6 +1137,11 @@
      "k": "sound"
     },
     {
+     "t": "Feedback button in the game that opens your Google Form",
+     "done": false,
+     "k": "feedback"
+    },
+    {
      "t": "Someone else has played it",
      "done": false
     },
@@ -1087,6 +1161,10 @@
     },
     {
      "t": "Decide: is the feature list done? The last work (May 11) added the invading ICE",
+     "done": false
+    },
+    {
+     "t": "Write the money plan: how this earns, or that it stays free",
      "done": false
     }
    ],
@@ -1229,6 +1307,11 @@
     {
      "t": "Write the full idea of the game it becomes in a few lines",
      "done": false
+    },
+    {
+     "t": "Has a Google Doc linked for its notes",
+     "done": true,
+     "k": "notesdoc"
     }
    ],
    "backlog": [
@@ -1462,6 +1545,11 @@
      "k": "sound"
     },
     {
+     "t": "Feedback button in the game that opens your Google Form",
+     "done": false,
+     "k": "feedback"
+    },
+    {
      "t": "Someone else has played it",
      "done": false
     },
@@ -1482,6 +1570,10 @@
      "t": "Has notes in the repo or a doc",
      "done": true,
      "k": "notes"
+    },
+    {
+     "t": "Write the money plan: how this earns, or that it stays free",
+     "done": false
     }
    ],
    "backlog": [
@@ -1559,6 +1651,11 @@
      "k": "sound"
     },
     {
+     "t": "Feedback button in the game that opens your Google Form",
+     "done": false,
+     "k": "feedback"
+    },
+    {
      "t": "Someone else has played it",
      "done": false
     },
@@ -1579,6 +1676,10 @@
      "t": "Has notes in the repo or a doc",
      "done": true,
      "k": "notes"
+    },
+    {
+     "t": "Write the money plan: how this earns, or that it stays free",
+     "done": false
     }
    ],
    "backlog": [
@@ -1643,6 +1744,11 @@
      "k": "sound"
     },
     {
+     "t": "Feedback button in the game that opens your Google Form",
+     "done": false,
+     "k": "feedback"
+    },
+    {
      "t": "Someone else has played it",
      "done": false
     },
@@ -1663,6 +1769,10 @@
      "t": "Has notes in the repo or a doc",
      "done": true,
      "k": "notes"
+    },
+    {
+     "t": "Write the money plan: how this earns, or that it stays free",
+     "done": false
     }
    ],
    "backlog": [
@@ -1711,6 +1821,11 @@
      "k": "sound"
     },
     {
+     "t": "Feedback button in the game that opens your Google Form",
+     "done": false,
+     "k": "feedback"
+    },
+    {
      "t": "Someone else has played it",
      "done": false
     },
@@ -1731,6 +1846,10 @@
      "t": "Has notes in the repo or a doc",
      "done": true,
      "k": "notes"
+    },
+    {
+     "t": "Write the money plan: how this earns, or that it stays free",
+     "done": false
     }
    ],
    "backlog": [],
@@ -1779,6 +1898,11 @@
     {
      "t": "Write the full idea of the game it becomes in a few lines",
      "done": false
+    },
+    {
+     "t": "Has a Google Doc linked for its notes",
+     "done": false,
+     "k": "notesdoc"
     }
    ],
    "backlog": [],
@@ -1847,6 +1971,11 @@
    "docs": "No to-do list in the repo.",
    "checklist": [
     {
+     "t": "Link a Google Doc for its notes. It should have had one before leaving Prototype",
+     "done": false,
+     "k": "notesdoc"
+    },
+    {
      "t": "The core loop is playable start to end",
      "done": false
     },
@@ -1865,11 +1994,6 @@
     {
      "t": "Choose the look and feel",
      "done": false
-    },
-    {
-     "t": "Set up its notes doc",
-     "done": false,
-     "k": "notesdoc"
     }
    ],
    "backlog": [],
@@ -2432,6 +2556,11 @@
    "docs": "comic-collector/README.md",
    "checklist": [
     {
+     "t": "Link a Google Doc for its notes. It should have had one before leaving Prototype",
+     "done": false,
+     "k": "notesdoc"
+    },
+    {
      "t": "The core loop is playable start to end",
      "done": false
     },
@@ -2450,11 +2579,6 @@
     {
      "t": "Choose the look and feel",
      "done": false
-    },
-    {
-     "t": "Set up its notes doc",
-     "done": false,
-     "k": "notesdoc"
     }
    ],
    "backlog": [],

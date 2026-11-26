@@ -99,5 +99,9 @@ const SHOTS={
  "mapviz": {
   "src": "shots/mapviz.webp?v=2026-11-25",
   "on": "2026-11-25"
+ },
+ "mazetd": {
+  "src": "shots/mazetd.webp?v=2026-11-26",
+  "on": "2026-11-26"
  }
 };

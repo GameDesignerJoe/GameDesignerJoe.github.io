@@ -8,7 +8,7 @@ function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ m
 var S=load();
 function shape(){
   ["star","hidden","skip"].forEach(function(k){ if(!Array.isArray(S[k])) S[k]=[]; });
-  ["love","live","notes","checks","nfp"].forEach(function(k){ if(!S[k]||typeof S[k]!=="object") S[k]={}; });
+  ["love","live","notes","checks","nfp","proto"].forEach(function(k){ if(!S[k]||typeof S[k]!=="object") S[k]={}; });
 }
 shape();
 function migrate(){
@@ -56,12 +56,16 @@ function reconcile(){
     if(S.notes[p.id]!=null && !Array.isArray(S.notes[p.id])) S.notes[p.id]=S.notes[p.id]?[S.notes[p.id]]:[];
     if(S.notes[p.id]!=null && S.notes[p.id].join("|")===fileNotes(p).join("|")) delete S.notes[p.id];
     if(S.nfp[p.id]!=null && !!S.nfp[p.id]===!!p.nfp) delete S.nfp[p.id];
+    if(S.proto[p.id]!=null && !!S.proto[p.id]===!!p.proto) delete S.proto[p.id];
     var c=S.checks[p.id]; if(c){ var live={}; p.checklist.forEach(function(it){ live[hash(it.t)]=!!it.done; });
       Object.keys(c).forEach(function(h){ if(!(h in live) || live[h]===!!c[h]) delete c[h]; }); if(!Object.keys(c).length) delete S.checks[p.id]; }
   });
 }
 function isStar(id){ return S.star.indexOf(id)>=0; }
 function isHidden(id){ return S.hidden.indexOf(id)>=0; }
+function isProto(p){ return S.proto[p.id]!=null ? !!S.proto[p.id] : !!p.proto; }
+function stg(p){ return isProto(p) ? 2 : p.stage; }
+function noDoc(p){ return stg(p)>=3 && !isNfp(p) && !isProto(p) && !notesOf(p).length; }
 function isNfp(p){ return S.nfp[p.id]!=null ? !!S.nfp[p.id] : !!p.nfp; }
 function loveOf(p){ return S.love[p.id]!=null ? S.love[p.id] : (p.love||""); }
 // A project's docs: Google Docs, or files in the repo. The first one is the running notes.
@@ -70,7 +74,7 @@ function notesOf(p){ return Array.isArray(S.notes[p.id]) ? S.notes[p.id] : fileN
 function docHref(n){ return /^https?:/.test(n) ? n : "https://github.com/"+REPO+"/blob/main/"+n.split("/").map(encodeURIComponent).join("/"); }
 function notesHref(p){ var n=notesOf(p)[0]; return n ? docHref(n) : ""; }
 function visible(){ return PROJECTS.filter(function(p){ return !isHidden(p.id); }); }
-function gate(p){ return STAGES[p.stage-1]; }
+function gate(p){ return STAGES[stg(p)-1]; }
 function checks(p){ var c=S.checks[p.id]||{}; return p.checklist.map(function(it){ var h=hash(it.t); return {t:it.t, h:h, done:(h in c)?!!c[h]:!!it.done}; }); }
 function progress(p){ var c=checks(p); return {done:c.filter(function(x){ return x.done; }).length, of:c.length}; }
 function nextItem(p){ return checks(p).filter(function(x){ return !x.done; })[0]||null; }
@@ -87,6 +91,7 @@ function pending(){
     if(S.love[p.id]!=null){ set.love=S.love[p.id]; n++; }
     if(S.notes[p.id]!=null){ set.notes=S.notes[p.id]; n++; }
     if(S.nfp[p.id]!=null){ set.nfp=!!S.nfp[p.id]; n++; }
+    if(S.proto[p.id]!=null){ set.proto=!!S.proto[p.id]; n++; }
     if(S.starSet && isStar(p.id)!==!!p.star){ set.star=isStar(p.id); n++; }
     if(S.hidSet && isHidden(p.id)!==!!p.hidden){ set.hidden=isHidden(p.id); n++; }
     if(n) c.set=set;
@@ -117,7 +122,7 @@ function skillPrompt(k, p){
   return k==="gate-check" ? (p?checkPrompt(p):checkAllPrompt()) : k==="game-gallery" ? galleryPrompt(p) : k==="maze-task" ? "There are new tasks in the Maze doc. Use the maze-task skill." : "";
 }
 function gatePrompt(p){
-  var nx=STAGES[p.stage];
+  var nx=STAGES[stg(p)];
   return "Ship It: "+p.name+" ("+p.folder+"/) has everything ticked for "+gate(p).name+". Follow \"Moving through a gate\" in shipit/README.md: check it honestly"+(nx?", and if it holds, move it to "+nx.name+" and write that gate's checklist for this game.":".");
 }
 
@@ -130,7 +135,7 @@ function score(p){
   return s;
 }
 function nowQueue(){
-  var pool=visible().filter(function(p){ return nextItem(p) && S.skip.indexOf(p.id)<0; });
+  var pool=visible().filter(function(p){ return nextItem(p) && !isProto(p) && S.skip.indexOf(p.id)<0; });
   var stars=pool.filter(function(p){ return isStar(p.id); });
   var rest=pool.filter(function(p){ return !isStar(p.id); }).sort(function(a,b){ return score(b)-score(a); });
   return stars.concat(rest);
@@ -149,7 +154,7 @@ function copy(text, ok){
   var fb=function(){ var ta=document.createElement("textarea"); ta.value=text; ta.setAttribute("readonly",""); ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); done(); }catch(e){} document.body.removeChild(ta); };
   try{ navigator.clipboard.writeText(text).then(done, fb); }catch(e){ fb(); }
 }
-function tile(p, cls){ var src=ICONS[p.id]; return '<span class="tile '+(cls||"")+'" aria-hidden="true">'+(src?'<img src="'+src+'" alt="">':p.icon)+'</span>'; }
+function tile(p, cls){ var src=ICONS[p.iconOf||p.id]; return '<span class="tile '+(cls||"")+'" aria-hidden="true">'+(src?'<img src="'+src+'" alt="">':p.icon)+'</span>'; }
 function ringed(p, cls){ return '<span class="ring '+p.kind+(isNfp(p)?" nfp":"")+(isStar(p.id)?" starred":"")+'">'+tile(p,cls)+'</span>'; }
 function act(tag, cls, icon, label, attrs){ return '<'+tag+' class="act '+cls+'" '+attrs+'><i>'+icon+'</i><span>'+label+'</span></'+tag+'>'; }
 
@@ -166,7 +171,7 @@ function renderRecent(){
   var el=document.getElementById("recent"), ps=visible().slice().sort(function(a,b){ return days(a)-days(b) || b.commits-a.commits; }).slice(0,5);
   el.innerHTML=ps.map(function(p){ var shot=(typeof SHOTS!=="undefined"&&SHOTS[p.id])?SHOTS[p.id].src:"";
     return '<button class="rcard'+(p.shot==="landscape"?" wide":"")+'" data-act="open" data-id="'+p.id+'">'+
-      (shot?'<span class="rimg"><img src="'+esc(shot)+'" alt=""></span>':'<span class="rimg icon" style="background:'+(COLORS[p.id]||"var(--sunk)")+'">'+tile(p,"lg")+'</span>')+
+      (shot?'<span class="rimg"><img src="'+esc(shot)+'" alt=""></span>':'<span class="rimg icon" style="background:'+(COLORS[p.iconOf||p.id]||"var(--sunk)")+'">'+tile(p,"lg")+'</span>')+
       '<b>'+esc(p.name)+'</b><span>'+esc(gate(p).name)+' · '+ago(days(p))+'</span></button>'; }).join("");
 }
 function renderNow(){
@@ -193,9 +198,9 @@ function renderFocus(){
 }
 function renderPath(){
   var el=document.getElementById("path"), out='<svg aria-hidden="true"></svg>', vis=visible(), top=0;
-  vis.forEach(function(p){ if(p.stage>top) top=p.stage; });
+  vis.forEach(function(p){ if(stg(p)>top) top=stg(p); });
   STAGES.forEach(function(s){
-    var ps=vis.filter(function(p){ return p.stage===s.n; }).sort(function(a,b){ var pa=progress(a), pb=progress(b); return (pb.of?pb.done/pb.of:0)-(pa.of?pa.done/pa.of:0); });
+    var ps=vis.filter(function(p){ return stg(p)===s.n; }).sort(function(a,b){ var pa=progress(a), pb=progress(b); return (pb.of?pb.done/pb.of:0)-(pa.of?pa.done/pa.of:0); });
     out+='<div class="stop'+(s.n>top?" ahead":"")+(s.n===STAGES.length?" goalstop":"")+'" data-stop="'+s.n+'"><div><h3>'+esc(s.name)+' <span class="count">'+ps.length+'</span></h3><p>'+esc(s.desc)+'</p></div>'+
      (ps.length?'<div class="chips">'+ps.map(function(p){ return '<button data-act="open" data-id="'+p.id+'" aria-label="'+esc(p.name)+'" title="'+esc(p.name)+'">'+ringed(p,"sm")+'</button>'; }).join("")+'</div>':'')+
      (s.n>top?'<details class="how"><summary>What it takes</summary><ul>'+s.items.map(function(h){ return '<li>'+esc(h.t)+'</li>'; }).join("")+'</ul></details>':'')+
@@ -229,14 +234,14 @@ function drawTrail(){
 }
 function renderList(){
   var vis=visible().filter(function(p){ return UI.kind==="all"||p.kind===UI.kind; });
-  vis.sort(UI.sort==="gate" ? function(a,b){ return (b.stage-a.stage) || (progress(b).done/Math.max(1,progress(b).of)-progress(a).done/Math.max(1,progress(a).of)); } : function(a,b){ return (isStar(b.id)-isStar(a.id)) || (days(a)-days(b)); });
+  vis.sort(UI.sort==="gate" ? function(a,b){ return (stg(b)-stg(a)) || (progress(b).done/Math.max(1,progress(b).of)-progress(a).done/Math.max(1,progress(a).of)); } : function(a,b){ return (isStar(b.id)-isStar(a.id)) || (days(a)-days(b)); });
   document.getElementById("filters").innerHTML=[["all","All"],["game","Games"],["tabletop","Tabletop"],["tool","Tools"]].map(function(k){ return '<button class="chip" data-act="kind" data-v="'+k[0]+'" aria-pressed="'+(UI.kind===k[0])+'">'+k[1]+'</button>'; }).join("")+
     '<button class="round" data-act="sort" aria-label="Change sort order">'+I.sort+'</button>';
   var show=UI.showAll?vis:vis.slice(0,10);
   document.getElementById("cards").innerHTML=show.map(function(p){ var pr=progress(p);
     return '<div class="card"><button class="main" data-act="open" data-id="'+p.id+'">'+tile(p)+
      '<span class="txt"><b>'+esc(p.name)+'</b><span class="tag">'+esc(p.tag)+'</span>'+
-     '<span class="meta"><span class="st">'+esc(gate(p).name)+'</span><span>'+pr.done+" of "+pr.of+'</span><span>'+ago(days(p))+'</span>'+(isNfp(p)?'<span>Not for publish</span>':'')+'</span></span></button>'+
+     '<span class="meta"><span class="st">'+esc(gate(p).name)+'</span><span>'+pr.done+" of "+pr.of+'</span><span>'+ago(days(p))+'</span>'+(isProto(p)?'<span>Kept as a prototype</span>':'')+(isNfp(p)?'<span>Not for publish</span>':'')+(noDoc(p)?'<span class="flag">No doc linked</span>':'')+'</span></span></button>'+
      '<button class="starbtn'+(isStar(p.id)?" on":"")+'" data-act="star" data-id="'+p.id+'" aria-label="'+(isStar(p.id)?"Remove star from ":"Star ")+esc(p.name)+'" aria-pressed="'+isStar(p.id)+'">'+I.star+'</button></div>';
   }).join("");
   var more=document.getElementById("more"); more.hidden=UI.showAll||vis.length<=10; more.textContent="Show all "+vis.length;
@@ -346,9 +351,9 @@ function renderSheet(){
   var sc=document.getElementById("scrim");
   if(UI.menu){ sc.hidden=false; sc.innerHTML=menuHtml(); document.body.style.overflow="hidden"; return; }
   var p=BY[UI.open]; if(!p){ sc.hidden=true; sc.innerHTML=""; document.body.style.overflow=""; return; }
-  var h=href(p), g=gate(p), cs=checks(p), pr=progress(p), nx=nextItem(p), n=days(p), nxt=STAGES[p.stage], nfp=isNfp(p);
-  var canAdvance=nxt && !(nfp && p.stage>=6);
-  var hc=COLORS[p.id]||({game:"#8a2c26",tabletop:"#1c4f80",tool:"#6f5500"})[p.kind];
+  var h=href(p), g=gate(p), cs=checks(p), pr=progress(p), nx=nextItem(p), n=days(p), nxt=STAGES[stg(p)], nfp=isNfp(p), proto=isProto(p);
+  var canAdvance=nxt && !proto && !(nfp && p.stage>=6);
+  var hc=COLORS[p.iconOf||p.id]||({game:"#8a2c26",tabletop:"#1c4f80",tool:"#6f5500"})[p.kind];
   var open=cs.filter(function(x){ return !x.done; }), done=cs.filter(function(x){ return x.done; });
   function row(x){ return '<li class="'+(x.done?"done":"")+'"><button class="check" data-act="tick" data-id="'+p.id+'" data-h="'+x.h+'" aria-label="'+(x.done?"Mark not done":"Mark done")+'" aria-pressed="'+x.done+'">'+I.check+'</button><span class="tx">'+esc(x.t)+'</span></li>'; }
   sc.hidden=false; document.body.style.overflow="hidden";
@@ -365,21 +370,23 @@ function renderSheet(){
    '</div>'+
    (UI.more?'<div class="moreacts">'+
       SKILLS.filter(function(k){ return k.per && (!k.kinds || k.kinds.indexOf(p.kind)>=0); }).map(function(k){ return '<a class="btn" href="'+esc(codeLink(skillPrompt(k.key,p)))+'" target="_blank" rel="noopener" data-act="skill" data-k="'+k.key+'" data-id="'+p.id+'">'+esc(k.key==="gate-check" ? "Gate Check: "+(p.checked?shortDate(p.checked):"never") : k.button)+'</a>'; }).join("")+
-      '<button class="btn" data-act="nfp" data-id="'+p.id+'" aria-pressed="'+nfp+'">'+(nfp?"Not for publish: on":"Not for publish")+'</button><button class="btn" data-act="hide" data-id="'+p.id+'">Hide</button></div>':'')+
+      '<button class="btn" data-act="proto" data-id="'+p.id+'" aria-pressed="'+proto+'">'+(proto?"Prototype: on":"Prototype")+'</button><button class="btn" data-act="nfp" data-id="'+p.id+'" aria-pressed="'+nfp+'">'+(nfp?"Not for publish: on":"Not for publish")+'</button><button class="btn" data-act="hide" data-id="'+p.id+'">Hide</button></div>':'')+
    '</div>'+
    '<div id="gallery" class="gallery" data-id="'+p.id+'" hidden></div>'+
+   (proto?'<div class="block jump"><span class="label">Prototype</span><p class="jtask">Kept as a prototype.</p><p class="hint">It did its job, so nothing more is being asked of it. Turn Prototype off under More to send it on toward release.</p></div>':
    '<div class="block jump"><span class="label">'+esc(g.name)+' · '+pr.done+' of '+pr.of+(nfp?" · not for publish":"")+'</span>'+
+     (noDoc(p)?'<p class="redflag">No Google Doc linked. A game should have one before it leaves Prototype. Paste a link under Docs.</p>':'')+
      (nx?'<p class="jtask">'+esc(nx.t)+'</p>':'<p class="jtask">Everything for '+esc(g.name)+' is ticked.</p>')+
      (p.left?'<p class="hint">Last time, '+ago(n)+': '+esc(p.left)+'</p>':'')+
      (nx?'<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(goPrompt(p,nx.t)))+'" target="_blank" rel="noopener" data-act="go" data-id="'+p.id+'">'+I.arrow+'Let\'s do it!</a></div>'
-        :(canAdvance?'<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(gatePrompt(p)))+'" target="_blank" rel="noopener" data-act="gate" data-id="'+p.id+'">'+I.arrow+'Move it to '+esc(nxt.name)+'</a></div>':''))+'</div>'+
+        :(canAdvance?'<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(gatePrompt(p)))+'" target="_blank" rel="noopener" data-act="gate" data-id="'+p.id+'">'+I.arrow+'Move it to '+esc(nxt.name)+'</a></div>':''))+'</div>')+
    '<div class="block docs"><span class="label">Docs</span><div id="docbody" data-id="'+p.id+'"></div>'+linkForm(p, notesOf(p).length?"Add another Google Doc link":"Paste a Google Doc link")+'</div>'+
-   '<div class="block"><span class="label">To get through '+esc(g.name)+'</span><p class="hint">'+esc(g.desc)+'</p>'+
+   (proto?'':'<div class="block"><span class="label">To get through '+esc(g.name)+'</span><p class="hint">'+esc(g.desc)+'</p>'+
      '<div class="bar big"><i style="width:'+(pr.of?Math.round(pr.done/pr.of*100):0)+'%"></i></div>'+
      (open.length?'<ul class="list">'+(UI.allItems?open:open.slice(0,10)).map(row).join("")+'</ul>':'')+
      (open.length>10&&!UI.allItems?'<button class="btn line" data-act="showall">Show the other '+(open.length-10)+'</button>':'')+
      (done.length?'<details class="doneitems"'+(open.length?"":" open")+'><summary>'+done.length+' done</summary><ul class="list">'+done.map(row).join("")+'</ul></details>':'')+
-   '</div>'+
+   '</div>')+
    '<details class="block more"><summary><span class="label">Details</span></summary>'+
      '<p>'+esc(p.status)+'</p>'+
      (p.backlog.length?'<span class="grp">Bigger work and ideas · '+p.backlog.length+'</span><ul class="list">'+p.backlog.map(function(t){ return '<li><span class="dot"></span><span class="tx">'+esc(t)+'</span></li>'; }).join("")+'</ul>':'')+
@@ -424,6 +431,7 @@ document.addEventListener("click", function(e){
   }
   else if(a==="hide"){ S.hidSet=true; if(!isHidden(id)) S.hidden.push(id); var s=S.star.indexOf(id); if(s>=0){ S.star.splice(s,1); S.starSet=true; } UI.open=null; UI.more=false; save(); renderAll(); toast(p.name+" is hidden. It's at the bottom if you want it back."); }
   else if(a==="unhide"){ S.hidSet=true; S.hidden.splice(S.hidden.indexOf(id),1); save(); renderAll(); }
+  else if(a==="proto"){ var pv=!isProto(p); if(pv===!!p.proto) delete S.proto[id]; else S.proto[id]=pv; save(); keepScroll(renderAll); toast(pv?p.name+" stays a prototype. It won't be pushed any further.":p.name+" is back on the dev plan."); }
   else if(a==="nfp"){ var nv=!isNfp(p); if(nv===!!p.nfp) delete S.nfp[id]; else S.nfp[id]=nv; save(); keepScroll(renderAll); toast(nv?p.name+" won't be pushed toward release.":p.name+" is headed for release again."); }
   else if(a==="kind"){ UI.kind=t.dataset.v; UI.showAll=false; renderList(); }
   else if(a==="sort"){ UI.sort=UI.sort==="recent"?"gate":"recent"; renderList(); }

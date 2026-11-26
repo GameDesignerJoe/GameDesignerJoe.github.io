@@ -30,20 +30,19 @@ starting checklists, and the list of skills the page can launch), `icons.js` (ge
 and `shots/` (one current screenshot per project, from `tools/shoot.py`),
 `projects.json`. No build step.
 
-## The dev plan: ten gates
+## The dev plan: nine gates
 
 | # | Gate | Through it when |
 |---|---|---|
 | 1 | Incubation | There's a razor line and a toy you can touch |
-| 2 | Prototype | The fun is found, and he knows what game this becomes |
+| 2 | Prototype | The fun is found, he knows what game this becomes, and it has a Google Doc |
 | 3 | Preproduction | Everything it needs is listed and the feature list is locked |
 | 4 | Production | Everything on the locked list is built |
-| 5 | Alpha | Whole and playable on a phone, and other people have played it |
-| 6 | Beta | Fixes only. Cleaned up and store-ready |
+| 5 | Alpha | Whole and playable on a phone, other people have played it, it has a feedback button, and the money plan is written |
+| 6 | Beta | Fixes only. Cleaned up, store-ready, money plan built in |
 | 7 | Release I: itch.io | It's public and strangers are playing it |
-| 8 | Release II: Money plan | He has decided how it earns, and that's built in |
-| 9 | Release III: Google Play | It's on the first store |
-| 10 | Release IV: App Store | The goal |
+| 8 | Release II: Google Play | It's on the first store |
+| 9 | Release III: App Store | The goal |
 
 **Prototype** is its own phase, in Joe's words: there are bits of gameplay and
 prototypes, but the full idea of the game isn't there yet. It is also where he builds a
@@ -54,6 +53,27 @@ build a bigger, better version. Prototype is where you find the fun. **Preproduc
 comes after the fun is found, and is where you figure out all the things you're going
 to need to make for this to be a real game. A polished, playable prototype is still a
 prototype: how finished it looks does not move it up.
+
+**A Google Doc is the ticket out of Prototype.** A game with no doc (or notes file) in
+`notes` should not move to Preproduction. If one is already past Prototype without a
+doc, the page shows a red "No doc linked" flag and the first item on its checklist is
+to link one.
+
+**The feedback button** is an Alpha item: a button in the game that opens a Google
+Form whose answers reach Joe. The Maze and Not All Will Survive already have one;
+copy how they do it.
+
+**Money is not its own gate.** The plan (how this earns, or that it stays free) is
+written to get from Alpha to Beta. It is built in during Beta, or at the latest
+during Release I. Then every release has its own money check, because the plan
+changes by platform: itch.io (free with donations, pay what you want, or a minimum
+price), Google Play and the App Store (ads, a one-time purchase, or paid up front,
+through that store's own billing).
+
+**Kept as a prototype** (`proto: true`): Joe marks a project this way under More when
+it has done its job and he is not taking it further. The page shows it on the
+Prototype gate, stops offering next steps for it, and hides its checklist. Don't
+push it, don't gate-check it, and leave it out of "check them all".
 
 `config.js` holds each gate's starting checklist. A project marked **not for publish**
 (`nfp`) stays in the group and moves through the gates up to Beta, but is never pushed
@@ -70,10 +90,12 @@ Each project:
 |---|---|
 | `id`, `name`, `emoji`, `kind`, `folder`, `url` | Identity. `kind` is `game`, `tabletop` or `tool`. `url` is relative to the site, a full URL, or empty. Don't change `id`. |
 | `first`, `last`, `commits` | Dates and commit count for the folder. Set `last` to today when you work on it. |
-| `stage` | Which gate it is in, 1 to 10. |
+| `stage` | Which gate it is in, 1 to 9. |
 | `checklist` | What this project needs to get through its current gate: `[{ "t": "...", "done": false }]`. **In order of importance, most important first.** No cap: if it's real work for this gate, it's on the list. The page shows the first ten and folds the rest. Specific beats generic: write them for this game. Items that came from the gate's template carry a `k`; keep it. The first unticked item is what "Let's do it!" offers. |
 | `backlog` | Bigger work and ideas, as one list. Joe doesn't separate the two until a gate forces a choice (see Preproduction). Not shown as to-dos. |
 | `nfp` | `true` if this is not for publish. |
+| `proto` | `true` if Joe is keeping it as a prototype. When a sync sets it, also set `stage` to 2. When a sync clears it, leave `stage` at 2 and offer a gate check. |
+| `iconOf` | Another project's id whose icon and colour this one borrows (The Maze: Top-Down uses The Maze's). |
 | `tag` | One line saying what it is. |
 | `love` | **The razor**: the one line Joe would say in an elevator about why this is cool. Shown as the quote at the top of the project's page. Only change it when he says so. |
 | `status` | Where it stands now, two sentences at most. |
