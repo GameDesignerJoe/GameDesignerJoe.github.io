@@ -95,9 +95,9 @@
    "first": "2026-11-14",
    "last": "2026-11-26",
    "commits": 48,
-   "stage": 4,
+   "stage": 2,
    "tag": "Two-player micro version of Vye",
-   "status": "Plays against AI, hotseat or pass-and-play, with a balance simulator and print-and-play PDFs. Now a hand of 3, with new card ideas (Rally, a reworked Usurp, Earthquake variants) to switch on in Setup.",
+   "status": "Fun and fully playable against the AI, hotseat or face to face, but the deck isn't locked yet. Rally, the new Usurp and the Earthquake versions are being tried out in Setup.",
    "left": "Face to face for pass and play: Roses’ hand and instructions turn to face the top of the phone (Game panel). Also hand of 3, Usurp can just take a Land, and new Rally and Earthquake options in Setup.",
    "love": "A tight, less swingy Vye in 30 tiles or fewer. Tiles flip to show who owns them, so there are no tokens.",
    "star": false,
@@ -130,70 +130,74 @@
    "docSeen": "2026-11-26",
    "checklist": [
     {
-     "t": "Play face to face with your kid (gear → Face to face), with a Rally in the bag",
+     "t": "Play a face-to-face game with your kid with Rally in the bag, and write one line in the doc on how it felt",
      "done": false
     },
     {
-     "t": "Play one pass-and-play game with another person",
+     "t": "Decide: is Rally in or out? If in, does it take just the covered Land or every Land next to it?",
      "done": false
     },
     {
-     "t": "Print the one-page small-tile sheet and cut it out",
+     "t": "Decide: Usurp: the old swap, the new “take a Land”, or cut it?",
      "done": false
     },
     {
-     "t": "Usurp has no card art yet (art/specials/usurp.jpg)",
+     "t": "Decide: is Earthquake in, and which version: any two tiles, a tile two away, or two neighbouring Lands?",
      "done": false
     },
     {
-     "t": "Birchwood is still using the desert fox art",
+     "t": "Decide: do the other 9 Lands and Sanctuary, Underminers and Waystone stay out?",
      "done": false
     },
     {
-     "t": "Lays out properly on a phone",
+     "t": "Decide: is the “card flies in and lands on top” animation in, or is the big preview above the board enough?",
+     "done": false
+    },
+    {
+     "t": "Decide the sound and music: keep the made-in-code sound effects or get real ones, and does it have music?",
+     "done": false
+    },
+    {
+     "t": "Decide which print-and-play editions you'll keep: 2.5\", 67 mm, single-sided, small tiles",
+     "done": false
+    },
+    {
+     "t": "Make the locked deck the Setup default, and write it in the README",
+     "done": false
+    },
+    {
+     "t": "Write the cut list in the notes doc: the cards that stay out",
+     "done": false
+    },
+    {
+     "t": "The core loop is fun: you'd play it again unprompted",
+     "done": true
+    },
+    {
+     "t": "The core loop is playable start to end",
+     "done": true
+    },
+    {
+     "t": "Look and feel chosen: 3rd-edition art, house badges, arena backgrounds",
+     "done": true
+    },
+    {
+     "t": "Notes doc set up",
      "done": true,
-     "k": "phone"
-    },
-    {
-     "t": "Clears the notch and the home bar",
-     "done": true,
-     "k": "notch"
-    },
-    {
-     "t": "Saves progress",
-     "done": true,
-     "k": "saves"
-    },
-    {
-     "t": "Has sound",
-     "done": true,
-     "k": "sound"
-    },
-    {
-     "t": "Someone else has played it",
-     "done": false
-    },
-    {
-     "t": "Their feedback is written in the notes",
-     "done": false
-    },
-    {
-     "t": "No known blockers",
-     "done": false
-    },
-    {
-     "t": "On the portfolio",
-     "done": true,
-     "k": "tile"
-    },
-    {
-     "t": "Has notes in the repo or a doc",
-     "done": true,
-     "k": "notes"
+     "k": "notesdoc"
     }
    ],
-   "backlog": [],
-   "nfp": false
+   "backlog": [
+    "For Production: Usurp art (art/specials/usurp.jpg), if Usurp stays",
+    "For Production: Birchwood gets its own art, if the extra Lands are in",
+    "For Production: the sound and music decided on are built in",
+    "For Production: rebuild all the print-and-play PDFs with the locked rules (current ones are from Nov 15)",
+    "For Alpha: someone else plays a pass-and-play game, and their feedback goes in the notes",
+    "For Alpha: print the small-tile sheet and play it at real size",
+    "For Beta: delete ui.html.orig and the __vye test hook"
+   ],
+   "nfp": false,
+   "checked": "2026-11-26"
   },
   {
    "id": "buzzers",
