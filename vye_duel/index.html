@@ -332,7 +332,7 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
   .table.stage .stage-top, .table.stage .stage-bot { padding: 6px; gap: 5px; }
   .table.stage .hand-area { padding: 4px 8px; }
   .tray { padding-inline: 50px !important; }
-  .tray .hcard { width: 52px; height: 52px; --cell: 52px; }
+  .tray .hcard { --tw: min(52px, calc((100vw - 140px - 6px * var(--nt, 4)) / var(--nt, 4))); width: var(--tw); height: var(--tw); --cell: var(--tw); }
   .tray .hand-area { padding-inline: 4px; }
   .table.has-bg .tray { background: rgba(28,18,15,.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-top-color: rgba(255,255,255,.12); }
   .hand { flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; gap: 6px; padding: 3px; }
@@ -346,6 +346,10 @@ button, .cell, .hcard { touch-action: manipulation; -webkit-tap-highlight-color:
 @media (max-width: 380px) { .hcard { width: 50px; height: 50px; --cell: 50px; } }
 /* the top (opponent / AI) hand is 20% smaller than yours: tiles, label and padding */
 .hand-area.other { padding: 6px 10px; gap: 5px; }
+/* pass and play, face to face: the top player's hand and instructions turn round to face them */
+.hand-area.facing { transform: rotate(180deg); }
+.stage-tip.facing { transform: translateX(-50%) rotate(180deg); }
+.facing-tip { display: flex; flex-direction: column; align-items: center; gap: 4px; transform: rotate(180deg); }
 /* pass and play: face-down hand with a tap-to-look button */
 .peek { width: calc(var(--hc, 76px) * 2 + 6px); height: var(--hc, 76px); border-radius: 10px; border: 2px dashed rgba(255,255,255,.55); cursor: pointer;
   background: repeating-linear-gradient(45deg, rgba(255,255,255,.14) 0 6px, rgba(255,255,255,.05) 6px 12px), rgba(18,12,28,.55); color: #fff;
@@ -1955,6 +1959,8 @@ function notePill(note) {
   return h('div', { class: 'stage-tip note-pill tp' + note.p }, sigEl('tip-sig p' + note.p, note.p), h('div', { class: 'cardinfo' }, note.text));
 }
 
+// Pass and play across a table: Roses' hand and instructions face the top edge of the phone. Kept per browser.
+let faceToFace = store.get('vyeMicro.face', false) === true;
 let hotSeen = -1;   // pass and play: the turn number on which the current player tapped to see their hand
 let railOpen = false;   // Game panel (opened with the gear on the board) starts closed
 function renderPlay() {
@@ -1972,6 +1978,9 @@ function renderPlay() {
   const viewTop = v.getBoundingClientRect().top + window.scrollY;
   const table = h('div', { class: 'table' + (bg.url ? ' has-bg' : '') + (stage ? ' stage' : '') });
   if (bg.url) table.style.backgroundImage = `url("${bg.url}")`;
+  // tiles in the biggest hand (hand plus sideboard, e.g. 3 + 2), so hands can shrink to fit beside the gear
+  const nTiles = Math.max(4, (G.cfg.handSize | 0) + Math.max(...G.cfg.family.map(f => E.MEMBER_ORDER.reduce((a, m) => a + (f[m] | 0), 0))));
+  table.style.setProperty('--nt', nTiles);
   let S = null;   // stage geometry (px)
   if (stage) {
     // On a phone the whole picture is stretched to fill the screen (it is close to the picture's own shape anyway).
@@ -1986,8 +1995,8 @@ function renderPlay() {
     S = { W, H, top: t * H, bot: (1 - b) * H, padTop, padBot, box: { x: l * W, y: t * H, w: (r - l) * W, h: (b - t) * H } };
     table.style.width = W + 'px'; table.style.height = H + 'px';
     table.style.setProperty('--safeb', padBot + 'px');
-    // hand tiles: as big as fits beside the gear (4 tiles: 2 in hand + 2 on the sideboard)
-    table.style.setProperty('--hc', Math.round(Math.max(40, Math.min(72, (W - 104 - 52) / 4))) + 'px');
+    // hand tiles: as big as fits beside the gear (the hand plus the biggest sideboard, e.g. 3 + 2)
+    table.style.setProperty('--hc', Math.round(Math.max(34, Math.min(72, (W - 104 - 14 - 6 * nTiles - 24) / nTiles))) + 'px');
   }
   // score: the house sigil, big, with the score (largest kingdom) on it; Roses' tie-break tag underneath
   const mchip = p => h('span', { class: 'sbadge-wrap p' + p },
@@ -2003,20 +2012,26 @@ function renderPlay() {
   // the AI sits at the top of the board, the human at the bottom (two humans or two AIs: Roses top, Midnight bottom)
   const hp = [0, 1].filter(p => isHuman(p));
   const bottom = hp.length === 1 ? hp[0] : 0;
+  const facing = faceToFace && hp.length === 2;   // two humans sitting across from each other
+  const topTurn = facing && G.turn === 1 - bottom && !G.over;
+  const topHand = () => { const el = handEl(1 - bottom, !facing); if (facing) el.classList.add('facing'); return el; };
   const card = selCard();
   const info = h('div', { class: 'cardinfo' + (card ? '' : ' idle') }, card ? cardDesc(card) : 'Ownership is the outline and sigil: blue owl for Midnight, red rose for Roses.');
   if (!stage) {
-    table.append(handEl(1 - bottom, true));
+    // face to face: on the top player's turn their instructions sit by their hand, turned to face them
+    if (topTurn) table.append(h('div', { class: 'facing-tip' }, info, promptEl()));
+    table.append(topHand());
     table.append(renderBoard());
-    table.append(h('div', { class: 'tray' }, promptEl(), info, handEl(bottom)));
+    table.append(h('div', { class: 'tray' }, topTurn ? null : promptEl(), topTurn ? null : info, handEl(bottom)));
     if (aiNote && !card && !G.over) table.append(notePill(aiNote));
   } else {
     // picture stage: scores and the top hand on the art above the play area, the board inside it, your hand below
     const pr = promptEl();
     let tip = h('div', { class: 'stage-tip tp' + G.turn }, G.over ? null : sigEl('tip-sig p' + G.turn, G.turn), pr, card ? info : null);
     if (!pr.childNodes.length && !card) { if (aiNote && !G.over) tip = notePill(aiNote); else tip.hidden = true; }
+    if (topTurn) tip.classList.add('facing');
     table.append(
-      h('div', { class: 'stage-top', style: `height:${S.top}px;padding-top:${10 + S.padTop}px` }, scoreRow, handEl(1 - bottom, true), tip),
+      h('div', { class: 'stage-top', style: `height:${S.top}px;padding-top:${10 + S.padTop}px` }, scoreRow, topHand(), tip),
       h('div', { class: 'stage-board', style: `left:${S.box.x}px;top:${S.box.y}px;width:${S.box.w}px;height:${S.box.h}px` }, renderBoard({ w: S.box.w - 8, h: S.box.h - 8 })),
       h('div', { class: 'stage-bot', style: `height:${S.bot}px;padding-bottom:${10 + S.padBot}px` }, handEl(bottom)));
   }
@@ -2047,6 +2062,7 @@ function renderPlay() {
         bothAI ? h('button', { class: 'btn', onclick: () => { paused = !paused; renderPlay(); scheduleAI(); } }, paused ? 'Resume' : 'Pause') : null),
       h('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;align-items:center' },
         h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'animon', checked: animOn, onchange: e => { animOn = e.target.checked; store.set('vyeMicro.anim', animOn); } }), 'Animations'),
+        check('facetoface', faceToFace, 'Face to face (two players across a table: Roses faces the top)', on => { faceToFace = on; store.set('vyeMicro.face', on); renderPlay(); }),
         check('soundon', soundOn, 'Sound', on => { soundOn = on; store.set('vyeMicro.sound', on); if (on) sfx('tick'); }),
         check('borders', cardBorders, 'Card borders', on => { cardBorders = on; store.set('vyeMicro.borders', on); document.documentElement.classList.toggle('no-borders', !on); }),
         check('showtabs', showTabs, 'Setup & Simulate tabs', on => { showTabs = on; store.set('vyeMicro.tabs', on); applyTabsBar(); renderPlay(); }),

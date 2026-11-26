@@ -54,18 +54,18 @@
    "url": "vye_duel/",
    "first": "2026-11-14",
    "last": "2026-11-26",
-   "commits": 47,
+   "commits": 48,
    "stage": 5,
    "tag": "Two-player micro version of Vye",
    "status": "Plays against AI, hotseat or pass-and-play, with a balance simulator and print-and-play PDFs. Now a hand of 3, with new card ideas (Rally, a reworked Usurp, Earthquake variants) to switch on in Setup.",
-   "left": "Hand of 3 by default. Usurp can now just take a Land (Setup → How Usurp works). New Rally card and two new Earthquake swaps, all off by default for testing.",
+   "left": "Face to face for pass and play: Roses’ hand and instructions turn to face the top of the phone (Game panel). Also hand of 3, Usurp can just take a Land, and new Rally and Earthquake options in Setup.",
    "love": "A tight, less swingy Vye in 30 tiles or fewer. Tiles flip to show who owns them, so there are no tokens.",
    "dream": null,
    "dreamHint": "Printed and on a table. You've talked about Scrabble-size tiles.",
    "star": false,
    "hidden": false,
    "todos": [
-    "Play a game with Usurp on Take and a Rally in the bag (Setup → Specials)",
+    "Play face to face with your kid (gear → Face to face), with a Rally in the bag",
     "Play one pass-and-play game with another person",
     "Print the one-page small-tile sheet and cut it out",
     "Usurp has no card art yet (art/specials/usurp.jpg)",
@@ -87,6 +87,10 @@
     },
     {
      "t": "Earthquake variants: a tile two away with any Land, or two neighboring Lands",
+     "on": "2026-11-26"
+    },
+    {
+     "t": "Pass and play face to face: Roses’ side faces the top of the phone",
      "on": "2026-11-26"
     }
    ],
