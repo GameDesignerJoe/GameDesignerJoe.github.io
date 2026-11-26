@@ -37,8 +37,8 @@ const SHOTS={
   "on": "2026-11-25"
  },
  "killcode": {
-  "src": "shots/killcode.webp?v=2026-11-25",
-  "on": "2026-11-25"
+  "src": "shots/killcode.webp?v=2026-11-26",
+  "on": "2026-11-26"
  },
  "murmur": {
   "src": "shots/murmur.webp?v=2026-11-25",
