@@ -29,8 +29,9 @@ p{margin:0}
 
 .top{display:flex; align-items:center; justify-content:space-between; gap:12px}
 .brand{display:flex; align-items:center; gap:10px}
-.brand .mark{width:22px; height:22px; border-radius:50%; background:var(--surface); border:5px solid var(--ink)}
-.brand h1{font-size:24px; font-weight:700; letter-spacing:.01em}
+.brand .mark{width:44px; height:44px; flex:none; display:block}
+.brand .mark img{width:100%; height:100%; display:block}
+.brand h1{font:700 28px/1 "Pixelify Sans",var(--display); letter-spacing:.02em}
 .round{width:44px; height:44px; flex:none; border-radius:50%; display:grid; place-items:center; background:var(--surface); border:2.5px solid var(--ink)}
 .round svg{width:20px; height:20px}
 
@@ -336,3 +337,19 @@ li.done .tx{color:var(--muted); text-decoration:line-through}
 
 .flag{color:var(--red); font-weight:600}
 .redflag{margin:0 0 10px; padding:10px 12px; border-radius:12px; border:1.5px solid var(--red); color:var(--red); font:500 14px/1.35 var(--body,inherit)}
+
+/* PIXEL LOOK: picked under the menu. One committed look, taken from the logo: dusk purple, sunset orange, sea blue, hard edges. */
+:root[data-skin="pixel"][data-skin]{
+  --bg:#1C0F45; --surface:#2D1A6B; --sunk:#130930; --ink:#FFF4DC; --muted:#C9B6F5; --line:#5A3FB0;
+  --red:#FF4D5E; --blue:#3FBBFF; --yellow:#FFC42E; --green:#4FE38F; --on-color:#1C0F45; --on-yellow:#2A1500;
+  --display:"Pixelify Sans","Jost",system-ui,sans-serif; --r-lg:0px; --r-md:0px; --r-sm:0px; color-scheme:dark }
+:root[data-skin="pixel"] *{border-radius:0!important}
+:root[data-skin="pixel"] body{background:linear-gradient(#5B2BB5 0,#C2378F 150px,#FF8A2B 250px,#1C0F45 250px) no-repeat, var(--bg); background-size:100% 250px,auto}
+:root[data-skin="pixel"] .brand h1{color:#FFE66B; text-shadow:3px 3px 0 #1C0F45; font-size:32px}
+:root[data-skin="pixel"] .round, :root[data-skin="pixel"] .btn, :root[data-skin="pixel"] .act i{box-shadow:3px 3px 0 #0B0522}
+:root[data-skin="pixel"] .btn.solid{background:var(--yellow); color:var(--on-yellow)}
+:root[data-skin="pixel"] .btn.line{border-color:var(--yellow)}
+:root[data-skin="pixel"] .block, :root[data-skin="pixel"] .sheet{box-shadow:none}
+:root[data-skin="pixel"] .label{color:var(--yellow)}
+:root[data-skin="pixel"] .tile img, :root[data-skin="pixel"] .brand .mark img{image-rendering:auto}
+:root[data-skin="pixel"] .motto{color:#FFF4DC; text-shadow:2px 2px 0 #1C0F45}
