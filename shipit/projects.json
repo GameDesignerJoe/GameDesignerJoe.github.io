@@ -14,12 +14,12 @@
    "folder": "shipit",
    "url": "shipit/",
    "first": "2026-11-25",
-   "last": "2026-11-25",
+   "last": "2026-11-26",
    "commits": 19,
-   "stage": 3,
+   "stage": 4,
    "tag": "Every side project on one dev plan",
    "status": "Built over two days. The dev plan, per-project checklists, notes links, galleries and the Claude Code hand-offs all work. Most checklists are still first drafts.",
-   "left": "Renamed from Trailhead to Ship It!, with a skills list and this entry for itself.",
+   "left": "Added the Prototype gate between Incubation and Preproduction; check-them-all no longer stops to ask.",
    "love": "Every game I'm making on one plan, with the next thing to do one tap away.",
    "star": false,
    "hidden": false,
@@ -76,7 +76,7 @@
    "first": "2026-11-22",
    "last": "2026-11-24",
    "commits": 15,
-   "stage": 2,
+   "stage": 3,
    "tag": "Co-op card game about shipping a video game",
    "status": "Still in Preproduction: table build 0.7 plays start to finish, but the rules change every build and it isn't proven fun yet. Your last three games were cancelled; the simulator's careful team wins half.",
    "left": "Three table builds in one day (0.5 to 0.7): one free task plus free card moves, task perks, draw one more.",
@@ -178,7 +178,7 @@
    "first": "2026-11-14",
    "last": "2026-11-26",
    "commits": 48,
-   "stage": 2,
+   "stage": 3,
    "tag": "Two-player micro version of Vye",
    "status": "Fun and fully playable against the AI, hotseat or face to face, but the deck isn't locked yet. Rally, the new Usurp and the Earthquake versions are being tried out in Setup.",
    "left": "Face to face for pass and play: Roses’ hand and instructions turn to face the top of the phone (Game panel). Also hand of 3, Usurp can just take a Land, and new Rally and Earthquake options in Setup.",
@@ -295,7 +295,7 @@
    "first": "2026-11-08",
    "last": "2026-11-10",
    "commits": 31,
-   "stage": 2,
+   "stage": 3,
    "tag": "Party trivia where everyone's phone is the buzzer",
    "status": "Back in Preproduction: the core game is built, but solo play, a category vote and bigger avatars are open asks. At dinner clues hung on \"searching\" and the built-in categories were too few and dull, so the group never played.",
    "left": "Step 7a: the room server writes the clues, and the Groq key is a server secret.",
@@ -400,7 +400,7 @@
    "first": "2026-10-31",
    "last": "2026-11-14",
    "commits": 108,
-   "stage": 3,
+   "stage": 4,
    "tag": "Script to storyboard to video to sound, on your PC",
    "status": "Steps 1 to 6 are built and dry-run tested. It still needs your first real keyframe and background removal on fal. GASP Studio 1.0 sits beside it as the parts bin.",
    "left": "Sound made from the video itself, ElevenLabs direct, and a simpler Sound tab.",
@@ -473,7 +473,7 @@
    "first": "2026-11-03",
    "last": "2026-11-03",
    "commits": 3,
-   "stage": 2,
+   "stage": 3,
    "tag": "Cozy island survival sim starring Wren",
    "status": "A playable demo is online. All three commits are from Nov 3.",
    "left": "Feedback you got: too much game, not enough story, and unlock beach actions over time.",
@@ -534,7 +534,7 @@
    "first": "2025-01-16",
    "last": "2026-10-25",
    "commits": 220,
-   "stage": 2,
+   "stage": 3,
    "tag": "A lone explorer crosses a frozen, storm-swept wilderness",
    "status": "The proof of concept is now a whole loop: follow the radio to a lost explorer and bring them home, with the cold, water, exhaustion and the bear all live. Still in Preproduction until you pick which version is the game: this one or Online.",
    "left": "Online milestone 0: seeded world, shared world clock, player identity. Checked in two browsers, not yet on a phone.",
@@ -624,7 +624,7 @@
    "first": "2026-10-19",
    "last": "2026-10-25",
    "commits": 2,
-   "stage": 2,
+   "stage": 3,
    "tag": "Date a real photo from clues inside it",
    "status": "Four photos play start to finish on a phone; two land on one year, two end on a range. Still in Preproduction: where photos come from (rights) and a few design calls are open.",
    "left": "Rebuilt the phone experience.",
@@ -713,7 +713,7 @@
    "first": "2026-10-19",
    "last": "2026-10-21",
    "commits": 14,
-   "stage": 2,
+   "stage": 3,
    "tag": "Find the wolf in sheep's clothing",
    "status": "Your lead game for the stores. Every note in the doc is built and it plays like a finished game, but the feature list, sound and art haven't been decided yet.",
    "left": "All 7 doc notes are built: Wolf Pack, streak popups, colour hint, night field, lamb pranks, easier Stampede taps.",
@@ -807,9 +807,9 @@
    "first": "2026-09-04",
    "last": "2026-10-09",
    "commits": 247,
-   "stage": 3,
+   "stage": 2,
    "tag": "A man wakes in a maze he put himself in",
-   "status": "v0.182.0, and your most-worked project by far: 247 commits in five weeks. The first-person build is the real game; the top-down one is the earlier prototype.",
+   "status": "v0.182.0, and your most-worked project by far. Both builds are prototypes: the top-down maze came first, the first-person one is the current one, and both are launch pads for a bigger game.",
    "left": "The game starts in the school look, and Feedback sends a picture of the view.",
    "love": "Every traveller whose pages he finds is himself at another stage of life. The feeling of being truly lost and using what you find to get out. \"What's the mazest thing we can do? We do that.\"",
    "star": false,
@@ -821,59 +821,39 @@
    ],
    "checklist": [
     {
-     "t": "Open your \"Rules for Claude\" Google Doc and read the top item on the list",
+     "t": "There's a bit of gameplay you can play",
+     "done": true
+    },
+    {
+     "t": "A simple version of the game loop runs start to end",
+     "done": true
+    },
+    {
+     "t": "Find the fun: name the part you'd play again unprompted",
      "done": false
     },
     {
-     "t": "Play the Child's maze once on your phone",
+     "t": "Write down what the prototype taught you: what worked, what didn't",
      "done": false
     },
     {
-     "t": "Pick one of the ten room pitches in ROOMS.md",
+     "t": "Decide: is this the game, or the launch pad for a bigger, better one?",
      "done": false
     },
     {
-     "t": "More rooms, and reasons to be in them",
-     "done": false
-    },
-    {
-     "t": "The \"You\" phase ending: pages written from the player's own run",
-     "done": false
-    },
-    {
-     "t": "Pools: real scripts from you, and the Caretaker's evolving presence",
-     "done": false
-    },
-    {
-     "t": "Music per self, with the procedural layer as the bed",
-     "done": false
-    },
-    {
-     "t": "Bring the first biome to life before adding more",
-     "done": false
-    },
-    {
-     "t": "Everything on the locked feature list is built",
-     "done": false
-    },
-    {
-     "t": "All content is in: levels, cards, cases, whatever it's made of",
-     "done": false
-    },
-    {
-     "t": "Playable from first screen to last",
-     "done": false
-    },
-    {
-     "t": "Win, lose and restart all work",
-     "done": false
-    },
-    {
-     "t": "No placeholder art or text left",
+     "t": "Write the full idea of the game it becomes in a few lines",
      "done": false
     }
    ],
    "backlog": [
+    "Open your \"Rules for Claude\" Google Doc and read the top item on the list",
+    "Play the Child's maze once on your phone",
+    "Pick one of the ten room pitches in ROOMS.md",
+    "More rooms, and reasons to be in them",
+    "The \"You\" phase ending: pages written from the player's own run",
+    "Pools: real scripts from you, and the Caretaker's evolving presence",
+    "Music per self, with the procedural layer as the bed",
+    "Bring the first biome to life before adding more",
     "Maps as loose squares you slide together to see how they line up",
     "Things in the maze that are afraid of you",
     "Chalk you draw in a box, placed as a decal on the floor",
@@ -895,7 +875,7 @@
    "first": "2026-10-05",
    "last": "2026-10-07",
    "commits": 36,
-   "stage": 3,
+   "stage": 4,
    "tag": "Climb the tower and stay out of the light",
    "status": "Fourteen build-and-critique rounds against the reference game in three days. The bar is every line at 8 out of 10.",
    "left": "Round 14: camera alarms always send a guard, and a sustained chase bed in the music.",
@@ -951,7 +931,7 @@
    "first": "2026-08-10",
    "last": "2026-08-29",
    "commits": 48,
-   "stage": 4,
+   "stage": 5,
    "tag": "Tidy up a cluttered house",
    "status": "Whole: 34 campaign jobs, free play, store, talents, helper and themes, all loading cleanly on a phone. Still in Alpha until someone else plays it and you play it through to the end.",
    "left": "\"Showing cluster\" on Aug 29.",
@@ -1036,7 +1016,7 @@
    "first": "2026-05-08",
    "last": "2026-11-26",
    "commits": 8,
-   "stage": 4,
+   "stage": 5,
    "tag": "Crack the code before lockdown",
    "status": "Mastermind with cards: breach a 4-key hash within ten cycles, with story scenes, characters and invading ICE. The last-cycle soft-lock is fixed; it still needs someone else to play it.",
    "left": "Fixed the soft-lock when you run out of programs (Nov 26).",
@@ -1124,7 +1104,7 @@
    "first": "2026-04-13",
    "last": "2026-04-22",
    "commits": 31,
-   "stage": 2,
+   "stage": 3,
    "tag": "Audio-forward choose-your-own-adventure",
    "status": "The Player and the Creator both work, and The Black Door is fully voiced. Back in Preproduction: background audio, portraits and what makes a good audio story are still open.",
    "left": "Audio and Creator improvements in April.",
@@ -1215,7 +1195,7 @@
    "commits": 23,
    "stage": 2,
    "tag": "Map islands in a chill cartographer game",
-   "status": "Playable on the portfolio, but back in Preproduction: the to-do is mostly new mechanics, and a badly placed sextant mark can still lock you out of finishing the map.",
+   "status": "A prototype: playable on the portfolio and the map-drawing works, but the fun isn't pinned down yet and a badly placed sextant mark can still lock you out.",
    "left": "Fixed measure on mobile in March. The April commits only moved audio files.",
    "love": "The game is the map. Blank parchment fills with hand-drawn terrain as you explore, and the final zoom-out is the reward. No combat, no timer, no death.",
    "star": false,
@@ -1227,68 +1207,41 @@
    ],
    "checklist": [
     {
-     "t": "Add a sound when the location name appears at the start (reuse the landmark one)",
-     "done": false
-    },
-    {
-     "t": "Map one island and note where the sextant let you down",
-     "done": false
-    },
-    {
-     "t": "Decide and fix the sextant blocker: Sextant Stones at fixed spots, or \"you've found enough\"",
-     "done": false
-    },
-    {
-     "t": "Fix one-tile islands you can't reach (one had a collectible)",
-     "done": false
-    },
-    {
-     "t": "Decide: what makes each island play differently?",
-     "done": false
-    },
-    {
-     "t": "Decide: which of these are in: treasure maps, survey by tracing a circle, sextant over the sun, measuring by sighting a marker, cliffs?",
-     "done": false
-    },
-    {
-     "t": "Decide: are the new controls in (PC mouse scheme, virtual stick on mobile)?",
-     "done": false
-    },
-    {
-     "t": "Decide: are Found Journals (milestone 6) in or out?",
-     "done": false
-    },
-    {
-     "t": "The core loop is playable start to end on every island",
-     "done": false
-    },
-    {
-     "t": "The core loop is fun: you'd chart another island without being asked",
-     "done": false
-    },
-    {
-     "t": "Lock the feature list: what's in",
-     "done": false
-    },
-    {
-     "t": "Write the cut list: what's out and stays out",
-     "done": false
-    },
-    {
-     "t": "Look and feel chosen: ink on parchment, a map that draws itself",
+     "t": "There's a bit of gameplay you can play",
      "done": true
     },
     {
-     "t": "Has a notes file (docs/cartographer_todo.md)",
-     "done": true,
-     "k": "notesdoc"
+     "t": "The loop runs start to end on an island without the sextant locking you out",
+     "done": false
     },
     {
-     "t": "Tick what's built in MILESTONES.md so it matches the game",
+     "t": "Find the fun: you'd chart another island without being asked",
+     "done": false
+    },
+    {
+     "t": "Write down what the prototype taught you: what worked, what didn't",
+     "done": false
+    },
+    {
+     "t": "Decide: is this the game, or the launch pad for a bigger, better one?",
+     "done": false
+    },
+    {
+     "t": "Write the full idea of the game it becomes in a few lines",
      "done": false
     }
    ],
    "backlog": [
+    "For Preproduction: add a sound when the location name appears at the start (reuse the landmark one)",
+    "For Preproduction: map one island and note where the sextant let you down",
+    "For Preproduction: Decide and fix the sextant blocker: Sextant Stones at fixed spots, or \"you've found enough\"",
+    "For Preproduction: fix one-tile islands you can't reach (one had a collectible)",
+    "For Preproduction: Decide: what makes each island play differently?",
+    "For Preproduction: Decide: which of these are in: treasure maps, survey by tracing a circle, sextant over the sun, measuring by sighting a marker, cliffs?",
+    "For Preproduction: Decide: are the new controls in (PC mouse scheme, virtual stick on mobile)?",
+    "For Preproduction: Decide: are Found Journals (milestone 6) in or out?",
+    "For Preproduction: write the cut list: what's out and stays out",
+    "For Preproduction: tick what's built in MILESTONES.md so it matches the game",
     "For Production: restyle the quest-complete, menu and discovered-locations popups to match the location popup",
     "For Production: fix the mobile UI (clipping at the top, button bar too high, text over buttons, WASD help on a phone, smaller quest text)",
     "For Production: let you sail back to the ship and leave the island",
@@ -1307,7 +1260,7 @@
    "first": "2026-04-11",
    "last": "2026-04-12",
    "commits": 23,
-   "stage": 2,
+   "stage": 3,
    "tag": "Audio interactive fiction with an AI companion beside you",
    "status": "Phase 1 works: you type, the companion answers in voice and text. Several fixes are still marked \"needs testing\".",
    "left": "A dialogue-only option, and knowing when to talk and when to describe.",
@@ -1383,7 +1336,7 @@
    "first": "2026-01-04",
    "last": "2026-01-05",
    "commits": 5,
-   "stage": 2,
+   "stage": 3,
    "tag": "A strategy game about authority, surveillance and community trust",
    "status": "Milestone 2 of the minimum viable game: a 5×5 city grid where you place wardens.",
    "left": "Warden placement and patrol zones.",
@@ -1459,7 +1412,7 @@
    "first": "2026-01-02",
    "last": "2026-01-08",
    "commits": 52,
-   "stage": 4,
+   "stage": 5,
    "tag": "Solve our puzzles or use your own",
    "status": "A playable 7×7 photo puzzle with a gallery and your-own-image upload.",
    "left": "Last worked in early January.",
@@ -1548,7 +1501,7 @@
    "first": "2025-12-28",
    "last": "2026-01-08",
    "commits": 45,
-   "stage": 4,
+   "stage": 5,
    "tag": "A clicker that pushes you to play your unplayed Steam games",
    "status": "Live at design v1.5: a limited pool of games, drain mechanics and two currencies.",
    "left": "Last worked in early January.",
@@ -1644,7 +1597,7 @@
    "first": "2026-01-02",
    "last": "2026-01-08",
    "commits": 6,
-   "stage": 4,
+   "stage": 5,
    "tag": "Match color pairs through harder levels",
    "status": "Playable. A small one.",
    "left": "Last worked in early January.",
@@ -1727,7 +1680,7 @@
    "first": "2025-05-19",
    "last": "2026-01-08",
    "commits": 23,
-   "stage": 4,
+   "stage": 5,
    "tag": "Unlock wisdom, one letter at a time",
    "status": "Playable on the portfolio. A 2025 build.",
    "left": "",
@@ -1793,9 +1746,9 @@
    "first": "2025-01-04",
    "last": "2026-04-15",
    "commits": 13,
-   "stage": 4,
+   "stage": 2,
    "tag": "Are you a terrible parent?",
-   "status": "Playable on the portfolio. One of your first, from January 2025.",
+   "status": "A prototype from January 2025, playable on the portfolio. Built as the launch pad for a bigger version.",
    "left": "",
    "love": "",
    "star": false,
@@ -1804,46 +1757,28 @@
    "docs": "No to-do list in the repo.",
    "checklist": [
     {
-     "t": "Lays out properly on a phone",
-     "done": true,
-     "k": "phone"
+     "t": "There's a bit of gameplay you can play",
+     "done": true
     },
     {
-     "t": "Clears the notch and the home bar",
-     "done": false,
-     "k": "notch"
+     "t": "A simple version of the game loop runs start to end",
+     "done": true
     },
     {
-     "t": "Saves progress",
-     "done": false,
-     "k": "saves"
-    },
-    {
-     "t": "Has sound",
-     "done": true,
-     "k": "sound"
-    },
-    {
-     "t": "Someone else has played it",
+     "t": "Find the fun: name the part you'd play again unprompted",
      "done": false
     },
     {
-     "t": "Their feedback is written in the notes",
+     "t": "Write down what the prototype taught you: what worked, what didn't",
      "done": false
     },
     {
-     "t": "No known blockers",
+     "t": "Decide: is this the game, or the launch pad for a bigger, better one?",
      "done": false
     },
     {
-     "t": "On the portfolio",
-     "done": true,
-     "k": "tile"
-    },
-    {
-     "t": "Has notes in the repo or a doc",
-     "done": false,
-     "k": "notes"
+     "t": "Write the full idea of the game it becomes in a few lines",
+     "done": false
     }
    ],
    "backlog": [],
@@ -1901,7 +1836,7 @@
    "first": "2026-05-03",
    "last": "2026-05-05",
    "commits": 4,
-   "stage": 2,
+   "stage": 3,
    "tag": "Trig practice with a lab and a missile-command game",
    "status": "Three days in May. Not on the portfolio.",
    "left": "Bug fixes to missile command.",
@@ -1950,7 +1885,7 @@
    "first": "2026-04-24",
    "last": "2026-04-25",
    "commits": 21,
-   "stage": 4,
+   "stage": 5,
    "tag": "Learn Morse code on a telegraph key",
    "status": "Every mode is built: guided words, timed WPM, listen and echo, memory, practice, tiered speed, alphabet. What's left is the polish milestone.",
    "left": "Tiered Speed mode with a pause button, audio feedback and demotion after 3 wrong.",
@@ -2041,7 +1976,7 @@
    "first": "2026-03-07",
    "last": "2026-05-16",
    "commits": 49,
-   "stage": 5,
+   "stage": 6,
    "tag": "Pick the shows you wanna watch",
    "status": "Live. Trailer mode and the new name and logo are in.",
    "left": "Fixing search, and a watch-list toggle in trailer mode.",
@@ -2123,7 +2058,7 @@
    "first": "2026-01-06",
    "last": "2026-01-22",
    "commits": 123,
-   "stage": 3,
+   "stage": 4,
    "tag": "Stream your own music like the pros",
    "status": "Live, but your Priority 1 list has show-stoppers: no way to advance tracks on mobile, and you can't see what's playing.",
    "left": "The now-playing highlight across playlists and library.",
@@ -2198,7 +2133,7 @@
    "first": "2025-12-19",
    "last": "2026-01-06",
    "commits": 66,
-   "stage": 4,
+   "stage": 5,
    "tag": "Shows which Steam games you've never played",
    "status": "Live on Vercel.",
    "left": "Last worked in early January.",
@@ -2285,7 +2220,7 @@
    "first": "2026-04-12",
    "last": "2026-04-13",
    "commits": 15,
-   "stage": 5,
+   "stage": 6,
    "tag": "An instructor tool for teaching guitar",
    "status": "Nearly everything on the list is marked done: flats and sharps, left-handed, themes, save and load.",
    "left": "Save/Load.",
@@ -2363,7 +2298,7 @@
    "first": "2026-03-27",
    "last": "2026-03-29",
    "commits": 35,
-   "stage": 5,
+   "stage": 6,
    "tag": "Scan handwritten notebooks into text",
    "status": "Live on Vercel.",
    "left": "UI update and numbering fixes.",
@@ -2430,7 +2365,7 @@
    "first": "2026-05-20",
    "last": "2026-09-08",
    "commits": 5,
-   "stage": 3,
+   "stage": 4,
    "tag": "AI art direction for game pitch decks",
    "status": "Version 2, phase 1: the 10-step wizard and a working image-generation route.",
    "left": "Step 4 of the build in May, and a small placeholder fix in September.",
@@ -2486,7 +2421,7 @@
    "first": "2026-01-05",
    "last": "2026-05-12",
    "commits": 6,
-   "stage": 2,
+   "stage": 3,
    "tag": "Identify comics from cover photos",
    "status": "v0.2: a vision model reads the cover and ComicVine fills in the details. The barcode route turned out to be a dead end.",
    "left": "Camera work.",
@@ -2535,7 +2470,7 @@
    "first": "2026-05-11",
    "last": "2026-05-16",
    "commits": 9,
-   "stage": 4,
+   "stage": 5,
    "tag": "Jack's comic collection",
    "status": "Works on mobile. Its to-do file is empty.",
    "left": "Mobile support and pulled books.",
@@ -2596,7 +2531,7 @@
    "first": "2026-08-14",
    "last": "2026-08-18",
    "commits": 2,
-   "stage": 5,
+   "stage": 6,
    "tag": "Rewrite HTML deck copy without touching the layout",
    "status": "On the portfolio and in use.",
    "left": "",
@@ -2659,7 +2594,7 @@
    "first": "2026-08-14",
    "last": "2026-09-08",
    "commits": 2,
-   "stage": 5,
+   "stage": 6,
    "tag": "Back-of-the-napkin planner for scoping features and staffing",
    "status": "On the portfolio.",
    "left": "",
@@ -2722,7 +2657,7 @@
    "first": "2026-04-21",
    "last": "2026-04-25",
    "commits": 2,
-   "stage": 4,
+   "stage": 5,
    "tag": "A voice and music visualizer",
    "status": "On the portfolio.",
    "left": "",
@@ -2783,7 +2718,7 @@
    "first": "2026-03-24",
    "last": "2026-03-24",
    "commits": 1,
-   "stage": 4,
+   "stage": 5,
    "tag": "Track scores for board and card games",
    "status": "On the portfolio.",
    "left": "",
@@ -2844,7 +2779,7 @@
    "first": "2025-03-04",
    "last": "2026-01-08",
    "commits": 93,
-   "stage": 5,
+   "stage": 6,
    "tag": "A dev tool for mapping content",
    "status": "A 2025 work tool, on the portfolio.",
    "left": "",
@@ -2907,7 +2842,7 @@
    "first": "2025-09-01",
    "last": "2026-01-08",
    "commits": 3,
-   "stage": 4,
+   "stage": 5,
    "tag": "A silly tracker for what your time is worth",
    "status": "On the portfolio.",
    "left": "",

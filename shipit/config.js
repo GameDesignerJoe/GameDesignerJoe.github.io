@@ -27,15 +27,38 @@ const STAGES=[
  },
  {
   "n": 2,
-  "key": "pre",
-  "name": "Preproduction",
-  "desc": "Prove the core is fun, then lock what's in and what's out",
+  "key": "proto",
+  "name": "Prototype",
+  "desc": "Find the fun. Bits of gameplay and a simple version of the loop, often the launch pad for a bigger game",
   "items": [
    {
-    "t": "The core loop is playable start to end"
+    "t": "There's a bit of gameplay you can play"
    },
    {
-    "t": "The core loop is fun: you'd play it again unprompted"
+    "t": "A simple version of the game loop runs start to end"
+   },
+   {
+    "t": "Find the fun: name the part you'd play again unprompted"
+   },
+   {
+    "t": "Write down what the prototype taught you: what worked, what didn't"
+   },
+   {
+    "t": "Decide: is this the game, or the launch pad for a bigger, better one?"
+   },
+   {
+    "t": "Write the full idea of the game it becomes in a few lines"
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "key": "pre",
+  "name": "Preproduction",
+  "desc": "The fun is found. Work out everything you'll need to make for this to be a real game, then lock what's in and what's out",
+  "items": [
+   {
+    "t": "List everything that has to be made: screens, content, art, sound, systems"
    },
    {
     "t": "Lock the feature list: what's in"
@@ -53,7 +76,7 @@ const STAGES=[
   ]
  },
  {
-  "n": 3,
+  "n": 4,
   "key": "prod",
   "name": "Production",
   "desc": "Build everything on the locked list",
@@ -78,7 +101,7 @@ const STAGES=[
   ]
  },
  {
-  "n": 4,
+  "n": 5,
   "key": "alpha",
   "name": "Alpha",
   "desc": "Whole and playable on a phone, and other people have played it",
@@ -119,7 +142,7 @@ const STAGES=[
   ]
  },
  {
-  "n": 5,
+  "n": 6,
   "key": "beta",
   "name": "Beta",
   "desc": "Fixes only. Cleaned up and store-ready",
@@ -174,7 +197,7 @@ const STAGES=[
   ]
  },
  {
-  "n": 6,
+  "n": 7,
   "key": "r1",
   "name": "Release I: itch.io",
   "desc": "Free, instant, and the first place strangers play it",
@@ -197,7 +220,7 @@ const STAGES=[
   ]
  },
  {
-  "n": 7,
+  "n": 8,
   "key": "r2",
   "name": "Release II: Money plan",
   "desc": "Decide how it earns before it goes to a store",
@@ -220,7 +243,7 @@ const STAGES=[
   ]
  },
  {
-  "n": 8,
+  "n": 9,
   "key": "r3",
   "name": "Release III: Google Play",
   "desc": "The first store",
@@ -240,7 +263,7 @@ const STAGES=[
   ]
  },
  {
-  "n": 9,
+  "n": 10,
   "key": "r4",
   "name": "Release IV: App Store",
   "desc": "The goal",
@@ -260,7 +283,7 @@ const STAGES=[
   ]
  }
 ];
-const LINE_END={"game":9,"tabletop":6,"tool":5};
+const LINE_END={"game":10,"tabletop":7,"tool":6};
 var GOALS=["Get my games out into the world on the Apple App Store.","Make something uniquely mine that others want to play.","Create a source of income that gives me the freedom to choose my jobs."];
 const PLAN_SRC={"title":"Publishing web games to app stores","date":"Nov 15","url":"https://claude.ai/chat/bfe6cdb1-4a80-4c4e-977e-ac53ce5fc708"};
 var LEAD="wolf";
@@ -268,7 +291,7 @@ const BASICS=[["icon","App icon","A real icon at 192 and 512, plus an Apple touc
 const NOT_TRACKED="art, audio, songs, cd, catchTheWolf (the GameMaker original), asciiExplore, json-editor, game-doc-system";
 // The skills in .claude/skills that this page can launch. "per" ones show under More on a project's page.
 const SKILLS=[
- {"key":"gate-check","name":"Gate check","per":true,"kinds":["game","tabletop"],"button":"Gate Check","all":"Check them all","what":"Works out which gate a game is really in, from its code, its notes and a few questions to you, and writes the checklist for getting through it.","say":"gate check Buzzers"},
+ {"key":"gate-check","name":"Gate check","per":true,"kinds":["game","tabletop"],"button":"Gate Check","all":"Check them all","what":"Works out which gate a game is really in, from its code and its notes, and writes the checklist for getting through it.","say":"gate check Buzzers"},
  {"key":"game-gallery","name":"Game gallery","per":true,"kinds":["game","tabletop"],"button":"Take gallery shots","what":"Plays through a game and takes about ten deliberately different screenshots into its media folder. Leaves your own files alone.","say":"take gallery shots for Vye Duel"},
  {"key":"ship-it","name":"Ship It","what":"Keeps this page's data in step with the repo. It runs whenever a button here opens Claude Code, and after any work on one of your apps.","say":"star Buzzers, or add a multiplayer test to Buzzers' checklist"},
  {"key":"add-portfolio-entry","name":"Add portfolio entry","what":"Adds a finished app to the front page of your site, with a screenshot and a tile.","say":"add Crunch to the portfolio"}

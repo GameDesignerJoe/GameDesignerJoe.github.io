@@ -30,19 +30,30 @@ starting checklists, and the list of skills the page can launch), `icons.js` (ge
 and `shots/` (one current screenshot per project, from `tools/shoot.py`),
 `projects.json`. No build step.
 
-## The dev plan: nine gates
+## The dev plan: ten gates
 
 | # | Gate | Through it when |
 |---|---|---|
 | 1 | Incubation | There's a razor line and a toy you can touch |
-| 2 | Preproduction | The core loop is fun and the feature list is locked |
-| 3 | Production | Everything on the locked list is built |
-| 4 | Alpha | Whole and playable on a phone, and other people have played it |
-| 5 | Beta | Fixes only. Cleaned up and store-ready |
-| 6 | Release I: itch.io | It's public and strangers are playing it |
-| 7 | Release II: Money plan | He has decided how it earns, and that's built in |
-| 8 | Release III: Google Play | It's on the first store |
-| 9 | Release IV: App Store | The goal |
+| 2 | Prototype | The fun is found, and he knows what game this becomes |
+| 3 | Preproduction | Everything it needs is listed and the feature list is locked |
+| 4 | Production | Everything on the locked list is built |
+| 5 | Alpha | Whole and playable on a phone, and other people have played it |
+| 6 | Beta | Fixes only. Cleaned up and store-ready |
+| 7 | Release I: itch.io | It's public and strangers are playing it |
+| 8 | Release II: Money plan | He has decided how it earns, and that's built in |
+| 9 | Release III: Google Play | It's on the first store |
+| 10 | Release IV: App Store | The goal |
+
+**Prototype** is its own phase, in Joe's words: there are bits of gameplay and
+prototypes, but the full idea of the game isn't there yet. It is also where he builds a
+simple version of the game loop on purpose, as the launching-off point for a more
+ambitious project. The Maze (the top-down one, then the first-person one),
+Cartographer and Terrible Parent are all this: prototypes made in order to go and
+build a bigger, better version. Prototype is where you find the fun. **Preproduction**
+comes after the fun is found, and is where you figure out all the things you're going
+to need to make for this to be a real game. A polished, playable prototype is still a
+prototype: how finished it looks does not move it up.
 
 `config.js` holds each gate's starting checklist. A project marked **not for publish**
 (`nfp`) stays in the group and moves through the gates up to Beta, but is never pushed
@@ -59,7 +70,7 @@ Each project:
 |---|---|
 | `id`, `name`, `emoji`, `kind`, `folder`, `url` | Identity. `kind` is `game`, `tabletop` or `tool`. `url` is relative to the site, a full URL, or empty. Don't change `id`. |
 | `first`, `last`, `commits` | Dates and commit count for the folder. Set `last` to today when you work on it. |
-| `stage` | Which gate it is in, 1 to 9. |
+| `stage` | Which gate it is in, 1 to 10. |
 | `checklist` | What this project needs to get through its current gate: `[{ "t": "...", "done": false }]`. **In order of importance, most important first.** No cap: if it's real work for this gate, it's on the list. The page shows the first ten and folds the rest. Specific beats generic: write them for this game. Items that came from the gate's template carry a `k`; keep it. The first unticked item is what "Let's do it!" offers. |
 | `backlog` | Bigger work and ideas, as one list. Joe doesn't separate the two until a gate forces a choice (see Preproduction). Not shown as to-dos. |
 | `nfp` | `true` if this is not for publish. |
@@ -91,7 +102,9 @@ Each project:
 ## Gate check
 
 The `gate-check` skill works out which gate a game is really in and writes its
-checklist from the code, the notes and a conversation with Joe. A checklist goes
+checklist from the code and the notes. For one game it shows Joe the result and waits
+for his yes before writing. For "check them all" it does not stop or ask: it writes
+each game as it goes and reports once at the end. A checklist goes
 stale as the game changes, so keep it true in the same push as any work: tick what is
 now true, add what the work revealed, remove what no longer applies.
 

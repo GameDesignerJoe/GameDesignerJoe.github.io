@@ -1,6 +1,6 @@
 ---
 name: gate-check
-description: Work out which dev-plan gate one of Joe's games is really in and write the checklist of what it needs to get through that gate, by reading the game's code, its notes and its existing lists, then agreeing the result with Joe. Use when a prompt starts with "Ship It gate check" or "Trailhead gate check", when Joe asks where a game really stands, what it needs to ship, or to redo or rewrite a game's checklist, and after a notes pass or other work that changes what a game still needs.
+description: Work out which dev-plan gate one of Joe's games is really in and write the checklist of what it needs to get through that gate, by reading the game's code, its notes and its existing lists, then agreeing the result with Joe (one game) or writing it without stopping (check them all). Use when a prompt starts with "Ship It gate check" or "Trailhead gate check", when Joe asks where a game really stands, what it needs to ship, or to redo or rewrite a game's checklist, and after a notes pass or other work that changes what a game still needs.
 ---
 
 # Gate check
@@ -23,6 +23,19 @@ when" lines and starting items are in `shipit/config.js`.
    gate whose "through it when" line is not yet true. Be strict: open feature requests
    mean the feature list is not locked, so the game is not in Beta however polished it
    looks. Say what you saw that decided it.
+   - **Prototype or Preproduction?** This is the call that is easiest to get wrong.
+     A game is in **Prototype** when there are bits of gameplay but the full idea of
+     the game isn't there, or when it is a simple version of the loop that Joe built
+     as the launching-off point for a more ambitious game (The Maze, both the top-down
+     and first-person builds, Cartographer and Terrible Parent are his examples).
+     Prototype is where he finds the fun. It is through the gate when the fun is found
+     and he can say what game this becomes.
+   - **Preproduction** starts only after that. It is where he works out everything he
+     will need to make for this to be a real game, and locks what's in and out.
+   - Signs of a prototype: the notes are still asking what the game is or what makes
+     it fun; new mechanics are still being tried; one loop with little around it; Joe
+     has said he means to build a bigger version. Polish, a portfolio tile or a high
+     commit count do not make it more than a prototype.
 3. **Write the checklist for that gate.** There is no cap: if it is real work for this
    gate, it goes on the list. Leaving work off doesn't make it go away.
    - Take the gate's items from `config.js`. Tick the ones you verified in the code or
@@ -38,21 +51,34 @@ when" lines and starting items are in `shipit/config.js`.
      and folds the rest, so the top ten must be the ten that matter most. A blocker
      outranks a nice-to-have however quick the nice-to-have is.
    - Each item is one plain sentence that is clearly done or not done.
-4. **Things you can't know, ask.** Has anyone else played it? Is this feature in or
-   out? Don't guess and don't tick. Put each open decision on the list as its own item
-   ("Decide: is the wolf-heavy mode in or out?").
+4. **Things you can't know** (has anyone else played it, is this feature in or out):
+   don't guess and don't tick. Put each one on the list as its own item ("Decide: is
+   the wolf-heavy mode in or out?", "Someone else has played it"). For one game, you
+   can also ask Joe when you show him the result. In check-them-all mode, never ask.
 5. **Anything that belongs to a later gate** goes in `backlog`, prefixed with the gate
    ("For Beta: remove the debug handle"), so it isn't lost and isn't in the way.
-6. **Show Joe** the gate, the one-line reason, and the list. Change what he disagrees
-   with. This list is meant to be one you both agree on.
+6. **Show Joe** the gate, the one-line reason, and the list, and wait for his yes.
+   Change what he disagrees with. This step is for a single game only: the button on
+   one game's page, or Joe naming one game.
 7. Write it: `stage`, `checklist`, `backlog`, `status`, and `checked` set to today.
    Validate the JSON, commit to `main`, push.
 
-## For several games
+## Check them all (several games)
 
-Do them one at a time, most recently touched first. Only games that are for publish
-(`nfp` is not true) and not hidden, unless Joe names others. Stop after each one and
-show him the result before starting the next. Never batch-write lists he hasn't seen.
+Joe ran this once with a stop after every game and it took an hour of answering
+questions. So in this mode: **do not stop, do not ask, do not wait for approval.**
+
+- Games that are for publish (`nfp` is not true) and not hidden, unless Joe names
+  others. Most recently touched first.
+- For each one do steps 1 to 5, skip step 6, and write it (step 7). Commit and push
+  after each game so nothing is lost if the session ends, then go straight to the next.
+- Make the judgement calls yourself from the evidence. Anything only Joe can answer
+  becomes a "Decide:" item on that game's checklist, not a question to him.
+- Never use a question tool or end a turn to check in. If one game can't be checked
+  (won't load, no code), note it and carry on.
+- At the very end, give one short summary: each game, its gate, whether it moved, and
+  the single most important item on its list. He can redo any one of them with the
+  Gate Check button on that game's page, which does ask first.
 
 ## Keeping it true
 

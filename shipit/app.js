@@ -111,7 +111,7 @@ function notesPrompt(p){
   return "Ship It notes pass for "+p.name+" ("+p.folder+"/). There are new notes in "+(docId(n)?"its Google Doc: "+n:"its notes file: "+n)+(rest.length?"\n\nIts other docs, for reference only: "+rest.join(" , "):"")+"\n\nFollow \"Working a project's notes\" in shipit/README.md.";
 }
 function checkPrompt(p){ return "Ship It gate check for "+p.name+" ("+p.folder+"/). Use the gate-check skill."; }
-function checkAllPrompt(){ return "Ship It gate check for every game that is for publish and not hidden. Use the gate-check skill, one game at a time, most recently touched first. Stop after each one and show me its gate and checklist before going on."; }
+function checkAllPrompt(){ return "Ship It gate check for every game that is for publish and not hidden. Use the gate-check skill in its check-them-all mode: do every game, write and push each one as you go, and do not stop to ask me anything. Give me one summary at the end."; }
 function galleryPrompt(p){ return "Ship It: take gallery shots for "+p.name+" ("+p.folder+"/). Use the game-gallery skill."; }
 function skillPrompt(k, p){
   return k==="gate-check" ? (p?checkPrompt(p):checkAllPrompt()) : k==="game-gallery" ? galleryPrompt(p) : k==="maze-task" ? "There are new tasks in the Maze doc. Use the maze-task skill." : "";
@@ -347,7 +347,7 @@ function renderSheet(){
   if(UI.menu){ sc.hidden=false; sc.innerHTML=menuHtml(); document.body.style.overflow="hidden"; return; }
   var p=BY[UI.open]; if(!p){ sc.hidden=true; sc.innerHTML=""; document.body.style.overflow=""; return; }
   var h=href(p), g=gate(p), cs=checks(p), pr=progress(p), nx=nextItem(p), n=days(p), nxt=STAGES[p.stage], nfp=isNfp(p);
-  var canAdvance=nxt && !(nfp && p.stage>=5);
+  var canAdvance=nxt && !(nfp && p.stage>=6);
   var hc=COLORS[p.id]||({game:"#8a2c26",tabletop:"#1c4f80",tool:"#6f5500"})[p.kind];
   var open=cs.filter(function(x){ return !x.done; }), done=cs.filter(function(x){ return x.done; });
   function row(x){ return '<li class="'+(x.done?"done":"")+'"><button class="check" data-act="tick" data-id="'+p.id+'" data-h="'+x.h+'" aria-label="'+(x.done?"Mark not done":"Mark done")+'" aria-pressed="'+x.done+'">'+I.check+'</button><span class="tx">'+esc(x.t)+'</span></li>'; }
