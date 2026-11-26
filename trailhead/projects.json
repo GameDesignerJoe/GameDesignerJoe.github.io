@@ -155,7 +155,8 @@
     },
     {
      "t": "Decide the sound and music: keep the made-in-code sound effects or get real ones, and does it have music?",
-     "done": false
+     "done": false,
+     "k": "audioplan"
     },
     {
      "t": "Decide which print-and-play editions you'll keep: 2.5\", 67 mm, single-sided, small tiles",
