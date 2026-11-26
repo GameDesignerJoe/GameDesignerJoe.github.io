@@ -1,6 +1,6 @@
 {
  "about": "Source of truth for Trailhead (trailhead/index.html). Edited by Joe through Claude Code. See trailhead/README.md.",
- "updated": "2026-11-24",
+ "updated": "2026-11-25",
  "goals": [
   "Get my games out into the world on the Apple App Store.",
   "Make something uniquely mine that others want to play.",
@@ -24,17 +24,12 @@
    "left": "Three table builds in one day (0.5 to 0.7): one free task plus free card moves, task perks, draw one more.",
    "love": "One group half-assing a task and someone coming in later to fix it. Everyone burned out near ship, just trying to get the game out the door. It's funny when things go sideways.",
    "dream": null,
-   "dreamHint": {
-    "dest": 6,
-    "text": "A pocket-sized print-and-play micro game that's easy to pick up and highly replayable."
-   },
+   "dreamHint": "A pocket-sized print-and-play micro game that's easy to pick up and highly replayable.",
    "star": false,
    "hidden": false,
-   "steps": [
-    "Play one full game of table build 0.7, start to finish",
-    "Write down the one moment that felt clever and the one that felt like pure luck"
-   ],
    "todos": [
+    "Play one full game of table build 0.7, start to finish",
+    "Write down the one moment that felt clever and the one that felt like pure luck",
     "One more digital revision, then play a whole game and understand it",
     "Move to a print-and-play version",
     "More event cards for variety",
@@ -65,17 +60,12 @@
    "left": "Pass and play for two humans: hands face down, tap to look.",
    "love": "A tight, less swingy Vye in 30 tiles or fewer. Tiles flip to show who owns them, so there are no tokens.",
    "dream": null,
-   "dreamHint": {
-    "dest": 6,
-    "text": "Printed and on a table. You've talked about Scrabble-size tiles."
-   },
+   "dreamHint": "Printed and on a table. You've talked about Scrabble-size tiles.",
    "star": false,
    "hidden": false,
-   "steps": [
-    "Play one pass-and-play game with another person",
-    "Print the one-page small-tile sheet and cut it out"
-   ],
    "todos": [
+    "Play one pass-and-play game with another person",
+    "Print the one-page small-tile sheet and cut it out",
     "Usurp has no card art yet (art/specials/usurp.jpg)",
     "Birchwood is still using the desert fox art"
    ],
@@ -100,17 +90,12 @@
    "left": "Step 7a: the room server writes the clues, and the Groq key is a server secret.",
    "love": "Players type their own categories, the clues get written on the spot, and humans read them out loud. No host and no TV, just phones.",
    "dream": null,
-   "dreamHint": {
-    "dest": 8,
-    "text": "A product: a big free catalogue of topics, paid custom categories and packs, and eventually iOS and Google Play apps."
-   },
+   "dreamHint": "A product: a big free catalogue of topics, paid custom categories and packs, and eventually iOS and Google Play apps.",
    "star": false,
    "hidden": false,
-   "steps": [
-    "Text a few friends and pick a test night",
-    "Open debug.html for a room on your PC, join from your phone, and watch the press log"
-   ],
    "todos": [
+    "Text a few friends and pick a test night",
+    "Open debug.html for a room on your PC, join from your phone, and watch the press log",
     "Play a session with other people, debug log open",
     "Step 7b: shared clue library and reuse",
     "Step 8: free catalogue of about 30 checked topics",
@@ -149,11 +134,9 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Launch GASP 2 from the desktop shortcut and check Settings found your keys",
-    "Generate one real keyframe with references on a single shot"
-   ],
    "todos": [
+    "Launch GASP 2 from the desktop shortcut and check Settings found your keys",
+    "Generate one real keyframe with references on a single shot",
     "First real video on each model you want to compare (Kling 2.6 Pro, Veo 3.1 Fast, Seedance)",
     "Make the Grim cast's reference cards from your art and write their looks",
     "Dialogue pass: every script line voiced in its character's voice",
@@ -187,10 +170,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Open the demo and play to the first choice"
-   ],
    "todos": [
+    "Open the demo and play to the first choice",
     "More story, less game",
     "Unlock beach actions over time instead of all at once"
    ],
@@ -215,17 +196,12 @@
    "left": "Online milestone 0: seeded world, shared world clock, player identity. Checked in two browsers, not yet on a phone.",
    "love": "A lone explorer, small against a vast, cold, indifferent landscape. Wind you can see and hear, snow that fights you. No bars, no HUD.",
    "dream": null,
-   "dreamHint": {
-    "dest": null,
-    "text": "The shared-world multiplayer game in your Multiplayer Design v2 doc."
-   },
+   "dreamHint": "The shared-world multiplayer game in your Multiplayer Design v2 doc.",
    "star": false,
    "hidden": false,
-   "steps": [
-    "Open nas-online with ?debuginfo on your phone and check the ground checksum reads 3e55f747",
-    "Walk the proof of concept for five minutes with the sound on"
-   ],
    "todos": [
+    "Open nas-online with ?debuginfo on your phone and check the ground checksum reads 3e55f747",
+    "Walk the proof of concept for five minutes with the sound on",
     "Milestone 1: the multiplayer test (database setup is in docs/SUPABASE.md)",
     "Check the checksum and world clock on iOS Safari"
    ],
@@ -255,17 +231,12 @@
    "left": "Rebuilt the phone experience.",
    "love": "Working out when a real photograph was taken from what's inside the frame, the way the 1984 Bakersfield photo got dated.",
    "dream": null,
-   "dreamHint": {
-    "dest": null,
-    "text": "Ten photos next, eventually fifty."
-   },
+   "dreamHint": "Ten photos next, eventually fifty.",
    "star": false,
    "hidden": false,
-   "steps": [
-    "Find one new candidate photo and save it",
-    "Swap the colorized 1940 Pennsylvania photo for the Library of Congress original"
-   ],
    "todos": [
+    "Find one new candidate photo and save it",
+    "Swap the colorized 1940 Pennsylvania photo for the Library of Congress original",
     "Get to 10 photos",
     "Ron Terner's permission for the payphone photo is still pending",
     "Find the source of the Ming Ave 1984 photo",
@@ -294,19 +265,14 @@
    "left": "Wolf Pack rounds, streak milestones, colour hint, night torch, lamb pranks.",
    "love": "Press your luck: every pelt you hold is at risk until you bank it. And the farm, where sheep nap, get zoomies and hold grudges.",
    "dream": null,
-   "dreamHint": {
-    "dest": 8,
-    "text": "On the app stores. You named this as the first game to take there, with a monetization plan."
-   },
+   "dreamHint": "On the app stores. You named this as the first game to take there, with a monetization plan.",
    "star": false,
    "hidden": false,
-   "steps": [
+   "todos": [
     "Search the App Store and Google Play for \"Catch the Wolf\" to see if the name is free",
     "Record a 10-second clip of a wolf reveal for the itch.io page",
     "Play to a 12 streak on your phone and trigger a Wolf Stampede",
-    "Add it to your home screen and check the icon"
-   ],
-   "todos": [
+    "Add it to your home screen and check the icon",
     "Make it work offline",
     "Add a link preview image and title",
     "Publish on itch.io with a strong thumbnail and the GIF",
@@ -341,18 +307,13 @@
    "left": "The game starts in the school look, and Feedback sends a picture of the view.",
    "love": "Every traveller whose pages he finds is himself at another stage of life. The feeling of being truly lost and using what you find to get out. \"What's the mazest thing we can do? We do that.\"",
    "dream": null,
-   "dreamHint": {
-    "dest": null,
-    "text": "Labyrinth, the first-person 3D maze. Your handoff doc calls it the long dream."
-   },
+   "dreamHint": "Labyrinth, the first-person 3D maze. Your handoff doc calls it the long dream.",
    "star": false,
    "hidden": false,
-   "steps": [
+   "todos": [
     "Open your \"Rules for Claude\" Google Doc and read the top item on the list",
     "Play the Child's maze once on your phone",
-    "Pick one of the ten room pitches in ROOMS.md"
-   ],
-   "todos": [
+    "Pick one of the ten room pitches in ROOMS.md",
     "More rooms, and reasons to be in them",
     "The \"You\" phase ending: pages written from the player's own run",
     "Pools: real scripts from you, and the Caretaker's evolving presence",
@@ -389,11 +350,9 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Play three floors on your phone",
-    "Open stealth/docs/workbench.html and read the round 14 notes"
-   ],
    "todos": [
+    "Play three floors on your phone",
+    "Open stealth/docs/workbench.html and read the round 14 notes",
     "Keep the loop going until every line on the bar scores 8 or higher"
    ],
    "ideas": [],
@@ -420,10 +379,9 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
+   "todos": [
     "Play campaign 1-1 through 1-3 on your phone"
    ],
-   "todos": [],
    "ideas": [],
    "done": [],
    "basics": {},
@@ -448,10 +406,9 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
+   "todos": [
     "Play one breach"
    ],
-   "todos": [],
    "ideas": [],
    "done": [],
    "basics": {},
@@ -476,10 +433,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Listen to \"Take It Out\" start to finish with headphones"
-   ],
    "todos": [
+    "Listen to \"Take It Out\" start to finish with headphones",
     "New lines should remember the narrator and the save location",
     "Player-only mode shouldn't show or delete stories in Settings",
     "Fix \"Save failed: InvalidStateError\" when saving to project",
@@ -515,11 +470,9 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Add a sound when the location name appears at the start (reuse the landmark one)",
-    "Map one island and note where the sextant let you down"
-   ],
    "todos": [
+    "Add a sound when the location name appears at the start (reuse the landmark one)",
+    "Map one island and note where the sextant let you down",
     "Sextant Stones, or a debug view of valid survey spots",
     "Restyle quest-complete and menu popups to match the location popup",
     "Unreachable one-tile islands (one had a collectible)",
@@ -555,10 +508,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Run one scenario on your phone and test the audio buffer fix"
-   ],
    "todos": [
+    "Run one scenario on your phone and test the audio buffer fix",
     "Continuous talk, like Claude's voice mode",
     "Server storage so scenarios aren't rebuilt on each device",
     "A shared companion list outside any one scenario",
@@ -589,10 +540,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Write five district names (you started: University District, Burrows, The Heights, Downtown, Gaslamp)"
-   ],
    "todos": [
+    "Write five district names (you started: University District, Burrows, The Heights, Downtown, Gaslamp)",
     "Don't reveal the twist in the opening",
     "A tuning file you can edit without running a coding agent",
     "Dark mode",
@@ -623,10 +572,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Make a tap outside the puzzle menu close it"
-   ],
    "todos": [
+    "Make a tap outside the puzzle menu close it",
     "Zooming in and out shakes the image",
     "Image quality on mobile",
     "A button that shows the completed picture"
@@ -659,10 +606,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Play it for five minutes and buy one game from the store"
-   ],
    "todos": [
+    "Play it for five minutes and buy one game from the store",
     "Make buying a game exciting: centre of the screen, light shooting off it",
     "Different click behaviors by type of game",
     "Start with about 3 key games and unlock more",
@@ -696,10 +641,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Play five levels"
-   ],
    "todos": [
+    "Play five levels",
     "Stat tracking: improvement over time, best and worst color",
     "Design a cute logo"
    ],
@@ -729,7 +672,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -755,7 +697,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -781,7 +722,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -807,7 +747,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -830,17 +769,12 @@
    "left": "Tiered Speed mode with a pause button, audio feedback and demotion after 3 wrong.",
    "love": "The tree's shape is the code. One wooden key does everything: tap for dot, hold for dash.",
    "dream": null,
-   "dreamHint": {
-    "dest": 5,
-    "text": "The finish line in your milestone doc: \"Joe is happy sharing the link.\""
-   },
+   "dreamHint": "The finish line in your milestone doc: \"Joe is happy sharing the link.\"",
    "star": false,
    "hidden": false,
-   "steps": [
-    "Add the credits line thanking Nux Gadgets in Settings, About",
-    "Add title, description and social preview meta tags"
-   ],
    "todos": [
+    "Add the credits line thanking Nux Gadgets in Settings, About",
+    "Add title, description and social preview meta tags",
     "Wood and brass texture pass",
     "Animation polish: tree glow, paper tape, key press",
     "iOS safe-area handling",
@@ -876,10 +810,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Run trailer mode to pick one thing to watch tonight"
-   ],
    "todos": [
+    "Run trailer mode to pick one thing to watch tonight",
     "Stop showing the same suggestions you keep ignoring",
     "Series progress as a percent-complete slider",
     "Code cleanup pass"
@@ -908,10 +840,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Open it on your phone and check whether the next-track bug is still there"
-   ],
    "todos": [
+    "Open it on your phone and check whether the next-track bug is still there",
     "Can't advance tracks on mobile",
     "Can't see what song is playing",
     "ID3 tag info on PC and mobile",
@@ -948,10 +878,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Load your library and pick one never-played game to try"
-   ],
    "todos": [
+    "Load your library and pick one never-played game to try",
     "The friends list doesn't auto-update",
     "Export should show game names",
     "Open the Steam app from links on mobile",
@@ -984,10 +912,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Message the teacher to set a time for the position-number fix"
-   ],
    "todos": [
+    "Message the teacher to set a time for the position-number fix",
     "Position numbering: sit down with the teacher and sort it out together",
     "Editor mode so the teacher can add scales"
    ],
@@ -1015,10 +941,9 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
+   "todos": [
     "Scan one notebook page"
    ],
-   "todos": [],
    "ideas": [],
    "done": [],
    "basics": {},
@@ -1043,10 +968,8 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [
-    "Run the wizard once from step 1 to the prompt output"
-   ],
    "todos": [
+    "Run the wizard once from step 1 to the prompt output",
     "Image previews",
     "The quadrant map",
     "Convergence",
@@ -1076,7 +999,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -1102,7 +1024,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -1128,7 +1049,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -1154,7 +1074,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -1180,7 +1099,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -1206,7 +1124,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -1232,7 +1149,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],
@@ -1258,7 +1174,6 @@
    "dreamHint": null,
    "star": false,
    "hidden": false,
-   "steps": [],
    "todos": [],
    "ideas": [],
    "done": [],

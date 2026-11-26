@@ -84,8 +84,8 @@ p{margin:0}
 
 /* PATH */
 .path{position:relative; padding:4px 0}
-.path > svg{position:absolute; left:0; top:0; width:56px; height:100%; overflow:visible; pointer-events:none}
-.stop{position:relative; padding:12px 0 12px 62px; display:flex; flex-direction:column; gap:8px}
+.path > svg{position:absolute; left:0; top:0; width:68px; height:100%; overflow:visible; pointer-events:none}
+.stop{position:relative; padding:14px 0 14px 76px; display:flex; flex-direction:column; gap:8px}
 .stop h3{font-size:18px; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
 .stop p{font-size:14px; color:var(--muted)}
 .stop.ahead h3{color:var(--muted)}
@@ -101,10 +101,10 @@ p{margin:0}
 .how ul{margin:4px 0 0; padding:0 0 0 18px; display:flex; flex-direction:column; gap:5px}
 .lead{display:flex; align-items:center; gap:10px; background:var(--surface); border-radius:var(--r-md); padding:10px 12px; text-align:left; font-size:14px; width:100%}
 .lead b{font:600 15px var(--display); display:block}
-.legend{display:flex; flex-wrap:wrap; gap:6px 16px; font:500 13.5px var(--display); color:var(--muted); padding-left:62px}
+.legend{display:flex; flex-wrap:wrap; gap:6px 16px; font:500 13.5px var(--display); color:var(--muted); padding-left:76px}
 .legend span{display:flex; align-items:center; gap:6px}
-.legend i{width:20px; height:7px; border-radius:4px}
-.srcnote{font-size:13px; color:var(--muted); padding-left:62px}
+.legend i{width:14px; height:14px; border-radius:5px}
+.srcnote{font-size:13px; color:var(--muted); padding-left:76px}
 
 /* BASICS */
 .basics{background:var(--surface); border-radius:var(--r-lg); padding:6px 16px}
@@ -221,3 +221,21 @@ li.done .tx{color:var(--muted); text-decoration:line-through}
 .doit svg{width:15px; height:15px}
 .donebox summary{cursor:pointer; list-style:none; min-height:28px; display:flex; align-items:center}
 .donebox summary::-webkit-details-marker{display:none}
+
+.leadnote{font:600 13.5px var(--display); color:var(--ink) !important}
+.hero{background:var(--hc); color:#fff; margin:-16px calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  padding:20px max(16px, env(safe-area-inset-right, 0px)) 18px max(16px, env(safe-area-inset-left, 0px)); border-radius:var(--r-lg) var(--r-lg) 0 0; display:flex; flex-direction:column; gap:18px}
+.hero .shead{align-items:flex-start}
+.hero .shead h2{font-size:27px; line-height:1.1}
+.hero .shead p{color:rgba(255,255,255,.82); font-size:15px; margin-top:4px}
+.hero .round{background:transparent; border-color:rgba(255,255,255,.7); color:#fff}
+.hero .act i{background:rgba(255,255,255,.14); border-color:#fff; color:#fff}
+.hero .act.on i{background:var(--yellow); border-color:var(--yellow); color:var(--on-yellow)}
+.tile.lg{width:68px; height:68px; border-radius:18px; font-size:36px; background:rgba(255,255,255,.16); box-shadow:0 0 0 3px rgba(255,255,255,.9)}
+.grp{font:600 12px var(--display); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-top:4px}
+.grp.rn{color:var(--red)}
+.mini-btn{width:28px; height:28px; flex:none; border-radius:50%; border:2.5px solid var(--ink); display:grid; place-items:center}
+.mini-btn svg{width:14px; height:14px}
+.list li{gap:8px}
+.hintfill{text-align:left; font-size:13.5px; color:var(--muted); min-height:32px}
+.hintfill u{color:var(--ink); font-weight:600; white-space:nowrap}

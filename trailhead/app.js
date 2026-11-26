@@ -6,15 +6,20 @@ function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||"{}")||{}; }c
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ mem=S; } }
 var S=load();
 ["star","hidden","skip"].forEach(function(k){ if(!Array.isArray(S[k])) S[k]=[]; });
-["dream","love","done","added","removed","live","basics","chat"].forEach(function(k){ if(!S[k]||typeof S[k]!=="object") S[k]={}; });
+["dream","love","done","added","removed","live","basics","chat","order"].forEach(function(k){ if(!S[k]||typeof S[k]!=="object") S[k]={}; });
 var KKEY="trailhead.key", memKey="";
 function getKey(){ try{ return localStorage.getItem(KKEY)||""; }catch(e){ return memKey; } }
 function setKey(v){ memKey=v; try{ if(v) localStorage.setItem(KKEY,v); else localStorage.removeItem(KKEY); }catch(e){} }
 var MODEL_DEFAULT="anthropic/claude-sonnet-4.6";
 function migrate(){
-  if(!S.v||S.v<2){ Object.keys(S.dream).forEach(function(id){ var d=S.dream[id], p=BY[id]; if(d&&d.dest===6&&p&&p.kind==="game") d.dest=8; }); }
-  if(S.v!==3){ if(S.star.length) S.starSet=true; if(S.hidden.length) S.hidSet=true; }
-  S.v=3;
+  var v=S.v||1;
+  if(v<3){ if(S.star.length) S.starSet=true; if(S.hidden.length) S.hidSet=true; }
+  if(v<4){
+    Object.keys(S.dream).forEach(function(id){ var d=S.dream[id]; if(d&&typeof d==="object") S.dream[id]=d.text||""; if(!S.dream[id]) delete S.dream[id]; });
+    Object.keys(S.added).forEach(function(id){ var a=S.added[id]; if(a&&a.steps){ a.todos=a.steps.concat(a.todos||[]); delete a.steps; } });
+    [S.done].concat(Object.keys(S.removed).map(function(id){ return S.removed[id]; })).forEach(function(o){ Object.keys(o||{}).forEach(function(k){ if(k.indexOf(":steps:")>0){ o[k.replace(":steps:",":todos:")]=o[k]; delete o[k]; } }); });
+  }
+  S.v=4;
 }
 var UI={kind:"all", sort:"recent", showAll:false, open:null, menu:false, nowIdx:0, justDone:0};
 var PROJECTS=[], BY={}, SCANNED="", LOADED=false;
@@ -22,12 +27,17 @@ function same(a,b){ return a.slice().sort().join("|")===b.slice().sort().join("|
 function fileSet(k){ return PROJECTS.filter(function(p){ return p[k]; }).map(function(p){ return p.id; }); }
 // The repo's projects.json is the truth. What you change on this device sits on top of it until it is sent to the repo.
 function setData(d){
-  PROJECTS=(d.projects||[]).map(function(p){ p.icon=p.icon||p.emoji||"•"; return p; });
+  PROJECTS=(d.projects||[]).map(function(p){
+    p.icon=p.icon||p.emoji||"•";
+    if(p.steps&&p.steps.length){ p.todos=p.steps.concat(p.todos||[]); } delete p.steps; p.todos=p.todos||[]; p.ideas=p.ideas||[];
+    if(p.dream&&typeof p.dream==="object") p.dream=p.dream.text||""; if(p.dreamHint&&typeof p.dreamHint==="object") p.dreamHint=p.dreamHint.text||"";
+    return p; });
   BY={}; PROJECTS.forEach(function(p){ BY[p.id]=p; });
   SCANNED=d.updated||""; if(d.goals&&d.goals.length) GOALS=d.goals; if(d.lead) LEAD=d.lead;
   LOADED=true; migrate(); reconcile(); save();
 }
-function inFile(p, t){ return ["steps","todos","ideas"].some(function(k){ return (p[k]||[]).indexOf(t)>=0; }) || (p.done||[]).some(function(x){ return x.t===t; }); }
+var GENERIC=["Open it and use it once, start to finish","Open it and play for five minutes","Open the folder and read the last thing you wrote"];
+function inFile(p, t){ return ["todos","ideas"].some(function(k){ return (p[k]||[]).indexOf(t)>=0; }) || (p.done||[]).some(function(x){ return x.t===t; }); }
 function reconcile(){
   if(S.starSet && same(S.star, fileSet("star"))) S.starSet=false;
   if(S.hidSet && same(S.hidden, fileSet("hidden"))) S.hidSet=false;
@@ -35,12 +45,13 @@ function reconcile(){
   if(!S.hidSet) S.hidden=fileSet("hidden");
   S.star=S.star.filter(function(id){ return BY[id]; }); S.hidden=S.hidden.filter(function(id){ return BY[id]; });
   PROJECTS.forEach(function(p){
-    var d=S.dream[p.id], f=p.dream; if(d&&f&&(d.text||"")===(f.text||"")&&(d.dest||null)===(f.dest||null)) delete S.dream[p.id];
+    if(S.dream[p.id]!=null && S.dream[p.id]===(p.dream||"")) delete S.dream[p.id];
     if(S.love[p.id]!=null && S.love[p.id]===(p.love||"")) delete S.love[p.id];
     var a=S.added[p.id]; if(a) Object.keys(a).forEach(function(k){ a[k]=a[k].filter(function(t){ return !inFile(p,t); }); });
     var b=S.basics[p.id]; if(b) Object.keys(b).forEach(function(k){ if(p.basics && (k in p.basics) && !!p.basics[k]===!!b[k]) delete b[k]; });
-    var live={}; ["steps","todos","ideas"].forEach(function(k){ (p[k]||[]).concat((S.added[p.id]||{})[k]||[]).forEach(function(t){ live[p.id+":"+k+":"+hash(t)]=1; }); });
-    live[p.id+":steps:"+hash("Open it and use it once, start to finish")]=live[p.id+":steps:"+hash("Open it and play for five minutes")]=live[p.id+":steps:"+hash("Open the folder and read the last thing you wrote")]=1;
+    var live={}; ["todos","ideas"].forEach(function(k){ (p[k]||[]).concat((S.added[p.id]||{})[k]||[]).forEach(function(t){ live[p.id+":"+k+":"+hash(t)]=1; }); });
+    GENERIC.forEach(function(t){ live[p.id+":todos:"+hash(t)]=1; });
+    if(S.order[p.id] && !((S.added[p.id]||{}).todos||[]).length && S.order[p.id].filter(function(t){ return (p.todos||[]).indexOf(t)>=0; }).join("|")===(p.todos||[]).join("|")) delete S.order[p.id];
     Object.keys(S.done).forEach(function(k){ if(k.indexOf(p.id+":")===0 && !live[k]) delete S.done[k]; });
     var r=S.removed[p.id]; if(r) Object.keys(r).forEach(function(k){ if(!live[k]) delete r[k]; });
   });
@@ -50,15 +61,17 @@ function pending(){
   var out=[];
   PROJECTS.forEach(function(p){
     var c={project:p.id, name:p.name}, n=0, set={};
-    if(S.dream[p.id]){ set.dream={text:S.dream[p.id].text||"", dest:S.dream[p.id].dest||null}; n++; }
+    if(S.dream[p.id]!=null){ set.dream=S.dream[p.id]||null; n++; }
     if(S.love[p.id]!=null){ set.love=S.love[p.id]; n++; }
     if(S.starSet && isStar(p.id)!==!!p.star){ set.star=isStar(p.id); n++; }
     if(S.hidSet && isHidden(p.id)!==!!p.hidden){ set.hidden=isHidden(p.id); n++; }
     var b=S.basics[p.id]; if(b&&Object.keys(b).length){ set.basics={}; Object.keys(b).forEach(function(k){ set.basics[k]=!!b[k]; }); n+=Object.keys(b).length; }
     if(n) c.set=set;
-    var add={}; ["steps","todos","ideas"].forEach(function(k){ var a=((S.added[p.id]||{})[k]||[]); if(a.length){ add[k]=a.slice(); n+=a.length; } });
+    var ord=S.order[p.id];
+    if(ord){ set.todos=items(p,"todos").map(function(o){ return o.t; }).filter(function(t){ return GENERIC.indexOf(t)<0; }); c.set=set; n++; }
+    var add={}; (ord?["ideas"]:["todos","ideas"]).forEach(function(k){ var a=((S.added[p.id]||{})[k]||[]); if(a.length){ add[k]=a.slice(); n+=a.length; } });
     if(Object.keys(add).length) c.add=add;
-    var comp=[], rm=[]; ["steps","todos","ideas"].forEach(function(k){ (p[k]||[]).forEach(function(t){ var key=p.id+":"+k+":"+hash(t); if((S.removed[p.id]||{})[key]) rm.push(t); else if(S.done[key]) comp.push(t); }); });
+    var comp=[], rm=[]; ["todos","ideas"].forEach(function(k){ (p[k]||[]).concat(ord&&k==="todos"?((S.added[p.id]||{}).todos||[]):[]).forEach(function(t){ var key=p.id+":"+k+":"+hash(t); if((S.removed[p.id]||{})[key]){ if(!(ord&&k==="todos")) rm.push(t); } else if(S.done[key]) comp.push(t); }); });
     if(comp.length){ c.complete=comp; n+=comp.length; } if(rm.length){ c.remove=rm; n+=rm.length; }
     if(n){ c.n=n; out.push(c); }
   });
@@ -68,7 +81,7 @@ function pendingCount(){ return pending().reduce(function(a,c){ return a+c.n; },
 function codeLink(text){ return "https://claude.ai/code/new?q="+encodeURIComponent(text.slice(0,9000))+"&repo="+encodeURIComponent(REPO)+"&branch=main"; }
 function syncPrompt(){
   var p=pending().map(function(c){ var o={}; Object.keys(c).forEach(function(k){ if(k!=="n"&&k!=="name") o[k]=c[k]; }); return o; });
-  return "Trailhead sync. Follow trailhead/README.md.\n\nApply these changes from my device to trailhead/projects.json, then commit to main and push. For each project: \"set\" replaces those fields, \"add\" appends to those lists, \"complete\" moves those items into done with today's date, \"remove\" deletes them. Change nothing else.\n\n"+JSON.stringify(p,null,1);
+  return "Trailhead sync. Follow trailhead/README.md.\n\nApply these changes from my device to trailhead/projects.json, then commit to main and push. For each project: \"set\" replaces those fields (a \"todos\" list there is the new order, top three first), \"add\" appends to those lists, \"complete\" moves those items into done with today's date, \"remove\" deletes them. Change nothing else.\n\n"+JSON.stringify(p,null,1);
 }
 function taskPrompt(p, t){
   return "Trailhead task for "+p.name+", in the "+p.folder+"/ folder of this repo. Follow trailhead/README.md.\n\nTask: "+t+"\n\nFirst read this project's entry in trailhead/projects.json: where it stands, where I left off, what I love about it, and my dream for it. Then do the task, check that it works, and commit to main and push. When it's done, update the entry: move this task into done with today's date, and refresh status, left and last. If the task needs me (playing it, deciding something, recording something), don't fake it. Tell me exactly what you need.";
@@ -81,6 +94,7 @@ var I={
  open:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
  arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>',
  sort:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5v14l-3-3M17 19V5l3 3"/></svg>',
+ up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6M6 12l6-6 6 6"/></svg>',
  swap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
  hide:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M10.6 6.2A9.7 9.7 0 0112 6c5 0 8.5 4 9.5 6a13 13 0 01-2.6 3.4M6.3 7.7A13 13 0 002.5 12c1 2 4.500 6 9.500 6 1.300 0 2.500-.3 3.600-.7"/></svg>',
  dots:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
@@ -102,23 +116,23 @@ function visible(){ return PROJECTS.filter(function(p){ return !isHidden(p.id); 
 // lists: what the scan found, minus what was removed, plus what was added on this device
 function items(p, kind){
   var rem=S.removed[p.id]||{}, add=(S.added[p.id]||{})[kind]||[];
-  var base=(p[kind]||[]).slice();
-  if(kind==="steps" && !base.length) base=[ p.url ? (p.kind==="tool" ? "Open it and use it once, start to finish" : "Open it and play for five minutes") : "Open the folder and read the last thing you wrote" ];
-  return base.concat(add).map(function(t){ return {t:t, k:p.id+":"+kind+":"+hash(t), mine:add.indexOf(t)>=0}; }).filter(function(o){ return !rem[o.k]; });
+  var base=(p[kind]||[]).concat(add);
+  if(kind==="todos"){
+    var ord=S.order[p.id]; if(ord){ var first=ord.filter(function(t){ return base.indexOf(t)>=0; }); base=first.concat(base.filter(function(t){ return first.indexOf(t)<0; })); }
+    if(!base.length) base=[ p.url ? (p.kind==="tool" ? GENERIC[0] : GENERIC[1]) : GENERIC[2] ];
+  }
+  return base.map(function(t){ return {t:t, k:p.id+":"+kind+":"+hash(t), mine:add.indexOf(t)>=0}; }).filter(function(o){ return !rem[o.k]; });
 }
-function openSteps(p){ return items(p,"steps").filter(function(o){ return !S.done[o.k]; }); }
-function dream(p){ return S.dream[p.id]||p.dream||null; }
-function gapText(p){
-  var d=dream(p); if(!d||!d.dest) return "";
-  var g=d.dest-p.stage; if(g<=0) return "You're where you wanted to be";
-  return g+(g===1?" stop":" stops")+" from the dream";
-}
+function openTodos(p){ return items(p,"todos").filter(function(o){ return !S.done[o.k]; }); }
+function openSteps(p){ return openTodos(p).slice(0,3); }
+function dream(p){ return S.dream[p.id]!=null ? S.dream[p.id] : (p.dream||""); }
+function gapText(p){ return ""; }
 
 // what to surface when nothing is starred: recently warm, heavily invested, close to a stated dream
 function score(p){
   var n=days(p), s=Math.min(p.commits,150)/150*1.5;
   s += 3.5*Math.exp(-n/12) + (n<=60 ? .8 : n<=180 ? .3 : 0);
-  var d=dream(p); if(d&&d.dest&&d.dest>p.stage) s+=1.2;
+  if(dream(p)) s+=.8;
   if(p.love) s+=.4;
   return s;
 }
@@ -142,10 +156,10 @@ function prompt(p, step){
   L.push(""); L.push("Where it stands: "+p.status);
   if(p.left) L.push("Where I left off ("+lastOf(p)+"): "+p.left);
   var lv=loveOf(p); if(lv) L.push("What I love about it: "+lv);
-  if(d&&(d.text||d.dest)) L.push("My dream for it: "+[d.text, d.dest?("Destination: "+stageName(d.dest)+"."):""].filter(Boolean).join(" "));
+  if(d) L.push("My dream for it: "+d);
   L.push("It's at the \""+stageName(p.stage)+"\" stage of my usual path ("+STAGES.map(function(s){return s.name;}).join(" > ")+").");
   var st=step||(openSteps(p)[0]||{}).t; if(st){ L.push(""); L.push("The one small thing I want to do right now: "+st); }
-  var td=items(p,"todos").filter(function(o){return !S.done[o.k];}).slice(0,8);
+  var td=openTodos(p).slice(0,8);
   if(td.length){ L.push(""); L.push("Open to-dos:"); td.forEach(function(o){ L.push("- "+o.t); }); }
   var miss=basicsOf(p).filter(function(x){ return !x.ok; }).map(function(x){ return x.name; });
   if(miss.length){ L.push(""); L.push("Basics it's still missing: "+miss.join(", ")+"."); }
@@ -179,7 +193,7 @@ function renderNow(){
    '<p class="why">'+esc(UI.justDone ? UI.justDone+(UI.justDone===1?" step":" steps")+" done this sitting. Here's the next one." : why(p))+'</p>'+
    '<div class="acts">'+
     act("button","go",I.check,"Did it",'data-act="nowdone" data-k="'+st.k+'"')+
-    (h?act("a","",I.open,"Open it",'href="'+esc(h)+'" target="_blank" rel="noopener"'):'')+
+    (h?act("a","",I.open,p.kind==="tool"?"Open":"Play",'href="'+esc(h)+'" target="_blank" rel="noopener"'):'')+
     act("button","",I.chat,"Talk it out",'data-act="chat" data-id="'+p.id+'" data-step="'+esc(st.t)+'"')+
     (q.length>1?act("button","",I.swap,"Another",'data-act="nownext"'):'')+
    '</div>';
@@ -210,31 +224,41 @@ function renderPath(){
   var lead=BY[LEAD];
   STAGES.slice().reverse().forEach(function(s){
     var ps=vis.filter(function(p){ return p.stage===s.n; }).sort(function(a,b){ return days(a)-days(b); });
-    var dreamers=vis.filter(function(p){ var d=dream(p); return d&&d.dest===s.n&&p.stage<s.n; }).length;
+    var dreamers=0;
     var cls=(s.n>top?" ahead":"")+(s.n===STAGES.length?" goalstop":"");
     out+='<div class="stop'+cls+'" data-stop="'+s.n+'"><div><h3>'+esc(s.name)+' <span class="count">'+ps.length+'</span></h3><p>'+esc(s.desc)+(dreamers?". "+dreamers+" headed here":"")+'</p></div>'+
      (ps.length?'<div class="chips">'+ps.map(function(p){ return '<button data-act="open" data-id="'+p.id+'" aria-label="'+esc(p.name)+'" title="'+esc(p.name)+'">'+ringed(p,"sm")+'</button>'; }).join("")+'</div>':'')+
-     (lead&&!isHidden(lead.id)&&s.n===lead.stage+1?'<button class="lead" data-act="open" data-id="'+lead.id+'">'+tile(lead,"sm")+'<span><b>Next up: '+esc(lead.name)+'</b>Your lead game. Basics: '+basicsCount(lead)+'</span></button>':'')+
+     (lead&&!isHidden(lead.id)&&s.n===lead.stage+1?'<p class="leadnote">'+esc(lead.name)+'\'s next stop. It\'s your lead game.</p>':'')+
      (s.how?'<details class="how"'+(lead&&s.n===lead.stage+1?" open":"")+'><summary>What it takes</summary><ul>'+s.how.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join("")+'</ul></details>':'')+
      '</div>';
   });
   el.innerHTML=out; drawTrail();
-  document.getElementById("srcnote").innerHTML='The last four stops come from your '+PLAN_SRC.date+' chat, <a href="'+PLAN_SRC.url+'" target="_blank" rel="noopener">'+esc(PLAN_SRC.title)+'</a>. Fees are as quoted there.';
+  document.getElementById("srcnote").innerHTML='The stops from Polished up are built on your '+PLAN_SRC.date+' chat, <a href="'+PLAN_SRC.url+'" target="_blank" rel="noopener">'+esc(PLAN_SRC.title)+'</a>. Fees and prices are as quoted there.';
 }
 function drawTrail(){
   var el=document.getElementById("path"), svg=el.querySelector("svg"); if(!svg) return;
-  var box=el.getBoundingClientRect(), y={};
-  el.querySelectorAll(".stop").forEach(function(st){ var h=st.querySelector("h3").getBoundingClientRect(); y[+st.dataset.stop]=h.top-box.top+h.height/2; });
-  if(!y[1]) return;
-  var lines=[["game","--red",14],["tabletop","--blue",26],["tool","--yellow",38]], g="";
-  lines.forEach(function(l){ var end=LINE_END[l[0]], x=l[2];
-    g+='<path d="M'+x+' '+y[1]+'V'+y[end]+'" stroke="var('+l[1]+')" stroke-width="8" stroke-linecap="round" fill="none"/>';
-    if(end<STAGES.length) g+='<path d="M'+(x-7)+' '+(y[end]-15)+'h14" stroke="var('+l[1]+')" stroke-width="5" stroke-linecap="round"/><path d="M'+x+' '+y[end]+'v-15" stroke="var('+l[1]+')" stroke-width="8"/>';
-  });
-  STAGES.forEach(function(s){ var xs=lines.filter(function(l){ return LINE_END[l[0]]>=s.n; }).map(function(l){ return l[2]; }), x0=xs[0], x1=xs[xs.length-1], big=s.n===STAGES.length;
-    g+= big ? '<circle cx="'+x0+'" cy="'+y[s.n]+'" r="11" fill="var(--surface)" stroke="var(--ink)" stroke-width="5"/><circle cx="'+x0+'" cy="'+y[s.n]+'" r="3.5" fill="var(--ink)"/>'
-            : '<rect x="'+(x0-8)+'" y="'+(y[s.n]-8)+'" width="'+(x1-x0+16)+'" height="16" rx="8" fill="var(--surface)" stroke="var(--ink)" stroke-width="3.5"/>';
-  });
+  var box=el.getBoundingClientRect(), N=STAGES.length, pts=[];
+  el.querySelectorAll(".stop").forEach(function(st){ var h=st.querySelector("h3").getBoundingClientRect(); pts[+st.dataset.stop]={y:h.top-box.top+h.height/2}; });
+  if(!pts[1]) return;
+  // wander wide at the start, straighten out toward the goal
+  var CX=34;
+  for(var n=1;n<=N;n++){ var w=Math.pow(1-(n-1)/(N-1),1.3); pts[n].x=CX+(n%2?-1:1)*15*w; pts[n].w=w; }
+  var d="";
+  for(n=1;n<N;n++){
+    var a=pts[n], b=pts[n+1], w2=a.w, loops=n<=2?1:0, R=Math.min(12,(a.y-b.y)/6), dir=n%2?1:-1, K=96;
+    for(var i=0;i<=K;i++){
+      var t=i/K, tb=loops ? (t<.38 ? t/.76 : t>.62 ? (t-.24)/.76 : .5) : t;   // the walk pauses while the path curls
+      var e=tb*tb*(3-2*tb), x=a.x+(b.x-a.x)*e, y=a.y+(b.y-a.y)*tb;
+      x+=Math.sin(tb*Math.PI*2)*8*w2*dir;                       // a lazy extra bend
+      if(loops&&t>=.38&&t<=.62){ var th=(t-.38)/.24*Math.PI*2; x+=(1-Math.cos(th))*R*dir; y-=Math.sin(th)*R; }  // a full loop back on itself
+      d+=(d?"L":"M")+x.toFixed(1)+" "+y.toFixed(1);
+    }
+  }
+  var g='<path d="'+d+'" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="0.1 7"/>';
+  for(n=1;n<=N;n++){ var p=pts[n];
+    g+= n===N ? '<circle cx="'+p.x+'" cy="'+p.y+'" r="10" fill="var(--surface)" stroke="var(--ink)" stroke-width="4"/><circle cx="'+p.x+'" cy="'+p.y+'" r="3.2" fill="var(--ink)"/>'
+              : '<circle cx="'+p.x+'" cy="'+p.y+'" r="6.5" fill="var(--bg)" stroke="var(--ink)" stroke-width="3"/>';
+  }
   svg.innerHTML=g;
 }
 function renderBasics(){
@@ -276,47 +300,49 @@ function listBlock(p, kind, title, hint, checkable, ph){
    '<form class="add" data-form="add" data-id="'+p.id+'" data-kind="'+kind+'"><input id="add-'+kind+'" placeholder="'+ph+'" autocomplete="off" aria-label="'+ph+'"><button aria-label="Add">+</button></form></div>';
 }
 
+function todoBlock(p){
+  var all=items(p,"todos"), open=all.filter(function(o){ return !S.done[o.k]; }), ticked=all.filter(function(o){ return S.done[o.k]; });
+  function row(o,i,now){
+    var done=!!S.done[o.k];
+    return '<li class="'+(done?"done":"")+'"><button class="check" data-act="tick" data-k="'+o.k+'" aria-label="Mark done">'+I.check+'</button><span class="tx">'+esc(o.t)+'</span>'+
+      (!done&&!now?'<button class="mini-btn" data-act="top" data-id="'+p.id+'" data-t="'+esc(o.t)+'" aria-label="Move to right now" title="Move to right now">'+I.up+'</button>':'')+
+      (!done?'<a class="mini-btn" href="'+esc(codeLink(taskPrompt(p,o.t)))+'" target="_blank" rel="noopener" data-act="doit" data-id="'+p.id+'" data-t="'+esc(o.t)+'" aria-label="Build this in Claude Code" title="Build this in Claude Code">'+I.arrow+'</a>':'')+
+      '<button class="x" data-act="rm" data-id="'+p.id+'" data-k="'+o.k+'" data-kind="todos" data-t="'+esc(o.t)+'" aria-label="Remove">×</button></li>';
+  }
+  var now=open.slice(0,3), later=open.slice(3);
+  return '<div class="block"><span class="label">To-do</span>'+
+   (now.length?'<span class="grp rn">Right now</span><ul class="list">'+now.map(function(o,i){ return row(o,i,true); }).join("")+'</ul>':'')+
+   (later.length||ticked.length?'<span class="grp">Later</span><ul class="list">'+later.concat(ticked).map(function(o,i){ return row(o,i,false); }).join("")+'</ul>':'')+
+   '<form class="add" data-form="add" data-id="'+p.id+'" data-kind="todos"><input id="add-todos" placeholder="Add a to-do" autocomplete="off" aria-label="Add a to-do"><button aria-label="Add">+</button></form>'+
+   '<span class="hint">The top three are the small things to do right now, and they feed the one-thing pane. The up arrow moves a task there. The slanted arrow hands it to Claude Code to build.</span></div>';
+}
 function renderSheet(){
   var sc=document.getElementById("scrim");
   if(UI.menu){ sc.hidden=false; sc.innerHTML=menuHtml(); document.body.style.overflow="hidden"; return; }
   if(UI.chat){ sc.hidden=false; sc.innerHTML=chatHtml(); document.body.style.overflow="hidden"; fitAll(); var sh=sc.querySelector(".sheet"); sh.scrollTop=sh.scrollHeight; return; }
   var p=BY[UI.open]; if(!p){ sc.hidden=true; sc.innerHTML=""; document.body.style.overflow=""; return; }
   var d=dream(p), h=href(p), love=loveOf(p), n=days(p);
-  var mini='<span class="fill '+p.kind+'" style="width:'+((p.stage-1)/(STAGES.length-1)*100)+'%"></span>'+STAGES.map(function(s){ var c=[]; if(s.n<p.stage) c.push("done"); if(s.n===p.stage) c.push("here"); if(d&&d.dest===s.n) c.push("dream"); return '<i class="'+c.join(" ")+'" title="'+esc(s.name)+'"></i>'; }).join("");
+  var mini='<span class="fill '+p.kind+'" style="width:'+((p.stage-1)/(STAGES.length-1)*100)+'%"></span>'+STAGES.map(function(s){ var c=[]; if(s.n<p.stage) c.push("done"); if(s.n===p.stage) c.push("here"); return '<i class="'+c.join(" ")+'" title="'+esc(s.name)+'"></i>'; }).join("");
   var bs=basicsOf(p), missing=bs.filter(function(x){ return !x.ok; });
   var ik=(AUDIT[p.id]||{}).k;
-  var g=gapText(p);
-  var end=LINE_END[p.kind];
-  var opts=[[p.stage,"It's fine where it is. I just like having it."],[4,"Proud to send someone the link"],[5,"Polished. It feels finished."],[6,p.kind==="tabletop"?"Out in the world as a print-and-play":"Tested in public on itch.io"],[8,"On the Apple App Store"]]
-    .filter(function(o,i){ return i===0||(o[0]>p.stage&&o[0]<=end); });
-  var dq;
-  if(d && !UI.editDream){
-    dq='<div class="block"><span class="label">The dream</span>'+(d.text?'<p>'+esc(d.text)+'</p>':'')+(d.dest?'<p class="hint">Destination: '+esc(stageName(d.dest))+(g?" · "+esc(g):"")+'</p>':'')+
-       '<button class="btn line" style="min-height:38px" data-act="editdream">Change it</button></div>';
-  } else {
-    var cur=d||{}, hint=p.dreamHint;
-    dq='<div class="block dreamq"><span class="label">The dream</span><h3>If '+esc(p.name)+' went as well as it possibly could, what exists?</h3>'+
-      (hint&&!d?'<p class="hint">From your notes: '+esc(hint.text)+'</p>':'')+
-      '<textarea class="fit" id="dreamtext" rows="1" placeholder="In your own words. One sentence is plenty.">'+esc(cur.text!=null?cur.text:(hint?hint.text:""))+'</textarea>'+
-      '<span class="hint">And how far down the path does it need to go?</span><div class="opts">'+
-      opts.map(function(o){ var on=(cur.dest||(hint&&!d?hint.dest:null))===o[0]; return '<button class="opt" data-act="dest" data-v="'+o[0]+'" aria-pressed="'+on+'">'+esc(o[1])+'</button>'; }).join("")+
-      '</div><button class="btn solid" data-act="savedream" data-id="'+p.id+'">That\'s the dream</button></div>';
-  }
+  var g="";
+  var hc=COLORS[p.id]||({game:"#8a2c26",tabletop:"#1c4f80",tool:"#6f5500"})[p.kind];
+  var dq='<div class="block dreamq"><span class="label">The dream</span><textarea class="fit" id="dream" rows="1" data-id="'+p.id+'" placeholder="If '+esc(p.name)+' went as well as it possibly could, what exists?">'+esc(d)+'</textarea>'+(!d&&p.dreamHint?'<button class="hintfill" data-act="usehint" data-id="'+p.id+'">From your notes: '+esc(p.dreamHint)+' <u>Use this</u></button>':'')+'</div>';
   sc.hidden=false; document.body.style.overflow="hidden";
   sc.innerHTML='<div class="sheet" role="dialog" aria-modal="true" aria-label="'+esc(p.name)+'">'+
-   '<div class="shead">'+tile(p)+'<div class="t"><h2>'+esc(p.name)+'</h2><p>'+esc(p.tag)+'</p></div><button class="round" data-act="close" aria-label="Close">'+I.x+'</button></div>'+
+   '<div class="hero" style="--hc:'+hc+'">'+
+   '<div class="shead">'+tile(p,"lg")+'<div class="t"><h2>'+esc(p.name)+'</h2><p>'+esc(p.tag)+'</p></div><button class="round" data-act="close" aria-label="Close">'+I.x+'</button></div>'+
    '<div class="acts">'+
-     (h?act("a","go",I.open,"Open it",'href="'+esc(h)+'" target="_blank" rel="noopener"'):'')+
+     (h?act("a","",I.open,p.kind==="tool"?"Open":"Play",'href="'+esc(h)+'" target="_blank" rel="noopener"'):'')+
      act("button","",I.chat,"Chat",'data-act="chat" data-id="'+p.id+'"')+
      act("button",isStar(p.id)?"on":"",I.star,isStar(p.id)?"Starred":"Star",'data-act="star" data-id="'+p.id+'" aria-pressed="'+isStar(p.id)+'"')+
      act("button","",I.hide,"Hide",'data-act="hide" data-id="'+p.id+'"')+
-   '</div>'+
-   '<div class="block"><div class="mini">'+mini+'</div><div class="minicap"><span>Now: <b>'+esc(stageName(p.stage))+'</b></span><span>'+(g?esc(g):(d?"":"No destination set"))+'</span></div><p>'+esc(p.status)+'</p></div>'+
+   '</div></div>'+
+   '<div class="block"><div class="mini">'+mini+'</div><div class="minicap"><span>Now: <b>'+esc(stageName(p.stage))+'</b></span><span>Stop '+p.stage+' of '+STAGES.length+'</span></div><p>'+esc(p.status)+'</p></div>'+
    (p.left?'<div class="block"><span class="label">Where you left off · '+ago(n)+'</span><p>'+esc(p.left)+'</p></div>':'')+
    '<div class="block"><span class="label">What you love about it</span><textarea class="fit" id="love" rows="1" data-id="'+p.id+'" placeholder="What pulled you into this one? Write it down so it can pull you back.">'+esc(love)+'</textarea>'+(p.love&&S.love[p.id]==null?'<span class="hint">Pulled from your own docs and notes. Fix it if it\'s off.</span>':'')+'</div>'+
    dq+
-   listBlock(p,"steps","Small steps","Fifteen minutes or less. These feed the one-thing pane.",true,"Add a small step")+
-   listBlock(p,"todos","To-do","The arrow hands a task to Claude Code to build.",true,"Add a to-do")+
+   todoBlock(p)+
    listBlock(p,"ideas","Cool ideas","",false,"Add an idea")+
    ((p.done||[]).length?'<details class="block donebox"><summary><span class="label">Done · '+p.done.length+'</span></summary><ul class="list">'+p.done.slice().reverse().map(function(x){ return '<li class="done"><span class="check">'+I.check+'</span><span class="tx" style="text-decoration:none">'+esc(x.t)+(x.on?' <span class="hint">'+esc(x.on)+'</span>':'')+'</span></li>'; }).join("")+'</ul></details>':'')+
    (bs.length?'<div class="block"><span class="label">The basics · '+basicsCount(p)+'</span><span class="hint">'+(missing.length?"Still to add: "+missing.map(function(x){ return x.name.toLowerCase(); }).join(", ")+".":"All in.")+" Tap one to correct it."+(ik&&ik!=="app icon"?" The picture shown for this project is its "+ik+", not a real app icon.":(!ik?" No icon found, so it shows an emoji.":""))+'</span><div class="bgrid">'+
@@ -330,7 +356,7 @@ function appContext(){
   var L=["Trailhead is my personal tracker for my side projects. It reads from my "+REPO+" repo and puts every project on one path: "+STAGES.map(function(s){return s.name;}).join(" > ")+"."];
   L.push("What I'm reaching for: "+GOALS.join(" "));
   L.push(""); L.push("My projects right now:");
-  visible().forEach(function(p){ var d=dream(p); L.push("- "+p.name+" ("+p.kind+", "+stageName(p.stage)+", last touched "+ago(days(p))+(isStar(p.id)?", starred":"")+"): "+p.tag+(d&&d.text?" Dream: "+d.text:"")); });
+  visible().forEach(function(p){ var d=dream(p); L.push("- "+p.name+" ("+p.kind+", "+stageName(p.stage)+", last touched "+ago(days(p))+(isStar(p.id)?", starred":"")+"): "+p.tag+(d?" Dream: "+d:"")); });
   return L.join("\n");
 }
 function contextFor(id){ return id==="_app" ? appContext() : prompt(BY[id]).replace(/\n\nHelp me start with that one small thing[\s\S]*$/,""); }
@@ -418,6 +444,8 @@ document.addEventListener("click", function(e){
   else if(a==="basic"){ var k=t.dataset.k, cur=basicsOf(p).filter(function(x){ return x.k===k; })[0], f=p.basics||{}, base=(k in f)?!!f[k]:!!((AUDIT[id]||{}).c||{})[k], nv=!cur.ok; S.basics[id]=S.basics[id]||{}; if(nv===base) delete S.basics[id][k]; else S.basics[id][k]=nv?1:0; save(); var tp=document.querySelector(".sheet").scrollTop; renderAll(); document.querySelector(".sheet").scrollTop=tp; }
   else if(a==="nowdone"){ S.done[t.dataset.k]=Date.now(); UI.justDone++; save(); renderAll(); }
   else if(a==="nownext"){ UI.nowIdx++; UI.justDone=0; renderNow(); }
+  else if(a==="top"){ var cur=items(p,"todos").map(function(o){ return o.t; }).filter(function(x){ return x!==t.dataset.t; }); S.order[id]=[t.dataset.t].concat(cur); save(); var tp2=document.querySelector(".sheet").scrollTop; renderAll(); document.querySelector(".sheet").scrollTop=tp2; }
+  else if(a==="usehint"){ S.dream[id]=p.dreamHint; save(); renderAll(); }
   else if(a==="doit"){ copy(taskPrompt(p, t.dataset.t), "Opening Claude Code. The task is copied too."); }
   else if(a==="sync"){ copy(syncPrompt(), "Opening Claude Code. The changes are copied too."); }
   else if(a==="chat"){ UI.chat=id; UI.menu=false; UI.seed=t.dataset.step?"Help me start: "+t.dataset.step:""; renderSheet(); }
@@ -437,7 +465,7 @@ document.addEventListener("click", function(e){
   }
   else if(a==="backup"){ copy(JSON.stringify(S), "Backup copied."); }
   else if(a==="restore"){
-    try{ var o=JSON.parse(document.getElementById("restore").value); if(!o||typeof o!=="object"||!Array.isArray(o.star)) throw 0; S=o; ["hidden","skip"].forEach(function(k){ if(!Array.isArray(S[k])) S[k]=[]; }); ["dream","love","done","added","removed","live","basics","chat"].forEach(function(k){ if(!S[k]) S[k]={}; }); S.v=S.v||2; migrate(); reconcile(); save(); UI.menu=false; renderAll(); toast("Restored."); }
+    try{ var o=JSON.parse(document.getElementById("restore").value); if(!o||typeof o!=="object"||!Array.isArray(o.star)) throw 0; S=o; ["hidden","skip"].forEach(function(k){ if(!Array.isArray(S[k])) S[k]=[]; }); ["dream","love","done","added","removed","live","basics","chat","order"].forEach(function(k){ if(!S[k]) S[k]={}; }); S.v=S.v||2; migrate(); reconcile(); save(); UI.menu=false; renderAll(); toast("Restored."); }
     catch(err){ toast("That doesn't look like a Trailhead backup."); }
   }
   else if(a==="github"){ checkGitHub(true); }
@@ -453,6 +481,7 @@ document.addEventListener("submit", function(e){
 document.addEventListener("input", function(e){
   if(e.target.classList&&e.target.classList.contains("fit")) fit(e.target);
   if(e.target.id==="chatin"){ UI.seed=e.target.value; }
+  if(e.target.id==="dream"){ S.dream[e.target.dataset.id]=e.target.value; save(); }
   if(e.target.id==="love"){ S.love[e.target.dataset.id]=e.target.value; save(); }
 });
 document.addEventListener("keydown", function(e){
