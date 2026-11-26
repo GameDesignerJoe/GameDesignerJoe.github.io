@@ -7,7 +7,7 @@ gets deep into a project and then drifts to the next one, so every entry is writ
 make returning easy and to say plainly what stands between the project and its next
 gate.
 
-His goals, in his words, are at the top of `projects.json`.
+What it's all for, in his words, is the one line in `goals` at the top of `projects.json`. The page shows it as the quote under the title.
 
 ## How it fits together
 

@@ -145,12 +145,20 @@ function ringed(p, cls){ return '<span class="ring '+p.kind+(isNfp(p)?" nfp":"")
 function act(tag, cls, icon, label, attrs){ return '<'+tag+' class="act '+cls+'" '+attrs+'><i>'+icon+'</i><span>'+label+'</span></'+tag+'>'; }
 
 function renderGoal(){
-  var shapes=['<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="var(--surface)" stroke="var(--ink)" stroke-width="3.5"/></svg>',
-   '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3l8 14H2z" fill="var(--surface)" stroke="var(--ink)" stroke-width="3.5" stroke-linejoin="round"/></svg>',
-   '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="1.5" fill="var(--surface)" stroke="var(--ink)" stroke-width="3.5"/></svg>'];
-  document.getElementById("goal").innerHTML='<span class="label">What I\'m reaching for</span><ul>'+GOALS.map(function(g,i){ return '<li>'+shapes[i%3]+'<span>'+esc(g)+'</span></li>'; }).join("")+'</ul>';
-  var n=pendingCount(), pb=document.getElementById("pending");
-  pb.hidden=!n; if(n) pb.innerHTML='<span>'+n+(n===1?" change":" changes")+' on this device '+(n===1?"isn't":"aren't")+' in your repo yet.</span><a class="btn solid" href="'+esc(codeLink(syncPrompt()))+'" target="_blank" rel="noopener" data-act="sync">'+I.arrow+'Send to repo</a>';
+  document.getElementById("goal").innerHTML='<p class="motto"><span aria-hidden="true">“</span>'+esc(GOALS[0]||"")+'</p>';
+  var n=pendingCount(), pb=document.getElementById("pending"), sent=S.sentAt && Date.now()-S.sentAt<15*60e3 && S.sentN===n;
+  if(!n){ delete S.sentAt; delete S.sentN; }
+  pb.hidden=!n; if(n) pb.innerHTML= sent
+    ? '<span>Sent to Claude Code. This clears itself when the change lands in your repo.</span><a class="btn line" href="'+esc(codeLink(syncPrompt()))+'" target="_blank" rel="noopener" data-act="sync">Send again</a>'
+    : '<span>'+n+(n===1?" change":" changes")+' on this device '+(n===1?"isn't":"aren't")+' in your repo yet.</span><a class="btn solid" href="'+esc(codeLink(syncPrompt()))+'" target="_blank" rel="noopener" data-act="sync">'+I.arrow+'Send to repo</a>';
+}
+// the five projects worked on most recently, one picture each
+function renderRecent(){
+  var el=document.getElementById("recent"), ps=visible().slice().sort(function(a,b){ return days(a)-days(b) || b.commits-a.commits; }).slice(0,5);
+  el.innerHTML=ps.map(function(p){ var shot=(typeof SHOTS!=="undefined"&&SHOTS[p.id])?SHOTS[p.id].src:"";
+    return '<button class="rcard'+(p.shot==="landscape"?" wide":"")+'" data-act="open" data-id="'+p.id+'">'+
+      (shot?'<span class="rimg"><img src="'+esc(shot)+'" alt=""></span>':'<span class="rimg icon" style="background:'+(COLORS[p.id]||"var(--sunk)")+'">'+tile(p,"lg")+'</span>')+
+      '<b>'+esc(p.name)+'</b><span>'+esc(gate(p).name)+' · '+ago(days(p))+'</span></button>'; }).join("");
 }
 function renderNow(){
   var q=nowQueue(), el=document.getElementById("now");
@@ -345,7 +353,7 @@ function renderSheet(){
      act("button",isStar(p.id)?"on":"",I.star,isStar(p.id)?"Starred":"Star",'data-act="star" data-id="'+p.id+'" aria-pressed="'+isStar(p.id)+'"')+
      act("button",UI.more?"on":"",I.dots,"More",'data-act="more2" aria-expanded="'+UI.more+'"')+
    '</div>'+
-   (UI.more?'<div class="moreacts"><button class="btn" data-act="nfp" data-id="'+p.id+'" aria-pressed="'+nfp+'">'+(nfp?"Not for publish: on":"Not for publish")+'</button><button class="btn" data-act="hide" data-id="'+p.id+'">Hide</button></div>':'')+
+   (UI.more?'<div class="moreacts"><button class="btn" data-act="nfp" data-id="'+p.id+'" aria-pressed="'+nfp+'">'+(nfp?"Not for publish: on":"Not for publish")+'</button><button class="btn" data-act="hide" data-id="'+p.id+'">Hide</button><a class="btn" href="'+esc(codeLink(checkPrompt(p)))+'" target="_blank" rel="noopener" data-act="check" data-id="'+p.id+'">Check against the gate</a></div>':'')+
    '</div>'+
    '<div id="gallery" class="gallery" data-id="'+p.id+'" hidden></div>'+
    '<div class="block jump"><span class="label">'+esc(g.name)+' · '+pr.done+' of '+pr.of+(nfp?" · not for publish":"")+'</span>'+
@@ -360,7 +368,7 @@ function renderSheet(){
    '</div>'+
    (notesOf(p)?'<div class="block"><span class="label">Notes</span><div id="docbody" data-id="'+p.id+'"></div></div>'
               :'<div class="block"><span class="label">Notes</span><p class="hint">No notes doc linked yet.</p>'+linkForm(p,"Paste a Google Doc link")+'</div>')+
-   '<details class="block more"><summary><span class="label">More</span></summary>'+
+   '<details class="block more"><summary><span class="label">Details</span></summary>'+
      '<p>'+esc(p.status)+'</p>'+
      (p.backlog.length?'<span class="grp">Bigger work and ideas · '+p.backlog.length+'</span><ul class="list">'+p.backlog.map(function(t){ return '<li><span class="dot"></span><span class="tx">'+esc(t)+'</span></li>'; }).join("")+'</ul>':'')+
      ((p.done||[]).length?'<span class="grp">Shipped · '+p.done.length+'</span><ul class="list">'+p.done.slice().reverse().map(function(x){ return '<li><span class="dot"></span><span class="tx">'+esc(x.t)+(x.on?' <span class="hint">'+esc(x.on)+'</span>':'')+'</span></li>'; }).join("")+'</ul>':'')+
@@ -383,7 +391,7 @@ function menuHtml(){
 }
 function fit(t){ t.style.height="auto"; t.style.height=t.scrollHeight+"px"; }
 function fitAll(){ document.querySelectorAll("textarea.fit").forEach(fit); }
-function renderAll(){ if(!LOADED) return; renderGoal(); renderNow(); renderFocus(); renderPath(); renderList(); renderSheet(); }
+function renderAll(){ if(!LOADED) return; renderGoal(); renderRecent(); renderNow(); renderFocus(); renderPath(); renderList(); renderSheet(); }
 function keepScroll(fn){ var sh=document.querySelector(".sheet"), t=sh?sh.scrollTop:0; fn(); sh=document.querySelector(".sheet"); if(sh) sh.scrollTop=t; }
 
 var swallow=false;   // the click a browser fires at the end of a mouse drag
@@ -417,7 +425,7 @@ document.addEventListener("click", function(e){
   else if(a==="notespass"){ copy(notesPrompt(p), "Opening Claude Code. The request is copied too."); }
   else if(a==="check"){ copy(checkPrompt(p), "Opening Claude Code. The request is copied too."); }
   else if(a==="checkall"){ copy(checkAllPrompt(), "Opening Claude Code. The request is copied too."); }
-  else if(a==="sync"){ copy(syncPrompt(), "Opening Claude Code. The changes are copied too."); }
+  else if(a==="sync"){ copy(syncPrompt(), "Opening Claude Code. The changes are copied too."); S.sentAt=Date.now(); S.sentN=pendingCount(); save(); setTimeout(renderGoal,400); }
   else if(a==="github"){ checkGitHub(true); }
 });
 document.addEventListener("submit", function(e){
@@ -450,11 +458,22 @@ function checkGitHub(manual){
   next();
 }
 
+var lastFetch=0;
+function refresh(first){
+  if(location.protocol==="file:") return;
+  lastFetch=Date.now();
+  fetch("projects.json?t="+Date.now(),{cache:"no-store"}).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(d){
+    if(!d||!Array.isArray(d.projects)) throw 0;
+    var typing=document.activeElement&&/^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName);
+    setData(d); if(typing) renderGoal(); else keepScroll(renderAll);
+  }).catch(function(){ if(first&&!LOADED) document.getElementById("now").innerHTML='<span class="label">One thing right now</span><p class="task">Couldn\'t load projects.json.</p><p class="why">It should sit next to this page in the trailhead folder.</p>'; });
+}
 if(window.TRAILHEAD_DATA){ setData(window.TRAILHEAD_DATA); renderAll(); }
 else document.getElementById("now").innerHTML='<span class="label">One thing right now</span><p class="why">Loading your projects…</p>';
-if(location.protocol!=="file:"){
-  fetch("projects.json?t="+Date.now(),{cache:"no-store"}).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(d){ if(!d||!Array.isArray(d.projects)) throw 0; setData(d); renderAll(); })
-  .catch(function(){ if(!LOADED) document.getElementById("now").innerHTML='<span class="label">One thing right now</span><p class="task">Couldn\'t load projects.json.</p><p class="why">It should sit next to this page in the trailhead folder.</p>'; });
-}
+refresh(true);
+// coming back to the tab, or waiting on something just sent: look at the repo again
+document.addEventListener("visibilitychange", function(){ if(!document.hidden && Date.now()-lastFetch>8000) refresh(); });
+window.addEventListener("focus", function(){ if(Date.now()-lastFetch>8000) refresh(); });
+setInterval(function(){ if(!document.hidden && LOADED && pendingCount() && Date.now()-lastFetch>30000) refresh(); }, 10000);
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(drawTrail);
 })();

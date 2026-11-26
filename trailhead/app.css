@@ -300,3 +300,18 @@ li.done .tx{color:var(--muted); text-decoration:line-through}
 .reel img{-webkit-user-drag:none; user-select:none}
 .reelnav{display:flex; align-items:center; justify-content:center; gap:14px}
 .reelnav .round{width:36px; height:36px} .reelnav .round svg{width:16px; height:16px}
+
+.wrap{gap:24px}
+.goal{margin-top:-12px}
+.motto{font:500 18px/1.35 var(--display); font-style:italic; text-wrap:balance; display:flex; gap:6px; align-items:flex-start; color:var(--ink)}
+.motto span{font-size:34px; line-height:.9; color:var(--muted); font-style:normal}
+.recent{display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x proximity; margin:0 calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-inline:max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); scroll-padding-inline:16px}
+.rcard{flex:1 0 118px; max-width:150px; scroll-snap-align:start; display:flex; flex-direction:column; gap:3px; text-align:left; min-width:0}
+.rimg{display:block; width:100%; aspect-ratio:9/16; border-radius:var(--r-md); overflow:hidden; background:var(--sunk); margin-bottom:4px}
+.rimg img{width:100%; height:100%; object-fit:cover; object-position:top; display:block}
+.rcard.wide .rimg img{object-position:left top}
+.rimg.icon{display:grid; place-items:center}
+.rimg.icon .tile img{object-fit:cover}
+.rcard b{font:600 15px/1.2 var(--display); overflow-wrap:anywhere}
+.rcard span:last-child{font-size:12.5px; color:var(--muted)}
+.moreacts a.btn{text-decoration:none}
