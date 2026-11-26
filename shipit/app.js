@@ -397,11 +397,11 @@ function renderSheet(){
   '</div>';
   fitAll(); loadDoc(p); loadMedia(p);
 }
-function applySkin(){ var r=document.documentElement; if(S.skin==='pixel') r.setAttribute('data-skin','pixel'); else r.removeAttribute('data-skin'); var m=document.getElementById('mark'); if(m && !m.firstChild && ICONS.shipit) m.innerHTML='<img src="'+ICONS.shipit+'" alt="">'; }
+function applySkin(){ var r=document.documentElement; if(S.skin!=='classic') r.setAttribute('data-skin','pixel'); else r.removeAttribute('data-skin'); var m=document.getElementById('mark'); if(m && !m.firstChild && ICONS.shipit) m.innerHTML='<img src="'+ICONS.shipit+'" alt="">'; }
 function menuHtml(){
   return '<div class="sheet" role="dialog" aria-modal="true" aria-label="Menu">'+
    '<div class="shead"><div class="t"><h2>Ship It!</h2><p>'+PROJECTS.length+' projects. projects.json last updated '+esc(UPDATED)+'</p></div><button class="round" data-act="close" aria-label="Close">'+I.x+'</button></div>'+
-   '<div class="block"><span class="label">Look</span><div class="chatacts"><button class="btn '+(S.skin==="pixel"?"line":"solid")+'" data-act="skin" data-k="" aria-pressed="'+(S.skin!=="pixel")+'">Classic</button><button class="btn '+(S.skin==="pixel"?"solid":"line")+'" data-act="skin" data-k="pixel" aria-pressed="'+(S.skin==="pixel")+'">Pixel</button></div></div>'+
+   '<div class="block"><span class="label">Look</span><div class="chatacts"><button class="btn '+(S.skin!=="classic"?"line":"solid")+'" data-act="skin" data-k="classic" aria-pressed="'+(S.skin==="classic")+'">Classic</button><button class="btn '+(S.skin!=="classic"?"solid":"line")+'" data-act="skin" data-k="pixel" aria-pressed="'+(S.skin!=="classic")+'">Pixel</button></div></div>'+
    '<div class="block"><span class="label">Fresh dates</span><p>Ask GitHub when each project last changed.</p><button class="btn solid" data-act="github">Check GitHub now</button><span class="hint" id="ghmsg">'+(S.liveAt?"Last checked "+new Date(S.liveAt).toLocaleString():"Not checked yet")+'</span></div>'+
    '<div class="block"><span class="label">Skills</span><p class="hint">Things Claude Code knows how to do in your repo. The ones marked per project are also under More on each project\'s page.</p>'+
      SKILLS.map(function(k){ return '<div class="skill"><b>'+esc(k.name)+'</b>'+(k.per?'<span class="pill">per project</span>':'')+'<p>'+esc(k.what)+'</p><p class="hint">Say: “'+esc(k.say)+'”</p>'+(k.all?'<a class="btn line" href="'+esc(codeLink(skillPrompt(k.key,null)))+'" target="_blank" rel="noopener" data-act="skill" data-k="'+k.key+'">'+esc(k.all)+'</a>':'')+'</div>'; }).join("")+'</div>'+
@@ -450,7 +450,7 @@ document.addEventListener("click", function(e){
   else if(a==="skill"){ copy(skillPrompt(t.dataset.k, p), "Opening Claude Code. The request is copied too."); }
   else if(a==="sync"){ copy(syncPrompt(), "Opening Claude Code. The changes are copied too."); S.sentAt=Date.now(); S.sentN=pendingCount(); save(); setTimeout(renderGoal,400); }
   else if(a==="github"){ checkGitHub(true); }
-  else if(a==="skin"){ S.skin=t.dataset.k||""; save(); applySkin(); keepScroll(renderAll); }
+  else if(a==="skin"){ S.skin=t.dataset.k; save(); applySkin(); keepScroll(renderAll); }
 });
 document.addEventListener("submit", function(e){
   var lf=e.target.closest('[data-form="link"]'); if(!lf) return; e.preventDefault();
