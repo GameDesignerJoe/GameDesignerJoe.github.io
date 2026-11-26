@@ -1124,10 +1124,10 @@
    "first": "2026-04-13",
    "last": "2026-04-22",
    "commits": 31,
-   "stage": 3,
+   "stage": 2,
    "tag": "Audio-forward choose-your-own-adventure",
-   "status": "The Player and the Creator both work. Stories include \"Take It Out\".",
-   "left": "\"Take It Out\" audio and Creator improvements.",
+   "status": "The Player and the Creator both work, and The Black Door is fully voiced. Back in Preproduction: background audio, portraits and what makes a good audio story are still open.",
+   "left": "Audio and Creator improvements in April.",
    "love": "Choices surface while the narration is still playing, so the story never goes silent.",
    "star": false,
    "hidden": false,
@@ -1138,11 +1138,27 @@
    ],
    "checklist": [
     {
-     "t": "Listen to \"Take It Out\" start to finish with headphones",
+     "t": "Play The Black Door to an ending on your phone",
      "done": false
     },
     {
-     "t": "New lines should remember the narrator and the save location",
+     "t": "Decide: what ships, the Player with your stories, or the Creator too?",
+     "done": false
+    },
+    {
+     "t": "Decide: which stories are in the first release? The three demo stories have no audio",
+     "done": false
+    },
+    {
+     "t": "Decide: is background audio (ambience, maybe ElevenLabs) in or out?",
+     "done": false
+    },
+    {
+     "t": "Decide: are character portraits that carry emotion in or out?",
+     "done": false
+    },
+    {
+     "t": "Write the ruleset for a good audio choose-your-own-adventure",
      "done": false
     },
     {
@@ -1150,51 +1166,42 @@
      "done": false
     },
     {
-     "t": "Fix \"Save failed: InvalidStateError\" when saving to project",
-     "done": false
-    },
-    {
-     "t": "Search in the scene editor",
-     "done": false
-    },
-    {
      "t": "Leaving a story should land on its detail page",
      "done": false
     },
     {
-     "t": "Background audio",
+     "t": "The core loop is fun: you'd listen to another story without being asked",
      "done": false
     },
     {
-     "t": "Consistent character portraits that carry emotion",
+     "t": "Lock the feature list: what's in",
      "done": false
     },
     {
-     "t": "Everything on the locked feature list is built",
+     "t": "Write the cut list: what's out and stays out",
      "done": false
     },
     {
-     "t": "All content is in: levels, cards, cases, whatever it's made of",
-     "done": false
+     "t": "Look and feel chosen (the design system in ref/design-system)",
+     "done": true
     },
     {
-     "t": "Playable from first screen to last",
-     "done": false
-    },
-    {
-     "t": "Win, lose and restart all work",
-     "done": false
-    },
-    {
-     "t": "No placeholder art or text left",
-     "done": false
+     "t": "Has a notes file (ref/murmur_todo.md)",
+     "done": true,
+     "k": "notesdoc"
     }
    ],
    "backlog": [
-    "Work out what makes a good audio CYOA and write the ruleset",
-    "Claude inside the Creator to build a story from the ground up"
+    "Claude inside the Creator to build a story from the ground up",
+    "For Production (Creator): remember the narrator and the save location for new lines",
+    "For Production (Creator): fix \"Save failed: InvalidStateError\" when saving to project",
+    "For Production (Creator): search in the scene editor",
+    "For Production (Creator): make the node graph look like the Stitch example",
+    "For Production: another audio pass with more emotion",
+    "For Production: move the scrub bar up where the choices sit so it doesn't jump"
    ],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-26"
   },
   {
    "id": "carto",
