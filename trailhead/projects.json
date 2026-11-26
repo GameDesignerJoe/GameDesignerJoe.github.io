@@ -1,6 +1,6 @@
 {
  "about": "Source of truth for Trailhead (trailhead/index.html). Edited by Joe through Claude Code. See trailhead/README.md.",
- "updated": "2026-11-25",
+ "updated": "2026-11-26",
  "goals": [
   "Get my games out into the world on the Apple App Store.",
   "Make something uniquely mine that others want to play.",
@@ -410,7 +410,7 @@
     }
    ],
    "backlog": [],
-   "nfp": false
+   "nfp": true
   },
   {
    "id": "nas",
@@ -743,7 +743,7 @@
     "Ladder and slide: walk the wall tops",
     "Statues you bring offerings to"
    ],
-   "nfp": false
+   "nfp": true
   },
   {
    "id": "unseen",
@@ -799,7 +799,7 @@
     }
    ],
    "backlog": [],
-   "nfp": false
+   "nfp": true
   },
   {
    "id": "tidy",
@@ -1189,7 +1189,7 @@
    "left": "Warden placement and patrol zones.",
    "love": "Authority, surveillance and community trust as the actual mechanics.",
    "star": false,
-   "hidden": false,
+   "hidden": true,
    "done": [],
    "docs": "the-watch/brain/todo.md and README.md",
    "notes": "the-watch/brain/todo.md",
@@ -1657,7 +1657,7 @@
    "left": "",
    "love": "",
    "star": false,
-   "hidden": false,
+   "hidden": true,
    "done": [],
    "docs": "No to-do list in the repo.",
    "checklist": [
@@ -1699,7 +1699,7 @@
    "left": "Bug fixes to missile command.",
    "love": "",
    "star": false,
-   "hidden": false,
+   "hidden": true,
    "done": [],
    "docs": "No to-do list in the repo.",
    "checklist": [
@@ -1821,7 +1821,7 @@
     "Installable to the home screen",
     "Type English, hear Morse"
    ],
-   "nfp": true
+   "nfp": false
   },
   {
    "id": "flick",
@@ -1901,7 +1901,7 @@
     }
    ],
    "backlog": [],
-   "nfp": true
+   "nfp": false
   },
   {
    "id": "playback",
@@ -1974,7 +1974,7 @@
     "Your own image as playlist art",
     "Turn up the \"visual celebration of the art\""
    ],
-   "nfp": true
+   "nfp": false
   },
   {
    "id": "scout",
@@ -2135,7 +2135,7 @@
     }
    ],
    "backlog": [],
-   "nfp": true
+   "nfp": false
   },
   {
    "id": "inkwell",
@@ -2202,7 +2202,7 @@
     }
    ],
    "backlog": [],
-   "nfp": true
+   "nfp": false
   },
   {
    "id": "artdir",
@@ -2220,7 +2220,7 @@
    "left": "Step 4 of the build in May, and a small placeholder fix in September.",
    "love": "",
    "star": false,
-   "hidden": false,
+   "hidden": true,
    "done": [],
    "docs": "artdirector/README.md",
    "checklist": [
@@ -2307,7 +2307,7 @@
     }
    ],
    "backlog": [],
-   "nfp": true
+   "nfp": false
   },
   {
    "id": "jack",
@@ -2325,7 +2325,7 @@
    "left": "Mobile support and pulled books.",
    "love": "",
    "star": false,
-   "hidden": false,
+   "hidden": true,
    "done": [],
    "docs": "jackscomics/jackscomics_todo.md (empty)",
    "checklist": [
@@ -2616,7 +2616,7 @@
     }
    ],
    "backlog": [],
-   "nfp": true
+   "nfp": false
   },
   {
    "id": "mapviz",
@@ -2634,7 +2634,7 @@
    "left": "",
    "love": "",
    "star": false,
-   "hidden": false,
+   "hidden": true,
    "done": [],
    "docs": "mapVisualizationTool/memory/",
    "checklist": [
@@ -2697,7 +2697,7 @@
    "left": "",
    "love": "",
    "star": false,
-   "hidden": false,
+   "hidden": true,
    "done": [],
    "docs": "No to-do list in the repo.",
    "checklist": [
