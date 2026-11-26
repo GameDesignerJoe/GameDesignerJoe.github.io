@@ -23,7 +23,8 @@ when" lines and starting items are in `shipit/config.js`.
    gate whose "through it when" line is not yet true. Be strict: open feature requests
    mean the feature list is not locked, so the game is not in Beta however polished it
    looks. Say what you saw that decided it.
-3. **Write the checklist for that gate**, 20 items at most:
+3. **Write the checklist for that gate.** There is no cap: if it is real work for this
+   gate, it goes on the list. Leaving work off doesn't make it go away.
    - Take the gate's items from `config.js`. Tick the ones you verified in the code or
      by playing, and keep their `k`.
    - Reword the rest for this game. "All content is in" becomes "All 50 photos are in"
@@ -33,8 +34,9 @@ when" lines and starting items are in `shipit/config.js`.
    - From the notes, pull in only what blocks the gate (something noted more than
      once, a blocker, a missing piece of the locked list). The running fix-it list
      stays in the doc.
-   - Order it so the first unticked item is the easiest way back in: something small
-     Joe can do in fifteen minutes, ideally by playing.
+   - **Order it by importance, most important first.** The page shows the first ten
+     and folds the rest, so the top ten must be the ten that matter most. A blocker
+     outranks a nice-to-have however quick the nice-to-have is.
    - Each item is one plain sentence that is clearly done or not done.
 4. **Things you can't know, ask.** Has anyone else played it? Is this feature in or
    out? Don't guess and don't tick. Put each open decision on the list as its own item

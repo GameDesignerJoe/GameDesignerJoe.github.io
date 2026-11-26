@@ -60,7 +60,7 @@ Each project:
 | `id`, `name`, `emoji`, `kind`, `folder`, `url` | Identity. `kind` is `game`, `tabletop` or `tool`. `url` is relative to the site, a full URL, or empty. Don't change `id`. |
 | `first`, `last`, `commits` | Dates and commit count for the folder. Set `last` to today when you work on it. |
 | `stage` | Which gate it is in, 1 to 9. |
-| `checklist` | What this project needs to get through its current gate: `[{ "t": "...", "done": false }]`. **At most 20 items.** Specific beats generic: write them for this game. Items that came from the gate's template carry a `k`; keep it. The first unticked item is what "Let's do it!" offers, so put the easiest way back in first. |
+| `checklist` | What this project needs to get through its current gate: `[{ "t": "...", "done": false }]`. **In order of importance, most important first.** No cap: if it's real work for this gate, it's on the list. The page shows the first ten and folds the rest. Specific beats generic: write them for this game. Items that came from the gate's template carry a `k`; keep it. The first unticked item is what "Let's do it!" offers. |
 | `backlog` | Bigger work and ideas, as one list. Joe doesn't separate the two until a gate forces a choice (see Preproduction). Not shown as to-dos. |
 | `nfp` | `true` if this is not for publish. |
 | `tag` | One line saying what it is. |
@@ -69,7 +69,8 @@ Each project:
 | `left` | Where Joe left off, as one plain sentence. Shown beside the next item. |
 | `star`, `hidden` | At most two projects are starred. |
 | `done` | Shipped work: `[{ "t": "...", "on": "YYYY-MM-DD" }]`, oldest first. |
-| `notes` | Where Joe's notes live: a Google Doc link, or the path of a notes file in this repo. See "Working a project's notes". |
+| `notes` | A list of the project's docs: Google Doc links, or paths of files in this repo. **The first one is the running notes**, the fix-it list that a notes pass works. The rest are reference (design docs, plans, lore): read them for context, never work them as a to-do list unless Joe asks. See "Working a project's notes". |
+| `videos` | Trailers and clips to show first in the gallery: repo paths or YouTube links. |
 | `docOpen`, `docSeen` | How many open notes there were when a session last read them, and the date. |
 | `shot` | `"landscape"` for a game played sideways, so screenshots are taken that way. |
 | `checked` | Date of the last gate check, when the checklist was written from the game itself (the `gate-check` skill). Missing means the list is still a first draft. |
@@ -102,7 +103,7 @@ When every item is ticked, Joe presses "Move it to <next gate>".
    is really true. If it isn't, say what's missing, add it to the checklist, and stop.
 2. If it holds, set `stage` to the next gate and write the new `checklist`: start from
    that gate's items in `config.js`, tick the ones already true, reword them for this
-   game, and add the game's own items from `backlog` and its notes. Stay under 20.
+   game, and add the game's own items from `backlog` and its notes, most important first.
 3. **Entering Preproduction or leaving it** is where the feature list gets locked. Go
    through `backlog` with Joe and sort each item into in, out, or later. What's in
    becomes checklist items; what's out is deleted or kept under a cut list in `status`.
@@ -117,8 +118,9 @@ playing. The doc is where he thinks. Don't copy its running notes into the check
 **The Maze is the exception: use the `maze-task` skill for it.** For every other
 project:
 
-1. **Read the notes** with the Google Docs or Google Drive connector, or from the repo
-   if `notes` is a file path. If you can't read them, say so and stop.
+1. **Read the running notes**, the first entry in `notes`, with the Google Docs or
+   Google Drive connector, or from the repo if it is a file path. Skim the other
+   docs listed there for context. If you can't read them, say so and stop.
 2. **The live list is everything above the first `Old Notes` or `DONE?` heading.**
 3. If the doc opens with a rules block for Claude, it wins over anything here.
 4. A section or tab called **Bigger work**, Ideas or Thoughts is not the fix-it list.

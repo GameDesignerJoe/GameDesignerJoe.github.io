@@ -53,7 +53,8 @@ function reconcile(){
   S.star=S.star.filter(function(id){ return BY[id]; }); S.hidden=S.hidden.filter(function(id){ return BY[id]; });
   PROJECTS.forEach(function(p){
     if(S.love[p.id]!=null && S.love[p.id]===(p.love||"")) delete S.love[p.id];
-    if(S.notes[p.id]!=null && S.notes[p.id]===(p.notes||"")) delete S.notes[p.id];
+    if(S.notes[p.id]!=null && !Array.isArray(S.notes[p.id])) S.notes[p.id]=S.notes[p.id]?[S.notes[p.id]]:[];
+    if(S.notes[p.id]!=null && S.notes[p.id].join("|")===fileNotes(p).join("|")) delete S.notes[p.id];
     if(S.nfp[p.id]!=null && !!S.nfp[p.id]===!!p.nfp) delete S.nfp[p.id];
     var c=S.checks[p.id]; if(c){ var live={}; p.checklist.forEach(function(it){ live[hash(it.t)]=!!it.done; });
       Object.keys(c).forEach(function(h){ if(!(h in live) || live[h]===!!c[h]) delete c[h]; }); if(!Object.keys(c).length) delete S.checks[p.id]; }
@@ -63,8 +64,11 @@ function isStar(id){ return S.star.indexOf(id)>=0; }
 function isHidden(id){ return S.hidden.indexOf(id)>=0; }
 function isNfp(p){ return S.nfp[p.id]!=null ? !!S.nfp[p.id] : !!p.nfp; }
 function loveOf(p){ return S.love[p.id]!=null ? S.love[p.id] : (p.love||""); }
-function notesOf(p){ return S.notes[p.id]!=null ? S.notes[p.id] : (p.notes||""); }
-function notesHref(p){ var n=notesOf(p); return !n ? "" : /^https?:/.test(n) ? n : "https://github.com/"+REPO+"/blob/main/"+n.split("/").map(encodeURIComponent).join("/"); }
+// A project's docs: Google Docs, or files in the repo. The first one is the running notes.
+function fileNotes(p){ return Array.isArray(p.notes) ? p.notes.slice() : (p.notes ? [p.notes] : []); }
+function notesOf(p){ return Array.isArray(S.notes[p.id]) ? S.notes[p.id] : fileNotes(p); }
+function docHref(n){ return /^https?:/.test(n) ? n : "https://github.com/"+REPO+"/blob/main/"+n.split("/").map(encodeURIComponent).join("/"); }
+function notesHref(p){ var n=notesOf(p)[0]; return n ? docHref(n) : ""; }
 function visible(){ return PROJECTS.filter(function(p){ return !isHidden(p.id); }); }
 function gate(p){ return STAGES[p.stage-1]; }
 function checks(p){ var c=S.checks[p.id]||{}; return p.checklist.map(function(it){ var h=hash(it.t); return {t:it.t, h:h, done:(h in c)?!!c[h]:!!it.done}; }); }
@@ -73,6 +77,7 @@ function nextItem(p){ return checks(p).filter(function(x){ return !x.done; })[0]
 function lastOf(p){ var l=S.live[p.id]; return (l && l>p.last) ? l : p.last; }
 function days(p){ var d=new Date(lastOf(p)+"T12:00:00"); return Math.max(0, Math.round((Date.now()-d.getTime())/864e5)); }
 function ago(n){ if(n<=0) return "today"; if(n===1) return "yesterday"; if(n<14) return n+" days ago"; if(n<70) return Math.round(n/7)+" weeks ago"; if(n<365) return Math.round(n/30.4)+" months ago"; var y=Math.round(n/365*10)/10; return (y===1?"a year":y+" years")+" ago"; }
+function shortDate(d){ var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d||""); return m ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m[2]-1]+" "+(+m[3])+(m[1]!==String(new Date().getFullYear())?", "+m[1]:"") : d; }
 function href(p){ return !p.url ? "" : (/^https?:/.test(p.url) ? p.url : SITE+p.url); }
 
 function pending(){
@@ -102,8 +107,8 @@ function goPrompt(p, t){
   return "Ship It: let's work on "+p.name+" ("+p.folder+"/). It's in "+gate(p).name+". Its entry in shipit/projects.json has the checklist for this gate."+(p.left?"\n\nWhere I left off: "+p.left:"")+(t?"\n\nNext on the list: "+t:"")+"\n\nHelp me do that now. If it needs me to play, decide or record something, walk me through it. If you can build it, build it. Tick it off when it's really done, then tell me what's next.";
 }
 function notesPrompt(p){
-  var n=notesOf(p);
-  return "Ship It notes pass for "+p.name+" ("+p.folder+"/). There are new notes in "+(docId(n)?"its Google Doc: "+n:"its notes file: "+n)+"\n\nFollow \"Working a project's notes\" in shipit/README.md.";
+  var ns=notesOf(p), n=ns[0], rest=ns.slice(1);
+  return "Ship It notes pass for "+p.name+" ("+p.folder+"/). There are new notes in "+(docId(n)?"its Google Doc: "+n:"its notes file: "+n)+(rest.length?"\n\nIts other docs, for reference only: "+rest.join(" , "):"")+"\n\nFollow \"Working a project's notes\" in shipit/README.md.";
 }
 function checkPrompt(p){ return "Ship It gate check for "+p.name+" ("+p.folder+"/). Use the gate-check skill."; }
 function checkAllPrompt(){ return "Ship It gate check for every game that is for publish and not hidden. Use the gate-check skill, one game at a time, most recently touched first. Stop after each one and show me its gate and checklist before going on."; }
@@ -189,7 +194,7 @@ function renderFocus(){
 function renderPath(){
   var el=document.getElementById("path"), out='<svg aria-hidden="true"></svg>', vis=visible(), top=0;
   vis.forEach(function(p){ if(p.stage>top) top=p.stage; });
-  STAGES.slice().reverse().forEach(function(s){
+  STAGES.forEach(function(s){
     var ps=vis.filter(function(p){ return p.stage===s.n; }).sort(function(a,b){ var pa=progress(a), pb=progress(b); return (pb.of?pb.done/pb.of:0)-(pa.of?pa.done/pa.of:0); });
     out+='<div class="stop'+(s.n>top?" ahead":"")+(s.n===STAGES.length?" goalstop":"")+'" data-stop="'+s.n+'"><div><h3>'+esc(s.name)+' <span class="count">'+ps.length+'</span></h3><p>'+esc(s.desc)+'</p></div>'+
      (ps.length?'<div class="chips">'+ps.map(function(p){ return '<button data-act="open" data-id="'+p.id+'" aria-label="'+esc(p.name)+'" title="'+esc(p.name)+'">'+ringed(p,"sm")+'</button>'; }).join("")+'</div>':'')+
@@ -207,12 +212,12 @@ function drawTrail(){
   var CX=34, n, d="";
   for(n=1;n<=N;n++){ var w=Math.pow(1-(n-1)/(N-1),1.3); pts[n].x=CX+(n%2?-1:1)*15*w; pts[n].w=w; }
   for(n=1;n<N;n++){
-    var a=pts[n], b=pts[n+1], loops=n<=2?1:0, R=Math.min(12,(a.y-b.y)/6), dir=n%2?1:-1, K=96;
+    var a=pts[n], b=pts[n+1], loops=n<=2?1:0, sg=b.y<a.y?-1:1, R=Math.min(12,Math.abs(a.y-b.y)/6), dir=n%2?1:-1, K=96;
     for(var i=0;i<=K;i++){
       var t=i/K, tb=loops ? (t<.38 ? t/.76 : t>.62 ? (t-.24)/.76 : .5) : t;
       var e=tb*tb*(3-2*tb), x=a.x+(b.x-a.x)*e, y=a.y+(b.y-a.y)*tb;
       x+=Math.sin(tb*Math.PI*2)*8*a.w*dir;
-      if(loops&&t>=.38&&t<=.62){ var th=(t-.38)/.24*Math.PI*2; x+=(1-Math.cos(th))*R*dir; y-=Math.sin(th)*R; }
+      if(loops&&t>=.38&&t<=.62){ var th=(t-.38)/.24*Math.PI*2; x+=(1-Math.cos(th))*R*dir; y+=sg*Math.sin(th)*R; }
       d+=(d?"L":"M")+x.toFixed(1)+" "+y.toFixed(1);
     }
   }
@@ -272,25 +277,26 @@ function parseFile(txt){
   return out;
 }
 function loadDoc(p){
-  var n=notesOf(p); if(!n) return;
-  if(DOCS[n]){ paintDoc(p); return; }
-  DOCS[n]={state:"loading"};
-  var id=docId(n), url=id ? "https://docs.google.com/document/d/"+id+"/export?format=txt" : (/^https?:/.test(n) ? "" : "../"+n+"?t="+Date.now());
-  if(!url){ DOCS[n]={state:"blocked"}; paintDoc(p); return; }
-  fetch(url).then(function(r){ if(!r.ok) throw 0; return r.text(); })
-   .then(function(t){ if(/<html/i.test(t.slice(0,300))) throw 0; DOCS[n]={state:"ok", items:id?parseDoc(t):parseFile(t)}; paintDoc(p); })
-   .catch(function(){ DOCS[n]={state:"blocked"}; paintDoc(p); });
+  notesOf(p).forEach(function(n, i){
+    if(DOCS[n]) return;
+    DOCS[n]={state:"loading"};
+    var id=docId(n), url=id ? "https://docs.google.com/document/d/"+id+"/export?format=txt" : (/^https?:/.test(n) ? "" : "../"+n+"?t="+Date.now());
+    if(!url){ DOCS[n]={state:"blocked"}; return; }
+    fetch(url).then(function(r){ if(!r.ok) throw 0; return r.text(); })
+     .then(function(t){ if(/<html/i.test(t.slice(0,300))) throw 0; var first=(t.replace(/^\uFEFF/,"").split(/\r?\n/).filter(function(l){ return l.trim(); })[0]||"").replace(/^#+\s*/,"").trim();
+        DOCS[n]={state:"ok", title:id?first.slice(0,60):"", items:id?parseDoc(t):parseFile(t)}; paintDoc(p); })
+     .catch(function(){ DOCS[n]={state:"blocked"}; paintDoc(p); });
+  });
+  paintDoc(p);
 }
+function docName(n){ var d=DOCS[n]||{}; return d.title || (docId(n) ? "Google Doc" : n.split("/").pop()); }
 function paintDoc(p){
   var el=document.getElementById("docbody"); if(!el||el.dataset.id!==p.id) return;
-  var n=notesOf(p), d=DOCS[n]||{}, where=docId(n)?"your doc":n.split("/").pop();
-  if(d.state==="ok"){
-    el.innerHTML = d.items.length
-      ? '<details class="how"><summary>'+d.items.length+' open in '+esc(where)+'</summary><ul>'+d.items.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join("")+'</ul></details>'
-      : '<p class="hint">Nothing open in '+esc(where)+'.</p>';
-  } else if(d.state==="blocked"){
-    el.innerHTML='<p class="hint">'+(p.docOpen!=null&&S.notes[p.id]==null?esc(String(p.docOpen))+" open "+(p.docOpen===1?"note":"notes")+" when Claude Code last read it"+(p.docSeen?" ("+esc(p.docSeen)+")":"")+". ":"")+'This page couldn\'t read '+esc(where)+' from here.</p>';
-  } else el.innerHTML='<p class="hint">Checking '+esc(where)+'…</p>';
+  var ns=notesOf(p);
+  el.innerHTML=ns.map(function(n, i){ var d=DOCS[n]||{};
+    var sub = d.state==="ok" ? (i===0 ? (d.items.length?d.items.length+" open":"Nothing open") : "") : d.state==="blocked" ? (i===0&&p.docOpen!=null&&S.notes[p.id]==null?p.docOpen+" open when last read":"") : "Checking…";
+    return '<div class="docrow"><a class="doclink" href="'+esc(docHref(n))+'" target="_blank" rel="noopener"><i>'+I.doc+'</i><span><b>'+esc(docName(n))+'</b>'+(i===0?'<em>Running notes'+(sub?" · "+esc(sub):"")+'</em>':(sub?'<em>'+esc(sub)+'</em>':''))+'</span></a><button class="x" data-act="rmdoc" data-id="'+p.id+'" data-i="'+i+'" aria-label="Remove this doc">×</button></div>'+
+      (i===0&&d.state==="ok"&&d.items.length?'<details class="how"><summary>Read the '+d.items.length+' open</summary><ul>'+d.items.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join("")+'</ul></details>':''); }).join("");
 }
 function linkForm(p, label){ return '<form class="add" data-form="link" data-id="'+p.id+'"><input id="notelink" placeholder="'+label+'" autocomplete="off" inputmode="url" aria-label="'+label+'"><button aria-label="Save">+</button></form>'; }
 
@@ -305,12 +311,12 @@ function loadMedia(p){
   var src=local ? fetch("../"+p.folder+"/media/index.json").then(function(r){ if(!r.ok) throw 0; return r.json(); })
     : fetch("https://api.github.com/repos/"+REPO+"/contents/"+p.folder.split("/").map(encodeURIComponent).join("/")+"/media").then(function(r){ if(!r.ok) throw 0; return r.json(); });
   src.then(function(list){
-    var items=[], names=(list||[]).map(function(f){ return typeof f==="string"?f:f.name; }).sort(), base="../"+p.folder+"/media/";
+    var items=(p.videos||[]).map(function(v){ var m=/(?:youtu\.be\/|v=|shorts\/)([A-Za-z0-9_-]{6,})/.exec(v); return m ? {type:"yt", id:m[1], href:v} : {type:"video", src:/^https?:/.test(v)?v:"../"+v}; }), names=(list||[]).map(function(f){ return typeof f==="string"?f:f.name; }).sort(), base="../"+p.folder+"/media/";
     names.forEach(function(nm){ if(/\.(png|jpe?g|webp|gif)$/i.test(nm)) items.push({type:"img", src:base+encodeURIComponent(nm)}); else if(/\.(mp4|webm|mov)$/i.test(nm)) items.push({type:"video", src:base+encodeURIComponent(nm)}); });
     if(names.indexOf("videos.txt")>=0){
       fetch(base+"videos.txt").then(function(r){ return r.ok?r.text():""; }).then(function(t){ t.split(/\s+/).forEach(function(u){ var m=/(?:youtu\.be\/|v=|shorts\/)([A-Za-z0-9_-]{6,})/.exec(u); if(m) items.push({type:"yt", id:m[1], href:u}); }); done(items); }, function(){ done(items); });
     } else done(items);
-  }).catch(function(){ done([]); });
+  }).catch(function(){ done((p.videos||[]).map(function(v){ return {type:"video", src:/^https?:/.test(v)?v:"../"+v}; })); });
 }
 function paintMedia(p){
   var el=document.getElementById("gallery"); if(!el||el.dataset.id!==p.id) return;
@@ -320,7 +326,7 @@ function paintMedia(p){
   if(!items.length){ el.hidden=true; return; }
   el.hidden=false;
   el.innerHTML='<div class="reel'+(p.shot==="landscape"?" wide":"")+(items.length===1?" one":"")+'">'+items.map(function(it){
-    return '<div class="frame">'+(it.type==="img" ? '<img src="'+esc(it.src)+'" alt="'+esc(p.name)+' screenshot">'
+    return '<div class="frame'+(it.type!=="img"?" vid":"")+'">'+(it.type==="img" ? '<img src="'+esc(it.src)+'" alt="'+esc(p.name)+' screenshot">'
       : it.type==="video" ? '<video src="'+esc(it.src)+'" controls playsinline preload="metadata"></video>'
       : '<a href="'+esc(it.href)+'" target="_blank" rel="noopener" class="yt"><img src="https://img.youtube.com/vi/'+esc(it.id)+'/hqdefault.jpg" alt="Video"><span>Watch on YouTube</span></a>')+(it.cap?'<span class="cap">'+esc(it.cap)+'</span>':'')+'</div>'; }).join("")+'</div>'+
     (items.length>1?'<div class="reelnav"><button class="round" data-reel="-1" aria-label="Previous">'+I.prev+'</button><p class="reelnote"><span id="reelpos">1</span> of '+items.length+'</p><button class="round" data-reel="1" aria-label="Next">'+I.next+'</button></div>':'');
@@ -352,12 +358,14 @@ function renderSheet(){
    '<div class="quote"><span aria-hidden="true">“</span><textarea class="fit" id="love" rows="1" data-id="'+p.id+'" aria-label="The razor for '+esc(p.name)+'" placeholder="The razor: what you\'d say in an elevator about why this is cool">'+esc(loveOf(p))+'</textarea></div>'+
    '<div class="acts">'+
      (h?act("a","",I.open,p.kind==="tool"?"Open":"Play",'href="'+esc(h)+'" target="_blank" rel="noopener"'):'')+
-     (notesOf(p)?act("a","",I.doc,"Notes",'href="'+esc(notesHref(p))+'" target="_blank" rel="noopener"'):'')+
-     (notesOf(p)?act("a","",I.arrow,"Work",'href="'+esc(codeLink(notesPrompt(p)))+'" target="_blank" rel="noopener" data-act="notespass" data-id="'+p.id+'"'):'')+
+     (notesOf(p).length?act("a","",I.doc,"Notes",'href="'+esc(notesHref(p))+'" target="_blank" rel="noopener"'):'')+
+     (notesOf(p).length?act("a","",I.arrow,"Work",'href="'+esc(codeLink(notesPrompt(p)))+'" target="_blank" rel="noopener" data-act="notespass" data-id="'+p.id+'"'):'')+
      act("button",isStar(p.id)?"on":"",I.star,isStar(p.id)?"Starred":"Star",'data-act="star" data-id="'+p.id+'" aria-pressed="'+isStar(p.id)+'"')+
      act("button",UI.more?"on":"",I.dots,"More",'data-act="more2" aria-expanded="'+UI.more+'"')+
    '</div>'+
-   (UI.more?'<div class="moreacts"><button class="btn" data-act="nfp" data-id="'+p.id+'" aria-pressed="'+nfp+'">'+(nfp?"Not for publish: on":"Not for publish")+'</button><button class="btn" data-act="hide" data-id="'+p.id+'">Hide</button>'+SKILLS.filter(function(k){ return k.per && (!k.kinds || k.kinds.indexOf(p.kind)>=0) && (!k.only || k.only===p.id); }).map(function(k){ return '<a class="btn" href="'+esc(codeLink(skillPrompt(k.key,p)))+'" target="_blank" rel="noopener" data-act="skill" data-k="'+k.key+'" data-id="'+p.id+'">'+esc(k.button)+'</a>'; }).join("")+'</div>':'')+
+   (UI.more?'<div class="moreacts">'+
+      SKILLS.filter(function(k){ return k.per && (!k.kinds || k.kinds.indexOf(p.kind)>=0); }).map(function(k){ return '<a class="btn" href="'+esc(codeLink(skillPrompt(k.key,p)))+'" target="_blank" rel="noopener" data-act="skill" data-k="'+k.key+'" data-id="'+p.id+'">'+esc(k.key==="gate-check" ? "Gate Check: "+(p.checked?shortDate(p.checked):"never") : k.button)+'</a>'; }).join("")+
+      '<button class="btn" data-act="nfp" data-id="'+p.id+'" aria-pressed="'+nfp+'">'+(nfp?"Not for publish: on":"Not for publish")+'</button><button class="btn" data-act="hide" data-id="'+p.id+'">Hide</button></div>':'')+
    '</div>'+
    '<div id="gallery" class="gallery" data-id="'+p.id+'" hidden></div>'+
    '<div class="block jump"><span class="label">'+esc(g.name)+' · '+pr.done+' of '+pr.of+(nfp?" · not for publish":"")+'</span>'+
@@ -365,24 +373,22 @@ function renderSheet(){
      (p.left?'<p class="hint">Last time, '+ago(n)+': '+esc(p.left)+'</p>':'')+
      (nx?'<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(goPrompt(p,nx.t)))+'" target="_blank" rel="noopener" data-act="go" data-id="'+p.id+'">'+I.arrow+'Let\'s do it!</a></div>'
         :(canAdvance?'<div class="chatacts"><a class="btn solid" href="'+esc(codeLink(gatePrompt(p)))+'" target="_blank" rel="noopener" data-act="gate" data-id="'+p.id+'">'+I.arrow+'Move it to '+esc(nxt.name)+'</a></div>':''))+'</div>'+
+   '<div class="block docs"><span class="label">Docs</span><div id="docbody" data-id="'+p.id+'"></div>'+linkForm(p, notesOf(p).length?"Add another Google Doc link":"Paste a Google Doc link")+'</div>'+
    '<div class="block"><span class="label">To get through '+esc(g.name)+'</span><p class="hint">'+esc(g.desc)+'</p>'+
      '<div class="bar big"><i style="width:'+(pr.of?Math.round(pr.done/pr.of*100):0)+'%"></i></div>'+
-     (open.length?'<ul class="list">'+open.map(row).join("")+'</ul>':'')+
+     (open.length?'<ul class="list">'+(UI.allItems?open:open.slice(0,10)).map(row).join("")+'</ul>':'')+
+     (open.length>10&&!UI.allItems?'<button class="btn line" data-act="showall">Show the other '+(open.length-10)+'</button>':'')+
      (done.length?'<details class="doneitems"'+(open.length?"":" open")+'><summary>'+done.length+' done</summary><ul class="list">'+done.map(row).join("")+'</ul></details>':'')+
    '</div>'+
-   (notesOf(p)?'<div class="block"><span class="label">Notes</span><div id="docbody" data-id="'+p.id+'"></div></div>'
-              :'<div class="block"><span class="label">Notes</span><p class="hint">No notes doc linked yet.</p>'+linkForm(p,"Paste a Google Doc link")+'</div>')+
    '<details class="block more"><summary><span class="label">Details</span></summary>'+
      '<p>'+esc(p.status)+'</p>'+
      (p.backlog.length?'<span class="grp">Bigger work and ideas · '+p.backlog.length+'</span><ul class="list">'+p.backlog.map(function(t){ return '<li><span class="dot"></span><span class="tx">'+esc(t)+'</span></li>'; }).join("")+'</ul>':'')+
      ((p.done||[]).length?'<span class="grp">Shipped · '+p.done.length+'</span><ul class="list">'+p.done.slice().reverse().map(function(x){ return '<li><span class="dot"></span><span class="tx">'+esc(x.t)+(x.on?' <span class="hint">'+esc(x.on)+'</span>':'')+'</span></li>'; }).join("")+'</ul>':'')+
      (canAdvance?'<span class="grp">Next gate: '+esc(nxt.name)+'</span><p class="hint">'+esc(nxt.desc)+'</p>':'')+
-     (notesOf(p)?'<span class="grp">Notes link</span><p class="src" style="overflow-wrap:anywhere">'+esc(notesOf(p))+'</p>'+linkForm(p,"Paste a different Google Doc link"):'')+
-     '<span class="grp">This checklist</span><p class="hint">'+(p.checked?"Last checked against the game on "+esc(p.checked)+".":"A first draft. It hasn't been checked against the game yet.")+'</p><div class="chatacts"><a class="btn line" href="'+esc(codeLink(checkPrompt(p)))+'" target="_blank" rel="noopener" data-act="check" data-id="'+p.id+'">Check it against the game</a></div>'+
      '<p class="src">'+p.commits+" commits · started "+p.first+" · last commit "+lastOf(p)+" · "+esc(p.folder)+'/</p>'+
    '</details>'+
   '</div>';
-  fitAll(); if(notesOf(p)) loadDoc(p); loadMedia(p);
+  fitAll(); loadDoc(p); loadMedia(p);
 }
 function menuHtml(){
   return '<div class="sheet" role="dialog" aria-modal="true" aria-label="Menu">'+
@@ -405,7 +411,7 @@ document.addEventListener("click", function(e){
   var t=e.target.closest("[data-act]");
   if(!t){ if(e.target.id==="scrim"){ UI.open=null; UI.menu=false; UI.more=false; renderSheet(); } return; }
   var a=t.dataset.act, id=t.dataset.id, p=BY[id];
-  if(a==="open"){ UI.open=id; UI.more=false; renderSheet(); document.querySelector(".sheet").scrollTop=0; }
+  if(a==="open"){ UI.open=id; UI.more=false; UI.allItems=false; renderSheet(); document.querySelector(".sheet").scrollTop=0; }
   else if(a==="close"){ UI.open=null; UI.menu=false; UI.more=false; renderAll(); }
   else if(a==="menu"){ UI.menu=true; renderSheet(); }
   else if(a==="more2"){ UI.more=!UI.more; keepScroll(renderSheet); }
@@ -424,6 +430,8 @@ document.addEventListener("click", function(e){
   else if(a==="more"){ UI.showAll=true; renderList(); }
   else if(a==="tick"){ var h=t.dataset.h, cur=checks(p).filter(function(x){ return x.h===h; })[0], base=p.checklist.filter(function(it){ return hash(it.t)===h; })[0]; if(!cur||!base) return;
     var nv2=!cur.done; S.checks[id]=S.checks[id]||{}; if(nv2===!!base.done) delete S.checks[id][h]; else S.checks[id][h]=nv2?1:0; if(!Object.keys(S.checks[id]).length) delete S.checks[id]; save(); keepScroll(renderAll); }
+  else if(a==="rmdoc"){ var arr=notesOf(p).slice(); arr.splice(+t.dataset.i,1); S.notes[id]=arr; if(arr.join("|")===fileNotes(p).join("|")) delete S.notes[id]; save(); keepScroll(renderAll); }
+  else if(a==="showall"){ UI.allItems=true; keepScroll(renderSheet); }
   else if(a==="nownext"){ UI.nowIdx++; renderNow(); }
   else if(a==="go"){ copy(goPrompt(p,(nextItem(p)||{}).t), "Opening Claude Code. The request is copied too."); }
   else if(a==="gate"){ copy(gatePrompt(p), "Opening Claude Code. The request is copied too."); }
@@ -437,7 +445,9 @@ document.addEventListener("submit", function(e){
   var lf=e.target.closest('[data-form="link"]'); if(!lf) return; e.preventDefault();
   var lv=lf.querySelector("input").value.trim(), lp=BY[lf.dataset.id]; if(!lv) return;
   if(!docId(lv)){ toast("That doesn't look like a Google Doc link."); return; }
-  S.notes[lp.id]="https://docs.google.com/document/d/"+docId(lv)+"/edit"; save(); renderAll(); toast("Linked. Send to repo to keep it on every device.");
+  var nu="https://docs.google.com/document/d/"+docId(lv)+"/edit", cur=notesOf(lp).slice();
+  if(cur.indexOf(nu)>=0){ toast("That doc is already linked."); return; }
+  cur.push(nu); S.notes[lp.id]=cur; save(); keepScroll(renderAll); toast("Linked. Send to repo to keep it on every device.");
 });
 document.addEventListener("input", function(e){
   if(e.target.classList&&e.target.classList.contains("fit")) fit(e.target);

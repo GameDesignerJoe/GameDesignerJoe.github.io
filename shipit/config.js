@@ -268,9 +268,8 @@ const BASICS=[["icon","App icon","A real icon at 192 and 512, plus an Apple touc
 const NOT_TRACKED="art, audio, songs, cd, catchTheWolf (the GameMaker original), asciiExplore, json-editor, game-doc-system";
 // The skills in .claude/skills that this page can launch. "per" ones show under More on a project's page.
 const SKILLS=[
- {"key":"gate-check","name":"Gate check","per":true,"kinds":["game","tabletop"],"button":"Check against the gate","all":"Check them all","what":"Works out which gate a game is really in, from its code, its notes and a few questions to you, and writes the checklist for getting through it.","say":"gate check Buzzers"},
+ {"key":"gate-check","name":"Gate check","per":true,"kinds":["game","tabletop"],"button":"Gate Check","all":"Check them all","what":"Works out which gate a game is really in, from its code, its notes and a few questions to you, and writes the checklist for getting through it.","say":"gate check Buzzers"},
  {"key":"game-gallery","name":"Game gallery","per":true,"kinds":["game","tabletop"],"button":"Take gallery shots","what":"Plays through a game and takes about ten deliberately different screenshots into its media folder. Leaves your own files alone.","say":"take gallery shots for Vye Duel"},
- {"key":"maze-task","name":"Maze task","per":true,"only":"maze","button":"Work the Maze doc","all":"Work the Maze doc","what":"Works The Maze's backlog from its Google Doc: reads it, groups the items, builds a group, checks it, ships it.","say":"there are new tasks in the Maze doc"},
  {"key":"ship-it","name":"Ship It","what":"Keeps this page's data in step with the repo. It runs whenever a button here opens Claude Code, and after any work on one of your apps.","say":"star Buzzers, or add a multiplayer test to Buzzers' checklist"},
  {"key":"add-portfolio-entry","name":"Add portfolio entry","what":"Adds a finished app to the front page of your site, with a screenshot and a tile.","say":"add Crunch to the portfolio"}
 ];
