@@ -615,7 +615,7 @@
    "commits": 2,
    "stage": 2,
    "tag": "Date a real photo from clues inside it",
-   "status": "A prototype with four photos. Box a detail, research it, and years gray out until one is left.",
+   "status": "Four photos play start to finish on a phone; two land on one year, two end on a range. Still in Preproduction: where photos come from (rights) and a few design calls are open.",
    "left": "Rebuilt the phone experience.",
    "love": "Working out when a real photograph was taken from what's inside the frame, the way the 1984 Bakersfield photo got dated.",
    "star": false,
@@ -628,31 +628,47 @@
      "done": false
     },
     {
+     "t": "Play all four photos on your phone, start to finish",
+     "done": false
+    },
+    {
+     "t": "Decide: is the 1940 plate photo, solved in one tap, a good first photo (a tutorial) or too easy?",
+     "done": false
+    },
+    {
+     "t": "Decide: is ending on a range of years (payphone, Baltimore) a good ending or a letdown?",
+     "done": false
+    },
+    {
+     "t": "Decide: where do photos come from? Public-domain archives such as the Library of Congress only, or photographers' permission too?",
+     "done": false
+    },
+    {
      "t": "Swap the colorized 1940 Pennsylvania photo for the Library of Congress original",
      "done": false
     },
     {
-     "t": "Get to 10 photos",
+     "t": "Hear back from Ron Terner about the payphone photo, or replace it",
      "done": false
     },
     {
-     "t": "Ron Terner's permission for the payphone photo is still pending",
+     "t": "Find the source of the Ming Ave 1984 photo, or replace it",
      "done": false
     },
     {
-     "t": "Find the source of the Ming Ave 1984 photo",
+     "t": "Decide: are location questions (state, city, street) in or out?",
      "done": false
     },
     {
-     "t": "Sort easier photos first and watch for par-1 photos",
-     "done": false
+     "t": "Easier photos come first",
+     "done": true
     },
     {
      "t": "The core loop is playable start to end",
-     "done": false
+     "done": true
     },
     {
-     "t": "The core loop is fun: you'd play it again unprompted",
+     "t": "The core loop is fun: you'd play it again without being asked",
      "done": false
     },
     {
@@ -660,11 +676,7 @@
      "done": false
     },
     {
-     "t": "Write the cut list: what's out, and stays out",
-     "done": false
-    },
-    {
-     "t": "Choose the look and feel",
+     "t": "Write the cut list: what's out and stays out",
      "done": false
     },
     {
@@ -674,9 +686,11 @@
     }
    ],
    "backlog": [
-    "Location questions could come back later: state, city, street"
+    "Location questions could come back later: state, city, street",
+    "For Production: all photos in (10 for the first release?)"
    ],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-26"
   },
   {
    "id": "wolf",
