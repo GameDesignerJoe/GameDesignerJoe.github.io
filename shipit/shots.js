@@ -13,8 +13,8 @@ const SHOTS={
   "on": "2026-11-25"
  },
  "nas": {
-  "src": "shots/nas.webp?v=2026-11-25",
-  "on": "2026-11-25"
+  "src": "shots/nas.webp?v=2026-11-26",
+  "on": "2026-11-26"
  },
  "photo": {
   "src": "shots/photo.webp?v=2026-11-25",
