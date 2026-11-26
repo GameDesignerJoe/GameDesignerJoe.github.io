@@ -1,6 +1,6 @@
 {
  "about": "Source of truth for Ship It! (shipit/index.html). Edited by Joe through Claude Code. See shipit/README.md.",
- "updated": "2026-11-25",
+ "updated": "2026-11-26",
  "goals": [
   "Make something only I could make, that people want to play, and let it buy my freedom."
  ],
@@ -81,7 +81,7 @@
    "status": "The card-only table build is at 0.7 and plays on your phone. The dice version is shelved in crunch/dice.",
    "left": "Three table builds in one day (0.5 to 0.7): one free task plus free card moves, task perks, draw one more.",
    "love": "One group half-assing a task and someone coming in later to fix it. Everyone burned out near ship, just trying to get the game out the door. It's funny when things go sideways.",
-   "star": false,
+   "star": true,
    "hidden": false,
    "done": [],
    "docs": "Your design chats with Claude, and your Google Doc \"Crunch Video Game Notes\"",
@@ -358,7 +358,7 @@
    "status": "Steps 1 to 6 are built and dry-run tested. It still needs your first real keyframe and background removal on fal. GASP Studio 1.0 sits beside it as the parts bin.",
    "left": "Sound made from the video itself, ElevenLabs direct, and a simpler Sound tab.",
    "love": "The electric bike, not the Cadillac: few fields, a storyboard grid as home, everything regenerable in place.",
-   "star": false,
+   "star": true,
    "hidden": false,
    "done": [],
    "docs": "gasp2/PLAN.md and gasp2/CLAUDE.md. Commit count covers 1.0 and 2.",
