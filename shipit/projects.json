@@ -291,9 +291,9 @@
    "first": "2026-11-08",
    "last": "2026-11-10",
    "commits": 31,
-   "stage": 3,
+   "stage": 2,
    "tag": "Party trivia where everyone's phone is the buzzer",
-   "status": "Live and playable. Rooms, fair buzzing, sound and host settings are built. So far it has only had a solo phone-plus-PC test.",
+   "status": "Back in Preproduction: the core game is built, but solo play, a category vote and bigger avatars are open asks. At dinner clues hung on \"searching\" and the built-in categories were too few and dull, so the group never played.",
    "left": "Step 7a: the room server writes the clues, and the Groq key is a server secret.",
    "love": "Players type their own categories, the clues get written on the spot, and humans read them out loud. No host and no TV, just phones.",
    "star": false,
@@ -302,56 +302,65 @@
    "docs": "buzzers/buzzers.md",
    "checklist": [
     {
-     "t": "Text a few friends and pick a test night",
+     "t": "Fix: clue writing gives up after a set time and offers \"pick another\", so the lobby never sits on \"searching\"",
      "done": false
     },
     {
-     "t": "Open debug.html for a room on your PC, join from your phone, and watch the press log",
+     "t": "Play a full game with at least three other people, debug.html open",
      "done": false
     },
     {
-     "t": "Play a session with other people, debug log open",
+     "t": "Decide after that game: would that group play it again without being asked?",
      "done": false
     },
     {
-     "t": "Step 7b: shared clue library and reuse",
+     "t": "Decide: is solo play in or out? If in, roughly what is it?",
      "done": false
     },
     {
-     "t": "Step 8: free catalogue of about 30 checked topics",
+     "t": "Decide: is the thumbs up/down vote on categories in or out?",
      "done": false
     },
     {
-     "t": "Step 9: flag-this-question and a review page",
+     "t": "Decide: are bigger player avatars in or out?",
      "done": false
     },
     {
-     "t": "Music bed on one \"music phone\"",
+     "t": "Decide: is the music bed on one \"music phone\" in or out for the first release?",
      "done": false
     },
     {
-     "t": "Decide how many brand-new categories are free",
+     "t": "Decide: which of steps 7b, 9 and 10 have to be in before itch.io? (Step 8, a bigger and better free catalogue, is in: the built-in ones fell flat at dinner)",
      "done": false
     },
     {
-     "t": "Everything on the locked feature list is built",
+     "t": "Lock the feature list: add what's in to the build plan in buzzers.md",
      "done": false
     },
     {
-     "t": "All content is in: levels, cards, cases, whatever it's made of",
+     "t": "Write the cut list: what's out and stays out",
      "done": false
     },
     {
-     "t": "Playable from first screen to last",
+     "t": "The core loop is playable start to end",
+     "done": true
+    },
+    {
+     "t": "Look and feel chosen: dark stage, gold values, red buzzer",
+     "done": true
+    },
+    {
+     "t": "Set up its notes doc",
+     "done": true,
+     "k": "notesdoc"
+    },
+    {
+     "t": "Dry run: open debug.html for a room on your PC, join from your phone, and watch the press log",
      "done": false
     },
     {
-     "t": "Win, lose and restart all work",
-     "done": false
-    },
-    {
-     "t": "No placeholder art or text left",
-     "done": false
+     "t": "Get a group together to play (dinner counts)",
+     "done": true
     }
    ],
    "backlog": [
@@ -360,9 +369,20 @@
     "Underdog: hand the question to someone else",
     "18+ rooms where a single No turns it off",
     "A group name that remembers across room codes",
-    "Game history and stats per group"
+    "Game history and stats per group",
+    "For Production: step 7b, shared clue library and reuse",
+    "For Production: step 8, free catalogue of about 30 interesting topics with 25+ checked questions each",
+    "For Production: step 9, flag-this-question and a review page",
+    "For Production: step 10, suggest existing categories while typing",
+    "For Alpha: check audio on every phone, reconnecting after screen lock, and the hosted room server recovering from a restart",
+    "For Beta: delete the unused GROQ_API_KEY on Vercel",
+    "For Release II: decide how many brand-new categories are free, and whether it resets daily"
    ],
-   "nfp": false
+   "nfp": false,
+   "notes": "https://docs.google.com/document/d/1_-522Q4I9SOXw16VyPMlE0heE_ohlt-YdtQWl2EfHcg/edit",
+   "docOpen": 4,
+   "docSeen": "2026-11-26",
+   "checked": "2026-11-26"
   },
   {
    "id": "gasp",
