@@ -5,6 +5,56 @@
   "To give myself the freedom to make something only I can make that people want to play."
  ],
  "lead": "wolf",
+ "ignored": [
+  {
+   "folder": "art",
+   "why": "shared images"
+  },
+  {
+   "folder": "audio",
+   "why": "shared sound"
+  },
+  {
+   "folder": "songs",
+   "why": "music files"
+  },
+  {
+   "folder": "cd",
+   "why": "one-off page"
+  },
+  {
+   "folder": "catchTheWolf",
+   "why": "the GameMaker original of Catch the Wolf"
+  },
+  {
+   "folder": "asciiExplore",
+   "why": "old experiment"
+  },
+  {
+   "folder": "json-editor",
+   "why": "one-off tool"
+  },
+  {
+   "folder": "game-doc-system",
+   "why": "one-off tool"
+  },
+  {
+   "folder": "trailhead",
+   "why": "redirect to shipit"
+  },
+  {
+   "folder": "gasp-studio",
+   "why": "Joe said to ignore, Nov 2026"
+  },
+  {
+   "folder": "nas-online",
+   "why": "Joe said to ignore, Nov 2026"
+  },
+  {
+   "folder": "nas-vite",
+   "why": "Joe said to ignore, Nov 2026"
+  }
+ ],
  "projects": [
   {
    "id": "shipit",
@@ -14,12 +64,12 @@
    "folder": "shipit",
    "url": "shipit/",
    "first": "2026-11-25",
-   "last": "2026-11-26",
+   "last": "2026-11-28",
    "commits": 19,
    "stage": 4,
    "tag": "Every side project on one dev plan",
    "status": "Built over two days. The dev plan, per-project checklists, notes links, galleries and the Claude Code hand-offs all work. Most checklists are still first drafts.",
-   "left": "Got its logo, a pixel title font, and a second look (Pixel) you can pick in the menu.",
+   "left": "The GitHub check now spots new folders in the repo, with Add it and Ignore. The ignore list lives in projects.json.",
    "love": "Every game I'm making on one plan, with the next thing to do one tap away.",
    "star": false,
    "hidden": false,

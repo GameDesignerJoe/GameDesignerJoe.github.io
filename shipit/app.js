@@ -7,7 +7,7 @@ function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||"{}")||{}; }c
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ mem=S; } }
 var S=load();
 function shape(){
-  ["star","hidden","skip"].forEach(function(k){ if(!Array.isArray(S[k])) S[k]=[]; });
+  ["star","hidden","skip","ignore","fresh"].forEach(function(k){ if(!Array.isArray(S[k])) S[k]=[]; });
   ["love","live","notes","checks","nfp","proto"].forEach(function(k){ if(!S[k]||typeof S[k]!=="object") S[k]={}; });
 }
 shape();
@@ -41,6 +41,8 @@ function fileSet(k){ return PROJECTS.filter(function(p){ return p[k]; }).map(fun
 function setData(d){
   PROJECTS=(d.projects||[]).map(function(p){ p.icon=p.icon||p.emoji||"•"; p.checklist=p.checklist||[]; p.backlog=p.backlog||[]; p.stage=Math.min(Math.max(p.stage||1,1),STAGES.length); return p; });
   BY={}; PROJECTS.forEach(function(p){ BY[p.id]=p; });
+  IGNORED=(d.ignored||[]).map(function(x){ return typeof x==="string" ? {folder:x,why:""} : x; });
+  var ig={}; IGNORED.forEach(function(x){ ig[x.folder]=1; }); S.ignore=S.ignore.filter(function(f){ return !ig[f]; });
   UPDATED=d.updated||""; if(d.goals&&d.goals.length) GOALS=d.goals; if(d.lead) LEAD=d.lead;
   LOADED=true; migrate(); reconcile(); save();
 }
@@ -102,11 +104,14 @@ function pending(){
   });
   return out;
 }
-function pendingCount(){ return pending().reduce(function(a,c){ return a+c.n; },0); }
+var IGNORED=[];
+function freshDirs(){ var known={}; PROJECTS.forEach(function(p){ known[p.folder]=1; }); IGNORED.forEach(function(x){ known[x.folder]=1; }); S.ignore.forEach(function(f){ known[f]=1; }); return S.fresh.filter(function(f){ return !known[f]; }); }
+function addPrompt(f){ return "Ship It: add the folder "+f+"/ as a new project. Follow \"Adding a project\" in shipit/README.md."; }
+function pendingCount(){ return pending().reduce(function(a,c){ return a+c.n; },0)+S.ignore.length; }
 function codeLink(text){ return "https://claude.ai/code/new?q="+encodeURIComponent(text.slice(0,9000))+"&repo="+encodeURIComponent(REPO)+"&branch=main"; }
 function syncPrompt(){
   var p=pending().map(function(c){ var o={}; Object.keys(c).forEach(function(k){ if(k!=="n") o[k]=c[k]; }); return o; });
-  return "Ship It sync. Follow shipit/README.md.\n\nApply these changes from my device to shipit/projects.json, then commit to main and push. For each project: \"set\" replaces those fields, \"check\" marks those checklist items done, \"uncheck\" marks them not done. Change nothing else.\n\n"+JSON.stringify(p,null,1);
+  return "Ship It sync. Follow shipit/README.md.\n\nApply these changes from my device to shipit/projects.json, then commit to main and push. For each project: \"set\" replaces those fields, \"check\" marks those checklist items done, \"uncheck\" marks them not done. Change nothing else.\n\n"+JSON.stringify(p,null,1)+(S.ignore.length?"\n\nAlso add these folders to the top-level \"ignored\" list, with why set to \"Joe said to ignore\" and the month: "+JSON.stringify(S.ignore):"");
 }
 function goPrompt(p, t){
   return "Ship It: let's work on "+p.name+" ("+p.folder+"/). It's in "+gate(p).name+". Its entry in shipit/projects.json has the checklist for this gate."+(p.left?"\n\nWhere I left off: "+p.left:"")+(t?"\n\nNext on the list: "+t:"")+"\n\nHelp me do that now. If it needs me to play, decide or record something, walk me through it. If you can build it, build it. Tick it off when it's really done, then tell me what's next.";
@@ -165,6 +170,8 @@ function renderGoal(){
   pb.hidden=!n; if(n) pb.innerHTML= sent
     ? '<span>Sent to Claude Code. This clears itself when the change lands in your repo.</span><a class="btn line" href="'+esc(codeLink(syncPrompt()))+'" target="_blank" rel="noopener" data-act="sync">Send again</a>'
     : '<span>'+n+(n===1?" change":" changes")+' on this device '+(n===1?"isn't":"aren't")+' in your repo yet.</span><a class="btn solid" href="'+esc(codeLink(syncPrompt()))+'" target="_blank" rel="noopener" data-act="sync">'+I.arrow+'Send to repo</a>';
+  var fr=freshDirs(), fb=document.getElementById("fresh");
+  if(fb){ fb.hidden=!fr.length; fb.innerHTML=fr.map(function(f){ return '<div class="freshrow"><span class="label">New in your repo</span><b>'+esc(f)+'/</b><div><a class="btn solid" href="'+esc(codeLink(addPrompt(f)))+'" target="_blank" rel="noopener" data-act="adddir" data-f="'+esc(f)+'">Add it</a><button class="btn line" data-act="ignoredir" data-f="'+esc(f)+'">Ignore</button></div></div>'; }).join(""); }
 }
 // the five projects worked on most recently, one picture each
 function renderRecent(){
@@ -406,7 +413,7 @@ function menuHtml(){
    '<div class="block"><span class="label">Skills</span><p class="hint">Things Claude Code knows how to do in your repo. The ones marked per project are also under More on each project\'s page.</p>'+
      SKILLS.map(function(k){ return '<div class="skill"><b>'+esc(k.name)+'</b>'+(k.per?'<span class="pill">per project</span>':'')+'<p>'+esc(k.what)+'</p><p class="hint">Say: “'+esc(k.say)+'”</p>'+(k.all?'<a class="btn line" href="'+esc(codeLink(skillPrompt(k.key,null)))+'" target="_blank" rel="noopener" data-act="skill" data-k="'+k.key+'">'+esc(k.all)+'</a>':'')+'</div>'; }).join("")+'</div>'+
    '<div class="block"><span class="label">How this saves</span><p>Everything lives in your repo, in shipit/projects.json, so every device shows the same thing. A tick, a star or a new link made here waits on this device until you press Send to repo.</p></div>'+
-   '<div class="block"><span class="label">Not tracked</span><p class="hint">Folders left out because they hold assets, originals or one-off pages: '+esc(NOT_TRACKED)+'.</p></div>'+
+   '<div class="block"><span class="label">Not tracked</span><p class="hint">Folders left out because they hold assets, originals or one-off pages: '+esc(IGNORED.map(function(x){ return x.folder; }).concat(S.ignore).join(", "))+'.</p></div>'+
   '</div>';
 }
 function fit(t){ t.style.height="auto"; t.style.height=t.scrollHeight+"px"; }
@@ -450,6 +457,8 @@ document.addEventListener("click", function(e){
   else if(a==="skill"){ copy(skillPrompt(t.dataset.k, p), "Opening Claude Code. The request is copied too."); }
   else if(a==="sync"){ copy(syncPrompt(), "Opening Claude Code. The changes are copied too."); S.sentAt=Date.now(); S.sentN=pendingCount(); save(); setTimeout(renderGoal,400); }
   else if(a==="github"){ checkGitHub(true); }
+  else if(a==="ignoredir"){ if(S.ignore.indexOf(t.dataset.f)<0) S.ignore.push(t.dataset.f); save(); keepScroll(renderAll); toast(t.dataset.f+" will be ignored. Send to repo to keep that on every device."); }
+  else if(a==="adddir"){ copy(addPrompt(t.dataset.f), "Opening Claude Code. The request is copied too."); }
   else if(a==="skin"){ S.skin=t.dataset.k; save(); applySkin(); keepScroll(renderAll); }
 });
 document.addEventListener("submit", function(e){
@@ -467,13 +476,17 @@ document.addEventListener("input", function(e){
 document.addEventListener("keydown", function(e){ if(e.key==="Escape"&&(UI.open||UI.menu)){ UI.open=null; UI.menu=false; UI.more=false; renderAll(); } });
 window.addEventListener("resize", drawTrail);
 
+function checkFolders(){ S.freshAt=Date.now(); save();
+  fetch("https://api.github.com/repos/"+REPO+"/contents/").then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(j){ S.fresh=j.filter(function(x){ return x.type==="dir" && x.name.charAt(0)!=="."; }).map(function(x){ return x.name; }); save(); if(LOADED) renderGoal(); }).catch(function(){});
+}
 function checkGitHub(manual){
   var msg=function(m){ var el=document.getElementById("ghmsg"); if(el) el.textContent=m; };
   var list=PROJECTS.slice(), i=0, changed=0, failed=false;
   if(manual) msg("Checking…");
+  checkFolders();
   function next(){
     if(failed) return;
-    if(i>=list.length){ S.liveAt=Date.now(); save(); renderAll(); if(manual){ UI.menu=true; renderSheet(); msg(changed?changed+" projects have newer commits than the file says.":"Nothing newer than the file."); } return; }
+    if(i>=list.length){ S.liveAt=Date.now(); save(); renderAll(); if(manual){ UI.menu=true; renderSheet(); msg((changed?changed+" projects have newer commits than the file says.":"Nothing newer than the file.")+(freshDirs().length?" New folders: "+freshDirs().join(", ")+".":" No new folders.")); } return; }
     var p=list[i++];
     fetch("https://api.github.com/repos/"+REPO+"/commits?per_page=1&path="+encodeURIComponent(p.folder)).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(j){
       var d=j&&j[0]&&j[0].commit&&j[0].commit.committer&&j[0].commit.committer.date;
@@ -503,4 +516,5 @@ window.addEventListener("focus", function(){ if(Date.now()-lastFetch>8000) refre
 setInterval(function(){ if(!document.hidden && LOADED && pendingCount() && Date.now()-lastFetch>30000) refresh(); }, 10000);
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(drawTrail);
 applySkin();
+if(!S.freshAt || Date.now()-S.freshAt>6*3600e3) checkFolders();
 })();
