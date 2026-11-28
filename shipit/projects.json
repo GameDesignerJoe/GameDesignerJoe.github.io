@@ -1655,9 +1655,9 @@
    "first": "2026-01-02",
    "last": "2026-01-08",
    "commits": 6,
-   "stage": 5,
+   "stage": 2,
    "tag": "Match color pairs through harder levels",
-   "status": "Playable. A small one.",
+   "status": "A small, clean loop: match colour pairs as the levels grow, in Random or Sequential mode, with saved high scores. A prototype until you decide what game it becomes.",
    "left": "Last worked in early January.",
    "love": "",
    "star": false,
@@ -1669,73 +1669,56 @@
    ],
    "checklist": [
     {
-     "t": "Play five levels",
+     "t": "Find the fun: name the part you'd play again unprompted",
      "done": false
     },
     {
-     "t": "Stat tracking: improvement over time, best and worst color",
+     "t": "Decide: is this the game, or the launch pad for a bigger, better one?",
      "done": false
     },
     {
-     "t": "Design a cute logo",
+     "t": "Write the full idea of the game it becomes in a few lines",
      "done": false
     },
     {
-     "t": "Lays out properly on a phone",
-     "done": true,
-     "k": "phone"
+     "t": "Write the razor: the one line you'd say about why it's cool",
+     "done": false
     },
     {
-     "t": "Clears the notch and the home bar",
+     "t": "Decide: is stat tracking (improvement over time, best and worst colour) in, and does it need accounts?",
+     "done": false
+    },
+    {
+     "t": "Decide: is the stop-the-shifting-colour mode in or out?",
+     "done": false
+    },
+    {
+     "t": "Write down what the prototype taught you: what worked, what didn't",
+     "done": false
+    },
+    {
+     "t": "Link a Google Doc for its notes (today they're in color-match/todo.txt)",
      "done": false,
-     "k": "notch"
+     "k": "notesdoc"
     },
     {
-     "t": "Saves progress",
-     "done": true,
-     "k": "saves"
+     "t": "There's a bit of gameplay you can play: Random and Sequential modes",
+     "done": true
     },
     {
-     "t": "Has sound",
-     "done": false,
-     "k": "sound"
-    },
-    {
-     "t": "Feedback button in the game that opens your Google Form",
-     "done": false,
-     "k": "feedback"
-    },
-    {
-     "t": "Someone else has played it",
-     "done": false
-    },
-    {
-     "t": "Their feedback is written in the notes",
-     "done": false
-    },
-    {
-     "t": "No known blockers",
-     "done": false
-    },
-    {
-     "t": "On the portfolio",
-     "done": false,
-     "k": "tile"
-    },
-    {
-     "t": "Has notes in the repo or a doc",
-     "done": true,
-     "k": "notes"
-    },
-    {
-     "t": "Write the money plan: how this earns, or that it stays free",
-     "done": false
+     "t": "A simple version of the game loop runs start to end: levels grow, a wrong match ends it, the high score saves",
+     "done": true
     }
    ],
    "backlog": [
-    "A mode where you stop a shifting color as close to a fixed one as you can"
+    "A mode where you stop a shifting color as close to a fixed one as you can",
+    "Design a cute logo",
+    "\"Try and make the circle beatles\" from todo.txt: unclear (beetles? bubbles?), ask Joe",
+    "For Alpha: already true: lays out on a phone, saves high scores, on the portfolio",
+    "For Alpha: add sound, clear the notch, a feedback button that opens your Google Form"
    ],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-28"
   },
   {
    "id": "cipher",
