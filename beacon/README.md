@@ -39,12 +39,12 @@ right. Tap the clock or the weather label to change them.
 |---|---|---|
 | Consistent location | Always a mast on a hilltop | Second collectible type with its own rule |
 | Discoverability | Signal + ping + mast light, three ranges | A rabbit hole: chain one find into the next |
-| Fictional justification | Dead transmitters still repeating | Pick the fiction: fallen Earth or alien survey |
-| World building | One recording, played at every mast | A different voice per mast |
-| Character attachment | None yet | What does the drone want? |
+| Fictional justification | Dead transmitters still repeating | Fallen Earth where radio stations continued to broadcast even as humanity disappeared... what happened there anyways? |
+| World building | A new song, played at every mast/station | A different song per mast/station |
+| Character attachment | None yet | What does the drone want? | Is the drone powered by music? Does it just love music... lol, maybe it's a discoball trying to find music that can bounce off of it and have fun lighting and spins.
 | Skillful mechanic | Reading terrain for high ground | Scan could ask something of you |
 | Appropriate reward | The recording | Something the drone gains per find |
-| Responsible quantity | Five | Sets per region |
+| Responsible quantity | 10 | Sets per region |
 
 ## Not done
 
