@@ -163,8 +163,8 @@
         .tabs {
             display: flex;
             justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
+            gap: clamp(6px, 2vw, 10px);
+            flex-wrap: nowrap; /* always one row, even on narrow phones */
             width: 90%;
             max-width: 1000px;
             margin: 20px auto;
@@ -172,15 +172,19 @@
 
         .tab {
             font-family: 'Roboto', sans-serif;
-            font-size: 1.1em;
+            /* Shrinks with the viewport so all three fit on one row. */
+            font-size: clamp(0.7em, 3.4vw, 1.1em);
             font-weight: bold;
-            letter-spacing: 1px;
+            letter-spacing: clamp(0.3px, 0.25vw, 1px);
             text-transform: uppercase;
+            white-space: nowrap;
+            flex: 0 1 auto;
+            min-width: 0;
             color: #f1f1f1;
             background-color: #23272a;
             border: 2px solid rgba(255, 255, 255, 0.35);
             border-radius: 20px;
-            padding: 10px 24px;
+            padding: clamp(8px, 2.2vw, 10px) clamp(10px, 4vw, 24px);
             cursor: pointer;
             transition: background-color 0.2s ease, border-color 0.2s ease;
         }
