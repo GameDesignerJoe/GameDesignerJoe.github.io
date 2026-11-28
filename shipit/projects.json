@@ -1,6 +1,6 @@
 {
  "about": "Source of truth for Ship It! (shipit/index.html). Edited by Joe through Claude Code. See shipit/README.md.",
- "updated": "2026-11-26",
+ "updated": "2026-11-28",
  "goals": [
   "To give myself the freedom to make something only I can make that people want to play."
  ],
@@ -1906,7 +1906,8 @@
     }
    ],
    "backlog": [],
-   "nfp": false
+   "nfp": false,
+   "proto": true
   },
   {
    "id": "alien",
