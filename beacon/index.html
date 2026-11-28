@@ -14,21 +14,23 @@
     text-transform:uppercase;opacity:.92}
   #tl{left:max(18px,env(safe-area-inset-left));top:14px}
   #tl b{font-weight:600;letter-spacing:.32em;font-size:12px}
-  #pips{margin-top:7px;display:flex;gap:7px}
+  #pips{margin-top:7px;display:flex;gap:6px}
   #pips i{width:8px;height:8px;transform:rotate(45deg);border:1px solid #f1ead8;opacity:.55;box-sizing:border-box}
   #pips i.on{background:#ffb454;border-color:#ffb454;opacity:1;box-shadow:0 0 8px #ffb454}
   #tr{right:max(18px,env(safe-area-inset-right));top:14px;text-align:right;display:flex;gap:10px}
   #tr span{pointer-events:auto;padding:5px 9px;border:1px solid rgba(241,234,216,.35);border-radius:2px;
     background:rgba(10,16,20,.25)}
   #compass{left:50%;top:10px;transform:translateX(-50%)}
-  #sig{left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);text-align:center}
-  #sigc{display:block;margin:0 auto 5px}
-  #trend{display:inline-block;min-width:8em;text-align:left}
+  #pingbar{left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);text-align:center;font-size:10px}
+  #pingbar i{display:block;width:130px;height:2px;background:rgba(241,234,216,.22);margin:0 auto 7px}
+  #pingbar b{display:block;height:100%;width:0;background:#ffb454}
+  body.touch #pingbar{display:none}
+  #toast small{display:block;margin-top:9px;font-size:10px;letter-spacing:.22em;opacity:.8}
   #prompt{left:50%;top:62%;transform:translateX(-50%);text-align:center;font-size:12px;opacity:0;transition:opacity .3s}
   #ring{display:block;margin:0 auto 8px}
   #toast{left:50%;top:24%;transform:translateX(-50%);font-size:14px;letter-spacing:.3em;opacity:0;transition:opacity 1.2s;
     text-align:center;white-space:nowrap}
-  #play{left:50%;bottom:76px;transform:translateX(-50%);opacity:0;transition:opacity .6s;pointer-events:none;white-space:nowrap}
+  #play{left:50%;bottom:54px;transform:translateX(-50%);opacity:0;transition:opacity .6s;pointer-events:none;white-space:nowrap}
   #play.on{opacity:.95;pointer-events:auto}
   #play u{text-decoration:none;border:1px solid rgba(241,234,216,.4);padding:2px 7px;margin-left:10px}
   #keys{left:max(18px,env(safe-area-inset-left));bottom:16px;line-height:1.9;opacity:.6;transition:opacity 2s;font-size:10px}
@@ -51,6 +53,13 @@
     animation:pulse 2.4s infinite}
   #veil small{margin-top:26px;opacity:.6;letter-spacing:.12em;line-height:2;font-size:10px;text-transform:uppercase}
   @keyframes pulse{50%{opacity:.45}}
+  #end{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    background:radial-gradient(rgba(190,225,255,.55),rgba(10,16,22,.93) 75%);opacity:0;transition:opacity 2.5s;padding:16px;
+    text-shadow:0 1px 4px rgba(0,0,0,.7);text-transform:uppercase}
+  #end h1{font-weight:400;letter-spacing:.4em;margin:0;font-size:clamp(16px,3.6vw,30px)}
+  #end p{letter-spacing:.2em;font-size:11px;opacity:.85;margin:10px 0 14px}
+  #endlist{display:grid;grid-template-columns:auto auto;gap:5px 34px;font-size:11px;letter-spacing:.1em;text-align:left;text-transform:none}
+  #end .go{margin-top:20px;border:1px solid #f1ead8;padding:10px 22px;letter-spacing:.3em;font-size:11px;animation:pulse 2.4s infinite;cursor:pointer}
   #rot{position:fixed;inset:0;background:#0b1014;display:none;align-items:center;justify-content:center;
     letter-spacing:.3em;font-size:12px;text-transform:uppercase}
   @media (orientation:portrait){body.touch #rot{display:flex}}
@@ -65,19 +74,24 @@
 <div class="hud" id="prompt"><canvas id="ring" width="112" height="112" style="width:56px;height:56px"></canvas><span id="ptxt"></span></div>
 <div class="hud" id="toast"></div>
 <div class="hud" id="play"><span id="ptime"></span><u id="pstop">stop</u></div>
-<div class="hud" id="sig"><canvas id="sigc" width="520" height="72" style="width:260px;height:36px"></canvas>
-  signal <span id="pct">0</span>% &nbsp;<span id="trend"></span></div>
-<div class="hud" id="keys">WASD fly &middot; mouse look &middot; space / C up / down &middot; shift boost<br>
-  Q ping &middot; hold E scan &middot; T time &middot; 1-4 weather &middot; 0 auto</div>
+<div class="hud" id="pingbar"><i><b id="pingfill"></b></i><span id="pinglbl">Q &middot; ping</span></div>
+<div class="hud" id="keys">WASD move &middot; mouse look &middot; shift boost &middot; space hop<br>
+  Q ping &middot; hold E scan &middot; X stop song &middot; T time &middot; 1-4 weather</div>
 
 <div class="stick" id="sl"><i></i></div><div class="stick" id="sr"><i></i></div>
 <div class="btn" id="pingBtn">ping</div><div class="btn" id="scanBtn">scan</div>
 
 <div id="veil">
   <h1>BEACON</h1>
-  <p>Nobody is left down there to listen.<br>They built their transmitters on high ground. Five of them are still repeating.</p>
-  <div class="go" id="go">LAUNCH</div>
+  <p id="blurb">Nobody is left down there to listen. The stations kept playing anyway.<br>They built them on high ground. Ten are still on the air.</p>
+  <div class="go" id="go">SURVEYING&hellip;</div>
   <small id="how"></small>
+</div>
+<div id="end">
+  <h1 id="endh"></h1>
+  <p id="endp"></p>
+  <div id="endlist"></div>
+  <div class="go" id="again">EXPLORE A NEW AREA OF THE PLANET</div>
 </div>
 <div id="rot">turn your phone sideways</div>
 
@@ -90,8 +104,8 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
 const CONFIG = {
   seed: 7,
   // world
-  worldSize: 1600,          // metres across
-  terrainSeg: 320,          // grid cells per side
+  worldSize: 3200,          // metres across
+  terrainSeg: 640,          // grid cells per side
   // sky + weather
   dayLengthSec: 720,        // real seconds for a full 24h
   startHour: 9.5,
@@ -104,26 +118,75 @@ const CONFIG = {
   },
   // foliage
   grassPatch: 84, grassCount: 150000, grassCountMobile: 60000, bladeH: .95, bladeW: .06,
-  flowerCount: 9000, treeCount: 3200, treeCountMobile: 1900, rockCount: 450,
+  flowerCount: 9000, treeCount: 12800, treeCountMobile: 7000, rockCount: 1500,
+  drawDist: 1500,           // forests further than this aren't drawn
   // drone
-  speed: 13, boost: 2.4, accel: 2.6, clearance: 1.3, ceiling: 260,
+  speed: 13, boost: 2.4, accel: 2.6,
+  hover: 2.0, hop: 2.2, dip: .9,   // height it floats at, and the little give on space / C
   camDist: 6.4, camUp: 1.5, fov: 62,
   mouseSens: .0022, stickLook: [2.4, 1.5],
   // the hunt
-  siteCount: 5,
-  signalFalloff: 220,       // metres for signal to drop to ~37%
-  sightRange: 260,          // how far off you can see a mast's light
-  scanRange: 14, scanSec: 2.6, pingCooldown: 5, pingShowSec: 4.5,
-  transmissionSrc: 'transmission.mp3',
+  siteCount: 10,
+  sightRange: 320,          // how far off you can see a station's light
+  scanRange: 14, scanSec: 2.6,
+  // ping upgrades alternate with each song found: recharge, then linger, then recharge...
+  pingCooldown: [20, 16, 13, 10, 8, 6],   // seconds between pings
+  pingShow: [3, 4.5, 6, 8, 10, 12],       // seconds the paint stays on the ground
+  pingRadius: 55,                         // metres of ground painted
+  pingCone: [24, 150],                    // cone width in degrees: right beside a station, and 1.4 km away
 };
 
 const Q = new URLSearchParams(location.search);
 const TOUCH = matchMedia('(pointer:coarse)').matches || Q.has('touch');
+if (Q.has('lite')) Object.assign(CONFIG, { grassCount: 3000, grassCountMobile: 3000, flowerCount: 500, treeCount: 400, treeCountMobile: 400, rockCount: 100 }); // for automated tests
 if (TOUCH) document.body.classList.add('touch');
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+// every song in beacon/songs. Add a file there, add a line here.
+const SONGS = [{"f":"Tantamount - 30 Days Overdue - 01 - Fand’s Lament.mp3","t":"Fand’s Lament","a":"Tantamount"},
+  {"f":"Tantamount - 30 Days Overdue - 02 - Locked In.mp3","t":"Locked In","a":"Tantamount"},
+  {"f":"Tantamount - 30 Days Overdue - 03 - Fitted Sheet.mp3","t":"Fitted Sheet","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 01 - Poetries.mp3","t":"Poetries","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 02 - Machine of Me.mp3","t":"Machine of Me","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 03 - Designosaur.mp3","t":"Designosaur","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 04 - We Get To Choose.mp3","t":"We Get To Choose","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 05 - Whiskey Dictator.mp3","t":"Whiskey Dictator","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 06 - Ghost Upon My Skin.mp3","t":"Ghost Upon My Skin","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 07 - I Like It When We Wreck.mp3","t":"I Like It When We Wreck","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 08 - Black Seed.mp3","t":"Black Seed","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 09 - I'll Lead the Way.mp3","t":"I'll Lead the Way","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 10 - Just Wait.mp3","t":"Just Wait","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 11 - Dear Mr. Coulton.mp3","t":"Dear Mr. Coulton","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 12 - Nobody’s Kid Tonight.mp3","t":"Nobody’s Kid Tonight","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 13 - Being a Nerd in the 80’s.mp3","t":"Being a Nerd in the 80’s","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 14 - When We Wreck.mp3","t":"When We Wreck","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 15 - The Offering.mp3","t":"The Offering","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 16 - Back To Hell For You.mp3","t":"Back To Hell For You","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 17 - The Floor.mp3","t":"The Floor","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 18 - The Money’s Great.mp3","t":"The Money’s Great","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 19 - Crunchyroll & Pho.mp3","t":"Crunchyroll & Pho","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 20 - Burn Your Lifetime Away.mp3","t":"Burn Your Lifetime Away","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 21 - Can’t Get Away.mp3","t":"Can’t Get Away","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 22 - Music Was Mine.mp3","t":"Music Was Mine","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 23 - Chameleon.mp3","t":"Chameleon","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 23 - Did The Sun Run Away.mp3","t":"Did The Sun Run Away","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 24 - I Like The Break Up.mp3","t":"I Like The Break Up","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 25 - Show Me That Dad Bod.mp3","t":"Show Me That Dad Bod","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 26 - No One Showed Up.mp3","t":"No One Showed Up","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 27 - The Version You Want.mp3","t":"The Version You Want","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 28 - Trailer Park Drama.mp3","t":"Trailer Park Drama","a":"Tantamount"},
+  {"f":"Tantamount - 30 Songs In 30 Days - 30 - I've Never Been Here.mp3","t":"I've Never Been Here","a":"Tantamount"}];
+
+/* ---------- save: which area, which stations found, which songs heard ---------- */
+const SAVE_KEY = 'beacon.v2';
+let SAVE = {}; try { SAVE = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}'); } catch (e) {}
+if (Q.has('reset') || !SAVE.seed) SAVE = { seed: CONFIG.seed, area: 1, done: [], songs: null, heard: [] };
+if (Q.has('seed')) SAVE.seed = +Q.get('seed');
+CONFIG.seed = SAVE.seed;
+const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) {} };
 
 /* ---------- seeded random + noise ---------- */
 let _s = CONFIG.seed * 2654435761 >>> 0;
@@ -150,8 +213,7 @@ function heightFn(x, z) {
   const rvn = Math.abs(fbm(x * .0011 + 40, z * .0011 + 90, 3) - .5);
   let h = hills * (.06 + .94 * smooth(0, .11, rvn)) - (1 - smooth(0, .022, rvn)) * 4.5;
   const mm = smooth(.55, .9, r) * smooth(.38, .6, fbm(x * .0016 + 200, z * .0016 + 300, 3));
-  const ridge = 1 - Math.abs(fbm(x * .004 + 70, z * .004 + 20, 5) * 2 - 1);
-  h += mm * (ridge * ridge * 240 + 30);
+  if (mm > 0) { const ridge = 1 - Math.abs(fbm(x * .004 + 70, z * .004 + 20, 5) * 2 - 1); h += mm * (ridge * ridge * 240 + 30); }
   const edge = smooth(.88, 1, Math.max(Math.abs(x), Math.abs(z)) / (W / 2));
   return h * (1 - edge) - edge * 8;
 }
@@ -172,6 +234,13 @@ function sample(arr, x, z, stride = 1, off = 0) {
   return lerp(lerp(arr[a], arr[a + stride], u), lerp(arr[a + N1 * stride], arr[a + N1 * stride + stride], u), v);
 }
 const groundAt = (x, z) => sample(H, x, z);
+// things the drone can't pass through: trunks, big rocks, masts
+const COL = new Map(), CG = 10;
+const addCol = (x, z, r) => { const k = Math.floor(x / CG) + ',' + Math.floor(z / CG); (COL.get(k) || COL.set(k, []).get(k)).push(x, z, r); };
+function collide(p) { const cx = Math.floor(p.x / CG), cz = Math.floor(p.z / CG);
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const L = COL.get((cx + a) + ',' + (cz + b)); if (!L) continue;
+    for (let i = 0; i < L.length; i += 3) { const ox = p.x - L[i], oz = p.z - L[i + 1], rr = L[i + 2] + .5, d = Math.hypot(ox, oz);
+      if (d < rr && d > 1e-4) { p.x = L[i] + ox / d * rr; p.z = L[i + 1] + oz / d * rr; } } } }
 
 /* =====================================================================
    RENDERER + SHARED ATMOSPHERE
@@ -205,12 +274,25 @@ const U = {
   uWindDir: { value: new THREE.Vector2(.8, .6) }, uWindOff: { value: new THREE.Vector2() }, uWindStr: { value: .3 },
   uDronePos: { value: V3() }, uDroneLight: { value: V3() },
   uNoise: { value: noiseTex }, uHmap: { value: hmapTex }, uW: { value: W }, uSeg: { value: SEG },
+  uPing: { value: new THREE.Vector4(0, 0, 0, 0) }, uPingCone: { value: V3(0, 1, 2) },   // origin x,z / radius / alpha  +  direction x,z / cos(half width)
 };
 const ATMOS = /* glsl */`
   uniform vec3 uSunDir,uSunCol,uAmbSky,uAmbGnd,uFogCol,uFogSun,uZenith,uDronePos,uDroneLight;
   uniform float uFogDen,uFogH,uTime,uShadow,uWet,uWindStr,uW,uSeg;
   uniform vec2 uWindDir,uWindOff;
   uniform sampler2D uNoise,uHmap;
+  uniform vec4 uPing; uniform vec3 uPingCone;
+  vec3 pingPaint(vec3 c,vec2 xz){
+    if(uPing.w<=0.) return c;
+    vec2 d=xz-uPing.xy; float r=length(d), R=uPing.z;
+    if(r>R) return c;
+    float inCone=smoothstep(uPingCone.z-.03,uPingCone.z+.012,dot(d/max(r,.001),uPingCone.xy));
+    float bands=smoothstep(.72,1.,abs(fract(r/7.)*2.-1.));
+    float front=smoothstep(R-2.5,R,r);
+    float a=inCone*(.4+.5*bands)*(1.-smoothstep(R*.55,R,r)*.75)+front*(.25+.5*inCone)+(1.-inCone)*bands*.06;
+    a*=smoothstep(1.2,3.,r)*uPing.w;
+    return mix(c,vec3(1.,.70,.28)*1.25,clamp(a,0.,.9));
+  }
   float cloudShade(vec2 xz){ float c=texture2D(uNoise,(xz-uWindOff*4.)*.0009).r; return mix(1.,smoothstep(.36,.6,c),uShadow); }
   vec3 lit(vec3 alb,vec3 N,vec3 wp,float wrap){
     float ndl=clamp((dot(N,uSunDir)+wrap)/(1.+wrap),0.,1.);
@@ -262,13 +344,7 @@ sky.renderOrder = -10; sky.frustumCulled = false; scene.add(sky);
 
 /* ---------- terrain mesh ---------- */
 {
-  const pos = new Float32Array(N1 * N1 * 3), idx = new Uint32Array(SEG * SEG * 6);
-  for (let j = 0, k = 0; j < N1; j++) for (let i = 0; i < N1; i++, k++) { pos[k * 3] = -W / 2 + i * CELL; pos[k * 3 + 1] = H[k]; pos[k * 3 + 2] = -W / 2 + j * CELL; }
-  for (let j = 0, q = 0; j < SEG; j++) for (let i = 0; i < SEG; i++) { const a = j * N1 + i, b = a + 1, c = a + N1, d = c + 1;
-    idx[q++] = a; idx[q++] = c; idx[q++] = b; idx[q++] = b; idx[q++] = c; idx[q++] = d; }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('normal', new THREE.BufferAttribute(NRM, 3)); g.setIndex(new THREE.BufferAttribute(idx, 1));
-  const m = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms: U,
+  const tmat = new THREE.ShaderMaterial({ uniforms: U,
     vertexShader: ATMOS + `varying vec3 vWp,vN; void main(){ vWp=position; vN=normal; gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
     fragmentShader: ATMOS + /* glsl */`
       varying vec3 vWp,vN;
@@ -287,9 +363,21 @@ sky.renderOrder = -10; sky.frustumCulled = false; scene.add(sky);
         alb=mix(alb,vec3(.62,.55,.37)*(.8+.3*n3),1.-smoothstep(.2,1.7,vWp.y+n1*.8));
         alb=mix(alb,vec3(.9,.93,.97),smoothstep(150.,185.,vWp.y+n1*35.)*(1.-rk*.6));
         alb*=mix(1.,.7,uWet)*mix(.4,1.,smoothstep(-3.5,.2,vWp.y));
-        gl_FragColor=vec4(fog(lit(alb,N,vWp,mix(.2,.55,g*(1.-rk))),vWp),1.);
-      }` }));
-  m.frustumCulled = false; scene.add(m);
+        gl_FragColor=vec4(fog(pingPaint(lit(alb,N,vWp,mix(.2,.55,g*(1.-rk))),vWp.xz),vWp),1.);
+      }` });
+  // cut into chunks so the parts behind you aren't drawn
+  const CH = 8, CS = SEG / CH, n = CS + 1;
+  for (let cj = 0; cj < CH; cj++) for (let ci = 0; ci < CH; ci++) {
+    const pos = new Float32Array(n * n * 3), nrm = new Float32Array(n * n * 3), idx = new Uint16Array(CS * CS * 6);
+    for (let j = 0, k = 0; j < n; j++) for (let i = 0; i < n; i++, k++) { const gi = ci * CS + i, gj = cj * CS + j, q = gj * N1 + gi;
+      pos[k * 3] = -W / 2 + gi * CELL; pos[k * 3 + 1] = H[q]; pos[k * 3 + 2] = -W / 2 + gj * CELL;
+      nrm[k * 3] = NRM[q * 3]; nrm[k * 3 + 1] = NRM[q * 3 + 1]; nrm[k * 3 + 2] = NRM[q * 3 + 2]; }
+    for (let j = 0, q = 0; j < CS; j++) for (let i = 0; i < CS; i++) { const a = j * n + i, b = a + 1, c = a + n, d = c + 1;
+      idx[q++] = a; idx[q++] = c; idx[q++] = b; idx[q++] = b; idx[q++] = c; idx[q++] = d; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3)); g.setIndex(new THREE.BufferAttribute(idx, 1));
+    g.computeBoundingSphere(); scene.add(new THREE.Mesh(g, tmat));
+  }
 }
 
 /* ---------- water ---------- */
@@ -396,7 +484,8 @@ const coniferGeo = (() => { const b = new GB();
 const rockGeo = (() => new GB().add(jitter(new THREE.IcosahedronGeometry(1, 1), .45), M4(0, 0, 0, 1, .7, 1),
   v => { const t = v.y * .5 + .5; return [lerp(.26, .5, t), lerp(.26, .48, t), lerp(.27, .45, t)]; }).build())();
 
-function scatter(geo, list, grid = 4) { // split into grid cells so off-screen forests get culled
+const cullList = [];
+function scatter(geo, list, grid = 8) { // split into grid cells so off-screen forests get culled
   const buckets = new Map();
   for (const it of list) { const k = (clamp(((it.x + W / 2) / W * grid) | 0, 0, grid - 1)) + grid * clamp(((it.z + W / 2) / W * grid) | 0, 0, grid - 1);
     (buckets.get(k) || buckets.set(k, []).get(k)).push(it); }
@@ -404,7 +493,7 @@ function scatter(geo, list, grid = 4) { // split into grid cells so off-screen f
   for (const arr of buckets.values()) { const im = new THREE.InstancedMesh(geo, mat, arr.length);
     arr.forEach((it, i) => { e.set(it.rx || 0, it.ry, it.rz || 0); im.setMatrixAt(i, m4.compose(V3(it.x, it.y, it.z), q.setFromEuler(e), V3(it.sx, it.sy, it.sx)));
       im.setColorAt(i, col.setRGB(...it.c)); });
-    im.computeBoundingSphere(); im.boundingSphere.radius += 6; scene.add(im); }
+    im.computeBoundingSphere(); im.boundingSphere.radius += 6; scene.add(im); cullList.push(im); }
 }
 {
   const leaf = [], pine = [], rocks = [], nT = TOUCH ? CONFIG.treeCountMobile : CONFIG.treeCount;
@@ -422,7 +511,9 @@ function scatter(geo, list, grid = 4) { // split into grid cells so off-screen f
   for (let i = 0; i < CONFIG.rockCount; i++) { const x = (rnd() - .5) * W * .9, z = (rnd() - .5) * W * .9, y = groundAt(x, z);
     if (y < .5) continue; const s = .4 + rnd() * rnd() * 4.5, v = .8 + rnd() * .4;
     rocks.push({ x, y: y - s * .15, z, rx: rnd() * 3, ry: rnd() * 6.28, rz: rnd() * 3, sx: s, sy: s * (.6 + rnd() * .5), c: [v, v, v] }); }
-  scatter(broadleafGeo, leaf); scatter(coniferGeo, pine); scatter(rockGeo, rocks, 2);
+  scatter(broadleafGeo, leaf); scatter(coniferGeo, pine); scatter(rockGeo, rocks, 6);
+  for (const t of leaf.concat(pine)) addCol(t.x, t.z, .45 * t.sx);
+  for (const r of rocks) if (r.sx > 1.3) addCol(r.x, r.z, r.sx * .75);
 }
 
 /* ---------- grass + flowers: one patch that follows the camera ---------- */
@@ -470,6 +561,7 @@ function grassLayer(count, flower) {
         vec3 V=normalize(wp-cameraPosition);
         c+=alb*uSunCol*pow(max(dot(V,uSunDir),0.),3.)*y*.9*cloudShade(xz);       // light through the blades
         c+=uSunCol*vec3(1.,.95,.7)*smoothstep(.6,1.,g)*y*y*.07*uWindStr;          // sheen on the gust front
+        c=pingPaint(c,xz);
         #ifdef FLOWER
         if(position.z>.5){ float k=fract(aRnd.z*7.+floor(fpatch*30.)*.37);
           vec3 fc=k<.4?vec3(1.,.42,.08):k<.65?vec3(.92,.12,.08):k<.82?vec3(1.,.83,.2):k<.93?vec3(.95,.93,.88):vec3(.55,.35,.9);
@@ -533,9 +625,9 @@ const spriteTex = (() => { const c = document.createElement('canvas'); c.width =
   g.addColorStop(.5, 'rgba(255,255,255,.12)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
 const mkSprite = (col, s) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: spriteTex, color: col, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); sp.scale.setScalar(s); return sp; };
 const eyeGlow = mkSprite(0x4aa8ff, 1.6); eyeGlow.position.set(0, 0, -.5); drone.add(eyeGlow);
-const pingRing = new THREE.Mesh(new THREE.RingGeometry(.985, 1, 96).rotateX(-Math.PI / 2),
-  new THREE.MeshBasicMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-pingRing.frustumCulled = false; scene.add(pingRing);
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 1200, 28, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0xbfe4ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+beam.visible = false; beam.frustumCulled = false; scene.add(beam);
 
 /* =====================================================================
    THE HUNT — transmitters always stand on high ground
@@ -545,13 +637,13 @@ const sites = [];
   const cand = [], R = 9;
   for (let j = R; j < N1 - R; j++) for (let i = R; i < N1 - R; i++) {
     const h = H[j * N1 + i], x = -W / 2 + i * CELL, z = -W / 2 + j * CELL;
-    if (h < 26 || h > 125 || Math.hypot(x, z) > W * .43 || Math.hypot(x, z) < 280) continue;
+    if (h < 26 || h > 125 || Math.hypot(x, z) > W * .43 || Math.hypot(x, z) < 320) continue;
     let top = true, lo = 1e9;
     for (let b = -R; b <= R && top; b += 2) for (let a = -R; a <= R; a += 2) { const v = H[(j + b) * N1 + i + a]; if (v > h + .01) { top = false; break; } lo = Math.min(lo, v); }
     if (top) cand.push({ x, z, y: h, prom: h - lo });
   }
   cand.sort((a, b) => b.prom - a.prom);
-  for (let sep = 420; sites.length < CONFIG.siteCount && sep > 80; sep -= 60)
+  for (let sep = W * .24; sites.length < CONFIG.siteCount && sep > 80; sep -= 60)
     for (const c of cand) { if (sites.length >= CONFIG.siteCount) break; if (sites.every(s => Math.hypot(s.x - c.x, s.z - c.z) > sep)) sites.push(c); }
   const rust = [.36, .22, .14], steel = [.42, .44, .45];
   const mastGeo = new GB()
@@ -565,12 +657,17 @@ const sites = [];
   const mat = propMat({ vcol: true, side: THREE.DoubleSide });
   sites.forEach((s, i) => { s.i = i; s.done = false;
     const m = new THREE.Mesh(mastGeo, mat); m.scale.setScalar(1.25); m.position.set(s.x, s.y - .4, s.z); m.rotation.set((rnd() - .5) * .16, rnd() * 6.28, (rnd() - .5) * .16); scene.add(m);
-    s.light = mkSprite(0xff3b2a, 5); s.light.position.set(s.x, s.y + 21, s.z); scene.add(s.light); });
+    addCol(s.x, s.z, .7); s.light = mkSprite(0xff3b2a, 5); s.light.position.set(s.x, s.y + 21, s.z); scene.add(s.light); });
 }
-let saved = []; try { saved = JSON.parse(localStorage.getItem('beacon.v1') || '[]'); } catch (e) {}
-if (Q.has('reset')) saved = [];
-sites.forEach(s => { if (saved.includes(s.i)) s.done = true; });
-const save = () => { try { localStorage.setItem('beacon.v1', JSON.stringify(sites.filter(s => s.done).map(s => s.i))); } catch (e) {} };
+// deal this area's songs: random, and never one already heard until the whole collection has been
+if (!SAVE.songs || SAVE.songs.length !== sites.length) {
+  let pool = SONGS.map((_, i) => i).filter(i => !SAVE.heard.includes(i));
+  if (pool.length < sites.length) { SAVE.heard = []; pool = SONGS.map((_, i) => i); }
+  for (let i = pool.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  SAVE.songs = pool.slice(0, sites.length); SAVE.done = []; persist();
+}
+SAVE.done = SAVE.done.filter(i => i < sites.length);
+sites.forEach(s => { s.song = SONGS[SAVE.songs[s.i]]; s.done = SAVE.done.includes(s.i); });
 $('pips').innerHTML = sites.map(() => '<i></i>').join('');
 const drawPips = () => [...$('pips').children].forEach((el, i) => el.classList.toggle('on', sites[i].done));
 drawPips();
@@ -580,12 +677,12 @@ drawPips();
    ===================================================================== */
 const S = { pos: V3(), vel: V3(), yaw: 0, pitch: -.05, hour: +Q.get('t') || CONFIG.startHour, hourTo: null,
   wx: { ...(CONFIG.weather[Q.get('w')] || CONFIG.weather.clear) }, wxName: Q.get('w') || 'clear', wxAuto: !Q.has('w'), wxTimer: 60,
-  time: 0, started: false, scan: 0, pingT: -99, pingN: 0, pingBearing: 0, pingWidth: 0, sig: 0, sigOld: 0, trendT: 0, trend: 0, playing: null };
+  time: 0, started: false, scan: 0, pingT: -99, pingN: 0, pingLife: 3, playing: null, hop: 0, beam: null, spin: 0, level: 0, near: 0, chirpT: 5, chirpUntil: 0, allT: null };
 { // start on open ground near the middle
   let best = null; for (let i = 0; i < 400; i++) { const a = rnd() * 6.28, r = rnd() * 150, x = Math.cos(a) * r, z = Math.sin(a) * r;
     const sc = sample(MASK, x, z) + groundAt(x, z) * .01; if (!best || sc > best.sc) best = { x, z, sc }; }
   S.pos.set(best.x, groundAt(best.x, best.z) + 3, best.z);
-  if (Q.has('at')) { const s = sites[+Q.get('at')] || sites[0], d = +Q.get('d') || 40; S.pos.set(s.x + d, s.y + 6, s.z + d * .4); S.yaw = Math.atan2(d, d * .4); }
+  if (Q.has('at')) { const s = sites[+Q.get('at')] || sites[0], d = +Q.get('d') || 40; S.pos.set(s.x + d, groundAt(s.x + d, s.z + d * .4) + 2, s.z + d * .4); S.yaw = Math.atan2(d, d * .4); }
   if (Q.has('yaw')) S.yaw = +Q.get('yaw'); if (Q.has('pitch')) S.pitch = +Q.get('pitch'); if (Q.has('alt')) S.pos.y += +Q.get('alt');
 }
 const keys = {}, inp = { mx: 0, mz: 0, lx: 0, ly: 0, scan: false };
@@ -619,29 +716,40 @@ hold($('pstop'), () => stopPlay());
 /* =====================================================================
    AUDIO — wind, rain, the drone, the signal, the recording
    ===================================================================== */
-const A = { ctx: null };
+const A = { ctx: null, song: null };
 function initAudio() {
   const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
   const ctx = A.ctx = new C(), out = A.out = ctx.createGain(); out.gain.value = .9; out.connect(ctx.destination);
   const buf = ctx.createBuffer(1, ctx.sampleRate * 3, ctx.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   const noise = (type, f, q) => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
-    const g = ctx.createGain(); g.gain.value = 0; s.connect(fl).connect(g).connect(out); s.start(Math.random()); return { f: fl, g }; };
+    const g = ctx.createGain(); g.gain.value = 0; s.connect(fl).connect(g).connect(out); s.start(0, Math.random()); return { f: fl, g }; };
   A.wind = noise('bandpass', 420, .5); A.wind2 = noise('bandpass', 1400, 1.2); A.rain = noise('highpass', 2600, .3); A.hiss = noise('bandpass', 3200, .8);
   A.hum = ctx.createGain(); A.hum.gain.value = 0; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; A.hum.connect(lp).connect(out);
   A.osc = [88, 132.5, 177].map((f, i) => { const o = ctx.createOscillator(); o.type = i ? 'triangle' : 'sawtooth'; o.frequency.value = f; const g = ctx.createGain(); g.gain.value = i ? .5 : .25; o.connect(g).connect(A.hum); o.start(); return o; });
-  // the recording runs silently from launch so phones let us fade it in later
-  const el = A.el = new Audio(CONFIG.transmissionSrc); el.loop = true; el.preload = 'auto';
+  // one player for the songs. It starts (silently) on the launch tap so phones let us fade songs in later.
+  const el = A.el = new Audio(); el.preload = 'auto'; el.loop = true;
   try { const src = ctx.createMediaElementSource(el); A.dry = ctx.createGain(); A.dry.gain.value = 0; A.radio = ctx.createGain(); A.radio.gain.value = 0;
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1700; bp.Q.value = 3.5;
-    src.connect(A.dry).connect(out); src.connect(bp).connect(A.radio).connect(out); } catch (e) { el.volume = 0; }
-  el.play().catch(() => {});
+    src.connect(A.dry).connect(out); src.connect(bp).connect(A.radio).connect(out);
+    A.an = ctx.createAnalyser(); A.an.fftSize = 256; A.buf = new Uint8Array(256); src.connect(A.an); } catch (e) { el.volume = 0; }
   el.addEventListener('ended', () => stopPlay());
+  const t = target(); if (t) setSong(t.s.song);
 }
 function beep(f, vol, len = .07) { if (!A.ctx) return; const t = A.ctx.currentTime, o = A.ctx.createOscillator(), g = A.ctx.createGain(); o.type = 'sine'; o.frequency.value = f;
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .008); g.gain.exponentialRampToValueAtTime(.0001, t + len); o.connect(g).connect(A.out); o.start(t); o.stop(t + len + .02); }
+// the drone talks to itself: a short run of whistles, blips and slides
+function chirp(n = 3 + ((Math.random() * 5) | 0), mood = 1) { if (!A.ctx) return; const c = A.ctx; let t = c.currentTime + .01; const vol = S.playing ? .02 : .05;
+  for (let i = 0; i < n; i++) { const d = .045 + Math.random() * .11, f0 = (500 + Math.random() * 2100) * mood, f1 = Math.random() < .45 ? f0 : f0 * (.45 + Math.random() * 1.5);
+    const o = c.createOscillator(), g = c.createGain(); o.type = Math.random() < .65 ? 'sine' : 'square'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(120, f1), t + d);
+    const v = vol * (o.type === 'square' ? .35 : 1); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .006); g.gain.setValueAtTime(v, t + d - .012); g.gain.linearRampToValueAtTime(0, t + d);
+    o.connect(g).connect(A.out); o.start(t); o.stop(t + d + .02); t += d + (Math.random() < .25 ? .07 : .012); }
+  S.chirpUntil = S.time + (t - c.currentTime); }
 const ramp = (p, v, tc = .4) => p && A.ctx && p.setTargetAtTime(v, A.ctx.currentTime, tc);
-function startPlay(site) { S.playing = site; if (!A.el) return; A.el.loop = false; try { A.el.currentTime = 0; } catch (e) {} A.el.play().catch(() => {}); if (A.dry) { ramp(A.dry.gain, 1, .8); ramp(A.radio.gain, 0, .3); } else A.el.volume = 1; }
-function stopPlay() { if (!S.playing) return; S.playing = null; if (!A.el) return; A.el.loop = true; if (A.dry) ramp(A.dry.gain, 0, .4); else A.el.volume = 0; A.el.play().catch(() => {}); }
+const songUrl = song => 'songs/' + encodeURIComponent(song.f);
+function setSong(song) { if (!A.el || A.song === song) return; A.song = song; A.el.src = songUrl(song); A.el.loop = true; A.el.play().catch(() => {}); }
+function startPlay(site) { S.playing = site; if (!A.el) return; if (A.song !== site.song) { A.song = site.song; A.el.src = songUrl(site.song); }
+  A.el.loop = false; try { A.el.currentTime = 0; } catch (e) {} A.el.play().catch(() => {}); if (A.dry) { ramp(A.dry.gain, 1, .8); ramp(A.radio.gain, 0, .3); } else A.el.volume = 1; }
+function stopPlay() { if (!S.playing) return; S.playing = null; if (!A.el) return; A.el.loop = true; if (A.dry) ramp(A.dry.gain, 0, .4); else A.el.volume = 0; }
 
 /* =====================================================================
    SKY + WEATHER SIM
@@ -700,32 +808,39 @@ function updateSky(dt) {
 /* =====================================================================
    HUNT LOGIC + HUD
    ===================================================================== */
-const target = () => { let b = null, bd = 1e9; for (const s of sites) if (!s.done) { const d = Math.hypot(s.x - S.pos.x, s.y + 6 - S.pos.y, s.z - S.pos.z); if (d < bd) { bd = d; b = s; } } return b && { s: b, d: bd }; };
+const target = () => { let b = null, bd = 1e9; for (const s of sites) if (!s.done) { const d = Math.hypot(s.x - S.pos.x, s.z - S.pos.z); if (d < bd) { bd = d; b = s; } } return b && { s: b, d: bd }; };
 const bearingTo = s => Math.atan2(s.x - S.pos.x, -(s.z - S.pos.z)) * 180 / Math.PI;
 const wrap180 = a => ((a + 540) % 360) - 180;
-function ping() { if (!S.started || S.time - S.pingT < CONFIG.pingCooldown) return; const t = target(); S.pingT = S.time; S.pingN++;
-  pingRing.position.copy(S.pos); beep(980, .12, .5); setTimeout(() => beep(1470, .05, .7), 90);
-  if (!t) return; const sig = Math.exp(-t.d / CONFIG.signalFalloff);
-  S.pingWidth = lerp(150, 22, Math.pow(sig, .7)); S.pingBearing = bearingTo(t.s) + (h2(S.pingN * 31, t.s.i * 7 + 3) - .5) * S.pingWidth * .55; }
-const toast = (msg, ms = 4500) => { const el = $('toast'); el.textContent = msg; el.style.opacity = 1; clearTimeout(toast.t); toast.t = setTimeout(() => el.style.opacity = 0, ms); };
-let tick = 0;
+// every song found upgrades the ping, alternating: 1st recharge, 2nd linger, 3rd recharge...
+const pick = (arr, i) => arr[Math.min(arr.length - 1, i)];
+const pingCd = () => pick(CONFIG.pingCooldown, Math.ceil(SAVE.done.length / 2));
+const pingShow = () => pick(CONFIG.pingShow, Math.floor(SAVE.done.length / 2));
+function ping() { if (!S.started || S.beam != null || S.time - S.pingT < pingCd()) return; const t = target(); S.pingT = S.time; S.pingN++; S.pingLife = pingShow();
+  beep(980, .1, .5); setTimeout(() => chirp(3, 1.2), 260);
+  U.uPing.value.set(S.pos.x, S.pos.z, 0, 1);
+  if (!t) { U.uPingCone.value.set(0, 1, 2); return; }
+  // the cone always contains the station, but not dead centre, and it narrows as you close in
+  const w = lerp(CONFIG.pingCone[0], CONFIG.pingCone[1], smooth(60, 1400, t.d));
+  const b = (bearingTo(t.s) + (h2(S.pingN * 31 + SAVE.seed, t.s.i * 7 + 3) - .5) * w * .55) * Math.PI / 180;
+  U.uPingCone.value.set(Math.sin(b), -Math.cos(b), Math.cos(w / 2 * Math.PI / 180)); }
+function toast(msg, sub = '', ms = 6000) { const el = $('toast'); el.textContent = msg; if (sub) { const sm = document.createElement('small'); sm.textContent = sub; el.appendChild(sm); }
+  el.style.opacity = 1; clearTimeout(toast.t); toast.t = setTimeout(() => el.style.opacity = 0, ms); }
 function updateHunt(dt, env) {
-  const t = target(), sig = t ? Math.exp(-t.d / CONFIG.signalFalloff) : 0;
-  S.sig = lerp(S.sig, sig, 1 - Math.exp(-dt * 6));
-  if ((S.trendT += dt) > .6) { const d = S.sig - S.sigOld; S.trend = d > .0025 ? 1 : d < -.0025 ? -1 : 0; S.sigOld = S.sig; S.trendT = 0; }
-  $('pct').textContent = Math.round(S.sig * 100);
-  const tr = $('trend'); tr.textContent = !t ? 'silence' : S.trend > 0 ? '▲ warmer' : S.trend < 0 ? '▼ colder' : '· holding'; tr.style.color = S.trend > 0 ? '#ffb454' : S.trend < 0 ? '#8fc4ff' : '';
-  // ticks speed up and rise in pitch as you close in
-  if (t && S.started && (tick -= dt) <= 0) { tick = lerp(2.3, .13, Math.pow(S.sig, 1.3)); beep(480 + S.sig * 760, (S.playing ? .025 : .07) * (.5 + S.sig * .5)); }
-  // the recording bleeds through as radio when you're close
-  const near = t ? smooth(170, 25, t.d) : 0;
-  if (A.radio && !S.playing) { ramp(A.radio.gain, near * near * .5, .3); }
-  if (A.hiss) ramp(A.hiss.g.gain, S.playing ? 0 : near * (1 - near * .7) * .05 + S.sig * .004, .3);
+  const t = target(), live = S.started && S.beam == null;
+  // a station's song bleeds through as thin radio once you're close: the only "warmer" you get without pinging
+  const near = S.near = t ? smooth(170, 25, t.d) : 0;
+  if (t && live && !S.playing && t.d < 420) setSong(t.s.song);
+  if (A.radio && !S.playing) ramp(A.radio.gain, near * near * .5, .3);
+  if (A.hiss) ramp(A.hiss.g.gain, S.playing ? 0 : near * (1 - near * .7) * .05, .3);
+  if (near > .4 && !S.wasNear && live) chirp(6, 1.35); S.wasNear = near > .4;
   // scanning
-  const inRange = t && t.d < CONFIG.scanRange, wants = keys.KeyE || inp.scan;
+  const inRange = live && t && t.d < CONFIG.scanRange, wants = keys.KeyE || inp.scan;
   if (inRange && wants) { S.scan += dt / CONFIG.scanSec; if (Math.random() < dt * 14) beep(1200 + S.scan * 900, .03, .04); } else S.scan = Math.max(0, S.scan - dt * 1.5);
-  if (S.scan >= 1 && t) { S.scan = 0; t.s.done = true; save(); drawPips(); const n = sites.filter(s => s.done).length;
-    toast(n === sites.length ? 'all transmissions recovered' : `transmission ${n} of ${sites.length} recovered`, 6000); beep(660, .1, .6); setTimeout(() => beep(990, .1, .9), 160); startPlay(t.s); }
+  if (S.scan >= 1 && t) { S.scan = 0; t.s.done = true; SAVE.done.push(t.s.i); if (!SAVE.heard.includes(SAVE.songs[t.s.i])) SAVE.heard.push(SAVE.songs[t.s.i]); persist(); drawPips();
+    const n = SAVE.done.length, all = n === sites.length;
+    toast('♪ ' + t.s.song.t, all ? `song ${n} of ${n} · that's all of them` : `song ${n} of ${sites.length} · ping ${n % 2 ? 'recharges faster' : 'lingers longer'}`, 7000);
+    S.spin = 1; chirp(7, 1.5); startPlay(t.s); if (all) S.allT = S.time; }
+  if (live && SAVE.done.length >= sites.length && S.time - (S.allT ?? -99) > 7 && S.time > 2) startBeam();
   $('prompt').style.opacity = inRange ? 1 : 0; $('scanBtn').style.opacity = inRange ? 1 : 0;
   if (inRange) { $('ptxt').textContent = TOUCH ? 'hold scan' : 'hold E to scan'; const c = $('ring').getContext('2d'); c.clearRect(0, 0, 112, 112); c.lineWidth = 3;
     c.strokeStyle = 'rgba(241,234,216,.3)'; c.beginPath(); c.arc(56, 56, 48, 0, 6.3); c.stroke(); c.strokeStyle = '#ffb454'; c.beginPath(); c.arc(56, 56, 48, -1.57, -1.57 + S.scan * 6.283); c.stroke(); }
@@ -734,54 +849,73 @@ function updateHunt(dt, env) {
     if (s.done) { s.light.material.color.setHex(0x8fd0ff); s.light.material.opacity = .7 * vis; s.light.scale.setScalar(4); }
     else { const b = Math.pow(Math.max(0, Math.sin(S.time * 2.2 + s.i)), 6); s.light.material.opacity = (.25 + b) * vis; s.light.scale.setScalar(4 + b * 5); } }
   // now playing
-  $('play').classList.toggle('on', !!S.playing);
-  if (S.playing && A.el) { const f = s => `${(s / 60) | 0}:${String((s % 60) | 0).padStart(2, '0')}`; $('ptime').textContent = `▶ transmission 0${S.playing.i + 1}  ${f(A.el.currentTime)} / ${f(A.el.duration || 0)}`; }
-  // ping ring
-  const pa = S.time - S.pingT; pingRing.material.opacity = pa < 2.2 ? (1 - pa / 2.2) * .55 : 0; pingRing.scale.setScalar(1 + pa * 85);
-  drawCompass(t, pa); drawMeter();
+  $('play').classList.toggle('on', !!S.playing && S.beam == null);
+  if (S.playing && A.el) { const f = v => `${(v / 60) | 0}:${String((v % 60) | 0).padStart(2, '0')}`; $('ptime').textContent = `♪ ${S.playing.song.t} · ${S.playing.song.a}  ${f(A.el.currentTime)} / ${f(A.el.duration || 0)}`; }
+  // ping: paint sweeps out across the ground, holds, then fades. The bar shows the recharge.
+  const pa = S.time - S.pingT, cd = pingCd(), ready = clamp(pa / cd, 0, 1);
+  U.uPing.value.z = CONFIG.pingRadius * smooth(0, .9, pa); U.uPing.value.w = pa < S.pingLife ? Math.min(1, (S.pingLife - pa) / .8) : 0;
+  $('pingfill').style.width = ready * 100 + '%'; $('pinglbl').style.opacity = ready >= 1 ? 1 : .45;
+  if (TOUCH) { const b = $('pingBtn'); b.style.opacity = ready >= 1 ? 1 : .55; b.style.background = ready >= 1 ? 'rgba(255,180,84,.22)' : `conic-gradient(rgba(255,180,84,.35) ${ready * 360}deg, rgba(10,16,20,.3) 0)`; }
+  drawCompass();
 }
 const cc = $('compass').getContext('2d');
-function drawCompass(t, pa) {
+function drawCompass() {
   const w = 840, h = 68, span = 110, head = wrap180(-S.yaw * 180 / Math.PI); cc.clearRect(0, 0, w, h);
   const X = b => w / 2 + wrap180(b - head) / span * w;
-  if (t && pa < CONFIG.pingShowSec) { const a = Math.min(1, (CONFIG.pingShowSec - pa) * 1.5) * Math.min(1, pa * 4), c = X(S.pingBearing), hw = S.pingWidth / 2 / span * w;
-    const g = cc.createLinearGradient(c - hw, 0, c + hw, 0); g.addColorStop(0, 'rgba(255,180,84,0)'); g.addColorStop(.5, `rgba(255,180,84,${.6 * a})`); g.addColorStop(1, 'rgba(255,180,84,0)');
-    cc.fillStyle = g; cc.fillRect(c - hw, 6, hw * 2, 34);
-    if (c < 10 || c > w - 10) { cc.fillStyle = `rgba(255,180,84,${a})`; cc.font = '34px ui-monospace,monospace'; cc.textAlign = 'center'; cc.fillText(c < 10 ? '‹' : '›', c < 10 ? 16 : w - 16, 36); } }
   cc.textAlign = 'center'; cc.shadowColor = 'rgba(0,0,0,.6)'; cc.shadowBlur = 4;
   for (let b = 0; b < 360; b += 15) { const x = X(b); if (x < 30 || x > w - 30) continue; const ed = Math.min(1, Math.min(x, w - x) / 160), card = b % 90 === 0;
     cc.fillStyle = `rgba(241,234,216,${(card ? .95 : .5) * ed})`; cc.fillRect(x - 1, card ? 8 : 16, 2, card ? 22 : 10);
     if (card) { cc.font = '22px ui-monospace,monospace'; cc.fillText('NESW'[b / 90], x, 58); } }
   cc.shadowBlur = 0; cc.fillStyle = '#f1ead8'; cc.beginPath(); cc.moveTo(w / 2 - 7, 0); cc.lineTo(w / 2 + 7, 0); cc.lineTo(w / 2, 9); cc.fill();
 }
-const mc = $('sigc').getContext('2d');
-function drawMeter() { const w = 520, h = 72, n = 40, s = S.sig; mc.clearRect(0, 0, w, h);
-  const r = lerp(130, 255, s) | 0, g = lerp(185, 176, s) | 0, b = lerp(235, 84, s) | 0;
-  for (let i = 0; i < n; i++) { const env = Math.sin((i + .5) / n * Math.PI), a = Math.abs(Math.sin(S.time * (3 + s * 9) + i * 1.9) * Math.sin(S.time * 1.7 + i * .53));
-    const hh = 3 + (h - 6) * env * (s * (.35 + .65 * a) + .04 * a); mc.fillStyle = `rgba(${r},${g},${b},${.45 + .55 * s})`; mc.fillRect(i * (w / n) + 3, (h - hh) / 2, w / n - 6, hh); } }
+// all found: a column of light, the drone goes up it, then the congratulations
+function startBeam() { if (S.beam != null) return; S.beam = 0; chirp(9, 1.4); beam.visible = true; beam.position.set(S.pos.x, S.pos.y + 590, S.pos.z); look.copy(S.pos);
+  if (document.pointerLockElement) document.exitPointerLock(); }
+let ended = false;
+function showEnd() { if (ended) return; ended = true; const n = sites.length;
+  $('endh').textContent = `All ${n} songs recovered`; $('endp').textContent = `area ${SAVE.area} · ${SAVE.heard.length} of ${SONGS.length} songs in the collection`;
+  const L = $('endlist'); L.textContent = ''; for (const i of SAVE.done) { const d = document.createElement('div'); d.textContent = '♪ ' + sites[i].song.t; L.appendChild(d); }
+  const e = $('end'); e.style.display = 'flex'; requestAnimationFrame(() => e.style.opacity = 1); }
+function newArea() { SAVE.seed = 1 + ((Math.random() * 1e6) | 0); SAVE.area = (SAVE.area || 1) + 1; SAVE.done = []; SAVE.songs = null; persist(); location.href = location.pathname; }
+$('again').addEventListener('click', newArea); $('again').addEventListener('touchend', e => { e.preventDefault(); newArea(); });
 
 /* =====================================================================
    FLIGHT + CAMERA
    ===================================================================== */
-const dir = V3(), right = V3(), want = V3(), camPos = V3(), look = V3();
+const dir = V3(), fwd = V3(), right = V3(), want = V3(), camPos = V3(), look = V3();
 function updateDrone(dt) {
+  if (S.beam != null) { // being lifted out: the camera stays behind and watches it go
+    const b = S.beam; if (b > 1.4) S.pos.y += dt * (b - 1.4) * (b - 1.4) * 10; S.spin += dt * (1.5 + b * 2.5);
+    drone.position.copy(S.pos); drone.rotation.set(0, S.yaw + S.spin, 0, 'YXZ');
+    look.lerp(S.pos, 1 - Math.exp(-dt * 3)); camera.lookAt(look); sky.position.copy(camera.position); U.uDronePos.value.copy(S.pos);
+    beam.material.opacity = Math.min(.42, b * .35) * (.85 + .15 * Math.sin(S.time * 9)); if (b > 5.2) showEnd(); return 0; }
   const k = (a, b) => (keys[a] ? 1 : 0) - (keys[b] ? 1 : 0);
-  let f = k('KeyW', 'KeyS') || k('ArrowUp', 'ArrowDown'), r = k('KeyD', 'KeyA') || k('ArrowRight', 'ArrowLeft'), up = k('Space', 'KeyC');
+  let f = k('KeyW', 'KeyS') || k('ArrowUp', 'ArrowDown'), r = k('KeyD', 'KeyA') || k('ArrowRight', 'ArrowLeft'); const hop = k('Space', 'KeyC');
   if (sticks.l) { f = -sticks.l.dy; r = sticks.l.dx; }
-  if (sticks.r) { const c = v => Math.sign(v) * v * v; S.yaw -= c(sticks.r.dx) * CONFIG.stickLook[0] * dt; S.pitch = clamp(S.pitch - c(sticks.r.dy) * CONFIG.stickLook[1] * dt, -1.1, 1.1); }
+  if (sticks.r) { const c = v => Math.sign(v) * v * v; S.yaw -= c(sticks.r.dx) * CONFIG.stickLook[0] * dt; S.pitch -= c(sticks.r.dy) * CONFIG.stickLook[1] * dt; }
   if (Q.has('fly')) f = 1;
-  const cp = Math.cos(S.pitch); dir.set(-Math.sin(S.yaw) * cp, Math.sin(S.pitch), -Math.cos(S.yaw) * cp); right.set(Math.cos(S.yaw), 0, -Math.sin(S.yaw));
-  const sp = CONFIG.speed * (keys.ShiftLeft || keys.ShiftRight ? CONFIG.boost : 1) * (TOUCH && Math.hypot(f, r) > .97 ? 1.5 : 1);
-  want.set(0, 0, 0).addScaledVector(dir, f).addScaledVector(right, r); want.y += up; want.multiplyScalar(sp);
-  S.vel.lerp(want, 1 - Math.exp(-dt * CONFIG.accel)); S.pos.addScaledVector(S.vel, dt);
+  S.pitch = clamp(S.pitch, -.6, .8);
+  const cp = Math.cos(S.pitch); dir.set(-Math.sin(S.yaw) * cp, Math.sin(S.pitch), -Math.cos(S.yaw) * cp);
+  fwd.set(-Math.sin(S.yaw), 0, -Math.cos(S.yaw)); right.set(Math.cos(S.yaw), 0, -Math.sin(S.yaw));
+  // it only ever moves across the ground: looking up or down doesn't steer
+  want.set(0, 0, 0).addScaledVector(fwd, f).addScaledVector(right, r); const wl = want.length(); if (wl > 1) want.multiplyScalar(1 / wl);
+  let sp = CONFIG.speed * (keys.ShiftLeft || keys.ShiftRight ? CONFIG.boost : 1) * (TOUCH && wl > .97 ? 1.5 : 1);
+  const g0 = Math.max(groundAt(S.pos.x, S.pos.z), 0);
+  if (wl > .01) { // steep ground slows it right down, so the mountains hem you in without a wall
+    const g1 = Math.max(groundAt(S.pos.x + want.x / wl * 5, S.pos.z + want.z / wl * 5), 0); sp *= clamp(1 - ((g1 - g0) / 5 - .5) * 1.7, .1, 1); }
+  want.multiplyScalar(sp);
+  const a = 1 - Math.exp(-dt * CONFIG.accel); S.vel.x = lerp(S.vel.x, want.x, a); S.vel.z = lerp(S.vel.z, want.z, a); S.vel.y = 0;
+  S.pos.x += S.vel.x * dt; S.pos.z += S.vel.z * dt; collide(S.pos);
   const lim = W / 2 - 25; S.pos.x = clamp(S.pos.x, -lim, lim); S.pos.z = clamp(S.pos.z, -lim, lim);
-  const floor = Math.max(groundAt(S.pos.x, S.pos.z), groundAt(S.pos.x + S.vel.x * .5, S.pos.z + S.vel.z * .5), 0) + CONFIG.clearance;
-  if (S.pos.y < floor) { S.pos.y = lerp(S.pos.y, floor, 1 - Math.exp(-dt * 10)); if (S.vel.y < 0) S.vel.y *= .8; if (S.pos.y < floor - 1) S.pos.y = floor - 1; }
-  S.pos.y = Math.min(S.pos.y, CONFIG.ceiling);
-  const bob = Math.sin(S.time * 1.7) * .06 + Math.sin(S.time * 2.9) * .025;
+  // hover: hold a set height over whatever is underneath, on a soft spring. Space and C give a little.
+  S.hop = lerp(S.hop, hop > 0 ? CONFIG.hop : hop < 0 ? -CONFIG.dip : 0, 1 - Math.exp(-dt * 3.5));
+  const gy = Math.max(groundAt(S.pos.x, S.pos.z), groundAt(S.pos.x + S.vel.x * .35, S.pos.z + S.vel.z * .35), 0) + CONFIG.hover + S.hop;
+  S.pos.y = S.time < .1 ? gy : lerp(S.pos.y, gy, 1 - Math.exp(-dt * (gy > S.pos.y ? 8 : 3.2)));
+  const bob = Math.sin(S.time * 1.7) * .07 + Math.sin(S.time * 2.9) * .03;
   drone.position.copy(S.pos); drone.position.y += bob;
-  const vf = S.vel.dot(dir) / CONFIG.speed, vr = S.vel.dot(right) / CONFIG.speed;
-  drone.rotation.set(lerp(drone.rotation.x, S.pitch * .6 - vf * .16, .1), S.yaw + Math.sin(S.time * .6) * .03, lerp(drone.rotation.z, -vr * .32, .1), 'YXZ');
+  const vf = S.vel.dot(fwd) / CONFIG.speed, vr = S.vel.dot(right) / CONFIG.speed;
+  S.spin *= Math.exp(-dt * 1.6); const twirl = S.spin > .01 ? (1 - Math.pow(1 - S.spin, 3)) * Math.PI * 4 : 0;
+  drone.rotation.set(lerp(drone.rotation.x, S.pitch * .3 - vf * .18, .1), S.yaw + Math.sin(S.time * .6) * .03 + twirl, lerp(drone.rotation.z, -vr * .32, .1), 'YXZ');
   // chase camera
   camPos.copy(S.pos).addScaledVector(dir, -CONFIG.camDist).addScaledVector(right, .55); camPos.y += CONFIG.camUp;
   camPos.y = Math.max(camPos.y, Math.max(groundAt(camPos.x, camPos.z), 0) + .45);
@@ -789,8 +923,8 @@ function updateDrone(dt) {
   look.copy(S.pos).addScaledVector(dir, 14); look.y += .5; camera.lookAt(look);
   sky.position.copy(camera.position);
   grassU.uCenter.value.set(camera.position.x - Math.sin(S.yaw) * CONFIG.grassPatch * .33, 0, camera.position.z - Math.cos(S.yaw) * CONFIG.grassPatch * .33);
-  U.uDronePos.value.copy(S.pos).addScaledVector(dir, 2.5);
-  return S.vel.length();
+  U.uDronePos.value.copy(S.pos).addScaledVector(fwd, 2.5);
+  return Math.hypot(S.vel.x, S.vel.z);
 }
 
 /* =====================================================================
@@ -800,10 +934,18 @@ let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = clamp((now - last) / 1000, 0, .05); last = now; S.time += dt; U.uTime.value = S.time;
-  const env = updateSky(dt), speed = updateDrone(dt); updateHunt(dt, env);
-  const pulse = .8 + .2 * Math.sin(S.time * 3), e = .55 + env.night * .9;
-  for (const m of glowMats) m.uniforms.uEmis.value.set(.2, .62, 1.25).multiplyScalar(e * pulse);
-  eyeGlow.material.opacity = .25 + env.night * .6 + S.scan * .8;
+  const env = updateSky(dt); if (S.beam != null) S.beam += dt;
+  const speed = updateDrone(dt); updateHunt(dt, env);
+  // the drone's lights follow the music
+  let lv = 0; if (A.an && (S.playing || S.near > 0)) { A.an.getByteTimeDomainData(A.buf); let q = 0; for (let i = 0; i < 256; i++) { const v = (A.buf[i] - 128) / 128; q += v * v; }
+    lv = Math.sqrt(q / 256) * (S.playing ? 1 : S.near * .5); }
+  S.level = lerp(S.level, lv, lv > S.level ? .5 : .1);
+  const talk = S.time < S.chirpUntil ? .5 + Math.random() * .9 : 0, e = .5 + env.night * .8 + S.level * 6 + talk + (S.beam != null ? 2 : 0);
+  for (const m of glowMats) m.uniforms.uEmis.value.set(.2, .62, 1.25).multiplyScalar(e);
+  eyeGlow.material.opacity = Math.min(1, .25 + env.night * .6 + S.scan * .8 + S.level * 2 + talk * .4);
+  U.uDroneLight.value.multiplyScalar(1 + S.level * 4);
+  if (S.started && S.beam == null && (S.chirpT -= dt) < 0) { chirp(); S.chirpT = 8 + Math.random() * 15; }
+  for (const im of cullList) im.visible = im.boundingSphere.center.distanceTo(camera.position) - im.boundingSphere.radius < CONFIG.drawDist;
   if (A.ctx) { const w = U.uWindStr.value;
     ramp(A.wind.g.gain, .035 + w * .22 + speed * .0016, .5); ramp(A.wind.f.frequency, 300 + w * 420 + speed * 9, .5);
     ramp(A.wind2.g.gain, w * w * .05, .8); ramp(A.rain.g.gain, S.wx.rain * .16, 1.5);
@@ -813,14 +955,17 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 /* ---------- launch ---------- */
-$('how').innerHTML = TOUCH ? 'left thumb flies &middot; right thumb looks &middot; fly where you look<br>ping for a bearing &middot; follow the signal &middot; hold scan at the mast'
-  : 'WASD fly &middot; mouse look &middot; space / C up and down &middot; shift boost<br>Q ping for a bearing &middot; follow the signal &middot; hold E at the mast';
+$('how').innerHTML = TOUCH ? 'left thumb moves &middot; right thumb looks<br>ping paints a bearing on the ground &middot; hold scan at the mast'
+  : 'WASD move &middot; mouse look &middot; shift boost<br>Q ping paints a bearing on the ground &middot; hold E at the mast';
+if (SAVE.area > 1) { $('blurb').textContent = `Area ${SAVE.area}. Somewhere else on the same quiet planet. ${sites.length} more stations are still on the air.`; }
+$('tl').firstChild.textContent = SAVE.area > 1 ? `Beacon · area ${SAVE.area}` : 'Beacon';
+$('go').textContent = SAVE.area > 1 || SAVE.done.length ? 'DESCEND' : 'LAUNCH';
 function launch() { if (S.started) return; S.started = true; initAudio(); $('veil').style.opacity = 0; $('veil').style.pointerEvents = 'none';
   if (!TOUCH) gl.requestPointerLock?.(); setTimeout(() => $('keys').style.opacity = 0, 30000);
   if (TOUCH) document.documentElement.requestFullscreen?.().catch(() => {}); }
 $('veil').addEventListener('click', launch); $('veil').addEventListener('touchend', e => { e.preventDefault(); launch(); });
 if (Q.has('demo')) { S.started = true; $('veil').style.display = 'none'; }
-window.__beacon = { S, sites, CONFIG, U };
+window.__beacon = { S, sites, CONFIG, U, SAVE, ping, startBeam };
 </script>
 </body>
 </html>

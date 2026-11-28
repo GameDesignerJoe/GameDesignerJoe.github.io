@@ -3029,11 +3029,11 @@
    "url": "beacon/",
    "first": "2026-11-28",
    "last": "2026-11-28",
-   "commits": 1,
+   "commits": 2,
    "stage": 1,
-   "tag": "A little drone hunting the last transmissions on an empty world",
-   "status": "First pass built in one session: a seeded 3D island with weather and a day/night cycle, a drone you fly, and five transmitters to find by signal. Working title.",
-   "left": "First playable pushed; Joe hasn't flown it yet, and it has never run on a real phone.",
+   "tag": "A little drone collecting the last songs still broadcasting on a lost Earth",
+   "status": "Second pass: the drone hovers over a 3.2 km area, ping paints a bearing on the ground, ten stations each play a different song, and finding them all beams you up to a new area.",
+   "left": "Second pass pushed; needs flying on the phone to see if the doubled map holds up and how the hover feels.",
    "love": "",
    "star": false,
    "hidden": false,
@@ -3042,6 +3042,10 @@
    "done": [
     {
      "t": "First playable: island, weather, drone, hot/cold hunt, scan",
+     "on": "2026-11-28"
+    },
+    {
+     "t": "Hover movement, ground-painted ping with upgrades, ten stations with songs, beam-up and new areas",
      "on": "2026-11-28"
     }
    ],
@@ -3058,12 +3062,12 @@
      "k": "toy"
     },
     {
-     "t": "Fly it on your phone and say how it runs and feels",
+     "t": "Fly the 3.2 km map on your phone and say how it runs and how the hover feels",
      "done": false
     },
     {
-     "t": "Pick the fiction: fallen Earth or alien survey",
-     "done": false
+     "t": "Pick the fiction: lost Earth, collecting songs",
+     "done": true
     },
     {
      "t": "Give it a name (Beacon is a placeholder)",
@@ -3075,11 +3079,11 @@
     }
    ],
    "backlog": [
-    "A different recording per transmitter",
     "A reward the drone gains per find",
     "Blender assets through an MCP hookup",
-    "Tree collisions and real shadows",
-    "A second collectible type with its own placement rule"
+    "A second collectible type with its own placement rule",
+    "Real shadows",
+    "What the drone wants: powered by music, or a disco ball looking for a song"
    ]
   }
  ]
