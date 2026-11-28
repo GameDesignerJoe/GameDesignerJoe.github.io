@@ -1495,9 +1495,9 @@
    "first": "2026-01-02",
    "last": "2026-01-08",
    "commits": 52,
-   "stage": 5,
+   "stage": 4,
    "tag": "Solve our puzzles or use your own",
-   "status": "A playable 7×7 photo puzzle with a gallery and your-own-image upload.",
+   "status": "Gallery of 80 photos plus your own uploads, four sizes from 3×3 to 9×9, saves puzzles in progress, and the win screen works. Back in Production: two small features and two bugs from todo.txt are still open.",
    "left": "Last worked in early January.",
    "love": "Matching pieces connect on their own and travel together.",
    "star": false,
@@ -1509,79 +1509,58 @@
    ],
    "checklist": [
     {
-     "t": "Make a tap outside the puzzle menu close it",
+     "t": "Fix: zooming in and out shakes the image",
      "done": false
     },
     {
-     "t": "Zooming in and out shakes the image",
+     "t": "Fix: photos look low quality on a phone (find out whether it's the image or the compression)",
      "done": false
     },
     {
-     "t": "Image quality on mobile",
+     "t": "A button in the puzzle menu shows the finished picture (the preview window is built, but nothing opens it)",
      "done": false
     },
     {
-     "t": "A button that shows the completed picture",
+     "t": "Tapping outside the puzzle menu closes it",
      "done": false
     },
     {
-     "t": "Lays out properly on a phone",
-     "done": true,
-     "k": "phone"
-    },
-    {
-     "t": "Clears the notch and the home bar",
-     "done": false,
-     "k": "notch"
-    },
-    {
-     "t": "Saves progress",
-     "done": true,
-     "k": "saves"
-    },
-    {
-     "t": "Has sound",
-     "done": false,
-     "k": "sound"
-    },
-    {
-     "t": "Feedback button in the game that opens your Google Form",
-     "done": false,
-     "k": "feedback"
-    },
-    {
-     "t": "Someone else has played it",
+     "t": "Decide: do your personal home photos (your office, the dog) stay in the public gallery?",
      "done": false
     },
     {
-     "t": "Their feedback is written in the notes",
+     "t": "All gallery photos are in, and each one still reads when cut 9×9 on Insane",
      "done": false
     },
     {
-     "t": "No known blockers",
+     "t": "Everything on the locked feature list is built",
      "done": false
     },
     {
-     "t": "On the portfolio",
-     "done": true,
-     "k": "tile"
-    },
-    {
-     "t": "Has notes in the repo or a doc",
-     "done": true,
-     "k": "notes"
-    },
-    {
-     "t": "Write the money plan: how this earns, or that it stays free",
+     "t": "No placeholder art or text left",
      "done": false
+    },
+    {
+     "t": "Playable from first screen to last: gallery, difficulty, puzzle, win",
+     "done": true
+    },
+    {
+     "t": "Win and restart work: Play again, Gallery and View Picture (there's no lose)",
+     "done": true
     }
    ],
    "backlog": [
     "Picture of the day",
     "Hex pieces you tap to rotate",
-    "Strange puzzle shapes"
+    "Strange puzzle shapes",
+    "For Alpha: already true: lays out on a phone, saves puzzles in progress, on the portfolio",
+    "For Alpha: add sound; clear the notch (the page has no viewport-fit=cover)",
+    "For Alpha: a feedback button that opens your Google Form",
+    "For Alpha: someone else plays it; write the money plan",
+    "For Beta: remove the hidden \"Debug: Solve Puzzle\" button"
    ],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-28"
   },
   {
    "id": "vault",
