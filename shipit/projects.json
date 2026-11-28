@@ -1569,9 +1569,9 @@
    "first": "2025-12-28",
    "last": "2026-01-08",
    "commits": 45,
-   "stage": 5,
+   "stage": 3,
    "tag": "A clicker that pushes you to play your unplayed Steam games",
-   "status": "Live at design v1.5: a limited pool of games, drain mechanics and two currencies.",
+   "status": "Live at design v1.5: limited game pools, drain, keys and a five-slot shop are built (milestones 0-7). Back in Preproduction: the to-do is mostly new features you haven't said yes or no to.",
    "left": "Last worked in early January.",
    "love": "It only pays out if you leave and actually play your Steam games.",
    "star": false,
@@ -1583,86 +1583,67 @@
    ],
    "checklist": [
     {
-     "t": "Play it for five minutes and buy one game from the store",
+     "t": "Play it for five minutes with your Steam library and buy one game from the store",
      "done": false
     },
     {
-     "t": "Make buying a game exciting: centre of the screen, light shooting off it",
+     "t": "The core loop is fun: you'd come back to it, and it actually sends you off to play a Steam game",
      "done": false
     },
     {
-     "t": "Different click behaviors by type of game",
+     "t": "Decide: do games get roles (DPS, armor, health, endurance, special) that matter for the slot they're in?",
      "done": false
     },
     {
-     "t": "Start with about 3 key games and unlock more",
+     "t": "Decide: start with about 3 key games and unlock more, instead of 20 at once?",
      "done": false
     },
     {
-     "t": "Combine Game Library and Progress Tracker",
+     "t": "Decide: can keys be bought with points (at a very high price), and what else is in the store?",
      "done": false
     },
     {
-     "t": "A \"Go to Steam\" button on each game",
+     "t": "Decide: are star levels or prestige for games in or out?",
      "done": false
     },
     {
-     "t": "Lays out properly on a phone",
-     "done": true,
-     "k": "phone"
-    },
-    {
-     "t": "Clears the notch and the home bar",
-     "done": false,
-     "k": "notch"
-    },
-    {
-     "t": "Saves progress",
-     "done": true,
-     "k": "saves"
-    },
-    {
-     "t": "Has sound",
-     "done": false,
-     "k": "sound"
-    },
-    {
-     "t": "Feedback button in the game that opens your Google Form",
-     "done": false,
-     "k": "feedback"
-    },
-    {
-     "t": "Someone else has played it",
+     "t": "Decide: different click behaviour by type of game, in or out?",
      "done": false
     },
     {
-     "t": "Their feedback is written in the notes",
+     "t": "Decide: combine the Game Library and the Progress Tracker into one?",
      "done": false
     },
     {
-     "t": "No known blockers",
+     "t": "Decide: does it work for anyone with a Steam account, or only you? (It needs a Steam API key and a public profile)",
      "done": false
     },
     {
-     "t": "On the portfolio",
-     "done": true,
-     "k": "tile"
+     "t": "Lock the feature list: what's in",
+     "done": false
     },
     {
-     "t": "Has notes in the repo or a doc",
-     "done": true,
-     "k": "notes"
+     "t": "Write the cut list: what's out and stays out",
+     "done": false
     },
     {
-     "t": "Write the money plan: how this earns, or that it stays free",
+     "t": "The core loop is playable start to end: draw a game, click it until drained, refresh with keys, earn keys by playing on Steam",
+     "done": true
+    },
+    {
+     "t": "Look and feel chosen",
      "done": false
     }
    ],
    "backlog": [
-    "Games with roles: DPS, armor, health, endurance, special",
-    "Star levels or prestige for games"
+    "For Production: make buying a game exciting (centre of the screen, light shooting off it)",
+    "For Production: a \"Go to Steam\" button on each game in the Progress Tracker",
+    "For Production: Milestone 8, testing and bug fixes",
+    "For Alpha: already true: lays out on a phone, saves progress, on the portfolio",
+    "For Alpha: add sound, clear the notch, a feedback button that opens your Google Form, write the money plan"
    ],
-   "nfp": false
+   "nfp": false,
+   "checked": "2026-11-28"
   },
   {
    "id": "color",
