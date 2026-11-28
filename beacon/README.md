@@ -35,18 +35,18 @@ right. Tap the clock or the weather label to change them.
 
 ## How it maps to "Making Collectibles Count"
 
-| Rule | Now | Open |
+| Rule                    | Now                         | Open |
 |---|---|---|
-| Consistent location | Always a mast on a hilltop | Second collectible type with its own rule |
-| Discoverability | Signal + ping + mast light, three ranges | A rabbit hole: chain one find into the next |
+| Consistent location     | Always a mast on a hilltop  | Second collectible type with its own rule |
+| Discoverability         | Signal + ping + mast light, three ranges | A rabbit hole: chain one find into the next |
 | Fictional justification | Dead transmitters still repeating | Fallen Earth where radio stations continued to broadcast even as humanity disappeared... what happened there anyways? |
-| World building | A new song, played at every mast/station | A different song per mast/station |
-| Character attachment | None yet | What does the drone want? | Is the drone powered by music? Does it just love music... lol, maybe it's a discoball trying to find music that can bounce off of it and have fun lighting and spins.
-| Skillful mechanic | Reading terrain for high ground | Scan could ask something of you |
-| Appropriate reward | The recording | Something the drone gains per find |
-| Responsible quantity | 10 | Sets per region |
+| World building          | A new song, played at every mast/station | A different song per mast/station |
+| Character attachment    | None yet | What does the drone want? | Is the drone powered by music? Does it just love music... lol, maybe it's a discoball trying to find music that can bounce off of it and have fun lighting and spins.
+| Skillful mechanic       | Reading terrain for high ground | Scan could ask something of you |
+| Appropriate reward      | The recording | Something the drone gains per find |
+| Responsible quantity    | 10 | Sets per region |
 
 ## Not done
 
 No collisions with trees, no real shadows, one recording for all five masts, no
-Blender assets yet. Never run on a real phone: frame rate there is unknown.
+Blender assets yet. Ran great on a real phone at 1.6km.
