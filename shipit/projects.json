@@ -1343,9 +1343,9 @@
    "first": "2026-04-11",
    "last": "2026-04-12",
    "commits": 23,
-   "stage": 3,
+   "stage": 2,
    "tag": "Audio interactive fiction with an AI companion beside you",
-   "status": "Phase 1 works: you type, the companion answers in voice and text. Several fixes are still marked \"needs testing\".",
+   "status": "A prototype: you type, the companion answers in voice and text. The spec calls Phase 1 a test of the core experience, and continuous voice talk could change what the game is.",
    "left": "A dialogue-only option, and knowing when to talk and when to describe.",
    "love": "The AI is a co-protagonist inside the story with you, not a narrator above it.",
    "star": false,
@@ -1357,57 +1357,54 @@
    ],
    "checklist": [
     {
-     "t": "Run one scenario on your phone and test the audio buffer fix",
-     "done": false
-    },
-    {
-     "t": "Continuous talk, like Claude's voice mode",
-     "done": false
-    },
-    {
-     "t": "Server storage so scenarios aren't rebuilt on each device",
-     "done": false
-    },
-    {
-     "t": "A shared companion list outside any one scenario",
-     "done": false
-    },
-    {
-     "t": "Text fades in row by row before the voice starts",
-     "done": false
-    },
-    {
-     "t": "Start audio as soon as the first chunk is ready",
-     "done": false
-    },
-    {
-     "t": "The core loop is playable start to end",
-     "done": false
-    },
-    {
-     "t": "The core loop is fun: you'd play it again unprompted",
-     "done": false
-    },
-    {
-     "t": "Lock the feature list: what's in",
-     "done": false
-    },
-    {
-     "t": "Write the cut list: what's out, and stays out",
-     "done": false
-    },
-    {
-     "t": "Choose the look and feel",
-     "done": false
-    },
-    {
-     "t": "Set up its notes doc",
-     "done": true,
+     "t": "Link a Google Doc for its notes (today they're in docs/wayward_todo.md)",
+     "done": false,
      "k": "notesdoc"
+    },
+    {
+     "t": "Run one scenario on your phone and test the four \"needs testing\" fixes: the audio buffer, ElevenLabs-only voices, sentences not cut off, the keyboard staying open",
+     "done": false
+    },
+    {
+     "t": "A simple version of the loop runs start to end: pick a scenario, talk with the companion, reach an ending or a natural stop",
+     "done": false
+    },
+    {
+     "t": "Try continuous talk (like Claude's voice mode) and see whether it changes the game",
+     "done": false
+    },
+    {
+     "t": "Find the fun: name the part you'd play again unprompted",
+     "done": false
+    },
+    {
+     "t": "Write down what the prototype taught you: what worked, what didn't",
+     "done": false
+    },
+    {
+     "t": "Decide: is this the game, or the launch pad for a bigger, better one?",
+     "done": false
+    },
+    {
+     "t": "Write the full idea of the game it becomes in a few lines (typed, voiced, or both)",
+     "done": false
+    },
+    {
+     "t": "There's a bit of gameplay you can play: type, and the companion answers in voice and text",
+     "done": true
     }
    ],
-   "backlog": [],
-   "nfp": false
+   "backlog": [
+    "For Preproduction: server storage so scenarios aren't rebuilt on each device (a sync code exists; check what it covers)",
+    "For Preproduction: a shared companion list outside any one scenario",
+    "For Preproduction: text fades in row by row before the voice starts",
+    "For Preproduction: Continue doesn't interrupt playing audio and queues the next line",
+    "For Preproduction: start audio as soon as the first chunk is ready",
+    "For Preproduction: a dialogue-only option, and knowing when to talk and when to describe",
+    "For Alpha: put it online somewhere you and others can open it (no live URL yet)"
+   ],
+   "nfp": false,
+   "checked": "2026-11-28"
   },
   {
    "id": "watch",
