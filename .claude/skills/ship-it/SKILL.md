@@ -20,8 +20,9 @@ rules.
   checklist", "mark Deck Text not for publish"): edit `shipit/projects.json`
   directly, then commit and push.
 - **After any other work on an app in this repo**: update that app's entry (`left`,
-  `last`, `status` if stale, tick what's now true). A new app gets a new entry at
-  Incubation.
+  `last`, `status` if stale, tick what's now true). A new app gets a new entry:
+  follow "Adding a project" in `shipit/README.md`. Never add one for a folder on the
+  `ignored` list in `projects.json`.
 - **Gallery shots for a game**: use the `game-gallery` skill.
 - **"Ship It gate check"**, or Joe asking where a game really stands or to redo its
   checklist: use the `gate-check` skill.

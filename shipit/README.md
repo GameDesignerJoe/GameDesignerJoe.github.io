@@ -109,6 +109,33 @@ Each project:
 | `checked` | Date of the last gate check, when the checklist was written from the game itself (the `gate-check` skill). Missing means the list is still a first draft. |
 | `docs` | Where the project's own design notes live. |
 
+## New folders, adding a project, and the ignore list
+
+The page asks GitHub for the repo's top-level folders (a few times a day, and whenever
+Joe presses "Check GitHub now"). Any folder that is not some project's `folder` and
+is not on the ignore list shows up as "New in your repo" with two buttons.
+
+**Ignore.** The top-level `ignored` list in `projects.json` is every folder Joe has
+said not to track: `{ "folder": "...", "why": "..." }`. A sync prompt can add to it.
+Never add a project for a folder on this list, and never take a folder off it unless
+Joe asks.
+
+**Adding a project** (the "Add it" button, or Joe naming a folder):
+
+1. Read the folder: its README, the page title, the code, its commit history.
+2. Add an entry at the top of `projects`: `id` (short, lowercase, no dashes), `name`,
+   `emoji`, `kind`, `folder`, `url`, `first` and `last` from git, `commits`, `tag`
+   (about six words), `love` (the razor, taken from Joe's own words where there are
+   any), `status`, `left`, `notes` (its Google Doc if one is mentioned, else empty),
+   `shot: "landscape"` if it is played sideways, `star`/`hidden`/`nfp` false.
+3. Place it on a gate and write its checklist the way the gate-check skill does. A
+   brand new game is almost always Incubation or Prototype.
+4. If the app has an icon file, add a 96px webp data URI for it to `ICONS` in
+   `icons.js` and a header colour to `COLORS`. Otherwise the emoji is used.
+5. Take its screenshot with `python3 shipit/tools/shoot.py <id>` and look at it.
+6. Tell Joe what you wrote, then commit to `main` and push. Don't add it to the
+   portfolio grid; that is a separate ask.
+
 ## Working on a project ("Ship It: let's work on X")
 
 1. Read the project's entry first. The razor says what matters; don't build against it.

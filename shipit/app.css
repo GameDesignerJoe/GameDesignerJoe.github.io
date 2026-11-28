@@ -353,3 +353,10 @@ li.done .tx{color:var(--muted); text-decoration:line-through}
 :root[data-skin="pixel"] .label{color:var(--yellow)}
 :root[data-skin="pixel"] .tile img, :root[data-skin="pixel"] .brand .mark img{image-rendering:auto}
 :root[data-skin="pixel"] .motto{color:#FFF4DC; text-shadow:2px 2px 0 #1C0F45}
+
+/* new folders found in the repo */
+.fresh{display:flex; flex-direction:column; gap:10px}
+.freshrow{background:var(--surface); border:2.5px solid var(--blue); border-radius:var(--r-md); padding:12px 14px; display:flex; flex-direction:column; gap:10px}
+.freshrow b{font:600 17px var(--display)}
+.freshrow .hint{color:var(--muted); font-size:14px}
+.freshrow div{display:flex; gap:8px; flex-wrap:wrap}
