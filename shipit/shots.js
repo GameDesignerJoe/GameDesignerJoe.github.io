@@ -103,5 +103,9 @@ const SHOTS={
  "mazetd": {
   "src": "shots/mazetd.webp?v=2026-11-26",
   "on": "2026-11-26"
+ },
+ "beacon": {
+  "src": "shots/beacon.webp?v=2026-11-28",
+  "on": "2026-11-28"
  }
 };

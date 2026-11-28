@@ -2969,6 +2969,68 @@
    ],
    "backlog": [],
    "nfp": true
+  },
+  {
+   "id": "beacon",
+   "name": "Beacon",
+   "emoji": "📡",
+   "kind": "game",
+   "folder": "beacon",
+   "url": "beacon/",
+   "first": "2026-11-28",
+   "last": "2026-11-28",
+   "commits": 1,
+   "stage": 1,
+   "tag": "A little drone hunting the last transmissions on an empty world",
+   "status": "First pass built in one session: a seeded 3D island with weather and a day/night cycle, a drone you fly, and five transmitters to find by signal. Working title.",
+   "left": "First playable pushed; Joe hasn't flown it yet, and it has never run on a real phone.",
+   "love": "",
+   "star": false,
+   "hidden": false,
+   "nfp": false,
+   "shot": "landscape",
+   "done": [
+    {
+     "t": "First playable: island, weather, drone, hot/cold hunt, scan",
+     "on": "2026-11-28"
+    }
+   ],
+   "docs": "beacon/README.md",
+   "checklist": [
+    {
+     "t": "Write the razor: the one line you'd say in an elevator",
+     "done": false,
+     "k": "razor"
+    },
+    {
+     "t": "Build a toy you can touch",
+     "done": true,
+     "k": "toy"
+    },
+    {
+     "t": "Fly it on your phone and say how it runs and feels",
+     "done": false
+    },
+    {
+     "t": "Pick the fiction: fallen Earth or alien survey",
+     "done": false
+    },
+    {
+     "t": "Give it a name (Beacon is a placeholder)",
+     "done": false
+    },
+    {
+     "t": "Decide it's worth a real prototype",
+     "done": false
+    }
+   ],
+   "backlog": [
+    "A different recording per transmitter",
+    "A reward the drone gains per find",
+    "Blender assets through an MCP hookup",
+    "Tree collisions and real shadows",
+    "A second collectible type with its own placement rule"
+   ]
   }
  ]
 }
