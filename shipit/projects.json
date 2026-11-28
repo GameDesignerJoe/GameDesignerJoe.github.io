@@ -1769,9 +1769,9 @@
    "first": "2025-05-19",
    "last": "2026-01-08",
    "commits": 23,
-   "stage": 5,
+   "stage": 3,
    "tag": "Unlock wisdom, one letter at a time",
-   "status": "Playable on the portfolio. A 2025 build.",
+   "status": "Plays cleanly on a phone, but every quote comes from a short test list in the code, and there's no notes doc or razor yet. Back in Preproduction until you decide where quotes come from and what's in.",
    "left": "",
    "love": "",
    "star": false,
@@ -1780,59 +1780,71 @@
    "docs": "No to-do list in the repo.",
    "checklist": [
     {
-     "t": "Lays out properly on a phone",
-     "done": true,
-     "k": "phone"
-    },
-    {
-     "t": "Clears the notch and the home bar",
-     "done": true,
-     "k": "notch"
-    },
-    {
-     "t": "Saves progress",
+     "t": "Link a Google Doc for its notes",
      "done": false,
-     "k": "saves"
+     "k": "notesdoc"
     },
     {
-     "t": "Has sound",
-     "done": false,
-     "k": "sound"
-    },
-    {
-     "t": "Feedback button in the game that opens your Google Form",
-     "done": false,
-     "k": "feedback"
-    },
-    {
-     "t": "Someone else has played it",
+     "t": "Decide: where do quotes come from, your own list or an online quote service? Today it plays from about 65 test quotes in the code (about three per theme), marked \"remove once the API is set up\"",
      "done": false
     },
     {
-     "t": "Their feedback is written in the notes",
+     "t": "Write the razor: the one line you'd say about why it's cool",
      "done": false
     },
     {
-     "t": "No known blockers",
+     "t": "Play five puzzles on your phone and note what felt good and what annoyed you",
      "done": false
     },
     {
-     "t": "On the portfolio",
-     "done": true,
-     "k": "tile"
-    },
-    {
-     "t": "Has notes in the repo or a doc",
-     "done": true,
-     "k": "notes"
-    },
-    {
-     "t": "Write the money plan: how this earns, or that it stays free",
+     "t": "The core loop is fun: you'd play another without being asked",
      "done": false
+    },
+    {
+     "t": "Decide: is a hint (reveal a letter) in or out?",
+     "done": false
+    },
+    {
+     "t": "Decide: are difficulty settings in or out?",
+     "done": false
+    },
+    {
+     "t": "Decide: is a daily puzzle or a streak in or out?",
+     "done": false
+    },
+    {
+     "t": "Decide: typed themes, a list to pick from, or both?",
+     "done": false
+    },
+    {
+     "t": "Decide: does the \"Believer\" easter egg stay in a public release?",
+     "done": false
+    },
+    {
+     "t": "Lock the feature list: what's in",
+     "done": false
+    },
+    {
+     "t": "Write the cut list: what's out and stays out",
+     "done": false
+    },
+    {
+     "t": "The core loop is playable start to end: theme, puzzle, solve, Congratulations",
+     "done": true
+    },
+    {
+     "t": "Look and feel chosen: the Cipher Fox art and an on-screen keyboard",
+     "done": true
     }
    ],
-   "backlog": [],
-   "nfp": false
+   "backlog": [
+    "For Production: enough checked quotes per theme that players don't see repeats",
+    "For Alpha: already true: lays out on a phone, clears the notch, on the portfolio",
+    "For Alpha: save progress, add sound, a feedback button that opens your Google Form, write the money plan",
+    "For Beta: remove the console logging"
+   ],
+   "nfp": false,
+   "checked": "2026-11-28"
   },
   {
    "id": "parent",
